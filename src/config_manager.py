@@ -14,9 +14,10 @@ class AppConfig:
     shared_path: str = ""          # Pasta compartilhada entre as máquinas
     sync_interval: int = 5         # Intervalo de sync em segundos
     machine_name: str = ""         # Nome/label desta máquina
-    auto_start: bool = False       # Iniciar sync automático ao abrir
+    auto_start: bool = True        # Iniciar sync automático ao abrir
     log_debug: bool = False        # Mostrar ciclos sem alterações no log
     update_url: str = ""           # URL do JSON remoto de versão para auto-update
+    startup_with_windows: bool = False  # Iniciar o programa com o Windows
 
 
 class ConfigManager:

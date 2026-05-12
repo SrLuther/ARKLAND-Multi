@@ -8,6 +8,10 @@ import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any
+try:
+    import winreg as _winreg  # disponível apenas no Windows
+except ImportError:
+    _winreg = None  # type: ignore[assignment]
 
 import customtkinter as ctk
 
@@ -24,6 +28,32 @@ _GREEN_DARK = "#2d7a3e"
 _GREEN_HOVER = "#1f5c2d"
 _SIDEBAR_BG = "#161622"
 _CARD_BG = "#1e1e30"
+
+
+def _set_windows_startup(enable: bool) -> None:
+    """Registra ou remove o app da inicialização do Windows (HKCU Run)."""
+    if _winreg is None:
+        return
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    app_key = "ARKLAND-Multi"
+    try:
+        exe = sys.executable if getattr(sys, "frozen", False) else sys.executable
+        if getattr(sys, "frozen", False):
+            exe = sys.executable  # PyInstaller: caminho do .exe
+        else:
+            # Modo dev: chama python main.py
+            main_py = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py")
+            exe = f'"{sys.executable}" "{main_py}"'
+        with _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, key_path, 0, _winreg.KEY_SET_VALUE) as key:
+            if enable:
+                _winreg.SetValueEx(key, app_key, 0, _winreg.REG_SZ, exe)
+            else:
+                try:
+                    _winreg.DeleteValue(key, app_key)
+                except FileNotFoundError:
+                    pass
+    except OSError:
+        pass
 
 
 def _hostname() -> str:
@@ -426,7 +456,15 @@ class ARKLandMultiApp(ctk.CTk):
             text="Mostrar ciclos sem alterações nos logs (modo debug)",
             variable=self._log_debug_var,
             checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-        ).grid(row=1, column=0, padx=18, pady=(0, 16), sticky="w")
+        ).grid(row=1, column=0, padx=18, pady=(0, 8), sticky="w")
+
+        self._startup_windows_var = tk.BooleanVar(value=cfg.startup_with_windows)
+        ctk.CTkCheckBox(
+            opt_card,
+            text="Iniciar o ARKLAND-Multi automaticamente com o Windows",
+            variable=self._startup_windows_var,
+            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        ).grid(row=2, column=0, padx=18, pady=(0, 16), sticky="w")
 
         # ── URL de Atualização ──────────────────────────────────────────────
         self._section(parent, 10, "🔔  Atualizações Automáticas")
@@ -518,9 +556,11 @@ class ARKLandMultiApp(ctk.CTk):
         cfg.shared_path        = self._shared_path_var.get().strip()
         cfg.sync_interval      = max(1, int(self._interval_var.get()))
         cfg.machine_name       = self._machine_name_var.get().strip()
-        cfg.auto_start         = self._auto_start_var.get()
-        cfg.log_debug          = self._log_debug_var.get()
-        cfg.update_url         = self._update_url_var.get().strip()
+        cfg.auto_start              = self._auto_start_var.get()
+        cfg.log_debug               = self._log_debug_var.get()
+        cfg.update_url              = self._update_url_var.get().strip()
+        cfg.startup_with_windows    = self._startup_windows_var.get()
+        _set_windows_startup(cfg.startup_with_windows)
 
         self.config_manager.save()
         self._machine_info_label.configure(text=self._machine_info_text(cfg))
