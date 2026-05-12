@@ -24,6 +24,9 @@ ENV/
 # VS Code
 .vscode/
 
+# Nexus Sync (ferramenta interna do editor)
+.nexus-sync/
+
 # Windows
 Thumbs.db
 Desktop.ini
