@@ -17,6 +17,9 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 UninstallDisplayName=[ARKLAND]-Multi
+SetupIconFile=ig\ArkLandBR.ico
+WizardImageFile=ig\ArkLandBR.png
+WizardImageStretch=yes
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

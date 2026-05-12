@@ -28,6 +28,8 @@ echo [2/3] Gerando executavel com PyInstaller...
   --onefile ^
   --windowed ^
   --name "ARKLAND-Multi" ^
+  --icon "ig\ArkLandBR.ico" ^
+  --add-data "ig;ig" ^
   main.py
 
 echo.

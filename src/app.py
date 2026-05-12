@@ -2,7 +2,9 @@
 Interface gráfica principal do ARKLAND-Multi.
 Abas: Dashboard | Configurações | Logs
 """
+import os
 import socket
+import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any
@@ -31,6 +33,12 @@ def _hostname() -> str:
         return "PC"
 
 
+def _resource_path(relative: str) -> str:
+    """Retorna o caminho correto tanto em dev quanto no .exe PyInstaller."""
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base, relative)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 class ARKLandMultiApp(ctk.CTk):
     def __init__(self) -> None:
@@ -42,6 +50,16 @@ class ARKLandMultiApp(ctk.CTk):
         self.title(f"{APP_NAME}  v{APP_VERSION}")
         self.geometry("980x640")
         self.minsize(840, 560)
+
+        # Ícone da janela
+        try:
+            from PIL import Image, ImageTk
+            _ico_path = _resource_path(os.path.join("ig", "ArkLandBR.png"))
+            _pil_img = Image.open(_ico_path).resize((32, 32), Image.LANCZOS)
+            self._app_icon = ImageTk.PhotoImage(_pil_img)
+            self.iconphoto(True, self._app_icon)
+        except Exception:
+            pass
 
         # ── Configuração e motor de sync ──────────────────────────────────────
         self.config_manager = ConfigManager()
@@ -83,12 +101,25 @@ class ARKLandMultiApp(ctk.CTk):
         sb.grid_propagate(False)
         self._sidebar = sb
 
-        # Logo
-        ctk.CTkLabel(
-            sb, text="⚡ ARKLAND",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color=_GREEN,
-        ).grid(row=0, column=0, padx=20, pady=(24, 0))
+        # Logo (imagem)
+        try:
+            from PIL import Image
+            _logo_path = _resource_path(os.path.join("ig", "ArkLandBR.png"))
+            _pil_logo = Image.open(_logo_path)
+            self._logo_img = ctk.CTkImage(
+                light_image=_pil_logo,
+                dark_image=_pil_logo,
+                size=(130, 130),
+            )
+            ctk.CTkLabel(sb, image=self._logo_img, text="").grid(
+                row=0, column=0, padx=20, pady=(18, 0)
+            )
+        except Exception:
+            ctk.CTkLabel(
+                sb, text="⚡ ARKLAND",
+                font=ctk.CTkFont(size=20, weight="bold"),
+                text_color=_GREEN,
+            ).grid(row=0, column=0, padx=20, pady=(24, 0))
 
         ctk.CTkLabel(
             sb, text="Multi Sync",
