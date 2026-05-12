@@ -6,20 +6,20 @@
 
 [Setup]
 AppName=[ARKLAND]-Multi
-AppVersion=1.0.0
+AppVersion=1.0.1
 AppPublisher=ARKLAND Tools
 DefaultDirName={autopf}\ARKLAND-Multi
 DefaultGroupName=ARKLAND-Multi
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.0.0
+OutputBaseFilename=ARKLAND-Multi-Setup-v1.0.1
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 UninstallDisplayName=[ARKLAND]-Multi
 SetupIconFile=ig\ArkLandBR.ico
-WizardImageFile=ig\ArkLandBR.png
-WizardImageStretch=yes
+WizardImageFile=ig\ArkLandBR_wizard.png
+WizardImageStretch=no
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

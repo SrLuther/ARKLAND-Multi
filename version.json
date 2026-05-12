@@ -1,11 +1,12 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "date": "2026-05-12",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/1.0.0/ARKLAND-Multi-Setup-v1.0.0.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/1.0.1/ARKLAND-Multi-Setup-v1.0.1.exe",
   "changelog": [
-    "Lançamento inicial do ARKLAND-Multi",
-    "Sincronização bidirecional automática de pastas ARK Cluster",
-    "Interface moderna com Dashboard, Configurações e Logs",
-    "Sistema de atualização automática integrado"
+    "Imagem do instalador corrigida (sem distorção)",
+    "URL de atualização embutida — não requer configuração manual",
+    "Iniciar sincronização habilitado por padrão",
+    "Nova opção: Iniciar o ARKLAND-Multi com o Windows",
+    "Ícone da barra de tarefas corrigido"
   ]
 }
