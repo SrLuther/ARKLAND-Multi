@@ -29,7 +29,7 @@ Source: "dist\ARKLAND-Multi.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\[ARKLAND]-Multi";    Filename: "{app}\ARKLAND-Multi.exe"
-Name: "{commondesktop}\[ARKLAND]-Multi"; Filename: "{app}\ARKLAND-Multi.exe"; Tasks: desktopicon
+Name: "{userdesktop}\[ARKLAND]-Multi"; Filename: "{app}\ARKLAND-Multi.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos:"
