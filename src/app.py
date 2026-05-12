@@ -51,15 +51,19 @@ class ARKLandMultiApp(ctk.CTk):
         self.geometry("980x640")
         self.minsize(840, 560)
 
-        # Ícone da janela
+        # Ícone da janela e barra de tarefas
         try:
-            from PIL import Image, ImageTk
-            _ico_path = _resource_path(os.path.join("ig", "ArkLandBR.png"))
-            _pil_img = Image.open(_ico_path).resize((32, 32), Image.LANCZOS)
-            self._app_icon = ImageTk.PhotoImage(_pil_img)
-            self.iconphoto(True, self._app_icon)
+            _ico_path = _resource_path(os.path.join("ig", "ArkLandBR.ico"))
+            self.iconbitmap(_ico_path)
         except Exception:
-            pass
+            try:
+                from PIL import Image, ImageTk
+                _png_path = _resource_path(os.path.join("ig", "ArkLandBR.png"))
+                _pil_img = Image.open(_png_path).resize((32, 32), Image.LANCZOS)
+                self._app_icon = ImageTk.PhotoImage(_pil_img)
+                self.iconphoto(True, self._app_icon)
+            except Exception:
+                pass
 
         # ── Configuração e motor de sync ──────────────────────────────────────
         self.config_manager = ConfigManager()
