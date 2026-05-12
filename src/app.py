@@ -800,12 +800,13 @@ class ARKLandMultiApp(ctk.CTk):
 
     def _show_frame(self, name: str) -> None:
         for key, frame in self._frames.items():
-            frame.tkraise() if key == name else None
+            if key == name:
+                frame.grid()
+            else:
+                frame.grid_remove()
             btn = self._nav_buttons.get(key)
             if btn:
                 btn.configure(fg_color="#1e2a3a" if key == name else "transparent")
-        if name in self._frames:
-            self._frames[name].tkraise()
 
     # ── Encerramento ──────────────────────────────────────────────────────────
 
