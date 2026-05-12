@@ -8,6 +8,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 ## [1.0.0] — 2026-05-12
 
 ### Adicionado
+
 - Lançamento inicial do ARKLAND-Multi
 - Sincronização bidirecional automática de pastas ARK Cluster
 - Interface moderna com Dashboard, Configurações e Logs

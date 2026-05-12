@@ -5,6 +5,7 @@ Abas: Dashboard | Configurações | Logs
 import socket
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from typing import Any
 
 import customtkinter as ctk
 
@@ -150,7 +151,7 @@ class ARKLandMultiApp(ctk.CTk):
     # ── Frames principais ──────────────────────────────────────────────────────
 
     def _build_frames(self) -> None:
-        self._frames: dict[str, ctk.CTkBaseClass] = {}
+        self._frames: dict[str, Any] = {}
 
         dash = ctk.CTkFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
         dash.grid(row=0, column=1, sticky="nsew")
@@ -672,7 +673,7 @@ class ARKLandMultiApp(ctk.CTk):
             return
         self.update_checker.check_async(
             url,
-            on_result=lambda info: self.after(0, lambda: self._on_update_result(info)),
+            on_result=lambda info: (self.after(0, lambda: self._on_update_result(info)), None)[1],
         )
 
     def _check_updates_manual(self) -> None:
@@ -686,9 +687,9 @@ class ARKLandMultiApp(ctk.CTk):
         self._update_status_lbl.configure(text_color="gray60")
         self.update_checker.check_async(
             url,
-            on_result=lambda info: self.after(
+            on_result=lambda info: (self.after(
                 0, lambda: self._on_update_result(info, manual=True)
-            ),
+            ), None)[1],
         )
 
     def _on_update_result(self, info, manual: bool = False) -> None:
@@ -735,8 +736,8 @@ class ARKLandMultiApp(ctk.CTk):
         )
         self.update_checker.download_and_install(
             info,
-            on_progress=lambda p: self.after(0, lambda: self._on_download_progress(p)),
-            on_done=lambda ok, msg: self.after(0, lambda: self._on_download_done(ok, msg)),
+            on_progress=lambda p: (self.after(0, lambda: self._on_download_progress(p)), None)[1],
+            on_done=lambda ok, msg: (self.after(0, lambda: self._on_download_done(ok, msg)), None)[1],
         )
 
     def _on_download_progress(self, percent: int) -> None:

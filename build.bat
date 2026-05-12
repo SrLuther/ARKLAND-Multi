@@ -5,15 +5,25 @@ echo  [ARKLAND]-Multi  -  Build Script
 echo ============================================
 echo.
 
+:: Detecta o Python: usa o venv local se existir, senão cai para o Python do PATH
+if exist "%~dp0.venv\Scripts\python.exe" (
+    set PYTHON=%~dp0.venv\Scripts\python.exe
+) else (
+    set PYTHON=python
+)
+
+echo Usando Python: %PYTHON%
+echo.
+
 :: Instala dependencias
 echo [1/3] Instalando dependencias...
-pip install -r requirements.txt
-pip install pyinstaller
+"%PYTHON%" -m pip install -r requirements.txt
+"%PYTHON%" -m pip install pyinstaller
 echo.
 
 :: Cria o executavel
 echo [2/3] Gerando executavel com PyInstaller...
-pyinstaller ^
+"%PYTHON%" -m PyInstaller ^
   --noconfirm ^
   --onefile ^
   --windowed ^

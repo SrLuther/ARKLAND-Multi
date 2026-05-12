@@ -29,6 +29,7 @@ python main.py
 ```bash
 build.bat
 ```
+
 Gera `dist\ARKLAND-Multi.exe` via PyInstaller.
 
 Para gerar o instalador, abra `setup.iss` no [Inno Setup 6+](https://jrsoftware.org/isinfo.php) e compile.
