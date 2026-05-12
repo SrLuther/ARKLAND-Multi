@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / build
+dist/
+build/
+*.spec
+installer/
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# PyInstaller
+*.manifest
+
+# Config gerado pelo app (dados do usuário)
+# NÃO versionar — cada máquina tem o seu
+# %APPDATA%\ARKLAND-Multi\config.json  ← fora do repo por natureza
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Python eggs
+*.egg-info/
+.eggs/

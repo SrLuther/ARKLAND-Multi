@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "date": "2026-05-12",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.0/ARKLAND-Multi-Setup-v1.0.0.exe",
+  "changelog": [
+    "Lançamento inicial do ARKLAND-Multi",
+    "Sincronização bidirecional automática de pastas ARK Cluster",
+    "Interface moderna com Dashboard, Configurações e Logs",
+    "Sistema de atualização automática integrado"
+  ]
+}

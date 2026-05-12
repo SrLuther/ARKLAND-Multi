@@ -1,0 +1,43 @@
+"""
+Gerencia a configuração persistente do ARKLAND-Multi.
+As configurações são salvas em %APPDATA%\\ARKLAND-Multi\\config.json
+"""
+import json
+import os
+from pathlib import Path
+from dataclasses import dataclass, asdict
+
+
+@dataclass
+class AppConfig:
+    local_cluster_path: str = ""   # Pasta ARK Cluster local
+    shared_path: str = ""          # Pasta compartilhada entre as máquinas
+    sync_interval: int = 5         # Intervalo de sync em segundos
+    machine_name: str = ""         # Nome/label desta máquina
+    auto_start: bool = False       # Iniciar sync automático ao abrir
+    log_debug: bool = False        # Mostrar ciclos sem alterações no log
+    update_url: str = ""           # URL do JSON remoto de versão para auto-update
+
+
+class ConfigManager:
+    def __init__(self) -> None:
+        self._config_dir = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-Multi"
+        self._config_file = self._config_dir / "config.json"
+        self.config = AppConfig()
+        self.load()
+
+    # ------------------------------------------------------------------
+    def load(self) -> None:
+        try:
+            if self._config_file.exists():
+                with open(self._config_file, "r", encoding="utf-8") as fh:
+                    data = json.load(fh)
+                valid = AppConfig.__dataclass_fields__.keys()
+                self.config = AppConfig(**{k: v for k, v in data.items() if k in valid})
+        except Exception:
+            self.config = AppConfig()
+
+    def save(self) -> None:
+        self._config_dir.mkdir(parents=True, exist_ok=True)
+        with open(self._config_file, "w", encoding="utf-8") as fh:
+            json.dump(asdict(self.config), fh, indent=2, ensure_ascii=False)
