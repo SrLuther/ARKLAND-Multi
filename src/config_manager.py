@@ -16,7 +16,7 @@ class AppConfig:
     machine_name: str = ""         # Nome/label desta máquina
     auto_start: bool = True        # Iniciar sync automático ao abrir
     log_debug: bool = False        # Mostrar ciclos sem alterações no log
-    update_url: str = ""           # URL do JSON remoto de versão para auto-update
+    update_url: str = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
     startup_with_windows: bool = False  # Iniciar o programa com o Windows
 
 

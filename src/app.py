@@ -466,24 +466,6 @@ class ARKLandMultiApp(ctk.CTk):
             checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         ).grid(row=2, column=0, padx=18, pady=(0, 16), sticky="w")
 
-        # ── URL de Atualização ──────────────────────────────────────────────
-        self._section(parent, 10, "🔔  Atualizações Automáticas")
-
-        upd_url_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        upd_url_card.grid(row=11, column=0, padx=20, pady=(0, 14), sticky="ew")
-        upd_url_card.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(
-            upd_url_card,
-            text="URL do arquivo\nde versão (JSON):",
-            width=185, anchor="w", justify="left",
-        ).grid(row=0, column=0, padx=18, pady=(18, 18), sticky="nw")
-        self._update_url_var = tk.StringVar(value=cfg.update_url)
-        ctk.CTkEntry(
-            upd_url_card, textvariable=self._update_url_var, height=36,
-            placeholder_text="https://exemplo.com/version.json",
-        ).grid(row=0, column=1, padx=(0, 18), pady=(18, 18), sticky="ew")
-
         # Botão salvar
         ctk.CTkButton(
             parent,
@@ -492,7 +474,7 @@ class ARKLandMultiApp(ctk.CTk):
             font=ctk.CTkFont(size=14, weight="bold"),
             fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
             command=self._save_config,
-        ).grid(row=12, column=0, padx=20, pady=(0, 24), sticky="ew")
+        ).grid(row=10, column=0, padx=20, pady=(0, 24), sticky="ew")
 
     def _section(self, parent, row: int, text: str) -> None:
         ctk.CTkLabel(
@@ -558,7 +540,6 @@ class ARKLandMultiApp(ctk.CTk):
         cfg.machine_name       = self._machine_name_var.get().strip()
         cfg.auto_start              = self._auto_start_var.get()
         cfg.log_debug               = self._log_debug_var.get()
-        cfg.update_url              = self._update_url_var.get().strip()
         cfg.startup_with_windows    = self._startup_windows_var.get()
         _set_windows_startup(cfg.startup_with_windows)
 
