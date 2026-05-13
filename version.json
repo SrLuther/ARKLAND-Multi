@@ -1,11 +1,9 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "date": "2026-05-13",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.3/ARKLAND-Multi-Setup-v1.0.3.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.4/ARKLAND-Multi-Setup-v1.0.4.exe",
   "changelog": [
-    "Nova aba Controle Remoto — controle outra instância do app via rede",
-    "Agente HTTP integrado: exponha esta máquina para controle externo",
-    "Cadastro de peers remotos com IP, porta e token de autenticação",
-    "Painel de peer com stats em tempo real, logs e botões Iniciar/Parar/Forçar Sync"
+    "Corre\u00e7\u00e3o: atualiza\u00e7\u00e3o autom\u00e1tica agora aguarda o app fechar antes de instalar",
+    "Script intermedi\u00e1rio .bat garante que o arquivo .exe n\u00e3o esteja em uso durante a instala\u00e7\u00e3o"
   ]
 }

@@ -6,12 +6,12 @@
 
 [Setup]
 AppName=[ARKLAND]-Multi
-AppVersion=1.0.3
+AppVersion=1.0.4
 AppPublisher=ARKLAND Tools
 DefaultDirName={autopf}\ARKLAND-Multi
 DefaultGroupName=ARKLAND-Multi
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.0.3
+OutputBaseFilename=ARKLAND-Multi-Setup-v1.0.4
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern

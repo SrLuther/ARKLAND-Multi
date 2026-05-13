@@ -158,9 +158,53 @@ class UpdateChecker:
                         if total and on_progress:
                             on_progress(int(downloaded * 100 / total))
 
-            subprocess.Popen([tmp.name])
+            self._launch_via_updater_script(tmp.name)
             if on_done:
                 on_done(True, tmp.name)
         except Exception as exc:
             if on_done:
                 on_done(False, str(exc))
+
+    @staticmethod
+    def _launch_via_updater_script(installer_path: str) -> None:
+        """
+        Cria um .bat temporário que aguarda o processo atual encerrar e só
+        então executa o instalador. Isso evita o erro de 'arquivo em uso'
+        do Inno Setup ao tentar sobrescrever o .exe em execução.
+        """
+        import os
+        import sys
+
+        pid = os.getpid()
+
+        # Cria o script em um arquivo temporário que se auto-deleta após rodar
+        bat = tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=".bat",
+            prefix="ARKLAND-updater-",
+            mode="w",
+            encoding="mbcs",   # encoding padrão do cmd.exe no Windows
+        )
+        bat.write(
+            f"@echo off\r\n"
+            f":: Aguarda o processo principal encerrar\r\n"
+            f":wait\r\n"
+            f"tasklist /FI \"PID eq {pid}\" 2>NUL | find \"{pid}\" >NUL\r\n"
+            f"if not errorlevel 1 (\r\n"
+            f"    timeout /T 1 /NOBREAK >NUL\r\n"
+            f"    goto wait\r\n"
+            f")\r\n"
+            f":: Executa o instalador em modo silencioso\r\n"
+            f"start \"\" \"{installer_path}\"\r\n"
+            f":: Auto-deleta este script\r\n"
+            f"del \"%~f0\"\r\n"
+        )
+        bat.close()
+
+        # Abre o .bat em um processo independente (sem janela)
+        subprocess.Popen(
+            ["cmd.exe", "/C", bat.name],
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.DETACHED_PROCESS,
+            close_fds=True,
+        )
