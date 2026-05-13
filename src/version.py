@@ -3,17 +3,25 @@ Versão e changelog do ARKLAND-Multi.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.0.4"
+APP_VERSION: str = "1.0.5"
 BUILD_DATE: str = "2026-05-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "1.0.5",
+        "date": "2026-05-13",
+        "changes": [
+            "Correção de compatibilidade: build migrado para Python 3.12",
+            "Corrige erro 'Failed to load Python DLL' em máquinas sem VC++ 2022 Runtime",
+        ],
+    },
+    {
         "version": "1.0.4",
         "date": "2026-05-13",
         "changes": [
-            "Corre\u00e7\u00e3o: atualiza\u00e7\u00e3o autom\u00e1tica aguarda o app fechar antes de instalar",
-            "Script intermedi\u00e1rio evita erro de arquivo em uso durante a instala\u00e7\u00e3o",
+            "Correção: atualização automática aguarda o app fechar antes de instalar",
+            "Script intermediário evita erro de arquivo em uso durante a instalação",
         ],
     },
     {
