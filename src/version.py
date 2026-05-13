@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND-Multi.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.0.2"
+APP_VERSION: str = "1.0.3"
 BUILD_DATE: str = "2026-05-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.0.3",
+        "date": "2026-05-13",
+        "changes": [
+            "Nova aba Controle Remoto — controle outra instância do app via rede",
+            "Agente HTTP integrado: exponha esta máquina para controle externo",
+            "Cadastro de peers remotos com IP, porta e token de autenticação",
+            "Painel de peer com stats em tempo real, logs e botões Iniciar/Parar/Forçar Sync",
+        ],
+    },
     {
         "version": "1.0.2",
         "date": "2026-05-13",

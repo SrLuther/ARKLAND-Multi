@@ -5,7 +5,7 @@ As configurações são salvas em %APPDATA%\\ARKLAND-Multi\\config.json
 import json
 import os
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 
 @dataclass
@@ -18,6 +18,12 @@ class AppConfig:
     log_debug: bool = False        # Mostrar ciclos sem alterações no log
     update_url: str = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
     startup_with_windows: bool = False  # Iniciar o programa com o Windows
+    # ── Agente remoto (lado servidor) ──────────────────────────────────────────
+    remote_agent_enabled: bool = False  # Expor API HTTP para controle remoto
+    remote_agent_port: int = 19567      # Porta do agente HTTP
+    remote_agent_token: str = ""        # Token de autenticação Bearer
+    # ── Peers remotos (lado cliente) ──────────────────────────────────────────
+    remote_peers: list = field(default_factory=list)  # Lista de dicts {name, host, port, token}
 
 
 class ConfigManager:
@@ -40,6 +46,9 @@ class ConfigManager:
                 # Migração: garante que a URL de atualização nunca fique vazia
                 if not self.config.update_url:
                     self.config.update_url = self._DEFAULT_UPDATE_URL
+                # Migração: remote_peers pode vir como null de configs antigas
+                if not isinstance(self.config.remote_peers, list):
+                    self.config.remote_peers = []
         except Exception:
             self.config = AppConfig()
 

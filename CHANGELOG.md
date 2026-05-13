@@ -5,6 +5,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.0.3] — 2026-05-13
+
+### Adicionado
+
+- Nova aba **Controle Remoto** — controle outra instância do app via rede
+- Agente HTTP integrado: exponha esta máquina para controle externo (porta e token configuráveis)
+- Cadastro de peers remotos com nome, IP, porta e token de autenticação
+- Painel de peer com stats em tempo real, logs e botões Iniciar / Parar / Forçar Sync
+
+---
+
 ## [1.0.2] — 2026-05-13
 
 ### Adicionado

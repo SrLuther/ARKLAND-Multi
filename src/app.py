@@ -2,6 +2,7 @@
 Interface gráfica principal do ARKLAND-Multi.
 Abas: Dashboard | Configurações | Logs
 """
+import json
 import os
 import socket
 import sys
@@ -16,6 +17,7 @@ except ImportError:
 import customtkinter as ctk
 
 from .config_manager import ConfigManager
+from .remote_agent import RemoteAgent
 from .sync_engine import SyncEngine
 from .updater import UpdateChecker
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
@@ -109,6 +111,10 @@ class ARKLandMultiApp(ctk.CTk):
         )
         self.update_checker = UpdateChecker(on_log=self._append_log)
 
+        # Agente remoto (lado servidor)
+        self._remote_agent: RemoteAgent | None = None
+        self._start_remote_agent_if_needed()
+
         self._error_list: list = []
 
         self._build_ui()
@@ -179,6 +185,7 @@ class ARKLandMultiApp(ctk.CTk):
             ("🏠  Dashboard", "dashboard"),
             ("⚙️  Configurações", "config"),
             ("📋  Logs", "logs"),
+            ("🌐  Remoto", "remoto"),
             ("ℹ️  Sobre", "sobre"),
         ]
         for i, (label, key) in enumerate(nav):
@@ -239,6 +246,11 @@ class ARKLandMultiApp(ctk.CTk):
         sobre.grid(row=0, column=1, sticky="nsew")
         self._build_sobre(sobre)
         self._frames["sobre"] = sobre
+
+        remoto = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
+        remoto.grid(row=0, column=1, sticky="nsew")
+        self._build_remoto(remoto)
+        self._frames["remoto"] = remoto
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
 
@@ -545,10 +557,21 @@ class ARKLandMultiApp(ctk.CTk):
         cfg.startup_with_windows    = self._startup_windows_var.get()
         _set_windows_startup(cfg.startup_with_windows)
 
+        # Agente remoto
+        cfg.remote_agent_enabled = self._agent_enabled_var.get()
+        try:
+            cfg.remote_agent_port = max(1024, min(65535, int(self._agent_port_var.get())))
+        except ValueError:
+            pass
+        cfg.remote_agent_token = self._agent_token_var.get().strip()
+
         self.config_manager.save()
         self._machine_info_label.configure(text=self._machine_info_text(cfg))
         self._append_log("Configurações salvas com sucesso.", "info")
         messagebox.showinfo("Salvo", "Configurações salvas com sucesso!", parent=self)
+
+        # Reinicia agente se necessário
+        self._restart_remote_agent()
 
     def _browse(self, var: tk.StringVar) -> None:
         path = filedialog.askdirectory(parent=self, title="Selecionar pasta")
@@ -563,6 +586,9 @@ class ARKLandMultiApp(ctk.CTk):
     # ── Callbacks do motor ────────────────────────────────────────────────────
 
     def _append_log(self, message: str, level: str = "info") -> None:
+        if self._remote_agent:
+            self._remote_agent.push_log(message, level)
+
         def _do() -> None:
             self._log_text.configure(state="normal")
             self._log_text._textbox.insert("end", message + "\n", level)
@@ -905,7 +931,405 @@ class ARKLandMultiApp(ctk.CTk):
 
     # ── Encerramento ──────────────────────────────────────────────────────────
 
+    # ── Agente remoto ─────────────────────────────────────────────────────────
+
+    def _start_remote_agent_if_needed(self) -> None:
+        cfg = self.config_manager.config
+        if not cfg.remote_agent_enabled:
+            return
+        try:
+            self._remote_agent = RemoteAgent(
+                sync_engine=self.sync_engine,
+                port=cfg.remote_agent_port,
+                token=cfg.remote_agent_token,
+            )
+            self._remote_agent.start()
+        except OSError as exc:
+            self._remote_agent = None
+            self.after(2000, lambda: self._append_log(
+                f"[agente remoto] Falha ao iniciar na porta {cfg.remote_agent_port}: {exc}", "error"
+            ))
+
+    def _restart_remote_agent(self) -> None:
+        if self._remote_agent:
+            self._remote_agent.stop()
+            self._remote_agent = None
+        self._start_remote_agent_if_needed()
+        # Atualiza label de status na aba Remoto
+        self._refresh_agent_status()
+
+    def _refresh_agent_status(self) -> None:
+        cfg = self.config_manager.config
+        if self._remote_agent and self._remote_agent.is_running:
+            self._agent_status_lbl.configure(
+                text=f"✅  Agente ativo na porta {cfg.remote_agent_port}",
+                text_color=_GREEN,
+            )
+        else:
+            self._agent_status_lbl.configure(
+                text="⏹  Agente inativo",
+                text_color="gray50",
+            )
+
+    # ── Aba Remoto ────────────────────────────────────────────────────────────
+
+    def _build_remoto(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            parent, text="Controle Remoto",
+            font=ctk.CTkFont(size=24, weight="bold"),
+        ).grid(row=0, column=0, padx=24, pady=(24, 2), sticky="w")
+        ctk.CTkLabel(
+            parent,
+            text="Exponha esta máquina como agente ou controle outra instância remotamente.",
+            text_color="gray60",
+        ).grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
+
+        # ── Agente local (servidor) ────────────────────────────────────────────
+        self._section(parent, 2, "📡  Este PC como Agente (Servidor)")
+        agent_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        agent_card.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
+        agent_card.grid_columnconfigure(1, weight=1)
+
+        cfg = self.config_manager.config
+
+        self._agent_enabled_var = tk.BooleanVar(value=cfg.remote_agent_enabled)
+        ctk.CTkCheckBox(
+            agent_card,
+            text="Habilitar agente HTTP (permite controle remoto deste PC)",
+            variable=self._agent_enabled_var,
+            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        ).grid(row=0, column=0, columnspan=2, padx=18, pady=(16, 10), sticky="w")
+
+        ctk.CTkLabel(agent_card, text="Porta:", width=130, anchor="w").grid(
+            row=1, column=0, padx=18, pady=8, sticky="w")
+        self._agent_port_var = tk.StringVar(value=str(cfg.remote_agent_port))
+        ctk.CTkEntry(
+            agent_card, textvariable=self._agent_port_var,
+            width=120, height=34, placeholder_text="19567",
+        ).grid(row=1, column=1, padx=(0, 18), pady=8, sticky="w")
+
+        ctk.CTkLabel(agent_card, text="Token (Bearer):", width=130, anchor="w").grid(
+            row=2, column=0, padx=18, pady=8, sticky="w")
+        self._agent_token_var = tk.StringVar(value=cfg.remote_agent_token)
+        ctk.CTkEntry(
+            agent_card, textvariable=self._agent_token_var,
+            width=280, height=34, placeholder_text="Defina um token secreto",
+            show="*",
+        ).grid(row=2, column=1, padx=(0, 18), pady=8, sticky="w")
+
+        self._agent_status_lbl = ctk.CTkLabel(
+            agent_card, text="⏹  Agente inativo",
+            text_color="gray50", font=ctk.CTkFont(size=12),
+        )
+        self._agent_status_lbl.grid(row=3, column=0, columnspan=2, padx=18, pady=(4, 14), sticky="w")
+        self._refresh_agent_status()
+
+        ctk.CTkLabel(
+            agent_card,
+            text="Abra a porta acima no firewall do Windows desta máquina para acesso externo.",
+            text_color="gray50", font=ctk.CTkFont(size=11),
+        ).grid(row=4, column=0, columnspan=2, padx=18, pady=(0, 14), sticky="w")
+
+        ctk.CTkButton(
+            parent,
+            text="💾  Salvar Configurações",
+            height=40,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._save_config,
+        ).grid(row=4, column=0, padx=20, pady=(0, 18), sticky="ew")
+
+        # ── Peers remotos (cliente) ────────────────────────────────────────────
+        self._section(parent, 5, "🖥️  Controlar Outra Máquina")
+        peers_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        peers_card.grid(row=6, column=0, padx=20, pady=(0, 14), sticky="ew")
+        peers_card.grid_columnconfigure(1, weight=1)
+
+        # Formulário para adicionar peer
+        ctk.CTkLabel(peers_card, text="Nome:", width=100, anchor="w").grid(
+            row=0, column=0, padx=18, pady=(14, 6), sticky="w")
+        self._peer_name_var = tk.StringVar()
+        ctk.CTkEntry(
+            peers_card, textvariable=self._peer_name_var,
+            height=32, placeholder_text="Ex: Servidor-A",
+        ).grid(row=0, column=1, padx=(0, 18), pady=(14, 6), sticky="ew")
+
+        ctk.CTkLabel(peers_card, text="IP:", width=100, anchor="w").grid(
+            row=1, column=0, padx=18, pady=6, sticky="w")
+        self._peer_host_var = tk.StringVar()
+        ctk.CTkEntry(
+            peers_card, textvariable=self._peer_host_var,
+            height=32, placeholder_text="Ex: 192.168.1.50",
+        ).grid(row=1, column=1, padx=(0, 18), pady=6, sticky="ew")
+
+        ctk.CTkLabel(peers_card, text="Porta:", width=100, anchor="w").grid(
+            row=2, column=0, padx=18, pady=6, sticky="w")
+        self._peer_port_var = tk.StringVar(value="19567")
+        ctk.CTkEntry(
+            peers_card, textvariable=self._peer_port_var,
+            height=32, placeholder_text="19567",
+        ).grid(row=2, column=1, padx=(0, 18), pady=6, sticky="ew")
+
+        ctk.CTkLabel(peers_card, text="Token:", width=100, anchor="w").grid(
+            row=3, column=0, padx=18, pady=6, sticky="w")
+        self._peer_token_var = tk.StringVar()
+        ctk.CTkEntry(
+            peers_card, textvariable=self._peer_token_var,
+            height=32, placeholder_text="Token do agente remoto", show="*",
+        ).grid(row=3, column=1, padx=(0, 18), pady=6, sticky="ew")
+
+        ctk.CTkButton(
+            peers_card, text="➕  Adicionar Peer",
+            width=160, height=34,
+            fg_color="#1a3a6a", hover_color="#102650",
+            command=self._add_peer,
+        ).grid(row=4, column=0, columnspan=2, padx=18, pady=(6, 14), sticky="w")
+
+        # Lista de peers salvos
+        self._section(parent, 7, "📋  Peers Salvos")
+        self._peers_list_frame = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        self._peers_list_frame.grid(row=8, column=0, padx=20, pady=(0, 24), sticky="ew")
+        self._peers_list_frame.grid_columnconfigure(0, weight=1)
+        self._refresh_peers_list()
+
+    def _add_peer(self) -> None:
+        name = self._peer_name_var.get().strip()
+        host = self._peer_host_var.get().strip()
+        port_str = self._peer_port_var.get().strip()
+        token = self._peer_token_var.get().strip()
+        if not name or not host:
+            messagebox.showwarning("Peer inválido", "Informe ao menos Nome e IP.", parent=self)
+            return
+        try:
+            port = max(1024, min(65535, int(port_str)))
+        except ValueError:
+            port = 19567
+        peers = self.config_manager.config.remote_peers or []
+        peers.append({"name": name, "host": host, "port": port, "token": token})
+        self.config_manager.config.remote_peers = peers
+        self.config_manager.save()
+        self._peer_name_var.set("")
+        self._peer_host_var.set("")
+        self._peer_port_var.set("19567")
+        self._peer_token_var.set("")
+        self._refresh_peers_list()
+
+    def _refresh_peers_list(self) -> None:
+        for w in self._peers_list_frame.winfo_children():
+            w.destroy()
+        peers = self.config_manager.config.remote_peers or []
+        if not peers:
+            ctk.CTkLabel(
+                self._peers_list_frame,
+                text="Nenhum peer cadastrado.",
+                text_color="gray50",
+            ).grid(row=0, column=0, padx=18, pady=14, sticky="w")
+            return
+        self._peers_list_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        headers = ["Nome", "IP", "Porta", "Status", ""]
+        for c, h in enumerate(headers):
+            ctk.CTkLabel(
+                self._peers_list_frame, text=h,
+                text_color="gray50", font=ctk.CTkFont(size=11),
+            ).grid(row=0, column=c, padx=10, pady=(10, 4), sticky="w")
+        for i, peer in enumerate(peers):
+            row = i + 1
+            ctk.CTkLabel(self._peers_list_frame, text=peer["name"]).grid(
+                row=row, column=0, padx=10, pady=4, sticky="w")
+            ctk.CTkLabel(self._peers_list_frame, text=peer["host"], text_color="gray60").grid(
+                row=row, column=1, padx=10, pady=4, sticky="w")
+            ctk.CTkLabel(self._peers_list_frame, text=str(peer["port"]), text_color="gray60").grid(
+                row=row, column=2, padx=10, pady=4, sticky="w")
+            status_lbl = ctk.CTkLabel(
+                self._peers_list_frame, text="—", text_color="gray50",
+                font=ctk.CTkFont(size=11),
+            )
+            status_lbl.grid(row=row, column=3, padx=10, pady=4, sticky="w")
+
+            btn_frame = ctk.CTkFrame(self._peers_list_frame, fg_color="transparent")
+            btn_frame.grid(row=row, column=4, padx=6, pady=4, sticky="e")
+
+            ctk.CTkButton(
+                btn_frame, text="📊", width=32, height=28,
+                fg_color="#1a3a6a", hover_color="#102650",
+                command=lambda p=peer, sl=status_lbl: self._open_peer_panel(p, sl),
+            ).pack(side="left", padx=2)
+            ctk.CTkButton(
+                btn_frame, text="🗑", width=32, height=28,
+                fg_color="#3a3a5a", hover_color="#252540",
+                command=lambda idx=i: self._remove_peer(idx),
+            ).pack(side="left", padx=2)
+
+    def _remove_peer(self, idx: int) -> None:
+        peers = self.config_manager.config.remote_peers or []
+        if 0 <= idx < len(peers):
+            peers.pop(idx)
+            self.config_manager.config.remote_peers = peers
+            self.config_manager.save()
+            self._refresh_peers_list()
+
+    def _open_peer_panel(self, peer: dict, status_lbl: ctk.CTkLabel) -> None:
+        """Abre janela de controle de um peer remoto."""
+        import urllib.request
+        import urllib.error
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(f"Remoto — {peer['name']}")
+        dlg.geometry("680x520")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(2, weight=1)
+
+        base_url = f"http://{peer['host']}:{peer['port']}"
+        headers_auth = {"Authorization": f"Bearer {peer['token']}"} if peer.get("token") else {}
+
+        def _request(method: str, path: str) -> dict | None:
+            try:
+                req = urllib.request.Request(
+                    base_url + path,
+                    method=method,
+                    headers={"Content-Length": "0", **headers_auth},
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    return json.loads(resp.read().decode())
+            except Exception as exc:
+                return {"error": str(exc)}
+
+        # Cabeçalho
+        hdr = ctk.CTkFrame(dlg, fg_color="transparent")
+        hdr.grid(row=0, column=0, padx=20, pady=(16, 8), sticky="ew")
+        hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            hdr, text=f"🌐  {peer['name']}",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(
+            hdr, text=f"{peer['host']}:{peer['port']}",
+            text_color="gray50", font=ctk.CTkFont(size=12),
+        ).grid(row=1, column=0, sticky="w")
+
+        # Cards de stats
+        stats_f = ctk.CTkFrame(dlg, fg_color="transparent")
+        stats_f.grid(row=1, column=0, padx=20, pady=4, sticky="ew")
+        stats_f.grid_columnconfigure((0, 1, 2, 3), weight=1)
+
+        stat_vars = {
+            "status": tk.StringVar(value="—"),
+            "total": tk.StringVar(value="—"),
+            "last_sync": tk.StringVar(value="—"),
+            "errors": tk.StringVar(value="—"),
+        }
+        for col, (title, key, color, icon) in enumerate([
+            ("Status",   "status",    _GREEN,    "🔴"),
+            ("Arquivos", "total",     _GREEN,    "📁"),
+            ("Últ. sync","last_sync", "#5b9bd5", "🕐"),
+            ("Erros",    "errors",    "#ff9944", "⚠️"),
+        ]):
+            c = ctk.CTkFrame(stats_f, corner_radius=10, fg_color=_CARD_BG)
+            c.grid(row=0, column=col, padx=4, pady=4, sticky="ew")
+            ctk.CTkLabel(c, text=f"{icon}  {title}",
+                         text_color="gray55", font=ctk.CTkFont(size=10),
+                         ).pack(padx=10, pady=(10, 2), anchor="w")
+            ctk.CTkLabel(c, textvariable=stat_vars[key],
+                         font=ctk.CTkFont(size=16, weight="bold"), text_color=color,
+                         ).pack(padx=10, pady=(0, 10), anchor="w")
+
+        # Logs
+        log_box = ctk.CTkTextbox(
+            dlg, font=ctk.CTkFont(family="Courier New", size=11),
+            wrap="word", state="disabled",
+        )
+        log_box.grid(row=2, column=0, padx=20, pady=4, sticky="nsew")
+        tw = log_box._textbox
+        tw.tag_config("info",    foreground="#d0d0e0")
+        tw.tag_config("success", foreground="#66cc77")
+        tw.tag_config("warning", foreground="#ffaa44")
+        tw.tag_config("error",   foreground="#ff6666")
+        tw.tag_config("debug",   foreground="#666680")
+        tw.tag_config("time",    foreground="#888899")
+
+        # Botões de controle
+        ctrl_f = ctk.CTkFrame(dlg, fg_color="transparent")
+        ctrl_f.grid(row=3, column=0, padx=20, pady=(4, 16), sticky="ew")
+
+        def _do_action(method, path, label):
+            result = _request(method, path)
+            if result and result.get("ok"):
+                self._append_log(f"[remoto:{peer['name']}] {label}", "info")
+            else:
+                err = result.get("error", "?") if result else "sem resposta"
+                self._append_log(f"[remoto:{peer['name']}] Erro — {err}", "error")
+            _refresh()
+
+        ctk.CTkButton(
+            ctrl_f, text="▶  Iniciar", width=120, height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: _do_action("POST", "/sync/start", "Sync iniciado"),
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            ctrl_f, text="⏹  Parar", width=120, height=36,
+            fg_color="#7a2d2d", hover_color="#5c1f1f",
+            command=lambda: _do_action("POST", "/sync/stop", "Sync parado"),
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            ctrl_f, text="🔄  Forçar Sync", width=140, height=36,
+            fg_color="#1a3a6a", hover_color="#102650",
+            command=lambda: _do_action("POST", "/sync/force", "Sync forçado"),
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            ctrl_f, text="🔃  Atualizar", width=120, height=36,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: _refresh(),
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            ctrl_f, text="Fechar", width=90, height=36,
+            fg_color="#2a2a44", hover_color="#1a1a30",
+            command=dlg.destroy,
+        ).pack(side="right")
+
+        def _refresh():
+            import threading as _t
+            def _fetch():
+                status_data = _request("GET", "/status")
+                logs_data   = _request("GET", "/logs")
+
+                def _apply():
+                    if status_data and "error" not in status_data:
+                        s = status_data.get("stats", {})
+                        running = status_data.get("running", False)
+                        stat_vars["status"].set("RODANDO" if running else "PARADO")
+                        stat_vars["total"].set(str(s.get("total_synced", 0)))
+                        stat_vars["last_sync"].set(s.get("last_sync", "—"))
+                        stat_vars["errors"].set(str(s.get("errors", 0)))
+                        status_lbl.configure(
+                            text="🟢" if running else "🔴",
+                        )
+                    else:
+                        err = status_data.get("error", "sem resposta") if status_data else "sem resposta"
+                        stat_vars["status"].set("ERRO")
+                        status_lbl.configure(text="❌")
+
+                    if logs_data and "logs" in logs_data:
+                        log_box.configure(state="normal")
+                        log_box.delete("1.0", "end")
+                        for entry in logs_data["logs"]:
+                            tw.insert("end", f"[{entry['time']}] ", "time")
+                            tw.insert("end", entry["message"] + "\n", entry.get("level", "info"))
+                        log_box._textbox.see("end")
+                        log_box.configure(state="disabled")
+                dlg.after(0, _apply)
+            _t.Thread(target=_fetch, daemon=True).start()
+
+        _refresh()
+
+    # ── Encerramento ──────────────────────────────────────────────────────────
+
     def _on_close(self) -> None:
         self.sync_engine.stop()
+        if self._remote_agent:
+            self._remote_agent.stop()
         self.config_manager.save()
         self.destroy()
