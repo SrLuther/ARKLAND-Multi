@@ -4,6 +4,7 @@ As configurações são salvas em %APPDATA%\\ARKLAND-Multi\\config.json
 """
 import json
 import os
+import uuid
 from pathlib import Path
 from dataclasses import dataclass, asdict, field
 
@@ -49,8 +50,14 @@ class ConfigManager:
                 # Migração: remote_peers pode vir como null de configs antigas
                 if not isinstance(self.config.remote_peers, list):
                     self.config.remote_peers = []
+                # Migração: gera token automaticamente se ainda não existia
+                if not self.config.remote_agent_token:
+                    self.config.remote_agent_token = str(uuid.uuid4())
+                    self.save()
         except Exception:
             self.config = AppConfig()
+            self.config.remote_agent_token = str(uuid.uuid4())
+            self.save()
 
     def save(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)

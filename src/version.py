@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND-Multi.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.0.8"
+APP_VERSION: str = "1.0.9"
 BUILD_DATE: str = "2026-05-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.0.9",
+        "date": "2026-05-13",
+        "changes": [
+            "Token do agente gerado automaticamente (UUID) na primeira execução",
+            "Botão Copiar token e botão Revogar (gera novo UUID) na aba Remoto",
+            "Botão 'Colar meu token' no formulário de peer facilita configuração",
+        ],
+    },
     {
         "version": "1.0.8",
         "date": "2026-05-13",

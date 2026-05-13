@@ -1022,11 +1022,39 @@ class ARKLandMultiApp(ctk.CTk):
         ctk.CTkLabel(agent_card, text="Token (Bearer):", width=130, anchor="w").grid(
             row=2, column=0, padx=18, pady=8, sticky="w")
         self._agent_token_var = tk.StringVar(value=cfg.remote_agent_token)
-        ctk.CTkEntry(
-            agent_card, textvariable=self._agent_token_var,
-            width=280, height=34, placeholder_text="Defina um token secreto",
-            show="*",
-        ).grid(row=2, column=1, padx=(0, 18), pady=8, sticky="w")
+
+        token_row = ctk.CTkFrame(agent_card, fg_color="transparent")
+        token_row.grid(row=2, column=1, padx=(0, 18), pady=8, sticky="ew")
+        token_row.grid_columnconfigure(0, weight=1)
+
+        token_entry = ctk.CTkEntry(
+            token_row, textvariable=self._agent_token_var,
+            height=34, state="readonly",
+            font=ctk.CTkFont(family="Courier New", size=11),
+        )
+        token_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        def _copy_token():
+            self.clipboard_clear()
+            self.clipboard_append(self._agent_token_var.get())
+
+        def _revoke_token():
+            import uuid as _uuid
+            new_tok = str(_uuid.uuid4())
+            self._agent_token_var.set(new_tok)
+            self.config_manager.config.remote_agent_token = new_tok
+            self._save_config()
+
+        ctk.CTkButton(
+            token_row, text="📋", width=34, height=34,
+            fg_color="#2a2a44", hover_color="#3a3a5a",
+            command=_copy_token,
+        ).grid(row=0, column=1, padx=(0, 4))
+        ctk.CTkButton(
+            token_row, text="🔄 Revogar", width=90, height=34,
+            fg_color="#7a2d2d", hover_color="#5c1f1f",
+            command=_revoke_token,
+        ).grid(row=0, column=2)
 
         self._agent_status_lbl = ctk.CTkLabel(
             agent_card, text="⏹  Agente inativo",
@@ -1094,10 +1122,26 @@ class ARKLandMultiApp(ctk.CTk):
         ctk.CTkLabel(peers_card, text="Token:", width=100, anchor="w").grid(
             row=3, column=0, padx=18, pady=6, sticky="w")
         self._peer_token_var = tk.StringVar()
+
+        peer_token_row = ctk.CTkFrame(peers_card, fg_color="transparent")
+        peer_token_row.grid(row=3, column=1, padx=(0, 18), pady=6, sticky="ew")
+        peer_token_row.grid_columnconfigure(0, weight=1)
+
         ctk.CTkEntry(
-            peers_card, textvariable=self._peer_token_var,
-            height=32, placeholder_text="Token do agente remoto", show="*",
-        ).grid(row=3, column=1, padx=(0, 18), pady=6, sticky="ew")
+            peer_token_row, textvariable=self._peer_token_var,
+            height=32, placeholder_text="Cole o token do agente remoto",
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        def _paste_own_token():
+            """Cola o token deste próprio agente no campo — facilita configurar peers na mesma rede."""
+            own = self.config_manager.config.remote_agent_token
+            self._peer_token_var.set(own)
+
+        ctk.CTkButton(
+            peer_token_row, text="📋 Colar meu token", width=130, height=32,
+            fg_color="#2a2a44", hover_color="#3a3a5a",
+            command=_paste_own_token,
+        ).grid(row=0, column=1)
 
         ctk.CTkButton(
             peers_card, text="➕  Adicionar Peer",
@@ -1332,6 +1376,16 @@ class ARKLandMultiApp(ctk.CTk):
                         err = status_data.get("error", "sem resposta") if status_data else "sem resposta"
                         stat_vars["status"].set("ERRO")
                         status_lbl.configure(text="❌")
+                        # Mostra o erro no log box
+                        log_box.configure(state="normal")
+                        log_box.delete("1.0", "end")
+                        log_box._textbox.insert("end", f"Falha ao conectar em {peer['host']}:{peer['port']}\n\n", "error")
+                        log_box._textbox.insert("end", f"Erro: {err}\n\n", "warning")
+                        log_box._textbox.insert("end", "Verifique:\n", "info")
+                        log_box._textbox.insert("end", f"  1. O agente HTTP está habilitado e rodando no PC remoto\n", "info")
+                        log_box._textbox.insert("end", f"  2. A porta {peer['port']} está liberada no firewall do PC remoto\n", "info")
+                        log_box._textbox.insert("end", f"  3. O token informado é igual ao configurado no agente remoto\n", "info")
+                        log_box.configure(state="disabled")
 
                     if logs_data and "logs" in logs_data:
                         log_box.configure(state="normal")

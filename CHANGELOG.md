@@ -5,6 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.0.9] — 2026-05-13
+
+### Adicionado
+
+- Token do agente gerado automaticamente (UUID) na primeira execução
+- Botão **Copiar** e botão **Revogar** (gera novo UUID) na aba Remoto
+- Botão **Colar meu token** no formulário de peer facilita a configuração
+
+---
+
 ## [1.0.8] — 2026-05-13
 
 ### Alterado
