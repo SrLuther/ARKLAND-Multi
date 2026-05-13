@@ -5,6 +5,28 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.0.2] — 2026-05-13
+
+### Adicionado
+
+- Erros separados por tipo com timestamp — card Erros no Dashboard agora abre janela de detalhes
+- Botão "Ver detalhes" lista cada erro individualmente com hora, tipo e mensagem
+- Botão "Limpar" zera o histórico de erros sem reiniciar a sincronização
+
+---
+
+## [1.0.1] — 2026-05-12
+
+### Corrigido / Adicionado
+
+- Imagem do instalador corrigida (sem distorção)
+- URL de atualização embutida — não requer configuração manual
+- Iniciar sincronização habilitado por padrão
+- Nova opção: Iniciar o ARKLAND-Multi com o Windows
+- Ícone da barra de tarefas corrigido
+
+---
+
 ## [1.0.0] — 2026-05-12
 
 ### Adicionado

@@ -39,6 +39,7 @@ class SyncEngine:
             "last_sync": "—",
             "errors": 0,
             "cycles": 0,
+            "error_list": [],
         }
 
     # ── Controle público ───────────────────────────────────────────────────────
@@ -83,6 +84,21 @@ class SyncEngine:
             interval = max(1, getattr(self._config, "sync_interval", 5))
             time.sleep(interval)
 
+    def clear_errors(self) -> None:
+        """Zera o contador e a lista de erros."""
+        self._stats["errors"] = 0
+        self._stats["error_list"] = []
+        self._on_stats_update(self._stats.copy())
+
+    def _add_error(self, message: str, etype: str = "") -> None:
+        """Registra um erro: incrementa contador, salva na lista e emite log."""
+        ts = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        self._stats["errors"] += 1
+        self._stats["error_list"].append(
+            {"time": ts, "type": etype, "message": message}
+        )
+        self._log(message, "error")
+
     def _run_cycle(self) -> None:
         """Executa um ciclo de sync com lock para evitar sobreposição."""
         if not self._lock.acquire(blocking=False):
@@ -90,8 +106,7 @@ class SyncEngine:
         try:
             self._sync()
         except Exception as exc:
-            self._stats["errors"] += 1
-            self._log(f"Erro inesperado: {exc}", "error")
+            self._add_error(f"Erro inesperado: {exc}", "geral")
         finally:
             self._lock.release()
 
@@ -156,11 +171,9 @@ class SyncEngine:
                     shutil.copy2(src_file, dst_file)
                     count += 1
         except PermissionError as exc:
-            self._stats["errors"] += 1
-            self._log(f"Permissão negada: {exc}", "error")
+            self._add_error(f"Permissão negada: {exc}", "permissão")
         except OSError as exc:
-            self._stats["errors"] += 1
-            self._log(f"Erro de I/O: {exc}", "error")
+            self._add_error(f"Erro de I/O: {exc}", "I/O")
         return count
 
     @staticmethod

@@ -109,6 +109,8 @@ class ARKLandMultiApp(ctk.CTk):
         )
         self.update_checker = UpdateChecker(on_log=self._append_log)
 
+        self._error_list: list = []
+
         self._build_ui()
 
         if cfg.auto_start:
@@ -593,6 +595,7 @@ class ARKLandMultiApp(ctk.CTk):
             self._stat_vars["total"].set(str(stats.get("total_synced", 0)))
             self._stat_vars["last_sync"].set(stats.get("last_sync", "—"))
             self._stat_vars["errors"].set(str(stats.get("errors", 0)))
+            self._error_list = list(stats.get("error_list", []))
         self.after(0, _do)
 
     # ── Sobre & Atualizações ──────────────────────────────────────────────────
@@ -820,6 +823,73 @@ class ARKLandMultiApp(ctk.CTk):
             self._install_update_btn.configure(
                 state="normal", text="⬇️  Tentar Novamente",
             )
+    # ── Diálogo de erros ───────────────────────────────────────────────────────────
+
+    def _show_errors_dialog(self) -> None:
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Detalhes dos Erros")
+        dlg.geometry("720x440")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(1, weight=1)
+
+        # Cabeçalho
+        header = ctk.CTkFrame(dlg, fg_color="transparent")
+        header.grid(row=0, column=0, padx=20, pady=(16, 8), sticky="ew")
+        header.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            header, text="Erros de Sincronização",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        def _clear_and_refresh() -> None:
+            self.sync_engine.clear_errors()
+            _refresh_text()
+
+        ctk.CTkButton(
+            header, text="\U0001f5d1  Limpar", width=100, height=30,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=_clear_and_refresh,
+        ).grid(row=0, column=1, sticky="e")
+
+        # Caixa de texto
+        txt = ctk.CTkTextbox(
+            dlg,
+            font=ctk.CTkFont(family="Courier New", size=12),
+            wrap="word",
+            state="normal",
+        )
+        txt.grid(row=1, column=0, padx=20, pady=(0, 8), sticky="nsew")
+
+        tw = txt._textbox
+        tw.tag_config("time",    foreground="#888899")
+        tw.tag_config("type",    foreground="#ffaa44")
+        tw.tag_config("message", foreground="#ff8888")
+        tw.tag_config("empty",   foreground="gray50")
+
+        def _refresh_text() -> None:
+            txt.configure(state="normal")
+            txt.delete("1.0", "end")
+            snapshot = list(self._error_list)
+            if not snapshot:
+                tw.insert("end", "Nenhum erro registrado.", "empty")
+            else:
+                for err in snapshot:
+                    tw.insert("end", f"[{err['time']}]  ", "time")
+                    if err.get("type"):
+                        tw.insert("end", f"[{err['type']}]  ", "type")
+                    tw.insert("end", f"{err['message']}\n", "message")
+            txt.configure(state="disabled")
+
+        _refresh_text()
+
+        ctk.CTkButton(
+            dlg, text="Fechar", height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=dlg.destroy,
+        ).grid(row=2, column=0, padx=20, pady=(0, 16), sticky="ew")
 
     # ── Navegação ─────────────────────────────────────────────────────────────
 
