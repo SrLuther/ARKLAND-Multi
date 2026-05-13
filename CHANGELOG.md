@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.0.7] — 2026-05-13
+
+### Corrigido
+
+- Atualização automática reescrita com PowerShell (era `.bat`)
+- Corrige janela que abria e fechava instantaneamente sem instalar nada
+
+---
+
 ## [1.0.6] — 2026-05-13
 
 ### Adicionado

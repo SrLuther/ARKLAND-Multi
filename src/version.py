@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND-Multi.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.0.6"
+APP_VERSION: str = "1.0.7"
 BUILD_DATE: str = "2026-05-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.0.7",
+        "date": "2026-05-13",
+        "changes": [
+            "Correção: atualização automática reescrita com PowerShell (era .bat)",
+            "Corrige janela que abria e fechava instantâneamente sem instalar",
+        ],
+    },
     {
         "version": "1.0.6",
         "date": "2026-05-13",

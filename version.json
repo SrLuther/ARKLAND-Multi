@@ -1,9 +1,9 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "date": "2026-05-13",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.6/ARKLAND-Multi-Setup-v1.0.6.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.7/ARKLAND-Multi-Setup-v1.0.7.exe",
   "changelog": [
-    "Aba Remoto exibe o IP local desta máquina e o endereço completo para peers",
-    "Campo Nome do peer agora é opcional (usa o IP como fallback)"
+    "Correção: atualização automática reescrita com PowerShell",
+    "Corrige janela que abria e fechava instantâneamente sem instalar"
   ]
 }

@@ -168,43 +168,44 @@ class UpdateChecker:
     @staticmethod
     def _launch_via_updater_script(installer_path: str) -> None:
         """
-        Cria um .bat temporário que aguarda o processo atual encerrar e só
-        então executa o instalador. Isso evita o erro de 'arquivo em uso'
-        do Inno Setup ao tentar sobrescrever o .exe em execução.
+        Cria um script PowerShell temporário que aguarda o processo atual
+        encerrar e só então executa o instalador. Mais confiável que .bat
+        em processos sem console (DETACHED_PROCESS).
         """
         import os
-        import sys
 
         pid = os.getpid()
 
-        # Cria o script em um arquivo temporário que se auto-deleta após rodar
-        bat = tempfile.NamedTemporaryFile(
+        ps1 = tempfile.NamedTemporaryFile(
             delete=False,
-            suffix=".bat",
+            suffix=".ps1",
             prefix="ARKLAND-updater-",
             mode="w",
-            encoding="mbcs",   # encoding padrão do cmd.exe no Windows
+            encoding="utf-8",
         )
-        bat.write(
-            f"@echo off\r\n"
-            f":: Aguarda o processo principal encerrar\r\n"
-            f":wait\r\n"
-            f"tasklist /FI \"PID eq {pid}\" 2>NUL | find \"{pid}\" >NUL\r\n"
-            f"if not errorlevel 1 (\r\n"
-            f"    timeout /T 1 /NOBREAK >NUL\r\n"
-            f"    goto wait\r\n"
-            f")\r\n"
-            f":: Executa o instalador em modo silencioso\r\n"
-            f"start \"\" \"{installer_path}\"\r\n"
-            f":: Auto-deleta este script\r\n"
-            f"del \"%~f0\"\r\n"
+        # Backslashes em strings PowerShell entre aspas duplas não precisam escape.
+        # Apenas "$", "`" e `"` precisam.
+        safe_installer = installer_path.replace('"', '`"')
+        safe_ps1 = ps1.name.replace('"', '`"')
+        ps1.write(
+            f'$id = {pid}\n'
+            f'while (Get-Process -Id $id -ErrorAction SilentlyContinue) {{\n'
+            f'    Start-Sleep -Milliseconds 500\n'
+            f'}}\n'
+            f'Start-Sleep -Seconds 1\n'
+            f'Start-Process -FilePath "{safe_installer}"\n'
+            f'Remove-Item -LiteralPath "{safe_ps1}" -Force -ErrorAction SilentlyContinue\n'
         )
-        bat.close()
+        ps1.close()
 
-        # Abre o .bat em um processo independente (sem janela)
         subprocess.Popen(
-            ["cmd.exe", "/C", bat.name],
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-            | subprocess.DETACHED_PROCESS,
+            [
+                "powershell.exe",
+                "-WindowStyle", "Hidden",
+                "-NonInteractive",
+                "-ExecutionPolicy", "Bypass",
+                "-File", ps1.name,
+            ],
+            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
             close_fds=True,
         )
