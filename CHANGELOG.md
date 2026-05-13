@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.0.6] — 2026-05-13
+
+### Adicionado
+
+- Aba Remoto exibe o IP local desta máquina e o endereço completo para configurar peers
+- Campo Nome do peer agora é opcional (usa o IP como nome quando não preenchido)
+
+---
+
 ## [1.0.5] — 2026-05-13
 
 ### Corrigido

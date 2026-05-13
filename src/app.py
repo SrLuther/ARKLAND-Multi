@@ -958,6 +958,15 @@ class ARKLandMultiApp(ctk.CTk):
         # Atualiza label de status na aba Remoto
         self._refresh_agent_status()
 
+    def _get_local_ip(self) -> str:
+        """Retorna o IP local da máquina (interface de rede ativa)."""
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("8.8.8.8", 80))
+                return s.getsockname()[0]
+        except Exception:
+            return "127.0.0.1"
+
     def _refresh_agent_status(self) -> None:
         cfg = self.config_manager.config
         if self._remote_agent and self._remote_agent.is_running:
@@ -1026,11 +1035,21 @@ class ARKLandMultiApp(ctk.CTk):
         self._agent_status_lbl.grid(row=3, column=0, columnspan=2, padx=18, pady=(4, 14), sticky="w")
         self._refresh_agent_status()
 
+        # IP local da máquina
+        local_ip = self._get_local_ip()
+        port_val = cfg.remote_agent_port
+        ip_text = f"IP desta máquina: {local_ip}   |   Endereço para peers: {local_ip}:{port_val}"
+        self._agent_ip_lbl = ctk.CTkLabel(
+            agent_card, text=ip_text,
+            text_color="#4CAF50", font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        self._agent_ip_lbl.grid(row=4, column=0, columnspan=2, padx=18, pady=(0, 6), sticky="w")
+
         ctk.CTkLabel(
             agent_card,
             text="Abra a porta acima no firewall do Windows desta máquina para acesso externo.",
             text_color="gray50", font=ctk.CTkFont(size=11),
-        ).grid(row=4, column=0, columnspan=2, padx=18, pady=(0, 14), sticky="w")
+        ).grid(row=5, column=0, columnspan=2, padx=18, pady=(0, 14), sticky="w")
 
         ctk.CTkButton(
             parent,
@@ -1053,7 +1072,7 @@ class ARKLandMultiApp(ctk.CTk):
         self._peer_name_var = tk.StringVar()
         ctk.CTkEntry(
             peers_card, textvariable=self._peer_name_var,
-            height=32, placeholder_text="Ex: Servidor-A",
+            height=32, placeholder_text="Ex: Servidor-A (opcional)",
         ).grid(row=0, column=1, padx=(0, 18), pady=(14, 6), sticky="ew")
 
         ctk.CTkLabel(peers_card, text="IP:", width=100, anchor="w").grid(
@@ -1099,9 +1118,11 @@ class ARKLandMultiApp(ctk.CTk):
         host = self._peer_host_var.get().strip()
         port_str = self._peer_port_var.get().strip()
         token = self._peer_token_var.get().strip()
-        if not name or not host:
-            messagebox.showwarning("Peer inválido", "Informe ao menos Nome e IP.", parent=self)
+        if not host:
+            messagebox.showwarning("Peer inválido", "Informe o IP.", parent=self)
             return
+        if not name:
+            name = host
         try:
             port = max(1024, min(65535, int(port_str)))
         except ValueError:

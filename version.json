@@ -1,9 +1,9 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "date": "2026-05-13",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.5/ARKLAND-Multi-Setup-v1.0.5.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.6/ARKLAND-Multi-Setup-v1.0.6.exe",
   "changelog": [
-    "Correção de compatibilidade: build migrado para Python 3.12",
-    "Corrige erro 'Failed to load Python DLL' em máquinas sem VC++ 2022 Runtime"
+    "Aba Remoto exibe o IP local desta máquina e o endereço completo para peers",
+    "Campo Nome do peer agora é opcional (usa o IP como fallback)"
   ]
 }
