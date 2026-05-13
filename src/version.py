@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND-Multi.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.0.7"
+APP_VERSION: str = "1.0.8"
 BUILD_DATE: str = "2026-05-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.0.8",
+        "date": "2026-05-13",
+        "changes": [
+            "Porta padrão do agente remoto alterada de 19567 para 32440",
+        ],
+    },
     {
         "version": "1.0.7",
         "date": "2026-05-13",

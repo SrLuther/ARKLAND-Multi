@@ -20,7 +20,7 @@ class AppConfig:
     startup_with_windows: bool = False  # Iniciar o programa com o Windows
     # ── Agente remoto (lado servidor) ──────────────────────────────────────────
     remote_agent_enabled: bool = False  # Expor API HTTP para controle remoto
-    remote_agent_port: int = 19567      # Porta do agente HTTP
+    remote_agent_port: int = 32440      # Porta do agente HTTP
     remote_agent_token: str = ""        # Token de autenticação Bearer
     # ── Peers remotos (lado cliente) ──────────────────────────────────────────
     remote_peers: list = field(default_factory=list)  # Lista de dicts {name, host, port, token}

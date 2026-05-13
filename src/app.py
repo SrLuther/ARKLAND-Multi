@@ -1016,7 +1016,7 @@ class ARKLandMultiApp(ctk.CTk):
         self._agent_port_var = tk.StringVar(value=str(cfg.remote_agent_port))
         ctk.CTkEntry(
             agent_card, textvariable=self._agent_port_var,
-            width=120, height=34, placeholder_text="19567",
+            width=120, height=34, placeholder_text="32440",
         ).grid(row=1, column=1, padx=(0, 18), pady=8, sticky="w")
 
         ctk.CTkLabel(agent_card, text="Token (Bearer):", width=130, anchor="w").grid(
@@ -1085,10 +1085,10 @@ class ARKLandMultiApp(ctk.CTk):
 
         ctk.CTkLabel(peers_card, text="Porta:", width=100, anchor="w").grid(
             row=2, column=0, padx=18, pady=6, sticky="w")
-        self._peer_port_var = tk.StringVar(value="19567")
+        self._peer_port_var = tk.StringVar(value="32440")
         ctk.CTkEntry(
             peers_card, textvariable=self._peer_port_var,
-            height=32, placeholder_text="19567",
+            height=32, placeholder_text="32440",
         ).grid(row=2, column=1, padx=(0, 18), pady=6, sticky="ew")
 
         ctk.CTkLabel(peers_card, text="Token:", width=100, anchor="w").grid(
@@ -1126,14 +1126,14 @@ class ARKLandMultiApp(ctk.CTk):
         try:
             port = max(1024, min(65535, int(port_str)))
         except ValueError:
-            port = 19567
+            port = 32440
         peers = self.config_manager.config.remote_peers or []
         peers.append({"name": name, "host": host, "port": port, "token": token})
         self.config_manager.config.remote_peers = peers
         self.config_manager.save()
         self._peer_name_var.set("")
         self._peer_host_var.set("")
-        self._peer_port_var.set("19567")
+        self._peer_port_var.set("32440")
         self._peer_token_var.set("")
         self._refresh_peers_list()
 

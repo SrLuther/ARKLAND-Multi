@@ -1,9 +1,8 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "date": "2026-05-13",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.7/ARKLAND-Multi-Setup-v1.0.7.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.8/ARKLAND-Multi-Setup-v1.0.8.exe",
   "changelog": [
-    "Correção: atualização automática reescrita com PowerShell",
-    "Corrige janela que abria e fechava instantâneamente sem instalar"
+    "Porta padrão do agente remoto alterada de 19567 para 32440"
   ]
 }

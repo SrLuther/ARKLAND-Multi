@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.0.8] — 2026-05-13
+
+### Alterado
+
+- Porta padrão do agente remoto alterada de 19567 para 32440
+
+---
+
 ## [1.0.7] — 2026-05-13
 
 ### Corrigido
