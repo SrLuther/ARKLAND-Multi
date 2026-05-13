@@ -28,6 +28,8 @@ class ConfigManager:
         self.load()
 
     # ------------------------------------------------------------------
+    _DEFAULT_UPDATE_URL = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
+
     def load(self) -> None:
         try:
             if self._config_file.exists():
@@ -35,6 +37,9 @@ class ConfigManager:
                     data = json.load(fh)
                 valid = AppConfig.__dataclass_fields__.keys()
                 self.config = AppConfig(**{k: v for k, v in data.items() if k in valid})
+                # Migração: garante que a URL de atualização nunca fique vazia
+                if not self.config.update_url:
+                    self.config.update_url = self._DEFAULT_UPDATE_URL
         except Exception:
             self.config = AppConfig()
 
