@@ -5,10 +5,10 @@ echo  ARKLAND - Server Manager  -  Build Script
 echo ============================================================
 echo.
 
-:: ── Localiza Python ──────────────────────────────────────────────────────────
+:: -- Localiza Python ----------------------------------------------------------
 set PYTHON=
 
-:: 0) Python portátil local com tkinter (python-build-standalone)
+:: 0) Python port?til local com tkinter (python-build-standalone)
 if exist "%~dp0.python-full\python.exe" (
     set "PYTHON=%~dp0.python-full\python.exe"
     goto :found_python
@@ -32,7 +32,7 @@ if !errorlevel! == 0 (
     )
 )
 
-:: 3) Locais típicos de instalação
+:: 3) Locais t?picos de instala??o
 for %%V in (313 312 311 310 39) do (
     for %%D in (
         "%LocalAppData%\Programs\Python\Python%%V\python.exe"
@@ -69,21 +69,21 @@ exit /b 1
 echo Usando Python: %PYTHON%
 echo.
 
-:: ── Cria/atualiza venv (apenas se nao for .python-full ou .venv ja existente) 
+:: -- Cria/atualiza venv (apenas se nao for .python-full ou .venv ja existente) 
 set USE_VENV=1
-echo %PYTHON% | findstr /i ".python-full" >nul 2>&1 && set USE_VENV=0
-echo %PYTHON% | findstr /i ".venv" >nul 2>&1 && set USE_VENV=0
+if not "x%PYTHON:.python-full=%"=="x%PYTHON%" set USE_VENV=0
+if not "x%PYTHON:.venv=%"=="x%PYTHON%" set USE_VENV=0
 
 if %USE_VENV%==1 (
     if not exist "%~dp0.venv\Scripts\python.exe" (
-        echo [0/4] Criando ambiente virtual (.venv)...
+        echo [0/4] Criando ambiente virtual...
         "%PYTHON%" -m venv "%~dp0.venv"
         echo.
     )
     set "PYTHON=%~dp0.venv\Scripts\python.exe"
 )
 
-:: ── Instala dependências ─────────────────────────────────────────────────────
+:: -- Instala depend?ncias -----------------------------------------------------
 echo [1/4] Instalando dependencias...
 "%PYTHON%" -m pip install --upgrade pip --quiet
 "%PYTHON%" -m pip install -r "%~dp0requirements.txt" --quiet
@@ -91,7 +91,7 @@ echo [1/4] Instalando dependencias...
 echo       Concluido.
 echo.
 
-:: ── Gera o executável ────────────────────────────────────────────────────────
+:: -- Gera o execut?vel --------------------------------------------------------
 echo [2/4] Gerando executavel com PyInstaller (modo onefile)...
 "%PYTHON%" -m PyInstaller --noconfirm "%~dp0ARKLAND-Multi.spec"
 if !errorlevel! neq 0 (
@@ -102,7 +102,7 @@ if !errorlevel! neq 0 (
 echo       Executavel: dist\ARKLAND-ServerManager.exe
 echo.
 
-:: ── Gera o installer com Inno Setup (se disponível) ──────────────────────────
+:: -- Gera o installer com Inno Setup (se dispon?vel) --------------------------
 echo [3/4] Procurando Inno Setup...
 set ISCC=
 
@@ -140,4 +140,3 @@ if exist "%~dp0installer\" (
     echo   Installer       : installer\ARKLAND-ServerManager-Setup-*.exe
 )
 echo.
-pause
