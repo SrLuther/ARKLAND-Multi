@@ -2821,7 +2821,18 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _start_server(self, server_id: str) -> None:
         self._save_server_config(server_id, silent=True)
-        self.server_manager.start_server(server_id)
+        srv = self.config_manager.get_server(server_id)
+        if srv and srv.auto_update_on_start and self.mod_manager.is_steamcmd_available() and srv.install_dir:
+            self._global_log(f"[{srv.name}] Atualizando servidor via SteamCMD antes de iniciar...", "info")
+            def _on_update_done(ok: bool) -> None:
+                if ok:
+                    self._global_log(f"[{srv.name}] Atualização concluída. Iniciando servidor...", "info")
+                else:
+                    self._global_log(f"[{srv.name}] Atualização falhou, iniciando servidor mesmo assim...", "warning")
+                self.after(0, lambda: self.server_manager.start_server(server_id))
+            self.mod_manager.install_server(srv.install_dir, validate=False, on_done=_on_update_done)
+        else:
+            self.server_manager.start_server(server_id)
 
     def _stop_server(self, server_id: str) -> None:
         self.server_manager.stop_server(server_id)
