@@ -5,6 +5,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.0] — 2026-05-14
+
+### Adicionado
+
+- Badge **LAN/WAN** no header de cada servidor — exibe 🏠 LAN ao iniciar e 🌐 WAN quando o servidor é registrado no Steam
+- **Atualização automática de mods**: verifica o Steam Workshop periodicamente, avisa jogadores via RCON broadcast e reinicia o servidor automaticamente após atualizar
+- Log de sincronização exibe o **nome de cada arquivo copiado** com tamanho e direção da cópia
+- Sistema de atualização do app reescrito com **agente autônomo**: ao clicar em "Instalar", um processo separado é lançado que baixa, instala e reinicia o ARKLAND automaticamente
+
+### Corrigido
+
+- Status do servidor agora transita corretamente de **INICIANDO → RODANDO** via monitoramento do arquivo de log do ARK (`ShooterGame/Saved/Logs/ShooterGame.log`) — sem travar indefinidamente
+- Mods baixados via SteamCMD agora são **copiados para a pasta correta** (`ShooterGame/Content/Mods/`) após o download, corrigindo o falso "não instalado"
+
+---
+
 ## [1.0.9] — 2026-05-13
 
 ### Adicionado

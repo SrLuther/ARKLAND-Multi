@@ -1,5 +1,5 @@
 """
-Motor de sincronização bidirecional para o ARKLAND-Multi.
+Motor de sincronização bidirecional para o ARKLAND - Server Manager.
 
 Lógica:
   A cada N segundos realiza dois passes:
@@ -168,8 +168,20 @@ class SyncEngine:
                 dst_file = dst_root / rel
                 if self._should_copy(src_file, dst_file):
                     dst_file.parent.mkdir(parents=True, exist_ok=True)
+                    is_new = not dst_file.exists()
                     shutil.copy2(src_file, dst_file)
                     count += 1
+                    action = "novo" if is_new else "atualizado"
+                    try:
+                        size_kb = src_file.stat().st_size / 1024
+                        size_str = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb/1024:.2f} MB"
+                    except OSError:
+                        size_str = "?"
+                    self._log(
+                        f"  ↪ [{action}] {rel}  ({size_str})  "
+                        f"{src_root.name} → {dst_root.name}",
+                        "debug",
+                    )
         except PermissionError as exc:
             self._add_error(f"Permissão negada: {exc}", "permissão")
         except OSError as exc:

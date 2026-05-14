@@ -1,13 +1,25 @@
 """
-Versão e changelog do ARKLAND-Multi.
+Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.0.9"
-BUILD_DATE: str = "2026-05-13"
+APP_VERSION: str = "1.1.0"
+BUILD_DATE: str = "2026-05-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.0",
+        "date": "2026-05-14",
+        "changes": [
+            "Status do servidor agora detecta RODANDO via arquivo de log do ARK (sem travar em INICIANDO)",
+            "Badge LAN/WAN no header — mostra 🏠 LAN ao iniciar e 🌐 WAN quando registrado no Steam",
+            "Atualização automática de mods: verifica Workshop, avisa jogadores via broadcast e reinicia",
+            "Log de sincronização exibe nome de cada arquivo copiado com tamanho e direção",
+            "Correção: mods baixados via SteamCMD agora são copiados para a pasta correta do ARK",
+            "Sistema de atualização do app reescrito: agente autônomo baixa, instala e reinicia sem intervenção",
+        ],
+    },
     {
         "version": "1.0.9",
         "date": "2026-05-13",
@@ -82,7 +94,7 @@ CHANGELOG: list[dict] = [
             "Imagem do instalador corrigida (sem distorção)",
             "URL de atualização embutida — não requer configuração manual",
             "Iniciar sincronização habilitado por padrão",
-            "Nova opção: Iniciar o ARKLAND-Multi com o Windows",
+            "Nova opção: Iniciar o ARKLAND - Server Manager com o Windows",
             "Ícone da barra de tarefas corrigido",
         ],
     },
@@ -90,7 +102,7 @@ CHANGELOG: list[dict] = [
         "version": "1.0.0",
         "date": "2026-05-12",
         "changes": [
-            "Lançamento inicial do ARKLAND-Multi",
+            "Lançamento inicial do ARKLAND - Server Manager",
             "Sincronização bidirecional automática de pastas ARK Cluster",
             "Interface moderna com Dashboard, Configurações e Logs",
             "Controle de intervalo de sincronização (1–60 s)",

@@ -1,5 +1,5 @@
 """
-Verificador e instalador de atualizações do ARKLAND-Multi.
+Verificador e instalador de atualizações do ARKLAND - Server Manager.
 
 Formato esperado do JSON remoto (update_url):
 {
@@ -117,64 +117,37 @@ class UpdateChecker:
         on_progress: Optional[Callable[[int], None]] = None,
         on_done: Optional[Callable[[bool, str], None]] = None,
     ) -> None:
-        """Baixa o instalador e o executa em background."""
-        threading.Thread(
-            target=self._download_worker,
-            args=(info, on_progress, on_done),
-            daemon=True,
-            name="ArkUpdateDownload",
-        ).start()
-
-    def _download_worker(
-        self,
-        info: UpdateInfo,
-        on_progress: Optional[Callable[[int], None]],
-        on_done: Optional[Callable[[bool, str], None]],
-    ) -> None:
+        """
+        Lança um agente PowerShell separado que:
+          1. Aguarda este processo fechar
+          2. Baixa o instalador
+          3. Instala silenciosamente
+          4. Reinicia o app
+        O app pode fechar imediatamente após chamar este método.
+        """
         try:
-            if not _HAS_REQUESTS:
-                raise RuntimeError("'requests' não está instalado.")
             parsed = urlparse(info.download_url)
             if parsed.scheme not in ("http", "https"):
                 raise ValueError("URL de download inválida.")
-
-            resp = _requests.get(info.download_url, stream=True, timeout=120)
-            resp.raise_for_status()
-
-            total = int(resp.headers.get("content-length", 0))
-            downloaded = 0
-            suffix = Path(parsed.path).suffix or ".exe"
-
-            tmp = tempfile.NamedTemporaryFile(
-                delete=False,
-                suffix=suffix,
-                prefix="ARKLAND-Multi-Update-",
-            )
-            with tmp as fh:
-                for chunk in resp.iter_content(chunk_size=65536):
-                    if chunk:
-                        fh.write(chunk)
-                        downloaded += len(chunk)
-                        if total and on_progress:
-                            on_progress(int(downloaded * 100 / total))
-
-            self._launch_via_updater_script(tmp.name)
+            self._launch_updater_agent(info.download_url)
             if on_done:
-                on_done(True, tmp.name)
+                on_done(True, "")
         except Exception as exc:
             if on_done:
                 on_done(False, str(exc))
 
     @staticmethod
-    def _launch_via_updater_script(installer_path: str) -> None:
+    def _launch_updater_agent(download_url: str) -> None:
         """
-        Cria um script PowerShell temporário que aguarda o processo atual
-        encerrar e só então executa o instalador. Mais confiável que .bat
-        em processos sem console (DETACHED_PROCESS).
+        Cria e lança um script PowerShell autônomo (processo separado/detached)
+        que baixa, instala e reinicia o app sem depender do processo atual.
         """
         import os
+        import sys
 
         pid = os.getpid()
+        # Caminho do exe atual (funciona tanto frozen quanto dev)
+        app_exe = sys.executable
 
         ps1 = tempfile.NamedTemporaryFile(
             delete=False,
@@ -183,25 +156,69 @@ class UpdateChecker:
             mode="w",
             encoding="utf-8",
         )
-        # Backslashes em strings PowerShell entre aspas duplas não precisam escape.
-        # Apenas "$", "`" e `"` precisam.
-        safe_installer = installer_path.replace('"', '`"')
-        safe_ps1 = ps1.name.replace('"', '`"')
+        safe_url     = download_url.replace("'", "''")   # escape aspas simples no PS1
+        safe_exe     = app_exe.replace("'", "''")
+        safe_ps1     = ps1.name.replace("'", "''")
+
         ps1.write(
-            f'$id = {pid}\n'
-            f'while (Get-Process -Id $id -ErrorAction SilentlyContinue) {{\n'
-            f'    Start-Sleep -Milliseconds 500\n'
-            f'}}\n'
-            f'Start-Sleep -Seconds 1\n'
-            f'Start-Process -FilePath "{safe_installer}"\n'
-            f'Remove-Item -LiteralPath "{safe_ps1}" -Force -ErrorAction SilentlyContinue\n'
+            "# ARKLAND Updater Agent — gerado automaticamente\n"
+            "$ErrorActionPreference = 'Stop'\n"
+            "$host.UI.RawUI.WindowTitle = 'ARKLAND - Atualizando...'\n"
+            "\n"
+            "function Write-Step($msg) {\n"
+            "    Write-Host \"`n>> $msg\" -ForegroundColor Cyan\n"
+            "}\n"
+            "\n"
+            f"$appPid  = {pid}\n"
+            f"$appExe  = '{safe_exe}'\n"
+            f"$dlUrl   = '{safe_url}'\n"
+            f"$ps1Path = '{safe_ps1}'\n"
+            "$installer = Join-Path $env:TEMP 'ARKLAND-Update-Setup.exe'\n"
+            "\n"
+            "# 1. Aguarda o app fechar\n"
+            "Write-Step 'Aguardando o ARKLAND fechar...'\n"
+            "while (Get-Process -Id $appPid -ErrorAction SilentlyContinue) {\n"
+            "    Start-Sleep -Milliseconds 400\n"
+            "}\n"
+            "Start-Sleep -Seconds 1\n"
+            "\n"
+            "# 2. Baixa o instalador\n"
+            "Write-Step 'Baixando atualizacao...'\n"
+            "try {\n"
+            "    $wc = New-Object System.Net.WebClient\n"
+            "    $wc.DownloadFile($dlUrl, $installer)\n"
+            "} catch {\n"
+            "    Write-Host \"ERRO no download: $_\" -ForegroundColor Red\n"
+            "    Read-Host 'Pressione Enter para fechar'\n"
+            "    exit 1\n"
+            "}\n"
+            "\n"
+            "# 3. Instala silenciosamente\n"
+            "Write-Step 'Instalando...'\n"
+            "try {\n"
+            "    Start-Process -FilePath $installer -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait\n"
+            "} catch {\n"
+            "    Write-Host \"ERRO na instalacao: $_\" -ForegroundColor Red\n"
+            "    Read-Host 'Pressione Enter para fechar'\n"
+            "    exit 1\n"
+            "}\n"
+            "\n"
+            "# 4. Reinicia o app\n"
+            "Write-Step 'Iniciando ARKLAND...'\n"
+            "if (Test-Path -LiteralPath $appExe) {\n"
+            "    Start-Process -FilePath $appExe\n"
+            "}\n"
+            "\n"
+            "# Limpeza\n"
+            "Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue\n"
+            "Remove-Item -LiteralPath $ps1Path   -Force -ErrorAction SilentlyContinue\n"
         )
         ps1.close()
 
         subprocess.Popen(
             [
                 "powershell.exe",
-                "-WindowStyle", "Hidden",
+                "-WindowStyle", "Normal",
                 "-NonInteractive",
                 "-ExecutionPolicy", "Bypass",
                 "-File", ps1.name,

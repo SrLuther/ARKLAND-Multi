@@ -1,10 +1,13 @@
 {
-  "version": "1.0.9",
-  "date": "2026-05-13",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.0.9/ARKLAND-Multi-Setup-v1.0.9.exe",
+  "version": "1.1.0",
+  "date": "2026-05-14",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.0/ARKLAND-Multi-Setup-v1.1.0.exe",
   "changelog": [
-    "Token do agente gerado automaticamente (UUID) na primeira execução",
-    "Botão Copiar e botão Revogar na aba Remoto",
-    "Botão 'Colar meu token' no formulário de peer"
+    "Status detecta RODANDO via arquivo de log do ARK",
+    "Badge LAN/WAN no header do servidor",
+    "Atualização automática de mods com broadcast e restart",
+    "Log de sync com nome dos arquivos copiados",
+    "Correção: mods copiados para pasta correta após download",
+    "Agente autônomo de atualização do app"
   ]
 }

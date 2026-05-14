@@ -1,50 +1,97 @@
 """
-Interface gráfica principal do ARKLAND-Multi.
-Abas: Dashboard | Configurações | Logs
+Interface gráfica principal do ARKLAND - Server Manager.
 """
+from __future__ import annotations
+
+import io
 import json
 import os
 import socket
 import sys
+import threading
 import tkinter as tk
+import urllib.parse
+import urllib.request
+import webbrowser
+import zipfile
 from tkinter import filedialog, messagebox
-from typing import Any
+from typing import Any, Dict, List, Optional
+
 try:
-    import winreg as _winreg  # disponível apenas no Windows
+    import winreg as _winreg
 except ImportError:
     _winreg = None  # type: ignore[assignment]
+
+try:
+    import pystray
+    from PIL import Image as _PILImage
+    _PYSTRAY_OK = True
+except ImportError:
+    pystray = None  # type: ignore[assignment]
+    _PYSTRAY_OK = False
 
 import customtkinter as ctk
 
 from .config_manager import ConfigManager
-from .remote_agent import RemoteAgent
 from .sync_engine import SyncEngine
+from .server_config import (
+    ServerConfig, ServerGameSettings, ServerAdvancedSettings, ClusterConfig,
+    ARK_MAPS, ARK_MAP_NAMES,
+    SERVER_STATUS_STOPPED, SERVER_STATUS_STARTING, SERVER_STATUS_RUNNING,
+    SERVER_STATUS_STOPPING, SERVER_STATUS_CRASHED,
+)
+from .server_manager import ServerManager
+from .mod_manager import ModManager
+from .ark_ini import ArkIniManager
+from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
+from .mod_auto_updater import ModAutoUpdater
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
 
-APP_NAME = "[ARKLAND]-Multi"
+APP_NAME = "ARKLAND - Server Manager"
 
-# ── Cor padrão de destaque (verde ARK) ────────────────────────────────────────
-_GREEN = "#4CAF50"
-_GREEN_DARK = "#2d7a3e"
+# ── Paleta de cores ────────────────────────────────────────────────────────────
+_GREEN       = "#4CAF50"
+_GREEN_DARK  = "#2d7a3e"
 _GREEN_HOVER = "#1f5c2d"
-_SIDEBAR_BG = "#161622"
-_CARD_BG = "#1e1e30"
+_RED_DARK    = "#7a2d2d"
+_RED_HOVER   = "#5c1f1f"
+_BLUE        = "#1a3a6a"
+_BLUE_HOVER  = "#102650"
+_SIDEBAR_BG  = "#161622"
+_CARD_BG     = "#1e1e30"
+_BG          = "#111118"
 
+_STATUS_COLOR = {
+    SERVER_STATUS_STOPPED:  "#ff6666",
+    SERVER_STATUS_STARTING: "#ffaa44",
+    SERVER_STATUS_RUNNING:  _GREEN,
+    SERVER_STATUS_STOPPING: "#ffaa44",
+    SERVER_STATUS_CRASHED:  "#ff3333",
+}
+_STATUS_LABEL = {
+    SERVER_STATUS_STOPPED:  "⬛ PARADO",
+    SERVER_STATUS_STARTING: "🟡 INICIANDO",
+    SERVER_STATUS_RUNNING:  "🟢 RODANDO",
+    SERVER_STATUS_STOPPING: "🟡 PARANDO",
+    SERVER_STATUS_CRASHED:  "🔴 TRAVADO",
+}
+
+
+# ── Helpers globais ────────────────────────────────────────────────────────────
 
 def _set_windows_startup(enable: bool) -> None:
-    """Registra ou remove o app da inicialização do Windows (HKCU Run)."""
     if _winreg is None:
         return
     key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
-    app_key = "ARKLAND-Multi"
+    app_key = "ARKLAND-ServerManager"
     try:
-        exe = sys.executable if getattr(sys, "frozen", False) else sys.executable
         if getattr(sys, "frozen", False):
-            exe = sys.executable  # PyInstaller: caminho do .exe
+            exe = sys.executable
         else:
-            # Modo dev: chama python main.py
-            main_py = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py")
+            main_py = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "main.py"
+            )
             exe = f'"{sys.executable}" "{main_py}"'
         with _winreg.OpenKey(_winreg.HKEY_CURRENT_USER, key_path, 0, _winreg.KEY_SET_VALUE) as key:
             if enable:
@@ -58,6 +105,11 @@ def _set_windows_startup(enable: bool) -> None:
         pass
 
 
+def _resource_path(relative: str) -> str:
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(base, relative)
+
+
 def _hostname() -> str:
     try:
         return socket.gethostname()
@@ -65,14 +117,9 @@ def _hostname() -> str:
         return "PC"
 
 
-def _resource_path(relative: str) -> str:
-    """Retorna o caminho correto tanto em dev quanto no .exe PyInstaller."""
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    return os.path.join(base, relative)
-
-
 # ══════════════════════════════════════════════════════════════════════════════
-class ARKLandMultiApp(ctk.CTk):
+class ARKServerManagerApp(ctk.CTk):
+
     def __init__(self) -> None:
         super().__init__()
 
@@ -80,666 +127,2349 @@ class ARKLandMultiApp(ctk.CTk):
         ctk.set_default_color_theme("green")
 
         self.title(f"{APP_NAME}  v{APP_VERSION}")
-        self.geometry("980x640")
-        self.minsize(840, 560)
+        self.geometry("1280x780")
+        self.minsize(1000, 640)
 
-        # Ícone da janela e barra de tarefas
+        # Ícone
         try:
-            _ico_path = _resource_path(os.path.join("ig", "ArkLandBR.ico"))
-            self.iconbitmap(_ico_path)
+            self.iconbitmap(_resource_path(os.path.join("ig", "ArkLandBR.ico")))
         except Exception:
             try:
                 from PIL import Image, ImageTk
-                _png_path = _resource_path(os.path.join("ig", "ArkLandBR.png"))
-                _pil_img = Image.open(_png_path).resize((32, 32), Image.LANCZOS)
-                self._app_icon = ImageTk.PhotoImage(_pil_img)
+                _pil = Image.open(_resource_path(os.path.join("ig", "ArkLandBR.png"))).resize((32, 32))
+                self._app_icon = ImageTk.PhotoImage(_pil)
                 self.iconphoto(True, self._app_icon)
             except Exception:
                 pass
 
-        # ── Configuração e motor de sync ──────────────────────────────────────
+        # ── Gerenciadores ────────────────────────────────────────────────────
         self.config_manager = ConfigManager()
-        cfg = self.config_manager.config
-        if not cfg.machine_name:
-            cfg.machine_name = _hostname()
 
-        self.sync_engine = SyncEngine(
-            config=cfg,
-            on_log=self._append_log,
-            on_status_change=self._on_status_change,
-            on_stats_update=self._on_stats_update,
+        self.server_manager = ServerManager(
+            on_status_change=self._on_server_status_change,
+            on_log=self._on_server_log,
+            on_visibility_change=self._on_server_visibility_change,
         )
-        self.update_checker = UpdateChecker(on_log=self._append_log)
+        self.mod_manager = ModManager(
+            steamcmd_path=self.config_manager.config.steamcmd_path,
+            on_log=lambda m, l: self._global_log(m, l),
+        )
+        self.update_checker = UpdateChecker(on_log=lambda m, l: self._global_log(m, l))
 
-        # Agente remoto (lado servidor)
-        self._remote_agent: RemoteAgent | None = None
-        self._start_remote_agent_if_needed()
+        # Carrega servidores salvos no ServerManager
+        for srv in self.config_manager.servers:
+            self.server_manager.add_server(srv)
 
-        self._error_list: list = []
+        # ── Estado UI ────────────────────────────────────────────────────────
+        self._frames: Dict[str, Any] = {}
+        self._server_frames: Dict[str, ctk.CTkFrame] = {}
+        self._server_widgets: Dict[str, Dict[str, Any]] = {}
+        self._rcon_clients: Dict[str, RconClient] = {}
+        self._current_frame: str = "dashboard"
+        self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
+        self._global_log_buf: List[str] = []
+        self._tray_icon: Any = None
+        self._sync_engine: Optional[SyncEngine] = None
+        # widgets do painel sync (referenciados fora de _build_sync_panel)
+        self._sync_log_box: Any = None
+        self._sync_status_lbl: Any = None
+        self._sync_stats_lbl: Any = None
+        self._sync_toggle_btn: Any = None
+        # auto-update de mods
+        self._mod_auto_updater: Optional[ModAutoUpdater] = None
+        self._auto_updater_log_box: Any = None
 
         self._build_ui()
-
-        if cfg.auto_start:
-            self.after(1500, self.sync_engine.start)
-
         self.after(4000, self._check_updates_on_start)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ── Construção da UI ───────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # UI — Estrutura principal
+    # ══════════════════════════════════════════════════════════════════════════
 
     def _build_ui(self) -> None:
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self._build_sidebar()
-        self._build_frames()
+        self._build_static_frames()
+        self._rebuild_server_sidebar()
         self._show_frame("dashboard")
 
     # ── Sidebar ───────────────────────────────────────────────────────────────
 
     def _build_sidebar(self) -> None:
-        sb = ctk.CTkFrame(self, width=195, corner_radius=0, fg_color=_SIDEBAR_BG)
+        sb = ctk.CTkFrame(self, width=210, corner_radius=0, fg_color=_SIDEBAR_BG)
         sb.grid(row=0, column=0, sticky="nsew")
-        sb.grid_rowconfigure(10, weight=1)
         sb.grid_propagate(False)
+        sb.grid_columnconfigure(0, weight=1)
         self._sidebar = sb
 
-        # Logo (imagem)
+        # Logo
         try:
             from PIL import Image
-            _logo_path = _resource_path(os.path.join("ig", "ArkLandBR.png"))
-            _pil_logo = Image.open(_logo_path)
-            self._logo_img = ctk.CTkImage(
-                light_image=_pil_logo,
-                dark_image=_pil_logo,
-                size=(130, 130),
-            )
+            _logo = Image.open(_resource_path(os.path.join("ig", "ArkLandBR.png")))
+            self._logo_img = ctk.CTkImage(light_image=_logo, dark_image=_logo, size=(120, 120))
             ctk.CTkLabel(sb, image=self._logo_img, text="").grid(
-                row=0, column=0, padx=20, pady=(18, 0)
-            )
+                row=0, column=0, padx=20, pady=(16, 0))
         except Exception:
             ctk.CTkLabel(
                 sb, text="⚡ ARKLAND",
-                font=ctk.CTkFont(size=20, weight="bold"),
-                text_color=_GREEN,
+                font=ctk.CTkFont(size=20, weight="bold"), text_color=_GREEN,
             ).grid(row=0, column=0, padx=20, pady=(24, 0))
 
-        ctk.CTkLabel(
-            sb, text="Multi Sync",
-            font=ctk.CTkFont(size=13),
-            text_color="#88d4a0",
-        ).grid(row=1, column=0)
-
-        ctk.CTkLabel(
-            sb, text=f"v{APP_VERSION}",
-            font=ctk.CTkFont(size=10),
-            text_color="gray50",
-        ).grid(row=2, column=0, pady=(0, 10))
+        ctk.CTkLabel(sb, text="Server Manager",
+                     font=ctk.CTkFont(size=12), text_color="#88d4a0").grid(row=1, column=0)
+        ctk.CTkLabel(sb, text=f"v{APP_VERSION}",
+                     font=ctk.CTkFont(size=10), text_color="gray50").grid(
+            row=2, column=0, pady=(0, 8))
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=3, column=0, sticky="ew", padx=14, pady=6
-        )
+            row=3, column=0, sticky="ew", padx=12, pady=4)
 
-        # Botões de navegação
-        self._nav_buttons: dict[str, ctk.CTkButton] = {}
-        nav = [
-            ("🏠  Dashboard", "dashboard"),
-            ("⚙️  Configurações", "config"),
-            ("📋  Logs", "logs"),
-            ("🌐  Remoto", "remoto"),
-            ("ℹ️  Sobre", "sobre"),
-        ]
-        for i, (label, key) in enumerate(nav):
+        self._nav_buttons: Dict[str, ctk.CTkButton] = {}
+        for i, (label, key) in enumerate([
+            ("🏠  Dashboard",      "dashboard"),
+            ("🔄  Sincronização",  "sync"),
+            ("⚙️  Configurações",  "config"),
+            ("ℹ️  Sobre",           "sobre"),
+        ]):
             btn = ctk.CTkButton(
-                sb, text=label, anchor="w", width=165, height=40,
-                fg_color="transparent",
-                text_color="#d8d8e8",
-                hover_color="#252540",
-                corner_radius=8,
+                sb, text=label, anchor="w", width=185, height=38,
+                fg_color="transparent", text_color="#d8d8e8",
+                hover_color="#252540", corner_radius=8,
                 command=lambda k=key: self._show_frame(k),
             )
-            btn.grid(row=i + 4, column=0, padx=14, pady=3, sticky="ew")
+            btn.grid(row=i + 4, column=0, padx=12, pady=2, sticky="ew")
             self._nav_buttons[key] = btn
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=8, column=0, sticky="ew", padx=14, pady=8
-        )
+            row=7, column=0, sticky="ew", padx=12, pady=8)
 
-        self._update_notif_label = ctk.CTkLabel(
-            sb, text="",
-            font=ctk.CTkFont(size=11),
-            text_color="#ffaa44",
-            wraplength=160,
-        )
-        self._update_notif_label.grid(row=9, column=0, padx=10, pady=(2, 0))
-        self._update_notif_label.bind(
-            "<Button-1>", lambda e: self._show_frame("sobre")
-        )
+        # Título "Servidores" + botão "+"
+        srv_hdr = ctk.CTkFrame(sb, fg_color="transparent")
+        srv_hdr.grid(row=8, column=0, padx=12, pady=(0, 4), sticky="ew")
+        srv_hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(srv_hdr, text="SERVIDORES",
+                     font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
+            row=0, column=0, sticky="w", padx=4)
+        ctk.CTkButton(
+            srv_hdr, text="＋", width=28, height=24,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            command=self._dialog_add_server,
+        ).grid(row=0, column=1)
 
-        self._status_label = ctk.CTkLabel(
-            sb, text="● PARADO",
-            text_color="#ff6666",
-            font=ctk.CTkFont(size=12, weight="bold"),
-        )
-        self._status_label.grid(row=11, column=0, padx=20, pady=14)
+        # Frame scrollable para lista de servidores
+        self._servers_list_sb = ctk.CTkScrollableFrame(
+            sb, fg_color="transparent", height=280)
+        self._servers_list_sb.grid(row=9, column=0, sticky="ew", padx=6)
+        self._servers_list_sb.grid_columnconfigure(0, weight=1)
 
-    # ── Frames principais ──────────────────────────────────────────────────────
+        self._sidebar_update_lbl = ctk.CTkLabel(
+            sb, text="", font=ctk.CTkFont(size=10), text_color="#ffaa44", wraplength=180)
+        self._sidebar_update_lbl.grid(row=10, column=0, padx=10, pady=4)
 
-    def _build_frames(self) -> None:
-        self._frames: dict[str, Any] = {}
+    def _rebuild_server_sidebar(self) -> None:
+        """Reconstrói a lista de botões de servidores na sidebar."""
+        for w in self._servers_list_sb.winfo_children():
+            w.destroy()
+        self._sidebar_server_btns.clear()
 
-        dash = ctk.CTkFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
+        servers = self.config_manager.servers
+        if not servers:
+            ctk.CTkLabel(self._servers_list_sb, text="Nenhum servidor.\nClique ＋ para adicionar.",
+                         text_color="gray50", font=ctk.CTkFont(size=11), justify="center").pack(
+                pady=10)
+            return
+
+        for srv in servers:
+            inst = self.server_manager.get_instance(srv.id)
+            status = inst.status if inst else SERVER_STATUS_STOPPED
+            color = _STATUS_COLOR.get(status, "#ff6666")
+
+            btn_frame = ctk.CTkFrame(self._servers_list_sb, fg_color="transparent")
+            btn_frame.pack(fill="x", pady=2)
+            btn_frame.grid_columnconfigure(0, weight=1)
+
+            btn = ctk.CTkButton(
+                btn_frame,
+                text=f"  {srv.name}",
+                anchor="w", height=36, corner_radius=8,
+                fg_color="transparent", text_color="#d8d8e8",
+                hover_color="#252540",
+                command=lambda sid=srv.id: self._open_server_panel(sid),
+            )
+            btn.grid(row=0, column=0, sticky="ew")
+
+            status_dot = ctk.CTkLabel(btn_frame, text="●", text_color=color,
+                                       font=ctk.CTkFont(size=10), width=18)
+            status_dot.grid(row=0, column=1, padx=(0, 4))
+
+            self._sidebar_server_btns[srv.id] = btn
+            btn._status_dot = status_dot  # type: ignore[attr-defined]
+
+    # ── Frames estáticos ──────────────────────────────────────────────────────
+
+    def _build_static_frames(self) -> None:
+        dash = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
         dash.grid(row=0, column=1, sticky="nsew")
         self._build_dashboard(dash)
         self._frames["dashboard"] = dash
 
-        conf = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
+        sync = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
+        sync.grid(row=0, column=1, sticky="nsew")
+        self._build_sync_panel(sync)
+        self._frames["sync"] = sync
+
+        conf = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         conf.grid(row=0, column=1, sticky="nsew")
-        self._build_config(conf)
+        self._build_global_config(conf)
         self._frames["config"] = conf
 
-        logs = ctk.CTkFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
-        logs.grid(row=0, column=1, sticky="nsew")
-        self._build_logs(logs)
-        self._frames["logs"] = logs
-
-        sobre = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
+        sobre = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         sobre.grid(row=0, column=1, sticky="nsew")
-        self._build_sobre(sobre)
+        self._build_about(sobre)
         self._frames["sobre"] = sobre
 
-        remoto = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=("#111118", "#111118"))
-        remoto.grid(row=0, column=1, sticky="nsew")
-        self._build_remoto(remoto)
-        self._frames["remoto"] = remoto
+    # ══════════════════════════════════════════════════════════════════════════
+    # Painel de Sincronização
+    # ══════════════════════════════════════════════════════════════════════════
 
-    # ── Dashboard ─────────────────────────────────────────────────────────────
+    def _build_sync_panel(self, parent: ctk.CTkFrame) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(5, weight=1)
+
+        # ── Cabeçalho ─────────────────────────────────────────────────────────
+        ctk.CTkLabel(parent, text="Sincronização de Cluster",
+                     font=ctk.CTkFont(size=24, weight="bold")).grid(
+            row=0, column=0, padx=24, pady=(24, 2), sticky="w")
+        ctk.CTkLabel(parent,
+                     text="Mantém a pasta local e a pasta compartilhada sincronizadas automaticamente.",
+                     text_color="gray60").grid(row=1, column=0, padx=24, pady=(0, 16), sticky="w")
+
+        # ── Card de Status ────────────────────────────────────────────────────
+        status_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        status_card.grid(row=2, column=0, padx=20, pady=(0, 10), sticky="ew")
+        status_card.grid_columnconfigure(1, weight=1)
+
+        self._sync_status_lbl = ctk.CTkLabel(
+            status_card, text="⬜  Parado",
+            font=ctk.CTkFont(size=14, weight="bold"), text_color="gray60")
+        self._sync_status_lbl.grid(row=0, column=0, padx=20, pady=(14, 6), sticky="w")
+
+        self._sync_stats_lbl = ctk.CTkLabel(
+            status_card, text="Ciclos: 0  |  Arquivos: 0  |  Erros: 0  |  Último: —",
+            text_color="gray50", font=ctk.CTkFont(size=11))
+        self._sync_stats_lbl.grid(row=1, column=0, columnspan=2, padx=20, pady=(0, 14), sticky="w")
+
+        btn_frame = ctk.CTkFrame(status_card, fg_color="transparent")
+        btn_frame.grid(row=0, column=1, padx=12, pady=10, sticky="e")
+
+        self._sync_toggle_btn = ctk.CTkButton(
+            btn_frame, text="▶  Iniciar Sync", width=150, height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._toggle_sync)
+        self._sync_toggle_btn.grid(row=0, column=0, padx=(0, 8))
+
+        ctk.CTkButton(
+            btn_frame, text="⟳  Sincronizar Agora", width=160, height=36,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=self._force_sync_once).grid(row=0, column=1)
+
+        # ── Card de configuração rápida ────────────────────────────────────────
+        cfg_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        cfg_card.grid(row=3, column=0, padx=20, pady=(0, 10), sticky="ew")
+        cfg_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(cfg_card, text="Pasta local (Cluster ARK):",
+                     text_color="gray60", anchor="w").grid(
+            row=0, column=0, padx=(16, 8), pady=(14, 4), sticky="w")
+        self._sync_local_var = tk.StringVar(
+            value=self.config_manager.config.local_cluster_path)
+        ctk.CTkEntry(cfg_card, textvariable=self._sync_local_var,
+                     placeholder_text="Ex: C:\\ARKServers\\ShooterGame\\Saved\\clusters").grid(
+            row=0, column=1, padx=(0, 8), pady=(14, 4), sticky="ew")
+        ctk.CTkButton(cfg_card, text="📁", width=36,
+                      fg_color=_CARD_BG, hover_color="#2a2a40",
+                      command=lambda: self._browse_sync_folder(self._sync_local_var)
+                      ).grid(row=0, column=2, padx=(0, 12), pady=(14, 4))
+
+        ctk.CTkLabel(cfg_card, text="Pasta compartilhada:",
+                     text_color="gray60", anchor="w").grid(
+            row=1, column=0, padx=(16, 8), pady=(4, 4), sticky="w")
+        self._sync_shared_var = tk.StringVar(
+            value=self.config_manager.config.shared_path)
+        ctk.CTkEntry(cfg_card, textvariable=self._sync_shared_var,
+                     placeholder_text="Ex: \\\\NAS\\ARKCluster  ou  D:\\Shared\\clusters").grid(
+            row=1, column=1, padx=(0, 8), pady=(4, 4), sticky="ew")
+        ctk.CTkButton(cfg_card, text="📁", width=36,
+                      fg_color=_CARD_BG, hover_color="#2a2a40",
+                      command=lambda: self._browse_sync_folder(self._sync_shared_var)
+                      ).grid(row=1, column=2, padx=(0, 12), pady=(4, 4))
+
+        ctk.CTkLabel(cfg_card, text="Intervalo (segundos):",
+                     text_color="gray60", anchor="w").grid(
+            row=2, column=0, padx=(16, 8), pady=(4, 14), sticky="w")
+        self._sync_interval_var = tk.StringVar(
+            value=str(self.config_manager.config.sync_interval))
+        ctk.CTkEntry(cfg_card, textvariable=self._sync_interval_var, width=80).grid(
+            row=2, column=1, padx=(0, 8), pady=(4, 14), sticky="w")
+
+        ctk.CTkButton(
+            cfg_card, text="💾  Salvar caminhos", height=32, width=160,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._save_sync_config).grid(
+            row=2, column=2, padx=(0, 12), pady=(4, 14))
+
+        # ── Log de Sync ────────────────────────────────────────────────────────
+        ctk.CTkLabel(parent, text="Log de Sincronização",
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color="gray70").grid(
+            row=4, column=0, padx=24, pady=(4, 4), sticky="w")
+
+        self._sync_log_box = ctk.CTkTextbox(
+            parent, state="disabled", font=ctk.CTkFont(family="Consolas", size=11),
+            fg_color="#0d0d18", text_color="#c8c8d8", corner_radius=8)
+        self._sync_log_box.grid(row=5, column=0, padx=20, pady=(0, 20), sticky="nsew")
+
+    # ── Sync helpers ──────────────────────────────────────────────────────────
+
+    def _browse_sync_folder(self, var: tk.StringVar) -> None:
+        d = filedialog.askdirectory(parent=self)
+        if d:
+            var.set(d)
+
+    def _save_sync_config(self) -> None:
+        cfg = self.config_manager.config
+        cfg.local_cluster_path = self._sync_local_var.get().strip()
+        cfg.shared_path = self._sync_shared_var.get().strip()
+        try:
+            cfg.sync_interval = max(1, int(self._sync_interval_var.get()))
+        except ValueError:
+            cfg.sync_interval = 5
+        self._sync_interval_var.set(str(cfg.sync_interval))
+        self.config_manager.save()
+        messagebox.showinfo("Salvo", "Configurações de sync salvas!", parent=self)
+        # Recria engine com novos paths
+        if self._sync_engine and self._sync_engine.is_running:
+            self._sync_engine.stop()
+            self._sync_engine = None
+            self._start_sync_engine()
+
+    def _toggle_sync(self) -> None:
+        if self._sync_engine and self._sync_engine.is_running:
+            self._sync_engine.stop()
+        else:
+            self._start_sync_engine()
+
+    def _start_sync_engine(self) -> None:
+        if self._sync_engine is None:
+            self._sync_engine = SyncEngine(
+                self.config_manager.config,
+                on_log=self._on_sync_log,
+                on_status_change=self._on_sync_status,
+                on_stats_update=self._on_sync_stats,
+            )
+        self._sync_engine.start()
+
+    def _force_sync_once(self) -> None:
+        if self._sync_engine is None:
+            self._sync_engine = SyncEngine(
+                self.config_manager.config,
+                on_log=self._on_sync_log,
+                on_status_change=self._on_sync_status,
+                on_stats_update=self._on_sync_stats,
+            )
+        self._sync_engine.sync_once()
+
+    def _on_sync_log(self, msg: str, level: str = "info") -> None:
+        colors = {"error": "#f87171", "warning": "#fbbf24",
+                  "success": "#4CAF50", "debug": "#94a3b8"}
+        color = colors.get(level, "#c8c8d8")
+        ts = __import__("datetime").datetime.now().strftime("%H:%M:%S")
+        line = f"[{ts}] {msg}\n"
+        def _do():
+            if self._sync_log_box:
+                self._sync_log_box.configure(state="normal")
+                self._sync_log_box.insert("end", line)
+                self._sync_log_box.see("end")
+                self._sync_log_box.configure(state="disabled")
+        self.after(0, _do)
+
+    def _on_sync_status(self, status: str) -> None:
+        def _do():
+            if self._sync_toggle_btn is None or self._sync_status_lbl is None:
+                return
+            if status == "running":
+                self._sync_status_lbl.configure(
+                    text="🟢  Sincronizando", text_color=_GREEN)
+                self._sync_toggle_btn.configure(
+                    text="⏹  Parar Sync", fg_color=_RED_DARK, hover_color=_RED_HOVER)
+            else:
+                self._sync_status_lbl.configure(
+                    text="⬜  Parado", text_color="gray60")
+                self._sync_toggle_btn.configure(
+                    text="▶  Iniciar Sync", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER)
+        self.after(0, _do)
+
+    def _on_sync_stats(self, stats: dict) -> None:
+        def _do():
+            if self._sync_stats_lbl:
+                self._sync_stats_lbl.configure(
+                    text=(f"Ciclos: {stats.get('cycles', 0)}  |  "
+                          f"Arquivos: {stats.get('total_synced', 0)}  |  "
+                          f"Erros: {stats.get('errors', 0)}  |  "
+                          f"Último: {stats.get('last_sync', '—')}"))
+        self.after(0, _do)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Dashboard
+    # ══════════════════════════════════════════════════════════════════════════
 
     def _build_dashboard(self, parent: ctk.CTkFrame) -> None:
-        parent.grid_columnconfigure((0, 1), weight=1)
-        parent.grid_rowconfigure(3, weight=1)
-
-        # Título
-        ctk.CTkLabel(
-            parent, text="Dashboard",
-            font=ctk.CTkFont(size=24, weight="bold"),
-        ).grid(row=0, column=0, columnspan=2, padx=24, pady=(24, 2), sticky="w")
-        ctk.CTkLabel(
-            parent, text="Monitore e controle a sincronização em tempo real.",
-            text_color="gray60",
-        ).grid(row=1, column=0, columnspan=2, padx=24, pady=(0, 18), sticky="w")
-
-        # Cards de estatísticas
-        stats_row = ctk.CTkFrame(parent, fg_color="transparent")
-        stats_row.grid(row=2, column=0, columnspan=2, padx=20, pady=4, sticky="ew")
-        stats_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
-
-        self._stat_vars = {
-            "status_text": tk.StringVar(value="PARADO"),
-            "total": tk.StringVar(value="0"),
-            "last_sync": tk.StringVar(value="—"),
-            "errors": tk.StringVar(value="0"),
-        }
-        self._stat_color_labels: dict[str, ctk.CTkLabel] = {}
-
-        cards_def = [
-            ("Status", "status_text", "#ff6666", "🔴"),
-            ("Arquivos sincronizados", "total", _GREEN, "📁"),
-            ("Último sync", "last_sync", "#5b9bd5", "🕐"),
-            ("Erros", "errors", "#ff9944", "⚠️"),
-        ]
-        for col, (title, key, color, icon) in enumerate(cards_def):
-            card = ctk.CTkFrame(stats_row, corner_radius=12, fg_color=_CARD_BG)
-            card.grid(row=0, column=col, padx=6, pady=4, sticky="ew")
-            card.grid_columnconfigure(0, weight=1)
-
-            ctk.CTkLabel(
-                card, text=f"{icon}  {title}",
-                text_color="gray55", font=ctk.CTkFont(size=11),
-            ).grid(row=0, column=0, padx=16, pady=(14, 2), sticky="w")
-
-            lbl = ctk.CTkLabel(
-                card, textvariable=self._stat_vars[key],
-                font=ctk.CTkFont(size=22, weight="bold"),
-                text_color=color,
-            )
-            lbl.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="w")
-            self._stat_color_labels[key] = lbl
-
-        # Área de controle
-        ctrl = ctk.CTkFrame(parent, corner_radius=14, fg_color=_CARD_BG)
-        ctrl.grid(row=3, column=0, columnspan=2, padx=20, pady=10, sticky="nsew")
-        ctrl.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(
-            ctrl, text="Controle",
-            font=ctk.CTkFont(size=16, weight="bold"),
-        ).grid(row=0, column=0, padx=20, pady=(18, 10), sticky="w")
-
-        btn_row = ctk.CTkFrame(ctrl, fg_color="transparent")
-        btn_row.grid(row=1, column=0, padx=20, pady=(0, 10), sticky="w")
-
-        self._start_btn = ctk.CTkButton(
-            btn_row,
-            text="▶  Iniciar Sincronização",
-            width=210, height=44,
-            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-            font=ctk.CTkFont(size=14, weight="bold"),
-            command=self._toggle_sync,
-        )
-        self._start_btn.pack(side="left", padx=(0, 10))
-
-        ctk.CTkButton(
-            btn_row,
-            text="🔄  Forçar Sync Agora",
-            width=190, height=44,
-            fg_color="#1a3a6a", hover_color="#102650",
-            font=ctk.CTkFont(size=13),
-            command=self._force_sync,
-        ).pack(side="left")
-
-        # Info da máquina
-        cfg = self.config_manager.config
-        self._machine_info_label = ctk.CTkLabel(
-            ctrl,
-            text=self._machine_info_text(cfg),
-            text_color="gray50",
-            font=ctk.CTkFont(size=12),
-        )
-        self._machine_info_label.grid(row=2, column=0, padx=20, pady=(4, 18), sticky="w")
-
-    def _machine_info_text(self, cfg) -> str:
-        name = cfg.machine_name or _hostname()
-        return f"🖥️  Máquina: {name}   ⏱  Intervalo: {cfg.sync_interval}s"
-
-    # ── Configurações ─────────────────────────────────────────────────────────
-
-    def _build_config(self, parent) -> None:
         parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(2, weight=1)
 
-        ctk.CTkLabel(
-            parent, text="Configurações",
-            font=ctk.CTkFont(size=24, weight="bold"),
-        ).grid(row=0, column=0, padx=24, pady=(24, 2), sticky="w")
-        ctk.CTkLabel(
-            parent, text="Configure os caminhos e parâmetros de sincronização.",
-            text_color="gray60",
-        ).grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
+        hdr = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr.grid(row=0, column=0, padx=24, pady=(24, 4), sticky="ew")
+        hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr, text="Dashboard",
+                     font=ctk.CTkFont(size=24, weight="bold")).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(hdr, text="Gerencie todos os seus servidores ARK em um só lugar.",
+                     text_color="gray60").grid(row=1, column=0, sticky="w")
 
-        cfg = self.config_manager.config
-
-        # ── Identificação ─────────────────────
-        self._section(parent, 2, "🖥️  Identificação da Máquina")
-
-        id_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        id_card.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
-        id_card.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(id_card, text="Nome da Máquina:", width=185, anchor="w").grid(
-            row=0, column=0, padx=18, pady=16
-        )
-        self._machine_name_var = tk.StringVar(value=cfg.machine_name)
-        ctk.CTkEntry(
-            id_card, textvariable=self._machine_name_var, height=36,
-            placeholder_text="Ex: Servidor-A",
-        ).grid(row=0, column=1, padx=(0, 18), pady=16, sticky="ew")
-
-        # ── Caminhos ──────────────────────────
-        self._section(parent, 4, "📂  Caminhos de Pasta")
-
-        paths_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        paths_card.grid(row=5, column=0, padx=20, pady=(0, 14), sticky="ew")
-        paths_card.grid_columnconfigure(1, weight=1)
-
-        # Pasta local ARK Cluster
-        ctk.CTkLabel(
-            paths_card, text="Pasta ARK Cluster\n(esta máquina):",
-            width=185, anchor="w", justify="left",
-        ).grid(row=0, column=0, padx=18, pady=(18, 10), sticky="nw")
-        self._local_path_var = tk.StringVar(value=cfg.local_cluster_path)
-        ctk.CTkEntry(
-            paths_card, textvariable=self._local_path_var, height=36,
-            placeholder_text=r"Ex: C:\ARK\ShooterGame\Saved\clusters",
-        ).grid(row=0, column=1, padx=(0, 6), pady=(18, 10), sticky="ew")
         ctk.CTkButton(
-            paths_card, text="📁", width=38, height=36,
-            command=lambda: self._browse(self._local_path_var),
-        ).grid(row=0, column=2, padx=(0, 18), pady=(18, 10))
-
-        ctk.CTkFrame(paths_card, height=1, fg_color="#2a2a44").grid(
-            row=1, column=0, columnspan=3, sticky="ew", padx=18
-        )
-
-        # Pasta compartilhada
-        ctk.CTkLabel(
-            paths_card, text="Pasta Compartilhada\n(rede/ambas máquinas):",
-            width=185, anchor="w", justify="left",
-        ).grid(row=2, column=0, padx=18, pady=(10, 18), sticky="nw")
-        self._shared_path_var = tk.StringVar(value=cfg.shared_path)
-        ctk.CTkEntry(
-            paths_card, textvariable=self._shared_path_var, height=36,
-            placeholder_text=r"Ex: \\SERVIDOR\ARK-Sync",
-        ).grid(row=2, column=1, padx=(0, 6), pady=(10, 18), sticky="ew")
-        ctk.CTkButton(
-            paths_card, text="📁", width=38, height=36,
-            command=lambda: self._browse(self._shared_path_var),
-        ).grid(row=2, column=2, padx=(0, 18), pady=(10, 18))
-
-        # ── Parâmetros ────────────────────────
-        self._section(parent, 6, "⏱  Intervalo de Sincronização")
-
-        interval_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        interval_card.grid(row=7, column=0, padx=20, pady=(0, 14), sticky="ew")
-        interval_card.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(interval_card, text="Intervalo (segundos):", width=185, anchor="w").grid(
-            row=0, column=0, padx=18, pady=18
-        )
-        self._interval_var = tk.IntVar(value=cfg.sync_interval)
-        slider_frame = ctk.CTkFrame(interval_card, fg_color="transparent")
-        slider_frame.grid(row=0, column=1, padx=(0, 18), pady=18, sticky="w")
-
-        self._interval_display = ctk.CTkLabel(
-            slider_frame, text=f"{cfg.sync_interval}s", width=42,
-            font=ctk.CTkFont(size=15, weight="bold"), text_color=_GREEN,
-        )
-        self._interval_display.pack(side="left", padx=(0, 10))
-
-        ctk.CTkSlider(
-            slider_frame, from_=1, to=60, variable=self._interval_var, width=220,
-            command=lambda v: self._interval_display.configure(text=f"{int(v)}s"),
-        ).pack(side="left")
-        ctk.CTkLabel(slider_frame, text="60s", text_color="gray50").pack(side="left", padx=6)
-
-        # ── Opções ────────────────────────────
-        self._section(parent, 8, "🔧  Opções")
-
-        opt_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        opt_card.grid(row=9, column=0, padx=20, pady=(0, 14), sticky="ew")
-
-        self._auto_start_var = tk.BooleanVar(value=cfg.auto_start)
-        ctk.CTkCheckBox(
-            opt_card,
-            text="Iniciar sincronização automaticamente ao abrir o programa",
-            variable=self._auto_start_var,
-            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-        ).grid(row=0, column=0, padx=18, pady=(16, 8), sticky="w")
-
-        self._log_debug_var = tk.BooleanVar(value=cfg.log_debug)
-        ctk.CTkCheckBox(
-            opt_card,
-            text="Mostrar ciclos sem alterações nos logs (modo debug)",
-            variable=self._log_debug_var,
-            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-        ).grid(row=1, column=0, padx=18, pady=(0, 8), sticky="w")
-
-        self._startup_windows_var = tk.BooleanVar(value=cfg.startup_with_windows)
-        ctk.CTkCheckBox(
-            opt_card,
-            text="Iniciar o ARKLAND-Multi automaticamente com o Windows",
-            variable=self._startup_windows_var,
-            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-        ).grid(row=2, column=0, padx=18, pady=(0, 16), sticky="w")
-
-        # Botão salvar
-        ctk.CTkButton(
-            parent,
-            text="💾  Salvar Configurações",
-            height=44,
-            font=ctk.CTkFont(size=14, weight="bold"),
+            hdr, text="＋  Novo Servidor", width=160, height=36,
             fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-            command=self._save_config,
-        ).grid(row=10, column=0, padx=20, pady=(0, 24), sticky="ew")
-
-    def _section(self, parent, row: int, text: str) -> None:
-        ctk.CTkLabel(
-            parent, text=text,
             font=ctk.CTkFont(size=13, weight="bold"),
-            text_color="#88d4a0",
-        ).grid(row=row, column=0, padx=22, pady=(6, 4), sticky="w")
+            command=self._dialog_add_server,
+        ).grid(row=0, column=1, rowspan=2, sticky="e")
 
-    # ── Logs ──────────────────────────────────────────────────────────────────
+        ctk.CTkFrame(parent, height=1, fg_color="#2a2a44").grid(
+            row=1, column=0, padx=20, pady=(8, 0), sticky="ew")
 
-    def _build_logs(self, parent: ctk.CTkFrame) -> None:
+        self._dashboard_scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        self._dashboard_scroll.grid(row=2, column=0, padx=12, pady=12, sticky="nsew")
+        self._dashboard_scroll.grid_columnconfigure((0, 1), weight=1)
+
+        self._refresh_dashboard()
+
+    def _refresh_dashboard(self) -> None:
+        frame = self._dashboard_scroll
+        for w in frame.winfo_children():
+            w.destroy()
+
+        servers = self.config_manager.servers
+        if not servers:
+            ctk.CTkLabel(
+                frame,
+                text="Nenhum servidor configurado.\nClique em '＋ Novo Servidor' para começar.",
+                font=ctk.CTkFont(size=15), text_color="gray50", justify="center",
+            ).grid(row=0, column=0, columnspan=2, pady=60)
+            return
+
+        for idx, srv in enumerate(servers):
+            row, col = divmod(idx, 2)
+            self._build_server_card(frame, srv, row, col)
+
+    def _build_server_card(self, parent, srv: ServerConfig, row: int, col: int) -> None:
+        inst = self.server_manager.get_instance(srv.id)
+        status = inst.status if inst else SERVER_STATUS_STOPPED
+        color = _STATUS_COLOR.get(status, "#ff6666")
+        status_txt = _STATUS_LABEL.get(status, "PARADO")
+
+        card = ctk.CTkFrame(parent, corner_radius=14, fg_color=_CARD_BG, border_width=1,
+                            border_color="#2a2a44")
+        card.grid(row=row, column=col, padx=8, pady=8, sticky="ew")
+        card.grid_columnconfigure(0, weight=1)
+
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.grid(row=0, column=0, padx=16, pady=(14, 4), sticky="ew")
+        top.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(top, text=srv.name,
+                     font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(top, text=status_txt, text_color=color,
+                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=1, sticky="e")
+
+        map_name = ARK_MAP_NAMES.get(srv.map, srv.map)
+        info_lines = [
+            f"🗺  {map_name}",
+            f"🌐  Porta: {srv.server_port}  |  Query: {srv.query_port}",
+            f"👥  Máx Jogadores: {srv.max_players}",
+        ]
+        if srv.mods:
+            info_lines.append(f"🔧  Mods: {len(srv.mods)}")
+        if inst and hasattr(inst, "uptime") and inst.uptime != "—":
+            info_lines.append(f"⏱  Uptime: {inst.uptime}")
+
+        ctk.CTkLabel(card, text="\n".join(info_lines),
+                     text_color="gray60", justify="left",
+                     font=ctk.CTkFont(size=12)).grid(
+            row=1, column=0, padx=16, pady=(0, 10), sticky="w")
+
+        btn_row = ctk.CTkFrame(card, fg_color="transparent")
+        btn_row.grid(row=2, column=0, padx=12, pady=(0, 14), sticky="ew")
+
+        is_running = status == SERVER_STATUS_RUNNING
+        is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
+
+        ctk.CTkButton(
+            btn_row,
+            text="▶ Iniciar" if not is_running else "⏹ Parar",
+            width=100, height=32,
+            fg_color=_GREEN_DARK if not is_running else _RED_DARK,
+            hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
+            state="disabled" if is_busy else "normal",
+            command=lambda sid=srv.id, r=is_running: (
+                self._stop_server(sid) if r else self._start_server(sid)
+            ),
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            btn_row, text="🔄 Restart", width=90, height=32,
+            fg_color="#3a3a5a", hover_color="#252540",
+            state="disabled" if is_busy or not is_running else "normal",
+            command=lambda sid=srv.id: self._restart_server(sid),
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            btn_row, text="⚙ Configurar", width=110, height=32,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=lambda sid=srv.id: self._open_server_panel(sid),
+        ).pack(side="right")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Painel de Servidor
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _open_server_panel(self, server_id: str) -> None:
+        if server_id not in self._server_frames:
+            srv = self.config_manager.get_server(server_id)
+            if not srv:
+                return
+            frame = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
+            frame.grid(row=0, column=1, sticky="nsew")
+            self._server_frames[server_id] = frame
+            self._server_widgets[server_id] = {}
+            self._build_server_panel(frame, srv)
+            self._frames[f"server_{server_id}"] = frame
+
+        self._show_frame(f"server_{server_id}")
+
+    def _build_server_panel(self, parent: ctk.CTkFrame, srv: ServerConfig) -> None:
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(1, weight=1)
 
-        header = ctk.CTkFrame(parent, fg_color="transparent")
-        header.grid(row=0, column=0, padx=20, pady=(20, 8), sticky="ew")
-        header.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(
-            header, text="Logs de Sincronização",
-            font=ctk.CTkFont(size=24, weight="bold"),
-        ).grid(row=0, column=0, sticky="w")
+        # Cabeçalho
+        hdr = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=0, height=64)
+        hdr.grid(row=0, column=0, sticky="ew")
+        hdr.grid_propagate(False)
+        hdr.grid_columnconfigure(1, weight=1)
 
         ctk.CTkButton(
-            header, text="🗑  Limpar", width=110, height=32,
-            fg_color="#3a3a5a", hover_color="#252540",
-            command=self._clear_logs,
-        ).grid(row=0, column=1, sticky="e")
+            hdr, text="◀", width=36, height=36,
+            fg_color="transparent", hover_color="#252540",
+            command=lambda: self._show_frame("dashboard"),
+        ).grid(row=0, column=0, padx=(12, 0), pady=14)
 
-        self._log_text = ctk.CTkTextbox(
-            parent,
-            font=ctk.CTkFont(family="Courier New", size=12),
-            wrap="word",
-            state="disabled",
+        inst = self.server_manager.get_instance(srv.id)
+        status = inst.status if inst else SERVER_STATUS_STOPPED
+
+        self._server_widgets[srv.id]["_name_title_var"] = tk.StringVar(value=srv.name)
+        ctk.CTkLabel(
+            hdr, textvariable=self._server_widgets[srv.id]["_name_title_var"],
+            font=ctk.CTkFont(size=20, weight="bold"),
+        ).grid(row=0, column=1, padx=8, pady=14, sticky="w")
+
+        status_var = tk.StringVar(value=_STATUS_LABEL.get(status, "PARADO"))
+        status_lbl = ctk.CTkLabel(
+            hdr, textvariable=status_var,
+            text_color=_STATUS_COLOR.get(status, "#ff6666"),
+            font=ctk.CTkFont(size=13, weight="bold"),
         )
-        self._log_text.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
+        status_lbl.grid(row=0, column=2, padx=12, pady=14)
+        self._server_widgets[srv.id]["_status_var"] = status_var
+        self._server_widgets[srv.id]["_status_lbl"] = status_lbl
 
-        # Cores por nível (acesso à widget tk interna)
-        tw = self._log_text._textbox
+        # Badge de visibilidade LAN/WAN (preenchido pelo callback _on_server_visibility_change)
+        inst_now = self.server_manager.get_instance(srv.id)
+        vis_mode = inst_now.online_mode if inst_now and hasattr(inst_now, "online_mode") else "—"
+        vis_text  = "🌐 WAN" if vis_mode == "WAN" else ("🏠 LAN" if vis_mode == "LAN" else "")
+        vis_color = _GREEN if vis_mode == "WAN" else ("#ffaa44" if vis_mode == "LAN" else "gray50")
+        vis_lbl = ctk.CTkLabel(
+            hdr, text=vis_text, text_color=vis_color,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        vis_lbl.grid(row=0, column=3, padx=(0, 8), pady=14)
+        self._server_widgets[srv.id]["_visibility_lbl"] = vis_lbl
+
+        ctrl = ctk.CTkFrame(hdr, fg_color="transparent")
+        ctrl.grid(row=0, column=4, padx=(0, 16), pady=14)
+
+        is_running = status == SERVER_STATUS_RUNNING
+        is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
+
+        start_stop_btn = ctk.CTkButton(
+            ctrl,
+            text="▶ Iniciar" if not is_running else "⏹ Parar",
+            width=110, height=34,
+            fg_color=_GREEN_DARK if not is_running else _RED_DARK,
+            hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
+            state="disabled" if is_busy else "normal",
+            command=lambda: (
+                self._stop_server(srv.id)
+                if (self.server_manager.get_instance(srv.id) and
+                    self.server_manager.get_instance(srv.id).status == SERVER_STATUS_RUNNING)
+                else self._start_server(srv.id)
+            ),
+        )
+        start_stop_btn.pack(side="left", padx=(0, 6))
+        self._server_widgets[srv.id]["_start_stop_btn"] = start_stop_btn
+
+        ctk.CTkButton(
+            ctrl, text="🔄", width=36, height=34,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: self._restart_server(srv.id),
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            ctrl, text="🗑 Remover", width=100, height=34,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            command=lambda: self._confirm_remove_server(srv.id),
+        ).pack(side="left")
+
+        # Abas
+        tabs = ctk.CTkTabview(
+            parent, fg_color=_CARD_BG, corner_radius=12,
+            segmented_button_fg_color=_SIDEBAR_BG,
+            segmented_button_selected_color=_GREEN_DARK,
+            segmented_button_selected_hover_color=_GREEN_HOVER,
+        )
+        tabs.grid(row=1, column=0, padx=14, pady=12, sticky="nsew")
+        self._server_widgets[srv.id]["_tabs"] = tabs
+
+        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Plugins", "Console RCON", "Logs"):
+            tabs.add(tab_name)
+
+        self._build_tab_general (tabs.tab("Geral"),         srv)
+        self._build_tab_game    (tabs.tab("Jogo"),          srv)
+        self._build_tab_advanced(tabs.tab("Avançado"),      srv)
+        self._build_tab_mods    (tabs.tab("Mods"),          srv)
+        self._build_tab_plugins (tabs.tab("Plugins"),       srv)
+        self._build_tab_rcon    (tabs.tab("Console RCON"),  srv)
+        self._build_tab_logs    (tabs.tab("Logs"),          srv)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Geral
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_general(self, parent, srv: ServerConfig) -> None:
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=4, pady=4)
+        scroll.grid_columnconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        def row(label: str, hint: str, var, row_n: int, is_pass: bool = False,
+                browse: bool = False, combo: Optional[List] = None) -> None:
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=200, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(lbl_fr, text=hint, width=200, anchor="w",
+                             text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+            if combo:
+                ent = ctk.CTkComboBox(scroll, variable=var, values=combo, width=340, height=34)
+                ent.grid(row=row_n, column=1, padx=(0, 16), pady=4, sticky="w")
+            elif browse:
+                fr = ctk.CTkFrame(scroll, fg_color="transparent")
+                fr.grid(row=row_n, column=1, padx=(0, 16), pady=4, sticky="ew")
+                fr.grid_columnconfigure(0, weight=1)
+                ctk.CTkEntry(fr, textvariable=var, height=34).grid(
+                    row=0, column=0, sticky="ew", padx=(0, 6))
+                ctk.CTkButton(fr, text="📁", width=34, height=34,
+                              command=lambda v=var: self._browse_dir(v)).grid(row=0, column=1)
+            else:
+                ctk.CTkEntry(scroll, textvariable=var, height=34,
+                             show="*" if is_pass else "").grid(
+                    row=row_n, column=1, padx=(0, 16), pady=4, sticky="ew")
+
+        w["name"]            = tk.StringVar(value=srv.name)
+        w["install_dir"]     = tk.StringVar(value=srv.install_dir)
+        w["server_name"]     = tk.StringVar(value=srv.server_name)
+        w["map"]             = tk.StringVar(value=srv.map)
+        w["server_password"] = tk.StringVar(value=srv.server_password)
+        w["admin_password"]  = tk.StringVar(value=srv.admin_password)
+        w["rcon_password"]   = tk.StringVar(value=srv.rcon_password)
+        w["max_players"]     = tk.StringVar(value=str(srv.max_players))
+        w["server_port"]     = tk.StringVar(value=str(srv.server_port))
+        w["query_port"]      = tk.StringVar(value=str(srv.query_port))
+        w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
+        w["extra_args"]      = tk.StringVar(value=srv.extra_args)
+        w["active_event"]    = tk.StringVar(value=srv.active_event)
+        w["auto_save"]       = tk.StringVar(value=str(srv.auto_save_period))
+
+        self._section_lbl(scroll, 0, "🖥️  Identificação")
+        row("Nome interno:",
+            "Label exibido na barra lateral do app.",
+            w["name"], 1)
+        row("Diretório de Instalação:",
+            "Pasta onde o ARK Server será instalado/atualizado.",
+            w["install_dir"], 2, browse=True)
+        row("Nome do Servidor:",
+            "Nome visível na lista de servidores do jogo (Session Name).",
+            w["server_name"], 3)
+
+        self._section_lbl(scroll, 4, "🗺️  Mapa")
+        row("Mapa:",
+            "Selecione o mapa que o servidor irá rodar.",
+            w["map"], 5, combo=[
+                f"{ARK_MAP_NAMES.get(m, m)} ({m})" for m in ARK_MAPS
+            ])
+
+        self._section_lbl(scroll, 6, "🔌  Rede e Portas")
+        row("Porta do Servidor:",
+            "Porta principal UDP. Padrão: 7777. Liberar no roteador (UDP).",
+            w["server_port"], 7)
+        row("Porta de Query:",
+            "Porta de consulta Steam. Padrão: 27015. Liberar no roteador (UDP).",
+            w["query_port"], 8)
+        row("Porta RCON:",
+            "Porta do console remoto. Padrão: 27020. Só abrir se usar RCON externo.",
+            w["rcon_port"], 9)
+
+        self._section_lbl(scroll, 10, "🔒  Acesso")
+        row("Senha do Servidor:",
+            "Senha para entrar. Deixe vazio para servidor público.",
+            w["server_password"], 11, is_pass=True)
+        row("Senha de Admin:",
+            "Usada para ativar cheats in-game (enablecheats). Mantenha secreta.",
+            w["admin_password"], 12, is_pass=True)
+        row("Senha RCON:",
+            "Senha para conexão via console RCON. Geralmente igual à de admin.",
+            w["rcon_password"], 13, is_pass=True)
+        row("Máx. Jogadores:",
+            "Limite de jogadores simultâneos no servidor.",
+            w["max_players"], 14)
+
+        self._section_lbl(scroll, 15, "⚙️  Opções de Inicialização")
+        row("Evento Ativo:",
+            "Ex: WinterWonderland, FearEvolved. Deixe vazio para sem evento.",
+            w["active_event"], 16)
+        row("Auto-Save (min):",
+            "Intervalo de salvamento automático em minutos. Padrão: 15.",
+            w["auto_save"], 17)
+        row("Argumentos Extras:",
+            "Parâmetros adicionais de linha de comando. Ex: -ForceAllowCaveFlyers.",
+            w["extra_args"], 18)
+
+        w["rcon_enabled"]       = tk.BooleanVar(value=srv.rcon_enabled)
+        w["use_battleye"]       = tk.BooleanVar(value=srv.use_battleye)
+        w["use_allcores"]       = tk.BooleanVar(value=srv.use_allcores)
+        w["force_respawn"]      = tk.BooleanVar(value=srv.force_respawn_dinos)
+        w["whitelist_only"]     = tk.BooleanVar(value=srv.whitelist_only)
+        w["auto_restart_crash"] = tk.BooleanVar(value=srv.auto_restart_on_crash)
+        w["auto_update_start"]  = tk.BooleanVar(value=srv.auto_update_on_start)
+
+        self._section_lbl(scroll, 19, "🔧  Flags")
+        checkboxes = [
+            ("Habilitar RCON",
+             "Ativa o console remoto. Necessário para usar a aba Console RCON.",
+             w["rcon_enabled"]),
+            ("Usar BattlEye (anti-cheat)",
+             "Proteção anti-cheat oficial. Desative para servidores com mods incompatíveis.",
+             w["use_battleye"]),
+            ("Usar todos os núcleos de CPU",
+             "Permite que o servidor use todos os núcleos disponíveis na máquina.",
+             w["use_allcores"]),
+            ("Forçar respawn de dinos",
+             "Reseta todos os dinos selvagens ao iniciar o servidor.",
+             w["force_respawn"]),
+            ("Apenas whitelist",
+             "Somente jogadores na whitelist podem entrar no servidor.",
+             w["whitelist_only"]),
+            ("Auto-restart ao travar",
+             "Reinicia o servidor automaticamente caso ocorra um crash.",
+             w["auto_restart_crash"]),
+            ("Atualizar servidor ao iniciar",
+             "Verifica e aplica atualizações via SteamCMD antes de iniciar.",
+             w["auto_update_start"]),
+        ]
+        for ci, (txt, hint_txt, var) in enumerate(checkboxes):
+            cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            cb_fr.grid(row=20 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+            ctk.CTkCheckBox(cb_fr, text=txt, variable=var,
+                            checkmark_color="white", fg_color=_GREEN_DARK,
+                            hover_color=_GREEN_HOVER).pack(anchor="w")
+            ctk.CTkLabel(cb_fr, text=hint_txt, text_color="gray40",
+                         font=ctk.CTkFont(size=10), anchor="w").pack(
+                anchor="w", padx=(26, 0), pady=(0, 2))
+
+        self._save_btn_row(scroll, 27, srv.id)
+
+        # ── Seção Instalação ─────────────────────────────────────────────────
+        self._section_lbl(scroll, 28, "⬇️  Instalação / Atualização do Servidor")
+        inst_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
+        inst_card.grid(row=29, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        inst_card.grid_columnconfigure(0, weight=1)
+
+        btn_row = ctk.CTkFrame(inst_card, fg_color="transparent")
+        btn_row.grid(row=0, column=0, padx=16, pady=(14, 6), sticky="w")
+
+        inst_btn = ctk.CTkButton(
+            btn_row, text="⬇  Instalar / Atualizar Servidor",
+            height=38, width=230,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda sid=srv.id: self._run_server_install(sid, validate=False))
+        inst_btn.grid(row=0, column=0, padx=(0, 10))
+
+        val_btn = ctk.CTkButton(
+            btn_row, text="✅  Verificar Arquivos (validate)",
+            height=38, width=230,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=lambda sid=srv.id: self._run_server_install(sid, validate=True))
+        val_btn.grid(row=0, column=1)
+
+        ctk.CTkLabel(inst_card,
+                     text="Usa o SteamCMD para baixar/atualizar os arquivos do servidor ARK: Survival Evolved (App 376030).\n"
+                          "O 'Diretório de Instalação' acima deve estar preenchido. Salve antes de instalar.",
+                     text_color="gray45", font=ctk.CTkFont(size=10), justify="left").grid(
+            row=1, column=0, padx=16, pady=(0, 6), sticky="w")
+
+        # status + log
+        inst_status = ctk.CTkLabel(inst_card, text="", text_color="gray60",
+                                   font=ctk.CTkFont(size=11))
+        inst_status.grid(row=2, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        inst_log = ctk.CTkTextbox(
+            inst_card, height=160, state="disabled",
+            font=ctk.CTkFont(family="Consolas", size=10),
+            fg_color="#0d0d18", text_color="#c8c8d8", corner_radius=6)
+        inst_log.grid(row=3, column=0, padx=16, pady=(0, 14), sticky="ew")
+
+        # guarda referências indexadas por server_id
+        self._server_widgets[srv.id]["_inst_status"] = inst_status
+        self._server_widgets[srv.id]["_inst_log"]    = inst_log
+        self._server_widgets[srv.id]["_inst_btn"]    = inst_btn
+        self._server_widgets[srv.id]["_val_btn"]     = val_btn
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Jogo
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_game(self, parent, srv: ServerConfig) -> None:
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=4, pady=4)
+        scroll.grid_columnconfigure(1, weight=1)
+
+        w  = self._server_widgets[srv.id]
+        gs = srv.game_settings
+
+        def frow(label: str, hint: str, field: str, val: float, row_n: int,
+                 frm: float = 0.0, to: float = 10.0) -> None:
+            var = tk.DoubleVar(value=val)
+            w[f"gs_{field}"] = var
+
+            # Coluna 0: nome + dica
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                             text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+
+            # Coluna 2: entry editável
+            entry_var = tk.StringVar(value=f"{val:.2f}")
+            entry = ctk.CTkEntry(scroll, textvariable=entry_var, width=72, height=28,
+                                 justify="right", text_color=_GREEN,
+                                 font=ctk.CTkFont(size=12, weight="bold"))
+            entry.grid(row=row_n, column=2, padx=(4, 14), pady=4)
+
+            # Coluna 1: slider
+            slider = ctk.CTkSlider(
+                scroll, from_=frm, to=to, variable=var,
+                command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
+            )
+            slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
+
+            def _commit(event=None, _var=var, _ev=entry_var, _frm=frm, _to=to):
+                try:
+                    v = float(_ev.get().replace(",", "."))
+                    v = max(_frm, min(_to, v))
+                    _var.set(v)
+                    _ev.set(f"{v:.2f}")
+                except ValueError:
+                    _ev.set(f"{_var.get():.2f}")
+
+            entry.bind("<Return>", _commit)
+            entry.bind("<FocusOut>", _commit)
+
+        def irow(label: str, hint: str, field: str, val: int, row_n: int) -> None:
+            w[f"gs_{field}"] = tk.StringVar(value=str(val))
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                             text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+            ctk.CTkEntry(scroll, textvariable=w[f"gs_{field}"], width=120, height=28).grid(
+                row=row_n, column=1, padx=4, pady=4, sticky="w")
+
+        def brow(label: str, field: str, val: bool, row_n: int) -> None:
+            w[f"gs_{field}"] = tk.BooleanVar(value=val)
+            ctk.CTkCheckBox(scroll, text=label, variable=w[f"gs_{field}"],
+                            checkmark_color="white", fg_color=_GREEN_DARK,
+                            hover_color=_GREEN_HOVER).grid(
+                row=row_n, column=0, columnspan=3, padx=16, pady=4, sticky="w")
+
+        r = 0
+        self._section_lbl(scroll, r, "⚙️  Dificuldade"); r += 1
+        frow("Nível de Dificuldade",
+             "Padrão: 0.20 — Aumentar eleva o nível máximo dos dinos selvagens.",
+             "difficulty_offset", gs.difficulty_offset, r, 0, 1); r += 1
+        frow("Dificuldade Máxima (Override)",
+             "Ex: 5.0 = dinos até nível 150. Aumente para dinos mais difíceis.",
+             "override_official_difficulty", gs.override_official_difficulty, r, 1, 10); r += 1
+
+        self._section_lbl(scroll, r, "📈  XP"); r += 1
+        frow("Multiplicador de XP Geral",
+             "Multiplica todo o XP ganho. Aumente para progredir mais rápido.",
+             "xp_multiplier", gs.xp_multiplier, r); r += 1
+        frow("XP por Abate",
+             "Multiplica o XP ganho ao matar criaturas.",
+             "kill_xp_multiplier", gs.kill_xp_multiplier, r); r += 1
+        frow("XP por Coleta",
+             "Multiplica o XP ganho ao coletar recursos.",
+             "harvest_xp_multiplier", gs.harvest_xp_multiplier, r); r += 1
+        frow("XP por Craft",
+             "Multiplica o XP ganho ao fabricar itens.",
+             "craft_xp_multiplier", gs.craft_xp_multiplier, r); r += 1
+        frow("XP Genérico",
+             "Multiplica o XP de fontes diversas.",
+             "generic_xp_multiplier", gs.generic_xp_multiplier, r); r += 1
+        frow("XP Especial",
+             "Multiplica o XP de eventos e fontes especiais.",
+             "special_xp_multiplier", gs.special_xp_multiplier, r); r += 1
+
+        self._section_lbl(scroll, r, "👤  Jogador"); r += 1
+        frow("Dano do Jogador",
+             "Aumenta o dano causado pelo jogador. Ex: 2.0 = dano dobrado.",
+             "player_damage_multiplier", gs.player_damage_multiplier, r); r += 1
+        frow("Resistência do Jogador",
+             "Reduz o dano recebido. Menor = mais resistente ao dano.",
+             "player_resistance_multiplier", gs.player_resistance_multiplier, r); r += 1
+        frow("Consumo de Água",
+             "Taxa de consumo de água. Menor = seca mais devagar.",
+             "player_character_water_drain_multiplier",
+             gs.player_character_water_drain_multiplier, r); r += 1
+        frow("Consumo de Comida",
+             "Taxa de consumo de comida. Menor = fica com fome mais devagar.",
+             "player_character_food_drain_multiplier",
+             gs.player_character_food_drain_multiplier, r); r += 1
+        frow("Regeneração de Vida",
+             "Velocidade de recuperação de HP. Maior = recupera mais rápido.",
+             "player_character_health_recovery_multiplier",
+             gs.player_character_health_recovery_multiplier, r); r += 1
+        frow("Consumo de Stamina",
+             "Taxa de consumo de stamina. Menor = cansa mais devagar.",
+             "player_character_stamina_drain_multiplier",
+             gs.player_character_stamina_drain_multiplier, r); r += 1
+
+        self._section_lbl(scroll, r, "🦖  Dinos"); r += 1
+        frow("Dano dos Dinos",
+             "Aumenta o dano causado pelos dinos selvagens.",
+             "dino_damage_multiplier", gs.dino_damage_multiplier, r); r += 1
+        frow("Resistência dos Dinos",
+             "Reduz o dano recebido pelos dinos. Menor = dinos mais resistentes.",
+             "dino_resistance_multiplier", gs.dino_resistance_multiplier, r); r += 1
+        frow("Regeneração dos Dinos",
+             "Velocidade de recuperação de HP dos dinos.",
+             "dino_character_health_recovery_multiplier",
+             gs.dino_character_health_recovery_multiplier, r); r += 1
+        frow("Consumo de Comida dos Dinos",
+             "Taxa de consumo de comida dos dinos. Menor = comem mais devagar.",
+             "dino_character_food_drain_multiplier",
+             gs.dino_character_food_drain_multiplier, r); r += 1
+        frow("Quantidade de Dinos no Mapa",
+             "Multiplica a quantidade de dinos. Ex: 2.0 = dobro de dinos selvagens.",
+             "dino_count_multiplier", gs.dino_count_multiplier, r); r += 1
+        irow("Máx. Dinos Domesticados",
+             "Limite total de dinos domesticados no servidor.",
+             "max_tamed_dinos", gs.max_tamed_dinos, r); r += 1
+
+        self._section_lbl(scroll, r, "🥚  Criação / Imprinting"); r += 1
+        frow("Velocidade de Domesticação",
+             "Maior = domestica mais rápido. Ex: 3.0 = 3× mais rápido.",
+             "taming_speed_multiplier", gs.taming_speed_multiplier, r); r += 1
+        frow("Intervalo de Acasalamento",
+             "Menor = pode acasalar com mais frequência.",
+             "mating_interval_multiplier", gs.mating_interval_multiplier, r); r += 1
+        frow("Velocidade de Chocagem",
+             "Maior = ovos chocam mais rápido.",
+             "egg_hatch_speed_multiplier", gs.egg_hatch_speed_multiplier, r); r += 1
+        frow("Intervalo de Postura de Ovos",
+             "Menor = dinos põem ovos com mais frequência.",
+             "lay_egg_interval_multiplier", gs.lay_egg_interval_multiplier, r); r += 1
+        frow("Velocidade de Crescimento do Filhote",
+             "Maior = filhotes crescem mais rápido.",
+             "baby_mature_speed_multiplier", gs.baby_mature_speed_multiplier, r, 0, 100); r += 1
+        frow("Velocidade de Nascimento do Filhote",
+             "Maior = filhotes vivíparos nascem mais rápido.",
+             "baby_hatch_speed_multiplier", gs.baby_hatch_speed_multiplier, r, 0, 100); r += 1
+        frow("Consumo de Comida do Filhote",
+             "Menor = filhotes comem menos (mais fácil de criar).",
+             "baby_food_consumption_speed_multiplier",
+             gs.baby_food_consumption_speed_multiplier, r); r += 1
+        frow("Intervalo de Carinho (Imprint)",
+             "Menor = menos tempo entre os pedidos de carinho do filhote.",
+             "baby_cuddle_interval_multiplier", gs.baby_cuddle_interval_multiplier, r); r += 1
+        frow("Tolerância de Atraso do Imprint",
+             "Maior = mais tempo para responder ao pedido de carinho sem perder %.",
+             "baby_cuddle_grace_period_multiplier",
+             gs.baby_cuddle_grace_period_multiplier, r); r += 1
+        frow("Bônus de Stats por Imprint",
+             "Maior = mais bônus de stats ao completar 100% de imprint.",
+             "baby_imprinting_stat_scale_multiplier",
+             gs.baby_imprinting_stat_scale_multiplier, r); r += 1
+
+        self._section_lbl(scroll, r, "🌾  Coleta / Recursos"); r += 1
+        frow("Quantidade de Coleta",
+             "Mais recursos por coleta. Ex: 3.0 = 3× mais recursos.",
+             "harvest_amount_multiplier", gs.harvest_amount_multiplier, r); r += 1
+        frow("Durabilidade dos Recursos",
+             "Maior = rochas/árvores duram mais antes de destruir.",
+             "harvest_health_multiplier", gs.harvest_health_multiplier, r); r += 1
+        frow("Reaparecimento de Recursos",
+             "Menor = recursos reaparecem mais rápido no mapa.",
+             "resource_respawn_period_multiplier",
+             gs.resource_respawn_period_multiplier, r); r += 1
+        frow("Velocidade de Crescimento das Plantas",
+             "Maior = plantas nas estufas crescem mais rápido.",
+             "crop_growth_speed_multiplier", gs.crop_growth_speed_multiplier, r); r += 1
+        frow("Apodrecimento das Plantas",
+             "Menor = plantas demoram mais para apodrecer.",
+             "crop_decay_speed_multiplier", gs.crop_decay_speed_multiplier, r); r += 1
+        frow("Tamanho de Stack",
+             "Multiplica o limite de empilhamento. Ex: 2.0 = stacks dobrados.",
+             "item_stack_size_multiplier", gs.item_stack_size_multiplier, r); r += 1
+        frow("Tempo de Estragamento",
+             "Maior = comida demora mais para estragar.",
+             "spoiling_time_multiplier", gs.spoiling_time_multiplier, r); r += 1
+        frow("Tempo de Decomposição de Itens",
+             "Maior = itens largados no chão demoram mais para sumir.",
+             "item_decomposition_time_multiplier",
+             gs.item_decomposition_time_multiplier, r); r += 1
+        frow("Qualidade de Loot de Pesca",
+             "Maior = itens de melhor qualidade ao pescar.",
+             "fishing_loot_quality_multiplier", gs.fishing_loot_quality_multiplier, r); r += 1
+
+        self._section_lbl(scroll, r, "🏗️  Estruturas"); r += 1
+        frow("Dano às Estruturas",
+             "Aumenta o dano causado às estruturas por jogadores/dinos.",
+             "structure_damage_multiplier", gs.structure_damage_multiplier, r); r += 1
+        frow("Resistência das Estruturas",
+             "Menor = estruturas mais resistentes (recebem menos dano).",
+             "structure_resistance_multiplier", gs.structure_resistance_multiplier, r); r += 1
+        irow("Cooldown de Reparo (s)",
+             "Segundos de espera para reparar após receber dano.",
+             "structure_damage_repair_cooldown",
+             gs.structure_damage_repair_cooldown, r); r += 1
+        frow("Decaimento de Estruturas (PvE)",
+             "Maior = estruturas sem dono demoram mais para decair.",
+             "pve_structure_decay_period_multiplier",
+             gs.pve_structure_decay_period_multiplier, r); r += 1
+        frow("Estruturas em Plataformas",
+             "Multiplica o limite de estruturas em platform saddles.",
+             "per_platform_max_structures_multiplier",
+             gs.per_platform_max_structures_multiplier, r); r += 1
+        frow("Área de Build em Saddles",
+             "Multiplica a área construível ao redor de platform saddles.",
+             "platform_saddle_build_area_bounds_multiplier",
+             gs.platform_saddle_build_area_bounds_multiplier, r); r += 1
+
+        self._section_lbl(scroll, r, "🏆  Tribal / Misc"); r += 1
+        irow("Tamanho Máximo da Tribo",
+             "Número máximo de membros por tribo.",
+             "max_tribe_size", gs.max_tribe_size, r); r += 1
+        frow("Tempo para Expulsar AFK (s)",
+             "Segundos até expulsar jogadores inativos. 0 = desativado.",
+             "kick_idle_players_period", gs.kick_idle_players_period, r, 0, 7200); r += 1
+        irow("XP Máximo do Jogador (Override)",
+             "Substitui o limite padrão de XP dos jogadores.",
+             "override_max_experience_points_player",
+             gs.override_max_experience_points_player, r); r += 1
+        irow("XP Máximo do Dino (Override)",
+             "Substitui o limite padrão de XP dos dinos.",
+             "override_max_experience_points_dino",
+             gs.override_max_experience_points_dino, r); r += 1
+
+        self._section_lbl(scroll, r, "🎮  Opções do Servidor"); r += 1
+        brow("PvP Ativado",                              "server_pvp",                  gs.server_pvp,                  r); r += 1
+        brow("Modo Hardcore (morte permanente)",         "server_hardcore",             gs.server_hardcore,             r); r += 1
+        brow("Dinos Voadores Carregam Jogadores (PvE)",  "allow_flyer_carry_pve",       gs.allow_flyer_carry_pve,       r); r += 1
+        brow("Terceira Pessoa Permitida",                "allow_third_person_player",   gs.allow_third_person_player,   r); r += 1
+        brow("Mostrar Localização no Mapa",              "show_map_player_location",    gs.show_map_player_location,    r); r += 1
+        brow("Desativar Decaimento de Estruturas (PvE)", "disable_structure_decay_pve", gs.disable_structure_decay_pve, r); r += 1
+        brow("Desativar Decaimento de Dinos (PvE)",      "disable_dino_decay_pve",      gs.disable_dino_decay_pve,      r); r += 1
+        brow("Proteção Offline (ORP)",                   "prevent_offline_pvp",         gs.prevent_offline_pvp,         r); r += 1
+        brow("Bloquear Downloads de Tributos",           "no_tribute_downloads",        gs.no_tribute_downloads,        r); r += 1
+        brow("Notificar quando Jogador Entrar",          "always_notify_player_joined", gs.always_notify_player_joined, r); r += 1
+        brow("Notificar quando Jogador Sair",            "always_notify_player_left",   gs.always_notify_player_left,   r); r += 1
+
+        self._save_btn_row(scroll, r + 1, srv.id)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Avançado / Cross-ARK
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_advanced(self, parent, srv: ServerConfig) -> None:
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=4, pady=4)
+        scroll.grid_columnconfigure(1, weight=1)
+
+        w   = self._server_widgets[srv.id]
+        adv = srv.advanced_settings
+        cl  = srv.cluster
+
+        def brow(label: str, hint: str, field: str, val: bool, row_n: int, prefix: str = "adv_") -> None:
+            w[f"{prefix}{field}"] = tk.BooleanVar(value=val)
+            cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            cb_fr.grid(row=row_n, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+            ctk.CTkCheckBox(cb_fr, text=label, variable=w[f"{prefix}{field}"],
+                            checkmark_color="white", fg_color=_GREEN_DARK,
+                            hover_color=_GREEN_HOVER).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(cb_fr, text=hint, text_color="gray40",
+                             font=ctk.CTkFont(size=10), anchor="w").pack(
+                    anchor="w", padx=(26, 0), pady=(0, 2))
+
+        def frow(label: str, hint: str, field: str, val: float, row_n: int, prefix: str = "adv_") -> None:
+            w[f"{prefix}{field}"] = tk.StringVar(value=str(val))
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=310, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(lbl_fr, text=hint, width=310, anchor="w",
+                             text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+            ctk.CTkEntry(scroll, textvariable=w[f"{prefix}{field}"], width=120, height=28).grid(
+                row=row_n, column=1, padx=4, pady=4, sticky="w")
+
+        r = 0
+        self._section_lbl(scroll, r, "🌐  Cross-ARK (Cluster)"); r += 1
+        brow("Habilitar Cluster (Cross-ARK)",
+             "Permite que múltiplos servidores compartilhem tribos, dinos e itens entre si.",
+             "enabled", cl.enabled, r, "cl_"); r += 1
+
+        w["cl_cluster_id"]  = tk.StringVar(value=cl.cluster_id)
+        w["cl_cluster_dir"] = tk.StringVar(value=cl.cluster_dir_override)
+
+        cid_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        cid_fr.grid(row=r, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(cid_fr, text="ID do Cluster:", width=310, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(cid_fr, text="Identificador único do cluster. Todos os servidores do mesmo cluster devem usar o mesmo ID.",
+                     width=310, anchor="w", text_color="gray40",
+                     font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+        ctk.CTkEntry(scroll, textvariable=w["cl_cluster_id"], height=30,
+                     placeholder_text="Ex: MeuCluster123").grid(
+            row=r, column=1, padx=4, pady=4, sticky="ew"); r += 1
+
+        cdir_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        cdir_fr.grid(row=r, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(cdir_fr, text="Pasta do Cluster:", width=310, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(cdir_fr, text="Pasta compartilhada para transferência de dados entre servidores. Opcional.",
+                     width=310, anchor="w", text_color="gray40",
+                     font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+        dir_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        dir_fr.grid(row=r, column=1, padx=4, pady=4, sticky="ew")
+        dir_fr.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(dir_fr, textvariable=w["cl_cluster_dir"], height=30).grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(dir_fr, text="📁", width=34, height=30,
+                      command=lambda: self._browse_dir(w["cl_cluster_dir"])).grid(row=0, column=1)
+        r += 1
+
+        self._section_lbl(scroll, r, "🚫  Restrições de Transferência (Cross-ARK)"); r += 1
+        brow("Bloquear Download de Sobreviventes",
+             "Impede jogadores de importar personagens de outros servidores do cluster.",
+             "prevent_download_survivors", adv.prevent_download_survivors, r); r += 1
+        brow("Bloquear Download de Itens",
+             "Impede jogadores de trazer itens de outros servidores do cluster.",
+             "prevent_download_items",     adv.prevent_download_items,     r); r += 1
+        brow("Bloquear Download de Dinos",
+             "Impede jogadores de trazer dinos domesticados de outros servidores.",
+             "prevent_download_dinos",     adv.prevent_download_dinos,     r); r += 1
+        brow("Bloquear Upload de Sobreviventes",
+             "Impede jogadores de enviar seus personagens para o cluster.",
+             "prevent_upload_survivors",   adv.prevent_upload_survivors,   r); r += 1
+        brow("Bloquear Upload de Itens",
+             "Impede jogadores de enviar itens ao cluster.",
+             "prevent_upload_items",       adv.prevent_upload_items,       r); r += 1
+        brow("Bloquear Upload de Dinos",
+             "Impede jogadores de enviar dinos ao cluster.",
+             "prevent_upload_dinos",       adv.prevent_upload_dinos,       r); r += 1
+        brow("Bloquear Transferência por Filtro",
+             "Impede transferências bloqueadas por restrições de filtro de mapa.",
+             "no_transfer_from_filtering", adv.no_transfer_from_filtering, r); r += 1
+
+        self._section_lbl(scroll, r, "⚙️  Game.ini Avançado"); r += 1
+        brow("Nerf de Criôpod Ativado",
+             "Aplica penalidade de dano em dinos recém-lançados do criôpod. Útil para PvP.",
+             "enable_cryopod_nerf",                       adv.enable_cryopod_nerf,                       r); r += 1
+        frow("Duração do Nerf de Criôpod (s)",
+             "Quantos segundos dura a penalidade após sair do criôpod.",
+             "cryopod_nerf_duration",                     adv.cryopod_nerf_duration,                     r); r += 1
+        frow("Mult. de Dano do Nerf",
+             "Fator de dano enquanto o nerf está ativo. Ex: 0.01 = apenas 1% do dano normal.",
+             "cryopod_nerf_damage_mult",                  adv.cryopod_nerf_damage_mult,                  r); r += 1
+        brow("Spawnar Supply Crates em Estruturas",
+             "Permite que supply crates apareçam sobre estruturas construídas.",
+             "allow_crateSpawns_on_top_of_structures",    adv.allow_crateSpawns_on_top_of_structures,    r); r += 1
+        brow("Otimizar HP de Coleta",
+             "Melhora a performance ao calcular HP de recursos coletáveis.",
+             "use_optimized_harvesting_health",           adv.use_optimized_harvesting_health,           r); r += 1
+        brow("Defesas Passivas Atacam Dinos sem Cavaleiro",
+             "Torretas e armadilhas atacam dinos selvagens e sem piloto.",
+             "b_passive_defenses_damage_riderless_dinos", adv.b_passive_defenses_damage_riderless_dinos, r); r += 1
+        brow("Chat de Voz Global",
+             "Todos os jogadores se ouvem independente da distância.",
+             "global_voice_chat",                         adv.global_voice_chat,                         r); r += 1
+        brow("Chat de Voz por Proximidade",
+             "Somente jogadores próximos se ouvem. Tem prioridade sobre o Chat Global.",
+             "proximity_chat",                            adv.proximity_chat,                            r); r += 1
+        brow("Alimentar Dino de Raid",
+             "Permite que o Titanossauro (raid dino) seja alimentado.",
+             "allow_raid_dino_feeding",                   adv.allow_raid_dino_feeding,                   r); r += 1
+        frow("Consumo de Comida do Dino de Raid",
+             "Taxa de consumo de comida do Titanossauro. Menor = come mais devagar.",
+             "raid_dino_character_food_drain_multiplier", adv.raid_dino_character_food_drain_multiplier, r); r += 1
+        frow("Mult. Velocidade de Nado (Oxigênio)",
+             "Multiplica a velocidade de nado baseada no stat de oxigênio.",
+             "oxygen_swim_speed_stat_multiplier",         adv.oxygen_swim_speed_stat_multiplier,         r); r += 1
+        frow("Dano de Coleta dos Dinos",
+             "Multiplica o dano que dinos causam ao coletar recursos.",
+             "dino_harvesting_damage_multiplier",         adv.dino_harvesting_damage_multiplier,         r); r += 1
+        frow("Dano de Coleta dos Jogadores",
+             "Multiplica o dano que jogadores causam ao coletar recursos.",
+             "player_harvesting_damage_multiplier",       adv.player_harvesting_damage_multiplier,       r); r += 1
+        frow("Habilidade em Receitas Customizadas",
+             "Influencia as stats da receita baseado na habilidade do personagem.",
+             "custom_recipe_skill_multiplier",            adv.custom_recipe_skill_multiplier,            r); r += 1
+        frow("Efetividade de Receitas Customizadas",
+             "Multiplica os bônus de stats obtidos em receitas customizadas.",
+             "custom_recipe_effectiveness_multiplier",    adv.custom_recipe_effectiveness_multiplier,    r); r += 1
+        brow("PvE Automático com Timer",
+             "Alterna automaticamente entre PvP e PvE conforme o horário definido.",
+             "b_auto_pve_timer",                          adv.b_auto_pve_timer,                          r); r += 1
+        brow("PvE Automático usa Hora do Sistema",
+             "Usa o horário do servidor (SO) para calcular o timer de PvE automático.",
+             "b_auto_pve_use_system_time",                adv.b_auto_pve_use_system_time,                r); r += 1
+        frow("Início do PvE Automático (s do dia)",
+             "Segundo do dia (0–86400) em que o PvE começa. Ex: 0 = meia-noite.",
+             "auto_pve_start_time_seconds",               adv.auto_pve_start_time_seconds,               r); r += 1
+        frow("Fim do PvE Automático (s do dia)",
+             "Segundo do dia (0–86400) em que o PvE termina.",
+             "auto_pve_stop_time_seconds",                adv.auto_pve_stop_time_seconds,                r); r += 1
+        brow("Forçar Bloqueio em Estruturas",
+             "Todas as estruturas são criadas bloqueadas por padrão.",
+             "force_all_structure_locking",               adv.force_all_structure_locking,               r); r += 1
+        brow("Forçar Explosivos em Voadores",
+             "Dinos voadores podem transportar C4 e explosivos em PvP.",
+             "force_flyer_explosives",                    adv.force_flyer_explosives,                    r); r += 1
+
+        self._save_btn_row(scroll, r + 1, srv.id)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Mods
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_mods(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        add_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        add_card.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
+        add_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(add_card, text="🔧  Steam Workshop Mod ID:",
+                     text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 4))
+        w["new_mod_id"] = tk.StringVar()
+        ctk.CTkEntry(add_card, textvariable=w["new_mod_id"], height=34,
+                     placeholder_text="Ex: 731604991").grid(
+            row=0, column=1, padx=(0, 8), pady=(14, 4), sticky="ew")
+        ctk.CTkButton(
+            add_card, text="➕ Adicionar", width=110, height=34,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._add_mod(srv.id),
+        ).grid(row=0, column=2, padx=(0, 8), pady=(14, 4))
+        ctk.CTkButton(
+            add_card, text="🔍 Buscar Workshop", width=150, height=34,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=lambda: self._open_mod_search_dialog(srv.id),
+        ).grid(row=0, column=3, padx=(0, 16), pady=(14, 4))
+
+        ctk.CTkLabel(
+            add_card,
+            text="💡  Cole o ID do mod (número) ou use 🔍 para buscar pelo nome. Você pode encontrar o ID na URL da página do Workshop.",
+            text_color="gray45", font=ctk.CTkFont(size=10), wraplength=700, justify="left",
+        ).grid(row=1, column=0, columnspan=4, padx=16, pady=(0, 10), sticky="w")
+
+        if not self.mod_manager.is_steamcmd_available():
+            ctk.CTkLabel(
+                add_card,
+                text="⚠️  SteamCMD não configurado. Configure o caminho nas Configurações Globais.",
+                text_color="#ffaa44", font=ctk.CTkFont(size=11),
+            ).grid(row=2, column=0, columnspan=4, padx=16, pady=(0, 10), sticky="w")
+
+        mods_card = ctk.CTkScrollableFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        mods_card.grid(row=1, column=0, padx=12, pady=6, sticky="nsew")
+        mods_card.grid_columnconfigure(0, weight=1)
+        w["_mods_list_frame"] = mods_card
+
+        actions = ctk.CTkFrame(parent, fg_color="transparent")
+        actions.grid(row=2, column=0, padx=12, pady=(4, 12), sticky="ew")
+
+        ctk.CTkButton(
+            actions, text="⬇️  Baixar / Atualizar Todos os Mods",
+            height=38, fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=lambda: self._download_all_mods(srv.id),
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            actions, text="💾  Salvar Lista de Mods",
+            height=38, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._save_server_config(srv.id),
+        ).pack(side="left")
+
+        self._refresh_mods_list(srv.id)
+        self._build_auto_update_panel(parent, srv)
+
+    def _build_auto_update_panel(self, parent, srv: ServerConfig) -> None:
+        """Card de atualização automática de mods, embutido na aba Mods."""
+        w = self._server_widgets[srv.id]
+        card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        card.grid(row=3, column=0, padx=12, pady=(4, 12), sticky="ew")
+        card.grid_columnconfigure(1, weight=1)
+
+        # ── Título ────────────────────────────────────────────────────────────
+        ctk.CTkLabel(
+            card, text="🔄  Atualização Automática de Mods",
+            font=ctk.CTkFont(size=14, weight="bold"),
+        ).grid(row=0, column=0, columnspan=4, padx=16, pady=(12, 4), sticky="w")
+
+        ctk.CTkLabel(
+            card,
+            text="Verifica periodicamente o Steam Workshop. Quando um mod for atualizado, "
+                 "avisa os jogadores via broadcast, aguarda o tempo configurado e reinicia o servidor.",
+            text_color="gray55", font=ctk.CTkFont(size=10), wraplength=750, justify="left",
+        ).grid(row=1, column=0, columnspan=4, padx=16, pady=(0, 8), sticky="w")
+
+        # ── Linha de configurações ────────────────────────────────────────────
+        cfg_row = ctk.CTkFrame(card, fg_color="transparent")
+        cfg_row.grid(row=2, column=0, columnspan=4, padx=12, pady=(0, 8), sticky="ew")
+
+        ctk.CTkLabel(cfg_row, text="Intervalo de verificação (min):",
+                     text_color="gray70").pack(side="left", padx=(4, 4))
+        w["_au_interval_var"] = tk.StringVar(value="15")
+        ctk.CTkEntry(cfg_row, textvariable=w["_au_interval_var"], width=60, height=30,
+                     justify="center").pack(side="left", padx=(0, 16))
+
+        ctk.CTkLabel(cfg_row, text="Aviso antecipado (min):",
+                     text_color="gray70").pack(side="left", padx=(0, 4))
+        w["_au_warning_var"] = tk.StringVar(value="5")
+        ctk.CTkEntry(cfg_row, textvariable=w["_au_warning_var"], width=60, height=30,
+                     justify="center").pack(side="left", padx=(0, 16))
+
+        # ── Botão ligar/desligar ──────────────────────────────────────────────
+        is_active = (
+            self._mod_auto_updater is not None and self._mod_auto_updater.enabled
+        )
+        w["_au_toggle_btn"] = ctk.CTkButton(
+            cfg_row,
+            text="⏸ Parar" if is_active else "▶ Ativar",
+            width=110, height=30,
+            fg_color=_RED_DARK if is_active else _GREEN_DARK,
+            hover_color=_RED_HOVER if is_active else _GREEN_HOVER,
+            command=lambda sid=srv.id: self._toggle_mod_auto_updater(sid),
+        )
+        w["_au_toggle_btn"].pack(side="left", padx=(0, 8))
+
+        # status pill
+        w["_au_status_lbl"] = ctk.CTkLabel(
+            cfg_row,
+            text="● ATIVO" if is_active else "● INATIVO",
+            text_color=_GREEN if is_active else "gray50",
+            font=ctk.CTkFont(size=11, weight="bold"),
+        )
+        w["_au_status_lbl"].pack(side="left")
+
+        # ── Log ───────────────────────────────────────────────────────────────
+        log_box = ctk.CTkTextbox(card, height=100, state="disabled",
+                                 font=ctk.CTkFont(family="Courier New", size=10))
+        log_box._textbox.tag_configure("info",    foreground="#e0e0e0")
+        log_box._textbox.tag_configure("warning", foreground="#ffaa44")
+        log_box._textbox.tag_configure("error",   foreground="#ff6666")
+        log_box._textbox.tag_configure("debug",   foreground="#888888")
+        log_box.grid(row=3, column=0, columnspan=4, padx=12, pady=(0, 12), sticky="ew")
+        w["_au_log_box"] = log_box
+        # Registra o log box global (última instância criada serve como painel)
+        self._auto_updater_log_box = log_box
+
+    def _toggle_mod_auto_updater(self, server_id: str) -> None:
+        """Liga/desliga o verificador automático de mods."""
+        w = self._server_widgets.get(server_id, {})
+        try:
+            interval  = max(1, int(w.get("_au_interval_var", tk.StringVar(value="15")).get()))
+            warn_mins = max(1, int(w.get("_au_warning_var",  tk.StringVar(value="5")).get()))
+        except ValueError:
+            interval, warn_mins = 15, 5
+
+        if self._mod_auto_updater and self._mod_auto_updater.enabled:
+            self._mod_auto_updater.stop()
+            for sid, ww in self._server_widgets.items():
+                btn = ww.get("_au_toggle_btn")
+                lbl = ww.get("_au_status_lbl")
+                if btn:
+                    btn.configure(text="▶ Ativar", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER)
+                if lbl:
+                    lbl.configure(text="● INATIVO", text_color="gray50")
+        else:
+            if self._mod_auto_updater is None:
+                self._mod_auto_updater = ModAutoUpdater(
+                    server_manager=self.server_manager,
+                    mod_manager=self.mod_manager,
+                    get_servers=lambda: self.config_manager.servers,
+                    on_log=self._on_auto_updater_log,
+                    check_interval_minutes=interval,
+                    warning_minutes=warn_mins,
+                )
+            else:
+                self._mod_auto_updater.set_interval(interval)
+                self._mod_auto_updater.set_warning_minutes(warn_mins)
+            self._mod_auto_updater.start()
+            for sid, ww in self._server_widgets.items():
+                btn = ww.get("_au_toggle_btn")
+                lbl = ww.get("_au_status_lbl")
+                if btn:
+                    btn.configure(text="⏸ Parar", fg_color=_RED_DARK, hover_color=_RED_HOVER)
+                if lbl:
+                    lbl.configure(text="● ATIVO", text_color=_GREEN)
+
+    def _refresh_mods_list(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        w = self._server_widgets.get(server_id, {})
+        frame: Optional[ctk.CTkScrollableFrame] = w.get("_mods_list_frame")
+        if not frame:
+            return
+
+        for child in frame.winfo_children():
+            child.destroy()
+
+        if not srv.mods:
+            ctk.CTkLabel(frame, text="Nenhum mod adicionado.",
+                         text_color="gray50").pack(pady=20)
+            return
+
+        for idx, mod_id in enumerate(srv.mods):
+            row_f = ctk.CTkFrame(frame, fg_color="transparent", height=40)
+            row_f.pack(fill="x", pady=2)
+            row_f.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(row_f, text=f"#{idx+1}", width=32, text_color="gray50",
+                         font=ctk.CTkFont(size=11)).grid(row=0, column=0, padx=(8, 4))
+            ctk.CTkLabel(row_f, text=mod_id,
+                         font=ctk.CTkFont(family="Courier New", size=13)).grid(
+                row=0, column=1, padx=4, sticky="w")
+
+            installed = self.mod_manager.check_mod_installed(srv.install_dir, mod_id)
+            status_txt = "✅ instalado" if installed else "❌ não instalado"
+            ctk.CTkLabel(row_f, text=status_txt, text_color="gray55",
+                         font=ctk.CTkFont(size=11)).grid(row=0, column=2, padx=8)
+
+            ctk.CTkButton(
+                row_f, text="🌐", width=32, height=28,
+                fg_color="#1a3a6a", hover_color=_BLUE_HOVER,
+                command=lambda mid=mod_id: self._open_workshop_page(mid),
+            ).grid(row=0, column=3, padx=2)
+
+            ctk.CTkButton(
+                row_f, text="⬇️", width=36, height=28,
+                fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                command=lambda mid=mod_id, sid=server_id: self._download_mod(sid, mid),
+            ).grid(row=0, column=4, padx=2)
+
+            ctk.CTkButton(
+                row_f, text="🗑", width=32, height=28,
+                fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                command=lambda mid=mod_id, sid=server_id: self._remove_mod(sid, mid),
+            ).grid(row=0, column=5, padx=(2, 8))
+
+    def _open_mod_search_dialog(self, server_id: str) -> None:
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Buscar no Steam Workshop")
+        dlg.geometry("640x500")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(3, weight=1)
+
+        ctk.CTkLabel(dlg, text="🔍  Buscar Workshop — ARK: Survival Evolved",
+                     font=ctk.CTkFont(size=16, weight="bold")).grid(
+            row=0, column=0, padx=20, pady=(16, 2), sticky="w")
+        ctk.CTkLabel(
+            dlg,
+            text="Digite um ID numérico para buscar diretamente. Para busca por nome, clique em 🌐 Browser.",
+            text_color="gray50", font=ctk.CTkFont(size=11),
+        ).grid(row=1, column=0, padx=20, pady=(0, 10), sticky="w")
+
+        search_fr = ctk.CTkFrame(dlg, fg_color="transparent")
+        search_fr.grid(row=2, column=0, padx=16, pady=(0, 6), sticky="ew")
+        search_fr.grid_columnconfigure(0, weight=1)
+
+        search_var = tk.StringVar()
+        search_entry = ctk.CTkEntry(
+            search_fr, textvariable=search_var, height=38,
+            placeholder_text="ID do mod (ex: 731604991) ou nome para buscar no browser",
+        )
+        search_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        ctk.CTkButton(search_fr, text="🔍 Buscar", height=38, width=100,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      command=lambda: _do_search()).grid(row=0, column=1, padx=(0, 8))
+        ctk.CTkButton(search_fr, text="🌐 Browser", height=38, width=100,
+                      fg_color="#1a3a6a", hover_color=_BLUE_HOVER,
+                      command=lambda: webbrowser.open(
+                          "https://steamcommunity.com/app/346110/workshop/"
+                      )).grid(row=0, column=2)
+
+        results_frame = ctk.CTkScrollableFrame(dlg, fg_color=_CARD_BG, corner_radius=8)
+        results_frame.grid(row=3, column=0, padx=16, pady=(4, 4), sticky="nsew")
+        results_frame.grid_columnconfigure(0, weight=1)
+
+        status_lbl = ctk.CTkLabel(dlg, text="", text_color="gray50",
+                                  font=ctk.CTkFont(size=11))
+        status_lbl.grid(row=4, column=0, padx=16, pady=(0, 12), sticky="w")
+
+        def _show_result(title: str, mod_id: str, description: str = "") -> None:
+            for child in results_frame.winfo_children():
+                child.destroy()
+            row_f = ctk.CTkFrame(results_frame, fg_color="#1a1a2e", corner_radius=8)
+            row_f.pack(fill="x", padx=8, pady=8)
+            row_f.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(row_f, text=f"🔧  {title}",
+                         font=ctk.CTkFont(size=14, weight="bold")).grid(
+                row=0, column=0, columnspan=2, padx=14, pady=(12, 2), sticky="w")
+            ctk.CTkLabel(row_f, text=f"ID: {mod_id}",
+                         text_color="gray55",
+                         font=ctk.CTkFont(family="Courier New", size=12)).grid(
+                row=1, column=0, padx=14, pady=(0, 4), sticky="w")
+            if description:
+                clean_desc = description.replace("\r", " ").replace("\n", " ").strip()
+                preview = (clean_desc[:160] + "…") if len(clean_desc) > 160 else clean_desc
+                ctk.CTkLabel(row_f, text=preview, text_color="gray50",
+                             font=ctk.CTkFont(size=10),
+                             wraplength=560, justify="left").grid(
+                    row=2, column=0, padx=14, pady=(0, 6), sticky="w")
+            btn_row_f = ctk.CTkFrame(row_f, fg_color="transparent")
+            btn_row_f.grid(row=3, column=0, padx=10, pady=(0, 12), sticky="w")
+            ctk.CTkButton(btn_row_f, text="➕  Adicionar ao Servidor", height=34,
+                          fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                          command=lambda: _add_and_close(mod_id)).pack(side="left", padx=(0, 10))
+            ctk.CTkButton(btn_row_f, text="🌐  Ver na Steam", height=34,
+                          fg_color="#1a3a6a", hover_color=_BLUE_HOVER,
+                          command=lambda: self._open_workshop_page(mod_id)).pack(side="left")
+
+        def _add_and_close(mod_id: str) -> None:
+            w = self._server_widgets.get(server_id, {})
+            if "new_mod_id" in w:
+                w["new_mod_id"].set(mod_id)
+            self._add_mod(server_id)
+            dlg.destroy()
+
+        def _do_search(*_) -> None:
+            query = search_var.get().strip()
+            if not query:
+                return
+            for child in results_frame.winfo_children():
+                child.destroy()
+            if query.isdigit():
+                status_lbl.configure(text="⏳  Buscando mod…")
+
+                def _fetch(qid=query) -> None:
+                    try:
+                        data = urllib.parse.urlencode({
+                            "itemcount": "1",
+                            "publishedfileids[0]": qid,
+                        }).encode()
+                        req = urllib.request.Request(
+                            "https://api.steampowered.com"
+                            "/ISteamRemoteStorage/GetPublishedFileDetails/v1/",
+                            data=data,
+                            headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        )
+                        with urllib.request.urlopen(req, timeout=10) as resp:
+                            result = json.loads(resp.read().decode())
+                        files = result.get("response", {}).get("publishedfiledetails", [])
+                        if files and files[0].get("result") == 1:
+                            f = files[0]
+                            dlg.after(0, lambda: _show_result(
+                                f.get("title", "Mod sem nome"),
+                                qid,
+                                f.get("description", ""),
+                            ))
+                            dlg.after(0, lambda: status_lbl.configure(text="✅  Mod encontrado."))
+                        else:
+                            dlg.after(0, lambda: status_lbl.configure(
+                                text=f"❌  ID {qid} não encontrado no Workshop."))
+                    except Exception as exc:
+                        dlg.after(0, lambda: status_lbl.configure(
+                            text=f"⚠️  Erro ao buscar: {exc}"))
+
+                threading.Thread(target=_fetch, daemon=True).start()
+            else:
+                url = (
+                    "https://steamcommunity.com/workshop/browse/?appid=346110"
+                    f"&searchtext={urllib.parse.quote(query)}&section=readytouseitems"
+                )
+                webbrowser.open(url)
+                status_lbl.configure(
+                    text="🌐  Busca por texto aberta no navegador. Cole o ID do mod no campo acima.")
+
+        search_entry.bind("<Return>", _do_search)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Plugins (ArkApi)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # ── helpers de caminho ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _arkapi_root(install_dir: str) -> str:
+        """Pasta raiz do ArkApi: <install_dir>/ShooterGame/Binaries/Win64/ArkApi"""
+        return os.path.join(install_dir, "ShooterGame", "Binaries", "Win64", "ArkApi")
+
+    @staticmethod
+    def _plugins_dir(install_dir: str) -> str:
+        """Pasta de plugins: <install_dir>/ShooterGame/Binaries/Win64/ArkApi/Plugins"""
+        return os.path.join(install_dir, "ShooterGame", "Binaries", "Win64", "ArkApi", "Plugins")
+
+    @staticmethod
+    def _is_arkapi_installed(install_dir: str) -> bool:
+        """Considera o ArkApi instalado se version.dll estiver em Win64."""
+        dll = os.path.join(install_dir, "ShooterGame", "Binaries", "Win64", "version.dll")
+        api_dir = os.path.join(install_dir, "ShooterGame", "Binaries", "Win64", "ArkApi")
+        return os.path.isfile(dll) or os.path.isdir(api_dir)
+
+    # ── aba principal ─────────────────────────────────────────────────────────
+
+    def _build_tab_plugins(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        # ── Card: status do ArkApi ────────────────────────────────────────────
+        api_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        api_card.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
+        api_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(api_card, text="🔌  ArkApi — Framework de Plugins",
+                     font=ctk.CTkFont(size=14, weight="bold")).grid(
+            row=0, column=0, columnspan=4, padx=16, pady=(14, 2), sticky="w")
+
+        api_installed = self._is_arkapi_installed(srv.install_dir) if srv.install_dir else False
+        api_status_txt = "✅  ArkApi instalado" if api_installed else "❌  ArkApi não encontrado"
+        api_status_color = "#66cc77" if api_installed else "#ff7777"
+        w["_api_status_lbl"] = ctk.CTkLabel(
+            api_card, text=api_status_txt, text_color=api_status_color,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        w["_api_status_lbl"].grid(row=1, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        ctk.CTkLabel(
+            api_card,
+            text="O ArkApi é necessário para usar plugins. Baixe e extraia o ZIP na raiz do servidor.",
+            text_color="gray45", font=ctk.CTkFont(size=10),
+        ).grid(row=2, column=0, columnspan=4, padx=16, pady=(0, 6), sticky="w")
+
+        btn_row = ctk.CTkFrame(api_card, fg_color="transparent")
+        btn_row.grid(row=3, column=0, columnspan=4, padx=12, pady=(0, 14), sticky="w")
+
+        ctk.CTkButton(
+            btn_row, text="📥  Instalar do ZIP", height=34,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._install_arkapi_from_zip(srv.id),
+        ).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(
+            btn_row, text="🌐  Baixar ArkApi", height=34,
+            fg_color="#1a3a6a", hover_color=_BLUE_HOVER,
+            command=lambda: webbrowser.open("https://ark-server-api.com/resources/ase-server-api.32/"),
+        ).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(
+            btn_row, text="📂  Abrir pasta Win64", height=34,
+            fg_color="#2a2a4a", hover_color="#3a3a6a",
+            command=lambda: self._open_win64_dir(srv.id),
+        ).pack(side="left")
+
+        # ── Card: lista de plugins ────────────────────────────────────────────
+        hdr_fr = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr_fr.grid(row=1, column=0, padx=12, pady=(6, 0), sticky="ew")
+        hdr_fr.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(hdr_fr, text="🔧  Plugins Instalados",
+                     font=ctk.CTkFont(size=13, weight="bold")).grid(
+            row=0, column=0, sticky="w")
+
+        btn_fr2 = ctk.CTkFrame(hdr_fr, fg_color="transparent")
+        btn_fr2.grid(row=0, column=1, sticky="e")
+        ctk.CTkButton(
+            btn_fr2, text="📥  Instalar Plugin (ZIP)", height=32, width=180,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._install_plugin_from_zip(srv.id),
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            btn_fr2, text="🔄  Atualizar Lista", height=32, width=130,
+            fg_color="#2a2a4a", hover_color="#3a3a6a",
+            command=lambda: self._refresh_plugins_list(srv.id),
+        ).pack(side="left")
+
+        plugins_card = ctk.CTkScrollableFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        plugins_card.grid(row=2, column=0, padx=12, pady=(6, 12), sticky="nsew")
+        plugins_card.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(2, weight=1)
+        w["_plugins_list_frame"] = plugins_card
+
+        ctk.CTkLabel(
+            parent,
+            text="💡  Cada plugin é uma subpasta em  ShooterGame\\Binaries\\Win64\\ArkApi\\Plugins",
+            text_color="gray40", font=ctk.CTkFont(size=10),
+        ).grid(row=3, column=0, padx=14, pady=(0, 4), sticky="w")
+
+        self._refresh_plugins_list(srv.id)
+
+    # ── atualizar lista ───────────────────────────────────────────────────────
+
+    def _refresh_plugins_list(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        w = self._server_widgets.get(server_id, {})
+
+        # Atualizar status do ArkApi
+        status_lbl: Optional[ctk.CTkLabel] = w.get("_api_status_lbl")
+        if status_lbl:
+            installed = self._is_arkapi_installed(srv.install_dir) if srv.install_dir else False
+            status_lbl.configure(
+                text="✅  ArkApi instalado" if installed else "❌  ArkApi não encontrado",
+                text_color="#66cc77" if installed else "#ff7777",
+            )
+
+        frame: Optional[ctk.CTkScrollableFrame] = w.get("_plugins_list_frame")
+        if not frame:
+            return
+        for child in frame.winfo_children():
+            child.destroy()
+
+        if not srv.install_dir:
+            ctk.CTkLabel(frame,
+                         text="Configure o diretório de instalação do servidor primeiro.",
+                         text_color="gray50").pack(pady=20)
+            return
+
+        plugins_path = self._plugins_dir(srv.install_dir)
+        if not os.path.isdir(plugins_path):
+            ctk.CTkLabel(frame,
+                         text="Pasta de plugins não encontrada. Instale o ArkApi primeiro.",
+                         text_color="gray50").pack(pady=20)
+            return
+
+        plugin_folders = sorted(
+            d for d in os.listdir(plugins_path)
+            if os.path.isdir(os.path.join(plugins_path, d))
+        )
+
+        if not plugin_folders:
+            ctk.CTkLabel(frame, text="Nenhum plugin instalado.",
+                         text_color="gray50").pack(pady=20)
+            return
+
+        for plugin_name in plugin_folders:
+            plugin_path = os.path.join(plugins_path, plugin_name)
+            has_dll = any(f.lower().endswith(".dll") for f in os.listdir(plugin_path))
+            json_files = sorted(
+                f for f in os.listdir(plugin_path)
+                if f.lower().endswith(".json")
+            )
+
+            card = ctk.CTkFrame(frame, fg_color="#1a1a2e", corner_radius=8)
+            card.pack(fill="x", padx=6, pady=4)
+            card.grid_columnconfigure(1, weight=1)
+
+            # ── linha do cabeçalho do plugin ─────────────────────────────────
+            icon = "🟢" if has_dll else "🟡"
+            ctk.CTkLabel(card, text=icon, font=ctk.CTkFont(size=14), width=28).grid(
+                row=0, column=0, padx=(12, 4), pady=(10, 4))
+            ctk.CTkLabel(card, text=plugin_name,
+                         font=ctk.CTkFont(size=13, weight="bold"),
+                         anchor="w").grid(row=0, column=1, padx=4, pady=(10, 4), sticky="ew")
+
+            # badges
+            badge_fr = ctk.CTkFrame(card, fg_color="transparent")
+            badge_fr.grid(row=0, column=2, padx=4, pady=(10, 4))
+            if has_dll:
+                ctk.CTkLabel(badge_fr, text="DLL", text_color="#66aaff",
+                             font=ctk.CTkFont(size=9), width=28).pack(side="left", padx=2)
+            if json_files:
+                ctk.CTkLabel(badge_fr, text="JSON", text_color="#ffcc55",
+                             font=ctk.CTkFont(size=9), width=32).pack(side="left", padx=2)
+
+            # botões de ação do plugin
+            hdr_btn_fr = ctk.CTkFrame(card, fg_color="transparent")
+            hdr_btn_fr.grid(row=0, column=3, padx=(4, 12), pady=(10, 4))
+            ctk.CTkButton(
+                hdr_btn_fr, text="📂", width=32, height=28,
+                fg_color="#2a2a4a", hover_color="#3a3a6a",
+                command=lambda p=plugin_path: os.startfile(p),
+            ).pack(side="left", padx=2)
+            ctk.CTkButton(
+                hdr_btn_fr, text="🗑", width=32, height=28,
+                fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                command=lambda n=plugin_name, sid=server_id: self._delete_plugin(sid, n),
+            ).pack(side="left", padx=2)
+
+            # ── arquivos JSON de configuração ─────────────────────────────────
+            if json_files:
+                sep = ctk.CTkFrame(card, height=1, fg_color="#2a2a40")
+                sep.grid(row=1, column=0, columnspan=4, padx=12, pady=(0, 4), sticky="ew")
+
+                for jidx, jfile in enumerate(json_files):
+                    jpath = os.path.join(plugin_path, jfile)
+                    jrow = ctk.CTkFrame(card, fg_color="transparent")
+                    jrow.grid(row=2 + jidx, column=0, columnspan=4,
+                              padx=(46, 12), pady=2, sticky="ew")
+                    jrow.grid_columnconfigure(0, weight=1)
+
+                    ctk.CTkLabel(
+                        jrow, text=f"📄  {jfile}",
+                        text_color="gray65", font=ctk.CTkFont(family="Courier New", size=11),
+                        anchor="w",
+                    ).grid(row=0, column=0, sticky="ew")
+
+                    ctk.CTkButton(
+                        jrow, text="✏️  Editar", height=26, width=90,
+                        fg_color="#333355", hover_color="#444477",
+                        font=ctk.CTkFont(size=11),
+                        command=lambda p=jpath: self._open_json_editor(p),
+                    ).grid(row=0, column=1, padx=(8, 0))
+
+                # padding final
+                ctk.CTkFrame(card, height=6, fg_color="transparent").grid(
+                    row=2 + len(json_files), column=0, columnspan=4)
+            else:
+                ctk.CTkLabel(card, text="Sem arquivos de configuração (.json)",
+                             text_color="gray40", font=ctk.CTkFont(size=10)).grid(
+                    row=1, column=0, columnspan=4, padx=(46, 12), pady=(0, 10), sticky="w")
+
+    # ── instalar ArkApi do ZIP ────────────────────────────────────────────────
+
+    def _install_arkapi_from_zip(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.install_dir:
+            messagebox.showerror("Erro",
+                "Configure o diretório de instalação do servidor antes de instalar o ArkApi.",
+                parent=self)
+            return
+
+        zip_path = filedialog.askopenfilename(
+            title="Selecionar ZIP do ArkApi",
+            filetypes=[("Arquivo ZIP", "*.zip"), ("Todos", "*.*")],
+            parent=self,
+        )
+        if not zip_path:
+            return
+
+        def _extract() -> None:
+            try:
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    zf.extractall(srv.install_dir)
+                self.after(0, lambda: (
+                    messagebox.showinfo(
+                        "ArkApi Instalado",
+                        "ArkApi extraído com sucesso na pasta do servidor.\n\n"
+                        "Reinicie o servidor para que o ArkApi seja carregado.",
+                        parent=self,
+                    ),
+                    self._refresh_plugins_list(server_id),
+                ))
+            except Exception as exc:
+                self.after(0, lambda: messagebox.showerror(
+                    "Erro ao extrair", str(exc), parent=self))
+
+        threading.Thread(target=_extract, daemon=True).start()
+
+    # ── instalar plugin do ZIP ────────────────────────────────────────────────
+
+    def _install_plugin_from_zip(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.install_dir:
+            messagebox.showerror("Erro",
+                "Configure o diretório de instalação do servidor antes de instalar plugins.",
+                parent=self)
+            return
+
+        plugins_path = self._plugins_dir(srv.install_dir)
+        if not os.path.isdir(plugins_path):
+            if messagebox.askyesno(
+                "Criar pasta de Plugins?",
+                "A pasta de Plugins não existe ainda.\n"
+                "Deseja criá-la? (O ArkApi precisa estar instalado para que os plugins funcionem.)",
+                parent=self,
+            ):
+                os.makedirs(plugins_path, exist_ok=True)
+            else:
+                return
+
+        zip_path = filedialog.askopenfilename(
+            title="Selecionar ZIP do Plugin",
+            filetypes=[("Arquivo ZIP", "*.zip"), ("Todos", "*.*")],
+            parent=self,
+        )
+        if not zip_path:
+            return
+
+        def _extract() -> None:
+            try:
+                with zipfile.ZipFile(zip_path, "r") as zf:
+                    # Detectar se o ZIP já tem uma subpasta raiz
+                    names = zf.namelist()
+                    top_dirs = {n.split("/")[0] for n in names if "/" in n}
+                    # Se todos os membros estão dentro de uma única pasta, extrai direto
+                    if len(top_dirs) == 1:
+                        zf.extractall(plugins_path)
+                        plugin_name = list(top_dirs)[0]
+                    else:
+                        # Criar pasta com nome do ZIP
+                        base = os.path.splitext(os.path.basename(zip_path))[0]
+                        dest = os.path.join(plugins_path, base)
+                        os.makedirs(dest, exist_ok=True)
+                        zf.extractall(dest)
+                        plugin_name = base
+                self.after(0, lambda: (
+                    messagebox.showinfo(
+                        "Plugin Instalado",
+                        f"Plugin '{plugin_name}' instalado com sucesso!\n\n"
+                        "Reinicie o servidor para carregar o plugin.",
+                        parent=self,
+                    ),
+                    self._refresh_plugins_list(server_id),
+                ))
+            except Exception as exc:
+                self.after(0, lambda: messagebox.showerror(
+                    "Erro ao extrair", str(exc), parent=self))
+
+        threading.Thread(target=_extract, daemon=True).start()
+
+    # ── deletar plugin ────────────────────────────────────────────────────────
+
+    def _delete_plugin(self, server_id: str, plugin_name: str) -> None:
+        if not messagebox.askyesno(
+            "Remover Plugin",
+            f"Tem certeza que deseja remover o plugin '{plugin_name}'?\n\n"
+            "Esta ação é irreversível.",
+            parent=self,
+        ):
+            return
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        plugin_path = os.path.join(self._plugins_dir(srv.install_dir), plugin_name)
+        try:
+            import shutil
+            shutil.rmtree(plugin_path)
+            self._refresh_plugins_list(server_id)
+        except Exception as exc:
+            messagebox.showerror("Erro ao remover plugin", str(exc), parent=self)
+
+    # ── abrir pasta Win64 ─────────────────────────────────────────────────────
+
+    def _open_win64_dir(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.install_dir:
+            return
+        win64 = os.path.join(srv.install_dir, "ShooterGame", "Binaries", "Win64")
+        if os.path.isdir(win64):
+            os.startfile(win64)
+        else:
+            messagebox.showwarning(
+                "Pasta não encontrada",
+                "A pasta Win64 não foi encontrada. Verifique se o servidor está instalado.",
+                parent=self,
+            )
+
+    # ── abrir JSON com editor ─────────────────────────────────────────────────
+
+    @staticmethod
+    def _open_json_editor(path: str) -> None:
+        """
+        Abre um arquivo JSON com o melhor editor disponível no sistema.
+        Prioridade: Notepad++ → VS Code → Sublime Text → Notepad → os.startfile (padrão).
+        """
+        import subprocess
+
+        candidates = [
+            # Notepad++ (instalações típicas)
+            r"C:\Program Files\Notepad++\notepad++.exe",
+            r"C:\Program Files (x86)\Notepad++\notepad++.exe",
+            # VS Code (instalação de usuário e de sistema)
+            os.path.join(os.environ.get("LOCALAPPDATA", ""),
+                         "Programs", "Microsoft VS Code", "Code.exe"),
+            r"C:\Program Files\Microsoft VS Code\Code.exe",
+            # Sublime Text
+            r"C:\Program Files\Sublime Text\sublime_text.exe",
+            r"C:\Program Files\Sublime Text 3\sublime_text.exe",
+            r"C:\Program Files\Sublime Text 4\sublime_text.exe",
+            # Notepad padrão do Windows
+            r"C:\Windows\System32\notepad.exe",
+        ]
+
+        for editor in candidates:
+            if os.path.isfile(editor):
+                try:
+                    subprocess.Popen([editor, path])
+                    return
+                except OSError:
+                    continue
+
+        # Último recurso: abrir com o aplicativo associado
+        os.startfile(path)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Console RCON
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_rcon(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        conn_bar = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        conn_bar.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="ew")
+        conn_bar.grid_columnconfigure(4, weight=1)
+
+        ctk.CTkLabel(conn_bar, text="Host:", text_color="gray60").grid(
+            row=0, column=0, padx=(14, 4), pady=10)
+        w["rcon_host"] = tk.StringVar(value="127.0.0.1")
+        ctk.CTkEntry(conn_bar, textvariable=w["rcon_host"], width=120, height=30).grid(
+            row=0, column=1, padx=(0, 12), pady=10)
+
+        ctk.CTkLabel(conn_bar, text="Porta:", text_color="gray60").grid(
+            row=0, column=2, padx=(0, 4), pady=10)
+        w["rcon_port_entry"] = tk.StringVar(value=str(srv.rcon_port))
+        ctk.CTkEntry(conn_bar, textvariable=w["rcon_port_entry"], width=70, height=30).grid(
+            row=0, column=3, padx=(0, 12), pady=10)
+
+        w["rcon_status_var"] = tk.StringVar(value="⬛ Desconectado")
+        ctk.CTkLabel(conn_bar, textvariable=w["rcon_status_var"],
+                     text_color="gray50", font=ctk.CTkFont(size=12)).grid(
+            row=0, column=4, padx=8, pady=10, sticky="w")
+
+        w["rcon_connect_btn"] = ctk.CTkButton(
+            conn_bar, text="🔌 Conectar", width=110, height=30,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._rcon_connect(srv.id),
+        )
+        w["rcon_connect_btn"].grid(row=0, column=5, padx=(0, 14), pady=10)
+
+        w["rcon_output"] = ctk.CTkTextbox(
+            parent, font=ctk.CTkFont(family="Courier New", size=12),
+            wrap="word", state="disabled", fg_color="#0a0a14",
+        )
+        w["rcon_output"].grid(row=1, column=0, padx=12, pady=4, sticky="nsew")
+        tw = w["rcon_output"]._textbox
+        tw.tag_config("cmd",  foreground="#88d4a0")
+        tw.tag_config("resp", foreground="#d0d0e0")
+        tw.tag_config("err",  foreground="#ff6666")
+        tw.tag_config("sys",  foreground="#888899")
+
+        # Atalhos de comando
+        shortcuts_frame = ctk.CTkFrame(parent, corner_radius=8, fg_color=_CARD_BG)
+        shortcuts_frame.grid(row=2, column=0, padx=12, pady=(2, 2), sticky="ew")
+
+        common_cmds = [
+            ("SaveWorld",        "SaveWorld"),
+            ("ListPlayers",      "ListPlayers"),
+            ("GetChat",          "GetChat"),
+            ("Broadcast",        "Broadcast Olá Sobreviventes!"),
+            ("DoExit",           "DoExit"),
+            ("DestroyWildDinos", "DestroyWildDinos"),
+        ]
+        for ci, (lbl, cmd) in enumerate(common_cmds):
+            ctk.CTkButton(
+                shortcuts_frame, text=lbl, width=130, height=28,
+                fg_color="#2a2a44", hover_color="#3a3a5a",
+                font=ctk.CTkFont(size=11),
+                command=lambda c=cmd, sid=srv.id: self._rcon_exec(sid, c),
+            ).grid(row=0, column=ci, padx=4, pady=6)
+
+        input_row = ctk.CTkFrame(parent, fg_color="transparent")
+        input_row.grid(row=3, column=0, padx=12, pady=(2, 12), sticky="ew")
+        input_row.grid_columnconfigure(0, weight=1)
+
+        w["rcon_input"] = tk.StringVar()
+        input_entry = ctk.CTkEntry(
+            input_row, textvariable=w["rcon_input"], height=36,
+            placeholder_text="Digite um comando RCON e pressione Enter...",
+        )
+        input_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        input_entry.bind("<Return>", lambda e, sid=srv.id: self._rcon_send(sid))
+
+        ctk.CTkButton(
+            input_row, text="Enviar ▶", width=90, height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._rcon_send(srv.id),
+        ).grid(row=0, column=1)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Logs
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_logs(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        hdr = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+        hdr.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(hdr, text=f"Logs do Servidor — {srv.name}",
+                     font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(hdr, text="🗑 Limpar", width=90, height=30,
+                      fg_color="#3a3a5a", hover_color="#252540",
+                      command=lambda: self._clear_server_log(srv.id)).grid(
+            row=0, column=1, sticky="e")
+
+        log_box = ctk.CTkTextbox(
+            parent, font=ctk.CTkFont(family="Courier New", size=11),
+            wrap="word", state="disabled", fg_color="#0a0a14",
+        )
+        log_box.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="nsew")
+        tw = log_box._textbox
         tw.tag_config("info",    foreground="#d0d0e0")
-        tw.tag_config("success", foreground="#66cc77")
         tw.tag_config("warning", foreground="#ffaa44")
         tw.tag_config("error",   foreground="#ff6666")
-        tw.tag_config("debug",   foreground="#666680")
+        tw.tag_config("debug",   foreground="#555570")
+        w["_log_box"] = log_box
 
-    # ── Ações ─────────────────────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # Configurações Globais
+    # ══════════════════════════════════════════════════════════════════════════
 
-    def _toggle_sync(self) -> None:
-        if self.sync_engine.is_running:
-            self.sync_engine.stop()
-        else:
-            self.sync_engine.start()
-
-    def _force_sync(self) -> None:
-        self._append_log("[manual] Sincronização forçada pelo usuário.", "info")
-        self.sync_engine.sync_once()
-
-    def _save_config(self) -> None:
+    def _build_global_config(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
         cfg = self.config_manager.config
-        cfg.local_cluster_path = self._local_path_var.get().strip()
-        cfg.shared_path        = self._shared_path_var.get().strip()
-        cfg.sync_interval      = max(1, int(self._interval_var.get()))
-        cfg.machine_name       = self._machine_name_var.get().strip()
-        cfg.auto_start              = self._auto_start_var.get()
-        cfg.log_debug               = self._log_debug_var.get()
-        cfg.startup_with_windows    = self._startup_windows_var.get()
-        _set_windows_startup(cfg.startup_with_windows)
 
-        # Agente remoto
-        cfg.remote_agent_enabled = self._agent_enabled_var.get()
-        try:
-            cfg.remote_agent_port = max(1024, min(65535, int(self._agent_port_var.get())))
-        except ValueError:
-            pass
-        cfg.remote_agent_token = self._agent_token_var.get().strip()
+        ctk.CTkLabel(parent, text="Configurações Globais",
+                     font=ctk.CTkFont(size=24, weight="bold")).grid(
+            row=0, column=0, padx=24, pady=(24, 2), sticky="w")
+        ctk.CTkLabel(parent, text="Configurações globais do ARKLAND - Server Manager.",
+                     text_color="gray60").grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
 
-        self.config_manager.save()
-        self._machine_info_label.configure(text=self._machine_info_text(cfg))
-        self._append_log("Configurações salvas com sucesso.", "info")
-        messagebox.showinfo("Salvo", "Configurações salvas com sucesso!", parent=self)
+        self._section_lbl(parent, 2, "🎮  SteamCMD")
+        sc_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        sc_card.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
+        sc_card.grid_columnconfigure(1, weight=1)
 
-        # Reinicia agente se necessário
-        self._restart_remote_agent()
+        ctk.CTkLabel(sc_card, text="Caminho do SteamCMD:", width=200, anchor="w",
+                     text_color="gray60").grid(row=0, column=0, padx=16, pady=14)
+        self._steamcmd_var = tk.StringVar(value=cfg.steamcmd_path)
+        fr = ctk.CTkFrame(sc_card, fg_color="transparent")
+        fr.grid(row=0, column=1, padx=(0, 16), pady=14, sticky="ew")
+        fr.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(fr, textvariable=self._steamcmd_var, height=34,
+                     placeholder_text=r"Ex: C:\SteamCMD\steamcmd.exe").grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(fr, text="📁", width=34, height=34,
+                      command=lambda: self._browse_file(self._steamcmd_var, "steamcmd.exe")).grid(
+            row=0, column=1)
+        self._steamcmd_dl_btn = ctk.CTkButton(
+            sc_card, text="⬇  Baixar SteamCMD", height=34,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._download_steamcmd,
+        )
+        self._steamcmd_dl_btn.grid(row=0, column=2, padx=(0, 16), pady=14)
+        self._steamcmd_status_lbl = ctk.CTkLabel(
+            sc_card,
+            text="O SteamCMD é necessário para instalar/atualizar servidores e baixar mods via Steam Workshop.",
+            text_color="gray50", font=ctk.CTkFont(size=11),
+        )
+        self._steamcmd_status_lbl.grid(row=1, column=0, columnspan=3, padx=16, pady=(0, 10), sticky="w")
 
-    def _browse(self, var: tk.StringVar) -> None:
-        path = filedialog.askdirectory(parent=self, title="Selecionar pasta")
-        if path:
-            var.set(path)
+        self._section_lbl(parent, 4, "📂  Diretório Padrão de Instalação")
+        dir_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        dir_card.grid(row=5, column=0, padx=20, pady=(0, 14), sticky="ew")
+        dir_card.grid_columnconfigure(1, weight=1)
 
-    def _clear_logs(self) -> None:
-        self._log_text.configure(state="normal")
-        self._log_text.delete("1.0", "end")
-        self._log_text.configure(state="disabled")
+        ctk.CTkLabel(dir_card, text="Diretório Padrão:", width=200, anchor="w",
+                     text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 2))
+        self._default_dir_var = tk.StringVar(value=cfg.default_install_dir)
+        fr2 = ctk.CTkFrame(dir_card, fg_color="transparent")
+        fr2.grid(row=0, column=1, padx=(0, 16), pady=(14, 2), sticky="ew")
+        fr2.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(fr2, textvariable=self._default_dir_var, height=34).grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(fr2, text="📁", width=34, height=34,
+                      command=lambda: self._browse_dir(self._default_dir_var)).grid(row=0, column=1)
+        ctk.CTkLabel(dir_card,
+                     text="Pasta sugerida ao criar um novo servidor. Pode ser sobrescrita individualmente.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=1, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
 
-    # ── Callbacks do motor ────────────────────────────────────────────────────
+        self._section_lbl(parent, 6, "🔧  Opções")
+        opt_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        opt_card.grid(row=7, column=0, padx=20, pady=(0, 14), sticky="ew")
 
-    def _append_log(self, message: str, level: str = "info") -> None:
-        if self._remote_agent:
-            self._remote_agent.push_log(message, level)
+        self._cfg_startup_var   = tk.BooleanVar(value=cfg.startup_with_windows)
+        self._cfg_minimize_tray_var = tk.BooleanVar(value=cfg.minimize_to_tray)
+        self._cfg_log_debug_var = tk.BooleanVar(value=cfg.log_debug)
 
-        def _do() -> None:
-            self._log_text.configure(state="normal")
-            self._log_text._textbox.insert("end", message + "\n", level)
-            self._log_text._textbox.see("end")
-            self._log_text.configure(state="disabled")
-        self.after(0, _do)
+        ctk.CTkCheckBox(opt_card, text="Iniciar o ARKLAND - Server Manager com o Windows",
+                        variable=self._cfg_startup_var,
+                        checkmark_color="white", fg_color=_GREEN_DARK,
+                        hover_color=_GREEN_HOVER).grid(
+            row=0, column=0, padx=16, pady=(16, 2), sticky="w")
+        ctk.CTkLabel(opt_card,
+                     text="Inicia o app automaticamente quando o Windows ligar.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=1, column=0, padx=(42, 16), pady=(0, 8), sticky="w")
 
-    def _on_status_change(self, status: str) -> None:
-        def _do() -> None:
-            if status == "running":
-                self._status_label.configure(text="● RODANDO", text_color=_GREEN)
-                self._start_btn.configure(
-                    text="⏹  Parar Sincronização",
-                    fg_color="#7a2d2d", hover_color="#5c1f1f",
-                )
-                self._stat_vars["status_text"].set("RODANDO")
-                self._stat_color_labels["status_text"].configure(text_color=_GREEN)
-            else:
-                self._status_label.configure(text="● PARADO", text_color="#ff6666")
-                self._start_btn.configure(
-                    text="▶  Iniciar Sincronização",
-                    fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                )
-                self._stat_vars["status_text"].set("PARADO")
-                self._stat_color_labels["status_text"].configure(text_color="#ff6666")
-        self.after(0, _do)
+        ctk.CTkCheckBox(opt_card, text="Minimizar para a bandeja do sistema ao fechar",
+                        variable=self._cfg_minimize_tray_var,
+                        checkmark_color="white", fg_color=_GREEN_DARK,
+                        hover_color=_GREEN_HOVER).grid(
+            row=2, column=0, padx=16, pady=(0, 2), sticky="w")
+        ctk.CTkLabel(opt_card,
+                     text="Mantém o app ativo na bandeja (systray) em vez de fechar. Clique no ícone para restaurar.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=3, column=0, padx=(42, 16), pady=(0, 8), sticky="w")
 
-    def _on_stats_update(self, stats: dict) -> None:
-        def _do() -> None:
-            self._stat_vars["total"].set(str(stats.get("total_synced", 0)))
-            self._stat_vars["last_sync"].set(stats.get("last_sync", "—"))
-            self._stat_vars["errors"].set(str(stats.get("errors", 0)))
-            self._error_list = list(stats.get("error_list", []))
-        self.after(0, _do)
+        ctk.CTkCheckBox(opt_card, text="Modo de log verbose (debug)",
+                        variable=self._cfg_log_debug_var,
+                        checkmark_color="white", fg_color=_GREEN_DARK,
+                        hover_color=_GREEN_HOVER).grid(
+            row=4, column=0, padx=16, pady=(0, 2), sticky="w")
+        ctk.CTkLabel(opt_card,
+                     text="Registra mensagens detalhadas no log. Útil para diagnosticar problemas.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=5, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
 
-    # ── Sobre & Atualizações ──────────────────────────────────────────────────
+        ctk.CTkButton(
+            parent, text="💾  Salvar Configurações Globais",
+            height=44, font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._save_global_config,
+        ).grid(row=8, column=0, padx=20, pady=(0, 24), sticky="ew")
 
-    def _build_sobre(self, parent) -> None:
+    # ══════════════════════════════════════════════════════════════════════════
+    # Sobre / Atualizações
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_about(self, parent) -> None:
         parent.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
-            parent, text="Sobre & Atualizações",
-            font=ctk.CTkFont(size=24, weight="bold"),
-        ).grid(row=0, column=0, padx=24, pady=(24, 2), sticky="w")
-        ctk.CTkLabel(
-            parent,
-            text="Informações do aplicativo e gerenciamento de atualizações.",
-            text_color="gray60",
-        ).grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
+        ctk.CTkLabel(parent, text="Sobre & Atualizações",
+                     font=ctk.CTkFont(size=24, weight="bold")).grid(
+            row=0, column=0, padx=24, pady=(24, 2), sticky="w")
+        ctk.CTkLabel(parent, text="Informações do aplicativo e gerenciamento de atualizações.",
+                     text_color="gray60").grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
 
-        # ── Informações do app ────────────────────────────────────────────────
-        self._section(parent, 2, "📦  Aplicativo")
+        self._section_lbl(parent, 2, "📦  Aplicativo")
         info_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
         info_card.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
         info_card.grid_columnconfigure(1, weight=1)
-
-        for r, (lbl, val, bold) in enumerate([
+        for rn, (lbl, val, bold) in enumerate([
             ("Nome:",         APP_NAME,          False),
             ("Versão atual:", f"v{APP_VERSION}", True),
             ("Build:",        BUILD_DATE,        False),
         ]):
-            ctk.CTkLabel(
-                info_card, text=lbl, width=140, anchor="w", text_color="gray60",
-            ).grid(row=r, column=0, padx=18, pady=8, sticky="w")
-            ctk.CTkLabel(
-                info_card, text=val, anchor="w",
-                font=ctk.CTkFont(weight="bold" if bold else "normal"),
-                text_color=_GREEN if bold else "#d8d8e8",
-            ).grid(row=r, column=1, padx=(0, 18), pady=8, sticky="w")
+            ctk.CTkLabel(info_card, text=lbl, width=160, anchor="w",
+                         text_color="gray60").grid(row=rn, column=0, padx=18, pady=8)
+            ctk.CTkLabel(info_card, text=val, anchor="w",
+                         font=ctk.CTkFont(weight="bold" if bold else "normal"),
+                         text_color=_GREEN if bold else "#d8d8e8").grid(
+                row=rn, column=1, padx=(0, 18), pady=8, sticky="w")
 
-        # ── Status de atualização ─────────────────────────────────────────────
-        self._section(parent, 4, "🔄  Atualização")
+        self._section_lbl(parent, 4, "🔄  Atualização")
         upd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
         upd_card.grid(row=5, column=0, padx=20, pady=(0, 14), sticky="ew")
         upd_card.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(
-            upd_card, text="Status:", width=140, anchor="w", text_color="gray60",
-        ).grid(row=0, column=0, padx=18, pady=(18, 6), sticky="w")
+        ctk.CTkLabel(upd_card, text="Status:", width=160, anchor="w",
+                     text_color="gray60").grid(row=0, column=0, padx=18, pady=(18, 6))
         self._update_status_var = tk.StringVar(value="Não verificado")
-        self._update_status_lbl = ctk.CTkLabel(
-            upd_card,
-            textvariable=self._update_status_var,
-            font=ctk.CTkFont(weight="bold"),
-            text_color="gray50",
-            anchor="w",
-        )
+        self._update_status_lbl = ctk.CTkLabel(upd_card, textvariable=self._update_status_var,
+                                               font=ctk.CTkFont(weight="bold"), text_color="gray50")
         self._update_status_lbl.grid(row=0, column=1, padx=(0, 18), pady=(18, 6), sticky="w")
 
-        ctk.CTkLabel(
-            upd_card, text="Última verificação:", width=140, anchor="w", text_color="gray60",
-        ).grid(row=1, column=0, padx=18, pady=(0, 10), sticky="w")
+        ctk.CTkLabel(upd_card, text="Última verificação:", width=160, anchor="w",
+                     text_color="gray60").grid(row=1, column=0, padx=18, pady=(0, 10))
         self._last_check_var = tk.StringVar(value="Nunca")
-        ctk.CTkLabel(
-            upd_card, textvariable=self._last_check_var,
-            text_color="#d8d8e8", anchor="w",
-        ).grid(row=1, column=1, padx=(0, 18), pady=(0, 10), sticky="w")
+        ctk.CTkLabel(upd_card, textvariable=self._last_check_var,
+                     text_color="#d8d8e8").grid(row=1, column=1, padx=(0, 18), sticky="w")
 
-        btn_row2 = ctk.CTkFrame(upd_card, fg_color="transparent")
-        btn_row2.grid(row=2, column=0, columnspan=2, padx=18, pady=(4, 14), sticky="w")
-
+        btn_row = ctk.CTkFrame(upd_card, fg_color="transparent")
+        btn_row.grid(row=2, column=0, columnspan=2, padx=18, pady=(4, 14), sticky="w")
         self._check_update_btn = ctk.CTkButton(
-            btn_row2,
-            text="🔍  Verificar Atualizações",
-            width=210, height=40,
-            fg_color="#1a3a6a", hover_color="#102650",
+            btn_row, text="🔍  Verificar Atualizações", width=210, height=40,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
             command=self._check_updates_manual,
         )
         self._check_update_btn.pack(side="left", padx=(0, 10))
-
         self._install_update_btn = ctk.CTkButton(
-            btn_row2,
-            text="⬇️  Baixar e Instalar",
-            width=190, height=40,
-            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-            state="disabled",
+            btn_row, text="⬇️  Baixar e Instalar", width=190, height=40,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER, state="disabled",
             command=self._start_download_update,
         )
         self._install_update_btn.pack(side="left")
 
-        # Barra de progresso e label (adicionadas ao grid dinamicamente)
-        self._update_progress = ctk.CTkProgressBar(
-            upd_card, width=420, height=14, corner_radius=6,
-        )
+        self._update_progress       = ctk.CTkProgressBar(upd_card, width=420, height=14)
         self._update_progress.set(0)
-        self._update_progress_label = ctk.CTkLabel(
-            upd_card, text="", text_color="gray60",
-            font=ctk.CTkFont(size=11),
-        )
+        self._update_progress_label = ctk.CTkLabel(upd_card, text="", text_color="gray60",
+                                                   font=ctk.CTkFont(size=11))
 
-        # ── Histórico de versões ──────────────────────────────────────────────
-        self._section(parent, 6, "📝  Histórico de Versões")
+        self._section_lbl(parent, 6, "📝  Histórico de Versões")
         cl_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
         cl_card.grid(row=7, column=0, padx=20, pady=(0, 24), sticky="ew")
         cl_card.grid_columnconfigure(0, weight=1)
-
-        cl_text = ctk.CTkTextbox(
-            cl_card,
-            font=ctk.CTkFont(family="Courier New", size=12),
-            wrap="word",
-            state="normal",
-            height=200,
-            fg_color="#161622",
-        )
+        cl_text = ctk.CTkTextbox(cl_card, font=ctk.CTkFont(family="Courier New", size=12),
+                                 wrap="word", state="normal", height=200, fg_color="#161622")
         cl_text.grid(row=0, column=0, padx=12, pady=12, sticky="ew")
-
         tw = cl_text._textbox
         tw.tag_config("ver",  foreground="#4CAF50", font=("Courier New", 13, "bold"))
         tw.tag_config("date", foreground="#888899")
         tw.tag_config("item", foreground="#c0c0d8")
-
         for entry in CHANGELOG:
             tw.insert("end", f"v{entry['version']}", "ver")
             if entry.get("date"):
@@ -749,662 +2479,866 @@ class ARKLandMultiApp(ctk.CTk):
             for change in entry.get("changes", []):
                 tw.insert("end", f"  • {change}\n", "item")
             tw.insert("end", "\n")
-
         cl_text.configure(state="disabled")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Ações de Servidor
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _start_server(self, server_id: str) -> None:
+        self._save_server_config(server_id, silent=True)
+        self.server_manager.start_server(server_id)
+
+    def _stop_server(self, server_id: str) -> None:
+        self.server_manager.stop_server(server_id)
+
+    def _restart_server(self, server_id: str) -> None:
+        self.server_manager.restart_server(server_id)
+
+    def _confirm_remove_server(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        name = srv.name if srv else server_id
+        if messagebox.askyesno(
+            "Remover Servidor",
+            f"Deseja remover o servidor '{name}'?\nEsta ação não pode ser desfeita.",
+            parent=self,
+        ):
+            self.server_manager.remove_server(server_id)
+            self.config_manager.remove_server(server_id)
+            frame_key = f"server_{server_id}"
+            if frame_key in self._frames:
+                self._frames[frame_key].destroy()
+                del self._frames[frame_key]
+            if server_id in self._server_frames:
+                del self._server_frames[server_id]
+            if server_id in self._server_widgets:
+                del self._server_widgets[server_id]
+            if server_id in self._rcon_clients:
+                try:
+                    self._rcon_clients[server_id].disconnect()
+                except Exception:
+                    pass
+                del self._rcon_clients[server_id]
+            self._rebuild_server_sidebar()
+            self._refresh_dashboard()
+            self._show_frame("dashboard")
+
+    def _run_server_install(self, server_id: str, validate: bool = False) -> None:
+        """Instala ou valida o servidor ARK via SteamCMD."""
+        if not self.mod_manager.is_steamcmd_available():
+            messagebox.showwarning(
+                "SteamCMD não encontrado",
+                "Configure o caminho do SteamCMD nas Configurações Globais antes de instalar.",
+                parent=self)
+            return
+
+        w = self._server_widgets.get(server_id, {})
+        install_dir = w.get("install_dir", tk.StringVar()).get().strip()
+        if not install_dir:
+            messagebox.showwarning(
+                "Diretório não definido",
+                "Preencha o 'Diretório de Instalação' na aba Geral e salve antes de instalar.",
+                parent=self)
+            return
+
+        inst_log: Any = w.get("_inst_log")
+        inst_status: Any = w.get("_inst_status")
+        inst_btn: Any = w.get("_inst_btn")
+        val_btn: Any = w.get("_val_btn")
+
+        def _log(msg: str, level: str = "info") -> None:
+            colors = {"error": "#f87171", "warning": "#fbbf24",
+                      "success": "#4CAF50", "debug": "#94a3b8"}
+            color = colors.get(level, "#c8c8d8")
+            import datetime
+            ts = datetime.datetime.now().strftime("%H:%M:%S")
+            line = f"[{ts}] {msg}\n"
+            def _do():
+                if inst_log:
+                    inst_log.configure(state="normal")
+                    inst_log.insert("end", line)
+                    inst_log.see("end")
+                    inst_log.configure(state="disabled")
+            self.after(0, _do)
+
+        def _set_status(txt: str, color: str = "gray60") -> None:
+            def _do():
+                if inst_status:
+                    inst_status.configure(text=txt, text_color=color)
+            self.after(0, _do)
+
+        def _set_btns(state: str) -> None:
+            def _do():
+                if inst_btn:
+                    inst_btn.configure(state=state)
+                if val_btn:
+                    val_btn.configure(state=state)
+            self.after(0, _do)
+
+        def _on_done(ok: bool) -> None:
+            if ok:
+                _set_status("✅  Instalação concluída com sucesso!", _GREEN)
+            else:
+                _set_status("❌  Falha na instalação. Veja o log acima.", "#f87171")
+            _set_btns("normal")
+
+        _set_btns("disabled")
+        action = "Validando" if validate else "Instalando/Atualizando"
+        _set_status(f"⏳  {action}... Aguarde.", "#fbbf24")
+
+        # Redireciona o log do mod_manager para o log local
+        orig_log = self.mod_manager._on_log
+        self.mod_manager._on_log = _log
+        def _wrapped_done(ok: bool) -> None:
+            self.mod_manager._on_log = orig_log
+            _on_done(ok)
+
+        self.mod_manager.install_server(install_dir, validate=validate, on_done=_wrapped_done)
+
+    def _save_server_config(self, server_id: str, silent: bool = False) -> None:
+        """Lê todos os widgets do servidor, salva no config e escreve os .ini."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        w = self._server_widgets.get(server_id, {})
+
+        # ── Geral ──────────────────────────────────────────────────────────
+        if "name" in w:
+            srv.name           = w["name"].get().strip() or srv.name
+            srv.install_dir    = w["install_dir"].get().strip()
+            srv.server_name    = w["server_name"].get().strip()
+            map_raw = w["map"].get()
+            if "(" in map_raw and map_raw.endswith(")"):
+                srv.map = map_raw.split("(")[-1].rstrip(")")
+            else:
+                srv.map = map_raw
+            srv.server_password  = w["server_password"].get()
+            srv.admin_password   = w["admin_password"].get()
+            srv.rcon_password    = w["rcon_password"].get()
+            try:
+                srv.max_players  = int(w["max_players"].get())
+                srv.server_port  = int(w["server_port"].get())
+                srv.query_port   = int(w["query_port"].get())
+                srv.rcon_port    = int(w["rcon_port"].get())
+            except (ValueError, KeyError):
+                pass
+            srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
+            srv.active_event          = w.get("active_event",  tk.StringVar()).get().strip()
+            try:
+                srv.auto_save_period  = float(w.get("auto_save", tk.StringVar(value="15")).get())
+            except ValueError:
+                pass
+            srv.rcon_enabled          = w.get("rcon_enabled",       tk.BooleanVar(value=True)).get()
+            srv.use_battleye          = w.get("use_battleye",        tk.BooleanVar()).get()
+            srv.use_allcores          = w.get("use_allcores",        tk.BooleanVar()).get()
+            srv.force_respawn_dinos   = w.get("force_respawn",       tk.BooleanVar()).get()
+            srv.whitelist_only        = w.get("whitelist_only",      tk.BooleanVar()).get()
+            srv.auto_restart_on_crash = w.get("auto_restart_crash",  tk.BooleanVar()).get()
+            srv.auto_update_on_start  = w.get("auto_update_start",   tk.BooleanVar()).get()
+
+        # ── GameSettings ──────────────────────────────────────────────────
+        gs = srv.game_settings
+        float_gs = [
+            "difficulty_offset", "override_official_difficulty",
+            "xp_multiplier", "kill_xp_multiplier", "harvest_xp_multiplier",
+            "craft_xp_multiplier", "generic_xp_multiplier", "special_xp_multiplier",
+            "taming_speed_multiplier", "harvest_amount_multiplier",
+            "resource_respawn_period_multiplier", "harvest_health_multiplier",
+            "dino_count_multiplier", "player_damage_multiplier",
+            "player_resistance_multiplier", "player_character_water_drain_multiplier",
+            "player_character_food_drain_multiplier",
+            "player_character_health_recovery_multiplier",
+            "player_character_stamina_drain_multiplier",
+            "dino_damage_multiplier", "dino_resistance_multiplier",
+            "dino_character_health_recovery_multiplier",
+            "dino_character_food_drain_multiplier",
+            "baby_mature_speed_multiplier", "baby_hatch_speed_multiplier",
+            "baby_food_consumption_speed_multiplier", "baby_cuddle_interval_multiplier",
+            "mating_interval_multiplier", "egg_hatch_speed_multiplier",
+            "lay_egg_interval_multiplier", "baby_imprinting_stat_scale_multiplier",
+            "baby_cuddle_grace_period_multiplier", "structure_damage_multiplier",
+            "structure_resistance_multiplier", "pve_structure_decay_period_multiplier",
+            "crop_growth_speed_multiplier", "crop_decay_speed_multiplier",
+            "item_stack_size_multiplier", "spoiling_time_multiplier",
+            "item_decomposition_time_multiplier", "fishing_loot_quality_multiplier",
+            "per_platform_max_structures_multiplier",
+            "platform_saddle_build_area_bounds_multiplier",
+            "kick_idle_players_period", "tribe_name_change_cooldown",
+        ]
+        int_gs = [
+            "max_tamed_dinos", "structure_damage_repair_cooldown",
+            "override_max_experience_points_player", "override_max_experience_points_dino",
+            "max_tribe_size",
+        ]
+        bool_gs = [
+            "allow_flyer_carry_pve", "disable_structure_decay_pve", "disable_dino_decay_pve",
+            "prevent_offline_pvp", "show_map_player_location", "allow_third_person_player",
+            "always_notify_player_joined", "always_notify_player_left",
+            "server_hardcore", "server_pvp", "no_tribute_downloads",
+        ]
+        for f in float_gs:
+            key = f"gs_{f}"
+            if key in w:
+                try:
+                    setattr(gs, f, float(w[key].get()))
+                except (ValueError, TypeError, AttributeError):
+                    pass
+        for f in int_gs:
+            key = f"gs_{f}"
+            if key in w:
+                try:
+                    setattr(gs, f, int(float(w[key].get())))
+                except (ValueError, TypeError, AttributeError):
+                    pass
+        for f in bool_gs:
+            key = f"gs_{f}"
+            if key in w:
+                try:
+                    setattr(gs, f, bool(w[key].get()))
+                except (Exception):
+                    pass
+
+        # ── AdvancedSettings ──────────────────────────────────────────────
+        adv = srv.advanced_settings
+        adv_bool = [
+            "prevent_download_survivors", "prevent_download_items", "prevent_download_dinos",
+            "prevent_upload_survivors", "prevent_upload_items", "prevent_upload_dinos",
+            "no_transfer_from_filtering", "enable_cryopod_nerf",
+            "allow_crateSpawns_on_top_of_structures", "use_optimized_harvesting_health",
+            "b_passive_defenses_damage_riderless_dinos", "global_voice_chat",
+            "proximity_chat", "allow_raid_dino_feeding", "b_auto_pve_timer",
+            "b_auto_pve_use_system_time", "force_all_structure_locking",
+            "force_flyer_explosives",
+        ]
+        adv_float = [
+            "cryopod_nerf_duration", "cryopod_nerf_damage_mult",
+            "raid_dino_character_food_drain_multiplier",
+            "oxygen_swim_speed_stat_multiplier", "dino_harvesting_damage_multiplier",
+            "player_harvesting_damage_multiplier", "custom_recipe_skill_multiplier",
+            "custom_recipe_effectiveness_multiplier",
+            "auto_pve_start_time_seconds", "auto_pve_stop_time_seconds",
+        ]
+        for f in adv_bool:
+            if f"adv_{f}" in w:
+                try:
+                    setattr(adv, f, bool(w[f"adv_{f}"].get()))
+                except Exception:
+                    pass
+        for f in adv_float:
+            if f"adv_{f}" in w:
+                try:
+                    setattr(adv, f, float(w[f"adv_{f}"].get()))
+                except (ValueError, TypeError):
+                    pass
+
+        # ── Cluster ───────────────────────────────────────────────────────
+        cl = srv.cluster
+        if "cl_enabled" in w:
+            cl.enabled              = bool(w["cl_enabled"].get())
+            cl.cluster_id           = w.get("cl_cluster_id",  tk.StringVar()).get().strip()
+            cl.cluster_dir_override = w.get("cl_cluster_dir", tk.StringVar()).get().strip()
+
+        # Atualiza título do painel
+        if "_name_title_var" in w:
+            w["_name_title_var"].set(srv.name)
+
+        # Persiste
+        self.config_manager.update_server(srv)
+        self.server_manager.update_server_config(srv)
+
+        # Escreve .ini se o diretório existir
+        if srv.install_dir and os.path.isdir(srv.install_dir):
+            try:
+                ini_mgr = ArkIniManager(srv.install_dir)
+                ini_mgr.save_all(srv)
+            except Exception as exc:
+                self._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
+
+        self._rebuild_server_sidebar()
+        self._refresh_dashboard()
+
+        if not silent:
+            messagebox.showinfo("Salvo", f"Configurações de '{srv.name}' salvas!", parent=self)
+
+    # ── Mods ──────────────────────────────────────────────────────────────────
+
+    def _add_mod(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        mod_id = w.get("new_mod_id", tk.StringVar()).get().strip()
+        if not mod_id or not mod_id.isdigit():
+            messagebox.showwarning("Mod inválido", "Informe um ID numérico válido.", parent=self)
+            return
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        if mod_id not in srv.mods:
+            srv.mods.append(mod_id)
+            self.config_manager.update_server(srv)
+        w["new_mod_id"].set("")
+        self._refresh_mods_list(server_id)
+
+    def _remove_mod(self, server_id: str, mod_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        if mod_id in srv.mods:
+            srv.mods.remove(mod_id)
+            self.config_manager.update_server(srv)
+        self._refresh_mods_list(server_id)
+
+    def _download_mod(self, server_id: str, mod_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        self.mod_manager.steamcmd_path = self.config_manager.config.steamcmd_path
+        self.mod_manager.download_mods(
+            [mod_id], srv.install_dir,
+            on_done=lambda ok: self.after(0, lambda: self._refresh_mods_list(server_id)),
+        )
+
+    def _download_all_mods(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.mods:
+            messagebox.showinfo("Mods", "Nenhum mod para baixar.", parent=self)
+            return
+        self.mod_manager.steamcmd_path = self.config_manager.config.steamcmd_path
+        self.mod_manager.download_mods(
+            srv.mods, srv.install_dir,
+            on_done=lambda ok: self.after(0, lambda: self._refresh_mods_list(server_id)),
+        )
+
+    def _open_workshop_page(self, mod_id: str) -> None:
+        import webbrowser
+        webbrowser.open(self.mod_manager.get_mod_workshop_url(mod_id))
+
+    # ── RCON ──────────────────────────────────────────────────────────────────
+
+    def _rcon_connect(self, server_id: str) -> None:
+        w   = self._server_widgets.get(server_id, {})
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+
+        host     = w.get("rcon_host",        tk.StringVar(value="127.0.0.1")).get()
+        port_str = w.get("rcon_port_entry",   tk.StringVar(value=str(srv.rcon_port))).get()
+        password = srv.rcon_password or srv.admin_password
+
+        existing = self._rcon_clients.get(server_id)
+        if existing and existing.is_connected:
+            existing.disconnect()
+            del self._rcon_clients[server_id]
+            w.get("rcon_status_var", tk.StringVar()).set("⬛ Desconectado")
+            w["rcon_connect_btn"].configure(text="🔌 Conectar",
+                                            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER)
+            return
+
+        try:
+            port = int(port_str)
+        except ValueError:
+            port = srv.rcon_port
+
+        def _do_connect():
+            client = RconClient(host, port, password,
+                                on_log=lambda m, l: self._global_log(f"[RCON] {m}", l))
+            try:
+                client.connect()
+                self._rcon_clients[server_id] = client
+                def _ok():
+                    w.get("rcon_status_var", tk.StringVar()).set(f"🟢 Conectado a {host}:{port}")
+                    w["rcon_connect_btn"].configure(text="🔌 Desconectar",
+                                                   fg_color=_RED_DARK, hover_color=_RED_HOVER)
+                    self._rcon_append(server_id, f"Conectado a {host}:{port}\n", "sys")
+                self.after(0, _ok)
+            except RconError as exc:
+                def _err():
+                    w.get("rcon_status_var", tk.StringVar()).set(f"🔴 Erro: {exc}")
+                    self._rcon_append(server_id, f"Erro de conexão: {exc}\n", "err")
+                self.after(0, _err)
+
+        threading.Thread(target=_do_connect, daemon=True).start()
+
+    def _rcon_send(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        cmd = w.get("rcon_input", tk.StringVar()).get().strip()
+        if not cmd:
+            return
+        w["rcon_input"].set("")
+        self._rcon_exec(server_id, cmd)
+
+    def _rcon_exec(self, server_id: str, command: str) -> None:
+        client = self._rcon_clients.get(server_id)
+        self._rcon_append(server_id, f"> {command}\n", "cmd")
+
+        if not client or not client.is_connected:
+            self._rcon_append(server_id, "Não conectado. Clique em 'Conectar' primeiro.\n", "err")
+            return
+
+        def _do():
+            ok, result = client.send_command_safe(command)
+            level = "resp" if ok else "err"
+            self.after(0, lambda: self._rcon_append(
+                server_id, (result or "(sem resposta)") + "\n", level))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _rcon_append(self, server_id: str, text: str, tag: str = "resp") -> None:
+        w = self._server_widgets.get(server_id, {})
+        box: Optional[ctk.CTkTextbox] = w.get("rcon_output")
+        if not box:
+            return
+        box.configure(state="normal")
+        box._textbox.insert("end", text, tag)
+        box._textbox.see("end")
+        box.configure(state="disabled")
+
+    # ── Callbacks de status e log ─────────────────────────────────────────────
+
+    def _on_server_status_change(self, server_id: str, status: str) -> None:
+        def _do():
+            color = _STATUS_COLOR.get(status, "#ff6666")
+            label = _STATUS_LABEL.get(status, status)
+
+            w = self._server_widgets.get(server_id, {})
+            sv: Optional[tk.StringVar]  = w.get("_status_var")
+            sl: Optional[ctk.CTkLabel]  = w.get("_status_lbl")
+            ss: Optional[ctk.CTkButton] = w.get("_start_stop_btn")
+            if sv:
+                sv.set(label)
+            if sl:
+                sl.configure(text_color=color)
+            if ss:
+                is_running = status == SERVER_STATUS_RUNNING
+                is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
+                ss.configure(
+                    text="▶ Iniciar" if not is_running else "⏹ Parar",
+                    fg_color=_GREEN_DARK if not is_running else _RED_DARK,
+                    hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
+                    state="disabled" if is_busy else "normal",
+                )
+
+            btn = self._sidebar_server_btns.get(server_id)
+            if btn and hasattr(btn, "_status_dot"):
+                btn._status_dot.configure(text_color=color)
+
+            self._refresh_dashboard()
+        self.after(0, _do)
+
+    def _on_server_log(self, server_id: str, msg: str, level: str) -> None:
+        def _do():
+            w = self._server_widgets.get(server_id, {})
+            box: Optional[ctk.CTkTextbox] = w.get("_log_box")
+            if box:
+                box.configure(state="normal")
+                box._textbox.insert("end", msg + "\n", level)
+                box._textbox.see("end")
+                box.configure(state="disabled")
+        self.after(0, _do)
+
+    def _clear_server_log(self, server_id: str) -> None:
+        inst = self.server_manager.get_instance(server_id)
+        if inst and hasattr(inst, "log_buffer"):
+            inst.log_buffer.clear()
+        w = self._server_widgets.get(server_id, {})
+        box: Optional[ctk.CTkTextbox] = w.get("_log_box")
+        if box:
+            box.configure(state="normal")
+            box.delete("1.0", "end")
+            box.configure(state="disabled")
+
+    # ── Diálogo "Novo Servidor" ───────────────────────────────────────────────
+
+    def _on_server_visibility_change(self, server_id: str, mode: str) -> None:
+        """Callback chamado quando o online_mode de um servidor muda (—/LAN/WAN)."""
+        def _do():
+            w = self._server_widgets.get(server_id, {})
+            vis_lbl: Optional[ctk.CTkLabel] = w.get("_visibility_lbl")
+            if vis_lbl:
+                if mode == "WAN":
+                    vis_lbl.configure(text="🌐 WAN", text_color=_GREEN)
+                elif mode == "LAN":
+                    vis_lbl.configure(text="🏠 LAN", text_color="#ffaa44")
+                else:
+                    vis_lbl.configure(text="", text_color="gray50")
+        self.after(0, _do)
+
+    def _on_auto_updater_log(self, msg: str, level: str) -> None:
+        def _do():
+            box = self._auto_updater_log_box
+            if box:
+                box.configure(state="normal")
+                box._textbox.insert("end", msg + "\n", level)
+                box._textbox.see("end")
+                box.configure(state="disabled")
+            # Também envia para o log global
+            self._global_log(msg, level)
+        self.after(0, _do)
+
+    def _dialog_add_server(self) -> None:
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Novo Servidor ARK")
+        dlg.geometry("520x500")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(dlg, text="Novo Servidor",
+                     font=ctk.CTkFont(size=18, weight="bold")).grid(
+            row=0, column=0, columnspan=2, padx=20, pady=(20, 16), sticky="w")
+
+        fields: Dict[str, tk.StringVar] = {}
+
+        def field_row(label: str, key: str, default: str, rn: int,
+                      combo: Optional[List] = None, browse: bool = False) -> None:
+            ctk.CTkLabel(dlg, text=label, width=170, anchor="w",
+                         text_color="gray60").grid(row=rn, column=0, padx=20, pady=6)
+            fields[key] = tk.StringVar(value=default)
+            if combo:
+                ctk.CTkComboBox(dlg, variable=fields[key], values=combo,
+                                width=260, height=34).grid(
+                    row=rn, column=1, padx=(0, 20), pady=6, sticky="ew")
+            elif browse:
+                fr = ctk.CTkFrame(dlg, fg_color="transparent")
+                fr.grid(row=rn, column=1, padx=(0, 20), pady=6, sticky="ew")
+                fr.grid_columnconfigure(0, weight=1)
+                ctk.CTkEntry(fr, textvariable=fields[key], height=34).grid(
+                    row=0, column=0, sticky="ew", padx=(0, 6))
+                ctk.CTkButton(fr, text="📁", width=34, height=34,
+                              command=lambda: self._browse_dir(fields[key])).grid(row=0, column=1)
+            else:
+                ctk.CTkEntry(dlg, textvariable=fields[key], height=34).grid(
+                    row=rn, column=1, padx=(0, 20), pady=6, sticky="ew")
+
+        field_row("Nome do Servidor (label):", "name",       "Meu Servidor ARK", 1)
+        field_row("Mapa:", "map", "TheIsland", 2, combo=[
+            f"{ARK_MAP_NAMES.get(m, m)} ({m})" for m in ARK_MAPS])
+        field_row("Diretório de Instalação:", "install_dir", "",                 3, browse=True)
+        field_row("Porta do Servidor:",       "port",        "7777",             4)
+        field_row("Porta Query:",             "qport",       "27015",            5)
+        field_row("Porta RCON:",              "rport",       "27020",            6)
+        field_row("Senha de Admin:",          "admin_pass",  "",                 7)
+
+        def _create():
+            name = fields["name"].get().strip() or "Servidor ARK"
+            map_raw = fields["map"].get()
+            if "(" in map_raw and map_raw.endswith(")"):
+                map_id = map_raw.split("(")[-1].rstrip(")")
+            else:
+                map_id = map_raw
+
+            srv = ServerConfig(
+                name           = name,
+                map            = map_id,
+                install_dir    = fields["install_dir"].get().strip(),
+                server_name    = name,
+                admin_password = fields["admin_pass"].get(),
+                rcon_password  = fields["admin_pass"].get(),
+            )
+            try:
+                srv.server_port = int(fields["port"].get())
+                srv.query_port  = int(fields["qport"].get())
+                srv.rcon_port   = int(fields["rport"].get())
+            except ValueError:
+                pass
+
+            self.config_manager.add_server(srv)
+            self.server_manager.add_server(srv)
+            self._rebuild_server_sidebar()
+            self._refresh_dashboard()
+            dlg.destroy()
+            self._open_server_panel(srv.id)
+
+        ctk.CTkButton(
+            dlg, text="✅  Criar Servidor", height=40,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=_create,
+        ).grid(row=8, column=0, columnspan=2, padx=20, pady=(16, 20), sticky="ew")
+
+    # ── Configurações Globais ─────────────────────────────────────────────────
+
+    def _save_global_config(self) -> None:
+        cfg = self.config_manager.config
+        cfg.steamcmd_path        = self._steamcmd_var.get().strip()
+        cfg.default_install_dir  = self._default_dir_var.get().strip()
+        cfg.startup_with_windows = self._cfg_startup_var.get()
+        cfg.minimize_to_tray     = self._cfg_minimize_tray_var.get()
+        cfg.log_debug            = self._cfg_log_debug_var.get()
+        _set_windows_startup(cfg.startup_with_windows)
+        self.config_manager.save()
+        self.mod_manager.steamcmd_path = cfg.steamcmd_path
+        messagebox.showinfo("Salvo", "Configurações globais salvas!", parent=self)
+
+    # ── Update checker ────────────────────────────────────────────────────────
 
     def _check_updates_on_start(self) -> None:
         url = self.config_manager.config.update_url
         if not url:
             return
         self.update_checker.check_async(
-            url,
-            on_result=lambda info: (self.after(0, lambda: self._on_update_result(info)), None)[1],
-        )
+            url, on_result=lambda info: self.after(0, lambda: self._on_update_result(info)))
 
     def _check_updates_manual(self) -> None:
         url = self.config_manager.config.update_url
         if not url:
-            self._update_status_var.set("⚠️  URL não configurada em Configurações")
-            self._update_status_lbl.configure(text_color="#ffaa44")
             return
         self._check_update_btn.configure(state="disabled", text="🔍  Verificando...")
-        self._update_status_var.set("Verificando...")
-        self._update_status_lbl.configure(text_color="gray60")
         self.update_checker.check_async(
             url,
-            on_result=lambda info: (self.after(
-                0, lambda: self._on_update_result(info, manual=True)
-            ), None)[1],
-        )
+            on_result=lambda info: self.after(
+                0, lambda: self._on_update_result(info, manual=True)))
 
     def _on_update_result(self, info, manual: bool = False) -> None:
         from datetime import datetime
         self._last_check_var.set(datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
         self._check_update_btn.configure(state="normal", text="🔍  Verificar Atualizações")
-
         if info is None:
             if manual:
-                self._update_status_var.set("❌  Não foi possível verificar atualizações")
+                self._update_status_var.set("❌  Não foi possível verificar")
                 self._update_status_lbl.configure(text_color="#ff6666")
             return
-
         if info.is_newer_than(APP_VERSION):
             self._update_status_var.set(f"🔔  v{info.version} disponível!")
             self._update_status_lbl.configure(text_color="#ffaa44")
             self._install_update_btn.configure(
-                state="normal", text=f"⬇️  Instalar v{info.version}",
-            )
-            self._update_notif_label.configure(text=f"🔔 v{info.version} disponível")
-            if "sobre" in self._nav_buttons:
-                self._nav_buttons["sobre"].configure(text="ℹ️  Sobre  🔔")
+                state="normal", text=f"⬇️  Instalar v{info.version}")
+            self._sidebar_update_lbl.configure(text=f"🔔 v{info.version} disponível")
+            self._nav_buttons.get("sobre", ctk.CTkButton(self)).configure(text="ℹ️  Sobre  🔔")
         else:
-            self._update_status_var.set("✅  Você está na versão mais recente")
+            self._update_status_var.set("✅  Versão mais recente")
             self._update_status_lbl.configure(text_color=_GREEN)
-            self._install_update_btn.configure(
-                state="disabled", text="⬇️  Baixar e Instalar",
-            )
-            self._update_notif_label.configure(text="")
+            self._install_update_btn.configure(state="disabled", text="⬇️  Baixar e Instalar")
+            self._sidebar_update_lbl.configure(text="")
 
     def _start_download_update(self) -> None:
         info = self.update_checker.latest
         if not info:
             return
-        self._install_update_btn.configure(state="disabled", text="⬇️  Baixando...")
+        self._install_update_btn.configure(state="disabled", text="⏳  Iniciando agente...")
         self._check_update_btn.configure(state="disabled")
-        self._update_progress.set(0)
-        self._update_progress.grid(
-            row=3, column=0, columnspan=2, padx=18, pady=(0, 8), sticky="w"
-        )
-        self._update_progress_label.configure(text="Iniciando download...")
-        self._update_progress_label.grid(
-            row=4, column=0, columnspan=2, padx=18, pady=(0, 14), sticky="w"
-        )
         self.update_checker.download_and_install(
             info,
-            on_progress=lambda p: (self.after(0, lambda: self._on_download_progress(p)), None)[1],
-            on_done=lambda ok, msg: (self.after(0, lambda: self._on_download_done(ok, msg)), None)[1],
+            on_done=lambda ok, msg: self.after(0, lambda: self._on_download_done(ok, msg)),
         )
 
-    def _on_download_progress(self, percent: int) -> None:
-        self._update_progress.set(percent / 100)
-        self._update_progress_label.configure(text=f"Baixando... {percent}%")
-
     def _on_download_done(self, success: bool, message: str) -> None:
-        self._check_update_btn.configure(state="normal")
         if success:
-            self._update_progress.set(1.0)
             self._update_progress_label.configure(
-                text="✅  Download concluído. O instalador foi iniciado."
-            )
+                text="✅  Agente iniciado. O app será fechado e a atualização instalada automaticamente.")
+            self._update_progress_label.grid(row=4, column=0, columnspan=2, padx=18, sticky="w")
             messagebox.showinfo(
                 "Atualização",
-                "O instalador foi iniciado.\n"
-                "O aplicativo será fechado para concluir a atualização.",
+                f"O agente de atualização foi iniciado.\n\n"
+                f"O ARKLAND será fechado agora. Quando a instalação terminar, o app reiniciará automaticamente.",
                 parent=self,
             )
             self._on_close()
         else:
-            self._update_progress.grid_remove()
+            self._check_update_btn.configure(state="normal")
             self._update_progress_label.configure(text=f"❌  Erro: {message}")
-            self._install_update_btn.configure(
-                state="normal", text="⬇️  Tentar Novamente",
-            )
-    # ── Diálogo de erros ───────────────────────────────────────────────────────────
+            self._update_progress_label.grid(row=4, column=0, columnspan=2, padx=18, sticky="w")
+            self._install_update_btn.configure(state="normal", text="⬇️  Tentar Novamente")
 
-    def _show_errors_dialog(self) -> None:
-        dlg = ctk.CTkToplevel(self)
-        dlg.title("Detalhes dos Erros")
-        dlg.geometry("720x440")
-        dlg.resizable(True, True)
-        dlg.grab_set()
-        dlg.grid_columnconfigure(0, weight=1)
-        dlg.grid_rowconfigure(1, weight=1)
+    # ── Logs globais ──────────────────────────────────────────────────────────
 
-        # Cabeçalho
-        header = ctk.CTkFrame(dlg, fg_color="transparent")
-        header.grid(row=0, column=0, padx=20, pady=(16, 8), sticky="ew")
-        header.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(
-            header, text="Erros de Sincronização",
-            font=ctk.CTkFont(size=18, weight="bold"),
-        ).grid(row=0, column=0, sticky="w")
-
-        def _clear_and_refresh() -> None:
-            self.sync_engine.clear_errors()
-            _refresh_text()
-
-        ctk.CTkButton(
-            header, text="\U0001f5d1  Limpar", width=100, height=30,
-            fg_color="#3a3a5a", hover_color="#252540",
-            command=_clear_and_refresh,
-        ).grid(row=0, column=1, sticky="e")
-
-        # Caixa de texto
-        txt = ctk.CTkTextbox(
-            dlg,
-            font=ctk.CTkFont(family="Courier New", size=12),
-            wrap="word",
-            state="normal",
-        )
-        txt.grid(row=1, column=0, padx=20, pady=(0, 8), sticky="nsew")
-
-        tw = txt._textbox
-        tw.tag_config("time",    foreground="#888899")
-        tw.tag_config("type",    foreground="#ffaa44")
-        tw.tag_config("message", foreground="#ff8888")
-        tw.tag_config("empty",   foreground="gray50")
-
-        def _refresh_text() -> None:
-            txt.configure(state="normal")
-            txt.delete("1.0", "end")
-            snapshot = list(self._error_list)
-            if not snapshot:
-                tw.insert("end", "Nenhum erro registrado.", "empty")
-            else:
-                for err in snapshot:
-                    tw.insert("end", f"[{err['time']}]  ", "time")
-                    if err.get("type"):
-                        tw.insert("end", f"[{err['type']}]  ", "type")
-                    tw.insert("end", f"{err['message']}\n", "message")
-            txt.configure(state="disabled")
-
-        _refresh_text()
-
-        ctk.CTkButton(
-            dlg, text="Fechar", height=36,
-            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-            command=dlg.destroy,
-        ).grid(row=2, column=0, padx=20, pady=(0, 16), sticky="ew")
+    def _global_log(self, msg: str, level: str = "info") -> None:
+        self._global_log_buf.append(f"[{level.upper()}] {msg}")
 
     # ── Navegação ─────────────────────────────────────────────────────────────
 
     def _show_frame(self, name: str) -> None:
+        self._current_frame = name
         for key, frame in self._frames.items():
             if key == name:
                 frame.grid()
             else:
                 frame.grid_remove()
-            btn = self._nav_buttons.get(key)
-            if btn:
-                btn.configure(fg_color="#1e2a3a" if key == name else "transparent")
+        for key, btn in self._nav_buttons.items():
+            btn.configure(fg_color="#1e2a3a" if key == name else "transparent")
+        for srv_id, btn in self._sidebar_server_btns.items():
+            active = name == f"server_{srv_id}"
+            btn.configure(fg_color="#1e2a3a" if active else "transparent")
 
-    # ── Encerramento ──────────────────────────────────────────────────────────
+    # ── Helpers de UI ─────────────────────────────────────────────────────────
 
-    # ── Agente remoto ─────────────────────────────────────────────────────────
+    def _section_lbl(self, parent, row: int, text: str) -> None:
+        ctk.CTkLabel(parent, text=text,
+                     font=ctk.CTkFont(size=12, weight="bold"),
+                     text_color="#88d4a0").grid(
+            row=row, column=0, columnspan=4, padx=16, pady=(10, 2), sticky="w")
 
-    def _start_remote_agent_if_needed(self) -> None:
-        cfg = self.config_manager.config
-        if not cfg.remote_agent_enabled:
-            return
-        try:
-            self._remote_agent = RemoteAgent(
-                sync_engine=self.sync_engine,
-                port=cfg.remote_agent_port,
-                token=cfg.remote_agent_token,
-            )
-            self._remote_agent.start()
-        except OSError as exc:
-            self._remote_agent = None
-            self.after(2000, lambda: self._append_log(
-                f"[agente remoto] Falha ao iniciar na porta {cfg.remote_agent_port}: {exc}", "error"
-            ))
-
-    def _restart_remote_agent(self) -> None:
-        if self._remote_agent:
-            self._remote_agent.stop()
-            self._remote_agent = None
-        self._start_remote_agent_if_needed()
-        # Atualiza label de status na aba Remoto
-        self._refresh_agent_status()
-
-    def _get_local_ip(self) -> str:
-        """Retorna o IP local da máquina (interface de rede ativa)."""
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.connect(("8.8.8.8", 80))
-                return s.getsockname()[0]
-        except Exception:
-            return "127.0.0.1"
-
-    def _refresh_agent_status(self) -> None:
-        cfg = self.config_manager.config
-        if self._remote_agent and self._remote_agent.is_running:
-            self._agent_status_lbl.configure(
-                text=f"✅  Agente ativo na porta {cfg.remote_agent_port}",
-                text_color=_GREEN,
-            )
-        else:
-            self._agent_status_lbl.configure(
-                text="⏹  Agente inativo",
-                text_color="gray50",
-            )
-
-    # ── Aba Remoto ────────────────────────────────────────────────────────────
-
-    def _build_remoto(self, parent) -> None:
-        parent.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkLabel(
-            parent, text="Controle Remoto",
-            font=ctk.CTkFont(size=24, weight="bold"),
-        ).grid(row=0, column=0, padx=24, pady=(24, 2), sticky="w")
-        ctk.CTkLabel(
-            parent,
-            text="Exponha esta máquina como agente ou controle outra instância remotamente.",
-            text_color="gray60",
-        ).grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
-
-        # ── Agente local (servidor) ────────────────────────────────────────────
-        self._section(parent, 2, "📡  Este PC como Agente (Servidor)")
-        agent_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        agent_card.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
-        agent_card.grid_columnconfigure(1, weight=1)
-
-        cfg = self.config_manager.config
-
-        self._agent_enabled_var = tk.BooleanVar(value=cfg.remote_agent_enabled)
-        ctk.CTkCheckBox(
-            agent_card,
-            text="Habilitar agente HTTP (permite controle remoto deste PC)",
-            variable=self._agent_enabled_var,
-            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-        ).grid(row=0, column=0, columnspan=2, padx=18, pady=(16, 10), sticky="w")
-
-        ctk.CTkLabel(agent_card, text="Porta:", width=130, anchor="w").grid(
-            row=1, column=0, padx=18, pady=8, sticky="w")
-        self._agent_port_var = tk.StringVar(value=str(cfg.remote_agent_port))
-        ctk.CTkEntry(
-            agent_card, textvariable=self._agent_port_var,
-            width=120, height=34, placeholder_text="32440",
-        ).grid(row=1, column=1, padx=(0, 18), pady=8, sticky="w")
-
-        ctk.CTkLabel(agent_card, text="Token (Bearer):", width=130, anchor="w").grid(
-            row=2, column=0, padx=18, pady=8, sticky="w")
-        self._agent_token_var = tk.StringVar(value=cfg.remote_agent_token)
-
-        token_row = ctk.CTkFrame(agent_card, fg_color="transparent")
-        token_row.grid(row=2, column=1, padx=(0, 18), pady=8, sticky="ew")
-        token_row.grid_columnconfigure(0, weight=1)
-
-        token_entry = ctk.CTkEntry(
-            token_row, textvariable=self._agent_token_var,
-            height=34, state="readonly",
-            font=ctk.CTkFont(family="Courier New", size=11),
-        )
-        token_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-
-        def _copy_token():
-            self.clipboard_clear()
-            self.clipboard_append(self._agent_token_var.get())
-
-        def _revoke_token():
-            import uuid as _uuid
-            new_tok = str(_uuid.uuid4())
-            self._agent_token_var.set(new_tok)
-            self.config_manager.config.remote_agent_token = new_tok
-            self._save_config()
-
+    def _save_btn_row(self, parent, row: int, server_id: str) -> None:
         ctk.CTkButton(
-            token_row, text="📋", width=34, height=34,
-            fg_color="#2a2a44", hover_color="#3a3a5a",
-            command=_copy_token,
-        ).grid(row=0, column=1, padx=(0, 4))
-        ctk.CTkButton(
-            token_row, text="🔄 Revogar", width=90, height=34,
-            fg_color="#7a2d2d", hover_color="#5c1f1f",
-            command=_revoke_token,
-        ).grid(row=0, column=2)
-
-        self._agent_status_lbl = ctk.CTkLabel(
-            agent_card, text="⏹  Agente inativo",
-            text_color="gray50", font=ctk.CTkFont(size=12),
-        )
-        self._agent_status_lbl.grid(row=3, column=0, columnspan=2, padx=18, pady=(4, 14), sticky="w")
-        self._refresh_agent_status()
-
-        # IP local da máquina
-        local_ip = self._get_local_ip()
-        port_val = cfg.remote_agent_port
-        ip_text = f"IP desta máquina: {local_ip}   |   Endereço para peers: {local_ip}:{port_val}"
-        self._agent_ip_lbl = ctk.CTkLabel(
-            agent_card, text=ip_text,
-            text_color="#4CAF50", font=ctk.CTkFont(size=12, weight="bold"),
-        )
-        self._agent_ip_lbl.grid(row=4, column=0, columnspan=2, padx=18, pady=(0, 6), sticky="w")
-
-        ctk.CTkLabel(
-            agent_card,
-            text="Abra a porta acima no firewall do Windows desta máquina para acesso externo.",
-            text_color="gray50", font=ctk.CTkFont(size=11),
-        ).grid(row=5, column=0, columnspan=2, padx=18, pady=(0, 14), sticky="w")
-
-        ctk.CTkButton(
-            parent,
-            text="💾  Salvar Configurações",
-            height=40,
-            font=ctk.CTkFont(size=13, weight="bold"),
+            parent, text="💾  Salvar & Aplicar Configurações",
+            height=42, font=ctk.CTkFont(size=13, weight="bold"),
             fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-            command=self._save_config,
-        ).grid(row=4, column=0, padx=20, pady=(0, 18), sticky="ew")
+            command=lambda: self._save_server_config(server_id),
+        ).grid(row=row, column=0, columnspan=4, padx=16, pady=(16, 24), sticky="ew")
 
-        # ── Peers remotos (cliente) ────────────────────────────────────────────
-        self._section(parent, 5, "🖥️  Controlar Outra Máquina")
-        peers_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        peers_card.grid(row=6, column=0, padx=20, pady=(0, 14), sticky="ew")
-        peers_card.grid_columnconfigure(1, weight=1)
+    def _browse_dir(self, var: tk.StringVar) -> None:
+        path = filedialog.askdirectory(parent=self, title="Selecionar pasta")
+        if path:
+            var.set(path)
 
-        # Formulário para adicionar peer
-        ctk.CTkLabel(peers_card, text="Nome:", width=100, anchor="w").grid(
-            row=0, column=0, padx=18, pady=(14, 6), sticky="w")
-        self._peer_name_var = tk.StringVar()
-        ctk.CTkEntry(
-            peers_card, textvariable=self._peer_name_var,
-            height=32, placeholder_text="Ex: Servidor-A (opcional)",
-        ).grid(row=0, column=1, padx=(0, 18), pady=(14, 6), sticky="ew")
+    def _browse_file(self, var: tk.StringVar, title: str = "Selecionar arquivo") -> None:
+        path = filedialog.askopenfilename(parent=self, title=title,
+                                          filetypes=[("Executável", "*.exe"), ("Todos", "*.*")])
+        if path:
+            var.set(path)
 
-        ctk.CTkLabel(peers_card, text="IP:", width=100, anchor="w").grid(
-            row=1, column=0, padx=18, pady=6, sticky="w")
-        self._peer_host_var = tk.StringVar()
-        ctk.CTkEntry(
-            peers_card, textvariable=self._peer_host_var,
-            height=32, placeholder_text="Ex: 192.168.1.50",
-        ).grid(row=1, column=1, padx=(0, 18), pady=6, sticky="ew")
+    # ── Download automático do SteamCMD ───────────────────────────────────────
 
-        ctk.CTkLabel(peers_card, text="Porta:", width=100, anchor="w").grid(
-            row=2, column=0, padx=18, pady=6, sticky="w")
-        self._peer_port_var = tk.StringVar(value="32440")
-        ctk.CTkEntry(
-            peers_card, textvariable=self._peer_port_var,
-            height=32, placeholder_text="32440",
-        ).grid(row=2, column=1, padx=(0, 18), pady=6, sticky="ew")
+    _STEAMCMD_URL = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
 
-        ctk.CTkLabel(peers_card, text="Token:", width=100, anchor="w").grid(
-            row=3, column=0, padx=18, pady=6, sticky="w")
-        self._peer_token_var = tk.StringVar()
+    def _download_steamcmd(self) -> None:
+        """Baixa, extrai e inicializa o SteamCMD automaticamente."""
+        dest_dir = os.path.join(
+            os.environ.get("APPDATA", os.path.expanduser("~")),
+            "ARKLAND-ServerManager", "steamcmd",
+        )
+        steamcmd_exe = os.path.join(dest_dir, "steamcmd.exe")
 
-        peer_token_row = ctk.CTkFrame(peers_card, fg_color="transparent")
-        peer_token_row.grid(row=3, column=1, padx=(0, 18), pady=6, sticky="ew")
-        peer_token_row.grid_columnconfigure(0, weight=1)
-
-        ctk.CTkEntry(
-            peer_token_row, textvariable=self._peer_token_var,
-            height=32, placeholder_text="Cole o token do agente remoto",
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-
-        def _paste_own_token():
-            """Cola o token deste próprio agente no campo — facilita configurar peers na mesma rede."""
-            own = self.config_manager.config.remote_agent_token
-            self._peer_token_var.set(own)
-
-        ctk.CTkButton(
-            peer_token_row, text="📋 Colar meu token", width=130, height=32,
-            fg_color="#2a2a44", hover_color="#3a3a5a",
-            command=_paste_own_token,
-        ).grid(row=0, column=1)
-
-        ctk.CTkButton(
-            peers_card, text="➕  Adicionar Peer",
-            width=160, height=34,
-            fg_color="#1a3a6a", hover_color="#102650",
-            command=self._add_peer,
-        ).grid(row=4, column=0, columnspan=2, padx=18, pady=(6, 14), sticky="w")
-
-        # Lista de peers salvos
-        self._section(parent, 7, "📋  Peers Salvos")
-        self._peers_list_frame = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        self._peers_list_frame.grid(row=8, column=0, padx=20, pady=(0, 24), sticky="ew")
-        self._peers_list_frame.grid_columnconfigure(0, weight=1)
-        self._refresh_peers_list()
-
-    def _add_peer(self) -> None:
-        name = self._peer_name_var.get().strip()
-        host = self._peer_host_var.get().strip()
-        port_str = self._peer_port_var.get().strip()
-        token = self._peer_token_var.get().strip()
-        if not host:
-            messagebox.showwarning("Peer inválido", "Informe o IP.", parent=self)
-            return
-        if not name:
-            name = host
-        try:
-            port = max(1024, min(65535, int(port_str)))
-        except ValueError:
-            port = 32440
-        peers = self.config_manager.config.remote_peers or []
-        peers.append({"name": name, "host": host, "port": port, "token": token})
-        self.config_manager.config.remote_peers = peers
-        self.config_manager.save()
-        self._peer_name_var.set("")
-        self._peer_host_var.set("")
-        self._peer_port_var.set("32440")
-        self._peer_token_var.set("")
-        self._refresh_peers_list()
-
-    def _refresh_peers_list(self) -> None:
-        for w in self._peers_list_frame.winfo_children():
-            w.destroy()
-        peers = self.config_manager.config.remote_peers or []
-        if not peers:
-            ctk.CTkLabel(
-                self._peers_list_frame,
-                text="Nenhum peer cadastrado.",
-                text_color="gray50",
-            ).grid(row=0, column=0, padx=18, pady=14, sticky="w")
-            return
-        self._peers_list_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
-        headers = ["Nome", "IP", "Porta", "Status", ""]
-        for c, h in enumerate(headers):
-            ctk.CTkLabel(
-                self._peers_list_frame, text=h,
-                text_color="gray50", font=ctk.CTkFont(size=11),
-            ).grid(row=0, column=c, padx=10, pady=(10, 4), sticky="w")
-        for i, peer in enumerate(peers):
-            row = i + 1
-            ctk.CTkLabel(self._peers_list_frame, text=peer["name"]).grid(
-                row=row, column=0, padx=10, pady=4, sticky="w")
-            ctk.CTkLabel(self._peers_list_frame, text=peer["host"], text_color="gray60").grid(
-                row=row, column=1, padx=10, pady=4, sticky="w")
-            ctk.CTkLabel(self._peers_list_frame, text=str(peer["port"]), text_color="gray60").grid(
-                row=row, column=2, padx=10, pady=4, sticky="w")
-            status_lbl = ctk.CTkLabel(
-                self._peers_list_frame, text="—", text_color="gray50",
-                font=ctk.CTkFont(size=11),
+        # Se já existe, apenas confirma o caminho
+        if os.path.isfile(steamcmd_exe):
+            self._steamcmd_var.set(steamcmd_exe)
+            self._steamcmd_status_lbl.configure(
+                text="✅  SteamCMD já instalado. Caminho configurado automaticamente.",
+                text_color="#4CAF50",
             )
-            status_lbl.grid(row=row, column=3, padx=10, pady=4, sticky="w")
+            return
 
-            btn_frame = ctk.CTkFrame(self._peers_list_frame, fg_color="transparent")
-            btn_frame.grid(row=row, column=4, padx=6, pady=4, sticky="e")
+        self._steamcmd_dl_btn.configure(state="disabled", text="⏳  Baixando...")
+        self._steamcmd_status_lbl.configure(
+            text="Baixando SteamCMD da Valve... aguarde.", text_color="gray60"
+        )
 
-            ctk.CTkButton(
-                btn_frame, text="📊", width=32, height=28,
-                fg_color="#1a3a6a", hover_color="#102650",
-                command=lambda p=peer, sl=status_lbl: self._open_peer_panel(p, sl),
-            ).pack(side="left", padx=2)
-            ctk.CTkButton(
-                btn_frame, text="🗑", width=32, height=28,
-                fg_color="#3a3a5a", hover_color="#252540",
-                command=lambda idx=i: self._remove_peer(idx),
-            ).pack(side="left", padx=2)
-
-    def _remove_peer(self, idx: int) -> None:
-        peers = self.config_manager.config.remote_peers or []
-        if 0 <= idx < len(peers):
-            peers.pop(idx)
-            self.config_manager.config.remote_peers = peers
-            self.config_manager.save()
-            self._refresh_peers_list()
-
-    def _open_peer_panel(self, peer: dict, status_lbl: ctk.CTkLabel) -> None:
-        """Abre janela de controle de um peer remoto."""
-        import urllib.request
-        import urllib.error
-
-        dlg = ctk.CTkToplevel(self)
-        dlg.title(f"Remoto — {peer['name']}")
-        dlg.geometry("680x520")
-        dlg.resizable(True, True)
-        dlg.grab_set()
-        dlg.grid_columnconfigure(0, weight=1)
-        dlg.grid_rowconfigure(2, weight=1)
-
-        base_url = f"http://{peer['host']}:{peer['port']}"
-        headers_auth = {"Authorization": f"Bearer {peer['token']}"} if peer.get("token") else {}
-
-        def _request(method: str, path: str) -> dict | None:
+        def _worker() -> None:
             try:
-                req = urllib.request.Request(
-                    base_url + path,
-                    method=method,
-                    headers={"Content-Length": "0", **headers_auth},
+                os.makedirs(dest_dir, exist_ok=True)
+
+                # Download
+                self.after(0, lambda: self._steamcmd_status_lbl.configure(
+                    text="📥  Baixando steamcmd.zip...", text_color="gray60"))
+                with urllib.request.urlopen(self._STEAMCMD_URL, timeout=60) as resp:
+                    data = resp.read()
+
+                # Extração
+                self.after(0, lambda: self._steamcmd_status_lbl.configure(
+                    text="📦  Extraindo...", text_color="gray60"))
+                with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                    zf.extractall(dest_dir)
+
+                if not os.path.isfile(steamcmd_exe):
+                    raise FileNotFoundError("steamcmd.exe não encontrado após extração.")
+
+                # Primeira execução para atualizar os arquivos do SteamCMD
+                self.after(0, lambda: self._steamcmd_status_lbl.configure(
+                    text="⚙️  Inicializando SteamCMD (primeira execução)...", text_color="gray60"))
+                import subprocess
+                subprocess.run(
+                    [steamcmd_exe, "+quit"],
+                    cwd=dest_dir,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=120,
                 )
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    return json.loads(resp.read().decode())
+
+                # Sucesso
+                def _on_success() -> None:
+                    self._steamcmd_var.set(steamcmd_exe)
+                    self._steamcmd_dl_btn.configure(state="normal", text="⬇  Baixar SteamCMD")
+                    self._steamcmd_status_lbl.configure(
+                        text="✅  SteamCMD instalado com sucesso! Caminho configurado automaticamente.",
+                        text_color="#4CAF50",
+                    )
+                    # Salva a configuração imediatamente
+                    self.config_manager.config.steamcmd_path = steamcmd_exe
+                    self.mod_manager.steamcmd_path = steamcmd_exe
+                    self.config_manager.save()
+
+                self.after(0, _on_success)
+
             except Exception as exc:
-                return {"error": str(exc)}
+                def _on_error(e: Exception = exc) -> None:
+                    self._steamcmd_dl_btn.configure(state="normal", text="⬇  Baixar SteamCMD")
+                    self._steamcmd_status_lbl.configure(
+                        text=f"❌  Erro ao baixar SteamCMD: {e}",
+                        text_color="#f44336",
+                    )
+                self.after(0, _on_error)
 
-        # Cabeçalho
-        hdr = ctk.CTkFrame(dlg, fg_color="transparent")
-        hdr.grid(row=0, column=0, padx=20, pady=(16, 8), sticky="ew")
-        hdr.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(
-            hdr, text=f"🌐  {peer['name']}",
-            font=ctk.CTkFont(size=18, weight="bold"),
-        ).grid(row=0, column=0, sticky="w")
-        ctk.CTkLabel(
-            hdr, text=f"{peer['host']}:{peer['port']}",
-            text_color="gray50", font=ctk.CTkFont(size=12),
-        ).grid(row=1, column=0, sticky="w")
-
-        # Cards de stats
-        stats_f = ctk.CTkFrame(dlg, fg_color="transparent")
-        stats_f.grid(row=1, column=0, padx=20, pady=4, sticky="ew")
-        stats_f.grid_columnconfigure((0, 1, 2, 3), weight=1)
-
-        stat_vars = {
-            "status": tk.StringVar(value="—"),
-            "total": tk.StringVar(value="—"),
-            "last_sync": tk.StringVar(value="—"),
-            "errors": tk.StringVar(value="—"),
-        }
-        for col, (title, key, color, icon) in enumerate([
-            ("Status",   "status",    _GREEN,    "🔴"),
-            ("Arquivos", "total",     _GREEN,    "📁"),
-            ("Últ. sync","last_sync", "#5b9bd5", "🕐"),
-            ("Erros",    "errors",    "#ff9944", "⚠️"),
-        ]):
-            c = ctk.CTkFrame(stats_f, corner_radius=10, fg_color=_CARD_BG)
-            c.grid(row=0, column=col, padx=4, pady=4, sticky="ew")
-            ctk.CTkLabel(c, text=f"{icon}  {title}",
-                         text_color="gray55", font=ctk.CTkFont(size=10),
-                         ).pack(padx=10, pady=(10, 2), anchor="w")
-            ctk.CTkLabel(c, textvariable=stat_vars[key],
-                         font=ctk.CTkFont(size=16, weight="bold"), text_color=color,
-                         ).pack(padx=10, pady=(0, 10), anchor="w")
-
-        # Logs
-        log_box = ctk.CTkTextbox(
-            dlg, font=ctk.CTkFont(family="Courier New", size=11),
-            wrap="word", state="disabled",
-        )
-        log_box.grid(row=2, column=0, padx=20, pady=4, sticky="nsew")
-        tw = log_box._textbox
-        tw.tag_config("info",    foreground="#d0d0e0")
-        tw.tag_config("success", foreground="#66cc77")
-        tw.tag_config("warning", foreground="#ffaa44")
-        tw.tag_config("error",   foreground="#ff6666")
-        tw.tag_config("debug",   foreground="#666680")
-        tw.tag_config("time",    foreground="#888899")
-
-        # Botões de controle
-        ctrl_f = ctk.CTkFrame(dlg, fg_color="transparent")
-        ctrl_f.grid(row=3, column=0, padx=20, pady=(4, 16), sticky="ew")
-
-        def _do_action(method, path, label):
-            result = _request(method, path)
-            if result and result.get("ok"):
-                self._append_log(f"[remoto:{peer['name']}] {label}", "info")
-            else:
-                err = result.get("error", "?") if result else "sem resposta"
-                self._append_log(f"[remoto:{peer['name']}] Erro — {err}", "error")
-            _refresh()
-
-        ctk.CTkButton(
-            ctrl_f, text="▶  Iniciar", width=120, height=36,
-            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-            command=lambda: _do_action("POST", "/sync/start", "Sync iniciado"),
-        ).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(
-            ctrl_f, text="⏹  Parar", width=120, height=36,
-            fg_color="#7a2d2d", hover_color="#5c1f1f",
-            command=lambda: _do_action("POST", "/sync/stop", "Sync parado"),
-        ).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(
-            ctrl_f, text="🔄  Forçar Sync", width=140, height=36,
-            fg_color="#1a3a6a", hover_color="#102650",
-            command=lambda: _do_action("POST", "/sync/force", "Sync forçado"),
-        ).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(
-            ctrl_f, text="🔃  Atualizar", width=120, height=36,
-            fg_color="#3a3a5a", hover_color="#252540",
-            command=lambda: _refresh(),
-        ).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(
-            ctrl_f, text="Fechar", width=90, height=36,
-            fg_color="#2a2a44", hover_color="#1a1a30",
-            command=dlg.destroy,
-        ).pack(side="right")
-
-        def _refresh():
-            import threading as _t
-            def _fetch():
-                status_data = _request("GET", "/status")
-                logs_data   = _request("GET", "/logs")
-
-                def _apply():
-                    if status_data and "error" not in status_data:
-                        s = status_data.get("stats", {})
-                        running = status_data.get("running", False)
-                        stat_vars["status"].set("RODANDO" if running else "PARADO")
-                        stat_vars["total"].set(str(s.get("total_synced", 0)))
-                        stat_vars["last_sync"].set(s.get("last_sync", "—"))
-                        stat_vars["errors"].set(str(s.get("errors", 0)))
-                        status_lbl.configure(
-                            text="🟢" if running else "🔴",
-                        )
-                    else:
-                        err = status_data.get("error", "sem resposta") if status_data else "sem resposta"
-                        stat_vars["status"].set("ERRO")
-                        status_lbl.configure(text="❌")
-                        # Mostra o erro no log box
-                        log_box.configure(state="normal")
-                        log_box.delete("1.0", "end")
-                        log_box._textbox.insert("end", f"Falha ao conectar em {peer['host']}:{peer['port']}\n\n", "error")
-                        log_box._textbox.insert("end", f"Erro: {err}\n\n", "warning")
-                        log_box._textbox.insert("end", "Verifique:\n", "info")
-                        log_box._textbox.insert("end", f"  1. O agente HTTP está habilitado e rodando no PC remoto\n", "info")
-                        log_box._textbox.insert("end", f"  2. A porta {peer['port']} está liberada no firewall do PC remoto\n", "info")
-                        log_box._textbox.insert("end", f"  3. O token informado é igual ao configurado no agente remoto\n", "info")
-                        log_box.configure(state="disabled")
-
-                    if logs_data and "logs" in logs_data:
-                        log_box.configure(state="normal")
-                        log_box.delete("1.0", "end")
-                        for entry in logs_data["logs"]:
-                            tw.insert("end", f"[{entry['time']}] ", "time")
-                            tw.insert("end", entry["message"] + "\n", entry.get("level", "info"))
-                        log_box._textbox.see("end")
-                        log_box.configure(state="disabled")
-                dlg.after(0, _apply)
-            _t.Thread(target=_fetch, daemon=True).start()
-
-        _refresh()
+        threading.Thread(target=_worker, daemon=True, name="SteamCMDDownload").start()
 
     # ── Encerramento ──────────────────────────────────────────────────────────
 
     def _on_close(self) -> None:
-        self.sync_engine.stop()
-        if self._remote_agent:
-            self._remote_agent.stop()
+        if self.config_manager.config.minimize_to_tray and _PYSTRAY_OK:
+            self._minimize_to_tray()
+            return
+        self._do_quit()
+
+    def _do_quit(self) -> None:
+        if self._tray_icon:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
+        if self._sync_engine and self._sync_engine.is_running:
+            self._sync_engine.stop()
+        if self._mod_auto_updater and self._mod_auto_updater.enabled:
+            self._mod_auto_updater.stop()
+        for srv in self.config_manager.servers:
+            inst = self.server_manager.get_instance(srv.id)
+            if inst and inst.status == SERVER_STATUS_RUNNING:
+                self.server_manager.stop_server(srv.id, force=True)
+        for client in self._rcon_clients.values():
+            try:
+                client.disconnect()
+            except Exception:
+                pass
         self.config_manager.save()
         self.destroy()
+
+    # ── Bandeja do sistema ────────────────────────────────────────────────────
+
+    def _minimize_to_tray(self) -> None:
+        self.withdraw()
+        if self._tray_icon:
+            return  # já existe
+
+        try:
+            img = _PILImage.open(_resource_path(os.path.join("ig", "ArkLandBR.png"))).resize((64, 64))
+        except Exception:
+            # Cria ícone genérico verde se a imagem não estiver disponível
+            img = _PILImage.new("RGBA", (64, 64), "#4CAF50")
+
+        menu = pystray.Menu(
+            pystray.MenuItem("Abrir ARKLAND", self._restore_from_tray, default=True),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("Sair", lambda icon, item: self.after(0, self._do_quit)),
+        )
+        self._tray_icon = pystray.Icon(
+            "ARKLAND-ServerManager",
+            img,
+            "ARKLAND - Server Manager",
+            menu,
+        )
+        threading.Thread(
+            target=self._tray_icon.run,
+            daemon=True,
+            name="TrayIconThread",
+        ).start()
+
+    def _restore_from_tray(self, icon=None, item=None) -> None:
+        self.after(0, self._do_restore)
+
+    def _do_restore(self) -> None:
+        if self._tray_icon:
+            try:
+                self._tray_icon.stop()
+            except Exception:
+                pass
+            self._tray_icon = None
+        self.deiconify()
+        self.lift()
+        self.focus_force()
