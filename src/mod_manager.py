@@ -103,22 +103,30 @@ class ModManager:
     ) -> bool:
         """Copia mods já baixados pelo SteamCMD para ShooterGame/Content/Mods/.
 
+        Copia tanto a pasta {mod_id}/ quanto o arquivo {mod_id}.mod que o
+        servidor ARK exige para carregar o mod.
         Deve ser chamado APÓS o servidor parar para evitar file locking.
         Retorna True se todos copiados com sucesso.
         """
         success = True
         for mod_id in mod_ids:
             mod_id = mod_id.strip()
-            src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
-            dst_mod = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
-            if not src_mod.exists():
+            src_dir  = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
+            mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+            dst_dir  = mods_dir / mod_id
+            if not src_dir.exists():
                 self._on_log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
                 success = False
                 continue
             try:
-                if dst_mod.exists():
-                    shutil.rmtree(dst_mod)
-                shutil.copytree(src_mod, dst_mod)
+                mods_dir.mkdir(parents=True, exist_ok=True)
+                if dst_dir.exists():
+                    shutil.rmtree(dst_dir)
+                shutil.copytree(src_dir, dst_dir)
+                # Copia o arquivo .mod (necessário para o servidor ARK carregar o mod)
+                src_dot_mod = src_dir / f"{mod_id}.mod"
+                if src_dot_mod.exists():
+                    shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
                 self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
             except Exception as exc:
                 self._on_log(f"Erro ao instalar mod {mod_id}: {exc}", "error")
@@ -177,13 +185,19 @@ class ModManager:
                 if proc.returncode == 0:
                     src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
                     if copy_to_mods:
-                        dst_mod = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
+                        mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+                        dst_mod  = mods_dir / mod_id
                         copy_ok = False
                         if src_mod.exists():
                             try:
+                                mods_dir.mkdir(parents=True, exist_ok=True)
                                 if dst_mod.exists():
                                     shutil.rmtree(dst_mod)
                                 shutil.copytree(src_mod, dst_mod)
+                                # Arquivo .mod necessário para o ARK carregar o mod
+                                src_dot_mod = src_mod / f"{mod_id}.mod"
+                                if src_dot_mod.exists():
+                                    shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
                                 self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
                                 copy_ok = True
                             except Exception as copy_exc:
