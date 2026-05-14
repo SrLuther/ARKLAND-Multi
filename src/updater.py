@@ -129,7 +129,7 @@ class UpdateChecker:
             parsed = urlparse(info.download_url)
             if parsed.scheme not in ("http", "https"):
                 raise ValueError("URL de download inválida.")
-            self._launch_updater_agent(info.download_url)
+            self._launch_updater_agent(info.download_url, info.version)
             if on_done:
                 on_done(True, "")
         except Exception as exc:
@@ -137,18 +137,36 @@ class UpdateChecker:
                 on_done(False, str(exc))
 
     @staticmethod
-    def _launch_updater_agent(download_url: str) -> None:
+    def _launch_updater_agent(download_url: str, version: str = "") -> None:
         """
-        Cria e lança um script PowerShell autônomo (processo separado/detached)
-        que baixa, instala e reinicia o app sem depender do processo atual.
+        Quando empacotado (frozen), lança ARKLAND-Updater.exe com os args necessários.
+        Em modo dev (ou se o exe não for encontrado), cria e lança um script PowerShell.
         """
         import os
         import sys
+        from pathlib import Path
 
         pid = os.getpid()
-        # Caminho do exe atual (funciona tanto frozen quanto dev)
         app_exe = sys.executable
 
+        # ── Tenta usar ARKLAND-Updater.exe (só disponível no build frozen) ────
+        if getattr(sys, "frozen", False):
+            updater_exe = Path(sys.executable).parent / "ARKLAND-Updater.exe"
+            if updater_exe.exists():
+                subprocess.Popen(
+                    [
+                        str(updater_exe),
+                        "--url",     download_url,
+                        "--pid",     str(pid),
+                        "--exe",     app_exe,
+                        "--version", version,
+                    ],
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                    close_fds=True,
+                )
+                return
+
+        # ── Fallback: script PowerShell temporário ────────────────────────────
         ps1 = tempfile.NamedTemporaryFile(
             delete=False,
             suffix=".ps1",

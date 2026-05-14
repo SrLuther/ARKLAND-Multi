@@ -102,6 +102,16 @@ if !errorlevel! neq 0 (
 echo       Executavel: dist\ARKLAND-ServerManager.exe
 echo.
 
+echo [2b/4] Gerando ARKLAND-Updater.exe...
+"%PYTHON%" -m PyInstaller --noconfirm "%~dp0ARKLAND-Updater.spec"
+if !errorlevel! neq 0 (
+    echo [ERRO] PyInstaller falhou ao gerar ARKLAND-Updater.exe.
+    pause
+    exit /b 1
+)
+echo       Executavel: dist\ARKLAND-Updater.exe
+echo.
+
 :: -- Gera o installer com Inno Setup (se dispon?vel) --------------------------
 echo [3/4] Procurando Inno Setup...
 set ISCC=

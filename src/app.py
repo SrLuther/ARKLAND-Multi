@@ -751,13 +751,21 @@ class ARKServerManagerApp(ctk.CTk):
 
         ctk.CTkLabel(top, text=srv.name,
                      font=ctk.CTkFont(size=16, weight="bold")).grid(row=0, column=0, sticky="w")
+
+        vis_mode  = inst.online_mode if inst else "—"
+        vis_text  = "🌐 WAN" if vis_mode == "WAN" else ("🏠 LAN" if vis_mode == "LAN" else "")
+        vis_color = _GREEN if vis_mode == "WAN" else ("#ffaa44" if vis_mode == "LAN" else "gray50")
+        if vis_text:
+            ctk.CTkLabel(top, text=vis_text, text_color=vis_color,
+                         font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=1, padx=(0, 8), sticky="e")
+
         ctk.CTkLabel(top, text=status_txt, text_color=color,
-                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=1, sticky="e")
+                     font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=2, sticky="e")
 
         map_name = ARK_MAP_NAMES.get(srv.map, srv.map)
         info_lines = [
             f"🗺  {map_name}",
-            f"🌐  Porta: {srv.server_port}  |  Query: {srv.query_port}",
+            f"🔌  Porta: {srv.server_port}  |  Query: {srv.query_port}",
             f"👥  Máx Jogadores: {srv.max_players}",
         ]
         if srv.mods:
@@ -776,16 +784,20 @@ class ARKServerManagerApp(ctk.CTk):
         is_running = status == SERVER_STATUS_RUNNING
         is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
 
+        if is_busy:
+            _d_text, _d_fg, _d_hover = "⚡ Cancelar", "#7a4a00", "#5c3600"
+            def _d_cmd(sid=srv.id): self.server_manager.stop_server(sid, force=True)
+        elif is_running:
+            _d_text, _d_fg, _d_hover = "⏹ Parar", _RED_DARK, _RED_HOVER
+            def _d_cmd(sid=srv.id): self._stop_server(sid)
+        else:
+            _d_text, _d_fg, _d_hover = "▶ Iniciar", _GREEN_DARK, _GREEN_HOVER
+            def _d_cmd(sid=srv.id): self._start_server(sid)
+
         ctk.CTkButton(
-            btn_row,
-            text="▶ Iniciar" if not is_running else "⏹ Parar",
-            width=100, height=32,
-            fg_color=_GREEN_DARK if not is_running else _RED_DARK,
-            hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
-            state="disabled" if is_busy else "normal",
-            command=lambda sid=srv.id, r=is_running: (
-                self._stop_server(sid) if r else self._start_server(sid)
-            ),
+            btn_row, text=_d_text, width=100, height=32,
+            fg_color=_d_fg, hover_color=_d_hover,
+            command=_d_cmd,
         ).pack(side="left", padx=(0, 6))
 
         ctk.CTkButton(
@@ -874,18 +886,32 @@ class ARKServerManagerApp(ctk.CTk):
 
         def _toggle_server() -> None:
             inst = self.server_manager.get_instance(srv.id)
-            if inst and inst.status == SERVER_STATUS_RUNNING:
+            if not inst:
+                return
+            if inst.status == SERVER_STATUS_RUNNING:
                 self._stop_server(srv.id)
+            elif inst.status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING):
+                self.server_manager.stop_server(srv.id, force=True)
             else:
                 self._start_server(srv.id)
 
+        if is_busy:
+            _ss_text   = "⚡ Cancelar"
+            _ss_fg     = "#7a4a00"
+            _ss_hover  = "#5c3600"
+        elif is_running:
+            _ss_text   = "⏹ Parar"
+            _ss_fg     = _RED_DARK
+            _ss_hover  = _RED_HOVER
+        else:
+            _ss_text   = "▶ Iniciar"
+            _ss_fg     = _GREEN_DARK
+            _ss_hover  = _GREEN_HOVER
+
         start_stop_btn = ctk.CTkButton(
             ctrl,
-            text="▶ Iniciar" if not is_running else "⏹ Parar",
-            width=110, height=34,
-            fg_color=_GREEN_DARK if not is_running else _RED_DARK,
-            hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
-            state="disabled" if is_busy else "normal",
+            text=_ss_text, width=110, height=34,
+            fg_color=_ss_fg, hover_color=_ss_hover,
             command=_toggle_server,
         )
         start_stop_btn.pack(side="left", padx=(0, 6))
@@ -928,13 +954,14 @@ class ARKServerManagerApp(ctk.CTk):
         tabs.grid(row=2, column=0, padx=14, pady=12, sticky="nsew")
         self._server_widgets[srv.id]["_tabs"] = tabs
 
-        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Plugins", "Console RCON", "Logs"):
+        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Plugins", "Console RCON", "Logs"):
             tabs.add(tab_name)
 
         self._build_tab_general (tabs.tab("Geral"),         srv)
         self._build_tab_game    (tabs.tab("Jogo"),          srv)
         self._build_tab_advanced(tabs.tab("Avançado"),      srv)
         self._build_tab_mods    (tabs.tab("Mods"),          srv)
+        self._build_tab_admins  (tabs.tab("Admins"),        srv)
         self._build_tab_plugins (tabs.tab("Plugins"),       srv)
         self._build_tab_rcon    (tabs.tab("Console RCON"),  srv)
         self._build_tab_logs    (tabs.tab("Logs"),          srv)
@@ -1915,8 +1942,9 @@ class ARKServerManagerApp(ctk.CTk):
             self._fetch_mod_names_async(server_id, missing_names)
 
         for idx, mod_id in enumerate(srv.mods):
-            row_f = ctk.CTkFrame(frame, fg_color="transparent", height=40)
-            row_f.pack(fill="x", pady=2)
+            row_bg = "#252538" if idx % 2 == 0 else "transparent"
+            row_f = ctk.CTkFrame(frame, fg_color=row_bg, corner_radius=6, height=40)
+            row_f.pack(fill="x", pady=1)
             row_f.grid_columnconfigure(1, weight=1)
 
             ctk.CTkLabel(row_f, text=f"#{idx+1}", width=32, text_color="gray50",
@@ -2096,6 +2124,124 @@ class ARKServerManagerApp(ctk.CTk):
     # ══════════════════════════════════════════════════════════════════════════
     # Aba Plugins (ArkApi)
     # ══════════════════════════════════════════════════════════════════════════
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Admins
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_admins(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        add_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        add_card.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
+        add_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(add_card, text="👤  Steam ID (64-bit):",
+                     text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 4))
+        w["new_admin_id"] = tk.StringVar()
+        entry = ctk.CTkEntry(add_card, textvariable=w["new_admin_id"], height=34,
+                             placeholder_text="Ex: 76561198000000000")
+        entry.grid(row=0, column=1, padx=(0, 8), pady=(14, 4), sticky="ew")
+        entry.bind("<Return>", lambda _e: self._add_admin_id(srv.id))
+        ctk.CTkButton(
+            add_card, text="➕ Adicionar", width=110, height=34,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._add_admin_id(srv.id),
+        ).grid(row=0, column=2, padx=(0, 16), pady=(14, 4))
+
+        ctk.CTkLabel(
+            add_card,
+            text="💡  Cole o Steam ID de 64-bit (17 dígitos). Encontre em steamid.io ou em Detalhes do Perfil no Steam.",
+            text_color="gray45", font=ctk.CTkFont(size=10), wraplength=700, justify="left",
+        ).grid(row=1, column=0, columnspan=3, padx=16, pady=(0, 10), sticky="w")
+
+        admins_card = ctk.CTkScrollableFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        admins_card.grid(row=1, column=0, padx=12, pady=6, sticky="nsew")
+        admins_card.grid_columnconfigure(0, weight=1)
+        w["_admins_list_frame"] = admins_card
+
+        actions = ctk.CTkFrame(parent, fg_color="transparent")
+        actions.grid(row=2, column=0, padx=12, pady=(4, 12), sticky="ew")
+        ctk.CTkButton(
+            actions, text="💾  Salvar",
+            height=38, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._save_server_config(srv.id),
+        ).pack(side="left")
+        ctk.CTkLabel(
+            actions,
+            text="IDs são gravados em AllowedCheaterSteamIDs.txt ao salvar.",
+            text_color="gray45", font=ctk.CTkFont(size=11),
+        ).pack(side="left", padx=12)
+
+        self._refresh_admins_list(srv.id)
+
+    def _refresh_admins_list(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        w = self._server_widgets.get(server_id, {})
+        frame: Optional[ctk.CTkScrollableFrame] = w.get("_admins_list_frame")
+        if not frame or not srv:
+            return
+        for child in frame.winfo_children():
+            child.destroy()
+        if not srv.admin_ids:
+            ctk.CTkLabel(
+                frame,
+                text="Nenhum admin configurado.\nAdicione um Steam ID acima.",
+                text_color="gray50",
+            ).pack(pady=20)
+            return
+        for steam_id in srv.admin_ids:
+            row_fr = ctk.CTkFrame(frame, corner_radius=8, fg_color="#252535")
+            row_fr.pack(fill="x", padx=8, pady=3)
+            row_fr.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(
+                row_fr, text=f"🎮  {steam_id}",
+                font=ctk.CTkFont(size=13), anchor="w",
+            ).grid(row=0, column=0, padx=12, pady=8, sticky="w")
+            ctk.CTkButton(
+                row_fr, text="✕", width=32, height=28,
+                fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                command=lambda sid=steam_id: self._remove_admin_id(server_id, sid),
+            ).grid(row=0, column=1, padx=(0, 8), pady=4)
+
+    def _add_admin_id(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        var: Optional[tk.StringVar] = w.get("new_admin_id")
+        if not var:
+            return
+        steam_id = var.get().strip()
+        if not steam_id:
+            return
+        if not steam_id.isdigit() or len(steam_id) < 15:
+            messagebox.showwarning(
+                "Steam ID inválido",
+                "Informe um Steam ID válido (somente números, mínimo 15 dígitos).",
+                parent=self,
+            )
+            return
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        if steam_id in srv.admin_ids:
+            messagebox.showinfo("Já existe", f"O ID {steam_id} já está na lista.", parent=self)
+            var.set("")
+            return
+        srv.admin_ids.append(steam_id)
+        self.config_manager.update_server(srv)
+        var.set("")
+        self._refresh_admins_list(server_id)
+
+    def _remove_admin_id(self, server_id: str, steam_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        if steam_id in srv.admin_ids:
+            srv.admin_ids.remove(steam_id)
+        self.config_manager.update_server(srv)
+        self._refresh_admins_list(server_id)
 
     # ── helpers de caminho ────────────────────────────────────────────────────
 
@@ -3111,6 +3257,22 @@ class ARKServerManagerApp(ctk.CTk):
             except Exception as exc:
                 self._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
+            # Grava AllowedCheaterSteamIDs.txt
+            try:
+                import pathlib
+                allowed_path = (
+                    pathlib.Path(srv.install_dir)
+                    / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+                    / "AllowedCheaterSteamIDs.txt"
+                )
+                allowed_path.parent.mkdir(parents=True, exist_ok=True)
+                allowed_path.write_text("\n".join(srv.admin_ids), encoding="utf-8")
+            except Exception as exc:
+                self._global_log(
+                    f"[{srv.name}] Aviso: não foi possível gravar AllowedCheaterSteamIDs.txt: {exc}",
+                    "warning",
+                )
+
         self._rebuild_server_sidebar()
         self._refresh_dashboard()
 
@@ -3781,12 +3943,24 @@ class ARKServerManagerApp(ctk.CTk):
             if ss:
                 is_running = status == SERVER_STATUS_RUNNING
                 is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
-                ss.configure(
-                    text="▶ Iniciar" if not is_running else "⏹ Parar",
-                    fg_color=_GREEN_DARK if not is_running else _RED_DARK,
-                    hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
-                    state="disabled" if is_busy else "normal",
-                )
+                if is_busy:
+                    ss.configure(
+                        text="⚡ Cancelar",
+                        fg_color="#7a4a00", hover_color="#5c3600",
+                        state="normal",
+                    )
+                elif is_running:
+                    ss.configure(
+                        text="⏹ Parar",
+                        fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                        state="normal",
+                    )
+                else:
+                    ss.configure(
+                        text="▶ Iniciar",
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        state="normal",
+                    )
 
             # Bloquear/desbloquear configurações
             self._set_config_editable(server_id, status == SERVER_STATUS_STOPPED)
@@ -3877,6 +4051,7 @@ class ARKServerManagerApp(ctk.CTk):
                     vis_lbl.configure(text="🏠 LAN", text_color="#ffaa44")
                 else:
                     vis_lbl.configure(text="", text_color="gray50")
+            self._refresh_dashboard()
         self.after(0, _do)
 
     def _on_auto_updater_log(self, msg: str, level: str) -> None:

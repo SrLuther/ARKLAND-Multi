@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.4"
+APP_VERSION: str = "1.1.5"
 BUILD_DATE: str = "2026-05-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.5",
+        "date": "2026-05-14",
+        "changes": [
+            "Correção crítica: servidor não ficava mais preso em 'PARANDO' — shutdown RCON movido para thread, cascata terminate/kill/os.kill com timeouts.",
+            "Botão ⚡ Cancelar no lugar de botão desabilitado durante INICIANDO/PARANDO, permite forçar parada imediata.",
+            "Timeout de inicialização aumentado de 15 para 45 minutos para mapas pesados com muitos mods.",
+            "Dashboard exibe badge LAN/WAN ao lado de cada servidor, atualizado em tempo real.",
+            "Nova aba Admins: gerencia Steam IDs de administradores, grava AllowedCheaterSteamIDs.txt ao salvar.",
+            "ModAutoUpdater: download do mod ocorre enquanto servidor ainda roda; cópia para Mods/ apenas após servidor parar (evita file locking no Windows).",
+            "Novo ARKLAND-Updater.exe: substitui script PowerShell temporário para auto-atualização do app.",
+            "Lista de mods com cores alternadas (zebra) para fácil identificação de linha.",
+        ],
+    },
     {
         "version": "1.1.4",
         "date": "2026-05-14",

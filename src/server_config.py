@@ -260,6 +260,9 @@ class ServerConfig:
     auto_restart_on_crash: bool = False
     auto_update_on_start: bool = False
 
+    # Steam IDs com permissão de admin (gravados em AllowedCheaterSteamIDs.txt)
+    admin_ids: List[str] = field(default_factory=list)
+
     def to_dict(self) -> dict:
         d = asdict(self)
         return d

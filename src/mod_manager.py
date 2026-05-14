@@ -74,25 +74,63 @@ class ModManager:
         mod_ids: List[str],
         install_dir: str,
         on_done: Optional[Callable[[bool], None]] = None,
+        copy_to_mods: bool = True,
     ) -> None:
-        """Baixa/atualiza mods em background."""
+        """Baixa/atualiza mods em background.
+
+        Se ``copy_to_mods=False``, o SteamCMD ainda baixa para
+        ``steamapps/workshop/``, mas os arquivos NÃO são copiados para
+        ``ShooterGame/Content/Mods/`` — útil quando o servidor ainda está
+        rodando e os arquivos estariam bloqueados pelo Windows.
+        Chame ``copy_downloaded_mods()`` depois que o servidor parar.
+        """
         if self._active:
             self._on_log("Já existe um download em progresso.", "warning")
             return
         thread = threading.Thread(
             target=self._download_worker,
-            args=(mod_ids, install_dir, on_done),
+            args=(mod_ids, install_dir, on_done, copy_to_mods),
             daemon=True,
             name="ModDownloadThread",
         )
         thread.start()
         self._thread = thread
 
+    def copy_downloaded_mods(
+        self,
+        mod_ids: List[str],
+        install_dir: str,
+    ) -> bool:
+        """Copia mods já baixados pelo SteamCMD para ShooterGame/Content/Mods/.
+
+        Deve ser chamado APÓS o servidor parar para evitar file locking.
+        Retorna True se todos copiados com sucesso.
+        """
+        success = True
+        for mod_id in mod_ids:
+            mod_id = mod_id.strip()
+            src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
+            dst_mod = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
+            if not src_mod.exists():
+                self._on_log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
+                success = False
+                continue
+            try:
+                if dst_mod.exists():
+                    shutil.rmtree(dst_mod)
+                shutil.copytree(src_mod, dst_mod)
+                self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
+            except Exception as exc:
+                self._on_log(f"Erro ao instalar mod {mod_id}: {exc}", "error")
+                success = False
+        return success
+
     def _download_worker(
         self,
         mod_ids: List[str],
         install_dir: str,
         on_done: Optional[Callable[[bool], None]],
+        copy_to_mods: bool = True,
     ) -> None:
         self._active = True
         steamcmd = self.get_steamcmd_exe()
@@ -137,29 +175,37 @@ class ModManager:
                             self._on_log(f"[SteamCMD] {line}", "debug")
                 proc.wait()
                 if proc.returncode == 0:
-                    # SteamCMD baixa para steamapps/workshop/content/{game_id}/{mod_id}/
-                    # ARK lê os mods de ShooterGame/Content/Mods/{mod_id}/
                     src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
-                    dst_mod = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
-                    copy_ok = False
-                    if src_mod.exists():
-                        try:
-                            if dst_mod.exists():
-                                shutil.rmtree(dst_mod)
-                            shutil.copytree(src_mod, dst_mod)
-                            self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
-                            copy_ok = True
-                        except Exception as copy_exc:
-                            self._on_log(f"Aviso: falha ao copiar mod {mod_id}: {copy_exc}", "warning")
+                    if copy_to_mods:
+                        dst_mod = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
+                        copy_ok = False
+                        if src_mod.exists():
+                            try:
+                                if dst_mod.exists():
+                                    shutil.rmtree(dst_mod)
+                                shutil.copytree(src_mod, dst_mod)
+                                self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
+                                copy_ok = True
+                            except Exception as copy_exc:
+                                self._on_log(f"Aviso: falha ao copiar mod {mod_id}: {copy_exc}", "warning")
+                        else:
+                            self._on_log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
+                        if copy_ok:
+                            self._on_log(f"Mod {mod_id} baixado com sucesso.", "info")
+                            self._on_progress(mod_id, "installed")
+                        else:
+                            self._on_log(f"Mod {mod_id}: download OK mas não foi instalado na pasta de Mods.", "error")
+                            self._on_progress(mod_id, "error")
+                            success = False
                     else:
-                        self._on_log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
-                    if copy_ok:
-                        self._on_log(f"Mod {mod_id} baixado com sucesso.", "info")
-                        self._on_progress(mod_id, "installed")
-                    else:
-                        self._on_log(f"Mod {mod_id}: download OK mas não foi instalado na pasta de Mods.", "error")
-                        self._on_progress(mod_id, "error")
-                        success = False
+                        # copy_to_mods=False: apenas verifica se o download chegou
+                        if src_mod.exists():
+                            self._on_log(f"Mod {mod_id} baixado para Workshop (cópia pendente).", "info")
+                            self._on_progress(mod_id, "installed")
+                        else:
+                            self._on_log(f"Mod {mod_id}: download OK mas pasta Workshop não encontrada.", "error")
+                            self._on_progress(mod_id, "error")
+                            success = False
                 else:
                     self._on_log(f"Erro ao baixar mod {mod_id} (código {proc.returncode}).", "error")
                     self._on_progress(mod_id, "error")

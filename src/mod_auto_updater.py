@@ -5,11 +5,10 @@ Fluxo:
   1. A cada `check_interval_minutes` verifica o timestamp de atualização de cada
      mod configurado em todos os servidores via API pública do Steam.
   2. Quando detecta um mod atualizado:
-     a. Emite broadcast RCON nos servidores que usam o mod informando o tempo
-        restante (avisos em 5 min e 1 min).
-     b. Após o contador, para os servidores.
-     c. Baixa o mod atualizado via SteamCMD.
-     d. Reinicia os servidores parados.
+     a. Inicia o download do mod imediatamente (servidores continuam rodando).
+     b. Emite broadcast RCON informando o tempo restante (avisos em X min e 1 min).
+     c. Quando o download conclui E o timer expira (o maior dos dois), para os servidores.
+     d. Reinicia os servidores parados com o mod já atualizado.
 """
 from __future__ import annotations
 
@@ -206,8 +205,29 @@ class ModAutoUpdater:
         mod_name = self._mod_names.get(mod_id, mod_id)
         warn_secs = self._warning_seconds
 
-        # ── Fase 1: avisos e contagem regressiva ──────────────────────────────
-        # Identifica servidores que estão rodando
+        # ── Fase 1: localizar install_dir ─────────────────────────────────────
+        install_dir = ""
+        for srv in self._get_servers():
+            if mod_id in srv.mods:
+                install_dir = srv.install_dir
+                break
+
+        if not install_dir:
+            self._log(f"Diretório de instalação não encontrado para mod {mod_id}.", "error")
+            return
+
+        # ── Fase 2: iniciar download IMEDIATAMENTE (servidores continuam rodando) ──
+        self._log(f"Baixando mod atualizado {mod_id} ({mod_name}) em segundo plano…", "info")
+        done_event = threading.Event()
+        success_box = [False]
+
+        def _on_done(ok: bool) -> None:
+            success_box[0] = ok
+            done_event.set()
+
+        self._mod_manager.download_mods([mod_id], install_dir, on_done=_on_done, copy_to_mods=False)
+
+        # ── Fase 3: avisos RCON enquanto o download acontece ──────────────────
         running_servers = [
             sid for sid in server_ids
             if self._server_manager.get_instance(sid) is not None
@@ -217,19 +237,20 @@ class ModAutoUpdater:
         if running_servers:
             self._broadcast_all(
                 running_servers,
-                f"[ARKLAND] ⚠ Mod '{mod_name}' foi atualizado no Workshop! "
-                f"O servidor reiniciará em {warn_secs // 60} minuto(s).",
+                f"[ARKLAND] ⚠ Mod '{mod_name}' foi atualizado! Baixando em segundo plano… "
+                f"O servidor reiniciará em até {warn_secs // 60} minuto(s).",
             )
             self._log(
-                f"Broadcast enviado: mod {mod_id} ({mod_name}) será atualizado em "
+                f"Broadcast enviado: mod {mod_id} ({mod_name}) será aplicado em até "
                 f"{warn_secs // 60} min nos servidores: {', '.join(running_servers)}",
                 "info",
             )
 
-            # Aviso em 1 minuto antes (se warn_secs > 90 s)
+            # Aviso 1 minuto antes (se warn_secs > 90 s)
             if warn_secs > 90:
-                time.sleep(warn_secs - 60)
-                # Re-verifica quais ainda estão rodando
+                self._stop_event.wait(warn_secs - 60)
+                if self._stop_event.is_set():
+                    return
                 running_servers = [
                     sid for sid in server_ids
                     if self._server_manager.get_instance(sid) is not None
@@ -238,18 +259,33 @@ class ModAutoUpdater:
                 if running_servers:
                     self._broadcast_all(
                         running_servers,
-                        f"[ARKLAND] ⚠ Reiniciando em 1 minuto para atualizar mod '{mod_name}'.",
+                        f"[ARKLAND] ⚠ Reiniciando em 1 minuto para aplicar mod '{mod_name}'.",
                     )
-                time.sleep(60)
+                self._stop_event.wait(60)
+                if self._stop_event.is_set():
+                    return
             else:
-                time.sleep(warn_secs)
+                self._stop_event.wait(warn_secs)
+                if self._stop_event.is_set():
+                    return
         else:
             self._log(
-                f"Nenhum servidor rodando usa o mod {mod_id}; atualizando sem aviso.",
+                f"Nenhum servidor rodando usa o mod {mod_id}; aguardando download sem aviso.",
                 "info",
             )
 
-        # ── Fase 2: parar servidores ──────────────────────────────────────────
+        # ── Fase 4: aguardar download concluir (se ainda não terminou) ────────
+        if not done_event.is_set():
+            self._log(f"Timer expirou; aguardando conclusão do download do mod {mod_id}…", "info")
+            done_event.wait(timeout=600)
+
+        if not success_box[0]:
+            self._log(f"Falha ao baixar mod {mod_id}. Servidores NÃO serão reiniciados.", "error")
+            return
+
+        self._log(f"Mod {mod_id} ({mod_name}) baixado. Parando servidores para aplicar…", "info")
+
+        # ── Fase 5: parar servidores ──────────────────────────────────────────
         running_now = [
             sid for sid in server_ids
             if self._server_manager.get_instance(sid) is not None
@@ -257,7 +293,7 @@ class ModAutoUpdater:
             in ("running", "starting")
         ]
         for sid in running_now:
-            self._log(f"Parando servidor '{sid}' para atualizar mod {mod_id}…", "info")
+            self._log(f"Parando servidor '{sid}' para aplicar mod {mod_id}…", "info")
             self._server_manager.stop_server(sid)
 
         # Aguarda todos pararem (máx 90 s)
@@ -272,36 +308,11 @@ class ModAutoUpdater:
                 break
             time.sleep(2)
 
-        # ── Fase 3: baixar mod atualizado ─────────────────────────────────────
-        # Usa install_dir do primeiro servidor que possui o mod
-        install_dir = ""
-        for srv in self._get_servers():
-            if mod_id in srv.mods:
-                install_dir = srv.install_dir
-                break
+        # ── Fase 5b: copiar mod para Mods/ (agora que o servidor está parado) ──
+        self._log(f"Copiando mod {mod_id} para ShooterGame/Content/Mods/…", "info")
+        self._mod_manager.copy_downloaded_mods([mod_id], install_dir)
 
-        if not install_dir:
-            self._log(f"Diretório de instalação não encontrado para mod {mod_id}.", "error")
-            return
-
-        self._log(f"Baixando mod atualizado {mod_id} ({mod_name})…", "info")
-        done_event = threading.Event()
-        success_box = [False]
-
-        def _on_done(ok: bool) -> None:
-            success_box[0] = ok
-            done_event.set()
-
-        self._mod_manager.download_mods([mod_id], install_dir, on_done=_on_done)
-        done_event.wait(timeout=600)  # espera até 10 min
-
-        if not success_box[0]:
-            self._log(f"Falha ao baixar mod {mod_id}. Servidores NÃO serão reiniciados.", "error")
-            return
-
-        self._log(f"Mod {mod_id} ({mod_name}) atualizado com sucesso.", "info")
-
-        # ── Fase 4: reiniciar servidores parados ──────────────────────────────
+        # ── Fase 6: reiniciar servidores parados ──────────────────────────────
         for sid in running_now:
             inst = self._server_manager.get_instance(sid)
             if inst and inst.status == "stopped":

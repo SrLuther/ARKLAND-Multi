@@ -154,12 +154,9 @@ class ServerManager:
 
         self._set_status(server_id, SERVER_STATUS_STOPPING)
 
-        if not force and inst.config.rcon_enabled and inst.config.rcon_password:
-            self._graceful_shutdown(server_id)
-
         thread = threading.Thread(
             target=self._stop_worker,
-            args=(server_id,),
+            args=(server_id, force),
             daemon=True,
             name=f"ARKStop-{server_id}",
         )
@@ -235,30 +232,65 @@ class ServerManager:
                     time.sleep(30)
                     if inst.status == SERVER_STATUS_CRASHED:
                         self.start_server(server_id)
+            else:
+                # Processo encerrou durante STOPPING/STARTING — limpa referências
+                # (_stop_worker definirá STOPPED; aqui só garantimos limpeza)
+                inst.process = None
+                inst.pid = None
 
         except Exception as exc:
             self._emit_log(server_id, f"Erro ao iniciar servidor: {exc}", "error")
             self._set_status(server_id, SERVER_STATUS_STOPPED)
 
-    def _stop_worker(self, server_id: str) -> None:
+    def _stop_worker(self, server_id: str, force: bool = False) -> None:
         inst = self._instances.get(server_id)
         if not inst:
             return
 
         proc = inst.process
-        if proc and proc.poll() is None:
-            try:
-                # Aguarda encerramento gracioso
-                deadline = time.monotonic() + 60
-                while time.monotonic() < deadline and proc.poll() is None:
-                    time.sleep(1)
+        pid  = inst.pid
 
-                if proc.poll() is None:
-                    self._emit_log(server_id, "Forçando encerramento (kill)...", "warning")
-                    proc.kill()
-                    proc.wait()
-            except Exception as exc:
-                self._emit_log(server_id, f"Erro ao parar servidor: {exc}", "error")
+        # ── 1. Graceful shutdown via RCON (só se não for force e processo vivo) ──
+        if not force and proc and proc.poll() is None:
+            if inst.config.rcon_enabled and inst.config.rcon_password:
+                self._graceful_shutdown(server_id)
+            # Aguarda encerramento gracioso (90 s — suficiente para salvar mapa grande)
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline and proc.poll() is None:
+                time.sleep(1)
+
+        # ── 2. terminate() suave (SIGTERM / TerminateProcess com código 1) ──────
+        if proc and proc.poll() is None:
+            self._emit_log(server_id, "Encerrando processo (terminate)...", "warning")
+            try:
+                proc.terminate()
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    pass
+            except Exception:
+                pass
+
+        # ── 3. kill() forçado ────────────────────────────────────────────────
+        if proc and proc.poll() is None:
+            self._emit_log(server_id, "Forçando encerramento (kill)...", "warning")
+            try:
+                proc.kill()
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    pass
+            except Exception:
+                pass
+
+        # ── 4. Fallback: mata pelo PID armazenado ────────────────────────────
+        if proc and proc.poll() is None and pid:
+            self._emit_log(server_id, f"Tentando encerrar pelo PID {pid}...", "warning")
+            try:
+                import os as _os
+                _os.kill(pid, 9)
+            except Exception:
+                pass
 
         inst.process = None
         inst.pid = None
@@ -294,7 +326,7 @@ class ServerManager:
         _STARTING_TIMEOUT segundos, promove para RUNNING automaticamente
         (servidor pode estar rodando mas log inacessível).
         """
-        _STARTING_TIMEOUT = 15 * 60   # 15 minutos máximo esperando
+        _STARTING_TIMEOUT = 45 * 60   # 45 minutos máximo esperando
         _POLL_INTERVAL    = 3          # segundos entre leituras
 
         # Caminho do log: dois níveis acima do Win64/ → ShooterGame/Saved/Logs/

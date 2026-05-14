@@ -5,6 +5,70 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.5] — 2026-05-14
+
+### Parar Servidor — Correções Críticas
+
+- **`_graceful_shutdown` movido para dentro da thread de parada** — o clique em "Parar" não bloqueia mais a interface enquanto o RCON envia `SaveWorld` + `DoExit`.
+- **Cascata de terminação robusta**: RCON gracioso (aguarda até 90 s) → `terminate()` (+10 s) → `kill()` (+10 s) → `os.kill(pid, 9)` como último recurso. Elimina o bug de servidor preso em "PARANDO" para sempre.
+- `_start_worker` limpa `inst.process` e `inst.pid` mesmo quando o processo morre durante STOPPING/STARTING.
+
+### Iniciar Servidor — Timeout Aumentado
+
+- Timeout de detecção de "servidor pronto" aumentado de **15 → 45 minutos** para acomodar mapas pesados com muitos mods (ex: Fjordur).
+
+### Botão ⚡ Cancelar
+
+- Quando o servidor está em **INICIANDO** ou **PARANDO**, o botão muda para **⚡ Cancelar** (âmbar) e executa parada forçada imediata — disponível tanto no painel do servidor quanto no Dashboard.
+
+### Dashboard — Visibilidade LAN / WAN
+
+- Cada card do Dashboard exibe agora o badge **🌐 WAN** (verde) ou **🏠 LAN** (âmbar) ao lado do nome do servidor, assim que a visibilidade for detectada.
+- O dashboard é atualizado automaticamente quando a visibilidade muda.
+
+### Aba Admins
+
+- Nova aba **Admins** no painel de cada servidor (entre Mods e Plugins).
+- Campo para adicionar Steam IDs de administradores (validação: apenas dígitos, mínimo 15 caracteres).
+- Lista scrollável com botão de remoção por linha.
+- Ao salvar, grava `AllowedCheaterSteamIDs.txt` em `ShooterGame/Saved/Config/WindowsServer/`.
+
+### Atualização Automática de Mods — Novo Fluxo
+
+- O download do mod começa **imediatamente**, enquanto o servidor ainda está em execução.
+- Avisos de broadcast são enviados aos jogadores **durante** o download.
+- O servidor só é parado **após** o download concluir + o timer de aviso esvaziar.
+
+### ARKLAND Updater — Sub-app de Auto-Update
+
+- Novo executável standalone `ARKLAND-Updater.exe` (via `arkland_updater.py` + `ARKLAND-Updater.spec`).
+- Aguarda o app principal fechar, baixa o instalador com barra de progresso, executa silenciosamente e reinicia o app.
+- Substitui o script PowerShell temporário usado anteriormente.
+
+### Interface — Lista de Mods
+
+- Linhas da lista de mods com **cores alternadas** (zebra) para facilitar identificar quais botões pertencem a qual mod.
+
+---
+
+## [1.1.4] — 2026-05-14
+
+### Mods — Nomes Automáticos
+
+- Nomes dos mods buscados automaticamente via Steam Workshop API ao adicionar pelo ID.
+- Lista de mods exibe **ID — Nome do mod** em vez de só o ID numérico.
+- Cache de nomes persistido no `config.json` para evitar requisições repetidas.
+
+### Atualização do Servidor ao Iniciar
+
+- Checkbox **"Atualizar servidor ao iniciar"** agora executa o SteamCMD antes de iniciar o processo do servidor, garantindo que os arquivos estejam atualizados.
+
+### Correções
+
+- Corrigido `build.bat` para compatibilidade com CMD puro (sem PowerShell).
+
+---
+
 ## [1.1.3] — 2026-05-14
 
 ### Sincronização N-way Multi-Ciclo

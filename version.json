@@ -1,11 +1,15 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "date": "2026-05-14",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.4/ARKLAND-Multi-Setup-v1.1.4.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.5/ARKLAND-Multi-Setup-v1.1.5.exe",
   "changelog": [
-    "Nomes dos mods buscados automaticamente via Steam Workshop API",
-    "Lista de mods exibe ID - Nome do mod",
-    "Checkbox 'Atualizar servidor ao iniciar' agora executa SteamCMD antes de iniciar",
-    "Correcao do build.bat compativel com CMD"
+    "Corre\u00e7\u00e3o cr\u00edtica: servidor preso em PARANDO (shutdown RCON em thread, cascata terminate/kill)",
+    "Bot\u00e3o Cancelar durante INICIANDO/PARANDO",
+    "Timeout de inicializa\u00e7\u00e3o: 15 -> 45 minutos",
+    "Dashboard exibe LAN/WAN em tempo real",
+    "Nova aba Admins (AllowedCheaterSteamIDs.txt)",
+    "ModAutoUpdater: copia mod apenas apos servidor parar (fix file locking)",
+    "ARKLAND-Updater.exe substitui script PowerShell",
+    "Lista de mods com cores alternadas"
   ]
 }
