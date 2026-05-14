@@ -3,11 +3,43 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.0"
+APP_VERSION: str = "1.1.3"
 BUILD_DATE: str = "2026-05-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.3",
+        "date": "2026-05-14",
+        "changes": [
+            "Sincronização N-way multi-ciclo: até 5 ciclos independentes, cada um com até 5 pastas — propaga sempre a versão mais nova de cada arquivo para todas as pastas do ciclo.",
+            "Auto-start do sync: ao abrir o app, o sync é iniciado automaticamente se houver ciclos configurados.",
+            "Interface de Sincronização redesenhada: cards dinâmicos por ciclo com botões + Pasta e + Ciclo, remoção individual e renumeração automática.",
+            "Correções de lint/tipo em todos os módulos (updater, ark_ini, mod_auto_updater, mod_manager, rcon_client, server_manager, server_config, remote_agent).",
+        ],
+    },
+    {
+        "version": "1.1.2",
+        "date": "2026-05-14",
+        "changes": [
+            "Configurações INI por mod: cada mod pode ter blocos customizados para Game.ini e GameUserSettings.ini, aplicados automaticamente aos arquivos do servidor.",
+            "Nome do mod salvo automaticamente ao adicionar via busca no Workshop.",
+            "Importar INI do Disco agora permite selecionar qualquer pasta (backup, outro servidor, etc.) via seletor de arquivos.",
+            "Bloqueio de edição: todas as configurações ficam desabilitadas enquanto o servidor estiver em execução ou iniciando — apenas com status PARADO é possível editar.",
+            "Banner de aviso visível no painel do servidor quando as configurações estão bloqueadas.",
+            "Correção: método _check_updates_manual ausente causava erro ao abrir a aba Sobre.",
+            "Correção: definição duplicada de _check_updates_on_start removida.",
+        ],
+    },
+    {
+        "version": "1.1.1",
+        "date": "2026-05-14",
+        "changes": [
+            "Importação de GameUserSettings.ini e Game.ini direto do disco, preenchendo todos os campos da interface.",
+            "Sincronização de arquivos INI entre servidores selecionados (GameUserSettings.ini e/ou Game.ini) via diálogo na aba Avançado.",
+            "Auto-updater de mods ativado por padrão e instala mods ausentes ao iniciar.",
+        ],
+    },
     {
         "version": "1.1.0",
         "date": "2026-05-14",

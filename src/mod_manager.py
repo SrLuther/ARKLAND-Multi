@@ -5,7 +5,7 @@ ARK AppID: 376030 (servidor) / Workshop AppID: 346110 (jogo)
 """
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
 import threading
 from pathlib import Path
@@ -35,7 +35,7 @@ class ModManager:
         on_progress: Optional[Callable[[str, str], None]] = None,
     ) -> None:
         self._steamcmd_path = steamcmd_path
-        self._on_log        = on_log or (lambda m, l: None)
+        self._on_log        = on_log or (lambda m, lvl: None)
         self._on_progress   = on_progress or (lambda mod_id, status: None)
         self._active        = False
         self._thread: Optional[threading.Thread] = None
@@ -61,7 +61,6 @@ class ModManager:
             if exe.exists():
                 return str(exe)
         # Tenta encontrar no PATH
-        import shutil
         found = shutil.which("steamcmd") or shutil.which("steamcmd.exe")
         return found
 
@@ -142,18 +141,25 @@ class ModManager:
                     # ARK lê os mods de ShooterGame/Content/Mods/{mod_id}/
                     src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
                     dst_mod = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
+                    copy_ok = False
                     if src_mod.exists():
                         try:
                             if dst_mod.exists():
                                 shutil.rmtree(dst_mod)
                             shutil.copytree(src_mod, dst_mod)
                             self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
+                            copy_ok = True
                         except Exception as copy_exc:
                             self._on_log(f"Aviso: falha ao copiar mod {mod_id}: {copy_exc}", "warning")
                     else:
                         self._on_log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
-                    self._on_log(f"Mod {mod_id} baixado com sucesso.", "info")
-                    self._on_progress(mod_id, "installed")
+                    if copy_ok:
+                        self._on_log(f"Mod {mod_id} baixado com sucesso.", "info")
+                        self._on_progress(mod_id, "installed")
+                    else:
+                        self._on_log(f"Mod {mod_id}: download OK mas não foi instalado na pasta de Mods.", "error")
+                        self._on_progress(mod_id, "error")
+                        success = False
                 else:
                     self._on_log(f"Erro ao baixar mod {mod_id} (código {proc.returncode}).", "error")
                     self._on_progress(mod_id, "error")

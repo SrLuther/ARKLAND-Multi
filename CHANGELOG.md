@@ -5,6 +5,56 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.3] — 2026-05-14
+
+### Sincronização N-way Multi-Ciclo
+
+- **Até 5 ciclos independentes**, cada ciclo com **até 5 pastas**: o sync propaga sempre a versão mais nova de cada arquivo para todas as pastas do ciclo (bidirecional N-way).
+- **Auto-start**: ao abrir o app, o sync é iniciado automaticamente se houver ciclos configurados.
+- **Interface redesenhada**: cards dinâmicos por ciclo — adicione/remova ciclos e pastas individualmente, com renumeração automática e limite visual de slots.
+- Botão **+ Adicionar Ciclo** desabilitado automaticamente ao atingir o limite de 5 ciclos.
+- Compatibilidade retroativa: configurações antigas (`local_cluster_path`/`shared_path`) migradas automaticamente para o novo formato `sync_cycles`.
+
+### Correções e Qualidade
+
+- Corrigidos todos os erros de lint/tipo (Pylance/Ruff) em `updater.py`, `ark_ini.py`, `mod_auto_updater.py`, `mod_manager.py`, `rcon_client.py`, `server_manager.py`, `server_config.py` e `remote_agent.py`.
+
+---
+
+## [1.1.2] — 2026-05-14
+
+### Mods — Configurações INI Personalizadas
+
+- **Configurações INI por mod**: cada mod da lista possui o botão **⚙️ INI** que abre um editor com campos separados para `Game.ini` e `GameUserSettings.ini`. Os blocos são injetados nos arquivos do servidor ao clicar em "Salvar e Aplicar".
+- Nome do mod salvo automaticamente ao adicionar via busca no Workshop; exibido na lista de mods junto ao ID.
+- Botão ⚙️ INI fica destacado em roxo quando o mod já possui configuração salva.
+
+### Importar INI do Disco — Seleção de Pasta
+
+- O botão **Importar INI do Disco** agora abre um dialog com campo de caminho editável e botão 📁 para navegar até qualquer pasta — ideal para importar de backups ou de outro servidor.
+
+### Segurança — Bloqueio de Edição
+
+- Todas as configurações das abas (Geral, Jogo, Avançado, Mods, Plugins) ficam **desabilitadas** enquanto o servidor estiver em execução ou iniciando.
+- Banner laranja `🔒 Configurações bloqueadas` exibido no painel do servidor quando bloqueado.
+- `_save_server_config` valida o status novamente antes de persistir, impedindo qualquer escrita acidental nos INIs.
+
+### Correções
+
+- Corrigido erro `AttributeError: '_tkinter.tkapp' object has no attribute '_check_updates_manual'` ao abrir a aba Sobre.
+- Removida definição duplicada de `_check_updates_on_start`.
+
+---
+
+## [1.1.1] — 2026-05-14
+
+### Importação e Sincronização de Configurações (NOVO)
+
+- **Importar INI**: botão na aba Avançado permite importar todas as configurações diretamente dos arquivos GameUserSettings.ini e Game.ini do disco, preenchendo automaticamente todos os campos da interface.
+- **Sincronizar INI entre servidores**: botão na aba Avançado abre diálogo para selecionar quais servidores receberão os arquivos INI do servidor atual (GameUserSettings.ini e/ou Game.ini). Permite sincronizar configurações avançadas entre múltiplos servidores com um clique.
+
+---
+
 ## [1.1.0] — 2026-05-14 — *Transformação completa: de ferramenta de sync para Server Manager*
 
 Esta versão representa uma reescrita quase completa do projeto. O **ARKLAND-Multi** deixou de ser
@@ -53,6 +103,54 @@ ARK: Survival Evolved**, mantendo a sincronização de cluster como uma das func
 - Agente autônomo de atualização: ao clicar em "Instalar", um **processo separado** é lançado
 - O agente aguarda o app fechar → baixa o instalador → instala silenciosamente → reinicia o ARKLAND automaticamente
 - Não requer intervenção manual após confirmar
+
+### Gerenciamento de Servidores (NOVO)
+
+- **Multi-servidor**: suporte a múltiplos servidores ARK na mesma interface, cada um com painel independente
+- **Iniciar / Parar / Reiniciar** servidores ARK Dedicated diretamente pelo app
+- **Instalação e validação** do servidor via SteamCMD (`app_update 376030`) pela aba Geral
+- **Ciclo de vida de status** completo: PARADO → INICIANDO → RODANDO → PARANDO → CRASHADO
+- Status **INICIANDO → RODANDO** detectado via monitoramento do arquivo de log real do ARK (`ShooterGame/Saved/Logs/ShooterGame.log`) — sem travar indefinidamente
+- **Badge LAN / WAN** no header de cada servidor: 🏠 LAN ao iniciar, 🌐 WAN quando registrado no Steam
+- **Uptime** em tempo real exibido no card do servidor
+
+### Configuração de Servidores (NOVO)
+
+- Aba **Geral**: nome, porta, query port, senha, máx. jogadores, diretório de instalação
+- Aba **Jogo**: mapa, sessão, modo de jogo, dificuldade, PvP/PvE, configs de gameplay
+- Aba **Avançado**: parâmetros customizados de linha de comando, flags extras
+- Aba **Console RCON**: console interativo via RCON integrado
+- Aba **Logs**: visualização em tempo real dos logs do servidor ARK
+
+### Gerenciamento de Mods (NOVO)
+
+- Aba **Mods** por servidor: adicionar/remover mods pelo ID do Workshop, instalar/atualizar via SteamCMD
+- Mods instalados via SteamCMD são copiados automaticamente para `ShooterGame/Content/Mods/`
+- Indicador de status por mod: ✅ instalado / ❌ não instalado
+- Botões para abrir a página do mod no Steam Workshop
+- **Atualização automática de mods**: verifica o Steam Workshop periodicamente, avisa jogadores via broadcast RCON, para o servidor, baixa a atualização e reinicia automaticamente
+
+### Gerenciamento de Plugins (NOVO)
+
+- Aba **Plugins** por servidor: gerenciamento de plugins ArkApi
+- Instalar/remover plugins `.dll` e `.so`
+- Detecta automaticamente se o ArkApi está instalado
+
+### Sincronização de Cluster (MANTIDO E MELHORADO)
+
+- Sincronização bidirecional de pastas de cluster ARK mantida
+- Log de sincronização agora exibe o **nome, tamanho e direção** de cada arquivo copiado
+
+### Sistema de Atualização do App (REESCRITO)
+
+- Agente autônomo de atualização: ao clicar em "Instalar", um **processo separado** é lançado
+- O agente aguarda o app fechar → baixa o instalador → instala silenciosamente → reinicia o ARKLAND automaticamente
+- Não requer intervenção manual após confirmar
+
+### Importação e Sincronização de Configurações (NOVO)
+
+- **Importar INI**: botão na aba Avançado permite importar todas as configurações diretamente dos arquivos GameUserSettings.ini e Game.ini do disco, preenchendo automaticamente todos os campos da interface.
+- **Sincronizar INI entre servidores**: botão na aba Avançado abre diálogo para selecionar quais servidores receberão os arquivos INI do servidor atual (GameUserSettings.ini e/ou Game.ini). Permite sincronizar configurações avançadas entre múltiplos servidores com um clique.
 
 ---
 

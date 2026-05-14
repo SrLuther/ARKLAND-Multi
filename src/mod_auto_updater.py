@@ -51,7 +51,7 @@ class ModAutoUpdater:
         self._server_manager      = server_manager
         self._mod_manager         = mod_manager
         self._get_servers         = get_servers
-        self._on_log              = on_log or (lambda m, l: None)
+        self._on_log              = on_log or (lambda m, lvl: None)
         self._check_interval      = check_interval_minutes * 60
         self._warning_seconds     = warning_minutes * 60
         self._enabled             = False
@@ -97,6 +97,8 @@ class ModAutoUpdater:
     def _loop(self) -> None:
         # Primeira execução: popula timestamps sem disparar update
         self._seed_timestamps()
+        # Verifica mods não instalados e baixa os que faltam
+        self._install_missing_mods()
         while not self._stop_event.is_set():
             self._stop_event.wait(self._check_interval)
             if self._stop_event.is_set():
@@ -105,6 +107,31 @@ class ModAutoUpdater:
                 self._check_for_updates()
             except Exception as exc:
                 self._log(f"Erro no ciclo de verificação de mods: {exc}", "error")
+
+    def _install_missing_mods(self) -> None:
+        """Verifica mods não instalados em cada servidor e força o download."""
+        for srv in self._get_servers():
+            if not srv.mods or not srv.install_dir:
+                continue
+            missing = [
+                mid for mid in srv.mods
+                if mid.strip().isdigit()
+                and not self._mod_manager.check_mod_installed(srv.install_dir, mid.strip())
+            ]
+            if not missing:
+                continue
+            self._log(
+                f"Servidor '{srv.name}': {len(missing)} mod(s) não instalado(s), "
+                f"iniciando download: {', '.join(missing)}",
+                "info",
+            )
+            done_event = __import__("threading").Event()
+
+            def _on_done(ok: bool, _ev=done_event):
+                _ev.set()
+
+            self._mod_manager.download_mods(missing, srv.install_dir, on_done=_on_done)
+            done_event.wait(timeout=600)  # até 10 min por servidor
 
     def _seed_timestamps(self) -> None:
         """Obtém timestamps atuais sem considerar como atualização."""
@@ -299,7 +326,7 @@ class ModAutoUpdater:
                     port=cfg.rcon_port,
                     password=cfg.rcon_password,
                 )
-                rcon.send_command(f"Broadcast {message}")
+                rcon.send_command(f"Broadcast {message[:900]}")
                 rcon.disconnect()
             except RconError as exc:
                 self._log(f"RCON broadcast falhou ({sid}): {exc}", "warning")

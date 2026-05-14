@@ -6,13 +6,16 @@ __pycache__/
 # Distribution / build
 dist/
 build/
-*.spec
 installer/
 
 # Virtual environment
 .venv/
 venv/
 ENV/
+
+# Python portátil local (não commitar — são 40-80MB)
+.python/
+.python-full/
 
 # PyInstaller
 *.manifest

@@ -113,49 +113,101 @@ class SyncEngine:
     # ── Lógica de sincronização ────────────────────────────────────────────────
 
     def _sync(self) -> None:
-        local_str = getattr(self._config, "local_cluster_path", "").strip()
-        shared_str = getattr(self._config, "shared_path", "").strip()
+        cycles = getattr(self._config, "sync_cycles", None) or []
 
-        if not local_str or not shared_str:
-            self._log(
-                "Caminhos não configurados. Acesse a aba Configurações.", "warning"
-            )
+        # Compatibilidade com config legado (local_cluster_path / shared_path)
+        if not cycles:
+            local_str  = getattr(self._config, "local_cluster_path", "").strip()
+            shared_str = getattr(self._config, "shared_path", "").strip()
+            if local_str and shared_str:
+                cycles = [[local_str, shared_str]]
+
+        if not cycles:
+            self._log("Nenhum ciclo configurado. Acesse a aba Sincronização.", "warning")
             return
 
-        local = Path(local_str)
-        shared = Path(shared_str)
-
-        if not local.exists():
-            self._log(f"Pasta local não encontrada: {local}", "warning")
-            return
-        if not shared.exists():
-            self._log(f"Pasta compartilhada não encontrada: {shared}", "warning")
-            return
-
-        to_shared = self._copy_newer(local, shared)
-        to_local = self._copy_newer(shared, local)
+        total_synced = 0
+        for idx, cycle in enumerate(cycles):
+            if not isinstance(cycle, list):
+                continue
+            folders = [Path(str(p)) for p in cycle if str(p).strip()]
+            if len(folders) < 2:
+                continue
+            missing = [f for f in folders if not f.exists()]
+            if missing:
+                for m in missing:
+                    self._log(f"[Ciclo {idx + 1}] Pasta não encontrada: {m}", "warning")
+                continue
+            total_synced += self._sync_cycle(idx + 1, folders)
 
         self._stats["cycles"] += 1
         self._stats["last_sync"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        total = to_shared + to_local
 
-        if total > 0:
-            self._stats["total_synced"] += total
+        if total_synced > 0:
+            self._stats["total_synced"] += total_synced
             self._log(
-                f"Sync #{self._stats['cycles']}: "
-                f"{to_shared} arquivo(s) → compartilhada | "
-                f"{to_local} arquivo(s) → local  "
-                f"[total acumulado: {self._stats['total_synced']}]",
+                f"Sync #{self._stats['cycles']}: {total_synced} arquivo(s) copiado(s)  "
+                f"[acumulado: {self._stats['total_synced']}]",
                 "success",
             )
-        else:
-            log_debug = getattr(self._config, "log_debug", False)
-            if log_debug:
-                self._log(
-                    f"Ciclo #{self._stats['cycles']}: nenhuma alteração detectada.", "debug"
-                )
+        elif getattr(self._config, "log_debug", False):
+            self._log(f"Ciclo #{self._stats['cycles']}: nenhuma alteração.", "debug")
 
         self._on_stats_update(self._stats.copy())
+
+    def _sync_cycle(self, cycle_num: int, folders: list) -> int:
+        """Sync N-way: propaga a versão mais nova de cada arquivo para todas as pastas."""
+        all_rels: set = set()
+        for folder in folders:
+            try:
+                for f in folder.rglob("*"):
+                    if f.is_file():
+                        all_rels.add(f.relative_to(folder))
+            except (PermissionError, OSError) as exc:
+                self._add_error(f"[Ciclo {cycle_num}] Leitura: {exc}", "I/O")
+
+        count = 0
+        for rel in all_rels:
+            # Acha a cópia mais nova entre todas as pastas do ciclo
+            newest: Optional[Path] = None
+            newest_mtime = -1.0
+            for folder in folders:
+                candidate = folder / rel
+                try:
+                    if candidate.exists():
+                        m = candidate.stat().st_mtime
+                        if m > newest_mtime:
+                            newest_mtime = m
+                            newest = candidate
+                except OSError:
+                    pass
+            if newest is None:
+                continue
+            # Propaga para todas as pastas que não têm ou têm versão mais antiga
+            for folder in folders:
+                dst = folder / rel
+                if not self._should_copy(newest, dst):
+                    continue
+                try:
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    is_new = not dst.exists()
+                    shutil.copy2(newest, dst)
+                    count += 1
+                    action = "novo" if is_new else "atualizado"
+                    try:
+                        size_kb = newest.stat().st_size / 1024
+                        size_str = (f"{size_kb:.1f} KB" if size_kb < 1024
+                                    else f"{size_kb / 1024:.2f} MB")
+                    except OSError:
+                        size_str = "?"
+                    self._log(
+                        f"  ↪ [C{cycle_num}][{action}] {rel}  ({size_str})"
+                        f"  {newest.parent.name} → {folder.name}",
+                        "debug",
+                    )
+                except (PermissionError, OSError) as exc:
+                    self._add_error(f"[Ciclo {cycle_num}] Cópia {rel}: {exc}", "I/O")
+        return count
 
     def _copy_newer(self, src_root: Path, dst_root: Path) -> int:
         """Copia para dst_root todos os arquivos de src_root que forem mais novos."""

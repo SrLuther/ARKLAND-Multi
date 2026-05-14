@@ -4,7 +4,6 @@ Controla start/stop/restart, monitoramento e logs de cada instância.
 """
 from __future__ import annotations
 
-import os
 import subprocess
 import threading
 import time
@@ -276,7 +275,8 @@ class ServerManager:
             return
         cfg = inst.config
         try:
-            rcon = RconClient("127.0.0.1", cfg.rcon_port, cfg.rcon_password)
+            rcon_host = getattr(cfg, "bind_ip", None) or "127.0.0.1"
+            rcon = RconClient(rcon_host, cfg.rcon_port, cfg.rcon_password)
             rcon.connect()
             rcon.send_command("SaveWorld")
             time.sleep(2)
@@ -324,6 +324,8 @@ class ServerManager:
             if log_file and log_file.exists():
                 try:
                     size = log_file.stat().st_size
+                    if size < last_size:
+                        last_size = 0  # arquivo rotacionado/truncado
                     if size > last_size:
                         with open(log_file, "r", encoding="utf-8", errors="replace") as fh:
                             fh.seek(last_size)
@@ -391,6 +393,8 @@ class ServerManager:
             try:
                 if log_file.exists():
                     size = log_file.stat().st_size
+                    if size < last_size:
+                        last_size = 0  # arquivo rotacionado/truncado
                     if size > last_size:
                         with open(log_file, "r", encoding="utf-8", errors="replace") as fh:
                             fh.seek(last_size)

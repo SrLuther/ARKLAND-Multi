@@ -5,7 +5,7 @@ Inclui todas as opções de GameUserSettings.ini, Game.ini e parâmetros de linh
 from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field, asdict
-from typing import List
+from typing import Dict, List
 
 
 # ── Mapas disponíveis ──────────────────────────────────────────────────────────
@@ -237,6 +237,12 @@ class ServerConfig:
     # Mods (IDs do Steam Workshop)
     mods: List[str] = field(default_factory=list)
 
+    # Nomes dos mods {"mod_id": "Nome do Mod"}
+    mod_names: Dict[str, str] = field(default_factory=dict)
+
+    # Configurações INI por mod  {"mod_id": {"game_ini": "...", "gus_ini": "..."}}
+    mod_ini_configs: Dict[str, dict] = field(default_factory=dict)
+
     # Opções de linha de comando adicionais
     extra_args: str = ""
     use_battleye: bool = False
@@ -285,7 +291,7 @@ class ServerConfig:
         map_arg = self.map
 
         params = [
-            f"?listen",
+            "?listen",
             f"?SessionName=\"{self.server_name}\"",
             f"?MaxPlayers={self.max_players}",
             f"?Port={self.server_port}",
@@ -297,7 +303,7 @@ class ServerConfig:
         if self.admin_password:
             params.append(f"?ServerAdminPassword={self.admin_password}")
         if self.rcon_enabled:
-            params.append(f"?RCONEnabled=True")
+            params.append("?RCONEnabled=True")
             params.append(f"?RCONPort={self.rcon_port}")
         if self.whitelist_only:
             params.append("?ExclusiveJoin")

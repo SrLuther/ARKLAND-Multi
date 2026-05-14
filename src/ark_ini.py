@@ -5,11 +5,10 @@ Suporta GameUserSettings.ini e Game.ini.
 from __future__ import annotations
 
 import configparser
-import os
 from pathlib import Path
 from typing import Optional
 
-from .server_config import ServerConfig, ServerGameSettings, ServerAdvancedSettings
+from .server_config import ServerConfig
 
 
 # ── Mapeamento GameUserSettings.ini ──────────────────────────────────────────
@@ -113,6 +112,82 @@ def get_ini_path(install_dir: str, filename: str) -> Path:
     )
 
 
+_INI_ENCODINGS = (
+    "utf-8-sig",
+    "utf-8",
+    "utf-16",
+    "utf-16-le",
+    "utf-16-be",
+    "cp1252",
+    "latin-1",
+)
+
+
+def _bom_encoding(path: Path) -> Optional[str]:
+    """Detecta BOM nos primeiros bytes e retorna o encoding correspondente."""
+    try:
+        bom = path.read_bytes()[:4]
+    except OSError:
+        return None
+    if bom[:3] == b'\xef\xbb\xbf':
+        return "utf-8-sig"
+    if bom[:2] in (b'\xff\xfe', b'\xfe\xff'):
+        return "utf-16"
+    return None
+
+
+def _ordered_encodings(path: Path) -> tuple:
+    """Retorna _INI_ENCODINGS com o encoding detectado pelo BOM em primeiro lugar."""
+    detected = _bom_encoding(path)
+    if detected is None:
+        return _INI_ENCODINGS
+    return (detected,) + tuple(e for e in _INI_ENCODINGS if e != detected)
+
+
+def _read_text_with_fallback(path: Path) -> str:
+    """Lê texto com fallback para codificações comuns em INIs no Windows."""
+    last_error: Optional[Exception] = None
+    for enc in _ordered_encodings(path):
+        try:
+            text = path.read_text(encoding=enc)
+            return text.lstrip('\ufeff')
+        except (UnicodeDecodeError, LookupError) as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    raise ValueError(f"Nao foi possivel ler o arquivo INI: {path}")
+
+
+def _read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.RawConfigParser:
+    """Lê INI aceitando codificações comuns no Windows e retorna o parser populado."""
+    last_error: Optional[Exception] = None
+
+    for enc in _ordered_encodings(path):
+        try:
+            text = path.read_text(encoding=enc)
+        except (UnicodeDecodeError, LookupError) as exc:
+            last_error = exc
+            continue
+
+        text = text.lstrip('\ufeff')  # remove BOM remanescente (ex: utf-16-le sem strip)
+        parser = configparser.RawConfigParser(strict=strict)
+        try:
+            parser.read_string(text, source=str(path))
+            return parser
+        except configparser.Error as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    raise ValueError(f"Nao foi possivel interpretar o arquivo INI: {path}")
+
+
+def read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.RawConfigParser:
+    """API publica para leitura de INI com fallback de encoding."""
+    return _read_ini_with_fallback(path, strict=strict)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 class ArkIniManager:
     """Lê e escreve GameUserSettings.ini e Game.ini de um servidor ARK."""
@@ -128,8 +203,7 @@ class ArkIniManager:
         if not path.exists():
             return
 
-        parser = configparser.RawConfigParser(strict=False)
-        parser.read(str(path), encoding="utf-8")
+        parser = _read_ini_with_fallback(path, strict=False)
 
         gs = config.game_settings
 
@@ -160,8 +234,7 @@ class ArkIniManager:
         if not path.exists():
             return
 
-        parser = configparser.RawConfigParser(strict=False)
-        parser.read(str(path), encoding="utf-8")
+        parser = _read_ini_with_fallback(path, strict=False)
 
         adv = config.advanced_settings
         section = "/Script/ShooterGame.ShooterGameMode"
@@ -223,7 +296,7 @@ class ArkIniManager:
 
         parser = configparser.RawConfigParser()
         if path.exists():
-            parser.read(str(path), encoding="utf-8")
+            parser = _read_ini_with_fallback(path)
 
         gs = config.game_settings
 
@@ -267,7 +340,7 @@ class ArkIniManager:
 
         parser = configparser.RawConfigParser()
         if path.exists():
-            parser.read(str(path), encoding="utf-8")
+            parser = _read_ini_with_fallback(path)
 
         section = "/Script/ShooterGame.ShooterGameMode"
         if not parser.has_section(section):
@@ -319,3 +392,49 @@ class ArkIniManager:
         """Salva GameUserSettings.ini e Game.ini de uma vez."""
         self.save_game_user_settings(config)
         self.save_game_ini(config)
+
+    # ── Configurações INI de mods ─────────────────────────────────────────────
+
+    def apply_mod_ini_configs(self, mod_ini_configs: dict) -> None:
+        """Aplica/atualiza blocos de configuração de mods em Game.ini e GameUserSettings.ini.
+
+        Cada entrada em mod_ini_configs deve ter o formato:
+            {"mod_id": {"game_ini": "...", "gus_ini": "..."}}
+
+        Os blocos anteriores de mods são removidos antes de aplicar os novos,
+        evitando duplicatas. Mods sem conteúdo não geram blocos.
+        """
+        import re
+
+        _BLOCK_RE = re.compile(
+            r"; =+ BEGIN MOD CONFIGS =+\n.*?; =+ END MOD CONFIGS =+\n?",
+            re.DOTALL,
+        )
+
+        for file_key, filename in (("game_ini", "Game.ini"), ("gus_ini", "GameUserSettings.ini")):
+            path = get_ini_path(self._install_dir, filename)
+            path.parent.mkdir(parents=True, exist_ok=True)
+
+            if path.exists():
+                # Permite editar INIs existentes mesmo que tenham sido salvos em UTF-16/ANSI.
+                content = _read_text_with_fallback(path)
+            else:
+                content = ""
+            # Remove bloco antigo
+            content = _BLOCK_RE.sub("", content).rstrip("\n")
+
+            snippets = []
+            for mod_id, cfg in mod_ini_configs.items():
+                snippet = cfg.get(file_key, "").strip()
+                if snippet:
+                    snippets.append(f"; --- Mod {mod_id} ---\n{snippet}")
+
+            if snippets:
+                block = (
+                    "\n\n; ========== BEGIN MOD CONFIGS ==========\n"
+                    + "\n".join(snippets)
+                    + "\n; ========== END MOD CONFIGS ==========\n"
+                )
+                content += block
+
+            path.write_text(content, encoding="utf-8")

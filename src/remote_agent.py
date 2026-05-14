@@ -1,5 +1,5 @@
 """
-Agente HTTP do ARKLAND-Multi.
+Agente HTTP do ARKLAND - Server Manager.
 
 Quando habilitado, sobe um servidor HTTP leve na porta configurada.
 Permite que outra instância do app controle este motor de sync remotamente.
@@ -15,7 +15,7 @@ import json
 import threading
 from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from .sync_engine import SyncEngine
@@ -59,12 +59,10 @@ class RemoteAgent:
         agent = self
 
         class _Handler(BaseHTTPRequestHandler):
-            def log_message(self, *args) -> None:  # silencia log padrão do httpserver
+            def log_message(self, format: str, *args: object) -> None:  # silencia log padrão do httpserver
                 pass
 
             def _auth(self) -> bool:
-                if not agent._token:
-                    return True
                 header = self.headers.get("Authorization", "")
                 return header == f"Bearer {agent._token}"
 

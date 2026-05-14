@@ -48,7 +48,7 @@ class RconClient:
         self._host = host
         self._port = port
         self._password = password
-        self._on_log = on_log or (lambda m, l: None)
+        self._on_log = on_log or (lambda m, lvl: None)
         self._sock: Optional[socket.socket] = None
         self._connected = False
         self._lock = threading.Lock()

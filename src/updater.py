@@ -13,12 +13,12 @@ import subprocess
 import tempfile
 import threading
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
+_requests: Any = None
 try:
-    import requests as _requests
+    import requests as _requests  # type: ignore[import-untyped]
     _HAS_REQUESTS = True
 except ImportError:
     _HAS_REQUESTS = False

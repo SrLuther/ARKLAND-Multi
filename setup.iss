@@ -1,40 +1,61 @@
 ; ============================================================
-; Inno Setup Script — [ARKLAND]-Multi Installer
+; Inno Setup Script — ARKLAND - Server Manager Installer
 ; Requer: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Antes de gerar o installer, rode build.bat para criar o .exe
+;
+; Instalação silenciosa:
+;   ARKLAND-ServerManager-Setup-vX.Y.Z.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 ; ============================================================
 
 [Setup]
-AppName=[ARKLAND]-Multi
-AppVersion=1.0.9
+AppName=ARKLAND - Server Manager
+AppVersion=1.1.2
 AppPublisher=ARKLAND Tools
-DefaultDirName={autopf}\ARKLAND-Multi
-DefaultGroupName=ARKLAND-Multi
+AppPublisherURL=https://github.com/SrLuther/ARKLAND-Multi
+AppSupportURL=https://github.com/SrLuther/ARKLAND-Multi/issues
+AppUpdatesURL=https://github.com/SrLuther/ARKLAND-Multi/releases
+DefaultDirName={autopf}\ARKLAND-ServerManager
+DefaultGroupName=ARKLAND-ServerManager
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.0.9
+OutputBaseFilename=ARKLAND-Multi-Setup-v1.1.2
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
+; Não exige UAC (instala por usuário se não admin)
 PrivilegesRequired=lowest
-UninstallDisplayName=[ARKLAND]-Multi
+PrivilegesRequiredOverridesAllowed=dialog
+UninstallDisplayName=ARKLAND - Server Manager
 SetupIconFile=ig\ArkLandBR.ico
 WizardImageFile=ig\ArkLandBR_wizard.png
 WizardImageStretch=no
+; Permite /VERYSILENT, /SILENT etc.
+DisableWelcomePage=no
+DisableDirPage=auto
+DisableProgramGroupPage=yes
+; Fecha instância anterior automaticamente durante atualização
+CloseApplications=yes
+CloseApplicationsFilter=*ARKLAND-ServerManager.exe
+RestartApplications=yes
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Files]
-Source: "dist\ARKLAND-Multi.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\ARKLAND-ServerManager.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\[ARKLAND]-Multi";    Filename: "{app}\ARKLAND-Multi.exe"
-Name: "{userdesktop}\[ARKLAND]-Multi"; Filename: "{app}\ARKLAND-Multi.exe"; Tasks: desktopicon
+Name: "{group}\ARKLAND - Server Manager";       Filename: "{app}\ARKLAND-ServerManager.exe"
+Name: "{userdesktop}\ARKLAND - Server Manager"; Filename: "{app}\ARKLAND-ServerManager.exe"; Tasks: desktopicon
 
 [Tasks]
 Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos:"
 
 [Run]
-Filename: "{app}\ARKLAND-Multi.exe"; \
-  Description: "Iniciar [ARKLAND]-Multi agora"; \
+; Abre o app ao final da instalação (só no modo não-silencioso)
+Filename: "{app}\ARKLAND-ServerManager.exe"; \
+  Description: "Iniciar ARKLAND - Server Manager agora"; \
   Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+; Remove dados do usuário ao desinstalar (só se o usuário confirmar — use comentário para remover)
+; Type: filesandordirs; Name: "{userappdata}\ARKLAND-ServerManager"
