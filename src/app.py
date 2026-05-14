@@ -1910,6 +1910,10 @@ class ARKServerManagerApp(ctk.CTk):
                          text_color="gray50").pack(pady=20)
             return
 
+        missing_names = [mid for mid in srv.mods if not srv.mod_names.get(mid)]
+        if missing_names:
+            self._fetch_mod_names_async(server_id, missing_names)
+
         for idx, mod_id in enumerate(srv.mods):
             row_f = ctk.CTkFrame(frame, fg_color="transparent", height=40)
             row_f.pack(fill="x", pady=2)
@@ -1919,7 +1923,7 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=11)).grid(row=0, column=0, padx=(8, 4))
 
             mod_name = srv.mod_names.get(mod_id, "")
-            display = f"{mod_name}  ({mod_id})" if mod_name else mod_id
+            display = f"{mod_id} - {mod_name}" if mod_name else mod_id
             ctk.CTkLabel(row_f, text=display,
                          font=ctk.CTkFont(family="Courier New", size=13)).grid(
                 row=0, column=1, padx=4, sticky="w")
@@ -3481,6 +3485,53 @@ class ARKServerManagerApp(ctk.CTk):
         self.config_manager.update_server(srv)
         w["new_mod_id"].set("")
         self._refresh_mods_list(server_id)
+        if not mod_name and mod_id not in srv.mod_names:
+            self._fetch_mod_names_async(server_id, [mod_id])
+
+    def _fetch_mod_names_async(self, server_id: str, mod_ids: list) -> None:
+        """Busca nomes dos mods via Steam API em background e atualiza a lista."""
+        if not hasattr(self, "_fetching_mod_names"):
+            self._fetching_mod_names: set = set()
+        to_fetch = [mid for mid in mod_ids if mid not in self._fetching_mod_names]
+        if not to_fetch:
+            return
+        self._fetching_mod_names.update(to_fetch)
+
+        def _worker() -> None:
+            names: dict = {}
+            try:
+                params: dict = {"itemcount": str(len(to_fetch))}
+                for i, mid in enumerate(to_fetch):
+                    params[f"publishedfileids[{i}]"] = mid
+                data = urllib.parse.urlencode(params).encode()
+                req = urllib.request.Request(
+                    "https://api.steampowered.com"
+                    "/ISteamRemoteStorage/GetPublishedFileDetails/v1/",
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    result = json.loads(resp.read().decode())
+                for f in result.get("response", {}).get("publishedfiledetails", []):
+                    if f.get("result") == 1:
+                        mid = str(f.get("publishedfileid", ""))
+                        title = f.get("title", "").strip()
+                        if mid and title:
+                            names[mid] = title
+            except Exception:
+                pass
+            finally:
+                self._fetching_mod_names -= set(to_fetch)
+
+            def _apply() -> None:
+                srv = self.config_manager.get_server(server_id)
+                if srv and names:
+                    srv.mod_names.update(names)
+                    self.config_manager.update_server(srv)
+                    self._refresh_mods_list(server_id)
+            self.after(0, _apply)
+
+        threading.Thread(target=_worker, daemon=True, name="ModNameFetch").start()
 
     def _remove_mod(self, server_id: str, mod_id: str) -> None:
         srv = self.config_manager.get_server(server_id)

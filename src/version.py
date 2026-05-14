@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.3"
+APP_VERSION: str = "1.1.4"
 BUILD_DATE: str = "2026-05-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.4",
+        "date": "2026-05-14",
+        "changes": [
+            "Nomes dos mods buscados automaticamente via Steam Workshop API ao abrir a aba Mods.",
+            "Lista de mods exibe ID - Nome do mod para fácil identificação.",
+            "Checkbox 'Atualizar servidor ao iniciar' agora executa SteamCMD antes de iniciar o servidor.",
+            "Correção do build.bat: parênteses em echo dentro de bloco if aninhado causavam erro no CMD.",
+        ],
+    },
     {
         "version": "1.1.3",
         "date": "2026-05-14",
