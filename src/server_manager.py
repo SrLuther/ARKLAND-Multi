@@ -271,9 +271,22 @@ class ServerManager:
             while time.monotonic() < deadline and proc.poll() is None:
                 time.sleep(1)
 
-        # ── 2. terminate() suave (SIGTERM / TerminateProcess com código 1) ──────
+        # ── 2. taskkill /F /T mata toda a árvore de processos (Windows) ─────────
+        #    ShooterGameServer.exe cria processos filhos que proc.terminate()
+        #    não alcança. taskkill com /T encerra os filhos também.
+        if pid:
+            self._emit_log(server_id, f"Encerrando árvore de processos (PID {pid})...", "warning")
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(pid)],
+                    capture_output=True,
+                    timeout=15,
+                )
+            except Exception:
+                pass
+
+        # ── 3. terminate() como fallback (não-Windows ou taskkill falhou) ────
         if proc and proc.poll() is None:
-            self._emit_log(server_id, "Encerrando processo (terminate)...", "warning")
             try:
                 proc.terminate()
                 try:
@@ -283,7 +296,7 @@ class ServerManager:
             except Exception:
                 pass
 
-        # ── 3. kill() forçado ────────────────────────────────────────────────
+        # ── 4. kill() forçado ────────────────────────────────────────────────
         if proc and proc.poll() is None:
             self._emit_log(server_id, "Forçando encerramento (kill)...", "warning")
             try:
@@ -292,15 +305,6 @@ class ServerManager:
                     proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     pass
-            except Exception:
-                pass
-
-        # ── 4. Fallback: mata pelo PID armazenado ────────────────────────────
-        if proc and proc.poll() is None and pid:
-            self._emit_log(server_id, f"Tentando encerrar pelo PID {pid}...", "warning")
-            try:
-                import os as _os
-                _os.kill(pid, 9)
             except Exception:
                 pass
 

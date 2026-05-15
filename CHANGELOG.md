@@ -5,6 +5,27 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.8] — 2026-05-14
+
+### Parar Servidor — Encerramento de Árvore de Processos
+
+- Ao parar um servidor, o app agora usa `taskkill /F /T /PID` para encerrar toda a árvore de processos filhos do `ShooterGameServer.exe`.
+- Corrige o bug onde o app reportava "Servidor parado" mas o processo do servidor continuava rodando em segundo plano.
+- Fallback para `terminate()` / `kill()` caso `taskkill` não esteja disponível.
+
+### Nova Aba Backup
+
+- Nova aba **Backup** adicionada ao painel de cada servidor.
+- Habilita backup automático em intervalos configuráveis (1h, 2h, 3h, 6h, 12h, 24h).
+- Escolha quantos backups manter (os mais antigos são excluídos automaticamente).
+- Seleção do conteúdo: Saves (dados de jogadores/mundo) e/ou Config (arquivos .ini).
+- Pasta de destino personalizável com seletor de diretório.
+- Botão de **Backup Manual** para snapshots imediatos.
+- Lista de backups disponíveis com opções de restaurar e excluir.
+- Layout coeso com o padrão visual do restante do aplicativo.
+
+---
+
 ## [1.1.7] — 2026-05-14
 
 ### Updater — Encerramento Forçado

@@ -262,6 +262,14 @@ class ServerConfig:
     auto_restart_on_crash: bool = False
     auto_update_on_start: bool = False
 
+    # Backup automático
+    backup_enabled: bool = False
+    backup_interval_hours: int = 6
+    backup_keep_count: int = 10
+    backup_include_saves: bool = True
+    backup_include_config: bool = True
+    backup_dir: str = ""  # "" = padrão (%APPDATA%/ARKLAND-ServerManager/backups/servers/{id})
+
     # Steam IDs com permissão de admin (gravados em AllowedCheaterSteamIDs.txt)
     admin_ids: List[str] = field(default_factory=list)
     # Cache de nomes Steam resolvidos: {steam_id: display_name}

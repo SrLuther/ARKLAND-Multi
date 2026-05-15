@@ -51,6 +51,7 @@ from .ark_ini import ArkIniManager
 from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
 from .mod_auto_updater import ModAutoUpdater
+from .backup_manager import BackupManager, BackupEntry
 from .buff_manager import (
     BuffManager, BuffEvent, BuffPreset, BuffRates,
     BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM,
@@ -241,11 +242,15 @@ class ARKServerManagerApp(ctk.CTk):
         self._buffs_body_frame: Any = None          # frame reconstruído no refresh
         self._buffs_server_var: Any = None           # StringVar servidor selecionado
 
+        # Backup automático
+        self._backup_manager: Optional[BackupManager] = None
+
         self._build_ui()
         self.after(500, self._auto_start_sync)
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
         self.after(600, self._init_buff_manager)
+        self.after(800, self._init_backup_manager)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -759,6 +764,14 @@ class ARKServerManagerApp(ctk.CTk):
             lambda: self.after(0, self._refresh_buffs_ui)
         )
         self._refresh_buffs_ui()
+
+    def _init_backup_manager(self) -> None:
+        """Inicializa o BackupManager e agenda os timers de auto-backup."""
+        self._backup_manager = BackupManager(
+            get_servers=lambda: self.config_manager.servers,
+            on_log=self._global_log,
+        )
+        self._backup_manager.restart_all(self.config_manager.servers)
 
     def _build_buffs_panel(self, parent: ctk.CTkFrame) -> None:
         parent.grid_columnconfigure(0, weight=1)
@@ -1698,7 +1711,7 @@ class ARKServerManagerApp(ctk.CTk):
         tabs.grid(row=2, column=0, padx=14, pady=12, sticky="nsew")
         self._server_widgets[srv.id]["_tabs"] = tabs
 
-        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs"):
+        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs", "Backup"):
             tabs.add(tab_name)
 
         self._build_tab_general   (tabs.tab("Geral"),         srv)
@@ -1710,6 +1723,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._build_tab_plugins   (tabs.tab("Plugins"),       srv)
         self._build_tab_rcon      (tabs.tab("Console RCON"),  srv)
         self._build_tab_logs      (tabs.tab("Logs"),          srv)
+        self._build_tab_backup    (tabs.tab("Backup"),        srv)
 
         # Aplicar estado inicial de bloqueio se servidor não estiver parado
         if not is_stopped:
@@ -2887,7 +2901,7 @@ class ARKServerManagerApp(ctk.CTk):
                 with urllib.request.urlopen(req, timeout=8) as resp:
                     raw = resp.read().decode("utf-8", errors="replace")
                 # Extrai <steamID><![CDATA[Nome]]></steamID>
-                m = re.search(r"<steamID(?:[^>]*)>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</steamID>", raw, re.DOTALL)
+                m = re.search(r"<steamID><!\[CDATA\[(.*?)\]\]></steamID>", raw)
                 name = m.group(1).strip() if m else None
                 callback(name)
             except Exception:
@@ -3805,6 +3819,280 @@ class ARKServerManagerApp(ctk.CTk):
         w["_log_box"] = log_box
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Aba Backup
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_backup(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        _interval_opts = ["1h", "2h", "3h", "6h", "12h", "24h"]
+        _interval_map  = {1: "1h", 2: "2h", 3: "3h", 6: "6h", 12: "12h", 24: "24h"}
+
+        # ── Card: configurações ───────────────────────────────────────────
+        cfg_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        cfg_card.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
+        cfg_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            cfg_card, text="💾  Backup Automático",
+            font=ctk.CTkFont(size=14, weight="bold"),
+        ).grid(row=0, column=0, columnspan=2, padx=16, pady=(14, 4), sticky="w")
+
+        def _lbl(parent_w, text: str, hint: str) -> ctk.CTkFrame:
+            fr = ctk.CTkFrame(parent_w, fg_color="transparent")
+            ctk.CTkLabel(fr, text=text, width=190, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(fr, text=hint, width=190, anchor="w",
+                         text_color="gray40",
+                         font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+            return fr
+
+        # Habilitar
+        w["backup_enabled"] = tk.BooleanVar(value=srv.backup_enabled)
+        _lbl(cfg_card,
+             "Habilitar backup automático",
+             "Cria backups em segundo plano no intervalo definido."
+             ).grid(row=1, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+        ctk.CTkSwitch(
+            cfg_card, text="",
+            variable=w["backup_enabled"],
+        ).grid(row=1, column=1, padx=(0, 16), pady=(4, 0), sticky="w")
+
+        # Intervalo
+        w["backup_interval"] = tk.StringVar(value=_interval_map.get(srv.backup_interval_hours, "6h"))
+        _lbl(cfg_card,
+             "Intervalo entre backups",
+             "Com que frequência o backup automático será executado."
+             ).grid(row=2, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+        ctk.CTkOptionMenu(
+            cfg_card, values=_interval_opts,
+            variable=w["backup_interval"], width=110, height=32,
+        ).grid(row=2, column=1, padx=(0, 16), pady=4, sticky="w")
+
+        # Manter últimos N backups
+        w["backup_keep"] = tk.StringVar(value=str(srv.backup_keep_count))
+        _lbl(cfg_card,
+             "Manter últimos N backups",
+             "Backups mais antigos são excluídos automaticamente."
+             ).grid(row=3, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+        ctk.CTkEntry(cfg_card, textvariable=w["backup_keep"], width=80, height=32).grid(
+            row=3, column=1, padx=(0, 16), pady=4, sticky="w")
+
+        # O que incluir
+        w["backup_inc_saves"]  = tk.BooleanVar(value=srv.backup_include_saves)
+        w["backup_inc_config"] = tk.BooleanVar(value=srv.backup_include_config)
+        _lbl(cfg_card,
+             "O que incluir no backup",
+             "Saves = dados de jogadores/mundo.  Config = arquivos .ini."
+             ).grid(row=4, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+        chk_row = ctk.CTkFrame(cfg_card, fg_color="transparent")
+        chk_row.grid(row=4, column=1, padx=(0, 16), pady=4, sticky="w")
+        ctk.CTkCheckBox(chk_row, text="Saves",  variable=w["backup_inc_saves"],  width=100).pack(side="left")
+        ctk.CTkCheckBox(chk_row, text="Config", variable=w["backup_inc_config"], width=100).pack(side="left", padx=(8, 0))
+
+        # Pasta personalizada
+        w["backup_dir"] = tk.StringVar(value=srv.backup_dir)
+        _lbl(cfg_card,
+             "Pasta de destino",
+             "Deixe vazio para usar o padrão em %APPDATA%."
+             ).grid(row=5, column=0, padx=(16, 8), pady=(4, 6), sticky="w")
+        dir_fr = ctk.CTkFrame(cfg_card, fg_color="transparent")
+        dir_fr.grid(row=5, column=1, padx=(0, 16), pady=(4, 6), sticky="ew")
+        dir_fr.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(
+            dir_fr, textvariable=w["backup_dir"], height=32,
+            placeholder_text="Padrão: %APPDATA%\\ARKLAND-ServerManager\\backups\\",
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(
+            dir_fr, text="📁", width=34, height=32,
+            command=lambda: self._browse_dir(w["backup_dir"]),
+        ).grid(row=0, column=1)
+
+        # Botões Salvar + Backup Manual
+        btn_row = ctk.CTkFrame(cfg_card, fg_color="transparent")
+        btn_row.grid(row=6, column=0, columnspan=2, padx=12, pady=(4, 14), sticky="w")
+        ctk.CTkButton(
+            btn_row, text="💾  Salvar Configurações",
+            height=36, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._save_backup_config(srv.id),
+        ).pack(side="left", padx=(4, 8))
+        ctk.CTkButton(
+            btn_row, text="📸  Fazer Backup Agora",
+            height=36, fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=lambda: self._do_manual_backup(srv.id),
+        ).pack(side="left")
+
+        # ── Card: lista de backups ────────────────────────────────────────
+        list_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        list_card.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="nsew")
+        list_card.grid_columnconfigure(0, weight=1)
+        list_card.grid_rowconfigure(1, weight=1)
+
+        hdr2 = ctk.CTkFrame(list_card, fg_color="transparent")
+        hdr2.grid(row=0, column=0, padx=16, pady=(12, 4), sticky="ew")
+        hdr2.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr2, text="📂  Backups Disponíveis",
+                     font=ctk.CTkFont(size=13, weight="bold")).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(
+            hdr2, text="🔄 Atualizar", width=100, height=28,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: self._refresh_backup_list(srv.id),
+        ).grid(row=0, column=1, sticky="e")
+
+        scroll = ctk.CTkScrollableFrame(list_card, fg_color="transparent")
+        scroll.grid(row=1, column=0, padx=8, pady=(0, 8), sticky="nsew")
+        scroll.grid_columnconfigure(0, weight=1)
+        w["_backup_list_frame"] = scroll
+
+        self._refresh_backup_list(srv.id)
+
+    def _save_backup_config(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        w = self._server_widgets.get(server_id, {})
+        _interval_rev = {"1h": 1, "2h": 2, "3h": 3, "6h": 6, "12h": 12, "24h": 24}
+
+        srv.backup_enabled          = w.get("backup_enabled",  tk.BooleanVar()).get()
+        srv.backup_interval_hours   = _interval_rev.get(w.get("backup_interval", tk.StringVar(value="6h")).get(), 6)
+        srv.backup_include_saves    = w.get("backup_inc_saves",  tk.BooleanVar(value=True)).get()
+        srv.backup_include_config   = w.get("backup_inc_config", tk.BooleanVar(value=True)).get()
+        srv.backup_dir              = w.get("backup_dir", tk.StringVar()).get().strip()
+        try:
+            srv.backup_keep_count   = max(1, int(w.get("backup_keep", tk.StringVar(value="10")).get()))
+        except ValueError:
+            pass
+
+        self.config_manager.update_server(srv)
+        self.config_manager.save_servers()
+
+        # Reinicia o timer para este servidor
+        if self._backup_manager:
+            self._backup_manager.stop_auto_backup(server_id)
+            if srv.backup_enabled:
+                self._backup_manager.start_auto_backup(srv)
+
+        # Feedback visual
+        w_entry = w.get("backup_keep")
+        if w_entry:
+            w_entry.set(str(srv.backup_keep_count))
+
+    def _do_manual_backup(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        if not self._backup_manager:
+            return
+
+        def _run() -> None:
+            result = self._backup_manager.do_backup(srv)
+            def _done() -> None:
+                if result:
+                    self._refresh_backup_list(server_id)
+                else:
+                    messagebox.showerror(
+                        "Backup falhou",
+                        "Não foi possível realizar o backup. Verifique o diretório de instalação.",
+                        parent=self,
+                    )
+            self.after(0, _done)
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _refresh_backup_list(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        w   = self._server_widgets.get(server_id, {})
+        frame: Optional[ctk.CTkScrollableFrame] = w.get("_backup_list_frame")
+        if not frame or not srv:
+            return
+
+        for child in frame.winfo_children():
+            child.destroy()
+
+        entries = self._backup_manager.list_backups(srv) if self._backup_manager else []
+
+        if not entries:
+            ctk.CTkLabel(
+                frame,
+                text="Nenhum backup encontrado.\nClique em 📸 Fazer Backup Agora para criar o primeiro.",
+                text_color="gray50",
+            ).pack(pady=20)
+            return
+
+        for entry in entries:
+            row_fr = ctk.CTkFrame(frame, corner_radius=8, fg_color="#252535")
+            row_fr.pack(fill="x", padx=8, pady=3)
+            row_fr.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                row_fr, text=entry.label,
+                anchor="w", font=ctk.CTkFont(family="Courier New", size=11),
+            ).grid(row=0, column=0, padx=12, pady=8, sticky="ew")
+
+            btn_fr = ctk.CTkFrame(row_fr, fg_color="transparent")
+            btn_fr.grid(row=0, column=1, padx=(0, 8))
+
+            ep = str(entry.path)
+            ctk.CTkButton(
+                btn_fr, text="↩ Restaurar", width=100, height=28,
+                fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                command=lambda p=ep, sid=server_id: self._confirm_restore_backup(sid, p),
+            ).pack(side="left", padx=(0, 6))
+            ctk.CTkButton(
+                btn_fr, text="🗑", width=36, height=28,
+                fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                command=lambda p=ep, sid=server_id: self._confirm_delete_backup(sid, p),
+            ).pack(side="left")
+
+    def _confirm_restore_backup(self, server_id: str, backup_path: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        inst = self.server_manager.get_instance(server_id)
+        if inst and inst.status != SERVER_STATUS_STOPPED:
+            messagebox.showwarning(
+                "Servidor em execução",
+                "Pare o servidor antes de restaurar um backup.",
+                parent=self,
+            )
+            return
+        snap = Path(backup_path).name
+        if not messagebox.askyesno(
+            "Confirmar Restauração",
+            f"Restaurar o snapshot '{snap}' para '{srv.name}'?\n\n"
+            "Os arquivos atuais de config e/ou saves serão sobrescritos.",
+            parent=self,
+        ):
+            return
+
+        def _run() -> None:
+            ok = self._backup_manager.restore_backup(srv, backup_path)
+            self.after(0, lambda: messagebox.showinfo(
+                "Restauração concluída" if ok else "Erro na Restauração",
+                f"Backup de '{snap}' restaurado com sucesso." if ok
+                else "Falha ao restaurar. Verifique os logs.",
+                parent=self,
+            ))
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _confirm_delete_backup(self, server_id: str, backup_path: str) -> None:
+        snap = Path(backup_path).name
+        if not messagebox.askyesno(
+            "Confirmar Exclusão",
+            f"Excluir permanentemente o snapshot '{snap}'?",
+            parent=self,
+        ):
+            return
+        if self._backup_manager:
+            self._backup_manager.delete_backup(backup_path)
+            self._refresh_backup_list(server_id)
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Configurações Globais
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -4176,6 +4464,9 @@ class ARKServerManagerApp(ctk.CTk):
             srv.whitelist_only        = w.get("whitelist_only",      tk.BooleanVar()).get()
             srv.auto_restart_on_crash = w.get("auto_restart_crash",  tk.BooleanVar()).get()
             srv.auto_update_on_start  = w.get("auto_update_start",   tk.BooleanVar()).get()
+
+        # Preserva as configurações de backup (gerenciadas pela aba Backup)
+        # — não sobrescreve campos backup ao salvar outras abas
 
         # ── GameSettings ──────────────────────────────────────────────────
         gs = srv.game_settings
@@ -5445,6 +5736,8 @@ class ARKServerManagerApp(ctk.CTk):
             self._mod_auto_updater.stop()
         if self._buff_manager:
             self._buff_manager.stop()
+        if self._backup_manager:
+            self._backup_manager.shutdown()
         for srv in self.config_manager.servers:
             inst = self.server_manager.get_instance(srv.id)
             if inst and inst.status == SERVER_STATUS_RUNNING:
