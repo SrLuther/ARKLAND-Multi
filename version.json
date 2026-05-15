@@ -1,10 +1,15 @@
 {
-  "version": "1.1.13",
+  "version": "1.1.14",
   "date": "2026-05-15",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.13/ARKLAND-Multi-Setup-v1.1.13.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.14/ARKLAND-Multi-Setup-v1.1.14.exe",
   "changelog": [
-    "Corrige crash BufferCount=0 definitivamente: formato .mod reescrito com base no arkmanager",
-    "mod.info lido corretamente (header com nome do mod antes do mapCount)",
-    "Arquivo .mod agora inclui nome, caminho, magic footer e modmeta.info"
+    "Novo: tooltip ? na seção Comandos do ArkShop com exemplos de comandos do plugin",
+    "Novo: campo ID do kit editável — renomear kits diretamente no painel",
+    "Novo: salvar ArkShop.json em múltiplos servidores/cluster simultaneamente",
+    "Novo: presets nomeados para configuração completa do ArkShop",
+    "Melhoria: minimizar para bandeja ao clicar em menos (não apenas ao fechar)",
+    "Melhoria: app não encerra servidores ARK ao fechar",
+    "Melhoria: navegação O(1) — troca de tela sem esconder todos os frames",
+    "Correção: alterações da UI não persistiam ao salvar o ArkShop.json"
   ]
 }

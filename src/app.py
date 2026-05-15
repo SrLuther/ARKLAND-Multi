@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import platform
 import socket
 import sys
 import threading
@@ -19,7 +20,7 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import winreg as _winreg
@@ -34,6 +35,13 @@ except ImportError:
     pystray = None  # type: ignore[assignment]
     _PILImage = None  # type: ignore[assignment]
     _PYSTRAY_OK = False
+
+try:
+    import psutil as _psutil
+    _PSUTIL_OK = True
+except ImportError:
+    _psutil = None  # type: ignore[assignment]
+    _PSUTIL_OK = False
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
@@ -50,14 +58,15 @@ from .mod_manager import ModManager
 from .ark_ini import ArkIniManager
 from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
+from .arkshop_manager import ArkShopManager, GENERAL_BOOL_LABELS
 from .mod_auto_updater import ModAutoUpdater
-from .backup_manager import BackupManager, BackupEntry
+from .backup_manager import BackupManager
 from .buff_manager import (
     BuffManager, BuffEvent, BuffPreset, BuffRates,
     BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM,
     BUFF_TYPE_LABELS, BUFF_RATE_FIELDS, QUICK_PRESETS,
-    BUFF_STATUS_ACTIVE, BUFF_STATUS_SCHEDULED, BUFF_STATUS_FINISHED,
-    BUFF_STATUS_CANCELLED, BUFF_MAX_DAYS,
+    BUFF_STATUS_SCHEDULED,
+    BUFF_STATUS_CANCELLED,
 )
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
 
@@ -172,6 +181,55 @@ def _safe_extract_zip(zf: "zipfile.ZipFile", dest: str) -> None:
         zf.extract(member, dest_real)
 
 
+# ── Tooltip helper ────────────────────────────────────────────────────────────
+
+class _Tooltip:
+    """Tooltip flutuante com delay. Aparece ao passar o mouse sobre um widget."""
+
+    def __init__(self, widget: Any, text: str, delay: int = 350) -> None:
+        self._widget   = widget
+        self._text     = text
+        self._delay    = delay
+        self._tip: Any = None
+        self._job: Any = None
+        widget.bind("<Enter>",       self._schedule, add="+")
+        widget.bind("<Leave>",       self._hide,     add="+")
+        widget.bind("<ButtonPress>", self._hide,     add="+")
+
+    def _schedule(self, _event=None) -> None:
+        self._cancel()
+        self._job = self._widget.after(self._delay, self._show)
+
+    def _cancel(self) -> None:
+        if self._job:
+            self._widget.after_cancel(self._job)
+            self._job = None
+
+    def _show(self) -> None:
+        if self._tip:
+            return
+        x = self._widget.winfo_rootx() + self._widget.winfo_width() + 6
+        y = self._widget.winfo_rooty()
+        self._tip = tk.Toplevel(self._widget)
+        self._tip.wm_overrideredirect(True)
+        self._tip.wm_attributes("-topmost", True)
+        self._tip.wm_geometry(f"+{x}+{y}")
+        tk.Label(
+            self._tip, text=self._text,
+            justify="left",
+            bg="#1a2030", fg="#c8dff8",
+            relief="flat", bd=0,
+            font=("Consolas", 10),
+            padx=14, pady=10,
+        ).pack()
+
+    def _hide(self, _event=None) -> None:
+        self._cancel()
+        if self._tip:
+            self._tip.destroy()
+            self._tip = None
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 class ARKServerManagerApp(ctk.CTk):
 
@@ -220,7 +278,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._server_frames: Dict[str, ctk.CTkFrame] = {}
         self._server_widgets: Dict[str, Dict[str, Any]] = {}
         self._rcon_clients: Dict[str, RconClient] = {}
-        self._current_frame: str = "dashboard"
+        self._current_frame: str = ""
         self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
         self._global_log_buf: List[str] = []
         self._tray_icon: Any = None
@@ -245,13 +303,29 @@ class ARKServerManagerApp(ctk.CTk):
         # Backup automático
         self._backup_manager: Optional[BackupManager] = None
 
+        # Desempenho
+        self._perf_running: bool = False
+        self._perf_thread: Optional[threading.Thread] = None
+        self._perf_cpu_pct_var: Any = None
+        self._perf_cpu_bar: Any = None
+        self._perf_cpu_info_var: Any = None
+        self._perf_ram_pct_var: Any = None
+        self._perf_ram_bar: Any = None
+        self._perf_ram_info_var: Any = None
+        self._perf_gpu_pct_var: Any = None
+        self._perf_gpu_bar: Any = None
+        self._perf_gpu_info_var: Any = None
+
         self._build_ui()
         self.after(500, self._auto_start_sync)
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
         self.after(600, self._init_buff_manager)
         self.after(800, self._init_backup_manager)
+        self.after(1000, self._arkshop_load_presets_file)
+        self.after(1200, self._start_perf_monitor)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Unmap>", self._on_unmap_event)
 
     # ══════════════════════════════════════════════════════════════════════════
     # UI — Estrutura principal
@@ -301,6 +375,8 @@ class ARKServerManagerApp(ctk.CTk):
             ("🏠  Dashboard",      "dashboard"),
             ("🔄  Sincronização",  "sync"),
             ("⚡  BUFFs",          "buffs"),
+            ("📊  Desempenho",     "desempenho"),
+            ("🏪  ArkShop",        "arkshop"),
             ("⚙️  Configurações",  "config"),
             ("ℹ️  Sobre",           "sobre"),
         ]):
@@ -314,11 +390,11 @@ class ARKServerManagerApp(ctk.CTk):
             self._nav_buttons[key] = btn
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=9, column=0, sticky="ew", padx=12, pady=8)
+            row=10, column=0, sticky="ew", padx=12, pady=8)
 
         # Título "Servidores" + botão "+"
         srv_hdr = ctk.CTkFrame(sb, fg_color="transparent")
-        srv_hdr.grid(row=10, column=0, padx=12, pady=(0, 4), sticky="ew")
+        srv_hdr.grid(row=11, column=0, padx=12, pady=(0, 4), sticky="ew")
         srv_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(srv_hdr, text="SERVIDORES",
                      font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
@@ -333,12 +409,12 @@ class ARKServerManagerApp(ctk.CTk):
         # Frame scrollable para lista de servidores
         self._servers_list_sb = ctk.CTkScrollableFrame(
             sb, fg_color="transparent", height=280)
-        self._servers_list_sb.grid(row=11, column=0, sticky="ew", padx=6)
+        self._servers_list_sb.grid(row=12, column=0, sticky="ew", padx=6)
         self._servers_list_sb.grid_columnconfigure(0, weight=1)
 
         self._sidebar_update_lbl = ctk.CTkLabel(
             sb, text="", font=ctk.CTkFont(size=10), text_color="#ffaa44", wraplength=180)
-        self._sidebar_update_lbl.grid(row=12, column=0, padx=10, pady=4)
+        self._sidebar_update_lbl.grid(row=13, column=0, padx=10, pady=4)
 
     def _rebuild_server_sidebar(self) -> None:
         """Reconstrói a lista de botões de servidores na sidebar."""
@@ -386,26 +462,43 @@ class ARKServerManagerApp(ctk.CTk):
         dash.grid(row=0, column=1, sticky="nsew")
         self._build_dashboard(dash)
         self._frames["dashboard"] = dash
+        dash.grid_remove()
 
         sync = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
         sync.grid(row=0, column=1, sticky="nsew")
         self._build_sync_panel(sync)
         self._frames["sync"] = sync
+        sync.grid_remove()
 
         buffs = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
         buffs.grid(row=0, column=1, sticky="nsew")
         self._build_buffs_panel(buffs)
         self._frames["buffs"] = buffs
+        buffs.grid_remove()
+
+        desemp = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
+        desemp.grid(row=0, column=1, sticky="nsew")
+        self._build_performance_panel(desemp)
+        self._frames["desempenho"] = desemp
+        desemp.grid_remove()
+
+        arkshop = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
+        arkshop.grid(row=0, column=1, sticky="nsew")
+        self._build_arkshop_panel(arkshop)
+        self._frames["arkshop"] = arkshop
+        arkshop.grid_remove()
 
         conf = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         conf.grid(row=0, column=1, sticky="nsew")
         self._build_global_config(conf)
         self._frames["config"] = conf
+        conf.grid_remove()
 
         sobre = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         sobre.grid(row=0, column=1, sticky="nsew")
         self._build_about(sobre)
         self._frames["sobre"] = sobre
+        sobre.grid_remove()
 
     # ══════════════════════════════════════════════════════════════════════════
     # Painel de Sincronização
@@ -1581,6 +1674,7 @@ class ARKServerManagerApp(ctk.CTk):
                 return
             frame = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
             frame.grid(row=0, column=1, sticky="nsew")
+            frame.grid_remove()
             self._server_frames[server_id] = frame
             self._server_widgets[server_id] = {}
             self._build_server_panel(frame, srv)
@@ -1991,7 +2085,7 @@ class ARKServerManagerApp(ctk.CTk):
 
             # Coluna 1: slider
             slider = ctk.CTkSlider(
-                scroll, from_=frm, to=to, variable=var,
+                scroll, from_=frm, to=to, variable=var,  # type: ignore[arg-type]
                 command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
             )
             slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
@@ -4045,11 +4139,12 @@ class ARKServerManagerApp(ctk.CTk):
         srv = self.config_manager.get_server(server_id)
         if not srv:
             return
-        if not self._backup_manager:
+        bm = self._backup_manager
+        if not bm:
             return
 
         def _run() -> None:
-            result = self._backup_manager.do_backup(srv)
+            result = bm.do_backup(srv)
             def _done() -> None:
                 if result:
                     self._refresh_backup_list(server_id)
@@ -4129,8 +4224,12 @@ class ARKServerManagerApp(ctk.CTk):
         ):
             return
 
+        bm = self._backup_manager
+        if not bm:
+            return
+
         def _run() -> None:
-            ok = self._backup_manager.restore_backup(srv, backup_path)
+            ok = bm.restore_backup(srv, backup_path)
             self.after(0, lambda: messagebox.showinfo(
                 "Restauração concluída" if ok else "Erro na Restauração",
                 f"Backup de '{snap}' restaurado com sucesso." if ok
@@ -4265,6 +4364,1841 @@ class ARKServerManagerApp(ctk.CTk):
     # Sobre / Atualizações
     # ══════════════════════════════════════════════════════════════════════════
 
+    # ══════════════════════════════════════════════════════════════════════════
+    # ArkShop Manager
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_arkshop_panel(self, parent: ctk.CTkScrollableFrame) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+
+        self._arkshop_mgr = ArkShopManager()
+
+        # ── Cabeçalho ────────────────────────────────────────────────────────
+        hdr_row = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr_row.grid(row=0, column=0, padx=20, pady=(20, 2), sticky="ew")
+        hdr_row.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            hdr_row, text="Gerenciador ArkShop",
+            font=ctk.CTkFont(size=20, weight="bold"),
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkButton(
+            hdr_row, text="🌐  Plugin no ArkServerAPI", width=190, height=32,
+            fg_color="#1e3a5a", hover_color="#16304f",
+            font=ctk.CTkFont(size=12),
+            command=lambda: webbrowser.open("https://ark-server-api.com/resources/ase-arkshop.36/"),
+        ).grid(row=0, column=1, padx=(12, 0))
+
+        info_row = ctk.CTkFrame(parent, fg_color="transparent")
+        info_row.grid(row=1, column=0, padx=24, pady=(0, 12), sticky="ew")
+        info_row.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            info_row,
+            text="Edite as configurações do plugin ArkShop (config.json)  •  Plugin por PANDERAZ",
+            font=ctk.CTkFont(size=12), text_color="gray60",
+        ).grid(row=0, column=0, sticky="w")
+
+        # ── Seletor de arquivo ────────────────────────────────────────────────
+        file_frame = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=10)
+        file_frame.grid(row=2, column=0, padx=20, pady=(0, 16), sticky="ew")
+        file_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(file_frame, text="Arquivo:", font=ctk.CTkFont(size=13, weight="bold")
+                     ).grid(row=0, column=0, padx=(16, 8), pady=14)
+
+        self._arkshop_path_var = tk.StringVar()
+        ctk.CTkEntry(file_frame, textvariable=self._arkshop_path_var,
+                     placeholder_text="Caminho para o config.json do ArkShop..."
+                     ).grid(row=0, column=1, padx=4, pady=14, sticky="ew")
+
+        ctk.CTkButton(
+            file_frame, text="Procurar", width=90,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._arkshop_browse,
+        ).grid(row=0, column=2, padx=4, pady=14)
+
+        ctk.CTkButton(
+            file_frame, text="Carregar", width=90,
+            fg_color="#2a4a6a", hover_color="#1e3a5a",
+            command=self._arkshop_load,
+        ).grid(row=0, column=3, padx=(4, 16), pady=14)
+
+        # ── Status ───────────────────────────────────────────────────────────
+        self._arkshop_status_var = tk.StringVar(value="Nenhum arquivo carregado.")
+        ctk.CTkLabel(parent, textvariable=self._arkshop_status_var,
+                     font=ctk.CTkFont(size=11), text_color="gray50",
+                     ).grid(row=3, column=0, padx=24, pady=(0, 8), sticky="w")
+
+        # ── Alvos de salvamento adicionais ─────────────────────────────────
+        targets_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=10)
+        targets_outer.grid(row=4, column=0, padx=20, pady=(0, 8), sticky="ew")
+        targets_outer.grid_columnconfigure(0, weight=1)
+
+        th = ctk.CTkFrame(targets_outer, fg_color="transparent")
+        th.grid(row=0, column=0, padx=(14, 10), pady=(10, 4), sticky="ew")
+        th.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(th, text="Cluster / múltiplos servidores",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(th, text="Arquivos adicionais que também receberão cada save",
+                     font=ctk.CTkFont(size=11), text_color="gray55",
+                     ).grid(row=1, column=0, sticky="w")
+        ctk.CTkButton(th, text="➕  Adicionar Servidor", width=165, height=28,
+                      fg_color="#2a4a2a", hover_color="#1e3a1e",
+                      font=ctk.CTkFont(size=11),
+                      command=self._arkshop_add_extra_target,
+                      ).grid(row=0, column=1, rowspan=2, padx=(8, 0))
+
+        self._arkshop_extra_targets_frame = ctk.CTkFrame(targets_outer, fg_color="transparent")
+        self._arkshop_extra_targets_frame.grid(row=1, column=0, padx=10, pady=(0, 8), sticky="ew")
+        self._arkshop_extra_targets_frame.grid_columnconfigure(0, weight=1)
+        self._arkshop_extra_target_vars: List[Tuple[tk.StringVar, ctk.CTkFrame]] = []
+
+        # ── Presets ──────────────────────────────────────────────────────────
+        presets_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=10)
+        presets_outer.grid(row=5, column=0, padx=20, pady=(0, 8), sticky="ew")
+        presets_outer.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(presets_outer, text="Preset:",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, padx=(14, 8), pady=12)
+        self._arkshop_presets: Dict[str, Any] = {}
+        self._arkshop_preset_var = tk.StringVar(value="(nenhum preset)")
+        self._arkshop_preset_menu = ctk.CTkOptionMenu(
+            presets_outer, variable=self._arkshop_preset_var,
+            values=["(nenhum preset)"], width=200,
+            fg_color="#252540", button_color="#1a1a30", button_hover_color="#141425",
+        )
+        self._arkshop_preset_menu.grid(row=0, column=1, padx=4, pady=12, sticky="ew")
+        ctk.CTkButton(presets_outer, text="💾  Salvar", width=95, height=30,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=11),
+                      command=self._arkshop_save_preset,
+                      ).grid(row=0, column=2, padx=4, pady=12)
+        ctk.CTkButton(presets_outer, text="📂  Carregar", width=95, height=30,
+                      fg_color="#2a4a6a", hover_color="#1e3a5a",
+                      font=ctk.CTkFont(size=11),
+                      command=self._arkshop_load_preset,
+                      ).grid(row=0, column=3, padx=4, pady=12)
+        ctk.CTkButton(presets_outer, text="🗑", width=34, height=30,
+                      fg_color="#5a1a1a", hover_color="#4a0a0a",
+                      font=ctk.CTkFont(size=11),
+                      command=self._arkshop_delete_preset,
+                      ).grid(row=0, column=4, padx=(4, 14), pady=12)
+
+        # ── TabView principal ─────────────────────────────────────────────────
+        self._arkshop_tabs = ctk.CTkTabview(parent, height=600)
+        self._arkshop_tabs.grid(row=6, column=0, padx=20, pady=(0, 8), sticky="ew")
+
+        for tab_name in ("Geral", "MySQL", "Recompensas", "Kits", "Itens da Loja", "Mensagens", "Editor JSON"):
+            self._arkshop_tabs.add(tab_name)
+
+        self._arkshop_build_tab_geral()
+        self._arkshop_build_tab_mysql()
+        self._arkshop_build_tab_recompensas()
+        self._arkshop_build_tab_kits()
+        self._arkshop_build_tab_shop()
+        self._arkshop_build_tab_messages()
+        self._arkshop_build_tab_json()
+
+        # ── Botão Salvar ─────────────────────────────────────────────────────
+        ctk.CTkButton(
+            parent, text="💾  Salvar Arquivo", height=42,
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=self._arkshop_save,
+        ).grid(row=7, column=0, padx=20, pady=(4, 24), sticky="ew")
+
+    # ── Tabs ─────────────────────────────────────────────────────────────────
+
+    def _arkshop_build_tab_geral(self) -> None:
+        tab = self._arkshop_tabs.tab("Geral")
+        tab.grid_columnconfigure(0, weight=1)
+
+        # ── Display ──────────────────────────────────────────────────────────
+        disp = ctk.CTkFrame(tab, fg_color="#1a1a2e", corner_radius=10)
+        disp.grid(row=0, column=0, padx=12, pady=(10, 6), sticky="ew")
+        disp.grid_columnconfigure(1, weight=1)
+        disp.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkLabel(disp, text="Configurações de Exibição",
+                     font=ctk.CTkFont(size=13, weight="bold")
+                     ).grid(row=0, column=0, columnspan=4, padx=14, pady=(10, 6), sticky="w")
+
+        self._arkshop_items_page = tk.StringVar(value="15")
+        self._arkshop_display_time = tk.StringVar(value="15.0")
+        self._arkshop_text_size = tk.StringVar(value="1.3")
+
+        for col_lbl, col_var, c in [
+            ("Itens por Página:", self._arkshop_items_page, 0),
+            ("Tempo Exibição (s):", self._arkshop_display_time, 2),
+        ]:
+            ctk.CTkLabel(disp, text=col_lbl, font=ctk.CTkFont(size=12)
+                         ).grid(row=1, column=c, padx=(14, 4), pady=8, sticky="e")
+            ctk.CTkEntry(disp, textvariable=col_var, width=80
+                         ).grid(row=1, column=c + 1, padx=(0, 14), pady=8, sticky="w")
+
+        ctk.CTkLabel(disp, text="Tamanho do Texto:", font=ctk.CTkFont(size=12)
+                     ).grid(row=2, column=0, padx=(14, 4), pady=8, sticky="e")
+        ctk.CTkEntry(disp, textvariable=self._arkshop_text_size, width=80
+                     ).grid(row=2, column=1, padx=(0, 14), pady=8, sticky="w")
+
+        self._arkshop_db_override = tk.StringVar()
+        self._arkshop_default_kit = tk.StringVar()
+
+        ctk.CTkLabel(disp, text="DbPathOverride:", font=ctk.CTkFont(size=12)
+                     ).grid(row=3, column=0, padx=(14, 4), pady=8, sticky="e")
+        ctk.CTkEntry(disp, textvariable=self._arkshop_db_override
+                     ).grid(row=3, column=1, padx=(0, 14), pady=8, sticky="ew")
+
+        ctk.CTkLabel(disp, text="Kit Padrão (DefaultKit):", font=ctk.CTkFont(size=12)
+                     ).grid(row=3, column=2, padx=(14, 4), pady=8, sticky="e")
+        ctk.CTkEntry(disp, textvariable=self._arkshop_default_kit, width=120
+                     ).grid(row=3, column=3, padx=(0, 14), pady=8, sticky="w")
+
+        # ── Booleans ─────────────────────────────────────────────────────────
+        bool_frame = ctk.CTkFrame(tab, fg_color="#1a1a2e", corner_radius=10)
+        bool_frame.grid(row=1, column=0, padx=12, pady=6, sticky="ew")
+        bool_frame.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkLabel(bool_frame, text="Comportamento",
+                     font=ctk.CTkFont(size=13, weight="bold")
+                     ).grid(row=0, column=0, columnspan=2, padx=14, pady=(10, 6), sticky="w")
+
+        self._arkshop_bool_vars: Dict[str, tk.BooleanVar] = {}
+        for idx, (key, label) in enumerate(GENERAL_BOOL_LABELS):
+            var = tk.BooleanVar()
+            self._arkshop_bool_vars[key] = var
+            r, c = divmod(idx, 2)
+            ctk.CTkCheckBox(bool_frame, text=label, variable=var,
+                            font=ctk.CTkFont(size=12),
+                            checkmark_color="#ffffff",
+                            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                            ).grid(row=r + 1, column=c, padx=18, pady=5, sticky="w")
+
+        # extra bottom padding
+        ctk.CTkFrame(tab, fg_color="transparent", height=8).grid(row=2, column=0)
+
+    def _arkshop_build_tab_mysql(self) -> None:
+        tab = self._arkshop_tabs.tab("MySQL")
+        tab.grid_columnconfigure(0, weight=1)
+
+        # ── MySQL ─────────────────────────────────────────────────────────────
+        mysql_f = ctk.CTkFrame(tab, fg_color="#1a1a2e", corner_radius=10)
+        mysql_f.grid(row=0, column=0, padx=12, pady=(10, 6), sticky="ew")
+        mysql_f.grid_columnconfigure(1, weight=1)
+        mysql_f.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkLabel(mysql_f, text="Conexão MySQL",
+                     font=ctk.CTkFont(size=13, weight="bold")
+                     ).grid(row=0, column=0, columnspan=4, padx=14, pady=(10, 4), sticky="w")
+
+        self._arkshop_use_mysql = tk.BooleanVar()
+        ctk.CTkCheckBox(mysql_f, text="Usar MySQL (UseMysql)",
+                        variable=self._arkshop_use_mysql,
+                        font=ctk.CTkFont(size=12),
+                        checkmark_color="#ffffff",
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=1, column=0, columnspan=4, padx=14, pady=(4, 8), sticky="w")
+
+        self._arkshop_mysql_host = tk.StringVar(value="127.0.0.1")
+        self._arkshop_mysql_user = tk.StringVar()
+        self._arkshop_mysql_pass = tk.StringVar()
+        self._arkshop_mysql_db   = tk.StringVar(value="arkshop")
+        self._arkshop_mysql_port = tk.StringVar(value="3306")
+
+        mysql_fields = [
+            ("Host:",    self._arkshop_mysql_host,  0, False),
+            ("Porta:",   self._arkshop_mysql_port,  2, False),
+            ("Usuário:", self._arkshop_mysql_user,  0, False),
+            ("Senha:",   self._arkshop_mysql_pass,  2, True),
+            ("Banco:",   self._arkshop_mysql_db,    0, False),
+        ]
+        for i, (lbl, var, col, masked) in enumerate(mysql_fields):
+            r = i // 2 + 2
+            c = (i % 2) * 2
+            ctk.CTkLabel(mysql_f, text=lbl, font=ctk.CTkFont(size=12)
+                         ).grid(row=r, column=c, padx=(14, 4), pady=7, sticky="e")
+            show = "*" if masked else ""
+            ctk.CTkEntry(mysql_f, textvariable=var, show=show
+                         ).grid(row=r, column=c + 1, padx=(0, 14), pady=7, sticky="ew")
+
+        # ── Discord ───────────────────────────────────────────────────────────
+        disc_f = ctk.CTkFrame(tab, fg_color="#1a1a2e", corner_radius=10)
+        disc_f.grid(row=1, column=0, padx=12, pady=6, sticky="ew")
+        disc_f.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(disc_f, text="Discord Webhook",
+                     font=ctk.CTkFont(size=13, weight="bold")
+                     ).grid(row=0, column=0, columnspan=4, padx=14, pady=(10, 4), sticky="w")
+
+        self._arkshop_discord_enabled    = tk.BooleanVar()
+        self._arkshop_discord_sendername = tk.StringVar(value="ArkShop")
+        self._arkshop_discord_url        = tk.StringVar()
+
+        ctk.CTkCheckBox(disc_f, text="Habilitado",
+                        variable=self._arkshop_discord_enabled,
+                        font=ctk.CTkFont(size=12),
+                        checkmark_color="#ffffff",
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=1, column=0, columnspan=4, padx=14, pady=(4, 8), sticky="w")
+
+        for r, (lbl, var) in enumerate([
+            ("Nome do Remetente:", self._arkshop_discord_sendername),
+            ("URL do Webhook:",    self._arkshop_discord_url),
+        ]):
+            ctk.CTkLabel(disc_f, text=lbl, font=ctk.CTkFont(size=12)
+                         ).grid(row=r + 2, column=0, padx=(14, 6), pady=7, sticky="e")
+            ctk.CTkEntry(disc_f, textvariable=var
+                         ).grid(row=r + 2, column=1, padx=(0, 14), pady=7, sticky="ew")
+
+    def _arkshop_build_tab_recompensas(self) -> None:
+        tab = self._arkshop_tabs.tab("Recompensas")
+        tab.grid_columnconfigure(0, weight=1)
+
+        # ── TimedPointsReward ─────────────────────────────────────────────────
+        tpr_f = ctk.CTkFrame(tab, fg_color="#1a1a2e", corner_radius=10)
+        tpr_f.grid(row=0, column=0, padx=12, pady=(10, 6), sticky="ew")
+        tpr_f.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(tpr_f, text="TimedPointsReward — Pontos Automáticos por Tempo",
+                     font=ctk.CTkFont(size=13, weight="bold")
+                     ).grid(row=0, column=0, columnspan=4, padx=14, pady=(10, 4), sticky="w")
+
+        self._arkshop_tpr_enabled = tk.BooleanVar()
+        self._arkshop_tpr_interval = tk.StringVar(value="30")
+        self._arkshop_tpr_stack    = tk.BooleanVar()
+
+        row_ctrl = ctk.CTkFrame(tpr_f, fg_color="transparent")
+        row_ctrl.grid(row=1, column=0, columnspan=4, padx=12, pady=6, sticky="ew")
+        row_ctrl.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkCheckBox(row_ctrl, text="Habilitado",
+                        variable=self._arkshop_tpr_enabled,
+                        font=ctk.CTkFont(size=12),
+                        checkmark_color="#ffffff",
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=0, column=0, padx=(2, 16), pady=4)
+        ctk.CTkLabel(row_ctrl, text="Intervalo (min):", font=ctk.CTkFont(size=12)
+                     ).grid(row=0, column=1, padx=(8, 4))
+        ctk.CTkEntry(row_ctrl, textvariable=self._arkshop_tpr_interval, width=70
+                     ).grid(row=0, column=2, padx=(0, 16))
+        ctk.CTkCheckBox(row_ctrl, text="Empilhar Recompensas (StackRewards)",
+                        variable=self._arkshop_tpr_stack,
+                        font=ctk.CTkFont(size=12),
+                        checkmark_color="#ffffff",
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=0, column=3, padx=8)
+
+        # Tabela de grupos
+        ctk.CTkLabel(tpr_f, text="Grupos e Recompensas:",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=2, column=0, columnspan=4, padx=14, pady=(8, 2), sticky="w")
+
+        grp_list_frame = ctk.CTkFrame(tpr_f, fg_color="#101020", corner_radius=8)
+        grp_list_frame.grid(row=3, column=0, columnspan=4, padx=14, pady=(0, 8), sticky="ew")
+        grp_list_frame.grid_columnconfigure(0, weight=1)
+        grp_list_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(grp_list_frame, text="Grupo", font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color="gray60").grid(row=0, column=0, padx=10, pady=4, sticky="w")
+        ctk.CTkLabel(grp_list_frame, text="Pontos", font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color="gray60").grid(row=0, column=1, padx=10, pady=4, sticky="w")
+
+        self._arkshop_groups_rows: List[tuple[tk.StringVar, tk.StringVar]] = []
+        self._arkshop_groups_frame = grp_list_frame
+        self._arkshop_groups_next_row = 1
+
+        # botões de adicionar linha
+        add_row_btn = ctk.CTkButton(
+            tpr_f, text="+ Adicionar Grupo", width=160, height=30,
+            fg_color="#2a4a2a", hover_color="#1e3a1e",
+            font=ctk.CTkFont(size=12),
+            command=self._arkshop_add_group_row,
+        )
+        add_row_btn.grid(row=4, column=0, padx=14, pady=(0, 10), sticky="w")
+
+        # Adicionar uma linha vazia por padrão
+        self._arkshop_add_group_row()
+
+    def _arkshop_add_group_row(
+        self,
+        group_name: str = "",
+        amount: str = "0",
+    ) -> None:
+        row_idx = self._arkshop_groups_next_row
+        frame = self._arkshop_groups_frame
+
+        name_var   = tk.StringVar(value=group_name)
+        amount_var = tk.StringVar(value=amount)
+        self._arkshop_groups_rows.append((name_var, amount_var))
+
+        ctk.CTkEntry(frame, textvariable=name_var, placeholder_text="Ex: Default"
+                     ).grid(row=row_idx, column=0, padx=6, pady=3, sticky="ew")
+        ctk.CTkEntry(frame, textvariable=amount_var, width=80
+                     ).grid(row=row_idx, column=1, padx=6, pady=3, sticky="w")
+
+        def _remove(nv=name_var, av=amount_var) -> None:
+            self._arkshop_groups_rows.remove((nv, av))
+            # reconstruir a tabela completamente
+            for child in frame.winfo_children():
+                info = child.grid_info()
+                if info.get("row", 0) == 0:
+                    continue  # manter cabeçalho
+                child.destroy()
+            self._arkshop_groups_next_row = 1
+            for (nv2, av2) in list(self._arkshop_groups_rows):
+                self._arkshop_groups_rows.remove((nv2, av2))
+            rows_backup = list(self._arkshop_groups_rows)
+            self._arkshop_groups_rows.clear()
+            self._arkshop_groups_next_row = 1
+            for (nv2, av2) in rows_backup:
+                self._arkshop_add_group_row(nv2.get(), av2.get())
+
+        ctk.CTkButton(frame, text="✕", width=28, height=28,
+                      fg_color="#5a2a2a", hover_color="#4a1a1a",
+                      font=ctk.CTkFont(size=11),
+                      command=_remove,
+                      ).grid(row=row_idx, column=2, padx=4, pady=3)
+
+        self._arkshop_groups_next_row += 1
+
+    def _arkshop_build_tab_kits(self) -> None:
+        tab = self._arkshop_tabs.tab("Kits")
+        tab.grid_columnconfigure(1, weight=1)
+        tab.grid_rowconfigure(0, weight=1)
+
+        # ── Painel esquerdo: lista ──────────────────────────────────────────
+        left = ctk.CTkFrame(tab, fg_color="#101020", corner_radius=10, width=215)
+        left.grid(row=0, column=0, padx=(8, 4), pady=8, sticky="ns")
+        left.grid_propagate(False)
+        left.grid_columnconfigure(0, weight=1)
+        left.grid_rowconfigure(1, weight=1)
+
+        hdr_f = ctk.CTkFrame(left, fg_color="transparent")
+        hdr_f.grid(row=0, column=0, padx=8, pady=(8, 4), sticky="ew")
+        hdr_f.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr_f, text="Kits",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(hdr_f, text="＋", width=28, height=26,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=14, weight="bold"),
+                      command=self._arkshop_new_kit,
+                      ).grid(row=0, column=1)
+
+        self._arkshop_kits_list = ctk.CTkScrollableFrame(left, fg_color="transparent")
+        self._arkshop_kits_list.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 8))
+        self._arkshop_kits_list.grid_columnconfigure(0, weight=1)
+
+        # ── Painel direito: detalhe ─────────────────────────────────────────
+        self._arkshop_kit_detail_outer = ctk.CTkFrame(tab, fg_color="#0d0d1a", corner_radius=10)
+        self._arkshop_kit_detail_outer.grid(row=0, column=1, padx=(4, 8), pady=8, sticky="nsew")
+        self._arkshop_kit_detail_outer.grid_columnconfigure(0, weight=1)
+        self._arkshop_kit_detail_outer.grid_rowconfigure(0, weight=1)
+
+        self._arkshop_selected_kit_id: Optional[str] = None
+        self._arkshop_kit_basic_vars: Dict[str, Any] = {}
+        self._arkshop_kit_items_rows: List[Dict[str, Any]] = []
+        self._arkshop_kit_dinos_rows: List[Dict[str, Any]] = []
+        self._arkshop_kit_cmds_rows:  List[Dict[str, Any]] = []
+        self._arkshop_kit_items_frame: Any = None
+        self._arkshop_kit_dinos_frame: Any = None
+        self._arkshop_kit_cmds_frame:  Any = None
+
+        self._arkshop_kit_placeholder = ctk.CTkLabel(
+            self._arkshop_kit_detail_outer,
+            text="← Selecione um kit na lista",
+            text_color="gray50", font=ctk.CTkFont(size=13),
+        )
+        self._arkshop_kit_placeholder.place(relx=0.5, rely=0.5, anchor="center")
+
+    def _arkshop_build_tab_shop(self) -> None:
+        tab = self._arkshop_tabs.tab("Itens da Loja")
+        tab.grid_columnconfigure(1, weight=1)
+        tab.grid_rowconfigure(0, weight=1)
+
+        # ── Painel esquerdo: lista ──────────────────────────────────────────
+        left = ctk.CTkFrame(tab, fg_color="#101020", corner_radius=10, width=215)
+        left.grid(row=0, column=0, padx=(8, 4), pady=8, sticky="ns")
+        left.grid_propagate(False)
+        left.grid_columnconfigure(0, weight=1)
+        left.grid_rowconfigure(1, weight=1)
+
+        hdr_f = ctk.CTkFrame(left, fg_color="transparent")
+        hdr_f.grid(row=0, column=0, padx=8, pady=(8, 4), sticky="ew")
+        hdr_f.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr_f, text="Itens da Loja",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(hdr_f, text="＋", width=28, height=26,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=14, weight="bold"),
+                      command=self._arkshop_new_shop_item,
+                      ).grid(row=0, column=1)
+
+        self._arkshop_shop_list = ctk.CTkScrollableFrame(left, fg_color="transparent")
+        self._arkshop_shop_list.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 8))
+        self._arkshop_shop_list.grid_columnconfigure(0, weight=1)
+
+        # ── Painel direito: detalhe ─────────────────────────────────────────
+        self._arkshop_shop_detail_outer = ctk.CTkFrame(tab, fg_color="#0d0d1a", corner_radius=10)
+        self._arkshop_shop_detail_outer.grid(row=0, column=1, padx=(4, 8), pady=8, sticky="nsew")
+        self._arkshop_shop_detail_outer.grid_columnconfigure(0, weight=1)
+        self._arkshop_shop_detail_outer.grid_rowconfigure(0, weight=1)
+
+        self._arkshop_selected_shop_item_id: Optional[str] = None
+        self._arkshop_shop_basic_vars: Dict[str, tk.Variable] = {}
+        self._arkshop_shop_items_rows: List[Dict[str, tk.Variable]] = []
+        self._arkshop_shop_items_frame: Any = None
+
+        ctk.CTkLabel(
+            self._arkshop_shop_detail_outer,
+            text="← Selecione um item na lista",
+            text_color="gray50", font=ctk.CTkFont(size=13),
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+    # ── Seleção e edição de Kits ──────────────────────────────────────────────
+
+    def _arkshop_select_kit(self, kit_id: str) -> None:
+        if self._arkshop_selected_kit_id and self._arkshop_selected_kit_id != kit_id:
+            self._arkshop_apply_kit_changes(silent=True)
+        self._arkshop_selected_kit_id = kit_id
+        for w in self._arkshop_kit_detail_outer.winfo_children():
+            w.destroy()
+        detail = ctk.CTkScrollableFrame(self._arkshop_kit_detail_outer, fg_color="transparent")
+        detail.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        detail.grid_columnconfigure(0, weight=1)
+        self._arkshop_build_kit_detail(detail, kit_id, self._arkshop_mgr.kits.get(kit_id, {}))
+
+    def _arkshop_build_kit_detail(self, parent: ctk.CTkScrollableFrame,
+                                   kit_id: str, kit: dict) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+
+        # título + botões de ação
+        title_row = ctk.CTkFrame(parent, fg_color="transparent")
+        title_row.grid(row=0, column=0, padx=12, pady=(10, 6), sticky="ew")
+        title_row.grid_columnconfigure(0, weight=1)
+        id_var = tk.StringVar(value=kit_id)
+        id_frame = ctk.CTkFrame(title_row, fg_color="transparent")
+        id_frame.grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(id_frame, text="Kit:",
+                     font=ctk.CTkFont(size=14, weight="bold")
+                     ).grid(row=0, column=0, padx=(0, 6), sticky="w")
+        ctk.CTkEntry(id_frame, textvariable=id_var, width=220,
+                     font=ctk.CTkFont(size=13)
+                     ).grid(row=0, column=1, sticky="w")
+        ctk.CTkButton(title_row, text="✔ Aplicar Alterações", width=155, height=30,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_apply_kit_changes(),
+                      ).grid(row=0, column=1, padx=(6, 0))
+        ctk.CTkButton(title_row, text="🗑 Excluir Kit", width=110, height=30,
+                      fg_color="#5a1a1a", hover_color="#4a0a0a",
+                      font=ctk.CTkFont(size=11),
+                      command=self._arkshop_delete_current_kit,
+                      ).grid(row=0, column=2, padx=(6, 0))
+
+        # ── Campos básicos ──────────────────────────────────────────────────
+        basic_f = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        basic_f.grid(row=1, column=0, padx=12, pady=(0, 8), sticky="ew")
+        basic_f.grid_columnconfigure((1, 3), weight=1)
+
+        ctk.CTkLabel(basic_f, text="Configurações do Kit",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, columnspan=4, padx=12, pady=(8, 4), sticky="w")
+
+        price_var  = tk.StringVar(value=str(kit.get("Price", 0)))
+        amount_var = tk.StringVar(value=str(kit.get("DefaultAmount", 1)))
+        desc_var   = tk.StringVar(value=str(kit.get("Description", "")))
+        spawn_var  = tk.BooleanVar(value=bool(kit.get("OnlyFromSpawn", False)))
+        perms      = kit.get("Permissions", [])
+        perm_var   = tk.StringVar(
+            value=", ".join(str(p) for p in perms) if isinstance(perms, list) else str(perms))
+
+        for c, (lbl, var) in enumerate([("Preço:", price_var), ("Qtd Padrão:", amount_var)]):
+            ctk.CTkLabel(basic_f, text=lbl, font=ctk.CTkFont(size=12)
+                         ).grid(row=1, column=c * 2, padx=(12, 4), pady=6, sticky="e")
+            ctk.CTkEntry(basic_f, textvariable=var, width=90
+                         ).grid(row=1, column=c * 2 + 1, padx=(0, 12), pady=6, sticky="ew")
+
+        ctk.CTkLabel(basic_f, text="Descrição:", font=ctk.CTkFont(size=12)
+                     ).grid(row=2, column=0, padx=(12, 4), pady=6, sticky="e")
+        ctk.CTkEntry(basic_f, textvariable=desc_var
+                     ).grid(row=2, column=1, columnspan=3, padx=(0, 12), pady=6, sticky="ew")
+
+        ctk.CTkLabel(basic_f, text="Permissões (vírgula):", font=ctk.CTkFont(size=12)
+                     ).grid(row=3, column=0, padx=(12, 4), pady=6, sticky="e")
+        ctk.CTkEntry(basic_f, textvariable=perm_var, placeholder_text="Ex: vip, admin"
+                     ).grid(row=3, column=1, columnspan=3, padx=(0, 12), pady=6, sticky="ew")
+
+        ctk.CTkCheckBox(basic_f, text="OnlyFromSpawn (apenas ao spawnar)",
+                        variable=spawn_var, font=ctk.CTkFont(size=12),
+                        checkmark_color="#ffffff",
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=4, column=0, columnspan=4, padx=12, pady=(4, 10), sticky="w")
+
+        self._arkshop_kit_basic_vars = {
+            "_id": id_var,
+            "Price": price_var, "DefaultAmount": amount_var,
+            "Description": desc_var, "OnlyFromSpawn": spawn_var, "Permissions": perm_var,
+        }
+
+        # ── Itens ───────────────────────────────────────────────────────────
+        items_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        items_outer.grid(row=2, column=0, padx=12, pady=(0, 8), sticky="ew")
+        items_outer.grid_columnconfigure(0, weight=1)
+
+        ih = ctk.CTkFrame(items_outer, fg_color="transparent")
+        ih.grid(row=0, column=0, padx=10, pady=(8, 4), sticky="ew")
+        ih.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(ih, text="Itens", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(ih, text="+ Item", width=80, height=26,
+                      fg_color="#2a4a2a", hover_color="#1e3a1e",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_add_kit_item_row(self._arkshop_kit_items_frame),
+                      ).grid(row=0, column=1)
+
+        items_tbl = ctk.CTkFrame(items_outer, fg_color="#101020", corner_radius=6)
+        items_tbl.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        items_tbl.grid_columnconfigure(3, weight=1)
+        for c, (h, w) in enumerate([("Quality", 70), ("Force BP", 68), ("Qtd", 54), ("Blueprint", None)]):
+            ctk.CTkLabel(items_tbl, text=h, font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color="gray50"
+                         ).grid(row=0, column=c, padx=(8 if c == 0 else 4, 4), pady=4, sticky="w")
+
+        self._arkshop_kit_items_frame = items_tbl
+        self._arkshop_kit_items_rows = []
+        self._arkshop_kit_items_next_row = 1
+        for item_data in kit.get("Items", []):
+            self._arkshop_add_kit_item_row(items_tbl, item_data)
+
+        # ── Dinos ───────────────────────────────────────────────────────────
+        dinos_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        dinos_outer.grid(row=3, column=0, padx=12, pady=(0, 8), sticky="ew")
+        dinos_outer.grid_columnconfigure(0, weight=1)
+
+        dh = ctk.CTkFrame(dinos_outer, fg_color="transparent")
+        dh.grid(row=0, column=0, padx=10, pady=(8, 4), sticky="ew")
+        dh.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(dh, text="Dinos", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(dh, text="+ Dino", width=80, height=26,
+                      fg_color="#2a4a2a", hover_color="#1e3a1e",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_add_kit_dino_row(self._arkshop_kit_dinos_frame),
+                      ).grid(row=0, column=1)
+
+        dinos_tbl = ctk.CTkFrame(dinos_outer, fg_color="#101020", corner_radius=6)
+        dinos_tbl.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        dinos_tbl.grid_columnconfigure((2, 3), weight=1)
+        for c, h in enumerate(("Nível", "Gênero", "Blueprint", "Saddle BP")):
+            ctk.CTkLabel(dinos_tbl, text=h, font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color="gray50"
+                         ).grid(row=0, column=c, padx=(8 if c == 0 else 4, 4), pady=4, sticky="w")
+
+        self._arkshop_kit_dinos_frame = dinos_tbl
+        self._arkshop_kit_dinos_rows = []
+        self._arkshop_kit_dinos_next_row = 1
+        for dino_data in kit.get("Dinos", []):
+            self._arkshop_add_kit_dino_row(dinos_tbl, dino_data)
+
+        # ── Comandos ────────────────────────────────────────────────────────
+        cmds_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        cmds_outer.grid(row=4, column=0, padx=12, pady=(0, 10), sticky="ew")
+        cmds_outer.grid_columnconfigure(0, weight=1)
+
+        ch = ctk.CTkFrame(cmds_outer, fg_color="transparent")
+        ch.grid(row=0, column=0, padx=10, pady=(8, 4), sticky="ew")
+        ch.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(ch, text="Comandos", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+
+        _CMD_EXAMPLES = (
+            "Variáveis disponíveis nos comandos:\n"
+            "  {steamid}   — Steam ID do jogador\n"
+            "  {playerid}  — ID interno do jogador\n"
+            "  {playername}— Nome do jogador\n"
+            "\n"
+            "Exemplos de comandos ArkShop:\n"
+            "  AddPoints {steamid} 500\n"
+            "  RemovePoints {steamid} 100\n"
+            "  GiveItem {steamid} \"Blueprint'/Game/...'\" 1 0 false\n"
+            "  AddExperience {steamid} 1000 false false\n"
+            "  PrintToPlayer {steamid} \"Obrigado pela compra!\"\n"
+            "  RenamePlayer {steamid} NovoNome\n"
+            "  Cheat GiveEngrams {steamid}\n"
+            "  TP {steamid} X Y Z\n"
+            "\n"
+            "  ExecuteAsAdmin: marque apenas para comandos\n"
+            "  que exigem privilégio de admin no servidor."
+        )
+        help_lbl = ctk.CTkLabel(ch, text=" ? ", width=24, height=24,
+                                font=ctk.CTkFont(size=11, weight="bold"),
+                                fg_color="#252540", corner_radius=12,
+                                text_color="#7ab8f5", cursor="question_arrow")
+        help_lbl.grid(row=0, column=1, padx=(4, 6))
+        _Tooltip(help_lbl, _CMD_EXAMPLES, delay=200)
+
+        ctk.CTkButton(ch, text="+ Comando", width=100, height=26,
+                      fg_color="#2a4a2a", hover_color="#1e3a1e",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_add_kit_command_row(self._arkshop_kit_cmds_frame),
+                      ).grid(row=0, column=2)
+
+        cmds_tbl = ctk.CTkFrame(cmds_outer, fg_color="#101020", corner_radius=6)
+        cmds_tbl.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        cmds_tbl.grid_columnconfigure(0, weight=1)
+        for c, h in enumerate(("Comando", "Exec. como Admin")):
+            ctk.CTkLabel(cmds_tbl, text=h, font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color="gray50"
+                         ).grid(row=0, column=c, padx=(8 if c == 0 else 4, 4), pady=4, sticky="w")
+
+        self._arkshop_kit_cmds_frame = cmds_tbl
+        self._arkshop_kit_cmds_rows = []
+        self._arkshop_kit_cmds_next_row = 1
+        for cmd_data in kit.get("Commands", []):
+            self._arkshop_add_kit_command_row(cmds_tbl, cmd_data)
+
+    # ── Row helpers: Items ────────────────────────────────────────────────────
+
+    def _arkshop_add_kit_item_row(self,
+                                   container: ctk.CTkFrame,
+                                   data: Optional[dict] = None) -> None:
+        data = data or {}
+        rv = {
+            "Quality":        tk.StringVar(value=str(data.get("Quality", 0))),
+            "ForceBlueprint": tk.BooleanVar(value=bool(data.get("ForceBlueprint", False))),
+            "Amount":         tk.StringVar(value=str(data.get("Amount", 1))),
+            "Blueprint":      tk.StringVar(value=str(data.get("Blueprint", ""))),
+        }
+        self._arkshop_kit_items_rows.append(rv)
+        self._arkshop_grid_kit_item_row(container, self._arkshop_kit_items_next_row, rv)
+        self._arkshop_kit_items_next_row += 1
+
+    def _arkshop_grid_kit_item_row(self, container: ctk.CTkFrame,
+                                    row_i: int, rv: dict) -> None:
+        ctk.CTkEntry(container, textvariable=rv["Quality"], width=60
+                     ).grid(row=row_i, column=0, padx=(8, 4), pady=3)
+        ctk.CTkCheckBox(container, text="", variable=rv["ForceBlueprint"],
+                        width=30, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        checkmark_color="#ffffff"
+                        ).grid(row=row_i, column=1, padx=4, pady=3)
+        ctk.CTkEntry(container, textvariable=rv["Amount"], width=52
+                     ).grid(row=row_i, column=2, padx=4, pady=3)
+        ctk.CTkEntry(container, textvariable=rv["Blueprint"],
+                     font=ctk.CTkFont(size=11), placeholder_text="Blueprint'..."
+                     ).grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+        ctk.CTkButton(container, text="✕", width=26, height=26,
+                      fg_color="#5a2a2a", hover_color="#4a1a1a",
+                      font=ctk.CTkFont(size=10),
+                      command=lambda r=rv: self._arkshop_remove_kit_item(r),
+                      ).grid(row=row_i, column=4, padx=(4, 8), pady=3)
+
+    def _arkshop_remove_kit_item(self, rv: dict) -> None:
+        if rv in self._arkshop_kit_items_rows:
+            self._arkshop_kit_items_rows.remove(rv)
+        self._arkshop_refresh_table(
+            self._arkshop_kit_items_frame,
+            self._arkshop_kit_items_rows,
+            self._arkshop_grid_kit_item_row,
+        )
+        self._arkshop_kit_items_next_row = len(self._arkshop_kit_items_rows) + 1
+
+    # ── Row helpers: Dinos ───────────────────────────────────────────────────
+
+    def _arkshop_add_kit_dino_row(self,
+                                   container: ctk.CTkFrame,
+                                   data: Optional[dict] = None) -> None:
+        data = data or {}
+        rv = {
+            "Level":          tk.StringVar(value=str(data.get("Level", 1))),
+            "Gender":         tk.StringVar(value=str(data.get("Gender", ""))),
+            "Blueprint":      tk.StringVar(value=str(data.get("Blueprint", ""))),
+            "SaddleBlueprint":tk.StringVar(value=str(data.get("SaddleBlueprint", ""))),
+        }
+        self._arkshop_kit_dinos_rows.append(rv)
+        self._arkshop_grid_kit_dino_row(container, self._arkshop_kit_dinos_next_row, rv)
+        self._arkshop_kit_dinos_next_row += 1
+
+    def _arkshop_grid_kit_dino_row(self, container: ctk.CTkFrame,
+                                    row_i: int, rv: dict) -> None:
+        ctk.CTkEntry(container, textvariable=rv["Level"], width=54
+                     ).grid(row=row_i, column=0, padx=(8, 4), pady=3)
+        ctk.CTkEntry(container, textvariable=rv["Gender"],
+                     width=76, placeholder_text="Random"
+                     ).grid(row=row_i, column=1, padx=4, pady=3)
+        ctk.CTkEntry(container, textvariable=rv["Blueprint"],
+                     font=ctk.CTkFont(size=11), placeholder_text="Blueprint'..."
+                     ).grid(row=row_i, column=2, padx=4, pady=3, sticky="ew")
+        ctk.CTkEntry(container, textvariable=rv["SaddleBlueprint"],
+                     font=ctk.CTkFont(size=11), placeholder_text="SaddleBP (opcional)"
+                     ).grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+        ctk.CTkButton(container, text="✕", width=26, height=26,
+                      fg_color="#5a2a2a", hover_color="#4a1a1a",
+                      font=ctk.CTkFont(size=10),
+                      command=lambda r=rv: self._arkshop_remove_kit_dino(r),
+                      ).grid(row=row_i, column=4, padx=(4, 8), pady=3)
+
+    def _arkshop_remove_kit_dino(self, rv: dict) -> None:
+        if rv in self._arkshop_kit_dinos_rows:
+            self._arkshop_kit_dinos_rows.remove(rv)
+        self._arkshop_refresh_table(
+            self._arkshop_kit_dinos_frame,
+            self._arkshop_kit_dinos_rows,
+            self._arkshop_grid_kit_dino_row,
+        )
+        self._arkshop_kit_dinos_next_row = len(self._arkshop_kit_dinos_rows) + 1
+
+    # ── Row helpers: Commands ────────────────────────────────────────────────
+
+    def _arkshop_add_kit_command_row(self,
+                                      container: ctk.CTkFrame,
+                                      data: Optional[dict] = None) -> None:
+        data = data or {}
+        rv = {
+            "Command":        tk.StringVar(value=str(data.get("Command", ""))),
+            "ExecuteAsAdmin": tk.BooleanVar(value=bool(data.get("ExecuteAsAdmin", False))),
+        }
+        self._arkshop_kit_cmds_rows.append(rv)
+        self._arkshop_grid_kit_cmd_row(container, self._arkshop_kit_cmds_next_row, rv)
+        self._arkshop_kit_cmds_next_row += 1
+
+    def _arkshop_grid_kit_cmd_row(self, container: ctk.CTkFrame,
+                                   row_i: int, rv: dict) -> None:
+        ctk.CTkEntry(container, textvariable=rv["Command"],
+                     font=ctk.CTkFont(size=11), placeholder_text="cheat command..."
+                     ).grid(row=row_i, column=0, padx=(8, 4), pady=3, sticky="ew")
+        ctk.CTkCheckBox(container, text="Admin", variable=rv["ExecuteAsAdmin"],
+                        width=80, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        checkmark_color="#ffffff", font=ctk.CTkFont(size=11),
+                        ).grid(row=row_i, column=1, padx=4, pady=3)
+        ctk.CTkButton(container, text="✕", width=26, height=26,
+                      fg_color="#5a2a2a", hover_color="#4a1a1a",
+                      font=ctk.CTkFont(size=10),
+                      command=lambda r=rv: self._arkshop_remove_kit_cmd(r),
+                      ).grid(row=row_i, column=2, padx=(4, 8), pady=3)
+
+    def _arkshop_remove_kit_cmd(self, rv: dict) -> None:
+        if rv in self._arkshop_kit_cmds_rows:
+            self._arkshop_kit_cmds_rows.remove(rv)
+        self._arkshop_refresh_table(
+            self._arkshop_kit_cmds_frame,
+            self._arkshop_kit_cmds_rows,
+            self._arkshop_grid_kit_cmd_row,
+        )
+        self._arkshop_kit_cmds_next_row = len(self._arkshop_kit_cmds_rows) + 1
+
+    # ── Utilitário de rebuild de tabela ──────────────────────────────────────
+
+    @staticmethod
+    def _arkshop_refresh_table(container: Optional[ctk.CTkFrame],
+                                rows: list, grid_fn) -> None:
+        if container is None:
+            return
+        for w in container.winfo_children():
+            if w.grid_info().get("row", 0) != 0:
+                w.destroy()
+        for i, rv in enumerate(rows, start=1):
+            grid_fn(container, i, rv)
+
+    # ── Apply / New / Delete Kit ─────────────────────────────────────────────
+
+    def _arkshop_apply_kit_changes(self, silent: bool = False) -> None:
+        kit_id = self._arkshop_selected_kit_id
+        if not kit_id or not self._arkshop_kit_basic_vars:
+            return
+        existing = dict(self._arkshop_mgr.kits.get(kit_id, {}))
+        bv = self._arkshop_kit_basic_vars
+
+        # Verificar renomeação de ID
+        id_var = bv.get("_id")
+        new_id = id_var.get().strip() if id_var else kit_id
+        if not new_id:
+            new_id = kit_id
+        if new_id != kit_id and new_id in self._arkshop_mgr.kits:
+            messagebox.showerror("ArkShop", f"ID '{new_id}' já existe.")
+            return
+        target_id = new_id
+
+        try:
+            existing["Price"] = int(bv["Price"].get())
+        except ValueError:
+            pass
+        try:
+            existing["DefaultAmount"] = int(bv["DefaultAmount"].get())
+        except ValueError:
+            pass
+        existing["Description"]  = bv["Description"].get()
+        existing["OnlyFromSpawn"] = bv["OnlyFromSpawn"].get()
+        perm_str = bv["Permissions"].get().strip()
+        existing["Permissions"] = [p.strip() for p in perm_str.split(",") if p.strip()]
+        existing["Items"] = [
+            {
+                "Quality":       self._safe_int(rv["Quality"].get(), 0),
+                "ForceBlueprint": rv["ForceBlueprint"].get(),
+                "Amount":        self._safe_int(rv["Amount"].get(), 1),
+                "Blueprint":     rv["Blueprint"].get(),
+            }
+            for rv in self._arkshop_kit_items_rows
+        ]
+        existing["Dinos"] = [
+            {
+                "Level":          self._safe_int(rv["Level"].get(), 1),
+                "Gender":         rv["Gender"].get(),
+                "Blueprint":      rv["Blueprint"].get(),
+                "SaddleBlueprint": rv["SaddleBlueprint"].get(),
+            }
+            for rv in self._arkshop_kit_dinos_rows
+        ]
+        existing["Commands"] = [
+            {"Command": rv["Command"].get(), "ExecuteAsAdmin": rv["ExecuteAsAdmin"].get()}
+            for rv in self._arkshop_kit_cmds_rows
+        ]
+        self._arkshop_mgr.set_kit(target_id, existing)
+        if target_id != kit_id:
+            self._arkshop_mgr.delete_kit(kit_id)
+            self._arkshop_selected_kit_id = target_id
+            self._arkshop_populate_kits()
+        if not silent:
+            messagebox.showinfo("ArkShop", f"Kit '{target_id}' atualizado!")
+
+    def _arkshop_new_kit(self) -> None:
+        from tkinter.simpledialog import askstring
+        kit_id = askstring("Novo Kit", "ID do novo kit (sem espaços):")
+        if not kit_id or not kit_id.strip():
+            return
+        kit_id = kit_id.strip()
+        if kit_id in self._arkshop_mgr.kits:
+            messagebox.showerror("ArkShop", f"Kit '{kit_id}' já existe.")
+            return
+        self._arkshop_mgr.set_kit(kit_id, {
+            "DefaultAmount": 1, "Price": 0, "Description": "",
+            "OnlyFromSpawn": False, "Permissions": [],
+            "Items": [], "Dinos": [], "Commands": [],
+        })
+        self._arkshop_populate_kits()
+        self._arkshop_select_kit(kit_id)
+
+    def _arkshop_delete_current_kit(self) -> None:
+        kit_id = self._arkshop_selected_kit_id
+        if not kit_id:
+            return
+        if not messagebox.askyesno("Excluir Kit", f"Excluir o kit '{kit_id}'?"):
+            return
+        self._arkshop_mgr.delete_kit(kit_id)
+        self._arkshop_selected_kit_id = None
+        self._arkshop_kit_basic_vars = {}
+        self._arkshop_kit_items_rows = []
+        self._arkshop_kit_dinos_rows = []
+        self._arkshop_kit_cmds_rows  = []
+        for w in self._arkshop_kit_detail_outer.winfo_children():
+            w.destroy()
+        ctk.CTkLabel(self._arkshop_kit_detail_outer,
+                     text="← Selecione um kit na lista",
+                     text_color="gray50", font=ctk.CTkFont(size=13),
+                     ).place(relx=0.5, rely=0.5, anchor="center")
+        self._arkshop_populate_kits()
+
+    # ── Seleção e edição de Itens da Loja ────────────────────────────────────
+
+    def _arkshop_select_shop_item(self, item_id: str) -> None:
+        if self._arkshop_selected_shop_item_id and self._arkshop_selected_shop_item_id != item_id:
+            self._arkshop_apply_shop_item_changes(silent=True)
+        self._arkshop_selected_shop_item_id = item_id
+        for w in self._arkshop_shop_detail_outer.winfo_children():
+            w.destroy()
+        detail = ctk.CTkScrollableFrame(self._arkshop_shop_detail_outer, fg_color="transparent")
+        detail.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        detail.grid_columnconfigure(0, weight=1)
+        self._arkshop_build_shop_item_detail(
+            detail, item_id, self._arkshop_mgr.shop_items.get(item_id, {}))
+
+    def _arkshop_build_shop_item_detail(self, parent: ctk.CTkScrollableFrame,
+                                         item_id: str, item: dict) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+
+        title_row = ctk.CTkFrame(parent, fg_color="transparent")
+        title_row.grid(row=0, column=0, padx=12, pady=(10, 6), sticky="ew")
+        title_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(title_row, text=f"Item: {item_id}",
+                     font=ctk.CTkFont(size=14, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(title_row, text="✔ Aplicar Alterações", width=155, height=30,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_apply_shop_item_changes(),
+                      ).grid(row=0, column=1, padx=(6, 0))
+        ctk.CTkButton(title_row, text="🗑 Excluir Item", width=110, height=30,
+                      fg_color="#5a1a1a", hover_color="#4a0a0a",
+                      font=ctk.CTkFont(size=11),
+                      command=self._arkshop_delete_current_shop_item,
+                      ).grid(row=0, column=2, padx=(6, 0))
+
+        # ── Campos básicos ──────────────────────────────────────────────────
+        basic_f = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        basic_f.grid(row=1, column=0, padx=12, pady=(0, 8), sticky="ew")
+        basic_f.grid_columnconfigure((1, 3), weight=1)
+
+        ctk.CTkLabel(basic_f, text="Configurações do Item",
+                     font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, columnspan=4, padx=12, pady=(8, 4), sticky="w")
+
+        type_var  = tk.StringVar(value=str(item.get("Type", "item")))
+        price_var = tk.StringVar(value=str(item.get("Price", 0)))
+        desc_var  = tk.StringVar(value=str(item.get("Description", "")))
+
+        ctk.CTkLabel(basic_f, text="Tipo (Type):", font=ctk.CTkFont(size=12)
+                     ).grid(row=1, column=0, padx=(12, 4), pady=6, sticky="e")
+        ctk.CTkEntry(basic_f, textvariable=type_var, width=120,
+                     placeholder_text="item / dino / beacon"
+                     ).grid(row=1, column=1, padx=(0, 12), pady=6, sticky="w")
+        ctk.CTkLabel(basic_f, text="Preço:", font=ctk.CTkFont(size=12)
+                     ).grid(row=1, column=2, padx=(12, 4), pady=6, sticky="e")
+        ctk.CTkEntry(basic_f, textvariable=price_var, width=90
+                     ).grid(row=1, column=3, padx=(0, 12), pady=6, sticky="ew")
+        ctk.CTkLabel(basic_f, text="Descrição:", font=ctk.CTkFont(size=12)
+                     ).grid(row=2, column=0, padx=(12, 4), pady=6, sticky="e")
+        ctk.CTkEntry(basic_f, textvariable=desc_var
+                     ).grid(row=2, column=1, columnspan=3, padx=(0, 12), pady=6, sticky="ew")
+
+        self._arkshop_shop_basic_vars = {
+            "Type": type_var, "Price": price_var, "Description": desc_var,
+        }
+
+        # ── Itens ───────────────────────────────────────────────────────────
+        items_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        items_outer.grid(row=2, column=0, padx=12, pady=(0, 10), sticky="ew")
+        items_outer.grid_columnconfigure(0, weight=1)
+
+        ih = ctk.CTkFrame(items_outer, fg_color="transparent")
+        ih.grid(row=0, column=0, padx=10, pady=(8, 4), sticky="ew")
+        ih.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(ih, text="Itens", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(ih, text="+ Item", width=80, height=26,
+                      fg_color="#2a4a2a", hover_color="#1e3a1e",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_add_shop_item_row(self._arkshop_shop_items_frame),
+                      ).grid(row=0, column=1)
+
+        items_tbl = ctk.CTkFrame(items_outer, fg_color="#101020", corner_radius=6)
+        items_tbl.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        items_tbl.grid_columnconfigure(3, weight=1)
+        for c, h in enumerate(("Quality", "Force BP", "Qtd", "Blueprint")):
+            ctk.CTkLabel(items_tbl, text=h, font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color="gray50"
+                         ).grid(row=0, column=c, padx=(8 if c == 0 else 4, 4), pady=4, sticky="w")
+
+        self._arkshop_shop_items_frame = items_tbl
+        self._arkshop_shop_items_rows = []
+        self._arkshop_shop_items_next_row = 1
+        for item_data in item.get("Items", []):
+            self._arkshop_add_shop_item_row(items_tbl, item_data)
+
+    # ── Row helpers: Shop Items ──────────────────────────────────────────────
+
+    def _arkshop_add_shop_item_row(self,
+                                    container: ctk.CTkFrame,
+                                    data: Optional[dict] = None) -> None:
+        data = data or {}
+        rv = {
+            "Quality":        tk.StringVar(value=str(data.get("Quality", 0))),
+            "ForceBlueprint": tk.BooleanVar(value=bool(data.get("ForceBlueprint", False))),
+            "Amount":         tk.StringVar(value=str(data.get("Amount", 1))),
+            "Blueprint":      tk.StringVar(value=str(data.get("Blueprint", ""))),
+        }
+        self._arkshop_shop_items_rows.append(rv)
+        self._arkshop_grid_shop_item_row(container, self._arkshop_shop_items_next_row, rv)
+        self._arkshop_shop_items_next_row += 1
+
+    def _arkshop_grid_shop_item_row(self, container: ctk.CTkFrame,
+                                     row_i: int, rv: dict) -> None:
+        ctk.CTkEntry(container, textvariable=rv["Quality"], width=60
+                     ).grid(row=row_i, column=0, padx=(8, 4), pady=3)
+        ctk.CTkCheckBox(container, text="", variable=rv["ForceBlueprint"],
+                        width=30, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        checkmark_color="#ffffff"
+                        ).grid(row=row_i, column=1, padx=4, pady=3)
+        ctk.CTkEntry(container, textvariable=rv["Amount"], width=52
+                     ).grid(row=row_i, column=2, padx=4, pady=3)
+        ctk.CTkEntry(container, textvariable=rv["Blueprint"],
+                     font=ctk.CTkFont(size=11), placeholder_text="Blueprint'..."
+                     ).grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+        ctk.CTkButton(container, text="✕", width=26, height=26,
+                      fg_color="#5a2a2a", hover_color="#4a1a1a",
+                      font=ctk.CTkFont(size=10),
+                      command=lambda r=rv: self._arkshop_remove_shop_item_row(r),
+                      ).grid(row=row_i, column=4, padx=(4, 8), pady=3)
+
+    def _arkshop_remove_shop_item_row(self, rv: dict) -> None:
+        if rv in self._arkshop_shop_items_rows:
+            self._arkshop_shop_items_rows.remove(rv)
+        self._arkshop_refresh_table(
+            self._arkshop_shop_items_frame,
+            self._arkshop_shop_items_rows,
+            self._arkshop_grid_shop_item_row,
+        )
+        self._arkshop_shop_items_next_row = len(self._arkshop_shop_items_rows) + 1
+
+    # ── Apply / New / Delete ShopItem ────────────────────────────────────────
+
+    def _arkshop_apply_shop_item_changes(self, silent: bool = False) -> None:
+        item_id = self._arkshop_selected_shop_item_id
+        if not item_id or not self._arkshop_shop_basic_vars:
+            return
+        existing = dict(self._arkshop_mgr.shop_items.get(item_id, {}))
+        bv = self._arkshop_shop_basic_vars
+        existing["Type"]        = bv["Type"].get()
+        existing["Description"] = bv["Description"].get()
+        try:
+            existing["Price"] = int(bv["Price"].get())
+        except ValueError:
+            pass
+        existing["Items"] = [
+            {
+                "Quality":        self._safe_int(rv["Quality"].get(), 0),
+                "ForceBlueprint": rv["ForceBlueprint"].get(),
+                "Amount":         self._safe_int(rv["Amount"].get(), 1),
+                "Blueprint":      rv["Blueprint"].get(),
+            }
+            for rv in self._arkshop_shop_items_rows
+        ]
+        self._arkshop_mgr.set_shop_item(item_id, existing)
+        if not silent:
+            messagebox.showinfo("ArkShop", f"Item '{item_id}' atualizado!")
+
+    def _arkshop_new_shop_item(self) -> None:
+        from tkinter.simpledialog import askstring
+        item_id = askstring("Novo Item", "ID do novo item (sem espaços):")
+        if not item_id or not item_id.strip():
+            return
+        item_id = item_id.strip()
+        if item_id in self._arkshop_mgr.shop_items:
+            messagebox.showerror("ArkShop", f"Item '{item_id}' já existe.")
+            return
+        self._arkshop_mgr.set_shop_item(item_id, {
+            "Type": "item", "Description": "", "Price": 0, "Items": [],
+        })
+        self._arkshop_populate_shop()
+        self._arkshop_select_shop_item(item_id)
+
+    def _arkshop_delete_current_shop_item(self) -> None:
+        item_id = self._arkshop_selected_shop_item_id
+        if not item_id:
+            return
+        if not messagebox.askyesno("Excluir Item", f"Excluir o item '{item_id}'?"):
+            return
+        self._arkshop_mgr.delete_shop_item(item_id)
+        self._arkshop_selected_shop_item_id = None
+        self._arkshop_shop_basic_vars = {}
+        self._arkshop_shop_items_rows = []
+        for w in self._arkshop_shop_detail_outer.winfo_children():
+            w.destroy()
+        ctk.CTkLabel(self._arkshop_shop_detail_outer,
+                     text="← Selecione um item na lista",
+                     text_color="gray50", font=ctk.CTkFont(size=13),
+                     ).place(relx=0.5, rely=0.5, anchor="center")
+        self._arkshop_populate_shop()
+
+    # ── Utilitário safe_int ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _safe_int(value: str, default: int = 0) -> int:
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+
+    def _arkshop_build_tab_messages(self) -> None:
+        tab = self._arkshop_tabs.tab("Mensagens")
+        tab.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            tab, text="Mensagens do Plugin",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=0, column=0, padx=14, pady=(10, 4), sticky="w")
+        ctk.CTkLabel(
+            tab, text="Todas as strings de texto exibidas pelo ArkShop no jogo.",
+            font=ctk.CTkFont(size=11), text_color="gray55",
+        ).grid(row=1, column=0, padx=14, pady=(0, 8), sticky="w")
+
+        self._arkshop_msg_scroll = ctk.CTkScrollableFrame(tab, fg_color="#101020",
+                                                          corner_radius=8, height=420)
+        self._arkshop_msg_scroll.grid(row=2, column=0, padx=12, pady=(0, 8), sticky="ew")
+        self._arkshop_msg_scroll.grid_columnconfigure(0, weight=0)
+        self._arkshop_msg_scroll.grid_columnconfigure(1, weight=1)
+
+        self._arkshop_msg_vars: Dict[str, tk.StringVar] = {}
+
+    def _arkshop_build_tab_json(self) -> None:
+        tab = self._arkshop_tabs.tab("Editor JSON")
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(2, weight=1)
+
+        ctk.CTkLabel(
+            tab, text="Editor JSON Completo",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=0, column=0, padx=14, pady=(10, 2), sticky="w")
+        ctk.CTkLabel(
+            tab, text="Edite o JSON diretamente. Ao salvar, este conteúdo substitui o arquivo.",
+            font=ctk.CTkFont(size=11), text_color="gray55",
+        ).grid(row=1, column=0, padx=14, pady=(0, 6), sticky="w")
+
+        self._arkshop_json_editor = ctk.CTkTextbox(
+            tab, font=ctk.CTkFont(family="Consolas", size=12),
+            fg_color="#0d0d1a", text_color="#e8e8f8",
+            wrap="none", height=460,
+        )
+        self._arkshop_json_editor.grid(row=2, column=0, padx=12, pady=(0, 8), sticky="nsew")
+
+        btn_row = ctk.CTkFrame(tab, fg_color="transparent")
+        btn_row.grid(row=3, column=0, padx=12, pady=(0, 8), sticky="ew")
+        btn_row.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkButton(
+            btn_row, text="↩  Recarregar do Arquivo", height=34,
+            fg_color="#2a3a4a", hover_color="#1e2e3a",
+            font=ctk.CTkFont(size=12),
+            command=self._arkshop_reload_json_editor,
+        ).grid(row=0, column=0, padx=(0, 6), sticky="ew")
+
+        ctk.CTkButton(
+            btn_row, text="↺  Sincronizar Campos → JSON", height=34,
+            fg_color="#2a3a4a", hover_color="#1e2e3a",
+            font=ctk.CTkFont(size=12),
+            command=self._arkshop_sync_fields_to_json,
+        ).grid(row=0, column=1, padx=(6, 0), sticky="ew")
+
+    # ── Lógica de arquivo / sincronização ─────────────────────────────────────
+
+    def _arkshop_browse(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Selecionar config.json do ArkShop",
+            filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")],
+        )
+        if path:
+            self._arkshop_path_var.set(path)
+
+    def _arkshop_load(self) -> None:
+        path = self._arkshop_path_var.get().strip()
+        if not path:
+            messagebox.showwarning("ArkShop", "Informe o caminho do arquivo config.json.")
+            return
+        try:
+            self._arkshop_mgr.load(path)
+            self._arkshop_populate_all()
+            self._arkshop_status_var.set(f"✔ Carregado: {path}")
+        except FileNotFoundError:
+            messagebox.showerror("ArkShop", f"Arquivo não encontrado:\n{path}")
+        except json.JSONDecodeError as exc:
+            messagebox.showerror("ArkShop", f"JSON inválido:\n{exc}")
+        except Exception as exc:
+            messagebox.showerror("ArkShop", f"Erro ao carregar:\n{exc}")
+
+    def _arkshop_save(self) -> None:
+        path = self._arkshop_path_var.get().strip()
+        if not path:
+            messagebox.showwarning("ArkShop", "Informe o caminho do arquivo config.json.")
+            return
+        if not self._arkshop_mgr.is_loaded:
+            messagebox.showwarning("ArkShop", "Carregue um arquivo primeiro.")
+            return
+
+        # Sincroniza UI → manager → editor antes de salvar
+        self._arkshop_collect_fields()
+        self._arkshop_reload_json_editor()
+
+        raw = self._arkshop_json_editor.get("1.0", "end").strip()
+        try:
+            json.loads(raw)
+        except json.JSONDecodeError as exc:
+            messagebox.showerror("ArkShop", f"JSON inválido:\n{exc}")
+            return
+
+        targets = [path] + [
+            v.get().strip()
+            for v, _ in self._arkshop_extra_target_vars
+            if v.get().strip()
+        ]
+        errors: List[str] = []
+        for t in targets:
+            try:
+                self._arkshop_mgr.save_raw(raw, t)
+            except Exception as exc:
+                errors.append(f"{t}: {exc}")
+
+        if errors:
+            messagebox.showerror("ArkShop", "Erros ao salvar:\n" + "\n".join(errors))
+        else:
+            count = len(targets)
+            self._arkshop_status_var.set(f"✔ Salvo em {count} arquivo(s).")
+            messagebox.showinfo("ArkShop", f"Salvo com sucesso em {count} arquivo(s)!")
+
+    # ── Presets & múltiplos alvos ─────────────────────────────────────────────
+
+    def _arkshop_presets_path(self) -> Path:
+        data_dir = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+        data_dir.mkdir(parents=True, exist_ok=True)
+        return data_dir / "arkshop_presets.json"
+
+    def _arkshop_load_presets_file(self) -> None:
+        """Carrega presets do disco e popula o menu. Chamado no startup."""
+        p = self._arkshop_presets_path()
+        if p.exists():
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    self._arkshop_presets = json.load(fh)
+            except Exception:
+                self._arkshop_presets = {}
+        self._arkshop_refresh_preset_menu()
+
+    def _arkshop_save_presets_file(self) -> None:
+        p = self._arkshop_presets_path()
+        with open(p, "w", encoding="utf-8") as fh:
+            json.dump(self._arkshop_presets, fh, indent=2, ensure_ascii=False)
+
+    def _arkshop_refresh_preset_menu(self) -> None:
+        names = sorted(self._arkshop_presets.keys())
+        if not names:
+            names = ["(nenhum preset)"]
+        self._arkshop_preset_menu.configure(values=names)
+        if self._arkshop_preset_var.get() not in names:
+            self._arkshop_preset_var.set(names[0])
+
+    def _arkshop_save_preset(self) -> None:
+        if not self._arkshop_mgr.is_loaded:
+            messagebox.showwarning("ArkShop", "Carregue um arquivo antes de salvar um preset.")
+            return
+        from tkinter.simpledialog import askstring
+        name = askstring("Salvar Preset", "Nome do preset:", parent=self)
+        if not name or not name.strip():
+            return
+        name = name.strip()
+        self._arkshop_collect_fields()
+        self._arkshop_presets[name] = {
+            "config": json.loads(self._arkshop_mgr.to_json_str()),
+            "extra_targets": [v.get() for v, _ in self._arkshop_extra_target_vars],
+        }
+        self._arkshop_save_presets_file()
+        self._arkshop_refresh_preset_menu()
+        self._arkshop_preset_var.set(name)
+        messagebox.showinfo("ArkShop", f"Preset '{name}' salvo!")
+
+    def _arkshop_load_preset(self) -> None:
+        name = self._arkshop_preset_var.get()
+        if name not in self._arkshop_presets:
+            messagebox.showwarning("ArkShop", "Selecione um preset válido.")
+            return
+        preset = self._arkshop_presets[name]
+        self._arkshop_mgr.load_data(preset["config"])
+        self._arkshop_populate_all()
+        # restaurar alvos extras
+        for _, frm in list(self._arkshop_extra_target_vars):
+            frm.destroy()
+        self._arkshop_extra_target_vars.clear()
+        for path in preset.get("extra_targets", []):
+            self._arkshop_add_extra_target(path)
+        self._arkshop_status_var.set(f"✔ Preset '{name}' carregado.")
+
+    def _arkshop_delete_preset(self) -> None:
+        name = self._arkshop_preset_var.get()
+        if name not in self._arkshop_presets:
+            return
+        if not messagebox.askyesno("ArkShop", f"Excluir preset '{name}'?", parent=self):
+            return
+        del self._arkshop_presets[name]
+        self._arkshop_save_presets_file()
+        self._arkshop_refresh_preset_menu()
+
+    def _arkshop_add_extra_target(self, path: str = "") -> None:
+        idx = len(self._arkshop_extra_target_vars)
+        row_frm = ctk.CTkFrame(self._arkshop_extra_targets_frame, fg_color="transparent")
+        row_frm.grid(row=idx, column=0, sticky="ew", pady=2)
+        row_frm.grid_columnconfigure(1, weight=1)
+
+        var = tk.StringVar(value=path)
+        ctk.CTkLabel(row_frm, text=f"#{idx + 1}", width=28,
+                     font=ctk.CTkFont(size=11), text_color="gray55",
+                     ).grid(row=0, column=0, padx=(0, 4))
+        ctk.CTkEntry(row_frm, textvariable=var,
+                     placeholder_text="Caminho para config.json...",
+                     ).grid(row=0, column=1, sticky="ew")
+        ctk.CTkButton(row_frm, text="📁", width=30, height=28,
+                      fg_color="#252540", hover_color="#1a1a30",
+                      command=lambda v=var: self._arkshop_browse_extra(v),
+                      ).grid(row=0, column=2, padx=(4, 2))
+        ctk.CTkButton(row_frm, text="✕", width=28, height=28,
+                      fg_color="#5a1a1a", hover_color="#4a0a0a",
+                      command=lambda frm=row_frm, v=var: self._arkshop_remove_extra_target(frm, v),
+                      ).grid(row=0, column=3)
+        self._arkshop_extra_target_vars.append((var, row_frm))
+
+    def _arkshop_browse_extra(self, var: tk.StringVar) -> None:
+        path = filedialog.askopenfilename(
+            title="Selecionar config.json adicional",
+            filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")],
+        )
+        if path:
+            var.set(path)
+
+    def _arkshop_remove_extra_target(self, frm: ctk.CTkFrame, var: tk.StringVar) -> None:
+        self._arkshop_extra_target_vars = [
+            (v, f) for v, f in self._arkshop_extra_target_vars if f is not frm
+        ]
+        frm.destroy()
+        # renumerar labels
+        for i, (_, f) in enumerate(self._arkshop_extra_target_vars):
+            lbl = f.winfo_children()[0]
+            if hasattr(lbl, "configure"):
+                lbl.configure(text=f"#{i + 1}")  # type: ignore[union-attr]
+
+    def _arkshop_reload_json_editor(self) -> None:
+        if not self._arkshop_mgr.is_loaded:
+            return
+        self._arkshop_json_editor.delete("1.0", "end")
+        self._arkshop_json_editor.insert("1.0", self._arkshop_mgr.to_json_str())
+
+    def _arkshop_sync_fields_to_json(self) -> None:
+        """Coleta os campos estruturados, atualiza _arkshop_mgr e sincroniza o editor."""
+        if not self._arkshop_mgr.is_loaded:
+            messagebox.showwarning("ArkShop", "Carregue um arquivo primeiro.")
+            return
+        self._arkshop_collect_fields()
+        self._arkshop_reload_json_editor()
+
+    def _arkshop_populate_all(self) -> None:
+        """Popula todos os campos com dados de self._arkshop_mgr."""
+        mgr = self._arkshop_mgr
+        g = mgr.general
+        m = mgr.mysql
+
+        # ── Geral ──────────────────────────────────────────────────────────
+        self._arkshop_items_page.set(str(g.get("ItemsPerPage", 15)))
+        self._arkshop_display_time.set(str(g.get("ShopDisplayTime", 15.0)))
+        self._arkshop_text_size.set(str(g.get("ShopTextSize", 1.3)))
+        self._arkshop_db_override.set(g.get("DbPathOverride", ""))
+        self._arkshop_default_kit.set(g.get("DefaultKit", ""))
+
+        for key, _ in GENERAL_BOOL_LABELS:
+            self._arkshop_bool_vars[key].set(bool(g.get(key, False)))
+
+        # ── MySQL ──────────────────────────────────────────────────────────
+        self._arkshop_use_mysql.set(bool(m.get("UseMysql", False)))
+        self._arkshop_mysql_host.set(str(m.get("MysqlHost", "127.0.0.1")))
+        self._arkshop_mysql_user.set(str(m.get("MysqlUser", "")))
+        self._arkshop_mysql_pass.set(str(m.get("MysqlPass", "")))
+        self._arkshop_mysql_db.set(str(m.get("MysqlDB", "arkshop")))
+        self._arkshop_mysql_port.set(str(m.get("MysqlPort", 3306)))
+
+        # ── Discord ──────────────────────────────────────────────────────
+        disc = g.get("Discord", {})
+        self._arkshop_discord_enabled.set(bool(disc.get("Enabled", False)))
+        self._arkshop_discord_sendername.set(str(disc.get("SenderName", "ArkShop")))
+        self._arkshop_discord_url.set(str(disc.get("URL", "")))
+
+        # ── TimedPointsReward ────────────────────────────────────────────
+        tpr = g.get("TimedPointsReward", {})
+        self._arkshop_tpr_enabled.set(bool(tpr.get("Enabled", False)))
+        self._arkshop_tpr_interval.set(str(tpr.get("Interval", 30)))
+        self._arkshop_tpr_stack.set(bool(tpr.get("StackRewards", True)))
+
+        # repopular linhas de grupos
+        for child in self._arkshop_groups_frame.winfo_children():
+            info = child.grid_info()
+            if info.get("row", 0) == 0:
+                continue
+            child.destroy()
+        self._arkshop_groups_rows.clear()
+        self._arkshop_groups_next_row = 1
+
+        for grp_name, grp_val in tpr.get("Groups", {}).items():
+            amount = grp_val.get("Amount", 0) if isinstance(grp_val, dict) else grp_val
+            self._arkshop_add_group_row(grp_name, str(amount))
+
+        if not tpr.get("Groups"):
+            self._arkshop_add_group_row()
+
+        # ── Kits ──────────────────────────────────────────────────────────
+        self._arkshop_populate_kits()
+
+        # ── ShopItems ─────────────────────────────────────────────────────
+        self._arkshop_populate_shop()
+
+        # ── Messages ─────────────────────────────────────────────────────
+        self._arkshop_populate_messages()
+
+        # ── JSON editor ──────────────────────────────────────────────────
+        self._arkshop_reload_json_editor()
+
+    def _arkshop_populate_kits(self) -> None:
+        for w in self._arkshop_kits_list.winfo_children():
+            w.destroy()
+        for kit_id, kit in self._arkshop_mgr.kits.items():
+            desc = kit.get("Description", "")
+            label = f"{kit_id}" + (f"  —  {desc}" if desc else "")
+            btn = ctk.CTkButton(
+                self._arkshop_kits_list,
+                text=label, anchor="w", height=34,
+                corner_radius=6, fg_color="transparent",
+                text_color="#d8d8e8", hover_color="#252540",
+                font=ctk.CTkFont(size=12),
+                command=lambda k=kit_id: self._arkshop_select_kit(k),
+            )
+            btn.pack(fill="x", pady=2, padx=4)
+
+    def _arkshop_populate_shop(self) -> None:
+        for w in self._arkshop_shop_list.winfo_children():
+            w.destroy()
+        for item_id, item in self._arkshop_mgr.shop_items.items():
+            desc = item.get("Description", "")
+            label = f"{item_id}" + (f"  —  {desc}" if desc else "")
+            btn = ctk.CTkButton(
+                self._arkshop_shop_list,
+                text=label, anchor="w", height=34,
+                corner_radius=6, fg_color="transparent",
+                text_color="#d8d8e8", hover_color="#252540",
+                font=ctk.CTkFont(size=12),
+                command=lambda i=item_id: self._arkshop_select_shop_item(i),
+            )
+            btn.pack(fill="x", pady=2, padx=4)
+
+    def _arkshop_populate_messages(self) -> None:
+        scroll = self._arkshop_msg_scroll
+        for w in scroll.winfo_children():
+            w.destroy()
+        self._arkshop_msg_vars.clear()
+
+        for row_i, (msg_key, msg_val) in enumerate(self._arkshop_mgr.messages.items()):
+            var = tk.StringVar(value=str(msg_val))
+            self._arkshop_msg_vars[msg_key] = var
+
+            ctk.CTkLabel(scroll, text=msg_key, font=ctk.CTkFont(size=11),
+                         text_color="gray60", anchor="e",
+                         ).grid(row=row_i, column=0, padx=(10, 6), pady=3, sticky="e")
+            ctk.CTkEntry(scroll, textvariable=var, font=ctk.CTkFont(size=11),
+                         ).grid(row=row_i, column=1, padx=(0, 10), pady=3, sticky="ew")
+
+    def _arkshop_collect_fields(self) -> None:
+        """Lê todos os campos e atualiza self._arkshop_mgr._data."""
+        mgr = self._arkshop_mgr
+
+        # ── MySQL ──────────────────────────────────────────────────────────
+        try:
+            port = int(self._arkshop_mysql_port.get())
+        except ValueError:
+            port = 3306
+        mgr.set_section(self._arkshop_use_mysql.get(), "Mysql", "UseMysql")
+        mgr.set_section(self._arkshop_mysql_host.get(), "Mysql", "MysqlHost")
+        mgr.set_section(self._arkshop_mysql_user.get(), "Mysql", "MysqlUser")
+        mgr.set_section(self._arkshop_mysql_pass.get(), "Mysql", "MysqlPass")
+        mgr.set_section(self._arkshop_mysql_db.get(), "Mysql", "MysqlDB")
+        mgr.set_section(port, "Mysql", "MysqlPort")
+
+        # ── Discord ────────────────────────────────────────────────────────
+        mgr.set_section(self._arkshop_discord_enabled.get(),    "General", "Discord", "Enabled")
+        mgr.set_section(self._arkshop_discord_sendername.get(), "General", "Discord", "SenderName")
+        mgr.set_section(self._arkshop_discord_url.get(),        "General", "Discord", "URL")
+
+        # ── TimedPointsReward ──────────────────────────────────────────────
+        try:
+            interval = int(self._arkshop_tpr_interval.get())
+        except ValueError:
+            interval = 30
+        mgr.set_section(self._arkshop_tpr_enabled.get(), "General", "TimedPointsReward", "Enabled")
+        mgr.set_section(interval,                        "General", "TimedPointsReward", "Interval")
+        mgr.set_section(self._arkshop_tpr_stack.get(),   "General", "TimedPointsReward", "StackRewards")
+
+        groups: Dict[str, Dict[str, int]] = {}
+        for name_var, amount_var in self._arkshop_groups_rows:
+            grp_name = name_var.get().strip()
+            if grp_name:
+                try:
+                    amt = int(amount_var.get())
+                except ValueError:
+                    amt = 0
+                groups[grp_name] = {"Amount": amt}
+        mgr.set_timed_groups(groups)
+
+        # ── General scalar ────────────────────────────────────────────────
+        try:
+            items_page = int(self._arkshop_items_page.get())
+        except ValueError:
+            items_page = 15
+        try:
+            disp_time = float(self._arkshop_display_time.get())
+        except ValueError:
+            disp_time = 15.0
+        try:
+            text_size = float(self._arkshop_text_size.get())
+        except ValueError:
+            text_size = 1.3
+
+        mgr.set_general("ItemsPerPage", items_page)
+        mgr.set_general("ShopDisplayTime", disp_time)
+        mgr.set_general("ShopTextSize", text_size)
+        mgr.set_general("DbPathOverride", self._arkshop_db_override.get())
+        mgr.set_general("DefaultKit", self._arkshop_default_kit.get())
+
+        for key, _ in GENERAL_BOOL_LABELS:
+            mgr.set_general(key, self._arkshop_bool_vars[key].get())
+
+        # ── Kit atual (se editado) ─────────────────────────────────────
+        self._arkshop_apply_kit_changes(silent=True)
+
+        # ── Item da loja atual (se editado) ──────────────────────────────
+        self._arkshop_apply_shop_item_changes(silent=True)
+
+        # ── Messages ─────────────────────────────────────────────────────
+        for msg_key, var in self._arkshop_msg_vars.items():
+            mgr.set_message(msg_key, var.get())
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Painel de Desempenho
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_performance_panel(self, parent) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(parent, text="Desempenho do Sistema",
+                     font=ctk.CTkFont(size=24, weight="bold")).grid(
+            row=0, column=0, padx=24, pady=(24, 2), sticky="w")
+        ctk.CTkLabel(parent, text="Monitoramento em tempo real dos recursos desta máquina.",
+                     text_color="gray60").grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
+
+        cards = ctk.CTkFrame(parent, fg_color="transparent")
+        cards.grid(row=2, column=0, padx=16, pady=0, sticky="ew")
+        cards.grid_columnconfigure((0, 1, 2), weight=1)
+
+        # ── CPU ───────────────────────────────────────────────────────────────
+        cpu_card = ctk.CTkFrame(cards, corner_radius=12, fg_color=_CARD_BG)
+        cpu_card.grid(row=0, column=0, padx=6, pady=6, sticky="nsew")
+        cpu_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(cpu_card, text="🖥  CPU",
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color="#88d4a0").grid(row=0, column=0, padx=16, pady=(14, 4), sticky="w")
+
+        self._perf_cpu_pct_var = tk.StringVar(value="—")
+        ctk.CTkLabel(cpu_card, textvariable=self._perf_cpu_pct_var,
+                     font=ctk.CTkFont(size=32, weight="bold"),
+                     text_color=_GREEN).grid(row=1, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        self._perf_cpu_bar = ctk.CTkProgressBar(cpu_card, height=8, corner_radius=4,
+                                                 progress_color=_GREEN)
+        self._perf_cpu_bar.set(0)
+        self._perf_cpu_bar.grid(row=2, column=0, padx=16, pady=(0, 8), sticky="ew")
+
+        cpu_name = platform.processor() or "Processador"
+        ctk.CTkLabel(cpu_card, text=cpu_name, font=ctk.CTkFont(size=10),
+                     text_color="gray55", wraplength=230, justify="left").grid(
+            row=3, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        self._perf_cpu_info_var = tk.StringVar(value="Aguardando...")
+        ctk.CTkLabel(cpu_card, textvariable=self._perf_cpu_info_var,
+                     font=ctk.CTkFont(size=11), text_color="gray60").grid(
+            row=4, column=0, padx=16, pady=(0, 16), sticky="w")
+
+        # ── RAM ───────────────────────────────────────────────────────────────
+        ram_card = ctk.CTkFrame(cards, corner_radius=12, fg_color=_CARD_BG)
+        ram_card.grid(row=0, column=1, padx=6, pady=6, sticky="nsew")
+        ram_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(ram_card, text="💾  RAM",
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color="#88d4a0").grid(row=0, column=0, padx=16, pady=(14, 4), sticky="w")
+
+        self._perf_ram_pct_var = tk.StringVar(value="—")
+        ctk.CTkLabel(ram_card, textvariable=self._perf_ram_pct_var,
+                     font=ctk.CTkFont(size=32, weight="bold"),
+                     text_color=_GREEN).grid(row=1, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        self._perf_ram_bar = ctk.CTkProgressBar(ram_card, height=8, corner_radius=4,
+                                                  progress_color=_GREEN)
+        self._perf_ram_bar.set(0)
+        self._perf_ram_bar.grid(row=2, column=0, padx=16, pady=(0, 8), sticky="ew")
+
+        self._perf_ram_info_var = tk.StringVar(value="Aguardando...")
+        ctk.CTkLabel(ram_card, textvariable=self._perf_ram_info_var,
+                     font=ctk.CTkFont(size=11), text_color="gray60").grid(
+            row=3, column=0, padx=16, pady=(0, 16), sticky="w")
+
+        # ── GPU ───────────────────────────────────────────────────────────────
+        gpu_card = ctk.CTkFrame(cards, corner_radius=12, fg_color=_CARD_BG)
+        gpu_card.grid(row=0, column=2, padx=6, pady=6, sticky="nsew")
+        gpu_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(gpu_card, text="🎮  GPU",
+                     font=ctk.CTkFont(size=14, weight="bold"),
+                     text_color="#88d4a0").grid(row=0, column=0, padx=16, pady=(14, 4), sticky="w")
+
+        self._perf_gpu_pct_var = tk.StringVar(value="—")
+        ctk.CTkLabel(gpu_card, textvariable=self._perf_gpu_pct_var,
+                     font=ctk.CTkFont(size=32, weight="bold"),
+                     text_color=_GREEN).grid(row=1, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        self._perf_gpu_bar = ctk.CTkProgressBar(gpu_card, height=8, corner_radius=4,
+                                                  progress_color=_GREEN)
+        self._perf_gpu_bar.set(0)
+        self._perf_gpu_bar.grid(row=2, column=0, padx=16, pady=(0, 8), sticky="ew")
+
+        self._perf_gpu_info_var = tk.StringVar(value="Coletando informações...")
+        ctk.CTkLabel(gpu_card, textvariable=self._perf_gpu_info_var,
+                     font=ctk.CTkFont(size=11), text_color="gray60",
+                     wraplength=230, justify="left").grid(
+            row=3, column=0, padx=16, pady=(0, 16), sticky="w")
+
+        threading.Thread(target=self._collect_gpu_info, daemon=True,
+                         name="gpu-info").start()
+
+    # ── Coleta estática de GPU ────────────────────────────────────────────────
+
+    def _collect_gpu_info(self) -> None:
+        import subprocess
+        try:
+            _NO_WINDOW = 0x08000000
+            out = subprocess.check_output(
+                ["wmic", "path", "Win32_VideoController",
+                 "get", "Name,AdapterRAM", "/value"],
+                creationflags=_NO_WINDOW,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            ).decode(errors="replace")
+
+            gpus: list = []
+            current: dict = {}
+            for raw in out.splitlines():
+                line = raw.strip()
+                if not line:
+                    if current:
+                        gpus.append(current)
+                        current = {}
+                    continue
+                if "=" in line:
+                    key, _, val = line.partition("=")
+                    current[key.strip()] = val.strip()
+            if current:
+                gpus.append(current)
+
+            parts = []
+            for g in gpus:
+                name = g.get("Name", "").strip()
+                if not name:
+                    continue
+                vram_raw = g.get("AdapterRAM", "0")
+                try:
+                    vram_mb = int(vram_raw) // (1024 * 1024)
+                    vram_str = f"{vram_mb:,} MB VRAM" if vram_mb > 0 else ""
+                except ValueError:
+                    vram_str = ""
+                parts.append(f"{name}\n{vram_str}" if vram_str else name)
+
+            info = "\n\n".join(parts) if parts else "Não detectada"
+        except Exception:
+            info = "Informação indisponível"
+
+        def _set():
+            if self._perf_gpu_info_var:
+                self._perf_gpu_info_var.set(info)
+        try:
+            self.after(0, _set)
+        except Exception:
+            pass
+
+    # ── Monitor em tempo real ─────────────────────────────────────────────────
+
+    def _start_perf_monitor(self) -> None:
+        if not _PSUTIL_OK or self._perf_running:
+            return
+        self._perf_running = True
+        self._perf_thread = threading.Thread(
+            target=self._perf_monitor_loop, daemon=True, name="perf-monitor")
+        self._perf_thread.start()
+
+    def _perf_monitor_loop(self) -> None:
+        import time
+        assert _psutil is not None
+        while self._perf_running:
+            try:
+                cpu_pct = _psutil.cpu_percent(interval=2)
+                if not self._perf_running:
+                    break
+                mem = _psutil.virtual_memory()
+                freq = _psutil.cpu_freq()
+                cores_phys = _psutil.cpu_count(logical=False) or 1
+                cores_log  = _psutil.cpu_count(logical=True) or 1
+
+                freq_str = f"{freq.current / 1000:.2f} GHz" if freq else ""
+                cpu_info = f"{cores_phys} núcleos  /  {cores_log} threads"
+                if freq_str:
+                    cpu_info += f"  ·  {freq_str}"
+
+                used_gb  = mem.used  / (1024 ** 3)
+                total_gb = mem.total / (1024 ** 3)
+                ram_info = f"{used_gb:.1f} GB  /  {total_gb:.1f} GB  ({mem.percent:.0f}%)"
+
+                gpu_pct = self._get_nvidia_gpu_pct()
+
+                def _update(cp=cpu_pct, rp=float(mem.percent), ci=cpu_info,
+                             ri=ram_info, gp=gpu_pct):
+                    try:
+                        if self._perf_cpu_pct_var:
+                            self._perf_cpu_pct_var.set(f"{cp:.0f}%")
+                        if self._perf_cpu_bar:
+                            clr = _GREEN if cp < 70 else ("#ffaa44" if cp < 90 else "#ff4444")
+                            self._perf_cpu_bar.configure(progress_color=clr)
+                            self._perf_cpu_bar.set(cp / 100)
+                        if self._perf_cpu_info_var:
+                            self._perf_cpu_info_var.set(ci)
+
+                        if self._perf_ram_pct_var:
+                            self._perf_ram_pct_var.set(f"{rp:.0f}%")
+                        if self._perf_ram_bar:
+                            clr = _GREEN if rp < 70 else ("#ffaa44" if rp < 90 else "#ff4444")
+                            self._perf_ram_bar.configure(progress_color=clr)
+                            self._perf_ram_bar.set(rp / 100)
+                        if self._perf_ram_info_var:
+                            self._perf_ram_info_var.set(ri)
+
+                        if gp is not None:
+                            if self._perf_gpu_pct_var:
+                                self._perf_gpu_pct_var.set(f"{gp:.0f}%")
+                            if self._perf_gpu_bar:
+                                clr = _GREEN if gp < 70 else ("#ffaa44" if gp < 90 else "#ff4444")
+                                self._perf_gpu_bar.configure(progress_color=clr)
+                                self._perf_gpu_bar.set(gp / 100)
+                    except Exception:
+                        pass
+
+                try:
+                    self.after(0, _update)
+                except Exception:
+                    break
+            except Exception:
+                time.sleep(2)
+
+    def _get_nvidia_gpu_pct(self) -> Optional[float]:
+        """Tenta obter uso de GPU via nvidia-smi. Retorna None se indisponível."""
+        import subprocess
+        try:
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=utilization.gpu",
+                 "--format=csv,noheader,nounits"],
+                creationflags=0x08000000,
+                stderr=subprocess.DEVNULL,
+                timeout=3,
+            ).decode().strip()
+            lines = [ln.strip() for ln in out.splitlines() if ln.strip()]
+            if lines:
+                return float(lines[0])
+        except Exception:
+            pass
+        return None
+
+    # ══════════════════════════════════════════════════════════════════════════
     def _build_about(self, parent) -> None:
         parent.grid_columnconfigure(0, weight=1)
 
@@ -5349,7 +7283,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.mod_manager.steamcmd_path = self.config_manager.config.steamcmd_path
         self.mod_manager.download_mods(
             [mod_id], srv.install_dir,
-            on_done=lambda ok: self.after(0, lambda: self._refresh_mods_list(server_id)),
+            on_done=lambda ok: self.after(0, lambda: self._refresh_mods_list(server_id)),  # type: ignore[arg-type]
         )
 
     def _download_all_mods(self, server_id: str) -> None:
@@ -5360,7 +7294,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.mod_manager.steamcmd_path = self.config_manager.config.steamcmd_path
         self.mod_manager.download_mods(
             srv.mods, srv.install_dir,
-            on_done=lambda ok: self.after(0, lambda: self._refresh_mods_list(server_id)),
+            on_done=lambda ok: self.after(0, lambda: self._refresh_mods_list(server_id)),  # type: ignore[arg-type]
         )
 
     def _open_workshop_page(self, mod_id: str) -> None:
@@ -5489,8 +7423,10 @@ class ARKServerManagerApp(ctk.CTk):
             self._set_config_editable(server_id, status == SERVER_STATUS_STOPPED)
 
             btn = self._sidebar_server_btns.get(server_id)
-            if btn and hasattr(btn, "_status_dot"):
-                btn._status_dot.configure(text_color=color)
+            if btn:
+                dot = getattr(btn, "_status_dot", None)
+                if dot:
+                    dot.configure(text_color=color)
 
             self._refresh_dashboard()
         self.after(0, _do)
@@ -5691,7 +7627,7 @@ class ARKServerManagerApp(ctk.CTk):
         if not url:
             return
         self.update_checker.check_async(
-            url, on_result=lambda info: self.after(0, lambda: self._on_update_result(info)))
+            url, on_result=lambda info: self.after(0, lambda: self._on_update_result(info)))  # type: ignore[arg-type]
 
     def _start_mod_auto_updater(self) -> None:
         """Inicia o verificador automático de mods ao carregar o app."""
@@ -5723,7 +7659,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._check_update_btn.configure(state="disabled", text="🔍  Verificando...")
         self.update_checker.check_async(
             url,
-            on_result=lambda info: self.after(
+            on_result=lambda info: self.after(  # type: ignore[arg-type]
                 0, lambda: self._on_update_result(info, manual=True)))
 
     def _on_update_result(self, info, manual: bool = False) -> None:
@@ -5756,7 +7692,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._check_update_btn.configure(state="disabled")
         self.update_checker.download_and_install(
             info,
-            on_done=lambda ok, msg: self.after(0, lambda: self._on_download_done(ok, msg)),
+            on_done=lambda ok, msg: self.after(0, lambda: self._on_download_done(ok, msg)),  # type: ignore[arg-type]
         )
 
     def _on_download_done(self, success: bool, message: str) -> None:
@@ -5785,17 +7721,32 @@ class ARKServerManagerApp(ctk.CTk):
     # ── Navegação ─────────────────────────────────────────────────────────────
 
     def _show_frame(self, name: str) -> None:
+        prev = self._current_frame
+        if prev == name:
+            return
         self._current_frame = name
-        for key, frame in self._frames.items():
-            if key == name:
-                frame.grid()
-            else:
-                frame.grid_remove()
-        for key, btn in self._nav_buttons.items():
-            btn.configure(fg_color="#1e2a3a" if key == name else "transparent")
-        for srv_id, btn in self._sidebar_server_btns.items():
-            active = name == f"server_{srv_id}"
-            btn.configure(fg_color="#1e2a3a" if active else "transparent")
+
+        # Esconde apenas o frame anterior; mostra apenas o novo
+        if prev in self._frames:
+            self._frames[prev].grid_remove()
+        if name in self._frames:
+            self._frames[name].grid()
+
+        # Atualiza somente os dois botões afetados
+        if prev in self._nav_buttons:
+            self._nav_buttons[prev].configure(fg_color="transparent")
+        elif prev.startswith("server_"):
+            sid = prev[len("server_"):]
+            if sid in self._sidebar_server_btns:
+                self._sidebar_server_btns[sid].configure(fg_color="transparent")
+
+        if name in self._nav_buttons:
+            self._nav_buttons[name].configure(fg_color="#1e2a3a")
+        elif name.startswith("server_"):
+            sid = name[len("server_"):]
+            if sid in self._sidebar_server_btns:
+                self._sidebar_server_btns[sid].configure(fg_color="#1e2a3a")
+
         if name == "buffs":
             self.after(50, self._refresh_buffs_ui)
 
@@ -5917,6 +7868,20 @@ class ARKServerManagerApp(ctk.CTk):
             return
         self._do_quit()
 
+    def _on_unmap_event(self, event) -> None:
+        """Intercepta o botão − da janela para ir à bandeja se a opção estiver ativa."""
+        if event.widget is not self:
+            return
+        self.after(60, self._check_tray_on_minimize)
+
+    def _check_tray_on_minimize(self) -> None:
+        try:
+            state = self.state()
+        except Exception:
+            return
+        if state == "iconic" and self.config_manager.config.minimize_to_tray and _PYSTRAY_OK:
+            self._minimize_to_tray()
+
     def _do_quit(self) -> None:
         if self._tray_icon:
             try:
@@ -5932,10 +7897,9 @@ class ARKServerManagerApp(ctk.CTk):
             self._buff_manager.stop()
         if self._backup_manager:
             self._backup_manager.shutdown()
-        for srv in self.config_manager.servers:
-            inst = self.server_manager.get_instance(srv.id)
-            if inst and inst.status == SERVER_STATUS_RUNNING:
-                self.server_manager.stop_server(srv.id, force=True)
+        self._perf_running = False
+        # Os processos dos servidores (mapas) são mantidos em execução intencionalmente.
+        # Apenas recursos internos do app são encerrados.
         for client in list(self._rcon_clients.values()):
             try:
                 client.disconnect()

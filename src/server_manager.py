@@ -425,8 +425,9 @@ class ServerManager:
                                     found_ready = True
                                     self._set_status(server_id, SERVER_STATUS_RUNNING)
                                     self._emit_log(server_id, "Servidor inicializado e aceitando conexões.", "info")
-                                    inst.online_mode = "LAN"
-                                    self._on_visibility_change(server_id, "LAN")
+                                    _init_mode = "LAN" if self._is_lan_only(inst.config) else "WAN"
+                                    inst.online_mode = _init_mode
+                                    self._on_visibility_change(server_id, _init_mode)
 
                             if inst.status == SERVER_STATUS_RUNNING and inst.online_mode != "WAN":
                                 if any(m.lower() in line.lower() for m in _ARK_STEAM_MARKERS):
@@ -454,8 +455,9 @@ class ServerManager:
                         found_ready = True
                         self._set_status(server_id, SERVER_STATUS_RUNNING)
                         self._emit_log(server_id, "Servidor inicializado (detectado via RCON).", "info")
-                        inst.online_mode = "LAN"
-                        self._on_visibility_change(server_id, "LAN")
+                        _init_mode = "LAN" if self._is_lan_only(inst.config) else "WAN"
+                        inst.online_mode = _init_mode
+                        self._on_visibility_change(server_id, _init_mode)
                     except Exception:
                         pass  # RCON ainda não disponível — continua aguardando
 
@@ -465,8 +467,9 @@ class ServerManager:
                 inst2 = self._instances.get(server_id)
                 if inst2 and inst2.status == SERVER_STATUS_STARTING and proc.poll() is None:
                     self._set_status(server_id, SERVER_STATUS_RUNNING)
-                    inst2.online_mode = "LAN"
-                    self._on_visibility_change(server_id, "LAN")
+                    _init_mode = "LAN" if self._is_lan_only(inst2.config) else "WAN"
+                    inst2.online_mode = _init_mode
+                    self._on_visibility_change(server_id, _init_mode)
                     self._emit_log(
                         server_id,
                         f"Timeout de {_STARTING_TIMEOUT // 60} min atingido — servidor considerado RODANDO "
@@ -516,6 +519,23 @@ class ServerManager:
             time.sleep(_POLL_INTERVAL)
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _is_lan_only(cfg: ServerConfig) -> bool:
+        """Retorna True se o servidor foi configurado explicitamente como LAN.
+        Um servidor ARK é LAN apenas quando ``?bIsLanMatch=True`` é passado
+        nos argumentos de lançamento; caso contrário ele se registra no Steam
+        automaticamente (WAN).
+        """
+        combined = (cfg.extra_args or "").lower()
+        if "bislanmatch=true" in combined:
+            return True
+        # Verifica também nos params de mapa/URL gerados por build_launch_args
+        try:
+            full_cmd = cfg.build_launch_args().lower()
+            return "bislanmatch=true" in full_cmd
+        except Exception:
+            return False
 
     def _set_status(self, server_id: str, status: str) -> None:
         inst = self._instances.get(server_id)

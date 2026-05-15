@@ -5,6 +5,59 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.14] — 2026-05-15
+
+### Novo — Tooltip de ajuda na seção Comandos do ArkShop
+
+- Botão `?` circular adicionado ao cabeçalho da seção **Comandos** no painel de detalhe de kit.
+- Ao passar o mouse, exibe tooltip flutuante com as variáveis disponíveis (`{steamid}`, `{playerid}`, `{playername}`) e exemplos de comandos do plugin ArkShop (`AddPoints`, `RemovePoints`, `GiveItem`, `AddExperience`, `PrintToPlayer`, `RenamePlayer`, etc.).
+- Classe utilitária `_Tooltip` adicionada — reutilizável em qualquer widget do app, com delay configurável e posicionamento automático.
+
+### Novo — Campo ID do kit editável
+
+- O ID do kit agora aparece como campo de texto editável no topo do painel de detalhe.
+- Renomear o ID atualiza automaticamente todas as referências internas; conflitos com IDs existentes são detectados e bloqueados com mensagem de erro.
+
+### Novo — Cluster / Múltiplos Servidores
+
+- Nova seção **"Cluster / múltiplos servidores"** no painel ArkShop.
+- Permite adicionar quantos caminhos destino forem necessários; ao salvar, o `ArkShop.json` é gravado em todos simultaneamente.
+- Útil para clusters com múltiplos mapas que compartilham a mesma loja.
+
+### Novo — Presets nomeados para ArkShop
+
+- Nova seção **Presets** com menu de seleção e três ações: 💾 Salvar, 📂 Carregar, 🗑 Excluir.
+- Salva a configuração completa (path, MySQL, Discord, General, Kits, ShopItems e destinos extras) como preset nomeado.
+- Presets persistem entre sessões em `%APPDATA%\ARKLAND-ServerManager\arkshop_presets.json`.
+
+### Melhoria — Minimizar para bandeja ao clicar em `−`
+
+- O botão de minimizar da janela (`−`) agora envia o app para a bandeja do sistema quando a opção "Minimizar para bandeja" está ativa, além do botão Fechar (`×`).
+
+### Melhoria — App não encerra servidores ARK ao fechar
+
+- Fechar o ARKLAND Server Manager não mata mais os processos dos servidores ARK (mapas).
+- Apenas recursos internos do app são encerrados (sync engine, mod updater, buff manager, backup manager, RCON clients).
+
+### Melhoria — Navegação O(1)
+
+- Troca de tela passou de O(n) para O(1): em vez de iterar e ocultar todos os frames a cada clique, apenas o frame anterior e o novo são alternados via `grid_remove` / `grid`.
+- Elimina lag perceptível em workspaces com muitos servidores configurados.
+
+### Correção — Alterações da UI não persistiam ao salvar ArkShop.json
+
+- `_arkshop_save` agora chama `_arkshop_collect_fields()` antes de ler o editor JSON, garantindo que todos os campos editados na UI (kits, itens, configurações gerais) sejam incluídos no arquivo salvo.
+
+### Correção — Tipos Pylance
+
+- `Optional[ctk.CTkFrame]` substituído por `Any` nos atributos de frame do ArkShop.
+- Adicionado `# type: ignore[arg-type]` em callbacks `on_done`/`on_result` (lambdas que retornam id do `after()`).
+- `btn._status_dot` acessado via `getattr(btn, "_status_dot", None)` para eliminar aviso de atributo desconhecido.
+- `CTkSlider from_/to` com `# type: ignore[arg-type]` (aceita `float` em runtime, type hint declarado como `int`).
+- `.vscode/settings.json` criado apontando o interpretador Python para `.venv`.
+
+---
+
 ## [1.1.13] — 2026-05-15
 
 ### Correção crítica — Formato `.mod` completamente reescrito

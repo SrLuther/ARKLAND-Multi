@@ -3,11 +3,28 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.13"
+APP_VERSION: str = "1.1.14"
 BUILD_DATE: str = "2026-05-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.14",
+        "date": "2026-05-15",
+        "changes": [
+            "Novo: tooltip ? flutuante na seção Comandos do kit ArkShop — exibe variáveis disponíveis "
+            "({steamid}, {playerid}, {playername}) e exemplos de comandos do plugin ao passar o mouse.",
+            "Novo: campo ID do kit editável no painel de detalhe — renomeação com detecção de conflito.",
+            "Novo: Cluster / Múltiplos Servidores — salva ArkShop.json em vários destinos simultâneos.",
+            "Novo: presets nomeados para ArkShop — salvar, carregar e excluir configurações completas "
+            "(persiste em %APPDATA%\\ARKLAND-ServerManager\\arkshop_presets.json).",
+            "Melhoria: botão − minimiza para a bandeja do sistema (pystray) além do botão Fechar.",
+            "Melhoria: fechar o app não encerra os processos do servidor ARK — mapas continuam rodando.",
+            "Melhoria: navegação O(1) — troca de tela usa grid_remove seletivo em vez de ocultar todos os frames.",
+            "Correção: alterações nos campos da UI não eram persistidas ao salvar o ArkShop.json "
+            "— _arkshop_collect_fields() agora chamado antes de gravar no disco.",
+        ],
+    },
     {
         "version": "1.1.13",
         "date": "2026-05-15",

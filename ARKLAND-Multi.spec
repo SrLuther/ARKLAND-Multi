@@ -46,6 +46,10 @@ a = Analysis(
         # bandeja
         'pystray',
         'pystray._win32',
+        # monitoramento de desempenho
+        'psutil',
+        'psutil._pswindows',
+        'psutil._common',
     ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports,
     hookspath=[],
     hooksconfig={},
