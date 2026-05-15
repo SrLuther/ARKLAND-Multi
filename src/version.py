@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.6"
+APP_VERSION: str = "1.1.7"
 BUILD_DATE: str = "2026-05-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.7",
+        "date": "2026-05-14",
+        "changes": [
+            "Updater: encerra à força todos os processos ARKLAND-ServerManager.exe antes de instalar (evita falha por arquivo bloqueado no Windows).",
+        ],
+    },
     {
         "version": "1.1.6",
         "date": "2026-05-14",

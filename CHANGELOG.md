@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.7] — 2026-05-14
+
+### Updater — Encerramento Forçado
+
+- O ARKLAND Updater agora mata à força todos os processos `ARKLAND-ServerManager.exe` antes de executar o installer, evitando falha por arquivo bloqueado no Windows.
+- Usa `taskkill /F /T /PID` para encerrar a árvore do processo principal e `taskkill /F /IM` para cobrir instâncias extras.
+
+---
+
 ## [1.1.6] — 2026-05-14
 
 ### Aba Admins — Busca de Nome Steam

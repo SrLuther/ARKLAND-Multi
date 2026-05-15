@@ -151,7 +151,12 @@ class UpdaterApp:
             self._set_status("Aguardando o ARKLAND fechar...")
             self._set_progress(0.05)
             self._wait_pid(self._pid)
-            time.sleep(0.8)
+            time.sleep(0.5)
+
+            # 1b. Mata à força qualquer processo ARKLAND restante
+            self._set_status("Encerrando processos restantes...")
+            self._kill_lingering()
+            time.sleep(0.5)
             self._set_progress(0.10)
 
             # 2. Baixar installer
@@ -206,6 +211,27 @@ class UpdaterApp:
             except OSError:
                 break
             time.sleep(0.5)
+
+    def _kill_lingering(self) -> None:
+        """Mata à força todos os processos ARKLAND-ServerManager.exe restantes."""
+        # Mata pelo PID (e árvore de filhos) — garante que o processo principal foi encerrado
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(self._pid)],
+                capture_output=True,
+            )
+        except Exception:
+            pass
+
+        # Mata pelo nome do exe (cobre múltiplas instâncias)
+        for exe_name in ("ARKLAND-ServerManager.exe", "ARKLAND-Multi.exe"):
+            try:
+                subprocess.run(
+                    ["taskkill", "/F", "/IM", exe_name],
+                    capture_output=True,
+                )
+            except Exception:
+                pass
 
     def _download(self) -> str:
         _validate_url(self._url)
