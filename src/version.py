@@ -9,6 +9,37 @@ BUILD_DATE: str = "2026-05-14"
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "1.1.10",
+        "date": "2026-05-14",
+        "changes": [
+            "Correção crítica: mods não carregavam pois o arquivo .mod estava ausente — check_mod_installed agora exige pasta E arquivo .mod.",
+            "Busca fallback pelo .mod dentro da pasta do mod ao copiar via SteamCMD.",
+            "Aviso pré-start: alerta se algum mod configurado estiver sem o arquivo .mod.",
+            "Novo campo Mensagem do Dia (MOTD) na aba Geral de cada servidor.",
+            "MOTD e duração salvos automaticamente no GameUserSettings.ini ([MessageOfTheDay]).",
+        ],
+    },
+    {
+        "version": "1.1.9",
+        "date": "2026-05-14",
+        "changes": [
+            "Novo botão Clonar Configurações na aba Avançado de cada servidor.",
+            "Clona mapa, senhas, mods, multiplicadores, cluster, admins e backup para outros servidores.",
+            "Preserva nome, diretório de instalação, session name e portas no servidor destino.",
+        ],
+    },
+    {
+        "version": "1.1.8",
+        "date": "2026-05-14",
+        "changes": [
+            "Parar servidor agora encerra toda a árvore de processos via taskkill /F /T /PID.",
+            "Corrige bug onde o app reportava 'Servidor parado' mas o processo continuava rodando.",
+            "Nova aba Backup: backup automático em intervalos configuráveis (1h–24h).",
+            "Escolha de quantos backups manter, conteúdo (Saves/Config) e pasta de destino.",
+            "Botão de Backup Manual e lista de backups com opções de restaurar e excluir.",
+        ],
+    },
+    {
         "version": "1.1.7",
         "date": "2026-05-14",
         "changes": [
