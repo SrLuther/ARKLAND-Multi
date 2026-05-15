@@ -1839,6 +1839,31 @@ class ARKServerManagerApp(ctk.CTk):
             "Parâmetros adicionais de linha de comando. Ex: -ForceAllowCaveFlyers.",
             w["extra_args"], 18)
 
+        self._section_lbl(scroll, 19, "📢  Mensagem do Dia (MOTD)")
+        motd_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
+        motd_card.grid(row=20, column=0, padx=20, pady=(0, 14), sticky="ew")
+        motd_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(motd_card, text="Mensagem:", width=190, anchor="nw",
+                     text_color="gray60").grid(row=0, column=0, padx=16, pady=(12, 2), sticky="nw")
+        w["motd"] = ctk.CTkTextbox(motd_card, height=72, corner_radius=6,
+                                   fg_color="#1a1a2e", border_color="#3a3a5a",
+                                   border_width=1, font=ctk.CTkFont(size=12))
+        w["motd"].grid(row=0, column=1, padx=(0, 12), pady=(12, 2), sticky="ew")
+        if srv.motd:
+            w["motd"].insert("1.0", srv.motd)
+
+        ctk.CTkLabel(motd_card,
+                     text="Exibida ao jogador quando entra no servidor. Suporta múltiplas linhas.",
+                     text_color="gray45", font=ctk.CTkFont(size=10),
+                     ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 4), sticky="w")
+
+        ctk.CTkLabel(motd_card, text="Duração (s):", width=190, anchor="w",
+                     text_color="gray60").grid(row=2, column=0, padx=16, pady=(4, 12))
+        w["motd_duration"] = tk.StringVar(value=str(srv.motd_duration))
+        ctk.CTkEntry(motd_card, textvariable=w["motd_duration"],
+                     height=34, width=80).grid(row=2, column=1, padx=(0, 12), pady=(4, 12), sticky="w")
+
         w["rcon_enabled"]       = tk.BooleanVar(value=srv.rcon_enabled)
         w["use_battleye"]       = tk.BooleanVar(value=srv.use_battleye)
         w["use_allcores"]       = tk.BooleanVar(value=srv.use_allcores)
@@ -1847,7 +1872,7 @@ class ARKServerManagerApp(ctk.CTk):
         w["auto_restart_crash"] = tk.BooleanVar(value=srv.auto_restart_on_crash)
         w["auto_update_start"]  = tk.BooleanVar(value=srv.auto_update_on_start)
 
-        self._section_lbl(scroll, 19, "🔧  Flags")
+        self._section_lbl(scroll, 21, "🔧  Flags")
         checkboxes = [
             ("Habilitar RCON",
              "Ativa o console remoto. Necessário para usar a aba Console RCON.",
@@ -2900,6 +2925,24 @@ class ARKServerManagerApp(ctk.CTk):
     # ══════════════════════════════════════════════════════════════════════════
 
     @staticmethod
+    def _sanitize_steam_name(name: str) -> str:
+        """Limpa nomes corrompidos com fragmentos XML/CDATA deixados por versões antigas."""
+        if not name:
+            return ""
+        # Tenta extrair o conteúdo real de um fragmento CDATA
+        if "CDATA[" in name:
+            try:
+                extracted = name.split("CDATA[")[-1].split("]]>")[0].strip()
+                if extracted:
+                    return extracted
+            except Exception:
+                pass
+        # Descarta qualquer string que ainda contenha marcadores XML
+        if "<" in name or ">" in name:
+            return ""
+        return name
+
+    @staticmethod
     def _fetch_steam_name(steam_id: str, callback) -> None:
         """Busca o nome do perfil Steam em thread separada e chama callback(name_or_none)."""
         def _worker():
@@ -3037,7 +3080,14 @@ class ARKServerManagerApp(ctk.CTk):
             row_fr = ctk.CTkFrame(frame, corner_radius=8, fg_color="#252535")
             row_fr.pack(fill="x", padx=8, pady=3)
             row_fr.grid_columnconfigure(0, weight=1)
-            display_name = srv.admin_names.get(steam_id, "")
+            display_name = self._sanitize_steam_name(srv.admin_names.get(steam_id, ""))
+            # Atualiza o dado persistido se estava corrompido
+            if display_name != srv.admin_names.get(steam_id, ""):
+                if display_name:
+                    srv.admin_names[steam_id] = display_name
+                else:
+                    srv.admin_names.pop(steam_id, None)
+                self.config_manager.update_server(srv)
             label_text = f"🎮  {steam_id}" + (f"  •  {display_name}" if display_name else "")
             ctk.CTkLabel(
                 row_fr, text=label_text,
@@ -3078,7 +3128,9 @@ class ARKServerManagerApp(ctk.CTk):
         if lbl:
             preview = lbl.cget("text")
             if preview.startswith("✅  "):
-                srv.admin_names[steam_id] = preview[3:].strip()
+                clean = self._sanitize_steam_name(preview[3:].strip())
+                if clean:
+                    srv.admin_names[steam_id] = clean
         self.config_manager.update_server(srv)
         var.set("")
         lbl = w.get("_admin_name_preview")
@@ -4305,6 +4357,28 @@ class ARKServerManagerApp(ctk.CTk):
     def _start_server(self, server_id: str) -> None:
         self._save_server_config(server_id, silent=True)
         srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+
+        # Verifica mods sem arquivo .mod (ARK ignora silenciosamente sem ele)
+        if srv.mods and srv.install_dir:
+            missing_dot_mod = [
+                mid for mid in srv.mods
+                if not self.mod_manager.check_mod_installed(srv.install_dir, mid)
+            ]
+            if missing_dot_mod:
+                ids_str = ", ".join(missing_dot_mod)
+                ans = messagebox.askyesno(
+                    "Mods incompletos",
+                    f"Os seguintes mods estão com arquivo .mod ausente e o ARK não os carregará:\n\n"
+                    f"{ids_str}\n\n"
+                    "Baixe os mods novamente na aba Mods antes de iniciar.\n\n"
+                    "Deseja iniciar mesmo assim?",
+                    parent=self,
+                )
+                if not ans:
+                    return
+
         if srv and srv.auto_update_on_start and self.mod_manager.is_steamcmd_available() and srv.install_dir:
             self._global_log(f"[{srv.name}] Atualizando servidor via SteamCMD antes de iniciar...", "info")
             def _on_update_done(ok: bool) -> None:
@@ -4463,6 +4537,14 @@ class ARKServerManagerApp(ctk.CTk):
             srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
             try:
                 srv.auto_save_period  = float(w.get("auto_save", tk.StringVar(value="15")).get())
+            except ValueError:
+                pass
+            # MOTD
+            motd_box = w.get("motd")
+            if motd_box:
+                srv.motd = motd_box.get("1.0", "end").rstrip("\n")
+            try:
+                srv.motd_duration = int(w.get("motd_duration", tk.StringVar(value="60")).get())
             except ValueError:
                 pass
             srv.rcon_enabled          = w.get("rcon_enabled",       tk.BooleanVar(value=True)).get()

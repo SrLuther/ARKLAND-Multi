@@ -253,6 +253,10 @@ class ServerConfig:
     auto_save_period: float = 15.0
     active_event: str = ""
 
+    # Mensagem do Dia (MOTD)
+    motd: str = ""
+    motd_duration: int = 60
+
     # Configurações do jogo
     game_settings: ServerGameSettings = field(default_factory=ServerGameSettings)
     advanced_settings: ServerAdvancedSettings = field(default_factory=ServerAdvancedSettings)

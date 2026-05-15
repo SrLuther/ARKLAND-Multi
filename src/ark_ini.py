@@ -330,6 +330,13 @@ class ArkIniManager:
         parser.set("ServerSettings", "RCONEnabled", _bool_to_str(config.rcon_enabled))
         parser.set("ServerSettings", "RCONPort",    str(config.rcon_port))
 
+        # Mensagem do Dia (MOTD)
+        motd_section = "MessageOfTheDay"
+        if not parser.has_section(motd_section):
+            parser.add_section(motd_section)
+        parser.set(motd_section, "Message",  config.motd)
+        parser.set(motd_section, "Duration", str(config.motd_duration))
+
         with open(str(path), "w", encoding="utf-8") as fh:
             parser.write(fh)
 

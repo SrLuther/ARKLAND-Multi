@@ -371,6 +371,13 @@ class ServerManager:
         found_ready = False
         last_rcon_check = start
 
+        # Começa lendo só as linhas novas (ignora o conteúdo pré-existente do log)
+        if log_file and log_file.exists():
+            try:
+                last_size = log_file.stat().st_size
+            except Exception:
+                last_size = 0
+
         # Se o log ainda não existe, tenta descobrir o caminho depois
         if log_file is None:
             self._emit_log(server_id, "Arquivo de log do ARK não encontrado ainda. Aguardando...", "debug")
@@ -421,7 +428,7 @@ class ServerManager:
                                     inst.online_mode = "LAN"
                                     self._on_visibility_change(server_id, "LAN")
 
-                            if inst.status == SERVER_STATUS_RUNNING and inst.online_mode == "—":
+                            if inst.status == SERVER_STATUS_RUNNING and inst.online_mode != "WAN":
                                 if any(m.lower() in line.lower() for m in _ARK_STEAM_MARKERS):
                                     inst.online_mode = "WAN"
                                     self._on_visibility_change(server_id, "WAN")
@@ -499,7 +506,7 @@ class ServerManager:
                                 continue
                             inst.push_log(line)
                             self._emit_log(server_id, line, "debug")
-                            if inst.online_mode == "—":
+                            if inst.online_mode != "WAN":
                                 if any(m.lower() in line.lower() for m in _ARK_STEAM_MARKERS):
                                     inst.online_mode = "WAN"
                                     self._on_visibility_change(server_id, "WAN")

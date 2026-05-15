@@ -123,15 +123,15 @@ class ModManager:
                 if dst_dir.exists():
                     shutil.rmtree(dst_dir)
                 shutil.copytree(src_dir, dst_dir)
-                # O arquivo .mod fica UM NÍVEL ACIMA da pasta do mod no workshop
-                # steamapps/workshop/content/346110/{mod_id}.mod  (NÃO dentro de {mod_id}/)
-                workshop_dir = src_dir.parent
-                src_dot_mod = workshop_dir / f"{mod_id}.mod"
-                if src_dot_mod.exists():
+                src_dot_mod = self._find_dot_mod(src_dir, mod_id)
+                if src_dot_mod:
                     shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
                     self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
                 else:
-                    self._on_log(f"Aviso: arquivo {mod_id}.mod não encontrado no workshop.", "warning")
+                    self._on_log(
+                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado — "
+                        "o ARK pode ignorar este mod. Tente re-baixar.", "error"
+                    )
                 self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
             except Exception as exc:
                 self._on_log(f"Erro ao instalar mod {mod_id}: {exc}", "error")
@@ -199,11 +199,15 @@ class ModManager:
                                 if dst_mod.exists():
                                     shutil.rmtree(dst_mod)
                                 shutil.copytree(src_mod, dst_mod)
-                                # O arquivo .mod fica um nível ACIMA da pasta do mod no workshop
-                                src_dot_mod = src_mod.parent / f"{mod_id}.mod"
-                                if src_dot_mod.exists():
+                                src_dot_mod = self._find_dot_mod(src_mod, mod_id)
+                                if src_dot_mod:
                                     shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
                                     self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
+                                else:
+                                    self._on_log(
+                                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado — "
+                                        "o ARK pode ignorar este mod. Tente re-baixar.", "error"
+                                    )
                                 self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
                                 copy_ok = True
                             except Exception as copy_exc:
@@ -319,9 +323,30 @@ class ModManager:
         return f"https://steamcommunity.com/sharedfiles/filedetails/?id={mod_id}"
 
     def check_mod_installed(self, install_dir: str, mod_id: str) -> bool:
-        """Verifica se o mod já está instalado no diretório."""
-        mod_path = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
-        return mod_path.exists()
+        """Verifica se o mod está instalado (pasta E arquivo .mod presentes)."""
+        base = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+        return (base / mod_id).exists() and (base / f"{mod_id}.mod").exists()
+
+    @staticmethod
+    def _find_dot_mod(workshop_mod_dir: Path, mod_id: str) -> Optional[Path]:
+        """Procura o arquivo .mod em múltiplos locais possíveis:
+        1) ao lado da pasta no workshop  (346110/{mod_id}.mod)
+        2) dentro da pasta do mod        (346110/{mod_id}/{mod_id}.mod)
+        3) qualquer *.mod dentro da pasta do mod
+        Retorna o caminho encontrado ou None.
+        """
+        # 1 — ao lado da pasta (localização padrão do SteamCMD)
+        candidate = workshop_mod_dir.parent / f"{mod_id}.mod"
+        if candidate.exists():
+            return candidate
+        # 2 — dentro da pasta com o mesmo nome
+        candidate = workshop_mod_dir / f"{mod_id}.mod"
+        if candidate.exists():
+            return candidate
+        # 3 — qualquer .mod dentro da pasta (fallback)
+        for f in workshop_mod_dir.glob("*.mod"):
+            return f
+        return None
 
     def get_installed_mod_size(self, install_dir: str, mod_id: str) -> float:
         """Retorna tamanho do mod em MB, ou 0 se não instalado."""

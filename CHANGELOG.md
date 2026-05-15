@@ -5,6 +5,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.10] — 2026-05-14
+
+### Correção — Mods não carregando no servidor
+
+- **Corrige bug crítico** onde mods apareciam como "instalados" na aba Mods mas o ARK os ignorava ao iniciar.
+- `check_mod_installed` agora exige a presença da pasta **e** do arquivo `.mod` — sem o `.mod` o ARK não carrega o mod.
+- Adicionado fallback ao copiar mods: busca o arquivo `.mod` dentro da pasta do mod caso não esteja ao lado dela (comportamento de algumas versões do SteamCMD).
+- O erro de `.mod` ausente agora é logado como `[ATENÇÃO]` no nível `error` em vez de um aviso discreto.
+- Aviso pré-start: ao iniciar um servidor, o app verifica se todos os mods configurados possuem o arquivo `.mod`. Se algum estiver incompleto, exibe diálogo perguntando se deseja continuar.
+
+### Novo — Mensagem do Dia (MOTD)
+
+- Novo campo **Mensagem do Dia** na aba Geral de cada servidor.
+- Mensagem e duração (segundos) são salvas automaticamente no `GameUserSettings.ini` na seção `[MessageOfTheDay]`.
+
+---
+
 ## [1.1.9] — 2026-05-14
 
 ### Clonar Configurações entre Servidores
