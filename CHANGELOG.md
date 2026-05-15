@@ -5,6 +5,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.9] — 2026-05-14
+
+### Clonar Configurações entre Servidores
+
+- Novo botão **📋 Clonar Configurações** na aba Avançado de cada servidor.
+- Permite copiar todas as configurações de um servidor para um ou mais servidores de destino.
+- São copiados: mapa, senhas, mods, multiplicadores, configurações avançadas, cluster, admins, backup e argumentos extras.
+- Preservados no servidor de destino: nome interno, diretório de instalação, session name e portas.
+- Reconstrói automaticamente o painel de cada servidor destino após a clonagem.
+
+---
+
 ## [1.1.8] — 2026-05-14
 
 ### Parar Servidor — Encerramento de Árvore de Processos

@@ -2499,6 +2499,14 @@ class ARKServerManagerApp(ctk.CTk):
             fg_color="#6a3aaa", hover_color="#7a4abb",
             command=lambda sid=srv.id: self._open_sync_ini_dialog(sid),
         ).pack(side="left")
+
+        ctk.CTkButton(
+            btn_row_ini,
+            text="📋  Clonar Configurações",
+            height=36, width=200,
+            fg_color="#3a5a2a", hover_color="#4a6a3a",
+            command=lambda sid=srv.id: self._open_clone_config_dialog(sid),
+        ).pack(side="left", padx=(10, 0))
         r += 1
 
         self._save_btn_row(scroll, r + 2, srv.id)
@@ -4951,6 +4959,110 @@ class ARKServerManagerApp(ctk.CTk):
             btn_row, text="🔄  Sincronizar", width=140, height=38,
             fg_color="#6a3aaa", hover_color="#7a4abb",
             command=_do_sync,
+        ).pack(side="left", padx=(0, 10))
+        ctk.CTkButton(
+            btn_row, text="Cancelar", width=100, height=38,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=dlg.destroy,
+        ).pack(side="left")
+
+    def _open_clone_config_dialog(self, source_server_id: str) -> None:
+        """Copia TODAS as configurações de um servidor para outros,
+        preservando apenas: nome interno, install_dir, session name e portas."""
+        import copy
+        src = self.config_manager.get_server(source_server_id)
+        if not src:
+            return
+
+        other_servers = [s for s in self.config_manager.servers if s.id != source_server_id]
+        if not other_servers:
+            messagebox.showinfo("Sem outros servidores",
+                                "Nenhum outro servidor cadastrado.", parent=self)
+            return
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Clonar Configurações")
+        dlg.geometry("500x440")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        ctk.CTkLabel(
+            dlg, text=f"Clonar configurações de  '{src.name}'  para:",
+            font=ctk.CTkFont(size=14, weight="bold"),
+        ).pack(padx=24, pady=(20, 4), anchor="w")
+
+        ctk.CTkLabel(
+            dlg,
+            text="Serão copiados: mapa, senhas, mods, multiplicadores, configurações\n"
+                 "avançadas, cluster, admins, backup e argumentos extras.\n"
+                 "Preservados no destino: nome, diretório, session name e portas.",
+            text_color="gray55", font=ctk.CTkFont(size=10), justify="left",
+        ).pack(padx=24, pady=(0, 12), anchor="w")
+
+        chk_vars: dict = {}
+        scroll_f = ctk.CTkScrollableFrame(dlg, fg_color="transparent", height=220)
+        scroll_f.pack(fill="both", expand=True, padx=20, pady=4)
+
+        for s in other_servers:
+            var = tk.BooleanVar(value=True)
+            chk_vars[s.id] = var
+            row_f = ctk.CTkFrame(scroll_f, fg_color="transparent")
+            row_f.pack(fill="x", pady=2)
+            ctk.CTkCheckBox(
+                row_f, text=s.name,
+                variable=var,
+                checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            ).pack(side="left", padx=8)
+            ctk.CTkLabel(
+                row_f,
+                text=s.install_dir if s.install_dir else "(sem diretório)",
+                text_color="gray45" if s.install_dir else "#ff6666",
+                font=ctk.CTkFont(size=10),
+            ).pack(side="left", padx=(4, 0))
+
+        btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_row.pack(pady=(12, 20))
+
+        def _do_clone():
+            targets = [s for s in other_servers if chk_vars[s.id].get()]
+            if not targets:
+                messagebox.showwarning("Nada selecionado",
+                                       "Selecione ao menos um servidor.", parent=dlg)
+                return
+
+            # Campos que NÃO devem ser copiados (identidade do servidor destino)
+            _KEEP = {"id", "name", "install_dir", "server_name",
+                     "server_port", "query_port", "rcon_port"}
+
+            src_dict = src.to_dict()
+            updated = 0
+            for dst in targets:
+                dst_dict = dst.to_dict()
+                # Sobrescreve tudo exceto os campos de identidade
+                merged = {k: (dst_dict[k] if k in _KEEP else copy.deepcopy(v))
+                          for k, v in src_dict.items()}
+                new_cfg = type(dst).from_dict(merged)
+                self.config_manager.update_server(new_cfg)
+                # Atualiza o server_manager com a nova config
+                self.server_manager.update_server_config(new_cfg)
+                # Reconstrói o painel do servidor destino se ele estiver criado
+                frame_key = f"server_{dst.id}"
+                if frame_key in self._frames:
+                    self._rebuild_server_panel(dst.id)
+                updated += 1
+
+            dlg.destroy()
+            messagebox.showinfo(
+                "Clonagem concluída",
+                f"Configurações copiadas para {updated} servidor(es).\n"
+                "Salve cada servidor para gerar os arquivos .ini no disco.",
+                parent=self,
+            )
+
+        ctk.CTkButton(
+            btn_row, text="📋  Clonar", width=130, height=38,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=_do_clone,
         ).pack(side="left", padx=(0, 10))
         ctk.CTkButton(
             btn_row, text="Cancelar", width=100, height=38,
