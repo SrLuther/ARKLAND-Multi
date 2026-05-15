@@ -1,15 +1,15 @@
 {
-  "version": "1.1.5",
+  "version": "1.1.6",
   "date": "2026-05-14",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.5/ARKLAND-Multi-Setup-v1.1.5.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.6/ARKLAND-Multi-Setup-v1.1.6.exe",
   "changelog": [
-    "Corre\u00e7\u00e3o cr\u00edtica: servidor preso em PARANDO (shutdown RCON em thread, cascata terminate/kill)",
-    "Bot\u00e3o Cancelar durante INICIANDO/PARANDO",
-    "Timeout de inicializa\u00e7\u00e3o: 15 -> 45 minutos",
-    "Dashboard exibe LAN/WAN em tempo real",
-    "Nova aba Admins (AllowedCheaterSteamIDs.txt)",
-    "ModAutoUpdater: copia mod apenas apos servidor parar (fix file locking)",
-    "ARKLAND-Updater.exe substitui script PowerShell",
-    "Lista de mods com cores alternadas"
+    "Aba Admins: busca automatica do nome Steam ao digitar o ID",
+    "Aba Admins: nome exibido na lista de admins",
+    "Nova aba Jogadores: lista jogadores online via RCON",
+    "Jogadores: acoes Kick, Ban e adicionar como Admin direto da lista",
+    "Jogadores: auto-refresh a cada 30 segundos",
+    "Sistema de BUFFs de Rates Temporarios (aba BUFFs no sidebar)",
+    "BUFFs: agendamento com deteccao de conflito, presets, backup/restore de INI",
+    "Mapa Aquatica adicionado"
   ]
 }

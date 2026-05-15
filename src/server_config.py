@@ -22,6 +22,7 @@ ARK_MAPS = [
     "Gen2",
     "LostIsland",
     "Fjordur",
+    "Aquatica",
 ]
 
 # Nomes amigáveis dos mapas
@@ -38,6 +39,7 @@ ARK_MAP_NAMES = {
     "Gen2": "Genesis Part 2",
     "LostIsland": "Lost Island",
     "Fjordur": "Fjordur",
+    "Aquatica": "Aquatica",
 }
 
 # ── Status do servidor ─────────────────────────────────────────────────────────
@@ -262,6 +264,8 @@ class ServerConfig:
 
     # Steam IDs com permissão de admin (gravados em AllowedCheaterSteamIDs.txt)
     admin_ids: List[str] = field(default_factory=list)
+    # Cache de nomes Steam resolvidos: {steam_id: display_name}
+    admin_names: Dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)

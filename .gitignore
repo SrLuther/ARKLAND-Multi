@@ -24,6 +24,10 @@ ENV/
 # NÃO versionar — cada máquina tem o seu
 # %APPDATA%\ARKLAND-Multi\config.json  ← fora do repo por natureza
 
+# Segredos locais (tokens, chaves — nunca commitar)
+.secrets.local
+*.secrets.local
+
 # VS Code
 .vscode/
 

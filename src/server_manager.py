@@ -23,11 +23,23 @@ from .server_config import (
 
 # Linhas de log do ARK SE que indicam que o servidor terminou de inicializar
 _ARK_READY_MARKERS = (
-    "Full Startup",          # linha clássica no log: "Full Startup Time ..."
+    "Full Startup",              # "Full Startup: X.XX seconds"
     "Server started",
-    "BeginPlay",             # servidor entra no game loop
+    "BeginPlay",                 # servidor entra no game loop
     "server has been listed online",
     "Networking initialized",
+    "Set New",                   # "Set NewYears event location" / "Set NewYear..."
+    "Set Summer",                # "Set Summer event location"
+    "Set Fear",                  # "Set FearEvolved event location"
+    "Set Winter",                # "Set WinterWonderland event location"
+    "Set Turkey",                # "Set TurkeyTrial event location"
+    "Set Easter",                # "Set Easter event location"
+    "Set Love",                  # "Set LoveEvolved event location"
+    "Set Anniversary",           # "Set Anniversary event location"
+    "GameMode BeginPlay",
+    "Beacon has completed",
+    "Game Engine Initialized",
+    "LogWorld: Bringing World",
 )
 # Linha que indica registro bem-sucedido no Steam (acessível WAN)
 _ARK_STEAM_MARKERS = (
@@ -322,23 +334,42 @@ class ServerManager:
         """
         Monitora o arquivo de log do ARK (ShooterGame/Saved/Logs/ShooterGame.log)
         em busca dos marcadores de pronto e WAN.
-        Fallback: se o arquivo não existir ou não contiver marcadores em
-        _STARTING_TIMEOUT segundos, promove para RUNNING automaticamente
-        (servidor pode estar rodando mas log inacessível).
+        Fallback 1: sonda RCON a cada 30s (após 60s) — se conectar, promove para RUNNING.
+        Fallback 2: timeout de 45 min — promove automaticamente se processo ativo.
         """
-        _STARTING_TIMEOUT = 45 * 60   # 45 minutos máximo esperando
-        _POLL_INTERVAL    = 3          # segundos entre leituras
+        _STARTING_TIMEOUT  = 45 * 60   # 45 minutos máximo esperando
+        _POLL_INTERVAL     = 3          # segundos entre leituras
+        _RCON_FIRST_CHECK  = 60        # aguarda 60s antes da 1ª sonda RCON
+        _RCON_CHECK_EVERY  = 30        # sonda RCON a cada 30s
 
         # Caminho do log: dois níveis acima do Win64/ → ShooterGame/Saved/Logs/
         # exe_path = .../ShooterGame/Binaries/Win64/ShooterGameServer.exe
+        # Mas se o exe estiver diretamente em install_dir, parents[2] ficaria errado;
+        # por isso tentamos o caminho canônico primeiro.
+        log_file_candidates = []
         try:
-            log_file = exe_path.parents[2] / "Saved" / "Logs" / "ShooterGame.log"
+            log_file_candidates.append(exe_path.parents[2] / "Saved" / "Logs" / "ShooterGame.log")
         except Exception:
-            log_file = None
+            pass
+        # Fallback: tenta subir só 1 nível (install_dir/ShooterGame/...)
+        try:
+            log_file_candidates.append(exe_path.parent / "ShooterGame" / "Saved" / "Logs" / "ShooterGame.log")
+        except Exception:
+            pass
+        log_file: Optional[Path] = None
+        for cand in log_file_candidates:
+            if cand.exists():
+                log_file = cand
+                break
 
         start = time.monotonic()
         last_size = 0
         found_ready = False
+        last_rcon_check = start
+
+        # Se o log ainda não existe, tenta descobrir o caminho depois
+        if log_file is None:
+            self._emit_log(server_id, "Arquivo de log do ARK não encontrado ainda. Aguardando...", "debug")
 
         while True:
             inst = self._instances.get(server_id)
@@ -351,6 +382,14 @@ class ServerManager:
                     self._set_status(server_id, SERVER_STATUS_CRASHED)
                     self._emit_log(server_id, f"Processo encerrou antes de inicializar (código {proc.returncode}).", "error")
                 break
+
+            # ── Tenta descobrir o log_file se ainda não encontrado ────────────
+            if log_file is None:
+                for cand in log_file_candidates:
+                    if cand.exists():
+                        log_file = cand
+                        self._emit_log(server_id, f"Log detectado: {log_file}", "debug")
+                        break
 
             # ── Lê novas linhas do arquivo de log ────────────────────────────
             if log_file and log_file.exists():
@@ -383,12 +422,31 @@ class ServerManager:
                                     inst.online_mode = "WAN"
                                     self._on_visibility_change(server_id, "WAN")
                                     self._emit_log(server_id, "Servidor visível publicamente (WAN/Steam).", "info")
-
-                        if found_ready:
-                            # Continua lendo para WAN, mas não precisa mais verificar timeout
-                            pass
                 except Exception:
                     pass
+
+            # ── Fallback RCON: sonda a cada 30s após 60s de espera ────────────
+            if not found_ready and inst.status == SERVER_STATUS_STARTING:
+                elapsed = time.monotonic() - start
+                since_last = time.monotonic() - last_rcon_check
+                cfg = inst.config
+                if (elapsed >= _RCON_FIRST_CHECK
+                        and since_last >= _RCON_CHECK_EVERY
+                        and cfg.rcon_enabled
+                        and cfg.rcon_password):
+                    last_rcon_check = time.monotonic()
+                    try:
+                        from .rcon_client import RconClient, RconError  # noqa: F401
+                        _rcon = RconClient("127.0.0.1", cfg.rcon_port, cfg.rcon_password)
+                        _rcon.connect()
+                        _rcon.disconnect()
+                        found_ready = True
+                        self._set_status(server_id, SERVER_STATUS_RUNNING)
+                        self._emit_log(server_id, "Servidor inicializado (detectado via RCON).", "info")
+                        inst.online_mode = "LAN"
+                        self._on_visibility_change(server_id, "LAN")
+                    except Exception:
+                        pass  # RCON ainda não disponível — continua aguardando
 
             # ── Fallback por timeout ─────────────────────────────────────────
             elapsed = time.monotonic() - start

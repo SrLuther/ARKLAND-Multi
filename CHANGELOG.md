@@ -5,6 +5,45 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.6] — 2026-05-14
+
+### Aba Admins — Busca de Nome Steam
+
+- Ao digitar um Steam ID (64-bit), o sistema busca automaticamente o nome do perfil via Steam Community (API pública, sem chave) com debounce de 900 ms.
+- Label dinâmica exibe `✅ NomeDoJogador` (verde) ou `⚠️ Perfil privado ou ID inválido` (vermelho).
+- O nome resolvido é salvo junto ao ID e exibido na lista: `🎮 76561198... • NomeDoJogador`.
+- Ao remover um admin o nome em cache também é limpo.
+
+### Nova Aba Jogadores
+
+- Nova aba **Jogadores** adicionada ao painel de cada servidor (entre Admins e Plugins).
+- Lista em tempo real dos jogadores conectados via RCON (`ListPlayers`).
+- Exibe nome e Steam ID de cada jogador.
+- Ações por jogador:
+  - **⭐ Admin** — adiciona o jogador diretamente à lista de admins (oculto se já for admin).
+  - **👢 Kick** — confirma e executa `KickPlayer <steamid>`.
+  - **🔨 Ban** — confirma com instrução de desfazer e executa `BanPlayer <steamid>`.
+- **Auto-refresh** a cada 30 segundos via checkbox na aba.
+- Requer conexão RCON ativa (aba "Console RCON").
+
+### Sistema de BUFFs de Rates Temporários
+
+- Nova aba **⚡ BUFFs** no sidebar lateral.
+- Gerenciador de eventos de rates temporários estilo eventos oficiais Studio Wildcard.
+- Tipos suportados: XP, Doma, Breeding, Farm (combináveis no mesmo evento).
+- Multiplicadores rápidos: **5x / 10x / 15x** ou **custom** por campo.
+- Agendamento com datas de início e fim (máx. 30 dias), detecção de conflito de sobreposição.
+- Presets salvos reutilizáveis com gerenciador dedicado.
+- Ao ativar: broadcast RCON → parada do servidor → backup do INI → aplicação dos rates → restart.
+- Ao desativar: broadcast RCON → parada → restore do backup → restart.
+- Card de buff ativo, lista de agendados com cancelamento, histórico de eventos.
+
+### Mapa Aquatica
+
+- **Aquatica** adicionado à lista de mapas oficiais.
+
+---
+
 ## [1.1.5] — 2026-05-14
 
 ### Parar Servidor — Correções Críticas

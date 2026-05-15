@@ -1,0 +1,7 @@
+============================================================
+ ARKLAND - Server Manager  -  Build Script
+============================================================
+
+Usando Python: C:\Users\Ciano\Documents\arkland-multi\.python-full\python.exe
+
+... foi inesperado neste momento.

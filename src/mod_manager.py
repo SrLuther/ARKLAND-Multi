@@ -123,10 +123,15 @@ class ModManager:
                 if dst_dir.exists():
                     shutil.rmtree(dst_dir)
                 shutil.copytree(src_dir, dst_dir)
-                # Copia o arquivo .mod (necessário para o servidor ARK carregar o mod)
-                src_dot_mod = src_dir / f"{mod_id}.mod"
+                # O arquivo .mod fica UM NÍVEL ACIMA da pasta do mod no workshop
+                # steamapps/workshop/content/346110/{mod_id}.mod  (NÃO dentro de {mod_id}/)
+                workshop_dir = src_dir.parent
+                src_dot_mod = workshop_dir / f"{mod_id}.mod"
                 if src_dot_mod.exists():
                     shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
+                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
+                else:
+                    self._on_log(f"Aviso: arquivo {mod_id}.mod não encontrado no workshop.", "warning")
                 self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
             except Exception as exc:
                 self._on_log(f"Erro ao instalar mod {mod_id}: {exc}", "error")
@@ -194,10 +199,11 @@ class ModManager:
                                 if dst_mod.exists():
                                     shutil.rmtree(dst_mod)
                                 shutil.copytree(src_mod, dst_mod)
-                                # Arquivo .mod necessário para o ARK carregar o mod
-                                src_dot_mod = src_mod / f"{mod_id}.mod"
+                                # O arquivo .mod fica um nível ACIMA da pasta do mod no workshop
+                                src_dot_mod = src_mod.parent / f"{mod_id}.mod"
                                 if src_dot_mod.exists():
                                     shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
+                                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
                                 self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
                                 copy_ok = True
                             except Exception as copy_exc:

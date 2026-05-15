@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.5"
+APP_VERSION: str = "1.1.6"
 BUILD_DATE: str = "2026-05-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.6",
+        "date": "2026-05-14",
+        "changes": [
+            "Aba Admins: busca automática do nome Steam ao digitar o ID (Steam Community XML, sem API key), exibido na lista.",
+            "Nova aba Jogadores: lista jogadores online via RCON ListPlayers com ações Kick, Ban e adicionar como Admin.",
+            "Jogadores: auto-refresh a cada 30 segundos via checkbox na aba.",
+            "Sistema de BUFFs de Rates Temporários: nova aba ⚡ BUFFs no sidebar com agendamento, presets, backup/restore de INI e broadcast RCON.",
+            "BUFFs: tipos XP, Doma, Breeding, Farm; multiplicadores rápidos 5x/10x/15x ou custom; máx. 30 dias.",
+            "Mapa Aquatica adicionado à lista de mapas oficiais.",
+        ],
+    },
     {
         "version": "1.1.5",
         "date": "2026-05-14",

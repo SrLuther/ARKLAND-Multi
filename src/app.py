@@ -12,8 +12,12 @@ import threading
 import tkinter as tk
 import urllib.parse
 import urllib.request
+import re
+import uuid
 import webbrowser
 import zipfile
+from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, List, Optional
 
@@ -47,6 +51,13 @@ from .ark_ini import ArkIniManager
 from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
 from .mod_auto_updater import ModAutoUpdater
+from .buff_manager import (
+    BuffManager, BuffEvent, BuffPreset, BuffRates,
+    BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM,
+    BUFF_TYPE_LABELS, BUFF_RATE_FIELDS, QUICK_PRESETS,
+    BUFF_STATUS_ACTIVE, BUFF_STATUS_SCHEDULED, BUFF_STATUS_FINISHED,
+    BUFF_STATUS_CANCELLED, BUFF_MAX_DAYS,
+)
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
 
 APP_NAME = "ARKLAND - Server Manager"
@@ -82,6 +93,33 @@ _STATUS_LABEL = {
     SERVER_STATUS_CRASHED:  "🔴 TRAVADO",
     SERVER_STATUS_UPDATING: "🟡 ATUALIZANDO",
 }
+
+# Eventos oficiais ARK: Survival Evolved  (valor → rótulo exibido)
+_ARK_OFFICIAL_EVENTS: List[tuple] = [
+    ("",                    "(nenhum evento)"),
+    ("FearEvolved",         "FearEvolved — Halloween 🎃"),
+    ("WinterWonderland",    "WinterWonderland — Natal / Ano Novo 🎄"),
+    ("TurkeyTrial",         "TurkeyTrial — Ação de Graças 🦃"),
+    ("ARKEaster",           "ARKEaster — Páscoa / Primavera 🐣"),
+    ("Summer",              "Summer — Festa de Verão ☀️"),
+    ("LoveEvolved",         "LoveEvolved — Dia dos Namorados 💝"),
+    ("Anniversary",         "Anniversary — Aniversário do ARK 🎂"),
+    ("PAX",                 "PAX — Evento PAX Prime 🎮"),
+    ("ExtinctionChronicles","ExtinctionChronicles — Extinction Chronicles 🌍"),
+    ("Genesis",             "Genesis — Evento Genesis 🧬"),
+]
+_ARK_EVENT_ID_TO_LABEL = {k: v for k, v in _ARK_OFFICIAL_EVENTS}
+_ARK_EVENT_LABEL_TO_ID = {v: k for k, v in _ARK_OFFICIAL_EVENTS}
+
+
+def _parse_listplayers(response: str) -> list:
+    """Parseia a resposta do RCON ListPlayers em lista de dicts {name, steam_id}."""
+    players = []
+    for line in response.strip().splitlines():
+        m = re.match(r"^\d+\.\s+(.+?),\s+(\d{15,})", line.strip())
+        if m:
+            players.append({"name": m.group(1).strip(), "steam_id": m.group(2).strip()})
+    return players
 
 
 # ── Helpers globais ────────────────────────────────────────────────────────────
@@ -198,10 +236,16 @@ class ARKServerManagerApp(ctk.CTk):
         self._mod_auto_updater: Optional[ModAutoUpdater] = None
         self._auto_updater_log_box: Any = None
 
+        # BUFFs
+        self._buff_manager: Optional[BuffManager] = None
+        self._buffs_body_frame: Any = None          # frame reconstruído no refresh
+        self._buffs_server_var: Any = None           # StringVar servidor selecionado
+
         self._build_ui()
         self.after(500, self._auto_start_sync)
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
+        self.after(600, self._init_buff_manager)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -251,6 +295,7 @@ class ARKServerManagerApp(ctk.CTk):
         for i, (label, key) in enumerate([
             ("🏠  Dashboard",      "dashboard"),
             ("🔄  Sincronização",  "sync"),
+            ("⚡  BUFFs",          "buffs"),
             ("⚙️  Configurações",  "config"),
             ("ℹ️  Sobre",           "sobre"),
         ]):
@@ -264,11 +309,11 @@ class ARKServerManagerApp(ctk.CTk):
             self._nav_buttons[key] = btn
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=7, column=0, sticky="ew", padx=12, pady=8)
+            row=9, column=0, sticky="ew", padx=12, pady=8)
 
         # Título "Servidores" + botão "+"
         srv_hdr = ctk.CTkFrame(sb, fg_color="transparent")
-        srv_hdr.grid(row=8, column=0, padx=12, pady=(0, 4), sticky="ew")
+        srv_hdr.grid(row=10, column=0, padx=12, pady=(0, 4), sticky="ew")
         srv_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(srv_hdr, text="SERVIDORES",
                      font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
@@ -283,12 +328,12 @@ class ARKServerManagerApp(ctk.CTk):
         # Frame scrollable para lista de servidores
         self._servers_list_sb = ctk.CTkScrollableFrame(
             sb, fg_color="transparent", height=280)
-        self._servers_list_sb.grid(row=9, column=0, sticky="ew", padx=6)
+        self._servers_list_sb.grid(row=11, column=0, sticky="ew", padx=6)
         self._servers_list_sb.grid_columnconfigure(0, weight=1)
 
         self._sidebar_update_lbl = ctk.CTkLabel(
             sb, text="", font=ctk.CTkFont(size=10), text_color="#ffaa44", wraplength=180)
-        self._sidebar_update_lbl.grid(row=10, column=0, padx=10, pady=4)
+        self._sidebar_update_lbl.grid(row=12, column=0, padx=10, pady=4)
 
     def _rebuild_server_sidebar(self) -> None:
         """Reconstrói a lista de botões de servidores na sidebar."""
@@ -341,6 +386,11 @@ class ARKServerManagerApp(ctk.CTk):
         sync.grid(row=0, column=1, sticky="nsew")
         self._build_sync_panel(sync)
         self._frames["sync"] = sync
+
+        buffs = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
+        buffs.grid(row=0, column=1, sticky="nsew")
+        self._build_buffs_panel(buffs)
+        self._frames["buffs"] = buffs
 
         conf = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         conf.grid(row=0, column=1, sticky="nsew")
@@ -685,6 +735,700 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(0, _do)
 
     # ══════════════════════════════════════════════════════════════════════════
+    # BUFFs — Rates Temporários
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _init_buff_manager(self) -> None:
+        """Inicializa o BuffManager após a UI ser construída."""
+        data_dir = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+        self._buff_manager = BuffManager(
+            data_dir=data_dir,
+            get_server_config=lambda sid: next(
+                (s for s in self.config_manager.servers if s.id == sid), None
+            ),
+            start_server=self.server_manager.start_server,
+            stop_server=self.server_manager.stop_server,
+            get_server_status=lambda sid: (
+                inst.status
+                if (inst := self.server_manager.get_instance(sid))
+                else SERVER_STATUS_STOPPED
+            ),
+            on_log=self._global_log,
+        )
+        self._buff_manager.add_change_callback(
+            lambda: self.after(0, self._refresh_buffs_ui)
+        )
+        self._refresh_buffs_ui()
+
+    def _build_buffs_panel(self, parent: ctk.CTkFrame) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # ── Cabeçalho ──────────────────────────────────────────────────────
+        hdr = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 6))
+        hdr.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            hdr, text="⚡  BUFFs — Rates Temporários",
+            font=ctk.CTkFont(size=24, weight="bold"),
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(
+            hdr,
+            text="Eventos globais de rates com início e fim automáticos — estilo servidores oficiais.",
+            text_color="gray60",
+        ).grid(row=1, column=0, sticky="w", pady=(0, 4))
+
+        btn_bar = ctk.CTkFrame(hdr, fg_color="transparent")
+        btn_bar.grid(row=0, column=2, rowspan=2, sticky="e", padx=(0, 0))
+        ctk.CTkButton(
+            btn_bar, text="⚡  Criar BUFF", height=38, width=150,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=self._open_create_buff_dialog,
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            btn_bar, text="📋  Presets", height=38, width=120,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=self._open_presets_manager,
+        ).pack(side="left")
+
+        # ── Seletor de servidor ─────────────────────────────────────────────
+        sel_bar = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
+        sel_bar.grid(row=0, column=0, sticky="ew", padx=20, pady=(80, 4))
+        sel_bar.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            sel_bar, text="Servidor:", text_color="gray60",
+            font=ctk.CTkFont(size=12),
+        ).grid(row=0, column=0, padx=(16, 8), pady=10, sticky="w")
+
+        self._buffs_server_var = tk.StringVar()
+        srv_names = [s.name for s in self.config_manager.servers]
+        srv_combo = ctk.CTkComboBox(
+            sel_bar,
+            variable=self._buffs_server_var,
+            values=srv_names if srv_names else ["(nenhum servidor)"],
+            state="readonly",
+            width=300,
+            command=lambda _: self._refresh_buffs_ui(),
+        )
+        if srv_names:
+            self._buffs_server_var.set(srv_names[0])
+        srv_combo.grid(row=0, column=1, padx=(0, 16), pady=10, sticky="w")
+
+        # ── Body scrollável (reconstruído no refresh) ───────────────────────
+        body = ctk.CTkScrollableFrame(parent, fg_color=_BG)
+        body.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 0))
+        body.grid_columnconfigure(0, weight=1)
+        self._buffs_body_frame = body
+
+    def _refresh_buffs_ui(self) -> None:
+        """Reconstrói o conteúdo dinâmico do painel BUFFs."""
+        body = self._buffs_body_frame
+        if body is None:
+            return
+
+        # Limpa conteúdo anterior
+        for w in body.winfo_children():
+            w.destroy()
+
+        bm = self._buff_manager
+        servers = self.config_manager.servers
+
+        # Resolve servidor selecionado
+        srv_id: Optional[str] = None
+        srv_name_sel = self._buffs_server_var.get() if self._buffs_server_var else ""
+        for s in servers:
+            if s.name == srv_name_sel:
+                srv_id = s.id
+                break
+
+        row_idx = 0
+
+        # ── BUFF Ativo ──────────────────────────────────────────────────────
+        ctk.CTkLabel(
+            body, text="BUFF ATIVO",
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="#88d4a0",
+        ).grid(row=row_idx, column=0, padx=20, pady=(16, 4), sticky="w")
+        row_idx += 1
+
+        active = bm.get_active_event(srv_id) if bm and srv_id else None
+        if active:
+            self._build_active_buff_card(body, row_idx, active)
+        else:
+            none_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+            none_card.grid(row=row_idx, column=0, padx=20, pady=(0, 8), sticky="ew")
+            ctk.CTkLabel(
+                none_card, text="Nenhum BUFF ativo no momento.",
+                text_color="gray50", font=ctk.CTkFont(size=12),
+            ).pack(padx=20, pady=18)
+        row_idx += 1
+
+        # ── BUFFs Agendados ─────────────────────────────────────────────────
+        ctk.CTkLabel(
+            body, text="BUFFs AGENDADOS",
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="#88d4a0",
+        ).grid(row=row_idx, column=0, padx=20, pady=(12, 4), sticky="w")
+        row_idx += 1
+
+        scheduled = bm.get_scheduled_events(srv_id) if bm and srv_id else []
+        if scheduled:
+            for evt in scheduled:
+                self._build_scheduled_buff_row(body, row_idx, evt)
+                row_idx += 1
+        else:
+            empty = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+            empty.grid(row=row_idx, column=0, padx=20, pady=(0, 4), sticky="ew")
+            ctk.CTkLabel(empty, text="Nenhum BUFF agendado.",
+                         text_color="gray50").pack(padx=20, pady=12)
+            row_idx += 1
+
+        # ── Presets Salvos ──────────────────────────────────────────────────
+        presets = bm.get_presets() if bm else []
+        if presets:
+            ctk.CTkLabel(
+                body, text="PRESETS SALVOS",
+                font=ctk.CTkFont(size=12, weight="bold"), text_color="#88d4a0",
+            ).grid(row=row_idx, column=0, padx=20, pady=(12, 4), sticky="w")
+            row_idx += 1
+            grid_f = ctk.CTkFrame(body, fg_color="transparent")
+            grid_f.grid(row=row_idx, column=0, padx=20, pady=(0, 4), sticky="ew")
+            grid_f.grid_columnconfigure((0, 1, 2), weight=1)
+            row_idx += 1
+            for ci, preset in enumerate(presets):
+                self._build_preset_chip(grid_f, ci // 3, ci % 3, preset, srv_id)
+
+        # ── Histórico ───────────────────────────────────────────────────────
+        finished = bm.get_finished_events(srv_id) if bm and srv_id else []
+        if finished:
+            ctk.CTkLabel(
+                body, text="HISTÓRICO",
+                font=ctk.CTkFont(size=12, weight="bold"), text_color="#88d4a0",
+            ).grid(row=row_idx, column=0, padx=20, pady=(12, 4), sticky="w")
+            row_idx += 1
+            for evt in finished[:10]:
+                self._build_history_row(body, row_idx, evt)
+                row_idx += 1
+
+        # Espaço final
+        ctk.CTkFrame(body, fg_color="transparent", height=30).grid(
+            row=row_idx, column=0)
+
+    def _build_active_buff_card(self, parent, row: int, event: BuffEvent) -> None:
+        card = ctk.CTkFrame(parent, fg_color="#1a2a1a", corner_radius=12)
+        card.grid(row=row, column=0, padx=20, pady=(0, 8), sticky="ew")
+        card.grid_columnconfigure(0, weight=1)
+
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.grid(row=0, column=0, padx=16, pady=(14, 4), sticky="ew")
+        top.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            top, text="🟢  BUFF ATIVO",
+            font=ctk.CTkFont(size=11, weight="bold"), text_color=_GREEN,
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkLabel(
+            top,
+            text=f"Fim: {event.end_datetime().strftime('%d/%m/%Y  %H:%M')}",
+            text_color="gray60", font=ctk.CTkFont(size=11),
+        ).grid(row=0, column=2, sticky="e")
+
+        ctk.CTkLabel(
+            card, text=event.name,
+            font=ctk.CTkFont(size=18, weight="bold"), text_color="#e8e8ff",
+        ).grid(row=1, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        types_str = "  ·  ".join(BUFF_TYPE_LABELS.get(t, t) for t in event.types)
+        ctk.CTkLabel(
+            card, text=types_str,
+            text_color="#ffaa44", font=ctk.CTkFont(size=12),
+        ).grid(row=2, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        ctk.CTkLabel(
+            card, text=event.rates.summary(),
+            text_color="gray60", font=ctk.CTkFont(size=11),
+            wraplength=700, justify="left",
+        ).grid(row=3, column=0, padx=16, pady=(0, 14), sticky="w")
+
+    def _build_scheduled_buff_row(self, parent, row: int, event: BuffEvent) -> None:
+        card = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
+        card.grid(row=row, column=0, padx=20, pady=3, sticky="ew")
+        card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            card,
+            text=f"🕐  {event.start_datetime().strftime('%d/%m/%Y  %H:%M')}  →  "
+                 f"{event.end_datetime().strftime('%d/%m/%Y  %H:%M')}",
+            text_color="gray55", font=ctk.CTkFont(size=11),
+        ).grid(row=0, column=0, padx=(16, 8), pady=(10, 2), sticky="w")
+
+        ctk.CTkLabel(
+            card, text=event.name,
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=1, column=0, padx=(16, 8), pady=(0, 2), sticky="w")
+
+        types_str = "  ·  ".join(BUFF_TYPE_LABELS.get(t, t) for t in event.types)
+        ctk.CTkLabel(card, text=types_str, text_color="#ffaa44",
+                     font=ctk.CTkFont(size=11)).grid(
+            row=2, column=0, padx=(16, 8), pady=(0, 10), sticky="w")
+
+        ctk.CTkButton(
+            card, text="✕  Cancelar", width=110, height=30,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            font=ctk.CTkFont(size=11),
+            command=lambda eid=event.id: self._cancel_buff(eid),
+        ).grid(row=0, column=2, rowspan=3, padx=16, pady=10)
+
+    def _build_preset_chip(self, parent, row: int, col: int,
+                           preset: BuffPreset, srv_id: Optional[str]) -> None:
+        card = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
+        card.grid(row=row, column=col, padx=6, pady=4, sticky="ew")
+        card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            card, text=preset.name,
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=0, column=0, padx=12, pady=(10, 2), sticky="w")
+
+        types_str = "  ·  ".join(BUFF_TYPE_LABELS.get(t, t) for t in preset.types)
+        ctk.CTkLabel(card, text=types_str, text_color="#ffaa44",
+                     font=ctk.CTkFont(size=11)).grid(
+            row=1, column=0, padx=12, pady=(0, 8), sticky="w")
+
+        if srv_id:
+            ctk.CTkButton(
+                card, text="⚡  Usar", height=28, width=80,
+                fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                font=ctk.CTkFont(size=11),
+                command=lambda p=preset, sid=srv_id: self._open_create_buff_dialog(
+                    preset=p, server_id=sid),
+            ).grid(row=2, column=0, padx=12, pady=(0, 10), sticky="w")
+
+    def _build_history_row(self, parent, row: int, event: BuffEvent) -> None:
+        is_cancelled = event.status == BUFF_STATUS_CANCELLED
+        card = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=8)
+        card.grid(row=row, column=0, padx=20, pady=2, sticky="ew")
+        card.grid_columnconfigure(1, weight=1)
+
+        icon = "✕" if is_cancelled else "✔"
+        color = "gray45" if is_cancelled else "gray55"
+        status_lbl = "Cancelado" if is_cancelled else "Finalizado"
+        ctk.CTkLabel(
+            card,
+            text=f"{icon}  {event.name}  —  {status_lbl}  "
+                 f"({event.start_datetime().strftime('%d/%m/%Y')} — "
+                 f"{event.end_datetime().strftime('%d/%m/%Y')})",
+            text_color=color, font=ctk.CTkFont(size=11),
+        ).pack(padx=16, pady=8, side="left")
+
+    def _cancel_buff(self, event_id: str) -> None:
+        if messagebox.askyesno(
+            "Cancelar BUFF",
+            "Confirmar cancelamento do BUFF agendado?",
+            parent=self,
+        ):
+            if self._buff_manager:
+                self._buff_manager.cancel_event(event_id)
+
+    # ── Diálogo: Criar BUFF ────────────────────────────────────────────────────
+
+    def _open_create_buff_dialog(
+        self,
+        preset: Optional[BuffPreset] = None,
+        server_id: Optional[str] = None,
+    ) -> None:
+        servers = self.config_manager.servers
+        if not servers:
+            messagebox.showwarning(
+                "Sem Servidores",
+                "Adicione ao menos um servidor antes de criar um BUFF.",
+                parent=self,
+            )
+            return
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Criar BUFF")
+        dlg.geometry("780x740")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            dlg, text="⚡  Criar Novo BUFF",
+            font=ctk.CTkFont(size=18, weight="bold"),
+        ).grid(row=0, column=0, padx=20, pady=(18, 4), sticky="w")
+
+        body = ctk.CTkScrollableFrame(dlg, fg_color="transparent")
+        body.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
+        body.grid_columnconfigure(0, weight=1)
+
+        r = 0
+
+        # ── Nome + Servidor ──────────────────────────────────────────────
+        top_row = ctk.CTkFrame(body, fg_color="transparent")
+        top_row.grid(row=r, column=0, sticky="ew", padx=16, pady=(8, 4))
+        top_row.grid_columnconfigure(1, weight=1)
+        top_row.grid_columnconfigure(3, weight=1)
+        r += 1
+
+        ctk.CTkLabel(top_row, text="Nome do BUFF:", width=110, anchor="w").grid(
+            row=0, column=0, sticky="w")
+        name_var = tk.StringVar(value=preset.name + " (cópia)" if preset else "")
+        ctk.CTkEntry(top_row, textvariable=name_var, height=36).grid(
+            row=0, column=1, sticky="ew", padx=(8, 16))
+
+        ctk.CTkLabel(top_row, text="Servidor:", width=80, anchor="w").grid(
+            row=0, column=2, sticky="w")
+        srv_var = tk.StringVar()
+        srv_names = [s.name for s in servers]
+        if server_id:
+            presel = next((s.name for s in servers if s.id == server_id), srv_names[0])
+        else:
+            presel = self._buffs_server_var.get() if self._buffs_server_var else srv_names[0]
+        srv_var.set(presel)
+        ctk.CTkComboBox(
+            top_row, variable=srv_var, values=srv_names,
+            state="readonly", width=220,
+        ).grid(row=0, column=3, sticky="w", padx=(8, 0))
+
+        # ── Tipos ────────────────────────────────────────────────────────
+        ctk.CTkLabel(
+            body, text="TIPOS DE BUFF",
+            font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
+        ).grid(row=r, column=0, padx=18, pady=(12, 4), sticky="w")
+        r += 1
+
+        types_frame = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+        types_frame.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
+        r += 1
+
+        type_vars: Dict[str, tk.BooleanVar] = {}
+        preset_types = preset.types if preset else []
+        for ci, btype in enumerate([BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM]):
+            var = tk.BooleanVar(value=(btype in preset_types) if preset_types else True)
+            type_vars[btype] = var
+            ctk.CTkCheckBox(
+                types_frame,
+                text=BUFF_TYPE_LABELS[btype],
+                variable=var,
+                font=ctk.CTkFont(size=13),
+            ).grid(row=0, column=ci, padx=20, pady=14, sticky="w")
+
+        # ── Preset rápido ────────────────────────────────────────────────
+        ctk.CTkLabel(
+            body, text="PRESET RÁPIDO",
+            font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
+        ).grid(row=r, column=0, padx=18, pady=(10, 4), sticky="w")
+        r += 1
+
+        quick_frame = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+        quick_frame.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
+        r += 1
+
+        rate_vars: Dict[str, tk.StringVar] = {}
+
+        def _fill_quick(mult: int) -> None:
+            vals = QUICK_PRESETS.get(mult, {})
+            for btype, fields in vals.items():
+                if type_vars[btype].get():
+                    for fname, fval in fields.items():
+                        if fname in rate_vars:
+                            rate_vars[fname].set(str(fval))
+
+        ctk.CTkLabel(quick_frame, text="Aplicar multiplicador a todos os tipos selecionados:",
+                     text_color="gray60", font=ctk.CTkFont(size=11)).grid(
+            row=0, column=0, columnspan=5, padx=16, pady=(12, 4), sticky="w")
+        for ci, mult in enumerate((5, 10, 15)):
+            ctk.CTkButton(
+                quick_frame, text=f"{mult}x", width=72, height=34,
+                fg_color="#2a2a44", hover_color="#1e2a3a",
+                command=lambda m=mult: _fill_quick(m),
+            ).grid(row=1, column=ci, padx=(16 if ci == 0 else 8, 0), pady=(4, 14))
+
+        # Preset salvo
+        presets_list = self._buff_manager.get_presets() if self._buff_manager else []
+        if presets_list:
+            ctk.CTkLabel(quick_frame, text="Usar preset salvo:",
+                         text_color="gray60", font=ctk.CTkFont(size=11)).grid(
+                row=1, column=3, padx=(24, 4), pady=(4, 14))
+
+            def _apply_preset_combo(pname: str) -> None:
+                found = next((p for p in presets_list if p.name == pname), None)
+                if not found:
+                    return
+                for t in [BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM]:
+                    type_vars[t].set(t in found.types)
+                for fname in rate_vars:
+                    val = getattr(found.rates, fname, None)
+                    rate_vars[fname].set(str(val) if val is not None else "")
+
+            ctk.CTkComboBox(
+                quick_frame,
+                values=[p.name for p in presets_list],
+                state="readonly", width=200,
+                command=_apply_preset_combo,
+            ).grid(row=1, column=4, padx=(0, 16), pady=(4, 14))
+
+        # ── Campos de rate por tipo ───────────────────────────────────────
+        ctk.CTkLabel(
+            body, text="MULTIPLICADORES",
+            font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
+        ).grid(row=r, column=0, padx=18, pady=(10, 4), sticky="w")
+        r += 1
+
+        rates_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+        rates_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
+        rates_card.grid_columnconfigure((1, 3, 5, 7), weight=1)
+        r += 1
+
+        preset_rates = preset.rates if preset else None
+        fr = 0
+        for btype, fields in BUFF_RATE_FIELDS.items():
+            # Separador de tipo
+            ctk.CTkLabel(
+                rates_card,
+                text=BUFF_TYPE_LABELS[btype],
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color="#ffaa44",
+            ).grid(row=fr, column=0, columnspan=8, padx=16, pady=(12, 4), sticky="w")
+            fr += 1
+
+            col = 0
+            for fname, label, is_inv in fields:
+                hint = " ↓" if is_inv else ""
+                ctk.CTkLabel(
+                    rates_card, text=f"{label}{hint}:",
+                    text_color="gray60", font=ctk.CTkFont(size=11),
+                    anchor="e", width=110,
+                ).grid(row=fr, column=col, padx=(16 if col == 0 else 4, 4),
+                       pady=6, sticky="e")
+                col += 1
+
+                init_val = ""
+                if preset_rates:
+                    v = getattr(preset_rates, fname, None)
+                    if v is not None:
+                        init_val = str(v)
+                sv = tk.StringVar(value=init_val)
+                rate_vars[fname] = sv
+                ctk.CTkEntry(
+                    rates_card, textvariable=sv, width=80, height=32,
+                    placeholder_text="1.0",
+                ).grid(row=fr, column=col, padx=(0, 16), pady=6, sticky="w")
+                col += 1
+
+                if col >= 8:
+                    col = 0
+                    fr += 1
+
+            if col > 0:
+                fr += 1
+
+        # ── Agendamento ──────────────────────────────────────────────────
+        ctk.CTkLabel(
+            body, text="AGENDAMENTO",
+            font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
+        ).grid(row=r, column=0, padx=18, pady=(10, 4), sticky="w")
+        r += 1
+
+        sched_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+        sched_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
+        r += 1
+
+        now_str = datetime.now().strftime("%d/%m/%Y %H:00")
+        ctk.CTkLabel(sched_card, text="Início:", text_color="gray60").grid(
+            row=0, column=0, padx=(16, 4), pady=14, sticky="w")
+        start_var = tk.StringVar(value=now_str)
+        ctk.CTkEntry(sched_card, textvariable=start_var, width=160,
+                     placeholder_text="DD/MM/AAAA HH:MM").grid(
+            row=0, column=1, padx=(0, 24), pady=14, sticky="w")
+
+        ctk.CTkLabel(sched_card, text="Fim:", text_color="gray60").grid(
+            row=0, column=2, padx=(0, 4), pady=14, sticky="w")
+        end_var = tk.StringVar(value=now_str)
+        ctk.CTkEntry(sched_card, textvariable=end_var, width=160,
+                     placeholder_text="DD/MM/AAAA HH:MM").grid(
+            row=0, column=3, padx=(0, 16), pady=14, sticky="w")
+
+        ctk.CTkLabel(sched_card,
+                     text="Formato: DD/MM/AAAA HH:MM  —  Máx. 30 dias",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=1, column=0, columnspan=4, padx=16, pady=(0, 10), sticky="w")
+
+        # ── Salvar como preset ───────────────────────────────────────────
+        save_preset_var = tk.BooleanVar(value=False)
+        preset_name_var = tk.StringVar()
+        sp_frame = ctk.CTkFrame(body, fg_color="transparent")
+        sp_frame.grid(row=r, column=0, padx=16, pady=(4, 4), sticky="ew")
+        r += 1
+
+        ctk.CTkCheckBox(sp_frame, text="Salvar como Preset", variable=save_preset_var).pack(
+            side="left", padx=(0, 12))
+        ctk.CTkEntry(sp_frame, textvariable=preset_name_var, width=220,
+                     placeholder_text="Nome do Preset").pack(side="left")
+
+        # ── Status / erro ─────────────────────────────────────────────────
+        err_var = tk.StringVar()
+        err_lbl = ctk.CTkLabel(body, textvariable=err_var,
+                               text_color="#ff6666", font=ctk.CTkFont(size=11),
+                               wraplength=700, justify="left")
+        err_lbl.grid(row=r, column=0, padx=18, pady=(4, 0), sticky="w")
+        r += 1
+
+        # ── Botões ────────────────────────────────────────────────────────
+        btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_row.grid(row=2, column=0, pady=(8, 16), padx=16, sticky="e")
+
+        def _parse_dt(s: str) -> Optional[str]:
+            """Converte DD/MM/AAAA HH:MM para ISO 8601."""
+            s = s.strip()
+            for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y %H:%M:%S"):
+                try:
+                    return datetime.strptime(s, fmt).isoformat()
+                except ValueError:
+                    pass
+            return None
+
+        def _collect_rates() -> BuffRates:
+            kwargs: Dict[str, float] = {}
+            for fname, sv in rate_vars.items():
+                raw = sv.get().strip()
+                if raw:
+                    try:
+                        kwargs[fname] = float(raw.replace(",", "."))
+                    except ValueError:
+                        pass
+            return BuffRates(**kwargs)
+
+        def _do_schedule() -> None:
+            name = name_var.get().strip()
+            selected_types = [t for t, v in type_vars.items() if v.get()]
+
+            start_iso = _parse_dt(start_var.get())
+            end_iso   = _parse_dt(end_var.get())
+            if not start_iso or not end_iso:
+                err_var.set("Data/hora inválida. Use DD/MM/AAAA HH:MM.")
+                return
+
+            srv_name = srv_var.get()
+            sel_srv = next((s for s in servers if s.name == srv_name), None)
+            if not sel_srv:
+                err_var.set("Servidor não encontrado.")
+                return
+
+            rates = _collect_rates()
+
+            event = BuffEvent(
+                id=str(uuid.uuid4()),
+                name=name,
+                server_id=sel_srv.id,
+                types=selected_types,
+                rates=rates,
+                start_dt=start_iso,
+                end_dt=end_iso,
+                status=BUFF_STATUS_SCHEDULED,
+            )
+
+            if not self._buff_manager:
+                err_var.set("BuffManager não inicializado.")
+                return
+
+            # Salva preset se solicitado
+            if save_preset_var.get():
+                pname = preset_name_var.get().strip() or name
+                self._buff_manager.save_preset(BuffPreset(
+                    id=str(uuid.uuid4()),
+                    name=pname,
+                    types=selected_types,
+                    rates=rates,
+                ))
+
+            err = self._buff_manager.add_event(event)
+            if err:
+                err_var.set(err)
+                return
+
+            dlg.destroy()
+
+        ctk.CTkButton(btn_row, text="Cancelar", width=120, height=40,
+                      fg_color="#2a2a44", hover_color="#1e2a3a",
+                      command=dlg.destroy).pack(side="left", padx=(0, 12))
+        ctk.CTkButton(btn_row, text="⚡  Agendar BUFF", width=180, height=40,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      command=_do_schedule).pack(side="left")
+
+    # ── Diálogo: Gerenciar Presets ─────────────────────────────────────────────
+
+    def _open_presets_manager(self) -> None:
+        if not self._buff_manager:
+            return
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Gerenciar Presets de BUFF")
+        dlg.geometry("680x540")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(dlg, text="📋  Presets de BUFF",
+                     font=ctk.CTkFont(size=18, weight="bold")).grid(
+            row=0, column=0, padx=20, pady=(18, 4), sticky="w")
+
+        def _rebuild() -> None:
+            for w in list_frame.winfo_children():
+                w.destroy()
+            presets = self._buff_manager.get_presets() if self._buff_manager else []
+            if not presets:
+                ctk.CTkLabel(list_frame, text="Nenhum preset salvo.",
+                             text_color="gray50").pack(pady=30)
+                return
+            for preset in presets:
+                row_f = ctk.CTkFrame(list_frame, fg_color=_CARD_BG, corner_radius=10)
+                row_f.pack(fill="x", padx=16, pady=4)
+                row_f.grid_columnconfigure(0, weight=1)
+
+                ctk.CTkLabel(row_f, text=preset.name,
+                             font=ctk.CTkFont(size=13, weight="bold")).grid(
+                    row=0, column=0, padx=14, pady=(10, 2), sticky="w")
+                types_str = "  ·  ".join(BUFF_TYPE_LABELS.get(t, t) for t in preset.types)
+                ctk.CTkLabel(row_f, text=types_str, text_color="#ffaa44",
+                             font=ctk.CTkFont(size=11)).grid(
+                    row=1, column=0, padx=14, pady=(0, 4), sticky="w")
+                ctk.CTkLabel(row_f,
+                             text=preset.rates.summary(),
+                             text_color="gray55",
+                             font=ctk.CTkFont(size=10),
+                             wraplength=480, justify="left").grid(
+                    row=2, column=0, padx=14, pady=(0, 10), sticky="w")
+
+                btn_f = ctk.CTkFrame(row_f, fg_color="transparent")
+                btn_f.grid(row=0, column=1, rowspan=3, padx=14, pady=10)
+                ctk.CTkButton(
+                    btn_f, text="🗑", width=40, height=34,
+                    fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                    command=lambda pid=preset.id: _delete(pid),
+                ).pack()
+
+        def _delete(pid: str) -> None:
+            if messagebox.askyesno("Excluir Preset", "Confirmar exclusão?", parent=dlg):
+                if self._buff_manager:
+                    self._buff_manager.delete_preset(pid)
+                _rebuild()
+
+        list_frame = ctk.CTkScrollableFrame(dlg, fg_color="transparent")
+        list_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=4)
+        _rebuild()
+
+        ctk.CTkButton(dlg, text="Fechar", height=38,
+                      fg_color="#2a2a44", hover_color="#1e2a3a",
+                      command=dlg.destroy).grid(
+            row=2, column=0, padx=20, pady=(4, 16), sticky="e")
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Dashboard
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -954,17 +1698,18 @@ class ARKServerManagerApp(ctk.CTk):
         tabs.grid(row=2, column=0, padx=14, pady=12, sticky="nsew")
         self._server_widgets[srv.id]["_tabs"] = tabs
 
-        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Plugins", "Console RCON", "Logs"):
+        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs"):
             tabs.add(tab_name)
 
-        self._build_tab_general (tabs.tab("Geral"),         srv)
-        self._build_tab_game    (tabs.tab("Jogo"),          srv)
-        self._build_tab_advanced(tabs.tab("Avançado"),      srv)
-        self._build_tab_mods    (tabs.tab("Mods"),          srv)
-        self._build_tab_admins  (tabs.tab("Admins"),        srv)
-        self._build_tab_plugins (tabs.tab("Plugins"),       srv)
-        self._build_tab_rcon    (tabs.tab("Console RCON"),  srv)
-        self._build_tab_logs    (tabs.tab("Logs"),          srv)
+        self._build_tab_general   (tabs.tab("Geral"),         srv)
+        self._build_tab_game      (tabs.tab("Jogo"),          srv)
+        self._build_tab_advanced  (tabs.tab("Avançado"),      srv)
+        self._build_tab_mods      (tabs.tab("Mods"),          srv)
+        self._build_tab_admins    (tabs.tab("Admins"),        srv)
+        self._build_tab_jogadores (tabs.tab("Jogadores"),     srv)
+        self._build_tab_plugins   (tabs.tab("Plugins"),       srv)
+        self._build_tab_rcon      (tabs.tab("Console RCON"),  srv)
+        self._build_tab_logs      (tabs.tab("Logs"),          srv)
 
         # Aplicar estado inicial de bloqueio se servidor não estiver parado
         if not is_stopped:
@@ -1020,7 +1765,9 @@ class ARKServerManagerApp(ctk.CTk):
         w["query_port"]      = tk.StringVar(value=str(srv.query_port))
         w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
         w["extra_args"]      = tk.StringVar(value=srv.extra_args)
-        w["active_event"]    = tk.StringVar(value=srv.active_event)
+        # active_event: armazena o label exibido; salvar converte de volta para ID
+        _evt_label = _ARK_EVENT_ID_TO_LABEL.get(srv.active_event, srv.active_event)
+        w["active_event"]    = tk.StringVar(value=_evt_label)
         w["auto_save"]       = tk.StringVar(value=str(srv.auto_save_period))
 
         self._section_lbl(scroll, 0, "🖥️  Identificação")
@@ -1068,8 +1815,9 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._section_lbl(scroll, 15, "⚙️  Opções de Inicialização")
         row("Evento Ativo:",
-            "Ex: WinterWonderland, FearEvolved. Deixe vazio para sem evento.",
-            w["active_event"], 16)
+            "Selecione o evento oficial ou deixe vazio para nenhum.",
+            w["active_event"], 16,
+            combo=[v for _, v in _ARK_OFFICIAL_EVENTS])
         row("Auto-Save (min):",
             "Intervalo de salvamento automático em minutos. Padrão: 15.",
             w["auto_save"], 17)
@@ -2129,6 +2877,23 @@ class ARKServerManagerApp(ctk.CTk):
     # Aba Admins
     # ══════════════════════════════════════════════════════════════════════════
 
+    @staticmethod
+    def _fetch_steam_name(steam_id: str, callback) -> None:
+        """Busca o nome do perfil Steam em thread separada e chama callback(name_or_none)."""
+        def _worker():
+            try:
+                url = f"https://steamcommunity.com/profiles/{steam_id}?xml=1"
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    raw = resp.read().decode("utf-8", errors="replace")
+                # Extrai <steamID><![CDATA[Nome]]></steamID>
+                m = re.search(r"<steamID(?:[^>]*)>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</steamID>", raw, re.DOTALL)
+                name = m.group(1).strip() if m else None
+                callback(name)
+            except Exception:
+                callback(None)
+        threading.Thread(target=_worker, daemon=True).start()
+
     def _build_tab_admins(self, parent, srv: ServerConfig) -> None:
         parent.grid_columnconfigure(0, weight=1)
         parent.grid_rowconfigure(1, weight=1)
@@ -2146,17 +2911,43 @@ class ARKServerManagerApp(ctk.CTk):
                              placeholder_text="Ex: 76561198000000000")
         entry.grid(row=0, column=1, padx=(0, 8), pady=(14, 4), sticky="ew")
         entry.bind("<Return>", lambda _e: self._add_admin_id(srv.id))
+
         ctk.CTkButton(
             add_card, text="➕ Adicionar", width=110, height=34,
             fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
             command=lambda: self._add_admin_id(srv.id),
         ).grid(row=0, column=2, padx=(0, 16), pady=(14, 4))
 
+        # Label de preview do nome Steam
+        w["_admin_name_preview"] = ctk.CTkLabel(
+            add_card, text="", text_color="gray50",
+            font=ctk.CTkFont(size=11), anchor="w",
+        )
+        w["_admin_name_preview"].grid(row=1, column=1, padx=(0, 8), pady=(0, 4), sticky="w")
+
+        # Debounce: inicia lookup 1s após parar de digitar
+        w["_admin_lookup_after"] = None
+
+        def _on_id_change(*_):
+            if w.get("_admin_lookup_after"):
+                try:
+                    self.after_cancel(w["_admin_lookup_after"])
+                except Exception:
+                    pass
+            steam_id = w["new_admin_id"].get().strip()
+            if not steam_id or not steam_id.isdigit() or len(steam_id) < 15:
+                w["_admin_name_preview"].configure(text="", text_color="gray50")
+                return
+            w["_admin_name_preview"].configure(text="🔍  Buscando...", text_color="gray50")
+            w["_admin_lookup_after"] = self.after(900, lambda: self._lookup_admin_preview(srv.id, steam_id))
+
+        w["new_admin_id"].trace_add("write", _on_id_change)
+
         ctk.CTkLabel(
             add_card,
             text="💡  Cole o Steam ID de 64-bit (17 dígitos). Encontre em steamid.io ou em Detalhes do Perfil no Steam.",
             text_color="gray45", font=ctk.CTkFont(size=10), wraplength=700, justify="left",
-        ).grid(row=1, column=0, columnspan=3, padx=16, pady=(0, 10), sticky="w")
+        ).grid(row=2, column=0, columnspan=3, padx=16, pady=(0, 10), sticky="w")
 
         admins_card = ctk.CTkScrollableFrame(parent, corner_radius=10, fg_color=_CARD_BG)
         admins_card.grid(row=1, column=0, padx=12, pady=6, sticky="nsew")
@@ -2178,6 +2969,33 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._refresh_admins_list(srv.id)
 
+    def _lookup_admin_preview(self, server_id: str, steam_id: str) -> None:
+        """Busca o nome Steam e atualiza o label de preview."""
+        w = self._server_widgets.get(server_id, {})
+        # Só atualiza se o campo ainda contém o mesmo ID que disparou o lookup
+        if w.get("new_admin_id") and w["new_admin_id"].get().strip() != steam_id:
+            return
+
+        def _done(name: Optional[str]):
+            # Executa na thread principal via after
+            def _update():
+                lbl = w.get("_admin_name_preview")
+                if not lbl:
+                    return
+                # Verifica novamente se o ID não mudou
+                if w.get("new_admin_id") and w["new_admin_id"].get().strip() != steam_id:
+                    return
+                if name:
+                    lbl.configure(text=f"✅  {name}", text_color="#4ade80")
+                else:
+                    lbl.configure(text="⚠️  Perfil privado ou ID inválido", text_color="#f87171")
+            try:
+                self.after(0, _update)
+            except Exception:
+                pass
+
+        self._fetch_steam_name(steam_id, _done)
+
     def _refresh_admins_list(self, server_id: str) -> None:
         srv = self.config_manager.get_server(server_id)
         w = self._server_widgets.get(server_id, {})
@@ -2197,8 +3015,10 @@ class ARKServerManagerApp(ctk.CTk):
             row_fr = ctk.CTkFrame(frame, corner_radius=8, fg_color="#252535")
             row_fr.pack(fill="x", padx=8, pady=3)
             row_fr.grid_columnconfigure(0, weight=1)
+            display_name = srv.admin_names.get(steam_id, "")
+            label_text = f"🎮  {steam_id}" + (f"  •  {display_name}" if display_name else "")
             ctk.CTkLabel(
-                row_fr, text=f"🎮  {steam_id}",
+                row_fr, text=label_text,
                 font=ctk.CTkFont(size=13), anchor="w",
             ).grid(row=0, column=0, padx=12, pady=8, sticky="w")
             ctk.CTkButton(
@@ -2230,8 +3050,18 @@ class ARKServerManagerApp(ctk.CTk):
             var.set("")
             return
         srv.admin_ids.append(steam_id)
+        # Salva o nome resolvido se o preview mostra um nome válido
+        w = self._server_widgets.get(server_id, {})
+        lbl = w.get("_admin_name_preview")
+        if lbl:
+            preview = lbl.cget("text")
+            if preview.startswith("✅  "):
+                srv.admin_names[steam_id] = preview[3:].strip()
         self.config_manager.update_server(srv)
         var.set("")
+        lbl = w.get("_admin_name_preview")
+        if lbl:
+            lbl.configure(text="", text_color="gray50")
         self._refresh_admins_list(server_id)
 
     def _remove_admin_id(self, server_id: str, steam_id: str) -> None:
@@ -2240,8 +3070,215 @@ class ARKServerManagerApp(ctk.CTk):
             return
         if steam_id in srv.admin_ids:
             srv.admin_ids.remove(steam_id)
+        srv.admin_names.pop(steam_id, None)
         self.config_manager.update_server(srv)
         self._refresh_admins_list(server_id)
+
+    # Aba Jogadores
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_jogadores(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        # Header card
+        hdr = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        hdr.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
+        hdr.grid_columnconfigure(1, weight=1)
+
+        w["_players_count_var"] = tk.StringVar(value="— Jogadores online")
+        ctk.CTkLabel(
+            hdr, textvariable=w["_players_count_var"],
+            font=ctk.CTkFont(size=14, weight="bold"),
+        ).grid(row=0, column=0, padx=16, pady=12, sticky="w")
+
+        btn_row = ctk.CTkFrame(hdr, fg_color="transparent")
+        btn_row.grid(row=0, column=1, padx=8, pady=8, sticky="e")
+
+        w["_players_auto_var"] = tk.BooleanVar(value=False)
+        w["_players_auto_job"] = None
+        ctk.CTkCheckBox(
+            btn_row, text="Auto (30s)", variable=w["_players_auto_var"],
+            command=lambda: self._toggle_players_auto(srv.id),
+        ).pack(side="left", padx=(0, 12))
+        ctk.CTkButton(
+            btn_row, text="🔄  Atualizar", width=120, height=32,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=lambda: self._refresh_players(srv.id),
+        ).pack(side="left", padx=(0, 16))
+
+        ctk.CTkLabel(
+            hdr,
+            text="⚡  Requer conexão RCON ativa (aba Console RCON). Ações: Kick, Ban, Adicionar como Admin.",
+            text_color="gray45", font=ctk.CTkFont(size=10), wraplength=700, justify="left",
+        ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 10), sticky="w")
+
+        # Lista de jogadores
+        players_frame = ctk.CTkScrollableFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        players_frame.grid(row=1, column=0, padx=12, pady=6, sticky="nsew")
+        players_frame.grid_columnconfigure(0, weight=1)
+        w["_players_list_frame"] = players_frame
+
+        ctk.CTkLabel(
+            players_frame,
+            text="Clique em 'Atualizar' para listar os jogadores conectados.",
+            text_color="gray50",
+        ).pack(pady=20)
+
+    def _refresh_players(self, server_id: str) -> None:
+        client = self._rcon_clients.get(server_id)
+        w = self._server_widgets.get(server_id, {})
+        frame = w.get("_players_list_frame")
+        count_var: Optional[tk.StringVar] = w.get("_players_count_var")
+        if not frame:
+            return
+        if not client or not client.is_connected:
+            for child in frame.winfo_children():
+                child.destroy()
+            ctk.CTkLabel(
+                frame,
+                text="⚠️  RCON não conectado.\nVá até a aba 'Console RCON' e clique em 'Conectar' primeiro.",
+                text_color="#f87171",
+            ).pack(pady=20)
+            if count_var:
+                count_var.set("— Sem conexão RCON")
+            return
+        if count_var:
+            count_var.set("⏳ Buscando jogadores...")
+
+        def _do():
+            ok, result = client.send_command_safe("ListPlayers")
+            self.after(0, lambda: self._update_players_list(server_id, ok, result or ""))
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _update_players_list(self, server_id: str, ok: bool, response: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        frame = w.get("_players_list_frame")
+        count_var: Optional[tk.StringVar] = w.get("_players_count_var")
+        if not frame:
+            return
+        for child in frame.winfo_children():
+            child.destroy()
+        if not ok:
+            ctk.CTkLabel(frame, text=f"Erro RCON: {response}", text_color="#f87171").pack(pady=20)
+            if count_var:
+                count_var.set("Erro ao listar jogadores")
+            return
+        players = _parse_listplayers(response)
+        if not players:
+            ctk.CTkLabel(
+                frame, text="Nenhum jogador conectado no momento.", text_color="gray50",
+            ).pack(pady=20)
+            if count_var:
+                count_var.set("0 jogadores online")
+            return
+        n = len(players)
+        if count_var:
+            count_var.set(f"{n} jogador{'es' if n != 1 else ''} online")
+        for p in players:
+            self._build_player_row(frame, server_id, p["name"], p["steam_id"])
+
+    def _build_player_row(self, parent, server_id: str, name: str, steam_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        row_fr = ctk.CTkFrame(parent, corner_radius=8, fg_color="#252535")
+        row_fr.pack(fill="x", padx=8, pady=3)
+        row_fr.grid_columnconfigure(0, weight=1)
+
+        info = ctk.CTkFrame(row_fr, fg_color="transparent")
+        info.grid(row=0, column=0, padx=12, pady=6, sticky="w")
+        ctk.CTkLabel(
+            info, text=f"🧑  {name}",
+            font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            info, text=steam_id,
+            font=ctk.CTkFont(size=10), text_color="gray55", anchor="w",
+        ).pack(anchor="w")
+
+        btns = ctk.CTkFrame(row_fr, fg_color="transparent")
+        btns.grid(row=0, column=1, padx=(0, 8), pady=4, sticky="e")
+
+        is_admin = srv and steam_id in srv.admin_ids
+        if not is_admin:
+            ctk.CTkButton(
+                btns, text="⭐ Admin", width=82, height=28,
+                fg_color="#2d4a2d", hover_color="#3d6a3d",
+                command=lambda: self._player_add_admin(server_id, steam_id, name),
+            ).pack(side="left", padx=3)
+        ctk.CTkButton(
+            btns, text="👢 Kick", width=74, height=28,
+            fg_color="#4a3a1a", hover_color="#6a5020",
+            command=lambda: self._player_kick(server_id, steam_id, name),
+        ).pack(side="left", padx=3)
+        ctk.CTkButton(
+            btns, text="🔨 Ban", width=74, height=28,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            command=lambda: self._player_ban(server_id, steam_id, name),
+        ).pack(side="left", padx=3)
+
+    def _player_kick(self, server_id: str, steam_id: str, name: str) -> None:
+        if not messagebox.askyesno(
+            "Confirmar Kick",
+            f"Kickar o jogador '{name}'?\n\nSteam ID: {steam_id}",
+            parent=self,
+        ):
+            return
+        self._rcon_exec(server_id, f"KickPlayer {steam_id}")
+        self.after(1500, lambda: self._refresh_players(server_id))
+
+    def _player_ban(self, server_id: str, steam_id: str, name: str) -> None:
+        if not messagebox.askyesno(
+            "Confirmar Ban",
+            f"Banir permanentemente '{name}'?\n\nSteam ID: {steam_id}\n\nPara desfazer use o console: UnbanPlayer {steam_id}",
+            parent=self,
+        ):
+            return
+        self._rcon_exec(server_id, f"BanPlayer {steam_id}")
+        self.after(1500, lambda: self._refresh_players(server_id))
+
+    def _player_add_admin(self, server_id: str, steam_id: str, name: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv or steam_id in srv.admin_ids:
+            return
+        srv.admin_ids.append(steam_id)
+        if name:
+            srv.admin_names[steam_id] = name
+        self.config_manager.update_server(srv)
+        self._refresh_admins_list(server_id)
+        self._refresh_players(server_id)
+        messagebox.showinfo(
+            "Admin adicionado",
+            f"'{name}' foi adicionado à lista de admins.\nLembre-se de salvar as configurações.",
+            parent=self,
+        )
+
+    def _toggle_players_auto(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        auto_var: Optional[tk.BooleanVar] = w.get("_players_auto_var")
+        if not auto_var:
+            return
+        if auto_var.get():
+            self._schedule_players_refresh(server_id)
+        else:
+            job = w.get("_players_auto_job")
+            if job:
+                try:
+                    self.after_cancel(job)
+                except Exception:
+                    pass
+                w["_players_auto_job"] = None
+
+    def _schedule_players_refresh(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        auto_var: Optional[tk.BooleanVar] = w.get("_players_auto_var")
+        if not auto_var or not auto_var.get():
+            return
+        self._refresh_players(server_id)
+        job = self.after(30_000, lambda: self._schedule_players_refresh(server_id))
+        w["_players_auto_job"] = job
 
     # ── helpers de caminho ────────────────────────────────────────────────────
 
@@ -3126,7 +4163,8 @@ class ARKServerManagerApp(ctk.CTk):
             except (ValueError, KeyError):
                 pass
             srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
-            srv.active_event          = w.get("active_event",  tk.StringVar()).get().strip()
+            _evt_raw = w.get("active_event", tk.StringVar()).get().strip()
+            srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
             try:
                 srv.auto_save_period  = float(w.get("auto_save", tk.StringVar(value="15")).get())
             except ValueError:
@@ -4273,6 +5311,8 @@ class ARKServerManagerApp(ctk.CTk):
         for srv_id, btn in self._sidebar_server_btns.items():
             active = name == f"server_{srv_id}"
             btn.configure(fg_color="#1e2a3a" if active else "transparent")
+        if name == "buffs":
+            self.after(50, self._refresh_buffs_ui)
 
     # ── Helpers de UI ─────────────────────────────────────────────────────────
 
@@ -4403,6 +5443,8 @@ class ARKServerManagerApp(ctk.CTk):
             self._sync_engine.stop()
         if self._mod_auto_updater and self._mod_auto_updater.enabled:
             self._mod_auto_updater.stop()
+        if self._buff_manager:
+            self._buff_manager.stop()
         for srv in self.config_manager.servers:
             inst = self.server_manager.get_instance(srv.id)
             if inst and inst.status == SERVER_STATUS_RUNNING:
