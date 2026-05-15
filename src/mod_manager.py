@@ -123,13 +123,16 @@ class ModManager:
                 if dst_dir.exists():
                     shutil.rmtree(dst_dir)
                 shutil.copytree(src_dir, dst_dir)
+                dot_mod_dest = mods_dir / f"{mod_id}.mod"
                 src_dot_mod = self._find_dot_mod(src_dir, mod_id)
                 if src_dot_mod:
-                    shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
+                    shutil.copy2(src_dot_mod, dot_mod_dest)
                     self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
+                elif self._create_dot_mod_from_mod_info(src_dir, mod_id, dot_mod_dest):
+                    self._on_log(f"Mod {mod_id}: .mod gerado a partir de mod.info.", "debug")
                 else:
                     self._on_log(
-                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado — "
+                        f"[ATENÇÃO] Mod {mod_id}: mod.info não encontrado — "
                         "o ARK pode ignorar este mod. Tente re-baixar.", "error"
                     )
                 self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
@@ -199,13 +202,16 @@ class ModManager:
                                 if dst_mod.exists():
                                     shutil.rmtree(dst_mod)
                                 shutil.copytree(src_mod, dst_mod)
+                                dot_mod_dest = mods_dir / f"{mod_id}.mod"
                                 src_dot_mod = self._find_dot_mod(src_mod, mod_id)
                                 if src_dot_mod:
-                                    shutil.copy2(src_dot_mod, mods_dir / f"{mod_id}.mod")
+                                    shutil.copy2(src_dot_mod, dot_mod_dest)
                                     self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
+                                elif self._create_dot_mod_from_mod_info(src_mod, mod_id, dot_mod_dest):
+                                    self._on_log(f"Mod {mod_id}: .mod gerado a partir de mod.info.", "debug")
                                 else:
                                     self._on_log(
-                                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado — "
+                                        f"[ATENÇÃO] Mod {mod_id}: mod.info não encontrado — "
                                         "o ARK pode ignorar este mod. Tente re-baixar.", "error"
                                     )
                                 self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
@@ -323,19 +329,36 @@ class ModManager:
         return f"https://steamcommunity.com/sharedfiles/filedetails/?id={mod_id}"
 
     def check_mod_installed(self, install_dir: str, mod_id: str) -> bool:
-        """Verifica se o mod está instalado (pasta E arquivo .mod presentes)."""
+        """Verifica se o mod está instalado (pasta E arquivo .mod presentes).
+        Se a pasta existe mas o .mod está ausente e mod.info está dentro da pasta,
+        gera um .mod binário válido a partir do mod.info (auto-reparo).
+        """
         base = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
-        return (base / mod_id).exists() and (base / f"{mod_id}.mod").exists()
+        mod_folder = base / mod_id
+        dot_mod = base / f"{mod_id}.mod"
+        if not mod_folder.exists():
+            return False
+        if dot_mod.exists():
+            return True
+        # Auto-reparo: gera .mod binário correto a partir de mod.info
+        if (mod_folder / "mod.info").exists():
+            if self._create_dot_mod_from_mod_info(mod_folder, mod_id, dot_mod):
+                self._on_log(
+                    f"Mod {mod_id}: .mod ausente, auto-gerado a partir de mod.info.", "info"
+                )
+                return True
+        return False
 
     @staticmethod
     def _find_dot_mod(workshop_mod_dir: Path, mod_id: str) -> Optional[Path]:
-        """Procura o arquivo .mod em múltiplos locais possíveis:
-        1) ao lado da pasta no workshop  (346110/{mod_id}.mod)
+        """Procura um arquivo .mod já pronto em múltiplos locais:
+        1) ao lado da pasta no workshop  (346110/{mod_id}.mod)  — Steam client
         2) dentro da pasta do mod        (346110/{mod_id}/{mod_id}.mod)
         3) qualquer *.mod dentro da pasta do mod
         Retorna o caminho encontrado ou None.
+        Quando None e mod.info existir, use _create_dot_mod_from_mod_info.
         """
-        # 1 — ao lado da pasta (localização padrão do SteamCMD)
+        # 1 — ao lado da pasta (localização padrão do Steam client)
         candidate = workshop_mod_dir.parent / f"{mod_id}.mod"
         if candidate.exists():
             return candidate
@@ -343,10 +366,106 @@ class ModManager:
         candidate = workshop_mod_dir / f"{mod_id}.mod"
         if candidate.exists():
             return candidate
-        # 3 — qualquer .mod dentro da pasta (fallback)
+        # 3 — qualquer *.mod dentro da pasta
         for f in workshop_mod_dir.glob("*.mod"):
             return f
         return None
+
+    @staticmethod
+    def _create_dot_mod_from_mod_info(workshop_mod_dir: Path, mod_id: str, dest: Path) -> bool:
+        """Gera um arquivo .mod binário válido para o ARK a partir do mod.info do SteamCMD.
+
+        O SteamCMD baixa mod.info mas NÃO cria o .mod externo. Os dois têm formatos
+        binários distintos — copiar mod.info diretamente como .mod causa crash no ARK
+        (BufferCount=0 / leitura inválida).
+
+        Formato mod.info (leitura, little-endian):
+            uint32  nameLen    (inclui null terminator)
+            char[]  modName    (nameLen bytes, null-terminated — nome do mod)
+            uint32  numMaps
+            for each map:
+                uint32  mapFileLen  (inclui null terminator)
+                char[]  mapFilePath (null-terminated)
+
+        Formato .mod (escrita, little-endian — baseado no arkmanager/doExtractMod):
+            uint32  modID_lo   (32 bits baixos do ID)
+            uint32  modID_hi   (32 bits altos; normalmente 0)
+            uint32  modNameLen (inclui null terminator)
+            char[]  modName    (null-terminated, lido do cabeçalho do mod.info)
+            uint32  modPathLen (inclui null terminator)
+            char[]  modPath    ("../../../ShooterGame/Content/Mods/{modid}\\0")
+            uint32  numMaps
+            for each map:
+                uint32  mapFileLen
+                char[]  mapFilePath (null-terminated)
+            bytes   \\x33\\xFF\\x22\\xFF\\x02\\x00\\x00\\x00\\x01  (magic footer)
+            bytes   conteúdo de modmeta.info (ou metadados padrão ModType=1)
+        """
+        import struct
+        mod_info_path = workshop_mod_dir / "mod.info"
+        if not mod_info_path.exists():
+            return False
+        try:
+            raw = mod_info_path.read_bytes()
+            offset = 0
+            if len(raw) < 4:
+                return False
+
+            # Cabeçalho: comprimento do nome do mod (inclui null terminator)
+            name_len = struct.unpack_from('<I', raw, offset)[0]
+            offset += 4
+            if offset + name_len > len(raw):
+                return False
+            mod_name = raw[offset: offset + name_len]  # inclui null terminator
+            offset += name_len
+
+            # Número de maps
+            if offset + 4 > len(raw):
+                return False
+            num_maps = struct.unpack_from('<I', raw, offset)[0]
+            offset += 4
+
+            # Entradas de map
+            maps: list[bytes] = []
+            for _ in range(num_maps):
+                if offset + 4 > len(raw):
+                    break
+                map_file_len = struct.unpack_from('<I', raw, offset)[0]
+                offset += 4
+                if offset + map_file_len > len(raw):
+                    break
+                maps.append(raw[offset: offset + map_file_len])  # inclui null terminator
+                offset += map_file_len
+
+            mod_id_int = int(mod_id)
+            mod_path = f"../../../ShooterGame/Content/Mods/{mod_id}\x00".encode("utf-8")
+
+            with open(dest, "wb") as f:
+                # ModID como dois uint32 LE (equivalente a uint64)
+                f.write(struct.pack("<I", mod_id_int & 0xFFFFFFFF))
+                f.write(struct.pack("<I", (mod_id_int >> 32) & 0xFFFFFFFF))
+                # Nome do mod (FString: len + bytes com null terminator)
+                f.write(struct.pack("<I", len(mod_name)))
+                f.write(mod_name)
+                # Caminho do mod
+                f.write(struct.pack("<I", len(mod_path)))
+                f.write(mod_path)
+                # Maps
+                f.write(struct.pack("<I", len(maps)))
+                for m in maps:
+                    f.write(struct.pack("<I", len(m)))
+                    f.write(m)
+                # Magic footer (9 bytes)
+                f.write(b"\x33\xFF\x22\xFF\x02\x00\x00\x00\x01")
+                # modmeta.info ou metadados padrão (ModType=1, game mod)
+                modmeta_path = workshop_mod_dir / "modmeta.info"
+                if modmeta_path.exists():
+                    f.write(modmeta_path.read_bytes())
+                else:
+                    f.write(b"\x01\x00\x00\x00\x08\x00\x00\x00ModType\x00\x02\x00\x00\x001\x00")
+            return True
+        except Exception:
+            return False
 
     def get_installed_mod_size(self, install_dir: str, mod_id: str) -> float:
         """Retorna tamanho do mod em MB, ou 0 se não instalado."""

@@ -20,6 +20,9 @@ ENV/
 # PyInstaller
 *.manifest
 
+# Build logs (gerados pelo build.bat)
+build_*.txt
+
 # Config gerado pelo app (dados do usuário)
 # NÃO versionar — cada máquina tem o seu
 # %APPDATA%\ARKLAND-Multi\config.json  ← fora do repo por natureza

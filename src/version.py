@@ -3,11 +3,37 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.10"
-BUILD_DATE: str = "2026-05-14"
+APP_VERSION: str = "1.1.13"
+BUILD_DATE: str = "2026-05-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.13",
+        "date": "2026-05-15",
+        "changes": [
+            "Correção crítica: formato .mod completamente reescrito baseado no arkmanager/doExtractMod — "
+            "mod.info começa com o nome do mod (não mapCount), e o .mod exige nome, caminho, "
+            "magic footer e modmeta.info. Corrige crash 'BufferCount=0' definitivamente.",
+        ],
+    },
+    {
+        "version": "1.1.12",
+        "date": "2026-05-15",
+        "changes": [
+            "Correção crítica: gera .mod binário correto (FUGCModImport) a partir de mod.info — "
+            "copiar mod.info diretamente causava crash 'BufferCount=0' no ARK.",
+            "Auto-reparo em check_mod_installed também usa o gerador binário correto.",
+        ],
+    },
+    {
+        "version": "1.1.11",
+        "date": "2026-05-15",
+        "changes": [
+            "Correção crítica: SteamCMD não cria arquivo .mod externo — _find_dot_mod agora usa mod.info como fallback.",
+            "Auto-reparo em check_mod_installed: se .mod ausente mas mod.info presente na pasta instalada, copia automaticamente.",
+        ],
+    },
     {
         "version": "1.1.10",
         "date": "2026-05-14",

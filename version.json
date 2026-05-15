@@ -1,12 +1,10 @@
 {
-  "version": "1.1.10",
-  "date": "2026-05-14",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.10/ARKLAND-Multi-Setup-v1.1.10.exe",
+  "version": "1.1.13",
+  "date": "2026-05-15",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.13/ARKLAND-Multi-Setup-v1.1.13.exe",
   "changelog": [
-    "Corrige mods nao carregando: verifica arquivo .mod alem da pasta",
-    "Busca .mod dentro da pasta do mod como fallback ao baixar pelo SteamCMD",
-    "Aviso pre-start se mods configurados estiverem sem arquivo .mod",
-    "Adiciona campo MOTD (Mensagem do Dia) na aba Geral de cada servidor",
-    "Salva MOTD e duracao no GameUserSettings.ini (secao [MessageOfTheDay])"
+    "Corrige crash BufferCount=0 definitivamente: formato .mod reescrito com base no arkmanager",
+    "mod.info lido corretamente (header com nome do mod antes do mapCount)",
+    "Arquivo .mod agora inclui nome, caminho, magic footer e modmeta.info"
   ]
 }

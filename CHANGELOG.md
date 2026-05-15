@@ -5,6 +5,43 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.13] — 2026-05-15
+
+### Correção crítica — Formato `.mod` completamente reescrito
+
+- **Corrige definitivamente o crash** `Invalid BufferCount=0 while reading .../Mods/{id}.mod` ao iniciar servidor com mods.
+- A versão anterior (`1.1.12`) gerava o `.mod` com estrutura errada: tratava o primeiro `uint32` do `mod.info` como `mapCount`, mas na realidade é o comprimento do nome do mod (`nameLen`).
+- O arquivo `.mod` gerado também estava incompleto — faltava o nome do mod, o caminho canônico, o magic footer e o conteúdo do `modmeta.info`.
+- `_create_dot_mod_from_mod_info` completamente reescrito com base no formato documentado pelo `arkmanager/doExtractMod`:
+  - Lê `nameLen` + `modName` do cabeçalho do `mod.info` antes de `numMaps`
+  - Escreve: `modID` → `modName` → `modPath` (`../../../ShooterGame/Content/Mods/{id}`) → mapa(s) → magic footer `\x33\xFF\x22\xFF\x02\x00\x00\x00\x01` → conteúdo do `modmeta.info`
+- **Ação necessária:** apagar os `.mod` corrompidos gerados por versões anteriores em `ShooterGame\Content\Mods\` e re-baixar os mods pelo app.
+
+---
+
+## [1.1.12] — 2026-05-15
+
+### Correção — Crash "BufferCount=0" ao iniciar servidor com mods
+
+- **Corrige crash crítico** `Invalid BufferCount=0 while reading .../Mods/{id}.mod` que derrubava o ARK ao iniciar com mods baixados via SteamCMD.
+- A versão anterior copiava `mod.info` diretamente como `{id}.mod`, mas os dois têm **formatos binários distintos**. O ARK interpretava os bytes de `mod.info` como `FUGCModImport` (uint64 ModID + FString + TArray maps) e obtinha offsets inválidos, causando o crash.
+- `_create_dot_mod_from_mod_info` agora **gera o binário `.mod` correto** — lê o `mapCount` e os caminhos de mapa do `mod.info` e escreve no formato exato `FUGCModImport` esperado pelo ARK.
+- `check_mod_installed` (auto-reparo) também usa o gerador binário correto.
+- **Ação necessária:** apagar o arquivo `{mod_id}.mod` corrompido em `ShooterGame\Content\Mods\` e re-baixar o mod pelo app.
+
+---
+
+## [1.1.11] — 2026-05-15
+
+### Correção — Mods não instalados com SteamCMD
+
+- **Corrige bug crítico** onde o SteamCMD nunca cria o arquivo `.mod` externo ao baixar mods via `workshop_download_item` — somente a pasta é criada.
+- `_find_dot_mod` agora usa `mod.info` (dentro da pasta do mod) como fallback (caso 4), que é o arquivo de metadados que o SteamCMD **sempre** baixa.
+- `check_mod_installed` agora realiza **auto-reparo**: se a pasta do mod existe e o `.mod` está ausente mas `mod.info` está presente, copia automaticamente e loga `"auto-reparado a partir de mod.info"` — corrige instalações feitas por versões anteriores sem precisar re-baixar.
+- Log indica se o `.mod` foi copiado de um `.mod` original ou gerado a partir de `mod.info`.
+
+---
+
 ## [1.1.10] — 2026-05-14
 
 ### Correção — Mods não carregando no servidor
