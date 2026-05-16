@@ -1823,12 +1823,14 @@ class ARKServerManagerApp(ctk.CTk):
         tabs.grid(row=3, column=0, padx=14, pady=12, sticky="nsew")
         self._server_widgets[srv.id]["_tabs"] = tabs
 
-        for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs", "Backup"):
+        for tab_name in ("Geral", "Jogo", "Avançado", "Spawns", "Loot", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs", "Backup"):
             tabs.add(tab_name)
 
         self._build_tab_general   (tabs.tab("Geral"),         srv)
         self._build_tab_game      (tabs.tab("Jogo"),          srv)
         self._build_tab_advanced  (tabs.tab("Avançado"),      srv)
+        self._build_tab_spawns    (tabs.tab("Spawns"),        srv)
+        self._build_tab_loot      (tabs.tab("Loot"),          srv)
         self._build_tab_mods      (tabs.tab("Mods"),          srv)
         self._build_tab_admins    (tabs.tab("Admins"),        srv)
         self._build_tab_jogadores (tabs.tab("Jogadores"),     srv)
@@ -1959,7 +1961,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         ctk.CTkLabel(motd_card, text="Mensagem:", width=190, anchor="nw",
                      text_color="gray60").grid(row=0, column=0, padx=16, pady=(12, 2), sticky="nw")
-        w["motd"] = ctk.CTkTextbox(motd_card, height=72, corner_radius=6,
+        w["motd"] = ctk.CTkTextbox(motd_card, height=100, corner_radius=6,
                                    fg_color="#1a1a2e", border_color="#3a3a5a",
                                    border_width=1, font=ctk.CTkFont(size=12))
         w["motd"].grid(row=0, column=1, padx=(0, 12), pady=(12, 2), sticky="ew")
@@ -2012,7 +2014,7 @@ class ARKServerManagerApp(ctk.CTk):
         for ci, (txt, hint_txt, var) in enumerate(checkboxes):
             self._register_config_item(srv.id, txt, hint_txt, "Geral")
             cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
-            cb_fr.grid(row=20 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+            cb_fr.grid(row=22 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
             ctk.CTkCheckBox(cb_fr, text=txt, variable=var,
                             checkmark_color="white", fg_color=_GREEN_DARK,
                             hover_color=_GREEN_HOVER).pack(anchor="w")
@@ -2020,7 +2022,7 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=10), anchor="w").pack(
                 anchor="w", padx=(26, 0), pady=(0, 2))
 
-        self._save_btn_row(scroll, 27, srv.id)
+        self._save_btn_row(scroll, 29, srv.id)
 
         # ── Seção Instalação ─────────────────────────────────────────────────
         self._section_lbl(scroll, 28, "⬇️  Instalação / Atualização do Servidor")
@@ -2654,6 +2656,743 @@ class ARKServerManagerApp(ctk.CTk):
         r += 1
 
         self._save_btn_row(scroll, r + 2, srv.id)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Spawns de Dinos
+    # ══════════════════════════════════════════════════════════════════════════
+
+    # Lista de containers de spawn conhecidos (Island + outros mapas populares)
+    _SPAWN_CONTAINERS = [
+        # Island
+        "DinoSpawnEntriesBeach_C",
+        "DinoSpawnEntriesGrassland_C",
+        "DinoSpawnEntriesForest_C",
+        "DinoSpawnEntriesJungle_C",
+        "DinoSpawnEntriesMountain_C",
+        "DinoSpawnEntriesSnow_C",
+        "DinoSpawnEntriesSwamp_C",
+        "DinoSpawnEntriesOcean_C",
+        "DinoSpawnEntriesUnderground_C",
+        # Scorched Earth
+        "DinoSpawnEntries_SE_Beach_C",
+        "DinoSpawnEntries_SE_Desert_C",
+        "DinoSpawnEntries_SE_HighDesert_C",
+        "DinoSpawnEntries_SE_Dunes_C",
+        "DinoSpawnEntries_SE_Oasis_C",
+        "DinoSpawnEntries_SE_SkyIslands_C",
+        # Aberration
+        "DinoSpawnEntries_Ab_Surface_C",
+        "DinoSpawnEntries_Ab_Fertile_C",
+        "DinoSpawnEntries_Ab_Blue_C",
+        "DinoSpawnEntries_Ab_Red_C",
+        # Extinction
+        "DinoSpawnEntriesExtinction_City_C",
+        "DinoSpawnEntriesExtinction_Wasteland_C",
+        "DinoSpawnEntriesExtinction_Snow_C",
+        "DinoSpawnEntriesExtinction_Desert_C",
+        # Ragnarok
+        "DinoSpawnEntriesRagnarok_Ice_C",
+        "DinoSpawnEntriesRagnarok_HighDesert_C",
+        "DinoSpawnEntriesRagnarok_Ocean_C",
+        # Valguero
+        "DinoSpawnEntries_Valguero_Grasslands_C",
+        "DinoSpawnEntries_Valguero_UpperForest_C",
+        # Crystal Isles
+        "DinoSpawnEntries_CrystalIsles_C",
+        # Genesis 1 & 2
+        "DinoSpawnEntries_Gen1_Bog_C",
+        "DinoSpawnEntries_Gen1_Snow_C",
+        "DinoSpawnEntries_Gen1_Volcano_C",
+        "DinoSpawnEntries_Gen2_Rockwell_C",
+    ]
+
+    def _build_tab_spawns(self, parent, srv: ServerConfig) -> None:
+        """Constrói a aba de configuração de Spawn de Dinos Customizados."""
+        adv = srv.advanced_settings
+        w   = self._server_widgets[srv.id]
+
+        outer_scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        outer_scroll.pack(fill="both", expand=True, padx=4, pady=4)
+        outer_scroll.grid_columnconfigure(0, weight=1)
+
+        # ── Cabeçalho explicativo ─────────────────────────────────────────────
+        r = 0
+        info_card = ctk.CTkFrame(outer_scroll, corner_radius=10, fg_color=_CARD_BG)
+        info_card.grid(row=r, column=0, padx=12, pady=(8, 6), sticky="ew")
+        info_card.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            info_card,
+            text="🦖  Spawn de Dinos Customizados",
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w",
+        ).grid(row=0, column=0, padx=14, pady=(10, 2), sticky="w")
+        fields_info = (
+            "📦 Container de Spawn — a \"zona\" do mapa onde os dinos aparecem (ex: DinoSpawnEntriesBeach_C = praia da Island). "
+            "Cada mapa tem seus próprios containers; escolha o da região que deseja modificar.\n"
+            "\n"
+            "📋 Entry (Registro) — um \"slot\" dentro do container representando um tipo de dino. "
+            "Um container pode ter vários entries; o ARK escolhe qual spawnar baseado no peso de cada um.\n"
+            "\n"
+            "🏷  Nome (AnEntryName) — identificador textual da entry, apenas para referência/debug. "
+            "Pode ser qualquer texto sem espaços, ex: \"MeuRex\".\n"
+            "\n"
+            "⚖  Peso (EntryWeight) — chance relativa de spawn. Peso 2.0 aparece o dobro de vezes que peso 1.0. "
+            "Se houver vários entries, o ARK sorteará proporcionalmente (ex: 1.0 + 1.0 + 2.0 = 25 % / 25 % / 50 %).\n"
+            "\n"
+            "🧬 Blueprint Path — caminho do arquivo do dino no jogo, deve começar com Blueprint' e terminar com '. "
+            "Um por linha; com múltiplos paths o ARK escolhe aleatoriamente. "
+            "Ex: Blueprint'/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP'\n"
+            "\n"
+            "🔢 Max Inimigos Mult. (apenas Substituir) — multiplica a quantidade máxima de dinos dessa zona. "
+            "1.0 = padrão; 2.0 = dobro de dinos na área; 0.5 = metade."
+        )
+        ctk.CTkLabel(
+            info_card,
+            text=fields_info,
+            text_color="gray55",
+            font=ctk.CTkFont(size=10),
+            justify="left",
+            anchor="w",
+            wraplength=860,
+        ).grid(row=1, column=0, padx=14, pady=(0, 12), sticky="w")
+        r += 1
+
+        # ── Fábrica de seção (Add / Override) ────────────────────────────────
+        def _build_spawn_section(
+            parent_frame,
+            section_label: str,
+            section_hint: str,
+            is_override: bool,
+            initial_containers: list,
+            container_store_key: str,
+        ) -> None:
+            """Constrói uma seção (Adicionar ou Substituir) de spawn containers."""
+            sec_frame = ctk.CTkFrame(parent_frame, corner_radius=10, fg_color=_CARD_BG)
+            sec_frame.pack(fill="x", padx=0, pady=(0, 10))
+            sec_frame.grid_columnconfigure(0, weight=1)
+
+            hdr = ctk.CTkFrame(sec_frame, fg_color="transparent")
+            hdr.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+            hdr.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                hdr, text=section_label,
+                font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
+            ).grid(row=0, column=0, sticky="w")
+            ctk.CTkLabel(
+                hdr, text=section_hint,
+                text_color="gray50", font=ctk.CTkFont(size=10), anchor="w",
+            ).grid(row=1, column=0, sticky="w")
+
+            containers_frame = ctk.CTkFrame(sec_frame, fg_color="transparent")
+            containers_frame.grid(row=1, column=0, padx=8, pady=(0, 4), sticky="ew")
+            containers_frame.grid_columnconfigure(0, weight=1)
+
+            w[container_store_key] = []  # List[dict]
+
+            def _add_container(initial: dict | None = None) -> None:
+                idx = len(w[container_store_key])
+                container_data: dict = {}
+                w[container_store_key].append(container_data)
+
+                card = ctk.CTkFrame(containers_frame, corner_radius=8,
+                                    fg_color="#252535", border_width=1,
+                                    border_color="#3a3a55")
+                card.grid(row=idx, column=0, padx=0, pady=(0, 8), sticky="ew")
+                card.grid_columnconfigure(1, weight=1)
+                container_data["_card"] = card
+
+                ci = 0
+
+                # Linha: container class
+                lbl_cont_fr = ctk.CTkFrame(card, fg_color="transparent")
+                lbl_cont_fr.grid(row=ci, column=0, padx=(10, 4), pady=(8, 2), sticky="w")
+                ctk.CTkLabel(lbl_cont_fr, text="Container:", anchor="w",
+                             text_color="gray65",
+                             font=ctk.CTkFont(size=11, weight="bold")).pack(anchor="w")
+                ctk.CTkLabel(lbl_cont_fr,
+                             text="Zona do mapa a modificar",
+                             anchor="w", text_color="gray40",
+                             font=ctk.CTkFont(size=9)).pack(anchor="w")
+                container_var = tk.StringVar(
+                    value=initial.get("container", "") if initial else "")
+                container_data["container_var"] = container_var
+                cont_combo = ctk.CTkComboBox(
+                    card, variable=container_var,
+                    values=self._SPAWN_CONTAINERS,
+                    width=420, height=30,
+                )
+                cont_combo.grid(row=ci, column=1, padx=(0, 4), pady=(8, 2), sticky="w")
+
+                def _remove_this(_card=card, _data=container_data,
+                                  _store_key=container_store_key):
+                    if _data in w[_store_key]:
+                        w[_store_key].remove(_data)
+                    _card.destroy()
+
+                ctk.CTkButton(card, text="✖", width=28, height=28,
+                              fg_color="#5a2020", hover_color="#7a2020",
+                              command=_remove_this).grid(
+                    row=ci, column=2, padx=(4, 10), pady=(8, 2))
+                ci += 1
+
+                # Linha: MaxDesiredNumEnemiesMultiplier (só Override)
+                if is_override:
+                    lbl_mult_fr = ctk.CTkFrame(card, fg_color="transparent")
+                    lbl_mult_fr.grid(row=ci, column=0, padx=(10, 4), pady=(4, 2), sticky="w")
+                    ctk.CTkLabel(lbl_mult_fr, text="Max Inimigos Mult.:", anchor="w",
+                                 text_color="gray65",
+                                 font=ctk.CTkFont(size=11)).pack(anchor="w")
+                    ctk.CTkLabel(lbl_mult_fr,
+                                 text="Qtd. máx. de dinos na zona\n(1.0=padrão, 2.0=dobro)",
+                                 anchor="w", text_color="gray40",
+                                 font=ctk.CTkFont(size=9)).pack(anchor="w")
+                    mult_var = tk.StringVar(
+                        value=str(initial.get("max_enemies_multiplier", 1.0)) if initial else "1.0")
+                    container_data["max_mult_var"] = mult_var
+                    ctk.CTkEntry(card, textvariable=mult_var, width=100, height=28).grid(
+                        row=ci, column=1, padx=(0, 4), pady=(4, 2), sticky="w")
+                    ci += 1
+
+                # Sub-frame de entries
+                entries_outer = ctk.CTkFrame(card, fg_color="transparent")
+                entries_outer.grid(row=ci, column=0, columnspan=3,
+                                   padx=8, pady=(4, 0), sticky="ew")
+                entries_outer.grid_columnconfigure(0, weight=1)
+                ci += 1
+
+                # Linha de cabeçalhos das entries
+                hdr_row = ctk.CTkFrame(entries_outer, fg_color="transparent")
+                hdr_row.grid(row=0, column=0, sticky="ew", pady=(0, 2))
+                hdr_row.grid_columnconfigure(1, weight=1)
+                ctk.CTkLabel(hdr_row,
+                             text="Nome  (AnEntryName)",
+                             width=130, anchor="w",
+                             text_color="gray50",
+                             font=ctk.CTkFont(size=10)).grid(row=0, column=0, padx=(2, 4))
+                ctk.CTkLabel(hdr_row,
+                             text="Peso  (EntryWeight)",
+                             width=55, anchor="w",
+                             text_color="gray50",
+                             font=ctk.CTkFont(size=10)).grid(row=0, column=1, padx=(0, 4))
+                ctk.CTkLabel(hdr_row,
+                             text="Blueprint Path(s) — um por linha  "
+                                  "(Blueprint'/Game/…/NomeDino_Character_BP.NomeDino_Character_BP')",
+                             anchor="w", text_color="gray50",
+                             font=ctk.CTkFont(size=10)).grid(
+                    row=0, column=2, padx=(0, 4), sticky="w")
+
+                entries_frame = ctk.CTkFrame(entries_outer, fg_color="transparent")
+                entries_frame.grid(row=1, column=0, sticky="ew")
+                entries_frame.grid_columnconfigure(2, weight=1)
+
+                container_data["entries"] = []
+
+                def _add_entry(initial_entry: dict | None = None,
+                                _ef=entries_frame,
+                                _cd=container_data):
+                    ei = len(_cd["entries"])
+                    entry_data: dict = {}
+                    _cd["entries"].append(entry_data)
+
+                    name_var   = tk.StringVar(
+                        value=initial_entry.get("name", "") if initial_entry else "")
+                    weight_var = tk.StringVar(
+                        value=str(initial_entry.get("weight", 1.0)) if initial_entry else "1.0")
+                    bp_var     = tk.StringVar(
+                        value="\n".join(initial_entry.get("blueprints", []))
+                        if initial_entry else "")
+                    entry_data["name_var"]   = name_var
+                    entry_data["weight_var"] = weight_var
+                    entry_data["bp_var"]     = bp_var
+
+                    row_fr = ctk.CTkFrame(_ef, fg_color="transparent")
+                    row_fr.grid(row=ei, column=0, columnspan=4,
+                                padx=0, pady=(0, 4), sticky="ew")
+                    row_fr.grid_columnconfigure(2, weight=1)
+
+                    ctk.CTkEntry(row_fr, textvariable=name_var,
+                                 width=130, height=28,
+                                 placeholder_text="Nome").grid(
+                        row=0, column=0, padx=(0, 4))
+                    ctk.CTkEntry(row_fr, textvariable=weight_var,
+                                 width=55, height=28,
+                                 placeholder_text="1.0").grid(
+                        row=0, column=1, padx=(0, 4))
+
+                    bp_box = ctk.CTkTextbox(row_fr, height=52, wrap="none")
+                    bp_box.grid(row=0, column=2, padx=(0, 4), sticky="ew")
+                    bp_box.insert("1.0", "\n".join(
+                        initial_entry.get("blueprints", [])) if initial_entry else "")
+                    entry_data["bp_box"] = bp_box
+
+                    def _remove_entry(_rd=row_fr, _ed=entry_data, _cd2=_cd):
+                        if _ed in _cd2["entries"]:
+                            _cd2["entries"].remove(_ed)
+                        _rd.destroy()
+
+                    ctk.CTkButton(row_fr, text="✖", width=26, height=28,
+                                  fg_color="#5a2020", hover_color="#7a2020",
+                                  command=_remove_entry).grid(row=0, column=3)
+
+                # Carrega entries iniciais ou cria uma em branco
+                if initial and initial.get("entries"):
+                    for ie in initial["entries"]:
+                        _add_entry(ie)
+                else:
+                    _add_entry()
+
+                # Botão "Adicionar Entry"
+                add_entry_row = ctk.CTkFrame(card, fg_color="transparent")
+                add_entry_row.grid(row=ci, column=0, columnspan=3,
+                                   padx=8, pady=(2, 8), sticky="w")
+                container_data["_add_entry_fn"] = _add_entry
+                ctk.CTkButton(
+                    add_entry_row, text="➕ Adicionar Entry",
+                    width=160, height=28,
+                    fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    command=_add_entry,
+                ).pack(side="left")
+
+            # Carrega containers iniciais
+            for init_c in initial_containers:
+                _add_container(init_c)
+
+            # Botão "Adicionar Container"
+            add_cont_row = ctk.CTkFrame(sec_frame, fg_color="transparent")
+            add_cont_row.grid(row=2, column=0, padx=12, pady=(0, 12), sticky="w")
+            ctk.CTkButton(
+                add_cont_row, text="➕ Adicionar Container de Spawn",
+                width=230, height=30,
+                fg_color=_BLUE, hover_color="#253a6a",
+                command=_add_container,
+            ).pack(side="left")
+
+        # ── Coloca as duas seções no scroll ───────────────────────────────────
+        sections_frame = ctk.CTkFrame(outer_scroll, fg_color="transparent")
+        sections_frame.grid(row=r, column=0, sticky="ew", padx=4)
+        sections_frame.grid_columnconfigure(0, weight=1)
+        r += 1
+
+        _build_spawn_section(
+            sections_frame,
+            "➕  Adicionar Spawns",
+            "Adiciona entradas a containers existentes sem remover os spawns padrão.",
+            is_override=False,
+            initial_containers=adv.npc_spawn_entries_add,
+            container_store_key="spawn_add_list",
+        )
+        _build_spawn_section(
+            sections_frame,
+            "🔄  Substituir Spawns",
+            "Substitui completamente os spawns de um container (remove os padrões).",
+            is_override=True,
+            initial_containers=adv.npc_spawn_entries_override,
+            container_store_key="spawn_override_list",
+        )
+
+        # ── Multiplicadores por Classe de Dino ────────────────────────────────
+        def _build_dino_mult_section(
+            parent_frame,
+            title: str,
+            hint: str,
+            store_key: str,
+            initial_data: list,
+        ) -> None:
+            sec = ctk.CTkFrame(parent_frame, fg_color=_CARD_BG, corner_radius=10)
+            sec.grid(row=sec.master.grid_size()[1], column=0, sticky="ew", padx=0, pady=(10, 0))
+            sec.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(sec, text=title, font=ctk.CTkFont(size=13, weight="bold")
+                         ).grid(row=0, column=0, padx=14, pady=(10, 2), sticky="w")
+            ctk.CTkLabel(sec, text=hint, text_color="gray60", wraplength=640, justify="left"
+                         ).grid(row=1, column=0, padx=14, pady=(0, 6), sticky="w")
+
+            rows_frame = ctk.CTkFrame(sec, fg_color="transparent")
+            rows_frame.grid(row=2, column=0, sticky="ew", padx=14, pady=(0, 4))
+            rows_frame.grid_columnconfigure(1, weight=1)
+
+            row_list: list[dict] = []
+            w[store_key] = row_list
+
+            def _add_row(class_name: str = "", mult: float = 1.0) -> None:
+                idx = len(row_list)
+                rf = ctk.CTkFrame(rows_frame, fg_color="#1e2a3a", corner_radius=6)
+                rf.grid(row=idx, column=0, columnspan=3, sticky="ew", pady=2)
+                rf.grid_columnconfigure(1, weight=1)
+
+                ctk.CTkLabel(rf, text="Classe:", text_color="gray60", width=50
+                             ).grid(row=0, column=0, padx=(8, 4), pady=4)
+                cn_var = tk.StringVar(value=class_name)
+                ctk.CTkEntry(rf, textvariable=cn_var, width=280, height=28,
+                             placeholder_text="Ex: Rex_Character_BP_C"
+                             ).grid(row=0, column=1, padx=4, pady=4, sticky="ew")
+                ctk.CTkLabel(rf, text="Mult:", text_color="gray60", width=36
+                             ).grid(row=0, column=2, padx=(6, 2), pady=4)
+                mt_var = tk.StringVar(value=str(mult))
+                ctk.CTkEntry(rf, textvariable=mt_var, width=70, height=28
+                             ).grid(row=0, column=3, padx=(0, 4), pady=4)
+
+                rd = {"class_name_var": cn_var, "mult_var": mt_var, "_frame": rf}
+                row_list.append(rd)
+
+                def _remove(r=rd, f=rf):
+                    row_list.remove(r)
+                    f.destroy()
+
+                ctk.CTkButton(rf, text="✖", width=28, height=28,
+                              fg_color="#5a1f1f", hover_color="#8a2a2a",
+                              command=_remove).grid(row=0, column=4, padx=(4, 8), pady=4)
+
+            for item in initial_data:
+                _add_row(item.get("class_name", ""), item.get("multiplier", 1.0))
+
+            add_row_frame = ctk.CTkFrame(sec, fg_color="transparent")
+            add_row_frame.grid(row=3, column=0, padx=14, pady=(0, 10), sticky="w")
+            ctk.CTkButton(
+                add_row_frame, text="➕ Adicionar Classe",
+                width=180, height=28,
+                fg_color=_BLUE, hover_color="#253a6a",
+                command=_add_row,
+            ).pack(side="left")
+
+        dino_mult_frame = ctk.CTkFrame(outer_scroll, fg_color="transparent")
+        dino_mult_frame.grid(row=r, column=0, sticky="ew", padx=4)
+        dino_mult_frame.grid_columnconfigure(0, weight=1)
+        r += 1
+
+        _build_dino_mult_section(
+            dino_mult_frame,
+            "🛡️  Resistência por Classe de Dino (DinoClassResistanceMultipliers)",
+            "Multiplica a resistência a dano de dinos selvagens por classe.  "
+            "2.0 = recebe metade do dano;  0.5 = recebe o dobro do dano.",
+            "dino_res_mult_list",
+            adv.dino_class_resistance_multipliers,
+        )
+        _build_dino_mult_section(
+            dino_mult_frame,
+            "⚔️  Dano por Classe de Dino (DinoClassDamageMultipliers)",
+            "Multiplica o dano causado por dinos selvagens por classe.  "
+            "2.0 = causa o dobro de dano;  0.5 = causa metade do dano.",
+            "dino_dmg_mult_list",
+            adv.dino_class_damage_multipliers,
+        )
+        _build_dino_mult_section(
+            dino_mult_frame,
+            "🛡️  Resistência — Domados (TamedDinoClassResistanceMultipliers)",
+            "Igual ao anterior, mas aplica-se a dinos domados.",
+            "tamed_dino_res_mult_list",
+            adv.tamed_dino_class_resistance_multipliers,
+        )
+        _build_dino_mult_section(
+            dino_mult_frame,
+            "⚔️  Dano — Domados (TamedDinoClassDamageMultipliers)",
+            "Igual ao anterior, mas aplica-se a dinos domados.",
+            "tamed_dino_dmg_mult_list",
+            adv.tamed_dino_class_damage_multipliers,
+        )
+
+        self._save_btn_row(outer_scroll, r, srv.id)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Loot (Supply Crate Overrides)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_loot(self, parent, srv: ServerConfig) -> None:  # noqa: C901
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(0, weight=1)
+
+        w = self._server_widgets[srv.id]
+        adv = srv.advanced_settings
+        w["loot_crate_list"] = []
+
+        outer_scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        outer_scroll.grid(row=0, column=0, sticky="nsew")
+        outer_scroll.grid_columnconfigure(0, weight=1)
+
+        # ── Cabeçalho ─────────────────────────────────────────────────────────
+        hdr = ctk.CTkFrame(outer_scroll, fg_color=_CARD_BG, corner_radius=10)
+        hdr.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="ew")
+        hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr, text="📦  Substituição de Itens de Supply Crates",
+                     font=ctk.CTkFont(size=14, weight="bold")
+                     ).grid(row=0, column=0, padx=16, pady=(12, 4), sticky="w")
+        ctk.CTkLabel(
+            hdr,
+            text=(
+                "ConfigOverrideSupplyCrateItems — substitui completamente os itens de um tipo de crate.\n"
+                "Cada override define sets de itens; cada set define entries com as classes dos itens possíveis."
+            ),
+            text_color="gray60", wraplength=660, justify="left",
+        ).grid(row=1, column=0, padx=16, pady=(0, 12), sticky="w")
+
+        # ── Container de crates ───────────────────────────────────────────────
+        crates_frame = ctk.CTkFrame(outer_scroll, fg_color="transparent")
+        crates_frame.grid(row=1, column=0, sticky="ew", padx=4)
+        crates_frame.grid_columnconfigure(0, weight=1)
+
+        _KNOWN_CRATES = [
+            "SupplyCrate_Level03_C",
+            "SupplyCrate_Level06_C",
+            "SupplyCrate_Level12_C",
+            "SupplyCrate_Level25_C",
+            "SupplyCrate_Level35_C",
+            "SupplyCrate_Level50_C",
+            "SupplyCrate_Cave_C",
+            "SupplyCrate_OceanCage_C",
+        ]
+
+        def _add_entry_row(entries_frame, entry_list, items="", weight=1.0,
+                           min_qty=1.0, max_qty=1.0,
+                           min_ql=1.0, max_ql=1.0,
+                           force_bp=False, bp_chance=0.0):
+            idx = len(entry_list)
+            ef = ctk.CTkFrame(entries_frame, fg_color="#1a2535", corner_radius=6)
+            ef.grid(row=idx, column=0, sticky="ew", pady=2)
+            ef.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(ef, text="Peso:", text_color="gray60", width=42
+                         ).grid(row=0, column=0, padx=(8, 2), pady=(6, 2))
+            wt_var = tk.StringVar(value=str(weight))
+            ctk.CTkEntry(ef, textvariable=wt_var, width=56, height=26
+                         ).grid(row=0, column=1, padx=2, pady=(6, 2), sticky="w")
+
+            # Remove button
+            def _rem_entry(ed=None, fr=ef):
+                if ed in entry_list:
+                    entry_list.remove(ed)
+                fr.destroy()
+
+            # We'll set up the dict after creating all widgets
+            ctk.CTkLabel(ef, text="Classes de Item (uma por linha):",
+                         text_color="gray60").grid(row=1, column=0, columnspan=2,
+                                                    padx=8, pady=(4, 0), sticky="w")
+            items_box = ctk.CTkTextbox(ef, height=60, width=380)
+            items_box.grid(row=2, column=0, columnspan=5, padx=8, pady=(0, 4), sticky="ew")
+            if items:
+                items_box.insert("1.0", items)
+
+            num_frame = ctk.CTkFrame(ef, fg_color="transparent")
+            num_frame.grid(row=3, column=0, columnspan=5, padx=8, pady=(0, 6), sticky="w")
+
+            def _lbl(txt): return ctk.CTkLabel(num_frame, text=txt, text_color="gray60")
+            def _ent(var, w=64): return ctk.CTkEntry(num_frame, textvariable=var, width=w, height=26)
+
+            min_qty_var = tk.StringVar(value=str(min_qty))
+            max_qty_var = tk.StringVar(value=str(max_qty))
+            min_ql_var  = tk.StringVar(value=str(min_ql))
+            max_ql_var  = tk.StringVar(value=str(max_ql))
+            bp_chance_var = tk.StringVar(value=str(bp_chance))
+            force_bp_var  = tk.BooleanVar(value=force_bp)
+
+            c = 0
+            for lbl, var in (
+                ("Qtd Min:", min_qty_var), ("Qtd Máx:", max_qty_var),
+                ("Qual Min:", min_ql_var), ("Qual Máx:", max_ql_var),
+                ("% Blueprint:", bp_chance_var),
+            ):
+                _lbl(lbl).grid(row=0, column=c, padx=(4, 1))
+                _ent(var).grid(row=0, column=c + 1, padx=(0, 8))
+                c += 2
+            ctk.CTkLabel(num_frame, text="Forçar BP:", text_color="gray60"
+                         ).grid(row=0, column=c, padx=(4, 1))
+            ctk.CTkCheckBox(num_frame, text="", variable=force_bp_var, width=24
+                            ).grid(row=0, column=c + 1, padx=(0, 8))
+
+            ed = {
+                "weight_var": wt_var, "items_box": items_box,
+                "min_qty_var": min_qty_var, "max_qty_var": max_qty_var,
+                "min_ql_var": min_ql_var, "max_ql_var": max_ql_var,
+                "force_bp_var": force_bp_var, "bp_chance_var": bp_chance_var,
+                "_frame": ef,
+            }
+            entry_list.append(ed)
+
+            ctk.CTkButton(ef, text="✖", width=28, height=26,
+                          fg_color="#5a1f1f", hover_color="#8a2a2a",
+                          command=lambda: _rem_entry(ed)).grid(
+                row=0, column=4, padx=(4, 8), pady=(6, 2))
+
+        def _add_item_set_row(sets_frame, set_list, set_data=None):
+            if set_data is None:
+                set_data = {}
+            idx = len(set_list)
+            sf = ctk.CTkFrame(sets_frame, fg_color="#17202f", corner_radius=8)
+            sf.grid(row=idx, column=0, sticky="ew", pady=4)
+            sf.grid_columnconfigure(0, weight=1)
+
+            hf = ctk.CTkFrame(sf, fg_color="transparent")
+            hf.grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 4))
+
+            def _lbl(p, txt): return ctk.CTkLabel(p, text=txt, text_color="gray60")
+            def _ent(p, var, w=64): return ctk.CTkEntry(p, textvariable=var, width=w, height=26)
+
+            sw_var   = tk.StringVar(value=str(set_data.get("set_weight", 1.0)))
+            min_var  = tk.StringVar(value=str(set_data.get("min_items", 1)))
+            max_var  = tk.StringVar(value=str(set_data.get("max_items", 2)))
+            pow_var  = tk.StringVar(value=str(set_data.get("num_items_power", 1.0)))
+            repl_var = tk.BooleanVar(value=set_data.get("items_no_replacement", True))
+
+            c = 0
+            for lbl_txt, var, w_px in (
+                ("Peso:", sw_var, 64), ("Min Itens:", min_var, 52),
+                ("Max Itens:", max_var, 52), ("Power:", pow_var, 56),
+            ):
+                _lbl(hf, lbl_txt).grid(row=0, column=c, padx=(0 if c == 0 else 4, 2))
+                _ent(hf, var, w_px).grid(row=0, column=c + 1, padx=(0, 6))
+                c += 2
+            _lbl(hf, "Sem Repet.:").grid(row=0, column=c, padx=(4, 2))
+            ctk.CTkCheckBox(hf, text="", variable=repl_var, width=24
+                            ).grid(row=0, column=c + 1, padx=(0, 4))
+
+            ctk.CTkLabel(sf, text="Entries de Itens:", text_color="gray60",
+                         font=ctk.CTkFont(size=11)
+                         ).grid(row=1, column=0, padx=14, pady=(4, 0), sticky="w")
+
+            entries_container = ctk.CTkFrame(sf, fg_color="transparent")
+            entries_container.grid(row=2, column=0, sticky="ew", padx=14)
+            entries_container.grid_columnconfigure(0, weight=1)
+            entry_list: list[dict] = []
+
+            for edata in set_data.get("entries", []):
+                _add_entry_row(
+                    entries_container, entry_list,
+                    items="\n".join(edata.get("items", [])),
+                    weight=edata.get("weight", 1.0),
+                    min_qty=edata.get("min_qty", 1.0),
+                    max_qty=edata.get("max_qty", 1.0),
+                    min_ql=edata.get("min_quality", 1.0),
+                    max_ql=edata.get("max_quality", 1.0),
+                    force_bp=edata.get("force_blueprint", False),
+                    bp_chance=edata.get("blueprint_chance", 0.0),
+                )
+
+            add_e_row = ctk.CTkFrame(sf, fg_color="transparent")
+            add_e_row.grid(row=3, column=0, padx=14, pady=(4, 8), sticky="w")
+            ctk.CTkButton(
+                add_e_row, text="➕ Adicionar Entry", width=160, height=26,
+                fg_color=_BLUE, hover_color="#253a6a",
+                command=lambda ec=entries_container, el=entry_list: _add_entry_row(ec, el),
+            ).pack(side="left")
+
+            sd = {
+                "set_weight_var": sw_var, "min_items_var": min_var,
+                "max_items_var": max_var, "num_items_power_var": pow_var,
+                "items_no_repl_var": repl_var, "entries": entry_list, "_frame": sf,
+            }
+            set_list.append(sd)
+
+            def _rem_set(sdd=sd, fr=sf):
+                if sdd in set_list:
+                    set_list.remove(sdd)
+                fr.destroy()
+
+            ctk.CTkButton(
+                hf, text="✖ Set", width=56, height=26,
+                fg_color="#5a1f1f", hover_color="#8a2a2a",
+                command=_rem_set,
+            ).grid(row=0, column=c + 2, padx=(12, 0))
+
+        def _add_crate_card(crate_data=None):
+            if crate_data is None:
+                crate_data = {}
+            idx = len(w["loot_crate_list"])
+            card = ctk.CTkFrame(crates_frame, fg_color=_CARD_BG, corner_radius=10)
+            card.grid(row=idx, column=0, sticky="ew", padx=0, pady=(0, 8))
+            card.grid_columnconfigure(0, weight=1)
+
+            # Header row
+            top_row = ctk.CTkFrame(card, fg_color="transparent")
+            top_row.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 4))
+            top_row.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(top_row, text="Classe do Crate:", text_color="gray60"
+                         ).grid(row=0, column=0, padx=(0, 4))
+
+            crate_class_var = tk.StringVar(value=crate_data.get("crate_class", ""))
+            combo = ctk.CTkComboBox(
+                top_row, variable=crate_class_var, values=_KNOWN_CRATES,
+                width=260, height=28,
+            )
+            combo.grid(row=0, column=1, padx=(0, 8), sticky="ew")
+
+            def _lbl(p, txt): return ctk.CTkLabel(p, text=txt, text_color="gray60")
+            def _ent(p, var, ww=64): return ctk.CTkEntry(p, textvariable=var, width=ww, height=26)
+
+            num_row = ctk.CTkFrame(card, fg_color="transparent")
+            num_row.grid(row=1, column=0, sticky="w", padx=12, pady=(0, 4))
+
+            min_sets_var  = tk.StringVar(value=str(crate_data.get("min_sets", 1)))
+            max_sets_var  = tk.StringVar(value=str(crate_data.get("max_sets", 1)))
+            pow_sets_var  = tk.StringVar(value=str(crate_data.get("num_sets_power", 1.0)))
+            repl_sets_var = tk.BooleanVar(value=crate_data.get("sets_no_replacement", True))
+
+            c = 0
+            for lbl_txt, var, wpx in (
+                ("Min Sets:", min_sets_var, 52),
+                ("Max Sets:", max_sets_var, 52),
+                ("NumSetsPower:", pow_sets_var, 64),
+            ):
+                _lbl(num_row, lbl_txt).grid(row=0, column=c, padx=(0 if c == 0 else 4, 2))
+                _ent(num_row, var, wpx).grid(row=0, column=c + 1, padx=(0, 8))
+                c += 2
+            _lbl(num_row, "Sets Sem Repet.:").grid(row=0, column=c, padx=(4, 2))
+            ctk.CTkCheckBox(num_row, text="", variable=repl_sets_var, width=24
+                            ).grid(row=0, column=c + 1, padx=(0, 4))
+
+            ctk.CTkLabel(card, text="Item Sets:", text_color="gray60",
+                         font=ctk.CTkFont(size=11, weight="bold")
+                         ).grid(row=2, column=0, padx=14, pady=(4, 0), sticky="w")
+
+            sets_container = ctk.CTkFrame(card, fg_color="transparent")
+            sets_container.grid(row=3, column=0, sticky="ew", padx=12)
+            sets_container.grid_columnconfigure(0, weight=1)
+            set_list: list[dict] = []
+
+            for sdata in crate_data.get("item_sets", []):
+                _add_item_set_row(sets_container, set_list, sdata)
+
+            add_set_row = ctk.CTkFrame(card, fg_color="transparent")
+            add_set_row.grid(row=4, column=0, padx=14, pady=(6, 10), sticky="w")
+            ctk.CTkButton(
+                add_set_row, text="➕ Adicionar Item Set", width=180, height=28,
+                fg_color=_BLUE, hover_color="#253a6a",
+                command=lambda sc=sets_container, sl=set_list: _add_item_set_row(sc, sl),
+            ).pack(side="left")
+
+            cd = {
+                "crate_class_var": crate_class_var,
+                "min_sets_var": min_sets_var, "max_sets_var": max_sets_var,
+                "num_sets_power_var": pow_sets_var, "sets_no_repl_var": repl_sets_var,
+                "item_sets": set_list, "_card": card,
+            }
+            w["loot_crate_list"].append(cd)
+
+            def _rem_crate(cdd=cd, fr=card):
+                if cdd in w["loot_crate_list"]:
+                    w["loot_crate_list"].remove(cdd)
+                fr.destroy()
+
+            ctk.CTkButton(
+                top_row, text="✖ Remover Crate", width=120, height=28,
+                fg_color="#5a1f1f", hover_color="#8a2a2a",
+                command=_rem_crate,
+            ).grid(row=0, column=2, padx=(8, 0))
+
+        # Carrega dados existentes
+        for cd in adv.supply_crate_overrides:
+            _add_crate_card(cd)
+
+        add_crate_row = ctk.CTkFrame(outer_scroll, fg_color="transparent")
+        add_crate_row.grid(row=2, column=0, padx=16, pady=(4, 6), sticky="w")
+        ctk.CTkButton(
+            add_crate_row, text="➕ Adicionar Override de Crate",
+            width=220, height=30,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=_add_crate_card,
+        ).pack(side="left")
+
+        self._save_btn_row(outer_scroll, 3, srv.id)
 
     # ══════════════════════════════════════════════════════════════════════════
     # Aba Mods
@@ -6736,6 +7475,163 @@ class ARKServerManagerApp(ctk.CTk):
                 except (ValueError, TypeError):
                     pass
 
+        # ── Spawn de Dinos (aba Spawns) ───────────────────────────────────
+        def _collect_spawn_list(store_key: str, is_override: bool) -> list:
+            result = []
+            for cd in w.get(store_key, []):
+                container_var = cd.get("container_var")
+                if container_var is None:
+                    continue
+                container_class = container_var.get().strip()
+                if not container_class:
+                    continue
+                entries = []
+                for ed in cd.get("entries", []):
+                    name   = ed.get("name_var", tk.StringVar()).get().strip()
+                    try:
+                        weight = float(ed.get("weight_var", tk.StringVar(value="1.0")).get())
+                    except (ValueError, TypeError):
+                        weight = 1.0
+                    bp_box = ed.get("bp_box")
+                    if bp_box:
+                        bps_raw = bp_box.get("1.0", "end").strip()
+                    else:
+                        bps_raw = ""
+                    blueprints = [b.strip() for b in bps_raw.splitlines() if b.strip()]
+                    if name or blueprints:
+                        entries.append({"name": name, "weight": weight, "blueprints": blueprints})
+                mult = 1.0
+                if is_override:
+                    try:
+                        mult = float(cd.get("max_mult_var", tk.StringVar(value="1.0")).get())
+                    except (ValueError, TypeError):
+                        mult = 1.0
+                result.append({
+                    "container": container_class,
+                    "max_enemies_multiplier": mult,
+                    "entries": entries,
+                })
+            return result
+
+        adv.npc_spawn_entries_add      = _collect_spawn_list("spawn_add_list",      is_override=False)
+        adv.npc_spawn_entries_override = _collect_spawn_list("spawn_override_list", is_override=True)
+
+        # ── Multiplicadores por Classe de Dino ────────────────────────────────
+        def _collect_dino_mult(store_key: str) -> list:
+            result = []
+            for rd in w.get(store_key, []):
+                class_name = rd.get("class_name_var", tk.StringVar()).get().strip()
+                if not class_name:
+                    continue
+                try:
+                    mult = float(rd.get("mult_var", tk.StringVar(value="1.0")).get())
+                except ValueError:
+                    mult = 1.0
+                result.append({"class_name": class_name, "multiplier": mult})
+            return result
+
+        adv.dino_class_resistance_multipliers       = _collect_dino_mult("dino_res_mult_list")
+        adv.dino_class_damage_multipliers           = _collect_dino_mult("dino_dmg_mult_list")
+        adv.tamed_dino_class_resistance_multipliers = _collect_dino_mult("tamed_dino_res_mult_list")
+        adv.tamed_dino_class_damage_multipliers     = _collect_dino_mult("tamed_dino_dmg_mult_list")
+
+        # ── Supply Crate Overrides ────────────────────────────────────────────
+        def _collect_loot_crates() -> list:
+            result = []
+            for cd in w.get("loot_crate_list", []):
+                crate_class = cd.get("crate_class_var", tk.StringVar()).get().strip()
+                if not crate_class:
+                    continue
+                try:
+                    min_sets = int(cd.get("min_sets_var", tk.StringVar(value="1")).get())
+                except ValueError:
+                    min_sets = 1
+                try:
+                    max_sets = int(cd.get("max_sets_var", tk.StringVar(value="1")).get())
+                except ValueError:
+                    max_sets = 1
+                try:
+                    num_sets_pow = float(cd.get("num_sets_power_var", tk.StringVar(value="1.0")).get())
+                except ValueError:
+                    num_sets_pow = 1.0
+                sets_no_repl = cd.get("sets_no_repl_var", tk.BooleanVar(value=True)).get()
+
+                item_sets = []
+                for isd in cd.get("item_sets", []):
+                    try:
+                        sw = float(isd.get("set_weight_var", tk.StringVar(value="1.0")).get())
+                    except ValueError:
+                        sw = 1.0
+                    try:
+                        mi = int(isd.get("min_items_var", tk.StringVar(value="1")).get())
+                    except ValueError:
+                        mi = 1
+                    try:
+                        mx = int(isd.get("max_items_var", tk.StringVar(value="2")).get())
+                    except ValueError:
+                        mx = 2
+                    try:
+                        pow_ = float(isd.get("num_items_power_var", tk.StringVar(value="1.0")).get())
+                    except ValueError:
+                        pow_ = 1.0
+                    items_no_repl = isd.get("items_no_repl_var", tk.BooleanVar(value=True)).get()
+
+                    entries = []
+                    for ed in isd.get("entries", []):
+                        try:
+                            ew = float(ed.get("weight_var", tk.StringVar(value="1.0")).get())
+                        except ValueError:
+                            ew = 1.0
+                        ib = ed.get("items_box")
+                        items_raw = ib.get("1.0", "end").strip() if ib else ""
+                        items_list = [x.strip() for x in items_raw.splitlines() if x.strip()]
+                        if not items_list:
+                            continue
+                        try:
+                            min_q = float(ed.get("min_qty_var", tk.StringVar(value="1.0")).get())
+                        except ValueError:
+                            min_q = 1.0
+                        try:
+                            max_q = float(ed.get("max_qty_var", tk.StringVar(value="1.0")).get())
+                        except ValueError:
+                            max_q = 1.0
+                        try:
+                            min_ql = float(ed.get("min_ql_var", tk.StringVar(value="1.0")).get())
+                        except ValueError:
+                            min_ql = 1.0
+                        try:
+                            max_ql = float(ed.get("max_ql_var", tk.StringVar(value="1.0")).get())
+                        except ValueError:
+                            max_ql = 1.0
+                        fbp = ed.get("force_bp_var", tk.BooleanVar(value=False)).get()
+                        try:
+                            bpc = float(ed.get("bp_chance_var", tk.StringVar(value="0.0")).get())
+                        except ValueError:
+                            bpc = 0.0
+                        entries.append({
+                            "weight": ew, "items": items_list,
+                            "min_qty": min_q, "max_qty": max_q,
+                            "min_quality": min_ql, "max_quality": max_ql,
+                            "force_blueprint": fbp, "blueprint_chance": bpc,
+                        })
+
+                    item_sets.append({
+                        "min_items": mi, "max_items": mx,
+                        "num_items_power": pow_, "set_weight": sw,
+                        "items_no_replacement": items_no_repl, "entries": entries,
+                    })
+
+                result.append({
+                    "crate_class": crate_class,
+                    "min_sets": min_sets, "max_sets": max_sets,
+                    "num_sets_power": num_sets_pow,
+                    "sets_no_replacement": sets_no_repl,
+                    "item_sets": item_sets,
+                })
+            return result
+
+        adv.supply_crate_overrides = _collect_loot_crates()
+
         # ── Cluster ───────────────────────────────────────────────────────
         cl = srv.cluster
         if "cl_enabled" in w:
@@ -6868,7 +7764,11 @@ class ARKServerManagerApp(ctk.CTk):
                 from .ark_ini import (
                     populate_config_from_gus,
                     populate_config_from_game_ini,
+                    populate_custom_game_ini_from_file,
                     read_ini_with_fallback,
+                    find_startup_bat,
+                    parse_cmdline_args,
+                    apply_cmdline_args_to_config,
                 )
                 p_gus = Path(src_folder) / "GameUserSettings.ini"
                 if p_gus.exists():
@@ -6879,6 +7779,18 @@ class ARKServerManagerApp(ctk.CTk):
                 if p_game.exists():
                     parser2 = read_ini_with_fallback(p_game, strict=False)
                     populate_config_from_game_ini(parser2, target_srv)
+                    populate_custom_game_ini_from_file(p_game, target_srv)
+
+                # Complementa com args de linha de comando do .bat de startup,
+                # que têm precedência sobre o INI no ARK (ex: breed multipliers)
+                bat = find_startup_bat(Path(src_folder))
+                if bat:
+                    try:
+                        bat_text = bat.read_text(encoding="utf-8", errors="replace")
+                        cmdline_args = parse_cmdline_args(bat_text)
+                        apply_cmdline_args_to_config(cmdline_args, target_srv)
+                    except OSError:
+                        pass
 
             try:
                 _load_from_folder(srv, folder)
@@ -7536,7 +8448,7 @@ class ARKServerManagerApp(ctk.CTk):
         if not tabs:
             return
 
-        _CONFIG_TABS = ("Geral", "Jogo", "Avançado", "Mods", "Plugins")
+        _CONFIG_TABS = ("Geral", "Jogo", "Avançado", "Spawns", "Loot", "Mods", "Plugins")
         state = "normal" if editable else "disabled"
 
         def _set_recursive(widget) -> None:

@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.17"
-BUILD_DATE: str = "2026-05-15"
+APP_VERSION: str = "1.1.21"
+BUILD_DATE: str = "2026-05-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.19",
+        "date": "2026-05-16",
+        "changes": [
+            "Novo: aba Spawns — editor visual de spawn de dinos customizados "
+            "(ConfigAddNPCSpawnEntriesContainer / ConfigOverrideNPCSpawnEntriesContainer). "
+            "Adicione ou substitua containers de spawn por mapa, com suporte a múltiplos entries "
+            "e blueprint paths, leitura e escrita automática no Game.ini.",
+        ],
+    },
+    {
+        "version": "1.1.18",
+        "date": "2026-05-16",
+        "changes": [
+            "Correção: importação de INI agora lê args de linha de comando do .bat de startup "
+            "(BabyMatureSpeedMultiplier, EggHatchSpeedMultiplier, BabyCuddleIntervalMultiplier, etc.) "
+            "que ferramentas como ARK Server Manager passam diretamente ao ShooterGameServer.exe "
+            "em vez de gravar no INI.",
+        ],
+    },
     {
         "version": "1.1.17",
         "date": "2026-05-15",

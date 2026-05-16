@@ -197,6 +197,24 @@ class ServerAdvancedSettings:
     force_all_structure_locking: bool = False
     force_flyer_explosives: bool = False
 
+    # Spawn de Dinos Customizados (Game.ini)
+    # Cada item é um dict com chaves:
+    #   "container": str  — ex: "DinoSpawnEntriesBeach_C"
+    #   "max_enemies_multiplier": float  — somente override; padrão 1.0
+    #   "entries": List[dict]  — cada entry: {"name": str, "weight": float, "blueprints": List[str]}
+    npc_spawn_entries_add: List[dict] = field(default_factory=list)
+    npc_spawn_entries_override: List[dict] = field(default_factory=list)
+
+    # Multiplicadores de dano e resistência por classe de dino (Game.ini)
+    # Cada item: {"class_name": str, "multiplier": float}
+    dino_class_resistance_multipliers: List[dict] = field(default_factory=list)
+    dino_class_damage_multipliers: List[dict] = field(default_factory=list)
+    tamed_dino_class_resistance_multipliers: List[dict] = field(default_factory=list)
+    tamed_dino_class_damage_multipliers: List[dict] = field(default_factory=list)
+
+    # Substituição de itens de supply crates — ConfigOverrideSupplyCrateItems (Game.ini)
+    supply_crate_overrides: List[dict] = field(default_factory=list)
+
 
 @dataclass
 class ClusterConfig:

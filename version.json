@@ -1,8 +1,8 @@
 {
-  "version": "1.1.17",
-  "date": "2026-05-15",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.17/ARKLAND-Multi-Setup-v1.1.17.exe",
+  "version": "1.1.21",
+  "date": "2026-05-16",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.21/ARKLAND-Multi-Setup-v1.1.21.exe",
   "changelog": [
-    "Correção: importação de INI do disco não carregava multiplicadores de breed, RCON e MOTD — agora usa lógica completa cobrindo todos os campos de GameUserSettings.ini e Game.ini"
+    "Melhoria: detecção aprimorada de causa de crash — ao encerrar inesperadamente, o servidor agora lê automaticamente a pasta de crash do ARK (CrashContext.runtime-xml, .dmp) e o ShooterGame.log para identificar o DLL/plugin responsável e exibir o call stack no painel de log"
   ]
 }

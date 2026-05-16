@@ -57,8 +57,133 @@ _ARK_STEAM_MARKERS = (
     "STEAM: Search result",
 )
 
+# DLLs/módulos do engine que NÃO são candidatos a "culpado" em crash
+_ENGINE_DLL_PREFIXES = (
+    "shootergameserver",
+    "kernel32",
+    "ntdll",
+    "msvcrt",
+    "vcruntime",
+    "d3d",
+    "opengl32",
+    "dxgi",
+    "ue4",
+    "steamapi",
+    "steamclient",
+    "tier0",
+    "vstdlib",
+)
 
-class ServerInstance:
+
+def _identify_crash_culprit(crash_text: str) -> str:
+    """Retorna o primeiro DLL não-engine encontrado no call stack do crash."""
+    import re
+    for line in crash_text.splitlines():
+        m = re.search(r'([\w\-]+\.dll)', line, re.IGNORECASE)
+        if m:
+            dll = m.group(1).lower()
+            if not any(dll.startswith(p) for p in _ENGINE_DLL_PREFIXES):
+                return m.group(1)
+    return ""
+
+
+def _read_crash_info(install_dir: str) -> str:
+    """Lê arquivos de crash do ARK e retorna um resumo diagnóstico.
+
+    Examina:
+    - ShooterGame/Saved/Crashes/<mais_recente>/   (CrashContext, .dmp)
+    - ShooterGame/Saved/Logs/ShooterGame.log      (tail com Fatal error!)
+    """
+    import re
+
+    base = Path(install_dir)
+    parts: list[str] = []
+
+    # ── 1. Pasta de crash mais recente ────────────────────────────────────
+    crash_base = base / "ShooterGame" / "Saved" / "Crashes"
+    crash_dir: Optional[Path] = None
+    if crash_base.exists():
+        try:
+            subdirs = [d for d in crash_base.iterdir() if d.is_dir()]
+            if subdirs:
+                crash_dir = max(subdirs, key=lambda d: d.stat().st_mtime)
+        except Exception:
+            pass
+
+    if crash_dir:
+        parts.append(f"Pasta de crash: {crash_dir.name}")
+
+        # CrashContext.runtime-xml
+        ctx_file = crash_dir / "CrashContext.runtime-xml"
+        if ctx_file.exists():
+            try:
+                ctx = ctx_file.read_text(encoding="utf-8", errors="replace")
+                for tag, label in (
+                    ("ErrorMessage", "Erro"),
+                    ("CallStack", None),
+                ):
+                    m = re.search(rf'<{tag}>(.*?)</{tag}>', ctx, re.DOTALL | re.IGNORECASE)
+                    if m:
+                        content = m.group(1).strip()
+                        if tag == "CallStack":
+                            stack_lines = [sl.strip() for sl in content.splitlines() if sl.strip()]
+                            if stack_lines:
+                                culprit = _identify_crash_culprit("\n".join(stack_lines[:15]))
+                                if culprit:
+                                    parts.append(f"** Possível causador: {culprit} **")
+                                parts.append("Call Stack (CrashContext):")
+                                for sl in stack_lines[:12]:
+                                    parts.append(f"  {sl}")
+                        else:
+                            parts.append(f"{label}: {content[:200]}")
+            except Exception:
+                pass
+
+        # .dmp
+        try:
+            dmp_files = sorted(crash_dir.glob("*.dmp"), key=lambda f: f.stat().st_size, reverse=True)
+            if dmp_files:
+                kb = dmp_files[0].stat().st_size // 1024
+                parts.append(f"Dump gerado: {dmp_files[0].name} ({kb} KB) — em {crash_dir}")
+        except Exception:
+            pass
+
+    # ── 2. Tail de ShooterGame.log ────────────────────────────────────────
+    log_file = base / "ShooterGame" / "Saved" / "Logs" / "ShooterGame.log"
+    # Fallback: cópia dentro da pasta de crash
+    if not log_file.exists() and crash_dir:
+        alt = crash_dir / "ShooterGame.log"
+        if alt.exists():
+            log_file = alt
+
+    if log_file.exists():
+        try:
+            file_size = log_file.stat().st_size
+            offset = max(0, file_size - 20480)  # últimos 20 KB
+            with open(log_file, "rb") as fh:
+                fh.seek(offset)
+                tail = fh.read().decode("utf-8", errors="replace")
+
+            # Última ocorrência de "Fatal error!" no log
+            fatal_idx = tail.rfind("Fatal error!")
+            if fatal_idx != -1:
+                crash_section = tail[fatal_idx:]
+                crash_lines = [cl for cl in crash_section.splitlines() if cl.strip()]
+
+                culprit = _identify_crash_culprit(crash_section)
+                if culprit and not any("Possível causador" in p for p in parts):
+                    parts.append(f"** Possível causador: {culprit} **")
+
+                parts.append("Log (Fatal error!):")
+                for cl in crash_lines[:20]:
+                    parts.append(f"  {cl.strip()}")
+        except Exception:
+            pass
+
+    return "\n".join(parts)
+
+
+
     """Representa o estado de execução de um servidor ARK."""
 
     def __init__(self, config: ServerConfig) -> None:
@@ -211,13 +336,15 @@ class ServerManager:
                 if inst.status == SERVER_STATUS_RUNNING:
                     inst.process = None
                     inst.pid = None
+                    cfg = inst.config
+                    if cfg.install_dir:
+                        self._emit_crash_details(server_id, cfg.install_dir)
                     self._emit_log(
                         server_id,
                         f"Servidor encerrou (PID {pid} não encontrado).",
                         "warning",
                     )
                     self._set_status(server_id, SERVER_STATUS_CRASHED)
-                    cfg = inst.config
                     if cfg.auto_restart_on_crash:
                         self._emit_log(server_id, "Auto-restart configurado. Reiniciando em 30s...", "info")
                         time.sleep(30)
@@ -334,6 +461,8 @@ class ServerManager:
 
             if inst.status == SERVER_STATUS_RUNNING:
                 self._emit_log(server_id, f"Servidor encerrou inesperadamente (código {proc.returncode}).", "warning")
+                if cfg.install_dir:
+                    self._emit_crash_details(server_id, cfg.install_dir)
                 self._set_status(server_id, SERVER_STATUS_CRASHED)
                 inst.process = None
                 inst.pid = None
@@ -492,6 +621,9 @@ class ServerManager:
                 if inst.status == SERVER_STATUS_STARTING:
                     self._set_status(server_id, SERVER_STATUS_CRASHED)
                     self._emit_log(server_id, f"Processo encerrou antes de inicializar (código {proc.returncode}).", "error")
+                    cfg2 = inst.config
+                    if cfg2.install_dir:
+                        self._emit_crash_details(server_id, cfg2.install_dir)
                 break
 
             # ── Tenta descobrir o log_file se ainda não encontrado ────────────
@@ -648,6 +780,20 @@ class ServerManager:
         if inst:
             inst.push_log(msg)
         self._on_log(server_id, msg, level)
+
+    def _emit_crash_details(self, server_id: str, install_dir: str) -> None:
+        """Lê arquivos de crash do ARK e emite as informações diagnósticas nos logs."""
+        try:
+            time.sleep(1.5)  # aguarda o ARK terminar de gravar os arquivos de crash
+            info = _read_crash_info(install_dir)
+            if info:
+                self._emit_log(server_id, "─── Diagnóstico de Crash ───────────────────────────────", "error")
+                for line in info.splitlines():
+                    level = "error" if line.startswith("**") else "warning"
+                    self._emit_log(server_id, line, level)
+                self._emit_log(server_id, "────────────────────────────────────────────────────────", "error")
+        except Exception as exc:
+            self._emit_log(server_id, f"Não foi possível ler arquivos de crash: {exc}", "debug")
 
     # ── Status ────────────────────────────────────────────────────────────────
 

@@ -5,6 +5,45 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.21] — 2026-05-16
+
+### Melhorado
+
+- **Diagnóstico de Crash Aprimorado**: ao detectar encerramento inesperado de servidor (crash), o ARKLAND-Multi agora lê automaticamente os arquivos de crash gerados pelo ARK (`ShooterGame/Saved/Crashes/<timestamp>/CrashContext.runtime-xml`, `.dmp`) e o tail do `ShooterGame.log` para identificar o DLL/plugin responsável pelo crash. O call stack e a mensagem de erro são exibidos diretamente no painel de log do servidor com destaque, facilitando o diagnóstico sem necessidade de abrir arquivos manualmente. O módulo/plugin culpado (ex.: `ArkShopUI.dll`) é identificado ignorando DLLs do engine (kernel32, ntdll, ShooterGameServer, etc.).
+
+---
+
+## [1.1.20] — 2026-05-27
+
+### Novo
+
+- **Aba Spawns — Multiplicadores por Classe de Dino**: quatro novas seções na aba "Spawns" para configurar `DinoClassResistanceMultipliers`, `DinoClassDamageMultipliers`, `TamedDinoClassResistanceMultipliers` e `TamedDinoClassDamageMultipliers`. Interface tabular com classe e multiplicador por linha, suporte a leitura/escrita automática do `Game.ini`.
+- **Aba Loot — Editor Visual de Supply Crates**: nova aba "Loot" para configurar `ConfigOverrideSupplyCrateItems`. Editor hierárquico de 3 níveis (Crate → Item Set → Item Entry) com todos os campos relevantes: quantidade, qualidade, blueprint chance, classe dos itens.
+- **Correção crítica**: restaurada a declaração `class ArkIniManager` que havia sido removida acidentalmente na v1.1.19, causando falha silenciosa no gerenciamento de INIs.
+
+---
+
+## [1.1.19] — 2026-05-16
+
+### Novo
+
+- **Aba Spawns — Editor Visual de Spawn de Dinos Customizados**: nova aba "Spawns" no painel de configuração de cada servidor. Permite adicionar (`ConfigAddNPCSpawnEntriesContainer`) e substituir (`ConfigOverrideNPCSpawnEntriesContainer`) containers de spawn de dinos sem editar o `Game.ini` manualmente. Recursos:
+  - Dropdown com os containers de spawn conhecidos de todos os mapas oficiais (Island, Scorched Earth, Aberration, Extinction, Ragnarok, Valguero, Crystal Isles, Genesis 1 e 2).
+  - Múltiplos entries por container, cada um com nome, peso e blueprint paths (um por linha).
+  - Para containers de substituição: campo `MaxDesiredNumEnemiesMultiplier`.
+  - Leitura automática de linhas existentes ao importar/carregar `Game.ini`.
+  - Escrita correta de chaves duplicadas no `Game.ini` (configparser não suporta nativo).
+
+---
+
+## [1.1.18] — 2026-05-16
+
+### Correção
+
+- **Importar INI: multiplicadores de breed via linha de comando** (fix issue #1): ferramentas como ARK Server Manager passam alguns multiplicadores (`BabyMatureSpeedMultiplier`, `EggHatchSpeedMultiplier`, `BabyCuddleIntervalMultiplier`, etc.) como args `?Key=Value` na linha de chamada do ShooterGameServer.exe, em vez de gravá-los no INI. O importador agora localiza automaticamente o `.bat`/`.cmd` de startup na pasta selecionada ou em até 4 pastas-pai, extrai esses args e os aplica sobre o ServerConfig com a mesma precedência que o ARK usa em runtime.
+
+---
+
 ## [1.1.17] — 2026-05-15
 
 ### Correção
