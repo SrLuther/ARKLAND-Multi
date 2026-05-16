@@ -183,7 +183,7 @@ def _read_crash_info(install_dir: str) -> str:
     return "\n".join(parts)
 
 
-
+class ServerInstance:
     """Representa o estado de execução de um servidor ARK."""
 
     def __init__(self, config: ServerConfig) -> None:
