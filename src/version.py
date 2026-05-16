@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.14"
+APP_VERSION: str = "1.1.15"
 BUILD_DATE: str = "2026-05-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.15",
+        "date": "2026-05-15",
+        "changes": [
+            "Correção crítica: updater ficava preso em 'Aguardando o ARKLAND fechar' quando a opção "
+            "'minimizar para bandeja' estava ativa — o fluxo de atualização agora chama _do_quit() "
+            "diretamente, ignorando a bandeja.",
+            "Correção: ARKLAND-Updater.exe adicionou timeout de 20 s no WaitForSingleObject — "
+            "após o timeout, processos restantes são encerrados à força via taskkill.",
+            "Correção: AllowedCheaterSteamIDs.txt era gravado no caminho errado (Saved/Config/WindowsServer/) — "
+            "corrigido para Binaries/Win64/, que é onde o ARK efetivamente lê o arquivo.",
+            "Novo: campo de busca de configurações no painel de servidor — filtra por nome, dica e aba em tempo real.",
+        ],
+    },
     {
         "version": "1.1.14",
         "date": "2026-05-15",

@@ -1,15 +1,10 @@
 {
-  "version": "1.1.14",
+  "version": "1.1.15",
   "date": "2026-05-15",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.14/ARKLAND-Multi-Setup-v1.1.14.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.15/ARKLAND-Multi-Setup-v1.1.15.exe",
   "changelog": [
-    "Novo: tooltip ? na seção Comandos do ArkShop com exemplos de comandos do plugin",
-    "Novo: campo ID do kit editável — renomear kits diretamente no painel",
-    "Novo: salvar ArkShop.json em múltiplos servidores/cluster simultaneamente",
-    "Novo: presets nomeados para configuração completa do ArkShop",
-    "Melhoria: minimizar para bandeja ao clicar em menos (não apenas ao fechar)",
-    "Melhoria: app não encerra servidores ARK ao fechar",
-    "Melhoria: navegação O(1) — troca de tela sem esconder todos os frames",
-    "Correção: alterações da UI não persistiam ao salvar o ArkShop.json"
+    "Correção: updater não encerrava o app quando 'minimizar para bandeja' estava ativo",
+    "Correção: caminho do AllowedCheaterSteamIDs.txt corrigido (agora em Binaries/Win64/)",
+    "Novo: campo de busca de configurações no painel de servidor"
   ]
 }

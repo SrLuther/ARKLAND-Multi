@@ -199,7 +199,8 @@ class UpdaterApp:
             kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
             handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
             if handle:
-                kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)  # INFINITE
+                _TIMEOUT_MS = 20_000  # 20 s — fallback: _kill_lingering cuida do resto
+                kernel32.WaitForSingleObject(handle, _TIMEOUT_MS)
                 kernel32.CloseHandle(handle)
                 return
         except Exception:

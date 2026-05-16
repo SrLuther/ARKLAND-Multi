@@ -5,6 +5,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.15] — 2026-05-15
+
+### Novo
+- **Busca de configurações**: barra de busca no painel de servidor que filtra todas as opções por nome, dica e aba em tempo real — clique no resultado para navegar diretamente à aba correta.
+
+### Correção
+- **Updater preso** em "Aguardando o ARKLAND fechar": quando a opção *minimizar para bandeja* estava ativa, o app ia para a bandeja em vez de fechar — o fluxo de atualização agora chama `_do_quit()` diretamente, bypassando a bandeja.
+- **ARKLAND-Updater.exe**: `WaitForSingleObject` trocado de `INFINITE` para timeout de 20 s — após expirar, processos restantes são encerrados à força via `taskkill`.
+- **Admins**: `AllowedCheaterSteamIDs.txt` era gravado em `Saved/Config/WindowsServer/` — corrigido para `Binaries/Win64/`, onde o ARK realmente lê o arquivo.
+
+---
+
 ## [1.1.14] — 2026-05-15
 
 ### Novo — Tooltip de ajuda na seção Comandos do ArkShop

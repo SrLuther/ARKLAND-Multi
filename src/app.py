@@ -277,6 +277,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._frames: Dict[str, Any] = {}
         self._server_frames: Dict[str, ctk.CTkFrame] = {}
         self._server_widgets: Dict[str, Dict[str, Any]] = {}
+        self._config_search_index: Dict[str, List] = {}
         self._rcon_clients: Dict[str, RconClient] = {}
         self._current_frame: str = ""
         self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
@@ -1684,7 +1685,8 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _build_server_panel(self, parent: ctk.CTkFrame, srv: ServerConfig) -> None:
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(2, weight=1)  # row 2 = tabs (row 1 = lock banner)
+        parent.grid_rowconfigure(3, weight=1)  # row 3 = tabs
+        self._config_search_index[srv.id] = []
 
         # Cabeçalho
         hdr = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=0, height=64)
@@ -1782,7 +1784,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         # Banner de bloqueio (visível apenas quando servidor não está parado)
         lock_banner = ctk.CTkFrame(parent, fg_color="#3a1a00", corner_radius=0, height=32)
-        lock_banner.grid(row=1, column=0, sticky="ew")
+        lock_banner.grid(row=2, column=0, sticky="ew")
         lock_banner.grid_propagate(False)
         lock_banner.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
@@ -1796,13 +1798,14 @@ class ARKServerManagerApp(ctk.CTk):
             lock_banner.grid_remove()
 
         # Abas
+        self._build_config_search_bar(parent, srv.id)
         tabs = ctk.CTkTabview(
             parent, fg_color=_CARD_BG, corner_radius=12,
             segmented_button_fg_color=_SIDEBAR_BG,
             segmented_button_selected_color=_GREEN_DARK,
             segmented_button_selected_hover_color=_GREEN_HOVER,
         )
-        tabs.grid(row=2, column=0, padx=14, pady=12, sticky="nsew")
+        tabs.grid(row=3, column=0, padx=14, pady=12, sticky="nsew")
         self._server_widgets[srv.id]["_tabs"] = tabs
 
         for tab_name in ("Geral", "Jogo", "Avançado", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs", "Backup"):
@@ -1836,6 +1839,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         def row(label: str, hint: str, var, row_n: int, is_pass: bool = False,
                 browse: bool = False, combo: Optional[List] = None) -> None:
+            self._register_config_item(srv.id, label.rstrip(": "), hint, "Geral")
             lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
             lbl_fr.grid(row=row_n, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
             ctk.CTkLabel(lbl_fr, text=label, width=200, anchor="w",
@@ -1991,6 +1995,7 @@ class ARKServerManagerApp(ctk.CTk):
              w["auto_update_start"]),
         ]
         for ci, (txt, hint_txt, var) in enumerate(checkboxes):
+            self._register_config_item(srv.id, txt, hint_txt, "Geral")
             cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
             cb_fr.grid(row=20 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
             ctk.CTkCheckBox(cb_fr, text=txt, variable=var,
@@ -2062,6 +2067,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         def frow(label: str, hint: str, field: str, val: float, row_n: int,
                  frm: float = 0.0, to: float = 10.0) -> None:
+            self._register_config_item(srv.id, label, hint, "Jogo")
             var = tk.DoubleVar(value=val)
             w[f"gs_{field}"] = var
 
@@ -2103,6 +2109,7 @@ class ARKServerManagerApp(ctk.CTk):
             entry.bind("<FocusOut>", _commit)
 
         def irow(label: str, hint: str, field: str, val: int, row_n: int) -> None:
+            self._register_config_item(srv.id, label, hint, "Jogo")
             w[f"gs_{field}"] = tk.StringVar(value=str(val))
             lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
             lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
@@ -2117,6 +2124,7 @@ class ARKServerManagerApp(ctk.CTk):
                 row=row_n, column=1, padx=4, pady=4, sticky="w")
 
         def brow(label: str, field: str, val: bool, row_n: int) -> None:
+            self._register_config_item(srv.id, label, "", "Jogo")
             w[f"gs_{field}"] = tk.BooleanVar(value=val)
             ctk.CTkCheckBox(scroll, text=label, variable=w[f"gs_{field}"],
                             checkmark_color="white", fg_color=_GREEN_DARK,
@@ -2402,6 +2410,7 @@ class ARKServerManagerApp(ctk.CTk):
         cl  = srv.cluster
 
         def brow(label: str, hint: str, field: str, val: bool, row_n: int, prefix: str = "adv_") -> None:
+            self._register_config_item(srv.id, label, hint, "Avançado")
             w[f"{prefix}{field}"] = tk.BooleanVar(value=val)
             cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
             cb_fr.grid(row=row_n, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
@@ -2414,6 +2423,7 @@ class ARKServerManagerApp(ctk.CTk):
                     anchor="w", padx=(26, 0), pady=(0, 2))
 
         def frow(label: str, hint: str, field: str, val: float, row_n: int, prefix: str = "adv_") -> None:
+            self._register_config_item(srv.id, label, hint, "Avançado")
             w[f"{prefix}{field}"] = tk.StringVar(value=str(val))
             lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
             lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
@@ -3122,7 +3132,7 @@ class ARKServerManagerApp(ctk.CTk):
         ).pack(side="left")
         ctk.CTkLabel(
             actions,
-            text="IDs são gravados em AllowedCheaterSteamIDs.txt ao salvar.",
+            text="IDs são gravados em ShooterGame/Binaries/Win64/AllowedCheaterSteamIDs.txt ao salvar.",
             text_color="gray45", font=ctk.CTkFont(size=11),
         ).pack(side="left", padx=12)
 
@@ -4103,6 +4113,130 @@ class ARKServerManagerApp(ctk.CTk):
         w["_backup_list_frame"] = scroll
 
         self._refresh_backup_list(srv.id)
+
+    # ── Busca de configurações ─────────────────────────────────────────────────
+
+    def _register_config_item(self, server_id: str, label: str, hint: str, tab: str) -> None:
+        self._config_search_index.setdefault(server_id, []).append(
+            (label.rstrip(": "), hint, tab)
+        )
+
+    def _build_config_search_bar(self, parent: ctk.CTkFrame, server_id: str) -> None:
+        """Barra de busca flutuante que filtra todas as configurações por rótulo/dica/aba."""
+        bar = ctk.CTkFrame(parent, fg_color=_SIDEBAR_BG, corner_radius=0, height=40)
+        bar.grid(row=1, column=0, sticky="ew")
+        bar.grid_propagate(False)
+        bar.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(bar, text="🔍", font=ctk.CTkFont(size=13), width=28,
+                     text_color="gray50").grid(row=0, column=0, padx=(10, 0), pady=8)
+
+        search_var = tk.StringVar()
+        entry = ctk.CTkEntry(
+            bar, textvariable=search_var, height=26, corner_radius=6,
+            placeholder_text="Buscar configuração...",
+            fg_color="#16162a", border_color="#2a2a4a", border_width=1,
+            font=ctk.CTkFont(size=11),
+        )
+        entry.grid(row=0, column=1, padx=(4, 12), pady=7, sticky="ew")
+
+        popup: list = [None]
+
+        def _hide() -> None:
+            if popup[0]:
+                try:
+                    popup[0].destroy()
+                except Exception:
+                    pass
+                popup[0] = None
+
+        def _on_change(*_) -> None:
+            query = search_var.get().strip().lower()
+            w = self._server_widgets.get(server_id, {})
+            tabs: Any = w.get("_tabs")
+            _hide()
+            if len(query) < 2 or not tabs:
+                return
+            index = self._config_search_index.get(server_id, [])
+            matches = [
+                (lbl, hint, tab) for lbl, hint, tab in index
+                if query in lbl.lower() or query in hint.lower() or query in tab.lower()
+            ]
+            if not matches:
+                return
+            n = min(len(matches), 7)
+            row_h = 56
+            outer = ctk.CTkFrame(
+                parent, fg_color="#1a1a2e", corner_radius=8,
+                border_color="#3a3a5a", border_width=1,
+                height=n * row_h + (22 if len(matches) > 7 else 6),
+            )
+            outer.grid_propagate(False)
+            inner = ctk.CTkScrollableFrame(outer, fg_color="transparent")
+            inner.pack(fill="both", expand=True)
+            inner.grid_columnconfigure(0, weight=1)
+            parent.update_idletasks()
+            by = bar.winfo_y() + bar.winfo_height()
+            outer.place(x=8, y=by + 2, relwidth=1.0, width=-16)
+            outer.lift()
+            popup[0] = outer
+
+            def _make_cb(tab_name: str) -> Any:
+                def _go() -> None:
+                    try:
+                        tabs.set(tab_name)
+                    except Exception:
+                        pass
+                    search_var.set("")
+                    _hide()
+                return _go
+
+            for i, (lbl, hint, tab) in enumerate(matches[:7]):
+                row_fr = ctk.CTkFrame(inner, fg_color="transparent", cursor="hand2", height=row_h)
+                row_fr.grid(row=i, column=0, sticky="ew", padx=4, pady=1)
+                row_fr.grid_columnconfigure(1, weight=1)
+                row_fr.grid_propagate(False)
+
+                badge = ctk.CTkLabel(
+                    row_fr, text=tab, width=70, height=20,
+                    font=ctk.CTkFont(size=9, weight="bold"),
+                    text_color="#5a9ad5", fg_color="#161630", corner_radius=4,
+                )
+                badge.grid(row=0, column=0, rowspan=2, padx=(6, 8), pady=(8, 4), sticky="nw")
+
+                name_lbl = ctk.CTkLabel(
+                    row_fr, text=lbl,
+                    font=ctk.CTkFont(size=11, weight="bold"),
+                    text_color="gray85", anchor="w",
+                )
+                name_lbl.grid(row=0, column=1, padx=(0, 8), pady=(8, 0), sticky="w")
+
+                hint_lbl = ctk.CTkLabel(
+                    row_fr,
+                    text=(hint[:70] + "…") if len(hint) > 70 else hint,
+                    font=ctk.CTkFont(size=9), text_color="gray50", anchor="w",
+                )
+                hint_lbl.grid(row=1, column=1, padx=(0, 8), pady=(0, 6), sticky="w")
+
+                cb = _make_cb(tab)
+                for widget in (row_fr, badge, name_lbl, hint_lbl):
+                    widget.bind("<Button-1>", lambda _e, c=cb: c())
+                    widget.bind("<Enter>",    lambda _e, f=row_fr: f.configure(fg_color="#252550"))
+                    widget.bind("<Leave>",    lambda _e, f=row_fr: f.configure(fg_color="transparent"))
+
+            if len(matches) > 7:
+                ctk.CTkLabel(
+                    inner,
+                    text=f"  … e mais {len(matches) - 7} resultado(s)",
+                    font=ctk.CTkFont(size=9), text_color="gray45",
+                ).grid(row=7, column=0, padx=8, pady=(2, 6), sticky="w")
+
+        search_var.trace_add("write", _on_change)
+        entry.bind("<Escape>", lambda _e: (search_var.set(""), _hide()))
+        entry.bind("<FocusOut>", lambda _e: self.after(200, _hide))
+        self._server_widgets[server_id]["_config_search_var"] = search_var
+
+    # ── Backup ─────────────────────────────────────────────────────────────────
 
     def _save_backup_config(self, server_id: str) -> None:
         srv = self.config_manager.get_server(server_id)
@@ -6611,11 +6745,12 @@ class ARKServerManagerApp(ctk.CTk):
                 self._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
             # Grava AllowedCheaterSteamIDs.txt
+            # Localização correta: mesma pasta do executável (ShooterGame/Binaries/Win64/)
             try:
                 import pathlib
                 allowed_path = (
                     pathlib.Path(srv.install_dir)
-                    / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+                    / "ShooterGame" / "Binaries" / "Win64"
                     / "AllowedCheaterSteamIDs.txt"
                 )
                 allowed_path.parent.mkdir(parents=True, exist_ok=True)
@@ -7706,7 +7841,7 @@ class ARKServerManagerApp(ctk.CTk):
                 "O ARKLAND será fechado agora. Quando a instalação terminar, o app reiniciará automaticamente.",
                 parent=self,
             )
-            self._on_close()
+            self._do_quit()
         else:
             self._check_update_btn.configure(state="normal")
             self._update_progress_label.configure(text=f"❌  Erro: {message}")
