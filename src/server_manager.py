@@ -11,6 +11,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+try:
+    import psutil as _psutil
+    _PSUTIL_OK = True
+except ImportError:
+    _psutil = None  # type: ignore[assignment]
+    _PSUTIL_OK = False
+
 from .server_config import (
     ServerConfig,
     SERVER_STATUS_STOPPED,
@@ -124,6 +131,99 @@ class ServerManager:
 
     def get_all_instances(self) -> List[ServerInstance]:
         return list(self._instances.values())
+
+    # ── Reconexão de processos já em execução ─────────────────────────────────
+
+    def scan_running_servers(self) -> int:
+        """Varre processos em execução buscando ShooterGameServer.exe e reconecta
+        instâncias configuradas cujo servidor já estava rodando (ex: após restart
+        do app por atualização). A correspondência é feita pela porta TCP (-port=N).
+        Retorna o número de instâncias reconectadas.
+        """
+        if not _PSUTIL_OK:
+            return 0
+
+        reconnected = 0
+        try:
+            for proc in _psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
+                try:
+                    name = proc.info.get("name") or ""
+                    if "ShooterGameServer" not in name:
+                        continue
+                    cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+                    pid = proc.info["pid"]
+                    create_time = proc.info.get("create_time")
+
+                    with self._lock:
+                        for inst in self._instances.values():
+                            if inst.status != SERVER_STATUS_STOPPED:
+                                continue  # já tem processo associado
+                            port_flag = f"-port={inst.config.server_port}"
+                            if port_flag not in cmdline:
+                                continue
+                            # Reconecta: sem subprocess.Popen, mas com PID e monitor
+                            inst.pid = pid
+                            inst.process = None
+                            inst.start_time = (
+                                datetime.fromtimestamp(create_time)
+                                if create_time else datetime.now()
+                            )
+                            inst.status = SERVER_STATUS_RUNNING
+                            self._emit_log(
+                                inst.config.id,
+                                f"Servidor detectado em execução (PID {pid}). Reconectado.",
+                                "info",
+                            )
+                            self._on_status_change(inst.config.id, SERVER_STATUS_RUNNING)
+                            # Inicia monitor para detectar quando o processo morrer
+                            threading.Thread(
+                                target=self._reconnect_monitor,
+                                args=(inst.config.id, pid),
+                                daemon=True,
+                                name=f"ARKReconnect-{inst.config.id}",
+                            ).start()
+                            reconnected += 1
+                            break
+                except (_psutil.NoSuchProcess, _psutil.AccessDenied):
+                    pass
+        except Exception:
+            pass
+        return reconnected
+
+    def _reconnect_monitor(self, server_id: str, pid: int) -> None:
+        """Monitora um processo reconectado (sem subprocess.Popen).
+        Atualiza o status para CRASHED/STOPPED quando o processo encerrar.
+        """
+        while True:
+            time.sleep(5)
+            inst = self._instances.get(server_id)
+            if not inst or inst.status not in (SERVER_STATUS_RUNNING, SERVER_STATUS_STARTING):
+                break
+            # Verifica se o processo ainda existe
+            alive = False
+            try:
+                if _PSUTIL_OK:
+                    p = _psutil.Process(pid)
+                    alive = p.is_running() and p.status() != _psutil.STATUS_ZOMBIE
+            except Exception:
+                alive = False
+            if not alive:
+                if inst.status == SERVER_STATUS_RUNNING:
+                    inst.process = None
+                    inst.pid = None
+                    self._emit_log(
+                        server_id,
+                        f"Servidor encerrou (PID {pid} não encontrado).",
+                        "warning",
+                    )
+                    self._set_status(server_id, SERVER_STATUS_CRASHED)
+                    cfg = inst.config
+                    if cfg.auto_restart_on_crash:
+                        self._emit_log(server_id, "Auto-restart configurado. Reiniciando em 30s...", "info")
+                        time.sleep(30)
+                        if inst.status == SERVER_STATUS_CRASHED:
+                            self.start_server(server_id)
+                break
 
     # ── Controle de servidores ────────────────────────────────────────────────
 

@@ -318,6 +318,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_gpu_info_var: Any = None
 
         self._build_ui()
+        self.after(200, self._scan_running_servers)
         self.after(500, self._auto_start_sync)
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
@@ -758,6 +759,20 @@ class ARKServerManagerApp(ctk.CTk):
             self._sync_engine.stop()
             self._sync_engine = None
             self._start_sync_engine()
+
+    def _scan_running_servers(self) -> None:
+        """Detecta servidores ARK já em execução e reconecta ao iniciar o app.
+        Útil após restart automático pelo updater — os servidores continuam rodando
+        enquanto o app é atualizado e relançado.
+        """
+        def _do() -> None:
+            count = self.server_manager.scan_running_servers()
+            if count:
+                self._global_log(
+                    f"{count} servidor(es) já em execução detectado(s) e reconectado(s).",
+                    "info",
+                )
+        threading.Thread(target=_do, daemon=True, name="ScanRunningServers").start()
 
     def _auto_start_sync(self) -> None:
         """Inicia o sync automaticamente ao abrir, se houver ciclos configurados."""

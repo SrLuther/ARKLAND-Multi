@@ -1,10 +1,10 @@
 {
-  "version": "1.1.15",
+  "version": "1.1.16",
   "date": "2026-05-15",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.15/ARKLAND-Multi-Setup-v1.1.15.exe",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.16/ARKLAND-Multi-Setup-v1.1.16.exe",
   "changelog": [
-    "Correção: updater não encerrava o app quando 'minimizar para bandeja' estava ativo",
-    "Correção: caminho do AllowedCheaterSteamIDs.txt corrigido (agora em Binaries/Win64/)",
-    "Novo: campo de busca de configurações no painel de servidor"
+    "Correção: updater não conseguia sobrescrever ARKLAND-Updater.exe (arquivo em uso) — corrigido",
+    "Correção: processos ARKLAND-ServerManager.exe persistiam após kill — updater agora confirma antes de instalar",
+    "Novo: app detecta servidores já em execução e reconecta ao reiniciar após atualização"
   ]
 }

@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.15"
+APP_VERSION: str = "1.1.16"
 BUILD_DATE: str = "2026-05-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.16",
+        "date": "2026-05-15",
+        "changes": [
+            "Correção: updater não conseguia sobrescrever ARKLAND-Updater.exe pois o arquivo estava em uso — "
+            "o updater agora se renomeia antes de rodar o installer, liberando o arquivo.",
+            "Correção: processos ARKLAND-ServerManager.exe podiam persistir após o kill — "
+            "o updater agora verifica via tasklist e repete o taskkill até confirmar que todos morreram (até 10 tentativas).",
+            "Novo: ao reiniciar após atualização, o app detecta servidores ARK já em execução e reconecta automaticamente.",
+        ],
+    },
     {
         "version": "1.1.15",
         "date": "2026-05-15",

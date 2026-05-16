@@ -214,8 +214,14 @@ class UpdaterApp:
             time.sleep(0.5)
 
     def _kill_lingering(self) -> None:
-        """Mata à força todos os processos ARKLAND-ServerManager.exe restantes."""
-        # Mata pelo PID (e árvore de filhos) — garante que o processo principal foi encerrado
+        """Mata à força todos os processos ARKLAND restantes e aguarda confirmação.
+
+        Usa taskkill para encerrar, depois verifica via tasklist se os processos
+        realmente morreram — repetindo até 5 vezes antes de prosseguir.
+        """
+        _TARGET_EXES = ("ARKLAND-ServerManager.exe", "ARKLAND-Multi.exe")
+
+        # 1ª passada: mata pelo PID (árvore completa) + pelo nome
         try:
             subprocess.run(
                 ["taskkill", "/F", "/T", "/PID", str(self._pid)],
@@ -224,8 +230,7 @@ class UpdaterApp:
         except Exception:
             pass
 
-        # Mata pelo nome do exe (cobre múltiplas instâncias)
-        for exe_name in ("ARKLAND-ServerManager.exe", "ARKLAND-Multi.exe"):
+        for exe_name in _TARGET_EXES:
             try:
                 subprocess.run(
                     ["taskkill", "/F", "/IM", exe_name],
@@ -233,6 +238,36 @@ class UpdaterApp:
                 )
             except Exception:
                 pass
+
+        # Verifica e repete até confirmar que todos morreram (até 10 s)
+        for attempt in range(10):
+            time.sleep(1)
+            still_alive = []
+            for exe_name in _TARGET_EXES:
+                try:
+                    result = subprocess.run(
+                        ["tasklist", "/FI", f"IMAGENAME eq {exe_name}", "/NH"],
+                        capture_output=True, text=True,
+                    )
+                    if exe_name.lower() in result.stdout.lower():
+                        still_alive.append(exe_name)
+                except Exception:
+                    pass
+            if not still_alive:
+                break
+            # Ainda há processos — mata novamente
+            for exe_name in still_alive:
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/IM", exe_name],
+                        capture_output=True,
+                    )
+                except Exception:
+                    pass
+            self._set_status(
+                "Encerrando processos restantes...",
+                f"Tentativa {attempt + 1}/10 — aguardando {', '.join(still_alive)}",
+            )
 
     def _download(self) -> str:
         _validate_url(self._url)
@@ -256,7 +291,32 @@ class UpdaterApp:
         urlretrieve(self._url, tmp_path, reporthook=_hook)
         return tmp_path
 
+    def _free_updater_exe(self) -> None:
+        """Renomeia o próprio .exe para liberar o arquivo para o installer.
+
+        No Windows, um processo em execução pode ser renomeado (o handle interno
+        permanece válido), mas não pode ser sobrescrito diretamente. Renomear
+        libera o nome 'ARKLAND-Updater.exe' para que o Inno Setup possa gravar
+        a nova versão sem erro de "arquivo em uso".
+        """
+        try:
+            self_path = Path(sys.executable)
+            if self_path.suffix.lower() != ".exe":
+                return  # modo dev (python.exe) — sem ação
+            if "updater" not in self_path.name.lower():
+                return  # segurança extra: só atua no updater
+            old_path = self_path.with_name(self_path.stem + ".old.exe")
+            try:
+                old_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            self_path.rename(old_path)
+        except Exception:
+            pass  # se falhar, o installer tentará mesmo assim
+
     def _install(self, installer: str) -> None:
+        # Libera o próprio exe para ser sobrescrito pelo installer
+        self._free_updater_exe()
         proc = subprocess.run(
             [installer, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"],
             timeout=300,

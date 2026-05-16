@@ -5,6 +5,17 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.16] — 2026-05-15
+
+### Novo
+- **Reconexão automática de servidores**: ao reiniciar após uma atualização, o app detecta servidores ARK (`ShooterGameServer.exe`) já em execução e os reconecta automaticamente, mantendo status, uptime e controle sem precisar reiniciar o servidor.
+
+### Correção
+- **Updater — arquivo em uso**: `ARKLAND-Updater.exe` ficava bloqueado durante a instalação (o próprio updater estava rodando). Corrigido: o updater agora se renomeia para `.old.exe` antes de acionar o installer, liberando o arquivo para ser sobrescrito.
+- **Updater — processos persistentes**: processos `ARKLAND-ServerManager.exe` podiam continuar no Gerenciador de Tarefas mesmo após o `taskkill`. O updater agora verifica via `tasklist` se os processos realmente morreram e repete o kill até confirmar (até 10 tentativas / 10 s).
+
+---
+
 ## [1.1.15] — 2026-05-15
 
 ### Novo
