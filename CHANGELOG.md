@@ -5,12 +5,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.1.17] — 2026-05-15
+
+### Correção
+
+- **Importação de INI do disco incompleta**: ao usar "Importar INI do Disco", multiplicadores de breed (`BabyMatureSpeedMultiplier`, `MatingIntervalMultiplier`, `EggHatchSpeedMultiplier`, etc.), RCON e Mensagem do Dia não eram carregados — ficavam em valores vanilla. Corrigido: o importador agora delega para as mesmas funções internas usadas pelo leitor de INI normal, cobrindo todos os campos de `GameUserSettings.ini` e `Game.ini`.
+
+---
+
 ## [1.1.16] — 2026-05-15
 
 ### Novo
+
 - **Reconexão automática de servidores**: ao reiniciar após uma atualização, o app detecta servidores ARK (`ShooterGameServer.exe`) já em execução e os reconecta automaticamente, mantendo status, uptime e controle sem precisar reiniciar o servidor.
 
 ### Correção
+
 - **Updater — arquivo em uso**: `ARKLAND-Updater.exe` ficava bloqueado durante a instalação (o próprio updater estava rodando). Corrigido: o updater agora se renomeia para `.old.exe` antes de acionar o installer, liberando o arquivo para ser sobrescrito.
 - **Updater — processos persistentes**: processos `ARKLAND-ServerManager.exe` podiam continuar no Gerenciador de Tarefas mesmo após o `taskkill`. O updater agora verifica via `tasklist` se os processos realmente morreram e repete o kill até confirmar (até 10 tentativas / 10 s).
 
@@ -19,9 +29,11 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 ## [1.1.15] — 2026-05-15
 
 ### Novo
+
 - **Busca de configurações**: barra de busca no painel de servidor que filtra todas as opções por nome, dica e aba em tempo real — clique no resultado para navegar diretamente à aba correta.
 
 ### Correção
+
 - **Updater preso** em "Aguardando o ARKLAND fechar": quando a opção *minimizar para bandeja* estava ativa, o app ia para a bandeja em vez de fechar — o fluxo de atualização agora chama `_do_quit()` diretamente, bypassando a bandeja.
 - **ARKLAND-Updater.exe**: `WaitForSingleObject` trocado de `INFINITE` para timeout de 20 s — após expirar, processos restantes são encerrados à força via `taskkill`.
 - **Admins**: `AllowedCheaterSteamIDs.txt` era gravado em `Saved/Config/WindowsServer/` — corrigido para `Binaries/Win64/`, onde o ARK realmente lê o arquivo.

@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.16"
+APP_VERSION: str = "1.1.17"
 BUILD_DATE: str = "2026-05-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.17",
+        "date": "2026-05-15",
+        "changes": [
+            "Correção: importação de INI do disco não carregava multiplicadores de breed, RCON e MOTD — "
+            "o importador agora usa a mesma lógica completa do leitor interno, cobrindo todos os campos de GameUserSettings.ini e Game.ini.",
+        ],
+    },
     {
         "version": "1.1.16",
         "date": "2026-05-15",

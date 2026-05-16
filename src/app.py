@@ -6866,81 +6866,19 @@ class ARKServerManagerApp(ctk.CTk):
             # mas lê diretamente os arquivos lá presentes
             def _load_from_folder(target_srv, src_folder: str) -> None:
                 from .ark_ini import (
-                    _GUS_SERVER_SETTINGS, _GUS_SESSION_SETTINGS,
-                    _coerce, read_ini_with_fallback,
+                    populate_config_from_gus,
+                    populate_config_from_game_ini,
+                    read_ini_with_fallback,
                 )
                 p_gus = Path(src_folder) / "GameUserSettings.ini"
                 if p_gus.exists():
                     parser = read_ini_with_fallback(p_gus, strict=False)
-                    gs = target_srv.game_settings
-                    for field_name, section, key, typ in _GUS_SERVER_SETTINGS:
-                        try:
-                            if parser.has_option(section, key):
-                                setattr(gs, field_name, _coerce(parser.get(section, key), typ))
-                        except Exception:
-                            pass
-                    for field_name, section, key, typ in _GUS_SESSION_SETTINGS:
-                        try:
-                            if parser.has_option(section, key):
-                                setattr(target_srv, field_name, _coerce(parser.get(section, key), typ))
-                        except Exception:
-                            pass
-                    if parser.has_option("ServerSettings", "ActiveMods"):
-                        raw_mods = parser.get("ServerSettings", "ActiveMods").strip()
-                        target_srv.mods = [m.strip() for m in raw_mods.split(",") if m.strip()]
+                    populate_config_from_gus(parser, target_srv)
 
                 p_game = Path(src_folder) / "Game.ini"
                 if p_game.exists():
                     parser2 = read_ini_with_fallback(p_game, strict=False)
-                    adv = target_srv.advanced_settings
-                    section = "/Script/ShooterGame.ShooterGameMode"
-                    from .ark_ini import (
-                        _str_to_bool as _sb,
-                    )
-                    bool_fields = [
-                        ("prevent_download_survivors", "bPreventDownloadSurvivors"),
-                        ("prevent_download_items", "bPreventDownloadItems"),
-                        ("prevent_download_dinos", "bPreventDownloadDinos"),
-                        ("prevent_upload_survivors", "bPreventUploadSurvivors"),
-                        ("prevent_upload_items", "bPreventUploadItems"),
-                        ("prevent_upload_dinos", "bPreventUploadDinos"),
-                        ("no_transfer_from_filtering", "NoTransferFromFiltering"),
-                        ("enable_cryopod_nerf", "EnableCryopodNerf"),
-                        ("allow_crateSpawns_on_top_of_structures", "AllowCrateSpawnsOnTopOfStructures"),
-                        ("use_optimized_harvesting_health", "UseOptimizedHarvestingHealth"),
-                        ("b_passive_defenses_damage_riderless_dinos", "bPassiveDefensesDamageRiderlessDinos"),
-                        ("global_voice_chat", "GlobalVoiceChat"),
-                        ("proximity_chat", "ProximityChat"),
-                        ("allow_raid_dino_feeding", "AllowRaidDinoFeeding"),
-                        ("b_auto_pve_timer", "bAutoPvETimer"),
-                        ("b_auto_pve_use_system_time", "bAutoPvEUseSystemTime"),
-                        ("force_all_structure_locking", "ForceAllStructureLocking"),
-                        ("force_flyer_explosives", "ForceFlyerExplosives"),
-                    ]
-                    float_fields = [
-                        ("cryopod_nerf_duration", "CryopodNerfDuration"),
-                        ("cryopod_nerf_damage_mult", "CryopodNerfDamageMult"),
-                        ("raid_dino_character_food_drain_multiplier", "RaidDinoCharacterFoodDrainMultiplier"),
-                        ("oxygen_swim_speed_stat_multiplier", "OxygenSwimSpeedStatMultiplier"),
-                        ("dino_harvesting_damage_multiplier", "DinoHarvestingDamageMultiplier"),
-                        ("player_harvesting_damage_multiplier", "PlayerHarvestingDamageMultiplier"),
-                        ("custom_recipe_effectiveness_multiplier", "CustomRecipeEffectivenessMultiplier"),
-                        ("custom_recipe_skill_multiplier", "CustomRecipeSkillMultiplier"),
-                        ("auto_pve_start_time_seconds", "AutoPvEStartTimeSeconds"),
-                        ("auto_pve_stop_time_seconds", "AutoPvEStopTimeSeconds"),
-                    ]
-                    for field_name, key in bool_fields:
-                        try:
-                            if parser2.has_option(section, key):
-                                setattr(adv, field_name, _sb(parser2.get(section, key)))
-                        except Exception:
-                            pass
-                    for field_name, key in float_fields:
-                        try:
-                            if parser2.has_option(section, key):
-                                setattr(adv, field_name, float(parser2.get(section, key)))
-                        except Exception:
-                            pass
+                    populate_config_from_game_ini(parser2, target_srv)
 
             try:
                 _load_from_folder(srv, folder)

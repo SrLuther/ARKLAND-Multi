@@ -188,6 +188,117 @@ def read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.Raw
     return _read_ini_with_fallback(path, strict=strict)
 
 
+# ── Funções de população de config a partir de parsers já carregados ─────────
+
+def populate_config_from_gus(
+    parser: configparser.RawConfigParser, config: ServerConfig
+) -> None:
+    """Popula ServerConfig a partir de um parser GameUserSettings.ini já carregado.
+
+    Cobre: ServerSettings, SessionSettings, RCONEnabled/Port e MessageOfTheDay.
+    """
+    gs = config.game_settings
+
+    for field_name, section, key, typ in _GUS_SERVER_SETTINGS:
+        try:
+            if parser.has_option(section, key):
+                setattr(gs, field_name, _coerce(parser.get(section, key), typ))
+        except Exception:
+            pass
+
+    for field_name, section, key, typ in _GUS_SESSION_SETTINGS:
+        try:
+            if parser.has_option(section, key):
+                setattr(config, field_name, _coerce(parser.get(section, key), typ))
+        except Exception:
+            pass
+
+    # RCON
+    try:
+        if parser.has_option("ServerSettings", "RCONEnabled"):
+            config.rcon_enabled = _str_to_bool(parser.get("ServerSettings", "RCONEnabled"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option("ServerSettings", "RCONPort"):
+            config.rcon_port = int(float(parser.get("ServerSettings", "RCONPort")))
+    except Exception:
+        pass
+
+    # Mensagem do Dia
+    try:
+        if parser.has_option("MessageOfTheDay", "Message"):
+            config.motd = parser.get("MessageOfTheDay", "Message")
+    except Exception:
+        pass
+    try:
+        if parser.has_option("MessageOfTheDay", "Duration"):
+            config.motd_duration = int(float(parser.get("MessageOfTheDay", "Duration")))
+    except Exception:
+        pass
+
+    # Mods
+    if parser.has_option("ServerSettings", "ActiveMods"):
+        raw_mods = parser.get("ServerSettings", "ActiveMods").strip()
+        config.mods = [m.strip() for m in raw_mods.split(",") if m.strip()]
+
+
+def populate_config_from_game_ini(
+    parser: configparser.RawConfigParser, config: ServerConfig
+) -> None:
+    """Popula ServerConfig.advanced_settings a partir de um parser Game.ini já carregado."""
+    adv = config.advanced_settings
+    section = "/Script/ShooterGame.ShooterGameMode"
+
+    bool_fields = [
+        ("prevent_download_survivors",               "bPreventDownloadSurvivors"),
+        ("prevent_download_items",                   "bPreventDownloadItems"),
+        ("prevent_download_dinos",                   "bPreventDownloadDinos"),
+        ("prevent_upload_survivors",                 "bPreventUploadSurvivors"),
+        ("prevent_upload_items",                     "bPreventUploadItems"),
+        ("prevent_upload_dinos",                     "bPreventUploadDinos"),
+        ("no_transfer_from_filtering",               "NoTransferFromFiltering"),
+        ("enable_cryopod_nerf",                      "EnableCryopodNerf"),
+        ("allow_crateSpawns_on_top_of_structures",   "AllowCrateSpawnsOnTopOfStructures"),
+        ("use_optimized_harvesting_health",          "UseOptimizedHarvestingHealth"),
+        ("b_passive_defenses_damage_riderless_dinos","bPassiveDefensesDamageRiderlessDinos"),
+        ("global_voice_chat",                        "GlobalVoiceChat"),
+        ("proximity_chat",                           "ProximityChat"),
+        ("allow_raid_dino_feeding",                  "AllowRaidDinoFeeding"),
+        ("b_auto_pve_timer",                         "bAutoPvETimer"),
+        ("b_auto_pve_use_system_time",               "bAutoPvEUseSystemTime"),
+        ("force_all_structure_locking",              "ForceAllStructureLocking"),
+        ("force_flyer_explosives",                   "ForceFlyerExplosives"),
+    ]
+
+    float_fields = [
+        ("cryopod_nerf_duration",                    "CryopodNerfDuration"),
+        ("cryopod_nerf_damage_mult",                 "CryopodNerfDamageMult"),
+        ("raid_dino_character_food_drain_multiplier","RaidDinoCharacterFoodDrainMultiplier"),
+        ("oxygen_swim_speed_stat_multiplier",        "OxygenSwimSpeedStatMultiplier"),
+        ("dino_harvesting_damage_multiplier",        "DinoHarvestingDamageMultiplier"),
+        ("player_harvesting_damage_multiplier",      "PlayerHarvestingDamageMultiplier"),
+        ("custom_recipe_effectiveness_multiplier",   "CustomRecipeEffectivenessMultiplier"),
+        ("custom_recipe_skill_multiplier",           "CustomRecipeSkillMultiplier"),
+        ("auto_pve_start_time_seconds",              "AutoPvEStartTimeSeconds"),
+        ("auto_pve_stop_time_seconds",               "AutoPvEStopTimeSeconds"),
+    ]
+
+    for field_name, key in bool_fields:
+        try:
+            if parser.has_option(section, key):
+                setattr(adv, field_name, _str_to_bool(parser.get(section, key)))
+        except Exception:
+            pass
+
+    for field_name, key in float_fields:
+        try:
+            if parser.has_option(section, key):
+                setattr(adv, field_name, float(parser.get(section, key)))
+        except Exception:
+            pass
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 class ArkIniManager:
     """Lê e escreve GameUserSettings.ini e Game.ini de um servidor ARK."""
@@ -202,90 +313,16 @@ class ArkIniManager:
         path = get_ini_path(self._install_dir, "GameUserSettings.ini")
         if not path.exists():
             return
-
         parser = _read_ini_with_fallback(path, strict=False)
-
-        gs = config.game_settings
-
-        for field_name, section, key, typ in _GUS_SERVER_SETTINGS:
-            try:
-                if parser.has_option(section, key):
-                    raw = parser.get(section, key)
-                    setattr(gs, field_name, _coerce(raw, typ))
-            except Exception:
-                pass
-
-        for field_name, section, key, typ in _GUS_SESSION_SETTINGS:
-            try:
-                if parser.has_option(section, key):
-                    raw = parser.get(section, key)
-                    setattr(config, field_name, _coerce(raw, typ))
-            except Exception:
-                pass
-
-        # Mods
-        if parser.has_option("ServerSettings", "ActiveMods"):
-            raw_mods = parser.get("ServerSettings", "ActiveMods").strip()
-            config.mods = [m.strip() for m in raw_mods.split(",") if m.strip()]
+        populate_config_from_gus(parser, config)
 
     def load_game_ini(self, config: ServerConfig) -> None:
         """Popula ServerConfig.advanced_settings com valores de Game.ini."""
         path = get_ini_path(self._install_dir, "Game.ini")
         if not path.exists():
             return
-
         parser = _read_ini_with_fallback(path, strict=False)
-
-        adv = config.advanced_settings
-        section = "/Script/ShooterGame.ShooterGameMode"
-
-        bool_fields = [
-            ("prevent_download_survivors",              "bPreventDownloadSurvivors"),
-            ("prevent_download_items",                  "bPreventDownloadItems"),
-            ("prevent_download_dinos",                  "bPreventDownloadDinos"),
-            ("prevent_upload_survivors",                "bPreventUploadSurvivors"),
-            ("prevent_upload_items",                    "bPreventUploadItems"),
-            ("prevent_upload_dinos",                    "bPreventUploadDinos"),
-            ("no_transfer_from_filtering",              "NoTransferFromFiltering"),
-            ("enable_cryopod_nerf",                     "EnableCryopodNerf"),
-            ("allow_crateSpawns_on_top_of_structures",  "AllowCrateSpawnsOnTopOfStructures"),
-            ("use_optimized_harvesting_health",         "UseOptimizedHarvestingHealth"),
-            ("b_passive_defenses_damage_riderless_dinos","bPassiveDefensesDamageRiderlessDinos"),
-            ("global_voice_chat",                       "GlobalVoiceChat"),
-            ("proximity_chat",                          "ProximityChat"),
-            ("allow_raid_dino_feeding",                 "AllowRaidDinoFeeding"),
-            ("b_auto_pve_timer",                        "bAutoPvETimer"),
-            ("b_auto_pve_use_system_time",              "bAutoPvEUseSystemTime"),
-            ("force_all_structure_locking",             "ForceAllStructureLocking"),
-            ("force_flyer_explosives",                  "ForceFlyerExplosives"),
-        ]
-
-        float_fields = [
-            ("cryopod_nerf_duration",                   "CryopodNerfDuration"),
-            ("cryopod_nerf_damage_mult",                "CryopodNerfDamageMult"),
-            ("raid_dino_character_food_drain_multiplier","RaidDinoCharacterFoodDrainMultiplier"),
-            ("oxygen_swim_speed_stat_multiplier",       "OxygenSwimSpeedStatMultiplier"),
-            ("dino_harvesting_damage_multiplier",       "DinoHarvestingDamageMultiplier"),
-            ("player_harvesting_damage_multiplier",     "PlayerHarvestingDamageMultiplier"),
-            ("custom_recipe_effectiveness_multiplier",  "CustomRecipeEffectivenessMultiplier"),
-            ("custom_recipe_skill_multiplier",          "CustomRecipeSkillMultiplier"),
-            ("auto_pve_start_time_seconds",             "AutoPvEStartTimeSeconds"),
-            ("auto_pve_stop_time_seconds",              "AutoPvEStopTimeSeconds"),
-        ]
-
-        for field_name, key in bool_fields:
-            try:
-                if parser.has_option(section, key):
-                    setattr(adv, field_name, _str_to_bool(parser.get(section, key)))
-            except Exception:
-                pass
-
-        for field_name, key in float_fields:
-            try:
-                if parser.has_option(section, key):
-                    setattr(adv, field_name, float(parser.get(section, key)))
-            except Exception:
-                pass
+        populate_config_from_game_ini(parser, config)
 
     # ── Escrita ───────────────────────────────────────────────────────────────
 
