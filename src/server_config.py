@@ -370,6 +370,10 @@ class ServerConfig:
     # Cache de nomes Steam resolvidos: {steam_id: display_name}
     admin_names: Dict[str, str] = field(default_factory=dict)
 
+    # BattleMetrics — ID numérico do servidor na plataforma (ex: "38129676")
+    # Usado para consultar status real e contagem de jogadores via API pública.
+    battlemetrics_id: str = ""
+
     # Agendamentos automáticos
     scheduled_tasks: List[dict] = field(default_factory=list)
     # Cada item: {"enabled": bool, "time": "HH:MM", "days": [0..6], "action": str, "warn_minutes": int}

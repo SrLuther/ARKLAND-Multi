@@ -26,6 +26,7 @@ from .server_config import (
     SERVER_STATUS_STOPPING,
     SERVER_STATUS_CRASHED,
 )
+from .battlemetrics_client import BattleMetricsPoller, BattleMetricsData
 
 
 # Linhas de log do ARK SE que indicam que o servidor terminou de inicializar
@@ -196,6 +197,10 @@ class ServerInstance:
         self.online_mode: str = "—"   # "—" | "LAN" | "WAN"
         self._log_thread: Optional[threading.Thread] = None
         self._monitor_thread: Optional[threading.Thread] = None
+        # BattleMetrics — dados da API pública (None = ainda não consultado ou sem BM ID)
+        self.bm_online: Optional[bool] = None
+        self.bm_players: Optional[int] = None
+        self.bm_max_players: Optional[int] = None
 
     @property
     def uptime(self) -> str:
@@ -224,6 +229,7 @@ class ServerManager:
         on_status_change: Optional[Callable[[str, str], None]] = None,
         on_log: Optional[Callable[[str, str, str], None]] = None,
         on_visibility_change: Optional[Callable[[str, str], None]] = None,
+        on_bm_update: Optional[Callable[[str], None]] = None,
         get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = None,
         get_dynamic_config_url: Optional[Callable[[str], str]] = None,
         discord_notifier: Optional[Any] = None,
@@ -233,9 +239,14 @@ class ServerManager:
         self._on_status_change   = on_status_change   or (lambda server_id, status: None)
         self._on_log             = on_log             or (lambda server_id, msg, level: None)
         self._on_visibility_change = on_visibility_change or (lambda server_id, mode: None)
+        self._on_bm_update_cb    = on_bm_update       or (lambda server_id: None)
         self._get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = get_cluster_profile
         self._get_dynamic_config_url: Optional[Callable[[str], str]] = get_dynamic_config_url
         self._discord_notifier   = discord_notifier
+
+        # BattleMetrics poller
+        self._bm_poller = BattleMetricsPoller(on_update=self._on_bm_update)
+        self._bm_poller.start()
 
         # Scheduler de tarefas agendadas
         self._sched_fired: Dict[str, date] = {}   # chave: "{srv_id}::{task_idx}::{hhmm}"
@@ -339,16 +350,53 @@ class ServerManager:
         """Para o scheduler de tarefas agendadas."""
         self._sched_stop.set()
 
+    # ── BattleMetrics ─────────────────────────────────────────────────────────
+
+    def _bm_mapping(self) -> Dict[str, str]:
+        """Retorna {server_id: battlemetrics_id} para todos os servidores configurados."""
+        result: Dict[str, str] = {}
+        with self._lock:
+            for sid, inst in self._instances.items():
+                bm_id = inst.config.battlemetrics_id
+                if bm_id and bm_id.strip():
+                    result[sid] = bm_id.strip()
+        return result
+
+    def _refresh_bm_poller(self) -> None:
+        """Atualiza a lista de servidores monitorados pelo BattleMetrics poller."""
+        self._bm_poller.set_servers(self._bm_mapping())
+
+    def _on_bm_update(self, server_id: str, data: Optional[BattleMetricsData]) -> None:
+        """Callback chamado pelo BattleMetricsPoller após cada consulta."""
+        with self._lock:
+            inst = self._instances.get(server_id)
+            if not inst:
+                return
+            if data is not None:
+                inst.bm_online = data.online
+                inst.bm_players = data.players
+                inst.bm_max_players = data.max_players
+            else:
+                inst.bm_online = None
+                inst.bm_players = None
+                inst.bm_max_players = None
+        try:
+            self._on_bm_update_cb(server_id)
+        except Exception:
+            pass
+
     # ── CRUD de instâncias ────────────────────────────────────────────────────
 
     def add_server(self, config: ServerConfig) -> None:
         with self._lock:
             self._instances[config.id] = ServerInstance(config)
+        self._refresh_bm_poller()
 
     def remove_server(self, server_id: str) -> None:
         self.stop_server(server_id, force=True)
         with self._lock:
             self._instances.pop(server_id, None)
+        self._refresh_bm_poller()
 
     def update_server_config(self, config: ServerConfig) -> None:
         with self._lock:
@@ -358,6 +406,7 @@ class ServerManager:
                     inst.config = config
             else:
                 self._instances[config.id] = ServerInstance(config)
+        self._refresh_bm_poller()
 
     def get_instance(self, server_id: str) -> Optional[ServerInstance]:
         return self._instances.get(server_id)
@@ -422,6 +471,8 @@ class ServerManager:
                     pass
         except Exception:
             pass
+        if reconnected:
+            self._refresh_bm_poller()
         return reconnected
 
     def _reconnect_monitor(self, server_id: str, pid: int) -> None:

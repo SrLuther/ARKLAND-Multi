@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.7] — 2026-05-17
+
+### Novo
+
+- **Integração BattleMetrics**: campo "BattleMetrics ID" adicionado na aba Geral de cada servidor (seção Rede e Portas). Quando configurado, o app consulta a API pública do BattleMetrics a cada 60 segundos e exibe o status online/offline e a contagem de jogadores (`👥 X/Y`) no cabeçalho do painel do servidor e no card do dashboard.
+
+---
+
 ## [1.2.6] — 2026-05-17
 
 ### Correção

@@ -280,6 +280,7 @@ class ARKServerManagerApp(ctk.CTk):
             on_status_change=self._on_server_status_change,
             on_log=self._on_server_log,
             on_visibility_change=self._on_server_visibility_change,
+            on_bm_update=self._on_bm_update,
             get_cluster_profile=self.config_manager.get_cluster,
             get_dynamic_config_url=self._get_dynamic_config_url,
             discord_notifier=self._discord_notifier,
@@ -1802,8 +1803,12 @@ class ARKServerManagerApp(ctk.CTk):
         info_lines = [
             f"🗺  {map_name}",
             f"🔌  Porta: {srv.server_port}  |  Query: {srv.query_port}",
-            f"👥  Máx Jogadores: {srv.max_players}",
         ]
+        # Contagem de jogadores via BattleMetrics (quando disponível) ou máximo configurado
+        if inst and inst.bm_players is not None and inst.bm_max_players:
+            info_lines.append(f"👥  Jogadores: {inst.bm_players}/{inst.bm_max_players}")
+        else:
+            info_lines.append(f"👥  Máx Jogadores: {srv.max_players}")
         if srv.mods:
             info_lines.append(f"🔧  Mods: {len(srv.mods)}")
         if inst and hasattr(inst, "uptime") and inst.uptime != "—":
@@ -1922,11 +1927,25 @@ class ARKServerManagerApp(ctk.CTk):
             hdr, text=vis_text, text_color=vis_color,
             font=ctk.CTkFont(size=12, weight="bold"),
         )
-        vis_lbl.grid(row=0, column=4, padx=(0, 8), pady=14)
+        vis_lbl.grid(row=0, column=4, padx=(0, 4), pady=14)
         self._server_widgets[srv.id]["_visibility_lbl"] = vis_lbl
 
+        # Badge de jogadores via BattleMetrics
+        _bm_inst = self.server_manager.get_instance(srv.id)
+        _bm_txt = (
+            f"👥 {_bm_inst.bm_players}/{_bm_inst.bm_max_players}"
+            if _bm_inst and _bm_inst.bm_players is not None and _bm_inst.bm_max_players
+            else ""
+        )
+        bm_players_lbl = ctk.CTkLabel(
+            hdr, text=_bm_txt, text_color="#60c0ff",
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        bm_players_lbl.grid(row=0, column=5, padx=(0, 8), pady=14)
+        self._server_widgets[srv.id]["_bm_players_lbl"] = bm_players_lbl
+
         ctrl = ctk.CTkFrame(hdr, fg_color="transparent")
-        ctrl.grid(row=0, column=5, padx=(0, 16), pady=14)
+        ctrl.grid(row=0, column=6, padx=(0, 16), pady=14)
 
         is_running = status == SERVER_STATUS_RUNNING
         is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
@@ -2124,8 +2143,9 @@ class ARKServerManagerApp(ctk.CTk):
         w["server_port"]     = tk.StringVar(value=str(srv.server_port))
         w["query_port"]      = tk.StringVar(value=str(srv.query_port))
         w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
-        w["public_ip"]       = tk.StringVar(value=srv.public_ip)
-        w["extra_args"]      = tk.StringVar(value=srv.extra_args)
+        w["public_ip"]        = tk.StringVar(value=srv.public_ip)
+        w["battlemetrics_id"] = tk.StringVar(value=srv.battlemetrics_id)
+        w["extra_args"]       = tk.StringVar(value=srv.extra_args)
         # active_event: armazena o label exibido; salvar converte de volta para ID
         _evt_label = _ARK_EVENT_ID_TO_LABEL.get(srv.active_event, srv.active_event)
         w["active_event"]    = tk.StringVar(value=_evt_label)
@@ -2212,35 +2232,39 @@ class ARKServerManagerApp(ctk.CTk):
             scroll.clipboard_append(w["public_ip"].get()),
         ))
 
-        self._section_lbl(scroll, 11, "🔒  Acesso")
+        row("BattleMetrics ID:",
+            "ID numérico do servidor na plataforma BattleMetrics.\nEx: 38129676 — usado para confirmar status real e contar jogadores ao vivo.",
+            w["battlemetrics_id"], 11)
+
+        self._section_lbl(scroll, 12, "🔒  Acesso")
         row("Senha do Servidor:",
             "Senha para entrar. Deixe vazio para servidor público.",
-            w["server_password"], 12, is_pass=True)
+            w["server_password"], 13, is_pass=True)
         row("Senha de Admin:",
             "Usada para ativar cheats in-game (enablecheats). Mantenha secreta.",
-            w["admin_password"], 13, is_pass=True)
+            w["admin_password"], 14, is_pass=True)
         row("Senha RCON:",
             "Senha para conexão via console RCON. Geralmente igual à de admin.",
-            w["rcon_password"], 14, is_pass=True)
+            w["rcon_password"], 15, is_pass=True)
         row("Máx. Jogadores:",
             "Limite de jogadores simultâneos no servidor.",
-            w["max_players"], 15)
+            w["max_players"], 16)
 
-        self._section_lbl(scroll, 16, "⚙️  Opções de Inicialização")
+        self._section_lbl(scroll, 17, "⚙️  Opções de Inicialização")
         row("Evento Ativo:",
             "Selecione o evento oficial ou deixe vazio para nenhum.",
-            w["active_event"], 17,
+            w["active_event"], 18,
             combo=[v for _, v in _ARK_OFFICIAL_EVENTS])
         row("Auto-Save (min):",
             "Intervalo de salvamento automático em minutos. Padrão: 15.",
-            w["auto_save"], 18)
+            w["auto_save"], 19)
         row("Argumentos Extras:",
             "Parâmetros adicionais de linha de comando. Ex: -ForceAllowCaveFlyers.",
-            w["extra_args"], 19)
+            w["extra_args"], 20)
 
-        self._section_lbl(scroll, 20, "📢  Mensagem do Dia (MOTD)")
+        self._section_lbl(scroll, 21, "📢  Mensagem do Dia (MOTD)")
         motd_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        motd_card.grid(row=21, column=0, padx=20, pady=(0, 14), sticky="ew")
+        motd_card.grid(row=22, column=0, padx=20, pady=(0, 14), sticky="ew")
         motd_card.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(motd_card, text="Mensagem:", width=190, anchor="nw",
@@ -2355,7 +2379,7 @@ class ARKServerManagerApp(ctk.CTk):
         w["prevent_spawn_anim"] = tk.BooleanVar(value=srv.prevent_spawn_animations)
         w["show_floating_dmg"]  = tk.BooleanVar(value=srv.show_floating_damage_text)
 
-        self._section_lbl(scroll, 22, "🔧  Flags")
+        self._section_lbl(scroll, 23, "🔧  Flags")
         checkboxes = [
             ("Habilitar RCON",
              "Ativa o console remoto. Necessário para usar a aba Console RCON.",
@@ -2397,7 +2421,7 @@ class ARKServerManagerApp(ctk.CTk):
         for ci, (txt, hint_txt, var) in enumerate(checkboxes):
             self._register_config_item(srv.id, txt, hint_txt, "Geral")
             cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
-            cb_fr.grid(row=23 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+            cb_fr.grid(row=24 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
             ctk.CTkCheckBox(cb_fr, text=txt, variable=var,
                             checkmark_color="white", fg_color=_GREEN_DARK,
                             hover_color=_GREEN_HOVER).pack(anchor="w")
@@ -2405,7 +2429,7 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=10), anchor="w").pack(
                 anchor="w", padx=(26, 0), pady=(0, 2))
 
-        self._save_btn_row(scroll, 40, srv.id)
+        self._save_btn_row(scroll, 41, srv.id)
 
         # ── Seletor de núcleos de CPU ────────────────────────────────────
         import os as _os
@@ -2424,7 +2448,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._register_config_item(srv.id, "Núcleos de CPU", "Restringe quantos núcleos lógicos o servidor pode usar.", "Geral")
         cpu_fr = ctk.CTkFrame(scroll, fg_color="transparent")
-        cpu_fr.grid(row=35, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+        cpu_fr.grid(row=36, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
         ctk.CTkLabel(cpu_fr, text="Núcleos de CPU:",
                      font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
         ctk.CTkLabel(cpu_fr,
@@ -2438,9 +2462,9 @@ class ARKServerManagerApp(ctk.CTk):
         ).pack(anchor="w")
 
         # ── Seção Agendamentos ────────────────────────────────────────────────
-        self._section_lbl(scroll, 36, "⏰  Agendamentos Automáticos")
+        self._section_lbl(scroll, 37, "⏰  Agendamentos Automáticos")
         sched_outer = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        sched_outer.grid(row=37, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        sched_outer.grid(row=38, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         sched_outer.grid_columnconfigure(0, weight=1)
 
         _DAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -2527,9 +2551,9 @@ class ARKServerManagerApp(ctk.CTk):
         ).grid(row=1, column=0, padx=16, pady=(0, 10), sticky="w")
 
         # ── Seção Instalação ─────────────────────────────────────────────────
-        self._section_lbl(scroll, 38, "⬇️  Instalação / Atualização do Servidor")
+        self._section_lbl(scroll, 39, "⬇️  Instalação / Atualização do Servidor")
         inst_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        inst_card.grid(row=39, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        inst_card.grid(row=40, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         inst_card.grid_columnconfigure(0, weight=1)
 
         btn_row = ctk.CTkFrame(inst_card, fg_color="transparent")
@@ -10203,6 +10227,7 @@ class ARKServerManagerApp(ctk.CTk):
             except (ValueError, KeyError):
                 pass
             srv.public_ip             = w.get("public_ip", tk.StringVar()).get().strip()
+            srv.battlemetrics_id      = w.get("battlemetrics_id", tk.StringVar()).get().strip()
             srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
             _evt_raw = w.get("active_event", tk.StringVar()).get().strip()
             srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
@@ -12053,6 +12078,20 @@ class ARKServerManagerApp(ctk.CTk):
                     vis_lbl.configure(text="🏠 LAN", text_color="#ffaa44")
                 else:
                     vis_lbl.configure(text="", text_color="gray50")
+            self._refresh_dashboard()
+        self.after(0, _do)
+
+    def _on_bm_update(self, server_id: str) -> None:
+        """Callback chamado quando os dados BattleMetrics de um servidor são atualizados."""
+        def _do():
+            inst = self.server_manager.get_instance(server_id)
+            w = self._server_widgets.get(server_id, {})
+            bm_lbl: Optional[ctk.CTkLabel] = w.get("_bm_players_lbl")
+            if bm_lbl:
+                if inst and inst.bm_players is not None and inst.bm_max_players:
+                    bm_lbl.configure(text=f"👥 {inst.bm_players}/{inst.bm_max_players}")
+                else:
+                    bm_lbl.configure(text="")
             self._refresh_dashboard()
         self.after(0, _do)
 
