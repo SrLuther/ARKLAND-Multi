@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.4"
+APP_VERSION: str = "1.2.5"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.5",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: Notificações Discord via Webhook — envia embeds coloridos para um canal Discord em eventos de servidor (iniciando, online, parado, crash, encerrando, atualização de mods, backup). Configurável por tipo de evento nas Configurações Globais.",
+            "Novo: 6 novos parâmetros de inicialização de servidor — Crossplay (-crossplay), Apenas Epic (-epiconly), Vivox (-UseVivox), Anti-dupe de item (-UseItemDupeCheck), Sem animação de spawn (?PreventSpawnAnimations=True), Dano flutuante RPG (?ShowFloatingDamageText=True).",
+            "Novo: Stats por Nível expandido — tabela PerLevelStatsMultiplier agora inclui colunas Dom. Bônus (TaM / _DinoTamed_Add) e Dom. Afinid. (TmM / _DinoTamed_Affinity), cobrindo todas as 5 variantes do ARK.",
+        ],
+    },
     {
         "version": "1.2.4",
         "date": "2026-05-17",
