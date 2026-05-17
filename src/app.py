@@ -7168,8 +7168,6 @@ class ARKServerManagerApp(ctk.CTk):
         for cmd_data in item.get("Commands", []):
             self._arkshop_add_shop_cmd_row(cmds_tbl, cmd_data)
 
-    def _arkshop_add_shop_item_row ──────────────────────────────────────────────
-
     def _arkshop_add_shop_item_row(self,
                                     container: ctk.CTkFrame,
                                     data: Optional[dict] = None) -> None:
