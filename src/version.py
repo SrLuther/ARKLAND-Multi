@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.2"
+APP_VERSION: str = "1.2.3"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.3",
+        "date": "2026-05-17",
+        "changes": [
+            "Fix: GameUserSettings.ini — chaves preservam maiúsculas/minúsculas originais (ex: RCONEnabled não virava rconenabled), evitando crash de plugins ArkAPI como ArkShop.",
+            "Fix: GameUserSettings.ini e Game.ini — encoding original do arquivo (UTF-16 LE, UTF-8 com BOM, etc.) é detectado e preservado ao salvar.",
+        ],
+    },
     {
         "version": "1.2.2",
         "date": "2026-05-17",
