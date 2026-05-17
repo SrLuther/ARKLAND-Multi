@@ -1,12 +1,11 @@
-{
-  "version": "1.2.1",
-  "date": "2026-05-17",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.2.1/ARKLAND-Multi-Setup-v1.2.1.exe",
-  "changelog": [
-    "Novo: Comandos em Itens da Loja — seção 'Comandos' adicionada ao detalhe de item da loja, igual aos Kits",
-    "Fix: Beacon — token salvo em %APPDATA% (Program Files é read-only sem admin; token nunca era persistido)",
-    "Fix: Beacon — painel de autenticação reaparece automaticamente após erro de token em _do_load",
-    "Fix: Beacon — mensagem de erro não referencia mais beacon_sync.py (arquivo de desenvolvedor)"
-  ]
-}
+﻿{
+    "version":  "1.2.2",
+    "date":  "2026-05-17",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.2.2/ARKLAND-Multi-Setup-v1.2.2.exe",
+    "changelog":  {
+                      "value":  [
 
+                                ],
+                      "Count":  0
+                  }
+}

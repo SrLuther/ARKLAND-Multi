@@ -1,13 +1,21 @@
-"""
+﻿"""
 Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.1"
+APP_VERSION: str = "1.2.2"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.2",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: Exportar/Importar Perfil — botões na sidebar permitem salvar todos os servidores em um arquivo .arkprofile e carregá-los em outra máquina.",
+            "Melhoria: Stats por Nível — tabela com fundo alternado (zebra) para facilitar leitura das colunas distantes.",
+        ],
+    },
     {
         "version": "1.2.1",
         "date": "2026-05-17",
