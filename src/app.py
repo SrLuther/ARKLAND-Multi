@@ -434,11 +434,11 @@ class ARKServerManagerApp(ctk.CTk):
             self._nav_buttons[key] = btn
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=10, column=0, sticky="ew", padx=12, pady=8)
+            row=12, column=0, sticky="ew", padx=12, pady=8)
 
         # Título "Servidores" + botão "+"
         srv_hdr = ctk.CTkFrame(sb, fg_color="transparent")
-        srv_hdr.grid(row=11, column=0, padx=12, pady=(0, 4), sticky="ew")
+        srv_hdr.grid(row=13, column=0, padx=12, pady=(0, 4), sticky="ew")
         srv_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(srv_hdr, text="SERVIDORES",
                      font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
@@ -453,21 +453,21 @@ class ARKServerManagerApp(ctk.CTk):
         # Frame scrollable para lista de servidores
         self._servers_list_sb = ctk.CTkScrollableFrame(
             sb, fg_color="transparent", height=280)
-        self._servers_list_sb.grid(row=12, column=0, sticky="ew", padx=6)
+        self._servers_list_sb.grid(row=14, column=0, sticky="ew", padx=6)
         self._servers_list_sb.grid_columnconfigure(0, weight=1)
 
         self._sidebar_update_lbl = ctk.CTkLabel(
             sb, text="", font=ctk.CTkFont(size=10), text_color="#ffaa44", wraplength=180)
-        self._sidebar_update_lbl.grid(row=13, column=0, padx=10, pady=4)
+        self._sidebar_update_lbl.grid(row=15, column=0, padx=10, pady=4)
 
         # ── Botões de Perfil ──────────────────────────────────────────────────
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
-            row=14, column=0, sticky="ew", padx=12, pady=(2, 4))
+            row=16, column=0, sticky="ew", padx=12, pady=(2, 4))
         ctk.CTkLabel(sb, text="PERFIL",
                      font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
-            row=15, column=0, padx=16, pady=(0, 2), sticky="w")
+            row=17, column=0, padx=16, pady=(0, 2), sticky="w")
         profile_fr = ctk.CTkFrame(sb, fg_color="transparent")
-        profile_fr.grid(row=16, column=0, padx=10, pady=(0, 10), sticky="ew")
+        profile_fr.grid(row=18, column=0, padx=10, pady=(0, 10), sticky="ew")
         profile_fr.grid_columnconfigure(0, weight=1)
         profile_fr.grid_columnconfigure(1, weight=1)
         ctk.CTkButton(
