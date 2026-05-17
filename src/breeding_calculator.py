@@ -55,7 +55,7 @@ BREEDING_DATA: list[tuple] = [
     ("Bloodstalker",         "egg",     10560,      19560,   202020),
     ("Brontosaurus",         "egg",     17940,      33300,   333300),
     ("Carbonemys",           "egg",      4440,       8280,    83280),
-    ("Carcharodontosaurus",  "egg",    180540,      87780,   878340),
+    ("Carcharodontosaurus",  "egg",    180540,      87780,   109200),  # mat. efetiva ~1820min (blueprint 8x interno ASE)
     ("Carnotaurus",          "egg",      5940,      16620,   166620),
     ("Compy",                "egg",      2940,       7560,    75720),
     ("Crystal Wyvern",       "egg",     17940,      33300,   333300),
