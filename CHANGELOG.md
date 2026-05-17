@@ -5,6 +5,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.8] — 2026-05-17
+
+### Correção
+
+- **CrossARK — ClusterDirOverride com barras erradas**: o caminho da pasta do cluster agora é normalizado automaticamente para `\` no Windows, evitando falha silenciosa na gravação de personagens durante viagem entre mapas.
+- **`?AltSaveDirectoryName` independente do cluster**: o parâmetro agora é sempre adicionado quando configurado, independentemente de ClusterID estar ativo.
+- **`-UseDynamicConfig` duplicado**: a flag não aparece mais duas vezes quando presente em argumentos extras.
+
+### Novo
+
+- **Pasta do Cluster criada automaticamente**: ao salvar um perfil de cluster (modo local), a pasta é criada no disco se não existir — com notificação toast de confirmação.
+- **Diagnóstico no painel Clusters**: novo card exibe status em tempo real — ClusterID configurado, pasta existente, servidores vinculados — com alertas visuais para itens ausentes.
+- **Migração de cluster manual para perfil**: quando há servidores com CrossARK configurado manualmente sem perfil, o painel Clusters exibe um aviso com botão "Importar como Perfil" que centraliza a configuração e vincula todos os servidores automaticamente.
+- **Novo Cluster pré-preenchido**: ao criar um novo perfil, o ClusterID e a pasta são pré-preenchidos com os valores de servidores que já têm configuração manual.
+
+---
+
 ## [1.2.7] — 2026-05-17
 
 ### Novo

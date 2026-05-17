@@ -455,10 +455,13 @@ class ServerConfig:
             _cl_dir = self.cluster.cluster_dir_override
             _cl_no_transfer = self.cluster.no_transfer_from_filtering
 
+        # AltSaveDirectoryName é independente do cluster — evita conflito de saves
+        # entre múltiplos servidores na mesma máquina
+        if self.alt_save_directory_name:
+            params.append(f"?AltSaveDirectoryName={self.alt_save_directory_name}")
+
         if _cl_id:
             params.append(f"?ClusterID={_cl_id}")
-            if self.alt_save_directory_name:
-                params.append(f"?AltSaveDirectoryName={self.alt_save_directory_name}")
 
         if self.prevent_spawn_animations:
             params.append("?PreventSpawnAnimations=True")
@@ -497,7 +500,9 @@ class ServerConfig:
             if _cl_no_transfer:
                 flags.append("-NoTransferFromFiltering")
             if _cl_dir:
-                flags.append(f'-ClusterDirOverride="{_cl_dir}"')
+                # Normaliza para backslashes — ARK no Windows requer separador nativo
+                _cl_dir_win = _cl_dir.replace("/", "\\")
+                flags.append(f'-ClusterDirOverride="{_cl_dir_win}"')
 
         if dynamic_config_url:
             # ?customdynamicconfigurl= é query param; -UseDynamicConfig é a flag habilitadora (patch 307.2)
@@ -505,7 +510,13 @@ class ServerConfig:
             flags.append("-UseDynamicConfig")
 
         if self.extra_args:
-            flags.append(self.extra_args)
+            # Evita duplicar flags já inseridas (ex: -UseDynamicConfig via extra_args)
+            extra = self.extra_args
+            for _dedup_flag in ("-UseDynamicConfig",):
+                if _dedup_flag.lower() in " ".join(flags).lower() and _dedup_flag.lower() in extra.lower():
+                    extra = extra.replace(_dedup_flag, "").strip()
+            if extra:
+                flags.append(extra)
 
         args_str = "".join(params)
         flags_str = " ".join(flags)

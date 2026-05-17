@@ -30,24 +30,27 @@ from .battlemetrics_client import BattleMetricsPoller, BattleMetricsData
 
 
 # Linhas de log do ARK SE que indicam que o servidor terminou de inicializar
+# NOTA: Estes marcadores aparecem no ShooterGame.log, não no console do ArkAPI.
+# O ArkAPI carrega plugins em ~60s mas o mundo leva 10-15 min para carregar.
 _ARK_READY_MARKERS = (
-    "Full Startup",              # "Full Startup: X.XX seconds"
-    "Server started",
-    "BeginPlay",                 # servidor entra no game loop
+    "Full Startup",              # "Full Startup: X.XX seconds" — marcador definitivo
     "server has been listed online",
-    "Networking initialized",
-    "Set New",                   # "Set NewYears event location" / "Set NewYear..."
-    "Set Summer",                # "Set Summer event location"
-    "Set Fear",                  # "Set FearEvolved event location"
-    "Set Winter",                # "Set WinterWonderland event location"
-    "Set Turkey",                # "Set TurkeyTrial event location"
-    "Set Easter",                # "Set Easter event location"
-    "Set Love",                  # "Set LoveEvolved event location"
-    "Set Anniversary",           # "Set Anniversary event location"
     "GameMode BeginPlay",
     "Beacon has completed",
-    "Game Engine Initialized",
     "LogWorld: Bringing World",
+    "World loaded",
+    "All levels loaded",
+)
+# Marcadores que indicam INÍCIO do carregamento (não pronto ainda — apenas log)
+_ARK_LOADING_MARKERS = (
+    "[API][info] Loaded all plugins",  # ArkAPI: plugins carregados, mundo ainda não
+    "Initialized hooks",               # ArkAPI: hooks inicializados
+    "API was successfully loaded",     # ArkAPI: API pronta
+    "BeginPlay",
+    "Networking initialized",
+    "Game Engine Initialized",
+    "Set New", "Set Summer", "Set Fear", "Set Winter",
+    "Set Turkey", "Set Easter", "Set Love", "Set Anniversary",
 )
 # Linha que indica registro bem-sucedido no Steam (acessível WAN)
 _ARK_STEAM_MARKERS = (
@@ -756,8 +759,10 @@ class ServerManager:
         """
         _STARTING_TIMEOUT  = 45 * 60   # 45 minutos máximo esperando
         _POLL_INTERVAL     = 3          # segundos entre leituras
-        _RCON_FIRST_CHECK  = 60        # aguarda 60s antes da 1ª sonda RCON
-        _RCON_CHECK_EVERY  = 30        # sonda RCON a cada 30s
+        # RCON fica disponível cedo (ArkAPI hooks ~60s) mas o mundo leva 10-15 min.
+        # Só usamos RCON como fallback se nenhum marcador de log for encontrado.
+        _RCON_FIRST_CHECK  = 10 * 60   # aguarda 10 min antes da 1ª sonda RCON
+        _RCON_CHECK_EVERY  = 60        # sonda RCON a cada 60s
 
         # Caminho do log: dois níveis acima do Win64/ → ShooterGame/Saved/Logs/
         # exe_path = .../ShooterGame/Binaries/Win64/ShooterGameServer.exe
@@ -837,6 +842,13 @@ class ServerManager:
                             self._emit_log(server_id, line, "debug")
 
                             if not found_ready and inst.status == SERVER_STATUS_STARTING:
+                                # Avisa que ArkAPI carregou mas mundo ainda não está pronto
+                                if any(m.lower() in line.lower() for m in _ARK_LOADING_MARKERS):
+                                    self._emit_log(
+                                        server_id,
+                                        "[ARKLAND] Engine/ArkAPI inicializados — aguardando carregamento do mundo...",
+                                        "info",
+                                    )
                                 if any(m.lower() in line.lower() for m in _ARK_READY_MARKERS):
                                     found_ready = True
                                     self._set_status(server_id, SERVER_STATUS_RUNNING)
@@ -870,7 +882,13 @@ class ServerManager:
                         _rcon.disconnect()
                         found_ready = True
                         self._set_status(server_id, SERVER_STATUS_RUNNING)
-                        self._emit_log(server_id, "Servidor inicializado (detectado via RCON).", "info")
+                        elapsed_min = int((time.monotonic() - start) / 60)
+                        self._emit_log(
+                            server_id,
+                            f"Servidor marcado como rodando via RCON (fallback após {elapsed_min} min — "
+                            f"marcadores de log não detectados; mundo pode estar carregando).",
+                            "warning",
+                        )
                         _init_mode = "LAN" if self._is_lan_only(inst.config) else "WAN"
                         inst.online_mode = _init_mode
                         self._on_visibility_change(server_id, _init_mode)

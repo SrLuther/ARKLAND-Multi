@@ -3,13 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.7"
+APP_VERSION: str = "1.2.8"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
-        "version": "1.2.7",
+        "version": "1.2.8",
+        "date": "2026-05-17",
+        "changes": [
+            "Fix: CrossARK — ClusterDirOverride agora normaliza barras para \\\\  no Windows, evitando falha silenciosa na gravação de personagens.",
+            "Fix: ?AltSaveDirectoryName agora é sempre adicionado quando configurado, independente de ClusterID.",
+            "Fix: -UseDynamicConfig não é mais duplicado quando presente em argumentos extras.",
+            "Novo: Pasta do Cluster criada automaticamente ao salvar perfil de cluster (modo local).",
+            "Novo: Card de Diagnóstico no painel Clusters — indica se ClusterID, pasta e vínculos estão corretos.",
+            "Novo: Painel Clusters detecta servidores com cluster manual e oferece botão 'Importar como Perfil'.",
+            "Novo: Criar novo perfil de cluster pré-preenche com valores de configuração manual existente.",
+        ],
+    },
+    {
         "date": "2026-05-17",
         "changes": [
             "Novo: Integração BattleMetrics — campo 'BattleMetrics ID' na aba Geral de cada servidor. Quando configurado, exibe status online/offline e contagem de jogadores (👥 X/Y) no painel e no dashboard, consultando a API pública a cada 60 segundos.",

@@ -8805,6 +8805,29 @@ class ARKServerManagerApp(ctk.CTk):
             ctk.CTkLabel(self._cluster_list_box, text="Nenhum perfil criado.",
                          text_color="gray50", font=ctk.CTkFont(size=11)).grid(
                 row=0, column=0, padx=12, pady=16)
+
+            # Detecta servidores com cluster manual sem perfil vinculado
+            _manual = [s for s in self.config_manager.servers
+                       if getattr(s.cluster, "enabled", False)
+                       and getattr(s.cluster, "cluster_id", "")
+                       and not s.cluster_profile_id]
+            if _manual:
+                _warn_fr = ctk.CTkFrame(self._cluster_list_box,
+                                        fg_color="#3a2800", corner_radius=8)
+                _warn_fr.grid(row=1, column=0, padx=4, pady=(4, 0), sticky="ew")
+                _warn_fr.grid_columnconfigure(0, weight=1)
+                ctk.CTkLabel(
+                    _warn_fr,
+                    text=f"⚠️  {len(_manual)} servidor(es) com\ncluster manual detectado(s).",
+                    text_color="#ffb74d", font=ctk.CTkFont(size=11),
+                    justify="left", anchor="w",
+                ).grid(row=0, column=0, padx=10, pady=(8, 2), sticky="w")
+                ctk.CTkButton(
+                    _warn_fr, text="Importar como Perfil →",
+                    height=28, fg_color="#7a5000", hover_color="#a06800",
+                    font=ctk.CTkFont(size=11),
+                    command=self._cluster_import_from_manual,
+                ).grid(row=1, column=0, padx=10, pady=(2, 8), sticky="w")
             return
 
         for i, prof in enumerate(clusters):
@@ -8830,9 +8853,46 @@ class ARKServerManagerApp(ctk.CTk):
         if prof:
             self._cluster_build_detail(prof)
 
+    def _cluster_import_from_manual(self) -> None:
+        """Cria um Perfil de Cluster a partir das configurações manuais dos servidores."""
+        from .server_config import ClusterProfile
+        _manual = [s for s in self.config_manager.servers
+                   if getattr(s.cluster, "enabled", False)
+                   and getattr(s.cluster, "cluster_id", "")
+                   and not s.cluster_profile_id]
+        if not _manual:
+            return
+        src = _manual[0]
+        prof = ClusterProfile()
+        prof.name = "Cluster Importado"
+        prof.cluster_id = src.cluster.cluster_id
+        prof.cluster_dir = src.cluster.cluster_dir_override
+        prof.no_transfer_from_filtering = src.cluster.no_transfer_from_filtering
+        prof.prevent_download_survivors = src.cluster.prevent_download_survivors
+        prof.prevent_download_items = src.cluster.prevent_download_items
+        prof.prevent_download_dinos = src.cluster.prevent_download_dinos
+        self.config_manager.add_cluster(prof)
+        # Vincula automaticamente os servidores manuais ao novo perfil
+        for srv in _manual:
+            srv.cluster_profile_id = prof.id
+            self.config_manager.update_server(srv)
+            self.server_manager.update_server_config(srv)
+        self._cluster_selected_id = prof.id
+        self._clusters_refresh_list()
+        self._cluster_build_detail(prof)
+        self._toast(f"✅ Perfil criado e {len(_manual)} servidor(es) vinculado(s).", kind="info")
+
     def _cluster_new(self) -> None:
         from .server_config import ClusterProfile
         prof = ClusterProfile()
+        # Pré-preenche com valores de servidor manual se existir
+        _manual = [s for s in self.config_manager.servers
+                   if getattr(s.cluster, "enabled", False)
+                   and getattr(s.cluster, "cluster_id", "")]
+        if _manual:
+            src = _manual[0]
+            prof.cluster_id = src.cluster.cluster_id
+            prof.cluster_dir = src.cluster.cluster_dir_override
         self.config_manager.add_cluster(prof)
         self._cluster_selected_id = prof.id
         self._clusters_refresh_list()
@@ -9060,9 +9120,73 @@ class ARKServerManagerApp(ctk.CTk):
                     checkmark_color="white", fg_color=_BLUE, hover_color=_BLUE_HOVER,
                 ).grid(row=si, column=0, padx=16, pady=(8 if si == 0 else 4, 4), sticky="w")
 
+        # ── Diagnóstico ───────────────────────────────────────────────────────
+        import os as _os
+        self._section_lbl(parent, 8, "🔍  Diagnóstico")
+        diag_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        diag_card.grid(row=9, column=0, padx=20, pady=(0, 12), sticky="ew")
+        diag_card.grid_columnconfigure(0, weight=1)
+
+        _diag_row = 0
+        _issues: list[str] = []
+
+        # Verifica ClusterID
+        if not prof.cluster_id:
+            _issues.append("⚠️  Cluster ID não definido — todos os servidores precisam do mesmo ID para se conectar.")
+        else:
+            ctk.CTkLabel(diag_card, text=f"✅  Cluster ID: {prof.cluster_id}",
+                         text_color="#4caf50", font=ctk.CTkFont(size=11),
+                         anchor="w").grid(row=_diag_row, column=0, padx=16, pady=(10, 4), sticky="w")
+            _diag_row += 1
+
+        # Verifica pasta do cluster
+        _cl_dir = prof.cluster_dir.replace("/", "\\") if prof.cluster_dir else ""
+        if not _cl_dir:
+            _issues.append("⚠️  Pasta do Cluster não configurada — obrigatória para CrossARK funcionar.")
+        elif not _os.path.isdir(_cl_dir):
+            _issues.append(f"⚠️  Pasta do Cluster não existe: {_cl_dir}\n    Salve o perfil para criá-la automaticamente.")
+        else:
+            ctk.CTkLabel(diag_card, text=f"✅  Pasta do Cluster existe: {_cl_dir}",
+                         text_color="#4caf50", font=ctk.CTkFont(size=11),
+                         anchor="w").grid(row=_diag_row, column=0, padx=16, pady=(10 if _diag_row == 0 else 4, 4), sticky="w")
+            _diag_row += 1
+
+        # Exibe problemas encontrados
+        for _issue_txt in _issues:
+            ctk.CTkLabel(diag_card, text=_issue_txt, text_color="#ff9800",
+                         font=ctk.CTkFont(size=11), anchor="w", justify="left").grid(
+                row=_diag_row, column=0, padx=16, pady=(10 if _diag_row == 0 else 4, 4), sticky="w")
+            _diag_row += 1
+
+        # Servidores vinculados vs. não vinculados
+        _linked = self.config_manager.servers_in_cluster(prof.id)
+        _linked_ids = {s.id for s in _linked}
+        _all = self.config_manager.servers
+        _unlinked = [s for s in _all if s.id not in _linked_ids]
+        if _linked:
+            ctk.CTkLabel(diag_card,
+                         text=f"✅  {len(_linked)} servidor(es) vinculado(s) a este cluster",
+                         text_color="#4caf50", font=ctk.CTkFont(size=11), anchor="w").grid(
+                row=_diag_row, column=0, padx=16, pady=4, sticky="w")
+            _diag_row += 1
+        else:
+            ctk.CTkLabel(diag_card,
+                         text="⚠️  Nenhum servidor vinculado — marque os servidores acima e salve.",
+                         text_color="#ff9800", font=ctk.CTkFont(size=11), anchor="w").grid(
+                row=_diag_row, column=0, padx=16, pady=4, sticky="w")
+            _diag_row += 1
+
+        if _diag_row == 0:
+            ctk.CTkLabel(diag_card, text="Sem problemas detectados.",
+                         text_color="gray50").grid(row=0, column=0, padx=16, pady=12)
+
+        # padding final
+        ctk.CTkFrame(diag_card, height=6, fg_color="transparent").grid(
+            row=_diag_row, column=0)
+
         # ── Botões ────────────────────────────────────────────────────────────
         btn_row = ctk.CTkFrame(parent, fg_color="transparent")
-        btn_row.grid(row=8, column=0, padx=20, pady=(4, 20), sticky="w")
+        btn_row.grid(row=10, column=0, padx=20, pady=(4, 20), sticky="w")
 
         ctk.CTkButton(
             btn_row, text="💾  Salvar", width=130, height=36,
@@ -9100,6 +9224,17 @@ class ARKServerManagerApp(ctk.CTk):
         self.config_manager.update_cluster(prof)
         # Reinicia engine de sync se configuração mudou
         self._cluster_sync_restart(prof.id)
+
+        # Cria pasta do cluster automaticamente se não existir (modo local)
+        if prof.cluster_dir and prof.mode != "network":
+            import os as _os
+            _cl_dir_normalized = prof.cluster_dir.replace("/", "\\")
+            if not _os.path.isdir(_cl_dir_normalized):
+                try:
+                    _os.makedirs(_cl_dir_normalized, exist_ok=True)
+                    self._toast(f"📁 Pasta do cluster criada:\n{_cl_dir_normalized}", kind="info")
+                except Exception as _exc:
+                    self._toast(f"⚠️ Não foi possível criar a pasta do cluster:\n{_exc}", kind="warning")
 
         # Atualiza vínculos de servidores
         for srv in self.config_manager.servers:
