@@ -1,15 +1,15 @@
-; ============================================================
-; Inno Setup Script — ARKLAND - Server Manager Installer
+﻿; ============================================================
+; Inno Setup Script â€” ARKLAND - Server Manager Installer
 ; Requer: Inno Setup 6+ (https://jrsoftware.org/isinfo.php)
 ; Antes de gerar o installer, rode build.bat para criar o .exe
 ;
-; Instalação silenciosa:
+; InstalaÃ§Ã£o silenciosa:
 ;   ARKLAND-ServerManager-Setup-vX.Y.Z.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 ; ============================================================
 
 [Setup]
 AppName=ARKLAND - Server Manager
-AppVersion=1.1.21
+AppVersion=1.1.23
 AppPublisher=ARKLAND Tools
 AppPublisherURL=https://github.com/SrLuther/ARKLAND-Multi
 AppSupportURL=https://github.com/SrLuther/ARKLAND-Multi/issues
@@ -17,11 +17,11 @@ AppUpdatesURL=https://github.com/SrLuther/ARKLAND-Multi/releases
 DefaultDirName={autopf}\ARKLAND-ServerManager
 DefaultGroupName=ARKLAND-ServerManager
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.1.21
+OutputBaseFilename=ARKLAND-Multi-Setup-v1.1.23
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
-; Não exige UAC (instala por usuário se não admin)
+; NÃ£o exige UAC (instala por usuÃ¡rio se nÃ£o admin)
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 UninstallDisplayName=ARKLAND - Server Manager
@@ -32,7 +32,7 @@ WizardImageStretch=no
 DisableWelcomePage=no
 DisableDirPage=auto
 DisableProgramGroupPage=yes
-; Fecha instância anterior automaticamente durante atualização
+; Fecha instÃ¢ncia anterior automaticamente durante atualizaÃ§Ã£o
 CloseApplications=yes
 CloseApplicationsFilter=*ARKLAND-ServerManager.exe
 RestartApplications=yes
@@ -49,14 +49,14 @@ Name: "{group}\ARKLAND - Server Manager";       Filename: "{app}\ARKLAND-ServerM
 Name: "{userdesktop}\ARKLAND - Server Manager"; Filename: "{app}\ARKLAND-ServerManager.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos:"
+Name: "desktopicon"; Description: "Criar atalho na Ã¡rea de trabalho"; GroupDescription: "Atalhos:"
 
 [Run]
-; Abre o app ao final da instalação (só no modo não-silencioso)
+; Abre o app ao final da instalaÃ§Ã£o (sÃ³ no modo nÃ£o-silencioso)
 Filename: "{app}\ARKLAND-ServerManager.exe"; \
   Description: "Iniciar ARKLAND - Server Manager agora"; \
   Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
-; Remove dados do usuário ao desinstalar (só se o usuário confirmar — use comentário para remover)
+; Remove dados do usuÃ¡rio ao desinstalar (sÃ³ se o usuÃ¡rio confirmar â€” use comentÃ¡rio para remover)
 ; Type: filesandordirs; Name: "{userappdata}\ARKLAND-ServerManager"

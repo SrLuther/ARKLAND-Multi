@@ -5,7 +5,45 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
-## [1.1.21] — 2026-05-16
+## [1.1.23] — 2026-05-17
+
+### Novo
+
+- **Agendamentos Automáticos de Servidor**: nova seção "⏰ Agendamentos Automáticos" na aba Geral de cada servidor. Permite criar múltiplas tarefas agendadas com:
+  - Horário de execução (formato HH:MM)
+  - Ação: **Reiniciar**, **Desligar** ou **Atualizar + Reiniciar**
+  - Dias da semana selecionáveis individualmente (Seg a Dom)
+  - Aviso antecipado via RCON Broadcast: 0, 5, 10, 15, 30 ou 60 minutos antes
+  - Ativar/desativar cada tarefa individualmente sem removê-la
+  - Thread dedicada (`ARKTaskScheduler`) verificando a cada 30 s; fogo único por tarefa por dia (não repete na mesma data)
+  - Tarefas salvas em `scheduled_tasks` no perfil do servidor (JSON)
+
+- **Seletor de Núcleos de CPU**: o checkbox "Usar todos os núcleos de CPU" foi substituído por um `OptionMenu` com três modos:
+  - **Padrão (ARK decide)** — sem flag adicional
+  - **Todos os núcleos** — adiciona `-useallavailablecores` ao launch
+  - **N núcleos (1 … máx. detectado)** — aplica afinidade de processo via `psutil.cpu_affinity()` logo após o `Popen`, limitando o processo do servidor aos primeiros N núcleos lógicos
+
+- **Calculadora de Breeding — campo Cuddle (Imprint)**: o painel de cálculo agora inclui o multiplicador `BabyCuddleIntervalMultiplier`. Campo "🤗 Cuddle (Imprint)" com entrada de tempo desejado (hh:mm:ss), resultado em `×N` e nota informativa *"Valor global — igual para todos os dinos, por isso não aparece na tabela abaixo"*.
+
+- **Calculadora de Breeding — botão Wiki**: botão "📋 Tabela base (Wiki)" que abre diretamente a página de Breeding da ARK Wiki (`ark.wiki.gg/wiki/Breeding#Incubation`) no navegador padrão.
+
+### Melhorado
+
+- **Calculadora de Breeding — visual em cards**: cada coluna de cálculo (Maturação, Incubação, Cooldown Acas., Cuddle) agora exibe fundo escuro `#0e1018` com borda sutil `#1e2840`, separando visualmente os campos e facilitando a leitura.
+
+- **Calculadora de Breeding — renomeações**: coluna da tabela e campo de cálculo "Acasalamento" renomeados para **"Cooldown Acas."**; hint text ajustado para "Cooldown desejado (hh:mm:ss)".
+
+- **MOTD — área de texto maior**: o campo de Mensagem do Dia (MOTD) na aba Geral passou de `height=100` para `height=180` px, exibindo mais linhas sem scroll.
+
+### Correção
+
+- **Calculadora de Breeding — "Aplicar ao Servidor" sem efeito**: ao clicar em "Aplicar ao Servidor" com o servidor online, `_save_server_config` retornava imediatamente pelo bloqueio de servidor em execução, sem gravar o `GameUserSettings.ini`. Corrigido com parâmetro `force=True` que pula a verificação de status — a gravação ocorre normalmente (as alterações entram em vigor no próximo reinício do servidor).
+
+- **Calculadora de Breeding — campo de multiplicador não atualizava**: após clicar em "Aplicar", o slider da aba Jogo se movia para o novo valor mas o campo de texto exibia o valor anterior. Corrigido adicionando `var.trace_add("write", ...)` em cada `frow`, mantendo `entry_var` sincronizado quando a `DoubleVar` é alterada programaticamente.
+
+---
+
+## [1.1.22] — 2026-05-16
 
 ### Melhorado
 

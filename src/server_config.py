@@ -268,6 +268,7 @@ class ServerConfig:
     use_battleye: bool = False
     force_respawn_dinos: bool = False
     use_allcores: bool = False
+    cpu_core_count: int = 0   # 0=padrão, -1=todos (flag), N>0=afinidade de N núcleos
     auto_save_period: float = 15.0
     active_event: str = ""
 
@@ -296,6 +297,11 @@ class ServerConfig:
     admin_ids: List[str] = field(default_factory=list)
     # Cache de nomes Steam resolvidos: {steam_id: display_name}
     admin_names: Dict[str, str] = field(default_factory=dict)
+
+    # Agendamentos automáticos
+    scheduled_tasks: List[dict] = field(default_factory=list)
+    # Cada item: {"enabled": bool, "time": "HH:MM", "days": [0..6], "action": str, "warn_minutes": int}
+    # action: "restart" | "stop" | "update_restart"
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -370,7 +376,7 @@ class ServerConfig:
 
         if not self.use_battleye:
             flags.append("-NoBattlEye")
-        if self.use_allcores:
+        if self.use_allcores or self.cpu_core_count == -1:
             flags.append("-useallavailablecores")
         if self.force_respawn_dinos:
             flags.append("-ForceRespawnDinos")

@@ -1,8 +1,13 @@
 {
-  "version": "1.1.21",
-  "date": "2026-05-16",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.21/ARKLAND-Multi-Setup-v1.1.21.exe",
+  "version": "1.1.23",
+  "date": "2026-05-17",
+  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.23/ARKLAND-Multi-Setup-v1.1.23.exe",
   "changelog": [
-    "Melhoria: detecção aprimorada de causa de crash — ao encerrar inesperadamente, o servidor agora lê automaticamente a pasta de crash do ARK (CrashContext.runtime-xml, .dmp) e o ShooterGame.log para identificar o DLL/plugin responsável e exibir o call stack no painel de log"
+    "Novo: Agendamentos automáticos na aba Geral (reiniciar/desligar/atualizar+reiniciar por dia e hora com aviso RCON)",
+    "Novo: Seletor de núcleos de CPU substituindo checkbox — Padrão / Todos / N núcleos com afinidade via psutil",
+    "Novo: Calculadora de Breeding — cards visuais, campo Cuddle (Imprint) com tempo desejado, botão Wiki",
+    "Fix: Aplicar ao Servidor na Calculadora de Breeding agora salva o .ini mesmo com servidor online",
+    "Fix: campo de texto do multiplicador no Jogo atualiza ao aplicar valores da Calculadora",
+    "Melhoria: MOTD com área de texto maior (altura 180px)"
   ]
 }

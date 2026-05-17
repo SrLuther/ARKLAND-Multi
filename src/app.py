@@ -1,4 +1,4 @@
-﻿"""
+"""
 Interface gráfica principal do ARKLAND - Server Manager.
 """
 from __future__ import annotations
@@ -17,7 +17,7 @@ import re
 import uuid
 import webbrowser
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, List, Optional, Tuple
@@ -56,6 +56,7 @@ from .server_config import (
 from .server_manager import ServerManager
 from .mod_manager import ModManager
 from .ark_ini import ArkIniManager
+from .breeding_calculator import open_breeding_calculator
 from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
 from .arkshop_manager import ArkShopManager, GENERAL_BOOL_LABELS
@@ -71,6 +72,15 @@ from .buff_manager import (
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
 
 APP_NAME = "ARKLAND - Server Manager"
+
+# ── Fuso horário de Brasília (UTC-3 fixo — BR não usa horário de verão desde 2019)
+_TZ_BRASILIA = timezone(timedelta(hours=-3))
+
+
+def now_brasilia() -> datetime:
+    """Retorna datetime atual no fuso de Brasília (naive, sem tzinfo)."""
+    return datetime.now(tz=_TZ_BRASILIA).replace(tzinfo=None)
+
 
 # ── Paleta de cores ────────────────────────────────────────────────────────────
 _GREEN       = "#4CAF50"
@@ -279,6 +289,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._server_widgets: Dict[str, Dict[str, Any]] = {}
         self._config_search_index: Dict[str, List] = {}
         self._rcon_clients: Dict[str, RconClient] = {}
+        self._rcon_auto_enabled: Dict[str, bool] = {}   # True = tentar reconectar quando RUNNING
+        self._rcon_auto_jobs: Dict[str, Optional[str]] = {}  # after() job id por servidor
         self._current_frame: str = ""
         self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
         self._global_log_buf: List[str] = []
@@ -300,6 +312,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._buff_manager: Optional[BuffManager] = None
         self._buffs_body_frame: Any = None          # frame reconstruído no refresh
         self._buffs_server_var: Any = None           # StringVar servidor selecionado
+        self._buff_countdown_job: Optional[str] = None  # after() job do ticker de countdown
+        self._buff_countdown_labels: list = []          # [(label_widget, target_datetime, prefix)]
 
         # Backup automático
         self._backup_manager: Optional[BackupManager] = None
@@ -365,9 +379,16 @@ class ARKServerManagerApp(ctk.CTk):
 
         ctk.CTkLabel(sb, text="Server Manager",
                      font=ctk.CTkFont(size=12), text_color="#88d4a0").grid(row=1, column=0)
-        ctk.CTkLabel(sb, text=f"v{APP_VERSION}",
-                     font=ctk.CTkFont(size=10), text_color="gray50").grid(
-            row=2, column=0, pady=(0, 8))
+        ver_clock = ctk.CTkFrame(sb, fg_color="transparent")
+        ver_clock.grid(row=2, column=0, pady=(0, 6))
+        ctk.CTkLabel(ver_clock, text=f"v{APP_VERSION}",
+                     font=ctk.CTkFont(size=10), text_color="gray50").pack()
+        self._sidebar_clock_lbl = ctk.CTkLabel(
+            ver_clock, text="",
+            font=ctk.CTkFont(size=11), text_color="#88d4a0",
+        )
+        self._sidebar_clock_lbl.pack(pady=(2, 0))
+        self.after(100, self._sidebar_clock_tick)
 
         ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
             row=3, column=0, sticky="ew", padx=12, pady=4)
@@ -419,43 +440,69 @@ class ARKServerManagerApp(ctk.CTk):
         self._sidebar_update_lbl.grid(row=13, column=0, padx=10, pady=4)
 
     def _rebuild_server_sidebar(self) -> None:
-        """Reconstrói a lista de botões de servidores na sidebar."""
-        for w in self._servers_list_sb.winfo_children():
-            w.destroy()
-        self._sidebar_server_btns.clear()
+        """Atualiza a lista de botões de servidores na sidebar.
 
+        Se os IDs já existem, apenas atualiza nome e cor do dot (evita
+        destruir+recriar todos os widgets a cada salvamento).
+        """
         servers = self.config_manager.servers
-        if not servers:
-            ctk.CTkLabel(self._servers_list_sb, text="Nenhum servidor.\nClique ＋ para adicionar.",
-                         text_color="gray50", font=ctk.CTkFont(size=11), justify="center").pack(
-                pady=10)
-            return
+        current_ids = [s.id for s in servers]
+        existing_ids = list(self._sidebar_server_btns.keys())
 
-        for srv in servers:
-            inst = self.server_manager.get_instance(srv.id)
-            status = inst.status if inst else SERVER_STATUS_STOPPED
-            color = _STATUS_COLOR.get(status, "#ff6666")
+        # Verifica se a lista mudou (adição/remoção/reordenação)
+        if current_ids != existing_ids:
+            # Rebuild completo somente quando necessário
+            for w in self._servers_list_sb.winfo_children():
+                w.destroy()
+            self._sidebar_server_btns.clear()
 
-            btn_frame = ctk.CTkFrame(self._servers_list_sb, fg_color="transparent")
-            btn_frame.pack(fill="x", pady=2)
-            btn_frame.grid_columnconfigure(0, weight=1)
+            if not servers:
+                ctk.CTkLabel(self._servers_list_sb, text="Nenhum servidor.\nClique ＋ para adicionar.",
+                             text_color="gray50", font=ctk.CTkFont(size=11), justify="center").pack(
+                    pady=10)
+                return
 
-            btn = ctk.CTkButton(
-                btn_frame,
-                text=f"  {srv.name}",
-                anchor="w", height=36, corner_radius=8,
-                fg_color="transparent", text_color="#d8d8e8",
-                hover_color="#252540",
-                command=lambda sid=srv.id: self._open_server_panel(sid),
-            )
-            btn.grid(row=0, column=0, sticky="ew")
+            for srv in servers:
+                inst = self.server_manager.get_instance(srv.id)
+                status = inst.status if inst else SERVER_STATUS_STOPPED
+                color = _STATUS_COLOR.get(status, "#ff6666")
 
-            status_dot = ctk.CTkLabel(btn_frame, text="●", text_color=color,
-                                       font=ctk.CTkFont(size=10), width=18)
-            status_dot.grid(row=0, column=1, padx=(0, 4))
+                btn_frame = ctk.CTkFrame(self._servers_list_sb, fg_color="transparent")
+                btn_frame.pack(fill="x", pady=2)
+                btn_frame.grid_columnconfigure(0, weight=1)
 
-            self._sidebar_server_btns[srv.id] = btn
-            btn._status_dot = status_dot  # type: ignore[attr-defined]
+                btn = ctk.CTkButton(
+                    btn_frame,
+                    text=f"  {srv.name}",
+                    anchor="w", height=36, corner_radius=8,
+                    fg_color="transparent", text_color="#d8d8e8",
+                    hover_color="#252540",
+                    command=lambda sid=srv.id: self._open_server_panel(sid),
+                )
+                btn.grid(row=0, column=0, sticky="ew")
+
+                status_dot = ctk.CTkLabel(btn_frame, text="●", text_color=color,
+                                           font=ctk.CTkFont(size=10), width=18)
+                status_dot.grid(row=0, column=1, padx=(0, 4))
+
+                self._sidebar_server_btns[srv.id] = btn
+                btn._status_dot = status_dot  # type: ignore[attr-defined]
+        else:
+            # Lista igual — apenas atualiza nome e cor sem recriar widgets
+            for srv in servers:
+                btn = self._sidebar_server_btns.get(srv.id)
+                if not btn:
+                    continue
+                btn.configure(text=f"  {srv.name}")
+                inst = self.server_manager.get_instance(srv.id)
+                status = inst.status if inst else SERVER_STATUS_STOPPED
+                color = _STATUS_COLOR.get(status, "#ff6666")
+                dot = getattr(btn, "_status_dot", None)
+                if dot:
+                    try:
+                        dot.configure(text_color=color)
+                    except Exception:
+                        pass
 
     # ── Frames estáticos ──────────────────────────────────────────────────────
 
@@ -884,9 +931,9 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _build_buffs_panel(self, parent: ctk.CTkFrame) -> None:
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(1, weight=1)
+        parent.grid_rowconfigure(2, weight=1)
 
-        # ── Cabeçalho ──────────────────────────────────────────────────────
+        # ── Cabeçalho (row 0) ───────────────────────────────────────────────
         hdr = ctk.CTkFrame(parent, fg_color="transparent")
         hdr.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 6))
         hdr.grid_columnconfigure(1, weight=1)
@@ -915,9 +962,9 @@ class ARKServerManagerApp(ctk.CTk):
             command=self._open_presets_manager,
         ).pack(side="left")
 
-        # ── Seletor de servidor ─────────────────────────────────────────────
+        # ── Seletor de servidor (row 1) ─────────────────────────────────────
         sel_bar = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
-        sel_bar.grid(row=0, column=0, sticky="ew", padx=20, pady=(80, 4))
+        sel_bar.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 4))
         sel_bar.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -939,9 +986,9 @@ class ARKServerManagerApp(ctk.CTk):
             self._buffs_server_var.set(srv_names[0])
         srv_combo.grid(row=0, column=1, padx=(0, 16), pady=10, sticky="w")
 
-        # ── Body scrollável (reconstruído no refresh) ───────────────────────
+        # ── Body scrollável (row 2, reconstruído no refresh) ────────────────
         body = ctk.CTkScrollableFrame(parent, fg_color=_BG)
-        body.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 0))
+        body.grid(row=2, column=0, sticky="nsew", padx=0, pady=(4, 0))
         body.grid_columnconfigure(0, weight=1)
         self._buffs_body_frame = body
 
@@ -950,6 +997,15 @@ class ARKServerManagerApp(ctk.CTk):
         body = self._buffs_body_frame
         if body is None:
             return
+
+        # Cancela ticker de countdown anterior
+        if self._buff_countdown_job:
+            try:
+                self.after_cancel(self._buff_countdown_job)
+            except Exception:
+                pass
+            self._buff_countdown_job = None
+        self._buff_countdown_labels = []
 
         # Limpa conteúdo anterior
         for w in body.winfo_children():
@@ -1037,6 +1093,9 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkFrame(body, fg_color="transparent", height=30).grid(
             row=row_idx, column=0)
 
+        # Inicia ticker de countdown (1s)
+        self._buff_countdown_job = self.after(1000, self._buff_countdown_tick)
+
     def _build_active_buff_card(self, parent, row: int, event: BuffEvent) -> None:
         card = ctk.CTkFrame(parent, fg_color="#1a2a1a", corner_radius=12)
         card.grid(row=row, column=0, padx=20, pady=(0, 8), sticky="ew")
@@ -1071,7 +1130,14 @@ class ARKServerManagerApp(ctk.CTk):
             card, text=event.rates.summary(),
             text_color="gray60", font=ctk.CTkFont(size=11),
             wraplength=700, justify="left",
-        ).grid(row=3, column=0, padx=16, pady=(0, 14), sticky="w")
+        ).grid(row=3, column=0, padx=16, pady=(0, 4), sticky="w")
+
+        countdown_lbl = ctk.CTkLabel(
+            card, text="",
+            text_color="#88d4a0", font=ctk.CTkFont(size=11),
+        )
+        countdown_lbl.grid(row=4, column=0, padx=16, pady=(0, 14), sticky="w")
+        self._buff_countdown_labels.append((countdown_lbl, event.end_datetime(), "⏱ Encerra em: "))
 
     def _build_scheduled_buff_row(self, parent, row: int, event: BuffEvent) -> None:
         card = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=10)
@@ -1093,14 +1159,21 @@ class ARKServerManagerApp(ctk.CTk):
         types_str = "  ·  ".join(BUFF_TYPE_LABELS.get(t, t) for t in event.types)
         ctk.CTkLabel(card, text=types_str, text_color="#ffaa44",
                      font=ctk.CTkFont(size=11)).grid(
-            row=2, column=0, padx=(16, 8), pady=(0, 10), sticky="w")
+            row=2, column=0, padx=(16, 8), pady=(0, 2), sticky="w")
+
+        countdown_lbl = ctk.CTkLabel(
+            card, text="",
+            text_color="#aaaaff", font=ctk.CTkFont(size=11),
+        )
+        countdown_lbl.grid(row=3, column=0, padx=(16, 8), pady=(0, 10), sticky="w")
+        self._buff_countdown_labels.append((countdown_lbl, event.start_datetime(), "⏳ Inicia em: "))
 
         ctk.CTkButton(
             card, text="✕  Cancelar", width=110, height=30,
             fg_color=_RED_DARK, hover_color=_RED_HOVER,
             font=ctk.CTkFont(size=11),
             command=lambda eid=event.id: self._cancel_buff(eid),
-        ).grid(row=0, column=2, rowspan=3, padx=16, pady=10)
+        ).grid(row=0, column=2, rowspan=4, padx=16, pady=10)
 
     def _build_preset_chip(self, parent, row: int, col: int,
                            preset: BuffPreset, srv_id: Optional[str]) -> None:
@@ -1152,6 +1225,53 @@ class ARKServerManagerApp(ctk.CTk):
         ):
             if self._buff_manager:
                 self._buff_manager.cancel_event(event_id)
+
+    def _sidebar_clock_tick(self) -> None:
+        """Atualiza o relógio da sidebar a cada segundo."""
+        try:
+            n = now_brasilia()
+            self._sidebar_clock_lbl.configure(
+                text=n.strftime("%d/%m/%Y\n%H:%M:%S")
+            )
+        except Exception:
+            pass
+        self.after(1000, self._sidebar_clock_tick)
+
+    @staticmethod
+    def _format_countdown(target: "datetime") -> str:
+        """Formata o tempo restante até `target` como Xd Xh Xm Xs."""
+        delta = target - now_brasilia()
+        total = int(delta.total_seconds())
+        if total <= 0:
+            return "00s"
+        d, rem = divmod(total, 86400)
+        h, rem = divmod(rem, 3600)
+        m, s   = divmod(rem, 60)
+        parts = []
+        if d:
+            parts.append(f"{d}d")
+        if h or d:
+            parts.append(f"{h:02d}h")
+        if m or h or d:
+            parts.append(f"{m:02d}m")
+        parts.append(f"{s:02d}s")
+        return " ".join(parts)
+
+    def _buff_countdown_tick(self) -> None:
+        """Atualiza todos os labels de countdown registrados (chamado a cada 1s)."""
+        alive = []
+        for lbl, target, prefix in self._buff_countdown_labels:
+            try:
+                if lbl.winfo_exists():
+                    lbl.configure(text=prefix + self._format_countdown(target))
+                    alive.append((lbl, target, prefix))
+            except Exception:
+                pass
+        self._buff_countdown_labels = alive
+        if alive:
+            self._buff_countdown_job = self.after(1000, self._buff_countdown_tick)
+        else:
+            self._buff_countdown_job = None
 
     # ── Diálogo: Criar BUFF ────────────────────────────────────────────────────
 
@@ -1359,7 +1479,7 @@ class ARKServerManagerApp(ctk.CTk):
         sched_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
         r += 1
 
-        now_str = datetime.now().strftime("%d/%m/%Y %H:00")
+        now_str = now_brasilia().strftime("%d/%m/%Y %H:00")
         ctk.CTkLabel(sched_card, text="Início:", text_color="gray60").grid(
             row=0, column=0, padx=(16, 4), pady=14, sticky="w")
         start_var = tk.StringVar(value=now_str)
@@ -1823,21 +1943,41 @@ class ARKServerManagerApp(ctk.CTk):
         tabs.grid(row=3, column=0, padx=14, pady=12, sticky="nsew")
         self._server_widgets[srv.id]["_tabs"] = tabs
 
-        for tab_name in ("Geral", "Jogo", "Avançado", "Spawns", "Loot", "Mods", "Admins", "Jogadores", "Plugins", "Console RCON", "Logs", "Backup"):
-            tabs.add(tab_name)
+        _TAB_BUILDERS = {
+            "Geral":        lambda: self._build_tab_general    (tabs.tab("Geral"),        srv),
+            "Jogo":         lambda: self._build_tab_game       (tabs.tab("Jogo"),         srv),
+            "Avançado":     lambda: self._build_tab_advanced   (tabs.tab("Avançado"),     srv),
+            "Spawns":       lambda: self._build_tab_spawns     (tabs.tab("Spawns"),       srv),
+            "Loot":         lambda: self._build_tab_loot       (tabs.tab("Loot"),         srv),
+            "Mods":         lambda: self._build_tab_mods       (tabs.tab("Mods"),         srv),
+            "Admins":       lambda: self._build_tab_admins     (tabs.tab("Admins"),       srv),
+            "Jogadores":    lambda: self._build_tab_jogadores  (tabs.tab("Jogadores"),    srv),
+            "Plugins":      lambda: self._build_tab_plugins    (tabs.tab("Plugins"),      srv),
+            "Console RCON": lambda: self._build_tab_rcon       (tabs.tab("Console RCON"), srv),
+            "Logs":         lambda: self._build_tab_logs       (tabs.tab("Logs"),         srv),
+            "Backup":       lambda: self._build_tab_backup     (tabs.tab("Backup"),       srv),
+        }
+        _built_tabs: set[str] = set()
 
-        self._build_tab_general   (tabs.tab("Geral"),         srv)
-        self._build_tab_game      (tabs.tab("Jogo"),          srv)
-        self._build_tab_advanced  (tabs.tab("Avançado"),      srv)
-        self._build_tab_spawns    (tabs.tab("Spawns"),        srv)
-        self._build_tab_loot      (tabs.tab("Loot"),          srv)
-        self._build_tab_mods      (tabs.tab("Mods"),          srv)
-        self._build_tab_admins    (tabs.tab("Admins"),        srv)
-        self._build_tab_jogadores (tabs.tab("Jogadores"),     srv)
-        self._build_tab_plugins   (tabs.tab("Plugins"),       srv)
-        self._build_tab_rcon      (tabs.tab("Console RCON"),  srv)
-        self._build_tab_logs      (tabs.tab("Logs"),          srv)
-        self._build_tab_backup    (tabs.tab("Backup"),        srv)
+        def _on_tab_change() -> None:
+            name = tabs.get()
+            if name not in _built_tabs:
+                _built_tabs.add(name)
+                _TAB_BUILDERS[name]()
+                # Se o servidor não estiver parado, bloqueia os novos widgets
+                inst_chk = self.server_manager.get_instance(srv.id)
+                if inst_chk and inst_chk.status != SERVER_STATUS_STOPPED:
+                    self.after(50, lambda: self._set_config_editable(srv.id, False))
+
+        for tab_name in _TAB_BUILDERS:
+            tabs.add(tab_name)
+        tabs.configure(command=_on_tab_change)
+        # Armazena o callback para que a barra de busca possa acioná-lo ao navegar via tabs.set()
+        self._server_widgets[srv.id]["_on_tab_change"] = _on_tab_change
+
+        # Constrói apenas a aba inicial (Geral) imediatamente
+        _built_tabs.add("Geral")
+        self._build_tab_general(tabs.tab("Geral"), srv)
 
         # Aplicar estado inicial de bloqueio se servidor não estiver parado
         if not is_stopped:
@@ -1961,7 +2101,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         ctk.CTkLabel(motd_card, text="Mensagem:", width=190, anchor="nw",
                      text_color="gray60").grid(row=0, column=0, padx=16, pady=(12, 2), sticky="nw")
-        w["motd"] = ctk.CTkTextbox(motd_card, height=100, corner_radius=6,
+        w["motd"] = ctk.CTkTextbox(motd_card, height=180, corner_radius=6,
                                    fg_color="#1a1a2e", border_color="#3a3a5a",
                                    border_width=1, font=ctk.CTkFont(size=12))
         w["motd"].grid(row=0, column=1, padx=(0, 12), pady=(12, 2), sticky="ew")
@@ -1982,6 +2122,7 @@ class ARKServerManagerApp(ctk.CTk):
         w["rcon_enabled"]       = tk.BooleanVar(value=srv.rcon_enabled)
         w["use_battleye"]       = tk.BooleanVar(value=srv.use_battleye)
         w["use_allcores"]       = tk.BooleanVar(value=srv.use_allcores)
+        w["cpu_core_count"]     = tk.StringVar()
         w["force_respawn"]      = tk.BooleanVar(value=srv.force_respawn_dinos)
         w["whitelist_only"]     = tk.BooleanVar(value=srv.whitelist_only)
         w["auto_restart_crash"] = tk.BooleanVar(value=srv.auto_restart_on_crash)
@@ -1995,9 +2136,6 @@ class ARKServerManagerApp(ctk.CTk):
             ("Usar BattlEye (anti-cheat)",
              "Proteção anti-cheat oficial. Desative para servidores com mods incompatíveis.",
              w["use_battleye"]),
-            ("Usar todos os núcleos de CPU",
-             "Permite que o servidor use todos os núcleos disponíveis na máquina.",
-             w["use_allcores"]),
             ("Forçar respawn de dinos",
              "Reseta todos os dinos selvagens ao iniciar o servidor.",
              w["force_respawn"]),
@@ -2022,12 +2160,131 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=10), anchor="w").pack(
                 anchor="w", padx=(26, 0), pady=(0, 2))
 
-        self._save_btn_row(scroll, 29, srv.id)
+        self._save_btn_row(scroll, 33, srv.id)
+
+        # ── Seletor de núcleos de CPU ────────────────────────────────────
+        import os as _os
+        _total_cpu = _os.cpu_count() or 8
+
+        def _int_to_cpu_opt(n: int) -> str:
+            if n == -1: return "Todos os núcleos"
+            if n == 0:  return "Padrão (ARK decide)"
+            return f"{n} núcleo{'s' if n > 1 else ''}"
+
+        _cpu_opts = (
+            ["Padrão (ARK decide)", "Todos os núcleos"]
+            + [f"{n} núcleo{'s' if n > 1 else ''}" for n in range(1, _total_cpu + 1)]
+        )
+        w["cpu_core_count"].set(_int_to_cpu_opt(srv.cpu_core_count))
+
+        self._register_config_item(srv.id, "Núcleos de CPU", "Restringe quantos núcleos lógicos o servidor pode usar.", "Geral")
+        cpu_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        cpu_fr.grid(row=28, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+        ctk.CTkLabel(cpu_fr, text="Núcleos de CPU:",
+                     font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(cpu_fr,
+                     text="Restringe quantos núcleos lógicos o processo do servidor pode usar.\n"
+                          "\"Todos\" usa a flag -useallavailablecores. Número específico aplica afinidade de processo.",
+                     text_color="gray40", font=ctk.CTkFont(size=10), anchor="w", justify="left").pack(
+            anchor="w", padx=(0, 0), pady=(0, 4))
+        ctk.CTkOptionMenu(
+            cpu_fr, variable=w["cpu_core_count"],
+            values=_cpu_opts, width=220,
+        ).pack(anchor="w")
+
+        # ── Seção Agendamentos ────────────────────────────────────────────────
+        self._section_lbl(scroll, 29, "⏰  Agendamentos Automáticos")
+        sched_outer = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
+        sched_outer.grid(row=30, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        sched_outer.grid_columnconfigure(0, weight=1)
+
+        _DAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+        _ACTION_OPTS = ["restart", "stop", "update_restart"]
+        _ACTION_LABELS = {"restart": "Reiniciar", "stop": "Desligar", "update_restart": "Atualizar + Reiniciar"}
+        _WARN_OPTS = ["0", "5", "10", "15", "30", "60"]
+
+        w["sched_task_rows"] = []
+        sched_rows_frame = ctk.CTkFrame(sched_outer, fg_color="transparent")
+        sched_rows_frame.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+        sched_rows_frame.grid_columnconfigure(0, weight=1)
+
+        def _add_sched_row(task: dict | None = None) -> None:
+            ri = len(w["sched_task_rows"])
+            row_fr = ctk.CTkFrame(sched_rows_frame, fg_color="#0e1018", corner_radius=6,
+                                  border_width=1, border_color="#1e2840")
+            row_fr.grid(row=ri, column=0, sticky="ew", pady=(0, 4))
+
+            ev = tk.BooleanVar(value=task.get("enabled", True) if task else True)
+            tv = tk.StringVar(value=task.get("time", "03:00") if task else "03:00")
+            dv = [tk.BooleanVar(value=(d in (task.get("days", list(range(7))) if task else list(range(7)))))
+                  for d in range(7)]
+            av = tk.StringVar(value=task.get("action", "restart") if task else "restart")
+            wv = tk.StringVar(value=str(task.get("warn_minutes", 15)) if task else "15")
+
+            # linha superior: enable + time + aviso + ação
+            top = ctk.CTkFrame(row_fr, fg_color="transparent")
+            top.pack(fill="x", padx=8, pady=(6, 2))
+
+            ctk.CTkCheckBox(top, text="", variable=ev, width=20,
+                            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                            checkmark_color="white").pack(side="left", padx=(0, 6))
+            ctk.CTkLabel(top, text="Hora:", text_color="gray60",
+                         font=ctk.CTkFont(size=10)).pack(side="left")
+            ctk.CTkEntry(top, textvariable=tv, width=60,
+                         font=ctk.CTkFont(size=12), placeholder_text="HH:MM").pack(side="left", padx=(4, 12))
+
+            ctk.CTkLabel(top, text="Ação:", text_color="gray60",
+                         font=ctk.CTkFont(size=10)).pack(side="left")
+            ctk.CTkOptionMenu(top, variable=av,
+                              values=list(_ACTION_LABELS.values()),
+                              width=170).pack(side="left", padx=(4, 12))
+
+            ctk.CTkLabel(top, text="Aviso:", text_color="gray60",
+                         font=ctk.CTkFont(size=10)).pack(side="left")
+            ctk.CTkOptionMenu(top, variable=wv, values=_WARN_OPTS, width=60).pack(side="left", padx=(4, 4))
+            ctk.CTkLabel(top, text="min", text_color="gray50",
+                         font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 12))
+
+            def _remove(fr=row_fr, rowdata=None):
+                fr.destroy()
+                if rowdata in w["sched_task_rows"]:
+                    w["sched_task_rows"].remove(rowdata)
+            rd: dict = {}
+            ctk.CTkButton(top, text="✕", width=28, height=24,
+                          fg_color="#3a1515", hover_color="#5a2020",
+                          font=ctk.CTkFont(size=11),
+                          command=lambda: _remove(row_fr, rd)).pack(side="right")
+
+            # linha inferior: dias da semana
+            bot = ctk.CTkFrame(row_fr, fg_color="transparent")
+            bot.pack(fill="x", padx=8, pady=(0, 6))
+            ctk.CTkLabel(bot, text="Dias:", text_color="gray60",
+                         font=ctk.CTkFont(size=10)).pack(side="left", padx=(20, 4))
+            for di, (dlbl, dvar) in enumerate(zip(_DAY_LABELS, dv)):
+                ctk.CTkCheckBox(bot, text=dlbl, variable=dvar, width=52,
+                                fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                                checkmark_color="white",
+                                font=ctk.CTkFont(size=10)).pack(side="left", padx=2)
+
+            rd.update({"frame": row_fr, "enabled": ev, "time": tv, "days": dv,
+                       "action": av, "warn": wv, "_action_labels": _ACTION_LABELS})
+            w["sched_task_rows"].append(rd)
+
+        # Carregar tarefas existentes
+        for t in srv.scheduled_tasks:
+            _add_sched_row(t)
+
+        ctk.CTkButton(
+            sched_outer, text="+ Adicionar agendamento",
+            fg_color="#1a2540", hover_color="#243060", text_color="#8eb0d0",
+            height=30, font=ctk.CTkFont(size=11),
+            command=_add_sched_row,
+        ).grid(row=1, column=0, padx=16, pady=(0, 10), sticky="w")
 
         # ── Seção Instalação ─────────────────────────────────────────────────
-        self._section_lbl(scroll, 28, "⬇️  Instalação / Atualização do Servidor")
+        self._section_lbl(scroll, 31, "⬇️  Instalação / Atualização do Servidor")
         inst_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        inst_card.grid(row=29, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        inst_card.grid(row=32, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         inst_card.grid_columnconfigure(0, weight=1)
 
         btn_row = ctk.CTkFrame(inst_card, fg_color="transparent")
@@ -2112,6 +2369,11 @@ class ARKServerManagerApp(ctk.CTk):
                 command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
             )
             slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
+
+            # Sincroniza entry_var quando var é alterado programaticamente (ex: calculadora)
+            def _sync_entry(*_, _v=var, _ev=entry_var):
+                _ev.set(f"{_v.get():.2f}")
+            var.trace_add("write", _sync_entry)
 
             def _commit(event=None, _var=var, _ev=entry_var, _frm=frm, _to=to):
                 try:
@@ -2248,6 +2510,21 @@ class ARKServerManagerApp(ctk.CTk):
         r += 1
 
         self._section_lbl(scroll, r, "🥚  Criação / Imprinting")
+        r += 1
+        _calc_btn = ctk.CTkButton(
+            scroll,
+            text="🧮  Calculadora de Breeding",
+            width=230,
+            fg_color="#2d4a6f",
+            hover_color="#1b2d45",
+            command=lambda _gs=gs: open_breeding_calculator(
+                self,
+                _gs,
+                self._server_widgets.get(srv.id, {}),
+                lambda: self._save_server_config(srv.id, silent=True, force=True),
+            ),
+        )
+        _calc_btn.grid(row=r, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
         r += 1
         frow("Velocidade de Domesticação",
              "Maior = domestica mais rápido. Ex: 3.0 = 3× mais rápido.",
@@ -3457,6 +3734,12 @@ class ARKServerManagerApp(ctk.CTk):
             actions, text="💾  Salvar Lista de Mods",
             height=38, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
             command=lambda: self._save_server_config(srv.id),
+        ).pack(side="left", padx=(0, 8))
+
+        ctk.CTkButton(
+            actions, text="🗑️  Apagar Todos os Mods",
+            height=38, fg_color="#8B1A1A", hover_color="#B22222",
+            command=lambda: self._clear_all_mods(srv.id),
         ).pack(side="left")
 
         self._refresh_mods_list(srv.id)
@@ -3886,7 +4169,7 @@ class ARKServerManagerApp(ctk.CTk):
         ).pack(side="left")
         ctk.CTkLabel(
             actions,
-            text="IDs são gravados em ShooterGame/Binaries/Win64/AllowedCheaterSteamIDs.txt ao salvar.",
+            text="IDs são gravados em ShooterGame/Saved/AllowedCheaterSteamIDs.txt ao salvar.",
             text_color="gray45", font=ctk.CTkFont(size=11),
         ).pack(side="left", padx=12)
 
@@ -3918,6 +4201,26 @@ class ARKServerManagerApp(ctk.CTk):
                 pass
 
         self._fetch_steam_name(steam_id, _done)
+
+    def _write_allowed_admins(self, server_id: str) -> None:
+        """Grava AllowedCheaterSteamIDs.txt imediatamente, sem depender do botão Salvar."""
+        import pathlib
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.install_dir or not os.path.isdir(srv.install_dir):
+            return
+        try:
+            allowed_path = (
+                pathlib.Path(srv.install_dir)
+                / "ShooterGame" / "Saved"
+                / "AllowedCheaterSteamIDs.txt"
+            )
+            allowed_path.parent.mkdir(parents=True, exist_ok=True)
+            allowed_path.write_text("\n".join(srv.admin_ids), encoding="utf-8")
+        except Exception as exc:
+            self._global_log(
+                f"[{srv.name}] Aviso: não foi possível gravar AllowedCheaterSteamIDs.txt: {exc}",
+                "warning",
+            )
 
     def _refresh_admins_list(self, server_id: str) -> None:
         srv = self.config_manager.get_server(server_id)
@@ -3990,6 +4293,7 @@ class ARKServerManagerApp(ctk.CTk):
                 if clean:
                     srv.admin_names[steam_id] = clean
         self.config_manager.update_server(srv)
+        self._write_allowed_admins(server_id)
         var.set("")
         lbl = w.get("_admin_name_preview")
         if lbl:
@@ -4004,6 +4308,7 @@ class ARKServerManagerApp(ctk.CTk):
             srv.admin_ids.remove(steam_id)
         srv.admin_names.pop(steam_id, None)
         self.config_manager.update_server(srv)
+        self._write_allowed_admins(server_id)
         self._refresh_admins_list(server_id)
 
     # Aba Jogadores
@@ -4939,6 +5244,10 @@ class ARKServerManagerApp(ctk.CTk):
                 def _go() -> None:
                     try:
                         tabs.set(tab_name)
+                        # CTkTabview.set() pode não disparar o command; força build da aba
+                        on_tc = self._server_widgets.get(server_id, {}).get("_on_tab_change")
+                        if callable(on_tc):
+                            on_tc()
                     except Exception:
                         pass
                     search_var.set("")
@@ -7316,21 +7625,23 @@ class ARKServerManagerApp(ctk.CTk):
 
         self.mod_manager.install_server(install_dir, validate=validate, on_done=_wrapped_done)
 
-    def _save_server_config(self, server_id: str, silent: bool = False) -> None:
+    def _save_server_config(self, server_id: str, silent: bool = False, force: bool = False) -> None:
         """Lê todos os widgets do servidor, salva no config e escreve os .ini."""
         srv = self.config_manager.get_server(server_id)
         if not srv:
             return
 
-        # Bloqueia salvamento se o servidor não estiver parado
-        inst = self.server_manager.get_instance(server_id)
-        if inst and inst.status != SERVER_STATUS_STOPPED:
-            messagebox.showwarning(
-                "Servidor em execução",
-                "Pare o servidor antes de salvar as configurações.",
-                parent=self,
-            )
-            return
+        # Bloqueia salvamento se o servidor não estiver parado (a menos que force=True)
+        if not force:
+            inst = self.server_manager.get_instance(server_id)
+            if inst and inst.status != SERVER_STATUS_STOPPED:
+                if not silent:
+                    messagebox.showwarning(
+                        "Servidor em execução",
+                        "Pare o servidor antes de salvar as configurações.",
+                        parent=self,
+                    )
+                return
 
         w = self._server_widgets.get(server_id, {})
 
@@ -7376,6 +7687,33 @@ class ARKServerManagerApp(ctk.CTk):
             srv.whitelist_only        = w.get("whitelist_only",      tk.BooleanVar()).get()
             srv.auto_restart_on_crash = w.get("auto_restart_crash",  tk.BooleanVar()).get()
             srv.auto_update_on_start  = w.get("auto_update_start",   tk.BooleanVar()).get()
+            _cpu_sel = w.get("cpu_core_count", tk.StringVar(value="Padrão (ARK decide)")).get()
+            if _cpu_sel.startswith("Todos"):
+                srv.cpu_core_count = -1
+                srv.use_allcores   = True
+            elif _cpu_sel[0].isdigit():
+                srv.cpu_core_count = int(_cpu_sel.split()[0])
+                srv.use_allcores   = False
+            else:
+                srv.cpu_core_count = 0
+                srv.use_allcores   = False
+
+            # Agendamentos
+            _sched_rows = w.get("sched_task_rows", [])
+            _al_inv = {"Reiniciar": "restart", "Desligar": "stop", "Atualizar + Reiniciar": "update_restart"}
+            _new_tasks = []
+            for rd in _sched_rows:
+                try:
+                    _new_tasks.append({
+                        "enabled": rd["enabled"].get(),
+                        "time": rd["time"].get().strip() or "03:00",
+                        "days": [d for d, bv in enumerate(rd["days"]) if bv.get()],
+                        "action": _al_inv.get(rd["action"].get(), rd["action"].get()),
+                        "warn_minutes": int(rd["warn"].get() or "0"),
+                    })
+                except Exception:
+                    pass
+            srv.scheduled_tasks = _new_tasks
 
         # Preserva as configurações de backup (gerenciadas pela aba Backup)
         # — não sobrescreve campos backup ao salvar outras abas
@@ -7656,12 +7994,12 @@ class ARKServerManagerApp(ctk.CTk):
                 self._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
             # Grava AllowedCheaterSteamIDs.txt
-            # Localização correta: mesma pasta do executável (ShooterGame/Binaries/Win64/)
+            # Localização correta: ShooterGame/Saved/
             try:
                 import pathlib
                 allowed_path = (
                     pathlib.Path(srv.install_dir)
-                    / "ShooterGame" / "Binaries" / "Win64"
+                    / "ShooterGame" / "Saved"
                     / "AllowedCheaterSteamIDs.txt"
                 )
                 allowed_path.parent.mkdir(parents=True, exist_ok=True)
@@ -7792,36 +8130,55 @@ class ARKServerManagerApp(ctk.CTk):
                     except OSError:
                         pass
 
-            try:
-                _load_from_folder(srv, folder)
-            except Exception as exc:
-                messagebox.showerror("Erro ao importar", str(exc), parent=dlg)
-                return
+            # Desabilita o botão de importar e mostra feedback visual
+            import_btn.configure(state="disabled", text="⏳  Importando...")
+            btn_cancel.configure(state="disabled")
 
-            self.config_manager.update_server(srv)
-            dlg.destroy()
-            self._rebuild_server_panel(server_id)
-            found = []
-            if gus_path.exists():
-                found.append("GameUserSettings.ini")
-            if game_path.exists():
-                found.append("Game.ini")
-            messagebox.showinfo(
-                "INI importado",
-                "Configurações importadas com sucesso!\n\nArquivos lidos:\n  " + "\n  ".join(found) + f"\n\nDe: {folder}",
-                parent=self,
-            )
+            import threading
 
-        ctk.CTkButton(
+            def _worker():
+                try:
+                    _load_from_folder(srv, folder)
+                    err = None
+                except Exception as exc:
+                    err = exc
+
+                def _on_done():
+                    if err is not None:
+                        import_btn.configure(state="normal", text="⬆️  Importar")
+                        btn_cancel.configure(state="normal")
+                        messagebox.showerror("Erro ao importar", str(err), parent=dlg)
+                        return
+                    self.config_manager.update_server(srv)
+                    dlg.destroy()
+                    self._rebuild_server_panel(server_id)
+                    found = []
+                    if gus_path.exists():
+                        found.append("GameUserSettings.ini")
+                    if game_path.exists():
+                        found.append("Game.ini")
+                    messagebox.showinfo(
+                        "INI importado",
+                        "Configurações importadas com sucesso!\n\nArquivos lidos:\n  " + "\n  ".join(found) + f"\n\nDe: {folder}",
+                        parent=self,
+                    )
+
+                self.after(0, _on_done)
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        btn_cancel = ctk.CTkButton(
             btn_fr, text="Cancelar", width=100, height=36,
             fg_color="gray30", hover_color="gray40",
             command=dlg.destroy,
-        ).pack(side="left", padx=(0, 8))
-        ctk.CTkButton(
+        )
+        btn_cancel.pack(side="left", padx=(0, 8))
+        import_btn = ctk.CTkButton(
             btn_fr, text="⬆️  Importar", width=130, height=36,
             fg_color=_BLUE, hover_color=_BLUE_HOVER,
             command=_do_import,
-        ).pack(side="left")
+        )
+        import_btn.pack(side="left")
 
     def _rebuild_server_panel(self, server_id: str) -> None:
         """Reconstrói o painel completo de um servidor para refletir valores atualizados."""
@@ -8163,6 +8520,22 @@ class ARKServerManagerApp(ctk.CTk):
         self.config_manager.update_server(srv)
         self._refresh_mods_list(server_id)
 
+    def _clear_all_mods(self, server_id: str) -> None:
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.mods:
+            return
+        count = len(srv.mods)
+        if not messagebox.askyesno(
+            "Apagar todos os mods",
+            f"Remover todos os {count} mod(s) da lista do servidor?\n\nEsta ação não desinstala os arquivos do disco.",
+        ):
+            return
+        srv.mods.clear()
+        srv.mod_names.clear()
+        srv.mod_ini_configs.clear()
+        self.config_manager.update_server(srv)
+        self._refresh_mods_list(server_id)
+
     def _open_mod_ini_dialog(self, server_id: str, mod_id: str) -> None:
         srv = self.config_manager.get_server(server_id)
         if not srv:
@@ -8303,6 +8676,84 @@ class ARKServerManagerApp(ctk.CTk):
 
     # ── RCON ──────────────────────────────────────────────────────────────────
 
+    # ── RCON auto-reconexão ───────────────────────────────────────────────────
+
+    def _rcon_cancel_auto_job(self, server_id: str) -> None:
+        job = self._rcon_auto_jobs.pop(server_id, None)
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+
+    def _rcon_schedule_auto_connect(self, server_id: str, delay_ms: int = 15_000) -> None:
+        self._rcon_cancel_auto_job(server_id)
+        job = self.after(delay_ms, lambda: self._rcon_auto_connect_tick(server_id))
+        self._rcon_auto_jobs[server_id] = job
+
+    def _rcon_auto_connect_tick(self, server_id: str) -> None:
+        """Tenta conectar o RCON silenciosamente se o servidor estiver RUNNING e sem conexão."""
+        self._rcon_auto_jobs.pop(server_id, None)
+
+        if not self._rcon_auto_enabled.get(server_id):
+            return
+
+        # Se já está conectado, apenas reagenda a verificação
+        client = self._rcon_clients.get(server_id)
+        if client and client.is_connected:
+            self._rcon_schedule_auto_connect(server_id, delay_ms=15_000)
+            return
+
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+
+        w        = self._server_widgets.get(server_id, {})
+        host     = w.get("rcon_host", tk.StringVar(value="127.0.0.1")).get() or "127.0.0.1"
+        port_str = w.get("rcon_port_entry", tk.StringVar(value=str(srv.rcon_port))).get()
+        password = srv.rcon_password or srv.admin_password
+        try:
+            port = int(port_str)
+        except ValueError:
+            port = srv.rcon_port
+
+        def _try():
+            new_client = RconClient(
+                host, port, password,
+                on_log=lambda m, level: self._global_log(f"[RCON] {m}", level),
+            )
+            try:
+                new_client.connect()
+                def _ok():
+                    if not self._rcon_auto_enabled.get(server_id):
+                        try:
+                            new_client.disconnect()
+                        except Exception:
+                            pass
+                        return
+                    self._rcon_clients[server_id] = new_client
+                    sv = w.get("rcon_status_var")
+                    cb = w.get("rcon_connect_btn")
+                    if sv:
+                        sv.set(f"🟢 Conectado a {host}:{port}")
+                    if cb:
+                        cb.configure(text="🔌 Desconectar",
+                                     fg_color=_RED_DARK, hover_color=_RED_HOVER)
+                    self._rcon_append(server_id, f"[Auto] Conectado a {host}:{port}\n", "sys")
+                    # reagenda verificação de keep-alive
+                    self._rcon_schedule_auto_connect(server_id, delay_ms=15_000)
+                self.after(0, _ok)
+            except Exception:
+                # falha silenciosa — tenta de novo em 15s
+                def _retry():
+                    if self._rcon_auto_enabled.get(server_id):
+                        self._rcon_schedule_auto_connect(server_id, delay_ms=15_000)
+                self.after(0, _retry)
+
+        threading.Thread(target=_try, daemon=True).start()
+
+    # ── RCON manual ──────────────────────────────────────────────────────────
+
     def _rcon_connect(self, server_id: str) -> None:
         w   = self._server_widgets.get(server_id, {})
         srv = self.config_manager.get_server(server_id)
@@ -8315,6 +8766,9 @@ class ARKServerManagerApp(ctk.CTk):
 
         existing = self._rcon_clients.get(server_id)
         if existing and existing.is_connected:
+            # Desconexão manual: desativa auto-connect e cancela o loop
+            self._rcon_auto_enabled[server_id] = False
+            self._rcon_cancel_auto_job(server_id)
             existing.disconnect()
             del self._rcon_clients[server_id]
             w.get("rcon_status_var", tk.StringVar()).set("⬛ Desconectado")
@@ -8421,6 +8875,30 @@ class ARKServerManagerApp(ctk.CTk):
 
             # Bloquear/desbloquear configurações
             self._set_config_editable(server_id, status == SERVER_STATUS_STOPPED)
+
+            # ── Auto-reconexão RCON ───────────────────────────────────────
+            if status == SERVER_STATUS_RUNNING:
+                # habilita auto-connect e agenda o primeiro loop
+                self._rcon_auto_enabled[server_id] = True
+                self._rcon_schedule_auto_connect(server_id, delay_ms=5000)
+            elif status == SERVER_STATUS_STOPPED:
+                # servidor parou: cancela loop e desconecta RCON
+                self._rcon_auto_enabled[server_id] = False
+                self._rcon_cancel_auto_job(server_id)
+                client = self._rcon_clients.pop(server_id, None)
+                if client:
+                    try:
+                        client.disconnect()
+                    except Exception:
+                        pass
+                w2 = self._server_widgets.get(server_id, {})
+                sv2 = w2.get("rcon_status_var")
+                cb2 = w2.get("rcon_connect_btn")
+                if sv2:
+                    sv2.set("⬛ Desconectado")
+                if cb2:
+                    cb2.configure(text="🔌 Conectar",
+                                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER)
 
             btn = self._sidebar_server_btns.get(server_id)
             if btn:
@@ -8959,3 +9437,4 @@ class ARKServerManagerApp(ctk.CTk):
         self.deiconify()
         self.lift()
         self.focus_force()
+

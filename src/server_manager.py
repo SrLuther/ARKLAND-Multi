@@ -7,9 +7,9 @@ from __future__ import annotations
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Set
 
 try:
     import psutil as _psutil
@@ -231,6 +231,108 @@ class ServerManager:
         self._on_log             = on_log             or (lambda server_id, msg, level: None)
         self._on_visibility_change = on_visibility_change or (lambda server_id, mode: None)
 
+        # Scheduler de tarefas agendadas
+        self._sched_fired: Dict[str, date] = {}   # chave: "{srv_id}::{task_idx}::{hhmm}"
+        self._sched_warned: Dict[str, date] = {}  # idem, para avisos de warn_minutes
+        self._sched_stop = threading.Event()
+        self._sched_thread = threading.Thread(
+            target=self._scheduler_loop, daemon=True, name="ARKTaskScheduler"
+        )
+        self._sched_thread.start()
+
+    # ── Scheduler de tarefas agendadas ────────────────────────────────────────
+
+    def _scheduler_loop(self) -> None:
+        while not self._sched_stop.is_set():
+            try:
+                self._scheduler_tick()
+            except Exception:
+                pass
+            self._sched_stop.wait(30)
+
+    def _scheduler_tick(self) -> None:
+        from .rcon_client import RconClient
+        now = datetime.now()
+        today = now.date()
+        hhmm = now.strftime("%H:%M")
+        weekday = now.weekday()  # 0=Seg..6=Dom
+
+        with self._lock:
+            instances = list(self._instances.values())
+
+        for inst in instances:
+            if inst.status not in (SERVER_STATUS_RUNNING, SERVER_STATUS_STARTING):
+                continue
+            cfg = inst.config
+            for idx, task in enumerate(cfg.scheduled_tasks):
+                if not task.get("enabled", True):
+                    continue
+                days = task.get("days", list(range(7)))
+                if weekday not in days:
+                    continue
+                task_time = task.get("time", "")
+                action    = task.get("action", "restart")
+                warn_min  = int(task.get("warn_minutes", 0))
+
+                # ── Aviso antecipado ──────────────────────────────────────
+                if warn_min > 0:
+                    try:
+                        from datetime import timedelta
+                        h, m = map(int, task_time.split(":"))
+                        scheduled_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+                        warn_dt = scheduled_dt - timedelta(minutes=warn_min)
+                        warn_hhmm = warn_dt.strftime("%H:%M")
+                        warn_key = f"{cfg.id}::{idx}::warn::{warn_hhmm}"
+                        if hhmm == warn_hhmm and self._sched_warned.get(warn_key) != today:
+                            self._sched_warned[warn_key] = today
+                            _labels = {"restart": "reiniciado", "stop": "desligado", "update_restart": "atualizado e reiniciado"}
+                            self._sched_broadcast(cfg, f"⚠ Servidor será {_labels.get(action, action)} em {warn_min} minuto(s)!")
+                    except Exception:
+                        pass
+
+                # ── Ação principal ────────────────────────────────────────
+                if hhmm != task_time:
+                    continue
+                fire_key = f"{cfg.id}::{idx}::{hhmm}"
+                if self._sched_fired.get(fire_key) == today:
+                    continue
+                self._sched_fired[fire_key] = today
+
+                self._emit_log(cfg.id, f"[Agendador] Executando tarefa: {action} às {hhmm}", "info")
+                server_id = cfg.id
+
+                if action == "stop":
+                    threading.Thread(target=self.stop_server, args=(server_id,), daemon=True).start()
+                elif action == "restart":
+                    threading.Thread(target=self.restart_server, args=(server_id,), daemon=True).start()
+                elif action == "update_restart":
+                    def _update_restart(sid=server_id):
+                        self.stop_server(sid)
+                        deadline = time.monotonic() + 120
+                        while time.monotonic() < deadline:
+                            inst2 = self._instances.get(sid)
+                            if inst2 and inst2.status == SERVER_STATUS_STOPPED:
+                                break
+                            time.sleep(2)
+                        self.start_server(sid)
+                    threading.Thread(target=_update_restart, daemon=True).start()
+
+    def _sched_broadcast(self, cfg, message: str) -> None:
+        from .rcon_client import RconClient
+        if not cfg.rcon_enabled:
+            return
+        try:
+            rcon = RconClient("127.0.0.1", cfg.rcon_port, cfg.rcon_password)
+            rcon.connect()
+            rcon.send_command(f"Broadcast {message[:900]}")
+            rcon.disconnect()
+        except Exception:
+            pass
+
+    def stop_scheduler(self) -> None:
+        """Para o scheduler de tarefas agendadas."""
+        self._sched_stop.set()
+
     # ── CRUD de instâncias ────────────────────────────────────────────────────
 
     def add_server(self, config: ServerConfig) -> None:
@@ -443,6 +545,16 @@ class ServerManager:
             inst.pid        = proc.pid
             inst.start_time = datetime.now()
             inst.online_mode = "—"
+
+            # Afinidade de CPU (se configurado)
+            if _PSUTIL_OK and cfg.cpu_core_count > 0:
+                try:
+                    total = _psutil.cpu_count(logical=True) or 1
+                    n = min(cfg.cpu_core_count, total)
+                    _psutil.Process(proc.pid).cpu_affinity(list(range(n)))
+                    self._emit_log(server_id, f"Afinidade de CPU definida: {n} núcleo(s).", "info")
+                except Exception as e:
+                    self._emit_log(server_id, f"Aviso: não foi possível definir afinidade de CPU: {e}", "warning")
             # Status permanece STARTING — será promovido para RUNNING
             # pelo watchdog que monitora o arquivo de log do ARK
             self._emit_log(server_id, f"Processo iniciado (PID {proc.pid}). Aguardando inicialização...", "info")
