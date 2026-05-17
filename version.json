@@ -3,6 +3,7 @@
   "date": "2026-05-17",
   "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.2.0/ARKLAND-Multi-Setup-v1.2.0.exe",
   "changelog": [
+    "Novo: Instância única — segunda abertura restaura a janela existente (mesmo na bandeja) ao foco",
     "Novo: Integração com Beacon — Blueprint Picker com busca live em ~1963 itens ARK Prime, autenticação OAuth Device Flow",
     "Novo: botão 'Inserir seção' no dialog de INI do mod — insere seções cadastradas sem apagar conteúdo existente",
     "Melhoria: aba Jogo usa renderização em chunks (after(0)) — elimina freeze de ~500ms dos 44 CTkSliders",

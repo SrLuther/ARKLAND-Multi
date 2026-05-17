@@ -12,6 +12,8 @@ CHANGELOG: list[dict] = [
         "version": "1.2.0",
         "date": "2026-05-17",
         "changes": [
+            "Novo: Instância única — ao tentar abrir o app já em execução (mesmo na bandeja), "
+            "a janela existente é restaurada automaticamente ao foco via mutex nomeado + EnumWindows.",
             "Novo: Integração com Beacon (usebeacon.app) — autenticação OAuth Device Flow (PKCE), "
             "cache local de blueprints ARK Prime (~1963 itens, TTL 7 dias).",
             "Novo: Blueprint Picker — diálogo de busca live com filtro por categoria "

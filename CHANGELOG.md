@@ -9,6 +9,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ### Novo
 
+- **Instância Única — Guard de duplo lançamento**: ao tentar abrir o app enquanto ele já estiver rodando (incluindo recolhido na bandeja do sistema), a segunda instância **restaura automaticamente a janela existente** para o foco (equivalente a clicar no ícone da bandeja) e encerra silenciosamente. Implementado via mutex nomeado do Windows (`CreateMutexW`) + `EnumWindows` para localizar a janela pelo título — funciona mesmo com `withdraw()` ativo. Fallback: se a janela não for encontrada, exibe aviso informando que o app já está em execução.
+
 - **Integração com Beacon (usebeacon.app)**: novo módulo `src/beacon_client.py` — cliente completo para a API pública do Beacon, repositório autoritativo de blueprints ARK derivados do DevKit. Recursos:
   - **Autenticação OAuth Device Flow com PKCE**: sem armazenar segredos no código. O app inicia o fluxo, exibe o código de dispositivo e a URL, abre o navegador automaticamente e aguarda a confirmação em background. Token persistido localmente com renovação automática.
   - **Cache local de blueprints**: ~1963 itens ARK Prime baixados em até 8 páginas paginadas, salvos em `%APPDATA%\ARKLAND-ServerManager\beacon_blueprints_cache.json` com TTL de 7 dias — evita requisições repetidas entre sessões.
