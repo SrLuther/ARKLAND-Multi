@@ -5,6 +5,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.4] — 2026-05-17
+
+### Novo
+
+- **Sistema de Clusters Cross-ARK**: painel dedicado para criar e gerenciar perfis de cluster (modo **Local** — mesma máquina/mesmo app, ou **Rede** — máquinas diferentes via pasta UNC/drive mapeado), substituindo a configuração manual por servidor. Servidores são vinculados ao perfil diretamente no painel do cluster.
+
+- **Sincronização automática de dados de viagem**: cada perfil de cluster pode sincronizar bidirecional mente a pasta local do ARK (`ShooterGame/Saved/clusters`) com a pasta compartilhada de rede, mantendo personagens, itens e dinos atualizados entre máquinas diferentes. Controles de start/stop e sync manual por perfil; engines de sync iniciam automaticamente com o app.
+
+### Correção
+
+- **Verificador de atualização**: removido BOM (*Byte Order Mark*) do `version.json` gerado pelo `_release.ps1` — o `[System.Text.Encoding]::UTF8` do .NET inclui BOM, fazendo o parser falhar com "Não foi possível verificar". Corrigido com `New-Object System.Text.UTF8Encoding $false`.
+
+---
+
+## [1.2.3] — 2026-05-17
+
+### Correção
+
+- **`GameUserSettings.ini` — case de chaves preservado**: chaves como `RCONEnabled` não eram mais normalizadas para minúsculas (`rconenabled`), evitando crash de plugins ArkAPI como ArkShop que exigem grafia exata.
+
+- **`GameUserSettings.ini` e `Game.ini` — encoding preservado**: o encoding original do arquivo (UTF-16 LE, UTF-8 com BOM, etc.) é detectado na leitura e mantido ao salvar.
+
+---
+
+## [1.2.2] — 2026-05-17
+
+### Novo
+
+- **Exportar/Importar Perfil**: botões na sidebar permitem salvar todos os servidores em um arquivo `.arkprofile` e carregá-los em outra máquina.
+
+### Melhorado
+
+- **Stats por Nível**: tabela com fundo alternado (zebra) para facilitar a leitura das colunas distantes.
+
+---
+
 ## [1.2.1] — 2026-05-17
 
 ### Novo
