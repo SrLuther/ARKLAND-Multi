@@ -419,6 +419,21 @@ def populate_config_from_game_ini(
         except Exception:
             pass
 
+    # ── PerLevelStatsMultiplier — lê os 12 índices de cada grupo ─────────────
+    for ini_key, attr in [
+        ("PerLevelStatsMultiplier_DinoTamed", "per_level_stats_mult_dino_tamed"),
+        ("PerLevelStatsMultiplier_DinoWild",  "per_level_stats_mult_dino_wild"),
+        ("PerLevelStatsMultiplier_Player",    "per_level_stats_mult_player"),
+    ]:
+        vals = list(getattr(gs, attr))
+        for i in range(12):
+            try:
+                if parser.has_option(section, f"{ini_key}[{i}]"):
+                    vals[i] = float(parser.get(section, f"{ini_key}[{i}]"))
+            except Exception:
+                pass
+        setattr(gs, attr, vals)
+
     # ── Spawn de Dinos Customizados ──────────────────────────────────────────
     # configparser não preserva chaves duplicadas, por isso lemos as linhas brutas.
     # Tentamos localizar o arquivo a partir do parser source se disponível.
@@ -1045,6 +1060,23 @@ class ArkIniManager:
         gs = config.game_settings
         for field_name, key, typ in _GAME_INI_GAME_SETTINGS:
             parser.set(section, key, str(getattr(gs, field_name)))
+
+        # ── PerLevelStatsMultiplier — escreve apenas valores não-padrão ───────
+        for ini_key, attr in [
+            ("PerLevelStatsMultiplier_DinoTamed", "per_level_stats_mult_dino_tamed"),
+            ("PerLevelStatsMultiplier_DinoWild",  "per_level_stats_mult_dino_wild"),
+            ("PerLevelStatsMultiplier_Player",    "per_level_stats_mult_player"),
+        ]:
+            vals = getattr(gs, attr)
+            for i, v in enumerate(vals):
+                ini_k = f"{ini_key}[{i}]"
+                if v != 1.0:
+                    parser.set(section, ini_k, f"{v:.6g}")
+                else:
+                    try:
+                        parser.remove_option(section, ini_k)
+                    except Exception:
+                        pass
 
         # ── Escrita inicial via configparser ──────────────────────────────
         import io

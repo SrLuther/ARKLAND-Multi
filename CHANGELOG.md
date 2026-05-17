@@ -5,6 +5,22 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.1] — 2026-05-17
+
+### Novo
+
+- **ArkShop — Comandos em Itens da Loja**: seção **Comandos** adicionada ao painel de detalhe de item da loja, com o mesmo funcionamento já existente nos Kits — botão `+ Comando`, campo de texto para o comando e checkbox **Admin** (`ExecuteAsAdmin`). Os comandos são salvos no JSON sob a chave `Commands` e removidos automaticamente quando a lista está vazia.
+
+### Correção
+
+- **Beacon — Token salvo em `%APPDATA%`**: `_token_path()` agora sempre grava em `%APPDATA%\ARKLAND-ServerManager\beacon_token.json`, independente de rodar como executável compilado ou em desenvolvimento. Anteriormente, em modo PyInstaller (frozen), o token era salvo ao lado do `.exe` em `C:\Program Files\` — pasta somente-leitura sem privilégio de administrador — causando falha silenciosa no `_save_token` (bloco `except: pass`). Resultado: o usuário completava o login, mas o token nunca era persistido, e a autenticação precisava ser refeita a cada sessão.
+
+- **Beacon — Painel de autenticação reaparece após erro de token**: ao carregar blueprints via `_do_load`, se o token estiver ausente ou expirado, o botão **🔑 Reconectar com Beacon** reaparece automaticamente no rodapé do diálogo — sem precisar fechar e reabrir. Anteriormente o botão só aparecia na abertura inicial (bloco `else:`), deixando o usuário sem forma de reautenticar após uma falha mid-session.
+
+- **Beacon — Mensagem de erro intuitiva**: a exceção em `fetch_all` não referencia mais `beacon_sync.py` (arquivo exclusivo de desenvolvimento). Nova mensagem: *"Clique em 'Conectar com Beacon' para autenticar novamente."*
+
+---
+
 ## [1.2.0] — 2026-05-17
 
 ### Novo

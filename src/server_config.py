@@ -154,6 +154,13 @@ class ServerGameSettings:
     # Fishing
     fishing_loot_quality_multiplier: float = 1.0
 
+    # Multiplicadores de stats por nível — Game.ini PerLevelStatsMultiplier_*
+    # Índices: 0=Vida, 1=Stamina, 2=Torpor, 3=Oxigênio, 4=Comida, 5=Água,
+    #          6=Temperatura, 7=Peso, 8=Dano, 9=Velocidade, 10=Fortitude, 11=Craft
+    per_level_stats_mult_dino_tamed: List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_stats_mult_dino_wild:  List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_stats_mult_player:     List[float] = field(default_factory=lambda: [1.0] * 12)
+
 
 @dataclass
 class ServerAdvancedSettings:

@@ -334,6 +334,10 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_gpu_pct_var: Any = None
         self._perf_gpu_bar: Any = None
         self._perf_gpu_info_var: Any = None
+        self._perf_alert_warn_var: Any = None
+        self._perf_alert_crit_var: Any = None
+        self._perf_critical_log: Any = None
+        self._perf_last_state: dict = {"cpu": "ok", "ram": "ok", "gpu": "ok"}
 
         self._build_ui()
         self.after(200, self._scan_running_servers)
@@ -1848,13 +1852,22 @@ class ARKServerManagerApp(ctk.CTk):
             font=ctk.CTkFont(size=20, weight="bold"),
         ).grid(row=0, column=1, padx=8, pady=14, sticky="w")
 
+        # ── Progresso de instalação/validação (vazio por padrão) ─────────────
+        install_progress_var = tk.StringVar(value="")
+        ctk.CTkLabel(
+            hdr, textvariable=install_progress_var,
+            text_color="#fbbf24",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).grid(row=0, column=2, padx=(0, 16), pady=14, sticky="w")
+        self._server_widgets[srv.id]["_install_progress_var"] = install_progress_var
+
         status_var = tk.StringVar(value=_STATUS_LABEL.get(status, "PARADO"))
         status_lbl = ctk.CTkLabel(
             hdr, textvariable=status_var,
             text_color=_STATUS_COLOR.get(status, "#ff6666"),
             font=ctk.CTkFont(size=13, weight="bold"),
         )
-        status_lbl.grid(row=0, column=2, padx=12, pady=14)
+        status_lbl.grid(row=0, column=3, padx=12, pady=14)
         self._server_widgets[srv.id]["_status_var"] = status_var
         self._server_widgets[srv.id]["_status_lbl"] = status_lbl
 
@@ -1867,11 +1880,11 @@ class ARKServerManagerApp(ctk.CTk):
             hdr, text=vis_text, text_color=vis_color,
             font=ctk.CTkFont(size=12, weight="bold"),
         )
-        vis_lbl.grid(row=0, column=3, padx=(0, 8), pady=14)
+        vis_lbl.grid(row=0, column=4, padx=(0, 8), pady=14)
         self._server_widgets[srv.id]["_visibility_lbl"] = vis_lbl
 
         ctrl = ctk.CTkFrame(hdr, fg_color="transparent")
-        ctrl.grid(row=0, column=4, padx=(0, 16), pady=14)
+        ctrl.grid(row=0, column=5, padx=(0, 16), pady=14)
 
         is_running = status == SERVER_STATUS_RUNNING
         is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
@@ -2638,6 +2651,11 @@ class ARKServerManagerApp(ctk.CTk):
         def _save() -> None:
             _tasks.append(("save", r + 1))
 
+        def _plsm() -> None:
+            nonlocal r
+            _tasks.append(("plsm", r))
+            r += 1
+
         # ── Definição das rows ────────────────────────────────────────────────
         _s("⚙️  Dificuldade")
         _f("Nível de Dificuldade",
@@ -2712,6 +2730,9 @@ class ARKServerManagerApp(ctk.CTk):
         _i("Máx. Dinos Domesticados",
            "Limite total de dinos domesticados no servidor.",
            "max_tamed_dinos", gs.max_tamed_dinos)
+
+        _s("📊  Stats por Nível")
+        _plsm()
 
         _s("🥚  Criação / Imprinting")
         _calc()
@@ -2841,6 +2862,104 @@ class ARKServerManagerApp(ctk.CTk):
         # do próximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
         _CHUNK = 6
 
+        # ── Nomes e descrições dos stats (índices 0-11) ───────────────────────
+        _PLSM_STATS = [
+            (0,  "❤️",  "Vida",               "HP máx. por ponto. Padrão ARK ≈ +10 HP base por nível."),
+            (1,  "⚡",  "Stamina",            "Stamina por ponto. Padrão ≈ +10 stamina por nível."),
+            (2,  "💤",  "Torpor",             "Resistência ao torpor. Principalmente relevante para dinos selvagens."),
+            (3,  "🫧",  "Oxigênio",           "Oxigênio por ponto. Relevante para dinos aquáticos."),
+            (4,  "🍖",  "Comida",             "Capacidade de comida por ponto."),
+            (5,  "💧",  "Água",               "Capacidade de água. Relevante principalmente para jogadores."),
+            (6,  "🌡️", "Temperatura",        "Resistência à temperatura (raramente ajustado)."),
+            (7,  "⚖️", "Peso",               "Carga por ponto. Padrão ≈ +10 por nível."),
+            (8,  "⚔️", "Dano Corpo a Corpo", "Dano melee por ponto. Padrão ≈ +2% por nível."),
+            (9,  "🏃",  "Velocidade",         "Velocidade de movimento por ponto. Padrão ≈ +1% por nível."),
+            (10, "🛡️", "Fortitude",          "Resistência ao frio/calor. Relevante para jogadores."),
+            (11, "🔨",  "Craft Skill",        "Habilidade de fabricação. Melhora receitas customizadas."),
+        ]
+
+        def _build_plsm_table(rn: int) -> None:
+            """Constrói a tabela PerLevelStatsMultiplier (Dino Domado / Selvagem / Jogador)."""
+            outer = ctk.CTkFrame(scroll, fg_color=_CARD_BG, corner_radius=10)
+            outer.grid(row=rn, column=0, columnspan=4, padx=12, pady=(0, 8), sticky="ew")
+            outer.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                outer,
+                text="Multiplica o ganho de cada stat a cada ponto investido ao subir nível."
+                     "  1.0 = padrão ARK  •  2.0 = dobro do ganho  •  0.0 = desativa o stat.",
+                text_color="gray50", font=ctk.CTkFont(size=10), justify="left",
+            ).grid(row=0, column=0, padx=14, pady=(10, 4), sticky="w")
+
+            tbl = ctk.CTkFrame(outer, fg_color="transparent")
+            tbl.grid(row=1, column=0, padx=10, pady=(0, 12), sticky="ew")
+            tbl.grid_columnconfigure(0, weight=1)
+            tbl.grid_columnconfigure(1, minsize=92)
+            tbl.grid_columnconfigure(2, minsize=92)
+            tbl.grid_columnconfigure(3, minsize=92)
+
+            # Cabeçalho
+            ctk.CTkLabel(tbl, text="Stat", anchor="w",
+                         text_color="gray55",
+                         font=ctk.CTkFont(size=10, weight="bold")).grid(
+                row=0, column=0, padx=(8, 4), pady=(0, 2), sticky="w")
+            for col_i, (col_txt, col_color) in enumerate([
+                ("Dino Domado",   "#4fc3f7"),
+                ("Dino Selvagem", "#a5d6a7"),
+                ("Jogador",       "#ffcc80"),
+            ], start=1):
+                ctk.CTkLabel(tbl, text=col_txt, anchor="center",
+                             text_color=col_color,
+                             font=ctk.CTkFont(size=10, weight="bold")).grid(
+                    row=0, column=col_i, padx=4, pady=(0, 2))
+
+            ctk.CTkFrame(tbl, height=1, fg_color="gray30").grid(
+                row=1, column=0, columnspan=4, sticky="ew", padx=4, pady=(0, 2))
+
+            # Linhas de stat
+            for stat_idx, emoji, stat_name, stat_hint in _PLSM_STATS:
+                tr = stat_idx + 2
+                self._register_config_item(
+                    srv.id, f"{stat_name} — Stats/Nível", stat_hint, "Jogo")
+
+                name_fr = ctk.CTkFrame(tbl, fg_color="transparent")
+                name_fr.grid(row=tr, column=0, padx=(8, 4), pady=1, sticky="w")
+                ctk.CTkLabel(
+                    name_fr,
+                    text=f"{emoji}  {stat_name}",
+                    text_color="gray65",
+                    font=ctk.CTkFont(size=11),
+                    anchor="w", width=188,
+                ).pack(side="left")
+
+                for col_i, (group, grp_attr) in enumerate([
+                    ("tamed",  "per_level_stats_mult_dino_tamed"),
+                    ("wild",   "per_level_stats_mult_dino_wild"),
+                    ("player", "per_level_stats_mult_player"),
+                ], start=1):
+                    val = getattr(gs, grp_attr)[stat_idx]
+                    var = tk.StringVar(value=f"{val:.4g}")
+                    w[f"gs_plsm_{group}_{stat_idx}"] = var
+                    ent = ctk.CTkEntry(
+                        tbl, textvariable=var,
+                        width=82, height=26,
+                        justify="center",
+                        font=ctk.CTkFont(size=11),
+                    )
+                    ent.grid(row=tr, column=col_i, padx=4, pady=1)
+
+                    def _make_commit(v=var):
+                        def _commit(e=None):
+                            try:
+                                fv = max(0.0, float(v.get().replace(",", ".")))
+                                v.set(f"{fv:.4g}")
+                            except ValueError:
+                                v.set("1")
+                        return _commit
+                    _cb = _make_commit()
+                    ent.bind("<FocusOut>", _cb)
+                    ent.bind("<Return>",   _cb)
+
         def _dispatch_task(task: tuple) -> None:
             kind = task[0]
             if kind == "s":
@@ -2872,6 +2991,9 @@ class ARKServerManagerApp(ctk.CTk):
                         lambda: self._save_server_config(srv.id, silent=True, force=True),
                     ),
                 ).grid(row=rn, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
+            elif kind == "plsm":
+                _, rn = task
+                _build_plsm_table(rn)
             elif kind == "save":
                 _, rn = task
                 self._save_btn_row(scroll, rn, srv.id)
@@ -6431,6 +6553,9 @@ class ARKServerManagerApp(ctk.CTk):
         self._arkshop_shop_basic_vars: Dict[str, tk.Variable] = {}
         self._arkshop_shop_items_rows: List[Dict[str, tk.Variable]] = []
         self._arkshop_shop_items_frame: Any = None
+        self._arkshop_shop_cmds_rows: List[Dict[str, tk.Variable]] = []
+        self._arkshop_shop_cmds_frame: Any = None
+        self._arkshop_shop_cmds_next_row: int = 1
 
         ctk.CTkLabel(
             self._arkshop_shop_detail_outer,
@@ -7013,7 +7138,37 @@ class ARKServerManagerApp(ctk.CTk):
         for item_data in item.get("Items", []):
             self._arkshop_add_shop_item_row(items_tbl, item_data)
 
-    # ── Row helpers: Shop Items ──────────────────────────────────────────────
+        # ── Comandos ────────────────────────────────────────────────
+        cmds_outer = ctk.CTkFrame(parent, fg_color="#1a1a2e", corner_radius=8)
+        cmds_outer.grid(row=3, column=0, padx=12, pady=(0, 10), sticky="ew")
+        cmds_outer.grid_columnconfigure(0, weight=1)
+
+        ch = ctk.CTkFrame(cmds_outer, fg_color="transparent")
+        ch.grid(row=0, column=0, padx=10, pady=(8, 4), sticky="ew")
+        ch.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(ch, text="Comandos", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(ch, text="+ Comando", width=95, height=26,
+                      fg_color="#2a4a2a", hover_color="#1e3a1e",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._arkshop_add_shop_cmd_row(self._arkshop_shop_cmds_frame),
+                      ).grid(row=0, column=1)
+
+        cmds_tbl = ctk.CTkFrame(cmds_outer, fg_color="#101020", corner_radius=6)
+        cmds_tbl.grid(row=1, column=0, padx=10, pady=(0, 10), sticky="ew")
+        cmds_tbl.grid_columnconfigure(0, weight=1)
+        for c, h in enumerate(("Comando", "Admin")):
+            ctk.CTkLabel(cmds_tbl, text=h, font=ctk.CTkFont(size=10, weight="bold"),
+                         text_color="gray50"
+                         ).grid(row=0, column=c, padx=(8 if c == 0 else 4, 4), pady=4, sticky="w")
+
+        self._arkshop_shop_cmds_frame = cmds_tbl
+        self._arkshop_shop_cmds_rows = []
+        self._arkshop_shop_cmds_next_row = 1
+        for cmd_data in item.get("Commands", []):
+            self._arkshop_add_shop_cmd_row(cmds_tbl, cmd_data)
+
+    def _arkshop_add_shop_item_row ──────────────────────────────────────────────
 
     def _arkshop_add_shop_item_row(self,
                                     container: ctk.CTkFrame,
@@ -7069,6 +7224,45 @@ class ARKServerManagerApp(ctk.CTk):
             self._arkshop_grid_shop_item_row,
         )
         self._arkshop_shop_items_next_row = len(self._arkshop_shop_items_rows) + 1
+
+    # ── Row helpers: Shop Commands ────────────────────────────────────────
+
+    def _arkshop_add_shop_cmd_row(self,
+                                   container: ctk.CTkFrame,
+                                   data: Optional[dict] = None) -> None:
+        data = data or {}
+        rv = {
+            "Command":        tk.StringVar(value=str(data.get("Command", ""))),
+            "ExecuteAsAdmin": tk.BooleanVar(value=bool(data.get("ExecuteAsAdmin", False))),
+        }
+        self._arkshop_shop_cmds_rows.append(rv)
+        self._arkshop_grid_shop_cmd_row(container, self._arkshop_shop_cmds_next_row, rv)
+        self._arkshop_shop_cmds_next_row += 1
+
+    def _arkshop_grid_shop_cmd_row(self, container: ctk.CTkFrame,
+                                    row_i: int, rv: dict) -> None:
+        ctk.CTkEntry(container, textvariable=rv["Command"],
+                     font=ctk.CTkFont(size=11), placeholder_text="cheat command..."
+                     ).grid(row=row_i, column=0, padx=(8, 4), pady=3, sticky="ew")
+        ctk.CTkCheckBox(container, text="Admin", variable=rv["ExecuteAsAdmin"],
+                        width=80, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        checkmark_color="#ffffff", font=ctk.CTkFont(size=11),
+                        ).grid(row=row_i, column=1, padx=4, pady=3)
+        ctk.CTkButton(container, text="✕", width=26, height=26,
+                      fg_color="#5a2a2a", hover_color="#4a1a1a",
+                      font=ctk.CTkFont(size=10),
+                      command=lambda r=rv: self._arkshop_remove_shop_cmd_row(r),
+                      ).grid(row=row_i, column=2, padx=(4, 8), pady=3)
+
+    def _arkshop_remove_shop_cmd_row(self, rv: dict) -> None:
+        if rv in self._arkshop_shop_cmds_rows:
+            self._arkshop_shop_cmds_rows.remove(rv)
+        self._arkshop_refresh_table(
+            self._arkshop_shop_cmds_frame,
+            self._arkshop_shop_cmds_rows,
+            self._arkshop_grid_shop_cmd_row,
+        )
+        self._arkshop_shop_cmds_next_row = len(self._arkshop_shop_cmds_rows) + 1
 
     # ── Blueprint Picker (Beacon) ────────────────────────────────────────────
 
@@ -7138,6 +7332,87 @@ class ARKServerManagerApp(ctk.CTk):
             fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         )
         load_btn.pack(side="left")
+
+        # ── Painel de auth (criado sempre; mostrado/ocultado conforme estado) ─
+        auth_frame = ctk.CTkFrame(footer, fg_color="transparent")
+        # pack_forget() por padrão; mostrado quando necessário
+
+        connect_btn = ctk.CTkButton(
+            auth_frame,
+            text="🔑  Conectar com Beacon",
+            fg_color="#3a3a1a", hover_color="#5a5a28",
+        )
+        connect_btn.pack(side="left", padx=(0, 10))
+
+        code_lbl = ctk.CTkLabel(
+            auth_frame, text="",
+            font=ctk.CTkFont(size=13, weight="bold"),
+            text_color="#f0d060",
+        )
+        code_lbl.pack(side="left")
+
+        copy_btn = ctk.CTkButton(
+            auth_frame, text="📋 Copiar", width=76,
+            fg_color="#3a3a3a", hover_color="#505050",
+        )
+
+        def _show_auth_panel(btn_text: str = "🔑  Conectar com Beacon") -> None:
+            connect_btn.configure(state="normal", text=btn_text)
+            code_lbl.configure(text="")
+            copy_btn.pack_forget()
+            load_btn.configure(state="disabled")
+            auth_frame.pack(side="left", fill="x", expand=True, padx=(10, 0))
+
+        def _hide_auth_panel() -> None:
+            auth_frame.pack_forget()
+
+        def _start_auth() -> None:
+            connect_btn.configure(state="disabled", text="🔑  Aguardando...")
+            status_lbl.configure(
+                text="Iniciando autenticação Beacon...", text_color="gray"
+            )
+
+            def _on_code(user_code: str, url: str) -> None:
+                def _ui() -> None:
+                    code_lbl.configure(text=user_code)
+                    copy_btn.configure(
+                        command=lambda: (
+                            dlg.clipboard_clear(),
+                            dlg.clipboard_append(user_code),
+                        )
+                    )
+                    copy_btn.pack(side="left", padx=(6, 0))
+                    status_lbl.configure(
+                        text=f"Autorize em: {url}   (o navegador foi aberto automaticamente)",
+                        text_color="gray",
+                    )
+                dlg.after(0, _ui)
+
+            def _on_success() -> None:
+                def _ui() -> None:
+                    _hide_auth_panel()
+                    status_lbl.configure(
+                        text="Autenticado! Carregando blueprints...",
+                        text_color="#60c060",
+                    )
+                    load_btn.configure(state="normal")
+                    _do_load()
+                dlg.after(0, _ui)
+
+            def _on_error(msg: str) -> None:
+                def _ui() -> None:
+                    connect_btn.configure(
+                        state="normal", text="🔑  Tentar novamente"
+                    )
+                    status_lbl.configure(
+                        text=f"Erro na autenticação: {msg}",
+                        text_color="#e05050",
+                    )
+                dlg.after(0, _ui)
+
+            client.authenticate_async(_on_code, _on_success, _on_error)
+
+        connect_btn.configure(command=_start_auth)
 
         # ── Funções internas ─────────────────────────────────────────────────
 
@@ -7224,18 +7499,21 @@ class ARKServerManagerApp(ctk.CTk):
                     )
                     dlg.after(0, _on_loaded)
                 except Exception as exc:
-                    dlg.after(
-                        0,
-                        lambda _e=exc: status_lbl.configure(
+                    is_token_err = any(
+                        k in str(exc).lower()
+                        for k in ("token", "autentic", "auth", "expirad")
+                    )
+                    def _on_err(_e=exc, _tok=is_token_err) -> None:
+                        status_lbl.configure(
                             text=f"Erro: {_e}", text_color="#e05050"
-                        ),
-                    )
-                    dlg.after(
-                        0,
-                        lambda: load_btn.configure(
-                            state="normal", text="⬇  Carregar Blueprints Beacon"
-                        ),
-                    )
+                        )
+                        if _tok:
+                            _show_auth_panel("🔑  Reconectar com Beacon")
+                        else:
+                            load_btn.configure(
+                                state="normal", text="⬇  Carregar Blueprints Beacon"
+                            )
+                    dlg.after(0, _on_err)
 
             threading.Thread(target=_worker, daemon=True).start()
 
@@ -7249,91 +7527,21 @@ class ARKServerManagerApp(ctk.CTk):
         # ── Verificar autenticação e decidir estado inicial ───────────────────
         if client.is_loaded():
             # já tem tudo — mostrar resultados direto
+            _hide_auth_panel()
             load_btn.configure(state="disabled", text="✔  Carregado")
             _refresh()
             search_entry.focus_set()
         elif client.is_authenticated():
             # token válido, blueprints não carregados ainda
+            _hide_auth_panel()
             status_lbl.configure(
                 text="Blueprints não carregados. Clique em 'Carregar' para buscar via API."
             )
         else:
             # sem token → mostrar painel de autenticação
-            load_btn.configure(state="disabled", text="⬇  Carregar Blueprints Beacon")
-
-            auth_frame = ctk.CTkFrame(footer, fg_color="transparent")
-            auth_frame.pack(side="left", fill="x", expand=True)
-
-            connect_btn = ctk.CTkButton(
-                auth_frame,
-                text="🔑  Conectar com Beacon",
-                fg_color="#3a3a1a", hover_color="#5a5a28",
-            )
-            connect_btn.pack(side="left", padx=(0, 10))
-
-            code_lbl = ctk.CTkLabel(
-                auth_frame, text="",
-                font=ctk.CTkFont(size=13, weight="bold"),
-                text_color="#f0d060",
-            )
-            code_lbl.pack(side="left")
-
-            copy_btn = ctk.CTkButton(
-                auth_frame, text="📋 Copiar", width=76,
-                fg_color="#3a3a3a", hover_color="#505050",
-            )
-
-            def _start_auth() -> None:
-                connect_btn.configure(state="disabled", text="🔑  Aguardando...")
-                status_lbl.configure(
-                    text="Iniciando autenticação Beacon...", text_color="gray"
-                )
-
-                def _on_code(user_code: str, url: str) -> None:
-                    def _ui() -> None:
-                        code_lbl.configure(text=user_code)
-                        copy_btn.configure(
-                            command=lambda: (
-                                dlg.clipboard_clear(),
-                                dlg.clipboard_append(user_code),
-                            )
-                        )
-                        copy_btn.pack(side="left", padx=(6, 0))
-                        status_lbl.configure(
-                            text=f"Autorize em: {url}   (o navegador foi aberto automaticamente)",
-                            text_color="gray",
-                        )
-                    dlg.after(0, _ui)
-
-                def _on_success() -> None:
-                    def _ui() -> None:
-                        code_lbl.configure(text="")
-                        copy_btn.pack_forget()
-                        connect_btn.configure(text="✔  Conectado")
-                        status_lbl.configure(
-                            text="Autenticado! Carregando blueprints...",
-                            text_color="#60c060",
-                        )
-                        load_btn.configure(state="normal")
-                        _do_load()
-                    dlg.after(0, _ui)
-
-                def _on_error(msg: str) -> None:
-                    def _ui() -> None:
-                        connect_btn.configure(
-                            state="normal", text="🔑  Tentar novamente"
-                        )
-                        status_lbl.configure(
-                            text=f"Erro na autenticação: {msg}",
-                            text_color="#e05050",
-                        )
-                    dlg.after(0, _ui)
-
-                client.authenticate_async(_on_code, _on_success, _on_error)
-
-            connect_btn.configure(command=_start_auth)
+            _show_auth_panel()
             status_lbl.configure(
-                text="Token Beacon não encontrado. Clique em 'Conectar' para autenticar.",
+                text="Token não encontrado. Clique em 'Conectar com Beacon' para autenticar.",
                 text_color="#e0a030",
             )
 
@@ -7360,6 +7568,18 @@ class ARKServerManagerApp(ctk.CTk):
             }
             for rv in self._arkshop_shop_items_rows
         ]
+        cmds = [
+            {
+                "Command":        rv["Command"].get(),
+                "ExecuteAsAdmin": rv["ExecuteAsAdmin"].get(),
+            }
+            for rv in self._arkshop_shop_cmds_rows
+            if rv["Command"].get().strip()
+        ]
+        if cmds:
+            existing["Commands"] = cmds
+        elif "Commands" in existing:
+            del existing["Commands"]
         self._arkshop_mgr.set_shop_item(item_id, existing)
         if not silent:
             messagebox.showinfo("ArkShop", f"Item '{item_id}' atualizado!")
@@ -7389,6 +7609,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._arkshop_selected_shop_item_id = None
         self._arkshop_shop_basic_vars = {}
         self._arkshop_shop_items_rows = []
+        self._arkshop_shop_cmds_rows = []
         for w in self._arkshop_shop_detail_outer.winfo_children():
             w.destroy()
         ctk.CTkLabel(self._arkshop_shop_detail_outer,
@@ -7947,6 +8168,56 @@ class ARKServerManagerApp(ctk.CTk):
         threading.Thread(target=self._collect_gpu_info, daemon=True,
                          name="gpu-info").start()
 
+        # ── Seção de Pontos Críticos ─────────────────────────────────────────
+        crit_outer = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        crit_outer.grid(row=3, column=0, padx=22, pady=(12, 16), sticky="ew")
+        crit_outer.grid_columnconfigure(0, weight=1)
+
+        crit_hdr = ctk.CTkFrame(crit_outer, fg_color="transparent")
+        crit_hdr.grid(row=0, column=0, padx=16, pady=(14, 4), sticky="ew")
+        crit_hdr.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            crit_hdr, text="⚠️  Pontos Críticos",
+            font=ctk.CTkFont(size=14, weight="bold"), text_color="#fbbf24",
+        ).grid(row=0, column=0, sticky="w")
+
+        ctk.CTkButton(
+            crit_hdr, text="🗑 Limpar", width=90, height=28,
+            fg_color="#3a1515", hover_color="#5a2020",
+            font=ctk.CTkFont(size=11),
+            command=self._clear_perf_critical_log,
+        ).grid(row=0, column=1)
+
+        thr_fr = ctk.CTkFrame(crit_outer, fg_color="transparent")
+        thr_fr.grid(row=1, column=0, padx=16, pady=(0, 8), sticky="w")
+
+        ctk.CTkLabel(thr_fr, text="Registrar quando:",
+                     text_color="gray60", font=ctk.CTkFont(size=11)).pack(side="left", padx=(0, 8))
+        ctk.CTkLabel(thr_fr, text="Aviso ≥",
+                     text_color="#ffaa44", font=ctk.CTkFont(size=11)).pack(side="left")
+        warn_var = tk.StringVar(value="80")
+        ctk.CTkEntry(thr_fr, textvariable=warn_var, width=48, height=26,
+                     justify="center").pack(side="left", padx=(4, 2))
+        ctk.CTkLabel(thr_fr, text="%     Crítico ≥",
+                     text_color="#ff6666", font=ctk.CTkFont(size=11)).pack(side="left", padx=(4, 0))
+        crit_var = tk.StringVar(value="90")
+        ctk.CTkEntry(thr_fr, textvariable=crit_var, width=48, height=26,
+                     justify="center").pack(side="left", padx=(4, 2))
+        ctk.CTkLabel(thr_fr, text="%",
+                     text_color="gray60", font=ctk.CTkFont(size=11)).pack(side="left")
+
+        self._perf_alert_warn_var = warn_var
+        self._perf_alert_crit_var = crit_var
+
+        log_box = ctk.CTkTextbox(
+            crit_outer, height=180, state="disabled",
+            font=ctk.CTkFont(family="Consolas", size=11),
+            fg_color="#0d0d18", text_color="#c8c8d8", corner_radius=6,
+        )
+        log_box.grid(row=2, column=0, padx=16, pady=(0, 14), sticky="ew")
+        self._perf_critical_log = log_box
+
     # ── Coleta estática de GPU ────────────────────────────────────────────────
 
     def _collect_gpu_info(self) -> None:
@@ -8070,8 +8341,67 @@ class ARKServerManagerApp(ctk.CTk):
                     self.after(0, _update)
                 except Exception:
                     break
+
+                # ── Verificação de limiares ────────────────────────────────
+                try:
+                    _warn = float(self._perf_alert_warn_var.get()) if self._perf_alert_warn_var else 80.0
+                    _crit = float(self._perf_alert_crit_var.get()) if self._perf_alert_crit_var else 90.0
+                except (ValueError, AttributeError):
+                    _warn, _crit = 80.0, 90.0
+
+                def _classify(v: float) -> str:
+                    if v >= _crit: return "crit"
+                    if v >= _warn: return "warn"
+                    return "ok"
+
+                _checks = [
+                    ("cpu", cpu_pct),
+                    ("ram", float(mem.percent)),
+                    ("gpu", gpu_pct if gpu_pct is not None else -1.0),
+                ]
+                for _metric, _val in _checks:
+                    if _val < 0:
+                        continue
+                    _new_st = _classify(_val)
+                    _old_st = self._perf_last_state.get(_metric, "ok")
+                    if _new_st != _old_st:
+                        self._perf_last_state[_metric] = _new_st
+                        self._log_perf_critical(_metric, _val, _new_st)
+
             except Exception:
                 time.sleep(2)
+
+    def _log_perf_critical(self, metric: str, pct: float, state: str) -> None:
+        """Registra um ponto crítico no histórico do painel de Desempenho."""
+        import datetime
+        ts    = datetime.datetime.now().strftime("%d/%m %H:%M:%S")
+        label = {"cpu": "CPU", "ram": "RAM", "gpu": "GPU"}.get(metric, metric.upper())
+        if state == "ok":
+            icon, nivel = "🟢", "recuperado"
+        elif state == "warn":
+            icon, nivel = "🟡", "AVISO"
+        else:
+            icon, nivel = "🔴", "CRÍTICO"
+        line = f"[{ts}]  {icon}  {label}: {pct:.0f}%  →  {nivel}\n"
+
+        def _do():
+            box = self._perf_critical_log
+            if box:
+                box.configure(state="normal")
+                box.insert("end", line)
+                box.see("end")
+                box.configure(state="disabled")
+        try:
+            self.after(0, _do)
+        except Exception:
+            pass
+
+    def _clear_perf_critical_log(self) -> None:
+        """Limpa o histórico de pontos críticos."""
+        if self._perf_critical_log:
+            self._perf_critical_log.configure(state="normal")
+            self._perf_critical_log.delete("1.0", "end")
+            self._perf_critical_log.configure(state="disabled")
 
     def _get_nvidia_gpu_pct(self) -> Optional[float]:
         """Tenta obter uso de GPU via nvidia-smi. Retorna None se indisponível."""
@@ -8935,11 +9265,36 @@ class ARKServerManagerApp(ctk.CTk):
         inst_status: Any = w.get("_inst_status")
         inst_btn: Any = w.get("_inst_btn")
         val_btn: Any = w.get("_val_btn")
+        _prog_var: Any  = w.get("_install_progress_var")
+        _stat_var: Any  = w.get("_status_var")
+        _stat_lbl: Any  = w.get("_status_lbl")
+
+        import re as _re
+        _PROGRESS_RE = _re.compile(r'progress:\s*([\d.]+)')
+
+        def _set_progress(txt: str) -> None:
+            def _do():
+                if _prog_var:
+                    _prog_var.set(txt)
+            self.after(0, _do)
+
+        def _set_header_status(txt: str, color: str) -> None:
+            def _do():
+                if _stat_var:
+                    _stat_var.set(txt)
+                if _stat_lbl:
+                    _stat_lbl.configure(text_color=color)
+            self.after(0, _do)
 
         def _log(msg: str, level: str = "info") -> None:
             import datetime
             ts = datetime.datetime.now().strftime("%H:%M:%S")
             line = f"[{ts}] {msg}\n"
+            m = _PROGRESS_RE.search(msg)
+            if m:
+                pct = float(m.group(1))
+                icon = "🔍" if validate else "⬇️"
+                _set_progress(f"{icon}  {pct:.1f}%")
             def _do():
                 if inst_log:
                     inst_log.configure(state="normal")
@@ -8967,11 +9322,22 @@ class ARKServerManagerApp(ctk.CTk):
                 _set_status("✅  Instalação concluída com sucesso!", _GREEN)
             else:
                 _set_status("❌  Falha na instalação. Veja o log acima.", "#f87171")
+            _set_progress("")
+            inst_obj = self.server_manager.get_instance(server_id)
+            real_st = inst_obj.status if inst_obj else SERVER_STATUS_STOPPED
+            _set_header_status(
+                _STATUS_LABEL.get(real_st, "PARADO"),
+                _STATUS_COLOR.get(real_st, "#ff6666"),
+            )
             _set_btns("normal")
 
         _set_btns("disabled")
         action = "Validando" if validate else "Instalando/Atualizando"
         _set_status(f"⏳  {action}... Aguarde.", "#fbbf24")
+        _hdr_txt   = "VALIDANDO" if validate else "ATUALIZANDO"
+        _set_header_status(_hdr_txt, "#fbbf24")
+        icon = "🔍" if validate else "⬇️"
+        _set_progress(f"{icon}  0.0%")
 
         # Redireciona o log do mod_manager para o log local
         orig_log = self.mod_manager._on_log
@@ -9140,6 +9506,22 @@ class ARKServerManagerApp(ctk.CTk):
                     setattr(gs, f, bool(w[key].get()))
                 except (Exception):
                     pass
+
+        # ── PerLevelStatsMultiplier ────────────────────────────────────────────
+        for group, attr in [
+            ("tamed",  "per_level_stats_mult_dino_tamed"),
+            ("wild",   "per_level_stats_mult_dino_wild"),
+            ("player", "per_level_stats_mult_player"),
+        ]:
+            vals = list(getattr(gs, attr))
+            for i in range(12):
+                key = f"gs_plsm_{group}_{i}"
+                if key in w:
+                    try:
+                        vals[i] = max(0.0, float(w[key].get()))
+                    except (ValueError, TypeError):
+                        pass
+            setattr(gs, attr, vals)
 
         # ── AdvancedSettings ──────────────────────────────────────────────
         adv = srv.advanced_settings
@@ -9468,6 +9850,7 @@ class ARKServerManagerApp(ctk.CTk):
             # Usa ArkIniManager apontando para a pasta escolhida,
             # mas lê diretamente os arquivos lá presentes
             def _load_from_folder(target_srv, src_folder: str) -> None:
+                import shutil
                 from .ark_ini import (
                     populate_config_from_gus,
                     populate_config_from_game_ini,
@@ -9476,6 +9859,7 @@ class ARKServerManagerApp(ctk.CTk):
                     find_startup_bat,
                     parse_cmdline_args,
                     apply_cmdline_args_to_config,
+                    get_ini_path,
                 )
                 p_gus = Path(src_folder) / "GameUserSettings.ini"
                 if p_gus.exists():
@@ -9498,6 +9882,19 @@ class ARKServerManagerApp(ctk.CTk):
                         apply_cmdline_args_to_config(cmdline_args, target_srv)
                     except OSError:
                         pass
+
+                # ── Copia os arquivos brutos para o diretório do servidor ────────
+                # Preserva seções de mods (ex: [StructuresPlus], [DinoStorage2])
+                # que o app não conhece, evitando que sejam perdidas ao salvar.
+                if target_srv.install_dir:
+                    dst_gus  = get_ini_path(target_srv.install_dir, "GameUserSettings.ini")
+                    dst_game = get_ini_path(target_srv.install_dir, "Game.ini")
+                    if p_gus.exists() and dst_gus.resolve() != p_gus.resolve():
+                        dst_gus.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(p_gus), str(dst_gus))
+                    if p_game.exists() and dst_game.resolve() != p_game.resolve():
+                        dst_game.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(str(p_game), str(dst_game))
 
             # Desabilita o botão de importar e mostra feedback visual
             import_btn.configure(state="disabled", text="⏳  Importando...")

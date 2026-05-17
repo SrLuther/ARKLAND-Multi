@@ -38,11 +38,12 @@ _CACHE_FILE = (
 
 
 def _token_path() -> Path:
-    if getattr(sys, "frozen", False):
-        # PyInstaller: token fica ao lado do exe
-        return Path(sys.executable).parent / "beacon_token.json"
-    # Desenvolvimento: raiz do projeto (parent de src/)
-    return Path(__file__).parent.parent / "beacon_token.json"
+    # Sempre usa AppData — garante escrita mesmo sem admin (Program Files é read-only)
+    return (
+        Path(os.environ.get("APPDATA", str(Path.home())))
+        / "ARKLAND-ServerManager"
+        / "beacon_token.json"
+    )
 
 
 class BeaconBlueprintClient:
@@ -225,8 +226,8 @@ class BeaconBlueprintClient:
         token = self._get_token()
         if token is None:
             raise RuntimeError(
-                "Token Beacon não encontrado ou expirado.\n"
-                "Execute beacon_sync.py para autenticar e depois tente novamente."
+                "Token de autenticação não encontrado ou expirado.\n"
+                "Clique em 'Conectar com Beacon' para autenticar novamente."
             )
         assert _requests is not None
         headers: Dict[str, str | bytes] = {"Authorization": f"Bearer {token}"}
