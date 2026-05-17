@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.0"
+APP_VERSION: str = "1.2.1"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.1",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: Comandos em Itens da Loja — seção 'Comandos' adicionada ao detalhe de item da loja, igual aos Kits.",
+            "Fix: Beacon — token salvo em %APPDATA% (Program Files é read-only sem admin; token nunca era persistido).",
+            "Fix: Beacon — painel de autenticação reaparece automaticamente após erro de token.",
+            "Fix: Beacon — mensagem de erro não referencia mais arquivo interno de desenvolvedor.",
+        ],
+    },
     {
         "version": "1.2.0",
         "date": "2026-05-17",
