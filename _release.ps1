@@ -14,30 +14,30 @@ $headers = @{
 }
 
 $notes = @"
-## O que ha de novo
+## O que há de novo
 
 ### Novo
-- **Agendamentos automáticos** na aba Geral - reiniciar/desligar/atualizar+reiniciar por dia da semana e hora com aviso RCON configurável
-- **Seletor de núcleos de CPU** substituindo checkbox - Padrao / Todos / N nucleos com afinidade via psutil
-- **Calculadora de Breeding** - cards visuais, campo Cuddle (Imprint) com tempo desejado, botao Wiki
-
-### Correcao
-- Botao 'Aplicar ao Servidor' na Calculadora de Breeding agora salva o .ini mesmo com servidor online
-- Campo de texto do multiplicador no Jogo atualiza ao aplicar valores da Calculadora
+- **Integração com Beacon (usebeacon.app)** — autenticação OAuth Device Flow (PKCE), cache local de blueprints ARK Prime (~1963 itens, TTL 7 dias)
+- **Blueprint Picker** — botão 🔍 em todos os campos Blueprint do ArkShop: busca live por nome ou classString, filtro por Itens/Criaturas/Todos, integrado em kit itens, kit dinos, selas e itens da loja
+- **INI do Mod — Inserir seção** — botão 📋 Inserir seção... nos headers Game.ini e GUS.ini do dialog de mod: insere seções cadastradas sem substituir o conteúdo existente
 
 ### Melhoria
-- MOTD com area de texto maior (altura 180px)
+- Aba Jogo: renderização em chunks (after(0)) — elimina freeze de ~500ms dos 44 CTkSliders
+- Pre-build de abas em idle com 1500ms de intervalo — zero freezes periódicos em background
+
+### Correção
+- Erros Pylance corrigidos em beacon_client, server_manager, arkland_updater, beacon_explore, beacon_sync
 
 ---
-**Instalacao silenciosa:**
-ARKLAND-Multi-Setup-v1.1.23.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+**Instalação silenciosa:**
+ARKLAND-Multi-Setup-v1.2.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 "@
 
 # 1) Criar release
 $bodyObj = [ordered]@{
-    tag_name         = "v1.1.23"
+    tag_name         = "v1.2.0"
     target_commitish = "main"
-    name             = "ARKLAND Server Manager v1.1.23"
+    name             = "ARKLAND Server Manager v1.2.0"
     body             = $notes
     draft            = $false
     prerelease       = $false
@@ -52,8 +52,8 @@ Write-Host "      Release criado: $($release.html_url)"
 
 # 2) Upload do installer
 $uploadBase = $release.upload_url -replace '\{[^}]+\}', ''
-$installerPath = "installer\ARKLAND-Multi-Setup-v1.1.23.exe"
-$fileName = "ARKLAND-Multi-Setup-v1.1.23.exe"
+$installerPath = "installer\ARKLAND-Multi-Setup-v1.2.0.exe"
+$fileName = "ARKLAND-Multi-Setup-v1.2.0.exe"
 $uploadUri = "${uploadBase}?name=${fileName}&label=${fileName}"
 
 Write-Host "[2/2] Fazendo upload: $installerPath ($([Math]::Round((Get-Item $installerPath).Length/1MB, 1)) MB)..."
