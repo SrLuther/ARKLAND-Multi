@@ -1,6 +1,11 @@
 {
-    "version": "1.2.3",
-    "date": "2026-05-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.2.3/ARKLAND-Multi-Setup-v1.2.3.exe",
-    "changelog": []
+    "version":  "1.2.4",
+    "date":  "2026-05-17",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.2.4/ARKLAND-Multi-Setup-v1.2.4.exe",
+    "changelog":  {
+                      "value":  [
+
+                                ],
+                      "Count":  0
+                  }
 }

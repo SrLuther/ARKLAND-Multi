@@ -1,13 +1,23 @@
-﻿"""
+"""
 Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.3"
+APP_VERSION: str = "1.2.4"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.4",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: Sistema de Clusters Cross-ARK — painel dedicado para criar e gerenciar perfis de cluster (modo Local ou Rede), substituindo a configuração manual por servidor.",
+            "Novo: Sincronização automática de dados de viagem — cada perfil de cluster pode sincronizar bidirecional mente a pasta local do ARK com uma pasta compartilhada de rede (caminho UNC ou drive mapeado), mantendo personagens, itens e dinos atualizados entre máquinas diferentes.",
+            "Novo: Vinculação de servidores ao cluster — seleção direta dos servidores que participam de cada cluster diretamente no painel do perfil.",
+            "Fix: Verificador de atualização — removido BOM (Byte Order Mark) do version.json para evitar erro 'Não foi possível verificar' em certas configurações de sistema.",
+        ],
+    },
     {
         "version": "1.2.3",
         "date": "2026-05-17",
