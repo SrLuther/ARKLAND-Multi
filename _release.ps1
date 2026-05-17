@@ -30,6 +30,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $python = Join-Path $root ".python-full\python.exe"
+$utf8NoBOM = New-Object System.Text.UTF8Encoding $false
 
 function Write-Step($n, $total, $text) {
     Write-Host ""
@@ -67,7 +68,7 @@ Write-Ok "Entrada de changelog encontrada para v$Version"
 # ── 2) Extrair changelog via Python (AST) ─────────────────────────────────────
 $extractScript = @"
 import ast, json, sys
-with open('src/version.py', encoding='utf-8') as f:
+with open('src/version.py', encoding='utf-8-sig') as f:
     src = f.read()
 for node in ast.walk(ast.parse(src)):
     if isinstance(node, ast.Assign):
@@ -86,7 +87,7 @@ $changes = $changelogJson | ConvertFrom-Json
 Write-Step 2 6 "Atualizando arquivos de versao..."
 
 $newPy = $versionPyRaw -replace 'APP_VERSION\s*:\s*str\s*=\s*"[^"]+"', "APP_VERSION: str = `"$Version`""
-[System.IO.File]::WriteAllText($versionPyPath, $newPy, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($versionPyPath, $newPy, $utf8NoBOM)
 Write-Ok "src\version.py  →  APP_VERSION = `"$Version`""
 
 # ── 4) Atualizar version.json ─────────────────────────────────────────────────
@@ -98,7 +99,7 @@ $versionObj  = [ordered]@{
     changelog    = $changes
 }
 $versionJsonStr = ($versionObj | ConvertTo-Json -Depth 5) + "`n"
-[System.IO.File]::WriteAllText((Join-Path $root "version.json"), $versionJsonStr, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText((Join-Path $root "version.json"), $versionJsonStr, $utf8NoBOM)
 Write-Ok "version.json    →  version = `"$Version`""
 
 # ── 5) Atualizar setup.iss ────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ $issPath = Join-Path $root "setup.iss"
 $iss = [System.IO.File]::ReadAllText($issPath, [System.Text.Encoding]::UTF8)
 $iss = $iss -replace 'AppVersion=[\d.]+',                          "AppVersion=$Version"
 $iss = $iss -replace 'OutputBaseFilename=ARKLAND-Multi-Setup-v[\d.]+', "OutputBaseFilename=ARKLAND-Multi-Setup-v$Version"
-[System.IO.File]::WriteAllText($issPath, $iss, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText($issPath, $iss, $utf8NoBOM)
 Write-Ok "setup.iss       →  AppVersion = $Version"
 
 # ── 6) Build ──────────────────────────────────────────────────────────────────

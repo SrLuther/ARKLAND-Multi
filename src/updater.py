@@ -103,7 +103,9 @@ class UpdateChecker:
             raise ValueError(f"URL inválida: esquema '{parsed.scheme}' não suportado.")
         resp = _requests.get(url, timeout=10)
         resp.raise_for_status()
-        data = resp.json()
+        text = resp.text.lstrip("\ufeff")
+        import json as _json
+        data = _json.loads(text)
         return UpdateInfo(
             version=str(data["version"]),
             date=str(data.get("date", "")),
