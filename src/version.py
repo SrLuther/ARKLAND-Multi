@@ -3,11 +3,34 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.21"
-BUILD_DATE: str = "2026-05-16"
+APP_VERSION: str = "1.1.23"
+BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.1.23",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: Agendamentos automáticos na aba Geral — reiniciar/desligar/atualizar+reiniciar "
+            "por dia da semana e hora com aviso RCON configurável.",
+            "Novo: Seletor de núcleos de CPU substituindo checkbox — Padrão / Todos / N núcleos "
+            "com afinidade via psutil.",
+            "Novo: Calculadora de Breeding — cards visuais, campo Cuddle (Imprint) com tempo "
+            "desejado, botão Wiki.",
+            "Correção: botão 'Aplicar ao Servidor' na Calculadora de Breeding agora salva o "
+            ".ini mesmo com servidor online.",
+            "Correção: campo de texto do multiplicador no Jogo atualiza ao aplicar valores da Calculadora.",
+            "Melhoria: MOTD com área de texto maior (altura 180px).",
+        ],
+    },
+    {
+        "version": "1.1.22",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: seletor de núcleos de CPU com afinidade via psutil.",
+        ],
+    },
     {
         "version": "1.1.19",
         "date": "2026-05-16",
