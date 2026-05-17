@@ -125,6 +125,8 @@ class ServerGameSettings:
     # Custom levels
     override_max_experience_points_player: int = 0
     override_max_experience_points_dino: int = 0
+    player_level_cap: int = 0   # Nível-teto do jogador (0 = sem override). INI calculado pelo app.
+    dino_level_cap: int = 0     # Nível-teto do dino   (0 = sem override). INI calculado pelo app.
 
     # Stack
     item_stack_size_multiplier: float = 1.0
@@ -244,6 +246,7 @@ class ServerConfig:
     server_port: int = 7777
     query_port: int = 27015
     rcon_port: int = 27020
+    public_ip: str = ""          # IP/hostname público para conexão de outros jogadores
     rcon_enabled: bool = True
     rcon_password: str = ""
 
@@ -262,6 +265,15 @@ class ServerConfig:
 
     # Configurações INI por mod  {"mod_id": {"game_ini": "...", "gus_ini": "..."}}
     mod_ini_configs: Dict[str, dict] = field(default_factory=dict)
+
+    # Seções INI personalizadas (não provenientes de nenhum mod)
+    # {"gus": [{"section": str, "entries": [{"key": str, "value": str}]}],
+    #  "game": [...]}
+    custom_ini_sections: Dict[str, list] = field(default_factory=dict)
+
+    # Biblioteca de broadcasts: mensagens salvas para envio rápido via RCON
+    # [{"label": str, "message": str}]
+    broadcasts: List[dict] = field(default_factory=list)
 
     # Opções de linha de comando adicionais
     extra_args: str = ""

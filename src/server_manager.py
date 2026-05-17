@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set
 
 try:
-    import psutil as _psutil
+    import psutil as _psutil  # type: ignore[import-untyped]
     _PSUTIL_OK = True
 except ImportError:
     _psutil = None  # type: ignore[assignment]
@@ -369,6 +369,7 @@ class ServerManager:
         """
         if not _PSUTIL_OK:
             return 0
+        assert _psutil is not None
 
         reconnected = 0
         try:
@@ -430,6 +431,7 @@ class ServerManager:
             alive = False
             try:
                 if _PSUTIL_OK:
+                    assert _psutil is not None
                     p = _psutil.Process(pid)
                     alive = p.is_running() and p.status() != _psutil.STATUS_ZOMBIE
             except Exception:
@@ -548,6 +550,7 @@ class ServerManager:
 
             # Afinidade de CPU (se configurado)
             if _PSUTIL_OK and cfg.cpu_core_count > 0:
+                assert _psutil is not None
                 try:
                     total = _psutil.cpu_count(logical=True) or 1
                     n = min(cfg.cpu_core_count, total)

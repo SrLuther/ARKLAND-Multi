@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.1.23"
+APP_VERSION: str = "1.2.0"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.0",
+        "date": "2026-05-17",
+        "changes": [
+            "Novo: Integração com Beacon (usebeacon.app) — autenticação OAuth Device Flow (PKCE), "
+            "cache local de blueprints ARK Prime (~1963 itens, TTL 7 dias).",
+            "Novo: Blueprint Picker — diálogo de busca live com filtro por categoria "
+            "(Todos / Itens / Criaturas) integrado ao ArkShop (itens de kit, dinos e selas).",
+            "Novo: botão '📋 Inserir seção...' no dialog de INI do mod — permite inserir seções "
+            "cadastradas no painel INI (Game.ini / GUS.ini) sem substituir o conteúdo existente.",
+            "Melhoria: aba Jogo usa renderização em chunks (lotes de 6 via after(0)) — "
+            "elimina freeze de ~500ms causado por 44 CTkSliders ao abrir a aba pela primeira vez.",
+            "Melhoria: pre-build de abas em idle com intervalo de 1500ms (antes 120ms) e sem "
+            "abas pesadas na fila — elimina freezes periódicos em background.",
+            "Correção: múltiplos erros Pylance corrigidos (beacon_client, server_manager, "
+            "arkland_updater, _profile_tabs, beacon_explore, beacon_sync).",
+        ],
+    },
     {
         "version": "1.1.23",
         "date": "2026-05-17",

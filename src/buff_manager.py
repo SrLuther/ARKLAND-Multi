@@ -13,12 +13,20 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from .ark_ini import ArkIniManager, get_ini_path
 from .rcon_client import RconClient
+
+# ── Fuso horário de Brasília (UTC-3 fixo — BR não usa horário de verão desde 2019)
+_TZ_BRASILIA = timezone(timedelta(hours=-3))
+
+
+def now_brasilia() -> datetime:
+    """Retorna datetime atual no fuso de Brasília (naive, sem tzinfo)."""
+    return datetime.now(tz=_TZ_BRASILIA).replace(tzinfo=None)
 
 
 # ── Tipos de BUFF ──────────────────────────────────────────────────────────────
@@ -422,7 +430,7 @@ class BuffManager:
         cfg = self._get_server_config(server_id)
         if not cfg or not cfg.install_dir:
             return None
-        ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
+        ts   = now_brasilia().strftime("%Y%m%d_%H%M%S")
         safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in buff_name)
         bdir = self._backups_dir / safe / ts
         bdir.mkdir(parents=True, exist_ok=True)
@@ -456,6 +464,7 @@ class BuffManager:
             return False
         ini = ArkIniManager(cfg.install_dir)
         ini.load_game_user_settings(cfg)
+        ini.load_game_ini(cfg)
         gs = cfg.game_settings
         for fname_group in BUFF_RATE_FIELDS.values():
             for field_name, _, _ in fname_group:
@@ -463,6 +472,7 @@ class BuffManager:
                 if val is not None:
                     setattr(gs, field_name, val)
         ini.save_game_user_settings(cfg)
+        ini.save_game_ini(cfg)
         self._on_log("[BUFF] Rates aplicados nos INIs.", "info")
         return True
 
@@ -584,7 +594,7 @@ class BuffManager:
             self._stop_evt.wait(30)
 
     def _tick(self) -> None:
-        now = datetime.now()
+        now = now_brasilia()
         to_activate: List[BuffEvent]   = []
         to_deactivate: List[BuffEvent] = []
 

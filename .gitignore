@@ -44,3 +44,9 @@ Desktop.ini
 # Python eggs
 *.egg-info/
 .eggs/
+
+beacon_token.json
+*_out.txt
+_tmp_fix.py
+beacon_comparison.txt
+output.txt

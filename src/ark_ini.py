@@ -33,6 +33,7 @@ _GUS_SERVER_SETTINGS = [
     ("dino_resistance_multiplier",            "ServerSettings", "DinoResistanceMultiplier",              float),
     ("dino_character_health_recovery_multiplier","ServerSettings","DinoCharacterHealthRecoveryMultiplier",  float),
     ("dino_character_food_drain_multiplier",  "ServerSettings", "DinoCharacterFoodDrainMultiplier",      float),
+    # Breeding — também escritos em Game.ini (local canônico, prioridade). GUS serve de fallback.
     ("baby_mature_speed_multiplier",          "ServerSettings", "BabyMatureSpeedMultiplier",             float),
     ("baby_hatch_speed_multiplier",           "ServerSettings", "BabyHatchSpeedMultiplier",              float),
     ("baby_food_consumption_speed_multiplier","ServerSettings", "BabyFoodConsumptionSpeedMultiplier",    float),
@@ -78,12 +79,29 @@ _GUS_SERVER_SETTINGS = [
     ("override_max_experience_points_dino",   "ServerSettings", "OverrideMaxExperiencePointsDino",       int),
 ]
 
+# ── Mapeamento Game.ini [/Script/ShooterGame.ShooterGameMode] → game_settings ──────────────────────
+# Local canônico para breeding multipliers. Têm precedência sobre GameUserSettings.ini [ServerSettings].
+_GAME_INI_SECTION = "/Script/ShooterGame.ShooterGameMode"
+_GAME_INI_GAME_SETTINGS = [
+    ("baby_mature_speed_multiplier",           "BabyMatureSpeedMultiplier",             float),
+    ("baby_hatch_speed_multiplier",            "BabyHatchSpeedMultiplier",              float),
+    ("baby_food_consumption_speed_multiplier", "BabyFoodConsumptionSpeedMultiplier",    float),
+    ("baby_cuddle_interval_multiplier",        "BabyCuddleIntervalMultiplier",          float),
+    ("mating_interval_multiplier",             "MatingIntervalMultiplier",              float),
+    ("egg_hatch_speed_multiplier",             "EggHatchSpeedMultiplier",               float),
+    ("lay_egg_interval_multiplier",            "LayEggIntervalMultiplier",              float),
+    ("baby_imprinting_stat_scale_multiplier",  "BabyImprintingStatScaleMultiplier",     float),
+    ("baby_cuddle_grace_period_multiplier",    "BabyCuddleGracePeriodMultiplier",       float),
+]
+
 # Campos da secao [SessionSettings] / [/Script/Engine.GameSession]
 _GUS_SESSION_SETTINGS = [
     ("max_players",       "SessionSettings", "MaxPlayers",           int),
     ("server_name",       "SessionSettings", "SessionName",          str),
     ("server_password",   "SessionSettings", "ServerPassword",       str),
     ("admin_password",    "SessionSettings", "ServerAdminPassword",  str),
+    ("server_port",       "SessionSettings", "Port",                 int),
+    ("query_port",        "SessionSettings", "QueryPort",            int),
 ]
 
 
@@ -233,11 +251,26 @@ def find_startup_bat(folder: Path) -> Optional[Path]:
     return None
 
 
-def apply_cmdline_args_to_config(args: dict[str, str], config: ServerConfig) -> None:
-    """Aplica os args de linha de comando (já parseados) sobre ServerConfig.game_settings.
+# Campos de ServerConfig (não game_settings) passados via ?Arg= na linha de comando
+_CMDLINE_CONFIG_MAP: dict[str, tuple[str, type]] = {
+    "port":                   ("server_port",       int),
+    "queryport":              ("query_port",         int),
+    "maxplayers":             ("max_players",        int),
+    "sessionname":            ("server_name",        str),
+    "serverpassword":         ("server_password",    str),
+    "serveradminpassword":    ("admin_password",      str),
+    "rconenabled":            ("rcon_enabled",        bool),
+    "rconport":               ("rcon_port",           int),
+    "autosaveperiodminutes":  ("auto_save_period",    float),
+    "activeevent":            ("active_event",        str),
+}
 
-    Só sobrescreve campos cujos valores estão mapeados em _CMDLINE_MAP.
-    Os args têm precedência sobre o INI (mesmo comportamento do ARK).
+
+def apply_cmdline_args_to_config(args: dict[str, str], config: ServerConfig) -> None:
+    """Aplica os args de linha de comando (já parseados) sobre ServerConfig.
+
+    Cobre game_settings (via _CMDLINE_MAP) e campos diretos de ServerConfig
+    (via _CMDLINE_CONFIG_MAP). Os args têm precedência sobre o INI.
     """
     gs = config.game_settings
     for key_lower, value in args.items():
@@ -245,6 +278,12 @@ def apply_cmdline_args_to_config(args: dict[str, str], config: ServerConfig) -> 
             field_name, typ = _CMDLINE_MAP[key_lower]
             try:
                 setattr(gs, field_name, _coerce(value, typ))
+            except Exception:
+                pass
+        elif key_lower in _CMDLINE_CONFIG_MAP:
+            field_name, typ = _CMDLINE_CONFIG_MAP[key_lower]
+            try:
+                setattr(config, field_name, _coerce(value, typ))
             except Exception:
                 pass
 
@@ -300,6 +339,20 @@ def populate_config_from_gus(
     if parser.has_option("ServerSettings", "ActiveMods"):
         raw_mods = parser.get("ServerSettings", "ActiveMods").strip()
         config.mods = [m.strip() for m in raw_mods.split(",") if m.strip()]
+
+    # AutoSavePeriodMinutes
+    try:
+        if parser.has_option("ServerSettings", "AutoSavePeriodMinutes"):
+            config.auto_save_period = float(parser.get("ServerSettings", "AutoSavePeriodMinutes"))
+    except Exception:
+        pass
+
+    # ActiveEvent
+    try:
+        if parser.has_option("ServerSettings", "ActiveEvent"):
+            config.active_event = parser.get("ServerSettings", "ActiveEvent").strip()
+    except Exception:
+        pass
 
 
 def populate_config_from_game_ini(
@@ -357,6 +410,15 @@ def populate_config_from_game_ini(
         except Exception:
             pass
 
+    # ── Campos de breeding (local canônico: Game.ini) → game_settings ────────
+    gs = config.game_settings
+    for field_name, key, typ in _GAME_INI_GAME_SETTINGS:
+        try:
+            if parser.has_option(_GAME_INI_SECTION, key):
+                setattr(gs, field_name, _coerce(parser.get(_GAME_INI_SECTION, key), typ))
+        except Exception:
+            pass
+
     # ── Spawn de Dinos Customizados ──────────────────────────────────────────
     # configparser não preserva chaves duplicadas, por isso lemos as linhas brutas.
     # Tentamos localizar o arquivo a partir do parser source se disponível.
@@ -364,7 +426,6 @@ def populate_config_from_game_ini(
     # passando um parser já lido de um arquivo conhecido — usamos _npc_spawn_path_hint
     # definida logo abaixo; aqui não temos o path, então o caller deve usar
     # populate_npc_spawns_from_file() separadamente.
-    pass
 
 
 def populate_npc_spawns_from_file(path: "Path", config: "ServerConfig") -> None:  # noqa: F821
@@ -778,6 +839,62 @@ def _serialize_supply_crate_override(crate: dict) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _level_to_xp(level: int) -> int:
+    """Converte nível-teto em XP total cumulativo usando a curva padrão do ARK SE.
+
+    Fórmula: soma de round(0.667 * i^2.04) para i de 1 a level-1.
+    Dá ~226 000 XP para atingir o nível 100 (curva default).
+    """
+    if level <= 1:
+        return 0
+    return sum(max(1, round(0.667 * i ** 2.04)) for i in range(1, level))
+
+
+# ── Helpers para edição estruturada de INI ────────────────────────────────────
+
+def parse_ini_text_to_sections(text: str) -> list:
+    """Converte texto INI bruto em lista de seções estruturadas.
+
+    Retorna::
+
+        [{"section": str, "entries": [{"key": str, "value": str}]}, ...]
+
+    Seções sem nenhuma entrada são incluídas (lista de entries vazia).
+    Linhas de comentário (;  ou  #) são ignoradas.
+    """
+    sections: list = []
+    current: dict | None = None
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(";") or line.startswith("#"):
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            current = {"section": line[1:-1], "entries": []}
+            sections.append(current)
+        elif "=" in line and current is not None:
+            key, _, value = line.partition("=")
+            current["entries"].append({"key": key.strip(), "value": value.strip()})
+    return sections
+
+
+def sections_to_ini_text(sections: list) -> str:
+    """Serializa lista de seções de volta para texto INI bruto."""
+    lines: list = []
+    for sec in sections:
+        sec_name = (sec.get("section") or "").strip()
+        if not sec_name:
+            continue
+        lines.append(f"[{sec_name}]")
+        for entry in sec.get("entries", []):
+            key = (entry.get("key") or "").strip()
+            value = (entry.get("value") or "").strip()
+            if key:
+                lines.append(f"{key}={value}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 class ArkIniManager:
     """Lê e escreve GameUserSettings.ini e Game.ini de um servidor ARK."""
 
@@ -825,6 +942,14 @@ class ArkIniManager:
             else:
                 parser.set(section, key, str(value))
 
+        # Se level_cap > 0, sobrepõe o XP calculado pela curva padrão
+        if gs.player_level_cap > 0:
+            parser.set("ServerSettings", "OverrideMaxExperiencePointsPlayer",
+                       str(_level_to_xp(gs.player_level_cap)))
+        if gs.dino_level_cap > 0:
+            parser.set("ServerSettings", "OverrideMaxExperiencePointsDino",
+                       str(_level_to_xp(gs.dino_level_cap)))
+
         for field_name, section, key, typ in _GUS_SESSION_SETTINGS:
             if not parser.has_section(section):
                 parser.add_section(section)
@@ -845,6 +970,13 @@ class ArkIniManager:
             parser.add_section("ServerSettings")
         parser.set("ServerSettings", "RCONEnabled", _bool_to_str(config.rcon_enabled))
         parser.set("ServerSettings", "RCONPort",    str(config.rcon_port))
+
+        # AutoSavePeriodMinutes / ActiveEvent
+        parser.set("ServerSettings", "AutoSavePeriodMinutes", str(config.auto_save_period))
+        if config.active_event:
+            parser.set("ServerSettings", "ActiveEvent", config.active_event)
+        elif parser.has_option("ServerSettings", "ActiveEvent"):
+            parser.remove_option("ServerSettings", "ActiveEvent")
 
         # Mensagem do Dia (MOTD)
         motd_section = "MessageOfTheDay"
@@ -908,6 +1040,11 @@ class ArkIniManager:
                 parser.set(section, key, _bool_to_str(value))
             else:
                 parser.set(section, key, str(value))
+
+        # ── Campos de breeding (local canônico: Game.ini) ─────────────────
+        gs = config.game_settings
+        for field_name, key, typ in _GAME_INI_GAME_SETTINGS:
+            parser.set(section, key, str(getattr(gs, field_name)))
 
         # ── Escrita inicial via configparser ──────────────────────────────
         import io

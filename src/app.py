@@ -20,7 +20,7 @@ import zipfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 try:
     import winreg as _winreg
@@ -70,6 +70,9 @@ from .buff_manager import (
     BUFF_STATUS_CANCELLED,
 )
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
+from .beacon_client import get_beacon_client
+from .change_logger import ChangeLogger, snapshot_server, diff_snapshots
+from .ark_ini import parse_ini_text_to_sections, sections_to_ini_text
 
 APP_NAME = "ARKLAND - Server Manager"
 
@@ -291,6 +294,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._rcon_clients: Dict[str, RconClient] = {}
         self._rcon_auto_enabled: Dict[str, bool] = {}   # True = tentar reconectar quando RUNNING
         self._rcon_auto_jobs: Dict[str, Optional[str]] = {}  # after() job id por servidor
+        self._chat_poll_jobs: Dict[str, Optional[str]] = {}   # after() job id para chat por servidor
         self._current_frame: str = ""
         self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
         self._global_log_buf: List[str] = []
@@ -1950,11 +1954,14 @@ class ARKServerManagerApp(ctk.CTk):
             "Spawns":       lambda: self._build_tab_spawns     (tabs.tab("Spawns"),       srv),
             "Loot":         lambda: self._build_tab_loot       (tabs.tab("Loot"),         srv),
             "Mods":         lambda: self._build_tab_mods       (tabs.tab("Mods"),         srv),
+            "📝 INI":       lambda: self._build_tab_ini_mods   (tabs.tab("📝 INI"),       srv),
             "Admins":       lambda: self._build_tab_admins     (tabs.tab("Admins"),       srv),
             "Jogadores":    lambda: self._build_tab_jogadores  (tabs.tab("Jogadores"),    srv),
             "Plugins":      lambda: self._build_tab_plugins    (tabs.tab("Plugins"),      srv),
             "Console RCON": lambda: self._build_tab_rcon       (tabs.tab("Console RCON"), srv),
+            "💬 Chat":      lambda: self._build_tab_chat       (tabs.tab("💬 Chat"),      srv),
             "Logs":         lambda: self._build_tab_logs       (tabs.tab("Logs"),         srv),
+            "📋 Histórico": lambda: self._build_tab_historico  (tabs.tab("📋 Histórico"), srv),
             "Backup":       lambda: self._build_tab_backup     (tabs.tab("Backup"),       srv),
         }
         _built_tabs: set[str] = set()
@@ -1979,6 +1986,34 @@ class ARKServerManagerApp(ctk.CTk):
         _built_tabs.add("Geral")
         self._build_tab_general(tabs.tab("Geral"), srv)
 
+        # Pré-constrói as demais abas progressivamente em idle time para eliminar
+        # o freeze na primeira visita. Cada aba é construída com intervalo generoso
+        # (1500ms) para não interferir com a interação do usuário.
+        # "Jogo" é omitida aqui: ela usa chunked rendering (after(0)) e se
+        # auto-constrói sem freeze quando visitada pela primeira vez.
+        # "Spawns" e "Loot" são abas pesadas e raramente visitadas primeiro —
+        # são construídas sob demanda (lazy) para não atrasar o pre-build.
+        _prebuild_order = [
+            "Avançado", "Console RCON", "Logs", "Admins",
+            "Mods", "Jogadores", "Plugins",
+            "💬 Chat", "📝 INI", "📋 Histórico", "Backup",
+        ]
+
+        def _idle_build(queue: list) -> None:
+            if not queue:
+                return
+            name, *rest = queue
+            if name not in _built_tabs:
+                _built_tabs.add(name)
+                _TAB_BUILDERS[name]()
+                inst_chk = self.server_manager.get_instance(srv.id)
+                if inst_chk and inst_chk.status != SERVER_STATUS_STOPPED:
+                    self._set_config_editable(srv.id, False)
+            self.after(1500, lambda: _idle_build(rest))
+
+        # Inicia 1500ms depois para a aba Geral renderizar completamente primeiro
+        self.after(1500, lambda: _idle_build(_prebuild_order))
+
         # Aplicar estado inicial de bloqueio se servidor não estiver parado
         if not is_stopped:
             self.after(100, lambda: self._set_config_editable(srv.id, False))
@@ -1991,6 +2026,7 @@ class ARKServerManagerApp(ctk.CTk):
         scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=4, pady=4)
         scroll.grid_columnconfigure(1, weight=1)
+        scroll.grid_columnconfigure(2, weight=1)  # espaçador — limita largura dos campos
 
         w = self._server_widgets[srv.id]
 
@@ -2033,6 +2069,7 @@ class ARKServerManagerApp(ctk.CTk):
         w["server_port"]     = tk.StringVar(value=str(srv.server_port))
         w["query_port"]      = tk.StringVar(value=str(srv.query_port))
         w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
+        w["public_ip"]       = tk.StringVar(value=srv.public_ip)
         w["extra_args"]      = tk.StringVar(value=srv.extra_args)
         # active_event: armazena o label exibido; salvar converte de volta para ID
         _evt_label = _ARK_EVENT_ID_TO_LABEL.get(srv.active_event, srv.active_event)
@@ -2068,50 +2105,179 @@ class ARKServerManagerApp(ctk.CTk):
             "Porta do console remoto. Padrão: 27020. Só abrir se usar RCON externo.",
             w["rcon_port"], 9)
 
-        self._section_lbl(scroll, 10, "🔒  Acesso")
+        # ── IP Público ────────────────────────────────────────────────────────
+        _lbl_ip = ctk.CTkFrame(scroll, fg_color="transparent")
+        _lbl_ip.grid(row=10, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(_lbl_ip, text="IP Público:", width=200, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(_lbl_ip,
+                     text="IP ou hostname que jogadores usam para conectar.\n"
+                          "Clique em 'Detectar' para obter o IP público da máquina.",
+                     width=200, anchor="w", text_color="gray40",
+                     font=ctk.CTkFont(size=10), justify="left").pack(anchor="w", pady=(0, 2))
+
+        _ip_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        _ip_fr.grid(row=10, column=1, padx=(0, 16), pady=(4, 0), sticky="ew")
+        _ip_fr.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_ip_fr, textvariable=w["public_ip"], height=34,
+                     placeholder_text="Ex: 189.123.45.67 ou meuservidor.com"
+                     ).grid(row=0, column=0, sticky="ew")
+
+        _ip_btn_fr = ctk.CTkFrame(_ip_fr, fg_color="transparent")
+        _ip_btn_fr.grid(row=1, column=0, sticky="e", pady=(4, 4))
+        _detect_btn = ctk.CTkButton(
+            _ip_btn_fr, text="🔄 Detectar IP", width=120, height=26,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            font=ctk.CTkFont(size=11))
+        _detect_btn.pack(side="left", padx=(0, 4))
+        _copy_ip_btn = ctk.CTkButton(
+            _ip_btn_fr, text="📋 Copiar", width=80, height=26,
+            fg_color="#2a2a2a", hover_color="#404040",
+            font=ctk.CTkFont(size=11))
+        _copy_ip_btn.pack(side="left")
+
+        def _detect_public_ip() -> None:
+            _detect_btn.configure(state="disabled", text="⏳...")
+            def _fetch() -> None:
+                try:
+                    with urllib.request.urlopen("https://api.ipify.org", timeout=5) as _r:
+                        _ip = _r.read().decode().strip()
+                    def _apply(_detected=_ip) -> None:
+                        w["public_ip"].set(_detected)
+                        _detect_btn.configure(state="normal", text="🔄 Detectar")
+                    scroll.after(0, _apply)
+                except Exception:
+                    scroll.after(0, lambda: _detect_btn.configure(state="normal", text="🔄 Detectar"))
+            threading.Thread(target=_fetch, daemon=True).start()
+
+        _detect_btn.configure(command=_detect_public_ip)
+        _copy_ip_btn.configure(command=lambda: (
+            scroll.clipboard_clear(),
+            scroll.clipboard_append(w["public_ip"].get()),
+        ))
+
+        self._section_lbl(scroll, 11, "🔒  Acesso")
         row("Senha do Servidor:",
             "Senha para entrar. Deixe vazio para servidor público.",
-            w["server_password"], 11, is_pass=True)
+            w["server_password"], 12, is_pass=True)
         row("Senha de Admin:",
             "Usada para ativar cheats in-game (enablecheats). Mantenha secreta.",
-            w["admin_password"], 12, is_pass=True)
+            w["admin_password"], 13, is_pass=True)
         row("Senha RCON:",
             "Senha para conexão via console RCON. Geralmente igual à de admin.",
-            w["rcon_password"], 13, is_pass=True)
+            w["rcon_password"], 14, is_pass=True)
         row("Máx. Jogadores:",
             "Limite de jogadores simultâneos no servidor.",
-            w["max_players"], 14)
+            w["max_players"], 15)
 
-        self._section_lbl(scroll, 15, "⚙️  Opções de Inicialização")
+        self._section_lbl(scroll, 16, "⚙️  Opções de Inicialização")
         row("Evento Ativo:",
             "Selecione o evento oficial ou deixe vazio para nenhum.",
-            w["active_event"], 16,
+            w["active_event"], 17,
             combo=[v for _, v in _ARK_OFFICIAL_EVENTS])
         row("Auto-Save (min):",
             "Intervalo de salvamento automático em minutos. Padrão: 15.",
-            w["auto_save"], 17)
+            w["auto_save"], 18)
         row("Argumentos Extras:",
             "Parâmetros adicionais de linha de comando. Ex: -ForceAllowCaveFlyers.",
-            w["extra_args"], 18)
+            w["extra_args"], 19)
 
-        self._section_lbl(scroll, 19, "📢  Mensagem do Dia (MOTD)")
+        self._section_lbl(scroll, 20, "📢  Mensagem do Dia (MOTD)")
         motd_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        motd_card.grid(row=20, column=0, padx=20, pady=(0, 14), sticky="ew")
+        motd_card.grid(row=21, column=0, padx=20, pady=(0, 14), sticky="ew")
         motd_card.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(motd_card, text="Mensagem:", width=190, anchor="nw",
                      text_color="gray60").grid(row=0, column=0, padx=16, pady=(12, 2), sticky="nw")
-        w["motd"] = ctk.CTkTextbox(motd_card, height=180, corner_radius=6,
+        w["motd"] = ctk.CTkTextbox(motd_card, height=320, corner_radius=6,
                                    fg_color="#1a1a2e", border_color="#3a3a5a",
-                                   border_width=1, font=ctk.CTkFont(size=12))
-        w["motd"].grid(row=0, column=1, padx=(0, 12), pady=(12, 2), sticky="ew")
+                                   border_width=1, font=ctk.CTkFont(size=12),
+                                   wrap="none")
+        w["motd"].grid(row=0, column=1, padx=(0, 12), pady=(12, 4), sticky="ew")
         if srv.motd:
             w["motd"].insert("1.0", srv.motd)
 
-        ctk.CTkLabel(motd_card,
-                     text="Exibida ao jogador quando entra no servidor. Suporta múltiplas linhas.",
-                     text_color="gray45", font=ctk.CTkFont(size=10),
-                     ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 4), sticky="w")
+        # ── Dicas de formatação ───────────────────────────────────────────────
+        tips_frame = ctk.CTkFrame(motd_card, fg_color="#16162a", corner_radius=8)
+        tips_frame.grid(row=1, column=0, columnspan=2, padx=12, pady=(0, 8), sticky="ew")
+        tips_frame.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            tips_frame,
+            text="💡  Dicas de Formatação",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#a0a0c0",
+            anchor="w",
+        ).grid(row=0, column=0, padx=10, pady=(8, 4), sticky="w")
+
+        syntax_lbl = ctk.CTkLabel(
+            tips_frame,
+            text='Cor:  <RichColor Color="R, G, B, 1">seu texto</>     Nova linha:  \\n     Fechar cor:  </>',
+            font=ctk.CTkFont(family="Courier New", size=11),
+            text_color="#c8c8e8",
+            anchor="w",
+        )
+        syntax_lbl.grid(row=1, column=0, padx=10, pady=(0, 6), sticky="w")
+
+        # Linha de botões de inserção rápida de cor
+        colors_frame = ctk.CTkFrame(tips_frame, fg_color="transparent")
+        colors_frame.grid(row=2, column=0, padx=8, pady=(0, 8), sticky="w")
+
+        ctk.CTkLabel(colors_frame, text="Inserir cor:",
+                     font=ctk.CTkFont(size=11), text_color="gray50",
+                     ).pack(side="left", padx=(2, 6))
+
+        _COLOR_BTNS = [
+            ("🟢 Verde",    "0, 1, 0, 1",       "#1a3a1a", "#2a5a2a"),
+            ("🔴 Vermelho", "1, 0, 0, 1",       "#3a1a1a", "#5a2a2a"),
+            ("🟡 Amarelo",  "1, 0.85, 0, 1",    "#3a3a10", "#5a5a18"),
+            ("🔵 Azul",     "0, 0.6, 1, 1",     "#102040", "#183060"),
+            ("🟠 Laranja",  "1, 0.5, 0, 1",     "#3a2010", "#5a3018"),
+            ("⚪ Branco",   "1, 1, 1, 1",       "#2a2a2a", "#404040"),
+        ]
+
+        def _make_insert_color(tag_color: str) -> Callable:
+            def _insert() -> None:
+                tb = w["motd"]
+                tag = f'<RichColor Color="{tag_color}">'
+                try:
+                    tb._textbox.insert("insert", tag)
+                except Exception:
+                    tb.insert("end", tag)
+            return _insert
+
+        for label, color_val, fg, hov in _COLOR_BTNS:
+            ctk.CTkButton(
+                colors_frame, text=label, height=26,
+                font=ctk.CTkFont(size=11),
+                fg_color=fg, hover_color=hov,
+                command=_make_insert_color(color_val),
+            ).pack(side="left", padx=3)
+
+        # Botão fechar tag
+        ctk.CTkButton(
+            colors_frame, text="</> Fechar", height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#2a2a2a", hover_color="#404040",
+            command=lambda: (
+                w["motd"]._textbox.insert("insert", "</>")
+                if hasattr(w["motd"], "_textbox") else
+                w["motd"].insert("end", "</>")
+            ),
+        ).pack(side="left", padx=(8, 3))
+
+        # Botão nova linha
+        ctk.CTkButton(
+            colors_frame, text="↵ \\n", height=26,
+            font=ctk.CTkFont(size=11),
+            fg_color="#2a2a2a", hover_color="#404040",
+            command=lambda: (
+                w["motd"]._textbox.insert("insert", r"\n")
+                if hasattr(w["motd"], "_textbox") else
+                w["motd"].insert("end", r"\n")
+            ),
+        ).pack(side="left", padx=3)
 
         ctk.CTkLabel(motd_card, text="Duração (s):", width=190, anchor="w",
                      text_color="gray60").grid(row=2, column=0, padx=16, pady=(4, 12))
@@ -2128,7 +2294,7 @@ class ARKServerManagerApp(ctk.CTk):
         w["auto_restart_crash"] = tk.BooleanVar(value=srv.auto_restart_on_crash)
         w["auto_update_start"]  = tk.BooleanVar(value=srv.auto_update_on_start)
 
-        self._section_lbl(scroll, 21, "🔧  Flags")
+        self._section_lbl(scroll, 22, "🔧  Flags")
         checkboxes = [
             ("Habilitar RCON",
              "Ativa o console remoto. Necessário para usar a aba Console RCON.",
@@ -2152,7 +2318,7 @@ class ARKServerManagerApp(ctk.CTk):
         for ci, (txt, hint_txt, var) in enumerate(checkboxes):
             self._register_config_item(srv.id, txt, hint_txt, "Geral")
             cb_fr = ctk.CTkFrame(scroll, fg_color="transparent")
-            cb_fr.grid(row=22 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+            cb_fr.grid(row=23 + ci, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
             ctk.CTkCheckBox(cb_fr, text=txt, variable=var,
                             checkmark_color="white", fg_color=_GREEN_DARK,
                             hover_color=_GREEN_HOVER).pack(anchor="w")
@@ -2160,7 +2326,7 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=10), anchor="w").pack(
                 anchor="w", padx=(26, 0), pady=(0, 2))
 
-        self._save_btn_row(scroll, 33, srv.id)
+        self._save_btn_row(scroll, 34, srv.id)
 
         # ── Seletor de núcleos de CPU ────────────────────────────────────
         import os as _os
@@ -2179,7 +2345,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._register_config_item(srv.id, "Núcleos de CPU", "Restringe quantos núcleos lógicos o servidor pode usar.", "Geral")
         cpu_fr = ctk.CTkFrame(scroll, fg_color="transparent")
-        cpu_fr.grid(row=28, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+        cpu_fr.grid(row=29, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
         ctk.CTkLabel(cpu_fr, text="Núcleos de CPU:",
                      font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
         ctk.CTkLabel(cpu_fr,
@@ -2193,9 +2359,9 @@ class ARKServerManagerApp(ctk.CTk):
         ).pack(anchor="w")
 
         # ── Seção Agendamentos ────────────────────────────────────────────────
-        self._section_lbl(scroll, 29, "⏰  Agendamentos Automáticos")
+        self._section_lbl(scroll, 30, "⏰  Agendamentos Automáticos")
         sched_outer = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        sched_outer.grid(row=30, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        sched_outer.grid(row=31, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         sched_outer.grid_columnconfigure(0, weight=1)
 
         _DAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -2282,9 +2448,9 @@ class ARKServerManagerApp(ctk.CTk):
         ).grid(row=1, column=0, padx=16, pady=(0, 10), sticky="w")
 
         # ── Seção Instalação ─────────────────────────────────────────────────
-        self._section_lbl(scroll, 31, "⬇️  Instalação / Atualização do Servidor")
+        self._section_lbl(scroll, 32, "⬇️  Instalação / Atualização do Servidor")
         inst_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        inst_card.grid(row=32, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        inst_card.grid(row=33, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         inst_card.grid_columnconfigure(0, weight=1)
 
         btn_row = ctk.CTkFrame(inst_card, fg_color="transparent")
@@ -2335,6 +2501,7 @@ class ARKServerManagerApp(ctk.CTk):
         scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=4, pady=4)
         scroll.grid_columnconfigure(1, weight=1)
+        scroll.grid_columnconfigure(3, weight=1)  # espaçador — limita largura dos sliders
 
         w  = self._server_widgets[srv.id]
         gs = srv.game_settings
@@ -2345,7 +2512,6 @@ class ARKServerManagerApp(ctk.CTk):
             var = tk.DoubleVar(value=val)
             w[f"gs_{field}"] = var
 
-            # Coluna 0: nome + dica
             lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
             lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
             ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
@@ -2356,21 +2522,18 @@ class ARKServerManagerApp(ctk.CTk):
                              text_color="gray40",
                              font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
 
-            # Coluna 2: entry editável
             entry_var = tk.StringVar(value=f"{val:.2f}")
             entry = ctk.CTkEntry(scroll, textvariable=entry_var, width=72, height=28,
                                  justify="right", text_color=_GREEN,
                                  font=ctk.CTkFont(size=12, weight="bold"))
             entry.grid(row=row_n, column=2, padx=(4, 14), pady=4)
 
-            # Coluna 1: slider
             slider = ctk.CTkSlider(
                 scroll, from_=frm, to=to, variable=var,  # type: ignore[arg-type]
                 command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
             )
             slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
 
-            # Sincroniza entry_var quando var é alterado programaticamente (ex: calculadora)
             def _sync_entry(*_, _v=var, _ev=entry_var):
                 _ev.set(f"{_v.get():.2f}")
             var.trace_add("write", _sync_entry)
@@ -2410,285 +2573,322 @@ class ARKServerManagerApp(ctk.CTk):
                             hover_color=_GREEN_HOVER).grid(
                 row=row_n, column=0, columnspan=3, padx=16, pady=4, sticky="w")
 
+        def _level_cap_row(label: str, hint: str, field: str, val: int, row_n: int) -> None:
+            from .ark_ini import _level_to_xp as _l2xp
+            self._register_config_item(srv.id, label, hint, "Jogo")
+            w[f"gs_{field}"] = tk.StringVar(value=str(val))
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                         text_color="gray40",
+                         font=ctk.CTkFont(size=10), justify="left",
+                         wraplength=270).pack(anchor="w", pady=(0, 2))
+            right_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            right_fr.grid(row=row_n, column=1, padx=4, pady=4, sticky="w")
+            ctk.CTkEntry(right_fr, textvariable=w[f"gs_{field}"],
+                         width=80, height=28).pack(side="left")
+            xp_lbl = ctk.CTkLabel(right_fr, text="", text_color="gray45",
+                                  font=ctk.CTkFont(size=10))
+            xp_lbl.pack(side="left", padx=(6, 0))
+
+            def _update_xp_preview(*_):
+                try:
+                    lvl = int(w[f"gs_{field}"].get())
+                    xp_lbl.configure(text="(padrão ARK)" if lvl <= 0 else f"→ {_l2xp(lvl):,} XP")
+                except (ValueError, TypeError):
+                    xp_lbl.configure(text="")
+
+            w[f"gs_{field}"].trace_add("write", _update_xp_preview)
+            _update_xp_preview()
+
+        # ── Coleta de tasks com row pré-calculado ─────────────────────────────
+        # Em vez de criar todos os ~350 widgets de uma vez (freeze de ~500ms),
+        # as tasks são despachadas em lotes de 6 via after(0), cedendo o
+        # controle ao event loop entre cada lote.
+        _tasks: list = []
         r = 0
-        self._section_lbl(scroll, r, "⚙️  Dificuldade")
-        r += 1
-        frow("Nível de Dificuldade",
-             "Padrão: 0.20 — Aumentar eleva o nível máximo dos dinos selvagens.",
-             "difficulty_offset", gs.difficulty_offset, r, 0, 1)
-        r += 1
-        frow("Dificuldade Máxima (Override)",
-             "Ex: 5.0 = dinos até nível 150. Aumente para dinos mais difíceis.",
-             "override_official_difficulty", gs.override_official_difficulty, r, 1, 10)
-        r += 1
 
-        self._section_lbl(scroll, r, "📈  XP")
-        r += 1
-        frow("Multiplicador de XP Geral",
-             "Multiplica todo o XP ganho. Aumente para progredir mais rápido.",
-             "xp_multiplier", gs.xp_multiplier, r)
-        r += 1
-        frow("XP por Abate",
-             "Multiplica o XP ganho ao matar criaturas.",
-             "kill_xp_multiplier", gs.kill_xp_multiplier, r)
-        r += 1
-        frow("XP por Coleta",
-             "Multiplica o XP ganho ao coletar recursos.",
-             "harvest_xp_multiplier", gs.harvest_xp_multiplier, r)
-        r += 1
-        frow("XP por Craft",
-             "Multiplica o XP ganho ao fabricar itens.",
-             "craft_xp_multiplier", gs.craft_xp_multiplier, r)
-        r += 1
-        frow("XP Genérico",
-             "Multiplica o XP de fontes diversas.",
-             "generic_xp_multiplier", gs.generic_xp_multiplier, r)
-        r += 1
-        frow("XP Especial",
-             "Multiplica o XP de eventos e fontes especiais.",
-             "special_xp_multiplier", gs.special_xp_multiplier, r)
-        r += 1
+        def _s(text: str) -> None:
+            nonlocal r
+            _tasks.append(("s", r, text)); r += 1
 
-        self._section_lbl(scroll, r, "👤  Jogador")
-        r += 1
-        frow("Dano do Jogador",
-             "Aumenta o dano causado pelo jogador. Ex: 2.0 = dano dobrado.",
-             "player_damage_multiplier", gs.player_damage_multiplier, r)
-        r += 1
-        frow("Resistência do Jogador",
-             "Reduz o dano recebido. Menor = mais resistente ao dano.",
-             "player_resistance_multiplier", gs.player_resistance_multiplier, r)
-        r += 1
-        frow("Consumo de Água",
-             "Taxa de consumo de água. Menor = seca mais devagar.",
-             "player_character_water_drain_multiplier",
-             gs.player_character_water_drain_multiplier, r)
-        r += 1
-        frow("Consumo de Comida",
-             "Taxa de consumo de comida. Menor = fica com fome mais devagar.",
-             "player_character_food_drain_multiplier",
-             gs.player_character_food_drain_multiplier, r)
-        r += 1
-        frow("Regeneração de Vida",
-             "Velocidade de recuperação de HP. Maior = recupera mais rápido.",
-             "player_character_health_recovery_multiplier",
-             gs.player_character_health_recovery_multiplier, r)
-        r += 1
-        frow("Consumo de Stamina",
-             "Taxa de consumo de stamina. Menor = cansa mais devagar.",
-             "player_character_stamina_drain_multiplier",
-             gs.player_character_stamina_drain_multiplier, r)
-        r += 1
+        def _f(label, hint, field, val, frm=0.0, to=10.0) -> None:
+            nonlocal r
+            _tasks.append(("f", r, label, hint, field, val, frm, to)); r += 1
 
-        self._section_lbl(scroll, r, "🦖  Dinos")
-        r += 1
-        frow("Dano dos Dinos",
-             "Aumenta o dano causado pelos dinos selvagens.",
-             "dino_damage_multiplier", gs.dino_damage_multiplier, r)
-        r += 1
-        frow("Resistência dos Dinos",
-             "Reduz o dano recebido pelos dinos. Menor = dinos mais resistentes.",
-             "dino_resistance_multiplier", gs.dino_resistance_multiplier, r)
-        r += 1
-        frow("Regeneração dos Dinos",
-             "Velocidade de recuperação de HP dos dinos.",
-             "dino_character_health_recovery_multiplier",
-             gs.dino_character_health_recovery_multiplier, r)
-        r += 1
-        frow("Consumo de Comida dos Dinos",
-             "Taxa de consumo de comida dos dinos. Menor = comem mais devagar.",
-             "dino_character_food_drain_multiplier",
-             gs.dino_character_food_drain_multiplier, r)
-        r += 1
-        frow("Quantidade de Dinos no Mapa",
-             "Multiplica a quantidade de dinos. Ex: 2.0 = dobro de dinos selvagens.",
-             "dino_count_multiplier", gs.dino_count_multiplier, r)
-        r += 1
-        irow("Máx. Dinos Domesticados",
-             "Limite total de dinos domesticados no servidor.",
-             "max_tamed_dinos", gs.max_tamed_dinos, r)
-        r += 1
+        def _i(label, hint, field, val) -> None:
+            nonlocal r
+            _tasks.append(("i", r, label, hint, field, val)); r += 1
 
-        self._section_lbl(scroll, r, "🥚  Criação / Imprinting")
-        r += 1
-        _calc_btn = ctk.CTkButton(
-            scroll,
-            text="🧮  Calculadora de Breeding",
-            width=230,
-            fg_color="#2d4a6f",
-            hover_color="#1b2d45",
-            command=lambda _gs=gs: open_breeding_calculator(
-                self,
-                _gs,
-                self._server_widgets.get(srv.id, {}),
-                lambda: self._save_server_config(srv.id, silent=True, force=True),
-            ),
-        )
-        _calc_btn.grid(row=r, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
-        r += 1
-        frow("Velocidade de Domesticação",
-             "Maior = domestica mais rápido. Ex: 3.0 = 3× mais rápido.",
-             "taming_speed_multiplier", gs.taming_speed_multiplier, r)
-        r += 1
-        frow("Intervalo de Acasalamento",
-             "Menor = pode acasalar com mais frequência.",
-             "mating_interval_multiplier", gs.mating_interval_multiplier, r)
-        r += 1
-        frow("Velocidade de Chocagem",
-             "Maior = ovos chocam mais rápido.",
-             "egg_hatch_speed_multiplier", gs.egg_hatch_speed_multiplier, r)
-        r += 1
-        frow("Intervalo de Postura de Ovos",
-             "Menor = dinos põem ovos com mais frequência.",
-             "lay_egg_interval_multiplier", gs.lay_egg_interval_multiplier, r)
-        r += 1
-        frow("Velocidade de Crescimento do Filhote",
-             "Maior = filhotes crescem mais rápido.",
-             "baby_mature_speed_multiplier", gs.baby_mature_speed_multiplier, r, 0, 100)
-        r += 1
-        frow("Velocidade de Nascimento do Filhote",
-             "Maior = filhotes vivíparos nascem mais rápido.",
-             "baby_hatch_speed_multiplier", gs.baby_hatch_speed_multiplier, r, 0, 100)
-        r += 1
-        frow("Consumo de Comida do Filhote",
-             "Menor = filhotes comem menos (mais fácil de criar).",
-             "baby_food_consumption_speed_multiplier",
-             gs.baby_food_consumption_speed_multiplier, r)
-        r += 1
-        frow("Intervalo de Carinho (Imprint)",
-             "Menor = menos tempo entre os pedidos de carinho do filhote.",
-             "baby_cuddle_interval_multiplier", gs.baby_cuddle_interval_multiplier, r)
-        r += 1
-        frow("Tolerância de Atraso do Imprint",
-             "Maior = mais tempo para responder ao pedido de carinho sem perder %.",
-             "baby_cuddle_grace_period_multiplier",
-             gs.baby_cuddle_grace_period_multiplier, r)
-        r += 1
-        frow("Bônus de Stats por Imprint",
-             "Maior = mais bônus de stats ao completar 100% de imprint.",
-             "baby_imprinting_stat_scale_multiplier",
-             gs.baby_imprinting_stat_scale_multiplier, r)
-        r += 1
+        def _b(label, field, val) -> None:
+            nonlocal r
+            _tasks.append(("b", r, label, field, val)); r += 1
 
-        self._section_lbl(scroll, r, "🌾  Coleta / Recursos")
-        r += 1
-        frow("Quantidade de Coleta",
-             "Mais recursos por coleta. Ex: 3.0 = 3× mais recursos.",
-             "harvest_amount_multiplier", gs.harvest_amount_multiplier, r)
-        r += 1
-        frow("Durabilidade dos Recursos",
-             "Maior = rochas/árvores duram mais antes de destruir.",
-             "harvest_health_multiplier", gs.harvest_health_multiplier, r)
-        r += 1
-        frow("Reaparecimento de Recursos",
-             "Menor = recursos reaparecem mais rápido no mapa.",
-             "resource_respawn_period_multiplier",
-             gs.resource_respawn_period_multiplier, r)
-        r += 1
-        frow("Velocidade de Crescimento das Plantas",
-             "Maior = plantas nas estufas crescem mais rápido.",
-             "crop_growth_speed_multiplier", gs.crop_growth_speed_multiplier, r)
-        r += 1
-        frow("Apodrecimento das Plantas",
-             "Menor = plantas demoram mais para apodrecer.",
-             "crop_decay_speed_multiplier", gs.crop_decay_speed_multiplier, r)
-        r += 1
-        frow("Tamanho de Stack",
-             "Multiplica o limite de empilhamento. Ex: 2.0 = stacks dobrados.",
-             "item_stack_size_multiplier", gs.item_stack_size_multiplier, r)
-        r += 1
-        frow("Tempo de Estragamento",
-             "Maior = comida demora mais para estragar.",
-             "spoiling_time_multiplier", gs.spoiling_time_multiplier, r)
-        r += 1
-        frow("Tempo de Decomposição de Itens",
-             "Maior = itens largados no chão demoram mais para sumir.",
-             "item_decomposition_time_multiplier",
-             gs.item_decomposition_time_multiplier, r)
-        r += 1
-        frow("Qualidade de Loot de Pesca",
-             "Maior = itens de melhor qualidade ao pescar.",
-             "fishing_loot_quality_multiplier", gs.fishing_loot_quality_multiplier, r)
-        r += 1
+        def _calc() -> None:
+            nonlocal r
+            _tasks.append(("calc", r)); r += 1
 
-        self._section_lbl(scroll, r, "🏗️  Estruturas")
-        r += 1
-        frow("Dano às Estruturas",
-             "Aumenta o dano causado às estruturas por jogadores/dinos.",
-             "structure_damage_multiplier", gs.structure_damage_multiplier, r)
-        r += 1
-        frow("Resistência das Estruturas",
-             "Menor = estruturas mais resistentes (recebem menos dano).",
-             "structure_resistance_multiplier", gs.structure_resistance_multiplier, r)
-        r += 1
-        irow("Cooldown de Reparo (s)",
-             "Segundos de espera para reparar após receber dano.",
-             "structure_damage_repair_cooldown",
-             gs.structure_damage_repair_cooldown, r)
-        r += 1
-        frow("Decaimento de Estruturas (PvE)",
-             "Maior = estruturas sem dono demoram mais para decair.",
-             "pve_structure_decay_period_multiplier",
-             gs.pve_structure_decay_period_multiplier, r)
-        r += 1
-        frow("Estruturas em Plataformas",
-             "Multiplica o limite de estruturas em platform saddles.",
-             "per_platform_max_structures_multiplier",
-             gs.per_platform_max_structures_multiplier, r)
-        r += 1
-        frow("Área de Build em Saddles",
-             "Multiplica a área construível ao redor de platform saddles.",
-             "platform_saddle_build_area_bounds_multiplier",
-             gs.platform_saddle_build_area_bounds_multiplier, r)
-        r += 1
+        def _lcap(label, hint, field, val) -> None:
+            nonlocal r
+            _tasks.append(("lcap", r, label, hint, field, val)); r += 1
 
-        self._section_lbl(scroll, r, "🏆  Tribal / Misc")
-        r += 1
-        irow("Tamanho Máximo da Tribo",
-             "Número máximo de membros por tribo.",
-             "max_tribe_size", gs.max_tribe_size, r)
-        r += 1
-        frow("Tempo para Expulsar AFK (s)",
-             "Segundos até expulsar jogadores inativos. 0 = desativado.",
-             "kick_idle_players_period", gs.kick_idle_players_period, r, 0, 7200)
-        r += 1
-        irow("XP Máximo do Jogador (Override)",
-             "Substitui o limite padrão de XP dos jogadores.",
-             "override_max_experience_points_player",
-             gs.override_max_experience_points_player, r)
-        r += 1
-        irow("XP Máximo do Dino (Override)",
-             "Substitui o limite padrão de XP dos dinos.",
-             "override_max_experience_points_dino",
-             gs.override_max_experience_points_dino, r)
-        r += 1
+        def _save() -> None:
+            _tasks.append(("save", r + 1))
 
-        self._section_lbl(scroll, r, "🎮  Opções do Servidor")
-        r += 1
-        brow("PvP Ativado",                              "server_pvp",                  gs.server_pvp,                  r)
-        r += 1
-        brow("Modo Hardcore (morte permanente)",         "server_hardcore",             gs.server_hardcore,             r)
-        r += 1
-        brow("Dinos Voadores Carregam Jogadores (PvE)",  "allow_flyer_carry_pve",       gs.allow_flyer_carry_pve,       r)
-        r += 1
-        brow("Terceira Pessoa Permitida",                "allow_third_person_player",   gs.allow_third_person_player,   r)
-        r += 1
-        brow("Mostrar Localização no Mapa",              "show_map_player_location",    gs.show_map_player_location,    r)
-        r += 1
-        brow("Desativar Decaimento de Estruturas (PvE)", "disable_structure_decay_pve", gs.disable_structure_decay_pve, r)
-        r += 1
-        brow("Desativar Decaimento de Dinos (PvE)",      "disable_dino_decay_pve",      gs.disable_dino_decay_pve,      r)
-        r += 1
-        brow("Proteção Offline (ORP)",                   "prevent_offline_pvp",         gs.prevent_offline_pvp,         r)
-        r += 1
-        brow("Bloquear Downloads de Tributos",           "no_tribute_downloads",        gs.no_tribute_downloads,        r)
-        r += 1
-        brow("Notificar quando Jogador Entrar",          "always_notify_player_joined", gs.always_notify_player_joined, r)
-        r += 1
-        brow("Notificar quando Jogador Sair",            "always_notify_player_left",   gs.always_notify_player_left,   r)
-        r += 1
+        # ── Definição das rows ────────────────────────────────────────────────
+        _s("⚙️  Dificuldade")
+        _f("Nível de Dificuldade",
+           "Padrão: 0.20 — Aumentar eleva o nível máximo dos dinos selvagens.",
+           "difficulty_offset", gs.difficulty_offset, 0, 1)
+        _f("Dificuldade Máxima (Override)",
+           "Ex: 5.0 = dinos até nível 150. Aumente para dinos mais difíceis.",
+           "override_official_difficulty", gs.override_official_difficulty, 1, 10)
 
-        self._save_btn_row(scroll, r + 1, srv.id)
+        _s("📈  XP")
+        _f("Multiplicador de XP Geral",
+           "Multiplica todo o XP ganho. Aumente para progredir mais rápido.",
+           "xp_multiplier", gs.xp_multiplier)
+        _f("XP por Abate",
+           "Multiplica o XP ganho ao matar criaturas.",
+           "kill_xp_multiplier", gs.kill_xp_multiplier)
+        _f("XP por Coleta",
+           "Multiplica o XP ganho ao coletar recursos.",
+           "harvest_xp_multiplier", gs.harvest_xp_multiplier)
+        _f("XP por Craft",
+           "Multiplica o XP ganho ao fabricar itens.",
+           "craft_xp_multiplier", gs.craft_xp_multiplier)
+        _f("XP Genérico",
+           "Multiplica o XP de fontes diversas.",
+           "generic_xp_multiplier", gs.generic_xp_multiplier)
+        _f("XP Especial",
+           "Multiplica o XP de eventos e fontes especiais.",
+           "special_xp_multiplier", gs.special_xp_multiplier)
+
+        _s("👤  Jogador")
+        _f("Dano do Jogador",
+           "Aumenta o dano causado pelo jogador. Ex: 2.0 = dano dobrado.",
+           "player_damage_multiplier", gs.player_damage_multiplier)
+        _f("Resistência do Jogador",
+           "Reduz o dano recebido. Menor = mais resistente ao dano.",
+           "player_resistance_multiplier", gs.player_resistance_multiplier)
+        _f("Consumo de Água",
+           "Taxa de consumo de água. Menor = seca mais devagar.",
+           "player_character_water_drain_multiplier",
+           gs.player_character_water_drain_multiplier)
+        _f("Consumo de Comida",
+           "Taxa de consumo de comida. Menor = fica com fome mais devagar.",
+           "player_character_food_drain_multiplier",
+           gs.player_character_food_drain_multiplier)
+        _f("Regeneração de Vida",
+           "Velocidade de recuperação de HP. Maior = recupera mais rápido.",
+           "player_character_health_recovery_multiplier",
+           gs.player_character_health_recovery_multiplier)
+        _f("Consumo de Stamina",
+           "Taxa de consumo de stamina. Menor = cansa mais devagar.",
+           "player_character_stamina_drain_multiplier",
+           gs.player_character_stamina_drain_multiplier)
+
+        _s("🦖  Dinos")
+        _f("Dano dos Dinos",
+           "Aumenta o dano causado pelos dinos selvagens.",
+           "dino_damage_multiplier", gs.dino_damage_multiplier)
+        _f("Resistência dos Dinos",
+           "Reduz o dano recebido pelos dinos. Menor = dinos mais resistentes.",
+           "dino_resistance_multiplier", gs.dino_resistance_multiplier)
+        _f("Regeneração dos Dinos",
+           "Velocidade de recuperação de HP dos dinos.",
+           "dino_character_health_recovery_multiplier",
+           gs.dino_character_health_recovery_multiplier)
+        _f("Consumo de Comida dos Dinos",
+           "Taxa de consumo de comida dos dinos. Menor = comem mais devagar.",
+           "dino_character_food_drain_multiplier",
+           gs.dino_character_food_drain_multiplier)
+        _f("Quantidade de Dinos no Mapa",
+           "Multiplica a quantidade de dinos. Ex: 2.0 = dobro de dinos selvagens.",
+           "dino_count_multiplier", gs.dino_count_multiplier)
+        _i("Máx. Dinos Domesticados",
+           "Limite total de dinos domesticados no servidor.",
+           "max_tamed_dinos", gs.max_tamed_dinos)
+
+        _s("🥚  Criação / Imprinting")
+        _calc()
+        _f("Velocidade de Domesticação",
+           "Maior = domestica mais rápido. Ex: 3.0 = 3× mais rápido.",
+           "taming_speed_multiplier", gs.taming_speed_multiplier)
+        _f("Intervalo de Acasalamento",
+           "Menor = pode acasalar com mais frequência.",
+           "mating_interval_multiplier", gs.mating_interval_multiplier)
+        _f("Velocidade de Chocagem",
+           "Maior = ovos chocam mais rápido.",
+           "egg_hatch_speed_multiplier", gs.egg_hatch_speed_multiplier)
+        _f("Intervalo de Postura de Ovos",
+           "Menor = dinos põem ovos com mais frequência.",
+           "lay_egg_interval_multiplier", gs.lay_egg_interval_multiplier)
+        _f("Velocidade de Crescimento do Filhote",
+           "Maior = filhotes crescem mais rápido.",
+           "baby_mature_speed_multiplier", gs.baby_mature_speed_multiplier, 0, 100)
+        _f("Velocidade de Nascimento do Filhote",
+           "Maior = filhotes vivíparos nascem mais rápido.",
+           "baby_hatch_speed_multiplier", gs.baby_hatch_speed_multiplier, 0, 100)
+        _f("Consumo de Comida do Filhote",
+           "Menor = filhotes comem menos (mais fácil de criar).",
+           "baby_food_consumption_speed_multiplier",
+           gs.baby_food_consumption_speed_multiplier)
+        _f("Intervalo de Carinho (Imprint)",
+           "Menor = menos tempo entre os pedidos de carinho do filhote.",
+           "baby_cuddle_interval_multiplier", gs.baby_cuddle_interval_multiplier)
+        _f("Tolerância de Atraso do Imprint",
+           "Maior = mais tempo para responder ao pedido de carinho sem perder %.",
+           "baby_cuddle_grace_period_multiplier",
+           gs.baby_cuddle_grace_period_multiplier)
+        _f("Bônus de Stats por Imprint",
+           "Maior = mais bônus de stats ao completar 100% de imprint.",
+           "baby_imprinting_stat_scale_multiplier",
+           gs.baby_imprinting_stat_scale_multiplier)
+
+        _s("🌾  Coleta / Recursos")
+        _f("Quantidade de Coleta",
+           "Mais recursos por coleta. Ex: 3.0 = 3× mais recursos.",
+           "harvest_amount_multiplier", gs.harvest_amount_multiplier)
+        _f("Durabilidade dos Recursos",
+           "Maior = rochas/árvores duram mais antes de destruir.",
+           "harvest_health_multiplier", gs.harvest_health_multiplier)
+        _f("Reaparecimento de Recursos",
+           "Menor = recursos reaparecem mais rápido no mapa.",
+           "resource_respawn_period_multiplier",
+           gs.resource_respawn_period_multiplier)
+        _f("Velocidade de Crescimento das Plantas",
+           "Maior = plantas nas estufas crescem mais rápido.",
+           "crop_growth_speed_multiplier", gs.crop_growth_speed_multiplier)
+        _f("Apodrecimento das Plantas",
+           "Menor = plantas demoram mais para apodrecer.",
+           "crop_decay_speed_multiplier", gs.crop_decay_speed_multiplier)
+        _f("Tamanho de Stack",
+           "Multiplica o limite de empilhamento. Ex: 2.0 = stacks dobrados.",
+           "item_stack_size_multiplier", gs.item_stack_size_multiplier)
+        _f("Tempo de Estragamento",
+           "Maior = comida demora mais para estragar.",
+           "spoiling_time_multiplier", gs.spoiling_time_multiplier)
+        _f("Tempo de Decomposição de Itens",
+           "Maior = itens largados no chão demoram mais para sumir.",
+           "item_decomposition_time_multiplier",
+           gs.item_decomposition_time_multiplier)
+        _f("Qualidade de Loot de Pesca",
+           "Maior = itens de melhor qualidade ao pescar.",
+           "fishing_loot_quality_multiplier", gs.fishing_loot_quality_multiplier)
+
+        _s("🏗️  Estruturas")
+        _f("Dano às Estruturas",
+           "Aumenta o dano causado às estruturas por jogadores/dinos.",
+           "structure_damage_multiplier", gs.structure_damage_multiplier)
+        _f("Resistência das Estruturas",
+           "Menor = estruturas mais resistentes (recebem menos dano).",
+           "structure_resistance_multiplier", gs.structure_resistance_multiplier)
+        _i("Cooldown de Reparo (s)",
+           "Segundos de espera para reparar após receber dano.",
+           "structure_damage_repair_cooldown",
+           gs.structure_damage_repair_cooldown)
+        _f("Decaimento de Estruturas (PvE)",
+           "Maior = estruturas sem dono demoram mais para decair.",
+           "pve_structure_decay_period_multiplier",
+           gs.pve_structure_decay_period_multiplier)
+        _f("Estruturas em Plataformas",
+           "Multiplica o limite de estruturas em platform saddles.",
+           "per_platform_max_structures_multiplier",
+           gs.per_platform_max_structures_multiplier)
+        _f("Área de Build em Saddles",
+           "Multiplica a área construível ao redor de platform saddles.",
+           "platform_saddle_build_area_bounds_multiplier",
+           gs.platform_saddle_build_area_bounds_multiplier)
+
+        _s("🏆  Tribal / Misc")
+        _i("Tamanho Máximo da Tribo",
+           "Número máximo de membros por tribo.",
+           "max_tribe_size", gs.max_tribe_size)
+        _f("Tempo para Expulsar AFK (s)",
+           "Segundos até expulsar jogadores inativos. 0 = desativado.",
+           "kick_idle_players_period", gs.kick_idle_players_period, 0, 7200)
+
+        _s("🔢  Teto de Níveis")
+        _lcap("Nível Máximo do Jogador",
+              "Nível final do jogador, incluindo os desbloqueados por ascensões."
+              " 0 = padrão ARK (105 base + ascensões).",
+              "player_level_cap", gs.player_level_cap)
+        _lcap("Nível Máximo do Dino",
+              "Nível máximo que dinos podem atingir ao acumular XP."
+              " 0 = padrão ARK.",
+              "dino_level_cap", gs.dino_level_cap)
+
+        _s("🎮  Opções do Servidor")
+        _b("PvP Ativado",                              "server_pvp",                  gs.server_pvp)
+        _b("Modo Hardcore (morte permanente)",         "server_hardcore",             gs.server_hardcore)
+        _b("Dinos Voadores Carregam Jogadores (PvE)",  "allow_flyer_carry_pve",       gs.allow_flyer_carry_pve)
+        _b("Terceira Pessoa Permitida",                "allow_third_person_player",   gs.allow_third_person_player)
+        _b("Mostrar Localização no Mapa",              "show_map_player_location",    gs.show_map_player_location)
+        _b("Desativar Decaimento de Estruturas (PvE)", "disable_structure_decay_pve", gs.disable_structure_decay_pve)
+        _b("Desativar Decaimento de Dinos (PvE)",      "disable_dino_decay_pve",      gs.disable_dino_decay_pve)
+        _b("Proteção Offline (ORP)",                   "prevent_offline_pvp",         gs.prevent_offline_pvp)
+        _b("Bloquear Downloads de Tributos",           "no_tribute_downloads",        gs.no_tribute_downloads)
+        _b("Notificar quando Jogador Entrar",          "always_notify_player_joined", gs.always_notify_player_joined)
+        _b("Notificar quando Jogador Sair",            "always_notify_player_left",   gs.always_notify_player_left)
+        _save()
+
+        # ── Despacho em chunks via after(0) ───────────────────────────────────
+        # Lotes de 6 tasks — cada after(0) cede o controle ao event loop antes
+        # do próximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
+        _CHUNK = 6
+
+        def _dispatch_task(task: tuple) -> None:
+            kind = task[0]
+            if kind == "s":
+                _, rn, text = task
+                self._section_lbl(scroll, rn, text)
+            elif kind == "f":
+                _, rn, lbl, hint, field, val, frm, to = task
+                frow(lbl, hint, field, val, rn, frm, to)
+            elif kind == "i":
+                _, rn, lbl, hint, field, val = task
+                irow(lbl, hint, field, val, rn)
+            elif kind == "b":
+                _, rn, lbl, field, val = task
+                brow(lbl, field, val, rn)
+            elif kind == "lcap":
+                _, rn, lbl, hint, field, val = task
+                _level_cap_row(lbl, hint, field, val, rn)
+            elif kind == "calc":
+                _, rn = task
+                ctk.CTkButton(
+                    scroll,
+                    text="🧮  Calculadora de Breeding",
+                    width=230,
+                    fg_color="#2d4a6f",
+                    hover_color="#1b2d45",
+                    command=lambda _gs=gs: open_breeding_calculator(
+                        self, _gs,
+                        self._server_widgets.get(srv.id, {}),
+                        lambda: self._save_server_config(srv.id, silent=True, force=True),
+                    ),
+                ).grid(row=rn, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
+            elif kind == "save":
+                _, rn = task
+                self._save_btn_row(scroll, rn, srv.id)
+
+        def _exec_chunk(idx: int) -> None:
+            for task in _tasks[idx: idx + _CHUNK]:
+                _dispatch_task(task)
+            nxt = idx + _CHUNK
+            if nxt < len(_tasks):
+                self.after(0, lambda i=nxt: _exec_chunk(i))
+            else:
+                # Último lote concluído — aplica lock se servidor estiver rodando
+                inst_chk = self.server_manager.get_instance(srv.id)
+                if inst_chk and inst_chk.status != SERVER_STATUS_STOPPED:
+                    self._set_config_editable(srv.id, False)
+
+        self.after(0, lambda: _exec_chunk(0))
 
     # ══════════════════════════════════════════════════════════════════════════
     # Aba Avançado / Cross-ARK
@@ -2698,6 +2898,7 @@ class ARKServerManagerApp(ctk.CTk):
         scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         scroll.pack(fill="both", expand=True, padx=4, pady=4)
         scroll.grid_columnconfigure(1, weight=1)
+        scroll.grid_columnconfigure(2, weight=1)  # espaçador — limita largura dos campos
 
         w   = self._server_widgets[srv.id]
         adv = srv.advanced_settings
@@ -5009,6 +5210,186 @@ class ARKServerManagerApp(ctk.CTk):
         ).grid(row=0, column=1)
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Aba Chat público
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_chat(self, parent, srv: ServerConfig) -> None:
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(0, weight=1)
+
+        w = self._server_widgets[srv.id]
+
+        sub = ctk.CTkTabview(parent, fg_color=_BG,
+                             segmented_button_fg_color=_SIDEBAR_BG,
+                             segmented_button_selected_color=_GREEN_DARK,
+                             segmented_button_selected_hover_color=_GREEN_HOVER,
+                             segmented_button_unselected_color=_SIDEBAR_BG,
+                             segmented_button_unselected_hover_color=_CARD_BG)
+        sub.grid(row=0, column=0, sticky="nsew", padx=4, pady=4)
+        sub.add("📢 Broadcasts")
+        sub.add("💬 Chat ao vivo")
+
+        # ══════════════════════════════════════════════════════════════════════
+        # Sub-aba: Broadcasts
+        # ══════════════════════════════════════════════════════════════════════
+        bt = sub.tab("📢 Broadcasts")
+        bt.grid_columnconfigure(0, weight=1)
+        bt.grid_rowconfigure(2, weight=1)
+
+        # ── Barra de envio rápido ─────────────────────────────────────────────
+        quick_bar = ctk.CTkFrame(bt, fg_color=_CARD_BG, corner_radius=8)
+        quick_bar.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 3))
+        quick_bar.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(quick_bar, text="📡 Envio rápido:",
+                     text_color="gray55", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
+
+        w["bc_quick_var"] = tk.StringVar()
+        ctk.CTkEntry(quick_bar, textvariable=w["bc_quick_var"], height=32,
+                     placeholder_text="Mensagem de broadcast — todos os jogadores online verão",
+                     font=ctk.CTkFont(size=11)
+                     ).grid(row=0, column=1, sticky="ew", padx=(0, 8), pady=8)
+
+        ctk.CTkButton(quick_bar, text="📢 Enviar", width=100, height=32,
+                      fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._broadcast_send_quick(srv.id)
+                      ).grid(row=0, column=2, padx=(0, 10), pady=8)
+
+        # ── Formulário: adicionar novo broadcast à biblioteca ─────────────────
+        add_fr = ctk.CTkFrame(bt, fg_color=_CARD_BG, corner_radius=8)
+        add_fr.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 3))
+        add_fr.grid_columnconfigure(1, weight=1)
+        add_fr.grid_columnconfigure(2, weight=3)
+
+        ctk.CTkLabel(add_fr, text="+ Novo:",
+                     text_color="gray55", font=ctk.CTkFont(size=12, weight="bold")
+                     ).grid(row=0, column=0, padx=(12, 8), pady=(8, 7), sticky="w")
+
+        w["bc_new_label"] = tk.StringVar()
+        ctk.CTkEntry(add_fr, textvariable=w["bc_new_label"], height=30,
+                     placeholder_text="Rótulo (ex: Reinício em 5min)",
+                     font=ctk.CTkFont(size=11), width=180
+                     ).grid(row=0, column=1, sticky="ew", padx=(0, 6), pady=(8, 7))
+
+        w["bc_new_msg"] = tk.StringVar()
+        ctk.CTkEntry(add_fr, textvariable=w["bc_new_msg"], height=30,
+                     placeholder_text="Texto do broadcast...",
+                     font=ctk.CTkFont(size=11)
+                     ).grid(row=0, column=2, sticky="ew", padx=(0, 6), pady=(8, 7))
+
+        ctk.CTkButton(add_fr, text="Adicionar", width=90, height=30,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._broadcast_add(srv.id)
+                      ).grid(row=0, column=3, padx=(0, 10), pady=(8, 7))
+
+        # ── Lista de broadcasts salvos ────────────────────────────────────────
+        list_hdr = ctk.CTkFrame(bt, fg_color="transparent")
+        list_hdr.grid(row=2, column=0, sticky="nsew", padx=6, pady=(0, 6))
+        list_hdr.grid_columnconfigure(0, weight=1)
+        list_hdr.grid_rowconfigure(1, weight=1)
+
+        ctk.CTkLabel(list_hdr, text="Biblioteca de Broadcasts",
+                     text_color="gray45", font=ctk.CTkFont(size=11, weight="bold")
+                     ).grid(row=0, column=0, sticky="w", padx=2, pady=(2, 2))
+
+        bc_scroll = ctk.CTkScrollableFrame(list_hdr, fg_color=_CARD_BG, corner_radius=8)
+        bc_scroll.grid(row=1, column=0, sticky="nsew")
+        bc_scroll.grid_columnconfigure(0, weight=1)
+        w["bc_list_scroll"] = bc_scroll
+
+        # Carrega broadcasts existentes
+        self._broadcast_refresh_list(srv.id)
+
+        # ══════════════════════════════════════════════════════════════════════
+        # Sub-aba: Chat ao vivo
+        # ══════════════════════════════════════════════════════════════════════
+        ct = sub.tab("💬 Chat ao vivo")
+        ct.grid_columnconfigure(0, weight=1)
+        ct.grid_rowconfigure(1, weight=1)
+
+        # Barra de controle
+        ctrl = ctk.CTkFrame(ct, corner_radius=10, fg_color=_CARD_BG)
+        ctrl.grid(row=0, column=0, padx=6, pady=(6, 4), sticky="ew")
+        ctrl.grid_columnconfigure(3, weight=1)
+
+        w["chat_auto_poll"] = tk.BooleanVar(value=False)
+        ctk.CTkCheckBox(
+            ctrl, text="Auto-atualizar",
+            variable=w["chat_auto_poll"],
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            checkmark_color="white",
+            command=lambda: self._chat_toggle_poll(srv.id),
+        ).grid(row=0, column=0, padx=(14, 8), pady=10)
+
+        ctk.CTkLabel(ctrl, text="Intervalo:", text_color="gray60").grid(
+            row=0, column=1, padx=(0, 4), pady=10)
+        w["chat_interval"] = tk.StringVar(value="5")
+        ctk.CTkOptionMenu(
+            ctrl, variable=w["chat_interval"],
+            values=["3", "5", "10", "15", "30"], width=70,
+        ).grid(row=0, column=2, padx=(0, 2), pady=10, sticky="w")
+        ctk.CTkLabel(ctrl, text="seg", text_color="gray50").grid(
+            row=0, column=3, padx=(0, 16), pady=10, sticky="w")
+
+        w["chat_status_var"] = tk.StringVar(value="⬛ Inativo")
+        ctk.CTkLabel(ctrl, textvariable=w["chat_status_var"],
+                     text_color="gray50", font=ctk.CTkFont(size=12)).grid(
+            row=0, column=4, padx=8, pady=10, sticky="w")
+
+        ctk.CTkButton(
+            ctrl, text="🔄 Buscar", width=100, height=30,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            command=lambda: self._chat_fetch(srv.id),
+        ).grid(row=0, column=5, padx=(0, 6), pady=10)
+        ctk.CTkButton(
+            ctrl, text="🗑 Limpar", width=90, height=30,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: self._chat_clear(srv.id),
+        ).grid(row=0, column=6, padx=(0, 14), pady=10)
+
+        # Exibição do chat
+        w["chat_box"] = ctk.CTkTextbox(
+            ct, font=ctk.CTkFont(family="Courier New", size=12),
+            wrap="word", state="disabled", fg_color="#0a0a14",
+        )
+        w["chat_box"].grid(row=1, column=0, padx=6, pady=4, sticky="nsew")
+        tw = w["chat_box"]._textbox
+        tw.tag_config("ts",      foreground="#555570")
+        tw.tag_config("player",  foreground="#88d4a0")
+        tw.tag_config("server",  foreground="#6699ff")
+        tw.tag_config("message", foreground="#d0d0e0")
+        tw.tag_config("sys",     foreground="#888899")
+        tw.tag_config("err",     foreground="#ff6666")
+        self._chat_append(
+            srv.id,
+            "💬  Chat do Servidor — requer RCON conectado (aba 'Console RCON').\n"
+            "Ative 'Auto-atualizar' ou clique em '🔄 Buscar' para carregar mensagens.\n",
+            "sys",
+        )
+
+        # Campo de envio
+        input_row = ctk.CTkFrame(ct, fg_color="transparent")
+        input_row.grid(row=2, column=0, padx=6, pady=(2, 8), sticky="ew")
+        input_row.grid_columnconfigure(0, weight=1)
+
+        w["chat_input"] = tk.StringVar()
+        inp = ctk.CTkEntry(
+            input_row, textvariable=w["chat_input"], height=36,
+            placeholder_text="Mensagem para enviar como [SERVIDOR] via ServerChat — pressione Enter para enviar...",
+        )
+        inp.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        inp.bind("<Return>", lambda e: self._chat_send(srv.id))
+
+        ctk.CTkButton(
+            input_row, text="Enviar ▶", width=90, height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._chat_send(srv.id),
+        ).grid(row=0, column=1)
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Aba Logs
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -6286,9 +6667,21 @@ class ARKServerManagerApp(ctk.CTk):
                         ).grid(row=row_i, column=1, padx=4, pady=3)
         ctk.CTkEntry(container, textvariable=rv["Amount"], width=52
                      ).grid(row=row_i, column=2, padx=4, pady=3)
-        ctk.CTkEntry(container, textvariable=rv["Blueprint"],
+        _bp_frm = ctk.CTkFrame(container, fg_color="transparent")
+        _bp_frm.grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+        _bp_frm.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_bp_frm, textvariable=rv["Blueprint"],
                      font=ctk.CTkFont(size=11), placeholder_text="Blueprint'..."
-                     ).grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+                     ).grid(row=0, column=0, sticky="ew")
+        ctk.CTkButton(
+            _bp_frm, text="🔍", width=28, height=26,
+            fg_color="#1e3a5f", hover_color="#2a5285",
+            font=ctk.CTkFont(size=11),
+            command=lambda v=rv["Blueprint"]: self._open_blueprint_picker(
+                on_select=lambda bp, _v=v: _v.set(f"Blueprint'{bp['path']}'"),
+                category="items",
+            ),
+        ).grid(row=0, column=1, padx=(4, 0))
         ctk.CTkButton(container, text="✕", width=26, height=26,
                       fg_color="#5a2a2a", hover_color="#4a1a1a",
                       font=ctk.CTkFont(size=10),
@@ -6328,12 +6721,36 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkEntry(container, textvariable=rv["Gender"],
                      width=76, placeholder_text="Random"
                      ).grid(row=row_i, column=1, padx=4, pady=3)
-        ctk.CTkEntry(container, textvariable=rv["Blueprint"],
+        _bp_frm = ctk.CTkFrame(container, fg_color="transparent")
+        _bp_frm.grid(row=row_i, column=2, padx=4, pady=3, sticky="ew")
+        _bp_frm.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_bp_frm, textvariable=rv["Blueprint"],
                      font=ctk.CTkFont(size=11), placeholder_text="Blueprint'..."
-                     ).grid(row=row_i, column=2, padx=4, pady=3, sticky="ew")
-        ctk.CTkEntry(container, textvariable=rv["SaddleBlueprint"],
+                     ).grid(row=0, column=0, sticky="ew")
+        ctk.CTkButton(
+            _bp_frm, text="🔍", width=28, height=26,
+            fg_color="#1e3a5f", hover_color="#2a5285",
+            font=ctk.CTkFont(size=11),
+            command=lambda v=rv["Blueprint"]: self._open_blueprint_picker(
+                on_select=lambda bp, _v=v: _v.set(f"Blueprint'{bp['path']}'"),
+                category="creatures",
+            ),
+        ).grid(row=0, column=1, padx=(4, 0))
+        _sbp_frm = ctk.CTkFrame(container, fg_color="transparent")
+        _sbp_frm.grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+        _sbp_frm.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_sbp_frm, textvariable=rv["SaddleBlueprint"],
                      font=ctk.CTkFont(size=11), placeholder_text="SaddleBP (opcional)"
-                     ).grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+                     ).grid(row=0, column=0, sticky="ew")
+        ctk.CTkButton(
+            _sbp_frm, text="🔍", width=28, height=26,
+            fg_color="#1e3a5f", hover_color="#2a5285",
+            font=ctk.CTkFont(size=11),
+            command=lambda v=rv["SaddleBlueprint"]: self._open_blueprint_picker(
+                on_select=lambda bp, _v=v: _v.set(f"Blueprint'{bp['path']}'"),
+                category="items",
+            ),
+        ).grid(row=0, column=1, padx=(4, 0))
         ctk.CTkButton(container, text="✕", width=26, height=26,
                       fg_color="#5a2a2a", hover_color="#4a1a1a",
                       font=ctk.CTkFont(size=10),
@@ -6622,9 +7039,21 @@ class ARKServerManagerApp(ctk.CTk):
                         ).grid(row=row_i, column=1, padx=4, pady=3)
         ctk.CTkEntry(container, textvariable=rv["Amount"], width=52
                      ).grid(row=row_i, column=2, padx=4, pady=3)
-        ctk.CTkEntry(container, textvariable=rv["Blueprint"],
+        _bp_frm = ctk.CTkFrame(container, fg_color="transparent")
+        _bp_frm.grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+        _bp_frm.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_bp_frm, textvariable=rv["Blueprint"],
                      font=ctk.CTkFont(size=11), placeholder_text="Blueprint'..."
-                     ).grid(row=row_i, column=3, padx=4, pady=3, sticky="ew")
+                     ).grid(row=0, column=0, sticky="ew")
+        ctk.CTkButton(
+            _bp_frm, text="🔍", width=28, height=26,
+            fg_color="#1e3a5f", hover_color="#2a5285",
+            font=ctk.CTkFont(size=11),
+            command=lambda v=rv["Blueprint"]: self._open_blueprint_picker(
+                on_select=lambda bp, _v=v: _v.set(f"Blueprint'{bp['path']}'"),
+                category="items",
+            ),
+        ).grid(row=0, column=1, padx=(4, 0))
         ctk.CTkButton(container, text="✕", width=26, height=26,
                       fg_color="#5a2a2a", hover_color="#4a1a1a",
                       font=ctk.CTkFont(size=10),
@@ -6640,6 +7069,273 @@ class ARKServerManagerApp(ctk.CTk):
             self._arkshop_grid_shop_item_row,
         )
         self._arkshop_shop_items_next_row = len(self._arkshop_shop_items_rows) + 1
+
+    # ── Blueprint Picker (Beacon) ────────────────────────────────────────────
+
+    def _open_blueprint_picker(
+        self,
+        on_select: Callable,
+        category: str = "all",
+        title: str = "Buscar Blueprint Beacon",
+    ) -> None:
+        """Abre diálogo de pesquisa de blueprints via API Beacon."""
+        client = get_beacon_client()
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title(title)
+        dlg.geometry("640x600")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(3, weight=1)
+
+        # ── Cabeçalho ────────────────────────────────────────────────────────
+        ctk.CTkLabel(
+            dlg, text=f"🔍  {title}",
+            font=ctk.CTkFont(size=15, weight="bold"),
+            anchor="w",
+        ).grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 6))
+
+        # ── Linha de controles: filtro de categoria + busca ───────────────────
+        ctrl_frame = ctk.CTkFrame(dlg, fg_color="transparent")
+        ctrl_frame.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 4))
+        ctrl_frame.grid_columnconfigure(3, weight=1)
+
+        cat_var = tk.StringVar(value=category)
+        for col, (text, val) in enumerate([
+            ("Todos", "all"), ("Itens", "items"), ("Criaturas", "creatures")
+        ]):
+            ctk.CTkRadioButton(
+                ctrl_frame, text=text, variable=cat_var, value=val,
+                fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            ).grid(row=0, column=col, padx=(0, 10), pady=4, sticky="w")
+
+        search_var = tk.StringVar()
+        search_entry = ctk.CTkEntry(
+            ctrl_frame, textvariable=search_var,
+            placeholder_text="Pesquisar nome ou classString...",
+        )
+        search_entry.grid(row=0, column=3, sticky="ew", padx=(8, 0))
+
+        # ── Status ───────────────────────────────────────────────────────────
+        status_lbl = ctk.CTkLabel(
+            dlg, text="", font=ctk.CTkFont(size=11),
+            text_color="gray", anchor="w",
+        )
+        status_lbl.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 2))
+
+        # ── Lista de resultados ───────────────────────────────────────────────
+        results_frame = ctk.CTkScrollableFrame(dlg, fg_color=_CARD_BG)
+        results_frame.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 16))
+        results_frame.grid_columnconfigure(0, weight=1)
+
+        # ── Rodapé com botão de carga ─────────────────────────────────────────
+        footer = ctk.CTkFrame(dlg, fg_color="transparent")
+        footer.grid(row=4, column=0, sticky="ew", padx=16, pady=(0, 12))
+
+        load_btn = ctk.CTkButton(
+            footer, text="⬇  Carregar Blueprints Beacon",
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        )
+        load_btn.pack(side="left")
+
+        # ── Funções internas ─────────────────────────────────────────────────
+
+        def _populate(blueprints: list) -> None:
+            for w in results_frame.winfo_children():
+                w.destroy()
+            if not blueprints:
+                ctk.CTkLabel(
+                    results_frame,
+                    text="Nenhum resultado encontrado.",
+                    text_color="gray",
+                ).pack(pady=12)
+                return
+            for i, bp in enumerate(blueprints):
+                row_bg = "#2b2b2b" if i % 2 == 0 else "#252525"
+                row_frm = ctk.CTkFrame(results_frame, fg_color=row_bg, corner_radius=5)
+                row_frm.grid(row=i, column=0, sticky="ew", padx=2, pady=2)
+                row_frm.grid_columnconfigure(1, weight=1)
+
+                # Badge de tipo
+                if bp.get("creatureId"):
+                    badge_text, badge_color = "🦕", "#1a3a5a"
+                elif bp.get("engramId"):
+                    badge_text, badge_color = "🎒", "#1a3a20"
+                else:
+                    badge_text, badge_color = "📦", "#3a3a3a"
+
+                ctk.CTkLabel(
+                    row_frm, text=badge_text,
+                    font=ctk.CTkFont(size=13),
+                    fg_color=badge_color, corner_radius=4, width=30,
+                ).grid(row=0, column=0, rowspan=2, padx=(8, 6), pady=5, sticky="ns")
+
+                ctk.CTkLabel(
+                    row_frm, text=bp.get("label", "?"),
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    anchor="w",
+                ).grid(row=0, column=1, sticky="ew", padx=(0, 8), pady=(5, 0))
+
+                ctk.CTkLabel(
+                    row_frm,
+                    text=bp.get("classString", ""),
+                    font=ctk.CTkFont(size=10),
+                    text_color="gray",
+                    anchor="w",
+                ).grid(row=1, column=1, sticky="ew", padx=(0, 8), pady=(0, 5))
+
+                def _on_click(event=None, _bp=bp) -> None:
+                    on_select(_bp)
+                    dlg.destroy()
+
+                row_frm.bind("<Button-1>", _on_click)
+                for child in row_frm.winfo_children():
+                    child.bind("<Button-1>", _on_click)
+
+        def _refresh(*_args) -> None:
+            if not client.is_loaded():
+                return
+            results = client.search(search_var.get(), category=cat_var.get())
+            status_lbl.configure(
+                text=f"{len(results)} resultado(s)   "
+                     f"{'(limitado a 150)' if len(results) == 150 else ''}",
+                text_color="gray",
+            )
+            _populate(results)
+
+        search_var.trace_add("write", _refresh)
+        cat_var.trace_add("write", _refresh)
+
+        def _do_load() -> None:
+            load_btn.configure(state="disabled", text="Carregando...")
+            status_lbl.configure(text="Conectando à API Beacon...", text_color="gray")
+
+            def _worker() -> None:
+                try:
+                    client.ensure_loaded(
+                        on_progress=lambda p, t: dlg.after(
+                            0,
+                            lambda _p=p, _t=t: status_lbl.configure(
+                                text=f"Carregando... página {_p}/{_t}",
+                                text_color="gray",
+                            ),
+                        )
+                    )
+                    dlg.after(0, _on_loaded)
+                except Exception as exc:
+                    dlg.after(
+                        0,
+                        lambda _e=exc: status_lbl.configure(
+                            text=f"Erro: {_e}", text_color="#e05050"
+                        ),
+                    )
+                    dlg.after(
+                        0,
+                        lambda: load_btn.configure(
+                            state="normal", text="⬇  Carregar Blueprints Beacon"
+                        ),
+                    )
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        def _on_loaded() -> None:
+            load_btn.configure(state="disabled", text="✔  Carregado")
+            _refresh()
+            search_entry.focus_set()
+
+        load_btn.configure(command=_do_load)
+
+        # ── Verificar autenticação e decidir estado inicial ───────────────────
+        if client.is_loaded():
+            # já tem tudo — mostrar resultados direto
+            load_btn.configure(state="disabled", text="✔  Carregado")
+            _refresh()
+            search_entry.focus_set()
+        elif client.is_authenticated():
+            # token válido, blueprints não carregados ainda
+            status_lbl.configure(
+                text="Blueprints não carregados. Clique em 'Carregar' para buscar via API."
+            )
+        else:
+            # sem token → mostrar painel de autenticação
+            load_btn.configure(state="disabled", text="⬇  Carregar Blueprints Beacon")
+
+            auth_frame = ctk.CTkFrame(footer, fg_color="transparent")
+            auth_frame.pack(side="left", fill="x", expand=True)
+
+            connect_btn = ctk.CTkButton(
+                auth_frame,
+                text="🔑  Conectar com Beacon",
+                fg_color="#3a3a1a", hover_color="#5a5a28",
+            )
+            connect_btn.pack(side="left", padx=(0, 10))
+
+            code_lbl = ctk.CTkLabel(
+                auth_frame, text="",
+                font=ctk.CTkFont(size=13, weight="bold"),
+                text_color="#f0d060",
+            )
+            code_lbl.pack(side="left")
+
+            copy_btn = ctk.CTkButton(
+                auth_frame, text="📋 Copiar", width=76,
+                fg_color="#3a3a3a", hover_color="#505050",
+            )
+
+            def _start_auth() -> None:
+                connect_btn.configure(state="disabled", text="🔑  Aguardando...")
+                status_lbl.configure(
+                    text="Iniciando autenticação Beacon...", text_color="gray"
+                )
+
+                def _on_code(user_code: str, url: str) -> None:
+                    def _ui() -> None:
+                        code_lbl.configure(text=user_code)
+                        copy_btn.configure(
+                            command=lambda: (
+                                dlg.clipboard_clear(),
+                                dlg.clipboard_append(user_code),
+                            )
+                        )
+                        copy_btn.pack(side="left", padx=(6, 0))
+                        status_lbl.configure(
+                            text=f"Autorize em: {url}   (o navegador foi aberto automaticamente)",
+                            text_color="gray",
+                        )
+                    dlg.after(0, _ui)
+
+                def _on_success() -> None:
+                    def _ui() -> None:
+                        code_lbl.configure(text="")
+                        copy_btn.pack_forget()
+                        connect_btn.configure(text="✔  Conectado")
+                        status_lbl.configure(
+                            text="Autenticado! Carregando blueprints...",
+                            text_color="#60c060",
+                        )
+                        load_btn.configure(state="normal")
+                        _do_load()
+                    dlg.after(0, _ui)
+
+                def _on_error(msg: str) -> None:
+                    def _ui() -> None:
+                        connect_btn.configure(
+                            state="normal", text="🔑  Tentar novamente"
+                        )
+                        status_lbl.configure(
+                            text=f"Erro na autenticação: {msg}",
+                            text_color="#e05050",
+                        )
+                    dlg.after(0, _ui)
+
+                client.authenticate_async(_on_code, _on_success, _on_error)
+
+            connect_btn.configure(command=_start_auth)
+            status_lbl.configure(
+                text="Token Beacon não encontrado. Clique em 'Conectar' para autenticar.",
+                text_color="#e0a030",
+            )
 
     # ── Apply / New / Delete ShopItem ────────────────────────────────────────
 
@@ -7482,6 +8178,667 @@ class ARKServerManagerApp(ctk.CTk):
         cl_text.configure(state="disabled")
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Aba INI Estruturado
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_ini_mods(self, parent, srv: ServerConfig) -> None:
+        """Aba de edição estruturada das seções INI (Mods + Personalizadas)."""
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(0, weight=1)
+        w = self._server_widgets[srv.id]
+
+        sub = ctk.CTkTabview(parent, fg_color=_BG, segmented_button_fg_color=_SIDEBAR_BG,
+                             segmented_button_selected_color=_GREEN_DARK,
+                             segmented_button_selected_hover_color=_GREEN_HOVER,
+                             segmented_button_unselected_color=_SIDEBAR_BG,
+                             segmented_button_unselected_hover_color=_CARD_BG)
+        sub.grid(row=0, column=0, sticky="nsew", padx=4, pady=(4, 4))
+        sub.add("GameUserSettings.ini")
+        sub.add("Game.ini")
+
+        for file_key, tab_name in [("gus", "GameUserSettings.ini"), ("game", "Game.ini")]:
+            t = sub.tab(tab_name)
+            t.grid_columnconfigure(0, weight=0)
+            t.grid_columnconfigure(1, weight=1)
+            t.grid_rowconfigure(1, weight=1)
+
+            # ── Barra de ações ────────────────────────────────────────────────
+            bar = ctk.CTkFrame(t, fg_color="transparent")
+            bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=4, pady=(4, 2))
+
+            ctk.CTkLabel(bar, text="Seções INI personalizadas",
+                         text_color="gray55",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(side="left", padx=(8, 16))
+
+            ctk.CTkButton(bar, text="+ Seção", width=90, height=28,
+                          fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                          font=ctk.CTkFont(size=11),
+                          command=lambda fk=file_key, sid=srv.id:
+                              self._ini_add_section(sid, fk)).pack(side="left", padx=(0, 4))
+
+            ctk.CTkButton(bar, text="� Colar Seção", width=115, height=28,
+                          fg_color="#3a2a5a", hover_color="#4e3a7a",
+                          font=ctk.CTkFont(size=11),
+                          command=lambda fk=file_key, sid=srv.id:
+                              self._ini_paste_section(sid, fk)).pack(side="left", padx=(0, 4))
+
+            ctk.CTkButton(bar, text="�🔁 Atualizar", width=100, height=28,
+                          fg_color="#2a2a2a", hover_color="#404040",
+                          font=ctk.CTkFont(size=11),
+                          command=lambda fk=file_key, sid=srv.id:
+                              self._ini_reload(sid, fk)).pack(side="left", padx=(0, 4))
+
+            ctk.CTkButton(bar, text="💾 Salvar INI", width=110, height=28,
+                          fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                          font=ctk.CTkFont(size=11),
+                          command=lambda sid=srv.id:
+                              self._ini_save(sid)).pack(side="right", padx=8)
+
+            # ── Painel esquerdo: lista de seções ──────────────────────────────
+            sec_outer = ctk.CTkFrame(t, fg_color=_CARD_BG, corner_radius=8, width=230)
+            sec_outer.grid(row=1, column=0, sticky="nsew", padx=(4, 2), pady=(2, 4))
+            sec_outer.grid_columnconfigure(0, weight=1)
+            sec_outer.grid_rowconfigure(1, weight=1)
+            sec_outer.grid_propagate(False)
+
+            ctk.CTkLabel(sec_outer, text="Seções", text_color="gray45",
+                         font=ctk.CTkFont(size=10, weight="bold")).grid(
+                row=0, column=0, sticky="w", padx=8, pady=(6, 2))
+
+            sec_scroll = ctk.CTkScrollableFrame(sec_outer, fg_color="transparent",
+                                                corner_radius=0)
+            sec_scroll.grid(row=1, column=0, sticky="nsew", padx=2, pady=(0, 4))
+            sec_scroll.grid_columnconfigure(0, weight=1)
+            w[f"_ini_{file_key}_secscroll"] = sec_scroll
+
+            # ── Painel direito: entradas da seção ─────────────────────────────
+            kv_outer = ctk.CTkFrame(t, fg_color=_CARD_BG, corner_radius=8)
+            kv_outer.grid(row=1, column=1, sticky="nsew", padx=(2, 4), pady=(2, 4))
+            kv_outer.grid_columnconfigure(0, weight=1)
+            kv_outer.grid_rowconfigure(2, weight=1)
+
+            # Nome da seção selecionada
+            sec_name_var = tk.StringVar()
+            w[f"_ini_{file_key}_sec_name_var"] = sec_name_var
+
+            kv_hdr = ctk.CTkFrame(kv_outer, fg_color="transparent")
+            kv_hdr.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 0))
+            kv_hdr.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkEntry(kv_hdr, textvariable=sec_name_var, height=32,
+                         font=ctk.CTkFont(size=12, weight="bold"),
+                         placeholder_text="(nenhuma seção selecionada)").grid(
+                row=0, column=0, sticky="ew")
+
+            # Cabeçalho das colunas Chave / Valor
+            col_hdr = ctk.CTkFrame(kv_outer, fg_color="transparent")
+            col_hdr.grid(row=1, column=0, sticky="ew", padx=12, pady=(4, 0))
+            col_hdr.grid_columnconfigure(0, weight=1)
+            col_hdr.grid_columnconfigure(1, weight=2)
+            ctk.CTkLabel(col_hdr, text="Chave", text_color="gray45",
+                         font=ctk.CTkFont(size=10)).grid(row=0, column=0, sticky="w")
+            ctk.CTkLabel(col_hdr, text="Valor", text_color="gray45",
+                         font=ctk.CTkFont(size=10)).grid(row=0, column=1, sticky="w", padx=(8, 0))
+
+            kv_scroll = ctk.CTkScrollableFrame(kv_outer, fg_color="transparent",
+                                               corner_radius=0)
+            kv_scroll.grid(row=2, column=0, sticky="nsew", padx=4, pady=2)
+            kv_scroll.grid_columnconfigure(0, weight=1)
+            kv_scroll.grid_columnconfigure(1, weight=2)
+            w[f"_ini_{file_key}_kvscroll"] = kv_scroll
+
+            kv_footer = ctk.CTkFrame(kv_outer, fg_color="transparent")
+            kv_footer.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 8))
+            ctk.CTkButton(kv_footer, text="+ Entrada", width=90, height=26,
+                          fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                          font=ctk.CTkFont(size=11),
+                          command=lambda fk=file_key, sid=srv.id:
+                              self._ini_add_entry(sid, fk)).pack(side="left")
+
+            # ── Estado da aba ─────────────────────────────────────────────────
+            w[f"_ini_{file_key}_sel_section"] = None
+            # Dados: lista de seção-dicts já descritos acima
+            w[f"_ini_{file_key}_data"] = []
+
+        # Carregamento inicial na sub-aba ativa
+        self._ini_reload(srv.id, "gus")
+        self._ini_reload(srv.id, "game")
+
+    # ── Helpers do painel INI ─────────────────────────────────────────────────
+
+    def _ini_flush_current(self, server_id: str, file_key: str) -> None:
+        """Salva o conteúdo dos StringVars da seção exibida de volta nos dados."""
+        w = self._server_widgets.get(server_id, {})
+        sel = w.get(f"_ini_{file_key}_sel_section")
+        if sel is None:
+            return
+        data = w.get(f"_ini_{file_key}_data", [])
+        sec_data = next((s for s in data if s["section"] == sel), None)
+        if sec_data is None:
+            return
+        # Atualiza nome da seção
+        name_var = w.get(f"_ini_{file_key}_sec_name_var")
+        if name_var:
+            new_name = name_var.get().strip()
+            if new_name and new_name != sel:
+                sec_data["section"] = new_name
+                w[f"_ini_{file_key}_sel_section"] = new_name
+        # Atualiza entradas (os StringVars estão in-place no dicionário)
+        for entry in sec_data.get("entries", []):
+            kv = entry.get("_key_var")
+            vv = entry.get("_val_var")
+            if kv:
+                entry["key"] = kv.get()
+            if vv:
+                entry["value"] = vv.get()
+
+    def _ini_reload(self, server_id: str, file_key: str) -> None:
+        """Recarrega os dados de mod_ini_configs + custom_ini_sections e reconstrói a lista."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        w = self._server_widgets.get(server_id, {})
+
+        all_sections: list = []
+        # Seções vindas dos mods
+        ini_key = f"{file_key}_ini"
+        for mod_id, cfg in srv.mod_ini_configs.items():
+            raw = cfg.get(ini_key, "")
+            if raw.strip():
+                mod_name = srv.mod_names.get(mod_id, f"Mod {mod_id}")
+                for sec in parse_ini_text_to_sections(raw):
+                    sec["mod_id"] = mod_id
+                    sec["mod_name"] = mod_name
+                    all_sections.append(sec)
+        # Seções personalizadas (sem mod)
+        for sec in srv.custom_ini_sections.get(file_key, []):
+            all_sections.append({
+                "section": sec.get("section", ""),
+                "entries": [dict(e) for e in sec.get("entries", [])],
+                "mod_id": None,
+                "mod_name": "Personalizado",
+            })
+
+        w[f"_ini_{file_key}_data"] = all_sections
+        w[f"_ini_{file_key}_sel_section"] = None
+        sec_name_var = w.get(f"_ini_{file_key}_sec_name_var")
+        if sec_name_var:
+            sec_name_var.set("")
+
+        # Limpa o painel KV
+        kv_scroll = w.get(f"_ini_{file_key}_kvscroll")
+        if kv_scroll:
+            for ch in kv_scroll.winfo_children():
+                ch.destroy()
+
+        # Reconstrói lista de seções
+        sec_scroll = w.get(f"_ini_{file_key}_secscroll")
+        if sec_scroll is None:
+            return
+        for ch in sec_scroll.winfo_children():
+            ch.destroy()
+
+        if not all_sections:
+            ctk.CTkLabel(sec_scroll,
+                         text="Nenhuma seção encontrada.\n"
+                              "Adicione uma seção ou configure\n"
+                              "o INI de algum mod.",
+                         text_color="gray40", font=ctk.CTkFont(size=10),
+                         justify="center").pack(pady=20, padx=8)
+            return
+
+        for sec in all_sections:
+            self._ini_render_section_item(server_id, file_key, sec_scroll, sec)
+
+    def _ini_render_section_item(self, server_id: str, file_key: str,
+                                 container, sec: dict) -> None:
+        """Cria o item de seção no painel esquerdo."""
+        is_custom = sec.get("mod_id") is None
+        bg_btn = "#2a4060" if not is_custom else "#2a3a25"
+        bg_hover = "#3a5080" if not is_custom else "#3a5230"
+        src_text = (sec.get("mod_name") or "Personalizado")[:18]
+
+        row = ctk.CTkFrame(container, fg_color="transparent")
+        row.pack(fill="x", pady=1, padx=2)
+        row.grid_columnconfigure(0, weight=1)
+
+        btn = ctk.CTkButton(
+            row, text=sec["section"], anchor="w", height=28,
+            fg_color=bg_btn, hover_color=bg_hover,
+            font=ctk.CTkFont(size=11),
+            command=lambda s=sec["section"], sid=server_id, fk=file_key:
+                self._ini_select_section(sid, fk, s))
+        btn.grid(row=0, column=0, sticky="ew")
+
+        del_btn = ctk.CTkButton(
+            row, text="×", width=24, height=28,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            command=lambda s=sec["section"], sid=server_id, fk=file_key:
+                self._ini_delete_section(sid, fk, s))
+        del_btn.grid(row=0, column=1, padx=(2, 0))
+
+        ctk.CTkLabel(row, text=f"  {src_text}", text_color="gray38",
+                     font=ctk.CTkFont(size=9)).grid(row=1, column=0, sticky="w")
+
+    def _ini_select_section(self, server_id: str, file_key: str, section_name: str) -> None:
+        """Exibe as entradas da seção selecionada no painel direito."""
+        w = self._server_widgets.get(server_id, {})
+        # Flush da seção anterior
+        self._ini_flush_current(server_id, file_key)
+
+        data = w.get(f"_ini_{file_key}_data", [])
+        sec_data = next((s for s in data if s["section"] == section_name), None)
+        if sec_data is None:
+            return
+
+        w[f"_ini_{file_key}_sel_section"] = section_name
+        name_var = w.get(f"_ini_{file_key}_sec_name_var")
+        if name_var:
+            name_var.set(section_name)
+
+        kv_scroll = w.get(f"_ini_{file_key}_kvscroll")
+        if kv_scroll is None:
+            return
+        for ch in kv_scroll.winfo_children():
+            ch.destroy()
+
+        for idx, entry in enumerate(sec_data.get("entries", [])):
+            self._ini_render_entry_row(server_id, file_key, kv_scroll, sec_data, entry, idx)
+
+    def _ini_render_entry_row(self, server_id: str, file_key: str,
+                              container, sec_data: dict, entry: dict, idx: int) -> None:
+        """Cria uma linha Chave=Valor no painel direito."""
+        if "_key_var" not in entry:
+            entry["_key_var"] = tk.StringVar(value=entry.get("key", ""))
+        if "_val_var" not in entry:
+            entry["_val_var"] = tk.StringVar(value=entry.get("value", ""))
+
+        row = ctk.CTkFrame(container, fg_color="transparent")
+        row.grid(row=idx, column=0, columnspan=3, sticky="ew", pady=1)
+        row.grid_columnconfigure(0, weight=1)
+        row.grid_columnconfigure(1, weight=2)
+
+        ctk.CTkEntry(row, textvariable=entry["_key_var"], height=28,
+                     placeholder_text="chave",
+                     font=ctk.CTkFont(size=11)).grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        ctk.CTkEntry(row, textvariable=entry["_val_var"], height=28,
+                     placeholder_text="valor",
+                     font=ctk.CTkFont(size=11)).grid(row=0, column=1, sticky="ew")
+        ctk.CTkButton(row, text="×", width=24, height=28,
+                      fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                      font=ctk.CTkFont(size=13, weight="bold"),
+                      command=lambda e=entry, sd=sec_data, sid=server_id, fk=file_key:
+                          self._ini_del_entry(sid, fk, sd, e)).grid(row=0, column=2, padx=(4, 0))
+
+    def _ini_add_section(self, server_id: str, file_key: str) -> None:
+        """Adiciona uma nova seção personalizada vazia."""
+        w = self._server_widgets.get(server_id, {})
+        data = w.get(f"_ini_{file_key}_data", [])
+        new_sec = {
+            "section": f"NovaSeção_{len(data)+1}",
+            "mod_id": None,
+            "mod_name": "Personalizado",
+            "entries": [],
+        }
+        data.append(new_sec)
+        sec_scroll = w.get(f"_ini_{file_key}_secscroll")
+        if sec_scroll:
+            # Remove mensagem de vazio se existir
+            for ch in list(sec_scroll.winfo_children()):
+                if isinstance(ch, ctk.CTkLabel):
+                    ch.destroy()
+            self._ini_render_section_item(server_id, file_key, sec_scroll, new_sec)
+        self._ini_select_section(server_id, file_key, new_sec["section"])
+
+    def _ini_paste_section(self, server_id: str, file_key: str) -> None:
+        """Abre diálogo para colar um bloco INI completo (uma ou mais seções)."""
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Colar Seção INI")
+        dlg.geometry("600x400")
+        dlg.resizable(True, True)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(0, weight=1)
+        dlg.grid_rowconfigure(1, weight=1)
+
+        # Instrução
+        ctk.CTkLabel(
+            dlg,
+            text="Cole o bloco INI abaixo. Pode conter uma ou mais seções.",
+            text_color="gray60",
+            font=ctk.CTkFont(size=11),
+        ).grid(row=0, column=0, padx=16, pady=(14, 4), sticky="w")
+
+        txt = ctk.CTkTextbox(dlg, font=ctk.CTkFont(family="Consolas", size=12),
+                             fg_color="#1a1a28", border_width=1, border_color="#3a3a5a")
+        txt.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 6))
+
+        # Placeholder – inserido e removido ao focar
+        _PLACEHOLDER = "[NomeDaSeção]\nChave=Valor\nChave2=Valor2"
+        txt.insert("1.0", _PLACEHOLDER)
+        txt.configure(text_color="gray45")
+
+        def _on_focus_in(_e):
+            if txt.get("1.0", "end-1c") == _PLACEHOLDER:
+                txt.delete("1.0", "end")
+                txt.configure(text_color="#e0e0f0")
+
+        def _on_focus_out(_e):
+            if not txt.get("1.0", "end-1c").strip():
+                txt.insert("1.0", _PLACEHOLDER)
+                txt.configure(text_color="gray45")
+
+        txt.bind("<FocusIn>",  _on_focus_in)
+        txt.bind("<FocusOut>", _on_focus_out)
+
+        # Feedback label
+        fb_var = tk.StringVar()
+        fb_lbl = ctk.CTkLabel(dlg, textvariable=fb_var, text_color="#ffaa44",
+                              font=ctk.CTkFont(size=11))
+        fb_lbl.grid(row=2, column=0, padx=16, sticky="w")
+
+        def _import():
+            raw = txt.get("1.0", "end-1c").strip()
+            if not raw or raw == _PLACEHOLDER:
+                fb_var.set("⚠ Cole algum conteúdo antes de importar.")
+                return
+
+            parsed = parse_ini_text_to_sections(raw)
+            if not parsed:
+                fb_var.set("⚠ Nenhuma seção válida encontrada. Verifique o formato.")
+                return
+
+            w = self._server_widgets.get(server_id, {})
+            data = w.get(f"_ini_{file_key}_data", [])
+            sec_scroll = w.get(f"_ini_{file_key}_secscroll")
+
+            imported = 0
+            last_sec_name = None
+            for sec in parsed:
+                sec_name = sec.get("section", "").strip()
+                if not sec_name:
+                    continue
+                # Se a seção já existe, mescla as entradas
+                existing = next((s for s in data if s["section"] == sec_name), None)
+                if existing:
+                    existing_keys = {e["key"] for e in existing["entries"]}
+                    for entry in sec.get("entries", []):
+                        if entry["key"] not in existing_keys:
+                            existing["entries"].append({"key": entry["key"], "value": entry["value"]})
+                        else:
+                            # Atualiza valor existente
+                            for e in existing["entries"]:
+                                if e["key"] == entry["key"]:
+                                    e["value"] = entry["value"]
+                                    break
+                else:
+                    new_sec = {
+                        "section":  sec_name,
+                        "mod_id":   None,
+                        "mod_name": "Personalizado",
+                        "entries":  [{"key": e["key"], "value": e["value"]}
+                                     for e in sec.get("entries", [])],
+                    }
+                    data.append(new_sec)
+                imported += 1
+                last_sec_name = sec_name
+
+            self._ini_rebuild_section_list(server_id, file_key)
+            if last_sec_name:
+                self._ini_select_section(server_id, file_key, last_sec_name)
+            dlg.destroy()
+
+        btn_fr = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_fr.grid(row=3, column=0, padx=16, pady=(2, 14), sticky="e")
+        ctk.CTkButton(btn_fr, text="Cancelar", width=90, height=30,
+                      fg_color="gray30", hover_color="gray40",
+                      command=dlg.destroy).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(btn_fr, text="✅ Importar", width=110, height=30,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      command=_import).pack(side="left")
+
+    def _ini_delete_section(self, server_id: str, file_key: str, section_name: str) -> None:
+        """Remove a seção da lista."""
+        w = self._server_widgets.get(server_id, {})
+        data = w.get(f"_ini_{file_key}_data", [])
+        data[:] = [s for s in data if s["section"] != section_name]
+        if w.get(f"_ini_{file_key}_sel_section") == section_name:
+            w[f"_ini_{file_key}_sel_section"] = None
+            kv_scroll = w.get(f"_ini_{file_key}_kvscroll")
+            if kv_scroll:
+                for ch in kv_scroll.winfo_children():
+                    ch.destroy()
+            name_var = w.get(f"_ini_{file_key}_sec_name_var")
+            if name_var:
+                name_var.set("")
+        # Reconstrói lista (mais simples que remover item individual)
+        self._ini_rebuild_section_list(server_id, file_key)
+
+    def _ini_rebuild_section_list(self, server_id: str, file_key: str) -> None:
+        """Reconstrói a lista de seções no painel esquerdo sem perder os dados."""
+        w = self._server_widgets.get(server_id, {})
+        sec_scroll = w.get(f"_ini_{file_key}_secscroll")
+        if sec_scroll is None:
+            return
+        for ch in sec_scroll.winfo_children():
+            ch.destroy()
+        data = w.get(f"_ini_{file_key}_data", [])
+        if not data:
+            ctk.CTkLabel(sec_scroll,
+                         text="Nenhuma seção encontrada.\n"
+                              "Adicione uma seção ou configure\n"
+                              "o INI de algum mod.",
+                         text_color="gray40", font=ctk.CTkFont(size=10),
+                         justify="center").pack(pady=20, padx=8)
+            return
+        for sec in data:
+            self._ini_render_section_item(server_id, file_key, sec_scroll, sec)
+
+    def _ini_add_entry(self, server_id: str, file_key: str) -> None:
+        """Adiciona uma nova linha vazia na seção selecionada."""
+        w = self._server_widgets.get(server_id, {})
+        sel = w.get(f"_ini_{file_key}_sel_section")
+        if sel is None:
+            return
+        data = w.get(f"_ini_{file_key}_data", [])
+        sec_data = next((s for s in data if s["section"] == sel), None)
+        if sec_data is None:
+            return
+        new_entry = {"key": "", "value": ""}
+        sec_data["entries"].append(new_entry)
+        kv_scroll = w.get(f"_ini_{file_key}_kvscroll")
+        if kv_scroll:
+            idx = len(sec_data["entries"]) - 1
+            self._ini_render_entry_row(server_id, file_key, kv_scroll, sec_data, new_entry, idx)
+
+    def _ini_del_entry(self, server_id: str, file_key: str,
+                       sec_data: dict, entry: dict) -> None:
+        """Remove uma entrada da seção e reconstrói o painel de entradas."""
+        sec_data["entries"] = [e for e in sec_data["entries"] if e is not entry]
+        # Remove os StringVars para forçar recriação
+        for e in sec_data["entries"]:
+            e.pop("_key_var", None)
+            e.pop("_val_var", None)
+        self._ini_select_section(server_id, file_key, sec_data["section"])
+
+    def _ini_save(self, server_id: str) -> None:
+        """Serializa o conteúdo estruturado de volta para mod_ini_configs e custom_ini_sections."""
+        # Flush da seção visível em ambos os file_keys
+        for fk in ("gus", "game"):
+            self._ini_flush_current(server_id, fk)
+
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        w = self._server_widgets.get(server_id, {})
+
+        for file_key in ("gus", "game"):
+            data = w.get(f"_ini_{file_key}_data", [])
+            ini_key = f"{file_key}_ini"
+            mod_buckets: dict = {}     # mod_id → list of section dicts
+            custom_secs: list = []
+
+            for sec in data:
+                # Lê de StringVars se presentes
+                plain_entries = []
+                for entry in sec.get("entries", []):
+                    kv = entry.get("_key_var")
+                    vv = entry.get("_val_var")
+                    key = kv.get().strip() if kv else entry.get("key", "").strip()
+                    val = vv.get().strip() if vv else entry.get("value", "").strip()
+                    if key:
+                        plain_entries.append({"key": key, "value": val})
+                plain_sec = {"section": sec["section"], "entries": plain_entries}
+                mid = sec.get("mod_id")
+                if mid is None:
+                    custom_secs.append(plain_sec)
+                else:
+                    mod_buckets.setdefault(mid, []).append(plain_sec)
+
+            # Atualiza mod_ini_configs
+            for mod_id, secs in mod_buckets.items():
+                cfg = srv.mod_ini_configs.setdefault(mod_id, {})
+                cfg[ini_key] = sections_to_ini_text(secs)
+
+            # Atualiza custom_ini_sections
+            srv.custom_ini_sections[file_key] = custom_secs
+
+        self.config_manager.update_server(srv)
+
+        # Aplica nos arquivos .ini se o diretório existir
+        applied = False
+        if srv.install_dir and os.path.isdir(srv.install_dir):
+            try:
+                combined = dict(srv.mod_ini_configs)
+                custom_gus = sections_to_ini_text(srv.custom_ini_sections.get("gus", []))
+                custom_game = sections_to_ini_text(srv.custom_ini_sections.get("game", []))
+                if custom_gus or custom_game:
+                    combined["_custom_"] = {"gus_ini": custom_gus, "game_ini": custom_game}
+                ArkIniManager(srv.install_dir).apply_mod_ini_configs(combined)
+                applied = True
+            except Exception as exc:
+                self._global_log(f"Erro ao aplicar INI de mods: {exc}", "error")
+
+        msg = "Seções INI salvas com sucesso!"
+        if applied:
+            msg += "\n\nAplicadas nos arquivos .ini do servidor."
+        else:
+            msg += ("\n\nAs seções serão aplicadas nos arquivos .ini\n"
+                    "na próxima vez que o servidor for iniciado\n"
+                    "ou quando você clicar em 'Salvar e Aplicar' no diálogo de mod.")
+        messagebox.showinfo("INI Salvo", msg, parent=self)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Histórico de Alterações
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_historico(self, parent, srv: ServerConfig) -> None:
+        """Exibe o histórico de alterações de configuração do servidor."""
+        parent.grid_columnconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # ── Barra de controles ────────────────────────────────────────────────
+        bar = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=8)
+        bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+
+        ctk.CTkLabel(bar, text="📋 Histórico de alterações",
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color="#c0c0d8").pack(side="left", padx=12, pady=8)
+
+        filter_var = tk.StringVar(value="Todas as abas")
+        tabs_filter = ["Todas as abas", "Geral", "Jogo", "Avançado"]
+        filter_menu = ctk.CTkOptionMenu(bar, variable=filter_var, values=tabs_filter,
+                                        width=140, height=28,
+                                        fg_color="#2a2a2a", button_color="#3a3a3a",
+                                        font=ctk.CTkFont(size=11),
+                                        command=lambda _: self._historico_refresh(srv.id, filter_var))
+        filter_menu.pack(side="left", padx=(0, 8), pady=8)
+
+        ctk.CTkButton(bar, text="🔁 Atualizar", width=100, height=28,
+                      fg_color="#2a2a2a", hover_color="#404040",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._historico_refresh(srv.id, filter_var)
+                      ).pack(side="left", pady=8)
+
+        ctk.CTkButton(bar, text="🗑 Limpar histórico", width=140, height=28,
+                      fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._historico_clear(srv.id, filter_var)
+                      ).pack(side="right", padx=8, pady=8)
+
+        # ── Textbox de exibição ───────────────────────────────────────────────
+        tw = ctk.CTkTextbox(parent, state="disabled", font=ctk.CTkFont(family="Consolas", size=11),
+                            fg_color=_BG, text_color="#d0d0e0", corner_radius=8,
+                            wrap="none")
+        tw.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+
+        # Tags de formatação
+        tw.tag_config("ts",    foreground="#7070a0")
+        tw.tag_config("tab",   foreground="#5080c0")
+        tw.tag_config("label", foreground="#c0c0d8")
+        tw.tag_config("arrow", foreground="#606060")
+        tw.tag_config("old",   foreground="#c07070")
+        tw.tag_config("new",   foreground="#70c070")
+        tw.tag_config("empty", foreground="#404050")
+
+        self._server_widgets[srv.id]["_historico_tw"] = tw
+        self._server_widgets[srv.id]["_historico_filter_var"] = filter_var
+        self._historico_refresh(srv.id, filter_var)
+
+    def _historico_refresh(self, server_id: str, filter_var: tk.StringVar) -> None:
+        """Recarrega e exibe as entradas do histórico."""
+        w = self._server_widgets.get(server_id, {})
+        tw = w.get("_historico_tw")
+        if tw is None:
+            return
+        logger = self._get_change_logger(server_id)
+        entries = logger.read_all()
+
+        f_tab = filter_var.get() if filter_var.get() != "Todas as abas" else None
+        if f_tab:
+            entries = [e for e in entries if e.get("tab") == f_tab]
+
+        tw.configure(state="normal")
+        tw.delete("1.0", "end")
+
+        if not entries:
+            tw.insert("end", "\n  Nenhuma alteração registrada ainda.\n\n", "empty")
+            tw.insert("end", "  As configurações são registradas automaticamente\n"
+                             "  cada vez que você salva o servidor (💾 Salvar).\n", "empty")
+        else:
+            for entry in entries:
+                tw.insert("end", f"[{entry.get('ts','??')}]", "ts")
+                tw.insert("end", f"  {entry.get('tab','?')}", "tab")
+                tw.insert("end", f"  ›  {entry.get('label','?')}", "label")
+                tw.insert("end", "   ", "arrow")
+                tw.insert("end", entry.get("old", ""), "old")
+                tw.insert("end", " → ", "arrow")
+                tw.insert("end", entry.get("new", ""), "new")
+                tw.insert("end", "\n")
+        tw.configure(state="disabled")
+
+    def _historico_clear(self, server_id: str, filter_var: tk.StringVar) -> None:
+        """Limpa o arquivo de log após confirmação."""
+        if not messagebox.askyesno(
+            "Limpar histórico",
+            "Tem certeza que deseja apagar todo o histórico\nde alterações deste servidor?",
+            parent=self,
+        ):
+            return
+        self._get_change_logger(server_id).clear()
+        self._historico_refresh(server_id, filter_var)
+
+    def _get_change_logger(self, server_id: str) -> ChangeLogger:
+        """Retorna (ou cria) o ChangeLogger para o servidor."""
+        if not hasattr(self, "_change_loggers"):
+            self._change_loggers: dict = {}
+        if server_id not in self._change_loggers:
+            log_dir = Path(os.environ.get("APPDATA", "~")).expanduser() \
+                / "ARKLAND-ServerManager" / "logs"
+            self._change_loggers[server_id] = ChangeLogger(log_dir, server_id)
+        return self._change_loggers[server_id]
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Ações de Servidor
     # ══════════════════════════════════════════════════════════════════════════
 
@@ -7645,6 +9002,9 @@ class ARKServerManagerApp(ctk.CTk):
 
         w = self._server_widgets.get(server_id, {})
 
+        # Snapshot antes das alterações (para o log)
+        _snap_before = snapshot_server(srv)
+
         # ── Geral ──────────────────────────────────────────────────────────
         if "name" in w:
             srv.name           = w["name"].get().strip() or srv.name
@@ -7665,6 +9025,7 @@ class ARKServerManagerApp(ctk.CTk):
                 srv.rcon_port    = int(w["rcon_port"].get())
             except (ValueError, KeyError):
                 pass
+            srv.public_ip             = w.get("public_ip", tk.StringVar()).get().strip()
             srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
             _evt_raw = w.get("active_event", tk.StringVar()).get().strip()
             srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
@@ -7749,7 +9110,7 @@ class ARKServerManagerApp(ctk.CTk):
         ]
         int_gs = [
             "max_tamed_dinos", "structure_damage_repair_cooldown",
-            "override_max_experience_points_player", "override_max_experience_points_dino",
+            "player_level_cap", "dino_level_cap",
             "max_tribe_size",
         ]
         bool_gs = [
@@ -7985,6 +9346,14 @@ class ARKServerManagerApp(ctk.CTk):
         self.config_manager.update_server(srv)
         self.server_manager.update_server_config(srv)
 
+        # Registra alterações no histórico
+        try:
+            _snap_after = snapshot_server(srv)
+            _chg_logger = self._get_change_logger(server_id)
+            diff_snapshots(_chg_logger, _snap_before, _snap_after)
+        except Exception:
+            pass
+
         # Escreve .ini se o diretório existir
         if srv.install_dir and os.path.isdir(srv.install_dir):
             try:
@@ -8159,7 +9528,9 @@ class ARKServerManagerApp(ctk.CTk):
                         found.append("Game.ini")
                     messagebox.showinfo(
                         "INI importado",
-                        "Configurações importadas com sucesso!\n\nArquivos lidos:\n  " + "\n  ".join(found) + f"\n\nDe: {folder}",
+                        "Configurações importadas com sucesso!\n\nArquivos lidos:\n  " + "\n  ".join(found) + f"\n\nDe: {folder}"
+                        "\n\n⚠️  Confira as portas (Servidor, Query e RCON) na aba Geral — "
+                        "cada servidor precisa usar portas únicas para evitar conflitos.",
                         parent=self,
                     )
 
@@ -8578,21 +9949,133 @@ class ARKServerManagerApp(ctk.CTk):
             text_color="gray50", font=ctk.CTkFont(size=11), wraplength=680, justify="left",
         ).grid(row=2, column=0, padx=20, pady=(0, 6), sticky="w")
 
+        # ── Picker de seções cadastradas ──────────────────────────────────────
+        def _show_section_picker(target_box: ctk.CTkTextbox) -> None:
+            """Abre popup com as seções cadastradas no painel INI para inserção."""
+            all_secs: list = []
+            for fk, src_label in [("game", "Game.ini"), ("gus", "GUS.ini")]:
+                for sec in srv.custom_ini_sections.get(fk, []):
+                    all_secs.append({
+                        "section": sec.get("section", ""),
+                        "entries": sec.get("entries", []),
+                        "source":  src_label,
+                    })
+
+            if not all_secs:
+                messagebox.showinfo(
+                    "Seções", "Nenhuma seção personalizada cadastrada no painel INI.",
+                    parent=dlg,
+                )
+                return
+
+            picker = ctk.CTkToplevel(dlg)
+            picker.title("Inserir seções cadastradas")
+            picker.geometry("440x420")
+            picker.resizable(True, True)
+            picker.grab_set()
+            picker.grid_columnconfigure(0, weight=1)
+            picker.grid_rowconfigure(1, weight=1)
+
+            ctk.CTkLabel(
+                picker, text="Selecione as seções a inserir:",
+                font=ctk.CTkFont(size=13, weight="bold"),
+            ).grid(row=0, column=0, padx=16, pady=(14, 4), sticky="w")
+
+            scroll = ctk.CTkScrollableFrame(picker, fg_color="transparent")
+            scroll.grid(row=1, column=0, padx=12, pady=4, sticky="nsew")
+            scroll.grid_columnconfigure(0, weight=1)
+
+            check_vars: list = []
+            for sec in all_secs:
+                var = tk.BooleanVar(value=False)
+                sec["_var"] = var
+                check_vars.append(var)
+                row_fr = ctk.CTkFrame(scroll, fg_color=_CARD_BG, corner_radius=6)
+                row_fr.pack(fill="x", pady=2, padx=2)
+                row_fr.grid_columnconfigure(1, weight=1)
+                ctk.CTkCheckBox(
+                    row_fr, text="", variable=var, width=28,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                ).grid(row=0, column=0, padx=(8, 0), pady=6)
+                ctk.CTkLabel(
+                    row_fr,
+                    text=f"[{sec['section']}]",
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                    anchor="w",
+                ).grid(row=0, column=1, padx=(6, 4), pady=6, sticky="w")
+                ctk.CTkLabel(
+                    row_fr,
+                    text=sec["source"],
+                    font=ctk.CTkFont(size=10),
+                    text_color="gray50",
+                    anchor="e",
+                ).grid(row=0, column=2, padx=(0, 10), pady=6, sticky="e")
+
+            btn_fr2 = ctk.CTkFrame(picker, fg_color="transparent")
+            btn_fr2.grid(row=2, column=0, padx=16, pady=(4, 14), sticky="e")
+
+            def _insert() -> None:
+                selected = [s for s in all_secs if s.get("_var") and s["_var"].get()]
+                if not selected:
+                    messagebox.showwarning("Inserir", "Selecione ao menos uma seção.", parent=picker)
+                    return
+                lines: list[str] = []
+                for s in selected:
+                    lines.append(sections_to_ini_text([
+                        {"section": s["section"], "entries": s["entries"]}
+                    ]).strip())
+                insert_text = "\n\n".join(lines)
+                existing = target_box.get("0.0", "end").strip()
+                target_box.delete("0.0", "end")
+                target_box.insert("0.0", (existing + "\n\n" + insert_text).strip() if existing else insert_text)
+                picker.destroy()
+
+            ctk.CTkButton(
+                btn_fr2, text="Cancelar", width=90, height=32,
+                fg_color="gray30", hover_color="gray40",
+                command=picker.destroy,
+            ).pack(side="left", padx=(0, 8))
+            ctk.CTkButton(
+                btn_fr2, text="✅  Inserir selecionadas", width=180, height=32,
+                fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                command=_insert,
+            ).pack(side="left")
+
         # ── Game.ini ──────────────────────────────────────────────────────────
+        game_hdr = ctk.CTkFrame(dlg, fg_color="transparent")
+        game_hdr.grid(row=3, column=0, padx=20, pady=(4, 2), sticky="ew")
+        game_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
-            dlg, text="📄  Game.ini",
+            game_hdr, text="📄  Game.ini",
             font=ctk.CTkFont(size=13, weight="bold"),
-        ).grid(row=3, column=0, padx=20, pady=(4, 2), sticky="w")
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(
+            game_hdr, text="📋  Inserir seção...", width=150, height=26,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            font=ctk.CTkFont(size=11),
+            command=lambda: _show_section_picker(game_ini_box),
+        ).grid(row=0, column=1, sticky="e")
+
         game_ini_box = ctk.CTkTextbox(dlg, font=ctk.CTkFont(family="Courier New", size=12))
         game_ini_box.grid(row=4, column=0, padx=20, pady=(0, 8), sticky="nsew")
         game_ini_box.insert("0.0", cfg.get("game_ini", ""))
         dlg.grid_rowconfigure(4, weight=1)
 
         # ── GameUserSettings.ini ──────────────────────────────────────────────
+        gus_hdr = ctk.CTkFrame(dlg, fg_color="transparent")
+        gus_hdr.grid(row=5, column=0, padx=20, pady=(4, 2), sticky="ew")
+        gus_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
-            dlg, text="📄  GameUserSettings.ini",
+            gus_hdr, text="📄  GameUserSettings.ini",
             font=ctk.CTkFont(size=13, weight="bold"),
-        ).grid(row=5, column=0, padx=20, pady=(4, 2), sticky="w")
+        ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(
+            gus_hdr, text="📋  Inserir seção...", width=150, height=26,
+            fg_color=_BLUE, hover_color=_BLUE_HOVER,
+            font=ctk.CTkFont(size=11),
+            command=lambda: _show_section_picker(gus_ini_box),
+        ).grid(row=0, column=1, sticky="e")
+
         gus_ini_box = ctk.CTkTextbox(dlg, font=ctk.CTkFont(family="Courier New", size=12))
         gus_ini_box.grid(row=6, column=0, padx=20, pady=(0, 8), sticky="nsew")
         gus_ini_box.insert("0.0", cfg.get("gus_ini", ""))
@@ -8835,6 +10318,363 @@ class ARKServerManagerApp(ctk.CTk):
         box._textbox.insert("end", text, tag)
         box._textbox.see("end")
         box.configure(state="disabled")
+
+    # ── Chat público ──────────────────────────────────────────────────────────
+
+    def _chat_append(self, server_id: str, text: str, tag: str = "message") -> None:
+        w = self._server_widgets.get(server_id, {})
+        box: Optional[ctk.CTkTextbox] = w.get("chat_box")
+        if not box:
+            return
+        box.configure(state="normal")
+        box._textbox.insert("end", text, tag)
+        box._textbox.see("end")
+        box.configure(state="disabled")
+
+    def _chat_clear(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        box: Optional[ctk.CTkTextbox] = w.get("chat_box")
+        if not box:
+            return
+        box.configure(state="normal")
+        box.delete("1.0", "end")
+        box.configure(state="disabled")
+
+    def _chat_process(self, server_id: str, raw: str) -> None:
+        import re
+        from datetime import datetime
+        ts = datetime.now().strftime("%H:%M:%S")
+        for line in raw.strip().split("\n"):
+            line = line.strip()
+            if not line or line.lower() == "no chat":
+                continue
+            # SERVER: message
+            m = re.match(r"^SERVER:\s*(.+)$", line, re.IGNORECASE)
+            if m:
+                self._chat_append(server_id, f"[{ts}] ", "ts")
+                self._chat_append(server_id, "[SERVIDOR]", "server")
+                self._chat_append(server_id, f": {m.group(1)}\n", "message")
+                continue
+            # PlayerName (SteamID64): message  or  PlayerName: message
+            m = re.match(r"^(.+?)(?:\s+\(\d{17}\))?:\s*(.+)$", line)
+            if m:
+                self._chat_append(server_id, f"[{ts}] ", "ts")
+                self._chat_append(server_id, m.group(1).strip(), "player")
+                self._chat_append(server_id, f": {m.group(2).strip()}\n", "message")
+            else:
+                self._chat_append(server_id, f"[{ts}] {line}\n", "message")
+
+    def _chat_fetch(self, server_id: str) -> None:
+        client = self._rcon_clients.get(server_id)
+        w = self._server_widgets.get(server_id, {})
+        if not client or not client.is_connected:
+            self._chat_append(
+                server_id,
+                "⚠  RCON não conectado. Vá para 'Console RCON' e clique em Conectar primeiro.\n",
+                "err",
+            )
+            # Desativa auto-poll em caso de erro
+            if w.get("chat_auto_poll") and w["chat_auto_poll"].get():
+                w["chat_auto_poll"].set(False)
+                self._chat_cancel_poll(server_id)
+            return
+
+        status_var: Optional[tk.StringVar] = w.get("chat_status_var")
+        if status_var:
+            status_var.set("⏳ Buscando...")
+
+        def _do() -> None:
+            ok, result = client.send_command_safe("GetChat")
+            from datetime import datetime as _dt
+            ts_now = _dt.now().strftime("%H:%M:%S")
+
+            def _apply() -> None:
+                if status_var:
+                    status_var.set(f"🟢 {ts_now}")
+                if ok and result and result.strip().lower() not in ("", "no chat"):
+                    self._chat_process(server_id, result)
+
+            self.after(0, _apply)
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _chat_send(self, server_id: str) -> None:
+        from datetime import datetime
+        w = self._server_widgets.get(server_id, {})
+        msg = w.get("chat_input", tk.StringVar()).get().strip()
+        if not msg:
+            return
+        w["chat_input"].set("")
+        client = self._rcon_clients.get(server_id)
+        if not client or not client.is_connected:
+            self._chat_append(
+                server_id,
+                "⚠  RCON não conectado. Vá para 'Console RCON' e clique em Conectar primeiro.\n",
+                "err",
+            )
+            return
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._chat_append(server_id, f"[{ts}] ", "ts")
+        self._chat_append(server_id, "[SERVIDOR]", "server")
+        self._chat_append(server_id, f": {msg}\n", "message")
+        safe_msg = msg.replace('"', "'")
+
+        def _do() -> None:
+            client.send_command_safe(f"ServerChat {safe_msg}")
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _chat_toggle_poll(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        enabled = w.get("chat_auto_poll", tk.BooleanVar()).get()
+        if enabled:
+            self._chat_poll_loop(server_id)
+        else:
+            self._chat_cancel_poll(server_id)
+            status_var: Optional[tk.StringVar] = w.get("chat_status_var")
+            if status_var:
+                status_var.set("⬛ Pausado")
+
+    def _chat_cancel_poll(self, server_id: str) -> None:
+        job = self._chat_poll_jobs.pop(server_id, None)
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+
+    def _chat_poll_loop(self, server_id: str) -> None:
+        w = self._server_widgets.get(server_id, {})
+        if not w.get("chat_auto_poll", tk.BooleanVar()).get():
+            return
+        self._chat_fetch(server_id)
+        try:
+            interval_ms = int(w.get("chat_interval", tk.StringVar(value="5")).get()) * 1000
+        except (ValueError, AttributeError):
+            interval_ms = 5000
+        job = self.after(interval_ms, lambda: self._chat_poll_loop(server_id))
+        self._chat_poll_jobs[server_id] = job
+
+    # ── Gerenciamento de Broadcasts ───────────────────────────────────────────
+
+    def _broadcast_rcon(self, server_id: str, message: str) -> None:
+        """Envia um Broadcast via RCON para todos os jogadores online."""
+        client = self._rcon_clients.get(server_id)
+        if not client or not client.is_connected:
+            messagebox.showwarning(
+                "RCON não conectado",
+                "Conecte-se ao RCON na aba 'Console RCON' antes de enviar um broadcast.",
+                parent=self,
+            )
+            return
+        safe = message.replace('"', "'")[:900]
+        ts = datetime.now().strftime("%H:%M:%S")
+        self._chat_append(server_id, f"[{ts}] ", "ts")
+        self._chat_append(server_id, "[BROADCAST]", "server")
+        self._chat_append(server_id, f": {message}\n", "message")
+
+        def _do() -> None:
+            client.send_command_safe(f"Broadcast {safe}")
+
+        threading.Thread(target=_do, daemon=True).start()
+
+    def _broadcast_send_quick(self, server_id: str) -> None:
+        """Envia o broadcast da barra de envio rápido."""
+        w = self._server_widgets.get(server_id, {})
+        msg = w.get("bc_quick_var", tk.StringVar()).get().strip()
+        if not msg:
+            return
+        w["bc_quick_var"].set("")
+        self._broadcast_rcon(server_id, msg)
+
+    def _broadcast_add(self, server_id: str) -> None:
+        """Adiciona um novo broadcast à biblioteca e persiste."""
+        w = self._server_widgets.get(server_id, {})
+        label = w.get("bc_new_label", tk.StringVar()).get().strip()
+        msg = w.get("bc_new_msg", tk.StringVar()).get().strip()
+        if not label or not msg:
+            messagebox.showwarning(
+                "Campos obrigatórios",
+                "Preencha o Rótulo e o Texto do broadcast antes de adicionar.",
+                parent=self,
+            )
+            return
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        srv.broadcasts.append({"label": label, "message": msg})
+        self.config_manager.update_server(srv)
+        w["bc_new_label"].set("")
+        w["bc_new_msg"].set("")
+        self._broadcast_refresh_list(server_id)
+
+    def _broadcast_delete(self, server_id: str, index: int) -> None:
+        """Remove um broadcast da biblioteca pelo índice."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv or index >= len(srv.broadcasts):
+            return
+        if not messagebox.askyesno(
+            "Remover broadcast",
+            f"Remover o broadcast '{srv.broadcasts[index]['label']}'?",
+            parent=self,
+        ):
+            return
+        srv.broadcasts.pop(index)
+        self.config_manager.update_server(srv)
+        self._broadcast_refresh_list(server_id)
+
+    def _broadcast_edit(self, server_id: str, index: int) -> None:
+        """Abre diálogo inline para editar rótulo/mensagem de um broadcast salvo."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv or index >= len(srv.broadcasts):
+            return
+        bc = srv.broadcasts[index]
+
+        dlg = ctk.CTkToplevel(self)
+        dlg.title("Editar Broadcast")
+        dlg.geometry("560x180")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+        dlg.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(dlg, text="Rótulo:").grid(row=0, column=0, padx=(16, 8), pady=(16, 6), sticky="w")
+        lv = tk.StringVar(value=bc["label"])
+        ctk.CTkEntry(dlg, textvariable=lv, height=32, font=ctk.CTkFont(size=12)).grid(
+            row=0, column=1, sticky="ew", padx=(0, 16), pady=(16, 6))
+
+        ctk.CTkLabel(dlg, text="Mensagem:").grid(row=1, column=0, padx=(16, 8), pady=(0, 6), sticky="w")
+        mv = tk.StringVar(value=bc["message"])
+        ctk.CTkEntry(dlg, textvariable=mv, height=32, font=ctk.CTkFont(size=12)).grid(
+            row=1, column=1, sticky="ew", padx=(0, 16), pady=(0, 6))
+
+        def _save():
+            new_label = lv.get().strip()
+            new_msg = mv.get().strip()
+            if not new_label or not new_msg:
+                return
+            srv.broadcasts[index] = {"label": new_label, "message": new_msg}
+            self.config_manager.update_server(srv)
+            self._broadcast_refresh_list(server_id)
+            dlg.destroy()
+
+        btn_fr = ctk.CTkFrame(dlg, fg_color="transparent")
+        btn_fr.grid(row=2, column=0, columnspan=2, pady=(4, 12), padx=16, sticky="e")
+        ctk.CTkButton(btn_fr, text="Cancelar", width=90, height=30,
+                      fg_color="gray30", hover_color="gray40",
+                      command=dlg.destroy).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(btn_fr, text="💾 Salvar", width=100, height=30,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      command=_save).pack(side="left")
+
+    def _broadcast_refresh_list(self, server_id: str) -> None:
+        """Reconstrói a lista visual de broadcasts da biblioteca."""
+        w = self._server_widgets.get(server_id, {})
+        scroll = w.get("bc_list_scroll")
+        if scroll is None:
+            return
+        for ch in scroll.winfo_children():
+            ch.destroy()
+
+        srv = self.config_manager.get_server(server_id)
+        bcs = srv.broadcasts if srv else []
+
+        # Broadcasts do sistema (tarefas agendadas com warn > 0 — somente leitura)
+        sys_entries = []
+        if srv:
+            for task in srv.scheduled_tasks:
+                wm = task.get("warn_minutes", 0)
+                if wm and wm > 0:
+                    action_map = {"restart": "Reiniciar", "stop": "Desligar",
+                                  "update_restart": "Atualizar + Reiniciar"}
+                    action_lbl = action_map.get(task.get("action", ""), task.get("action", ""))
+                    t_time = task.get("time", "??:??")
+                    sys_entries.append({
+                        "label": f"[Auto] Aviso {action_lbl} às {t_time}",
+                        "message": f"⚠ Servidor será {action_lbl} em {wm} minuto(s)!",
+                    })
+            # MOTD como broadcast
+            if srv.motd:
+                sys_entries.append({
+                    "label": "[Auto] MOTD",
+                    "message": srv.motd,
+                })
+
+        if not bcs and not sys_entries:
+            ctk.CTkLabel(scroll,
+                         text="Nenhum broadcast salvo.\n"
+                              "Adicione um usando o formulário acima.",
+                         text_color="gray40", font=ctk.CTkFont(size=11),
+                         justify="center").pack(pady=24)
+            return
+
+        # Cabeçalho de colunas
+        hdr = ctk.CTkFrame(scroll, fg_color="transparent")
+        hdr.pack(fill="x", padx=4, pady=(4, 0))
+        hdr.grid_columnconfigure(0, weight=0, minsize=160)
+        hdr.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(hdr, text="Rótulo", text_color="gray45",
+                     font=ctk.CTkFont(size=10, weight="bold")).grid(row=0, column=0, sticky="w", padx=4)
+        ctk.CTkLabel(hdr, text="Mensagem", text_color="gray45",
+                     font=ctk.CTkFont(size=10, weight="bold")).grid(row=0, column=1, sticky="w", padx=8)
+
+        # Broadcasts do usuário
+        for idx, bc in enumerate(bcs):
+            self._broadcast_render_row(server_id, scroll, idx, bc, readonly=False)
+
+        # Broadcasts do sistema
+        if sys_entries:
+            ctk.CTkLabel(scroll, text="Broadcasts automáticos do sistema",
+                         text_color="gray40", font=ctk.CTkFont(size=10, weight="bold")
+                         ).pack(anchor="w", padx=8, pady=(12, 2))
+            for bc in sys_entries:
+                self._broadcast_render_row(server_id, scroll, -1, bc, readonly=True)
+
+    def _broadcast_render_row(self, server_id: str, container,
+                               index: int, bc: dict, readonly: bool) -> None:
+        """Cria uma linha de broadcast na lista."""
+        bg = "#252535" if not readonly else "#1e1e2a"
+        row = ctk.CTkFrame(container, fg_color=bg, corner_radius=6)
+        row.pack(fill="x", padx=4, pady=2)
+        row.grid_columnconfigure(1, weight=1)
+
+        # Rótulo
+        lbl_color = "#a0a8d0" if not readonly else "#606070"
+        ctk.CTkLabel(row, text=bc.get("label", ""), text_color=lbl_color,
+                     font=ctk.CTkFont(size=11, weight="bold"),
+                     width=160, anchor="w", wraplength=155
+                     ).grid(row=0, column=0, sticky="w", padx=(10, 6), pady=6)
+
+        # Mensagem (truncada)
+        msg_text = bc.get("message", "")
+        display_msg = msg_text if len(msg_text) <= 80 else msg_text[:77] + "..."
+        ctk.CTkLabel(row, text=display_msg, text_color="gray55",
+                     font=ctk.CTkFont(size=11), anchor="w", wraplength=400
+                     ).grid(row=0, column=1, sticky="ew", padx=(0, 6), pady=6)
+
+        # Botões
+        btn_fr = ctk.CTkFrame(row, fg_color="transparent")
+        btn_fr.grid(row=0, column=2, padx=(4, 8), pady=4)
+
+        ctk.CTkButton(btn_fr, text="📢 Enviar", width=80, height=26,
+                      fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                      font=ctk.CTkFont(size=10),
+                      command=lambda m=msg_text, sid=server_id:
+                          self._broadcast_rcon(sid, m)
+                      ).pack(side="left", padx=(0, 4))
+
+        if not readonly:
+            ctk.CTkButton(btn_fr, text="✏", width=28, height=26,
+                          fg_color="#3a3a5a", hover_color="#4a4a7a",
+                          font=ctk.CTkFont(size=11),
+                          command=lambda i=index, sid=server_id:
+                              self._broadcast_edit(sid, i)
+                          ).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(btn_fr, text="🗑", width=28, height=26,
+                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                          font=ctk.CTkFont(size=11),
+                          command=lambda i=index, sid=server_id:
+                              self._broadcast_delete(sid, i)
+                          ).pack(side="left")
 
     # ── Callbacks de status e log ─────────────────────────────────────────────
 

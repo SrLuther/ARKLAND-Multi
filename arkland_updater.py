@@ -22,15 +22,20 @@ import tempfile
 import threading
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 from urllib.request import urlretrieve
 
-try:
+if TYPE_CHECKING:
     import customtkinter as ctk
     _CTK = True
-except ImportError:
-    import tkinter as ctk  # type: ignore[no-redef]
-    _CTK = False
+else:
+    try:
+        import customtkinter as ctk  # type: ignore[no-redef]
+        _CTK = True
+    except ImportError:
+        import tkinter as ctk  # type: ignore[no-redef]
+        _CTK = False
 
 # ── Paleta (igual ao app principal) ──────────────────────────────────────────
 _BG       = "#111118"

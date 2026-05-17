@@ -5,6 +5,43 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.0] — 2026-05-17
+
+### Novo
+
+- **Integração com Beacon (usebeacon.app)**: novo módulo `src/beacon_client.py` — cliente completo para a API pública do Beacon, repositório autoritativo de blueprints ARK derivados do DevKit. Recursos:
+  - **Autenticação OAuth Device Flow com PKCE**: sem armazenar segredos no código. O app inicia o fluxo, exibe o código de dispositivo e a URL, abre o navegador automaticamente e aguarda a confirmação em background. Token persistido localmente com renovação automática.
+  - **Cache local de blueprints**: ~1963 itens ARK Prime baixados em até 8 páginas paginadas, salvos em `%APPDATA%\ARKLAND-ServerManager\beacon_blueprints_cache.json` com TTL de 7 dias — evita requisições repetidas entre sessões.
+  - **Singleton `get_beacon_client()`**: instância única compartilhada entre todos os pontos de uso na sessão.
+
+- **Blueprint Picker — ArkShop**: botão 🔍 adicionado em todos os campos `Blueprint'...'` do ArkShop. Ao clicar, abre diálogo de busca com:
+  - Filtro de categoria via radio buttons: **Todos** / **Itens** (por engramId) / **Criaturas** (por creatureId)
+  - Campo de busca live por nome ou `classString` (case-insensitive, limite de 150 resultados)
+  - Lista com zebra striping, badge de tipo (🦕 criaturas · 🎒 engrams · 📦 itens), nome em negrito e `classString` em cinza
+  - Clique em qualquer item preenche automaticamente o campo com `Blueprint'<path>'`
+  - Integrado em: **Itens de Kit** (campo Blueprint), **Dinos de Kit** (Blueprint do dino + SaddleBlueprint), **Itens da Loja** (campo Blueprint)
+  - Fluxo de autenticação inline: se ainda não autenticado, exibe botão "🔑 Conectar com Beacon", código de dispositivo copiável e status em tempo real — sem sair do diálogo
+
+- **INI do Mod — Botão "📋 Inserir seção..."**: cada cabeçalho de arquivo INI no diálogo de configuração de mod (`Game.ini` e `GameUserSettings.ini`) ganhou um botão **📋 Inserir seção...**. Ao clicar, abre um painel lateral com todas as seções cadastradas no painel INI principal do servidor, exibidas como checkboxes com badge indicando a origem (`game` / `gus`). Selecione uma ou mais seções e clique em **✅ Inserir selecionadas** — o conteúdo é **acrescentado** ao final da caixa de texto, sem substituir o que já foi digitado.
+
+### Melhorado
+
+- **Aba Jogo — Renderização em Chunks**: a aba Jogo possuía 44 `CTkSlider` (cada um cria um Canvas internamente), causando freeze perceptível de ~500 ms na primeira abertura. A renderização foi refatorada para **lotes de 6 linhas** despachados via `after(0)` — o controle retorna ao event loop entre cada batch, eliminando completamente o freeze. A lógica de configuração dos widgets permanece idêntica; apenas o momento de criação foi diferido.
+
+- **Pre-build de Abas em Idle — Intervalo Ampliado**: o mecanismo `_idle_build` faz pre-build silencioso das abas pesadas em background. O intervalo entre builds consecutivos passou de **120 ms para 1500 ms**, e as abas **Jogo**, **Spawns** e **Loot** foram removidas da fila de pre-build automático — evitava micro-freezes periódicos causados pelos 44 sliders sendo criados em background. A aba Jogo agora é construída em chunks quando o usuário de fato a abre.
+
+### Correção
+
+- **Pylance — `_requests` e `_psutil` Optional**: módulos opcionais tipados como `ModuleType | None` causavam erros `Cannot access attribute` após guards booleanos. Corrigido com `assert module is not None` logo após cada guard em `src/server_manager.py` (`_psutil` em `reconnect_existing`, `_reconnect_monitor`, `_start_worker`) e `beacon_client.py` (`_requests` em `authenticate_async._worker` e `fetch_all`).
+
+- **Pylance — `headers: dict[str, str | bytes]`**: tipo inferido `dict[str, str]` era incompatível com `MutableMapping[str, str | bytes]` esperado por `requests.get`. Corrigido com anotação explícita nos arquivos: `beacon_client.py`, `beacon_explore.py`, `beacon_explore2.py`, `beacon_sync.py`.
+
+- **Pylance — `arkland_updater.py` / fallback `tkinter as ctk`**: import de fallback `import tkinter as ctk` era interpretado pelo Pylance como módulo `tkinter`, gerando dezenas de erros em atributos `CTk*`. Reestruturado para `if TYPE_CHECKING: import customtkinter as ctk / else: try/except`.
+
+- **Pylance — `_profile_tabs.py`**: nome de classe incorreto (`App` em vez de `ARKServerManagerApp`) e assinatura errada do construtor `ServerManager(cm, None)` corrigidos.
+
+---
+
 ## [1.1.23] — 2026-05-17
 
 ### Novo
