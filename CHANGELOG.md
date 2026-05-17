@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.6] — 2026-05-17
+
+### Correção
+
+- **Botão "Sobre" sumia da sidebar**: separador e seção SERVIDORES estavam sobrepostos sobre os dois últimos itens de navegação (Configurações e Sobre) após adição de novos itens ao menu. Corrigido ajustando as linhas do grid para acomodar todos os 8 botões de navegação.
+
+---
+
 ## [1.2.5] — 2026-05-17
 
 ### Novo
