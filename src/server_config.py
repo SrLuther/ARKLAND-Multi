@@ -5,7 +5,7 @@ Inclui todas as opções de GameUserSettings.ini, Game.ini e parâmetros de linh
 from __future__ import annotations
 import uuid
 from dataclasses import dataclass, field, asdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 # ── Mapas disponíveis ──────────────────────────────────────────────────────────
@@ -157,9 +157,11 @@ class ServerGameSettings:
     # Multiplicadores de stats por nível — Game.ini PerLevelStatsMultiplier_*
     # Índices: 0=Vida, 1=Stamina, 2=Torpor, 3=Oxigênio, 4=Comida, 5=Água,
     #          6=Temperatura, 7=Peso, 8=Dano, 9=Velocidade, 10=Fortitude, 11=Craft
-    per_level_stats_mult_dino_tamed: List[float] = field(default_factory=lambda: [1.0] * 12)
-    per_level_stats_mult_dino_wild:  List[float] = field(default_factory=lambda: [1.0] * 12)
-    per_level_stats_mult_player:     List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_stats_mult_dino_tamed:          List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_stats_mult_dino_tamed_add:      List[float] = field(default_factory=lambda: [1.0] * 12)  # TaM — bônus aditivo pós-tame
+    per_level_stats_mult_dino_tamed_affinity: List[float] = field(default_factory=lambda: [1.0] * 12)  # TmM — bônus multiplicativo via TE
+    per_level_stats_mult_dino_wild:           List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_stats_mult_player:              List[float] = field(default_factory=lambda: [1.0] * 12)
 
 
 @dataclass
@@ -227,7 +229,7 @@ class ServerAdvancedSettings:
 
 @dataclass
 class ClusterConfig:
-    """Configurações de Cross-ARK (Cluster)."""
+    """Configurações de Cross-ARK (Cluster) — configuração manual por servidor (legado)."""
     enabled: bool = False
     cluster_id: str = ""
     cluster_dir_override: str = ""
@@ -235,6 +237,41 @@ class ClusterConfig:
     prevent_download_items: bool = False
     prevent_download_dinos: bool = False
     no_transfer_from_filtering: bool = False
+
+
+@dataclass
+class ClusterProfile:
+    """Perfil de cluster cross-ARK compartilhado entre múltiplos servidores.
+
+    Modes:
+      "local"   — servidores na mesma máquina gerenciados pelo mesmo app;
+                  cluster_dir aponta para uma pasta local acessível por todos.
+      "network" — servidores em máquinas diferentes na mesma rede;
+                  cluster_dir deve ser um caminho UNC (\\\\servidor\\pasta)
+                  ou uma unidade de rede mapeada acessível em todas as máquinas.
+    """
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    name: str = "Novo Cluster"
+    mode: str = "local"           # "local" | "network"
+    cluster_id: str = field(default_factory=lambda: str(uuid.uuid4()).replace("-", "")[:20])
+    cluster_dir: str = ""         # Pasta local ou UNC/mapeada
+    prevent_download_survivors: bool = False
+    prevent_download_items: bool = False
+    prevent_download_dinos: bool = False
+    no_transfer_from_filtering: bool = False
+    # Sincronização automática de dados de viagem (local ↔ rede)
+    sync_enabled: bool = False       # Ativa sync automático local_cluster_dir ↔ cluster_dir
+    local_cluster_dir: str = ""      # Pasta local onde o ARK grava os dados de viagem
+    sync_interval: int = 30          # Intervalo em segundos entre ciclos de sync
+
+    def to_dict(self) -> dict:
+        from dataclasses import asdict as _asdict
+        return _asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ClusterProfile":
+        valid = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in data.items() if k in valid})
 
 
 @dataclass
@@ -291,6 +328,14 @@ class ServerConfig:
     auto_save_period: float = 15.0
     active_event: str = ""
 
+    # Rede / plataformas / jogadores
+    crossplay: bool = False                # -crossplay (Epic + Steam no mesmo servidor)
+    epic_only: bool = False                # -epiconly (somente Epic Game Store)
+    use_vivox: bool = False                # -UseVivox (chat de voz no Steam)
+    use_item_dupe_check: bool = False      # -UseItemDupeCheck (proteção anti-dupe)
+    prevent_spawn_animations: bool = False # ?PreventSpawnAnimations=True (sem animação de spawn)
+    show_floating_damage_text: bool = False # ?ShowFloatingDamageText=True (dano flutuante RPG)
+
     # Mensagem do Dia (MOTD)
     motd: str = ""
     motd_duration: int = 60
@@ -299,6 +344,14 @@ class ServerConfig:
     game_settings: ServerGameSettings = field(default_factory=ServerGameSettings)
     advanced_settings: ServerAdvancedSettings = field(default_factory=ServerAdvancedSettings)
     cluster: ClusterConfig = field(default_factory=ClusterConfig)
+    # ID do perfil de cluster global (ClusterProfile); "" = usar config manual (cluster acima)
+    cluster_profile_id: str = ""
+    # Nome único da pasta de saves deste servidor (evita conflito ao rodar múltiplos servidores na mesma máquina)
+    # Corresponde a ?AltSaveDirectoryName=<valor> na linha de comando
+    alt_save_directory_name: str = ""
+
+    # Config Dinâmica (DynamicConfigURL)
+    dynamic_config_enabled: bool = False  # Serve config via HTTP local p/ aplicar mudanças sem reiniciar
 
     # Controle interno
     auto_restart_on_crash: bool = False
@@ -347,8 +400,19 @@ class ServerConfig:
         }
         return cls(**top_fields, game_settings=game, advanced_settings=adv, cluster=cluster)
 
-    def build_launch_args(self) -> str:
-        """Monta a linha de comando completa para iniciar o servidor."""
+    def build_launch_args(
+        self,
+        cluster_profile: Optional["ClusterProfile"] = None,
+        dynamic_config_url: str = "",
+    ) -> str:
+        """Monta a linha de comando completa para iniciar o servidor.
+
+        Args:
+            cluster_profile: Perfil de cluster global a usar; sobrepõe a config
+                             manual (self.cluster) quando fornecido.
+            dynamic_config_url: URL para o parâmetro -DynamicConfigURL. Quando
+                                fornecida, injeta o flag no startup do ARK.
+        """
         exe_path = self.server_exe
         map_arg = self.map
 
@@ -374,11 +438,28 @@ class ServerConfig:
         if self.auto_save_period != 15.0:
             params.append(f"?AutoSavePeriodMinutes={self.auto_save_period}")
 
-        # Cluster
-        if self.cluster.enabled and self.cluster.cluster_id:
-            params.append(f"?ClusterID={self.cluster.cluster_id}")
-            if self.cluster.cluster_dir_override:
-                params.append(f"?ClusterDirOverride=\"{self.cluster.cluster_dir_override}\"")
+        # Cluster — perfil global tem prioridade sobre configuração manual por servidor
+        _cl_id  = ""
+        _cl_dir = ""
+        _cl_no_transfer = False
+        if cluster_profile and cluster_profile.cluster_id:
+            _cl_id  = cluster_profile.cluster_id
+            _cl_dir = cluster_profile.cluster_dir
+            _cl_no_transfer = cluster_profile.no_transfer_from_filtering
+        elif self.cluster.enabled and self.cluster.cluster_id:
+            _cl_id  = self.cluster.cluster_id
+            _cl_dir = self.cluster.cluster_dir_override
+            _cl_no_transfer = self.cluster.no_transfer_from_filtering
+
+        if _cl_id:
+            params.append(f"?ClusterID={_cl_id}")
+            if self.alt_save_directory_name:
+                params.append(f"?AltSaveDirectoryName={self.alt_save_directory_name}")
+
+        if self.prevent_spawn_animations:
+            params.append("?PreventSpawnAnimations=True")
+        if self.show_floating_damage_text:
+            params.append("?ShowFloatingDamageText=True")
 
         # Mods
         if self.mods:
@@ -399,12 +480,25 @@ class ServerConfig:
             flags.append("-useallavailablecores")
         if self.force_respawn_dinos:
             flags.append("-ForceRespawnDinos")
+        if self.crossplay:
+            flags.append("-crossplay")
+        if self.epic_only:
+            flags.append("-epiconly")
+        if self.use_vivox:
+            flags.append("-UseVivox")
+        if self.use_item_dupe_check:
+            flags.append("-UseItemDupeCheck")
 
-        if self.cluster.enabled:
-            if self.cluster.prevent_download_survivors:
+        if _cl_id:
+            if _cl_no_transfer:
                 flags.append("-NoTransferFromFiltering")
-            if self.cluster.cluster_dir_override:
-                flags.append(f'-clusterdir="{self.cluster.cluster_dir_override}"')
+            if _cl_dir:
+                flags.append(f'-ClusterDirOverride="{_cl_dir}"')
+
+        if dynamic_config_url:
+            # ?customdynamicconfigurl= é query param; -UseDynamicConfig é a flag habilitadora (patch 307.2)
+            params.append(f'?customdynamicconfigurl="{dynamic_config_url}"')
+            flags.append("-UseDynamicConfig")
 
         if self.extra_args:
             flags.append(self.extra_args)

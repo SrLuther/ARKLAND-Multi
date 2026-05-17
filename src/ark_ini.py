@@ -190,6 +190,7 @@ def _read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.Ra
 
         text = text.lstrip('\ufeff')  # remove BOM remanescente (ex: utf-16-le sem strip)
         parser = configparser.RawConfigParser(strict=strict)
+        parser.optionxform = str  # preserva maiúsculas/minúsculas das chaves
         try:
             parser.read_string(text, source=str(path))
             return parser
@@ -204,6 +205,19 @@ def _read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.Ra
 def read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.RawConfigParser:
     """API publica para leitura de INI com fallback de encoding."""
     return _read_ini_with_fallback(path, strict=strict)
+
+
+def _write_encoding(path: Path) -> str:
+    """Retorna o encoding para escrever o arquivo preservando o BOM original.
+
+    Se o arquivo existir e tiver BOM conhecido, usa o mesmo encoding.
+    Caso contrário, usa utf-8 (sem BOM) como padrão seguro.
+    """
+    if path.exists():
+        detected = _bom_encoding(path)
+        if detected:
+            return detected
+    return "utf-8"
 
 
 # ── Funções de população de config a partir de parsers já carregados ─────────
@@ -421,9 +435,11 @@ def populate_config_from_game_ini(
 
     # ── PerLevelStatsMultiplier — lê os 12 índices de cada grupo ─────────────
     for ini_key, attr in [
-        ("PerLevelStatsMultiplier_DinoTamed", "per_level_stats_mult_dino_tamed"),
-        ("PerLevelStatsMultiplier_DinoWild",  "per_level_stats_mult_dino_wild"),
-        ("PerLevelStatsMultiplier_Player",    "per_level_stats_mult_player"),
+        ("PerLevelStatsMultiplier_DinoTamed",          "per_level_stats_mult_dino_tamed"),
+        ("PerLevelStatsMultiplier_DinoTamed_Add",      "per_level_stats_mult_dino_tamed_add"),
+        ("PerLevelStatsMultiplier_DinoTamed_Affinity", "per_level_stats_mult_dino_tamed_affinity"),
+        ("PerLevelStatsMultiplier_DinoWild",           "per_level_stats_mult_dino_wild"),
+        ("PerLevelStatsMultiplier_Player",             "per_level_stats_mult_player"),
     ]:
         vals = list(getattr(gs, attr))
         for i in range(12):
@@ -910,6 +926,60 @@ def sections_to_ini_text(sections: list) -> str:
     return "\n".join(lines)
 
 
+# Chaves oficialmente suportadas pelo ?customdynamicconfigurl= do ARK (patch 307.2+).
+# Apenas estas são aplicadas em tempo real, sem reinicialização do servidor.
+# A seção [/Script/ShooterGame.ShooterGameMode] NÃO é suportada neste sistema.
+_DYNAMIC_CONFIG_KEYS = [
+    # (campo_em_ServerGameSettings, chave_ini)
+    ("taming_speed_multiplier",               "TamingSpeedMultiplier"),
+    ("harvest_amount_multiplier",             "HarvestAmountMultiplier"),
+    ("xp_multiplier",                         "XPMultiplier"),
+    ("mating_interval_multiplier",            "MatingIntervalMultiplier"),
+    ("baby_mature_speed_multiplier",          "BabyMatureSpeedMultiplier"),
+    ("egg_hatch_speed_multiplier",            "EggHatchSpeedMultiplier"),
+    ("baby_food_consumption_speed_multiplier","BabyFoodConsumptionSpeedMultiplier"),
+    ("crop_growth_speed_multiplier",          "CropGrowthSpeedMultiplier"),
+    ("baby_cuddle_interval_multiplier",       "BabyCuddleIntervalMultiplier"),
+    ("baby_imprinting_stat_scale_multiplier", "BabyImprintingStatScaleMultiplier"),
+]
+
+
+def build_dynamic_config(config: ServerConfig) -> str:
+    """Gera conteúdo INI para ?customdynamicconfigurl= do ARK (patch 307.2+).
+
+    Inclui apenas as chaves em _DYNAMIC_CONFIG_KEYS — as únicas que o ARK
+    aplica em tempo real sem reinicialização do servidor.
+
+    Args:
+        config: Configuração do servidor a partir da qual gerar o conteúdo.
+
+    Returns:
+        String no formato INI pronta para ser servida via HTTP.
+    """
+    import io
+
+    parser = configparser.RawConfigParser()
+    parser.optionxform = str  # preserva case das chaves
+
+    section = "ServerSettings"
+    parser.add_section(section)
+
+    gs = config.game_settings
+    for field_name, key in _DYNAMIC_CONFIG_KEYS:
+        value = getattr(gs, field_name, None)
+        if value is None:
+            continue
+        parser.set(section, key, str(value))
+
+    # ActiveEvent — suportado na prática (Wildcard usava para eventos oficiais)
+    if config.active_event:
+        parser.set(section, "ActiveEvent", config.active_event)
+
+    buf = io.StringIO()
+    parser.write(buf)
+    return buf.getvalue()
+
+
 class ArkIniManager:
     """Lê e escreve GameUserSettings.ini e Game.ini de um servidor ARK."""
 
@@ -943,6 +1013,7 @@ class ArkIniManager:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         parser = configparser.RawConfigParser()
+        parser.optionxform = str  # preserva maiúsculas/minúsculas das chaves
         if path.exists():
             parser = _read_ini_with_fallback(path)
 
@@ -1000,7 +1071,7 @@ class ArkIniManager:
         parser.set(motd_section, "Message",  config.motd)
         parser.set(motd_section, "Duration", str(config.motd_duration))
 
-        with open(str(path), "w", encoding="utf-8") as fh:
+        with open(str(path), "w", encoding=_write_encoding(path)) as fh:
             parser.write(fh)
 
     def save_game_ini(self, config: ServerConfig) -> None:
@@ -1010,6 +1081,7 @@ class ArkIniManager:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         parser = configparser.RawConfigParser()
+        parser.optionxform = str  # preserva maiúsculas/minúsculas das chaves
         if path.exists():
             parser = _read_ini_with_fallback(path)
 
@@ -1063,9 +1135,11 @@ class ArkIniManager:
 
         # ── PerLevelStatsMultiplier — escreve apenas valores não-padrão ───────
         for ini_key, attr in [
-            ("PerLevelStatsMultiplier_DinoTamed", "per_level_stats_mult_dino_tamed"),
-            ("PerLevelStatsMultiplier_DinoWild",  "per_level_stats_mult_dino_wild"),
-            ("PerLevelStatsMultiplier_Player",    "per_level_stats_mult_player"),
+            ("PerLevelStatsMultiplier_DinoTamed",          "per_level_stats_mult_dino_tamed"),
+            ("PerLevelStatsMultiplier_DinoTamed_Add",      "per_level_stats_mult_dino_tamed_add"),
+            ("PerLevelStatsMultiplier_DinoTamed_Affinity", "per_level_stats_mult_dino_tamed_affinity"),
+            ("PerLevelStatsMultiplier_DinoWild",           "per_level_stats_mult_dino_wild"),
+            ("PerLevelStatsMultiplier_Player",             "per_level_stats_mult_player"),
         ]:
             vals = getattr(gs, attr)
             for i, v in enumerate(vals):
@@ -1138,7 +1212,7 @@ class ArkIniManager:
         # ── Remove linhas em branco extras deixadas pela substituição ────────
         ini_text = _re.sub(r'\n{3,}', '\n\n', ini_text)
 
-        with open(str(path), "w", encoding="utf-8") as fh:
+        with open(str(path), "w", encoding=_write_encoding(path)) as fh:
             fh.write(ini_text)
 
     def save_all(self, config: ServerConfig) -> None:
@@ -1190,4 +1264,4 @@ class ArkIniManager:
                 )
                 content += block
 
-            path.write_text(content, encoding="utf-8")
+            path.write_text(content, encoding=_write_encoding(path))

@@ -5,6 +5,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.2.5] — 2026-05-17
+
+### Novo
+
+- **Notificações Discord via Webhook**: seção dedicada nas Configurações Globais para enviar embeds coloridos ao Discord em eventos de servidor (iniciando, online, parado, crash, encerrando). Configurável por tipo de evento (start, stop, crash, atualização de mod, backup). Sem dependências externas — usa `urllib` da stdlib.
+
+- **Novos parâmetros de inicialização de servidor**: checkboxes adicionados na aba Geral de cada servidor: **Crossplay** (`-crossplay`), **Apenas Epic** (`-epiconly`), **Vivox** (`-UseVivox`), **Anti-dupe de item** (`-UseItemDupeCheck`), **Sem animação de spawn** (`?PreventSpawnAnimations=True`), **Dano flutuante RPG** (`?ShowFloatingDamageText=True`).
+
+- **Stats por Nível — colunas TaM e TmM**: tabela de `PerLevelStatsMultiplier` expandida com as colunas **Dom. Bônus (TaM)** (`_DinoTamed_Add`) e **Dom. Afinid. (TmM)** (`_DinoTamed_Affinity`), cobrindo todas as cinco variantes do ARK (IdM, TaM, TmM, IwM, PlM).
+
+---
+
 ## [1.2.4] — 2026-05-17
 
 ### Novo

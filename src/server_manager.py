@@ -9,7 +9,7 @@ import threading
 import time
 from datetime import datetime, date
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set
 
 try:
     import psutil as _psutil  # type: ignore[import-untyped]
@@ -224,12 +224,18 @@ class ServerManager:
         on_status_change: Optional[Callable[[str, str], None]] = None,
         on_log: Optional[Callable[[str, str, str], None]] = None,
         on_visibility_change: Optional[Callable[[str, str], None]] = None,
+        get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = None,
+        get_dynamic_config_url: Optional[Callable[[str], str]] = None,
+        discord_notifier: Optional[Any] = None,
     ) -> None:
         self._instances: Dict[str, ServerInstance] = {}
         self._lock = threading.Lock()
         self._on_status_change   = on_status_change   or (lambda server_id, status: None)
         self._on_log             = on_log             or (lambda server_id, msg, level: None)
         self._on_visibility_change = on_visibility_change or (lambda server_id, mode: None)
+        self._get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = get_cluster_profile
+        self._get_dynamic_config_url: Optional[Callable[[str], str]] = get_dynamic_config_url
+        self._discord_notifier   = discord_notifier
 
         # Scheduler de tarefas agendadas
         self._sched_fired: Dict[str, date] = {}   # chave: "{srv_id}::{task_idx}::{hhmm}"
@@ -530,8 +536,20 @@ class ServerManager:
             return
 
         cfg = inst.config
+        # Resolve perfil de cluster (se o servidor tiver um vínculo)
+        cluster_profile = None
+        if cfg.cluster_profile_id and self._get_cluster_profile:
+            cluster_profile = self._get_cluster_profile(cfg.cluster_profile_id)
+            if cluster_profile:
+                self._emit_log(server_id, f"Usando perfil de cluster: {cluster_profile.name}", "info")
+        # Resolve URL de config dinâmica (se habilitada)
+        dynamic_url = ""
+        if cfg.dynamic_config_enabled and self._get_dynamic_config_url:
+            dynamic_url = self._get_dynamic_config_url(server_id)
+            if dynamic_url:
+                self._emit_log(server_id, f"Config dinâmica ativa: {dynamic_url}", "info")
         # Monta linha de comando
-        launch_str = cfg.build_launch_args()
+        launch_str = cfg.build_launch_args(cluster_profile=cluster_profile, dynamic_config_url=dynamic_url)
         # Substitui o placeholder do executável pelo caminho real
         full_cmd = launch_str.replace(f'"{cfg.server_exe}"', f'"{exe_path}"', 1)
 
@@ -889,6 +907,10 @@ class ServerManager:
         if inst:
             inst.status = status
         self._on_status_change(server_id, status)
+        if self._discord_notifier and inst:
+            self._discord_notifier.notify_status(
+                inst.config.name or server_id, status
+            )
 
     def _emit_log(self, server_id: str, msg: str, level: str = "info") -> None:
         inst = self._instances.get(server_id)

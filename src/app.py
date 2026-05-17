@@ -62,6 +62,7 @@ from .updater import UpdateChecker
 from .arkshop_manager import ArkShopManager, GENERAL_BOOL_LABELS
 from .mod_auto_updater import ModAutoUpdater
 from .backup_manager import BackupManager
+from .discord_notifier import DiscordNotifier
 from .buff_manager import (
     BuffManager, BuffEvent, BuffPreset, BuffRates,
     BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM,
@@ -73,6 +74,8 @@ from .version import APP_VERSION, BUILD_DATE, CHANGELOG
 from .beacon_client import get_beacon_client
 from .change_logger import ChangeLogger, snapshot_server, diff_snapshots
 from .ark_ini import parse_ini_text_to_sections, sections_to_ini_text
+from .ark_ini import build_dynamic_config
+from .dynamic_config_server import DynamicConfigServer
 
 APP_NAME = "ARKLAND - Server Manager"
 
@@ -271,10 +274,15 @@ class ARKServerManagerApp(ctk.CTk):
         # ── Gerenciadores ────────────────────────────────────────────────────
         self.config_manager = ConfigManager()
 
+        self._discord_notifier = DiscordNotifier(self.config_manager.config.discord_notify)
+
         self.server_manager = ServerManager(
             on_status_change=self._on_server_status_change,
             on_log=self._on_server_log,
             on_visibility_change=self._on_server_visibility_change,
+            get_cluster_profile=self.config_manager.get_cluster,
+            get_dynamic_config_url=self._get_dynamic_config_url,
+            discord_notifier=self._discord_notifier,
         )
         self.mod_manager = ModManager(
             steamcmd_path=self.config_manager.config.steamcmd_path,
@@ -300,6 +308,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._global_log_buf: List[str] = []
         self._tray_icon: Any = None
         self._sync_engine: Optional[SyncEngine] = None
+        self._cluster_sync_engines: Dict[str, SyncEngine] = {}  # engines de sync por cluster ID
+        self._dynamic_config_server = DynamicConfigServer()      # HTTP server para DynamicConfigURL
         # widgets do painel sync (referenciados fora de _build_sync_panel)
         self._sync_log_box: Any = None
         self._sync_status_lbl: Any = None
@@ -342,6 +352,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._build_ui()
         self.after(200, self._scan_running_servers)
         self.after(500, self._auto_start_sync)
+        self.after(1600, self._auto_start_cluster_syncs)
+        self.after(1700, self._auto_start_dynamic_configs)
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
         self.after(600, self._init_buff_manager)
@@ -408,6 +420,7 @@ class ARKServerManagerApp(ctk.CTk):
             ("⚡  BUFFs",          "buffs"),
             ("📊  Desempenho",     "desempenho"),
             ("🏪  ArkShop",        "arkshop"),
+            ("🔗  Clusters",       "clusters"),
             ("⚙️  Configurações",  "config"),
             ("ℹ️  Sobre",           "sobre"),
         ]):
@@ -446,6 +459,29 @@ class ARKServerManagerApp(ctk.CTk):
         self._sidebar_update_lbl = ctk.CTkLabel(
             sb, text="", font=ctk.CTkFont(size=10), text_color="#ffaa44", wraplength=180)
         self._sidebar_update_lbl.grid(row=13, column=0, padx=10, pady=4)
+
+        # ── Botões de Perfil ──────────────────────────────────────────────────
+        ctk.CTkFrame(sb, height=1, fg_color="#2a2a44").grid(
+            row=14, column=0, sticky="ew", padx=12, pady=(2, 4))
+        ctk.CTkLabel(sb, text="PERFIL",
+                     font=ctk.CTkFont(size=10, weight="bold"), text_color="gray50").grid(
+            row=15, column=0, padx=16, pady=(0, 2), sticky="w")
+        profile_fr = ctk.CTkFrame(sb, fg_color="transparent")
+        profile_fr.grid(row=16, column=0, padx=10, pady=(0, 10), sticky="ew")
+        profile_fr.grid_columnconfigure(0, weight=1)
+        profile_fr.grid_columnconfigure(1, weight=1)
+        ctk.CTkButton(
+            profile_fr, text="💾 Exportar", height=28,
+            fg_color="#252540", hover_color="#1a1a35",
+            font=ctk.CTkFont(size=11),
+            command=self._export_profile,
+        ).grid(row=0, column=0, padx=(0, 2), sticky="ew")
+        ctk.CTkButton(
+            profile_fr, text="📂 Importar", height=28,
+            fg_color="#252540", hover_color="#1a1a35",
+            font=ctk.CTkFont(size=11),
+            command=self._import_profile,
+        ).grid(row=0, column=1, padx=(2, 0), sticky="ew")
 
     def _rebuild_server_sidebar(self) -> None:
         """Atualiza a lista de botões de servidores na sidebar.
@@ -544,6 +580,12 @@ class ARKServerManagerApp(ctk.CTk):
         self._build_arkshop_panel(arkshop)
         self._frames["arkshop"] = arkshop
         arkshop.grid_remove()
+
+        clusters = ctk.CTkFrame(self, corner_radius=0, fg_color=_BG)
+        clusters.grid(row=0, column=1, sticky="nsew")
+        self._build_clusters_panel(clusters)
+        self._frames["clusters"] = clusters
+        clusters.grid_remove()
 
         conf = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         conf.grid(row=0, column=1, sticky="nsew")
@@ -2306,6 +2348,12 @@ class ARKServerManagerApp(ctk.CTk):
         w["whitelist_only"]     = tk.BooleanVar(value=srv.whitelist_only)
         w["auto_restart_crash"] = tk.BooleanVar(value=srv.auto_restart_on_crash)
         w["auto_update_start"]  = tk.BooleanVar(value=srv.auto_update_on_start)
+        w["crossplay"]          = tk.BooleanVar(value=srv.crossplay)
+        w["epic_only"]          = tk.BooleanVar(value=srv.epic_only)
+        w["use_vivox"]          = tk.BooleanVar(value=srv.use_vivox)
+        w["use_item_dupe_check"]= tk.BooleanVar(value=srv.use_item_dupe_check)
+        w["prevent_spawn_anim"] = tk.BooleanVar(value=srv.prevent_spawn_animations)
+        w["show_floating_dmg"]  = tk.BooleanVar(value=srv.show_floating_damage_text)
 
         self._section_lbl(scroll, 22, "🔧  Flags")
         checkboxes = [
@@ -2327,6 +2375,24 @@ class ARKServerManagerApp(ctk.CTk):
             ("Atualizar servidor ao iniciar",
              "Verifica e aplica atualizações via SteamCMD antes de iniciar.",
              w["auto_update_start"]),
+            ("Crossplay Epic + Steam",
+             "Permite que jogadores da Epic e do Steam se conectem ao mesmo servidor.",
+             w["crossplay"]),
+            ("Apenas Epic Games",
+             "Somente jogadores da Epic Game Store podem se conectar ao servidor.",
+             w["epic_only"]),
+            ("Vivox (chat de voz)",
+             "Ativa o Vivox para comunicação de voz entre jogadores (somente Steam).",
+             w["use_vivox"]),
+            ("Proteção anti-dupe de itens",
+             "Ativa verificação adicional contra duplicação. Pode impactar alguns mods.",
+             w["use_item_dupe_check"]),
+            ("Sem animação de spawn",
+             "Desativa a animação de acordar ao (re)nascer no servidor.",
+             w["prevent_spawn_anim"]),
+            ("Dano flutuante (estilo RPG)",
+             "Exibe texto de dano flutuante no estilo RPG ao atacar/ser atacado.",
+             w["show_floating_dmg"]),
         ]
         for ci, (txt, hint_txt, var) in enumerate(checkboxes):
             self._register_config_item(srv.id, txt, hint_txt, "Geral")
@@ -2339,7 +2405,7 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=10), anchor="w").pack(
                 anchor="w", padx=(26, 0), pady=(0, 2))
 
-        self._save_btn_row(scroll, 34, srv.id)
+        self._save_btn_row(scroll, 40, srv.id)
 
         # ── Seletor de núcleos de CPU ────────────────────────────────────
         import os as _os
@@ -2358,7 +2424,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._register_config_item(srv.id, "Núcleos de CPU", "Restringe quantos núcleos lógicos o servidor pode usar.", "Geral")
         cpu_fr = ctk.CTkFrame(scroll, fg_color="transparent")
-        cpu_fr.grid(row=29, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+        cpu_fr.grid(row=35, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
         ctk.CTkLabel(cpu_fr, text="Núcleos de CPU:",
                      font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
         ctk.CTkLabel(cpu_fr,
@@ -2372,9 +2438,9 @@ class ARKServerManagerApp(ctk.CTk):
         ).pack(anchor="w")
 
         # ── Seção Agendamentos ────────────────────────────────────────────────
-        self._section_lbl(scroll, 30, "⏰  Agendamentos Automáticos")
+        self._section_lbl(scroll, 36, "⏰  Agendamentos Automáticos")
         sched_outer = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        sched_outer.grid(row=31, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        sched_outer.grid(row=37, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         sched_outer.grid_columnconfigure(0, weight=1)
 
         _DAY_LABELS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -2461,9 +2527,9 @@ class ARKServerManagerApp(ctk.CTk):
         ).grid(row=1, column=0, padx=16, pady=(0, 10), sticky="w")
 
         # ── Seção Instalação ─────────────────────────────────────────────────
-        self._section_lbl(scroll, 32, "⬇️  Instalação / Atualização do Servidor")
+        self._section_lbl(scroll, 38, "⬇️  Instalação / Atualização do Servidor")
         inst_card = ctk.CTkFrame(scroll, corner_radius=12, fg_color=_CARD_BG)
-        inst_card.grid(row=33, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        inst_card.grid(row=39, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
         inst_card.grid_columnconfigure(0, weight=1)
 
         btn_row = ctk.CTkFrame(inst_card, fg_color="transparent")
@@ -2894,9 +2960,11 @@ class ARKServerManagerApp(ctk.CTk):
             tbl = ctk.CTkFrame(outer, fg_color="transparent")
             tbl.grid(row=1, column=0, padx=10, pady=(0, 12), sticky="ew")
             tbl.grid_columnconfigure(0, weight=1)
-            tbl.grid_columnconfigure(1, minsize=92)
-            tbl.grid_columnconfigure(2, minsize=92)
-            tbl.grid_columnconfigure(3, minsize=92)
+            tbl.grid_columnconfigure(1, minsize=82)
+            tbl.grid_columnconfigure(2, minsize=82)
+            tbl.grid_columnconfigure(3, minsize=82)
+            tbl.grid_columnconfigure(4, minsize=82)
+            tbl.grid_columnconfigure(5, minsize=82)
 
             # Cabeçalho
             ctk.CTkLabel(tbl, text="Stat", anchor="w",
@@ -2904,9 +2972,11 @@ class ARKServerManagerApp(ctk.CTk):
                          font=ctk.CTkFont(size=10, weight="bold")).grid(
                 row=0, column=0, padx=(8, 4), pady=(0, 2), sticky="w")
             for col_i, (col_txt, col_color) in enumerate([
-                ("Dino Domado",   "#4fc3f7"),
-                ("Dino Selvagem", "#a5d6a7"),
-                ("Jogador",       "#ffcc80"),
+                ("Domado (IdM)",       "#4fc3f7"),
+                ("Dom. Bônus (TaM)",  "#ce93d8"),
+                ("Dom. Afinid. (TmM)", "#f48fb1"),
+                ("Selvagem (IwM)",     "#a5d6a7"),
+                ("Jogador",            "#ffcc80"),
             ], start=1):
                 ctk.CTkLabel(tbl, text=col_txt, anchor="center",
                              text_color=col_color,
@@ -2914,39 +2984,50 @@ class ARKServerManagerApp(ctk.CTk):
                     row=0, column=col_i, padx=4, pady=(0, 2))
 
             ctk.CTkFrame(tbl, height=1, fg_color="gray30").grid(
-                row=1, column=0, columnspan=4, sticky="ew", padx=4, pady=(0, 2))
+                row=1, column=0, columnspan=6, sticky="ew", padx=4, pady=(0, 2))
 
             # Linhas de stat
-            for stat_idx, emoji, stat_name, stat_hint in _PLSM_STATS:
+            for i, (stat_idx, emoji, stat_name, stat_hint) in enumerate(_PLSM_STATS):
                 tr = stat_idx + 2
                 self._register_config_item(
                     srv.id, f"{stat_name} — Stats/Nível", stat_hint, "Jogo")
 
-                name_fr = ctk.CTkFrame(tbl, fg_color="transparent")
-                name_fr.grid(row=tr, column=0, padx=(8, 4), pady=1, sticky="w")
+                stripe = "#1c1c2e" if i % 2 == 0 else "#13131c"
+                row_fr = ctk.CTkFrame(tbl, fg_color=stripe, corner_radius=4)
+                row_fr.grid(row=tr, column=0, columnspan=6, sticky="ew", padx=2, pady=1)
+                row_fr.grid_columnconfigure(0, weight=1)
+                row_fr.grid_columnconfigure(1, minsize=82)
+                row_fr.grid_columnconfigure(2, minsize=82)
+                row_fr.grid_columnconfigure(3, minsize=82)
+                row_fr.grid_columnconfigure(4, minsize=82)
+                row_fr.grid_columnconfigure(5, minsize=82)
+
                 ctk.CTkLabel(
-                    name_fr,
+                    row_fr,
                     text=f"{emoji}  {stat_name}",
                     text_color="gray65",
                     font=ctk.CTkFont(size=11),
                     anchor="w", width=188,
-                ).pack(side="left")
+                ).grid(row=0, column=0, padx=(8, 4), pady=3, sticky="w")
 
                 for col_i, (group, grp_attr) in enumerate([
-                    ("tamed",  "per_level_stats_mult_dino_tamed"),
-                    ("wild",   "per_level_stats_mult_dino_wild"),
-                    ("player", "per_level_stats_mult_player"),
+                    ("tamed",          "per_level_stats_mult_dino_tamed"),
+                    ("tamed_add",      "per_level_stats_mult_dino_tamed_add"),
+                    ("tamed_affinity", "per_level_stats_mult_dino_tamed_affinity"),
+                    ("wild",           "per_level_stats_mult_dino_wild"),
+                    ("player",         "per_level_stats_mult_player"),
                 ], start=1):
                     val = getattr(gs, grp_attr)[stat_idx]
                     var = tk.StringVar(value=f"{val:.4g}")
                     w[f"gs_plsm_{group}_{stat_idx}"] = var
                     ent = ctk.CTkEntry(
-                        tbl, textvariable=var,
+                        row_fr, textvariable=var,
                         width=82, height=26,
                         justify="center",
                         font=ctk.CTkFont(size=11),
+                        fg_color="#0a0a14",
                     )
-                    ent.grid(row=tr, column=col_i, padx=4, pady=1)
+                    ent.grid(row=0, column=col_i, padx=4, pady=3)
 
                     def _make_commit(v=var):
                         def _commit(e=None):
@@ -3057,13 +3138,85 @@ class ARKServerManagerApp(ctk.CTk):
         r = 0
         self._section_lbl(scroll, r, "🌐  Cross-ARK (Cluster)")
         r += 1
-        brow("Habilitar Cluster (Cross-ARK)",
-             "Permite que múltiplos servidores compartilhem tribos, dinos e itens entre si.",
-             "enabled", cl.enabled, r, "cl_")
+
+        # ── Seletor de Perfil de Cluster ──────────────────────────────────────
+        profiles = self.config_manager.clusters
+        profile_names = ["— Manual (por servidor) —"] + [p.name for p in profiles]
+        profile_ids   = [""] + [p.id for p in profiles]
+        current_pid   = srv.cluster_profile_id
+        current_idx   = profile_ids.index(current_pid) if current_pid in profile_ids else 0
+
+        w["cl_profile_id_var"] = tk.StringVar(value=profile_ids[current_idx])
+
+        prof_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        prof_fr.grid(row=r, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(prof_fr, text="Perfil de Cluster:", width=310, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(prof_fr,
+                     text="Selecione um perfil global ou configure manualmente abaixo.",
+                     width=310, anchor="w", text_color="gray40",
+                     font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+
+        def _on_profile_select(choice: str) -> None:
+            idx = profile_names.index(choice) if choice in profile_names else 0
+            pid = profile_ids[idx]
+            w["cl_profile_id_var"].set(pid)
+            # Habilita/desabilita campos manuais conforme seleção
+            state = "disabled" if pid else "normal"
+            for widget_key in ("_cl_id_entry", "_cl_dir_entry", "_cl_dir_btn"):
+                wgt = w.get(widget_key)
+                if wgt:
+                    try:
+                        wgt.configure(state=state)
+                    except Exception:
+                        pass
+            if pid:
+                prof = self.config_manager.get_cluster(pid)
+                if prof:
+                    w.get("cl_cluster_id",  tk.StringVar()).set(prof.cluster_id)
+                    w.get("cl_cluster_dir", tk.StringVar()).set(prof.cluster_dir)
+            _cl_enabled_state = "disabled" if pid else "normal"
+            cl_en_cb = w.get("_cl_enabled_cb")
+            if cl_en_cb:
+                try:
+                    cl_en_cb.configure(state=_cl_enabled_state)
+                except Exception:
+                    pass
+
+        prof_combo = ctk.CTkOptionMenu(
+            scroll, values=profile_names, width=280, height=30,
+            fg_color=_CARD_BG, button_color=_BLUE, button_hover_color=_BLUE_HOVER,
+            command=_on_profile_select,
+        )
+        prof_combo.set(profile_names[current_idx])
+        prof_combo.grid(row=r, column=1, padx=4, pady=4, sticky="w")
+        r += 1
+
+        # ─────────────────────────────────────────────────────────────────────
+        _manual_locked = bool(current_pid)   # campos bloqueados quando perfil ativo
+
+        _cl_enabled_cb_var = tk.BooleanVar(value=cl.enabled)
+        w["cl_enabled"] = _cl_enabled_cb_var
+        cb_fr2 = ctk.CTkFrame(scroll, fg_color="transparent")
+        cb_fr2.grid(row=r, column=0, columnspan=2, padx=16, pady=(4, 0), sticky="w")
+        _cl_en_cb = ctk.CTkCheckBox(
+            cb_fr2, text="Habilitar Cluster (Cross-ARK)",
+            variable=_cl_enabled_cb_var,
+            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            state="disabled" if _manual_locked else "normal",
+        )
+        _cl_en_cb.pack(anchor="w")
+        ctk.CTkLabel(cb_fr2,
+                     text="Permite que múltiplos servidores compartilhem tribos, dinos e itens entre si.",
+                     text_color="gray40", font=ctk.CTkFont(size=10), anchor="w").pack(
+            anchor="w", padx=(26, 0), pady=(0, 2))
+        w["_cl_enabled_cb"] = _cl_en_cb
         r += 1
 
         w["cl_cluster_id"]  = tk.StringVar(value=cl.cluster_id)
         w["cl_cluster_dir"] = tk.StringVar(value=cl.cluster_dir_override)
+        w["cl_alt_save_dir"] = tk.StringVar(value=srv.alt_save_directory_name)
 
         cid_fr = ctk.CTkFrame(scroll, fg_color="transparent")
         cid_fr.grid(row=r, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
@@ -3073,9 +3226,11 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkLabel(cid_fr, text="Identificador único do cluster. Todos os servidores do mesmo cluster devem usar o mesmo ID.",
                      width=310, anchor="w", text_color="gray40",
                      font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
-        ctk.CTkEntry(scroll, textvariable=w["cl_cluster_id"], height=30,
-                     placeholder_text="Ex: MeuCluster123").grid(
-            row=r, column=1, padx=4, pady=4, sticky="ew")
+        _cl_id_entry = ctk.CTkEntry(scroll, textvariable=w["cl_cluster_id"], height=30,
+                                    placeholder_text="Ex: MeuCluster123",
+                                    state="disabled" if _manual_locked else "normal")
+        _cl_id_entry.grid(row=r, column=1, padx=4, pady=4, sticky="ew")
+        w["_cl_id_entry"] = _cl_id_entry
         r += 1
 
         cdir_fr = ctk.CTkFrame(scroll, fg_color="transparent")
@@ -3089,13 +3244,33 @@ class ARKServerManagerApp(ctk.CTk):
         dir_fr = ctk.CTkFrame(scroll, fg_color="transparent")
         dir_fr.grid(row=r, column=1, padx=4, pady=4, sticky="ew")
         dir_fr.grid_columnconfigure(0, weight=1)
-        ctk.CTkEntry(dir_fr, textvariable=w["cl_cluster_dir"], height=30).grid(
-            row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(dir_fr, text="📁", width=34, height=30,
-                      command=lambda: self._browse_dir(w["cl_cluster_dir"])).grid(row=0, column=1)
+        _cl_dir_entry = ctk.CTkEntry(dir_fr, textvariable=w["cl_cluster_dir"], height=30,
+                                     state="disabled" if _manual_locked else "normal")
+        _cl_dir_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        _cl_dir_btn = ctk.CTkButton(dir_fr, text="📁", width=34, height=30,
+                                    state="disabled" if _manual_locked else "normal",
+                                    command=lambda: self._browse_dir(w["cl_cluster_dir"]))
+        _cl_dir_btn.grid(row=0, column=1)
+        w["_cl_dir_entry"] = _cl_dir_entry
+        w["_cl_dir_btn"]   = _cl_dir_btn
         r += 1
 
-        self._section_lbl(scroll, r, "🚫  Restrições de Transferência (Cross-ARK)")
+        asdir_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        asdir_fr.grid(row=r, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(asdir_fr, text="Nome da Pasta de Saves:", width=310, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(asdir_fr,
+                     text="Pasta única de saves para este servidor (?AltSaveDirectoryName). "
+                          "Obrigatório ao rodar múltiplos servidores na mesma máquina.",
+                     width=310, anchor="w", text_color="gray40",
+                     font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+        _cl_asdir_entry = ctk.CTkEntry(scroll, textvariable=w["cl_alt_save_dir"], height=30,
+                                       placeholder_text="Ex: Save1",
+                                       state="disabled" if _manual_locked else "normal")
+        _cl_asdir_entry.grid(row=r, column=1, padx=4, pady=4, sticky="ew")
+        w["_cl_asdir_entry"] = _cl_asdir_entry
+        r += 1
         r += 1
         brow("Bloquear Download de Sobreviventes",
              "Impede jogadores de importar personagens de outros servidores do cluster.",
@@ -3211,6 +3386,60 @@ class ARKServerManagerApp(ctk.CTk):
         brow("Forçar Explosivos em Voadores",
              "Dinos voadores podem transportar C4 e explosivos em PvP.",
              "force_flyer_explosives",                    adv.force_flyer_explosives,                    r)
+        r += 1
+
+        # ── Config Dinâmica (DynamicConfigURL) ───────────────────────────────
+        self._section_lbl(scroll, r, "⚡  Config Dinâmica (sem reinício)")
+        r += 1
+
+        dyn_card = ctk.CTkFrame(scroll, corner_radius=10, fg_color=_CARD_BG)
+        dyn_card.grid(row=r, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="ew")
+        dyn_card.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            dyn_card,
+            text="O ARK suporta -DynamicConfigURL: o servidor busca um arquivo INI periodicamente (~2 min)\n"
+                 "e aplica multiplicadores de rate, breeding etc. sem reiniciar. Funciona apenas com\n"
+                 "servidores iniciados pelo app após ativar esta opção.",
+            text_color="gray55", font=ctk.CTkFont(size=10), justify="left",
+        ).grid(row=0, column=0, columnspan=2, padx=16, pady=(10, 6), sticky="w")
+
+        self._register_config_item(srv.id,
+            "Config Dinâmica", "Aplica mudanças de rate sem reiniciar via DynamicConfigURL.", "Avançado")
+        w["dynamic_config_enabled"] = tk.BooleanVar(value=srv.dynamic_config_enabled)
+        dyn_cb_fr = ctk.CTkFrame(dyn_card, fg_color="transparent")
+        dyn_cb_fr.grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 4), sticky="w")
+        ctk.CTkCheckBox(
+            dyn_cb_fr, text="Ativar Config Dinâmica",
+            variable=w["dynamic_config_enabled"],
+            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        ).pack(side="left")
+
+        dyn_url_var = tk.StringVar(value=(
+            self._dynamic_config_server.get_url(srv.id)
+            if srv.dynamic_config_enabled else "—"
+        ))
+        w["_dyn_url_var"] = dyn_url_var
+        ctk.CTkLabel(dyn_cb_fr, textvariable=dyn_url_var,
+                     text_color="gray45", font=ctk.CTkFont(size=10)).pack(
+            side="left", padx=(14, 0))
+
+        dyn_btn_row = ctk.CTkFrame(dyn_card, fg_color="transparent")
+        dyn_btn_row.grid(row=2, column=0, columnspan=2, padx=12, pady=(4, 12), sticky="w")
+
+        ctk.CTkButton(
+            dyn_btn_row,
+            text="⚡  Aplicar Sem Reiniciar",
+            height=34, width=200,
+            fg_color="#2a6a9a", hover_color="#3a7aaa",
+            command=lambda sid=srv.id: self._push_dynamic_config(sid),
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkLabel(
+            dyn_btn_row,
+            text="Atualiza o conteúdo servido — ARK aplicará na próxima poll.",
+            text_color="gray50", font=ctk.CTkFont(size=10),
+        ).pack(side="left")
         r += 1
 
         # ── Importar / Sincronizar INI ────────────────────────────────────────
@@ -6053,12 +6282,77 @@ class ARKServerManagerApp(ctk.CTk):
                      text_color="gray45", font=ctk.CTkFont(size=10)).grid(
             row=5, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
 
+        # ── Seção Discord ───────────────────────────────────────────
+        self._section_lbl(parent, 8, "🔔  Notificações Discord")
+        disc_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        disc_card.grid(row=9, column=0, padx=20, pady=(0, 14), sticky="ew")
+        disc_card.grid_columnconfigure(1, weight=1)
+
+        dc = cfg.discord_notify
+        self._discord_enabled_var    = tk.BooleanVar(value=dc.enabled)
+        self._discord_url_var        = tk.StringVar(value=dc.webhook_url)
+        self._discord_sender_var     = tk.StringVar(value=dc.sender_name)
+        self._discord_notify_start   = tk.BooleanVar(value=dc.notify_start)
+        self._discord_notify_stop    = tk.BooleanVar(value=dc.notify_stop)
+        self._discord_notify_crash   = tk.BooleanVar(value=dc.notify_crash)
+        self._discord_notify_update  = tk.BooleanVar(value=dc.notify_update)
+        self._discord_notify_backup  = tk.BooleanVar(value=dc.notify_backup)
+
+        ctk.CTkCheckBox(
+            disc_card, text="Ativar notificações Discord",
+            variable=self._discord_enabled_var,
+            checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        ).grid(row=0, column=0, columnspan=2, padx=16, pady=(16, 4), sticky="w")
+        ctk.CTkLabel(disc_card,
+                     text="Envia mensagens para um canal Discord quando eventos de servidor ocorrem.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=1, column=0, columnspan=2, padx=(42, 16), pady=(0, 10), sticky="w")
+
+        ctk.CTkLabel(disc_card, text="URL do Webhook:", width=160, anchor="w",
+                     text_color="gray60").grid(row=2, column=0, padx=16, pady=(4, 0), sticky="w")
+        ctk.CTkEntry(disc_card, textvariable=self._discord_url_var, height=32,
+                     placeholder_text="https://discord.com/api/webhooks/...").grid(
+            row=2, column=1, padx=(0, 16), pady=(4, 0), sticky="ew")
+        ctk.CTkLabel(disc_card,
+                     text="Obtenha em: Canal Discord → Editar Canal → Integrações → Webhooks → Novo Webhook → Copiar URL",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=3, column=0, columnspan=2, padx=(16, 16), pady=(0, 6), sticky="w")
+
+        ctk.CTkLabel(disc_card, text="Nome do remetente:", width=160, anchor="w",
+                     text_color="gray60").grid(row=4, column=0, padx=16, pady=4, sticky="w")
+        ctk.CTkEntry(disc_card, textvariable=self._discord_sender_var, height=32,
+                     placeholder_text="ARKLAND").grid(
+            row=4, column=1, padx=(0, 16), pady=4, sticky="ew")
+        ctk.CTkLabel(disc_card,
+                     text="Nome exibido como autor das mensagens no Discord.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=5, column=0, columnspan=2, padx=(16, 16), pady=(0, 6), sticky="w")
+
+        ctk.CTkLabel(disc_card, text="Notificar em:", text_color="gray55",
+                     font=ctk.CTkFont(size=11, weight="bold")).grid(
+            row=6, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
+
+        evt_fr = ctk.CTkFrame(disc_card, fg_color="transparent")
+        evt_fr.grid(row=7, column=0, columnspan=2, padx=12, pady=(0, 14), sticky="w")
+        for ci, (txt, var) in enumerate([
+            ("🟡 Iniciando / Online",  self._discord_notify_start),
+            ("🔴 Parado / Encerrando", self._discord_notify_stop),
+            ("💥 Crash",               self._discord_notify_crash),
+            ("🔄 Atualização de mods", self._discord_notify_update),
+            ("💾 Backup concluído",   self._discord_notify_backup),
+        ]):
+            ctk.CTkCheckBox(
+                evt_fr, text=txt, variable=var, width=200,
+                checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                font=ctk.CTkFont(size=11),
+            ).grid(row=ci // 3, column=ci % 3, padx=8, pady=3, sticky="w")
+
         ctk.CTkButton(
             parent, text="💾  Salvar Configurações Globais",
             height=44, font=ctk.CTkFont(size=14, weight="bold"),
             fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
             command=self._save_global_config,
-        ).grid(row=8, column=0, padx=20, pady=(0, 24), sticky="ew")
+        ).grid(row=10, column=0, padx=20, pady=(0, 24), sticky="ew")
 
     # ══════════════════════════════════════════════════════════════════════════
     # Sobre / Atualizações
@@ -8420,6 +8714,525 @@ class ARKServerManagerApp(ctk.CTk):
         return None
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Painel Cross-ARK Clusters
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_clusters_panel(self, parent: ctk.CTkFrame) -> None:
+        from .server_config import ClusterProfile
+        parent.grid_columnconfigure(0, weight=0)
+        parent.grid_columnconfigure(1, weight=1)
+        parent.grid_rowconfigure(1, weight=1)
+
+        # ── Cabeçalho ─────────────────────────────────────────────────────────
+        hdr = ctk.CTkFrame(parent, fg_color="transparent")
+        hdr.grid(row=0, column=0, columnspan=2, padx=24, pady=(20, 8), sticky="ew")
+        hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(hdr, text="🔗  Clusters Cross-ARK",
+                     font=ctk.CTkFont(size=22, weight="bold")).grid(
+            row=0, column=0, sticky="w")
+        ctk.CTkLabel(
+            hdr,
+            text=(
+                "Gerencie perfis de cluster para conectar múltiplos servidores (mesmo app) "
+                "ou máquinas diferentes na rede via pasta compartilhada."
+            ),
+            text_color="gray55", font=ctk.CTkFont(size=12),
+        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+        # ── Lista à esquerda ──────────────────────────────────────────────────
+        list_fr = ctk.CTkFrame(parent, fg_color=_SIDEBAR_BG, corner_radius=12, width=220)
+        list_fr.grid(row=1, column=0, padx=(20, 6), pady=(0, 20), sticky="nsew")
+        list_fr.grid_propagate(False)
+        list_fr.grid_rowconfigure(1, weight=1)
+        list_fr.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(list_fr, text="PERFIS", font=ctk.CTkFont(size=10, weight="bold"),
+                     text_color="gray50").grid(row=0, column=0, padx=14, pady=(12, 4), sticky="w")
+
+        self._cluster_list_box = ctk.CTkScrollableFrame(list_fr, fg_color="transparent")
+        self._cluster_list_box.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
+        self._cluster_list_box.grid_columnconfigure(0, weight=1)
+
+        add_btn = ctk.CTkButton(
+            list_fr, text="＋  Novo Cluster", height=34,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            font=ctk.CTkFont(size=12, weight="bold"),
+            command=self._cluster_new,
+        )
+        add_btn.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+
+        # ── Detalhe à direita ─────────────────────────────────────────────────
+        self._cluster_detail_fr = ctk.CTkScrollableFrame(parent, fg_color=_BG)
+        self._cluster_detail_fr.grid(row=1, column=1, padx=(0, 20), pady=(0, 20), sticky="nsew")
+        self._cluster_detail_fr.grid_columnconfigure(0, weight=1)
+
+        self._cluster_selected_id: str = ""
+        self._cluster_detail_widgets: dict = {}
+
+        self._clusters_refresh_list()
+
+    def _clusters_refresh_list(self) -> None:
+        """Atualiza o painel esquerdo com os perfis de cluster existentes."""
+        for w in self._cluster_list_box.winfo_children():
+            w.destroy()
+
+        clusters = self.config_manager.clusters
+        if not clusters:
+            ctk.CTkLabel(self._cluster_list_box, text="Nenhum perfil criado.",
+                         text_color="gray50", font=ctk.CTkFont(size=11)).grid(
+                row=0, column=0, padx=12, pady=16)
+            return
+
+        for i, prof in enumerate(clusters):
+            mode_icon = "🖥" if prof.mode == "local" else "🌐"
+            row_fr = ctk.CTkFrame(self._cluster_list_box,
+                                  fg_color=_CARD_BG if prof.id == self._cluster_selected_id else "transparent",
+                                  corner_radius=8)
+            row_fr.grid(row=i, column=0, padx=4, pady=2, sticky="ew")
+            row_fr.grid_columnconfigure(0, weight=1)
+            btn = ctk.CTkButton(
+                row_fr,
+                text=f"{mode_icon}  {prof.name}",
+                anchor="w", fg_color="transparent", hover_color="#252540",
+                text_color="#d8d8e8", height=34,
+                command=lambda pid=prof.id: self._cluster_select(pid),
+            )
+            btn.grid(row=0, column=0, sticky="ew", padx=2)
+
+    def _cluster_select(self, cluster_id: str) -> None:
+        self._cluster_selected_id = cluster_id
+        self._clusters_refresh_list()
+        prof = self.config_manager.get_cluster(cluster_id)
+        if prof:
+            self._cluster_build_detail(prof)
+
+    def _cluster_new(self) -> None:
+        from .server_config import ClusterProfile
+        prof = ClusterProfile()
+        self.config_manager.add_cluster(prof)
+        self._cluster_selected_id = prof.id
+        self._clusters_refresh_list()
+        self._cluster_build_detail(prof)
+
+    def _cluster_build_detail(self, prof) -> None:
+        for w in self._cluster_detail_fr.winfo_children():
+            w.destroy()
+        dw = self._cluster_detail_widgets
+        dw.clear()
+        parent = self._cluster_detail_fr
+
+        # ── Título ────────────────────────────────────────────────────────────
+        self._section_lbl(parent, 0, f"📋  Perfil: {prof.name}")
+
+        card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        card.grid(row=1, column=0, padx=20, pady=(0, 12), sticky="ew")
+        card.grid_columnconfigure(1, weight=1)
+
+        def _lbl(text, hint=""):
+            fr = ctk.CTkFrame(card, fg_color="transparent")
+            ctk.CTkLabel(fr, text=text, anchor="w", text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(fr, text=hint, anchor="w", text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w")
+            return fr
+
+        r = 0
+        # Nome
+        _lbl("Nome do perfil:").grid(row=r, column=0, padx=(18, 6), pady=(14, 4), sticky="w")
+        dw["name"] = tk.StringVar(value=prof.name)
+        ctk.CTkEntry(card, textvariable=dw["name"], height=30, width=260).grid(
+            row=r, column=1, padx=(0, 18), pady=(14, 4), sticky="w")
+        r += 1
+
+        # Modo
+        _lbl("Modo:", "Local = mesma máquina | Rede = pasta UNC/mapeada").grid(
+            row=r, column=0, padx=(18, 6), pady=4, sticky="w")
+        dw["mode"] = tk.StringVar(value=prof.mode)
+        mode_menu = ctk.CTkOptionMenu(
+            card, variable=dw["mode"], width=200, height=30,
+            values=["local", "network"],
+            fg_color=_CARD_BG, button_color=_BLUE, button_hover_color=_BLUE_HOVER,
+        )
+        mode_menu.set(prof.mode)
+        mode_menu.grid(row=r, column=1, padx=(0, 18), pady=4, sticky="w")
+        r += 1
+
+        # Cluster ID
+        _lbl("Cluster ID:",
+             "Mesmo ID em todos os servidores do cluster. Gerado automaticamente.").grid(
+            row=r, column=0, padx=(18, 6), pady=4, sticky="w")
+        dw["cluster_id"] = tk.StringVar(value=prof.cluster_id)
+        cid_row = ctk.CTkFrame(card, fg_color="transparent")
+        cid_row.grid(row=r, column=1, padx=(0, 18), pady=4, sticky="ew")
+        cid_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(cid_row, textvariable=dw["cluster_id"], height=30).grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(cid_row, text="🔄", width=34, height=30,
+                      command=lambda: dw["cluster_id"].set(
+                          __import__("uuid").uuid4().hex[:20])
+                      ).grid(row=0, column=1)
+        r += 1
+
+        # Pasta do cluster
+        _lbl("Pasta do Cluster:",
+             "Local: caminho local (ex: C:\\ARKCluster)\n"
+             "Rede: caminho UNC (ex: \\\\servidor\\ARKCluster) ou drive mapeado").grid(
+            row=r, column=0, padx=(18, 6), pady=4, sticky="nw")
+        dw["cluster_dir"] = tk.StringVar(value=prof.cluster_dir)
+        dir_row = ctk.CTkFrame(card, fg_color="transparent")
+        dir_row.grid(row=r, column=1, padx=(0, 18), pady=4, sticky="ew")
+        dir_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(dir_row, textvariable=dw["cluster_dir"], height=30,
+                     placeholder_text="C:\\ARKCluster  ou  \\\\servidor\\ARKCluster").grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(dir_row, text="📁", width=34, height=30,
+                      command=lambda: self._browse_dir(dw["cluster_dir"])).grid(row=0, column=1)
+        r += 1
+
+        # Restrições
+        self._section_lbl(parent, 2, "🚫  Restrições de Transferência")
+        rest_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        rest_card.grid(row=3, column=0, padx=20, pady=(0, 12), sticky="ew")
+        rest_card.grid_columnconfigure(0, weight=1)
+
+        for rr, (field_key, label, hint) in enumerate([
+            ("prevent_download_survivors", "Bloquear Download de Sobreviventes",
+             "Impede jogadores de importar personagens de outros servidores."),
+            ("prevent_download_items",     "Bloquear Download de Itens",
+             "Impede trazer itens de outros servidores."),
+            ("prevent_download_dinos",     "Bloquear Download de Dinos",
+             "Impede trazer dinos domesticados de outros servidores."),
+            ("no_transfer_from_filtering", "Bloquear Transferência por Filtro",
+             "Impede transferências bloqueadas por restrições de filtro de mapa."),
+        ]):
+            dw[field_key] = tk.BooleanVar(value=getattr(prof, field_key))
+            cb_fr = ctk.CTkFrame(rest_card, fg_color="transparent")
+            cb_fr.grid(row=rr, column=0, padx=16, pady=(8 if rr == 0 else 2, 2), sticky="w")
+            ctk.CTkCheckBox(cb_fr, text=label, variable=dw[field_key],
+                            checkmark_color="white", fg_color=_GREEN_DARK,
+                            hover_color=_GREEN_HOVER).pack(anchor="w")
+            ctk.CTkLabel(cb_fr, text=hint, text_color="gray40",
+                         font=ctk.CTkFont(size=10), anchor="w").pack(
+                anchor="w", padx=(26, 0), pady=(0, 2))
+
+        # ── Sincronização de Dados de Viagem ─────────────────────────────────
+        self._section_lbl(parent, 4, "🔄  Sincronização de Dados de Viagem")
+        sync_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        sync_card.grid(row=5, column=0, padx=20, pady=(0, 12), sticky="ew")
+        sync_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            sync_card,
+            text=(
+                "Mantém sincronizados os arquivos de personagens, itens e dinos entre a pasta local do ARK\n"
+                "e a pasta compartilhada de rede. Necessário quando os servidores estão em máquinas diferentes."
+            ),
+            text_color="gray50", font=ctk.CTkFont(size=10), justify="left", anchor="w",
+        ).grid(row=0, column=0, columnspan=2, padx=16, pady=(10, 4), sticky="w")
+
+        def _slbl(text, hint=""):
+            fr = ctk.CTkFrame(sync_card, fg_color="transparent")
+            ctk.CTkLabel(fr, text=text, anchor="w", text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(fr, text=hint, anchor="w", text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w")
+            return fr
+
+        sr = 1
+        dw["sync_enabled"] = tk.BooleanVar(value=getattr(prof, "sync_enabled", False))
+        ctk.CTkCheckBox(
+            sync_card,
+            text="Sincronizar automaticamente com a pasta de rede",
+            variable=dw["sync_enabled"],
+            checkmark_color="white", fg_color=_BLUE, hover_color=_BLUE_HOVER,
+        ).grid(row=sr, column=0, columnspan=2, padx=16, pady=(4, 6), sticky="w")
+        sr += 1
+
+        _slbl("Pasta local de dados do cluster:",
+              "Onde o ARK desta máquina grava os arquivos de viagem.\n"
+              "Ex: C:\\ARK\\ShooterGame\\Saved\\clusters").grid(
+            row=sr, column=0, padx=(16, 6), pady=4, sticky="nw")
+        dw["local_cluster_dir"] = tk.StringVar(value=getattr(prof, "local_cluster_dir", ""))
+        lcd_row = ctk.CTkFrame(sync_card, fg_color="transparent")
+        lcd_row.grid(row=sr, column=1, padx=(0, 16), pady=4, sticky="ew")
+        lcd_row.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(lcd_row, textvariable=dw["local_cluster_dir"], height=30,
+                     placeholder_text="C:\\ARK\\ShooterGame\\Saved\\clusters").grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(lcd_row, text="📁", width=34, height=30,
+                      command=lambda: self._browse_dir(dw["local_cluster_dir"])).grid(row=0, column=1)
+        sr += 1
+
+        _slbl("Intervalo (segundos):", "Tempo entre cada ciclo de sincronização automática.").grid(
+            row=sr, column=0, padx=(16, 6), pady=4, sticky="w")
+        dw["sync_interval_var"] = tk.StringVar(value=str(getattr(prof, "sync_interval", 30)))
+        ctk.CTkEntry(sync_card, textvariable=dw["sync_interval_var"],
+                     height=30, width=80).grid(
+            row=sr, column=1, padx=(0, 16), pady=4, sticky="w")
+        sr += 1
+
+        _prof_id_for_sync = prof.id
+        _is_running = (_prof_id_for_sync in self._cluster_sync_engines
+                       and self._cluster_sync_engines[_prof_id_for_sync].is_running)
+        _sync_status_lbl = ctk.CTkLabel(
+            sync_card,
+            text="● Ativo" if _is_running else "○ Parado",
+            text_color=_GREEN if _is_running else "gray50",
+            font=ctk.CTkFont(size=12, weight="bold"),
+        )
+        _sync_status_lbl.grid(row=sr, column=0, padx=16, pady=(6, 12), sticky="w")
+        dw["_sync_status_lbl"] = _sync_status_lbl
+
+        sync_ctrl_fr = ctk.CTkFrame(sync_card, fg_color="transparent")
+        sync_ctrl_fr.grid(row=sr, column=1, padx=(0, 16), pady=(6, 12), sticky="w")
+
+        def _toggle_cluster_sync():
+            if (_prof_id_for_sync in self._cluster_sync_engines
+                    and self._cluster_sync_engines[_prof_id_for_sync].is_running):
+                self._cluster_sync_stop(_prof_id_for_sync)
+            else:
+                self._cluster_sync_start(_prof_id_for_sync)
+            p2 = self.config_manager.get_cluster(_prof_id_for_sync)
+            if p2:
+                self._cluster_build_detail(p2)
+
+        ctk.CTkButton(
+            sync_ctrl_fr,
+            text="⏹ Parar" if _is_running else "▶ Iniciar",
+            width=100, height=30,
+            fg_color="#5a1a1a" if _is_running else _GREEN_DARK,
+            hover_color="#8b2222" if _is_running else _GREEN_HOVER,
+            command=_toggle_cluster_sync,
+        ).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(
+            sync_ctrl_fr, text="🔄 Sync Agora", width=120, height=30,
+            fg_color=_CARD_BG, hover_color="#252540",
+            command=lambda: self._cluster_sync_once(_prof_id_for_sync),
+        ).pack(side="left")
+
+        # ── Servidores vinculados ──────────────────────────────────────────────
+        self._section_lbl(parent, 6, "🖥  Servidores neste Cluster")
+        srv_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        srv_card.grid(row=7, column=0, padx=20, pady=(0, 12), sticky="ew")
+        srv_card.grid_columnconfigure(0, weight=1)
+
+        linked = self.config_manager.servers_in_cluster(prof.id)
+        all_srvs = self.config_manager.servers
+        if not all_srvs:
+            ctk.CTkLabel(srv_card, text="Nenhum servidor cadastrado.",
+                         text_color="gray50").grid(row=0, column=0, padx=16, pady=12)
+        else:
+            for si, srv in enumerate(all_srvs):
+                is_linked = srv.id in [s.id for s in linked]
+                v = tk.BooleanVar(value=is_linked)
+                dw[f"srv_{srv.id}"] = v
+                map_name = srv.map.replace("_P", "").replace("_", " ")
+                ctk.CTkCheckBox(
+                    srv_card,
+                    text=f"{srv.name}  ({map_name}  ·  :{srv.server_port})",
+                    variable=v,
+                    checkmark_color="white", fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                ).grid(row=si, column=0, padx=16, pady=(8 if si == 0 else 4, 4), sticky="w")
+
+        # ── Botões ────────────────────────────────────────────────────────────
+        btn_row = ctk.CTkFrame(parent, fg_color="transparent")
+        btn_row.grid(row=8, column=0, padx=20, pady=(4, 20), sticky="w")
+
+        ctk.CTkButton(
+            btn_row, text="💾  Salvar", width=130, height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=lambda: self._cluster_save(prof.id),
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            btn_row, text="🗑  Excluir", width=110, height=36,
+            fg_color="#5a1a1a", hover_color="#8b2222",
+            command=lambda: self._cluster_delete(prof.id),
+        ).pack(side="left")
+
+    def _cluster_save(self, cluster_id: str) -> None:
+        prof = self.config_manager.get_cluster(cluster_id)
+        if not prof:
+            return
+        dw = self._cluster_detail_widgets
+
+        prof.name       = dw.get("name",       tk.StringVar()).get().strip() or prof.name
+        prof.mode       = dw.get("mode",       tk.StringVar()).get()
+        prof.cluster_id = dw.get("cluster_id", tk.StringVar()).get().strip() or prof.cluster_id
+        prof.cluster_dir = dw.get("cluster_dir", tk.StringVar()).get().strip()
+        prof.prevent_download_survivors = bool(dw.get("prevent_download_survivors", tk.BooleanVar()).get())
+        prof.prevent_download_items     = bool(dw.get("prevent_download_items",     tk.BooleanVar()).get())
+        prof.prevent_download_dinos     = bool(dw.get("prevent_download_dinos",     tk.BooleanVar()).get())
+        prof.no_transfer_from_filtering = bool(dw.get("no_transfer_from_filtering", tk.BooleanVar()).get())
+        prof.sync_enabled      = bool(dw.get("sync_enabled", tk.BooleanVar()).get())
+        prof.local_cluster_dir = dw.get("local_cluster_dir", tk.StringVar()).get().strip()
+        try:
+            prof.sync_interval = max(5, int(dw.get("sync_interval_var", tk.StringVar(value="30")).get()))
+        except ValueError:
+            pass
+
+        self.config_manager.update_cluster(prof)
+        # Reinicia engine de sync se configuração mudou
+        self._cluster_sync_restart(prof.id)
+
+        # Atualiza vínculos de servidores
+        for srv in self.config_manager.servers:
+            var = dw.get(f"srv_{srv.id}")
+            if var is None:
+                continue
+            should_link = bool(var.get())
+            if should_link and srv.cluster_profile_id != cluster_id:
+                srv.cluster_profile_id = cluster_id
+                self.config_manager.update_server(srv)
+                self.server_manager.update_server_config(srv)
+            elif not should_link and srv.cluster_profile_id == cluster_id:
+                srv.cluster_profile_id = ""
+                self.config_manager.update_server(srv)
+                self.server_manager.update_server_config(srv)
+
+        self._clusters_refresh_list()
+        self._cluster_build_detail(prof)
+
+    def _cluster_delete(self, cluster_id: str) -> None:
+        from tkinter import messagebox
+        prof = self.config_manager.get_cluster(cluster_id)
+        if not prof:
+            return
+        linked_count = len(self.config_manager.servers_in_cluster(cluster_id))
+        msg = f"Excluir o perfil \"{prof.name}\"?"
+        if linked_count:
+            msg += f"\n\n{linked_count} servidor(es) serão desvinculados do cluster."
+        if not messagebox.askyesno("Confirmar Exclusão", msg, parent=self):
+            return
+        self.config_manager.remove_cluster(cluster_id)
+        self._cluster_sync_stop(cluster_id)
+        self._cluster_selected_id = ""
+        self._clusters_refresh_list()
+        for w in self._cluster_detail_fr.winfo_children():
+            w.destroy()
+
+    # ── Cluster sync engine helpers ───────────────────────────────────────────
+
+    def _auto_start_cluster_syncs(self) -> None:
+        """Inicia engines de sync para todos os clusters com sync habilitado."""
+        for prof in self.config_manager.clusters:
+            if prof.sync_enabled and prof.local_cluster_dir and prof.cluster_dir:
+                self._cluster_sync_start(prof.id)
+
+    def _cluster_sync_restart(self, cluster_id: str) -> None:
+        """Para e reinicia o engine de sync de um cluster (chama após salvar perfil)."""
+        self._cluster_sync_stop(cluster_id)
+        prof = self.config_manager.get_cluster(cluster_id)
+        if prof and prof.sync_enabled and prof.local_cluster_dir and prof.cluster_dir:
+            self._cluster_sync_start(cluster_id)
+
+    def _cluster_sync_start(self, cluster_id: str) -> None:
+        """Inicia o SyncEngine bidirecional para o cluster."""
+        prof = self.config_manager.get_cluster(cluster_id)
+        if not prof:
+            return
+        if not prof.local_cluster_dir or not prof.cluster_dir:
+            return
+        self._cluster_sync_stop(cluster_id)
+
+        class _ClusterSyncCfg:
+            def __init__(self, local_dir: str, net_dir: str, interval: int) -> None:
+                self.sync_cycles = [[local_dir, net_dir]]
+                self.sync_interval = max(5, interval)
+                self.log_debug = False
+
+        engine = SyncEngine(
+            config=_ClusterSyncCfg(prof.local_cluster_dir, prof.cluster_dir, prof.sync_interval),
+            on_log=lambda msg, lvl: self._cluster_sync_log(cluster_id, msg, lvl),
+            on_status_change=lambda s: None,
+        )
+        self._cluster_sync_engines[cluster_id] = engine
+        engine.start()
+
+    def _cluster_sync_stop(self, cluster_id: str) -> None:
+        """Para o engine de sync de um cluster (se estiver rodando)."""
+        engine = self._cluster_sync_engines.pop(cluster_id, None)
+        if engine and engine.is_running:
+            engine.stop()
+
+    def _cluster_sync_once(self, cluster_id: str) -> None:
+        """Executa um ciclo de sync imediato sem iniciar o loop automático."""
+        prof = self.config_manager.get_cluster(cluster_id)
+        if not prof or not prof.local_cluster_dir or not prof.cluster_dir:
+            return
+        if cluster_id in self._cluster_sync_engines:
+            self._cluster_sync_engines[cluster_id].sync_once()
+        else:
+            # Cria engine temporário apenas para o ciclo único
+            class _ClusterSyncCfg:
+                def __init__(self, local_dir: str, net_dir: str) -> None:
+                    self.sync_cycles = [[local_dir, net_dir]]
+                    self.sync_interval = 999
+                    self.log_debug = False
+            SyncEngine(
+                config=_ClusterSyncCfg(prof.local_cluster_dir, prof.cluster_dir),
+                on_log=lambda msg, lvl: self._cluster_sync_log(cluster_id, msg, lvl),
+            ).sync_once()
+
+    def _cluster_sync_log(self, cluster_id: str, msg: str, level: str) -> None:
+        prof = self.config_manager.get_cluster(cluster_id)
+        name = prof.name if prof else cluster_id[:8]
+        self._emit_global_log(f"[Cluster:{name}] {msg}", level)
+
+    # ── Config Dinâmica ───────────────────────────────────────────────────────
+
+    def _auto_start_dynamic_configs(self) -> None:
+        """Inicia o HTTP server e popula config para servidores com dynamic_config_enabled=True."""
+        enabled = [s for s in self.config_manager.servers if s.dynamic_config_enabled]
+        if not enabled:
+            return
+        ok = self._dynamic_config_server.start()
+        if not ok:
+            self._global_log(
+                f"Aviso: não foi possível iniciar o servidor HTTP de config dinâmica "
+                f"(porta {self._dynamic_config_server.port} em uso?). "
+                f"DynamicConfigURL não estará disponível.", "warning")
+            return
+        for srv in enabled:
+            content = build_dynamic_config(srv)
+            self._dynamic_config_server.update(srv.id, content)
+        self._global_log(
+            f"Config dinâmica ativa para {len(enabled)} servidor(es) "
+            f"→ http://127.0.0.1:{self._dynamic_config_server.port}/", "info")
+
+    def _get_dynamic_config_url(self, server_id: str) -> str:
+        """Callback para ServerManager: retorna a URL do servidor dinâmico."""
+        if not self._dynamic_config_server.is_running:
+            self._dynamic_config_server.start()
+        return self._dynamic_config_server.get_url(server_id)
+
+    def _push_dynamic_config(self, server_id: str) -> None:
+        """Atualiza o conteúdo INI servido para um servidor — aplicado na próxima poll do ARK."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+        if not self._dynamic_config_server.is_running:
+            ok = self._dynamic_config_server.start()
+            if not ok:
+                self._global_log(
+                    f"[{srv.name}] Não foi possível iniciar o servidor HTTP de config dinâmica "
+                    f"(porta {self._dynamic_config_server.port} em uso?).", "error")
+                return
+        content = build_dynamic_config(srv)
+        self._dynamic_config_server.update(server_id, content)
+        url = self._dynamic_config_server.get_url(server_id)
+        self._global_log(
+            f"[{srv.name}] Config dinâmica atualizada → {url} "
+            f"(ARK aplicará na próxima poll, ~2 min).", "info")
+        # Atualiza label de URL na UI se o painel estiver aberto
+        w = self._server_widgets.get(server_id, {})
+        url_var = w.get("_dyn_url_var")
+        if url_var:
+            url_var.set(url)
+
+
     def _build_about(self, parent) -> None:
         parent.grid_columnconfigure(0, weight=1)
 
@@ -9507,9 +10320,11 @@ class ARKServerManagerApp(ctk.CTk):
 
         # ── PerLevelStatsMultiplier ────────────────────────────────────────────
         for group, attr in [
-            ("tamed",  "per_level_stats_mult_dino_tamed"),
-            ("wild",   "per_level_stats_mult_dino_wild"),
-            ("player", "per_level_stats_mult_player"),
+            ("tamed",          "per_level_stats_mult_dino_tamed"),
+            ("tamed_add",      "per_level_stats_mult_dino_tamed_add"),
+            ("tamed_affinity", "per_level_stats_mult_dino_tamed_affinity"),
+            ("wild",           "per_level_stats_mult_dino_wild"),
+            ("player",         "per_level_stats_mult_player"),
         ]:
             vals = list(getattr(gs, attr))
             for i in range(12):
@@ -9717,6 +10532,21 @@ class ARKServerManagerApp(ctk.CTk):
             cl.enabled              = bool(w["cl_enabled"].get())
             cl.cluster_id           = w.get("cl_cluster_id",  tk.StringVar()).get().strip()
             cl.cluster_dir_override = w.get("cl_cluster_dir", tk.StringVar()).get().strip()
+            srv.alt_save_directory_name = w.get("cl_alt_save_dir", tk.StringVar()).get().strip()
+        # Perfil de cluster vinculado
+        if "cl_profile_id_var" in w:
+            srv.cluster_profile_id = w["cl_profile_id_var"].get()
+
+        # ── Config Dinâmica ───────────────────────────────────────────────
+        if "dynamic_config_enabled" in w:
+            srv.dynamic_config_enabled = bool(w["dynamic_config_enabled"].get())
+        if srv.dynamic_config_enabled:
+            self._push_dynamic_config(srv.id)
+        else:
+            self._dynamic_config_server.remove(srv.id)
+            url_var = w.get("_dyn_url_var")
+            if url_var:
+                url_var.set("—")
 
         # Atualiza título do painel
         if "_name_title_var" in w:
@@ -11319,6 +12149,87 @@ class ARKServerManagerApp(ctk.CTk):
             command=_create,
         ).grid(row=8, column=0, columnspan=2, padx=20, pady=(16, 20), sticky="ew")
 
+    # ── Perfil (exportar / importar) ──────────────────────────────────────────
+
+    def _export_profile(self) -> None:
+        import datetime
+        path = filedialog.asksaveasfilename(
+            parent=self,
+            title="Exportar Perfil ARKLAND",
+            defaultextension=".arkprofile",
+            filetypes=[
+                ("Perfil ARKLAND", "*.arkprofile"),
+                ("JSON", "*.json"),
+                ("Todos os arquivos", "*.*"),
+            ],
+            initialfile=f"arkland-perfil-{datetime.date.today()}.arkprofile",
+        )
+        if not path:
+            return
+        try:
+            self.config_manager.export_profile(path)
+            n = len(self.config_manager.servers)
+            messagebox.showinfo(
+                "Perfil exportado",
+                f"{n} servidor(es) exportado(s) com sucesso:\n{path}",
+                parent=self,
+            )
+        except Exception as exc:
+            messagebox.showerror("Erro ao exportar", str(exc), parent=self)
+
+    def _import_profile(self) -> None:
+        path = filedialog.askopenfilename(
+            parent=self,
+            title="Importar Perfil ARKLAND",
+            filetypes=[
+                ("Perfil ARKLAND", "*.arkprofile"),
+                ("JSON", "*.json"),
+                ("Todos os arquivos", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        try:
+            import json as _json
+            with open(path, "r", encoding="utf-8") as fh:
+                preview = _json.load(fh)
+            servers_raw = preview.get("servers", [])
+            count = len(servers_raw)
+            if count == 0:
+                messagebox.showwarning("Perfil vazio", "O arquivo não contém servidores.", parent=self)
+                return
+            names_str = "\n".join(f"  • {s.get('name', '?')}" for s in servers_raw[:10])
+            if count > 10:
+                names_str += f"\n  ... e mais {count - 10}"
+            ans = messagebox.askyesnocancel(
+                "Importar Perfil",
+                f"O perfil contém {count} servidor(es):\n{names_str}\n\n"
+                "Sim  → adicionar aos servidores existentes\n"
+                "Não  → substituir todos os servidores\n"
+                "Cancelar → cancelar",
+                parent=self,
+            )
+            if ans is None:
+                return
+            replace = not ans  # "Não" = replace=True
+            imported = self.config_manager.import_profile(path, replace=replace)
+            if replace:
+                # Remove instâncias antigas do server_manager
+                for inst in self.server_manager.get_all_instances():
+                    if inst.status in ("stopped", "crashed"):
+                        self.server_manager.remove_server(inst.config.id)
+            for srv in imported:
+                self.server_manager.add_server(srv)
+            self._rebuild_server_sidebar()
+            self._refresh_dashboard()
+            messagebox.showinfo(
+                "Perfil importado",
+                f"{len(imported)} servidor(es) importado(s) com sucesso.",
+                parent=self,
+            )
+        except Exception as exc:
+            messagebox.showerror("Erro ao importar", str(exc), parent=self)
+
     # ── Configurações Globais ─────────────────────────────────────────────────
 
     def _save_global_config(self) -> None:
@@ -11328,6 +12239,16 @@ class ARKServerManagerApp(ctk.CTk):
         cfg.startup_with_windows = self._cfg_startup_var.get()
         cfg.minimize_to_tray     = self._cfg_minimize_tray_var.get()
         cfg.log_debug            = self._cfg_log_debug_var.get()
+        # Discord
+        dc = cfg.discord_notify
+        dc.enabled       = self._discord_enabled_var.get()
+        dc.webhook_url   = self._discord_url_var.get().strip()
+        dc.sender_name   = self._discord_sender_var.get().strip() or "ARKLAND"
+        dc.notify_start  = self._discord_notify_start.get()
+        dc.notify_stop   = self._discord_notify_stop.get()
+        dc.notify_crash  = self._discord_notify_crash.get()
+        dc.notify_update = self._discord_notify_update.get()
+        dc.notify_backup = self._discord_notify_backup.get()
         _set_windows_startup(cfg.startup_with_windows)
         self.config_manager.save()
         self.mod_manager.steamcmd_path = cfg.steamcmd_path
@@ -11604,6 +12525,11 @@ class ARKServerManagerApp(ctk.CTk):
             self._tray_icon = None
         if self._sync_engine and self._sync_engine.is_running:
             self._sync_engine.stop()
+        for _eng in list(self._cluster_sync_engines.values()):
+            if _eng.is_running:
+                _eng.stop()
+        self._cluster_sync_engines.clear()
+        self._dynamic_config_server.stop()
         if self._mod_auto_updater and self._mod_auto_updater.enabled:
             self._mod_auto_updater.stop()
         if self._buff_manager:

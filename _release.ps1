@@ -124,7 +124,7 @@ Write-Ok "Installer: $installer  ($([Math]::Round((Get-Item $installer).Length/1
 
 # ── 7) Git commit + push ──────────────────────────────────────────────────────
 Write-Step 4 6 "Commitando alteracoes..."
-git add "src\version.py" "version.json" "setup.iss"
+git add -A
 git commit -m "release: v$Version"
 git push
 Write-Ok "Commit + push → main"
