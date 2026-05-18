@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.2"
+APP_VERSION: str = "1.3.3"
 BUILD_DATE: str = "2026-05-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.3",
+        "date": "2026-05-18",
+        "changes": [
+            "Fix: Aba Jogo — Stats por Nível agora carrega automaticamente os valores de PerLevelStatsMultiplier do Game.ini ao abrir a aba pela primeira vez, em vez de exibir sempre o padrão 1.0.",
+        ],
+    },
     {
         "version": "1.3.2",
         "date": "2026-05-18",

@@ -2607,6 +2607,18 @@ class ARKServerManagerApp(ctk.CTk):
         scroll.grid_columnconfigure(1, weight=1)
         scroll.grid_columnconfigure(3, weight=1)  # espaçador — limita largura dos sliders
 
+        # Auto-carrega Game.ini do disco antes de popular os widgets,
+        # garantindo que PerLevelStatsMultiplier e campos de breeding
+        # reflitam o arquivo real caso o JSON tenha apenas defaults.
+        if srv.install_dir:
+            try:
+                from .ark_ini import ArkIniManager as _AIM, get_ini_path as _gip
+                _game_ini_path = _gip(srv.install_dir, "Game.ini")
+                if _game_ini_path.exists():
+                    _AIM(srv.install_dir).load_game_ini(srv)
+            except Exception:
+                pass
+
         w  = self._server_widgets[srv.id]
         gs = srv.game_settings
 

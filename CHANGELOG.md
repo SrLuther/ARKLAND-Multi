@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.3] — 2026-05-18
+
+### Correção
+
+- **Stats por Nível (aba Jogo)**: ao abrir a aba pela primeira vez, os valores de `PerLevelStatsMultiplier` eram exibidos como `1` (padrão do JSON) em vez dos valores reais do `Game.ini`. Corrigido com auto-carregamento do `Game.ini` ao construir a aba.
+
+---
+
 ## [1.3.2] — 2026-05-18
 
 ### Correção
