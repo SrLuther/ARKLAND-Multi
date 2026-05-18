@@ -488,7 +488,7 @@ class BuffManager:
         try:
             client = RconClient("127.0.0.1", cfg.rcon_port, cfg.rcon_password)
             client.connect()
-            client.send_command(f"ServerChat {message}")
+            client.send_command(f"Broadcast {message}")
             client.disconnect()
         except Exception as exc:
             self._on_log(f"[BUFF] RCON broadcast falhou: {exc}", "warning")

@@ -56,9 +56,11 @@ class BackupManager:
         self,
         get_servers: Callable[[], List["ServerConfig"]],
         on_log: Optional[Callable[[str, str], None]] = None,
+        discord_notifier: Optional[object] = None,
     ) -> None:
         self._get_servers  = get_servers
         self._on_log       = on_log or (lambda m, lvl: None)
+        self._discord_notifier = discord_notifier
         self._backups_root = _DATA_DIR / "backups" / "servers"
         self._timers: Dict[str, threading.Timer] = {}
         self._lock = threading.Lock()
@@ -103,6 +105,10 @@ class BackupManager:
         if copied:
             self._on_log(f"[Backup] {srv.name}: snapshot salvo → {bdir.name}", "info")
             self._prune(srv)
+            if self._discord_notifier:
+                entry = BackupEntry(bdir)
+                detail = f"Snapshot: `{bdir.name}`\nTamanho: {entry.size_mb} MB"
+                self._discord_notifier.notify_backup(srv.name, detail=detail)  # type: ignore[union-attr]
             return str(bdir)
 
         # Nada foi copiado — remove a pasta vazia

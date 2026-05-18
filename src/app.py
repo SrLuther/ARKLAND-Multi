@@ -977,6 +977,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._backup_manager = BackupManager(
             get_servers=lambda: self.config_manager.servers,
             on_log=self._global_log,
+            discord_notifier=self._discord_notifier,
         )
         self._backup_manager.restart_all(self.config_manager.servers)
 
@@ -4419,6 +4420,7 @@ class ARKServerManagerApp(ctk.CTk):
                     on_log=self._on_auto_updater_log,
                     check_interval_minutes=interval,
                     warning_minutes=warn_mins,
+                    discord_notifier=self._discord_notifier,
                 )
             else:
                 self._mod_auto_updater.set_interval(interval)
@@ -5630,7 +5632,13 @@ class ARKServerManagerApp(ctk.CTk):
                       fg_color=_BLUE, hover_color=_BLUE_HOVER,
                       font=ctk.CTkFont(size=11),
                       command=lambda: self._broadcast_send_quick(srv.id)
-                      ).grid(row=0, column=2, padx=(0, 10), pady=8)
+                      ).grid(row=0, column=2, padx=(0, 4), pady=8)
+
+        ctk.CTkButton(quick_bar, text="🔧 Testar RCON", width=120, height=32,
+                      fg_color="#3a3a5a", hover_color="#4a4a7a",
+                      font=ctk.CTkFont(size=11),
+                      command=lambda: self._broadcast_test(srv.id)
+                      ).grid(row=0, column=3, padx=(0, 10), pady=8)
 
         # ── Formulário: adicionar novo broadcast à biblioteca ─────────────────
         add_fr = ctk.CTkFrame(bt, fg_color=_CARD_BG, corner_radius=8)
@@ -11684,15 +11692,33 @@ class ARKServerManagerApp(ctk.CTk):
         client = self._rcon_clients.get(server_id)
         self._rcon_append(server_id, f"> {command}\n", "cmd")
 
-        if not client or not client.is_connected:
+        if not client:
             self._rcon_append(server_id, "Não conectado. Clique em 'Conectar' primeiro.\n", "err")
             return
 
         def _do():
+            # send_command já reconecta automaticamente se a conexão caiu
+            was_connected = client.is_connected
             ok, result = client.send_command_safe(command)
-            level = "resp" if ok else "err"
-            self.after(0, lambda: self._rcon_append(
-                server_id, (result or "(sem resposta)") + "\n", level))
+
+            def _update():
+                # Se reconectou silenciosamente, atualiza status e log
+                if not was_connected and ok:
+                    w   = self._server_widgets.get(server_id, {})
+                    sv  = w.get("rcon_status_var")
+                    btn = w.get("rcon_connect_btn")
+                    host, port = client._host, client._port
+                    if sv:
+                        sv.set(f"🟢 Conectado a {host}:{port}")
+                    if btn:
+                        btn.configure(text="🔌 Desconectar",
+                                      fg_color=_RED_DARK, hover_color=_RED_HOVER)
+                    self._rcon_append(server_id,
+                                      f"[Auto] Conectado a {host}:{port}\n", "sys")
+                level = "resp" if ok else "err"
+                self._rcon_append(server_id, (result or "(sem resposta)") + "\n", level)
+
+            self.after(0, _update)
 
         threading.Thread(target=_do, daemon=True).start()
 
@@ -11845,25 +11871,56 @@ class ARKServerManagerApp(ctk.CTk):
     # ── Gerenciamento de Broadcasts ───────────────────────────────────────────
 
     def _broadcast_rcon(self, server_id: str, message: str) -> None:
-        """Envia um Broadcast via RCON para todos os jogadores online."""
-        client = self._rcon_clients.get(server_id)
-        if not client or not client.is_connected:
+        """Envia um Broadcast via RCON para todos os jogadores online.
+
+        Usa o cliente RCON já conectado (Console RCON) se disponível;
+        caso contrário, cria uma conexão temporária com as configs do servidor.
+        """
+        safe = message.replace('"', "'")[:900]
+        existing = self._rcon_clients.get(server_id)
+
+        if existing and existing.is_connected:
+            # Usa a sessão RCON já aberta no console
+            ts = datetime.now().strftime("%H:%M:%S")
+            self._chat_append(server_id, f"[{ts}] ", "ts")
+            self._chat_append(server_id, "[BROADCAST]", "server")
+            self._chat_append(server_id, f": {message}\n", "message")
+
+            def _do_existing() -> None:
+                existing.send_command_safe(f"Broadcast {safe}")
+
+            threading.Thread(target=_do_existing, daemon=True).start()
+            return
+
+        # RCON não conectado no console — cria conexão temporária
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.rcon_enabled or not srv.rcon_password:
             messagebox.showwarning(
-                "RCON não conectado",
-                "Conecte-se ao RCON na aba 'Console RCON' antes de enviar um broadcast.",
+                "RCON não configurado",
+                "Habilite o RCON e defina a senha nas configurações do servidor antes de enviar broadcasts.",
                 parent=self,
             )
             return
-        safe = message.replace('"', "'")[:900]
+
         ts = datetime.now().strftime("%H:%M:%S")
         self._chat_append(server_id, f"[{ts}] ", "ts")
         self._chat_append(server_id, "[BROADCAST]", "server")
         self._chat_append(server_id, f": {message}\n", "message")
 
-        def _do() -> None:
-            client.send_command_safe(f"Broadcast {safe}")
+        rcon_port = srv.rcon_port
+        rcon_pass = srv.rcon_password
 
-        threading.Thread(target=_do, daemon=True).start()
+        def _do_temp() -> None:
+            try:
+                tmp = RconClient("127.0.0.1", rcon_port, rcon_pass)
+                ok, resp = tmp.send_command_safe(f"Broadcast {safe}")
+                tmp.disconnect()
+                if not ok:
+                    self._global_log(f"[RCON] Broadcast falhou: {resp}", "warning")
+            except Exception as exc:
+                self._global_log(f"[RCON] Broadcast falhou: {exc}", "warning")
+
+        threading.Thread(target=_do_temp, daemon=True).start()
 
     def _broadcast_send_quick(self, server_id: str) -> None:
         """Envia o broadcast da barra de envio rápido."""
@@ -11873,6 +11930,54 @@ class ARKServerManagerApp(ctk.CTk):
             return
         w["bc_quick_var"].set("")
         self._broadcast_rcon(server_id, msg)
+
+    def _broadcast_test(self, server_id: str) -> None:
+        """Envia uma mensagem de teste para verificar se o RCON/broadcast está funcionando."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv or not srv.rcon_enabled or not srv.rcon_password:
+            messagebox.showwarning(
+                "RCON não configurado",
+                "Habilite o RCON e defina a senha nas configurações do servidor antes de testar.",
+                parent=self,
+            )
+            return
+
+        safe = "[ARKLAND] \u2705 Teste de broadcast \u2014 RCON funcionando corretamente!"
+        existing = self._rcon_clients.get(server_id)
+        rcon_port = srv.rcon_port
+        rcon_pass = srv.rcon_password
+
+        def _do() -> None:
+            try:
+                if existing and existing.is_connected:
+                    ok, resp = existing.send_command_safe(f"Broadcast {safe}")
+                else:
+                    tmp = RconClient("127.0.0.1", rcon_port, rcon_pass)
+                    ok, resp = tmp.send_command_safe(f"Broadcast {safe}")
+                    tmp.disconnect()
+                if ok:
+                    self.after(0, lambda: messagebox.showinfo(
+                        "Broadcast de teste",
+                        "\u2705 Mensagem de teste enviada com sucesso!\n"
+                        "Se o servidor estiver online, a mensagem aparecerá para todos os jogadores.",
+                        parent=self,
+                    ))
+                else:
+                    self.after(0, lambda r=resp: messagebox.showerror(
+                        "Falha no broadcast",
+                        f"\u274c RCON retornou erro:\n{r}\n\n"
+                        "Verifique se o servidor está online e a senha RCON está correta.",
+                        parent=self,
+                    ))
+            except Exception as exc:
+                self.after(0, lambda e=str(exc): messagebox.showerror(
+                    "Falha no broadcast",
+                    f"\u274c Não foi possível conectar ao RCON:\n{e}\n\n"
+                    "Verifique se o servidor está online e a porta RCON está correta.",
+                    parent=self,
+                ))
+
+        threading.Thread(target=_do, daemon=True).start()
 
     def _broadcast_add(self, server_id: str) -> None:
         """Adiciona um novo broadcast à biblioteca e persiste."""

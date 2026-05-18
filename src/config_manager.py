@@ -103,8 +103,10 @@ class ConfigManager:
 
     def save(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._config_file, "w", encoding="utf-8") as fh:
+        tmp = self._config_file.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(asdict(self.config), fh, indent=2, ensure_ascii=False)  # type: ignore[arg-type]
+        tmp.replace(self._config_file)
 
     # ── Servidores ────────────────────────────────────────────────────────────
 
@@ -129,8 +131,10 @@ class ConfigManager:
 
     def save_servers(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._servers_file, "w", encoding="utf-8") as fh:
+        tmp = self._servers_file.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
+        tmp.replace(self._servers_file)
 
     def add_server(self, server: ServerConfig) -> None:
         self._servers.append(server)
@@ -176,8 +180,10 @@ class ConfigManager:
 
     def save_clusters(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        with open(self._clusters_file, "w", encoding="utf-8") as fh:
+        tmp = self._clusters_file.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump([c.to_dict() for c in self._clusters], fh, indent=2, ensure_ascii=False)
+        tmp.replace(self._clusters_file)
 
     def add_cluster(self, cluster: ClusterProfile) -> None:
         self._clusters.append(cluster)

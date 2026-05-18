@@ -277,6 +277,12 @@ class ServerManager:
         hhmm = now.strftime("%H:%M")
         weekday = now.weekday()  # 0=Seg..6=Dom
 
+        # Limpeza de entradas antigas (dias anteriores) para evitar crescimento indefinido
+        for d in (self._sched_fired, self._sched_warned):
+            stale = [k for k, v in d.items() if v < today]
+            for k in stale:
+                del d[k]
+
         with self._lock:
             instances = list(self._instances.values())
 
@@ -330,7 +336,8 @@ class ServerManager:
                         self.stop_server(sid)
                         deadline = time.monotonic() + 120
                         while time.monotonic() < deadline:
-                            inst2 = self._instances.get(sid)
+                            with self._lock:
+                                inst2 = self._instances.get(sid)
                             if inst2 and inst2.status == SERVER_STATUS_STOPPED:
                                 break
                             time.sleep(2)
@@ -484,7 +491,8 @@ class ServerManager:
         """
         while True:
             time.sleep(5)
-            inst = self._instances.get(server_id)
+            with self._lock:
+                inst = self._instances.get(server_id)
             if not inst or inst.status not in (SERVER_STATUS_RUNNING, SERVER_STATUS_STARTING):
                 break
             # Verifica se o processo ainda existe
@@ -497,10 +505,16 @@ class ServerManager:
             except Exception:
                 alive = False
             if not alive:
-                if inst.status == SERVER_STATUS_RUNNING:
-                    inst.process = None
-                    inst.pid = None
-                    cfg = inst.config
+                do_crash_action = False
+                cfg = None
+                with self._lock:
+                    inst = self._instances.get(server_id)
+                    if inst and inst.status == SERVER_STATUS_RUNNING:
+                        inst.process = None
+                        inst.pid = None
+                        cfg = inst.config
+                        do_crash_action = True
+                if do_crash_action and cfg is not None:
                     if cfg.install_dir:
                         self._emit_crash_details(server_id, cfg.install_dir)
                     self._emit_log(
@@ -512,7 +526,9 @@ class ServerManager:
                     if cfg.auto_restart_on_crash:
                         self._emit_log(server_id, "Auto-restart configurado. Reiniciando em 30s...", "info")
                         time.sleep(30)
-                        if inst.status == SERVER_STATUS_CRASHED:
+                        with self._lock:
+                            inst = self._instances.get(server_id)
+                        if inst and inst.status == SERVER_STATUS_CRASHED:
                             self.start_server(server_id)
                 break
 
@@ -573,7 +589,8 @@ class ServerManager:
             # Aguarda parar
             deadline = time.monotonic() + 120
             while time.monotonic() < deadline:
-                inst = self._instances.get(server_id)
+                with self._lock:
+                    inst = self._instances.get(server_id)
                 if inst and inst.status == SERVER_STATUS_STOPPED:
                     break
                 time.sleep(1)
@@ -977,8 +994,14 @@ class ServerManager:
             inst.status = status
         self._on_status_change(server_id, status)
         if self._discord_notifier and inst:
+            detail_parts = []
+            if inst.config.map:
+                detail_parts.append(f"🗺  {inst.config.map}")
+            if inst.config.server_port:
+                detail_parts.append(f"🔌  Porta: {inst.config.server_port}")
             self._discord_notifier.notify_status(
-                inst.config.name or server_id, status
+                inst.config.name or server_id, status,
+                detail="\n".join(detail_parts),
             )
 
     def _emit_log(self, server_id: str, msg: str, level: str = "info") -> None:

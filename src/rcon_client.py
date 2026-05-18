@@ -130,15 +130,22 @@ class RconClient:
         cmd_id = self._next_id()
         self._send_packet(cmd_id, _PACKET_TYPE_EXECCOMMAND, command)
 
-        # Enviar um segundo pacote "vazio" como sentinel para detectar fim da resposta
+        # Sentinel: segundo EXECCOMMAND (tipo 2) vazio — o ARK responde a ele sinalizando
+        # que a resposta do comando anterior já foi totalmente enviada.
+        # NUNCA use _PACKET_TYPE_RESPONSE (0) aqui — tipo 0 é exclusivo servidor→cliente;
+        # enviá-lo pelo cliente faz o ARK fechar a conexão (WinError 10053).
         sentinel_id = self._next_id()
-        self._send_packet(sentinel_id, _PACKET_TYPE_RESPONSE, "")
+        self._send_packet(sentinel_id, _PACKET_TYPE_EXECCOMMAND, "")
 
         response_parts: list[str] = []
         deadline = time.monotonic() + _RESPONSE_TIMEOUT
         while time.monotonic() < deadline:
             try:
                 pkt_id, pkt_type, body = self._recv_packet()
+            except socket.timeout:
+                # Muitos comandos ARK (SaveWorld, Broadcast, DoExit…) não enviam resposta.
+                # Timeout sem dados recebidos é comportamento normal — retorna o que coletou.
+                break
             except (OSError, struct.error) as exc:
                 self._disconnect_locked()
                 raise RconConnectionError(f"Erro ao receber resposta RCON: {exc}") from exc

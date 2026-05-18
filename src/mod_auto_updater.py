@@ -46,6 +46,7 @@ class ModAutoUpdater:
         on_log: Optional[Callable[[str, str], None]] = None,
         check_interval_minutes: int = 15,
         warning_minutes: int = 5,
+        discord_notifier: Optional[object] = None,
     ) -> None:
         self._server_manager      = server_manager
         self._mod_manager         = mod_manager
@@ -53,6 +54,7 @@ class ModAutoUpdater:
         self._on_log              = on_log or (lambda m, lvl: None)
         self._check_interval      = check_interval_minutes * 60
         self._warning_seconds     = warning_minutes * 60
+        self._discord_notifier    = discord_notifier
         self._enabled             = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event          = threading.Event()
@@ -124,7 +126,7 @@ class ModAutoUpdater:
                 f"iniciando download: {', '.join(missing)}",
                 "info",
             )
-            done_event = __import__("threading").Event()
+            done_event = threading.Event()
 
             def _on_done(ok: bool, _ev=done_event):
                 _ev.set()
@@ -319,7 +321,22 @@ class ModAutoUpdater:
                 self._log(f"Reiniciando servidor '{sid}'…", "info")
                 self._server_manager.start_server(sid)
             time.sleep(3)  # pequeno intervalo entre starts
-
+        # ── Notifica Discord sobre a atualização ──────────────────────────────────
+        if self._discord_notifier:
+            mod_name = self._mod_names.get(mod_id, mod_id)
+            server_names = []
+            for sid in running_now:
+                inst = self._server_manager.get_instance(sid)
+                if inst:
+                    server_names.append(inst.config.name or sid)
+            detail = f"Mod: **{mod_name}** (`{mod_id}`)"
+            if server_names:
+                detail += f"\nServidores reiniciados: {', '.join(server_names)}"
+            for sid in running_now:
+                inst = self._server_manager.get_instance(sid)
+                if inst:
+                    self._discord_notifier.notify_update(inst.config.name or sid, detail=detail)  # type: ignore[union-attr]
+                    break  # envia uma vez por atualização
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _broadcast_all(self, server_ids: List[str], message: str) -> None:

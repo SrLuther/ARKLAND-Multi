@@ -63,6 +63,8 @@ class RemoteAgent:
                 pass
 
             def _auth(self) -> bool:
+                if not agent._token:
+                    return False
                 header = self.headers.get("Authorization", "")
                 return header == f"Bearer {agent._token}"
 

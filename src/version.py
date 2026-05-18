@@ -3,11 +3,38 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.9"
-BUILD_DATE: str = "2026-05-17"
+APP_VERSION: str = "1.3.1"
+BUILD_DATE: str = "2026-05-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.1",
+        "date": "2026-05-18",
+        "changes": [
+            "Fix: Protocolo RCON corrigido — pacote sentinel agora usa tipo EXECCOMMAND (2) em vez de RESPONSE_VALUE (0), que causava WinError 10053 (ARK fechava a conexão ao receber pacote inválido do cliente).",
+            "Fix: Timeout RCON (SaveWorld, Broadcast e outros comandos sem resposta) não gera mais erro vermelho — tratado silenciosamente como '(sem resposta)'.",
+            "Fix: Console RCON reconecta automaticamente antes de enviar um comando se a conexão estiver caída — sem necessidade de clicar em Conectar manualmente.",
+        ],
+    },
+    {
+        "version": "1.3.0",
+        "date": "2026-05-18",
+        "changes": [
+            "Fix: Broadcasts agora funcionam sem o Console RCON aberto — conexão RCON temporária criada automaticamente ao enviar.",
+            "Novo: Botão '🔧 Testar RCON' na aba Broadcasts para verificar conectividade e funcionamento do broadcast.",
+            "Novo: Notificações Discord aprimoradas — embeds com campos estruturados, timestamp, footer e dicas contextuais por tipo de evento.",
+            "Novo: Notificação Discord enviada automaticamente após atualização de mods (mod_auto_updater) e após cada backup concluído.",
+            "Fix: Race condition em restart_server e _reconnect_monitor — acesso a _instances agora protegido por lock.",
+            "Fix: Race condition (TOCTOU) em ModManager — verificação e set de _active agora atômicos com threading.Lock.",
+            "Fix: Gravação de configurações agora é atômica (arquivo .tmp + rename) — evita corrupção em caso de crash durante o save.",
+            "Fix: Script de atualização substituiu System.Net.WebClient (deprecated) por Invoke-WebRequest.",
+            "Fix: race condition em _update_restart no agendador de servidores.",
+            "Fix: Vazamento de memória no agendador — entradas antigas de _sched_fired/_sched_warned são limpas a cada ciclo.",
+            "Fix: Token vazio no agente remoto não bypassa mais autenticação.",
+            "Fix: BUFF manager usava ServerChat em vez de Broadcast.",
+        ],
+    },
     {
         "version": "1.2.9",
         "date": "2026-05-17",

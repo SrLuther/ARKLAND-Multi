@@ -5,6 +5,39 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.1] — 2026-05-18
+
+### Correção
+
+- **Protocolo RCON — WinError 10053**: o pacote sentinel enviado após cada comando usava tipo `0` (RESPONSE_VALUE), que é exclusivo do servidor→cliente. O ARK fechava a conexão ao receber esse pacote inválido do cliente. Corrigido para tipo `2` (EXECCOMMAND).
+- **Timeout RCON silencioso**: comandos sem resposta do ARK (como `SaveWorld`, `Broadcast`, `DoExit`) causavam erro vermelho "timed out" no console. Agora `socket.timeout` é tratado como resposta vazia e exibe "(sem resposta)" normalmente.
+- **Reconexão automática ao enviar comando**: o Console RCON agora reconecta automaticamente antes de enviar um comando se a conexão estiver caída — sem precisar clicar em "Conectar" manualmente. O status e o botão são atualizados em caso de reconexão silenciosa.
+
+---
+
+## [1.3.0] — 2026-05-18
+
+### Correção
+
+- **Broadcasts sem Console RCON aberto**: broadcasts da biblioteca e envio rápido agora criam uma conexão RCON temporária automaticamente — não é mais necessário abrir o Console RCON antes de enviar.
+- **Race condition em `restart_server` e `_reconnect_monitor`**: acessos ao dicionário `_instances` e mutações de `inst.process`/`inst.pid` agora protegidos por lock.
+- **Race condition (TOCTOU) em `ModManager`**: verificação e atribuição do flag `_active` agora são atômicas com `threading.Lock`, impedindo dois downloads simultâneos.
+- **Gravação atômica de configurações**: `save()`, `save_servers()` e `save_clusters()` agora gravam em arquivo `.tmp` e fazem rename atômico — evita corrupção em caso de crash durante o save.
+- **Script de atualização**: substituído `System.Net.WebClient` (deprecated no .NET 6+) por `Invoke-WebRequest` no script PowerShell do updater.
+- **Race condition no agendador** (`_update_restart`): acesso a `_instances` protegido por lock.
+- **Vazamento de memória no agendador**: entradas antigas de `_sched_fired` e `_sched_warned` limpas a cada ciclo diário.
+- **Autenticação do agente remoto**: token vazio não bypassa mais a verificação de autenticação.
+- **BUFF Manager**: mensagens de aviso agora usam `Broadcast` (destaque na tela) em vez de `ServerChat` (chat simples).
+
+### Novo
+
+- **Botão "🔧 Testar RCON"** na aba Broadcasts: verifica conectividade RCON e envia mensagem de teste, com feedback de sucesso ou erro detalhado.
+- **Notificações Discord aprimoradas**: embeds com campos estruturados, timestamp ISO 8601, footer "ARKLAND Server Manager" e dicas contextuais por tipo de evento (iniciando, online, parado, crash, encerrando).
+- **Notificação Discord automática após atualização de mods**: enviada pelo atualizador automático com nome do mod e servidores reiniciados.
+- **Notificação Discord automática após backup**: enviada com nome do snapshot e tamanho em MB.
+
+---
+
 ## [1.2.8] — 2026-05-17
 
 ### Correção

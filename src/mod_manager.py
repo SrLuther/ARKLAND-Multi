@@ -38,6 +38,7 @@ class ModManager:
         self._on_log        = on_log or (lambda m, lvl: None)
         self._on_progress   = on_progress or (lambda mod_id, status: None)
         self._active        = False
+        self._lock          = threading.Lock()
         self._thread: Optional[threading.Thread] = None
         self._mod_cache: Dict[str, ModInfo] = {}
 
@@ -84,9 +85,11 @@ class ModManager:
         rodando e os arquivos estariam bloqueados pelo Windows.
         Chame ``copy_downloaded_mods()`` depois que o servidor parar.
         """
-        if self._active:
-            self._on_log("Já existe um download em progresso.", "warning")
-            return
+        with self._lock:
+            if self._active:
+                self._on_log("Já existe um download em progresso.", "warning")
+                return
+            self._active = True
         thread = threading.Thread(
             target=self._download_worker,
             args=(mod_ids, install_dir, on_done, copy_to_mods),
@@ -148,7 +151,6 @@ class ModManager:
         on_done: Optional[Callable[[bool], None]],
         copy_to_mods: bool = True,
     ) -> None:
-        self._active = True
         steamcmd = self.get_steamcmd_exe()
         if not steamcmd:
             self._on_log("SteamCMD não encontrado. Configure o caminho nas configurações.", "error")
@@ -259,9 +261,11 @@ class ModManager:
         on_done: Optional[Callable[[bool], None]] = None,
     ) -> None:
         """Instala ou atualiza o servidor ARK Dedicated via SteamCMD."""
-        if self._active:
-            self._on_log("Já existe uma operação em progresso.", "warning")
-            return
+        with self._lock:
+            if self._active:
+                self._on_log("Já existe uma operação em progresso.", "warning")
+                return
+            self._active = True
         thread = threading.Thread(
             target=self._install_server_worker,
             args=(install_dir, validate, on_done),
@@ -277,7 +281,6 @@ class ModManager:
         validate: bool,
         on_done: Optional[Callable[[bool], None]],
     ) -> None:
-        self._active = True
         steamcmd = self.get_steamcmd_exe()
         if not steamcmd:
             self._on_log("SteamCMD não encontrado.", "error")
