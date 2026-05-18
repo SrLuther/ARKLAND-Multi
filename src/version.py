@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.1"
+APP_VERSION: str = "1.3.2"
 BUILD_DATE: str = "2026-05-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.2",
+        "date": "2026-05-18",
+        "changes": [
+            "Fix: Cluster — ClusterID agora passado como flag -clusterid= em vez de parâmetro de URL ?ClusterID=; o ARK ignora a forma ?URL e só reconhece a flag -.",
+            "Fix: Cluster — ClusterDirOverride não usa mais aspas internas (-ClusterDirOverride=\"path\") que podiam falhar no parser do ARK/UE; caminhos com espaços agora recebem o argumento inteiro entre aspas.",
+        ],
+    },
     {
         "version": "1.3.1",
         "date": "2026-05-18",

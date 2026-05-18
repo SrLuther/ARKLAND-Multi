@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.2] — 2026-05-18
+
+### Correção
+
+- **Cluster — ClusterID como flag**: o parâmetro de cluster era passado como `?ClusterID=xxx` (URL option da engine), que o ARK ignora silenciosamente. Corrigido para `-clusterid=xxx` (flag de linha de comando), que é a forma reconhecida pelo servidor.
+- **Cluster — ClusterDirOverride sem aspas internas**: o argumento era gerado como `-ClusterDirOverride="path"`, forma que pode falhar no parser do ARK/Unreal Engine. Agora gerado como `-ClusterDirOverride=path` (sem aspas para caminhos simples) ou `"-ClusterDirOverride=path com espaços"` (argumento inteiro entre aspas quando necessário).
+
+---
+
 ## [1.3.1] — 2026-05-18
 
 ### Correção

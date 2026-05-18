@@ -460,9 +460,6 @@ class ServerConfig:
         if self.alt_save_directory_name:
             params.append(f"?AltSaveDirectoryName={self.alt_save_directory_name}")
 
-        if _cl_id:
-            params.append(f"?ClusterID={_cl_id}")
-
         if self.prevent_spawn_animations:
             params.append("?PreventSpawnAnimations=True")
         if self.show_floating_damage_text:
@@ -499,10 +496,19 @@ class ServerConfig:
         if _cl_id:
             if _cl_no_transfer:
                 flags.append("-NoTransferFromFiltering")
+            # -clusterid= é uma flag (-), não um parâmetro de URL (?) — ARK usa
+            # caminhos de código distintos; ?ClusterID= seria ignorado pelo servidor.
+            flags.append(f"-clusterid={_cl_id}")
             if _cl_dir:
-                # Normaliza para backslashes — ARK no Windows requer separador nativo
+                # Normaliza para backslashes — ARK no Windows requer separador nativo.
+                # Não usar aspas internas (-ClusterDirOverride="path"): o parser do
+                # ARK/UE pode falhar. Se o caminho tiver espaços, citar o argumento
+                # inteiro; caso contrário, sem aspas.
                 _cl_dir_win = _cl_dir.replace("/", "\\")
-                flags.append(f'-ClusterDirOverride="{_cl_dir_win}"')
+                if " " in _cl_dir_win:
+                    flags.append(f'"-ClusterDirOverride={_cl_dir_win}"')
+                else:
+                    flags.append(f"-ClusterDirOverride={_cl_dir_win}")
 
         if dynamic_config_url:
             # ?customdynamicconfigurl= é query param; -UseDynamicConfig é a flag habilitadora (patch 307.2)
