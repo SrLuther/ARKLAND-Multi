@@ -5,6 +5,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.4] — 2026-05-18
+
+### Novo
+
+- **Diagnóstico de Cluster** (aba Avançado): botão "🔍 Diagnosticar Cluster" abre um dialog com verificação completa da configuração de cross-ARK — cluster habilitado, ID, pasta compartilhada (local ou UNC/rede), sync, `AltSaveDirectoryName`, consistência com outros servidores do cluster e permissões de download/upload.
+
+### Correção
+
+- **Janela CMD do SteamCMD**: a janela preta do `steamcmd.exe` não abre mais visível durante download de mods ou atualização de servidor — o processo agora roda em background com `CREATE_NO_WINDOW`.
+
+---
+
 ## [1.3.3] — 2026-05-18
 
 ### Correção

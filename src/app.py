@@ -3338,6 +3338,16 @@ class ARKServerManagerApp(ctk.CTk):
              "no_transfer_from_filtering", adv.no_transfer_from_filtering, r)
         r += 1
 
+        # ── Botão de diagnóstico de cluster ───────────────────────────────
+        ctk.CTkButton(
+            scroll,
+            text="🔍  Diagnosticar Cluster",
+            height=32, width=220,
+            fg_color="#2a4a6a", hover_color="#3a5a7a",
+            command=lambda sid=srv.id: self._show_cluster_health_dialog(sid),
+        ).grid(row=r, column=0, columnspan=2, padx=16, pady=(4, 10), sticky="w")
+        r += 1
+
         self._section_lbl(scroll, r, "⚙️  Game.ini Avançado")
         r += 1
         brow("Nerf de Criôpod Ativado",
@@ -3522,6 +3532,248 @@ class ARKServerManagerApp(ctk.CTk):
         r += 1
 
         self._save_btn_row(scroll, r + 2, srv.id)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Diagnóstico de Cluster
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _get_cluster_health(self, srv: ServerConfig) -> list[tuple[str, str, str]]:
+        """Retorna lista de (status, título, detalhe) para o diagnóstico de cluster.
+
+        status: "ok" | "warn" | "error"
+        """
+        from pathlib import Path as _P
+
+        results: list[tuple[str, str, str]] = []
+        cl  = srv.cluster
+        adv = srv.advanced_settings
+
+        # ── Resolve perfil ativo vs. configuração manual ──────────────────
+        prof: "ClusterProfile | None" = None
+        if srv.cluster_profile_id:
+            prof = self.config_manager.get_cluster(srv.cluster_profile_id)
+
+        using_profile = prof is not None
+        effective_cid  = (prof.cluster_id   if prof else cl.cluster_id).strip()
+        effective_cdir = (prof.cluster_dir   if prof else cl.cluster_dir_override).strip()
+        net_mode       = (prof.mode == "network") if prof else False
+
+        # ── Cluster habilitado ────────────────────────────────────────────
+        if cl.enabled:
+            results.append(("ok",   "Cluster habilitado", ""))
+        else:
+            results.append(("error", "Cluster não habilitado",
+                             "Marque 'Habilitar Cluster (Cross-ARK)' na aba Avançado."))
+
+        # ── Perfil vinculado ──────────────────────────────────────────────
+        if using_profile:
+            results.append(("ok",  f"Perfil de cluster ativo: {prof.name}",  # type: ignore[union-attr]
+                             f"Modo: {'Rede' if net_mode else 'Local'}"))
+        else:
+            results.append(("warn", "Sem perfil de cluster vinculado",
+                             "Configuração manual não é sincronizada entre instâncias do app. "
+                             "Use um Perfil de Cluster para multi-máquina."))
+
+        # ── Cluster ID ───────────────────────────────────────────────────
+        if effective_cid:
+            results.append(("ok",  "Cluster ID configurado", effective_cid))
+        else:
+            results.append(("error", "Cluster ID vazio",
+                             "Defina um ID único igual em todos os servidores do cluster."))
+
+        # ── Pasta do cluster ─────────────────────────────────────────────
+        if effective_cdir:
+            is_unc    = effective_cdir.startswith("\\\\")
+            is_mapped = (len(effective_cdir) >= 2 and effective_cdir[1] == ":"
+                         and effective_cdir[0].isalpha()
+                         and not _P(effective_cdir).is_absolute() is False
+                         and effective_cdir[0].upper() not in ("C", "D", "E"))
+            is_network_path = is_unc or is_mapped
+
+            if net_mode and not is_network_path:
+                results.append(("warn", "Pasta do Cluster não parece ser caminho de rede",
+                                 f"Modo Rede ativo, mas '{effective_cdir}' parece ser caminho local. "
+                                 "Use caminho UNC (\\\\servidor\\pasta) ou unidade mapeada."))
+            elif net_mode and is_unc:
+                results.append(("ok",  "Caminho UNC configurado (modo rede)", effective_cdir))
+            elif net_mode and is_mapped:
+                results.append(("ok",  "Unidade de rede mapeada configurada", effective_cdir))
+
+            if _P(effective_cdir).exists():
+                results.append(("ok",  "Pasta do Cluster acessível", effective_cdir))
+            else:
+                sev = "error" if net_mode else "warn"
+                results.append((sev, "Pasta do Cluster não encontrada / inacessível",
+                                 f"'{effective_cdir}' não existe ou sem permissão. "
+                                 + ("Verifique se o compartilhamento de rede está ativo e mapeado."
+                                    if net_mode else
+                                    "Crie a pasta ou corrija o caminho.")))
+        else:
+            sev = "error" if net_mode else "warn"
+            results.append((sev, "Pasta do Cluster não definida",
+                             "Sem ClusterDirOverride os servidores em máquinas diferentes "
+                             "não compartilharão dados de viagem."))
+
+        # ── Sync (modo rede) ──────────────────────────────────────────────
+        if net_mode and prof is not None:
+            if prof.sync_enabled:
+                results.append(("ok",  "Sincronização automática ativada",
+                                 f"Intervalo: {prof.sync_interval}s"))
+                local = prof.local_cluster_dir.strip()
+                if local:
+                    if _P(local).exists():
+                        results.append(("ok",  "Pasta local de sync existe", local))
+                    else:
+                        results.append(("warn", "Pasta local de sync não encontrada",
+                                         f"'{local}' não existe. O ARK precisa ter acesso a ela."))
+                else:
+                    results.append(("error", "Pasta local de sync não definida",
+                                     "Com sync ativo é necessário definir a pasta local onde "
+                                     "o ARK grava os dados de viagem."))
+            else:
+                results.append(("warn", "Sincronização automática desativada (modo rede)",
+                                 "Sem sync o app não copia os dados de viagem entre a pasta "
+                                 "local do ARK e o compartilhamento de rede. Ative na aba Clusters."))
+
+        # ── Nome de pasta de saves ────────────────────────────────────────
+        if srv.alt_save_directory_name.strip():
+            results.append(("ok",  "AltSaveDirectoryName configurado",
+                             srv.alt_save_directory_name.strip()))
+        else:
+            results.append(("warn", "AltSaveDirectoryName vazio",
+                             "Necessário quando múltiplos servidores rodam na mesma máquina "
+                             "para evitar conflito de saves."))
+
+        # ── Consistência — outros servidores no mesmo cluster ─────────────
+        if effective_cid:
+            same_cluster = [
+                s for s in self.config_manager.servers
+                if s.id != srv.id and (
+                    (s.cluster_profile_id and s.cluster_profile_id == srv.cluster_profile_id)
+                    or s.cluster.cluster_id.strip() == effective_cid
+                )
+            ]
+            if same_cluster:
+                results.append(("ok",  f"{len(same_cluster)} outro(s) servidor(es) no mesmo cluster",
+                                 ", ".join(s.name for s in same_cluster)))
+            else:
+                results.append(("warn", "Nenhum outro servidor com o mesmo Cluster ID no app",
+                                 "Este servidor está sozinho no cluster. "
+                                 "Servidores em outras máquinas não aparecem aqui."))
+
+        # ── Downloads ────────────────────────────────────────────────────
+        dl_checks = [
+            (adv.prevent_download_survivors, "Download de Sobreviventes",
+             "Jogadores não podem importar personagens de outros mapas."),
+            (adv.prevent_download_items,     "Download de Itens",
+             "Jogadores não podem trazer itens de outros mapas."),
+            (adv.prevent_download_dinos,     "Download de Dinos",
+             "Jogadores não podem trazer dinos domesticados de outros mapas."),
+        ]
+        for blocked, label, detail in dl_checks:
+            if blocked:
+                results.append(("warn", f"{label} BLOQUEADO", detail))
+            else:
+                results.append(("ok",  f"{label} permitido", ""))
+
+        # ── Uploads ──────────────────────────────────────────────────────
+        ul_checks = [
+            (adv.prevent_upload_survivors, "Upload de Sobreviventes",
+             "Jogadores não podem enviar personagens para o cluster."),
+            (adv.prevent_upload_items,     "Upload de Itens",
+             "Jogadores não podem enviar itens para o cluster."),
+            (adv.prevent_upload_dinos,     "Upload de Dinos",
+             "Jogadores não podem enviar dinos para o cluster."),
+        ]
+        for blocked, label, detail in ul_checks:
+            if blocked:
+                results.append(("warn", f"{label} BLOQUEADO", detail))
+            else:
+                results.append(("ok",  f"{label} permitido", ""))
+
+        return results
+
+    def _show_cluster_health_dialog(self, server_id: str) -> None:
+        """Abre dialog com o resultado do diagnóstico de cluster para o servidor."""
+        srv = self.config_manager.get_server(server_id)
+        if not srv:
+            return
+
+        results = self._get_cluster_health(srv)
+
+        dlg = tk.Toplevel(self)
+        dlg.title(f"Diagnóstico de Cluster — {srv.name}")
+        dlg.configure(bg=_BG)
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        # Cabeçalho
+        hdr = ctk.CTkFrame(dlg, fg_color=_CARD_BG, corner_radius=0)
+        hdr.pack(fill="x")
+        ctk.CTkLabel(
+            hdr, text=f"🔍  Diagnóstico de Cluster — {srv.name}",
+            font=ctk.CTkFont(size=14, weight="bold"),
+        ).pack(anchor="w", padx=16, pady=10)
+
+        # Área de itens
+        body = ctk.CTkScrollableFrame(dlg, fg_color="transparent", width=520, height=380)
+        body.pack(fill="both", expand=True, padx=12, pady=8)
+
+        _ICON  = {"ok": "✅", "warn": "⚠️", "error": "❌"}
+        _COLOR = {"ok": "#5aaa5a", "warn": "#e0a020", "error": "#cc4444"}
+
+        for status, title, detail in results:
+            row = ctk.CTkFrame(body, fg_color="#1e1e2e", corner_radius=6)
+            row.pack(fill="x", pady=3, padx=2)
+            row.grid_columnconfigure(1, weight=1)
+
+            ctk.CTkLabel(
+                row, text=_ICON[status], width=30,
+                font=ctk.CTkFont(size=14),
+            ).grid(row=0, column=0, padx=(8, 4), pady=(6, 2), sticky="n")
+
+            ctk.CTkLabel(
+                row, text=title, anchor="w",
+                text_color=_COLOR[status],
+                font=ctk.CTkFont(size=12, weight="bold"),
+            ).grid(row=0, column=1, padx=(0, 8), pady=(6, 1), sticky="w")
+
+            if detail:
+                ctk.CTkLabel(
+                    row, text=detail, anchor="w", wraplength=430,
+                    text_color="gray60",
+                    font=ctk.CTkFont(size=10),
+                ).grid(row=1, column=1, padx=(0, 8), pady=(0, 6), sticky="w")
+
+        # Resumo
+        errors = sum(1 for s, _, __ in results if s == "error")
+        warns  = sum(1 for s, _, __ in results if s == "warn")
+        if errors:
+            summary_text  = f"❌  {errors} problema(s) crítico(s) encontrado(s)."
+            summary_color = "#cc4444"
+        elif warns:
+            summary_text  = f"⚠️  {warns} aviso(s) — verifique antes de iniciar o servidor."
+            summary_color = "#e0a020"
+        else:
+            summary_text  = "✅  Cluster configurado corretamente para cross-ARK."
+            summary_color = "#5aaa5a"
+
+        ctk.CTkLabel(
+            dlg, text=summary_text, text_color=summary_color,
+            font=ctk.CTkFont(size=12, weight="bold"),
+        ).pack(pady=(0, 6))
+
+        ctk.CTkButton(
+            dlg, text="Fechar", width=100, height=32,
+            command=dlg.destroy,
+        ).pack(pady=(0, 12))
+
+        dlg.update_idletasks()
+        w = dlg.winfo_reqwidth()
+        h = dlg.winfo_reqheight()
+        x = self.winfo_x() + (self.winfo_width()  - w) // 2
+        y = self.winfo_y() + (self.winfo_height() - h) // 2
+        dlg.geometry(f"+{x}+{y}")
 
     # ══════════════════════════════════════════════════════════════════════════
     # Aba Spawns de Dinos

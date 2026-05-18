@@ -185,6 +185,7 @@ class ModManager:
                     text=True,
                     encoding="utf-8",
                     errors="replace",
+                    creationflags=subprocess.CREATE_NO_WINDOW,
                 )
                 if proc.stdout:
                     for line in proc.stdout:
@@ -308,6 +309,7 @@ class ModManager:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
             if proc.stdout:
                 for line in proc.stdout:
