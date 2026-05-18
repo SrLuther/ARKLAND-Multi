@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.2.8"
+APP_VERSION: str = "1.2.9"
 BUILD_DATE: str = "2026-05-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.2.9",
+        "date": "2026-05-17",
+        "changes": [
+            "Fix: Botão 'Iniciar' no painel de Sincronização de Cluster agora salva o perfil automaticamente antes de iniciar, evitando perda dos campos não salvos (Pasta local, Intervalo).",
+        ],
+    },
     {
         "version": "1.2.8",
         "date": "2026-05-17",
@@ -22,6 +29,7 @@ CHANGELOG: list[dict] = [
         ],
     },
     {
+        "version": "1.2.7",
         "date": "2026-05-17",
         "changes": [
             "Novo: Integração BattleMetrics — campo 'BattleMetrics ID' na aba Geral de cada servidor. Quando configurado, exibe status online/offline e contagem de jogadores (👥 X/Y) no painel e no dashboard, consultando a API pública a cada 60 segundos.",

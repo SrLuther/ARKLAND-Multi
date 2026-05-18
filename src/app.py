@@ -9073,6 +9073,8 @@ class ARKServerManagerApp(ctk.CTk):
         sync_ctrl_fr.grid(row=sr, column=1, padx=(0, 16), pady=(6, 12), sticky="w")
 
         def _toggle_cluster_sync():
+            # Salva antes de iniciar para não perder campos não salvos
+            self._cluster_save(_prof_id_for_sync)
             if (_prof_id_for_sync in self._cluster_sync_engines
                     and self._cluster_sync_engines[_prof_id_for_sync].is_running):
                 self._cluster_sync_stop(_prof_id_for_sync)
