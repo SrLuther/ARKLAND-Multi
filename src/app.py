@@ -2052,33 +2052,8 @@ class ARKServerManagerApp(ctk.CTk):
         _built_tabs.add("Geral")
         self._build_tab_general(tabs.tab("Geral"), srv)
 
-        # Pré-constrói as demais abas progressivamente em idle time para eliminar
-        # o freeze na primeira visita. Cada aba é construída com intervalo generoso
-        # (1500ms) para não interferir com a interação do usuário.
-        # "Jogo" é omitida aqui: ela usa chunked rendering (after(0)) e se
-        # auto-constrói sem freeze quando visitada pela primeira vez.
-        # "Spawns" e "Loot" são abas pesadas e raramente visitadas primeiro —
-        # são construídas sob demanda (lazy) para não atrasar o pre-build.
-        _prebuild_order = [
-            "Avançado", "Console RCON", "Logs", "Admins",
-            "Mods", "Jogadores",
-            "💬 Chat", "📝 INI", "📋 Histórico", "Backup", "Plugins",
-        ]
-
-        def _idle_build(queue: list) -> None:
-            if not queue:
-                return
-            name, *rest = queue
-            if name not in _built_tabs:
-                _built_tabs.add(name)
-                _TAB_BUILDERS[name]()
-                inst_chk = self.server_manager.get_instance(srv.id)
-                if inst_chk and inst_chk.status != SERVER_STATUS_STOPPED:
-                    self._set_config_editable(srv.id, False)
-            self.after(1500, lambda: _idle_build(rest))
-
-        # Inicia 1500ms depois para a aba Geral renderizar completamente primeiro
-        self.after(1500, lambda: _idle_build(_prebuild_order))
+        # Todas as abas são construídas sob demanda (lazy) na primeira visita.
+        # Sem pre-build em background para não travar a navegação.
 
         # Aplicar estado inicial de bloqueio se servidor não estiver parado
         if not is_stopped:
@@ -4915,7 +4890,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         # ── estado em memória ─────────────────────────────────────────────────
         # items_rows / kits_rows: lista de dicts com StringVars/BooleanVars por linha
-        _state: dict = {"items_rows": [], "kits_rows": []}
+        _state: dict = {"items_rows": [], "kits_rows": [], "timed_groups": []}
 
         # ══ STATUS CARD ═══════════════════════════════════════════════════════
         status_card = ctk.CTkFrame(outer, corner_radius=10, fg_color=_CARD_BG)
@@ -4943,41 +4918,116 @@ class ARKServerManagerApp(ctk.CTk):
         settings_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
         settings_card.grid(row=0, column=0, padx=12, pady=(0, 6), sticky="ew")
         settings_card.grid_columnconfigure(1, weight=1)
+        settings_card.grid_columnconfigure(3, weight=1)
 
         ctk.CTkLabel(
             settings_card, text="⚙️  Configurações Gerais",
             font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
-        ).grid(row=0, column=0, columnspan=3, padx=16, pady=(12, 8), sticky="w")
+        ).grid(row=0, column=0, columnspan=4, padx=16, pady=(12, 8), sticky="w")
 
         def _cfg_lbl(text: str) -> ctk.CTkLabel:
             return ctk.CTkLabel(settings_card, text=text, text_color="gray60",
-                                anchor="w", width=160)
+                                anchor="w", width=155)
 
-        sv_shop_name  = tk.StringVar()
-        sv_ui_key     = tk.StringVar()
-        sv_start_pts  = tk.StringVar()
-        bv_no_sell    = tk.BooleanVar()
-        bv_no_trade   = tk.BooleanVar()
+        def _sec_sep(text: str, row: int) -> None:
+            ctk.CTkLabel(settings_card, text=f"  {text}",
+                         text_color="gray45", font=ctk.CTkFont(size=10),
+                         fg_color="#1c1c2a", corner_radius=3, anchor="w",
+                         ).grid(row=row, column=0, columnspan=4,
+                                padx=10, pady=(8, 2), sticky="ew")
 
-        _cfg_lbl("Nome da loja:").grid(row=1, column=0, padx=(16, 4), pady=4, sticky="w")
-        ctk.CTkEntry(settings_card, textvariable=sv_shop_name, height=30, width=220
-                     ).grid(row=1, column=1, padx=(0, 16), pady=4, sticky="w")
+        sv_shop_name      = tk.StringVar()
+        sv_ui_key         = tk.StringVar()
+        sv_start_pts      = tk.StringVar()
+        sv_items_per_page = tk.StringVar()
+        sv_display_time   = tk.StringVar()
+        sv_text_size      = tk.StringVar()
+        sv_default_kit    = tk.StringVar()
+        sv_db_path        = tk.StringVar()
+        bv_no_sell        = tk.BooleanVar()
+        bv_no_trade       = tk.BooleanVar()
+        bv_orig_trade     = tk.BooleanVar()
+        bv_dinos_cryo     = tk.BooleanVar()
+        bv_soul_traps     = tk.BooleanVar()
+        bv_cryo_limited   = tk.BooleanVar()
+        bv_no_noglin      = tk.BooleanVar()
+        bv_no_unconscious = tk.BooleanVar()
+        bv_no_handcuffed  = tk.BooleanVar()
+        bv_no_carried     = tk.BooleanVar()
 
-        _cfg_lbl("Tecla de abrir (UiKey):").grid(row=2, column=0, padx=(16, 4), pady=4, sticky="w")
-        ctk.CTkEntry(settings_card, textvariable=sv_ui_key, height=30, width=80
-                     ).grid(row=2, column=1, padx=(0, 16), pady=4, sticky="w")
+        # ── Loja ─────────────────────────────────────────────────────────────
+        _sec_sep("Loja", 1)
+        _cfg_lbl("Nome da loja:").grid(row=2, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_shop_name, height=28, width=200
+                     ).grid(row=2, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Tecla de abrir (UiKey):").grid(row=2, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_ui_key, height=28, width=70
+                     ).grid(row=2, column=3, padx=(0, 16), pady=3, sticky="w")
 
-        _cfg_lbl("Pontos iniciais:").grid(row=3, column=0, padx=(16, 4), pady=4, sticky="w")
-        ctk.CTkEntry(settings_card, textvariable=sv_start_pts, height=30, width=80
-                     ).grid(row=3, column=1, padx=(0, 16), pady=4, sticky="w")
+        _cfg_lbl("Pontos iniciais:").grid(row=3, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_start_pts, height=28, width=70
+                     ).grid(row=3, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Itens por página:").grid(row=3, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_items_per_page, height=28, width=70
+                     ).grid(row=3, column=3, padx=(0, 16), pady=3, sticky="w")
 
-        _cfg_lbl("Desativar botão Vender:").grid(row=4, column=0, padx=(16, 4), pady=4, sticky="w")
+        _cfg_lbl("Tempo exibição (s):").grid(row=4, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_display_time, height=28, width=70
+                     ).grid(row=4, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Tamanho do texto:").grid(row=4, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_text_size, height=28, width=70
+                     ).grid(row=4, column=3, padx=(0, 16), pady=3, sticky="w")
+
+        _cfg_lbl("Kit padrão:").grid(row=5, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_default_kit, height=28, width=140
+                     ).grid(row=5, column=1, padx=(0, 10), pady=3, sticky="w")
+
+        _cfg_lbl("Caminho BD (override):").grid(row=6, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(settings_card, textvariable=sv_db_path, height=28,
+                     placeholder_text="Deixe vazio para usar o padrão"
+                     ).grid(row=6, column=1, columnspan=3, padx=(0, 16), pady=3, sticky="ew")
+
+        # ── Botões ───────────────────────────────────────────────────────────
+        _sec_sep("Botões", 7)
+        _cfg_lbl("Desativar botão Vender:").grid(row=8, column=0, padx=(16, 4), pady=3, sticky="w")
         ctk.CTkSwitch(settings_card, text="", variable=bv_no_sell, width=48
-                      ).grid(row=4, column=1, padx=(0, 16), pady=4, sticky="w")
-
-        _cfg_lbl("Desativar botão Trocar:").grid(row=5, column=0, padx=(16, 4), pady=(4, 12), sticky="w")
+                      ).grid(row=8, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Desativar botão Trocar:").grid(row=8, column=2, padx=(10, 4), pady=3, sticky="w")
         ctk.CTkSwitch(settings_card, text="", variable=bv_no_trade, width=48
-                      ).grid(row=5, column=1, padx=(0, 16), pady=(4, 12), sticky="w")
+                      ).grid(row=8, column=3, padx=(0, 16), pady=3, sticky="w")
+
+        _cfg_lbl("Troca original com UI:").grid(row=9, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_orig_trade, width=48
+                      ).grid(row=9, column=1, padx=(0, 10), pady=3, sticky="w")
+
+        # ── Criaturas / Cryo ─────────────────────────────────────────────────
+        _sec_sep("Criaturas / Cryo", 10)
+        _cfg_lbl("Dinos em Cryopods:").grid(row=11, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_dinos_cryo, width=48
+                      ).grid(row=11, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Soul Traps:").grid(row=11, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_soul_traps, width=48
+                      ).grid(row=11, column=3, padx=(0, 16), pady=3, sticky="w")
+
+        _cfg_lbl("Cryo tempo limitado:").grid(row=12, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_cryo_limited, width=48
+                      ).grid(row=12, column=1, padx=(0, 10), pady=3, sticky="w")
+
+        # ── Restrições de uso ─────────────────────────────────────────────────
+        _sec_sep("Restrições de uso", 13)
+        _cfg_lbl("Bloquear com Noglin:").grid(row=14, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_no_noglin, width=48
+                      ).grid(row=14, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Bloquear inconsciente:").grid(row=14, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_no_unconscious, width=48
+                      ).grid(row=14, column=3, padx=(0, 16), pady=3, sticky="w")
+
+        _cfg_lbl("Bloquear algemado:").grid(row=15, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_no_handcuffed, width=48
+                      ).grid(row=15, column=1, padx=(0, 10), pady=3, sticky="w")
+        _cfg_lbl("Bloquear sendo carregado:").grid(row=15, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkSwitch(settings_card, text="", variable=bv_no_carried, width=48
+                      ).grid(row=15, column=3, padx=(0, 16), pady=(3, 12), sticky="w")
 
         # ══ ITEMS CARD ════════════════════════════════════════════════════════
         items_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
@@ -5011,9 +5061,103 @@ class ARKServerManagerApp(ctk.CTk):
         kits_scroll.grid(row=1, column=0, padx=8, pady=(0, 4), sticky="ew")
         kits_scroll.grid_columnconfigure(0, weight=1)
 
+        # ══ PONTOS POR TEMPO CARD ═══════════════════════════════════════════════
+        timed_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
+        timed_card.grid(row=3, column=0, padx=12, pady=(0, 6), sticky="ew")
+        timed_card.grid_columnconfigure(0, weight=1)
+
+        timed_hdr = ctk.CTkFrame(timed_card, fg_color="transparent")
+        timed_hdr.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+        timed_hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(timed_hdr, text="⏱  Pontos por Tempo",
+                     font=ctk.CTkFont(size=13, weight="bold"), anchor="w"
+                     ).grid(row=0, column=0, sticky="w")
+
+        timed_settings_frame = ctk.CTkFrame(timed_card, fg_color="transparent")
+        timed_settings_frame.grid(row=1, column=0, padx=16, pady=(0, 8), sticky="ew")
+
+        bv_timed_enabled  = tk.BooleanVar(value=True)
+        sv_timed_interval = tk.StringVar(value="30")
+        bv_timed_stack    = tk.BooleanVar(value=True)
+
+        ctk.CTkLabel(timed_settings_frame, text="Ativar:", text_color="gray60",
+                     width=50, anchor="w").grid(row=0, column=0, padx=(0, 4), pady=4, sticky="w")
+        ctk.CTkSwitch(timed_settings_frame, text="", variable=bv_timed_enabled, width=48
+                      ).grid(row=0, column=1, padx=(0, 20), pady=4, sticky="w")
+
+        ctk.CTkLabel(timed_settings_frame, text="Intervalo (s):", text_color="gray60",
+                     width=90, anchor="w").grid(row=0, column=2, padx=(0, 4), pady=4, sticky="w")
+        ctk.CTkEntry(timed_settings_frame, textvariable=sv_timed_interval, height=28, width=70
+                     ).grid(row=0, column=3, padx=(0, 20), pady=4, sticky="w")
+
+        ctk.CTkLabel(timed_settings_frame, text="Acumular:", text_color="gray60",
+                     width=70, anchor="w").grid(row=0, column=4, padx=(0, 4), pady=4, sticky="w")
+        ctk.CTkSwitch(timed_settings_frame, text="", variable=bv_timed_stack, width=48
+                      ).grid(row=0, column=5, pady=4, sticky="w")
+
+        timed_groups_hdr = ctk.CTkFrame(timed_card, fg_color="transparent")
+        timed_groups_hdr.grid(row=2, column=0, padx=12, pady=(0, 2), sticky="ew")
+        timed_groups_hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(timed_groups_hdr, text="Grupos (pontos recebidos por grupo):",
+                     text_color="gray60", font=ctk.CTkFont(size=11), anchor="w"
+                     ).grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(
+            timed_groups_hdr, text="+ Grupo", height=24, width=80,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: _add_timed_group(),
+        ).grid(row=0, column=1, sticky="e")
+
+        groups_scroll = ctk.CTkScrollableFrame(timed_card, fg_color="transparent", height=160)
+        groups_scroll.grid(row=3, column=0, padx=8, pady=(0, 8), sticky="ew")
+        groups_scroll.grid_columnconfigure(0, weight=1)
+
+        # ══ DATABASE CARD ══════════════════════════════════════════════════════
+        db_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
+        db_card.grid(row=4, column=0, padx=12, pady=(0, 6), sticky="ew")
+        db_card.grid_columnconfigure(1, weight=1)
+        db_card.grid_columnconfigure(3, weight=1)
+
+        ctk.CTkLabel(
+            db_card, text="🗃️  Banco de Dados (MySQL)",
+            font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
+        ).grid(row=0, column=0, columnspan=4, padx=16, pady=(12, 8), sticky="w")
+
+        ctk.CTkLabel(
+            db_card,
+            text="💡 Requer libmysql.dll na mesma pasta do CustomShop.dll",
+            text_color="gray55", font=ctk.CTkFont(size=10), anchor="w",
+        ).grid(row=0, column=0, columnspan=4, padx=16, pady=(0, 0), sticky="se")
+
+        def _db_lbl(text: str) -> ctk.CTkLabel:
+            return ctk.CTkLabel(db_card, text=text, text_color="gray60", anchor="w", width=90)
+
+        sv_db_host = tk.StringVar()
+        sv_db_port = tk.StringVar()
+        sv_db_user = tk.StringVar()
+        sv_db_pass = tk.StringVar()
+        sv_db_name = tk.StringVar()
+
+        _db_lbl("Host:").grid(row=1, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(db_card, textvariable=sv_db_host, height=28, width=180
+                     ).grid(row=1, column=1, padx=(0, 10), pady=3, sticky="w")
+        _db_lbl("Porta:").grid(row=1, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkEntry(db_card, textvariable=sv_db_port, height=28, width=70
+                     ).grid(row=1, column=3, padx=(0, 16), pady=3, sticky="w")
+
+        _db_lbl("Usuário:").grid(row=2, column=0, padx=(16, 4), pady=3, sticky="w")
+        ctk.CTkEntry(db_card, textvariable=sv_db_user, height=28, width=180
+                     ).grid(row=2, column=1, padx=(0, 10), pady=3, sticky="w")
+        _db_lbl("Senha:").grid(row=2, column=2, padx=(10, 4), pady=3, sticky="w")
+        ctk.CTkEntry(db_card, textvariable=sv_db_pass, height=28, width=180, show="•"
+                     ).grid(row=2, column=3, padx=(0, 16), pady=3, sticky="w")
+
+        _db_lbl("Banco:").grid(row=3, column=0, padx=(16, 4), pady=(3, 12), sticky="w")
+        ctk.CTkEntry(db_card, textvariable=sv_db_name, height=28, width=180
+                     ).grid(row=3, column=1, padx=(0, 10), pady=(3, 12), sticky="w")
+
         # ══ BOTÕES FINAIS ══════════════════════════════════════════════════════
         save_row = ctk.CTkFrame(cfg_outer, fg_color="transparent")
-        save_row.grid(row=3, column=0, padx=16, pady=(0, 12), sticky="w")
+        save_row.grid(row=5, column=0, padx=16, pady=(0, 12), sticky="w")
 
         # ── helpers de linha de item ───────────────────────────────────────────
         def _add_item_row(item_id: str = "", data: dict | None = None) -> None:
@@ -5065,31 +5209,117 @@ class ARKServerManagerApp(ctk.CTk):
                          placeholder_text="Descrição exibida na loja"
                          ).grid(row=1, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
 
-            # Linha 2: Blueprint
-            ctk.CTkLabel(card, text="BP:", text_color="gray55", width=28
-                         ).grid(row=2, column=0, padx=(8, 2), pady=2)
+            # ── Modo ITEM (BP + Qtd/Qual/ForceBP) ────────────────────────────────
+            item_frame = ctk.CTkFrame(card, fg_color="transparent")
+            item_frame.grid(row=2, column=0, columnspan=7, padx=0, pady=0, sticky="ew")
+            item_frame.grid_columnconfigure((1, 3, 5), weight=1)
+
+            ctk.CTkLabel(item_frame, text="BP:", text_color="gray55", width=28
+                         ).grid(row=0, column=0, padx=(8, 2), pady=2)
             row["bp"] = tk.StringVar(value=data.get("Blueprint", ""))
-            ctk.CTkEntry(card, textvariable=row["bp"], height=28,
+            ctk.CTkEntry(item_frame, textvariable=row["bp"], height=28,
                          placeholder_text="/Game/PrimalEarth/..."
-                         ).grid(row=2, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
+                         ).grid(row=0, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
 
-            # Linha 3: Qty | Quality | ForceBP
-            ctk.CTkLabel(card, text="Qtd:", text_color="gray55", width=32
-                         ).grid(row=3, column=0, padx=(8, 2), pady=(2, 8))
+            ctk.CTkLabel(item_frame, text="Qtd:", text_color="gray55", width=32
+                         ).grid(row=1, column=0, padx=(8, 2), pady=(2, 8))
             row["qty"] = tk.StringVar(value=str(data.get("Quantity", 1)))
-            ctk.CTkEntry(card, textvariable=row["qty"], height=28, width=60
-                         ).grid(row=3, column=1, padx=(0, 6), pady=(2, 8), sticky="w")
+            ctk.CTkEntry(item_frame, textvariable=row["qty"], height=28, width=60
+                         ).grid(row=1, column=1, padx=(0, 6), pady=(2, 8), sticky="w")
 
-            ctk.CTkLabel(card, text="Qual:", text_color="gray55", width=38
-                         ).grid(row=3, column=2, padx=(4, 2), pady=(2, 8))
+            ctk.CTkLabel(item_frame, text="Qual:", text_color="gray55", width=38
+                         ).grid(row=1, column=2, padx=(4, 2), pady=(2, 8))
             row["qual"] = tk.StringVar(value=str(data.get("Quality", 0.0)))
-            ctk.CTkEntry(card, textvariable=row["qual"], height=28, width=60
-                         ).grid(row=3, column=3, padx=(0, 6), pady=(2, 8), sticky="w")
+            ctk.CTkEntry(item_frame, textvariable=row["qual"], height=28, width=60
+                         ).grid(row=1, column=3, padx=(0, 6), pady=(2, 8), sticky="w")
 
             row["force_bp"] = tk.BooleanVar(value=bool(data.get("ForceBlueprint", False)))
-            ctk.CTkCheckBox(card, text="Forçar BP", variable=row["force_bp"],
+            ctk.CTkCheckBox(item_frame, text="Forçar BP", variable=row["force_bp"],
                             text_color="gray60", height=28
-                            ).grid(row=3, column=4, columnspan=2, padx=4, pady=(2, 8), sticky="w")
+                            ).grid(row=1, column=4, columnspan=2, padx=4, pady=(2, 8), sticky="w")
+
+            # ── Modo COMMAND (lista Command / DisplayAs / ExecuteAsAdmin) ─────────────
+            cmd_frame = ctk.CTkFrame(card, fg_color="transparent")
+            cmd_frame.grid(row=2, column=0, columnspan=7, padx=0, pady=0, sticky="ew")
+            cmd_frame.grid_columnconfigure(0, weight=1)
+            cmd_frame.grid_remove()
+
+            row["cmd_rows"] = []
+
+            ctk.CTkLabel(cmd_frame, text="Comandos:", text_color="gray55",
+                         font=ctk.CTkFont(size=11), anchor="w"
+                         ).grid(row=0, column=0, padx=(10, 0), pady=(6, 2), sticky="w")
+
+            cmd_list = ctk.CTkFrame(cmd_frame, fg_color="transparent")
+            cmd_list.grid(row=1, column=0, padx=8, pady=(0, 2), sticky="ew")
+            cmd_list.grid_columnconfigure(1, weight=1)
+            cmd_list.grid_columnconfigure(3, weight=1)
+
+            def _add_cmd_row(command: str = "", display_as: str = "",
+                             exec_admin: bool = True) -> None:
+                cr: dict = {}
+                row["cmd_rows"].append(cr)
+                cidx = len(row["cmd_rows"]) - 1
+
+                cf = ctk.CTkFrame(cmd_list, fg_color="#1e1e2e", corner_radius=4)
+                cf.grid(row=cidx, column=0, columnspan=6, padx=0, pady=1, sticky="ew")
+                cf.grid_columnconfigure(1, weight=1)
+                cf.grid_columnconfigure(3, weight=1)
+                cr["_frame"] = cf
+
+                def _del_cr(c=cr, f=cf):
+                    if c in row["cmd_rows"]:
+                        row["cmd_rows"].remove(c)
+                    f.destroy()
+
+                ctk.CTkLabel(cf, text="Cmd:", text_color="gray55", width=36
+                             ).grid(row=0, column=0, padx=(6, 2), pady=3)
+                cr["command"] = tk.StringVar(value=command)
+                ctk.CTkEntry(cf, textvariable=cr["command"], height=26,
+                             placeholder_text="Permissions.AddTimed {steamid} grupo 720"
+                             ).grid(row=0, column=1, padx=(0, 6), pady=3, sticky="ew")
+
+                ctk.CTkLabel(cf, text="Exibir como:", text_color="gray55", width=82
+                             ).grid(row=0, column=2, padx=(4, 2), pady=3)
+                cr["display_as"] = tk.StringVar(value=display_as)
+                ctk.CTkEntry(cf, textvariable=cr["display_as"], height=26, width=160
+                             ).grid(row=0, column=3, padx=(0, 6), pady=3, sticky="ew")
+
+                cr["exec_as_admin"] = tk.BooleanVar(value=exec_admin)
+                ctk.CTkCheckBox(cf, text="Admin", variable=cr["exec_as_admin"],
+                                text_color="gray60", height=24, width=64
+                                ).grid(row=0, column=4, padx=4, pady=3)
+
+                ctk.CTkButton(cf, text="✕", width=24, height=24,
+                              fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                              command=_del_cr).grid(row=0, column=5, padx=(2, 6), pady=3)
+
+            ctk.CTkButton(
+                cmd_frame, text="+ Comando", height=26, width=120,
+                fg_color="#3a3a5a", hover_color="#252540",
+                command=lambda: _add_cmd_row(),
+            ).grid(row=2, column=0, padx=8, pady=(0, 6), sticky="w")
+
+            # Popula cmd_rows se tipo=command e Items existirem
+            for ci in data.get("Items", []):
+                if isinstance(ci, dict) and "Command" in ci:
+                    _add_cmd_row(
+                        command=ci.get("Command", ""),
+                        display_as=ci.get("DisplayAs", ""),
+                        exec_admin=bool(ci.get("ExecuteAsAdmin", True)),
+                    )
+
+            # ── Toggle automático ao mudar tipo ─────────────────────────────────
+            def _on_type_change(*_) -> None:
+                if row["type"].get() == "command":
+                    item_frame.grid_remove()
+                    cmd_frame.grid()
+                else:
+                    cmd_frame.grid_remove()
+                    item_frame.grid()
+
+            row["type"].trace_add("write", _on_type_change)
+            _on_type_change()  # aplica estado inicial
 
         # ── helpers de linha de kit ────────────────────────────────────────────
         def _add_kit_row(kit_id: str = "", data: dict | None = None) -> None:
@@ -5140,12 +5370,21 @@ class ARKServerManagerApp(ctk.CTk):
                          placeholder_text="Descrição exibida na loja"
                          ).grid(row=1, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
 
-            # Linha 2: Itens do kit
+            # Linha 2: Permissões
+            ctk.CTkLabel(card, text="Perms:", text_color="gray55", width=46
+                         ).grid(row=2, column=0, padx=(8, 2), pady=2)
+            row["permissions"] = tk.StringVar(
+                value=", ".join(data.get("Permissions", [])))
+            ctk.CTkEntry(card, textvariable=row["permissions"], height=28,
+                         placeholder_text="Grupos separados por vírgula: VIPOuro, Staff"
+                         ).grid(row=2, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
+
+            # Linha 3: Itens do kit
             ctk.CTkLabel(card, text="Itens:", text_color="gray55", font=ctk.CTkFont(size=11),
-                         anchor="w").grid(row=2, column=0, columnspan=7,
+                         anchor="w").grid(row=3, column=0, columnspan=7,
                                           padx=(8, 0), pady=(6, 2), sticky="w")
             kit_items_frame = ctk.CTkFrame(card, fg_color="transparent")
-            kit_items_frame.grid(row=3, column=0, columnspan=7, padx=8, pady=(0, 4), sticky="ew")
+            kit_items_frame.grid(row=4, column=0, columnspan=7, padx=8, pady=(0, 4), sticky="ew")
             kit_items_frame.grid_columnconfigure(1, weight=1)
 
             row["kit_item_rows"] = []
@@ -5211,16 +5450,50 @@ class ARKServerManagerApp(ctk.CTk):
                 fg_color="#3a3a5a", hover_color="#252540",
                 command=lambda af=kit_items_frame, kil=row["kit_item_rows"]: _add_kit_item(
                     parent_frame=af, kit_item_list=kil),
-            ).grid(row=4, column=0, columnspan=3, padx=(8, 0), pady=(2, 4), sticky="w")
+            ).grid(row=5, column=0, columnspan=3, padx=(8, 0), pady=(2, 4), sticky="w")
 
-            # Linha 5: Comandos
+            # Linha 6: Comandos
             ctk.CTkLabel(card, text="Comandos (um por linha):",
                          text_color="gray55", font=ctk.CTkFont(size=11), anchor="w"
-                         ).grid(row=5, column=0, columnspan=7, padx=(8, 0), pady=(6, 2), sticky="w")
+                         ).grid(row=6, column=0, columnspan=7, padx=(8, 0), pady=(6, 2), sticky="w")
             row["commands"] = ctk.CTkTextbox(card, height=52)
-            row["commands"].grid(row=6, column=0, columnspan=7, padx=8, pady=(0, 8), sticky="ew")
+            row["commands"].grid(row=7, column=0, columnspan=7, padx=8, pady=(0, 8), sticky="ew")
             for cmd in data.get("Commands", []):
                 row["commands"].insert("end", cmd + "\n")
+
+        # ── helper de grupo de pontos por tempo ───────────────────────────────
+        def _add_timed_group(name: str = "", amount: int = 0) -> None:
+            row: dict = {}
+            _state["timed_groups"].append(row)
+            idx = len(_state["timed_groups"]) - 1
+
+            fr = ctk.CTkFrame(groups_scroll, fg_color="#252535", corner_radius=4,
+                              border_width=1, border_color="#3a3a55")
+            fr.grid(row=idx, column=0, padx=2, pady=1, sticky="ew")
+            fr.grid_columnconfigure(1, weight=1)
+            row["_frame"] = fr
+
+            def _del(r=row, f=fr):
+                if r in _state["timed_groups"]:
+                    _state["timed_groups"].remove(r)
+                f.destroy()
+
+            ctk.CTkLabel(fr, text="Grupo:", text_color="gray55", width=46
+                         ).grid(row=0, column=0, padx=(8, 2), pady=5)
+            row["name"] = tk.StringVar(value=name)
+            ctk.CTkEntry(fr, textvariable=row["name"], height=26, width=140,
+                         placeholder_text="Ex: VIPOuro"
+                         ).grid(row=0, column=1, padx=(0, 8), pady=5, sticky="w")
+
+            ctk.CTkLabel(fr, text="Pontos:", text_color="gray55", width=54
+                         ).grid(row=0, column=2, padx=(4, 2), pady=5)
+            row["amount"] = tk.StringVar(value=str(amount))
+            ctk.CTkEntry(fr, textvariable=row["amount"], height=26, width=70
+                         ).grid(row=0, column=3, padx=(0, 8), pady=5, sticky="w")
+
+            ctk.CTkButton(fr, text="🗑", width=28, height=24,
+                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                          command=_del).grid(row=0, column=4, padx=(2, 8), pady=5)
 
         # ── função de carregamento ─────────────────────────────────────────────
         def _load_config() -> None:
@@ -5231,10 +5504,28 @@ class ARKServerManagerApp(ctk.CTk):
             sv_shop_name.set(settings.get("ShopName", "ARKLAND Shop"))
             sv_ui_key.set(settings.get("UiKey", "F3"))
             sv_start_pts.set(str(settings.get("StartingPoints", 100)))
+            sv_items_per_page.set(str(settings.get("ItemsPerPage", 15)))
+            sv_display_time.set(str(settings.get("ShopDisplayTime", 15.0)))
+            sv_text_size.set(str(settings.get("ShopTextSize", 1.3)))
+            sv_default_kit.set(settings.get("DefaultKit", ""))
+            sv_db_path.set(settings.get("DbPathOverride", ""))
             bv_no_sell.set(bool(settings.get("DisableSellButton", True)))
             bv_no_trade.set(bool(settings.get("DisableTradeButton", True)))
+            bv_orig_trade.set(bool(settings.get("UseOriginalTradeCommandWithUI", False)))
+            bv_dinos_cryo.set(bool(settings.get("GiveDinosInCryopods", True)))
+            bv_soul_traps.set(bool(settings.get("UseSoulTraps", True)))
+            bv_cryo_limited.set(bool(settings.get("CryoLimitedTime", False)))
+            bv_no_noglin.set(bool(settings.get("PreventUseNoglin", True)))
+            bv_no_unconscious.set(bool(settings.get("PreventUseUnconscious", True)))
+            bv_no_handcuffed.set(bool(settings.get("PreventUseHandcuffed", True)))
+            bv_no_carried.set(bool(settings.get("PreventUseCarried", True)))
 
-            # Limpa e reconstrói listas
+            db = cfg.get("Database", {})
+            sv_db_host.set(db.get("Host", "127.0.0.1"))
+            sv_db_port.set(str(db.get("Port", 3306)))
+            sv_db_user.set(db.get("User", "arkland"))
+            sv_db_pass.set(db.get("Password", ""))
+            sv_db_name.set(db.get("Database", "arkland_shop"))
             _state["items_rows"].clear()
             for w in items_scroll.winfo_children():
                 w.destroy()
@@ -5247,6 +5538,16 @@ class ARKServerManagerApp(ctk.CTk):
             for kit_id, kit_data in cfg.get("Kits", {}).items():
                 _add_kit_row(kit_id, kit_data)
 
+            tp = cfg.get("TimedPointsReward", {})
+            bv_timed_enabled.set(bool(tp.get("Enabled", True)))
+            sv_timed_interval.set(str(tp.get("Interval", 30)))
+            bv_timed_stack.set(bool(tp.get("StackRewards", True)))
+            _state["timed_groups"].clear()
+            for w in groups_scroll.winfo_children():
+                w.destroy()
+            for grp_name, grp_data in tp.get("Groups", {}).items():
+                _add_timed_group(grp_name, grp_data.get("Amount", 0))
+
         # ── função de coleta e salvamento ─────────────────────────────────────
         def _save_config() -> None:
             if not srv.install_dir:
@@ -5258,6 +5559,18 @@ class ARKServerManagerApp(ctk.CTk):
                 start_pts = int(sv_start_pts.get())
             except ValueError:
                 start_pts = 100
+            try:
+                items_per_page = int(sv_items_per_page.get())
+            except ValueError:
+                items_per_page = 15
+            try:
+                display_time = float(sv_display_time.get())
+            except ValueError:
+                display_time = 15.0
+            try:
+                text_size = float(sv_text_size.get())
+            except ValueError:
+                text_size = 1.3
 
             items_dict: dict = {}
             for row in _state["items_rows"]:
@@ -5268,23 +5581,42 @@ class ARKServerManagerApp(ctk.CTk):
                     price = int(row["price"].get())
                 except ValueError:
                     price = 0
-                try:
-                    qty = int(row["qty"].get())
-                except ValueError:
-                    qty = 1
-                try:
-                    qual = float(row["qual"].get())
-                except ValueError:
-                    qual = 0.0
-                items_dict[iid] = {
-                    "Type":           row["type"].get(),
-                    "Price":          price,
-                    "Description":    row["desc"].get().strip(),
-                    "Blueprint":      row["bp"].get().strip(),
-                    "Quantity":       qty,
-                    "Quality":        qual,
-                    "ForceBlueprint": row["force_bp"].get(),
-                }
+                item_type = row["type"].get()
+                if item_type == "command":
+                    cmd_items = []
+                    for cr in row["cmd_rows"]:
+                        cmd = cr["command"].get().strip()
+                        if not cmd:
+                            continue
+                        cmd_items.append({
+                            "Command":        cmd,
+                            "DisplayAs":      cr["display_as"].get().strip(),
+                            "ExecuteAsAdmin": cr["exec_as_admin"].get(),
+                        })
+                    items_dict[iid] = {
+                        "Type":        "command",
+                        "Price":       price,
+                        "Description": row["desc"].get().strip(),
+                        "Items":       cmd_items,
+                    }
+                else:
+                    try:
+                        qty = int(row["qty"].get())
+                    except ValueError:
+                        qty = 1
+                    try:
+                        qual = float(row["qual"].get())
+                    except ValueError:
+                        qual = 0.0
+                    items_dict[iid] = {
+                        "Type":           "item",
+                        "Price":          price,
+                        "Description":    row["desc"].get().strip(),
+                        "Blueprint":      row["bp"].get().strip(),
+                        "Quantity":       qty,
+                        "Quality":        qual,
+                        "ForceBlueprint": row["force_bp"].get(),
+                    }
 
             kits_dict: dict = {}
             for row in _state["kits_rows"]:
@@ -5301,6 +5633,8 @@ class ARKServerManagerApp(ctk.CTk):
                     amount = 1
                 cmds_raw = row["commands"].get("1.0", "end").strip()
                 cmds = [c for c in cmds_raw.splitlines() if c.strip()]
+                perms_raw = row["permissions"].get().strip()
+                perms = [p.strip() for p in perms_raw.split(",") if p.strip()]
                 kit_items = []
                 for ki in row["kit_item_rows"]:
                     try:
@@ -5323,18 +5657,67 @@ class ARKServerManagerApp(ctk.CTk):
                     "DefaultAmount": amount,
                     "Items":         kit_items,
                     "Commands":      cmds,
+                    **({"Permissions": perms} if perms else {}),
                 }
 
+            timed_groups_dict: dict = {}
+            for tg_row in _state["timed_groups"]:
+                grp = tg_row["name"].get().strip()
+                if not grp:
+                    continue
+                try:
+                    amt = int(tg_row["amount"].get())
+                except ValueError:
+                    amt = 0
+                timed_groups_dict[grp] = {"Amount": amt}
+            try:
+                timed_interval = int(sv_timed_interval.get())
+            except ValueError:
+                timed_interval = 30
+
+            # Carrega o config atual para preservar chaves não editáveis pela UI
+            # (Database, TimedPointsReward, etc.)
+            existing = PluginManager.load_config(srv.install_dir)
             data = {
+                **existing,
                 "Settings": {
-                    "ShopName":           sv_shop_name.get().strip(),
-                    "UiKey":              sv_ui_key.get().strip(),
-                    "StartingPoints":     start_pts,
-                    "DisableSellButton":  bv_no_sell.get(),
-                    "DisableTradeButton": bv_no_trade.get(),
+                    **existing.get("Settings", {}),
+                    "ShopName":                      sv_shop_name.get().strip(),
+                    "UiKey":                         sv_ui_key.get().strip(),
+                    "StartingPoints":                start_pts,
+                    "ItemsPerPage":                  items_per_page,
+                    "ShopDisplayTime":               display_time,
+                    "ShopTextSize":                  text_size,
+                    "DefaultKit":                    sv_default_kit.get().strip(),
+                    "DbPathOverride":                sv_db_path.get().strip(),
+                    "DisableSellButton":             bv_no_sell.get(),
+                    "DisableTradeButton":            bv_no_trade.get(),
+                    "UseOriginalTradeCommandWithUI": bv_orig_trade.get(),
+                    "GiveDinosInCryopods":           bv_dinos_cryo.get(),
+                    "UseSoulTraps":                  bv_soul_traps.get(),
+                    "CryoLimitedTime":               bv_cryo_limited.get(),
+                    "PreventUseNoglin":              bv_no_noglin.get(),
+                    "PreventUseUnconscious":         bv_no_unconscious.get(),
+                    "PreventUseHandcuffed":          bv_no_handcuffed.get(),
+                    "PreventUseCarried":             bv_no_carried.get(),
                 },
                 "Items": items_dict,
                 "Kits":  kits_dict,
+                "TimedPointsReward": {
+                    **existing.get("TimedPointsReward", {}),
+                    "Enabled":      bv_timed_enabled.get(),
+                    "Interval":     timed_interval,
+                    "StackRewards": bv_timed_stack.get(),
+                    "Groups":       timed_groups_dict,
+                },
+                "Database": {
+                    **existing.get("Database", {}),
+                    "Host":     sv_db_host.get().strip(),
+                    "Port":     int(sv_db_port.get()) if sv_db_port.get().isdigit() else 3306,
+                    "User":     sv_db_user.get().strip(),
+                    "Password": sv_db_pass.get(),
+                    "Database": sv_db_name.get().strip(),
+                },
             }
             try:
                 PluginManager.save_config(srv.install_dir, data)

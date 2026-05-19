@@ -5,6 +5,25 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.6] — 2026-05-19
+
+### Novo
+
+- **CustomShop — Card Database (MySQL)**: Host, Porta, Usuário, Senha e nome do Banco configuráveis diretamente na aba Plugins. Requer `libmysql.dll` na mesma pasta do `CustomShop.dll`.
+- **CustomShop — Card Settings**: 18 campos organizados em 4 seções — Loja (nome, tecla, pontos iniciais, itens por página, tempo de exibição, tamanho de texto, kit padrão, caminho DB), Botões (SellItems, Trading, OriginalTrading), Criaturas/Cryo (DinoCryo, SoulTraps, CryoLimited, NoNoglin) e Restrições de uso (inconsciente, algemado, carregado).
+- **CustomShop — Itens "command"**: tipo `command` com campos Command, DisplayAs e ExecuteAsAdmin; layout alterna automaticamente ao mudar o tipo do item.
+- **CustomShop — Card TimedPointsReward**: Enabled, Interval, StackRewards e grupos dinâmicos (nome + pontos) gerenciados direto na UI.
+- **CustomShop — Permissions nos kits**: campo livre para lista de grupos (separados por vírgula); validado pelo Permissions.dll antes da compra.
+- **CustomShop — build**: suporte a MySQL via `libmysql.lib`; `build_cl.bat` corrigido com `MYSQL_DIR`, headers e libpath.
+- **CustomShop — Dinos nos kits**: campo `Dinos` entrega dinossauros domesticados com Level, ForceTame e Neutered configuráveis.
+- **`_migrate_arkshop.py`**: conversão de dinos do ArkShop para o formato CustomShop com Blueprint, Level, ForceTame e Neutered.
+
+### Correção
+
+- **Navegação de abas**: carregamento totalmente lazy — eliminada travada causada por pré-construção de tabs em background.
+
+---
+
 ## [1.3.5] — 2026-05-19
 
 ### Novo
