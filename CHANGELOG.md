@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.7] — 2026-05-19
+
+### Corrigido
+
+- **CustomShop — instalação**: corrigido erro Tcl `wrong # args: should be "trace remove variable name oplist command"` que aparecia ao clicar "📦 Instalar" — substituído `trace_add` manual pelo callback `command=` nativo do `CTkOptionMenu`.
+
+---
+
 ## [1.3.6] — 2026-05-19
 
 ### Novo

@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.6"
+APP_VERSION: str = "1.3.7"
 BUILD_DATE: str = "2026-05-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.7",
+        "date": "2026-05-19",
+        "changes": [
+            "Fix (CustomShop UI): corrigido erro Tcl 'wrong # args: should be trace remove variable' ao instalar o plugin — substituido trace_add manual por callback command= nativo do CTkOptionMenu.",
+        ],
+    },
     {
         "version": "1.3.6",
         "date": "2026-05-19",

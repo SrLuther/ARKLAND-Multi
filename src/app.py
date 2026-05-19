@@ -5188,7 +5188,12 @@ class ARKServerManagerApp(ctk.CTk):
                          ).grid(row=0, column=2, padx=(4, 2), pady=(8, 2))
             row["type"] = tk.StringVar(value=data.get("Type", "item"))
             ctk.CTkOptionMenu(card, variable=row["type"], values=["item", "command"],
-                              width=100, height=28
+                              width=100, height=28,
+                              command=lambda v: (
+                                  (item_frame.grid_remove(), cmd_frame.grid())
+                                  if v == "command" else
+                                  (cmd_frame.grid_remove(), item_frame.grid())
+                              ),
                               ).grid(row=0, column=3, padx=(0, 6), pady=(8, 2), sticky="w")
 
             ctk.CTkLabel(card, text="Preço:", text_color="gray55", width=44
@@ -5310,7 +5315,7 @@ class ARKServerManagerApp(ctk.CTk):
                     )
 
             # ── Toggle automático ao mudar tipo ─────────────────────────────────
-            def _on_type_change(*_) -> None:
+            def _on_type_change_init() -> None:
                 if row["type"].get() == "command":
                     item_frame.grid_remove()
                     cmd_frame.grid()
@@ -5318,8 +5323,7 @@ class ARKServerManagerApp(ctk.CTk):
                     cmd_frame.grid_remove()
                     item_frame.grid()
 
-            row["type"].trace_add("write", _on_type_change)
-            _on_type_change()  # aplica estado inicial
+            _on_type_change_init()  # aplica estado inicial
 
         # ── helpers de linha de kit ────────────────────────────────────────────
         def _add_kit_row(kit_id: str = "", data: dict | None = None) -> None:
