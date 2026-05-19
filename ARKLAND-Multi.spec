@@ -12,7 +12,10 @@ a = Analysis(
     binaries=[] + ctk_binaries + pil_binaries + tray_binaries,
     datas=[
         ('ig', 'ig'),
-        ('plugin/CustomShop/bin/CustomShop.dll', 'plugins'),
+        ('plugin/CustomShop/bin/CustomShop.dll',      'plugins'),
+        ('plugin/CustomShop/bin/libmysql.dll',         'plugins'),
+        ('plugin/CustomShop/bin/libcrypto-3-x64.dll', 'plugins'),
+        ('plugin/CustomShop/bin/libssl-3-x64.dll',    'plugins'),
     ] + ctk_datas + pil_datas + tray_datas,
     hiddenimports=[
         # customtkinter

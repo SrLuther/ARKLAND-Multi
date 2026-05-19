@@ -75,16 +75,24 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
 
 # ── Utilitários internos ─────────────────────────────────────────────────────
 
-def _resolve_dll_source() -> Optional[Path]:
-    """Retorna o caminho da DLL empacotada (frozen) ou de desenvolvimento."""
+def _resolve_plugin_dlls() -> List[Path]:
+    """Retorna todos os arquivos DLL do plugin (CustomShop + dependências)."""
     if getattr(sys, "frozen", False):
         base = Path(getattr(sys, "_MEIPASS", ""))
-        p = base / "plugins" / f"{_PLUGIN_NAME}.dll"
-        return p if p.exists() else None
-    # Modo desenvolvimento: raiz do workspace
-    base = Path(__file__).parent.parent
-    p = base / "plugin" / _PLUGIN_NAME / "bin" / f"{_PLUGIN_NAME}.dll"
-    return p if p.exists() else None
+        plugins_dir = base / "plugins"
+    else:
+        # Modo desenvolvimento: raiz do workspace
+        plugins_dir = Path(__file__).parent.parent / "plugin" / _PLUGIN_NAME / "bin"
+    return list(plugins_dir.glob("*.dll")) if plugins_dir.exists() else []
+
+
+def _resolve_dll_source() -> Optional[Path]:
+    """Retorna o caminho da DLL principal (CustomShop.dll)."""
+    dlls = _resolve_plugin_dlls()
+    for p in dlls:
+        if p.name.lower() == f"{_PLUGIN_NAME.lower()}.dll":
+            return p
+    return None
 
 
 def _atomic_write(path: Path, data: Dict[str, Any]) -> None:
@@ -166,6 +174,11 @@ class PluginManager:
             )
 
         shutil.copy2(str(src), str(pdir / f"{_PLUGIN_NAME}.dll"))
+
+        # Copia DLLs de dependência (libmysql, libcrypto, libssl, …)
+        for dep in _resolve_plugin_dlls():
+            if dep.name.lower() != f"{_PLUGIN_NAME.lower()}.dll":
+                shutil.copy2(str(dep), str(pdir / dep.name))
 
         # Cria config padrão apenas se ainda não existir
         cfg = pdir / "config.json"
