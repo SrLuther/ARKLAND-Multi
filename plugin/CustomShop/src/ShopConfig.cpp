@@ -24,10 +24,11 @@ void ShopConfig::Load() {
             std::string("config.json parse error: ") + e.what());
     }
 
-    items_    = config_.value("Items",    nlohmann::json::object());
-    kits_     = config_.value("Kits",     nlohmann::json::object());
-    settings_ = config_.value("Settings", nlohmann::json::object());
-    db_cfg_   = config_.value("Database", nlohmann::json::object());
+    items_         = config_.value("Items",             nlohmann::json::object());
+    kits_          = config_.value("Kits",              nlohmann::json::object());
+    settings_      = config_.value("Settings",          nlohmann::json::object());
+    db_cfg_        = config_.value("Database",          nlohmann::json::object());
+    timed_points_  = config_.value("TimedPointsReward", nlohmann::json::object());
 
     Log::GetLog()->info("ShopConfig: loaded ({} items, {} kits)",
                         items_.size(), kits_.size());

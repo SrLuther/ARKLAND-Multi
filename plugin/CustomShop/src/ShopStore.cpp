@@ -3,6 +3,7 @@
 #include "ShopBridge.h"
 #include "ShopConfig.h"
 #include "ShopPoints.h"
+#include "ShopPerms.h"
 
 namespace {
 
@@ -52,6 +53,35 @@ void GiveItemsArray(AShooterPlayerController* controller,
                        entry.value("Quantity",      1),
                        entry.value("Quality",       0.0f),
                        entry.value("ForceBlueprint",false));
+    }
+}
+
+// Spawns one tamed dino near the player.
+void SpawnSingleDino(AShooterPlayerController* controller,
+                     const std::string& blueprint,
+                     int level,
+                     bool force_tame,
+                     bool neutered) {
+    if (blueprint.empty() || !controller) return;
+
+    FString fbp(blueprint.c_str());
+    // location = nullptr → spawn near player
+    APrimalDinoCharacter* dino = ArkApi::GetApiUtils().SpawnDino(
+        controller, fbp, nullptr, level, force_tame, neutered);
+
+    if (!dino)
+        Log::GetLog()->warn("SpawnSingleDino: failed to spawn '{}'", blueprint);
+}
+
+// Spawns all dinos in a "Dinos" JSON array.
+void SpawnDinosArray(AShooterPlayerController* controller,
+                     const nlohmann::json& dinos_array) {
+    for (const auto& entry : dinos_array) {
+        SpawnSingleDino(controller,
+                        entry.value("Blueprint",  ""),
+                        entry.value("Level",      150),
+                        entry.value("ForceTame",  true),
+                        entry.value("Neutered",   false));
     }
 }
 
@@ -134,13 +164,44 @@ bool BuyKit(AShooterPlayerController* controller,
     const int price  = kit.value("Price", 0);
     const std::string id = Bridge::GetSteamId(controller);
 
+    // ── Permission check ──────────────────────────────────────────
+    // "Permissions" is an optional comma-separated list of group names.
+    // If present, the player must belong to at least one of them.
+    if (kit.contains("Permissions")) {
+        const std::string perms_str = kit.value("Permissions", "");
+        if (!perms_str.empty()) {
+            std::vector<std::string> required_groups;
+            std::stringstream ss(perms_str);
+            std::string token;
+            while (std::getline(ss, token, ',')) {
+                // trim leading/trailing whitespace
+                const auto first = token.find_first_not_of(" \t");
+                if (first == std::string::npos) continue;
+                const auto last = token.find_last_not_of(" \t");
+                required_groups.push_back(token.substr(first, last - first + 1));
+            }
+
+            uint64_t steam_id = 0;
+            try { steam_id = std::stoull(id); } catch (...) {}
+
+            if (!Perms::IsInAnyGroup(steam_id, required_groups)) {
+                Log::GetLog()->info(
+                    "BuyKit: player {} lacks permission for kit '{}' (requires: {})",
+                    id, kit_id, perms_str);
+                return false;
+            }
+        }
+    }
+    // ─────────────────────────────────────────────────────────────
+
     if (!ShopPoints::Get().SpendPoints(id, price)) {
         Log::GetLog()->info("BuyKit: player {} cannot afford kit '{}' (price={})",
                             id, kit_id, price);
         return false;
     }
 
-    if (kit.contains("Items"))    GiveItemsArray(controller, kit.at("Items"));
+    if (kit.contains("Items"))    GiveItemsArray(controller,  kit.at("Items"));
+    if (kit.contains("Dinos"))    SpawnDinosArray(controller, kit.at("Dinos"));
     if (kit.contains("Commands")) RunCommands(kit.at("Commands"), controller, id);
 
     Log::GetLog()->info("BuyKit: player {} redeemed kit '{}'", id, kit_id);
@@ -160,7 +221,8 @@ bool GiveKit(AShooterPlayerController* controller,
     const auto& kit = kits.at(kit_id);
     const std::string id = Bridge::GetSteamId(controller);
 
-    if (kit.contains("Items"))    GiveItemsArray(controller, kit.at("Items"));
+    if (kit.contains("Items"))    GiveItemsArray(controller,  kit.at("Items"));
+    if (kit.contains("Dinos"))    SpawnDinosArray(controller, kit.at("Dinos"));
     if (kit.contains("Commands")) RunCommands(kit.at("Commands"), controller, id);
 
     Log::GetLog()->info("GiveKit: kit '{}' delivered to player '{}'", kit_id, id);

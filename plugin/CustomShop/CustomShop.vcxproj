@@ -69,8 +69,10 @@
     <ClCompile Include="src\ShopBridge.cpp" />
     <ClCompile Include="src\ShopConfig.cpp" />
     <ClCompile Include="src\ShopData.cpp" />
+    <ClCompile Include="src\ShopPerms.cpp" />
     <ClCompile Include="src\ShopPoints.cpp" />
     <ClCompile Include="src\ShopStore.cpp" />
+    <ClCompile Include="src\TimedPoints.cpp" />
     <ClCompile Include="src\Commands.cpp" />
     <ClCompile Include="src\ShopVip.cpp" />
   </ItemGroup>
@@ -79,8 +81,10 @@
     <ClInclude Include="src\ShopBridge.h" />
     <ClInclude Include="src\ShopConfig.h" />
     <ClInclude Include="src\ShopData.h" />
+    <ClInclude Include="src\ShopPerms.h" />
     <ClInclude Include="src\ShopPoints.h" />
     <ClInclude Include="src\ShopStore.h" />
+    <ClInclude Include="src\TimedPoints.h" />
     <ClInclude Include="src\ShopVip.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\mysql.h" />

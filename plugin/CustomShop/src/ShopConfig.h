@@ -19,9 +19,10 @@ public:
     void Load();
 
     // Convenience accessors
-    const nlohmann::json& Items()    const { return items_; }
-    const nlohmann::json& Kits()     const { return kits_; }
-    const nlohmann::json& Settings() const { return settings_; }
+    const nlohmann::json& Items()              const { return items_; }
+    const nlohmann::json& Kits()               const { return kits_; }
+    const nlohmann::json& Settings()           const { return settings_; }
+    const nlohmann::json& TimedPointsReward()  const { return timed_points_; }
 
     int         StartingPoints()     const;
     std::string ShopName()           const;
@@ -44,6 +45,7 @@ private:
     nlohmann::json kits_;
     nlohmann::json settings_;
     nlohmann::json db_cfg_;
+    nlohmann::json timed_points_;
 };
 
 } // namespace CustomShop

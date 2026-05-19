@@ -4,6 +4,8 @@
 #include "ShopData.h"
 #include "ShopPoints.h"
 #include "ShopVip.h"
+#include "ShopPerms.h"
+#include "TimedPoints.h"
 
 // ─────────────────────────────────────────────────────────────────
 //  Plugin entry points required by ArkApi v3 (ASE).
@@ -85,6 +87,12 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
     // Register console commands (mod-facing + admin)
     CustomShop::Commands::Register();
+
+    // Bind Permissions plugin (optional — graceful if absent).
+    CustomShop::Perms::Init();
+
+    // Start timed-points reward timer.
+    CustomShop::TimedPoints::Start();
 
     // If the server was already running (hot-reload scenario), initialise now.
     if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready) {

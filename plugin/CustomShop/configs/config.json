@@ -57,6 +57,22 @@
     }
   },
 
+  "TimedPointsReward": {
+    "_comment":      "Awards points to every online player on a fixed interval. Amounts stack if StackRewards=true.",
+    "Enabled":       true,
+    "Interval":      30,
+    "StackRewards":  true,
+    "Groups": {
+      "Default":     { "Amount": 25   },
+      "VIPBronze":   { "Amount": 20   },
+      "VIPPrata":    { "Amount": 30   },
+      "VIPOuro":     { "Amount": 50   },
+      "VIPDiamante": { "Amount": 75   },
+      "VIPDoacao":   { "Amount": 100  },
+      "Staff":       { "Amount": 1000 }
+    }
+  },
+
   "Kits": {
     "starter": {
       "Price":         0,
@@ -81,6 +97,7 @@
     "vip_pack": {
       "Price":         750,
       "Description":   "VIP Pack — resources + admin message",
+      "Permissions":   "VIPBronze, VIPPrata, VIPOuro, VIPDiamante, VIPDoacao",
       "DefaultAmount": 999,
       "Items": [
         {

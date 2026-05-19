@@ -11,8 +11,11 @@ set PLUGIN_DIR=%~dp0
 set SDK_DIR=%PLUGIN_DIR%ArkServerAPI\version\Core\Public
 set LIB_DIR=%PLUGIN_DIR%ArkServerAPI\out_lib
 set SRC_DIR=%PLUGIN_DIR%src
-set OBJ_DIR=%PLUGIN_DIR%obj
-set BIN_DIR=%PLUGIN_DIR%bin
+set MYSQL_DIR=%PLUGIN_DIR%mysql
+pushd "%~dp0"
+set OBJ_DIR=%CD%\obj
+set BIN_DIR=%CD%\bin
+popd
 
 set WIN_INCLUDE=%MSVC_DIR%\include
 set WIN_SDK_INCLUDE=C:\Program Files (x86)\Windows Kits\10\Include\10.0.26100.0
@@ -33,7 +36,7 @@ if %ERRORLEVEL% neq 0 goto :error
 echo === Compiling C++ sources ===
 "%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++17 /EHsc ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
-  /I"%SDK_DIR%" /I"%SRC_DIR%" ^
+  /I"%SDK_DIR%" /I"%SRC_DIR%" /I"%MYSQL_DIR%\include" ^
   /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME ^
   /DUNICODE /D_UNICODE ^
   /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR ^
@@ -42,8 +45,11 @@ echo === Compiling C++ sources ===
   "%SRC_DIR%\ShopBridge.cpp" ^
   "%SRC_DIR%\ShopConfig.cpp" ^
   "%SRC_DIR%\ShopData.cpp" ^
+  "%SRC_DIR%\ShopPerms.cpp" ^
   "%SRC_DIR%\ShopPoints.cpp" ^
   "%SRC_DIR%\ShopStore.cpp" ^
+  "%SRC_DIR%\ShopVip.cpp" ^
+  "%SRC_DIR%\TimedPoints.cpp" ^
   "%SRC_DIR%\Commands.cpp"
 if %ERRORLEVEL% neq 0 goto :error
 
@@ -51,17 +57,21 @@ echo === Linking DLL ===
 "%LINK_EXE%" /DLL /NOLOGO ^
   /OUT:"%BIN_DIR%\CustomShop.dll" ^
   /LIBPATH:"%LIB_DIR%" ^
+  /LIBPATH:"%MYSQL_DIR%\lib" ^
   /LIBPATH:"%WIN_LIB%" ^
   /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" ^
   /LIBPATH:"%WIN_SDK_LIB%\um\x64" ^
-  ArkApi.lib ^
+  ArkApi.lib libmysql.lib ^
   kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib ^
   "%OBJ_DIR%\Main.obj" ^
   "%OBJ_DIR%\ShopBridge.obj" ^
   "%OBJ_DIR%\ShopConfig.obj" ^
   "%OBJ_DIR%\ShopData.obj" ^
+  "%OBJ_DIR%\ShopPerms.obj" ^
   "%OBJ_DIR%\ShopPoints.obj" ^
   "%OBJ_DIR%\ShopStore.obj" ^
+  "%OBJ_DIR%\ShopVip.obj" ^
+  "%OBJ_DIR%\TimedPoints.obj" ^
   "%OBJ_DIR%\Commands.obj" ^
   "%OBJ_DIR%\sqlite3.obj"
 if %ERRORLEVEL% neq 0 goto :error
