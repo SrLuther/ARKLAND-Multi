@@ -286,14 +286,13 @@ class ModAutoUpdater:
                 if self._stop_event.is_set():
                     return
         else:
-            self._stop_event.wait(warn_secs)
-            if self._stop_event.is_set():
-                return
-        else:
             self._log(
                 f"Nenhum servidor rodando usa o mod {mod_id}; aguardando download sem aviso.",
                 "info",
             )
+            self._stop_event.wait(warn_secs)
+            if self._stop_event.is_set():
+                return
 
         # ── Fase 4: aguardar download concluir (se ainda não terminou) ────────
         if not done_event.is_set():
