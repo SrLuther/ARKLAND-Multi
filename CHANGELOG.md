@@ -5,6 +5,26 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.5] — 2026-05-19
+
+### Novo
+
+- **Broadcast de reinício por atualização de mod**: mensagem inicial clara informando o tempo restante, contagem regressiva automática (5 min → 3 min → 1 min dependendo da janela configurada) e aviso final antes do shutdown.
+- **SaveWorld antes de qualquer shutdown**: `_save_servers()` enviado a todos os servidores antes de parar para atualização de mod; mundo e perfis salvos antes do processo ser encerrado.
+
+### Correção
+
+- **`_graceful_shutdown`**: sleep entre `SaveWorld` e `DoExit` aumentado de 2 s para 15 s — garante que o save esteja completo antes do servidor encerrar.
+- **`discord_notifier`**: classe `DiscordNotifier` duplicada e bloco de código solto (corpo de `_post_webhook` duplicado dentro da classe) removidos.
+- **`server_config`**: `fields` adicionado ao import de `dataclasses`; `# type: ignore` em `asdict` e `__dataclass_fields__` (falsos positivos do Pylance).
+- **`plugin_manager`**: import `MySQLError` inutilizado removido; `# type: ignore` em `mysql.connector`.
+- **`dynamic_config_server`**: assinatura de `log_message` corrigida para `(self, format, *args)` — compatível com `BaseHTTPRequestHandler`.
+- **`ark_ini`**: `# type: ignore[method-assign]` em todas as atribuições `optionxform = str`.
+- **`beacon_client`**: import `sys` inutilizado removido.
+- **`configs/config.json` (CustomShop)**: chave `"Database"` duplicada removida.
+
+---
+
 ## [1.3.4] — 2026-05-18
 
 ### Novo

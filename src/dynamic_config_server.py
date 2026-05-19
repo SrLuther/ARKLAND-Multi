@@ -69,7 +69,7 @@ class DynamicConfigServer:
                     self.end_headers()
                     self.wfile.write(data)
 
-                def log_message(self, *args) -> None:  # silencia logs de acesso
+                def log_message(self, format, *args) -> None:  # type: ignore[override]  # silencia logs de acesso
                     pass
 
             self._httpd = HTTPServer(("127.0.0.1", self._port), _Handler)

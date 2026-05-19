@@ -1,0 +1,107 @@
+{
+  "_comment": "CustomShop plugin config — deploy to: ArkApi/Plugins/CustomShop/config.json",
+
+  "Settings": {
+    "ShopName":           "ARKLAND Shop",
+    "UiKey":              "F3",
+    "StartingPoints":     100,
+    "DisableSellButton":  true,
+    "DisableTradeButton": false
+  },
+
+  "Items": {
+    "metal_ingot_100": {
+      "Type":           "item",
+      "Price":          10,
+      "Description":    "100x Metal Ingot",
+      "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
+      "Quantity":       100,
+      "Quality":        0.0,
+      "ForceBlueprint": false
+    },
+    "cementing_paste_50": {
+      "Type":           "item",
+      "Price":          15,
+      "Description":    "50x Cementing Paste",
+      "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
+      "Quantity":       50,
+      "Quality":        0.0,
+      "ForceBlueprint": false
+    },
+    "polymer_30": {
+      "Type":           "item",
+      "Price":          25,
+      "Description":    "30x Polymer",
+      "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer.PrimalItemResource_Polymer",
+      "Quantity":       30,
+      "Quality":        0.0,
+      "ForceBlueprint": false
+    },
+    "rex_saddle_q80": {
+      "Type":           "item",
+      "Price":          500,
+      "Description":    "Rex Saddle (Quality 80)",
+      "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle",
+      "Quantity":       1,
+      "Quality":        80.0,
+      "ForceBlueprint": false
+    },
+    "ascendant_pike_bp": {
+      "Type":           "item",
+      "Price":          1200,
+      "Description":    "Ascendant Pike Blueprint",
+      "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponSpear.PrimalItem_WeaponSpear",
+      "Quantity":       1,
+      "Quality":        100.0,
+      "ForceBlueprint": true
+    }
+  },
+
+  "Kits": {
+    "starter": {
+      "Price":         0,
+      "Description":   "Free starter kit — one per account",
+      "DefaultAmount": 1,
+      "Items": [
+        {
+          "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
+          "Quantity":       200,
+          "Quality":        0.0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
+          "Quantity":       100,
+          "Quality":        0.0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Commands": []
+    },
+    "vip_pack": {
+      "Price":         750,
+      "Description":   "VIP Pack — resources + admin message",
+      "DefaultAmount": 999,
+      "Items": [
+        {
+          "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
+          "Quantity":       500,
+          "Quality":        0.0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Commands": [
+        "ServerChat {SteamID} redeemed the VIP Pack!"
+      ]
+    }
+  },
+
+  "Database": {
+    "_comment":  "MySQL Connector/C — libmysql.dll must be in the same folder as CustomShop.dll",
+    "Host":      "127.0.0.1",
+    "Port":      3306,
+    "User":      "arkland",
+    "Password":  "changeme",
+    "Database":  "arkland_shop"
+  }
+}

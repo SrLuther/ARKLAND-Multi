@@ -190,7 +190,7 @@ def _read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.Ra
 
         text = text.lstrip('\ufeff')  # remove BOM remanescente (ex: utf-16-le sem strip)
         parser = configparser.RawConfigParser(strict=strict)
-        parser.optionxform = str  # preserva maiúsculas/minúsculas das chaves
+        parser.optionxform = str  # type: ignore[method-assign]  # preserva maiúsculas/minúsculas das chaves
         try:
             parser.read_string(text, source=str(path))
             return parser
@@ -959,7 +959,7 @@ def build_dynamic_config(config: ServerConfig) -> str:
     import io
 
     parser = configparser.RawConfigParser()
-    parser.optionxform = str  # preserva case das chaves
+    parser.optionxform = str  # type: ignore[method-assign]  # preserva case das chaves
 
     section = "ServerSettings"
     parser.add_section(section)
@@ -1013,7 +1013,7 @@ class ArkIniManager:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         parser = configparser.RawConfigParser()
-        parser.optionxform = str  # preserva maiúsculas/minúsculas das chaves
+        parser.optionxform = str  # type: ignore[method-assign]  # preserva maiúsculas/minúsculas das chaves
         if path.exists():
             parser = _read_ini_with_fallback(path)
 
@@ -1081,7 +1081,7 @@ class ArkIniManager:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         parser = configparser.RawConfigParser()
-        parser.optionxform = str  # preserva maiúsculas/minúsculas das chaves
+        parser.optionxform = str  # type: ignore[method-assign]  # preserva maiúsculas/minúsculas das chaves
         if path.exists():
             parser = _read_ini_with_fallback(path)
 

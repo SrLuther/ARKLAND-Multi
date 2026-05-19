@@ -237,22 +237,36 @@ class ModAutoUpdater:
         ]
 
         if running_servers:
+            warn_mins = warn_secs // 60
             self._broadcast_all(
                 running_servers,
-                f"[ARKLAND] ⚠ Mod '{mod_name}' foi atualizado! Baixando em segundo plano… "
-                f"O servidor reiniciará em até {warn_secs // 60} minuto(s).",
+                f"[ARKLAND] Uma atualizacao de mod foi detectada e precisaremos reiniciar "
+                f"para atualizar o servidor. O servidor sera reiniciado em {warn_mins} minuto(s). "
+                f"(Mod: {mod_name})",
             )
             self._log(
                 f"Broadcast enviado: mod {mod_id} ({mod_name}) será aplicado em até "
-                f"{warn_secs // 60} min nos servidores: {', '.join(running_servers)}",
+                f"{warn_mins} min nos servidores: {', '.join(running_servers)}",
                 "info",
             )
 
-            # Aviso 1 minuto antes (se warn_secs > 90 s)
-            if warn_secs > 90:
-                self._stop_event.wait(warn_secs - 60)
-                if self._stop_event.is_set():
-                    return
+            # Contagem regressiva: avisos em 5 min, 3 min e 1 min antes
+            milestones = []
+            if warn_secs > 360:   # mais de 6 min → avisa em 5 min
+                milestones.append((warn_secs - 300, 5))
+            if warn_secs > 240:   # mais de 4 min → avisa em 3 min
+                milestones.append((warn_secs - 180, 3))
+            if warn_secs > 90:    # mais de 90 s → avisa em 1 min
+                milestones.append((warn_secs - 60, 1))
+
+            elapsed = 0
+            for wait_delta, mins_left in milestones:
+                sleep_now = wait_delta - elapsed
+                if sleep_now > 0:
+                    self._stop_event.wait(sleep_now)
+                    if self._stop_event.is_set():
+                        return
+                    elapsed += sleep_now
                 running_servers = [
                     sid for sid in server_ids
                     if self._server_manager.get_instance(sid) is not None
@@ -261,15 +275,20 @@ class ModAutoUpdater:
                 if running_servers:
                     self._broadcast_all(
                         running_servers,
-                        f"[ARKLAND] ⚠ Reiniciando em 1 minuto para aplicar mod '{mod_name}'.",
+                        f"[ARKLAND] O servidor sera reiniciado em {mins_left} minuto(s) "
+                        f"para aplicar atualizacao do mod '{mod_name}'.",
                     )
-                self._stop_event.wait(60)
+
+            # Aguarda o tempo restante até o restart
+            remaining = warn_secs - elapsed
+            if remaining > 0:
+                self._stop_event.wait(remaining)
                 if self._stop_event.is_set():
                     return
-            else:
-                self._stop_event.wait(warn_secs)
-                if self._stop_event.is_set():
-                    return
+        else:
+            self._stop_event.wait(warn_secs)
+            if self._stop_event.is_set():
+                return
         else:
             self._log(
                 f"Nenhum servidor rodando usa o mod {mod_id}; aguardando download sem aviso.",
@@ -286,6 +305,23 @@ class ModAutoUpdater:
             return
 
         self._log(f"Mod {mod_id} ({mod_name}) baixado. Parando servidores para aplicar…", "info")
+
+        # Aviso final antes do shutdown
+        final_running = [
+            sid for sid in server_ids
+            if self._server_manager.get_instance(sid) is not None
+            and self._server_manager.get_instance(sid).status == "running"  # type: ignore[union-attr]
+        ]
+        if final_running:
+            self._broadcast_all(
+                final_running,
+                f"[ARKLAND] O servidor esta sendo reiniciado agora para aplicar a "
+                f"atualizacao do mod '{mod_name}'. Voltaremos em breve!",
+            )
+            # Salva mundo e perfis antes de desligar
+            self._save_servers(final_running)
+            self._log("SaveWorld enviado a todos os servidores; aguardando salvamento…", "info")
+            time.sleep(15)
 
         # ── Fase 5: parar servidores ──────────────────────────────────────────
         running_now = [
@@ -358,6 +394,28 @@ class ModAutoUpdater:
                 rcon.disconnect()
             except RconError as exc:
                 self._log(f"RCON broadcast falhou ({sid}): {exc}", "warning")
+
+    def _save_servers(self, server_ids: List[str]) -> None:
+        """Envia SaveWorld via RCON para salvar o mundo e os perfis em todos os servidores."""
+        from .rcon_client import RconClient, RconError
+        for sid in server_ids:
+            inst = self._server_manager.get_instance(sid)
+            if not inst:
+                continue
+            cfg = inst.config
+            if not cfg.rcon_enabled or not cfg.rcon_password:
+                continue
+            try:
+                rcon = RconClient(
+                    host="127.0.0.1",
+                    port=cfg.rcon_port,
+                    password=cfg.rcon_password,
+                )
+                rcon.send_command("SaveWorld")
+                rcon.disconnect()
+                self._log(f"SaveWorld enviado ao servidor '{sid}'.", "info")
+            except RconError as exc:
+                self._log(f"RCON SaveWorld falhou ({sid}): {exc}", "warning")
 
     def _collect_all_mod_ids(self) -> List[str]:
         seen: set[str] = set()

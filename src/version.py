@@ -3,11 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.4"
-BUILD_DATE: str = "2026-05-18"
+APP_VERSION: str = "1.3.5"
+BUILD_DATE: str = "2026-05-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.5",
+        "date": "2026-05-19",
+        "changes": [
+            "Novo: Atualização de mod agora broadcast mensagem clara de reinicio com contagem regressiva (5/3/1 min) e aviso final ao desligar o servidor.",
+            "Novo: SaveWorld enviado a todos os servidores antes de qualquer shutdown — mundo e perfis salvos antes de aplicar atualização de mod.",
+            "Fix: _graceful_shutdown aguarda 15 s apos SaveWorld (era 2 s) para garantir que o save esteja completo antes do DoExit.",
+            "Fix: discord_notifier — classe DiscordNotifier duplicada e bloco de codigo solto removidos.",
+            "Fix: server_config — fields importado de dataclasses; type: ignore adicionado em asdict e __dataclass_fields__.",
+            "Fix: plugin_manager — import MySQLError inutilizado removido; type: ignore em mysql.connector.",
+            "Fix: dynamic_config_server — assinatura de log_message corrigida para compatibilidade com BaseHTTPRequestHandler.",
+            "Fix: ark_ini — atribuição de optionxform suprimida com type: ignore[method-assign].",
+            "Fix: beacon_client — import sys inutilizado removido.",
+            "Fix: config.json do CustomShop — chave Database duplicada removida.",
+        ],
+    },
     {
         "version": "1.3.4",
         "date": "2026-05-18",

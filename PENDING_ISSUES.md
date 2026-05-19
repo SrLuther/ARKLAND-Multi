@@ -71,8 +71,81 @@
 
 ---
 
-## ~~[INCONSISTÊNCIA] `buff_manager.py` — usa `ServerChat` em vez de `Broadcast`~~ ✅ RESOLVIDO
+## ~~[BUG] `buff_manager.py` — usa `ServerChat` em vez de `Broadcast`~~ ✅ RESOLVIDO
 
 **Arquivo:** `src/buff_manager.py`, método `_rcon_broadcast`  
 **Descrição:** O BUFF manager enviava avisos via `ServerChat`, que só aparece no chat, enquanto o resto do código usa `Broadcast` (mensagem em destaque na tela).  
 **Correção aplicada:** substituído `ServerChat` por `Broadcast`.
+
+---
+
+## [BUILD] Plugin C++ `CustomShop.dll` — ✅ BUILD SUCCEEDED
+
+**Localização:** `plugin/CustomShop/`  
+**DLL gerada em:** `plugin/CustomShop/bin/CustomShop.dll`  
+**Lib de importação:** `plugin/CustomShop/bin/CustomShop.lib`
+
+### Ambiente de build
+
+| Item         |                      Valor                    |
+|--------------|-----------------------------------------------|
+| Compilador   | MSVC 14.51.36231 (Visual Studio 18 Community) |
+| Windows SDK  | 10.0.26100.0                                  |
+| cl.exe       | `C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\cl.exe` |
+| ArkApi SDK | `plugin/CustomShop/ArkServerAPI/version/Core/Public/` |
+| Build script | `plugin/CustomShop/build_cl.bat` |
+| Flags críticas | `/DUNICODE /D_UNICODE /DARK_GAME /std:c++17 /EHsc /MT` |
+
+### Correções aplicadas até o build final
+
+1. **`build_cl.bat`** — renomeados `CL`→`CL_EXE` e `LINK`→`LINK_EXE` (variáveis reservadas do MSVC); adicionados `/DUNICODE /D_UNICODE`
+
+2. **`src/pch.h`** — `#include <API/ARK/Ark.h>` colocado ANTES de `<Windows.h>` para evitar redefinição de `TCHAR` (C2371)
+
+3. **`src/Main.cpp`** — loops em `TWeakObjectPtr<APlayerController>` iterados por valor (não `const&`) pois `Get()` não é `const`
+
+4. **`src/Commands.cpp`**:
+   - Adicionado helper `SplitCmd(FString*)` que converte `FString` para `std::vector<std::string>` via `std::istringstream`, evitando `ParseIntoArray` com literal `wchar_t` (incompatível com `TCHAR*`)
+   - Substituídas TODAS as chamadas `ParseIntoArray` + `TArray<FString>` pelo helper em: `CmdBuyItem`, `CmdGetShopItems`, `CmdAdminAddPoints`, `CmdAdminSetPoints`, `CmdAdminGetPoints`
+   - Adicionados `#undef max` / `#undef min` para evitar conflito com macros do Windows e `std::max`
+   - Loop em `CmdAdminReload` corrigido para iterar por valor
+
+5. **`src/ShopBridge.cpp`**:
+   - `FName(TEXT("..."))` substituído por `FName("...")` (narrow `const char*`) — o SDK não expõe construtor `FName(const TCHAR*)`, apenas `FName(const char*, EFindName)`
+   - Loop `for (const TWeakObjectPtr<APlayerController>& wpc : ...)` corrigido para iteração por valor
+   - `UVictoryCore::BPLoadClass(buff_path)` corrigido para `BPLoadClass(&buff_path)`
+
+6. **`src/ShopStore.cpp`** — `RunCommands` corrigida para receber `AShooterPlayerController*` e usar `controller->ConsoleCommand(&result, &fscmd, true)` (método não existe em `AShooterGameMode`)
+
+7. **`ArkServerAPI/version/Core/Public/API/UE/UE.h`** — adicionado overload `FName(const char* Name)` usando `Init(Name, 0, EFindName::FNAME_Add, true, -1)` (o SDK só expunha o construtor 2-param; nota: `EFindName` é `enum class`, exige qualificação `EFindName::FNAME_Add`)
+
+### Próximos passos (deploy)
+
+1. Copiar `bin/CustomShop.dll` para `<ArkServer>/ShooterGame/Binaries/Win64/ArkApi/Plugins/CustomShop/CustomShop.dll`
+2. Copiar `configs/config.json` (template) para o mesmo diretório
+3. Configurar `config.json` com as chaves de banco, preços dos itens e kit definitions
+4. Reiniciar o servidor ARK para carregar o plugin
+
+### Estrutura final de arquivos do plugin
+
+```bash
+plugin/CustomShop/
+├── build_cl.bat               ← script de build (cmd, não MSBuild)
+├── bin/
+│   ├── CustomShop.dll         ← ✅ DLL gerada
+│   └── CustomShop.lib         ← lib de importação
+├── src/
+│   ├── pch.h                  ← ARK headers ANTES de Windows.h
+│   ├── Main.cpp               ← PluginLoad / PluginUnload
+│   ├── Commands.cpp           ← comandos RCON/console (BuyItem, Shop.AddPoints, etc.)
+│   ├── ShopBridge.cpp         ← GetSteamId, FindPlayer, GetOrAddShopBuff
+│   ├── ShopConfig.h/.cpp      ← leitura de config.json
+│   ├── ShopData.h/.cpp        ← serialização JSON para o cliente mod
+│   ├── ShopPoints.h/.cpp      ← gerenciamento de pontos (SQLite)
+│   └── ShopStore.h/.cpp       ← lógica de compra/kit
+├── ArkServerAPI/
+│   ├── out_lib/ArkApi.lib
+│   └── version/Core/Public/   ← SDK headers (UE.h modificado)
+└── configs/
+    └── config.json            ← template de configuração
+```

@@ -4,7 +4,7 @@ Inclui todas as opções de GameUserSettings.ini, Game.ini e parâmetros de linh
 """
 from __future__ import annotations
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field, asdict, fields
 from typing import Dict, List, Optional
 
 
@@ -380,29 +380,29 @@ class ServerConfig:
     # action: "restart" | "stop" | "update_restart"
 
     def to_dict(self) -> dict:
-        d = asdict(self)
+        d = asdict(self)  # type: ignore[arg-type]
         return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "ServerConfig":
         game = ServerGameSettings(**{
             k: v for k, v in data.get("game_settings", {}).items()
-            if k in ServerGameSettings.__dataclass_fields__
+            if k in ServerGameSettings.__dataclass_fields__  # type: ignore[attr-defined]
         })
         adv = ServerAdvancedSettings(**{
             k: v for k, v in data.get("advanced_settings", {}).items()
-            if k in ServerAdvancedSettings.__dataclass_fields__
+            if k in ServerAdvancedSettings.__dataclass_fields__  # type: ignore[attr-defined]
         })
         cluster = ClusterConfig(**{
             k: v for k, v in data.get("cluster", {}).items()
-            if k in ClusterConfig.__dataclass_fields__
+            if k in ClusterConfig.__dataclass_fields__  # type: ignore[attr-defined]
         })
         top_fields = {
             k: v for k, v in data.items()
-            if k in cls.__dataclass_fields__
+            if k in cls.__dataclass_fields__  # type: ignore[attr-defined]
             and k not in ("game_settings", "advanced_settings", "cluster")
         }
-        return cls(**top_fields, game_settings=game, advanced_settings=adv, cluster=cluster)
+        return cls(**top_fields, game_settings=game, advanced_settings=adv, cluster=cluster)  # type: ignore[call-arg]
 
     def build_launch_args(
         self,

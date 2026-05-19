@@ -760,7 +760,7 @@ class ServerManager:
             rcon = RconClient(rcon_host, cfg.rcon_port, cfg.rcon_password)
             rcon.connect()
             rcon.send_command("SaveWorld")
-            time.sleep(2)
+            time.sleep(15)  # aguarda o servidor concluir o salvamento do mundo e perfis
             rcon.send_command("DoExit")
             rcon.disconnect()
             self._emit_log(server_id, "Shutdown enviado via RCON.", "info")

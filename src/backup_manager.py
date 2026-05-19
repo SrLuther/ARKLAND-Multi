@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import shutil
 import threading
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, TYPE_CHECKING
@@ -22,21 +23,39 @@ _DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManage
 
 
 class BackupEntry:
-    """Representa um único snapshot de backup."""
+    """Representa um único snapshot de backup (ZIP ou diretório legado)."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.timestamp = path.name
+
+        if path.is_file() and path.suffix == ".zip":
+            # ── Novo formato: arquivo ZIP comprimido ──────────────────────────
+            self.is_zip       = True
+            self.timestamp    = path.stem
+            with zipfile.ZipFile(path, "r") as zf:
+                names = zf.namelist()
+                self.has_config       = any(n.startswith("config/") for n in names)
+                self.has_saves        = any(n.startswith("saves/")  for n in names)
+                self.size_mb          = round(
+                    sum(i.compress_size for i in zf.infolist()) / (1024 ** 2), 1
+                )
+                self.uncompressed_mb  = round(
+                    sum(i.file_size for i in zf.infolist()) / (1024 ** 2), 1
+                )
+        else:
+            # ── Legado: diretório ─────────────────────────────────────────────
+            self.is_zip          = False
+            self.timestamp       = path.name
+            self.has_saves       = (path / "saves").exists()
+            self.has_config      = (path / "config").exists()
+            total                = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+            self.size_mb         = round(total / (1024 * 1024), 1)
+            self.uncompressed_mb = self.size_mb
+
         try:
             self.dt = datetime.strptime(self.timestamp, "%Y%m%d_%H%M%S")
         except ValueError:
             self.dt = datetime.fromtimestamp(path.stat().st_mtime)
-
-        self.has_saves  = (path / "saves").exists()
-        self.has_config = (path / "config").exists()
-
-        total = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
-        self.size_mb = round(total / (1024 * 1024), 1)
 
     @property
     def label(self) -> str:
@@ -46,7 +65,11 @@ class BackupEntry:
         if self.has_saves:
             parts.append("Saves")
         tag = " + ".join(parts) if parts else "Vazio"
-        return f"{self.dt.strftime('%d/%m/%Y %H:%M:%S')}  [{tag}]  {self.size_mb} MB"
+        if self.is_zip and self.uncompressed_mb > 0 and self.uncompressed_mb != self.size_mb:
+            size_str = f"{self.size_mb} MB  (original: {self.uncompressed_mb} MB)"
+        else:
+            size_str = f"{self.size_mb} MB"
+        return f"{self.dt.strftime('%d/%m/%Y %H:%M:%S')}  [{tag}]  {size_str}"
 
 
 class BackupManager:
@@ -75,62 +98,82 @@ class BackupManager:
     # ── Realizar backup ───────────────────────────────────────────────────────
 
     def do_backup(self, srv: "ServerConfig") -> Optional[str]:
-        """Faz backup dos arquivos selecionados. Retorna caminho do snapshot ou None."""
+        """Faz backup dos arquivos selecionados em ZIP comprimido. Retorna caminho do .zip ou None."""
         if not srv.install_dir:
             self._on_log(f"[Backup] {srv.name}: diretório de instalação não configurado.", "warning")
             return None
 
-        ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
-        bdir = self.backup_dir(srv) / ts
+        ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+        bdir     = self.backup_dir(srv)
         bdir.mkdir(parents=True, exist_ok=True)
+        zip_path = bdir / f"{ts}.zip"
 
-        copied = False
+        added = False
 
-        if srv.backup_include_config:
-            cfg_src = Path(srv.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
-            if cfg_src.exists():
-                shutil.copytree(str(cfg_src), str(bdir / "config"))
-                copied = True
-            else:
-                self._on_log(f"[Backup] {srv.name}: pasta de config não encontrada ({cfg_src}).", "warning")
-
-        if srv.backup_include_saves:
-            saves_src = Path(srv.install_dir) / "ShooterGame" / "Saved" / "SavedArks"
-            if saves_src.exists():
-                shutil.copytree(str(saves_src), str(bdir / "saves"))
-                copied = True
-            else:
-                self._on_log(f"[Backup] {srv.name}: pasta de saves não encontrada ({saves_src}).", "warning")
-
-        if copied:
-            self._on_log(f"[Backup] {srv.name}: snapshot salvo → {bdir.name}", "info")
-            self._prune(srv)
-            if self._discord_notifier:
-                entry = BackupEntry(bdir)
-                detail = f"Snapshot: `{bdir.name}`\nTamanho: {entry.size_mb} MB"
-                self._discord_notifier.notify_backup(srv.name, detail=detail)  # type: ignore[union-attr]
-            return str(bdir)
-
-        # Nada foi copiado — remove a pasta vazia
         try:
-            bdir.rmdir()
-        except Exception:
-            pass
-        return None
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+                if srv.backup_include_config:
+                    cfg_src = Path(srv.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+                    if cfg_src.exists():
+                        for f in sorted(cfg_src.rglob("*")):
+                            if f.is_file():
+                                zf.write(f, "config/" + f.relative_to(cfg_src).as_posix())
+                                added = True
+                    else:
+                        self._on_log(f"[Backup] {srv.name}: pasta de config não encontrada ({cfg_src}).", "warning")
+
+                if srv.backup_include_saves:
+                    saves_src = Path(srv.install_dir) / "ShooterGame" / "Saved" / "SavedArks"
+                    if saves_src.exists():
+                        for f in sorted(saves_src.rglob("*")):
+                            if f.is_file():
+                                zf.write(f, "saves/" + f.relative_to(saves_src).as_posix())
+                                added = True
+                    else:
+                        self._on_log(f"[Backup] {srv.name}: pasta de saves não encontrada ({saves_src}).", "warning")
+        except Exception as exc:
+            self._on_log(f"[Backup] {srv.name}: erro ao criar ZIP — {exc}", "error")
+            try:
+                zip_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return None
+
+        if not added:
+            try:
+                zip_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return None
+
+        entry = BackupEntry(zip_path)
+        self._on_log(
+            f"[Backup] {srv.name}: snapshot salvo → {zip_path.name}  "
+            f"({entry.size_mb} MB comprimido / {entry.uncompressed_mb} MB original)",
+            "info",
+        )
+        self._prune(srv)
+        if self._discord_notifier:
+            detail = f"Snapshot: `{zip_path.name}`\nTamanho: {entry.size_mb} MB (original: {entry.uncompressed_mb} MB)"
+            self._discord_notifier.notify_backup(srv.name, detail=detail)  # type: ignore[union-attr]
+        return str(zip_path)
 
     def _prune(self, srv: "ServerConfig") -> None:
         """Remove os backups mais antigos excedendo o limite de retenção."""
         bdir = self.backup_dir(srv)
         if not bdir.exists():
             return
-        entries = sorted(
-            [d for d in bdir.iterdir() if d.is_dir()],
-            key=lambda d: d.name,
+        all_items = sorted(
+            [i for i in bdir.iterdir() if (i.is_file() and i.suffix == ".zip") or i.is_dir()],
+            key=lambda i: i.stem if i.suffix == ".zip" else i.name,
         )
         keep = max(1, srv.backup_keep_count)
-        for old in entries[:-keep]:
+        for old in all_items[:-keep]:
             try:
-                shutil.rmtree(old)
+                if old.is_file():
+                    old.unlink()
+                else:
+                    shutil.rmtree(old)
                 self._on_log(f"[Backup] Snapshot antigo removido: {old.name}", "debug")
             except Exception as exc:
                 self._on_log(f"[Backup] Erro ao remover {old.name}: {exc}", "warning")
@@ -138,7 +181,7 @@ class BackupManager:
     # ── Restaurar backup ──────────────────────────────────────────────────────
 
     def restore_backup(self, srv: "ServerConfig", backup_path: str) -> bool:
-        """Restaura um snapshot para o install_dir do servidor."""
+        """Restaura um snapshot (ZIP ou diretório legado) para o install_dir do servidor."""
         bp = Path(backup_path)
         if not bp.exists():
             self._on_log(f"[Backup] Snapshot não encontrado: {backup_path}", "error")
@@ -147,10 +190,55 @@ class BackupManager:
             self._on_log(f"[Backup] {srv.name}: diretório de instalação não configurado.", "error")
             return False
 
-        base       = Path(srv.install_dir) / "ShooterGame" / "Saved"
-        cfg_dst    = base / "Config" / "WindowsServer"
-        saves_dst  = base / "SavedArks"
-        restored   = False
+        if bp.is_file() and bp.suffix == ".zip":
+            return self._restore_from_zip(srv, bp)
+        return self._restore_from_dir(srv, bp)
+
+    def _restore_from_zip(self, srv: "ServerConfig", zip_path: Path) -> bool:
+        """Restaura a partir de um arquivo ZIP comprimido."""
+        base      = Path(srv.install_dir) / "ShooterGame" / "Saved"
+        cfg_dst   = base / "Config" / "WindowsServer"
+        saves_dst = base / "SavedArks"
+        restored  = False
+        try:
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                names = zf.namelist()
+                has_config = any(n.startswith("config/") for n in names)
+                has_saves  = any(n.startswith("saves/")  for n in names)
+
+                if has_config:
+                    cfg_dst.mkdir(parents=True, exist_ok=True)
+                    for member in (n for n in names if n.startswith("config/") and not n.endswith("/")):
+                        dest = cfg_dst / Path(member).relative_to("config")
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(member) as src, open(dest, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+                    restored = True
+
+                if has_saves:
+                    if saves_dst.exists():
+                        shutil.rmtree(saves_dst)
+                    saves_dst.mkdir(parents=True, exist_ok=True)
+                    for member in (n for n in names if n.startswith("saves/") and not n.endswith("/")):
+                        dest = saves_dst / Path(member).relative_to("saves")
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        with zf.open(member) as src, open(dest, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+                    restored = True
+        except Exception as exc:
+            self._on_log(f"[Backup] {srv.name}: erro ao restaurar ZIP — {exc}", "error")
+            return False
+
+        if restored:
+            self._on_log(f"[Backup] {srv.name}: restaurado do snapshot {zip_path.name}.", "info")
+        return restored
+
+    def _restore_from_dir(self, srv: "ServerConfig", bp: Path) -> bool:
+        """Restaura a partir de um diretório (formato legado)."""
+        base      = Path(srv.install_dir) / "ShooterGame" / "Saved"
+        cfg_dst   = base / "Config" / "WindowsServer"
+        saves_dst = base / "SavedArks"
+        restored  = False
 
         cfg_src = bp / "config"
         if cfg_src.exists():
@@ -178,10 +266,10 @@ class BackupManager:
         if not bdir.exists():
             return []
         entries: List[BackupEntry] = []
-        for d in sorted(bdir.iterdir(), reverse=True):
-            if d.is_dir():
+        for item in sorted(bdir.iterdir(), reverse=True):
+            if (item.is_file() and item.suffix == ".zip") or item.is_dir():
                 try:
-                    entries.append(BackupEntry(d))
+                    entries.append(BackupEntry(item))
                 except Exception:
                     pass
         return entries
@@ -191,7 +279,10 @@ class BackupManager:
     def delete_backup(self, backup_path: str) -> bool:
         bp = Path(backup_path)
         try:
-            shutil.rmtree(bp)
+            if bp.is_file():
+                bp.unlink()
+            elif bp.is_dir():
+                shutil.rmtree(bp)
             return True
         except Exception as exc:
             self._on_log(f"[Backup] Erro ao deletar snapshot: {exc}", "error")

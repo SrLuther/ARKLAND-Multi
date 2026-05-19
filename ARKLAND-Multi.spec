@@ -12,6 +12,7 @@ a = Analysis(
     binaries=[] + ctk_binaries + pil_binaries + tray_binaries,
     datas=[
         ('ig', 'ig'),
+        ('plugin/CustomShop/bin/CustomShop.dll', 'plugins'),
     ] + ctk_datas + pil_datas + tray_datas,
     hiddenimports=[
         # customtkinter
@@ -43,6 +44,7 @@ a = Analysis(
         'src.updater',
         'src.version',
         'src.mod_auto_updater',
+        'src.plugin_manager',
         # bandeja
         'pystray',
         'pystray._win32',
