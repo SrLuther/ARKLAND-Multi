@@ -96,6 +96,9 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
     // If the server was already running (hot-reload scenario), initialise now.
     if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready) {
+        // BeginPlay already fired — bind Permissions immediately.
+        CustomShop::Perms::Init();
+
         const auto& pcs =
             ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
         for (TWeakObjectPtr<APlayerController> wpc : pcs) {

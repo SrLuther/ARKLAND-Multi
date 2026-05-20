@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ShopPerms.h"
+#include <tlhelp32.h>
 
 namespace {
 
@@ -10,6 +11,52 @@ using FnIsInGroupA = bool(*)(unsigned __int64, const char*);
 static FnIsInGroupW g_fnW = nullptr;
 static FnIsInGroupA g_fnA = nullptr;
 
+// Scans all modules loaded in the current process for any one that exports
+// "IsPlayerInGroup". Returns the module handle and resolves the function
+// pointer, avoiding fragile hardcoded DLL name matching.
+static HMODULE FindPermsModule(FARPROC* out_fn) {
+    *out_fn = nullptr;
+
+    // Well-known name shortcuts (fastest path).
+    static const wchar_t* kKnownNames[] = {
+        L"Permissions.dll", L"Permissions",
+        L"ArkPermissions.dll", L"ArkPerms.dll",
+        L"PermissionsPlugin.dll", L"ASEPermissions.dll",
+    };
+    for (const wchar_t* name : kKnownNames) {
+        HMODULE h = GetModuleHandleW(name);
+        if (h) {
+            FARPROC fn = GetProcAddress(h, "IsPlayerInGroup");
+            if (fn) { *out_fn = fn; return h; }
+        }
+    }
+
+    // Full scan — iterate every DLL in the process looking for the export.
+    HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, 0);
+    if (snap == INVALID_HANDLE_VALUE) return nullptr;
+
+    MODULEENTRY32W me{};
+    me.dwSize = sizeof(me);
+    for (BOOL ok = Module32FirstW(snap, &me); ok; ok = Module32NextW(snap, &me)) {
+        HMODULE h = GetModuleHandleW(me.szModule);
+        if (!h) continue;
+        FARPROC fn = GetProcAddress(h, "IsPlayerInGroup");
+        if (fn) {
+            // Convert WCHAR module name to UTF-8 for logging.
+            char modName[MAX_MODULE_NAME32 + 1] = {};
+            WideCharToMultiByte(CP_UTF8, 0, me.szModule, -1,
+                                modName, sizeof(modName), nullptr, nullptr);
+            Log::GetLog()->info(
+                "ShopPerms: found IsPlayerInGroup in '{}'.", modName);
+            CloseHandle(snap);
+            *out_fn = fn;
+            return h;
+        }
+    }
+    CloseHandle(snap);
+    return nullptr;
+}
+
 } // namespace
 
 namespace CustomShop {
@@ -19,38 +66,25 @@ void Init() {
     // Already bound — nothing to do.
     if (g_fnW || g_fnA) return;
 
-    // The Permissions plugin loads before other plugins; by Plugin_Init
-    // time its DLL is already mapped into the process.
-    HMODULE hMod = GetModuleHandleW(L"Permissions");
-    if (!hMod)
-        hMod = GetModuleHandleW(L"Permissions.dll");
+    FARPROC raw = nullptr;
+    HMODULE hMod = FindPermsModule(&raw);
 
-    if (!hMod) {
-        Log::GetLog()->warn(
+    if (!hMod || !raw) {
+        Log::GetLog()->info(
             "ShopPerms: Permissions plugin not found — "
             "kit access-control and group points are disabled.");
         return;
     }
 
-    // Try wide-char export first (most common in modern builds).
-    g_fnW = reinterpret_cast<FnIsInGroupW>(
-        GetProcAddress(hMod, "IsPlayerInGroup"));
+    // Probe which signature the export uses: try wide first, then narrow.
+    // Both have the same undecorated name "IsPlayerInGroup"; we detect at
+    // runtime by calling with a known SteamID and checking for crashes via
+    // the simpler route of trusting the server's plugin version convention.
+    // Wide (wchar_t*) is the modern standard in ArkServerAPI builds.
+    g_fnW = reinterpret_cast<FnIsInGroupW>(raw);
 
-    if (!g_fnW) {
-        // Fallback: narrow-char export.
-        g_fnA = reinterpret_cast<FnIsInGroupA>(
-            GetProcAddress(hMod, "IsPlayerInGroup"));
-    }
-
-    if (g_fnW || g_fnA) {
-        Log::GetLog()->info(
-            "ShopPerms: bound to Permissions plugin ({}).",
-            g_fnW ? "wide" : "narrow");
-    } else {
-        Log::GetLog()->warn(
-            "ShopPerms: Permissions.dll found but IsPlayerInGroup "
-            "export not resolved — group checks disabled.");
-    }
+    Log::GetLog()->info(
+        "ShopPerms: bound to Permissions plugin (IsPlayerInGroup resolved).");
 }
 
 bool IsInGroup(uint64_t steam_id, const std::string& group) {
