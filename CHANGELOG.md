@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.13] — 2026-05-20
+
+### Corrigido
+
+- **CustomShop — ShopPerms**: aviso `Permissions plugin not found` ao iniciar corrigido — `Perms::Init()` movido de `Plugin_Init` para o hook `BeginPlay`, quando todos os plugins já estão carregados no processo; controle de kit por grupo e pontos por grupo agora funcionam.
+- **Plugins — Salvar config.json**: diálogo de confirmação agora exibe o caminho completo do arquivo gravado.
+
+---
+
 ## [1.3.12] — 2026-05-20
 
 ### Corrigido

@@ -100,13 +100,23 @@ Write-Ok "src\version.py  →  APP_VERSION = `"$Version`""
 
 # ── 4) Atualizar version.json ─────────────────────────────────────────────────
 $downloadUrl = "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v$Version/ARKLAND-Multi-Setup-v$Version.exe"
-$versionObj  = [ordered]@{
-    version      = $Version
-    date         = (Get-Date -Format "yyyy-MM-dd")
-    download_url = $downloadUrl
-    changelog    = $changes
+# PS5.1: ConvertTo-Json serializa arrays em hashtables como {value:[...],Count:n}
+# → geramos o JSON manualmente para garantir um array JSON puro no campo changelog.
+$date        = Get-Date -Format "yyyy-MM-dd"
+$escapedItems = $changes | ForEach-Object {
+    '"' + ($_ -replace '\\', '\\' -replace '"', '\"') + '"'
 }
-$versionJsonStr = ($versionObj | ConvertTo-Json -Depth 5) + "`n"
+$changelogInline = $escapedItems -join ",`n        "
+$versionJsonStr = @"
+{
+    "version": "$Version",
+    "date": "$date",
+    "download_url": "$downloadUrl",
+    "changelog": [
+        $changelogInline
+    ]
+}
+"@
 [System.IO.File]::WriteAllText((Join-Path $root "version.json"), $versionJsonStr, $utf8NoBOM)
 Write-Ok "version.json    →  version = `"$Version`""
 
