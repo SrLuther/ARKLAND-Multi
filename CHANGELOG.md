@@ -5,6 +5,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.12] — 2026-05-20
+
+### Corrigido
+
+- **Plugins — Desinstalar/Reinstalar**: erro Tcl `wrong # args: should be "trace remove variable name oplist command"` ao desinstalar e reinstalar o CustomShop — `CTkOptionMenu` de tipo de item não usa mais o parâmetro `variable=` (evita trace Tcl que falha na destruição dos widgets antigos).
+
+---
+
 ## [1.3.11] — 2026-05-19
 
 ### Corrigido

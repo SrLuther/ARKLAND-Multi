@@ -28,6 +28,15 @@ _PLUGIN_NAME = "CustomShop"
 _WIN64_REL  = Path("ShooterGame") / "Binaries" / "Win64"
 _ARKAPI_REL = _WIN64_REL / "ArkApi"
 
+# Metadados do plugin (lido pelo ArkApi para exibir nome/descrição)
+_PLUGIN_INFO: Dict[str, Any] = {
+    "FullName":      "CustomShop",
+    "Description":  "Shop com pontos por tempo de jogo, kits e grupos — ARKLAND",
+    "Version":       1.0,
+    "MinApiVersion": 0.0,
+    "Dependencies":  [],
+}
+
 # Configuração padrão gerada na primeira instalação
 _DEFAULT_CONFIG: Dict[str, Any] = {
     "Settings": {
@@ -189,6 +198,9 @@ class PluginManager:
         for dep in _resolve_plugin_dlls():
             if dep.name.lower() != f"{_PLUGIN_NAME.lower()}.dll":
                 shutil.copy2(str(dep), str(win64 / dep.name))
+
+        # Escreve PluginInfo.json (sempre atualizado)
+        _atomic_write(pdir / "PluginInfo.json", _PLUGIN_INFO)
 
         # Cria config padrão apenas se ainda não existir
         cfg = pdir / "config.json"

@@ -5187,14 +5187,17 @@ class ARKServerManagerApp(ctk.CTk):
             ctk.CTkLabel(card, text="Tipo:", text_color="gray55", width=36
                          ).grid(row=0, column=2, padx=(4, 2), pady=(8, 2))
             row["type"] = tk.StringVar(value=data.get("Type", "item"))
-            ctk.CTkOptionMenu(card, variable=row["type"], values=["item", "command"],
-                              width=100, height=28,
-                              command=lambda v: (
-                                  (item_frame.grid_remove(), cmd_frame.grid())
-                                  if v == "command" else
-                                  (cmd_frame.grid_remove(), item_frame.grid())
-                              ),
-                              ).grid(row=0, column=3, padx=(0, 6), pady=(8, 2), sticky="w")
+            _type_om = ctk.CTkOptionMenu(card, values=["item", "command"],
+                                         width=100, height=28,
+                                         command=lambda v: (
+                                             row["type"].set(v),
+                                             (item_frame.grid_remove(), cmd_frame.grid())
+                                             if v == "command" else
+                                             (cmd_frame.grid_remove(), item_frame.grid())
+                                         ),
+                                         )
+            _type_om.set(data.get("Type", "item"))
+            _type_om.grid(row=0, column=3, padx=(0, 6), pady=(8, 2), sticky="w")
 
             ctk.CTkLabel(card, text="Preço:", text_color="gray55", width=44
                          ).grid(row=0, column=4, padx=(4, 2), pady=(8, 2))
