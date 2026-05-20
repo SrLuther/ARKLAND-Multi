@@ -34,7 +34,7 @@ _PLUGIN_INFO: Dict[str, Any] = {
     "Description":  "Shop com pontos por tempo de jogo, kits e grupos — ARKLAND",
     "Version":       1.0,
     "MinApiVersion": 0.0,
-    "Dependencies":  [],
+    "Dependencies":  ["Permissions"],
 }
 
 # Configuração padrão gerada na primeira instalação
@@ -78,6 +78,14 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
                 },
             ],
             "Commands": [],
+        },
+    },
+    "TimedPointsReward": {
+        "Enabled":      True,
+        "Interval":     30,
+        "StackRewards": True,
+        "Groups": {
+            "Default": {"Amount": 25},
         },
     },
 }
@@ -154,6 +162,13 @@ class PluginManager:
     def is_plugin_installed(install_dir: str) -> bool:
         """Verifica se a DLL do plugin está presente no diretório correto."""
         return (PluginManager.plugin_dir(install_dir) / f"{_PLUGIN_NAME}.dll").is_file()
+
+    @staticmethod
+    def is_permissions_installed(install_dir: str) -> bool:
+        """Verifica se o plugin ASE Permissions está instalado (dependência do CustomShop)."""
+        return (
+            PluginManager.arkapi_dir(install_dir) / "Plugins" / "Permissions" / "Permissions.dll"
+        ).is_file()
 
     @staticmethod
     def dll_source() -> Optional[Path]:

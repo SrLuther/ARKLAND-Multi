@@ -91,6 +91,133 @@ def _identify_crash_culprit(crash_text: str) -> str:
     return ""
 
 
+# ── Tabela de diagnósticos conhecidos ─────────────────────────────────────────
+# (padrão_no_erro, dll_culpada, diagnóstico_legível)
+_CRASH_INTERPRETATIONS: List[tuple] = [
+    ("access violation",  "",               "Acesso ilegal à memória (ponteiro nulo ou corrompido). "
+                                             "Causa mais comum: plugin incompatível com a versão atual do ArkApi."),
+    ("out of memory",     "",               "Servidor ficou sem memória RAM. "
+                                             "Reduza o número de mods, players ou objetos no mundo."),
+    ("stack overflow",    "",               "Estouro de pilha (recursão infinita). "
+                                             "Algum plugin está em loop de chamada."),
+    ("assertion failed",  "",               "Falha de asserção interna do engine. "
+                                             "Pode indicar dados de jogo corrompidos ou versão incompatível."),
+    ("divide by zero",    "",               "Divisão por zero. Bug em plugin ou lógica interna do servidor."),
+    ("",  "libmariadb.dll",                 "Falha na biblioteca MariaDB. "
+                                             "Verifique conectividade com o banco de dados e compatibilidade da DLL."),
+    ("",  "libmysql.dll",                   "Falha na biblioteca MySQL. "
+                                             "Verifique conectividade com o banco de dados."),
+    ("",  "customshop.dll",                 "O plugin CustomShop causou o crash. "
+                                             "Verifique o config.json e se a versão é compatível com o ArkApi."),
+    ("",  "permissions.dll",                "O plugin ASE Permissions causou o crash. "
+                                             "Atualize para a versão mais recente."),
+    ("",  "arkshop.dll",                    "O plugin ArkShop causou o crash."),
+    ("",  "steam_api.dll",                  "Falha no módulo Steam. "
+                                             "Verifique a conexão com os servidores Steam."),
+]
+
+
+def _interpret_crash(error_msg: str, culprit: str) -> str:
+    """Retorna um diagnóstico legível baseado na mensagem de erro e DLL culpada."""
+    em = error_msg.lower()
+    cp = culprit.lower()
+    for err_pat, dll_pat, diagnosis in _CRASH_INTERPRETATIONS:
+        err_match = (not err_pat) or (err_pat in em)
+        dll_match = (not dll_pat) or (dll_pat == cp) or (dll_pat in cp)
+        if err_match and dll_match:
+            return diagnosis
+    if culprit and not any(culprit.lower().startswith(p) for p in _ENGINE_DLL_PREFIXES):
+        return (f"Plugin externo suspeito: {culprit}. "
+                "Tente desativar temporariamente para confirmar.")
+    return "Causa não identificada. Consulte o call stack e o ShooterGame.log para mais detalhes."
+
+
+def _parse_crash_folder(crash_dir: Path) -> dict:
+    """Extrai informações estruturadas de uma pasta de crash do ARK."""
+    import re as _re
+    result: dict = {
+        "folder":       crash_dir.name,
+        "path":         str(crash_dir),
+        "timestamp":    datetime.fromtimestamp(crash_dir.stat().st_mtime),
+        "error_message": "",
+        "call_stack":   [],
+        "culprit":      "",
+        "has_dump":     False,
+        "dump_size_kb": 0,
+        "dump_path":    "",
+        "diagnosis":    "",
+        "log_lines":    [],
+    }
+
+    # CrashContext.runtime-xml
+    ctx_file = crash_dir / "CrashContext.runtime-xml"
+    if ctx_file.exists():
+        try:
+            ctx = ctx_file.read_text(encoding="utf-8", errors="replace")
+            m_err = _re.search(r'<ErrorMessage>(.*?)</ErrorMessage>', ctx,
+                               _re.DOTALL | _re.IGNORECASE)
+            if m_err:
+                result["error_message"] = m_err.group(1).strip()[:500]
+            m_stack = _re.search(r'<CallStack>(.*?)</CallStack>', ctx,
+                                 _re.DOTALL | _re.IGNORECASE)
+            if m_stack:
+                lines = [ln.strip() for ln in m_stack.group(1).splitlines() if ln.strip()]
+                result["call_stack"] = lines[:20]
+                result["culprit"] = _identify_crash_culprit("\n".join(lines))
+        except Exception:
+            pass
+
+    # .dmp files
+    try:
+        dmp_files = sorted(crash_dir.glob("*.dmp"),
+                           key=lambda f: f.stat().st_size, reverse=True)
+        if dmp_files:
+            result["has_dump"]     = True
+            result["dump_size_kb"] = dmp_files[0].stat().st_size // 1024
+            result["dump_path"]    = str(dmp_files[0])
+    except Exception:
+        pass
+
+    # Log tail (Fatal error! section)
+    log_file = crash_dir / "ShooterGame.log"
+    if not log_file.exists():
+        log_file = crash_dir.parent.parent / "Logs" / "ShooterGame.log"
+    if log_file.exists():
+        try:
+            file_size = log_file.stat().st_size
+            offset = max(0, file_size - 20480)
+            with open(log_file, "rb") as fh:
+                fh.seek(offset)
+                tail = fh.read().decode("utf-8", errors="replace")
+            fatal_idx = tail.rfind("Fatal error!")
+            if fatal_idx != -1:
+                crash_section = tail[fatal_idx:]
+                lines = [ln.strip() for ln in crash_section.splitlines() if ln.strip()]
+                result["log_lines"] = lines[:20]
+                if not result["culprit"]:
+                    result["culprit"] = _identify_crash_culprit(crash_section)
+                if not result["error_message"] and lines:
+                    result["error_message"] = lines[0]
+        except Exception:
+            pass
+
+    result["diagnosis"] = _interpret_crash(result["error_message"], result["culprit"])
+    return result
+
+
+def _list_crash_records(install_dir: str) -> List[dict]:
+    """Lista todos os registros de crash da instalação (mais recente primeiro)."""
+    crash_base = Path(install_dir) / "ShooterGame" / "Saved" / "Crashes"
+    if not crash_base.exists():
+        return []
+    try:
+        subdirs = [d for d in crash_base.iterdir() if d.is_dir()]
+        subdirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+        return [_parse_crash_folder(d) for d in subdirs]
+    except Exception:
+        return []
+
+
 def _read_crash_info(install_dir: str) -> str:
     """Lê arquivos de crash do ARK e retorna um resumo diagnóstico.
 
@@ -204,6 +331,7 @@ class ServerInstance:
         self.bm_online: Optional[bool] = None
         self.bm_players: Optional[int] = None
         self.bm_max_players: Optional[int] = None
+        self.last_crash_info: str = ""   # preenchido por _emit_crash_details antes de _set_status(crashed)
 
     @property
     def uptime(self) -> str:
@@ -994,11 +1122,23 @@ class ServerManager:
             inst.status = status
         self._on_status_change(server_id, status)
         if self._discord_notifier and inst:
-            detail_parts = []
-            if inst.config.map:
-                detail_parts.append(f"🗺  {inst.config.map}")
-            if inst.config.server_port:
-                detail_parts.append(f"🔌  Porta: {inst.config.server_port}")
+            detail_parts: List[str] = []
+
+            if status in (SERVER_STATUS_STARTING, SERVER_STATUS_RUNNING):
+                if inst.config.map:
+                    detail_parts.append(f"map={inst.config.map}")
+                if inst.config.server_port:
+                    detail_parts.append(f"port={inst.config.server_port}")
+
+            elif status == SERVER_STATUS_STOPPED:
+                uptime = inst.uptime
+                if uptime and uptime != "—":
+                    detail_parts.append(f"uptime={uptime}")
+
+            elif status == SERVER_STATUS_CRASHED:
+                if inst.last_crash_info:
+                    detail_parts.append(f"crash={inst.last_crash_info}")
+
             self._discord_notifier.notify_status(
                 inst.config.name or server_id, status,
                 detail="\n".join(detail_parts),
@@ -1016,6 +1156,10 @@ class ServerManager:
             time.sleep(1.5)  # aguarda o ARK terminar de gravar os arquivos de crash
             info = _read_crash_info(install_dir)
             if info:
+                # Armazena para que _set_status(crashed) possa incluir no Discord
+                inst = self._instances.get(server_id)
+                if inst:
+                    inst.last_crash_info = info
                 self._emit_log(server_id, "─── Diagnóstico de Crash ───────────────────────────────", "error")
                 for line in info.splitlines():
                     level = "error" if line.startswith("**") else "warning"

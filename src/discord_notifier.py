@@ -73,7 +73,7 @@ class DiscordNotifier:
     def notify_status(self, server_name: str, status: str, detail: str = "") -> None:
         """
         status: 'starting' | 'running' | 'stopped' | 'crashed' | 'stopping'
-        detail: informações extras (mapa, porta) opcionais
+        detail: string codificada pelo server_manager (key=value por linha)
         """
         cfg = self.config
         if not cfg.enabled or not cfg.webhook_url:
@@ -97,39 +97,67 @@ class DiscordNotifier:
 
         emoji, label, color = meta
 
-        # ── Campos e dicas por status ──────────────────────────────────────
-        fields: List[dict] = []
-        tip: Optional[str] = None
+        # ── Decodifica o detalhe estruturado (key=value por linha) ────────────
+        detail_map: dict[str, str] = {}
+        for line in detail.splitlines():
+            if "=" in line:
+                k, _, v = line.partition("=")
+                detail_map[k.strip()] = v.strip()
 
+        map_name    = detail_map.get("map", "")
+        port        = detail_map.get("port", "")
+        uptime_val  = detail_map.get("uptime", "")
+        crash_info  = detail_map.get("crash", "")
+
+        fields: List[dict] = []
+        description = ""
+
+        # ── Conteúdo por status ───────────────────────────────────────────────
         if status == "starting":
-            fields.append({"name": "⚙️ Status", "value": "Inicializando o servidor...", "inline": True})
-            tip = "O servidor pode levar até 15 minutos para ficar online."
+            description = "O servidor está inicializando. Isso pode levar alguns minutos."
+            if map_name:
+                fields.append({"name": "🗺️  Mapa",  "value": map_name, "inline": True})
+            if port:
+                fields.append({"name": "🔌  Porta", "value": port,     "inline": True})
 
         elif status == "running":
-            if detail:
-                fields.append({"name": "🌐 Informações", "value": detail, "inline": False})
-            tip = "O servidor está pronto para receber conexões!"
-
-        elif status == "stopped":
-            fields.append({"name": "🔴 Encerrado", "value": "O servidor foi parado normalmente.", "inline": True})
-            tip = "Use o ARKLAND Server Manager para reiniciar quando desejar."
-
-        elif status == "crashed":
-            crash_info = detail or "Erro inesperado detectado no processo do servidor."
-            fields.append({"name": "⚠️ Detalhes do Crash", "value": crash_info, "inline": False})
-            fields.append({"name": "💡 Dica", "value": "Verifique os logs no painel de diagnóstico do ARKLAND.", "inline": False})
+            description = "O servidor está **online** e pronto para receber conexões."
+            if map_name:
+                fields.append({"name": "🗺️  Mapa",  "value": map_name, "inline": True})
+            if port:
+                fields.append({"name": "🔌  Porta", "value": port,     "inline": True})
 
         elif status == "stopping":
-            fields.append({"name": "⏹️ Encerrando", "value": "Enviando SaveWorld e encerrando o processo...", "inline": True})
-            tip = "Aguarde o encerramento gracioso para preservar os saves."
+            description = (
+                "Salvando o mundo (`SaveWorld`) e encerrando o processo.\n"
+                "Aguarde o encerramento gracioso para preservar os saves."
+            )
 
-        if tip:
-            fields.append({"name": "💡 Dica", "value": tip, "inline": False})
+        elif status == "stopped":
+            description = "O servidor foi encerrado com sucesso."
+            if uptime_val:
+                fields.append({"name": "⏱️  Uptime", "value": uptime_val, "inline": True})
+
+        elif status == "crashed":
+            description = "⚠️  O processo do servidor encerrou inesperadamente."
+            if crash_info:
+                # Limita a 900 chars para não ultrapassar o limite de campo do Discord
+                excerpt = crash_info[:900] + ("…" if len(crash_info) > 900 else "")
+                fields.append({
+                    "name": "🔍  Diagnóstico",
+                    "value": f"```\n{excerpt}\n```",
+                    "inline": False,
+                })
+            fields.append({
+                "name": "📋  Mais detalhes",
+                "value": "Consulte a aba **🔴 Crashes** no ARKLAND para o histórico completo e diagnóstico detalhado.",
+                "inline": False,
+            })
 
         self._send_embed(
             sender=cfg.sender_name or "ARKLAND",
             title=f"{emoji}  {label} — {server_name}",
-            description="",
+            description=description,
             color=color,
             fields=fields,
         )
@@ -141,12 +169,11 @@ class DiscordNotifier:
         emoji, label, color = _EVENT_META["update"]
         fields: List[dict] = []
         if detail:
-            fields.append({"name": "🔄 Detalhes", "value": detail, "inline": False})
-        fields.append({"name": "💡 Dica", "value": "O servidor será reiniciado automaticamente após a atualização.", "inline": False})
+            fields.append({"name": "�  Detalhes", "value": detail, "inline": False})
         self._send_embed(
             sender=cfg.sender_name or "ARKLAND",
             title=f"{emoji}  {label} — {server_name}",
-            description="",
+            description="Atualização concluída. O servidor será reiniciado automaticamente.",
             color=color,
             fields=fields,
         )
@@ -158,12 +185,11 @@ class DiscordNotifier:
         emoji, label, color = _EVENT_META["backup"]
         fields: List[dict] = []
         if detail:
-            fields.append({"name": "💾 Snapshot", "value": detail, "inline": False})
-        fields.append({"name": "💡 Dica", "value": "Para restaurar um backup, use o painel de Backup no ARKLAND.", "inline": False})
+            fields.append({"name": "💾  Snapshot", "value": detail, "inline": False})
         self._send_embed(
             sender=cfg.sender_name or "ARKLAND",
             title=f"{emoji}  {label} — {server_name}",
-            description="",
+            description="Backup realizado com sucesso. Use a aba **Backup** no ARKLAND para restaurar quando necessário.",
             color=color,
             fields=fields,
         )

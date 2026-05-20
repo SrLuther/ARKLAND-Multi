@@ -67,7 +67,9 @@ Write-Ok "Entrada de changelog encontrada para v$Version"
 
 # ── 2) Extrair changelog via Python (AST) ─────────────────────────────────────
 $extractScript = @"
-import ast, json, sys
+import ast, json, sys, io
+# Força stdout UTF-8 para suportar emojis e caracteres especiais no changelog
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 with open('src/version.py', encoding='utf-8-sig') as f:
     src = f.read()
 tree = ast.parse(src)

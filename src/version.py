@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.13"
+APP_VERSION: str = "1.3.15"
 BUILD_DATE: str = "2026-05-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.15",
+        "date": "2026-05-20",
+        "changes": [
+            "Nova aba \u2018\ud83d\udd34 Crashes\u2019: exibe hist\u00f3rico completo de crashes do servidor lidos de ShooterGame/Saved/Crashes/, com diagn\u00f3stico interpretado (culpado, mensagem, call stack) e bot\u00f5es para abrir pasta ou apagar registros individualmente.",
+            "Discord — mensagens redesenhadas: cada evento (iniciando, online, encerrando, encerrado, crash) agora usa description do embed como mensagem principal; campos Mapa e Porta como inline para starting/running; Uptime em stopped; diagn\u00f3stico do crash em bloco de c\u00f3digo para crashed; removido o campo \u2018Dica\u2019 gen\u00e9rico de todos os eventos.",
+            "Discord — crash agora inclui diagn\u00f3stico real: server_manager armazena o resultado de _read_crash_info() na inst\u00e2ncia antes de disparar o evento, e o notificador inclui o trecho no embed.",
+            "Novo indicador de status \u2018ASE Permissions\u2019 na aba Plugins: exibe se o plugin est\u00e1 instalado e oferece bot\u00e3o \u2018\u2b07 Instalar Permissions\u2019 que abre o link da p\u00e1gina oficial.",
+        ],
+    },
+    {
+        "version": "1.3.14",
+        "date": "2026-05-21",
+        "changes": [
+            "Fix (plugin_manager — PluginInfo.json): Dependencies corrigido para [\"Permissions\"] — PluginManager.install() não sobrescreve mais a declaração de dependência.",
+            "Fix (plugin_manager — config padrão): seção TimedPointsReward adicionada ao _DEFAULT_CONFIG — grupos de pontos por tempo aparecem na UI após instalação limpa.",
+            "Fix (Editor de Kits — Permissões): campo Permissions não embaralha mais texto ao importar config com valor em formato string (ex: \"VIPOuro, Staff\").",
+            "Fix (CustomShop — SendKits C++): payload Result agora usa Result.Data consistente com SendShopItems, corrigindo envio de kits ao mod MX-E.",
+        ],
+    },
     {
         "version": "1.3.13",
         "date": "2026-05-20",

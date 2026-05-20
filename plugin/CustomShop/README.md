@@ -12,8 +12,10 @@ Plugin C++ para **ARK Survival Evolved (ASE)** que substitui o ArkShop como back
 | [MX-E Ark Shop UI](https://steamcommunity.com/sharedfiles/filedetails/?id=2693727499) | qualquer | Mod cliente (Steam Workshop) |
 | Visual Studio 2022 | C++20 | Compilador |
 | [vcpkg](https://github.com/microsoft/vcpkg) | — | `nlohmann-json`, `sqlite3` |
+| [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) | 2.1+ | *(Opcional)* Controle de acesso por grupo nos kits e pontos diferenciados por grupo |
 
-> **Não** é necessário instalar o ArkShop, ArkPermissions ou ArkShopUI plugin.
+> **Não** é necessário instalar o ArkShop ou ArkShopUI plugin.
+> O plugin [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) é **opcional** — sem ele, a restrição de kits por grupo e os pontos diferenciados por grupo ficam desativados (todos os jogadores têm acesso irrestrito).
 
 ---
 

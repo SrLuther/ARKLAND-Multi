@@ -1,0 +1,7 @@
+{
+    "FullName": "CustomShop",
+    "Description": "Shop com pontos por tempo de jogo, kits e grupos — ARKLAND",
+    "Version": 1.0,
+    "MinApiVersion": 0.0,
+    "Dependencies": ["Permissions"]
+}

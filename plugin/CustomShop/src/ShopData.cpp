@@ -93,8 +93,8 @@ bool SendKits(AShooterPlayerController* controller) {
     }
 
     nlohmann::json payload;
-    payload["Command"] = "GetKits";
-    payload["Result"]  = kits;
+    payload["Command"]        = "GetKits";
+    payload["Result"]["Data"] = kits;
     return Bridge::SendPayload(controller, payload);
 }
 

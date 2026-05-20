@@ -5,6 +5,31 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.15] — 2026-05-20
+
+### Adicionado
+
+- **Aba 🔴 Crashes**: exibe o histórico completo de crashes lidos de `ShooterGame/Saved/Crashes/`, com diagnóstico interpretado (DLL culpada, mensagem de erro, call stack), botões para abrir pasta no Explorer ou apagar registros individualmente, e botão global "🗑 Limpar todos".
+- **Indicador ASE Permissions** na aba Plugins: exibe status de instalação e botão "⬇ Instalar Permissions" (link para página oficial) quando o plugin não está presente.
+
+### Melhorado
+
+- **Discord — mensagens redesenhadas**: cada evento usa o campo `description` do embed como mensagem principal; campos **Mapa** e **Porta** como `inline` para `starting`/`running`; **Uptime** exibido em `stopped`; diagnóstico real do crash em bloco de código para `crashed`; campo genérico "💡 Dica" removido de todos os eventos.
+- **Discord — crash com diagnóstico real**: o `server_manager` armazena o resultado da leitura dos arquivos de crash antes de disparar o evento, e o notificador inclui o trecho no embed.
+
+---
+
+## [1.3.14] — 2026-05-20
+
+### Corrigido
+
+- **plugin_manager — PluginInfo.json**: `_PLUGIN_INFO["Dependencies"]` estava vazio (`[]`) — corrigido para `["Permissions"]`, evitando que `PluginManager.install()` sobrescrevesse `PluginInfo.json` sem declarar a dependência obrigatória do ASE Permissions.
+- **plugin_manager — config padrão**: `_DEFAULT_CONFIG` não incluía a seção `TimedPointsReward` — grupos de pontos por tempo nunca apareciam na aba de configuração após uma instalação limpa; seção adicionada com grupo `Default` de 25 pts/intervalo.
+- **Plugins — Editor de Kits — Permissões**: campo `Permissions` exibia texto embaralhado ao importar `config.json` com permissões salvas como string (`"VIPOuro, Staff"`); agora detecta se o valor é `str` ou `list` e exibe corretamente em ambos os casos.
+- **CustomShop — SendKits (C++)**: `payload["Result"]` era atribuído diretamente ao array de kits, inconsistente com `SendShopItems` que usa `payload["Result"]["Data"]`; estrutura corrigida para `payload["Result"]["Data"] = kits`, alinhando todos os comandos ao mesmo padrão JSON esperado pelo mod MX-E.
+
+---
+
 ## [1.3.13] — 2026-05-20
 
 ### Corrigido
