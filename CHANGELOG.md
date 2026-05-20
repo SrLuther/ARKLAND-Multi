@@ -2,6 +2,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.17] - 2026-05-20
+
+### Fix
+
+- fix: **updater autodestruía-se** ao encerrar processos — `_kill_lingering` usava `taskkill /F /T /PID` que mata a árvore inteira; como o updater é filho do app principal, ele era morto junto. Corrigido para usar apenas `taskkill /F /IM` por nome de executável.
+- fix: ctypes `OpenProcess`/`WaitForSingleObject` agora com `restype=c_void_p` — evita truncamento de HANDLE em sistemas 64-bit com valores de handle > 2³¹.
+
+### Fix — Plugin CustomShop (DLL)
+
+- fix: `ShopPerms` agora usa `CreateToolhelp32Snapshot` para enumerar todos os módulos carregados e localizar o plugin Permissions independentemente do nome do DLL — resolve aviso _"Permissions plugin not found"_ com "Permissions V2".
+
+---
+
 ## [1.3.16] - 2026-05-20
 
 ### Performance

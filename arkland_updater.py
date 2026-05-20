@@ -202,10 +202,14 @@ class UpdaterApp:
         SYNCHRONIZE = 0x00100000
         try:
             kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+            # HANDLE é pointer-sized — definir restype evita truncamento em 64-bit.
+            kernel32.OpenProcess.restype = ctypes.c_void_p
             handle = kernel32.OpenProcess(SYNCHRONIZE, False, pid)
             if handle:
                 _TIMEOUT_MS = 20_000  # 20 s — fallback: _kill_lingering cuida do resto
+                kernel32.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
                 kernel32.WaitForSingleObject(handle, _TIMEOUT_MS)
+                kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
                 kernel32.CloseHandle(handle)
                 return
         except Exception:
@@ -226,15 +230,8 @@ class UpdaterApp:
         """
         _TARGET_EXES = ("ARKLAND-ServerManager.exe", "ARKLAND-Multi.exe")
 
-        # 1ª passada: mata pelo PID (árvore completa) + pelo nome
-        try:
-            subprocess.run(
-                ["taskkill", "/F", "/T", "/PID", str(self._pid)],
-                capture_output=True,
-            )
-        except Exception:
-            pass
-
+        # 1ª passada: mata pelo nome — NÃO usamos /T (árvore) pois o próprio
+        # updater é filho do app principal e seria encerrado junto.
         for exe_name in _TARGET_EXES:
             try:
                 subprocess.run(
