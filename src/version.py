@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.10"
+APP_VERSION: str = "1.3.11"
 BUILD_DATE: str = "2026-05-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.11",
+        "date": "2026-05-19",
+        "changes": [
+            "Fix (CustomShop — Error 126): adicionado z.dll (zlib) ao bundle — libmariadb.dll depende de z.dll que n\u00e3o estava sendo copiado para Win64/ na instala\u00e7\u00e3o.",
+            "Fix (Plugins — Importar — grupos): grupos do TimedPointsReward n\u00e3o eram importados do formato ArkShop — convertido de inteiro direto para {\"Amount\": N} ao fazer a convers\u00e3o.",
+        ],
+    },
     {
         "version": "1.3.10",
         "date": "2026-05-19",

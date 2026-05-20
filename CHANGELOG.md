@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.11] — 2026-05-19
+
+### Corrigido
+
+- **CustomShop — Error 126**: adicionado `z.dll` (zlib) ao bundle do app e à instalação em `Win64/` — `libmariadb.dll` depende de `z.dll` que não estava sendo copiada, causando falha ao carregar o plugin.
+- **Plugins — Importar — grupos**: grupos do `TimedPointsReward` não eram carregados ao importar config no formato ArkShop — os valores inteiros (`"Default": 25`) agora são convertidos para `{"Amount": 25}` antes de popular a UI.
+
+---
+
 ## [1.3.10] — 2026-05-19
 
 ### Adicionado

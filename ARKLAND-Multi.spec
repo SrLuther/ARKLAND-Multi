@@ -14,6 +14,7 @@ a = Analysis(
         ('ig', 'ig'),
         ('plugin/CustomShop/bin/CustomShop.dll',      'plugins'),
         ('plugin/CustomShop/bin/libmariadb.dll',       'plugins'),
+        ('plugin/CustomShop/bin/z.dll',                'plugins'),
     ] + ctk_datas + pil_datas + tray_datas,
     hiddenimports=[
         # customtkinter

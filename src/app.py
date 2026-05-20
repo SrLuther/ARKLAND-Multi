@@ -5626,7 +5626,20 @@ class ARKServerManagerApp(ctk.CTk):
                             "Quality":        entry.get("Quality", 0.0),
                             "ForceBlueprint": entry.get("ForceBlueprint", False),
                         }
-            timed = general.get("TimedPointsReward", raw.get("TimedPointsReward", {}))
+            timed_raw = general.get("TimedPointsReward", raw.get("TimedPointsReward", {}))
+            # Converte Groups: ArkShop usa int direto ("Default": 25),
+            # CustomShop usa dict ("Default": {"Amount": 25})
+            groups_raw = timed_raw.get("Groups", {})
+            groups = {
+                name: (val if isinstance(val, dict) else {"Amount": val})
+                for name, val in groups_raw.items()
+            }
+            timed = {
+                "Enabled":      timed_raw.get("Enabled", True),
+                "Interval":     timed_raw.get("Interval", 30),
+                "StackRewards": timed_raw.get("StackRewards", True),
+                "Groups":       groups,
+            }
             return {
                 "Settings":          settings,
                 "Database":          database,
