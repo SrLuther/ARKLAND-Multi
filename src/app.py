@@ -5500,10 +5500,7 @@ class ARKServerManagerApp(ctk.CTk):
                           command=_del).grid(row=0, column=4, padx=(2, 8), pady=5)
 
         # ── função de carregamento ─────────────────────────────────────────────
-        def _load_config() -> None:
-            if not srv.install_dir:
-                return
-            cfg = PluginManager.load_config(srv.install_dir)
+        def _populate_fields(cfg: dict) -> None:
             settings = cfg.get("Settings", {})
             sv_shop_name.set(settings.get("ShopName", "ARKLAND Shop"))
             sv_ui_key.set(settings.get("UiKey", "F3"))
@@ -5530,6 +5527,7 @@ class ARKServerManagerApp(ctk.CTk):
             sv_db_user.set(db.get("User", "arkland"))
             sv_db_pass.set(db.get("Password", ""))
             sv_db_name.set(db.get("Database", "arkland_shop"))
+
             _state["items_rows"].clear()
             for w in items_scroll.winfo_children():
                 w.destroy()
@@ -5551,6 +5549,122 @@ class ARKServerManagerApp(ctk.CTk):
                 w.destroy()
             for grp_name, grp_data in tp.get("Groups", {}).items():
                 _add_timed_group(grp_name, grp_data.get("Amount", 0))
+
+        def _load_config() -> None:
+            if not srv.install_dir:
+                return
+            _populate_fields(PluginManager.load_config(srv.install_dir))
+
+        def _convert_arkshop(raw: dict) -> dict:
+            """Converte o formato legado ArkShop para o formato CustomShop."""
+            general = raw.get("General", {})
+            mysql   = raw.get("Mysql", {})
+
+            settings = {
+                "ShopName":                      general.get("ShopName", "ARKLAND Shop"),
+                "UiKey":                         general.get("UiKey", "F3"),
+                "StartingPoints":                general.get("StartingPoints", 100),
+                "ItemsPerPage":                  general.get("ItemsPerPage", 15),
+                "ShopDisplayTime":               general.get("ShopDisplayTime", 15.0),
+                "ShopTextSize":                  general.get("ShopTextSize", 1.3),
+                "DefaultKit":                    general.get("DefaultKit", ""),
+                "DbPathOverride":                general.get("DbPathOverride", ""),
+                "DisableSellButton":             general.get("DisableSellButton", True),
+                "DisableTradeButton":            general.get("DisableTradeButton", True),
+                "UseOriginalTradeCommandWithUI": general.get("UseOriginalTradeCommandWithUI", False),
+                "GiveDinosInCryopods":           general.get("GiveDinosInCryopods", True),
+                "UseSoulTraps":                  general.get("UseSoulTraps", True),
+                "CryoLimitedTime":               general.get("CryoLimitedTime", False),
+                "PreventUseNoglin":              general.get("PreventUseNoglin", True),
+                "PreventUseUnconscious":         general.get("PreventUseUnconscious", True),
+                "PreventUseHandcuffed":          general.get("PreventUseHandcuffed", True),
+                "PreventUseCarried":             general.get("PreventUseCarried", True),
+            }
+            database = {
+                "Host":     mysql.get("MysqlHost", "127.0.0.1"),
+                "Port":     mysql.get("MysqlPort", 3306),
+                "User":     mysql.get("MysqlUser", "arkland"),
+                "Password": mysql.get("MysqlPass", ""),
+                "Database": mysql.get("MysqlDB", "arkland_shop"),
+            }
+            # Kits: Amount → Quantity nos itens do kit
+            kits: dict = {}
+            for kid, kdata in raw.get("Kits", {}).items():
+                kit = dict(kdata)
+                if "Items" in kit:
+                    converted = []
+                    for it in kit["Items"]:
+                        it2 = dict(it)
+                        if "Amount" in it2 and "Quantity" not in it2:
+                            it2["Quantity"] = it2.pop("Amount")
+                        converted.append(it2)
+                    kit["Items"] = converted
+                kits[kid] = kit
+            # ShopItems → Items (itens simples apenas; bundles são ignorados)
+            items: dict = {}
+            for iid, idata in raw.get("ShopItems", {}).items():
+                tipo = idata.get("Type", "item")
+                if tipo == "command":
+                    items[iid] = {
+                        "Type":        "command",
+                        "Price":       idata.get("Price", 0),
+                        "Description": idata.get("Description", ""),
+                        "Items":       idata.get("Items", []),
+                    }
+                else:
+                    sub = [i for i in idata.get("Items", []) if "Blueprint" in i]
+                    if len(sub) == 1:
+                        entry = dict(sub[0])
+                        if "Amount" in entry and "Quantity" not in entry:
+                            entry["Quantity"] = entry.pop("Amount")
+                        items[iid] = {
+                            "Type":           "item",
+                            "Price":          idata.get("Price", 0),
+                            "Description":    idata.get("Description", ""),
+                            "Blueprint":      entry.get("Blueprint", ""),
+                            "Quantity":       entry.get("Quantity", 1),
+                            "Quality":        entry.get("Quality", 0.0),
+                            "ForceBlueprint": entry.get("ForceBlueprint", False),
+                        }
+            timed = general.get("TimedPointsReward", raw.get("TimedPointsReward", {}))
+            return {
+                "Settings":          settings,
+                "Database":          database,
+                "Kits":              kits,
+                "Items":             items,
+                "TimedPointsReward": timed,
+            }
+
+        def _import_config() -> None:
+            path = filedialog.askopenfilename(
+                title="Importar config.json da loja",
+                filetypes=[("JSON", "*.json"), ("Todos os arquivos", "*.*")],
+                parent=self,
+            )
+            if not path:
+                return
+            try:
+                with open(path, encoding="utf-8") as f:
+                    raw = json.load(f)
+            except Exception as exc:
+                messagebox.showerror("Erro ao abrir arquivo", str(exc), parent=self)
+                return
+            is_arkshop = "Mysql" in raw or ("General" in raw and "Items" not in raw)
+            try:
+                cfg = _convert_arkshop(raw) if is_arkshop else raw
+            except Exception as exc:
+                messagebox.showerror("Erro ao converter", str(exc), parent=self)
+                return
+            _populate_fields(cfg)
+            n_items = len(cfg.get("Items", {}))
+            n_kits  = len(cfg.get("Kits",  {}))
+            fmt = "ArkShop (convertido)" if is_arkshop else "CustomShop"
+            messagebox.showinfo(
+                "Importado",
+                f"Formato: {fmt}\n{n_items} item(s), {n_kits} kit(s) carregados.\n\n"
+                "Revise os dados e clique em 💾 Salvar config.json.",
+                parent=self,
+            )
 
         # ── função de coleta e salvamento ─────────────────────────────────────
         def _save_config() -> None:
@@ -5824,6 +5938,11 @@ class ARKServerManagerApp(ctk.CTk):
                     save_row, text="+ Kit", height=32, width=90,
                     fg_color="#3a3a5a", hover_color="#252540",
                     command=lambda: _add_kit_row(),
+                ).pack(side="left", padx=(0, 6))
+                ctk.CTkButton(
+                    save_row, text="📂 Importar", height=32, width=110,
+                    fg_color="#3a4a5a", hover_color="#253040",
+                    command=_import_config,
                 ).pack(side="left", padx=(0, 16))
                 ctk.CTkButton(
                     save_row, text="💾 Salvar config.json", height=32, width=190,

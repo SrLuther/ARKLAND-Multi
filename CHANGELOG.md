@@ -5,6 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.10] — 2026-05-19
+
+### Adicionado
+
+- **Plugins — botão "📂 Importar"**: permite carregar um `config.json` externo (formato ArkShop legado ou CustomShop) diretamente na aba Plugins para popular toda a UI sem precisar editar o arquivo manualmente.
+- **Plugins — detecção automática de formato**: arquivos com chave `Mysql` ou `General` são reconhecidos como formato ArkShop e convertidos automaticamente antes de preencher os campos.
+- **Plugins — conversão ArkShop → CustomShop**: `Mysql.*` → `Database`, `General.*` → `Settings`, `Amount` → `Quantity` nos itens de kits, `ShopItems` → `Items` (itens simples).
+
+---
+
 ## [1.3.9] — 2026-05-22
 
 ### Corrigido
