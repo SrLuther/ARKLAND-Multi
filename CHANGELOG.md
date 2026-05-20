@@ -1,956 +1,526 @@
-# Changelog — ARKLAND Server Manager
+# Changelog
 
-Todas as mudanças notáveis deste projeto serão documentadas aqui.  
-Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
+<!-- markdownlint-disable MD024 -->
 
----
+## [1.3.16] - 2026-05-20
 
-## [1.3.15] — 2026-05-20
+### Performance
 
-### Adicionado
+- perf: lista de Itens e Kits no editor do CustomShop agora usa `ttk.Treeview` nativo + painel de edição único (master-detail) — navegação instantânea entre centenas de registros sem recriação de widgets.
+- perf: lista de Mods paginada (20 por página) com navegação Anterior/Próximo, evitando renderizar todos os mods de uma vez.
 
-- **Aba 🔴 Crashes**: exibe o histórico completo de crashes lidos de `ShooterGame/Saved/Crashes/`, com diagnóstico interpretado (DLL culpada, mensagem de erro, call stack), botões para abrir pasta no Explorer ou apagar registros individualmente, e botão global "🗑 Limpar todos".
-- **Indicador ASE Permissions** na aba Plugins: exibe status de instalação e botão "⬇ Instalar Permissions" (link para página oficial) quando o plugin não está presente.
+### Fix
 
-### Melhorado
+- fix: processo updater desvinculado do Job Object do Windows (`CREATE_BREAKAWAY_FROM_JOB`) — encerrar o app principal não interrompe mais o updater em execução.
 
-- **Discord — mensagens redesenhadas**: cada evento usa o campo `description` do embed como mensagem principal; campos **Mapa** e **Porta** como `inline` para `starting`/`running`; **Uptime** exibido em `stopped`; diagnóstico real do crash em bloco de código para `crashed`; campo genérico "💡 Dica" removido de todos os eventos.
-- **Discord — crash com diagnóstico real**: o `server_manager` armazena o resultado da leitura dos arquivos de crash antes de disparar o evento, e o notificador inclui o trecho no embed.
+### Feat — Plugin CustomShop
 
----
+- feat: novo tipo **"dino"** nos itens do CustomShop (Itens e Kits) — campos Blueprint, Level, Gender (Male/Female/Random) e Neutered.
 
-## [1.3.14] — 2026-05-20
+### Feat — Dashboard
 
-### Corrigido
+- feat: servidor em estado **TRAVADO** (crashed) exibe botão "💀 Forçar Enc." em vez dos botões padrão — força encerramento do processo via `taskkill /F /T`.
+- feat: barra de legenda com os 6 status de servidor (Parado, Iniciando, Online, Encerrando, Travado, Desconhecido) com cores e descrições.
 
-- **plugin_manager — PluginInfo.json**: `_PLUGIN_INFO["Dependencies"]` estava vazio (`[]`) — corrigido para `["Permissions"]`, evitando que `PluginManager.install()` sobrescrevesse `PluginInfo.json` sem declarar a dependência obrigatória do ASE Permissions.
-- **plugin_manager — config padrão**: `_DEFAULT_CONFIG` não incluía a seção `TimedPointsReward` — grupos de pontos por tempo nunca apareciam na aba de configuração após uma instalação limpa; seção adicionada com grupo `Default` de 25 pts/intervalo.
-- **Plugins — Editor de Kits — Permissões**: campo `Permissions` exibia texto embaralhado ao importar `config.json` com permissões salvas como string (`"VIPOuro, Staff"`); agora detecta se o valor é `str` ou `list` e exibe corretamente em ambos os casos.
-- **CustomShop — SendKits (C++)**: `payload["Result"]` era atribuído diretamente ao array de kits, inconsistente com `SendShopItems` que usa `payload["Result"]["Data"]`; estrutura corrigida para `payload["Result"]["Data"] = kits`, alinhando todos os comandos ao mesmo padrão JSON esperado pelo mod MX-E.
+### Feat — Painel de Desempenho
 
----
+- feat: temperatura de CPU (via psutil / ACPI WMI no Windows) e GPU (via nvidia-smi) exibidas em cada card de recurso.
+- feat: nova seção "📡 Consumo por Servidor" — tabela em tempo real com CPU% e RAM de cada processo ARK em execução.
 
-## [1.3.13] — 2026-05-20
+## [1.3.0] - 2026-05-20
 
-### Corrigido
+### Folgas — Admin pode registrar sem saldo disponível
 
-- **CustomShop — ShopPerms**: aviso `Permissions plugin not found` ao iniciar corrigido — `Perms::Init()` movido de `Plugin_Init` para o hook `BeginPlay`, quando todos os plugins já estão carregados no processo; controle de kit por grupo e pontos por grupo agora funcionam.
-- **Plugins — Salvar config.json**: diálogo de confirmação agora exibe o caminho completo do arquivo gravado.
+- feat: admin pode registrar uso de folga mesmo quando o colaborador não possui saldo (`folga_days = 0`); nesse caso, 7h20 são descontadas normalmente das horas e o saldo fica negativo (rastreando o "débito").
+- feat: ao registrar folga sem saldo, mensagem de aviso diferenciada é exibida com saldo atual (negativo).
+- feat: seção "Usar Folga" no menu de ações do histórico agora sempre visível para admin — quando sem saldo, exibe badge vermelho "sem saldo — desconto forçado".
 
----
+### Meta — Mensal e Configurável por Mês
 
-## [1.3.12] — 2026-05-20
+- feat: indicadores de ponto substituem **Meta da Semana** por **Meta do Mês** — valor calculado sobre todos os dias úteis (seg-sáb, excluindo feriados) do mês selecionado.
+- feat: admin pode definir uma **meta personalizada** para qualquer mês via formulário "📅 Meta Mensal" no menu de ações do histórico (campo H:MM, ex: `176:00`).
+- feat: nova rota `POST /admin/meta-mensal` persiste a meta no banco; se já existir entrada para o mês, atualiza o valor.
+- feat: novo modelo `MonthlyMeta` armazena metas personalizadas por `(year, month)` com constraint único.
+- feat: migração automática em `ensure_schema` cria a tabela `monthly_meta` em bases existentes.
+- feat: helper `_get_meta_mensal(year, month)` usa valor personalizado quando disponível, ou calcula automaticamente pelos dias úteis do mês.
+- feat: API `GET /api/ponto/indicadores/<id>` também usa `_get_meta_mensal` para os campos `meta_mensal` e `faltantes`.
+- feat: faltantes do mês calculados como `max(0, meta - h_normais - folga_bruto - folgas_usadas_em_dias_úteis)`.
 
-### Corrigido
+## [1.2.0] - 2026-05-11
 
-- **Plugins — Desinstalar/Reinstalar**: erro Tcl `wrong # args: should be "trace remove variable name oplist command"` ao desinstalar e reinstalar o CustomShop — `CTkOptionMenu` de tipo de item não usa mais o parâmetro `variable=` (evita trace Tcl que falha na destruição dos widgets antigos).
+### Banco de Folgas — Rastreabilidade e Gestão pelo Admin
 
----
+- feat: painel do colaborador exibe seção expansível **"Ver datas de origem"** dentro do bloco Banco de Folgas, listando cada domingo/feriado trabalhado e créditos manuais que geraram o saldo.
+- feat: admin pode **Revogar** o crédito de folga de qualquer domingo ou feriado trabalhado — o dia aparece tachado e é descontado do saldo imediatamente.
+- feat: admin pode **Restaurar** um crédito anteriormente revogado com um clique.
+- feat: admin pode **Excluir** créditos manuais de folga (`HourEntry.gives_folga=True`) diretamente da lista.
+- feat: contador do resumo exibe `(N ativos · M revogados)` quando há revogações para facilitar auditoria.
+- feat: `_calc_ponto_indicadores` respeita revogações — datas revogadas não somam a `folga_bruto_min`.
+- feat: novo modelo `FolgaRevogacao` armazena datas canceladas por colaborador.
+- feat: migração automática em `ensure_schema` cria a tabela `folga_revogacao` em bases existentes.
+- feat: novas rotas admin: `POST /colaborador/<id>/folga-ponto/revogar`, `POST /colaborador/<id>/folga-ponto/restaurar`, `POST /colaborador/<id>/folga-manual/<entry_id>/excluir`.
 
-## [1.3.11] — 2026-05-19
+## [1.1.0] - 2026-05-10
 
-### Corrigido
+### Ponto — Sistema de 4 Batidas Automático
 
-- **CustomShop — Error 126**: adicionado `z.dll` (zlib) ao bundle do app e à instalação em `Win64/` — `libmariadb.dll` depende de `z.dll` que não estava sendo copiada, causando falha ao carregar o plugin.
-- **Plugins — Importar — grupos**: grupos do `TimedPointsReward` não eram carregados ao importar config no formato ArkShop — os valores inteiros (`"Default": 25`) agora são convertidos para `{"Amount": 25}` antes de popular a UI.
+- feat: seleção manual de tipo de batida (Entrada / Saída para Intervalo / Retorno / Saída Final) removida — o colaborador apenas confirma a foto, o sistema atribui o tipo automaticamente.
+- feat: batidas do dia ficam em área de staging (pendentes) até que 4 sejam registradas; nenhum intervalo é calculado antes disso.
+- feat: ao registrar a 4ª batida, tipos são atribuídos por ordem cronológica: 1ª → `entrada`, 2ª → `intervalo_saida`, 3ª → `intervalo_retorno`, 4ª → `saida_final`; batidas extras recebem tipo `extra`.
+- feat: campo `gives_folga` derivado automaticamente de qualquer batida do dia com `gives_folga=True` (domingos).
+- feat: tela `ponto_confirmar` exibe indicador visual de progresso do dia com 4 slots (feito / atual / pendente) e contador X/4.
+- feat: painel do colaborador (`collab_history`) exibe seção "Batidas de hoje em processamento" com os horários já registrados e quantas ainda faltam.
+- fix: `_try_register_interval` não incrementa `folga_days` em dobro — verificação `had_folga_before` evita múltiplos incrementos nas chamadas do mesmo dia.
+- fix: `_calc_ponto_indicadores` exclui `HourEntry` com nota `LIKE 'Ponto:%'` do cálculo de créditos manuais de folga, eliminando double-counting.
 
----
+## [1.0.1] - 2026-05-10
 
-## [1.3.10] — 2026-05-19
+### Câmera — Tela de Carregamento
 
-### Adicionado
+- feat: overlay de carregamento animado ao capturar foto do comprovante (modo câmera e modo galeria).
+- feat: ícone de comprovante com linha de scan verde varrendo continuamente enquanto aguarda OCR.
+- feat: **porcentagem de progresso real** exibida no overlay — 0→40% reflete o upload real via XHR; 40→95% simula o processamento OCR no servidor com desaceleração suave; 100% ao receber resposta.
+- feat: barra de progresso troca de animação indeterminada para determinada assim que o progresso é conhecido.
+- feat: botão "Capturar" reposicionado para dentro do viewport da câmera (`position: absolute; bottom: 1.1rem`), sempre visível em dispositivos móveis sem necessidade de scroll.
 
-- **Plugins — botão "📂 Importar"**: permite carregar um `config.json` externo (formato ArkShop legado ou CustomShop) diretamente na aba Plugins para popular toda a UI sem precisar editar o arquivo manualmente.
-- **Plugins — detecção automática de formato**: arquivos com chave `Mysql` ou `General` são reconhecidos como formato ArkShop e convertidos automaticamente antes de preencher os campos.
-- **Plugins — conversão ArkShop → CustomShop**: `Mysql.*` → `Database`, `General.*` → `Settings`, `Amount` → `Quantity` nos itens de kits, `ShopItems` → `Items` (itens simples).
+### Ponto — Detecção Automática de Tipo de Batida por Horário
 
----
+- fix: sistema cruzava apenas a **sequência de batidas do dia** para sugerir o tipo — uma foto de saída capturada como primeira batida era classificada incorretamente como "Entrada".
+- fix: `_auto_punch_type()` agora recebe o horário extraído pelo OCR e compara com a escala do colaborador; se o horário estiver a ≤ 1 h da saída prevista (ou após ela), sugere `Saída Final` diretamente.
+- fix: mesmo comportamento aplicado no `ponto_confirmar` (fallback quando `punch_type` está ausente no form).
 
-## [1.3.9] — 2026-05-22
+### Ponto — Banner de Domingo
 
-### Corrigido
+- feat: quadro amarelo de domingo substituído por banner full-width com borda lateral destacada, ícone ☀️ e informações completas: jornada de 6h20, horas extra e direito a folga.
+- fix: checkbox desabilitado (sem função) removido do banner — o campo oculto `gives_folga=1` permanece garantindo o valor correto no envio.
 
-- **CustomShop — crash ao inicializar**: substituído `libmysql.dll` (MySQL 8.0) por `libmariadb.dll` (MariaDB Connector/C 3.4.8) — elimina o crash de inicialização em servidores que usam MariaDB.
-- **CustomShop — build**: `build_cl.bat` atualizado para linkar contra `libmariadb.lib` em vez de `libmysql.lib`; removidas dependências de `libcrypto` e `libssl` (não necessárias no MariaDB Connector/C).
+## [1.0.0] - 2026-05-10
 
----
+### Domingos — Jornada e Escala Personalizada
 
-## [1.3.8] — 2026-05-19
+- feat: horário de entrada aos domingos agora é configurável por colaborador (mínimo 05:00, máximo 12:20) via painel de histórico.
+- feat: jornada diária aos domingos definida como **6h20** (380 min), em vez de 7h20.
+- feat: horas além de 6h20 aos domingos são automaticamente contabilizadas como **horas extras**.
+- feat: cálculo de indicadores (`_calc_ponto_indicadores`) usa jornada correta por dia da semana.
 
-### Corrigido
+### Domingos — Intervalo Automático
 
-- **CustomShop — plugin DLL**: recompilado com `/MD` (CRT dinâmico) para eliminar o crash causado por mismatch de heap entre `CustomShop.dll` e `libmysql.dll`.
-- **CustomShop — instalação**: DLLs de dependência (`libmysql.dll`, `libcrypto-3-x64.dll`, `libssl-3-x64.dll`) agora instaladas diretamente em `Win64/` em vez da pasta do plugin — corrige o Error 126 e o crash ao carregar o plugin.
+- feat: intervalo de 30 minutos aos domingos é detectado automaticamente pela sequência de batidas (sem horário fixo).
+- feat: ao registrar a saída para intervalo, o sistema inicia uma contagem regressiva de 28 minutos.
+- feat: alerta WhatsApp enviado ao colaborador quando os 28 minutos expiram, lembrando de bater o retorno.
+- feat: ao registrar o retorno do intervalo, o timer é cancelado automaticamente.
+- feat: nova função `lembrete_retorno_intervalo_domingo()` em `notify.py`.
 
----
+### Segurança — CPF
 
-## [1.3.7] — 2026-05-19
+- feat: CPF armazenado como hash **HMAC-SHA256** irreversível (chave `FLUXOS_SECRET`), nunca em texto plano.
+- feat: migração automática em `ensure_schema()` — converte CPFs existentes em texto plano para hash na primeira inicialização.
+- feat: `mask_cpf` detecta hashes (64 chars hex) e exibe `***.***.***.***` sem tentar formatar como CPF.
+- feat: colunas `collaborator.cpf` e `punch_record.raw_cpf` ampliadas para `VARCHAR(64)`, `raw_cpf` agora `nullable`.
 
-### Corrigido
+### Fluxo de Ponto — Colaborador Logado
 
-- **CustomShop — instalação**: corrigido erro Tcl `wrong # args: should be "trace remove variable name oplist command"` que aparecia ao clicar "📦 Instalar" — substituído `trace_add` manual pelo callback `command=` nativo do `CTkOptionMenu`.
+- feat: colaborador autenticado via sessão não precisa informar CPF — identidade já confirmada pelo login.
+- feat: página de confirmação de ponto (`ponto_confirmar`) exibe banner "Registrando como: **{nome}** ✓ logado" para sessão de colaborador.
+- feat: campos de CPF e seleção de colaborador ocultados no template quando `is_collab_session=True`.
+- feat: JS de validação de CPF não é carregado para colaboradores logados (sem erro de `null` reference).
 
----
+## [0.11.1] - 2026-05-09
 
-## [1.3.6] — 2026-05-19
+### Correções de Estabilidade
 
-### Novo
+- fix: todas as rotas POST do sistema agora aceitam GET com redirect gracioso, eliminando definitivamente o erro "Method Not Allowed" (405) causado por prefetch do browser, service worker do PWA ou navegação direta.
+- Rotas corrigidas nesta versão: `settings/daily-rate`, `collaborators`, `collaborators/toggle`, `collaborators/update`, `collaborators/set-ponto-password`, `entries`, `entries/update`, `archive/month`, `archive/month/restore`, `whatsapp/resumo`, `whatsapp/pdf`, `ponto/logout-ponto`, `ponto/recuperar-senha`, `ponto/vincular`, `ponto/delete`, `colaborador/ponto-dia/add`, `colaborador/ponto/excluir`, `feriados/create`, `feriados/delete`, `colaborador/desconto-extra`, `colaborador/usar-folga-ponto`, `colaborador/whatsapp/teste`, `colaborador/alterar-senha`.
 
-- **CustomShop — Card Database (MySQL)**: Host, Porta, Usuário, Senha e nome do Banco configuráveis diretamente na aba Plugins. Requer `libmysql.dll` na mesma pasta do `CustomShop.dll`.
-- **CustomShop — Card Settings**: 18 campos organizados em 4 seções — Loja (nome, tecla, pontos iniciais, itens por página, tempo de exibição, tamanho de texto, kit padrão, caminho DB), Botões (SellItems, Trading, OriginalTrading), Criaturas/Cryo (DinoCryo, SoulTraps, CryoLimited, NoNoglin) e Restrições de uso (inconsciente, algemado, carregado).
-- **CustomShop — Itens "command"**: tipo `command` com campos Command, DisplayAs e ExecuteAsAdmin; layout alterna automaticamente ao mudar o tipo do item.
-- **CustomShop — Card TimedPointsReward**: Enabled, Interval, StackRewards e grupos dinâmicos (nome + pontos) gerenciados direto na UI.
-- **CustomShop — Permissions nos kits**: campo livre para lista de grupos (separados por vírgula); validado pelo Permissions.dll antes da compra.
-- **CustomShop — build**: suporte a MySQL via `libmysql.lib`; `build_cl.bat` corrigido com `MYSQL_DIR`, headers e libpath.
-- **CustomShop — Dinos nos kits**: campo `Dinos` entrega dinossauros domesticados com Level, ForceTame e Neutered configuráveis.
-- **`_migrate_arkshop.py`**: conversão de dinos do ArkShop para o formato CustomShop com Blueprint, Level, ForceTame e Neutered.
+## [0.11.0] - 2026-05-09
 
-### Correção
+### Painel Principal — Cards de Colaborador
 
-- **Navegação de abas**: carregamento totalmente lazy — eliminada travada causada por pré-construção de tabs em background.
+- feat: nome do colaborador nos cards vira link clicável para o histórico.
+- feat: botão `...` exibido apenas para administradores (ações Editar e Alternar status).
+- feat: paginação dos cards reduzida de 10 para **3 por página**.
 
----
+### Histórico do Colaborador
 
-## [1.3.5] — 2026-05-19
+- feat: seção "Usar Folga" ocultada quando o colaborador não possui saldo de folga disponível (`folga_days < 1`).
 
-### Novo
+### Correções de Estabilidade
 
-- **Broadcast de reinício por atualização de mod**: mensagem inicial clara informando o tempo restante, contagem regressiva automática (5 min → 3 min → 1 min dependendo da janela configurada) e aviso final antes do shutdown.
-- **SaveWorld antes de qualquer shutdown**: `_save_servers()` enviado a todos os servidores antes de parar para atualização de mod; mundo e perfis salvos antes do processo ser encerrado.
+- fix: rotas POST que recebiam GET (via prefetch, PWA ou browser) retornavam 405 — corrigido com redirect gracioso nas rotas: `logout`, `delete_entry`, `admin_create`, `admin_delete`, `make_collaborator_admin`, `colaborador_salvar_schedule`.
 
-### Correção
+## [0.10.9] - 2026-05-09
 
-- **`_graceful_shutdown`**: sleep entre `SaveWorld` e `DoExit` aumentado de 2 s para 15 s — garante que o save esteja completo antes do servidor encerrar.
-- **`discord_notifier`**: classe `DiscordNotifier` duplicada e bloco de código solto (corpo de `_post_webhook` duplicado dentro da classe) removidos.
-- **`server_config`**: `fields` adicionado ao import de `dataclasses`; `# type: ignore` em `asdict` e `__dataclass_fields__` (falsos positivos do Pylance).
-- **`plugin_manager`**: import `MySQLError` inutilizado removido; `# type: ignore` em `mysql.connector`.
-- **`dynamic_config_server`**: assinatura de `log_message` corrigida para `(self, format, *args)` — compatível com `BaseHTTPRequestHandler`.
-- **`ark_ini`**: `# type: ignore[method-assign]` em todas as atribuições `optionxform = str`.
-- **`beacon_client`**: import `sys` inutilizado removido.
-- **`configs/config.json` (CustomShop)**: chave `"Database"` duplicada removida.
+### PWA
 
----
+- feat: botão "📱 Instalar" na barra de navegação para adicionar o app à tela inicial.
+- feat: detecção automática de suporte — exibido via `beforeinstallprompt` no Android/Chrome.
+- feat: em dispositivos iOS, exibe instruções de "Compartilhar → Adicionar à Tela Inicial" ao clicar.
+- feat: botão some automaticamente após a instalação (`appinstalled` event).
 
-## [1.3.4] — 2026-05-18
+### Painel Principal
 
-### Novo
+- feat: seção "Lançamentos de horas" exibe as **5 movimentações mais recentes** (independente do mês selecionado).
+- feat: painel "Pontos em andamento hoje" mostra batidas sem par do dia (entrada sem saída correspondente) com status "aguardando par".
 
-- **Diagnóstico de Cluster** (aba Avançado): botão "🔍 Diagnosticar Cluster" abre um dialog com verificação completa da configuração de cross-ARK — cluster habilitado, ID, pasta compartilhada (local ou UNC/rede), sync, `AltSaveDirectoryName`, consistência com outros servidores do cluster e permissões de download/upload.
+### Histórico do Colaborador
 
-### Correção
+- feat: linhas com **Direito a Folga** (`gives_folga=True`) recebem destaque amarelo suave na tabela.
+- feat: seções de ação pessoal (Desconto de Extras, Uso de Folga, Horários, WhatsApp, Alterar Senha) visíveis apenas ao próprio colaborador ou admin.
+- feat: rodapé na lista de ações (`safe-area-inset-bottom`) garante acesso ao último item em aparelhos com barra de navegação inferior (iOS/Android).
+- feat: painel Resumo do Colaborador com layout mais compacto — hero-metrics em 4 colunas, saldo-blocos com fontes e espaçamentos reduzidos.
 
-- **Janela CMD do SteamCMD**: a janela preta do `steamcmd.exe` não abre mais visível durante download de mods ou atualização de servidor — o processo agora roda em background com `CREATE_NO_WINDOW`.
+### Controle de Acesso
 
----
+- feat: colaborador ponto é redirecionado para o próprio histórico ao tentar acessar o de outro colaborador.
+- feat: link "Histórico" nos cards da tela inicial ocultado para colaboradores sem permissão de ver o perfil alheio.
 
-## [1.3.3] — 2026-05-18
+## [0.10.8] - 2026-05-08
 
-### Correção
+### Feriados
 
-- **Stats por Nível (aba Jogo)**: ao abrir a aba pela primeira vez, os valores de `PerLevelStatsMultiplier` eram exibidos como `1` (padrão do JSON) em vez dos valores reais do `Game.ini`. Corrigido com auto-carregamento do `Game.ini` ao construir a aba.
+- feat: coluna `ativo` no modelo `Holiday` — feriados podem ser desativados sem ser removidos.
+- feat: feriados desativados são tratados como dias comuns (ponto, meta, folga não são afetados).
+- feat: 13 feriados nacionais de 2026 pré-carregados automaticamente no primeiro boot.
+- feat: botão **Ativo / Ignorado** em cada feriado para alternar status com um clique.
+- feat: botão **Editar** inline por feriado — permite alterar data e descrição sem reload.
+- feat: feriados exibidos em ordem cronológica crescente.
+- feat: feriados inativos exibidos com estilo desbotado e riscado.
 
----
+## [0.10.7] - 2026-05-08
 
-## [1.3.2] — 2026-05-18
+### Status do Sistema
 
-### Correção
+- fix: rota `/admin/sistema/backup` aceita GET+POST, evitando erro 405 após redirecionamento do Flask-Login.
+- feat: botão **⟳ Atualizar** no header da página de sistema — atualiza CPU, RAM e disco via AJAX sem recarregar a página.
+- feat: nova rota `GET /api/sistema/status` retorna métricas em JSON para consumo pelo botão de atualização.
 
-- **Cluster — ClusterID como flag**: o parâmetro de cluster era passado como `?ClusterID=xxx` (URL option da engine), que o ARK ignora silenciosamente. Corrigido para `-clusterid=xxx` (flag de linha de comando), que é a forma reconhecida pelo servidor.
-- **Cluster — ClusterDirOverride sem aspas internas**: o argumento era gerado como `-ClusterDirOverride="path"`, forma que pode falhar no parser do ARK/Unreal Engine. Agora gerado como `-ClusterDirOverride=path` (sem aspas para caminhos simples) ou `"-ClusterDirOverride=path com espaços"` (argumento inteiro entre aspas quando necessário).
+## [0.10.6] - 2026-05-08
 
----
+### Status do Sistema e Backups
 
-## [1.3.1] — 2026-05-18
+- feat: nova página `/admin/sistema` no menu Admin com métricas de CPU, RAM e disco (requer `psutil`).
+- feat: barra de progresso colorida por nível (verde → âmbar → vermelho) para cada métrica.
+- feat: lista de backups do banco de dados com nome, tamanho e data.
+- feat: botão para backup manual imediato na página de sistema.
+- feat: backup automático diário às 03:00 via thread daemon, mantendo os últimos 3 arquivos em `.db/backups/`.
+- feat: `psutil>=5.9` adicionado ao `requirements.txt`.
 
-### Correção
+## [0.10.5] - 2026-05-08
 
-- **Protocolo RCON — WinError 10053**: o pacote sentinel enviado após cada comando usava tipo `0` (RESPONSE_VALUE), que é exclusivo do servidor→cliente. O ARK fechava a conexão ao receber esse pacote inválido do cliente. Corrigido para tipo `2` (EXECCOMMAND).
-- **Timeout RCON silencioso**: comandos sem resposta do ARK (como `SaveWorld`, `Broadcast`, `DoExit`) causavam erro vermelho "timed out" no console. Agora `socket.timeout` é tratado como resposta vazia e exibe "(sem resposta)" normalmente.
-- **Reconexão automática ao enviar comando**: o Console RCON agora reconecta automaticamente antes de enviar um comando se a conexão estiver caída — sem precisar clicar em "Conectar" manualmente. O status e o botão são atualizados em caso de reconexão silenciosa.
+### Registro de Ponto — Tela de Confirmação
 
----
+- feat: detecção automática do tipo de batida (Entrada, Saída para Intervalo, Retorno, Saída Final) com tolerância de ±30 minutos baseada nos horários definidos pelo colaborador.
+- feat: quando nenhum horário está configurado, exibe hint informando que o tipo pode ser definido manualmente e orientando onde configurar os horários (sem bloquear o registro).
+- feat: aviso de privacidade no campo CPF — informa que o dado não é compartilhado, serve apenas para identificação e será criptografado ao confirmar.
 
-## [1.3.0] — 2026-05-18
+### Jornadas Incompletas
 
-### Correção
+- feat: no histórico do colaborador, cada data incompleta exibe badge "incompleto" e botão "✏ Corrigir" (admin).
+- feat: modal de correção com diagnóstico textual do problema (ex: "Entrada registrada sem saída final"), lista de batidas existentes com remoção individual e formulário para adicionar batida manual.
+- feat: nova rota `GET /api/colaborador/<id>/ponto-dia` — retorna batidas do dia e diagnóstico.
+- feat: nova rota `POST /colaborador/<id>/ponto-dia/add` — insere batida manual (admin), NSR gerado automaticamente.
+- feat: nova rota `POST /colaborador/<id>/ponto/<record_id>/excluir` — remove batida individual (admin).
 
-- **Broadcasts sem Console RCON aberto**: broadcasts da biblioteca e envio rápido agora criam uma conexão RCON temporária automaticamente — não é mais necessário abrir o Console RCON antes de enviar.
-- **Race condition em `restart_server` e `_reconnect_monitor`**: acessos ao dicionário `_instances` e mutações de `inst.process`/`inst.pid` agora protegidos por lock.
-- **Race condition (TOCTOU) em `ModManager`**: verificação e atribuição do flag `_active` agora são atômicas com `threading.Lock`, impedindo dois downloads simultâneos.
-- **Gravação atômica de configurações**: `save()`, `save_servers()` e `save_clusters()` agora gravam em arquivo `.tmp` e fazem rename atômico — evita corrupção em caso de crash durante o save.
-- **Script de atualização**: substituído `System.Net.WebClient` (deprecated no .NET 6+) por `Invoke-WebRequest` no script PowerShell do updater.
-- **Race condition no agendador** (`_update_restart`): acesso a `_instances` protegido por lock.
-- **Vazamento de memória no agendador**: entradas antigas de `_sched_fired` e `_sched_warned` limpas a cada ciclo diário.
-- **Autenticação do agente remoto**: token vazio não bypassa mais a verificação de autenticação.
-- **BUFF Manager**: mensagens de aviso agora usam `Broadcast` (destaque na tela) em vez de `ServerChat` (chat simples).
+## [0.10.4] - 2026-05-07
 
-### Novo
+### Banco de Folgas
 
-- **Botão "🔧 Testar RCON"** na aba Broadcasts: verifica conectividade RCON e envia mensagem de teste, com feedback de sucesso ou erro detalhado.
-- **Notificações Discord aprimoradas**: embeds com campos estruturados, timestamp ISO 8601, footer "ARKLAND Server Manager" e dicas contextuais por tipo de evento (iniciando, online, parado, crash, encerrando).
-- **Notificação Discord automática após atualização de mods**: enviada pelo atualizador automático com nome do mod e servidores reiniciados.
-- **Notificação Discord automática após backup**: enviada com nome do snapshot e tamanho em MB.
+- fix: "Acumuladas" agora inclui créditos manuais de folga (`HourEntry.gives_folga=True`), além dos gerados por domingos/ponto.
+- fix: "Utilizadas" agora é registrado corretamente via `PontoAjuste(tipo="uso_folga")` ao acionar "Usar Folga".
+- fix: `grant_folga` salvava `hours=0` — corrigido para `7h20m` (440 min).
+- fix: rotas `use_folga` e `grant_folga` retornavam 405 em GET (refresh/prefetch) — alteradas para aceitar GET+POST com redirect.
+- fix: lançamento de horas aceita formato H:MM (ex: `7:20`) além de decimal — `parse_decimal` reescrito.
 
----
+## [0.10.3] - 2026-05-07
 
-## [1.2.8] — 2026-05-17
+### Painel do colaborador
 
-### Correção
+- fix: `meta_semana_min` agora é reduzida pelas folgas registradas na semana (folgas abatiam apenas os faltantes, mas não a meta exibida).
+- fix: `faltantes_semana_min` = `meta_semana_min` (ajustada) − horas trabalhadas.
+- Regra aplicada: Meta = 44h − (feriados × 7:20) − (folgas × 7:20); Faltantes = Meta − Trabalhado.
 
-- **CrossARK — ClusterDirOverride com barras erradas**: o caminho da pasta do cluster agora é normalizado automaticamente para `\` no Windows, evitando falha silenciosa na gravação de personagens durante viagem entre mapas.
-- **`?AltSaveDirectoryName` independente do cluster**: o parâmetro agora é sempre adicionado quando configurado, independentemente de ClusterID estar ativo.
-- **`-UseDynamicConfig` duplicado**: a flag não aparece mais duas vezes quando presente em argumentos extras.
+## [0.10.2] - 2026-05-07
 
-### Novo
+### WhatsApp Service
 
-- **Pasta do Cluster criada automaticamente**: ao salvar um perfil de cluster (modo local), a pasta é criada no disco se não existir — com notificação toast de confirmação.
-- **Diagnóstico no painel Clusters**: novo card exibe status em tempo real — ClusterID configurado, pasta existente, servidores vinculados — com alertas visuais para itens ausentes.
-- **Migração de cluster manual para perfil**: quando há servidores com CrossARK configurado manualmente sem perfil, o painel Clusters exibe um aviso com botão "Importar como Perfil" que centraliza a configuração e vincula todos os servidores automaticamente.
-- **Novo Cluster pré-preenchido**: ao criar um novo perfil, o ClusterID e a pasta são pré-preenchidos com os valores de servidores que já têm configuração manual.
+- feat: serviço Node.js (`whatsapp-service/`) com Baileys — integração real com WhatsApp via QR Code.
+- feat: `notify.py` — função `boas_vindas_whatsapp()` envia mensagem de boas-vindas ao colaborador ao cadastrar número, com caminho de navegação completo para remoção.
+- feat: mensagem de boas-vindas enviada apenas quando o número muda (evita reenvio ao salvar o mesmo número).
+- fix: botão "✖ Remover" WhatsApp enviava número salvo em vez de remover — separado em dois formulários independentes (salvar e remover) em `collab_history.html` e `ponto_painel.html`.
+- fix: rota `/colaborador/<id>/whatsapp` retornava 405 em GET (refresh) — alterada para aceitar GET+POST, com GET redirecionando para o painel.
+- feat: `deploy/mmflux-whatsapp.service` — unit systemd para o serviço WhatsApp.
+- feat: `deploy/install.sh` atualizado com instalação do Node 20, dependências e serviço WhatsApp.
 
----
+### Painel do colaborador
 
-## [1.2.7] — 2026-05-17
+- feat: link "📷 Registrar Ponto" adicionado ao dropdown do colaborador na navbar (`base.html`).
+- feat: seção "Entenda como funciona" expandida em `collab_history.html` e `ponto_painel.html` — explica todos os campos, como registrar ponto, como funciona folga, domingo e cálculo de faltantes.
+- fix: `faltantes_semana_min` agora desconta 7:20h por cada dia de folga usada (`uso_folga`) em dia útil da semana exibida.
+- fix: mesmo desconto aplicado na API `/api/ponto/indicadores`.
+- fix: texto explicativo "Meta do Mês" corrigido para "Meta da Semana" com descrição correta dos dias considerados.
+- fix: "H Normais" agora informa que domingos não entram na contagem (geram direito a folga, não horas normais).
+- fix: botão `+ Turno extra` nos horários de trabalho agora visível (cor `btn-ghost` corrigida fora de contexto de painel claro).
 
-### Novo
+### Painel administrativo (index)
 
-- **Integração BattleMetrics**: campo "BattleMetrics ID" adicionado na aba Geral de cada servidor (seção Rede e Portas). Quando configurado, o app consulta a API pública do BattleMetrics a cada 60 segundos e exibe o status online/offline e a contagem de jogadores (`👥 X/Y`) no cabeçalho do painel do servidor e no card do dashboard.
+- feat: bloco "Colaboradores" removido — cards de "Resumo por colaborador" agora exibem badge Ativo/Inativo, menu `⋯` (Histórico, Editar, Alternar status) e painel de edição inline (nome, função, diária, senha, admin).
+- feat: todos os colaboradores aparecem no resumo mesmo sem lançamentos no mês selecionado; ordenados por ativos primeiro.
+- feat: formulário de cadastro de novo colaborador movido para o painel de resumo.
+- feat: busca por nome com lupa expansível abaixo do título do painel — filtra cards em tempo real sem reload.
+- feat: paginação client-side nos cards (até 10 por página) com botões ‹ 1 2 3 ›.
 
----
+## [0.10.1] - 2026-05-07
 
-## [1.2.6] — 2026-05-17
+- fix: Service Worker reescrito — páginas HTML sempre buscadas da rede (network-only para navegação), assets estáticos usam cache-first com atualização em background. Elimina tela branca após deploys.
+- chore: cache SW atualizado para `mmflux-v7`, versão CSS atualizada para `?v=7`.
 
-### Correção
+## [0.10.0] - 2026-05-06
 
-- **Botão "Sobre" sumia da sidebar**: separador e seção SERVIDORES estavam sobrepostos sobre os dois últimos itens de navegação (Configurações e Sobre) após adição de novos itens ao menu. Corrigido ajustando as linhas do grid para acomodar todos os 8 botões de navegação.
+- feat: painel do colaborador — bloco de opções reformulado em card unificado com linhas separadoras e chevron animado.
+- feat: colaborador pode alterar a própria senha de ponto diretamente no painel.
+- feat: recuperação de senha via WhatsApp — senha temporária de 6 caracteres gerada com `secrets` e enviada ao número cadastrado.
+- feat: seção "Notificações WhatsApp" no painel do colaborador — salvar/remover número e enviar mensagem de teste.
+- feat: horários de trabalho em layout 2×2 (Entrada|Saída Intervalo / Volta Intervalo|Saída Final).
+- feat: botão "Meu Painel" na tela de captura de ponto agora visível (cor sólida).
+- feat: botões de paginação (Anterior/Próxima) na listagem de registros agora visíveis.
+- feat: tela de seleção de acesso (Administrador/Colaborador) com descrições legíveis.
+- chore: arquivos de desenvolvimento `seed_ponto_test.py` e `_ocr_test.py` removidos do repositório.
 
----
+## [0.9.1] - 2026-05-02
 
-## [1.2.5] — 2026-05-17
+- fix: nome do mês exibido em PT-BR ("Maio" em vez de "May").
+- feat: seletor de meses do resumo reformulado — botões coloridos clicáveis (verde = incluso, vermelho = excluído) sem checkboxes.
+- fix: botões de navegação de mês e semana agora com fundo navy sólido, visíveis em fundo claro.
+- chore: CHANGELOG retroativo com entradas de v0.6.0, v0.7.0 e v0.8.0.
 
-### Novo
+## [0.9.0] - 2026-05-02
 
-- **Notificações Discord via Webhook**: seção dedicada nas Configurações Globais para enviar embeds coloridos ao Discord em eventos de servidor (iniciando, online, parado, crash, encerrando). Configurável por tipo de evento (start, stop, crash, atualização de mod, backup). Sem dependências externas — usa `urllib` da stdlib.
+- feat: painel administrativo dedicado no index — exportar PDF, enviar WhatsApp, arquivar mês, definir diária e lançar horas em bloco único visível apenas para admin.
+- feat: botão "Exportar PDF" movido para fora do painel admin — disponível para qualquer visitante.
+- feat: paginação semanal no histórico do colaborador (nav ← semana →).
+- feat: paginação por mês no histórico do colaborador (nav ← Anterior / Próximo →).
+- feat: métricas do histórico reordenadas e coloridas: H Bruto (verde), H Descontos (vermelho), neutros (amarelo), Valor Est. (verde + borda verde).
+- feat: filtro "Meses no resumo" reposicionado como card no grid de métricas — abre painel inline abaixo do nome.
+- feat: seção de lançamentos do histórico agrupada em card branco de largura igual ao hero.
+- fix: tabelas em `.hist-content` ocultas pelo reset CSS global — override adicionado.
+- fix: botões de navegação invisíveis em fundo claro — override de cor aplicado.
+- fix: métricas duplicadas após refatoração — bloco residual removido.
+- chore: CSS `.hist-content` refatorado para card único com border-radius e largura uniforme.
 
-- **Novos parâmetros de inicialização de servidor**: checkboxes adicionados na aba Geral de cada servidor: **Crossplay** (`-crossplay`), **Apenas Epic** (`-epiconly`), **Vivox** (`-UseVivox`), **Anti-dupe de item** (`-UseItemDupeCheck`), **Sem animação de spawn** (`?PreventSpawnAnimations=True`), **Dano flutuante RPG** (`?ShowFloatingDamageText=True`).
+## [0.8.0] - 2026-05-02
 
-- **Stats por Nível — colunas TaM e TmM**: tabela de `PerLevelStatsMultiplier` expandida com as colunas **Dom. Bônus (TaM)** (`_DinoTamed_Add`) e **Dom. Afinid. (TmM)** (`_DinoTamed_Affinity`), cobrindo todas as cinco variantes do ARK (IdM, TaM, TmM, IwM, PlM).
+- feat: campo `gives_folga` em HourEntry — lançamentos marcados como "Direito a Folga" acumulam dias de folga no colaborador.
+- feat: modelo Collaborator ganha `folga_days` (contador de dias acumulados).
+- feat: rota `POST /collaborators/<id>/use-folga` — desconta 1 dia de folga com data e observação.
+- feat: barra de uso de folga no histórico do colaborador (botão desabilitado quando sem saldo).
+- feat: tag 🌴 exibida nos lançamentos com folga nas tabelas e no PDF individual.
+- feat: checkbox "D. Folga" no formulário de lançar horas e na confirmação de ponto.
+- fix: migração automática das colunas `gives_folga` e `folga_days` em bases existentes.
+- chore: CSS `.folga-tag`, `.btn-folga`, `.hist-folga-bar` adicionados.
 
----
+## [0.7.0] - 2026-05-02
 
-## [1.2.4] — 2026-05-17
+- feat: arquivo morto de lançamentos — rota `/archive` lista lançamentos arquivados com totais por mês.
+- feat: rota `POST /archive/month` arquiva todos os lançamentos de um mês (remove do painel ativo).
+- feat: PDF individual por colaborador (`/collaborators/<id>/pdf`) com todos os lançamentos e totais.
+- feat: botão "Baixar PDF" na página de histórico do colaborador.
+- feat: template `pdf_collab.html` com capa, sumário e lançamentos detalhados por mês.
+- feat: promoção de colaborador a admin — cria login de acesso total a partir do cadastro.
+- feat: gestão de admins — criar e remover usuários admin pelo painel.
+- fix: `/ponto/associar-cpf` exigia `login_required` em vez de `ponto_required`.
+- fix: confirmação OCR renderiza HTML direto em vez de redirecionar via URL externa.
+- fix: rota `/ponto/upload` aceita GET para evitar erro 405 após OCR.
 
-### Novo
+## [0.6.0] - 2026-05-02
 
-- **Sistema de Clusters Cross-ARK**: painel dedicado para criar e gerenciar perfis de cluster (modo **Local** — mesma máquina/mesmo app, ou **Rede** — máquinas diferentes via pasta UNC/drive mapeado), substituindo a configuração manual por servidor. Servidores são vinculados ao perfil diretamente no painel do cluster.
+- feat: sistema de usuários exclusivo para alimentar o ponto via câmera.
+- feat: colaboradores cadastrados podem fazer login com nome + senha de ponto.
+- feat: coluna `ponto_password_hash` no modelo Collaborator com migração automática.
+- feat: decorator `ponto_required` — câmera/upload/confirmar exigem autenticação (admin ou colaborador).
+- feat: página de login de colaborador (`/ponto/login`).
+- feat: topbar exibe nome do colaborador logado com botão de sair.
+- feat: função `suggest_ponto_password` — gera senha padrão por posição alfabética (ex: Luciano → L1221, Maria → M13118).
+- feat: botão "Sugerir" no cadastro e edição de colaborador preenche senha automaticamente via AJAX.
+- feat: rota `POST /collaborators/<id>/set-ponto-password` para admin definir/redefinir senha.
+- feat: rota `GET /api/suggest-password` retorna senha sugerida para um nome.
+- feat: filtro Jinja `|hhmm` — converte horas decimais para formato legível (ex: 7.38 → 7h23).
+- feat: histórico de colaborador usa `|hhmm` em todos os valores de horas.
+- feat: OCR via Gemini API (`gemini-flash-lite-latest`) como motor primário; Tesseract como fallback.
+- chore: `.gitignore` atualizado para ignorar `uploads/` e arquivos de banco.
 
-- **Sincronização automática de dados de viagem**: cada perfil de cluster pode sincronizar bidirecional mente a pasta local do ARK (`ShooterGame/Saved/clusters`) com a pasta compartilhada de rede, mantendo personagens, itens e dinos atualizados entre máquinas diferentes. Controles de start/stop e sync manual por perfil; engines de sync iniciam automaticamente com o app.
+## [0.5.1] - 2026-05-02
 
-### Correção
+- feat: fluxo de confirmação antes de registrar o ponto (página ponto_confirmar.html).
+- feat: todos os campos OCR são editáveis pelo usuário antes de confirmar.
+- feat: intervalo calculado automaticamente ao chegar a 2ª batida do dia (entrada/saída em qualquer ordem).
+- feat: HourEntry criado automaticamente com nota "Ponto: HH:MM → HH:MM (comprovante)".
+- feat: campo `processed` em PunchRecord evita duplo cálculo de intervalo.
+- feat: migração automática do campo `processed` em bases existentes.
+- fix: rota /ponto/uploads liberada para exibir preview do comprovante na tela de confirmação.
+- fix: import `re` adicionado ao app.py.
 
-- **Verificador de atualização**: removido BOM (*Byte Order Mark*) do `version.json` gerado pelo `_release.ps1` — o `[System.Text.Encoding]::UTF8` do .NET inclui BOM, fazendo o parser falhar com "Não foi possível verificar". Corrigido com `New-Object System.Text.UTF8Encoding $false`.
+## [0.5.0] - 2026-05-02
 
----
+- feat: módulo de ponto eletrônico via OCR de comprovante fotografado.
+- feat: modelo PunchRecord (data, hora, NSR, NREP, AD, CPF, colaborador).
+- feat: campo `cpf` no modelo Collaborator para vinculação automática.
+- feat: rota GET/POST /ponto — página mobile com captura de câmera.
+- feat: deduplicação por NSR (Número Sequencial de Registro único do relógio).
+- feat: vínculo manual de registros pendentes (admin).
+- feat: exclusão de registros de ponto (admin).
+- feat: rota `/ponto/uploads/<file>` para servir comprovantes (admin).
+- chore: migração automática de schema (coluna cpf em collaborator).
+- chore: pytesseract e Pillow adicionados ao requirements.txt.
+- chore: MAX_CONTENT_LENGTH 15 MB para uploads de imagem.
 
-## [1.2.3] — 2026-05-17
+## [0.4.8] - 2026-04-18
 
-### Correção
+- fix: PDF não quebra mais no meio do bloco de um colaborador em "Lançamentos Detalhados" (evita corte entre páginas).
 
-- **`GameUserSettings.ini` — case de chaves preservado**: chaves como `RCONEnabled` não eram mais normalizadas para minúsculas (`rconenabled`), evitando crash de plugins ArkAPI como ArkShop que exigem grafia exata.
+## [0.4.7] - 2026-04-18
 
-- **`GameUserSettings.ini` e `Game.ini` — encoding preservado**: o encoding original do arquivo (UTF-16 LE, UTF-8 com BOM, etc.) é detectado na leitura e mantido ao salvar.
+- feat: diária individual por colaborador (cadastro e edição).
+- feat: histórico agora mostra valor estimado que o colaborador receberá.
+- feat: cálculo no histórico usa a diária do colaborador; fallback para diária global quando não definida.
+- chore: migração automática de schema para adicionar coluna `daily_rate` em bases SQLite existentes.
 
----
+## [0.4.6] - 2026-04-18
 
-## [1.2.2] — 2026-05-17
+- feat: edição de colaborador também na página de histórico.
+- ajuste: ao editar colaborador a partir do histórico, permanece na mesma página.
+- fix: variáveis CSS de layout (--page-px e --max-w) definidas para corrigir cards encostando nas bordas no histórico.
 
-### Novo
+## [0.4.5] - 2026-04-18
 
-- **Exportar/Importar Perfil**: botões na sidebar permitem salvar todos os servidores em um arquivo `.arkprofile` e carregá-los em outra máquina.
+- feat: edicao de colaborador na lista principal (nome e funcao).
+- novo endpoint `POST /collaborators/<id>/update` para persistir alteracoes.
+- notify.py: evento de colaborador atualizado via WhatsApp.
 
-### Melhorado
+## [0.4.4] - 2026-04-18
 
-- **Stats por Nível**: tabela com fundo alternado (zebra) para facilitar a leitura das colunas distantes.
+- fix: rodapé do PDF em duas linhas — site na primeira, número de página na segunda, ambos centralizados.
 
----
+## [0.4.3] - 2026-04-18
 
-## [1.2.1] — 2026-05-17
+- fix: número de página centralizado no rodapé, separado do texto da esquerda.
 
-### Novo
+## [0.4.2] - 2026-04-18
 
-- **ArkShop — Comandos em Itens da Loja**: seção **Comandos** adicionada ao painel de detalhe de item da loja, com o mesmo funcionamento já existente nos Kits — botão `+ Comando`, campo de texto para o comando e checkbox **Admin** (`ExecuteAsAdmin`). Os comandos são salvos no JSON sob a chave `Commands` e removidos automaticamente quando a lista está vazia.
+- fix: remover page-break-after da capa para evitar página em branco; capa e conteúdo na mesma página.
 
-### Correção
+## [0.4.1] - 2026-04-18
 
-- **Beacon — Token salvo em `%APPDATA%`**: `_token_path()` agora sempre grava em `%APPDATA%\ARKLAND-ServerManager\beacon_token.json`, independente de rodar como executável compilado ou em desenvolvimento. Anteriormente, em modo PyInstaller (frozen), o token era salvo ao lado do `.exe` em `C:\Program Files\` — pasta somente-leitura sem privilégio de administrador — causando falha silenciosa no `_save_token` (bloco `except: pass`). Resultado: o usuário completava o login, mas o token nunca era persistido, e a autenticação precisava ser refeita a cada sessão.
+- fix: mover numeração de página do cabeçalho para o rodapé do PDF.
 
-- **Beacon — Painel de autenticação reaparece após erro de token**: ao carregar blueprints via `_do_load`, se o token estiver ausente ou expirado, o botão **🔑 Reconectar com Beacon** reaparece automaticamente no rodapé do diálogo — sem precisar fechar e reabrir. Anteriormente o botão só aparecia na abertura inicial (bloco `else:`), deixando o usuário sem forma de reautenticar após uma falha mid-session.
+## [0.4.0] - 2026-04-18
 
-- **Beacon — Mensagem de erro intuitiva**: a exceção em `fetch_all` não referencia mais `beacon_sync.py` (arquivo exclusivo de desenvolvimento). Nova mensagem: *"Clique em 'Conectar com Beacon' para autenticar novamente."*
+- fix: substituir páginas nomeadas por @page/:first no PDF para eliminar página em branco no WeasyPrint.
 
----
+## [0.3.9] - 2026-04-18
 
-## [1.2.0] — 2026-05-17
+- fix: remover regra @page genérica que gerava página em branco antes da capa no WeasyPrint.
 
-### Novo
+## [0.3.8] - 2026-04-18
 
-- **Instância Única — Guard de duplo lançamento**: ao tentar abrir o app enquanto ele já estiver rodando (incluindo recolhido na bandeja do sistema), a segunda instância **restaura automaticamente a janela existente** para o foco (equivalente a clicar no ícone da bandeja) e encerra silenciosamente. Implementado via mutex nomeado do Windows (`CreateMutexW`) + `EnumWindows` para localizar a janela pelo título — funciona mesmo com `withdraw()` ativo. Fallback: se a janela não for encontrada, exibe aviso informando que o app já está em execução.
+- fix: remover page-break-after duplo no .cover que gerava páginas em branco no PDF.
 
-- **Integração com Beacon (usebeacon.app)**: novo módulo `src/beacon_client.py` — cliente completo para a API pública do Beacon, repositório autoritativo de blueprints ARK derivados do DevKit. Recursos:
-  - **Autenticação OAuth Device Flow com PKCE**: sem armazenar segredos no código. O app inicia o fluxo, exibe o código de dispositivo e a URL, abre o navegador automaticamente e aguarda a confirmação em background. Token persistido localmente com renovação automática.
-  - **Cache local de blueprints**: ~1963 itens ARK Prime baixados em até 8 páginas paginadas, salvos em `%APPDATA%\ARKLAND-ServerManager\beacon_blueprints_cache.json` com TTL de 7 dias — evita requisições repetidas entre sessões.
-  - **Singleton `get_beacon_client()`**: instância única compartilhada entre todos os pontos de uso na sessão.
+## [0.3.7] - 2026-04-17
 
-- **Blueprint Picker — ArkShop**: botão 🔍 adicionado em todos os campos `Blueprint'...'` do ArkShop. Ao clicar, abre diálogo de busca com:
-  - Filtro de categoria via radio buttons: **Todos** / **Itens** (por engramId) / **Criaturas** (por creatureId)
-  - Campo de busca live por nome ou `classString` (case-insensitive, limite de 150 resultados)
-  - Lista com zebra striping, badge de tipo (🦕 criaturas · 🎒 engrams · 📦 itens), nome em negrito e `classString` em cinza
-  - Clique em qualquer item preenche automaticamente o campo com `Blueprint'<path>'`
-  - Integrado em: **Itens de Kit** (campo Blueprint), **Dinos de Kit** (Blueprint do dino + SaddleBlueprint), **Itens da Loja** (campo Blueprint)
-  - Fluxo de autenticação inline: se ainda não autenticado, exibe botão "🔑 Conectar com Beacon", código de dispositivo copiável e status em tempo real — sem sair do diálogo
+- Botao "Enviar Resumo" no painel principal (visivel apenas para usuarios autenticados).
+- POST /whatsapp/resumo: gera resumo mensal de todos os colaboradores e envia para o grupo WhatsApp Notify.
+- Mensagem formatada com nome, horas bruto/desconto/liquido e dias por colaborador + totais gerais.
+- Botao verde (#25d366) ao lado do Exportar PDF, com confirmacao antes do envio.
+- notify.py: funcao resumo_geral(cards, totals).
 
-- **INI do Mod — Botão "📋 Inserir seção..."**: cada cabeçalho de arquivo INI no diálogo de configuração de mod (`Game.ini` e `GameUserSettings.ini`) ganhou um botão **📋 Inserir seção...**. Ao clicar, abre um painel lateral com todas as seções cadastradas no painel INI principal do servidor, exibidas como checkboxes com badge indicando a origem (`game` / `gus`). Selecione uma ou mais seções e clique em **✅ Inserir selecionadas** — o conteúdo é **acrescentado** ao final da caixa de texto, sem substituir o que já foi digitado.
+## [0.3.6] - 2026-04-17
 
-### Melhorado
+- Pagina de historico por colaborador (`/collaborators/<id>/history`).
+- Mostra totais globais + lancamentos agrupados por mes com resumo mensal.
+- Botao Historico na lista de colaboradores (visivel para todos).
+- Editar/excluir lancamento do historico redireciona de volta ao historico.
+- CSS: .hist-hero, .hist-month, .mstat (pos/neg/net).
 
-- **Aba Jogo — Renderização em Chunks**: a aba Jogo possuía 44 `CTkSlider` (cada um cria um Canvas internamente), causando freeze perceptível de ~500 ms na primeira abertura. A renderização foi refatorada para **lotes de 6 linhas** despachados via `after(0)` — o controle retorna ao event loop entre cada batch, eliminando completamente o freeze. A lógica de configuração dos widgets permanece idêntica; apenas o momento de criação foi diferido.
+## [0.3.5] - 2026-04-17
 
-- **Pre-build de Abas em Idle — Intervalo Ampliado**: o mecanismo `_idle_build` faz pre-build silencioso das abas pesadas em background. O intervalo entre builds consecutivos passou de **120 ms para 1500 ms**, e as abas **Jogo**, **Spawns** e **Loot** foram removidas da fila de pre-build automático — evitava micro-freezes periódicos causados pelos 44 sliders sendo criados em background. A aba Jogo agora é construída em chunks quando o usuário de fato a abre.
+- Notificacoes WhatsApp via servico multimax.tec.br/notify.
+- Eventos: novo lancamento, atualizacao, remocao, colaborador criado/toggle.
+- notify.py: gateway async (thread daemon), fallback de URL, falha silenciosa.
+- requests adicionado ao requirements.txt.
 
-### Correção
+## [0.3.4] - 2026-04-17
 
-- **Pylance — `_requests` e `_psutil` Optional**: módulos opcionais tipados como `ModuleType | None` causavam erros `Cannot access attribute` após guards booleanos. Corrigido com `assert module is not None` logo após cada guard em `src/server_manager.py` (`_psutil` em `reconnect_existing`, `_reconnect_monitor`, `_start_worker`) e `beacon_client.py` (`_requests` em `authenticate_async._worker` e `fetch_all`).
+- PDF com duas secoes: resumo geral por colaborador + lancamentos detalhados.
+- Capa com gradiente da marca, tabela de entradas com data/horas/observacao.
 
-- **Pylance — `headers: dict[str, str | bytes]`**: tipo inferido `dict[str, str]` era incompatível com `MutableMapping[str, str | bytes]` esperado por `requests.get`. Corrigido com anotação explícita nos arquivos: `beacon_client.py`, `beacon_explore.py`, `beacon_explore2.py`, `beacon_sync.py`.
+## [0.3.3] - 2026-04-17
 
-- **Pylance — `arkland_updater.py` / fallback `tkinter as ctk`**: import de fallback `import tkinter as ctk` era interpretado pelo Pylance como módulo `tkinter`, gerando dezenas de erros em atributos `CTk*`. Reestruturado para `if TYPE_CHECKING: import customtkinter as ctk / else: try/except`.
+- Renomeia sistema de Fluxos Zero/MMFlux para MultiMax nos templates, manifest, service e PDF.
 
-- **Pylance — `_profile_tabs.py`**: nome de classe incorreto (`App` em vez de `ARKServerManagerApp`) e assinatura errada do construtor `ServerManager(cm, None)` corrigidos.
+## [0.3.2] - 2026-04-17
 
----
+- Fix: WeasyPrint atualizado para 68.x — incompatibilidade com pydyf 0.12.1 causava erro ao gerar PDF.
 
-## [1.1.23] — 2026-05-17
+## [0.3.1] - 2026-04-17
 
-### Novo
+- Remove h2 desnecessario do hero.
 
-- **Agendamentos Automáticos de Servidor**: nova seção "⏰ Agendamentos Automáticos" na aba Geral de cada servidor. Permite criar múltiplas tarefas agendadas com:
-  - Horário de execução (formato HH:MM)
-  - Ação: **Reiniciar**, **Desligar** ou **Atualizar + Reiniciar**
-  - Dias da semana selecionáveis individualmente (Seg a Dom)
-  - Aviso antecipado via RCON Broadcast: 0, 5, 10, 15, 30 ou 60 minutos antes
-  - Ativar/desativar cada tarefa individualmente sem removê-la
-  - Thread dedicada (`ARKTaskScheduler`) verificando a cada 30 s; fogo único por tarefa por dia (não repete na mesma data)
-  - Tarefas salvas em `scheduled_tasks` no perfil do servidor (JSON)
+## [0.3.0] - 2026-04-17
 
-- **Seletor de Núcleos de CPU**: o checkbox "Usar todos os núcleos de CPU" foi substituído por um `OptionMenu` com três modos:
-  - **Padrão (ARK decide)** — sem flag adicional
-  - **Todos os núcleos** — adiciona `-useallavailablecores` ao launch
-  - **N núcleos (1 … máx. detectado)** — aplica afinidade de processo via `psutil.cpu_affinity()` logo após o `Popen`, limitando o processo do servidor aos primeiros N núcleos lógicos
+- Fix: botao cortado na topbar no mobile (min-height, padding, flex-shrink, logo menor).
+- Texto do botao encurtado para "Entrar" na topbar.
 
-- **Calculadora de Breeding — campo Cuddle (Imprint)**: o painel de cálculo agora inclui o multiplicador `BabyCuddleIntervalMultiplier`. Campo "🤗 Cuddle (Imprint)" com entrada de tempo desejado (hh:mm:ss), resultado em `×N` e nota informativa *"Valor global — igual para todos os dinos, por isso não aparece na tabela abaixo"*.
+## [0.2.9] - 2026-04-17
 
-- **Calculadora de Breeding — botão Wiki**: botão "📋 Tabela base (Wiki)" que abre diretamente a página de Breeding da ARK Wiki (`ark.wiki.gg/wiki/Breeding#Incubation`) no navegador padrão.
+- Fix: CSS duplicado removido (create_file havia colado CSS antigo ao novo).
+- Fix: manifest.json com purpose separados (any + maskable) para habilitar PWA install no Chrome.
 
-### Melhorado
+## [0.2.8] - 2026-04-17
 
-- **Calculadora de Breeding — visual em cards**: cada coluna de cálculo (Maturação, Incubação, Cooldown Acas., Cuddle) agora exibe fundo escuro `#0e1018` com borda sutil `#1e2840`, separando visualmente os campos e facilitando a leitura.
+- Fix: SW cache bumped para mmflux-v2 para invalidar CSS antigo.
 
-- **Calculadora de Breeding — renomeações**: coluna da tabela e campo de cálculo "Acasalamento" renomeados para **"Cooldown Acas."**; hint text ajustado para "Cooldown desejado (hh:mm:ss)".
+## [0.2.7] - 2026-04-17
 
-- **MOTD — área de texto maior**: o campo de Mensagem do Dia (MOTD) na aba Geral passou de `height=100` para `height=180` px, exibindo mais linhas sem scroll.
+- Redesign visual completo: topbar navy com gradiente, hero colorido com decoracao, cards com borda teal, tipografia hierarquica.
+- Logo branca na topbar escura.
+- brand-text com nome e subtitulo na topbar.
 
-### Correção
+## [0.2.6] - 2026-04-17
 
-- **Calculadora de Breeding — "Aplicar ao Servidor" sem efeito**: ao clicar em "Aplicar ao Servidor" com o servidor online, `_save_server_config` retornava imediatamente pelo bloqueio de servidor em execução, sem gravar o `GameUserSettings.ini`. Corrigido com parâmetro `force=True` que pula a verificação de status — a gravação ocorre normalmente (as alterações entram em vigor no próximo reinício do servidor).
+- Corrigido topbar mobile: flex-wrap para nao sobrepor o conteudo.
+- padding-top do body calculado dinamicamente via JS conforme altura real da topbar.
 
-- **Calculadora de Breeding — campo de multiplicador não atualizava**: após clicar em "Aplicar", o slider da aba Jogo se movia para o novo valor mas o campo de texto exibia o valor anterior. Corrigido adicionando `var.trace_add("write", ...)` em cada `frow`, mantendo `entry_var` sincronizado quando a `DoubleVar` é alterada programaticamente.
+## [0.2.5] - 2026-04-17
 
----
+- Logo atualizada para MMFx2.png.
 
-## [1.1.22] — 2026-05-16
+## [0.2.4] - 2026-04-17
 
-### Melhorado
+- Corrigido erro de Service Worker: rota /sw.js serve o arquivo com header Service-Worker-Allowed para escopo raiz.
 
-- **Diagnóstico de Crash Aprimorado**: ao detectar encerramento inesperado de servidor (crash), o ARKLAND-Multi agora lê automaticamente os arquivos de crash gerados pelo ARK (`ShooterGame/Saved/Crashes/<timestamp>/CrashContext.runtime-xml`, `.dmp`) e o tail do `ShooterGame.log` para identificar o DLL/plugin responsável pelo crash. O call stack e a mensagem de erro são exibidos diretamente no painel de log do servidor com destaque, facilitando o diagnóstico sem necessidade de abrir arquivos manualmente. O módulo/plugin culpado (ex.: `ArkShopUI.dll`) é identificado ignorando DLLs do engine (kernel32, ntdll, ShooterGameServer, etc.).
+## [0.2.3] - 2026-04-17
 
----
+- Logo MMFx adicionada na topbar.
+- Paleta de cores atualizada com as cores da logomarca (navy, teal, azul medio).
+- Gradiente dos botoes alinhado com a identidade visual.
 
-## [1.1.20] — 2026-05-27
+## [0.2.2] - 2026-04-17
 
-### Novo
+- Layout mobile-first: topbar fixa, coluna unica, cards de lancamento.
+- Fonte trocada para Ubuntu / Ubuntu Mono.
+- Brand atualizado para MultiMax com subtitulo "Sistema simplificado".
+- Configuracoes do VS Code para associacao de arquivos VERSION.
 
-- **Aba Spawns — Multiplicadores por Classe de Dino**: quatro novas seções na aba "Spawns" para configurar `DinoClassResistanceMultipliers`, `DinoClassDamageMultipliers`, `TamedDinoClassResistanceMultipliers` e `TamedDinoClassDamageMultipliers`. Interface tabular com classe e multiplicador por linha, suporte a leitura/escrita automática do `Game.ini`.
-- **Aba Loot — Editor Visual de Supply Crates**: nova aba "Loot" para configurar `ConfigOverrideSupplyCrateItems`. Editor hierárquico de 3 níveis (Crate → Item Set → Item Entry) com todos os campos relevantes: quantidade, qualidade, blueprint chance, classe dos itens.
-- **Correção crítica**: restaurada a declaração `class ArkIniManager` que havia sido removida acidentalmente na v1.1.19, causando falha silenciosa no gerenciamento de INIs.
+## [0.2.1] - 2026-04-17
 
----
+- Ajustado startup do Flask para usar `FLUXOS_HOST`/`FLUXOS_PORT`/`FLUXOS_DEBUG`.
+- Host padrao alterado para `0.0.0.0`, permitindo acesso externo na VPS.
 
-## [1.1.19] — 2026-05-16
+## [0.2.0] - 2026-04-17
 
-### Novo
+- Adicionado script de instalacao automatica para Linux (deploy/install.sh).
+- Adicionado arquivo de servico systemd (deploy/mmflux.service).
+- Instrucoes de deploy no README.
 
-- **Aba Spawns — Editor Visual de Spawn de Dinos Customizados**: nova aba "Spawns" no painel de configuração de cada servidor. Permite adicionar (`ConfigAddNPCSpawnEntriesContainer`) e substituir (`ConfigOverrideNPCSpawnEntriesContainer`) containers de spawn de dinos sem editar o `Game.ini` manualmente. Recursos:
-  - Dropdown com os containers de spawn conhecidos de todos os mapas oficiais (Island, Scorched Earth, Aberration, Extinction, Ragnarok, Valguero, Crystal Isles, Genesis 1 e 2).
-  - Múltiplos entries por container, cada um com nome, peso e blueprint paths (um por linha).
-  - Para containers de substituição: campo `MaxDesiredNumEnemiesMultiplier`.
-  - Leitura automática de linhas existentes ao importar/carregar `Game.ini`.
-  - Escrita correta de chaves duplicadas no `Game.ini` (configparser não suporta nativo).
+## [0.1.0] - 2026-04-17
 
----
-
-## [1.1.18] — 2026-05-16
-
-### Correção
-
-- **Importar INI: multiplicadores de breed via linha de comando** (fix issue #1): ferramentas como ARK Server Manager passam alguns multiplicadores (`BabyMatureSpeedMultiplier`, `EggHatchSpeedMultiplier`, `BabyCuddleIntervalMultiplier`, etc.) como args `?Key=Value` na linha de chamada do ShooterGameServer.exe, em vez de gravá-los no INI. O importador agora localiza automaticamente o `.bat`/`.cmd` de startup na pasta selecionada ou em até 4 pastas-pai, extrai esses args e os aplica sobre o ServerConfig com a mesma precedência que o ARK usa em runtime.
-
----
-
-## [1.1.17] — 2026-05-15
-
-### Correção
-
-- **Importação de INI do disco incompleta**: ao usar "Importar INI do Disco", multiplicadores de breed (`BabyMatureSpeedMultiplier`, `MatingIntervalMultiplier`, `EggHatchSpeedMultiplier`, etc.), RCON e Mensagem do Dia não eram carregados — ficavam em valores vanilla. Corrigido: o importador agora delega para as mesmas funções internas usadas pelo leitor de INI normal, cobrindo todos os campos de `GameUserSettings.ini` e `Game.ini`.
-
----
-
-## [1.1.16] — 2026-05-15
-
-### Novo
-
-- **Reconexão automática de servidores**: ao reiniciar após uma atualização, o app detecta servidores ARK (`ShooterGameServer.exe`) já em execução e os reconecta automaticamente, mantendo status, uptime e controle sem precisar reiniciar o servidor.
-
-### Correção
-
-- **Updater — arquivo em uso**: `ARKLAND-Updater.exe` ficava bloqueado durante a instalação (o próprio updater estava rodando). Corrigido: o updater agora se renomeia para `.old.exe` antes de acionar o installer, liberando o arquivo para ser sobrescrito.
-- **Updater — processos persistentes**: processos `ARKLAND-ServerManager.exe` podiam continuar no Gerenciador de Tarefas mesmo após o `taskkill`. O updater agora verifica via `tasklist` se os processos realmente morreram e repete o kill até confirmar (até 10 tentativas / 10 s).
-
----
-
-## [1.1.15] — 2026-05-15
-
-### Novo
-
-- **Busca de configurações**: barra de busca no painel de servidor que filtra todas as opções por nome, dica e aba em tempo real — clique no resultado para navegar diretamente à aba correta.
-
-### Correção
-
-- **Updater preso** em "Aguardando o ARKLAND fechar": quando a opção *minimizar para bandeja* estava ativa, o app ia para a bandeja em vez de fechar — o fluxo de atualização agora chama `_do_quit()` diretamente, bypassando a bandeja.
-- **ARKLAND-Updater.exe**: `WaitForSingleObject` trocado de `INFINITE` para timeout de 20 s — após expirar, processos restantes são encerrados à força via `taskkill`.
-- **Admins**: `AllowedCheaterSteamIDs.txt` era gravado em `Saved/Config/WindowsServer/` — corrigido para `Binaries/Win64/`, onde o ARK realmente lê o arquivo.
-
----
-
-## [1.1.14] — 2026-05-15
-
-### Novo — Tooltip de ajuda na seção Comandos do ArkShop
-
-- Botão `?` circular adicionado ao cabeçalho da seção **Comandos** no painel de detalhe de kit.
-- Ao passar o mouse, exibe tooltip flutuante com as variáveis disponíveis (`{steamid}`, `{playerid}`, `{playername}`) e exemplos de comandos do plugin ArkShop (`AddPoints`, `RemovePoints`, `GiveItem`, `AddExperience`, `PrintToPlayer`, `RenamePlayer`, etc.).
-- Classe utilitária `_Tooltip` adicionada — reutilizável em qualquer widget do app, com delay configurável e posicionamento automático.
-
-### Novo — Campo ID do kit editável
-
-- O ID do kit agora aparece como campo de texto editável no topo do painel de detalhe.
-- Renomear o ID atualiza automaticamente todas as referências internas; conflitos com IDs existentes são detectados e bloqueados com mensagem de erro.
-
-### Novo — Cluster / Múltiplos Servidores
-
-- Nova seção **"Cluster / múltiplos servidores"** no painel ArkShop.
-- Permite adicionar quantos caminhos destino forem necessários; ao salvar, o `ArkShop.json` é gravado em todos simultaneamente.
-- Útil para clusters com múltiplos mapas que compartilham a mesma loja.
-
-### Novo — Presets nomeados para ArkShop
-
-- Nova seção **Presets** com menu de seleção e três ações: 💾 Salvar, 📂 Carregar, 🗑 Excluir.
-- Salva a configuração completa (path, MySQL, Discord, General, Kits, ShopItems e destinos extras) como preset nomeado.
-- Presets persistem entre sessões em `%APPDATA%\ARKLAND-ServerManager\arkshop_presets.json`.
-
-### Melhoria — Minimizar para bandeja ao clicar em `−`
-
-- O botão de minimizar da janela (`−`) agora envia o app para a bandeja do sistema quando a opção "Minimizar para bandeja" está ativa, além do botão Fechar (`×`).
-
-### Melhoria — App não encerra servidores ARK ao fechar
-
-- Fechar o ARKLAND Server Manager não mata mais os processos dos servidores ARK (mapas).
-- Apenas recursos internos do app são encerrados (sync engine, mod updater, buff manager, backup manager, RCON clients).
-
-### Melhoria — Navegação O(1)
-
-- Troca de tela passou de O(n) para O(1): em vez de iterar e ocultar todos os frames a cada clique, apenas o frame anterior e o novo são alternados via `grid_remove` / `grid`.
-- Elimina lag perceptível em workspaces com muitos servidores configurados.
-
-### Correção — Alterações da UI não persistiam ao salvar ArkShop.json
-
-- `_arkshop_save` agora chama `_arkshop_collect_fields()` antes de ler o editor JSON, garantindo que todos os campos editados na UI (kits, itens, configurações gerais) sejam incluídos no arquivo salvo.
-
-### Correção — Tipos Pylance
-
-- `Optional[ctk.CTkFrame]` substituído por `Any` nos atributos de frame do ArkShop.
-- Adicionado `# type: ignore[arg-type]` em callbacks `on_done`/`on_result` (lambdas que retornam id do `after()`).
-- `btn._status_dot` acessado via `getattr(btn, "_status_dot", None)` para eliminar aviso de atributo desconhecido.
-- `CTkSlider from_/to` com `# type: ignore[arg-type]` (aceita `float` em runtime, type hint declarado como `int`).
-- `.vscode/settings.json` criado apontando o interpretador Python para `.venv`.
-
----
-
-## [1.1.13] — 2026-05-15
-
-### Correção crítica — Formato `.mod` completamente reescrito
-
-- **Corrige definitivamente o crash** `Invalid BufferCount=0 while reading .../Mods/{id}.mod` ao iniciar servidor com mods.
-- A versão anterior (`1.1.12`) gerava o `.mod` com estrutura errada: tratava o primeiro `uint32` do `mod.info` como `mapCount`, mas na realidade é o comprimento do nome do mod (`nameLen`).
-- O arquivo `.mod` gerado também estava incompleto — faltava o nome do mod, o caminho canônico, o magic footer e o conteúdo do `modmeta.info`.
-- `_create_dot_mod_from_mod_info` completamente reescrito com base no formato documentado pelo `arkmanager/doExtractMod`:
-  - Lê `nameLen` + `modName` do cabeçalho do `mod.info` antes de `numMaps`
-  - Escreve: `modID` → `modName` → `modPath` (`../../../ShooterGame/Content/Mods/{id}`) → mapa(s) → magic footer `\x33\xFF\x22\xFF\x02\x00\x00\x00\x01` → conteúdo do `modmeta.info`
-- **Ação necessária:** apagar os `.mod` corrompidos gerados por versões anteriores em `ShooterGame\Content\Mods\` e re-baixar os mods pelo app.
-
----
-
-## [1.1.12] — 2026-05-15
-
-### Correção — Crash "BufferCount=0" ao iniciar servidor com mods
-
-- **Corrige crash crítico** `Invalid BufferCount=0 while reading .../Mods/{id}.mod` que derrubava o ARK ao iniciar com mods baixados via SteamCMD.
-- A versão anterior copiava `mod.info` diretamente como `{id}.mod`, mas os dois têm **formatos binários distintos**. O ARK interpretava os bytes de `mod.info` como `FUGCModImport` (uint64 ModID + FString + TArray maps) e obtinha offsets inválidos, causando o crash.
-- `_create_dot_mod_from_mod_info` agora **gera o binário `.mod` correto** — lê o `mapCount` e os caminhos de mapa do `mod.info` e escreve no formato exato `FUGCModImport` esperado pelo ARK.
-- `check_mod_installed` (auto-reparo) também usa o gerador binário correto.
-- **Ação necessária:** apagar o arquivo `{mod_id}.mod` corrompido em `ShooterGame\Content\Mods\` e re-baixar o mod pelo app.
-
----
-
-## [1.1.11] — 2026-05-15
-
-### Correção — Mods não instalados com SteamCMD
-
-- **Corrige bug crítico** onde o SteamCMD nunca cria o arquivo `.mod` externo ao baixar mods via `workshop_download_item` — somente a pasta é criada.
-- `_find_dot_mod` agora usa `mod.info` (dentro da pasta do mod) como fallback (caso 4), que é o arquivo de metadados que o SteamCMD **sempre** baixa.
-- `check_mod_installed` agora realiza **auto-reparo**: se a pasta do mod existe e o `.mod` está ausente mas `mod.info` está presente, copia automaticamente e loga `"auto-reparado a partir de mod.info"` — corrige instalações feitas por versões anteriores sem precisar re-baixar.
-- Log indica se o `.mod` foi copiado de um `.mod` original ou gerado a partir de `mod.info`.
-
----
-
-## [1.1.10] — 2026-05-14
-
-### Correção — Mods não carregando no servidor
-
-- **Corrige bug crítico** onde mods apareciam como "instalados" na aba Mods mas o ARK os ignorava ao iniciar.
-- `check_mod_installed` agora exige a presença da pasta **e** do arquivo `.mod` — sem o `.mod` o ARK não carrega o mod.
-- Adicionado fallback ao copiar mods: busca o arquivo `.mod` dentro da pasta do mod caso não esteja ao lado dela (comportamento de algumas versões do SteamCMD).
-- O erro de `.mod` ausente agora é logado como `[ATENÇÃO]` no nível `error` em vez de um aviso discreto.
-- Aviso pré-start: ao iniciar um servidor, o app verifica se todos os mods configurados possuem o arquivo `.mod`. Se algum estiver incompleto, exibe diálogo perguntando se deseja continuar.
-
-### Novo — Mensagem do Dia (MOTD)
-
-- Novo campo **Mensagem do Dia** na aba Geral de cada servidor.
-- Mensagem e duração (segundos) são salvas automaticamente no `GameUserSettings.ini` na seção `[MessageOfTheDay]`.
-
----
-
-## [1.1.9] — 2026-05-14
-
-### Clonar Configurações entre Servidores
-
-- Novo botão **📋 Clonar Configurações** na aba Avançado de cada servidor.
-- Permite copiar todas as configurações de um servidor para um ou mais servidores de destino.
-- São copiados: mapa, senhas, mods, multiplicadores, configurações avançadas, cluster, admins, backup e argumentos extras.
-- Preservados no servidor de destino: nome interno, diretório de instalação, session name e portas.
-- Reconstrói automaticamente o painel de cada servidor destino após a clonagem.
-
----
-
-## [1.1.8] — 2026-05-14
-
-### Parar Servidor — Encerramento de Árvore de Processos
-
-- Ao parar um servidor, o app agora usa `taskkill /F /T /PID` para encerrar toda a árvore de processos filhos do `ShooterGameServer.exe`.
-- Corrige o bug onde o app reportava "Servidor parado" mas o processo do servidor continuava rodando em segundo plano.
-- Fallback para `terminate()` / `kill()` caso `taskkill` não esteja disponível.
-
-### Nova Aba Backup
-
-- Nova aba **Backup** adicionada ao painel de cada servidor.
-- Habilita backup automático em intervalos configuráveis (1h, 2h, 3h, 6h, 12h, 24h).
-- Escolha quantos backups manter (os mais antigos são excluídos automaticamente).
-- Seleção do conteúdo: Saves (dados de jogadores/mundo) e/ou Config (arquivos .ini).
-- Pasta de destino personalizável com seletor de diretório.
-- Botão de **Backup Manual** para snapshots imediatos.
-- Lista de backups disponíveis com opções de restaurar e excluir.
-- Layout coeso com o padrão visual do restante do aplicativo.
-
----
-
-## [1.1.7] — 2026-05-14
-
-### Updater — Encerramento Forçado
-
-- O ARKLAND Updater agora mata à força todos os processos `ARKLAND-ServerManager.exe` antes de executar o installer, evitando falha por arquivo bloqueado no Windows.
-- Usa `taskkill /F /T /PID` para encerrar a árvore do processo principal e `taskkill /F /IM` para cobrir instâncias extras.
-
----
-
-## [1.1.6] — 2026-05-14
-
-### Aba Admins — Busca de Nome Steam
-
-- Ao digitar um Steam ID (64-bit), o sistema busca automaticamente o nome do perfil via Steam Community (API pública, sem chave) com debounce de 900 ms.
-- Label dinâmica exibe `✅ NomeDoJogador` (verde) ou `⚠️ Perfil privado ou ID inválido` (vermelho).
-- O nome resolvido é salvo junto ao ID e exibido na lista: `🎮 76561198... • NomeDoJogador`.
-- Ao remover um admin o nome em cache também é limpo.
-
-### Nova Aba Jogadores
-
-- Nova aba **Jogadores** adicionada ao painel de cada servidor (entre Admins e Plugins).
-- Lista em tempo real dos jogadores conectados via RCON (`ListPlayers`).
-- Exibe nome e Steam ID de cada jogador.
-- Ações por jogador:
-  - **⭐ Admin** — adiciona o jogador diretamente à lista de admins (oculto se já for admin).
-  - **👢 Kick** — confirma e executa `KickPlayer <steamid>`.
-  - **🔨 Ban** — confirma com instrução de desfazer e executa `BanPlayer <steamid>`.
-- **Auto-refresh** a cada 30 segundos via checkbox na aba.
-- Requer conexão RCON ativa (aba "Console RCON").
-
-### Sistema de BUFFs de Rates Temporários
-
-- Nova aba **⚡ BUFFs** no sidebar lateral.
-- Gerenciador de eventos de rates temporários estilo eventos oficiais Studio Wildcard.
-- Tipos suportados: XP, Doma, Breeding, Farm (combináveis no mesmo evento).
-- Multiplicadores rápidos: **5x / 10x / 15x** ou **custom** por campo.
-- Agendamento com datas de início e fim (máx. 30 dias), detecção de conflito de sobreposição.
-- Presets salvos reutilizáveis com gerenciador dedicado.
-- Ao ativar: broadcast RCON → parada do servidor → backup do INI → aplicação dos rates → restart.
-- Ao desativar: broadcast RCON → parada → restore do backup → restart.
-- Card de buff ativo, lista de agendados com cancelamento, histórico de eventos.
-
-### Mapa Aquatica
-
-- **Aquatica** adicionado à lista de mapas oficiais.
-
----
-
-## [1.1.5] — 2026-05-14
-
-### Parar Servidor — Correções Críticas
-
-- **`_graceful_shutdown` movido para dentro da thread de parada** — o clique em "Parar" não bloqueia mais a interface enquanto o RCON envia `SaveWorld` + `DoExit`.
-- **Cascata de terminação robusta**: RCON gracioso (aguarda até 90 s) → `terminate()` (+10 s) → `kill()` (+10 s) → `os.kill(pid, 9)` como último recurso. Elimina o bug de servidor preso em "PARANDO" para sempre.
-- `_start_worker` limpa `inst.process` e `inst.pid` mesmo quando o processo morre durante STOPPING/STARTING.
-
-### Iniciar Servidor — Timeout Aumentado
-
-- Timeout de detecção de "servidor pronto" aumentado de **15 → 45 minutos** para acomodar mapas pesados com muitos mods (ex: Fjordur).
-
-### Botão ⚡ Cancelar
-
-- Quando o servidor está em **INICIANDO** ou **PARANDO**, o botão muda para **⚡ Cancelar** (âmbar) e executa parada forçada imediata — disponível tanto no painel do servidor quanto no Dashboard.
-
-### Dashboard — Visibilidade LAN / WAN
-
-- Cada card do Dashboard exibe agora o badge **🌐 WAN** (verde) ou **🏠 LAN** (âmbar) ao lado do nome do servidor, assim que a visibilidade for detectada.
-- O dashboard é atualizado automaticamente quando a visibilidade muda.
-
-### Aba Admins
-
-- Nova aba **Admins** no painel de cada servidor (entre Mods e Plugins).
-- Campo para adicionar Steam IDs de administradores (validação: apenas dígitos, mínimo 15 caracteres).
-- Lista scrollável com botão de remoção por linha.
-- Ao salvar, grava `AllowedCheaterSteamIDs.txt` em `ShooterGame/Saved/Config/WindowsServer/`.
-
-### Atualização Automática de Mods — Novo Fluxo
-
-- O download do mod começa **imediatamente**, enquanto o servidor ainda está em execução.
-- Avisos de broadcast são enviados aos jogadores **durante** o download.
-- O servidor só é parado **após** o download concluir + o timer de aviso esvaziar.
-
-### ARKLAND Updater — Sub-app de Auto-Update
-
-- Novo executável standalone `ARKLAND-Updater.exe` (via `arkland_updater.py` + `ARKLAND-Updater.spec`).
-- Aguarda o app principal fechar, baixa o instalador com barra de progresso, executa silenciosamente e reinicia o app.
-- Substitui o script PowerShell temporário usado anteriormente.
-
-### Interface — Lista de Mods
-
-- Linhas da lista de mods com **cores alternadas** (zebra) para facilitar identificar quais botões pertencem a qual mod.
-
----
-
-## [1.1.4] — 2026-05-14
-
-### Mods — Nomes Automáticos
-
-- Nomes dos mods buscados automaticamente via Steam Workshop API ao adicionar pelo ID.
-- Lista de mods exibe **ID — Nome do mod** em vez de só o ID numérico.
-- Cache de nomes persistido no `config.json` para evitar requisições repetidas.
-
-### Atualização do Servidor ao Iniciar
-
-- Checkbox **"Atualizar servidor ao iniciar"** agora executa o SteamCMD antes de iniciar o processo do servidor, garantindo que os arquivos estejam atualizados.
-
-### Correções
-
-- Corrigido `build.bat` para compatibilidade com CMD puro (sem PowerShell).
-
----
-
-## [1.1.3] — 2026-05-14
-
-### Sincronização N-way Multi-Ciclo
-
-- **Até 5 ciclos independentes**, cada ciclo com **até 5 pastas**: o sync propaga sempre a versão mais nova de cada arquivo para todas as pastas do ciclo (bidirecional N-way).
-- **Auto-start**: ao abrir o app, o sync é iniciado automaticamente se houver ciclos configurados.
-- **Interface redesenhada**: cards dinâmicos por ciclo — adicione/remova ciclos e pastas individualmente, com renumeração automática e limite visual de slots.
-- Botão **+ Adicionar Ciclo** desabilitado automaticamente ao atingir o limite de 5 ciclos.
-- Compatibilidade retroativa: configurações antigas (`local_cluster_path`/`shared_path`) migradas automaticamente para o novo formato `sync_cycles`.
-
-### Correções e Qualidade
-
-- Corrigidos todos os erros de lint/tipo (Pylance/Ruff) em `updater.py`, `ark_ini.py`, `mod_auto_updater.py`, `mod_manager.py`, `rcon_client.py`, `server_manager.py`, `server_config.py` e `remote_agent.py`.
-
----
-
-## [1.1.2] — 2026-05-14
-
-### Mods — Configurações INI Personalizadas
-
-- **Configurações INI por mod**: cada mod da lista possui o botão **⚙️ INI** que abre um editor com campos separados para `Game.ini` e `GameUserSettings.ini`. Os blocos são injetados nos arquivos do servidor ao clicar em "Salvar e Aplicar".
-- Nome do mod salvo automaticamente ao adicionar via busca no Workshop; exibido na lista de mods junto ao ID.
-- Botão ⚙️ INI fica destacado em roxo quando o mod já possui configuração salva.
-
-### Importar INI do Disco — Seleção de Pasta
-
-- O botão **Importar INI do Disco** agora abre um dialog com campo de caminho editável e botão 📁 para navegar até qualquer pasta — ideal para importar de backups ou de outro servidor.
-
-### Segurança — Bloqueio de Edição
-
-- Todas as configurações das abas (Geral, Jogo, Avançado, Mods, Plugins) ficam **desabilitadas** enquanto o servidor estiver em execução ou iniciando.
-- Banner laranja `🔒 Configurações bloqueadas` exibido no painel do servidor quando bloqueado.
-- `_save_server_config` valida o status novamente antes de persistir, impedindo qualquer escrita acidental nos INIs.
-
-### Correções
-
-- Corrigido erro `AttributeError: '_tkinter.tkapp' object has no attribute '_check_updates_manual'` ao abrir a aba Sobre.
-- Removida definição duplicada de `_check_updates_on_start`.
-
----
-
-## [1.1.1] — 2026-05-14
-
-### Importação e Sincronização de Configurações (NOVO)
-
-- **Importar INI**: botão na aba Avançado permite importar todas as configurações diretamente dos arquivos GameUserSettings.ini e Game.ini do disco, preenchendo automaticamente todos os campos da interface.
-- **Sincronizar INI entre servidores**: botão na aba Avançado abre diálogo para selecionar quais servidores receberão os arquivos INI do servidor atual (GameUserSettings.ini e/ou Game.ini). Permite sincronizar configurações avançadas entre múltiplos servidores com um clique.
-
----
-
-## [1.1.0] — 2026-05-14 — *Transformação completa: de ferramenta de sync para Server Manager*
-
-Esta versão representa uma reescrita quase completa do projeto. O **ARKLAND-Multi** deixou de ser
-um utilitário de sincronização de cluster e passou a ser um **gerenciador completo de servidores
-ARK: Survival Evolved**, mantendo a sincronização de cluster como uma das funcionalidades.
-
-### Gerenciamento de Servidores (NOVO)
-
-- **Multi-servidor**: suporte a múltiplos servidores ARK na mesma interface, cada um com painel independente
-- **Iniciar / Parar / Reiniciar** servidores ARK Dedicated diretamente pelo app
-- **Instalação e validação** do servidor via SteamCMD (`app_update 376030`) pela aba Geral
-- **Ciclo de vida de status** completo: PARADO → INICIANDO → RODANDO → PARANDO → CRASHADO
-- Status **INICIANDO → RODANDO** detectado via monitoramento do arquivo de log real do ARK (`ShooterGame/Saved/Logs/ShooterGame.log`) — sem travar indefinidamente
-- **Badge LAN / WAN** no header de cada servidor: 🏠 LAN ao iniciar, 🌐 WAN quando registrado no Steam
-- **Uptime** em tempo real exibido no card do servidor
-
-### Configuração de Servidores (NOVO)
-
-- Aba **Geral**: nome, porta, query port, senha, máx. jogadores, diretório de instalação
-- Aba **Jogo**: mapa, sessão, modo de jogo, dificuldade, PvP/PvE, configs de gameplay
-- Aba **Avançado**: parâmetros customizados de linha de comando, flags extras
-- Aba **Console RCON**: console interativo via RCON integrado
-- Aba **Logs**: visualização em tempo real dos logs do servidor ARK
-
-### Gerenciamento de Mods (NOVO)
-
-- Aba **Mods** por servidor: adicionar/remover mods pelo ID do Workshop, instalar/atualizar via SteamCMD
-- Mods instalados via SteamCMD são copiados automaticamente para `ShooterGame/Content/Mods/`
-- Indicador de status por mod: ✅ instalado / ❌ não instalado
-- Botões para abrir a página do mod no Steam Workshop
-- **Atualização automática de mods**: verifica o Steam Workshop periodicamente, avisa jogadores via broadcast RCON, para o servidor, baixa a atualização e reinicia automaticamente
-
-### Gerenciamento de Plugins (NOVO)
-
-- Aba **Plugins** por servidor: gerenciamento de plugins ArkApi
-- Instalar/remover plugins `.dll` e `.so`
-- Detecta automaticamente se o ArkApi está instalado
-
-### Sincronização de Cluster (MANTIDO E MELHORADO)
-
-- Sincronização bidirecional de pastas de cluster ARK mantida
-- Log de sincronização agora exibe o **nome, tamanho e direção** de cada arquivo copiado
-
-### Sistema de Atualização do App (REESCRITO)
-
-- Agente autônomo de atualização: ao clicar em "Instalar", um **processo separado** é lançado
-- O agente aguarda o app fechar → baixa o instalador → instala silenciosamente → reinicia o ARKLAND automaticamente
-- Não requer intervenção manual após confirmar
-
-### Gerenciamento de Servidores (NOVO)
-
-- **Multi-servidor**: suporte a múltiplos servidores ARK na mesma interface, cada um com painel independente
-- **Iniciar / Parar / Reiniciar** servidores ARK Dedicated diretamente pelo app
-- **Instalação e validação** do servidor via SteamCMD (`app_update 376030`) pela aba Geral
-- **Ciclo de vida de status** completo: PARADO → INICIANDO → RODANDO → PARANDO → CRASHADO
-- Status **INICIANDO → RODANDO** detectado via monitoramento do arquivo de log real do ARK (`ShooterGame/Saved/Logs/ShooterGame.log`) — sem travar indefinidamente
-- **Badge LAN / WAN** no header de cada servidor: 🏠 LAN ao iniciar, 🌐 WAN quando registrado no Steam
-- **Uptime** em tempo real exibido no card do servidor
-
-### Configuração de Servidores (NOVO)
-
-- Aba **Geral**: nome, porta, query port, senha, máx. jogadores, diretório de instalação
-- Aba **Jogo**: mapa, sessão, modo de jogo, dificuldade, PvP/PvE, configs de gameplay
-- Aba **Avançado**: parâmetros customizados de linha de comando, flags extras
-- Aba **Console RCON**: console interativo via RCON integrado
-- Aba **Logs**: visualização em tempo real dos logs do servidor ARK
-
-### Gerenciamento de Mods (NOVO)
-
-- Aba **Mods** por servidor: adicionar/remover mods pelo ID do Workshop, instalar/atualizar via SteamCMD
-- Mods instalados via SteamCMD são copiados automaticamente para `ShooterGame/Content/Mods/`
-- Indicador de status por mod: ✅ instalado / ❌ não instalado
-- Botões para abrir a página do mod no Steam Workshop
-- **Atualização automática de mods**: verifica o Steam Workshop periodicamente, avisa jogadores via broadcast RCON, para o servidor, baixa a atualização e reinicia automaticamente
-
-### Gerenciamento de Plugins (NOVO)
-
-- Aba **Plugins** por servidor: gerenciamento de plugins ArkApi
-- Instalar/remover plugins `.dll` e `.so`
-- Detecta automaticamente se o ArkApi está instalado
-
-### Sincronização de Cluster (MANTIDO E MELHORADO)
-
-- Sincronização bidirecional de pastas de cluster ARK mantida
-- Log de sincronização agora exibe o **nome, tamanho e direção** de cada arquivo copiado
-
-### Sistema de Atualização do App (REESCRITO)
-
-- Agente autônomo de atualização: ao clicar em "Instalar", um **processo separado** é lançado
-- O agente aguarda o app fechar → baixa o instalador → instala silenciosamente → reinicia o ARKLAND automaticamente
-- Não requer intervenção manual após confirmar
-
-### Importação e Sincronização de Configurações (NOVO)
-
-- **Importar INI**: botão na aba Avançado permite importar todas as configurações diretamente dos arquivos GameUserSettings.ini e Game.ini do disco, preenchendo automaticamente todos os campos da interface.
-- **Sincronizar INI entre servidores**: botão na aba Avançado abre diálogo para selecionar quais servidores receberão os arquivos INI do servidor atual (GameUserSettings.ini e/ou Game.ini). Permite sincronizar configurações avançadas entre múltiplos servidores com um clique.
-
----
-
-## [1.0.9] — 2026-05-13
-
-### Adicionado
-
-- Token do agente gerado automaticamente (UUID) na primeira execução
-- Botão **Copiar** e botão **Revogar** (gera novo UUID) na aba Remoto
-- Botão **Colar meu token** no formulário de peer facilita a configuração
-
----
-
-## [1.0.8] — 2026-05-13
-
-### Alterado
-
-- Porta padrão do agente remoto alterada de 19567 para 32440
-
----
-
-## [1.0.7] — 2026-05-13
-
-### Corrigido
-
-- Atualização automática reescrita com PowerShell (era `.bat`)
-- Corrige janela que abria e fechava instantaneamente sem instalar nada
-
----
-
-## [1.0.6] — 2026-05-13
-
-### Adicionado
-
-- Aba Remoto exibe o IP local desta máquina e o endereço completo para configurar peers
-- Campo Nome do peer agora é opcional (usa o IP como nome quando não preenchido)
-
----
-
-## [1.0.5] — 2026-05-13
-
-### Corrigido
-
-- Compatibilidade: build migrado para Python 3.12
-- Corrige erro `Failed to load Python DLL` em máquinas sem VC++ 2022 Runtime instalado
-
----
-
-## [1.0.3] — 2026-05-13
-
-### Adicionado
-
-- Nova aba **Controle Remoto** — controle outra instância do app via rede
-- Agente HTTP integrado: exponha esta máquina para controle externo (porta e token configuráveis)
-- Cadastro de peers remotos com nome, IP, porta e token de autenticação
-- Painel de peer com stats em tempo real, logs e botões Iniciar / Parar / Forçar Sync
-
----
-
-## [1.0.2] — 2026-05-13
-
-### Adicionado
-
-- Erros separados por tipo com timestamp — card Erros no Dashboard agora abre janela de detalhes
-- Botão "Ver detalhes" lista cada erro individualmente com hora, tipo e mensagem
-- Botão "Limpar" zera o histórico de erros sem reiniciar a sincronização
-
----
-
-## [1.0.1] — 2026-05-12
-
-### Corrigido / Adicionado
-
-- Imagem do instalador corrigida (sem distorção)
-- URL de atualização embutida — não requer configuração manual
-- Iniciar sincronização habilitado por padrão
-- Nova opção: Iniciar o ARKLAND-Multi com o Windows
-- Ícone da barra de tarefas corrigido
-
----
-
-## [1.0.0] — 2026-05-12
-
-### Adicionado
-
-- Lançamento inicial do ARKLAND-Multi
-- Sincronização bidirecional automática de pastas ARK Cluster
-- Interface moderna com Dashboard, Configurações e Logs
-- Controle de intervalo de sincronização (1–60 s)
-- Inicialização automática e modo debug configuráveis
-- Estatísticas em tempo real no Dashboard (arquivos, erros, último sync)
-- Sistema de atualização automática integrado (verificação + download + instalação)
-- Aba "Sobre" com histórico de versões e controle de update
-- Notificação visual na sidebar quando há nova versão disponível
-- Script de build (`build.bat`) com PyInstaller
-- Script de instalador (`setup.iss`) para Inno Setup
-
----
-
-<!-- Modelo para próximas versões:
-
-## [X.Y.Z] — AAAA-MM-DD
-
-### Adicionado
-- ...
-
-### Alterado
-- ...
-
-### Corrigido
-- ...
-
-### Removido
-- ...
--->
+- Versao inicial do projeto Fluxos Zero.

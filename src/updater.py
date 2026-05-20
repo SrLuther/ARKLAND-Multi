@@ -155,6 +155,9 @@ class UpdateChecker:
         if getattr(sys, "frozen", False):
             updater_exe = Path(sys.executable).parent / "ARKLAND-Updater.exe"
             if updater_exe.exists():
+                # CREATE_BREAKAWAY_FROM_JOB remove o updater do Job Object do pai,
+                # impedindo que seja morto junto quando o app principal fechar.
+                _CREATE_BREAKAWAY_FROM_JOB = 0x01000000
                 subprocess.Popen(
                     [
                         str(updater_exe),
@@ -163,7 +166,14 @@ class UpdateChecker:
                         "--exe",     app_exe,
                         "--version", version,
                     ],
-                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                    creationflags=(
+                        subprocess.DETACHED_PROCESS
+                        | subprocess.CREATE_NEW_PROCESS_GROUP
+                        | _CREATE_BREAKAWAY_FROM_JOB
+                    ),
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                     close_fds=True,
                 )
                 return

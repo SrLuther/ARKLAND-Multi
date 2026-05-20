@@ -11,6 +11,7 @@ import socket
 import sys
 import threading
 import tkinter as tk
+import tkinter.ttk as ttk
 import urllib.parse
 import urllib.request
 import re
@@ -348,6 +349,11 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_alert_crit_var: Any = None
         self._perf_critical_log: Any = None
         self._perf_last_state: dict = {"cpu": "ok", "ram": "ok", "gpu": "ok"}
+        self._perf_cpu_temp_var: Any = None
+        self._perf_gpu_temp_var: Any = None
+        self._perf_servers_inner: Any = None
+        self._perf_server_procs: dict = {}   # server_id → psutil.Process
+        self._perf_last_srv_ids: list = []
 
         self._build_ui()
         self.after(200, self._scan_running_servers)
@@ -1763,6 +1769,30 @@ class ARKServerManagerApp(ctk.CTk):
             row, col = divmod(idx, 2)
             self._build_server_card(frame, srv, row, col)
 
+        # ── Legenda de status ─────────────────────────────────────────────────
+        legend_row = (len(servers) + 1) // 2
+        legend = ctk.CTkFrame(frame, fg_color="#1a1a2e", corner_radius=8)
+        legend.grid(row=legend_row, column=0, columnspan=2,
+                    padx=8, pady=(4, 8), sticky="ew")
+        ctk.CTkLabel(legend, text="Legenda:",
+                     text_color="gray50", font=ctk.CTkFont(size=11, weight="bold")
+                     ).pack(side="left", padx=(12, 10), pady=6)
+        _LEGEND_ITEMS = [
+            ("⬛ PARADO",      "#ff6666",  "Servidor encerrado"),
+            ("🟡 INICIANDO",   "#ffaa44",  "Aguardando startup do ARK"),
+            ("🟢 RODANDO",     _GREEN,      "Online e acessível"),
+            ("🟡 PARANDO",     "#ffaa44",  "Encerrando servidor"),
+            ("🔴 TRAVADO",     "#ff3333",  "Processo travado — use 💀 Forçar Enc."),
+            ("🟡 ATUALIZANDO", "#ffaa44",  "SteamCMD em execução"),
+        ]
+        for lbl, col, tip in _LEGEND_ITEMS:
+            ctk.CTkLabel(legend, text=lbl, text_color=col,
+                         font=ctk.CTkFont(size=11, weight="bold")
+                         ).pack(side="left", padx=(0, 2), pady=6)
+            ctk.CTkLabel(legend, text=f"= {tip}",
+                         text_color="gray55", font=ctk.CTkFont(size=11)
+                         ).pack(side="left", padx=(0, 16), pady=6)
+
     def _build_server_card(self, parent, srv: ServerConfig, row: int, col: int) -> None:
         inst = self.server_manager.get_instance(srv.id)
         status = inst.status if inst else SERVER_STATUS_STOPPED
@@ -1816,9 +1846,13 @@ class ARKServerManagerApp(ctk.CTk):
 
         is_running = status == SERVER_STATUS_RUNNING
         is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
+        is_crashed = status == SERVER_STATUS_CRASHED
 
         if is_busy:
             _d_text, _d_fg, _d_hover = "⚡ Cancelar", "#7a4a00", "#5c3600"
+            def _d_cmd(sid=srv.id): self.server_manager.stop_server(sid, force=True)
+        elif is_crashed:
+            _d_text, _d_fg, _d_hover = "💀 Forçar Enc.", _RED_DARK, _RED_HOVER
             def _d_cmd(sid=srv.id): self.server_manager.stop_server(sid, force=True)
         elif is_running:
             _d_text, _d_fg, _d_hover = "⏹ Parar", _RED_DARK, _RED_HOVER
@@ -1836,7 +1870,7 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkButton(
             btn_row, text="🔄 Restart", width=90, height=32,
             fg_color="#3a3a5a", hover_color="#252540",
-            state="disabled" if is_busy or not is_running else "normal",
+            state="disabled" if is_busy or is_crashed or not is_running else "normal",
             command=lambda sid=srv.id: self._restart_server(sid),
         ).pack(side="left", padx=(0, 6))
 
@@ -1948,7 +1982,8 @@ class ARKServerManagerApp(ctk.CTk):
                 return
             if inst.status == SERVER_STATUS_RUNNING:
                 self._stop_server(srv.id)
-            elif inst.status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING):
+            elif inst.status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING,
+                                  SERVER_STATUS_CRASHED):
                 self.server_manager.stop_server(srv.id, force=True)
             else:
                 self._start_server(srv.id)
@@ -4498,6 +4533,7 @@ class ARKServerManagerApp(ctk.CTk):
         parent.grid_rowconfigure(1, weight=1)
 
         w = self._server_widgets[srv.id]
+        w["_mods_page"] = 0   # estado de paginação
 
         add_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
         add_card.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
@@ -4534,12 +4570,37 @@ class ARKServerManagerApp(ctk.CTk):
             ).grid(row=2, column=0, columnspan=4, padx=16, pady=(0, 10), sticky="w")
 
         mods_card = ctk.CTkScrollableFrame(parent, corner_radius=10, fg_color=_CARD_BG)
-        mods_card.grid(row=1, column=0, padx=12, pady=6, sticky="nsew")
+        mods_card.grid(row=1, column=0, padx=12, pady=(6, 0), sticky="nsew")
         mods_card.grid_columnconfigure(0, weight=1)
         w["_mods_list_frame"] = mods_card
 
+        # Barra de navegação de páginas (mods)
+        mods_nav = ctk.CTkFrame(parent, fg_color=_CARD_BG, corner_radius=6, height=34)
+        mods_nav.grid(row=2, column=0, padx=12, pady=(2, 4), sticky="ew")
+        mods_nav.grid_columnconfigure(1, weight=1)
+        mods_nav.grid_propagate(False)
+        sv_mods_nav = tk.StringVar(value="")
+        btn_mods_prev = ctk.CTkButton(
+            mods_nav, text="◀", width=36, height=26,
+            fg_color="#2a2a4a", hover_color="#3a3a5a",
+            command=lambda: self._refresh_mods_list(srv.id, w["_mods_page"] - 1),
+        )
+        btn_mods_prev.grid(row=0, column=0, padx=(6, 2), pady=4)
+        ctk.CTkLabel(mods_nav, textvariable=sv_mods_nav,
+                     text_color="gray60", font=ctk.CTkFont(size=11)
+                     ).grid(row=0, column=1)
+        btn_mods_next = ctk.CTkButton(
+            mods_nav, text="▶", width=36, height=26,
+            fg_color="#2a2a4a", hover_color="#3a3a5a",
+            command=lambda: self._refresh_mods_list(srv.id, w["_mods_page"] + 1),
+        )
+        btn_mods_next.grid(row=0, column=2, padx=(2, 6), pady=4)
+        w["_mods_sv_nav"] = sv_mods_nav
+        w["_mods_btn_prev"] = btn_mods_prev
+        w["_mods_btn_next"] = btn_mods_next
+
         actions = ctk.CTkFrame(parent, fg_color="transparent")
-        actions.grid(row=2, column=0, padx=12, pady=(4, 12), sticky="ew")
+        actions.grid(row=3, column=0, padx=12, pady=(4, 12), sticky="ew")
 
         ctk.CTkButton(
             actions, text="⬇️  Baixar / Atualizar Todos os Mods",
@@ -4567,7 +4628,7 @@ class ARKServerManagerApp(ctk.CTk):
         """Card de atualização automática de mods, embutido na aba Mods."""
         w = self._server_widgets[srv.id]
         card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
-        card.grid(row=3, column=0, padx=12, pady=(4, 12), sticky="ew")
+        card.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="ew")
         card.grid_columnconfigure(1, weight=1)
 
         # ── Título ────────────────────────────────────────────────────────────
@@ -4675,7 +4736,9 @@ class ARKServerManagerApp(ctk.CTk):
                 if lbl:
                     lbl.configure(text="● ATIVO", text_color=_GREEN)
 
-    def _refresh_mods_list(self, server_id: str) -> None:
+    _MODS_PAGE = 20  # mods por página
+
+    def _refresh_mods_list(self, server_id: str, page: int = 0) -> None:
         srv = self.config_manager.get_server(server_id)
         if not srv:
             return
@@ -4684,8 +4747,29 @@ class ARKServerManagerApp(ctk.CTk):
         if not frame:
             return
 
+        # Paginação
+        total = len(srv.mods)
+        n_pages = max(1, (total + self._MODS_PAGE - 1) // self._MODS_PAGE)
+        page = max(0, min(page, n_pages - 1))
+        w["_mods_page"] = page
+        start = page * self._MODS_PAGE
+
         for child in frame.winfo_children():
             child.destroy()
+
+        # Atualizar nav
+        sv_nav = w.get("_mods_sv_nav")
+        btn_prev = w.get("_mods_btn_prev")
+        btn_next = w.get("_mods_btn_next")
+        if sv_nav is not None:
+            if total:
+                sv_nav.set(f"Página {page + 1} de {n_pages}  ·  {total} mod(s)")
+            else:
+                sv_nav.set("Nenhum mod")
+        if btn_prev is not None:
+            btn_prev.configure(state="normal" if page > 0 else "disabled")
+        if btn_next is not None:
+            btn_next.configure(state="normal" if page < n_pages - 1 else "disabled")
 
         if not srv.mods:
             ctk.CTkLabel(frame, text="Nenhum mod adicionado.",
@@ -4696,13 +4780,14 @@ class ARKServerManagerApp(ctk.CTk):
         if missing_names:
             self._fetch_mod_names_async(server_id, missing_names)
 
-        for idx, mod_id in enumerate(srv.mods):
-            row_bg = "#252538" if idx % 2 == 0 else "transparent"
+        for idx, mod_id in enumerate(srv.mods[start:start + self._MODS_PAGE]):
+            actual_idx = start + idx
+            row_bg = "#252538" if actual_idx % 2 == 0 else "transparent"
             row_f = ctk.CTkFrame(frame, fg_color=row_bg, corner_radius=6, height=40)
             row_f.pack(fill="x", pady=1)
             row_f.grid_columnconfigure(1, weight=1)
 
-            ctk.CTkLabel(row_f, text=f"#{idx+1}", width=32, text_color="gray50",
+            ctk.CTkLabel(row_f, text=f"#{actual_idx+1}", width=32, text_color="gray50",
                          font=ctk.CTkFont(size=11)).grid(row=0, column=0, padx=(8, 4))
 
             mod_name = srv.mod_names.get(mod_id, "")
@@ -4883,19 +4968,20 @@ class ARKServerManagerApp(ctk.CTk):
     def _build_tab_plugins(self, parent, srv: ServerConfig) -> None:  # noqa: C901
         """Constrói a aba de gerenciamento do plugin CustomShop."""
         parent.grid_columnconfigure(0, weight=1)
-        parent.grid_rowconfigure(0, weight=1)
+        parent.grid_rowconfigure(1, weight=1)  # sub-tabview expande
 
-        outer = ctk.CTkScrollableFrame(parent, fg_color="transparent")
-        outer.grid(row=0, column=0, sticky="nsew")
-        outer.grid_columnconfigure(0, weight=1)
+        # ── estado compartilhado ──────────────────────────────────────────────
+        _state: dict = {
+            "timed_groups": [],
+            "raw_cfg":     {},   # config bruta carregada do disco
+            "tabs_built":  set(),
+            "raw_items":   [],   # list[tuple[str, dict]] — TODOS os itens
+            "raw_kits":    [],   # list[tuple[str, dict]] — TODOS os kits
+        }
 
-        # ── estado em memória ─────────────────────────────────────────────────
-        # items_rows / kits_rows: lista de dicts com StringVars/BooleanVars por linha
-        _state: dict = {"items_rows": [], "kits_rows": [], "timed_groups": []}
-
-        # ══ STATUS CARD ═══════════════════════════════════════════════════════
-        status_card = ctk.CTkFrame(outer, corner_radius=10, fg_color=_CARD_BG)
-        status_card.grid(row=0, column=0, padx=12, pady=(12, 6), sticky="ew")
+        # ══ STATUS CARD (fixo no topo, row=0) ════════════════════════════════
+        status_card = ctk.CTkFrame(parent, corner_radius=10, fg_color=_CARD_BG)
+        status_card.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="ew")
         status_card.grid_columnconfigure(0, weight=1)
 
         ctk.CTkLabel(
@@ -4913,13 +4999,25 @@ class ARKServerManagerApp(ctk.CTk):
         btn_row = ctk.CTkFrame(status_card, fg_color="transparent")
         btn_row.grid(row=4, column=0, padx=12, pady=(0, 12), sticky="w")
 
-        # ── config section (hidden até plugin instalado) ───────────────────────
-        cfg_outer = ctk.CTkFrame(outer, fg_color="transparent")
-        cfg_outer.grid_columnconfigure(0, weight=1)
+        # ══ INNER TABVIEW (row=1, expande para preencher o espaço restante) ══
+        inner_tabs = ctk.CTkTabview(parent, fg_color="transparent")
+        inner_tabs.grid(row=1, column=0, padx=8, pady=(0, 8), sticky="nsew")
+        for _t in ("⚙️ Config", "🛒 Itens", "🎁 Kits", "⏱ Pontos", "🗃️ BD"):
+            inner_tabs.add(_t)
+            inner_tabs.tab(_t).grid_columnconfigure(0, weight=1)
+            inner_tabs.tab(_t).grid_rowconfigure(0, weight=1)
+        inner_tabs.grid_remove()  # oculto até plugin instalado
+
+        # ══ ABA CONFIG — conteúdo fixo, construído uma única vez ═════════════
+        _tab_cfg = inner_tabs.tab("⚙️ Config")
+        _tab_cfg.grid_rowconfigure(0, weight=1)
+        cfg_scroll = ctk.CTkScrollableFrame(_tab_cfg, fg_color="transparent")
+        cfg_scroll.grid(row=0, column=0, sticky="nsew")
+        cfg_scroll.grid_columnconfigure(0, weight=1)
 
         # ══ SETTINGS CARD ═════════════════════════════════════════════════════
-        settings_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
-        settings_card.grid(row=0, column=0, padx=12, pady=(0, 6), sticky="ew")
+        settings_card = ctk.CTkFrame(cfg_scroll, corner_radius=10, fg_color=_CARD_BG)
+        settings_card.grid(row=0, column=0, padx=4, pady=(4, 6), sticky="ew")
         settings_card.grid_columnconfigure(1, weight=1)
         settings_card.grid_columnconfigure(3, weight=1)
 
@@ -5032,74 +5130,503 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkSwitch(settings_card, text="", variable=bv_no_carried, width=48
                       ).grid(row=15, column=3, padx=(0, 16), pady=(3, 12), sticky="w")
 
-        # ══ ITEMS CARD ════════════════════════════════════════════════════════
-        items_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
-        items_card.grid(row=1, column=0, padx=12, pady=(0, 6), sticky="ew")
-        items_card.grid_columnconfigure(0, weight=1)
+        # ── Botões de ação (sub-aba Config) ───────────────────────────────────
+        save_row = ctk.CTkFrame(cfg_scroll, fg_color="transparent")
+        save_row.grid(row=1, column=0, padx=4, pady=(0, 8), sticky="w")
 
-        items_hdr = ctk.CTkFrame(items_card, fg_color="transparent")
-        items_hdr.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
-        items_hdr.grid_columnconfigure(0, weight=1)
+        # ══ ABA ITENS — Treeview + painel de edição único ════════════════════
+        _tab_items = inner_tabs.tab("🛒 Itens")
+        _tab_items.grid_rowconfigure(1, weight=1)
+        _tab_items.grid_rowconfigure(3, weight=0)
+        _tab_items.grid_columnconfigure(0, weight=1)
+
+        # ── Cabeçalho
+        items_hdr = ctk.CTkFrame(_tab_items, fg_color="transparent")
+        items_hdr.grid(row=0, column=0, padx=4, pady=(6, 2), sticky="ew")
+        items_hdr.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(items_hdr, text="🛒  Itens da Loja",
                      font=ctk.CTkFont(size=13, weight="bold"), anchor="w"
-                     ).grid(row=0, column=0, sticky="w")
+                     ).grid(row=0, column=0, padx=(0, 8), sticky="w")
+        sv_items_search = tk.StringVar()
+        ctk.CTkEntry(items_hdr, textvariable=sv_items_search, height=28, width=180,
+                     placeholder_text="🔍 Buscar por ID..."
+                     ).grid(row=0, column=1, sticky="w")
+        ctk.CTkButton(
+            items_hdr, text="+ Item", height=28, width=80,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: _add_new_item(),
+        ).grid(row=0, column=2, padx=(8, 0), sticky="e")
+        ctk.CTkButton(
+            items_hdr, text="🗑 Excluir", height=28, width=90,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            command=lambda: _delete_selected_item(),
+        ).grid(row=0, column=3, padx=(4, 0), sticky="e")
 
-        items_scroll = ctk.CTkScrollableFrame(items_card, fg_color="transparent", height=260)
-        items_scroll.grid(row=1, column=0, padx=8, pady=(0, 4), sticky="ew")
-        items_scroll.grid_columnconfigure(0, weight=1)
+        # ── Treeview de itens (C nativo, sem Canvas CTk)
+        _tv_items_container = tk.Frame(_tab_items, bg="#1e1e2e")
+        _tv_items_container.grid(row=1, column=0, padx=4, pady=(0, 2), sticky="nsew")
+        _tv_items_container.grid_columnconfigure(0, weight=1)
+        _tv_items_container.grid_rowconfigure(0, weight=1)
 
-        # ══ KITS CARD ═════════════════════════════════════════════════════════
-        kits_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
-        kits_card.grid(row=2, column=0, padx=12, pady=(0, 6), sticky="ew")
-        kits_card.grid_columnconfigure(0, weight=1)
+        _items_tv_style = ttk.Style()
+        _items_tv_style.theme_use("default")
+        _items_tv_style.configure("Items.Treeview",
+            background="#252535", foreground="#dddddd",
+            fieldbackground="#252535", rowheight=26, borderwidth=0,
+            font=("Segoe UI", 11))
+        _items_tv_style.configure("Items.Treeview.Heading",
+            background="#1a1a2e", foreground="#9090bb",
+            relief="flat", font=("Segoe UI", 11, "bold"))
+        _items_tv_style.map("Items.Treeview",
+            background=[("selected", "#3a3a6e")],
+            foreground=[("selected", "white")])
 
-        kits_hdr = ctk.CTkFrame(kits_card, fg_color="transparent")
-        kits_hdr.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
-        kits_hdr.grid_columnconfigure(0, weight=1)
+        items_tv = ttk.Treeview(
+            _tv_items_container, style="Items.Treeview",
+            columns=("type", "price"), show="tree headings",
+            selectmode="browse")
+        items_tv.heading("#0", text="ID")
+        items_tv.heading("type", text="Tipo")
+        items_tv.heading("price", text="Preço")
+        items_tv.column("#0", width=220, minwidth=100)
+        items_tv.column("type", width=90, minwidth=60)
+        items_tv.column("price", width=80, minwidth=50)
+        _tv_items_vsb = ttk.Scrollbar(_tv_items_container, orient="vertical",
+                                      command=items_tv.yview)
+        items_tv.configure(yscrollcommand=_tv_items_vsb.set)
+        items_tv.grid(row=0, column=0, sticky="nsew")
+        _tv_items_vsb.grid(row=0, column=1, sticky="ns")
+
+        # ── Separador de painel de edição
+        _items_edit_lbl = ctk.CTkLabel(_tab_items,
+            text="─── Editar Item Selecionado ───",
+            text_color="gray50", font=ctk.CTkFont(size=11))
+        _items_edit_lbl.grid(row=2, column=0, padx=4, pady=(2, 0), sticky="w")
+
+        # ── Painel de edição único (CTkScrollableFrame, altura fixa)
+        items_edit_scroll = ctk.CTkScrollableFrame(_tab_items, fg_color="transparent",
+                                                   height=260)
+        items_edit_scroll.grid(row=3, column=0, padx=4, pady=(0, 4), sticky="ew")
+        items_edit_scroll.grid_columnconfigure(0, weight=1)
+
+        # Vars do painel de edição de itens
+        _sv_ei_id           = tk.StringVar()
+        _sv_ei_price        = tk.StringVar(value="0")
+        _sv_ei_type         = tk.StringVar(value="item")
+        _sv_ei_desc         = tk.StringVar()
+        _sv_ei_bp           = tk.StringVar()
+        _sv_ei_qty          = tk.StringVar(value="1")
+        _sv_ei_qual         = tk.StringVar(value="0.0")
+        _bv_ei_force_bp     = tk.BooleanVar(value=False)
+        _sv_ei_dino_level   = tk.StringVar(value="1")
+        _sv_ei_dino_gender  = tk.StringVar(value="Random")
+        _bv_ei_dino_neutered = tk.BooleanVar(value=False)
+        _edit_item_idx      = [-1]   # [0] = índice em raw_items, -1 = nenhum
+
+        # Linha 0: ID | Tipo | Preço
+        _ei_row0 = ctk.CTkFrame(items_edit_scroll, fg_color="transparent")
+        _ei_row0.grid(row=0, column=0, padx=4, pady=(8, 2), sticky="ew")
+        _ei_row0.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(_ei_row0, text="ID:", text_color="gray55", width=28
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ei_row0, textvariable=_sv_ei_id, height=28
+                     ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ctk.CTkLabel(_ei_row0, text="Tipo:", text_color="gray55", width=38
+                     ).grid(row=0, column=2, padx=(0, 2))
+        _ei_type_om = ctk.CTkOptionMenu(_ei_row0, values=["item", "command", "dino"],
+                                        variable=_sv_ei_type, width=110, height=28)
+        _ei_type_om.grid(row=0, column=3, padx=(0, 8))
+        ctk.CTkLabel(_ei_row0, text="Preço:", text_color="gray55", width=44
+                     ).grid(row=0, column=4, padx=(0, 2))
+        ctk.CTkEntry(_ei_row0, textvariable=_sv_ei_price, height=28, width=80
+                     ).grid(row=0, column=5)
+
+        # Linha 1: Descrição
+        _ei_row1 = ctk.CTkFrame(items_edit_scroll, fg_color="transparent")
+        _ei_row1.grid(row=1, column=0, padx=4, pady=2, sticky="ew")
+        _ei_row1.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(_ei_row1, text="Desc:", text_color="gray55", width=36
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ei_row1, textvariable=_sv_ei_desc, height=28,
+                     placeholder_text="Descrição exibida na loja"
+                     ).grid(row=0, column=1, sticky="ew")
+
+        # ── Seção ITEM (bp/qty/qual/force_bp)
+        _ei_item_frame = ctk.CTkFrame(items_edit_scroll, fg_color="transparent")
+        _ei_item_frame.grid(row=2, column=0, padx=4, pady=2, sticky="ew")
+        _ei_item_frame.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(_ei_item_frame, text="BP:", text_color="gray55", width=28
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ei_item_frame, textvariable=_sv_ei_bp, height=28,
+                     placeholder_text="/Game/PrimalEarth/..."
+                     ).grid(row=0, column=1, columnspan=5, padx=(0, 0), sticky="ew")
+        _ei_qty_row = ctk.CTkFrame(_ei_item_frame, fg_color="transparent")
+        _ei_qty_row.grid(row=1, column=0, columnspan=6, sticky="ew")
+        ctk.CTkLabel(_ei_qty_row, text="Qtd:", text_color="gray55", width=32
+                     ).pack(side="left", padx=(0, 2))
+        ctk.CTkEntry(_ei_qty_row, textvariable=_sv_ei_qty, height=28, width=70
+                     ).pack(side="left", padx=(0, 12))
+        ctk.CTkLabel(_ei_qty_row, text="Qual:", text_color="gray55", width=38
+                     ).pack(side="left", padx=(0, 2))
+        ctk.CTkEntry(_ei_qty_row, textvariable=_sv_ei_qual, height=28, width=70
+                     ).pack(side="left", padx=(0, 12))
+        ctk.CTkCheckBox(_ei_qty_row, text="Forçar BP", variable=_bv_ei_force_bp,
+                        text_color="gray60", height=28
+                        ).pack(side="left")
+
+        # ── Seção DINO (blueprint + nível/gênero/castrado)
+        _ei_dino_frame = ctk.CTkFrame(items_edit_scroll, fg_color="transparent")
+        _ei_dino_frame.grid(row=3, column=0, padx=4, pady=2, sticky="ew")
+        _ei_dino_frame.grid_columnconfigure(1, weight=1)
+        _ei_dino_frame.grid_remove()
+
+        ctk.CTkLabel(_ei_dino_frame, text="BP:", text_color="gray55", width=28
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ei_dino_frame, textvariable=_sv_ei_bp, height=28,
+                     placeholder_text="/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP_C"
+                     ).grid(row=0, column=1, columnspan=5, sticky="ew")
+
+        _ei_dino_row1 = ctk.CTkFrame(_ei_dino_frame, fg_color="transparent")
+        _ei_dino_row1.grid(row=1, column=0, columnspan=6, sticky="ew", pady=(4, 0))
+        ctk.CTkLabel(_ei_dino_row1, text="Nível:", text_color="gray55", width=44
+                     ).pack(side="left", padx=(0, 2))
+        ctk.CTkEntry(_ei_dino_row1, textvariable=_sv_ei_dino_level, height=28, width=70
+                     ).pack(side="left", padx=(0, 14))
+        ctk.CTkLabel(_ei_dino_row1, text="Gênero:", text_color="gray55", width=56
+                     ).pack(side="left", padx=(0, 2))
+        ctk.CTkOptionMenu(_ei_dino_row1,
+                          values=["Random", "Male", "Female"],
+                          variable=_sv_ei_dino_gender, width=110, height=28
+                          ).pack(side="left", padx=(0, 14))
+        ctk.CTkCheckBox(_ei_dino_row1, text="Castrado", variable=_bv_ei_dino_neutered,
+                        text_color="gray60", height=28
+                        ).pack(side="left")
+
+        # ── Seção COMMAND
+        _ei_cmd_frame = ctk.CTkFrame(items_edit_scroll, fg_color="transparent")
+        _ei_cmd_frame.grid(row=4, column=0, padx=4, pady=2, sticky="ew")
+        _ei_cmd_frame.grid_columnconfigure(0, weight=1)
+        _ei_cmd_frame.grid_remove()
+
+        ctk.CTkLabel(_ei_cmd_frame, text="Comandos:", text_color="gray55",
+                     font=ctk.CTkFont(size=11), anchor="w"
+                     ).grid(row=0, column=0, pady=(4, 2), sticky="w")
+        _ei_cmd_list = ctk.CTkFrame(_ei_cmd_frame, fg_color="transparent")
+        _ei_cmd_list.grid(row=1, column=0, sticky="ew")
+        _ei_cmd_list.grid_columnconfigure(0, weight=1)
+        _ei_cmd_rows: list = []
+
+        def _add_ei_cmd_row(command: str = "", display_as: str = "",
+                            exec_admin: bool = True) -> None:
+            cr: dict = {}
+            _ei_cmd_rows.append(cr)
+            cidx = len(_ei_cmd_rows) - 1
+            cf = ctk.CTkFrame(_ei_cmd_list, fg_color="#1e1e2e", corner_radius=4)
+            cf.grid(row=cidx, column=0, pady=1, sticky="ew")
+            cf.grid_columnconfigure(1, weight=1)
+            cf.grid_columnconfigure(3, weight=1)
+            cr["_frame"] = cf
+
+            def _del_cr(c=cr, f=cf):
+                if c in _ei_cmd_rows:
+                    _ei_cmd_rows.remove(c)
+                f.destroy()
+
+            ctk.CTkLabel(cf, text="Cmd:", text_color="gray55", width=36
+                         ).grid(row=0, column=0, padx=(6, 2), pady=3)
+            cr["command"] = tk.StringVar(value=command)
+            ctk.CTkEntry(cf, textvariable=cr["command"], height=26,
+                         placeholder_text="Permissions.AddTimed {steamid} grupo 720"
+                         ).grid(row=0, column=1, padx=(0, 6), pady=3, sticky="ew")
+            ctk.CTkLabel(cf, text="Exibir:", text_color="gray55", width=50
+                         ).grid(row=0, column=2, padx=(4, 2), pady=3)
+            cr["display_as"] = tk.StringVar(value=display_as)
+            ctk.CTkEntry(cf, textvariable=cr["display_as"], height=26, width=140
+                         ).grid(row=0, column=3, padx=(0, 6), pady=3, sticky="ew")
+            cr["exec_as_admin"] = tk.BooleanVar(value=exec_admin)
+            ctk.CTkCheckBox(cf, text="Admin", variable=cr["exec_as_admin"],
+                            text_color="gray60", height=24, width=64
+                            ).grid(row=0, column=4, padx=4, pady=3)
+            ctk.CTkButton(cf, text="✕", width=24, height=24,
+                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                          command=_del_cr).grid(row=0, column=5, padx=(2, 6), pady=3)
+
+        ctk.CTkButton(
+            _ei_cmd_frame, text="+ Comando", height=26, width=120,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: _add_ei_cmd_row(),
+        ).grid(row=2, column=0, pady=(2, 4), sticky="w")
+
+        # Toggle item/command/dino seção ao mudar tipo
+        def _on_ei_type_change(v: str) -> None:
+            _ei_item_frame.grid_remove()
+            _ei_cmd_frame.grid_remove()
+            _ei_dino_frame.grid_remove()
+            if v == "command":
+                _ei_cmd_frame.grid()
+            elif v == "dino":
+                _ei_dino_frame.grid()
+            else:
+                _ei_item_frame.grid()
+        _sv_ei_type.trace_add("write", lambda *_: _on_ei_type_change(_sv_ei_type.get()))
+
+        # ══ ABA KITS — Treeview + painel de edição único ══════════════════════
+        _tab_kits = inner_tabs.tab("🎁 Kits")
+        _tab_kits.grid_rowconfigure(1, weight=1)
+        _tab_kits.grid_rowconfigure(3, weight=0)
+        _tab_kits.grid_columnconfigure(0, weight=1)
+
+        # ── Cabeçalho kits
+        kits_hdr = ctk.CTkFrame(_tab_kits, fg_color="transparent")
+        kits_hdr.grid(row=0, column=0, padx=4, pady=(6, 2), sticky="ew")
+        kits_hdr.grid_columnconfigure(1, weight=1)
         ctk.CTkLabel(kits_hdr, text="🎁  Kits",
                      font=ctk.CTkFont(size=13, weight="bold"), anchor="w"
-                     ).grid(row=0, column=0, sticky="w")
+                     ).grid(row=0, column=0, padx=(0, 8), sticky="w")
+        sv_kits_search = tk.StringVar()
+        ctk.CTkEntry(kits_hdr, textvariable=sv_kits_search, height=28, width=180,
+                     placeholder_text="🔍 Buscar por ID..."
+                     ).grid(row=0, column=1, sticky="w")
+        ctk.CTkButton(
+            kits_hdr, text="+ Kit", height=28, width=80,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: _add_new_kit(),
+        ).grid(row=0, column=2, padx=(8, 0), sticky="e")
+        ctk.CTkButton(
+            kits_hdr, text="🗑 Excluir", height=28, width=90,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            command=lambda: _delete_selected_kit(),
+        ).grid(row=0, column=3, padx=(4, 0), sticky="e")
 
-        kits_scroll = ctk.CTkScrollableFrame(kits_card, fg_color="transparent", height=260)
-        kits_scroll.grid(row=1, column=0, padx=8, pady=(0, 4), sticky="ew")
-        kits_scroll.grid_columnconfigure(0, weight=1)
+        # ── Treeview de kits
+        _tv_kits_container = tk.Frame(_tab_kits, bg="#1e1e2e")
+        _tv_kits_container.grid(row=1, column=0, padx=4, pady=(0, 2), sticky="nsew")
+        _tv_kits_container.grid_columnconfigure(0, weight=1)
+        _tv_kits_container.grid_rowconfigure(0, weight=1)
 
-        # ══ PONTOS POR TEMPO CARD ═══════════════════════════════════════════════
-        timed_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
-        timed_card.grid(row=3, column=0, padx=12, pady=(0, 6), sticky="ew")
-        timed_card.grid_columnconfigure(0, weight=1)
+        _kits_tv_style = ttk.Style()
+        _kits_tv_style.configure("Kits.Treeview",
+            background="#252535", foreground="#dddddd",
+            fieldbackground="#252535", rowheight=26, borderwidth=0,
+            font=("Segoe UI", 11))
+        _kits_tv_style.configure("Kits.Treeview.Heading",
+            background="#1a1a2e", foreground="#9090bb",
+            relief="flat", font=("Segoe UI", 11, "bold"))
+        _kits_tv_style.map("Kits.Treeview",
+            background=[("selected", "#3a3a6e")],
+            foreground=[("selected", "white")])
 
-        timed_hdr = ctk.CTkFrame(timed_card, fg_color="transparent")
-        timed_hdr.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
-        timed_hdr.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(timed_hdr, text="⏱  Pontos por Tempo",
-                     font=ctk.CTkFont(size=13, weight="bold"), anchor="w"
-                     ).grid(row=0, column=0, sticky="w")
+        kits_tv = ttk.Treeview(
+            _tv_kits_container, style="Kits.Treeview",
+            columns=("price", "uses"), show="tree headings",
+            selectmode="browse")
+        kits_tv.heading("#0", text="ID")
+        kits_tv.heading("price", text="Preço")
+        kits_tv.heading("uses", text="Usos")
+        kits_tv.column("#0", width=220, minwidth=100)
+        kits_tv.column("price", width=80, minwidth=50)
+        kits_tv.column("uses", width=70, minwidth=40)
+        _tv_kits_vsb = ttk.Scrollbar(_tv_kits_container, orient="vertical",
+                                     command=kits_tv.yview)
+        kits_tv.configure(yscrollcommand=_tv_kits_vsb.set)
+        kits_tv.grid(row=0, column=0, sticky="nsew")
+        _tv_kits_vsb.grid(row=0, column=1, sticky="ns")
 
-        timed_settings_frame = ctk.CTkFrame(timed_card, fg_color="transparent")
-        timed_settings_frame.grid(row=1, column=0, padx=16, pady=(0, 8), sticky="ew")
+        # ── Separador de edição
+        ctk.CTkLabel(_tab_kits,
+            text="─── Editar Kit Selecionado ───",
+            text_color="gray50", font=ctk.CTkFont(size=11)
+            ).grid(row=2, column=0, padx=4, pady=(2, 0), sticky="w")
+
+        # ── Painel de edição único de kits
+        kits_edit_scroll = ctk.CTkScrollableFrame(_tab_kits, fg_color="transparent",
+                                                   height=300)
+        kits_edit_scroll.grid(row=3, column=0, padx=4, pady=(0, 4), sticky="ew")
+        kits_edit_scroll.grid_columnconfigure(0, weight=1)
+
+        # Vars do painel de edição de kits
+        _sv_ek_id    = tk.StringVar()
+        _sv_ek_price = tk.StringVar(value="0")
+        _sv_ek_amount = tk.StringVar(value="1")
+        _sv_ek_desc  = tk.StringVar()
+        _sv_ek_perms = tk.StringVar()
+        _edit_kit_idx = [-1]
+
+        # Linha 0: ID | Preço | Usos
+        _ek_row0 = ctk.CTkFrame(kits_edit_scroll, fg_color="transparent")
+        _ek_row0.grid(row=0, column=0, padx=4, pady=(8, 2), sticky="ew")
+        _ek_row0.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(_ek_row0, text="ID:", text_color="gray55", width=28
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ek_row0, textvariable=_sv_ek_id, height=28
+                     ).grid(row=0, column=1, padx=(0, 8), sticky="ew")
+        ctk.CTkLabel(_ek_row0, text="Preço:", text_color="gray55", width=46
+                     ).grid(row=0, column=2, padx=(0, 2))
+        ctk.CTkEntry(_ek_row0, textvariable=_sv_ek_price, height=28, width=80
+                     ).grid(row=0, column=3, padx=(0, 8))
+        ctk.CTkLabel(_ek_row0, text="Usos:", text_color="gray55", width=38
+                     ).grid(row=0, column=4, padx=(0, 2))
+        ctk.CTkEntry(_ek_row0, textvariable=_sv_ek_amount, height=28, width=70
+                     ).grid(row=0, column=5)
+
+        # Linha 1: Descrição
+        _ek_row1 = ctk.CTkFrame(kits_edit_scroll, fg_color="transparent")
+        _ek_row1.grid(row=1, column=0, padx=4, pady=2, sticky="ew")
+        _ek_row1.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(_ek_row1, text="Desc:", text_color="gray55", width=36
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ek_row1, textvariable=_sv_ek_desc, height=28,
+                     placeholder_text="Descrição exibida na loja"
+                     ).grid(row=0, column=1, sticky="ew")
+
+        # Linha 2: Permissões
+        _ek_row2 = ctk.CTkFrame(kits_edit_scroll, fg_color="transparent")
+        _ek_row2.grid(row=2, column=0, padx=4, pady=2, sticky="ew")
+        _ek_row2.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(_ek_row2, text="Perms:", text_color="gray55", width=46
+                     ).grid(row=0, column=0, padx=(0, 2))
+        ctk.CTkEntry(_ek_row2, textvariable=_sv_ek_perms, height=28,
+                     placeholder_text="VIPOuro, Staff (vírgula)"
+                     ).grid(row=0, column=1, sticky="ew")
+
+        # Itens do kit
+        ctk.CTkLabel(kits_edit_scroll, text="Itens do Kit:",
+                     text_color="gray55", font=ctk.CTkFont(size=11), anchor="w"
+                     ).grid(row=3, column=0, padx=4, pady=(6, 2), sticky="w")
+        _ek_kit_items_frame = ctk.CTkFrame(kits_edit_scroll, fg_color="transparent")
+        _ek_kit_items_frame.grid(row=4, column=0, padx=4, pady=(0, 2), sticky="ew")
+        _ek_kit_items_frame.grid_columnconfigure(0, weight=1)
+        _ek_kit_item_rows: list = []
+
+        def _add_ek_kit_item(ki_type="item", bp="", qty=1, qual=0.0, force_bp=False,
+                             level=1, gender="Random", neutered=False) -> None:
+            ki: dict = {}
+            _ek_kit_item_rows.append(ki)
+            kidx = len(_ek_kit_item_rows) - 1
+            kif = ctk.CTkFrame(_ek_kit_items_frame, fg_color="#1e1e2e", corner_radius=4)
+            kif.grid(row=kidx, column=0, pady=1, sticky="ew")
+            kif.grid_columnconfigure(2, weight=1)
+            ki["_frame"] = kif
+
+            def _del_ki(k=ki, f=kif):
+                if k in _ek_kit_item_rows:
+                    _ek_kit_item_rows.remove(k)
+                f.destroy()
+
+            # Tipo (item | dino)
+            ki["type"] = tk.StringVar(value=ki_type)
+            ctk.CTkLabel(kif, text="Tipo:", text_color="gray55", width=36
+                         ).grid(row=0, column=0, padx=(6, 2), pady=(4, 2))
+            _ki_type_om = ctk.CTkOptionMenu(
+                kif, values=["item", "dino"],
+                variable=ki["type"], width=80, height=24,
+            )
+            _ki_type_om.grid(row=0, column=1, padx=(0, 6), pady=(4, 2))
+
+            # Blueprint (compartilhado)
+            ctk.CTkLabel(kif, text="BP:", text_color="gray55", width=28
+                         ).grid(row=0, column=2, padx=(0, 2), pady=(4, 2))
+            ki["bp"] = tk.StringVar(value=bp)
+            ctk.CTkEntry(kif, textvariable=ki["bp"], height=24,
+                         placeholder_text="/Game/..."
+                         ).grid(row=0, column=3, padx=(0, 4), pady=(4, 2), sticky="ew")
+            ctk.CTkButton(kif, text="✕", width=24, height=24,
+                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                          command=_del_ki).grid(row=0, column=4, padx=(0, 6), pady=(4, 2))
+
+            # ── sub-frame ITEM (qty/qual/force_bp)
+            ki_item_sub = ctk.CTkFrame(kif, fg_color="transparent")
+            ki_item_sub.grid(row=1, column=0, columnspan=5, padx=6, pady=(0, 4), sticky="w")
+            ki["qty"] = tk.StringVar(value=str(qty))
+            ki["qual"] = tk.StringVar(value=str(qual))
+            ki["force_bp"] = tk.BooleanVar(value=force_bp)
+            ctk.CTkLabel(ki_item_sub, text="Qtd:", text_color="gray55", width=30
+                         ).pack(side="left", padx=(0, 2))
+            ctk.CTkEntry(ki_item_sub, textvariable=ki["qty"], height=24, width=54
+                         ).pack(side="left", padx=(0, 10))
+            ctk.CTkLabel(ki_item_sub, text="Qual:", text_color="gray55", width=34
+                         ).pack(side="left", padx=(0, 2))
+            ctk.CTkEntry(ki_item_sub, textvariable=ki["qual"], height=24, width=54
+                         ).pack(side="left", padx=(0, 10))
+            ctk.CTkCheckBox(ki_item_sub, text="Forçar BP", variable=ki["force_bp"],
+                            text_color="gray60", height=24
+                            ).pack(side="left")
+
+            # ── sub-frame DINO (level/gender/neutered)
+            ki_dino_sub = ctk.CTkFrame(kif, fg_color="transparent")
+            ki_dino_sub.grid(row=1, column=0, columnspan=5, padx=6, pady=(0, 4), sticky="w")
+            ki["level"] = tk.StringVar(value=str(level))
+            ki["gender"] = tk.StringVar(value=gender)
+            ki["neutered"] = tk.BooleanVar(value=neutered)
+            ctk.CTkLabel(ki_dino_sub, text="Nível:", text_color="gray55", width=40
+                         ).pack(side="left", padx=(0, 2))
+            ctk.CTkEntry(ki_dino_sub, textvariable=ki["level"], height=24, width=60
+                         ).pack(side="left", padx=(0, 10))
+            ctk.CTkLabel(ki_dino_sub, text="Gênero:", text_color="gray55", width=54
+                         ).pack(side="left", padx=(0, 2))
+            ctk.CTkOptionMenu(ki_dino_sub, values=["Random", "Male", "Female"],
+                              variable=ki["gender"], width=100, height=24
+                              ).pack(side="left", padx=(0, 10))
+            ctk.CTkCheckBox(ki_dino_sub, text="Castrado", variable=ki["neutered"],
+                            text_color="gray60", height=24
+                            ).pack(side="left")
+
+            def _toggle_ki_type(v: str, isub=ki_item_sub, dsub=ki_dino_sub) -> None:
+                if v == "dino":
+                    isub.grid_remove()
+                    dsub.grid()
+                else:
+                    dsub.grid_remove()
+                    isub.grid()
+
+            ki["type"].trace_add("write", lambda *_, t=ki["type"]: _toggle_ki_type(t.get()))
+            _toggle_ki_type(ki_type)  # estado inicial
+
+        ctk.CTkButton(
+            kits_edit_scroll, text="+ Item no Kit", height=26, width=130,
+            fg_color="#3a3a5a", hover_color="#252540",
+            command=lambda: _add_ek_kit_item(),
+        ).grid(row=5, column=0, padx=4, pady=(2, 4), sticky="w")
+
+        # Comandos do kit
+        ctk.CTkLabel(kits_edit_scroll, text="Comandos (um por linha):",
+                     text_color="gray55", font=ctk.CTkFont(size=11), anchor="w"
+                     ).grid(row=6, column=0, padx=4, pady=(4, 2), sticky="w")
+        _ek_commands_tb = ctk.CTkTextbox(kits_edit_scroll, height=56)
+        _ek_commands_tb.grid(row=7, column=0, padx=4, pady=(0, 8), sticky="ew")
+
+        # ══ ABA PONTOS ════════════════════════════════════════════════════════
+        _tab_pontos = inner_tabs.tab("⏱ Pontos")
+        _tab_pontos.grid_rowconfigure(2, weight=1)
+
+        timed_settings_frame = ctk.CTkFrame(_tab_pontos, fg_color=_CARD_BG, corner_radius=10)
+        timed_settings_frame.grid(row=0, column=0, padx=4, pady=(4, 4), sticky="ew")
+
+        ctk.CTkLabel(timed_settings_frame, text="⏱  Pontos por Tempo",
+                     font=ctk.CTkFont(size=13, weight="bold"), anchor="w",
+                     ).grid(row=0, column=0, columnspan=6, padx=16, pady=(10, 6), sticky="w")
 
         bv_timed_enabled  = tk.BooleanVar(value=True)
         sv_timed_interval = tk.StringVar(value="30")
         bv_timed_stack    = tk.BooleanVar(value=True)
 
         ctk.CTkLabel(timed_settings_frame, text="Ativar:", text_color="gray60",
-                     width=50, anchor="w").grid(row=0, column=0, padx=(0, 4), pady=4, sticky="w")
+                     width=50, anchor="w").grid(row=1, column=0, padx=(16, 4), pady=(0, 8), sticky="w")
         ctk.CTkSwitch(timed_settings_frame, text="", variable=bv_timed_enabled, width=48
-                      ).grid(row=0, column=1, padx=(0, 20), pady=4, sticky="w")
+                      ).grid(row=1, column=1, padx=(0, 20), pady=(0, 8), sticky="w")
 
         ctk.CTkLabel(timed_settings_frame, text="Intervalo (s):", text_color="gray60",
-                     width=90, anchor="w").grid(row=0, column=2, padx=(0, 4), pady=4, sticky="w")
+                     width=90, anchor="w").grid(row=1, column=2, padx=(0, 4), pady=(0, 8), sticky="w")
         ctk.CTkEntry(timed_settings_frame, textvariable=sv_timed_interval, height=28, width=70
-                     ).grid(row=0, column=3, padx=(0, 20), pady=4, sticky="w")
+                     ).grid(row=1, column=3, padx=(0, 20), pady=(0, 8), sticky="w")
 
         ctk.CTkLabel(timed_settings_frame, text="Acumular:", text_color="gray60",
-                     width=70, anchor="w").grid(row=0, column=4, padx=(0, 4), pady=4, sticky="w")
+                     width=70, anchor="w").grid(row=1, column=4, padx=(0, 4), pady=(0, 8), sticky="w")
         ctk.CTkSwitch(timed_settings_frame, text="", variable=bv_timed_stack, width=48
-                      ).grid(row=0, column=5, pady=4, sticky="w")
+                      ).grid(row=1, column=5, pady=(0, 8), sticky="w")
 
-        timed_groups_hdr = ctk.CTkFrame(timed_card, fg_color="transparent")
-        timed_groups_hdr.grid(row=2, column=0, padx=12, pady=(0, 2), sticky="ew")
+        timed_groups_hdr = ctk.CTkFrame(_tab_pontos, fg_color="transparent")
+        timed_groups_hdr.grid(row=1, column=0, padx=4, pady=(0, 2), sticky="ew")
         timed_groups_hdr.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(timed_groups_hdr, text="Grupos (pontos recebidos por grupo):",
                      text_color="gray60", font=ctk.CTkFont(size=11), anchor="w"
@@ -5110,13 +5637,15 @@ class ARKServerManagerApp(ctk.CTk):
             command=lambda: _add_timed_group(),
         ).grid(row=0, column=1, sticky="e")
 
-        groups_scroll = ctk.CTkScrollableFrame(timed_card, fg_color="transparent", height=160)
-        groups_scroll.grid(row=3, column=0, padx=8, pady=(0, 8), sticky="ew")
+        groups_scroll = ctk.CTkScrollableFrame(_tab_pontos, fg_color="transparent")
+        groups_scroll.grid(row=2, column=0, padx=4, pady=(0, 4), sticky="nsew")
         groups_scroll.grid_columnconfigure(0, weight=1)
 
-        # ══ DATABASE CARD ══════════════════════════════════════════════════════
-        db_card = ctk.CTkFrame(cfg_outer, corner_radius=10, fg_color=_CARD_BG)
-        db_card.grid(row=4, column=0, padx=12, pady=(0, 6), sticky="ew")
+        # ══ ABA BD ════════════════════════════════════════════════════════════
+        _tab_bd = inner_tabs.tab("🗃️ BD")
+
+        db_card = ctk.CTkFrame(_tab_bd, corner_radius=10, fg_color=_CARD_BG)
+        db_card.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
         db_card.grid_columnconfigure(1, weight=1)
         db_card.grid_columnconfigure(3, weight=1)
 
@@ -5158,319 +5687,303 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkEntry(db_card, textvariable=sv_db_name, height=28, width=180
                      ).grid(row=3, column=1, padx=(0, 10), pady=(3, 12), sticky="w")
 
-        # ══ BOTÕES FINAIS ══════════════════════════════════════════════════════
-        save_row = ctk.CTkFrame(cfg_outer, fg_color="transparent")
-        save_row.grid(row=5, column=0, padx=16, pady=(0, 12), sticky="w")
+        # ── paginação: helpers de coleta ──────────────────────────────────────
+        # ── Helpers: items (Treeview + painel único) ─────────────────────────
 
-        # ── helpers de linha de item ───────────────────────────────────────────
-        def _add_item_row(item_id: str = "", data: dict | None = None) -> None:
-            data = data or {}
-            row: dict = {}
-            _state["items_rows"].append(row)
-            idx = len(_state["items_rows"]) - 1
+        def _collect_edit_item() -> tuple[str, dict]:
+            """Lê o painel de edição de item e retorna (id, data)."""
+            iid = _sv_ei_id.get().strip()
+            try:
+                price = int(_sv_ei_price.get())
+            except ValueError:
+                price = 0
+            item_type = _sv_ei_type.get()
+            desc = _sv_ei_desc.get().strip()
+            if item_type == "command":
+                cmd_items = []
+                for cr in _ei_cmd_rows:
+                    cmd = cr["command"].get().strip()
+                    if cmd:
+                        cmd_items.append({
+                            "Command":        cmd,
+                            "DisplayAs":      cr["display_as"].get().strip(),
+                            "ExecuteAsAdmin": cr["exec_as_admin"].get(),
+                        })
+                return iid, {"Type": "command", "Price": price,
+                              "Description": desc, "Items": cmd_items}
+            elif item_type == "dino":
+                try:
+                    level = int(_sv_ei_dino_level.get())
+                except ValueError:
+                    level = 1
+                return iid, {"Type": "dino", "Price": price, "Description": desc,
+                              "Blueprint": _sv_ei_bp.get().strip(),
+                              "Level": level,
+                              "Gender": _sv_ei_dino_gender.get(),
+                              "Neutered": _bv_ei_dino_neutered.get()}
+            else:
+                try:
+                    qty = int(_sv_ei_qty.get())
+                except ValueError:
+                    qty = 1
+                try:
+                    qual = float(_sv_ei_qual.get())
+                except ValueError:
+                    qual = 0.0
+                return iid, {"Type": "item", "Price": price, "Description": desc,
+                              "Blueprint": _sv_ei_bp.get().strip(), "Quantity": qty,
+                              "Quality": qual, "ForceBlueprint": _bv_ei_force_bp.get()}
 
-            card = ctk.CTkFrame(items_scroll, corner_radius=8,
-                                fg_color="#252535", border_width=1, border_color="#3a3a55")
-            card.grid(row=idx, column=0, padx=2, pady=(0, 6), sticky="ew")
-            card.grid_columnconfigure((1, 3, 5), weight=1)
-            row["_card"] = card
+        def _save_item_edit() -> None:
+            """Salva edição atual em raw_items (sem interação com widgets de lista)."""
+            idx = _edit_item_idx[0]
+            if 0 <= idx < len(_state["raw_items"]):
+                _state["raw_items"][idx] = _collect_edit_item()
 
-            def _del(r=row, c=card):
-                if r in _state["items_rows"]:
-                    _state["items_rows"].remove(r)
-                c.destroy()
+        def _load_item_edit(idx: int) -> None:
+            """Carrega item do raw_items no painel de edição."""
+            _save_item_edit()
+            _edit_item_idx[0] = idx
+            if idx < 0 or idx >= len(_state["raw_items"]):
+                return
+            item_id, data = _state["raw_items"][idx]
+            _sv_ei_id.set(str(item_id))
+            _sv_ei_price.set(str(data.get("Price", 0)))
+            item_type = data.get("Type", "item")
+            _sv_ei_type.set(item_type)
+            _sv_ei_desc.set(data.get("Description", ""))
+            _sv_ei_bp.set(data.get("Blueprint", ""))
+            _sv_ei_qty.set(str(data.get("Quantity", 1)))
+            _sv_ei_qual.set(str(data.get("Quality", 0.0)))
+            _bv_ei_force_bp.set(bool(data.get("ForceBlueprint", False)))
+            _sv_ei_dino_level.set(str(data.get("Level", 1)))
+            _sv_ei_dino_gender.set(data.get("Gender", "Random"))
+            _bv_ei_dino_neutered.set(bool(data.get("Neutered", False)))
+            _on_ei_type_change(item_type)
+            # Rebuild cmd rows
+            for cr in list(_ei_cmd_rows):
+                cr["_frame"].destroy()
+            _ei_cmd_rows.clear()
+            if item_type == "command":
+                for ci in data.get("Items", []):
+                    if isinstance(ci, dict) and "Command" in ci:
+                        _add_ei_cmd_row(ci.get("Command", ""),
+                                        ci.get("DisplayAs", ""),
+                                        bool(ci.get("ExecuteAsAdmin", True)))
 
-            # Linha 0: ID | Tipo | Preço | [Del]
-            ctk.CTkLabel(card, text="ID:", text_color="gray55", width=28
-                         ).grid(row=0, column=0, padx=(8, 2), pady=(8, 2))
-            row["id"] = tk.StringVar(value=item_id)
-            ctk.CTkEntry(card, textvariable=row["id"], height=28, width=160
-                         ).grid(row=0, column=1, padx=(0, 6), pady=(8, 2), sticky="ew")
+        def _populate_items_tv() -> None:
+            """Popula o Treeview de itens aplicando filtro de busca."""
+            for row in items_tv.get_children():
+                items_tv.delete(row)
+            query = sv_items_search.get().strip().lower()
+            for idx, (item_id, data) in enumerate(_state["raw_items"]):
+                if query and query not in str(item_id).lower():
+                    continue
+                items_tv.insert("", "end", iid=str(idx),
+                                text=str(item_id),
+                                values=(data.get("Type", "item"),
+                                        data.get("Price", 0)))
 
-            ctk.CTkLabel(card, text="Tipo:", text_color="gray55", width=36
-                         ).grid(row=0, column=2, padx=(4, 2), pady=(8, 2))
-            row["type"] = tk.StringVar(value=data.get("Type", "item"))
-            _type_om = ctk.CTkOptionMenu(card, values=["item", "command"],
-                                         width=100, height=28,
-                                         command=lambda v: (
-                                             row["type"].set(v),
-                                             (item_frame.grid_remove(), cmd_frame.grid())
-                                             if v == "command" else
-                                             (cmd_frame.grid_remove(), item_frame.grid())
-                                         ),
-                                         )
-            _type_om.set(data.get("Type", "item"))
-            _type_om.grid(row=0, column=3, padx=(0, 6), pady=(8, 2), sticky="w")
+        def _on_items_tv_select(event=None) -> None:
+            sel = items_tv.selection()
+            if not sel:
+                return
+            try:
+                _load_item_edit(int(sel[0]))
+            except (ValueError, IndexError):
+                pass
 
-            ctk.CTkLabel(card, text="Preço:", text_color="gray55", width=44
-                         ).grid(row=0, column=4, padx=(4, 2), pady=(8, 2))
-            row["price"] = tk.StringVar(value=str(data.get("Price", 10)))
-            ctk.CTkEntry(card, textvariable=row["price"], height=28, width=70
-                         ).grid(row=0, column=5, padx=(0, 4), pady=(8, 2), sticky="w")
+        items_tv.bind("<<TreeviewSelect>>", _on_items_tv_select)
+        items_tv.bind("<Delete>", lambda e: _delete_selected_item())
+        sv_items_search.trace_add("write", lambda *_: _populate_items_tv())
 
-            ctk.CTkButton(card, text="🗑", width=30, height=28,
-                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
-                          command=_del).grid(row=0, column=6, padx=(4, 8), pady=(8, 2))
+        def _add_new_item() -> None:
+            _save_item_edit()
+            _state["raw_items"].append(("", {}))
+            new_idx = len(_state["raw_items"]) - 1
+            _populate_items_tv()
+            items_tv.selection_set(str(new_idx))
+            items_tv.see(str(new_idx))
+            _load_item_edit(new_idx)
 
-            # Linha 1: Descrição
-            ctk.CTkLabel(card, text="Desc:", text_color="gray55", width=36
-                         ).grid(row=1, column=0, padx=(8, 2), pady=2)
-            row["desc"] = tk.StringVar(value=data.get("Description", ""))
-            ctk.CTkEntry(card, textvariable=row["desc"], height=28,
-                         placeholder_text="Descrição exibida na loja"
-                         ).grid(row=1, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
+        def _delete_selected_item() -> None:
+            sel = items_tv.selection()
+            if not sel:
+                return
+            try:
+                idx = int(sel[0])
+            except ValueError:
+                return
+            if 0 <= idx < len(_state["raw_items"]):
+                _state["raw_items"].pop(idx)
+            _edit_item_idx[0] = -1
+            _populate_items_tv()
+            total = len(_state["raw_items"])
+            if total > 0:
+                new_idx = min(idx, total - 1)
+                items_tv.selection_set(str(new_idx))
+                _load_item_edit(new_idx)
 
-            # ── Modo ITEM (BP + Qtd/Qual/ForceBP) ────────────────────────────────
-            item_frame = ctk.CTkFrame(card, fg_color="transparent")
-            item_frame.grid(row=2, column=0, columnspan=7, padx=0, pady=0, sticky="ew")
-            item_frame.grid_columnconfigure((1, 3, 5), weight=1)
+        def _collect_items_page() -> None:
+            """Salva a edição atual do painel de itens em raw_items."""
+            _save_item_edit()
 
-            ctk.CTkLabel(item_frame, text="BP:", text_color="gray55", width=28
-                         ).grid(row=0, column=0, padx=(8, 2), pady=2)
-            row["bp"] = tk.StringVar(value=data.get("Blueprint", ""))
-            ctk.CTkEntry(item_frame, textvariable=row["bp"], height=28,
-                         placeholder_text="/Game/PrimalEarth/..."
-                         ).grid(row=0, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
+        # ── Helpers: kits (Treeview + painel único) ───────────────────────────
 
-            ctk.CTkLabel(item_frame, text="Qtd:", text_color="gray55", width=32
-                         ).grid(row=1, column=0, padx=(8, 2), pady=(2, 8))
-            row["qty"] = tk.StringVar(value=str(data.get("Quantity", 1)))
-            ctk.CTkEntry(item_frame, textvariable=row["qty"], height=28, width=60
-                         ).grid(row=1, column=1, padx=(0, 6), pady=(2, 8), sticky="w")
+        def _collect_edit_kit() -> tuple[str, dict]:
+            """Lê o painel de edição de kit e retorna (id, data)."""
+            kid = _sv_ek_id.get().strip()
+            try:
+                price = int(_sv_ek_price.get())
+            except ValueError:
+                price = 0
+            try:
+                amount = int(_sv_ek_amount.get())
+            except ValueError:
+                amount = 1
+            desc = _sv_ek_desc.get().strip()
+            perms_raw = _sv_ek_perms.get().strip()
+            perms = [p.strip() for p in perms_raw.split(",") if p.strip()]
+            cmds_raw = _ek_commands_tb.get("1.0", "end").strip()
+            cmds = [c for c in cmds_raw.splitlines() if c.strip()]
+            kit_items = []
+            for ki in _ek_kit_item_rows:
+                ki_type = ki["type"].get()
+                if ki_type == "dino":
+                    try:
+                        ki_lvl = int(ki["level"].get())
+                    except ValueError:
+                        ki_lvl = 1
+                    kit_items.append({
+                        "Type":      "dino",
+                        "Blueprint": ki["bp"].get().strip(),
+                        "Level":     ki_lvl,
+                        "Gender":    ki["gender"].get(),
+                        "Neutered":  ki["neutered"].get(),
+                    })
+                else:
+                    try:
+                        ki_qty = int(ki["qty"].get())
+                    except ValueError:
+                        ki_qty = 1
+                    try:
+                        ki_qual = float(ki["qual"].get())
+                    except ValueError:
+                        ki_qual = 0.0
+                    kit_items.append({
+                        "Blueprint":      ki["bp"].get().strip(),
+                        "Quantity":       ki_qty,
+                        "Quality":        ki_qual,
+                        "ForceBlueprint": ki["force_bp"].get(),
+                    })
+            data: dict = {
+                "Price":         price,
+                "Description":   desc,
+                "DefaultAmount": amount,
+                "Items":         kit_items,
+                "Commands":      cmds,
+            }
+            if perms:
+                data["Permissions"] = perms
+            return kid, data
 
-            ctk.CTkLabel(item_frame, text="Qual:", text_color="gray55", width=38
-                         ).grid(row=1, column=2, padx=(4, 2), pady=(2, 8))
-            row["qual"] = tk.StringVar(value=str(data.get("Quality", 0.0)))
-            ctk.CTkEntry(item_frame, textvariable=row["qual"], height=28, width=60
-                         ).grid(row=1, column=3, padx=(0, 6), pady=(2, 8), sticky="w")
+        def _save_kit_edit() -> None:
+            idx = _edit_kit_idx[0]
+            if 0 <= idx < len(_state["raw_kits"]):
+                _state["raw_kits"][idx] = _collect_edit_kit()
 
-            row["force_bp"] = tk.BooleanVar(value=bool(data.get("ForceBlueprint", False)))
-            ctk.CTkCheckBox(item_frame, text="Forçar BP", variable=row["force_bp"],
-                            text_color="gray60", height=28
-                            ).grid(row=1, column=4, columnspan=2, padx=4, pady=(2, 8), sticky="w")
-
-            # ── Modo COMMAND (lista Command / DisplayAs / ExecuteAsAdmin) ─────────────
-            cmd_frame = ctk.CTkFrame(card, fg_color="transparent")
-            cmd_frame.grid(row=2, column=0, columnspan=7, padx=0, pady=0, sticky="ew")
-            cmd_frame.grid_columnconfigure(0, weight=1)
-            cmd_frame.grid_remove()
-
-            row["cmd_rows"] = []
-
-            ctk.CTkLabel(cmd_frame, text="Comandos:", text_color="gray55",
-                         font=ctk.CTkFont(size=11), anchor="w"
-                         ).grid(row=0, column=0, padx=(10, 0), pady=(6, 2), sticky="w")
-
-            cmd_list = ctk.CTkFrame(cmd_frame, fg_color="transparent")
-            cmd_list.grid(row=1, column=0, padx=8, pady=(0, 2), sticky="ew")
-            cmd_list.grid_columnconfigure(1, weight=1)
-            cmd_list.grid_columnconfigure(3, weight=1)
-
-            def _add_cmd_row(command: str = "", display_as: str = "",
-                             exec_admin: bool = True) -> None:
-                cr: dict = {}
-                row["cmd_rows"].append(cr)
-                cidx = len(row["cmd_rows"]) - 1
-
-                cf = ctk.CTkFrame(cmd_list, fg_color="#1e1e2e", corner_radius=4)
-                cf.grid(row=cidx, column=0, columnspan=6, padx=0, pady=1, sticky="ew")
-                cf.grid_columnconfigure(1, weight=1)
-                cf.grid_columnconfigure(3, weight=1)
-                cr["_frame"] = cf
-
-                def _del_cr(c=cr, f=cf):
-                    if c in row["cmd_rows"]:
-                        row["cmd_rows"].remove(c)
-                    f.destroy()
-
-                ctk.CTkLabel(cf, text="Cmd:", text_color="gray55", width=36
-                             ).grid(row=0, column=0, padx=(6, 2), pady=3)
-                cr["command"] = tk.StringVar(value=command)
-                ctk.CTkEntry(cf, textvariable=cr["command"], height=26,
-                             placeholder_text="Permissions.AddTimed {steamid} grupo 720"
-                             ).grid(row=0, column=1, padx=(0, 6), pady=3, sticky="ew")
-
-                ctk.CTkLabel(cf, text="Exibir como:", text_color="gray55", width=82
-                             ).grid(row=0, column=2, padx=(4, 2), pady=3)
-                cr["display_as"] = tk.StringVar(value=display_as)
-                ctk.CTkEntry(cf, textvariable=cr["display_as"], height=26, width=160
-                             ).grid(row=0, column=3, padx=(0, 6), pady=3, sticky="ew")
-
-                cr["exec_as_admin"] = tk.BooleanVar(value=exec_admin)
-                ctk.CTkCheckBox(cf, text="Admin", variable=cr["exec_as_admin"],
-                                text_color="gray60", height=24, width=64
-                                ).grid(row=0, column=4, padx=4, pady=3)
-
-                ctk.CTkButton(cf, text="✕", width=24, height=24,
-                              fg_color=_RED_DARK, hover_color=_RED_HOVER,
-                              command=_del_cr).grid(row=0, column=5, padx=(2, 6), pady=3)
-
-            ctk.CTkButton(
-                cmd_frame, text="+ Comando", height=26, width=120,
-                fg_color="#3a3a5a", hover_color="#252540",
-                command=lambda: _add_cmd_row(),
-            ).grid(row=2, column=0, padx=8, pady=(0, 6), sticky="w")
-
-            # Popula cmd_rows se tipo=command e Items existirem
-            for ci in data.get("Items", []):
-                if isinstance(ci, dict) and "Command" in ci:
-                    _add_cmd_row(
-                        command=ci.get("Command", ""),
-                        display_as=ci.get("DisplayAs", ""),
-                        exec_admin=bool(ci.get("ExecuteAsAdmin", True)),
+        def _load_kit_edit(idx: int) -> None:
+            _save_kit_edit()
+            _edit_kit_idx[0] = idx
+            if idx < 0 or idx >= len(_state["raw_kits"]):
+                return
+            kit_id, data = _state["raw_kits"][idx]
+            _sv_ek_id.set(str(kit_id))
+            _sv_ek_price.set(str(data.get("Price", 0)))
+            _sv_ek_amount.set(str(data.get("DefaultAmount", 1)))
+            _sv_ek_desc.set(data.get("Description", ""))
+            perms = data.get("Permissions", [])
+            _sv_ek_perms.set(perms if isinstance(perms, str) else ", ".join(perms))
+            _ek_commands_tb.delete("1.0", "end")
+            for cmd in data.get("Commands", []):
+                _ek_commands_tb.insert("end", cmd + "\n")
+            # Rebuild kit item rows
+            for ki in list(_ek_kit_item_rows):
+                ki["_frame"].destroy()
+            _ek_kit_item_rows.clear()
+            for ki_data in data.get("Items", []):
+                if ki_data.get("Type") == "dino":
+                    _add_ek_kit_item(
+                        ki_type="dino",
+                        bp=ki_data.get("Blueprint", ""),
+                        level=ki_data.get("Level", 1),
+                        gender=ki_data.get("Gender", "Random"),
+                        neutered=bool(ki_data.get("Neutered", False)),
+                    )
+                else:
+                    _add_ek_kit_item(
+                        ki_type="item",
+                        bp=ki_data.get("Blueprint", ""),
+                        qty=ki_data.get("Quantity", 1),
+                        qual=ki_data.get("Quality", 0.0),
+                        force_bp=bool(ki_data.get("ForceBlueprint", False)),
                     )
 
-            # ── Toggle automático ao mudar tipo ─────────────────────────────────
-            def _on_type_change_init() -> None:
-                if row["type"].get() == "command":
-                    item_frame.grid_remove()
-                    cmd_frame.grid()
-                else:
-                    cmd_frame.grid_remove()
-                    item_frame.grid()
+        def _populate_kits_tv() -> None:
+            for row in kits_tv.get_children():
+                kits_tv.delete(row)
+            query = sv_kits_search.get().strip().lower()
+            for idx, (kit_id, data) in enumerate(_state["raw_kits"]):
+                if query and query not in str(kit_id).lower():
+                    continue
+                kits_tv.insert("", "end", iid=str(idx),
+                               text=str(kit_id),
+                               values=(data.get("Price", 0),
+                                       data.get("DefaultAmount", 1)))
 
-            _on_type_change_init()  # aplica estado inicial
+        def _on_kits_tv_select(event=None) -> None:
+            sel = kits_tv.selection()
+            if not sel:
+                return
+            try:
+                _load_kit_edit(int(sel[0]))
+            except (ValueError, IndexError):
+                pass
 
-        # ── helpers de linha de kit ────────────────────────────────────────────
-        def _add_kit_row(kit_id: str = "", data: dict | None = None) -> None:
-            data = data or {}
-            row: dict = {}
-            _state["kits_rows"].append(row)
-            idx = len(_state["kits_rows"]) - 1
+        kits_tv.bind("<<TreeviewSelect>>", _on_kits_tv_select)
+        kits_tv.bind("<Delete>", lambda e: _delete_selected_kit())
+        sv_kits_search.trace_add("write", lambda *_: _populate_kits_tv())
 
-            card = ctk.CTkFrame(kits_scroll, corner_radius=8,
-                                fg_color="#252535", border_width=1, border_color="#3a3a55")
-            card.grid(row=idx, column=0, padx=2, pady=(0, 6), sticky="ew")
-            card.grid_columnconfigure((1, 3), weight=1)
-            row["_card"] = card
+        def _add_new_kit() -> None:
+            _save_kit_edit()
+            _state["raw_kits"].append(("", {}))
+            new_idx = len(_state["raw_kits"]) - 1
+            _populate_kits_tv()
+            kits_tv.selection_set(str(new_idx))
+            kits_tv.see(str(new_idx))
+            _load_kit_edit(new_idx)
 
-            def _del(r=row, c=card):
-                if r in _state["kits_rows"]:
-                    _state["kits_rows"].remove(r)
-                c.destroy()
+        def _delete_selected_kit() -> None:
+            sel = kits_tv.selection()
+            if not sel:
+                return
+            try:
+                idx = int(sel[0])
+            except ValueError:
+                return
+            if 0 <= idx < len(_state["raw_kits"]):
+                _state["raw_kits"].pop(idx)
+            _edit_kit_idx[0] = -1
+            _populate_kits_tv()
+            total = len(_state["raw_kits"])
+            if total > 0:
+                new_idx = min(idx, total - 1)
+                kits_tv.selection_set(str(new_idx))
+                _load_kit_edit(new_idx)
 
-            # Linha 0: ID | Preço | DefaultAmount | [Del]
-            ctk.CTkLabel(card, text="ID:", text_color="gray55", width=28
-                         ).grid(row=0, column=0, padx=(8, 2), pady=(8, 2))
-            row["id"] = tk.StringVar(value=kit_id)
-            ctk.CTkEntry(card, textvariable=row["id"], height=28, width=160
-                         ).grid(row=0, column=1, padx=(0, 6), pady=(8, 2), sticky="ew")
-
-            ctk.CTkLabel(card, text="Preço:", text_color="gray55", width=44
-                         ).grid(row=0, column=2, padx=(4, 2), pady=(8, 2))
-            row["price"] = tk.StringVar(value=str(data.get("Price", 0)))
-            ctk.CTkEntry(card, textvariable=row["price"], height=28, width=70
-                         ).grid(row=0, column=3, padx=(0, 6), pady=(8, 2), sticky="w")
-
-            ctk.CTkLabel(card, text="Usos:", text_color="gray55", width=38
-                         ).grid(row=0, column=4, padx=(4, 2), pady=(8, 2))
-            row["amount"] = tk.StringVar(value=str(data.get("DefaultAmount", 1)))
-            ctk.CTkEntry(card, textvariable=row["amount"], height=28, width=60
-                         ).grid(row=0, column=5, padx=(0, 4), pady=(8, 2), sticky="w")
-
-            ctk.CTkButton(card, text="🗑", width=30, height=28,
-                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
-                          command=_del).grid(row=0, column=6, padx=(4, 8), pady=(8, 2))
-
-            # Linha 1: Descrição
-            ctk.CTkLabel(card, text="Desc:", text_color="gray55", width=36
-                         ).grid(row=1, column=0, padx=(8, 2), pady=2)
-            row["desc"] = tk.StringVar(value=data.get("Description", ""))
-            ctk.CTkEntry(card, textvariable=row["desc"], height=28,
-                         placeholder_text="Descrição exibida na loja"
-                         ).grid(row=1, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
-
-            # Linha 2: Permissões
-            ctk.CTkLabel(card, text="Perms:", text_color="gray55", width=46
-                         ).grid(row=2, column=0, padx=(8, 2), pady=2)
-            _perms = data.get("Permissions", [])
-            row["permissions"] = tk.StringVar(
-                value=_perms if isinstance(_perms, str) else ", ".join(_perms))
-            ctk.CTkEntry(card, textvariable=row["permissions"], height=28,
-                         placeholder_text="Grupos separados por vírgula: VIPOuro, Staff"
-                         ).grid(row=2, column=1, columnspan=5, padx=(0, 8), pady=2, sticky="ew")
-
-            # Linha 3: Itens do kit
-            ctk.CTkLabel(card, text="Itens:", text_color="gray55", font=ctk.CTkFont(size=11),
-                         anchor="w").grid(row=3, column=0, columnspan=7,
-                                          padx=(8, 0), pady=(6, 2), sticky="w")
-            kit_items_frame = ctk.CTkFrame(card, fg_color="transparent")
-            kit_items_frame.grid(row=4, column=0, columnspan=7, padx=8, pady=(0, 4), sticky="ew")
-            kit_items_frame.grid_columnconfigure(1, weight=1)
-
-            row["kit_item_rows"] = []
-
-            def _add_kit_item(bp="", qty=1, qual=0.0, force_bp=False,
-                               parent_frame=kit_items_frame,
-                               kit_item_list=row["kit_item_rows"]):
-                ki: dict = {}
-                kit_item_list.append(ki)
-                kidx = len(kit_item_list) - 1
-
-                kif = ctk.CTkFrame(parent_frame, fg_color="#1e1e2e", corner_radius=4)
-                kif.grid(row=kidx, column=0, columnspan=2, padx=0, pady=1, sticky="ew")
-                kif.grid_columnconfigure(1, weight=1)
-                ki["_frame"] = kif
-
-                def _del_ki(k=ki, kil=kit_item_list, f=kif):
-                    if k in kil:
-                        kil.remove(k)
-                    f.destroy()
-
-                ctk.CTkLabel(kif, text="BP:", text_color="gray55", width=28
-                             ).grid(row=0, column=0, padx=(6, 2), pady=3)
-                ki["bp"] = tk.StringVar(value=bp)
-                ctk.CTkEntry(kif, textvariable=ki["bp"], height=26,
-                             placeholder_text="/Game/..."
-                             ).grid(row=0, column=1, padx=(0, 4), pady=3, sticky="ew")
-
-                ctk.CTkLabel(kif, text="Qtd:", text_color="gray55", width=30
-                             ).grid(row=0, column=2, padx=(4, 2), pady=3)
-                ki["qty"] = tk.StringVar(value=str(qty))
-                ctk.CTkEntry(kif, textvariable=ki["qty"], height=26, width=50
-                             ).grid(row=0, column=3, padx=(0, 4), pady=3, sticky="w")
-
-                ctk.CTkLabel(kif, text="Qual:", text_color="gray55", width=36
-                             ).grid(row=0, column=4, padx=(4, 2), pady=3)
-                ki["qual"] = tk.StringVar(value=str(qual))
-                ctk.CTkEntry(kif, textvariable=ki["qual"], height=26, width=50
-                             ).grid(row=0, column=5, padx=(0, 4), pady=3, sticky="w")
-
-                ki["force_bp"] = tk.BooleanVar(value=force_bp)
-                ctk.CTkCheckBox(kif, text="BP", variable=ki["force_bp"],
-                                text_color="gray60", height=24, width=50
-                                ).grid(row=0, column=6, padx=4, pady=3)
-
-                ctk.CTkButton(kif, text="✕", width=24, height=24,
-                              fg_color=_RED_DARK, hover_color=_RED_HOVER,
-                              command=_del_ki).grid(row=0, column=7, padx=(2, 6), pady=3)
-
-            # Popula itens existentes
-            for ki_data in data.get("Items", []):
-                _add_kit_item(
-                    bp=ki_data.get("Blueprint", ""),
-                    qty=ki_data.get("Quantity", 1),
-                    qual=ki_data.get("Quality", 0.0),
-                    force_bp=ki_data.get("ForceBlueprint", False),
-                    parent_frame=kit_items_frame,
-                    kit_item_list=row["kit_item_rows"],
-                )
-
-            ctk.CTkButton(
-                card, text="+ Item no Kit", height=26, width=130,
-                fg_color="#3a3a5a", hover_color="#252540",
-                command=lambda af=kit_items_frame, kil=row["kit_item_rows"]: _add_kit_item(
-                    parent_frame=af, kit_item_list=kil),
-            ).grid(row=5, column=0, columnspan=3, padx=(8, 0), pady=(2, 4), sticky="w")
-
-            # Linha 6: Comandos
-            ctk.CTkLabel(card, text="Comandos (um por linha):",
-                         text_color="gray55", font=ctk.CTkFont(size=11), anchor="w"
-                         ).grid(row=6, column=0, columnspan=7, padx=(8, 0), pady=(6, 2), sticky="w")
-            row["commands"] = ctk.CTkTextbox(card, height=52)
-            row["commands"].grid(row=7, column=0, columnspan=7, padx=8, pady=(0, 8), sticky="ew")
-            for cmd in data.get("Commands", []):
-                row["commands"].insert("end", cmd + "\n")
+        def _collect_kits_page() -> None:
+            """Salva a edição atual do painel de kits em raw_kits."""
+            _save_kit_edit()
 
         # ── helper de grupo de pontos por tempo ───────────────────────────────
         def _add_timed_group(name: str = "", amount: int = 0) -> None:
@@ -5507,7 +6020,8 @@ class ARKServerManagerApp(ctk.CTk):
                           command=_del).grid(row=0, column=4, padx=(2, 8), pady=5)
 
         # ── função de carregamento ─────────────────────────────────────────────
-        def _populate_fields(cfg: dict) -> None:
+        # ── funções de populate por seção ─────────────────────────────────────
+        def _populate_settings(cfg: dict) -> None:
             settings = cfg.get("Settings", {})
             sv_shop_name.set(settings.get("ShopName", "ARKLAND Shop"))
             sv_ui_key.set(settings.get("UiKey", "F3"))
@@ -5528,6 +6042,7 @@ class ARKServerManagerApp(ctk.CTk):
             bv_no_handcuffed.set(bool(settings.get("PreventUseHandcuffed", True)))
             bv_no_carried.set(bool(settings.get("PreventUseCarried", True)))
 
+        def _populate_db(cfg: dict) -> None:
             db = cfg.get("Database", {})
             sv_db_host.set(db.get("Host", "127.0.0.1"))
             sv_db_port.set(str(db.get("Port", 3306)))
@@ -5535,18 +6050,23 @@ class ARKServerManagerApp(ctk.CTk):
             sv_db_pass.set(db.get("Password", ""))
             sv_db_name.set(db.get("Database", "arkland_shop"))
 
-            _state["items_rows"].clear()
-            for w in items_scroll.winfo_children():
-                w.destroy()
-            for item_id, item_data in cfg.get("Items", {}).items():
-                _add_item_row(item_id, item_data)
+        def _populate_items(cfg: dict) -> None:
+            _state["raw_items"] = list(cfg.get("Items", {}).items())
+            _edit_item_idx[0] = -1
+            _populate_items_tv()
+            if _state["raw_items"]:
+                items_tv.selection_set("0")
+                _load_item_edit(0)
 
-            _state["kits_rows"].clear()
-            for w in kits_scroll.winfo_children():
-                w.destroy()
-            for kit_id, kit_data in cfg.get("Kits", {}).items():
-                _add_kit_row(kit_id, kit_data)
+        def _populate_kits(cfg: dict) -> None:
+            _state["raw_kits"] = list(cfg.get("Kits", {}).items())
+            _edit_kit_idx[0] = -1
+            _populate_kits_tv()
+            if _state["raw_kits"]:
+                kits_tv.selection_set("0")
+                _load_kit_edit(0)
 
+        def _populate_timed(cfg: dict) -> None:
             tp = cfg.get("TimedPointsReward", {})
             bv_timed_enabled.set(bool(tp.get("Enabled", True)))
             sv_timed_interval.set(str(tp.get("Interval", 30)))
@@ -5557,10 +6077,46 @@ class ARKServerManagerApp(ctk.CTk):
             for grp_name, grp_data in tp.get("Groups", {}).items():
                 _add_timed_group(grp_name, grp_data.get("Amount", 0))
 
+        def _populate_fields(cfg: dict) -> None:
+            """Popula todas as seções de uma vez (usado após importar config)."""
+            _state["raw_cfg"] = cfg
+            _state["tabs_built"] = {"⚙️ Config", "🛒 Itens", "🎁 Kits", "⏱ Pontos", "🗃️ BD"}
+            _populate_settings(cfg)
+            _populate_db(cfg)
+            _populate_items(cfg)
+            _populate_kits(cfg)
+            _populate_timed(cfg)
+
+        def _on_tab_selected() -> None:
+            """Carrega o conteúdo de uma sub-aba apenas quando selecionada pela primeira vez."""
+            t = inner_tabs.get()
+            if t in _state["tabs_built"]:
+                return
+            _state["tabs_built"].add(t)
+            cfg = _state["raw_cfg"]
+            if t == "🛒 Itens":
+                _populate_items(cfg)
+            elif t == "🎁 Kits":
+                _populate_kits(cfg)
+            elif t == "⏱ Pontos":
+                _populate_timed(cfg)
+            elif t == "🗃️ BD":
+                _populate_db(cfg)
+
+        inner_tabs.configure(command=_on_tab_selected)
+
         def _load_config() -> None:
             if not srv.install_dir:
                 return
-            _populate_fields(PluginManager.load_config(srv.install_dir))
+            cfg = PluginManager.load_config(srv.install_dir)
+            _state["raw_cfg"] = cfg
+            # Marca todas as abas como não construídas (forçar rebuild na próxima abertura)
+            _state["tabs_built"] = {"⚙️ Config"}
+            _populate_settings(cfg)
+            # Se a aba atual já estiver em "🛒 Itens" etc., popula imediatamente
+            current = inner_tabs.get()
+            if current and current not in _state["tabs_built"]:
+                _on_tab_selected()
 
         def _convert_arkshop(raw: dict) -> dict:
             """Converte o formato legado ArkShop para o formato CustomShop."""
@@ -5710,112 +6266,68 @@ class ARKServerManagerApp(ctk.CTk):
             except ValueError:
                 text_size = 1.3
 
-            items_dict: dict = {}
-            for row in _state["items_rows"]:
-                iid = row["id"].get().strip()
-                if not iid:
-                    continue
-                try:
-                    price = int(row["price"].get())
-                except ValueError:
-                    price = 0
-                item_type = row["type"].get()
-                if item_type == "command":
-                    cmd_items = []
-                    for cr in row["cmd_rows"]:
-                        cmd = cr["command"].get().strip()
-                        if not cmd:
-                            continue
-                        cmd_items.append({
-                            "Command":        cmd,
-                            "DisplayAs":      cr["display_as"].get().strip(),
-                            "ExecuteAsAdmin": cr["exec_as_admin"].get(),
-                        })
-                    items_dict[iid] = {
-                        "Type":        "command",
-                        "Price":       price,
-                        "Description": row["desc"].get().strip(),
-                        "Items":       cmd_items,
-                    }
-                else:
-                    try:
-                        qty = int(row["qty"].get())
-                    except ValueError:
-                        qty = 1
-                    try:
-                        qual = float(row["qual"].get())
-                    except ValueError:
-                        qual = 0.0
-                    items_dict[iid] = {
-                        "Type":           "item",
-                        "Price":          price,
-                        "Description":    row["desc"].get().strip(),
-                        "Blueprint":      row["bp"].get().strip(),
-                        "Quantity":       qty,
-                        "Quality":        qual,
-                        "ForceBlueprint": row["force_bp"].get(),
-                    }
+            # Itens: coleta dos widgets se a aba foi aberta, senão usa raw_cfg
+            if "🛒 Itens" in _state["tabs_built"]:
+                _collect_items_page()
+                items_dict: dict = {}
+                for item_id, item_data in _state["raw_items"]:
+                    iid = str(item_id).strip() if item_id else ""
+                    if iid:
+                        items_dict[iid] = item_data
+            else:
+                items_dict = _state["raw_cfg"].get("Items", {})
 
-            kits_dict: dict = {}
-            for row in _state["kits_rows"]:
-                kid = row["id"].get().strip()
-                if not kid:
-                    continue
-                try:
-                    price = int(row["price"].get())
-                except ValueError:
-                    price = 0
-                try:
-                    amount = int(row["amount"].get())
-                except ValueError:
-                    amount = 1
-                cmds_raw = row["commands"].get("1.0", "end").strip()
-                cmds = [c for c in cmds_raw.splitlines() if c.strip()]
-                perms_raw = row["permissions"].get().strip()
-                perms = [p.strip() for p in perms_raw.split(",") if p.strip()]
-                kit_items = []
-                for ki in row["kit_item_rows"]:
+            # Kits: coleta dos widgets se a aba foi aberta, senão usa raw_cfg
+            if "🎁 Kits" in _state["tabs_built"]:
+                _collect_kits_page()
+                kits_dict: dict = {}
+                for kit_id, kit_data in _state["raw_kits"]:
+                    kid = str(kit_id).strip() if kit_id else ""
+                    if kid:
+                        kits_dict[kid] = kit_data
+            else:
+                kits_dict = _state["raw_cfg"].get("Kits", {})
+
+            # Timed: coleta dos widgets se a aba foi aberta, senão usa raw_cfg
+            if "⏱ Pontos" in _state["tabs_built"]:
+                timed_groups_dict: dict = {}
+                for tg_row in _state["timed_groups"]:
+                    grp = tg_row["name"].get().strip()
+                    if not grp:
+                        continue
                     try:
-                        ki_qty = int(ki["qty"].get())
+                        amt = int(tg_row["amount"].get())
                     except ValueError:
-                        ki_qty = 1
-                    try:
-                        ki_qual = float(ki["qual"].get())
-                    except ValueError:
-                        ki_qual = 0.0
-                    kit_items.append({
-                        "Blueprint":      ki["bp"].get().strip(),
-                        "Quantity":       ki_qty,
-                        "Quality":        ki_qual,
-                        "ForceBlueprint": ki["force_bp"].get(),
-                    })
-                kits_dict[kid] = {
-                    "Price":         price,
-                    "Description":   row["desc"].get().strip(),
-                    "DefaultAmount": amount,
-                    "Items":         kit_items,
-                    "Commands":      cmds,
-                    **({"Permissions": perms} if perms else {}),
+                        amt = 0
+                    timed_groups_dict[grp] = {"Amount": amt}
+                try:
+                    timed_interval = int(sv_timed_interval.get())
+                except ValueError:
+                    timed_interval = 30
+                timed_section: dict = {
+                    **_state["raw_cfg"].get("TimedPointsReward", {}),
+                    "Enabled":      bv_timed_enabled.get(),
+                    "Interval":     timed_interval,
+                    "StackRewards": bv_timed_stack.get(),
+                    "Groups":       timed_groups_dict,
                 }
+            else:
+                timed_section = _state["raw_cfg"].get("TimedPointsReward", {})
 
-            timed_groups_dict: dict = {}
-            for tg_row in _state["timed_groups"]:
-                grp = tg_row["name"].get().strip()
-                if not grp:
-                    continue
-                try:
-                    amt = int(tg_row["amount"].get())
-                except ValueError:
-                    amt = 0
-                timed_groups_dict[grp] = {"Amount": amt}
-            try:
-                timed_interval = int(sv_timed_interval.get())
-            except ValueError:
-                timed_interval = 30
+            # BD: coleta dos widgets se a aba foi aberta, senão usa raw_cfg
+            if "🗃️ BD" in _state["tabs_built"]:
+                db_section: dict = {
+                    **_state["raw_cfg"].get("Database", {}),
+                    "Host":     sv_db_host.get().strip(),
+                    "Port":     int(sv_db_port.get()) if sv_db_port.get().isdigit() else 3306,
+                    "User":     sv_db_user.get().strip(),
+                    "Password": sv_db_pass.get(),
+                    "Database": sv_db_name.get().strip(),
+                }
+            else:
+                db_section = _state["raw_cfg"].get("Database", {})
 
-            # Carrega o config atual para preservar chaves não editáveis pela UI
-            # (Database, TimedPointsReward, etc.)
-            existing = PluginManager.load_config(srv.install_dir)
+            existing = _state["raw_cfg"]
             data = {
                 **existing,
                 "Settings": {
@@ -5839,23 +6351,10 @@ class ARKServerManagerApp(ctk.CTk):
                     "PreventUseHandcuffed":          bv_no_handcuffed.get(),
                     "PreventUseCarried":             bv_no_carried.get(),
                 },
-                "Items": items_dict,
-                "Kits":  kits_dict,
-                "TimedPointsReward": {
-                    **existing.get("TimedPointsReward", {}),
-                    "Enabled":      bv_timed_enabled.get(),
-                    "Interval":     timed_interval,
-                    "StackRewards": bv_timed_stack.get(),
-                    "Groups":       timed_groups_dict,
-                },
-                "Database": {
-                    **existing.get("Database", {}),
-                    "Host":     sv_db_host.get().strip(),
-                    "Port":     int(sv_db_port.get()) if sv_db_port.get().isdigit() else 3306,
-                    "User":     sv_db_user.get().strip(),
-                    "Password": sv_db_pass.get(),
-                    "Database": sv_db_name.get().strip(),
-                },
+                "Items":             items_dict,
+                "Kits":              kits_dict,
+                "TimedPointsReward": timed_section,
+                "Database":          db_section,
             }
             try:
                 PluginManager.save_config(srv.install_dir, data)
@@ -5875,7 +6374,7 @@ class ARKServerManagerApp(ctk.CTk):
                     text="⚠️  Diretório de instalação não configurado na aba Geral.",
                     text_color="orange")
                 plugin_lbl.configure(text="")
-                cfg_outer.grid_remove()
+                inner_tabs.grid_remove()
                 return
 
             arkapi_ok  = PluginManager.is_arkapi_installed(srv.install_dir)
@@ -5957,23 +6456,13 @@ class ARKServerManagerApp(ctk.CTk):
                 ).pack(side="left", padx=(0, 8))
 
             if plugin_ok:
-                cfg_outer.grid(row=1, column=0, padx=0, pady=(6, 0), sticky="ew")
+                inner_tabs.grid(row=1, column=0, padx=8, pady=(0, 8), sticky="nsew")
                 _load_config()
 
-                # Botões de ação na save_row
+                # Botões de ação na save_row (sub-aba Config)
                 for w in save_row.winfo_children():
                     w.destroy()
 
-                ctk.CTkButton(
-                    save_row, text="+ Item", height=32, width=90,
-                    fg_color="#3a3a5a", hover_color="#252540",
-                    command=lambda: _add_item_row(),
-                ).pack(side="left", padx=(0, 6))
-                ctk.CTkButton(
-                    save_row, text="+ Kit", height=32, width=90,
-                    fg_color="#3a3a5a", hover_color="#252540",
-                    command=lambda: _add_kit_row(),
-                ).pack(side="left", padx=(0, 6))
                 ctk.CTkButton(
                     save_row, text="📂 Importar", height=32, width=110,
                     fg_color="#3a4a5a", hover_color="#253040",
@@ -5990,7 +6479,7 @@ class ARKServerManagerApp(ctk.CTk):
                     command=lambda: self._rcon_exec(srv.id, "shop.reload"),
                 ).pack(side="left")
             else:
-                cfg_outer.grid_remove()
+                inner_tabs.grid_remove()
 
         _refresh_status()
 
@@ -7386,7 +7875,11 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_cpu_info_var = tk.StringVar(value="Aguardando...")
         ctk.CTkLabel(cpu_card, textvariable=self._perf_cpu_info_var,
                      font=ctk.CTkFont(size=11), text_color="gray60").grid(
-            row=4, column=0, padx=16, pady=(0, 16), sticky="w")
+            row=4, column=0, padx=16, pady=(0, 4), sticky="w")
+        self._perf_cpu_temp_var = tk.StringVar(value="🌡 Temperatura: —")
+        ctk.CTkLabel(cpu_card, textvariable=self._perf_cpu_temp_var,
+                     font=ctk.CTkFont(size=11), text_color="#ff9944").grid(
+            row=5, column=0, padx=16, pady=(0, 16), sticky="w")
 
         # ── RAM ───────────────────────────────────────────────────────────────
         ram_card = ctk.CTkFrame(cards, corner_radius=12, fg_color=_CARD_BG)
@@ -7435,14 +7928,32 @@ class ARKServerManagerApp(ctk.CTk):
         ctk.CTkLabel(gpu_card, textvariable=self._perf_gpu_info_var,
                      font=ctk.CTkFont(size=11), text_color="gray60",
                      wraplength=230, justify="left").grid(
-            row=3, column=0, padx=16, pady=(0, 16), sticky="w")
+            row=3, column=0, padx=16, pady=(0, 4), sticky="w")
+        self._perf_gpu_temp_var = tk.StringVar(value="🌡 Temperatura: —")
+        ctk.CTkLabel(gpu_card, textvariable=self._perf_gpu_temp_var,
+                     font=ctk.CTkFont(size=11), text_color="#ff9944").grid(
+            row=4, column=0, padx=16, pady=(0, 16), sticky="w")
 
         threading.Thread(target=self._collect_gpu_info, daemon=True,
                          name="gpu-info").start()
 
+        # ── Consumo por Servidor ──────────────────────────────────────────────
+        srv_section = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        srv_section.grid(row=3, column=0, padx=22, pady=(0, 8), sticky="ew")
+        srv_section.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            srv_section, text="📡  Consumo por Servidor",
+            font=ctk.CTkFont(size=14, weight="bold"), text_color="#88d4a0",
+        ).grid(row=0, column=0, padx=16, pady=(14, 6), sticky="w")
+        self._perf_servers_inner = ctk.CTkFrame(srv_section, fg_color="transparent")
+        self._perf_servers_inner.grid(row=1, column=0, padx=16, pady=(0, 14), sticky="ew")
+        ctk.CTkLabel(self._perf_servers_inner, text="Iniciando monitoramento...",
+                     text_color="gray55", font=ctk.CTkFont(size=12)
+                     ).grid(row=0, column=0, padx=4, pady=4, sticky="w")
+
         # ── Seção de Pontos Críticos ─────────────────────────────────────────
         crit_outer = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        crit_outer.grid(row=3, column=0, padx=22, pady=(12, 16), sticky="ew")
+        crit_outer.grid(row=4, column=0, padx=22, pady=(0, 16), sticky="ew")
         crit_outer.grid_columnconfigure(0, weight=1)
 
         crit_hdr = ctk.CTkFrame(crit_outer, fg_color="transparent")
@@ -7576,10 +8087,14 @@ class ARKServerManagerApp(ctk.CTk):
                 total_gb = mem.total / (1024 ** 3)
                 ram_info = f"{used_gb:.1f} GB  /  {total_gb:.1f} GB  ({mem.percent:.0f}%)"
 
-                gpu_pct = self._get_nvidia_gpu_pct()
+                gpu_pct  = self._get_nvidia_gpu_pct()
+                gpu_temp = self._get_nvidia_gpu_temp()
+                cpu_temp = self._get_cpu_temp()
+                srv_stats = self._collect_server_stats()
 
                 def _update(cp=cpu_pct, rp=float(mem.percent), ci=cpu_info,
-                             ri=ram_info, gp=gpu_pct):
+                             ri=ram_info, gp=gpu_pct,
+                             ct=cpu_temp, gt=gpu_temp, ss=srv_stats):
                     try:
                         if self._perf_cpu_pct_var:
                             self._perf_cpu_pct_var.set(f"{cp:.0f}%")
@@ -7589,6 +8104,16 @@ class ARKServerManagerApp(ctk.CTk):
                             self._perf_cpu_bar.set(cp / 100)
                         if self._perf_cpu_info_var:
                             self._perf_cpu_info_var.set(ci)
+                        if self._perf_cpu_temp_var:
+                            if ct is not None:
+                                tc = "#ff4444" if ct > 90 else ("#ffaa44" if ct > 70 else "#ff9944")
+                                self._perf_cpu_temp_var.set(f"🌡 Temperatura: {ct:.0f} °C")
+                                try:
+                                    self._perf_cpu_temp_var._label_ref.configure(text_color=tc)  # type: ignore
+                                except Exception:
+                                    pass
+                            else:
+                                self._perf_cpu_temp_var.set("🌡 Temperatura: N/D")
 
                         if self._perf_ram_pct_var:
                             self._perf_ram_pct_var.set(f"{rp:.0f}%")
@@ -7606,6 +8131,13 @@ class ARKServerManagerApp(ctk.CTk):
                                 clr = _GREEN if gp < 70 else ("#ffaa44" if gp < 90 else "#ff4444")
                                 self._perf_gpu_bar.configure(progress_color=clr)
                                 self._perf_gpu_bar.set(gp / 100)
+                        if self._perf_gpu_temp_var:
+                            if gt is not None:
+                                self._perf_gpu_temp_var.set(f"🌡 Temperatura: {gt:.0f} °C")
+                            else:
+                                self._perf_gpu_temp_var.set("🌡 Temperatura: N/D")
+
+                        self._update_perf_servers(ss)
                     except Exception:
                         pass
 
@@ -7694,6 +8226,132 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception:
             pass
         return None
+
+    def _get_nvidia_gpu_temp(self) -> Optional[float]:
+        """Tenta obter temperatura da GPU via nvidia-smi."""
+        import subprocess
+        try:
+            out = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=temperature.gpu",
+                 "--format=csv,noheader,nounits"],
+                creationflags=0x08000000,
+                stderr=subprocess.DEVNULL,
+                timeout=3,
+            ).decode().strip()
+            lines = [ln.strip() for ln in out.splitlines() if ln.strip()]
+            if lines:
+                return float(lines[0])
+        except Exception:
+            pass
+        return None
+
+    def _get_cpu_temp(self) -> Optional[float]:
+        """Tenta obter temperatura do CPU via psutil (Linux) ou ACPI WMI (Windows)."""
+        if _PSUTIL_OK and _psutil is not None:
+            try:
+                temps = _psutil.sensors_temperatures()
+                if temps:
+                    for key in ("coretemp", "k10temp", "cpu_thermal", "acpitz"):
+                        if key in temps and temps[key]:
+                            return max(e.current for e in temps[key])
+                    for entries in temps.values():
+                        if entries:
+                            return max(e.current for e in entries)
+            except Exception:
+                pass
+        # Fallback Windows: ACPI via WMI
+        import subprocess
+        try:
+            out = subprocess.check_output(
+                ["wmic", "/namespace:\\\\root\\wmi", "path",
+                 "MSAcpi_ThermalZoneTemperature",
+                 "get", "CurrentTemperature", "/value"],
+                creationflags=0x08000000,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            ).decode(errors="replace")
+            vals = []
+            for ln in out.splitlines():
+                ln = ln.strip()
+                if ln.lower().startswith("currenttemperature="):
+                    try:
+                        raw = int(ln.partition("=")[2].strip())
+                        celsius = raw / 10 - 273.15
+                        if 10 < celsius < 110:
+                            vals.append(celsius)
+                    except ValueError:
+                        pass
+            if vals:
+                return max(vals)
+        except Exception:
+            pass
+        return None
+
+    def _collect_server_stats(self) -> list:
+        """Retorna [(server_id, name, status, cpu_pct|None, mem_gb|None)] por servidor."""
+        if not _PSUTIL_OK or _psutil is None:
+            return []
+        result = []
+        for srv in self.config_manager.servers:
+            inst = self.server_manager.get_instance(srv.id)
+            status = inst.status if inst else SERVER_STATUS_STOPPED
+            if inst and inst.pid and status in (SERVER_STATUS_RUNNING, SERVER_STATUS_STARTING):
+                try:
+                    proc = self._perf_server_procs.get(srv.id)
+                    if proc is None or proc.pid != inst.pid:
+                        proc = _psutil.Process(inst.pid)
+                        proc.cpu_percent(interval=None)  # prime
+                        self._perf_server_procs[srv.id] = proc
+                    cpu = proc.cpu_percent(interval=None)
+                    mem = proc.memory_info().rss / (1024 ** 3)
+                    result.append((srv.id, srv.name, status, cpu, mem))
+                except Exception:
+                    self._perf_server_procs.pop(srv.id, None)
+                    result.append((srv.id, srv.name, status, None, None))
+            else:
+                self._perf_server_procs.pop(srv.id, None)
+                result.append((srv.id, srv.name, status, None, None))
+        return result
+
+    def _update_perf_servers(self, srv_stats: list) -> None:
+        """Atualiza a tabela de consumo por servidor no painel de Desempenho."""
+        inner = self._perf_servers_inner
+        if not inner:
+            return
+        for w in list(inner.winfo_children()):
+            w.destroy()
+        if not srv_stats:
+            ctk.CTkLabel(inner, text="Nenhum servidor configurado.",
+                         text_color="gray55", font=ctk.CTkFont(size=12)
+                         ).grid(row=0, column=0, padx=4, pady=4, sticky="w")
+            return
+        inner.grid_columnconfigure(0, weight=2)
+        inner.grid_columnconfigure(1, weight=2)
+        inner.grid_columnconfigure(2, weight=1)
+        inner.grid_columnconfigure(3, weight=1)
+        for ci, txt in enumerate(["Servidor", "Status", "CPU", "RAM"]):
+            ctk.CTkLabel(inner, text=txt, text_color="gray50",
+                         font=ctk.CTkFont(size=11, weight="bold")
+                         ).grid(row=0, column=ci, padx=(8, 4), pady=(0, 4), sticky="w")
+        for ri, (sid, name, status, cpu, mem) in enumerate(srv_stats, start=1):
+            ctk.CTkLabel(inner, text=name, font=ctk.CTkFont(size=12),
+                         text_color="gray80", anchor="w"
+                         ).grid(row=ri, column=0, padx=(8, 4), pady=1, sticky="w")
+            ctk.CTkLabel(inner, text=_STATUS_LABEL.get(status, status),
+                         font=ctk.CTkFont(size=11),
+                         text_color=_STATUS_COLOR.get(status, "gray60")
+                         ).grid(row=ri, column=1, padx=(8, 4), pady=1, sticky="w")
+            cpu_color = ("#ff4444" if (cpu or 0) > 90
+                         else ("#ffaa44" if (cpu or 0) > 70 else "gray70"))
+            ctk.CTkLabel(inner,
+                         text="—" if cpu is None else f"{cpu:.1f}%",
+                         font=ctk.CTkFont(size=12), text_color=cpu_color
+                         ).grid(row=ri, column=2, padx=(8, 4), pady=1, sticky="w")
+            mem_color = "#ffaa44" if (mem or 0) > 6 else "gray70"
+            ctk.CTkLabel(inner,
+                         text="—" if mem is None else f"{mem:.2f} GB",
+                         font=ctk.CTkFont(size=12), text_color=mem_color
+                         ).grid(row=ri, column=3, padx=(8, 4), pady=1, sticky="w")
 
     # ══════════════════════════════════════════════════════════════════════════
     # Painel Cross-ARK Clusters
@@ -11352,10 +12010,17 @@ class ARKServerManagerApp(ctk.CTk):
             if ss:
                 is_running = status == SERVER_STATUS_RUNNING
                 is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
+                is_crashed = status == SERVER_STATUS_CRASHED
                 if is_busy:
                     ss.configure(
                         text="⚡ Cancelar",
                         fg_color="#7a4a00", hover_color="#5c3600",
+                        state="normal",
+                    )
+                elif is_crashed:
+                    ss.configure(
+                        text="💀 Forçar Enc.",
+                        fg_color=_RED_DARK, hover_color=_RED_HOVER,
                         state="normal",
                     )
                 elif is_running:
