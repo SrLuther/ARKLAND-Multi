@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.9] — 2026-05-22
+
+### Corrigido
+
+- **CustomShop — crash ao inicializar**: substituído `libmysql.dll` (MySQL 8.0) por `libmariadb.dll` (MariaDB Connector/C 3.4.8) — elimina o crash de inicialização em servidores que usam MariaDB.
+- **CustomShop — build**: `build_cl.bat` atualizado para linkar contra `libmariadb.lib` em vez de `libmysql.lib`; removidas dependências de `libcrypto` e `libssl` (não necessárias no MariaDB Connector/C).
+
+---
+
 ## [1.3.8] — 2026-05-19
 
 ### Corrigido

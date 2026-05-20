@@ -181,7 +181,7 @@ class PluginManager:
 
         shutil.copy2(str(src), str(pdir / f"{_PLUGIN_NAME}.dll"))
 
-        # Copia DLLs de dependência (libmysql, libcrypto, libssl, …) para Win64/
+        # Copia DLLs de dependência (libmariadb, …) para Win64/
         # O Windows não busca a pasta do plugin para dependências transitivas;
         # Win64/ está no search path porque é de onde o servidor é executado.
         win64 = PluginManager.win64_dir(install_dir)

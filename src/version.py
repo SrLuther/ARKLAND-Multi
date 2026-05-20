@@ -3,13 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.8"
-BUILD_DATE: str = "2026-05-19"
+APP_VERSION: str = "1.3.9"
+BUILD_DATE: str = "2026-05-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
-        "version": "1.3.8",
+        "version": "1.3.9",
+        "date": "2026-05-22",
+        "changes": [
+            "Fix (CustomShop crash): substitu\u00eddo libmysql.dll (MySQL 8.0) por libmariadb.dll (MariaDB Connector/C 3.4.8) — elimina crash de inicializa\u00e7\u00e3o em servidores que usam MariaDB.",
+            "Fix (CustomShop build): build_cl.bat atualizado para linkar contra libmariadb.lib em vez de libmysql.lib.",
+        ],
+    },
+    {
         "date": "2026-05-19",
         "changes": [
             "Fix (CustomShop DLL): compilado com /MD (CRT din\u00e2mico) para eliminar o crash causado por mismatch de heap entre CustomShop.dll e libmysql.dll.",
