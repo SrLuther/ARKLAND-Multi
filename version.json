@@ -1,11 +1,11 @@
 {
-    "version":  "1.3.9",
-    "date":  "2026-05-19",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.9/ARKLAND-Multi-Setup-v1.3.9.exe",
-    "changelog":  {
-                      "value":  [
-
-                                ],
-                      "Count":  0
-                  }
+    "version": "1.3.10",
+    "date": "2026-05-19",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.10/ARKLAND-Multi-Setup-v1.3.10.exe",
+    "changelog": [
+        "Novo (Plugins — Importar config.json): botão '📂 Importar' na aba Plugins permite carregar um config.json do ArkShop (legado) ou CustomShop e popular a UI automaticamente.",
+        "Novo (Plugins — Importar config.json): detecção automática de formato — ArkShop (Mysql/General) é convertido para CustomShop antes de preencher os campos.",
+        "Novo (Plugins — Importar config.json): conversão ArkShop → CustomShop mapeia Mysql → Database, General → Settings, Amount → Quantity nos kits e ShopItems → Items."
+    ]
 }
+
