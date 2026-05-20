@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/).
 
 ---
 
+## [1.3.8] — 2026-05-19
+
+### Corrigido
+
+- **CustomShop — plugin DLL**: recompilado com `/MD` (CRT dinâmico) para eliminar o crash causado por mismatch de heap entre `CustomShop.dll` e `libmysql.dll`.
+- **CustomShop — instalação**: DLLs de dependência (`libmysql.dll`, `libcrypto-3-x64.dll`, `libssl-3-x64.dll`) agora instaladas diretamente em `Win64/` em vez da pasta do plugin — corrige o Error 126 e o crash ao carregar o plugin.
+
+---
+
 ## [1.3.7] — 2026-05-19
 
 ### Corrigido

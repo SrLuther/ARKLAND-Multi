@@ -24,8 +24,9 @@ except ImportError:
 
 _PLUGIN_NAME = "CustomShop"
 
-# Caminho relativo do ArkApi dentro de uma instalação ARK
-_ARKAPI_REL = Path("ShooterGame") / "Binaries" / "Win64" / "ArkApi"
+# Caminhos relativos dentro de uma instalação ARK
+_WIN64_REL  = Path("ShooterGame") / "Binaries" / "Win64"
+_ARKAPI_REL = _WIN64_REL / "ArkApi"
 
 # Configuração padrão gerada na primeira instalação
 _DEFAULT_CONFIG: Dict[str, Any] = {
@@ -114,6 +115,11 @@ class PluginManager:
     # ── Caminhos ─────────────────────────────────────────────────────────────
 
     @staticmethod
+    def win64_dir(install_dir: str) -> Path:
+        """Retorna o diretório Win64 do servidor ARK."""
+        return Path(install_dir) / _WIN64_REL
+
+    @staticmethod
     def arkapi_dir(install_dir: str) -> Path:
         """Retorna o diretório raiz do ArkApi dentro da instalação ARK."""
         return Path(install_dir) / _ARKAPI_REL
@@ -175,10 +181,14 @@ class PluginManager:
 
         shutil.copy2(str(src), str(pdir / f"{_PLUGIN_NAME}.dll"))
 
-        # Copia DLLs de dependência (libmysql, libcrypto, libssl, …)
+        # Copia DLLs de dependência (libmysql, libcrypto, libssl, …) para Win64/
+        # O Windows não busca a pasta do plugin para dependências transitivas;
+        # Win64/ está no search path porque é de onde o servidor é executado.
+        win64 = PluginManager.win64_dir(install_dir)
+        win64.mkdir(parents=True, exist_ok=True)
         for dep in _resolve_plugin_dlls():
             if dep.name.lower() != f"{_PLUGIN_NAME.lower()}.dll":
-                shutil.copy2(str(dep), str(pdir / dep.name))
+                shutil.copy2(str(dep), str(win64 / dep.name))
 
         # Cria config padrão apenas se ainda não existir
         cfg = pdir / "config.json"

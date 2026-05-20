@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.7"
+APP_VERSION: str = "1.3.8"
 BUILD_DATE: str = "2026-05-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.8",
+        "date": "2026-05-19",
+        "changes": [
+            "Fix (CustomShop DLL): compilado com /MD (CRT din\u00e2mico) para eliminar o crash causado por mismatch de heap entre CustomShop.dll e libmysql.dll.",
+            "Fix (CustomShop instala\u00e7\u00e3o): DLLs de depend\u00eancia (libmysql, libcrypto, libssl) agora instaladas em Win64/ em vez da pasta do plugin — corre\u00e7\u00e3o do Error 126 e crash ao carregar o plugin.",
+        ],
+    },
     {
         "version": "1.3.7",
         "date": "2026-05-19",

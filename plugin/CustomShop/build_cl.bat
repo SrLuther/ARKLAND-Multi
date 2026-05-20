@@ -26,7 +26,7 @@ if not exist "%OBJ_DIR%" mkdir "%OBJ_DIR%"
 if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
 
 echo === Compiling sqlite3.c ===
-"%CL_EXE%" /c /O2 /MT /nologo /W0 ^
+"%CL_EXE%" /c /O2 /MD /nologo /W0 ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
   /I"%SRC_DIR%" ^
   /Fo"%OBJ_DIR%\sqlite3.obj" ^
@@ -34,7 +34,7 @@ echo === Compiling sqlite3.c ===
 if %ERRORLEVEL% neq 0 goto :error
 
 echo === Compiling C++ sources ===
-"%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++17 /EHsc ^
+"%CL_EXE%" /c /O2 /MD /nologo /W3 /std:c++17 /EHsc ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
   /I"%SDK_DIR%" /I"%SRC_DIR%" /I"%MYSQL_DIR%\include" ^
   /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME ^
