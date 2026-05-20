@@ -7,9 +7,8 @@ namespace {
 using FnIsInGroupW = bool(*)(unsigned __int64, const wchar_t*);
 using FnIsInGroupA = bool(*)(unsigned __int64, const char*);
 
-static FnIsInGroupW g_fnW     = nullptr;
-static FnIsInGroupA g_fnA     = nullptr;
-static bool         g_ready   = false;
+static FnIsInGroupW g_fnW = nullptr;
+static FnIsInGroupA g_fnA = nullptr;
 
 } // namespace
 
@@ -17,8 +16,8 @@ namespace CustomShop {
 namespace Perms {
 
 void Init() {
-    if (g_ready) return;
-    g_ready = true;
+    // Already bound — nothing to do.
+    if (g_fnW || g_fnA) return;
 
     // The Permissions plugin loads before other plugins; by Plugin_Init
     // time its DLL is already mapped into the process.

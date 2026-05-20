@@ -17,6 +17,9 @@ DECLARE_HOOK(AShooterGameMode_BeginPlay, void, AShooterGameMode*);
 void Hook_AShooterGameMode_BeginPlay(AShooterGameMode* _this) {
     AShooterGameMode_BeginPlay_original(_this);
 
+    // All plugins are loaded by BeginPlay — bind Permissions now.
+    CustomShop::Perms::Init();
+
     // Server is ready — apply shop buff to any already-connected players.
     const auto& pcs =
         ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
@@ -87,9 +90,6 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
     // Register console commands (mod-facing + admin)
     CustomShop::Commands::Register();
-
-    // Bind Permissions plugin (optional — graceful if absent).
-    CustomShop::Perms::Init();
 
     // Start timed-points reward timer.
     CustomShop::TimedPoints::Start();

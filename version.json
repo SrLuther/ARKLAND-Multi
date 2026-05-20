@@ -1,10 +1,12 @@
 {
-    "version": "1.3.12",
-    "date": "2026-05-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.12/ARKLAND-Multi-Setup-v1.3.12.exe",
-    "changelog": [
-        "Fix (Plugins — Desinstalar/Reinstalar): erro Tcl 'wrong # args: trace remove variable' ao reinstalar o CustomShop corrigido.",
-        "Novo (Plugins): PluginInfo.json criado automaticamente na instalação — plugin agora exibe descrição no log do servidor."
-    ]
+    "version":  "1.3.13",
+    "date":  "2026-05-20",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.13/ARKLAND-Multi-Setup-v1.3.13.exe",
+    "changelog":  {
+                      "value":  [
+                                    "Fix (CustomShop ù ShopPerms): aviso \"Permissions plugin not found\" ao iniciar corrigido ù Perms::Init() movido de Plugin_Init para hook BeginPlay, quando todos os plugins jß estÒo carregados no processo; controle de kit e pontos por grupo agora funcionam.",
+                                    "Fix (Plugins ù Salvar config.json): dißlogo de confirmaþÒo agora exibe o caminho completo do arquivo gravado."
+                                ],
+                      "Count":  2
+                  }
 }
-

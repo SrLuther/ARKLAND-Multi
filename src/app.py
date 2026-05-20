@@ -5855,8 +5855,9 @@ class ARKServerManagerApp(ctk.CTk):
             }
             try:
                 PluginManager.save_config(srv.install_dir, data)
+                saved_path = PluginManager.config_path(srv.install_dir)
                 messagebox.showinfo("Configuração salva",
-                    "config.json do CustomShop salvo com sucesso!", parent=self)
+                    f"config.json do CustomShop salvo com sucesso!\n\n{saved_path}", parent=self)
             except Exception as exc:
                 messagebox.showerror("Erro ao salvar", str(exc), parent=self)
 

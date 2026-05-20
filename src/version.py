@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.12"
+APP_VERSION: str = "1.3.13"
 BUILD_DATE: str = "2026-05-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.13",
+        "date": "2026-05-20",
+        "changes": [
+            "Fix (CustomShop — ShopPerms): aviso \"Permissions plugin not found\" ao iniciar corrigido — Perms::Init() movido de Plugin_Init para hook BeginPlay, quando todos os plugins j\u00e1 est\u00e3o carregados no processo; controle de kit e pontos por grupo agora funcionam.",
+            "Fix (Plugins — Salvar config.json): di\u00e1logo de confirma\u00e7\u00e3o agora exibe o caminho completo do arquivo gravado.",
+        ],
+    },
     {
         "version": "1.3.12",
         "date": "2026-05-20",

@@ -70,14 +70,22 @@ $extractScript = @"
 import ast, json, sys
 with open('src/version.py', encoding='utf-8-sig') as f:
     src = f.read()
-for node in ast.walk(ast.parse(src)):
+tree = ast.parse(src)
+for node in ast.walk(tree):
+    # Suporta tanto 'CHANGELOG = [...]' (Assign) quanto 'CHANGELOG: list[dict] = [...]' (AnnAssign)
+    value_node = None
     if isinstance(node, ast.Assign):
         for t in node.targets:
             if isinstance(t, ast.Name) and t.id == 'CHANGELOG':
-                for entry in ast.literal_eval(node.value):
-                    if entry['version'] == '$Version':
-                        print(json.dumps(entry['changes'], ensure_ascii=False))
-                        sys.exit(0)
+                value_node = node.value
+    elif isinstance(node, ast.AnnAssign):
+        if isinstance(node.target, ast.Name) and node.target.id == 'CHANGELOG' and node.value:
+            value_node = node.value
+    if value_node is not None:
+        for entry in ast.literal_eval(value_node):
+            if entry['version'] == '$Version':
+                print(json.dumps(entry['changes'], ensure_ascii=False))
+                sys.exit(0)
 print('[]')
 "@
 $changelogJson = & $python -c $extractScript
@@ -113,7 +121,9 @@ Write-Ok "setup.iss       →  AppVersion = $Version"
 # ── 6) Build ──────────────────────────────────────────────────────────────────
 Write-Step 3 6 "Rodando build.bat..."
 Push-Location $root
-cmd /c "build.bat"
+# 2>&1 faz o merge de stderr→stdout no nível do cmd, evitando NativeCommandError
+# quando $ErrorActionPreference = Stop e o script está num pipeline (Tee-Object).
+cmd /c "build.bat 2>&1"
 $buildExit = $LASTEXITCODE
 Pop-Location
 if ($buildExit -ne 0) { Write-Fail "build.bat falhou (exit $buildExit)" }
