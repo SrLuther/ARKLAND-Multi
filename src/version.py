@@ -26,9 +26,9 @@ CHANGELOG: list[dict] = [
         ],
     },
     {
+        "version": "1.3.8",
         "date": "2026-05-19",
         "changes": [
-            "Fix (CustomShop DLL): compilado com /MD (CRT din\u00e2mico) para eliminar o crash causado por mismatch de heap entre CustomShop.dll e libmysql.dll.",
             "Fix (CustomShop instala\u00e7\u00e3o): DLLs de depend\u00eancia (libmysql, libcrypto, libssl) agora instaladas em Win64/ em vez da pasta do plugin — corre\u00e7\u00e3o do Error 126 e crash ao carregar o plugin.",
         ],
     },

@@ -8391,7 +8391,7 @@ class ARKServerManagerApp(ctk.CTk):
         tw.tag_config("date", foreground="#888899")
         tw.tag_config("item", foreground="#c0c0d8")
         for entry in CHANGELOG:
-            tw.insert("end", f"v{entry['version']}", "ver")
+            tw.insert("end", f"v{entry.get('version', '?')}", "ver")
             if entry.get("date"):
                 tw.insert("end", f"  ·  {entry['date']}\n", "date")
             else:
