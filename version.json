@@ -1,13 +1,12 @@
 {
     "version": "1.3.19",
     "date": "2026-05-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.18/ARKLAND-Multi-Setup-v1.3.18.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.19/ARKLAND-Multi-Setup-v1.3.19.exe",
     "changelog": [
-        "Fix (CustomShop plugin): kShopBuffPath corrigido para FC_ArkShopUI/ArkShopUI_Buff_FCAS — path antigo do KinyShop impedia qualquer dado de chegar ao mod UI.",
-        "Feat (CustomShop plugin): GetConfig/SendConfig() implementado — mod recebe ShopName, UiKey, flags e labels ao conectar.",
-        "Feat (CustomShop plugin): stub SellItem adicionado — retorna Success=false em vez de erro de comando desconhecido.",
-        "Fix (CustomShop plugin): InitPlayer envia config antes de itens/pontos/kits; Shop.Reload reenvia config online.",
-        "Feat (CustomShop plugin): config.json com campos WebsiteUrl, DiscordUrl, VoteRewards, HideBuffIcon, OverrideCurrencyIcon, UseSteamOverlay, OverrideLabels.",
+        "Fix (CustomShop plugin): StaticAddBuff removido do HandleNewPlayer — corrompia engramas impedindo aprender qualquer engrama na sessao.",
+        "Fix (CustomShop plugin): InitPlayer agora apenas registra no DB; buff aplicado lazily ao primeiro /shop.",
+        "Feat (CustomShop plugin): novo chat command /shop — aplica o buff + envia config/itens/pontos/kits abrindo a UI.",
+        "Fix (CustomShop plugin): CmdGetConfig agora chama InitShop em vez de SendConfig — garante que o buff exista antes do ClientReceiveCallback.",
         "Fix (Mods): broadcast enviado a servidores em 'starting' — antes servidor era parado sem aviso.",
         "Fix (Mods): timeout de parada 90s→180s — restart falhava pois _stop_worker ainda executava ao checar status.",
         "Fix (Mods): download concorrente — on_done(False) chamado imediatamente quando ativo; evita timeout de 10min e falso erro de download."
