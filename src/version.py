@@ -3,11 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.17"
+APP_VERSION: str = "1.3.18"
 BUILD_DATE: str = "2026-05-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.18",
+        "date": "2026-05-20",
+        "changes": [
+            "Fix (CustomShop plugin \u2014 FC_ArkShopUI): kShopBuffPath corrigido para Blueprint'/Game/Mods/FC_ArkShopUI/ArkShopUI_Buff_FCAS.ArkShopUI_Buff_FCAS' \u2014 path antigo do KinyShop causava BPLoadClass retornar null silenciosamente, impedindo qualquer dado de chegar ao mod.",
+            "Feat (CustomShop plugin \u2014 FC_ArkShopUI): novo comando GetConfig / SendConfig() \u2014 responde ao mod com ShopName, UiKey, flags (DisableSell, DisableTrade, HideBuffIcon, VoteRewards, UseSteamOverlay) e labels; sem isso a UI ficava com dados padr\u00e3o.",
+            "Feat (CustomShop plugin \u2014 FC_ArkShopUI): novo stub SellItem \u2014 retorna Success=false graciosamente; sem handler o ARK logava erro de comando desconhecido.",
+            "Fix (CustomShop plugin \u2014 FC_ArkShopUI): InitPlayer agora envia SendConfig antes de itens/pontos/kits \u2014 garante que a UI inicialize o layout antes de renderizar conte\u00fado.",
+            "Fix (CustomShop plugin \u2014 FC_ArkShopUI): Shop.Reload (admin) agora reenvia config a todos os jogadores online.",
+            "Feat (CustomShop plugin \u2014 config.json): novos campos em Settings: WebsiteUrl, DiscordUrl, VoteRewards, HideBuffIcon, OverrideCurrencyIcon, UseSteamOverlay, OverrideLabels.",
+            "Fix (Atualiza\u00e7\u00e3o Autom\u00e1tica de Mods): broadcast agora enviado a servidores em estado 'starting' \u2014 antes s\u00f3 'running' era verificado, servidor era parado sem nenhum aviso.",
+            "Fix (Atualiza\u00e7\u00e3o Autom\u00e1tica de Mods): timeout de espera por parada aumentado 90s\u219290s+buffer(180s) \u2014 _stop_worker pode levar ~110s (90s graceful + taskkill); servidor n\u00e3o reiniciava pois status ainda era 'stopping' ao checar.",
+            "Fix (Atualiza\u00e7\u00e3o Autom\u00e1tica de Mods): restart agora aceita status 'stopped' ou 'crashed'; se ainda 'stopping' ap\u00f3s timeout, aguarda 30s extra antes de iniciar.",
+            "Fix (Atualiza\u00e7\u00e3o Autom\u00e1tica de Mods): download concorrente \u2014 on_done(False) chamado imediatamente quando _active=True; antes o done_event nunca era sinalizado, causando timeout de 10min e falso 'Falha ao baixar' para o segundo mod.",
+        ],
+    },
     {
         "version": "1.3.17",
         "date": "2026-05-20",

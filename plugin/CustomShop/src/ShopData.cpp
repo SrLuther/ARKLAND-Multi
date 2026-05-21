@@ -24,6 +24,30 @@ nlohmann::json PlayerResult(const std::string& steam_id) {
 namespace CustomShop {
 namespace Data {
 
+bool SendConfig(AShooterPlayerController* controller) {
+    if (!controller) return false;
+
+    const auto& s = ShopConfig::Get().Settings();
+
+    nlohmann::json result;
+    result["UiKey"]                = ShopConfig::Get().UiKey();
+    result["ShopName"]             = ShopConfig::Get().ShopName();
+    result["WebsiteUrl"]           = s.value("WebsiteUrl",            "");
+    result["DiscordUrl"]           = s.value("DiscordUrl",             "");
+    result["VoteRewards"]          = s.value("VoteRewards",            false);
+    result["DisableSellButton"]    = ShopConfig::Get().DisableSell();
+    result["DisableTradeButton"]   = ShopConfig::Get().DisableTrade();
+    result["HideBuffIcon"]         = s.value("HideBuffIcon",           false);
+    result["OverrideCurrencyIcon"] = s.value("OverrideCurrencyIcon",   "");
+    result["UseSteamOverlay"]      = s.value("UseSteamOverlay",        false);
+    result["OverrideLabels"]       = s.value("OverrideLabels",         nlohmann::json::array());
+
+    nlohmann::json payload;
+    payload["Command"] = "GetConfig";
+    payload["Result"]  = result;
+    return Bridge::SendPayload(controller, payload);
+}
+
 bool SendShopItems(AShooterPlayerController* controller,
                    const std::string& type_filter) {
     if (!controller) return false;
@@ -180,6 +204,9 @@ void InitPlayer(AShooterPlayerController* controller) {
     // and the mod will pull data when the hotkey is first pressed.
     Bridge::GetOrAddShopBuff(controller);
 
+    // Config must arrive first so the UI sets up hotkey, labels and
+    // feature flags before rendering items/kits.
+    SendConfig(controller);
     SendShopItems(controller);
     SendPoints(controller);
     SendKits(controller);

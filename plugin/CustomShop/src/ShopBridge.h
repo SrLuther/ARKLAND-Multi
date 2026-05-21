@@ -7,10 +7,10 @@
 //  MX-E Ark Shop UI mod (Steam Workshop ID 2693727499).
 //
 //  Protocol: the plugin applies a permanent "shop buff"
-//  (Blueprint'/KinyShop/BP_Shop_Buff.BP_Shop_Buff') to the player's
-//  character. That buff has a UE4 event "ClientReceiveCallback(FString)"
-//  that, when called via ProcessEvent(), transmits a JSON payload to
-//  the client-side mod.
+//  (Blueprint'/Game/Mods/FC_ArkShopUI/ArkShopUI_Buff_FCAS.ArkShopUI_Buff_FCAS')
+//  to the player's character. That buff has a UE4 event
+//  "ClientReceiveCallback(FString)" that, when called via ProcessEvent(),
+//  transmits a JSON payload to the client-side mod.
 // ─────────────────────────────────────────────────────────────────
 
 namespace CustomShop {

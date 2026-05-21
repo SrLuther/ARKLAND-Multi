@@ -88,6 +88,8 @@ class ModManager:
         with self._lock:
             if self._active:
                 self._on_log("Já existe um download em progresso.", "warning")
+                if on_done:
+                    on_done(False)
                 return
             self._active = True
         thread = threading.Thread(

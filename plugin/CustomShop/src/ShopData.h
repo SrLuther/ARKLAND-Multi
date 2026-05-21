@@ -7,12 +7,15 @@
 //  mod client via ShopBridge::SendPayload.
 //
 //  Every function corresponds to one "Command" the mod understands:
-//    GetShopItems, GetPoints, GetKits, PlayerKits,
-//    BuyItem, UpdatePoints, Reload
+//    GetConfig, GetShopItems, GetPoints, GetKits, PlayerKits,
+//    BuyItem, SellItem, TradePoints, Reload
 // ─────────────────────────────────────────────────────────────────
 
 namespace CustomShop {
 namespace Data {
+
+// Sends UI configuration (shop name, hotkey, feature flags, labels).
+bool SendConfig(AShooterPlayerController* controller);
 
 // Sends the item catalogue. Pass type_filter="" to send everything.
 bool SendShopItems(AShooterPlayerController* controller,

@@ -76,9 +76,28 @@ void CmdGetShopItems(APlayerController* pc, FString* cmd_str, bool) {
     CustomShop::Data::SendShopItems(controller, filter);
 }
 
+void CmdGetConfig(APlayerController* pc, FString*, bool) {
+    auto* c = static_cast<AShooterPlayerController*>(pc);
+    if (c) CustomShop::Data::SendConfig(c);
+}
+
 void CmdGetPoints(APlayerController* pc, FString*, bool) {
     auto* c = static_cast<AShooterPlayerController*>(pc);
     if (c) CustomShop::Data::SendPoints(c);
+}
+
+void CmdSellItem(APlayerController* pc, FString*, bool) {
+    // Sell is disabled by default (DisableSellButton=true in config).
+    // This handler exists as a safety net in case the button is enabled
+    // but no sell logic is implemented yet.
+    auto* c = static_cast<AShooterPlayerController*>(pc);
+    if (!c) return;
+    const std::string id = CustomShop::Bridge::GetSteamId(c);
+    nlohmann::json payload;
+    payload["Command"]         = "SellItem";
+    payload["Success"]         = false;
+    payload["Result"]["SteamID"] = id;
+    CustomShop::Bridge::SendPayload(c, payload);
 }
 
 void CmdGetKits(APlayerController* pc, FString*, bool) {
@@ -170,6 +189,7 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
         for (TWeakObjectPtr<APlayerController> wpc : pcs) {
             auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
             if (!sc) continue;
+            CustomShop::Data::SendConfig(sc);
             CustomShop::Data::SendShopItems(sc);
             CustomShop::Data::SendKits(sc);
             CustomShop::Data::SendReload(sc);
@@ -356,7 +376,9 @@ namespace Commands {
 
 void Register() {
     // Mod-facing (called automatically by the MX-E UI mod)
+    ArkApi::GetCommands().AddConsoleCommand("GetConfig",    &CmdGetConfig);
     ArkApi::GetCommands().AddConsoleCommand("BuyItem",      &CmdBuyItem);
+    ArkApi::GetCommands().AddConsoleCommand("SellItem",     &CmdSellItem);
     ArkApi::GetCommands().AddConsoleCommand("GetShopItems", &CmdGetShopItems);
     ArkApi::GetCommands().AddConsoleCommand("GetPoints",    &CmdGetPoints);
     ArkApi::GetCommands().AddConsoleCommand("GetKits",      &CmdGetKits);
@@ -377,7 +399,9 @@ void Register() {
 }
 
 void Unregister() {
+    ArkApi::GetCommands().RemoveConsoleCommand("GetConfig");
     ArkApi::GetCommands().RemoveConsoleCommand("BuyItem");
+    ArkApi::GetCommands().RemoveConsoleCommand("SellItem");
     ArkApi::GetCommands().RemoveConsoleCommand("GetShopItems");
     ArkApi::GetCommands().RemoveConsoleCommand("GetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("GetKits");

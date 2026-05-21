@@ -2,10 +2,10 @@
 #include "ShopBridge.h"
 
 namespace {
-    // Blueprint path of the buff that ships with the MX-E Ark Shop UI mod.
-    // Must match the mod's internal path exactly.
+    // Blueprint path of the buff that ships with the MX-E Ark Shop UI mod (Workshop 2693727499).
+    // Mod internal name: FC_ArkShopUI — must match exactly.
     constexpr const char* kShopBuffPath =
-        "Blueprint'/KinyShop/BP_Shop_Buff.BP_Shop_Buff'";
+        "Blueprint'/Game/Mods/FC_ArkShopUI/ArkShopUI_Buff_FCAS.ArkShopUI_Buff_FCAS'";
 
     UFunction* FindReceiveCallback(APrimalBuff* buff) {
         if (!buff) return nullptr;

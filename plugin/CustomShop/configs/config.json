@@ -2,11 +2,18 @@
   "_comment": "CustomShop plugin config — deploy to: ArkApi/Plugins/CustomShop/config.json",
 
   "Settings": {
-    "ShopName":           "ARKLAND Shop",
-    "UiKey":              "F3",
-    "StartingPoints":     100,
-    "DisableSellButton":  true,
-    "DisableTradeButton": false
+    "ShopName":              "ARKLAND Shop",
+    "UiKey":                 "F3",
+    "StartingPoints":        100,
+    "DisableSellButton":     true,
+    "DisableTradeButton":    false,
+    "WebsiteUrl":            "",
+    "DiscordUrl":            "",
+    "VoteRewards":           false,
+    "HideBuffIcon":          false,
+    "OverrideCurrencyIcon":  "",
+    "UseSteamOverlay":       false,
+    "OverrideLabels": []
   },
 
   "Items": {

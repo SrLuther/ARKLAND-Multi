@@ -2,6 +2,26 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.18] - 2026-05-20
+
+### Fix — Plugin CustomShop (FC_ArkShopUI)
+
+- fix: `kShopBuffPath` corrigido para `Blueprint'/Game/Mods/FC_ArkShopUI/ArkShopUI_Buff_FCAS.ArkShopUI_Buff_FCAS'` — path antigo do KinyShop fazia `BPLoadClass` retornar `nullptr` silenciosamente, impedindo **qualquer** dado de chegar ao mod UI.
+- fix: `InitPlayer` agora envia `SendConfig` antes de itens/pontos/kits — o mod precisa do layout (UiKey, flags) antes de renderizar o catálogo.
+- fix: `Shop.Reload` (admin) agora reenvia config a todos os jogadores online.
+- feat: novo comando `GetConfig` / `SendConfig()` — responde ao mod com `ShopName`, `UiKey`, `DisableSellButton`, `DisableTradeButton`, `HideBuffIcon`, `VoteRewards`, `UseSteamOverlay`, `WebsiteUrl`, `DiscordUrl` e `OverrideLabels`.
+- feat: novo stub `SellItem` — retorna `Success=false` graciosamente; sem handler o ARK logava erro de comando desconhecido.
+- feat: `config.json` com novos campos em `Settings`: `WebsiteUrl`, `DiscordUrl`, `VoteRewards`, `HideBuffIcon`, `OverrideCurrencyIcon`, `UseSteamOverlay`, `OverrideLabels`.
+
+### Fix — Atualização Automática de Mods
+
+- fix: broadcast agora enviado a servidores em estado `starting` — antes só `running` era verificado; servidor era parado sem nenhum aviso quando ainda estava iniciando.
+- fix: timeout de espera por parada aumentado de 90s para 180s — `_stop_worker` pode levar ~110s (90s graceful RCON + 15s taskkill); o restart falhava pois o status ainda era `stopping` ao checar.
+- fix: restart agora aceita status `stopped` **ou** `crashed`; se ainda `stopping` após timeout, aguarda 30s extra antes de tentar iniciar.
+- fix: download concorrente — `on_done(False)` chamado imediatamente quando `_active=True`; antes o `done_event` nunca era sinalizado, causando timeout de 10min e falso _"Falha ao baixar"_ para o segundo mod atualizado simultaneamente.
+
+---
+
 ## [1.3.17] - 2026-05-20
 
 ### Fix

@@ -230,10 +230,12 @@ class ModAutoUpdater:
         self._mod_manager.download_mods([mod_id], install_dir, on_done=_on_done, copy_to_mods=False)
 
         # ── Fase 3: avisos RCON enquanto o download acontece ──────────────────
+        # Inclui servidores em "starting" — RCON pode não estar disponível ainda
+        # mas o try/except em _broadcast_all já trata isso graciosamente.
         running_servers = [
             sid for sid in server_ids
             if self._server_manager.get_instance(sid) is not None
-            and self._server_manager.get_instance(sid).status == "running"  # type: ignore[union-attr]
+            and self._server_manager.get_instance(sid).status in ("running", "starting")  # type: ignore[union-attr]
         ]
 
         if running_servers:
@@ -333,8 +335,8 @@ class ModAutoUpdater:
             self._log(f"Parando servidor '{sid}' para aplicar mod {mod_id}…", "info")
             self._server_manager.stop_server(sid)
 
-        # Aguarda todos pararem (máx 90 s)
-        deadline = time.monotonic() + 90
+        # Aguarda todos pararem (máx 180 s — _stop_worker pode levar ~110 s: 90 s graceful + taskkill)
+        deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
             all_stopped = all(
                 self._server_manager.get_instance(sid) is None
@@ -352,9 +354,18 @@ class ModAutoUpdater:
         # ── Fase 6: reiniciar servidores parados ──────────────────────────────
         for sid in running_now:
             inst = self._server_manager.get_instance(sid)
-            if inst and inst.status == "stopped":
+            # Aceita "stopped" e "crashed" — start_server já rejeita "running"/"starting"/"stopping"
+            if inst and inst.status in ("stopped", "crashed"):
                 self._log(f"Reiniciando servidor '{sid}'…", "info")
                 self._server_manager.start_server(sid)
+            elif inst and inst.status not in ("running", "starting"):
+                # Status inesperado (ex: ainda "stopping" após timeout) — aguarda mais 30s e tenta
+                self._log(f"Servidor '{sid}' ainda em status '{inst.status}' após timeout; aguardando 30s…", "warning")
+                time.sleep(30)
+                inst = self._server_manager.get_instance(sid)
+                if inst and inst.status not in ("running", "starting", "stopping"):
+                    self._log(f"Reiniciando servidor '{sid}'…", "info")
+                    self._server_manager.start_server(sid)
             time.sleep(3)  # pequeno intervalo entre starts
         # ── Notifica Discord sobre a atualização ──────────────────────────────────
         if self._discord_notifier:
