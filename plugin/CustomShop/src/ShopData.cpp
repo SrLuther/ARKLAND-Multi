@@ -198,10 +198,20 @@ void InitPlayer(AShooterPlayerController* controller) {
     if (id.empty()) return;
 
     // Register player in DB with starting points if new.
+    // DO NOT apply the buff or send any data here — calling StaticAddBuff
+    // during HandleNewPlayer (before the character's engram component is
+    // fully initialised by ARK) corrupts the engram state, preventing the
+    // player from learning any engram for the rest of the session.
+    // The buff is applied lazily in InitShop() when the player opens the shop.
     ShopPoints::Get().GetPoints(id);
+}
 
-    // Apply buff — if the character hasn't spawned yet this returns null
-    // and the mod will pull data when the hotkey is first pressed.
+void InitShop(AShooterPlayerController* controller) {
+    if (!controller) return;
+    const std::string id = Bridge::GetSteamId(controller);
+    if (id.empty()) return;
+
+    // Apply buff first (lazily, only when the player opens the shop).
     Bridge::GetOrAddShopBuff(controller);
 
     // Config must arrive first so the UI sets up hotkey, labels and

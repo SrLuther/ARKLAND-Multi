@@ -77,8 +77,15 @@ void CmdGetShopItems(APlayerController* pc, FString* cmd_str, bool) {
 }
 
 void CmdGetConfig(APlayerController* pc, FString*, bool) {
+    // GetConfig is sent by the mod when it initialises — apply buff lazily here
+    // so the response can be delivered via ClientReceiveCallback.
     auto* c = static_cast<AShooterPlayerController*>(pc);
-    if (c) CustomShop::Data::SendConfig(c);
+    if (c) CustomShop::Data::InitShop(c);
+}
+
+void CmdShop(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    CustomShop::Data::InitShop(controller);
 }
 
 void CmdGetPoints(APlayerController* pc, FString*, bool) {
@@ -377,6 +384,7 @@ namespace Commands {
 void Register() {
     // Mod-facing (called automatically by the MX-E UI mod)
     ArkApi::GetCommands().AddConsoleCommand("GetConfig",    &CmdGetConfig);
+    ArkApi::GetCommands().AddChatCommand("/shop",           &CmdShop);
     ArkApi::GetCommands().AddConsoleCommand("BuyItem",      &CmdBuyItem);
     ArkApi::GetCommands().AddConsoleCommand("SellItem",     &CmdSellItem);
     ArkApi::GetCommands().AddConsoleCommand("GetShopItems", &CmdGetShopItems);
@@ -400,6 +408,7 @@ void Register() {
 
 void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("GetConfig");
+    ArkApi::GetCommands().RemoveChatCommand("/shop");
     ArkApi::GetCommands().RemoveConsoleCommand("BuyItem");
     ArkApi::GetCommands().RemoveConsoleCommand("SellItem");
     ArkApi::GetCommands().RemoveConsoleCommand("GetShopItems");

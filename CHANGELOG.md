@@ -2,6 +2,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.19] - 2026-05-20
+
+### Fix — Plugin CustomShop (FC_ArkShopUI)
+
+- fix: `StaticAddBuff` removido do `HandleNewPlayer` — aplicar o buff durante a inicialização do jogador corromperia o componente de engramas, impedindo aprender qualquer engrama pelo resto da sessão.
+- fix: `InitPlayer` agora apenas registra o jogador no DB; o buff é aplicado lazily ao primeiro `/shop`.
+- feat: novo chat command `/shop` — aplica o buff + envia config/itens/pontos/kits de uma vez, abrindo a UI do mod.
+- fix: `CmdGetConfig` (enviado pelo mod ao inicializar) agora chama `InitShop` em vez de `SendConfig` — garante que o buff seja aplicado antes de tentar responder via `ClientReceiveCallback`.
+
+---
+
 ## [1.3.18] - 2026-05-20
 
 ### Fix — Plugin CustomShop (FC_ArkShopUI)

@@ -11,7 +11,7 @@ set PLUGIN_DIR=%~dp0
 set SDK_DIR=%PLUGIN_DIR%ArkServerAPI\version\Core\Public
 set LIB_DIR=%PLUGIN_DIR%ArkServerAPI\out_lib
 set SRC_DIR=%PLUGIN_DIR%src
-set MYSQL_DIR=%PLUGIN_DIR%mariadb
+set MYSQL_DIR=%PLUGIN_DIR%mysql
 pushd "%~dp0"
 set OBJ_DIR=%CD%\obj
 set BIN_DIR=%CD%\bin
@@ -61,7 +61,7 @@ echo === Linking DLL ===
   /LIBPATH:"%WIN_LIB%" ^
   /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" ^
   /LIBPATH:"%WIN_SDK_LIB%\um\x64" ^
-  ArkApi.lib libmariadb.lib ^
+  ArkApi.lib "%MYSQL_DIR%\lib\libmysql.lib" ^
   kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib ^
   "%OBJ_DIR%\Main.obj" ^
   "%OBJ_DIR%\ShopBridge.obj" ^

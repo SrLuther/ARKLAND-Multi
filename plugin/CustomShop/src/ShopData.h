@@ -49,9 +49,12 @@ bool SendTradeResult(AShooterPlayerController* sender,
 // Notifies the mod that the shop data was reloaded server-side.
 bool SendReload(AShooterPlayerController* controller);
 
-// Runs the full init sequence when a player connects:
-// buff → items → points → kits → player-kits.
+// Registers the player in the DB when they connect (no buff or data push).
 void InitPlayer(AShooterPlayerController* controller);
+
+// Full shop-open sequence triggered by /shop command:
+// buff → config → items → points → kits → player-kits.
+void InitShop(AShooterPlayerController* controller);
 
 } // namespace Data
 } // namespace CustomShop
