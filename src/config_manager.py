@@ -45,7 +45,9 @@ class AppConfig:
     remote_agent_enabled: bool = False
     remote_agent_port: int = 32440
     remote_agent_token: str = ""
+    remote_agent_name: str = ""          # Nome de exibição desta instância
     remote_peers: list = field(default_factory=list)
+    remote_instances: list = field(default_factory=list)  # Lista de conexões remotas salvas
     # Ciclos de sincronização: lista de listas de caminhos
     # Cada ciclo sincroniza todas as suas pastas entre si (N-way)
     sync_cycles: list = field(default_factory=list)
@@ -84,6 +86,8 @@ class ConfigManager:
                     self.config.update_url = self._DEFAULT_UPDATE_URL
                 if not isinstance(self.config.remote_peers, list):
                     self.config.remote_peers = []
+                if not isinstance(self.config.remote_instances, list):
+                    self.config.remote_instances = []
                 if not self.config.remote_agent_token:
                     self.config.remote_agent_token = str(uuid.uuid4())
                     self.save()

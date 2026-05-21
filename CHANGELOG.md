@@ -2,6 +2,38 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.21] - 2026-05-22
+
+### Feat — Paridade com ASM (~80 novos campos)
+
+- feat: **`ServerGameSettings`** — ~35 novos campos GUS `[ServerSettings]`: `tamed_dino_damage_multiplier`, `tamed_dino_resistance_multiplier`, `dino_character_stamina_drain_multiplier`, `dino_turret_damage_multiplier`, `max_personal_tamed_dinos`, `personal_tamed_dinos_saddle_structure_cost`, `day_cycle_speed_scale`, `day_time_speed_scale`, `night_time_speed_scale`, `disable_weather_fog`, `allow_pvp_gamma`, `allow_pve_gamma`, `allow_hit_markers`, `disable_imprint_dino_buff`, `allow_anyone_baby_imprint_cuddle`, `allow_flying_stamina_recovery`, `prevent_mate_boost`, `allow_multiple_attached_c4`, `auto_destroy_decayed_dinos`, `pve_dino_decay_period_multiplier`, `disable_dino_decay_pvp`, `pvp_structure_decay`, `override_structure_platform_prevention`, `max_structures_visible`, `max_platform_saddle_structure_limit`, `auto_destroy_old_structures_multiplier`, `only_auto_destroy_core_structures`, `only_decay_unsnapped_core_structures`, `fast_decay_unsnapped_core_structures`, `destroy_unconnected_water_pipes`, `allow_cave_building_pve`, `pve_allow_structures_at_supply_drops`, `enable_extra_structure_prevention_volumes`, `clamp_resource_harvest_damage`, `enable_diseases`, `non_permanent_diseases`, `allow_tribe_alliances`, `override_npc_network_stasis_range_scale` + 3 sub-campos.
+- feat: **`ServerAdvancedSettings`** — ~40 novos campos Game.ini `[ShooterGameMode]`: `passive_tame_interval_multiplier`, `wild/tamed_dino_character_food_drain_multiplier`, `wild/tamed_dino_torpor_drain_multiplier`, `baby_cuddle_lose_imprint_quality_speed_multiplier`, `base_temperature_multiplier`, `disable_dino_riding`, `disable_dino_taming`, `use_tame_limit_for_structures_only`, `disable_friendly_fire_pvp/pve`, `disable_loot_crates`, `increase_pvp_respawn_interval` + sub-campos, `prevent_offline_pvp_connection_invincible_interval`, `allow_tribe_war_pve/cancel`, `max_alliances_per_tribe`, `max_tribes_per_alliance`, `allow_custom_recipes`, `use_corpse_locator`, `allow_unlimited_respecs`, `allow_platform_saddle_multi_floors`, `random_supply_crate_points`, `supply_crate_loot_quality_multiplier`, `use_corpse_life_span_multiplier`, `global_powered_battery_durability_decrease_per_second`, `global_corpse_decomposition_time_multiplier`, `poop_interval_multiplier`, `hair_growth_speed_multiplier`, `resource_no_replenish_radius_players/structures`, `crafting_skill_bonus_multiplier`, `disable_structure_placement_collision`, `pvp_zone_structure_damage_multiplier`, `flyer_platform_allow_unaligned_dino_basing`, `enable_fast_decay_interval`, `fast_decay_interval`, `limit_turrets_in_range`, `limit_turrets_range/num`, `hard_limit_turrets_in_range`.
+- feat: **`ServerConfig`** — ~35 novos campos: `server_ip` (MultiHome), `use_raw_sockets`, `no_net_threading`, `force_net_threading`, `public_ip_for_epic`, `spectator_password`, `enable_ban_list_url`, `ban_list_url`, `rcon_server_game_log_buffer`, `admin_logging`, `enable_extinction_event`, `extinction_event_time_interval`, `disable_vac`, `disable_anti_speed_hack`, `speed_hack_bias`, `disable_player_move_physics_opt`, `use_cache`, `use_old_save_format`, `use_no_memory_bias`, `stasis_keep_controllers`, `use_no_hang_detection`, `server_allow_ansel`, `no_dinos`, `force_dx10`, `force_shader_model4`, `force_low_memory`, `enable_allow_cave_flyers`, `enable_auto_destroy_structures`, `enable_no_fish_loot`, `enable_web_alarm` + chave/URL, `enable_server_admin_logs`, `server_admin_logs_include_tribe_logs`, `server_rcon_output_tribe_logs`, `notify_admin_commands_in_chat`, `allow_hide_damage_source_from_logs`, `max_tribe_logs`, `tribe_log_destroyed_enemy_structures`, `enable_auto_force_respawn_wild_dinos_interval`, `tribute_character/item/dino_expiration_seconds`, `minimum_dino_reupload_interval`, `cross_ark_allow_foreign_dino_downloads`, `branch_name`, `branch_password`.
+- feat: **`ark_ini.py`** — `_GUS_SERVER_SETTINGS` expandido para 95 entradas; `save_game_user_settings()` grava inversões booleanas (`PreventDiseases`, `PreventTribeAlliances`, `DisablePvEGamma`, `PvPDinoDecay`), NPC stasis range scale, e todos os novos campos GUS de `ServerConfig`; `save_game_ini()` escreve ~40 novos campos em `[ShooterGameMode]`; `populate_config_from_gus/game_ini()` lêem todos os novos campos de volta.
+- feat: **`build_launch_args()`** — novos URL params (`?MultiHome=`, `?bRawSockets`) e dash flags (`-insecure`, `-noantispeedhack`, `-speedhackbias=`, `-nocombineclientmoves`, `-nonetthreading`, `-forcenetthreading`, `-PublicIPForEpic=`, `-ForceAllowCaveFlyers`, `-AutoDestroyStructures`, `-nofishloot`, `-usecache`, `-oldsaveformat`, `-nomemorybias`, `-StasisKeepControllers`, `-NoHangDetection`, `-ServerAllowAnsel`, `-NoDinos`, `-d3d10`, `-sm4`, `-lowmemory`, `-servergamelog`, `-servergamelogincludetribelogs`, `-ServerRCONOutputTribeLogs`, `-NotifyAdminCommandsInChat`, `-webalarm`/key/url).
+- feat: **`ModManager.install_server()`** — suporte a branch SteamCMD via `-beta <name>` e `-betapassword <pwd>` (campos `branch_name`/`branch_password` de `ServerConfig`).
+
+---
+
+
+
+### Feat — Acesso Remoto Centralizado
+
+- feat: novo painel **🖥️ Remoto** na barra lateral — controle total de qualquer outra instância ARKLAND pela internet.
+- feat: **Código de identidade** por máquina — string base64 que codifica nome, IP local, porta e token; exibida com botão "Copiar" para compartilhar facilmente.
+- feat: **`RemoteAgent`** reescrito com suporte completo a controle de servidores: `GET /info`, `GET /servers`, `POST /server/{id}/start|stop|stop/force|restart|rcon`, `GET /server/{id}/logs`.
+- feat: **`RemoteClient`** — cliente HTTP que consome a API do agente remoto (métodos `get_info`, `get_servers`, `start_server`, `stop_server`, `restart_server`, `get_server_logs`, `send_rcon`).
+- feat: janela de controle remoto com polling automático a cada 3 s — exibe status de todos os servidores da máquina remota com botões ▶ ⏹ 🔄 e visualizador de log ao vivo.
+- feat: console RCON embutido na janela remota — envia comandos ao servidor remoto via `POST /server/{id}/rcon`.
+- feat: **Regenerar Token** com confirmação — invalida o código antigo instantaneamente sem precisar reiniciar.
+- feat: botão **▶ Ativar / ⏹ Parar** o agente diretamente no painel, com indicador de status colorido.
+- feat: lista de máquinas remotas salvas — adicione via código de identidade (diálogo com validação) e remova com confirmação.
+- feat: agente inicia automaticamente ao abrir o app se `remote_agent_enabled = true` na config salva.
+- feat: agente é encerrado graciosamente ao fechar o app.
+- feat: `config.json` passa a armazenar `remote_agent_name` (nome desta instância) e `remote_instances` (lista de conexões remotas salvas).
+
+---
+
 ## [1.3.19] - 2026-05-20
 
 ### Fix — Plugin CustomShop (FC_ArkShopUI)

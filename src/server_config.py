@@ -154,6 +154,64 @@ class ServerGameSettings:
     # Fishing
     fishing_loot_quality_multiplier: float = 1.0
 
+    # Dino — multiplicadores separados de tamed (GUS [ServerSettings])
+    tamed_dino_damage_multiplier: float = 1.0       # TamedDinoDamageMultiplier
+    tamed_dino_resistance_multiplier: float = 1.0   # TamedDinoResistanceMultiplier
+    dino_character_stamina_drain_multiplier: float = 1.0  # DinoCharacterStaminaDrainMultiplier
+    dino_turret_damage_multiplier: float = 1.0      # TurretDamageMultiplierDino
+    # Limite de dinos domesticados por jogador
+    max_personal_tamed_dinos: float = 40.0
+    personal_tamed_dinos_saddle_structure_cost: int = 19
+
+    # Ciclo de dia/noite (GUS [ServerSettings])
+    day_cycle_speed_scale: float = 1.0
+    day_time_speed_scale: float = 1.0
+    night_time_speed_scale: float = 1.0
+    disable_weather_fog: bool = False
+
+    # PvP/PvE — Gamma/HitMarkers (GUS [ServerSettings])
+    allow_pvp_gamma: bool = False         # EnablePVPGamma=
+    allow_pve_gamma: bool = False         # DisablePvEGamma= (invertido)
+    allow_hit_markers: bool = True        # AllowHitMarkers=
+
+    # Dino — imprinting/decay/misc (GUS [ServerSettings])
+    disable_imprint_dino_buff: bool = False          # DisableImprintDinoBuff=
+    allow_anyone_baby_imprint_cuddle: bool = False   # AllowAnyoneBabyImprintCuddle=
+    allow_flying_stamina_recovery: bool = False      # AllowFlyingStaminaRecovery= (condicional)
+    prevent_mate_boost: bool = False                 # PreventMateBoost=
+    allow_multiple_attached_c4: bool = False         # AllowMultipleAttachedC4= (condicional)
+    auto_destroy_decayed_dinos: bool = False         # AutoDestroyDecayedDinos=
+    pve_dino_decay_period_multiplier: float = 1.0   # PvEDinoDecayPeriodMultiplier=
+    disable_dino_decay_pvp: bool = False             # PvPDinoDecay= (invertido)
+
+    # Estruturas — estruturas decay/limite (GUS [ServerSettings])
+    pvp_structure_decay: bool = False
+    override_structure_platform_prevention: bool = False
+    max_structures_visible: int = 10500         # TheMaxStructuresInRange= no INI
+    max_platform_saddle_structure_limit: int = 130
+    auto_destroy_old_structures_multiplier: float = 0.0
+    only_auto_destroy_core_structures: bool = False
+    only_decay_unsnapped_core_structures: bool = False
+    fast_decay_unsnapped_core_structures: bool = False
+    destroy_unconnected_water_pipes: bool = False
+
+    # Estruturas — gameplay (GUS [ServerSettings])
+    allow_cave_building_pve: bool = False
+    pve_allow_structures_at_supply_drops: bool = False
+    enable_extra_structure_prevention_volumes: bool = False
+    clamp_resource_harvest_damage: bool = False    # GUS [ServerSettings]
+
+    # Doenças / Tribos / Cluster (GUS [ServerSettings])
+    enable_diseases: bool = True               # PreventDiseases= (invertido)
+    non_permanent_diseases: bool = False       # NonPermanentDiseases= (condicional)
+    allow_tribe_alliances: bool = True         # PreventTribeAlliances= (invertido)
+
+    # NPC Network Stasis Scale (GUS [ServerSettings])
+    override_npc_network_stasis_range_scale: bool = False
+    npc_network_stasis_range_scale_player_count_start: int = 70
+    npc_network_stasis_range_scale_player_count_end: int = 120
+    npc_network_stasis_range_scale_percent_end: float = 0.5
+
     # Multiplicadores de stats por nível — Game.ini PerLevelStatsMultiplier_*
     # Índices: 0=Vida, 1=Stamina, 2=Torpor, 3=Oxigênio, 4=Comida, 5=Água,
     #          6=Temperatura, 7=Peso, 8=Dano, 9=Velocidade, 10=Fortitude, 11=Craft
@@ -207,6 +265,59 @@ class ServerAdvancedSettings:
     auto_pve_stop_time_seconds: float = 0.0
     force_all_structure_locking: bool = False
     force_flyer_explosives: bool = False
+
+    # Dino — comportamentos extras (Game.ini [ShooterGameMode])
+    passive_tame_interval_multiplier: float = 1.0
+    wild_dino_character_food_drain_multiplier: float = 1.0
+    tamed_dino_character_food_drain_multiplier: float = 1.0
+    wild_dino_torpor_drain_multiplier: float = 1.0
+    tamed_dino_torpor_drain_multiplier: float = 1.0
+    baby_cuddle_lose_imprint_quality_speed_multiplier: float = 1.0
+    use_tame_limit_for_structures_only: bool = False   # bUseTameLimitForStructuresOnly
+    disable_dino_riding: bool = False                  # bDisableDinoRiding
+    disable_dino_taming: bool = False                  # bDisableDinoTaming
+    base_temperature_multiplier: float = 1.0           # BaseTemperatureMultiplier
+
+    # PvP/PvE — Game.ini [ShooterGameMode]
+    disable_friendly_fire_pvp: bool = False            # bDisableFriendlyFire
+    disable_friendly_fire_pve: bool = False            # bPvEDisableFriendlyFire
+    disable_loot_crates: bool = False                  # bDisableLootCrates
+    increase_pvp_respawn_interval: bool = False        # bIncreasePvPRespawnInterval
+    increase_pvp_respawn_interval_check_period: int = 300
+    increase_pvp_respawn_interval_multiplier: float = 2.0
+    increase_pvp_respawn_interval_base_amount: int = 60
+    prevent_offline_pvp_connection_invincible_interval: float = 5.0
+    allow_tribe_war_pve: bool = True                   # bPvEAllowTribeWar
+    allow_tribe_war_cancel_pve: bool = False           # bPvEAllowTribeWarCancel
+    max_alliances_per_tribe: int = 10
+    max_tribes_per_alliance: int = 10
+    allow_custom_recipes: bool = True                  # bAllowCustomRecipes
+    use_corpse_locator: bool = False                   # bUseCorpseLocator
+    allow_unlimited_respecs: bool = False              # bAllowUnlimitedRespecs
+    allow_platform_saddle_multi_floors: bool = False   # bAllowPlatformSaddleMultiFloors
+    random_supply_crate_points: bool = False
+    supply_crate_loot_quality_multiplier: float = 1.0
+    use_corpse_life_span_multiplier: float = 1.0
+    global_powered_battery_durability_decrease_per_second: float = 1.0
+
+    # Ambiente — Game.ini [ShooterGameMode]
+    global_corpse_decomposition_time_multiplier: float = 1.0
+    poop_interval_multiplier: float = 1.0
+    hair_growth_speed_multiplier: float = 1.0
+    resource_no_replenish_radius_players: float = 1.0
+    resource_no_replenish_radius_structures: float = 1.0
+    crafting_skill_bonus_multiplier: float = 1.0
+
+    # Estruturas — Game.ini [ShooterGameMode]
+    disable_structure_placement_collision: bool = False  # bDisableStructurePlacementCollision
+    pvp_zone_structure_damage_multiplier: float = 6.0
+    flyer_platform_allow_unaligned_dino_basing: bool = False  # bFlyerPlatformAllowUnalignedDinoBasing
+    enable_fast_decay_interval: bool = False
+    fast_decay_interval: int = 43200
+    limit_turrets_in_range: bool = False               # bLimitTurretsInRange
+    limit_turrets_range: int = 10000
+    limit_turrets_num: int = 100
+    hard_limit_turrets_in_range: bool = False          # bHardLimitTurretsInRange
 
     # Spawn de Dinos Customizados (Game.ini)
     # Cada item é um dict com chaves:
@@ -336,6 +447,72 @@ class ServerConfig:
     prevent_spawn_animations: bool = False # ?PreventSpawnAnimations=True (sem animação de spawn)
     show_floating_damage_text: bool = False # ?ShowFloatingDamageText=True (dano flutuante RPG)
 
+    # Rede avançada
+    server_ip: str = ""                    # ?MultiHome= / -MultiHome= (bind em IP específico)
+    use_raw_sockets: bool = False          # ?bRawSockets (sockets UDP raw, menor overhead)
+    no_net_threading: bool = False         # -nonetthreading (apenas com bRawSockets)
+    force_net_threading: bool = False      # -forcenetthreading (apenas com bRawSockets)
+    public_ip_for_epic: str = ""           # -PublicIPForEpic= (crossplay Epic/Steam em VPS/NAT)
+
+    # Acesso especial
+    spectator_password: str = ""           # ServerSettings.SpectatorPassword
+    enable_ban_list_url: bool = False      # Ativar lista de ban personalizada
+    ban_list_url: str = "http://arkdedicated.com/banlist.txt"  # ServerSettings.BanListURL
+
+    # RCON avançado
+    rcon_server_game_log_buffer: int = 600 # ServerSettings.RCONServerGameLogBuffer
+    admin_logging: bool = False            # ServerSettings.AdminLogging
+
+    # Extinction Event
+    enable_extinction_event: bool = False       # Habilitar evento de extinção
+    extinction_event_time_interval: int = 2592000  # Intervalo em segundos (~30 dias)
+
+    # Flags de processo (dash flags)
+    disable_vac: bool = False                      # -insecure (desativa VAC)
+    disable_anti_speed_hack: bool = False          # -noantispeedhack
+    speed_hack_bias: float = 1.0                   # -speedhackbias=N
+    disable_player_move_physics_opt: bool = False  # -nocombineclientmoves
+    use_cache: bool = False                        # -usecache
+    use_old_save_format: bool = False              # -oldsaveformat
+    use_no_memory_bias: bool = False               # -nomemorybias
+    stasis_keep_controllers: bool = False          # -StasisKeepControllers
+    use_no_hang_detection: bool = False            # -NoHangDetection
+    server_allow_ansel: bool = False               # -ServerAllowAnsel
+    no_dinos: bool = False                         # -NoDinos
+    force_dx10: bool = False                       # -d3d10
+    force_shader_model4: bool = False              # -sm4
+    force_low_memory: bool = False                 # -lowmemory
+    enable_allow_cave_flyers: bool = False         # -ForceAllowCaveFlyers
+    enable_auto_destroy_structures: bool = False   # -AutoDestroyStructures
+    enable_no_fish_loot: bool = False              # -nofishloot
+    enable_web_alarm: bool = False                 # -webalarm (notificação de morte via webhook)
+    web_alarm_key: str = ""                        # Chave do web alarm
+    web_alarm_url: str = ""                        # URL do web alarm
+
+    # Logs de admin
+    enable_server_admin_logs: bool = False             # -servergamelog
+    server_admin_logs_include_tribe_logs: bool = False # -servergamelogincludetribelogs
+    server_rcon_output_tribe_logs: bool = False        # -ServerRCONOutputTribeLogs
+    notify_admin_commands_in_chat: bool = False        # -NotifyAdminCommandsInChat
+    allow_hide_damage_source_from_logs: bool = False   # ServerSettings.AllowHideDamageSourceFromLogs
+    max_tribe_logs: int = 100                          # Game.ini MaxTribeLogs
+    tribe_log_destroyed_enemy_structures: bool = False # ServerSettings.TribeLogDestroyedEnemyStructures
+
+    # Auto-respawn de dinos selvagens
+    enable_auto_force_respawn_wild_dinos_interval: bool = False  # habilita abaixo
+    server_auto_force_respawn_wild_dinos_interval: int = 86400   # intervalo em segundos
+
+    # SteamCMD — beta branch (ex: preaquatica)
+    branch_name: str = ""                # -beta <branch> no steamcmd app_update
+    branch_password: str = ""            # -betapassword <senha> no steamcmd
+
+    # Cluster — expiração de tributários (0 = usar padrão ARK, não escrever)
+    tribute_character_expiration_seconds: int = 0
+    tribute_item_expiration_seconds: int = 0
+    tribute_dino_expiration_seconds: int = 0
+    minimum_dino_reupload_interval: int = 0
+    cross_ark_allow_foreign_dino_downloads: bool = False
+
     # Mensagem do Dia (MOTD)
     motd: str = ""
     motd_duration: int = 60
@@ -441,6 +618,10 @@ class ServerConfig:
             params.append(f"?ActiveEvent={self.active_event}")
         if self.auto_save_period != 15.0:
             params.append(f"?AutoSavePeriodMinutes={self.auto_save_period}")
+        if self.server_ip:
+            params.append(f"?MultiHome={self.server_ip}")
+        if self.use_raw_sockets:
+            params.append("?bRawSockets")
 
         # Cluster — perfil global tem prioridade sobre configuração manual por servidor
         _cl_id  = ""
@@ -486,12 +667,72 @@ class ServerConfig:
             flags.append("-ForceRespawnDinos")
         if self.crossplay:
             flags.append("-crossplay")
+            if self.public_ip_for_epic:
+                flags.append(f"-PublicIPForEpic={self.public_ip_for_epic}")
         if self.epic_only:
             flags.append("-epiconly")
         if self.use_vivox:
             flags.append("-UseVivox")
         if self.use_item_dupe_check:
             flags.append("-UseItemDupeCheck")
+        # Net threading
+        if self.no_net_threading:
+            flags.append("-nonetthreading")
+        if self.force_net_threading:
+            flags.append("-forcenetthreading")
+        # Dinos / gameplay flags
+        if self.no_dinos:
+            flags.append("-NoDinos")
+        if self.enable_allow_cave_flyers:
+            flags.append("-ForceAllowCaveFlyers")
+        if self.enable_auto_destroy_structures:
+            flags.append("-AutoDestroyStructures")
+        if self.enable_no_fish_loot:
+            flags.append("-nofishloot")
+        # Anti-cheat / security
+        if self.disable_vac:
+            flags.append("-insecure")
+        if self.disable_anti_speed_hack:
+            flags.append("-noantispeedhack")
+        elif self.speed_hack_bias != 1.0:
+            flags.append(f"-speedhackbias={self.speed_hack_bias}f")
+        if self.disable_player_move_physics_opt:
+            flags.append("-nocombineclientmoves")
+        # Performance / memory
+        if self.force_dx10:
+            flags.append("-d3d10")
+        if self.force_shader_model4:
+            flags.append("-sm4")
+        if self.force_low_memory:
+            flags.append("-lowmemory")
+        if self.use_cache:
+            flags.append("-usecache")
+        if self.use_old_save_format:
+            flags.append("-oldsaveformat")
+        if self.use_no_memory_bias:
+            flags.append("-nomemorybias")
+        if self.stasis_keep_controllers:
+            flags.append("-StasisKeepControllers")
+        if self.use_no_hang_detection:
+            flags.append("-NoHangDetection")
+        # Logging / admin
+        if self.server_allow_ansel:
+            flags.append("-ServerAllowAnsel")
+        if self.enable_server_admin_logs:
+            flags.append("-servergamelog")
+            if self.server_admin_logs_include_tribe_logs:
+                flags.append("-servergamelogincludetribelogs")
+        if self.server_rcon_output_tribe_logs:
+            flags.append("-ServerRCONOutputTribeLogs")
+        if self.notify_admin_commands_in_chat:
+            flags.append("-NotifyAdminCommandsInChat")
+        # Web alarm
+        if self.enable_web_alarm:
+            flags.append("-webalarm")
+            if self.web_alarm_key:
+                flags.append(f"-webalarmkey={self.web_alarm_key}")
+            if self.web_alarm_url:
+                flags.append(f"-webalarmurl={self.web_alarm_url}")
 
         if _cl_id:
             if _cl_no_transfer:

@@ -76,6 +76,7 @@ from .change_logger import ChangeLogger, snapshot_server, diff_snapshots
 from .ark_ini import parse_ini_text_to_sections, sections_to_ini_text
 from .ark_ini import build_dynamic_config
 from .dynamic_config_server import DynamicConfigServer
+from .remote_agent import RemoteAgent, RemoteClient, make_identity_code, parse_identity_code, local_ip
 
 APP_NAME = "ARKLAND - Server Manager"
 
@@ -355,6 +356,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_server_procs: dict = {}   # server_id → psutil.Process
         self._perf_last_srv_ids: list = []
 
+        self._remote_agent: Optional[RemoteAgent] = None
+
         self._build_ui()
         self.after(200, self._scan_running_servers)
         self.after(500, self._auto_start_sync)
@@ -365,6 +368,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(600, self._init_buff_manager)
         self.after(800, self._init_backup_manager)
         self.after(1200, self._start_perf_monitor)
+        self.after(900, self._auto_start_remote_agent)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Unmap>", self._on_unmap_event)
 
@@ -425,6 +429,7 @@ class ARKServerManagerApp(ctk.CTk):
             ("⚡  BUFFs",          "buffs"),
             ("📊  Desempenho",     "desempenho"),
             ("🔗  Clusters",       "clusters"),
+            ("🖥️  Remoto",         "remoto"),
             ("⚙️  Configurações",  "config"),
             ("ℹ️  Sobre",           "sobre"),
         ]):
@@ -590,6 +595,12 @@ class ARKServerManagerApp(ctk.CTk):
         self._build_global_config(conf)
         self._frames["config"] = conf
         conf.grid_remove()
+
+        remoto = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
+        remoto.grid(row=0, column=1, sticky="nsew")
+        self._build_remote_panel(remoto)
+        self._frames["remoto"] = remoto
+        remoto.grid_remove()
 
         sobre = ctk.CTkScrollableFrame(self, corner_radius=0, fg_color=_BG)
         sobre.grid(row=0, column=1, sticky="nsew")
@@ -880,7 +891,37 @@ class ARKServerManagerApp(ctk.CTk):
         if has_paths:
             self._start_sync_engine()
 
-    def _toggle_sync(self) -> None:
+    def _auto_start_remote_agent(self) -> None:
+        """Inicia o agente remoto automaticamente se habilitado na configuração."""
+        if self.config_manager.config.remote_agent_enabled:
+            self._start_remote_agent()
+
+    def _start_remote_agent(self) -> None:
+        """Inicia (ou reinicia) o RemoteAgent com as configurações atuais."""
+        cfg = self.config_manager.config
+        if self._remote_agent and self._remote_agent.is_running:
+            self._remote_agent.stop()
+            self._remote_agent = None
+        try:
+            self._remote_agent = RemoteAgent(
+                server_manager=self.server_manager,
+                sync_engine=self._sync_engine,
+                port=cfg.remote_agent_port,
+                token=cfg.remote_agent_token,
+                name=cfg.remote_agent_name or _hostname(),
+            )
+            self._remote_agent.start()
+            cfg.remote_agent_enabled = True
+            self.config_manager.save()
+        except OSError as exc:
+            messagebox.showerror(
+                "Agente Remoto",
+                f"Não foi possível iniciar o agente na porta {cfg.remote_agent_port}:\n{exc}",
+                parent=self,
+            )
+            self._remote_agent = None
+
+
         if self._sync_engine and self._sync_engine.is_running:
             self._sync_engine.stop()
         else:
@@ -2144,6 +2185,7 @@ class ARKServerManagerApp(ctk.CTk):
         w["rcon_password"]   = tk.StringVar(value=srv.rcon_password)
         w["max_players"]     = tk.StringVar(value=str(srv.max_players))
         w["server_port"]     = tk.StringVar(value=str(srv.server_port))
+        w["peer_port"]       = tk.StringVar(value=str(srv.server_port + 1))
         w["query_port"]      = tk.StringVar(value=str(srv.query_port))
         w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
         w["public_ip"]        = tk.StringVar(value=srv.public_ip)
@@ -2173,9 +2215,39 @@ class ARKServerManagerApp(ctk.CTk):
             ])
 
         self._section_lbl(scroll, 6, "🔌  Rede e Portas")
-        row("Porta do Servidor:",
-            "Porta principal UDP. Padrão: 7777. Liberar no roteador (UDP).",
-            w["server_port"], 7)
+
+        # ── Porta do Servidor + Porta Par (auto = port + 1) ──────────────────
+        self._register_config_item(srv.id, "Porta do Servidor",
+                                   "Porta principal UDP. Padrão: 7777.", "Geral")
+        _lbl_sp = ctk.CTkFrame(scroll, fg_color="transparent")
+        _lbl_sp.grid(row=7, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(_lbl_sp, text="Porta do Servidor:", width=200, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(_lbl_sp,
+                     text="Porta principal UDP. Padrão: 7777. Liberar no roteador (UDP).\n"
+                          "A Porta Par (port+1) é usada internamente pelo ARK — abra-a no roteador também.",
+                     width=200, anchor="w", text_color="gray40",
+                     font=ctk.CTkFont(size=10), justify="left").pack(anchor="w", pady=(0, 2))
+        _sp_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        _sp_fr.grid(row=7, column=1, padx=(0, 16), pady=4, sticky="ew")
+        _sp_fr.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_sp_fr, textvariable=w["server_port"], height=34).grid(
+            row=0, column=0, sticky="ew")
+        ctk.CTkLabel(_sp_fr, text="Porta Par:",
+                     text_color="gray55",
+                     font=ctk.CTkFont(size=11)).grid(row=0, column=1, padx=(14, 6))
+        ctk.CTkLabel(_sp_fr, textvariable=w["peer_port"],
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color="#7ec8e3").grid(row=0, column=2, sticky="w", padx=(0, 6))
+
+        def _update_peer_port(*_):
+            try:
+                w["peer_port"].set(str(int(w["server_port"].get()) + 1))
+            except ValueError:
+                pass
+        w["server_port"].trace_add("write", _update_peer_port)
+
         row("Porta de Query:",
             "Porta de consulta Steam. Padrão: 27015. Liberar no roteador (UDP).",
             w["query_port"], 8)
@@ -7656,11 +7728,595 @@ class ARKServerManagerApp(ctk.CTk):
     # Configurações Globais
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _build_global_config(self, parent) -> None:
+    # ══════════════════════════════════════════════════════════════════════════
+    # Painel de Acesso Remoto
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_remote_panel(self, parent) -> None:  # noqa: C901
         parent.grid_columnconfigure(0, weight=1)
         cfg = self.config_manager.config
 
-        ctk.CTkLabel(parent, text="Configurações Globais",
+        ctk.CTkLabel(parent, text="🖥️  Acesso Remoto",
+                     font=ctk.CTkFont(size=24, weight="bold")).grid(
+            row=0, column=0, padx=24, pady=(24, 2), sticky="w")
+        ctk.CTkLabel(
+            parent,
+            text="Controle qualquer instância ARKLAND remotamente pela internet.",
+            text_color="gray60",
+        ).grid(row=1, column=0, padx=24, pady=(0, 18), sticky="w")
+
+        # ── Seção: Este Agente ────────────────────────────────────────────────
+        self._section_lbl(parent, 2, "📡  Este Agente")
+        agent_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        agent_card.grid(row=3, column=0, padx=20, pady=(0, 14), sticky="ew")
+        agent_card.grid_columnconfigure(1, weight=1)
+
+        # Status
+        self._remote_status_var = tk.StringVar(value="● Agente parado")
+        status_lbl = ctk.CTkLabel(
+            agent_card, textvariable=self._remote_status_var,
+            font=ctk.CTkFont(size=12, weight="bold"), text_color="#ff6666",
+        )
+        status_lbl.grid(row=0, column=0, columnspan=3, padx=16, pady=(14, 4), sticky="w")
+        self._remote_status_lbl = status_lbl
+
+        def _update_agent_status_lbl() -> None:
+            if self._remote_agent and self._remote_agent.is_running:
+                self._remote_status_var.set(
+                    f"● Agente ativo — porta {self.config_manager.config.remote_agent_port}")
+                self._remote_status_lbl.configure(text_color=_GREEN)
+                self._remote_toggle_btn.configure(
+                    text="⏹  Parar Agente", fg_color=_RED_DARK, hover_color=_RED_HOVER)
+            else:
+                self._remote_status_var.set("● Agente parado")
+                self._remote_status_lbl.configure(text_color="#ff6666")
+                self._remote_toggle_btn.configure(
+                    text="▶  Ativar Agente", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER)
+            self._refresh_identity_code()
+
+        # Nome da instância
+        ctk.CTkLabel(agent_card, text="Nome desta máquina:", width=190, anchor="w",
+                     text_color="gray60").grid(row=1, column=0, padx=16, pady=(8, 4), sticky="w")
+        self._remote_name_var = tk.StringVar(value=cfg.remote_agent_name or _hostname())
+        ctk.CTkEntry(agent_card, textvariable=self._remote_name_var, height=32,
+                     placeholder_text="Ex: Servidor Principal").grid(
+            row=1, column=1, padx=(0, 16), pady=(8, 4), sticky="ew")
+
+        # Porta
+        ctk.CTkLabel(agent_card, text="Porta do agente:", width=190, anchor="w",
+                     text_color="gray60").grid(row=2, column=0, padx=16, pady=4, sticky="w")
+        self._remote_port_var = tk.StringVar(value=str(cfg.remote_agent_port))
+        ctk.CTkEntry(agent_card, textvariable=self._remote_port_var, height=32,
+                     width=110).grid(row=2, column=1, padx=(0, 16), pady=4, sticky="w")
+        ctk.CTkLabel(agent_card,
+                     text="Libere esta porta no firewall/roteador para acesso externo.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=3, column=0, columnspan=2, padx=16, pady=(0, 6), sticky="w")
+
+        # Código de identidade
+        ctk.CTkLabel(agent_card, text="Código de identidade:", width=190, anchor="w",
+                     text_color="gray60").grid(row=4, column=0, padx=16, pady=(8, 0), sticky="w")
+        code_fr = ctk.CTkFrame(agent_card, fg_color="transparent")
+        code_fr.grid(row=4, column=1, padx=(0, 16), pady=(8, 0), sticky="ew")
+        code_fr.grid_columnconfigure(0, weight=1)
+        self._remote_code_var = tk.StringVar(value="—")
+        ctk.CTkEntry(code_fr, textvariable=self._remote_code_var, height=32,
+                     state="readonly", font=ctk.CTkFont(family="Consolas", size=10)).grid(
+            row=0, column=0, sticky="ew", padx=(0, 6))
+
+        def _copy_code() -> None:
+            code = self._remote_code_var.get()
+            if code and code != "—":
+                self.clipboard_clear()
+                self.clipboard_append(code)
+                self._toast("Código copiado para a área de transferência!")
+
+        ctk.CTkButton(code_fr, text="📋", width=34, height=32,
+                      command=_copy_code).grid(row=0, column=1)
+        ctk.CTkLabel(agent_card,
+                     text="Compartilhe este código com quem vai gerenciar esta máquina remotamente.",
+                     text_color="gray45", font=ctk.CTkFont(size=10)).grid(
+            row=5, column=0, columnspan=2, padx=16, pady=(2, 4), sticky="w")
+
+        self._remote_ip_var = tk.StringVar(value=f"IP local detectado: {local_ip()}")
+        ctk.CTkLabel(agent_card, textvariable=self._remote_ip_var,
+                     text_color="gray50", font=ctk.CTkFont(size=10)).grid(
+            row=6, column=0, columnspan=2, padx=16, pady=(0, 6), sticky="w")
+
+        # Botões de controle
+        btn_row = ctk.CTkFrame(agent_card, fg_color="transparent")
+        btn_row.grid(row=7, column=0, columnspan=2, padx=12, pady=(4, 16), sticky="w")
+
+        def _toggle_agent() -> None:
+            _save_agent_cfg()
+            if self._remote_agent and self._remote_agent.is_running:
+                self._remote_agent.stop()
+                self._remote_agent = None
+            else:
+                self._start_remote_agent()
+            _update_agent_status_lbl()
+
+        self._remote_toggle_btn = ctk.CTkButton(
+            btn_row, text="▶  Ativar Agente", height=34,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=_toggle_agent,
+        )
+        self._remote_toggle_btn.pack(side="left", padx=(0, 8))
+
+        def _regen_token() -> None:
+            if messagebox.askyesno(
+                "Regenerar Token",
+                "Regenerar o token invalidará todos os códigos de identidade existentes.\n"
+                "Qualquer app remoto conectado precisará de um novo código.\n\nContinuar?",
+                parent=self,
+            ):
+                self.config_manager.config.remote_agent_token = str(uuid.uuid4())
+                self.config_manager.save()
+                if self._remote_agent and self._remote_agent.is_running:
+                    self._remote_agent.stop()
+                    self._remote_agent = None
+                    self._start_remote_agent()
+                _update_agent_status_lbl()
+
+        ctk.CTkButton(
+            btn_row, text="🔑  Regenerar Token", height=34,
+            fg_color="#3a3a50", hover_color="#4a4a60",
+            command=_regen_token,
+        ).pack(side="left")
+
+        def _save_agent_cfg() -> None:
+            cfg = self.config_manager.config
+            cfg.remote_agent_name = self._remote_name_var.get().strip() or _hostname()
+            try:
+                cfg.remote_agent_port = int(self._remote_port_var.get())
+            except ValueError:
+                pass
+            self.config_manager.save()
+
+        ctk.CTkButton(
+            btn_row, text="💾  Salvar", height=34,
+            fg_color="#2a3a2a", hover_color="#3a4a3a",
+            command=lambda: (_save_agent_cfg(), self._refresh_identity_code(),
+                             self._toast("Configurações do agente salvas!")),
+        ).pack(side="left", padx=(8, 0))
+
+        # Inicializa label de status imediatamente
+        _update_agent_status_lbl()
+
+        # ── Seção: Máquinas Remotas ────────────────────────────────────────────
+        self._section_lbl(parent, 4, "🌐  Máquinas Remotas")
+
+        # Botão Adicionar
+        add_row = ctk.CTkFrame(parent, fg_color="transparent")
+        add_row.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="w")
+
+        def _add_remote() -> None:
+            dlg = tk.Toplevel(self)
+            dlg.title("Adicionar Conexão Remota")
+            dlg.geometry("520x230")
+            dlg.configure(bg="#111118")
+            dlg.grab_set()
+            dlg.resizable(False, False)
+
+            ctk.CTkLabel(dlg, text="Cole o código de identidade fornecido pela máquina remota:",
+                         text_color="gray70").pack(padx=20, pady=(20, 6), anchor="w")
+            code_sv = tk.StringVar()
+            ctk.CTkEntry(dlg, textvariable=code_sv, height=34, width=480,
+                         font=ctk.CTkFont(family="Consolas", size=10),
+                         placeholder_text="eyJuIjoi...").pack(padx=20)
+            err_var = tk.StringVar()
+            ctk.CTkLabel(dlg, textvariable=err_var, text_color="#ff6666",
+                         font=ctk.CTkFont(size=11)).pack(padx=20, pady=(4, 0), anchor="w")
+
+            def _confirm() -> None:
+                try:
+                    data = parse_identity_code(code_sv.get())
+                except ValueError as exc:
+                    err_var.set(str(exc))
+                    return
+                inst = {
+                    "name":     data["n"],
+                    "host":     data["h"],
+                    "port":     data["p"],
+                    "token":    data["t"],   # salvo até ser desmarcado como favorito
+                    "favorite": False,
+                }
+                self.config_manager.config.remote_instances.append(inst)
+                self.config_manager.save()
+                dlg.destroy()
+                self._refresh_remote_instances_list()
+
+            ctk.CTkButton(dlg, text="✔  Adicionar", height=36,
+                          fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                          command=_confirm).pack(pady=16)
+
+        ctk.CTkButton(
+            add_row, text="＋  Adicionar Conexão via Código", height=36,
+            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+            command=_add_remote,
+        ).pack(side="left")
+
+        # Container das conexões
+        self._remote_instances_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self._remote_instances_frame.grid(row=6, column=0, padx=20, pady=(0, 24), sticky="ew")
+        self._remote_instances_frame.grid_columnconfigure(0, weight=1)
+        self._refresh_remote_instances_list()
+
+    def _refresh_identity_code(self) -> None:
+        """Atualiza o campo de código de identidade com os dados atuais."""
+        if not hasattr(self, "_remote_code_var"):
+            return
+        cfg = self.config_manager.config
+        name  = cfg.remote_agent_name or _hostname()
+        port  = cfg.remote_agent_port
+        token = cfg.remote_agent_token
+        ip    = local_ip()
+        code  = make_identity_code(name, ip, port, token)
+        self._remote_code_var.set(code)
+        if hasattr(self, "_remote_ip_var"):
+            self._remote_ip_var.set(f"IP local detectado: {ip}")
+
+    def _refresh_remote_instances_list(self) -> None:
+        """Reconstrói a lista de máquinas remotas salvas."""
+        if not hasattr(self, "_remote_instances_frame"):
+            return
+        frame = self._remote_instances_frame
+        for w in frame.winfo_children():
+            w.destroy()
+
+        instances = self.config_manager.config.remote_instances
+        if not instances:
+            ctk.CTkLabel(frame, text="Nenhuma máquina remota adicionada ainda.",
+                         text_color="gray55").grid(row=0, column=0, padx=4, pady=8, sticky="w")
+            return
+
+        # Favoritos primeiro
+        sorted_instances = sorted(instances, key=lambda x: (not x.get("favorite", False)))
+
+        for i, inst in enumerate(sorted_instances):
+            is_fav   = inst.get("favorite", False)
+            has_tok  = bool(inst.get("token", ""))
+            card_bg  = "#1c1c2e" if is_fav else _CARD_BG
+            card = ctk.CTkFrame(frame, corner_radius=10, fg_color=card_bg)
+            card.grid(row=i, column=0, padx=0, pady=4, sticky="ew")
+            card.grid_columnconfigure(1, weight=1)
+
+            name_row = ctk.CTkFrame(card, fg_color="transparent")
+            name_row.grid(row=0, column=0, padx=14, pady=(12, 0), sticky="w")
+            fav_icon = "⭐" if is_fav else "☆"
+            ctk.CTkLabel(name_row, text=fav_icon,
+                         font=ctk.CTkFont(size=14)).pack(side="left", padx=(0, 4))
+            ctk.CTkLabel(name_row, text=inst.get("name", "?"),
+                         font=ctk.CTkFont(size=13, weight="bold")).pack(side="left")
+
+            sub_txt = f"{inst.get('host', '?')}:{inst.get('port', '?')}"
+            if not has_tok:
+                sub_txt += "  🔒 token não salvo"
+            ctk.CTkLabel(card, text=sub_txt,
+                         text_color="gray55" if has_tok else "#ffaa44",
+                         font=ctk.CTkFont(size=11)).grid(
+                row=1, column=0, padx=14, pady=(0, 12), sticky="w")
+
+            btn_fr = ctk.CTkFrame(card, fg_color="transparent")
+            btn_fr.grid(row=0, column=2, rowspan=2, padx=10, pady=8)
+
+            def _open(i=inst) -> None:
+                tok = i.get("token", "")
+                if not tok:
+                    # Pede autenticação (não é favorito)
+                    _ask_token_and_connect(i)
+                else:
+                    self._open_remote_control(i)
+
+            def _ask_token_and_connect(i=inst) -> None:
+                dlg = tk.Toplevel(self)
+                dlg.title(f"Autenticar — {i.get('name', '?')}")
+                dlg.geometry("480x200")
+                dlg.configure(bg=_BG)
+                dlg.grab_set()
+                dlg.resizable(False, False)
+                ctk.CTkLabel(
+                    dlg,
+                    text=f"Esta conexão não possui token salvo.\n"
+                         f"Cole o código de identidade de '{i.get('name', '?')}' para continuar:",
+                    text_color="gray70", wraplength=440,
+                ).pack(padx=20, pady=(20, 6), anchor="w")
+                code_sv = tk.StringVar()
+                ctk.CTkEntry(dlg, textvariable=code_sv, height=34, width=440,
+                             font=ctk.CTkFont(family="Consolas", size=10),
+                             placeholder_text="eyJuIjoi...").pack(padx=20)
+                err_var = tk.StringVar()
+                ctk.CTkLabel(dlg, textvariable=err_var,
+                             text_color="#ff6666", font=ctk.CTkFont(size=11)).pack(
+                    padx=20, pady=(4, 0), anchor="w")
+
+                def _confirm() -> None:
+                    try:
+                        data = parse_identity_code(code_sv.get())
+                    except ValueError as exc:
+                        err_var.set(str(exc))
+                        return
+                    dlg.destroy()
+                    temp = dict(i)
+                    temp["host"]  = data["h"]
+                    temp["port"]  = data["p"]
+                    temp["token"] = data["t"]
+                    self._open_remote_control(temp)
+
+                ctk.CTkButton(dlg, text="✔  Conectar", height=36,
+                              fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                              command=_confirm).pack(pady=12)
+
+            def _toggle_fav(i=inst) -> None:
+                i["favorite"] = not i.get("favorite", False)
+                if not i["favorite"]:
+                    # Ao desmarcar favorito, remove o token
+                    i.pop("token", None)
+                self.config_manager.save()
+                self._refresh_remote_instances_list()
+
+            def _remove(i=inst) -> None:
+                if messagebox.askyesno(
+                    "Remover conexão",
+                    f"Remover '{i.get('name', '?')}' da lista de máquinas remotas?",
+                    parent=self,
+                ):
+                    self.config_manager.config.remote_instances.remove(i)
+                    self.config_manager.save()
+                    self._refresh_remote_instances_list()
+
+            fav_btn_text = "⭐" if is_fav else "☆"
+            fav_btn_clr  = "#3a3010" if is_fav else "#2a2a44"
+            fav_btn_hov  = "#5a4a10" if is_fav else "#3a3a54"
+            ctk.CTkButton(btn_fr, text=fav_btn_text, width=32, height=32,
+                          fg_color=fav_btn_clr, hover_color=fav_btn_hov,
+                          command=_toggle_fav).pack(side="left", padx=(0, 4))
+            ctk.CTkButton(btn_fr, text="🔗  Conectar", height=32,
+                          fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                          command=_open).pack(side="left", padx=(0, 6))
+            ctk.CTkButton(btn_fr, text="🗑", width=32, height=32,
+                          fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                          command=_remove).pack(side="left")
+
+    def _open_remote_control(self, inst: dict) -> None:  # noqa: C901
+        """Abre janela de controle remoto para uma máquina."""
+        host  = inst.get("host", "")
+        port  = inst.get("port", 32440)
+        token = inst.get("token", "")
+        name  = inst.get("name", "Remoto")
+
+        win = tk.Toplevel(self)
+        win.title(f"🖥️  {name}  —  {host}:{port}")
+        win.geometry("860x600")
+        win.configure(bg=_BG)
+
+        client = RemoteClient(host, port, token, timeout=6.0)
+        _stop_polling = threading.Event()
+
+        # ── Header ──────────────────────────────────────────────────────────
+        hdr = ctk.CTkFrame(win, corner_radius=0, fg_color=_CARD_BG, height=50)
+        hdr.pack(fill="x", side="top")
+        hdr.pack_propagate(False)
+        ctk.CTkLabel(hdr, text=f"🖥️  {name}",
+                     font=ctk.CTkFont(size=16, weight="bold")).pack(
+            side="left", padx=16, pady=10)
+        conn_var = tk.StringVar(value="🟡 Conectando...")
+        ctk.CTkLabel(hdr, textvariable=conn_var,
+                     font=ctk.CTkFont(size=11), text_color="gray60").pack(
+            side="left", padx=8)
+        version_var = tk.StringVar(value="")
+        ctk.CTkLabel(hdr, textvariable=version_var,
+                     font=ctk.CTkFont(size=10), text_color="gray50").pack(
+            side="left", padx=4)
+
+        # ── Body: painel esquerdo (servers) + direito (logs) ─────────────────
+        body = ctk.CTkFrame(win, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=12, pady=12)
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=1)
+        body.grid_rowconfigure(0, weight=1)
+
+        # Servers panel
+        srv_outer = ctk.CTkFrame(body, corner_radius=10, fg_color=_CARD_BG)
+        srv_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        srv_outer.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(srv_outer, text="Servidores",
+                     font=ctk.CTkFont(size=13, weight="bold")).grid(
+            row=0, column=0, padx=14, pady=(10, 4), sticky="w")
+        srv_scroll = ctk.CTkScrollableFrame(srv_outer, fg_color="transparent")
+        srv_scroll.grid(row=1, column=0, sticky="nsew", padx=6, pady=(0, 8))
+        srv_scroll.grid_columnconfigure(0, weight=1)
+        srv_outer.grid_rowconfigure(1, weight=1)
+
+        # Log panel
+        log_outer = ctk.CTkFrame(body, corner_radius=10, fg_color=_CARD_BG)
+        log_outer.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        log_outer.grid_columnconfigure(0, weight=1)
+        log_outer.grid_rowconfigure(1, weight=1)
+
+        log_hdr = ctk.CTkFrame(log_outer, fg_color="transparent")
+        log_hdr.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="ew")
+        log_hdr.grid_columnconfigure(0, weight=1)
+        self._remote_log_title_var = tk.StringVar(value="Log — selecione um servidor")
+        ctk.CTkLabel(log_hdr, textvariable=self._remote_log_title_var,
+                     font=ctk.CTkFont(size=13, weight="bold")).grid(
+            row=0, column=0, sticky="w")
+
+        log_txt = tk.Text(
+            log_outer, bg="#0d0d14", fg="#c8dff8",
+            font=("Consolas", 9), relief="flat", wrap="word",
+            state="disabled",
+        )
+        log_txt.grid(row=1, column=0, sticky="nsew", padx=6, pady=(0, 8))
+        log_sb = ctk.CTkScrollbar(log_outer, command=log_txt.yview)
+        log_sb.grid(row=1, column=1, sticky="ns", pady=(0, 8))
+        log_txt.configure(yscrollcommand=log_sb.set)
+
+        # RCON input
+        rcon_fr = ctk.CTkFrame(log_outer, fg_color="transparent")
+        rcon_fr.grid(row=2, column=0, columnspan=2, padx=6, pady=(0, 8), sticky="ew")
+        rcon_fr.grid_columnconfigure(0, weight=1)
+        rcon_var = tk.StringVar()
+        rcon_entry = ctk.CTkEntry(rcon_fr, textvariable=rcon_var, height=28,
+                                   placeholder_text="Comando RCON...")
+        rcon_entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        _selected_srv_id: list = [None]  # mutable container
+
+        def _send_rcon(event=None) -> None:
+            cmd  = rcon_var.get().strip()
+            sid  = _selected_srv_id[0]
+            if not cmd or not sid:
+                return
+            rcon_var.set("")
+
+            def _do() -> None:
+                res = client.send_rcon(sid, cmd)
+                resp = res.get("response") or res.get("error") or "—"
+                win.after(0, lambda: _append_log(f"[RCON] > {cmd}\n{resp}"))
+            threading.Thread(target=_do, daemon=True).start()
+
+        rcon_entry.bind("<Return>", _send_rcon)
+        ctk.CTkButton(rcon_fr, text="↵", width=28, height=28,
+                      command=_send_rcon).grid(row=0, column=1)
+
+        def _append_log(text: str) -> None:
+            log_txt.configure(state="normal")
+            log_txt.insert("end", text + "\n")
+            log_txt.configure(state="disabled")
+            log_txt.see("end")
+
+        def _load_logs(sid: str, sname: str) -> None:
+            _selected_srv_id[0] = sid
+            self._remote_log_title_var.set(f"Log — {sname}")
+            log_txt.configure(state="normal")
+            log_txt.delete("1.0", "end")
+            log_txt.configure(state="disabled")
+
+            def _do() -> None:
+                res = client.get_server_logs(sid, 200)
+                lines = res.get("logs", [])
+                win.after(0, lambda: _append_log("\n".join(lines)))
+            threading.Thread(target=_do, daemon=True).start()
+
+        # Server cards builder
+        _srv_widgets: dict = {}
+
+        def _rebuild_servers(servers: list) -> None:
+            existing_ids = {w["id"] for w in _srv_widgets.values()} if _srv_widgets else set()
+            new_ids      = {s["id"] for s in servers}
+
+            # Remove cards que sumiram
+            for sid in list(_srv_widgets.keys()):
+                if sid not in new_ids:
+                    _srv_widgets[sid]["frame"].destroy()
+                    del _srv_widgets[sid]
+
+            _STATUS_COLORS_R = {
+                "stopped": "#ff6666", "starting": "#ffaa44",
+                "running": _GREEN,    "stopping": "#ffaa44",
+                "crashed": "#ff3333", "updating": "#ffaa44",
+            }
+            _STATUS_LABELS_R = {
+                "stopped": "⬛ PARADO",  "starting": "🟡 INICIANDO",
+                "running": "🟢 RODANDO", "stopping": "🟡 PARANDO",
+                "crashed": "🔴 TRAVADO", "updating": "🟡 ATUALIZANDO",
+            }
+
+            for i, srv in enumerate(servers):
+                sid     = srv["id"]
+                sname   = srv.get("name", "?")
+                status  = srv.get("status", "stopped")
+                uptime  = srv.get("uptime", "—")
+
+                if sid not in _srv_widgets:
+                    # Cria novo card
+                    c = ctk.CTkFrame(srv_scroll, corner_radius=8, fg_color="#151520")
+                    c.grid(row=i, column=0, sticky="ew", padx=4, pady=3)
+                    c.grid_columnconfigure(0, weight=1)
+
+                    ctk.CTkLabel(c, text=sname,
+                                 font=ctk.CTkFont(size=12, weight="bold")).grid(
+                        row=0, column=0, padx=10, pady=(8, 0), sticky="w")
+                    sv = tk.StringVar(value=_STATUS_LABELS_R.get(status, status))
+                    sl = ctk.CTkLabel(c, textvariable=sv,
+                                      font=ctk.CTkFont(size=11),
+                                      text_color=_STATUS_COLORS_R.get(status, "gray"))
+                    sl.grid(row=1, column=0, padx=10, pady=(0, 4), sticky="w")
+                    uv = tk.StringVar(value=f"Uptime: {uptime}")
+                    ctk.CTkLabel(c, textvariable=uv, text_color="gray55",
+                                 font=ctk.CTkFont(size=10)).grid(
+                        row=2, column=0, padx=10, pady=(0, 4), sticky="w")
+
+                    btns = ctk.CTkFrame(c, fg_color="transparent")
+                    btns.grid(row=3, column=0, padx=8, pady=(0, 8), sticky="w")
+
+                    def _mk_start(s=sid): return lambda: _remote_action(s, "start")
+                    def _mk_stop(s=sid): return lambda: _remote_action(s, "stop")
+                    def _mk_restart(s=sid): return lambda: _remote_action(s, "restart")
+                    def _mk_log(s=sid, n=sname): return lambda: _load_logs(s, n)
+
+                    ctk.CTkButton(btns, text="▶", width=32, height=28,
+                                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                                  command=_mk_start()).pack(side="left", padx=2)
+                    ctk.CTkButton(btns, text="⏹", width=32, height=28,
+                                  fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                                  command=_mk_stop()).pack(side="left", padx=2)
+                    ctk.CTkButton(btns, text="🔄", width=32, height=28,
+                                  fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                                  command=_mk_restart()).pack(side="left", padx=2)
+                    ctk.CTkButton(btns, text="📋", width=32, height=28,
+                                  fg_color="#2a2a44", hover_color="#3a3a54",
+                                  command=_mk_log()).pack(side="left", padx=2)
+
+                    _srv_widgets[sid] = {
+                        "id": sid, "frame": c,
+                        "status_var": sv, "status_lbl": sl,
+                        "uptime_var": uv,
+                    }
+                else:
+                    # Atualiza existente
+                    w = _srv_widgets[sid]
+                    lbl = _STATUS_LABELS_R.get(status, status)
+                    col = _STATUS_COLORS_R.get(status, "gray")
+                    w["status_var"].set(lbl)
+                    w["status_lbl"].configure(text_color=col)
+                    w["uptime_var"].set(f"Uptime: {uptime}")
+
+        def _remote_action(sid: str, action: str) -> None:
+            def _do() -> None:
+                if action == "start":
+                    client.start_server(sid)
+                elif action == "stop":
+                    client.stop_server(sid)
+                elif action == "restart":
+                    client.restart_server(sid)
+            threading.Thread(target=_do, daemon=True).start()
+
+        # ── Polling ──────────────────────────────────────────────────────────
+        def _poll() -> None:
+            res = client.get_info()
+            if "error" in res:
+                win.after(0, lambda: conn_var.set(f"🔴 Erro: {res['error']}"))
+            else:
+                v     = res.get("version", "")
+                srvs  = res.get("servers", [])
+                win.after(0, lambda: conn_var.set("🟢 Conectado"))
+                win.after(0, lambda: version_var.set(f"v{v}" if v else ""))
+                win.after(0, lambda: _rebuild_servers(srvs))
+            if not _stop_polling.is_set():
+                win.after(3000, lambda: threading.Thread(
+                    target=_poll, daemon=True).start())
+
+        def _on_close() -> None:
+            _stop_polling.set()
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", _on_close)
+        threading.Thread(target=_poll, daemon=True).start()
+
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_global_config(self, parent) -> None:
                      font=ctk.CTkFont(size=24, weight="bold")).grid(
             row=0, column=0, padx=24, pady=(24, 2), sticky="w")
         ctk.CTkLabel(parent, text="Configurações globais do ARKLAND - Server Manager.",
@@ -10009,7 +10665,10 @@ class ARKServerManagerApp(ctk.CTk):
                 else:
                     self._global_log(f"[{srv.name}] Atualização falhou, iniciando servidor mesmo assim...", "warning")
                 self.after(0, lambda: self.server_manager.start_server(server_id))
-            self.mod_manager.install_server(srv.install_dir, validate=False, on_done=_on_update_done)
+            self.mod_manager.install_server(
+                srv.install_dir, validate=False, on_done=_on_update_done,
+                branch_name=srv.branch_name, branch_password=srv.branch_password,
+            )
         else:
             self.server_manager.start_server(server_id)
 
@@ -10150,7 +10809,52 @@ class ARKServerManagerApp(ctk.CTk):
             self.mod_manager._on_log = orig_log
             _on_done(ok)
 
-        self.mod_manager.install_server(install_dir, validate=validate, on_done=_wrapped_done)
+        srv_cfg = self.config_manager.get_server(server_id)
+        _branch = srv_cfg.branch_name if srv_cfg else ""
+        _branch_pw = srv_cfg.branch_password if srv_cfg else ""
+        self.mod_manager.install_server(
+            install_dir, validate=validate, on_done=_wrapped_done,
+            branch_name=_branch, branch_password=_branch_pw,
+        )
+
+    def _validate_server_ports(self, server_id: str,
+                                server_port: int, query_port: int, rcon_port: int) -> list:
+        """Valida unicidade de portas entre todos os servidores. Retorna lista de erros (vazia = OK)."""
+        peer_port = server_port + 1
+        errors: list = []
+
+        # ── Conflitos internos (mesmo servidor) ──────────────────────────────
+        own_ports = [
+            ("Porta do Servidor", server_port),
+            ("Porta Par",         peer_port),
+            ("Porta Query",       query_port),
+            ("Porta RCON",        rcon_port),
+        ]
+        seen: dict = {}
+        for lbl, p in own_ports:
+            if p in seen:
+                errors.append(f"'{lbl}' e '{seen[p]}' têm o mesmo valor ({p}).")
+            else:
+                seen[p] = lbl
+
+        # ── Conflitos com outros servidores ───────────────────────────────────
+        for other in self.config_manager.servers:
+            if other.id == server_id:
+                continue
+            other_map = {
+                other.server_port:     "Porta do Servidor",
+                other.server_port + 1: "Porta Par",
+                other.query_port:      "Porta Query",
+                other.rcon_port:       "Porta RCON",
+            }
+            for lbl, p in own_ports:
+                if p in other_map:
+                    errors.append(
+                        f"'{lbl}' ({p}) já usada pelo servidor '{other.name}'"
+                        f" como {other_map[p]}."
+                    )
+
+        return errors
 
     def _save_server_config(self, server_id: str, silent: bool = False, force: bool = False) -> None:
         """Lê todos os widgets do servidor, salva no config e escreve os .ini."""
@@ -10177,6 +10881,24 @@ class ARKServerManagerApp(ctk.CTk):
 
         # ── Geral ──────────────────────────────────────────────────────────
         if "name" in w:
+            # Valida portas antes de qualquer alteração
+            try:
+                _new_sp = int(w["server_port"].get())
+                _new_qp = int(w["query_port"].get())
+                _new_rp = int(w["rcon_port"].get())
+                _port_errs = self._validate_server_ports(server_id, _new_sp, _new_qp, _new_rp)
+                if _port_errs:
+                    if not silent:
+                        messagebox.showerror(
+                            "Conflito de Portas",
+                            "Corrija os conflitos antes de salvar:\n\n"
+                            + "\n".join(f"• {e}" for e in _port_errs),
+                            parent=self,
+                        )
+                    return
+            except (ValueError, KeyError):
+                pass
+
             srv.name           = w["name"].get().strip() or srv.name
             srv.install_dir    = w["install_dir"].get().strip()
             srv.server_name    = w["server_name"].get().strip()
@@ -12215,11 +12937,50 @@ class ARKServerManagerApp(ctk.CTk):
                 ctk.CTkEntry(dlg, textvariable=fields[key], height=34).grid(
                     row=rn, column=1, padx=(0, 20), pady=6, sticky="ew")
 
+        # ── Sugestão automática de diretório ────────────────────────────
+        def _suggest_install_dir() -> str:
+            base = (self.config_manager.config.default_install_dir or "").strip()
+            if not base:
+                return ""
+            from pathlib import Path as _Path
+            servers_root = _Path(base) / "Servidores"
+            n = len(self.config_manager.servers) + 1
+            # Encontra o próximo número não ocupado
+            while True:
+                candidate = servers_root / f"Servidor {n:02d}"
+                if not candidate.exists():
+                    return str(candidate)
+                n += 1
+
         field_row("Nome do Servidor (label):", "name",       "Meu Servidor ARK", 1)
         field_row("Mapa:", "map", "TheIsland", 2, combo=[
             f"{ARK_MAP_NAMES.get(m, m)} ({m})" for m in ARK_MAPS])
-        field_row("Diretório de Instalação:", "install_dir", "",                 3, browse=True)
-        field_row("Porta do Servidor:",       "port",        "7777",             4)
+        field_row("Diretório de Instalação:", "install_dir", _suggest_install_dir(), 3, browse=True)
+
+        # Porta do Servidor + Porta Par ────────────────────────────────────────
+        ctk.CTkLabel(dlg, text="Porta do Servidor:", width=170, anchor="w",
+                     text_color="gray60").grid(row=4, column=0, padx=20, pady=6)
+        fields["port"]      = tk.StringVar(value="7777")
+        fields["peer_port"] = tk.StringVar(value="7778")
+        _dlg_sp_fr = ctk.CTkFrame(dlg, fg_color="transparent")
+        _dlg_sp_fr.grid(row=4, column=1, padx=(0, 20), pady=6, sticky="ew")
+        _dlg_sp_fr.grid_columnconfigure(0, weight=1)
+        ctk.CTkEntry(_dlg_sp_fr, textvariable=fields["port"], height=34).grid(
+            row=0, column=0, sticky="ew")
+        ctk.CTkLabel(_dlg_sp_fr, text="Par:",
+                     text_color="gray55",
+                     font=ctk.CTkFont(size=11)).grid(row=0, column=1, padx=(10, 4))
+        ctk.CTkLabel(_dlg_sp_fr, textvariable=fields["peer_port"],
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color="#7ec8e3").grid(row=0, column=2, padx=(0, 4))
+
+        def _dlg_update_peer(*_):
+            try:
+                fields["peer_port"].set(str(int(fields["port"].get()) + 1))
+            except ValueError:
+                pass
+        fields["port"].trace_add("write", _dlg_update_peer)
+
         field_row("Porta Query:",             "qport",       "27015",            5)
         field_row("Porta RCON:",              "rport",       "27020",            6)
         field_row("Senha de Admin:",          "admin_pass",  "",                 7)
@@ -12231,6 +12992,22 @@ class ARKServerManagerApp(ctk.CTk):
                 map_id = map_raw.split("(")[-1].rstrip(")")
             else:
                 map_id = map_raw
+
+            try:
+                _sp = int(fields["port"].get())
+                _qp = int(fields["qport"].get())
+                _rp = int(fields["rport"].get())
+                _port_errs = self._validate_server_ports("", _sp, _qp, _rp)
+                if _port_errs:
+                    messagebox.showerror(
+                        "Conflito de Portas",
+                        "Corrija os conflitos antes de criar o servidor:\n\n"
+                        + "\n".join(f"• {e}" for e in _port_errs),
+                        parent=dlg,
+                    )
+                    return
+            except ValueError:
+                pass
 
             srv = ServerConfig(
                 name           = name,
@@ -12660,6 +13437,8 @@ class ARKServerManagerApp(ctk.CTk):
             self._buff_manager.stop()
         if self._backup_manager:
             self._backup_manager.shutdown()
+        if self._remote_agent and self._remote_agent.is_running:
+            self._remote_agent.stop()
         self._perf_running = False
         # Os processos dos servidores (mapas) são mantidos em execução intencionalmente.
         # Apenas recursos internos do app são encerrados.

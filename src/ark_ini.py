@@ -77,6 +77,48 @@ _GUS_SERVER_SETTINGS = [
     ("tribe_name_change_cooldown",            "ServerSettings", "TribeNameChangeCooldown",               float),
     ("override_max_experience_points_player", "ServerSettings", "OverrideMaxExperiencePointsPlayer",     int),
     ("override_max_experience_points_dino",   "ServerSettings", "OverrideMaxExperiencePointsDino",       int),
+    # ── Novos campos (ASM parity) ─────────────────────────────────────────────
+    # Dino — tamed/wild multipliers separados
+    ("tamed_dino_damage_multiplier",          "ServerSettings", "TamedDinoDamageMultiplier",             float),
+    ("tamed_dino_resistance_multiplier",      "ServerSettings", "TamedDinoResistanceMultiplier",         float),
+    ("dino_character_stamina_drain_multiplier","ServerSettings","DinoCharacterStaminaDrainMultiplier",   float),
+    ("dino_turret_damage_multiplier",         "ServerSettings", "TurretDamageMultiplierDino",            float),
+    ("max_personal_tamed_dinos",              "ServerSettings", "MaxPersonalTamedDinos",                  float),
+    ("personal_tamed_dinos_saddle_structure_cost","ServerSettings","PersonalTamedDinosSaddleStructureCost",int),
+    # Dino — imprinting/mateBoost/decay
+    ("disable_imprint_dino_buff",             "ServerSettings", "DisableImprintDinoBuff",                bool),
+    ("allow_anyone_baby_imprint_cuddle",      "ServerSettings", "AllowAnyoneBabyImprintCuddle",          bool),
+    ("allow_flying_stamina_recovery",         "ServerSettings", "AllowFlyingStaminaRecovery",            bool),
+    ("prevent_mate_boost",                    "ServerSettings", "PreventMateBoost",                      bool),
+    ("allow_multiple_attached_c4",            "ServerSettings", "AllowMultipleAttachedC4",               bool),
+    ("auto_destroy_decayed_dinos",            "ServerSettings", "AutoDestroyDecayedDinos",               bool),
+    ("pve_dino_decay_period_multiplier",      "ServerSettings", "PvEDinoDecayPeriodMultiplier",          float),
+    # Ciclo de dia/noite / temperatura
+    ("day_cycle_speed_scale",                 "ServerSettings", "DayCycleSpeedScale",                    float),
+    ("day_time_speed_scale",                  "ServerSettings", "DayTimeSpeedScale",                     float),
+    ("night_time_speed_scale",                "ServerSettings", "NightTimeSpeedScale",                   float),
+    ("disable_weather_fog",                   "ServerSettings", "DisableWeatherFog",                     bool),
+    # PvP gamma / Hit Markers
+    ("allow_pvp_gamma",                       "ServerSettings", "EnablePVPGamma",                        bool),
+    ("allow_hit_markers",                     "ServerSettings", "AllowHitMarkers",                       bool),
+    # Estruturas — decay
+    ("pvp_structure_decay",                   "ServerSettings", "PvPStructureDecay",                     bool),
+    ("max_structures_visible",                "ServerSettings", "TheMaxStructuresInRange",               int),
+    ("max_platform_saddle_structure_limit",   "ServerSettings", "MaxPlatformSaddleStructureLimit",       int),
+    ("override_structure_platform_prevention","ServerSettings", "OverrideStructurePlatformPrevention",   bool),
+    ("auto_destroy_old_structures_multiplier","ServerSettings", "AutoDestroyOldStructuresMultiplier",    float),
+    ("only_auto_destroy_core_structures",     "ServerSettings", "OnlyAutoDestroyCoreStructures",         bool),
+    ("only_decay_unsnapped_core_structures",  "ServerSettings", "OnlyDecayUnsnappedCoreStructures",      bool),
+    ("fast_decay_unsnapped_core_structures",  "ServerSettings", "FastDecayUnsnappedCoreStructures",      bool),
+    ("destroy_unconnected_water_pipes",       "ServerSettings", "DestroyUnconnectedWaterPipes",          bool),
+    # Estruturas — placement
+    ("allow_cave_building_pve",               "ServerSettings", "AllowCaveBuildingPvE",                  bool),
+    ("pve_allow_structures_at_supply_drops",  "ServerSettings", "PvEAllowStructuresAtSupplyDrops",       bool),
+    ("enable_extra_structure_prevention_volumes","ServerSettings","EnableExtraStructurePreventionVolumes",bool),
+    # Recursos
+    ("clamp_resource_harvest_damage",         "ServerSettings", "ClampResourceHarvestDamage",            bool),
+    # Doenças — NonPermanentDiseases (EnableDiseases gravado com lógica invertida separada)
+    ("non_permanent_diseases",                "ServerSettings", "NonPermanentDiseases",                  bool),
 ]
 
 # ── Mapeamento Game.ini [/Script/ShooterGame.ShooterGameMode] → game_settings ──────────────────────
@@ -368,6 +410,122 @@ def populate_config_from_gus(
     except Exception:
         pass
 
+    # ── Booleanos invertidos de ServerGameSettings ────────────────────────────
+    ss = "ServerSettings"
+    try:
+        if parser.has_option(ss, "DisablePvEGamma"):
+            gs.allow_pve_gamma = not _str_to_bool(parser.get(ss, "DisablePvEGamma"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "PreventDiseases"):
+            gs.enable_diseases = not _str_to_bool(parser.get(ss, "PreventDiseases"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "PreventTribeAlliances"):
+            gs.allow_tribe_alliances = not _str_to_bool(parser.get(ss, "PreventTribeAlliances"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "PvPDinoDecay"):
+            # PvPDinoDecay=False → decay desabilitado → disable_dino_decay_pvp=True
+            gs.disable_dino_decay_pvp = not _str_to_bool(parser.get(ss, "PvPDinoDecay"))
+    except Exception:
+        pass
+    # TheMaxStructuresInRange → max_structures_visible (INI key diferente!)
+    try:
+        if parser.has_option(ss, "TheMaxStructuresInRange"):
+            gs.max_structures_visible = int(float(parser.get(ss, "TheMaxStructuresInRange")))
+    except Exception:
+        pass
+    # NPC Network Stasis Range Scale
+    try:
+        if parser.has_option(ss, "NPCNetworkStasisRangeScalePlayerCountStart"):
+            gs.override_npc_network_stasis_range_scale = True
+            gs.npc_network_stasis_range_scale_player_count_start = int(float(
+                parser.get(ss, "NPCNetworkStasisRangeScalePlayerCountStart")))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "NPCNetworkStasisRangeScalePlayerCountEnd"):
+            gs.npc_network_stasis_range_scale_player_count_end = int(float(
+                parser.get(ss, "NPCNetworkStasisRangeScalePlayerCountEnd")))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "NPCNetworkStasisRangeScalePercentEnd"):
+            gs.npc_network_stasis_range_scale_percent_end = float(
+                parser.get(ss, "NPCNetworkStasisRangeScalePercentEnd"))
+    except Exception:
+        pass
+
+    # ── Campos de ServerConfig em [ServerSettings] ────────────────────────────
+    try:
+        if parser.has_option(ss, "SpectatorPassword"):
+            config.spectator_password = parser.get(ss, "SpectatorPassword")
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "BanListURL"):
+            config.enable_ban_list_url = True
+            config.ban_list_url = parser.get(ss, "BanListURL").strip('"')
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "RCONServerGameLogBuffer"):
+            config.rcon_server_game_log_buffer = int(float(parser.get(ss, "RCONServerGameLogBuffer")))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "AdminLogging"):
+            config.admin_logging = _str_to_bool(parser.get(ss, "AdminLogging"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "AllowHideDamageSourceFromLogs"):
+            config.allow_hide_damage_source_from_logs = _str_to_bool(
+                parser.get(ss, "AllowHideDamageSourceFromLogs"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "TribeLogDestroyedEnemyStructures"):
+            config.tribe_log_destroyed_enemy_structures = _str_to_bool(
+                parser.get(ss, "TribeLogDestroyedEnemyStructures"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "ExtinctionEventTimeInterval"):
+            config.enable_extinction_event = True
+            config.extinction_event_time_interval = int(float(
+                parser.get(ss, "ExtinctionEventTimeInterval")))
+    except Exception:
+        pass
+    for attr, key in [
+        ("tribute_character_expiration_seconds", "TributeCharacterExpirationSeconds"),
+        ("tribute_item_expiration_seconds",       "TributeItemExpirationSeconds"),
+        ("tribute_dino_expiration_seconds",       "TributeDinoExpirationSeconds"),
+        ("minimum_dino_reupload_interval",        "MinimumDinoReuploadInterval"),
+    ]:
+        try:
+            if parser.has_option(ss, key):
+                setattr(config, attr, int(float(parser.get(ss, key))))
+        except Exception:
+            pass
+    try:
+        if parser.has_option(ss, "CrossARKAllowForeignDinoDownloads"):
+            config.cross_ark_allow_foreign_dino_downloads = _str_to_bool(
+                parser.get(ss, "CrossARKAllowForeignDinoDownloads"))
+    except Exception:
+        pass
+    try:
+        if parser.has_option(ss, "ServerAutoForceRespawnWildDinosInterval"):
+            config.enable_auto_force_respawn_wild_dinos_interval = True
+            config.server_auto_force_respawn_wild_dinos_interval = int(float(
+                parser.get(ss, "ServerAutoForceRespawnWildDinosInterval")))
+    except Exception:
+        pass
+
 
 def populate_config_from_game_ini(
     parser: configparser.RawConfigParser, config: ServerConfig
@@ -395,6 +553,26 @@ def populate_config_from_game_ini(
         ("b_auto_pve_use_system_time",               "bAutoPvEUseSystemTime"),
         ("force_all_structure_locking",              "ForceAllStructureLocking"),
         ("force_flyer_explosives",                   "ForceFlyerExplosives"),
+        # Novos campos Game.ini
+        ("use_tame_limit_for_structures_only",       "bUseTameLimitForStructuresOnly"),
+        ("disable_dino_riding",                      "bDisableDinoRiding"),
+        ("disable_dino_taming",                      "bDisableDinoTaming"),
+        ("disable_friendly_fire_pvp",                "bDisableFriendlyFire"),
+        ("disable_friendly_fire_pve",                "bPvEDisableFriendlyFire"),
+        ("disable_loot_crates",                      "bDisableLootCrates"),
+        ("increase_pvp_respawn_interval",            "bIncreasePvPRespawnInterval"),
+        ("allow_tribe_war_pve",                      "bPvEAllowTribeWar"),
+        ("allow_tribe_war_cancel_pve",               "bPvEAllowTribeWarCancel"),
+        ("allow_custom_recipes",                     "bAllowCustomRecipes"),
+        ("use_corpse_locator",                       "bUseCorpseLocator"),
+        ("allow_unlimited_respecs",                  "bAllowUnlimitedRespecs"),
+        ("allow_platform_saddle_multi_floors",       "bAllowPlatformSaddleMultiFloors"),
+        ("random_supply_crate_points",               "bRandomSupplyCratePoints"),
+        ("disable_structure_placement_collision",    "bDisableStructurePlacementCollision"),
+        ("flyer_platform_allow_unaligned_dino_basing","bFlyerPlatformAllowUnalignedDinoBasing"),
+        ("enable_fast_decay_interval",               "EnableFastDecayInterval"),
+        ("limit_turrets_in_range",                   "bLimitTurretsInRange"),
+        ("hard_limit_turrets_in_range",              "bHardLimitTurretsInRange"),
     ]
 
     float_fields = [
@@ -408,6 +586,39 @@ def populate_config_from_game_ini(
         ("custom_recipe_skill_multiplier",           "CustomRecipeSkillMultiplier"),
         ("auto_pve_start_time_seconds",              "AutoPvEStartTimeSeconds"),
         ("auto_pve_stop_time_seconds",               "AutoPvEStopTimeSeconds"),
+        # Novos campos Game.ini
+        ("passive_tame_interval_multiplier",         "PassiveTameIntervalMultiplier"),
+        ("wild_dino_character_food_drain_multiplier","WildDinoCharacterFoodDrainMultiplier"),
+        ("tamed_dino_character_food_drain_multiplier","TamedDinoCharacterFoodDrainMultiplier"),
+        ("wild_dino_torpor_drain_multiplier",        "WildDinoTorporDrainMultiplier"),
+        ("tamed_dino_torpor_drain_multiplier",       "TamedDinoTorporDrainMultiplier"),
+        ("baby_cuddle_lose_imprint_quality_speed_multiplier","BabyCuddleLoseImprintQualitySpeedMultiplier"),
+        ("base_temperature_multiplier",              "BaseTemperatureMultiplier"),
+        ("prevent_offline_pvp_connection_invincible_interval","PreventOfflinePvPConnectionInvincibleInterval"),
+        ("supply_crate_loot_quality_multiplier",     "SupplyCrateLootQualityMultiplier"),
+        ("use_corpse_life_span_multiplier",          "UseCorpseLifeSpanMultiplier"),
+        ("global_powered_battery_durability_decrease_per_second","GlobalPoweredBatteryDurabilityDecreasePerSecond"),
+        ("global_corpse_decomposition_time_multiplier","GlobalCorpseDecompositionTimeMultiplier"),
+        ("poop_interval_multiplier",                 "PoopIntervalMultiplier"),
+        ("hair_growth_speed_multiplier",             "HairGrowthSpeedMultiplier"),
+        ("resource_no_replenish_radius_players",     "ResourceNoReplenishRadiusPlayers"),
+        ("resource_no_replenish_radius_structures",  "ResourceNoReplenishRadiusStructures"),
+        ("crafting_skill_bonus_multiplier",          "CraftingSkillBonusMultiplier"),
+        ("pvp_zone_structure_damage_multiplier",     "PvPZoneStructureDamageMultiplier"),
+        ("fast_decay_interval",                      "FastDecayInterval"),
+        ("limit_turrets_range",                      "LimitTurretsRange"),
+    ]
+
+    int_fields = [
+        ("max_alliances_per_tribe",                  "MaxAlliancesPerTribe"),
+        ("max_tribes_per_alliance",                  "MaxTribesPerAlliance"),
+        ("increase_pvp_respawn_interval_check_period","IncreasePvPRespawnIntervalCheckPeriod"),
+        ("increase_pvp_respawn_interval_base_amount","IncreasePvPRespawnIntervalBaseAmount"),
+        ("limit_turrets_num",                        "LimitTurretsNum"),
+    ]
+
+    float_fields_adv_float = [
+        ("increase_pvp_respawn_interval_multiplier", "IncreasePvPRespawnIntervalMultiplier"),
     ]
 
     for field_name, key in bool_fields:
@@ -423,6 +634,27 @@ def populate_config_from_game_ini(
                 setattr(adv, field_name, float(parser.get(section, key)))
         except Exception:
             pass
+
+    for field_name, key in int_fields:
+        try:
+            if parser.has_option(section, key):
+                setattr(adv, field_name, int(float(parser.get(section, key))))
+        except Exception:
+            pass
+
+    for field_name, key in float_fields_adv_float:
+        try:
+            if parser.has_option(section, key):
+                setattr(adv, field_name, float(parser.get(section, key)))
+        except Exception:
+            pass
+
+    # MaxTribeLogs → ServerConfig
+    try:
+        if parser.has_option(section, "MaxTribeLogs"):
+            config.max_tribe_logs = int(float(parser.get(section, "MaxTribeLogs")))
+    except Exception:
+        pass
 
     # ── Campos de breeding (local canônico: Game.ini) → game_settings ────────
     gs = config.game_settings
@@ -1071,6 +1303,70 @@ class ArkIniManager:
         parser.set(motd_section, "Message",  config.motd)
         parser.set(motd_section, "Duration", str(config.motd_duration))
 
+        ss = "ServerSettings"
+
+        # ── Campos booleanos invertidos de ServerGameSettings ─────────────────
+        # allow_pve_gamma → DisablePvEGamma (inverted: True = não há gamma em PvE)
+        parser.set(ss, "DisablePvEGamma",      _bool_to_str(not gs.allow_pve_gamma))
+        # enable_diseases → PreventDiseases (inverted)
+        parser.set(ss, "PreventDiseases",       _bool_to_str(not gs.enable_diseases))
+        # allow_tribe_alliances → PreventTribeAlliances (inverted)
+        parser.set(ss, "PreventTribeAlliances", _bool_to_str(not gs.allow_tribe_alliances))
+        # disable_dino_decay_pvp → PvPDinoDecay (inverted: disable=True → PvPDinoDecay=False)
+        parser.set(ss, "PvPDinoDecay",          _bool_to_str(not gs.disable_dino_decay_pvp))
+
+        # ── NPC Network Stasis Range Scale (condicional) ──────────────────────
+        if gs.override_npc_network_stasis_range_scale:
+            parser.set(ss, "NPCNetworkStasisRangeScalePlayerCountStart",
+                       str(gs.npc_network_stasis_range_scale_player_count_start))
+            parser.set(ss, "NPCNetworkStasisRangeScalePlayerCountEnd",
+                       str(gs.npc_network_stasis_range_scale_player_count_end))
+            parser.set(ss, "NPCNetworkStasisRangeScalePercentEnd",
+                       str(gs.npc_network_stasis_range_scale_percent_end))
+
+        # ── Campos de ServerConfig que vão em [ServerSettings] ────────────────
+        if config.spectator_password:
+            parser.set(ss, "SpectatorPassword", config.spectator_password)
+        elif parser.has_option(ss, "SpectatorPassword"):
+            parser.remove_option(ss, "SpectatorPassword")
+
+        if config.enable_ban_list_url:
+            parser.set(ss, "BanListURL", f'"{config.ban_list_url}"')
+        elif parser.has_option(ss, "BanListURL"):
+            parser.remove_option(ss, "BanListURL")
+
+        parser.set(ss, "RCONServerGameLogBuffer", str(config.rcon_server_game_log_buffer))
+        parser.set(ss, "AdminLogging",             _bool_to_str(config.admin_logging))
+        parser.set(ss, "AllowHideDamageSourceFromLogs", _bool_to_str(config.allow_hide_damage_source_from_logs))
+        parser.set(ss, "TribeLogDestroyedEnemyStructures", _bool_to_str(config.tribe_log_destroyed_enemy_structures))
+
+        if config.enable_extinction_event:
+            parser.set(ss, "ExtinctionEventTimeInterval", str(config.extinction_event_time_interval))
+        elif parser.has_option(ss, "ExtinctionEventTimeInterval"):
+            parser.remove_option(ss, "ExtinctionEventTimeInterval")
+
+        if config.tribute_character_expiration_seconds > 0:
+            parser.set(ss, "TributeCharacterExpirationSeconds",
+                       str(config.tribute_character_expiration_seconds))
+        if config.tribute_item_expiration_seconds > 0:
+            parser.set(ss, "TributeItemExpirationSeconds",
+                       str(config.tribute_item_expiration_seconds))
+        if config.tribute_dino_expiration_seconds > 0:
+            parser.set(ss, "TributeDinoExpirationSeconds",
+                       str(config.tribute_dino_expiration_seconds))
+        if config.minimum_dino_reupload_interval > 0:
+            parser.set(ss, "MinimumDinoReuploadInterval",
+                       str(config.minimum_dino_reupload_interval))
+
+        parser.set(ss, "CrossARKAllowForeignDinoDownloads",
+                   _bool_to_str(config.cross_ark_allow_foreign_dino_downloads))
+
+        if config.enable_auto_force_respawn_wild_dinos_interval:
+            parser.set(ss, "ServerAutoForceRespawnWildDinosInterval",
+                       str(config.server_auto_force_respawn_wild_dinos_interval))
+        elif parser.has_option(ss, "ServerAutoForceRespawnWildDinosInterval"):
+            parser.remove_option(ss, "ServerAutoForceRespawnWildDinosInterval")
+
         with open(str(path), "w", encoding=_write_encoding(path)) as fh:
             parser.write(fh)
 
@@ -1120,6 +1416,45 @@ class ArkIniManager:
             ("AutoPvEStopTimeSeconds",                  adv.auto_pve_stop_time_seconds,              float),
             ("ForceAllStructureLocking",                adv.force_all_structure_locking,             bool),
             ("ForceFlyerExplosives",                    adv.force_flyer_explosives,                  bool),
+            # ── Novos campos Game.ini (ASM parity) ────────────────────────────
+            # Dino — comportamentos
+            ("PassiveTameIntervalMultiplier",           adv.passive_tame_interval_multiplier,        float),
+            ("WildDinoCharacterFoodDrainMultiplier",    adv.wild_dino_character_food_drain_multiplier,float),
+            ("TamedDinoCharacterFoodDrainMultiplier",   adv.tamed_dino_character_food_drain_multiplier,float),
+            ("WildDinoTorporDrainMultiplier",            adv.wild_dino_torpor_drain_multiplier,       float),
+            ("TamedDinoTorporDrainMultiplier",           adv.tamed_dino_torpor_drain_multiplier,      float),
+            ("BabyCuddleLoseImprintQualitySpeedMultiplier", adv.baby_cuddle_lose_imprint_quality_speed_multiplier, float),
+            ("bUseTameLimitForStructuresOnly",           adv.use_tame_limit_for_structures_only,      bool),
+            ("BaseTemperatureMultiplier",                adv.base_temperature_multiplier,             float),
+            # PvP/PvE
+            ("bDisableFriendlyFire",                    adv.disable_friendly_fire_pvp,               bool),
+            ("bPvEDisableFriendlyFire",                 adv.disable_friendly_fire_pve,               bool),
+            ("bDisableLootCrates",                      adv.disable_loot_crates,                     bool),
+            ("bIncreasePvPRespawnInterval",             adv.increase_pvp_respawn_interval,            bool),
+            ("bPvEAllowTribeWar",                       adv.allow_tribe_war_pve,                     bool),
+            ("bPvEAllowTribeWarCancel",                 adv.allow_tribe_war_cancel_pve,              bool),
+            ("MaxAlliancesPerTribe",                    adv.max_alliances_per_tribe,                 int),
+            ("MaxTribesPerAlliance",                    adv.max_tribes_per_alliance,                 int),
+            ("bAllowCustomRecipes",                     adv.allow_custom_recipes,                    bool),
+            ("bUseCorpseLocator",                       adv.use_corpse_locator,                      bool),
+            ("bAllowUnlimitedRespecs",                  adv.allow_unlimited_respecs,                 bool),
+            ("bAllowPlatformSaddleMultiFloors",         adv.allow_platform_saddle_multi_floors,      bool),
+            ("bRandomSupplyCratePoints",                adv.random_supply_crate_points,              bool),
+            # Loot/Qualidade
+            ("SupplyCrateLootQualityMultiplier",        adv.supply_crate_loot_quality_multiplier,    float),
+            ("UseCorpseLifeSpanMultiplier",             adv.use_corpse_life_span_multiplier,         float),
+            ("GlobalPoweredBatteryDurabilityDecreasePerSecond", adv.global_powered_battery_durability_decrease_per_second, float),
+            # Ambiente
+            ("GlobalCorpseDecompositionTimeMultiplier", adv.global_corpse_decomposition_time_multiplier, float),
+            ("PoopIntervalMultiplier",                  adv.poop_interval_multiplier,                float),
+            ("HairGrowthSpeedMultiplier",               adv.hair_growth_speed_multiplier,            float),
+            ("ResourceNoReplenishRadiusPlayers",        adv.resource_no_replenish_radius_players,    float),
+            ("ResourceNoReplenishRadiusStructures",     adv.resource_no_replenish_radius_structures, float),
+            ("CraftingSkillBonusMultiplier",            adv.crafting_skill_bonus_multiplier,         float),
+            # Estruturas
+            ("bDisableStructurePlacementCollision",     adv.disable_structure_placement_collision,   bool),
+            ("PvPZoneStructureDamageMultiplier",        adv.pvp_zone_structure_damage_multiplier,    float),
+            ("bFlyerPlatformAllowUnalignedDinoBasing",  adv.flyer_platform_allow_unaligned_dino_basing, bool),
         ]
 
         for key, value, typ in mappings:
@@ -1127,6 +1462,48 @@ class ArkIniManager:
                 parser.set(section, key, _bool_to_str(value))
             else:
                 parser.set(section, key, str(value))
+
+        # ── Campos condicionais de ServerAdvancedSettings ─────────────────────
+        gs = config.game_settings
+        # bDisableDinoRiding / bDisableDinoTaming — só escrito quando True
+        if adv.disable_dino_riding:
+            parser.set(section, "bDisableDinoRiding", _bool_to_str(True))
+        elif parser.has_option(section, "bDisableDinoRiding"):
+            parser.remove_option(section, "bDisableDinoRiding")
+        if adv.disable_dino_taming:
+            parser.set(section, "bDisableDinoTaming", _bool_to_str(True))
+        elif parser.has_option(section, "bDisableDinoTaming"):
+            parser.remove_option(section, "bDisableDinoTaming")
+
+        # IncreasePvPRespawnInterval — sub-campos só escritos quando ativo
+        if adv.increase_pvp_respawn_interval:
+            parser.set(section, "IncreasePvPRespawnIntervalCheckPeriod",
+                       str(adv.increase_pvp_respawn_interval_check_period))
+            parser.set(section, "IncreasePvPRespawnIntervalMultiplier",
+                       str(adv.increase_pvp_respawn_interval_multiplier))
+            parser.set(section, "IncreasePvPRespawnIntervalBaseAmount",
+                       str(adv.increase_pvp_respawn_interval_base_amount))
+
+        # PreventOfflinePvPConnectionInvincibleInterval — condicional em PreventOfflinePvP
+        if gs.prevent_offline_pvp:
+            parser.set(section, "PreventOfflinePvPConnectionInvincibleInterval",
+                       str(adv.prevent_offline_pvp_connection_invincible_interval))
+
+        # MaxTribeLogs — Game.ini
+        parser.set(section, "MaxTribeLogs", str(config.max_tribe_logs))
+
+        # FastDecayInterval — só escrito quando habilitado
+        if adv.enable_fast_decay_interval:
+            parser.set(section, "FastDecayInterval", str(adv.fast_decay_interval))
+        elif parser.has_option(section, "FastDecayInterval"):
+            parser.remove_option(section, "FastDecayInterval")
+
+        # Turret limits
+        parser.set(section, "bLimitTurretsInRange",  _bool_to_str(adv.limit_turrets_in_range))
+        parser.set(section, "bHardLimitTurretsInRange", _bool_to_str(adv.hard_limit_turrets_in_range))
+        if adv.limit_turrets_in_range:
+            parser.set(section, "LimitTurretsRange", str(adv.limit_turrets_range))
+            parser.set(section, "LimitTurretsNum",   str(adv.limit_turrets_num))
 
         # ── Campos de breeding (local canônico: Game.ini) ─────────────────
         gs = config.game_settings

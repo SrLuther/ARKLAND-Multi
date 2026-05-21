@@ -262,6 +262,8 @@ class ModManager:
         install_dir: str,
         validate: bool = False,
         on_done: Optional[Callable[[bool], None]] = None,
+        branch_name: str = "",
+        branch_password: str = "",
     ) -> None:
         """Instala ou atualiza o servidor ARK Dedicated via SteamCMD."""
         with self._lock:
@@ -271,7 +273,7 @@ class ModManager:
             self._active = True
         thread = threading.Thread(
             target=self._install_server_worker,
-            args=(install_dir, validate, on_done),
+            args=(install_dir, validate, on_done, branch_name, branch_password),
             daemon=True,
             name="ServerInstallThread",
         )
@@ -283,6 +285,8 @@ class ModManager:
         install_dir: str,
         validate: bool,
         on_done: Optional[Callable[[bool], None]],
+        branch_name: str = "",
+        branch_password: str = "",
     ) -> None:
         steamcmd = self.get_steamcmd_exe()
         if not steamcmd:
@@ -293,15 +297,21 @@ class ModManager:
             return
 
         self._on_log(f"Instalando servidor ARK em: {install_dir}", "info")
+        app_update_args = ["+app_update", _ARK_SERVER_ID]
+        if branch_name:
+            app_update_args += ["-beta", branch_name]
+            if branch_password:
+                app_update_args += ["-betapassword", branch_password]
+        if validate:
+            app_update_args.append("validate")
+
         cmd = [
             steamcmd,
             "+force_install_dir", install_dir,
             "+login", "anonymous",
-            "+app_update", _ARK_SERVER_ID,
+            *app_update_args,
+            "+quit",
         ]
-        if validate:
-            cmd.append("validate")
-        cmd.append("+quit")
 
         try:
             proc = subprocess.Popen(
