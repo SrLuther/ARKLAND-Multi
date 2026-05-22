@@ -175,6 +175,30 @@ class PluginManager:
         """Retorna o caminho da DLL fonte (bundled ou dev), ou None se não encontrada."""
         return _resolve_dll_source()
 
+    @staticmethod
+    def cleanup_stale_win64_dlls(install_dir: str) -> List[str]:
+        """Remove DLLs de dependência do CustomShop que podem ter ficado em Win64/.
+
+        Deve ser chamado na inicialização do app para corrigir servidores onde
+        install() foi chamado no passado mas uninstall() não limpou as DLLs.
+        Retorna lista dos nomes de arquivos removidos.
+        """
+        if not PluginManager.is_plugin_installed(install_dir):
+            win64 = PluginManager.win64_dir(install_dir)
+            removed = []
+            for dep in _resolve_plugin_dlls():
+                if dep.name.lower() == f"{_PLUGIN_NAME.lower()}.dll":
+                    continue
+                stale = win64 / dep.name
+                try:
+                    if stale.is_file():
+                        stale.unlink()
+                        removed.append(dep.name)
+                except OSError:
+                    pass
+            return removed
+        return []
+
     # ── Instalação / remoção ─────────────────────────────────────────────────
 
     @staticmethod
@@ -224,10 +248,22 @@ class PluginManager:
 
     @staticmethod
     def uninstall(install_dir: str) -> None:
-        """Remove completamente o diretório do plugin."""
+        """Remove completamente o diretório do plugin e as DLLs de dependência do Win64."""
         pdir = PluginManager.plugin_dir(install_dir)
         if pdir.exists():
             shutil.rmtree(str(pdir))
+        # Remove DLLs de dependência que install() copiou para Win64/ (ex: libmariadb.dll,
+        # z.dll). Essas DLLs precisam ser removidas para não conflitar com as DLLs usadas
+        # por outros plugins (ArkShop, etc.) que dependem das suas próprias versões.
+        win64 = PluginManager.win64_dir(install_dir)
+        for dep in _resolve_plugin_dlls():
+            if dep.name.lower() != f"{_PLUGIN_NAME.lower()}.dll":
+                stale = win64 / dep.name
+                try:
+                    if stale.is_file():
+                        stale.unlink()
+                except OSError:
+                    pass
 
     # ── Configuração ─────────────────────────────────────────────────────────
 

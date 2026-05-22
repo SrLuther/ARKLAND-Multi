@@ -2,6 +2,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.28] - 2026-05-22
+
+### Fix — Crash fatal no connect do jogador (servidor iniciado pelo app)
+
+- fix: **`server_manager.py`** — o servidor era iniciado como processo filho do Python via `subprocess.Popen` sem flags de criação, herdando o ambiente modificado pelo PyInstaller (PATH com `_MEIPASS` prepended). O `_MEIPASS` contém DLLs como `z.dll`, `VCRUNTIME140.dll` etc. que podem ser encontradas antes das versões corretas do Win64/. Isso causava crash fatal (`ArkShopUI.dll → ArkApi::Commands::CheckOnTimerCallbacks`) ao conectar jogadores. Fix: usa `CREATE_NEW_CONSOLE` (desvincula do console Python, equivalente ao `start /normal` que o ASM usa no `RunServer.cmd`) e passa ambiente limpo sem `_MEIPASS` no PATH.
+- fix: **`plugin_manager.py`** — `uninstall()` não removia `libmariadb.dll` e `z.dll` que `install()` havia copiado para `Win64/`; adicionada limpeza dessas DLLs residuais.
+- fix: **`plugin_manager.py`** — novo método `cleanup_stale_win64_dlls()` remove DLLs residuais do CustomShop quando o plugin não está instalado.
+- fix: **`app.py`** — `_cleanup_stale_plugin_dlls()` chamado no startup para limpar automaticamente servidores já afetados.
+
+---
+
 ## [1.3.27] - 2026-05-22
 
 ### Fix — Janela de Controle Remoto

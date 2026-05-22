@@ -4,7 +4,9 @@ Controla start/stop/restart, monitoramento e logs de cada instância.
 """
 from __future__ import annotations
 
+import os
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime, date
@@ -27,6 +29,22 @@ from .server_config import (
     SERVER_STATUS_CRASHED,
 )
 from .battlemetrics_client import BattleMetricsPoller, BattleMetricsData
+
+
+def _build_server_env() -> dict:
+    """Ambiente limpo para o processo do servidor ARK.
+
+    Remove a modificação que o PyInstaller faz no PATH (prepend de _MEIPASS)
+    para que o servidor não carregue DLLs do Python via PATH.
+    Equivalente ao ambiente limpo que o ASM usa com 'start /normal'.
+    """
+    env = os.environ.copy()
+    if hasattr(sys, '_MEIPASS'):
+        meipass = sys._MEIPASS.rstrip(os.sep)
+        parts = [p for p in env.get('PATH', '').split(os.pathsep)
+                 if p.rstrip(os.sep) != meipass]
+        env['PATH'] = os.pathsep.join(parts)
+    return env
 
 
 # Linhas de log do ARK SE que indicam que o servidor terminou de inicializar
@@ -758,7 +776,11 @@ class ServerManager:
             proc = subprocess.Popen(
                 full_cmd,
                 cwd=str(Path(exe_path).parent),
-                # ARK abre janela própria — não capturamos stdout
+                # CREATE_NEW_CONSOLE desvincula o servidor do console Python,
+                # equivalente ao 'start /normal' que o ASM usa no RunServer.cmd.
+                # env sem _MEIPASS evita que DLLs do Python contaminem o PATH do servidor.
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                env=_build_server_env(),
             )
             inst.process    = proc
             inst.pid        = proc.pid

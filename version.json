@@ -1,9 +1,11 @@
 {
-    "version": "1.3.27",
+    "version": "1.3.28",
     "date": "2026-05-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.27/ARKLAND-Multi-Setup-v1.3.27.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.28/ARKLAND-Multi-Setup-v1.3.28.exe",
     "changelog": [
-        "Fix (remote_control_dialog.py): race condition em _poll() ÔÇö ao fechar a janela de controle remoto enquanto uma tentativa de conex├úo estava pendente (timeout de 6 s), win.after() era chamado num widget j├í destru├¡do, causando TclError silencioso no thread daemon.",
-        "Fix (remote_control_dialog.py): mensagens de erro de conex├úo agora s├úo traduzidas para PT-BR (urlopen timed out ÔåÆ sem resposta; connection refused ÔåÆ agente n├úo rodando; 401 ÔåÆ token inv├ílido)."
+        "Fix (server_manager.py): servidor iniciado com CREATE_NEW_CONSOLE e ambiente sem _MEIPASS no PATH — elimina herança de DLLs do PyInstaller que causavam crash fatal (ArkShopUI timer callback) ao conectar jogadores.",
+        "Fix (plugin_manager.py): uninstall() agora remove libmariadb.dll e z.dll que install() havia copiado para Win64/.",
+        "Fix (plugin_manager.py): novo método cleanup_stale_win64_dlls() remove DLLs residuais do CustomShop quando o plugin não está instalado.",
+        "Fix (app.py): _cleanup_stale_plugin_dlls() chamado no startup para limpar automaticamente servidores já afetados."
     ]
 }
