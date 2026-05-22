@@ -5,7 +5,8 @@
 
 ---
 
-## ~~[BUG] `mod_auto_updater.py` — `__import__("threading")` desnecessário~~ ✅ RESOLVIDO
+<!-- Nenhuma pendência no momento -->
+
 
 **Arquivo:** `src/mod_auto_updater.py`, linha 127  
 **Descrição:** `threading` já é importado no topo do módulo, mas na função `_install_missing_mods` era usado `__import__("threading").Event()` em vez de `threading.Event()` diretamente.  
@@ -87,13 +88,13 @@
 
 ### Ambiente de build
 
-| Item         |                      Valor                    |
-|--------------|-----------------------------------------------|
-| Compilador   | MSVC 14.51.36231 (Visual Studio 18 Community) |
-| Windows SDK  | 10.0.26100.0                                  |
-| cl.exe       | `C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\cl.exe` |
-| ArkApi SDK | `plugin/CustomShop/ArkServerAPI/version/Core/Public/` |
-| Build script | `plugin/CustomShop/build_cl.bat` |
+| Item          | Valor                                         |
+|---------------|-----------------------------------------------|
+| Compilador    | MSVC 14.51.36231 (Visual Studio 18 Community) |
+| Windows SDK   | 10.0.26100.0                                  |
+| cl.exe        | `C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\cl.exe` |
+| ArkApi SDK    | `plugin/CustomShop/ArkServerAPI/version/Core/Public/` |
+| Build script  | `plugin/CustomShop/build_cl.bat` |
 | Flags críticas | `/DUNICODE /D_UNICODE /DARK_GAME /std:c++17 /EHsc /MT` |
 
 ### Correções aplicadas até o build final

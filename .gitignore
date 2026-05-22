@@ -47,6 +47,13 @@ Desktop.ini
 
 beacon_token.json
 *_out.txt
+*_err.txt
 _tmp_fix.py
+_tmp_*.py
+_tmp_*.txt
+_fix_*.py
+_migrate_*.py
 beacon_comparison.txt
 output.txt
+release_log.txt
+CRASH_ANALYSIS.md

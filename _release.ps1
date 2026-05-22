@@ -90,6 +90,8 @@ for node in ast.walk(tree):
                 sys.exit(0)
 print('[]')
 "@
+# Garante que o PowerShell leia o stdout do Python como UTF-8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $changelogJson = & $python -c $extractScript
 $changes = $changelogJson | ConvertFrom-Json
 
