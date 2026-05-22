@@ -223,17 +223,100 @@ def _parse_crash_folder(crash_dir: Path) -> dict:
     return result
 
 
-def _list_crash_records(install_dir: str) -> List[dict]:
-    """Lista todos os registros de crash da instalação (mais recente primeiro)."""
-    crash_base = Path(install_dir) / "ShooterGame" / "Saved" / "Crashes"
-    if not crash_base.exists():
+def _parse_crash_from_log(install_dir: str) -> List[dict]:
+    """Extrai blocos 'Fatal error!' do ShooterGame.log como registros sintéticos.
+
+    Fallback para quando não há pastas de crash com .dmp — o crash fatal do ARK
+    deixa rastro no log mesmo quando o UE4 crash reporter não gera dump.
+    """
+    import re as _re
+
+    log_file = Path(install_dir) / "ShooterGame" / "Saved" / "Logs" / "ShooterGame.log"
+    if not log_file.exists():
         return []
+
+    records: list[dict] = []
     try:
-        subdirs = [d for d in crash_base.iterdir() if d.is_dir()]
-        subdirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
-        return [_parse_crash_folder(d) for d in subdirs]
+        # Lê os últimos 1 MB do log (evita ler arquivos gigantes inteiros)
+        file_size = log_file.stat().st_size
+        offset = max(0, file_size - 1024 * 1024)
+        with open(log_file, "rb") as fh:
+            fh.seek(offset)
+            content = fh.read().decode("utf-8", errors="replace")
+
+        fatal_positions = [m.start() for m in _re.finditer(r'Fatal error!', content)]
+        for idx, pos in enumerate(fatal_positions):
+            next_pos = fatal_positions[idx + 1] if idx + 1 < len(fatal_positions) else pos + 3000
+            block = content[pos:next_pos]
+            lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
+
+            # Tenta extrair timestamp da linha que precede o bloco no log
+            pre = content[max(0, pos - 120):pos]
+            ts_match = _re.search(r'\[(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2})', pre)
+            if ts_match:
+                try:
+                    ts: datetime = datetime.strptime(ts_match.group(1), "%Y.%m.%d-%H.%M.%S")
+                except ValueError:
+                    ts = datetime.fromtimestamp(log_file.stat().st_mtime)
+            else:
+                ts = datetime.fromtimestamp(log_file.stat().st_mtime)
+
+            culprit = _identify_crash_culprit(block)
+            records.append({
+                "folder":        f"ShooterGame.log #{idx + 1}",
+                "path":          str(log_file),
+                "timestamp":     ts,
+                "error_message": "Fatal error! (ver call stack abaixo)",
+                "call_stack":    lines[:25],
+                "culprit":       culprit,
+                "has_dump":      False,
+                "dump_size_kb":  0,
+                "dump_path":     "",
+                "diagnosis":     _interpret_crash("fatal error", culprit),
+                "log_lines":     lines[:25],
+                "source":        "log",
+            })
     except Exception:
-        return []
+        pass
+
+    # Mais recente primeiro
+    records.sort(key=lambda r: r["timestamp"], reverse=True)
+    return records
+
+
+def _list_crash_records(install_dir: str) -> List[dict]:
+    """Lista todos os registros de crash da instalação (mais recente primeiro).
+
+    Combina pastas de dump em ShooterGame/Saved/Crashes/ com blocos
+    'Fatal error!' do ShooterGame.log (crashs sem dump gerado).
+    """
+    records: list[dict] = []
+
+    # ── 1. Pastas de dump (CrashReport-*) ────────────────────────────────
+    crash_base = Path(install_dir) / "ShooterGame" / "Saved" / "Crashes"
+    if crash_base.exists():
+        try:
+            subdirs = [d for d in crash_base.iterdir() if d.is_dir()]
+            subdirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+            records.extend(_parse_crash_folder(d) for d in subdirs)
+        except Exception:
+            pass
+
+    # ── 2. Fallback: blocos Fatal error! no ShooterGame.log ──────────────
+    log_records = _parse_crash_from_log(install_dir)
+    # Só adiciona registros de log que não foram cobertos por um dump existente
+    # (evita duplicatas: considera duplicata se timestamp difere < 60 s de algum dump)
+    for lr in log_records:
+        duplicate = any(
+            abs((lr["timestamp"] - r["timestamp"]).total_seconds()) < 60
+            for r in records
+            if r.get("has_dump")
+        )
+        if not duplicate:
+            records.append(lr)
+
+    records.sort(key=lambda r: r["timestamp"], reverse=True)
+    return records
 
 
 def _read_crash_info(install_dir: str) -> str:
@@ -772,6 +855,22 @@ class ServerManager:
 
         self._emit_log(server_id, f"Iniciando: {full_cmd}", "info")
 
+        # ── ENV DEBUG ─────────────────────────────────────────────────────────
+        # Logging detalhado para rastrear contaminação de DLLs do PyInstaller.
+        # Remover após confirmar causa raiz do crash do ArkShopUI.
+        _dbg_env = _build_server_env()
+        _meipass_val = getattr(sys, '_MEIPASS', None)
+        self._emit_log(server_id, f"[ENV-DEBUG] sys._MEIPASS = {_meipass_val!r}", "debug")
+        _mei_residual = [p for p in _dbg_env.get('PATH', '').split(os.pathsep) if '_MEI' in p]
+        self._emit_log(server_id,
+            f"[ENV-DEBUG] Entradas _MEI* no PATH filtrado: {_mei_residual or 'nenhuma'}", "debug")
+        for _dll in ('z.dll', 'libmariadb.dll'):
+            _found = [os.path.join(p, _dll) for p in _dbg_env.get('PATH', '').split(os.pathsep)
+                      if os.path.isfile(os.path.join(p, _dll))]
+            self._emit_log(server_id,
+                f"[ENV-DEBUG] {_dll} via PATH: {_found or 'não encontrado'}", "debug")
+        # ─────────────────────────────────────────────────────────────────────
+
         try:
             proc = subprocess.Popen(
                 full_cmd,
@@ -780,7 +879,7 @@ class ServerManager:
                 # equivalente ao 'start /normal' que o ASM usa no RunServer.cmd.
                 # env sem _MEIPASS evita que DLLs do Python contaminem o PATH do servidor.
                 creationflags=subprocess.CREATE_NEW_CONSOLE,
-                env=_build_server_env(),
+                env=_dbg_env,
             )
             inst.process    = proc
             inst.pid        = proc.pid

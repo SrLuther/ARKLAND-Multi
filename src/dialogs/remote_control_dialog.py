@@ -244,7 +244,7 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
             raw = res["error"]
             # Torna a mensagem mais legível para o usuário
             if "timed out" in raw:
-                msg = "Sem resposta — verifique se o agente está ativo na máquina remota"
+                msg = "Sem resposta — verifique se o agente está ativo e a porta está liberada no Firewall do Windows"
             elif "refused" in raw or "10061" in raw:
                 msg = "Conexão recusada — agente não está rodando na porta configurada"
             elif "Não autorizado" in raw or "401" in raw:

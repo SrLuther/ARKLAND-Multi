@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import threading
 import tkinter as tk
 from tkinter import messagebox
 from typing import TYPE_CHECKING
@@ -7,7 +8,7 @@ from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 import uuid
-from ..remote_agent import local_ip, parse_identity_code
+from ..remote_agent import local_ip, parse_identity_code, RemoteClient
 from ..ui_constants import (
     _GREEN, _GREEN_DARK, _GREEN_HOVER, _RED_DARK, _RED_HOVER, _CARD_BG,
     _hostname,
@@ -127,6 +128,44 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
         command=_toggle_agent,
     )
     app._remote_toggle_btn.pack(side="left", padx=(0, 8))
+
+    def _test_agent() -> None:
+        """Testa alcance local do agente (127.0.0.1:porta)."""
+        if not (app._remote_agent and app._remote_agent.is_running):
+            messagebox.showinfo("Testar Agente", "O agente não está ativo.", parent=app)
+            return
+        port = app.config_manager.config.remote_agent_port
+
+        def _do() -> None:
+            client = RemoteClient("127.0.0.1", port, token="", timeout=3.0)
+            ok = client.ping()
+            if ok:
+                app.after(0, lambda: messagebox.showinfo(
+                    "Testar Agente",
+                    f"✅  Agente respondeu na porta {port} (127.0.0.1).\n\n"
+                    "Se outra máquina não conseguir conectar, verifique:\n"
+                    "• Windows Defender Firewall → Regras de Entrada → "
+                    f"libere TCP porta {port}.\n"
+                    "• Roteador/firewall externo (para acesso pela internet).",
+                    parent=app,
+                ))
+            else:
+                app.after(0, lambda: messagebox.showwarning(
+                    "Testar Agente",
+                    f"❌  Agente não respondeu em 127.0.0.1:{port}.\n\n"
+                    "O agente pode estar com a porta bloqueada pelo Windows Firewall "
+                    "mesmo para tráfego local.\n\n"
+                    "Solução: Windows Defender Firewall → Regras de Entrada → "
+                    f"Nova Regra → Porta → TCP → {port}.",
+                    parent=app,
+                ))
+        threading.Thread(target=_do, daemon=True).start()
+
+    ctk.CTkButton(
+        btn_row, text="🔍  Testar", height=34,
+        fg_color="#2a3050", hover_color="#3a4060",
+        command=_test_agent,
+    ).pack(side="left", padx=(0, 8))
 
     def _regen_token() -> None:
         if messagebox.askyesno(

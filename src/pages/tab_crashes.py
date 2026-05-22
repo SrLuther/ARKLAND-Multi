@@ -60,9 +60,13 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         records = _list_crash_records(srv.install_dir)
         total_kb = sum(r["dump_size_kb"] for r in records)
         if records:
+            dumps   = sum(1 for r in records if r.get("has_dump"))
+            log_rec = sum(1 for r in records if r.get("source") == "log")
             total_mb = total_kb / 1024
-            summary_lbl.configure(
-                text=f"{len(records)} crash(es) registrado(s)   •   {total_mb:.1f} MB em dumps")
+            parts = [f"{len(records)} crash(es) registrado(s)"]
+            if dumps:    parts.append(f"{dumps} com dump ({total_mb:.1f} MB)")
+            if log_rec:  parts.append(f"{log_rec} só no log")
+            summary_lbl.configure(text="   •   ".join(parts))
         else:
             summary_lbl.configure(text="Nenhum crash registrado")
 
@@ -73,14 +77,19 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
 
         if records:
             def _clear_all() -> None:
+                dump_records = [r for r in records if r.get("has_dump") or r.get("source") != "log"]
+                if not dump_records:
+                    messagebox.showinfo("Limpar crashes",
+                        "Apenas registros de log — nada para apagar.", parent=app)
+                    return
                 if not messagebox.askyesno(
                     "Limpar crashes",
-                    f"Apagar todos os {len(records)} registro(s) de crash?\n"
+                    f"Apagar {len(dump_records)} pasta(s) de crash com dump?\n"
                     "Os arquivos .dmp e CrashContext serão excluídos permanentemente.",
                     parent=app,
                 ):
                     return
-                for r in records:
+                for r in dump_records:
                     try:
                         shutil.rmtree(r["path"], ignore_errors=True)
                     except Exception:
@@ -124,10 +133,13 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         hdr.grid(row=0, column=0, padx=6, pady=(6, 0), sticky="ew")
         hdr.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(hdr, text="💥",
+        is_log_only = rec.get("source") == "log"
+        icon = "📋" if is_log_only else "💥"
+        ctk.CTkLabel(hdr, text=icon,
                      font=ctk.CTkFont(size=14)
                      ).grid(row=0, column=0, padx=(10, 4), pady=6)
-        ctk.CTkLabel(hdr, text=ts_str,
+        header_text = ts_str + ("  [ShooterGame.log]" if is_log_only else "")
+        ctk.CTkLabel(hdr, text=header_text,
                      font=ctk.CTkFont(size=12, weight="bold"),
                      text_color="#e08080" if has_culprit else "#d0d0e0",
                      anchor="w").grid(row=0, column=1, padx=0, pady=6, sticky="w")
@@ -200,31 +212,40 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         act_row = ctk.CTkFrame(card, fg_color="transparent")
         act_row.grid(row=body_row, column=0, padx=8, pady=(4, 8), sticky="w")
 
-        ctk.CTkButton(
-            act_row, text="📁 Abrir pasta", height=24, width=110,
-            fg_color="#3a3a5a", hover_color="#252540",
-            font=ctk.CTkFont(size=10),
-            command=lambda p=rec["path"]: subprocess.Popen(["explorer", p]),
-        ).pack(side="left", padx=(0, 6))
+        if is_log_only:
+            # Registro do log — abre o arquivo de log em vez de uma pasta
+            ctk.CTkButton(
+                act_row, text="📋 Abrir log", height=24, width=110,
+                fg_color="#3a3a5a", hover_color="#252540",
+                font=ctk.CTkFont(size=10),
+                command=lambda p=rec["path"]: subprocess.Popen(["notepad", p]),
+            ).pack(side="left", padx=(0, 6))
+        else:
+            ctk.CTkButton(
+                act_row, text="📁 Abrir pasta", height=24, width=110,
+                fg_color="#3a3a5a", hover_color="#252540",
+                font=ctk.CTkFont(size=10),
+                command=lambda p=rec["path"]: subprocess.Popen(["explorer", p]),
+            ).pack(side="left", padx=(0, 6))
 
-        def _del_one(p: str = rec["path"]) -> None:
-            if messagebox.askyesno(
-                "Apagar crash",
-                "Apagar este registro de crash?\nO arquivo .dmp será excluído permanentemente.",
-                parent=app,
-            ):
-                try:
-                    shutil.rmtree(p, ignore_errors=True)
-                except Exception:
-                    pass
-                _refresh()
+            def _del_one(p: str = rec["path"]) -> None:
+                if messagebox.askyesno(
+                    "Apagar crash",
+                    "Apagar este registro de crash?\nO arquivo .dmp será excluído permanentemente.",
+                    parent=app,
+                ):
+                    try:
+                        shutil.rmtree(p, ignore_errors=True)
+                    except Exception:
+                        pass
+                    _refresh()
 
-        ctk.CTkButton(
-            act_row, text="🗑 Apagar", height=24, width=80,
-            fg_color=_RED_DARK, hover_color=_RED_HOVER,
-            font=ctk.CTkFont(size=10),
-            command=_del_one,
-        ).pack(side="left")
+            ctk.CTkButton(
+                act_row, text="🗑 Apagar", height=24, width=80,
+                fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                font=ctk.CTkFont(size=10),
+                command=_del_one,
+            ).pack(side="left")
 
     _refresh()
 

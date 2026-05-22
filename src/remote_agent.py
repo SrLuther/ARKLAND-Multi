@@ -96,7 +96,7 @@ class RemoteAgent:
 
     @property
     def is_running(self) -> bool:
-        return self._running
+        return self._running and (self._thread is not None and self._thread.is_alive())
 
     def push_log(self, message: str, level: str = "info") -> None:
         """Chamado pelo app para alimentar o buffer de logs remoto."""
@@ -152,11 +152,16 @@ class RemoteAgent:
                 }
 
             def do_GET(self) -> None:
+                path = self.path.split("?")[0]  # strip query string
+
+                # Endpoint público — não exige autenticação
+                if path == "/ping":
+                    self._json(200, {"ok": True})
+                    return
+
                 if not self._auth():
                     self._json(401, {"error": "Não autorizado"})
                     return
-
-                path = self.path.split("?")[0]  # strip query string
 
                 if path == "/info":
                     from .version import APP_VERSION
@@ -328,6 +333,15 @@ class RemoteClient:
             return {"error": str(exc)}
 
     # ── API ───────────────────────────────────────────────────────────────────
+
+    def ping(self) -> bool:
+        """Verifica alcance sem autenticação. Retorna True se o agente responder."""
+        url = self._base + "/ping"
+        try:
+            with urllib.request.urlopen(url, timeout=3.0) as resp:
+                return resp.status == 200
+        except Exception:
+            return False
 
     def get_info(self) -> dict:
         return self._request("GET", "/info")

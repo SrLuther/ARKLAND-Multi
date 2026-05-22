@@ -3,11 +3,30 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.28"
+APP_VERSION: str = "1.3.30"
 BUILD_DATE: str = "2026-05-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.30",
+        "date": "2026-05-22",
+        "changes": [
+            "Fix (remote_agent.py): is_running agora verifica se a thread do servidor está viva (_thread.is_alive()), evitando falso positivo quando o servidor morre silenciosamente.",
+            "Fix (remote_agent.py): endpoint GET /ping sem autenticação adicionado — permite teste de alcance sem token.",
+            "Fix (start_remote_agent.py): autodiagnóstico após start — após 2 s testa 127.0.0.1:porta e exibe aviso detalhado se não responder (Windows Firewall).",
+            "Feat (remote_panel.py): botão 'Testar' no painel do agente — ping local imediato com instruções sobre Windows Firewall.",
+            "Fix (remote_control_dialog.py): mensagem 'Sem resposta' agora menciona Firewall do Windows.",
+        ],
+    },
+    {
+        "version": "1.3.29",
+        "date": "2026-05-22",
+        "changes": [
+            "Debug (server_manager.py): logging ENV-DEBUG adicionado antes do Popen — exibe sys._MEIPASS, entradas _MEI* residuais no PATH e localização de z.dll/libmariadb.dll para rastrear causa raiz do crash ArkShopUI.",
+            "Fix (tab_crashes.py + server_manager.py): aba Crashes agora detecta todos os tipos de crash — além de pastas com .dmp, parseia blocos 'Fatal error!' do ShooterGame.log como registros sintéticos; registros de log exibem badge '[ShooterGame.log]' e botão 'Abrir log' em vez de 'Abrir pasta'.",
+        ],
+    },
     {
         "version": "1.3.28",
         "date": "2026-05-22",
