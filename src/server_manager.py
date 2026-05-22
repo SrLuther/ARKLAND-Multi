@@ -888,14 +888,38 @@ class ServerManager:
             self._emit_log(server_id, f"[ENV-DEBUG] erro ao gravar: {_dbg_err}", "warning")
         # ─────────────────────────────────────────────────────────────────────
 
+        # ── RunServer.cmd ─────────────────────────────────────────────────────
+        # Gera RunServer.cmd em Saved\Config\WindowsServer\ (padrão do ASM).
+        # Alguns plugins verificam a existência desse arquivo.
+        try:
+            _run_server_dir = (
+                Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+            )
+            _run_server_dir.mkdir(parents=True, exist_ok=True)
+            _run_server_cmd = _run_server_dir / "RunServer.cmd"
+            _run_server_cmd.write_text(
+                f"@echo off\r\ncd /d \"{_dbg_cwd}\"\r\n{full_cmd}\r\n",
+                encoding="utf-8",
+            )
+            self._emit_log(server_id, f"RunServer.cmd gerado em: {_run_server_cmd}", "info")
+        except Exception as _rsc_err:
+            self._emit_log(server_id, f"Aviso: RunServer.cmd não pôde ser criado: {_rsc_err}", "warning")
+        # ─────────────────────────────────────────────────────────────────────
+
+        # CREATE_BREAKAWAY_FROM_JOB (0x01000000): faz o processo filho sair do
+        # job object do PyInstaller/ARKLAND, tornando-o completamente independente.
+        # Sem isso, o servidor herda restrições do job object do ARKLAND, o que
+        # pode causar comportamento diferente do que quando iniciado manualmente.
+        _CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+
         try:
             proc = subprocess.Popen(
                 full_cmd,
                 cwd=_dbg_cwd,
-                # CREATE_NEW_CONSOLE desvincula o servidor do console Python,
-                # equivalente ao 'start /normal' que o ASM usa no RunServer.cmd.
-                # env sem _MEIPASS evita que DLLs do Python contaminem o PATH do servidor.
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                # CREATE_NEW_CONSOLE desvincula do console + CREATE_BREAKAWAY_FROM_JOB
+                # sai do job object do PyInstaller → processo completamente livre,
+                # igual a quando o usuário inicia manualmente via Explorer/cmd.
+                creationflags=subprocess.CREATE_NEW_CONSOLE | _CREATE_BREAKAWAY_FROM_JOB,
                 env=_dbg_env,
             )
             inst.process    = proc
