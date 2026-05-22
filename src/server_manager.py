@@ -856,25 +856,42 @@ class ServerManager:
         self._emit_log(server_id, f"Iniciando: {full_cmd}", "info")
 
         # ── ENV DEBUG ─────────────────────────────────────────────────────────
-        # Logging detalhado para rastrear contaminação de DLLs do PyInstaller.
-        # Remover após confirmar causa raiz do crash do ArkShopUI.
+        # Grava ambiente completo em arquivo para diagnóstico do crash ArkShopUI.
+        # Arquivo: <Binaries/Win64>/_arkland_debug.txt
         _dbg_env = _build_server_env()
-        _meipass_val = getattr(sys, '_MEIPASS', None)
-        self._emit_log(server_id, f"[ENV-DEBUG] sys._MEIPASS = {_meipass_val!r}", "debug")
-        _mei_residual = [p for p in _dbg_env.get('PATH', '').split(os.pathsep) if '_MEI' in p]
-        self._emit_log(server_id,
-            f"[ENV-DEBUG] Entradas _MEI* no PATH filtrado: {_mei_residual or 'nenhuma'}", "debug")
-        for _dll in ('z.dll', 'libmariadb.dll'):
-            _found = [os.path.join(p, _dll) for p in _dbg_env.get('PATH', '').split(os.pathsep)
-                      if os.path.isfile(os.path.join(p, _dll))]
+        _dbg_cwd = str(Path(exe_path).parent)
+        try:
+            _dbg_lines: list[str] = []
+            _dbg_lines.append(f"=== ARKLAND ENV DEBUG  {datetime.now().isoformat()} ===\n")
+            _dbg_lines.append(f"CMD: {full_cmd}\n")
+            _dbg_lines.append(f"CWD: {_dbg_cwd}\n")
+            _dbg_lines.append(f"sys._MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}\n")
+            _dbg_lines.append("\n--- PATH entries ---\n")
+            for _i, _p in enumerate(_dbg_env.get('PATH', '').split(os.pathsep), 1):
+                _dbg_lines.append(f"  [{_i:03}] {_p}\n")
+            _dbg_lines.append("\n--- ENV vars (sorted) ---\n")
+            for _k in sorted(_dbg_env.keys()):
+                _v = _dbg_env[_k]
+                # Não logar PATH novamente; oculta senhas
+                if _k == 'PATH':
+                    continue
+                _dbg_lines.append(f"  {_k}={_v}\n")
+            _dbg_path = Path(_dbg_cwd) / "_arkland_debug.txt"
+            _dbg_path.write_text("".join(_dbg_lines), encoding="utf-8")
+            # Imprime caminho do ArkApi.log para diagnóstico adicional
+            _arkapi_log = Path(_dbg_cwd) / "ArkApi" / "ArkApi.log"
             self._emit_log(server_id,
-                f"[ENV-DEBUG] {_dll} via PATH: {_found or 'não encontrado'}", "debug")
+                f"[ENV-DEBUG] arquivo gravado: {_dbg_path}", "warning")
+            self._emit_log(server_id,
+                f"[ENV-DEBUG] ArkApi.log esperado em: {_arkapi_log}  (existe={_arkapi_log.exists()})", "warning")
+        except Exception as _dbg_err:
+            self._emit_log(server_id, f"[ENV-DEBUG] erro ao gravar: {_dbg_err}", "warning")
         # ─────────────────────────────────────────────────────────────────────
 
         try:
             proc = subprocess.Popen(
                 full_cmd,
-                cwd=str(Path(exe_path).parent),
+                cwd=_dbg_cwd,
                 # CREATE_NEW_CONSOLE desvincula o servidor do console Python,
                 # equivalente ao 'start /normal' que o ASM usa no RunServer.cmd.
                 # env sem _MEIPASS evita que DLLs do Python contaminem o PATH do servidor.
