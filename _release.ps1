@@ -161,28 +161,57 @@ if (-not $ghToken) { Write-Fail "Token GitHub nao encontrado no Windows Credenti
 Write-Ok "Token obtido"
 
 Write-Step 6 6 "Publicando GitHub Release v$Version..."
-$gh = @{ Authorization = "token $ghToken"; Accept = "application/vnd.github+json" }
 
-# Montar notas da release
-$noteLines = @("## O que ha de novo`n")
-foreach ($c in $changes) { $noteLines += "- $c" }
-$noteLines += "`n---`n**Instalacao silenciosa:**``ARKLAND-Multi-Setup-v$Version.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-``"
-$notesBody = ($noteLines -join "`n") -replace '"', '\"' -replace "`n", '\n'
+# Python faz o request HTTP diretamente — evita o bug do PS 5.1 onde
+# Invoke-RestMethod corrompe strings Unicode mesmo com charset=utf-8.
+# json.dumps com ensure_ascii=True garante JSON puro ASCII (\uXXXX).
+$ghScript = @"
+import json, sys, urllib.request
 
-$releaseBodyJson = "{`"tag_name`":`"v$Version`",`"name`":`"v$Version`",`"body`":`"$notesBody`",`"draft`":false,`"prerelease`":false}"
-$release = Invoke-RestMethod -Uri "https://api.github.com/repos/SrLuther/ARKLAND-Multi/releases" `
-    -Method Post -Headers $gh -Body $releaseBodyJson -ContentType "application/json; charset=utf-8"
-Write-Ok "Release criada: $($release.html_url)"
+token  = '$ghToken'
+version = '$Version'
+installer = r'$installer'
 
-$uploadUrl = $release.upload_url -replace '\{.*\}', "?name=ARKLAND-Multi-Setup-v$Version.exe"
-$asset = Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $gh `
-    -InFile $installer -ContentType "application/octet-stream"
-Write-Ok "Asset enviado:  $($asset.browser_download_url)"
+with open(r'$(Join-Path $root "version.json")', encoding='utf-8') as f:
+    data = json.load(f)
+
+lines = ['## O que ha de novo\n']
+for c in data['changelog']:
+    lines.append('- ' + c)
+lines.append('\n---\n**Instalacao silenciosa:** \`ARKLAND-Multi-Setup-v{v}.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-\`'.format(v=version))
+body = '\n'.join(lines)
+
+headers = {'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json; charset=utf-8'}
+
+payload = json.dumps({'tag_name': 'v'+version, 'name': 'v'+version, 'body': body, 'draft': False, 'prerelease': False}, ensure_ascii=True).encode('ascii')
+req = urllib.request.Request('https://api.github.com/repos/SrLuther/ARKLAND-Multi/releases', data=payload, headers=headers)
+with urllib.request.urlopen(req) as r:
+    rel = json.loads(r.read())
+
+upload_url = rel['upload_url'].split('{')[0] + '?name=ARKLAND-Multi-Setup-v' + version + '.exe'
+with open(installer, 'rb') as f:
+    asset_data = f.read()
+asset_headers = {'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/octet-stream'}
+asset_req = urllib.request.Request(upload_url, data=asset_data, headers=asset_headers)
+with urllib.request.urlopen(asset_req) as r:
+    asset = json.loads(r.read())
+
+print(rel['html_url'])
+print(asset['browser_download_url'])
+"@
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$ghOut = & $python -c $ghScript
+if ($LASTEXITCODE -ne 0) { Write-Fail "Falha ao publicar release no GitHub" }
+$releaseUrl = $ghOut[0]
+$assetUrl   = $ghOut[1]
+Write-Ok "Release criada: $releaseUrl"
+Write-Ok "Asset enviado:  $assetUrl"
 
 # ─────────────────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host "  RELEASE v$Version PUBLICADA COM SUCESSO!" -ForegroundColor Green
-Write-Host "  $($release.html_url)" -ForegroundColor Green
+Write-Host "  $releaseUrl" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 
