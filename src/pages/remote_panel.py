@@ -130,41 +130,95 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
     app._remote_toggle_btn.pack(side="left", padx=(0, 8))
 
     def _test_agent() -> None:
-        """Testa alcance local do agente (127.0.0.1:porta)."""
+        """Testa alcance do agente em 127.0.0.1 E no IP LAN local."""
         if not (app._remote_agent and app._remote_agent.is_running):
             messagebox.showinfo("Testar Agente", "O agente não está ativo.", parent=app)
             return
         port = app.config_manager.config.remote_agent_port
 
         def _do() -> None:
-            client = RemoteClient("127.0.0.1", port, token="", timeout=3.0)
-            ok = client.ping()
-            if ok:
-                app.after(0, lambda: messagebox.showinfo(
-                    "Testar Agente",
-                    f"✅  Agente respondeu na porta {port} (127.0.0.1).\n\n"
-                    "Se outra máquina não conseguir conectar, verifique:\n"
-                    "• Windows Defender Firewall → Regras de Entrada → "
-                    f"libere TCP porta {port}.\n"
-                    "• Roteador/firewall externo (para acesso pela internet).",
-                    parent=app,
-                ))
+            lo_ok  = RemoteClient("127.0.0.1", port, token="", timeout=3.0).ping()
+            lan_ip = local_ip()
+            lan_ok = RemoteClient(lan_ip,      port, token="", timeout=3.0).ping()
+
+            if lo_ok and lan_ok:
+                msg = (
+                    f"✅  Agente acessível em 127.0.0.1 e {lan_ip}.\n\n"
+                    "Se outra máquina ainda não conseguir conectar, o problema\n"
+                    "é no roteador/firewall externo ou na rede entre as máquinas."
+                )
+                app.after(0, lambda: messagebox.showinfo("Testar Agente", msg, parent=app))
+
+            elif lo_ok and not lan_ok:
+                msg = (
+                    f"⚠️  Agente responde em 127.0.0.1 mas NÃO em {lan_ip}:{port}.\n\n"
+                    "Causa provável: Windows Defender Firewall bloqueando a porta\n"
+                    "no perfil de rede (Privado/Público).\n\n"
+                    "Solução rápida: clique em '🔒 Firewall' para criar a regra\n"
+                    "automaticamente (requer confirmação UAC)."
+                )
+                app.after(0, lambda: messagebox.showwarning("Testar Agente", msg, parent=app))
+
             else:
-                app.after(0, lambda: messagebox.showwarning(
-                    "Testar Agente",
-                    f"❌  Agente não respondeu em 127.0.0.1:{port}.\n\n"
-                    "O agente pode estar com a porta bloqueada pelo Windows Firewall "
-                    "mesmo para tráfego local.\n\n"
-                    "Solução: Windows Defender Firewall → Regras de Entrada → "
-                    f"Nova Regra → Porta → TCP → {port}.",
-                    parent=app,
-                ))
+                msg = (
+                    f"❌  Agente não respondeu nem em 127.0.0.1:{port}.\n\n"
+                    "Verifique se o agente está realmente ativo."
+                )
+                app.after(0, lambda: messagebox.showerror("Testar Agente", msg, parent=app))
         threading.Thread(target=_do, daemon=True).start()
 
     ctk.CTkButton(
         btn_row, text="🔍  Testar", height=34,
         fg_color="#2a3050", hover_color="#3a4060",
         command=_test_agent,
+    ).pack(side="left", padx=(0, 8))
+
+    def _fix_firewall() -> None:
+        """Cria regra no Windows Firewall via UAC (sem precisar de admin prévio)."""
+        port = app.config_manager.config.remote_agent_port
+        if not messagebox.askyesno(
+            "Criar Regra no Firewall",
+            f"Isso vai criar uma regra de entrada no Windows Defender Firewall\n"
+            f"para liberar TCP porta {port} em todos os perfis de rede\n"
+            f"(Domínio, Privado e Público).\n\n"
+            f"Uma janela de UAC (controle de conta) será exibida pedindo permissão.\n\n"
+            "Continuar?",
+            parent=app,
+        ):
+            return
+        import ctypes, subprocess, sys
+        rule_name = f"ARKLAND Remote Agent {port}"
+        # Remove regra antiga se existir, depois cria nova com Profile=Any
+        ps_cmd = (
+            f"netsh advfirewall firewall delete rule name=\"{rule_name}\" 2>nul & "
+            f"netsh advfirewall firewall add rule name=\"{rule_name}\" "
+            f"protocol=TCP dir=in localport={port} action=allow profile=any && "
+            f"echo SUCESSO"
+        )
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", "cmd.exe",
+            f'/c {ps_cmd} & pause',
+            None, 1,
+        )
+        if ret > 32:
+            app.after(3500, lambda: messagebox.showinfo(
+                "Regra criada",
+                f"✅  Regra '{rule_name}' aplicada.\n\n"
+                f"Clique em '🔍 Testar' para verificar se a conexão LAN funciona agora.",
+                parent=app,
+            ))
+        else:
+            messagebox.showerror(
+                "Erro",
+                "Não foi possível abrir o prompt elevado. "
+                "Execute o ARKLAND como Administrador e tente novamente.",
+                parent=app,
+            )
+
+    ctk.CTkButton(
+        btn_row, text="🔒  Firewall", height=34,
+        fg_color="#3a2a10", hover_color="#5a3a18",
+        command=_fix_firewall,
     ).pack(side="left", padx=(0, 8))
 
     def _regen_token() -> None:
