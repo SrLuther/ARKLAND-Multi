@@ -2,6 +2,15 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.27] - 2026-05-22
+
+### Fix — Janela de Controle Remoto
+
+- fix: **`remote_control_dialog.py`** — race condition em `_poll()`: ao fechar a janela enquanto o timeout de 6 s ainda estava pendente, `win.after()` era chamado num widget destruído (→ `TclError` silencioso no daemon thread).
+- fix: mensagens de erro de conexão agora são legíveis: `<urlopen error timed out>` → `Sem resposta — verifique se o agente está ativo`; `connection refused` → `agente não está rodando na porta configurada`; `401` → `token inválido`.
+
+---
+
 ## [1.3.26] - 2026-05-22
 
 ### Fix — Dialog "Novo Servidor"

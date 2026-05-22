@@ -1,8 +1,9 @@
 {
-    "version": "1.3.26",
+    "version": "1.3.27",
     "date": "2026-05-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.26/ARKLAND-Multi-Setup-v1.3.26.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.27/ARKLAND-Multi-Setup-v1.3.27.exe",
     "changelog": [
-        "Fix (add_server_dialog.py): ARK_MAP_NAMES, ARK_MAPS e ServerConfig n├úo importados ÔÇö dialog 'Novo Servidor' lan├ºava NameError ao abrir (list comprehension do ComboBox de mapa) e ao criar o servidor; imports adicionados de server_config.py."
+        "Fix (remote_control_dialog.py): race condition em _poll() ÔÇö ao fechar a janela de controle remoto enquanto uma tentativa de conex├úo estava pendente (timeout de 6 s), win.after() era chamado num widget j├í destru├¡do, causando TclError silencioso no thread daemon.",
+        "Fix (remote_control_dialog.py): mensagens de erro de conex├úo agora s├úo traduzidas para PT-BR (urlopen timed out ÔåÆ sem resposta; connection refused ÔåÆ agente n├úo rodando; 401 ÔåÆ token inv├ílido)."
     ]
 }

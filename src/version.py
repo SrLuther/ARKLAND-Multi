@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.26"
+APP_VERSION: str = "1.3.27"
 BUILD_DATE: str = "2026-05-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.27",
+        "date": "2026-05-22",
+        "changes": [
+            "Fix (remote_control_dialog.py): race condition em _poll() — ao fechar a janela de controle remoto enquanto uma tentativa de conexão estava pendente (timeout de 6 s), win.after() era chamado num widget já destruído, causando TclError silencioso no thread daemon.",
+            "Fix (remote_control_dialog.py): mensagens de erro de conexão agora são traduzidas para PT-BR (urlopen timed out → sem resposta; connection refused → agente não rodando; 401 → token inválido).",
+        ],
+    },
     {
         "version": "1.3.26",
         "date": "2026-05-22",

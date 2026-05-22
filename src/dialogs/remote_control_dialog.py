@@ -236,17 +236,40 @@ def open_remote_control(app: "ARKServerManagerApp", inst: dict) -> None:  # noqa
     # ── Polling ──────────────────────────────────────────────────────────
     def _poll() -> None:
         res = client.get_info()
+        # Verifica imediatamente após o request (pode ter demorado 6s no timeout)
+        # para evitar TclError ao chamar win.after() em window já destruído.
+        if _stop_polling.is_set():
+            return
         if "error" in res:
-            win.after(0, lambda: conn_var.set(f"🔴 Erro: {res['error']}"))
+            raw = res["error"]
+            # Torna a mensagem mais legível para o usuário
+            if "timed out" in raw:
+                msg = "Sem resposta — verifique se o agente está ativo na máquina remota"
+            elif "refused" in raw or "10061" in raw:
+                msg = "Conexão recusada — agente não está rodando na porta configurada"
+            elif "Não autorizado" in raw or "401" in raw:
+                msg = "Não autorizado — token inválido"
+            else:
+                msg = raw
+            try:
+                win.after(0, lambda m=msg: conn_var.set(f"🔴 {m}"))
+            except Exception:
+                return
         else:
             v     = res.get("version", "")
             srvs  = res.get("servers", [])
-            win.after(0, lambda: conn_var.set("🟢 Conectado"))
-            win.after(0, lambda: version_var.set(f"v{v}" if v else ""))
-            win.after(0, lambda: _rebuild_servers(srvs))
+            try:
+                win.after(0, lambda: conn_var.set("🟢 Conectado"))
+                win.after(0, lambda: version_var.set(f"v{v}" if v else ""))
+                win.after(0, lambda s=srvs: _rebuild_servers(s))
+            except Exception:
+                return
         if not _stop_polling.is_set():
-            win.after(3000, lambda: threading.Thread(
-                target=_poll, daemon=True).start())
+            try:
+                win.after(3000, lambda: threading.Thread(
+                    target=_poll, daemon=True).start())
+            except Exception:
+                pass
 
     def _on_close() -> None:
         _stop_polling.set()
