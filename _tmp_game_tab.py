@@ -1,0 +1,539 @@
+    def _build_tab_game(self, parent, srv: ServerConfig) -> None:
+        scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
+        scroll.pack(fill="both", expand=True, padx=4, pady=4)
+        scroll.grid_columnconfigure(1, weight=1)
+        scroll.grid_columnconfigure(3, weight=1)  # espaçador — limita largura dos sliders
+
+        # Auto-carrega Game.ini do disco antes de popular os widgets,
+        # garantindo que PerLevelStatsMultiplier e campos de breeding
+        # reflitam o arquivo real caso o JSON tenha apenas defaults.
+        if srv.install_dir:
+            try:
+                from .ark_ini import ArkIniManager as _AIM, get_ini_path as _gip
+                _game_ini_path = _gip(srv.install_dir, "Game.ini")
+                if _game_ini_path.exists():
+                    _AIM(srv.install_dir).load_game_ini(srv)
+            except Exception:
+                pass
+
+        w  = self._server_widgets[srv.id]
+        gs = srv.game_settings
+
+        def frow(label: str, hint: str, field: str, val: float, row_n: int,
+                 frm: float = 0.0, to: float = 10.0) -> None:
+            self._register_config_item(srv.id, label, hint, "Jogo")
+            var = tk.DoubleVar(value=val)
+            w[f"gs_{field}"] = var
+
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                             text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+
+            entry_var = tk.StringVar(value=f"{val:.2f}")
+            entry = ctk.CTkEntry(scroll, textvariable=entry_var, width=72, height=28,
+                                 justify="right", text_color=_GREEN,
+                                 font=ctk.CTkFont(size=12, weight="bold"))
+            entry.grid(row=row_n, column=2, padx=(4, 14), pady=4)
+
+            slider = ctk.CTkSlider(
+                scroll, from_=frm, to=to, variable=var,  # type: ignore[arg-type]
+                command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
+            )
+            slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
+
+            def _sync_entry(*_, _v=var, _ev=entry_var):
+                _ev.set(f"{_v.get():.2f}")
+            var.trace_add("write", _sync_entry)
+
+            def _commit(event=None, _var=var, _ev=entry_var, _frm=frm, _to=to):
+                try:
+                    v = float(_ev.get().replace(",", "."))
+                    v = max(_frm, min(_to, v))
+                    _var.set(v)
+                    _ev.set(f"{v:.2f}")
+                except ValueError:
+                    _ev.set(f"{_var.get():.2f}")
+
+            entry.bind("<Return>", _commit)
+            entry.bind("<FocusOut>", _commit)
+
+        def irow(label: str, hint: str, field: str, val: int, row_n: int) -> None:
+            self._register_config_item(srv.id, label, hint, "Jogo")
+            w[f"gs_{field}"] = tk.StringVar(value=str(val))
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            if hint:
+                ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                             text_color="gray40",
+                             font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+            ctk.CTkEntry(scroll, textvariable=w[f"gs_{field}"], width=120, height=28).grid(
+                row=row_n, column=1, padx=4, pady=4, sticky="w")
+
+        def brow(label: str, field: str, val: bool, row_n: int) -> None:
+            self._register_config_item(srv.id, label, "", "Jogo")
+            w[f"gs_{field}"] = tk.BooleanVar(value=val)
+            ctk.CTkCheckBox(scroll, text=label, variable=w[f"gs_{field}"],
+                            checkmark_color="white", fg_color=_GREEN_DARK,
+                            hover_color=_GREEN_HOVER).grid(
+                row=row_n, column=0, columnspan=3, padx=16, pady=4, sticky="w")
+
+        def _level_cap_row(label: str, hint: str, field: str, val: int, row_n: int) -> None:
+            from .ark_ini import _level_to_xp as _l2xp
+            self._register_config_item(srv.id, label, hint, "Jogo")
+            w[f"gs_{field}"] = tk.StringVar(value=str(val))
+            lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+            ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                         text_color="gray65",
+                         font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+            ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                         text_color="gray40",
+                         font=ctk.CTkFont(size=10), justify="left",
+                         wraplength=270).pack(anchor="w", pady=(0, 2))
+            right_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            right_fr.grid(row=row_n, column=1, padx=4, pady=4, sticky="w")
+            ctk.CTkEntry(right_fr, textvariable=w[f"gs_{field}"],
+                         width=80, height=28).pack(side="left")
+            xp_lbl = ctk.CTkLabel(right_fr, text="", text_color="gray45",
+                                  font=ctk.CTkFont(size=10))
+            xp_lbl.pack(side="left", padx=(6, 0))
+
+            def _update_xp_preview(*_):
+                try:
+                    lvl = int(w[f"gs_{field}"].get())
+                    xp_lbl.configure(text="(padrão ARK)" if lvl <= 0 else f"→ {_l2xp(lvl):,} XP")
+                except (ValueError, TypeError):
+                    xp_lbl.configure(text="")
+
+            w[f"gs_{field}"].trace_add("write", _update_xp_preview)
+            _update_xp_preview()
+
+        # ── Coleta de tasks com row pré-calculado ─────────────────────────────
+        # Em vez de criar todos os ~350 widgets de uma vez (freeze de ~500ms),
+        # as tasks são despachadas em lotes de 6 via after(0), cedendo o
+        # controle ao event loop entre cada lote.
+        _tasks: list = []
+        r = 0
+
+        def _s(text: str) -> None:
+            nonlocal r
+            _tasks.append(("s", r, text))
+            r += 1
+
+        def _f(label, hint, field, val, frm=0.0, to=10.0) -> None:
+            nonlocal r
+            _tasks.append(("f", r, label, hint, field, val, frm, to))
+            r += 1
+
+        def _i(label, hint, field, val) -> None:
+            nonlocal r
+            _tasks.append(("i", r, label, hint, field, val))
+            r += 1
+
+        def _b(label, field, val) -> None:
+            nonlocal r
+            _tasks.append(("b", r, label, field, val))
+            r += 1
+
+        def _calc() -> None:
+            nonlocal r
+            _tasks.append(("calc", r))
+            r += 1
+
+        def _lcap(label, hint, field, val) -> None:
+            nonlocal r
+            _tasks.append(("lcap", r, label, hint, field, val))
+            r += 1
+
+        def _save() -> None:
+            _tasks.append(("save", r + 1))
+
+        def _plsm() -> None:
+            nonlocal r
+            _tasks.append(("plsm", r))
+            r += 1
+
+        # ── Definição das rows ────────────────────────────────────────────────
+        _s("⚙️  Dificuldade")
+        _f("Nível de Dificuldade",
+           "Padrão: 0.20 — Aumentar eleva o nível máximo dos dinos selvagens.",
+           "difficulty_offset", gs.difficulty_offset, 0, 1)
+        _f("Dificuldade Máxima (Override)",
+           "Ex: 5.0 = dinos até nível 150. Aumente para dinos mais difíceis.",
+           "override_official_difficulty", gs.override_official_difficulty, 1, 10)
+
+        _s("📈  XP")
+        _f("Multiplicador de XP Geral",
+           "Multiplica todo o XP ganho. Aumente para progredir mais rápido.",
+           "xp_multiplier", gs.xp_multiplier)
+        _f("XP por Abate",
+           "Multiplica o XP ganho ao matar criaturas.",
+           "kill_xp_multiplier", gs.kill_xp_multiplier)
+        _f("XP por Coleta",
+           "Multiplica o XP ganho ao coletar recursos.",
+           "harvest_xp_multiplier", gs.harvest_xp_multiplier)
+        _f("XP por Craft",
+           "Multiplica o XP ganho ao fabricar itens.",
+           "craft_xp_multiplier", gs.craft_xp_multiplier)
+        _f("XP Genérico",
+           "Multiplica o XP de fontes diversas.",
+           "generic_xp_multiplier", gs.generic_xp_multiplier)
+        _f("XP Especial",
+           "Multiplica o XP de eventos e fontes especiais.",
+           "special_xp_multiplier", gs.special_xp_multiplier)
+
+        _s("👤  Jogador")
+        _f("Dano do Jogador",
+           "Aumenta o dano causado pelo jogador. Ex: 2.0 = dano dobrado.",
+           "player_damage_multiplier", gs.player_damage_multiplier)
+        _f("Resistência do Jogador",
+           "Reduz o dano recebido. Menor = mais resistente ao dano.",
+           "player_resistance_multiplier", gs.player_resistance_multiplier)
+        _f("Consumo de Água",
+           "Taxa de consumo de água. Menor = seca mais devagar.",
+           "player_character_water_drain_multiplier",
+           gs.player_character_water_drain_multiplier)
+        _f("Consumo de Comida",
+           "Taxa de consumo de comida. Menor = fica com fome mais devagar.",
+           "player_character_food_drain_multiplier",
+           gs.player_character_food_drain_multiplier)
+        _f("Regeneração de Vida",
+           "Velocidade de recuperação de HP. Maior = recupera mais rápido.",
+           "player_character_health_recovery_multiplier",
+           gs.player_character_health_recovery_multiplier)
+        _f("Consumo de Stamina",
+           "Taxa de consumo de stamina. Menor = cansa mais devagar.",
+           "player_character_stamina_drain_multiplier",
+           gs.player_character_stamina_drain_multiplier)
+
+        _s("🦖  Dinos")
+        _f("Dano dos Dinos",
+           "Aumenta o dano causado pelos dinos selvagens.",
+           "dino_damage_multiplier", gs.dino_damage_multiplier)
+        _f("Resistência dos Dinos",
+           "Reduz o dano recebido pelos dinos. Menor = dinos mais resistentes.",
+           "dino_resistance_multiplier", gs.dino_resistance_multiplier)
+        _f("Regeneração dos Dinos",
+           "Velocidade de recuperação de HP dos dinos.",
+           "dino_character_health_recovery_multiplier",
+           gs.dino_character_health_recovery_multiplier)
+        _f("Consumo de Comida dos Dinos",
+           "Taxa de consumo de comida dos dinos. Menor = comem mais devagar.",
+           "dino_character_food_drain_multiplier",
+           gs.dino_character_food_drain_multiplier)
+        _f("Quantidade de Dinos no Mapa",
+           "Multiplica a quantidade de dinos. Ex: 2.0 = dobro de dinos selvagens.",
+           "dino_count_multiplier", gs.dino_count_multiplier)
+        _i("Máx. Dinos Domesticados",
+           "Limite total de dinos domesticados no servidor.",
+           "max_tamed_dinos", gs.max_tamed_dinos)
+
+        _s("📊  Stats por Nível")
+        _plsm()
+
+        _s("🥚  Criação / Imprinting")
+        _calc()
+        _f("Velocidade de Domesticação",
+           "Maior = domestica mais rápido. Ex: 3.0 = 3× mais rápido.",
+           "taming_speed_multiplier", gs.taming_speed_multiplier)
+        _f("Intervalo de Acasalamento",
+           "Menor = pode acasalar com mais frequência.",
+           "mating_interval_multiplier", gs.mating_interval_multiplier)
+        _f("Velocidade de Chocagem",
+           "Maior = ovos chocam mais rápido.",
+           "egg_hatch_speed_multiplier", gs.egg_hatch_speed_multiplier)
+        _f("Intervalo de Postura de Ovos",
+           "Menor = dinos põem ovos com mais frequência.",
+           "lay_egg_interval_multiplier", gs.lay_egg_interval_multiplier)
+        _f("Velocidade de Crescimento do Filhote",
+           "Maior = filhotes crescem mais rápido.",
+           "baby_mature_speed_multiplier", gs.baby_mature_speed_multiplier, 0, 100)
+        _f("Velocidade de Nascimento do Filhote",
+           "Maior = filhotes vivíparos nascem mais rápido.",
+           "baby_hatch_speed_multiplier", gs.baby_hatch_speed_multiplier, 0, 100)
+        _f("Consumo de Comida do Filhote",
+           "Menor = filhotes comem menos (mais fácil de criar).",
+           "baby_food_consumption_speed_multiplier",
+           gs.baby_food_consumption_speed_multiplier)
+        _f("Intervalo de Carinho (Imprint)",
+           "Menor = menos tempo entre os pedidos de carinho do filhote.",
+           "baby_cuddle_interval_multiplier", gs.baby_cuddle_interval_multiplier)
+        _f("Tolerância de Atraso do Imprint",
+           "Maior = mais tempo para responder ao pedido de carinho sem perder %.",
+           "baby_cuddle_grace_period_multiplier",
+           gs.baby_cuddle_grace_period_multiplier)
+        _f("Bônus de Stats por Imprint",
+           "Maior = mais bônus de stats ao completar 100% de imprint.",
+           "baby_imprinting_stat_scale_multiplier",
+           gs.baby_imprinting_stat_scale_multiplier)
+
+        _s("🌾  Coleta / Recursos")
+        _f("Quantidade de Coleta",
+           "Mais recursos por coleta. Ex: 3.0 = 3× mais recursos.",
+           "harvest_amount_multiplier", gs.harvest_amount_multiplier)
+        _f("Durabilidade dos Recursos",
+           "Maior = rochas/árvores duram mais antes de destruir.",
+           "harvest_health_multiplier", gs.harvest_health_multiplier)
+        _f("Reaparecimento de Recursos",
+           "Menor = recursos reaparecem mais rápido no mapa.",
+           "resource_respawn_period_multiplier",
+           gs.resource_respawn_period_multiplier)
+        _f("Velocidade de Crescimento das Plantas",
+           "Maior = plantas nas estufas crescem mais rápido.",
+           "crop_growth_speed_multiplier", gs.crop_growth_speed_multiplier)
+        _f("Apodrecimento das Plantas",
+           "Menor = plantas demoram mais para apodrecer.",
+           "crop_decay_speed_multiplier", gs.crop_decay_speed_multiplier)
+        _f("Tamanho de Stack",
+           "Multiplica o limite de empilhamento. Ex: 2.0 = stacks dobrados.",
+           "item_stack_size_multiplier", gs.item_stack_size_multiplier)
+        _f("Tempo de Estragamento",
+           "Maior = comida demora mais para estragar.",
+           "spoiling_time_multiplier", gs.spoiling_time_multiplier)
+        _f("Tempo de Decomposição de Itens",
+           "Maior = itens largados no chão demoram mais para sumir.",
+           "item_decomposition_time_multiplier",
+           gs.item_decomposition_time_multiplier)
+        _f("Qualidade de Loot de Pesca",
+           "Maior = itens de melhor qualidade ao pescar.",
+           "fishing_loot_quality_multiplier", gs.fishing_loot_quality_multiplier)
+
+        _s("🏗️  Estruturas")
+        _f("Dano às Estruturas",
+           "Aumenta o dano causado às estruturas por jogadores/dinos.",
+           "structure_damage_multiplier", gs.structure_damage_multiplier)
+        _f("Resistência das Estruturas",
+           "Menor = estruturas mais resistentes (recebem menos dano).",
+           "structure_resistance_multiplier", gs.structure_resistance_multiplier)
+        _i("Cooldown de Reparo (s)",
+           "Segundos de espera para reparar após receber dano.",
+           "structure_damage_repair_cooldown",
+           gs.structure_damage_repair_cooldown)
+        _f("Decaimento de Estruturas (PvE)",
+           "Maior = estruturas sem dono demoram mais para decair.",
+           "pve_structure_decay_period_multiplier",
+           gs.pve_structure_decay_period_multiplier)
+        _f("Estruturas em Plataformas",
+           "Multiplica o limite de estruturas em platform saddles.",
+           "per_platform_max_structures_multiplier",
+           gs.per_platform_max_structures_multiplier)
+        _f("Área de Build em Saddles",
+           "Multiplica a área construível ao redor de platform saddles.",
+           "platform_saddle_build_area_bounds_multiplier",
+           gs.platform_saddle_build_area_bounds_multiplier)
+
+        _s("🏆  Tribal / Misc")
+        _i("Tamanho Máximo da Tribo",
+           "Número máximo de membros por tribo.",
+           "max_tribe_size", gs.max_tribe_size)
+        _f("Tempo para Expulsar AFK (s)",
+           "Segundos até expulsar jogadores inativos. 0 = desativado.",
+           "kick_idle_players_period", gs.kick_idle_players_period, 0, 7200)
+
+        _s("🔢  Teto de Níveis")
+        _lcap("Nível Máximo do Jogador",
+              "Nível final do jogador, incluindo os desbloqueados por ascensões."
+              " 0 = padrão ARK (105 base + ascensões).",
+              "player_level_cap", gs.player_level_cap)
+        _lcap("Nível Máximo do Dino",
+              "Nível máximo que dinos podem atingir ao acumular XP."
+              " 0 = padrão ARK.",
+              "dino_level_cap", gs.dino_level_cap)
+
+        _s("🎮  Opções do Servidor")
+        _b("PvP Ativado",                              "server_pvp",                  gs.server_pvp)
+        _b("Modo Hardcore (morte permanente)",         "server_hardcore",             gs.server_hardcore)
+        _b("Dinos Voadores Carregam Jogadores (PvE)",  "allow_flyer_carry_pve",       gs.allow_flyer_carry_pve)
+        _b("Terceira Pessoa Permitida",                "allow_third_person_player",   gs.allow_third_person_player)
+        _b("Mostrar Localização no Mapa",              "show_map_player_location",    gs.show_map_player_location)
+        _b("Desativar Decaimento de Estruturas (PvE)", "disable_structure_decay_pve", gs.disable_structure_decay_pve)
+        _b("Desativar Decaimento de Dinos (PvE)",      "disable_dino_decay_pve",      gs.disable_dino_decay_pve)
+        _b("Proteção Offline (ORP)",                   "prevent_offline_pvp",         gs.prevent_offline_pvp)
+        _b("Bloquear Downloads de Tributos",           "no_tribute_downloads",        gs.no_tribute_downloads)
+        _b("Notificar quando Jogador Entrar",          "always_notify_player_joined", gs.always_notify_player_joined)
+        _b("Notificar quando Jogador Sair",            "always_notify_player_left",   gs.always_notify_player_left)
+        _save()
+
+        # ── Despacho em chunks via after(0) ───────────────────────────────────
+        # Lotes de 6 tasks — cada after(0) cede o controle ao event loop antes
+        # do próximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
+        _CHUNK = 6
+
+        # ── Nomes e descrições dos stats (índices 0-11) ───────────────────────
+        _PLSM_STATS = [
+            (0,  "❤️",  "Vida",               "HP máx. por ponto. Padrão ARK ≈ +10 HP base por nível."),
+            (1,  "⚡",  "Stamina",            "Stamina por ponto. Padrão ≈ +10 stamina por nível."),
+            (2,  "💤",  "Torpor",             "Resistência ao torpor. Principalmente relevante para dinos selvagens."),
+            (3,  "🫧",  "Oxigênio",           "Oxigênio por ponto. Relevante para dinos aquáticos."),
+            (4,  "🍖",  "Comida",             "Capacidade de comida por ponto."),
+            (5,  "💧",  "Água",               "Capacidade de água. Relevante principalmente para jogadores."),
+            (6,  "🌡️", "Temperatura",        "Resistência à temperatura (raramente ajustado)."),
+            (7,  "⚖️", "Peso",               "Carga por ponto. Padrão ≈ +10 por nível."),
+            (8,  "⚔️", "Dano Corpo a Corpo", "Dano melee por ponto. Padrão ≈ +2% por nível."),
+            (9,  "🏃",  "Velocidade",         "Velocidade de movimento por ponto. Padrão ≈ +1% por nível."),
+            (10, "🛡️", "Fortitude",          "Resistência ao frio/calor. Relevante para jogadores."),
+            (11, "🔨",  "Craft Skill",        "Habilidade de fabricação. Melhora receitas customizadas."),
+        ]
+
+        def _build_plsm_table(rn: int) -> None:
+            """Constrói a tabela PerLevelStatsMultiplier (Dino Domado / Selvagem / Jogador)."""
+            outer = ctk.CTkFrame(scroll, fg_color=_CARD_BG, corner_radius=10)
+            outer.grid(row=rn, column=0, columnspan=4, padx=12, pady=(0, 8), sticky="ew")
+            outer.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                outer,
+                text="Multiplica o ganho de cada stat a cada ponto investido ao subir nível."
+                     "  1.0 = padrão ARK  •  2.0 = dobro do ganho  •  0.0 = desativa o stat.",
+                text_color="gray50", font=ctk.CTkFont(size=10), justify="left",
+            ).grid(row=0, column=0, padx=14, pady=(10, 4), sticky="w")
+
+            tbl = ctk.CTkFrame(outer, fg_color="transparent")
+            tbl.grid(row=1, column=0, padx=10, pady=(0, 12), sticky="ew")
+            tbl.grid_columnconfigure(0, weight=1)
+            tbl.grid_columnconfigure(1, minsize=82)
+            tbl.grid_columnconfigure(2, minsize=82)
+            tbl.grid_columnconfigure(3, minsize=82)
+            tbl.grid_columnconfigure(4, minsize=82)
+            tbl.grid_columnconfigure(5, minsize=82)
+
+            # Cabeçalho
+            ctk.CTkLabel(tbl, text="Stat", anchor="w",
+                         text_color="gray55",
+                         font=ctk.CTkFont(size=10, weight="bold")).grid(
+                row=0, column=0, padx=(8, 4), pady=(0, 2), sticky="w")
+            for col_i, (col_txt, col_color) in enumerate([
+                ("Domado (IdM)",       "#4fc3f7"),
+                ("Dom. Bônus (TaM)",  "#ce93d8"),
+                ("Dom. Afinid. (TmM)", "#f48fb1"),
+                ("Selvagem (IwM)",     "#a5d6a7"),
+                ("Jogador",            "#ffcc80"),
+            ], start=1):
+                ctk.CTkLabel(tbl, text=col_txt, anchor="center",
+                             text_color=col_color,
+                             font=ctk.CTkFont(size=10, weight="bold")).grid(
+                    row=0, column=col_i, padx=4, pady=(0, 2))
+
+            ctk.CTkFrame(tbl, height=1, fg_color="gray30").grid(
+                row=1, column=0, columnspan=6, sticky="ew", padx=4, pady=(0, 2))
+
+            # Linhas de stat
+            for i, (stat_idx, emoji, stat_name, stat_hint) in enumerate(_PLSM_STATS):
+                tr = stat_idx + 2
+                self._register_config_item(
+                    srv.id, f"{stat_name} — Stats/Nível", stat_hint, "Jogo")
+
+                stripe = "#1c1c2e" if i % 2 == 0 else "#13131c"
+                row_fr = ctk.CTkFrame(tbl, fg_color=stripe, corner_radius=4)
+                row_fr.grid(row=tr, column=0, columnspan=6, sticky="ew", padx=2, pady=1)
+                row_fr.grid_columnconfigure(0, weight=1)
+                row_fr.grid_columnconfigure(1, minsize=82)
+                row_fr.grid_columnconfigure(2, minsize=82)
+                row_fr.grid_columnconfigure(3, minsize=82)
+                row_fr.grid_columnconfigure(4, minsize=82)
+                row_fr.grid_columnconfigure(5, minsize=82)
+
+                ctk.CTkLabel(
+                    row_fr,
+                    text=f"{emoji}  {stat_name}",
+                    text_color="gray65",
+                    font=ctk.CTkFont(size=11),
+                    anchor="w", width=188,
+                ).grid(row=0, column=0, padx=(8, 4), pady=3, sticky="w")
+
+                for col_i, (group, grp_attr) in enumerate([
+                    ("tamed",          "per_level_stats_mult_dino_tamed"),
+                    ("tamed_add",      "per_level_stats_mult_dino_tamed_add"),
+                    ("tamed_affinity", "per_level_stats_mult_dino_tamed_affinity"),
+                    ("wild",           "per_level_stats_mult_dino_wild"),
+                    ("player",         "per_level_stats_mult_player"),
+                ], start=1):
+                    val = getattr(gs, grp_attr)[stat_idx]
+                    var = tk.StringVar(value=f"{val:.4g}")
+                    w[f"gs_plsm_{group}_{stat_idx}"] = var
+                    ent = ctk.CTkEntry(
+                        row_fr, textvariable=var,
+                        width=82, height=26,
+                        justify="center",
+                        font=ctk.CTkFont(size=11),
+                        fg_color="#0a0a14",
+                    )
+                    ent.grid(row=0, column=col_i, padx=4, pady=3)
+
+                    def _make_commit(v=var):
+                        def _commit(e=None):
+                            try:
+                                fv = max(0.0, float(v.get().replace(",", ".")))
+                                v.set(f"{fv:.4g}")
+                            except ValueError:
+                                v.set("1")
+                        return _commit
+                    _cb = _make_commit()
+                    ent.bind("<FocusOut>", _cb)
+                    ent.bind("<Return>",   _cb)
+
+        def _dispatch_task(task: tuple) -> None:
+            kind = task[0]
+            if kind == "s":
+                _, rn, text = task
+                self._section_lbl(scroll, rn, text)
+            elif kind == "f":
+                _, rn, lbl, hint, field, val, frm, to = task
+                frow(lbl, hint, field, val, rn, frm, to)
+            elif kind == "i":
+                _, rn, lbl, hint, field, val = task
+                irow(lbl, hint, field, val, rn)
+            elif kind == "b":
+                _, rn, lbl, field, val = task
+                brow(lbl, field, val, rn)
+            elif kind == "lcap":
+                _, rn, lbl, hint, field, val = task
+                _level_cap_row(lbl, hint, field, val, rn)
+            elif kind == "calc":
+                _, rn = task
+                ctk.CTkButton(
+                    scroll,
+                    text="🧮  Calculadora de Breeding",
+                    width=230,
+                    fg_color="#2d4a6f",
+                    hover_color="#1b2d45",
+                    command=lambda _gs=gs: open_breeding_calculator(
+                        self,  # type: ignore[arg-type]
+                        _gs,
+                        self._server_widgets.get(srv.id, {}),
+                        lambda: self._save_server_config(srv.id, silent=True, force=True),
+                    ),
+                ).grid(row=rn, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
+            elif kind == "plsm":
+                _, rn = task
+                _build_plsm_table(rn)
+            elif kind == "save":
+                _, rn = task
+                self._save_btn_row(scroll, rn, srv.id)
+
+        def _exec_chunk(idx: int) -> None:
+            for task in _tasks[idx: idx + _CHUNK]:
+                _dispatch_task(task)
+            nxt = idx + _CHUNK
+            if nxt < len(_tasks):
+                self.after(0, lambda i=nxt: _exec_chunk(i))
+            else:
+                # Último lote concluído — aplica lock se servidor estiver rodando
+                inst_chk = self.server_manager.get_instance(srv.id)
+                if inst_chk and inst_chk.status != SERVER_STATUS_STOPPED:
+                    self._set_config_editable(srv.id, False)
+
+        self.after(0, lambda: _exec_chunk(0))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # Aba Avançado / Cross-ARK
+    # ══════════════════════════════════════════════════════════════════════════

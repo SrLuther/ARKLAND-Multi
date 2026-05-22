@@ -2,6 +2,45 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.22] - 2026-05-21
+
+### Refactor — Modularização completa da arquitetura UI
+
+- refactor: **`app.py`** reduzido de ~13.000 para ~1.029 linhas — toda a lógica de interface extraída para módulos especializados. `app.py` agora é um orquestrador puro: inicializa o app, vincula métodos via imports lazy e delega tudo a `src/pages/` e `src/dialogs/`.
+- refactor: **`src/pages/`** criado com 170+ módulos cobrindo todas as áreas da UI:
+  - **Abas de servidor**: `tab_general`, `tab_game`, `tab_advanced`, `tab_spawns`, `tab_loot`, `tab_mods`, `tab_plugins`, `tab_ini_mods`, `tab_rcon`, `tab_chat`, `tab_logs`, `tab_crashes`, `tab_backup`, `build_tab_admins`, `build_tab_historico`, `build_tab_jogadores`
+  - **Painel de servidores**: `server_panel` (construção lazy de abas com placeholder `⌛ Carregando...`), `server_save`, `server_card`, `open_server_panel`, `rebuild_server_panel`, `rebuild_server_sidebar`
+  - **Sidebar / navegação**: `sidebar`, `sidebar_clock_tick`, `show_frame`, `build_static_frames`
+  - **Performance**: `performance_panel`, `perf_monitor_loop`, `collect_server_stats`, `collect_gpu_info`, `get_cpu_temp`, `get_nvidia_gpu_pct/temp`, `update_perf_servers`, `log_perf_critical`
+  - **Cluster**: `build_clusters_panel`, `cluster_detail`, `cluster_new/save/delete`, `clusters_refresh_list`, `cluster_sync_once/start`, `cluster_import_from_manual`, `get_cluster_health`, `show_cluster_health_dialog`
+  - **Buffs**: `build_buffs_panel`, `refresh_buffs_ui`, `build_active_buff_card`, `build_scheduled_buff_row`, `build_history_row`, `cancel_buff`, `init_buff_manager`, `buff_countdown_tick`, `format_countdown`
+  - **Sync**: `build_sync_panel`, `add/remove_sync_cycle`, `add/remove_sync_folder`, `save_sync_config`, `on_sync_log/status/stats`, `force_sync_once`, `start_sync_engine`, `auto_start_sync`
+  - **Remoto**: `remote_panel`, `start_remote_agent`, `refresh_remote_instances_list`, `refresh_identity_code`
+  - **INI editor**: `ini_add/del_entry`, `ini_add/delete_section`, `ini_flush_current`, `ini_import`, `ini_paste_section`, `ini_rebuild_section_list`, `ini_reload`, `ini_render_entry_row/section_item`, `ini_save`, `ini_select_section`
+  - **Jogadores**: `build_player_row`, `refresh_players`, `player_kick/ban/add_admin`, `schedule_players_refresh`, `toggle_players_auto`, `sanitize_steam_name`, `fetch_steam_name`, `update_players_list`
+  - **Mods**: `refresh_mods_list`, `add/remove/clear_all_mods`, `download_mod/all_mods`, `fetch_mod_names_async`, `start/toggle_mod_auto_updater`
+  - **Admins**: `build_tab_admins`, `refresh_admins_list`, `add/remove_admin_id`, `lookup_admin_preview`, `write_allowed_admins`
+  - **Backup**: `tab_backup`, `refresh_backup_list`, `do_manual_backup`, `confirm_delete/restore_backup`, `save_backup_config`, `init_backup_manager`
+  - **Broadcast**: `broadcast_add/delete/edit`, `broadcast_rcon`, `broadcast_refresh_list`, `broadcast_render_row`, `broadcast_send_quick`, `broadcast_test`
+  - **RCON / Chat**: `rcon_append/connect/exec`, `rcon_auto_connect_tick`, `chat_append/clear/fetch/process/send/toggle_poll`, `chat_poll_loop`
+  - **Dashboard**: `build_dashboard`, `refresh_dashboard`, `build_server_card`
+  - **Miscelânea**: `toast`, `do_quit`, `minimize_to_tray`, `on_server_status_change`, `on_server_log/visibility_change`, `on_bm_update`, `on_download_done`, `on_auto_updater_log`, `on_update_result`, `on_sync_*`, `start_download_update`, `check_updates_manual`, `scan_running_servers`, `run_server_install`, `start_server`, `validate_server_ports`, `push_dynamic_config`, `auto_start_dynamic_configs`, `export/import_profile`, `set_config_editable`, `build_config_search_bar`, `build_about`, `build_auto_update_panel`, `build_preset_chip`, `do_restore`, `confirm_remove_server`, `save_global_config`, `get_change_logger`, `historico_clear/refresh`, `fast_fill`
+- refactor: **`src/dialogs/`** criado com 9 módulos de diálogos: `add_server_dialog`, `clone_config_dialog`, `create_buff_dialog`, `mod_ini_dialog`, `mod_search_dialog`, `open_presets_manager`, `remote_control_dialog`, `sync_ini_dialog`.
+- refactor: **`src/ui_constants.py`** — paleta de cores, `Tooltip`, `_resource_path` e constantes de UI extraídas do `app.py` para módulo compartilhado importado por `app.py`, `pages/` e `dialogs/`.
+- refactor: **`server_panel.py`** — construção de abas é lazy via `_on_tab_change`; cada aba só é construída na primeira visita, exibindo `⌛ Carregando...` antes do build.
+
+### Fix — Erros de runtime nas abas de servidor
+
+- fix: **`tab_general.py`** — `scroll.unbind("<Configure>")` nunca revinculado; layout de 2 colunas e scroll restaurados ao adicionar `scroll.bind` + `scrollregion` ao final da função.
+- fix: **`tab_advanced.py`** — `NameError: name 'profiles'` na linha 136 impedia renderização da aba Avançado e bloqueava a restauração do scroll; `profiles` e `profile_names` agora definidos antes do uso.
+- fix: **`tab_crashes.py`** — import relativo errado `from .server_manager` corrigido para `from ..server_manager`.
+- fix: **`tab_plugins.py`** — `ttk` não importado (`NameError` ao abrir aba Plugins); `webbrowser` ausente (`NameError` ao clicar em Instalar Permissions).
+- fix: **`on_update_result.py`** — `APP_VERSION` não importado; verificador de atualizações lançava `NameError` ao receber resposta do servidor.
+- fix: **`tab_game.py`** — `from .ark_ini` corrigido para `from ..ark_ini` (`_level_to_xp` usada em `_level_cap_row`).
+- fix: **`get_change_logger.py`** — `ChangeLogger` importado apenas em `TYPE_CHECKING`; movido para import de runtime (corrige `NameError` ao acessar aba Histórico).
+
+---
+
 ## [1.3.21] - 2026-05-22
 
 ### Feat — Paridade com ASM (~80 novos campos)
@@ -14,8 +53,6 @@
 - feat: **`ModManager.install_server()`** — suporte a branch SteamCMD via `-beta <name>` e `-betapassword <pwd>` (campos `branch_name`/`branch_password` de `ServerConfig`).
 
 ---
-
-
 
 ### Feat — Acesso Remoto Centralizado
 
@@ -31,6 +68,12 @@
 - feat: agente inicia automaticamente ao abrir o app se `remote_agent_enabled = true` na config salva.
 - feat: agente é encerrado graciosamente ao fechar o app.
 - feat: `config.json` passa a armazenar `remote_agent_name` (nome desta instância) e `remote_instances` (lista de conexões remotas salvas).
+
+---
+
+## [1.3.20] - 2026-05-21
+
+Ajustes internos não publicados.
 
 ---
 

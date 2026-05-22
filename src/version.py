@@ -3,11 +3,28 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.21"
+APP_VERSION: str = "1.3.22"
 BUILD_DATE: str = "2026-05-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.22",
+        "date": "2026-05-21",
+        "changes": [
+            "Refactor (arquitetura): app.py monol\u00edtico (~13.000 linhas) desmembrado em 170+ m\u00f3dulos especializados em src/pages/ e 9 di\u00e1logos em src/dialogs/ — cada funcionalidade agora em arquivo pr\u00f3prio (tab_general, tab_game, tab_advanced, tab_spawns, tab_loot, tab_mods, tab_plugins, tab_ini_mods, tab_rcon, tab_chat, tab_logs, tab_crashes, tab_backup, build_tab_admins, build_tab_historico, build_tab_jogadores, server_panel, server_save, sidebar, performance_panel, remote_panel, cluster_detail, broadcast_*, ini_*, rcon_*, chat_*, player_*, buff_*, backup_*, etc.).",
+            "Refactor (ui_constants.py): paleta de cores, Tooltip, _resource_path e constantes de UI extra\u00eddas do app.py para m\u00f3dulo compartilhado; importado por app.py, pages/ e dialogs/.",
+            "Refactor (app.py): reduzido a ~1.000 linhas de orquestrador puro — apenas inicializa\u00e7\u00e3o, bind de m\u00e9todos de conex\u00e3o e roteamento; toda l\u00f3gica de UI delegada via imports lazy a pages/ e dialogs/.",
+            "Refactor (server_panel.py): constru\u00e7\u00e3o de abas lazy via _on_tab_change + placeholder 'Carregando...' — abas s\u00f3 s\u00e3o constru\u00eddas na primeira vez que o usu\u00e1rio as visita.",
+            "Fix (tab_general.py): scroll.unbind('<Configure>') nunca revinculado ap\u00f3s build — layout de 2 colunas e scroll restaurados ao adicionar scroll.bind + scrollregion ao final da fun\u00e7\u00e3o.",
+            "Fix (tab_advanced.py): NameError 'profiles' na linha 136 impedia renderiza\u00e7\u00e3o da aba Avan\u00e7ado e bloqueava restaura\u00e7\u00e3o do scroll; profiles/profile_names agora definidos antes do uso.",
+            "Fix (tab_crashes.py): import relativo 'from .server_manager' corrigido para 'from ..server_manager'.",
+            "Fix (tab_plugins.py): 'ttk' n\u00e3o importado (NameError ao abrir aba Plugins); 'webbrowser' ausente (NameError ao instalar Permissions) — ambos adicionados.",
+            "Fix (on_update_result.py): APP_VERSION n\u00e3o importado — verificador de atualiza\u00e7\u00f5es lan\u00e7ava NameError ao receber resposta do servidor.",
+            "Fix (tab_game.py): 'from .ark_ini' corrigido para 'from ..ark_ini' (_level_to_xp usada em _level_cap_row).",
+            "Fix (get_change_logger.py): ChangeLogger importado apenas em TYPE_CHECKING — movido para import de runtime para evitar NameError ao acessar aba Hist\u00f3rico.",
+        ],
+    },
     {
         "version": "1.3.21",
         "date": "2026-05-21",
