@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..ui_constants import _GREEN_DARK, _GREEN_HOVER
+from ..server_config import ARK_MAP_NAMES, ARK_MAPS, ServerConfig
 
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp

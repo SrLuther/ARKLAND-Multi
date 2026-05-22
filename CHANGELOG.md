@@ -2,6 +2,40 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.26] - 2026-05-22
+
+### Fix — Dialog "Novo Servidor"
+
+- fix: **`add_server_dialog.py`** — `ARK_MAP_NAMES`, `ARK_MAPS` e `ServerConfig` não importados; o dialog "Novo Servidor" lançava `NameError` ao abrir (list comprehension do ComboBox de mapa) e ao clicar "Criar Servidor"; imports adicionados de `server_config.py`.
+
+---
+
+## [1.3.25] - 2026-05-22
+
+### Fix — Controle remoto
+
+- fix: **`remote_control_dialog.py`** — `RemoteClient` não importado; janela de controle remoto abria vazia pois `client = RemoteClient(...)` lançava `NameError`; import adicionado de `remote_agent.py`.
+
+---
+
+## [1.3.24] - 2026-05-22
+
+### Fix — Agente remoto
+
+- fix: **`start_remote_agent.py`** — `RemoteAgent` não importado; botão "Ativar Agente" lançava `NameError` silencioso; import adicionado de `remote_agent.py`.
+
+---
+
+## [1.3.23] - 2026-05-21
+
+### Fix — Importação de INI, diagnóstico de cluster e salvar servidor
+
+- fix: **`ini_import.py`** — dialog "Importar INI do Disco" com `geometry 620x220` cortava o campo de pasta e os botões; altura aumentada para `280`.
+- fix: **`get_cluster_health.py`** — `from .server_config import ClusterProfile` corrigido para `from ..server_config`; botão Diagnosticar Cluster lançava `NameError` ao abrir.
+- fix: **`server_save.py`** — `SERVER_STATUS_STOPPED`, `snapshot_server`, `diff_snapshots`, `_ARK_EVENT_LABEL_TO_ID` e `ArkIniManager` não importados; salvar configurações e iniciar servidor falhavam silenciosamente.
+
+---
+
 ## [1.3.22] - 2026-05-21
 
 ### Refactor — Modularização completa da arquitetura UI
