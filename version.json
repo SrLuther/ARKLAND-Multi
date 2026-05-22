@@ -1,11 +1,12 @@
 {
-  "version": "1.3.30",
-  "build_date": "2026-05-22",
-  "changelog": [
-    "Fix (remote_agent.py): is_running agora verifica se a thread do servidor está viva (_thread.is_alive()), evitando falso positivo quando o servidor morre silenciosamente.",
-    "Fix (remote_agent.py): endpoint GET /ping sem autenticação adicionado — permite teste de alcance sem token.",
-    "Fix (start_remote_agent.py): autodiagnóstico após start — após 2 s testa 127.0.0.1:porta e exibe aviso detalhado se não responder (Windows Firewall).",
-    "Feat (remote_panel.py): botão 'Testar' no painel do agente — ping local imediato com instruções sobre Windows Firewall.",
-    "Fix (remote_control_dialog.py): mensagem 'Sem resposta' agora menciona Firewall do Windows."
-  ]
+    "version": "1.3.30",
+    "date": "2026-05-22",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.30/ARKLAND-Multi-Setup-v1.3.30.exe",
+    "changelog": [
+        "Fix (remote_agent.py): is_running agora verifica se a thread do servidor está viva (_thread.is_alive()), evitando falso positivo quando o servidor morre silenciosamente.",
+        "Fix (remote_agent.py): endpoint GET /ping sem autenticação adicionado — permite teste de alcance sem token.",
+        "Fix (start_remote_agent.py): autodiagnóstico após start — após 2 s testa 127.0.0.1:porta e exibe aviso detalhado se não responder (Windows Firewall).",
+        "Feat (remote_panel.py): botão 'Testar' no painel do agente — ping local imediato com instruções sobre Windows Firewall.",
+        "Fix (remote_control_dialog.py): mensagem 'Sem resposta' agora menciona Firewall do Windows."
+    ]
 }
