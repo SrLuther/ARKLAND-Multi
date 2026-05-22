@@ -1,8 +1,8 @@
 {
-    "version": "1.3.24",
+    "version": "1.3.25",
     "date": "2026-05-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.24/ARKLAND-Multi-Setup-v1.3.24.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.25/ARKLAND-Multi-Setup-v1.3.25.exe",
     "changelog": [
-        "Fix (start_remote_agent.py): RemoteAgent n├úo importado ÔÇö bot├úo 'Ativar Agente' lan├ºava NameError silencioso; import adicionado de remote_agent.py."
+        "Fix (remote_control_dialog.py): RemoteClient n├úo importado ÔÇö janela de controle remoto abria vazia pois a cria├º├úo do client lan├ºava NameError; import adicionado de remote_agent.py."
     ]
 }

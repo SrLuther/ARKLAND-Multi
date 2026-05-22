@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.24"
+APP_VERSION: str = "1.3.25"
 BUILD_DATE: str = "2026-05-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.25",
+        "date": "2026-05-21",
+        "changes": [
+            "Fix (remote_control_dialog.py): RemoteClient não importado — janela de controle remoto abria vazia pois a criação do client lançava NameError; import adicionado de remote_agent.py.",
+        ],
+    },
     {
         "version": "1.3.24",
         "date": "2026-05-21",

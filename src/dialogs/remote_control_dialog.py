@@ -12,6 +12,7 @@ from ..ui_constants import (
     _BLUE, _BLUE_HOVER,
     _CARD_BG, _BG,
 )
+from ..remote_agent import RemoteClient
 
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
