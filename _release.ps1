@@ -178,7 +178,7 @@ with open(r'$(Join-Path $root "version.json")', encoding='utf-8') as f:
 lines = ['## O que ha de novo\n']
 for c in data['changelog']:
     lines.append('- ' + c)
-lines.append('\n---\n**Instalacao silenciosa:** \`ARKLAND-Multi-Setup-v{v}.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-\`'.format(v=version))
+lines.append("\n---\n**Instalacao silenciosa:** ARKLAND-Multi-Setup-v{v}.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-".format(v=version))
 body = '\n'.join(lines)
 
 headers = {'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json; charset=utf-8'}
