@@ -34,16 +34,39 @@ from .battlemetrics_client import BattleMetricsPoller, BattleMetricsData
 def _build_server_env() -> dict:
     """Ambiente limpo para o processo do servidor ARK.
 
-    Remove a modificação que o PyInstaller faz no PATH (prepend de _MEIPASS)
-    para que o servidor não carregue DLLs do Python via PATH.
-    Equivalente ao ambiente limpo que o ASM usa com 'start /normal'.
+    Remove variáveis injetadas pelo PyInstaller/ARKLAND que não devem ser
+    herdadas pelo servidor:
+      - PATH: remove _MEIPASS para não carregar DLLs do Python
+      - TCL_LIBRARY / TK_LIBRARY: apontam para _MEIPASS (Tcl/Tk do Python)
+      - _PYI_*: marcadores internos do PyInstaller
+      - __COMPAT_LAYER: shim de compatibilidade do Windows aplicado ao ARKLAND
+        (DetectorsAppHealth); se herdado pelo servidor, os shims interceptam
+        chamadas de sistema e podem interferir no SEH do ArkApi, convertendo
+        exceções recuperáveis em crashes fatais no CheckOnTimerCallbacks.
+      - CHROME_CRASHPAD_PIPE_NAME: pipe do Chrome herdado do processo pai
     """
     env = os.environ.copy()
+
+    # Remove _MEIPASS do PATH
     if hasattr(sys, '_MEIPASS'):
         meipass = sys._MEIPASS.rstrip(os.sep)
         parts = [p for p in env.get('PATH', '').split(os.pathsep)
                  if p.rstrip(os.sep) != meipass]
         env['PATH'] = os.pathsep.join(parts)
+
+    # Remove variáveis exclusivas do ambiente PyInstaller / ARKLAND
+    _vars_to_remove = (
+        'TCL_LIBRARY',
+        'TK_LIBRARY',
+        '_PYI_APPLICATION_HOME_DIR',
+        '_PYI_ARCHIVE_FILE',
+        '_PYI_PARENT_PROCESS_LEVEL',
+        '__COMPAT_LAYER',
+        'CHROME_CRASHPAD_PIPE_NAME',
+    )
+    for _v in _vars_to_remove:
+        env.pop(_v, None)
+
     return env
 
 
@@ -897,8 +920,12 @@ class ServerManager:
             )
             _run_server_dir.mkdir(parents=True, exist_ok=True)
             _run_server_cmd = _run_server_dir / "RunServer.cmd"
+            # Usa "start" com /min /normal igual ao ASM para lançar processo
+            # completamente desvinculado (novo grupo de processo, sem herança de
+            # job object). O título "ARK Server" é obrigatório para que o cmd
+            # interprete o argumento seguinte como programa e não como título.
             _run_server_cmd.write_text(
-                f"@echo off\r\ncd /d \"{_dbg_cwd}\"\r\n{full_cmd}\r\n",
+                f"@echo off\r\ncd /d \"{_dbg_cwd}\"\r\nstart \"ARK Server\" /min /normal {full_cmd}\r\n",
                 encoding="utf-8",
             )
             self._emit_log(server_id, f"RunServer.cmd gerado em: {_run_server_cmd}", "info")

@@ -1,9 +1,9 @@
 {
-    "version": "1.3.33",
+    "version": "1.3.34",
     "date": "2026-05-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.33/ARKLAND-Multi-Setup-v1.3.33.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.34/ARKLAND-Multi-Setup-v1.3.34.exe",
     "changelog": [
-        "Fix (server_manager.py): flag CREATE_BREAKAWAY_FROM_JOB adicionada ao Popen — servidor sai do job object do PyInstaller/ARKLAND e roda completamente independente, igual ao lançamento manual. Possível causa raiz do crash ArkShopUI.dll.",
-        "Feat (server_manager.py): gera RunServer.cmd em ShooterGame/Saved/Config/WindowsServer/ (padrão do ASM) a cada inicialização do servidor."
+        "Fix (server_manager.py): remove variáveis PyInstaller do ambiente do servidor — TCL_LIBRARY, TK_LIBRARY, _PYI_*, __COMPAT_LAYER (DetectorsAppHealth), CHROME_CRASHPAD_PIPE_NAME. O __COMPAT_LAYER herdado do ARKLAND aplicava shims de compatibilidade do Windows ao ShooterGameServer.exe, podendo interferir no SEH do ArkApi e converter exceções internas em crashes fatais no CheckOnTimerCallbacks (ArkShopUI).",
+        "Fix (server_manager.py): RunServer.cmd agora gerado com 'start \"ARK Server\" /min /normal' — formato idêntico ao ASM."
     ]
 }

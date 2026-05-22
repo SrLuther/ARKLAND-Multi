@@ -80,6 +80,82 @@ O servidor com crash usa `Permissions v2.1` (MinApiVersion 3.55). O ArkShopUI ch
 
 ---
 
+#### Tentativa 4 — ENV-DEBUG em arquivo + RunServer.cmd + CREATE_BREAKAWAY_FROM_JOB (22/05/2026) ⏳ Em teste
+
+**Hipótese A — Job Object herdado do PyInstaller:**
+O ARKLAND-Multi é um executável PyInstaller com modo onefile. O Windows cria automaticamente um **Job Object** para o processo PyInstaller, e processos filhos criados com `subprocess.Popen` herdam esse Job Object (a menos que `CREATE_BREAKAWAY_FROM_JOB` seja passado). Estar dentro do Job Object do ARKLAND pode impor restrições (quota de memória, CPU throttling, shutdown) que disparam o crash no timer callback ~4 minutos após a inicialização completa do servidor.
+
+O ASM usa `start /normal ShooterGameServer.exe ...`, que lança um processo completamente desanexado — sem herança de Job Object.
+
+**Hipótese B — Ausência de RunServer.cmd:**
+O ASM gera um arquivo `RunServer.cmd` em `ShooterGame\Saved\Config\WindowsServer\`. Screenshot do diretório com ARKLAND confirmou que o arquivo **não existia**. Algum plugin (possivelmente ArkShopUI ou ArkApi) pode verificar a existência ou conteúdo desse arquivo durante inicialização.
+
+**Fixes aplicados em v1.3.33:**
+
+```python
+# 1. CREATE_BREAKAWAY_FROM_JOB — sai completamente do job object do PyInstaller
+_CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+proc = subprocess.Popen(
+    full_cmd,
+    cwd=_dbg_cwd,
+    creationflags=subprocess.CREATE_NEW_CONSOLE | _CREATE_BREAKAWAY_FROM_JOB,
+    env=_build_server_env(),
+)
+
+# 2. RunServer.cmd gerado a cada start em ShooterGame/Saved/Config/WindowsServer/
+_run_server_dir = Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+_run_server_dir.mkdir(parents=True, exist_ok=True)
+(_run_server_dir / "RunServer.cmd").write_text(
+    f"@echo off\r\ncd /d \"{_dbg_cwd}\"\r\n{full_cmd}\r\n",
+    encoding="utf-8",
+)
+```
+
+Adicionalmente: dump completo do ambiente em `Binaries/Win64/_arkland_debug.txt` para diagnóstico futuro.
+
+**Resultado:** ⏳ Crash persistiu (confirmado em teste v1.3.33). Tentativa 4 não resolveu. → Ver Tentativa 5.
+
+---
+
+#### Tentativa 5 — Remoção de variáveis PyInstaller do ambiente do servidor (22/05/2026) ⏳ Em teste
+
+**Evidência direta via `_arkland_debug.txt`** (gerado pela v1.3.32+):
+
+```ini
+TCL_LIBRARY=C:\Users\ARKSER~1\AppData\Local\Temp\_MEI117682\_tcl_data
+TK_LIBRARY=C:\Users\ARKSER~1\AppData\Local\Temp\_MEI117682\_tk_data
+_PYI_APPLICATION_HOME_DIR=C:\Users\ARKSER~1\AppData\Local\Temp\_MEI117682
+_PYI_ARCHIVE_FILE=C:\Program Files (x86)\ARKLAND-ServerManager\ARKLAND-ServerManager.exe
+_PYI_PARENT_PROCESS_LEVEL=1
+__COMPAT_LAYER=DetectorsAppHealth        ← SUSPEITO PRINCIPAL
+CHROME_CRASHPAD_PIPE_NAME=\\.\pipe\crashpad_4396_HZCCNBQFYLJHBJJT
+```
+
+**Hipótese — `__COMPAT_LAYER=DetectorsAppHealth`:**
+O Windows aplica shims de compatibilidade ao processo ARKLAND (DetectorsAppHealth = monitoramento de saúde de app). Esse flag é herdado pelo ShooterGameServer.exe via variável de ambiente. Os shims interceptam chamadas de sistema — potencialmente interferindo no SEH (Structured Exception Handling) do ArkApi:
+
+- `CheckOnTimerCallbacks()` usa try/catch ou `__try/__except` para capturar exceções nos callbacks de plugins
+- Com o shim ativo, o Windows pode interceptar a exceção ANTES que o ArkApi possa capturá-la
+- Resultado: exceção interna do ArkShopUI (null pointer, uso de ponteiro inválido) vira crash fatal
+
+**Fix aplicado em v1.3.34** — `_build_server_env()` agora remove explicitamente:
+
+```python
+_vars_to_remove = (
+    'TCL_LIBRARY',
+    'TK_LIBRARY',
+    '_PYI_APPLICATION_HOME_DIR',
+    '_PYI_ARCHIVE_FILE',
+    '_PYI_PARENT_PROCESS_LEVEL',
+    '__COMPAT_LAYER',
+    'CHROME_CRASHPAD_PIPE_NAME',
+)
+```
+
+**Resultado:** ⏳ aguardando teste em produção
+
+---
+
 ### Fix aplicado (`server_manager.py`)
 
 Nova função `_build_server_env()` que remove `_MEIPASS` do PATH antes de passar o ambiente ao servidor:
