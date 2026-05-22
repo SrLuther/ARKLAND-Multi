@@ -117,7 +117,7 @@ Adicionalmente: dump completo do ambiente em `Binaries/Win64/_arkland_debug.txt`
 
 ---
 
-#### Tentativa 5 — Remoção de variáveis PyInstaller do ambiente do servidor (22/05/2026) ⏳ Em teste
+#### Tentativa 5 — Remoção de variáveis PyInstaller do ambiente do servidor (22/05/2026) ❌ Não resolveu
 
 **Evidência direta via `_arkland_debug.txt`** (gerado pela v1.3.32+):
 
@@ -152,11 +152,51 @@ _vars_to_remove = (
 )
 ```
 
-**Resultado:** ⏳ aguardando teste em produção
+**Resultado:** ❌ Crash persistiu (confirmado em teste v1.3.34). `__COMPAT_LAYER` e variáveis PyInstaller não são a causa. → Ver Tentativa 6.
 
 ---
 
-### Fix aplicado (`server_manager.py`)
+#### Tentativa 6 — Lançamento via `cmd.exe /c RunServer.cmd` (método idêntico ao ASM) (22/05/2026) ⏳ Em teste
+
+**Descoberta da causa raiz (análise do source ArkShopUI/ArkShop):**
+
+Repositório oficial: https://github.com/ArkServerApi/ASE-Plugins/releases — source do ArkShop.dll disponível; ArkShopUI.dll é **binário fechado** (só o helper header está disponível).
+
+Após análise das tentativas anteriores, a única diferença que ainda não foi tentada é o **método exato de criação do processo** pelo ASM:
+
+- **ASM:** `cmd.exe /c RunServer.cmd` → dentro do cmd: `start "ARK Server" /min /normal "exe" args`
+  - `start` chama `CreateProcessW` com `STARTF_USESHOWWINDOW | SW_SHOWMINIMIZED`
+  - `bInheritHandles = FALSE` (cmd.exe)  
+  - O processo é filho do cmd.exe, não do ASM
+- **ARKLAND (Tentativas 1–5):** `subprocess.Popen(full_cmd, creationflags=CREATE_NEW_CONSOLE|BREAKAWAY_FROM_JOB)`
+  - Processo criado diretamente pelo Python
+  - Diferença em `STARTUPINFO` (sem `STARTF_USESHOWWINDOW`)
+
+O RunServer.cmd já era **gerado** desde v1.3.33, mas **não era usado** para lançar o servidor — apenas para satisfazer plugins que verificavam sua existência.
+
+**Fix aplicado em v1.3.35:**
+
+O servidor agora é lançado **via `cmd.exe /c RunServer.cmd`** (exatamente como o ASM faz). Como o cmd.exe sai imediatamente após executar `start`, o PID do ShooterGameServer.exe é rastreado com `psutil` após o lançamento via `_find_server_process()`. Foi adicionada a classe `_PsutilProcessWrapper` para compatibilidade com o restante do código que usa a interface `subprocess.Popen`.
+
+```python
+# Lançamento via cmd.exe/RunServer.cmd (idêntico ao ASM)
+_launch_time = datetime.now()
+_cmd_proc = subprocess.Popen(
+    ["cmd.exe", "/c", str(_run_server_cmd_path)],
+    cwd=_dbg_cwd,
+    creationflags=subprocess.CREATE_NEW_CONSOLE,
+    env=_dbg_env,
+)
+_cmd_proc.wait(timeout=15)  # cmd.exe sai rápido após "start"
+_raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
+proc = _PsutilProcessWrapper(_raw)  # wrapper compatível com Popen
+```
+
+Fallback para Popen direto se RunServer.cmd ou psutil não estiverem disponíveis.
+
+**Resultado:** ⏳ aguardando teste em produção
+
+---
 
 Nova função `_build_server_env()` que remove `_MEIPASS` do PATH antes de passar o ambiente ao servidor:
 

@@ -31,6 +31,93 @@ from .server_config import (
 from .battlemetrics_client import BattleMetricsPoller, BattleMetricsData
 
 
+# ── Wrapper psutil ────────────────────────────────────────────────────────────
+class _PsutilProcessWrapper:
+    """Simula a interface subprocess.Popen usando psutil.Process.
+
+    Usado quando o servidor é lançado indiretamente via cmd.exe start
+    (RunServer.cmd), pois nesse caso não temos o handle Popen direto
+    do ShooterGameServer.exe — apenas do cmd.exe, que sai imediatamente.
+    """
+
+    def __init__(self, proc: Any) -> None:  # proc: psutil.Process
+        self._proc = proc
+        self.pid: int = proc.pid
+        self.returncode: Optional[int] = None
+
+    def poll(self) -> Optional[int]:
+        try:
+            if not self._proc.is_running() or self._proc.status() == "zombie":
+                if self.returncode is None:
+                    self.returncode = -1
+                return self.returncode
+        except Exception:
+            if self.returncode is None:
+                self.returncode = -1
+            return self.returncode
+        return None
+
+    def wait(self, timeout: Optional[float] = None) -> int:
+        try:
+            rc = self._proc.wait(timeout=timeout)
+            self.returncode = rc if rc is not None else -1
+        except Exception:
+            self.returncode = -1
+        return self.returncode  # type: ignore[return-value]
+
+    def terminate(self) -> None:
+        try:
+            self._proc.terminate()
+        except Exception:
+            pass
+
+    def kill(self) -> None:
+        try:
+            self._proc.kill()
+        except Exception:
+            pass
+
+
+def _find_server_process(
+    install_dir: str,
+    after: datetime,
+    timeout: float = 20.0,
+) -> Any:  # returns psutil.Process or None
+    """Busca ShooterGameServer.exe criado após `after` com caminho dentro de
+    `install_dir`.  Sonda o process_iter por até `timeout` segundos.
+    Retorna None se não encontrado ou se psutil não estiver disponível.
+    """
+    if not _PSUTIL_OK or _psutil is None:
+        return None
+
+    install_norm = install_dir.replace("\\", "/").lower()
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            for p in _psutil.process_iter(["pid", "name", "exe", "create_time"]):
+                try:
+                    name = p.info.get("name") or ""
+                    if "shootergameserver" not in name.lower():
+                        continue
+                    exe = (p.info.get("exe") or "").replace("\\", "/").lower()
+                    if install_norm not in exe:
+                        continue
+                    ct = p.info.get("create_time") or 0.0
+                    # Aceita processos criados até 5s antes do lançamento
+                    # (margem de clock) e até timeout depois
+                    if ct >= after.timestamp() - 5:
+                        return p
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        time.sleep(0.5)
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+
+
 def _build_server_env() -> dict:
     """Ambiente limpo para o processo do servidor ARK.
 
@@ -913,42 +1000,85 @@ class ServerManager:
 
         # ── RunServer.cmd ─────────────────────────────────────────────────────
         # Gera RunServer.cmd em Saved\Config\WindowsServer\ (padrão do ASM).
-        # Alguns plugins verificam a existência desse arquivo.
+        # Usamos este arquivo para lançar o servidor VIA cmd.exe start, que
+        # replica exatamente o método do ASM (start "title" /min /normal ...).
+        # Isso garante que o processo do servidor seja criado nas mesmas condições
+        # que o ASM usa, eliminando qualquer diferença de herança de handles,
+        # job objects, flags de janela, etc.
+        _run_server_cmd_path: Optional[Path] = None
         try:
             _run_server_dir = (
                 Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
             )
             _run_server_dir.mkdir(parents=True, exist_ok=True)
-            _run_server_cmd = _run_server_dir / "RunServer.cmd"
-            # Usa "start" com /min /normal igual ao ASM para lançar processo
-            # completamente desvinculado (novo grupo de processo, sem herança de
-            # job object). O título "ARK Server" é obrigatório para que o cmd
-            # interprete o argumento seguinte como programa e não como título.
-            _run_server_cmd.write_text(
+            _rsc = _run_server_dir / "RunServer.cmd"
+            _rsc.write_text(
                 f"@echo off\r\ncd /d \"{_dbg_cwd}\"\r\nstart \"ARK Server\" /min /normal {full_cmd}\r\n",
                 encoding="utf-8",
             )
-            self._emit_log(server_id, f"RunServer.cmd gerado em: {_run_server_cmd}", "info")
+            _run_server_cmd_path = _rsc
+            self._emit_log(server_id, f"RunServer.cmd gerado em: {_rsc}", "info")
         except Exception as _rsc_err:
             self._emit_log(server_id, f"Aviso: RunServer.cmd não pôde ser criado: {_rsc_err}", "warning")
         # ─────────────────────────────────────────────────────────────────────
 
-        # CREATE_BREAKAWAY_FROM_JOB (0x01000000): faz o processo filho sair do
-        # job object do PyInstaller/ARKLAND, tornando-o completamente independente.
-        # Sem isso, o servidor herda restrições do job object do ARKLAND, o que
-        # pode causar comportamento diferente do que quando iniciado manualmente.
+        # CREATE_BREAKAWAY_FROM_JOB: usado apenas no Popen de fallback.
         _CREATE_BREAKAWAY_FROM_JOB = 0x01000000
 
         try:
-            proc = subprocess.Popen(
-                full_cmd,
-                cwd=_dbg_cwd,
-                # CREATE_NEW_CONSOLE desvincula do console + CREATE_BREAKAWAY_FROM_JOB
-                # sai do job object do PyInstaller → processo completamente livre,
-                # igual a quando o usuário inicia manualmente via Explorer/cmd.
-                creationflags=subprocess.CREATE_NEW_CONSOLE | _CREATE_BREAKAWAY_FROM_JOB,
-                env=_dbg_env,
-            )
+            proc: Any = None
+
+            # ── Tentativa principal: lançar via cmd.exe/RunServer.cmd ──────────
+            # Isso replica exatamente o método do ASM, usando
+            # "start /min /normal" que cria o processo com STARTF_USESHOWWINDOW
+            # e SW_SHOWMINIMIZED — condições idênticas ao lançamento manual.
+            if _run_server_cmd_path is not None and _PSUTIL_OK:
+                try:
+                    _launch_time = datetime.now()
+                    _cmd_proc = subprocess.Popen(
+                        ["cmd.exe", "/c", str(_run_server_cmd_path)],
+                        cwd=_dbg_cwd,
+                        creationflags=subprocess.CREATE_NEW_CONSOLE,
+                        env=_dbg_env,
+                    )
+                    # cmd.exe sai em < 1s após "start" criar o processo filho
+                    try:
+                        _cmd_proc.wait(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        _cmd_proc.kill()
+                    # Procura ShooterGameServer.exe com caminho dentro de install_dir
+                    _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
+                    if _raw is not None:
+                        proc = _PsutilProcessWrapper(_raw)
+                        self._emit_log(
+                            server_id,
+                            f"Servidor iniciado via RunServer.cmd (PID {proc.pid}).",
+                            "info",
+                        )
+                    else:
+                        self._emit_log(
+                            server_id,
+                            "ShooterGameServer.exe não encontrado após RunServer.cmd; usando Popen direto...",
+                            "warning",
+                        )
+                except Exception as _cmd_err:
+                    self._emit_log(
+                        server_id,
+                        f"Lançamento via RunServer.cmd falhou ({_cmd_err}); usando Popen direto...",
+                        "warning",
+                    )
+                    proc = None
+
+            # ── Fallback: Popen direto com CREATE_BREAKAWAY_FROM_JOB ──────────
+            if proc is None:
+                proc = subprocess.Popen(
+                    full_cmd,
+                    cwd=_dbg_cwd,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE | _CREATE_BREAKAWAY_FROM_JOB,
+                    env=_dbg_env,
+                )
+                self._emit_log(server_id, f"Servidor iniciado via Popen direto (PID {proc.pid}).", "info")
+
             inst.process    = proc
             inst.pid        = proc.pid
             inst.start_time = datetime.now()

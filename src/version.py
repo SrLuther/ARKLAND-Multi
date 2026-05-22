@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.34"
+APP_VERSION: str = "1.3.35"
 BUILD_DATE: str = "2026-05-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.35",
+        "date": "2026-05-22",
+        "changes": [
+            "Fix (server_manager.py): servidor agora é lançado via cmd.exe /c RunServer.cmd — método idêntico ao ASM (start \"ARK Server\" /min /normal). O RunServer.cmd era gerado mas não usado para lançar o servidor. O PID do ShooterGameServer.exe é rastreado via psutil após o cmd.exe sair. Adicionadas _PsutilProcessWrapper e _find_server_process para compatibilidade. Tentativa de resolver crash ArkShopUI.dll no timer callback (~5 min após start).",
+        ],
+    },
     {
         "version": "1.3.34",
         "date": "2026-05-22",
