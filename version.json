@@ -1,18 +1,10 @@
 {
-    "version": "1.3.22",
+    "version": "1.3.23",
     "date": "2026-05-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.22/ARKLAND-Multi-Setup-v1.3.22.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.23/ARKLAND-Multi-Setup-v1.3.23.exe",
     "changelog": [
-        "Refactor (arquitetura): app.py monol├¡tico (~13.000 linhas) desmembrado em 170+ m├│dulos especializados em src/pages/ e 9 di├ílogos em src/dialogs/ ÔÇö cada funcionalidade agora em arquivo pr├│prio (tab_general, tab_game, tab_advanced, tab_spawns, tab_loot, tab_mods, tab_plugins, tab_ini_mods, tab_rcon, tab_chat, tab_logs, tab_crashes, tab_backup, build_tab_admins, build_tab_historico, build_tab_jogadores, server_panel, server_save, sidebar, performance_panel, remote_panel, cluster_detail, broadcast_*, ini_*, rcon_*, chat_*, player_*, buff_*, backup_*, etc.).",
-        "Refactor (ui_constants.py): paleta de cores, Tooltip, _resource_path e constantes de UI extra├¡das do app.py para m├│dulo compartilhado; importado por app.py, pages/ e dialogs/.",
-        "Refactor (app.py): reduzido a ~1.000 linhas de orquestrador puro ÔÇö apenas inicializa├º├úo, bind de m├®todos de conex├úo e roteamento; toda l├│gica de UI delegada via imports lazy a pages/ e dialogs/.",
-        "Refactor (server_panel.py): constru├º├úo de abas lazy via _on_tab_change + placeholder 'Carregando...' ÔÇö abas s├│ s├úo constru├¡das na primeira vez que o usu├írio as visita.",
-        "Fix (tab_general.py): scroll.unbind('<Configure>') nunca revinculado ap├│s build ÔÇö layout de 2 colunas e scroll restaurados ao adicionar scroll.bind + scrollregion ao final da fun├º├úo.",
-        "Fix (tab_advanced.py): NameError 'profiles' na linha 136 impedia renderiza├º├úo da aba Avan├ºado e bloqueava restaura├º├úo do scroll; profiles/profile_names agora definidos antes do uso.",
-        "Fix (tab_crashes.py): import relativo 'from .server_manager' corrigido para 'from ..server_manager'.",
-        "Fix (tab_plugins.py): 'ttk' n├úo importado (NameError ao abrir aba Plugins); 'webbrowser' ausente (NameError ao instalar Permissions) ÔÇö ambos adicionados.",
-        "Fix (on_update_result.py): APP_VERSION n├úo importado ÔÇö verificador de atualiza├º├Áes lan├ºava NameError ao receber resposta do servidor.",
-        "Fix (tab_game.py): 'from .ark_ini' corrigido para 'from ..ark_ini' (_level_to_xp usada em _level_cap_row).",
-        "Fix (get_change_logger.py): ChangeLogger importado apenas em TYPE_CHECKING ÔÇö movido para import de runtime para evitar NameError ao acessar aba Hist├│rico."
+        "Fix (ini_import.py): dialog 'Importar INI do Disco' com geometry 620x220 cortava o campo de pasta e os bot├Áes ÔÇö altura aumentada para 280.",
+        "Fix (get_cluster_health.py): 'from .server_config import ClusterProfile' corrigido para 'from ..server_config' ÔÇö bot├úo Diagnosticar Cluster lan├ºava NameError ao abrir.",
+        "Fix (server_save.py): SERVER_STATUS_STOPPED, snapshot_server, diff_snapshots, _ARK_EVENT_LABEL_TO_ID e ArkIniManager n├úo importados ÔÇö salvar configura├º├Áes e iniciar servidor falhavam silenciosamente."
     ]
 }

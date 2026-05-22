@@ -25,7 +25,7 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
     # ── Dialog de seleção de origem ───────────────────────────────────────
     dlg = ctk.CTkToplevel(app)
     dlg.title("Importar INI do Disco")
-    dlg.geometry("620x220")
+    dlg.geometry("620x280")
     dlg.resizable(False, False)
     dlg.grab_set()
     dlg.grid_columnconfigure(0, weight=1)

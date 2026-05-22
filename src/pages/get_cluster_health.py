@@ -12,7 +12,7 @@ def get_cluster_health(app: "ARKServerManagerApp", srv: "ServerConfig") -> list:
     status: "ok" | "warn" | "error"
     """
     from pathlib import Path as _P
-    from .server_config import ClusterProfile
+    from ..server_config import ClusterProfile
 
     results: list[tuple[str, str, str]] = []
     cl  = srv.cluster
