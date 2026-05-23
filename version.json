@@ -1,8 +1,8 @@
 {
-    "version": "1.3.37",
-    "date": "2026-05-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.37/ARKLAND-Multi-Setup-v1.3.37.exe",
+    "version": "1.3.38",
+    "date": "2026-05-23",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.38/ARKLAND-Multi-Setup-v1.3.38.exe",
     "changelog": [
-        "Fix (server_manager.py): Tentativa 8 — método de lançamento do servidor replicado exatamente do ASM. ASM usa UseShellExecute=true (os.startfile() em Python) para lançar RunServer.cmd, o que usa ShellExecute do Windows e não herda env, handles ou job objects do processo pai. Conteúdo de RunServer.cmd também atualizado para ser idêntico ao gerado pelo ASM: start \"<nome>\" /normal <cmd>. Resolve possível causa de crash do ArkShopUI.dll via herança de handles do PyInstaller."
+        "Fix (server_config.py): Tentativa 9 — remove ?GameModIds= da linha de comando do servidor. ARKLAND adicionava ?GameModIds= na linha de comando E ActiveMods= no GameUserSettings.ini ao mesmo tempo. O ASM usa APENAS ActiveMods= no INI, sem ?GameModIds= na linha de comando. Usar as duas formas simultaneamente causava crash do ArkShopUI.dll no timer callback (~5 min após jogador conectar). Os mods continuam sendo carregados normalmente via ActiveMods= no GameUserSettings.ini."
     ]
 }

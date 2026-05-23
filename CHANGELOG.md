@@ -2,6 +2,36 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.38] - 2026-05-23
+
+### Fix — Crash determinístico do ArkShopUI.dll (Tentativa 9 — causa raiz encontrada)
+
+**Stack trace reproduzível:**
+```
+ArkShopUI.dll!UnknownFunction (0x0000000180006590)
+ArkShopUI.dll!UnknownFunction (0x00000001800103c5)
+VERSION.dll!ArkApi::Commands::CheckOnTimerCallbacks()
+VERSION.dll!ArkApi::Hook_AGameState_DefaultTimer()
+ShooterGameServer.exe!FTimerManager::Tick()
+```
+
+**Histórico de tentativas fracassadas (T1–T8):** remoção de `_MEIPASS` do PATH, downgrade do `Permissions.dll`, `CREATE_BREAKAWAY_FROM_JOB`, geração de `RunServer.cmd`, limpeza de variáveis PyInstaller (`__COMPAT_LAYER`, `TCL_LIBRARY`, etc.), `cmd.exe /c RunServer.cmd`, redirecionamento de `TEMP/TMP`, e replicação exata do ShellExecute do ASM via `os.startfile()` — nenhuma resolveu.
+
+**Descobertas críticas durante a T8:**
+- O crash ocorre **mesmo com o ARKLAND completamente fechado** → o processo gerenciador não é a causa.
+- O crash ocorre **apenas quando um jogador está conectado** → o timer callback do ArkShopUI é inofensivo com servidor vazio; o crash acontece no primeiro ciclo após um jogador entrar.
+
+**Causa raiz identificada:**
+O ARKLAND passava os mods pelos **dois canais simultaneamente**:
+- `ActiveMods=2693727499,3726048146` no `[ServerSettings]` do `GameUserSettings.ini` (via `ark_ini.py`)
+- `?GameModIds=2693727499,3726048146` na linha de comando do servidor (via `server_config.py`)
+
+O ASM usa **exclusivamente** `ActiveMods=` no INI — sem `?GameModIds=` na linha de comando. Quando `?GameModIds=` está na linha de comando ele sobrepõe o INI, alterando a sequência/contexto de inicialização dos mods. Essa diferença sutil deixa o `ArkShopUI.dll` em estado inválido ao tentar processar jogadores no timer de 5 minutos.
+
+- fix: **`server_config.py`** — `?GameModIds=` removido do método `build_launch_args()`. Os mods continuam sendo carregados corretamente via `ActiveMods=` que o ARKLAND já escreve no `GameUserSettings.ini` antes de cada start.
+
+---
+
 ## [1.3.28] - 2026-05-22
 
 ### Fix — Crash fatal no connect do jogador (servidor iniciado pelo app)

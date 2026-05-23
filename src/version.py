@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.37"
-BUILD_DATE: str = "2026-05-22"
+APP_VERSION: str = "1.3.38"
+BUILD_DATE: str = "2026-05-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.38",
+        "date": "2026-05-23",
+        "changes": [
+            "Fix (server_config.py): causa raiz do crash ArkShopUI.dll encontrada após 8 tentativas. "
+            "O ARKLAND passava mods por dois canais ao mesmo tempo: ?GameModIds= na linha de comando "
+            "E ActiveMods= no GameUserSettings.ini. O ASM usa apenas ActiveMods= no INI. "
+            "Isso alterava a sequência de inicialização dos mods e deixava o ArkShopUI.dll em estado "
+            "inválido, causando crash no timer callback (~5 min após jogador conectar). "
+            "?GameModIds= removido de build_launch_args(); mods carregados exclusivamente via ActiveMods= no INI.",
+        ],
+    },
     {
         "version": "1.3.37",
         "date": "2026-05-22",

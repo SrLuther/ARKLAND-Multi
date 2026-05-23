@@ -646,9 +646,11 @@ class ServerConfig:
         if self.show_floating_damage_text:
             params.append("?ShowFloatingDamageText=True")
 
-        # Mods
-        if self.mods:
-            params.append(f"?GameModIds={','.join(self.mods)}")
+        # Mods: NÃO adiciona ?GameModIds= na linha de comando.
+        # Os mods são carregados via ActiveMods= em GameUserSettings.ini (escrito por ark_ini.py).
+        # Usar ?GameModIds= na linha de comando junto com ActiveMods= no INI causava crash
+        # do ArkShopUI.dll no timer callback (~5 min após jogador conectar).
+        # O ASM usa apenas ActiveMods= no INI — sem ?GameModIds= na linha de comando.
 
         flags = [
             "-server",

@@ -227,7 +227,7 @@ Isso garante que o servidor nunca "veja" os arquivos do PyInstaller em `%TEMP%`,
 
 ---
 
-#### Tentativa 8 — Replicação exata do método de lançamento do ASM: `os.startfile()` / ShellExecute (22/05/2026) ⏳ Em teste
+#### Tentativa 8 — Replicação exata do método de lançamento do ASM: `os.startfile()` / ShellExecute (22/05/2026) ❌ Não resolveu
 
 **Hipótese — Herança de handles e ambiente via `CreateProcess`:**
 
@@ -266,7 +266,7 @@ _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
 proc = _PsutilProcessWrapper(_raw)
 ```
 
-**Resultado:** ⏳ aguardando teste em produção
+**Resultado:** ❌ Crash persistiu (confirmado em 23/05/2026). `os.startfile()` / ShellExecute é idêntico ao ASM em herança de ambiente e handles, mas o crash ocorreu igualmente. Descoberta crítica neste teste: o crash acontece **mesmo com o ARKLAND fechado** — o processo de gerenciamento não é a causa. → Ver Tentativa 9.
 
 ---
 
@@ -293,6 +293,33 @@ proc = subprocess.Popen(
     env=_build_server_env(),
 )
 ```
+
+---
+
+#### Tentativa 9 — `?GameModIds=` na linha de comando vs `ActiveMods=` no INI (23/05/2026) ⏳ Em teste
+
+**Descobertas que motivam esta hipótese:**
+
+1. **O crash acontece mesmo com o ARKLAND fechado** (confirmado T8) → o gerenciador não é a causa.
+2. **O crash só ocorre quando há um jogador conectado** → o timer do ArkShopUI (5 min) é inofensivo com servidor vazio; crasha no primeiro ciclo após jogador entrar.
+3. **Mod `2693727499` (MX-E Ark Shop UI) está instalado em TODOS os servidores** — inclusive nos saudáveis (Crystal Isles / Brighamia). O usuário confirmou que o mod é carregado em todos eles.
+4. **Diferença estrutural identificada na linha de comando:**
+   - Servidor 01 (problemático): `?GameModIds=2693727499,3726048146` na linha de comando
+   - Servidores saudáveis (ASM): **sem `?GameModIds=`** na linha de comando — mods carregados via `ActiveMods=` no `GameUserSettings.ini`
+
+**Hipótese:**
+
+O ARKLAND-Multi faz as duas coisas ao mesmo tempo:
+- Escreve `ActiveMods=2693727499,3726048146` em `GameUserSettings.ini` (`ark_ini.py` linha 1284)
+- Adiciona `?GameModIds=2693727499,3726048146` na linha de comando (`server_config.py` linha 651)
+
+O ASM usa apenas `ActiveMods=` no INI — sem `?GameModIds=` na linha de comando.
+
+Quando `?GameModIds=` está na linha de comando, ele **sobrepõe** a lista do INI. Isso pode causar uma diferença sutil na sequência/contexto de inicialização dos mods que, combinada com o ArkShopUI.dll V1.12, resulta em estado inválido ao processar jogadores no timer.
+
+**Fix implementado em v1.3.38:** `?GameModIds=` removido de `server_config.py`. Mods carregados exclusivamente via `ActiveMods=` no `GameUserSettings.ini` — igual ao comportamento do ASM.
+
+**Resultado:** ⏳ Aguardando confirmação em produção.
 
 ---
 

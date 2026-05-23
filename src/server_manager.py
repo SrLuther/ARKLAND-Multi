@@ -1028,6 +1028,7 @@ class ServerManager:
 
         try:
             proc: Any = None
+            _startfile_called = False  # flag: startfile foi invocado com sucesso
 
             # ── Tentativa 8: os.startfile() = ShellExecute (igual ao ASM) ────
             # ASM usa UseShellExecute=true → ShellExecute não herda env, handles
@@ -1035,24 +1036,38 @@ class ServerManager:
             # em Python. Após o start, usamos psutil para rastrear o processo.
             if _run_server_cmd_path is not None and _PSUTIL_OK:
                 try:
-                    _launch_time = datetime.now()
-                    os.startfile(str(_run_server_cmd_path))
-                    time.sleep(2)  # aguarda cmd.exe processar o "start" e criar o filho
-                    # Procura ShooterGameServer.exe com caminho dentro de install_dir
-                    _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
-                    if _raw is not None:
-                        proc = _PsutilProcessWrapper(_raw)
+                    # ── Verificar instância já em execução antes de lançar ───
+                    # Evita dupla instância quando um servidor manual ainda está ativo.
+                    _epoch = datetime(2000, 1, 1)
+                    _preexisting = _find_server_process(cfg.install_dir, _epoch, timeout=2.0)
+                    if _preexisting is not None:
+                        proc = _PsutilProcessWrapper(_preexisting)
                         self._emit_log(
                             server_id,
-                            f"[T8] Servidor iniciado via ShellExecute/RunServer.cmd (PID {proc.pid}).",
-                            "info",
-                        )
-                    else:
-                        self._emit_log(
-                            server_id,
-                            "[T8] ShooterGameServer.exe não encontrado após ShellExecute; usando Popen direto...",
+                            f"[T8] Instância já rodando (PID {proc.pid}), conectando sem relançar.",
                             "warning",
                         )
+                    else:
+                        _launch_time = datetime.now()
+                        os.startfile(str(_run_server_cmd_path))
+                        _startfile_called = True
+                        time.sleep(2)  # aguarda cmd.exe processar o "start" e criar o filho
+                        # Procura ShooterGameServer.exe com caminho dentro de install_dir
+                        _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
+                        if _raw is not None:
+                            proc = _PsutilProcessWrapper(_raw)
+                            self._emit_log(
+                                server_id,
+                                f"[T8] Servidor iniciado via ShellExecute/RunServer.cmd (PID {proc.pid}).",
+                                "info",
+                            )
+                        else:
+                            self._emit_log(
+                                server_id,
+                                "[T8] ShooterGameServer.exe não encontrado após ShellExecute; monitorando via log.",
+                                "warning",
+                            )
+                            # proc permanece None, mas _startfile_called=True impede o Popen abaixo
                 except Exception as _cmd_err:
                     self._emit_log(
                         server_id,
@@ -1062,7 +1077,8 @@ class ServerManager:
                     proc = None
 
             # ── Fallback: Popen direto com CREATE_BREAKAWAY_FROM_JOB ──────────
-            if proc is None:
+            # Só usa Popen se o startfile NÃO foi invocado (evita dupla instância).
+            if proc is None and not _startfile_called:
                 proc = subprocess.Popen(
                     full_cmd,
                     cwd=_dbg_cwd,
@@ -1072,12 +1088,12 @@ class ServerManager:
                 self._emit_log(server_id, f"Servidor iniciado via Popen direto (PID {proc.pid}).", "info")
 
             inst.process    = proc
-            inst.pid        = proc.pid
+            inst.pid        = proc.pid if proc is not None else None
             inst.start_time = datetime.now()
             inst.online_mode = "—"
 
             # Afinidade de CPU (se configurado)
-            if _PSUTIL_OK and cfg.cpu_core_count > 0:
+            if _PSUTIL_OK and cfg.cpu_core_count > 0 and proc is not None:
                 assert _psutil is not None
                 try:
                     total = _psutil.cpu_count(logical=True) or 1
