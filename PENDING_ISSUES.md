@@ -156,11 +156,11 @@ _vars_to_remove = (
 
 ---
 
-#### Tentativa 6 — Lançamento via `cmd.exe /c RunServer.cmd` (método idêntico ao ASM) (22/05/2026) ⏳ Em teste
+#### Tentativa 6 — Lançamento via `cmd.exe /c RunServer.cmd` (método idêntico ao ASM) (22/05/2026) ❌ Não resolveu
 
 **Descoberta da causa raiz (análise do source ArkShopUI/ArkShop):**
 
-Repositório oficial: https://github.com/ArkServerApi/ASE-Plugins/releases — source do ArkShop.dll disponível; ArkShopUI.dll é **binário fechado** (só o helper header está disponível).
+Repositório oficial: <https://github.com/ArkServerApi/ASE-Plugins/releases> — source do ArkShop.dll disponível; ArkShopUI.dll é **binário fechado** (só o helper header está disponível).
 
 Após análise das tentativas anteriores, a única diferença que ainda não foi tentada é o **método exato de criação do processo** pelo ASM:
 
@@ -193,6 +193,35 @@ proc = _PsutilProcessWrapper(_raw)  # wrapper compatível com Popen
 ```
 
 Fallback para Popen direto se RunServer.cmd ou psutil não estiverem disponíveis.
+
+**Resultado:** ❌ Crash persistiu (confirmado em teste v1.3.35). Processo lançado via `cmd.exe /c RunServer.cmd` idêntico ao ASM, mas o crash ocorreu igualmente aos 5 minutos. → Ver Tentativa 7.
+
+---
+
+#### Tentativa 7 — Redirecionamento do `TEMP`/`TMP` para pasta dedicada do servidor (22/05/2026) ⏳ Em teste
+
+**Hipótese — `%TEMP%` compartilhado com PyInstaller:**
+
+O PyInstaller (modo onefile) extrai todos os seus arquivos (Python 3.12, DLLs, etc.) para `%TEMP%\_MEI######` enquanto o ARKLAND está em execução. A variável de ambiente `TEMP` do servidor aponta para o **mesmo diretório** (`C:\Users\ARKSER~1\AppData\Local\Temp`).
+
+- **ASM (.NET):** não cria nenhum arquivo em `%TEMP%` — o `%TEMP%` do servidor está limpo
+- **ARKLAND (PyInstaller):** `%TEMP%\_MEI142882\` contém `python312.dll`, `libmariadb.dll`, `z.dll`, `_ssl.pyd`, etc.
+
+Se ArkShopUI.dll no seu timer de 5 minutos executa qualquer operação no diretório `%TEMP%` (scan por DLLs, `LoadLibraryEx` com LOAD_LIBRARY_SEARCH_USER_DIRS, criação de arquivos temporários com nomes previsíveis), pode encontrar os arquivos Python/PyInstaller e crashar com acesso inválido à memória.
+
+**Fix aplicado em v1.3.36:**
+
+Em `_start_worker`, após `_build_server_env()`, redireciona `TEMP` e `TMP` para uma pasta dedicada dentro do diretório de instalação do servidor:
+
+```python
+# Tentativa 7: TEMP dedicado para o servidor
+_server_temp = Path(cfg.install_dir) / "ArkTemp"
+_server_temp.mkdir(parents=True, exist_ok=True)
+_dbg_env["TEMP"] = str(_server_temp)
+_dbg_env["TMP"] = str(_server_temp)
+```
+
+Isso garante que o servidor nunca "veja" os arquivos do PyInstaller em `%TEMP%`, independente do método de lançamento.
 
 **Resultado:** ⏳ aguardando teste em produção
 

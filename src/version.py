@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.35"
+APP_VERSION: str = "1.3.36"
 BUILD_DATE: str = "2026-05-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.36",
+        "date": "2026-05-22",
+        "changes": [
+            "Fix (server_manager.py): TEMP/TMP do servidor redirecionados para <install_dir>/ArkTemp — pasta dedicada fora do %TEMP% do PyInstaller. O PyInstaller extrai python312.dll e outras DLLs para %TEMP%\\_MEI######; se ArkShopUI.dll acessa %TEMP% no timer de 5 min (scan por DLLs, LoadLibraryEx, etc.), pode encontrar arquivos Python e crashar. ASM (.NET) não cria arquivos em %TEMP%, diferença que pode ser a causa do crash. Tentativa 7 de resolver crash ArkShopUI.dll no timer callback (~5 min após start).",
+        ],
+    },
     {
         "version": "1.3.35",
         "date": "2026-05-22",

@@ -970,6 +970,23 @@ class ServerManager:
         # Arquivo: <Binaries/Win64>/_arkland_debug.txt
         _dbg_env = _build_server_env()
         _dbg_cwd = str(Path(exe_path).parent)
+
+        # ── Tentativa 7: TEMP dedicado para o servidor ────────────────────────
+        # PyInstaller extrai DLLs/arquivos para %TEMP%\_MEI######.
+        # Se ArkShopUI.dll acessa %TEMP% no timer de 5 min (scan por DLLs,
+        # LoadLibraryEx, temp files), pode encontrar arquivos Python e crashar.
+        # ASM (.NET) nunca cria arquivos em %TEMP% → diferença real com ARKLAND.
+        # Solução: pasta TEMP exclusiva para o servidor, fora da pasta PyInstaller.
+        try:
+            _server_temp = Path(cfg.install_dir) / "ArkTemp"
+            _server_temp.mkdir(parents=True, exist_ok=True)
+            _dbg_env["TEMP"] = str(_server_temp)
+            _dbg_env["TMP"] = str(_server_temp)
+            self._emit_log(server_id, f"[T7] TEMP do servidor redirecionado: {_server_temp}", "info")
+        except Exception as _tmp_err:
+            self._emit_log(server_id, f"[T7] Não foi possível criar ArkTemp: {_tmp_err}", "warning")
+        # ─────────────────────────────────────────────────────────────────────
+
         try:
             _dbg_lines: list[str] = []
             _dbg_lines.append(f"=== ARKLAND ENV DEBUG  {datetime.now().isoformat()} ===\n")
