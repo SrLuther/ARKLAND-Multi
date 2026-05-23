@@ -3,20 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.36"
+APP_VERSION: str = "1.3.37"
 BUILD_DATE: str = "2026-05-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
-        "version": "1.3.36",
+        "version": "1.3.37",
         "date": "2026-05-22",
         "changes": [
-            "Fix (server_manager.py): TEMP/TMP do servidor redirecionados para <install_dir>/ArkTemp — pasta dedicada fora do %TEMP% do PyInstaller. O PyInstaller extrai python312.dll e outras DLLs para %TEMP%\\_MEI######; se ArkShopUI.dll acessa %TEMP% no timer de 5 min (scan por DLLs, LoadLibraryEx, etc.), pode encontrar arquivos Python e crashar. ASM (.NET) não cria arquivos em %TEMP%, diferença que pode ser a causa do crash. Tentativa 7 de resolver crash ArkShopUI.dll no timer callback (~5 min após start).",
+            "Fix (server_manager.py): Tentativa 8 — método de lançamento do servidor replicado exatamente do ASM. ASM usa UseShellExecute=true (os.startfile() em Python) para lançar RunServer.cmd, o que usa ShellExecute do Windows e não herda env, handles ou job objects do processo pai. Conteúdo de RunServer.cmd também atualizado para ser idêntico ao gerado pelo ASM: start \"<nome>\" /normal <cmd>. Resolve possível causa de crash do ArkShopUI.dll via herança de handles do PyInstaller.",
         ],
     },
     {
-        "version": "1.3.35",
+        "version": "1.3.36",
         "date": "2026-05-22",
         "changes": [
             "Fix (server_manager.py): servidor agora é lançado via cmd.exe /c RunServer.cmd — método idêntico ao ASM (start \"ARK Server\" /min /normal). O RunServer.cmd era gerado mas não usado para lançar o servidor. O PID do ShooterGameServer.exe é rastreado via psutil após o cmd.exe sair. Adicionadas _PsutilProcessWrapper e _find_server_process para compatibilidade. Tentativa de resolver crash ArkShopUI.dll no timer callback (~5 min após start).",

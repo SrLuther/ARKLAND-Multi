@@ -971,22 +971,6 @@ class ServerManager:
         _dbg_env = _build_server_env()
         _dbg_cwd = str(Path(exe_path).parent)
 
-        # ── Tentativa 7: TEMP dedicado para o servidor ────────────────────────
-        # PyInstaller extrai DLLs/arquivos para %TEMP%\_MEI######.
-        # Se ArkShopUI.dll acessa %TEMP% no timer de 5 min (scan por DLLs,
-        # LoadLibraryEx, temp files), pode encontrar arquivos Python e crashar.
-        # ASM (.NET) nunca cria arquivos em %TEMP% → diferença real com ARKLAND.
-        # Solução: pasta TEMP exclusiva para o servidor, fora da pasta PyInstaller.
-        try:
-            _server_temp = Path(cfg.install_dir) / "ArkTemp"
-            _server_temp.mkdir(parents=True, exist_ok=True)
-            _dbg_env["TEMP"] = str(_server_temp)
-            _dbg_env["TMP"] = str(_server_temp)
-            self._emit_log(server_id, f"[T7] TEMP do servidor redirecionado: {_server_temp}", "info")
-        except Exception as _tmp_err:
-            self._emit_log(server_id, f"[T7] Não foi possível criar ArkTemp: {_tmp_err}", "warning")
-        # ─────────────────────────────────────────────────────────────────────
-
         try:
             _dbg_lines: list[str] = []
             _dbg_lines.append(f"=== ARKLAND ENV DEBUG  {datetime.now().isoformat()} ===\n")
@@ -1015,13 +999,12 @@ class ServerManager:
             self._emit_log(server_id, f"[ENV-DEBUG] erro ao gravar: {_dbg_err}", "warning")
         # ─────────────────────────────────────────────────────────────────────
 
-        # ── RunServer.cmd ─────────────────────────────────────────────────────
-        # Gera RunServer.cmd em Saved\Config\WindowsServer\ (padrão do ASM).
-        # Usamos este arquivo para lançar o servidor VIA cmd.exe start, que
-        # replica exatamente o método do ASM (start "title" /min /normal ...).
-        # Isso garante que o processo do servidor seja criado nas mesmas condições
-        # que o ASM usa, eliminando qualquer diferença de herança de handles,
-        # job objects, flags de janela, etc.
+        # ── Tentativa 8: Replicar ASM exatamente ─────────────────────────────
+        # ASM (ServerProfile.cs SaveLauncher) gera RunServer.cmd com:
+        #   start "<ProfileName>" /normal "<exe>" <args>
+        # e lança via ShellExecute (UseShellExecute=true) → os.startfile() em Python.
+        # ShellExecute usa o ambiente do Desktop (não herda env/handles do processo
+        # pai), isolando completamente o servidor do processo PyInstaller/ARKLAND.
         _run_server_cmd_path: Optional[Path] = None
         try:
             _run_server_dir = (
@@ -1029,12 +1012,13 @@ class ServerManager:
             )
             _run_server_dir.mkdir(parents=True, exist_ok=True)
             _rsc = _run_server_dir / "RunServer.cmd"
+            # Conteúdo idêntico ao gerado pelo ASM (SaveLauncher):
             _rsc.write_text(
-                f"@echo off\r\ncd /d \"{_dbg_cwd}\"\r\nstart \"ARK Server\" /min /normal {full_cmd}\r\n",
+                f"start \"{cfg.server_name}\" /normal {full_cmd}\r\n",
                 encoding="utf-8",
             )
             _run_server_cmd_path = _rsc
-            self._emit_log(server_id, f"RunServer.cmd gerado em: {_rsc}", "info")
+            self._emit_log(server_id, f"[T8] RunServer.cmd gerado em: {_rsc}", "info")
         except Exception as _rsc_err:
             self._emit_log(server_id, f"Aviso: RunServer.cmd não pôde ser criado: {_rsc_err}", "warning")
         # ─────────────────────────────────────────────────────────────────────
@@ -1045,43 +1029,34 @@ class ServerManager:
         try:
             proc: Any = None
 
-            # ── Tentativa principal: lançar via cmd.exe/RunServer.cmd ──────────
-            # Isso replica exatamente o método do ASM, usando
-            # "start /min /normal" que cria o processo com STARTF_USESHOWWINDOW
-            # e SW_SHOWMINIMIZED — condições idênticas ao lançamento manual.
+            # ── Tentativa 8: os.startfile() = ShellExecute (igual ao ASM) ────
+            # ASM usa UseShellExecute=true → ShellExecute não herda env, handles
+            # ou job objects do processo pai. os.startfile() é o equivalente exato
+            # em Python. Após o start, usamos psutil para rastrear o processo.
             if _run_server_cmd_path is not None and _PSUTIL_OK:
                 try:
                     _launch_time = datetime.now()
-                    _cmd_proc = subprocess.Popen(
-                        ["cmd.exe", "/c", str(_run_server_cmd_path)],
-                        cwd=_dbg_cwd,
-                        creationflags=subprocess.CREATE_NEW_CONSOLE,
-                        env=_dbg_env,
-                    )
-                    # cmd.exe sai em < 1s após "start" criar o processo filho
-                    try:
-                        _cmd_proc.wait(timeout=15)
-                    except subprocess.TimeoutExpired:
-                        _cmd_proc.kill()
+                    os.startfile(str(_run_server_cmd_path))
+                    time.sleep(2)  # aguarda cmd.exe processar o "start" e criar o filho
                     # Procura ShooterGameServer.exe com caminho dentro de install_dir
                     _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
                     if _raw is not None:
                         proc = _PsutilProcessWrapper(_raw)
                         self._emit_log(
                             server_id,
-                            f"Servidor iniciado via RunServer.cmd (PID {proc.pid}).",
+                            f"[T8] Servidor iniciado via ShellExecute/RunServer.cmd (PID {proc.pid}).",
                             "info",
                         )
                     else:
                         self._emit_log(
                             server_id,
-                            "ShooterGameServer.exe não encontrado após RunServer.cmd; usando Popen direto...",
+                            "[T8] ShooterGameServer.exe não encontrado após ShellExecute; usando Popen direto...",
                             "warning",
                         )
                 except Exception as _cmd_err:
                     self._emit_log(
                         server_id,
-                        f"Lançamento via RunServer.cmd falhou ({_cmd_err}); usando Popen direto...",
+                        f"[T8] ShellExecute falhou ({_cmd_err}); usando Popen direto...",
                         "warning",
                     )
                     proc = None

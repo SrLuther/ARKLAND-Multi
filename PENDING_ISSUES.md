@@ -198,7 +198,7 @@ Fallback para Popen direto se RunServer.cmd ou psutil não estiverem disponívei
 
 ---
 
-#### Tentativa 7 — Redirecionamento do `TEMP`/`TMP` para pasta dedicada do servidor (22/05/2026) ⏳ Em teste
+#### Tentativa 7 — Redirecionamento do `TEMP`/`TMP` para pasta dedicada do servidor (22/05/2026) ❌ Substituída pela T8
 
 **Hipótese — `%TEMP%` compartilhado com PyInstaller:**
 
@@ -222,6 +222,49 @@ _dbg_env["TMP"] = str(_server_temp)
 ```
 
 Isso garante que o servidor nunca "veja" os arquivos do PyInstaller em `%TEMP%`, independente do método de lançamento.
+
+**Resultado:** ❌ Não chegou a ser testada — substituída pela Tentativa 8 após análise do source do ASM revelar diferença fundamental no método de lançamento (`UseShellExecute=true`).
+
+---
+
+#### Tentativa 8 — Replicação exata do método de lançamento do ASM: `os.startfile()` / ShellExecute (22/05/2026) ⏳ Em teste
+
+**Hipótese — Herança de handles e ambiente via `CreateProcess`:**
+
+Análise do source do ASM (`ServerApp.cs`, `ServerProfile.cs`) revelou:
+
+1. O ASM gera `RunServer.cmd` com conteúdo: `start "<ProfileName>" /normal "<exe>" <args>`
+2. O ASM lança o arquivo via `UseShellExecute = true` (equivalente Python: `os.startfile()`)
+
+`ShellExecute` (= `os.startfile`) é **fundamentalmente diferente** de `subprocess.Popen` (`CreateProcess`):
+
+| | ASM (`ShellExecute`) | ARKLAND (`CreateProcess`) |
+|---|---|---|
+| Ambiente herdado | Ambiente do Desktop do usuário — isolado do ASM | Ambiente do processo Python/PyInstaller |
+| Handles herdados | **Nenhum** | Herda todos os handles abertos do PyInstaller |
+| Job objects | Não herda | Potencialmente herda job object do PyInstaller |
+
+Em todas as tentativas anteriores (inclusive T6 com `cmd.exe /c RunServer.cmd`), o ARKLAND ainda usava `subprocess.Popen` com `env=_dbg_env`, o que ainda usa `CreateProcess` com herança de handles do processo PyInstaller. O ASM nunca entra nesse fluxo — ele usa ShellExecute desde o início.
+
+**Fix aplicado em v1.3.37:**
+
+RunServer.cmd gerado com conteúdo idêntico ao ASM (sem `@echo off`, sem `cd /d`):
+
+```python
+_rsc.write_text(
+    f'start "{cfg.server_name}" /normal {full_cmd}\r\n',
+    encoding="utf-8",
+)
+```
+
+Lançamento via `os.startfile()` (= `ShellExecute`) em vez de `subprocess.Popen`:
+
+```python
+os.startfile(str(_run_server_cmd_path))
+time.sleep(2)  # aguarda cmd.exe processar o start
+_raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
+proc = _PsutilProcessWrapper(_raw)
+```
 
 **Resultado:** ⏳ aguardando teste em produção
 
