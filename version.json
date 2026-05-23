@@ -3,6 +3,6 @@
     "date": "2026-05-23",
     "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.38/ARKLAND-Multi-Setup-v1.3.38.exe",
     "changelog": [
-        "Fix (server_config.py): Tentativa 9 — remove ?GameModIds= da linha de comando do servidor. ARKLAND adicionava ?GameModIds= na linha de comando E ActiveMods= no GameUserSettings.ini ao mesmo tempo. O ASM usa APENAS ActiveMods= no INI, sem ?GameModIds= na linha de comando. Usar as duas formas simultaneamente causava crash do ArkShopUI.dll no timer callback (~5 min após jogador conectar). Os mods continuam sendo carregados normalmente via ActiveMods= no GameUserSettings.ini."
+        "Fix (server_config.py): causa raiz do crash ArkShopUI.dll encontrada após 8 tentativas. O ARKLAND passava mods por dois canais ao mesmo tempo: ?GameModIds= na linha de comando E ActiveMods= no GameUserSettings.ini. O ASM usa apenas ActiveMods= no INI. Isso alterava a sequência de inicialização dos mods e deixava o ArkShopUI.dll em estado inválido, causando crash no timer callback (~5 min após jogador conectar). ?GameModIds= removido de build_launch_args(); mods carregados exclusivamente via ActiveMods= no INI."
     ]
 }
