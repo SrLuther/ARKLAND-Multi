@@ -1,8 +1,8 @@
 {
-    "version": "1.3.38",
+    "version": "1.3.39",
     "date": "2026-05-23",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.38/ARKLAND-Multi-Setup-v1.3.38.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.39/ARKLAND-Multi-Setup-v1.3.39.exe",
     "changelog": [
-        "Fix (server_config.py): causa raiz do crash ArkShopUI.dll encontrada após 8 tentativas. O ARKLAND passava mods por dois canais ao mesmo tempo: ?GameModIds= na linha de comando E ActiveMods= no GameUserSettings.ini. O ASM usa apenas ActiveMods= no INI. Isso alterava a sequência de inicialização dos mods e deixava o ArkShopUI.dll em estado inválido, causando crash no timer callback (~5 min após jogador conectar). ?GameModIds= removido de build_launch_args(); mods carregados exclusivamente via ActiveMods= no INI."
+        "Fix (plugin): plugin CustomShop descontinuado e removido. Hipótese T10: o hook HandleNewPlayer do CustomShop chamava InitPlayer + GetOrAddShopBuff() a cada jogador conectado, aplicando um buff do mod FC_ArkShopUI (2693727499). Essa operação pode corromper o estado interno do ArkShopUI.dll que é processado ~5 min depois no timer callback (FTimerManager::Tick → ArkShopUI.dll!0x6590). Aba Plugins removida da UI. Ao iniciar, o ARKLAND desinstala automaticamente o CustomShop de qualquer servidor que ainda o tenha instalado."
     ]
 }

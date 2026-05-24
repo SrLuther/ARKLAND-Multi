@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.38"
+APP_VERSION: str = "1.3.39"
 BUILD_DATE: str = "2026-05-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.39",
+        "date": "2026-05-23",
+        "changes": [
+            "Fix (plugin): plugin CustomShop descontinuado e removido. "
+            "Hipótese T10: o hook HandleNewPlayer do CustomShop chamava InitPlayer + GetOrAddShopBuff() "
+            "a cada jogador conectado, aplicando um buff do mod FC_ArkShopUI (2693727499). "
+            "Essa operação pode corromper o estado interno do ArkShopUI.dll que é processado ~5 min depois "
+            "no timer callback (FTimerManager::Tick → ArkShopUI.dll!0x6590). "
+            "Aba Plugins removida da UI. Ao iniciar, o ARKLAND desinstala automaticamente o CustomShop "
+            "de qualquer servidor que ainda o tenha instalado.",
+        ],
+    },
     {
         "version": "1.3.38",
         "date": "2026-05-23",

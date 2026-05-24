@@ -2,11 +2,34 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [1.3.38] - 2026-05-23
+## [1.3.39] - 2026-05-23
+
+### Fix — Crash ArkShopUI.dll: plugin CustomShop descontinuado (Tentativa 10)
+
+**Contexto:** Tentativa 9 (v1.3.38 — remover `?GameModIds=`) confirmada como **falhou**. Crash persiste.
+
+**Nova hipótese (T10):** O plugin `CustomShop.dll` registra dois hooks no ArkApi:
+- `Hook_AShooterGameMode_HandleNewPlayer` → chama `CustomShop::Data::InitPlayer(player)` a cada jogador conectado
+- `Hook_AShooterGameMode_BeginPlay` → chama `InitPlayer` para todos os jogadores ao iniciar
+
+O `InitPlayer` aciona `ShopBridge::GetOrAddShopBuff()`, que aplica um buff permanente do mod `FC_ArkShopUI` (`ArkShopUI_Buff_FCAS`) diretamente no personagem do jogador. Essa operação pode estar corrompendo o estado interno do `ArkShopUI.dll`, causando o crash no timer callback (~5 min após o jogador entrar):
+
+```
+ArkShopUI.dll!0x6590 ← ArkShopUI.dll!0x103c5 ← ArkApi::CheckOnTimerCallbacks
+```
+
+O crash ocorre **somente quando há um jogador conectado** — exatamente quando `HandleNewPlayer` / `GetOrAddShopBuff` são acionados.
+
+**Mudanças:**
+- Aba "Plugins" removida da UI (CustomShop descontinuado)
+- `app.py`: ao iniciar, o ARKLAND detecta e desinstala automaticamente o CustomShop de qualquer servidor que o tenha instalado, garantindo que o plugin não seja carregado na próxima inicialização do servidor
+
+
 
 ### Fix — Crash determinístico do ArkShopUI.dll (Tentativa 9 — causa raiz encontrada)
 
 **Stack trace reproduzível:**
+
 ```
 ArkShopUI.dll!UnknownFunction (0x0000000180006590)
 ArkShopUI.dll!UnknownFunction (0x00000001800103c5)
@@ -18,11 +41,13 @@ ShooterGameServer.exe!FTimerManager::Tick()
 **Histórico de tentativas fracassadas (T1–T8):** remoção de `_MEIPASS` do PATH, downgrade do `Permissions.dll`, `CREATE_BREAKAWAY_FROM_JOB`, geração de `RunServer.cmd`, limpeza de variáveis PyInstaller (`__COMPAT_LAYER`, `TCL_LIBRARY`, etc.), `cmd.exe /c RunServer.cmd`, redirecionamento de `TEMP/TMP`, e replicação exata do ShellExecute do ASM via `os.startfile()` — nenhuma resolveu.
 
 **Descobertas críticas durante a T8:**
+
 - O crash ocorre **mesmo com o ARKLAND completamente fechado** → o processo gerenciador não é a causa.
 - O crash ocorre **apenas quando um jogador está conectado** → o timer callback do ArkShopUI é inofensivo com servidor vazio; o crash acontece no primeiro ciclo após um jogador entrar.
 
 **Causa raiz identificada:**
 O ARKLAND passava os mods pelos **dois canais simultaneamente**:
+
 - `ActiveMods=2693727499,3726048146` no `[ServerSettings]` do `GameUserSettings.ini` (via `ark_ini.py`)
 - `?GameModIds=2693727499,3726048146` na linha de comando do servidor (via `server_config.py`)
 

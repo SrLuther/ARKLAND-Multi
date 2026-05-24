@@ -319,14 +319,36 @@ Quando `?GameModIds=` está na linha de comando, ele **sobrepõe** a lista do IN
 
 **Fix implementado em v1.3.38:** `?GameModIds=` removido de `server_config.py`. Mods carregados exclusivamente via `ActiveMods=` no `GameUserSettings.ini` — igual ao comportamento do ASM.
 
+**Resultado:** ❌ Crash persistiu (confirmado em 23/05/2026). Remover `?GameModIds=` não foi suficiente. → Ver Tentativa 10.
+
+---
+
+#### Tentativa 10 — Remoção do plugin CustomShop (23/05/2026) ⏳ Em teste
+
+**Descoberta que motiva esta hipótese:**
+
+O plugin CustomShop (`plugin/CustomShop/src/`) registra dois hooks no ArkApi:
+- `Hook_AShooterGameMode_HandleNewPlayer` — chama `CustomShop::Data::InitPlayer(player)` a cada jogador que entra
+- `Hook_AShooterGameMode_BeginPlay` — chama `InitPlayer` para todos os jogadores conectados ao iniciar
+
+O `InitPlayer` aciona `ShopBridge::GetOrAddShopBuff()` que aplica um buff permanente do mod FC_ArkShopUI (`ArkShopUI_Buff_FCAS`). Essa operação de buff pode estar interferindo com o estado interno do `ArkShopUI.dll` que é processado 5 min depois no timer `FTimerManager::Tick() → Hook_AGameState_DefaultTimer() → ArkShopUI.dll!0x6590`.
+
+O crash ocorre APENAS quando um jogador está conectado, o que é exatamente quando `HandleNewPlayer` / `GetOrAddShopBuff` são acionados. Sem o CustomShop, o buff nunca é aplicado e o ArkShopUI.dll processa o timer sem estado corrompido.
+
+**Fix implementado em v1.3.39:**
+- Aba "Plugins" removida da UI do ARKLAND (CustomShop descontinuado)
+- Auto-desinstalação do CustomShop no startup do ARKLAND para qualquer servidor que o tenha instalado
+- Servidor deve ser reiniciado após a atualização para garantir que o plugin não seja carregado
+
 **Resultado:** ⏳ Aguardando confirmação em produção.
 
 ---
 
 ### Checklist de confirmação
 
-- [ ] Instalar v1.3.28 no servidor de produção
-- [ ] Iniciar o servidor **pelo ARKLAND-Multi** (não pelo ASM)
-- [ ] Conectar um jogador e aguardar alguns minutos sem crash
-- [ ] Confirmar que ArkShopUI, ArkShop e Permissions funcionam normalmente
+- [ ] Atualizar ARKLAND para v1.3.39
+- [ ] Verificar no log de inicialização que o ARKLAND desinstalou o CustomShop automaticamente
+- [ ] Reiniciar o servidor pelo ARKLAND
+- [ ] Conectar um jogador e aguardar > 5 min sem crash
+- [ ] Confirmar que ArkShopUI funciona normalmente sem o CustomShop
 - [ ] Marcar como ✅ RESOLVIDO

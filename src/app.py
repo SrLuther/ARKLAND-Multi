@@ -105,9 +105,6 @@ class ARKServerManagerApp(ctk.CTk):
         for srv in self.config_manager.servers:
             self.server_manager.add_server(srv)
 
-        # Remove DLLs do CustomShop que possam ter ficado em Win64/ de instalações anteriores
-        self.after(300, self._cleanup_stale_plugin_dlls)
-
         # ── Estado UI ────────────────────────────────────────────────────────
         self._frames: Dict[str, Any] = {}
         self._server_frames: Dict[str, ctk.CTkFrame] = {}
@@ -259,18 +256,6 @@ class ARKServerManagerApp(ctk.CTk):
     def _save_sync_config(self) -> None:
         from .pages.save_sync_config import save_sync_config
         save_sync_config(self)
-
-    def _cleanup_stale_plugin_dlls(self) -> None:
-        from .plugin_manager import PluginManager
-        for srv in self.config_manager.servers:
-            if srv.install_dir:
-                removed = PluginManager.cleanup_stale_win64_dlls(srv.install_dir)
-                for name in removed:
-                    self._global_log(
-                        f"[PLUGIN] DLL residual removida de Win64/: {name} "
-                        f"(servidor: {srv.server_name})",
-                        "warning",
-                    )
 
     def _scan_running_servers(self) -> None:
         from .pages.scan_running_servers import scan_running_servers
@@ -536,14 +521,6 @@ class ARKServerManagerApp(ctk.CTk):
     def _open_mod_search_dialog(self, server_id: str) -> None:
         from .dialogs.mod_search_dialog import open_mod_search_dialog
         open_mod_search_dialog(self, server_id)
-
-    # ══════════════════════════════════════════════════════════════════════════
-    # Aba Plugins (ArkApi / CustomShop)
-    # ══════════════════════════════════════════════════════════════════════════
-
-    def _build_tab_plugins(self, parent, srv: ServerConfig) -> None:  # noqa: C901
-        from .pages.tab_plugins import build_tab_plugins
-        build_tab_plugins(self, parent, srv)
 
     # ══════════════════════════════════════════════════════════════════════════
     # Aba Admins
