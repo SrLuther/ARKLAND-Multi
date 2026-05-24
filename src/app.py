@@ -523,6 +523,14 @@ class ARKServerManagerApp(ctk.CTk):
         open_mod_search_dialog(self, server_id)
 
     # ══════════════════════════════════════════════════════════════════════════
+    # Aba Plugins (ASE oficiais)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_tab_plugins(self, parent, srv: ServerConfig) -> None:
+        from .pages.tab_plugins import build_tab_plugins
+        build_tab_plugins(self, parent, srv)
+
+    # ══════════════════════════════════════════════════════════════════════════
     # Aba Admins
     # ══════════════════════════════════════════════════════════════════════════
 

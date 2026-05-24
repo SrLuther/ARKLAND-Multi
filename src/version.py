@@ -12,13 +12,13 @@ CHANGELOG: list[dict] = [
         "version": "1.3.39",
         "date": "2026-05-23",
         "changes": [
-            "Fix (plugin): plugin CustomShop descontinuado e removido. "
+            "Fix (plugin): plugin CustomShop descontinuado e removido do projeto. "
             "Hipótese T10: o hook HandleNewPlayer do CustomShop chamava InitPlayer + GetOrAddShopBuff() "
-            "a cada jogador conectado, aplicando um buff do mod FC_ArkShopUI (2693727499). "
-            "Essa operação pode corromper o estado interno do ArkShopUI.dll que é processado ~5 min depois "
-            "no timer callback (FTimerManager::Tick → ArkShopUI.dll!0x6590). "
-            "Aba Plugins removida da UI. Ao iniciar, o ARKLAND desinstala automaticamente o CustomShop "
-            "de qualquer servidor que ainda o tenha instalado.",
+            "a cada jogador conectado, podendo corromper o estado interno do ArkShopUI.dll e causar crash "
+            "no timer callback (~5 min após jogador entrar). "
+            "Aba Plugins reimplementada: exibe os 5 plugins oficiais ASE (Server API, Permissions, ArkShop, "
+            "ArkShopUI, Plugin Limit Fix) com botão 'Download' (abre página oficial) e botão 'Instalar' "
+            "(seleciona ZIP ou DLL e extrai para o diretório correto do servidor).",
         ],
     },
     {

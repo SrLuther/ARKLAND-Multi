@@ -174,6 +174,7 @@ def build_server_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame", srv: 
         "Spawns":       lambda: app._build_tab_spawns     (tabs.tab("Spawns"),       srv),
         "Loot":         lambda: app._build_tab_loot       (tabs.tab("Loot"),         srv),
         "Mods":         lambda: app._build_tab_mods       (tabs.tab("Mods"),         srv),
+        "Plugins":      lambda: app._build_tab_plugins    (tabs.tab("Plugins"),      srv),
         "📝 INI":       lambda: app._build_tab_ini_mods   (tabs.tab("📝 INI"),       srv),
         "Admins":       lambda: app._build_tab_admins     (tabs.tab("Admins"),       srv),
         "Jogadores":    lambda: app._build_tab_jogadores  (tabs.tab("Jogadores"),    srv),

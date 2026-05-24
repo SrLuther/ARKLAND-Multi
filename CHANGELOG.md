@@ -21,8 +21,14 @@ ArkShopUI.dll!0x6590 ← ArkShopUI.dll!0x103c5 ← ArkApi::CheckOnTimerCallbacks
 O crash ocorre **somente quando há um jogador conectado** — exatamente quando `HandleNewPlayer` / `GetOrAddShopBuff` são acionados.
 
 **Mudanças:**
-- Aba "Plugins" removida da UI (CustomShop descontinuado)
-- `app.py`: ao iniciar, o ARKLAND detecta e desinstala automaticamente o CustomShop de qualquer servidor que o tenha instalado, garantindo que o plugin não seja carregado na próxima inicialização do servidor
+- Plugin CustomShop removido completamente do projeto (`plugin_manager.py` e `tab_plugins.py` antigo deletados)
+- Aba "Plugins" reimplementada com os 5 plugins oficiais ASE:
+  - **ASE: Server API** v3.56 (obrigatório)
+  - **ASE Permissions** v2.1
+  - **ASE ArkShop** v3.04
+  - **ArkShopUI** v1.12
+  - **Plugin Limit Fix**
+- Cada plugin exibe status de instalação (detectado pelo DLL no servidor), botão **🌐 Download** (abre página oficial) e botão **📥 Instalar** (seleciona ZIP/DLL e extrai para o diretório correto)
 
 
 
