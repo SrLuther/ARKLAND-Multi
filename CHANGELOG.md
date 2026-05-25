@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.44] - 2026-05-25
+
+### Fix
+
+- **server_manager.py**: remoção de `__COMPAT_LAYER` do ambiente do processo antes de iniciar o servidor. O Windows aplica o shim `DetectorsAppHealth` ao `ARKLAND-Multi.exe`; esse shim era propagado via `ShellExecute` para o `ShooterGameServer.exe`. Com o shim ativo, o SEH do ArkApi era interceptado e exceções recuperáveis no `CheckOnTimerCallbacks` viravam crash fatal do servidor — explicando por que plugins como ArkShopUI crashavam no ARKLAND e não no ASM (que não possui o shim). Corrigido removendo temporariamente `__COMPAT_LAYER` antes do `os.startfile()` e restaurando após o lançamento.
+
 ## [1.3.43] - 2026-05-25
 
 ### Feat

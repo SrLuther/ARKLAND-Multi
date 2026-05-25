@@ -1,8 +1,8 @@
 {
-    "version": "1.3.43",
+    "version": "1.3.44",
     "date": "2026-05-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.43/ARKLAND-Multi-Setup-v1.3.43.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.44/ARKLAND-Multi-Setup-v1.3.44.exe",
     "changelog": [
-        "Feat (dialogs/mod_download_dialog.py): popup de progresso de download de mods. Ao clicar em 'Baixar / Atualizar Todos os Mods' ou no botão de download individual, um dialog exibe a lista de mods com status em tempo real (Aguardando → Baixando... → Instalado / Erro). O SteamCMD é aberto em janela própria visível mostrando o download. Após o SteamCMD encerrar, mensagens de cópia e geração do .mod aparecem no log do dialog. Botão 'Fechar' permanece desabilitado até a operação concluir."
+        "Fix (server_manager.py): remoção de __COMPAT_LAYER do ambiente do processo antes de iniciar o servidor. O Windows aplica o shim DetectorsAppHealth ao ARKLAND-Multi.exe, que era propagado via ShellExecute para o ShooterGameServer.exe. Com o shim ativo, o SEH do ArkApi era interceptado e exceções recuperáveis no CheckOnTimerCallbacks viravam crash fatal do servidor. O ASM não sofre esse problema por não ter o shim aplicado. Corrigido removendo temporariamente __COMPAT_LAYER antes do os.startfile() e restaurando após."
     ]
 }

@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.43"
+APP_VERSION: str = "1.3.44"
 BUILD_DATE: str = "2026-05-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.44",
+        "date": "2026-05-25",
+        "changes": [
+            "Fix (server_manager.py): remo\u00e7\u00e3o de __COMPAT_LAYER do ambiente do processo antes de iniciar o servidor. "
+            "O Windows aplica o shim DetectorsAppHealth ao ARKLAND-Multi.exe, que era propagado "
+            "via ShellExecute para o ShooterGameServer.exe. Com o shim ativo, o SEH do ArkApi era "
+            "interceptado e exce\u00e7\u00f5es recuper\u00e1veis no CheckOnTimerCallbacks viravam crash fatal do servidor. "
+            "O ASM n\u00e3o sofre esse problema por n\u00e3o ter o shim aplicado. "
+            "Corrigido removendo temporariamente __COMPAT_LAYER antes do os.startfile() e restaurando ap\u00f3s.",
+        ],
+    },
     {
         "version": "1.3.43",
         "date": "2026-05-25",

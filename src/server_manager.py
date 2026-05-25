@@ -1066,9 +1066,12 @@ class ServerManager:
             _startfile_called = False  # flag: startfile foi invocado com sucesso
 
             # ── Tentativa 8: os.startfile() = ShellExecute (igual ao ASM) ────
-            # ASM usa UseShellExecute=true → ShellExecute não herda env, handles
-            # ou job objects do processo pai. os.startfile() é o equivalente exato
-            # em Python. Após o start, usamos psutil para rastrear o processo.
+            # ASM usa UseShellExecute=true; os.startfile() é o equivalente em
+            # Python. ShellExecute herda o ambiente do processo pai (incluindo
+            # __COMPAT_LAYER), portanto o removemos temporariamente antes do
+            # startfile para evitar que o shim DetectorsAppHealth seja propagado
+            # para o servidor (veja bloco abaixo). Após o start, usamos psutil
+            # para rastrear o processo filho.
             if _run_server_cmd_path is not None and _PSUTIL_OK:
                 try:
                     # ── Verificar instância já em execução antes de lançar ───
@@ -1084,7 +1087,24 @@ class ServerManager:
                         )
                     else:
                         _launch_time = datetime.now()
-                        os.startfile(str(_run_server_cmd_path))
+                        # Remove __COMPAT_LAYER do ambiente real do processo antes
+                        # de chamar os.startfile(). Ao contrário de Popen(env=...),
+                        # ShellExecute propaga o ambiente do processo pai inteiro —
+                        # incluindo __COMPAT_LAYER (DetectorsAppHealth), que o
+                        # subsistema de compat do Windows injeta no ARKLAND-Multi.
+                        # Com esse shim ativo, o SEH do ArkApi é interceptado e
+                        # exceções recuperáveis no CheckOnTimerCallbacks viram crash.
+                        _compat_saved = os.environ.pop('__COMPAT_LAYER', None)
+                        if _compat_saved:
+                            self._emit_log(server_id,
+                                f"[T8] __COMPAT_LAYER={_compat_saved!r} removido do env "
+                                "antes do startfile (evita crash no CheckOnTimerCallbacks).",
+                                "warning")
+                        try:
+                            os.startfile(str(_run_server_cmd_path))
+                        finally:
+                            if _compat_saved is not None:
+                                os.environ['__COMPAT_LAYER'] = _compat_saved
                         _startfile_called = True
                         time.sleep(2)  # aguarda cmd.exe processar o "start" e criar o filho
                         # Procura ShooterGameServer.exe com caminho dentro de install_dir
