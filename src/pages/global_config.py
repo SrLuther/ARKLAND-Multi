@@ -109,10 +109,29 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
         row=5, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
 
+    # ── Seção Steam Web API ─────────────────────────────────────────────────
+    app._section_lbl(parent, 8, "🔑  Steam Web API")
+    api_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    api_card.grid(row=9, column=0, padx=20, pady=(0, 14), sticky="ew")
+    api_card.grid_columnconfigure(1, weight=1)
+
+    app._steam_api_key_var = tk.StringVar(value=cfg.steam_api_key)
+    ctk.CTkLabel(api_card, text="Chave da API Steam:", width=200, anchor="w",
+                 text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 2), sticky="w")
+    ctk.CTkEntry(api_card, textvariable=app._steam_api_key_var, height=34,
+                 placeholder_text="Opcional — ex: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+                 show="*").grid(row=0, column=1, padx=(0, 16), pady=(14, 2), sticky="ew")
+    ctk.CTkLabel(
+        api_card,
+        text="Usada para verificar atualizações de mods sem depender da cota pública compartilhada. "
+             "Obtenha a sua em: steamcommunity.com/dev/apikey",
+        text_color="gray45", font=ctk.CTkFont(size=10), wraplength=560, justify="left",
+    ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
+
     # ── Seção Discord ───────────────────────────────────────────
-    app._section_lbl(parent, 8, "🔔  Notificações Discord")
+    app._section_lbl(parent, 10, "🔔  Notificações Discord")
     disc_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    disc_card.grid(row=9, column=0, padx=20, pady=(0, 14), sticky="ew")
+    disc_card.grid(row=11, column=0, padx=20, pady=(0, 14), sticky="ew")
     disc_card.grid_columnconfigure(1, weight=1)
 
     dc = cfg.discord_notify
@@ -179,5 +198,5 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         height=44, font=ctk.CTkFont(size=14, weight="bold"),
         fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         command=app._save_global_config,
-    ).grid(row=10, column=0, padx=20, pady=(0, 24), sticky="ew")
+    ).grid(row=12, column=0, padx=20, pady=(0, 24), sticky="ew")
 

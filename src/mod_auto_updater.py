@@ -47,6 +47,7 @@ class ModAutoUpdater:
         check_interval_minutes: int = 15,
         warning_minutes: int = 5,
         discord_notifier: Optional[object] = None,
+        steam_api_key: str = "",
     ) -> None:
         self._server_manager      = server_manager
         self._mod_manager         = mod_manager
@@ -55,6 +56,7 @@ class ModAutoUpdater:
         self._check_interval      = check_interval_minutes * 60
         self._warning_seconds     = warning_minutes * 60
         self._discord_notifier    = discord_notifier
+        self._steam_api_key       = steam_api_key
         self._enabled             = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event          = threading.Event()
@@ -74,6 +76,10 @@ class ModAutoUpdater:
 
     def set_warning_minutes(self, minutes: int) -> None:
         self._warning_seconds = max(1, minutes) * 60
+
+    def set_steam_api_key(self, key: str) -> None:
+        """Atualiza a chave da Steam Web API sem reiniciar o serviço."""
+        self._steam_api_key = key
 
     def start(self) -> None:
         if self._enabled:
@@ -455,6 +461,8 @@ class ModAutoUpdater:
         params: Dict[str, str] = {"itemcount": str(len(mod_ids))}
         for idx, mid in enumerate(mod_ids):
             params[f"publishedfileids[{idx}]"] = mid
+        if self._steam_api_key:
+            params["key"] = self._steam_api_key
 
         data_encoded = "&".join(f"{k}={v}" for k, v in params.items())
         data_bytes = data_encoded.encode("utf-8")

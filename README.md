@@ -1,58 +1,112 @@
-# [ARKLAND]-Multi
+# ARKLAND BR Store
 
-Ferramenta de **sincronização bidirecional automática** de pastas ARK Cluster entre múltiplas máquinas Windows.
+Loja online para venda de kits e itens do ARK: Survival Evolved com:
+- Autenticação Steam (OpenID 2.0 via NextAuth)
+- Pagamento via PIX, Cartão de Crédito e Débito (MercadoPago)
+- Entrega automática no servidor via RCON
 
-## Funcionalidades
+## Stack
 
-- Sincronização bidirecional em tempo real (intervalo configurável de 1–60 s)
-- Interface gráfica moderna (CustomTkinter) com Dashboard, Configurações, Logs e Sobre
-- Estatísticas ao vivo: arquivos sincronizados, erros, último sync
-- Inicialização automática ao abrir o programa
-- Modo debug para logs detalhados
-- **Sistema de atualização automática** — verifica, baixa e instala novas versões por URL
+| Camada | Tecnologia |
+|---|---|
+| Frontend + Backend | Next.js 15 (App Router) |
+| Banco de dados | SQLite via Prisma (troque por PostgreSQL em produção) |
+| Autenticação | NextAuth.js v4 + Steam OpenID |
+| Pagamentos | MercadoPago |
+| Entrega | rcon-client (RCON do servidor ARK) |
+| UI | Tailwind CSS v4 + Radix UI |
 
-## Requisitos
+## Configuração inicial
 
-- Windows 10/11
-- Python 3.9+
-- Dependências: `customtkinter>=5.2.0`, `requests>=2.28.0`
-
-## Instalação (modo desenvolvimento)
-
-```bash
-pip install -r requirements.txt
-python main.py
-```
-
-## Build
+### 1. Clone e instale as dependências
 
 ```bash
-build.bat
+npm install
 ```
 
-Gera `dist\ARKLAND-Multi.exe` via PyInstaller.
+### 2. Crie o `.env.local` a partir do exemplo
 
-Para gerar o instalador, abra `setup.iss` no [Inno Setup 6+](https://jrsoftware.org/isinfo.php) e compile.
-
-## Auto-Update
-
-Hospede um `version.json` acessível publicamente com o seguinte formato:
-
-```json
-{
-  "version": "1.1.0",
-  "date": "2026-06-01",
-  "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.1.0/ARKLAND-Multi-Setup-v1.1.0.exe",
-  "changelog": ["Nova funcionalidade X", "Correção Y"]
-}
+```bash
+cp .env.example .env.local
 ```
 
-Configure a URL em **Configurações → Atualizações Automáticas**.
+Edite `.env.local` com seus valores reais:
 
-## Changelog
+| Variável | Como obter |
+|---|---|
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` |
+| `STEAM_API_KEY` | https://steamcommunity.com/dev/apikey |
+| `MP_ACCESS_TOKEN` | https://www.mercadopago.com.br/developers/panel |
+| `MP_PUBLIC_KEY` | Mesmo painel acima |
+| `ARK_RCON_HOST` | IP do seu servidor ARK |
+| `ARK_RCON_PORT` | Porta RCON (padrão: 27020) |
+| `ARK_RCON_PASSWORD` | Definido no `GameUserSettings.ini` |
 
-Veja [CHANGELOG.md](CHANGELOG.md).
+### 3. Configure o banco de dados
 
-## Licença
+```bash
+npm run db:push    # Cria as tabelas
+npm run db:seed    # Popula com categorias e produtos de exemplo
+```
 
-MIT
+### 4. Rode em desenvolvimento
+
+```bash
+npm run dev
+```
+
+Acesse http://localhost:3000
+
+## Configuração do servidor ARK (RCON)
+
+No arquivo `GameUserSettings.ini` do servidor:
+
+```ini
+[ServerSettings]
+RCONEnabled=True
+RCONPort=27020
+ServerAdminPassword=SUA_SENHA_AQUI
+```
+
+## Comandos RCON dos produtos
+
+Ao cadastrar um produto, use `{steamid}` como placeholder para o SteamID do comprador:
+
+```
+GiveItemToPlayer {steamid} "Blueprint'/Game/...'" 1 0 0
+AddExperience {steamid} 1000 0 1
+```
+
+## Webhooks (Produção)
+
+Configure a URL do webhook no painel do MercadoPago:
+
+```
+https://SEU_DOMINIO.com/api/payments/webhook
+```
+
+## Usuário Admin
+
+Para tornar um usuário admin, execute no banco:
+
+```sql
+UPDATE User SET role = 'ADMIN' WHERE steamId = 'SEU_STEAM_ID';
+```
+
+Ou via Prisma Studio:
+
+```bash
+npm run db:studio
+```
+
+## Scripts disponíveis
+
+| Script | Descrição |
+|---|---|
+| `npm run dev` | Inicia em desenvolvimento |
+| `npm run build` | Gera build de produção |
+| `npm run start` | Inicia servidor de produção |
+| `npm run db:push` | Aplica schema ao banco |
+| `npm run db:migrate` | Cria migration |
+| `npm run db:seed` | Popula dados de exemplo |
+| `npm run db:studio` | Interface visual do banco |

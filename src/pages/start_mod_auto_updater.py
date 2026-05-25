@@ -18,6 +18,7 @@ def start_mod_auto_updater(app: "ARKServerManagerApp") -> None:
             on_log=app._on_auto_updater_log,
             check_interval_minutes=15,
             warning_minutes=5,
+            steam_api_key=app.config_manager.config.steam_api_key,
         )
     app._mod_auto_updater.start()
     # Atualiza botões/labels em todos os painéis já construídos

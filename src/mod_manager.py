@@ -129,16 +129,18 @@ class ModManager:
                     shutil.rmtree(dst_dir)
                 shutil.copytree(src_dir, dst_dir)
                 dot_mod_dest = mods_dir / f"{mod_id}.mod"
-                src_dot_mod = self._find_dot_mod(src_dir, mod_id)
+                src_dot_mod = (
+                    self._find_dot_mod(src_dir, mod_id)
+                    or self._find_official_dot_mod(mod_id)
+                )
                 if src_dot_mod:
                     shutil.copy2(src_dot_mod, dot_mod_dest)
-                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
-                elif self._create_dot_mod_from_mod_info(src_dir, mod_id, dot_mod_dest):
-                    self._on_log(f"Mod {mod_id}: .mod gerado a partir de mod.info.", "debug")
+                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado de {src_dot_mod.parent}.", "debug")
                 else:
                     self._on_log(
-                        f"[ATENÇÃO] Mod {mod_id}: mod.info não encontrado — "
-                        "o ARK pode ignorar este mod. Tente re-baixar.", "error"
+                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado no Steam Client. "
+                        "Baixe o mod pelo Steam Client (não SteamCMD) para que o ARK reconheça-o corretamente.",
+                        "error"
                     )
                 self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
             except Exception as exc:
@@ -208,16 +210,18 @@ class ModManager:
                                     shutil.rmtree(dst_mod)
                                 shutil.copytree(src_mod, dst_mod)
                                 dot_mod_dest = mods_dir / f"{mod_id}.mod"
-                                src_dot_mod = self._find_dot_mod(src_mod, mod_id)
+                                src_dot_mod = (
+                                    self._find_dot_mod(src_mod, mod_id)
+                                    or self._find_official_dot_mod(mod_id)
+                                )
                                 if src_dot_mod:
                                     shutil.copy2(src_dot_mod, dot_mod_dest)
-                                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado.", "debug")
-                                elif self._create_dot_mod_from_mod_info(src_mod, mod_id, dot_mod_dest):
-                                    self._on_log(f"Mod {mod_id}: .mod gerado a partir de mod.info.", "debug")
+                                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado de {src_dot_mod.parent}.", "debug")
                                 else:
                                     self._on_log(
-                                        f"[ATENÇÃO] Mod {mod_id}: mod.info não encontrado — "
-                                        "o ARK pode ignorar este mod. Tente re-baixar.", "error"
+                                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado no Steam Client. "
+                                        "Baixe o mod pelo Steam Client (não SteamCMD) para que o ARK reconheça-o corretamente.",
+                                        "error"
                                     )
                                 self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
                                 copy_ok = True
@@ -347,8 +351,7 @@ class ModManager:
 
     def check_mod_installed(self, install_dir: str, mod_id: str) -> bool:
         """Verifica se o mod está instalado (pasta E arquivo .mod presentes).
-        Se a pasta existe mas o .mod está ausente e mod.info está dentro da pasta,
-        gera um .mod binário válido a partir do mod.info (auto-reparo).
+        Se a pasta existe mas o .mod está ausente, tenta restaurar do cache do Steam Client.
         """
         base = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
         mod_folder = base / mod_id
@@ -357,14 +360,105 @@ class ModManager:
             return False
         if dot_mod.exists():
             return True
-        # Auto-reparo: gera .mod binário correto a partir de mod.info
-        if (mod_folder / "mod.info").exists():
-            if self._create_dot_mod_from_mod_info(mod_folder, mod_id, dot_mod):
-                self._on_log(
-                    f"Mod {mod_id}: .mod ausente, auto-gerado a partir de mod.info.", "info"
-                )
+        # Auto-reparo: usa .mod oficial do Steam Client
+        official = self._find_official_dot_mod(mod_id)
+        if official:
+            try:
+                shutil.copy2(official, dot_mod)
+                self._on_log(f"Mod {mod_id}: .mod ausente, restaurado do Steam Client.", "info")
                 return True
+            except Exception:
+                pass
+        self._on_log(
+            f"[ATENÇÃO] Mod {mod_id}: arquivo .mod ausente e não encontrado no Steam Client. "
+            "Baixe o mod pelo Steam Client para corrigir.", "warning"
+        )
         return False
+
+    def repair_mod_files(self, install_dir: str, mod_ids: List[str]) -> int:
+        """Substitui arquivos .mod locais pelos oficiais do Steam Client.
+
+        Deve ser chamado em servidores já instalados para corrigir .mod gerados
+        pelo ARKLAND com formato incorreto.
+        Retorna o número de arquivos .mod substituídos com sucesso.
+        """
+        repaired = 0
+        mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+        for mod_id in mod_ids:
+            mod_id = mod_id.strip()
+            if not mod_id.isdigit():
+                continue
+            dot_mod    = mods_dir / f"{mod_id}.mod"
+            mod_folder = mods_dir / mod_id
+            if not mod_folder.exists():
+                continue
+            official = self._find_official_dot_mod(mod_id)
+            if official:
+                try:
+                    shutil.copy2(official, dot_mod)
+                    self._on_log(f"Mod {mod_id}: .mod oficial copiado de {official.parent}.", "info")
+                    repaired += 1
+                except Exception as exc:
+                    self._on_log(f"Mod {mod_id}: falha ao copiar .mod oficial ({exc}).", "warning")
+            else:
+                self._on_log(
+                    f"Mod {mod_id}: .mod oficial não encontrado no Steam Client — baixe o mod pelo Steam Client.",
+                    "warning"
+                )
+        return repaired
+
+    @staticmethod
+    def _find_official_dot_mod(mod_id: str) -> Optional[Path]:
+        """Procura o arquivo .mod oficial no cache de Workshop do Steam Client local.
+
+        O Steam Client cria arquivos .mod corretos automaticamente ao subscrever
+        um item do Workshop. Usar esses arquivos evita ter de gerar um .mod
+        manualmente (o gerado pode ter sutis diferenças de formato que impedem o
+        ARK de montar o mod corretamente no VFS).
+
+        Tenta localizar o Steam Client via Registro do Windows e verifica todas
+        as bibliotecas listadas em steamapps/libraryfolders.vdf.
+        """
+        try:
+            import winreg
+        except ImportError:
+            return None
+        import re as _re
+
+        steam_dirs: list[Path] = []
+        _registry_entries = [
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam",             "InstallPath"),
+            (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Valve\Steam",             "SteamPath"),
+        ]
+        for hive, key_path, val_name in _registry_entries:
+            try:
+                with winreg.OpenKey(hive, key_path) as _k:
+                    _p = Path(winreg.QueryValueEx(_k, val_name)[0])
+                    if _p not in steam_dirs:
+                        steam_dirs.append(_p)
+            except Exception:
+                pass
+
+        for steam_path in steam_dirs:
+            libraries: list[Path] = [steam_path / "steamapps"]
+            vdf = steam_path / "steamapps" / "libraryfolders.vdf"
+            if vdf.exists():
+                try:
+                    for m in _re.finditer(
+                        r'"path"\s+"([^"]+)"',
+                        vdf.read_text(encoding="utf-8", errors="replace"),
+                    ):
+                        lib = Path(m.group(1)) / "steamapps"
+                        if lib not in libraries:
+                            libraries.append(lib)
+                except Exception:
+                    pass
+            for lib in libraries:
+                dot_mod = lib / "workshop" / "content" / _ARK_GAME_ID / f"{mod_id}.mod"
+                if dot_mod.exists():
+                    return dot_mod
+        return None
 
     @staticmethod
     def _find_dot_mod(workshop_mod_dir: Path, mod_id: str) -> Optional[Path]:
@@ -373,7 +467,7 @@ class ModManager:
         2) dentro da pasta do mod        (346110/{mod_id}/{mod_id}.mod)
         3) qualquer *.mod dentro da pasta do mod
         Retorna o caminho encontrado ou None.
-        Quando None e mod.info existir, use _create_dot_mod_from_mod_info.
+        Quando None e mod.info existir, use _find_official_dot_mod ou _create_dot_mod_from_mod_info.
         """
         # 1 — ao lado da pasta (localização padrão do Steam client)
         candidate = workshop_mod_dir.parent / f"{mod_id}.mod"
@@ -409,8 +503,8 @@ class ModManager:
             uint32  modID_hi   (32 bits altos; normalmente 0)
             uint32  modNameLen (inclui null terminator)
             char[]  modName    (null-terminated, lido do cabeçalho do mod.info)
-            uint32  modPathLen (inclui null terminator)
-            char[]  modPath    ("../../../ShooterGame/Content/Mods/{modid}\\0")
+            uint32  modPathLen (1, string vazia)
+            char[]  modPath    ("\\0" — vazio, conforme formato oficial do Steam Client)
             uint32  numMaps
             for each map:
                 uint32  mapFileLen
@@ -455,7 +549,9 @@ class ModManager:
                 offset += map_file_len
 
             mod_id_int = int(mod_id)
-            mod_path = f"../../../ShooterGame/Content/Mods/{mod_id}\x00".encode("utf-8")
+            # O Steam Client oficial grava modPath como string vazia (\x00, len=1).
+            # Gravar um caminho preenchido pode causar comportamento indesejado no ARK.
+            mod_path = b"\x00"  # string vazia — formato idêntico ao Steam Client
 
             with open(dest, "wb") as f:
                 # ModID como dois uint32 LE (equivalente a uint64)
@@ -464,7 +560,7 @@ class ModManager:
                 # Nome do mod (FString: len + bytes com null terminator)
                 f.write(struct.pack("<I", len(mod_name)))
                 f.write(mod_name)
-                # Caminho do mod
+                # Caminho do mod — vazio, seguindo formato oficial do Steam Client
                 f.write(struct.pack("<I", len(mod_path)))
                 f.write(mod_path)
                 # Maps

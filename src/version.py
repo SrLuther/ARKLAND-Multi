@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.39"
-BUILD_DATE: str = "2026-05-23"
+APP_VERSION: str = "1.3.40"
+BUILD_DATE: str = "2026-05-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.40",
+        "date": "2026-05-25",
+        "changes": [
+            "Fix (mod_manager.py — T11): ARKLAND não gera mais arquivos .mod — usa exclusivamente o "
+            ".mod oficial do Steam Client. Arquivos .mod gerados pelo ARKLAND tinham modPath preenchido "
+            "(../../../ShooterGame/Content/Mods/<id>), enquanto o arquivo oficial do Steam Client tem "
+            "modPath vazio. Esse desvio causava falha no mount do VFS do mod pelo ARK, deixando a classe "
+            "Blueprint do buff ArkShopUI_Buff_FCAS como null e resultando em crash no timer callback "
+            "(~5 min após jogador conectar). Novo método _find_official_dot_mod() localiza o .mod correto "
+            "via registro do Windows + libraryfolders.vdf. Novo método repair_mod_files() substitui .mod "
+            "incorretos de mods já instalados pelo arquivo oficial.",
+            "Feat (mod_auto_updater.py + config_manager.py + global_config.py): suporte a Steam Web API Key "
+            "nas configurações globais. A key é enviada nas requisições ao ISteamRemoteStorage/"
+            "GetPublishedFileDetails para verificação de atualizações de mods. Campo adicionado na aba "
+            "Configurações Globais com hint para steamcommunity.com/dev/apikey.",
+        ],
+    },
     {
         "version": "1.3.39",
         "date": "2026-05-23",

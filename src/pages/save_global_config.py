@@ -12,6 +12,7 @@ def save_global_config(app: "ARKServerManagerApp") -> None:
     cfg.startup_with_windows = app._cfg_startup_var.get()
     cfg.minimize_to_tray     = app._cfg_minimize_tray_var.get()
     cfg.log_debug            = app._cfg_log_debug_var.get()
+    cfg.steam_api_key        = app._steam_api_key_var.get().strip()
     # Discord
     dc = cfg.discord_notify
     dc.enabled       = app._discord_enabled_var.get()
@@ -25,5 +26,7 @@ def save_global_config(app: "ARKServerManagerApp") -> None:
     _set_windows_startup(cfg.startup_with_windows)
     app.config_manager.save()
     app.mod_manager.steamcmd_path = cfg.steamcmd_path
+    if app._mod_auto_updater is not None:
+        app._mod_auto_updater.set_steam_api_key(cfg.steam_api_key)
     messagebox.showinfo("Salvo", "Configurações globais salvas!", parent=app)
 

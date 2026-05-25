@@ -34,6 +34,7 @@ class AppConfig:
     startup_with_windows: bool = False       # Iniciar com o Windows
     minimize_to_tray: bool = False           # Minimizar para a bandeja ao fechar
     log_debug: bool = False                  # Log verboso
+    steam_api_key: str = ""                  # Chave pessoal da Steam Web API (opcional, evita rate limit)
     update_url: str = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
 
     # ── Legado (sync cluster) ─────────────────────────────────────────────────

@@ -57,7 +57,8 @@ _OFFICIAL_PLUGINS = [
         "author":     "Pelayori",
         "tag":        "Plugin",
         "tag_color":  "#2d5a2d",
-        "desc":       "Loja de itens, sistema de moeda e kits para servidores ARK.",
+        "desc":       "Loja de itens, sistema de moeda e kits para servidores ARK.\n"
+                      "Requer MySQL ≤ 8.0.27 ou MariaDB (MySQL 8.0.28+ não é suportado).",
         "url":        "https://ark-server-api.com/resources/ase-arkshop.36/",
         "detect":     lambda d: (d / _PLUGINS / "ArkShop" / "ArkShop.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
@@ -128,6 +129,44 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         text_color="gray50",
         anchor="w",
     ).grid(row=1, column=0, sticky="w", pady=(2, 0))
+
+    # ── Banner de compatibilidade (branch / mapa) ─────────────────────────────
+    _map    = getattr(srv, "map",         None) or ""
+    _branch = getattr(srv, "branch_name", None) or ""
+
+    if _map == "Aquatica":
+        _banner_bg   = "#5a2a00"
+        _banner_fg   = "#ffbb66"
+        _banner_text = (
+            "⚠️  Os plugins ArkApi não são compilados para o mapa Aquatic (Aquatica).\n"
+            "    Plugins instalados neste servidor não terão efeito."
+        )
+    elif _branch == "preaquatica":
+        _banner_bg   = "#1a3d1a"
+        _banner_fg   = "#66cc77"
+        _banner_text = (
+            "✅  Branch preaquatica detectado — versão 358, última com suporte a ArkApi.\n"
+            "    Plugins devem funcionar normalmente neste servidor."
+        )
+    else:
+        _banner_bg   = "#5a3300"
+        _banner_fg   = "#ffcc55"
+        _banner_text = (
+            "⚠️  A atualização recente da Snail (v359+) quebrou os plugins ArkApi.\n"
+            "    Para usar plugins, vá em  Geral  e configure o Branch como  preaquatica .\n"
+            "    Última versão com suporte: 358."
+        )
+
+    _banner_frame = ctk.CTkFrame(hdr, fg_color=_banner_bg, corner_radius=8)
+    _banner_frame.grid(row=2, column=0, columnspan=2, pady=(10, 0), sticky="ew")
+    ctk.CTkLabel(
+        _banner_frame,
+        text=_banner_text,
+        font=ctk.CTkFont(size=11),
+        text_color=_banner_fg,
+        anchor="w",
+        justify="left",
+    ).grid(row=0, column=0, padx=14, pady=8, sticky="w")
 
     refresh_btn = ctk.CTkButton(
         hdr, text="🔄", width=36, height=32,

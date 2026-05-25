@@ -2,6 +2,31 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.40] - 2026-05-25
+
+### Fix — Crash ArkShopUI.dll: arquivo `.mod` incorreto gerado pelo ARKLAND (Tentativa 11)
+
+**Causa raiz definitiva:** O ARKLAND gerava arquivos `.mod` com `modPath = "../../../ShooterGame/Content/Mods/<id>"`. O Steam Client oficial gera esses arquivos com `modPath = ""` (vazio). O ARK usa o `modPath` vazio como caminho padrão para montar o VFS do mod — quando o campo está preenchido com o caminho errado, o ARK falha no mount, a classe Blueprint `ArkShopUI_Buff_FCAS` fica `null` e o timer callback do `ArkShopUI.dll` crasha ~5 min após um jogador conectar.
+
+**Mudanças em `mod_manager.py`:**
+- ARKLAND **não gera mais `.mod` files** — usa exclusivamente o arquivo oficial do Steam Client
+- `_find_official_dot_mod(mod_id)` — novo método estático que localiza o `.mod` correto via registro do Windows (`HKLM/HKCU → InstallPath`) + `libraryfolders.vdf` (Steam library paths)
+- `repair_mod_files(install_dir, mod_ids)` — novo método público que substitui `.mod` incorretos de servidores já instalados pelo arquivo oficial do Steam Client
+- Fluxos de `copy_downloaded_mods()`, `_download_worker()` e `check_mod_installed()` atualizados: usam o `.mod` oficial; se não encontrado, logam erro orientando o usuário a baixar o mod pelo Steam Client
+
+### Feat — Steam Web API Key nas Configurações Globais
+
+O `ModAutoUpdater` já consultava `ISteamRemoteStorage/GetPublishedFileDetails` sem autenticação. Adicionado suporte à Steam Web API Key para evitar rate-limit da Steam.
+
+**Mudanças:**
+- `config_manager.py` — campo `steam_api_key: str = ""` no `AppConfig`
+- `mod_auto_updater.py` — aceita `steam_api_key` no construtor; `set_steam_api_key()` para atualizar sem reiniciar; key injetada nos requests ao Steam Web API
+- `pages/global_config.py` — nova seção "🔑 Steam Web API" com campo mascarado (hint: steamcommunity.com/dev/apikey)
+- `pages/save_global_config.py` — salva a key e propaga para o `ModAutoUpdater` ativo
+- `pages/start_mod_auto_updater.py` — passa a key ao instanciar `ModAutoUpdater`
+
+---
+
 ## [1.3.39] - 2026-05-23
 
 ### Fix — Crash ArkShopUI.dll: plugin CustomShop descontinuado (Tentativa 10)

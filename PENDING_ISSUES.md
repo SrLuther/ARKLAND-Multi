@@ -5,17 +5,17 @@
 
 ---
 
-## [TESTE] `server_manager.py` — Fix do crash ao conectar jogadores (aguardando confirmação em produção)
+## [TESTE] `mod_manager.py` — Fix do crash ArkShopUI.dll via arquivo `.mod` oficial (aguardando confirmação em produção)
 
-**Status:** ✅ Fix aplicado em v1.3.28 — ⏳ aguardando teste em produção
+**Status:** ✅ Fix aplicado em v1.3.40 — ⏳ aguardando teste em produção
 
-**Arquivo corrigido:** `src/server_manager.py`
+**Arquivos corrigidos:** `src/mod_manager.py`, `src/mod_auto_updater.py`, `src/config_manager.py`, `src/pages/global_config.py`, `src/pages/save_global_config.py`, `src/pages/start_mod_auto_updater.py`
 
 ---
 
 ### Sintoma
 
-Crash fatal do servidor ARK imediatamente após um jogador conectar, **somente quando o servidor era iniciado pelo ARKLAND-Multi**. Quando iniciado pelo ASM (ArkServerManager), o servidor funcionava normalmente.
+Crash fatal do servidor ARK ~5 minutos após um jogador conectar, **somente quando o servidor era iniciado pelo ARKLAND-Multi**. Quando iniciado pelo ASM (ArkServerManager), o servidor funcionava normalmente.
 
 Stack trace do crash:
 
@@ -28,15 +28,42 @@ VERSION.dll!ArkApi::Hook_AGameState_DefaultTimer()
 ShooterGameServer.exe!FTimerManager::Tick()
 ```
 
+### Causa raiz (Tentativa 11 — 25/05/2026)
+
+Comparação binária dos arquivos `.mod` revelou diferença crítica:
+
+| Campo | ARKLAND gerado (304 bytes) | Steam Client oficial (255 bytes) |
+|---|---|---|
+| `modPath` | `../../../ShooterGame/Content/Mods/2693727499` | `` (vazio) |
+| `modName` | `ModName` | `ModName` |
+
+O ARK usa o `modPath` vazio como caminho padrão para montar o VFS do mod. Quando preenchido com o caminho errado, o ARK falha no mount, a classe Blueprint `ArkShopUI_Buff_FCAS` fica `null`, e o timer callback do `ArkShopUI.dll` crasha no primeiro tick em que um jogador está conectado.
+
+O SteamCMD nunca cria arquivos `.mod` — apenas o Steam Client cria. O ARKLAND gerava `.mod` via `_create_dot_mod_from_mod_info()` com `modPath` preenchido incorretamente.
+
+### Fix aplicado (v1.3.40)
+
+- ARKLAND **não gera mais `.mod` files** — usa exclusivamente o arquivo oficial do Steam Client
+- `_find_official_dot_mod(mod_id)`: localiza o `.mod` no cache do Steam Client via registro do Windows + `libraryfolders.vdf`
+- `repair_mod_files(install_dir, mod_ids)`: substitui `.mod` incorretos de servidores já instalados pelo arquivo oficial
+
+### Como validar
+
+1. **Testar com servidor já instalado:** copiar `steamapps/workshop/content/346110/2693727499.mod` (Steam Client cache) para `ShooterGame/Content/Mods/2693727499.mod` do Servidor 01
+2. Iniciar o Servidor 01 via ARKLAND
+3. Conectar um jogador e aguardar 5+ minutos
+4. Confirmar ausência de crash — se OK, fechar esta issue
+
 ---
 
-### Histórico de investigação
+---
 
-#### Tentativa 1 — Hipótese `_MEIPASS\z.dll` → Fix v1.3.28 (22/05/2026) ❌ Não resolveu
+### Histórico de investigação (T1–T10 — todas fracassadas)
 
-**Hipótese:** O PyInstaller (modo onefile) extrai os arquivos para `%TEMP%\_MEIxxxxxx\` e prepend esse diretório ao `PATH` do processo Python. O PyInstaller detecta `z.dll` (zlib do CustomShop) como dependência binária e a copia para `_MEIPASS\z.dll`. O servidor filho herdava o PATH modificado → `libmariadb.dll` carregava a `z.dll` errada → crash no timer callback do ArkShopUI.
+#### Tentativa 1 — Hipótese `_MEIPASS\z.dll` (22/05/2026) ❌ Não resolveu
 
-**Fix aplicado:** `_build_server_env()` remove `_MEIPASS` do PATH + `CREATE_NEW_CONSOLE` no `subprocess.Popen`.
+**Hipótese:** O PyInstaller prepend `_MEIPASS` ao PATH; `z.dll` gerava conflito de DLL no servidor filho.
+**Fix aplicado:** `_build_server_env()` remove `_MEIPASS` do PATH + `CREATE_NEW_CONSOLE`.
 
 **Resultado:** Crash persistiu com os mesmos endereços (`0x6590`, `0x103c5`). Fix não resolveu.
 
