@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.41"
+APP_VERSION: str = "1.3.42"
 BUILD_DATE: str = "2026-05-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.42",
+        "date": "2026-05-25",
+        "changes": [
+            "Fix (mod_manager.py + server_manager.py): fallback de gera\u00e7\u00e3o de .mod reativado como \u00faltimo recurso. "
+            "Quando o arquivo .mod oficial do Steam Client n\u00e3o est\u00e1 dispon\u00edvel no cache local "
+            "(mods baixados via SteamCMD sem estar subscrito no Steam Client), "
+            "o ARKLAND gera o .mod a partir do mod.info com modPath vazio (formato correto). "
+            "N\u00e3o \u00e9 mais necess\u00e1rio re-baixar mods pelo Steam Client para que o servidor inicie.",
+        ],
+    },
     {
         "version": "1.3.41",
         "date": "2026-05-25",

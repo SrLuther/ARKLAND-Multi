@@ -980,11 +980,17 @@ class ServerManager:
                     except Exception as _e:
                         self._emit_log(server_id, f"Mod {_mid}: falha ao aplicar .mod ({_e}).", "warning")
                 else:
-                    self._emit_log(
-                        server_id,
-                        f"Mod {_mid}: .mod oficial não encontrado no Steam Client — re-baixe o mod pelo Steam.",
-                        "warning",
-                    )
+                    # Fallback: gera .mod a partir do mod.info local (modPath vazio — formato correto)
+                    _dst = _mods_dir / f"{_mid}.mod"
+                    _mod_folder = _mods_dir / _mid
+                    if _mod_folder.exists() and ModManager._create_dot_mod_from_mod_info(_mod_folder, _mid, _dst):
+                        self._emit_log(server_id, f"Mod {_mid}: .mod gerado a partir do mod.info.", "info")
+                    elif not _dst.exists():
+                        self._emit_log(
+                            server_id,
+                            f"Mod {_mid}: .mod ausente e mod.info não encontrado — re-baixe o mod na aba Mods.",
+                            "warning",
+                        )
         # ─────────────────────────────────────────────────────────────────────
 
         # Monta linha de comando

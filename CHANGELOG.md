@@ -2,9 +2,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.42] - 2026-05-25
+
+### Fix
+
+- **mod_manager.py + server_manager.py**: fallback de geração de `.mod` reativado como último recurso. Quando o arquivo `.mod` oficial do Steam Client não está disponível no cache local (mods baixados via SteamCMD sem estar subscrito no Steam Client), o ARKLAND gera o `.mod` a partir do `mod.info` com `modPath` vazio (formato correto). Não é mais necessário re-baixar mods pelo Steam Client para que o servidor inicie. Dialog "Mods incompletos" não aparecerá mais para mods com `mod.info` presente.
+
 ## [1.3.41] - 2026-05-25
 
 ### Fix
+
 - **server_manager.py**: reparo automático de `.mod` ao iniciar servidor. A cada start, o ARKLAND copia o `.mod` oficial do Steam Client para `ShooterGame/Content/Mods/` de cada mod configurado. Cobre: (1) arquivo ausente (deletado ou nunca criado); (2) arquivo gerado por versões antigas com `modPath` incorreto (T11). Não é mais necessária nenhuma ação manual.
 
 ## [1.3.40] - 2026-05-25
@@ -14,6 +21,7 @@
 **Causa raiz definitiva:** O ARKLAND gerava arquivos `.mod` com `modPath = "../../../ShooterGame/Content/Mods/<id>"`. O Steam Client oficial gera esses arquivos com `modPath = ""` (vazio). O ARK usa o `modPath` vazio como caminho padrão para montar o VFS do mod — quando o campo está preenchido com o caminho errado, o ARK falha no mount, a classe Blueprint `ArkShopUI_Buff_FCAS` fica `null` e o timer callback do `ArkShopUI.dll` crasha ~5 min após um jogador conectar.
 
 **Mudanças em `mod_manager.py`:**
+
 - ARKLAND **não gera mais `.mod` files** — usa exclusivamente o arquivo oficial do Steam Client
 - `_find_official_dot_mod(mod_id)` — novo método estático que localiza o `.mod` correto via registro do Windows (`HKLM/HKCU → InstallPath`) + `libraryfolders.vdf` (Steam library paths)
 - `repair_mod_files(install_dir, mod_ids)` — novo método público que substitui `.mod` incorretos de servidores já instalados pelo arquivo oficial do Steam Client
@@ -24,6 +32,7 @@
 O `ModAutoUpdater` já consultava `ISteamRemoteStorage/GetPublishedFileDetails` sem autenticação. Adicionado suporte à Steam Web API Key para evitar rate-limit da Steam.
 
 **Mudanças:**
+
 - `config_manager.py` — campo `steam_api_key: str = ""` no `AppConfig`
 - `mod_auto_updater.py` — aceita `steam_api_key` no construtor; `set_steam_api_key()` para atualizar sem reiniciar; key injetada nos requests ao Steam Web API
 - `pages/global_config.py` — nova seção "🔑 Steam Web API" com campo mascarado (hint: steamcommunity.com/dev/apikey)
@@ -39,18 +48,20 @@ O `ModAutoUpdater` já consultava `ISteamRemoteStorage/GetPublishedFileDetails` 
 **Contexto:** Tentativa 9 (v1.3.38 — remover `?GameModIds=`) confirmada como **falhou**. Crash persiste.
 
 **Nova hipótese (T10):** O plugin `CustomShop.dll` registra dois hooks no ArkApi:
+
 - `Hook_AShooterGameMode_HandleNewPlayer` → chama `CustomShop::Data::InitPlayer(player)` a cada jogador conectado
 - `Hook_AShooterGameMode_BeginPlay` → chama `InitPlayer` para todos os jogadores ao iniciar
 
 O `InitPlayer` aciona `ShopBridge::GetOrAddShopBuff()`, que aplica um buff permanente do mod `FC_ArkShopUI` (`ArkShopUI_Buff_FCAS`) diretamente no personagem do jogador. Essa operação pode estar corrompendo o estado interno do `ArkShopUI.dll`, causando o crash no timer callback (~5 min após o jogador entrar):
 
-```
+```text
 ArkShopUI.dll!0x6590 ← ArkShopUI.dll!0x103c5 ← ArkApi::CheckOnTimerCallbacks
 ```
 
 O crash ocorre **somente quando há um jogador conectado** — exatamente quando `HandleNewPlayer` / `GetOrAddShopBuff` são acionados.
 
 **Mudanças:**
+
 - Plugin CustomShop removido completamente do projeto (`plugin_manager.py` e `tab_plugins.py` antigo deletados)
 - Aba "Plugins" reimplementada com os 5 plugins oficiais ASE:
   - **ASE: Server API** v3.56 (obrigatório)
@@ -60,13 +71,11 @@ O crash ocorre **somente quando há um jogador conectado** — exatamente quando
   - **Plugin Limit Fix**
 - Cada plugin exibe status de instalação (detectado pelo DLL no servidor), botão **🌐 Download** (abre página oficial) e botão **📥 Instalar** (seleciona ZIP/DLL e extrai para o diretório correto)
 
-
-
 ### Fix — Crash determinístico do ArkShopUI.dll (Tentativa 9 — causa raiz encontrada)
 
 **Stack trace reproduzível:**
 
-```
+```text
 ArkShopUI.dll!UnknownFunction (0x0000000180006590)
 ArkShopUI.dll!UnknownFunction (0x00000001800103c5)
 VERSION.dll!ArkApi::Commands::CheckOnTimerCallbacks()

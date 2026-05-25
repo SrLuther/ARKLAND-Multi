@@ -136,10 +136,12 @@ class ModManager:
                 if src_dot_mod:
                     shutil.copy2(src_dot_mod, dot_mod_dest)
                     self._on_log(f"Mod {mod_id}: arquivo .mod copiado de {src_dot_mod.parent}.", "debug")
+                elif self._create_dot_mod_from_mod_info(src_dir, mod_id, dot_mod_dest):
+                    self._on_log(f"Mod {mod_id}: arquivo .mod gerado a partir do mod.info (Steam Client ausente).", "info")
                 else:
                     self._on_log(
-                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado no Steam Client. "
-                        "Baixe o mod pelo Steam Client (não SteamCMD) para que o ARK reconheça-o corretamente.",
+                        f"[ATEN\u00c7\u00c3O] Mod {mod_id}: arquivo .mod n\u00e3o encontrado e mod.info ausente. "
+                        "Re-baixe o mod ou subscreva-o no Steam Client.",
                         "error"
                     )
                 self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
@@ -217,10 +219,12 @@ class ModManager:
                                 if src_dot_mod:
                                     shutil.copy2(src_dot_mod, dot_mod_dest)
                                     self._on_log(f"Mod {mod_id}: arquivo .mod copiado de {src_dot_mod.parent}.", "debug")
+                                elif self._create_dot_mod_from_mod_info(src_mod, mod_id, dot_mod_dest):
+                                    self._on_log(f"Mod {mod_id}: arquivo .mod gerado a partir do mod.info (Steam Client ausente).", "info")
                                 else:
                                     self._on_log(
-                                        f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado no Steam Client. "
-                                        "Baixe o mod pelo Steam Client (não SteamCMD) para que o ARK reconheça-o corretamente.",
+                                        f"[ATEN\u00c7\u00c3O] Mod {mod_id}: arquivo .mod n\u00e3o encontrado e mod.info ausente. "
+                                        "Re-baixe o mod ou subscreva-o no Steam Client.",
                                         "error"
                                     )
                                 self._on_log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
@@ -369,9 +373,14 @@ class ModManager:
                 return True
             except Exception:
                 pass
+        # Fallback: gera .mod a partir do mod.info do SteamCMD (modPath vazio — formato correto)
+        workshop_dir = mod_folder  # <install_dir>/ShooterGame/Content/Mods/<mod_id>/
+        if self._create_dot_mod_from_mod_info(workshop_dir, mod_id, dot_mod):
+            self._on_log(f"Mod {mod_id}: .mod gerado a partir do mod.info (Steam Client ausente).", "info")
+            return True
         self._on_log(
-            f"[ATENÇÃO] Mod {mod_id}: arquivo .mod ausente e não encontrado no Steam Client. "
-            "Baixe o mod pelo Steam Client para corrigir.", "warning"
+            f"[ATENÇÃO] Mod {mod_id}: arquivo .mod ausente, Steam Client sem cache e mod.info não encontrado. "
+            "Re-baixe o mod na aba Mods.", "warning"
         )
         return False
 

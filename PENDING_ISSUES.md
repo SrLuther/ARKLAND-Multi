@@ -33,7 +33,7 @@ ShooterGameServer.exe!FTimerManager::Tick()
 Comparação binária dos arquivos `.mod` revelou diferença crítica:
 
 | Campo | ARKLAND gerado (304 bytes) | Steam Client oficial (255 bytes) |
-|---|---|---|
+| --- | --- | --- |
 | `modPath` | `../../../ShooterGame/Content/Mods/2693727499` | `` (vazio) |
 | `modName` | `ModName` | `ModName` |
 
@@ -266,7 +266,7 @@ Análise do source do ASM (`ServerApp.cs`, `ServerProfile.cs`) revelou:
 `ShellExecute` (= `os.startfile`) é **fundamentalmente diferente** de `subprocess.Popen` (`CreateProcess`):
 
 | | ASM (`ShellExecute`) | ARKLAND (`CreateProcess`) |
-|---|---|---|
+| --- | --- | --- |
 | Ambiente herdado | Ambiente do Desktop do usuário — isolado do ASM | Ambiente do processo Python/PyInstaller |
 | Handles herdados | **Nenhum** | Herda todos os handles abertos do PyInstaller |
 | Job objects | Não herda | Potencialmente herda job object do PyInstaller |
@@ -337,6 +337,7 @@ proc = subprocess.Popen(
 **Hipótese:**
 
 O ARKLAND-Multi faz as duas coisas ao mesmo tempo:
+
 - Escreve `ActiveMods=2693727499,3726048146` em `GameUserSettings.ini` (`ark_ini.py` linha 1284)
 - Adiciona `?GameModIds=2693727499,3726048146` na linha de comando (`server_config.py` linha 651)
 
@@ -355,6 +356,7 @@ Quando `?GameModIds=` está na linha de comando, ele **sobrepõe** a lista do IN
 **Descoberta que motiva esta hipótese:**
 
 O plugin CustomShop (`plugin/CustomShop/src/`) registra dois hooks no ArkApi:
+
 - `Hook_AShooterGameMode_HandleNewPlayer` — chama `CustomShop::Data::InitPlayer(player)` a cada jogador que entra
 - `Hook_AShooterGameMode_BeginPlay` — chama `InitPlayer` para todos os jogadores conectados ao iniciar
 
@@ -363,6 +365,7 @@ O `InitPlayer` aciona `ShopBridge::GetOrAddShopBuff()` que aplica um buff perman
 O crash ocorre APENAS quando um jogador está conectado, o que é exatamente quando `HandleNewPlayer` / `GetOrAddShopBuff` são acionados. Sem o CustomShop, o buff nunca é aplicado e o ArkShopUI.dll processa o timer sem estado corrompido.
 
 **Fix implementado em v1.3.39:**
+
 - Aba "Plugins" removida da UI do ARKLAND (CustomShop descontinuado)
 - Auto-desinstalação do CustomShop no startup do ARKLAND para qualquer servidor que o tenha instalado
 - Servidor deve ser reiniciado após a atualização para garantir que o plugin não seja carregado

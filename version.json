@@ -1,8 +1,8 @@
 {
-    "version": "1.3.41",
+    "version": "1.3.42",
     "date": "2026-05-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.41/ARKLAND-Multi-Setup-v1.3.41.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.42/ARKLAND-Multi-Setup-v1.3.42.exe",
     "changelog": [
-        "Fix (server_manager.py): reparo automático de arquivos .mod ao iniciar servidor. A cada start, o ARKLAND copia o .mod oficial do Steam Client para o diretório ShooterGame/Content/Mods/ de cada mod configurado no servidor. Cobre dois casos: (1) arquivo .mod ausente (deletado ou nunca criado); (2) arquivo .mod gerado por versões anteriores do ARKLAND com modPath incorreto (T11). Não é mais necessário copiar manualmente o .mod antes de testar."
+        "Fix (mod_manager.py + server_manager.py): fallback de geração de .mod reativado como último recurso. Quando o arquivo .mod oficial do Steam Client não está disponível no cache local (mods baixados via SteamCMD sem estar subscrito no Steam Client), o ARKLAND gera o .mod a partir do mod.info com modPath vazio (formato correto). Não é mais necessário re-baixar mods pelo Steam Client para que o servidor inicie."
     ]
 }
