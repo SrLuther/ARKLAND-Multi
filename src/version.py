@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.44"
+APP_VERSION: str = "1.3.45"
 BUILD_DATE: str = "2026-05-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.45",
+        "date": "2026-05-25",
+        "changes": [
+            "Feat (tab_general.py): sele\u00e7\u00e3o de branch SteamCMD por bot\u00f5es r\u00e1pidos na aba Geral. "
+            "Bot\u00f5es '\u2705 Padr\u00e3o (Est\u00e1vel)' e '\U0001f995 Pre-Aquatica' definem o campo branch_name automaticamente. "
+            "Campo de texto permanece vis\u00edvel para branches personalizadas. "
+            "Sele\u00e7\u00e3o 'preaquatica' instrui o SteamCMD a baixar a vers\u00e3o ASE pr\u00e9-Aquatica (compatibilidade com ArkShopUI V1.x e plugins ASE antigos).",
+            "Feat (build_server_card.py): card do servidor exibe a vers\u00e3o instalada: "
+            "'\u2705 Vers\u00e3o: Padr\u00e3o (Est\u00e1vel)', '\U0001f995 Vers\u00e3o: Pre-Aquatica' ou '\U0001f3ae Branch: <nome>' para branches personalizadas.",
+        ],
+    },
     {
         "version": "1.3.44",
         "date": "2026-05-25",

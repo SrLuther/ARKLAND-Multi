@@ -1,8 +1,9 @@
 {
-    "version": "1.3.44",
+    "version": "1.3.45",
     "date": "2026-05-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.44/ARKLAND-Multi-Setup-v1.3.44.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.45/ARKLAND-Multi-Setup-v1.3.45.exe",
     "changelog": [
-        "Fix (server_manager.py): remoção de __COMPAT_LAYER do ambiente do processo antes de iniciar o servidor. O Windows aplica o shim DetectorsAppHealth ao ARKLAND-Multi.exe, que era propagado via ShellExecute para o ShooterGameServer.exe. Com o shim ativo, o SEH do ArkApi era interceptado e exceções recuperáveis no CheckOnTimerCallbacks viravam crash fatal do servidor. O ASM não sofre esse problema por não ter o shim aplicado. Corrigido removendo temporariamente __COMPAT_LAYER antes do os.startfile() e restaurando após."
+        "Feat (tab_general.py): seleção de branch SteamCMD por botões rápidos na aba Geral. Botões '✅ Padrão (Estável)' e '🦕 Pre-Aquatica' definem o campo branch_name automaticamente. Campo de texto permanece visível para branches personalizadas. Seleção 'preaquatica' instrui o SteamCMD a baixar a versão ASE pré-Aquatica (compatibilidade com ArkShopUI V1.x e plugins ASE antigos).",
+        "Feat (build_server_card.py): card do servidor exibe a versão instalada: '✅ Versão: Padrão (Estável)', '🦕 Versão: Pre-Aquatica' ou '🎮 Branch: <nome>' para branches personalizadas."
     ]
 }

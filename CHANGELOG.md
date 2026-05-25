@@ -2,6 +2,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.45] - 2026-05-25
+
+### Feat
+
+- **tab_general.py**: seleção de branch SteamCMD por botões rápidos na aba Geral. Botões "✅ Padrão (Estável)" e "🦕 Pre-Aquatica" definem o campo `branch_name` automaticamente sem necessidade de digitar. Campo de texto permanece visível para branches personalizadas. Selecionar "Pre-Aquatica" instrui o SteamCMD a baixar a versão ASE pré-Aquatica (`app_update 376030 -beta preaquatica validate`), necessária para compatibilidade com ArkShopUI V1.x e plugins ASE antigos.
+- **build_server_card.py**: card do servidor exibe a versão instalada — "✅ Versão: Padrão (Estável)", "🦕 Versão: Pre-Aquatica" ou "🎮 Branch: `<nome>`" para branches personalizadas.
+
 ## [1.3.44] - 2026-05-25
 
 ### Fix

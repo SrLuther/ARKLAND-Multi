@@ -405,9 +405,41 @@ def build_tab_general(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
     ).pack(anchor="w", pady=(4, 0))
 
     _head(c_opt, "🎮  SteamCMD Beta Branch")
-    _fld(c_opt, "Nome da Branch:",
-         "Branch SteamCMD para instalar/atualizar. Ex: 'preaquatica'. Vazio = versão estável.",
-         w["branch_name"])
+    # ── Seleção rápida de branch ──────────────────────────────────────────
+    app._register_config_item(srv.id, "Versão do Servidor", "Selecione Padrão (estável) ou Pre-Aquatica para instalar a versão anterior à atualização Aquatica.", "Geral")
+    _branch_fr = tk.Frame(c_opt, bg=_INNER)
+    _branch_fr.pack(fill="x", padx=10, pady=(0, 4))
+    _branch_fr.columnconfigure(0, weight=1)
+    tk.Label(_branch_fr, text="Versão do Servidor:", anchor="w", bg=_INNER,
+             fg=_FORM_LABEL_FG, font=_FORM_FONT_BOLD).grid(row=0, column=0, sticky="w")
+    _btn_row = tk.Frame(_branch_fr, bg=_INNER)
+    _btn_row.grid(row=1, column=0, sticky="w", pady=(4, 2))
+
+    def _set_branch(val: str) -> None:
+        w["branch_name"].set(val)
+
+    ctk.CTkButton(
+        _btn_row, text="✅  Padrão (Estável)", width=180, height=32,
+        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        command=lambda: _set_branch(""),
+    ).pack(side="left", padx=(0, 8))
+    ctk.CTkButton(
+        _btn_row, text="🦕  Pre-Aquatica", width=160, height=32,
+        fg_color="#7a3a10", hover_color="#9a4a18",
+        command=lambda: _set_branch("preaquatica"),
+    ).pack(side="left")
+
+    tk.Label(_branch_fr,
+             text="Ou digite uma branch personalizada abaixo (vazio = versão estável):",
+             anchor="w", bg=_INNER, fg=_FORM_HINT_FG,
+             font=_FORM_FONT_HINT).grid(row=2, column=0, sticky="w", pady=(4, 2))
+    ctk.CTkEntry(_branch_fr, textvariable=w["branch_name"], height=32).grid(
+        row=3, column=0, sticky="ew", pady=(0, 2))
+    tk.Label(_branch_fr,
+             text="'preaquatica' = ASE pré-Aquatica (compatível com ArkShopUI V1.x e plugins ASE antigos).",
+             anchor="w", bg=_INNER, fg=_FORM_HINT_FG,
+             font=_FORM_FONT_HINT, justify="left").grid(row=4, column=0, sticky="w", pady=(1, 2))
+
     _fld(c_opt, "Senha da Branch:",
          "Senha da branch beta, se necessário (-betapassword).",
          w["branch_password"], is_pass=True)

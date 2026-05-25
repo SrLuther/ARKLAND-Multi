@@ -39,8 +39,15 @@ def build_server_card(app: "ARKServerManagerApp", parent, srv: "ServerConfig", r
                  font=ctk.CTkFont(size=12, weight="bold")).grid(row=0, column=2, sticky="e")
 
     map_name = ARK_MAP_NAMES.get(srv.map, srv.map)
+    if srv.branch_name == "preaquatica":
+        _branch_line = "🦕  Versão: Pre-Aquatica"
+    elif srv.branch_name:
+        _branch_line = f"🎮  Branch: {srv.branch_name}"
+    else:
+        _branch_line = "✅  Versão: Padrão (Estável)"
     info_lines = [
         f"🗺  {map_name}",
+        _branch_line,
         f"🔌  Porta: {srv.server_port}  |  Query: {srv.query_port}",
     ]
     # Contagem de jogadores via BattleMetrics (quando disponível) ou máximo configurado
