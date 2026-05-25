@@ -10,9 +10,6 @@ def download_all_mods(app: "ARKServerManagerApp", server_id: str) -> None:
     if not srv or not srv.mods:
         messagebox.showinfo("Mods", "Nenhum mod para baixar.", parent=app)
         return
-    app.mod_manager.steamcmd_path = app.config_manager.config.steamcmd_path
-    app.mod_manager.download_mods(
-        srv.mods, srv.install_dir,
-        on_done=lambda ok: app.after(0, lambda: app._refresh_mods_list(server_id)),  # type: ignore[arg-type]
-    )
+    from ..dialogs.mod_download_dialog import open_mod_download_dialog
+    open_mod_download_dialog(app, server_id, list(srv.mods))
 

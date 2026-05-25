@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.43] - 2026-05-25
+
+### Feat
+
+- **dialogs/mod_download_dialog.py**: popup de progresso de download de mods. Ao clicar em "Baixar / Atualizar Todos os Mods" ou no botão de download individual, um dialog abre mostrando cada mod com status em tempo real: ⏳ Aguardando → 🔄 Baixando... → ✅ Instalado / ❌ Erro. O SteamCMD é aberto em janela própria e visível (como na instalação convencional). Após o SteamCMD encerrar, mensagens de cópia e geração do `.mod` aparecem no log do dialog. O botão "Fechar" permanece desabilitado até a operação concluir.
+
 ## [1.3.42] - 2026-05-25
 
 ### Fix

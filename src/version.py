@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.42"
+APP_VERSION: str = "1.3.43"
 BUILD_DATE: str = "2026-05-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.43",
+        "date": "2026-05-25",
+        "changes": [
+            "Feat (dialogs/mod_download_dialog.py): popup de progresso de download de mods. "
+            "Ao clicar em 'Baixar / Atualizar Todos os Mods' ou no bot\u00e3o de download individual, "
+            "um dialog exibe a lista de mods com status em tempo real (Aguardando \u2192 Baixando... \u2192 Instalado / Erro). "
+            "O SteamCMD \u00e9 aberto em janela pr\u00f3pria vis\u00edvel mostrando o download. "
+            "Ap\u00f3s o SteamCMD encerrar, mensagens de c\u00f3pia e gera\u00e7\u00e3o do .mod aparecem no log do dialog. "
+            "Bot\u00e3o 'Fechar' permanece desabilitado at\u00e9 a opera\u00e7\u00e3o concluir.",
+        ],
+    },
     {
         "version": "1.3.42",
         "date": "2026-05-25",
