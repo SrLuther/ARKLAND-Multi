@@ -5,6 +5,7 @@ Controla start/stop/restart, monitoramento e logs de cada instância.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -29,6 +30,7 @@ from .server_config import (
     SERVER_STATUS_CRASHED,
 )
 from .battlemetrics_client import BattleMetricsPoller, BattleMetricsData
+from .mod_manager import ModManager
 
 
 # ── Wrapper psutil ────────────────────────────────────────────────────────────
@@ -958,6 +960,33 @@ class ServerManager:
             dynamic_url = self._get_dynamic_config_url(server_id)
             if dynamic_url:
                 self._emit_log(server_id, f"Config dinâmica ativa: {dynamic_url}", "info")
+        # ── Restaurar/reparar arquivos .mod antes de iniciar ─────────────────
+        # Garante que cada mod tenha o .mod oficial do Steam Client em disco.
+        # Cobre dois casos: (1) arquivos deletados pelo usuário; (2) arquivos
+        # gerados por versões antigas do ARKLAND com modPath incorreto (T11).
+        if cfg.mods and cfg.install_dir:
+            _mods_dir = Path(cfg.install_dir) / "ShooterGame" / "Content" / "Mods"
+            for _mid in cfg.mods:
+                _mid = _mid.strip()
+                if not _mid.isdigit():
+                    continue
+                _official = ModManager._find_official_dot_mod(_mid)
+                if _official:
+                    _dst = _mods_dir / f"{_mid}.mod"
+                    try:
+                        _mods_dir.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(_official, _dst)
+                        self._emit_log(server_id, f"Mod {_mid}: .mod oficial aplicado.", "info")
+                    except Exception as _e:
+                        self._emit_log(server_id, f"Mod {_mid}: falha ao aplicar .mod ({_e}).", "warning")
+                else:
+                    self._emit_log(
+                        server_id,
+                        f"Mod {_mid}: .mod oficial não encontrado no Steam Client — re-baixe o mod pelo Steam.",
+                        "warning",
+                    )
+        # ─────────────────────────────────────────────────────────────────────
+
         # Monta linha de comando
         launch_str = cfg.build_launch_args(cluster_profile=cluster_profile, dynamic_config_url=dynamic_url)
         # Substitui o placeholder do executável pelo caminho real

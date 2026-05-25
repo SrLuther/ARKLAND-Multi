@@ -2,6 +2,11 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.41] - 2026-05-25
+
+### Fix
+- **server_manager.py**: reparo automático de `.mod` ao iniciar servidor. A cada start, o ARKLAND copia o `.mod` oficial do Steam Client para `ShooterGame/Content/Mods/` de cada mod configurado. Cobre: (1) arquivo ausente (deletado ou nunca criado); (2) arquivo gerado por versões antigas com `modPath` incorreto (T11). Não é mais necessária nenhuma ação manual.
+
 ## [1.3.40] - 2026-05-25
 
 ### Fix — Crash ArkShopUI.dll: arquivo `.mod` incorreto gerado pelo ARKLAND (Tentativa 11)

@@ -1,9 +1,8 @@
 {
-    "version": "1.3.40",
+    "version": "1.3.41",
     "date": "2026-05-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.40/ARKLAND-Multi-Setup-v1.3.40.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.41/ARKLAND-Multi-Setup-v1.3.41.exe",
     "changelog": [
-        "Fix (mod_manager.py — T11): ARKLAND não gera mais arquivos .mod — usa exclusivamente o .mod oficial do Steam Client. Arquivos .mod gerados pelo ARKLAND tinham modPath preenchido (../../../ShooterGame/Content/Mods/<id>), enquanto o arquivo oficial do Steam Client tem modPath vazio. Esse desvio causava falha no mount do VFS do mod pelo ARK, deixando a classe Blueprint do buff ArkShopUI_Buff_FCAS como null e resultando em crash no timer callback (~5 min após jogador conectar). Novo método _find_official_dot_mod() localiza o .mod correto via registro do Windows + libraryfolders.vdf. Novo método repair_mod_files() substitui .mod incorretos de mods já instalados pelo arquivo oficial.",
-        "Feat (mod_auto_updater.py + config_manager.py + global_config.py): suporte a Steam Web API Key nas configurações globais. A key é enviada nas requisições ao ISteamRemoteStorage/GetPublishedFileDetails para verificação de atualizações de mods. Campo adicionado na aba Configurações Globais com hint para steamcommunity.com/dev/apikey."
+        "Fix (server_manager.py): reparo automático de arquivos .mod ao iniciar servidor. A cada start, o ARKLAND copia o .mod oficial do Steam Client para o diretório ShooterGame/Content/Mods/ de cada mod configurado no servidor. Cobre dois casos: (1) arquivo .mod ausente (deletado ou nunca criado); (2) arquivo .mod gerado por versões anteriores do ARKLAND com modPath incorreto (T11). Não é mais necessário copiar manualmente o .mod antes de testar."
     ]
 }
