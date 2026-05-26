@@ -39,7 +39,7 @@ def start_server(app: "ARKServerManagerApp", server_id: str) -> None:
                 app._global_log(f"[{srv.name}] Atualização falhou, iniciando servidor mesmo assim...", "warning")
             app.after(0, lambda: app.server_manager.start_server(server_id))
         app.mod_manager.install_server(
-            srv.install_dir, validate=False, on_done=_on_update_done,
+            srv.install_dir, validate=True, on_done=_on_update_done,
             branch_name=srv.branch_name, branch_password=srv.branch_password,
         )
     else:

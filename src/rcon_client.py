@@ -18,9 +18,10 @@ _PACKET_TYPE_AUTH_RESPONSE = 2
 _PACKET_TYPE_EXECCOMMAND   = 2
 _PACKET_TYPE_RESPONSE      = 0
 
-_MAX_PACKET_SIZE = 4096
-_RESPONSE_TIMEOUT = 10.0
+_MAX_PACKET_SIZE  = 4096
+_RESPONSE_TIMEOUT = 10.0   # timeout de rede (connect/auth)
 _CONNECT_TIMEOUT  = 5.0
+_EXEC_TIMEOUT     = 3.0    # timeout aguardando resposta de comando
 
 
 class RconError(Exception):
@@ -130,30 +131,29 @@ class RconClient:
         cmd_id = self._next_id()
         self._send_packet(cmd_id, _PACKET_TYPE_EXECCOMMAND, command)
 
-        # Sentinel: segundo EXECCOMMAND (tipo 2) vazio — o ARK responde a ele sinalizando
-        # que a resposta do comando anterior já foi totalmente enviada.
-        # NUNCA use _PACKET_TYPE_RESPONSE (0) aqui — tipo 0 é exclusivo servidor→cliente;
-        # enviá-lo pelo cliente faz o ARK fechar a conexão (WinError 10053).
-        sentinel_id = self._next_id()
-        self._send_packet(sentinel_id, _PACKET_TYPE_EXECCOMMAND, "")
-
+        # ARK envia respostas em pacote único por comando.
+        # Abordagem: aguarda até _EXEC_TIMEOUT pelo pacote com o ID correto.
+        # Pacotes com IDs diferentes (respostas orphaned de comandos anteriores) são descartados.
+        # Comandos sem resposta (SaveWorld, Broadcast, DoExit…) retornam vazio após o timeout.
         response_parts: list[str] = []
-        deadline = time.monotonic() + _RESPONSE_TIMEOUT
-        while time.monotonic() < deadline:
-            try:
-                pkt_id, pkt_type, body = self._recv_packet()
-            except socket.timeout:
-                # Muitos comandos ARK (SaveWorld, Broadcast, DoExit…) não enviam resposta.
-                # Timeout sem dados recebidos é comportamento normal — retorna o que coletou.
-                break
-            except (OSError, struct.error) as exc:
-                self._disconnect_locked()
-                raise RconConnectionError(f"Erro ao receber resposta RCON: {exc}") from exc
+        self._sock.settimeout(_EXEC_TIMEOUT)  # type: ignore[union-attr]
+        try:
+            deadline = time.monotonic() + _EXEC_TIMEOUT
+            while time.monotonic() < deadline:
+                try:
+                    pkt_id, pkt_type, body = self._recv_packet()
+                except socket.timeout:
+                    break
+                except (OSError, struct.error) as exc:
+                    self._disconnect_locked()
+                    raise RconConnectionError(f"Erro ao receber resposta RCON: {exc}") from exc
 
-            if pkt_id == sentinel_id:
-                break
-            if pkt_id == cmd_id:
-                response_parts.append(body)
+                if pkt_id == cmd_id:
+                    response_parts.append(body)
+                    break  # ARK envia resposta em pacote único — não há multi-packet no ASE
+                # descarta pacote com ID inesperado (resposta órfã) e aguarda o correto
+        finally:
+            self._sock.settimeout(_RESPONSE_TIMEOUT)  # type: ignore[union-attr]
 
         return "".join(response_parts).strip()
 

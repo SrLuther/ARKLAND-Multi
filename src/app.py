@@ -37,6 +37,8 @@ from .config_manager import ConfigManager
 from .sync_engine import SyncEngine
 from .server_config import ServerConfig
 from .server_manager import ServerManager
+from .asm_engine.asm_config_manager import AsmConfigManager
+from .asm_engine.asm_server_manager import AsmServerManager
 from .mod_manager import ModManager
 from .rcon_client import RconClient
 from .updater import UpdateChecker
@@ -52,6 +54,8 @@ from .ui_constants import (
     _GREEN_DARK, _GREEN_HOVER,
     _MAX_SYNC_CYCLES,
     _resource_path,
+    get_theme,
+    _THEMES,
 )
 
 APP_NAME = "ARKLAND - Server Manager"
@@ -167,6 +171,20 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._remote_agent: Optional[RemoteAgent] = None
 
+        # ── TEK engine ───────────────────────────────────────────────────────
+        self.asm_config_manager = AsmConfigManager()
+        self.asm_server_manager = AsmServerManager(
+            on_status_change=self._on_asm_status_change,
+        )
+        self._asm_dashboard_scroll: Any = None
+
+        # ── Modo ativo (PRIMITIVE / TEK) ─────────────────────────────────────
+        self._active_mode: str = "primitive"
+
+        # ── Server tab bar (referências atualizadas por _rebuild_server_tabs) ─
+        self._server_tab_bar: Any = None
+        self._server_tab_btns: Dict[str, Any] = {}  # server_id → tab widget ref
+
         self._build_ui()
         self.after(2000, self._scan_running_servers)
         self.after(500, self._auto_start_sync)
@@ -186,22 +204,84 @@ class ARKServerManagerApp(ctk.CTk):
     # ══════════════════════════════════════════════════════════════════════════
 
     def _build_ui(self) -> None:
-        self.grid_columnconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=0)   # rail — largura fixa
+        self.grid_columnconfigure(1, weight=1)   # conteúdo — expande
         self.grid_rowconfigure(0, weight=1)
-        self._build_sidebar()
+
+        from .pages.welcome_screen import build_welcome_screen
+        build_welcome_screen(self)
+
+    def _launch_mode(self, mode: str) -> None:
+        """Chamado pela tela de boas-vindas: destrói o splash e constrói a UI."""
+        if hasattr(self, "_welcome_frame"):
+            try:
+                self._welcome_frame.destroy()
+            except Exception:
+                pass
+        import src.ui_constants as _uc
+        self._active_mode = mode
+        _uc._active_mode = mode
+        self._current_frame = ""
+        self._build_rail()
+        self._build_content_host()
         self._build_static_frames()
-        self._rebuild_server_sidebar()
+        self._rebuild_server_tabs()
         self._show_frame("dashboard")
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
+    # ── Rail ──────────────────────────────────────────────────────────────────
+
+    def _build_rail(self) -> None:
+        from .pages.rail import build_rail
+        build_rail(self)
+
+    # ── Content host (server tabs + page area) ────────────────────────────────
+
+    def _build_content_host(self) -> None:
+        from .pages.content_host import build_content_host
+        build_content_host(self)
+
+    # ── Server tabs ───────────────────────────────────────────────────────────
+
+    def _rebuild_server_tabs(self) -> None:
+        from .pages.rebuild_server_tabs import rebuild_server_tabs
+        rebuild_server_tabs(self)
+
+    # ── Compatibilidade legada (sidebar → rail) ───────────────────────────────
 
     def _build_sidebar(self) -> None:
-        from .pages.sidebar import build_sidebar
-        build_sidebar(self)
+        """Legado — aponta para _build_rail()."""
+        self._build_rail()
 
     def _rebuild_server_sidebar(self) -> None:
-        from .pages.rebuild_server_sidebar import rebuild_server_sidebar
-        rebuild_server_sidebar(self)
+        """Legado — aponta para _rebuild_server_tabs()."""
+        self._rebuild_server_tabs()
+
+    # ── Switch de modo ────────────────────────────────────────────────────────
+
+    def _switch_mode(self, mode: str) -> None:
+        """Troca entre PRIMITIVE e TEK: atualiza tema e reconstrói a UI."""
+        if mode == self._active_mode:
+            return
+        import src.ui_constants as _uc
+        self._active_mode = mode
+        _uc._active_mode = mode
+        from .pages.rail import build_rail
+        from .pages.content_host import build_content_host
+        # Destrói rail e content host atuais
+        if hasattr(self, '_rail') and self._rail:
+            self._rail.destroy()
+        if hasattr(self, '_content_host') and self._content_host:
+            self._content_host.destroy()
+        # Limpa referências de frames (serão recriados)
+        self._frames.clear()
+        self._server_frames.clear()
+        self._server_tab_btns.clear()
+        self._current_frame = ""   # reset para garantir que show_frame("dashboard") funcione
+        build_rail(self)
+        build_content_host(self)
+        self._build_static_frames()
+        self._rebuild_server_tabs()
+        self._show_frame("dashboard")
 
     # ── Frames estáticos ──────────────────────────────────────────────────────
 
@@ -393,6 +473,20 @@ class ARKServerManagerApp(ctk.CTk):
     def _open_server_panel(self, server_id: str) -> None:
         from .pages.open_server_panel import open_server_panel
         open_server_panel(self, server_id)
+
+    def _close_server_tab(self, server_id: str) -> None:
+        """Remove tab e frame de servidor (funciona para PRIMITIVE e TEK)."""
+        for prefix in ("server_", "asm_server_"):
+            key = f"{prefix}{server_id}"
+            frame = self._frames.pop(key, None)
+            if frame:
+                try:
+                    frame.destroy()
+                except Exception:
+                    pass
+        if getattr(self, "_server_tab_bar", None):
+            self._server_tab_bar.remove_tab(server_id)
+        self._show_frame("dashboard")
 
     def _build_server_panel(self, parent: ctk.CTkFrame, srv: ServerConfig) -> None:
         from .pages.server_panel import build_server_panel
@@ -1154,6 +1248,54 @@ class ARKServerManagerApp(ctk.CTk):
     def _on_server_status_change(self, server_id: str, status: str) -> None:
         from .pages.on_server_status_change import on_server_status_change
         on_server_status_change(self, server_id, status)
+
+    # ── TEK callbacks / actions ───────────────────────────────────────────────
+
+    def _on_asm_status_change(self, server_id: str, status: str) -> None:
+        """Chamado pela thread do asm_server_manager quando status muda."""
+        self.after(0, lambda: self._asm_refresh_dashboard())
+
+    def _asm_refresh_dashboard(self) -> None:
+        from .asm_ui.asm_dashboard import _refresh_asm_dashboard
+        _refresh_asm_dashboard(self)
+
+    def _asm_start_server(self, cfg) -> None:
+        self.asm_server_manager.start(cfg)
+
+    def _asm_stop_server(self, server_id: str) -> None:
+        self.asm_server_manager.stop(server_id)
+
+    def _asm_restart_server(self, cfg) -> None:
+        self.asm_server_manager.restart(cfg)
+
+    def _asm_open_server_panel(self, server_id: str) -> None:
+        """Abre o painel de configuração TEK do servidor."""
+        frame_key = f"asm_server_{server_id}"
+        if frame_key not in self._frames:
+            srv = self.asm_config_manager.get_server(server_id)
+            if not srv:
+                return
+            from .asm_ui.asm_server_panel import build_asm_server_panel
+            import customtkinter as _ctk
+            from .ui_constants import get_theme
+            frame = _ctk.CTkFrame(self._page_area, corner_radius=0,
+                                  fg_color=get_theme("tek")["bg"])
+            frame.grid(row=0, column=0, sticky="nsew")
+            frame.grid_remove()
+            build_asm_server_panel(self, frame, srv)
+            self._frames[frame_key] = frame
+        if getattr(self, "_server_tab_bar", None):
+            srv2 = self.asm_config_manager.get_server(server_id)
+            if srv2:
+                from .ui_constants import _STATUS_COLOR
+                color = "#00BCD4"
+                self._server_tab_bar.add_tab(server_id, srv2.name, color)
+        self._show_frame(frame_key)
+
+    def _asm_add_server_dialog(self) -> None:
+        """Abre diálogo de novo servidor TEK."""
+        from .asm_ui.asm_add_server_dialog import asm_add_server_dialog
+        asm_add_server_dialog(self)
 
     @staticmethod
     def _fast_fill(scroll: ctk.CTkScrollableFrame, fn: Any) -> None:

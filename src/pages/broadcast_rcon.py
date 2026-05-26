@@ -1,10 +1,11 @@
 from __future__ import annotations
 import threading
+from datetime import datetime
 from typing import TYPE_CHECKING
-import datetime
 from tkinter import messagebox
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
+from ..rcon_client import RconClient
 
 
 def broadcast_rcon(app: "ARKServerManagerApp", server_id: str, message: str) -> None:
@@ -23,7 +24,7 @@ def broadcast_rcon(app: "ARKServerManagerApp", server_id: str, message: str) -> 
         app._chat_append(server_id, "[BROADCAST]", "server")
         app._chat_append(server_id, f": {message}\n", "message")
 
-        def _do_existing() -> None:
+        def _do_existing() -> None:  # noqa: E306
             existing.send_command_safe(f"Broadcast {safe}")
 
         threading.Thread(target=_do_existing, daemon=True).start()
@@ -44,7 +45,7 @@ def broadcast_rcon(app: "ARKServerManagerApp", server_id: str, message: str) -> 
     app._chat_append(server_id, "[BROADCAST]", "server")
     app._chat_append(server_id, f": {message}\n", "message")
 
-    rcon_port = srv.rcon_port
+    rcon_port: int = srv.rcon_port
     rcon_pass = srv.rcon_password
 
     def _do_temp() -> None:

@@ -34,8 +34,11 @@ def rcon_exec(app: "ARKServerManagerApp", server_id: str, command: str) -> None:
                                   fg_color=_RED_DARK, hover_color=_RED_HOVER)
                 app._rcon_append(server_id,
                                   f"[Auto] Conectado a {host}:{port}\n", "sys")
-            level = "resp" if ok else "err"
-            app._rcon_append(server_id, (result or "(sem resposta)") + "\n", level)
+            if ok:
+                display = result if result else "(ok)"
+            else:
+                display = result or "(sem resposta)"
+            app._rcon_append(server_id, display + "\n", "resp" if ok else "err")
 
         app.after(0, _update)
 

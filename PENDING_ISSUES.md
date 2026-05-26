@@ -5,9 +5,9 @@
 
 ---
 
-## [TESTE] `mod_manager.py` — Fix do crash ArkShopUI.dll via arquivo `.mod` oficial (aguardando confirmação em produção)
+## [✅ RESOLVIDO] Crash ArkShopUI.dll — 26/05/2026
 
-**Status:** ✅ Fix aplicado em v1.3.40 — ⏳ aguardando teste em produção
+**Status:** ✅ RESOLVIDO em 26/05/2026 — Causa raiz identificada: **conflito de banco MySQL entre ArkShop e Permissions** (ambos usando `MysqlDB: "arkshop"`). Fix: alterar `Permissions/config.json → MysqlDB: "ark_permission"`.
 
 **Arquivos corrigidos:** `src/mod_manager.py`, `src/mod_auto_updater.py`, `src/config_manager.py`, `src/pages/global_config.py`, `src/pages/save_global_config.py`, `src/pages/start_mod_auto_updater.py`
 
@@ -28,31 +28,26 @@ VERSION.dll!ArkApi::Hook_AGameState_DefaultTimer()
 ShooterGameServer.exe!FTimerManager::Tick()
 ```
 
-### Causa raiz (Tentativa 11 — 25/05/2026)
+### Causa raiz REAL (26/05/2026)
 
-Comparação binária dos arquivos `.mod` revelou diferença crítica:
+ArkShop e Permissions estavam ambos configurados com `MysqlDB: "arkshop"` no Servidor 01 (ARKLAND Primitive). Ambos criam uma tabela `Players` no mesmo banco MySQL com schemas incompatíveis:
 
-| Campo | ARKLAND gerado (304 bytes) | Steam Client oficial (255 bytes) |
+| Plugin | Tabela | Schema |
 | --- | --- | --- |
-| `modPath` | `../../../ShooterGame/Content/Mods/2693727499` | `` (vazio) |
-| `modName` | `ModName` | `ModName` |
+| ArkShop.dll | `Players` | `SteamId, Points, ...` |
+| Permissions.dll | `Players` | `SteamId, GroupName, ...` |
 
-O ARK usa o `modPath` vazio como caminho padrão para montar o VFS do mod. Quando preenchido com o caminho errado, o ARK falha no mount, a classe Blueprint `ArkShopUI_Buff_FCAS` fica `null`, e o timer callback do `ArkShopUI.dll` crasha no primeiro tick em que um jogador está conectado.
+O `ArkShopUI.dll` chama `Permissions::GetGroupName(steamId)` no timer callback (~5min após jogador conectar). O Permissions lê a tabela `Players` do banco `arkshop` — que é a tabela do ArkShop (sem coluna `GroupName`) — retorna NULL/lixo → crash em `ArkShopUI.dll!0x6590`.
 
-O SteamCMD nunca cria arquivos `.mod` — apenas o Steam Client cria. O ARKLAND gerava `.mod` via `_create_dot_mod_from_mod_info()` com `modPath` preenchido incorretamente.
+O servidor Crystal não crashava porque seu `Permissions/config.json` já usava `MysqlDB: "ark_permission"` (banco separado).
 
-### Fix aplicado (v1.3.40)
+### Fix aplicado (26/05/2026)
 
-- ARKLAND **não gera mais `.mod` files** — usa exclusivamente o arquivo oficial do Steam Client
-- `_find_official_dot_mod(mod_id)`: localiza o `.mod` no cache do Steam Client via registro do Windows + `libraryfolders.vdf`
-- `repair_mod_files(install_dir, mod_ids)`: substitui `.mod` incorretos de servidores já instalados pelo arquivo oficial
+- Arquivo: `<servidor>/ShooterGame/Binaries/Win64/ArkApi/Plugins/Permissions/config.json`
+- Alterado: `"MysqlDB": "arkshop"` → `"MysqlDB": "ark_permission"`
+- Resultado: servidor inicia sem crash, loja funciona ✅
 
-### Como validar
-
-1. **Testar com servidor já instalado:** copiar `steamapps/workshop/content/346110/2693727499.mod` (Steam Client cache) para `ShooterGame/Content/Mods/2693727499.mod` do Servidor 01
-2. Iniciar o Servidor 01 via ARKLAND
-3. Conectar um jogador e aguardar 5+ minutos
-4. Confirmar ausência de crash — se OK, fechar esta issue
+> **Nota:** As correções de T1–T11 (`.mod`, DLLs, variáveis de ambiente, etc.) foram investigações com hipóteses incorretas e não têm relação com a causa real do crash.
 
 ---
 
@@ -370,15 +365,129 @@ O crash ocorre APENAS quando um jogador está conectado, o que é exatamente qua
 - Auto-desinstalação do CustomShop no startup do ARKLAND para qualquer servidor que o tenha instalado
 - Servidor deve ser reiniciado após a atualização para garantir que o plugin não seja carregado
 
-**Resultado:** ⏳ Aguardando confirmação em produção.
+**Resultado:** ❌ Crash persistiu. CustomShop não era a causa. → Ver Tentativa 11.
 
 ---
 
-### Checklist de confirmação
+#### Tentativa 11 — Fix do arquivo `.mod` (modPath errado) (25/05/2026) ❌ Não resolveu
 
-- [ ] Atualizar ARKLAND para v1.3.39
-- [ ] Verificar no log de inicialização que o ARKLAND desinstalou o CustomShop automaticamente
-- [ ] Reiniciar o servidor pelo ARKLAND
-- [ ] Conectar um jogador e aguardar > 5 min sem crash
-- [ ] Confirmar que ArkShopUI funciona normalmente sem o CustomShop
-- [ ] Marcar como ✅ RESOLVIDO
+**Hipótese:** Comparação binária dos arquivos `.mod` revelou diferença crítica:
+
+| Campo | ARKLAND gerado (304 bytes) | Steam Client oficial (255 bytes) |
+| --- | --- | --- |
+| `modPath` | `../../../ShooterGame/Content/Mods/2693727499` | `` (vazio) |
+
+O ARK usa `modPath` vazio como caminho padrão para montar o VFS do mod. Com o campo preenchido incorretamente, o ARK falha no mount, a classe Blueprint `ArkShopUI_Buff_FCAS` fica `null` e o timer callback crasha ~5 min após um jogador conectar.
+
+**Fix aplicado em v1.3.40–41:**
+
+- ARKLAND não gera mais `.mod` files — usa exclusivamente o arquivo oficial do Steam Client
+- `_find_official_dot_mod(mod_id)`: localiza `.mod` via registro do Windows + `libraryfolders.vdf`
+- `repair_mod_files()`: substitui `.mod` incorretos pelo arquivo oficial
+
+**Resultado:** ❌ Crash persistiu. `.mod` file não era a causa (ou fix incompleto — instalação já tinha `.mod` correto). → Ver Tentativa 12.
+
+---
+
+#### Tentativa 12 — Remoção de `__COMPAT_LAYER` antes do `os.startfile()` (25/05/2026) ❌ Não resolveu
+
+**Hipótese:** O Windows aplica o shim `DetectorsAppHealth` ao `ARKLAND-Multi.exe`. Esse shim era propagado via variável de ambiente `__COMPAT_LAYER` para o `ShooterGameServer.exe`, potencialmente interceptando o SEH do ArkApi antes que ele pudesse capturar exceções internas do ArkShopUI.
+
+**Fix aplicado em v1.3.44:** `__COMPAT_LAYER` removido do ambiente imediatamente antes do `os.startfile()` e restaurado após o lançamento.
+
+**Resultado:** ❌ Crash persistiu. `__COMPAT_LAYER` não era a causa.
+
+---
+
+### Fatos confirmados (25/05/2026)
+
+- Crash acontece mesmo com ARKLAND **completamente fechado**
+- Crash acontece ao rodar **RunServer.cmd direto** (sem ARKLAND)
+- **INI files comparados e idênticos** em estrutura entre ARKLAND e ASM
+- **CLI params testados manualmente** (remoção de `?SessionName=`, `?ServerPassword=`, `?ServerAdminPassword=`, `?RCONEnabled=`, `?RCONPort=`): não resolveu
+- São instalações **SEPARADAS** — ARKLAND instala o servidor do zero via SteamCMD, não reutiliza arquivos do ASM
+- O ASM com a mesma config e mesmo DB **funciona sem crash**
+
+---
+
+### Tentativa 13 — Apontar ARKLAND para instalação do ASM (✅ CONCLUÍDA — 26/05/2026)
+
+**Hipótese:** O problema está em algum arquivo que o ARKLAND instala diferente do ASM (não no que ele escreve antes de cada start).
+
+**Procedimento:**
+
+1. No ARKLAND, criar servidor temporário com `install_dir` apontando para o diretório onde o ASM instalou o servidor (sem reinstalar nada)
+2. Manter mesmos parâmetros (porta, senha, mods, etc.)
+3. Iniciar pelo ARKLAND (ele escreverá RunServer.cmd e INIs normalmente)
+4. Conectar um jogador → aguardar 10 minutos
+
+**Resultado: ✅ NÃO CRASHOU** — servidor funcionou normalmente com a instalação do ASM, iniciado pelo ARKLAND.
+
+**Conclusão confirmada:** O problema **não está** no que o ARKLAND escreve (RunServer.cmd / INI) antes de cada start. O problema está em **algum arquivo que o ARKLAND instala via SteamCMD diferente do ASM**. → Ver Tentativa 14.
+
+---
+
+### Tentativa 14 — Comparação binária das duas instalações (⏳ PENDENTE)
+
+**Hipótese:** O SteamCMD instalado pelo ARKLAND produz algum arquivo diferente em relação à instalação feita pelo ASM. Pode ser um binário, DLL, arquivo de configuração ou estrutura de diretório.
+
+**Procedimento:**
+
+1. Listar e comparar os arquivos das duas instalações — foco em:
+   - `ShooterGame/Binaries/Win64/` — DLLs e `.exe`
+   - `ShooterGame/Plugins/` — ArkApi, DLLs de plugins
+   - `Engine/Binaries/Win64/` — DLLs do engine
+   - `ShooterGame/Content/Mods/` — arquivos `.mod`
+2. Diff de tamanho + hash (MD5/SHA1) de cada arquivo suspeito
+3. Identificar qualquer arquivo presente em uma instalação e ausente na outra
+4. Identificar qualquer arquivo com tamanho ou hash diferente entre as duas
+
+**Comando sugerido (PowerShell):**
+
+```powershell
+# Comparar hashes de todos os arquivos nas duas pastas
+$asm  = "C:\<CAMINHO_ASM>"
+$ark  = "C:\<CAMINHO_ARKLAND>"
+$left  = Get-ChildItem $asm  -Recurse -File | ForEach-Object { [pscustomobject]@{ Path=$_.FullName.Replace($asm,""); Hash=(Get-FileHash $_.FullName -Algorithm MD5).Hash } }
+$right = Get-ChildItem $ark  -Recurse -File | ForEach-Object { [pscustomobject]@{ Path=$_.FullName.Replace($ark,""); Hash=(Get-FileHash $_.FullName -Algorithm MD5).Hash } }
+Compare-Object $left $right -Property Path,Hash
+```
+
+**Interpretação:**
+
+- Arquivo presente só na instalação do ASM → o SteamCMD do ARKLAND não baixa esse arquivo
+- Arquivo com hash diferente → versão diferente instalada pelo SteamCMD do ARKLAND vs ASM
+- Arquivo presente só no ARKLAND → arquivo extra sendo copiado incorretamente
+
+---
+
+### Referência ASM Source
+
+**Path local:** `C:\Users\Ciano\Documents\_asm_src\ARK Server Manager\`
+
+Arquivos-chave:
+
+- `Lib/ServerProfile.cs` — ~300 campos com `[IniFileEntry]`, categorias: Administration / Rules / ChatAndNotifications / HudAndVisuals / Players / Dinos / Environment / Structures
+- `Lib/ServerRuntime.cs` — start/stop/monitor do servidor
+- `Lib/ServerApp.cs` — SteamCMD update/install
+- `Lib/ServerRCON.cs` — RCON
+- `Windows/ServerSettingsControl.xaml` — UI completa (608KB)
+- `Config.settings` — RunServer.cmd em `ShooterGame\Saved\Config\WindowsServer\`, flags: `-nosteamclient -game -server -log`
+
+**Diferenças CLI ASM vs ARKLAND:**
+
+| Parâmetro | ASM | ARKLAND |
+| --- | --- | --- |
+| `?SessionName=` | Só no INI | CLI + INI |
+| `?ServerPassword=` | Só no INI | CLI + INI |
+| `?ServerAdminPassword=` | Só no INI | CLI + INI |
+| `?RCONEnabled=` / `?RCONPort=` | Só no INI | CLI + INI |
+| `?Port=` / `?QueryPort=` | Só como `?param` | `?param` + `-flag` (duplicado) |
+| Ordem das flags | `-nosteamclient -game -server -log` | `-server -log -nosteamclient -game` |
+
+### Checklist T14
+
+- [ ] Obter o caminho exato das duas instalações (ASM e ARKLAND)
+- [ ] Rodar o diff de hashes (comando PowerShell acima)
+- [ ] Identificar arquivos diferentes ou ausentes
+- [ ] Registrar resultado e planejar T15

@@ -29,12 +29,6 @@ def build_server_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame", srv: 
     hdr.grid_propagate(False)
     hdr.grid_columnconfigure(1, weight=1)
 
-    ctk.CTkButton(
-        hdr, text="◀", width=36, height=36,
-        fg_color="transparent", hover_color="#252540",
-        command=lambda: app._show_frame("dashboard"),
-    ).grid(row=0, column=0, padx=(12, 0), pady=14)
-
     inst = app.server_manager.get_instance(srv.id)
     status = inst.status if inst else SERVER_STATUS_STOPPED
 
@@ -42,7 +36,7 @@ def build_server_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame", srv: 
     ctk.CTkLabel(
         hdr, textvariable=app._server_widgets[srv.id]["_name_title_var"],
         font=ctk.CTkFont(size=20, weight="bold"),
-    ).grid(row=0, column=1, padx=8, pady=14, sticky="w")
+    ).grid(row=0, column=1, padx=(16, 8), pady=14, sticky="w")
 
     # ── Progresso de instalação/validação (vazio por padrão) ─────────────
     install_progress_var = tk.StringVar(value="")

@@ -3,11 +3,37 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.45"
-BUILD_DATE: str = "2026-05-25"
+APP_VERSION: str = "1.3.46"
+BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.46",
+        "date": "2026-05-26",
+        "changes": [
+            "Fix (rcon_client.py): removida abordagem de sentinel no protocolo RCON. "
+            "O sentinel (EXECCOMMAND vazio enviado logo após o comando real) podia ser respondido "
+            "pelo ARK antes da resposta do comando principal, causando retorno vazio para "
+            "ListPlayers e outros comandos mesmo com jogadores conectados. "
+            "Substituído por espera direta com timeout de 3s e matching por packet ID; "
+            "pacotes órfãos de comandos anteriores são descartados automaticamente.",
+            "Fix (broadcast_rcon.py): corrigido AttributeError 'module datetime has no attribute now' "
+            "— import trocado de 'import datetime' para 'from datetime import datetime'. "
+            "Corrigido também import ausente de RconClient que causava NameError ao enviar "
+            "Broadcast via conexão temporária (servidor sem RCON aberto no console).",
+            "Fix (rcon_exec.py): feedback do console RCON melhorado — comandos executados com "
+            "sucesso mas sem retorno (SaveWorld, Broadcast, DoExit…) exibem '(ok)' em verde "
+            "em vez de '(sem resposta)', distinguindo execução bem-sucedida de erro real.",
+            "Feat (add_mod.py, tab_mods.py): suporte a múltiplos IDs no campo de mods da aba "
+            "principal — cole IDs separados por vírgula (ex: 731604991, 880871931) para adicionar "
+            "todos em lote de uma vez sem precisar abrir o diálogo de busca.",
+            "Feat (mod_search_dialog.py): busca em lote no Steam Workshop — ao colar múltiplos "
+            "IDs separados por vírgula no campo de busca, o diálogo faz uma única chamada à API "
+            "e lista todos os mods encontrados com nome, ID e botões individuais '➕ Adicionar'. "
+            "Botão 'Adicionar Todos (N)' no topo adiciona toda a lista e fecha o diálogo.",
+        ],
+    },
     {
         "version": "1.3.45",
         "date": "2026-05-25",

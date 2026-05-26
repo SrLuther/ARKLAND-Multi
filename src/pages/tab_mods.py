@@ -36,7 +36,7 @@ def build_tab_mods(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                  text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 4))
     w["new_mod_id"] = tk.StringVar()
     ctk.CTkEntry(add_card, textvariable=w["new_mod_id"], height=34,
-                 placeholder_text="Ex: 731604991").grid(
+                 placeholder_text="Ex: 731604991, 880871931, 1999447172").grid(
         row=0, column=1, padx=(0, 8), pady=(14, 4), sticky="ew")
     ctk.CTkButton(
         add_card, text="➕ Adicionar", width=110, height=34,
@@ -51,7 +51,7 @@ def build_tab_mods(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
 
     ctk.CTkLabel(
         add_card,
-        text="💡  Cole o ID do mod (número) ou use 🔍 para buscar pelo nome. Você pode encontrar o ID na URL da página do Workshop.",
+        text="💡  Cole um ou vários IDs separados por vírgula. Use 🔍 para buscar por nome. O ID do mod aparece na URL da página do Workshop.",
         text_color="gray45", font=ctk.CTkFont(size=10), wraplength=700, justify="left",
     ).grid(row=1, column=0, columnspan=4, padx=16, pady=(0, 10), sticky="w")
 

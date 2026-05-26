@@ -1,0 +1,60 @@
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Users\Ciano\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ciano\Documents\arkland-multi\src\pages\rail.py", line 106, in <lambda>
+    btn.bind("<Button-1>", lambda _, m=mode: app._switch_mode(m))
+                                             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ciano\Documents\arkland-multi\src\app.py", line 268, in _switch_mode
+    self._build_static_frames()
+  File "C:\Users\Ciano\Documents\arkland-multi\src\app.py", line 276, in _build_static_frames
+    build_static_frames(self)
+  File "C:\Users\Ciano\Documents\arkland-multi\src\pages\build_static_frames.py", line 38, in build_static_frames
+    _build_tek_frames(app, bg)
+  File "C:\Users\Ciano\Documents\arkland-multi\src\pages\build_static_frames.py", line 48, in _build_tek_frames
+    build_asm_dashboard(app, dash)
+  File "C:\Users\Ciano\Documents\arkland-multi\src\asm_ui\asm_dashboard.py", line 45, in build_asm_dashboard
+    ctk.CTkButton(
+  File "C:\Users\Ciano\Documents\arkland-multi\.venv\Lib\site-packages\customtkinter\windows\widgets\ctk_button.py", line 106, in __init__
+    self._draw()
+  File "C:\Users\Ciano\Documents\arkland-multi\.venv\Lib\site-packages\customtkinter\windows\widgets\ctk_button.py", line 216, in _draw
+    self._canvas.itemconfig("inner_parts",
+  File "C:\Users\Ciano\Documents\arkland-multi\.venv\Lib\site-packages\customtkinter\windows\widgets\core_rendering\ctk_canvas.py", line 115, in itemconfig
+    super().itemconfigure(configure_id, *args, **kwargs_except_outline)
+  File "C:\Users\Ciano\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tkinter\__init__.py", line 2990, in itemconfigure
+    return self._configure(('itemconfigure', tagOrId), cnf, kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ciano\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tkinter\__init__.py", line 1712, in _configure
+    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
+_tkinter.TclError: invalid color name "#00BCD433"
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Users\Ciano\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\Ciano\Documents\arkland-multi\src\pages\rail.py", line 106, in <lambda>
+    btn.bind("<Button-1>", lambda _, m=mode: app._switch_mode(m))
+                                             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ciano\Documents\arkland-multi\src\app.py", line 268, in _switch_mode
+    self._build_static_frames()
+  File "C:\Users\Ciano\Documents\arkland-multi\src\app.py", line 276, in _build_static_frames
+    build_static_frames(self)
+  File "C:\Users\Ciano\Documents\arkland-multi\src\pages\build_static_frames.py", line 38, in build_static_frames
+    _build_tek_frames(app, bg)
+  File "C:\Users\Ciano\Documents\arkland-multi\src\pages\build_static_frames.py", line 48, in _build_tek_frames
+    build_asm_dashboard(app, dash)
+  File "C:\Users\Ciano\Documents\arkland-multi\src\asm_ui\asm_dashboard.py", line 45, in build_asm_dashboard
+    ctk.CTkButton(
+  File "C:\Users\Ciano\Documents\arkland-multi\.venv\Lib\site-packages\customtkinter\windows\widgets\ctk_button.py", line 106, in __init__
+    self._draw()
+  File "C:\Users\Ciano\Documents\arkland-multi\.venv\Lib\site-packages\customtkinter\windows\widgets\ctk_button.py", line 216, in _draw
+    self._canvas.itemconfig("inner_parts",
+  File "C:\Users\Ciano\Documents\arkland-multi\.venv\Lib\site-packages\customtkinter\windows\widgets\core_rendering\ctk_canvas.py", line 115, in itemconfig
+    super().itemconfigure(configure_id, *args, **kwargs_except_outline)
+  File "C:\Users\Ciano\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tkinter\__init__.py", line 2990, in itemconfigure
+    return self._configure(('itemconfigure', tagOrId), cnf, kw)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Ciano\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\tkinter\__init__.py", line 1712, in _configure
+    self.tk.call(_flatten((self._w, cmd)) + self._options(cnf))
+_tkinter.TclError: invalid color name "#00BCD433"

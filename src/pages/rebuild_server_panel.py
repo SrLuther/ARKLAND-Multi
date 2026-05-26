@@ -21,8 +21,8 @@ def rebuild_server_panel(app: "ARKServerManagerApp", server_id: str) -> None:
     # Reinicia o dict de widgets para este servidor
     app._server_widgets[server_id] = {}
 
-    new_frame = ctk.CTkFrame(app, corner_radius=0, fg_color=_BG)
-    new_frame.grid(row=0, column=1, sticky="nsew")
+    new_frame = ctk.CTkFrame(app._page_area, corner_radius=0, fg_color=_BG)
+    new_frame.grid(row=0, column=0, sticky="nsew")
     app._build_server_panel(new_frame, srv)
     app._frames[frame_key] = new_frame
 

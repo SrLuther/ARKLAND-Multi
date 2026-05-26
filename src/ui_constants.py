@@ -45,6 +45,42 @@ _SIDEBAR_BG  = "#161622"
 _CARD_BG     = "#1e1e30"
 _BG          = "#111118"
 
+# ── Temas por modo (PRIMITIVE = verde, TEK = teal/ciano) ─────────────────────
+_THEMES: dict = {
+    "primitive": {
+        "accent":       "#4CAF50",
+        "accent_dark":  "#2d7a3e",
+        "accent_hover": "#1f5c2d",
+        "accent_label": "#88d4a0",
+        "rail_bg":      "#0e0e1a",
+        "tab_bar_bg":   "#161622",
+        "card_bg":      "#1e1e30",
+        "bg":           "#111118",
+        "mode_label":   "PRIMITIVE",
+        "mode_short":   "P",
+    },
+    "tek": {
+        "accent":       "#00BCD4",
+        "accent_dark":  "#0d5f72",
+        "accent_hover": "#094d5c",
+        "accent_label": "#80d8e8",
+        "rail_bg":      "#0a1418",
+        "tab_bar_bg":   "#0f1e22",
+        "card_bg":      "#162228",
+        "bg":           "#0e1820",
+        "mode_label":   "TEK",
+        "mode_short":   "T",
+    },
+}
+
+# Modo ativo — alterado por _switch_mode() em app.py
+_active_mode: str = "primitive"
+
+
+def get_theme(mode: str | None = None) -> dict:
+    """Retorna o dicionário de cores do modo ativo (ou do modo especificado)."""
+    return _THEMES.get(mode or _active_mode, _THEMES["primitive"])
+
 _MAX_SYNC_CYCLES  = 5
 _MAX_SYNC_FOLDERS = 5
 

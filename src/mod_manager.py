@@ -150,7 +150,12 @@ class ModManager:
                 mods_dir.mkdir(parents=True, exist_ok=True)
                 if dst_dir.exists():
                     shutil.rmtree(dst_dir)
-                shutil.copytree(src_dir, dst_dir)
+                # O SteamCMD baixa mods com subpasta WindowsNoEditor/ (e LinuxNoEditor/).
+                # O ARK servidor espera o conteúdo na RAIZ de Content/Mods/<mod_id>/.
+                # Copiar src_dir inteiro resultaria em Content/Mods/<id>/WindowsNoEditor/ — incorreto.
+                win_src = src_dir / "WindowsNoEditor"
+                effective_src = win_src if win_src.exists() else src_dir
+                shutil.copytree(effective_src, dst_dir)
                 dot_mod_dest = mods_dir / f"{mod_id}.mod"
                 src_dot_mod = (
                     self._find_dot_mod(src_dir, mod_id)
