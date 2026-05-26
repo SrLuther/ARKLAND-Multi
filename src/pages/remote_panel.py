@@ -261,12 +261,152 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
     # Inicializa label de status imediatamente
     _update_agent_status_lbl()
 
+    # ── Seção: Descoberta na Rede Local (LAN) ─────────────────────────────
+    app._section_lbl(parent, 4, "📡  Descoberta na Rede (LAN)")
+
+    lan_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    lan_card.grid(row=5, column=0, padx=20, pady=(0, 14), sticky="ew")
+    lan_card.grid_columnconfigure(0, weight=1)
+
+    lan_header = ctk.CTkFrame(lan_card, fg_color="transparent")
+    lan_header.grid(row=0, column=0, padx=12, pady=(10, 4), sticky="ew")
+    lan_header.grid_columnconfigure(0, weight=1)
+    ctk.CTkLabel(
+        lan_header,
+        text="Instâncias ARKLAND detectadas automaticamente na mesma rede.",
+        text_color="gray50", font=ctk.CTkFont(size=11),
+    ).grid(row=0, column=0, sticky="w")
+
+    def _refresh_lan() -> None:
+        """Atualiza a lista de instâncias LAN descobertas via UDP."""
+        for w in app._lan_peers_frame.winfo_children():
+            w.destroy()
+
+        disc = getattr(app, "_udp_discovery", None)
+        peers = disc.peers if disc else []
+
+        if not peers:
+            ctk.CTkLabel(
+                app._lan_peers_frame,
+                text="Nenhuma instância detectada. Certifique-se de que o agente"
+                     " remoto está ativo em ambas as máquinas.",
+                text_color="gray45", font=ctk.CTkFont(size=11),
+            ).pack(anchor="w", padx=8, pady=6)
+        else:
+            for peer in peers:
+                row_f = ctk.CTkFrame(app._lan_peers_frame,
+                                     fg_color="#1a1a2e", corner_radius=8)
+                row_f.pack(fill="x", pady=3, padx=4)
+                row_f.grid_columnconfigure(1, weight=1)
+
+                ctk.CTkLabel(
+                    row_f,
+                    text=f"🖥  {peer['name']}",
+                    font=ctk.CTkFont(size=12, weight="bold"),
+                ).grid(row=0, column=0, padx=(10, 6), pady=(6, 2), sticky="w")
+                ctk.CTkLabel(
+                    row_f,
+                    text=f"{peer['host']}:{peer['port']}",
+                    text_color="gray50", font=ctk.CTkFont(size=11),
+                ).grid(row=1, column=0, padx=(10, 6), pady=(0, 6), sticky="w")
+
+                def _connect(p=peer) -> None:
+                    _open_connect_dialog(p)
+
+                # Verifica se já está salvo
+                already = any(
+                    i.get("host") == peer["host"] and i.get("port") == peer["port"]
+                    for i in (app.config_manager.config.remote_instances or [])
+                )
+                if already:
+                    ctk.CTkLabel(
+                        row_f, text="✔ Salvo", text_color="#66bb66",
+                        font=ctk.CTkFont(size=11),
+                    ).grid(row=0, column=2, rowspan=2, padx=(0, 12), pady=6)
+                else:
+                    ctk.CTkButton(
+                        row_f, text="Conectar", height=28, width=90,
+                        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        command=_connect,
+                    ).grid(row=0, column=2, rowspan=2, padx=(0, 10), pady=6)
+
+    def _open_connect_dialog(peer: dict) -> None:
+        """Abre diálogo pedindo apenas o token para conectar à instância descoberta."""
+        dlg = ctk.CTkToplevel(app)
+        dlg.title("Conectar à Instância LAN")
+        dlg.geometry("440x200")
+        dlg.grab_set()
+        dlg.resizable(False, False)
+
+        ctk.CTkLabel(
+            dlg,
+            text=f"Conectar a  {peer['name']}  ({peer['host']}:{peer['port']})",
+            font=ctk.CTkFont(size=12, weight="bold"),
+        ).pack(padx=20, pady=(16, 4), anchor="w")
+        ctk.CTkLabel(
+            dlg,
+            text="Cole o token do agente remoto (aba Acesso Remoto na outra máquina):",
+            text_color="gray60", font=ctk.CTkFont(size=11),
+        ).pack(padx=20, anchor="w")
+
+        token_var = tk.StringVar()
+        ctk.CTkEntry(dlg, textvariable=token_var, height=32, width=400,
+                     font=ctk.CTkFont(family="Consolas", size=11),
+                     placeholder_text="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").pack(
+            padx=20, pady=(6, 0))
+
+        err_var = tk.StringVar()
+        ctk.CTkLabel(dlg, textvariable=err_var, text_color="#ff6666",
+                     font=ctk.CTkFont(size=11)).pack(padx=20, pady=(2, 0), anchor="w")
+
+        def _confirm() -> None:
+            token = token_var.get().strip()
+            if not token:
+                err_var.set("O token não pode ser vazio.")
+                return
+            inst = {
+                "name":     peer["name"],
+                "host":     peer["host"],
+                "port":     peer["port"],
+                "token":    token,
+                "favorite": False,
+            }
+            app.config_manager.config.remote_instances.append(inst)
+            app.config_manager.save()
+            dlg.destroy()
+            _refresh_lan()
+            app._refresh_remote_instances_list()
+
+        ctk.CTkButton(dlg, text="✔  Conectar", height=34,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      command=_confirm).pack(pady=12)
+
+    btn_lan = ctk.CTkFrame(lan_header, fg_color="transparent")
+    btn_lan.grid(row=0, column=1, sticky="e")
+    ctk.CTkButton(
+        btn_lan, text="🔄  Atualizar", height=28, width=110,
+        fg_color="#2a2a40", hover_color="#363656",
+        command=_refresh_lan,
+    ).pack()
+
+    app._lan_peers_frame = ctk.CTkFrame(lan_card, fg_color="transparent")
+    app._lan_peers_frame.grid(row=1, column=0, padx=8, pady=(0, 10), sticky="ew")
+    app._lan_peers_frame.grid_columnconfigure(0, weight=1)
+    _refresh_lan()
+
+    # Polling automático a cada 6 s
+    def _lan_poll() -> None:
+        if parent.winfo_exists():
+            _refresh_lan()
+            parent.after(6000, _lan_poll)
+    parent.after(6000, _lan_poll)
+
     # ── Seção: Máquinas Remotas ────────────────────────────────────────────
-    app._section_lbl(parent, 4, "🌐  Máquinas Remotas")
+    app._section_lbl(parent, 6, "🌐  Máquinas Remotas")
 
     # Botão Adicionar
     add_row = ctk.CTkFrame(parent, fg_color="transparent")
-    add_row.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="w")
+    add_row.grid(row=7, column=0, padx=20, pady=(0, 6), sticky="w")
 
     def _add_remote() -> None:
         dlg = tk.Toplevel(app)
@@ -316,7 +456,7 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
 
     # Container das conexões
     app._remote_instances_frame = ctk.CTkFrame(parent, fg_color="transparent")
-    app._remote_instances_frame.grid(row=6, column=0, padx=20, pady=(0, 24), sticky="ew")
+    app._remote_instances_frame.grid(row=8, column=0, padx=20, pady=(0, 24), sticky="ew")
     app._remote_instances_frame.grid_columnconfigure(0, weight=1)
     app._refresh_remote_instances_list()
 

@@ -170,6 +170,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_last_srv_ids: list = []
 
         self._remote_agent: Optional[RemoteAgent] = None
+        self._udp_discovery: Any = None
 
         # ── TEK engine ───────────────────────────────────────────────────────
         self.asm_config_manager = AsmConfigManager()

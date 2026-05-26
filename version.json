@@ -1,10 +1,12 @@
 {
-    "version": "1.3.47",
+    "version": "1.3.48",
     "date": "2026-05-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.47/ARKLAND-Multi-Setup-v1.3.47.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.48/ARKLAND-Multi-Setup-v1.3.48.exe",
     "changelog": [
-        "Fix (mod_auto_updater.py): logs de download de mods não apareciam no painel de Atualização Automática. Chamadas a download_mods em _install_missing_mods e _handle_mod_update não passavam on_log=self._log, descartando silenciosamente todas as mensagens do SteamCMD e status de instalação.",
-        "Fix (pages/ini_import.py): 'Importar INI do Disco' falhava silenciosamente ao abrir — import 'from .ark_ini' apontava para src/pages/ (inexistente) em vez de src/. Corrigido para 'from ..ark_ini' nas duas ocorrências (default_dir e _load_from_folder).",
-        "Fix (pages/fetch_mod_names_async.py): nomes de mods nunca eram carregados após adicionar IDs — urllib.parse e urllib.request usados mas não importados. A exceção NameError era engolida pelo except genérico, resultando em IDs sem nome na lista de mods."
+        "Feature (sync_engine.py + remote_agent.py): sincronização remota de pastas entre máquinas na mesma rede. Endpoints GET /fs/list, GET /fs/read e POST /fs/write adicionados ao RemoteAgent; SyncEngine refatorado com abstrações _LocalSyncFolder e _RemoteSyncFolder. Caminhos remotos usam prefixo @remote|IDENTITY_CODE|PATH.",
+        "Feature (remote_agent.py): descoberta automática de instâncias ARKLAND na rede local via UDP broadcast (porta 32441). Classe UdpDiscovery anuncia nome/IP/porta a cada 30 s e mantém lista de peers com TTL de 90 s. Token não é transmitido.",
+        "Feature (pages/remote_panel.py): seção 'Descoberta na Rede (LAN)' na aba Acesso Remoto. Lista instâncias detectadas automaticamente; botão Conectar pede apenas o token (sem copiar código base64). Atualização automática a cada 6 s.",
+        "Feature (pages/add_sync_folder.py): botão de pasta remota (ἱ0) em cada linha de ciclo de sync. Diálogo seleciona instância remota salva + caminho na máquina remota. Entry exibe o caminho em modo readonly quando remota.",
+        "Fix (pages/ini_paste_section.py): 'Colar Seção' não importava parse_ini_text_to_sections — NameError silencioso impedia a importação de qualquer conteúdo. Corrigido o import; placeholder atualizado para mostrar exemplo com múltiplas seções."
     ]
 }

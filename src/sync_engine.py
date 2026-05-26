@@ -9,13 +9,85 @@ Lógica:
     - Não existir no destino, OU
     - A origem for mais recente que o destino (tolerância de 500 ms)
   Resultado: ambas as pastas ficam sempre com os arquivos mais recentes.
+
+  Pastas remotas (outra máquina com ARKLAND rodando) são suportadas usando
+  o prefixo  @remote|<identity_code>|<caminho_remoto>  no lugar do caminho.
 """
 import shutil
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
+
+_REMOTE_PREFIX = "@remote|"
+
+
+def _fmt_size(size: int) -> str:
+    kb = size / 1024
+    return f"{kb:.1f} KB" if kb < 1024 else f"{kb / 1024:.2f} MB"
+
+
+# ── Abstrações de pasta ───────────────────────────────────────────────────────
+
+class _LocalSyncFolder:
+    """Representa uma pasta local para sync."""
+
+    def __init__(self, path: Path) -> None:
+        self._path = path
+
+    @property
+    def label(self) -> str:
+        return str(self._path)
+
+    @property
+    def exists(self) -> bool:
+        return self._path.is_dir()
+
+    def list_files(self) -> list:
+        result = []
+        for f in self._path.rglob("*"):
+            if f.is_file():
+                rel = f.relative_to(self._path).as_posix()
+                st  = f.stat()
+                result.append({"rel": rel, "mtime": st.st_mtime, "size": st.st_size})
+        return result
+
+    def read_file(self, rel: str) -> bytes:
+        return (self._path / rel).read_bytes()
+
+    def write_file(self, rel: str, data: bytes) -> None:
+        target = self._path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+
+
+class _RemoteSyncFolder:
+    """Representa uma pasta em outra máquina acessível via RemoteAgent HTTP."""
+
+    def __init__(self, client: Any, root: str, name: str = "") -> None:
+        self._client = client
+        self._root   = root
+        self._name   = name or root
+
+    @property
+    def label(self) -> str:
+        return f"[remoto:{self._name}] {self._root}"
+
+    @property
+    def exists(self) -> bool:
+        return True  # verificado ao chamar list_files
+
+    def list_files(self) -> list:
+        return self._client.fs_list(self._root)
+
+    def read_file(self, rel: str) -> bytes:
+        return self._client.fs_read(self._root, rel)
+
+    def write_file(self, rel: str, data: bytes) -> None:
+        result = self._client.fs_write(self._root, rel, data)
+        if isinstance(result, dict) and "error" in result:
+            raise OSError(result["error"])
 
 
 class SyncEngine:
@@ -112,6 +184,26 @@ class SyncEngine:
 
     # ── Lógica de sincronização ────────────────────────────────────────────────
 
+    def _make_folder(self, path_str: str) -> Optional[Any]:
+        """Cria _LocalSyncFolder ou _RemoteSyncFolder a partir de uma string de caminho."""
+        if path_str.startswith(_REMOTE_PREFIX):
+            rest  = path_str[len(_REMOTE_PREFIX):]
+            parts = rest.split("|", 1)
+            if len(parts) != 2:
+                self._log(f"Formato inválido de pasta remota: {path_str!r}", "error")
+                return None
+            code, remote_path = parts
+            try:
+                from .remote_agent import parse_identity_code, RemoteClient
+                identity = parse_identity_code(code)
+                client   = RemoteClient(identity["h"], identity["p"], identity["t"])
+                return _RemoteSyncFolder(client, remote_path, name=identity.get("n", ""))
+            except Exception as exc:
+                self._log(f"Erro ao conectar pasta remota: {exc}", "error")
+                return None
+        else:
+            return _LocalSyncFolder(Path(path_str))
+
     def _sync(self) -> None:
         cycles = getattr(self._config, "sync_cycles", None) or []
 
@@ -130,15 +222,18 @@ class SyncEngine:
         for idx, cycle in enumerate(cycles):
             if not isinstance(cycle, list):
                 continue
-            folders = [Path(str(p)) for p in cycle if str(p).strip()]
-            if len(folders) < 2:
+            folder_objs = [self._make_folder(str(p)) for p in cycle if str(p).strip()]
+            folder_objs = [f for f in folder_objs if f is not None]
+            # Verifica pastas locais existentes; pastas remotas são verificadas pelo list_files
+            valid: list = []
+            for f in folder_objs:
+                if isinstance(f, _LocalSyncFolder) and not f.exists:
+                    self._log(f"[Ciclo {idx + 1}] Pasta não encontrada: {f.label}", "warning")
+                else:
+                    valid.append(f)
+            if len(valid) < 2:
                 continue
-            missing = [f for f in folders if not f.exists()]
-            if missing:
-                for m in missing:
-                    self._log(f"[Ciclo {idx + 1}] Pasta não encontrada: {m}", "warning")
-                continue
-            total_synced += self._sync_cycle(idx + 1, folders)
+            total_synced += self._sync_cycle(idx + 1, valid)
 
         self._stats["cycles"] += 1
         self._stats["last_sync"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -156,57 +251,58 @@ class SyncEngine:
         self._on_stats_update(self._stats.copy())
 
     def _sync_cycle(self, cycle_num: int, folders: list) -> int:
-        """Sync N-way: propaga a versão mais nova de cada arquivo para todas as pastas."""
-        all_rels: set = set()
+        """Sync N-way: pre-fetcha lista de arquivos e propaga a versão mais nova."""
+        # Pre-fetch: lista os arquivos de cada pasta uma vez (HTTP ou disco)
+        folder_files: list = []
         for folder in folders:
             try:
-                for f in folder.rglob("*"):
-                    if f.is_file():
-                        all_rels.add(f.relative_to(folder))
-            except (PermissionError, OSError) as exc:
-                self._add_error(f"[Ciclo {cycle_num}] Leitura: {exc}", "I/O")
+                entries   = folder.list_files()
+                file_dict = {e["rel"]: e for e in entries}
+            except Exception as exc:
+                self._add_error(f"[Ciclo {cycle_num}] Leitura '{folder.label}': {exc}", "I/O")
+                file_dict = {}
+            folder_files.append((folder, file_dict))
+
+        # Coleta todos os caminhos relativos conhecidos
+        all_rels: set = set()
+        for _, fd in folder_files:
+            all_rels.update(fd.keys())
 
         count = 0
         for rel in all_rels:
-            # Acha a cópia mais nova entre todas as pastas do ciclo
-            newest: Optional[Path] = None
-            newest_mtime = -1.0
-            for folder in folders:
-                candidate = folder / rel
-                try:
-                    if candidate.exists():
-                        m = candidate.stat().st_mtime
-                        if m > newest_mtime:
-                            newest_mtime = m
-                            newest = candidate
-                except OSError:
-                    pass
-            if newest is None:
+            # Encontra a pasta com a versão mais recente
+            newest_folder = None
+            newest_mtime  = -1.0
+            newest_size   = 0
+            for folder, fd in folder_files:
+                entry = fd.get(rel)
+                if entry and entry["mtime"] > newest_mtime:
+                    newest_mtime  = entry["mtime"]
+                    newest_folder = folder
+                    newest_size   = entry.get("size", 0)
+            if newest_folder is None:
                 continue
-            # Propaga para todas as pastas que não têm ou têm versão mais antiga
-            for folder in folders:
-                dst = folder / rel
-                if not self._should_copy(newest, dst):
+
+            # Propaga para as pastas desatualizadas
+            for folder, fd in folder_files:
+                if folder is newest_folder:
                     continue
+                dst_entry = fd.get(rel)
+                if dst_entry and dst_entry["mtime"] >= newest_mtime - 0.5:
+                    continue  # já está atualizado
                 try:
-                    dst.parent.mkdir(parents=True, exist_ok=True)
-                    is_new = not dst.exists()
-                    shutil.copy2(newest, dst)
+                    data   = newest_folder.read_file(rel)
+                    folder.write_file(rel, data)
                     count += 1
-                    action = "novo" if is_new else "atualizado"
-                    try:
-                        size_kb = newest.stat().st_size / 1024
-                        size_str = (f"{size_kb:.1f} KB" if size_kb < 1024
-                                    else f"{size_kb / 1024:.2f} MB")
-                    except OSError:
-                        size_str = "?"
+                    action   = "novo" if dst_entry is None else "atualizado"
+                    size_str = _fmt_size(newest_size) if newest_size else "?"
                     self._log(
                         f"  ↪ [C{cycle_num}][{action}] {rel}  ({size_str})"
-                        f"  {newest.parent.name} → {folder.name}",
+                        f"  {newest_folder.label} → {folder.label}",
                         "debug",
                     )
-                except (PermissionError, OSError) as exc:
-                    self._add_error(f"[Ciclo {cycle_num}] Cópia {rel}: {exc}", "I/O")
+                except Exception as exc:
+                    self._add_error(f"[Ciclo {cycle_num}] Cópia '{rel}': {exc}", "I/O")
         return count
 
     def _copy_newer(self, src_root: Path, dst_root: Path) -> int:

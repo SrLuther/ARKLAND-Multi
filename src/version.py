@@ -3,11 +3,34 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.47"
+APP_VERSION: str = "1.3.48"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.48",
+        "date": "2026-05-26",
+        "changes": [
+            "Feature (sync_engine.py + remote_agent.py): sincronização remota de pastas entre "
+            "máquinas na mesma rede. Endpoints GET /fs/list, GET /fs/read e POST /fs/write "
+            "adicionados ao RemoteAgent; SyncEngine refatorado com abstrações _LocalSyncFolder "
+            "e _RemoteSyncFolder. Caminhos remotos usam prefixo @remote|IDENTITY_CODE|PATH.",
+            "Feature (remote_agent.py): descoberta automática de instâncias ARKLAND na rede "
+            "local via UDP broadcast (porta 32441). Classe UdpDiscovery anuncia nome/IP/porta "
+            "a cada 30 s e mantém lista de peers com TTL de 90 s. Token não é transmitido.",
+            "Feature (pages/remote_panel.py): seção 'Descoberta na Rede (LAN)' na aba Acesso "
+            "Remoto. Lista instâncias detectadas automaticamente; botão Conectar pede apenas "
+            "o token (sem copiar código base64). Atualização automática a cada 6 s.",
+            "Feature (pages/add_sync_folder.py): botão de pasta remota (\u1f310) em cada linha "
+            "de ciclo de sync. Diálogo seleciona instância remota salva + caminho na máquina "
+            "remota. Entry exibe o caminho em modo readonly quando remota.",
+            "Fix (pages/ini_paste_section.py): 'Colar Seção' não importava "
+            "parse_ini_text_to_sections — NameError silencioso impedia a importação de "
+            "qualquer conteúdo. Corrigido o import; placeholder atualizado para mostrar "
+            "exemplo com múltiplas seções.",
+        ],
+    },
     {
         "version": "1.3.47",
         "date": "2026-05-26",

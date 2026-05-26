@@ -18,15 +18,24 @@ Endpoints (todos exigem header  Authorization: Bearer <token>):
   POST /sync/start              → Inicia sincronização
   POST /sync/stop               → Para sincronização
   POST /sync/force              → Força ciclo de sincronização
+
+  Filesystem remoto (sync entre máquinas):
+  GET  /fs/list?root=<path>          → Lista arquivos [{rel, mtime, size}]
+  GET  /fs/read?root=<path>&rel=<r>  → Lê arquivo (bytes)
+  POST /fs/write?root=<path>&rel=<r> → Grava arquivo (body = bytes brutos)
 """
 import base64
 import json
+import os
 import socket
 import threading
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
@@ -202,6 +211,52 @@ class RemoteAgent:
                         info["sync_stats"]   = agent._engine.stats
                     self._json(200, info)
 
+                elif path == "/fs/list":
+                    qs   = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    root = urllib.parse.unquote(qs.get("root", [""])[0]).strip()
+                    if not root or not os.path.isdir(root):
+                        self._json(400, {"error": "Pasta inválida ou não encontrada"})
+                        return
+                    root_path = Path(root).resolve()
+                    files: list = []
+                    try:
+                        for f in root_path.rglob("*"):
+                            if f.is_file():
+                                rel = f.relative_to(root_path).as_posix()
+                                st  = f.stat()
+                                files.append({"rel": rel, "mtime": st.st_mtime, "size": st.st_size})
+                    except (PermissionError, OSError) as exc:
+                        self._json(500, {"error": str(exc)})
+                        return
+                    self._json(200, {"files": files})
+
+                elif path == "/fs/read":
+                    qs   = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    root = urllib.parse.unquote(qs.get("root", [""])[0]).strip()
+                    rel  = urllib.parse.unquote(qs.get("rel",  [""])[0]).strip()
+                    if not root or not rel:
+                        self._json(400, {"error": "Parâmetros 'root' e 'rel' são obrigatórios"})
+                        return
+                    try:
+                        root_resolved = Path(root).resolve()
+                        target = (root_resolved / rel).resolve()
+                        target.relative_to(root_resolved)  # garante sem path traversal
+                    except (ValueError, OSError):
+                        self._json(403, {"error": "Acesso negado"})
+                        return
+                    if not target.is_file():
+                        self._json(404, {"error": "Arquivo não encontrado"})
+                        return
+                    try:
+                        data = target.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "application/octet-stream")
+                        self.send_header("Content-Length", str(len(data)))
+                        self.end_headers()
+                        self.wfile.write(data)
+                    except (OSError, IOError) as exc:
+                        self._json(500, {"error": str(exc)})
+
                 else:
                     self._json(404, {"error": "Endpoint não encontrado"})
 
@@ -264,6 +319,34 @@ class RemoteAgent:
                             self._json(404, {"error": "Ação não reconhecida"})
                     else:
                         self._json(400, {"error": "Path inválido"})
+                    return
+
+                # ── /fs/write ─────────────────────────────────────────────────
+                elif path == "/fs/write":
+                    qs   = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    root = urllib.parse.unquote(qs.get("root", [""])[0]).strip()
+                    rel  = urllib.parse.unquote(qs.get("rel",  [""])[0]).strip()
+                    if not root or not rel:
+                        self._json(400, {"error": "Parâmetros 'root' e 'rel' são obrigatórios"})
+                        return
+                    try:
+                        root_resolved = Path(root).resolve()
+                        target = (root_resolved / rel).resolve()
+                        target.relative_to(root_resolved)  # garante sem path traversal
+                    except (ValueError, OSError):
+                        self._json(403, {"error": "Acesso negado"})
+                        return
+                    length = int(self.headers.get("Content-Length", 0))
+                    if length <= 0:
+                        self._json(400, {"error": "Body vazio"})
+                        return
+                    raw = self.rfile.read(length)
+                    try:
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        target.write_bytes(raw)
+                        self._json(200, {"ok": True})
+                    except (OSError, IOError) as exc:
+                        self._json(500, {"error": str(exc)})
                     return
 
                 # ── Sync legado ───────────────────────────────────────────────
@@ -364,3 +447,157 @@ class RemoteClient:
 
     def send_rcon(self, sid: str, command: str) -> dict:
         return self._request("POST", f"/server/{sid}/rcon", {"command": command})
+
+    # ── Filesystem remoto (sync entre máquinas) ───────────────────────────────
+
+    def fs_list(self, root: str) -> list:
+        """Lista arquivos de uma pasta remota. Retorna [{rel, mtime, size}]."""
+        path = "/fs/list?root=" + urllib.parse.quote(root, safe="")
+        result = self._request("GET", path)
+        return result.get("files", []) if isinstance(result, dict) else []
+
+    def fs_read(self, root: str, rel: str) -> bytes:
+        """Baixa o conteúdo de um arquivo remoto."""
+        url = (self._base + "/fs/read?root=" +
+               urllib.parse.quote(root, safe="") + "&rel=" +
+               urllib.parse.quote(rel, safe=""))
+        req = urllib.request.Request(
+            url,
+            headers={"Authorization": f"Bearer {self._token}"},
+            method="GET",
+        )
+        with urllib.request.urlopen(req, timeout=60.0) as resp:
+            return resp.read()
+
+    def fs_write(self, root: str, rel: str, data: bytes) -> dict:
+        """Grava um arquivo em uma pasta remota."""
+        url = (self._base + "/fs/write?root=" +
+               urllib.parse.quote(root, safe="") + "&rel=" +
+               urllib.parse.quote(rel, safe=""))
+        req = urllib.request.Request(
+            url, data=data, method="POST",
+            headers={
+                "Authorization":  f"Bearer {self._token}",
+                "Content-Type":   "application/octet-stream",
+                "Content-Length": str(len(data)),
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60.0) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            try:
+                return json.loads(exc.read().decode())
+            except Exception:
+                return {"error": f"HTTP {exc.code}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Descoberta automática na rede local via UDP broadcast
+# ═════════════════════════════════════════════════════════════════════════════
+
+_UDP_DISCOVERY_PORT    = 32441   # porta UDP usada para anúncios LAN
+_UDP_ANNOUNCE_INTERVAL = 30      # segundos entre broadcasts
+_UDP_PEER_TTL          = 90      # segundos sem resposta → remove peer
+
+
+class UdpDiscovery:
+    """
+    Descobre automaticamente outras instâncias ARKLAND na mesma rede local.
+
+    Cada instância com o RemoteAgent ativo faz broadcast UDP a cada
+    _UDP_ANNOUNCE_INTERVAL segundos anunciando seu nome, IP e porta.
+    O token *não* é incluído no broadcast — só é exigido na hora de conectar.
+    """
+
+    def __init__(self, name: str, host: str, agent_port: int,
+                 disc_port: int = _UDP_DISCOVERY_PORT) -> None:
+        self._name  = name
+        self._host  = host
+        self._port  = agent_port
+        self._dport = disc_port
+        self._peers: Dict[str, Any] = {}   # "host:port" → {name, host, port, seen_at}
+        self._lock    = threading.Lock()
+        self._running = False
+
+    # ── Interface pública ─────────────────────────────────────────────────────
+
+    @property
+    def peers(self) -> list:
+        """Retorna instâncias vistas nos últimos _UDP_PEER_TTL segundos."""
+        cutoff = time.time() - _UDP_PEER_TTL
+        with self._lock:
+            return [dict(p) for p in self._peers.values() if p["seen_at"] >= cutoff]
+
+    def start(self) -> None:
+        if self._running:
+            return
+        self._running = True
+        threading.Thread(target=self._broadcast_loop, daemon=True,
+                         name="UdpAnnounce").start()
+        threading.Thread(target=self._listen_loop, daemon=True,
+                         name="UdpListener").start()
+
+    def stop(self) -> None:
+        self._running = False
+
+    # ── Loops internos ────────────────────────────────────────────────────────
+
+    def _payload(self) -> bytes:
+        return json.dumps(
+            {"n": self._name, "h": self._host, "p": self._port},
+            separators=(",", ":"),
+        ).encode()
+
+    def _broadcast_loop(self) -> None:
+        import socket as _socket
+        while self._running:
+            try:
+                sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+                sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_BROADCAST, 1)
+                sock.settimeout(2.0)
+                sock.sendto(self._payload(), ("255.255.255.255", self._dport))
+                sock.close()
+            except Exception:
+                pass
+            # Aguarda o intervalo em fatias de 0.5 s para responder ao stop()
+            for _ in range(_UDP_ANNOUNCE_INTERVAL * 2):
+                if not self._running:
+                    return
+                time.sleep(0.5)
+
+    def _listen_loop(self) -> None:
+        import socket as _socket
+        try:
+            sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+            sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+            sock.settimeout(1.0)
+            sock.bind(("", self._dport))
+        except Exception:
+            return
+        try:
+            while self._running:
+                try:
+                    raw, addr = sock.recvfrom(512)
+                    peer = json.loads(raw.decode())
+                    name = str(peer.get("n", addr[0]))
+                    host = str(peer.get("h", addr[0]))
+                    port = int(peer.get("p", _UDP_DISCOVERY_PORT))
+                    # Ignora announce da própria instância
+                    if host == self._host and port == self._port:
+                        continue
+                    key = f"{host}:{port}"
+                    with self._lock:
+                        self._peers[key] = {
+                            "name": name, "host": host,
+                            "port": port, "seen_at": time.time(),
+                        }
+                except _socket.timeout:
+                    pass
+                except Exception:
+                    pass
+        finally:
+            sock.close()
+

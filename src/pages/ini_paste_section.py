@@ -2,6 +2,7 @@
 import tkinter as tk
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
+from ..ark_ini import parse_ini_text_to_sections
 from ..ui_constants import _GREEN_DARK, _GREEN_HOVER
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
@@ -30,7 +31,7 @@ def ini_paste_section(app: "ARKServerManagerApp", server_id: str, file_key: str)
     txt.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 6))
 
     # Placeholder – inserido e removido ao focar
-    _PLACEHOLDER = "[NomeDaSeção]\nChave=Valor\nChave2=Valor2"
+    _PLACEHOLDER = "[NomeDaSeção1]\nChave=Valor\nChave2=Valor2\n\n[NomeDaSeção2]\nChave3=Valor3"
     txt.insert("1.0", _PLACEHOLDER)
     txt.configure(text_color="gray45")
 
