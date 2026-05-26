@@ -7,12 +7,17 @@ if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
-def add_sync_cycle(app: "ARKServerManagerApp", initial_paths: "Optional[list]" = None) -> None:
+def add_sync_cycle(app: "ARKServerManagerApp", initial_paths: "Optional[list]" = None, initial_numeric_only: bool = False) -> None:
     """Adiciona um card de ciclo no painel de sincronização."""
     if len(app._sync_cycle_vars) >= _MAX_SYNC_CYCLES:
         return
     folder_vars: List[tk.StringVar] = []
     app._sync_cycle_vars.append(folder_vars)
+    # Registra a var de filtro nesta posição do ciclo
+    numeric_only_var = tk.BooleanVar(value=initial_numeric_only)
+    if not hasattr(app, "_sync_numeric_only_vars"):
+        app._sync_numeric_only_vars = []
+    app._sync_numeric_only_vars.append(numeric_only_var)
     cycle_num = len(app._sync_cycle_vars)
 
     card = ctk.CTkFrame(app._sync_cycles_frame, corner_radius=8, fg_color="#17172a")
@@ -36,15 +41,28 @@ def add_sync_cycle(app: "ARKServerManagerApp", initial_paths: "Optional[list]" =
     folders_frame = ctk.CTkFrame(card, fg_color="transparent")
     folders_frame.grid(row=1, column=0, padx=8, pady=0, sticky="ew")
 
+    # Checkbox filtro + botão “+ Pasta”
+    bottom_row = ctk.CTkFrame(card, fg_color="transparent")
+    bottom_row.grid(row=2, column=0, padx=8, pady=(2, 8), sticky="ew")
+    bottom_row.grid_columnconfigure(1, weight=1)
+
+    ctk.CTkCheckBox(
+        bottom_row,
+        text="Apenas nomes numéricos (clusters ARK)",
+        variable=numeric_only_var,
+        font=ctk.CTkFont(size=11),
+        text_color="gray60",
+    ).grid(row=0, column=1, padx=(12, 4), sticky="w")
+
     # Botão "+ Pasta" (criado antes para ser passado aos helpers)
     add_folder_btn = ctk.CTkButton(
-        card, text="＋  Pasta", height=26, width=100,
+        bottom_row, text="＋  Pasta", height=26, width=100,
         fg_color="transparent", hover_color="#363656",
         border_width=1, border_color="#363656")
     add_folder_btn.configure(
         command=lambda ff=folders_frame, fv=folder_vars, ab=add_folder_btn:
             app._add_sync_folder(ff, fv, ab))
-    add_folder_btn.grid(row=2, column=0, padx=8, pady=(4, 8), sticky="w")
+    add_folder_btn.grid(row=0, column=0, sticky="w")
 
     # Popula pastas iniciais
     paths = initial_paths if initial_paths else [""]

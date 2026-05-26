@@ -307,9 +307,9 @@ class ARKServerManagerApp(ctk.CTk):
 
     # ── Gestão de ciclos ──────────────────────────────────────────────────────
 
-    def _add_sync_cycle(self, initial_paths: Optional[list] = None) -> None:
+    def _add_sync_cycle(self, initial_paths: Optional[list] = None, initial_numeric_only: bool = False) -> None:
         from .pages.add_sync_cycle import add_sync_cycle
-        add_sync_cycle(self, initial_paths=initial_paths)
+        add_sync_cycle(self, initial_paths=initial_paths, initial_numeric_only=initial_numeric_only)
 
     def _remove_sync_cycle(self, card, folder_vars: list) -> None:
         from .pages.remove_sync_cycle import remove_sync_cycle

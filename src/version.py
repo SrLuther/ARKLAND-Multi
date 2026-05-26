@@ -3,11 +3,32 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.48"
+APP_VERSION: str = "1.3.49"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.49",
+        "date": "2026-05-26",
+        "changes": [
+            "Fix (remote_agent.py): fs_list agora propaga erros HTTP (401, 500 etc.) em vez de "
+            "retornar lista vazia silenciosamente. Antes, um 401 fazia o sync enxergar a pasta "
+            "remota como vazia e tentar copiar tudo, resultando em flood de erros 'Não autorizado'.",
+            "Fix (pages/start_remote_agent.py): token do agente é gerado automaticamente "
+            "(secrets.token_urlsafe) se estiver vazio ao ativar o agente. Evita que o agente "
+            "rejeite todas as requisições por falta de token.",
+            "Feature (pages/add_sync_cycle.py + sync_engine.py): filtro 'Apenas nomes numéricos' "
+            "por ciclo de sync. Quando marcado, somente arquivos com nome puramente numérico "
+            "(ex: Steam IDs de cluster ARK) são sincronizados. Config salva como dict com "
+            "campo 'numeric_only'; formato legado (lista de paths) mantido compatível.",
+            "Fix (pages/tab_plugins.py): removido 'Plugin Limit Fix' do catálogo de sugestões "
+            "— é um plugin para ARK: Survival Ascended (ASA), não compatível com ASE/ArkApi.",
+            "Refactor (pages/start_remote_agent.py + remote_panel.py): token encurtado de UUID "
+            "(36 chars) para secrets.token_urlsafe(12) (16 chars). Tokens existentes "
+            "continuam funcionando sem necessidade de regeneração.",
+        ],
+    },
     {
         "version": "1.3.48",
         "date": "2026-05-26",

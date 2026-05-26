@@ -109,9 +109,13 @@ def build_sync_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> None
 
     # Carrega ciclos salvos na config
     app._sync_cycle_vars = []
+    app._sync_numeric_only_vars = []
     saved = app.config_manager.config.sync_cycles or []
     if not saved:
         saved = [[""]]  # 1 ciclo vazio por padrão
-    for cycle_paths in saved[:_MAX_SYNC_CYCLES]:
-        app._add_sync_cycle(cycle_paths if isinstance(cycle_paths, list) else [""])
+    for cycle in saved[:_MAX_SYNC_CYCLES]:
+        if isinstance(cycle, dict):
+            app._add_sync_cycle(cycle.get("folders", [""]), initial_numeric_only=cycle.get("numeric_only", False))
+        else:
+            app._add_sync_cycle(cycle if isinstance(cycle, list) else [""])
 

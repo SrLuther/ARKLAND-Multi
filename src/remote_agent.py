@@ -454,6 +454,8 @@ class RemoteClient:
         """Lista arquivos de uma pasta remota. Retorna [{rel, mtime, size}]."""
         path = "/fs/list?root=" + urllib.parse.quote(root, safe="")
         result = self._request("GET", path)
+        if isinstance(result, dict) and "error" in result:
+            raise OSError(result["error"])  # propaga 401, 400, 500 etc.
         return result.get("files", []) if isinstance(result, dict) else []
 
     def fs_read(self, root: str, rel: str) -> bytes:

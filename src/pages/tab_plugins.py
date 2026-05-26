@@ -75,18 +75,6 @@ _OFFICIAL_PLUGINS = [
         "detect":     lambda d: (d / _PLUGINS / "ArkShopUI" / "ArkShopUI.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
-    {
-        "name":       "Plugin Limit Fix",
-        "version":    "latest",
-        "author":     "WETBATMAN",
-        "tag":        "Fix",
-        "tag_color":  "#7a2d2d",
-        "desc":       "Corrige crash ao iniciar o servidor quando\n"
-                      "muitos plugins estão instalados ao mesmo tempo.",
-        "url":        "https://ark-server-api.com/resources/plugin-limit-fix.293/",
-        "detect":     None,
-        "install_to": lambda d: d / _PLUGINS,
-    },
 ]
 
 

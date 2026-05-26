@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 import uuid
+import secrets
 from ..remote_agent import local_ip, parse_identity_code, RemoteClient
 from ..ui_constants import (
     _GREEN, _GREEN_DARK, _GREEN_HOVER, _RED_DARK, _RED_HOVER, _CARD_BG,
@@ -228,7 +229,7 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
             "Qualquer app remoto conectado precisará de um novo código.\n\nContinuar?",
             parent=app,
         ):
-            app.config_manager.config.remote_agent_token = str(uuid.uuid4())
+            app.config_manager.config.remote_agent_token = secrets.token_urlsafe(12)
             app.config_manager.save()
             if app._remote_agent and app._remote_agent.is_running:
                 app._remote_agent.stop()

@@ -1,4 +1,5 @@
 from __future__ import annotations
+import secrets
 import threading
 from typing import TYPE_CHECKING
 from ..ui_constants import _hostname
@@ -11,6 +12,12 @@ if TYPE_CHECKING:
 def start_remote_agent(app: "ARKServerManagerApp") -> None:
     """Inicia (ou reinicia) o RemoteAgent e a descoberta LAN com as configurações atuais."""
     cfg = app.config_manager.config
+
+    # Garante que há sempre um token — sem token o agente rejeita tudo
+    if not cfg.remote_agent_token:
+        cfg.remote_agent_token = secrets.token_urlsafe(12)
+        app.config_manager.save()
+        app._refresh_identity_code()
 
     # Para instâncias anteriores
     if app._remote_agent and app._remote_agent.is_running:

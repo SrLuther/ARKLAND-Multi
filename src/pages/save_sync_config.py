@@ -9,10 +9,12 @@ def save_sync_config(app: "ARKServerManagerApp") -> None:
     cfg = app.config_manager.config
     # Coleta ciclos: apenas pastas com caminho preenchido
     cycles = []
-    for folder_vars in app._sync_cycle_vars:
+    numeric_vars = getattr(app, "_sync_numeric_only_vars", [])
+    for i, folder_vars in enumerate(app._sync_cycle_vars):
         paths = [v.get().strip() for v in folder_vars if v.get().strip()]
+        numeric_only = numeric_vars[i].get() if i < len(numeric_vars) else False
         if paths:
-            cycles.append(paths)
+            cycles.append({"folders": paths, "numeric_only": True} if numeric_only else paths)
     cfg.sync_cycles = cycles
     try:
         cfg.sync_interval = max(1, int(app._sync_interval_var.get()))
