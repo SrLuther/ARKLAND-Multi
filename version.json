@@ -1,12 +1,10 @@
 {
-    "version": "1.3.46",
+    "version": "1.3.47",
     "date": "2026-05-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.46/ARKLAND-Multi-Setup-v1.3.46.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.47/ARKLAND-Multi-Setup-v1.3.47.exe",
     "changelog": [
-        "Fix (rcon_client.py): removida abordagem de sentinel no protocolo RCON. O sentinel (EXECCOMMAND vazio enviado logo após o comando real) podia ser respondido pelo ARK antes da resposta do comando principal, causando retorno vazio para ListPlayers e outros comandos mesmo com jogadores conectados. Substituído por espera direta com timeout de 3s e matching por packet ID; pacotes órfãos de comandos anteriores são descartados automaticamente.",
-        "Fix (broadcast_rcon.py): corrigido AttributeError 'module datetime has no attribute now' — import trocado de 'import datetime' para 'from datetime import datetime'. Corrigido também import ausente de RconClient que causava NameError ao enviar Broadcast via conexão temporária (servidor sem RCON aberto no console).",
-        "Fix (rcon_exec.py): feedback do console RCON melhorado — comandos executados com sucesso mas sem retorno (SaveWorld, Broadcast, DoExit…) exibem '(ok)' em verde em vez de '(sem resposta)', distinguindo execução bem-sucedida de erro real.",
-        "Feat (add_mod.py, tab_mods.py): suporte a múltiplos IDs no campo de mods da aba principal — cole IDs separados por vírgula (ex: 731604991, 880871931) para adicionar todos em lote de uma vez sem precisar abrir o diálogo de busca.",
-        "Feat (mod_search_dialog.py): busca em lote no Steam Workshop — ao colar múltiplos IDs separados por vírgula no campo de busca, o diálogo faz uma única chamada à API e lista todos os mods encontrados com nome, ID e botões individuais '➕ Adicionar'. Botão 'Adicionar Todos (N)' no topo adiciona toda a lista e fecha o diálogo."
+        "Fix (mod_auto_updater.py): logs de download de mods não apareciam no painel de Atualização Automática. Chamadas a download_mods em _install_missing_mods e _handle_mod_update não passavam on_log=self._log, descartando silenciosamente todas as mensagens do SteamCMD e status de instalação.",
+        "Fix (pages/ini_import.py): 'Importar INI do Disco' falhava silenciosamente ao abrir — import 'from .ark_ini' apontava para src/pages/ (inexistente) em vez de src/. Corrigido para 'from ..ark_ini' nas duas ocorrências (default_dir e _load_from_folder).",
+        "Fix (pages/fetch_mod_names_async.py): nomes de mods nunca eram carregados após adicionar IDs — urllib.parse e urllib.request usados mas não importados. A exceção NameError era engolida pelo except genérico, resultando em IDs sem nome na lista de mods."
     ]
 }

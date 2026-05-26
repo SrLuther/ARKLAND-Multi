@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.46"
+APP_VERSION: str = "1.3.47"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.47",
+        "date": "2026-05-26",
+        "changes": [
+            "Fix (mod_auto_updater.py): logs de download de mods não apareciam no painel de "
+            "Atualização Automática. Chamadas a download_mods em _install_missing_mods e "
+            "_handle_mod_update não passavam on_log=self._log, descartando silenciosamente "
+            "todas as mensagens do SteamCMD e status de instalação.",
+            "Fix (pages/ini_import.py): 'Importar INI do Disco' falhava silenciosamente ao "
+            "abrir — import 'from .ark_ini' apontava para src/pages/ (inexistente) em vez de "
+            "src/. Corrigido para 'from ..ark_ini' nas duas ocorrências (default_dir e "
+            "_load_from_folder).",
+            "Fix (pages/fetch_mod_names_async.py): nomes de mods nunca eram carregados após "
+            "adicionar IDs — urllib.parse e urllib.request usados mas não importados. "
+            "A exceção NameError era engolida pelo except genérico, resultando em IDs sem nome "
+            "na lista de mods.",
+        ],
+    },
     {
         "version": "1.3.46",
         "date": "2026-05-26",

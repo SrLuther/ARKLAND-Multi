@@ -137,7 +137,9 @@ class ModAutoUpdater:
             def _on_done(ok: bool, _ev=done_event):
                 _ev.set()
 
-            self._mod_manager.download_mods(missing, srv.install_dir, on_done=_on_done)
+            self._mod_manager.download_mods(
+                missing, srv.install_dir, on_done=_on_done, on_log=self._log
+            )
             done_event.wait(timeout=600)  # até 10 min por servidor
 
     def _seed_timestamps(self) -> None:
@@ -233,7 +235,9 @@ class ModAutoUpdater:
             success_box[0] = ok
             done_event.set()
 
-        self._mod_manager.download_mods([mod_id], install_dir, on_done=_on_done, copy_to_mods=False)
+        self._mod_manager.download_mods(
+            [mod_id], install_dir, on_done=_on_done, copy_to_mods=False, on_log=self._log
+        )
 
         # ── Fase 3: avisos RCON enquanto o download acontece ──────────────────
         # Inclui servidores em "starting" — RCON pode não estar disponível ainda

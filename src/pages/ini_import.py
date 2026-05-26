@@ -48,7 +48,7 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
     path_fr.grid_columnconfigure(0, weight=1)
 
     # Valor padrão: pasta WindowsServer do servidor, se existir
-    from .ark_ini import get_ini_path as _get_ini_path2
+    from ..ark_ini import get_ini_path as _get_ini_path2
     default_dir = str(_get_ini_path2(srv.install_dir, "Game.ini").parent) if srv.install_dir else ""
     path_var = tk.StringVar(value=default_dir)
 
@@ -98,7 +98,7 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
         # mas lê diretamente os arquivos lá presentes
         def _load_from_folder(target_srv, src_folder: str) -> None:
             import shutil
-            from .ark_ini import (
+            from ..ark_ini import (
                 populate_config_from_gus,
                 populate_config_from_game_ini,
                 populate_custom_game_ini_from_file,
