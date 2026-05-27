@@ -214,6 +214,8 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _launch_mode(self, mode: str) -> None:
         """Chamado pela tela de boas-vindas: destrói o splash e constrói a UI."""
+        if mode == "tek":
+            return
         if hasattr(self, "_welcome_frame"):
             try:
                 self._welcome_frame.destroy()

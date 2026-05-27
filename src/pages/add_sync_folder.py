@@ -4,33 +4,29 @@ from tkinter import messagebox
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..ui_constants import _MAX_SYNC_FOLDERS, _RED_DARK, _BLUE, _BLUE_HOVER, _GREEN_DARK, _GREEN_HOVER
-from ..sync_engine import _REMOTE_PREFIX
+from ..sync_engine import _REMOTE_PREFIX, _REMOTE_PREFIX_NEW
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
 def _make_remote_path(instance: dict, remote_path: str) -> str:
-    """Cria a string  @remote|BASE64_CODE|remote_path  a partir dos dados da instância."""
-    from ..remote_agent import make_identity_code
-    code = make_identity_code(
-        instance.get("name", ""),
-        instance.get("host", ""),
-        instance.get("port", 32440),
-        instance.get("token", ""),
-    )
-    return f"{_REMOTE_PREFIX}{code}|{remote_path.strip()}"
+    """Cria a string  @remote:HOST:PORT|remote_path  (sem token embutido)."""
+    host = instance.get("host", "")
+    port = instance.get("port", 32440)
+    return f"{_REMOTE_PREFIX_NEW}{host}:{port}|{remote_path.strip()}"
 
 
 def _parse_remote_path(path_str: str) -> tuple:
     """
-    Retorna (identity_code, remote_path) se for caminho remoto, ou (None, path_str) se for local.
+    Retorna (addr_or_code, remote_path) se for caminho remoto, ou (None, path_str) se for local.
+    Suporta novo formato (@remote:HOST:PORT|path) e legado (@remote|BASE64|path).
     """
-    if not path_str.startswith(_REMOTE_PREFIX):
-        return None, path_str
-    rest  = path_str[len(_REMOTE_PREFIX):]
-    parts = rest.split("|", 1)
-    if len(parts) == 2:
-        return parts[0], parts[1]
+    for prefix in (_REMOTE_PREFIX_NEW, _REMOTE_PREFIX):
+        if path_str.startswith(prefix):
+            rest  = path_str[len(prefix):]
+            parts = rest.split("|", 1)
+            if len(parts) == 2:
+                return parts[0], parts[1]
     return None, path_str
 
 
@@ -100,7 +96,7 @@ def add_sync_folder(app: "ARKServerManagerApp", folders_frame, folder_vars: list
         ctk.CTkLabel(dlg, text="Caminho na máquina remota:",
                      font=ctk.CTkFont(size=12)).pack(anchor="w", padx=20, pady=(12, 2))
         rpath_var = tk.StringVar(
-            value=_parse_remote_path(var.get())[1] if var.get().startswith(_REMOTE_PREFIX) else ""
+            value=_parse_remote_path(var.get())[1] if (var.get().startswith(_REMOTE_PREFIX_NEW) or var.get().startswith(_REMOTE_PREFIX)) else ""
         )
         ctk.CTkEntry(dlg, textvariable=rpath_var, height=30, width=440,
                      placeholder_text=r"Ex: C:\ARK\ShooterGame\Saved\clusters").pack(padx=20)

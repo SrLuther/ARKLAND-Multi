@@ -1,12 +1,13 @@
 {
-    "version": "1.3.49",
+    "version": "1.3.50",
     "date": "2026-05-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.49/ARKLAND-Multi-Setup-v1.3.49.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.3.50/ARKLAND-Multi-Setup-v1.3.50.exe",
     "changelog": [
-        "Fix (remote_agent.py): fs_list agora propaga erros HTTP (401, 500 etc.) em vez de retornar lista vazia silenciosamente. Antes, um 401 fazia o sync enxergar a pasta remota como vazia e tentar copiar tudo, resultando em flood de erros 'Não autorizado'.",
-        "Fix (pages/start_remote_agent.py): token do agente é gerado automaticamente (secrets.token_urlsafe) se estiver vazio ao ativar o agente. Evita que o agente rejeite todas as requisições por falta de token.",
-        "Feature (pages/add_sync_cycle.py + sync_engine.py): filtro 'Apenas nomes numéricos' por ciclo de sync. Quando marcado, somente arquivos com nome puramente numérico (ex: Steam IDs de cluster ARK) são sincronizados. Config salva como dict com campo 'numeric_only'; formato legado (lista de paths) mantido compatível.",
-        "Fix (pages/tab_plugins.py): removido 'Plugin Limit Fix' do catálogo de sugestões — é um plugin para ARK: Survival Ascended (ASA), não compatível com ASE/ArkApi.",
-        "Refactor (pages/start_remote_agent.py + remote_panel.py): token encurtado de UUID (36 chars) para secrets.token_urlsafe(12) (16 chars). Tokens existentes continuam funcionando sem necessidade de regeneração."
+        "Fix crítico (sync_engine.py): token de autenticação do agente remoto agora é sempre buscado em tempo real de config.remote_instances (pelo host+porta), em vez de usar o token congelado dentro do BASE64 do caminho. Resolve 'Não autorizado' persistente mesmo após regenerar o token — sem precisar recriar as pastas nos ciclos.",
+        "Fix (sync_engine.py): se a listagem de qualquer pasta do ciclo falhar (ex: 401, timeout), o ciclo inteiro é abortado imediatamente. Antes, a pasta remota era tratada como vazia e o engine tentava copiar todos os arquivos locais para lá, gerando flood de erros 'Cópia X: Não autorizado' e WinError 10053/10054.",
+        "Fix (pages/add_sync_folder.py): novas pastas remotas agora usam formato '@remote:HOST:PORT|path' em vez de '@remote|BASE64|path' — elimina o token do caminho salvo. Pastas antigas no formato legado continuam funcionando normalmente.",
+        "Feature (pages/refresh_remote_instances_list.py): botão '✏️' em cada máquina remota salva permite atualizar o token sem remover e re-adicionar a conexão.",
+        "Fix (pages/welcome_screen.py + app.py): modo TEK removido da tela inicial e bloqueado no backend (_launch_mode).",
+        "Fix crítico (ark_ini.py): seções do Game.ini com nomes em case diferente (ex: '[/script/shootergame.shootergamemode]' vs '[/Script/ShooterGame.ShooterGameMode]') eram tratadas como seções distintas pelo configparser, causando duplicação de seção ao salvar e leitura de valores padrão ao carregar (configs apareciam 'desmarcadas' após reiniciar). Nova função _normalize_section_case() unifica a seção para o nome canônico antes de leitura e escrita — elimina a duplicação e restaura os valores corretamente."
     ]
 }

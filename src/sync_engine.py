@@ -20,7 +20,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-_REMOTE_PREFIX = "@remote|"
+_REMOTE_PREFIX     = "@remote|"   # legado: @remote|BASE64|path
+_REMOTE_PREFIX_NEW = "@remote:"   # novo:   @remote:HOST:PORT|path
 
 
 def _fmt_size(size: int) -> str:
@@ -185,8 +186,32 @@ class SyncEngine:
     # ── Lógica de sincronização ────────────────────────────────────────────────
 
     def _make_folder(self, path_str: str) -> Optional[Any]:
-        """Cria _LocalSyncFolder ou _RemoteSyncFolder a partir de uma string de caminho."""
-        if path_str.startswith(_REMOTE_PREFIX):
+        """Cria _LocalSyncFolder ou _RemoteSyncFolder a partir de uma string de caminho.
+
+        Suporta dois formatos:
+          novo    @remote:HOST:PORT|remote_path   (token buscado em tempo real)
+          legado  @remote|BASE64|remote_path      (token do BASE64 ignorado; usa instância salva)
+        Em ambos os casos o token é sempre buscado de config.remote_instances pelo host+porta,
+        eliminando o problema de "token congelado" ao regenerar o token da instância remota.
+        """
+        if path_str.startswith(_REMOTE_PREFIX_NEW):
+            # Novo formato: @remote:HOST:PORT|remote_path
+            rest  = path_str[len(_REMOTE_PREFIX_NEW):]
+            parts = rest.split("|", 1)
+            if len(parts) != 2:
+                self._log(f"Formato inválido de pasta remota: {path_str!r}", "error")
+                return None
+            addr, remote_path = parts
+            addr_parts = addr.rsplit(":", 1)
+            if len(addr_parts) != 2:
+                self._log(f"Endereço inválido no caminho remoto: {addr!r}", "error")
+                return None
+            host, port_str = addr_parts
+            port = int(port_str)
+            name = host
+
+        elif path_str.startswith(_REMOTE_PREFIX):
+            # Legado: @remote|BASE64|remote_path  — decodifica só para extrair host+port
             rest  = path_str[len(_REMOTE_PREFIX):]
             parts = rest.split("|", 1)
             if len(parts) != 2:
@@ -194,15 +219,35 @@ class SyncEngine:
                 return None
             code, remote_path = parts
             try:
-                from .remote_agent import parse_identity_code, RemoteClient
+                from .remote_agent import parse_identity_code
                 identity = parse_identity_code(code)
-                client   = RemoteClient(identity["h"], identity["p"], identity["t"])
-                return _RemoteSyncFolder(client, remote_path, name=identity.get("n", ""))
+                host = identity["h"]
+                port = identity["p"]
+                name = identity.get("n", host)
             except Exception as exc:
-                self._log(f"Erro ao conectar pasta remota: {exc}", "error")
+                self._log(f"Erro ao decodificar caminho remoto: {exc}", "error")
                 return None
+
         else:
             return _LocalSyncFolder(Path(path_str))
+
+        # Busca token ATUAL da instância salva (evita token congelado)
+        instances = getattr(self._config, "remote_instances", []) or []
+        inst = next(
+            (i for i in instances
+             if i.get("host") == host and int(i.get("port", 32440)) == port),
+            None,
+        )
+        token = inst.get("token", "") if inst else ""
+        if inst and inst.get("name"):
+            name = inst["name"]
+        try:
+            from .remote_agent import RemoteClient
+            client = RemoteClient(host, port, token)
+            return _RemoteSyncFolder(client, remote_path, name=name)
+        except Exception as exc:
+            self._log(f"Erro ao conectar pasta remota: {exc}", "error")
+            return None
 
     def _sync(self) -> None:
         cycles = getattr(self._config, "sync_cycles", None) or []
@@ -265,8 +310,12 @@ class SyncEngine:
                 entries   = folder.list_files()
                 file_dict = {e["rel"]: e for e in entries}
             except Exception as exc:
-                self._add_error(f"[Ciclo {cycle_num}] Leitura '{folder.label}': {exc}", "I/O")
-                file_dict = {}
+                self._add_error(
+                    f"[Ciclo {cycle_num}] Leitura '{folder.label}': {exc}  "
+                    f"— ciclo abortado para evitar cópias indevidas.",
+                    "I/O",
+                )
+                return 0   # ← aborta o ciclo inteiro se qualquer pasta falhar
             folder_files.append((folder, file_dict))
 
         # Coleta todos os caminhos relativos conhecidos

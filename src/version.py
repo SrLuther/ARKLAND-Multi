@@ -3,11 +3,39 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.49"
+APP_VERSION: str = "1.3.50"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.50",
+        "date": "2026-05-26",
+        "changes": [
+            "Fix crítico (sync_engine.py): token de autenticação do agente remoto agora é sempre "
+            "buscado em tempo real de config.remote_instances (pelo host+porta), em vez de usar "
+            "o token congelado dentro do BASE64 do caminho. Resolve 'Não autorizado' persistente "
+            "mesmo após regenerar o token — sem precisar recriar as pastas nos ciclos.",
+            "Fix (sync_engine.py): se a listagem de qualquer pasta do ciclo falhar (ex: 401, "
+            "timeout), o ciclo inteiro é abortado imediatamente. Antes, a pasta remota era "
+            "tratada como vazia e o engine tentava copiar todos os arquivos locais para lá, "
+            "gerando flood de erros 'Cópia X: Não autorizado' e WinError 10053/10054.",
+            "Fix (pages/add_sync_folder.py): novas pastas remotas agora usam formato "
+            "'@remote:HOST:PORT|path' em vez de '@remote|BASE64|path' — elimina o token do "
+            "caminho salvo. Pastas antigas no formato legado continuam funcionando normalmente.",
+            "Feature (pages/refresh_remote_instances_list.py): botão '✏️' em cada máquina "
+            "remota salva permite atualizar o token sem remover e re-adicionar a conexão.",
+            "Fix (pages/welcome_screen.py + app.py): modo TEK removido da tela inicial e "
+            "bloqueado no backend (_launch_mode).",
+            "Fix crítico (ark_ini.py): seções do Game.ini com nomes em case diferente "
+            "(ex: '[/script/shootergame.shootergamemode]' vs '[/Script/ShooterGame.ShooterGameMode]') "
+            "eram tratadas como seções distintas pelo configparser, causando duplicação de seção "
+            "ao salvar e leitura de valores padrão ao carregar (configs apareciam 'desmarcadas' "
+            "após reiniciar). Nova função _normalize_section_case() unifica a seção para o nome "
+            "canônico antes de leitura e escrita — elimina a duplicação e restaura os valores "
+            "corretamente.",
+        ],
+    },
     {
         "version": "1.3.49",
         "date": "2026-05-26",

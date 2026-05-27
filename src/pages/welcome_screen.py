@@ -90,14 +90,14 @@ def build_welcome_screen(app: "ARKServerManagerApp") -> None:
 
     # ── Subtítulo ─────────────────────────────────────────────────────────────
     ctk.CTkLabel(frame,
-                 text="Selecione o tipo de gerenciamento de servidor:",
+                 text="Clique para iniciar o gerenciador:",
                  font=ctk.CTkFont(size=13),
                  text_color="#3a5060").grid(row=3, column=0, pady=(0, 24))
 
     # ── Cards de modo ─────────────────────────────────────────────────────────
     cards_host = ctk.CTkFrame(frame, fg_color="transparent")
     cards_host.grid(row=4, column=0, sticky="n")
-    cards_host.grid_columnconfigure((0, 1), weight=1)
+    cards_host.grid_columnconfigure(0, weight=1)
 
     _mode_card(
         app, cards_host, col=0,
@@ -115,24 +115,6 @@ def build_welcome_screen(app: "ARKServerManagerApp") -> None:
             "Clusters e sincronização multi-servidor",
         ],
         mode="primitive",
-    )
-
-    _mode_card(
-        app, cards_host, col=1,
-        title="TEK",
-        icon="⚡",
-        subtitle="ARK: Survival Evolved — Compatível com ASM",
-        accent=_ACCENT_T,
-        hover=_HOVER_T,
-        card_bg=_CARD_T,
-        border=_BORDER_T,
-        desc=[
-            "Motor fiel ao ArkServerManager (ASM)",
-            "300+ parâmetros de ServerProfile",
-            "INI gerado via mapeamento declarativo",
-            "Perfis completos por servidor",
-        ],
-        mode="tek",
     )
 
     # ── Verificação de atualização ──────────────────────────────────────────

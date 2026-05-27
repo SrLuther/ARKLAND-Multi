@@ -100,6 +100,41 @@ def refresh_remote_instances_list(app: "ARKServerManagerApp") -> None:
                           fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                           command=_confirm).pack(pady=12)
 
+        def _edit_token(i=inst) -> None:
+            """Abre diálogo para atualizar o token de uma instância existente."""
+            dlg = tk.Toplevel(app)
+            dlg.title(f"Atualizar Token — {i.get('name', '?')}")
+            dlg.geometry("480x200")
+            dlg.configure(bg=_BG)
+            dlg.grab_set()
+            dlg.resizable(False, False)
+            ctk.CTkLabel(
+                dlg,
+                text=f"Cole o novo token do agente de  '{i.get('name', '?')}':",
+                text_color="gray70",
+            ).pack(padx=20, pady=(20, 6), anchor="w")
+            token_sv = tk.StringVar(value=i.get("token", ""))
+            ctk.CTkEntry(dlg, textvariable=token_sv, height=34, width=440,
+                         font=ctk.CTkFont(family="Consolas", size=11),
+                         placeholder_text="token do agente remoto").pack(padx=20)
+            err_var = tk.StringVar()
+            ctk.CTkLabel(dlg, textvariable=err_var, text_color="#ff6666",
+                         font=ctk.CTkFont(size=11)).pack(padx=20, pady=(4, 0), anchor="w")
+
+            def _confirm() -> None:
+                token = token_sv.get().strip()
+                if not token:
+                    err_var.set("O token não pode ser vazio.")
+                    return
+                i["token"] = token
+                app.config_manager.save()
+                dlg.destroy()
+                app._refresh_remote_instances_list()
+
+            ctk.CTkButton(dlg, text="✔  Salvar Token", height=36,
+                          fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                          command=_confirm).pack(pady=12)
+
         def _toggle_fav(i=inst) -> None:
             i["favorite"] = not i.get("favorite", False)
             if not i["favorite"]:
@@ -127,6 +162,9 @@ def refresh_remote_instances_list(app: "ARKServerManagerApp") -> None:
         ctk.CTkButton(btn_fr, text="🔗  Conectar", height=32,
                       fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                       command=_open).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(btn_fr, text="✏️", width=32, height=32,
+                      fg_color="#2a3040", hover_color="#3a4060",
+                      command=_edit_token).pack(side="left", padx=(0, 4))
         ctk.CTkButton(btn_fr, text="🗑", width=32, height=32,
                       fg_color=_RED_DARK, hover_color=_RED_HOVER,
                       command=_remove).pack(side="left")

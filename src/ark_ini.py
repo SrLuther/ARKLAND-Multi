@@ -249,6 +249,36 @@ def read_ini_with_fallback(path: Path, strict: bool = False) -> configparser.Raw
     return _read_ini_with_fallback(path, strict=strict)
 
 
+def _normalize_section_case(parser: configparser.RawConfigParser, canonical: str) -> None:
+    """Garante que a seção exista com o nome canônico (preservando maiúsculas/minúsculas).
+
+    Se o parser contiver uma seção com nome diferente apenas no case
+    (ex: '/script/shootergame.shootergamemode' vs '/Script/ShooterGame.ShooterGameMode'),
+    renomeia-a para o nome canônico movendo todas as chaves.
+    Isso evita que o app crie seções duplicadas ao salvar.
+
+    Regras de merge quando AMBAS as seções existem:
+    - A seção canônica (escrita pelo app) mantém seus valores;
+    - A seção com case errado apenas preenche chaves ausentes.
+    """
+    canonical_lower = canonical.lower()
+    for existing in list(parser.sections()):
+        if existing.lower() == canonical_lower and existing != canonical:
+            if not parser.has_section(canonical):
+                # Só a versão com case errado existe → renomeia para canônico
+                parser.add_section(canonical)
+                for key, value in parser.items(existing):
+                    parser.set(canonical, key, value)
+            else:
+                # Ambas existem → a seção com case errado é a original (pré-existente);
+                # a canônica foi criada acidentalmente pelo app com valores possivelmente errados.
+                # A seção original sobrescreve conflitos; a canônica mantém chaves únicas suas.
+                for key, value in parser.items(existing):
+                    parser.set(canonical, key, value)
+            parser.remove_section(existing)
+            break
+
+
 def _write_encoding(path: Path) -> str:
     """Retorna o encoding para escrever o arquivo preservando o BOM original.
 
@@ -351,6 +381,9 @@ def populate_config_from_gus(
 
     Cobre: ServerSettings, SessionSettings, RCONEnabled/Port e MessageOfTheDay.
     """
+    _normalize_section_case(parser, "ServerSettings")
+    _normalize_section_case(parser, "SessionSettings")
+    _normalize_section_case(parser, "MessageOfTheDay")
     gs = config.game_settings
 
     for field_name, section, key, typ in _GUS_SERVER_SETTINGS:
@@ -533,6 +566,7 @@ def populate_config_from_game_ini(
     """Popula ServerConfig.advanced_settings a partir de um parser Game.ini já carregado."""
     adv = config.advanced_settings
     section = "/Script/ShooterGame.ShooterGameMode"
+    _normalize_section_case(parser, section)
 
     bool_fields = [
         ("prevent_download_survivors",               "bPreventDownloadSurvivors"),
@@ -1251,6 +1285,10 @@ class ArkIniManager:
 
         gs = config.game_settings
 
+        _normalize_section_case(parser, "ServerSettings")
+        _normalize_section_case(parser, "SessionSettings")
+        _normalize_section_case(parser, "MessageOfTheDay")
+
         for field_name, section, key, typ in _GUS_SERVER_SETTINGS:
             if not parser.has_section(section):
                 parser.add_section(section)
@@ -1382,6 +1420,7 @@ class ArkIniManager:
             parser = _read_ini_with_fallback(path)
 
         section = "/Script/ShooterGame.ShooterGameMode"
+        _normalize_section_case(parser, section)
         if not parser.has_section(section):
             parser.add_section(section)
 
