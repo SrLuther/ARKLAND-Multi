@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.50"
+APP_VERSION: str = "1.3.51"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.51",
+        "date": "2026-05-26",
+        "changes": [
+            "Feature (remote_agent.py + pages/): Pareamento LAN — ao clicar em 'Conectar' em "
+            "uma máquina descoberta na rede local, o ARKLAND envia uma solicitação de autorização "
+            "para a outra máquina em vez de pedir o token manualmente. Na máquina alvo, um dialog "
+            "'Solicitação de Acesso' aparece com botões ✅ Autorizar / ❌ Negar (auto-nega após "
+            "60 s). Na máquina solicitante, um dialog de espera faz polling a cada 2 s; ao ser "
+            "autorizado, a conexão é salva e o controle remoto abre automaticamente. Entrada de "
+            "token mantida apenas para conexões não-LAN (via código de identidade).",
+        ],
+    },
     {
         "version": "1.3.50",
         "date": "2026-05-26",

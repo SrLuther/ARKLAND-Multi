@@ -11,7 +11,7 @@ import uuid
 import secrets
 from ..remote_agent import local_ip, parse_identity_code, RemoteClient
 from ..ui_constants import (
-    _GREEN, _GREEN_DARK, _GREEN_HOVER, _RED_DARK, _RED_HOVER, _CARD_BG,
+    _GREEN, _GREEN_DARK, _GREEN_HOVER, _RED_DARK, _RED_HOVER, _CARD_BG, _BG,
     _hostname,
 )
 
@@ -331,56 +331,101 @@ def build_remote_panel(app: "ARKServerManagerApp", parent) -> None:  # noqa: C90
                         command=_connect,
                     ).grid(row=0, column=2, rowspan=2, padx=(0, 10), pady=6)
 
-    def _open_connect_dialog(peer: dict) -> None:
-        """Abre diálogo pedindo apenas o token para conectar à instância descoberta."""
-        dlg = ctk.CTkToplevel(app)
-        dlg.title("Conectar à Instância LAN")
-        dlg.geometry("440x200")
+    def _open_connect_dialog(peer: dict) -> None:  # noqa: C901
+        """Envia solicitação de pareamento LAN e aguarda autorização na máquina alvo."""
+        my_name = app.config_manager.config.remote_agent_name or _hostname()
+        client = RemoteClient(peer["host"], peer["port"], token="", timeout=8.0)
+
+        result = client.pair_request(my_name)
+        if "error" in result:
+            messagebox.showerror(
+                "Erro de Conexão",
+                f"Não foi possível enviar a solicitação:\n{result['error']}",
+                parent=app,
+            )
+            return
+
+        req_id = result.get("request_id")
+        if not req_id:
+            messagebox.showerror(
+                "Erro", "Resposta inválida do agente remoto.", parent=app
+            )
+            return
+
+        # Dialog de espera
+        dlg = tk.Toplevel(app)
+        dlg.title(f"Aguardando autorização — {peer['name']}")
+        dlg.geometry("420x180")
+        dlg.configure(bg=_BG)
         dlg.grab_set()
         dlg.resizable(False, False)
 
         ctk.CTkLabel(
-            dlg,
-            text=f"Conectar a  {peer['name']}  ({peer['host']}:{peer['port']})",
-            font=ctk.CTkFont(size=12, weight="bold"),
-        ).pack(padx=20, pady=(16, 4), anchor="w")
+            dlg, text=f"Solicitação enviada para  {peer['name']}",
+            font=ctk.CTkFont(size=13, weight="bold"),
+        ).pack(pady=(20, 4))
         ctk.CTkLabel(
-            dlg,
-            text="Cole o token do agente remoto (aba Acesso Remoto na outra máquina):",
-            text_color="gray60", font=ctk.CTkFont(size=11),
-        ).pack(padx=20, anchor="w")
+            dlg, text="Aguardando autorização na outra máquina...",
+            text_color="gray60",
+        ).pack()
 
-        token_var = tk.StringVar()
-        ctk.CTkEntry(dlg, textvariable=token_var, height=32, width=400,
-                     font=ctk.CTkFont(family="Consolas", size=11),
-                     placeholder_text="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx").pack(
-            padx=20, pady=(6, 0))
+        status_var = tk.StringVar(value="⏳ Pendente")
+        ctk.CTkLabel(
+            dlg, textvariable=status_var,
+            text_color="#aaaaff", font=ctk.CTkFont(size=11),
+        ).pack(pady=(6, 0))
 
-        err_var = tk.StringVar()
-        ctk.CTkLabel(dlg, textvariable=err_var, text_color="#ff6666",
-                     font=ctk.CTkFont(size=11)).pack(padx=20, pady=(2, 0), anchor="w")
+        _cancelled = [False]
 
-        def _confirm() -> None:
-            token = token_var.get().strip()
-            if not token:
-                err_var.set("O token não pode ser vazio.")
-                return
-            inst = {
-                "name":     peer["name"],
-                "host":     peer["host"],
-                "port":     peer["port"],
-                "token":    token,
-                "favorite": False,
-            }
-            app.config_manager.config.remote_instances.append(inst)
-            app.config_manager.save()
+        def _cancel() -> None:
+            _cancelled[0] = True
             dlg.destroy()
-            _refresh_lan()
-            app._refresh_remote_instances_list()
 
-        ctk.CTkButton(dlg, text="✔  Conectar", height=34,
-                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                      command=_confirm).pack(pady=12)
+        ctk.CTkButton(
+            dlg, text="✖  Cancelar", height=32,
+            fg_color=_RED_DARK, hover_color=_RED_HOVER,
+            command=_cancel,
+        ).pack(pady=12)
+
+        def _poll() -> None:
+            if _cancelled[0] or not dlg.winfo_exists():
+                return
+            res = client.pair_status(req_id)
+            s = res.get("status", "error")
+            if s == "approved":
+                token = res.get("token", "")
+                dlg.destroy()
+                inst = {
+                    "name":     peer["name"],
+                    "host":     peer["host"],
+                    "port":     peer["port"],
+                    "token":    token,
+                    "favorite": False,
+                }
+                app.config_manager.config.remote_instances.append(inst)
+                app.config_manager.save()
+                _refresh_lan()
+                app._refresh_remote_instances_list()
+                app._open_remote_control(inst)
+            elif s == "denied":
+                dlg.destroy()
+                messagebox.showwarning(
+                    "Conexão Negada",
+                    f"'{peer['name']}' negou a solicitação de conexão.",
+                    parent=app,
+                )
+            elif s in ("not_found", "expired") or "error" in res:
+                dlg.destroy()
+                messagebox.showerror(
+                    "Solicitação Expirada",
+                    "A solicitação expirou ou o agente remoto está inacessível.",
+                    parent=app,
+                )
+            else:
+                # "pending" — tenta novamente em 2 s
+                dlg.after(2000, _poll)
+
+        dlg.after(2000, _poll)
 
     btn_lan = ctk.CTkFrame(lan_header, fg_color="transparent")
     btn_lan.grid(row=0, column=1, sticky="e")

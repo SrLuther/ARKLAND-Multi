@@ -38,6 +38,13 @@ def start_remote_agent(app: "ARKServerManagerApp") -> None:
         )
         app._remote_agent.start()
 
+        # Registra callback de pareamento LAN — exibe diálogo no thread principal
+        def _on_pair_request(req_id: str, name: str, host: str) -> None:
+            from .show_pair_request import show_pair_request_dialog
+            app.after(0, lambda: show_pair_request_dialog(app, req_id, name, host))
+
+        app._remote_agent.pair_request_callback = _on_pair_request
+
         # Inicia descoberta UDP na rede local
         app._udp_discovery = UdpDiscovery(
             name=name,

@@ -2,6 +2,76 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.51] - 2026-05-26
+
+### Feature
+
+- **remote_agent.py + pages/**: Pareamento LAN — ao clicar em "Conectar" em uma máquina descoberta na rede local, o ARKLAND envia uma solicitação de autorização para a outra máquina em vez de pedir o token manualmente. Na máquina alvo, um dialog "Solicitação de Acesso" aparece com botões ✅ Autorizar / ❌ Negar (auto-nega após 60 s). Na máquina solicitante, um dialog de espera faz polling a cada 2 s; ao ser autorizado, a conexão é salva e o controle remoto abre automaticamente. Entrada de token mantida apenas para conexões não-LAN (via código de identidade).
+
+## [1.3.50] - 2026-05-26
+
+### Fix
+
+- **sync_engine.py**: token de autenticação do agente remoto agora é sempre buscado em tempo real de `config.remote_instances` (pelo host+porta), em vez de usar o token congelado dentro do BASE64 do caminho. Resolve "Não autorizado" persistente mesmo após regenerar o token — sem precisar recriar as pastas nos ciclos.
+- **sync_engine.py**: se a listagem de qualquer pasta do ciclo falhar (ex: 401, timeout), o ciclo inteiro é abortado imediatamente. Antes, a pasta remota era tratada como vazia e o engine tentava copiar todos os arquivos locais para lá, gerando flood de erros "Cópia X: Não autorizado" e WinError 10053/10054.
+- **pages/add_sync_folder.py**: novas pastas remotas agora usam formato `@remote:HOST:PORT|path` em vez de `@remote|BASE64|path` — elimina o token do caminho salvo. Pastas antigas no formato legado continuam funcionando normalmente.
+- **pages/welcome_screen.py + app.py**: modo TEK removido da tela inicial e bloqueado no backend (`_launch_mode`).
+- **ark_ini.py**: seções do Game.ini com nomes em case diferente eram tratadas como seções distintas pelo configparser, causando duplicação de seção ao salvar e leitura de valores padrão ao carregar (configs apareciam "desmarcadas" após reiniciar). Nova função `_normalize_section_case()` unifica a seção para o nome canônico antes de leitura e escrita.
+
+### Feature
+
+- **pages/refresh_remote_instances_list.py**: botão ✏️ em cada máquina remota salva permite atualizar o token sem remover e re-adicionar a conexão.
+
+## [1.3.49] - 2026-05-26
+
+### Fix
+
+- **remote_agent.py**: `fs_list` agora propaga erros HTTP (401, 500 etc.) em vez de retornar lista vazia silenciosamente. Antes, um 401 fazia o sync enxergar a pasta remota como vazia e tentar copiar tudo, resultando em flood de erros "Não autorizado".
+- **pages/start_remote_agent.py**: token do agente é gerado automaticamente (`secrets.token_urlsafe`) se estiver vazio ao ativar o agente. Evita que o agente rejeite todas as requisições por falta de token.
+- **pages/tab_plugins.py**: removido "Plugin Limit Fix" do catálogo de sugestões — é um plugin para ASA, não compatível com ASE/ArkApi.
+
+### Feature
+
+- **pages/add_sync_cycle.py + sync_engine.py**: filtro "Apenas nomes numéricos" por ciclo de sync. Quando marcado, somente arquivos com nome puramente numérico (ex: Steam IDs de cluster ARK) são sincronizados.
+
+### Refactor
+
+- **pages/start_remote_agent.py + remote_panel.py**: token encurtado de UUID (36 chars) para `secrets.token_urlsafe(12)` (16 chars). Tokens existentes continuam funcionando sem necessidade de regeneração.
+
+## [1.3.48] - 2026-05-26
+
+### Feature
+
+- **sync_engine.py + remote_agent.py**: sincronização remota de pastas entre máquinas na mesma rede. Endpoints `GET /fs/list`, `GET /fs/read` e `POST /fs/write` adicionados ao `RemoteAgent`; `SyncEngine` refatorado com abstrações `_LocalSyncFolder` e `_RemoteSyncFolder`. Caminhos remotos usam prefixo `@remote|IDENTITY_CODE|PATH`.
+- **remote_agent.py**: descoberta automática de instâncias ARKLAND na rede local via UDP broadcast (porta 32441). Classe `UdpDiscovery` anuncia nome/IP/porta a cada 30 s e mantém lista de peers com TTL de 90 s. Token não é transmitido.
+- **pages/remote_panel.py**: seção "Descoberta na Rede (LAN)" na aba Acesso Remoto. Lista instâncias detectadas automaticamente; botão Conectar pede apenas o token (sem copiar código base64). Atualização automática a cada 6 s.
+- **pages/add_sync_folder.py**: botão de pasta remota em cada linha de ciclo de sync. Diálogo seleciona instância remota salva + caminho na máquina remota.
+
+### Fix
+
+- **pages/ini_paste_section.py**: "Colar Seção" não importava `parse_ini_text_to_sections` — NameError silencioso impedia a importação de qualquer conteúdo.
+
+## [1.3.47] - 2026-05-26
+
+### Fix
+
+- **mod_auto_updater.py**: logs de download de mods não apareciam no painel de Atualização Automática. Chamadas a `download_mods` em `_install_missing_mods` e `_handle_mod_update` não passavam `on_log=self._log`, descartando silenciosamente todas as mensagens do SteamCMD e status de instalação.
+- **pages/ini_import.py**: "Importar INI do Disco" falhava silenciosamente ao abrir — `import 'from .ark_ini'` apontava para `src/pages/` (inexistente). Corrigido para `from ..ark_ini` nas duas ocorrências.
+- **pages/fetch_mod_names_async.py**: nomes de mods nunca eram carregados após adicionar IDs — `urllib.parse` e `urllib.request` usados mas não importados. A exceção `NameError` era engolida pelo `except` genérico, resultando em IDs sem nome na lista de mods.
+
+## [1.3.46] - 2026-05-26
+
+### Fix
+
+- **rcon_client.py**: removida abordagem de sentinel no protocolo RCON. O sentinel podia ser respondido pelo ARK antes da resposta do comando real, causando retorno vazio para `ListPlayers` e outros comandos mesmo com jogadores conectados. Substituído por espera direta com timeout de 3 s e matching por packet ID; pacotes órfãos de comandos anteriores são descartados automaticamente.
+- **broadcast_rcon.py**: corrigido `AttributeError 'module datetime has no attribute now'` — import trocado de `import datetime` para `from datetime import datetime`. Corrigido também import ausente de `RconClient` que causava `NameError` ao enviar Broadcast via conexão temporária.
+- **rcon_exec.py**: comandos executados com sucesso mas sem retorno (`SaveWorld`, `Broadcast`, `DoExit`…) exibem `(ok)` em verde em vez de `(sem resposta)`.
+
+### Feature
+
+- **add_mod.py + tab_mods.py**: suporte a múltiplos IDs no campo de mods — cole IDs separados por vírgula para adicionar todos em lote de uma vez.
+- **mod_search_dialog.py**: busca em lote no Steam Workshop — ao colar múltiplos IDs separados por vírgula, o diálogo faz uma única chamada à API e lista todos os mods com botões individuais ➕ Adicionar. Botão "Adicionar Todos (N)" no topo adiciona toda a lista e fecha o diálogo.
+
 ## [1.3.45] - 2026-05-25
 
 ### Feat

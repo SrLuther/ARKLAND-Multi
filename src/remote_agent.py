@@ -33,6 +33,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from collections import deque
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -100,12 +101,25 @@ class RemoteAgent:
         self._thread: Optional[threading.Thread] = None
         self._log_buffer: deque[dict] = deque(maxlen=_MAX_LOG_LINES)
         self._running = False
+        self._pending_pairs: dict = {}  # {req_id: {name, host, approved, token, ts}}
+        self.pair_request_callback = None  # callable(req_id, name, host)
 
     # ── Interface pública ─────────────────────────────────────────────────────
 
     @property
     def is_running(self) -> bool:
         return self._running and (self._thread is not None and self._thread.is_alive())
+
+    def approve_pair(self, req_id: str) -> None:
+        """Aprova uma solicitação de pareamento pendente."""
+        if req_id in self._pending_pairs:
+            self._pending_pairs[req_id]["approved"] = True
+            self._pending_pairs[req_id]["token"] = self._token
+
+    def deny_pair(self, req_id: str) -> None:
+        """Nega uma solicitação de pareamento pendente."""
+        if req_id in self._pending_pairs:
+            self._pending_pairs[req_id]["approved"] = False
 
     def push_log(self, message: str, level: str = "info") -> None:
         """Chamado pelo app para alimentar o buffer de logs remoto."""
@@ -163,9 +177,31 @@ class RemoteAgent:
             def do_GET(self) -> None:
                 path = self.path.split("?")[0]  # strip query string
 
-                # Endpoint público — não exige autenticação
+                # Endpoints públicos — não exigem autenticação
                 if path == "/ping":
                     self._json(200, {"ok": True})
+                    return
+
+                if path == "/pair/status":
+                    qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    req_id = qs.get("id", [None])[0]
+                    if req_id and req_id in agent._pending_pairs:
+                        pair = agent._pending_pairs[req_id]
+                        # Expira após 120 s sem resposta
+                        if time.time() - pair.get("ts", 0) > 120:
+                            del agent._pending_pairs[req_id]
+                            self._json(200, {"status": "expired"})
+                            return
+                        if pair["approved"] is True:
+                            self._json(200, {"status": "approved", "token": pair["token"]})
+                            del agent._pending_pairs[req_id]
+                        elif pair["approved"] is False:
+                            self._json(200, {"status": "denied"})
+                            del agent._pending_pairs[req_id]
+                        else:
+                            self._json(200, {"status": "pending"})
+                    else:
+                        self._json(200, {"status": "not_found"})
                     return
 
                 if not self._auth():
@@ -261,11 +297,27 @@ class RemoteAgent:
                     self._json(404, {"error": "Endpoint não encontrado"})
 
             def do_POST(self) -> None:
+                path = self.path.split("?")[0]
+
+                # Endpoint público — solicitação de pareamento LAN
+                if path == "/pair/request":
+                    body = self._read_body()
+                    name = str(body.get("name", "Desconhecido"))[:64]
+                    host = self.client_address[0]
+                    req_id = uuid.uuid4().hex[:8]
+                    agent._pending_pairs[req_id] = {
+                        "name": name, "host": host,
+                        "approved": None, "token": None,
+                        "ts": time.time(),
+                    }
+                    if agent.pair_request_callback:
+                        agent.pair_request_callback(req_id, name, host)
+                    self._json(200, {"request_id": req_id})
+                    return
+
                 if not self._auth():
                     self._json(401, {"error": "Não autorizado"})
                     return
-
-                path = self.path.split("?")[0]
 
                 # ── /server/{id}/… ────────────────────────────────────────────
                 if path.startswith("/server/"):
@@ -447,6 +499,36 @@ class RemoteClient:
 
     def send_rcon(self, sid: str, command: str) -> dict:
         return self._request("POST", f"/server/{sid}/rcon", {"command": command})
+
+    # ── Pareamento LAN (endpoints públicos, sem auth) ─────────────────────────
+
+    def pair_request(self, name: str) -> dict:
+        """Envia solicitação de pareamento para a máquina remota. Não requer token."""
+        url = self._base + "/pair/request"
+        data = json.dumps({"name": name}).encode()
+        req = urllib.request.Request(
+            url, data=data, method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self._timeout) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            try:
+                return json.loads(exc.read().decode())
+            except Exception:
+                return {"error": f"HTTP {exc.code}"}
+        except Exception as exc:
+            return {"error": str(exc)}
+
+    def pair_status(self, request_id: str) -> dict:
+        """Consulta status de uma solicitação de pareamento. Não requer token."""
+        url = self._base + f"/pair/status?id={urllib.parse.quote(request_id)}"
+        try:
+            with urllib.request.urlopen(url, timeout=self._timeout) as resp:
+                return json.loads(resp.read().decode())
+        except Exception as exc:
+            return {"error": str(exc)}
 
     # ── Filesystem remoto (sync entre máquinas) ───────────────────────────────
 
