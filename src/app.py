@@ -118,6 +118,9 @@ class ARKServerManagerApp(ctk.CTk):
         self._rcon_auto_enabled: Dict[str, bool] = {}   # True = tentar reconectar quando RUNNING
         self._rcon_auto_jobs: Dict[str, Optional[str]] = {}  # after() job id por servidor
         self._chat_poll_jobs: Dict[str, Optional[str]] = {}   # after() job id para chat por servidor
+        # Scheduler de broadcasts automáticos por intervalo
+        self._bc_sched_jobs:    Dict[str, str]  = {}   # after() job id por servidor
+        self._bc_sched_running: Dict[str, bool] = {}   # True = scheduler ativo
         self._current_frame: str = ""
         self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
         self._global_log_buf: List[str] = []
@@ -1250,6 +1253,36 @@ class ARKServerManagerApp(ctk.CTk):
                                index: int, bc: dict, readonly: bool) -> None:
         from .pages.broadcast_render_row import broadcast_render_row
         broadcast_render_row(self, server_id, container, index, bc, readonly)
+
+    # ── Broadcast scheduler (automáticos por intervalo) ───────────────────────
+
+    def _bc_sched_start(self, server_id: str) -> None:
+        from .pages.broadcast_sched_tick import broadcast_sched_start
+        broadcast_sched_start(self, server_id)
+
+    def _bc_sched_stop(self, server_id: str) -> None:
+        from .pages.broadcast_sched_tick import broadcast_sched_stop
+        broadcast_sched_stop(self, server_id)
+
+    def _bc_sched_add(self, server_id: str) -> None:
+        from .pages.broadcast_sched_add import broadcast_sched_add
+        broadcast_sched_add(self, server_id)
+
+    def _bc_sched_delete(self, server_id: str, bc_id: str) -> None:
+        from .pages.broadcast_sched_delete import broadcast_sched_delete
+        broadcast_sched_delete(self, server_id, bc_id)
+
+    def _bc_sched_toggle(self, server_id: str, bc_id: str, enabled: bool) -> None:
+        from .pages.broadcast_sched_toggle import broadcast_sched_toggle
+        broadcast_sched_toggle(self, server_id, bc_id, enabled)
+
+    def _bc_sched_send_now(self, server_id: str, bc_id: str) -> None:
+        from .pages.broadcast_sched_send_now import broadcast_sched_send_now
+        broadcast_sched_send_now(self, server_id, bc_id)
+
+    def _bc_sched_refresh(self, server_id: str) -> None:
+        from .pages.broadcast_sched_refresh import broadcast_sched_refresh
+        broadcast_sched_refresh(self, server_id)
 
     # ── Callbacks de status e log ─────────────────────────────────────────────
 

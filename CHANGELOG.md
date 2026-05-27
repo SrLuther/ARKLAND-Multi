@@ -2,6 +2,32 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.55] - 2026-05-27
+
+### Feature
+
+- **pages/tab_chat.py + broadcast_sched_*.py**: sistema de broadcasts automáticos por intervalo — nova inner-tab "🕐 Automáticos" na aba Chat/Broadcasts. Cada broadcast automático tem rótulo, mensagem, intervalo em minutos, ativar/desativar, envio imediato e exibição do próximo envio. Loop de tick a cada 30 s garante entregas pontuais sem bloquear a UI. Dados salvos em `auto_broadcasts` por servidor.
+- **mod_changelog_scraper.py + discord_notifier.py + mod_auto_updater.py**: notas de atualização de mods enviadas ao Discord — ao detectar update, o ARKLAND faz scraping do Steam Workshop e inclui as release notes no embed. Suporte a webhook separado para mods (`mod_changelog_webhook`) em Configurações Globais; se vazio, usa o webhook principal.
+
+### Fix
+
+- **pages/tab_rcon.py + rcon_connect.py**: campos editáveis de Host e Porta removidos do console RCON — host e porta agora são lidos diretamente de `srv.server_ip` e `srv.rcon_port`, eliminando redundância e possibilidade de divergência.
+- **pages/tab_game.py**: crash ao abrir aba de jogo — `tk.Frame(bg="transparent")` substituído por `ctk.CTkFrame(fg_color="transparent")`. O tkinter nativo não aceita `"transparent"` como cor de fundo.
+
+## [1.3.54] - 2026-05-27
+
+### Feature
+
+- **pages/tab_game.py + pages/server_save.py**: paridade total com o ASM — todos os campos de `ServerGameSettings` e `ServerAdvancedSettings` agora possuem widget na UI e são salvos corretamente. Campos adicionados:
+  - **Dinos**: `tamed_dino_damage_multiplier`, `tamed_dino_resistance_multiplier`, `dino_character_stamina_drain_multiplier`, `dino_turret_damage_multiplier`, `max_personal_tamed_dinos`, `personal_tamed_dinos_saddle_structure_cost`.
+  - **Criação / Imprinting**: `baby_cuddle_lose_imprint_quality_speed_multiplier`, `disable_imprint_dino_buff`, `allow_anyone_baby_imprint_cuddle`, `prevent_mate_boost`, `allow_flying_stamina_recovery`, `passive_tame_interval_multiplier`, `wild/tamed_dino_character_food_drain_multiplier`, `wild/tamed_dino_torpor_drain_multiplier`.
+  - **Tribal / Misc**: `tribe_name_change_cooldown`, `allow_tribe_alliances`.
+  - **Teto de Níveis**: `override_max_experience_points_player`, `override_max_experience_points_dino`; painel de **Calculadora de Ascensão** inline com 7 mapas tier, 6 expansões/DLCs e 3 bônus extras.
+  - **Opções do Servidor**: `prevent_offline_pvp_interval`, `dont_always_notify_player_joined`, `allow_pvp_gamma`, `allow_pve_gamma`, `allow_hit_markers`, `allow_multiple_attached_c4`, `allow_cave_building_pve`, `pve_allow_structures_at_supply_drops`, `enable_extra_structure_prevention_volumes`, `clamp_resource_harvest_damage`, `pvp_structure_decay`, `override_structure_platform_prevention`, `enable_diseases`, `non_permanent_diseases`, `disable_weather_fog`.
+  - **Nova seção Estruturas**: `max_structures_visible`, `max_platform_saddle_structure_limit`, `auto_destroy_old_structures_multiplier`, `pve_structure_decay_destruction_period`, `fast_decay_unsnapped_core_structures`, `only_auto_destroy_core_structures`, `only_decay_unsnapped_core_structures`, `destroy_unconnected_water_pipes`.
+  - **Nova seção Ciclo Dia/Noite**: `day_cycle_speed_scale`, `day_time_speed_scale`, `night_time_speed_scale`.
+  - **Nova seção NPC Network Stasis**: `override_npc_network_stasis_range_scale`, `npc_network_stasis_range_scale_player_count_start/end`, `npc_network_stasis_range_scale_percent_end`.
+
 ## [1.3.53] - 2026-05-26
 
 ### Fix

@@ -63,7 +63,7 @@ def build_tab_advanced(app: "ARKServerManagerApp", parent, srv: "ServerConfig") 
         c = tk.Frame(scroll, bg=_INNER,
                      highlightthickness=1, highlightbackground="#2a2a45")
         c.grid(row=grow, column=col, columnspan=colspan,
-               padx=8, pady=6, sticky="new")
+               padx=8, pady=6, sticky="nsew")
         c.columnconfigure(0, weight=1)
         return c
 
@@ -224,19 +224,38 @@ def build_tab_advanced(app: "ARKServerManagerApp", parent, srv: "ServerConfig") 
     cdir_fr2 = tk.Frame(c_cl, bg=_INNER)
     cdir_fr2.pack(fill="x", padx=10, pady=(0, 4))
     cdir_fr2.columnconfigure(0, weight=1)
-    tk.Label(cdir_fr2, text="Pasta do Cluster:", bg=_INNER,
+    tk.Label(cdir_fr2, text="Pasta de Dados de Viagem (Cluster):", bg=_INNER,
              fg=_FORM_LABEL_FG, font=_FORM_FONT_BOLD, anchor="w").grid(row=0, column=0, columnspan=2, sticky="w")
-    tk.Label(cdir_fr2, text="Pasta compartilhada para transferência de dados entre servidores. Opcional.",
+    tk.Label(cdir_fr2,
+             text="Pasta onde o ARK salva os dados do personagem ao viajar entre mapas (-ClusterDirOverride).\n"
+                  "Deve ser a mesma em todos os servidores do cluster.",
              bg=_INNER, fg=_FORM_HINT_FG, font=_FORM_FONT_HINT, anchor="w").grid(row=1, column=0, columnspan=2, sticky="w")
-    _cl_dir_entry = ctk.CTkEntry(cdir_fr2, textvariable=w["cl_cluster_dir"], height=32,
-                                 state="disabled" if _manual_locked else "normal")
-    _cl_dir_entry.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(2, 0))
-    _cl_dir_btn = ctk.CTkButton(cdir_fr2, text="📁", width=34, height=32,
-                                state="disabled" if _manual_locked else "normal",
-                                command=lambda: app._browse_dir(w["cl_cluster_dir"]))
-    _cl_dir_btn.grid(row=2, column=1, pady=(2, 0))
-    w["_cl_dir_entry"] = _cl_dir_entry
-    w["_cl_dir_btn"]   = _cl_dir_btn
+    if _manual_locked:
+        # Pasta definida no Perfil de Cluster — mostrar valor + atalho para editar
+        _prof_for_dir = app.config_manager.get_cluster(current_pid)
+        _dir_display  = (_prof_for_dir.cluster_dir if _prof_for_dir else "") or "(não definido)"
+        _dir_info_fr  = tk.Frame(cdir_fr2, bg=_INNER)
+        _dir_info_fr.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(2, 0))
+        _dir_info_fr.columnconfigure(0, weight=1)
+        tk.Label(_dir_info_fr, text=_dir_display, bg="#1e1e36", fg="#9090d0",
+                 font=_FORM_FONT_HINT, anchor="w", relief="flat", padx=6).grid(
+            row=0, column=0, sticky="ew", padx=(0, 6), ipady=5)
+        def _go_to_cluster_profile(_pid=current_pid):
+            app._show_frame("clusters")
+            app._cluster_select(_pid)
+        ctk.CTkButton(_dir_info_fr, text="✏️ Editar Perfil de Cluster", height=32, width=200,
+                      fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                      command=_go_to_cluster_profile).grid(row=0, column=1)
+        w["_cl_dir_entry"] = None
+        w["_cl_dir_btn"]   = None
+    else:
+        _cl_dir_entry = ctk.CTkEntry(cdir_fr2, textvariable=w["cl_cluster_dir"], height=32)
+        _cl_dir_entry.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(2, 0))
+        _cl_dir_btn = ctk.CTkButton(cdir_fr2, text="📁", width=34, height=32,
+                                    command=lambda: app._browse_dir(w["cl_cluster_dir"]))
+        _cl_dir_btn.grid(row=2, column=1, pady=(2, 0))
+        w["_cl_dir_entry"] = _cl_dir_entry
+        w["_cl_dir_btn"]   = _cl_dir_btn
 
     # ── Pasta de Saves ────────────────────────────────────────────────────
     asdir_fr2 = tk.Frame(c_cl, bg=_INNER)

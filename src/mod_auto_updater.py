@@ -385,14 +385,32 @@ class ModAutoUpdater:
                 inst = self._server_manager.get_instance(sid)
                 if inst:
                     server_names.append(inst.config.name or sid)
-            detail = f"Mod: **{mod_name}** (`{mod_id}`)"
-            if server_names:
-                detail += f"\nServidores reiniciados: {', '.join(server_names)}"
-            for sid in running_now:
-                inst = self._server_manager.get_instance(sid)
-                if inst:
-                    self._discord_notifier.notify_update(inst.config.name or sid, detail=detail)  # type: ignore[union-attr]
-                    break  # envia uma vez por atualização
+
+            # Busca nota de changelog do Workshop (operação bloqueante, já estamos em thread)
+            changelog: str = ""
+            try:
+                from .mod_changelog_scraper import fetch_mod_changelog
+                result = fetch_mod_changelog(mod_id)
+                changelog = result if result is not None else ""
+                if result is None:
+                    self._log(f"Não foi possível buscar changelog do mod {mod_id}.", "warning")
+                elif not result:
+                    self._log(f"Mod {mod_id}: autor não publicou notas de atualização.", "info")
+                else:
+                    self._log(f"Changelog obtido para mod {mod_id} ({len(result)} chars).", "info")
+            except Exception as exc:
+                self._log(f"Erro ao buscar changelog do mod {mod_id}: {exc}", "warning")
+
+            # Envia notificação rica com changelog
+            try:
+                self._discord_notifier.notify_mod_update(  # type: ignore[union-attr]
+                    mod_name=mod_name,
+                    mod_id=mod_id,
+                    server_names=server_names,
+                    changelog=changelog,
+                )
+            except Exception as exc:
+                self._log(f"Erro ao enviar notificação Discord de mod: {exc}", "warning")
     # ── Helpers ───────────────────────────────────────────────────────────────
 
     def _broadcast_all(self, server_ids: List[str], message: str) -> None:

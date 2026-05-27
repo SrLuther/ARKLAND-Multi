@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..ui_constants import _GREEN, _GREEN_DARK, _GREEN_HOVER, _CARD_BG
+from ..breeding_calculator import open_breeding_calculator
+from ..server_config import SERVER_STATUS_STOPPED
 
 import platform
 if TYPE_CHECKING:
@@ -17,8 +19,11 @@ if TYPE_CHECKING:
 def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> None:  # noqa: C901
     scroll = ctk.CTkScrollableFrame(parent, fg_color="transparent")
     scroll.pack(fill="both", expand=True, padx=4, pady=4)
-    scroll.grid_columnconfigure(1, weight=1)
-    scroll.grid_columnconfigure(3, weight=1)  # espaçador — limita largura dos sliders
+
+    # Referência mutável para o body frame da seção corrente.
+    # Atualizado em _dispatch_task quando uma nova seção ("s") é criada.
+    _cur_body:    list = [None]  # tk.Frame atual alvo dos widgets
+    _sec_start_r: list = [0]    # valor de r da última seção criada + 1
 
     # Auto-carrega Game.ini do disco antes de popular os widgets,
     # garantindo que PerLevelStatsMultiplier e campos de breeding
@@ -34,6 +39,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
 
     w  = app._server_widgets[srv.id]
     gs = srv.game_settings
+    adv = srv.advanced_settings
 
     def frow(label: str, hint: str, field: str, val: float, row_n: int,
              frm: float = 0.0, to: float = 10.0) -> None:
@@ -41,7 +47,8 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         var = tk.DoubleVar(value=val)
         w[f"gs_{field}"] = var
 
-        lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        _body = _cur_body[0]
+        lbl_fr = ctk.CTkFrame(_body, fg_color="transparent")
         lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
         ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
                      text_color="gray65",
@@ -52,13 +59,13 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                          font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
 
         entry_var = tk.StringVar(value=f"{val:.2f}")
-        entry = ctk.CTkEntry(scroll, textvariable=entry_var, width=72, height=28,
+        entry = ctk.CTkEntry(_body, textvariable=entry_var, width=72, height=28,
                              justify="right", text_color=_GREEN,
                              font=ctk.CTkFont(size=12, weight="bold"))
         entry.grid(row=row_n, column=2, padx=(4, 14), pady=4)
 
         slider = ctk.CTkSlider(
-            scroll, from_=frm, to=to, variable=var,  # type: ignore[arg-type]
+            _body, from_=frm, to=to, variable=var,  # type: ignore[arg-type]
             command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
         )
         slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
@@ -81,8 +88,9 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
 
     def irow(label: str, hint: str, field: str, val: int, row_n: int) -> None:
         app._register_config_item(srv.id, label, hint, "Jogo")
+        _body = _cur_body[0]
         w[f"gs_{field}"] = tk.StringVar(value=str(val))
-        lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        lbl_fr = ctk.CTkFrame(_body, fg_color="transparent")
         lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
         ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
                      text_color="gray65",
@@ -91,22 +99,72 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
             ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
                          text_color="gray40",
                          font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
-        ctk.CTkEntry(scroll, textvariable=w[f"gs_{field}"], width=120, height=28).grid(
+        ctk.CTkEntry(_body, textvariable=w[f"gs_{field}"], width=120, height=28).grid(
             row=row_n, column=1, padx=4, pady=4, sticky="w")
 
     def brow(label: str, field: str, val: bool, row_n: int) -> None:
         app._register_config_item(srv.id, label, "", "Jogo")
         w[f"gs_{field}"] = tk.BooleanVar(value=val)
-        ctk.CTkCheckBox(scroll, text=label, variable=w[f"gs_{field}"],
+        ctk.CTkCheckBox(_cur_body[0], text=label, variable=w[f"gs_{field}"],
+                        checkmark_color="white", fg_color=_GREEN_DARK,
+                        hover_color=_GREEN_HOVER).grid(
+            row=row_n, column=0, columnspan=3, padx=16, pady=4, sticky="w")
+
+    def adv_frow(label: str, hint: str, field: str, val: float, row_n: int,
+                 frm: float = 0.0, to: float = 10.0) -> None:
+        """Como frow mas registra em w[f'adv_{field}'] (ServerAdvancedSettings)."""
+        app._register_config_item(srv.id, label, hint, "Jogo")
+        var = tk.DoubleVar(value=val)
+        w[f"adv_{field}"] = var
+        _body = _cur_body[0]
+        lbl_fr = ctk.CTkFrame(_body, fg_color="transparent")
+        lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
+        ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
+                     text_color="gray65",
+                     font=ctk.CTkFont(size=12, weight="bold")).pack(anchor="w")
+        if hint:
+            ctk.CTkLabel(lbl_fr, text=hint, width=290, anchor="w",
+                         text_color="gray40",
+                         font=ctk.CTkFont(size=10)).pack(anchor="w", pady=(0, 2))
+        entry_var = tk.StringVar(value=f"{val:.2f}")
+        entry = ctk.CTkEntry(_body, textvariable=entry_var, width=72, height=28,
+                             justify="right", text_color=_GREEN,
+                             font=ctk.CTkFont(size=12, weight="bold"))
+        entry.grid(row=row_n, column=2, padx=(4, 14), pady=4)
+        slider = ctk.CTkSlider(
+            _body, from_=frm, to=to, variable=var,
+            command=lambda v, ev=entry_var: ev.set(f"{float(v):.2f}"),
+        )
+        slider.grid(row=row_n, column=1, padx=4, pady=4, sticky="ew")
+        def _sync_adv(*_, _v=var, _ev=entry_var):
+            _ev.set(f"{_v.get():.2f}")
+        var.trace_add("write", _sync_adv)
+        def _commit_adv(event=None, _var=var, _ev=entry_var, _frm=frm, _to=to):
+            try:
+                v = float(_ev.get().replace(",", "."))
+                v = max(_frm, min(_to, v))
+                _var.set(v)
+                _ev.set(f"{v:.2f}")
+            except ValueError:
+                _ev.set(f"{_var.get():.2f}")
+        entry.bind("<Return>", _commit_adv)
+        entry.bind("<FocusOut>", _commit_adv)
+
+    def adv_brow(label: str, field: str, val: bool, row_n: int) -> None:
+        """Como brow mas registra em w[f'adv_{field}'] (ServerAdvancedSettings)."""
+        app._register_config_item(srv.id, label, "", "Jogo")
+        w[f"adv_{field}"] = tk.BooleanVar(value=val)
+        ctk.CTkCheckBox(_cur_body[0], text=label, variable=w[f"adv_{field}"],
                         checkmark_color="white", fg_color=_GREEN_DARK,
                         hover_color=_GREEN_HOVER).grid(
             row=row_n, column=0, columnspan=3, padx=16, pady=4, sticky="w")
 
     def _level_cap_row(label: str, hint: str, field: str, val: int, row_n: int) -> None:
         from ..ark_ini import _level_to_xp as _l2xp
+        _body = _cur_body[0]
         app._register_config_item(srv.id, label, hint, "Jogo")
         w[f"gs_{field}"] = tk.StringVar(value=str(val))
-        lbl_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        lbl_fr = ctk.CTkFrame(_body, fg_color="transparent")
         lbl_fr.grid(row=row_n, column=0, padx=(16, 6), pady=(4, 0), sticky="w")
         ctk.CTkLabel(lbl_fr, text=label, width=290, anchor="w",
                      text_color="gray65",
@@ -115,7 +173,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                      text_color="gray40",
                      font=ctk.CTkFont(size=10), justify="left",
                      wraplength=270).pack(anchor="w", pady=(0, 2))
-        right_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+        right_fr = ctk.CTkFrame(_body, fg_color="transparent")
         right_fr.grid(row=row_n, column=1, padx=4, pady=4, sticky="w")
         ctk.CTkEntry(right_fr, textvariable=w[f"gs_{field}"],
                      width=80, height=28).pack(side="left")
@@ -160,6 +218,16 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
         _tasks.append(("b", r, label, field, val))
         r += 1
 
+    def _af(label, hint, field, val, frm=0.0, to=10.0) -> None:
+        nonlocal r
+        _tasks.append(("adv_f", r, label, hint, field, val, frm, to))
+        r += 1
+
+    def _ab(label, field, val) -> None:
+        nonlocal r
+        _tasks.append(("adv_b", r, label, field, val))
+        r += 1
+
     def _calc() -> None:
         nonlocal r
         _tasks.append(("calc", r))
@@ -168,6 +236,11 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     def _lcap(label, hint, field, val) -> None:
         nonlocal r
         _tasks.append(("lcap", r, label, hint, field, val))
+        r += 1
+
+    def _ascend_calc() -> None:
+        nonlocal r
+        _tasks.append(("ascend_calc", r))
         r += 1
 
     def _save() -> None:
@@ -242,16 +315,36 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "Velocidade de recuperação de HP dos dinos.",
        "dino_character_health_recovery_multiplier",
        gs.dino_character_health_recovery_multiplier)
-    _f("Consumo de Comida dos Dinos",
-       "Taxa de consumo de comida dos dinos. Menor = comem mais devagar.",
+    _f("Consumo de Comida dos Dinos (GUS)",
+       "Taxa de consumo de comida dos dinos (GameUserSettings). Menor = comem mais devagar.",
        "dino_character_food_drain_multiplier",
        gs.dino_character_food_drain_multiplier)
+    _f("Consumo de Stamina dos Dinos",
+       "Taxa de consumo de stamina dos dinos. Menor = cansam mais devagar.",
+       "dino_character_stamina_drain_multiplier",
+       gs.dino_character_stamina_drain_multiplier)
+    _f("Dano dos Dinos Domesticados",
+       "Multiplica o dano causado pelos dinos domesticados.",
+       "tamed_dino_damage_multiplier", gs.tamed_dino_damage_multiplier)
+    _f("Resistência dos Dinos Domesticados",
+       "Reduz o dano recebido pelos dinos domesticados. Menor = mais resistentes.",
+       "tamed_dino_resistance_multiplier", gs.tamed_dino_resistance_multiplier)
+    _f("Dano de Torretas Montadas em Dino",
+       "Multiplica o dano das torretas fixadas em dinos.",
+       "dino_turret_damage_multiplier", gs.dino_turret_damage_multiplier)
     _f("Quantidade de Dinos no Mapa",
        "Multiplica a quantidade de dinos. Ex: 2.0 = dobro de dinos selvagens.",
        "dino_count_multiplier", gs.dino_count_multiplier)
-    _i("Máx. Dinos Domesticados",
+    _i("Máx. Dinos Domesticados (Global)",
        "Limite total de dinos domesticados no servidor.",
        "max_tamed_dinos", gs.max_tamed_dinos)
+    _f("Máx. Dinos Domesticados por Jogador",
+       "Limite individual de dinos por jogador (0 = ilimitado pelo slot de sela).",
+       "max_personal_tamed_dinos", gs.max_personal_tamed_dinos, 0, 500)
+    _i("Custo em Estruturas por Sela de Plataforma",
+       "Penalidade de limite de tame por cada sela de plataforma colocada no mapa.",
+       "personal_tamed_dinos_saddle_structure_cost",
+       gs.personal_tamed_dinos_saddle_structure_cost)
 
     _s("📊  Stats por Nível")
     _plsm()
@@ -291,6 +384,38 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "Maior = mais bônus de stats ao completar 100% de imprint.",
        "baby_imprinting_stat_scale_multiplier",
        gs.baby_imprinting_stat_scale_multiplier)
+    _af("Velocidade de Perda do Imprint",
+        "Maior = o imprint perde qualidade mais rápido quando o pedido é ignorado.",
+        "baby_cuddle_lose_imprint_quality_speed_multiplier",
+        adv.baby_cuddle_lose_imprint_quality_speed_multiplier)
+    _b("Desativar Bônus de Stats do Imprint",
+       "disable_imprint_dino_buff", gs.disable_imprint_dino_buff)
+    _b("Qualquer Jogador Pode Fazer Imprint",
+       "allow_anyone_baby_imprint_cuddle", gs.allow_anyone_baby_imprint_cuddle)
+    _b("Desativar Mate Boost (+33% stats ao lado do par)",
+       "prevent_mate_boost", gs.prevent_mate_boost)
+    _b("Voadores Recuperam Stamina em Voo",
+       "allow_flying_stamina_recovery", gs.allow_flying_stamina_recovery)
+    _af("Intervalo de Domesticação Passiva",
+        "Multiplicador do intervalo de domesticação passiva (comedouros). Menor = domestica mais rápido.",
+        "passive_tame_interval_multiplier",
+        adv.passive_tame_interval_multiplier)
+    _af("Consumo de Comida — Dino Selvagem [Game.ini]",
+        "Taxa de consumo de comida de dinos selvagens (Game.ini). Menor = esvaziam mais devagar.",
+        "wild_dino_character_food_drain_multiplier",
+        adv.wild_dino_character_food_drain_multiplier)
+    _af("Consumo de Comida — Dino Domesticado [Game.ini]",
+        "Taxa de consumo de comida de dinos domesticados (Game.ini). Complementa o campo GUS.",
+        "tamed_dino_character_food_drain_multiplier",
+        adv.tamed_dino_character_food_drain_multiplier)
+    _af("Recuperação de Torpor — Selvagem",
+        "Velocidade de recuperação de torpor de dinos selvagens. Menor = ficam dopados por mais tempo.",
+        "wild_dino_torpor_drain_multiplier",
+        adv.wild_dino_torpor_drain_multiplier)
+    _af("Recuperação de Torpor — Domesticado",
+        "Velocidade de recuperação de torpor de dinos domesticados.",
+        "tamed_dino_torpor_drain_multiplier",
+        adv.tamed_dino_torpor_drain_multiplier)
 
     _s("🌾  Coleta / Recursos")
     _f("Quantidade de Coleta",
@@ -354,8 +479,19 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _f("Tempo para Expulsar AFK (s)",
        "Segundos até expulsar jogadores inativos. 0 = desativado.",
        "kick_idle_players_period", gs.kick_idle_players_period, 0, 7200)
+    _f("Cooldown para Renomear Tribo (s)",
+       "Segundos que uma tribo deve esperar antes de poder renomear novamente. 0 = sem cooldown.",
+       "tribe_name_change_cooldown", gs.tribe_name_change_cooldown, 0, 86400)
+    _b("Permitir Alianças entre Tribos",
+       "allow_tribe_alliances", gs.allow_tribe_alliances)
 
     _s("🔢  Teto de Níveis")
+    _i("XP Máximo do Jogador (Override)",
+       "Substitui o valor de XP máximo acumulável pelo jogador. 0 = padrão ARK.",
+       "override_max_experience_points_player", gs.override_max_experience_points_player)
+    _i("XP Máximo do Dino (Override)",
+       "Substitui o valor de XP máximo acumulável por dinos domesticados. 0 = padrão ARK.",
+       "override_max_experience_points_dino", gs.override_max_experience_points_dino)
     _lcap("Nível Máximo do Jogador",
           "Nível final do jogador, incluindo os desbloqueados por ascensões."
           " 0 = padrão ARK (105 base + ascensões).",
@@ -364,6 +500,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
           "Nível máximo que dinos podem atingir ao acumular XP."
           " 0 = padrão ARK.",
           "dino_level_cap", gs.dino_level_cap)
+    _ascend_calc()
 
     _s("🎮  Opções do Servidor")
     _b("PvP Ativado",                              "server_pvp",                  gs.server_pvp)
@@ -373,16 +510,290 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _b("Mostrar Localização no Mapa",              "show_map_player_location",    gs.show_map_player_location)
     _b("Desativar Decaimento de Estruturas (PvE)", "disable_structure_decay_pve", gs.disable_structure_decay_pve)
     _b("Desativar Decaimento de Dinos (PvE)",      "disable_dino_decay_pve",      gs.disable_dino_decay_pve)
-    _b("Proteção Offline (ORP)",                   "prevent_offline_pvp",         gs.prevent_offline_pvp)
-    _b("Bloquear Downloads de Tributos",           "no_tribute_downloads",        gs.no_tribute_downloads)
-    _b("Notificar quando Jogador Entrar",          "always_notify_player_joined", gs.always_notify_player_joined)
-    _b("Notificar quando Jogador Sair",            "always_notify_player_left",   gs.always_notify_player_left)
+    _b("Desativar Decaimento de Dinos (PvP)",      "disable_dino_decay_pvp",      gs.disable_dino_decay_pvp)
+    _b("Auto-destruir Dinos Decaídos",             "auto_destroy_decayed_dinos",  gs.auto_destroy_decayed_dinos)
+    _f("Multiplicador de Decaimento de Dinos (PvE)",
+       "Multiplica o tempo para dinos sem dono decaírem em PvE.",
+       "pve_dino_decay_period_multiplier", gs.pve_dino_decay_period_multiplier)
+    _b("Proteção Offline (ORP)",                         "prevent_offline_pvp",                   gs.prevent_offline_pvp)
+    _f("Intervalo da Proteção Offline (s)",
+       "Tempo em segundos que o jogador fica invulnerável após desconectar com ORP ativo. 0 = imediato.",
+       "prevent_offline_pvp_interval", gs.prevent_offline_pvp_interval, 0, 3600)
+    _b("Bloquear Downloads de Tributos",                 "no_tribute_downloads",                  gs.no_tribute_downloads)
+    _b("Notificar quando Jogador Entrar",                "always_notify_player_joined",           gs.always_notify_player_joined)
+    _b("Notificar quando Jogador Sair",                  "always_notify_player_left",             gs.always_notify_player_left)
+    _b("Suprimir Notif. de Entrada (duplicado)",         "dont_always_notify_player_joined",      gs.dont_always_notify_player_joined)
+    _b("PvP — Desativar Canto (Gamma)",                  "allow_pvp_gamma",                       gs.allow_pvp_gamma)
+    _b("PvE — Desativar Canto (Gamma)",                  "allow_pve_gamma",                       gs.allow_pve_gamma)
+    _b("Mostrar Marcadores de Dano (Hit Markers)",       "allow_hit_markers",                     gs.allow_hit_markers)
+    _b("Permitir Múltiplos C4 por Dino",                 "allow_multiple_attached_c4",            gs.allow_multiple_attached_c4)
+    _b("Construção em Cavernas (PvE)",                   "allow_cave_building_pve",               gs.allow_cave_building_pve)
+    _b("Estruturas sobre Supply Drops (PvE)",            "pve_allow_structures_at_supply_drops",  gs.pve_allow_structures_at_supply_drops)
+    _b("Volume Extra de Prevenção de Estruturas",        "enable_extra_structure_prevention_volumes", gs.enable_extra_structure_prevention_volumes)
+    _b("Limitar Dano de Coleta de Recursos",             "clamp_resource_harvest_damage",         gs.clamp_resource_harvest_damage)
+    _b("Decaimento de Estruturas (PvP)",                 "pvp_structure_decay",                   gs.pvp_structure_decay)
+    _b("Ignorar Prevenção de Plataforma (Override)",     "override_structure_platform_prevention",gs.override_structure_platform_prevention)
+    _b("Doenças Habilitadas",                            "enable_diseases",                       gs.enable_diseases)
+    _b("Doenças Não Permanentes",                        "non_permanent_diseases",                gs.non_permanent_diseases)
+    _b("Clima — Desativar Névoa",                        "disable_weather_fog",                   gs.disable_weather_fog)
+
+    _s("🏗️  Estruturas")
+    _i("Máx. Estruturas Visíveis",
+       "Número máximo de estruturas dentro do raio de renderização. Padrão ARK: 10500.",
+       "max_structures_visible", gs.max_structures_visible)
+    _i("Máx. Estruturas em Selas de Plataforma",
+       "Limite global de estruturas em todas as selas de plataforma do servidor. Padrão: 130.",
+       "max_platform_saddle_structure_limit", gs.max_platform_saddle_structure_limit)
+    _f("Multiplicador de Auto-destruição de Estruturas",
+       "Multiplica a velocidade de auto-destruição de estruturas antigas. 0 = desativado.",
+       "auto_destroy_old_structures_multiplier", gs.auto_destroy_old_structures_multiplier, 0, 10)
+    _f("Período de Destruição de Decay (PvE)",
+       "Multiplicador do período que estruturas decaídas ficam antes de serem destruídas (PvE).",
+       "pve_structure_decay_destruction_period", gs.pve_structure_decay_destruction_period, 0, 10)
+    _b("Destruir Estruturas Núcleo Desconectadas Rapidamente",
+       "fast_decay_unsnapped_core_structures", gs.fast_decay_unsnapped_core_structures)
+    _b("Auto-destruição Somente em Estruturas Núcleo",
+       "only_auto_destroy_core_structures", gs.only_auto_destroy_core_structures)
+    _b("Decay Somente em Estruturas Núcleo Desconectadas",
+       "only_decay_unsnapped_core_structures", gs.only_decay_unsnapped_core_structures)
+    _b("Destruir Canos d'Água Desconectados",
+       "destroy_unconnected_water_pipes", gs.destroy_unconnected_water_pipes)
+
+    _s("🌅  Ciclo Dia / Noite")
+    _f("Velocidade do Ciclo Dia/Noite",
+       "Multiplica a velocidade completa do ciclo. 1.0 = padrão. 2.0 = dia/noite duas vezes mais rápidos.",
+       "day_cycle_speed_scale", gs.day_cycle_speed_scale, 0.1, 5.0)
+    _f("Velocidade do Período Diurno",
+       "Multiplica exclusivamente a duração do dia. 1.0 = padrão.",
+       "day_time_speed_scale", gs.day_time_speed_scale, 0.1, 5.0)
+    _f("Velocidade do Período Noturno",
+       "Multiplica exclusivamente a duração da noite. 1.0 = padrão.",
+       "night_time_speed_scale", gs.night_time_speed_scale, 0.1, 5.0)
+
+    _s("📡  NPC Network Stasis")
+    _b("Ativar Escala de Stasis Dinâmica (NPC)",
+       "override_npc_network_stasis_range_scale", gs.override_npc_network_stasis_range_scale)
+    _i("Contagem de Jogadores — Início da Escala",
+       "Número de jogadores online a partir do qual a escala de stasis começa a ser aplicada.",
+       "npc_network_stasis_range_scale_player_count_start",
+       gs.npc_network_stasis_range_scale_player_count_start)
+    _i("Contagem de Jogadores — Fim da Escala",
+       "Número de jogadores online em que a escala de stasis atinge o valor mínimo definido.",
+       "npc_network_stasis_range_scale_player_count_end",
+       gs.npc_network_stasis_range_scale_player_count_end)
+    _f("Percentual Mínimo do Raio de Stasis",
+       "Fração do raio original de stasis aplicada quando o servidor está cheio. Ex: 0.5 = 50%.",
+       "npc_network_stasis_range_scale_percent_end",
+       gs.npc_network_stasis_range_scale_percent_end, 0.01, 1.0)
     _save()
 
     # ── Despacho em chunks via after(0) ───────────────────────────────────
     # Lotes de 6 tasks — cada after(0) cede o controle ao event loop antes
     # do próximo lote, eliminando o freeze de ~500ms que 44 CTkSliders causavam.
     _CHUNK = 6
+
+    def _build_ascension_panel(row_n: int) -> None:
+        """Painel informativo de níveis base e calculadora de ascensões."""
+        _BG_PANEL = "#12122a"
+        _BDR      = "#2a2a55"
+        panel = tk.Frame(_cur_body[0], bg=_BG_PANEL, highlightthickness=1,
+                         highlightbackground=_BDR)
+        panel.grid(row=row_n, column=0, columnspan=3,
+                   padx=16, pady=(2, 10), sticky="ew")
+        panel.columnconfigure(0, weight=1)
+
+        # Cabeçalho
+        tk.Label(panel, text="📊  Referência de Níveis Vanilla (ARK oficial)",
+                 bg=_BG_PANEL, fg="#c8c8e8",
+                 font=ctk.CTkFont(size=12, weight="bold"),
+                 anchor="w").grid(row=0, column=0, padx=12, pady=(8, 2), sticky="w")
+        tk.Frame(panel, bg=_GREEN, height=1).grid(
+            row=1, column=0, padx=12, sticky="ew")
+
+        # Info estática
+        info = tk.Frame(panel, bg=_BG_PANEL)
+        info.grid(row=2, column=0, padx=12, pady=(6, 4), sticky="w")
+        _HINT = "gray50"
+        tk.Label(info, text="Nível base do jogador (sem ascensões):",
+                 bg=_BG_PANEL, fg=_HINT,
+                 font=ctk.CTkFont(size=11)).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        tk.Label(info, text="105", bg=_BG_PANEL, fg=_GREEN,
+                 font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=1, sticky="w")
+        tk.Label(info, text="Nível máximo de dino selvagem (Dificuldade 5.0):",
+                 bg=_BG_PANEL, fg=_HINT,
+                 font=ctk.CTkFont(size=11)).grid(row=1, column=0, sticky="w", padx=(0, 8))
+        tk.Label(info, text="150", bg=_BG_PANEL, fg=_GREEN,
+                 font=ctk.CTkFont(size=11, weight="bold")).grid(row=1, column=1, sticky="w")
+
+        # Divisor
+        tk.Frame(panel, bg="#1e1e3a", height=1).grid(
+            row=3, column=0, padx=12, sticky="ew", pady=(4, 2))
+
+        # Título calculadora
+        tk.Label(panel, text="🧮  Calculadora de Ascensões do Jogador",
+                 bg=_BG_PANEL, fg="#c8c8e8",
+                 font=ctk.CTkFont(size=11, weight="bold"),
+                 anchor="w").grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
+        tk.Label(panel,
+                 text="Selecione as ascensões completadas para ver o nível máximo final:",
+                 bg=_BG_PANEL, fg=_HINT,
+                 font=ctk.CTkFont(size=10)).grid(row=5, column=0, padx=12,
+                                                  pady=(0, 6), sticky="w")
+
+        # Ascensões disponíveis:  (nome, níveis concedidos por tier)
+        # Tier α/β/γ — usa o maior tier selecionado (são mutuamente exclusivos por mapa)
+        # Mapas com tiers γ/β/α — cada um concede +5/+10/+15 níveis (cumulativo: usa o maior)
+        _TIERED = [
+            # (nome,               γ,  β,  α,  hint)
+            ("The Island",         5, 10, 15, "Overseer — The Island (cavernas γ/β/α)"),
+            ("Scorched Earth",     5, 10, 15, "Manticore — Scorched Earth (γ/β/α)"),
+            ("Aberration",         5, 10, 15, "Rockwell — Aberration (γ/β/α)"),
+            ("Extinction",         5, 10, 15, "King Titan — Extinction (γ/β/α)"),
+            ("Genesis: Part 1",    5, 10, 15, "Corrupted Master Controller (γ/β/α)"),
+            ("Genesis: Part 2",    5, 10, 15, "Rockwell Prime — Genesis Part 2 (γ/β/α)"),
+        ]
+        # DLCs com tier único (sem γ/β — somente α)
+        _SINGLE = [
+            ("Aquatica (α)", 5, "DLC — Mapa Aquatica (conta na soma oficial)"),
+        ]
+        _EXTRA = [
+            ("Chibis",             5, "Coletar chibis dourados no Fear Evolved / Winter Wonderland"),
+            ("Notas de Explorador (todas)", 10, "Completar todas as notas de explorador (todas as Story ARKs)"),
+            ("Runas de Hjemskr",   5, "Runas de Fjordur"),
+        ]
+
+        chk_vars: list[tk.BooleanVar] = []
+
+        chk_fr = tk.Frame(panel, bg=_BG_PANEL)
+        chk_fr.grid(row=6, column=0, padx=12, pady=(0, 4), sticky="ew")
+        chk_fr.columnconfigure((0, 1, 2), weight=1)
+
+        tier_vars: dict[str, list[tk.BooleanVar]] = {}  # name → [γ, β, α]
+
+        _col = 0
+        _row_chk = 0
+
+        def _add_chk(parent_fr, label: str, hint: str, var: tk.BooleanVar,
+                     result_var: tk.IntVar, levels: int, c: int, rw: int) -> None:
+            fr = tk.Frame(parent_fr, bg=_BG_PANEL)
+            fr.grid(row=rw, column=c, padx=4, pady=2, sticky="w")
+            ctk.CTkCheckBox(fr, text=label, variable=var, width=20,
+                            checkmark_color="white", fg_color=_GREEN_DARK,
+                            hover_color=_GREEN_HOVER,
+                            command=lambda: _recalc(result_var)).pack(side="left")
+            tk.Label(fr, text=f"+{levels}", bg=_BG_PANEL, fg=_GREEN,
+                     font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 0))
+            if hint:
+                tk.Label(fr, text=f"  {hint}", bg=_BG_PANEL, fg=_HINT,
+                         font=ctk.CTkFont(size=9)).pack(side="left")
+
+        result_var = tk.IntVar(value=105)
+
+        def _recalc(rv: tk.IntVar) -> None:
+            total = 105
+            # single checkboxes
+            for sv, lvls in zip(chk_vars, [t[1] for t in _SINGLE]):
+                if sv.get():
+                    total += lvls
+            # tiered: pick highest tier selected per map
+            for name, tv_list in tier_vars.items():
+                best = 0
+                for tier_idx, (tv, bonus) in enumerate(zip(tv_list, [5, 10, 15])):
+                    if tv.get():
+                        best = max(best, bonus)
+                total += best
+            # extras
+            for sv, lvls in zip(extra_vars, [e[1] for e in _EXTRA]):
+                if sv.get():
+                    total += lvls
+            rv.set(total)
+
+        extra_vars: list[tk.BooleanVar] = []
+
+        # Seção: mapas com tier
+        tier_sec = tk.LabelFrame(chk_fr, text="  Mapas com Tiers γ/β/α (boss caves)  ",
+                                  bg=_BG_PANEL, fg="gray60",
+                                  font=ctk.CTkFont(size=10))
+        tier_sec.grid(row=0, column=0, columnspan=3, padx=2, pady=(0, 6), sticky="ew")
+        for col_idx in range(4):
+            tier_sec.columnconfigure(col_idx, weight=1)
+
+        for t_idx, (tname, g_b, b_b, a_b, t_hint) in enumerate(_TIERED):
+            tier_row = tk.Frame(tier_sec, bg=_BG_PANEL)
+            tier_row.grid(row=t_idx, column=0, columnspan=4,
+                          padx=4, pady=1, sticky="w")
+            tk.Label(tier_row, text=tname, width=16, anchor="w",
+                     bg=_BG_PANEL, fg="gray70",
+                     font=ctk.CTkFont(size=10)).pack(side="left", padx=(2, 8))
+            tvs = []
+            for tier_lbl, tier_bonus in [("γ", g_b), ("β", b_b), ("α", a_b)]:
+                tv = tk.BooleanVar(value=False)
+                tvs.append(tv)
+                ctk.CTkCheckBox(tier_row, text=f"{tier_lbl} +{tier_bonus}", variable=tv,
+                                width=20, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                                checkmark_color="white",
+                                command=lambda: _recalc(result_var)).pack(
+                    side="left", padx=6)
+            tier_vars[tname] = tvs
+
+        # Seção: mapas de expansão (single tier)
+        exp_sec = tk.LabelFrame(chk_fr, text="  DLCs (+5 cada)  ",
+                                 bg=_BG_PANEL, fg="gray60",
+                                 font=ctk.CTkFont(size=10))
+        exp_sec.grid(row=1, column=0, columnspan=3, padx=2, pady=(0, 6), sticky="ew")
+        for ci in range(3):
+            exp_sec.columnconfigure(ci, weight=1)
+
+        for s_idx, (s_name, s_lvls, s_hint) in enumerate(_SINGLE):
+            sv = tk.BooleanVar(value=False)
+            chk_vars.append(sv)
+            fr = tk.Frame(exp_sec, bg=_BG_PANEL)
+            fr.grid(row=s_idx // 3, column=s_idx % 3, padx=4, pady=2, sticky="w")
+            ctk.CTkCheckBox(fr, text=s_name, variable=sv, width=20,
+                            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                            checkmark_color="white",
+                            command=lambda: _recalc(result_var)).pack(side="left")
+            tk.Label(fr, text=f"+{s_lvls}", bg=_BG_PANEL, fg=_GREEN,
+                     font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 0))
+
+        # Seção: extras
+        ext_sec = tk.LabelFrame(chk_fr, text="  Extras (Chibis, Notas, Runas)  ",
+                                 bg=_BG_PANEL, fg="gray60",
+                                 font=ctk.CTkFont(size=10))
+        ext_sec.grid(row=2, column=0, columnspan=3, padx=2, pady=(0, 8), sticky="ew")
+        for ci in range(3):
+            ext_sec.columnconfigure(ci, weight=1)
+
+        for e_idx, (e_name, e_lvls, e_hint) in enumerate(_EXTRA):
+            ev = tk.BooleanVar(value=False)
+            extra_vars.append(ev)
+            fr = tk.Frame(ext_sec, bg=_BG_PANEL)
+            fr.grid(row=e_idx // 3, column=e_idx % 3, padx=4, pady=2, sticky="w")
+            ctk.CTkCheckBox(fr, text=e_name, variable=ev, width=20,
+                            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                            checkmark_color="white",
+                            command=lambda: _recalc(result_var)).pack(side="left")
+            tk.Label(fr, text=f"+{e_lvls}", bg=_BG_PANEL, fg=_GREEN,
+                     font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 0))
+            if e_hint:
+                tk.Label(fr, text=f"  {e_hint}", bg=_BG_PANEL, fg=_HINT,
+                         font=ctk.CTkFont(size=9)).pack(side="left")
+
+        # Resultado
+        res_fr = tk.Frame(panel, bg="#0d1a1f",
+                          highlightthickness=1, highlightbackground=_GREEN_DARK)
+        res_fr.grid(row=7, column=0, padx=12, pady=(0, 10), sticky="ew")
+        tk.Label(res_fr, text="Nível máximo calculado do jogador:",
+                 bg="#0d1a1f", fg="gray60",
+                 font=ctk.CTkFont(size=11)).pack(side="left", padx=(12, 6), pady=8)
+        ctk.CTkLabel(res_fr, textvariable=result_var,  # type: ignore[arg-type]
+                     text_color=_GREEN,
+                     font=ctk.CTkFont(size=18, weight="bold")).pack(
+            side="left", pady=8)
+        tk.Label(res_fr,
+                 text="  ← inclui todas as ascensões selecionadas (Aquatica contabilizada)",
+                 bg="#0d1a1f", fg="gray45",
+                 font=ctk.CTkFont(size=9)).pack(side="left", padx=(4, 12), pady=8)
 
     # ── Nomes e descrições dos stats (índices 0-11) ───────────────────────
     _PLSM_STATS = [
@@ -402,7 +813,7 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
 
     def _build_plsm_table(rn: int) -> None:
         """Constrói a tabela PerLevelStatsMultiplier (Dino Domado / Selvagem / Jogador)."""
-        outer = ctk.CTkFrame(scroll, fg_color=_CARD_BG, corner_radius=10)
+        outer = ctk.CTkFrame(_cur_body[0], fg_color=_CARD_BG, corner_radius=10)
         outer.grid(row=rn, column=0, columnspan=4, padx=12, pady=(0, 8), sticky="ew")
         outer.grid_columnconfigure(0, weight=1)
 
@@ -497,27 +908,87 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                 ent.bind("<FocusOut>", _cb)
                 ent.bind("<Return>",   _cb)
 
+    def _make_section(text: str) -> tk.Frame:
+        """Cria uma seção colapsável (accordion) e retorna seu body frame."""
+        _SEC_BG  = "#0d0d1e"
+        _HEAD_BG = "#141428"
+        _BDR     = "#2a2a45"
+        sec = tk.Frame(scroll, bg=_SEC_BG, highlightthickness=1,
+                       highlightbackground=_BDR)
+        sec.pack(fill="x", padx=6, pady=(8, 0))
+
+        expanded = [True]
+
+        header = tk.Frame(sec, bg=_HEAD_BG, cursor="hand2")
+        header.pack(fill="x")
+
+        arrow = tk.Label(header, text="▼", bg=_HEAD_BG, fg=_GREEN,
+                         font=ctk.CTkFont(size=11))
+        arrow.pack(side="left", padx=(10, 6), pady=7)
+
+        tk.Label(header, text=text, bg=_HEAD_BG, fg="#c8c8e8",
+                 font=ctk.CTkFont(size=12, weight="bold"),
+                 anchor="w").pack(side="left", pady=7, fill="x", expand=True)
+
+        body = tk.Frame(sec, bg=_SEC_BG)
+        body.pack(fill="x", padx=4, pady=(2, 6))
+        body.columnconfigure(1, weight=1)
+        body.columnconfigure(3, weight=1)
+
+        def _toggle(event=None):
+            expanded[0] = not expanded[0]
+            if expanded[0]:
+                body.pack(fill="x", padx=4, pady=(2, 6))
+                arrow.configure(text="▼")
+            else:
+                body.pack_forget()
+                arrow.configure(text="▶")
+
+        header.bind("<Button-1>", _toggle)
+        for child in header.winfo_children():
+            child.bind("<Button-1>", _toggle)
+
+        return body
+
     def _dispatch_task(task: tuple) -> None:
         kind = task[0]
         if kind == "s":
             _, rn, text = task
-            app._section_lbl(scroll, rn, text)
+            _sec_start_r[0] = rn + 1
+            _cur_body[0]    = _make_section(text)
         elif kind == "f":
             _, rn, lbl, hint, field, val, frm, to = task
-            frow(lbl, hint, field, val, rn, frm, to)
+            lr = rn - _sec_start_r[0]
+            frow(lbl, hint, field, val, lr, frm, to)
         elif kind == "i":
             _, rn, lbl, hint, field, val = task
-            irow(lbl, hint, field, val, rn)
+            lr = rn - _sec_start_r[0]
+            irow(lbl, hint, field, val, lr)
         elif kind == "b":
             _, rn, lbl, field, val = task
-            brow(lbl, field, val, rn)
+            lr = rn - _sec_start_r[0]
+            brow(lbl, field, val, lr)
+        elif kind == "adv_f":
+            _, rn, lbl, hint, field, val, frm, to = task
+            lr = rn - _sec_start_r[0]
+            adv_frow(lbl, hint, field, val, lr, frm, to)
+        elif kind == "adv_b":
+            _, rn, lbl, field, val = task
+            lr = rn - _sec_start_r[0]
+            adv_brow(lbl, field, val, lr)
+        elif kind == "ascend_calc":
+            _, rn = task
+            lr = rn - _sec_start_r[0]
+            _build_ascension_panel(lr)
         elif kind == "lcap":
             _, rn, lbl, hint, field, val = task
-            _level_cap_row(lbl, hint, field, val, rn)
+            lr = rn - _sec_start_r[0]
+            _level_cap_row(lbl, hint, field, val, lr)
         elif kind == "calc":
             _, rn = task
+            lr = rn - _sec_start_r[0]
             ctk.CTkButton(
-                scroll,
+                _cur_body[0],
                 text="🧮  Calculadora de Breeding",
                 width=230,
                 fg_color="#2d4a6f",
@@ -528,13 +999,15 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                     app._server_widgets.get(srv.id, {}),
                     lambda: app._save_server_config(srv.id, silent=True, force=True),
                 ),
-            ).grid(row=rn, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
+            ).grid(row=lr, column=0, columnspan=3, sticky="e", padx=16, pady=(2, 8))
         elif kind == "plsm":
             _, rn = task
-            _build_plsm_table(rn)
+            lr = rn - _sec_start_r[0]
+            _build_plsm_table(lr)
         elif kind == "save":
-            _, rn = task
-            app._save_btn_row(scroll, rn, srv.id)
+            save_fr = ctk.CTkFrame(scroll, fg_color="transparent")
+            save_fr.pack(fill="x", pady=(10, 4))
+            app._save_btn_row(save_fr, 0, srv.id)
 
     def _exec_chunk(idx: int) -> None:
         for task in _tasks[idx: idx + _CHUNK]:

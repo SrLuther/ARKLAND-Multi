@@ -430,6 +430,11 @@ class ServerConfig:
     # [{"label": str, "message": str}]
     broadcasts: List[dict] = field(default_factory=list)
 
+    # Broadcasts automáticos por intervalo, controlados pelo scheduler
+    # [{"id": str, "label": str, "message": str,
+    #   "interval_min": int, "enabled": bool, "last_sent": float}]
+    auto_broadcasts: List[dict] = field(default_factory=list)
+
     # Opções de linha de comando adicionais
     extra_args: str = ""
     use_battleye: bool = False

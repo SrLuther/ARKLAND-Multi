@@ -169,7 +169,7 @@ class DiscordNotifier:
         emoji, label, color = _EVENT_META["update"]
         fields: List[dict] = []
         if detail:
-            fields.append({"name": "�  Detalhes", "value": detail, "inline": False})
+            fields.append({"name": "🔧  Detalhes", "value": detail, "inline": False})
         self._send_embed(
             sender=cfg.sender_name or "ARKLAND",
             title=f"{emoji}  {label} — {server_name}",
@@ -177,6 +177,82 @@ class DiscordNotifier:
             color=color,
             fields=fields,
         )
+
+    def notify_mod_update(
+        self,
+        mod_name: str,
+        mod_id: str,
+        server_names: List[str],
+        changelog: str = "",
+    ) -> None:
+        """
+        Envia embed rico de atualização de mod com nota de changelog.
+
+        Usa `mod_changelog_webhook` se configurado; caso contrário, usa
+        o webhook principal. Respeita `notify_update` como flag de habilitação.
+        """
+        cfg = self.config
+        if not cfg.enabled or not cfg.notify_update:
+            return
+
+        # Escolhe webhook: separado para mods ou principal
+        target_url = (cfg.mod_changelog_webhook or "").strip() or cfg.webhook_url
+        if not target_url:
+            return
+
+        _, _, color = _EVENT_META["update"]
+        workshop_url = f"https://steamcommunity.com/sharedfiles/filedetails/?id={mod_id}"
+
+        fields: List[dict] = [
+            {
+                "name": "📦  Mod",
+                "value": f"[{mod_name}]({workshop_url}) (`{mod_id}`)",
+                "inline": False,
+            }
+        ]
+
+        if server_names:
+            fields.append({
+                "name": "🖥️  Servidores reiniciados",
+                "value": ", ".join(server_names),
+                "inline": False,
+            })
+
+        if changelog and changelog.strip():
+            # Garante que não ultrapassa 1024 chars (limite de campo do Discord)
+            body = changelog.strip()
+            if len(body) > 1000:
+                body = body[:1000].rsplit("\n", 1)[0] + "\n…"
+            fields.append({
+                "name": "📋  Notas da atualização",
+                "value": f"```\n{body}\n```",
+                "inline": False,
+            })
+        else:
+            fields.append({
+                "name": "📋  Notas da atualização",
+                "value": "_O autor do mod não publicou notas para esta atualização._",
+                "inline": False,
+            })
+
+        embed: dict = {
+            "title": f"🔄  Mod Atualizado — {mod_name}",
+            "color": color,
+            "url": workshop_url,
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "footer": {"text": _FOOTER_TEXT},
+            "fields": fields,
+        }
+        payload = {
+            "username": cfg.sender_name or "ARKLAND",
+            "embeds": [embed],
+        }
+        threading.Thread(
+            target=_post_webhook,
+            args=(target_url, payload),
+            daemon=True,
+            name="discord-mod-changelog",
+        ).start()
 
     def notify_backup(self, server_name: str, detail: str = "") -> None:
         cfg = self.config

@@ -37,9 +37,9 @@ def build_tab_chat(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     # ══════════════════════════════════════════════════════════════════════
     bt = sub.tab("📢 Broadcasts")
     bt.grid_columnconfigure(0, weight=1)
-    bt.grid_rowconfigure(2, weight=1)
+    bt.grid_rowconfigure(1, weight=1)
 
-    # ── Barra de envio rápido ─────────────────────────────────────────────
+    # ── Barra de envio rápido (sempre visível) ────────────────────────────
     quick_bar = ctk.CTkFrame(bt, fg_color=_CARD_BG, corner_radius=8)
     quick_bar.grid(row=0, column=0, sticky="ew", padx=6, pady=(6, 3))
     quick_bar.grid_columnconfigure(1, weight=1)
@@ -66,9 +66,28 @@ def build_tab_chat(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                   command=lambda: app._broadcast_test(srv.id)
                   ).grid(row=0, column=3, padx=(0, 10), pady=8)
 
-    # ── Formulário: adicionar novo broadcast à biblioteca ─────────────────
-    add_fr = ctk.CTkFrame(bt, fg_color=_CARD_BG, corner_radius=8)
-    add_fr.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 3))
+    # ── Sub-tabs: Biblioteca | Automáticos ───────────────────────────────
+    inner = ctk.CTkTabview(
+        bt,
+        fg_color=_BG,
+        segmented_button_fg_color=_SIDEBAR_BG,
+        segmented_button_selected_color=_GREEN_DARK,
+        segmented_button_selected_hover_color=_GREEN_HOVER,
+        segmented_button_unselected_color=_SIDEBAR_BG,
+        segmented_button_unselected_hover_color=_CARD_BG,
+    )
+    inner.grid(row=1, column=0, sticky="nsew", padx=6, pady=(0, 4))
+    inner.add("📚 Biblioteca")
+    inner.add("🕐 Automáticos")
+
+    # ── Inner tab: Biblioteca ─────────────────────────────────────────────
+    lib = inner.tab("📚 Biblioteca")
+    lib.grid_columnconfigure(0, weight=1)
+    lib.grid_rowconfigure(1, weight=1)
+
+    # Formulário: adicionar novo broadcast
+    add_fr = ctk.CTkFrame(lib, fg_color=_CARD_BG, corner_radius=8)
+    add_fr.grid(row=0, column=0, sticky="ew", padx=0, pady=(4, 3))
     add_fr.grid_columnconfigure(1, weight=1)
     add_fr.grid_columnconfigure(2, weight=3)
 
@@ -94,23 +113,120 @@ def build_tab_chat(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
                   command=lambda: app._broadcast_add(srv.id)
                   ).grid(row=0, column=3, padx=(0, 10), pady=(8, 7))
 
-    # ── Lista de broadcasts salvos ────────────────────────────────────────
-    list_hdr = ctk.CTkFrame(bt, fg_color="transparent")
-    list_hdr.grid(row=2, column=0, sticky="nsew", padx=6, pady=(0, 6))
-    list_hdr.grid_columnconfigure(0, weight=1)
-    list_hdr.grid_rowconfigure(1, weight=1)
+    # Lista de broadcasts salvos
+    lib_list = ctk.CTkFrame(lib, fg_color="transparent")
+    lib_list.grid(row=1, column=0, sticky="nsew")
+    lib_list.grid_columnconfigure(0, weight=1)
+    lib_list.grid_rowconfigure(1, weight=1)
 
-    ctk.CTkLabel(list_hdr, text="Biblioteca de Broadcasts",
+    ctk.CTkLabel(lib_list, text="Mensagens salvas",
                  text_color="gray45", font=ctk.CTkFont(size=11, weight="bold")
                  ).grid(row=0, column=0, sticky="w", padx=2, pady=(2, 2))
 
-    bc_scroll = ctk.CTkScrollableFrame(list_hdr, fg_color=_CARD_BG, corner_radius=8)
+    bc_scroll = ctk.CTkScrollableFrame(lib_list, fg_color=_CARD_BG, corner_radius=8)
     bc_scroll.grid(row=1, column=0, sticky="nsew")
     bc_scroll.grid_columnconfigure(0, weight=1)
     w["bc_list_scroll"] = bc_scroll
-
-    # Carrega broadcasts existentes
     app._broadcast_refresh_list(srv.id)
+
+    # ── Inner tab: Automáticos ────────────────────────────────────────────
+    sched_tab = inner.tab("🕐 Automáticos")
+    sched_tab.grid_columnconfigure(0, weight=1)
+    sched_tab.grid_rowconfigure(2, weight=1)
+
+    # Barra de controle do scheduler
+    sched_ctrl = ctk.CTkFrame(sched_tab, fg_color=_CARD_BG, corner_radius=8)
+    sched_ctrl.grid(row=0, column=0, sticky="ew", padx=0, pady=(4, 3))
+    sched_ctrl.grid_columnconfigure(2, weight=1)
+
+    ctk.CTkLabel(
+        sched_ctrl, text="🕐 Scheduler de Broadcasts",
+        text_color="#c8c8e8", font=ctk.CTkFont(size=12, weight="bold"),
+    ).grid(row=0, column=0, padx=(14, 12), pady=10, sticky="w")
+
+    w["bcs_status_var"] = tk.StringVar(value="⬛ Inativo")
+    ctk.CTkLabel(
+        sched_ctrl, textvariable=w["bcs_status_var"],
+        text_color="gray50", font=ctk.CTkFont(size=11),
+    ).grid(row=0, column=1, padx=(0, 10), pady=10, sticky="w")
+
+    ctk.CTkLabel(
+        sched_ctrl,
+        text="Envia mensagens recorrentes no intervalo configurado — requer RCON conectado.",
+        text_color="gray45", font=ctk.CTkFont(size=10),
+    ).grid(row=0, column=2, sticky="ew", padx=(0, 8), pady=10)
+
+    ctk.CTkButton(
+        sched_ctrl, text="▶ Iniciar", width=90, height=30,
+        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        font=ctk.CTkFont(size=11),
+        command=lambda: app._bc_sched_start(srv.id),
+    ).grid(row=0, column=3, padx=(0, 4), pady=8)
+
+    ctk.CTkButton(
+        sched_ctrl, text="⏹ Parar", width=90, height=30,
+        fg_color="#7a2d2d", hover_color="#5c1f1f",
+        font=ctk.CTkFont(size=11),
+        command=lambda: app._bc_sched_stop(srv.id),
+    ).grid(row=0, column=4, padx=(0, 12), pady=8)
+
+    # Formulário: adicionar novo broadcast agendado
+    sched_add = ctk.CTkFrame(sched_tab, fg_color=_CARD_BG, corner_radius=8)
+    sched_add.grid(row=1, column=0, sticky="ew", padx=0, pady=(0, 3))
+    sched_add.grid_columnconfigure(2, weight=1)
+
+    ctk.CTkLabel(sched_add, text="+ Novo:",
+                 text_color="gray55", font=ctk.CTkFont(size=12, weight="bold")
+                 ).grid(row=0, column=0, padx=(12, 8), pady=(8, 7), sticky="w")
+
+    w["bcs_new_label"] = tk.StringVar()
+    ctk.CTkEntry(sched_add, textvariable=w["bcs_new_label"], height=30,
+                 placeholder_text="Rótulo", width=160,
+                 font=ctk.CTkFont(size=11)
+                 ).grid(row=0, column=1, sticky="w", padx=(0, 6), pady=(8, 7))
+
+    w["bcs_new_msg"] = tk.StringVar()
+    ctk.CTkEntry(sched_add, textvariable=w["bcs_new_msg"], height=30,
+                 placeholder_text="Mensagem automática...",
+                 font=ctk.CTkFont(size=11)
+                 ).grid(row=0, column=2, sticky="ew", padx=(0, 6), pady=(8, 7))
+
+    ctk.CTkLabel(sched_add, text="a cada",
+                 text_color="gray55", font=ctk.CTkFont(size=11)
+                 ).grid(row=0, column=3, padx=(0, 4), pady=(8, 7))
+
+    w["bcs_new_interval"] = tk.StringVar(value="30")
+    ctk.CTkOptionMenu(
+        sched_add, variable=w["bcs_new_interval"],
+        values=["1", "5", "10", "15", "30", "60", "120"],
+        width=72, height=30,
+    ).grid(row=0, column=4, padx=(0, 4), pady=(8, 7))
+
+    ctk.CTkLabel(sched_add, text="min",
+                 text_color="gray55", font=ctk.CTkFont(size=11)
+                 ).grid(row=0, column=5, padx=(0, 8), pady=(8, 7))
+
+    ctk.CTkButton(sched_add, text="Adicionar", width=90, height=30,
+                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  font=ctk.CTkFont(size=11),
+                  command=lambda: app._bc_sched_add(srv.id)
+                  ).grid(row=0, column=6, padx=(0, 10), pady=(8, 7))
+
+    # Lista de broadcasts agendados
+    bcs_list_frame = ctk.CTkFrame(sched_tab, fg_color="transparent")
+    bcs_list_frame.grid(row=2, column=0, sticky="nsew")
+    bcs_list_frame.grid_columnconfigure(0, weight=1)
+    bcs_list_frame.grid_rowconfigure(1, weight=1)
+
+    ctk.CTkLabel(bcs_list_frame, text="Broadcasts agendados",
+                 text_color="gray45", font=ctk.CTkFont(size=11, weight="bold")
+                 ).grid(row=0, column=0, sticky="w", padx=2, pady=(2, 2))
+
+    bcs_scroll = ctk.CTkScrollableFrame(bcs_list_frame, fg_color=_CARD_BG, corner_radius=8)
+    bcs_scroll.grid(row=1, column=0, sticky="nsew")
+    bcs_scroll.grid_columnconfigure(0, weight=1)
+    w["bcs_list_scroll"] = bcs_scroll
+    app._bc_sched_refresh(srv.id)
 
     # ══════════════════════════════════════════════════════════════════════
     # Sub-aba: Chat ao vivo

@@ -23,6 +23,7 @@ def save_global_config(app: "ARKServerManagerApp") -> None:
     dc.notify_crash  = app._discord_notify_crash.get()
     dc.notify_update = app._discord_notify_update.get()
     dc.notify_backup = app._discord_notify_backup.get()
+    dc.mod_changelog_webhook = app._discord_mod_changelog_hook.get().strip()
     _set_windows_startup(cfg.startup_with_windows)
     app.config_manager.save()
     app.mod_manager.steamcmd_path = cfg.steamcmd_path

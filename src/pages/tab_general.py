@@ -65,7 +65,7 @@ def build_tab_general(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         c = tk.Frame(scroll, bg=_INNER,
                      highlightthickness=1, highlightbackground="#2a2a45")
         c.grid(row=grow, column=col, columnspan=colspan,
-               padx=8, pady=6, sticky="new")
+               padx=8, pady=6, sticky="nsew")
         c.columnconfigure(0, weight=1)
         return c
 

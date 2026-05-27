@@ -76,9 +76,10 @@ def build_cluster_detail(app: "ARKServerManagerApp", prof) -> None:
     r += 1
 
     # Pasta do cluster
-    _lbl("Pasta do Cluster:",
-         "Local: caminho local (ex: C:\\ARKCluster)\n"
-         "Rede: caminho UNC (ex: \\\\servidor\\ARKCluster) ou drive mapeado").grid(
+    _lbl("Pasta de Dados de Viagem (-ClusterDirOverride):",
+         "Pasta onde o ARK salva os dados do personagem ao viajar entre mapas.\n"
+         "Deve ser a mesma em todos os servidores do cluster.\n"
+         "Local: ex: C:\\ARKCluster  |  Rede: ex: \\\\servidor\\ARKCluster").grid(
         row=r, column=0, padx=(18, 6), pady=4, sticky="nw")
     dw["cluster_dir"] = tk.StringVar(value=prof.cluster_dir)
     dir_row = ctk.CTkFrame(card, fg_color="transparent")

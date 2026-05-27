@@ -135,14 +135,15 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     disc_card.grid_columnconfigure(1, weight=1)
 
     dc = cfg.discord_notify
-    app._discord_enabled_var    = tk.BooleanVar(value=dc.enabled)
-    app._discord_url_var        = tk.StringVar(value=dc.webhook_url)
-    app._discord_sender_var     = tk.StringVar(value=dc.sender_name)
-    app._discord_notify_start   = tk.BooleanVar(value=dc.notify_start)
-    app._discord_notify_stop    = tk.BooleanVar(value=dc.notify_stop)
-    app._discord_notify_crash   = tk.BooleanVar(value=dc.notify_crash)
-    app._discord_notify_update  = tk.BooleanVar(value=dc.notify_update)
-    app._discord_notify_backup  = tk.BooleanVar(value=dc.notify_backup)
+    app._discord_enabled_var         = tk.BooleanVar(value=dc.enabled)
+    app._discord_url_var             = tk.StringVar(value=dc.webhook_url)
+    app._discord_sender_var          = tk.StringVar(value=dc.sender_name)
+    app._discord_notify_start        = tk.BooleanVar(value=dc.notify_start)
+    app._discord_notify_stop         = tk.BooleanVar(value=dc.notify_stop)
+    app._discord_notify_crash        = tk.BooleanVar(value=dc.notify_crash)
+    app._discord_notify_update       = tk.BooleanVar(value=dc.notify_update)
+    app._discord_notify_backup       = tk.BooleanVar(value=dc.notify_backup)
+    app._discord_mod_changelog_hook  = tk.StringVar(value=dc.mod_changelog_webhook)
 
     ctk.CTkCheckBox(
         disc_card, text="Ativar notificações Discord",
@@ -179,7 +180,7 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         row=6, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
 
     evt_fr = ctk.CTkFrame(disc_card, fg_color="transparent")
-    evt_fr.grid(row=7, column=0, columnspan=2, padx=12, pady=(0, 14), sticky="w")
+    evt_fr.grid(row=7, column=0, columnspan=2, padx=12, pady=(0, 6), sticky="w")
     for ci, (txt, var) in enumerate([
         ("🟡 Iniciando / Online",  app._discord_notify_start),
         ("🔴 Parado / Encerrando", app._discord_notify_stop),
@@ -192,6 +193,18 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
             checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
             font=ctk.CTkFont(size=11),
         ).grid(row=ci // 3, column=ci % 3, padx=8, pady=3, sticky="w")
+
+    # ── Webhook separado para notas de atualização de mods ────────────────
+    ctk.CTkLabel(disc_card, text="Webhook de mods (opcional):", width=160, anchor="w",
+                 text_color="gray60").grid(row=8, column=0, padx=16, pady=(10, 0), sticky="w")
+    ctk.CTkEntry(disc_card, textvariable=app._discord_mod_changelog_hook, height=32,
+                 placeholder_text="https://discord.com/api/webhooks/... (vazio = usar webhook principal)").grid(
+        row=8, column=1, padx=(0, 16), pady=(10, 0), sticky="ew")
+    ctk.CTkLabel(disc_card,
+                 text="Quando um mod for atualizado, as notas de atualização serão enviadas para este canal.\n"
+                      "Deixe em branco para usar o mesmo webhook principal configurado acima.",
+                 text_color="gray45", font=ctk.CTkFont(size=10), justify="left").grid(
+        row=9, column=0, columnspan=2, padx=(16, 16), pady=(2, 14), sticky="w")
 
     ctk.CTkButton(
         parent, text="💾  Salvar Configurações Globais",

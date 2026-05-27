@@ -24,6 +24,8 @@ class DiscordNotifyConfig:
     notify_crash: bool  = True   # Crash detectado
     notify_update: bool = True   # Atualização concluída (mod auto-updater)
     notify_backup: bool = False  # Backup concluído
+    # Webhook separado para notas de atualização de mods (vazio = usar webhook_url principal)
+    mod_changelog_webhook: str = ""
 
 
 @dataclass

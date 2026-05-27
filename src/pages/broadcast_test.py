@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from tkinter import messagebox
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
+from ..rcon_client import RconClient
 
 
 def broadcast_test(app: "ARKServerManagerApp", server_id: str) -> None:

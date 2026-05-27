@@ -245,6 +245,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "day_cycle_speed_scale", "day_time_speed_scale", "night_time_speed_scale",
         "pve_dino_decay_period_multiplier", "auto_destroy_old_structures_multiplier",
         "npc_network_stasis_range_scale_percent_end",
+        "prevent_offline_pvp_interval", "pve_structure_decay_destruction_period",
     ]
     int_gs = [
         "max_tamed_dinos", "structure_damage_repair_cooldown",
@@ -253,6 +254,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "max_platform_saddle_structure_limit",
         "npc_network_stasis_range_scale_player_count_start",
         "npc_network_stasis_range_scale_player_count_end",
+        "override_max_experience_points_player", "override_max_experience_points_dino",
     ]
     bool_gs = [
         "allow_flyer_carry_pve", "disable_structure_decay_pve", "disable_dino_decay_pve",
@@ -270,6 +272,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "enable_extra_structure_prevention_volumes", "clamp_resource_harvest_damage",
         "enable_diseases", "non_permanent_diseases", "allow_tribe_alliances",
         "override_npc_network_stasis_range_scale",
+        "dont_always_notify_player_joined",
     ]
     for f in float_gs:
         key = f"gs_{f}"
