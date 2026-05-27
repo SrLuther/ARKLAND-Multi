@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 import threading
 import re
+import urllib.request
 
 
 def fetch_steam_name(steam_id: str, callback) -> None:

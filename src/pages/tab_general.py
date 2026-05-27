@@ -141,8 +141,9 @@ def build_tab_general(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
     w["cpu_core_count"]     = tk.StringVar()
     w["force_respawn"]      = tk.BooleanVar(value=srv.force_respawn_dinos)
     w["whitelist_only"]     = tk.BooleanVar(value=srv.whitelist_only)
-    w["auto_restart_crash"] = tk.BooleanVar(value=srv.auto_restart_on_crash)
-    w["auto_update_start"]  = tk.BooleanVar(value=srv.auto_update_on_start)
+    w["auto_restart_crash"]   = tk.BooleanVar(value=srv.auto_restart_on_crash)
+    w["auto_update_start"]    = tk.BooleanVar(value=srv.auto_update_on_start)
+    w["auto_start_on_launch"] = tk.BooleanVar(value=srv.auto_start_on_launch)
     w["crossplay"]          = tk.BooleanVar(value=srv.crossplay)
     w["epic_only"]          = tk.BooleanVar(value=srv.epic_only)
     w["use_vivox"]          = tk.BooleanVar(value=srv.use_vivox)
@@ -463,6 +464,9 @@ def build_tab_general(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         ("Apenas whitelist",
          "Somente jogadores na whitelist podem entrar no servidor.",
          w["whitelist_only"]),
+        ("Iniciar ao abrir o app",
+         "Inicia este servidor automaticamente quando o ARKLAND abre (ex: após reinício do Windows).",
+         w["auto_start_on_launch"]),
         ("Auto-restart ao travar",
          "Reinicia o servidor automaticamente caso ocorra um crash.",
          w["auto_restart_crash"]),

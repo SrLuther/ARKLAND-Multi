@@ -2,6 +2,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.52] - 2026-05-26
+
+### Feature
+
+- **server_config.py + tab_general.py + auto_start_servers.py**: nova opção por servidor "Iniciar ao abrir o app" — servidores marcados iniciam automaticamente 5 s após o ARKLAND abrir (ex: após reinicialização do Windows). Combinado com "Iniciar com o Windows" em Configurações Globais, garante que tudo suba sozinho após um reboot.
+
+### Fix
+
+- **pages/fetch_steam_name.py**: `import urllib.request` ausente causava `NameError` silencioso ao buscar nome Steam pelo ID, exibindo sempre "Perfil privado ou ID inválido" independente do ID informado.
+
+### Feature
+
+- **ark_ini.py + pages/ini_import.py**: seções do `GameUserSettings.ini` não reconhecidas pelo app (mods, plugins, seções personalizadas) são agora capturadas automaticamente pela nova função `populate_custom_gus_from_file()` e aparecem na aba **INI → GameUserSettings.ini**, sem sobrescrever entradas já existentes.
+
 ## [1.3.51] - 2026-05-26
 
 ### Feature

@@ -197,6 +197,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(800, self._init_backup_manager)
         self.after(1200, self._start_perf_monitor)
         self.after(900, self._auto_start_remote_agent)
+        self.after(5000, self._auto_start_servers)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Unmap>", self._on_unmap_event)
 
@@ -352,6 +353,10 @@ class ARKServerManagerApp(ctk.CTk):
         """Inicia o agente remoto automaticamente se habilitado na configuração."""
         if self.config_manager.config.remote_agent_enabled:
             self._start_remote_agent()
+
+    def _auto_start_servers(self) -> None:
+        from .pages.auto_start_servers import auto_start_servers
+        auto_start_servers(self)
 
     def _start_remote_agent(self) -> None:
         from .pages.start_remote_agent import start_remote_agent

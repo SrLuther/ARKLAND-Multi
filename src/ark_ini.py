@@ -730,6 +730,41 @@ def populate_npc_spawns_from_file(path: "Path", config: "ServerConfig") -> None:
     populate_custom_game_ini_from_file(path, config)
 
 
+# Seções do GameUserSettings.ini que já são tratadas pelas páginas estruturadas do app.
+# Qualquer outra seção (ex: [ArkShop], [/Script/...]) é lida como personalizada.
+_GUS_KNOWN_SECTIONS = {"serversettings", "sessionsettings", "messageoftheday", "gamesession"}
+
+
+def populate_custom_gus_from_file(path: "Path", config: "ServerConfig") -> None:  # noqa: F821
+    """Lê seções do GameUserSettings.ini que NÃO são tratadas pelas páginas estruturadas.
+
+    Seções desconhecidas (de mods, plugins, etc.) são armazenadas em
+    ``config.custom_ini_sections["gus"]`` sem sobrescrever entradas já existentes.
+    """
+    try:
+        parser = _read_ini_with_fallback(path, strict=False)
+    except Exception:
+        return
+
+    # Seções já presentes (adicionadas manualmente pelo usuário via UI)
+    existing = {s["section"].lower() for s in config.custom_ini_sections.get("gus", [])}
+
+    new_sections: list = []
+    for sec_name in parser.sections():
+        if sec_name.lower() in _GUS_KNOWN_SECTIONS:
+            continue
+        if sec_name.lower() in existing:
+            continue  # Não sobrescreve o que o usuário já tem
+        entries = [{"key": k, "value": v} for k, v in parser.items(sec_name)]
+        if entries:
+            new_sections.append({"section": sec_name, "entries": entries})
+
+    if new_sections:
+        if "gus" not in config.custom_ini_sections:
+            config.custom_ini_sections["gus"] = []
+        config.custom_ini_sections["gus"].extend(new_sections)
+
+
 def populate_custom_game_ini_from_file(path: "Path", config: "ServerConfig") -> None:  # noqa: F821
     """Lê spawns, multiplicadores de dino e supply crates de um Game.ini bruto."""
     adv = config.advanced_settings
@@ -1261,6 +1296,7 @@ class ArkIniManager:
             return
         parser = _read_ini_with_fallback(path, strict=False)
         populate_config_from_gus(parser, config)
+        populate_custom_gus_from_file(path, config)
 
     def load_game_ini(self, config: ServerConfig) -> None:
         """Popula ServerConfig.advanced_settings com valores de Game.ini."""

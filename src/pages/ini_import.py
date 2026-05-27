@@ -100,6 +100,7 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
             import shutil
             from ..ark_ini import (
                 populate_config_from_gus,
+                populate_custom_gus_from_file,
                 populate_config_from_game_ini,
                 populate_custom_game_ini_from_file,
                 read_ini_with_fallback,
@@ -112,6 +113,7 @@ def import_ini_from_disk(app: "ARKServerManagerApp", server_id: str) -> None:
             if p_gus.exists():
                 parser = read_ini_with_fallback(p_gus, strict=False)
                 populate_config_from_gus(parser, target_srv)
+                populate_custom_gus_from_file(p_gus, target_srv)
 
             p_game = Path(src_folder) / "Game.ini"
             if p_game.exists():

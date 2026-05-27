@@ -533,6 +533,7 @@ class ServerConfig:
     # Controle interno
     auto_restart_on_crash: bool = False
     auto_update_on_start: bool = False
+    auto_start_on_launch: bool = False   # Iniciar este servidor automaticamente ao abrir o app
 
     # Backup automático
     backup_enabled: bool = False

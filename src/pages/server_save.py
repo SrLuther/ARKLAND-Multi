@@ -175,10 +175,11 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         srv.rcon_enabled          = w.get("rcon_enabled",       tk.BooleanVar(value=True)).get()
         srv.use_battleye          = w.get("use_battleye",        tk.BooleanVar()).get()
         srv.use_allcores          = w.get("use_allcores",        tk.BooleanVar()).get()
-        srv.force_respawn_dinos   = w.get("force_respawn",       tk.BooleanVar()).get()
-        srv.whitelist_only        = w.get("whitelist_only",      tk.BooleanVar()).get()
-        srv.auto_restart_on_crash = w.get("auto_restart_crash",  tk.BooleanVar()).get()
-        srv.auto_update_on_start  = w.get("auto_update_start",   tk.BooleanVar()).get()
+        srv.force_respawn_dinos   = w.get("force_respawn",          tk.BooleanVar()).get()
+        srv.whitelist_only        = w.get("whitelist_only",         tk.BooleanVar()).get()
+        srv.auto_restart_on_crash = w.get("auto_restart_crash",     tk.BooleanVar()).get()
+        srv.auto_update_on_start  = w.get("auto_update_start",      tk.BooleanVar()).get()
+        srv.auto_start_on_launch  = w.get("auto_start_on_launch",   tk.BooleanVar()).get()
         _cpu_sel = w.get("cpu_core_count", tk.StringVar(value="Padrão (ARK decide)")).get()
         if _cpu_sel.startswith("Todos"):
             srv.cpu_core_count = -1

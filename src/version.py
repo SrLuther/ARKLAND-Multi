@@ -3,13 +3,13 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.51"
+APP_VERSION: str = "1.3.52"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
-        "version": "1.3.51",
+        "version": "1.3.52",
         "date": "2026-05-26",
         "changes": [
             "Feature (remote_agent.py + pages/): Pareamento LAN — ao clicar em 'Conectar' em "
