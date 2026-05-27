@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.53] - 2026-05-26
+
+### Fix
+
+- **ark_ini.py + pages/ini_reload.py + server_config.py**: seções desconhecidas do `GameUserSettings.ini` (mods, plugins) agora aparecem corretamente na aba **INI** ao abrir o painel — `populate_custom_gus_from_file` era chamada apenas pelo buff_manager e nunca no carregamento normal da aba. Cliques repetidos em "Atualizar" também não acumulam mais duplicatas; a flag interna `_from_disk` é removida antes de persistir no JSON.
+
 ## [1.3.52] - 2026-05-26
 
 ### Feature

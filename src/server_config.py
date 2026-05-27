@@ -559,6 +559,10 @@ class ServerConfig:
 
     def to_dict(self) -> dict:
         d = asdict(self)  # type: ignore[arg-type]
+        # Remove flags internas de runtime que não devem ser persistidas
+        for sec_list in d.get("custom_ini_sections", {}).values():
+            for sec in sec_list:
+                sec.pop("_from_disk", None)
         return d
 
     @classmethod

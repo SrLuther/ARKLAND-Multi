@@ -14,6 +14,13 @@ def ini_reload(app: "ARKServerManagerApp", server_id: str, file_key: str) -> Non
         return
     w = app._server_widgets.get(server_id, {})
 
+    # Garante que seções desconhecidas do arquivo em disco estejam em memória
+    if file_key == "gus" and getattr(srv, "install_dir", ""):
+        from ..ark_ini import populate_custom_gus_from_file, get_ini_path
+        _gus_path = get_ini_path(srv.install_dir, "GameUserSettings.ini")
+        if _gus_path.exists():
+            populate_custom_gus_from_file(_gus_path, srv)
+
     all_sections: list = []
     # Seções vindas dos mods
     ini_key = f"{file_key}_ini"

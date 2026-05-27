@@ -3,7 +3,7 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.52"
+APP_VERSION: str = "1.3.53"
 BUILD_DATE: str = "2026-05-26"
 
 # Cada entrada: version, date, changes (lista de strings)

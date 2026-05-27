@@ -739,12 +739,21 @@ def populate_custom_gus_from_file(path: "Path", config: "ServerConfig") -> None:
     """Lê seções do GameUserSettings.ini que NÃO são tratadas pelas páginas estruturadas.
 
     Seções desconhecidas (de mods, plugins, etc.) são armazenadas em
-    ``config.custom_ini_sections["gus"]`` sem sobrescrever entradas já existentes.
+    ``config.custom_ini_sections["gus"]`` sem sobrescrever entradas já existentes
+    (seções adicionadas pelo usuário via UI são preservadas).
+    Seções lidas do disco recebem a flag ``_from_disk=True`` para permitir atualização.
     """
     try:
         parser = _read_ini_with_fallback(path, strict=False)
     except Exception:
         return
+
+    # Remove seções que vieram do disco numa leitura anterior (serão re-populadas abaixo)
+    if "gus" in config.custom_ini_sections:
+        config.custom_ini_sections["gus"] = [
+            s for s in config.custom_ini_sections["gus"]
+            if not s.get("_from_disk")
+        ]
 
     # Seções já presentes (adicionadas manualmente pelo usuário via UI)
     existing = {s["section"].lower() for s in config.custom_ini_sections.get("gus", [])}
@@ -757,7 +766,7 @@ def populate_custom_gus_from_file(path: "Path", config: "ServerConfig") -> None:
             continue  # Não sobrescreve o que o usuário já tem
         entries = [{"key": k, "value": v} for k, v in parser.items(sec_name)]
         if entries:
-            new_sections.append({"section": sec_name, "entries": entries})
+            new_sections.append({"section": sec_name, "entries": entries, "_from_disk": True})
 
     if new_sections:
         if "gus" not in config.custom_ini_sections:
