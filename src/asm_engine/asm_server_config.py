@@ -42,7 +42,7 @@ class AsmServerConfig:
     # Sessão / save
     server_map:                 str   = "TheIsland"
     total_conversion_mod_id:    str   = ""
-    alt_save_directory_name:    str   = ""
+    alt_save_directory_name:    str   = "savegame"
     auto_save_period:           float = 15.0
     kick_idle_players:          float = 3600.0
     enable_ban_list_url:        bool  = False
@@ -60,6 +60,10 @@ class AsmServerConfig:
 
     # Args extras CLI
     additional_args: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.alt_save_directory_name or not self.alt_save_directory_name.strip():
+            self.alt_save_directory_name = "savegame"
 
     # ── Rules ─────────────────────────────────────────────────────────────────
     enable_hardcore:                 bool  = False

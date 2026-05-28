@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.3.55"
+APP_VERSION: str = "1.3.56"
 BUILD_DATE: str = "2026-05-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.3.56",
+        "date": "2026-05-27",
+        "changes": [
+            "Fix (src/server_config.py + src/asm_engine/asm_server_config.py): valor padrão de "
+            "AltSaveDirectoryName alterado para 'savegame' — campo vazio ou em branco é normalizado "
+            "automaticamente para 'savegame' via __post_init__, evitando que servidores iniciem "
+            "sem diretório de save definido.",
+        ],
+    },
     {
         "version": "1.3.55",
         "date": "2026-05-27",

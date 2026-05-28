@@ -57,7 +57,8 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
                          text_color="orange").grid(row=0, column=0, pady=20)
             return
 
-        records = _list_crash_records(srv.install_dir)
+        records = _list_crash_records(srv.install_dir,
+                                        alt_save_dir=srv.alt_save_directory_name or "")
         total_kb = sum(r["dump_size_kb"] for r in records)
         if records:
             dumps   = sum(1 for r in records if r.get("has_dump"))
@@ -77,21 +78,28 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
 
         if records:
             def _clear_all() -> None:
-                dump_records = [r for r in records if r.get("has_dump") or r.get("source") != "log"]
-                if not dump_records:
+                deletable = [r for r in records if r.get("source") != "log"]
+                if not deletable:
                     messagebox.showinfo("Limpar crashes",
                         "Apenas registros de log — nada para apagar.", parent=app)
                     return
                 if not messagebox.askyesno(
                     "Limpar crashes",
-                    f"Apagar {len(dump_records)} pasta(s) de crash com dump?\n"
-                    "Os arquivos .dmp e CrashContext serão excluídos permanentemente.",
+                    f"Apagar {len(deletable)} registro(s) de crash?\n"
+                    "Arquivos .crashstack e .dmp serão excluídos permanentemente.",
                     parent=app,
                 ):
                     return
-                for r in dump_records:
+                for r in deletable:
                     try:
-                        shutil.rmtree(r["path"], ignore_errors=True)
+                        p = r["path"]
+                        if r.get("source") == "crashstack":
+                            from pathlib import Path as _P
+                            _P(p).unlink(missing_ok=True)
+                            if r.get("dump_path"):
+                                _P(r["dump_path"]).unlink(missing_ok=True)
+                        else:
+                            shutil.rmtree(p, ignore_errors=True)
                     except Exception:
                         pass
                 _refresh()
@@ -102,13 +110,22 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
                           command=_clear_all).pack(side="left")
 
         if not records:
+            from pathlib import Path as _Path
+            saved = _Path(srv.install_dir) / "ShooterGame" / "Saved"
+            paths_checked = [str(saved / "Crashes"), str(saved / "Logs" / "ShooterGame.log")]
+            if srv.alt_save_directory_name:
+                alt = saved / srv.alt_save_directory_name.strip()
+                paths_checked += [str(alt / "Crashes"), str(alt / "Logs" / "ShooterGame.log")]
+            paths_txt = "\n".join(f"  • {p}" for p in paths_checked)
             ctk.CTkLabel(
                 scroll,
-                text="✅  Nenhum crash registrado.\n\n"
-                     "Os crashes do servidor aparecerão aqui automaticamente.",
+                text=f"✅  Nenhum crash registrado.\n\n"
+                     f"Os crashes do servidor aparecerão aqui automaticamente.\n\n"
+                     f"Paths verificados:\n{paths_txt}",
                 text_color="gray55",
-                font=ctk.CTkFont(size=12),
-            ).grid(row=0, column=0, pady=40)
+                font=ctk.CTkFont(size=11),
+                justify="left",
+            ).grid(row=0, column=0, pady=20, padx=12, sticky="w")
             return
 
         for idx, rec in enumerate(records):
@@ -133,12 +150,19 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         hdr.grid(row=0, column=0, padx=6, pady=(6, 0), sticky="ew")
         hdr.grid_columnconfigure(1, weight=1)
 
-        is_log_only = rec.get("source") == "log"
+        is_log_only   = rec.get("source") == "log"
+        is_crashstack = rec.get("source") == "crashstack"
         icon = "📋" if is_log_only else "💥"
         ctk.CTkLabel(hdr, text=icon,
                      font=ctk.CTkFont(size=14)
                      ).grid(row=0, column=0, padx=(10, 4), pady=6)
-        header_text = ts_str + ("  [ShooterGame.log]" if is_log_only else "")
+        if is_log_only:
+            suffix = "  [ShooterGame.log]"
+        elif is_crashstack:
+            suffix = f"  [{rec['folder']}]"
+        else:
+            suffix = ""
+        header_text = ts_str + suffix
         ctk.CTkLabel(hdr, text=header_text,
                      font=ctk.CTkFont(size=12, weight="bold"),
                      text_color="#e08080" if has_culprit else "#d0d0e0",
@@ -213,13 +237,43 @@ def build_tab_crashes(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
         act_row.grid(row=body_row, column=0, padx=8, pady=(4, 8), sticky="w")
 
         if is_log_only:
-            # Registro do log — abre o arquivo de log em vez de uma pasta
             ctk.CTkButton(
                 act_row, text="📋 Abrir log", height=24, width=110,
                 fg_color="#3a3a5a", hover_color="#252540",
                 font=ctk.CTkFont(size=10),
                 command=lambda p=rec["path"]: subprocess.Popen(["notepad", p]),
             ).pack(side="left", padx=(0, 6))
+        elif is_crashstack:
+            ctk.CTkButton(
+                act_row, text="📋 Ver stack", height=24, width=110,
+                fg_color="#3a3a5a", hover_color="#252540",
+                font=ctk.CTkFont(size=10),
+                command=lambda p=rec["path"]: subprocess.Popen(["notepad", p]),
+            ).pack(side="left", padx=(0, 6))
+
+            def _del_cs(cs_path: str = rec["path"],
+                        dmp_path: str = rec.get("dump_path", "")) -> None:
+                if messagebox.askyesno(
+                    "Apagar crash",
+                    "Apagar este crashstack e o dump associado?\n"
+                    "Os arquivos serão excluídos permanentemente.",
+                    parent=app,
+                ):
+                    try:
+                        from pathlib import Path as _P
+                        _P(cs_path).unlink(missing_ok=True)
+                        if dmp_path:
+                            _P(dmp_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                    _refresh()
+
+            ctk.CTkButton(
+                act_row, text="🗑 Apagar", height=24, width=80,
+                fg_color=_RED_DARK, hover_color=_RED_HOVER,
+                font=ctk.CTkFont(size=10),
+                command=_del_cs,
+            ).pack(side="left")
         else:
             ctk.CTkButton(
                 act_row, text="📁 Abrir pasta", height=24, width=110,

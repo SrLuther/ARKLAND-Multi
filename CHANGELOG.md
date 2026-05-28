@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.56] - 2026-05-27
+
+### Fix
+
+- **src/server_config.py + src/asm_engine/asm_server_config.py**: valor padrão de `AltSaveDirectoryName` alterado para `"savegame"` — campo vazio ou em branco é normalizado automaticamente para `"savegame"` via `__post_init__`, evitando que servidores iniciem sem diretório de save definido.
+
 ## [1.3.55] - 2026-05-27
 
 ### Feature

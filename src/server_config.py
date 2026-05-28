@@ -530,10 +530,16 @@ class ServerConfig:
     cluster_profile_id: str = ""
     # Nome único da pasta de saves deste servidor (evita conflito ao rodar múltiplos servidores na mesma máquina)
     # Corresponde a ?AltSaveDirectoryName=<valor> na linha de comando
-    alt_save_directory_name: str = ""
+    alt_save_directory_name: str = "savegame"
 
     # Config Dinâmica (DynamicConfigURL)
     dynamic_config_enabled: bool = False  # Serve config via HTTP local p/ aplicar mudanças sem reiniciar
+
+    def __post_init__(self) -> None:
+        # Campo vazio → usa o padrão "savegame" (equivalente ao comportamento do ASM
+        # onde servidores em pastas separadas já têm saves isolados por natureza)
+        if not self.alt_save_directory_name or not self.alt_save_directory_name.strip():
+            self.alt_save_directory_name = "savegame"
 
     # Controle interno
     auto_restart_on_crash: bool = False

@@ -206,6 +206,7 @@ _ENGINE_DLL_PREFIXES = (
     "steamclient",
     "tier0",
     "vstdlib",
+    "version",      # ArkApi principal (version.dll)
 )
 
 
@@ -260,6 +261,76 @@ def _interpret_crash(error_msg: str, culprit: str) -> str:
         return (f"Plugin externo suspeito: {culprit}. "
                 "Tente desativar temporariamente para confirmar.")
     return "Causa não identificada. Consulte o call stack e o ShooterGame.log para mais detalhes."
+
+
+def _parse_crash_from_logs_dir(install_dir: str, saved_root: "Path | None" = None) -> List[dict]:
+    """Detecta crashes pelos arquivos .crashstack e Dump*.dmp em Saved/Logs/.
+
+    O ARK ASE padrão salva os crash reports diretamente na pasta de logs,
+    não em Saved/Crashes/ como o UE4 puro faria.
+    """
+    if saved_root is None:
+        saved_root = Path(install_dir) / "ShooterGame" / "Saved"
+    logs_dir = saved_root / "Logs"
+    if not logs_dir.exists():
+        return []
+
+    records: list[dict] = []
+    try:
+        crashstack_files = sorted(
+            logs_dir.glob("*.crashstack"),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True,
+        )
+        if not crashstack_files:
+            return []
+
+        # Pré-carrega Dump*.dmp para associação por proximidade de tempo
+        dump_files = [(f, f.stat().st_mtime) for f in logs_dir.glob("Dump*.dmp")]
+
+        for cs_file in crashstack_files:
+            cs_mtime = cs_file.stat().st_mtime
+            ts = datetime.fromtimestamp(cs_mtime)
+
+            # Encontra o Dump*.dmp mais próximo (janela de 15 min)
+            nearest_dump_path = ""
+            nearest_dump_kb   = 0
+            if dump_files:
+                best = min(dump_files, key=lambda x: abs(x[1] - cs_mtime))
+                if abs(best[1] - cs_mtime) < 900:
+                    nearest_dump_path = str(best[0])
+                    try:
+                        nearest_dump_kb = best[0].stat().st_size // 1024
+                    except Exception:
+                        pass
+
+            try:
+                content = cs_file.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                content = ""
+
+            lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+            error_msg = lines[0] if lines else "Fatal error! (ver call stack)"
+            culprit   = _identify_crash_culprit(content)
+
+            records.append({
+                "folder":        cs_file.stem,
+                "path":          str(cs_file),
+                "timestamp":     ts,
+                "error_message": error_msg,
+                "call_stack":    lines[:25],
+                "culprit":       culprit,
+                "has_dump":      bool(nearest_dump_path),
+                "dump_size_kb":  nearest_dump_kb,
+                "dump_path":     nearest_dump_path,
+                "diagnosis":     _interpret_crash(error_msg, culprit),
+                "log_lines":     lines[:25],
+                "source":        "crashstack",
+            })
+    except Exception:
+        pass
+
+    return records
 
 
 def _parse_crash_folder(crash_dir: Path) -> dict:
@@ -335,7 +406,7 @@ def _parse_crash_folder(crash_dir: Path) -> dict:
     return result
 
 
-def _parse_crash_from_log(install_dir: str) -> List[dict]:
+def _parse_crash_from_log(install_dir: str, saved_root: "Path | None" = None) -> List[dict]:
     """Extrai blocos 'Fatal error!' do ShooterGame.log como registros sintéticos.
 
     Fallback para quando não há pastas de crash com .dmp — o crash fatal do ARK
@@ -343,7 +414,9 @@ def _parse_crash_from_log(install_dir: str) -> List[dict]:
     """
     import re as _re
 
-    log_file = Path(install_dir) / "ShooterGame" / "Saved" / "Logs" / "ShooterGame.log"
+    if saved_root is None:
+        saved_root = Path(install_dir) / "ShooterGame" / "Saved"
+    log_file = saved_root / "Logs" / "ShooterGame.log"
     if not log_file.exists():
         return []
 
@@ -396,36 +469,55 @@ def _parse_crash_from_log(install_dir: str) -> List[dict]:
     return records
 
 
-def _list_crash_records(install_dir: str) -> List[dict]:
+def _list_crash_records(install_dir: str, alt_save_dir: str = "") -> List[dict]:
     """Lista todos os registros de crash da instalação (mais recente primeiro).
 
     Combina pastas de dump em ShooterGame/Saved/Crashes/ com blocos
     'Fatal error!' do ShooterGame.log (crashs sem dump gerado).
+    Também busca em AltSaveDirectoryName se fornecido.
     """
     records: list[dict] = []
+    saved_root = Path(install_dir) / "ShooterGame" / "Saved"
 
-    # ── 1. Pastas de dump (CrashReport-*) ────────────────────────────────
-    crash_base = Path(install_dir) / "ShooterGame" / "Saved" / "Crashes"
-    if crash_base.exists():
-        try:
-            subdirs = [d for d in crash_base.iterdir() if d.is_dir()]
-            subdirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
-            records.extend(_parse_crash_folder(d) for d in subdirs)
-        except Exception:
-            pass
+    # Diretórios de Saved a checar: padrão + subdir do AltSaveDirectoryName
+    saved_roots: list[Path] = [saved_root]
+    if alt_save_dir:
+        alt_root = saved_root / alt_save_dir.strip()
+        if alt_root != saved_root:
+            saved_roots.append(alt_root)
 
-    # ── 2. Fallback: blocos Fatal error! no ShooterGame.log ──────────────
-    log_records = _parse_crash_from_log(install_dir)
-    # Só adiciona registros de log que não foram cobertos por um dump existente
-    # (evita duplicatas: considera duplicata se timestamp difere < 60 s de algum dump)
-    for lr in log_records:
-        duplicate = any(
-            abs((lr["timestamp"] - r["timestamp"]).total_seconds()) < 60
-            for r in records
-            if r.get("has_dump")
-        )
-        if not duplicate:
-            records.append(lr)
+    # ── 1. Pastas de dump (CrashReport-*) — UE4 padrão ──────────────────
+    for sr in saved_roots:
+        crash_base = sr / "Crashes"
+        if crash_base.exists():
+            try:
+                subdirs = [d for d in crash_base.iterdir() if d.is_dir()]
+                subdirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+                records.extend(_parse_crash_folder(d) for d in subdirs)
+            except Exception:
+                pass
+
+    # ── 2. Arquivos .crashstack em Saved/Logs/ — ARK ASE padrão ──────────
+    for sr in saved_roots:
+        for cs in _parse_crash_from_logs_dir(install_dir, saved_root=sr):
+            duplicate = any(
+                abs((cs["timestamp"] - r["timestamp"]).total_seconds()) < 60
+                for r in records
+                if not r.get("source")
+            )
+            if not duplicate:
+                records.append(cs)
+
+    # ── 3. Fallback: blocos Fatal error! no ShooterGame.log ──────────────
+    for sr in saved_roots:
+        for lr in _parse_crash_from_log(install_dir, saved_root=sr):
+            duplicate = any(
+                abs((lr["timestamp"] - r["timestamp"]).total_seconds()) < 120
+                for r in records
+                if r.get("source") != "log"
+            )
+            if not duplicate:
+                records.append(lr)
 
     records.sort(key=lambda r: r["timestamp"], reverse=True)
     return records
