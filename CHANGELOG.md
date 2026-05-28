@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.3.57] - 2026-05-27
+
+### Fix
+
+- **src/pages/tab_advanced.py**: campo "Nome da Pasta de Saves" (`AltSaveDirectoryName`) ficava desabilitado quando um perfil de cluster estava vinculado ao servidor — agora sempre editável, independente do perfil de cluster selecionado.
+
 ## [1.3.56] - 2026-05-27
 
 ### Fix

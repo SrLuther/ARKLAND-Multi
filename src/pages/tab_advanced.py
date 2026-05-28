@@ -269,7 +269,7 @@ def build_tab_advanced(app: "ARKServerManagerApp", parent, srv: "ServerConfig") 
              bg=_INNER, fg=_FORM_HINT_FG, font=_FORM_FONT_HINT, anchor="w").grid(row=1, column=0, sticky="w")
     _cl_asdir_entry = ctk.CTkEntry(asdir_fr2, textvariable=w["cl_alt_save_dir"], height=32,
                                    placeholder_text="Ex: Save1",
-                                   state="disabled" if _manual_locked else "normal")
+                                   state="normal")
     _cl_asdir_entry.grid(row=2, column=0, sticky="ew", pady=(2, 0))
     w["_cl_asdir_entry"] = _cl_asdir_entry
 
