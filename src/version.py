@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.3"
+APP_VERSION: str = "1.5.4"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.4",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM): campo IP Bind (MultiHome) agora é verdadeiramente opcional — removido da validação obrigatória. O servidor inicia normalmente sem IP preenchido (ARK escuta em todas as interfaces por padrão).",
+            "Fix (ASM): removido asterisco e placeholder enganoso do campo IP Bind.",
+        ],
+    },
     {
         "version": "1.5.3",
         "date": "2026-05-31",

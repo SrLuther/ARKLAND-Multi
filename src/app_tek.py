@@ -596,13 +596,6 @@ class ARKServerManagerApp(ctk.CTk):
             errors.append("Nome da sessão (session_name) está vazio")
         if not srv.admin_password or not srv.admin_password.strip():
             errors.append("Senha admin não definida (obrigatória para RCON e acesso administrativo)")
-        if not srv.server_ip or not srv.server_ip.strip():
-            errors.append(
-                "IP Bind (MultiHome) não preenchido\n"
-                "   Preencha com o IP local da interface de rede (ex: 192.168.x.x)\n"
-                "   Use 'ipconfig' no cmd para encontrar o IP correto\n"
-                "   ATENÇÃO: não use o IP público do roteador — o servidor não consegue fazer bind nele"
-            )
         return errors
 
     def _asm_start_server(self, srv: AsmServerConfig, no_mods: bool = False) -> None:

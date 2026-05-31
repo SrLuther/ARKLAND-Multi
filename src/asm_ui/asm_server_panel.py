@@ -459,14 +459,14 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 15)
 
     # ── IP Bind com botão de detecção automática ─────────────────────────────
-    ctk.CTkLabel(sf, text="IP Bind (MultiHome) *", font=ctk.CTkFont(size=11), anchor="w").grid(
+    ctk.CTkLabel(sf, text="IP Bind (MultiHome)", font=ctk.CTkFont(size=11), anchor="w").grid(
         row=16, column=0, padx=(8, 4), pady=3, sticky="w")
     _ip_var = tk.StringVar(value=str(getattr(srv, "server_ip", "")))
     vars_ref["server_ip"] = _ip_var
     _ip_frame = ctk.CTkFrame(sf, fg_color="transparent")
     _ip_frame.grid(row=16, column=1, padx=(0, 8), pady=3, sticky="w")
     _ip_entry = ctk.CTkEntry(_ip_frame, textvariable=_ip_var,
-                             placeholder_text="ex: 192.168.x.x", width=160)
+                             placeholder_text="opcional — só se tiver múltiplas interfaces", width=160)
     _ip_entry.pack(side="left", padx=(0, 4))
 
     def _detect_public_ip():
