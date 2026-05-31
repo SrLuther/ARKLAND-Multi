@@ -176,7 +176,7 @@ INI_MAP: dict[str, tuple] = {
     "use_corpse_life_span_multiplier":         ("Game","GameMode",     "UseCorpseLifeSpanMultiplier",                  {}),
     "global_powered_battery_durability_decrease": ("Game","GameMode", "GlobalPoweredBatteryDurabilityDecreasePerSecond", {}),
     "tribe_name_change_cooldown":              ("GUS", "ServerSettings","TribeNameChangeCooldown",                     {}),
-    "random_supply_crate_points":              ("Game","GameMode",     "RandomSupplyCratePoints",                      {}),
+    "random_supply_crate_points":              ("Game","GameMode",     "bRandomSupplyCratePoints",                     {}),  # prefixo b obrigatório
     "increase_pvp_respawn_interval":           ("Game","GameMode",     "bIncreasePvPRespawnInterval",                  {}),
     "pvp_respawn_check_period":                ("Game","GameMode",     "IncreasePvPRespawnIntervalCheckPeriod",         {"conditional_on": "increase_pvp_respawn_interval"}),
     "pvp_respawn_multiplier":                  ("Game","GameMode",     "IncreasePvPRespawnIntervalMultiplier",          {"conditional_on": "increase_pvp_respawn_interval"}),
@@ -247,7 +247,7 @@ INI_MAP: dict[str, tuple] = {
     # Structures extras
     "pvp_structure_decay":                         ("GUS","ServerSettings","PvPStructureDecay",                             {}),
     "pvp_zone_structure_damage_multiplier":        ("Game","GameMode",     "PvPZoneStructureDamageMultiplier",              {}),
-    "structure_damage_repair_cooldown":            ("Game","GameMode",     "StructureDamageRepairCooldown",                 {}),
+    "structure_damage_repair_cooldown":            ("GUS", "ServerSettings","StructureDamageRepairCooldown",                 {}),  # GUS ServerSettings (não Game.ini)
     "override_structure_platform_prevention":      ("GUS","ServerSettings","OverrideStructurePlatformPrevention",           {}),
     "flyer_platform_allow_unaligned_dino_basing":  ("Game","GameMode",     "bFlyerPlatformAllowUnalignedDinoBasing",        {}),
     "pve_allow_structures_at_supply_drops":        ("GUS","ServerSettings","PvEAllowStructuresAtSupplyDrops",               {}),

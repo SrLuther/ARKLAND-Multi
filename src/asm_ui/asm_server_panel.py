@@ -466,7 +466,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _ip_frame = ctk.CTkFrame(sf, fg_color="transparent")
     _ip_frame.grid(row=16, column=1, padx=(0, 8), pady=3, sticky="w")
     _ip_entry = ctk.CTkEntry(_ip_frame, textvariable=_ip_var,
-                             placeholder_text="opcional — só se tiver múltiplas interfaces", width=160)
+                             placeholder_text="vazio = escuta em todas as interfaces", width=160)
     _ip_entry.pack(side="left", padx=(0, 4))
 
     def _detect_public_ip():
@@ -511,10 +511,9 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
                             fg_color=accent, hover_color="#0f766e",
                             font=ctk.CTkFont(size=11))
     _ip_btn.pack(side="left")
-
-    # Auto-detecta se o campo estiver vazio ao abrir o painel
-    if not _ip_var.get().strip():
-        sf.after(300, _detect_public_ip)
+    # Não auto-detecta ao abrir — MultiHome deve ficar vazio por padrão.
+    # O botão "Detectar IP" existe apenas para uso manual quando o servidor
+    # tem múltiplas interfaces e o usuário quer forçar bind em uma específica.
 
     _section_label(sf, "Senhas",         17, accent)
     _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 18, accent, pw=True)

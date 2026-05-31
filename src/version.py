@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.5"
+APP_VERSION: str = "1.5.6"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.6",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM): campo IP Bind (MultiHome) não é mais preenchido automaticamente ao abrir o painel — o campo fica vazio por padrão (ARK escuta em todas as interfaces). O botão 'Detectar IP' continua disponível para uso manual quando necessário.",
+            "Fix (ASM/INI): StructureDamageRepairCooldown movido para GameUserSettings.ini [ServerSettings] (estava incorretamente em Game.ini).",
+            "Fix (ASM/INI): RandomSupplyCratePoints corrigido para bRandomSupplyCratePoints (prefixo 'b' obrigatório).",
+        ],
+    },
     {
         "version": "1.5.5",
         "date": "2026-05-31",
