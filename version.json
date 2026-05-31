@@ -1,10 +1,12 @@
 ﻿{
-    "version":  "1.4.2",
+    "version":  "1.4.3",
     "date":  "2026-05-31",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.2/ARKLAND-Multi-Setup-v1.4.2.exe",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.3/ARKLAND-Multi-Setup-v1.4.3.exe",
     "changelog":  [
-                      "Novo (ASM TEK â€” Mods): gerenciador de mods com tabela de 3 colunas â€” ID editÃ¡vel, nome e data de atualizaÃ§Ã£o preenchidos automaticamente via Steam Workshop API (POST GetPublishedFileDetails). BotÃµes: \u0027+ Mod\u0027, \u0027Buscar Info\u0027 (async thread), \u0027Redownload Mods\u0027 (SteamCMD) e \u0027Validar IDs\u0027 (marca IDs invÃ¡lidos com âŒ). Cache por sessÃ£o evita consultas redundantes.",
-                      "Fix (sidebar â€” logo): imagem ark_manager.png exibida com proporÃ§Ã£o correta 3:2 (66Ã—44 px) em vez de quadrado distorcido (44Ã—44).",
-                      "Novo (UI): watermark de fundo â€” logo ark_manager.png exibida em 600Ã—400 px na Ã¡rea principal com 6% de opacidade, preservada atrÃ¡s de todo conteÃºdo de navegaÃ§Ã£o."
+                      "Fix (UI - Modo Claro): cores escuras hardcoded corrigidas no card de servidor, dashboard e bulk actions.",
+                      "Fix (ASM - Mods): WindowsNoEditor tratado corretamente ao copiar mod; arquivo .mod criado automaticamente.",
+                      "Fix (ASM - Mods): contador de mods baixados agora reporta so os bem-sucedidos.",
+                      "Novo (ASM - Painel): status de instalacao de cada mod exibido em tempo real.",
+                      "Novo: auto-start de sync e agente remoto ao abrir o app."
                   ]
 }

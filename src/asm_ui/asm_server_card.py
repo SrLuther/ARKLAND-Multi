@@ -64,6 +64,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     t_pri   = th["text_primary"]
     t_sec   = th["text_secondary"]
     t_mut   = th["text_muted"]
+    is_light = th.get("_is_light", False)
 
     inst       = app.asm_server_manager.get_instance(srv.id)
     status     = inst.status if inst else ASM_STATUS_STOPPED
@@ -156,12 +157,19 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     name_lbl.bind("<Double-Button-1>", _start_rename)
 
     # Badge de status
-    _badge_cfg = {
-        "running": ("#052e16", "#4ade80"),
-        "crashed": ("#450a0a", "#f87171"),
-        "busy":    ("#431407", "#fbbf24"),
-        "stopped": ("#111827", "#475569"),
-    }
+    _badge_cfg = (
+        {
+            "running": ("#dcfce7", "#166534"),
+            "crashed": ("#fee2e2", "#991b1b"),
+            "busy":    ("#fef3c7", "#92400e"),
+            "stopped": ("#f1f5f9", "#64748b"),
+        } if is_light else {
+            "running": ("#052e16", "#4ade80"),
+            "crashed": ("#450a0a", "#f87171"),
+            "busy":    ("#431407", "#fbbf24"),
+            "stopped": ("#111827", "#475569"),
+        }
+    )
     bk = ("running" if is_running else "crashed" if is_crashed
           else "busy" if is_busy else "stopped")
     b_bg, b_tc = _badge_cfg[bk]
@@ -182,8 +190,8 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     info_r.grid(row=1, column=0, padx=14, pady=(0, 10), sticky="w")
 
     def _chip(text: str, border: str = sep, tc: str = t_mut) -> None:
-        f = ctk.CTkFrame(info_r, fg_color="#0a1525", corner_radius=4,
-                         border_width=1, border_color=border)
+        f = ctk.CTkFrame(info_r, fg_color="#f0f9ff" if is_light else "#0a1525",
+                         corner_radius=4, border_width=1, border_color=border)
         f.pack(side="left", padx=(0, 4))
         ctk.CTkLabel(f, text=text,
                      font=ctk.CTkFont(family="Segoe UI", size=10),
@@ -218,9 +226,9 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     else:
         ctk.CTkButton(
             act, text="▶  Iniciar", width=96, height=34,
-            fg_color=acc_mb if is_busy else "#052e16",
-            hover_color=hover if is_busy else "#14532d",
-            text_color=t_mut if is_busy else "#4ade80",
+            fg_color=acc_mb if is_busy else ("#dcfce7" if is_light else "#052e16"),
+            hover_color=hover if is_busy else ("#bbf7d0" if is_light else "#14532d"),
+            text_color=t_mut if is_busy else ("#166534" if is_light else "#4ade80"),
             corner_radius=7,
             font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
             state="disabled" if is_busy else "normal",
@@ -229,9 +237,12 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
         if srv.active_mods and not is_busy:
             ctk.CTkButton(
                 act, text="⚡", width=26, height=34,
-                fg_color="#0b1e10", hover_color="#14532d",
-                text_color="#4ade80", corner_radius=7,
-                border_width=1, border_color="#166634",
+                fg_color="#dcfce7" if is_light else "#0b1e10",
+                hover_color="#bbf7d0" if is_light else "#14532d",
+                text_color="#166534" if is_light else "#4ade80",
+                corner_radius=7,
+                border_width=1,
+                border_color="#86efac" if is_light else "#166634",
                 font=ctk.CTkFont(size=11),
                 command=lambda s=srv: app._asm_start_server(s, no_mods=True),
             ).pack(side="left", padx=(0, 4))
@@ -240,7 +251,8 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
 
     ctk.CTkButton(
         act, text="🔄  Restart", width=94, height=34,
-        fg_color="#0f172a", hover_color="#1e3a5f",
+        fg_color="#f1f5f9" if is_light else "#0f172a",
+        hover_color="#e2e8f0" if is_light else "#1e3a5f",
         text_color=t_mut if (is_busy or not is_running) else t_sec,
         border_width=1, border_color=sep,
         corner_radius=7,
@@ -262,13 +274,14 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     tk.Frame(act, width=1, bg=sep).pack(side="left", fill="y", padx=(0, 12), pady=4)
 
     # RCON + Players — coloridos quando disponíveis
-    rcon_color  = "#7dd3fc" if rcon_ready else t_mut
-    rcon_border = "#1e3a5f" if rcon_ready else "#111827"
-    rcon_bg     = "#071526" if rcon_ready else "#090f1a"
+    rcon_color  = "#0369a1" if (is_light and rcon_ready) else ("#7dd3fc" if rcon_ready else t_mut)
+    rcon_border = ("#7dd3fc" if rcon_ready else "#cbd5e1") if is_light else ("#1e3a5f" if rcon_ready else "#111827")
+    rcon_bg     = ("#e0f2fe" if rcon_ready else "#f8fafc") if is_light else ("#071526" if rcon_ready else "#090f1a")
+    rcon_hover  = "#bae6fd" if is_light else "#1e3a5f"
 
     ctk.CTkButton(
         act, text="🖥  RCON", width=82, height=34,
-        fg_color=rcon_bg, hover_color="#1e3a5f",
+        fg_color=rcon_bg, hover_color=rcon_hover,
         text_color=rcon_color, border_width=1, border_color=rcon_border,
         corner_radius=7, font=ctk.CTkFont(family="Segoe UI", size=11),
         state="normal" if rcon_ready else "disabled",
@@ -277,7 +290,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
 
     ctk.CTkButton(
         act, text="👥  Players", width=84, height=34,
-        fg_color=rcon_bg, hover_color="#1e3a5f",
+        fg_color=rcon_bg, hover_color=rcon_hover,
         text_color=rcon_color, border_width=1, border_color=rcon_border,
         corner_radius=7, font=ctk.CTkFont(family="Segoe UI", size=11),
         state="normal" if rcon_ready else "disabled",
@@ -285,14 +298,19 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     ).pack(side="left", padx=(0, 0))
 
     # ── BARRA DE FERRAMENTAS ──────────────────────────────────────────────────
-    tools = ctk.CTkFrame(card, fg_color="#080e18", corner_radius=7,
-                         border_width=1, border_color="#0d1929")
+    _tbg     = "#f0f9ff" if is_light else "#080e18"
+    _tborder = "#e0f2fe" if is_light else "#0d1929"
+    _thover  = "#e0f2fe" if is_light else "#162032"
+    _tlabel  = "#94a3b8" if is_light else "#1e3a5f"
+
+    tools = ctk.CTkFrame(card, fg_color=_tbg, corner_radius=7,
+                         border_width=1, border_color=_tborder)
     tools.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 10))
 
     def _tbtn(text: str, cmd, width: int = 82) -> None:
         ctk.CTkButton(
             tools, text=text, width=width, height=26,
-            fg_color="transparent", hover_color="#162032",
+            fg_color="transparent", hover_color=_thover,
             text_color=t_sec,
             corner_radius=5,
             font=ctk.CTkFont(family="Segoe UI", size=10),
@@ -302,10 +320,10 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     ctk.CTkLabel(
         tools, text="FERRAMENTAS",
         font=ctk.CTkFont(family="Segoe UI", size=8, weight="bold"),
-        text_color="#1e3a5f",
+        text_color=_tlabel,
     ).pack(side="left", padx=(10, 6), pady=5)
 
-    tk.Frame(tools, width=1, bg="#0d1929").pack(
+    tk.Frame(tools, width=1, bg=_tborder).pack(
         side="left", fill="y", padx=(0, 6), pady=4)
 
     _tbtn("💾  Backup",   lambda s=srv: app._asm_open_save_restore(s))

@@ -208,15 +208,21 @@ class AsmSteamCmd:
         def _after(success: bool, msg: str) -> None:
             if success:
                 errors = []
+                copied = 0
                 for mid in mod_ids:
                     try:
-                        self._copy_mod_to_server(mid, install_dir)
+                        ok = self._copy_mod_to_server(mid, install_dir)
+                        if ok:
+                            copied += 1
+                        else:
+                            errors.append(f"Mod {mid}: pasta não encontrada no workshop")
                     except Exception as exc:
                         errors.append(f"Mod {mid}: {exc}")
                 if errors and on_done:
-                    on_done(False, "\n".join(errors))
+                    extra = f"\n{copied}/{len(mod_ids)} mod(s) copiados.\n" + "\n".join(errors)
+                    on_done(copied > 0, extra)
                 elif on_done:
-                    on_done(True, f"{len(mod_ids)} mod(s) baixado(s) com sucesso.")
+                    on_done(True, f"{copied} mod(s) baixado(s) com sucesso.")
             elif on_done:
                 on_done(False, msg)
 
@@ -331,11 +337,118 @@ class AsmSteamCmd:
                     return candidate
         return None
 
-    def _copy_mod_to_server(self, mod_id: str, install_dir: str) -> None:
+    @staticmethod
+    def _find_official_dot_mod(mod_id: str) -> Optional[Path]:
+        """Procura o arquivo .mod oficial no cache do Steam Client local."""
+        try:
+            import re as _re
+            steam_dirs: list[Path] = []
+            _registry_entries = [
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam",             "InstallPath"),
+                (winreg.HKEY_CURRENT_USER,  r"SOFTWARE\Valve\Steam",             "SteamPath"),
+            ]
+            for hive, key_path, val_name in _registry_entries:
+                try:
+                    with winreg.OpenKey(hive, key_path) as _k:
+                        _p = Path(winreg.QueryValueEx(_k, val_name)[0])
+                        if _p not in steam_dirs:
+                            steam_dirs.append(_p)
+                except Exception:
+                    pass
+            for steam_path in steam_dirs:
+                libraries: list[Path] = [steam_path / "steamapps"]
+                vdf = steam_path / "steamapps" / "libraryfolders.vdf"
+                if vdf.exists():
+                    try:
+                        for m in _re.finditer(
+                            r'"path"\s+"([^"]+)"',
+                            vdf.read_text(encoding="utf-8", errors="replace"),
+                        ):
+                            lib = Path(m.group(1)) / "steamapps"
+                            if lib not in libraries:
+                                libraries.append(lib)
+                    except Exception:
+                        pass
+                for lib in libraries:
+                    dot_mod = lib / "workshop" / "content" / ARK_WORKSHOP_APP_ID / f"{mod_id}.mod"
+                    if dot_mod.exists():
+                        return dot_mod
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def _create_dot_mod_from_mod_info(workshop_mod_dir: Path, mod_id: str, dest: Path) -> bool:
+        """Gera arquivo .mod binário válido para o ARK a partir do mod.info do SteamCMD."""
+        import struct
+        mod_info_path = workshop_mod_dir / "mod.info"
+        if not mod_info_path.exists():
+            return False
+        try:
+            raw = mod_info_path.read_bytes()
+            offset = 0
+            if len(raw) < 4:
+                return False
+            name_len = struct.unpack_from('<I', raw, offset)[0]
+            offset += 4
+            if offset + name_len > len(raw):
+                return False
+            mod_name = raw[offset: offset + name_len]
+            offset += name_len
+            if offset + 4 > len(raw):
+                return False
+            num_maps = struct.unpack_from('<I', raw, offset)[0]
+            offset += 4
+            maps: list[bytes] = []
+            for _ in range(num_maps):
+                if offset + 4 > len(raw):
+                    break
+                map_file_len = struct.unpack_from('<I', raw, offset)[0]
+                offset += 4
+                if offset + map_file_len > len(raw):
+                    break
+                maps.append(raw[offset: offset + map_file_len])
+                offset += map_file_len
+
+            mid_int = int(mod_id)
+            out = bytearray()
+            out += struct.pack('<I', mid_int & 0xFFFFFFFF)
+            out += struct.pack('<I', (mid_int >> 32) & 0xFFFFFFFF)
+            out += struct.pack('<I', name_len)
+            out += mod_name
+            # modPath vazio (1 byte = null terminator)
+            out += struct.pack('<I', 1)
+            out += b'\x00'
+            out += struct.pack('<I', len(maps))
+            for m in maps:
+                out += struct.pack('<I', len(m))
+                out += m
+            out += b'\x33\xFF\x22\xFF\x02\x00\x00\x00\x01'
+            # modmeta.info
+            modmeta_path = workshop_mod_dir / "modmeta.info"
+            if modmeta_path.exists():
+                out += modmeta_path.read_bytes()
+            else:
+                out += struct.pack('<I', 1)
+                out += struct.pack('<I', 8) + b'ModType\x00'
+                out += struct.pack('<I', 2) + b'1\x00'
+
+            dest.write_bytes(bytes(out))
+            return True
+        except Exception:
+            return False
+
+    def _copy_mod_to_server(self, mod_id: str, install_dir: str) -> bool:
         """
         Copia mod baixado pelo SteamCMD para a pasta de mods do servidor.
+        Cria também o arquivo .mod exigido pelo ARK para carregar o mod.
+
         Fonte:  ``<steamcmd_dir>/steamapps/workshop/content/346110/<mod_id>/``
         Destino: ``<install_dir>/ShooterGame/Content/Mods/<mod_id>/``
+                 ``<install_dir>/ShooterGame/Content/Mods/<mod_id>.mod``
+
+        Retorna True se copiado com sucesso, False se pasta não encontrada.
         """
         # Localiza pasta workshop relativa ao steamcmd.exe
         steamcmd_dir = Path(self._steamcmd).parent
@@ -349,9 +462,39 @@ class AsmSteamCmd:
 
         if not workshop_src.exists():
             self._on_log(f"[AVISO] Pasta do mod {mod_id} não encontrada em {workshop_src}")
-            return
+            return False
 
-        dest = Path(install_dir) / "ShooterGame" / "Content" / "Mods" / mod_id
-        dest.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(str(workshop_src), str(dest), dirs_exist_ok=True)
+        mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+        mods_dir.mkdir(parents=True, exist_ok=True)
+        dest = mods_dir / mod_id
+
+        # O SteamCMD baixa com subpasta WindowsNoEditor/ — o ARK espera
+        # o conteúdo na raiz de Content/Mods/<mod_id>/
+        win_src = workshop_src / "WindowsNoEditor"
+        effective_src = win_src if win_src.exists() else workshop_src
+
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(str(effective_src), str(dest))
         self._on_log(f"[OK] Mod {mod_id} copiado para {dest}")
+
+        # Cria o arquivo .mod exigido pelo ARK
+        dot_mod_dest = mods_dir / f"{mod_id}.mod"
+        # 1) Procura .mod já pronto ao lado da pasta no workshop
+        src_dot_mod = workshop_src.parent / f"{mod_id}.mod"
+        if not src_dot_mod.exists():
+            src_dot_mod = workshop_src / f"{mod_id}.mod"
+        if not src_dot_mod.exists():
+            # 2) Procura no Steam Client
+            src_dot_mod = self._find_official_dot_mod(mod_id)
+        if src_dot_mod and Path(src_dot_mod).exists():
+            shutil.copy2(str(src_dot_mod), str(dot_mod_dest))
+            self._on_log(f"[OK] Mod {mod_id}: arquivo .mod copiado.")
+        else:
+            # 3) Gera .mod a partir do mod.info do SteamCMD
+            if self._create_dot_mod_from_mod_info(workshop_src, mod_id, dot_mod_dest):
+                self._on_log(f"[OK] Mod {mod_id}: arquivo .mod gerado a partir do mod.info.")
+            else:
+                self._on_log(f"[AVISO] Mod {mod_id}: arquivo .mod não criado — mod.info ausente. Re-baixe pelo Steam Client.")
+
+        return True

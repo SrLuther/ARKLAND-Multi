@@ -148,6 +148,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._show_frame("dashboard")
         # Watermark de fundo (aplicado após conteúdo existir)
         self.after(150, self._setup_bg_watermark)
+        # Auto-start: sync e agente remoto (após janela renderizar)
+        self.after(500, self._auto_start_services)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Background watermark
@@ -182,6 +184,27 @@ class ARKServerManagerApp(ctk.CTk):
             self._bg_watermark_lbl = _lbl_wm
         except Exception:
             pass
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Auto-start de serviços
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _auto_start_services(self) -> None:
+        """Inicia sync e agente remoto automaticamente se configurados."""
+        cfg = self.config_manager.config
+        # Sync de pastas — inicia se houver ciclos configurados
+        cycles = cfg.sync_cycles or []
+        has_paths = any(
+            any(str(p).strip() for p in (
+                c.get("folders", []) if isinstance(c, dict) else c
+            ))
+            for c in cycles
+        )
+        if has_paths:
+            self._start_sync_engine()
+        # Agente remoto — inicia se estava ativo na sessão anterior
+        if getattr(cfg, "remote_agent_enabled", False):
+            self._start_remote_agent()
 
     # ─────────────────────────────────────────────────────────────────────────
     # Preferências de UI (persistência do tema)

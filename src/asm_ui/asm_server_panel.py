@@ -548,7 +548,35 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
                                 text_color="#475569", width=170, anchor="w")
         info_lbl.grid(row=0, column=2, padx=(0, 4))
 
-        rd = {"id_var": id_var, "name_lbl": name_lbl, "info_lbl": info_lbl, "frame": rf}
+        status_lbl = ctk.CTkLabel(rf, text="⏳", font=ctk.CTkFont(size=10),
+                                  text_color="gray50", width=90, anchor="e")
+        status_lbl.grid(row=0, column=3, padx=(0, 4))
+
+        rd = {"id_var": id_var, "name_lbl": name_lbl, "info_lbl": info_lbl,
+              "status_lbl": status_lbl, "frame": rf}
+
+        def _check_status(_mid: str, _lbl=status_lbl) -> None:
+            import threading as _th
+            from pathlib import Path as _Path
+            def _worker():
+                idir = srv.install_dir
+                if not idir or not _mid:
+                    sf.after(0, lambda: _lbl.configure(text=""))
+                    return
+                base = _Path(idir) / "ShooterGame" / "Content" / "Mods"
+                has_folder = (base / _mid).exists()
+                has_dot_mod = (base / f"{_mid}.mod").exists()
+                if has_folder and has_dot_mod:
+                    txt, col = "✅ instalado", "#4ade80"
+                elif has_folder:
+                    txt, col = "⚠ sem .mod", "#facc15"
+                else:
+                    txt, col = "❌ não instalado", "#f87171"
+                try:
+                    sf.after(0, lambda t=txt, c=col: _lbl.configure(text=t, text_color=c))
+                except Exception:
+                    pass
+            _th.Thread(target=_worker, daemon=True).start()
 
         def _del(r=rd, f=rf):
             f.destroy()
@@ -561,10 +589,10 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         ctk.CTkButton(rf, text="✕", width=24, height=24,
                       fg_color="#5c1a1a", hover_color="#7c2020",
                       font=ctk.CTkFont(size=10), corner_radius=4,
-                      command=_del).grid(row=0, column=3, padx=(0, 4))
+                      command=_del).grid(row=0, column=4, padx=(0, 4))
 
         _mod_rows.append(rd)
-        id_var.trace_add("write", lambda *_: _sync_hidden())
+        id_var.trace_add("write", lambda *_: (_sync_hidden(), _check_status(id_var.get().strip())))
 
         cd = _mod_cache.get(mod_id.strip())
         if cd:
@@ -572,6 +600,10 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             info_lbl.configure(text=cd.get("info", "—"))
         elif mod_id.strip():
             name_lbl.configure(text="(clique em Buscar)")
+
+        # Verifica status de instalação imediatamente
+        if mod_id.strip():
+            _check_status(mod_id.strip())
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
     _mods_tb = ctk.CTkFrame(_mod_frame, fg_color="transparent")

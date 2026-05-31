@@ -59,6 +59,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     t_mut   = theme["text_muted"]
     acc_mb  = theme["accent_muted_bg"]
     acc_dk  = theme["accent_dark"]
+    is_light = theme.get("_is_light", False)
 
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_rowconfigure(0, weight=0)  # TopBar
@@ -135,13 +136,17 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
         stats_f.grid_columnconfigure(i, weight=1)
 
     # icon · label · value · bar · subtitle  (padrão ARKLAND SM)
+    _icon_bgs = (
+        ["#dbeafe", "#dcfce7", "#f1f5f9", "#ede9fe", "#fce7f3"] if is_light
+        else ["#1e3a5f", "#052e16", "#0f172a", "#1e1b4b", "#3b0764"]
+    )
     _stat_cards = [
         # (label_upper, value, subtitle, cor_valor, cor_icone_bg, icone)
-        ("TOTAL",   str(total),        "servidores",           "#60a5fa", "#1e3a5f",  "🖥"),
-        ("ONLINE",  str(running),      "rodando",              "#22c55e", "#052e16",  "▶"),
-        ("OFFLINE", str(stopped),      "parados",              "#64748b", "#0f172a",  "■"),
-        ("CPU",     f"{cpu_pct:.0f}%", "processador",          "#a78bfa", "#1e1b4b",  "⚙"),
-        ("RAM",     f"{ram_pct:.0f}%", "memória",              "#f472b6", "#3b0764",  "◈"),
+        ("TOTAL",   str(total),        "servidores",           "#60a5fa", _icon_bgs[0], "🖥"),
+        ("ONLINE",  str(running),      "rodando",              "#22c55e", _icon_bgs[1], "▶"),
+        ("OFFLINE", str(stopped),      "parados",              "#64748b", _icon_bgs[2], "■"),
+        ("CPU",     f"{cpu_pct:.0f}%", "processador",          "#a78bfa", _icon_bgs[3], "⚙"),
+        ("RAM",     f"{ram_pct:.0f}%", "memória",              "#f472b6", _icon_bgs[4], "◈"),
     ]
 
     for col_idx, (label, value, sub, fg_col, bg_col, icon) in enumerate(_stat_cards):
@@ -225,6 +230,7 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     t_mut   = theme["text_muted"]
     acc_mb  = theme["accent_muted_bg"]
     acc_dk  = theme["accent_dark"]
+    is_light = theme.get("_is_light", False)
 
     servers = app.asm_config_manager.servers
     if not servers:
@@ -300,16 +306,24 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
                     daemon=True,
                 ).start()
 
-    _bulk_btns = [
-        ("▶  Iniciar",   _bulk_start,       "#052e16", "#4ade80"),
-        ("⏹  Parar",    _bulk_stop,        "#7f1d1d", "#fca5a5"),
-        ("🔄  Reiniciar", _bulk_restart,    "#1e293b", t_sec),
-        ("📦  Atualizar Mods", _bulk_update_mods, "#0c1a2e", "#7dd3fc"),
-    ]
+    _bulk_btns = (
+        [
+            ("\u25b6  Iniciar",        _bulk_start,       "#dcfce7", "#166534"),
+            ("\u23f9  Parar",          _bulk_stop,        "#fee2e2", "#991b1b"),
+            ("\U0001f504  Reiniciar",  _bulk_restart,     "#f1f5f9", t_sec),
+            ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#e0f2fe", "#0369a1"),
+        ] if is_light else [
+            ("\u25b6  Iniciar",        _bulk_start,       "#052e16", "#4ade80"),
+            ("\u23f9  Parar",          _bulk_stop,        "#7f1d1d", "#fca5a5"),
+            ("\U0001f504  Reiniciar",  _bulk_restart,     "#1e293b", t_sec),
+            ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#0c1a2e", "#7dd3fc"),
+        ]
+    )
+    _bulk_hover = "#e2e8f0" if is_light else "#1e293b"
     for col_i, (txt, cmd, bg_c, tc) in enumerate(_bulk_btns, start=1):
         ctk.CTkButton(
             bulk_bar, text=txt, width=130, height=28,
-            fg_color=bg_c, hover_color="#1e293b",
+            fg_color=bg_c, hover_color=_bulk_hover,
             text_color=tc, corner_radius=6,
             font=ctk.CTkFont(size=11),
             command=cmd,
@@ -325,8 +339,13 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
         is_root      = (folder_name == "")
 
         # ── Header da pasta ───────────────────────────────────────────────────
-        folder_hdr = ctk.CTkFrame(scroll, fg_color="#0a111c", corner_radius=6,
-                                  border_width=1, border_color="#1a2840")
+        folder_hdr = ctk.CTkFrame(
+            scroll,
+            fg_color="#f0f9ff" if is_light else "#0a111c",
+            corner_radius=6,
+            border_width=1,
+            border_color="#bae6fd" if is_light else "#1a2840",
+        )
         folder_hdr.grid(row=grid_row, column=0, columnspan=2,
                         sticky="ew", padx=8, pady=(10, 2))
         folder_hdr.grid_columnconfigure(1, weight=1)
@@ -362,8 +381,10 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
 
             ctk.CTkButton(
                 folder_hdr, text="▶  Iniciar Todos", width=110, height=26,
-                fg_color="#052e16", hover_color="#14532d",
-                text_color="#4ade80", corner_radius=6,
+                fg_color="#dcfce7" if is_light else "#052e16",
+                hover_color="#bbf7d0" if is_light else "#14532d",
+                text_color="#166534" if is_light else "#4ade80",
+                corner_radius=6,
                 font=ctk.CTkFont(size=10),
                 command=_start_folder,
             ).grid(row=0, column=2, padx=(0, 10), pady=7, sticky="e")

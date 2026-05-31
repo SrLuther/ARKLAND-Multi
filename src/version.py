@@ -1,13 +1,25 @@
-"""
+﻿"""
 Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.4.2"
+APP_VERSION: str = "1.4.3"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.4.3",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (UI - Modo Claro): corrigidas cores hardcoded escuras no card de servidor, dashboard, badges de status, chips, toolbar, botoes de acao, icones dos stats, cabecalhos de grupo e bulk actions.",
+            "Fix (ASM - Mods): _copy_mod_to_server agora trata subpasta WindowsNoEditor/ e cria o arquivo .mod exigido pelo ARK.",
+            "Fix (ASM - Mods): download_mods reporta apenas os mods copiados com sucesso.",
+            "Novo (ASM - Painel): status de instalacao de cada mod exibido em tempo real.",
+            "Novo (app): sync e agente remoto iniciados automaticamente ao abrir o app se configurados.",
+        ],
+    },
+
     {
         "version": "1.4.2",
         "date": "2026-05-31",
