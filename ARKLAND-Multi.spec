@@ -36,7 +36,9 @@ a = Analysis(
         'tkinter.filedialog',
         'tkinter.messagebox',
         # projeto
+        'src',
         'src.app',
+        'src.app_tek',
         'src.server_config',
         'src.server_manager',
         'src.mod_manager',
@@ -45,6 +47,7 @@ a = Analysis(
         'src.config_manager',
         'src.updater',
         'src.version',
+        'src.ui_constants',
         'src.mod_auto_updater',
         'src.plugin_manager',
         # bandeja
