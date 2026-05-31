@@ -106,9 +106,7 @@ class AsmServerManager:
             proc = subprocess.Popen(
                 cmd,
                 cwd=str(exe.parent),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,  # type: ignore[attr-defined]
+                creationflags=subprocess.CREATE_NEW_CONSOLE,  # type: ignore[attr-defined]
             )
             with inst._lock:
                 inst._proc = proc

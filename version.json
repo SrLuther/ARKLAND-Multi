@@ -1,9 +1,8 @@
 ﻿{
-    "version":  "1.4.5",
+    "version":  "1.4.6",
     "date":  "2026-05-31",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.5/ARKLAND-Multi-Setup-v1.4.5.exe",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.6/ARKLAND-Multi-Setup-v1.4.6.exe",
     "changelog":  [
-                      "Novo (UI): marca d'agua do logo ARKLAND em todas as paginas.",
-                      "Novo (ASM): botao Log na toolbar — exibe ShooterGame.log com auto-refresh."
+                      "Fix (ASM): inicializacao do servidor abre janela CMD visivel com saida do processo."
                   ]
 }
