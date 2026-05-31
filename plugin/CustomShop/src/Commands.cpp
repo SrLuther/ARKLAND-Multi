@@ -54,13 +54,16 @@ void CmdBuyItem(APlayerController* pc, FString* cmd_str, bool) {
     const std::string steam_id = CustomShop::Bridge::GetSteamId(controller);
 
     bool success = false;
-    if (CustomShop::ShopConfig::Get().Kits().contains(id))
+    const bool is_kit = CustomShop::ShopConfig::Get().Kits().contains(id);
+    if (is_kit)
         success = CustomShop::Store::BuyKit(controller, id);
     else
         success = CustomShop::Store::BuyItem(controller, id, amount);
 
     CustomShop::Data::SendBuyResult(controller, steam_id, id, amount, success);
     CustomShop::Data::SendPoints(controller);
+    if (is_kit && success)
+        CustomShop::Data::SendPlayerKits(controller, steam_id);
 }
 
 void CmdGetShopItems(APlayerController* pc, FString* cmd_str, bool) {
@@ -79,6 +82,7 @@ void CmdGetShopItems(APlayerController* pc, FString* cmd_str, bool) {
 void CmdGetConfig(APlayerController* pc, FString*, bool) {
     // GetConfig is sent by the mod when it initialises — apply buff lazily here
     // so the response can be delivered via ClientReceiveCallback.
+    Log::GetLog()->info("ShopBridge: GetConfig command received");
     auto* c = static_cast<AShooterPlayerController*>(pc);
     if (c) CustomShop::Data::InitShop(c);
 }
@@ -86,6 +90,13 @@ void CmdGetConfig(APlayerController* pc, FString*, bool) {
 void CmdShop(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
     CustomShop::Data::InitShop(controller);
+}
+
+void CmdShopDebugSelf(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    // Player types /shop debug in chat — runs full diagnostic on themselves.
+    // No steamid needed, output goes to their chat and the log file.
+    if (!controller) return;
+    CustomShop::Bridge::DiagnosePlayer(controller, controller);
 }
 
 void CmdGetPoints(APlayerController* pc, FString*, bool) {
@@ -301,16 +312,23 @@ void CmdAdminGiveKit(APlayerController* pc, FString* cmd_str, bool) {
         return;
     }
 
-    const bool ok = CustomShop::Store::GiveKit(target, kit_id);
+    if (!CustomShop::ShopConfig::Get().Kits().contains(kit_id)) {
+        if (admin) SendMsg(admin, FColorList::Red,
+                           "Unknown kit_id '" + kit_id + "'.");
+        return;
+    }
+
+    const bool ok = CustomShop::ShopPoints::Get().AddKitToStash(target_id, kit_id);
     if (ok) {
         CustomShop::ShopPoints::Get().LogTransaction(
             "give_kit", target_id, "", kit_id, 1, 0, 0);
+        CustomShop::Data::SendPlayerKits(target, target_id);
         if (admin) SendMsg(admin, FColorList::Green,
-                           "Kit '" + kit_id + "' delivered to " + target_id);
-        Log::GetLog()->info("GiveKit: kit='{}' → player='{}'", kit_id, target_id);
+                           "Kit '" + kit_id + "' added to stash for " + target_id);
+        Log::GetLog()->info("GiveKit: kit='{}' added to stash for player='{}'", kit_id, target_id);
     } else {
         if (admin) SendMsg(admin, FColorList::Red,
-                           "Failed to deliver kit '" + kit_id + "'.");
+                           "Failed to add kit '" + kit_id + "' to stash.");
     }
 }
 
@@ -376,6 +394,56 @@ void CmdAdminListVip(APlayerController* pc, FString*, bool) {
                 v.steam_id + " [" + v.tier + "] expires: " + v.expires);
 }
 
+// ─────────────────────────────────────────────────────────────────
+//  Shop.Debug <steamid>
+//  Admin diagnostic: tests every step of the buff/RPC chain for a
+//  given player and reports pass/fail as persistent chat messages
+//  (visible in RCON output and server log).
+// ─────────────────────────────────────────────────────────────────
+void CmdAdminDebug(APlayerController* pc, FString* cmd_str, bool) {
+    auto* admin = static_cast<AShooterPlayerController*>(pc);
+    if (!admin) return;
+
+    const auto parts = SplitCmd(cmd_str);
+    if (parts.size() < 2) {
+        SendMsg(admin, FColorList::Red, "Usage: Shop.Debug <steamid>");
+        return;
+    }
+
+    const std::string target_id = parts[1];
+    auto* target = CustomShop::Bridge::FindPlayer(target_id);
+    if (!target) {
+        SendMsg(admin, FColorList::Red,
+                "Player '" + target_id + "' is not online.");
+        return;
+    }
+
+    CustomShop::Bridge::DiagnosePlayer(target, admin);
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Shop.Players
+//  Lists all online players and their SteamIDs in admin chat.
+// ─────────────────────────────────────────────────────────────────
+void CmdAdminPlayers(APlayerController* pc, FString*, bool) {
+    auto* admin = static_cast<AShooterPlayerController*>(pc);
+    if (!admin) return;
+
+    const auto& pcs = ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
+    int count = 0;
+    for (TWeakObjectPtr<APlayerController> wpc : pcs) {
+        auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
+        if (!sc) continue;
+        const std::string sid = CustomShop::Bridge::GetSteamId(sc);
+        FString name = sc->GetPlayerName();
+        const std::string nameStr = name.ToString();
+        SendMsg(admin, FColorList::White, nameStr + "  |  " + sid);
+        Log::GetLog()->info("Shop.Players: '{}' = {}", nameStr, sid);
+        ++count;
+    }
+    SendMsg(admin, FColorList::Yellow, std::to_string(count) + " player(s) online.");
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -385,6 +453,7 @@ void Register() {
     // Mod-facing (called automatically by the MX-E UI mod)
     ArkApi::GetCommands().AddConsoleCommand("GetConfig",    &CmdGetConfig);
     ArkApi::GetCommands().AddChatCommand("/shop",           &CmdShop);
+    ArkApi::GetCommands().AddChatCommand("/shop debug",      &CmdShopDebugSelf);
     ArkApi::GetCommands().AddConsoleCommand("BuyItem",      &CmdBuyItem);
     ArkApi::GetCommands().AddConsoleCommand("SellItem",     &CmdSellItem);
     ArkApi::GetCommands().AddConsoleCommand("GetShopItems", &CmdGetShopItems);
@@ -404,6 +473,8 @@ void Register() {
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddVip",     &CmdAdminAddVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.RemoveVip",  &CmdAdminRemoveVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.ListVip",    &CmdAdminListVip);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Debug",      &CmdAdminDebug);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Players",    &CmdAdminPlayers);
 }
 
 void Unregister() {
@@ -424,6 +495,9 @@ void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.AddVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.RemoveVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.ListVip");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Debug");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Players");
+    ArkApi::GetCommands().RemoveChatCommand("/shop debug");
 }
 
 } // namespace Commands

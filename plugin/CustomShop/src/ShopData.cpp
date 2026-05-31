@@ -90,12 +90,8 @@ bool SendPoints(AShooterPlayerController* controller) {
     if (!controller) return false;
     const std::string id = Bridge::GetSteamId(controller);
     if (id.empty()) return false;
-
-    nlohmann::json payload;
-    payload["Command"]         = "GetPoints";
-    payload["Result"]          = PlayerResult(id);
-    payload["Result"]["Point"] = ShopPoints::Get().GetPoints(id);
-    return Bridge::SendPayload(controller, payload);
+    const int pts = ShopPoints::Get().GetPoints(id);
+    return Bridge::SendPointsRefresh(controller, pts);
 }
 
 bool SendKits(AShooterPlayerController* controller) {
@@ -126,15 +122,12 @@ bool SendPlayerKits(AShooterPlayerController* controller,
                     const std::string& steam_id) {
     if (!controller) return false;
 
-    const auto& cfg = ShopConfig::Get().Kits();
-    nlohmann::json kits_map = nlohmann::json::object();
-    for (auto it = cfg.begin(); it != cfg.end(); ++it)
-        kits_map[it.key()]["Amount"] = it.value().value("DefaultAmount", 1);
+    nlohmann::json stash = ShopPoints::Get().GetKitStash(steam_id);
 
     nlohmann::json payload;
     payload["Command"]        = "PlayerKits";
     payload["Result"]         = PlayerResult(steam_id);
-    payload["Result"]["Kits"] = kits_map;
+    payload["Result"]["Kits"] = stash;
     return Bridge::SendPayload(controller, payload);
 }
 
@@ -209,18 +202,34 @@ void InitPlayer(AShooterPlayerController* controller) {
 void InitShop(AShooterPlayerController* controller) {
     if (!controller) return;
     const std::string id = Bridge::GetSteamId(controller);
-    if (id.empty()) return;
 
-    // Apply buff first (lazily, only when the player opens the shop).
-    Bridge::GetOrAddShopBuff(controller);
+    // Build shop data in the format expected by ROC_ShopDataReceived:
+    // { "ShopItems": [...], "Kits": [...] }
+    const auto& itemsCfg = ShopConfig::Get().Items();
+    nlohmann::json shopItems = nlohmann::json::array();
+    for (auto it = itemsCfg.begin(); it != itemsCfg.end(); ++it) {
+        const auto& item = it.value();
+        nlohmann::json entry = item;
+        entry["Id"]   = it.key();
+        entry["Type"] = item.value("Type", "item");
+        shopItems.push_back(std::move(entry));
+    }
 
-    // Config must arrive first so the UI sets up hotkey, labels and
-    // feature flags before rendering items/kits.
-    SendConfig(controller);
-    SendShopItems(controller);
-    SendPoints(controller);
-    SendKits(controller);
-    SendPlayerKits(controller, id);
+    const auto& kitsCfg = ShopConfig::Get().Kits();
+    nlohmann::json kits = nlohmann::json::array();
+    for (auto it = kitsCfg.begin(); it != kitsCfg.end(); ++it) {
+        const auto& k = it.value();
+        nlohmann::json entry = k;
+        entry["Id"] = it.key();
+        kits.push_back(std::move(entry));
+    }
+
+    nlohmann::json shopData;
+    shopData["ShopItems"] = shopItems;
+    shopData["Kits"]      = kits;
+
+    const int points = id.empty() ? 0 : ShopPoints::Get().GetPoints(id);
+    Bridge::SendInitData(controller, shopData, points);
 }
 
 } // namespace Data

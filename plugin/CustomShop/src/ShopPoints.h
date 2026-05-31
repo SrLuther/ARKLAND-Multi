@@ -47,6 +47,20 @@ public:
                         int points_before,
                         int points_after);
 
+    // Kit stash — stored as JSON in the players.kits column.
+    // Format: {"kit_id": {"Amount": N}, ...}
+
+    // Returns the full stash object. Returns {} on error or no data.
+    nlohmann::json GetKitStash(const std::string& steam_id);
+
+    // Increments the kit's Amount by `amount` (default 1); creates entry if missing.
+    bool AddKitToStash(const std::string& steam_id,
+                       const std::string& kit_id,
+                       int amount = 1);
+
+    // Overwrites the entire stash JSON for the player.
+    bool SetKitStash(const std::string& steam_id, const nlohmann::json& stash);
+
 private:
     ShopPoints() = default;
 

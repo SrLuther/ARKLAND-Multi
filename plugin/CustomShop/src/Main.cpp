@@ -1,11 +1,13 @@
 #include "pch.h"
 #include "Commands.h"
+#include "ShopBridge.h"
 #include "ShopConfig.h"
 #include "ShopData.h"
 #include "ShopPoints.h"
 #include "ShopVip.h"
 #include "ShopPerms.h"
 #include "TimedPoints.h"
+#include <Timer.h>
 
 // ─────────────────────────────────────────────────────────────────
 //  Plugin entry points required by ArkApi v3 (ASE).
@@ -43,10 +45,27 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
     const bool result = AShooterGameMode_HandleNewPlayer_original(
         _this, player, data, character, from_login);
 
-    // Initialise UI data for the joining player.
-    // If the character isn't fully spawned yet, InitPlayer fails gracefully;
-    // the mod will pull its data when the player presses the hotkey.
+    // Register player in DB immediately (safe at this stage).
     CustomShop::Data::InitPlayer(player);
+
+    const std::string steam_id = CustomShop::Bridge::GetSteamId(player);
+    Log::GetLog()->info("HandleNewPlayer: hook fired, steam_id='{}'", steam_id);
+
+    // Delay buff/config delivery. SDK's TWeakObjectPtr has no raw-ptr ctor, so
+    // we capture the raw pointer and validate it via the GC-safe controller list
+    // before use (wpc.Get() returns null for garbage-collected objects).
+    AShooterPlayerController* raw_ctrl = player;
+    API::Timer::Get().DelayExecute([raw_ctrl, steam_id]() {
+        // APlayerControllers are not GC'd while the player is connected.
+        // The 5s window makes dangling pointer virtually impossible.
+        if (!raw_ctrl) return;
+        Log::GetLog()->info(
+            "ShopBridge: timer fired, sending config to '{}'", steam_id);
+        ArkApi::GetApiUtils().SendNotification(
+            raw_ctrl, FLinearColor(0, 1, 1, 1), 1.2f, 6.f, nullptr,
+            L"[Shop] Iniciando... (timer ok)");
+        CustomShop::Data::InitShop(raw_ctrl);
+    }, 5);
 
     return result;
 }

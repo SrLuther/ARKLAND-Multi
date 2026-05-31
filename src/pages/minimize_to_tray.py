@@ -21,7 +21,7 @@ def minimize_to_tray(app: "ARKServerManagerApp") -> None:
         return  # já existe
 
     try:
-        img = _PILImage.open(_resource_path(os.path.join("ig", "ArkLandBR.png"))).resize((64, 64))
+        img = _PILImage.open(_resource_path(os.path.join("ig", "ark_manager.png"))).resize((64, 64))
     except Exception:
         # Cria ícone genérico verde se a imagem não estiver disponível
         img = _PILImage.new("RGBA", (64, 64), "#4CAF50")

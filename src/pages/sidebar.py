@@ -22,7 +22,7 @@ def build_sidebar(app: "ARKServerManagerApp") -> None:
     # Logo
     try:
         from PIL import Image  # type: ignore[reportMissingImports]
-        _logo = Image.open(_resource_path(os.path.join("ig", "ArkLandBR.png")))
+        _logo = Image.open(_resource_path(os.path.join("ig", "ark_manager.png")))
         app._logo_img = ctk.CTkImage(light_image=_logo, dark_image=_logo, size=(120, 120))
         ctk.CTkLabel(sb, image=app._logo_img, text="").grid(
             row=0, column=0, padx=20, pady=(16, 0))

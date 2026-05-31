@@ -155,6 +155,117 @@ INI_MAP: dict[str, tuple] = {
     "limit_turrets_in_range":                    ("GUS","ServerSettings","LimitTurretsInRange",                        {}),
     "limit_turrets_range":                       ("GUS","ServerSettings","LimitTurretsRange",                          {"conditional_on": "limit_turrets_in_range"}),
     "limit_turrets_num":                         ("GUS","ServerSettings","LimitTurretsNum",                            {"conditional_on": "limit_turrets_in_range"}),
+
+    # Administration extras
+    "max_tribe_logs":                          ("Game","GameMode",     "MaxTribeLogs",                                  {}),
+    "tribe_log_destroyed_enemy_structures":    ("GUS", "ServerSettings","TribeLogDestroyedEnemyStructures",            {}),
+    "allow_hide_damage_source":                ("GUS", "ServerSettings","AllowHideDamageSourceFromLogs",               {}),
+    "enable_extinction_event":                 ("GUS", "ServerSettings","EnableExtinctionEvent",                       {}),
+    "extinction_event_interval":               ("GUS", "ServerSettings","ExtinctionEventTimeInterval",                 {"conditional_on": "enable_extinction_event"}),
+    "extinction_event_utc":                    ("Game","GameMode",     "NextExtinctionEventUTC",                        {"conditional_on": "enable_extinction_event"}),
+    "enable_auto_respawn_wild_dinos":          ("GUS", "ServerSettings","EnableServerAutoForceRespawnWildDinosInterval", {}),
+    "auto_respawn_wild_dinos_interval":        ("GUS", "ServerSettings","ServerAutoForceRespawnWildDinosInterval",     {"conditional_on": "enable_auto_respawn_wild_dinos"}),
+    "kick_idle_players":                       ("GUS", "ServerSettings","KickIdlePlayersPeriod",                       {"conditional_on": "enable_kick_idle_players"}),
+
+    # Rules extras
+    "enable_extra_structure_prevention_volumes":("GUS","ServerSettings","EnableExtraStructurePreventionVolumes",        {}),
+    "allow_pve_gamma":                         ("GUS", "ServerSettings","DisablePvEGamma",                             {"inverted": True}),
+    "oxygen_swim_speed_stat_multiplier":       ("GUS", "ServerSettings","OxygenSwimSpeedStatMultiplier",               {}),
+    "supply_crate_loot_quality_multiplier":    ("Game","GameMode",     "SupplyCrateLootQualityMultiplier",             {}),
+    "fishing_loot_quality_multiplier":         ("Game","GameMode",     "FishingLootQualityMultiplier",                 {}),
+    "use_corpse_life_span_multiplier":         ("Game","GameMode",     "UseCorpseLifeSpanMultiplier",                  {}),
+    "global_powered_battery_durability_decrease": ("Game","GameMode", "GlobalPoweredBatteryDurabilityDecreasePerSecond", {}),
+    "tribe_name_change_cooldown":              ("GUS", "ServerSettings","TribeNameChangeCooldown",                     {}),
+    "random_supply_crate_points":              ("Game","GameMode",     "RandomSupplyCratePoints",                      {}),
+    "increase_pvp_respawn_interval":           ("Game","GameMode",     "bIncreasePvPRespawnInterval",                  {}),
+    "pvp_respawn_check_period":                ("Game","GameMode",     "IncreasePvPRespawnIntervalCheckPeriod",         {"conditional_on": "increase_pvp_respawn_interval"}),
+    "pvp_respawn_multiplier":                  ("Game","GameMode",     "IncreasePvPRespawnIntervalMultiplier",          {"conditional_on": "increase_pvp_respawn_interval"}),
+    "pvp_respawn_base_amount":                 ("Game","GameMode",     "IncreasePvPRespawnIntervalBaseAmount",          {"conditional_on": "increase_pvp_respawn_interval"}),
+    "prevent_pvp_offline_interval":            ("GUS", "ServerSettings","PreventOfflinePvPInterval",                   {"conditional_on": "prevent_pvp_offline"}),
+    "prevent_pvp_offline_invincible_interval": ("Game","GameMode",     "PreventOfflinePvPConnectionInvincibleInterval", {"conditional_on": "prevent_pvp_offline"}),
+    "auto_pve_use_system_time":                ("Game","GameMode",     "bAutoPvEUseSystemTime",                        {"conditional_on": "auto_pve_timer"}),
+    "auto_pve_start_time":                     ("Game","GameMode",     "AutoPvEStartTimeSeconds",                      {"conditional_on": "auto_pve_timer"}),
+    "auto_pve_stop_time":                      ("Game","GameMode",     "AutoPvEStopTimeSeconds",                       {"conditional_on": "auto_pve_timer"}),
+    "allow_tribe_war_pve":                     ("Game","GameMode",     "bPvEAllowTribeWar",                            {}),
+    "allow_tribe_war_cancel_pve":              ("Game","GameMode",     "bPvEAllowTribeWarCancel",                      {}),
+    "custom_recipe_effectiveness_multiplier":  ("Game","GameMode",     "CustomRecipeEffectivenessMultiplier",          {}),
+    "custom_recipe_skill_multiplier":          ("Game","GameMode",     "CustomRecipeSkillMultiplier",                  {}),
+    "non_permanent_diseases":                  ("GUS", "ServerSettings","NonPermanentDiseases",                        {}),
+    "override_npc_stasis_range_scale":         ("GUS", "ServerSettings","OverrideNPCNetworkStasisRangeScale",          {}),
+    "npc_stasis_range_scale_start":            ("GUS", "ServerSettings","NPCNetworkStasisRangeScalePlayerCountStart",  {"conditional_on": "override_npc_stasis_range_scale"}),
+    "npc_stasis_range_scale_end":              ("GUS", "ServerSettings","NPCNetworkStasisRangeScalePlayerCountEnd",    {"conditional_on": "override_npc_stasis_range_scale"}),
+    "npc_stasis_range_scale_percent_end":      ("GUS", "ServerSettings","NPCNetworkStasisRangeScalePercentEnd",        {"conditional_on": "override_npc_stasis_range_scale"}),
+    "use_corpse_locator":                      ("Game","GameMode",     "bUseCorpseLocator",                            {}),
+    "prevent_spawn_animations":                ("GUS", "ServerSettings","PreventSpawnAnimations",                      {}),
+    "allow_unlimited_respecs":                 ("Game","GameMode",     "bAllowUnlimitedRespecs",                       {}),
+    "allow_platform_saddle_multi_floors":      ("Game","GameMode",     "bAllowPlatformSaddleMultiFloors",              {}),
+    "max_alliances_per_tribe":                 ("Game","GameMode",     "MaxAlliancesPerTribe",                         {"conditional_on": "allow_tribe_alliances"}),
+    "max_tribes_per_alliance":                 ("Game","GameMode",     "MaxTribesPerAlliance",                         {"conditional_on": "allow_tribe_alliances"}),
+    "tribute_char_expiration_seconds":         ("GUS", "ServerSettings","TributeCharacterExpirationSeconds",           {"conditional_on": "save_tribute_char_expiration"}),
+    "tribute_item_expiration_seconds":         ("GUS", "ServerSettings","TributeItemExpirationSeconds",                {"conditional_on": "save_tribute_item_expiration"}),
+    "tribute_dino_expiration_seconds":         ("GUS", "ServerSettings","TributeDinoExpirationSeconds",                {"conditional_on": "save_tribute_dino_expiration"}),
+    "min_dino_reupload_interval":              ("GUS", "ServerSettings","MinimumDinoReuploadInterval",                 {"conditional_on": "save_min_dino_reupload_interval"}),
+    "cross_ark_allow_foreign_dino_downloads":  ("GUS", "ServerSettings","CrossARKAllowForeignDinoDownloads",           {}),
+
+    # Dinos extras
+    "dino_char_food_drain_multiplier":                  ("GUS","ServerSettings","DinoCharacterFoodDrainMultiplier",             {}),
+    "dino_char_stamina_drain_multiplier":               ("GUS","ServerSettings","DinoCharacterStaminaDrainMultiplier",          {}),
+    "dino_char_health_recovery_multiplier":             ("GUS","ServerSettings","DinoCharacterHealthRecoveryMultiplier",        {}),
+    "allow_raid_dino_feeding":                          ("GUS","ServerSettings","AllowRaidDinoFeeding",                        {}),
+    "raid_dino_food_drain_multiplier":                  ("GUS","ServerSettings","RaidDinoCharacterFoodDrainMultiplier",         {}),
+    "allow_flying_stamina_recovery":                    ("GUS","ServerSettings","AllowFlyingStaminaRecovery",                  {}),
+    "prevent_mate_boost":                               ("GUS","ServerSettings","PreventMateBoost",                            {}),
+    "auto_destroy_decayed_dinos":                       ("GUS","ServerSettings","AutoDestroyDecayedDinos",                     {}),
+    "pve_dino_decay_period_multiplier":                 ("GUS","ServerSettings","PvEDinoDecayPeriodMultiplier",                {}),
+    "allow_multiple_attached_c4":                       ("GUS","ServerSettings","AllowMultipleAttachedC4",                     {}),
+    "max_personal_tamed_dinos":                         ("GUS","ServerSettings","MaxPersonalTamedDinos",                       {}),
+    "personal_tamed_dinos_saddle_structure_cost":       ("GUS","ServerSettings","PersonalTamedDinosSaddleStructureCost",       {}),
+    "use_tame_limit_for_structures_only":               ("Game","GameMode",     "bUseTameLimitForStructuresOnly",              {}),
+    "wild_dino_char_food_drain_multiplier":             ("Game","GameMode",     "WildDinoCharacterFoodDrainMultiplier",        {}),
+    "tamed_dino_char_food_drain_multiplier":            ("Game","GameMode",     "TamedDinoCharacterFoodDrainMultiplier",       {}),
+    "wild_dino_torpor_drain_multiplier":                ("Game","GameMode",     "WildDinoTorporDrainMultiplier",               {}),
+    "tamed_dino_torpor_drain_multiplier":               ("Game","GameMode",     "TamedDinoTorporDrainMultiplier",              {}),
+    "override_max_xp_dino":                             ("Game","GameMode",     "OverrideMaxExperiencePointsDino",             {}),
+    "baby_cuddle_grace_period_multiplier":              ("Game","GameMode",     "BabyCuddleGracePeriodMultiplier",             {}),
+    "baby_cuddle_lose_imprint_quality_speed_multiplier":("Game","GameMode",     "BabyCuddleLoseImprintQualitySpeedMultiplier", {}),
+    "dino_turret_damage_multiplier":                    ("Game","GameMode",     "DinoTurretDamageMultiplier",                  {}),
+
+    # Environment extras
+    "craft_xp_multiplier":                     ("Game","GameMode","CraftXPMultiplier",                          {}),
+    "generic_xp_multiplier":                   ("Game","GameMode","GenericXPMultiplier",                        {}),
+    "harvest_xp_multiplier":                   ("Game","GameMode","HarvestXPMultiplier",                        {}),
+    "kill_xp_multiplier":                      ("Game","GameMode","KillXPMultiplier",                           {}),
+    "special_xp_multiplier":                   ("Game","GameMode","SpecialXPMultiplier",                        {}),
+    "lay_egg_interval_multiplier":             ("Game","GameMode","LayEggIntervalMultiplier",                   {}),
+    "poop_interval_multiplier":                ("Game","GameMode","PoopIntervalMultiplier",                     {}),
+    "resource_no_replenish_radius_players":    ("Game","GameMode","ResourceNoReplenishRadiusPlayers",           {}),
+    "resource_no_replenish_radius_structures": ("Game","GameMode","ResourceNoReplenishRadiusStructures",        {}),
+    "use_optimized_harvesting_health":         ("GUS", "ServerSettings","UseOptimizedHarvestingHealth",         {}),
+    "clamp_resource_harvest_damage":           ("GUS", "ServerSettings","ClampResourceHarvestDamage",           {}),
+    "clamp_item_spoiling_times":               ("GUS", "ServerSettings","ClampItemSpoilingTimes",               {}),
+
+    # Structures extras
+    "pvp_structure_decay":                         ("GUS","ServerSettings","PvPStructureDecay",                             {}),
+    "pvp_zone_structure_damage_multiplier":        ("Game","GameMode",     "PvPZoneStructureDamageMultiplier",              {}),
+    "structure_damage_repair_cooldown":            ("Game","GameMode",     "StructureDamageRepairCooldown",                 {}),
+    "override_structure_platform_prevention":      ("GUS","ServerSettings","OverrideStructurePlatformPrevention",           {}),
+    "flyer_platform_allow_unaligned_dino_basing":  ("Game","GameMode",     "bFlyerPlatformAllowUnalignedDinoBasing",        {}),
+    "pve_allow_structures_at_supply_drops":        ("GUS","ServerSettings","PvEAllowStructuresAtSupplyDrops",               {}),
+    "only_auto_destroy_core_structures":           ("GUS","ServerSettings","OnlyAutoDestroyCoreStructures",                 {}),
+    "only_decay_unsnapped_core_structures":        ("GUS","ServerSettings","OnlyDecayUnsnappedCoreStructures",              {}),
+    "fast_decay_unsnapped_core_structures":        ("GUS","ServerSettings","FastDecayUnsnappedCoreStructures",              {}),
+    "destroy_unconnected_water_pipes":             ("GUS","ServerSettings","DestroyUnconnectedWaterPipes",                  {}),
+    "fast_decay_interval":                         ("Game","GameMode",     "FastDecayInterval",                             {"conditional_on": "enable_fast_decay_interval"}),
+    "hard_limit_turrets_in_range":                 ("Game","GameMode",     "bHardLimitTurretsInRange",                      {}),
+    "passive_defenses_damage_riderless_dinos":     ("Game","GameMode",     "bPassiveDefensesDamageRiderlessDinos",          {}),
+
+    # Engrams
+    "only_allow_specified_engrams":              ("Game","GameMode","bOnlyAllowSpecifiedEngrams",                {"conditional_on": "only_allow_specified_engrams"}),
+    "auto_unlock_all_engrams":                   ("Game","GameMode","bAutoUnlockAllEngrams",                     {"conditional_on": "auto_unlock_all_engrams"}),
+
+    # PGM
+    "pgm_name":                                  ("Game","GameMode","PGMapName",                                 {"conditional_on": "pgm_enabled"}),
+    "pgm_terrain_string":                        ("Game","GameMode","PGTerrainPropertiesString",                 {"conditional_on": "pgm_enabled"}),
 }
 
 # Mapeamento de arquivo → nome real do arquivo INI
@@ -238,7 +349,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
         section_key = _GAME_MODE_SECTION if (file_key == "Game" and section == "GameMode") else section
         target.setdefault(section_key, {})[ini_key] = value
 
-    # Seções customizadas livres
+    # Seções customizadas livres (legado)
     for custom in cfg.custom_ini_sections:
         f = custom.get("file", "GUS").upper()
         sec = custom.get("section", "")
@@ -246,8 +357,65 @@ def write_ini(cfg: AsmServerConfig) -> None:
         for entry in custom.get("entries", []):
             target.setdefault(sec, {})[entry["key"]] = entry["value"]
 
+    # Raw INI injetado pelo usuário (parseia linhas key=value por seção)
+    def _inject_raw(raw_text: str, target: dict[str, dict[str, str]]) -> None:
+        current_sec = "ServerSettings"
+        for line in raw_text.splitlines():
+            line = line.strip()
+            if not line or line.startswith(";") or line.startswith("#"):
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                current_sec = line[1:-1]
+            elif "=" in line:
+                k, _, v = line.partition("=")
+                target.setdefault(current_sec, {})[k.strip()] = v.strip()
+
+    if cfg.custom_gus_ini_raw:
+        _inject_raw(cfg.custom_gus_ini_raw, gus)
+    if cfg.custom_game_ini_raw:
+        _inject_raw(cfg.custom_game_ini_raw, game)
+
+    # Raw overrides para Game.ini (engrams, levels, crafting, stacks, spawners, supply crates)
+    for raw_text in (
+        cfg.engram_entries_raw,
+        cfg.player_level_stats_raw,
+        cfg.dino_level_stats_raw,
+        cfg.crafting_overrides_raw,
+        cfg.stack_size_overrides_raw,
+        cfg.npc_spawn_overrides_raw,
+        cfg.supply_crate_overrides_raw,
+    ):
+        if raw_text:
+            _inject_raw(raw_text, game)
+
+    if cfg.prevent_transfer_raw:
+        _inject_raw(cfg.prevent_transfer_raw, gus)
+
+    # Per-level stat multipliers (array-indexed — não entram no INI_MAP convencional)
+    _PERLEVEL_MAP = [
+        ("per_level_player",              "PerLevelStatsMultiplier_Player"),
+        ("per_level_dino_wild",           "PerLevelStatsMultiplier_DinoWild"),
+        ("per_level_dino_tamed",          "PerLevelStatsMultiplier_DinoTamed"),
+        ("per_level_dino_tamed_add",      "PerLevelStatsMultiplier_DinoTamed_Add"),
+        ("per_level_dino_tamed_affinity", "PerLevelStatsMultiplier_DinoTamed_Affinity"),
+    ]
+    game_mode_sec = game.setdefault(_GAME_MODE_SECTION, {})
+    for _attr, _prefix in _PERLEVEL_MAP:
+        _values: list = getattr(cfg, _attr, [])
+        for _idx, _val in enumerate(_values):
+            game_mode_sec[f"{_prefix}[{_idx}]"] = _format_value(_val)
+
     _write_ini_file(_ini_path(cfg.install_dir, "GUS"),  gus)
     _write_ini_file(_ini_path(cfg.install_dir, "Game"), game)
+
+    # Engine.ini (apenas raw)
+    if cfg.custom_engine_ini_raw:
+        engine: dict[str, dict[str, str]] = {}
+        _inject_raw(cfg.custom_engine_ini_raw, engine)  # type: ignore[arg-type]
+        _write_ini_file(
+            Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer" / "Engine.ini",
+            engine,
+        )
 
 
 def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
@@ -325,6 +493,112 @@ def read_ini(cfg: AsmServerConfig) -> None:
             val = not val
 
         setattr(cfg, field_name, val)
+
+    # Per-level stat multipliers (array-indexed)
+    _PERLEVEL_INI_TO_FIELD = {
+        "Player":          "per_level_player",
+        "DinoWild":        "per_level_dino_wild",
+        "DinoTamed":       "per_level_dino_tamed",
+        "DinoTamed_Add":   "per_level_dino_tamed_add",
+        "DinoTamed_Affinity": "per_level_dino_tamed_affinity",
+    }
+    import re as _re
+    game_p = parsers["Game"]
+    if game_p.has_section(_GAME_MODE_SECTION):
+        for ini_key, raw_val in game_p.items(_GAME_MODE_SECTION):
+            m = _re.match(r"PerLevelStatsMultiplier_(\w+)\[(\d+)\]", ini_key, _re.IGNORECASE)
+            if m:
+                suffix = m.group(1)
+                idx    = int(m.group(2))
+                attr   = _PERLEVEL_INI_TO_FIELD.get(suffix)
+                if attr:
+                    lst = getattr(cfg, attr, [])
+                    if isinstance(lst, list) and idx < len(lst):
+                        try:
+                            lst[idx] = float(raw_val)
+                        except ValueError:
+                            pass
+
+
+def read_ini_from_paths(
+    cfg: AsmServerConfig,
+    gus_path: str | None = None,
+    game_path: str | None = None,
+) -> None:
+    """Lê .ini de caminhos explícitos e popula cfg in-place.
+
+    Equivalente a read_ini() mas sem depender de install_dir.
+    Útil para importar configs de qualquer diretório.
+    """
+    parsers: dict[str, configparser.RawConfigParser] = {}
+    path_map: dict[str, str | None] = {"GUS": gus_path, "Game": game_path}
+
+    for fk, fp_str in path_map.items():
+        p = configparser.RawConfigParser()
+        p.optionxform = str
+        if fp_str:
+            fp = Path(fp_str)
+            if fp.exists():
+                try:
+                    with open(fp, "r", encoding="utf-8-sig") as fh:
+                        p.read_file(fh)
+                except Exception:
+                    pass
+        parsers[fk] = p
+
+    for field_name, (file_key, section, ini_key, opts) in INI_MAP.items():
+        p = parsers[file_key]
+        sec = _GAME_MODE_SECTION if (file_key == "Game" and section == "GameMode") else section
+        if not p.has_option(sec, ini_key):
+            continue
+        raw = p.get(sec, ini_key)
+
+        from dataclasses import fields as _fields
+        ftype = next((f.type for f in _fields(AsmServerConfig) if f.name == field_name), None)
+        try:
+            if ftype in ("bool", bool) or str(ftype) == "bool":
+                val: Any = raw.lower() in ("true", "1", "yes")
+            elif ftype in ("int", int) or str(ftype) == "int":
+                val = int(float(raw))
+            elif ftype in ("float", float) or str(ftype) == "float":
+                val = float(raw)
+            elif ftype in ("List[str]",):
+                sep = opts.get("list_sep", ",")
+                val = [x.strip() for x in raw.split(sep) if x.strip()]
+            else:
+                val = raw
+        except Exception:
+            continue
+
+        if opts.get("inverted") and isinstance(val, bool):
+            val = not val
+
+        setattr(cfg, field_name, val)
+
+    # Per-level stat multipliers (array-indexed)
+    _PERLEVEL_INI_TO_FIELD = {
+        "Player":             "per_level_player",
+        "DinoWild":           "per_level_dino_wild",
+        "DinoTamed":          "per_level_dino_tamed",
+        "DinoTamed_Add":      "per_level_dino_tamed_add",
+        "DinoTamed_Affinity": "per_level_dino_tamed_affinity",
+    }
+    import re as _re
+    game_p = parsers["Game"]
+    if game_p.has_section(_GAME_MODE_SECTION):
+        for ini_key, raw_val in game_p.items(_GAME_MODE_SECTION):
+            m = _re.match(r"PerLevelStatsMultiplier_(\w+)\[(\d+)\]", ini_key, _re.IGNORECASE)
+            if m:
+                suffix = m.group(1)
+                idx    = int(m.group(2))
+                attr   = _PERLEVEL_INI_TO_FIELD.get(suffix)
+                if attr:
+                    lst = getattr(cfg, attr, [])
+                    if isinstance(lst, list) and idx < len(lst):
+                        try:
+                            lst[idx] = float(raw_val)
+                        except ValueError:
+                            pass
 
 
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:

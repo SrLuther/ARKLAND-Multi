@@ -615,19 +615,14 @@ class ServerConfig:
 
         params = [
             "?listen",
-            f"?SessionName=\"{self.server_name}\"",
             f"?MaxPlayers={self.max_players}",
             f"?Port={self.server_port}",
             f"?QueryPort={self.query_port}",
         ]
-
-        if self.server_password:
-            params.append(f"?ServerPassword={self.server_password}")
-        if self.admin_password:
-            params.append(f"?ServerAdminPassword={self.admin_password}")
-        if self.rcon_enabled:
-            params.append("?RCONEnabled=True")
-            params.append(f"?RCONPort={self.rcon_port}")
+        # SessionName, ServerPassword, ServerAdminPassword, RCONEnabled, RCONPort
+        # são escritos no GameUserSettings.ini por ark_ini.py — NÃO colocar na CLI.
+        # ASM nunca coloca esses valores na linha de comando; colocar duplicado
+        # causava crash do ArkShopUI.dll no FTimerManager::Tick ~5min após conectar.
         if self.whitelist_only:
             params.append("?ExclusiveJoin")
         if self.active_event:
@@ -673,9 +668,9 @@ class ServerConfig:
             "-log",
             "-nosteamclient",
             "-game",
-            f"-port={self.server_port}",
-            f"-queryport={self.query_port}",
         ]
+        # -port e -queryport omitidos: ?Port= e ?QueryPort= já estão nos params.
+        # ASM usa apenas ?Port= — ter ambos causava inicialização duplicada.
 
         if not self.use_battleye:
             flags.append("-NoBattlEye")

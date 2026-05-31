@@ -15,17 +15,106 @@ from .server_config import ServerConfig, ClusterProfile
 
 @dataclass
 class DiscordNotifyConfig:
-    """Configuração de notificações Discord via webhook."""
-    enabled: bool       = False
-    webhook_url: str    = ""
-    sender_name: str    = "ARKLAND"
-    notify_start: bool  = True   # Iniciando + Online
-    notify_stop: bool   = True   # Parado + Encerrando
-    notify_crash: bool  = True   # Crash detectado
-    notify_update: bool = True   # Atualização concluída (mod auto-updater)
-    notify_backup: bool = False  # Backup concluído
-    # Webhook separado para notas de atualização de mods (vazio = usar webhook_url principal)
+    enabled: bool = False
+    webhook_url: str = ""
+    sender_name: str = "ARKLAND"
+    notify_start: bool = True
+    notify_stop: bool = True
+    notify_crash: bool = True
+    notify_update: bool = True
+    notify_backup: bool = False
     mod_changelog_webhook: str = ""
+
+
+@dataclass
+class BackupConfig:
+    backup_dir:            str  = ""
+    include_savegames:     bool = True
+    exclude_old_backups:   bool = True
+    max_backup_days:       int  = 5
+    rcon_broadcast_mode:   str  = "Broadcast"
+    save_message:          str  = "ARKLAND: Auto save em andamento"
+    auto_backup:           bool = True
+    backup_interval:       str  = "01:00"
+
+
+@dataclass
+class AutoUpdateConfig:
+    cache_dir:                   str  = ""
+    update_interval:             str  = "01:00"
+    smart_cache_copy:            bool = True
+    validate_server_files:       bool = True
+    update_in_parallel:          bool = True
+    update_delay_seconds:        int  = 10
+    show_update_reason:          bool = True
+    update_reason_prefix:        str  = "Server Update Reason:"
+    replace_restart_after_update: bool = False
+
+
+@dataclass
+class ShutdownConfig:
+    check_online_players:    bool = True
+    send_msgs_to_client:     bool = True
+    grace_period_minutes:    int  = 15
+    msg1:                    str  = "ARKLAND: Auto save em andamento"
+    msg2:                    str  = "Vamos desligar em {minutes} minutos. Fica atento"
+    msg3:                    str  = "Um salvamento será feito..."
+    save_message:            str  = "Procure um local seguro pois tu vai ser desconectado do servidor"
+    cancel_message:          str  = "Desligamento cancelado"
+    show_reason_all_msgs:    bool = True
+
+
+@dataclass
+class AlertMessagesConfig:
+    server_stopped:       str  = "O servidor parou"
+    server_shutting_down: str  = "O servidor está desligando."
+    server_started:       str  = "O servidor está desligado."
+    include_ip_port:      bool = True
+    ip_port_format:       str  = "{ipaddress}:{port}"
+    backup_error:         str  = "Erro no processo de backup"
+    shutdown_error:       str  = "Erro no desligamento do servidor"
+    restart_error:        str  = "Erro na reinicialização do servidor"
+    update_error:         str  = "Erro na atualização do servidor"
+    update_result:        str  = "Atualizações:"
+    server_update_msg:    str  = "Atualização de servidor"
+    server_status:        str  = "Server Status:"
+    mod_update_detected:  str  = "Mods atualizados detectados:"
+    players_changed:      str  = "Conectados:"
+    dino_respawn:         str  = "Matando dinos selvagens..."
+
+
+@dataclass
+class DiscordBotConfig:
+    enabled:              bool  = False
+    token:                str   = ""
+    server_id:            str   = ""
+    prefix:               str   = "asm!"
+    log_level:            str   = "Informações"
+    alias_all_profiles:   str   = "all"
+    allow_backup:         bool  = True
+    allow_update:         bool  = True
+    allow_restart:        bool  = True
+    allow_shutdown:       bool  = True
+    allow_start:          bool  = True
+    allow_stop:           bool  = True
+    allow_all_bots:       bool  = True
+    whitelist:            list  = field(default_factory=list)
+
+
+@dataclass
+class SmtpConfig:
+    host:                       str  = ""
+    port:                       int  = 25
+    use_ssl:                    bool = False
+    use_default_credentials:    bool = False
+    username:                   str  = ""
+    password:                   str  = ""
+    from_address:               str  = ""
+    to_address:                 str  = ""
+    notify_auto_backup:         bool = False
+    notify_auto_update:         bool = False
+    notify_auto_shutdown:       bool = False
+    notify_shutdown_restart:    bool = False
 
 
 @dataclass
@@ -36,7 +125,6 @@ class AppConfig:
     startup_with_windows: bool = False       # Iniciar com o Windows
     minimize_to_tray: bool = False           # Minimizar para a bandeja ao fechar
     log_debug: bool = False                  # Log verboso
-    steam_api_key: str = ""                  # Chave pessoal da Steam Web API (opcional, evita rate limit)
     update_url: str = "https://raw.githubusercontent.com/SrLuther/ARKLAND-Multi/main/version.json"
 
     # ── Legado (sync cluster) ─────────────────────────────────────────────────
@@ -46,15 +134,31 @@ class AppConfig:
     machine_name: str = ""
     auto_start: bool = False
     remote_agent_enabled: bool = False
+    remote_agent_name: str = ""
     remote_agent_port: int = 32440
     remote_agent_token: str = ""
-    remote_agent_name: str = ""          # Nome de exibição desta instância
     remote_peers: list = field(default_factory=list)
-    remote_instances: list = field(default_factory=list)  # Lista de conexões remotas salvas
     # Ciclos de sincronização: lista de listas de caminhos
     # Cada ciclo sincroniza todas as suas pastas entre si (N-way)
     sync_cycles: list = field(default_factory=list)
+    # Steam Web API
+    steam_api_key: str = ""
+    # Remote instances salvas (lista de dicts com name/host/port/token/favorite)
+    remote_instances: list = field(default_factory=list)
+    # Discord webhook (notificações simples)
     discord_notify: DiscordNotifyConfig = field(default_factory=DiscordNotifyConfig)
+    # Backup
+    backup: BackupConfig = field(default_factory=BackupConfig)
+    # Auto-update
+    auto_update: AutoUpdateConfig = field(default_factory=AutoUpdateConfig)
+    # Shutdown
+    shutdown: ShutdownConfig = field(default_factory=ShutdownConfig)
+    # Mensagens de alerta
+    alert_messages: AlertMessagesConfig = field(default_factory=AlertMessagesConfig)
+    # Discord Bot
+    discord_bot: DiscordBotConfig = field(default_factory=DiscordBotConfig)
+    # SMTP
+    smtp: SmtpConfig = field(default_factory=SmtpConfig)
 
 
 class ConfigManager:
@@ -78,13 +182,20 @@ class ConfigManager:
                     data = json.load(fh)
                 valid = {f.name for f in fields(AppConfig)}
                 raw = {k: v for k, v in data.items() if k in valid}
-                discord_raw = raw.pop("discord_notify", None)
+
+                def _deserialize(dc_cls, key):
+                    if key in raw and isinstance(raw[key], dict):
+                        dc_f = {f.name for f in fields(dc_cls)}
+                        raw[key] = dc_cls(**{k: v for k, v in raw[key].items() if k in dc_f})
+
+                _deserialize(DiscordNotifyConfig, "discord_notify")
+                _deserialize(BackupConfig,        "backup")
+                _deserialize(AutoUpdateConfig,    "auto_update")
+                _deserialize(ShutdownConfig,      "shutdown")
+                _deserialize(AlertMessagesConfig, "alert_messages")
+                _deserialize(DiscordBotConfig,    "discord_bot")
+                _deserialize(SmtpConfig,          "smtp")
                 self.config = AppConfig(**raw)
-                if isinstance(discord_raw, dict):
-                    dc_valid = {f.name for f in fields(DiscordNotifyConfig)}
-                    for k, v in discord_raw.items():
-                        if k in dc_valid:
-                            setattr(self.config.discord_notify, k, v)
                 if not self.config.update_url:
                     self.config.update_url = self._DEFAULT_UPDATE_URL
                 if not isinstance(self.config.remote_peers, list):
@@ -110,10 +221,8 @@ class ConfigManager:
 
     def save(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self._config_file.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
+        with open(self._config_file, "w", encoding="utf-8") as fh:
             json.dump(asdict(self.config), fh, indent=2, ensure_ascii=False)  # type: ignore[arg-type]
-        tmp.replace(self._config_file)
 
     # ── Servidores ────────────────────────────────────────────────────────────
 
@@ -138,10 +247,8 @@ class ConfigManager:
 
     def save_servers(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self._servers_file.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
+        with open(self._servers_file, "w", encoding="utf-8") as fh:
             json.dump([s.to_dict() for s in self._servers], fh, indent=2, ensure_ascii=False)
-        tmp.replace(self._servers_file)
 
     def add_server(self, server: ServerConfig) -> None:
         self._servers.append(server)
@@ -164,7 +271,7 @@ class ConfigManager:
                 return s
         return None
 
-    # ── Perfis de Cluster (Cross-ARK) ─────────────────────────────────────────
+    # ── Clusters ──────────────────────────────────────────────────────────────
 
     @property
     def clusters(self) -> List[ClusterProfile]:
@@ -187,81 +294,26 @@ class ConfigManager:
 
     def save_clusters(self) -> None:
         self._config_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self._clusters_file.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as fh:
+        with open(self._clusters_file, "w", encoding="utf-8") as fh:
             json.dump([c.to_dict() for c in self._clusters], fh, indent=2, ensure_ascii=False)
-        tmp.replace(self._clusters_file)
 
-    def add_cluster(self, cluster: ClusterProfile) -> None:
-        self._clusters.append(cluster)
+    def add_cluster(self, prof: ClusterProfile) -> None:
+        self._clusters.append(prof)
         self.save_clusters()
 
-    def update_cluster(self, cluster: ClusterProfile) -> None:
+    def update_cluster(self, prof: ClusterProfile) -> None:
         for i, c in enumerate(self._clusters):
-            if c.id == cluster.id:
-                self._clusters[i] = cluster
+            if c.id == prof.id:
+                self._clusters[i] = prof
                 break
         self.save_clusters()
 
     def remove_cluster(self, cluster_id: str) -> None:
         self._clusters = [c for c in self._clusters if c.id != cluster_id]
-        # Desvincula servidores que apontavam para este cluster
-        for srv in self._servers:
-            if srv.cluster_profile_id == cluster_id:
-                srv.cluster_profile_id = ""
         self.save_clusters()
-        self.save_servers()
 
     def get_cluster(self, cluster_id: str) -> Optional[ClusterProfile]:
         for c in self._clusters:
             if c.id == cluster_id:
                 return c
         return None
-
-    def servers_in_cluster(self, cluster_id: str) -> List[ServerConfig]:
-        """Retorna todos os servidores vinculados a um perfil de cluster."""
-        return [s for s in self._servers if s.cluster_profile_id == cluster_id]
-
-    # ── Perfil (exportar / importar) ──────────────────────────────────────────
-
-    def export_profile(self, path: "str | Path") -> None:
-        """Exporta todos os servidores para um arquivo .arkprofile (JSON)."""
-        import datetime
-        profile = {
-            "arkland_profile_version": 1,
-            "exported_at": datetime.datetime.now().isoformat(timespec="seconds"),
-            "servers": [s.to_dict() for s in self._servers],
-        }
-        target = Path(path)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with open(target, "w", encoding="utf-8") as fh:
-            json.dump(profile, fh, indent=2, ensure_ascii=False)
-
-    def import_profile(self, path: "str | Path", replace: bool = False) -> List[ServerConfig]:
-        """
-        Importa servidores de um arquivo .arkprofile.
-        replace=True  → substitui todos os servidores existentes.
-        replace=False → adiciona aos existentes (gera novo ID em caso de conflito).
-        Retorna a lista de ServerConfig importados.
-        """
-        with open(path, "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-        if data.get("arkland_profile_version", 0) < 1:
-            raise ValueError("Arquivo de perfil inválido ou versão não suportada.")
-        existing_ids = {s.id for s in self._servers}
-        imported: List[ServerConfig] = []
-        for item in data.get("servers", []):
-            try:
-                srv = ServerConfig.from_dict(item)
-                if srv.id in existing_ids:
-                    srv.id = str(uuid.uuid4())
-                imported.append(srv)
-                existing_ids.add(srv.id)
-            except Exception:
-                pass
-        if replace:
-            self._servers = list(imported)
-        else:
-            self._servers.extend(imported)
-        self.save_servers()
-        return imported

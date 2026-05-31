@@ -48,6 +48,19 @@ BUFF_STATUS_ACTIVE    = "active"
 BUFF_STATUS_FINISHED  = "finished"
 BUFF_STATUS_CANCELLED = "cancelled"
 
+# ── Recorrência ──────────────────────────────────────────────────────────────
+BUFF_RECURRENCE_NONE    = None
+BUFF_RECURRENCE_DAILY   = "daily"
+BUFF_RECURRENCE_WEEKLY  = "weekly"
+BUFF_RECURRENCE_WEEKEND = "weekend"
+
+BUFF_RECURRENCE_LABELS: Dict[Optional[str], str] = {
+    None:                  "Sem repetição",
+    BUFF_RECURRENCE_DAILY:   "Diariamente",
+    BUFF_RECURRENCE_WEEKLY:  "Semanalmente",
+    BUFF_RECURRENCE_WEEKEND: "Fins de semana",
+}
+
 BUFF_MAX_DAYS = 30
 
 # ── Definição dos campos de rate por tipo ──────────────────────────────────────
@@ -194,12 +207,16 @@ class BuffEvent:
     status: str      # BUFF_STATUS_*
     preset_id: Optional[str] = None
     backup_path: Optional[str] = None
+    recurrence: Optional[str] = None  # BUFF_RECURRENCE_*
 
     def start_datetime(self) -> datetime:
         return datetime.fromisoformat(self.start_dt)
 
     def end_datetime(self) -> datetime:
         return datetime.fromisoformat(self.end_dt)
+
+    def duration(self) -> timedelta:
+        return self.end_datetime() - self.start_datetime()
 
     def to_dict(self) -> dict:
         return {
@@ -213,6 +230,7 @@ class BuffEvent:
             "status":      self.status,
             "preset_id":   self.preset_id,
             "backup_path": self.backup_path,
+            "recurrence":  self.recurrence,
         }
 
     @classmethod
@@ -228,6 +246,7 @@ class BuffEvent:
             status=data.get("status", BUFF_STATUS_SCHEDULED),
             preset_id=data.get("preset_id"),
             backup_path=data.get("backup_path"),
+            recurrence=data.get("recurrence"),
         )
 
 
@@ -249,6 +268,7 @@ class BuffManager:
         stop_server,          # Callable[[str], None]
         get_server_status,    # Callable[[str], str]
         on_log: Optional[Callable[[str, str], None]] = None,
+        discord_notify: Optional[Callable] = None,  # Callable[[str, BuffEvent], None]
     ) -> None:
         self._data_dir          = data_dir
         self._get_server_config = get_server_config
@@ -256,6 +276,7 @@ class BuffManager:
         self._stop_server       = stop_server
         self._get_server_status = get_server_status
         self._on_log            = on_log or (lambda m, lvl: None)
+        self._discord_notify    = discord_notify  # (action, event) → None
 
         self._buffs_file   = data_dir / "buffs.json"
         self._presets_file = data_dir / "buff_presets.json"
@@ -265,6 +286,8 @@ class BuffManager:
         self._presets: List[BuffPreset] = []
         self._lock = threading.Lock()
         self._change_callbacks: List[Callable] = []
+        # Controle de avisos RCON já enviados: set de "event_id:threshold"
+        self._rcon_warnings_sent: set = set()
 
         self._load()
 
@@ -394,6 +417,31 @@ class BuffManager:
             return err
         with self._lock:
             self._events.append(event)
+            self._save()
+        self._notify()
+        return None
+
+    def update_event(self, event: BuffEvent) -> Optional[str]:
+        """Substitui um evento agendado existente. Retorna erro ou None."""
+        with self._lock:
+            existing = next((e for e in self._events if e.id == event.id), None)
+            if not existing:
+                return "Evento não encontrado."
+            if existing.status != BUFF_STATUS_SCHEDULED:
+                return "Só é possível editar BUFFs com status 'agendado'."
+        err = self.validate_event(event)
+        if err:
+            return err
+        with self._lock:
+            for i, e in enumerate(self._events):
+                if e.id == event.id:
+                    self._events[i] = event
+                    break
+            # Remove avisos RCON associados ao evento editado
+            self._rcon_warnings_sent = {
+                k for k in self._rcon_warnings_sent
+                if not k.startswith(event.id + ":")
+            }
             self._save()
         self._notify()
         return None
@@ -549,6 +597,13 @@ class BuffManager:
         self._notify()
         self._on_log(f"[BUFF] BUFF '{event.name}' ativado com sucesso.", "info")
 
+        # 8. Notifica Discord
+        if self._discord_notify:
+            try:
+                self._discord_notify("start", event)
+            except Exception:
+                pass
+
     def _deactivate_worker(self, event: BuffEvent) -> None:
         self._on_log(f"[BUFF] Desativando BUFF: '{event.name}'", "info")
 
@@ -583,6 +638,62 @@ class BuffManager:
         self._notify()
         self._on_log(f"[BUFF] BUFF '{event.name}' finalizado.", "info")
 
+        # 6. Notifica Discord
+        if self._discord_notify:
+            try:
+                self._discord_notify("end", event)
+            except Exception:
+                pass
+
+        # 7. Recria evento para próxima ocorrência (recorrência)
+        if event.recurrence:
+            self._reschedule_recurring(event)
+
+    def _reschedule_recurring(self, event: BuffEvent) -> None:
+        """Cria o próximo evento recorrente com base na recorrência configurada."""
+        try:
+            start = event.start_datetime()
+            dur   = event.duration()
+            rec   = event.recurrence
+
+            if rec == BUFF_RECURRENCE_DAILY:
+                next_start = start + timedelta(days=1)
+            elif rec == BUFF_RECURRENCE_WEEKLY:
+                next_start = start + timedelta(weeks=1)
+            elif rec == BUFF_RECURRENCE_WEEKEND:
+                # Próximo sábado a partir do início original
+                days_ahead = (5 - start.weekday()) % 7  # 5 = sábado
+                if days_ahead == 0:
+                    days_ahead = 7
+                next_start = start + timedelta(days=days_ahead)
+            else:
+                return
+
+            next_end = next_start + dur
+            new_event = BuffEvent(
+                id=str(uuid.uuid4()),
+                name=event.name,
+                server_id=event.server_id,
+                types=list(event.types),
+                rates=event.rates,
+                start_dt=next_start.isoformat(),
+                end_dt=next_end.isoformat(),
+                status=BUFF_STATUS_SCHEDULED,
+                preset_id=event.preset_id,
+                recurrence=event.recurrence,
+            )
+            err = self.add_event(new_event)
+            if err:
+                self._on_log(f"[BUFF] Não foi possível reagendar '{event.name}': {err}", "warning")
+            else:
+                self._on_log(
+                    f"[BUFF] '{event.name}' reagendado para "
+                    f"{next_start.strftime('%d/%m/%Y %H:%M')}.",
+                    "info",
+                )
+        except Exception as exc:
+            self._on_log(f"[BUFF] Erro ao reagendar: {exc}", "error")
+
     # ── Scheduler ─────────────────────────────────────────────────────────────
 
     def _scheduler_loop(self) -> None:
@@ -597,21 +708,59 @@ class BuffManager:
         now = now_brasilia()
         to_activate: List[BuffEvent]   = []
         to_deactivate: List[BuffEvent] = []
+        to_warn: List[tuple] = []  # (event, label, key)
 
         with self._lock:
             for e in self._events:
                 if e.status == BUFF_STATUS_SCHEDULED:
                     try:
-                        if e.start_datetime() <= now:
+                        start = e.start_datetime()
+                        if start <= now:
                             to_activate.append(e)
+                        else:
+                            # Avisos antes do início
+                            secs_left = (start - now).total_seconds()
+                            for threshold, label in (
+                                (900, "15 minutos"),
+                                (300, "5 minutos"),
+                                (60,  "1 minuto"),
+                            ):
+                                key = f"{e.id}:start:{threshold}"
+                                if secs_left <= threshold and key not in self._rcon_warnings_sent:
+                                    to_warn.append((e, label, key, "start"))
                     except ValueError:
                         pass
                 elif e.status == BUFF_STATUS_ACTIVE:
                     try:
-                        if e.end_datetime() <= now:
+                        end = e.end_datetime()
+                        if end <= now:
                             to_deactivate.append(e)
+                        else:
+                            # Aviso antes do fim
+                            secs_left = (end - now).total_seconds()
+                            for threshold, label in (
+                                (300, "5 minutos"),
+                                (60,  "1 minuto"),
+                            ):
+                                key = f"{e.id}:end:{threshold}"
+                                if secs_left <= threshold and key not in self._rcon_warnings_sent:
+                                    to_warn.append((e, label, key, "end"))
                     except ValueError:
                         pass
+
+        for e, label, key, phase in to_warn:
+            with self._lock:
+                self._rcon_warnings_sent.add(key)
+            if phase == "start":
+                self._rcon_broadcast(
+                    e.server_id,
+                    f"[BUFF] ⚡ '{e.name}' começa em {label}!",
+                )
+            else:
+                self._rcon_broadcast(
+                    e.server_id,
+                    f"[BUFF] ⏳ '{e.name}' encerra em {label}.",
+                )
 
         for e in to_activate:
             threading.Thread(

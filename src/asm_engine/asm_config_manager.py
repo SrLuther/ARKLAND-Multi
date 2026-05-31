@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -21,6 +23,9 @@ class AsmConfigManager:
         self._servers_file = self._config_dir / "asm_servers.json"
         self._servers: List[AsmServerConfig] = []
         self.load()
+        # FolderManager exposto depois da importação circular ser evitada
+        from .asm_folder_manager import AsmFolderManager  # noqa: PLC0415
+        self.folder_manager = AsmFolderManager(self)
 
     # ── Persistência ────────────────────────────────────────────────────────
 
@@ -72,3 +77,43 @@ class AsmConfigManager:
     def remove_server(self, server_id: str) -> None:
         self._servers = [s for s in self._servers if s.id != server_id]
         self.save()
+
+    # ── S3.4 — Export / Import / Clone ────────────────────────────────────────
+
+    def export_server(self, server_id: str, path: str) -> None:
+        """Exporta AsmServerConfig como .arkprofile JSON."""
+        srv = self.get_server(server_id)
+        if srv is None:
+            raise ValueError(f"Servidor {server_id!r} não encontrado.")
+        payload = {
+            "version": "1.0",
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "created_by": "ARKLAND-Multi",
+            "server": srv.to_dict(),
+        }
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, indent=2, ensure_ascii=False)
+
+    def import_server(self, path: str) -> AsmServerConfig:
+        """Importa .arkprofile → novo servidor com novo UUID."""
+        with open(path, "r", encoding="utf-8") as fh:
+            payload = json.load(fh)
+        data = payload.get("server", payload)   # compatível com raw JSON também
+        srv = AsmServerConfig.from_dict(data)
+        srv.id = str(uuid.uuid4())              # novo UUID para evitar colisão
+        srv.name = f"{srv.name} (importado)"
+        self.add_server(srv)
+        return srv
+
+    def clone_server(self, server_id: str, new_name: str) -> AsmServerConfig:
+        """Clona servidor com novo UUID, novo nome e install_dir vazio."""
+        srv = self.get_server(server_id)
+        if srv is None:
+            raise ValueError(f"Servidor {server_id!r} não encontrado.")
+        data = srv.to_dict()
+        data["id"] = str(uuid.uuid4())
+        data["name"] = new_name
+        data["install_dir"] = ""
+        clone = AsmServerConfig.from_dict(data)
+        self.add_server(clone)
+        return clone

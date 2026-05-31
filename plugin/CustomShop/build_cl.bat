@@ -11,7 +11,7 @@ set PLUGIN_DIR=%~dp0
 set SDK_DIR=%PLUGIN_DIR%ArkServerAPI\version\Core\Public
 set LIB_DIR=%PLUGIN_DIR%ArkServerAPI\out_lib
 set SRC_DIR=%PLUGIN_DIR%src
-set MYSQL_DIR=%PLUGIN_DIR%mysql
+set MYSQL_DIR=%PLUGIN_DIR%mariadb
 pushd "%~dp0"
 set OBJ_DIR=%CD%\obj
 set BIN_DIR=%CD%\bin
@@ -26,7 +26,7 @@ if not exist "%OBJ_DIR%" mkdir "%OBJ_DIR%"
 if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
 
 echo === Compiling sqlite3.c ===
-"%CL_EXE%" /c /O2 /MD /nologo /W0 ^
+"%CL_EXE%" /c /O2 /MT /nologo /W0 ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
   /I"%SRC_DIR%" ^
   /Fo"%OBJ_DIR%\sqlite3.obj" ^
@@ -34,7 +34,7 @@ echo === Compiling sqlite3.c ===
 if %ERRORLEVEL% neq 0 goto :error
 
 echo === Compiling C++ sources ===
-"%CL_EXE%" /c /O2 /MD /nologo /W3 /std:c++17 /EHsc ^
+"%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++17 /EHsc /d2FH4- ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
   /I"%SDK_DIR%" /I"%SRC_DIR%" /I"%MYSQL_DIR%\include" ^
   /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME ^
@@ -61,7 +61,7 @@ echo === Linking DLL ===
   /LIBPATH:"%WIN_LIB%" ^
   /LIBPATH:"%WIN_SDK_LIB%\ucrt\x64" ^
   /LIBPATH:"%WIN_SDK_LIB%\um\x64" ^
-  ArkApi.lib "%MYSQL_DIR%\lib\libmysql.lib" ^
+  ArkApi.lib "%MYSQL_DIR%\lib\libmariadb.lib" ^
   kernel32.lib user32.lib advapi32.lib ole32.lib oleaut32.lib ^
   "%OBJ_DIR%\Main.obj" ^
   "%OBJ_DIR%\ShopBridge.obj" ^

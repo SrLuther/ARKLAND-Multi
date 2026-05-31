@@ -33,43 +33,62 @@ def now_brasilia() -> datetime:
     return datetime.now(tz=_TZ_BRASILIA).replace(tzinfo=None)
 
 
-# ── Paleta de cores ────────────────────────────────────────────────────────────
-_GREEN       = "#4CAF50"
-_GREEN_DARK  = "#2d7a3e"
-_GREEN_HOVER = "#1f5c2d"
-_RED_DARK    = "#7a2d2d"
-_RED_HOVER   = "#5c1f1f"
-_BLUE        = "#1a3a6a"
+# ── Paleta de cores (legado — usada por app.py/pages) ─────────────────────────
+_GREEN       = "#4ade80"    # green-400 (vivid)
+_GREEN_DARK  = "#15803d"    # green-700
+_GREEN_HOVER = "#14532d"    # green-900
+_RED_DARK    = "#7f1d1d"    # red-900
+_RED_HOVER   = "#450a0a"    # red-950
+_BLUE        = "#1e3a5f"
 _BLUE_HOVER  = "#102650"
-_SIDEBAR_BG  = "#161622"
-_CARD_BG     = "#1e1e30"
-_BG          = "#111118"
+_SIDEBAR_BG  = "#0a0f14"   # aligned with new theme
+_CARD_BG     = "#0f172a"   # slate-900
+_BG          = "#020617"   # deepest dark
 
 # ── Temas por modo (PRIMITIVE = verde, TEK = teal/ciano) ─────────────────────
+# Inspirado no design do ARKLAND SM (React/Tailwind) — adaptado para CustomTkinter
 _THEMES: dict = {
     "primitive": {
-        "accent":       "#4CAF50",
-        "accent_dark":  "#2d7a3e",
-        "accent_hover": "#1f5c2d",
-        "accent_label": "#88d4a0",
-        "rail_bg":      "#0e0e1a",
-        "tab_bar_bg":   "#161622",
-        "card_bg":      "#1e1e30",
-        "bg":           "#111118",
-        "mode_label":   "PRIMITIVE",
-        "mode_short":   "P",
+        "accent":         "#4CAF50",
+        "accent_dark":    "#2d7a3e",
+        "accent_hover":   "#1f5c2d",
+        "accent_label":   "#86efac",    # green-300
+        "accent_muted_bg":"#052e16",    # green-950
+        "rail_bg":        "#0a0f14",
+        "tab_bar_bg":     "#0d1117",
+        "sidebar_bg":     "#0a0f14",
+        "card_bg":        "#0f172a",
+        "card_border":    "#1e293b",
+        "card_hover":     "#0d2a1a",
+        "bg":             "#020617",
+        "topbar_bg":      "#0a0f14",
+        "separator":      "#1e293b",
+        "text_primary":   "#e2e8f0",
+        "text_secondary": "#94a3b8",
+        "text_muted":     "#475569",
+        "mode_label":     "PRIMITIVE",
+        "mode_short":     "P",
     },
     "tek": {
-        "accent":       "#00BCD4",
-        "accent_dark":  "#0d5f72",
-        "accent_hover": "#094d5c",
-        "accent_label": "#80d8e8",
-        "rail_bg":      "#0a1418",
-        "tab_bar_bg":   "#0f1e22",
-        "card_bg":      "#162228",
-        "bg":           "#0e1820",
-        "mode_label":   "TEK",
-        "mode_short":   "T",
+        "accent":         "#22d3ee",    # cyan-400
+        "accent_dark":    "#0e7490",    # cyan-700
+        "accent_hover":   "#164e63",    # cyan-900
+        "accent_label":   "#67e8f9",    # cyan-300
+        "accent_muted_bg":"#083344",    # cyan-950
+        "rail_bg":        "#0a0f1c",
+        "tab_bar_bg":     "#0d1420",
+        "sidebar_bg":     "#0a0f1c",
+        "card_bg":        "#0f172a",
+        "card_border":    "#1e293b",
+        "card_hover":     "#0c2236",
+        "bg":             "#020617",
+        "topbar_bg":      "#0a0f1c",
+        "separator":      "#1e293b",
+        "text_primary":   "#e2e8f0",
+        "text_secondary": "#94a3b8",
+        "text_muted":     "#475569",
+        "mode_label":     "TEK",
+        "mode_short":     "T",
     },
 }
 

@@ -11,6 +11,12 @@ from ..buff_manager import BuffManager
 def init_buff_manager(app: "ARKServerManagerApp") -> None:
     """Inicializa o BuffManager após a UI ser construída."""
     data_dir = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+
+    def _discord_notify(action: str, event) -> None:
+        notifier = getattr(app, "_discord_notifier", None)
+        if notifier:
+            notifier.notify_buff(action, event)
+
     app._buff_manager = BuffManager(
         data_dir=data_dir,
         get_server_config=lambda sid: next(
@@ -23,7 +29,8 @@ def init_buff_manager(app: "ARKServerManagerApp") -> None:
             if (inst := app.server_manager.get_instance(sid))
             else SERVER_STATUS_STOPPED
         ),
-        on_log=app._global_log,
+        on_log=app._global_log if callable(getattr(app, "_global_log", None)) else None,
+        discord_notify=_discord_notify,
     )
     app._buff_manager.add_change_callback(
         lambda: app.after(0, app._refresh_buffs_ui)

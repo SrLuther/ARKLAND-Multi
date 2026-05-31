@@ -44,7 +44,7 @@ if sys.platform == "win32":
         sys.exit(0)
 # ─────────────────────────────────────────────────────────────────────────────
 
-from src.app import ARKServerManagerApp
+from src.app_tek import ARKServerManagerApp
 
 if __name__ == "__main__":
     app = ARKServerManagerApp()

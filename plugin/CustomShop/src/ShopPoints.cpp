@@ -57,13 +57,20 @@ bool ShopPoints::Open() {
     // Set charset explicitly
     mysql_set_character_set(db_, "utf8mb4");
 
+    // Disable strict SQL mode to avoid TEXT/BLOB DEFAULT restrictions
+    mysql_query(db_, "SET SESSION sql_mode='NO_ENGINE_SUBSTITUTION'");
+
     // ── Create tables ────────────────────────────────────────────────
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS players ("
         "  steam_id VARCHAR(20) PRIMARY KEY NOT NULL,"
-        "  points   INT NOT NULL DEFAULT 0"
+        "  points   INT NOT NULL DEFAULT 0,"
+        "  kits     TEXT"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
+
+    // Migrate existing databases that predate the kits column.
+    Exec("ALTER TABLE players ADD COLUMN kits TEXT;");
 
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS transactions ("
@@ -100,8 +107,8 @@ bool ShopPoints::Open() {
 void ShopPoints::EnsurePlayer(const std::string& steam_id,
                                int starting_points) {
     const std::string sql =
-        "INSERT IGNORE INTO players (steam_id, points) VALUES ('" +
-        steam_id + "', " + std::to_string(starting_points) + ");";
+        "INSERT IGNORE INTO players (steam_id, points, kits) VALUES ('" +
+        steam_id + "', " + std::to_string(starting_points) + ", '{}')";
     Exec(sql.c_str());
 }
 
@@ -181,6 +188,54 @@ void ShopPoints::LogTransaction(const std::string& type,
 
     if (mysql_query(db_, sql.c_str()) != 0)
         Log::GetLog()->warn("LogTransaction failed: {}", mysql_error(db_));
+}
+
+// ── Kit stash ────────────────────────────────────────────────────
+
+nlohmann::json ShopPoints::GetKitStash(const std::string& steam_id) {
+    EnsurePlayer(steam_id, ShopConfig::Get().StartingPoints());
+
+    const std::string sql =
+        "SELECT kits FROM players WHERE steam_id = '" + steam_id + "';";
+    if (mysql_query(db_, sql.c_str()) != 0) return nlohmann::json::object();
+
+    MYSQL_RES* res = mysql_store_result(db_);
+    if (!res) return nlohmann::json::object();
+
+    nlohmann::json stash = nlohmann::json::object();
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (row && row[0]) {
+        try { stash = nlohmann::json::parse(row[0]); }
+        catch (...) { stash = nlohmann::json::object(); }
+    }
+    mysql_free_result(res);
+    return stash;
+}
+
+bool ShopPoints::SetKitStash(const std::string& steam_id,
+                              const nlohmann::json& stash) {
+    EnsurePlayer(steam_id, 0);
+    const std::string json_str = stash.dump();
+
+    std::vector<char> escaped(json_str.size() * 2 + 1);
+    unsigned long len = mysql_real_escape_string(
+        db_, escaped.data(), json_str.c_str(),
+        static_cast<unsigned long>(json_str.size()));
+
+    const std::string sql =
+        "UPDATE players SET kits = '" + std::string(escaped.data(), len) +
+        "' WHERE steam_id = '" + steam_id + "';";
+    return Exec(sql.c_str());
+}
+
+bool ShopPoints::AddKitToStash(const std::string& steam_id,
+                                const std::string& kit_id,
+                                int amount) {
+    nlohmann::json stash = GetKitStash(steam_id);
+    const int current = stash.contains(kit_id)
+        ? stash[kit_id].value("Amount", 0) : 0;
+    stash[kit_id]["Amount"] = current + amount;
+    return SetKitStash(steam_id, stash);
 }
 
 } // namespace CustomShop

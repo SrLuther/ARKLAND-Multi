@@ -2,7 +2,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [1.3.57] - 2026-05-27
+## [1.4.1] - 2026-05-31
+
+### Feature
+
+- **ASM TEK — Mods**: gerenciador de mods com tabela de 3 colunas — ID editável, nome e data de atualização preenchidos automaticamente via Steam Workshop API. Botões: `+ Mod`, `Buscar Info` (async), `Redownload Mods` (SteamCMD) e `Validar IDs` (marca IDs inválidos com ❌). Cache por sessão evita consultas redundantes.
+- **UI**: watermark de fundo — logo `ark_manager.png` exibida em 600×400 px na área principal com 6% de opacidade, preservada atrás de todo conteúdo de navegação.
+
+### Fix
+
+- **Sidebar — logo**: imagem `ark_manager.png` exibida com proporção correta 3:2 (66×44 px) em vez de quadrado distorcido (44×44).
+
+## [1.4.0] - 2026-05-31
 
 ### Fix
 

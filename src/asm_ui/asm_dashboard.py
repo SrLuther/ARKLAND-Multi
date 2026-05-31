@@ -1,80 +1,206 @@
 """
 TEK — Dashboard principal do modo ASM.
-Lista todos os servidores TEK com cards de status.
+Visual inspirado no ARKLAND SM (React/Tailwind): TopBar com saudação,
+grid de stats (Total / Rodando / Parados / CPU / RAM), cards de servidor.
 """
 from __future__ import annotations
 
+import platform
 import tkinter as tk
+from datetime import datetime
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..ui_constants import get_theme
-from ..asm_engine.asm_server_config import ASM_STATUS_RUNNING, ASM_STATUS_STOPPED
+from ..asm_engine.asm_server_config import (
+    ASM_STATUS_RUNNING, ASM_STATUS_STOPPED,
+    ASM_STATUS_STARTING, ASM_STATUS_STOPPING, ASM_STATUS_UPDATING,
+)
 
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _greeting() -> tuple[str, str]:
+    """Retorna (saudação, ícone) baseado no horário."""
+    hour = datetime.now().hour
+    if hour < 12:
+        return "Bom dia", "☀"
+    if hour < 18:
+        return "Boa tarde", "⛅"
+    return "Boa noite", "🌙"
+
+
+def _get_perf() -> tuple[float, float]:
+    """Retorna (cpu_pct, ram_pct) ou (0, 0) se psutil não estiver disponível."""
+    try:
+        import psutil  # type: ignore[reportMissingImports]
+        cpu = psutil.cpu_percent(interval=None)
+        vm  = psutil.virtual_memory()
+        return cpu, vm.percent
+    except Exception:
+        return 0.0, 0.0
+
+
+# ── Construção principal ─────────────────────────────────────────────────────
+
 def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> None:
-    """Constrói o dashboard TEK dentro de `parent` (frame vazio, parente = _page_area)."""
-    theme = get_theme("tek")
-    accent  = theme["accent"]    # #00BCD4
-    bg      = theme["bg"]        # #0e1820
-    card_bg = theme["card_bg"]   # #162228
+    """Constrói o dashboard TEK dentro de `parent`."""
+    theme   = get_theme("tek")
+    accent  = theme["accent"]
+    bg      = theme["bg"]
+    card_bg = theme["card_bg"]
+    sep     = theme["separator"]
+    topbar  = theme["topbar_bg"]
+    t_pri   = theme["text_primary"]
+    t_sec   = theme["text_secondary"]
+    t_mut   = theme["text_muted"]
+    acc_mb  = theme["accent_muted_bg"]
+    acc_dk  = theme["accent_dark"]
 
     parent.grid_columnconfigure(0, weight=1)
-    parent.grid_rowconfigure(0, weight=0)  # header
-    parent.grid_rowconfigure(1, weight=0)  # separador
-    parent.grid_rowconfigure(2, weight=1)  # scroll
-    parent.grid_rowconfigure(3, weight=0)  # footer
+    parent.grid_rowconfigure(0, weight=0)  # TopBar
+    parent.grid_rowconfigure(1, weight=0)  # Stats grid
+    parent.grid_rowconfigure(2, weight=1)  # Scroll de cards
 
-    # ── Header ────────────────────────────────────────────────────────────────
-    hdr = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=0, height=64)
-    hdr.grid(row=0, column=0, sticky="ew")
-    hdr.grid_propagate(False)
-    hdr.grid_columnconfigure(1, weight=1)
+    # ── TopBar ────────────────────────────────────────────────────────────────
+    topbar_f = ctk.CTkFrame(parent, fg_color=topbar, corner_radius=0, height=72)
+    topbar_f.grid(row=0, column=0, sticky="ew")
+    topbar_f.grid_propagate(False)
+    topbar_f.grid_columnconfigure(1, weight=1)
 
-    ctk.CTkLabel(hdr, text="⚡ TEK",
-                 font=ctk.CTkFont(size=22, weight="bold"),
-                 text_color=accent).grid(row=0, column=0, padx=(20, 8), pady=10, sticky="w")
+    # Saudação
+    greet_txt, greet_icon = _greeting()
+    ctk.CTkLabel(
+        topbar_f, text=greet_icon,
+        font=ctk.CTkFont(size=28),
+        text_color=accent,
+    ).grid(row=0, column=0, padx=(20, 8), pady=12, sticky="w")
 
-    ctk.CTkLabel(hdr, text="ARK Server Manager",
-                 font=ctk.CTkFont(size=13), text_color="#5a8fa0").grid(
-        row=0, column=1, padx=4, pady=10, sticky="w")
+    greet_col = ctk.CTkFrame(topbar_f, fg_color="transparent")
+    greet_col.grid(row=0, column=1, sticky="w")
+    ctk.CTkLabel(
+        greet_col,
+        text=f"{greet_txt}, Sobrevivente",
+        font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+        text_color=t_pri,
+    ).pack(anchor="w")
+
+    # Contagem de servidores online
+    servers  = app.asm_config_manager.servers
+    running  = sum(
+        1 for s in servers
+        if (inst := app.asm_server_manager.get_instance(s.id)) and inst.status == ASM_STATUS_RUNNING
+    )
+    sub_text = (
+        f"{running} sistema(s) ativo(s)" if running > 0
+        else "Todos os sistemas em standby"
+    )
+    app._dashboard_subtitle_lbl = ctk.CTkLabel(
+        greet_col, text=sub_text,
+        font=ctk.CTkFont(size=12), text_color=t_sec,
+    )
+    app._dashboard_subtitle_lbl.pack(anchor="w")
+
+    # Badge versão + botão Novo Servidor
+    right_f = ctk.CTkFrame(topbar_f, fg_color="transparent")
+    right_f.grid(row=0, column=2, padx=(0, 20), sticky="e")
 
     ctk.CTkButton(
-        hdr, text="＋ Novo Servidor", width=150, height=32,
-        fg_color="#0b3944", hover_color="#094f5c",
-        border_width=1, border_color=accent, text_color=accent,
+        right_f, text="＋  Novo Servidor", width=154, height=36,
+        fg_color=acc_mb, hover_color=acc_dk,
+        border_width=1, border_color=accent,
+        text_color=accent,
+        font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+        corner_radius=10,
         command=app._asm_add_server_dialog,
-    ).grid(row=0, column=2, padx=(0, 16), pady=10, sticky="e")
+    ).pack(side="right")
 
-    # ── Separador ────────────────────────────────────────────────────────────
-    tk.Frame(parent, height=1, bg="#094f5c").grid(row=1, column=0, sticky="ew")
+    # Linha separadora
+    ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=0, column=0, sticky="ews")
 
-    # ── Scroll area ──────────────────────────────────────────────────────────
-    scroll = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0)
-    scroll.grid(row=2, column=0, padx=12, pady=(12, 0), sticky="nsew")
+    # ── Stats grid ────────────────────────────────────────────────────────────
+    total   = len(servers)
+    stopped = sum(
+        1 for s in servers
+        if not (inst := app.asm_server_manager.get_instance(s.id)) or inst.status == ASM_STATUS_STOPPED
+    )
+    cpu_pct, ram_pct = _get_perf()
+
+    stats_f = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
+    stats_f.grid(row=1, column=0, sticky="ew", padx=16, pady=(14, 4))
+    for i in range(5):
+        stats_f.grid_columnconfigure(i, weight=1)
+
+    # icon · label · value · bar · subtitle  (padrão ARKLAND SM)
+    _stat_cards = [
+        # (label_upper, value, subtitle, cor_valor, cor_icone_bg, icone)
+        ("TOTAL",   str(total),        "servidores",           "#60a5fa", "#1e3a5f",  "🖥"),
+        ("ONLINE",  str(running),      "rodando",              "#22c55e", "#052e16",  "▶"),
+        ("OFFLINE", str(stopped),      "parados",              "#64748b", "#0f172a",  "■"),
+        ("CPU",     f"{cpu_pct:.0f}%", "processador",          "#a78bfa", "#1e1b4b",  "⚙"),
+        ("RAM",     f"{ram_pct:.0f}%", "memória",              "#f472b6", "#3b0764",  "◈"),
+    ]
+
+    for col_idx, (label, value, sub, fg_col, bg_col, icon) in enumerate(_stat_cards):
+        card = ctk.CTkFrame(stats_f, corner_radius=12,
+                            fg_color=card_bg,
+                            border_width=1, border_color=sep)
+        card.grid(row=0, column=col_idx, padx=6, pady=4, sticky="ew")
+        card.grid_columnconfigure(0, weight=1)
+
+        # ── Linha topo: [bolha icon] [LABEL] ─────────────────────────────────
+        top_row = ctk.CTkFrame(card, fg_color="transparent")
+        top_row.grid(row=0, column=0, padx=12, pady=(12, 0), sticky="ew")
+        top_row.grid_columnconfigure(1, weight=1)
+
+        icon_f = ctk.CTkFrame(top_row, fg_color=bg_col, corner_radius=8,
+                               width=28, height=28)
+        icon_f.grid(row=0, column=0, padx=(0, 8))
+        icon_f.grid_propagate(False)
+        ctk.CTkLabel(icon_f, text=icon,
+                     font=ctk.CTkFont(size=11),
+                     text_color=fg_col).place(relx=0.5, rely=0.5, anchor="center")
+
+        ctk.CTkLabel(top_row, text=label,
+                     font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
+                     text_color=t_sec,
+                     ).grid(row=0, column=1, sticky="w")
+
+        # ── Valor grande ──────────────────────────────────────────────────────
+        ctk.CTkLabel(card, text=value,
+                     font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
+                     text_color=fg_col,
+                     ).grid(row=1, column=0, padx=12, pady=(6, 0), sticky="w")
+
+        # ── Barra fina (CPU / RAM) ────────────────────────────────────────────
+        if label in ("CPU", "RAM"):
+            val_float = float(value.rstrip("%")) / 100.0
+            bar = ctk.CTkProgressBar(card, height=3, corner_radius=2,
+                                     progress_color=fg_col, fg_color=sep)
+            bar.set(min(val_float, 1.0))
+            bar.grid(row=2, column=0, padx=12, pady=(6, 0), sticky="ew")
+
+        # ── Subtítulo ─────────────────────────────────────────────────────────
+        ctk.CTkLabel(card, text=sub[:26],
+                     font=ctk.CTkFont(size=9), text_color=t_mut,
+                     ).grid(row=3, column=0, padx=12, pady=(4, 10), sticky="w")
+
+    # Guarda referência para refresh de stats sem recriar o dashboard todo
+    app._asm_stats_frame = stats_f
+
+    # Linha separadora
+    ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=1, column=0, sticky="ews")
+
+    # ── Scroll de cards ───────────────────────────────────────────────────────
+    scroll = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0,
+                                    scrollbar_button_color=sep)
+    scroll.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
     scroll.grid_columnconfigure((0, 1), weight=1)
     app._asm_dashboard_scroll = scroll
 
-    # ── Footer legenda ────────────────────────────────────────────────────────
-    footer = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=0, height=32)
-    footer.grid(row=3, column=0, sticky="ew")
-    footer.grid_propagate(False)
-
-    _LEGEND = [
-        ("🟢", "Rodando", "#00BCD4"),
-        ("🟡", "Iniciando/Parando", "#ffaa44"),
-        ("⬛", "Parado", "#ff6666"),
-        ("🔴", "Travado", "#ff3333"),
-    ]
-    for icon, label, color in _LEGEND:
-        ctk.CTkLabel(footer, text=f"{icon} {label}",
-                     font=ctk.CTkFont(size=10), text_color=color).pack(
-            side="left", padx=(16, 8), pady=6)
-
-    # Popula cards
     _refresh_asm_dashboard(app)
 
 
@@ -89,15 +215,182 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     for w in scroll.winfo_children():
         w.destroy()
 
+    theme   = get_theme("tek")
+    accent  = theme["accent"]
+    bg      = theme["bg"]
+    card_bg = theme["card_bg"]
+    sep     = theme["separator"]
+    t_pri   = theme["text_primary"]
+    t_sec   = theme["text_secondary"]
+    t_mut   = theme["text_muted"]
+    acc_mb  = theme["accent_muted_bg"]
+    acc_dk  = theme["accent_dark"]
+
     servers = app.asm_config_manager.servers
     if not servers:
         ctk.CTkLabel(
             scroll,
             text="Nenhum servidor TEK configurado.\nClique em '＋ Novo Servidor' para começar.",
-            font=ctk.CTkFont(size=15), text_color="#5a8fa0", justify="center",
+            font=ctk.CTkFont(family="Segoe UI", size=15), text_color=t_sec, justify="center",
         ).grid(row=0, column=0, columnspan=2, pady=60)
+        _update_subtitle(app, servers)
         return
 
-    for idx, srv in enumerate(servers):
-        row, col = divmod(idx, 2)
-        build_asm_server_card(app, scroll, srv, row, col)
+    # ── S3.2 — Toolbar de Bulk Actions ───────────────────────────────────────
+    if not hasattr(app, "_asm_selected_servers"):
+        app._asm_selected_servers: set = set()
+
+    bulk_bar = ctk.CTkFrame(scroll, fg_color=card_bg, corner_radius=8,
+                            border_width=1, border_color=sep)
+    bulk_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
+    bulk_bar.grid_columnconfigure(8, weight=1)
+
+    # Checkbox "Selecionar Todos"
+    sel_all_var = tk.BooleanVar(value=False)
+
+    def _toggle_all():
+        all_ids = {s.id for s in servers}
+        if sel_all_var.get():
+            app._asm_selected_servers = all_ids
+        else:
+            app._asm_selected_servers = set()
+
+    ctk.CTkCheckBox(
+        bulk_bar, text="Selecionar Todos", variable=sel_all_var,
+        font=ctk.CTkFont(size=11), text_color=t_sec,
+        checkmark_color=accent, border_color=accent,
+        command=_toggle_all,
+    ).grid(row=0, column=0, padx=(10, 10), pady=8, sticky="w")
+
+    def _bulk_start():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            srv = app.asm_config_manager.get_server(sid)
+            if srv:
+                threading.Thread(
+                    target=lambda s=srv: app._asm_start_server(s),
+                    daemon=True,
+                ).start()
+
+    def _bulk_stop():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            threading.Thread(
+                target=lambda sid_=sid: app._asm_stop_server(sid_),
+                daemon=True,
+            ).start()
+
+    def _bulk_restart():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            srv = app.asm_config_manager.get_server(sid)
+            if srv:
+                threading.Thread(
+                    target=lambda s=srv: app._asm_restart_server(s),
+                    daemon=True,
+                ).start()
+
+    def _bulk_update_mods():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            srv = app.asm_config_manager.get_server(sid)
+            if srv and srv.active_mods:
+                threading.Thread(
+                    target=lambda s=srv: app._asm_update_mods(s),
+                    daemon=True,
+                ).start()
+
+    _bulk_btns = [
+        ("▶  Iniciar",   _bulk_start,       "#052e16", "#4ade80"),
+        ("⏹  Parar",    _bulk_stop,        "#7f1d1d", "#fca5a5"),
+        ("🔄  Reiniciar", _bulk_restart,    "#1e293b", t_sec),
+        ("📦  Atualizar Mods", _bulk_update_mods, "#0c1a2e", "#7dd3fc"),
+    ]
+    for col_i, (txt, cmd, bg_c, tc) in enumerate(_bulk_btns, start=1):
+        ctk.CTkButton(
+            bulk_bar, text=txt, width=130, height=28,
+            fg_color=bg_c, hover_color="#1e293b",
+            text_color=tc, corner_radius=6,
+            font=ctk.CTkFont(size=11),
+            command=cmd,
+        ).grid(row=0, column=col_i, padx=3, pady=8)
+
+    # ── S3.1 — Grupos (pastas) ────────────────────────────────────────────────
+    fm      = app.asm_config_manager.folder_manager
+    grouped = fm.grouped()   # dict: {pasta: [servidores]}
+
+    grid_row = 1
+    for folder_name, folder_servers in grouped.items():
+        display_name = folder_name or "Geral"
+        is_root      = (folder_name == "")
+
+        # ── Header da pasta ───────────────────────────────────────────────────
+        folder_hdr = ctk.CTkFrame(scroll, fg_color="#0a111c", corner_radius=6,
+                                  border_width=1, border_color="#1a2840")
+        folder_hdr.grid(row=grid_row, column=0, columnspan=2,
+                        sticky="ew", padx=8, pady=(10, 2))
+        folder_hdr.grid_columnconfigure(1, weight=1)
+        grid_row += 1
+
+        icon = "📁" if not is_root else "🖥"
+        ctk.CTkLabel(
+            folder_hdr, text=f"{icon}  {display_name}",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color=accent if not is_root else t_sec,
+        ).grid(row=0, column=0, padx=(12, 6), pady=7, sticky="w")
+
+        count_online = sum(
+            1 for s in folder_servers
+            if (inst := app.asm_server_manager.get_instance(s.id))
+            and inst.status == ASM_STATUS_RUNNING
+        )
+        ctk.CTkLabel(
+            folder_hdr,
+            text=f"{count_online}/{len(folder_servers)} online",
+            font=ctk.CTkFont(size=10), text_color=t_mut,
+        ).grid(row=0, column=1, padx=4, pady=7, sticky="w")
+
+        # Botão "▶ Iniciar Todos" na pasta
+        if not is_root:
+            def _start_folder(fsvrs=folder_servers):
+                import threading
+                for s in fsvrs:
+                    threading.Thread(
+                        target=lambda srv=s: app._asm_start_server(srv),
+                        daemon=True,
+                    ).start()
+
+            ctk.CTkButton(
+                folder_hdr, text="▶  Iniciar Todos", width=110, height=26,
+                fg_color="#052e16", hover_color="#14532d",
+                text_color="#4ade80", corner_radius=6,
+                font=ctk.CTkFont(size=10),
+                command=_start_folder,
+            ).grid(row=0, column=2, padx=(0, 10), pady=7, sticky="e")
+
+        # ── Cards dentro da pasta (grade 2 colunas) ───────────────────────────
+        folder_grid = ctk.CTkFrame(scroll, fg_color="transparent")
+        folder_grid.grid(row=grid_row, column=0, columnspan=2,
+                         sticky="ew", padx=0, pady=0)
+        folder_grid.grid_columnconfigure((0, 1), weight=1)
+        grid_row += 1
+
+        for idx, srv in enumerate(folder_servers):
+            r, c = divmod(idx, 2)
+            build_asm_server_card(app, folder_grid, srv, r, c)
+
+    _update_subtitle(app, servers)
+
+
+def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:
+    running = sum(
+        1 for s in servers
+        if (inst := app.asm_server_manager.get_instance(s.id)) and inst.status == ASM_STATUS_RUNNING
+    )
+    sub = (
+        f"{running} sistema(s) ativo(s)" if running > 0
+        else "Todos os sistemas em standby"
+    )
+    lbl = getattr(app, "_dashboard_subtitle_lbl", None)
+    if lbl and lbl.winfo_exists():
+        lbl.configure(text=sub)

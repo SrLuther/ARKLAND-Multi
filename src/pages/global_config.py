@@ -206,10 +206,385 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  text_color="gray45", font=ctk.CTkFont(size=10), justify="left").grid(
         row=9, column=0, columnspan=2, padx=(16, 16), pady=(2, 14), sticky="w")
 
+    # ── Seção Backup ────────────────────────────────────────────────────────
+    app._section_lbl(parent, 12, "💾  Backup Automático")
+    bk_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    bk_card.grid(row=13, column=0, padx=20, pady=(0, 14), sticky="ew")
+    bk_card.grid_columnconfigure(1, weight=1)
+
+    bk = cfg.backup
+    app._bk_dir_var             = tk.StringVar(value=bk.backup_dir)
+    app._bk_include_saves_var   = tk.BooleanVar(value=bk.include_savegames)
+    app._bk_exclude_old_var     = tk.BooleanVar(value=bk.exclude_old_backups)
+    app._bk_max_days_var        = tk.IntVar(value=bk.max_backup_days)
+    app._bk_rcon_mode_var       = tk.StringVar(value=bk.rcon_broadcast_mode)
+    app._bk_save_msg_var        = tk.StringVar(value=bk.save_message)
+    app._bk_auto_var            = tk.BooleanVar(value=bk.auto_backup)
+    app._bk_interval_var        = tk.StringVar(value=bk.backup_interval)
+
+    ctk.CTkLabel(bk_card, text="Diretório de backup:", width=200, anchor="w",
+                 text_color="gray60").grid(row=0, column=0, padx=16, pady=(14, 2), sticky="w")
+    fr_bk = ctk.CTkFrame(bk_card, fg_color="transparent")
+    fr_bk.grid(row=0, column=1, padx=(0, 16), pady=(14, 2), sticky="ew")
+    fr_bk.grid_columnconfigure(0, weight=1)
+    ctk.CTkEntry(fr_bk, textvariable=app._bk_dir_var, height=32).grid(
+        row=0, column=0, sticky="ew", padx=(0, 6))
+    ctk.CTkButton(fr_bk, text="📁", width=32, height=32,
+                  command=lambda: app._browse_dir(app._bk_dir_var)).grid(row=0, column=1)
+    ctk.CTkButton(fr_bk, text="Limpar", width=60, height=32,
+                  fg_color="#5c1a1a", hover_color="#7c2020",
+                  command=lambda: app._bk_dir_var.set("")).grid(row=0, column=2, padx=(4, 0))
+
+    ctk.CTkCheckBox(bk_card, text="Incluir a pasta SaveGames ao realizar um backup do WorldSave",
+                    variable=app._bk_include_saves_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=1, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
+    ctk.CTkCheckBox(bk_card, text="Excluir arquivos de backup antigos",
+                    variable=app._bk_exclude_old_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=2, column=0, columnspan=2, padx=16, pady=(2, 2), sticky="w")
+
+    fr_days = ctk.CTkFrame(bk_card, fg_color="transparent")
+    fr_days.grid(row=3, column=0, columnspan=2, padx=16, pady=(2, 8), sticky="w")
+    ctk.CTkLabel(fr_days, text="Mais velho que:", text_color="gray60").pack(side="left")
+    ctk.CTkEntry(fr_days, textvariable=app._bk_max_days_var, width=60, height=28).pack(side="left", padx=6)
+    ctk.CTkLabel(fr_days, text="dias", text_color="gray60").pack(side="left")
+
+    fr_rcon = ctk.CTkFrame(bk_card, fg_color="transparent")
+    fr_rcon.grid(row=4, column=0, columnspan=2, padx=16, pady=(4, 2), sticky="w")
+    ctk.CTkLabel(fr_rcon, text="Modo RCON Broadcast:", text_color="gray60", width=180, anchor="w").pack(side="left")
+    ctk.CTkComboBox(fr_rcon, variable=app._bk_rcon_mode_var, width=160, height=28,
+                    values=["Broadcast", "ServerChat", "SendRcon"]).pack(side="left", padx=6)
+
+    ctk.CTkLabel(bk_card, text="Mensagem do Save:", width=200, anchor="w",
+                 text_color="gray60").grid(row=5, column=0, padx=16, pady=(8, 2), sticky="w")
+    ctk.CTkEntry(bk_card, textvariable=app._bk_save_msg_var, height=30).grid(
+        row=5, column=1, padx=(0, 16), pady=(8, 2), sticky="ew")
+
+    ctk.CTkCheckBox(bk_card, text="Ativar backup automático",
+                    variable=app._bk_auto_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=6, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
+    fr_bk_int = ctk.CTkFrame(bk_card, fg_color="transparent")
+    fr_bk_int.grid(row=7, column=0, columnspan=2, padx=16, pady=(2, 14), sticky="w")
+    ctk.CTkLabel(fr_bk_int, text="Intervalo de backup:", text_color="gray60").pack(side="left")
+    ctk.CTkEntry(fr_bk_int, textvariable=app._bk_interval_var, width=80, height=28,
+                 placeholder_text="01:00").pack(side="left", padx=6)
+
+    # ── Seção Auto-Atualização ───────────────────────────────────────────────
+    app._section_lbl(parent, 14, "🔄  Atualização Automática")
+    upd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    upd_card.grid(row=15, column=0, padx=20, pady=(0, 14), sticky="ew")
+    upd_card.grid_columnconfigure(1, weight=1)
+
+    au = cfg.auto_update
+    app._au_cache_dir_var      = tk.StringVar(value=au.cache_dir)
+    app._au_interval_var       = tk.StringVar(value=au.update_interval)
+    app._au_smart_cache_var    = tk.BooleanVar(value=au.smart_cache_copy)
+    app._au_validate_var       = tk.BooleanVar(value=au.validate_server_files)
+    app._au_parallel_var       = tk.BooleanVar(value=au.update_in_parallel)
+    app._au_delay_var          = tk.IntVar(value=au.update_delay_seconds)
+    app._au_show_reason_var    = tk.BooleanVar(value=au.show_update_reason)
+    app._au_reason_prefix_var  = tk.StringVar(value=au.update_reason_prefix)
+    app._au_replace_restart_var = tk.BooleanVar(value=au.replace_restart_after_update)
+
+    ctk.CTkCheckBox(upd_card, text="Ativar atualização automática",
+                    variable=app._au_auto_var if hasattr(app, "_au_auto_var") else tk.BooleanVar(value=True),
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=0, column=0, columnspan=2, padx=16, pady=(14, 4), sticky="w")
+
+    ctk.CTkLabel(upd_card, text="Diretório de Cache:", width=200, anchor="w",
+                 text_color="gray60").grid(row=1, column=0, padx=16, pady=(4, 2), sticky="w")
+    fr_cache = ctk.CTkFrame(upd_card, fg_color="transparent")
+    fr_cache.grid(row=1, column=1, padx=(0, 16), pady=(4, 2), sticky="ew")
+    fr_cache.grid_columnconfigure(0, weight=1)
+    ctk.CTkEntry(fr_cache, textvariable=app._au_cache_dir_var, height=30).grid(
+        row=0, column=0, sticky="ew", padx=(0, 6))
+    ctk.CTkButton(fr_cache, text="📁", width=30, height=30,
+                  command=lambda: app._browse_dir(app._au_cache_dir_var)).grid(row=0, column=1)
+
+    fr_upd_int = ctk.CTkFrame(upd_card, fg_color="transparent")
+    fr_upd_int.grid(row=2, column=0, columnspan=2, padx=16, pady=(6, 2), sticky="w")
+    ctk.CTkLabel(fr_upd_int, text="Intervalo de atualização:", text_color="gray60").pack(side="left")
+    ctk.CTkEntry(fr_upd_int, textvariable=app._au_interval_var, width=80, height=28,
+                 placeholder_text="01:00").pack(side="left", padx=6)
+
+    chk_fr = ctk.CTkFrame(upd_card, fg_color="transparent")
+    chk_fr.grid(row=3, column=0, columnspan=2, padx=12, pady=(6, 0), sticky="w")
+    for ci, (txt, var) in enumerate([
+        ("Use cópia de cache inteligente",               app._au_smart_cache_var),
+        ("Validar Arquivos do Servidor",                 app._au_validate_var),
+        ("Atualize os servidores em paralelo",           app._au_parallel_var),
+        ("Substituir a reinicialização após atualização automática", app._au_replace_restart_var),
+    ]):
+        ctk.CTkCheckBox(chk_fr, text=txt, variable=var, width=320,
+                        checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=ci // 2, column=ci % 2, padx=8, pady=3, sticky="w")
+
+    fr_delay = ctk.CTkFrame(upd_card, fg_color="transparent")
+    fr_delay.grid(row=4, column=0, columnspan=2, padx=16, pady=(6, 2), sticky="w")
+    ctk.CTkLabel(fr_delay, text="Atraso entre cada atualização do servidor:", text_color="gray60").pack(side="left")
+    ctk.CTkEntry(fr_delay, textvariable=app._au_delay_var, width=60, height=28).pack(side="left", padx=6)
+    ctk.CTkLabel(fr_delay, text="segundos", text_color="gray60").pack(side="left")
+
+    ctk.CTkCheckBox(upd_card, text="Mostrar o motivo da atualização nas mensagens de desligamento",
+                    variable=app._au_show_reason_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=5, column=0, columnspan=2, padx=16, pady=(6, 2), sticky="w")
+    ctk.CTkLabel(upd_card, text="Motivo da Atualização:", width=200, anchor="w",
+                 text_color="gray60").grid(row=6, column=0, padx=16, pady=(4, 14), sticky="w")
+    ctk.CTkEntry(upd_card, textvariable=app._au_reason_prefix_var, height=28).grid(
+        row=6, column=1, padx=(0, 16), pady=(4, 14), sticky="ew")
+
+    # ── Seção Desligamento ──────────────────────────────────────────────────
+    app._section_lbl(parent, 16, "⏹️  Opções de Desligamento")
+    sd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    sd_card.grid(row=17, column=0, padx=20, pady=(0, 14), sticky="ew")
+    sd_card.grid_columnconfigure(1, weight=1)
+
+    sd = cfg.shutdown
+    app._sd_check_online_var  = tk.BooleanVar(value=sd.check_online_players)
+    app._sd_send_msgs_var     = tk.BooleanVar(value=sd.send_msgs_to_client)
+    app._sd_grace_var         = tk.IntVar(value=sd.grace_period_minutes)
+    app._sd_msg1_var          = tk.StringVar(value=sd.msg1)
+    app._sd_msg2_var          = tk.StringVar(value=sd.msg2)
+    app._sd_msg3_var          = tk.StringVar(value=sd.msg3)
+    app._sd_save_msg_var      = tk.StringVar(value=sd.save_message)
+    app._sd_cancel_msg_var    = tk.StringVar(value=sd.cancel_message)
+    app._sd_show_reason_var   = tk.BooleanVar(value=sd.show_reason_all_msgs)
+
+    ctk.CTkLabel(sd_card, text="Essas mensagens serão transmitidas apenas se o RCON estiver ativado.",
+                 text_color="#c0824a", font=ctk.CTkFont(size=10), wraplength=560).grid(
+        row=0, column=0, columnspan=2, padx=16, pady=(10, 4), sticky="w")
+
+    fr_sd_top = ctk.CTkFrame(sd_card, fg_color="transparent")
+    fr_sd_top.grid(row=1, column=0, columnspan=2, padx=12, pady=(4, 0), sticky="w")
+    ctk.CTkCheckBox(fr_sd_top, text="Executar verificação de jogador online",
+                    variable=app._sd_check_online_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).pack(side="left", padx=8)
+    ctk.CTkCheckBox(fr_sd_top, text="Enviar mensagens de desligamento para o Game Client",
+                    variable=app._sd_send_msgs_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).pack(side="left", padx=8)
+
+    fr_grace = ctk.CTkFrame(sd_card, fg_color="transparent")
+    fr_grace.grid(row=2, column=0, columnspan=2, padx=16, pady=(8, 4), sticky="w")
+    ctk.CTkLabel(fr_grace, text="Período de carência:", text_color="gray60").pack(side="left")
+    ctk.CTkEntry(fr_grace, textvariable=app._sd_grace_var, width=60, height=28).pack(side="left", padx=6)
+    ctk.CTkLabel(fr_grace, text="minutos", text_color="gray60").pack(side="left")
+
+    for r, (lbl, var) in enumerate([
+        ("Mensagem 1:",        app._sd_msg1_var),
+        ("Mensagem 2:",        app._sd_msg2_var),
+        ("Mensagem 3:",        app._sd_msg3_var),
+        ("Mensagem do Save:",  app._sd_save_msg_var),
+        ("Cancelar mensagem:", app._sd_cancel_msg_var),
+    ], start=3):
+        ctk.CTkLabel(sd_card, text=lbl, width=160, anchor="w",
+                     text_color="gray60").grid(row=r, column=0, padx=16, pady=3, sticky="w")
+        ctk.CTkEntry(sd_card, textvariable=var, height=28).grid(
+            row=r, column=1, padx=(0, 16), pady=3, sticky="ew")
+
+    ctk.CTkCheckBox(sd_card, text="Mostrar o motivo de desligamento com TODAS as mensagens de desligamento",
+                    variable=app._sd_show_reason_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=8, column=0, columnspan=2, padx=16, pady=(8, 14), sticky="w")
+
+    # ── Seção Mensagens de Alerta ───────────────────────────────────────────
+    app._section_lbl(parent, 18, "🔔  Opções de Alerta")
+    al_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    al_card.grid(row=19, column=0, padx=20, pady=(0, 14), sticky="ew")
+    al_card.grid_columnconfigure(1, weight=1)
+
+    am = cfg.alert_messages
+    app._al_stopped_var        = tk.StringVar(value=am.server_stopped)
+    app._al_shutting_var       = tk.StringVar(value=am.server_shutting_down)
+    app._al_started_var        = tk.StringVar(value=am.server_started)
+    app._al_incl_ip_var        = tk.BooleanVar(value=am.include_ip_port)
+    app._al_ip_fmt_var         = tk.StringVar(value=am.ip_port_format)
+    app._al_bk_err_var         = tk.StringVar(value=am.backup_error)
+    app._al_sd_err_var         = tk.StringVar(value=am.shutdown_error)
+    app._al_rst_err_var        = tk.StringVar(value=am.restart_error)
+    app._al_upd_err_var        = tk.StringVar(value=am.update_error)
+    app._al_upd_res_var        = tk.StringVar(value=am.update_result)
+    app._al_srv_upd_var        = tk.StringVar(value=am.server_update_msg)
+    app._al_srv_stat_var       = tk.StringVar(value=am.server_status)
+    app._al_mod_upd_var        = tk.StringVar(value=am.mod_update_detected)
+    app._al_players_var        = tk.StringVar(value=am.players_changed)
+    app._al_dino_var           = tk.StringVar(value=am.dino_respawn)
+
+    for r, (lbl, var) in enumerate([
+        ("Mensagem de Parada do Servidor:",            app._al_stopped_var),
+        ("Mensagem de desligamento do servidor:",      app._al_shutting_var),
+        ("Mensagem iniciada pelo servidor:",           app._al_started_var),
+        ("Erro no processo de backup:",                app._al_bk_err_var),
+        ("Erro no processo de desligamento:",          app._al_sd_err_var),
+        ("Erro no processo de reiniciar:",             app._al_rst_err_var),
+        ("Erro no processo de atualizar:",             app._al_upd_err_var),
+        ("Resultado da atualização:",                  app._al_upd_res_var),
+        ("Mensagem de atualização do servidor:",       app._al_srv_upd_var),
+        ("Status do servidor:",                        app._al_srv_stat_var),
+        ("Atualização de mods detectada:",             app._al_mod_upd_var),
+        ("Alteração na contagem de jogadores online:", app._al_players_var),
+        ("Força Respawn de Dinos:",                    app._al_dino_var),
+    ]):
+        ctk.CTkLabel(al_card, text=lbl, width=280, anchor="w",
+                     text_color="gray60").grid(row=r, column=0, padx=16, pady=3, sticky="w")
+        ctk.CTkEntry(al_card, textvariable=var, height=28).grid(
+            row=r, column=1, padx=(0, 16), pady=3, sticky="ew")
+
+    fr_ip = ctk.CTkFrame(al_card, fg_color="transparent")
+    fr_ip.grid(row=13, column=0, columnspan=2, padx=12, pady=(6, 14), sticky="w")
+    ctk.CTkCheckBox(fr_ip, text="Incluir IP Público e Porta na Mensagem Inicial",
+                    variable=app._al_incl_ip_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).pack(side="left", padx=8)
+    ctk.CTkEntry(fr_ip, textvariable=app._al_ip_fmt_var, width=180, height=28,
+                 placeholder_text="{ipaddress}:{port}").pack(side="left", padx=6)
+
+    # ── Seção Discord Bot ───────────────────────────────────────────────────
+    app._section_lbl(parent, 20, "🤖  Discord Bot")
+    bot_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    bot_card.grid(row=21, column=0, padx=20, pady=(0, 14), sticky="ew")
+    bot_card.grid_columnconfigure(1, weight=1)
+
+    db = cfg.discord_bot
+    app._db_enabled_var       = tk.BooleanVar(value=db.enabled)
+    app._db_token_var         = tk.StringVar(value=db.token)
+    app._db_server_id_var     = tk.StringVar(value=db.server_id)
+    app._db_prefix_var        = tk.StringVar(value=db.prefix)
+    app._db_log_level_var     = tk.StringVar(value=db.log_level)
+    app._db_alias_var         = tk.StringVar(value=db.alias_all_profiles)
+    app._db_allow_backup_var  = tk.BooleanVar(value=db.allow_backup)
+    app._db_allow_update_var  = tk.BooleanVar(value=db.allow_update)
+    app._db_allow_restart_var = tk.BooleanVar(value=db.allow_restart)
+    app._db_allow_shutdown_var = tk.BooleanVar(value=db.allow_shutdown)
+    app._db_allow_start_var   = tk.BooleanVar(value=db.allow_start)
+    app._db_allow_stop_var    = tk.BooleanVar(value=db.allow_stop)
+    app._db_all_bots_var      = tk.BooleanVar(value=db.allow_all_bots)
+
+    ctk.CTkCheckBox(bot_card, text="Habilitar Discord Bot",
+                    variable=app._db_enabled_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=0, column=0, columnspan=2, padx=16, pady=(16, 4), sticky="w")
+    ctk.CTkLabel(bot_card, text="Você precisará reiniciar o server manager se alterar alguma configuração do Discord Bot.",
+                 text_color="#c0824a", font=ctk.CTkFont(size=10), wraplength=560).grid(
+        row=1, column=0, columnspan=2, padx=16, pady=(0, 8), sticky="w")
+
+    fr_tok = ctk.CTkFrame(bot_card, fg_color="transparent")
+    fr_tok.grid(row=2, column=0, columnspan=2, padx=12, pady=(4, 0), sticky="ew")
+    fr_tok.grid_columnconfigure(1, weight=1)
+    ctk.CTkLabel(fr_tok, text="Token:", width=80, anchor="w", text_color="gray60").grid(
+        row=0, column=0, padx=4)
+    ctk.CTkEntry(fr_tok, textvariable=app._db_token_var, height=30, show="*").grid(
+        row=0, column=1, sticky="ew", padx=4)
+
+    fr_bot_row = ctk.CTkFrame(bot_card, fg_color="transparent")
+    fr_bot_row.grid(row=3, column=0, columnspan=2, padx=12, pady=(6, 0), sticky="ew")
+    for lbl, var, w in [
+        ("Server ID:", app._db_server_id_var, 200),
+        ("Prefix:",    app._db_prefix_var,    80),
+        ("Alias all:", app._db_alias_var,     80),
+    ]:
+        ctk.CTkLabel(fr_bot_row, text=lbl, text_color="gray60").pack(side="left", padx=(8, 2))
+        ctk.CTkEntry(fr_bot_row, textvariable=var, width=w, height=28).pack(side="left", padx=(0, 8))
+    ctk.CTkLabel(fr_bot_row, text="Nível de registro:", text_color="gray60").pack(side="left", padx=(8, 2))
+    ctk.CTkComboBox(fr_bot_row, variable=app._db_log_level_var, width=140, height=28,
+                    values=["Informações", "Depuração", "Aviso", "Erro"]).pack(side="left", padx=(0, 8))
+
+    perm_fr = ctk.CTkFrame(bot_card, fg_color="transparent")
+    perm_fr.grid(row=4, column=0, columnspan=2, padx=12, pady=(10, 4), sticky="w")
+    for ci, (txt, var) in enumerate([
+        ("Permitir backup",       app._db_allow_backup_var),
+        ("Permitir atualização",  app._db_allow_update_var),
+        ("Permitir Reinício",     app._db_allow_restart_var),
+        ("Permitir desligamento", app._db_allow_shutdown_var),
+        ("Permitir iniciar",      app._db_allow_start_var),
+        ("Permitir parar",        app._db_allow_stop_var),
+    ]):
+        ctk.CTkCheckBox(perm_fr, text=txt, variable=var, width=200,
+                        checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=ci // 3, column=ci % 3, padx=8, pady=3, sticky="w")
+
+    ctk.CTkCheckBox(bot_card, text="Permitir todos os bots",
+                    variable=app._db_all_bots_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).grid(row=5, column=0, columnspan=2, padx=16, pady=(6, 14), sticky="w")
+
+    # ── Seção SMTP ───────────────────────────────────────────────────────────
+    app._section_lbl(parent, 22, "✉️  Configurações de Email SMTP")
+    smtp_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+    smtp_card.grid(row=23, column=0, padx=20, pady=(0, 14), sticky="ew")
+    smtp_card.grid_columnconfigure(1, weight=1)
+    smtp_card.grid_columnconfigure(3, weight=1)
+
+    sm = cfg.smtp
+    app._smtp_host_var    = tk.StringVar(value=sm.host)
+    app._smtp_port_var    = tk.IntVar(value=sm.port)
+    app._smtp_ssl_var     = tk.BooleanVar(value=sm.use_ssl)
+    app._smtp_defcred_var = tk.BooleanVar(value=sm.use_default_credentials)
+    app._smtp_user_var    = tk.StringVar(value=sm.username)
+    app._smtp_pass_var    = tk.StringVar(value=sm.password)
+    app._smtp_from_var    = tk.StringVar(value=sm.from_address)
+    app._smtp_to_var      = tk.StringVar(value=sm.to_address)
+    app._smtp_n_backup_var  = tk.BooleanVar(value=sm.notify_auto_backup)
+    app._smtp_n_update_var  = tk.BooleanVar(value=sm.notify_auto_update)
+    app._smtp_n_shutdown_var = tk.BooleanVar(value=sm.notify_auto_shutdown)
+    app._smtp_n_restart_var  = tk.BooleanVar(value=sm.notify_shutdown_restart)
+
+    fr_smtp1 = ctk.CTkFrame(smtp_card, fg_color="transparent")
+    fr_smtp1.grid(row=0, column=0, columnspan=4, padx=12, pady=(14, 4), sticky="ew")
+    for lbl, var, w, show in [
+        ("Host:",   app._smtp_host_var, 220, ""),
+        ("Porta:",  app._smtp_port_var,  60, ""),
+        ("Senha:",  app._smtp_pass_var, 140, "*"),
+    ]:
+        ctk.CTkLabel(fr_smtp1, text=lbl, text_color="gray60").pack(side="left", padx=(8, 2))
+        ctk.CTkEntry(fr_smtp1, textvariable=var, width=w, height=28, show=show).pack(side="left", padx=(0, 8))
+    ctk.CTkCheckBox(fr_smtp1, text="Use SSL",
+                    variable=app._smtp_ssl_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).pack(side="left", padx=8)
+
+    fr_smtp2 = ctk.CTkFrame(smtp_card, fg_color="transparent")
+    fr_smtp2.grid(row=1, column=0, columnspan=4, padx=12, pady=(4, 4), sticky="ew")
+    ctk.CTkCheckBox(fr_smtp2, text="Use credenciais padrão",
+                    variable=app._smtp_defcred_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).pack(side="left", padx=8)
+    ctk.CTkLabel(fr_smtp2, text="Nome de usuário:", text_color="gray60").pack(side="left", padx=(16, 2))
+    ctk.CTkEntry(fr_smtp2, textvariable=app._smtp_user_var, width=160, height=28).pack(side="left", padx=(0, 8))
+
+    fr_smtp3 = ctk.CTkFrame(smtp_card, fg_color="transparent")
+    fr_smtp3.grid(row=2, column=0, columnspan=4, padx=12, pady=(4, 6), sticky="ew")
+    ctk.CTkLabel(fr_smtp3, text="De:", text_color="gray60").pack(side="left", padx=(8, 2))
+    ctk.CTkEntry(fr_smtp3, textvariable=app._smtp_from_var, width=200, height=28).pack(side="left", padx=(0, 8))
+    ctk.CTkLabel(fr_smtp3, text="Para:", text_color="gray60").pack(side="left", padx=(8, 2))
+    ctk.CTkEntry(fr_smtp3, textvariable=app._smtp_to_var, width=200, height=28).pack(side="left", padx=(0, 8))
+    ctk.CTkButton(fr_smtp3, text="Enviar email de teste", width=160, height=28,
+                  fg_color="#0e4a6e", hover_color="#0a3550",
+                  command=lambda: None).pack(side="left", padx=8)
+
+    ctk.CTkLabel(smtp_card, text="Configurações de notificação por email:",
+                 text_color="gray55", font=ctk.CTkFont(size=11, weight="bold")).grid(
+        row=3, column=0, columnspan=4, padx=16, pady=(8, 2), sticky="w")
+    notif_fr = ctk.CTkFrame(smtp_card, fg_color="transparent")
+    notif_fr.grid(row=4, column=0, columnspan=4, padx=12, pady=(0, 14), sticky="w")
+    for ci, (txt, var) in enumerate([
+        ("Backup automático",      app._smtp_n_backup_var),
+        ("Atualização automática", app._smtp_n_update_var),
+        ("Desligamento automático", app._smtp_n_shutdown_var),
+        ("Desligamento / Reinício", app._smtp_n_restart_var),
+    ]):
+        ctk.CTkCheckBox(notif_fr, text=txt, variable=var, width=220,
+                        checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                        ).grid(row=0, column=ci, padx=8, pady=3, sticky="w")
+
     ctk.CTkButton(
         parent, text="💾  Salvar Configurações Globais",
         height=44, font=ctk.CTkFont(size=14, weight="bold"),
         fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         command=app._save_global_config,
-    ).grid(row=12, column=0, padx=20, pady=(0, 24), sticky="ew")
+    ).grid(row=40, column=0, padx=20, pady=(0, 24), sticky="ew")
 

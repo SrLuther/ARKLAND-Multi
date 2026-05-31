@@ -134,7 +134,10 @@ class AsmServerManager:
             if on_done:
                 on_done(True, "Servidor iniciado com sucesso")
 
-            # 5. Inicia monitor de processo
+            # 5. Aplica affinity/prioridade se configurado
+            self._apply_process_settings(cfg, proc)
+
+            # 6. Inicia monitor de processo
             self._start_monitor(inst)
 
         except Exception as exc:
@@ -192,14 +195,16 @@ class AsmServerManager:
 
     def _rcon_shutdown(self, cfg: AsmServerConfig) -> None:
         """Envia saveworld + doexit via RCON (silencia erros se RCON indisponível)."""
-        if not cfg.rcon_enabled or not cfg.rcon_password:
+        if not cfg.rcon_enabled or not cfg.admin_password:
             return
         try:
             from ..rcon_client import RconClient
-            with RconClient("127.0.0.1", cfg.rcon_port, cfg.rcon_password, timeout=5) as rc:
-                rc.send_command("saveworld")
-                time.sleep(2)
-                rc.send_command("doexit")
+            rc = RconClient("127.0.0.1", cfg.rcon_port, cfg.admin_password)
+            rc.connect()
+            rc.send_command_safe("saveworld")
+            time.sleep(2)
+            rc.send_command_safe("doexit")
+            rc.disconnect()
         except Exception:
             pass
 
@@ -237,3 +242,30 @@ class AsmServerManager:
             self.start(cfg, on_done=on_done)
 
         self.stop(cfg.id, on_done=_after_stop)
+
+    # ── Process settings (affinity + priority) ────────────────────────────────
+
+    @staticmethod
+    def _apply_process_settings(
+        cfg: AsmServerConfig, proc: "subprocess.Popen[bytes]"
+    ) -> None:
+        """Aplica CPU affinity e prioridade de processo via psutil (melhor esforço)."""
+        cores    = getattr(cfg, "cpu_affinity_cores", [])
+        priority = getattr(cfg, "process_priority", "normal")
+        if not cores and priority == "normal":
+            return
+        try:
+            import psutil  # type: ignore[reportMissingImports]
+            p = psutil.Process(proc.pid)
+            if cores:
+                p.cpu_affinity(cores)
+            _pri_map = {
+                "normal":       psutil.NORMAL_PRIORITY_CLASS,        # type: ignore[attr-defined]
+                "above_normal": psutil.ABOVE_NORMAL_PRIORITY_CLASS,  # type: ignore[attr-defined]
+                "high":         psutil.HIGH_PRIORITY_CLASS,          # type: ignore[attr-defined]
+                "realtime":     psutil.REALTIME_PRIORITY_CLASS,      # type: ignore[attr-defined]
+            }
+            if priority in _pri_map:
+                p.nice(_pri_map[priority])
+        except Exception:
+            pass  # psutil não instalado ou permissão negada — ignora silenciosamente

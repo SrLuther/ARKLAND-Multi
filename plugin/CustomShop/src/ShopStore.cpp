@@ -200,11 +200,14 @@ bool BuyKit(AShooterPlayerController* controller,
         return false;
     }
 
-    if (kit.contains("Items"))    GiveItemsArray(controller,  kit.at("Items"));
-    if (kit.contains("Dinos"))    SpawnDinosArray(controller, kit.at("Dinos"));
-    if (kit.contains("Commands")) RunCommands(kit.at("Commands"), controller, id);
+    if (!ShopPoints::Get().AddKitToStash(id, kit_id)) {
+        Log::GetLog()->error("BuyKit: failed to add kit '{}' to stash for player '{}'",
+                             kit_id, id);
+        return false;
+    }
 
-    Log::GetLog()->info("BuyKit: player {} redeemed kit '{}'", id, kit_id);
+    Log::GetLog()->info("BuyKit: player {} purchased kit '{}' (price={}), added to stash",
+                        id, kit_id, price);
     return true;
 }
 

@@ -173,22 +173,184 @@ class AsmServerConfig:
     limit_turrets_range:                         int   = 10000
     limit_turrets_num:                           int   = 100
 
-    # ── Engrams (override de custo/disponibilidade) ───────────────────────────
-    # Cada item: {"class_name": str, "hidden": bool, "force_unlock": bool, "cost": int, "reqs": int}
-    engram_overrides: List[dict] = field(default_factory=list)
+    # ── Administration extras ────────────────────────────────────────────────
+    max_tribe_logs:                          int   = 100
+    tribe_log_destroyed_enemy_structures:    bool  = False
+    allow_hide_damage_source:                bool  = False
+    enable_extinction_event:                 bool  = False
+    extinction_event_interval:               int   = 0
+    extinction_event_utc:                    int   = 0
+    enable_auto_respawn_wild_dinos:          bool  = False
+    auto_respawn_wild_dinos_interval:        int   = 0
+    enable_kick_idle_players:                bool  = False
+
+    # ── Rules extras ─────────────────────────────────────────────────────────
+    disable_friendly_fire_pvp:               bool  = False
+    disable_friendly_fire_pve:               bool  = False
+    disable_loot_crates:                     bool  = False
+    enable_extra_structure_prevention_volumes: bool = False
+    allow_pve_gamma:                         bool  = False   # AllowPvEGamma / DisablePvEGamma inverted
+    oxygen_swim_speed_stat_multiplier:       float = 1.0
+    supply_crate_loot_quality_multiplier:    float = 1.0
+    fishing_loot_quality_multiplier:         float = 1.0
+    use_corpse_life_span_multiplier:         float = 1.0
+    global_powered_battery_durability_decrease: float = 0.0
+    tribe_name_change_cooldown:              int   = 0
+    random_supply_crate_points:              bool  = False
+    increase_pvp_respawn_interval:           bool  = False
+    pvp_respawn_check_period:                int   = 300
+    pvp_respawn_multiplier:                  float = 2.0
+    pvp_respawn_base_amount:                 int   = 0
+    prevent_pvp_offline_interval:            int   = 0
+    prevent_pvp_offline_invincible_interval: int   = 5
+    auto_pve_use_system_time:                bool  = False
+    auto_pve_start_time:                     int   = 0
+    auto_pve_stop_time:                      int   = 0
+    allow_tribe_war_pve:                     bool  = False
+    allow_tribe_war_cancel_pve:              bool  = False
+    custom_recipe_effectiveness_multiplier:  float = 1.0
+    custom_recipe_skill_multiplier:          float = 1.0
+    non_permanent_diseases:                  bool  = False
+    override_npc_stasis_range_scale:         bool  = False
+    npc_stasis_range_scale_start:            int   = 0
+    npc_stasis_range_scale_end:              int   = 0
+    npc_stasis_range_scale_percent_end:      float = 0.5
+    use_corpse_locator:                      bool  = False
+    prevent_spawn_animations:               bool  = False
+    allow_unlimited_respecs:                 bool  = False
+    allow_platform_saddle_multi_floors:      bool  = False
+    max_alliances_per_tribe:                 int   = 10
+    max_tribes_per_alliance:                 int   = 10
+    save_tribute_char_expiration:            bool  = False
+    tribute_char_expiration_seconds:         int   = 86400
+    save_tribute_item_expiration:            bool  = False
+    tribute_item_expiration_seconds:         int   = 86400
+    save_tribute_dino_expiration:            bool  = False
+    tribute_dino_expiration_seconds:         int   = 86400
+    save_min_dino_reupload_interval:         bool  = False
+    min_dino_reupload_interval:              int   = 0
+    cross_ark_allow_foreign_dino_downloads:  bool  = False
+
+    # ── Dinos extras ─────────────────────────────────────────────────────────
+    dino_char_food_drain_multiplier:                  float = 1.0
+    dino_char_stamina_drain_multiplier:               float = 1.0
+    dino_char_health_recovery_multiplier:             float = 1.0
+    allow_raid_dino_feeding:                          bool  = False
+    raid_dino_food_drain_multiplier:                  float = 1.0
+    allow_flying_stamina_recovery:                    bool  = False
+    prevent_mate_boost:                               bool  = False
+    auto_destroy_decayed_dinos:                       bool  = False
+    pve_dino_decay_period_multiplier:                 float = 1.0
+    allow_multiple_attached_c4:                       bool  = False
+    max_personal_tamed_dinos:                         float = 0.0
+    personal_tamed_dinos_saddle_structure_cost:       int   = 19
+    use_tame_limit_for_structures_only:               bool  = False
+    wild_dino_char_food_drain_multiplier:             float = 1.0
+    tamed_dino_char_food_drain_multiplier:            float = 1.0
+    wild_dino_torpor_drain_multiplier:                float = 1.0
+    tamed_dino_torpor_drain_multiplier:               float = 1.0
+    override_max_xp_dino:                             int   = 0
+    baby_cuddle_grace_period_multiplier:              float = 1.0
+    baby_cuddle_lose_imprint_quality_speed_multiplier: float = 1.0
+    dino_turret_damage_multiplier:                    float = 1.0
+
+    # ── Environment extras ───────────────────────────────────────────────────
+    craft_xp_multiplier:                     float = 1.0
+    generic_xp_multiplier:                   float = 1.0
+    harvest_xp_multiplier:                   float = 1.0
+    kill_xp_multiplier:                      float = 1.0
+    special_xp_multiplier:                   float = 1.0
+    lay_egg_interval_multiplier:             float = 1.0
+    poop_interval_multiplier:                float = 1.0
+    resource_no_replenish_radius_players:    float = 1.0
+    resource_no_replenish_radius_structures: float = 1.0
+    use_optimized_harvesting_health:         bool  = False
+    clamp_resource_harvest_damage:           bool  = False
+    clamp_item_spoiling_times:               bool  = False
+
+    # ── Structures extras ────────────────────────────────────────────────────
+    pvp_structure_decay:                         bool  = False
+    pvp_zone_structure_damage_multiplier:        float = 6.0
+    structure_damage_repair_cooldown:            int   = 180
+    override_structure_platform_prevention:      bool  = False
+    flyer_platform_allow_unaligned_dino_basing:  bool  = False
+    pve_allow_structures_at_supply_drops:        bool  = False
+    only_auto_destroy_core_structures:           bool  = False
+    only_decay_unsnapped_core_structures:        bool  = False
+    fast_decay_unsnapped_core_structures:        bool  = False
+    destroy_unconnected_water_pipes:             bool  = False
+    enable_fast_decay_interval:                  bool  = False
+    fast_decay_interval:                         int   = 43200
+    hard_limit_turrets_in_range:                 bool  = False
+    passive_defenses_damage_riderless_dinos:     bool  = False
+
+    # ── Engrams ───────────────────────────────────────────────────────────────
+    only_allow_specified_engrams:    bool = False
+    auto_unlock_all_engrams:         bool = False
+    engram_entries_raw:              str  = ""  # raw Game.ini lines OverrideNamedEngramEntries=...
 
     # ── Levels (tabelas de XP / Engram Points) ────────────────────────────────
-    # Cada item: {"xp": int, "engram_points": int} — jogador e dino separados
-    player_level_xp_overrides:   List[dict] = field(default_factory=list)
-    dino_level_xp_overrides:     List[dict] = field(default_factory=list)
+    player_level_stats_raw:  str = ""  # raw Game.ini LevelExperienceRampOverrides / OverridePlayerLevelEngramPoints
+    dino_level_stats_raw:    str = ""  # raw Game.ini OverrideMaxExperiencePointsDino / LevelExperienceRampOverrides
+
+    # ── Multiplicadores por nível (PerLevelStatsMultiplier) ───────────────────
+    # Índices 0-11: Health, Stamina, Torpidity, Oxygen, Food, Water, Temperature,
+    #              Weight, MeleeDamage, MovementSpeed, Fortitude, CraftingSkill
+    per_level_player:            List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_dino_wild:         List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_dino_tamed:        List[float] = field(default_factory=lambda: [1.0] * 12)
+    per_level_dino_tamed_add:    List[float] = field(default_factory=lambda: [0.14] * 12)
+    per_level_dino_tamed_affinity: List[float] = field(default_factory=lambda: [0.44] * 12)
+
+    # ── Substituições avançadas (texto livre no formato INI do ARK) ──────────
+    crafting_overrides_raw:    str = ""  # ConfigOverrideItemCraftingCosts=...
+    stack_size_overrides_raw:  str = ""  # ConfigOverrideItemMaxQuantity=...
+    npc_spawn_overrides_raw:   str = ""  # ConfigAddNPCSpawnEntriesContainer / ConfigSubtract / ConfigOverride
+    supply_crate_overrides_raw: str = "" # ConfigOverrideSupplyCrateItems=...
+    prevent_transfer_raw:      str = ""  # PreventTransferForClassNames=... (GUS)
+
+    # ── Arquivos do Servidor ──────────────────────────────────────────────────
+    admin_ids:              List[str] = field(default_factory=list)
+    whitelist_ids:          List[str] = field(default_factory=list)
+    exclusive_join_ids:     List[str] = field(default_factory=list)
+    exclusive_join:         bool      = False   # CLI flag -exclusivejoin
+
+    # ── Gerenciamento Automático ──────────────────────────────────────────────
+    enable_auto_restart:            bool  = False
+    auto_restart_time:              str   = "03:00"
+    restart_countdown_minutes:      int   = 15
+    enable_auto_update_check:       bool  = False
+    auto_update_check_minutes:      int   = 60
+    notify_discord_on_events:       bool  = False
+
+    # ── Desempenho do Processo ────────────────────────────────────────────────
+    cpu_affinity_cores:     List[int] = field(default_factory=list)  # [] = todos os cores
+    process_priority:       str       = "normal"  # normal|above_normal|high|realtime
+
+    # ── Discord Bot ───────────────────────────────────────────────────────────
+    discord_webhook_url:            str   = ""
+    discord_notify_server_start:    bool  = False
+    discord_notify_server_stop:     bool  = False
+    discord_notify_player_join:     bool  = False
+    discord_notify_player_leave:    bool  = False
+
+    # ── ARK Procedural (PGM) ─────────────────────────────────────────────────
+    pgm_enabled:            bool = False
+    pgm_name:               str  = ""
+    pgm_terrain_string:     str  = ""  # PGTerrainPropertiesString raw
 
     # ── Custom INI livre (editor avançado) ────────────────────────────────────
-    # Seções extras a injetar direto no GUS ou Game.ini
-    # {"file": "GameUserSettings.ini"|"Game.ini", "section": str, "entries": [{"key":str,"value":str}]}
+    custom_gus_ini_raw:     str  = ""  # texto livre → GameUserSettings.ini
+    custom_game_ini_raw:    str  = ""  # texto livre → Game.ini
+    custom_engine_ini_raw:  str  = ""  # texto livre → Engine.ini
+    # legado — mantido para compatibilidade de dados antigos
     custom_ini_sections: List[dict] = field(default_factory=list)
 
     # ── Metadados internos ────────────────────────────────────────────────────
-    notes: str = ""
+    notes:  str = ""
+    color:  str = ""           # cor customizada do card (ex: "#22c55e"). Vazio = padrão
+    tags:   List[str] = field(default_factory=list)  # etiquetas livres
+    folder: str = ""           # grupo/pasta no dashboard (ex: "Cluster #1")
 
     # ─────────────────────────────────────────────────────────────────────────
 

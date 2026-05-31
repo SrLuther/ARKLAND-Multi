@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 from tkinter import messagebox
@@ -10,10 +10,13 @@ from ..buff_manager import (
     BuffPreset, BuffEvent, BuffRates,
     BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM,
     BUFF_TYPE_LABELS, BUFF_RATE_FIELDS, QUICK_PRESETS,
-    BUFF_STATUS_SCHEDULED,
+    BUFF_STATUS_SCHEDULED, now_brasilia,
+    BUFF_RECURRENCE_NONE, BUFF_RECURRENCE_DAILY,
+    BUFF_RECURRENCE_WEEKLY, BUFF_RECURRENCE_WEEKEND,
+    BUFF_RECURRENCE_LABELS,
 )
-from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _CARD_BG
-import datetime
+from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _CARD_BG, _BLUE, _BLUE_HOVER
+from datetime import datetime, timedelta
 import uuid
 
 if TYPE_CHECKING:
@@ -24,6 +27,7 @@ def open_create_buff_dialog(
     app: "ARKServerManagerApp",
     preset: Optional[BuffPreset] = None,
     server_id: Optional[str] = None,
+    event: Optional[BuffEvent] = None,  # preenchido para editar buff agendado
 ) -> None:
     servers = app.config_manager.servers
     if not servers:
@@ -34,16 +38,19 @@ def open_create_buff_dialog(
         )
         return
 
+    is_editing = event is not None
+    dlg_title  = "✏️  Editar BUFF" if is_editing else "⚡  Criar Novo BUFF"
+
     dlg = ctk.CTkToplevel(app)
-    dlg.title("Criar BUFF")
-    dlg.geometry("780x740")
+    dlg.title("Editar BUFF" if is_editing else "Criar BUFF")
+    dlg.geometry("820x820")
     dlg.resizable(True, True)
     dlg.grab_set()
     dlg.grid_columnconfigure(0, weight=1)
     dlg.grid_rowconfigure(1, weight=1)
 
     ctk.CTkLabel(
-        dlg, text="⚡  Criar Novo BUFF",
+        dlg, text=dlg_title,
         font=ctk.CTkFont(size=18, weight="bold"),
     ).grid(row=0, column=0, padx=20, pady=(18, 4), sticky="w")
 
@@ -53,32 +60,58 @@ def open_create_buff_dialog(
 
     r = 0
 
-    # ── Nome + Servidor ──────────────────────────────────────────────
-    top_row = ctk.CTkFrame(body, fg_color="transparent")
-    top_row.grid(row=r, column=0, sticky="ew", padx=16, pady=(8, 4))
-    top_row.grid_columnconfigure(1, weight=1)
-    top_row.grid_columnconfigure(3, weight=1)
+    # ── Nome ─────────────────────────────────────────────────────────
+    name_row = ctk.CTkFrame(body, fg_color="transparent")
+    name_row.grid(row=r, column=0, sticky="ew", padx=16, pady=(8, 4))
+    name_row.grid_columnconfigure(1, weight=1)
     r += 1
 
-    ctk.CTkLabel(top_row, text="Nome do BUFF:", width=110, anchor="w").grid(
+    ctk.CTkLabel(name_row, text="Nome do BUFF:", width=110, anchor="w").grid(
         row=0, column=0, sticky="w")
-    name_var = tk.StringVar(value=preset.name + " (cópia)" if preset else "")
-    ctk.CTkEntry(top_row, textvariable=name_var, height=36).grid(
-        row=0, column=1, sticky="ew", padx=(8, 16))
 
-    ctk.CTkLabel(top_row, text="Servidor:", width=80, anchor="w").grid(
-        row=0, column=2, sticky="w")
-    srv_var = tk.StringVar()
-    srv_names = [s.name for s in servers]
-    if server_id:
-        presel = next((s.name for s in servers if s.id == server_id), srv_names[0])
+    # Valor inicial: evento em edição > preset (cópia) > vazio
+    _init_name = ""
+    if event:
+        _init_name = event.name
+    elif preset:
+        _init_name = preset.name + " (cópia)"
+    name_var = tk.StringVar(value=_init_name)
+    ctk.CTkEntry(name_row, textvariable=name_var, height=36).grid(
+        row=0, column=1, sticky="ew", padx=(8, 0))
+
+    # ── Servidores (multi-seleção) ───────────────────────────────────
+    ctk.CTkLabel(
+        body, text="SERVIDORES",
+        font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
+    ).grid(row=r, column=0, padx=18, pady=(10, 4), sticky="w")
+    r += 1
+
+    srv_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+    srv_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
+    r += 1
+
+    srv_vars: Dict[str, tk.BooleanVar] = {}
+    # Determina quais servidores pré-selecionar
+    _presel_ids: set = set()
+    if event:
+        _presel_ids = {event.server_id}
+    elif server_id:
+        _presel_ids = {server_id}
     else:
-        presel = app._buffs_server_var.get() if app._buffs_server_var else srv_names[0]
-    srv_var.set(presel)
-    ctk.CTkComboBox(
-        top_row, variable=srv_var, values=srv_names,
-        state="readonly", width=220,
-    ).grid(row=0, column=3, sticky="w", padx=(8, 0))
+        sel_name = app._buffs_server_var.get() if app._buffs_server_var else ""
+        sel = next((s for s in servers if s.name == sel_name), None)
+        if sel:
+            _presel_ids = {sel.id}
+        elif servers:
+            _presel_ids = {servers[0].id}
+
+    for ci, srv in enumerate(servers):
+        var = tk.BooleanVar(value=(srv.id in _presel_ids))
+        srv_vars[srv.id] = var
+        ctk.CTkCheckBox(
+            srv_card, text=srv.name, variable=var,
+            font=ctk.CTkFont(size=12),
+        ).grid(row=ci // 3, column=ci % 3, padx=16, pady=8, sticky="w")
 
     # ── Tipos ────────────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -92,9 +125,9 @@ def open_create_buff_dialog(
     r += 1
 
     type_vars: Dict[str, tk.BooleanVar] = {}
-    preset_types = preset.types if preset else []
+    _init_types = event.types if event else (preset.types if preset else [])
     for ci, btype in enumerate([BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM]):
-        var = tk.BooleanVar(value=(btype in preset_types) if preset_types else True)
+        var = tk.BooleanVar(value=(btype in _init_types) if _init_types else True)
         type_vars[btype] = var
         ctk.CTkCheckBox(
             types_frame,
@@ -170,10 +203,10 @@ def open_create_buff_dialog(
     rates_card.grid_columnconfigure((1, 3, 5, 7), weight=1)
     r += 1
 
-    preset_rates = preset.rates if preset else None
+    # Fonte de rates: evento em edição > preset > vazio
+    _init_rates = event.rates if event else (preset.rates if preset else None)
     fr = 0
     for btype, fields in BUFF_RATE_FIELDS.items():
-        # Separador de tipo
         ctk.CTkLabel(
             rates_card,
             text=BUFF_TYPE_LABELS[btype],
@@ -194,8 +227,8 @@ def open_create_buff_dialog(
             col += 1
 
             init_val = ""
-            if preset_rates:
-                v = getattr(preset_rates, fname, None)
+            if _init_rates:
+                v = getattr(_init_rates, fname, None)
                 if v is not None:
                     init_val = str(v)
             sv = tk.StringVar(value=init_val)
@@ -224,25 +257,117 @@ def open_create_buff_dialog(
     sched_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
     r += 1
 
-    now_str = now_brasilia().strftime("%d/%m/%Y %H:00")
+    _fmt = "%d/%m/%Y %H:%M"
+    _now_str = now_brasilia().strftime("%d/%m/%Y %H:00")
+
+    # Valores iniciais: evento em edição ou agora
+    if event:
+        _start_init = event.start_datetime().strftime(_fmt)
+        _end_init   = event.end_datetime().strftime(_fmt)
+    else:
+        _start_init = _end_init = _now_str
+
     ctk.CTkLabel(sched_card, text="Início:", text_color="gray60").grid(
-        row=0, column=0, padx=(16, 4), pady=14, sticky="w")
-    start_var = tk.StringVar(value=now_str)
+        row=0, column=0, padx=(16, 4), pady=(14, 4), sticky="w")
+    start_var = tk.StringVar(value=_start_init)
     ctk.CTkEntry(sched_card, textvariable=start_var, width=160,
                  placeholder_text="DD/MM/AAAA HH:MM").grid(
-        row=0, column=1, padx=(0, 24), pady=14, sticky="w")
+        row=0, column=1, padx=(0, 24), pady=(14, 4), sticky="w")
 
     ctk.CTkLabel(sched_card, text="Fim:", text_color="gray60").grid(
-        row=0, column=2, padx=(0, 4), pady=14, sticky="w")
-    end_var = tk.StringVar(value=now_str)
+        row=0, column=2, padx=(0, 4), pady=(14, 4), sticky="w")
+    end_var = tk.StringVar(value=_end_init)
     ctk.CTkEntry(sched_card, textvariable=end_var, width=160,
                  placeholder_text="DD/MM/AAAA HH:MM").grid(
-        row=0, column=3, padx=(0, 16), pady=14, sticky="w")
+        row=0, column=3, padx=(0, 16), pady=(14, 4), sticky="w")
+
+    # ── Duração rápida ───────────────────────────────────────────────
+    quick_dur_frame = ctk.CTkFrame(sched_card, fg_color="transparent")
+    quick_dur_frame.grid(row=1, column=0, columnspan=6, padx=12, pady=(0, 4), sticky="w")
+
+    ctk.CTkLabel(quick_dur_frame, text="Duração rápida:",
+                 text_color="gray55", font=ctk.CTkFont(size=11)).pack(side="left", padx=(4, 8))
+
+    def _apply_duration(hours: float, label: str = "") -> None:
+        """Define end_dt = start_dt + horas. Se start inválido, usa agora."""
+        raw = start_var.get().strip()
+        try:
+            base = datetime.strptime(raw, _fmt)
+        except ValueError:
+            base = now_brasilia().replace(minute=0, second=0, microsecond=0)
+            start_var.set(base.strftime(_fmt))
+        end_var.set((base + timedelta(hours=hours)).strftime(_fmt))
+
+    def _apply_weekend() -> None:
+        """Define início na sexta 20h e fim no domingo 23h59."""
+        now_dt = now_brasilia()
+        days_to_fri = (4 - now_dt.weekday()) % 7
+        if days_to_fri == 0 and now_dt.hour >= 20:
+            days_to_fri = 7
+        fri = now_dt + timedelta(days=days_to_fri)
+        fri_start = fri.replace(hour=20, minute=0, second=0, microsecond=0)
+        sun_end   = fri_start + timedelta(hours=51, minutes=59)  # dom 23h59
+        start_var.set(fri_start.strftime(_fmt))
+        end_var.set(sun_end.strftime(_fmt))
+
+    for _lbl, _h in (("1h", 1), ("2h", 2), ("4h", 4), ("8h", 8), ("24h", 24), ("48h", 48)):
+        ctk.CTkButton(
+            quick_dur_frame, text=_lbl, width=48, height=26,
+            fg_color="#2a2a44", hover_color="#1e2a3a",
+            font=ctk.CTkFont(size=11),
+            command=lambda h=_h: _apply_duration(h),
+        ).pack(side="left", padx=3)
+
+    ctk.CTkButton(
+        quick_dur_frame, text="🎮 Fim de Semana", width=130, height=26,
+        fg_color="#2a2a44", hover_color="#1e2a3a",
+        font=ctk.CTkFont(size=11),
+        command=_apply_weekend,
+    ).pack(side="left", padx=(8, 3))
+
+    # ── Recorrência ──────────────────────────────────────────────────
+    rec_frame = ctk.CTkFrame(sched_card, fg_color="transparent")
+    rec_frame.grid(row=2, column=0, columnspan=6, padx=12, pady=(2, 8), sticky="w")
+
+    ctk.CTkLabel(rec_frame, text="Repetir:",
+                 text_color="gray55", font=ctk.CTkFont(size=11)).pack(side="left", padx=(4, 8))
+
+    _rec_options = list(BUFF_RECURRENCE_LABELS.values())
+    _rec_keys    = list(BUFF_RECURRENCE_LABELS.keys())
+    _init_rec_label = BUFF_RECURRENCE_LABELS.get(
+        event.recurrence if event else None, "Sem repetição"
+    )
+    recurrence_var = tk.StringVar(value=_init_rec_label)
+    ctk.CTkComboBox(
+        rec_frame, variable=recurrence_var, values=_rec_options,
+        state="readonly", width=180,
+    ).pack(side="left")
 
     ctk.CTkLabel(sched_card,
                  text="Formato: DD/MM/AAAA HH:MM  —  Máx. 30 dias",
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
-        row=1, column=0, columnspan=4, padx=16, pady=(0, 10), sticky="w")
+        row=3, column=0, columnspan=6, padx=16, pady=(0, 10), sticky="w")
+
+    # ── Preview de rates ─────────────────────────────────────────────
+    preview_var = tk.StringVar(value="—")
+    preview_lbl = ctk.CTkLabel(
+        body, textvariable=preview_var,
+        text_color="#88aaff", font=ctk.CTkFont(size=11),
+        wraplength=740, justify="left",
+    )
+    preview_lbl.grid(row=r, column=0, padx=18, pady=(0, 4), sticky="w")
+    r += 1
+
+    def _update_preview(*_) -> None:
+        try:
+            preview_var.set("📊  " + _collect_rates().summary())
+        except Exception:
+            pass
+
+    # Vincula atualização do preview a qualquer mudança nos rate_vars
+    for _sv in rate_vars.values():
+        _sv.trace_add("write", _update_preview)
+    _update_preview()
 
     # ── Salvar como preset ───────────────────────────────────────────
     save_preset_var = tk.BooleanVar(value=False)
@@ -289,9 +414,21 @@ def open_create_buff_dialog(
                     pass
         return BuffRates(**kwargs)
 
+    def _get_recurrence() -> Optional[str]:
+        label = recurrence_var.get()
+        for k, v in BUFF_RECURRENCE_LABELS.items():
+            if v == label:
+                return k
+        return None
+
     def _do_schedule() -> None:
         name = name_var.get().strip()
         selected_types = [t for t, v in type_vars.items() if v.get()]
+        selected_srvs  = [s for s in servers if srv_vars.get(s.id, tk.BooleanVar()).get()]
+
+        if not selected_srvs:
+            err_var.set("Selecione ao menos um servidor.")
+            return
 
         start_iso = _parse_dt(start_var.get())
         end_iso   = _parse_dt(end_var.get())
@@ -299,28 +436,12 @@ def open_create_buff_dialog(
             err_var.set("Data/hora inválida. Use DD/MM/AAAA HH:MM.")
             return
 
-        srv_name = srv_var.get()
-        sel_srv = next((s for s in servers if s.name == srv_name), None)
-        if not sel_srv:
-            err_var.set("Servidor não encontrado.")
-            return
-
-        rates = _collect_rates()
-
-        event = BuffEvent(
-            id=str(uuid.uuid4()),
-            name=name,
-            server_id=sel_srv.id,
-            types=selected_types,
-            rates=rates,
-            start_dt=start_iso,
-            end_dt=end_iso,
-            status=BUFF_STATUS_SCHEDULED,
-        )
-
         if not app._buff_manager:
             err_var.set("BuffManager não inicializado.")
             return
+
+        rates      = _collect_rates()
+        recurrence = _get_recurrence()
 
         # Salva preset se solicitado
         if save_preset_var.get():
@@ -332,17 +453,50 @@ def open_create_buff_dialog(
                 rates=rates,
             ))
 
-        err = app._buff_manager.add_event(event)
-        if err:
-            err_var.set(err)
+        # Cria (ou atualiza) um evento por servidor selecionado
+        errors: List[str] = []
+        for srv in selected_srvs:
+            if is_editing and len(selected_srvs) == 1 and event.server_id == srv.id:  # type: ignore[union-attr]
+                # Edição: atualiza o evento existente
+                updated = BuffEvent(
+                    id=event.id,  # type: ignore[union-attr]
+                    name=name,
+                    server_id=srv.id,
+                    types=selected_types,
+                    rates=rates,
+                    start_dt=start_iso,
+                    end_dt=end_iso,
+                    status=BUFF_STATUS_SCHEDULED,
+                    recurrence=recurrence,
+                )
+                err = app._buff_manager.update_event(updated)
+            else:
+                new_event = BuffEvent(
+                    id=str(uuid.uuid4()),
+                    name=name,
+                    server_id=srv.id,
+                    types=selected_types,
+                    rates=rates,
+                    start_dt=start_iso,
+                    end_dt=end_iso,
+                    status=BUFF_STATUS_SCHEDULED,
+                    recurrence=recurrence,
+                )
+                err = app._buff_manager.add_event(new_event)
+            if err:
+                errors.append(f"{srv.name}: {err}")
+
+        if errors:
+            err_var.set("\n".join(errors))
             return
 
         dlg.destroy()
 
+    _btn_label = "💾  Salvar Alterações" if is_editing else "⚡  Agendar BUFF"
     ctk.CTkButton(btn_row, text="Cancelar", width=120, height=40,
                   fg_color="#2a2a44", hover_color="#1e2a3a",
                   command=dlg.destroy).pack(side="left", padx=(0, 12))
-    ctk.CTkButton(btn_row, text="⚡  Agendar BUFF", width=180, height=40,
+    ctk.CTkButton(btn_row, text=_btn_label, width=200, height=40,
                   fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                   font=ctk.CTkFont(size=13, weight="bold"),
                   command=_do_schedule).pack(side="left")

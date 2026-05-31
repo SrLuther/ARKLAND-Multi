@@ -52,7 +52,7 @@ def build_rail(app: "ARKServerManagerApp") -> None:
     # ── Logo ─────────────────────────────────────────────────────────────────
     try:
         from PIL import Image, ImageTk  # type: ignore[reportMissingImports]
-        _logo = Image.open(_resource_path(os.path.join("ig", "ArkLandBR.png"))).resize((36, 36))
+        _logo = Image.open(_resource_path(os.path.join("ig", "ark_manager.png"))).resize((36, 36))
         app._rail_logo_img = ImageTk.PhotoImage(_logo)
         logo_lbl = tk.Label(rail, image=app._rail_logo_img, bg=rail_bg, cursor="hand2")
         logo_lbl.pack(side="top", pady=(12, 8))

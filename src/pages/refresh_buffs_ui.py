@@ -1,6 +1,6 @@
 from __future__ import annotations
 import tkinter as tk
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..ui_constants import _CARD_BG
 if TYPE_CHECKING:

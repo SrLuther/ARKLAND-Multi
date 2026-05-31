@@ -270,6 +270,66 @@ class DiscordNotifier:
             fields=fields,
         )
 
+    def notify_buff(self, action: str, event: object) -> None:
+        """
+        Notifica início ou fim de um BUFF de rates.
+
+        action: 'start' | 'end'
+        event:  BuffEvent (importado dinamicamente para evitar ciclo)
+        """
+        cfg = self.config
+        if not cfg.enabled or not cfg.webhook_url:
+            return
+
+        from .buff_manager import BUFF_TYPE_LABELS  # importação local — evita ciclo
+
+        is_start   = action == "start"
+        emoji      = "⚡" if is_start else "🔕"
+        color      = 0xF1C40F if is_start else 0x95A5A6
+        action_lbl = "Ativado" if is_start else "Finalizado"
+
+        types_str = "  ·  ".join(
+            BUFF_TYPE_LABELS.get(t, t) for t in event.types  # type: ignore[attr-defined]
+        )
+        rates_str = event.rates.summary()  # type: ignore[attr-defined]
+
+        try:
+            start_fmt = event.start_datetime().strftime("%d/%m/%Y %H:%M")  # type: ignore[attr-defined]
+            end_fmt   = event.end_datetime().strftime("%d/%m/%Y %H:%M")    # type: ignore[attr-defined]
+        except Exception:
+            start_fmt = end_fmt = "—"
+
+        fields: List[dict] = [
+            {"name": "🎮  Tipos",       "value": types_str or "—",  "inline": False},
+            {"name": "📊  Rates",       "value": rates_str or "—",  "inline": False},
+            {"name": "🕐  Início",      "value": start_fmt,         "inline": True},
+            {"name": "🕑  Fim",         "value": end_fmt,           "inline": True},
+        ]
+
+        if event.recurrence:  # type: ignore[attr-defined]
+            from .buff_manager import BUFF_RECURRENCE_LABELS
+            rec_label = BUFF_RECURRENCE_LABELS.get(event.recurrence, event.recurrence)  # type: ignore[attr-defined]
+            fields.append({"name": "🔁  Recorrência", "value": rec_label, "inline": True})
+
+        srv_cfg = None
+        try:
+            from .config_manager import ConfigManager  # evita importação circular
+        except Exception:
+            pass
+
+        desc = (
+            f"O BUFF **{event.name}** foi **{'iniciado' if is_start else 'encerrado'}** "  # type: ignore[attr-defined]
+            f"no servidor."
+        )
+
+        self._send_embed(
+            sender=cfg.sender_name or "ARKLAND",
+            title=f"{emoji}  BUFF {action_lbl} — {event.name}",  # type: ignore[attr-defined]
+            description=desc,
+            color=color,
+            fields=fields,
+        )
+
     # ── Internos ───────────────────────────────────────────────────────────────
 
     def _send_embed(

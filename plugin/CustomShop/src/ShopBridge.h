@@ -6,11 +6,16 @@
 //  ShopBridge — communication layer between the C++ plugin and the
 //  MX-E Ark Shop UI mod (Steam Workshop ID 2693727499).
 //
-//  Protocol: the plugin applies a permanent "shop buff"
-//  (Blueprint'/Game/Mods/FC_ArkShopUI/ArkShopUI_Buff_FCAS.ArkShopUI_Buff_FCAS')
-//  to the player's character. That buff has a UE4 event
-//  "ClientReceiveCallback(FString)" that, when called via ProcessEvent(),
-//  transmits a JSON payload to the client-side mod.
+//  Protocol (discovered by inspecting ArkShopUI_Buff_FCAS.uasset):
+//    Plugin → Mod (server calls on buff via ProcessEvent):
+//      SetUiKey(UiKey: FString)              — set hotkey before init
+//      OnServerInitFinished()                — signal plugin is ready
+//      ROC_ShopDataReceived(ShopDataRaw: FString) — JSON shop+kit data
+//      ROC_GetPointsReturn(Points: int32)    — player point balance
+//      FCAS_OnPermissionsReceived(Groups: FString) — VIP groups JSON
+//      FCAS_OnStashReceived(StashRaw: FString)     — kit stash JSON
+//    Mod → Plugin (client fires ROS_ RPCs → plugin console commands):
+//      ROS_GetPoints / ROS_GetKitsStash / ROS_OnPurchaseTry / etc.
 // ─────────────────────────────────────────────────────────────────
 
 namespace CustomShop {
@@ -26,15 +31,34 @@ AShooterPlayerController* FindPlayer(const std::string& steam_id);
 // Returns the buff instance, or nullptr if the player has no character yet.
 APrimalBuff* GetOrAddShopBuff(AShooterPlayerController* controller);
 
-// Returns true if the mod is loaded on the client (buff RPC reachable).
-bool CanUseMod(AShooterPlayerController* controller);
+// ── Specific mod RPCs ─────────────────────────────────────────────
 
-// Serialises payload to JSON and fires ClientReceiveCallback on the buff.
+// Full init sequence: SetUiKey → OnServerInitFinished →
+//   ROC_ShopDataReceived(shop_data) → ROC_GetPointsReturn(points)
+// shop_data must be: {"ShopItems":[...], "Kits":[...]}
+bool SendInitData(AShooterPlayerController* controller,
+                  const nlohmann::json& shop_data,
+                  int points);
+
+// Refresh player point balance after buy/sell/trade.
+bool SendPointsRefresh(AShooterPlayerController* controller, int points);
+
+// Refresh kit stash after redeem.
+bool SendStashRefresh(AShooterPlayerController* controller,
+                      const nlohmann::json& stash);
+
+// ── Legacy generic payload (kept for buy/sell result responses) ───
 bool SendPayload(AShooterPlayerController* controller,
                  const nlohmann::json& payload);
-
 bool SendPayload(const std::string& steam_id,
                  const nlohmann::json& payload);
+
+// ── Diagnostics ──────────────────────────────────────────────────
+// Runs a full diagnostic pipeline for `player` and reports each step
+// as a persistent server chat message visible to `admin`.
+// Use via RCON: Shop.Debug <steamid>
+void DiagnosePlayer(AShooterPlayerController* player,
+                    AShooterPlayerController* admin);
 
 } // namespace Bridge
 } // namespace CustomShop
