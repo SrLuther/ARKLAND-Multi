@@ -1045,10 +1045,9 @@ class ARKServerManagerApp(ctk.CTk):
             if self._update_status_lbl:
                 self._update_status_lbl.configure(text_color="#ff6666")
             return
-        remote = info.get("version", "")
-        if remote and remote != APP_VERSION:
+        if info.is_newer_than(APP_VERSION):
             if self._update_status_var:
-                self._update_status_var.set(f"Nova versão disponível: v{remote}")
+                self._update_status_var.set(f"Nova versão disponível: v{info.version}")
             if self._update_status_lbl:
                 self._update_status_lbl.configure(text_color="#4ade80")
             if self._install_update_btn:
