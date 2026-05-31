@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.10"
+APP_VERSION: str = "1.5.11"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.11",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM/painel): Iniciar e Restart agora sincronizam silenciosamente os campos da UI "
+            "(install_dir, session_name, portas, etc.) para o cfg antes de iniciar — sem dialog, "
+            "sem salvar no JSON. Resolve: nome errado no servidor ('ARK #200440'), "
+            "servidor não listando, validação falhando por install_dir vazio.",
+        ],
+    },
     {
         "version": "1.5.10",
         "date": "2026-05-31",

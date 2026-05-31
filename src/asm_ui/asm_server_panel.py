@@ -100,6 +100,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         return inst.status if inst else "stopped"
 
     def _on_start() -> None:
+        _sync_ui_to_cfg(app, srv)   # sincroniza UI → cfg sem salvar nem exibir dialog
         app._asm_start_server(srv)
         _refresh_action_btns()
 
@@ -108,6 +109,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         _refresh_action_btns()
 
     def _on_restart() -> None:
+        _sync_ui_to_cfg(app, srv)   # sincroniza UI → cfg sem salvar nem exibir dialog
         app._asm_restart_server(srv)
         _refresh_action_btns()
 
@@ -2529,7 +2531,10 @@ def _build_pgm(sf, srv, vars_ref, bg, accent):
 #  Salvar
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
+def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
+    """Sincroniza os widgets do painel para o objeto cfg em memória.
+    Não persiste no JSON nem mostra dialogs — usado antes de Iniciar/Restart.
+    """
     vars_ref = getattr(app, "_asm_panel_vars", {}).get(srv.id, {})
 
     from dataclasses import fields as _fields
@@ -2604,7 +2609,12 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
             except Exception:
                 pass
 
-    # Persiste no JSON
+
+def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
+    # 1. Sincroniza UI → cfg em memória
+    _sync_ui_to_cfg(app, srv)
+
+    # 2. Persiste no JSON
     try:
         app.asm_config_manager.update_server(srv)
     except Exception as _e:
@@ -2612,7 +2622,7 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         _mb.showerror("Erro ao salvar", f"Não foi possível salvar: {_e}", parent=app)
         return
 
-    # Escreve os INIs imediatamente (se install_dir existir)
+    # 3. Escreve os INIs imediatamente (se install_dir existir)
     import os as _os
     if srv.install_dir and _os.path.isdir(srv.install_dir):
         try:
@@ -2621,7 +2631,7 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         except Exception:
             pass  # INIs serão escritos no próximo start
 
-    # Atualiza dashboard (não bloqueia o feedback se falhar)
+    # 4. Atualiza dashboard
     try:
         app._asm_refresh_dashboard()
     except Exception:

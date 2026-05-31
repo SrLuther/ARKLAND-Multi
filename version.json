@@ -1,8 +1,8 @@
 {
-    "version": "1.5.10",
+    "version": "1.5.11",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.10/ARKLAND-Multi-Setup-v1.5.10.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.11/ARKLAND-Multi-Setup-v1.5.11.exe",
     "changelog": [
-        "Fix (ASM/painel): botões Iniciar e Restart não salvam mais automaticamente. Salvar é ação exclusiva do botão Salvar."
+        "Fix (ASM/painel): Iniciar e Restart agora sincronizam silenciosamente os campos da UI (install_dir, session_name, portas, etc.) para o cfg antes de iniciar — sem dialog, sem salvar no JSON. Resolve: nome errado no servidor ('ARK #200440'), servidor não listando, validação falhando por install_dir vazio."
     ]
 }
