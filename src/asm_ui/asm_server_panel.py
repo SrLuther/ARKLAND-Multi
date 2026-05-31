@@ -466,27 +466,31 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _ip_frame = ctk.CTkFrame(sf, fg_color="transparent")
     _ip_frame.grid(row=16, column=1, padx=(0, 8), pady=3, sticky="w")
     _ip_entry = ctk.CTkEntry(_ip_frame, textvariable=_ip_var,
-                             placeholder_text="ex: 200.x.x.x", width=160)
+                             placeholder_text="ex: 192.168.x.x", width=160)
     _ip_entry.pack(side="left", padx=(0, 4))
 
     def _detect_public_ip():
         import threading
-        import urllib.request
         _ip_btn.configure(text="...", state="disabled")
         def _fetch():
+            import socket
             ip = ""
-            for url in (
-                "https://api.ipify.org",
-                "https://checkip.amazonaws.com",
-                "https://icanhazip.com",
-            ):
+            # Obtém o IP da interface de rede local usada para conexões externas.
+            # MultiHome deve ser o IP da interface (ex: 192.168.x.x em home server,
+            # IP público em VPS) — NÃO o IP externo/NAT do roteador.
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.settimeout(2)
+                s.connect(("8.8.8.8", 80))
+                ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                pass
+            if not ip:
                 try:
-                    with urllib.request.urlopen(url, timeout=5) as r:
-                        ip = r.read().decode().strip()
-                    if ip:
-                        break
+                    ip = socket.gethostbyname(socket.gethostname())
                 except Exception:
-                    continue
+                    pass
             sf.after(0, lambda: _on_ip_result(ip))
         threading.Thread(target=_fetch, daemon=True).start()
 
@@ -497,8 +501,9 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         else:
             from tkinter import messagebox
             messagebox.showwarning("IP não detectado",
-                "Não foi possível detectar o IP público.\n"
-                "Verifique a conexão e preencha manualmente.",
+                "Não foi possível detectar o IP da interface de rede.\n"
+                "Preencha manualmente com o IP local da máquina (ex: 192.168.x.x).\n\n"
+                "Dica: use ipconfig no cmd para encontrar o IP.",
                 parent=sf.winfo_toplevel())
 
     _ip_btn = ctk.CTkButton(_ip_frame, text="Detectar IP", width=90, height=28,

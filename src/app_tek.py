@@ -599,8 +599,9 @@ class ARKServerManagerApp(ctk.CTk):
         if not srv.server_ip or not srv.server_ip.strip():
             errors.append(
                 "IP Bind (MultiHome) não preenchido\n"
-                "   Preencha com o IP público da máquina (ex: 200.x.x.x)\n"
-                "   sem isso o servidor pode não ser encontrado na lista ou crashar"
+                "   Preencha com o IP local da interface de rede (ex: 192.168.x.x)\n"
+                "   Use 'ipconfig' no cmd para encontrar o IP correto\n"
+                "   ATENÇÃO: não use o IP público do roteador — o servidor não consegue fazer bind nele"
             )
         return errors
 
