@@ -453,7 +453,7 @@ class _WorkshopWindow(ctk.CTkToplevel):
             try:
                 from ..asm_engine.asm_steamcmd import AsmSteamCmd  # noqa: PLC0415
                 scmd_path = (
-                    getattr(self._app.config_manager, "steamcmd_path", None)
+                    getattr(getattr(self._app.config_manager, "config", None), "steamcmd_path", None)
                     or AsmSteamCmd.find_steamcmd()
                 )
                 if not scmd_path:

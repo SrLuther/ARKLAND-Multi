@@ -10,6 +10,7 @@ import sys
 import tkinter as tk
 import webbrowser
 from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, List, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
@@ -21,7 +22,7 @@ from .config_manager import ConfigManager
 from .server_manager import ServerManager
 from .sync_engine import SyncEngine
 from .updater import UpdateChecker
-from .ui_constants import get_theme
+from .ui_constants import get_theme, set_tek_variant, get_tek_variant
 
 # ── Constantes de janela ─────────────────────────────────────────────────────
 _WINDOW_TITLE  = "ARKLAND TEK — ARK Server Manager"
@@ -42,7 +43,14 @@ class ARKServerManagerApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
-        ctk.set_appearance_mode("dark")
+        # ── Carrega preferência de variante de tema (persiste entre sessões) ──
+        self._prefs_file = (
+            Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "ui_prefs.json"
+        )
+        self._load_ui_prefs()
+
+        _ctk_mode = "light" if get_tek_variant() == "light" else "dark"
+        ctk.set_appearance_mode(_ctk_mode)
         ctk.set_default_color_theme("dark-blue")
 
         self.title(_WINDOW_TITLE)
@@ -175,6 +183,62 @@ class ARKServerManagerApp(ctk.CTk):
             pass
 
     # ─────────────────────────────────────────────────────────────────────────
+    # Preferências de UI (persistência do tema)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _load_ui_prefs(self) -> None:
+        """Lê ui_prefs.json e aplica variante de tema."""
+        import json as _json
+        try:
+            if self._prefs_file.exists():
+                data = _json.loads(self._prefs_file.read_text(encoding="utf-8"))
+                set_tek_variant(data.get("theme_variant", "dark"))
+            else:
+                set_tek_variant("dark")
+        except Exception:
+            set_tek_variant("dark")
+
+    def _save_ui_prefs(self) -> None:
+        """Persiste variante de tema em ui_prefs.json."""
+        import json as _json
+        try:
+            self._prefs_file.parent.mkdir(parents=True, exist_ok=True)
+            self._prefs_file.write_text(
+                _json.dumps({"theme_variant": get_tek_variant()}, indent=2),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
+    def _toggle_theme(self) -> None:
+        """Alterna entre modo escuro e modo claro, reconstrói a interface."""
+        new_variant = "light" if get_tek_variant() == "dark" else "dark"
+        set_tek_variant(new_variant)
+        self._save_ui_prefs()
+
+        ctk.set_appearance_mode("light" if new_variant == "light" else "dark")
+
+        theme = get_theme("tek")
+        self.configure(fg_color=theme["bg"])
+        self._page_area.configure(fg_color=theme["bg"])
+
+        # Reconstrói sidebar com cores novas
+        self._sidebar.destroy()
+        self._build_sidebar()
+
+        # Reconstrói watermark
+        try:
+            if hasattr(self, "_bg_watermark_lbl") and self._bg_watermark_lbl.winfo_exists():
+                self._bg_watermark_lbl.destroy()
+        except Exception:
+            pass
+        self.after(50, self._setup_bg_watermark)
+
+        # Reconstrói frame atual
+        _active = self._nav_active or "dashboard"
+        self._show_frame(_active)
+
+    # ─────────────────────────────────────────────────────────────────────────
     # Sidebar
     # ─────────────────────────────────────────────────────────────────────────
 
@@ -279,11 +343,11 @@ class ARKServerManagerApp(ctk.CTk):
         self._servers_list_sb.grid(row=13, column=0, sticky="ew", padx=8)
         self._servers_list_sb.grid_columnconfigure(0, weight=1)
 
-        # ── Rodapé: relógio + versão ──────────────────────────────────────────
+        # ── Rodapé: relógio + versão + toggle tema ────────────────────────────
         ctk.CTkFrame(sb, height=1, fg_color=sep_col).grid(
             row=14, column=0, sticky="ew", padx=16, pady=(8, 4))
         footer_f = ctk.CTkFrame(sb, fg_color="transparent")
-        footer_f.grid(row=15, column=0, padx=16, pady=(0, 12), sticky="ew")
+        footer_f.grid(row=15, column=0, padx=16, pady=(0, 4), sticky="ew")
         footer_f.grid_columnconfigure(0, weight=1)
         self._sidebar_clock_lbl = ctk.CTkLabel(
             footer_f, text="",
@@ -296,6 +360,22 @@ class ARKServerManagerApp(ctk.CTk):
             footer_f, text=f"v{APP_VERSION}",
             font=ctk.CTkFont(size=10), text_color=t_muted,
         ).grid(row=0, column=1, sticky="e")
+
+        # Botão toggle claro/escuro
+        _is_light = get_tek_variant() == "light"
+        _toggle_icon = "☀ Claro" if _is_light else "🌙 Escuro"
+        _toggle_fg   = theme["accent_muted_bg"]
+        ctk.CTkButton(
+            sb, text=_toggle_icon,
+            width=_SIDEBAR_W - 32, height=28,
+            fg_color=_toggle_fg,
+            hover_color=theme["accent_hover"],
+            text_color=accent,
+            font=ctk.CTkFont(family="Segoe UI", size=11),
+            corner_radius=8,
+            command=self._toggle_theme,
+        ).grid(row=16, column=0, padx=16, pady=(0, 14), sticky="ew")
+
         self.after(100, self._sidebar_clock_tick)
         self.after(60_000, self._asm_scheduler_tick)
 
@@ -666,7 +746,7 @@ class ARKServerManagerApp(ctk.CTk):
         try:
             from .asm_engine.asm_steamcmd import AsmSteamCmd  # noqa: PLC0415
             scmd_path = (
-                getattr(self.config_manager, "steamcmd_path", None)
+                getattr(getattr(self.config_manager, "config", None), "steamcmd_path", None)
                 or AsmSteamCmd.find_steamcmd()
             )
             if not scmd_path:

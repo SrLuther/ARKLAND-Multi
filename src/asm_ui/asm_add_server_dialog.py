@@ -214,6 +214,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             dlg.destroy()
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
+            app._rebuild_server_sidebar()
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))
@@ -284,6 +285,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             dlg.destroy()
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
+            app._rebuild_server_sidebar()
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))
@@ -341,6 +343,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             dlg.destroy()
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
+            app._rebuild_server_sidebar()
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))

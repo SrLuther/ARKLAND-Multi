@@ -89,16 +89,58 @@ _THEMES: dict = {
         "text_muted":     "#475569",
         "mode_label":     "TEK",
         "mode_short":     "T",
+        "_is_light":      False,
+    },
+    "tek_light": {
+        "accent":         "#0284c7",    # sky-600
+        "accent_dark":    "#0369a1",    # sky-700
+        "accent_hover":   "#bae6fd",    # sky-200
+        "accent_label":   "#0369a1",    # sky-700
+        "accent_muted_bg":"#e0f2fe",    # sky-100
+        "rail_bg":        "#dde3ea",
+        "tab_bar_bg":     "#f8fafc",    # slate-50
+        "sidebar_bg":     "#dde3ea",
+        "card_bg":        "#ffffff",
+        "card_border":    "#cbd5e1",    # slate-300
+        "card_hover":     "#e0f2fe",    # sky-100
+        "bg":             "#f1f5f9",    # slate-100
+        "topbar_bg":      "#dde3ea",
+        "separator":      "#cbd5e1",    # slate-300
+        "text_primary":   "#0f172a",    # slate-900
+        "text_secondary": "#334155",    # slate-700
+        "text_muted":     "#64748b",    # slate-500
+        "mode_label":     "TEK LIGHT",
+        "mode_short":     "TL",
+        "_is_light":      True,
     },
 }
 
 # Modo ativo — alterado por _switch_mode() em app.py
 _active_mode: str = "primitive"
 
+# Variante TEK: "dark" | "light" — controlado por set_tek_variant()
+_tek_variant: str = "dark"
+
+
+def set_tek_variant(variant: str) -> None:
+    """Define a variante de tema TEK ativa. variant: 'dark' ou 'light'."""
+    global _tek_variant
+    _tek_variant = "light" if variant == "light" else "dark"
+
+
+def get_tek_variant() -> str:
+    """Retorna a variante TEK ativa ('dark' ou 'light')."""
+    return _tek_variant
+
 
 def get_theme(mode: str | None = None) -> dict:
-    """Retorna o dicionário de cores do modo ativo (ou do modo especificado)."""
-    return _THEMES.get(mode or _active_mode, _THEMES["primitive"])
+    """Retorna o dicionário de cores do modo ativo (ou do modo especificado).
+    Se mode=='tek', respeita a variante ativa (_tek_variant).
+    """
+    resolved = mode or _active_mode
+    if resolved == "tek" and _tek_variant == "light":
+        return _THEMES["tek_light"]
+    return _THEMES.get(resolved, _THEMES["primitive"])
 
 _MAX_SYNC_CYCLES  = 5
 _MAX_SYNC_FOLDERS = 5

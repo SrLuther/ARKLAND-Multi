@@ -632,7 +632,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             import tkinter.messagebox as mb
             mb.showinfo("Sem mods", "Nenhum mod configurado na lista.")
             return
-        scmd_path = getattr(getattr(_app, "config_manager", None), "steamcmd_path", None)
+        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
         sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
         if not sc.is_available:
             import tkinter.messagebox as mb
@@ -697,7 +697,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     def _do_install():
         from ..asm_engine.asm_steamcmd import AsmSteamCmd
         _app = vars_ref.get("_app")
-        scmd_path = getattr(getattr(_app, "config_manager", None), "steamcmd_path", None)
+        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
         sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
         if not sc.is_available:
             import tkinter.messagebox as mb
@@ -719,7 +719,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             import tkinter.messagebox as mb
             mb.showinfo("Sem mods", "Nenhum mod configurado na lista de Mods.")
             return
-        scmd_path = getattr(getattr(_app, "config_manager", None), "steamcmd_path", None)
+        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
         sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
         if not sc.is_available:
             import tkinter.messagebox as mb
@@ -735,7 +735,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     def _do_validate():
         from ..asm_engine.asm_steamcmd import AsmSteamCmd
         _app = vars_ref.get("_app")
-        scmd_path = getattr(getattr(_app, "config_manager", None), "steamcmd_path", None)
+        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
         sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
         if not sc.is_available:
             import tkinter.messagebox as mb
