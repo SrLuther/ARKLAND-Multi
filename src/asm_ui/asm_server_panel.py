@@ -215,12 +215,13 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _str_entry(parent, label, field, srv, vars_ref, row, accent,
-               wide=False, pw=False):
+               wide=False, pw=False, placeholder=""):
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
     v = tk.StringVar(value=str(getattr(srv, field, "")))
     vars_ref[field] = v
     ctk.CTkEntry(parent, textvariable=v, show="*" if pw else "",
+                 placeholder_text=placeholder,
                  width=300 if wide else 200).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="ew" if wide else "w")
 
@@ -456,7 +457,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 14)
     _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 15)
-    _str_entry(sf,   "IP Bind (MultiHome)",    "server_ip",        srv, vars_ref, 16, accent)
+    _str_entry(sf,   "IP Bind (MultiHome) *",  "server_ip",        srv, vars_ref, 16, accent, placeholder="ex: 200.x.x.x  (IP público obrigatório)")
 
     _section_label(sf, "Senhas",         17, accent)
     _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 18, accent, pw=True)

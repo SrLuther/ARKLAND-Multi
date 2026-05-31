@@ -587,10 +587,39 @@ class ARKServerManagerApp(ctk.CTk):
     # Start / Stop / Restart
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _validate_server_config(self, srv: AsmServerConfig) -> list[str]:
+        """Retorna lista de erros de configuração obrigatória em branco ou padrão inseguro."""
+        errors = []
+        if not srv.install_dir or not srv.install_dir.strip():
+            errors.append("Diretório de instalação não configurado")
+        if not srv.session_name or not srv.session_name.strip():
+            errors.append("Nome da sessão (session_name) está vazio")
+        if not srv.admin_password or not srv.admin_password.strip():
+            errors.append("Senha admin não definida (obrigatória para RCON e acesso administrativo)")
+        if not srv.server_ip or not srv.server_ip.strip():
+            errors.append(
+                "IP Bind (MultiHome) não preenchido\n"
+                "   Preencha com o IP público da máquina (ex: 200.x.x.x)\n"
+                "   sem isso o servidor pode não ser encontrado na lista ou crashar"
+            )
+        return errors
+
     def _asm_start_server(self, srv: AsmServerConfig, no_mods: bool = False) -> None:
+        from tkinter import messagebox
+
+        errors = self._validate_server_config(srv)
+        if errors:
+            msg = "\n\n".join(f"• {e}" for e in errors)
+            messagebox.showerror(
+                "Configuração Incompleta",
+                f"Não é possível iniciar '{srv.name}':\n\n{msg}\n\n"
+                "Corrija as configurações antes de iniciar o servidor.",
+                parent=self,
+            )
+            return
+
         conflicts = self._check_port_conflicts(srv)
         if conflicts:
-            from tkinter import messagebox
             msg = "\n".join(f"• Porta {p} ({label}) já está em uso" for p, label in conflicts)
             messagebox.showwarning(
                 "Conflito de Portas",

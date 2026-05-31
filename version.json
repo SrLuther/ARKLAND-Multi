@@ -1,9 +1,9 @@
 {
-    "version": "1.4.9",
+    "version": "1.5.0",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.9/ARKLAND-Multi-Setup-v1.4.9.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.0/ARKLAND-Multi-Setup-v1.5.0.exe",
     "changelog": [
-        "Fix (ASM): lancamento do servidor agora usa RunServer.cmd + ShellExecute identico ao modo PRIMITIVE — remove __COMPAT_LAYER antes do startfile para evitar crash no CheckOnTimerCallbacks (ArkShopUI/ArkApi).",
-        "Fix (ASM): stop agora usa taskkill /F /T para encerrar toda a arvore de processos (incluindo filhos criados pelo cmd.exe start)."
+        "Fix (ASM): validacao de configuracao obrigatoria antes de iniciar servidor — bloqueia start se install_dir, session_name, admin_password ou IP Bind (MultiHome) estiverem vazios.",
+        "Fix (ASM): campo IP Bind (MultiHome) marcado como obrigatorio (*) com placeholder de ajuda na UI."
     ]
 }
