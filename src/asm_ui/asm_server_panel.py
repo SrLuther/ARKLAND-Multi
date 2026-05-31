@@ -457,7 +457,59 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 14)
     _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 15)
-    _str_entry(sf,   "IP Bind (MultiHome) *",  "server_ip",        srv, vars_ref, 16, accent, placeholder="ex: 200.x.x.x  (IP público obrigatório)")
+
+    # ── IP Bind com botão de detecção automática ─────────────────────────────
+    ctk.CTkLabel(sf, text="IP Bind (MultiHome) *", font=ctk.CTkFont(size=11), anchor="w").grid(
+        row=16, column=0, padx=(8, 4), pady=3, sticky="w")
+    _ip_var = tk.StringVar(value=str(getattr(srv, "server_ip", "")))
+    vars_ref["server_ip"] = _ip_var
+    _ip_frame = ctk.CTkFrame(sf, fg_color="transparent")
+    _ip_frame.grid(row=16, column=1, padx=(0, 8), pady=3, sticky="w")
+    _ip_entry = ctk.CTkEntry(_ip_frame, textvariable=_ip_var,
+                             placeholder_text="ex: 200.x.x.x", width=160)
+    _ip_entry.pack(side="left", padx=(0, 4))
+
+    def _detect_public_ip():
+        import threading
+        import urllib.request
+        _ip_btn.configure(text="...", state="disabled")
+        def _fetch():
+            ip = ""
+            for url in (
+                "https://api.ipify.org",
+                "https://checkip.amazonaws.com",
+                "https://icanhazip.com",
+            ):
+                try:
+                    with urllib.request.urlopen(url, timeout=5) as r:
+                        ip = r.read().decode().strip()
+                    if ip:
+                        break
+                except Exception:
+                    continue
+            sf.after(0, lambda: _on_ip_result(ip))
+        threading.Thread(target=_fetch, daemon=True).start()
+
+    def _on_ip_result(ip: str):
+        _ip_btn.configure(text="Detectar IP", state="normal")
+        if ip:
+            _ip_var.set(ip)
+        else:
+            from tkinter import messagebox
+            messagebox.showwarning("IP não detectado",
+                "Não foi possível detectar o IP público.\n"
+                "Verifique a conexão e preencha manualmente.",
+                parent=sf.winfo_toplevel())
+
+    _ip_btn = ctk.CTkButton(_ip_frame, text="Detectar IP", width=90, height=28,
+                            command=_detect_public_ip,
+                            fg_color=accent, hover_color="#0f766e",
+                            font=ctk.CTkFont(size=11))
+    _ip_btn.pack(side="left")
+
+    # Auto-detecta se o campo estiver vazio ao abrir o painel
+    if not _ip_var.get().strip():
+        sf.after(300, _detect_public_ip)
 
     _section_label(sf, "Senhas",         17, accent)
     _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 18, accent, pw=True)
