@@ -13,7 +13,7 @@ CHANGELOG: list[dict] = [
         "date": "2026-05-31",
         "changes": [
             "Fix (ASM — SteamCMD): caminho do steamcmd.exe configurado em Configura\u00e7\u00f5es agora \u00e9 lido corretamente em Redownload Mods, Baixar Mods, Instalar Servidor, Validar e Workshop.",
-            "Fix (sidebar — servidores): servidor adicionado pelo di\u00e1logo \u2b + n\u00e3o aparecia na lista lateral; corrigido para todos os 3 modos de importa\u00e7\u00e3o.",
+            "Fix (sidebar \u2014 servidores): servidor adicionado pelo di\u00e1logo + n\u00e3o aparecia na lista lateral; corrigido para todos os 3 modos de importa\u00e7\u00e3o.",
             "Novo (UI): modo claro (Light Mode) — bot\u00e3o \u2600 Claro / \U0001f319 Escuro na sidebar, prefer\u00eancia persistida em ui_prefs.json.",
         ],
     },
