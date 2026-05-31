@@ -610,10 +610,12 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
+    if cfg.session_name:
+        params.append(f"?SessionName={cfg.session_name}")
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
-        params.append(f"?AltSaveDirectoryName={cfg.alt_save_directory_name}")
+        params.append(f"?AltSaveDir={cfg.alt_save_directory_name}")
     if cfg.cross_ark_cluster_id:
         params.append(f"?ClusterId={cfg.cross_ark_cluster_id}")
         params.append("?PreventDownloadItems=False")
