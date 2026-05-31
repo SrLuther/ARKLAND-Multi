@@ -610,8 +610,9 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
-    if cfg.session_name:
-        params.append(f"?SessionName={cfg.session_name}")
+    # session_name é escrito no GameUserSettings.ini (SessionSettings/SessionName)
+    # NÃO colocar na CLI — valores com espaços (ex: "[ARKLAND] Teste Server")
+    # quebram o parsing do cmd.exe quando a string não está entre aspas.
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
@@ -631,6 +632,8 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         except Exception:
             flags.append(cfg.additional_args)
 
-    # O ARK espera: ShooterGameServer.exe MAP?param1?param2 -flag1 -flag2
-    combined_map = "".join(params)
+    # O ARK espera: ShooterGameServer.exe "MAP?param1?param2" -flag1 -flag2
+    # As aspas são necessárias no Windows para que o cmd.exe não quebre
+    # a string nos espaços (ex: SessionName com espaços quebraria sem aspas).
+    combined_map = '"' + "".join(params) + '"'
     return [combined_map] + flags

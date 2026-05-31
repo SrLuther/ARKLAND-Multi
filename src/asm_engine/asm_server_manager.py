@@ -186,6 +186,8 @@ class AsmServerManager:
             write_ini(cfg)
 
             # 2. Monta comando como string (igual ao PRIMITIVE)
+            # build_launch_args já retorna o combined_map entre aspas (necessário
+            # no Windows para proteger espaços em valores como SessionName).
             exe = Path(cfg.install_dir) / "ShooterGame" / "Binaries" / "Win64" / cfg.server_exe
             args = build_launch_args(cfg)
             full_cmd = f'"{exe}" ' + " ".join(args)

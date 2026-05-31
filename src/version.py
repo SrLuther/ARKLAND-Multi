@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.4"
+APP_VERSION: str = "1.5.5"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.5",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM): corrigida causa raiz do servidor não iniciar — SessionName com espaços (ex: '[ARKLAND] Teste Server') quebrava o parsing do cmd.exe pois o mapa+opções não estava entre aspas. Agora o combined_map é gerado corretamente entre aspas conforme documentação oficial do ARK.",
+            "Fix (ASM): removido SessionName da linha de comando (já está no GameUserSettings.ini). Colocar duplicado causava conflito.",
+        ],
+    },
     {
         "version": "1.5.4",
         "date": "2026-05-31",
