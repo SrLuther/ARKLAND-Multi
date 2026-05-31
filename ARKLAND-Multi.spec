@@ -1,10 +1,13 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import collect_all, collect_data_files
+from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_submodules
 
 # Coleta completa dos pacotes que carregam dados em runtime
 ctk_datas, ctk_binaries, ctk_hiddenimports = collect_all('customtkinter')
 pil_datas,  pil_binaries,  pil_hiddenimports  = collect_all('PIL')
 tray_datas, tray_binaries, tray_hiddenimports = collect_all('pystray')
+
+# Coleta todos os submódulos do pacote src automaticamente
+src_hiddenimports = collect_submodules('src')
 
 a = Analysis(
     ['main.py'],
@@ -35,21 +38,6 @@ a = Analysis(
         'tkinter.ttk',
         'tkinter.filedialog',
         'tkinter.messagebox',
-        # projeto
-        'src',
-        'src.app',
-        'src.app_tek',
-        'src.server_config',
-        'src.server_manager',
-        'src.mod_manager',
-        'src.ark_ini',
-        'src.rcon_client',
-        'src.config_manager',
-        'src.updater',
-        'src.version',
-        'src.ui_constants',
-        'src.mod_auto_updater',
-        'src.plugin_manager',
         # bandeja
         'pystray',
         'pystray._win32',
@@ -57,7 +45,7 @@ a = Analysis(
         'psutil',
         'psutil._pswindows',
         'psutil._common',
-    ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports,
+    ] + ctk_hiddenimports + pil_hiddenimports + tray_hiddenimports + src_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
