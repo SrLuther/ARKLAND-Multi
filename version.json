@@ -1,12 +1,8 @@
 ﻿{
-    "version":  "1.4.3",
+    "version":  "1.4.4",
     "date":  "2026-05-31",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.3/ARKLAND-Multi-Setup-v1.4.3.exe",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.4/ARKLAND-Multi-Setup-v1.4.4.exe",
     "changelog":  [
-                      "Fix (UI - Modo Claro): cores escuras hardcoded corrigidas no card de servidor, dashboard e bulk actions.",
-                      "Fix (ASM - Mods): WindowsNoEditor tratado corretamente ao copiar mod; arquivo .mod criado automaticamente.",
-                      "Fix (ASM - Mods): contador de mods baixados agora reporta so os bem-sucedidos.",
-                      "Novo (ASM - Painel): status de instalacao de cada mod exibido em tempo real.",
-                      "Novo: auto-start de sync e agente remoto ao abrir o app."
+                      "Fix (ASM - SteamCMD): instalacao do servidor agora respeita o caminho definido (fix force_install_dir ignorado)."
                   ]
 }

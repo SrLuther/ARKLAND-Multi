@@ -9,7 +9,7 @@
 
 [Setup]
 AppName=ARKLAND - Server Manager
-AppVersion=1.4.3
+AppVersion=1.4.4
 AppPublisher=ARKLAND Tools
 AppPublisherURL=https://github.com/SrLuther/ARKLAND-Multi
 AppSupportURL=https://github.com/SrLuther/ARKLAND-Multi/issues
@@ -17,7 +17,7 @@ AppUpdatesURL=https://github.com/SrLuther/ARKLAND-Multi/releases
 DefaultDirName={autopf}\ARKLAND-ServerManager
 DefaultGroupName=ARKLAND-ServerManager
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.4.3
+OutputBaseFilename=ARKLAND-Multi-Setup-v1.4.4
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern

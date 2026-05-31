@@ -165,7 +165,7 @@ class AsmSteamCmd:
         args = [
             self._steamcmd,
             "+login", "anonymous",
-            f"+workshop_download_item {ARK_WORKSHOP_APP_ID} {mod_id}",
+            "+workshop_download_item", ARK_WORKSHOP_APP_ID, mod_id,
             "+quit",
         ]
 
@@ -194,16 +194,10 @@ class AsmSteamCmd:
                 on_done(True, "Nenhum mod para baixar.")
             return
 
-        items = " ".join(
-            f"+workshop_download_item {ARK_WORKSHOP_APP_ID} {mid}"
-            for mid in mod_ids
-        )
-        args = [
-            self._steamcmd,
-            "+login", "anonymous",
-            items,
-            "+quit",
-        ]
+        args = [self._steamcmd, "+login", "anonymous"]
+        for mid in mod_ids:
+            args += ["+workshop_download_item", ARK_WORKSHOP_APP_ID, mid]
+        args.append("+quit")
 
         def _after(success: bool, msg: str) -> None:
             if success:
@@ -245,21 +239,20 @@ class AsmSteamCmd:
         branch_password: str,
         validate: bool,
     ) -> List[str]:
-        app_update = f"+app_update {ARK_SERVER_APP_ID}"
-        if branch:
-            app_update += f" -beta {branch}"
-            if branch_password:
-                app_update += f" -betapassword {branch_password}"
-        if validate:
-            app_update += " validate"
-
-        return [
+        args = [
             self._steamcmd,
             "+login", "anonymous",
-            f"+force_install_dir {install_dir}",
-            app_update,
-            "+quit",
+            "+force_install_dir", install_dir,
+            "+app_update", ARK_SERVER_APP_ID,
         ]
+        if branch:
+            args += ["-beta", branch]
+            if branch_password:
+                args += ["-betapassword", branch_password]
+        if validate:
+            args.append("validate")
+        args.append("+quit")
+        return args
 
     def _run_async(
         self,
