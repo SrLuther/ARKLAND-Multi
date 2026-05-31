@@ -23,6 +23,7 @@ from .server_manager import ServerManager
 from .sync_engine import SyncEngine
 from .updater import UpdateChecker
 from .ui_constants import get_theme, set_tek_variant, get_tek_variant
+from .version import APP_VERSION
 
 # ── Constantes de janela ─────────────────────────────────────────────────────
 _WINDOW_TITLE  = "ARKLAND TEK — ARK Server Manager"
@@ -355,7 +356,6 @@ class ARKServerManagerApp(ctk.CTk):
             text_color=t_muted,
         )
         self._sidebar_clock_lbl.grid(row=0, column=0, sticky="w")
-        from .version import APP_VERSION  # noqa: PLC0415
         ctk.CTkLabel(
             footer_f, text=f"v{APP_VERSION}",
             font=ctk.CTkFont(size=10), text_color=t_muted,
