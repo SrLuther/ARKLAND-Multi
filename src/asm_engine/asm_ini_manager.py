@@ -642,8 +642,10 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         except Exception:
             flags.append(cfg.additional_args)
 
-    # O ARK espera: ShooterGameServer.exe "MAP?param1?param2" -flag1 -flag2
-    # As aspas são necessárias no Windows para que o cmd.exe não quebre
-    # a string nos espaços (ex: SessionName com espaços quebraria sem aspas).
-    combined_map = '"' + "".join(params) + '"'
+    # O ARK usa o parser do Unreal Engine que lê o command line raw.
+    # Aspas ao redor do MAP?params fazem o UE incluí-las no token, quebrando
+    # o parsing de ?Port=, ?QueryPort=, ?AltSaveDirectoryName= etc.
+    # SessionName foi removido da CLI (está no GUS INI), então não há espaços
+    # no map string e aspas não são necessárias.
+    combined_map = "".join(params)
     return [combined_map] + flags

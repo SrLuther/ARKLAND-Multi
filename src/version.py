@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.7"
+APP_VERSION: str = "1.5.8"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.8",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM/launch): parâmetros de mapa (MAP?Port=?QueryPort=...) não devem ser envolvidos em aspas. "
+            "O parser de command line do Unreal Engine (ARK) lê o token raw e incluía as aspas literalmente, "
+            "fazendo com que ?Port=, ?QueryPort=, ?AltSaveDirectoryName= e outros parâmetros fossem ignorados. "
+            "Como SessionName foi removido da CLI (v1.5.5) não há mais espaços no map string.",
+            "Fix (ASM/launch): adicionado /min ao comando start do RunServer.cmd — janela do servidor inicia minimizada, "
+            "igual ao comportamento do servidor saudável de referência.",
+        ],
+    },
     {
         "version": "1.5.7",
         "date": "2026-05-31",

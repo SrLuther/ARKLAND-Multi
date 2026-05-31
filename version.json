@@ -1,10 +1,9 @@
 {
-    "version": "1.5.7",
+    "version": "1.5.8",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.7/ARKLAND-Multi-Setup-v1.5.7.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.8/ARKLAND-Multi-Setup-v1.5.8.exe",
     "changelog": [
-        "Fix (ASM): parâmetro AltSaveDir corrigido para AltSaveDirectoryName — ARK ignorava silenciosamente o parâmetro errado, resultando no mapa de saves padrão em vez da pasta configurada.",
-        "Fix (ASM/INI): arquivos GameUserSettings.ini e Game.ini agora são gravados em UTF-16 LE (exigido pelo ARK no Windows). Gravação em UTF-8 causava leitura incorreta de algumas chaves como SessionName.",
-        "Fix (ASM/INI): leitura dos arquivos INI agora tenta UTF-16, UTF-8 BOM, UTF-8 e latin-1 em ordem — compatível com arquivos criados pelo ARK, pelo ARKLAND e por editores externos."
+        "Fix (ASM/launch): parâmetros de mapa (MAP?Port=?QueryPort=...) não devem ser envolvidos em aspas. O parser de command line do Unreal Engine (ARK) lê o token raw e incluía as aspas literalmente, fazendo com que ?Port=, ?QueryPort=, ?AltSaveDirectoryName= e outros parâmetros fossem ignorados. Como SessionName foi removido da CLI (v1.5.5) não há mais espaços no map string.",
+        "Fix (ASM/launch): adicionado /min ao comando start do RunServer.cmd — janela do servidor inicia minimizada, igual ao comportamento do servidor saudável de referência."
     ]
 }

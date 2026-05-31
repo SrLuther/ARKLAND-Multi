@@ -94,6 +94,77 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         text_color=t_pri,
     ).pack(side="left")
 
+    # ── Botões de gerenciamento do servidor ───────────────────────────────────
+    def _get_status() -> str:
+        inst = app.asm_server_manager.get_instance(srv.id)
+        return inst.status if inst else "stopped"
+
+    def _on_start() -> None:
+        _save(app, srv)
+        app._asm_start_server(srv)
+        _refresh_action_btns()
+
+    def _on_stop() -> None:
+        app._asm_stop_server(srv.id)
+        _refresh_action_btns()
+
+    def _on_restart() -> None:
+        _save(app, srv)
+        app._asm_restart_server(srv)
+        _refresh_action_btns()
+
+    btn_start   = ctk.CTkButton(
+        hdr, text="▶  Iniciar", width=96, height=34,
+        fg_color="#052e16", hover_color="#14532d",
+        text_color="#4ade80", corner_radius=8,
+        font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+        command=_on_start,
+    )
+    btn_start.grid(row=0, column=2, padx=(0, 4), pady=12, sticky="e")
+
+    btn_stop = ctk.CTkButton(
+        hdr, text="⏹  Parar", width=90, height=34,
+        fg_color="#7f1d1d", hover_color="#450a0a",
+        text_color="#fca5a5", corner_radius=8,
+        font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+        command=_on_stop,
+    )
+    btn_stop.grid(row=0, column=3, padx=(0, 4), pady=12, sticky="e")
+
+    btn_restart = ctk.CTkButton(
+        hdr, text="🔄  Restart", width=96, height=34,
+        fg_color="#0f172a", hover_color="#1e3a5f",
+        text_color=t_sec, border_width=1, border_color=sep,
+        corner_radius=8,
+        font=ctk.CTkFont(family="Segoe UI", size=11),
+        command=_on_restart,
+    )
+    btn_restart.grid(row=0, column=4, padx=(0, 8), pady=12, sticky="e")
+
+    # Separador vertical
+    tk.Frame(hdr, width=1, bg=sep).grid(row=0, column=5, sticky="ns", pady=12)
+
+    def _refresh_action_btns() -> None:
+        status = _get_status()
+        is_running = status == "running"
+        is_busy    = status in ("starting", "stopping", "restarting")
+        btn_start.configure(
+            state="disabled" if (is_running or is_busy) else "normal",
+            fg_color="#052e16" if not (is_running or is_busy) else acc_mb,
+            text_color="#4ade80" if not (is_running or is_busy) else t_mut,
+        )
+        btn_stop.configure(
+            state="normal" if is_running else "disabled",
+            fg_color="#7f1d1d" if is_running else "#1c0a0a",
+            text_color="#fca5a5" if is_running else "#7f3d3d",
+        )
+        btn_restart.configure(
+            state="normal" if is_running else "disabled",
+            text_color=t_sec if is_running else t_mut,
+        )
+
+    _refresh_action_btns()
+
     ctk.CTkButton(
         hdr, text="💾  Salvar", width=100, height=34,
         fg_color=acc_mb, hover_color=acc_dk,
@@ -101,7 +172,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         text_color=accent, corner_radius=8,
         font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
         command=lambda: _save(app, srv),
-    ).grid(row=0, column=2, padx=(0, 6), pady=12, sticky="e")
+    ).grid(row=0, column=6, padx=(8, 4), pady=12, sticky="e")
 
     ctk.CTkButton(
         hdr, text="📋  Presets", width=92, height=34,
@@ -110,7 +181,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         text_color=accent, corner_radius=8,
         font=ctk.CTkFont(family="Segoe UI", size=12),
         command=lambda: _open_preset_dialog(app, srv),
-    ).grid(row=0, column=3, padx=(0, 6), pady=12, sticky="e")
+    ).grid(row=0, column=7, padx=(0, 6), pady=12, sticky="e")
 
     ctk.CTkButton(
         hdr, text="📥  Importar INI", width=130, height=34,
@@ -119,7 +190,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         text_color=accent, corner_radius=8,
         font=ctk.CTkFont(family="Segoe UI", size=12),
         command=lambda: _open_import_ini(app, srv),
-    ).grid(row=0, column=4, padx=(0, 16), pady=12, sticky="e")
+    ).grid(row=0, column=8, padx=(0, 16), pady=12, sticky="e")
 
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(
