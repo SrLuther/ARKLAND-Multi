@@ -2478,15 +2478,31 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
             except Exception:
                 pass
 
-    # Persiste
-    app.asm_config_manager.update_server(srv)
-    app._asm_refresh_dashboard()
-
+    # Persiste no JSON
     try:
-        import tkinter.messagebox as mb
-        mb.showinfo("Salvo", f"Configurações de '{srv.name}' salvas.")
+        app.asm_config_manager.update_server(srv)
+    except Exception as _e:
+        import tkinter.messagebox as _mb
+        _mb.showerror("Erro ao salvar", f"Não foi possível salvar: {_e}", parent=app)
+        return
+
+    # Escreve os INIs imediatamente (se install_dir existir)
+    import os as _os
+    if srv.install_dir and _os.path.isdir(srv.install_dir):
+        try:
+            from ..asm_engine.asm_ini_manager import write_ini
+            write_ini(srv)
+        except Exception:
+            pass  # INIs serão escritos no próximo start
+
+    # Atualiza dashboard (não bloqueia o feedback se falhar)
+    try:
+        app._asm_refresh_dashboard()
     except Exception:
         pass
+
+    import tkinter.messagebox as _mb2
+    _mb2.showinfo("Salvo", f"Configurações de '{srv.name}' salvas.", parent=app)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #

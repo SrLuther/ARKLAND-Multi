@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.4.6"
+APP_VERSION: str = "1.4.7"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.4.7",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM): salvar configuracoes no painel agora escreve imediatamente os arquivos GameUserSettings.ini e Game.ini do servidor.",
+        ],
+    },
     {
         "version": "1.4.6",
         "date": "2026-05-31",

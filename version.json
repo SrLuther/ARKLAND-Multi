@@ -1,8 +1,8 @@
 ﻿{
-    "version":  "1.4.6",
+    "version":  "1.4.7",
     "date":  "2026-05-31",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.6/ARKLAND-Multi-Setup-v1.4.6.exe",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.7/ARKLAND-Multi-Setup-v1.4.7.exe",
     "changelog":  [
-                      "Fix (ASM): inicializacao do servidor abre janela CMD visivel com saida do processo."
+                      "Fix (ASM): salvar configuracoes no painel agora escreve imediatamente os arquivos GameUserSettings.ini e Game.ini do servidor."
                   ]
 }
