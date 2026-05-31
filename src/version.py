@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.4.4"
+APP_VERSION: str = "1.4.5"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.4.5",
+        "date": "2026-05-31",
+        "changes": [
+            "Novo (UI): marca d'agua do logo ARKLAND exibida em todas as paginas do app.",
+            "Novo (ASM - Toolbar): botao Log adicionado na toolbar de ferramentas de cada servidor — exibe ShooterGame.log com auto-refresh, colorização e seguir fim.",
+        ],
+    },
     {
         "version": "1.4.4",
         "date": "2026-05-31",

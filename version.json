@@ -1,8 +1,9 @@
 ﻿{
-    "version":  "1.4.4",
+    "version":  "1.4.5",
     "date":  "2026-05-31",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.4/ARKLAND-Multi-Setup-v1.4.4.exe",
+    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.5/ARKLAND-Multi-Setup-v1.4.5.exe",
     "changelog":  [
-                      "Fix (ASM - SteamCMD): instalacao do servidor agora respeita o caminho definido (fix force_install_dir ignorado)."
+                      "Novo (UI): marca d'agua do logo ARKLAND em todas as paginas.",
+                      "Novo (ASM): botao Log na toolbar — exibe ShooterGame.log com auto-refresh."
                   ]
 }

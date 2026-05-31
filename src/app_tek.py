@@ -156,34 +156,40 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _setup_bg_watermark(self) -> None:
-        """Coloca logo como imagem de fundo suave em _page_area."""
+        """Pré-computa a imagem de watermark para reutilização em todas as páginas."""
         try:
-            from PIL import Image  # type: ignore[reportMissingImports]
+            from PIL import Image, ImageTk  # type: ignore[reportMissingImports]
             theme = get_theme("tek")
             _bg_hex = theme["bg"].lstrip("#")
             _bg_rgb: tuple = tuple(int(_bg_hex[i:i+2], 16) for i in (0, 2, 4))  # type: ignore[assignment]
 
-            _img = Image.open(_resource_path(os.path.join("ig", "ark_manager.png"))).convert("RGBA")
-            # Proporcional 3:2 em tamanho grande centralizado
-            _w, _h = 600, 400
-            _img = _img.resize((_w, _h), Image.LANCZOS)
+            _img = Image.open(_resource_path(os.path.join("ig", "ArkLandBR.png"))).convert("RGBA")
+            _img.thumbnail((280, 280), Image.LANCZOS)
 
-            # Compor sobre o fundo escuro com ~6 % de opacidade
-            _bg = Image.new("RGBA", (_w, _h), _bg_rgb + (255,))
+            # Blend sobre fundo com ~8% de opacidade
             _r, _g, _b, _a = _img.split()
-            _dim_a = _a.point(lambda x: int(x * 0.06))
-            _img.putalpha(_dim_a)
+            _a = _a.point(lambda x: int(x * 0.08))
+            _img = Image.merge("RGBA", (_r, _g, _b, _a))
+            _bg = Image.new("RGBA", _img.size, _bg_rgb + (255,))
             _composite = Image.alpha_composite(_bg, _img).convert("RGB")
 
-            _ctk_wm = ctk.CTkImage(light_image=_composite, dark_image=_composite, size=(_w, _h))
-            _lbl_wm = ctk.CTkLabel(
-                self._page_area, image=_ctk_wm, text="", fg_color="transparent",
-            )
-            _lbl_wm.place(relx=0.55, rely=0.5, anchor="center")
-            _lbl_wm.lower()  # empurra para trás de todo conteúdo
-            self._bg_watermark_lbl = _lbl_wm
+            self._wm_photo = ImageTk.PhotoImage(_composite)
+            self._wm_bg_hex = theme["bg"]
         except Exception:
-            pass
+            self._wm_photo = None
+            self._wm_bg_hex = "#020617"
+
+    def _apply_watermark_to_frame(self, frame: "ctk.CTkFrame") -> None:
+        """Aplica o watermark no canto inferior-direito de um frame de página."""
+        import tkinter as _tk
+        photo = getattr(self, "_wm_photo", None)
+        if not photo:
+            return
+        bg = getattr(self, "_wm_bg_hex", "#020617")
+        lbl = _tk.Label(frame, image=photo, bd=0, highlightthickness=0, bg=bg)
+        lbl.place(relx=0.99, rely=0.99, anchor="se")
+        # lower() após todos os widgets de grid serem adicionados pelo builder
+        frame.after(0, lbl.lower)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Auto-start de serviços
@@ -548,6 +554,9 @@ class ARKServerManagerApp(ctk.CTk):
             srv: AsmServerConfig = kwargs["srv"]
             build_asm_server_panel(self, frame, srv)
 
+        # Watermark em todas as páginas, atrás do conteúdo
+        self._apply_watermark_to_frame(frame)
+
     # ─────────────────────────────────────────────────────────────────────────
     # Dashboard
     # ─────────────────────────────────────────────────────────────────────────
@@ -689,6 +698,10 @@ class ARKServerManagerApp(ctk.CTk):
     def _asm_open_monitor(self, srv: AsmServerConfig) -> None:
         from .asm_ui.asm_monitor_window import open_asm_monitor
         open_asm_monitor(self, srv)
+
+    def _asm_open_server_log(self, srv: AsmServerConfig) -> None:
+        from .asm_ui.asm_server_log_window import open_asm_server_log
+        open_asm_server_log(self, srv)
 
     def _asm_update_mods(self, srv: AsmServerConfig) -> None:
         """Baixa/atualiza mods do servidor via SteamCMD (chamável pela bulk action)."""
