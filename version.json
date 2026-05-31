@@ -1,9 +1,8 @@
 {
-    "version": "1.5.2",
+    "version": "1.5.3",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.2/ARKLAND-Multi-Setup-v1.5.2.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.3/ARKLAND-Multi-Setup-v1.5.3.exe",
     "changelog": [
-        "Fix (ASM): deteccao de IP para MultiHome corrigida — agora usa o IP da interface de rede local (socket) em vez do IP externo/publico. MultiHome precisa do IP local (ex: 192.168.x.x) para o servidor fazer bind corretamente; usar o IP publico do roteador causava crash instantaneo.",
-        "Fix (ASM): mensagem de validacao e placeholder atualizados para orientar o IP correto (IP local, nao IP externo)."
+        "Fix (ASM): MultiHome (IP Bind) removido do mapa de INI — não deve ser escrito no GameUserSettings.ini. O valor continua sendo passado apenas como argumento de linha de comando (?MultiHome=IP), que é o comportamento correto do ARK."
     ]
 }

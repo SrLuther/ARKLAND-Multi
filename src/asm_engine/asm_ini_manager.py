@@ -37,7 +37,7 @@ INI_MAP: dict[str, tuple] = {
     "spectator_password":       ("GUS", "ServerSettings",   "SpectatorPassword",           {}),
     "server_port":              ("GUS", "SessionSettings",  "Port",                        {"always_write": True}),
     "query_port":               ("GUS", "SessionSettings",  "QueryPort",                   {"always_write": True}),
-    "server_ip":                ("GUS", "SessionSettings",  "MultiHome",                   {"conditional_on": "server_ip"}),
+    # server_ip (MultiHome) é argumento de linha de comando (?MultiHome=), não INI
     "max_players":              ("GUS", "GameSession",      "MaxPlayers",                  {"always_write": True}),
     "rcon_enabled":             ("GUS", "ServerSettings",   "RCONEnabled",                 {"always_write": True}),
     "rcon_port":                ("GUS", "ServerSettings",   "RCONPort",                    {"always_write": True}),
