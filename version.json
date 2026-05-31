@@ -1,9 +1,9 @@
-﻿{
-    "version":  "1.4.8",
-    "date":  "2026-05-31",
-    "download_url":  "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.8/ARKLAND-Multi-Setup-v1.4.8.exe",
-    "changelog":  [
-                      "Fix (ASM): SessionName agora incluido nos argumentos de inicializacao — nome aparece corretamente na lista de servidores.",
-                      "Fix (ASM): parametro AltSaveDir corrigido (era AltSaveDirectoryName)."
-                  ]
+{
+    "version": "1.4.9",
+    "date": "2026-05-31",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.4.9/ARKLAND-Multi-Setup-v1.4.9.exe",
+    "changelog": [
+        "Fix (ASM): lancamento do servidor agora usa RunServer.cmd + ShellExecute identico ao modo PRIMITIVE — remove __COMPAT_LAYER antes do startfile para evitar crash no CheckOnTimerCallbacks (ArkShopUI/ArkApi).",
+        "Fix (ASM): stop agora usa taskkill /F /T para encerrar toda a arvore de processos (incluindo filhos criados pelo cmd.exe start)."
+    ]
 }

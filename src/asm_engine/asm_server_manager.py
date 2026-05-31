@@ -4,11 +4,99 @@ Controla start/stop/restart e monitora o status de cada servidor ASM.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
+
+# ── psutil (opcional) ─────────────────────────────────────────────────────────
+try:
+    import psutil as _psutil  # type: ignore[reportMissingImports]
+    _PSUTIL_OK = True
+except ImportError:
+    _psutil = None  # type: ignore[assignment]
+    _PSUTIL_OK = False
+
+
+class _PsutilProcessWrapper:
+    """Simula subprocess.Popen usando psutil.Process.
+    Usado quando o servidor é lançado via RunServer.cmd (os.startfile),
+    onde não temos handle Popen direto do ShooterGameServer.exe.
+    """
+
+    def __init__(self, proc: Any) -> None:
+        self._proc = proc
+        self.pid: int = proc.pid
+        self.returncode: Optional[int] = None
+
+    def poll(self) -> Optional[int]:
+        try:
+            if not self._proc.is_running() or self._proc.status() == "zombie":
+                if self.returncode is None:
+                    self.returncode = -1
+                return self.returncode
+        except Exception:
+            if self.returncode is None:
+                self.returncode = -1
+            return self.returncode
+        return None
+
+    def wait(self, timeout: Optional[float] = None) -> int:
+        try:
+            rc = self._proc.wait(timeout=timeout)
+            self.returncode = rc if rc is not None else -1
+        except Exception:
+            self.returncode = -1
+        return self.returncode  # type: ignore[return-value]
+
+    def terminate(self) -> None:
+        try:
+            self._proc.terminate()
+        except Exception:
+            pass
+
+    def kill(self) -> None:
+        try:
+            self._proc.kill()
+        except Exception:
+            pass
+
+
+def _find_server_process(
+    install_dir: str,
+    after: datetime,
+    timeout: float = 20.0,
+) -> Any:
+    """Busca ShooterGameServer.exe criado após `after` com caminho dentro de
+    `install_dir`. Sonda process_iter por até `timeout` segundos.
+    Retorna None se não encontrado ou se psutil indisponível.
+    """
+    if not _PSUTIL_OK or _psutil is None:
+        return None
+    install_norm = install_dir.replace("\\", "/").lower()
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            for p in _psutil.process_iter(["pid", "name", "exe", "create_time"]):
+                try:
+                    name = p.info.get("name") or ""
+                    if "shootergameserver" not in name.lower():
+                        continue
+                    exe = (p.info.get("exe") or "").replace("\\", "/").lower()
+                    if install_norm not in exe:
+                        continue
+                    ct = p.info.get("create_time") or 0.0
+                    if ct >= after.timestamp() - 5:
+                        return p
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        time.sleep(0.5)
+    return None
 
 from .asm_server_config import (
     AsmServerConfig,
@@ -94,35 +182,81 @@ class AsmServerManager:
     def _start_worker(self, cfg: AsmServerConfig, inst: AsmServerInstance,
                       on_done: Optional[Callable[[bool, str], None]]) -> None:
         try:
-            # 1. Escreve INIs (⚠️ aguardar T13 antes de usar em produção)
+            # 1. Escreve INIs
             write_ini(cfg)
 
-            # 2. Monta o comando
+            # 2. Monta comando como string (igual ao PRIMITIVE)
             exe = Path(cfg.install_dir) / "ShooterGame" / "Binaries" / "Win64" / cfg.server_exe
             args = build_launch_args(cfg)
-            cmd = [str(exe)] + args
+            full_cmd = f'"{exe}" ' + " ".join(args)
 
-            # 3. Lança o processo
-            proc = subprocess.Popen(
-                cmd,
-                cwd=str(exe.parent),
-                creationflags=subprocess.CREATE_NEW_CONSOLE,  # type: ignore[attr-defined]
-            )
+            # 3. Gera RunServer.cmd idêntico ao ASM SaveLauncher
+            _CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+            _run_server_cmd_path: Optional[Path] = None
+            try:
+                _run_server_dir = (
+                    Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+                )
+                _run_server_dir.mkdir(parents=True, exist_ok=True)
+                _rsc = _run_server_dir / "RunServer.cmd"
+                _rsc.write_text(
+                    f'start "{cfg.session_name}" /normal {full_cmd}\r\n',
+                    encoding="utf-8",
+                )
+                _run_server_cmd_path = _rsc
+            except Exception as _rsc_err:
+                pass  # prossegue para Popen fallback
+
+            proc: Any = None
+            _startfile_called = False
+
+            # 4. Lança via os.startfile() = ShellExecute (igual ao ASM)
+            # Remove __COMPAT_LAYER antes do startfile para evitar que o shim
+            # DetectorsAppHealth seja herdado pelo servidor e cause crash no
+            # CheckOnTimerCallbacks do ArkApi.
+            if _run_server_cmd_path is not None and _PSUTIL_OK:
+                try:
+                    _epoch = datetime(2000, 1, 1)
+                    _preexisting = _find_server_process(cfg.install_dir, _epoch, timeout=2.0)
+                    if _preexisting is not None:
+                        proc = _PsutilProcessWrapper(_preexisting)
+                    else:
+                        _launch_time = datetime.now()
+                        _compat_saved = os.environ.pop('__COMPAT_LAYER', None)
+                        try:
+                            os.startfile(str(_run_server_cmd_path))
+                        finally:
+                            if _compat_saved is not None:
+                                os.environ['__COMPAT_LAYER'] = _compat_saved
+                        _startfile_called = True
+                        time.sleep(2)
+                        _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
+                        if _raw is not None:
+                            proc = _PsutilProcessWrapper(_raw)
+                except Exception:
+                    proc = None
+
+            # 5. Fallback: Popen direto (psutil indisponível ou startfile falhou)
+            if proc is None and not _startfile_called:
+                proc = subprocess.Popen(
+                    full_cmd,
+                    cwd=str(exe.parent),
+                    creationflags=subprocess.CREATE_NEW_CONSOLE | _CREATE_BREAKAWAY_FROM_JOB,  # type: ignore[attr-defined]
+                )
+
             with inst._lock:
                 inst._proc = proc
 
-            # 4. Aguarda início (até 120 s verifica a cada 5 s)
+            # 6. Considera online após 10 s sem crash
             for _ in range(24):
                 time.sleep(5)
-                if proc.poll() is not None:
-                    # Processo terminou logo após o start — falha
+                if proc is not None and proc.poll() is not None:
                     inst.status = ASM_STATUS_CRASHED
                     if self._on_status:
                         self._on_status(cfg.id, ASM_STATUS_CRASHED)
                     if on_done:
                         on_done(False, f"Processo terminou com código {proc.returncode}")
                     return
-                # Considera online após 10 s sem crash
                 if _ >= 2:
                     break
 
@@ -132,10 +266,10 @@ class AsmServerManager:
             if on_done:
                 on_done(True, "Servidor iniciado com sucesso")
 
-            # 5. Aplica affinity/prioridade se configurado
+            # 7. Aplica affinity/prioridade se configurado
             self._apply_process_settings(cfg, proc)
 
-            # 6. Inicia monitor de processo
+            # 8. Inicia monitor de processo
             self._start_monitor(inst)
 
         except Exception as exc:
@@ -170,10 +304,23 @@ class AsmServerManager:
             time.sleep(5)
 
             proc = inst._proc
+            pid  = proc.pid if proc is not None else None
+
+            # taskkill /F /T encerra toda a árvore (filho criado por cmd.exe start)
+            if pid:
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(pid)],
+                        capture_output=True,
+                        timeout=15,
+                    )
+                except Exception:
+                    pass
+
             if proc and proc.poll() is None:
                 proc.terminate()
                 try:
-                    proc.wait(timeout=30)
+                    proc.wait(timeout=10)
                 except Exception:
                     proc.kill()
 
