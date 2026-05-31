@@ -1,10 +1,8 @@
 {
-    "version": "1.5.9",
+    "version": "1.5.10",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.9/ARKLAND-Multi-Setup-v1.5.9.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.10/ARKLAND-Multi-Setup-v1.5.10.exe",
     "changelog": [
-        "Fix (ASM/launch): cluster ID agora gerado como flag '-clusterid=ID' em vez de URL param '?ClusterId=ID'. O ARK ignora '?ClusterId=' completamente — confirmado pelo servidor saudável de referência e pelo primitivo (src/server_config.py).",
-        "Fix (ASM/launch): 'cluster_dir_override' agora incluído no comando como '-ClusterDirOverride=PATH'. O campo existia no dataclass mas não era usado no build_launch_args.",
-        "Fix (ASM/launch): removido '?PreventDownloadItems=False' da CLI — parâmetro não existe no ARK e não consta em nenhuma referência válida."
+        "Fix (ASM/painel): botões Iniciar e Restart não salvam mais automaticamente. Salvar é ação exclusiva do botão Salvar."
     ]
 }

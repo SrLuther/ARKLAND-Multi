@@ -100,7 +100,6 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         return inst.status if inst else "stopped"
 
     def _on_start() -> None:
-        _save(app, srv)
         app._asm_start_server(srv)
         _refresh_action_btns()
 
@@ -109,7 +108,6 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         _refresh_action_btns()
 
     def _on_restart() -> None:
-        _save(app, srv)
         app._asm_restart_server(srv)
         _refresh_action_btns()
 

@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.9"
+APP_VERSION: str = "1.5.10"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.10",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM/painel): botões Iniciar e Restart não salvam mais automaticamente. "
+            "Salvar é ação exclusiva do botão Salvar.",
+        ],
+    },
     {
         "version": "1.5.9",
         "date": "2026-05-31",
