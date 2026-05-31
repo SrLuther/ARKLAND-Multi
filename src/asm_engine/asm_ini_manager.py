@@ -426,11 +426,15 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
     parser = configparser.RawConfigParser()
     parser.optionxform = str  # preserva case
     if path.exists():
-        try:
-            with open(path, "r", encoding="utf-8-sig") as fh:
-                parser.read_file(fh)
-        except Exception:
-            pass
+        for enc in ("utf-16", "utf-8-sig", "utf-8", "latin-1"):
+            try:
+                with open(path, "r", encoding=enc) as fh:
+                    parser.read_file(fh)
+                break
+            except (UnicodeDecodeError, UnicodeError):
+                continue
+            except Exception:
+                break
 
     # Injeta / substitui as seções gerenciadas
     for section, kvs in sections.items():
@@ -439,8 +443,10 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
         for key, value in kvs.items():
             parser.set(section, key, value)
 
+    # ARK no Windows lê os INIs em UTF-16 LE com BOM.
+    # Gravar em UTF-8 faz o jogo ignorar silenciosamente algumas chaves.
     tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
+    with open(tmp, "w", encoding="utf-16") as fh:
         parser.write(fh)
     tmp.replace(path)
 
@@ -456,11 +462,15 @@ def read_ini(cfg: AsmServerConfig) -> None:
         p.optionxform = str
         fp = _ini_path(cfg.install_dir, fk)
         if fp.exists():
-            try:
-                with open(fp, "r", encoding="utf-8-sig") as fh:
-                    p.read_file(fh)
-            except Exception:
-                pass
+            for enc in ("utf-16", "utf-8-sig", "utf-8", "latin-1"):
+                try:
+                    with open(fp, "r", encoding=enc) as fh:
+                        p.read_file(fh)
+                    break
+                except (UnicodeDecodeError, UnicodeError):
+                    continue
+                except Exception:
+                    break
         parsers[fk] = p
 
     for field_name, (file_key, section, ini_key, opts) in INI_MAP.items():
@@ -616,7 +626,7 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
-        params.append(f"?AltSaveDir={cfg.alt_save_directory_name}")
+        params.append(f"?AltSaveDirectoryName={cfg.alt_save_directory_name}")
     if cfg.cross_ark_cluster_id:
         params.append(f"?ClusterId={cfg.cross_ark_cluster_id}")
         params.append("?PreventDownloadItems=False")
