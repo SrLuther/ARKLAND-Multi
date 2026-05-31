@@ -447,7 +447,7 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
     # Gravar em UTF-8 faz o jogo ignorar silenciosamente algumas chaves.
     tmp = path.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-16") as fh:
-        parser.write(fh)
+        parser.write(fh, space_around_delimiters=False)
     tmp.replace(path)
 
 

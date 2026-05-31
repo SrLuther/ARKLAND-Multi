@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.11"
-BUILD_DATE: str = "2026-05-31"
+APP_VERSION: str = "1.5.12"
+BUILD_DATE: str = "2026-06-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.12",
+        "date": "2026-06-01",
+        "changes": [
+            "Fix (ASM/ini): INI escrito com 'key=value' sem espaços ao redor do '=' — "
+            "formato nativo do ARK. Antes: 'key = value' (configparser padrão).",
+        ],
+    },
     {
         "version": "1.5.11",
         "date": "2026-05-31",
