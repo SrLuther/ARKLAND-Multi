@@ -55,7 +55,7 @@ Name: "desktopicon"; Description: "Criar atalho na Ã¡rea de trabalho"; GroupDe
 ; Abre o app ao final da instalaÃ§Ã£o (sÃ³ no modo nÃ£o-silencioso)
 Filename: "{app}\ARKLAND-ServerManager.exe"; \
   Description: "Iniciar ARKLAND - Server Manager agora"; \
-  Flags: nowait postinstall skipifsilent
+  Flags: nowait postinstall skipifsilent shellexec runascurrentuser
 
 [UninstallDelete]
 ; Remove dados do usuÃ¡rio ao desinstalar (sÃ³ se o usuÃ¡rio confirmar â€” use comentÃ¡rio para remover)

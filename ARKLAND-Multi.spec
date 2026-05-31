@@ -85,4 +85,5 @@ exe = EXE(
     entitlements_file=None,
     icon=['ig\\ArkLandBR.ico'],
     version_file=None,
+    uac_admin=True,
 )
