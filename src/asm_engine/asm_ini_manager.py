@@ -627,13 +627,21 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
         params.append(f"?AltSaveDirectoryName={cfg.alt_save_directory_name}")
-    if cfg.cross_ark_cluster_id:
-        params.append(f"?ClusterId={cfg.cross_ark_cluster_id}")
-        params.append("?PreventDownloadItems=False")
 
     flags = ["-nosteamclient", "-game", "-server", "-log"]
     if cfg.allow_cave_flyers:
         flags.append("-ForceAllowCaveFlyers")
+
+    # Cluster: -clusterid= é flag de dash, não URL param (?ClusterId= é ignorado pelo ARK).
+    # Referência: primitivo src/server_config.py e comando saudável confirmam isso.
+    if cfg.cross_ark_cluster_id:
+        flags.append(f"-clusterid={cfg.cross_ark_cluster_id}")
+        if cfg.cluster_dir_override:
+            _cl_dir = cfg.cluster_dir_override.replace("/", "\\")
+            if " " in _cl_dir:
+                flags.append(f'"-ClusterDirOverride={_cl_dir}"')
+            else:
+                flags.append(f"-ClusterDirOverride={_cl_dir}")
 
     if cfg.additional_args.strip():
         import shlex

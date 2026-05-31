@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.8"
+APP_VERSION: str = "1.5.9"
 BUILD_DATE: str = "2026-05-31"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.9",
+        "date": "2026-05-31",
+        "changes": [
+            "Fix (ASM/launch): cluster ID agora gerado como flag '-clusterid=ID' em vez de URL param '?ClusterId=ID'. "
+            "O ARK ignora '?ClusterId=' completamente — confirmado pelo servidor saudável de referência e pelo primitivo (src/server_config.py).",
+            "Fix (ASM/launch): 'cluster_dir_override' agora incluído no comando como '-ClusterDirOverride=PATH'. "
+            "O campo existia no dataclass mas não era usado no build_launch_args.",
+            "Fix (ASM/launch): removido '?PreventDownloadItems=False' da CLI — parâmetro não existe no ARK e não consta em nenhuma referência válida.",
+        ],
+    },
     {
         "version": "1.5.8",
         "date": "2026-05-31",
