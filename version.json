@@ -1,8 +1,8 @@
 {
-    "version": "1.5.11",
+    "version": "1.5.12",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.11/ARKLAND-Multi-Setup-v1.5.11.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.12/ARKLAND-Multi-Setup-v1.5.12.exe",
     "changelog": [
-        "Fix (ASM/painel): Iniciar e Restart agora sincronizam silenciosamente os campos da UI (install_dir, session_name, portas, etc.) para o cfg antes de iniciar — sem dialog, sem salvar no JSON. Resolve: nome errado no servidor ('ARK #200440'), servidor não listando, validação falhando por install_dir vazio."
+        "Fix (ASM/ini): INI escrito com 'key=value' sem espaços ao redor do '=' — formato nativo do ARK. Antes: 'key = value' (configparser padrão)."
     ]
 }
