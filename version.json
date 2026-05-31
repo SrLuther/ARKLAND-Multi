@@ -1,8 +1,9 @@
 {
-    "version": "1.5.12",
+    "version": "1.5.13",
     "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.12/ARKLAND-Multi-Setup-v1.5.12.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.13/ARKLAND-Multi-Setup-v1.5.13.exe",
     "changelog": [
-        "Fix (ASM/ini): INI escrito com 'key=value' sem espaços ao redor do '=' — formato nativo do ARK. Antes: 'key = value' (configparser padrão)."
+        "Fix (ASM/launch): removido check de processo pré-existente do _start_worker. Antes: ao clicar Iniciar, se o servidor já estivesse rodando (iniciado manualmente ou por outra ferramenta), o app reutilizava o processo sem reiniciar — o GUS.ini recém-escrito nunca era relido pelo servidor, resultando em nome 'ARK #902606' ao invés do nome configurado. Agora o Start sempre lança um novo processo.",
+        "Fix (ASM/launch): SessionName também incluído na travel URL da CLI quando não contém espaços (?SessionName=Nome), além do GUS.ini — garante dupla cobertura para nomes sem espaço."
     ]
 }

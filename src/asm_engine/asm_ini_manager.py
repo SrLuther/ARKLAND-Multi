@@ -620,9 +620,13 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
-    # session_name é escrito no GameUserSettings.ini (SessionSettings/SessionName)
-    # NÃO colocar na CLI — valores com espaços (ex: "[ARKLAND] Teste Server")
-    # quebram o parsing do cmd.exe quando a string não está entre aspas.
+    # SessionName é escrito no GUS.ini ([SessionSettings]/SessionName) como fonte
+    # primária. Se o nome não tiver espaços (caracteres seguros para a URL de viagem
+    # do UE4), também o incluímos como parâmetro na CLI para garantia dupla.
+    # NOTA: NÃO colocamos aspas ao redor da travel URL — o parser do UE4 leria as
+    # aspas como parte do token, quebrando ?Port=, ?QueryPort= etc.
+    if cfg.session_name and " " not in cfg.session_name:
+        params.append(f"?SessionName={cfg.session_name}")
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:

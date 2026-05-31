@@ -186,8 +186,6 @@ class AsmServerManager:
             write_ini(cfg)
 
             # 2. Monta comando como string (igual ao PRIMITIVE)
-            # build_launch_args já retorna o combined_map entre aspas (necessário
-            # no Windows para proteger espaços em valores como SessionName).
             exe = Path(cfg.install_dir) / "ShooterGame" / "Binaries" / "Win64" / cfg.server_exe
             args = build_launch_args(cfg)
             full_cmd = f'"{exe}" ' + " ".join(args)
@@ -216,25 +214,25 @@ class AsmServerManager:
             # Remove __COMPAT_LAYER antes do startfile para evitar que o shim
             # DetectorsAppHealth seja herdado pelo servidor e cause crash no
             # CheckOnTimerCallbacks do ArkApi.
+            #
+            # IMPORTANTE: NÃO reutilizamos processo pré-existente aqui.
+            # O botão Start deve SEMPRE lançar um novo processo para garantir
+            # que o GUS.ini recém-escrito seja lido pelo servidor. Reutilizar
+            # um processo já em execução manteria o nome/config antigos.
             if _run_server_cmd_path is not None and _PSUTIL_OK:
                 try:
-                    _epoch = datetime(2000, 1, 1)
-                    _preexisting = _find_server_process(cfg.install_dir, _epoch, timeout=2.0)
-                    if _preexisting is not None:
-                        proc = _PsutilProcessWrapper(_preexisting)
-                    else:
-                        _launch_time = datetime.now()
-                        _compat_saved = os.environ.pop('__COMPAT_LAYER', None)
-                        try:
-                            os.startfile(str(_run_server_cmd_path))
-                        finally:
-                            if _compat_saved is not None:
-                                os.environ['__COMPAT_LAYER'] = _compat_saved
-                        _startfile_called = True
-                        time.sleep(2)
-                        _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
-                        if _raw is not None:
-                            proc = _PsutilProcessWrapper(_raw)
+                    _launch_time = datetime.now()
+                    _compat_saved = os.environ.pop('__COMPAT_LAYER', None)
+                    try:
+                        os.startfile(str(_run_server_cmd_path))
+                    finally:
+                        if _compat_saved is not None:
+                            os.environ['__COMPAT_LAYER'] = _compat_saved
+                    _startfile_called = True
+                    time.sleep(2)
+                    _raw = _find_server_process(cfg.install_dir, _launch_time, timeout=20.0)
+                    if _raw is not None:
+                        proc = _PsutilProcessWrapper(_raw)
                 except Exception:
                     proc = None
 

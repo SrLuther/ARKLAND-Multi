@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.12"
-BUILD_DATE: str = "2026-06-01"
+APP_VERSION: str = "1.5.13"
+BUILD_DATE: str = "2026-06-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.5.13",
+        "date": "2026-06-02",
+        "changes": [
+            "Fix (ASM/launch): removido check de processo pré-existente do _start_worker. "
+            "Antes: ao clicar Iniciar, se o servidor já estivesse rodando (iniciado manualmente "
+            "ou por outra ferramenta), o app reutilizava o processo sem reiniciar — o GUS.ini "
+            "recém-escrito nunca era relido pelo servidor, resultando em nome 'ARK #902606' "
+            "ao invés do nome configurado. Agora o Start sempre lança um novo processo.",
+            "Fix (ASM/launch): SessionName também incluído na travel URL da CLI quando não "
+            "contém espaços (?SessionName=Nome), além do GUS.ini — garante dupla cobertura "
+            "para nomes sem espaço.",
+        ],
+    },
     {
         "version": "1.5.12",
         "date": "2026-06-01",
