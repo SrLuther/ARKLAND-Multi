@@ -1,9 +1,13 @@
 {
-    "version": "1.5.13",
-    "date": "2026-05-31",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.5.13/ARKLAND-Multi-Setup-v1.5.13.exe",
+    "version": "1.6.0",
+    "date": "2026-06-06",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.6.0/ARKLAND-Multi-Setup-v1.6.0.exe",
     "changelog": [
-        "Fix (ASM/launch): removido check de processo pré-existente do _start_worker. Antes: ao clicar Iniciar, se o servidor já estivesse rodando (iniciado manualmente ou por outra ferramenta), o app reutilizava o processo sem reiniciar — o GUS.ini recém-escrito nunca era relido pelo servidor, resultando em nome 'ARK #902606' ao invés do nome configurado. Agora o Start sempre lança um novo processo.",
-        "Fix (ASM/launch): SessionName também incluído na travel URL da CLI quando não contém espaços (?SessionName=Nome), além do GUS.ini — garante dupla cobertura para nomes sem espaço."
+        "Novo: monitor de crashes em tempo real — aba 'Crashes' por servidor com cards (timestamp, tipo, call stack, marcar visto) e página global no menu lateral.",
+        "Novo: badge [N] na sidebar atualiza automaticamente quando qualquer servidor crasha.",
+        "Melhoria: navegação entre páginas instantânea (frames em cache com grid_remove/grid).",
+        "Melhoria: seções do painel carregadas sob demanda — startup mais rápido.",
+        "Fix: _try_psutil() no gráfico retornava sempre True em vez de _PSUTIL_OK.",
+        "Fix: watermark de background causava NameError em builds sem PIL no namespace global."
     ]
 }
