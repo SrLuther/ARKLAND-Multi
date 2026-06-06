@@ -3,11 +3,32 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.5.13"
-BUILD_DATE: str = "2026-06-02"
+APP_VERSION: str = "1.6.0"
+BUILD_DATE: str = "2026-06-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.6.0",
+        "date": "2026-06-06",
+        "changes": [
+            "Novo (Crash Monitor): aba 'Crashes' por servidor com cards em tempo real — "
+            "timestamp, tipo (crash/falha de início), call stack, botão 'Marcar visto'. "
+            "Dados persistidos em data/crashes.json entre sessões.",
+            "Novo (Crash Monitor): página global 'Crashes' no menu lateral mostra todos os "
+            "servidores em um só lugar, com filtro por servidor e contagem de não vistos.",
+            "Novo (Crash Monitor): badge [N] ao lado de 'Crashes' na sidebar atualiza em "
+            "tempo real via callback quando qualquer servidor crasha.",
+            "Melhoria (Navegação): trocar de página não reconstrói mais os frames — "
+            "uso de grid_remove/grid em vez de destroy/recreate. Navegação instantânea.",
+            "Melhoria (Painel): seções de configuração abertas sob demanda (lazy loading) "
+            "— startup mais rápido, menos uso de memória em repouso.",
+            "Fix: _try_psutil() no gráfico de performance retornava sempre True em vez de "
+            "_PSUTIL_OK — métricas de CPU/RAM podiam falhar silenciosamente sem psutil.",
+            "Fix: watermark de background usava PIL.Image diretamente em vez do alias "
+            "_PILImage, causando NameError em builds sem PIL no namespace global.",
+        ],
+    },
     {
         "version": "1.5.13",
         "date": "2026-06-02",
