@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ArkShop Web Manager — ARKLAND</title>
+  <style>
+    /* ── Reset & Base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d26;
+      --surface2:  #21253a;
+      --border:    #2d3250;
+      --accent:    #4f7fff;
+      --accent2:   #6e3dff;
+      --success:   #2ecc71;
+      --warning:   #f39c12;
+      --danger:    #e74c3c;
+      --text:      #e2e8f0;
+      --text2:     #94a3b8;
+      --radius:    10px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    #shell { display: flex; height: 100vh; overflow: hidden; }
+    #sidebar {
+      width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 20px 0; overflow-y: auto;
+    }
+    #main { flex: 1; overflow-y: auto; padding: 24px 32px; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────── */
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px; padding: 0 18px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo .logo-icon { font-size: 28px; }
+    .sidebar-logo .logo-text { font-size: 15px; font-weight: 700; line-height: 1.2; }
+    .sidebar-logo .logo-sub { font-size: 11px; color: var(--text2); }
+    .nav-section { padding: 14px 18px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 18px;
+      cursor: pointer; border-radius: 0; transition: background .15s, color .15s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: var(--surface2); }
+    .nav-item.active { background: var(--surface2); border-left-color: var(--accent); color: var(--accent); }
+    .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+    /* ── Topbar ──────────────────────────────────────────────────────────── */
+    #topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .page-title { font-size: 20px; font-weight: 700; }
+    .topbar-actions { display: flex; gap: 10px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+      border: none; border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: opacity .15s, transform .1s; white-space: nowrap;
+    }
+    .btn:hover { opacity: .85; }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger  { background: var(--danger);  color: #fff; }
+    .btn-ghost   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* ── Cards ───────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; margin-bottom: 18px;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+    /* ── Tables ──────────────────────────────────────────────────────────── */
+    .tbl { width: 100%; border-collapse: collapse; }
+    .tbl th { text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); border-bottom: 1px solid var(--border); }
+    .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: rgba(79,127,255,.05); }
+    .badge {
+      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-item    { background: rgba(46,204,113,.15); color: var(--success); }
+    .badge-dino    { background: rgba(243,156,18,.15);  color: var(--warning); }
+    .badge-command { background: rgba(110,61,255,.15);  color: #a78bfa; }
+    .badge-beacon  { background: rgba(79,127,255,.15);  color: var(--accent); }
+    .badge-experience { background: rgba(231,76,60,.15); color: var(--danger); }
+    .badge-unlockengram { background: rgba(52,211,153,.15); color: #34d399; }
+    .badge-kit     { background: rgba(251,191,36,.15);  color: #fbbf24; }
+    .badge-reemitido { background: rgba(148,163,184,.15); color: #94a3b8; }
+
+    /* ── Forms ───────────────────────────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 12px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+    .form-group input, .form-group select, .form-group textarea {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+      color: var(--text); padding: 8px 10px; font-size: 13px; outline: none; transition: border-color .15s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group select option { background: var(--surface); }
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
+    .toggle-row label { font-size: 13px; color: var(--text); }
+    input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
+
+    /* ── Modal ───────────────────────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000;
+      display: flex; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 24px; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto;
+      box-shadow: var(--shadow);
+    }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .modal-title { font-size: 17px; font-weight: 700; }
+    .modal-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 20px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+    /* ── Toast ───────────────────────────────────────────────────────────── */
+    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 18px; min-width: 260px; box-shadow: var(--shadow);
+      display: flex; align-items: center; gap: 10px; font-size: 13px;
+      animation: slideIn .2s ease;
+    }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.error   { border-left: 4px solid var(--danger); }
+    .toast.warning { border-left: 4px solid var(--warning); }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    /* ── Status bar ──────────────────────────────────────────────────────── */
+    #statusbar {
+      background: var(--surface); border-top: 1px solid var(--border);
+      padding: 6px 24px; font-size: 12px; color: var(--text2);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text2); display: inline-block; }
+    .status-dot.ok { background: var(--success); }
+    .status-dot.err { background: var(--danger); }
+
+    /* ── Utils ───────────────────────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--text2); }
+    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; display: inline-block; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .section-header { font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; margin: 20px 0 10px; }
+    .price-tag { font-weight: 700; color: #fbbf24; }
+    .actions-col { display: flex; gap: 6px; }
+    .hidden { display: none !important; }
+
+    /* ── Auth ─────────────────────────────────────────────────────────────── */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #auth-overlay.hidden { display: none; }
+    .auth-card {
+      width: 100%;
+      max-width: 520px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .auth-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .auth-desc { color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
+    #auth-userbox {
+      margin: 0 18px 14px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface2);
+      font-size: 12px;
+      color: var(--text2);
+    }
+  </style>
+</head>
+<body>
+
+<div id="auth-overlay" class="hidden">
+  <div class="auth-card">
+    <div class="auth-title">🔐 Login obrigatório</div>
+    <div class="auth-desc" id="auth-desc">
+      Faça login com sua conta Steam para acessar o painel.
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="loginWithSteam()">Entrar com Steam</button>
+    </div>
+  </div>
+</div>
+
+<div id="shell">
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🛒</div>
+      <div>
+        <div class="logo-text">ArkShop</div>
+        <div class="logo-sub">Web Manager</div>
+      </div>
+    </div>
+    <div id="auth-userbox" class="hidden">
+      <div id="auth-userline"></div>
+      <div style="margin-top:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
+      </div>
+    </div>
+
+    <div class="nav-section admin-only">Loja</div>
+    <div class="nav-item admin-only active" data-page="shop" onclick="nav(this)">
+      <span class="nav-icon">🏪</span> Itens da Loja
+    </div>
+    <div class="nav-item admin-only" data-page="kits" onclick="nav(this)">
+      <span class="nav-icon">🎁</span> Kits
+    </div>
+    <div class="nav-item admin-only" data-page="sell" onclick="nav(this)">
+      <span class="nav-icon">💰</span> Itens à Venda
+    </div>
+
+    <div class="nav-section admin-only">Sistema</div>
+    <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
+      <span class="nav-icon">⚙️</span> Configurações Gerais
+    </div>
+    <div class="nav-item admin-only" data-page="messages" onclick="nav(this)">
+      <span class="nav-icon">💬</span> Mensagens
+    </div>
+
+    <div class="nav-section admin-only">Ferramentas</div>
+    <div class="nav-item admin-only" data-page="rcon" onclick="nav(this)">
+      <span class="nav-icon">🖥️</span> Console RCON
+    </div>
+    <div class="nav-item admin-only" data-page="settings" onclick="nav(this)">
+      <span class="nav-icon">🔧</span> Configurar Paths
+    </div>
+    <div class="nav-item admin-only" data-page="servers" onclick="nav(this)">
+      <span class="nav-icon">🌐</span> Servidores
+    </div>
+
+    <div class="nav-section">Jogador</div>
+    <div class="nav-item" data-page="myarea" onclick="nav(this)">
+      <span class="nav-icon">👤</span> Minha Área
+    </div>
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────────────── -->
+  <div style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+    <div id="main">
+
+      <!-- PAGE: Shop Items -->
+      <div id="page-shop" class="page active">
+        <div id="topbar">
+          <div class="page-title">🏪 Itens da Loja</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadConfig()">🔄 Recarregar</button>
+            <button class="btn btn-primary" onclick="openItemModal()">＋ Novo Item</button>
+            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
+          </div>
+        </div>
+        <div id="shop-list"></div>
+      </div>
+
+      <!-- PAGE: Kits -->
+      <div id="page-kits" class="page">
+        <div id="topbar">
+          <div class="page-title">🎁 Kits</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadConfig()">🔄 Recarregar</button>
+            <button class="btn btn-primary" onclick="openKitModal()">＋ Novo Kit</button>
+            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
+          </div>
+        </div>
+        <div id="kits-list"></div>
+      </div>
+
+      <!-- PAGE: Sell -->
+      <div id="page-sell" class="page">
+        <div id="topbar">
+          <div class="page-title">💰 Itens à Venda (Jogadores Vendem)</div>
+          <div class="topbar-actions">
+            <button class="btn btn-primary" onclick="openSellModal()">＋ Novo Item</button>
+            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
+          </div>
+        </div>
+        <div id="sell-list"></div>
+      </div>
+
+      <!-- PAGE: General -->
+      <div id="page-general" class="page">
+        <div id="topbar">
+          <div class="page-title">⚙️ Configurações Gerais</div>
+          <div class="topbar-actions">
+            <button class="btn btn-success" onclick="saveGeneral()">💾 Salvar</button>
+          </div>
+        </div>
+        <div id="general-form"></div>
+      </div>
+
+      <!-- PAGE: Messages -->
+      <div id="page-messages" class="page">
+        <div id="topbar">
+          <div class="page-title">💬 Mensagens do Sistema</div>
+          <div class="topbar-actions">
+            <button class="btn btn-success" onclick="saveMessages()">💾 Salvar</button>
+          </div>
+        </div>
+        <div id="messages-form"></div>
+      </div>
+
+      <!-- PAGE: RCON -->
+      <div id="page-rcon" class="page">
+        <div id="topbar">
+          <div class="page-title">🖥️ Console RCON</div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">👤 Cadastro de Jogador (SteamID64)</div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>SteamID64</label>
+              <input id="player-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>Nome do Jogador</label>
+              <input id="player-name" type="text" placeholder="Nome in-game" />
+            </div>
+            <div class="form-group">
+              <label>Tribo</label>
+              <input id="player-tribe" type="text" placeholder="Nome da tribo" />
+            </div>
+            <div class="form-group">
+              <label>Observações</label>
+              <input id="player-note" type="text" placeholder="Opcional" />
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+            <button class="btn btn-primary" onclick="savePlayer()">💾 Salvar Jogador</button>
+            <button class="btn btn-ghost" onclick="clearPlayerForm()">🧹 Limpar</button>
+          </div>
+          <div id="players-list" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📦 Entrega de Compra (SteamID64)</div>
+          </div>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>SteamID64</label>
+              <input id="deliver-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>Tipo</label>
+              <select id="deliver-item-type">
+                <option value="shop">shop</option>
+                <option value="kit">kit</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>ID do Item/Kit</label>
+              <input id="deliver-item-id" type="text" placeholder="Ex: tools ou starter" />
+            </div>
+            <div class="form-group">
+              <label>Quantidade</label>
+              <input id="deliver-amount" type="number" min="1" value="1" />
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="deliverPurchase()">🚚 Entregar Compra</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔃 Pontos de Jogador</div>
+          </div>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>SteamID64 do Jogador</label>
+              <input id="rcon-player" type="text" placeholder="7656119XXXXXXXXXX" />
+            </div>
+            <div class="form-group">
+              <label>Quantidade</label>
+              <input id="rcon-amount" type="number" value="0" />
+            </div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-ghost" onclick="rconPoints('get')">🔍 Consultar Pontos</button>
+            <button class="btn btn-primary" onclick="rconPoints('add')">＋ Adicionar Pontos</button>
+            <button class="btn btn-ghost" onclick="rconPoints('set')">✏️ Definir Pontos</button>
+            <button class="btn btn-success" onclick="rconReload()">🔄 Reload ArkShop</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⌨️ Comando RCON Livre</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input id="rcon-cmd" type="text" placeholder="ex: ListPlayers" style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px 12px;" />
+            <button class="btn btn-primary" onclick="sendRcon()">Enviar</button>
+          </div>
+          <pre id="rcon-output" style="margin-top:14px; background:var(--bg); padding:14px; border-radius:7px; font-size:12px; color:var(--success); min-height:60px; white-space:pre-wrap; word-break:break-all;"></pre>
+        </div>
+      </div>
+
+      <!-- PAGE: Settings -->
+      <div id="page-settings" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🔧 Configurar Paths</div>
+        </div>
+        <div class="card">
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Caminho para config.json do ArkShop</label>
+              <input id="s-config-path" type="text" placeholder="C:\ARK\...\ArkShop\config.json" />
+            </div>
+            <div class="form-group">
+              <label>Host RCON</label>
+              <input id="s-rcon-host" type="text" placeholder="127.0.0.1" />
+            </div>
+            <div class="form-group">
+              <label>Porta RCON</label>
+              <input id="s-rcon-port" type="number" placeholder="27020" />
+            </div>
+            <div class="form-group">
+              <label>Senha RCON</label>
+              <input id="s-rcon-password" type="password" placeholder="(deixe vazio para não alterar)" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Template de Entrega RCON</label>
+              <input id="s-delivery-template" type="text" placeholder="ArkShopDeliver {steam_id} {item_type} {item_id} {amount}" />
+            </div>
+            <div class="form-group">
+              <label>Server ID</label>
+              <input id="s-server-id" type="text" placeholder="default" />
+            </div>
+            <div class="form-group">
+              <label>Máx. Retentativas</label>
+              <input id="s-retry-max" type="number" min="1" value="10" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1; margin-top:6px; color:var(--text2); font-size:12px;">
+              Banco central MySQL (use o IP da máquina onde o MySQL está rodando)
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Database URL (opcional, sobrescreve os campos abaixo)</label>
+              <input id="s-database-url" type="text" placeholder="mysql+pymysql://usuario:senha@192.168.0.10:3306/arkshop?charset=utf8mb4" />
+            </div>
+            <div class="form-group">
+              <label>DB Host/IP</label>
+              <input id="s-db-host" type="text" placeholder="192.168.0.10" />
+            </div>
+            <div class="form-group">
+              <label>DB Porta</label>
+              <input id="s-db-port" type="number" placeholder="3306" value="3306" />
+            </div>
+            <div class="form-group">
+              <label>DB Nome</label>
+              <input id="s-db-name" type="text" placeholder="arkshop" />
+            </div>
+            <div class="form-group">
+              <label>DB Usuário</label>
+              <input id="s-db-user" type="text" placeholder="arkshop_user" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>DB Senha</label>
+              <input id="s-db-password" type="password" placeholder="(deixe vazio para não alterar)" />
+            </div>
+          </div>
+          <div style="margin-top:16px;">
+            <button class="btn btn-success" onclick="saveSettings()">💾 Salvar Configurações</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: Minha Área -->
+      <div id="page-myarea" class="page">
+        <div id="topbar">
+          <div class="page-title">👤 Minha Área</div>
+          <div class="topbar-actions">
+            <select id="myarea-status-filter" class="btn btn-ghost" style="padding:7px 12px;" onchange="resetMyAreaPage()">
+              <option value="">Todos os status</option>
+              <option value="PENDENTE">Pendente</option>
+              <option value="ENTREGUE">Entregue</option>
+              <option value="ERRO">Erro</option>
+              <option value="CONTESTADO">Contestado</option>
+              <option value="REEMITIDO">Reemitido</option>
+            </select>
+            <button class="btn btn-ghost" onclick="loadMyArea()">🔄 Recarregar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📌 Perfil</div>
+          </div>
+          <div id="myarea-profile" style="color:var(--text2);"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 Resumo de Pedidos</div>
+          </div>
+          <div id="myarea-summary" class="form-grid"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🧾 Histórico de Compras</div>
+          </div>
+          <div id="myarea-history"></div>
+          <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-ghost btn-sm" onclick="prevMyAreaPage()">◀ Anterior</button>
+            <span id="myarea-page-info" style="color:var(--text2);font-size:12px;"></span>
+            <button class="btn btn-ghost btn-sm" onclick="nextMyAreaPage()">Próxima ▶</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: Servidores -->
+      <div id="page-servers" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🌐 Servidores</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadServers()">🔄 Recarregar</button>
+            <button class="btn btn-primary" onclick="openServerModal()">＋ Novo Servidor</button>
+          </div>
+        </div>
+        <div id="servers-list"></div>
+      </div>
+
+    </div>
+    <!-- Status bar -->
+    <div id="statusbar">
+      <span id="sb-dot" class="status-dot"></span>
+      <span id="sb-text">Carregando…</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Item ──────────────────────────────────────────────────────────── -->
+<div id="modal-item" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-item-title">Novo Item</div>
+      <button class="modal-close" onclick="closeModal('modal-item')">✕</button>
+    </div>
+    <div id="modal-item-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-item')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmItem()">✔ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Kit ───────────────────────────────────────────────────────────── -->
+<div id="modal-kit" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-kit-title">Novo Kit</div>
+      <button class="modal-close" onclick="closeModal('modal-kit')">✕</button>
+    </div>
+    <div id="modal-kit-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-kit')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmKit()">✔ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Sell ──────────────────────────────────────────────────────────── -->
+<div id="modal-sell" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-sell-title">Novo Item para Venda</div>
+      <button class="modal-close" onclick="closeModal('modal-sell')">✕</button>
+    </div>
+    <div id="modal-sell-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-sell')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmSell()">✔ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Order Detail ───────────────────────────────────────────────────── -->
+<div id="modal-order-detail" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:720px;">
+    <div class="modal-header">
+      <div class="modal-title">🧾 Detalhe do Pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-order-detail')">✕</button>
+    </div>
+    <div id="modal-order-detail-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-order-detail')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Server ─────────────────────────────────────────────────────────── -->
+<div id="modal-server" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-server-title">Novo Servidor</div>
+      <button class="modal-close" onclick="closeModal('modal-server')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Server ID (único)</label>
+        <input id="srv-id" type="text" placeholder="ex: pve1" />
+      </div>
+      <div class="form-group">
+        <label>Label</label>
+        <input id="srv-label" type="text" placeholder="ex: Servidor PvE 1" />
+      </div>
+      <div class="form-group">
+        <label>Host RCON</label>
+        <input id="srv-host" type="text" placeholder="127.0.0.1" />
+      </div>
+      <div class="form-group">
+        <label>Porta RCON</label>
+        <input id="srv-port" type="number" placeholder="27020" />
+      </div>
+      <div class="form-group">
+        <label>Senha RCON</label>
+        <input id="srv-password" type="password" placeholder="(deixe vazio para não alterar)" />
+      </div>
+      <div class="form-group">
+        <label>Máx. Retentativas</label>
+        <input id="srv-retry" type="number" min="1" value="10" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Template de Entrega</label>
+        <input id="srv-template" type="text" placeholder="ArkShopDeliver {steam_id} {item_type} {item_id} {amount}" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-server')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmServer()">✔ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast container ──────────────────────────────────────────────────────── -->
+<div id="toast-container"></div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let _config = null;
+let _players = [];
+let _editingKey = null;   // key sendo editada
+let _editingSection = null; // 'shop'|'kit'|'sell'
+let _auth = { authenticated: false, is_admin: false, steam_id: null };
+let _myAreaPage = { offset: 0, limit: 20, total: 0 };
+
+const API = "";  // mesmo origin
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+function nav(el) {
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("page-" + el.dataset.page).classList.add("active");
+}
+
+function showAuthOverlay(show, msg) {
+  const overlay = document.getElementById("auth-overlay");
+  overlay.classList.toggle("hidden", !show);
+  if (msg) {
+    document.getElementById("auth-desc").textContent = msg;
+  }
+}
+
+function loginWithSteam() {
+  window.location.href = API + "/api/auth/login";
+}
+
+async function logout() {
+  await fetch(API + "/api/auth/logout", { method: "POST" });
+  window.location.reload();
+}
+
+async function loadAuth() {
+  const r = await fetch(API + "/api/auth/me");
+  _auth = await r.json();
+}
+
+function applyRoleUi() {
+  const userBox = document.getElementById("auth-userbox");
+  const userLine = document.getElementById("auth-userline");
+  userBox.classList.remove("hidden");
+
+  if (_auth.authenticated) {
+    userLine.textContent = `SteamID: ${_auth.steam_id} | ${_auth.is_admin ? "Admin" : "Jogador"}`;
+  } else {
+    userLine.textContent = "Não autenticado";
+  }
+
+  if (!_auth.is_admin) {
+    document.querySelectorAll(".admin-only").forEach((el) => {
+      el.style.display = "none";
+    });
+    const profile = document.getElementById("myarea-profile");
+    if (profile) {
+      profile.textContent = `SteamID autenticado: ${_auth.steam_id}. Área administrativa bloqueada para este usuário.`;
+    }
+    const myAreaNav = document.querySelector('.nav-item[data-page="myarea"]');
+    if (myAreaNav) nav(myAreaNav);
+  } else {
+    const shopNav = document.querySelector('.nav-item[data-page="shop"]');
+    if (shopNav) nav(shopNav);
+  }
+}
+
+function fmtDate(iso) {
+  if (!iso) return "-";
+  try {
+    return new Date(iso).toLocaleString("pt-BR");
+  } catch (_) {
+    return iso;
+  }
+}
+
+function statusBadge(status) {
+  const s = (status || "").toUpperCase();
+  if (s === "ENTREGUE") return `<span class="badge badge-item">${s}</span>`;
+  if (s === "PENDENTE") return `<span class="badge badge-beacon">${s}</span>`;
+  if (s === "CONTESTADO") return `<span class="badge badge-command">${s}</span>`;
+  if (s === "ERRO") return `<span class="badge badge-experience">${s}</span>`;
+  if (s === "REEMITIDO") return `<span class="badge badge-reemitido">${s}</span>`;
+  return `<span class="badge">${s || "-"}</span>`;
+}
+
+async function loadMyArea() {
+  if (!_auth.authenticated) return;
+  document.getElementById("myarea-profile").textContent = `SteamID autenticado: ${_auth.steam_id}`;
+
+  const summaryRes = await fetch(API + "/api/player/summary");
+  if (summaryRes.status === 500) {
+    document.getElementById("myarea-summary").innerHTML = `<div style="color:var(--warning)">Banco não configurado (defina ARKSHOP_DATABASE_URL).</div>`;
+    document.getElementById("myarea-history").innerHTML = "";
+    return;
+  }
+  const summary = await summaryRes.json();
+  if (!summary.ok) {
+    document.getElementById("myarea-summary").innerHTML = `<div style="color:var(--danger)">${summary.error || "Falha ao carregar resumo"}</div>`;
+  } else {
+    const st = summary.stats || {};
+    document.getElementById("myarea-summary").innerHTML = `
+      <div class="form-group"><label>Total</label><input readonly value="${st.total_orders ?? 0}" /></div>
+      <div class="form-group"><label>Entregues</label><input readonly value="${st.delivered ?? 0}" /></div>
+      <div class="form-group"><label>Pendentes</label><input readonly value="${st.pending ?? 0}" /></div>
+      <div class="form-group"><label>Contestados</label><input readonly value="${st.contested ?? 0}" /></div>
+    `;
+  }
+
+  await loadMyAreaHistory();
+}
+
+async function loadMyAreaHistory() {
+  const statusFilter = document.getElementById("myarea-status-filter")?.value || "";
+  const q = `?limit=${_myAreaPage.limit}&offset=${_myAreaPage.offset}` + (statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : "");
+  const r = await fetch(API + "/api/player/history" + q);
+  const d = await r.json();
+  if (!d.ok) {
+    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar histórico"}</div>`;
+    return;
+  }
+  _myAreaPage.total = d.total || 0;
+  const items = d.items || [];
+
+  const pageNum = Math.floor(_myAreaPage.offset / _myAreaPage.limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(_myAreaPage.total / _myAreaPage.limit));
+  const pageInfo = document.getElementById("myarea-page-info");
+  if (pageInfo) pageInfo.textContent = `Pág. ${pageNum} / ${totalPages} (${_myAreaPage.total} pedidos)`;
+
+  if (!items.length) {
+    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--text2)">Nenhuma compra registrada.</div>`;
+    return;
+  }
+
+  document.getElementById("myarea-history").innerHTML = `
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Pedido</th><th>Servidor</th><th>Item</th><th>Qtd</th><th>Status</th><th>Criado em</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(o => `
+          <tr>
+            <td><code style="font-size:11px;">${o.order_id.substring(0,8)}…</code></td>
+            <td><span style="color:var(--text2);font-size:12px;">${o.server_id || "default"}</span></td>
+            <td>${o.item_type}:${o.item_id}</td>
+            <td>${o.amount}</td>
+            <td>${statusBadge(o.status)}</td>
+            <td>${fmtDate(o.created_at)}</td>
+            <td>
+              <div class="actions-col">
+                <button class="btn btn-ghost btn-sm" onclick="viewOrderDetail('${o.order_id}')">🔍 Detalhes</button>
+                <button class="btn btn-ghost btn-sm" onclick="rebuyOrder('${o.order_id}')">🔁 Recomprar</button>
+                <button class="btn btn-danger btn-sm" onclick="contestOrder('${o.order_id}')">⚠️ Contestar</button>
+              </div>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function resetMyAreaPage() {
+  _myAreaPage.offset = 0;
+  loadMyAreaHistory();
+}
+
+async function contestOrder(orderId) {
+  const reason = prompt("Descreva o motivo da contestação:");
+  if (!reason || !reason.trim()) return;
+  const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/contest`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ reason: reason.trim() }),
+  });
+  const d = await r.json();
+  if (!d.ok) {
+    toast(d.error || "Falha ao contestar", "error");
+    return;
+  }
+  toast("Contestação registrada", "success");
+  await loadMyArea();
+}
+
+async function rebuyOrder(orderId) {
+  const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/rebuy`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: "{}",
+  });
+  const d = await r.json();
+  if (!d.ok) {
+    toast(d.error || "Falha na recompra", "error");
+    return;
+  }
+  toast(`Recompra criada (${d.order_id})`, "success");
+  await loadMyArea();
+}
+
+async function viewOrderDetail(orderId) {
+  const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}`);
+  const d = await r.json();
+  if (!d.ok) {
+    toast(d.error || "Falha ao carregar detalhe", "error");
+    return;
+  }
+  const o = d.order;
+  const attempts = d.attempts || [];
+  const disputes = d.disputes || [];
+
+  const attemptsHtml = attempts.length ? `
+    <div style="margin-top:16px;">
+      <div class="section-header">Tentativas de Entrega</div>
+      <table class="tbl">
+        <thead><tr><th>Data</th><th>Status</th><th>Comando</th><th>Resposta/Erro</th></tr></thead>
+        <tbody>
+          ${attempts.map(a => `
+            <tr>
+              <td style="font-size:11px;">${fmtDate(a.attempted_at)}</td>
+              <td>${a.success ? '<span class="badge badge-item">OK</span>' : '<span class="badge badge-experience">FALHA</span>'}</td>
+              <td><code style="font-size:11px;">${escHtml(a.command || "")}</code></td>
+              <td style="font-size:11px;color:${a.success ? "var(--success)" : "var(--danger)"};">${escHtml(a.response || a.error || "-")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>` : '<div style="color:var(--text2);margin-top:12px;">Nenhuma tentativa registrada.</div>';
+
+  const disputesHtml = disputes.length ? `
+    <div style="margin-top:16px;">
+      <div class="section-header">Contestações</div>
+      ${disputes.map(dp => `
+        <div class="card" style="margin-bottom:8px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:var(--text2);">${fmtDate(dp.created_at)}</span>
+            <span class="badge badge-command">${dp.status}</span>
+          </div>
+          <div style="margin-top:8px;font-size:13px;">${escHtml(dp.reason)}</div>
+        </div>
+      `).join("")}
+    </div>` : "";
+
+  document.getElementById("modal-order-detail-body").innerHTML = `
+    <div class="form-grid" style="margin-bottom:16px;">
+      <div class="form-group"><label>Pedido ID</label><input readonly value="${o.order_id}" /></div>
+      <div class="form-group"><label>Servidor</label><input readonly value="${o.server_id || "default"}" /></div>
+      <div class="form-group"><label>Item</label><input readonly value="${o.item_type}:${o.item_id}" /></div>
+      <div class="form-group"><label>Quantidade</label><input readonly value="${o.amount}" /></div>
+      <div class="form-group"><label>Status</label><div style="padding-top:6px;">${statusBadge(o.status)}</div></div>
+      <div class="form-group"><label>Tentativas</label><input readonly value="${o.retry_count}" /></div>
+      <div class="form-group"><label>Criado em</label><input readonly value="${fmtDate(o.created_at)}" /></div>
+      <div class="form-group"><label>Atualizado em</label><input readonly value="${fmtDate(o.updated_at)}" /></div>
+      ${o.original_order_id ? `<div class="form-group" style="grid-column:1/-1;"><label>Pedido Original</label><input readonly value="${o.original_order_id}" /></div>` : ""}
+      ${o.last_error ? `<div class="form-group" style="grid-column:1/-1;"><label>Último Erro</label><textarea readonly style="color:var(--danger);">${escHtml(o.last_error)}</textarea></div>` : ""}
+    </div>
+    ${attemptsHtml}
+    ${disputesHtml}
+  `;
+  openModal("modal-order-detail");
+}
+
+function prevMyAreaPage() {
+  _myAreaPage.offset = Math.max(0, _myAreaPage.offset - _myAreaPage.limit);
+  loadMyAreaHistory();
+}
+
+function nextMyAreaPage() {
+  const nextOffset = _myAreaPage.offset + _myAreaPage.limit;
+  if (nextOffset >= _myAreaPage.total) return;
+  _myAreaPage.offset = nextOffset;
+  loadMyAreaHistory();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type = "success") {
+  const c = document.getElementById("toast-container");
+  const t = document.createElement("div");
+  t.className = `toast ${type}`;
+  const icon = type === "success" ? "✅" : type === "error" ? "❌" : "⚠️";
+  t.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.remove("hidden"); }
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+// ── Status bar ────────────────────────────────────────────────────────────────
+function setStatus(ok, text) {
+  const dot = document.getElementById("sb-dot");
+  dot.className = "status-dot " + (ok ? "ok" : "err");
+  document.getElementById("sb-text").textContent = text;
+}
+
+// ── Type badge ────────────────────────────────────────────────────────────────
+function typeBadge(type) {
+  const labels = { item:"Item", dino:"Dino", command:"Comando", beacon:"Beacon", experience:"XP", unlockengram:"Engram", kit:"Kit" };
+  return `<span class="badge badge-${type}">${labels[type]||type}</span>`;
+}
+
+function isSteamId64(value) {
+  return /^7656119\d{10}$/.test((value || "").trim());
+}
+
+// ── Load config ───────────────────────────────────────────────────────────────
+async function loadConfig() {
+  if (!_auth.is_admin) return;
+  setStatus(false, "Carregando config.json…");
+  try {
+    const r = await fetch(API + "/api/config");
+    const data = await r.json();
+    if (data.error) { setStatus(false, "Erro: " + data.error); toast(data.error, "error"); return; }
+    _config = data;
+    renderAll();
+    setStatus(true, "config.json carregado");
+  } catch(e) {
+    setStatus(false, "Falha na conexão: " + e.message);
+    toast("Falha na conexão com backend", "error");
+  }
+}
+
+// ── Save config ───────────────────────────────────────────────────────────────
+async function saveConfig() {
+  const r = await fetch(API + "/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(_config),
+  });
+  const data = await r.json();
+  if (data.ok) { toast("Config salva com sucesso!"); }
+  else { toast("Erro ao salvar: " + data.error, "error"); }
+  return data.ok;
+}
+
+async function saveAndReload() {
+  const saved = await saveConfig();
+  if (!saved) return;
+  const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
+  const data = await r.json();
+  if (data.ok) toast("ArkShop recarregado via RCON: " + (data.response||"ok"));
+  else toast("RCON: " + data.error, "warning");
+}
+
+// ── Render pages ──────────────────────────────────────────────────────────────
+function renderAll() {
+  renderShop();
+  renderKits();
+  renderSell();
+  renderGeneral();
+  renderMessages();
+}
+
+function renderShop() {
+  const el = document.getElementById("shop-list");
+  const items = _config?.ShopItems || {};
+  const keys = Object.keys(items);
+  if (!keys.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div><p>Nenhum item cadastrado</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr>
+          <th>ID</th><th>Tipo</th><th>Descrição</th><th>Preço</th><th>Nível</th><th>Permissões</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          ${keys.map(k => {
+            const it = items[k];
+            return `<tr>
+              <td><code>${k}</code></td>
+              <td>${typeBadge(it.Type||"item")}</td>
+              <td><span class="truncate">${it.Description||"-"}</span></td>
+              <td class="price-tag">${it.Price??0} pts</td>
+              <td>${it.MinLevel??"-"}${it.MaxLevel?` – ${it.MaxLevel}`:""}</td>
+              <td>${it.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
+              <td><div class="actions-col">
+                <button class="btn btn-ghost btn-sm" onclick="openItemModal('${k}')">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteItem('${k}')">🗑</button>
+              </div></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderKits() {
+  const el = document.getElementById("kits-list");
+  const kits = _config?.Kits || {};
+  const keys = Object.keys(kits);
+  if (!keys.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🎁</div><p>Nenhum kit cadastrado</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr>
+          <th>ID</th><th>Descrição</th><th>Preço</th><th>Usos</th><th>Lv. Min/Max</th><th>Permissões</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          ${keys.map(k => {
+            const kit = kits[k];
+            return `<tr>
+              <td><code>${k}</code></td>
+              <td><span class="truncate">${kit.Description||"-"}</span></td>
+              <td class="price-tag">${kit.Price??0} pts</td>
+              <td>${kit.DefaultAmount??"∞"}</td>
+              <td>${kit.MinLevel??"-"}${kit.MaxLevel?` – ${kit.MaxLevel}`:""}</td>
+              <td>${kit.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
+              <td><div class="actions-col">
+                <button class="btn btn-ghost btn-sm" onclick="openKitModal('${k}')">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteKit('${k}')">🗑</button>
+              </div></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderSell() {
+  const el = document.getElementById("sell-list");
+  const items = _config?.SellItems || {};
+  const keys = Object.keys(items);
+  if (!keys.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">💰</div><p>Nenhum item para venda cadastrado</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr>
+          <th>ID</th><th>Descrição</th><th>Preço (jogador recebe)</th><th>Qtd necessária</th><th>Blueprint</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          ${keys.map(k => {
+            const it = items[k];
+            return `<tr>
+              <td><code>${k}</code></td>
+              <td>${it.Description||"-"}</td>
+              <td class="price-tag">${it.Price??0} pts</td>
+              <td>${it.Amount??1}</td>
+              <td><span class="truncate" style="max-width:240px;font-size:11px;color:var(--text2)">${it.Blueprint||"-"}</span></td>
+              <td><div class="actions-col">
+                <button class="btn btn-ghost btn-sm" onclick="openSellModal('${k}')">✏️</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteSell('${k}')">🗑</button>
+              </div></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function renderGeneral() {
+  if (!_config?.General) return;
+  const g = _config.General;
+  document.getElementById("general-form").innerHTML = `
+    <div class="card">
+      <div class="card-header"><div class="card-title">⏱ Recompensas por Tempo de Jogo</div></div>
+      <div class="toggle-row">
+        <label>Ativar recompensas por tempo</label>
+        <input type="checkbox" id="g-timed-enabled" ${g.TimedPointsReward?.Enabled?"checked":""} />
+      </div>
+      <div class="form-grid" style="margin-top:12px;">
+        <div class="form-group">
+          <label>Intervalo (minutos)</label>
+          <input id="g-interval" type="number" value="${g.TimedPointsReward?.Interval??30}" />
+        </div>
+        <div class="form-group">
+          <label>Empilhar recompensas de grupos</label>
+          <select id="g-stack">
+            <option value="false" ${!g.TimedPointsReward?.StackRewards?"selected":""}>Não</option>
+            <option value="true" ${g.TimedPointsReward?.StackRewards?"selected":""}>Sim</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Pts grupo Default</label>
+          <input id="g-default-pts" type="number" value="${g.TimedPointsReward?.Groups?.Default?.Amount??20}" />
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🎮 Interface da Loja</div></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Itens por Página</label>
+          <input id="g-ipp" type="number" value="${g.ItemsPerPage??15}" />
+        </div>
+        <div class="form-group">
+          <label>Tempo de exibição (s)</label>
+          <input id="g-display-time" type="number" step="0.5" value="${g.ShopDisplayTime??15}" />
+        </div>
+        <div class="form-group">
+          <label>Tamanho do texto</label>
+          <input id="g-text-size" type="number" step="0.1" value="${g.ShopTextSize??1.3}" />
+        </div>
+        <div class="form-group">
+          <label>Kit padrão ao spawn</label>
+          <input id="g-default-kit" type="text" value="${g.DefaultKit||""}" placeholder="(deixe vazio)" />
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🦕 Dinossauros</div></div>
+      <div class="toggle-row">
+        <label>Dar dinos em Cryopods</label>
+        <input type="checkbox" id="g-cryo" ${g.GiveDinosInCryopods?"checked":""} />
+      </div>
+      <div class="toggle-row">
+        <label>Usar Soul Traps (Dino Storage V2)</label>
+        <input type="checkbox" id="g-soul" ${g.UseSoulTraps?"checked":""} />
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🚫 Restrições de Uso</div></div>
+      ${[
+        ["PreventUseNoglin","Bloquear uso com Noglin"],
+        ["PreventUseUnconscious","Bloquear uso inconsciente"],
+        ["PreventUseHandcuffed","Bloquear uso algemado"],
+        ["PreventUseCarried","Bloquear uso sendo carregado"],
+      ].map(([k,lbl]) => `
+        <div class="toggle-row">
+          <label>${lbl}</label>
+          <input type="checkbox" id="g-${k}" ${g[k]?"checked":""} />
+        </div>`).join("")}
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">🔗 Discord Webhook (Log)</div></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nome do sender</label>
+          <input id="g-discord-name" type="text" value="${g.Discord?.SenderName||"ArkShop"}" />
+        </div>
+        <div class="form-group">
+          <label>Webhook URL</label>
+          <input id="g-discord-url" type="text" value="${g.Discord?.URL||""}" placeholder="https://discord.com/api/webhooks/..." />
+        </div>
+        <div class="form-group">
+          <label>Ativar</label>
+          <select id="g-discord-enabled">
+            <option value="false" ${!g.Discord?.Enabled?"selected":""}>Não</option>
+            <option value="true" ${g.Discord?.Enabled?"selected":""}>Sim</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function saveGeneral() {
+  if (!_config) return;
+  const g = _config.General;
+  g.TimedPointsReward.Enabled = document.getElementById("g-timed-enabled").checked;
+  g.TimedPointsReward.Interval = parseInt(document.getElementById("g-interval").value)||30;
+  g.TimedPointsReward.StackRewards = document.getElementById("g-stack").value === "true";
+  if (!g.TimedPointsReward.Groups) g.TimedPointsReward.Groups = {};
+  if (!g.TimedPointsReward.Groups.Default) g.TimedPointsReward.Groups.Default = {};
+  g.TimedPointsReward.Groups.Default.Amount = parseInt(document.getElementById("g-default-pts").value)||20;
+  g.ItemsPerPage = parseInt(document.getElementById("g-ipp").value)||15;
+  g.ShopDisplayTime = parseFloat(document.getElementById("g-display-time").value)||15;
+  g.ShopTextSize = parseFloat(document.getElementById("g-text-size").value)||1.3;
+  g.DefaultKit = document.getElementById("g-default-kit").value;
+  g.GiveDinosInCryopods = document.getElementById("g-cryo").checked;
+  g.UseSoulTraps = document.getElementById("g-soul").checked;
+  g.PreventUseNoglin = document.getElementById("g-PreventUseNoglin").checked;
+  g.PreventUseUnconscious = document.getElementById("g-PreventUseUnconscious").checked;
+  g.PreventUseHandcuffed = document.getElementById("g-PreventUseHandcuffed").checked;
+  g.PreventUseCarried = document.getElementById("g-PreventUseCarried").checked;
+  if (!g.Discord) g.Discord = {};
+  g.Discord.Enabled = document.getElementById("g-discord-enabled").value === "true";
+  g.Discord.SenderName = document.getElementById("g-discord-name").value;
+  g.Discord.URL = document.getElementById("g-discord-url").value;
+  saveConfig();
+}
+
+function renderMessages() {
+  if (!_config?.Messages) return;
+  const msgs = _config.Messages;
+  const keys = Object.keys(msgs);
+  const cmdKeys = keys.filter(k => k.endsWith("Cmd"));
+  const usageKeys = keys.filter(k => k.endsWith("Usage") || k.endsWith("Message") || k.endsWith("Format"));
+  const textKeys = keys.filter(k => !cmdKeys.includes(k) && !usageKeys.includes(k));
+
+  const section = (title, ks) => `
+    <div class="section-header">${title}</div>
+    <div class="form-grid">
+      ${ks.map(k => `
+        <div class="form-group">
+          <label>${k}</label>
+          <input id="msg-${k}" type="text" value="${escHtml(msgs[k]||"")}" />
+        </div>`).join("")}
+    </div>`;
+
+  document.getElementById("messages-form").innerHTML = `
+    <div class="card">
+      ${section("📢 Mensagens de Feedback", textKeys)}
+    </div>
+    <div class="card">
+      ${section("⌨️ Nomes dos Comandos", cmdKeys)}
+    </div>
+    <div class="card">
+      ${section("📋 Formatos e Uso", usageKeys)}
+    </div>`;
+}
+
+function saveMessages() {
+  if (!_config) return;
+  const msgs = _config.Messages;
+  Object.keys(msgs).forEach(k => {
+    const el = document.getElementById("msg-" + k);
+    if (el) msgs[k] = el.value;
+  });
+  saveConfig();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Item Modal ────────────────────────────────────────────────────────────────
+function itemFormHtml(data) {
+  const d = data || {};
+  const types = ["item","dino","command","beacon","experience","unlockengram"];
+  return `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ID (chave única)</label>
+        <input id="fi-key" type="text" value="${d._key||""}" ${d._key?"readonly":""} placeholder="ex: sword_tek" />
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="fi-type" onchange="toggleItemFields()">
+          ${types.map(t => `<option value="${t}" ${(d.Type||"item")===t?"selected":""}>${t}</option>`).join("")}
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Descrição</label>
+        <input id="fi-desc" type="text" value="${escHtml(d.Description||"")}" placeholder="Ex: Espada de metal" />
+      </div>
+      <div class="form-group">
+        <label>Preço (pontos)</label>
+        <input id="fi-price" type="number" value="${d.Price??0}" />
+      </div>
+      <div class="form-group">
+        <label>Nível mínimo</label>
+        <input id="fi-minlv" type="number" value="${d.MinLevel||""}" placeholder="(sem restrição)" />
+      </div>
+      <div class="form-group">
+        <label>Nível máximo</label>
+        <input id="fi-maxlv" type="number" value="${d.MaxLevel||""}" placeholder="(sem restrição)" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Permissões (grupos separados por vírgula)</label>
+        <input id="fi-perms" type="text" value="${d.Permissions||""}" placeholder="Default (vazio = todos)" />
+      </div>
+    </div>
+    <div id="fi-extra" style="margin-top:14px;"></div>
+    <div class="form-group" style="margin-top:14px;">
+      <label>JSON Completo (edição avançada)</label>
+      <textarea id="fi-json" rows="8" style="font-size:12px;font-family:monospace;">${JSON.stringify(d,null,2)}</textarea>
+      <small style="color:var(--text2)">O JSON tem prioridade ao salvar. Edite os campos acima para facilitar.</small>
+    </div>`;
+}
+
+function toggleItemFields() {
+  // Atualiza JSON preview ao mudar campos principais
+  syncItemToJson();
+}
+
+function syncItemToJson() {
+  const ta = document.getElementById("fi-json");
+  if (!ta) return;
+  try {
+    const current = JSON.parse(ta.value);
+    current.Type = document.getElementById("fi-type").value;
+    current.Description = document.getElementById("fi-desc").value;
+    current.Price = parseInt(document.getElementById("fi-price").value)||0;
+    const minlv = document.getElementById("fi-minlv").value;
+    const maxlv = document.getElementById("fi-maxlv").value;
+    if (minlv) current.MinLevel = parseInt(minlv); else delete current.MinLevel;
+    if (maxlv) current.MaxLevel = parseInt(maxlv); else delete current.MaxLevel;
+    const perms = document.getElementById("fi-perms").value;
+    if (perms) current.Permissions = perms; else delete current.Permissions;
+    ta.value = JSON.stringify(current, null, 2);
+  } catch(_){}
+}
+
+function openItemModal(key) {
+  _editingKey = key || null;
+  _editingSection = "shop";
+  const existing = key ? { ..._config.ShopItems[key], _key: key } : {};
+  document.getElementById("modal-item-title").textContent = key ? `Editar: ${key}` : "Novo Item da Loja";
+  document.getElementById("modal-item-body").innerHTML = itemFormHtml(existing);
+  // Sync ao mudar campos
+  ["fi-type","fi-desc","fi-price","fi-minlv","fi-maxlv","fi-perms"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("input", syncItemToJson);
+  });
+  openModal("modal-item");
+}
+
+function confirmItem() {
+  const keyEl = document.getElementById("fi-key");
+  const key = (keyEl?.value||"").trim();
+  if (!key) { toast("ID do item não pode ser vazio", "error"); return; }
+  try {
+    const jsonText = document.getElementById("fi-json").value;
+    const data = JSON.parse(jsonText);
+    delete data._key;
+    if (!_config.ShopItems) _config.ShopItems = {};
+    _config.ShopItems[key] = data;
+    closeModal("modal-item");
+    renderShop();
+    toast(`Item "${key}" salvo no config (lembre de clicar Salvar)`);
+  } catch(e) {
+    toast("JSON inválido: " + e.message, "error");
+  }
+}
+
+function deleteItem(key) {
+  if (!confirm(`Remover item "${key}"?`)) return;
+  delete _config.ShopItems[key];
+  renderShop();
+  toast(`Item "${key}" removido`);
+}
+
+// ── Kit Modal ─────────────────────────────────────────────────────────────────
+function kitFormHtml(data) {
+  const d = data || {};
+  return `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ID do Kit</label>
+        <input id="fk-key" type="text" value="${d._key||""}" ${d._key?"readonly":""} placeholder="ex: starter" />
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input id="fk-desc" type="text" value="${escHtml(d.Description||"")}" />
+      </div>
+      <div class="form-group">
+        <label>Preço</label>
+        <input id="fk-price" type="number" value="${d.Price??0}" />
+      </div>
+      <div class="form-group">
+        <label>Usos disponíveis (0 = grátis ilimitado)</label>
+        <input id="fk-amount" type="number" value="${d.DefaultAmount??1}" />
+      </div>
+      <div class="form-group">
+        <label>Nível mínimo</label>
+        <input id="fk-minlv" type="number" value="${d.MinLevel||""}" placeholder="(sem restrição)" />
+      </div>
+      <div class="form-group">
+        <label>Nível máximo</label>
+        <input id="fk-maxlv" type="number" value="${d.MaxLevel||""}" placeholder="(sem restrição)" />
+      </div>
+      <div class="form-group">
+        <label>Permissões</label>
+        <input id="fk-perms" type="text" value="${d.Permissions||""}" placeholder="Default (vazio = todos)" />
+      </div>
+      <div class="form-group">
+        <label>Somente no Spawn</label>
+        <select id="fk-spawn">
+          <option value="false" ${!d.OnlyFromSpawn?"selected":""}>Não</option>
+          <option value="true" ${d.OnlyFromSpawn?"selected":""}>Sim</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:14px;">
+      <label>JSON Completo (edição avançada)</label>
+      <textarea id="fk-json" rows="10" style="font-size:12px;font-family:monospace;">${JSON.stringify(d,null,2)}</textarea>
+    </div>`;
+}
+
+function openKitModal(key) {
+  _editingKey = key || null;
+  _editingSection = "kit";
+  const existing = key ? { ..._config.Kits[key], _key: key } : {};
+  document.getElementById("modal-kit-title").textContent = key ? `Editar Kit: ${key}` : "Novo Kit";
+  document.getElementById("modal-kit-body").innerHTML = kitFormHtml(existing);
+  openModal("modal-kit");
+}
+
+function confirmKit() {
+  const keyEl = document.getElementById("fk-key");
+  const key = (keyEl?.value||"").trim();
+  if (!key) { toast("ID do kit não pode ser vazio", "error"); return; }
+  try {
+    const data = JSON.parse(document.getElementById("fk-json").value);
+    delete data._key;
+    if (!_config.Kits) _config.Kits = {};
+    _config.Kits[key] = data;
+    closeModal("modal-kit");
+    renderKits();
+    toast(`Kit "${key}" salvo`);
+  } catch(e) {
+    toast("JSON inválido: " + e.message, "error");
+  }
+}
+
+function deleteKit(key) {
+  if (!confirm(`Remover kit "${key}"?`)) return;
+  delete _config.Kits[key];
+  renderKits();
+  toast(`Kit "${key}" removido`);
+}
+
+// ── Sell Modal ────────────────────────────────────────────────────────────────
+function sellFormHtml(data) {
+  const d = data || {};
+  return `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ID</label>
+        <input id="fs-key" type="text" value="${d._key||""}" ${d._key?"readonly":""} placeholder="ex: stone" />
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <input id="fs-desc" type="text" value="${escHtml(d.Description||"")}" />
+      </div>
+      <div class="form-group">
+        <label>Preço (pontos que jogador recebe)</label>
+        <input id="fs-price" type="number" value="${d.Price??0}" />
+      </div>
+      <div class="form-group">
+        <label>Quantidade necessária</label>
+        <input id="fs-amount" type="number" value="${d.Amount??1}" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Blueprint</label>
+        <input id="fs-bp" type="text" value="${escHtml(d.Blueprint||"")}" placeholder="Blueprint'/Game/...'" />
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:14px;">
+      <label>JSON Completo (edição avançada)</label>
+      <textarea id="fs-json" rows="7" style="font-size:12px;font-family:monospace;">${JSON.stringify(d,null,2)}</textarea>
+    </div>`;
+}
+
+function openSellModal(key) {
+  _editingKey = key || null;
+  const existing = key ? { ..._config.SellItems[key], _key: key } : {};
+  document.getElementById("modal-sell-title").textContent = key ? `Editar: ${key}` : "Novo Item à Venda";
+  document.getElementById("modal-sell-body").innerHTML = sellFormHtml(existing);
+  openModal("modal-sell");
+}
+
+function confirmSell() {
+  const key = (document.getElementById("fs-key")?.value||"").trim();
+  if (!key) { toast("ID não pode ser vazio", "error"); return; }
+  try {
+    const data = JSON.parse(document.getElementById("fs-json").value);
+    delete data._key;
+    if (!_config.SellItems) _config.SellItems = {};
+    _config.SellItems[key] = data;
+    closeModal("modal-sell");
+    renderSell();
+    toast(`Item de venda "${key}" salvo`);
+  } catch(e) {
+    toast("JSON inválido: " + e.message, "error");
+  }
+}
+
+function deleteSell(key) {
+  if (!confirm(`Remover item "${key}" da lista de venda?`)) return;
+  delete _config.SellItems[key];
+  renderSell();
+  toast(`Item "${key}" removido`);
+}
+
+// ── RCON ──────────────────────────────────────────────────────────────────────
+async function rconReload() {
+  const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
+  const d = await r.json();
+  document.getElementById("rcon-output").textContent = d.ok ? ("✅ " + (d.response||"Shop recarregado")) : ("❌ " + d.error);
+  toast(d.ok ? "Shop recarregado!" : d.error, d.ok ? "success" : "error");
+}
+
+async function rconPoints(action) {
+  const player = document.getElementById("rcon-player").value.trim();
+  if (!isSteamId64(player)) { toast("Informe um SteamID64 válido", "warning"); return; }
+  const amount = parseInt(document.getElementById("rcon-amount").value)||0;
+  const r = await fetch(API + "/api/rcon/points", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ action, player, amount }),
+  });
+  const d = await r.json();
+  document.getElementById("rcon-output").textContent = d.ok ? d.response : ("❌ " + d.error);
+}
+
+// ── Players (SteamID64) ─────────────────────────────────────────────────────
+function clearPlayerForm() {
+  document.getElementById("player-steam-id").value = "";
+  document.getElementById("player-name").value = "";
+  document.getElementById("player-tribe").value = "";
+  document.getElementById("player-note").value = "";
+}
+
+function fillSteamId(steamId) {
+  document.getElementById("deliver-steam-id").value = steamId;
+  document.getElementById("rcon-player").value = steamId;
+}
+
+async function loadPlayers() {
+  if (!_auth.is_admin) return;
+  const r = await fetch(API + "/api/players");
+  _players = await r.json();
+  renderPlayers();
+}
+
+function renderPlayers() {
+  const box = document.getElementById("players-list");
+  if (!_players.length) {
+    box.innerHTML = `<div style="color:var(--text2);font-size:12px;">Nenhum jogador cadastrado ainda.</div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>SteamID64</th><th>Nome</th><th>Tribo</th><th>Obs.</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${_players.map(p => `
+          <tr>
+            <td><code>${p.steam_id || ""}</code></td>
+            <td>${p.name || "-"}</td>
+            <td>${p.tribe || "-"}</td>
+            <td><span class="truncate" style="max-width:220px;">${escHtml(p.note || "-")}</span></td>
+            <td>
+              <div class="actions-col">
+                <button class="btn btn-ghost btn-sm" onclick="fillSteamId('${p.steam_id || ""}')">🎯 Usar</button>
+                <button class="btn btn-danger btn-sm" onclick="removePlayer('${p.steam_id || ""}')">🗑</button>
+              </div>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>`;
+}
+
+async function savePlayer() {
+  const steam_id = document.getElementById("player-steam-id").value.trim();
+  if (!isSteamId64(steam_id)) {
+    toast("SteamID64 inválido", "error");
+    return;
+  }
+  const body = {
+    steam_id,
+    name: document.getElementById("player-name").value.trim(),
+    tribe: document.getElementById("player-tribe").value.trim(),
+    note: document.getElementById("player-note").value.trim(),
+  };
+  const r = await fetch(API + "/api/players", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!d.ok) {
+    toast(d.error || "Falha ao salvar jogador", "error");
+    return;
+  }
+  toast(d.updated ? "Jogador atualizado" : "Jogador cadastrado");
+  fillSteamId(steam_id);
+  await loadPlayers();
+}
+
+async function removePlayer(steamId) {
+  if (!confirm(`Remover jogador ${steamId}?`)) return;
+  const r = await fetch(API + "/api/players/" + encodeURIComponent(steamId), { method: "DELETE" });
+  const d = await r.json();
+  if (!d.ok) {
+    toast(d.error || "Falha ao remover", "error");
+    return;
+  }
+  toast("Jogador removido");
+  await loadPlayers();
+}
+
+async function deliverPurchase() {
+  const steam_id = document.getElementById("deliver-steam-id").value.trim();
+  const item_type = document.getElementById("deliver-item-type").value;
+  const item_id = document.getElementById("deliver-item-id").value.trim();
+  const amount = parseInt(document.getElementById("deliver-amount").value, 10) || 1;
+
+  if (!isSteamId64(steam_id)) {
+    toast("SteamID64 inválido", "error");
+    return;
+  }
+  if (!item_id) {
+    toast("Informe o ID do item/kit", "warning");
+    return;
+  }
+
+  const r = await fetch(API + "/api/rcon/purchase", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ steam_id, item_type, item_id, amount }),
+  });
+  const d = await r.json();
+  document.getElementById("rcon-output").textContent = d.ok
+    ? `✅ ${d.command}\n${d.response || ""}`
+    : `❌ ${d.error || "Falha"}\n${d.command || ""}`;
+  toast(d.ok ? "Entrega enviada via RCON" : (d.error || "Falha na entrega"), d.ok ? "success" : "error");
+}
+
+async function sendRcon() {
+  const cmd = document.getElementById("rcon-cmd").value.trim();
+  if (!cmd) return;
+  const r = await fetch(API + "/api/rcon/command", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ command: cmd }),
+  });
+  const d = await r.json();
+  document.getElementById("rcon-output").textContent = d.ok ? d.response : ("❌ " + d.error);
+}
+
+// ── Servers ───────────────────────────────────────────────────────────────────
+let _editingServerId = null;
+
+async function loadServers() {
+  if (!_auth.is_admin) return;
+  const r = await fetch(API + "/api/servers");
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || "Falha ao carregar servidores", "error"); return; }
+  const servers = d.items || [];
+  const box = document.getElementById("servers-list");
+  if (!servers.length) {
+    box.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">🌐</div><p>Nenhum servidor cadastrado. Clique em "+ Novo Servidor" para adicionar.</p></div></div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr>
+          <th>ID</th><th>Label</th><th>RCON Host</th><th>Porta</th><th>Senha</th><th>Retentativas</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          ${servers.map(s => `<tr>
+            <td><code>${s.server_id}</code></td>
+            <td>${s.label || s.server_id}</td>
+            <td>${s.rcon_host || "-"}</td>
+            <td>${s.rcon_port || "-"}</td>
+            <td>${s.rcon_password_set ? '<span style="color:var(--success)">Configurada</span>' : '<span style="color:var(--warning)">Não definida</span>'}</td>
+            <td>${s.retry_max_attempts ?? 10}</td>
+            <td><div class="actions-col">
+              <button class="btn btn-ghost btn-sm" onclick="openServerModal('${s.server_id}')">✏️ Editar</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteServer('${s.server_id}')">🗑</button>
+            </div></td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openServerModal(serverId) {
+  _editingServerId = serverId || null;
+  document.getElementById("modal-server-title").textContent = serverId ? `Editar: ${serverId}` : "Novo Servidor";
+  document.getElementById("srv-id").value = serverId || "";
+  document.getElementById("srv-id").readOnly = !!serverId;
+  if (serverId) {
+    fetch(API + "/api/servers").then(r => r.json()).then(d => {
+      const s = (d.items || []).find(x => x.server_id === serverId) || {};
+      document.getElementById("srv-label").value = s.label || "";
+      document.getElementById("srv-host").value = s.rcon_host || "127.0.0.1";
+      document.getElementById("srv-port").value = s.rcon_port || 27020;
+      document.getElementById("srv-retry").value = s.retry_max_attempts ?? 10;
+      document.getElementById("srv-template").value = s.delivery_command_template || "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}";
+      document.getElementById("srv-password").value = "";
+    });
+  } else {
+    document.getElementById("srv-label").value = "";
+    document.getElementById("srv-host").value = "127.0.0.1";
+    document.getElementById("srv-port").value = 27020;
+    document.getElementById("srv-retry").value = 10;
+    document.getElementById("srv-template").value = "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}";
+    document.getElementById("srv-password").value = "";
+  }
+  openModal("modal-server");
+}
+
+async function confirmServer() {
+  const server_id = document.getElementById("srv-id").value.trim();
+  if (!server_id) { toast("Server ID é obrigatório", "error"); return; }
+  const body = {
+    server_id,
+    label: document.getElementById("srv-label").value.trim() || server_id,
+    rcon_host: document.getElementById("srv-host").value.trim() || "127.0.0.1",
+    rcon_port: parseInt(document.getElementById("srv-port").value) || 27020,
+    retry_max_attempts: parseInt(document.getElementById("srv-retry").value) || 10,
+    delivery_command_template: document.getElementById("srv-template").value.trim() || "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}",
+    rcon_password: document.getElementById("srv-password").value,
+  };
+  const r = await fetch(API + "/api/servers", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || "Falha ao salvar servidor", "error"); return; }
+  toast(d.updated ? "Servidor atualizado" : "Servidor cadastrado");
+  closeModal("modal-server");
+  await loadServers();
+}
+
+async function deleteServer(serverId) {
+  if (!confirm(`Remover servidor "${serverId}"?`)) return;
+  const r = await fetch(API + "/api/servers/" + encodeURIComponent(serverId), { method: "DELETE" });
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || "Falha ao remover", "error"); return; }
+  toast("Servidor removido");
+  await loadServers();
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  const r = await fetch(API + "/api/settings");
+  const d = await r.json();
+  document.getElementById("s-config-path").value = d.config_path || "";
+  document.getElementById("s-rcon-host").value = d.rcon_host || "127.0.0.1";
+  document.getElementById("s-rcon-port").value = d.rcon_port || 27020;
+  document.getElementById("s-delivery-template").value = d.delivery_command_template || "";
+  document.getElementById("s-server-id").value = d.server_id || "default";
+  document.getElementById("s-retry-max").value = d.retry_max_attempts || 10;
+  document.getElementById("s-database-url").value = d.database_url || "";
+  document.getElementById("s-db-host").value = d.db_host || "";
+  document.getElementById("s-db-port").value = d.db_port || 3306;
+  document.getElementById("s-db-name").value = d.db_name || "arkshop";
+  document.getElementById("s-db-user").value = d.db_user || "";
+}
+
+async function saveSettings() {
+  const body = {
+    config_path: document.getElementById("s-config-path").value,
+    rcon_host:   document.getElementById("s-rcon-host").value,
+    rcon_port:   parseInt(document.getElementById("s-rcon-port").value)||27020,
+    delivery_command_template: document.getElementById("s-delivery-template").value,
+    server_id: document.getElementById("s-server-id").value || "default",
+    retry_max_attempts: parseInt(document.getElementById("s-retry-max").value, 10) || 10,
+    database_url: document.getElementById("s-database-url").value,
+    db_host: document.getElementById("s-db-host").value,
+    db_port: parseInt(document.getElementById("s-db-port").value, 10) || 3306,
+    db_name: document.getElementById("s-db-name").value || "arkshop",
+    db_user: document.getElementById("s-db-user").value,
+    db_password: document.getElementById("s-db-password").value,
+    rcon_password: document.getElementById("s-rcon-password").value,
+  };
+  const r = await fetch(API + "/api/settings", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast("Configurações salvas!");
+    if (!d.db_configured) {
+      toast("Banco ainda não configurado. Preencha IP/usuário/base/senha.", "warning");
+    }
+    loadConfig();
+  } else {
+    toast(d.error || "Falha ao salvar configurações", "error");
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+(async () => {
+  await loadAuth();
+  if (!_auth.authenticated) {
+    showAuthOverlay(true, "Faça login com a Steam para usar o painel.");
+    return;
+  }
+
+  applyRoleUi();
+  if (_auth.is_admin) {
+    await loadSettings();
+    await loadPlayers();
+    await loadConfig();
+    await loadServers();
+  }
+  await loadMyArea();
+  showAuthOverlay(false);
+})();
+</script>
+</body>
+</html>
