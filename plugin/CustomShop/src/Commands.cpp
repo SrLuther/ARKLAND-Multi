@@ -288,6 +288,124 @@ void CmdTrade(APlayerController* pc, FString* cmd_str, bool) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  Shop.Deliver <steamid> <item_or_kit_id> [amount]
+//  Admin/Web: deliver an item or kit without charging points.
+//  Intended for use by arkshop_web via RCON after it manages
+//  its own order/payment flow independently.
+//
+//  - If the id exists in Kits  → calls Store::GiveKit  (items+dinos+commands)
+//  - If the id exists in Items → calls GiveSingleItem directly (no charge)
+//  - amount is only used for Items (multiplies Quantity); kits ignore it.
+//
+//  Returns "OK <id>" on success, "FAIL <reason>" on failure so that
+//  arkshop_web can parse the RCON response and update order status.
+// ─────────────────────────────────────────────────────────────────
+void CmdAdminDeliver(APlayerController* pc, FString* cmd_str, bool) {
+    auto* admin = static_cast<AShooterPlayerController*>(pc);
+    if (!cmd_str) return;
+
+    const auto parts = SplitCmd(cmd_str);
+    if (parts.size() < 3) {
+        if (admin) SendMsg(admin, FColorList::Red,
+                           "Usage: Shop.Deliver <steamid> <item_or_kit_id> [amount=1]");
+        return;
+    }
+
+    const std::string target_id = parts[1];
+    const std::string id        = parts[2];
+    int amount = 1;
+    if (parts.size() >= 4) {
+        try { amount = std::max(1, std::stoi(parts[3])); } catch (...) {}
+    }
+
+    auto* target = CustomShop::Bridge::FindPlayer(target_id);
+    if (!target) {
+        const std::string msg = "FAIL player_offline:" + target_id;
+        if (admin) SendMsg(admin, FColorList::Red, msg);
+        Log::GetLog()->warn("Shop.Deliver: {}", msg);
+        return;
+    }
+
+    const bool is_kit  = CustomShop::ShopConfig::Get().Kits().contains(id);
+    const bool is_item = CustomShop::ShopConfig::Get().Items().contains(id);
+
+    if (!is_kit && !is_item) {
+        const std::string msg = "FAIL unknown_id:" + id;
+        if (admin) SendMsg(admin, FColorList::Red, msg);
+        Log::GetLog()->warn("Shop.Deliver: {}", msg);
+        return;
+    }
+
+    bool ok = false;
+    if (is_kit) {
+        ok = CustomShop::Store::GiveKit(target, id);
+        CustomShop::Data::SendPlayerKits(target, target_id);
+    } else {
+        // Deliver item directly without charging points
+        const auto& item      = CustomShop::ShopConfig::Get().Items().at(id);
+        const std::string bp  = item.value("Blueprint", "");
+
+        if (!bp.empty()) {
+            const int   qty   = item.value("Quantity",       1) * amount;
+            const float qual  = item.value("Quality",        0.0f);
+            const bool  force = item.value("ForceBlueprint", false);
+
+            FString fblueprint(bp.c_str());
+            UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
+            if (item_class) {
+                UPrimalInventoryComponent* inv = target->GetPlayerInventoryComponent();
+                if (inv) {
+                    UPrimalItem::AddNewItem(
+                        TSubclassOf<UPrimalItem>(item_class),
+                        inv,
+                        false, false,
+                        qual, !force,
+                        qty, force,
+                        0.0f, false,
+                        TSubclassOf<UPrimalItem>(),
+                        0.0f, false, false);
+                    ok = true;
+                }
+            }
+        }
+
+        // Also deliver Items array if present (bundle)
+        if (item.contains("Items")) {
+            for (const auto& entry : item.at("Items")) {
+                const std::string bp2  = entry.value("Blueprint",     "");
+                const int   qty2       = entry.value("Quantity",      1) * amount;
+                const float qual2      = entry.value("Quality",       0.0f);
+                const bool  force2     = entry.value("ForceBlueprint",false);
+                if (bp2.empty()) continue;
+                FString fbp2(bp2.c_str());
+                UClass* cls2 = UVictoryCore::BPLoadClass(&fbp2);
+                if (!cls2) continue;
+                UPrimalInventoryComponent* inv2 = target->GetPlayerInventoryComponent();
+                if (!inv2) continue;
+                UPrimalItem::AddNewItem(
+                    TSubclassOf<UPrimalItem>(cls2),
+                    inv2,
+                    false, false,
+                    qual2, !force2,
+                    qty2, force2,
+                    0.0f, false,
+                    TSubclassOf<UPrimalItem>(),
+                    0.0f, false, false);
+                ok = true;
+            }
+        }
+    }
+
+    CustomShop::ShopPoints::Get().LogTransaction(
+        "web_deliver", target_id, "", id, amount, 0, 0);
+
+    const std::string result_msg = ok ? "OK " + id : "FAIL deliver_error:" + id;
+    if (admin) SendMsg(admin, ok ? FColorList::Green : FColorList::Red, result_msg);
+    Log::GetLog()->info("Shop.Deliver: steam_id='{}' id='{}' amount={} ok={}",
+                        target_id, id, amount, ok);
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  Shop.GiveKit <steamid> <kit_id>
 //  Admin: deliver a kit directly to a player by Steam ID.
 // ─────────────────────────────────────────────────────────────────
@@ -470,6 +588,7 @@ void Register() {
     ArkApi::GetCommands().AddConsoleCommand("Shop.GetPoints",  &CmdAdminGetPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Reload",     &CmdAdminReload);
     ArkApi::GetCommands().AddConsoleCommand("Shop.GiveKit",    &CmdAdminGiveKit);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Deliver",    &CmdAdminDeliver);
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddVip",     &CmdAdminAddVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.RemoveVip",  &CmdAdminRemoveVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.ListVip",    &CmdAdminListVip);
@@ -492,6 +611,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Reload");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GiveKit");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Deliver");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.AddVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.RemoveVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.ListVip");

@@ -655,7 +655,7 @@
       </div>
       <div class="form-group" style="grid-column:1/-1;">
         <label>Template de Entrega</label>
-        <input id="srv-template" type="text" placeholder="ArkShopDeliver {steam_id} {item_type} {item_id} {amount}" />
+        <input id="srv-template" type="text" placeholder="Shop.Deliver {steam_id} {item_id} {amount}" />
       </div>
     </div>
     <div class="modal-footer">
@@ -1754,7 +1754,7 @@ function openServerModal(serverId) {
     document.getElementById("srv-host").value = "127.0.0.1";
     document.getElementById("srv-port").value = 27020;
     document.getElementById("srv-retry").value = 10;
-    document.getElementById("srv-template").value = "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}";
+    document.getElementById("srv-template").value = "Shop.Deliver {steam_id} {item_id} {amount}";
     document.getElementById("srv-password").value = "";
   }
   openModal("modal-server");

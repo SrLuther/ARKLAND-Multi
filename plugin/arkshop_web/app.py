@@ -69,7 +69,7 @@ app.secret_key = os.environ.get("ARKSHOP_WEB_SECRET", "arkshop-web-dev-secret-ch
 
 _DEFAULT_CONFIG_PATH = os.environ.get(
     "ARKSHOP_CONFIG_PATH",
-    r"C:\ARK\ShooterGame\Saved\Config\WindowsServer\ArkShop\config.json",
+    r"C:\ARK\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json",
 )
 _STATE_FILE = Path(__file__).parent / "settings.json"
 _PLAYERS_FILE = Path(__file__).parent / "players.json"
@@ -246,7 +246,7 @@ def _load_settings() -> Dict[str, Any]:
         "rcon_host": "127.0.0.1",
         "rcon_port": 27020,
         "rcon_password": "",
-        "delivery_command_template": "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}",
+        "delivery_command_template": "Shop.Deliver {steam_id} {item_id} {amount}",
         "server_id": "default",
         "retry_max_attempts": 10,
         "database_url": "",
@@ -421,7 +421,6 @@ def _rcon_command(host: str, port: int, password: str, command: str, timeout: fl
 
 def _build_delivery_command(template: str, steam_id: str, item_type: str, item_id: str, amount: int) -> str:
     return template.format(steam_id=steam_id, item_type=item_type, item_id=item_id, amount=amount)
-
 
 def _attempt_delivery(order: Order, settings: dict[str, Any]) -> tuple[bool, str | None, str | None, str]:
     host = settings.get("rcon_host", "127.0.0.1")
@@ -712,7 +711,7 @@ def upsert_server():
         "label": str(body.get("label", server_id)).strip(),
         "rcon_host": str(body.get("rcon_host", "127.0.0.1")).strip(),
         "rcon_port": int(body.get("rcon_port", 27020)),
-        "delivery_command_template": str(body.get("delivery_command_template", "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}")).strip(),
+        "delivery_command_template": str(body.get("delivery_command_template", "Shop.Deliver {steam_id} {item_id} {amount}")).strip(),
         "retry_max_attempts": int(body.get("retry_max_attempts", 10)),
     }
     if "rcon_password" in body and body["rcon_password"] != "":
@@ -838,7 +837,7 @@ def save_config():
 def rcon_reload():
     s = _load_settings()
     try:
-        resp = _rcon_command(s.get("rcon_host", "127.0.0.1"), int(s.get("rcon_port", 27020)), s.get("rcon_password", ""), "arkshop reload")
+        resp = _rcon_command(s.get("rcon_host", "127.0.0.1"), int(s.get("rcon_port", 27020)), s.get("rcon_password", ""), "Shop.Reload")
         _log("rcon_reload", admin=_steam_id_from_session(), response=resp[:100])
         return jsonify({"ok": True, "response": resp})
     except Exception as exc:
@@ -854,7 +853,7 @@ def rcon_points():
     action = body.get("action", "get")
     player = body.get("player", "")
     amount = body.get("amount", 0)
-    cmd = f"GetPoints {player}" if action == "get" else f"AddPoints {player} {amount}" if action == "add" else f"SetPoints {player} {amount}"
+    cmd = f"Shop.GetPoints {player}" if action == "get" else f"Shop.AddPoints {player} {amount}" if action == "add" else f"Shop.SetPoints {player} {amount}"
     try:
         resp = _rcon_command(s.get("rcon_host", "127.0.0.1"), int(s.get("rcon_port", 27020)), s.get("rcon_password", ""), cmd)
         return jsonify({"ok": True, "response": resp})
