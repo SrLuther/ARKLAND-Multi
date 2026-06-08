@@ -41,8 +41,13 @@ def _resource_path(relative: str) -> str:
 class ARKServerManagerApp(ctk.CTk):
     """Aplicação principal TEK. Única classe de app — sem modo PRIMITIVE."""
 
+    # Frame cache para show_frame_tek
+    _frame_cache: Dict[str, Any]
+
     def __init__(self) -> None:
         super().__init__()
+
+        self._frame_cache: Dict[str, Any] = {}
 
         # ── Carrega preferência de variante de tema (persiste entre sessões) ──
         self._prefs_file = (
@@ -273,6 +278,12 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _build_sidebar(self) -> None:
+        from .pages.build_sidebar_tek import build_sidebar_tek as _build
+        _build(self)
+        return
+
+    def _build_sidebar_inline(self) -> None:
+        """Versão inline original — mantida como fallback, não chamada diretamente."""
         theme = get_theme("tek")
         sb_bg   = theme["sidebar_bg"]
         accent  = theme["accent"]
@@ -490,7 +501,12 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _show_frame(self, name: str, **kwargs) -> None:
-        """Troca o conteúdo principal pelo frame indicado."""
+        """Troca o conteúdo principal pelo frame indicado (com cache via show_frame_tek)."""
+        from .pages.show_frame_tek import show_frame_tek as _show
+        _show(self, name, **kwargs)
+
+    def _show_frame_inline(self, name: str, **kwargs) -> None:
+        """Versão inline original — mantida como fallback, não chamada diretamente."""
         if self._current_frame:
             self._current_frame.destroy()
             self._current_frame = None
@@ -738,48 +754,60 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _asm_scheduler_tick(self) -> None:
-        """Verifica tarefas agendadas para todos os servidores TEK.
+        """Delega para asm_scheduler_tick.py (auto-restart, update, backup, broadcast)."""
+        from .pages.asm_scheduler_tick import asm_scheduler_tick as _tick
+        _tick(self)
 
-        Rodada a cada 60 s via after().  Verifica:
-        - ``enable_auto_restart`` + ``auto_restart_time``  — reinício diário
-        - ``enable_auto_update_check`` + ``auto_update_check_minutes`` — update check
-        """
-        import threading as _th  # noqa: PLC0415
-        try:
-            now = datetime.now()
-            now_hhmm = now.strftime("%H:%M")
+    def _asm_do_auto_backup(self, srv: AsmServerConfig) -> None:
+        """Executa backup automático do servidor (disparado pelo scheduler diário)."""
+        import threading as _th
 
-            for srv in self.asm_config_manager.servers:
-                # ── Auto-restart ──────────────────────────────────────────────
-                if srv.enable_auto_restart and srv.auto_restart_time:
-                    target = (srv.auto_restart_time or "").strip()
-                    if target == now_hhmm:
-                        status = self.asm_server_manager.get_status(srv.id)
-                        if status not in (ASM_STATUS_STOPPED, "stopping"):
-                            self._asm_do_scheduled_restart(srv)
+        def _worker():
+            try:
+                from .backup_manager import BackupManager
+                bm = BackupManager(get_servers=lambda: self.asm_config_manager.servers)
+                srv_cfg = bm._to_server_config(srv) if hasattr(bm, "_to_server_config") else None
+                if srv_cfg is None:
+                    from .server_config import ServerConfig as _SC
+                    srv_cfg = _SC.__new__(_SC)
+                    srv_cfg.__dict__.update({
+                        "id": srv.id,
+                        "session_name": srv.session_name,
+                        "install_dir": srv.install_dir,
+                        "backup_dir": getattr(srv, "backup_dir", ""),
+                        "include_savegames": getattr(srv, "include_savegames", True),
+                        "exclude_old_backups": getattr(srv, "exclude_old_backups", False),
+                        "max_backup_days": getattr(srv, "max_backup_days", 30),
+                    })
+                bm.create_backup(srv_cfg, include_config=True,
+                                 include_saves=getattr(srv, "include_savegames", True))
+            except Exception as exc:
+                import logging
+                logging.getLogger("arkland").warning("auto_backup falhou: %s", exc)
 
-                # ── Auto-update check ─────────────────────────────────────────
-                if srv.enable_auto_update_check and srv.auto_update_check_minutes > 0:
-                    last_attr = f"_last_update_check_{srv.id}"
-                    last: Optional[datetime] = getattr(self, last_attr, None)
-                    delta_min = (
-                        (now - last).total_seconds() / 60
-                        if last else srv.auto_update_check_minutes + 1
-                    )
-                    if delta_min >= srv.auto_update_check_minutes:
-                        setattr(self, last_attr, now)
-                        _th.Thread(
-                            target=self._asm_check_update_worker,
-                            args=(srv,),
-                            daemon=True,
-                        ).start()
-        except Exception:
-            pass
-        finally:
-            self.after(60_000, self._asm_scheduler_tick)
+        _th.Thread(target=_worker, daemon=True).start()
 
-    def _asm_do_scheduled_restart(self, srv: AsmServerConfig) -> None:
-        """Envia aviso RCON com countdown e reinicia o servidor."""
+    def _asm_do_scheduled_broadcast(self, srv: AsmServerConfig, message: str) -> None:
+        """Envia broadcast RCON agendado ao servidor."""
+        import threading as _th
+
+        def _worker():
+            if not (srv.rcon_enabled and srv.admin_password):
+                return
+            try:
+                from .rcon_client import RconClient
+                host = srv.server_ip or "127.0.0.1"
+                rc = RconClient(host, srv.rcon_port, srv.admin_password)
+                rc.connect()
+                rc.send_command_safe(f"broadcast {message}")
+                rc.disconnect()
+            except Exception as exc:
+                import logging
+                logging.getLogger("arkland").warning("scheduled_broadcast falhou: %s", exc)
+
+        _th.Thread(target=_worker, daemon=True).start()
+
+    def _asm_do_scheduled_restart(self, srv: AsmServerConfig) -> None:        """Envia aviso RCON com countdown e reinicia o servidor."""
         import threading as _th  # noqa: PLC0415
 
         def _worker():
@@ -1343,3 +1371,7 @@ class ARKServerManagerApp(ctk.CTk):
     def _toast(self, msg: str, kind: str = "info") -> None:
         from .pages.toast import toast
         toast(self, msg, kind)
+
+
+# Alias para TYPE_CHECKING e módulos importados da Fix
+ARKTEKApp = ARKServerManagerApp
