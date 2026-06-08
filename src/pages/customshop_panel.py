@@ -246,28 +246,57 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     _bool_row(card_tp, "Acumular Recompensas (Stack)", _tpv["StackRewards"], bg=_INNER)
 
     tk.Frame(card_tp, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
-    tk.Label(card_tp, text="Pontos por Grupo:", bg=_INNER, fg="#c8c8e8",
-             font=ctk.CTkFont(size=11, weight="bold"),
-             anchor="w").pack(fill="x", padx=10, pady=(4, 2))
+
+    grp_header = tk.Frame(card_tp, bg=_INNER)
+    grp_header.pack(fill="x", padx=10, pady=(4, 2))
+    tk.Label(grp_header, text="Pontos por Grupo:", bg=_INNER, fg="#c8c8e8",
+             font=ctk.CTkFont(size=11, weight="bold"), anchor="w").pack(side="left")
 
     _tp_group_vars: Dict[str, tk.StringVar] = {}
     groups_frame = tk.Frame(card_tp, bg=_INNER)
-    groups_frame.pack(fill="x", padx=10, pady=(0, 8))
-    groups_frame.columnconfigure(0, weight=1)
-    groups_frame.columnconfigure(1, weight=1)
+    groups_frame.pack(fill="x", padx=10, pady=(0, 4))
+
+    def _rebuild_groups_ui() -> None:
+        for w in groups_frame.winfo_children():
+            w.destroy()
+        for g_name, v in list(_tp_group_vars.items()):
+            row = tk.Frame(groups_frame, bg=_INNER)
+            row.pack(fill="x", pady=2)
+            ctk.CTkLabel(row, text=g_name, anchor="w", text_color="gray60",
+                         width=120, font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 8))
+            ctk.CTkEntry(row, textvariable=v, width=80, height=24).pack(side="left")
+            ctk.CTkButton(row, text="✕", width=26, height=24,
+                          fg_color="#6a2020", hover_color="#8a3030",
+                          command=lambda k=g_name: _remove_group(k)).pack(side="left", padx=(6, 0))
+
+    def _remove_group(name: str) -> None:
+        _tp_group_vars.pop(name, None)
+        _rebuild_groups_ui()
 
     groups = tp.get("Groups", {})
-    for i, (g_name, g_val) in enumerate(groups.items()):
+    for g_name, g_val in groups.items():
         amt = g_val.get("Amount", 0) if isinstance(g_val, dict) else 0
-        v = tk.StringVar(value=str(amt))
-        _tp_group_vars[g_name] = v
-        col = i % 2
-        row = i // 2
-        cell = tk.Frame(groups_frame, bg=_INNER)
-        cell.grid(row=row, column=col, padx=4, pady=2, sticky="ew")
-        ctk.CTkLabel(cell, text=g_name, anchor="w", text_color="gray60",
-                     font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 8))
-        ctk.CTkEntry(cell, textvariable=v, width=72, height=24).pack(side="right", padx=4)
+        _tp_group_vars[g_name] = tk.StringVar(value=str(amt))
+    _rebuild_groups_ui()
+
+    add_row = tk.Frame(card_tp, bg=_INNER)
+    add_row.pack(fill="x", padx=10, pady=(2, 8))
+    new_grp_name = tk.StringVar()
+    new_grp_amt  = tk.StringVar(value="25")
+    ctk.CTkEntry(add_row, textvariable=new_grp_name, width=120, height=26,
+                 placeholder_text="Nome (ex: VIP)").pack(side="left", padx=(0, 6))
+    ctk.CTkEntry(add_row, textvariable=new_grp_amt, width=72, height=26,
+                 placeholder_text="Pts").pack(side="left", padx=(0, 6))
+    def _add_group() -> None:
+        name = new_grp_name.get().strip()
+        if not name:
+            return
+        _tp_group_vars[name] = tk.StringVar(value=new_grp_amt.get() or "25")
+        new_grp_name.set("")
+        _rebuild_groups_ui()
+    ctk.CTkButton(add_row, text="＋ Adicionar Grupo", height=26,
+                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  command=_add_group).pack(side="left")
 
     # ── Tab: Database ─────────────────────────────────────────────────────
     t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
@@ -419,15 +448,13 @@ def _build_items_tab(app: "ARKServerManagerApp", parent: tk.Widget,
     frame.rowconfigure(0, weight=1)
     list_fr = tk.Frame(frame, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     list_fr.grid(row=0, column=0, padx=(8, 4), pady=8, sticky="nsew")
-    list_fr.rowconfigure(1, weight=1)
-    list_fr.columnconfigure(0, weight=1)
     _head(list_fr, "🛒  Itens")
     scroll_items = ctk.CTkScrollableFrame(list_fr, fg_color=_INNER)
-    scroll_items.grid(row=1, column=0, sticky="nsew")
+    scroll_items.pack(fill="both", expand=True)
     scroll_items.grid_columnconfigure(0, weight=1)
     ctk.CTkButton(list_fr, text="＋ Novo Item", height=30,
                    fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                   command=lambda: _new_item()).grid(row=2, column=0, padx=8, pady=6, sticky="ew")
+                   command=lambda: _new_item()).pack(fill="x", padx=8, pady=6)
     detail_fr = tk.Frame(frame, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     detail_fr.grid(row=0, column=1, padx=(4, 8), pady=8, sticky="nsew")
     _item_vars: Dict[str, tk.Variable] = {}
@@ -475,6 +502,123 @@ def _refresh_kits_list(scroll_kits, data: Dict[str, Any], on_select) -> None:
             ch.bind("<Button-1>", lambda e, k=key: on_select(k))
 
 
+_RCON_CHEATSHEET = [
+    ("Broadcast",         "broadcast Mensagem aqui"),
+    ("Salvar mundo",      "saveworld"),
+    ("Destruir dinos",    "destroywilddinos"),
+    ("Ban jogador",       "ban {steamid}"),
+    ("Kick jogador",      "kick {steamid}"),
+    ("Dar item",          "giveitemtoplayer {steamid} <Blueprint> <Qty> <Qual> <Force>"),
+    ("Teleportar",        "teleporttoplayer {steamid}"),
+    ("God mode",          "god"),
+    ("Infinite stats",    "infinitestats"),
+    ("Add XP",            "addexperience {xp} 0 0"),
+    ("Dar dino",          "spawnexactdino <Blueprint> {level} 0 0"),
+    ("Pontos (add)",      "Shop.AddPoints {steamid} {amount}"),
+    ("Pontos (set)",      "Shop.SetPoints {steamid} {amount}"),
+    ("Recarregar loja",   "Shop.Reload"),
+]
+
+
+def _build_kit_entry_section(scr: tk.Widget, kit_vars: dict, entries: list) -> None:
+    """Constrói a seção de entradas (Dinos/Itens) do kit com adição/remoção dinâmica."""
+    _kit_entry_vars: list = kit_vars.setdefault("_entry_vars", [])
+    _kit_entry_vars.clear()
+    for e in entries:
+        _kit_entry_vars.append({k: tk.StringVar(value=str(v)) for k, v in e.items()})
+
+    sep = tk.Frame(scr, bg=_BDR, height=1)
+    sep.pack(fill="x", padx=10, pady=6)
+
+    def _rebuild_entries_ui() -> None:
+        for w in entries_frame.winfo_children():
+            w.destroy()
+        for idx, ev in enumerate(_kit_entry_vars):
+            card = tk.Frame(entries_frame, bg="#0e0e20", highlightthickness=1,
+                            highlightbackground=_BDR)
+            card.pack(fill="x", padx=4, pady=3)
+            hdr = tk.Frame(card, bg="#0e0e20")
+            hdr.pack(fill="x", padx=6, pady=(4, 2))
+            type_val = ev.get("Type", tk.StringVar(value="item")).get()
+            icon = "🦕" if type_val == "dino" else "📦"
+            tk.Label(hdr, text=f"{icon} Entrada {idx + 1}", bg="#0e0e20",
+                     fg="#c8c8e8", font=ctk.CTkFont(size=10, weight="bold")).pack(side="left")
+            ctk.CTkButton(hdr, text="✕ Remover", width=80, height=20,
+                          fg_color="#6a2020", hover_color="#8a3030",
+                          command=lambda i=idx: _remove_entry(i)).pack(side="right")
+            # Blueprint
+            bp_row = tk.Frame(card, bg="#0e0e20")
+            bp_row.pack(fill="x", padx=6, pady=1)
+            ctk.CTkLabel(bp_row, text="Blueprint:", anchor="w", text_color="gray55",
+                         width=90, font=ctk.CTkFont(size=10)).pack(side="left")
+            ctk.CTkEntry(bp_row, textvariable=ev.get("Blueprint", tk.StringVar()),
+                         height=24, width=320).pack(side="left", padx=(0, 4))
+            # Campos específicos por tipo
+            if type_val == "dino":
+                for lbl, fk in [("Nível", "Level"), ("Sexo (M/F/R)", "Gender")]:
+                    r = tk.Frame(card, bg="#0e0e20")
+                    r.pack(fill="x", padx=6, pady=1)
+                    ctk.CTkLabel(r, text=f"{lbl}:", anchor="w", text_color="gray55",
+                                 width=90, font=ctk.CTkFont(size=10)).pack(side="left")
+                    ctk.CTkEntry(r, textvariable=ev.get(fk, tk.StringVar()),
+                                 height=24, width=100).pack(side="left")
+            else:
+                for lbl, fk in [("Quantidade", "Quantity"), ("Qualidade", "Quality"),
+                                 ("Dano %", "Damage"), ("Durabilidade %", "Durability")]:
+                    r = tk.Frame(card, bg="#0e0e20")
+                    r.pack(fill="x", padx=6, pady=1)
+                    ctk.CTkLabel(r, text=f"{lbl}:", anchor="w", text_color="gray55",
+                                 width=90, font=ctk.CTkFont(size=10)).pack(side="left")
+                    ctk.CTkEntry(r, textvariable=ev.get(fk, tk.StringVar()),
+                                 height=24, width=100).pack(side="left")
+                # Force Blueprint checkbox
+                fb_var = ev.get("ForceBlueprint", tk.BooleanVar())
+                fb_row = tk.Frame(card, bg="#0e0e20")
+                fb_row.pack(fill="x", padx=6, pady=(2, 4))
+                ctk.CTkCheckBox(fb_row, text="Force Blueprint", variable=fb_var,
+                                checkmark_color="white", fg_color=_GREEN_DARK,
+                                hover_color=_GREEN_HOVER).pack(anchor="w")
+
+    def _remove_entry(idx: int) -> None:
+        _kit_entry_vars.pop(idx)
+        _rebuild_entries_ui()
+
+    def _add_entry(entry_type: str) -> None:
+        if entry_type == "dino":
+            _kit_entry_vars.append({
+                "Type": tk.StringVar(value="dino"),
+                "Blueprint": tk.StringVar(),
+                "Level": tk.StringVar(value="1"),
+                "Gender": tk.StringVar(value="R"),
+            })
+        else:
+            _kit_entry_vars.append({
+                "Type": tk.StringVar(value="item"),
+                "Blueprint": tk.StringVar(),
+                "Quantity": tk.StringVar(value="1"),
+                "Quality": tk.StringVar(value="0"),
+                "Damage": tk.StringVar(value="0"),
+                "Durability": tk.StringVar(value="0"),
+                "ForceBlueprint": tk.BooleanVar(value=False),
+            })
+        _rebuild_entries_ui()
+
+    hdr_entries = tk.Frame(scr, bg=_INNER)
+    hdr_entries.pack(fill="x", padx=10, pady=(0, 2))
+    tk.Label(hdr_entries, text="Itens / Dinos do Kit:", bg=_INNER, fg="#c8c8e8",
+             font=ctk.CTkFont(size=11, weight="bold")).pack(side="left")
+    ctk.CTkButton(hdr_entries, text="＋ Item", width=70, height=24,
+                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  command=lambda: _add_entry("item")).pack(side="right", padx=(4, 0))
+    ctk.CTkButton(hdr_entries, text="＋ Dino", width=70, height=24,
+                  fg_color="#1a4a6a", hover_color="#1a5a8a",
+                  command=lambda: _add_entry("dino")).pack(side="right", padx=(4, 0))
+
+    entries_frame = tk.Frame(scr, bg=_INNER)
+    entries_frame.pack(fill="x", padx=4, pady=(0, 6))
+    _rebuild_entries_ui()
+
+
 def _build_kit_edit_form(detail_fr, data: Dict[str, Any], key: str,
                           kit_vars: dict, save_cb, remove_cb) -> None:
     for w in detail_fr.winfo_children():
@@ -482,8 +626,11 @@ def _build_kit_edit_form(detail_fr, data: Dict[str, Any], key: str,
     kit_vars.clear()
     kt = data.get("Kits", {}).get(key, {})
     _head(detail_fr, f"Kit: {key}")
+
     scr = ctk.CTkScrollableFrame(detail_fr, fg_color=_INNER)
     scr.pack(fill="both", expand=True)
+
+    # ── Campos básicos ────────────────────────────────────────────────────
     for lbl, fk, dflt in [
         ("ID (chave)",  "id",          key),
         ("Preço (pts)", "price",       str(kt.get("Price", 0))),
@@ -494,13 +641,58 @@ def _build_kit_edit_form(detail_fr, data: Dict[str, Any], key: str,
         v = tk.StringVar(value=dflt)
         kit_vars[fk] = v
         _field_row(scr, lbl, v, bg=_INNER)
-    tk.Label(scr, text="Comandos (1 por linha):",
-              bg=_INNER, fg="gray60", font=ctk.CTkFont(size=10)).pack(anchor="w", padx=10, pady=(6, 2))
-    cmds_txt = tk.Text(scr, bg="#0a0a18", fg="gray70", height=4, width=40,
-                        insertbackground="white", font=ctk.CTkFont(size=10))
+
+    # ── Seção de entradas (Itens/Dinos) ───────────────────────────────────
+    entries_raw = kt.get("Items", [])
+    entries: list = []
+    for e in entries_raw if isinstance(entries_raw, list) else []:
+        if not isinstance(e, dict):
+            continue
+        entries.append(e)
+    _build_kit_entry_section(scr, kit_vars, entries)
+
+    # ── Comandos RCON ─────────────────────────────────────────────────────
+    sep2 = tk.Frame(scr, bg=_BDR, height=1)
+    sep2.pack(fill="x", padx=10, pady=6)
+
+    cmd_hdr = tk.Frame(scr, bg=_INNER)
+    cmd_hdr.pack(fill="x", padx=10, pady=(0, 2))
+    tk.Label(cmd_hdr, text="Comandos RCON (1 por linha):", bg=_INNER, fg="#c8c8e8",
+             font=ctk.CTkFont(size=11, weight="bold")).pack(side="left")
+
+    # Colinha dropdown
+    cheat_var = tk.StringVar(value="— Colinha de comandos —")
+    cheat_menu = ctk.CTkOptionMenu(
+        cmd_hdr,
+        values=["— Colinha de comandos —"] + [f"{n}  →  {c}" for n, c in _RCON_CHEATSHEET],
+        variable=cheat_var, width=260, height=24,
+        fg_color="#1a1a35", button_color="#252545",
+        button_hover_color=_GREEN_DARK,
+    )
+    cheat_menu.pack(side="right")
+
+    cmds_txt = tk.Text(scr, bg="#0a0a18", fg="gray70", height=5, width=40,
+                       insertbackground="white", font=ctk.CTkFont(size=10),
+                       relief="flat", padx=6, pady=4)
     cmds_txt.insert("1.0", "\n".join(kt.get("Commands", [])))
-    cmds_txt.pack(fill="x", padx=10, pady=(0, 6))
+    cmds_txt.pack(fill="x", padx=10, pady=(0, 2))
+
+    def _insert_cheat(*_) -> None:
+        val = cheat_var.get()
+        if "→" not in val:
+            return
+        cmd = val.split("→", 1)[1].strip()
+        cmds_txt.insert("end", ("\n" if cmds_txt.get("1.0", "end").strip() else "") + cmd)
+        cheat_var.set("— Colinha de comandos —")
+
+    cheat_var.trace_add("write", _insert_cheat)
+
+    tk.Label(scr, text="Use {steamid} como placeholder do jogador",
+             bg=_INNER, fg="gray40", font=ctk.CTkFont(size=9)).pack(anchor="w", padx=10, pady=(0, 8))
+
     kit_vars["_commands_widget"] = cmds_txt  # type: ignore[assignment]
+
+    # ── Botões ────────────────────────────────────────────────────────────
     btn_row = tk.Frame(detail_fr, bg=_INNER)
     btn_row.pack(fill="x", padx=8, pady=6)
     ctk.CTkButton(btn_row, text="💾 Salvar Kit", fg_color=_GREEN_DARK,
@@ -511,13 +703,38 @@ def _build_kit_edit_form(detail_fr, data: Dict[str, Any], key: str,
                    command=lambda k=key: remove_cb(k)).pack(side="left")
 
 
-def _kit_dict_from_vars(kit_vars: dict, cmds_widget: tk.Text, existing_items: list) -> dict:
+def _kit_dict_from_vars(kit_vars: dict, cmds_widget: tk.Text, _ignored: list) -> dict:
     g = lambda k, d: kit_vars.get(k, tk.StringVar(value=str(d))).get()
+
+    entry_vars: list = kit_vars.get("_entry_vars", [])
+    items_out = []
+    for ev in entry_vars:
+        gv = lambda k, d, ev=ev: ev.get(k, tk.StringVar(value=str(d))).get() if isinstance(ev.get(k), tk.Variable) else str(ev.get(k, d))
+        t = gv("Type", "item")
+        if t == "dino":
+            items_out.append({
+                "Type":      "dino",
+                "Blueprint": gv("Blueprint", ""),
+                "Level":     _safe_int(gv("Level", "1"), 1),
+                "Gender":    gv("Gender", "R"),
+            })
+        else:
+            fb = ev.get("ForceBlueprint")
+            items_out.append({
+                "Type":          "item",
+                "Blueprint":     gv("Blueprint", ""),
+                "Quantity":      _safe_int(gv("Quantity", "1"), 1),
+                "Quality":       _safe_float(gv("Quality", "0"), 0.0),
+                "Damage":        _safe_float(gv("Damage", "0"), 0.0),
+                "Durability":    _safe_float(gv("Durability", "0"), 0.0),
+                "ForceBlueprint": bool(fb.get()) if isinstance(fb, tk.BooleanVar) else False,
+            })
+
     return {
         "Price":         _safe_int(g("price", "0"), 0),
         "Description":   g("description", ""),
         "DefaultAmount": _safe_int(g("default_amt", "999"), 999),
-        "Items":         existing_items,
+        "Items":         items_out,
         "Commands":      [ln for ln in cmds_widget.get("1.0", "end").splitlines() if ln.strip()],
     }
 
@@ -531,15 +748,13 @@ def _build_kits_tab(app: "ARKServerManagerApp", parent: tk.Widget,
     frame.rowconfigure(0, weight=1)
     list_fr = tk.Frame(frame, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     list_fr.grid(row=0, column=0, padx=(8, 4), pady=8, sticky="nsew")
-    list_fr.rowconfigure(1, weight=1)
-    list_fr.columnconfigure(0, weight=1)
     _head(list_fr, "🎁  Kits")
     scroll_kits = ctk.CTkScrollableFrame(list_fr, fg_color=_INNER)
-    scroll_kits.grid(row=1, column=0, sticky="nsew")
+    scroll_kits.pack(fill="both", expand=True)
     scroll_kits.grid_columnconfigure(0, weight=1)
     ctk.CTkButton(list_fr, text="＋ Novo Kit", height=30,
                    fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                   command=lambda: _new_kit()).grid(row=2, column=0, padx=8, pady=6, sticky="ew")
+                   command=lambda: _new_kit()).pack(fill="x", padx=8, pady=6)
     detail_fr = tk.Frame(frame, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     detail_fr.grid(row=0, column=1, padx=(4, 8), pady=8, sticky="nsew")
     _kit_vars: Dict[str, tk.Variable] = {}
