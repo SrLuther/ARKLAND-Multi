@@ -807,7 +807,8 @@ class ARKServerManagerApp(ctk.CTk):
 
         _th.Thread(target=_worker, daemon=True).start()
 
-    def _asm_do_scheduled_restart(self, srv: AsmServerConfig) -> None:        """Envia aviso RCON com countdown e reinicia o servidor."""
+    def _asm_do_scheduled_restart(self, srv: AsmServerConfig) -> None:
+        """Envia aviso RCON com countdown e reinicia o servidor."""
         import threading as _th  # noqa: PLC0415
 
         def _worker():

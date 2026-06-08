@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
-from ..asm_engine.asm_constants import ASM_STATUS_STOPPED, ASM_STATUS_RUNNING
+from ..asm_engine.asm_server_config import ASM_STATUS_STOPPED, ASM_STATUS_RUNNING
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 

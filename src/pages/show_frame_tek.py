@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 import customtkinter as ctk  # type: ignore[reportMissingImports]
-from ..asm_engine.asm_theme import get_theme
+from ..ui_constants import get_theme
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 
@@ -19,38 +19,38 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
     """Constrói o conteúdo correto dentro de `frame` com base em `name`."""
     bg = get_theme("tek")["bg"]
     if name == "dashboard":
-        from .asm_ui.asm_dashboard import build_asm_dashboard
+        from ..asm_ui.asm_dashboard import build_asm_dashboard
         build_asm_dashboard(app, frame)
     elif name == "sync":
-        from .pages.build_sync_panel import build_sync_panel
+        from .build_sync_panel import build_sync_panel
         build_sync_panel(app, frame)
     elif name == "buffs":
-        from .pages.build_buffs_panel import build_buffs_panel
+        from .build_buffs_panel import build_buffs_panel
         build_buffs_panel(app, frame)
         if app._buff_manager is None:
             app._init_buff_manager()
         app._refresh_buffs_ui()
     elif name == "desempenho":
-        from .pages.performance_panel import build_performance_panel
+        from .performance_panel import build_performance_panel
         build_performance_panel(app, frame)
         app._start_perf_monitor()
     elif name == "clusters":
-        from .pages.build_clusters_panel import build_clusters_panel
+        from .build_clusters_panel import build_clusters_panel
         build_clusters_panel(app, frame)
     elif name == "remoto":
-        from .pages.remote_panel import build_remote_panel
+        from .remote_panel import build_remote_panel
         build_remote_panel(app, _scrollable_inner(frame, bg))
     elif name == "settings":
-        from .pages.global_config import build_global_config
+        from .global_config import build_global_config
         build_global_config(app, _scrollable_inner(frame, bg))
     elif name == "about":
-        from .pages.build_about import build_about
+        from .build_about import build_about
         build_about(app, _scrollable_inner(frame, bg))
     elif name == "crashes":
-        from .pages.global_crash_monitor import build_global_crash_monitor
+        from .global_crash_monitor import build_global_crash_monitor
         build_global_crash_monitor(app, frame)
     elif name == "server_panel":
-        from .asm_ui.asm_server_panel import build_asm_server_panel
+        from ..asm_ui.asm_server_panel import build_asm_server_panel
         build_asm_server_panel(app, frame, kwargs["srv"])
 
 

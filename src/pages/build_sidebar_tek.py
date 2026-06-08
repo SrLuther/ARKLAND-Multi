@@ -4,8 +4,8 @@ import os
 from typing import TYPE_CHECKING, Dict
 import tkinter as tk
 import customtkinter as ctk  # type: ignore[reportMissingImports]
-from ..asm_engine.asm_theme import get_theme, get_tek_variant
-from ..utils import _resource_path
+from ..ui_constants import get_theme, get_tek_variant
+from ..app_tek import _resource_path
 from ..version import APP_VERSION
 try:
     from PIL import Image as _PILImage  # type: ignore[reportMissingImports]
