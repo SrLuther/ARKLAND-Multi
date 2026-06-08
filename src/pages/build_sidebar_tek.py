@@ -43,15 +43,16 @@ def _build_sidebar_tek_nav(app, sb, theme: dict, accent: str,
     ctk.CTkFrame(sb, height=1, fg_color=sep_col).grid(
         row=1, column=0, sticky="ew", padx=16, pady=(4, 8))
     nav_items = [
-        ("⊞",  "dashboard",  "Dashboard"),
-        ("🔄", "sync",       "Sincronização"),
-        ("⚡", "buffs",      "BUFFs"),
-        ("📊", "desempenho", "Desempenho"),
-        ("🔴", "crashes",    "Crashes"),
-        ("🔗", "clusters",   "Clusters"),
-        ("🖥",  "remoto",     "Remoto"),
-        ("⚙",  "settings",   "Configurações"),
-        ("ℹ",  "about",      "Sobre"),
+        ("⊞",  "dashboard",   "Dashboard"),
+        ("🛒", "shop",        "Loja"),
+        ("🔄", "sync",        "Sincronização"),
+        ("⚡", "buffs",       "BUFFs"),
+        ("📊", "desempenho",  "Desempenho"),
+        ("🔴", "crashes",     "Crashes"),
+        ("🔗", "clusters",    "Clusters"),
+        ("🖥",  "remoto",      "Remoto"),
+        ("⚙",  "settings",    "Configurações"),
+        ("ℹ",  "about",       "Sobre"),
     ]
     app._nav_btns: Dict[str, ctk.CTkButton] = {}
     for i, (icon, key, label) in enumerate(nav_items):
