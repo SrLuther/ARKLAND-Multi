@@ -190,7 +190,42 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         text_color=accent, corner_radius=8,
         font=ctk.CTkFont(family="Segoe UI", size=12),
         command=lambda: _open_import_ini(app, srv),
-    ).grid(row=0, column=8, padx=(0, 16), pady=12, sticky="e")
+    ).grid(row=0, column=8, padx=(0, 8), pady=12, sticky="e")
+
+    def _confirm_remove() -> None:
+        import tkinter.messagebox as _mb
+        if not _mb.askyesno(
+            "Remover Servidor",
+            f"Remover '{srv.name}' do gerenciador?\n\nOs arquivos do servidor NÃO serão deletados.",
+            parent=app,
+        ):
+            return
+        cache_key = f"server_{srv.id}"
+        frame_cache = getattr(app, "_frame_cache", {})
+        if cache_key in frame_cache:
+            try:
+                frame_cache[cache_key].destroy()
+            except Exception:
+                pass
+            frame_cache.pop(cache_key, None)
+        app.asm_config_manager.remove_server(srv.id)
+        try:
+            app._rebuild_server_sidebar()
+        except Exception:
+            pass
+        try:
+            app._asm_refresh_dashboard()
+        except Exception:
+            pass
+        app._show_frame("dashboard")
+
+    ctk.CTkButton(
+        hdr, text="🗑️  Remover", width=100, height=34,
+        fg_color="#3d0a0a", hover_color="#7f1d1d",
+        text_color="#fca5a5", corner_radius=8,
+        font=ctk.CTkFont(family="Segoe UI", size=11),
+        command=_confirm_remove,
+    ).grid(row=0, column=9, padx=(0, 16), pady=12, sticky="e")
 
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(
@@ -616,6 +651,12 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _str_entry(sf, "Cluster ID",               "cross_ark_cluster_id",             srv, vars_ref, 38, accent)
     _str_entry(sf, "Cluster Dir Override",     "cluster_dir_override",             srv, vars_ref, 39, accent, wide=True)
     _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 40, accent)
+
+    _section_label(sf, "Branch SteamCMD (Beta)", 43, accent)
+    _str_entry(sf, "Branch Name",     "branch_name",     srv, vars_ref, 44, accent)
+    _str_entry(sf, "Branch Password", "branch_password", srv, vars_ref, 45, accent, pw=True)
+    _add_help(sf, [("Branch Name",     "Ex: 'experimental'. Deixe vazio para a branch estável (padrão)."),
+                   ("Branch Password", "Necessário apenas em branches privadas.")])
 
     _section_label(sf, "Mods (Steam Workshop)", 41, accent)
 
@@ -2622,7 +2663,17 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         _mb.showerror("Erro ao salvar", f"Não foi possível salvar: {_e}", parent=app)
         return
 
-    # 3. Escreve os INIs imediatamente (se install_dir existir)
+    # 3. Invalida cache do frame deste servidor para forçar reconstrução na próxima abertura
+    cache_key = f"server_{srv.id}"
+    frame_cache = getattr(app, "_frame_cache", {})
+    if cache_key in frame_cache:
+        try:
+            frame_cache[cache_key].destroy()
+        except Exception:
+            pass
+        frame_cache.pop(cache_key, None)
+
+    # 4. Escreve os INIs imediatamente (se install_dir existir)
     import os as _os
     if srv.install_dir and _os.path.isdir(srv.install_dir):
         try:
@@ -2631,9 +2682,13 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         except Exception:
             pass  # INIs serão escritos no próximo start
 
-    # 4. Atualiza dashboard
+    # 5. Atualiza dashboard e sidebar
     try:
         app._asm_refresh_dashboard()
+    except Exception:
+        pass
+    try:
+        app._rebuild_server_sidebar()
     except Exception:
         pass
 

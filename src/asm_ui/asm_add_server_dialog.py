@@ -122,7 +122,7 @@ def _read_cmdline(install_dir: str, cfg: AsmServerConfig):
             # Mapa: primeiro argumento antes de ?
             m = re.search(r"ShooterGameServer\.exe\s+([A-Za-z0-9_/]+)\?", txt, re.IGNORECASE)
             if m:
-                cfg.map_name = m.group(1)
+                cfg.server_map = m.group(1)
             break
 
 
@@ -215,6 +215,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
             app._rebuild_server_sidebar()
+            app._asm_open_server_panel(cfg.id)
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))
@@ -286,6 +287,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
             app._rebuild_server_sidebar()
+            app._asm_open_server_panel(cfg.id)
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))
@@ -335,7 +337,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             if not path:
                 return
             try:
-                app.asm_config_manager.import_server(path)
+                cfg = app.asm_config_manager.import_server(path)
             except Exception as exc:
                 from tkinter import messagebox
                 messagebox.showerror("Erro ao importar", str(exc), parent=dlg)
@@ -344,6 +346,8 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
             app._rebuild_server_sidebar()
+            if cfg is not None:
+                app._asm_open_server_panel(cfg.id)
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))

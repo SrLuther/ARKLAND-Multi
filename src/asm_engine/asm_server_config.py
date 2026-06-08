@@ -185,9 +185,7 @@ class AsmServerConfig:
     enable_kick_idle_players:                bool  = False
 
     # ── Rules extras ─────────────────────────────────────────────────────────
-    disable_friendly_fire_pvp:               bool  = False
-    disable_friendly_fire_pve:               bool  = False
-    disable_loot_crates:                     bool  = False
+    disable_loot_crates_extra:               bool  = False  # alias removido — mantido para compatibilidade de JSON antigo
     enable_extra_structure_prevention_volumes: bool = False
     allow_pve_gamma:                         bool  = False   # AllowPvEGamma / DisablePvEGamma inverted
     oxygen_swim_speed_stat_multiplier:       float = 1.0

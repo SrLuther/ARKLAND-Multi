@@ -744,7 +744,7 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _asm_update_mods(self, srv: AsmServerConfig) -> None:
         """Baixa/atualiza mods do servidor via SteamCMD (chamável pela bulk action)."""
-        if not srv.active_mods or not srv.steamcmd_path:
+        if not srv.active_mods:
             return
         from .asm_ui.asm_workshop import open_asm_workshop
         open_asm_workshop(self, srv)
