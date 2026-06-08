@@ -145,6 +145,12 @@ class Rebuy(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class ShopAdmin(Base):
+    __tablename__ = "shop_admins"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+
 # ── DB setup ──────────────────────────────────────────────────────────────────
 
 _ENGINE = None
@@ -284,6 +290,17 @@ def _save_players(players: list[Dict[str, str]]) -> None:
 
 
 def _load_admin_steamids() -> set[str]:
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            rows = db.query(ShopAdmin).all()
+            if rows:
+                return {r.steam_id for r in rows}
+        except Exception:
+            pass
+        finally:
+            db.close()
+
     if not _ADMIN_FILE.exists():
         return set()
     try:
@@ -297,6 +314,23 @@ def _load_admin_steamids() -> set[str]:
 
 def _is_admin_steamid(steam_id: str) -> bool:
     return steam_id in _load_admin_steamids()
+
+
+def _get_player_points(steam_id: str) -> int | None:
+    """Returns points balance from the shared MySQL players table, or None if unavailable."""
+    if not _db_ready():
+        return None
+    db = _SessionLocal()
+    try:
+        row = db.execute(
+            text("SELECT points FROM players WHERE steam_id = :sid"),
+            {"sid": steam_id},
+        ).fetchone()
+        return int(row[0]) if row else None
+    except Exception:
+        return None
+    finally:
+        db.close()
 
 
 def _steam_id_from_session() -> str | None:
@@ -910,12 +944,26 @@ def player_purchase():
     if (err := _require_db()) is not None:
         return err
 
+    price = int(body.get("price", 0))
+    if price > 0:
+        balance = _get_player_points(str(steam_id))
+        if balance is not None and balance < price:
+            return jsonify({"ok": False, "error": f"Saldo insuficiente ({balance} pts, necessário {price} pts)"}), 402
+
     order, error = _create_order(str(steam_id), item_type, item_id, amount)
     if error:
         return jsonify({"ok": False, "error": error}), 400
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
     return jsonify(result), 200 if result.get("ok") else 500
+
+
+@app.route("/api/player/points", methods=["GET"])
+@login_required
+def player_points():
+    steam_id = str(_steam_id_from_session())
+    balance = _get_player_points(steam_id)
+    return jsonify({"ok": True, "steam_id": steam_id, "points": balance})
 
 
 @app.route("/api/player/summary", methods=["GET"])
@@ -930,9 +978,11 @@ def player_summary():
         delivered = db.query(Order).filter(Order.steam_id == steam_id, Order.status == "ENTREGUE").count()
         pending = db.query(Order).filter(Order.steam_id == steam_id, Order.status == "PENDENTE").count()
         contested = db.query(Order).filter(Order.steam_id == steam_id, Order.contested.is_(True)).count()
+        balance = _get_player_points(steam_id)
         return jsonify({
             "ok": True,
             "steam_id": steam_id,
+            "points": balance,
             "stats": {
                 "total_orders": total,
                 "delivered": delivered,
@@ -1214,6 +1264,63 @@ def admin_reprocess_order(order_id: str):
     _log("admin_reprocess", order_id=order_id, admin=_steam_id_from_session())
     result = _process_order_delivery(order_id)
     return jsonify(result), 200 if result.get("ok") else 500
+
+
+# ── Admin admins routes ───────────────────────────────────────────────────────
+
+@app.route("/api/admin/admins", methods=["GET"])
+@admin_required
+def admin_list_admins():
+    admins = sorted(_load_admin_steamids())
+    return jsonify({"ok": True, "items": admins})
+
+
+@app.route("/api/admin/admins", methods=["POST"])
+@admin_required
+def admin_add_admin():
+    body = request.get_json(force=True)
+    steam_id = str(body.get("steam_id", "")).strip()
+    if not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            db.merge(ShopAdmin(steam_id=steam_id))
+            db.commit()
+        finally:
+            db.close()
+    else:
+        ids = _load_admin_steamids()
+        ids.add(steam_id)
+        _ADMIN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _ADMIN_FILE.write_text(json.dumps(sorted(ids), indent=2, ensure_ascii=False), encoding="utf-8")
+
+    _log("admin_added", steam_id=steam_id, by=_steam_id_from_session())
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/admins/<steam_id>", methods=["DELETE"])
+@admin_required
+def admin_remove_admin(steam_id: str):
+    steam_id = steam_id.strip()
+    if not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            db.query(ShopAdmin).filter(ShopAdmin.steam_id == steam_id).delete()
+            db.commit()
+        finally:
+            db.close()
+    else:
+        ids = _load_admin_steamids()
+        ids.discard(steam_id)
+        _ADMIN_FILE.write_text(json.dumps(sorted(ids), indent=2, ensure_ascii=False), encoding="utf-8")
+
+    _log("admin_removed", steam_id=steam_id, by=_steam_id_from_session())
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

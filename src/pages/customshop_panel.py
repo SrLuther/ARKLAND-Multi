@@ -120,13 +120,17 @@ def _bool_row(parent: tk.Widget, label: str, var: tk.BooleanVar,
 
 def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> None:
     """Constrói o painel CustomShop dentro de `parent`."""
+    parent.grid_rowconfigure(0, weight=0)
+    parent.grid_rowconfigure(1, weight=1)
+    parent.grid_columnconfigure(0, weight=1)
+
     cfg_path = _DEFAULT_CONFIG_PATH
     data: Dict[str, Any] = _load_config(cfg_path)
 
     # ── Barra de ações no topo ────────────────────────────────────────────
     top_bar = tk.Frame(parent, bg=_BG, height=52)
-    top_bar.pack(side="top", fill="x")
-    top_bar.pack_propagate(False)
+    top_bar.grid(row=0, column=0, sticky="ew")
+    top_bar.grid_propagate(False)
 
     def _do_save() -> None:
         _collect_all()
@@ -165,7 +169,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                           segmented_button_fg_color="#141428",
                           segmented_button_selected_color=_GREEN_DARK,
                           segmented_button_selected_hover_color=_GREEN_HOVER)
-    tabs.pack(fill="both", expand=True, padx=4, pady=4)
+    tabs.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
     tabs.add("⚙️  Configurações")
     tabs.add("🛒  Itens")
     tabs.add("🎁  Kits")

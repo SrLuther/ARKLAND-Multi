@@ -151,9 +151,12 @@ bool ShopPoints::AddPoints(const std::string& steam_id, int delta) {
 
 bool ShopPoints::SpendPoints(const std::string& steam_id, int cost) {
     if (cost <= 0) return true;
-    const int before = GetPoints(steam_id);
-    if (before < cost) return false;
-    return SetPoints(steam_id, before - cost);
+    EnsurePlayer(steam_id, ShopConfig::Get().StartingPoints());
+    const std::string sql =
+        "UPDATE players SET points = points - " + std::to_string(cost) +
+        " WHERE steam_id = '" + steam_id + "' AND points >= " + std::to_string(cost) + ";";
+    if (!Exec(sql.c_str())) return false;
+    return mysql_affected_rows(db_) > 0;
 }
 
 void ShopPoints::LogTransaction(const std::string& type,

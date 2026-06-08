@@ -23,7 +23,7 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
         build_asm_dashboard(app, frame)
     elif name == "shop":
         from .customshop_panel import build_customshop_panel
-        build_customshop_panel(app, _scrollable_inner(frame, bg))
+        build_customshop_panel(app, frame)
     elif name == "sync":
         from .build_sync_panel import build_sync_panel
         build_sync_panel(app, frame)
