@@ -1,7 +1,9 @@
 """ArkShop Web Manager — backend com auth Steam, autorização admin e pedidos no DB."""
 from __future__ import annotations
 
+import base64
 import functools
+import hashlib
 import json
 import logging
 import logging.config
@@ -10,16 +12,20 @@ import re
 import socket
 import struct
 import threading
-import time
 import urllib.parse
 import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
+from dotenv import load_dotenv
+
+from cryptography.fernet import Fernet
 from flask import Flask, jsonify, redirect, request, send_from_directory, session
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from sqlalchemy import Boolean, DateTime, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
@@ -61,6 +67,14 @@ def _log_error(event: str, **kw: Any) -> None:
     log.error('"%s" %s', event, parts)
 
 
+# ── Load environment variables ────────────────────────────────────────────────
+
+# Resolve .env na raiz do projeto (um nível acima de plugin/arkshop_web/)
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_ENV_PATH = _PROJECT_ROOT / ".env"
+load_dotenv(dotenv_path=_ENV_PATH if _ENV_PATH.exists() else None)
+
+
 # ── App setup ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__, static_folder="static", static_url_path="")
@@ -85,6 +99,130 @@ _ACTIVE_DATABASE_URL = ""
 
 _RETRY_INTERVAL_SECONDS = int(os.environ.get("ARKSHOP_RETRY_INTERVAL", "60"))
 _RETRY_BATCH_SIZE = int(os.environ.get("ARKSHOP_RETRY_BATCH", "20"))
+
+# ── Security ─────────────────────────────────────────────────────────────────
+
+# Secret key MUST come from environment in production
+_secret_from_env = os.environ.get("ARKSHOP_WEB_SECRET", "").strip()
+if _secret_from_env:
+    app.secret_key = _secret_from_env
+else:
+    # Use a development secret if not set in env
+    app.secret_key = "arkshop-web-dev-secret-change-me-in-prod"
+    log.warning("ARKSHOP_WEB_SECRET não definida! "
+                "Usando secret de desenvolvimento. "
+                "Defina a variável de ambiente ARKSHOP_WEB_SECRET em produção.")
+
+# API Key for CustomShop ↔ arkshop_web internal communication
+# Must be set via environment variable ARKSHOP_API_KEY
+_ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
+_ENCRYPTED_PREFIX = "ENC:"
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password")
+
+# Rate limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",
+)
+
+# Encryption key for sensitive settings (RCON passwords etc.)
+# Derived from app.secret_key — same key = same encryption
+def _get_fernet() -> Optional[Fernet]:
+    """Create a Fernet instance from app.secret_key.
+    Returns None if secret_key is too short or unset."""
+    sk = app.secret_key
+    if not sk or len(sk) < 32:
+        return None
+    # Derive a 32-byte key using SHA-256
+    # app.secret_key can be str or bytes; normalise to bytes for sha256
+    sk_bytes = sk.encode("utf-8") if isinstance(sk, str) else sk
+    key_bytes = hashlib.sha256(sk_bytes).digest()
+    key_b64 = base64.urlsafe_b64encode(key_bytes)
+    return Fernet(key_b64)
+
+
+def _encrypt_value(plaintext: str) -> str:
+    """Encrypt a value using Fernet. Returns plaintext if encryption is unavailable."""
+    if not plaintext:
+        return ""
+    f = _get_fernet()
+    if not f:
+        return plaintext
+    try:
+        return _ENCRYPTED_PREFIX + f.encrypt(plaintext.encode("utf-8")).decode("utf-8")
+    except Exception:
+        return plaintext
+
+
+def _decrypt_value(ciphertext: str) -> str:
+    """Decrypt a value using Fernet. Returns original value on failure."""
+    if not ciphertext:
+        return ""
+    if not ciphertext.startswith(_ENCRYPTED_PREFIX):
+        return ciphertext
+    f = _get_fernet()
+    if not f:
+        return ciphertext
+    try:
+        token = ciphertext[len(_ENCRYPTED_PREFIX):]
+        return f.decrypt(token.encode("utf-8")).decode("utf-8")
+    except Exception:
+        return ciphertext
+
+
+# ── Idempotency ─────────────────────────────────────────────────────────────
+
+_used_idempotency_keys: dict[str, datetime] = {}
+_IDEMPOTENCY_EXPIRE_SECONDS = 3600
+
+
+def _check_idempotency(key: str) -> bool:
+    """Returns True if this is the FIRST time this key is seen (not a duplicate).
+    Returns False if the key was already used within the last hour."""
+    if not key:
+        return True  # no key provided — allow (no idempotency protection)
+    now = _now()
+    # Clean expired keys
+    expired = [k for k, ts in _used_idempotency_keys.items()
+               if (now - ts).total_seconds() > _IDEMPOTENCY_EXPIRE_SECONDS]
+    for k in expired:
+        _used_idempotency_keys.pop(k, None)
+    if key in _used_idempotency_keys:
+        return False
+    _used_idempotency_keys[key] = now
+    return True
+
+
+# ── API Key auth ────────────────────────────────────────────────────────────
+
+def api_key_required(allow_admin_session: bool = False) -> Callable[..., Any]:
+    """Validates X-API-Key header for CustomShop ↔ arkshop_web communication.
+    
+    Args:
+        allow_admin_session: If True, also allow admin steam_id in session (for browser tests).
+                            If False, ONLY API key auth is accepted (production).
+    """
+    def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
+        @functools.wraps(f)
+        def decorated_function(*args: Any, **kwargs: Any) -> Any:
+            api_key = request.headers.get("X-API-Key", "").strip()
+            
+            # Check API key first (strict)
+            if api_key and _ARKSHOP_API_KEY and api_key == _ARKSHOP_API_KEY:
+                return f(*args, **kwargs)
+            
+            # Optionally allow admin via session (for development/testing)
+            if allow_admin_session:
+                steam_id = _steam_id_from_session()
+                if steam_id and _is_admin_steamid(steam_id):
+                    return f(*args, **kwargs)
+            
+            # Reject
+            return jsonify({"ok": False, "error": "Unauthorized"}), 401
+        return decorated_function
+    return decorator
 
 
 # ── ORM ───────────────────────────────────────────────────────────────────────
@@ -153,8 +291,8 @@ class ShopAdmin(Base):
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
 
-_ENGINE = None
-_SessionLocal = None
+_ENGINE: Any = None
+_SessionLocal: Any = None  # set by _configure_database(); None only before first DB config
 
 
 def _build_database_url_from_settings(settings: dict[str, Any]) -> str:
@@ -235,6 +373,13 @@ def _db_ready() -> bool:
     return _SessionLocal is not None
 
 
+def _get_db_session():
+    """Get a database session, or None if not ready."""
+    if _SessionLocal is not None:
+        return _SessionLocal()
+    return None
+
+
 def _require_db():
     if not _db_ready():
         return jsonify({"ok": False, "error": "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}), 500
@@ -244,7 +389,12 @@ def _require_db():
 def _load_settings() -> Dict[str, Any]:
     if _STATE_FILE.exists():
         try:
-            return json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            data = json.loads(_STATE_FILE.read_text(encoding="utf-8"))
+            # Decrypt sensitive fields
+            for key in _SENSITIVE_SETTINGS_KEYS:
+                if key in data and isinstance(data[key], str):
+                    data[key] = _decrypt_value(data[key])
+            return data
         except Exception:
             pass
     return {
@@ -265,7 +415,12 @@ def _load_settings() -> Dict[str, Any]:
 
 
 def _save_settings(data: Dict[str, Any]) -> None:
-    _STATE_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    safe_data = data.copy()
+    # Encrypt sensitive fields
+    for key in _SENSITIVE_SETTINGS_KEYS:
+        if key in safe_data:
+            safe_data[key] = _encrypt_value(str(safe_data[key]))
+    _STATE_FILE.write_text(json.dumps(safe_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _is_valid_steamid64(value: str) -> bool:
@@ -354,6 +509,9 @@ def _load_servers() -> list[Dict[str, Any]]:
     try:
         data = json.loads(_SERVERS_FILE.read_text(encoding="utf-8"))
         if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict) and "rcon_password" in item and isinstance(item["rcon_password"], str):
+                    item["rcon_password"] = _decrypt_value(item["rcon_password"])
             return data
     except Exception:
         pass
@@ -361,7 +519,13 @@ def _load_servers() -> list[Dict[str, Any]]:
 
 
 def _save_servers(servers: list[Dict[str, Any]]) -> None:
-    _SERVERS_FILE.write_text(json.dumps(servers, indent=2, ensure_ascii=False), encoding="utf-8")
+    safe_servers = []
+    for s in servers:
+        safe = s.copy()
+        if "rcon_password" in safe:
+            safe["rcon_password"] = _encrypt_value(str(safe["rcon_password"]))
+        safe_servers.append(safe)
+    _SERVERS_FILE.write_text(json.dumps(safe_servers, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _get_server_settings(server_id: str) -> Dict[str, Any]:
@@ -601,6 +765,66 @@ def _start_scheduler() -> None:
 
 
 _start_scheduler()
+
+
+# ── CustomShop internal API (requires X-API-Key header) ─────────────────────────
+
+@app.route("/api/pending/<steam_id>", methods=["GET"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("60 per minute")
+def get_pending_deliveries(steam_id: str):
+    """Fetch pending orders for a player (called by CustomShop plugin)."""
+    if (err := _require_db()) is not None:
+        return err
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    try:
+        orders = db.query(Order).filter(
+            Order.steam_id == steam_id,
+            Order.status == "PENDENTE"
+        ).all()
+        result = [{
+            "order_id": o.order_id,
+            "item_id": o.item_id,
+            "amount": o.amount,
+            "item_type": o.item_type,
+        } for o in orders]
+        return jsonify({"ok": True, "orders": result})
+    except Exception as exc:
+        _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/pending/<steam_id>/<order_id>", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("30 per minute")
+def mark_pending_delivered(steam_id: str, order_id: str):
+    """Mark a pending order as delivered (called by CustomShop plugin)."""
+    if (err := _require_db()) is not None:
+        return err
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    try:
+        order = db.query(Order).filter(
+            Order.steam_id == steam_id,
+            Order.order_id == order_id
+        ).first()
+        if not order:
+            return jsonify({"ok": False, "error": "Order not found"}), 404
+        order.status = "ENTREGUE"
+        order.updated_at = _now()
+        db.commit()
+        _log("order_marked_delivered", order_id=order_id, steam_id=steam_id)
+        return jsonify({"ok": True})
+    except Exception as exc:
+        _log_error("mark_pending_delivered", order_id=order_id, steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
 
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
@@ -868,6 +1092,7 @@ def save_config():
 
 @app.route("/api/rcon/reload", methods=["POST"])
 @admin_required
+@limiter.limit("10 per hour")
 def rcon_reload():
     s = _load_settings()
     try:
@@ -881,6 +1106,7 @@ def rcon_reload():
 
 @app.route("/api/rcon/points", methods=["POST"])
 @admin_required
+@limiter.limit("20 per hour")
 def rcon_points():
     s = _load_settings()
     body = request.get_json(force=True)
@@ -897,6 +1123,7 @@ def rcon_points():
 
 @app.route("/api/rcon/command", methods=["POST"])
 @admin_required
+@limiter.limit("20 per hour")
 def rcon_custom():
     s = _load_settings()
     body = request.get_json(force=True)
@@ -925,6 +1152,7 @@ def rcon_purchase_admin():
     order, error = _create_order(steam_id, item_type, item_id, amount)
     if error:
         return jsonify({"ok": False, "error": error}), 400
+    assert order is not None
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
     return jsonify(result), 200 if result.get("ok") else 500
@@ -934,6 +1162,7 @@ def rcon_purchase_admin():
 
 @app.route("/api/player/purchase", methods=["POST"])
 @login_required
+@limiter.limit("10 per minute; 50 per hour")
 def player_purchase():
     body = request.get_json(force=True)
     steam_id = _steam_id_from_session()
@@ -944,17 +1173,35 @@ def player_purchase():
     if (err := _require_db()) is not None:
         return err
 
+    # Idempotency check — client must supply a unique key per purchase attempt
+    idempotency_key = str(body.get("idempotency_key", "")).strip()
+    if idempotency_key:
+        if not _check_idempotency(idempotency_key):
+            # Duplicate request — find and return the existing order
+            _log("purchase_duplicate_idempotency", steam_id=str(steam_id),
+                 idempotency_key=idempotency_key)
+            return jsonify({"ok": False, "error": "Pedido duplicado — esta compra já foi processada",
+                           "idempotency_key": idempotency_key}), 409
+
     price = int(body.get("price", 0))
     if price > 0:
         balance = _get_player_points(str(steam_id))
         if balance is not None and balance < price:
+            # Refund idempotency key — insufficient funds is not a successful op
+            if idempotency_key:
+                _used_idempotency_keys.pop(idempotency_key, None)
             return jsonify({"ok": False, "error": f"Saldo insuficiente ({balance} pts, necessário {price} pts)"}), 402
 
     order, error = _create_order(str(steam_id), item_type, item_id, amount)
     if error:
+        if idempotency_key:
+            _used_idempotency_keys.pop(idempotency_key, None)
         return jsonify({"ok": False, "error": error}), 400
+    assert order is not None
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
+    _log("purchase_ok", steam_id=str(steam_id), item_id=item_id,
+         order_id=order.order_id, idempotency_key=idempotency_key or "none")
     return jsonify(result), 200 if result.get("ok") else 500
 
 

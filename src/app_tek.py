@@ -13,10 +13,11 @@ from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, List, Optional
+import time
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from .asm_engine.asm_config_manager import AsmConfigManager
-from .asm_engine.asm_server_config import AsmServerConfig, ASM_STATUS_RUNNING, ASM_STATUS_STOPPED
+from .asm_engine.asm_server_config import AsmServerConfig, ASM_STATUS_RUNNING, ASM_STATUS_STOPPED, ASM_STATUS_CRASHED
 from .asm_engine.asm_server_manager import AsmServerManager
 from .config_manager import ConfigManager
 from .server_manager import ServerManager
@@ -155,10 +156,101 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(150, self._setup_bg_watermark)
         # Auto-start: sync e agente remoto (após janela renderizar)
         self.after(500, self._auto_start_services)
+        # B2: tick de indicadores ricos de status (a cada 30s)
+        self.after(30_000, self._asm_status_tick)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Background watermark
+    # B2 — Indicadores Ricos de Status (players, uptime, RAM, versão)
     # ─────────────────────────────────────────────────────────────────────────
+
+    def _asm_status_tick(self) -> None:
+        """Atualiza cache de indicadores ricos para todos os servidores (a cada 30s)."""
+        import threading
+
+        def _worker():
+            for srv in self.asm_config_manager.servers:
+                rich_key = f"_asm_rich_status_{srv.id}"
+                inst = self.asm_server_manager.get_instance(srv.id)
+                status = inst.status if inst else ASM_STATUS_STOPPED
+
+                if status != ASM_STATUS_RUNNING:
+                    setattr(self, rich_key, {
+                        "players": "—", "uptime": "—", "ram": "—", "version": "—"
+                    })
+                    continue
+
+                data: dict = {"players": "—", "uptime": "—", "ram": "—", "version": "—"}
+
+                # Uptime: calculado a partir de quando o status mudou para RUNNING
+                uptime_attr = f"_asm_uptime_start_{srv.id}"
+                uptime_start = getattr(self, uptime_attr, None)
+                if uptime_start:
+                    elapsed = int(time.time() - uptime_start)
+                    hrs, rem = divmod(elapsed, 3600)
+                    mins, secs = divmod(rem, 60)
+                    data["uptime"] = f"{hrs}h {mins:02d}m" if hrs else f"{mins}m {secs:02d}s"
+                else:
+                    setattr(self, uptime_attr, time.time())
+                    data["uptime"] = "0m 00s"
+
+                # Versão: lê version.txt
+                if srv.install_dir:
+                    ver_path = Path(srv.install_dir) / "version.txt"
+                    if ver_path.exists():
+                        try:
+                            data["version"] = ver_path.read_text(encoding="utf-8").strip()[:12]
+                        except Exception:
+                            pass
+
+                # Players via RCON (melhor esforço)
+                if srv.rcon_enabled and srv.admin_password:
+                    try:
+                        from .rcon_client import RconClient
+                        host = srv.server_ip or "127.0.0.1"
+                        rc = RconClient(host, srv.rcon_port, srv.admin_password)
+                        rc.connect()
+                        ok, resp = rc.send_command_safe("ListPlayers")
+                        rc.disconnect()
+                        if ok:
+                            lines = [ln for ln in resp.splitlines() if ln.strip()]
+                            data["players"] = f"{len(lines)}/{srv.max_players}"
+                        else:
+                            data["players"] = "?/?"
+                    except Exception:
+                        data["players"] = "?/?"
+
+                # RAM via psutil (melhor esforço)
+                if inst and inst.pid:
+                    try:
+                        import psutil
+                        p = psutil.Process(inst.pid)
+                        mem_mb = p.memory_info().rss / (1024 * 1024)
+                        data["ram"] = f"{mem_mb:.1f} MB"
+                    except Exception:
+                        pass
+
+                setattr(self, rich_key, data)
+
+            # Agenda refresh visual do dashboard
+            self.after(0, self._asm_refresh_dashboard)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+        # Reagenda
+        self.after(30_000, self._asm_status_tick)
+
+    def _on_server_status_change(self, server_id: str, new_status: str) -> None:
+        """Chamado pela thread do monitor quando o status de um servidor muda."""
+        # B2: registra timestamp de início do uptime quando fica RUNNING
+        if new_status == ASM_STATUS_RUNNING:
+            setattr(self, f"_asm_uptime_start_{server_id}", time.time())
+        elif new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
+            setattr(self, f"_asm_uptime_start_{server_id}", None)
+            rich_key = f"_asm_rich_status_{server_id}"
+            setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
+
+        self.after(0, self._asm_refresh_dashboard)
+        self.after(0, self._rebuild_server_sidebar)
 
     def _setup_bg_watermark(self) -> None:
         """Pré-computa a imagem de watermark para reutilização em todas as páginas."""
@@ -856,6 +948,14 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _on_server_status_change(self, server_id: str, new_status: str) -> None:
         """Chamado pela thread do monitor quando o status de um servidor muda."""
+        # B2: registra timestamp de início do uptime quando fica RUNNING
+        if new_status == ASM_STATUS_RUNNING:
+            setattr(self, f"_asm_uptime_start_{server_id}", time.time())
+        elif new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
+            setattr(self, f"_asm_uptime_start_{server_id}", None)
+            rich_key = f"_asm_rich_status_{server_id}"
+            setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
+
         self.after(0, self._asm_refresh_dashboard)
         self.after(0, self._rebuild_server_sidebar)
 

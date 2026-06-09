@@ -3,6 +3,19 @@ from typing import List
 
 CHANGELOG_RECENT: List[dict] = [
     {
+        "version": "1.6.1",
+        "date": "2026-06-08",
+        "changes": [
+            "Fix (ASM/launch): SessionName removido permanentemente da CLI — conforme documentação "
+            "v1.5.5+ do ARK_SERVER_CONFIG_REFERENCE.md. O nome do servidor fica SOMENTE no "
+            "GameUserSettings.ini ([SessionSettings]/SessionName). O código anterior readicionava "
+            "SessionName na CLI quando não continha espaços (v1.5.13), mas isso era inconsistente "
+            "com a documentação e o comportamento do ASM original em C#.",
+            "Fix (ASM/INI): DifficultyOffset agora gravado condicionalmente — só é válido quando "
+            "enable_difficulty_override=True (linha 61 do INI_MAP).",
+        ],
+    },
+    {
         "version": "1.6.0",
         "date": "2026-06-06",
         "changes": [

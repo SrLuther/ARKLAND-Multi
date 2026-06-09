@@ -30,6 +30,7 @@ set(SOURCES
     src/ShopStore.cpp
     src/ShopVip.cpp
     src/Commands.cpp
+    src/HttpClient.cpp
 )
 
 add_library(CustomShop SHARED ${SOURCES})
@@ -50,6 +51,7 @@ target_link_libraries(CustomShop PRIVATE
     "${ARKAPI_DIR}/lib/ArkApi.lib"
     nlohmann_json::nlohmann_json
     unofficial::libmysql::libmysql
+    winhttp.lib
 )
 
 # ── Compiler definitions ──────────────────────────────────────────

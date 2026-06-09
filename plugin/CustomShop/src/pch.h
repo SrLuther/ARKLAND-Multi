@@ -1,4 +1,4 @@
-#pragma once
+istema envolver#pragma once
 
 // ArkApi ASE v3 headers must come BEFORE Windows.h to avoid TCHAR redefinition
 #include <API/ARK/Ark.h>
@@ -21,3 +21,6 @@
 
 // MySQL C Connector (via vcpkg libmysql)
 #include <mysql.h>
+
+// WinHTTP for HTTP communication with arkshop_web
+#include <winhttp.h>

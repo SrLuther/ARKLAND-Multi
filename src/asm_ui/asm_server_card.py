@@ -5,6 +5,7 @@ linha de ações primárias com divisor e barra de ferramentas separada.
 """
 from __future__ import annotations
 
+import time
 import tkinter as tk
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
@@ -187,7 +188,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     # ── CHIPS DE INFO ─────────────────────────────────────────────────────────
     map_label = ARK_MAP_LABELS.get(srv.server_map, srv.server_map)
     info_r = ctk.CTkFrame(card, fg_color="transparent")
-    info_r.grid(row=1, column=0, padx=14, pady=(0, 10), sticky="w")
+    info_r.grid(row=1, column=0, padx=14, pady=(0, 4), sticky="w")
 
     def _chip(text: str, border: str = sep, tc: str = t_mut) -> None:
         f = ctk.CTkFrame(info_r, fg_color="#f0f9ff" if is_light else "#0a1525",
@@ -207,13 +208,38 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     if srv.active_mods:
         _chip(f"🔧  {len(srv.active_mods)} mods", border="#1e3a5f", tc="#7dd3fc")
 
+    # ── B2: INDICADORES RICOS DE STATUS ───────────────────────────────────────
+    # Players / Uptime / RAM / Versão — atualizados via app.after()
+    rich_r = ctk.CTkFrame(card, fg_color="transparent")
+    rich_r.grid(row=2, column=0, padx=14, pady=(0, 6), sticky="w")
+
+    # Recupera dados do cache global do app (atualizado por _asm_status_tick)
+    rich_key = f"_asm_rich_status_{srv.id}"
+    rich_data: dict = getattr(app, rich_key, {})
+
+    players_txt = rich_data.get("players", "—")
+    uptime_txt  = rich_data.get("uptime", "—")
+    ram_txt     = rich_data.get("ram", "—")
+    ver_txt     = rich_data.get("version", "—")
+
+    _rich_tc = "#94a3b8" if is_light else "#475569"
+
+    def _rich_lbl(parent, text: str) -> ctk.CTkLabel:
+        return ctk.CTkLabel(
+            parent, text=text,
+            font=ctk.CTkFont(family="Segoe UI", size=9),
+            text_color=_rich_tc,
+        )
+
+    _rich_lbl(rich_r, f"👥 {players_txt}  |  🕐 {uptime_txt}  |  💾 {ram_txt}  |  📋 {ver_txt}").pack(side="left")
+
     # ── SEPARADOR ─────────────────────────────────────────────────────────────
     ctk.CTkFrame(card, height=1, fg_color=sep).grid(
-        row=2, column=0, sticky="ew", padx=14, pady=0)
+        row=3, column=0, sticky="ew", padx=14, pady=0)
 
     # ── AÇÕES PRIMÁRIAS ───────────────────────────────────────────────────────
     act = ctk.CTkFrame(card, fg_color="transparent")
-    act.grid(row=3, column=0, padx=14, pady=(10, 10), sticky="ew")
+    act.grid(row=4, column=0, padx=14, pady=(10, 10), sticky="ew")
 
     if is_running:
         ctk.CTkButton(
@@ -305,7 +331,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
 
     tools = ctk.CTkFrame(card, fg_color=_tbg, corner_radius=7,
                          border_width=1, border_color=_tborder)
-    tools.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 10))
+    tools.grid(row=5, column=0, sticky="ew", padx=10, pady=(0, 10))
 
     def _tbtn(text: str, cmd, width: int = 82) -> None:
         ctk.CTkButton(

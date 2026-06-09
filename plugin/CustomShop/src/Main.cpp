@@ -7,6 +7,7 @@
 #include "ShopVip.h"
 #include "ShopPerms.h"
 #include "TimedPoints.h"
+#include "HttpClient.h"
 #include <Timer.h>
 
 // ─────────────────────────────────────────────────────────────────
@@ -67,6 +68,13 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
         CustomShop::Data::InitShop(raw_ctrl);
     }, 5);
 
+    // After delivering config, check for pending online purchases
+    // (items bought via arkshop_web while player was offline).
+    API::Timer::Get().DelayExecute([raw_ctrl]() {
+        if (!raw_ctrl) return;
+        CustomShop::HttpClient::DeliverPending(raw_ctrl);
+    }, 8);
+
     return result;
 }
 
@@ -80,6 +88,9 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
     // doesn't crash silently with a half-initialised plugin.
     try {
         CustomShop::ShopConfig::Get().Load();
+        CustomShop::HttpClient::Configure(
+            CustomShop::ShopConfig::Get().WebApiUrl(),
+            CustomShop::ShopConfig::Get().WebApiKey());
         if (!CustomShop::ShopPoints::Get().Open()) {
             Log::GetLog()->critical(
                 "CustomShop: database failed to open — plugin aborted");

@@ -1689,6 +1689,36 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                  text_color=accent).grid(row=0, column=0, columnspan=8,
                  padx=12, pady=(8, 4), sticky="w")
 
+    # ── Presets de tabelas populares ──────────────────────────────────────────
+    preset_f = ctk.CTkFrame(gen_card, fg_color="transparent")
+    preset_f.grid(row=1, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
+
+    _PRESETS = {
+        "Official (70 lvls)":   {"max": 70,  "base": 5,   "mult": 1.20, "engrams": 8},
+        "Hard (150 lvls)":      {"max": 150, "base": 10,  "mult": 1.18, "engrams": 8},
+        "Custom (100 lvls)":    {"max": 100, "base": 8,   "mult": 1.15, "engrams": 10},
+        "Extreme (200 lvls)":   {"max": 200, "base": 15,  "mult": 1.14, "engrams": 12},
+    }
+
+    def _apply_preset(name: str):
+        p = _PRESETS.get(name)
+        if not p:
+            return
+        _vars_p[0].set(str(p["max"]))
+        _vars_p[1].set(str(p["base"]))
+        _vars_p[2].set(str(p["mult"]))
+        _vars_p[3].set(str(p["engrams"]))
+        _preview_player_gen()
+
+    ctk.CTkLabel(preset_f, text="Presets:", font=ctk.CTkFont(size=10),
+                 text_color="#8899aa").pack(side="left", padx=(0, 6))
+    for pname in _PRESETS:
+        ctk.CTkButton(preset_f, text=pname, width=100, height=24,
+                      fg_color="#1e293b", hover_color="#334155",
+                      text_color="#94a3b8", font=ctk.CTkFont(size=10),
+                      command=lambda n=pname: _apply_preset(n)).pack(side="left", padx=(0, 4))
+
+    # ── Campos do gerador ─────────────────────────────────────────────────────
     _fields_p = [
         ("Nível máx.", "100"), ("XP base (lv0)", "70"),
         ("Multiplicador XP", "1.15"), ("Engrams/nível", "8"),
@@ -1696,50 +1726,58 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     _vars_p: list[tk.StringVar] = []
     for col, (lbl, default) in enumerate(_fields_p):
         ctk.CTkLabel(gen_card, text=lbl, font=ctk.CTkFont(size=10),
-                     text_color="#8899aa").grid(row=1, column=col * 2, padx=(12, 2), pady=(0, 4), sticky="e")
+                     text_color="#8899aa").grid(row=2, column=col * 2, padx=(12, 2), pady=(0, 4), sticky="e")
         v = tk.StringVar(value=default)
         _vars_p.append(v)
         ctk.CTkEntry(gen_card, textvariable=v, width=80, height=28).grid(
-            row=1, column=col * 2 + 1, padx=(0, 8), pady=(0, 4), sticky="w")
+            row=2, column=col * 2 + 1, padx=(0, 8), pady=(0, 4), sticky="w")
 
-    # ── Preview + Gráfico de curva XP ────────────────────────────────────────
-    preview_frame = ctk.CTkFrame(gen_card, fg_color="#060d14", corner_radius=6)
-    preview_frame.grid(row=2, column=0, columnspan=8, padx=12, pady=(0, 6), sticky="ew")
-    preview_frame.grid_columnconfigure(0, weight=3)
-    preview_frame.grid_columnconfigure(1, weight=2)
+    # ── Modo fórmula custom ───────────────────────────────────────────────────
+    custom_f = ctk.CTkFrame(gen_card, fg_color="transparent")
+    custom_f.grid(row=3, column=0, columnspan=8, padx=12, pady=(0, 4), sticky="w")
 
-    # Textbox de preview (primeiras/últimas 5 linhas)
-    preview_box = ctk.CTkTextbox(
-        preview_frame, height=90, state="disabled",
-        font=ctk.CTkFont(family="Consolas", size=9),
-        fg_color="#060d14", text_color="#94a3b8",
-    )
-    preview_box.grid(row=0, column=0, padx=(6, 4), pady=6, sticky="ew")
+    ctk.CTkLabel(custom_f, text="Fórmula custom (Python):",
+                 font=ctk.CTkFont(size=10), text_color="#8899aa").pack(side="left", padx=(0, 6))
+    custom_formula_var = tk.StringVar(value="base * (mult ** i)")
+    ctk.CTkEntry(custom_f, textvariable=custom_formula_var, width=260, height=26,
+                 font=ctk.CTkFont(family="Consolas", size=10)).pack(side="left", padx=(0, 6))
 
-    # Canvas para mini gráfico de curva
-    canvas_xp = tk.Canvas(preview_frame, width=200, height=90,
-                          bg="#060d14", highlightthickness=0)
-    canvas_xp.grid(row=0, column=1, padx=(0, 6), pady=6, sticky="e")
-
-    def _draw_xp_curve(xp_vals: list, canvas: tk.Canvas):
-        canvas.delete("all")
-        if not xp_vals:
+    def _preview_player_gen():
+        try:
+            max_lvl = max(1, min(int(_vars_p[0].get()), 500))
+            xp_base = max(1, int(_vars_p[1].get()))
+            xp_mult = max(1.0, float(_vars_p[2].get()))
+            engrams = max(0, int(_vars_p[3].get()))
+        except ValueError:
             return
-        w, h = 200, 90
-        pad = 8
-        max_xp = max(xp_vals) or 1
-        pts = []
-        n = len(xp_vals)
-        for i, xp in enumerate(xp_vals):
-            x = pad + (w - 2 * pad) * i / max(n - 1, 1)
-            y = h - pad - (h - 2 * pad) * (xp / max_xp)
-            pts.append((x, y))
-        if len(pts) >= 2:
-            flat = [c for p in pts for c in p]
-            canvas.create_line(*flat, fill="#22c55e", width=1, smooth=True)
-        # Eixos
-        canvas.create_line(pad, h - pad, w - pad, h - pad, fill="#1e293b", width=1)
-        canvas.create_line(pad, pad, pad, h - pad, fill="#1e293b", width=1)
+
+        # Usa fórmula custom se diferente do padrão
+        formula = custom_formula_var.get().strip()
+        xp_vals = []
+        try:
+            for i in range(max_lvl):
+                base, mult = xp_base, xp_mult
+                xp = int(eval(formula, {"__builtins__": {}}, {"i": i, "base": base, "mult": mult}))
+                xp_vals.append(xp)
+        except Exception:
+            xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
+
+        text_lines = [f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp_vals[i]})" for i in range(max_lvl)]
+        text_lines += [f"OverridePlayerLevelEngramPoints={engrams}" for _ in range(max_lvl)]
+        text = "\n".join(text_lines)
+
+        # Atualiza preview
+        if len(text_lines) > 12:
+            shown = text_lines[:6] + ["  ..."] + text_lines[-3:]
+        else:
+            shown = text_lines
+        preview_box.configure(state="normal")
+        preview_box.delete("1.0", "end")
+        preview_box.insert("1.0", "\n".join(shown))
+        preview_box.configure(state="disabled")
+
+        # Atualiza gráfico
+        _draw_xp_curve(xp_vals, canvas_xp)
 
     def _apply_player_gen():
         try:
@@ -1749,31 +1787,36 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             engrams = max(0, int(_vars_p[3].get()))
         except ValueError:
             return
-        text = _gen_player_lines(max_lvl, xp_base, xp_mult, engrams)
+
+        formula = custom_formula_var.get().strip()
+        xp_vals = []
+        try:
+            for i in range(max_lvl):
+                base, mult = xp_base, xp_mult
+                xp = int(eval(formula, {"__builtins__": {}}, {"i": i, "base": base, "mult": mult}))
+                xp_vals.append(xp)
+        except Exception:
+            xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
+
+        text_lines = [f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp_vals[i]})" for i in range(max_lvl)]
+        text_lines += [f"OverridePlayerLevelEngramPoints={engrams}" for _ in range(max_lvl)]
+        text = "\n".join(text_lines)
+
         box_p.configure(state="normal")
         box_p.delete("1.0", "end")
         box_p.insert("1.0", text)
+        _preview_player_gen()
 
-        # Atualiza preview
-        all_lines = text.splitlines()
-        if len(all_lines) > 12:
-            shown = all_lines[:6] + ["  ..."] + all_lines[-3:]
-        else:
-            shown = all_lines
-        preview_box.configure(state="normal")
-        preview_box.delete("1.0", "end")
-        preview_box.insert("1.0", "\n".join(shown))
-        preview_box.configure(state="disabled")
-
-        # Atualiza gráfico
-        xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
-        _draw_xp_curve(xp_vals, canvas_xp)
-
+    ctk.CTkButton(gen_card, text="👁  Preview",
+                  height=28, fg_color="#1e293b", hover_color="#334155",
+                  font=ctk.CTkFont(size=11),
+                  command=_preview_player_gen).grid(
+        row=4, column=0, padx=12, pady=(0, 8), sticky="w")
     ctk.CTkButton(gen_card, text="Gerar e aplicar",
                   height=28, fg_color="#0e4a6e", hover_color="#0a3550",
                   font=ctk.CTkFont(size=11),
                   command=_apply_player_gen).grid(
-        row=3, column=0, columnspan=8, padx=12, pady=(0, 8), sticky="w")
+        row=4, column=1, padx=(0, 12), pady=(0, 8), sticky="w")
 
     # ── Textbox raw ───────────────────────────────────────────────────────────
     box_p = ctk.CTkTextbox(sf, height=180, font=ctk.CTkFont(family="Consolas", size=10))

@@ -27,6 +27,8 @@ public:
     int         StartingPoints()     const;
     std::string ShopName()           const;
     std::string UiKey()              const;
+    std::string WebApiUrl()          const;
+    std::string WebApiKey()          const;
     bool        DisableSell()        const;
     bool        DisableTrade()       const;
 

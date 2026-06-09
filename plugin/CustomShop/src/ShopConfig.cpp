@@ -46,6 +46,14 @@ std::string ShopConfig::UiKey() const {
     return settings_.value("UiKey", "F3");
 }
 
+std::string ShopConfig::WebApiUrl() const {
+    return settings_.value("WebApiUrl", "http://127.0.0.1:5177");
+}
+
+std::string ShopConfig::WebApiKey() const {
+    return settings_.value("WebApiKey", "");
+}
+
 bool ShopConfig::DisableSell() const {
     return settings_.value("DisableSellButton", true);
 }

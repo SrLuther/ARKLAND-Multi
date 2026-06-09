@@ -8,6 +8,8 @@
     "DisableSellButton":     true,
     "DisableTradeButton":    false,
     "WebsiteUrl":            "",
+    "WebApiUrl":             "http://127.0.0.1:5177",
+    "WebApiKey":             "",
     "DiscordUrl":            "",
     "VoteRewards":           false,
     "HideBuffIcon":          false,

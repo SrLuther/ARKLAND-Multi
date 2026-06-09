@@ -20,7 +20,6 @@ Opções disponíveis no dict:
 from __future__ import annotations
 
 import configparser
-import os
 from pathlib import Path
 from typing import Any
 
@@ -45,7 +44,6 @@ INI_MAP: dict[str, tuple] = {
     "admin_logging":            ("GUS", "ServerSettings",   "AdminLogging",                {}),
     "active_mods":              ("GUS", "ServerSettings",   "ActiveMods",                  {"list_sep": ","}),
     "auto_save_period":         ("GUS", "ServerSettings",   "AutoSavePeriodMinutes",       {}),
-    "kick_idle_players":        ("GUS", "ServerSettings",   "KickIdlePlayersPeriod",       {}),
     "enable_ban_list_url":      ("GUS", "ServerSettings",   "BanListURL",                  {"conditional_on": "enable_ban_list_url", "use_field": "ban_list_url"}),
     "motd":                     ("GUS", "MessageOfTheDay",  "Message",                     {"conditional_on": "motd"}),
     "motd_duration":            ("GUS", "MessageOfTheDay",  "Duration",                    {"conditional_on": "motd"}),
@@ -424,7 +422,7 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
 
     # Lê o arquivo existente (se houver) para preservar seções não mapeadas
     parser = configparser.RawConfigParser()
-    parser.optionxform = str  # preserva case
+    parser.optionxform = str  # type: ignore[assignment]  # preserva case
     if path.exists():
         for enc in ("utf-16", "utf-8-sig", "utf-8", "latin-1"):
             try:
@@ -459,7 +457,7 @@ def read_ini(cfg: AsmServerConfig) -> None:
     parsers: dict[str, configparser.RawConfigParser] = {}
     for fk in ("GUS", "Game"):
         p = configparser.RawConfigParser()
-        p.optionxform = str
+        p.optionxform = str  # type: ignore[assignment]
         fp = _ini_path(cfg.install_dir, fk)
         if fp.exists():
             for enc in ("utf-16", "utf-8-sig", "utf-8", "latin-1"):
@@ -545,7 +543,7 @@ def read_ini_from_paths(
 
     for fk, fp_str in path_map.items():
         p = configparser.RawConfigParser()
-        p.optionxform = str
+        p.optionxform = str  # type: ignore[assignment]
         if fp_str:
             fp = Path(fp_str)
             if fp.exists():
@@ -612,7 +610,13 @@ def read_ini_from_paths(
 
 
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
-    """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs()."""
+    """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
+    
+    O SessionName NÃO vai na CLI — conforme documentação do ARKLAND v1.5.5+,
+    o nome deve ficar SOMENTE no GameUserSettings.ini ([SessionSettings]/SessionName).
+    Colocar SessionName na CLI causava crash do ArkShopUI.dll no FTimerManager::Tick
+    ~5min após conectar e/ou fazia o servidor não iniciar se o nome contivesse espaços.
+    """
     params = [
         f"{cfg.server_map}",
         "?listen",
@@ -620,13 +624,6 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
-    # SessionName é escrito no GUS.ini ([SessionSettings]/SessionName) como fonte
-    # primária. Se o nome não tiver espaços (caracteres seguros para a URL de viagem
-    # do UE4), também o incluímos como parâmetro na CLI para garantia dupla.
-    # NOTA: NÃO colocamos aspas ao redor da travel URL — o parser do UE4 leria as
-    # aspas como parte do token, quebrando ?Port=, ?QueryPort= etc.
-    if cfg.session_name and " " not in cfg.session_name:
-        params.append(f"?SessionName={cfg.session_name}")
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:

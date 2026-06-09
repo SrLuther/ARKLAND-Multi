@@ -28,6 +28,9 @@ build_*.txt
 # %APPDATA%\ARKLAND-Multi\config.json  ← fora do repo por natureza
 
 # Segredos locais (tokens, chaves — nunca commitar)
+.env
+.env.local
+.env.*.local
 .secrets.local
 *.secrets.local
 
