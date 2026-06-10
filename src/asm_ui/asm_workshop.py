@@ -461,10 +461,15 @@ class _WorkshopWindow(ctk.CTkToplevel):
                         "✘ SteamCMD não encontrado. Configure o caminho nas configurações."
                     ))
                     return
+                log_win.after(0, lambda: _log("⏳ Iniciando SteamCMD…"))
+                log_win.after(0, lambda: _log(
+                    "A auto-atualização pode levar 1–2 min. Janela do SteamCMD será aberta."
+                ))
                 sc = AsmSteamCmd(scmd_path, on_log=lambda m: log_win.after(0, lambda msg=m: _log(msg)))
                 sc.download_mods(
                     mod_ids=mod_ids,
                     install_dir=srv.install_dir,
+                    show_console=True,
                     on_done=lambda ok, msg: log_win.after(
                         0, lambda o=ok, m=msg: _log(f"{'✔' if o else '✘'} {m}")
                     ),

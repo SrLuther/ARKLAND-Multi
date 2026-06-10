@@ -115,6 +115,8 @@ class ModManager:
                     on_done(False)
                 return
             self._active = True
+        _eff_log(f"⏳ Preparando download de {len(mod_ids)} mod(s) em um único SteamCMD…", "info")
+        _eff_log("A auto-atualização do SteamCMD pode levar 1–2 min antes do progresso aparecer.", "info")
         thread = threading.Thread(
             target=self._download_worker,
             args=(mod_ids, install_dir, on_done, copy_to_mods, _eff_log, _eff_progress, show_console),
@@ -199,105 +201,111 @@ class ModManager:
                 on_done(False)
             return
 
-        success = True
+        valid_ids = [m.strip() for m in mod_ids if m.strip().isdigit()]
         for mod_id in mod_ids:
-            mod_id = mod_id.strip()
-            if not mod_id.isdigit():
-                _log(f"ID de mod inválido: {mod_id}", "warning")
-                continue
+            mid = mod_id.strip()
+            if mid and not mid.isdigit():
+                _log(f"ID de mod inválido: {mid}", "warning")
 
-            _log(f"Baixando mod {mod_id}...", "info")
+        if not valid_ids:
+            self._active = False
+            if on_done:
+                on_done(False)
+            return
+
+        for mod_id in valid_ids:
             _progress(mod_id, "updating")
 
-            cmd = [
-                steamcmd,
-                "+force_install_dir", install_dir,
-                "+login", "anonymous",
-                "+workshop_download_item", _ARK_GAME_ID, mod_id, "validate",
-                "+quit",
-            ]
+        cmd = [steamcmd, "+force_install_dir", install_dir, "+login", "anonymous"]
+        for mod_id in valid_ids:
+            cmd += ["+workshop_download_item", _ARK_GAME_ID, mod_id, "validate"]
+        cmd.append("+quit")
 
-            try:
-                if show_console:
-                    proc = subprocess.Popen(
-                        cmd,
-                        creationflags=subprocess.CREATE_NEW_CONSOLE,
-                    )
-                    proc.wait()
-                else:
-                    proc = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        encoding="utf-8",
-                        errors="replace",
-                        creationflags=subprocess.CREATE_NO_WINDOW,
-                    )
-                    if proc.stdout:
-                        for line in proc.stdout:
-                            line = line.rstrip()
-                            if line:
-                                _log(f"[SteamCMD] {line}", "debug")
-                    proc.wait()
-                if proc.returncode == 0:
-                    src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
-                    if copy_to_mods:
-                        mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
-                        dst_mod  = mods_dir / mod_id
-                        copy_ok = False
-                        if src_mod.exists():
-                            try:
-                                mods_dir.mkdir(parents=True, exist_ok=True)
-                                if dst_mod.exists():
-                                    shutil.rmtree(dst_mod)
-                                shutil.copytree(src_mod, dst_mod)
-                                dot_mod_dest = mods_dir / f"{mod_id}.mod"
-                                src_dot_mod = (
-                                    self._find_dot_mod(src_mod, mod_id)
-                                    or self._find_official_dot_mod(mod_id)
+        success = True
+        try:
+            if show_console:
+                _log("Abrindo janela do SteamCMD…", "info")
+                proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                proc.wait()
+            else:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                if proc.stdout:
+                    for line in proc.stdout:
+                        line = line.rstrip()
+                        if line:
+                            _log(f"[SteamCMD] {line}", "debug")
+                proc.wait()
+
+            if proc.returncode != 0:
+                _log(f"SteamCMD retornou código {proc.returncode}.", "error")
+                for mod_id in valid_ids:
+                    _progress(mod_id, "error")
+                self._active = False
+                if on_done:
+                    on_done(False)
+                return
+
+            _log(f"SteamCMD concluído — instalando {len(valid_ids)} mod(s) na pasta do servidor…", "info")
+            for mod_id in valid_ids:
+                src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
+                if copy_to_mods:
+                    mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+                    dst_mod  = mods_dir / mod_id
+                    copy_ok = False
+                    if src_mod.exists():
+                        try:
+                            mods_dir.mkdir(parents=True, exist_ok=True)
+                            if dst_mod.exists():
+                                shutil.rmtree(dst_mod)
+                            win_src = src_mod / "WindowsNoEditor"
+                            effective_src = win_src if win_src.exists() else src_mod
+                            shutil.copytree(effective_src, dst_mod)
+                            dot_mod_dest = mods_dir / f"{mod_id}.mod"
+                            src_dot_mod = (
+                                self._find_dot_mod(src_mod, mod_id)
+                                or self._find_official_dot_mod(mod_id)
+                            )
+                            if src_dot_mod:
+                                shutil.copy2(src_dot_mod, dot_mod_dest)
+                            elif self._create_dot_mod_from_mod_info(src_mod, mod_id, dot_mod_dest):
+                                _log(f"Mod {mod_id}: arquivo .mod gerado a partir do mod.info.", "info")
+                            else:
+                                _log(
+                                    f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado e mod.info ausente.",
+                                    "error",
                                 )
-                                if src_dot_mod:
-                                    shutil.copy2(src_dot_mod, dot_mod_dest)
-                                    _log(f"Mod {mod_id}: arquivo .mod copiado de {src_dot_mod.parent}.", "debug")
-                                elif self._create_dot_mod_from_mod_info(src_mod, mod_id, dot_mod_dest):
-                                    _log(f"Mod {mod_id}: arquivo .mod gerado a partir do mod.info (Steam Client ausente).", "info")
-                                else:
-                                    _log(
-                                        f"[ATEN\u00c7\u00c3O] Mod {mod_id}: arquivo .mod n\u00e3o encontrado e mod.info ausente. "
-                                        "Re-baixe o mod ou subscreva-o no Steam Client.",
-                                        "error"
-                                    )
-                                _log(f"Mod {mod_id} copiado para pasta de Mods.", "info")
-                                copy_ok = True
-                            except Exception as copy_exc:
-                                _log(f"Aviso: falha ao copiar mod {mod_id}: {copy_exc}", "warning")
-                        else:
-                            _log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
-                        if copy_ok:
-                            _log(f"Mod {mod_id} baixado com sucesso.", "info")
-                            _progress(mod_id, "installed")
-                        else:
-                            _log(f"Mod {mod_id}: download OK mas não foi instalado na pasta de Mods.", "error")
-                            _progress(mod_id, "error")
-                            success = False
+                            _log(f"Mod {mod_id} instalado em Mods/.", "info")
+                            copy_ok = True
+                        except Exception as copy_exc:
+                            _log(f"Falha ao copiar mod {mod_id}: {copy_exc}", "warning")
                     else:
-                        # copy_to_mods=False: apenas verifica se o download chegou
-                        if src_mod.exists():
-                            _log(f"Mod {mod_id} baixado para Workshop (cópia pendente).", "info")
-                            _progress(mod_id, "installed")
-                        else:
-                            _log(f"Mod {mod_id}: download OK mas pasta Workshop não encontrada.", "error")
-                            _progress(mod_id, "error")
-                            success = False
+                        _log(f"Pasta do Workshop não encontrada para mod {mod_id}.", "warning")
+                    if copy_ok:
+                        _progress(mod_id, "installed")
+                    else:
+                        _progress(mod_id, "error")
+                        success = False
+                elif src_mod.exists():
+                    _log(f"Mod {mod_id} baixado para Workshop (cópia pendente).", "info")
+                    _progress(mod_id, "installed")
                 else:
-                    _log(f"Erro ao baixar mod {mod_id} (código {proc.returncode}).", "error")
+                    _log(f"Mod {mod_id}: pasta Workshop não encontrada.", "error")
                     _progress(mod_id, "error")
                     success = False
-            except Exception as exc:
-                _log(f"Exceção ao executar SteamCMD: {exc}", "error")
+        except Exception as exc:
+            _log(f"Exceção ao executar SteamCMD: {exc}", "error")
+            for mod_id in valid_ids:
                 _progress(mod_id, "error")
-                success = False
+            success = False
 
         self._active = False
         _log("Download de mods concluído.", "info")
@@ -313,6 +321,7 @@ class ModManager:
         on_done: Optional[Callable[[bool], None]] = None,
         branch_name: str = "",
         branch_password: str = "",
+        show_console: bool = False,
     ) -> None:
         """Instala ou atualiza o servidor ARK Dedicated via SteamCMD."""
         with self._lock:
@@ -320,9 +329,11 @@ class ModManager:
                 self._on_log("Já existe uma operação em progresso.", "warning")
                 return
             self._active = True
+        self._on_log("⏳ Iniciando instalação/atualização do servidor via SteamCMD…", "info")
+        self._on_log("A auto-atualização do SteamCMD pode levar 1–2 min antes do download aparecer.", "info")
         thread = threading.Thread(
             target=self._install_server_worker,
-            args=(install_dir, validate, on_done, branch_name, branch_password),
+            args=(install_dir, validate, on_done, branch_name, branch_password, show_console),
             daemon=True,
             name="ServerInstallThread",
         )
@@ -336,6 +347,7 @@ class ModManager:
         on_done: Optional[Callable[[bool], None]],
         branch_name: str = "",
         branch_password: str = "",
+        show_console: bool = False,
     ) -> None:
         steamcmd = self.get_steamcmd_exe()
         if not steamcmd:
@@ -363,21 +375,27 @@ class ModManager:
         ]
 
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                creationflags=subprocess.CREATE_NO_WINDOW,
-            )
-            if proc.stdout:
-                for line in proc.stdout:
-                    line = line.rstrip()
-                    if line:
-                        self._on_log(f"[SteamCMD] {line}", "debug")
-            proc.wait()
+            if show_console:
+                self._on_log("Abrindo janela do SteamCMD…", "info")
+                proc = subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                proc.wait()
+            else:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+                if proc.stdout:
+                    for line in proc.stdout:
+                        line = line.rstrip()
+                        if line:
+                            self._on_log(f"[SteamCMD] {line}", "debug")
+                proc.wait()
             ok = proc.returncode == 0
             if ok:
                 self._on_log("Servidor instalado/atualizado com sucesso.", "info")

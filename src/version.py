@@ -3,11 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.7.0"
-BUILD_DATE: str = "2026-06-09"
+APP_VERSION: str = "1.7.1"
+BUILD_DATE: str = "2026-06-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.1",
+        "date": "2026-06-10",
+        "changes": [
+            "Fix (ASM/launch): restaurado ?SessionName= na CLI para nomes sem espaços — "
+            "regressão da v1.7.0 causava nome genérico 'ARK #NNNNNN' na listagem.",
+            "Fix (ASM/INI): MaxPlayers gravado em [/Script/Engine.GameSession] (seção correta do ASM).",
+            "Fix (ASM/start): Iniciar/Restart pelo dashboard ou card agora sincroniza o painel "
+            "aberto antes de gravar INI e lançar o servidor.",
+            "Melhoria (SteamCMD): log imediato e janela visível ao baixar servidor/mods — "
+            "feedback antes da auto-atualização do SteamCMD (1–2 min).",
+            "Melhoria (Mods): um único SteamCMD para todos os mods da lista (antes: 1 por mod).",
+            "Melhoria (TEK): botão 📁 na pasta de instalação ao criar servidor; pergunta se "
+            "deseja instalar o servidor agora após criar.",
+        ],
+    },
     {
         "version": "1.7.0",
         "date": "2026-06-10",

@@ -57,7 +57,8 @@ def open_mod_download_dialog(
     ).grid(row=0, column=0, padx=16, pady=(12, 2), sticky="w")
 
     status_header = ctk.CTkLabel(
-        hdr, text=f"{len(mod_ids)} mod(s) na fila  •  O SteamCMD será aberto para cada mod",
+        hdr,
+        text=f"{len(mod_ids)} mod(s) na fila  •  Um único SteamCMD baixa todos de uma vez",
         text_color="gray55", font=ctk.CTkFont(size=11),
     )
     status_header.grid(row=1, column=0, padx=16, pady=(0, 12), sticky="w")
@@ -147,7 +148,14 @@ def open_mod_download_dialog(
             pass
 
     def _on_progress_dlg(mid: str, status: str) -> None:
-        dlg.after(0, lambda: _set_status(mid, status))
+        def _apply(m: str = mid, s: str = status) -> None:
+            _set_status(m, s)
+            if s == "updating":
+                status_header.configure(
+                    text=f"Baixando mods via SteamCMD…  ({len(mod_ids)} em um único processo)",
+                    text_color="#4FC3F7",
+                )
+        dlg.after(0, _apply)
 
     def _on_log_dlg(msg: str, level: str = "info") -> None:
         dlg.after(0, lambda: _append_log(msg, level))
@@ -160,6 +168,8 @@ def open_mod_download_dialog(
         dlg.after(0, lambda: app._refresh_mods_list(server_id))
 
     # ── Inicia o download ─────────────────────────────────────────────────
+    _append_log("⏳ Iniciando SteamCMD…", "info")
+    _append_log("A auto-atualização pode levar 1–2 min antes do download aparecer.", "info")
     app.mod_manager.steamcmd_path = app.config_manager.config.steamcmd_path
     app.mod_manager.download_mods(
         mod_ids,

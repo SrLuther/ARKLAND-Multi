@@ -110,6 +110,7 @@ class AsmSteamCmd:
         branch: str = "",
         branch_password: str = "",
         validate: bool = False,
+        show_console: bool = False,
         on_done: Optional[Callable[[bool, str], None]] = None,
     ) -> None:
         """
@@ -131,20 +132,24 @@ class AsmSteamCmd:
             return
 
         args = self._build_install_args(install_dir, branch, branch_password, validate)
-        self._run_async(args, on_done)
+        self._run_async(args, on_done, show_console=show_console)
 
     def validate_server(
         self,
         install_dir: str,
+        show_console: bool = False,
         on_done: Optional[Callable[[bool, str], None]] = None,
     ) -> None:
         """Valida e repara os arquivos do servidor (app_update + validate)."""
-        self.install_server(install_dir, validate=True, on_done=on_done)
+        self.install_server(
+            install_dir, validate=True, show_console=show_console, on_done=on_done,
+        )
 
     def download_mod(
         self,
         mod_id: str,
         install_dir: str,
+        show_console: bool = False,
         on_done: Optional[Callable[[bool, str], None]] = None,
     ) -> None:
         """
@@ -171,16 +176,19 @@ class AsmSteamCmd:
 
         def _after(success: bool, msg: str) -> None:
             if success:
-                self._copy_mod_to_server(mod_id, on_done)
+                ok = self._copy_mod_to_server(mod_id, install_dir)
+                if on_done:
+                    on_done(ok, "Mod copiado." if ok else f"Mod {mod_id}: pasta workshop não encontrada.")
             elif on_done:
                 on_done(False, msg)
 
-        self._run_async(args, _after)
+        self._run_async(args, _after, show_console=show_console)
 
     def download_mods(
         self,
         mod_ids: List[str],
         install_dir: str,
+        show_console: bool = False,
         on_done: Optional[Callable[[bool, str], None]] = None,
     ) -> None:
         """Baixa múltiplos mods em um único processo SteamCMD."""
@@ -201,6 +209,7 @@ class AsmSteamCmd:
 
         def _after(success: bool, msg: str) -> None:
             if success:
+                self._on_log(f"SteamCMD concluído — copiando {len(mod_ids)} mod(s) para o servidor…")
                 errors = []
                 copied = 0
                 for mid in mod_ids:
@@ -213,14 +222,14 @@ class AsmSteamCmd:
                     except Exception as exc:
                         errors.append(f"Mod {mid}: {exc}")
                 if errors and on_done:
-                    extra = f"\n{copied}/{len(mod_ids)} mod(s) copiados.\n" + "\n".join(errors)
+                    extra = f"{copied}/{len(mod_ids)} mod(s) copiados.\n" + "\n".join(errors)
                     on_done(copied > 0, extra)
                 elif on_done:
                     on_done(True, f"{copied} mod(s) baixado(s) com sucesso.")
             elif on_done:
                 on_done(False, msg)
 
-        self._run_async(args, _after)
+        self._run_async(args, _after, show_console=show_console)
 
     def abort(self) -> None:
         """Interrompe o processo SteamCMD em execução, se houver."""
@@ -258,15 +267,21 @@ class AsmSteamCmd:
         self,
         args: List[str],
         on_done: Optional[Callable[[bool, str], None]],
+        show_console: bool = False,
     ) -> None:
         """Executa SteamCMD em thread separada, chamando on_done ao terminar."""
-        t = threading.Thread(target=self._worker, args=(args, on_done), daemon=True)
+        t = threading.Thread(
+            target=self._worker,
+            args=(args, on_done, show_console),
+            daemon=True,
+        )
         t.start()
 
     def _worker(
         self,
         args: List[str],
         on_done: Optional[Callable[[bool, str], None]],
+        show_console: bool = False,
     ) -> None:
         env = os.environ.copy()
         # Remove __COMPAT_LAYER para evitar shims que causam crash (ArkShopUI)
@@ -274,22 +289,33 @@ class AsmSteamCmd:
 
         try:
             with self._lock:
-                self._proc = subprocess.Popen(
-                    args,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    env=env,
-                )
+                if show_console:
+                    self._on_log("Abrindo janela do SteamCMD…")
+                    self._proc = subprocess.Popen(
+                        args,
+                        env=env,
+                        creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    )
+                else:
+                    self._proc = subprocess.Popen(
+                        args,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        encoding="utf-8",
+                        errors="replace",
+                        bufsize=1,
+                        env=env,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
 
             last_line = ""
-            for line in self._proc.stdout:  # type: ignore[union-attr]
-                line = line.rstrip("\n")
-                if line:
-                    last_line = line
-                    self._on_log(line)
+            if not show_console and self._proc.stdout:
+                for line in self._proc.stdout:
+                    line = line.rstrip("\n")
+                    if line:
+                        last_line = line
+                        self._on_log(line)
 
             self._proc.wait()
             success = self._proc.returncode == 0

@@ -825,7 +825,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _fetch_btn.pack(side="left", padx=(0, 4))
 
     def _do_redownload_mods():
-        from ..asm_engine.asm_steamcmd import AsmSteamCmd
+        from .asm_steamcmd_ui import start_mods_redownload
         _app = vars_ref.get("_app")
         _lines = _hidden_mods.get("1.0", "end").strip().splitlines()
         _ids = [l.strip() for l in _lines if l.strip()]
@@ -833,17 +833,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             import tkinter.messagebox as mb
             mb.showinfo("Sem mods", "Nenhum mod configurado na lista.")
             return
-        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
-        sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
-        if not sc.is_available:
-            import tkinter.messagebox as mb
-            mb.showwarning("SteamCMD não encontrado", "steamcmd.exe não localizado.")
-            return
-        _open_steamcmd_log_window(_app, sf, sc)
-        sc.download_mods(
-            _ids, srv.install_dir,
-            on_done=lambda ok, msg: _app.after(0, lambda: _log_steamcmd(f"[{'OK' if ok else 'ERRO'}] {msg}")),
-        )
+        start_mods_redownload(_app, srv, _ids)
 
     ctk.CTkButton(_mods_tb, text="⬇  Redownload Mods", width=155, height=28,
                   fg_color="#1e3a5f", hover_color="#1e40af",
@@ -896,88 +886,16 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _section_label(sf, "Ações do Servidor", 48, accent)
 
     def _do_install():
-        from ..asm_engine.asm_steamcmd import AsmSteamCmd
-        _app = vars_ref.get("_app")
-        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
-        sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
-        if not sc.is_available:
-            import tkinter.messagebox as mb
-            mb.showwarning("SteamCMD não encontrado",
-                           "steamcmd.exe não foi localizado.\nConfigure o caminho em Configurações ou instale o SteamCMD em C:\\steamcmd\\")
-            return
-        _open_steamcmd_log_window(_app, sf, sc)
-        sc.install_server(
-            srv.install_dir,
-            branch=srv.branch_name,
-            branch_password=srv.branch_password,
-            on_done=lambda ok, msg: _app.after(0, lambda: _log_steamcmd(f"[{'OK' if ok else 'ERRO'}] {msg}")),
-        )
+        from .asm_steamcmd_ui import start_server_install
+        start_server_install(vars_ref.get("_app"), srv)
 
     def _do_mods():
-        from ..asm_engine.asm_steamcmd import AsmSteamCmd
-        _app = vars_ref.get("_app")
-        if not srv.active_mods:
-            import tkinter.messagebox as mb
-            mb.showinfo("Sem mods", "Nenhum mod configurado na lista de Mods.")
-            return
-        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
-        sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
-        if not sc.is_available:
-            import tkinter.messagebox as mb
-            mb.showwarning("SteamCMD não encontrado",
-                           "steamcmd.exe não foi localizado.\nConfigure o caminho em Configurações.")
-            return
-        _open_steamcmd_log_window(_app, sf, sc)
-        sc.download_mods(
-            srv.active_mods, srv.install_dir,
-            on_done=lambda ok, msg: _app.after(0, lambda: _log_steamcmd(f"[{'OK' if ok else 'ERRO'}] {msg}")),
-        )
+        from .asm_steamcmd_ui import start_mods_download
+        start_mods_download(vars_ref.get("_app"), srv)
 
     def _do_validate():
-        from ..asm_engine.asm_steamcmd import AsmSteamCmd
-        _app = vars_ref.get("_app")
-        scmd_path = getattr(getattr(getattr(_app, "config_manager", None), "config", None), "steamcmd_path", None)
-        sc = AsmSteamCmd(scmd_path, on_log=lambda msg: _app.after(0, lambda m=msg: _log_steamcmd(m)))
-        if not sc.is_available:
-            import tkinter.messagebox as mb
-            mb.showwarning("SteamCMD não encontrado",
-                           "steamcmd.exe não foi localizado.")
-            return
-        _open_steamcmd_log_window(_app, sf, sc)
-        sc.validate_server(
-            srv.install_dir,
-            on_done=lambda ok, msg: _app.after(0, lambda: _log_steamcmd(f"[{'OK' if ok else 'ERRO'}] {msg}")),
-        )
-
-    # janela de log do SteamCMD (singleton por painel)
-    _log_win: list = [None]
-    _log_box: list = [None]
-
-    def _log_steamcmd(msg: str):
-        if _log_box[0]:
-            _log_box[0].configure(state="normal")
-            _log_box[0].insert("end", msg + "\n")
-            _log_box[0].see("end")
-            _log_box[0].configure(state="disabled")
-
-    def _open_steamcmd_log_window(_app, parent, sc):
-        if _log_win[0] and _log_win[0].winfo_exists():
-            _log_win[0].lift()
-            return
-        win = ctk.CTkToplevel(_app)
-        win.title(f"SteamCMD — {srv.name}")
-        win.geometry("700x400")
-        win.configure(fg_color=bg)
-        _log_win[0] = win
-        box = ctk.CTkTextbox(win, state="disabled", font=ctk.CTkFont(family="Consolas", size=11),
-                             fg_color="#0a0a0a", text_color="#86efac")
-        box.pack(fill="both", expand=True, padx=8, pady=8)
-        _log_box[0] = box
-        btn_abort = ctk.CTkButton(win, text="⏹  Cancelar", width=110, height=28,
-                                  fg_color="#7f1d1d", hover_color="#991b1b",
-                                  command=lambda: (sc.abort(), win.destroy()))
-        btn_abort.pack(pady=(0, 8))
-        win.protocol("WM_DELETE_WINDOW", win.destroy)
+        from .asm_steamcmd_ui import start_server_validate
+        start_server_validate(vars_ref.get("_app"), srv)
 
     btn_row = ctk.CTkFrame(sf, fg_color="transparent")
     btn_row.grid(row=49, column=0, columnspan=2, padx=8, pady=4, sticky="w")

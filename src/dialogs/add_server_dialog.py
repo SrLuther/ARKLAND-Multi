@@ -137,10 +137,31 @@ def dialog_add_server(app: "ARKServerManagerApp") -> None:
 
         app.config_manager.add_server(srv)
         app.server_manager.add_server(srv)
+        new_id = srv.id
         app._rebuild_server_sidebar()
         app._refresh_dashboard()
         dlg.destroy()
-        app._open_server_panel(srv.id)
+        app._open_server_panel(new_id)
+
+        if srv.install_dir.strip():
+            from tkinter import messagebox
+            if messagebox.askyesno(
+                "Instalar servidor",
+                f"Servidor '{srv.name}' criado.\n\n"
+                f"Deseja baixar/atualizar os arquivos do servidor agora?\n\n"
+                f"Pasta: {srv.install_dir}",
+                parent=app,
+            ):
+                app._global_log("⏳ Iniciando instalação do servidor via SteamCMD…", "info")
+                app.mod_manager.steamcmd_path = app.config_manager.config.steamcmd_path
+                app.mod_manager.install_server(
+                    srv.install_dir,
+                    show_console=True,
+                    on_done=lambda ok: app._global_log(
+                        "Servidor instalado/atualizado." if ok else "Falha na instalação do servidor.",
+                        "info" if ok else "error",
+                    ),
+                )
 
     ctk.CTkButton(
         dlg, text="✅  Criar Servidor", height=40,

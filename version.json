@@ -1,14 +1,13 @@
 {
-    "version": "1.7.0",
-    "date": "2026-06-09",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.0/ARKLAND-Multi-Setup-v1.7.0.exe",
+    "version": "1.7.1",
+    "date": "2026-06-10",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.1/ARKLAND-Multi-Setup-v1.7.1.exe",
     "changelog": [
-        "Novo (Loja): arquitetura multi-máquina — uma loja web central (host) e apps cliente na LAN apontando para o mesmo arkshop_web e API key.",
-        "Novo (Loja): entrega in-game via plugin CustomShop — compras ficam PENDENTES na web e são entregues automaticamente ao jogador (GiveItem/GiveKit), sem mod MX-E Ark Shop UI nem dependência do ArkShop original.",
-        "Novo (Loja): painel 🛒 Loja reformado — aba Web Store (modo Host/Cliente), teste de conexão, sync de catálogo e botão Aplicar em todos os plugins.",
-        "Melhoria (Plugin): CustomShop recompilável — HttpClient, build_cl.bat e CustomShop.vcxproj alinhados; DLL embutida no instalador do app.",
-        "Fix (Loja): API /api/pending e /api/pending/delivered corrigidas para entrega via fila do plugin (delivery_mode=plugin por padrão).",
-        "Fix (ASM/launch): SessionName removido permanentemente da CLI — nome do servidor fica somente no GameUserSettings.ini ([SessionSettings]/SessionName).",
-        "Fix (ASM/INI): DifficultyOffset gravado apenas quando enable_difficulty_override=True."
+        "Fix (ASM/launch): restaurado ?SessionName= na CLI para nomes sem espaços — regressão da v1.7.0 causava nome genérico 'ARK #NNNNNN' na listagem.",
+        "Fix (ASM/INI): MaxPlayers gravado em [/Script/Engine.GameSession] (seção correta do ASM).",
+        "Fix (ASM/start): Iniciar/Restart pelo dashboard ou card agora sincroniza o painel aberto antes de gravar INI e lançar o servidor.",
+        "Melhoria (SteamCMD): log imediato e janela visível ao baixar servidor/mods — feedback antes da auto-atualização do SteamCMD (1–2 min).",
+        "Melhoria (Mods): um único SteamCMD para todos os mods da lista (antes: 1 por mod).",
+        "Melhoria (TEK): botão 📁 na pasta de instalação ao criar servidor; pergunta se deseja instalar o servidor agora após criar."
     ]
 }

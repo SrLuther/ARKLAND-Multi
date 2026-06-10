@@ -706,9 +706,20 @@ class ARKServerManagerApp(ctk.CTk):
             errors.append("Senha admin não definida (obrigatória para RCON e acesso administrativo)")
         return errors
 
+    def _asm_sync_server_cfg(self, srv: AsmServerConfig) -> AsmServerConfig:
+        """Sincroniza painel aberto → cfg e retorna o objeto mais recente do manager."""
+        fresh = self.asm_config_manager.get_server(srv.id) or srv
+        try:
+            from .asm_ui.asm_server_panel import _sync_ui_to_cfg
+            _sync_ui_to_cfg(self, fresh)
+        except Exception:
+            pass
+        return fresh
+
     def _asm_start_server(self, srv: AsmServerConfig, no_mods: bool = False) -> None:
         from tkinter import messagebox
 
+        srv = self._asm_sync_server_cfg(srv)
         errors = self._validate_server_config(srv)
         if errors:
             msg = "\n\n".join(f"• {e}" for e in errors)
@@ -776,6 +787,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._asm_refresh_dashboard()
 
     def _asm_restart_server(self, srv: AsmServerConfig) -> None:
+        srv = self._asm_sync_server_cfg(srv)
         self.asm_server_manager.restart(
             srv,
             on_done=lambda ok, msg: self.after(0, self._asm_refresh_dashboard),

@@ -173,13 +173,43 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
         for w in form_container.winfo_children():
             w.destroy()
 
-    def _entry_row(parent, label: str, row: int, placeholder: str = "", width: int = 0) -> ctk.CTkEntry:
+    def _entry_row(
+        parent,
+        label: str,
+        row: int,
+        placeholder: str = "",
+        width: int = 0,
+        browse_dir: bool = False,
+    ) -> ctk.CTkEntry:
         ctk.CTkLabel(parent, text=label, anchor="w",
                      font=ctk.CTkFont(size=11), text_color=t_sec,
                      ).grid(row=row, column=0, padx=(0, 8), pady=5, sticky="w")
-        kw = {"placeholder_text": placeholder}
+        kw: dict = {"placeholder_text": placeholder}
         if width:
             kw["width"] = width
+
+        if browse_dir:
+            row_f = ctk.CTkFrame(parent, fg_color="transparent")
+            row_f.grid(row=row, column=1, pady=5, sticky="ew")
+            row_f.grid_columnconfigure(0, weight=1)
+            e = ctk.CTkEntry(row_f, **kw)
+            e.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+            def _browse(entry: ctk.CTkEntry = e) -> None:
+                from tkinter import filedialog
+                path = filedialog.askdirectory(
+                    title="Selecione a pasta de instalação do servidor",
+                    parent=dlg,
+                )
+                if path:
+                    entry.delete(0, "end")
+                    entry.insert(0, path)
+
+            ctk.CTkButton(row_f, text="📁", width=34, height=28,
+                          fg_color=sep, hover_color="#263347",
+                          command=_browse).grid(row=0, column=1)
+            return e
+
         e = ctk.CTkEntry(parent, **kw)
         e.grid(row=row, column=1, pady=5, sticky="ew")
         return e
@@ -193,7 +223,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
 
         e_name    = _entry_row(f, "Nome no gerenciador",  0, "Meu Servidor TEK")
         e_session = _entry_row(f, "Nome da sessão (INI)", 1, "My ARK Server")
-        e_dir     = _entry_row(f, "Pasta de instalação",  2, "C:\\ARK\\")
+        e_dir     = _entry_row(f, "Pasta de instalação",  2, "C:\\ARK\\", browse_dir=True)
         e_port    = _entry_row(f, "Porta (game)",         3, "7777", 90)
         e_query   = _entry_row(f, "Porta (query)",        4, "27015", 90)
 
@@ -211,11 +241,15 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
             except ValueError:
                 pass
             app.asm_config_manager.add_server(cfg)
+            new_id = cfg.id
             dlg.destroy()
             if getattr(app, "_active_mode", None) == "tek":
                 app._asm_refresh_dashboard()
             app._rebuild_server_sidebar()
-            app._asm_open_server_panel(cfg.id)
+            app._asm_open_server_panel(new_id)
+            if cfg.install_dir.strip():
+                from .asm_steamcmd_ui import offer_server_install_after_create
+                app.after(400, lambda: offer_server_install_after_create(app, new_id))
 
         ctk.CTkButton(btn_row, text="Cancelar", width=100, fg_color=card_bg,
                       hover_color="#1a2830", command=dlg.destroy).pack(side="right", padx=(6, 0))

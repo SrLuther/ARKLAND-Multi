@@ -30,7 +30,7 @@ from .asm_server_config import AsmServerConfig
 # (campo_python): (arquivo, seção, chave_ini, opções)
 INI_MAP: dict[str, tuple] = {
     # Administration
-    "session_name":             ("GUS", "SessionSettings",  "SessionName",                {}),
+    "session_name":             ("GUS", "SessionSettings",  "SessionName",                {"always_write": True}),
     "server_password":          ("GUS", "ServerSettings",   "ServerPassword",              {}),
     "admin_password":           ("GUS", "ServerSettings",   "ServerAdminPassword",         {}),
     "spectator_password":       ("GUS", "ServerSettings",   "SpectatorPassword",           {}),
@@ -274,6 +274,17 @@ _FILE_NAMES = {
 
 # Seção do Game.ini — depende do modo de jogo
 _GAME_MODE_SECTION = "/Script/ShooterGame.ShooterGameMode"
+# Seção do GUS para MaxPlayers — ASM usa /Script/Engine.GameSession, não "GameSession"
+_GUS_GAME_SESSION_SECTION = "/Script/Engine.GameSession"
+
+
+def _resolve_ini_section(file_key: str, section: str) -> str:
+    """Mapeia nomes lógicos do INI_MAP para as seções reais do ARK."""
+    if file_key == "Game" and section == "GameMode":
+        return _GAME_MODE_SECTION
+    if file_key == "GUS" and section == "GameSession":
+        return _GUS_GAME_SESSION_SECTION
+    return section
 
 
 def _ini_path(install_dir: str, file_key: str) -> Path:
@@ -344,8 +355,13 @@ def write_ini(cfg: AsmServerConfig) -> None:
             pass  # não pula — deixa escrever para garantir consistência
 
         target = gus if file_key == "GUS" else game
-        section_key = _GAME_MODE_SECTION if (file_key == "Game" and section == "GameMode") else section
+        section_key = _resolve_ini_section(file_key, section)
         target.setdefault(section_key, {})[ini_key] = value
+
+    # SessionName é obrigatório para listagem — garante gravação mesmo se INI_MAP falhar
+    _sn = (cfg.session_name or "").strip()
+    if _sn:
+        gus.setdefault("SessionSettings", {})["SessionName"] = _sn
 
     # Seções customizadas livres (legado)
     for custom in cfg.custom_ini_sections:
@@ -473,7 +489,7 @@ def read_ini(cfg: AsmServerConfig) -> None:
 
     for field_name, (file_key, section, ini_key, opts) in INI_MAP.items():
         p = parsers[file_key]
-        sec = _GAME_MODE_SECTION if (file_key == "Game" and section == "GameMode") else section
+        sec = _resolve_ini_section(file_key, section)
         if not p.has_option(sec, ini_key):
             continue
         raw = p.get(sec, ini_key)
@@ -556,7 +572,7 @@ def read_ini_from_paths(
 
     for field_name, (file_key, section, ini_key, opts) in INI_MAP.items():
         p = parsers[file_key]
-        sec = _GAME_MODE_SECTION if (file_key == "Game" and section == "GameMode") else section
+        sec = _resolve_ini_section(file_key, section)
         if not p.has_option(sec, ini_key):
             continue
         raw = p.get(sec, ini_key)
@@ -611,11 +627,11 @@ def read_ini_from_paths(
 
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
-    
-    O SessionName NÃO vai na CLI — conforme documentação do ARKLAND v1.5.5+,
-    o nome deve ficar SOMENTE no GameUserSettings.ini ([SessionSettings]/SessionName).
-    Colocar SessionName na CLI causava crash do ArkShopUI.dll no FTimerManager::Tick
-    ~5min após conectar e/ou fazia o servidor não iniciar se o nome contivesse espaços.
+
+    SessionName: sempre gravado no GUS.ini ([SessionSettings]/SessionName).
+    Quando o nome NÃO contém espaços, também vai na CLI (?SessionName=) como
+    cobertura extra — evita o nome genérico 'ARK #NNNNNN' se o INI não for lido.
+    Nomes com espaços ficam somente no INI (espaços quebram o parsing do cmd.exe).
     """
     params = [
         f"{cfg.server_map}",
@@ -624,6 +640,9 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
+    _sn = (cfg.session_name or "").strip()
+    if _sn and " " not in _sn:
+        params.append(f"?SessionName={_sn}")
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
@@ -654,7 +673,6 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     # O ARK usa o parser do Unreal Engine que lê o command line raw.
     # Aspas ao redor do MAP?params fazem o UE incluí-las no token, quebrando
     # o parsing de ?Port=, ?QueryPort=, ?AltSaveDirectoryName= etc.
-    # SessionName foi removido da CLI (está no GUS INI), então não há espaços
-    # no map string e aspas não são necessárias.
+    # SessionName na CLI só quando sem espaços; map string permanece sem aspas.
     combined_map = "".join(params)
     return [combined_map] + flags
