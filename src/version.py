@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.7.2"
+APP_VERSION: str = "1.7.3"
 BUILD_DATE: str = "2026-06-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.3",
+        "date": "2026-06-10",
+        "changes": [
+            "Fix (ASM/SessionName): fallback automático — se 'Nome da sessão' estiver vazio, "
+            "usa o nome do servidor no gerenciador (card/sidebar) para INI e CLI.",
+            "Fix (ASM/import): corrigida leitura de SessionName ao importar servidor existente "
+            "(bug lia MaxPlayers em vez de SessionName e podia zerar o nome).",
+        ],
+    },
     {
         "version": "1.7.2",
         "date": "2026-06-10",

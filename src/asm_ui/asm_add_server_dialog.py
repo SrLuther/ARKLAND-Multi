@@ -61,8 +61,11 @@ def _read_gus(gus: Path, cfg: AsmServerConfig):
         except Exception:
             return default
 
-    cfg.session_name    = _get("/Script/Engine.GameSession", "MaxPlayers") and cfg.session_name
-    cfg.session_name    = _get("ServerSettings", "SessionName") or cfg.session_name
+    cfg.session_name    = (
+        _get("SessionSettings", "SessionName")
+        or _get("ServerSettings", "SessionName")
+        or cfg.session_name
+    )
     cfg.admin_password  = _get("ServerSettings", "ServerAdminPassword") or ""
     cfg.server_password = _get("ServerSettings", "ServerPassword") or ""
     cfg.spectator_password = _get("ServerSettings", "SpectatorPassword") or ""

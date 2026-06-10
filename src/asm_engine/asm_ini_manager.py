@@ -287,6 +287,14 @@ def _resolve_ini_section(file_key: str, section: str) -> str:
     return section
 
 
+def effective_session_name(cfg: AsmServerConfig) -> str:
+    """Nome exibido no browser ARK — session_name tem prioridade; fallback para cfg.name."""
+    sn = (cfg.session_name or "").strip()
+    if sn:
+        return sn
+    return (cfg.name or "").strip() or "My ARK Server"
+
+
 def _ini_path(install_dir: str, file_key: str) -> Path:
     name = _FILE_NAMES[file_key]
     return Path(install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer" / name
@@ -386,7 +394,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
         target.setdefault(section_key, {})[ini_key] = value
 
     # SessionName é obrigatório para listagem — grava em ambas as seções usadas pelo ARK/ASM
-    _sn = (cfg.session_name or "").strip()
+    _sn = effective_session_name(cfg)
     if _sn:
         gus.setdefault("SessionSettings", {})["SessionName"] = _sn
         gus.setdefault("ServerSettings", {})["SessionName"] = _sn
@@ -681,7 +689,7 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
-    _sn = (cfg.session_name or "").strip()
+    _sn = effective_session_name(cfg)
     if _sn:
         params.append(f"?SessionName={quote(_sn, safe='')}")
     if cfg.server_ip:

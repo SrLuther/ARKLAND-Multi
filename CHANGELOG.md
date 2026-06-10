@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.7.3] - 2026-06-10
+
+### Fix
+
+- Fix (ASM/SessionName): fallback automático — se 'Nome da sessão' estiver vazio, usa o nome do servidor no gerenciador (card/sidebar) para INI e CLI.
+- Fix (ASM/import): corrigida leitura de SessionName ao importar servidor existente (bug lia MaxPlayers em vez de SessionName e podia zerar o nome).
+
 ## [1.7.2] - 2026-06-10
 
 ### Fix

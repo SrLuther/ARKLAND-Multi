@@ -700,20 +700,28 @@ class ARKServerManagerApp(ctk.CTk):
         errors = []
         if not srv.install_dir or not srv.install_dir.strip():
             errors.append("Diretório de instalação não configurado")
-        if not srv.session_name or not srv.session_name.strip():
-            errors.append("Nome da sessão (session_name) está vazio")
+        from .asm_engine.asm_ini_manager import effective_session_name
+        if not effective_session_name(srv).strip():
+            errors.append("Nome da sessão está vazio (preencha 'Nome da sessão' ou o nome do servidor no gerenciador)")
         if not srv.admin_password or not srv.admin_password.strip():
             errors.append("Senha admin não definida (obrigatória para RCON e acesso administrativo)")
         return errors
 
     def _asm_sync_server_cfg(self, srv: AsmServerConfig) -> AsmServerConfig:
         """Sincroniza painel aberto → cfg e retorna o objeto mais recente do manager."""
+        from .asm_engine.asm_ini_manager import effective_session_name
+
         fresh = self.asm_config_manager.get_server(srv.id) or srv
         try:
             from .asm_ui.asm_server_panel import _sync_ui_to_cfg
             _sync_ui_to_cfg(self, fresh)
         except Exception:
             pass
+        # Nome da sessão vazio no painel → usa nome do gerenciador (card/sidebar)
+        if not (fresh.session_name or "").strip():
+            _eff = effective_session_name(fresh)
+            if _eff and _eff != "My ARK Server":
+                fresh.session_name = _eff
         return fresh
 
     def _asm_start_server(self, srv: AsmServerConfig, no_mods: bool = False) -> None:
