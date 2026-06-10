@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.7.6] - 2026-06-10
+
+### Improvement
+
+- Melhoria (Start): aviso ao iniciar servidor em v358.x (fora do branch preaquatica) com opção de atualizar via SteamCMD antes do start.
+
+### Fix
+
+- Fix (ASM/launch): SessionName removido da CLI — RunServer.cmd passa pelo cmd.exe que expandia %20/%5B e corrompia nomes (ex: BBRDBARKLANDDBPVEDB5X…). Nome só no INI.
+- Fix (ASM/launch): RunServer.cmd escapa % como %% para evitar corrupção de argumentos.
+- Fix (SteamCMD): Instalar/Atualizar usa validate automaticamente quando a pasta já tem servidor — força manifest e arquivos atualizados.
+
 ## [1.7.5] - 2026-06-09
 
 ### Feature

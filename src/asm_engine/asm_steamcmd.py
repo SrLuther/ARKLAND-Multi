@@ -269,6 +269,36 @@ class AsmSteamCmd:
         return args
 
     @staticmethod
+    def read_server_exe_version(install_dir: str) -> Optional[str]:
+        """Lê ProductVersion/FileVersion do ShooterGameServer.exe (ex: 358.24)."""
+        exe = (
+            Path(install_dir) / "ShooterGame" / "Binaries" / "Win64" / "ShooterGameServer.exe"
+        )
+        if not exe.is_file():
+            return None
+        try:
+            import re
+            import subprocess
+
+            ps = (
+                f"(Get-Item -LiteralPath '{exe}').VersionInfo.ProductVersion"
+            )
+            r = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps],
+                capture_output=True,
+                text=True,
+                timeout=15,
+                creationflags=subprocess.CREATE_NO_WINDOW,
+            )
+            ver = (r.stdout or "").strip()
+            if ver:
+                m = re.search(r"(\d+\.\d+(?:\.\d+)?)", ver)
+                return m.group(1) if m else ver
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
     def read_installed_build_id(install_dir: str) -> Optional[str]:
         """Lê buildid do appmanifest_376030.acf na pasta de instalação."""
         manifest = Path(install_dir) / "steamapps" / f"appmanifest_{ARK_SERVER_APP_ID}.acf"

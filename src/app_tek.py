@@ -749,6 +749,25 @@ class ARKServerManagerApp(ctk.CTk):
                 parent=self,
             )
             return
+
+        from .asm_engine.asm_steamcmd import AsmSteamCmd
+        from .asm_ui.asm_steamcmd_ui import start_server_install
+
+        _branch = (srv.branch_name or "").strip().lower()
+        _exe_ver = AsmSteamCmd.read_server_exe_version(srv.install_dir) or ""
+        if _exe_ver.startswith("358.") and _branch not in ("preaquatica", "pre-aquatica"):
+            if messagebox.askyesno(
+                "Servidor desatualizado",
+                f"O executável do servidor está na versão v{_exe_ver}.\n\n"
+                "Servidores recentes costumam estar em v361+. Versões antigas causam "
+                "erro de convite e incompatibilidade com jogadores atualizados.\n\n"
+                "Deseja atualizar o servidor via SteamCMD agora?\n"
+                "(Recomendado: aguarde a conclusão antes de iniciar.)",
+                parent=self,
+            ):
+                start_server_install(self, srv, validate=True)
+                return
+
         cfg = srv
         if no_mods and srv.active_mods:
             import copy

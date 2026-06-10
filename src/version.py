@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.7.5"
+APP_VERSION: str = "1.7.6"
 BUILD_DATE: str = "2026-06-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.6",
+        "date": "2026-06-10",
+        "changes": [
+            "Fix (ASM/launch): SessionName removido da CLI — RunServer.cmd passa pelo cmd.exe "
+            "que expandia %20/%5B e corrompia nomes (ex: BBRDBARKLANDDBPVEDB5X…). Nome só no INI.",
+            "Fix (ASM/launch): RunServer.cmd escapa % como %% para evitar corrupção de argumentos.",
+            "Fix (SteamCMD): Instalar/Atualizar usa validate automaticamente quando a pasta já "
+            "tem servidor — força manifest e arquivos atualizados.",
+            "Melhoria (Start): aviso ao iniciar servidor em v358.x (fora do branch preaquatica) "
+            "com opção de atualizar via SteamCMD antes do start.",
+        ],
+    },
     {
         "version": "1.7.5",
         "date": "2026-06-09",

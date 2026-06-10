@@ -109,6 +109,11 @@ from .asm_server_config import (
 from .asm_ini_manager import write_ini, build_launch_args
 
 
+def _escape_runserver_cmd_line(cmd: str) -> str:
+    """Duplica % para RunServer.cmd — cmd.exe expande %VAR% e corrompe URL-encoding."""
+    return cmd.replace("%", "%%")
+
+
 class AsmServerInstance:
     """Estado de uma instância de servidor TEK em execução."""
 
@@ -201,7 +206,7 @@ class AsmServerManager:
                 _rsc = _run_server_dir / "RunServer.cmd"
                 _win_title = (cfg.name or cfg.session_name or "ARK Server").replace('"', "'")
                 _rsc.write_text(
-                    f'start "{_win_title}" /min /normal {full_cmd}\r\n',
+                    f'start "{_win_title}" /min /normal {_escape_runserver_cmd_line(full_cmd)}\r\n',
                     encoding="utf-8",
                 )
                 _run_server_cmd_path = _rsc

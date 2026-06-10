@@ -1,10 +1,11 @@
 {
-    "version": "1.7.5",
+    "version": "1.7.6",
     "date": "2026-06-10",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.5/ARKLAND-Multi-Setup-v1.7.5.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.6/ARKLAND-Multi-Setup-v1.7.6.exe",
     "changelog": [
-        "Novo (Loja): botão 📦 Instalar CustomShop — copia DLLs embutidas do app para ArkApi/Plugins/CustomShop/ em todos os servidores (config.json existente preservado).",
-        "Novo (Loja): suporte TEK — painel Web Store lista servidores asm_config_manager e config_manager com indicador de instalação do plugin.",
-        "Melhoria (Loja): Aplicar em todos os plugins e registro arkshop_web incluem servidores TEK; AsmServerConfig ganha shop_server_id e customshop_config_path."
+        "Fix (ASM/launch): SessionName removido da CLI — RunServer.cmd passa pelo cmd.exe que expandia %20/%5B e corrompia nomes (ex: BBRDBARKLANDDBPVEDB5X…). Nome só no INI.",
+        "Fix (ASM/launch): RunServer.cmd escapa % como %% para evitar corrupção de argumentos.",
+        "Fix (SteamCMD): Instalar/Atualizar usa validate automaticamente quando a pasta já tem servidor — força manifest e arquivos atualizados.",
+        "Melhoria (Start): aviso ao iniciar servidor em v358.x (fora do branch preaquatica) com opção de atualizar via SteamCMD antes do start."
     ]
 }

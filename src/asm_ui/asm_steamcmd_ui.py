@@ -120,8 +120,12 @@ def start_server_install(
     app: "ARKServerManagerApp",
     srv: AsmServerConfig,
     *,
-    validate: bool = False,
+    validate: Optional[bool] = None,
 ) -> bool:
+    if validate is None:
+        # Pasta já com servidor → validate força arquivos/manifest atualizados
+        validate = AsmSteamCmd.install_dir_has_server(srv.install_dir)
+
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
         sc.install_server(
             srv.install_dir,

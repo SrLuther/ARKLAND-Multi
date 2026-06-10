@@ -676,12 +676,11 @@ def read_ini_from_paths(
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
 
-    SessionName: gravado no GUS.ini (SessionSettings + ServerSettings, com aspas
-    se necessário). Na CLI usa percent-encoding (%20, %5B…) para suportar espaços
-    e colchetes sem quebrar o cmd.exe — evita 'ARK #NNNNNN' quando o INI falha.
+    SessionName fica SOMENTE no GameUserSettings.ini (SessionSettings + ServerSettings).
+    Não incluir ?SessionName= na CLI: o servidor é lançado via RunServer.cmd e o
+    cmd.exe expande %XX (ex: %20, %5B) como variáveis de ambiente, corrompendo nomes
+    como '[BR] ARKLAND PVE 5X' em 'BBRDBARKLANDDBPVEDB5X…'.
     """
-    from urllib.parse import quote
-
     params = [
         f"{cfg.server_map}",
         "?listen",
@@ -689,9 +688,6 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
     ]
-    _sn = effective_session_name(cfg)
-    if _sn:
-        params.append(f"?SessionName={quote(_sn, safe='')}")
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
@@ -722,6 +718,5 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     # O ARK usa o parser do Unreal Engine que lê o command line raw.
     # Aspas ao redor do MAP?params fazem o UE incluí-las no token, quebrando
     # o parsing de ?Port=, ?QueryPort=, ?AltSaveDirectoryName= etc.
-    # SessionName na CLI via percent-encoding; map string permanece sem aspas.
     combined_map = "".join(params)
     return [combined_map] + flags
