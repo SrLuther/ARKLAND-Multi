@@ -248,10 +248,15 @@ class AsmSteamCmd:
         branch_password: str,
         validate: bool,
     ) -> List[str]:
+        # +force_install_dir DEVE vir antes de +login (requisito Valve/SteamCMD).
+        # Ordem errada faz o download ir para a biblioteca padrão do SteamCMD ou
+        # reutilizar manifest antigo — servidor sobe em versão desatualizada (ex: 358.24).
         args = [
             self._steamcmd,
-            "+login", "anonymous",
+            "+@ShutdownOnFailedCommand", "1",
+            "+@NoPromptForPassword", "1",
             "+force_install_dir", install_dir,
+            "+login", "anonymous",
             "+app_update", ARK_SERVER_APP_ID,
         ]
         if branch:
@@ -262,6 +267,27 @@ class AsmSteamCmd:
             args.append("validate")
         args.append("+quit")
         return args
+
+    @staticmethod
+    def read_installed_build_id(install_dir: str) -> Optional[str]:
+        """Lê buildid do appmanifest_376030.acf na pasta de instalação."""
+        manifest = Path(install_dir) / "steamapps" / f"appmanifest_{ARK_SERVER_APP_ID}.acf"
+        if not manifest.exists():
+            return None
+        try:
+            import re
+            text = manifest.read_text(encoding="utf-8", errors="replace")
+            m = re.search(r'"buildid"\s+"(\d+)"', text)
+            return m.group(1) if m else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def install_dir_has_server(install_dir: str) -> bool:
+        exe = (
+            Path(install_dir) / "ShooterGame" / "Binaries" / "Win64" / "ShooterGameServer.exe"
+        )
+        return exe.exists()
 
     def _run_async(
         self,
@@ -321,7 +347,27 @@ class AsmSteamCmd:
             success = self._proc.returncode == 0
 
             if on_done:
-                msg = "Concluído com sucesso." if success else f"SteamCMD retornou código {self._proc.returncode}. {last_line}"
+                if success:
+                    # Feedback de build instalado (quando app_update foi usado)
+                    _idir = ""
+                    for i, tok in enumerate(args):
+                        if tok == "+force_install_dir" and i + 1 < len(args):
+                            _idir = args[i + 1]
+                            break
+                    if _idir:
+                        bid = AsmSteamCmd.read_installed_build_id(_idir)
+                        if bid:
+                            msg = f"Concluído com sucesso. Build Steam: {bid}"
+                        else:
+                            msg = (
+                                "SteamCMD terminou, mas appmanifest_376030.acf não foi encontrado "
+                                f"em {_idir}. Verifique se a pasta de instalação está correta."
+                            )
+                            success = False
+                    else:
+                        msg = "Concluído com sucesso."
+                else:
+                    msg = f"SteamCMD retornou código {self._proc.returncode}. {last_line}"
                 on_done(success, msg)
 
         except Exception as exc:

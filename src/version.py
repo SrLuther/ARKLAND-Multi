@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.7.3"
+APP_VERSION: str = "1.7.4"
 BUILD_DATE: str = "2026-06-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.4",
+        "date": "2026-06-10",
+        "changes": [
+            "Fix (SteamCMD/TEK): +force_install_dir agora vem ANTES de +login — ordem exigida "
+            "pela Valve; ordem errada fazia servidor instalar/atualizar na versão antiga (ex: 358.24).",
+            "Fix (SteamCMD/TEK): instalação ao criar servidor usa validate e verifica "
+            "appmanifest_376030.acf na pasta configurada.",
+            "Melhoria (SteamCMD): aviso quando a pasta de instalação já contém servidor antigo; "
+            "log exibe build Steam ao concluir.",
+        ],
+    },
     {
         "version": "1.7.3",
         "date": "2026-06-10",

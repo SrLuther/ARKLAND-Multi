@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.7.4] - 2026-06-10
+
+### Improvement
+
+- Melhoria (SteamCMD): aviso quando a pasta de instalação já contém servidor antigo; log exibe build Steam ao concluir.
+
+### Fix
+
+- Fix (SteamCMD/TEK): +force_install_dir agora vem ANTES de +login — ordem exigida pela Valve; ordem errada fazia servidor instalar/atualizar na versão antiga (ex: 358.24).
+- Fix (SteamCMD/TEK): instalação ao criar servidor usa validate e verifica appmanifest_376030.acf na pasta configurada.
+
 ## [1.7.3] - 2026-06-10
 
 ### Fix

@@ -116,12 +116,18 @@ def _run_with_ui(
     return True
 
 
-def start_server_install(app: "ARKServerManagerApp", srv: AsmServerConfig) -> bool:
+def start_server_install(
+    app: "ARKServerManagerApp",
+    srv: AsmServerConfig,
+    *,
+    validate: bool = False,
+) -> bool:
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
         sc.install_server(
             srv.install_dir,
             branch=srv.branch_name,
             branch_password=srv.branch_password,
+            validate=validate,
             show_console=True,
             on_done=on_done,
         )
@@ -162,15 +168,29 @@ def offer_server_install_after_create(app: "ARKServerManagerApp", server_id: str
     """Pergunta se o usuário quer instalar o servidor recém-criado."""
     from tkinter import messagebox
 
+    from ..asm_engine.asm_steamcmd import AsmSteamCmd
+
     srv = app.asm_config_manager.get_server(server_id)
     if not srv or not (srv.install_dir or "").strip():
         return
+
+    had_server = AsmSteamCmd.install_dir_has_server(srv.install_dir)
+    extra = ""
+    if had_server:
+        bid = AsmSteamCmd.read_installed_build_id(srv.install_dir) or "desconhecido"
+        extra = (
+            f"\n\n⚠ Esta pasta JÁ contém um servidor ARK (build Steam {bid}).\n"
+            "O SteamCMD pode manter a versão antiga se não forçar validate.\n"
+            "A instalação inicial usará validate para garantir arquivos atualizados."
+        )
+
     if not messagebox.askyesno(
         "Instalar servidor",
         f"Servidor '{srv.name}' criado.\n\n"
         f"Deseja baixar/atualizar os arquivos do servidor agora?\n\n"
-        f"Pasta: {srv.install_dir}",
+        f"Pasta: {srv.install_dir}{extra}",
         parent=app,
     ):
         return
-    start_server_install(app, srv)
+    # Primeira instalação: validate garante download completo e manifest correto
+    start_server_install(app, srv, validate=True)

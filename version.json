@@ -1,9 +1,10 @@
 {
-    "version": "1.7.3",
+    "version": "1.7.4",
     "date": "2026-06-10",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.3/ARKLAND-Multi-Setup-v1.7.3.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.4/ARKLAND-Multi-Setup-v1.7.4.exe",
     "changelog": [
-        "Fix (ASM/SessionName): fallback automático — se 'Nome da sessão' estiver vazio, usa o nome do servidor no gerenciador (card/sidebar) para INI e CLI.",
-        "Fix (ASM/import): corrigida leitura de SessionName ao importar servidor existente (bug lia MaxPlayers em vez de SessionName e podia zerar o nome)."
+        "Fix (SteamCMD/TEK): +force_install_dir agora vem ANTES de +login — ordem exigida pela Valve; ordem errada fazia servidor instalar/atualizar na versão antiga (ex: 358.24).",
+        "Fix (SteamCMD/TEK): instalação ao criar servidor usa validate e verifica appmanifest_376030.acf na pasta configurada.",
+        "Melhoria (SteamCMD): aviso quando a pasta de instalação já contém servidor antigo; log exibe build Steam ao concluir."
     ]
 }
