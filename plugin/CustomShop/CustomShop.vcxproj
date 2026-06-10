@@ -34,8 +34,8 @@
     <LinkIncremental>false</LinkIncremental>
     <!-- ArkApi SDK: relative to this .vcxproj -->
     <ArkApiDir>$(MSBuildThisFileDirectory)ArkServerAPI</ArkApiDir>
-    <IncludePath>$(ArkApiDir)\version\Core\Public;$(MSBuildThisFileDirectory)src;$(IncludePath)</IncludePath>
-    <LibraryPath>$(ArkApiDir)\out_lib;$(ArkApiDir)\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ArkApiDir)\version\Core\Public;$(ArkApiDir);$(MSBuildThisFileDirectory)src;$(IncludePath)</IncludePath>
+    <LibraryPath>$(ArkApiDir)\out_lib;$(ArkApiDir)\lib;$(MSBuildThisFileDirectory)mariadb\lib;$(LibraryPath)</LibraryPath>
     <OutDir>$(MSBuildThisFileDirectory)bin\</OutDir>
     <IntDir>$(MSBuildThisFileDirectory)obj\</IntDir>
   </PropertyGroup>

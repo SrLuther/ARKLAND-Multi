@@ -64,15 +64,15 @@ _OFFICIAL_PLUGINS = [
         "install_to": lambda d: d / _PLUGINS,
     },
     {
-        "name":       "ArkShopUI",
-        "version":    "1.12",
-        "author":     "Lethal",
+        "name":       "CustomShop",
+        "version":    "1.0",
+        "author":     "ARKLAND",
         "tag":        "Plugin",
         "tag_color":  "#2d5a2d",
-        "desc":       "Integra o ArkShop com o mod FC_ArkShopUI\n"
-                      "(Steam Workshop ID 2693727499).",
-        "url":        "https://ark-server-api.com/resources/arkshopui.28/",
-        "detect":     lambda d: (d / _PLUGINS / "ArkShopUI" / "ArkShopUI.dll").is_file(),
+        "desc":       "Loja web + entrega in-game (substitui ArkShop/ArkShopUI).\n"
+                      "Não requer mod MX-E (2693727499).",
+        "url":        "",
+        "detect":     lambda d: (d / _PLUGINS / "CustomShop" / "CustomShop.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
 ]

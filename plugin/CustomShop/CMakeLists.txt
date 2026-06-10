@@ -26,21 +26,36 @@ set(SOURCES
     src/ShopBridge.cpp
     src/ShopConfig.cpp
     src/ShopData.cpp
+    src/ShopPerms.cpp
     src/ShopPoints.cpp
     src/ShopStore.cpp
     src/ShopVip.cpp
+    src/TimedPoints.cpp
     src/Commands.cpp
     src/HttpClient.cpp
 )
 
 add_library(CustomShop SHARED ${SOURCES})
 
-# ── Include paths ─────────────────────────────────────────────────
+# ── ArkApi include + import lib (suporta layouts comuns do SDK) ───
+set(ARKAPI_INCLUDE_DIRS
+    "${ARKAPI_DIR}/version/Core/Public"
+    "${ARKAPI_DIR}"
+)
+set(ARKAPI_LIB "")
+foreach(_lib_dir IN ITEMS "${ARKAPI_DIR}/out_lib" "${ARKAPI_DIR}/lib")
+    if(EXISTS "${_lib_dir}/ArkApi.lib")
+        set(ARKAPI_LIB "${_lib_dir}/ArkApi.lib")
+        break()
+    endif()
+endforeach()
+if(NOT ARKAPI_LIB)
+    message(FATAL_ERROR "ArkApi.lib not found under ${ARKAPI_DIR}/out_lib or ${ARKAPI_DIR}/lib")
+endif()
+
 target_include_directories(CustomShop PRIVATE
     src
-    "${ARKAPI_DIR}/API"
-    "${ARKAPI_DIR}/API/ARK"
-    # nlohmann/json and sqlite3 via vcpkg toolchain file
+    ${ARKAPI_INCLUDE_DIRS}
 )
 
 # ── Link libraries ────────────────────────────────────────────────
@@ -48,7 +63,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(unofficial-libmysql CONFIG REQUIRED)
 
 target_link_libraries(CustomShop PRIVATE
-    "${ARKAPI_DIR}/lib/ArkApi.lib"
+    "${ARKAPI_LIB}"
     nlohmann_json::nlohmann_json
     unofficial::libmysql::libmysql
     winhttp.lib

@@ -28,5 +28,11 @@ bool BuyKit(AShooterPlayerController* controller,
 bool GiveKit(AShooterPlayerController* controller,
              const std::string& kit_id);
 
+// Deliver an item without charging points (web store / admin use).
+// Returns false if the item_id does not exist.
+bool GiveItem(AShooterPlayerController* controller,
+              const std::string& item_id,
+              int amount = 1);
+
 } // namespace Store
 } // namespace CustomShop

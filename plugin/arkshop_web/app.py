@@ -403,6 +403,7 @@ def _load_settings() -> Dict[str, Any]:
         "rcon_port": 27020,
         "rcon_password": "",
         "delivery_command_template": "Shop.Deliver {steam_id} {item_id} {amount}",
+        "delivery_mode": "plugin",
         "server_id": "default",
         "retry_max_attempts": 10,
         "database_url": "",
@@ -529,12 +530,13 @@ def _save_servers(servers: list[Dict[str, Any]]) -> None:
 
 
 def _get_server_settings(server_id: str) -> Dict[str, Any]:
-    """Returns RCON settings for a given server_id, falling back to global settings."""
+    """Returns settings for a server_id, merged over global defaults."""
+    base = _load_settings()
     servers = _load_servers()
     for s in servers:
         if str(s.get("server_id", "")).strip() == server_id:
-            return s
-    return _load_settings()
+            return {**base, **s}
+    return base
 
 
 # ── Steam OpenID ──────────────────────────────────────────────────────────────
@@ -620,6 +622,13 @@ def _rcon_command(host: str, port: int, password: str, command: str, timeout: fl
 def _build_delivery_command(template: str, steam_id: str, item_type: str, item_id: str, amount: int) -> str:
     return template.format(steam_id=steam_id, item_type=item_type, item_id=item_id, amount=amount)
 
+
+def _delivery_mode(settings: dict[str, Any] | None = None) -> str:
+    """plugin = CustomShop entrega via fila pending; rcon = legado via Shop.Deliver."""
+    s = settings if settings is not None else _load_settings()
+    return str(s.get("delivery_mode", "plugin")).strip().lower()
+
+
 def _attempt_delivery(order: Order, settings: dict[str, Any]) -> tuple[bool, str | None, str | None, str]:
     host = settings.get("rcon_host", "127.0.0.1")
     port = int(settings.get("rcon_port", 27020))
@@ -673,7 +682,7 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int, orig
         db.close()
 
 
-def _process_order_delivery(order_id: str) -> dict[str, Any]:
+def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[str, Any]:
     if not _db_ready():
         return {"ok": False, "error": "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}
 
@@ -687,6 +696,21 @@ def _process_order_delivery(order_id: str) -> dict[str, Any]:
             return {"ok": True, "order_id": order.order_id, "status": order.status, "skipped": True}
 
         server_settings = _get_server_settings(order.server_id)
+        if not force_rcon and _delivery_mode(server_settings) != "rcon":
+            _log(
+                "order_queued_for_plugin",
+                order_id=order.order_id,
+                steam_id=order.steam_id,
+                server_id=order.server_id,
+            )
+            return {
+                "ok": True,
+                "order_id": order.order_id,
+                "status": "PENDENTE",
+                "queued": True,
+                "delivery_mode": "plugin",
+            }
+
         success, response, error, command = _attempt_delivery(order, server_settings)
         attempt = OrderAttempt(
             order_id=order.order_id,
@@ -733,6 +757,8 @@ def _retry_worker() -> None:
     _log("scheduler_started", interval_seconds=_RETRY_INTERVAL_SECONDS, batch_size=_RETRY_BATCH_SIZE)
     while not _scheduler_stop.wait(_RETRY_INTERVAL_SECONDS):
         if not _db_ready():
+            continue
+        if _delivery_mode() != "rcon":
             continue
         db = _SessionLocal()
         try:
@@ -784,15 +810,60 @@ def get_pending_deliveries(steam_id: str):
             Order.steam_id == steam_id,
             Order.status == "PENDENTE"
         ).all()
-        result = [{
+        items = [{
             "order_id": o.order_id,
             "item_id": o.item_id,
             "amount": o.amount,
             "item_type": o.item_type,
         } for o in orders]
-        return jsonify({"ok": True, "orders": result})
+        return jsonify({"ok": True, "items": items, "orders": items})
     except Exception as exc:
         _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/pending/delivered", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("30 per minute")
+def mark_pending_delivered_batch():
+    """Marca vários pedidos como entregues (CustomShop plugin)."""
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    steam_id = str(body.get("steam_id", "")).strip()
+    order_ids = body.get("order_ids") or []
+    if not steam_id or not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "steam_id inválido"}), 400
+    if not isinstance(order_ids, list) or not order_ids:
+        return jsonify({"ok": False, "error": "order_ids é obrigatório"}), 400
+
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    delivered: list[str] = []
+    try:
+        for raw_id in order_ids:
+            order_id = str(raw_id).strip()
+            if not order_id:
+                continue
+            order = db.query(Order).filter(
+                Order.steam_id == steam_id,
+                Order.order_id == order_id,
+            ).first()
+            if not order:
+                continue
+            order.status = "ENTREGUE"
+            order.last_error = None
+            order.updated_at = _now()
+            delivered.append(order_id)
+        db.commit()
+        _log("orders_marked_delivered", steam_id=steam_id, count=len(delivered))
+        return jsonify({"ok": True, "delivered": delivered})
+    except Exception as exc:
+        db.rollback()
+        _log_error("mark_pending_delivered_batch", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
@@ -910,6 +981,7 @@ def save_settings():
         "rcon_host",
         "rcon_port",
         "delivery_command_template",
+        "delivery_mode",
         "server_id",
         "retry_max_attempts",
         "database_url",
@@ -1495,6 +1567,7 @@ def admin_list_orders():
 def admin_reprocess_order(order_id: str):
     if (err := _require_db()) is not None:
         return err
+    force_rcon = request.args.get("force_rcon", "").lower() in ("1", "true", "yes")
     db = _SessionLocal()
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
@@ -1508,8 +1581,8 @@ def admin_reprocess_order(order_id: str):
     finally:
         db.close()
 
-    _log("admin_reprocess", order_id=order_id, admin=_steam_id_from_session())
-    result = _process_order_delivery(order_id)
+    _log("admin_reprocess", order_id=order_id, admin=_steam_id_from_session(), force_rcon=force_rcon)
+    result = _process_order_delivery(order_id, force_rcon=force_rcon)
     return jsonify(result), 200 if result.get("ok") else 500
 
 

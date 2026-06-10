@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "HttpClient.h"
+#include "ShopBridge.h"
 #include "ShopConfig.h"
 #include "ShopStore.h"
-#include "ShopBridge.h"
-#include "ShopData.h"
+#include "ShopPoints.h"
 
 namespace {
 
@@ -70,8 +70,9 @@ std::string HttpGet(const std::string& url) {
         return "";
     }
 
-    if (!g_api_key.empty()) {
-        std::wstring api_key_hdr = L"X-API-Key: " + std::wstring(g_api_key.begin(), g_api_key.end());
+    if (!CustomShop::HttpClient::g_api_key.empty()) {
+        const auto& key = CustomShop::HttpClient::g_api_key;
+        std::wstring api_key_hdr = L"X-API-Key: " + std::wstring(key.begin(), key.end());
         WinHttpAddRequestHeaders(hRequest, api_key_hdr.c_str(), (DWORD)wcslen(api_key_hdr.c_str()),
                                  WINHTTP_ADDREQ_FLAG_ADD);
     }
@@ -148,8 +149,9 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
     WinHttpAddRequestHeaders(hRequest, content_type, (DWORD)wcslen(content_type),
                              WINHTTP_ADDREQ_FLAG_ADD);
 
-    if (!g_api_key.empty()) {
-        std::wstring api_key_hdr = L"X-API-Key: " + std::wstring(g_api_key.begin(), g_api_key.end());
+    if (!CustomShop::HttpClient::g_api_key.empty()) {
+        const auto& key = CustomShop::HttpClient::g_api_key;
+        std::wstring api_key_hdr = L"X-API-Key: " + std::wstring(key.begin(), key.end());
         WinHttpAddRequestHeaders(hRequest, api_key_hdr.c_str(), (DWORD)wcslen(api_key_hdr.c_str()),
                                  WINHTTP_ADDREQ_FLAG_ADD);
     }
@@ -220,7 +222,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
         Log::GetLog()->warn("HttpClient: empty response from {}", url);
         ArkApi::GetApiUtils().SendNotification(
             controller, FLinearColor(1, 0.4f, 0, 1), 1.2f, 6.f, nullptr,
-            L"[Shop] Serviço de entrega indisponível");
+            L"[Shop] Servico de entrega indisponivel");
         return false;
     }
 
@@ -238,7 +240,10 @@ bool DeliverPending(AShooterPlayerController* controller) {
         return false;
     }
 
-    auto items = json["items"];
+    nlohmann::json items = json.contains("items")
+        ? json["items"]
+        : json.value("orders", nlohmann::json::array());
+
     if (!items.is_array() || items.empty()) {
         Log::GetLog()->info("HttpClient: no pending deliveries for '{}'", steam_id);
         return true;  // nothing to deliver, but not an error
@@ -261,66 +266,17 @@ bool DeliverPending(AShooterPlayerController* controller) {
         bool ok = false;
 
         if (item_type == "kit") {
-            // Deliver a kit (items + dinos + commands)
             ok = Store::GiveKit(controller, item_id);
             Log::GetLog()->info("HttpClient: GiveKit '{}' for order {}: {}",
                                 item_id, order_id, ok ? "OK" : "FAIL");
         } else {
-            // Deliver a single item
-            const auto& shop_config = ShopConfig::Get();
-            const auto& items_config = shop_config.Items();
-            if (items_config.contains(item_id)) {
-                const auto& cfg_item = items_config.at(item_id);
-                const std::string bp = cfg_item.value("Blueprint", "");
-                if (!bp.empty()) {
-                    const int qty = cfg_item.value("Quantity", 1) * amount;
-                    const float qual = cfg_item.value("Quality", 0.0f);
-                    const bool force = cfg_item.value("ForceBlueprint", false);
-
-                    FString fbp(bp.c_str());
-                    UClass* cls = UVictoryCore::BPLoadClass(&fbp);
-                    if (cls) {
-                        UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
-                        if (inv) {
-                            UPrimalItem::AddNewItem(
-                                TSubclassOf<UPrimalItem>(cls),
-                                inv, false, false, qual, !force,
-                                qty, force, 0.0f, false,
-                                TSubclassOf<UPrimalItem>(), 0.0f, false, false);
-                            ok = true;
-                        }
-                    }
-                }
-                // Also deliver Items array if present (bundle)
-                if (cfg_item.contains("Items")) {
-                    for (const auto& entry : cfg_item.at("Items")) {
-                        const std::string bp2 = entry.value("Blueprint", "");
-                        const int qty2 = entry.value("Quantity", 1) * amount;
-                        const float qual2 = entry.value("Quality", 0.0f);
-                        const bool force2 = entry.value("ForceBlueprint", false);
-                        if (bp2.empty()) continue;
-                        FString fbp2(bp2.c_str());
-                        UClass* cls2 = UVictoryCore::BPLoadClass(&fbp2);
-                        if (!cls2) continue;
-                        UPrimalInventoryComponent* inv2 = controller->GetPlayerInventoryComponent();
-                        if (!inv2) continue;
-                        UPrimalItem::AddNewItem(
-                            TSubclassOf<UPrimalItem>(cls2), inv2,
-                            false, false, qual2, !force2,
-                            qty2, force2, 0.0f, false,
-                            TSubclassOf<UPrimalItem>(), 0.0f, false, false);
-                        ok = true;
-                    }
-                }
-            } else {
-                Log::GetLog()->warn("HttpClient: unknown item_id '{}' in pending order",
-                                    item_id);
-            }
+            ok = Store::GiveItem(controller, item_id, amount);
+            Log::GetLog()->info("HttpClient: GiveItem '{}' x{} for order {}: {}",
+                                item_id, amount, order_id, ok ? "OK" : "FAIL");
         }
 
-        // Log transaction locally
         if (ok) {
-            CustomShop::ShopPoints::Get().LogTransaction(
+            ShopPoints::Get().LogTransaction(
                 "web_deliver_pending", steam_id, "", item_id, amount, 0, 0);
             delivered_ids.push_back(order_id);
             success_count++;
@@ -332,24 +288,20 @@ bool DeliverPending(AShooterPlayerController* controller) {
         }
     }
 
-    // Notify player
     if (success_count > 0) {
         const std::wstring msg = L"[Shop] " + std::to_wstring(success_count)
-                               + L" item(ns) pendentes entregue(s)!";
+                               + L" item(ns) da loja web entregue(s)!";
         ArkApi::GetApiUtils().SendNotification(
             controller, FLinearColor(0, 1, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
 
-        // Mark delivered on arkshop_web
         nlohmann::json body = {
+            {"steam_id", steam_id},
             {"order_ids", delivered_ids}
         };
         const std::string deliver_url = g_web_url + "/api/pending/delivered";
         std::string deliver_resp = HttpPostJson(deliver_url, body.dump());
         Log::GetLog()->info("HttpClient: mark delivered response: {}", deliver_resp);
     }
-
-    // Refresh shop data (points, stash)
-    CustomShop::Data::InitShop(controller);
 
     return success_count > 0;
 }

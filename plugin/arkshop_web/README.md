@@ -1,6 +1,6 @@
 # ArkShop Web Manager
 
-Interface web para gerenciar o plugin **ArkShop** (Pelayori/Ark-Server-Plugins) diretamente pelo browser, integrado ao ARKLAND-Multi.
+Interface web da loja ARKLAND — catálogo, compras, admin e fila de entregas para o plugin **CustomShop**. Integrado ao ARKLAND Desktop.
 
 ## Funcionalidades
 
@@ -31,7 +31,13 @@ O browser abre automaticamente em `http://127.0.0.1:5177`.
 
 ### 3. Editar e salvar
 - Edite itens, kits, configurações
-- Clique **💾 Salvar & Reload** para gravar no arquivo **e** recarregar via RCON (`arkshop reload`)
+- Clique **💾 Salvar & Reload** para gravar no arquivo **e** recarregar via RCON (`Shop.Reload`)
+
+## Entrega de pedidos
+
+Por padrão (`delivery_mode: plugin`), compras ficam **PENDENTE** no banco e o **CustomShop** entrega quando o jogador está online — sem depender de RCON.
+
+RCON (`Shop.Deliver`) permanece disponível como modo legado (`delivery_mode: rcon`) ou forçado pelo admin (`/api/admin/orders/{id}/reprocess?force_rcon=1`).
 
 ## Estrutura do config.json (ArkShop 3.x)
 

@@ -102,6 +102,27 @@ class DiscordBotConfig:
 
 
 @dataclass
+class ShopGlobalConfig:
+    """Loja central cross-cluster (host na LAN ou cliente apontando para host remoto)."""
+    mode: str = "host"                    # "host" | "client"
+    central_url: str = ""                 # URL manual ou IP:porta do host (cliente)
+    host_ip: str = ""                     # IP LAN desta máquina (host); vazio = auto
+    port: int = 5177
+    api_key: str = ""
+    delivery_mode: str = "plugin"         # plugin | rcon
+    catalog_config_path: str = ""         # catálogo mestre Items/Kits
+    machine_label: str = ""               # ex: "Maquina-A"
+    auto_sync_on_save: bool = True
+    # Banco de pedidos (arkshop_web)
+    orders_db_url: str = ""
+    orders_db_host: str = "127.0.0.1"
+    orders_db_port: int = 3306
+    orders_db_name: str = "arkshop"
+    orders_db_user: str = ""
+    orders_db_password: str = ""
+
+
+@dataclass
 class SmtpConfig:
     host:                       str  = ""
     port:                       int  = 25
@@ -159,6 +180,8 @@ class AppConfig:
     discord_bot: DiscordBotConfig = field(default_factory=DiscordBotConfig)
     # SMTP
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
+    # Loja cross-cluster
+    shop: ShopGlobalConfig = field(default_factory=ShopGlobalConfig)
 
 
 class ConfigManager:
@@ -195,6 +218,7 @@ class ConfigManager:
                 _deserialize(AlertMessagesConfig, "alert_messages")
                 _deserialize(DiscordBotConfig,    "discord_bot")
                 _deserialize(SmtpConfig,          "smtp")
+                _deserialize(ShopGlobalConfig,    "shop")
                 self.config = AppConfig(**raw)
                 if not self.config.update_url:
                     self.config.update_url = self._DEFAULT_UPDATE_URL

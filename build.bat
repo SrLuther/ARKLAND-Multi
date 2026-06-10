@@ -141,6 +141,14 @@ if !errorlevel! neq 0 (
     echo       Installer gerado em: installer\
 )
 
+:: -- Sincroniza CHANGELOG.md com src/version.py -------------------------------
+echo [3b/4] Sincronizando CHANGELOG.md...
+"%PYTHON%" "%~dp0scripts\sync_changelog_md.py"
+if !errorlevel! neq 0 (
+    echo [AVISO] sync_changelog_md.py falhou — CHANGELOG.md pode estar desatualizado.
+)
+echo.
+
 :build_done
 echo.
 echo [4/4] Build concluido!

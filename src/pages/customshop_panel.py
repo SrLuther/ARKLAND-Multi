@@ -1,14 +1,13 @@
 """
-CustomShop — Painel de administração da loja in-game.
-Permite configurar Settings, Items, Kits, TimedPoints e Database do plugin
-CustomShop (ArkApi) sem editar o JSON manualmente.
-Inclui aba Web Store para gerenciar o arkshop_web (status, endereço público,
-controle do processo Flask, admins SteamID).
+CustomShop — Painel de administração da loja (catálogo + loja central LAN).
+
+Suporta modo host (esta máquina hospeda arkshop_web) e cliente (aponta para
+loja central em outra máquina da rede). Sincroniza config dos plugins em todos
+os servidores do app para cross-cluster multi-máquina.
 """
 from __future__ import annotations
 
 import json
-import socket
 import subprocess
 import sys
 import threading
@@ -19,6 +18,16 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
+from ..shop_integration import (
+    default_catalog_path,
+    default_customshop_path,
+    get_local_ip,
+    get_shop_subprocess_env,
+    resolve_central_url,
+    slugify_server_id,
+    sync_all_plugins,
+    test_shop_connection,
+)
 from ..ui_constants import (
     _GREEN, _GREEN_DARK, _GREEN_HOVER,
     _BLUE, _BLUE_HOVER,
@@ -34,7 +43,8 @@ _INNER   = "#16162a"
 _BDR     = "#2a2a45"
 _FIELD_BG = "#111128"
 
-_DEFAULT_CONFIG_PATH = Path("arkland/plugin/CustomShop/configs/config.json")
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_DEFAULT_CONFIG_PATH = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -124,7 +134,10 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     parent.grid_rowconfigure(1, weight=1)
     parent.grid_columnconfigure(0, weight=1)
 
-    cfg_path = _DEFAULT_CONFIG_PATH
+    shop_cfg = app.config_manager.config.shop
+    cfg_path = default_catalog_path(shop_cfg)
+    if not cfg_path.exists() and _DEFAULT_CONFIG_PATH.exists():
+        cfg_path = _DEFAULT_CONFIG_PATH
     data: Dict[str, Any] = _load_config(cfg_path)
 
     # ── Barra de ações no topo ────────────────────────────────────────────
@@ -132,13 +145,29 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     top_bar.grid(row=0, column=0, sticky="ew")
     top_bar.grid_propagate(False)
 
+    def _persist_shop_globals() -> None:
+        shop_cfg.catalog_config_path = str(cfg_path)
+        app.config_manager.save()
+
     def _do_save() -> None:
         _collect_all()
-        if _save_config(cfg_path, data):
-            try:
-                app._show_toast("CustomShop salvo com sucesso!", "success")  # type: ignore[attr-defined]
-            except AttributeError:
-                messagebox.showinfo("Salvo", "CustomShop salvo com sucesso!")
+        _persist_shop_globals()
+        if not _save_config(cfg_path, data):
+            return
+        msgs: list[str] = []
+        if shop_cfg.auto_sync_on_save:
+            ok, errs = sync_all_plugins(
+                app.config_manager, shop_cfg, data, Path(cfg_path),
+            )
+            if ok:
+                msgs.append(f"{len(ok)} plugin(s) sincronizado(s)")
+            if errs:
+                msgs.append("Erros: " + "; ".join(errs[:3]))
+        try:
+            detail = (" — " + ", ".join(msgs)) if msgs else ""
+            app._show_toast(f"Catálogo salvo{detail}", "success")  # type: ignore[attr-defined]
+        except AttributeError:
+            messagebox.showinfo("Salvo", "CustomShop salvo com sucesso!")
 
     ctk.CTkButton(
         top_bar, text="💾  Salvar config.json",
@@ -203,10 +232,11 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
 
     _field_row(card_cfg, "Nome da Loja",        _sv["ShopName"],       bg=_INNER)
     _field_row(card_cfg, "Tecla do Menu (UiKey)", _sv["UiKey"],         bg=_INNER,
-               hint="Tecla que abre a loja no jogo (ex: F3)", width=120)
+               hint="Legado MX-E — jogadores usam /shop ou a loja web", width=120)
     _field_row(card_cfg, "Pontos Iniciais",      _sv["StartingPoints"], bg=_INNER,
                hint="Pontos dados a novos jogadores", width=120)
-    _field_row(card_cfg, "URL do Website",       _sv["WebsiteUrl"],     bg=_INNER)
+    _field_row(card_cfg, "URL do Website",       _sv["WebsiteUrl"],     bg=_INNER,
+               hint="Preenchida automaticamente ao sincronizar plugins", width=260)
     _field_row(card_cfg, "URL do Discord",       _sv["DiscordUrl"],     bg=_INNER)
     _field_row(card_cfg, "Ícone de Moeda (Override)", _sv["OverrideCurrencyIcon"], bg=_INNER,
                hint="Blueprint path do ícone customizado (vazio = padrão)")
@@ -339,6 +369,10 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         s_out["VoteRewards"]          = _sv["VoteRewards"].get()
         s_out["HideBuffIcon"]         = _sv["HideBuffIcon"].get()
         s_out["UseSteamOverlay"]      = _sv["UseSteamOverlay"].get()
+        central = resolve_central_url(shop_cfg)
+        s_out["WebsiteUrl"] = central
+        s_out["WebApiUrl"] = central
+        s_out["WebApiKey"] = shop_cfg.api_key or s_out.get("WebApiKey", "")
 
         tp_out = data.setdefault("TimedPointsReward", {})
         tp_out["Enabled"]      = _tpv["Enabled"].get()
@@ -371,7 +405,12 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             var.set(p)
 
     # ── Tab: Web Store ────────────────────────────────────────────────────
-    _build_webstore_tab(app, tabs.tab("🌐  Web Store"))
+    _build_webstore_tab(
+        app, tabs.tab("🌐  Web Store"),
+        get_catalog=lambda: data,
+        get_catalog_path=lambda: Path(cfg_path),
+        collect_catalog=_collect_all,
+    )
 
 
 def _refresh_items_list(scroll_items, data: Dict[str, Any], on_select) -> None:
@@ -792,17 +831,6 @@ _SETTINGS_FILE = _WEBSTORE_DIR / "settings.json"
 _web_process: Optional[subprocess.Popen] = None  # type: ignore[type-arg]
 
 
-def _get_local_ip() -> str:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
-
-
 def _load_webstore_settings() -> Dict[str, Any]:
     try:
         return json.loads(_SETTINGS_FILE.read_text(encoding="utf-8"))
@@ -833,113 +861,157 @@ def _is_web_running() -> bool:
     return _web_process is not None and _web_process.poll() is None
 
 
-def _build_webstore_tab(app: "ARKServerManagerApp", parent: tk.Widget) -> None:
+def _build_webstore_tab(
+    app: "ARKServerManagerApp",
+    parent: tk.Widget,
+    *,
+    get_catalog,
+    get_catalog_path,
+    collect_catalog,
+) -> None:
     scr = ctk.CTkScrollableFrame(parent, fg_color=_BG)
     scr.pack(fill="both", expand=True)
 
-    ws = _load_webstore_settings()
-    port = int(ws.get("port", ws.get("rcon_port", 5177)) if "port" in ws else 5177)
+    shop = app.config_manager.config.shop
+    local_ip = get_local_ip()
 
-    # ── Card: Status & Controle ───────────────────────────────────────────
+    def _save_shop_from_ui() -> None:
+        shop.mode = _mode_var.get()
+        shop.central_url = _central_url_var.get().strip()
+        shop.host_ip = _host_ip_var.get().strip()
+        shop.port = _safe_int(_port_var.get(), 5177)
+        shop.api_key = _api_key_var.get().strip()
+        shop.machine_label = _machine_var.get().strip()
+        shop.delivery_mode = _delivery_var.get()
+        shop.auto_sync_on_save = _auto_sync_var.get()
+        shop.orders_db_url = _orders_url_var.get().strip()
+        shop.orders_db_host = _odb_host.get().strip()
+        shop.orders_db_port = _safe_int(_odb_port.get(), 3306)
+        shop.orders_db_name = _odb_name.get().strip()
+        shop.orders_db_user = _odb_user.get().strip()
+        shop.orders_db_password = _odb_pass.get()
+        app.config_manager.save()
+
+    def _refresh_central_label() -> None:
+        _save_shop_from_ui()
+        url = resolve_central_url(shop)
+        _central_url_lbl.config(text=url)
+
+    # ── Modo Host / Cliente ───────────────────────────────────────────────
+    card_mode = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_mode.pack(fill="x", padx=12, pady=(12, 6))
+    _head(card_mode, "🌐  Loja Central (cross / multi-máquina)")
+
+    tk.Label(
+        card_mode,
+        text="Host: esta máquina hospeda a loja. Cliente: aponta para a loja de outra máquina na LAN.",
+        bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10), wraplength=720, justify="left",
+    ).pack(anchor="w", padx=10, pady=(0, 6))
+
+    _mode_var = tk.StringVar(value=shop.mode or "host")
+    mode_row = tk.Frame(card_mode, bg=_INNER)
+    mode_row.pack(fill="x", padx=10, pady=4)
+    ctk.CTkRadioButton(mode_row, text="Host (hospedar loja aqui)", variable=_mode_var,
+                       value="host", command=_refresh_central_label).pack(side="left", padx=(0, 16))
+    ctk.CTkRadioButton(mode_row, text="Cliente (usar loja remota)", variable=_mode_var,
+                       value="client", command=_refresh_central_label).pack(side="left")
+
+    _machine_var = tk.StringVar(value=shop.machine_label or "")
+    _field_row(card_mode, "Rótulo desta máquina", _machine_var, bg=_INNER,
+               hint="ex: Maquina-A — aparece no registro de servidores", width=200)
+
+    _host_ip_var = tk.StringVar(value=shop.host_ip or local_ip)
+    _field_row(card_mode, "IP LAN (host)", _host_ip_var, bg=_INNER,
+               hint="IP desta máquina na rede — usado para montar a URL central", width=200)
+
+    _central_url_var = tk.StringVar(value=shop.central_url or "")
+    _field_row(card_mode, "URL central (cliente)", _central_url_var, bg=_INNER,
+               hint="ex: http://192.168.1.10:5177 — obrigatório no modo cliente", width=320)
+
+    _central_url_lbl = tk.Label(card_mode, bg=_INNER, fg=_GREEN,
+                                font=ctk.CTkFont(size=12, weight="bold"), anchor="w")
+    _central_url_lbl.pack(anchor="w", padx=10, pady=(4, 8))
+    _refresh_central_label()
+
+    # ── Status & processo (somente host) ──────────────────────────────────
     card_status = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
-    card_status.pack(fill="x", padx=12, pady=(12, 6))
-    _head(card_status, "🌐  Status da Web Store")
+    card_status.pack(fill="x", padx=12, pady=6)
+    _head(card_status, "▶  Processo da Web Store (modo Host)")
 
     status_row = tk.Frame(card_status, bg=_INNER)
-    status_row.pack(fill="x", padx=10, pady=(4, 0))
-
-    status_dot = tk.Label(status_row, text="●", bg=_INNER,
-                          font=ctk.CTkFont(size=18))
+    status_row.pack(fill="x", padx=10, pady=4)
+    status_dot = tk.Label(status_row, text="●", bg=_INNER, font=ctk.CTkFont(size=18))
     status_dot.pack(side="left", padx=(0, 8))
-
-    status_lbl = tk.Label(status_row, bg=_INNER,
-                          font=ctk.CTkFont(size=12, weight="bold"))
+    status_lbl = tk.Label(status_row, bg=_INNER, font=ctk.CTkFont(size=12, weight="bold"))
     status_lbl.pack(side="left")
+    conn_lbl = tk.Label(card_status, bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10), anchor="w")
+    conn_lbl.pack(fill="x", padx=10, pady=(0, 6))
 
-    def _refresh_status() -> None:
-        running = _is_web_running()
-        status_dot.config(fg="#22c55e" if running else "#ef4444")
-        status_lbl.config(
-            text="Online" if running else "Offline",
-            fg="#22c55e" if running else "#ef4444",
-        )
-        btn_start.configure(state="disabled" if running else "normal")
-        btn_stop.configure(state="normal" if running else "disabled")
-        addr_lbl.config(fg="#94a3b8" if not running else _GREEN)
-
-    # ── Endereço público ──────────────────────────────────────────────────
-    addr_frame = tk.Frame(card_status, bg=_INNER)
-    addr_frame.pack(fill="x", padx=10, pady=6)
-
-    local_ip = _get_local_ip()
-    port_var = tk.StringVar(value=str(port))
-    public_url = f"http://{local_ip}:{port}"
-
-    tk.Label(addr_frame, text="Endereço de acesso (rede local):",
-             bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10)).pack(anchor="w")
-
-    url_row = tk.Frame(addr_frame, bg=_INNER)
-    url_row.pack(fill="x", pady=(2, 0))
-
-    addr_lbl = tk.Label(url_row, text=public_url,
-                        bg=_INNER, fg="#94a3b8",
-                        font=ctk.CTkFont(size=13, weight="bold"),
-                        cursor="hand2")
-    addr_lbl.pack(side="left")
-
-    def _copy_url() -> None:
-        url = f"http://{local_ip}:{port_var.get()}"
-        parent.clipboard_clear()
-        parent.clipboard_append(url)
-        try:
-            app._show_toast("URL copiada!", "success")  # type: ignore[attr-defined]
-        except AttributeError:
-            pass
-
-    ctk.CTkButton(url_row, text="📋 Copiar", width=80, height=24,
-                  fg_color="#252540", hover_color="#1a1a35",
-                  command=_copy_url).pack(side="left", padx=(10, 0))
-
-    # ── Porta ─────────────────────────────────────────────────────────────
+    _port_var = tk.StringVar(value=str(shop.port or 5177))
     port_row = tk.Frame(card_status, bg=_INNER)
-    port_row.pack(fill="x", padx=10, pady=(0, 6))
+    port_row.pack(fill="x", padx=10, pady=2)
     tk.Label(port_row, text="Porta:", bg=_INNER, fg="gray50",
              font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 8))
-    ctk.CTkEntry(port_row, textvariable=port_var, width=90, height=26).pack(side="left")
-    tk.Label(port_row,
-             text="  ⚠  Alterar porta requer reiniciar a Web Store",
-             bg=_INNER, fg="#f59e0b", font=ctk.CTkFont(size=9)).pack(side="left", padx=(8, 0))
+    ctk.CTkEntry(port_row, textvariable=_port_var, width=90, height=26,
+                 command=_refresh_central_label).pack(side="left")
+    port_var_trace = _port_var.trace_add("write", lambda *_: _refresh_central_label())
 
-    def _update_addr_label(*_) -> None:
-        addr_lbl.config(text=f"http://{local_ip}:{port_var.get()}")
+    _api_key_var = tk.StringVar(value=shop.api_key or "")
+    _field_row(card_status, "API Key (ARKSHOP_API_KEY)", _api_key_var, bg=_INNER, is_pass=True,
+               hint="Mesma chave em todos os plugins CustomShop da rede", width=280)
 
-    port_var.trace_add("write", _update_addr_label)
+    _delivery_var = tk.StringVar(value=shop.delivery_mode or "plugin")
+    del_row = tk.Frame(card_status, bg=_INNER)
+    del_row.pack(fill="x", padx=10, pady=4)
+    tk.Label(del_row, text="Entrega:", bg=_INNER, fg="gray65",
+             font=ctk.CTkFont(size=11, weight="bold")).pack(side="left", padx=(0, 12))
+    ctk.CTkRadioButton(del_row, text="Plugin (recomendado)", variable=_delivery_var,
+                       value="plugin").pack(side="left", padx=(0, 12))
+    ctk.CTkRadioButton(del_row, text="RCON (legado)", variable=_delivery_var,
+                       value="rcon").pack(side="left")
 
-    # ── Botões Start / Stop ───────────────────────────────────────────────
     btn_row = tk.Frame(card_status, bg=_INNER)
-    btn_row.pack(fill="x", padx=10, pady=(0, 10))
+    btn_row.pack(fill="x", padx=10, pady=(4, 10))
+
+    def _refresh_status() -> None:
+        is_host = _mode_var.get() == "host"
+        running = _is_web_running() if is_host else False
+        _save_shop_from_ui()
+        url = resolve_central_url(shop)
+        if is_host:
+            status_dot.config(fg="#22c55e" if running else "#ef4444")
+            status_lbl.config(
+                text="Online" if running else "Offline",
+                fg="#22c55e" if running else "#ef4444",
+            )
+            btn_start.configure(state="disabled" if running else "normal")
+            btn_stop.configure(state="normal" if running else "disabled")
+        else:
+            status_dot.config(fg="#3b82f6")
+            status_lbl.config(text="Modo cliente", fg="#3b82f6")
+            btn_start.configure(state="disabled")
+            btn_stop.configure(state="disabled")
+        ok, msg = test_shop_connection(url)
+        conn_lbl.config(
+            text=f"Teste HTTP: {'✓' if ok else '✗'} {msg} — {url}",
+            fg="#22c55e" if ok else "#f59e0b",
+        )
 
     def _start_web() -> None:
         global _web_process
-        if _is_web_running():
+        if _mode_var.get() != "host" or _is_web_running():
             return
-        web_dir = _WEBSTORE_DIR
-        py_exe = sys.executable
-        env = {**__import__("os").environ, "PORT": port_var.get()}
-
-        # Salvar porta nas settings
-        s = _load_webstore_settings()
-        s["port"] = _safe_int(port_var.get(), 5177)
-        _save_webstore_settings(s)
-
+        _save_shop_from_ui()
+        collect_catalog()
+        env = get_shop_subprocess_env(shop)
         _web_process = subprocess.Popen(
-            [py_exe, str(web_dir / "app.py")],
-            cwd=str(web_dir),
+            [sys.executable, str(_WEBSTORE_DIR / "app.py")],
+            cwd=str(_WEBSTORE_DIR),
             env=env,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        parent.after(800, _refresh_status)
+        parent.after(900, _refresh_status)
 
     def _stop_web() -> None:
         global _web_process
@@ -953,27 +1025,118 @@ def _build_webstore_tab(app: "ARKServerManagerApp", parent: tk.Widget) -> None:
         parent.after(300, _refresh_status)
 
     btn_start = ctk.CTkButton(btn_row, text="▶  Iniciar Web Store",
-                               height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                               command=_start_web)
+                                height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                                command=_start_web)
     btn_start.pack(side="left", padx=(0, 8))
+    btn_stop = ctk.CTkButton(btn_row, text="■  Parar", height=34,
+                             fg_color="#7f1d1d", hover_color="#991b1b",
+                             command=_stop_web)
+    btn_stop.pack(side="left", padx=(0, 8))
+    ctk.CTkButton(btn_row, text="🔍  Testar conexão", height=34,
+                  fg_color=_BLUE, hover_color=_BLUE_HOVER,
+                  command=_refresh_status).pack(side="left")
 
-    btn_stop = ctk.CTkButton(btn_row, text="■  Parar",
-                              height=34, fg_color="#7f1d1d", hover_color="#991b1b",
-                              command=_stop_web)
-    btn_stop.pack(side="left")
+    # ── Banco de pedidos ──────────────────────────────────────────────────
+    card_db = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_db.pack(fill="x", padx=12, pady=6)
+    _head(card_db, "🗄️  Banco de Pedidos (arkshop_web)")
 
-    _refresh_status()
+    _orders_url_var = tk.StringVar(value=shop.orders_db_url or "")
+    _field_row(card_db, "URL completa (opcional)", _orders_url_var, bg=_INNER,
+               hint="sqlite:///... ou mysql+pymysql://user:pass@host/db", width=360)
+    _odb_host = tk.StringVar(value=shop.orders_db_host or "127.0.0.1")
+    _odb_port = tk.StringVar(value=str(shop.orders_db_port or 3306))
+    _odb_name = tk.StringVar(value=shop.orders_db_name or "arkshop")
+    _odb_user = tk.StringVar(value=shop.orders_db_user or "")
+    _odb_pass = tk.StringVar(value=shop.orders_db_password or "")
+    _field_row(card_db, "MySQL Host (LAN)", _odb_host, bg=_INNER,
+               hint="Use o IP da máquina host para clientes na rede", width=200)
+    _field_row(card_db, "Porta", _odb_port, bg=_INNER, width=80)
+    _field_row(card_db, "Database", _odb_name, bg=_INNER, width=160)
+    _field_row(card_db, "Usuário", _odb_user, bg=_INNER, width=160)
+    _field_row(card_db, "Senha", _odb_pass, bg=_INNER, is_pass=True, width=200)
 
-    # ── Card: Admins SteamID ──────────────────────────────────────────────
+    tk.Label(card_db,
+             text="Vazio = SQLite local em plugin/arkshop_web/orders.db (apenas host único).",
+             bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9)).pack(anchor="w", padx=10, pady=(0, 6))
+
+    # ── Servidores deste app ──────────────────────────────────────────────
+    card_srv = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_srv.pack(fill="x", padx=12, pady=6)
+    _head(card_srv, "🖧  Servidores ARK deste app")
+
+    tk.Label(
+        card_srv,
+        text="Cada servidor do cross recebe o mesmo catálogo e aponta para a loja central.",
+        bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10),
+    ).pack(anchor="w", padx=10, pady=(0, 4))
+
+    srv_frame = tk.Frame(card_srv, bg=_INNER)
+    srv_frame.pack(fill="x", padx=10, pady=4)
+
+    _server_rows: list = []
+
+    def _rebuild_server_rows() -> None:
+        for w in srv_frame.winfo_children():
+            w.destroy()
+        _server_rows.clear()
+        for srv in app.config_manager.servers:
+            row = tk.Frame(srv_frame, bg="#1a1a30")
+            row.pack(fill="x", pady=2)
+            sid_var = tk.StringVar(
+                value=srv.shop_server_id or slugify_server_id(srv.name, srv.id),
+            )
+            path_var = tk.StringVar(
+                value=srv.customshop_config_path or default_customshop_path(srv.install_dir),
+            )
+            tk.Label(row, text=srv.name[:28], bg="#1a1a30", fg="gray70",
+                     font=ctk.CTkFont(size=10, weight="bold"), width=140, anchor="w").pack(
+                side="left", padx=(4, 6))
+            ctk.CTkEntry(row, textvariable=sid_var, width=110, height=24,
+                         placeholder_text="shop id").pack(side="left", padx=2)
+            ctk.CTkEntry(row, textvariable=path_var, width=380, height=24).pack(
+                side="left", padx=2)
+            _server_rows.append((srv, sid_var, path_var))
+
+    _rebuild_server_rows()
+
+    _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
+
+    def _apply_plugins() -> None:
+        _save_shop_from_ui()
+        collect_catalog()
+        for srv, sid_var, path_var in _server_rows:
+            srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
+            srv.customshop_config_path = path_var.get().strip()
+        catalog = get_catalog()
+        ok, errs = sync_all_plugins(
+            app.config_manager, shop, catalog, get_catalog_path(),
+        )
+        msg = f"{len(ok)} plugin(s) atualizado(s)."
+        if errs:
+            msg += "\n" + "\n".join(errs[:5])
+        try:
+            app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
+        except AttributeError:
+            messagebox.showinfo("Sincronizar", msg)
+
+    act_row = tk.Frame(card_srv, bg=_INNER)
+    act_row.pack(fill="x", padx=10, pady=(6, 10))
+    ctk.CTkButton(act_row, text="🔄  Aplicar em todos os plugins",
+                  height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  command=_apply_plugins).pack(side="left", padx=(0, 10))
+    ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
+                    variable=_auto_sync_var).pack(side="left")
+    ctk.CTkButton(act_row, text="↻  Atualizar lista",
+                  height=30, width=120, fg_color="#252540",
+                  command=_rebuild_server_rows).pack(side="left", padx=(10, 0))
+
+    # ── Admins SteamID ────────────────────────────────────────────────────
     card_admins = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_admins.pack(fill="x", padx=12, pady=6)
     _head(card_admins, "🔑  Admins da Web Store (SteamID64)")
 
-    tk.Label(card_admins,
-             text="SteamIDs com acesso total à interface admin da loja web (um por linha):",
-             bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10)).pack(anchor="w", padx=10, pady=(0, 4))
-
-    admins_txt = tk.Text(card_admins, bg="#0a0a18", fg="#c8c8e8", height=8,
+    admins_txt = tk.Text(card_admins, bg="#0a0a18", fg="#c8c8e8", height=6,
                          insertbackground="white", font=ctk.CTkFont(size=11),
                          relief="flat", padx=8, pady=6)
     admins_txt.pack(fill="x", padx=10, pady=(0, 6))
@@ -985,51 +1148,19 @@ def _build_webstore_tab(app: "ARKServerManagerApp", parent: tk.Widget) -> None:
         invalid = [i for i in ids if not (i.startswith("7656119") and len(i) == 17 and i.isdigit())]
         if invalid:
             messagebox.showerror("SteamID inválido",
-                                 "Os seguintes IDs são inválidos:\n" + "\n".join(invalid))
+                                 "IDs inválidos:\n" + "\n".join(invalid))
             return
         _save_admin_ids(ids)
         try:
             app._show_toast("Admins salvos!", "success")  # type: ignore[attr-defined]
         except AttributeError:
-            messagebox.showinfo("Salvo", "Admins salvos com sucesso!")
+            messagebox.showinfo("Salvo", "Admins salvos!")
 
     ctk.CTkButton(card_admins, text="💾  Salvar Admins",
                   height=32, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                   command=_save_admins).pack(anchor="w", padx=10, pady=(0, 10))
 
-    # ── Card: Configurações da Web Store ──────────────────────────────────
-    card_ws = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
-    card_ws.pack(fill="x", padx=12, pady=6)
-    _head(card_ws, "⚙️  Configurações do Servidor Web")
-
-    ws_reloaded = _load_webstore_settings()
-    _wsv = {
-        "rcon_host":     tk.StringVar(value=str(ws_reloaded.get("rcon_host", "127.0.0.1"))),
-        "rcon_port":     tk.StringVar(value=str(ws_reloaded.get("rcon_port", 27020))),
-        "rcon_password": tk.StringVar(value=str(ws_reloaded.get("rcon_password", ""))),
-        "server_id":     tk.StringVar(value=str(ws_reloaded.get("server_id", "default"))),
-    }
-    _field_row(card_ws, "Host RCON",    _wsv["rcon_host"],     bg=_INNER)
-    _field_row(card_ws, "Porta RCON",   _wsv["rcon_port"],     bg=_INNER, width=100)
-    _field_row(card_ws, "Senha RCON",   _wsv["rcon_password"], bg=_INNER, is_pass=True)
-    _field_row(card_ws, "Server ID",    _wsv["server_id"],     bg=_INNER,
-               hint="Identificador deste servidor (ex: pvp1, pve2)")
-
-    def _save_ws_settings() -> None:
-        s = _load_webstore_settings()
-        s["rcon_host"]     = _wsv["rcon_host"].get().strip()
-        s["rcon_port"]     = _safe_int(_wsv["rcon_port"].get(), 27020)
-        s["rcon_password"] = _wsv["rcon_password"].get()
-        s["server_id"]     = _wsv["server_id"].get().strip() or "default"
-        _save_webstore_settings(s)
-        try:
-            app._show_toast("Configurações salvas!", "success")  # type: ignore[attr-defined]
-        except AttributeError:
-            messagebox.showinfo("Salvo", "Configurações salvas!")
-
-    ctk.CTkButton(card_ws, text="💾  Salvar Configurações",
-                  height=32, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                  command=_save_ws_settings).pack(anchor="w", padx=10, pady=(4, 10))
+    _refresh_status()
 
 
 def _safe_int(v: str, default: int = 0) -> int:

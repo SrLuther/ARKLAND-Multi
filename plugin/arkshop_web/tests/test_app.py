@@ -20,10 +20,13 @@ from app import app, _configure_database, _now
 
 ADMIN_STEAM = "76561198000000001"
 USER_STEAM  = "76561198000000002"
+API_KEY = "test-api-key"
 
 
 @pytest.fixture(autouse=True)
 def fresh_db(tmp_path, monkeypatch):
+    monkeypatch.setenv("ARKSHOP_API_KEY", API_KEY)
+    monkeypatch.setattr(_app_module, "_ARKSHOP_API_KEY", API_KEY)
     monkeypatch.setattr(_app_module, "_ADMIN_FILE", tmp_path / "admin_steamids.json")
     monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")
     monkeypatch.setattr(_app_module, "_PLAYERS_FILE", tmp_path / "players.json")
@@ -49,6 +52,19 @@ def client():
 def _login(client, steam_id: str):
     with client.session_transaction() as sess:
         sess["steam_id"] = steam_id
+
+
+def _write_settings(tmp_path, **overrides):
+    data = {
+        "delivery_mode": "plugin",
+        "rcon_host": "127.0.0.1",
+        "rcon_port": 27020,
+        "rcon_password": "",
+        "delivery_command_template": "Shop.Deliver {steam_id} {item_id} {amount}",
+        "server_id": "default",
+    }
+    data.update(overrides)
+    (tmp_path / "settings.json").write_text(json.dumps(data), encoding="utf-8")
 
 
 def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default"):
@@ -320,10 +336,58 @@ class TestServers:
         assert r.status_code == 403
 
 
-# ── Delivery com RCON por servidor ────────────────────────────────────────────
+# ── Entrega via fila do plugin ───────────────────────────────────────────────
+
+class TestPluginDeliveryQueue:
+    def test_process_order_queues_without_rcon(self, client):
+        oid = _create_order_direct(status="PENDENTE")
+        result = _app_module._process_order_delivery(oid)
+        assert result["ok"] is True
+        assert result["queued"] is True
+        assert result["status"] == "PENDENTE"
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "PENDENTE"
+        finally:
+            db.close()
+
+    def test_get_pending_returns_items(self, client):
+        oid = _create_order_direct(item_id="metal_ingot_100", amount=2)
+        r = client.get(
+            f"/api/pending/{USER_STEAM}",
+            headers={"X-API-Key": API_KEY},
+        )
+        d = r.get_json()
+        assert d["ok"] is True
+        assert len(d["items"]) == 1
+        assert d["items"][0]["order_id"] == oid
+        assert d["items"][0]["item_id"] == "metal_ingot_100"
+        assert d["orders"] == d["items"]
+
+    def test_mark_pending_delivered_batch(self, client):
+        oid = _create_order_direct()
+        r = client.post(
+            "/api/pending/delivered",
+            json={"steam_id": USER_STEAM, "order_ids": [oid]},
+            headers={"X-API-Key": API_KEY},
+        )
+        assert r.get_json()["ok"] is True
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "ENTREGUE"
+        finally:
+            db.close()
+
+
+# ── Delivery com RCON por servidor (modo legado) ─────────────────────────────
 
 class TestServerRconRouting:
     def test_delivery_uses_server_specific_rcon(self, client, tmp_path):
+        _write_settings(tmp_path, delivery_mode="rcon")
         _login(client, ADMIN_STEAM)
         client.post("/api/servers", json={
             "server_id": "pvp2",
@@ -349,13 +413,14 @@ class TestServerRconRouting:
 # ── Concorrência ──────────────────────────────────────────────────────────────
 
 class TestConcurrency:
-    def test_concurrent_delivery_does_not_duplicate(self):
+    def test_concurrent_delivery_does_not_duplicate(self, tmp_path):
         """
         WITH FOR UPDATE garante idempotência em MySQL/MariaDB.
         SQLite não suporta row-level lock, então este teste valida apenas
         que o status final é ENTREGUE (sem duplicatas de status, mesmo que
         múltiplas tentativas ocorram).
         """
+        _write_settings(tmp_path, delivery_mode="rcon")
         oid = _create_order_direct(status="PENDENTE")
 
         def fake_rcon(host, port, password, command, timeout=5.0):
@@ -389,7 +454,7 @@ class TestAdminReprocess:
         _login(client, ADMIN_STEAM)
         oid = _create_order_direct(status="ERRO")
         with patch.object(_app_module, "_rcon_command", return_value="ok"):
-            r = client.post(f"/api/admin/orders/{oid}/reprocess")
+            r = client.post(f"/api/admin/orders/{oid}/reprocess?force_rcon=1")
         d = r.get_json()
         assert d["ok"] is True
         assert d["status"] == "ENTREGUE"

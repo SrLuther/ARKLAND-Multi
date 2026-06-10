@@ -132,6 +132,16 @@ $iss = $iss -replace 'OutputBaseFilename=ARKLAND-Multi-Setup-v[\d.]+', "OutputBa
 [System.IO.File]::WriteAllText($issPath, $iss, $utf8NoBOM)
 Write-Ok "setup.iss       →  AppVersion = $Version"
 
+# BUILD_DATE em src/version.py
+$newPy = $newPy -replace 'BUILD_DATE\s*:\s*str\s*=\s*"[^"]+"', "BUILD_DATE: str = `"$date`""
+[System.IO.File]::WriteAllText($versionPyPath, $newPy, $utf8NoBOM)
+Write-Ok "src\version.py  →  BUILD_DATE = $date"
+
+# CHANGELOG.md gerado a partir de version.py
+& $python (Join-Path $root "scripts\sync_changelog_md.py")
+if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_changelog_md.py falhou" }
+Write-Ok "CHANGELOG.md    →  sincronizado com src\version.py"
+
 # ── 6) Build ──────────────────────────────────────────────────────────────────
 Write-Step 3 6 "Rodando build.bat..."
 Push-Location $root

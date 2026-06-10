@@ -1,13 +1,14 @@
 {
-    "version": "1.6.0",
-    "date": "2026-06-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.6.0/ARKLAND-Multi-Setup-v1.6.0.exe",
+    "version": "1.7.0",
+    "date": "2026-06-09",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.0/ARKLAND-Multi-Setup-v1.7.0.exe",
     "changelog": [
-        "Novo: monitor de crashes em tempo real — aba 'Crashes' por servidor com cards (timestamp, tipo, call stack, marcar visto) e página global no menu lateral.",
-        "Novo: badge [N] na sidebar atualiza automaticamente quando qualquer servidor crasha.",
-        "Melhoria: navegação entre páginas instantânea (frames em cache com grid_remove/grid).",
-        "Melhoria: seções do painel carregadas sob demanda — startup mais rápido.",
-        "Fix: _try_psutil() no gráfico retornava sempre True em vez de _PSUTIL_OK.",
-        "Fix: watermark de background causava NameError em builds sem PIL no namespace global."
+        "Novo (Loja): arquitetura multi-máquina — uma loja web central (host) e apps cliente na LAN apontando para o mesmo arkshop_web e API key.",
+        "Novo (Loja): entrega in-game via plugin CustomShop — compras ficam PENDENTES na web e são entregues automaticamente ao jogador (GiveItem/GiveKit), sem mod MX-E Ark Shop UI nem dependência do ArkShop original.",
+        "Novo (Loja): painel 🛒 Loja reformado — aba Web Store (modo Host/Cliente), teste de conexão, sync de catálogo e botão Aplicar em todos os plugins.",
+        "Melhoria (Plugin): CustomShop recompilável — HttpClient, build_cl.bat e CustomShop.vcxproj alinhados; DLL embutida no instalador do app.",
+        "Fix (Loja): API /api/pending e /api/pending/delivered corrigidas para entrega via fila do plugin (delivery_mode=plugin por padrão).",
+        "Fix (ASM/launch): SessionName removido permanentemente da CLI — nome do servidor fica somente no GameUserSettings.ini ([SessionSettings]/SessionName).",
+        "Fix (ASM/INI): DifficultyOffset gravado apenas quando enable_difficulty_override=True."
     ]
 }

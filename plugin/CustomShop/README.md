@@ -1,6 +1,6 @@
 # CustomShop — ArkApi Plugin
 
-Plugin C++ para **ARK Survival Evolved (ASE)** que substitui o ArkShop como backend do mod [MX-E Ark Shop UI](https://steamcommunity.com/sharedfiles/filedetails/?id=2693727499) (Workshop ID 2693727499), sem nenhuma dependência do ArkShop original.
+Plugin C++ para **ARK Survival Evolved (ASE)** que gerencia economia de pontos, kits e **entrega de compras da loja web** — sem dependência do ArkShop original nem do mod MX-E Ark Shop UI.
 
 ---
 
@@ -9,35 +9,56 @@ Plugin C++ para **ARK Survival Evolved (ASE)** que substitui o ArkShop como back
 | Componente | Versão | Função |
 |---|---|---|
 | [ArkServerAPI](https://gameservershub.com/forums/resources/ark-server-api.12/) | v3.56+ | Runtime do plugin |
-| [MX-E Ark Shop UI](https://steamcommunity.com/sharedfiles/filedetails/?id=2693727499) | qualquer | Mod cliente (Steam Workshop) |
+| [arkshop_web](../arkshop_web/) | — | Interface web + fila de pedidos pendentes |
 | Visual Studio 2022 | C++20 | Compilador |
 | [vcpkg](https://github.com/microsoft/vcpkg) | — | `nlohmann-json`, `sqlite3` |
-| [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) | 2.1+ | *(Opcional)* Controle de acesso por grupo nos kits e pontos diferenciados por grupo |
+| [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) | 2.1+ | *(Opcional)* Kits restritos por grupo |
 
-> **Não** é necessário instalar o ArkShop ou ArkShopUI plugin.
-> O plugin [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) é **opcional** — sem ele, a restrição de kits por grupo e os pontos diferenciados por grupo ficam desativados (todos os jogadores têm acesso irrestrito).
+> **Não** instale ArkShop, ArkShopUI nem o mod Workshop **2693727499** (MX-E). A loja é acessada pela web.
 
 ---
 
 ## Compilar
 
-```powershell
-# 1. Clone o repositório e instale o vcpkg caso ainda não tenha
-git clone https://github.com/microsoft/vcpkg
-.\vcpkg\bootstrap-vcpkg.bat
+### Pré-requisito: ArkServerAPI SDK
 
-# 2. Configure o CMake apontando para o SDK do ArkApi
+Coloque o SDK em `plugin/CustomShop/ArkServerAPI/` (ou passe o caminho no CMake):
+
+```
+ArkServerAPI/
+├── version/Core/Public/API/ARK/Ark.h   (layout ASE v3)
+├── out_lib/ArkApi.lib                  (ou lib/ArkApi.lib)
+└── json.hpp
+```
+
+Para MySQL/MariaDB no build manual, copie `libmariadb.lib` para `mariadb/lib/`.
+
+### Opção A — Visual Studio (mais simples)
+
+1. Abra `CustomShop.vcxproj` no VS 2022
+2. Configuração: **Release | x64**
+3. Build → saída em `bin/CustomShop.dll`
+
+### Opção B — Script batch
+
+```powershell
+cd plugin\CustomShop
+.\build_cl.bat
+```
+
+Detecta o Visual Studio automaticamente via `vswhere`.
+
+### Opção C — CMake + vcpkg
+
+```powershell
 cmake -B build -S . `
   -DCMAKE_TOOLCHAIN_FILE="<caminho>\vcpkg\scripts\buildsystems\vcpkg.cmake" `
   -DARKAPI_DIR="<caminho>\ArkServerAPI" `
   -DVCPKG_TARGET_TRIPLET=x64-windows `
   -A x64
 
-# 3. Build (Release)
 cmake --build build --config Release
 ```
-
-O arquivo `CustomShop.dll` será gerado em `build/Release/`.
 
 ---
 
@@ -48,64 +69,59 @@ O arquivo `CustomShop.dll` será gerado em `build/Release/`.
 └── ArkApi/
     └── Plugins/
         └── CustomShop/
-            ├── CustomShop.dll       ← build output
-            └── config.json          ← copiado de configs/config.json
+            ├── CustomShop.dll
+            └── config.json
 ```
-
-Adicione o mod **2693727499** à lista de mods do servidor (GameUserSettings.ini ou painel do servidor).
 
 ---
 
-## config.json
+## config.json (campos principais)
 
-| Campo | Tipo | Descrição |
+| Campo | Descrição |
+|---|---|
+| `Settings.WebApiUrl` | URL do arkshop_web (ex: `http://127.0.0.1:5177`) |
+| `Settings.WebApiKey` | Chave `X-API-Key` (mesmo valor de `ARKSHOP_API_KEY`) |
+| `Settings.WebsiteUrl` | URL exibida ao jogador com `/shop` no chat |
+| `Items.<id>` | Itens entregáveis (web + admin) |
+| `Kits.<id>` | Kits com itens, dinos e comandos |
+
+---
+
+## Fluxo de entrega (web → plugin)
+
+```
+Jogador compra na web
+    → pedido PENDENTE no banco (arkshop_web)
+
+Jogador entra no servidor (ou poll a cada 60s)
+    → CustomShop: GET /api/pending/{steam_id}
+    → GiveItem / GiveKit (sem cobrar pontos)
+    → POST /api/pending/delivered  { steam_id, order_ids }
+
+RCON (Shop.Deliver) — apenas admin / modo legado (delivery_mode=rcon)
+```
+
+---
+
+## Comandos
+
+| Comando | Quem usa | Função |
 |---|---|---|
-| `Settings.ShopName` | string | Nome exibido no topo da UI |
-| `Settings.UiKey` | string | Tecla para abrir o shop (F1–F12) |
-| `Settings.StartingPoints` | int | Pontos dados a jogadores novos |
-| `Settings.DisableSellButton` | bool | Oculta o botão Sell na UI |
-| `Settings.DisableTradeButton` | bool | Oculta o botão Trade na UI |
-| `Items.<id>` | object | Item vendável |
-| `Items.<id>.Type` | string | Categoria (aparece como filtro na UI) |
-| `Items.<id>.Price` | int | Custo em pontos |
-| `Items.<id>.Blueprint` | string | Caminho do blueprint ARK |
-| `Items.<id>.Quantity` | int | Quantidade entregue por compra |
-| `Items.<id>.Quality` | float | Qualidade (0 = base, 100 = ascendant) |
-| `Items.<id>.ForceBlueprint` | bool | `true` = entrega o blueprint em vez do item |
-| `Kits.<id>` | object | Kit com múltiplos items + comandos |
-| `Kits.<id>.DefaultAmount` | int | Quantas vezes pode ser resgatado (use 999 para ilimitado) |
-| `Kits.<id>.Items` | array | Lista de itens entregues |
-| `Kits.<id>.Commands` | array | Comandos executados no console do servidor. Use `{SteamID}` como placeholder |
-
----
-
-## Comandos admin (RCON ou console)
-
-```
-Shop.AddPoints  <steamid> <delta>    — adiciona/remove pontos
-Shop.SetPoints  <steamid> <pontos>   — define pontos absolutos
-Shop.GetPoints  <steamid>            — consulta saldo
-Shop.Reload                          — recarrega config.json sem reiniciar o servidor
-```
+| `/shop` | Jogador (chat) | Mostra URL da loja web + verifica entregas pendentes |
+| `Shop.Deliver` | Admin RCON | Entrega manual (legado) |
+| `Shop.AddPoints` / `SetPoints` / `GetPoints` | Admin | Gerenciar pontos |
+| `Shop.Reload` | Admin | Recarrega config.json |
+| `Shop.Debug` | Admin | Diagnóstico (pontos, web API, pending) |
 
 ---
 
 ## Arquitetura
 
 ```
-Mod (cliente)                          Plugin (servidor)
-────────────────────────────────────────────────────────
-Pressiona hotkey (F3)
-  → BuyItem / GetShopItems /     ──►  Commands.cpp
-    GetPoints / GetKits /
-    PlayerKits (console commands)
-                                       ShopConfig  ←  config.json
-                                       ShopPoints  ←  points.db (SQLite)
-                                       ShopStore   — dá itens via GiveItem
-                                                     executa Commands[]
-                                       ShopData    — monta JSON
-                                       ShopBridge  — aplica BP_Shop_Buff
-                                                     chama ClientReceiveCallback
-  ◄── JSON payload (via ProcessEvent) ──────────────────
-Mod renderiza UI com os dados
+Interface web (arkshop_web)          Plugin (servidor)
+─────────────────────────────────────────────────────
+Login Steam, catálogo, pagamento
+Cria pedido PENDENTE          ──►  HttpClient::DeliverPending()
+                                   ShopStore::GiveItem / GiveKit
+                                   Confirma entrega na web
 ```

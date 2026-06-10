@@ -1,10 +1,8 @@
 """Histórico de versões do ARKLAND.
 
-Importa e combina entradas recentes e legadas.
+Reexporta CHANGELOG de src/version.py (fonte única de verdade).
+changelog_recent.py e changelog_legacy.py estão obsoletos.
 """
-from .changelog_recent import CHANGELOG_RECENT
-from .changelog_legacy import CHANGELOG_LEGACY
-
-CHANGELOG = CHANGELOG_RECENT + CHANGELOG_LEGACY
+from .version import CHANGELOG
 
 __all__ = ["CHANGELOG"]

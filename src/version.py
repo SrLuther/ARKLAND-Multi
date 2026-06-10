@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.6.0"
-BUILD_DATE: str = "2026-06-06"
+APP_VERSION: str = "1.7.0"
+BUILD_DATE: str = "2026-06-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.0",
+        "date": "2026-06-10",
+        "changes": [
+            "Novo (Loja): arquitetura multi-máquina — uma loja web central (host) e apps "
+            "cliente na LAN apontando para o mesmo arkshop_web e API key.",
+            "Novo (Loja): entrega in-game via plugin CustomShop — compras ficam PENDENTES "
+            "na web e são entregues automaticamente ao jogador (GiveItem/GiveKit), sem mod "
+            "MX-E Ark Shop UI nem dependência do ArkShop original.",
+            "Novo (Loja): painel 🛒 Loja reformado — aba Web Store (modo Host/Cliente), "
+            "teste de conexão, sync de catálogo e botão Aplicar em todos os plugins.",
+            "Melhoria (Plugin): CustomShop recompilável — HttpClient, build_cl.bat e "
+            "CustomShop.vcxproj alinhados; DLL embutida no instalador do app.",
+            "Fix (Loja): API /api/pending e /api/pending/delivered corrigidas para "
+            "entrega via fila do plugin (delivery_mode=plugin por padrão).",
+            "Fix (ASM/launch): SessionName removido permanentemente da CLI — nome do "
+            "servidor fica somente no GameUserSettings.ini ([SessionSettings]/SessionName).",
+            "Fix (ASM/INI): DifficultyOffset gravado apenas quando enable_difficulty_override=True.",
+        ],
+    },
     {
         "version": "1.6.0",
         "date": "2026-06-06",

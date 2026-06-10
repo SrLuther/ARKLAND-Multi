@@ -232,5 +232,39 @@ bool GiveKit(AShooterPlayerController* controller,
     return true;
 }
 
+bool GiveItem(AShooterPlayerController* controller,
+              const std::string& item_id,
+              int amount) {
+    if (!controller || amount < 1) return false;
+
+    const auto& items = ShopConfig::Get().Items();
+    if (!items.contains(item_id)) {
+        Log::GetLog()->warn("GiveItem: unknown item_id '{}'", item_id);
+        return false;
+    }
+
+    const auto& item = items.at(item_id);
+    bool ok = false;
+
+    const std::string bp = item.value("Blueprint", "");
+    if (!bp.empty()) {
+        const int   qty   = item.value("Quantity",       1) * amount;
+        const float qual  = item.value("Quality",        0.0f);
+        const bool  force = item.value("ForceBlueprint", false);
+        GiveSingleItem(controller, bp, qty, qual, force);
+        ok = true;
+    }
+
+    if (item.contains("Items")) {
+        GiveItemsArray(controller, item.at("Items"));
+        ok = true;
+    }
+
+    const std::string id = Bridge::GetSteamId(controller);
+    Log::GetLog()->info("GiveItem: item '{}' x{} delivered to player '{}' (ok={})",
+                        item_id, amount, id, ok);
+    return ok;
+}
+
 } // namespace Store
 } // namespace CustomShop

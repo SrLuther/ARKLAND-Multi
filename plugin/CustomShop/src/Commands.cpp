@@ -6,6 +6,7 @@
 #include "ShopPoints.h"
 #include "ShopStore.h"
 #include "ShopVip.h"
+#include "HttpClient.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
@@ -89,7 +90,21 @@ void CmdGetConfig(APlayerController* pc, FString*, bool) {
 
 void CmdShop(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
-    CustomShop::Data::InitShop(controller);
+
+    const auto& settings = CustomShop::ShopConfig::Get().Settings();
+    std::string url = settings.value("WebsiteUrl", "");
+    if (url.empty())
+        url = CustomShop::ShopConfig::Get().WebApiUrl();
+
+    if (url.empty()) {
+        SendMsg(controller, FColorList::Yellow,
+                "Loja web nao configurada. Contate um admin.");
+        return;
+    }
+
+    SendMsg(controller, FColorList::Green,
+            "Acesse a loja em: " + url);
+    CustomShop::HttpClient::DeliverPending(controller);
 }
 
 void CmdShopDebugSelf(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
@@ -201,17 +216,6 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
     auto* admin = static_cast<AShooterPlayerController*>(pc);
     try {
         CustomShop::ShopConfig::Get().Load();
-
-        const auto& pcs =
-            ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
-        for (TWeakObjectPtr<APlayerController> wpc : pcs) {
-            auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
-            if (!sc) continue;
-            CustomShop::Data::SendConfig(sc);
-            CustomShop::Data::SendShopItems(sc);
-            CustomShop::Data::SendKits(sc);
-            CustomShop::Data::SendReload(sc);
-        }
 
         if (admin)
             SendMsg(admin, FColorList::Green, "CustomShop reloaded");
@@ -553,7 +557,7 @@ void CmdAdminPlayers(APlayerController* pc, FString*, bool) {
         auto* sc = static_cast<AShooterPlayerController*>(wpc.Get());
         if (!sc) continue;
         const std::string sid = CustomShop::Bridge::GetSteamId(sc);
-        FString name = sc->GetPlayerName();
+        const FString name = ArkApi::GetApiUtils().GetSteamName(sc);
         const std::string nameStr = name.ToString();
         SendMsg(admin, FColorList::White, nameStr + "  |  " + sid);
         Log::GetLog()->info("Shop.Players: '{}' = {}", nameStr, sid);
@@ -568,21 +572,11 @@ namespace CustomShop {
 namespace Commands {
 
 void Register() {
-    // Mod-facing (called automatically by the MX-E UI mod)
-    ArkApi::GetCommands().AddConsoleCommand("GetConfig",    &CmdGetConfig);
-    ArkApi::GetCommands().AddChatCommand("/shop",           &CmdShop);
-    ArkApi::GetCommands().AddChatCommand("/shop debug",      &CmdShopDebugSelf);
-    ArkApi::GetCommands().AddConsoleCommand("BuyItem",      &CmdBuyItem);
-    ArkApi::GetCommands().AddConsoleCommand("SellItem",     &CmdSellItem);
-    ArkApi::GetCommands().AddConsoleCommand("GetShopItems", &CmdGetShopItems);
-    ArkApi::GetCommands().AddConsoleCommand("GetPoints",    &CmdGetPoints);
-    ArkApi::GetCommands().AddConsoleCommand("GetKits",      &CmdGetKits);
-    ArkApi::GetCommands().AddConsoleCommand("PlayerKits",   &CmdPlayerKits);
+    // Jogador — redireciona para a loja web
+    ArkApi::GetCommands().AddChatCommand("/shop",          &CmdShop);
+    ArkApi::GetCommands().AddChatCommand("/shop debug",    &CmdShopDebugSelf);
 
-    // Player trade (called by mod when TradeButton is used)
-    ArkApi::GetCommands().AddConsoleCommand("Shop.Trade",   &CmdTrade);
-
-    // Admin (RCON or in-game cheat console)
+    // Admin (RCON ou console in-game)
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddPoints",  &CmdAdminAddPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.SetPoints",  &CmdAdminSetPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.GetPoints",  &CmdAdminGetPoints);
@@ -597,15 +591,8 @@ void Register() {
 }
 
 void Unregister() {
-    ArkApi::GetCommands().RemoveConsoleCommand("GetConfig");
     ArkApi::GetCommands().RemoveChatCommand("/shop");
-    ArkApi::GetCommands().RemoveConsoleCommand("BuyItem");
-    ArkApi::GetCommands().RemoveConsoleCommand("SellItem");
-    ArkApi::GetCommands().RemoveConsoleCommand("GetShopItems");
-    ArkApi::GetCommands().RemoveConsoleCommand("GetPoints");
-    ArkApi::GetCommands().RemoveConsoleCommand("GetKits");
-    ArkApi::GetCommands().RemoveConsoleCommand("PlayerKits");
-    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Trade");
+    ArkApi::GetCommands().RemoveChatCommand("/shop debug");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.AddPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.SetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GetPoints");

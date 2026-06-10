@@ -528,6 +528,9 @@ class ServerConfig:
     cluster: ClusterConfig = field(default_factory=ClusterConfig)
     # ID do perfil de cluster global (ClusterProfile); "" = usar config manual (cluster acima)
     cluster_profile_id: str = ""
+    # Loja CustomShop — identificador na fila web e caminho do config do plugin
+    shop_server_id: str = ""
+    customshop_config_path: str = ""
     # Nome único da pasta de saves deste servidor (evita conflito ao rodar múltiplos servidores na mesma máquina)
     # Corresponde a ?AltSaveDirectoryName=<valor> na linha de comando
     alt_save_directory_name: str = "savegame"
