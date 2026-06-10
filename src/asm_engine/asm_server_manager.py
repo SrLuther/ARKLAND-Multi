@@ -199,8 +199,9 @@ class AsmServerManager:
                 )
                 _run_server_dir.mkdir(parents=True, exist_ok=True)
                 _rsc = _run_server_dir / "RunServer.cmd"
+                _win_title = (cfg.name or cfg.session_name or "ARK Server").replace('"', "'")
                 _rsc.write_text(
-                    f'start "{cfg.session_name}" /min /normal {full_cmd}\r\n',
+                    f'start "{_win_title}" /min /normal {full_cmd}\r\n',
                     encoding="utf-8",
                 )
                 _run_server_cmd_path = _rsc

@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.7.1"
+APP_VERSION: str = "1.7.2"
 BUILD_DATE: str = "2026-06-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.2",
+        "date": "2026-06-10",
+        "changes": [
+            "Fix (ASM/INI): SessionName com colchetes/espaços agora gravado entre aspas — "
+            "valores como [ARKLAND] Teste quebravam o parser do ARK e geravam 'ARK #NNNNNN'.",
+            "Fix (ASM/INI): SessionName duplicado em [SessionSettings] e [ServerSettings]; "
+            "escrita UTF-16 nativa (sem configparser.write).",
+            "Fix (ASM/launch): ?SessionName= na CLI com percent-encoding (%20, %5B…) — "
+            "funciona com espaços e caracteres especiais sem quebrar o cmd.exe.",
+        ],
+    },
     {
         "version": "1.7.1",
         "date": "2026-06-10",

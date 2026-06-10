@@ -306,6 +306,33 @@ def _format_value(val: Any) -> str:
     return str(val)
 
 
+def _strip_ini_quotes(value: str) -> str:
+    """Remove aspas externas de valores INI (ARK/ASM)."""
+    v = value.strip()
+    if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+        return v[1:-1]
+    return v
+
+
+def _ini_quote_value(value: str) -> str:
+    """Coloca aspas quando o valor pode confundir o parser do ARK ([, ], espaços)."""
+    if any(c in value for c in " []"):
+        if not (value.startswith('"') and value.endswith('"')):
+            return f'"{value}"'
+    return value
+
+
+def _render_ini_text(parser: configparser.RawConfigParser) -> str:
+    """Renderiza INI no formato nativo do ARK (key=value, seções separadas por linha em branco)."""
+    lines: list[str] = []
+    for section in parser.sections():
+        lines.append(f"[{section}]")
+        for key, value in parser.items(section, raw=True):
+            lines.append(f"{key}={_ini_quote_value(value)}")
+        lines.append("")
+    return "\r\n".join(lines)
+
+
 def write_ini(cfg: AsmServerConfig) -> None:
     """Escreve GameUserSettings.ini e Game.ini a partir de AsmServerConfig.
 
@@ -358,10 +385,11 @@ def write_ini(cfg: AsmServerConfig) -> None:
         section_key = _resolve_ini_section(file_key, section)
         target.setdefault(section_key, {})[ini_key] = value
 
-    # SessionName é obrigatório para listagem — garante gravação mesmo se INI_MAP falhar
+    # SessionName é obrigatório para listagem — grava em ambas as seções usadas pelo ARK/ASM
     _sn = (cfg.session_name or "").strip()
     if _sn:
         gus.setdefault("SessionSettings", {})["SessionName"] = _sn
+        gus.setdefault("ServerSettings", {})["SessionName"] = _sn
 
     # Seções customizadas livres (legado)
     for custom in cfg.custom_ini_sections:
@@ -458,10 +486,12 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
             parser.set(section, key, value)
 
     # ARK no Windows lê os INIs em UTF-16 LE com BOM.
-    # Gravar em UTF-8 faz o jogo ignorar silenciosamente algumas chaves.
+    # configparser.write() não cita valores com '[' — o ARK interpreta como seção nova.
     tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-16") as fh:
-        parser.write(fh, space_around_delimiters=False)
+    text = _render_ini_text(parser)
+    with open(tmp, "wb") as fh:
+        fh.write(b"\xff\xfe")
+        fh.write(text.encode("utf-16-le"))
     tmp.replace(path)
 
 
@@ -508,7 +538,7 @@ def read_ini(cfg: AsmServerConfig) -> None:
                 sep = opts.get("list_sep", ",")
                 val = [x.strip() for x in raw.split(sep) if x.strip()]
             else:
-                val = raw
+                val = _strip_ini_quotes(raw)
         except Exception:
             continue
 
@@ -517,6 +547,16 @@ def read_ini(cfg: AsmServerConfig) -> None:
             val = not val
 
         setattr(cfg, field_name, val)
+
+    # SessionName: fallback em ServerSettings (instalações Steam/ASM legadas)
+    _gus = parsers["GUS"]
+    if not (cfg.session_name or "").strip():
+        for _sec in ("SessionSettings", "ServerSettings"):
+            if _gus.has_option(_sec, "SessionName"):
+                _sn = _strip_ini_quotes(_gus.get(_sec, "SessionName")).strip()
+                if _sn:
+                    cfg.session_name = _sn
+                    break
 
     # Per-level stat multipliers (array-indexed)
     _PERLEVEL_INI_TO_FIELD = {
@@ -628,11 +668,12 @@ def read_ini_from_paths(
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
 
-    SessionName: sempre gravado no GUS.ini ([SessionSettings]/SessionName).
-    Quando o nome NÃO contém espaços, também vai na CLI (?SessionName=) como
-    cobertura extra — evita o nome genérico 'ARK #NNNNNN' se o INI não for lido.
-    Nomes com espaços ficam somente no INI (espaços quebram o parsing do cmd.exe).
+    SessionName: gravado no GUS.ini (SessionSettings + ServerSettings, com aspas
+    se necessário). Na CLI usa percent-encoding (%20, %5B…) para suportar espaços
+    e colchetes sem quebrar o cmd.exe — evita 'ARK #NNNNNN' quando o INI falha.
     """
+    from urllib.parse import quote
+
     params = [
         f"{cfg.server_map}",
         "?listen",
@@ -641,8 +682,8 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
         f"?MaxPlayers={cfg.max_players}",
     ]
     _sn = (cfg.session_name or "").strip()
-    if _sn and " " not in _sn:
-        params.append(f"?SessionName={_sn}")
+    if _sn:
+        params.append(f"?SessionName={quote(_sn, safe='')}")
     if cfg.server_ip:
         params.append(f"?MultiHome={cfg.server_ip}")
     if cfg.alt_save_directory_name:
@@ -673,6 +714,6 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     # O ARK usa o parser do Unreal Engine que lê o command line raw.
     # Aspas ao redor do MAP?params fazem o UE incluí-las no token, quebrando
     # o parsing de ?Port=, ?QueryPort=, ?AltSaveDirectoryName= etc.
-    # SessionName na CLI só quando sem espaços; map string permanece sem aspas.
+    # SessionName na CLI via percent-encoding; map string permanece sem aspas.
     combined_map = "".join(params)
     return [combined_map] + flags
