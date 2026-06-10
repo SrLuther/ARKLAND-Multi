@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import socket
+import sys
 import urllib.error
 import urllib.request
 from copy import deepcopy
@@ -11,14 +13,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from .asm_engine.asm_config_manager import AsmConfigManager
     from .config_manager import ConfigManager, ShopGlobalConfig
     from .server_config import ServerConfig
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_CATALOG = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
+_PLUGIN_INFO = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "PluginInfo.json"
+_DEV_BIN_DIR = _PROJECT_ROOT / "plugin" / "CustomShop" / "bin"
 _ARKSHOP_WEB_DIR = _PROJECT_ROOT / "plugin" / "arkshop_web"
 _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
 _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
+_CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 
 
 def get_local_ip() -> str:
@@ -38,10 +44,8 @@ def slugify_server_id(name: str, srv_id: str) -> str:
     return slug[:48] or srv_id[:8]
 
 
-def default_customshop_path(install_dir: str) -> str:
-    if not install_dir or not install_dir.strip():
-        return ""
-    p = (
+def customshop_plugin_dir(install_dir: str) -> Path:
+    return (
         Path(install_dir)
         / "ShooterGame"
         / "Binaries"
@@ -49,9 +53,179 @@ def default_customshop_path(install_dir: str) -> str:
         / "ArkApi"
         / "Plugins"
         / "CustomShop"
-        / "config.json"
     )
-    return str(p)
+
+
+def default_customshop_path(install_dir: str) -> str:
+    if not install_dir or not install_dir.strip():
+        return ""
+    return str(customshop_plugin_dir(install_dir) / "config.json")
+
+
+def bundled_customshop_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "plugins"  # type: ignore[attr-defined]
+    return _DEV_BIN_DIR
+
+
+def bundled_customshop_files() -> Dict[str, Path]:
+    root = bundled_customshop_root()
+    found: Dict[str, Path] = {}
+    for name in _CUSTOMSHOP_DLLS:
+        p = root / name
+        if p.is_file():
+            found[name] = p
+    return found
+
+
+def is_customshop_installed(install_dir: str) -> bool:
+    if not install_dir or not install_dir.strip():
+        return False
+    return (customshop_plugin_dir(install_dir) / "CustomShop.dll").is_file()
+
+
+def _default_config_template() -> Path:
+    if _DEFAULT_CATALOG.is_file():
+        return _DEFAULT_CATALOG
+    fallback = _DEV_BIN_DIR / "config.json"
+    return fallback if fallback.is_file() else _DEFAULT_CATALOG
+
+
+def install_customshop_to_server(
+    install_dir: str,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Copia DLLs embutidas + PluginInfo/config padrão. Retorna (copiados, avisos/erros)."""
+    ok: List[str] = []
+    notes: List[str] = []
+
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+
+    root = Path(install_dir)
+    if not root.is_dir():
+        return ok, [f"pasta não encontrada: {install_dir}"]
+
+    bundled = bundled_customshop_files()
+    if "CustomShop.dll" not in bundled:
+        return ok, ["CustomShop.dll não encontrado no bundle do app — reinstale o ARKLAND Multi"]
+
+    dest = customshop_plugin_dir(install_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    for name, src in bundled.items():
+        target = dest / name
+        if target.is_file() and not overwrite_dlls:
+            ok.append(f"{name} (já existia)")
+            continue
+        shutil.copy2(src, target)
+        ok.append(name)
+
+    for optional in ("libmariadb.dll", "z.dll"):
+        if optional not in bundled:
+            notes.append(f"{optional} ausente no bundle — MySQL pode falhar até copiar manualmente")
+
+    if _PLUGIN_INFO.is_file():
+        info_dest = dest / "PluginInfo.json"
+        if not info_dest.is_file() or overwrite_dlls:
+            shutil.copy2(_PLUGIN_INFO, info_dest)
+            ok.append("PluginInfo.json")
+
+    cfg_dest = dest / "config.json"
+    if not cfg_dest.is_file():
+        template = _default_config_template()
+        if template.is_file():
+            shutil.copy2(template, cfg_dest)
+            ok.append("config.json (padrão)")
+        else:
+            notes.append("config.json padrão não encontrado no app")
+
+    return ok, notes
+
+
+def iter_shop_servers(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> List[Tuple[str, Any]]:
+    """Lista (kind, server) — kind é 'classic' ou 'tek'."""
+    out: List[Tuple[str, Any]] = []
+    for srv in cm.servers:
+        out.append(("classic", srv))
+    if asm_cm is not None:
+        for srv in asm_cm.servers:
+            out.append(("tek", srv))
+    return out
+
+
+def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
+    sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
+        getattr(srv, "name", ""), getattr(srv, "id", ""),
+    )
+    host = (
+        getattr(srv, "server_ip", "") or getattr(srv, "public_ip", "") or "127.0.0.1"
+    )
+    rcon_pass = (
+        getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
+    )
+    return {
+        "server_id": sid,
+        "label": getattr(srv, "name", "") or sid,
+        "rcon_host": host,
+        "rcon_port": int(getattr(srv, "rcon_port", None) or 27020),
+        "rcon_password": rcon_pass,
+        "delivery_mode": shop.delivery_mode or "plugin",
+        "machine_label": shop.machine_label or "",
+    }
+
+
+def install_customshop_all(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Instala CustomShop em todos os servidores. Retorna (sucessos, erros)."""
+    ok: List[str] = []
+    errors: List[str] = []
+    classic_dirty = False
+    tek_dirty = False
+
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        name = getattr(srv, "name", "") or getattr(srv, "id", "")
+        if not getattr(srv, "install_dir", ""):
+            errors.append(f"{name}: sem install_dir")
+            continue
+        copied, notes = install_customshop_to_server(
+            srv.install_dir, overwrite_dlls=overwrite_dlls,
+        )
+        if not copied and notes:
+            errors.append(f"{name}: {'; '.join(notes)}")
+            continue
+        path_str = default_customshop_path(srv.install_dir)
+        if not getattr(srv, "customshop_config_path", ""):
+            srv.customshop_config_path = path_str
+            if kind == "tek":
+                tek_dirty = True
+            else:
+                classic_dirty = True
+        if not getattr(srv, "shop_server_id", ""):
+            srv.shop_server_id = slugify_server_id(name, getattr(srv, "id", ""))
+            if kind == "tek":
+                tek_dirty = True
+            else:
+                classic_dirty = True
+        detail = ", ".join(copied[:4])
+        if len(copied) > 4:
+            detail += f" (+{len(copied) - 4})"
+        warn = f" — {'; '.join(notes)}" if notes else ""
+        ok.append(f"{name}: {detail}{warn}")
+
+    if classic_dirty:
+        cm.save_servers()
+    if tek_dirty and asm_cm is not None:
+        asm_cm.save()
+    return ok, errors
 
 
 def resolve_central_url(shop: "ShopGlobalConfig") -> str:
@@ -192,7 +366,11 @@ def sync_arkshop_web_settings(
     _SETTINGS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def register_arkshop_servers(cm: "ConfigManager", shop: "ShopGlobalConfig") -> int:
+def register_arkshop_servers(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> int:
     servers = []
     if _SERVERS_FILE.exists():
         try:
@@ -204,18 +382,9 @@ def register_arkshop_servers(cm: "ConfigManager", shop: "ShopGlobalConfig") -> i
 
     by_id = {str(s.get("server_id", "")): s for s in servers if isinstance(s, dict)}
     count = 0
-    for srv in cm.servers:
-        sid = (srv.shop_server_id or "").strip() or slugify_server_id(srv.name, srv.id)
-        entry = {
-            "server_id": sid,
-            "label": srv.name or sid,
-            "rcon_host": srv.server_ip or srv.public_ip or "127.0.0.1",
-            "rcon_port": int(srv.rcon_port or 27020),
-            "rcon_password": srv.rcon_password or "",
-            "delivery_mode": shop.delivery_mode or "plugin",
-            "machine_label": shop.machine_label or "",
-        }
-        by_id[sid] = entry
+    for _kind, srv in iter_shop_servers(cm, asm_cm):
+        entry = _server_rcon_entry(srv, shop)
+        by_id[entry["server_id"]] = entry
         count += 1
 
     _SERVERS_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -231,6 +400,7 @@ def sync_all_plugins(
     shop: "ShopGlobalConfig",
     catalog: Dict[str, Any],
     catalog_path: Path,
+    asm_cm: Optional["AsmConfigManager"] = None,
 ) -> Tuple[List[str], List[str]]:
     """Retorna (sucessos, erros)."""
     central = resolve_central_url(shop)
@@ -238,30 +408,44 @@ def sync_all_plugins(
     db_settings = catalog.get("Database", {})
     ok: List[str] = []
     errors: List[str] = []
+    classic_dirty = False
+    tek_dirty = False
 
-    for srv in cm.servers:
-        path_str = (srv.customshop_config_path or "").strip()
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        path_str = (getattr(srv, "customshop_config_path", "") or "").strip()
         if not path_str:
-            path_str = default_customshop_path(srv.install_dir)
+            path_str = default_customshop_path(getattr(srv, "install_dir", ""))
         if not path_str:
-            errors.append(f"{srv.name}: sem install_dir / caminho do plugin")
+            errors.append(f"{getattr(srv, 'name', '')}: sem install_dir / caminho do plugin")
             continue
         plugin_path = Path(path_str)
         try:
             sync_plugin_at_path(catalog, plugin_path, central, api_key, db_settings)
-            sid = (srv.shop_server_id or "").strip() or slugify_server_id(srv.name, srv.id)
-            if not srv.shop_server_id:
+            sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
+                getattr(srv, "name", ""), getattr(srv, "id", ""),
+            )
+            if not getattr(srv, "shop_server_id", ""):
                 srv.shop_server_id = sid
-            if not srv.customshop_config_path:
+                if kind == "tek":
+                    tek_dirty = True
+                else:
+                    classic_dirty = True
+            if not getattr(srv, "customshop_config_path", ""):
                 srv.customshop_config_path = path_str
-            ok.append(f"{srv.name} → {plugin_path}")
+                if kind == "tek":
+                    tek_dirty = True
+                else:
+                    classic_dirty = True
+            ok.append(f"{getattr(srv, 'name', '')} → {plugin_path}")
         except Exception as exc:
-            errors.append(f"{srv.name}: {exc}")
+            errors.append(f"{getattr(srv, 'name', '')}: {exc}")
 
-    if ok:
+    if classic_dirty:
         cm.save_servers()
+    if tek_dirty and asm_cm is not None:
+        asm_cm.save()
     sync_arkshop_web_settings(shop, catalog_path, central)
-    register_arkshop_servers(cm, shop)
+    register_arkshop_servers(cm, shop, asm_cm=asm_cm)
     return ok, errors
 
 

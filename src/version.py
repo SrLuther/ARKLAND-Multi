@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.7.4"
+APP_VERSION: str = "1.7.5"
 BUILD_DATE: str = "2026-06-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.7.5",
+        "date": "2026-06-09",
+        "changes": [
+            "Novo (Loja): botão 📦 Instalar CustomShop — copia DLLs embutidas do app para "
+            "ArkApi/Plugins/CustomShop/ em todos os servidores (config.json existente preservado).",
+            "Novo (Loja): suporte TEK — painel Web Store lista servidores asm_config_manager "
+            "e config_manager com indicador de instalação do plugin.",
+            "Melhoria (Loja): Aplicar em todos os plugins e registro arkshop_web incluem "
+            "servidores TEK; AsmServerConfig ganha shop_server_id e customshop_config_path.",
+        ],
+    },
     {
         "version": "1.7.4",
         "date": "2026-06-10",

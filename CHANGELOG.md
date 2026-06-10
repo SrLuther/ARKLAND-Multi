@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.7.5] - 2026-06-09
+
+### Feature
+
+- Novo (Loja): botão 📦 Instalar CustomShop — copia DLLs embutidas do app para ArkApi/Plugins/CustomShop/ em todos os servidores (config.json existente preservado).
+- Novo (Loja): suporte TEK — painel Web Store lista servidores asm_config_manager e config_manager com indicador de instalação do plugin.
+
+### Improvement
+
+- Melhoria (Loja): Aplicar em todos os plugins e registro arkshop_web incluem servidores TEK; AsmServerConfig ganha shop_server_id e customshop_config_path.
+
 ## [1.7.4] - 2026-06-10
 
 ### Improvement

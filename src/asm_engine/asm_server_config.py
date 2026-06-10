@@ -344,6 +344,10 @@ class AsmServerConfig:
     # legado — mantido para compatibilidade de dados antigos
     custom_ini_sections: List[dict] = field(default_factory=list)
 
+    # ── Loja CustomShop ───────────────────────────────────────────────────────
+    shop_server_id: str = ""
+    customshop_config_path: str = ""
+
     # ── Metadados internos ────────────────────────────────────────────────────
     notes:  str = ""
     color:  str = ""           # cor customizada do card (ex: "#22c55e"). Vazio = padrão

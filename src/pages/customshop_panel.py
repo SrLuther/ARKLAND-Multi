@@ -23,6 +23,9 @@ from ..shop_integration import (
     default_customshop_path,
     get_local_ip,
     get_shop_subprocess_env,
+    install_customshop_all,
+    is_customshop_installed,
+    iter_shop_servers,
     resolve_central_url,
     slugify_server_id,
     sync_all_plugins,
@@ -158,6 +161,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         if shop_cfg.auto_sync_on_save:
             ok, errs = sync_all_plugins(
                 app.config_manager, shop_cfg, data, Path(cfg_path),
+                asm_cm=getattr(app, "asm_config_manager", None),
             )
             if ok:
                 msgs.append(f"{len(ok)} plugin(s) sincronizado(s)")
@@ -1080,7 +1084,8 @@ def _build_webstore_tab(
         for w in srv_frame.winfo_children():
             w.destroy()
         _server_rows.clear()
-        for srv in app.config_manager.servers:
+        asm_cm = getattr(app, "asm_config_manager", None)
+        for kind, srv in iter_shop_servers(app.config_manager, asm_cm):
             row = tk.Frame(srv_frame, bg="#1a1a30")
             row.pack(fill="x", pady=2)
             sid_var = tk.StringVar(
@@ -1089,14 +1094,18 @@ def _build_webstore_tab(
             path_var = tk.StringVar(
                 value=srv.customshop_config_path or default_customshop_path(srv.install_dir),
             )
-            tk.Label(row, text=srv.name[:28], bg="#1a1a30", fg="gray70",
-                     font=ctk.CTkFont(size=10, weight="bold"), width=140, anchor="w").pack(
-                side="left", padx=(4, 6))
+            prefix = "TEK" if kind == "tek" else "PRIM"
+            installed = is_customshop_installed(srv.install_dir)
+            status = "✓" if installed else "○"
+            tk.Label(
+                row, text=f"{status} [{prefix}] {srv.name[:22]}", bg="#1a1a30", fg="gray70",
+                font=ctk.CTkFont(size=10, weight="bold"), width=168, anchor="w",
+            ).pack(side="left", padx=(4, 6))
             ctk.CTkEntry(row, textvariable=sid_var, width=110, height=24,
                          placeholder_text="shop id").pack(side="left", padx=2)
-            ctk.CTkEntry(row, textvariable=path_var, width=380, height=24).pack(
+            ctk.CTkEntry(row, textvariable=path_var, width=360, height=24).pack(
                 side="left", padx=2)
-            _server_rows.append((srv, sid_var, path_var))
+            _server_rows.append((kind, srv, sid_var, path_var))
 
     _rebuild_server_rows()
 
@@ -1105,12 +1114,17 @@ def _build_webstore_tab(
     def _apply_plugins() -> None:
         _save_shop_from_ui()
         collect_catalog()
-        for srv, sid_var, path_var in _server_rows:
+        for _kind, srv, sid_var, path_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
             srv.customshop_config_path = path_var.get().strip()
+        app.config_manager.save_servers()
+        asm_cm = getattr(app, "asm_config_manager", None)
+        if asm_cm:
+            asm_cm.save()
         catalog = get_catalog()
         ok, errs = sync_all_plugins(
             app.config_manager, shop, catalog, get_catalog_path(),
+            asm_cm=asm_cm,
         )
         msg = f"{len(ok)} plugin(s) atualizado(s)."
         if errs:
@@ -1120,8 +1134,35 @@ def _build_webstore_tab(
         except AttributeError:
             messagebox.showinfo("Sincronizar", msg)
 
+    def _install_customshop() -> None:
+        asm_cm = getattr(app, "asm_config_manager", None)
+        targets = iter_shop_servers(app.config_manager, asm_cm)
+        if not targets:
+            messagebox.showwarning("Instalar", "Nenhum servidor cadastrado no app.")
+            return
+        if not messagebox.askyesno(
+            "Instalar CustomShop",
+            f"Copiar CustomShop.dll e dependências para {len(targets)} servidor(es)?\n\n"
+            "config.json existente não será sobrescrito.",
+        ):
+            return
+        ok, errs = install_customshop_all(
+            app.config_manager, asm_cm, overwrite_dlls=True,
+        )
+        _rebuild_server_rows()
+        msg = f"{len(ok)} servidor(es) com plugin instalado."
+        if errs:
+            msg += "\n" + "\n".join(errs[:5])
+        try:
+            app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
+        except AttributeError:
+            messagebox.showinfo("Instalar CustomShop", msg)
+
     act_row = tk.Frame(card_srv, bg=_INNER)
     act_row.pack(fill="x", padx=10, pady=(6, 10))
+    ctk.CTkButton(act_row, text="📦  Instalar CustomShop",
+                  height=34, fg_color="#1a4a6a", hover_color="#1a5a8a",
+                  command=_install_customshop).pack(side="left", padx=(0, 10))
     ctk.CTkButton(act_row, text="🔄  Aplicar em todos os plugins",
                   height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                   command=_apply_plugins).pack(side="left", padx=(0, 10))

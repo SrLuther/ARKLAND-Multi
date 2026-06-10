@@ -1,10 +1,10 @@
 {
-    "version": "1.7.4",
+    "version": "1.7.5",
     "date": "2026-06-10",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.4/ARKLAND-Multi-Setup-v1.7.4.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.7.5/ARKLAND-Multi-Setup-v1.7.5.exe",
     "changelog": [
-        "Fix (SteamCMD/TEK): +force_install_dir agora vem ANTES de +login — ordem exigida pela Valve; ordem errada fazia servidor instalar/atualizar na versão antiga (ex: 358.24).",
-        "Fix (SteamCMD/TEK): instalação ao criar servidor usa validate e verifica appmanifest_376030.acf na pasta configurada.",
-        "Melhoria (SteamCMD): aviso quando a pasta de instalação já contém servidor antigo; log exibe build Steam ao concluir."
+        "Novo (Loja): botão 📦 Instalar CustomShop — copia DLLs embutidas do app para ArkApi/Plugins/CustomShop/ em todos os servidores (config.json existente preservado).",
+        "Novo (Loja): suporte TEK — painel Web Store lista servidores asm_config_manager e config_manager com indicador de instalação do plugin.",
+        "Melhoria (Loja): Aplicar em todos os plugins e registro arkshop_web incluem servidores TEK; AsmServerConfig ganha shop_server_id e customshop_config_path."
     ]
 }
