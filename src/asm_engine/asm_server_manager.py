@@ -10,7 +10,7 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 # ── psutil (opcional) ─────────────────────────────────────────────────────────
 try:
@@ -98,6 +98,36 @@ def _find_server_process(
         time.sleep(0.5)
     return None
 
+
+def _normalize_install_dir(path: str) -> str:
+    return (path or "").replace("\\", "/").lower().rstrip("/")
+
+
+def _cmdline_matches_server(cmdline: str, cfg: AsmServerConfig) -> bool:
+    """True se a linha de comando pertence ao servidor (porta TEK ?Port= ou -port=)."""
+    if not cmdline or not cfg.server_port:
+        return False
+    port = cfg.server_port
+    return f"?port={port}" in cmdline or f"-port={port}" in cmdline
+
+
+def _process_matches_cfg(
+    cfg: AsmServerConfig,
+    exe: str,
+    cmdline: str,
+    install_dir_counts: Dict[str, int],
+) -> bool:
+    install_norm = _normalize_install_dir(cfg.install_dir)
+    install_hit = bool(install_norm) and install_norm in exe
+    port_hit = _cmdline_matches_server(cmdline, cfg)
+
+    if install_hit:
+        if install_dir_counts.get(install_norm, 0) > 1:
+            return port_hit
+        return True
+    return port_hit
+
+
 from .asm_server_config import (
     AsmServerConfig,
     ASM_STATUS_STOPPED,
@@ -123,6 +153,7 @@ class AsmServerInstance:
         self._proc:    Optional[subprocess.Popen] = None   # type: ignore[type-arg]
         self._monitor: Optional[threading.Thread] = None
         self._lock     = threading.Lock()
+        self.uptime_start: Optional[float] = None
 
     # ── Status helpers ──────────────────────────────────────────────────────
 
@@ -156,6 +187,74 @@ class AsmServerManager:
         inst = self._instances.get(server_id)
         return inst.status if inst else ASM_STATUS_STOPPED
 
+    def register_servers(self, servers: List[AsmServerConfig]) -> None:
+        """Garante uma instância interna para cada servidor configurado."""
+        with self._lock:
+            for cfg in servers:
+                inst = self._instances.setdefault(cfg.id, AsmServerInstance(cfg))
+                inst.cfg = cfg
+
+    def scan_running_servers(self, servers: List[AsmServerConfig]) -> int:
+        """Reconecta processos ShooterGameServer já em execução (ex.: após reiniciar o app).
+
+        Correspondência por pasta de instalação no executável e/ou ?Port= / -port= na CLI.
+        """
+        if not _PSUTIL_OK or _psutil is None:
+            return 0
+
+        self.register_servers(servers)
+        install_counts: Dict[str, int] = {}
+        for cfg in servers:
+            key = _normalize_install_dir(cfg.install_dir)
+            if key:
+                install_counts[key] = install_counts.get(key, 0) + 1
+
+        claimed: set[int] = set()
+        reconnected = 0
+
+        try:
+            for proc in _psutil.process_iter(["pid", "name", "exe", "cmdline", "create_time"]):
+                try:
+                    name = proc.info.get("name") or ""
+                    if "shootergameserver" not in name.lower():
+                        continue
+                    pid = int(proc.info["pid"])
+                    if pid in claimed:
+                        continue
+                    exe = (proc.info.get("exe") or "").replace("\\", "/").lower()
+                    cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+                    create_time = proc.info.get("create_time")
+
+                    with self._lock:
+                        for cfg in servers:
+                            inst = self._instances.get(cfg.id)
+                            if not inst or inst.status != ASM_STATUS_STOPPED:
+                                continue
+                            if not _process_matches_cfg(cfg, exe, cmdline, install_counts):
+                                continue
+
+                            raw = _psutil.Process(pid)
+                            inst._proc = _PsutilProcessWrapper(raw)
+                            inst.cfg = cfg
+                            inst.status = ASM_STATUS_RUNNING
+                            inst.uptime_start = float(create_time or time.time())
+                            if self._on_status:
+                                self._on_status(cfg.id, ASM_STATUS_RUNNING)
+                            self._start_monitor(inst)
+                            claimed.add(pid)
+                            reconnected += 1
+                            break
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        return reconnected
+
+    def try_reconnect_server(self, cfg: AsmServerConfig) -> bool:
+        """Tenta reconectar um único servidor já em execução. Retorna True se reconectou."""
+        return self.scan_running_servers([cfg]) > 0
+
     # ── Start ────────────────────────────────────────────────────────────────
 
     def start(self, cfg: AsmServerConfig,
@@ -176,6 +275,13 @@ class AsmServerManager:
                     on_done(False, "Servidor já em execução")
                 return
             inst.cfg = cfg
+
+        if inst.status == ASM_STATUS_STOPPED and self.try_reconnect_server(cfg):
+            if on_done:
+                on_done(True, "Servidor já em execução — reconectado ao gerenciador")
+            return
+
+        with self._lock:
             inst.status = ASM_STATUS_STARTING
 
         if self._on_status:
@@ -267,6 +373,7 @@ class AsmServerManager:
                     break
 
             inst.status = ASM_STATUS_RUNNING
+            inst.uptime_start = time.time()
             if self._on_status:
                 self._on_status(cfg.id, ASM_STATUS_RUNNING)
             if on_done:
@@ -332,6 +439,7 @@ class AsmServerManager:
 
             inst.status = ASM_STATUS_STOPPED
             inst._proc = None
+            inst.uptime_start = None
             if self._on_status:
                 self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
             if on_done:
@@ -339,6 +447,7 @@ class AsmServerManager:
         except Exception as exc:
             inst.status = ASM_STATUS_STOPPED
             inst._proc = None
+            inst.uptime_start = None
             if self._on_status:
                 self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
             if on_done:
@@ -380,6 +489,7 @@ class AsmServerManager:
                     if inst.status not in (ASM_STATUS_STOPPED, ASM_STATUS_STOPPING):
                         inst.status = ASM_STATUS_CRASHED
                         inst._proc = None
+                        inst.uptime_start = None
                         if self._on_status:
                             self._on_status(inst.cfg.id, ASM_STATUS_CRASHED)
                 break

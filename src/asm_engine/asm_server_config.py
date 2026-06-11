@@ -61,6 +61,44 @@ class AsmServerConfig:
     # Args extras CLI
     additional_args: str = ""
 
+    # ── CLI / Linha de comando (paridade server_config.py) ───────────────────
+    use_battleye: bool = False
+    force_respawn_dinos: bool = False
+    use_allcores: bool = False
+    active_event: str = ""
+    crossplay: bool = False
+    epic_only: bool = False
+    use_vivox: bool = False
+    use_item_dupe_check: bool = False
+    use_raw_sockets: bool = False
+    no_net_threading: bool = False
+    force_net_threading: bool = False
+    public_ip_for_epic: str = ""
+    no_transfer_from_filtering: bool = False
+    disable_vac: bool = False
+    disable_anti_speed_hack: bool = False
+    speed_hack_bias: float = 1.0
+    disable_player_move_physics_opt: bool = False
+    use_cache: bool = False
+    use_old_save_format: bool = False
+    use_no_memory_bias: bool = False
+    stasis_keep_controllers: bool = False
+    use_no_hang_detection: bool = False
+    server_allow_ansel: bool = False
+    no_dinos: bool = False
+    force_dx10: bool = False
+    force_shader_model4: bool = False
+    force_low_memory: bool = False
+    enable_auto_destroy_structures: bool = False
+    enable_no_fish_loot: bool = False
+    enable_web_alarm: bool = False
+    web_alarm_key: str = ""
+    web_alarm_url: str = ""
+    enable_server_admin_logs: bool = False
+    server_admin_logs_include_tribe_logs: bool = False
+    server_rcon_output_tribe_logs: bool = False
+    notify_admin_commands_in_chat: bool = False
+
     def __post_init__(self) -> None:
         if not self.alt_save_directory_name or not self.alt_save_directory_name.strip():
             self.alt_save_directory_name = "savegame"
@@ -299,6 +337,25 @@ class AsmServerConfig:
     per_level_dino_tamed:        List[float] = field(default_factory=lambda: [1.0] * 12)
     per_level_dino_tamed_add:    List[float] = field(default_factory=lambda: [0.14] * 12)
     per_level_dino_tamed_affinity: List[float] = field(default_factory=lambda: [0.44] * 12)
+
+    # ── Extensões SM (Fase 5 — campos do painel clássico sem ASM original) ───
+    item_stack_size_multiplier:                  float = 1.0
+    spoiling_time_multiplier:                    float = 1.0
+    item_decomposition_time_multiplier:          float = 1.0
+    platform_saddle_build_area_bounds_multiplier: float = 1.0
+    max_tribute_dinos:                           int   = 20
+    max_tribute_items:                           int   = 50
+    baby_imprint_amount_multiplier:              float = 1.0
+    enable_creative_mode:                        bool  = False
+
+    # ── Editores agregados (Game.ini — chaves repetidas, Fase 4) ─────────────
+    harvest_resource_multipliers:            List[dict] = field(default_factory=list)
+    dino_class_resistance_multipliers:       List[dict] = field(default_factory=list)
+    dino_class_damage_multipliers:           List[dict] = field(default_factory=list)
+    tamed_dino_class_resistance_multipliers: List[dict] = field(default_factory=list)
+    tamed_dino_class_damage_multipliers:     List[dict] = field(default_factory=list)
+    dino_spawn_weight_multipliers:           List[dict] = field(default_factory=list)
+    prevent_dino_tame_class_names:           List[str] = field(default_factory=list)
 
     # ── Substituições avançadas (texto livre no formato INI do ARK) ──────────
     crafting_overrides_raw:    str = ""  # ConfigOverrideItemCraftingCosts=...

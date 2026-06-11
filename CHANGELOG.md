@@ -5,6 +5,26 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.0] - 2026-06-11
+
+### Feature
+
+- Novo (TEK v2 — Interface): layout híbrido D completo em todas as 24+ seções — cards duplos, dual-label PT+EN, slider condicional (≥1200px), checkboxes em grid.
+- Novo (TEK v2 — i18n): 100% dos campos com tradução PT-BR — 320 entradas no catálogo, 0 pendências; hints/tooltips por campo com exibição por clique.
+- Novo (TEK v2 — Modified+Reset): badge ● ciano e botão ↺ em todos os campos que diferem do padrão ARK — cobertura nos helpers legados e nos cards novos.
+- Novo (TEK v2 — Fase 3 CLI): seção 'Avançado — Linha de comando' em Administração com 7 grupos de cards: Inicialização, Rede/plataformas, Segurança, Performance, Gameplay CLI, Logs de admin, Web Alarm.
+- Novo (TEK v2 — Fase 4 Agregados): editores estruturados para HarvestResourceItemAmountClassMultipliers, DinoClassDamage/Resistance, TamedDinoClassDamage/Resistance, DinoSpawnWeightMultipliers, PreventDinoTameClassNames — grupo 'Agregados' na navegação.
+- Novo (TEK v2 — Fase 5 SM): seção 'Extensões SM' com ItemStackSizeMultiplier, SpoilingTimeMultiplier, MaxTributeDinos/Items, BabyImprintAmountMultiplier, EnableCreativeMode — grupo 'SM / Avançado' na navegação.
+- Novo (TEK v2 — SpawnExact): gerador completo de SpawnExactDino compatível com ArkUtils — species search via Obelisk ASB, 7 stats wild/tamed, 6 regiões de cor, imprint %, blueprints favoritos, histórico, presets, copiar e enviar via RCON.
+- Novo (TEK v2 — Obelisk): cliente Python para o manifest ArkUtils Obelisk (values.json) com cache local, deduplicação e exibição de variantes (Alpha, Boss…).
+- Novo (TEK v2 — Arquivos do Servidor): cards individuais para Administradores, Whitelist e Exclusive Join com contador dinâmico de IDs e botão 'Colar ID(s)'.
+- Novo (SpawnExact — CustomShop): botão 'Adicionar ao Kit' exporta o comando SpawnExactDino diretamente para um kit do config.json da loja.
+
+### Fix
+
+- Fix (Loja/WebStore): aba Web Store carregava incompleta — NameError em _save_shop_from_ui (acesso a _port_var antes de sua criação); CTkEntry não aceita command= (ValueError); ambos corrigidos.
+- Fix (Loja/WebStore): URL central agora populada diretamente de resolve_central_url(shop) na inicialização, sem chamar _save_shop_from_ui antes de todos os widgets existirem.
+
 ## [1.7.6] - 2026-06-10
 
 ### Improvement

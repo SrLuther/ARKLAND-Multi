@@ -28,8 +28,8 @@ from .version import APP_VERSION
 
 # ── Constantes de janela ─────────────────────────────────────────────────────
 _WINDOW_TITLE  = "ARKLAND TEK — ARK Server Manager"
-_WINDOW_MIN_W  = 1000
-_WINDOW_MIN_H  = 640
+_WINDOW_MIN_W  = 1100
+_WINDOW_MIN_H  = 700
 _WINDOW_SIZE   = "1280x780"
 _SIDEBAR_W     = 240
 
@@ -156,6 +156,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(150, self._setup_bg_watermark)
         # Auto-start: sync e agente remoto (após janela renderizar)
         self.after(500, self._auto_start_services)
+        self.after(600, self._asm_scan_running_servers)
         # B2: tick de indicadores ricos de status (a cada 30s)
         self.after(30_000, self._asm_status_tick)
 
@@ -181,9 +182,11 @@ class ARKServerManagerApp(ctk.CTk):
 
                 data: dict = {"players": "—", "uptime": "—", "ram": "—", "version": "—"}
 
-                # Uptime: calculado a partir de quando o status mudou para RUNNING
+                # Uptime: desde reconexão/start do processo
                 uptime_attr = f"_asm_uptime_start_{srv.id}"
-                uptime_start = getattr(self, uptime_attr, None)
+                uptime_start = (
+                    inst.uptime_start if inst and inst.uptime_start else getattr(self, uptime_attr, None)
+                )
                 if uptime_start:
                     elapsed = int(time.time() - uptime_start)
                     hrs, rem = divmod(elapsed, 3600)
@@ -243,7 +246,11 @@ class ARKServerManagerApp(ctk.CTk):
         """Chamado pela thread do monitor quando o status de um servidor muda."""
         # B2: registra timestamp de início do uptime quando fica RUNNING
         if new_status == ASM_STATUS_RUNNING:
-            setattr(self, f"_asm_uptime_start_{server_id}", time.time())
+            inst = self.asm_server_manager.get_instance(server_id)
+            if inst and inst.uptime_start:
+                setattr(self, f"_asm_uptime_start_{server_id}", inst.uptime_start)
+            else:
+                setattr(self, f"_asm_uptime_start_{server_id}", time.time())
         elif new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
             setattr(self, f"_asm_uptime_start_{server_id}", None)
             rich_key = f"_asm_rich_status_{server_id}"
@@ -291,6 +298,19 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
     # Auto-start de serviços
     # ─────────────────────────────────────────────────────────────────────────
+
+    def _asm_scan_running_servers(self) -> None:
+        """Detecta servidores ARK já em execução e reconecta o gerenciamento TEK."""
+        import threading
+
+        def _worker() -> None:
+            servers = self.asm_config_manager.servers
+            count = self.asm_server_manager.scan_running_servers(servers)
+            if count:
+                self.after(0, self._asm_refresh_dashboard)
+                self.after(0, self._rebuild_server_sidebar)
+
+        threading.Thread(target=_worker, daemon=True, name="AsmScanRunning").start()
 
     def _auto_start_services(self) -> None:
         """Inicia sync e agente remoto automaticamente se configurados."""
@@ -750,24 +770,6 @@ class ARKServerManagerApp(ctk.CTk):
             )
             return
 
-        from .asm_engine.asm_steamcmd import AsmSteamCmd
-        from .asm_ui.asm_steamcmd_ui import start_server_install
-
-        _branch = (srv.branch_name or "").strip().lower()
-        _exe_ver = AsmSteamCmd.read_server_exe_version(srv.install_dir) or ""
-        if _exe_ver.startswith("358.") and _branch not in ("preaquatica", "pre-aquatica"):
-            if messagebox.askyesno(
-                "Servidor desatualizado",
-                f"O executável do servidor está na versão v{_exe_ver}.\n\n"
-                "Servidores recentes costumam estar em v361+. Versões antigas causam "
-                "erro de convite e incompatibilidade com jogadores atualizados.\n\n"
-                "Deseja atualizar o servidor via SteamCMD agora?\n"
-                "(Recomendado: aguarde a conclusão antes de iniciar.)",
-                parent=self,
-            ):
-                start_server_install(self, srv, validate=True)
-                return
-
         cfg = srv
         if no_mods and srv.active_mods:
             import copy
@@ -824,6 +826,10 @@ class ARKServerManagerApp(ctk.CTk):
     def _asm_open_rcon(self, srv: AsmServerConfig) -> None:
         from .asm_ui.asm_rcon_window import open_asm_rcon_window
         open_asm_rcon_window(self, srv)
+
+    def _asm_open_spawn_exact(self, srv: Optional[AsmServerConfig] = None) -> None:
+        from .asm_ui.spawn_exact_panel import open_spawn_exact_panel
+        open_spawn_exact_panel(self, srv)
 
     def _asm_open_player_list(self, srv: AsmServerConfig) -> None:
         from .asm_ui.asm_player_list import open_asm_player_list
@@ -980,23 +986,6 @@ class ARKServerManagerApp(ctk.CTk):
             )
         except Exception:
             pass
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Callbacks internos
-    # ─────────────────────────────────────────────────────────────────────────
-
-    def _on_server_status_change(self, server_id: str, new_status: str) -> None:
-        """Chamado pela thread do monitor quando o status de um servidor muda."""
-        # B2: registra timestamp de início do uptime quando fica RUNNING
-        if new_status == ASM_STATUS_RUNNING:
-            setattr(self, f"_asm_uptime_start_{server_id}", time.time())
-        elif new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
-            setattr(self, f"_asm_uptime_start_{server_id}", None)
-            rich_key = f"_asm_rich_status_{server_id}"
-            setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
-
-        self.after(0, self._asm_refresh_dashboard)
-        self.after(0, self._rebuild_server_sidebar)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Helpers de UI (usados pelos builders de pages)

@@ -935,7 +935,9 @@ def _build_webstore_tab(
     _central_url_lbl = tk.Label(card_mode, bg=_INNER, fg=_GREEN,
                                 font=ctk.CTkFont(size=12, weight="bold"), anchor="w")
     _central_url_lbl.pack(anchor="w", padx=10, pady=(4, 8))
-    _refresh_central_label()
+    # Valor inicial direto do shop já carregado (não chama _save_shop_from_ui
+    # aqui pois as demais variáveis ainda não foram criadas neste ponto)
+    _central_url_lbl.config(text=resolve_central_url(shop))
 
     # ── Status & processo (somente host) ──────────────────────────────────
     card_status = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
@@ -956,8 +958,7 @@ def _build_webstore_tab(
     port_row.pack(fill="x", padx=10, pady=2)
     tk.Label(port_row, text="Porta:", bg=_INNER, fg="gray50",
              font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 8))
-    ctk.CTkEntry(port_row, textvariable=_port_var, width=90, height=26,
-                 command=_refresh_central_label).pack(side="left")
+    ctk.CTkEntry(port_row, textvariable=_port_var, width=90, height=26).pack(side="left")
     port_var_trace = _port_var.trace_add("write", lambda *_: _refresh_central_label())
 
     _api_key_var = tk.StringVar(value=shop.api_key or "")

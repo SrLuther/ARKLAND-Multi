@@ -358,8 +358,9 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     _tbtn("🔒  Firewall", lambda s=srv: app._asm_open_firewall(s))
     _tbtn("📊  Perf",     lambda s=srv: app._asm_open_perf(s), width=68)
     _tbtn("📜  Tribe Log",lambda s=srv: app._asm_open_tribe_log(s))
-    _tbtn("�  Log",      lambda s=srv: app._asm_open_server_log(s), width=58)
-    _tbtn("�📡  Monitor",  lambda s=srv: app._asm_open_monitor(s))
+    _tbtn("🦕  SpawnExact", lambda s=srv: app._asm_open_spawn_exact(s), width=90)
+    _tbtn("🔬  Log",      lambda s=srv: app._asm_open_server_log(s), width=58)
+    _tbtn("📡  Monitor",  lambda s=srv: app._asm_open_monitor(s))
     _tbtn("🤖  IA",       lambda s=srv: app._asm_open_ai_assistant(s), width=58)
 
 

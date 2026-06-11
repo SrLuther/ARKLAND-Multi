@@ -137,6 +137,15 @@ INI_MAP: dict[str, tuple] = {
     "hair_growth_speed_multiplier":             ("Game","GameMode",     "HairGrowthSpeedMultiplier",                   {}),
     "base_temperature_multiplier":              ("GUS","ServerSettings","BaseTemperatureMultiplier",                   {}),
     "disable_weather_fog":                      ("GUS","ServerSettings","DisableWeatherFog",                           {}),
+    # Extensões SM (Fase 5)
+    "item_stack_size_multiplier":                  ("GUS","ServerSettings","ItemStackSizeMultiplier",                    {}),
+    "spoiling_time_multiplier":                    ("GUS","ServerSettings","SpoilingTimeMultiplier",                     {}),
+    "item_decomposition_time_multiplier":          ("GUS","ServerSettings","ItemDecompositionTimeMultiplier",          {}),
+    "platform_saddle_build_area_bounds_multiplier": ("GUS","ServerSettings","PlatformSaddleBuildAreaBoundsMultiplier", {}),
+    "max_tribute_dinos":                           ("GUS","ServerSettings","MaxTributeDinos",                          {}),
+    "max_tribute_items":                           ("GUS","ServerSettings","MaxTributeItems",                          {}),
+    "baby_imprint_amount_multiplier":              ("Game","GameMode",     "BabyImprintAmountMultiplier",               {}),
+    "enable_creative_mode":                        ("Game","GameMode",     "bShowCreativeMode",                         {}),
 
     # Structures
     "structure_resistance_multiplier":           ("GUS","ServerSettings","StructureResistanceMultiplier",              {}),
@@ -425,18 +434,15 @@ def write_ini(cfg: AsmServerConfig) -> None:
     if cfg.custom_game_ini_raw:
         _inject_raw(cfg.custom_game_ini_raw, game)
 
-    # Raw overrides para Game.ini (engrams, levels, crafting, stacks, spawners, supply crates)
+    # Raw overrides (engrams, levels) — chaves únicas via _inject_raw
     for raw_text in (
         cfg.engram_entries_raw,
         cfg.player_level_stats_raw,
         cfg.dino_level_stats_raw,
-        cfg.crafting_overrides_raw,
-        cfg.stack_size_overrides_raw,
-        cfg.npc_spawn_overrides_raw,
-        cfg.supply_crate_overrides_raw,
     ):
         if raw_text:
             _inject_raw(raw_text, game)
+    # crafting/stack/spawner/supply + listas agregadas → patch pós-escrita (chaves repetidas)
 
     if cfg.prevent_transfer_raw:
         _inject_raw(cfg.prevent_transfer_raw, gus)
@@ -456,7 +462,11 @@ def write_ini(cfg: AsmServerConfig) -> None:
             game_mode_sec[f"{_prefix}[{_idx}]"] = _format_value(_val)
 
     _write_ini_file(_ini_path(cfg.install_dir, "GUS"),  gus)
-    _write_ini_file(_ini_path(cfg.install_dir, "Game"), game)
+    _game_path = _ini_path(cfg.install_dir, "Game")
+    _write_ini_file(_game_path, game)
+
+    from .asm_game_list_ini import build_repeated_game_lines, patch_game_ini_repeated_lines
+    patch_game_ini_repeated_lines(_game_path, build_repeated_game_lines(cfg))
 
     # Engine.ini (apenas raw)
     if cfg.custom_engine_ini_raw:
@@ -591,6 +601,10 @@ def read_ini(cfg: AsmServerConfig) -> None:
                         except ValueError:
                             pass
 
+    if cfg.install_dir:
+        from .asm_game_list_ini import populate_lists_from_game_ini
+        populate_lists_from_game_ini(cfg, _ini_path(cfg.install_dir, "Game"))
+
 
 def read_ini_from_paths(
     cfg: AsmServerConfig,
@@ -672,6 +686,141 @@ def read_ini_from_paths(
                         except ValueError:
                             pass
 
+    if game_path:
+        from .asm_game_list_ini import populate_lists_from_game_ini
+        populate_lists_from_game_ini(cfg, Path(game_path))
+
+
+def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
+    """Parâmetros ?key=value concatenados ao mapa (estilo ASM/UE)."""
+    params = [
+        f"{cfg.server_map}",
+        "?listen",
+        f"?Port={cfg.server_port}",
+        f"?QueryPort={cfg.query_port}",
+        f"?MaxPlayers={cfg.max_players}",
+    ]
+    if cfg.exclusive_join:
+        params.append("?ExclusiveJoin")
+    if cfg.active_event:
+        params.append(f"?ActiveEvent={cfg.active_event}")
+    if cfg.auto_save_period != 15.0:
+        params.append(f"?AutoSavePeriodMinutes={cfg.auto_save_period}")
+    if cfg.server_ip:
+        params.append(f"?MultiHome={cfg.server_ip}")
+    if cfg.use_raw_sockets:
+        params.append("?bRawSockets")
+    if cfg.alt_save_directory_name:
+        params.append(f"?AltSaveDirectoryName={cfg.alt_save_directory_name}")
+    if cfg.prevent_spawn_animations:
+        params.append("?PreventSpawnAnimations=True")
+    if cfg.show_floating_damage_text:
+        params.append("?ShowFloatingDamageText=True")
+    return params
+
+
+def _launch_dash_flags(cfg: AsmServerConfig) -> list[str]:
+    """Flags -flag (dash) do executável do servidor."""
+    flags = ["-nosteamclient", "-game", "-server", "-log"]
+
+    if not cfg.use_battleye:
+        flags.append("-NoBattlEye")
+    if cfg.use_allcores:
+        flags.append("-useallavailablecores")
+    if cfg.force_respawn_dinos:
+        flags.append("-ForceRespawnDinos")
+    if cfg.crossplay:
+        flags.append("-crossplay")
+        if cfg.public_ip_for_epic:
+            flags.append(f"-PublicIPForEpic={cfg.public_ip_for_epic}")
+    if cfg.epic_only:
+        flags.append("-epiconly")
+    if cfg.use_vivox:
+        flags.append("-UseVivox")
+    if cfg.use_item_dupe_check:
+        flags.append("-UseItemDupeCheck")
+    if cfg.no_net_threading:
+        flags.append("-nonetthreading")
+    if cfg.force_net_threading:
+        flags.append("-forcenetthreading")
+
+    if cfg.no_dinos:
+        flags.append("-NoDinos")
+    if cfg.allow_cave_flyers:
+        flags.append("-ForceAllowCaveFlyers")
+    if cfg.enable_auto_destroy_structures:
+        flags.append("-AutoDestroyStructures")
+    if cfg.enable_no_fish_loot:
+        flags.append("-nofishloot")
+
+    if cfg.disable_vac:
+        flags.append("-insecure")
+    if cfg.disable_anti_speed_hack:
+        flags.append("-noantispeedhack")
+    elif cfg.speed_hack_bias != 1.0:
+        flags.append(f"-speedhackbias={cfg.speed_hack_bias}f")
+    if cfg.disable_player_move_physics_opt:
+        flags.append("-nocombineclientmoves")
+
+    if cfg.force_dx10:
+        flags.append("-d3d10")
+    if cfg.force_shader_model4:
+        flags.append("-sm4")
+    if cfg.force_low_memory:
+        flags.append("-lowmemory")
+    if cfg.use_cache:
+        flags.append("-usecache")
+    if cfg.use_old_save_format:
+        flags.append("-oldsaveformat")
+    if cfg.use_no_memory_bias:
+        flags.append("-nomemorybias")
+    if cfg.stasis_keep_controllers:
+        flags.append("-StasisKeepControllers")
+    if cfg.use_no_hang_detection:
+        flags.append("-NoHangDetection")
+
+    if cfg.server_allow_ansel:
+        flags.append("-ServerAllowAnsel")
+    if cfg.enable_server_admin_logs:
+        flags.append("-servergamelog")
+        if cfg.server_admin_logs_include_tribe_logs:
+            flags.append("-servergamelogincludetribelogs")
+    if cfg.server_rcon_output_tribe_logs:
+        flags.append("-ServerRCONOutputTribeLogs")
+    if cfg.notify_admin_commands_in_chat:
+        flags.append("-NotifyAdminCommandsInChat")
+
+    if cfg.enable_web_alarm:
+        flags.append("-webalarm")
+        if cfg.web_alarm_key:
+            flags.append(f"-webalarmkey={cfg.web_alarm_key}")
+        if cfg.web_alarm_url:
+            flags.append(f"-webalarmurl={cfg.web_alarm_url}")
+
+    if cfg.cross_ark_cluster_id:
+        if cfg.no_transfer_from_filtering:
+            flags.append("-NoTransferFromFiltering")
+        flags.append(f"-clusterid={cfg.cross_ark_cluster_id}")
+        if cfg.cluster_dir_override:
+            _cl_dir = cfg.cluster_dir_override.replace("/", "\\")
+            if " " in _cl_dir:
+                flags.append(f'"-ClusterDirOverride={_cl_dir}"')
+            else:
+                flags.append(f"-ClusterDirOverride={_cl_dir}")
+
+    return flags
+
+
+def _append_additional_args(flags: list[str], extra: str) -> None:
+    raw = extra.strip()
+    if not raw:
+        return
+    import shlex
+    try:
+        flags.extend(shlex.split(raw))
+    except Exception:
+        flags.append(raw)
+
 
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
@@ -681,39 +830,9 @@ def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     cmd.exe expande %XX (ex: %20, %5B) como variáveis de ambiente, corrompendo nomes
     como '[BR] ARKLAND PVE 5X' em 'BBRDBARKLANDDBPVEDB5X…'.
     """
-    params = [
-        f"{cfg.server_map}",
-        "?listen",
-        f"?Port={cfg.server_port}",
-        f"?QueryPort={cfg.query_port}",
-        f"?MaxPlayers={cfg.max_players}",
-    ]
-    if cfg.server_ip:
-        params.append(f"?MultiHome={cfg.server_ip}")
-    if cfg.alt_save_directory_name:
-        params.append(f"?AltSaveDirectoryName={cfg.alt_save_directory_name}")
-
-    flags = ["-nosteamclient", "-game", "-server", "-log"]
-    if cfg.allow_cave_flyers:
-        flags.append("-ForceAllowCaveFlyers")
-
-    # Cluster: -clusterid= é flag de dash, não URL param (?ClusterId= é ignorado pelo ARK).
-    # Referência: primitivo src/server_config.py e comando saudável confirmam isso.
-    if cfg.cross_ark_cluster_id:
-        flags.append(f"-clusterid={cfg.cross_ark_cluster_id}")
-        if cfg.cluster_dir_override:
-            _cl_dir = cfg.cluster_dir_override.replace("/", "\\")
-            if " " in _cl_dir:
-                flags.append(f'"-ClusterDirOverride={_cl_dir}"')
-            else:
-                flags.append(f"-ClusterDirOverride={_cl_dir}")
-
-    if cfg.additional_args.strip():
-        import shlex
-        try:
-            flags += shlex.split(cfg.additional_args)
-        except Exception:
-            flags.append(cfg.additional_args)
+    params = _launch_url_params(cfg)
+    flags = _launch_dash_flags(cfg)
+    _append_additional_args(flags, cfg.additional_args)
 
     # O ARK usa o parser do Unreal Engine que lê o command line raw.
     # Aspas ao redor do MAP?params fazem o UE incluí-las no token, quebrando

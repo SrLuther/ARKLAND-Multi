@@ -1,5 +1,5 @@
 """
-TEK — Painel de configuração de servidor (24 seções, fiel ao ASM).
+TEK — Painel de configuração de servidor (28 seções, fiel ao ASM).
 Estrutura: header + nav lateral + conteúdo dinâmico.
 """
 from __future__ import annotations
@@ -14,6 +14,61 @@ from ..ui_constants import get_theme
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
+
+# ── Navegação agrupada (7 categorias — Fase 1 TEK v2) ───────────────────────
+NAV_GROUPS: list[tuple[str, list[str]]] = [
+    ("Servidor", [
+        "Administração",
+        "Gerenciamento Automático",
+        "Detalhes do Servidor",
+        "Arquivos do Servidor",
+    ]),
+    ("Regras", [
+        "Regras",
+        "Transferências / Tributo",
+        "Bate-papo e Notificações",
+        "HUD e Visuais",
+    ]),
+    ("Gameplay", [
+        "Configurações do Jogador",
+        "Configurações do Dino",
+        "Reprodução",
+        "Meio Ambiente",
+    ]),
+    ("Construção", [
+        "Estruturas",
+        "Engramas",
+        "Progressões de Nível",
+    ]),
+    ("Substituições", [
+        "Substituições de Crafting",
+        "Substituições de Stack",
+        "Substituições de Spawner",
+        "Substituições de Supply Crate",
+        "Impedir Transferências",
+    ]),
+    ("Agregados", [
+        "Coleta por Recurso",
+        "Multiplicadores por Classe",
+        "Spawn e Domesticação",
+    ]),
+    ("INI", [
+        "Custom GameUserSettings.ini",
+        "Custom Game.ini",
+        "ARK Procedural (PGM)",
+    ]),
+    ("Integrações", [
+        "Detalhes do Discord Bot",
+    ]),
+    ("SM / Avançado", [
+        "Extensões SM",
+    ]),
+    ("Ferramentas", [
+        "🦕 Gerador SpawnExact",
+        "⚡ Console RCON",
+        "👥 Jogadores Online",
+    ]),
+]
 
 # ── Seções do painel (ordem fiel ao ASM) ─────────────────────────────────────
 SECTIONS: list[str] = [
@@ -38,9 +93,16 @@ SECTIONS: list[str] = [
     "Substituições de Spawner",
     "Substituições de Supply Crate",
     "Impedir Transferências",
+    "Coleta por Recurso",
+    "Multiplicadores por Classe",
+    "Spawn e Domesticação",
     "Custom GameUserSettings.ini",
     "Custom Game.ini",
     "ARK Procedural (PGM)",
+    "Extensões SM",
+    "🦕 Gerador SpawnExact",
+    "⚡ Console RCON",
+    "👥 Jogadores Online",
 ]
 
 
@@ -237,7 +299,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
     body.grid_columnconfigure(1, weight=1)
     body.grid_rowconfigure(0, weight=1)
 
-    nav_frame = ctk.CTkScrollableFrame(body, fg_color=nav_bg, corner_radius=0, width=210,
+    nav_frame = ctk.CTkScrollableFrame(body, fg_color=nav_bg, corner_radius=0, width=240,
                                        scrollbar_button_color=sep)
     nav_frame.grid(row=0, column=0, sticky="nsew")
     nav_frame.grid_columnconfigure(0, weight=1)
@@ -252,6 +314,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
     app._asm_panel_vars[srv.id] = {}
     vars_ref = app._asm_panel_vars[srv.id]
     vars_ref["_app"] = app   # referência ao app para builders que precisam iniciar ações
+    vars_ref["_panel_root"] = body
 
     _builders: dict[str, Callable] = {
         "Administração":                _build_administracao,
@@ -275,24 +338,51 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         "Substituições de Spawner":     _build_spawner_overrides,
         "Substituições de Supply Crate": _build_supply_crate_overrides,
         "Impedir Transferências":       _build_prevent_transfer,
+        "Coleta por Recurso":           _build_harvest_aggregated,
+        "Multiplicadores por Classe": _build_dino_class_aggregated,
+        "Spawn e Domesticação":       _build_spawn_tame_aggregated,
         "Custom GameUserSettings.ini":  _build_custom_gus,
         "Custom Game.ini":              _build_custom_game,
         "ARK Procedural (PGM)":         _build_pgm,
+        "Extensões SM":                 _build_sm_extensions,
+        "🦕 Gerador SpawnExact":        _build_tool_spawn_exact,
+        "⚡ Console RCON":              _build_tool_rcon,
+        "👥 Jogadores Online":          _build_tool_players,
     }
 
+    # Shells vazios — conteúdo construído sob demanda (evita travamento visual)
     section_frames: dict[str, ctk.CTkScrollableFrame] = {}
+    section_built: set[str] = set()
     for sec in SECTIONS:
         sf = ctk.CTkScrollableFrame(content_area, fg_color="transparent", corner_radius=0)
+        sf.grid_columnconfigure(0, weight=1)
         sf.grid_columnconfigure(1, weight=1)
-        builder = _builders.get(sec)
-        if builder:
-            builder(sf, srv, vars_ref, bg, accent)
         section_frames[sec] = sf
+
+    loading_overlay = ctk.CTkFrame(content_area, fg_color=bg, corner_radius=0)
+    loading_overlay.grid(row=0, column=0, sticky="nsew")
+    loading_overlay.grid_columnconfigure(0, weight=1)
+    loading_overlay.grid_rowconfigure(0, weight=1)
+    ctk.CTkLabel(
+        loading_overlay, text="Carregando configuração…",
+        font=ctk.CTkFont(family="Segoe UI", size=13),
+        text_color=t_sec,
+    ).grid(row=0, column=0)
 
     _active_section: list[str] = [SECTIONS[0]]
     nav_buttons: dict[str, ctk.CTkButton] = {}
+    nav_row_widgets: list[tk.Misc] = []
+    _building: list[bool] = [False]
 
-    def _show_section(name: str) -> None:
+    def _ensure_section(name: str) -> None:
+        if name in section_built:
+            return
+        builder = _builders.get(name)
+        if builder:
+            builder(section_frames[name], srv, vars_ref, bg, accent)
+        section_built.add(name)
+
+    def _show_section_impl(name: str) -> None:
         old = _active_section[0]
         if old in section_frames:
             section_frames[old].grid_remove()
@@ -302,23 +392,156 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         nav_buttons[name].configure(fg_color=acc_mb, text_color=accent)
         _active_section[0] = name
 
-    for i, sec in enumerate(SECTIONS):
-        btn = ctk.CTkButton(
-            nav_frame, text=sec, anchor="w",
-            fg_color="transparent", hover_color=hover,
-            text_color=t_sec, font=ctk.CTkFont(family="Segoe UI", size=11),
-            height=32, corner_radius=6,
-            command=lambda s=sec: _show_section(s),
-        )
-        btn.grid(row=i, column=0, padx=4, pady=1, sticky="ew")
-        nav_buttons[sec] = btn
+    def _show_section(name: str) -> None:
+        if _building[0]:
+            return
+        if name not in section_built:
+            _building[0] = True
+            loading_overlay.grid(row=0, column=0, sticky="nsew")
+            loading_overlay.lift()
+            content_area.update_idletasks()
 
-    _show_section(SECTIONS[0])
+            def _deferred() -> None:
+                try:
+                    _ensure_section(name)
+                finally:
+                    loading_overlay.grid_remove()
+                    _building[0] = False
+                    _show_section_impl(name)
+
+            content_area.after(16, _deferred)
+            return
+        _show_section_impl(name)
+
+    from ..ui.server_field_labels import section_search_index
+
+    _search_index = section_search_index()
+    for sec in SECTIONS:
+        _search_index.setdefault(sec, "")
+        _search_index[sec] += " " + sec.lower()
+
+    _group_sections: dict[str, list[str]] = {
+        group_name: group_secs for group_name, group_secs in NAV_GROUPS
+    }
+
+    search_var = tk.StringVar(value="")
+
+    def _apply_nav_filter(*_args: object) -> None:
+        q = search_var.get().strip().lower()
+        for w in nav_row_widgets:
+            try:
+                w.grid()
+            except tk.TclError:
+                pass
+        if not q:
+            return
+        visible_sections: set[str] = set()
+        for sec, blob in _search_index.items():
+            if q in sec.lower() or q in blob:
+                visible_sections.add(sec)
+        for sec, btn in nav_buttons.items():
+            if sec not in visible_sections:
+                btn.grid_remove()
+        for w in nav_row_widgets:
+            if not isinstance(w, ctk.CTkLabel):
+                continue
+            grp = getattr(w, "_nav_group", "")
+            if grp and not any(s in visible_sections for s in _group_sections.get(grp, [])):
+                w.grid_remove()
+    search_entry = ctk.CTkEntry(
+        nav_frame, textvariable=search_var, placeholder_text="🔍  Buscar campo ou seção…",
+        height=30, font=ctk.CTkFont(family="Segoe UI", size=11),
+        border_color=sep,
+    )
+    search_entry.grid(row=0, column=0, padx=6, pady=(8, 6), sticky="ew")
+    nav_row_widgets.append(search_entry)
+    search_var.trace_add("write", _apply_nav_filter)
+
+    nav_row = 1
+    for group_name, group_secs in NAV_GROUPS:
+        grp_lbl = ctk.CTkLabel(
+            nav_frame, text=group_name.upper(),
+            font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
+            text_color=t_mut, anchor="w",
+        )
+        grp_lbl._nav_group = group_name  # type: ignore[attr-defined]
+        grp_lbl.grid(row=nav_row, column=0, padx=(10, 4), pady=(10, 2), sticky="w")
+        nav_row_widgets.append(grp_lbl)
+        nav_row += 1
+
+        for sec in group_secs:
+            if sec not in section_frames:
+                continue
+            btn = ctk.CTkButton(
+                nav_frame, text=sec, anchor="w",
+                fg_color="transparent", hover_color=hover,
+                text_color=t_sec, font=ctk.CTkFont(family="Segoe UI", size=11),
+                height=30, corner_radius=6,
+                command=lambda s=sec: _show_section(s),
+            )
+            btn.grid(row=nav_row, column=0, padx=4, pady=1, sticky="ew")
+            nav_buttons[sec] = btn
+            nav_row_widgets.append(btn)
+            nav_row += 1
+
+    def _boot_panel() -> None:
+        _ensure_section(SECTIONS[0])
+        loading_overlay.grid_remove()
+        _show_section_impl(SECTIONS[0])
+
+    content_area.after(16, _boot_panel)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
 #  Helpers de campo
 # ════════════════════════════════════════════════════════════════════════════ #
+
+# ── Instância padrão para comparar campos modificados (Fase 2) ────────────────
+_DEFAULT_SRV = AsmServerConfig()
+_MOD_DOT_COLOR = "#22d3ee"
+_MOD_DOT_MUTED = "#0e4a5a"
+
+
+def _attach_modified_badge(parent, var: tk.Variable, field: str, default_val, row: int) -> None:
+    """Badge '●' e botão '↺' quando campo difere do padrão — usa posição relativa."""
+    badge = ctk.CTkLabel(parent, text="●", font=ctk.CTkFont(size=9),
+                         text_color=_MOD_DOT_COLOR, width=12)
+    reset = ctk.CTkButton(parent, text="↺", width=22, height=20,
+                          fg_color="transparent", hover_color=_MOD_DOT_MUTED,
+                          text_color=_MOD_DOT_COLOR, font=ctk.CTkFont(size=11),
+                          cursor="hand2")
+
+    def _check(*_):
+        try:
+            cur = var.get()
+            if isinstance(default_val, bool):
+                mod = bool(cur) != default_val
+            elif isinstance(default_val, (int, float)):
+                try:
+                    mod = float(cur) != float(default_val)
+                except (TypeError, ValueError):
+                    mod = str(cur) != str(default_val)
+            else:
+                mod = str(cur) != str(default_val)
+        except tk.TclError:
+            mod = False
+        if mod:
+            badge.grid(row=row, column=1, padx=(108, 0), pady=3, sticky="w")
+            reset.grid(row=row, column=1, padx=(124, 0), pady=3, sticky="w")
+        else:
+            badge.grid_remove()
+            reset.grid_remove()
+
+    def _reset():
+        if isinstance(var, tk.BooleanVar):
+            var.set(bool(default_val))
+        else:
+            var.set(str(default_val))
+
+    reset.configure(command=_reset)
+    var.trace_add("write", _check)
+    _check()
+
 
 def _str_entry(parent, label, field, srv, vars_ref, row, accent,
                wide=False, pw=False, placeholder=""):
@@ -330,6 +553,9 @@ def _str_entry(parent, label, field, srv, vars_ref, row, accent,
                  placeholder_text=placeholder,
                  width=300 if wide else 200).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="ew" if wide else "w")
+    if not pw:
+        default = str(getattr(_DEFAULT_SRV, field, ""))
+        _attach_modified_badge(parent, v, field, default, row)
 
 
 def _int_entry(parent, label, field, srv, vars_ref, row):
@@ -339,6 +565,7 @@ def _int_entry(parent, label, field, srv, vars_ref, row):
     vars_ref[field] = v
     ctk.CTkEntry(parent, textvariable=v, width=100).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="w")
+    _attach_modified_badge(parent, v, field, getattr(_DEFAULT_SRV, field, 0), row)
 
 
 def _float_entry(parent, label, field, srv, vars_ref, row):
@@ -348,15 +575,39 @@ def _float_entry(parent, label, field, srv, vars_ref, row):
     vars_ref[field] = v
     ctk.CTkEntry(parent, textvariable=v, width=100).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="w")
+    _attach_modified_badge(parent, v, field, getattr(_DEFAULT_SRV, field, 1.0), row)
 
 
 def _bool_check(parent, label, field, srv, vars_ref, row, accent, col=0, colspan=2):
     v = tk.BooleanVar(value=bool(getattr(srv, field, False)))
     vars_ref[field] = v
-    ctk.CTkCheckBox(parent, text=label, variable=v,
+    frm = ctk.CTkFrame(parent, fg_color="transparent")
+    frm.grid(row=row, column=col, columnspan=colspan, padx=(8, 4), pady=3, sticky="w")
+
+    ctk.CTkCheckBox(frm, text=label, variable=v,
                     checkmark_color=accent, border_color=accent,
-                    font=ctk.CTkFont(size=11)).grid(
-        row=row, column=col, columnspan=colspan, padx=(8, 4), pady=3, sticky="w")
+                    font=ctk.CTkFont(size=11)).pack(side="left")
+
+    badge = ctk.CTkLabel(frm, text="●", font=ctk.CTkFont(size=9),
+                         text_color=_MOD_DOT_COLOR, width=14)
+    reset = ctk.CTkButton(frm, text="↺", width=22, height=20,
+                          fg_color="transparent", hover_color=_MOD_DOT_MUTED,
+                          text_color=_MOD_DOT_COLOR, font=ctk.CTkFont(size=11),
+                          cursor="hand2")
+    default = bool(getattr(_DEFAULT_SRV, field, False))
+
+    def _check(*_):
+        mod = bool(v.get()) != default
+        if mod:
+            badge.pack(side="left", padx=(6, 0))
+            reset.pack(side="left", padx=(2, 0))
+        else:
+            badge.pack_forget()
+            reset.pack_forget()
+
+    reset.configure(command=lambda: v.set(default))
+    v.trace_add("write", _check)
+    _check()
 
 
 def _section_label(parent, text, row, accent):
@@ -647,22 +898,44 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 36, accent)
     _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 37)
 
-    _section_label(sf, "Cluster / Cross-ARK", 37, accent)
-    _str_entry(sf, "Cluster ID",               "cross_ark_cluster_id",             srv, vars_ref, 38, accent)
-    _str_entry(sf, "Cluster Dir Override",     "cluster_dir_override",             srv, vars_ref, 39, accent, wide=True)
-    _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 40, accent)
+    _section_label(sf, "Cluster / Cross-ARK", 38, accent)
+    _str_entry(sf, "Cluster ID",               "cross_ark_cluster_id",             srv, vars_ref, 39, accent)
+    _str_entry(sf, "Cluster Dir Override",     "cluster_dir_override",             srv, vars_ref, 40, accent, wide=True)
+    _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 41, accent)
 
-    _section_label(sf, "Branch SteamCMD (Beta)", 43, accent)
-    _str_entry(sf, "Branch Name",     "branch_name",     srv, vars_ref, 44, accent)
-    _str_entry(sf, "Branch Password", "branch_password", srv, vars_ref, 45, accent, pw=True)
-    _add_help(sf, [("Branch Name",     "Ex: 'experimental'. Deixe vazio para a branch estável (padrão)."),
-                   ("Branch Password", "Necessário apenas em branches privadas.")])
+    _section_label(sf, "Branch SteamCMD (Beta)", 44, accent)
+    _branch_btn_row = ctk.CTkFrame(sf, fg_color="transparent")
+    _branch_btn_row.grid(row=45, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
 
-    _section_label(sf, "Mods (Steam Workshop)", 41, accent)
+    def _set_branch(val: str) -> None:
+        br = vars_ref.get("branch_name")
+        if br is not None:
+            br.set(val)
+
+    ctk.CTkButton(
+        _branch_btn_row, text="✅  Padrão (Estável)", width=160, height=28,
+        fg_color="#14532d", hover_color="#166534",
+        command=lambda: _set_branch(""),
+    ).pack(side="left", padx=(0, 8))
+    ctk.CTkButton(
+        _branch_btn_row, text="🦕  Pre-Aquatica", width=150, height=28,
+        fg_color="#7a3a10", hover_color="#9a4a18",
+        command=lambda: _set_branch("preaquatica"),
+    ).pack(side="left")
+
+    _str_entry(sf, "Branch Name",     "branch_name",     srv, vars_ref, 46, accent)
+    _str_entry(sf, "Branch Password", "branch_password", srv, vars_ref, 47, accent, pw=True)
+    ctk.CTkLabel(
+        sf,
+        text="preaquatica = ASE v358 (última com ArkApi/plugins). Vazio = versão estável atual.",
+        font=ctk.CTkFont(size=10), text_color="#64748b", anchor="w", wraplength=520,
+    ).grid(row=48, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
+
+    _section_label(sf, "Mods (Steam Workshop)", 42, accent)
 
     # ── Container principal do gerenciador de mods ────────────────────────────
     _mod_frame = ctk.CTkFrame(sf, fg_color="#0d1b2a", corner_radius=8)
-    _mod_frame.grid(row=42, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
+    _mod_frame.grid(row=43, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
     _mod_frame.grid_columnconfigure(0, weight=1)
 
     # Cache de informações: {mod_id: {"name": ..., "info": ...}}
@@ -682,6 +955,22 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         _hidden_mods.configure(state="normal")
         _hidden_mods.delete("1.0", "end")
         _hidden_mods.insert("1.0", "\n".join(ids))
+
+    def _parse_mod_ids_line(raw: str) -> list[str]:
+        import re
+        seen: set[str] = set()
+        out: list[str] = []
+        for part in re.split(r"[,;\s]+", (raw or "").strip()):
+            mid = part.strip()
+            if mid.isdigit() and mid not in seen:
+                seen.add(mid)
+                out.append(mid)
+        return out
+
+    def _clear_mod_rows() -> None:
+        for row in list(_mod_rows):
+            row["frame"].destroy()
+        _mod_rows.clear()
 
     def _refresh_mod_labels():
         for r in _mod_rows:
@@ -774,9 +1063,57 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         if mod_id.strip():
             _check_status(mod_id.strip())
 
+    # ── Importar linha (IDs separados por vírgula) ───────────────────────────
+    _bulk_row = ctk.CTkFrame(_mod_frame, fg_color="transparent")
+    _bulk_row.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
+    _bulk_row.grid_columnconfigure(1, weight=1)
+
+    _bulk_var = tk.StringVar()
+    ctk.CTkLabel(
+        _bulk_row, text="Colar IDs:", font=ctk.CTkFont(size=10),
+        text_color="#64748b", width=72, anchor="w",
+    ).grid(row=0, column=0, padx=(0, 6), sticky="w")
+    _bulk_entry = ctk.CTkEntry(
+        _bulk_row, textvariable=_bulk_var, height=28,
+        placeholder_text="ex: 123456789,987654321,111222333",
+        font=ctk.CTkFont(family="Consolas", size=11),
+    )
+    _bulk_entry.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+
+    def _apply_bulk_mod_line(*_) -> None:
+        ids = _parse_mod_ids_line(_bulk_var.get())
+        if not ids:
+            import tkinter.messagebox as mb
+            mb.showinfo(
+                "Importar mods",
+                "Nenhum ID válido encontrado.\n\n"
+                "Cole IDs numéricos do Workshop separados por vírgula.",
+                parent=sf,
+            )
+            return
+        _clear_mod_rows()
+        for mid in ids:
+            _add_mod_row(mid)
+        _sync_hidden()
+        _bulk_var.set("")
+
+    ctk.CTkButton(
+        _bulk_row, text="📋  Aplicar lista", width=110, height=28,
+        fg_color="#14532d", hover_color="#166534",
+        font=ctk.CTkFont(size=11),
+        command=_apply_bulk_mod_line,
+    ).grid(row=0, column=2, padx=(0, 0))
+    _bulk_entry.bind("<Return>", _apply_bulk_mod_line)
+
+    ctk.CTkLabel(
+        _mod_frame,
+        text="Substitui a lista atual pela ordem dos IDs colados (vírgula, espaço ou ponto-e-vírgula).",
+        font=ctk.CTkFont(size=9), text_color="#475569", anchor="w",
+    ).grid(row=1, column=0, sticky="w", padx=8, pady=(0, 4))
+
     # ── Toolbar ───────────────────────────────────────────────────────────────
     _mods_tb = ctk.CTkFrame(_mod_frame, fg_color="transparent")
-    _mods_tb.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+    _mods_tb.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 4))
 
     ctk.CTkButton(_mods_tb, text="＋ Mod", width=82, height=28,
                   fg_color="#14532d", hover_color="#166534",
@@ -847,7 +1184,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     # ── Cabeçalho das colunas ─────────────────────────────────────────────────
     _mods_hdr = ctk.CTkFrame(_mod_frame, fg_color="#0f2030", corner_radius=4, height=24)
-    _mods_hdr.grid(row=1, column=0, sticky="ew", padx=8, pady=(0, 2))
+    _mods_hdr.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 2))
     _mods_hdr.grid_columnconfigure(1, weight=1)
     ctk.CTkLabel(_mods_hdr, text="ID Steam", font=ctk.CTkFont(size=9, weight="bold"),
                  text_color="#475569", width=115, anchor="center").grid(row=0, column=0, padx=(4, 4), pady=2)
@@ -859,7 +1196,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     # ── Área das linhas ───────────────────────────────────────────────────────
     _rows_outer = ctk.CTkFrame(_mod_frame, fg_color="#060d14", corner_radius=6)
-    _rows_outer.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 8))
+    _rows_outer.grid(row=4, column=0, sticky="ew", padx=8, pady=(0, 8))
     _rows_outer.grid_columnconfigure(0, weight=1)
 
     # Popula com os mods existentes
@@ -868,22 +1205,27 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     if not srv.active_mods:
         _add_mod_row()  # linha vazia para o usuário começar
 
-    _section_label(sf, "Args CLI adicionais", 43, accent)
-    _str_entry(sf, "Additional Args",          "additional_args",  srv, vars_ref, 44, accent, wide=True)
+    from ..ui.tek_cli_section import build_cli_avancado_section
+    _cli_start = max(49, sf.grid_size()[1])
+    _cli_next = build_cli_avancado_section(sf, srv, vars_ref, accent, _cli_start)
+    _section_label(sf, "Args CLI adicionais", _cli_next, accent)
+    _str_entry(sf, "Additional Args", "additional_args", srv, vars_ref, _cli_next + 1, accent, wide=True)
 
-    _section_label(sf, "Personalização do Card", 45, accent)
-    _str_entry(sf, "Cor do card (hex, ex: #22c55e)", "color",      srv, vars_ref, 46, accent)
+    _pers_row = _cli_next + 2
+    _section_label(sf, "Personalização do Card", _pers_row, accent)
+    _str_entry(sf, "Cor do card (hex, ex: #22c55e)", "color", srv, vars_ref, _pers_row + 1, accent)
 
+    _tags_row = _pers_row + 2
     ctk.CTkLabel(sf, text="Etiquetas (separadas por vírgula)",
                  font=ctk.CTkFont(size=11), anchor="w").grid(
-        row=47, column=0, padx=(8, 4), pady=3, sticky="w")
+        row=_tags_row, column=0, padx=(8, 4), pady=3, sticky="w")
     tags_var = tk.StringVar(value=", ".join(getattr(srv, "tags", [])))
     vars_ref["_tags_csv"] = tags_var
     ctk.CTkEntry(sf, textvariable=tags_var).grid(
-        row=47, column=1, padx=(0, 8), pady=3, sticky="ew")
+        row=_tags_row, column=1, padx=(0, 8), pady=3, sticky="ew")
 
     # ── Ações do Servidor (SteamCMD) ─────────────────────────────────────────
-    _section_label(sf, "Ações do Servidor", 48, accent)
+    _section_label(sf, "Ações do Servidor", _tags_row + 1, accent)
 
     def _do_install():
         from .asm_steamcmd_ui import start_server_install
@@ -898,7 +1240,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         start_server_validate(vars_ref.get("_app"), srv)
 
     btn_row = ctk.CTkFrame(sf, fg_color="transparent")
-    btn_row.grid(row=49, column=0, columnspan=2, padx=8, pady=4, sticky="w")
+    btn_row.grid(row=_tags_row + 2, column=0, columnspan=2, padx=8, pady=4, sticky="w")
     ctk.CTkButton(btn_row, text="⬇  Instalar / Atualizar", width=170, height=30,
                   fg_color="#14532d", hover_color="#166534",
                   font=ctk.CTkFont(size=11), command=_do_install).pack(side="left", padx=(0, 6))
@@ -918,7 +1260,10 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         ("Porta RCON", "Porta TCP para administração remota via RCON. Padrão: 27020."),
         ("Senha do servidor", "Senha exigida para entrar no servidor. Deixe em branco para acesso livre."),
         ("Senha admin", "Senha para usar comandos de admin (enablecheats). Nunca deixe em branco em servidores públicos."),
-        ("Mods", "IDs do Steam Workshop separados por vírgula. A ordem importa — mods são carregados nessa sequência."),
+        ("Branch Name", "Ex: preaquatica ou experimental. Deixe vazio para a branch estável."),
+        ("Branch Password", "Necessário apenas em branches privadas."),
+        ("Mods", "IDs do Steam Workshop separados por vírgula. Use 'Colar IDs' para importar uma linha inteira. A ordem importa."),
+        ("Args CLI adicionais", "Flags extras em texto livre. Evite duplicar opções já configuradas em Avançado — Linha de comando."),
         ("Instalar / Atualizar", "Executa SteamCMD para baixar ou atualizar o servidor. Pode demorar vários minutos."),
         ("Validar Arquivos", "Verifica a integridade dos arquivos do servidor e repara os corrompidos."),
     ])
@@ -929,24 +1274,20 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_auto_management(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Reinício Programado", 0, accent)
-    _bool_check(sf, "Habilitar reinício automático",       "enable_auto_restart",           srv, vars_ref, 1, accent)
-    _str_entry(sf,  "Horário de reinício (HH:MM)",         "auto_restart_time",             srv, vars_ref, 2, accent)
-    _int_entry(sf,  "Contagem regressiva (min)",           "restart_countdown_minutes",     srv, vars_ref, 3)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _section_label(sf, "Atualização Automática", 4, accent)
-    _bool_check(sf, "Verificar atualizações automaticamente", "enable_auto_update_check",  srv, vars_ref, 5, accent)
-    _int_entry(sf,  "Intervalo de verificação (min)",      "auto_update_check_minutes",     srv, vars_ref, 6)
-
-    _section_label(sf, "Notificações", 7, accent)
-    _bool_check(sf, "Notificar via Discord em eventos",    "notify_discord_on_events",      srv, vars_ref, 8, accent)
-
-    _add_help(sf, [
-        ("Reinício automático", "Reinicia o servidor todo dia no horário configurado (formato HH:MM, 24h)."),
-        ("Contagem regressiva", "Avisa os jogadores X minutos antes do reinício via mensagem no chat."),
-        ("Verificar atualizações", "Checa periodicamente se há nova versão do servidor no Steam e pode reiniciar para atualizar."),
-        ("Notificar via Discord", "Envia mensagem no canal Discord configurado quando eventos ocorrem no servidor."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Gerenciamento Automático", "Gerenciamento automático")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Reinício programado", ["enable_auto_restart", "auto_restart_time", "restart_countdown_minutes"]),
+        CardSpec("Atualização automática", ["enable_auto_update_check", "auto_update_check_minutes"]),
+        CardSpec("Notificações", ["notify_discord_on_events"], bool_grid=True),
     ])
+    add_collapsible_help(sf, [
+        ("Reinício automático", "Reinicia o servidor todo dia no horário configurado (HH:MM, 24h)."),
+        ("Contagem regressiva", "Avisa os jogadores X minutos antes do reinício via mensagem no chat."),
+        ("Verificar atualizações", "Checa periodicamente se há nova versão do servidor no Steam."),
+        ("Notificar via Discord", "Envia mensagem no canal Discord quando eventos ocorrem."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -954,20 +1295,21 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_discord(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Webhook do Discord", 0, accent)
-    _str_entry(sf, "URL do Webhook",            "discord_webhook_url",           srv, vars_ref, 1, accent, wide=True)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _section_label(sf, "Eventos a notificar", 2, accent)
-    _bool_check(sf, "Servidor iniciado",        "discord_notify_server_start",   srv, vars_ref, 3, accent)
-    _bool_check(sf, "Servidor parado",          "discord_notify_server_stop",    srv, vars_ref, 4, accent)
-    _bool_check(sf, "Jogador entrou (join)",    "discord_notify_player_join",    srv, vars_ref, 5, accent)
-    _bool_check(sf, "Jogador saiu (leave)",     "discord_notify_player_leave",   srv, vars_ref, 6, accent)
-
-    _add_help(sf, [
-        ("URL do Webhook", "Obtenha em: Configurações do servidor Discord → Integrações → Webhooks → Copiar URL."),
-        ("Servidor iniciado/parado", "Notifica quando o processo do servidor é iniciado ou encerrado."),
-        ("Jogador join/leave", "Notifica quando um jogador entra ou sai do servidor."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Detalhes do Discord Bot", "Discord Bot")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Webhook", ["discord_webhook_url"]),
+        CardSpec("Eventos a notificar", [
+            "discord_notify_server_start", "discord_notify_server_stop",
+            "discord_notify_player_join", "discord_notify_player_leave",
+        ], bool_grid=True),
     ])
+    add_collapsible_help(sf, [
+        ("URL do Webhook", "Discord → Integrações → Webhooks → Copiar URL."),
+        ("Servidor iniciado/parado", "Notifica quando o processo do servidor inicia ou encerra."),
+        ("Jogador join/leave", "Notifica quando um jogador entra ou sai."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -975,37 +1317,46 @@ def _build_discord(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_server_details(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "MOTD (Message of the Day)", 0, accent)
-    ctk.CTkLabel(sf, text="Mensagem MOTD:", font=ctk.CTkFont(size=11)).grid(
-        row=1, column=0, padx=8, pady=(4, 0), sticky="nw")
-    motd_box = ctk.CTkTextbox(sf, height=80, font=ctk.CTkFont(size=11))
-    motd_box.grid(row=1, column=1, padx=(0, 8), pady=(4, 0), sticky="ew")
+    from ..ui.server_field_widgets import (
+        CardSpec, add_collapsible_help, add_int_field, begin_tek_section, build_cards_layout,
+        make_card, add_card_header,
+    )
+
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Detalhes do Servidor", "Detalhes do servidor")
+
+    motd_card = make_card(sf, 1, 0, ctx.theme)
+    add_card_header(motd_card, "MOTD (Message of the Day)", accent)
+    ctk.CTkLabel(motd_card, text="Mensagem exibida ao entrar no servidor",
+                 font=ctk.CTkFont(size=10), text_color=ctx.theme["text_muted"]).grid(
+        row=1, column=0, padx=12, pady=(0, 4), sticky="w")
+    motd_box = ctk.CTkTextbox(motd_card, height=80, font=ctk.CTkFont(size=11))
+    motd_box.grid(row=2, column=0, padx=12, pady=(0, 8), sticky="ew")
     motd_box.insert("1.0", srv.motd)
     vars_ref["_motd_text"] = motd_box
-    _int_entry(sf, "Duração MOTD (s)", "motd_duration", srv, vars_ref, 2)
+    add_int_field(ctx, motd_card, "motd_duration", 3)
 
-    _section_label(sf, "BanList", 3, accent)
-    _bool_check(sf, "Usar BanList URL", "enable_ban_list_url", srv, vars_ref, 4, accent)
-    _str_entry(sf, "URL da BanList",    "ban_list_url",        srv, vars_ref, 5, accent, wide=True)
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("BanList", ["enable_ban_list_url", "ban_list_url"]),
+        CardSpec("Branch SteamCMD", ["branch_name", "branch_password"]),
+    ], start_row=1)
 
-    _section_label(sf, "Branch SteamCMD", 6, accent)
-    _str_entry(sf, "Branch name",    "branch_name",     srv, vars_ref, 7, accent)
-    _str_entry(sf, "Branch password","branch_password", srv, vars_ref, 8, accent, pw=True)
-
-    _section_label(sf, "Notas internas", 9, accent)
-    ctk.CTkLabel(sf, text="Notas:", font=ctk.CTkFont(size=11)).grid(
-        row=10, column=0, padx=8, pady=(4, 0), sticky="nw")
-    notes_box = ctk.CTkTextbox(sf, height=60, font=ctk.CTkFont(size=11))
-    notes_box.grid(row=10, column=1, padx=(0, 8), pady=(4, 0), sticky="ew")
+    notes_card = make_card(sf, row, 0, ctx.theme)
+    notes_card.grid(columnspan=2, sticky="ew")
+    add_card_header(notes_card, "Notas internas", accent)
+    ctk.CTkLabel(notes_card, text="Apenas referência — não afeta o servidor",
+                 font=ctk.CTkFont(size=10), text_color=ctx.theme["text_muted"]).grid(
+        row=1, column=0, padx=12, pady=(0, 4), sticky="w")
+    notes_box = ctk.CTkTextbox(notes_card, height=60, font=ctk.CTkFont(size=11))
+    notes_box.grid(row=2, column=0, padx=12, pady=(0, 10), sticky="ew")
     notes_box.insert("1.0", srv.notes)
     vars_ref["_notes_text"] = notes_box
 
-    _add_help(sf, [
-        ("MOTD", "Mensagem exibida aos jogadores ao entrar no servidor. Duração define por quantos segundos fica visível."),
-        ("BanList URL", "URL para uma lista de IDs banidos globalmente. A lista ARK oficial é usada por padrão."),
-        ("Branch SteamCMD", "Use para instalar versões beta ou experimental do servidor (ex: 'experimental'). Deixe em branco para versão estável."),
-        ("Notas internas", "Campo livre apenas para referência sua. Não afeta o servidor."),
-    ])
+    add_collapsible_help(sf, [
+        ("MOTD", "Mensagem ao entrar. Duração em segundos."),
+        ("BanList URL", "Lista global de IDs banidos."),
+        ("Branch SteamCMD", "Versão beta/experimental. Vazio = estável."),
+        ("Notas internas", "Campo livre para sua referência."),
+    ], row + 1)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1013,84 +1364,63 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_rules(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Modo de Jogo", 0, accent)
-    _bool_check(sf, "PvP habilitado",                     "enable_pvp",                              srv, vars_ref,  1, accent)
-    _bool_check(sf, "Hardcore",                           "enable_hardcore",                         srv, vars_ref,  2, accent)
-    _bool_check(sf, "Construção em caverna (PvE)",        "allow_cave_building_pve",                 srv, vars_ref,  3, accent)
-    _bool_check(sf, "Sem fogo amigo PvP",                 "disable_friendly_fire_pvp",               srv, vars_ref,  4, accent)
-    _bool_check(sf, "Sem fogo amigo PvE",                 "disable_friendly_fire_pve",               srv, vars_ref,  5, accent)
-    _bool_check(sf, "Desativar Loot Crates",              "disable_loot_crates",                     srv, vars_ref,  6, accent)
-    _bool_check(sf, "Extra Structure Prevention Volumes", "enable_extra_structure_prevention_volumes",srv, vars_ref,  7, accent)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _section_label(sf, "Dificuldade", 8, accent)
-    _bool_check(sf, "Override dificuldade oficial",       "enable_difficulty_override",              srv, vars_ref,  9, accent)
-    _float_entry(sf,"OverrideOfficialDifficulty",         "override_official_difficulty",            srv, vars_ref, 10)
-    _float_entry(sf,"DifficultyOffset",                   "difficulty_offset",                       srv, vars_ref, 11)
-
-    _section_label(sf, "Tribos", 12, accent)
-    _int_entry(sf,  "Max membros na tribo",               "max_tribe_size",                          srv, vars_ref, 13)
-    _bool_check(sf, "Alianças entre tribos",              "allow_tribe_alliances",                   srv, vars_ref, 14, accent)
-    _int_entry(sf,  "Max alianças por tribo",             "max_alliances_per_tribe",                 srv, vars_ref, 15)
-    _int_entry(sf,  "Max tribos por aliança",             "max_tribes_per_alliance",                 srv, vars_ref, 16)
-    _bool_check(sf, "Guerra tribal PvE",                  "allow_tribe_war_pve",                     srv, vars_ref, 17, accent)
-    _bool_check(sf, "Cancelar guerra tribal PvE",         "allow_tribe_war_cancel_pve",              srv, vars_ref, 18, accent)
-    _int_entry(sf,  "Cooldown mudança de nome (s)",       "tribe_name_change_cooldown",              srv, vars_ref, 19)
-
-    _section_label(sf, "PvP Respawn", 20, accent)
-    _bool_check(sf, "Aumentar intervalo PvP respawn",     "increase_pvp_respawn_interval",           srv, vars_ref, 21, accent)
-    _int_entry(sf,  "Check period (s)",                   "pvp_respawn_check_period",                srv, vars_ref, 22)
-    _float_entry(sf,"Respawn multiplier",                 "pvp_respawn_multiplier",                  srv, vars_ref, 23)
-    _int_entry(sf,  "Base amount",                        "pvp_respawn_base_amount",                 srv, vars_ref, 24)
-
-    _section_label(sf, "PvP Offline", 25, accent)
-    _bool_check(sf, "Prevenir PvP offline",               "prevent_pvp_offline",                     srv, vars_ref, 26, accent)
-    _int_entry(sf,  "Intervalo offline (s)",              "prevent_pvp_offline_interval",            srv, vars_ref, 27)
-    _int_entry(sf,  "Invincible interval (s)",            "prevent_pvp_offline_invincible_interval", srv, vars_ref, 28)
-
-    _section_label(sf, "PvE Auto Timer", 29, accent)
-    _bool_check(sf, "Auto PvE Timer",                     "auto_pve_timer",                          srv, vars_ref, 30, accent)
-    _bool_check(sf, "Usar hora do sistema",               "auto_pve_use_system_time",                srv, vars_ref, 31, accent)
-    _int_entry(sf,  "Início PvE (s desde meia-noite)",   "auto_pve_start_time",                     srv, vars_ref, 32)
-    _int_entry(sf,  "Fim PvE (s desde meia-noite)",      "auto_pve_stop_time",                      srv, vars_ref, 33)
-
-    _section_label(sf, "Doenças / Gamma", 34, accent)
-    _bool_check(sf, "Doenças habilitadas",                "enable_diseases",                         srv, vars_ref, 35, accent)
-    _bool_check(sf, "Doenças não permanentes",            "non_permanent_diseases",                  srv, vars_ref, 36, accent)
-    _bool_check(sf, "Gamma PvP",                          "allow_pvp_gamma",                         srv, vars_ref, 37, accent)
-    _bool_check(sf, "Gamma PvE",                          "allow_pve_gamma",                         srv, vars_ref, 38, accent)
-
-    _section_label(sf, "Receitas / Stasis", 39, accent)
-    _bool_check(sf, "Receitas customizadas",              "allow_custom_recipes",                    srv, vars_ref, 40, accent)
-    _float_entry(sf,"Effectiveness multiplier",           "custom_recipe_effectiveness_multiplier",  srv, vars_ref, 41)
-    _float_entry(sf,"Skill multiplier",                   "custom_recipe_skill_multiplier",          srv, vars_ref, 42)
-    _bool_check(sf, "Override NPC Stasis Range Scale",    "override_npc_stasis_range_scale",         srv, vars_ref, 43, accent)
-    _int_entry(sf,  "Player count start",                 "npc_stasis_range_scale_start",            srv, vars_ref, 44)
-    _int_entry(sf,  "Player count end",                   "npc_stasis_range_scale_end",              srv, vars_ref, 45)
-    _float_entry(sf,"Percent end",                        "npc_stasis_range_scale_percent_end",      srv, vars_ref, 46)
-
-    _section_label(sf, "Miscelânea", 47, accent)
-    _float_entry(sf,"Oxygen swim speed stat multiplier",  "oxygen_swim_speed_stat_multiplier",       srv, vars_ref, 48)
-    _float_entry(sf,"Supply crate loot quality",          "supply_crate_loot_quality_multiplier",    srv, vars_ref, 49)
-    _float_entry(sf,"Fishing loot quality",               "fishing_loot_quality_multiplier",         srv, vars_ref, 50)
-    _float_entry(sf,"Corpse life span multiplier",        "use_corpse_life_span_multiplier",         srv, vars_ref, 51)
-    _float_entry(sf,"Battery durability decrease/s",      "global_powered_battery_durability_decrease", srv, vars_ref, 52)
-    _bool_check(sf, "Random supply crate points",         "random_supply_crate_points",              srv, vars_ref, 53, accent)
-    _bool_check(sf, "Corpse locator",                     "use_corpse_locator",                      srv, vars_ref, 54, accent)
-    _bool_check(sf, "Prevent spawn animations",           "prevent_spawn_animations",                srv, vars_ref, 55, accent)
-    _bool_check(sf, "Allow unlimited respecs",            "allow_unlimited_respecs",                 srv, vars_ref, 56, accent)
-    _bool_check(sf, "Allow platform saddle multi floors", "allow_platform_saddle_multi_floors",      srv, vars_ref, 57, accent)
-
-    _add_help(sf, [
-        ("PvP / PvE", "Define o modo de jogo principal. Em PvP jogadores podem atacar uns aos outros."),
-        ("Hardcore", "Ao morrer, o personagem é resetado ao nível 1. Para servidores competitivos."),
-        ("OverrideOfficialDifficulty", "Controla o nível máximo dos dinos selvagens. 5.0 = dinos até nível 150."),
-        ("DifficultyOffset", "Modificador adicional de dificuldade (0.0–1.0). Geralmente use 1.0 com OverrideOfficialDifficulty."),
-        ("Max membros na tribo", "Limite de jogadores por tribo. 0 = sem limite."),
-        ("PvP Offline", "Protege bases quando todos os membros da tribo estão offline."),
-        ("Auto PvE Timer", "Alterna automaticamente entre PvP e PvE nos horários configurados (em segundos desde meia-noite)."),
-        ("Corpse Locator", "Exibe um marcador no mapa indicando onde você morreu."),
-        ("Allow Unlimited Respecs", "Permite resetar atributos com Mindwipe Tonic sem limite de uso."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Regras", "Regras do servidor")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Modo de jogo", [
+            "enable_pvp", "enable_hardcore", "allow_cave_building_pve",
+            "disable_friendly_fire_pvp", "disable_friendly_fire_pve", "disable_loot_crates",
+            "enable_extra_structure_prevention_volumes",
+        ], bool_grid=True),
+        CardSpec("Dificuldade", [
+            "enable_difficulty_override", "override_official_difficulty", "difficulty_offset",
+        ]),
+        CardSpec("Tribos", [
+            "max_tribe_size", "allow_tribe_alliances", "max_alliances_per_tribe",
+            "max_tribes_per_alliance", "allow_tribe_war_pve", "allow_tribe_war_cancel_pve",
+            "tribe_name_change_cooldown",
+        ]),
+        CardSpec("PvP respawn", [
+            "increase_pvp_respawn_interval", "pvp_respawn_check_period",
+            "pvp_respawn_multiplier", "pvp_respawn_base_amount",
+        ]),
+        CardSpec("PvP offline", [
+            "prevent_pvp_offline", "prevent_pvp_offline_interval",
+            "prevent_pvp_offline_invincible_interval",
+        ]),
+        CardSpec("PvE auto timer", [
+            "auto_pve_timer", "auto_pve_use_system_time",
+            "auto_pve_start_time", "auto_pve_stop_time",
+        ]),
+        CardSpec("Doenças / gamma", [
+            "enable_diseases", "non_permanent_diseases", "allow_pvp_gamma", "allow_pve_gamma",
+        ], bool_grid=True),
+        CardSpec("Receitas / stasis", [
+            "allow_custom_recipes", "custom_recipe_effectiveness_multiplier",
+            "custom_recipe_skill_multiplier", "override_npc_stasis_range_scale",
+            "npc_stasis_range_scale_start", "npc_stasis_range_scale_end",
+            "npc_stasis_range_scale_percent_end",
+        ]),
+        CardSpec("Miscelânea", [
+            "oxygen_swim_speed_stat_multiplier", "supply_crate_loot_quality_multiplier",
+            "fishing_loot_quality_multiplier", "use_corpse_life_span_multiplier",
+            "global_powered_battery_durability_decrease", "random_supply_crate_points",
+            "use_corpse_locator", "prevent_spawn_animations", "allow_unlimited_respecs",
+            "allow_platform_saddle_multi_floors",
+        ]),
     ])
+    add_collapsible_help(sf, [
+        ("PvP / PvE", "Modo principal — PvP permite atacar outros jogadores."),
+        ("Hardcore", "Ao morrer, personagem volta ao nível 1."),
+        ("OverrideOfficialDifficulty", "Nível máx. dos dinos selvagens. 5.0 = até 150."),
+        ("DifficultyOffset", "Modificador adicional (0.0–1.0)."),
+        ("Max membros na tribo", "0 = sem limite."),
+        ("PvP Offline", "Protege bases quando tribo está offline."),
+        ("Auto PvE Timer", "Alterna PvP/PvE nos horários (segundos desde meia-noite)."),
+        ("Corpse Locator", "Marcador no mapa onde você morreu."),
+        ("Allow Unlimited Respecs", "Mindwipe Tonic sem limite."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1098,36 +1428,28 @@ def _build_rules(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_transfers(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Downloads / Uploads", 0, accent)
-    _bool_check(sf, "Permitir downloads de tributo",        "enable_tribute_downloads",   srv, vars_ref,  1, accent)
-    _bool_check(sf, "Bloquear download survivors",          "prevent_download_survivors", srv, vars_ref,  2, accent)
-    _bool_check(sf, "Bloquear download items",              "prevent_download_items",     srv, vars_ref,  3, accent)
-    _bool_check(sf, "Bloquear download dinos",              "prevent_download_dinos",     srv, vars_ref,  4, accent)
-    _bool_check(sf, "Bloquear upload survivors",            "prevent_upload_survivors",   srv, vars_ref,  5, accent)
-    _bool_check(sf, "Bloquear upload items",                "prevent_upload_items",       srv, vars_ref,  6, accent)
-    _bool_check(sf, "Bloquear upload dinos",                "prevent_upload_dinos",       srv, vars_ref,  7, accent)
-    _bool_check(sf, "Permitir dinos de outros clusters",    "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 8, accent)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _section_label(sf, "Expiração de Tributo", 9, accent)
-    _bool_check(sf, "Salvar expiração de personagens",      "save_tribute_char_expiration",    srv, vars_ref, 10, accent)
-    _int_entry(sf,  "Expiração personagem (s)",             "tribute_char_expiration_seconds", srv, vars_ref, 11)
-    _bool_check(sf, "Salvar expiração de items",            "save_tribute_item_expiration",    srv, vars_ref, 12, accent)
-    _int_entry(sf,  "Expiração items (s)",                  "tribute_item_expiration_seconds", srv, vars_ref, 13)
-    _bool_check(sf, "Salvar expiração de dinos",            "save_tribute_dino_expiration",    srv, vars_ref, 14, accent)
-    _int_entry(sf,  "Expiração dinos (s)",                  "tribute_dino_expiration_seconds", srv, vars_ref, 15)
-    _bool_check(sf, "Intervalo mínimo de re-upload de dinos","save_min_dino_reupload_interval", srv, vars_ref, 16, accent)
-    _int_entry(sf,  "Min dino reupload interval (s)",       "min_dino_reupload_interval",      srv, vars_ref, 17)
-
-    _section_label(sf, "Exclusive Join", 18, accent)
-    _bool_check(sf, "Exclusive Join (somente whitelist)", "exclusive_join", srv, vars_ref, 19, accent)
-
-    _add_help(sf, [
-        ("Downloads / Uploads", "Controla o que pode ser transferido via terminal de obelisco ou tribute."),
-        ("Bloquear download/upload", "Impede que survivors, items ou dinos sejam transferidos entre servidores do cluster."),
-        ("Expiração de tributo", "Items e dinos no terminal de tribute são automaticamente removidos após o tempo configurado."),
-        ("Min Dino Reupload Interval", "Tempo mínimo entre uploads de um mesmo dino (evita abusos de buff reset)."),
-        ("Exclusive Join", "Apenas jogadores na whitelist podem entrar. Configure os IDs em Arquivos do Servidor."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Transferências / Tributo", "Transferências e tributo")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Downloads / uploads", [
+            "enable_tribute_downloads", "prevent_download_survivors", "prevent_download_items",
+            "prevent_download_dinos", "prevent_upload_survivors", "prevent_upload_items",
+            "prevent_upload_dinos", "cross_ark_allow_foreign_dino_downloads",
+        ], bool_grid=True),
+        CardSpec("Expiração — personagens", ["save_tribute_char_expiration", "tribute_char_expiration_seconds"]),
+        CardSpec("Expiração — items", ["save_tribute_item_expiration", "tribute_item_expiration_seconds"]),
+        CardSpec("Expiração — dinos", ["save_tribute_dino_expiration", "tribute_dino_expiration_seconds"]),
+        CardSpec("Re-upload de dinos", ["save_min_dino_reupload_interval", "min_dino_reupload_interval"]),
+        CardSpec("Exclusive join", ["exclusive_join"], bool_grid=True),
     ])
+    add_collapsible_help(sf, [
+        ("Downloads / Uploads", "Controla transferências via obelisco ou tribute."),
+        ("Bloquear download/upload", "Impede transferência de survivors, items ou dinos."),
+        ("Expiração de tributo", "Remove automaticamente após o tempo configurado."),
+        ("Min Dino Reupload Interval", "Tempo mínimo entre uploads do mesmo dino."),
+        ("Exclusive Join", "Apenas whitelist — IDs em Arquivos do Servidor."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1135,17 +1457,20 @@ def _build_transfers(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_chat(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Chat", 0, accent)
-    _bool_check(sf, "Voice chat global",          "global_voice_chat",           srv, vars_ref, 1, accent)
-    _bool_check(sf, "Proximity chat",             "proximity_chat",              srv, vars_ref, 2, accent)
-    _bool_check(sf, "Notificar entrada (join)",   "player_joined_notifications", srv, vars_ref, 3, accent)
-    _bool_check(sf, "Notificar saída (leave)",    "player_leave_notifications",  srv, vars_ref, 4, accent)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _add_help(sf, [
-        ("Voice chat global", "Quando ativado, todos os jogadores ouvem o chat de voz, independente da distância."),
-        ("Proximity chat", "Apenas jogadores próximos ouvem o chat de voz (modo imersivo)."),
-        ("Notificar entrada/saída", "Exibe mensagem no chat do servidor quando um jogador entra ou sai."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Bate-papo e Notificações", "Bate-papo e notificações")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Chat e notificações", [
+            "global_voice_chat", "proximity_chat",
+            "player_joined_notifications", "player_leave_notifications",
+        ], bool_grid=True),
     ])
+    add_collapsible_help(sf, [
+        ("Voice chat global", "Todos os jogadores ouvem o chat de voz, independente da distância."),
+        ("Proximity chat", "Apenas jogadores próximos ouvem o chat de voz."),
+        ("Notificar entrada/saída", "Mensagem no chat quando um jogador entra ou sai."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1153,22 +1478,23 @@ def _build_chat(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_hud(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "HUD / Visual", 0, accent)
-    _bool_check(sf, "Crosshair",                 "allow_crosshair",            srv, vars_ref, 1, accent)
-    _bool_check(sf, "HUD habilitado",            "allow_hud",                  srv, vars_ref, 2, accent)
-    _bool_check(sf, "Terceira pessoa",           "allow_third_person_view",    srv, vars_ref, 3, accent)
-    _bool_check(sf, "Mostrar posição no mapa",   "show_map_player_location",   srv, vars_ref, 4, accent)
-    _bool_check(sf, "Floating damage text",      "show_floating_damage_text",  srv, vars_ref, 5, accent)
-    _bool_check(sf, "Hit markers",               "allow_hit_markers",          srv, vars_ref, 6, accent)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _add_help(sf, [
-        ("Crosshair", "Exibe a mira (ponto de mira) na tela dos jogadores."),
-        ("HUD habilitado", "Exibe barras de vida, stamina, comida e demais indicadores na tela."),
-        ("Terceira pessoa", "Permite que os jogadores alternem para câmera em terceira pessoa."),
-        ("Mostrar posição no mapa", "Exibe a localização do jogador no mapa do jogo."),
-        ("Floating damage text", "Exibe números de dano causado flutuando sobre os alvos."),
-        ("Hit markers", "Exibe indicador visual (marcador) quando um acerto é registrado."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "HUD e Visuais", "HUD e visuais")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("HUD / visual", [
+            "allow_crosshair", "allow_hud", "allow_third_person_view",
+            "show_map_player_location", "show_floating_damage_text", "allow_hit_markers",
+        ], bool_grid=True),
     ])
+    add_collapsible_help(sf, [
+        ("Crosshair", "Exibe a mira na tela dos jogadores."),
+        ("HUD habilitado", "Barras de vida, stamina, comida e indicadores."),
+        ("Terceira pessoa", "Permite câmera em terceira pessoa."),
+        ("Mostrar posição no mapa", "Localização do jogador no mapa."),
+        ("Floating damage text", "Números de dano flutuando sobre alvos."),
+        ("Hit markers", "Marcador visual quando um acerto é registrado."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1246,43 +1572,55 @@ def _per_level_grid(sf, row_start, srv, vars_ref, col_defs: list, accent: str) -
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_players(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Multiplicadores", 0, accent)
-    _float_entry(sf,"XP Multiplier",                  "xp_multiplier",                       srv, vars_ref,  1)
-    _float_entry(sf,"Player Damage",                  "player_damage_multiplier",            srv, vars_ref,  2)
-    _float_entry(sf,"Player Resistance",              "player_resistance_multiplier",        srv, vars_ref,  3)
-    _float_entry(sf,"Water Drain",                    "player_water_drain_multiplier",       srv, vars_ref,  4)
-    _float_entry(sf,"Food Drain",                     "player_food_drain_multiplier",        srv, vars_ref,  5)
-    _float_entry(sf,"Stamina Drain",                  "player_stamina_drain_multiplier",     srv, vars_ref,  6)
-    _float_entry(sf,"Health Recovery",                "player_health_recovery_multiplier",   srv, vars_ref,  7)
-    _float_entry(sf,"Harvesting Damage",              "player_harvesting_damage_multiplier", srv, vars_ref,  8)
-    _float_entry(sf,"Crafting Skill Bonus",           "crafting_skill_bonus_multiplier",     srv, vars_ref,  9)
+    from ..ui.server_field_widgets import (
+        add_bool_field, add_card_header, add_collapsible_help, add_float_field,
+        add_int_field, build_per_level_accordion, init_panel_context,
+        make_card, section_title, setup_dual_column_parent,
+    )
 
-    _section_label(sf, "XP por Tipo", 10, accent)
-    _float_entry(sf,"Craft XP",                       "craft_xp_multiplier",                srv, vars_ref, 11)
-    _float_entry(sf,"Generic XP",                     "generic_xp_multiplier",              srv, vars_ref, 12)
-    _float_entry(sf,"Harvest XP",                     "harvest_xp_multiplier",              srv, vars_ref, 13)
-    _float_entry(sf,"Kill XP",                        "kill_xp_multiplier",                 srv, vars_ref, 14)
-    _float_entry(sf,"Special XP",                     "special_xp_multiplier",              srv, vars_ref, 15)
+    setup_dual_column_parent(sf)
+    ctx = init_panel_context(
+        sf, srv, vars_ref, accent, "Configurações do Jogador",
+        vars_ref.get("_panel_root"),
+    )
+    section_title(sf, "Configurações do Jogador", accent, 0)
 
-    _section_label(sf, "Limites / Opções", 16, accent)
-    _int_entry(sf,  "Max XP jogador (0=padrão)",      "override_max_xp_player",             srv, vars_ref, 17)
-    _bool_check(sf, "Allow Flyer Carry PvE",          "enable_flyer_carry",                 srv, vars_ref, 18, accent)
+    card_mult = make_card(sf, 1, 0, ctx.theme)
+    add_card_header(card_mult, "Multiplicadores", accent)
+    for i, fld in enumerate([
+        "xp_multiplier", "player_damage_multiplier", "player_resistance_multiplier",
+        "player_water_drain_multiplier", "player_food_drain_multiplier",
+        "player_stamina_drain_multiplier", "player_health_recovery_multiplier",
+        "player_harvesting_damage_multiplier", "crafting_skill_bonus_multiplier",
+    ], start=1):
+        add_float_field(ctx, card_mult, fld, i)
 
-    _section_label(sf, "Multiplicadores por Nível (Jogador)", 19, accent)
-    ctk.CTkLabel(sf, text="Quanto cada atributo cresce por ponto aplicado pelo jogador (1.0 = padrão)",
-                 font=ctk.CTkFont(size=10), text_color="#64748b").grid(
-        row=20, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="w")
-    _per_level_grid(sf, 21, srv, vars_ref,
-                    [("Pts/nível", "per_level_player")],
-                    accent)
+    card_xp = make_card(sf, 1, 1, ctx.theme)
+    add_card_header(card_xp, "XP por tipo", accent)
+    for i, fld in enumerate([
+        "craft_xp_multiplier", "generic_xp_multiplier", "harvest_xp_multiplier",
+        "kill_xp_multiplier", "special_xp_multiplier",
+    ], start=1):
+        add_float_field(ctx, card_xp, fld, i)
 
-    _add_help(sf, [
-        ("Multipliers de jogador (1.0 = vanilla)", "Valores acima de 1.0 aumentam o atributo; abaixo diminuem. Não afeta atributos já investidos."),
-        ("XP Multiplier", "Multiplicador geral de XP. Outros XP (Craft, Kill, Harvest) são multiplicados adicionalmente sobre este."),
-        ("Max XP (0 = padrão)", "Cap de XP máximo atingível pelo jogador. 0 usa o padrão do jogo."),
-        ("Pts/nível", "Quanto cada atributo cresce por ponto investido pelo jogador. 1.0 = vanilla."),
-        ("Allow Flyer Carry PvE", "Permite que pterodatos e outros voadores carreguem outros dinos em PvE."),
-    ])
+    card_lim = make_card(sf, 2, 0, ctx.theme)
+    add_card_header(card_lim, "Limites / opções", accent)
+    add_int_field(ctx, card_lim, "override_max_xp_player", 1)
+    add_bool_field(ctx, card_lim, "enable_flyer_carry", 2)
+
+    build_per_level_accordion(
+        ctx, sf, 3,
+        [("Pts/nível", "per_level_player")],
+        "Quanto cada atributo cresce por ponto aplicado pelo jogador (1.0 = padrão).",
+    )
+
+    add_collapsible_help(sf, [
+        ("Multiplicadores (1.0 = vanilla)", "Valores acima de 1.0 aumentam o atributo; abaixo diminuem."),
+        ("XP Multiplier", "Multiplicador geral de XP. Outros tipos são aplicados adicionalmente."),
+        ("Max XP (0 = padrão)", "Cap de XP máximo. 0 usa o padrão do jogo."),
+        ("Pts/nível", "Crescimento por ponto investido. 1.0 = vanilla."),
+        ("Allow Flyer Carry PvE", "Voadores podem carregar outros dinos em PvE."),
+    ], 4)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1290,68 +1628,81 @@ def _build_players(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_dinos(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Dano e Resistência", 0, accent)
-    _float_entry(sf,"Dino Damage",                    "dino_damage_multiplier",              srv, vars_ref,  1)
-    _float_entry(sf,"Tamed Dino Damage",              "tamed_dino_damage_multiplier",        srv, vars_ref,  2)
-    _float_entry(sf,"Dino Resistance",                "dino_resistance_multiplier",          srv, vars_ref,  3)
-    _float_entry(sf,"Tamed Dino Resistance",          "tamed_dino_resistance_multiplier",    srv, vars_ref,  4)
-    _float_entry(sf,"Dino Turret Damage",             "dino_turret_damage_multiplier",       srv, vars_ref,  5)
-    _float_entry(sf,"Dino Harvesting Damage",         "dino_harvesting_damage_multiplier",   srv, vars_ref,  6)
+    from ..ui.server_field_widgets import (
+        add_bool_field, add_card_header, add_collapsible_help, add_float_field,
+        add_int_field, build_per_level_accordion, init_panel_context,
+        make_card, section_title, setup_dual_column_parent,
+    )
 
-    _section_label(sf, "Sobrevivência do Dino", 7, accent)
-    _float_entry(sf,"Dino Food Drain",                "dino_char_food_drain_multiplier",          srv, vars_ref,  8)
-    _float_entry(sf,"Dino Stamina Drain",             "dino_char_stamina_drain_multiplier",        srv, vars_ref,  9)
-    _float_entry(sf,"Dino Health Recovery",           "dino_char_health_recovery_multiplier",      srv, vars_ref, 10)
-    _float_entry(sf,"Wild Dino Food Drain",           "wild_dino_char_food_drain_multiplier",      srv, vars_ref, 11)
-    _float_entry(sf,"Tamed Dino Food Drain",          "tamed_dino_char_food_drain_multiplier",     srv, vars_ref, 12)
-    _float_entry(sf,"Wild Dino Torpor Drain",         "wild_dino_torpor_drain_multiplier",         srv, vars_ref, 13)
-    _float_entry(sf,"Tamed Dino Torpor Drain",        "tamed_dino_torpor_drain_multiplier",        srv, vars_ref, 14)
+    setup_dual_column_parent(sf)
+    ctx = init_panel_context(
+        sf, srv, vars_ref, accent, "Configurações do Dino",
+        vars_ref.get("_panel_root"),
+    )
+    section_title(sf, "Configurações do Dino", accent, 0)
 
-    _section_label(sf, "Gestão de Dinos", 15, accent)
-    _int_entry(sf,  "Max Tamed Dinos",                "max_tamed_dinos",                           srv, vars_ref, 16)
-    _float_entry(sf,"Dino Count Multiplier",          "dino_count_multiplier",                     srv, vars_ref, 17)
-    _float_entry(sf,"Taming Speed",                   "taming_speed_multiplier",                   srv, vars_ref, 18)
-    _float_entry(sf,"Passive Tame Interval",          "passive_tame_interval_multiplier",          srv, vars_ref, 19)
-    _float_entry(sf,"Max Personal Tamed Dinos",       "max_personal_tamed_dinos",                  srv, vars_ref, 20)
-    _int_entry(sf,  "Personal saddle structure cost", "personal_tamed_dinos_saddle_structure_cost",srv, vars_ref, 21)
-    _int_entry(sf,  "Max XP dino (0=padrão)",         "override_max_xp_dino",                      srv, vars_ref, 22)
-    _float_entry(sf,"PvE Dino Decay Period",          "pve_dino_decay_period_multiplier",          srv, vars_ref, 23)
-    _float_entry(sf,"Raid Dino Food Drain",           "raid_dino_food_drain_multiplier",           srv, vars_ref, 24)
+    card_dmg = make_card(sf, 1, 0, ctx.theme)
+    add_card_header(card_dmg, "Dano e resistência", accent)
+    for i, fld in enumerate([
+        "dino_damage_multiplier", "tamed_dino_damage_multiplier",
+        "dino_resistance_multiplier", "tamed_dino_resistance_multiplier",
+        "dino_turret_damage_multiplier", "dino_harvesting_damage_multiplier",
+    ], start=1):
+        add_float_field(ctx, card_dmg, fld, i)
 
-    _section_label(sf, "Opções", 25, accent)
-    _bool_check(sf, "Allow Raid Dino Feeding",        "allow_raid_dino_feeding",            srv, vars_ref, 26, accent)
-    _bool_check(sf, "Allow Flying Stamina Recovery",  "allow_flying_stamina_recovery",      srv, vars_ref, 27, accent)
-    _bool_check(sf, "Prevent Mate Boost",             "prevent_mate_boost",                 srv, vars_ref, 28, accent)
-    _bool_check(sf, "Disable Dino Decay PvE",         "disable_dino_decay_pve",             srv, vars_ref, 29, accent)
-    _bool_check(sf, "PvP Dino Decay",                 "pvp_dino_decay",                     srv, vars_ref, 30, accent)
-    _bool_check(sf, "Auto Destroy Decayed Dinos",     "auto_destroy_decayed_dinos",         srv, vars_ref, 31, accent)
-    _bool_check(sf, "Allow Multiple Attached C4",     "allow_multiple_attached_c4",         srv, vars_ref, 32, accent)
-    _bool_check(sf, "Disable Dino Riding",            "disable_dino_riding",                srv, vars_ref, 33, accent)
-    _bool_check(sf, "Disable Dino Taming",            "disable_dino_taming",                srv, vars_ref, 34, accent)
-    _bool_check(sf, "Use Tame Limit For Structures Only","use_tame_limit_for_structures_only", srv, vars_ref, 35, accent)
-    _bool_check(sf, "Disable Imprint Buff",           "disable_imprint_buff",               srv, vars_ref, 36, accent)
-    _bool_check(sf, "Allow Anyone Baby Imprint",      "allow_anyone_baby_imprint",          srv, vars_ref, 37, accent)
+    card_surv = make_card(sf, 1, 1, ctx.theme)
+    add_card_header(card_surv, "Sobrevivência", accent)
+    for i, fld in enumerate([
+        "dino_char_food_drain_multiplier", "dino_char_stamina_drain_multiplier",
+        "dino_char_health_recovery_multiplier", "wild_dino_char_food_drain_multiplier",
+        "tamed_dino_char_food_drain_multiplier", "wild_dino_torpor_drain_multiplier",
+        "tamed_dino_torpor_drain_multiplier",
+    ], start=1):
+        add_float_field(ctx, card_surv, fld, i)
 
-    _section_label(sf, "Multiplicadores por Nível (Dino)", 38, accent)
-    ctk.CTkLabel(sf, text="Wild = selvagem  •  Dom. = domesticado base  •  +Add = bônus fixo por nível  •  +Afi = bônus de afinidade",
-                 font=ctk.CTkFont(size=10), text_color="#64748b").grid(
-        row=39, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="w")
-    _per_level_grid(sf, 40, srv, vars_ref,
-                    [
-                        ("Wild",   "per_level_dino_wild"),
-                        ("Dom.",   "per_level_dino_tamed"),
-                        ("+Add",   "per_level_dino_tamed_add"),
-                        ("+Afi",   "per_level_dino_tamed_affinity"),
-                    ],
-                    accent)
+    card_mgmt = make_card(sf, 2, 0, ctx.theme)
+    add_card_header(card_mgmt, "Gestão de dinos", accent)
+    add_int_field(ctx, card_mgmt, "max_tamed_dinos", 1)
+    for i, fld in enumerate([
+        "dino_count_multiplier", "taming_speed_multiplier",
+        "passive_tame_interval_multiplier", "max_personal_tamed_dinos",
+        "pve_dino_decay_period_multiplier", "raid_dino_food_drain_multiplier",
+    ], start=2):
+        add_float_field(ctx, card_mgmt, fld, i)
+    add_int_field(ctx, card_mgmt, "personal_tamed_dinos_saddle_structure_cost", 8)
+    add_int_field(ctx, card_mgmt, "override_max_xp_dino", 9)
 
-    _add_help(sf, [
-        ("Dino Damage / Resistance", "Afeta todos os dinos (selvagens e domesticados). 1.5 = 50% mais dano/resistência."),
-        ("Max Tamed Dinos", "Limite global de dinos domesticados no servidor. Recomendado: 300–500 para evitar lag."),
-        ("Taming Speed", "Multiplica a velocidade de domesticação. >1.0 = mais rápido; <1.0 = mais lento."),
-        ("Imprint Buff", "Multiplica o bônus de imprinting. Apenas dinos com 100% de imprint têm efeito máximo."),
-        ("Wild / Dom. / +Add / +Afi", "Multiplicadores de atributo por nível: Wild (selvagem), Dom. (domesticado), +Add (bnus adicional) e +Afi (afinidade)."),
-    ])
+    card_opts = make_card(sf, 2, 1, ctx.theme)
+    add_card_header(card_opts, "Opções", accent)
+    card_opts.grid_columnconfigure(0, weight=1)
+    card_opts.grid_columnconfigure(1, weight=1)
+    bool_fields = [
+        "allow_raid_dino_feeding", "allow_flying_stamina_recovery", "prevent_mate_boost",
+        "disable_dino_decay_pve", "pvp_dino_decay", "auto_destroy_decayed_dinos",
+        "allow_multiple_attached_c4", "disable_dino_riding", "disable_dino_taming",
+        "use_tame_limit_for_structures_only", "disable_imprint_buff", "allow_anyone_baby_imprint",
+    ]
+    for i, fld in enumerate(bool_fields):
+        add_bool_field(ctx, card_opts, fld, row=1 + i // 2, col=i % 2)
+
+    build_per_level_accordion(
+        ctx, sf, 3,
+        [
+            ("Wild", "per_level_dino_wild"),
+            ("Dom.", "per_level_dino_tamed"),
+            ("+Add", "per_level_dino_tamed_add"),
+            ("+Afi", "per_level_dino_tamed_affinity"),
+        ],
+        "Wild = selvagem • Dom. = domesticado • +Add = bônus fixo • +Afi = afinidade.",
+    )
+
+    add_collapsible_help(sf, [
+        ("Dano / Resistência", "Afeta todos os dinos. 1.5 = 50% a mais."),
+        ("Max Tamed Dinos", "Limite global. Recomendado: 300–500 para evitar lag."),
+        ("Taming Speed", ">1.0 = mais rápido; <1.0 = mais lento."),
+        ("Imprint Buff", "Bônus de imprinting — 100% para efeito máximo."),
+        ("Wild / Dom. / +Add / +Afi", "Multiplicadores de atributo por nível."),
+    ], 4)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1359,25 +1710,41 @@ def _build_dinos(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_breeding(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Reprodução e Imprinting", 0, accent)
-    _float_entry(sf,"Mating Interval",                "mating_interval_multiplier",                          srv, vars_ref, 1)
-    _float_entry(sf,"Egg Hatch Speed",                "egg_hatch_speed_multiplier",                          srv, vars_ref, 2)
-    _float_entry(sf,"Baby Mature Speed",              "baby_mature_speed_multiplier",                        srv, vars_ref, 3)
-    _float_entry(sf,"Baby Food Consumption",          "baby_food_consumption_multiplier",                    srv, vars_ref, 4)
-    _float_entry(sf,"Baby Cuddle Interval",           "baby_cuddle_interval_multiplier",                     srv, vars_ref, 5)
-    _float_entry(sf,"Baby Cuddle Grace Period",       "baby_cuddle_grace_period_multiplier",                 srv, vars_ref, 6)
-    _float_entry(sf,"Baby Cuddle Lose Imprint Speed", "baby_cuddle_lose_imprint_quality_speed_multiplier",   srv, vars_ref, 7)
-    _float_entry(sf,"Baby Imprinting Stat Scale",     "baby_imprinting_stat_scale",                          srv, vars_ref, 8)
+    from ..ui.server_field_widgets import (
+        add_card_header, add_collapsible_help, add_float_field,
+        init_panel_context, make_card, section_title, setup_dual_column_parent,
+    )
 
-    # — Calculadora de Breeding —
-    ctk.CTkFrame(sf, height=1, fg_color="#1e293b").grid(
-        row=9, column=0, columnspan=2, sticky="ew", padx=8, pady=(10, 6))
+    setup_dual_column_parent(sf)
+    ctx = init_panel_context(
+        sf, srv, vars_ref, accent, "Reprodução",
+        vars_ref.get("_panel_root"),
+    )
+    section_title(sf, "Reprodução e imprinting", accent, 0)
+
+    card_main = make_card(sf, 1, 0, ctx.theme)
+    add_card_header(card_main, "Ciclo de reprodução", accent)
+    for i, fld in enumerate([
+        "mating_interval_multiplier", "egg_hatch_speed_multiplier",
+        "baby_mature_speed_multiplier", "baby_food_consumption_multiplier",
+    ], start=1):
+        add_float_field(ctx, card_main, fld, i)
+
+    card_imp = make_card(sf, 1, 1, ctx.theme)
+    add_card_header(card_imp, "Imprinting", accent)
+    for i, fld in enumerate([
+        "baby_cuddle_interval_multiplier", "baby_cuddle_grace_period_multiplier",
+        "baby_cuddle_lose_imprint_quality_speed_multiplier", "baby_imprinting_stat_scale",
+    ], start=1):
+        add_float_field(ctx, card_imp, fld, i)
+
+    calc_f = ctk.CTkFrame(sf, fg_color="transparent")
+    calc_f.grid(row=2, column=0, columnspan=2, padx=8, pady=(4, 8), sticky="w")
 
     def _open_calc():
         from ..breeding_calculator import open_breeding_calculator
         widgets = {f"gs_{k}": v for k, v in vars_ref.items() if not k.startswith("_")}
         def on_apply():
-            # reflecte os valores calculados de volta nas StringVars do painel
             for attr in ("baby_mature_speed_multiplier", "egg_hatch_speed_multiplier",
                          "mating_interval_multiplier", "baby_cuddle_interval_multiplier"):
                 sv = vars_ref.get(attr)
@@ -1386,22 +1753,22 @@ def _build_breeding(sf, srv, vars_ref, bg, accent):
         open_breeding_calculator(sf, srv, widgets, on_apply)
 
     ctk.CTkButton(
-        sf, text="🧠  Calculadora de Breeding",
-        width=220, height=36,
-        fg_color="#1e293b", hover_color="#0f172a",
-        text_color="#22c55e", border_width=1, border_color="#22c55e",
+        calc_f, text="🧠  Calculadora de Breeding",
+        width=240, height=36,
+        fg_color=ctx.theme.get("card_bg", "#1e293b"), hover_color="#0f172a",
+        text_color=accent, border_width=1, border_color=accent,
         corner_radius=8, font=ctk.CTkFont(size=12, weight="bold"),
         command=_open_calc,
-    ).grid(row=10, column=0, columnspan=2, padx=8, pady=(0, 10), sticky="w")
+    ).pack(side="left")
 
-    _add_help(sf, [
-        ("Mating Interval", "Intervalo entre acasalamentos. <1.0 = mais frequente; 0.1 = 10x mais rápido que o padrão."),
-        ("Egg Hatch Speed", "Velocidade de chocagem de ovos. >1.0 = mais rápido."),
-        ("Baby Mature Speed", "Velocidade de crescimento do bebê. >1.0 = mais rápido."),
-        ("Baby Cuddle Interval", "Intervalo entre carinhos no bebê para imprinting. <1.0 = mais frequente."),
-        ("Baby Imprinting Stat Scale", "Multiplica o bônus de atributo conferido pelo imprinting."),
-        ("Calculadora de Breeding", "Ferramenta para calcular automaticamente os multiplicadores ideais para seu servidor."),
-    ])
+    add_collapsible_help(sf, [
+        ("Mating Interval", "<1.0 = acasalamento mais frequente."),
+        ("Egg Hatch Speed", ">1.0 = ovos eclodem mais rápido."),
+        ("Baby Mature Speed", ">1.0 = filhotes crescem mais rápido."),
+        ("Baby Cuddle Interval", "<1.0 = carinhos mais frequentes."),
+        ("Baby Imprinting Stat Scale", "Multiplica o bônus de atributo do imprinting."),
+        ("Calculadora de Breeding", "Calcula multiplicadores ideais automaticamente."),
+    ], 3)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1409,43 +1776,36 @@ def _build_breeding(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_environment(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Coleta e Recursos", 0, accent)
-    _float_entry(sf,"Harvest Amount",                 "harvest_amount_multiplier",                   srv, vars_ref,  1)
-    _float_entry(sf,"Harvest Health",                 "harvest_health_multiplier",                   srv, vars_ref,  2)
-    _float_entry(sf,"Resources Respawn",              "resources_respawn_multiplier",                srv, vars_ref,  3)
-    _float_entry(sf,"No Replenish Radius (Players)",  "resource_no_replenish_radius_players",        srv, vars_ref,  4)
-    _float_entry(sf,"No Replenish Radius (Structures)","resource_no_replenish_radius_structures",   srv, vars_ref,  5)
-    _bool_check(sf, "Use Optimized Harvesting Health","use_optimized_harvesting_health",             srv, vars_ref,  6, accent)
-    _bool_check(sf, "Clamp Resource Harvest Damage",  "clamp_resource_harvest_damage",              srv, vars_ref,  7, accent)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _section_label(sf, "Tempo / Clima", 8, accent)
-    _float_entry(sf,"Day Cycle Speed",                "day_cycle_speed_scale",                       srv, vars_ref,  9)
-    _float_entry(sf,"Day Time Speed",                 "day_time_speed_scale",                        srv, vars_ref, 10)
-    _float_entry(sf,"Night Time Speed",               "night_time_speed_scale",                      srv, vars_ref, 11)
-    _float_entry(sf,"Base Temperature",               "base_temperature_multiplier",                 srv, vars_ref, 12)
-    _bool_check(sf, "Disable Weather Fog",            "disable_weather_fog",                         srv, vars_ref, 13, accent)
-
-    _section_label(sf, "Decomposição / Spoiling", 14, accent)
-    _float_entry(sf,"Global Spoiling Time",           "global_spoiling_time_multiplier",             srv, vars_ref, 15)
-    _float_entry(sf,"Item Decomposition Time",        "global_item_decomposition_multiplier",        srv, vars_ref, 16)
-    _float_entry(sf,"Corpse Decomposition Time",      "global_corpse_decomposition_multiplier",      srv, vars_ref, 17)
-    _bool_check(sf, "Clamp Item Spoiling Times",      "clamp_item_spoiling_times",                   srv, vars_ref, 18, accent)
-
-    _section_label(sf, "Agricultura / Criaturas", 19, accent)
-    _float_entry(sf,"Crop Decay Speed",               "crop_decay_speed_multiplier",                 srv, vars_ref, 20)
-    _float_entry(sf,"Crop Growth Speed",              "crop_growth_speed_multiplier",                srv, vars_ref, 21)
-    _float_entry(sf,"Lay Egg Interval",               "lay_egg_interval_multiplier",                 srv, vars_ref, 22)
-    _float_entry(sf,"Poop Interval",                  "poop_interval_multiplier",                    srv, vars_ref, 23)
-    _float_entry(sf,"Hair Growth Speed",              "hair_growth_speed_multiplier",                srv, vars_ref, 24)
-
-    _add_help(sf, [
-        ("Harvest Amount", "Quantidade de recursos coletados por golpe. 2.0 = coleta dupla."),
-        ("Resources Respawn", "Velocidade de reaparecer dos recursos no mapa. <1.0 = mais rápido."),
-        ("Day/Night Cycle Speed", "Velocidade do ciclo dia/noite. >1.0 = dias/noites mais curtos."),
-        ("Global Spoiling Time", "Multiplica o tempo de estrago dos itens. >1.0 = itens duram mais."),
-        ("Corpse Decomposition", "Quanto tempo um corpo fica no mapa antes de desaparecer."),
-        ("Crop Growth / Decay", "Velocidade de crescimento e deterioração das plantações."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Meio Ambiente", "Meio ambiente")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Coleta e recursos", [
+            "harvest_amount_multiplier", "harvest_health_multiplier", "resources_respawn_multiplier",
+            "resource_no_replenish_radius_players", "resource_no_replenish_radius_structures",
+        ]),
+        CardSpec("Opções de coleta", ["use_optimized_harvesting_health", "clamp_resource_harvest_damage"], bool_grid=True),
+        CardSpec("Tempo / clima", [
+            "day_cycle_speed_scale", "day_time_speed_scale", "night_time_speed_scale",
+            "base_temperature_multiplier", "disable_weather_fog",
+        ]),
+        CardSpec("Decomposição / spoiling", [
+            "global_spoiling_time_multiplier", "global_item_decomposition_multiplier",
+            "global_corpse_decomposition_multiplier", "clamp_item_spoiling_times",
+        ]),
+        CardSpec("Agricultura / criaturas", [
+            "crop_decay_speed_multiplier", "crop_growth_speed_multiplier",
+            "lay_egg_interval_multiplier", "poop_interval_multiplier", "hair_growth_speed_multiplier",
+        ]),
     ])
+    add_collapsible_help(sf, [
+        ("Harvest Amount", "Recursos por golpe. 2.0 = coleta dupla."),
+        ("Resources Respawn", "Reaparecimento dos recursos. <1.0 = mais rápido."),
+        ("Day/Night Cycle Speed", ">1.0 = dias/noites mais curtos."),
+        ("Global Spoiling Time", ">1.0 = itens duram mais."),
+        ("Corpse Decomposition", "Tempo até o corpo desaparecer."),
+        ("Crop Growth / Decay", "Crescimento e deterioração das plantações."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1453,51 +1813,44 @@ def _build_environment(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_structures(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Dano e Resistência", 0, accent)
-    _float_entry(sf,"Structure Resistance",              "structure_resistance_multiplier",         srv, vars_ref,  1)
-    _float_entry(sf,"Structure Damage",                  "structure_damage_multiplier",             srv, vars_ref,  2)
-    _int_entry(sf,  "Damage Repair Cooldown (s)",        "structure_damage_repair_cooldown",        srv, vars_ref,  3)
-    _bool_check(sf, "PvP Structure Decay",               "pvp_structure_decay",                     srv, vars_ref,  4, accent)
-    _float_entry(sf,"PvP Zone Structure Damage",         "pvp_zone_structure_damage_multiplier",    srv, vars_ref,  5)
+    from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
-    _section_label(sf, "Limites", 6, accent)
-    _int_entry(sf,  "Max Structures In Range",           "max_structures_in_range",                 srv, vars_ref,  7)
-    _float_entry(sf,"Per Platform Max Structures",       "per_platform_max_structures_multiplier",  srv, vars_ref,  8)
-    _int_entry(sf,  "Max Platform Saddle Structures",    "max_platform_saddle_structures",          srv, vars_ref,  9)
-    _bool_check(sf, "Override Structure Platform Prevention","override_structure_platform_prevention",srv,vars_ref, 10, accent)
-    _bool_check(sf, "Flyer Platform Allow Unaligned Dino Basing","flyer_platform_allow_unaligned_dino_basing",srv,vars_ref,11,accent)
-
-    _section_label(sf, "Decay PvE", 12, accent)
-    _bool_check(sf, "Enable Structure Decay PvE",        "enable_structure_decay_pve",              srv, vars_ref, 13, accent)
-    _float_entry(sf,"PvE Structure Decay Period",        "pve_structure_decay_period_multiplier",   srv, vars_ref, 14)
-    _float_entry(sf,"PvE Structure Decay Destruction",   "pve_structure_decay_destruction_period",  srv, vars_ref, 15)
-    _float_entry(sf,"Auto Destroy Old Structures",       "auto_destroy_old_structures_multiplier",  srv, vars_ref, 16)
-    _bool_check(sf, "PvE Allow Structures At Supply Drops","pve_allow_structures_at_supply_drops",  srv, vars_ref, 17, accent)
-
-    _section_label(sf, "Opções", 18, accent)
-    _bool_check(sf, "Force All Structure Locking",       "force_all_structure_locking",             srv, vars_ref, 19, accent)
-    _bool_check(sf, "Disable Structure Placement Collision","disable_structure_placement_collision", srv, vars_ref, 20, accent)
-    _bool_check(sf, "Only Auto Destroy Core Structures", "only_auto_destroy_core_structures",       srv, vars_ref, 21, accent)
-    _bool_check(sf, "Only Decay Unsnapped Core Structures","only_decay_unsnapped_core_structures",  srv, vars_ref, 22, accent)
-    _bool_check(sf, "Fast Decay Unsnapped Core Structures","fast_decay_unsnapped_core_structures",  srv, vars_ref, 23, accent)
-    _bool_check(sf, "Destroy Unconnected Water Pipes",   "destroy_unconnected_water_pipes",         srv, vars_ref, 24, accent)
-    _bool_check(sf, "Passive Defenses Damage Riderless Dinos","passive_defenses_damage_riderless_dinos",srv,vars_ref,25,accent)
-    _bool_check(sf, "Enable Fast Decay Interval",        "enable_fast_decay_interval",              srv, vars_ref, 26, accent)
-    _int_entry(sf,  "Fast Decay Interval (s)",           "fast_decay_interval",                     srv, vars_ref, 27)
-
-    _section_label(sf, "Torretas", 28, accent)
-    _bool_check(sf, "Limit Turrets In Range",             "limit_turrets_in_range",                 srv, vars_ref, 29, accent)
-    _int_entry(sf,  "Turrets Range",                      "limit_turrets_range",                    srv, vars_ref, 30)
-    _int_entry(sf,  "Turrets Num",                        "limit_turrets_num",                      srv, vars_ref, 31)
-    _bool_check(sf, "Hard Limit Turrets In Range",        "hard_limit_turrets_in_range",            srv, vars_ref, 32, accent)
-
-    _add_help(sf, [
-        ("Structure Resistance / Damage", "Multiplica dano recebido / causado por estruturas. 1.0 = vanilla."),
-        ("Max Structures In Range", "Limite de estruturas em determinado raio. Reduz lag em servidores com muitas bases."),
-        ("Decay PvE", "Estruturas sem acesso regular são removidas automaticamente (evita bases abandonadas)."),
-        ("Turrets In Range", "Limita o número de torretas em um raio. Recomendado para reduzir lag em cercos."),
-        ("Force All Structure Locking", "Todas as estruturas são trancadas por padrão ao serem construídas."),
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Estruturas", "Estruturas")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Dano e resistência", [
+            "structure_resistance_multiplier", "structure_damage_multiplier",
+            "structure_damage_repair_cooldown", "pvp_structure_decay",
+            "pvp_zone_structure_damage_multiplier",
+        ]),
+        CardSpec("Limites", [
+            "max_structures_in_range", "per_platform_max_structures_multiplier",
+            "max_platform_saddle_structures", "override_structure_platform_prevention",
+            "flyer_platform_allow_unaligned_dino_basing",
+        ]),
+        CardSpec("Decay PvE", [
+            "enable_structure_decay_pve", "pve_structure_decay_period_multiplier",
+            "pve_structure_decay_destruction_period", "auto_destroy_old_structures_multiplier",
+            "pve_allow_structures_at_supply_drops",
+        ]),
+        CardSpec("Opções gerais", [
+            "force_all_structure_locking", "disable_structure_placement_collision",
+            "only_auto_destroy_core_structures", "only_decay_unsnapped_core_structures",
+            "fast_decay_unsnapped_core_structures", "destroy_unconnected_water_pipes",
+            "passive_defenses_damage_riderless_dinos", "enable_fast_decay_interval",
+            "fast_decay_interval",
+        ]),
+        CardSpec("Torretas", [
+            "limit_turrets_in_range", "limit_turrets_range", "limit_turrets_num",
+            "hard_limit_turrets_in_range",
+        ]),
     ])
+    add_collapsible_help(sf, [
+        ("Structure Resistance / Damage", "Dano recebido/causado por estruturas. 1.0 = vanilla."),
+        ("Max Structures In Range", "Limite por raio — reduz lag em bases grandes."),
+        ("Decay PvE", "Remove bases abandonadas automaticamente."),
+        ("Turrets In Range", "Limita torretas por raio — recomendado em cercos."),
+        ("Force All Structure Locking", "Estruturas trancadas ao construir."),
+    ], row)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1505,37 +1858,45 @@ def _build_structures(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_engrams(sf, srv, vars_ref, bg, accent):
-    _section_label(sf, "Opções de Engrama", 0, accent)
-    _bool_check(sf, "Only Allow Specified Engrams", "only_allow_specified_engrams", srv, vars_ref, 1, accent)
-    _bool_check(sf, "Auto Unlock All Engrams",      "auto_unlock_all_engrams",      srv, vars_ref, 2, accent)
+    from ..ui.server_field_widgets import (
+        CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout, make_card, add_card_header,
+    )
 
-    # Botão para abrir editor visual
+    ctx = begin_tek_section(sf, srv, vars_ref, accent, "Engramas", "Engramas")
+    row = build_cards_layout(sf, ctx, [
+        CardSpec("Opções", ["only_allow_specified_engrams", "auto_unlock_all_engrams"], bool_grid=True),
+    ])
+
     app = vars_ref.get("_app")
     if app:
-        th = get_theme("tek")
+        btn_f = ctk.CTkFrame(sf, fg_color="transparent")
+        btn_f.grid(row=row, column=0, columnspan=2, padx=8, pady=4, sticky="w")
         ctk.CTkButton(
-            sf, text="🎓 Abrir Editor Visual de Engramas", height=30,
-            fg_color=th["accent_muted_bg"], hover_color="#052e16",
-            border_width=1, border_color=th["accent"], text_color=th["accent"],
+            btn_f, text="🎓  Abrir Editor Visual de Engramas", height=32,
+            fg_color=ctx.theme["accent_muted_bg"], hover_color="#052e16",
+            border_width=1, border_color=accent, text_color=accent,
             font=ctk.CTkFont(size=11),
             command=lambda: app._asm_open_engram_editor(srv),
-        ).grid(row=3, column=0, columnspan=2, padx=8, pady=(6, 4), sticky="w")
+        ).pack(side="left")
+        row += 1
 
-    _section_label(sf, "Override de Engramas (Game.ini)", 4, accent)
-    ctk.CTkLabel(sf, text="Cole OverrideNamedEngramEntries=(...) — um por linha",
-                 font=ctk.CTkFont(size=10), text_color="#7ab8c8").grid(
-        row=5, column=0, columnspan=2, padx=8, pady=(0, 2), sticky="w")
-    box = ctk.CTkTextbox(sf, height=300, font=ctk.CTkFont(family="Consolas", size=10))
-    box.grid(row=6, column=0, columnspan=2, padx=8, pady=(0, 8), sticky="ew")
+    raw_card = make_card(sf, row, 0, ctx.theme)
+    raw_card.grid(columnspan=2, sticky="ew")
+    add_card_header(raw_card, "Override de Engramas (Game.ini)", accent)
+    ctk.CTkLabel(raw_card, text="OverrideNamedEngramEntries=(...) — um por linha",
+                 font=ctk.CTkFont(size=10), text_color=ctx.theme["text_muted"]).grid(
+        row=1, column=0, padx=12, pady=(0, 4), sticky="w")
+    box = ctk.CTkTextbox(raw_card, height=300, font=ctk.CTkFont(family="Consolas", size=10))
+    box.grid(row=2, column=0, padx=12, pady=(0, 10), sticky="ew")
     box.insert("1.0", srv.engram_entries_raw)
     vars_ref["_raw_engram_entries_raw"] = box
 
-    _add_help(sf, [
-        ("Only Allow Specified Engrams", "Bloqueia todos os engramas padrão; apenas os listados aqui estão disponíveis."),
-        ("Auto Unlock All Engrams", "Desbloqueia todos os engramas automaticamente ao subir de nível."),
-        ("Override de Engramas", "Formato: OverrideNamedEngramEntries=(EngramClassName=\"...\",EngramHidden=False,EngramPointsCost=0,bGiveBlueprint=False,RemoveEngramPreReq=False)"),
-        ("Editor Visual", "Use o botão acima para abrir o editor visual que gera os entries automaticamente."),
-    ])
+    add_collapsible_help(sf, [
+        ("Only Allow Specified Engrams", "Apenas engramas listados ficam disponíveis."),
+        ("Auto Unlock All Engrams", "Desbloqueia todos ao subir de nível."),
+        ("Override de Engramas", "Formato Game.ini OverrideNamedEngramEntries=..."),
+        ("Editor Visual", "Gera entries automaticamente."),
+    ], row + 1)
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
@@ -1543,25 +1904,115 @@ def _build_engrams(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _build_server_files(sf, srv, vars_ref, bg, accent):
-    data = [
-        ("IDs de Admin (SteamIDs, um por linha)", "_admin_ids_text",     srv.admin_ids),
-        ("IDs Whitelist (um por linha)",           "_whitelist_ids_text",  srv.whitelist_ids),
-        ("IDs Exclusive Join (um por linha)",      "_exclusive_ids_text",  srv.exclusive_join_ids),
+    sf.grid_columnconfigure(0, weight=1)
+
+    _LISTS = [
+        {
+            "title": "Administradores",
+            "icon": "🛡",
+            "sub": "SteamID64 de cada admin, um por linha.",
+            "hint": "Jogadores com esses SteamIDs têm acesso a comandos admin sem precisar da senha de admin.",
+            "key": "_admin_ids_text",
+            "items": srv.admin_ids,
+        },
+        {
+            "title": "Whitelist",
+            "icon": "✅",
+            "sub": "SteamID64 permitidos. Ative 'Exclusive Join' na seção Transferências.",
+            "hint": "Quando Exclusive Join está ativo, apenas SteamIDs desta lista podem entrar.",
+            "key": "_whitelist_ids_text",
+            "items": srv.whitelist_ids,
+        },
+        {
+            "title": "Exclusive Join",
+            "icon": "🔑",
+            "sub": "SteamID64 com acesso garantido mesmo com server cheio ou restrito.",
+            "hint": "Complementa a whitelist. Separe por linha. Deixe vazio se não usa Exclusive Join.",
+            "key": "_exclusive_ids_text",
+            "items": srv.exclusive_join_ids,
+        },
     ]
-    r = 0
-    for title, key, items in data:
-        _section_label(sf, title, r, accent)
-        r += 1
-        box = ctk.CTkTextbox(sf, height=80, font=ctk.CTkFont(size=11))
-        box.grid(row=r, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
-        box.insert("1.0", "\n".join(items))
-        vars_ref[key] = box
-        r += 1
+
+    for r, cfg in enumerate(_LISTS):
+        card = ctk.CTkFrame(sf, fg_color="#0d1b2a", corner_radius=10,
+                            border_width=1, border_color="#1e293b")
+        card.grid(row=r, column=0, padx=8, pady=6, sticky="ew")
+        card.grid_columnconfigure(0, weight=1)
+
+        # ── Cabeçalho do card ────────────────────────────────────────────────
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.grid(row=0, column=0, padx=12, pady=(10, 0), sticky="ew")
+        hdr.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(hdr, text=f"{cfg['icon']} {cfg['title']}",
+                     font=ctk.CTkFont(size=13, weight="bold"),
+                     text_color=accent).grid(row=0, column=0, sticky="w")
+
+        count_lbl = ctk.CTkLabel(hdr, text="", font=ctk.CTkFont(size=10),
+                                 text_color="#64748b")
+        count_lbl.grid(row=0, column=1, padx=(8, 0), sticky="w")
+
+        ctk.CTkLabel(card, text=cfg["sub"], font=ctk.CTkFont(size=10),
+                     text_color="#64748b", anchor="w").grid(
+            row=1, column=0, padx=12, pady=(2, 4), sticky="ew")
+
+        # ── Textbox ──────────────────────────────────────────────────────────
+        box = ctk.CTkTextbox(card, height=88,
+                             font=ctk.CTkFont(family="Consolas", size=11),
+                             fg_color="#07101c")
+        box.grid(row=2, column=0, padx=12, pady=(0, 4), sticky="ew")
+        box.insert("1.0", "\n".join(cfg["items"]))
+        vars_ref[cfg["key"]] = box
+
+        # ── Contador dinâmico ────────────────────────────────────────────────
+        def _update_count(b=box, lbl=count_lbl):
+            ids = [ln.strip() for ln in b.get("1.0", "end").splitlines() if ln.strip()]
+            lbl.configure(text=f"({len(ids)} IDs)" if ids else "(vazio)")
+
+        _update_count()
+        box.bind("<KeyRelease>", lambda _e, fn=_update_count: fn())
+
+        # ── Botão "Colar SteamID" ─────────────────────────────────────────────
+        act_row = ctk.CTkFrame(card, fg_color="transparent")
+        act_row.grid(row=3, column=0, padx=12, pady=(0, 10), sticky="w")
+
+        def _paste_id(b=box, fn=_update_count):
+            try:
+                clip = b.clipboard_get().strip()
+            except Exception:
+                clip = ""
+            if not clip:
+                return
+            ids_existing = {ln.strip() for ln in b.get("1.0", "end").splitlines() if ln.strip()}
+            new_ids = [p.strip() for p in clip.replace(",", "\n").splitlines()
+                       if p.strip() and p.strip() not in ids_existing]
+            if new_ids:
+                cur = b.get("1.0", "end").rstrip("\n")
+                if cur:
+                    b.insert("end", "\n" + "\n".join(new_ids))
+                else:
+                    b.delete("1.0", "end")
+                    b.insert("1.0", "\n".join(new_ids))
+                fn()
+
+        def _clear(b=box, fn=_update_count):
+            b.delete("1.0", "end")
+            fn()
+
+        ctk.CTkButton(act_row, text="📋 Colar ID(s)", width=110, height=26,
+                      fg_color="#1e293b", hover_color="#334155",
+                      text_color="#94a3b8", font=ctk.CTkFont(size=11),
+                      command=_paste_id).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(act_row, text="✕ Limpar", width=80, height=26,
+                      fg_color="#2d1212", hover_color="#3d1818",
+                      text_color="#f87171", font=ctk.CTkFont(size=11),
+                      command=_clear).pack(side="left")
 
     _add_help(sf, [
-        ("IDs de Admin", "SteamIDs dos administradores do servidor (um por linha). Esses jogadores têm acesso a comandos admin sem senha."),
-        ("IDs Whitelist", "SteamIDs permitidos. Usado junto com Exclusive Join para restringir o acesso ao servidor."),
-        ("IDs Exclusive Join", "SteamIDs com acesso exclusivo quando Exclusive Join está ativado na seção Transferências."),
+        ("IDs de Admin", "SteamIDs dos administradores do servidor. Acesso total a comandos admin sem senha."),
+        ("Whitelist", "SteamIDs permitidos. Ative 'Exclusive Join' na seção Transferências para restringir."),
+        ("Exclusive Join", "SteamIDs com acesso garantido mesmo com servidor cheio ou restrito."),
     ])
 
 
@@ -1800,6 +2251,188 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         ("OverridePlayerLevelEngramPoints", "Quantidade de pontos de engrama ganhos em cada nível. Um item por nível."),
         ("DinoMaxLevelExperienceRampOverrides", "Define a tabela de XP dos dinos. Um item por nível."),
         ("Gerador rápido", "Calcula automaticamente os valores com base em nível máximo, XP base e multiplicador."),
+    ])
+
+
+# ════════════════════════════════════════════════════════════════════════════ #
+#  Extensões SM (Fase 5)
+# ════════════════════════════════════════════════════════════════════════════ #
+
+def _build_sm_extensions(sf, srv, vars_ref, bg, accent):
+    from ..ui.tek_sm_extensions_section import build_sm_extensions_section
+    build_sm_extensions_section(sf, srv, vars_ref, accent)
+
+
+# ════════════════════════════════════════════════════════════════════════════ #
+#  Ferramentas (Fase 7 — launchers que abrem janelas dedicadas)
+# ════════════════════════════════════════════════════════════════════════════ #
+
+def _build_tool_spawn_exact(sf, srv, vars_ref, bg, accent):
+    """Painel-lançador do Gerador SpawnExact."""
+    _build_tool_launcher(
+        sf=sf,
+        vars_ref=vars_ref,
+        srv=srv,
+        icon="🦕",
+        title="Gerador SpawnExact",
+        description=(
+            "Gera o comando admin cheat SpawnExactDino com controle total de\n"
+            "stats selvagens, níveis domados, cores por região e imprint.\n\n"
+            "• Busca espécies do manifesto ArkUtils (cache local)\n"
+            "• Blueprints favoritos salvos localmente\n"
+            "• Envio direto via RCON quando configurado\n"
+            "• Presets e histórico de comandos gerados"
+        ),
+        btn_label="Abrir Gerador SpawnExact",
+        action=lambda app=vars_ref.get("_app"), s=srv: app._asm_open_spawn_exact(s),
+        accent=accent,
+        bg=bg,
+    )
+
+
+def _build_tool_rcon(sf, srv, vars_ref, bg, accent):
+    """Painel-lançador do Console RCON."""
+    rcon_ok = bool(getattr(srv, "rcon_enabled", False) and getattr(srv, "admin_password", ""))
+    _build_tool_launcher(
+        sf=sf,
+        vars_ref=vars_ref,
+        srv=srv,
+        icon="⚡",
+        title="Console RCON",
+        description=(
+            "Terminal interativo de comandos admin via protocolo Source RCON.\n\n"
+            "• Atalhos rápidos: ListPlayers, SaveWorld, DestroyWildDinos…\n"
+            "• Histórico de comandos navegável (↑ ↓)\n"
+            "• Ping de keep-alive automático\n"
+            "• Reconexão automática em caso de queda"
+            + ("" if rcon_ok else
+               "\n\n⚠  RCON não configurado — ative-o na seção Administração\n"
+               "   e defina a Senha Admin.")
+        ),
+        btn_label="Abrir Console RCON",
+        action=lambda app=vars_ref.get("_app"), s=srv: app._asm_open_rcon(s),
+        accent=accent,
+        bg=bg,
+        btn_disabled=not rcon_ok,
+    )
+
+
+def _build_tool_players(sf, srv, vars_ref, bg, accent):
+    """Painel-lançador da lista de Jogadores Online."""
+    rcon_ok = bool(getattr(srv, "rcon_enabled", False) and getattr(srv, "admin_password", ""))
+    _build_tool_launcher(
+        sf=sf,
+        vars_ref=vars_ref,
+        srv=srv,
+        icon="👥",
+        title="Jogadores Online",
+        description=(
+            "Visualize e gerencie os jogadores conectados ao servidor.\n\n"
+            "• Lista de jogadores com nome e SteamID\n"
+            "• Ações: Kick, Ban, Mensagem direta\n"
+            "• Atualização automática configurável"
+            + ("" if rcon_ok else
+               "\n\n⚠  RCON não configurado — ative-o na seção Administração\n"
+               "   e defina a Senha Admin.")
+        ),
+        btn_label="Abrir Lista de Jogadores",
+        action=lambda app=vars_ref.get("_app"), s=srv: app._asm_open_player_list(s),
+        accent=accent,
+        bg=bg,
+        btn_disabled=not rcon_ok,
+    )
+
+
+def _build_tool_launcher(
+    sf, vars_ref: dict, srv, icon: str, title: str, description: str,
+    btn_label: str, action, accent: str, bg: str, btn_disabled: bool = False,
+) -> None:
+    """Widget genérico de lançador para seções de Ferramentas."""
+    import customtkinter as ctk
+    from ..ui_constants import get_theme
+
+    th  = get_theme("tek")
+    card_bg = th["card_bg"]
+    sep     = th.get("separator", "#1e293b")
+    t1      = th["text_primary"]
+    t2      = th["text_secondary"]
+    t3      = th.get("text_muted", "#475569")
+    acc_mb  = th.get("accent_muted_bg", "#083344")
+
+    sf.grid_columnconfigure(0, weight=1)
+
+    # ── Card central ───────────────────────────────────────────────────────
+    card = ctk.CTkFrame(sf, fg_color=card_bg, corner_radius=12,
+                        border_width=1, border_color=sep)
+    card.grid(row=0, column=0, padx=24, pady=32, sticky="ew")
+    card.grid_columnconfigure(0, weight=1)
+
+    # Ícone + título
+    hdr = ctk.CTkFrame(card, fg_color=acc_mb, corner_radius=10, height=72)
+    hdr.grid(row=0, column=0, sticky="ew", padx=1, pady=(1, 0))
+    hdr.grid_columnconfigure(1, weight=1)
+    hdr.grid_propagate(False)
+
+    ctk.CTkLabel(hdr, text=icon,
+                 font=ctk.CTkFont(size=32)).grid(row=0, column=0, padx=(20, 12), pady=16)
+    ctk.CTkLabel(hdr, text=title,
+                 font=ctk.CTkFont(size=17, weight="bold"),
+                 text_color=accent, anchor="w").grid(row=0, column=1, sticky="w", pady=16)
+
+    # Descrição
+    ctk.CTkLabel(card, text=description,
+                 font=ctk.CTkFont(size=12), text_color=t2,
+                 justify="left", anchor="w", wraplength=480,
+                 ).grid(row=1, column=0, padx=20, pady=(16, 8), sticky="w")
+
+    ctk.CTkFrame(card, fg_color=sep, height=1).grid(
+        row=2, column=0, sticky="ew", padx=12, pady=(4, 12))
+
+    # Botão de ação
+    ctk.CTkButton(
+        card, text=btn_label, height=40, width=240,
+        fg_color=accent if not btn_disabled else sep,
+        hover_color=th["accent_hover"] if not btn_disabled else sep,
+        text_color="#000" if not btn_disabled else t3,
+        font=ctk.CTkFont(size=13, weight="bold"),
+        state="normal" if not btn_disabled else "disabled",
+        command=action,
+    ).grid(row=3, column=0, padx=20, pady=(0, 20))
+
+    # Atalho de teclado info
+    ctk.CTkLabel(card, text="Dica: o painel abre em janela flutuante separada.",
+                 font=ctk.CTkFont(size=10), text_color=t3).grid(
+        row=4, column=0, padx=20, pady=(0, 14), sticky="w")
+
+
+# ════════════════════════════════════════════════════════════════════════════ #
+#  Seções Agregadas (Fase 4)
+# ════════════════════════════════════════════════════════════════════════════ #
+
+def _build_harvest_aggregated(sf, srv, vars_ref, bg, accent):
+    from ..ui.tek_aggregated_sections import build_harvest_resource_section
+    build_harvest_resource_section(sf, srv, vars_ref, accent)
+    _add_help(sf, [
+        ("Formato", "HarvestResourceItemAmountClassMultipliers=(ClassName=\"PrimalItemResource_Stone_C\",Multiplier=2.0)"),
+        ("Empilhamento", "Multiplica junto com HarvestAmountMultiplier global do Meio Ambiente."),
+    ])
+
+
+def _build_dino_class_aggregated(sf, srv, vars_ref, bg, accent):
+    from ..ui.tek_aggregated_sections import build_dino_class_multipliers_section
+    build_dino_class_multipliers_section(sf, srv, vars_ref, accent)
+    _add_help(sf, [
+        ("Classe", "Use o nome curto com sufixo _C, ex: Rex_Character_BP_C."),
+        ("Multiplier", "1.0 = padrão; valores maiores aumentam o efeito (dano ou resistência)."),
+    ])
+
+
+def _build_spawn_tame_aggregated(sf, srv, vars_ref, bg, accent):
+    from ..ui.tek_aggregated_sections import build_spawn_tame_section
+    build_spawn_tame_section(sf, srv, vars_ref, accent)
+    _add_help(sf, [
+        ("SpawnWeight", "SpawnWeightMultiplier controla frequência relativa no pool de spawn."),
+        ("PreventTame", "PreventDinoTameClassNames bloqueia domesticação da classe informada."),
     ])
 
 
@@ -2132,20 +2765,86 @@ def _build_prevent_transfer(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 
 def _parse_ini_sections(raw: str) -> "dict[str, list[tuple[str,str]]]":
+    """Parse blocos [Seção] + chave=valor (compatível com colar do ASM)."""
     sections: dict = {}
     current: "str | None" = None
-    for line in raw.splitlines():
+    text = raw.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    for line in text.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith(";") or stripped.startswith("#"):
             continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current = stripped[1:-1]
-            if current not in sections:
-                sections[current] = []
-        elif "=" in stripped and current is not None:
+        if stripped.startswith("["):
+            end = stripped.find("]")
+            if end > 1:
+                current = stripped[1:end].strip()
+                sections.setdefault(current, [])
+            continue
+        if "=" in stripped:
             k, _, v = stripped.partition("=")
-            sections[current].append((k.strip(), v.strip()))
+            k, v = k.strip(), v.strip()
+            if not k:
+                continue
+            if current is None:
+                current = "Imported"
+                sections.setdefault(current, [])
+            sections[current].append((k, v))
     return sections
+
+
+class _IniPasteDialog(ctk.CTkToplevel):
+    """Diálogo estilo ASM — colar seções INI personalizadas e processar."""
+
+    def __init__(self, parent: tk.Misc, on_apply: Callable[[str], bool], accent: str) -> None:
+        super().__init__(parent)
+        self.title("Dados de configuração personalizados")
+        self.resizable(True, True)
+        self.minsize(480, 320)
+        self.configure(fg_color="#0f172a")
+        self.grab_set()
+        self.focus_set()
+        self._on_apply = on_apply
+
+        ctk.CTkLabel(
+            self, text="Cole as seções INI abaixo ([Seção] e chave=valor)",
+            font=ctk.CTkFont(size=12), text_color=accent,
+        ).pack(padx=16, pady=(14, 8), anchor="w")
+
+        self._box = ctk.CTkTextbox(self, font=ctk.CTkFont(family="Consolas", size=11))
+        self._box.pack(fill="both", expand=True, padx=16, pady=(0, 12))
+        try:
+            clip = parent.clipboard_get()
+            if clip and clip.strip():
+                self._box.insert("1.0", clip)
+        except tk.TclError:
+            pass
+
+        btns = ctk.CTkFrame(self, fg_color="transparent")
+        btns.pack(fill="x", padx=16, pady=(0, 14))
+        ctk.CTkButton(
+            btns, text="Processa", width=110, fg_color=accent,
+            hover_color="#16a34a", command=self._process,
+        ).pack(side="right", padx=(8, 0))
+        ctk.CTkButton(
+            btns, text="Cancela", width=110,
+            fg_color="#1e293b", hover_color="#334155", command=self.destroy,
+        ).pack(side="right")
+
+    def _process(self) -> None:
+        text = self._box.get("1.0", "end").strip()
+        if not text:
+            from tkinter import messagebox
+            messagebox.showwarning("Sem conteúdo", "Cole ao menos uma seção INI.", parent=self)
+            return
+        if self._on_apply(text):
+            self.destroy()
+        else:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Formato inválido",
+                "Não foi possível interpretar o texto.\n\n"
+                "Use o formato:\n[ServerSettings]\nChave=Valor",
+                parent=self,
+            )
 
 
 def _serialize_ini_sections(sections: "dict[str, list[tuple[str,str]]]") -> str:
@@ -2210,16 +2909,16 @@ def _build_ini_editor(sf, title: str, raw_text: str, raw_key: str, vars_ref: dic
     lp.grid_rowconfigure(1, weight=1)
 
     # Toolbar esquerda
-    lt = ctk.CTkFrame(lp, fg_color=_HDR_BG, corner_radius=0, height=32)
+    lt = ctk.CTkFrame(lp, fg_color=_HDR_BG, corner_radius=0)
     lt.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
     lt.grid_columnconfigure(0, weight=1)
 
     ctk.CTkLabel(lt, text="Seções Personalizadas",
                  font=ctk.CTkFont(size=11, weight="bold"),
-                 text_color=_TXT_HDR).grid(row=0, column=0, padx=10, pady=4, sticky="w")
+                 text_color=_TXT_HDR).grid(row=0, column=0, padx=10, pady=(6, 2), sticky="w")
 
     tb_l = ctk.CTkFrame(lt, fg_color="transparent")
-    tb_l.grid(row=0, column=1, padx=6, pady=4, sticky="e")
+    tb_l.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 6))
 
     # Lista rolável de seções
     sec_scroll = ctk.CTkScrollableFrame(lp, fg_color="transparent", height=260)
@@ -2233,16 +2932,16 @@ def _build_ini_editor(sf, title: str, raw_text: str, raw_key: str, vars_ref: dic
     rp.grid_rowconfigure(1, weight=1)
 
     # Toolbar direita
-    rt = ctk.CTkFrame(rp, fg_color=_HDR_BG, corner_radius=0, height=32)
+    rt = ctk.CTkFrame(rp, fg_color=_HDR_BG, corner_radius=0)
     rt.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
     rt.grid_columnconfigure(0, weight=1)
 
     ctk.CTkLabel(rt, text="Itens Personalizados",
                  font=ctk.CTkFont(size=11, weight="bold"),
-                 text_color=_TXT_HDR).grid(row=0, column=0, padx=10, pady=4, sticky="w")
+                 text_color=_TXT_HDR).grid(row=0, column=0, padx=10, pady=(6, 2), sticky="w")
 
     tb_r = ctk.CTkFrame(rt, fg_color="transparent")
-    tb_r.grid(row=0, column=1, padx=6, pady=4, sticky="e")
+    tb_r.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 6))
 
     # Cabeçalho da tabela
     col_hdr = ctk.CTkFrame(rp, fg_color=_CARD_BG, height=24)
@@ -2399,14 +3098,10 @@ def _build_ini_editor(sf, title: str, raw_text: str, raw_key: str, vars_ref: dic
             _flush()
             _render_items()
 
-    def _import_from_clipboard():
-        try:
-            text = sf.winfo_toplevel().clipboard_get()
-        except Exception:
-            return
+    def _merge_parsed_ini(text: str) -> bool:
         parsed = _parse_ini_sections(text)
         if not parsed:
-            return
+            return False
         for sec, items in parsed.items():
             if sec not in sections:
                 sections[sec] = []
@@ -2416,6 +3111,29 @@ def _build_ini_editor(sf, title: str, raw_text: str, raw_key: str, vars_ref: dic
         _flush()
         _render_sections()
         _render_items()
+        return True
+
+    def _import_from_clipboard():
+        try:
+            text = sf.winfo_toplevel().clipboard_get()
+        except tk.TclError:
+            from tkinter import messagebox
+            messagebox.showwarning(
+                "Área de transferência vazia",
+                "Não há texto na área de transferência.",
+                parent=sf.winfo_toplevel(),
+            )
+            return
+        if not _merge_parsed_ini(text):
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Formato inválido",
+                "Não foi possível interpretar o conteúdo colado.",
+                parent=sf.winfo_toplevel(),
+            )
+
+    def _open_paste_dialog():
+        _IniPasteDialog(sf.winfo_toplevel(), _merge_parsed_ini, accent)
 
     def _copy_all_sections():
         sf.winfo_toplevel().clipboard_clear()
@@ -2424,48 +3142,71 @@ def _build_ini_editor(sf, title: str, raw_text: str, raw_key: str, vars_ref: dic
     def _paste_items():
         sec = sel_section[0]
         if sec is None:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Selecione uma seção",
+                "Selecione uma seção à esquerda antes de colar itens.",
+                parent=sf.winfo_toplevel(),
+            )
             return
         try:
             text = sf.winfo_toplevel().clipboard_get()
-        except Exception:
+        except tk.TclError:
+            from tkinter import messagebox
+            messagebox.showwarning(
+                "Área de transferência vazia",
+                "Não há texto na área de transferência.",
+                parent=sf.winfo_toplevel(),
+            )
             return
-        for line in text.splitlines():
+        added = 0
+        for line in text.replace("\r\n", "\n").splitlines():
             line = line.strip()
             if "=" in line and not line.startswith(("[", ";", "#")):
                 k, _, v = line.partition("=")
                 sections[sec].append((k.strip(), v.strip()))
+                added += 1
+        if not added:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Formato inválido",
+                "Nenhuma linha chave=valor encontrada no texto colado.",
+                parent=sf.winfo_toplevel(),
+            )
+            return
         _flush()
         _render_items()
 
-    # ── Botões toolbar esquerda ───────────────────────────────────────────────
+    # ── Botões toolbar (rótulos PT — evita confusão com só ícones) ────────────
     _BTN_ADD_G  = "#15803d"
     _BTN_ADD_GH = "#14532d"
     _BTN_IMP    = "#0e4a6e"
     _BTN_IMP_H  = "#0a3550"
+    _BTN_FONT   = ctk.CTkFont(family="Segoe UI", size=10)
 
-    for icon, cmd, fg, hv in [
-        ("🔄", _refresh_sections,  _BTN_NEU,   _BTN_NEU_H),
-        ("➕", _add_section,       _BTN_ADD_G, _BTN_ADD_GH),
-        ("📄", _copy_all_sections, _BTN_NEU,   _BTN_NEU_H),
-        ("📥", _import_from_clipboard, _BTN_IMP, _BTN_IMP_H),
-        ("❌", lambda: _del_section(sel_section[0]) if sel_section[0] else None,
-               _BTN_DEL, _BTN_DEL_H),
-    ]:
-        ctk.CTkButton(tb_l, text=icon, width=26, height=24,
-                      fg_color=fg, hover_color=hv,
-                      font=ctk.CTkFont(size=12),
-                      command=cmd).pack(side="left", padx=2)
+    def _ini_btn(parent, label: str, cmd, fg: str, hv: str) -> None:
+        ctk.CTkButton(
+            parent, text=label, height=26, corner_radius=6,
+            fg_color=fg, hover_color=hv, command=cmd,
+            font=_BTN_FONT,
+        ).pack(side="left", padx=2, pady=2)
 
-    # ── Botões toolbar direita ────────────────────────────────────────────────
-    for icon, cmd, fg, hv in [
-        ("➕", _add_item,    _BTN_ADD_G, _BTN_ADD_GH),
-        ("📄", _paste_items, _BTN_NEU,   _BTN_NEU_H),
-        ("❌", _clear_items, _BTN_DEL,   _BTN_DEL_H),
+    for label, cmd, fg, hv in [
+        ("Recarregar", _refresh_sections, _BTN_NEU, _BTN_NEU_H),
+        ("Nova seção", _add_section, _BTN_ADD_G, _BTN_ADD_GH),
+        ("Colar seções…", _open_paste_dialog, _BTN_IMP, _BTN_IMP_H),
+        ("Copiar tudo", _copy_all_sections, _BTN_NEU, _BTN_NEU_H),
+        ("Excluir seção", lambda: _del_section(sel_section[0]) if sel_section[0] else None,
+         _BTN_DEL, _BTN_DEL_H),
     ]:
-        ctk.CTkButton(tb_r, text=icon, width=26, height=24,
-                      fg_color=fg, hover_color=hv,
-                      font=ctk.CTkFont(size=12),
-                      command=cmd).pack(side="left", padx=2)
+        _ini_btn(tb_l, label, cmd, fg, hv)
+
+    for label, cmd, fg, hv in [
+        ("Novo item", _add_item, _BTN_ADD_G, _BTN_ADD_GH),
+        ("Colar itens", _paste_items, _BTN_IMP, _BTN_IMP_H),
+        ("Limpar itens", _clear_items, _BTN_DEL, _BTN_DEL_H),
+    ]:
+        _ini_btn(tb_r, label, cmd, fg, hv)
 
     # ── Render inicial ────────────────────────────────────────────────────────
     if sections:
@@ -2610,6 +3351,26 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
                 setattr(srv, attr, [float(sv.get()) for sv in svars])
             except Exception:
                 pass
+
+    # Editores agregados (Fase 4)
+    from ..ui.tek_list_editor import (
+        collect_class_multiplier_list,
+        collect_class_name_list,
+        collect_spawn_weight_list,
+    )
+    _agg_map = (
+        ("harvest_resource_multipliers", "_list_harvest", collect_class_multiplier_list),
+        ("dino_class_resistance_multipliers", "_list_dino_res", collect_class_multiplier_list),
+        ("dino_class_damage_multipliers", "_list_dino_dmg", collect_class_multiplier_list),
+        ("tamed_dino_class_resistance_multipliers", "_list_tamed_dino_res", collect_class_multiplier_list),
+        ("tamed_dino_class_damage_multipliers", "_list_tamed_dino_dmg", collect_class_multiplier_list),
+        ("dino_spawn_weight_multipliers", "_list_spawn_weight", collect_spawn_weight_list),
+        ("prevent_dino_tame_class_names", "_list_prevent_tame", collect_class_name_list),
+    )
+    for attr, key, collector in _agg_map:
+        rows = vars_ref.get(key)
+        if rows is not None:
+            setattr(srv, attr, collector(rows))
 
 
 def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
