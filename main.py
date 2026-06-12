@@ -4,6 +4,8 @@ import os
 # Garante que o diretório raiz esteja no path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# (sem elevação global — operações privilegiadas escalam individualmente)
+
 # ── Guard de instância única (Windows) ───────────────────────────────────────
 if sys.platform == "win32":
     import ctypes

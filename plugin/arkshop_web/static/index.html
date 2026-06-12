@@ -3,236 +3,1140 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ArkShop Web Manager — ARKLAND</title>
+  <title>ARKLAND DONATIONS — Loja do Servidor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
-    /* ── Reset & Base ─────────────────────────────────────────────────────── */
+    /* ── Reset ────────────────────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Design Tokens ────────────────────────────────────────────────────── */
     :root {
-      --bg:        #0f1117;
-      --surface:   #1a1d26;
-      --surface2:  #21253a;
-      --border:    #2d3250;
-      --accent:    #4f7fff;
-      --accent2:   #6e3dff;
-      --success:   #2ecc71;
-      --warning:   #f39c12;
-      --danger:    #e74c3c;
-      --text:      #e2e8f0;
-      --text2:     #94a3b8;
-      --radius:    10px;
-      --shadow:    0 4px 24px rgba(0,0,0,.45);
+      /* layers — pedra quente, carvão de fogueira */
+      --bg:         #060402;
+      --surface:    #0d0a06;
+      --surface2:   #131008;
+      --surface3:   #1c1710;
+      /* borders — tom pedra/âmbar apagado */
+      --border:     #2c2014;
+      --border-g:   #3e2e1a;
+      /* primitivo: fogueira e âmbar */
+      --amber:      #e87820;
+      --amber-dim:  rgba(232,120,32,.14);
+      --fire:       #ff6010;
+      --fire-dim:   rgba(255,96,16,.1);
+      /* tek — contraste frio */
+      --tek:        #00c8ff;
+      --tek-dim:    rgba(0,200,255,.1);
+      --tek-glow:   0 0 18px rgba(0,200,255,.2);
+      /* semantic */
+      --success:    #12d87c;
+      --danger:     #e83030;
+      --warning:    #e87820;
+      /* text — pergaminho quente */
+      --text:       #d4c8a8;
+      --text2:      #7a6848;
+      --text3:      #3e2e18;
+      /* misc */
+      --radius:     8px;
+      --radius-lg:  14px;
+      --shadow:     0 10px 50px rgba(0,0,0,.8);
+      /* aliases kept for JS compatibility */
+      --accent:     #e87820;
+      --accent2:    #00c8ff;
     }
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
 
-    /* ── Layout ───────────────────────────────────────────────────────────── */
-    #shell { display: flex; height: 100vh; overflow: hidden; }
-    #sidebar {
-      width: 220px; min-width: 220px; background: var(--surface); border-right: 1px solid var(--border);
-      display: flex; flex-direction: column; padding: 20px 0; overflow-y: auto;
+    /* ── Base ─────────────────────────────────────────────────────────────── */
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.5;
     }
-    #main { flex: 1; overflow-y: auto; padding: 24px 32px; }
 
-    /* ── Sidebar ─────────────────────────────────────────────────────────── */
-    .sidebar-logo {
-      display: flex; align-items: center; gap: 10px; padding: 0 18px 24px;
-      border-bottom: 1px solid var(--border);
-    }
-    .sidebar-logo .logo-icon { font-size: 28px; }
-    .sidebar-logo .logo-text { font-size: 15px; font-weight: 700; line-height: 1.2; }
-    .sidebar-logo .logo-sub { font-size: 11px; color: var(--text2); }
-    .nav-section { padding: 14px 18px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--text2); }
-    .nav-item {
-      display: flex; align-items: center; gap: 10px; padding: 9px 18px;
-      cursor: pointer; border-radius: 0; transition: background .15s, color .15s;
-      border-left: 3px solid transparent;
-    }
-    .nav-item:hover { background: var(--surface2); }
-    .nav-item.active { background: var(--surface2); border-left-color: var(--accent); color: var(--accent); }
-    .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
-
-    /* ── Topbar ──────────────────────────────────────────────────────────── */
-    #topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
-    }
-    .page-title { font-size: 20px; font-weight: 700; }
-    .topbar-actions { display: flex; gap: 10px; }
-
-    /* ── Buttons ─────────────────────────────────────────────────────────── */
-    .btn {
-      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
-      border: none; border-radius: var(--radius); cursor: pointer; font-size: 13px; font-weight: 600;
-      transition: opacity .15s, transform .1s; white-space: nowrap;
-    }
-    .btn:hover { opacity: .85; }
-    .btn:active { transform: scale(.97); }
-    .btn-primary { background: var(--accent); color: #fff; }
-    .btn-success { background: var(--success); color: #fff; }
-    .btn-danger  { background: var(--danger);  color: #fff; }
-    .btn-ghost   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
-    .btn-sm { padding: 5px 10px; font-size: 12px; }
-    .btn:disabled { opacity: .4; cursor: not-allowed; }
-
-    /* ── Cards ───────────────────────────────────────────────────────────── */
-    .card {
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 20px; margin-bottom: 18px;
-    }
-    .card-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
-    }
-    .card-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-
-    /* ── Tables ──────────────────────────────────────────────────────────── */
-    .tbl { width: 100%; border-collapse: collapse; }
-    .tbl th { text-align: left; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--text2); border-bottom: 1px solid var(--border); }
-    .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    .tbl tr:last-child td { border-bottom: none; }
-    .tbl tr:hover td { background: rgba(79,127,255,.05); }
-    .badge {
-      display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px;
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-    }
-    .badge-item    { background: rgba(46,204,113,.15); color: var(--success); }
-    .badge-dino    { background: rgba(243,156,18,.15);  color: var(--warning); }
-    .badge-command { background: rgba(110,61,255,.15);  color: #a78bfa; }
-    .badge-beacon  { background: rgba(79,127,255,.15);  color: var(--accent); }
-    .badge-experience { background: rgba(231,76,60,.15); color: var(--danger); }
-    .badge-unlockengram { background: rgba(52,211,153,.15); color: #34d399; }
-    .badge-kit     { background: rgba(251,191,36,.15);  color: #fbbf24; }
-    .badge-reemitido { background: rgba(148,163,184,.15); color: #94a3b8; }
-
-    /* ── Forms ───────────────────────────────────────────────────────────── */
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 14px; }
-    .form-group { display: flex; flex-direction: column; gap: 5px; }
-    .form-group label { font-size: 12px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-    .form-group input, .form-group select, .form-group textarea {
-      background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
-      color: var(--text); padding: 8px 10px; font-size: 13px; outline: none; transition: border-color .15s;
-    }
-    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--accent); }
-    .form-group textarea { resize: vertical; min-height: 80px; }
-    .form-group select option { background: var(--surface); }
-    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; }
-    .toggle-row label { font-size: 13px; color: var(--text); }
-    input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; cursor: pointer; }
-
-    /* ── Modal ───────────────────────────────────────────────────────────── */
-    .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 1000;
-      display: flex; align-items: center; justify-content: center; padding: 20px;
-    }
-    .modal-backdrop.hidden { display: none; }
-    .modal {
-      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-      padding: 24px; width: 100%; max-width: 640px; max-height: 90vh; overflow-y: auto;
-      box-shadow: var(--shadow);
-    }
-    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .modal-title { font-size: 17px; font-weight: 700; }
-    .modal-close { background: none; border: none; color: var(--text2); cursor: pointer; font-size: 20px; }
-    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-
-    /* ── Toast ───────────────────────────────────────────────────────────── */
-    #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 8px; }
-    .toast {
-      background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 12px 18px; min-width: 260px; box-shadow: var(--shadow);
-      display: flex; align-items: center; gap: 10px; font-size: 13px;
-      animation: slideIn .2s ease;
-    }
-    .toast.success { border-left: 4px solid var(--success); }
-    .toast.error   { border-left: 4px solid var(--danger); }
-    .toast.warning { border-left: 4px solid var(--warning); }
-    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
-
-    /* ── Status bar ──────────────────────────────────────────────────────── */
-    #statusbar {
-      background: var(--surface); border-top: 1px solid var(--border);
-      padding: 6px 24px; font-size: 12px; color: var(--text2);
-      display: flex; align-items: center; gap: 16px;
-    }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text2); display: inline-block; }
-    .status-dot.ok { background: var(--success); }
-    .status-dot.err { background: var(--danger); }
-
-    /* ── Utils ───────────────────────────────────────────────────────────── */
-    .empty-state { text-align: center; padding: 48px 20px; color: var(--text2); }
-    .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
-    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px; display: inline-block; }
-    .page { display: none; }
-    .page.active { display: block; }
-    .section-header { font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; margin: 20px 0 10px; }
-    .price-tag { font-weight: 700; color: #fbbf24; }
-    .actions-col { display: flex; gap: 6px; }
-    .hidden { display: none !important; }
-
-    /* ── Auth ─────────────────────────────────────────────────────────────── */
-    #auth-overlay {
+    /* ── Textura de pedra primitiva (fundo) ──────────────────────────────── */
+    body::before {
+      content: '';
       position: fixed;
       inset: 0;
-      z-index: 2000;
-      background: rgba(0, 0, 0, 0.75);
+      /* grade pedra irregular */
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 59px,
+          rgba(60,36,12,.18) 59px,
+          rgba(60,36,12,.18) 60px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 79px,
+          rgba(60,36,12,.12) 79px,
+          rgba(60,36,12,.12) 80px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Brilho de fogueira vindo de baixo ───────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 280px;
+      background: radial-gradient(ellipse 80% 60% at 50% 120%,
+        rgba(255,96,16,.07) 0%,
+        rgba(232,120,32,.04) 40%,
+        transparent 70%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout Shell ─────────────────────────────────────────────────────── */
+    #shell {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ── Sidebar ──────────────────────────────────────────────────────────── */
+    #sidebar {
+      width: 234px;
+      min-width: 234px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      /* textura de parede de pedra */
+      background-image:
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 47px,
+          rgba(255,120,32,.04) 47px,
+          rgba(255,120,32,.04) 48px
+        ),
+        repeating-linear-gradient(
+          180deg,
+          transparent 0px,
+          transparent 29px,
+          rgba(60,36,12,.15) 29px,
+          rgba(60,36,12,.15) 30px
+        ),
+        linear-gradient(180deg, #0f0c07 0%, #0a0804 60%, #0d0b06 100%);
+      background-repeat: repeat, repeat, no-repeat;
+      background-size: 48px 30px, 48px 30px, 100% 100%;
+      /* brilho de fogueira vindo de baixo na sidebar */
+      box-shadow: inset 0 -80px 120px rgba(200,80,0,.06);
+    }
+
+    /* ── Logo Sidebar ─────────────────────────────────────────────────────── */
+    .sidebar-logo {
+      padding: 22px 16px 18px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      background: linear-gradient(180deg, rgba(200,70,0,.06) 0%, transparent 100%);
+    }
+    .logo-img-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+    /* Medalha de pedra — contém o branco do PNG num círculo primitivo */
+    .logo-medallion {
+      width: 104px;
+      height: 104px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(232,120,32,.5);
+      box-shadow:
+        0 0 0 1px rgba(50,24,6,.9),
+        0 0 20px rgba(255,100,16,.4),
+        0 0 55px rgba(255,70,0,.15),
+        inset 0 -8px 24px rgba(180,50,0,.3);
+      background: #fff;
+      position: relative;
+    }
+    .logo-medallion::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 0%, rgba(255,180,60,.12) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .logo-brand {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--amber);
+      text-shadow: 0 0 14px rgba(232,120,32,.7), 0 0 30px rgba(255,70,0,.25);
+      line-height: 1.2;
+    }
+    .logo-sub {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .35em;
+      text-transform: uppercase;
+      color: rgba(212,200,168,.5);
+      margin-top: 4px;
+    }
+    .logo-sigil { display: none; }
+    .logo-divider {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 10px 0 0;
+    }
+    .logo-divider::before, .logo-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232,120,32,.25), transparent);
+    }
+    .logo-divider span {
+      font-size: 8px;
+      color: var(--amber);
+      letter-spacing: .2em;
+    }
+
+    /* User box */
+    #auth-userbox {
+      margin: 12px 14px 8px;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 11px;
+      color: var(--text2);
+    }
+    #auth-userbox.hidden { display: none; }
+    #auth-userline {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text);
+      word-break: break-all;
+      margin-bottom: 8px;
+    }
+
+    /* Nav sections */
+    .nav-section {
+      padding: 16px 18px 6px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--text3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-section::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Nav items */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 18px 9px 16px;
+      cursor: pointer;
+      border-left: 3px solid transparent;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text2);
+      transition: all .15s ease;
+      position: relative;
+    }
+    .nav-item:hover {
+      background: var(--surface2);
+      color: var(--text);
+      border-left-color: var(--border-g);
+    }
+    .nav-item.active {
+      background: linear-gradient(90deg, var(--amber-dim), transparent);
+      border-left-color: var(--amber);
+      color: var(--amber);
+    }
+    .nav-item.active::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 20%;
+      bottom: 20%;
+      width: 1px;
+      background: var(--tek);
+      opacity: .3;
+      box-shadow: var(--tek-glow);
+    }
+    .nav-icon {
+      font-size: 15px;
+      width: 20px;
+      text-align: center;
+      filter: none;
+      flex-shrink: 0;
+    }
+    .nav-item.active .nav-icon { filter: drop-shadow(0 0 6px rgba(232,120,32,.8)); }
+
+    /* ── Main Area ────────────────────────────────────────────────────────── */
+    #main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 36px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    /* ── Topbar ───────────────────────────────────────────────────────────── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--text);
+      text-shadow: 0 0 20px rgba(232,120,32,.25);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .page-title::before {
+      content: '◈';
+      color: var(--amber);
+      font-size: 12px;
+    }
+    .topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      transition: all .15s ease;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0) scale(.98); }
+    .btn:disabled { opacity: .35; cursor: not-allowed; transform: none; filter: none; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #923c0a, #e87820);
+      color: #fff;
+      border-color: rgba(232,120,32,.3);
+      box-shadow: 0 2px 12px rgba(232,120,32,.3);
+    }
+    .btn-primary:hover { box-shadow: 0 4px 20px rgba(232,120,32,.5); }
+
+    .btn-success {
+      background: linear-gradient(135deg, #0a9e5e, #12d87c);
+      color: #fff;
+      border-color: rgba(18,216,124,.3);
+      box-shadow: 0 2px 12px rgba(18,216,124,.2);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, #a01828, #f04050);
+      color: #fff;
+      border-color: rgba(240,64,80,.3);
+    }
+
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-ghost:hover { border-color: var(--border-g); }
+
+    .btn-amber {
+      background: linear-gradient(135deg, #823808, #d96a18);
+      color: #fff;
+      border-color: rgba(232,106,24,.3);
+      box-shadow: 0 2px 12px rgba(232,106,24,.25);
+    }
+
+    .btn-buy {
+      background: linear-gradient(135deg, #007aaa, #00c8ff);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      cursor: pointer;
+      transition: all .15s;
+      text-transform: uppercase;
+      box-shadow: 0 2px 10px rgba(232,120,32,.3);
+    }
+    .btn-buy:hover { transform: translateY(-1px); box-shadow: 0 4px 18px rgba(232,120,32,.5); }
+    .btn-buy:active { transform: scale(.97); }
+
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20px; right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border-g), transparent);
+    }
+    .card:hover { border-color: var(--border-g); }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-title {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Tables ───────────────────────────────────────────────────────────── */
+    .tbl { width: 100%; border-collapse: collapse; }
+    .tbl th {
+      text-align: left;
+      padding: 9px 14px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text3);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.2);
+    }
+    .tbl td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(26,40,64,.5);
+      vertical-align: middle;
+      font-size: 13px;
+    }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: rgba(232,120,32,.05); }
+    .tbl code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: var(--surface3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--tek);
+    }
+
+    /* ── Badges ───────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .badge-item        { background: rgba(18,216,124,.12);  color: var(--success); border: 1px solid rgba(18,216,124,.2); }
+    .badge-dino        { background: rgba(232,160,32,.12);  color: var(--amber);   border: 1px solid rgba(232,160,32,.2); }
+    .badge-command     { background: rgba(110,61,255,.15);  color: #a78bfa;        border: 1px solid rgba(110,61,255,.2); }
+    .badge-beacon      { background: rgba(0,200,255,.12);   color: var(--tek);     border: 1px solid rgba(0,200,255,.2); }
+    .badge-experience  { background: rgba(240,64,80,.12);   color: var(--danger);  border: 1px solid rgba(240,64,80,.2); }
+    .badge-unlockengram{ background: rgba(52,211,153,.12);  color: #34d399;        border: 1px solid rgba(52,211,153,.2); }
+    .badge-kit         { background: rgba(251,191,36,.12);  color: #fbbf24;        border: 1px solid rgba(251,191,36,.2); }
+    .badge-reemitido   { background: rgba(148,163,184,.12); color: #94a3b8;        border: 1px solid rgba(148,163,184,.2); }
+
+    /* ── Forms ────────────────────────────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--text2);
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 9px 12px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px rgba(232,120,32,.1);
+    }
+    .form-group input[readonly] { opacity: .7; cursor: default; }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group select option { background: var(--surface); }
+
+    /* Toggle rows */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(26,40,64,.4);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-row label { font-size: 13px; color: var(--text); }
+    input[type="checkbox"] {
+      accent-color: var(--tek);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    /* ── Catalog Grid ─────────────────────────────────────────────────────── */
+    #catalog-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px,1fr));
+      gap: 16px;
+    }
+
+    .item-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all .2s ease;
+      position: relative;
+      overflow: hidden;
+      cursor: default;
+    }
+    .item-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--border-g), transparent);
+      transition: background .2s;
+    }
+    .item-card:hover {
+      border-color: var(--border-g);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(232,120,32,.1);
+    }
+    .item-card:hover::before { background: linear-gradient(90deg, transparent, rgba(232,120,32,.35), transparent); }
+
+    /* type color strips */
+    .type-item::after     { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#00c8ff,#0060aa); }
+    .type-dino::after     { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#e8a020,#a06010); }
+    .type-bp::after       { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#a78bfa,#6030cc); }
+    .type-cmd::after      { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#f04050,#a01828); }
+    .type-xp::after       { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#12d87c,#0a9e5e); }
+    .type-kit::after      { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#fbbf24,#d09010); }
+
+    .item-card__icon {
+      font-size: 36px;
+      text-align: center;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,.5));
+      line-height: 1;
+    }
+    .item-card__cat {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text2);
+      text-align: center;
+    }
+    .item-card__name {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .item-card__desc {
+      font-size: 11px;
+      color: var(--text2);
+      text-align: center;
+      line-height: 1.4;
+      flex: 1;
+    }
+    .item-card__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      gap: 8px;
+    }
+    .item-card__price {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--amber);
+      text-shadow: 0 0 12px rgba(232,160,32,.4);
+    }
+
+    /* catalog filter bar */
+    #catalog-filter {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    #catalog-search, #catalog-cat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 9px 14px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+      transition: border-color .15s;
+    }
+    #catalog-search { flex: 1; min-width: 180px; max-width: 320px; }
+    #catalog-search:focus, #catalog-cat:focus { border-color: var(--tek); }
+    #catalog-cat option { background: var(--surface); }
+
+    /* ── Modal ────────────────────────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
     }
+    .modal-backdrop.hidden { display: none; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border-g);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow), 0 0 0 1px rgba(232,120,32,.1);
+      position: relative;
+    }
+    .modal::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 30px; right: 30px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232,120,32,.4), transparent);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+    .modal-title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      color: #fff;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px;
+      border-radius: 4px;
+      transition: all .15s;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--danger); background: rgba(240,64,80,.1); }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Toast ────────────────────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 18px;
+      min-width: 280px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      animation: toastIn .2s ease;
+    }
+    @keyframes toastIn {
+      from { transform: translateX(60px); opacity: 0; }
+      to   { transform: none; opacity: 1; }
+    }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error   { border-left: 3px solid var(--danger); }
+    .toast.warning { border-left: 3px solid var(--amber); }
+
+    /* ── Status bar ───────────────────────────────────────────────────────── */
+    #statusbar {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 6px 24px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text2);
+      display: inline-block;
+    }
+    .status-dot.ok  { background: var(--success); box-shadow: 0 0 6px rgba(18,216,124,.6); }
+    .status-dot.err { background: var(--danger);  box-shadow: 0 0 6px rgba(240,64,80,.6); }
+
+    /* ── Auth overlay ─────────────────────────────────────────────────────── */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      background: rgba(4,6,12,.92);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      /* brilho de fogueira primitivo */
+      background-image:
+        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(255,80,0,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, rgba(200,60,0,.05) 0%, transparent 70%);
+      background-size: 100% 100%, 100% 100%;
+    }
     #auth-overlay.hidden { display: none; }
+
     .auth-card {
       width: 100%;
-      max-width: 520px;
+      max-width: 460px;
+      background: var(--surface);
+      border: 1px solid rgba(232,120,32,.3);
+      border-radius: var(--radius-lg);
+      padding: 40px 36px;
+      box-shadow: var(--shadow), 0 0 60px rgba(200,60,0,.1), inset 0 0 60px rgba(0,0,0,.3);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .auth-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 30px; right: 30px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232,120,32,.5), transparent);
+    }
+    /* Medalha grande no auth overlay */
+    .auth-logo-medallion {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid rgba(232,120,32,.55);
+      box-shadow:
+        0 0 0 1px rgba(50,24,6,.9),
+        0 0 30px rgba(255,100,16,.5),
+        0 0 80px rgba(255,60,0,.2),
+        inset 0 -10px 30px rgba(180,50,0,.35);
+      background: #fff;
+      position: relative;
+      margin: 0 auto 16px;
+    }
+    .auth-logo-medallion::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 0%, rgba(255,200,80,.14) 0%, transparent 55%);
+      pointer-events: none;
+    }
+    .auth-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .auth-sigil { display: none; }
+    .auth-title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      text-shadow: 0 0 20px rgba(232,120,32,.7), 0 0 50px rgba(255,60,0,.25);
+      margin-bottom: 2px;
+    }
+    .auth-sub {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .35em;
+      text-transform: uppercase;
+      color: rgba(212,200,168,.55);
+      margin-bottom: 20px;
+    }
+    .auth-desc {
+      color: var(--text2);
+      font-size: 14px;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+    .btn-steam {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 28px;
+      background: linear-gradient(135deg, #1a4c8a, #2a7bcf);
+      color: #fff;
+      border: 1px solid rgba(42,123,207,.4);
+      border-radius: var(--radius);
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all .2s;
+      box-shadow: 0 4px 20px rgba(42,123,207,.3);
+    }
+    .btn-steam:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(42,123,207,.4);
+      filter: brightness(1.1);
+    }
+
+    /* ── Pages ────────────────────────────────────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── Utils ────────────────────────────────────────────────────────────── */
+    .hidden { display: none !important; }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; display: inline-block; }
+    .empty-state { text-align: center; padding: 56px 20px; color: var(--text2); }
+    .empty-icon { font-size: 52px; margin-bottom: 14px; filter: grayscale(.5); }
+    .empty-state p { font-size: 14px; }
+    .section-header {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin: 20px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .price-tag { font-weight: 700; color: var(--amber); text-shadow: 0 0 8px rgba(232,160,32,.3); }
+    .actions-col { display: flex; gap: 6px; }
+    .admin-only { /* controlled by JS */ }
+
+    /* RCON terminal output */
+    #rcon-output {
+      margin-top: 14px;
+      background: #040608;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--success);
+      min-height: 60px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    #rcon-cmd {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 9px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+    }
+    #rcon-cmd:focus { border-color: var(--tek); }
+
+    /* DB connection status */
+    #db-conn-status {
+      margin: 8px 0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      display: none;
+      font-size: 13px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Buy modal */
+    #buy-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.8);
+      backdrop-filter: blur(6px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+    }
+    .buy-modal-inner {
+      background: var(--surface);
+      border: 1px solid var(--border-g);
+      border-radius: var(--radius-lg);
+      padding: 32px 28px 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: var(--shadow), 0 0 40px rgba(200,60,0,.08);
+      position: relative;
+      overflow: hidden;
+    }
+    .buy-modal-inner::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20px; right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232,120,32,.5), transparent);
+    }
+    .buy-modal-title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    /* scrollbar polish */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-g); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+    /* ── Download Cards ────────────────────────────────────────────────────── */
+    .dl-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 28px;
-      box-shadow: var(--shadow);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color .2s, transform .2s, box-shadow .2s;
     }
-    .auth-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-    .auth-desc { color: var(--text2); margin-bottom: 18px; line-height: 1.5; }
-    #auth-userbox {
-      margin: 0 18px 14px;
-      padding: 10px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface2);
+    .dl-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 20px; right: 20px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(232,120,32,.35), transparent);
+    }
+    .dl-card:hover {
+      border-color: rgba(232,120,32,.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,.5);
+    }
+    .dl-card__cat {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: var(--amber);
+    }
+    .dl-card__icon {
+      font-size: 30px;
+      line-height: 1;
+    }
+    .dl-card__label {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .dl-card__desc {
       font-size: 12px;
       color: var(--text2);
+      flex: 1;
+      line-height: 1.5;
+    }
+    .dl-card__btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #923c0a, #e87820);
+      color: #fff;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+      transition: filter .2s, transform .2s;
+      box-shadow: 0 2px 12px rgba(232,120,32,.3);
+      align-self: flex-start;
+      margin-top: auto;
+    }
+    .dl-card__btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+    .dl-card--featured {
+      border-color: rgba(232,120,32,.4);
+      background: linear-gradient(160deg, rgba(232,80,0,.06) 0%, var(--surface) 60%);
+      box-shadow: 0 0 0 1px rgba(232,120,32,.15), 0 8px 30px rgba(200,60,0,.12);
+    }
+    .dl-card--featured::before {
+      background: linear-gradient(90deg, transparent, rgba(232,120,32,.5), transparent);
     }
   </style>
 </head>
 <body>
 
+<!-- ── Auth Overlay ──────────────────────────────────────────────────────────── -->
 <div id="auth-overlay" class="hidden">
   <div class="auth-card">
-    <div class="auth-title">🔐 Login obrigatório</div>
+    <div class="auth-logo-medallion">
+      <img class="auth-logo-img" src="/logo.png" alt="ARKLAND Brasil" />
+    </div>
+    <div class="auth-title">ARKLAND</div>
+    <div class="auth-sub">DONATIONS</div>
     <div class="auth-desc" id="auth-desc">
-      Faça login com sua conta Steam para acessar o painel.
+      Acesse sua conta Steam para entrar no painel.
     </div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <button class="btn btn-primary" onclick="loginWithSteam()">Entrar com Steam</button>
-    </div>
+    <button class="btn-steam" onclick="loginWithSteam()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.372 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
+      Entrar com Steam
+    </button>
   </div>
 </div>
 
 <div id="shell">
-  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+
+  <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
   <aside id="sidebar">
+
+    <!-- Logo -->
     <div class="sidebar-logo">
-      <div class="logo-icon">🛒</div>
-      <div>
-        <div class="logo-text">ArkShop</div>
-        <div class="logo-sub">Web Manager</div>
+      <div class="logo-img-wrap">
+        <div class="logo-medallion">
+          <img class="logo-img" src="/logo.png" alt="ARKLAND Brasil" />
+        </div>
       </div>
-    </div>
-    <div id="auth-userbox" class="hidden">
-      <div id="auth-userline"></div>
-      <div style="margin-top:8px;">
-        <button class="btn btn-ghost btn-sm" onclick="logout()">Sair</button>
-      </div>
+      <div class="logo-brand">ARKLAND</div>
+      <div class="logo-sub">DONATIONS</div>
+      <div class="logo-divider"><span>⚜</span></div>
     </div>
 
+    <!-- User box -->
+    <div id="auth-userbox" class="hidden">
+      <div id="auth-userline"></div>
+      <button class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
+    </div>
+
+    <!-- Nav: Loja (admin) -->
     <div class="nav-section admin-only">Loja</div>
     <div class="nav-item admin-only active" data-page="shop" onclick="nav(this)">
       <span class="nav-icon">🏪</span> Itens da Loja
@@ -244,14 +1148,19 @@
       <span class="nav-icon">💰</span> Itens à Venda
     </div>
 
+    <!-- Nav: Sistema (admin) -->
     <div class="nav-section admin-only">Sistema</div>
+    <div class="nav-item admin-only" data-page="admin-downloads" onclick="nav(this)">
+      <span class="nav-icon">🔗</span> Gerenciar Links
+    </div>
     <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
-      <span class="nav-icon">⚙️</span> Configurações Gerais
+      <span class="nav-icon">⚙️</span> Configurações
     </div>
     <div class="nav-item admin-only" data-page="messages" onclick="nav(this)">
       <span class="nav-icon">💬</span> Mensagens
     </div>
 
+    <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
     <div class="nav-item admin-only" data-page="rcon" onclick="nav(this)">
       <span class="nav-icon">🖥️</span> Console RCON
@@ -263,58 +1172,84 @@
       <span class="nav-icon">🌐</span> Servidores
     </div>
 
+    <!-- Nav: Jogador (todos) -->
     <div class="nav-section">Jogador</div>
+    <div class="nav-item" data-page="catalog" onclick="nav(this)">
+      <span class="nav-icon">🛒</span> Catálogo
+    </div>
+    <div class="nav-item" data-page="downloads" onclick="nav(this)">
+      <span class="nav-icon">⬇️</span> Downloads
+    </div>
     <div class="nav-item" data-page="myarea" onclick="nav(this)">
       <span class="nav-icon">👤</span> Minha Área
     </div>
+
   </aside>
 
-  <!-- ── Main ──────────────────────────────────────────────────────────── -->
-  <div style="flex:1; display:flex; flex-direction:column; overflow:hidden;">
+  <!-- ── Main + Statusbar ──────────────────────────────────────────────────── -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
     <div id="main">
 
-      <!-- PAGE: Shop Items -->
+      <!-- PAGE: Catálogo (todos os jogadores) -->
+      <div id="page-catalog" class="page">
+        <div id="topbar">
+          <div class="page-title">Catálogo da Loja</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadCatalog()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div id="catalog-filter">
+          <input id="catalog-search" type="text" placeholder="🔍 Buscar item…" oninput="renderCatalog()" />
+          <select id="catalog-cat" onchange="renderCatalog()">
+            <option value="">Todas as categorias</option>
+          </select>
+        </div>
+        <div id="catalog-grid"></div>
+        <p id="catalog-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum item encontrado.</p>
+      </div>
+
+      <!-- PAGE: Itens da Loja (admin) -->
       <div id="page-shop" class="page active">
         <div id="topbar">
-          <div class="page-title">🏪 Itens da Loja</div>
+          <div class="page-title">Itens da Loja</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadConfig()">🔄 Recarregar</button>
-            <button class="btn btn-primary" onclick="openItemModal()">＋ Novo Item</button>
+            <button class="btn btn-ghost" onclick="loadConfig()">↺ Recarregar</button>
+            <button class="btn btn-primary" onclick="openItemModal()">+ Novo Item</button>
             <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
           </div>
         </div>
         <div id="shop-list"></div>
       </div>
 
-      <!-- PAGE: Kits -->
+      <!-- PAGE: Kits (admin) -->
       <div id="page-kits" class="page">
         <div id="topbar">
-          <div class="page-title">🎁 Kits</div>
+          <div class="page-title">Kits</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadConfig()">🔄 Recarregar</button>
-            <button class="btn btn-primary" onclick="openKitModal()">＋ Novo Kit</button>
+            <button class="btn btn-ghost" onclick="loadConfig()">↺ Recarregar</button>
+            <button class="btn btn-primary" onclick="openKitModal()">+ Novo Kit</button>
             <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
           </div>
         </div>
         <div id="kits-list"></div>
       </div>
 
-      <!-- PAGE: Sell -->
+      <!-- PAGE: Itens à Venda (admin) -->
       <div id="page-sell" class="page">
         <div id="topbar">
-          <div class="page-title">💰 Itens à Venda (Jogadores Vendem)</div>
+          <div class="page-title">Itens à Venda</div>
           <div class="topbar-actions">
-            <button class="btn btn-primary" onclick="openSellModal()">＋ Novo Item</button>
+            <button class="btn btn-primary" onclick="openSellModal()">+ Novo Item</button>
             <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
           </div>
         </div>
         <div id="sell-list"></div>
       </div>
 
-      <!-- PAGE: General -->
+      <!-- PAGE: Configurações Gerais (admin) -->
       <div id="page-general" class="page">
         <div id="topbar">
-          <div class="page-title">⚙️ Configurações Gerais</div>
+          <div class="page-title">Configurações Gerais</div>
           <div class="topbar-actions">
             <button class="btn btn-success" onclick="saveGeneral()">💾 Salvar</button>
           </div>
@@ -322,10 +1257,10 @@
         <div id="general-form"></div>
       </div>
 
-      <!-- PAGE: Messages -->
+      <!-- PAGE: Mensagens (admin) -->
       <div id="page-messages" class="page">
         <div id="topbar">
-          <div class="page-title">💬 Mensagens do Sistema</div>
+          <div class="page-title">Mensagens do Sistema</div>
           <div class="topbar-actions">
             <button class="btn btn-success" onclick="saveMessages()">💾 Salvar</button>
           </div>
@@ -333,15 +1268,15 @@
         <div id="messages-form"></div>
       </div>
 
-      <!-- PAGE: RCON -->
+      <!-- PAGE: RCON (admin) -->
       <div id="page-rcon" class="page">
         <div id="topbar">
-          <div class="page-title">🖥️ Console RCON</div>
+          <div class="page-title">Console RCON</div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">👤 Cadastro de Jogador (SteamID64)</div>
+            <div class="card-title">👤 Cadastro de Jogador</div>
           </div>
           <div class="form-grid">
             <div class="form-group">
@@ -361,7 +1296,7 @@
               <input id="player-note" type="text" placeholder="Opcional" />
             </div>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
             <button class="btn btn-primary" onclick="savePlayer()">💾 Salvar Jogador</button>
             <button class="btn btn-ghost" onclick="clearPlayerForm()">🧹 Limpar</button>
           </div>
@@ -370,7 +1305,7 @@
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📦 Entrega de Compra (SteamID64)</div>
+            <div class="card-title">📦 Entrega de Compra</div>
           </div>
           <div class="form-grid" style="margin-bottom:14px;">
             <div class="form-group">
@@ -393,7 +1328,7 @@
               <input id="deliver-amount" type="number" min="1" value="1" />
             </div>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-success" onclick="deliverPurchase()">🚚 Entregar Compra</button>
           </div>
         </div>
@@ -404,7 +1339,7 @@
           </div>
           <div class="form-grid" style="margin-bottom:14px;">
             <div class="form-group">
-              <label>SteamID64 do Jogador</label>
+              <label>SteamID64</label>
               <input id="rcon-player" type="text" placeholder="7656119XXXXXXXXXX" />
             </div>
             <div class="form-group">
@@ -412,29 +1347,30 @@
               <input id="rcon-amount" type="number" value="0" />
             </div>
           </div>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn btn-ghost" onclick="rconPoints('get')">🔍 Consultar Pontos</button>
-            <button class="btn btn-primary" onclick="rconPoints('add')">＋ Adicionar Pontos</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-ghost" onclick="rconPoints('get')">🔍 Consultar</button>
+            <button class="btn btn-primary" onclick="rconPoints('add')">+ Adicionar Pontos</button>
             <button class="btn btn-ghost" onclick="rconPoints('set')">✏️ Definir Pontos</button>
-            <button class="btn btn-success" onclick="rconReload()">🔄 Reload ArkShop</button>
+            <button class="btn btn-success" onclick="rconReload()">↺ Reload ArkShop</button>
           </div>
         </div>
+
         <div class="card">
           <div class="card-header">
             <div class="card-title">⌨️ Comando RCON Livre</div>
           </div>
-          <div style="display:flex; gap:8px;">
-            <input id="rcon-cmd" type="text" placeholder="ex: ListPlayers" style="flex:1; background:var(--bg); border:1px solid var(--border); border-radius:7px; color:var(--text); padding:8px 12px;" />
+          <div style="display:flex;gap:8px;">
+            <input id="rcon-cmd" type="text" placeholder="ex: ListPlayers" />
             <button class="btn btn-primary" onclick="sendRcon()">Enviar</button>
           </div>
-          <pre id="rcon-output" style="margin-top:14px; background:var(--bg); padding:14px; border-radius:7px; font-size:12px; color:var(--success); min-height:60px; white-space:pre-wrap; word-break:break-all;"></pre>
+          <pre id="rcon-output"></pre>
         </div>
       </div>
 
-      <!-- PAGE: Settings -->
+      <!-- PAGE: Settings (admin) -->
       <div id="page-settings" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">🔧 Configurar Paths</div>
+          <div class="page-title">Configurar Paths</div>
         </div>
         <div class="card">
           <div class="form-grid">
@@ -466,8 +1402,8 @@
               <label>Máx. Retentativas</label>
               <input id="s-retry-max" type="number" min="1" value="10" />
             </div>
-            <div class="form-group" style="grid-column:1/-1; margin-top:6px; color:var(--text2); font-size:12px;">
-              Banco central MySQL (use o IP da máquina onde o MySQL está rodando)
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              🗄️ Banco central MySQL — use o IP da máquina onde o banco está rodando
             </div>
             <div class="form-group" style="grid-column:1/-1;">
               <label>Database URL (opcional, sobrescreve os campos abaixo)</label>
@@ -483,27 +1419,56 @@
             </div>
             <div class="form-group">
               <label>DB Nome</label>
-              <input id="s-db-name" type="text" placeholder="arkshop" />
+              <input id="s-db-name" type="text" placeholder="arkland_shop" />
             </div>
             <div class="form-group">
               <label>DB Usuário</label>
-              <input id="s-db-user" type="text" placeholder="arkshop_user" />
+              <input id="s-db-user" type="text" placeholder="arkland" />
             </div>
             <div class="form-group" style="grid-column:1/-1;">
               <label>DB Senha</label>
               <input id="s-db-password" type="password" placeholder="(deixe vazio para não alterar)" />
             </div>
           </div>
-          <div style="margin-top:16px;">
+          <div id="db-conn-status"></div>
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
             <button class="btn btn-success" onclick="saveSettings()">💾 Salvar Configurações</button>
+            <button class="btn btn-ghost" onclick="testDbConnection()">🔌 Testar Conexão DB</button>
           </div>
         </div>
+      </div>
+
+      <!-- PAGE: Downloads (público) -->
+      <div id="page-downloads" class="page">
+        <div id="topbar">
+          <div class="page-title">Downloads</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadDownloads()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div id="downloads-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
+        <div id="downloads-empty" class="empty-state" style="display:none;">
+          <div class="empty-icon">📭</div>
+          <p>Nenhum link de download disponível.</p>
+        </div>
+      </div>
+
+      <!-- PAGE: Gerenciar Links (admin) -->
+      <div id="page-admin-downloads" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Gerenciar Links de Download</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadAdminDownloads()">↺ Recarregar</button>
+            <button class="btn btn-primary" onclick="openDownloadModal()">+ Novo Link</button>
+          </div>
+        </div>
+        <div id="admin-downloads-list"></div>
       </div>
 
       <!-- PAGE: Minha Área -->
       <div id="page-myarea" class="page">
         <div id="topbar">
-          <div class="page-title">👤 Minha Área</div>
+          <div class="page-title">Minha Área</div>
           <div class="topbar-actions">
             <select id="myarea-status-filter" class="btn btn-ghost" style="padding:7px 12px;" onchange="resetMyAreaPage()">
               <option value="">Todos os status</option>
@@ -513,18 +1478,18 @@
               <option value="CONTESTADO">Contestado</option>
               <option value="REEMITIDO">Reemitido</option>
             </select>
-            <button class="btn btn-ghost" onclick="loadMyArea()">🔄 Recarregar</button>
+            <button class="btn btn-ghost" onclick="loadMyArea()">↺ Recarregar</button>
           </div>
         </div>
         <div class="card">
           <div class="card-header">
             <div class="card-title">📌 Perfil</div>
           </div>
-          <div id="myarea-profile" style="color:var(--text2);"></div>
+          <div id="myarea-profile" style="color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;"></div>
         </div>
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📊 Resumo de Pedidos</div>
+            <div class="card-title">📊 Resumo</div>
           </div>
           <div id="myarea-summary" class="form-grid"></div>
         </div>
@@ -533,36 +1498,53 @@
             <div class="card-title">🧾 Histórico de Compras</div>
           </div>
           <div id="myarea-history"></div>
-          <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+          <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
             <button class="btn btn-ghost btn-sm" onclick="prevMyAreaPage()">◀ Anterior</button>
-            <span id="myarea-page-info" style="color:var(--text2);font-size:12px;"></span>
+            <span id="myarea-page-info" style="color:var(--text2);font-size:12px;flex:1;text-align:center;"></span>
             <button class="btn btn-ghost btn-sm" onclick="nextMyAreaPage()">Próxima ▶</button>
           </div>
         </div>
       </div>
 
-      <!-- PAGE: Servidores -->
+      <!-- PAGE: Servidores (admin) -->
       <div id="page-servers" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">🌐 Servidores</div>
+          <div class="page-title">Servidores</div>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadServers()">🔄 Recarregar</button>
-            <button class="btn btn-primary" onclick="openServerModal()">＋ Novo Servidor</button>
+            <button class="btn btn-ghost" onclick="loadServers()">↺ Recarregar</button>
+            <button class="btn btn-primary" onclick="openServerModal()">+ Novo Servidor</button>
           </div>
         </div>
         <div id="servers-list"></div>
       </div>
 
     </div>
+
     <!-- Status bar -->
     <div id="statusbar">
       <span id="sb-dot" class="status-dot"></span>
-      <span id="sb-text">Carregando…</span>
+      <span id="sb-text">Inicializando…</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Modal: Download Link ──────────────────────────────────────────────────── -->
+<div id="modal-download" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-dl-title">Novo Link</div>
+      <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-download')">✕</button>
+    </div>
+    <div id="modal-dl-body"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-download')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmDownload()">Salvar</button>
     </div>
   </div>
 </div>
 
-<!-- ── Modal: Item ──────────────────────────────────────────────────────────── -->
+<!-- ── Modal: Item ───────────────────────────────────────────────────────────── -->
 <div id="modal-item" class="modal-backdrop hidden">
   <div class="modal">
     <div class="modal-header">
@@ -577,7 +1559,7 @@
   </div>
 </div>
 
-<!-- ── Modal: Kit ───────────────────────────────────────────────────────────── -->
+<!-- ── Modal: Kit ────────────────────────────────────────────────────────────── -->
 <div id="modal-kit" class="modal-backdrop hidden">
   <div class="modal">
     <div class="modal-header">
@@ -592,7 +1574,7 @@
   </div>
 </div>
 
-<!-- ── Modal: Sell ──────────────────────────────────────────────────────────── -->
+<!-- ── Modal: Sell ───────────────────────────────────────────────────────────── -->
 <div id="modal-sell" class="modal-backdrop hidden">
   <div class="modal">
     <div class="modal-header">
@@ -685,6 +1667,11 @@ function nav(el) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById("page-" + el.dataset.page).classList.add("active");
+  // Recarrega dados ao navegar para páginas que dependem do banco
+  if (el.dataset.page === "myarea" && _auth.authenticated) loadMyArea();
+  if (el.dataset.page === "catalog") loadCatalog();
+  if (el.dataset.page === "downloads") loadDownloads();
+  if (el.dataset.page === "admin-downloads") loadAdminDownloads();
 }
 
 function showAuthOverlay(show, msg) {
@@ -726,14 +1713,95 @@ function applyRoleUi() {
     });
     const profile = document.getElementById("myarea-profile");
     if (profile) {
-      profile.textContent = `SteamID autenticado: ${_auth.steam_id}. Área administrativa bloqueada para este usuário.`;
+      profile.textContent = `SteamID autenticado: ${_auth.steam_id}.`;
     }
-    const myAreaNav = document.querySelector('.nav-item[data-page="myarea"]');
-    if (myAreaNav) nav(myAreaNav);
+    // Não-admins vão direto ao Catálogo
+    const catalogNav = document.querySelector('.nav-item[data-page="catalog"]');
+    if (catalogNav) nav(catalogNav);
+    loadCatalog();
   } else {
     const shopNav = document.querySelector('.nav-item[data-page="shop"]');
     if (shopNav) nav(shopNav);
+    // Admins também podem ver o catálogo
+    loadCatalog();
   }
+}
+
+// ── Utilitário: formata chave interna em nome legível ─────────────────────────
+// "metal_ingot_100" → "Metal Ingot 100"
+function formatKey(key) {
+  return key
+    .replace(/[_\-]+/g, ' ')
+    .replace(/\b(\w)/g, c => c.toUpperCase());
+}
+
+// ── Catálogo (visível a todos) ────────────────────────────────────────────────
+let _catalogItems = [];
+
+async function loadCatalog() {
+  try {
+    const r = await fetch(API + "/api/catalog");
+    if (!r.ok) return;
+    const data = await r.json();
+    const shop = data.items || data.ShopItems || data.Items || {};
+    _catalogItems = Object.entries(shop).map(([key, v]) => ({
+      key,
+      name:     v.Name || v.name || formatKey(key),
+      desc:     v.Description || v.description || "",
+      price:    v.Price ?? v.price ?? 0,
+      type:     v.Type  || v.type  || "",
+      category: v.Category || v.category || "Geral",
+    }));
+    // Popula filtro de categorias
+    const cats = [...new Set(_catalogItems.map(i => i.category))].sort();
+    const sel = document.getElementById("catalog-cat");
+    if (sel) {
+      sel.innerHTML = '<option value="">Todas as categorias</option>'
+        + cats.map(c => `<option value="${c}">${c}</option>`).join("");
+    }
+    renderCatalog();
+  } catch (e) { console.warn("loadCatalog:", e); }
+}
+
+function renderCatalog() {
+  const search = (document.getElementById("catalog-search")?.value || "").toLowerCase();
+  const cat    = document.getElementById("catalog-cat")?.value || "";
+  const grid   = document.getElementById("catalog-grid");
+  const empty  = document.getElementById("catalog-empty");
+  if (!grid) return;
+
+  const filtered = _catalogItems.filter(i => {
+    const matchSearch = !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
+    const matchCat    = !cat    || i.category === cat;
+    return matchSearch && matchCat;
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  const typeIcon  = t => ({ Dino:"🦕", Item:"📦", Blueprint:"📋", Command:"⚡", Experience:"✨", Kit:"🎁" }[t] || "🏷️");
+  const typeClass = t => ({
+    Dino:"type-dino", Item:"type-item", Blueprint:"type-bp",
+    Command:"type-cmd", Experience:"type-xp", Kit:"type-kit"
+  }[t] || "type-item");
+
+  grid.innerHTML = filtered.map(i => `
+    <div class="item-card ${typeClass(i.type)}">
+      <div class="item-card__icon">${typeIcon(i.type)}</div>
+      <div class="item-card__cat">${escHtml(i.category)}</div>
+      <div class="item-card__name">${escHtml(i.name)}</div>
+      ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
+      <div class="item-card__footer">
+        <span class="item-card__price">◈ ${i.price} pts</span>
+        ${_auth.authenticated
+          ? `<button class="btn-buy" onclick="openBuyModal(${JSON.stringify(i).replace(/"/g,'&quot;')})">Comprar</button>`
+          : `<span style="font-size:11px;color:var(--text2);">Login p/ comprar</span>`}
+      </div>
+    </div>`).join("");
 }
 
 function fmtDate(iso) {
@@ -747,10 +1815,10 @@ function fmtDate(iso) {
 
 function statusBadge(status) {
   const s = (status || "").toUpperCase();
-  if (s === "ENTREGUE") return `<span class="badge badge-item">${s}</span>`;
-  if (s === "PENDENTE") return `<span class="badge badge-beacon">${s}</span>`;
-  if (s === "CONTESTADO") return `<span class="badge badge-command">${s}</span>`;
-  if (s === "ERRO") return `<span class="badge badge-experience">${s}</span>`;
+  if (s === "ENTREGUE")  return `<span class="badge badge-item">${s}</span>`;
+  if (s === "PENDENTE")  return `<span class="badge badge-beacon">${s}</span>`;
+  if (s === "CONTESTADO")return `<span class="badge badge-command">${s}</span>`;
+  if (s === "ERRO")      return `<span class="badge badge-experience">${s}</span>`;
   if (s === "REEMITIDO") return `<span class="badge badge-reemitido">${s}</span>`;
   return `<span class="badge">${s || "-"}</span>`;
 }
@@ -760,23 +1828,31 @@ async function loadMyArea() {
   document.getElementById("myarea-profile").textContent = `SteamID autenticado: ${_auth.steam_id}`;
 
   const summaryRes = await fetch(API + "/api/player/summary");
-  if (summaryRes.status === 500) {
-    document.getElementById("myarea-summary").innerHTML = `<div style="color:var(--warning)">Banco não configurado (defina ARKSHOP_DATABASE_URL).</div>`;
+  const summary = await summaryRes.json().catch(() => ({}));
+  if (!summaryRes.ok || !summary.ok) {
+    const isOffline = summary.db_offline || summaryRes.status === 503;
+    const errMsg = summary.error || "Falha ao carregar resumo";
+    document.getElementById("myarea-summary").innerHTML = isOffline
+      ? `<div style="grid-column:1/-1;text-align:center;padding:20px 0;">
+           <div style="font-size:28px;margin-bottom:8px">⏳</div>
+           <div style="color:var(--amber);font-weight:600;margin-bottom:12px">Banco de dados iniciando…</div>
+           <div style="color:var(--text2);font-size:12px;margin-bottom:16px">O servidor MariaDB está subindo. Aguarde alguns segundos.</div>
+           <button class="btn btn-ghost" onclick="setTimeout(loadMyArea, 3000)">↺ Tentar novamente</button>
+         </div>`
+      : `<div style="color:var(--danger);grid-column:1/-1">${errMsg}</div>`;
     document.getElementById("myarea-history").innerHTML = "";
     return;
   }
-  const summary = await summaryRes.json();
-  if (!summary.ok) {
-    document.getElementById("myarea-summary").innerHTML = `<div style="color:var(--danger)">${summary.error || "Falha ao carregar resumo"}</div>`;
-  } else {
-    const st = summary.stats || {};
-    document.getElementById("myarea-summary").innerHTML = `
-      <div class="form-group"><label>Total</label><input readonly value="${st.total_orders ?? 0}" /></div>
-      <div class="form-group"><label>Entregues</label><input readonly value="${st.delivered ?? 0}" /></div>
-      <div class="form-group"><label>Pendentes</label><input readonly value="${st.pending ?? 0}" /></div>
-      <div class="form-group"><label>Contestados</label><input readonly value="${st.contested ?? 0}" /></div>
-    `;
-  }
+  const st = summary.stats || {};
+  const pts = summary.points != null ? summary.points : "—";
+  document.getElementById("myarea-summary").innerHTML = `
+    <div class="form-group"><label>◈ Saldo de Pontos</label><input readonly value="${pts}" style="font-weight:700;color:var(--amber);font-size:16px;"/></div>
+    <div class="form-group"><label>Total de Pedidos</label><input readonly value="${st.total_orders ?? 0}" /></div>
+    <div class="form-group"><label>Entregues</label><input readonly value="${st.delivered ?? 0}" /></div>
+    <div class="form-group"><label>Pendentes</label><input readonly value="${st.pending ?? 0}" /></div>
+    <div class="form-group"><label>Contestados</label><input readonly value="${st.contested ?? 0}" /></div>
+  `;
+  window._playerBalance = summary.points ?? 0;
 
   await loadMyAreaHistory();
 }
@@ -784,8 +1860,14 @@ async function loadMyArea() {
 async function loadMyAreaHistory() {
   const statusFilter = document.getElementById("myarea-status-filter")?.value || "";
   const q = `?limit=${_myAreaPage.limit}&offset=${_myAreaPage.offset}` + (statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : "");
-  const r = await fetch(API + "/api/player/history" + q);
-  const d = await r.json();
+  let r, d;
+  try {
+    r = await fetch(API + "/api/player/history" + q);
+    d = await r.json();
+  } catch(e) {
+    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">Erro de rede ao carregar histórico: ${e.message}</div>`;
+    return;
+  }
   if (!d.ok) {
     document.getElementById("myarea-history").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar histórico"}</div>`;
     return;
@@ -813,17 +1895,17 @@ async function loadMyAreaHistory() {
       <tbody>
         ${items.map(o => `
           <tr>
-            <td><code style="font-size:11px;">${o.order_id.substring(0,8)}…</code></td>
+            <td><code>${o.order_id.substring(0,8)}…</code></td>
             <td><span style="color:var(--text2);font-size:12px;">${o.server_id || "default"}</span></td>
             <td>${o.item_type}:${o.item_id}</td>
             <td>${o.amount}</td>
             <td>${statusBadge(o.status)}</td>
-            <td>${fmtDate(o.created_at)}</td>
+            <td style="font-size:12px;">${fmtDate(o.created_at)}</td>
             <td>
               <div class="actions-col">
-                <button class="btn btn-ghost btn-sm" onclick="viewOrderDetail('${o.order_id}')">🔍 Detalhes</button>
-                <button class="btn btn-ghost btn-sm" onclick="rebuyOrder('${o.order_id}')">🔁 Recomprar</button>
-                <button class="btn btn-danger btn-sm" onclick="contestOrder('${o.order_id}')">⚠️ Contestar</button>
+                <button class="btn btn-ghost btn-sm" onclick="viewOrderDetail('${o.order_id}')">🔍</button>
+                <button class="btn btn-ghost btn-sm" onclick="rebuyOrder('${o.order_id}')">🔁</button>
+                <button class="btn btn-danger btn-sm" onclick="contestOrder('${o.order_id}')">⚠️</button>
               </div>
             </td>
           </tr>
@@ -847,27 +1929,16 @@ async function contestOrder(orderId) {
     body: JSON.stringify({ reason: reason.trim() }),
   });
   const d = await r.json();
-  if (!d.ok) {
-    toast(d.error || "Falha ao contestar", "error");
-    return;
-  }
-  toast("Contestação registrada", "success");
-  await loadMyArea();
+  if (d.ok) { toast("Contestação enviada.", "success"); loadMyAreaHistory(); }
+  else { toast(d.error || "Falha ao contestar", "error"); }
 }
 
 async function rebuyOrder(orderId) {
-  const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/rebuy`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: "{}",
-  });
+  if (!confirm("Recriar este pedido (recompra)?")) return;
+  const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/rebuy`, { method: "POST" });
   const d = await r.json();
-  if (!d.ok) {
-    toast(d.error || "Falha na recompra", "error");
-    return;
-  }
-  toast(`Recompra criada (${d.order_id})`, "success");
-  await loadMyArea();
+  if (d.ok) { toast("Recompra criada e na fila de entrega.", "success"); loadMyAreaHistory(); }
+  else { toast(d.error || "Falha na recompra", "error"); }
 }
 
 async function viewOrderDetail(orderId) {
@@ -1036,17 +2107,20 @@ function renderShop() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>ID</th><th>Tipo</th><th>Descrição</th><th>Preço</th><th>Nível</th><th>Permissões</th><th>Ações</th>
+          <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Permissões</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${keys.map(k => {
             const it = items[k];
+            const displayName = it.Name || formatKey(k);
             return `<tr>
-              <td><code>${k}</code></td>
+              <td>
+                <div style="font-weight:600;color:var(--text)">${escHtml(displayName)}</div>
+                <code style="font-size:10px;color:var(--text2)">${k}</code>
+              </td>
               <td>${typeBadge(it.Type||"item")}</td>
-              <td><span class="truncate">${it.Description||"-"}</span></td>
+              <td><span style="color:var(--text2);font-size:12px">${escHtml(it.Category||"Geral")}</span></td>
               <td class="price-tag">${it.Price??0} pts</td>
-              <td>${it.MinLevel??"-"}${it.MaxLevel?` – ${it.MaxLevel}`:""}</td>
               <td>${it.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openItemModal('${k}')">✏️</button>
@@ -1071,7 +2145,7 @@ function renderKits() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>ID</th><th>Descrição</th><th>Preço</th><th>Usos</th><th>Lv. Min/Max</th><th>Permissões</th><th>Ações</th>
+          <th>ID</th><th>Descrição</th><th>Preço</th><th>Permissões</th><th>Itens</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${keys.map(k => {
@@ -1080,9 +2154,8 @@ function renderKits() {
               <td><code>${k}</code></td>
               <td><span class="truncate">${kit.Description||"-"}</span></td>
               <td class="price-tag">${kit.Price??0} pts</td>
-              <td>${kit.DefaultAmount??"∞"}</td>
-              <td>${kit.MinLevel??"-"}${kit.MaxLevel?` – ${kit.MaxLevel}`:""}</td>
               <td>${kit.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
+              <td>${(kit.Items||[]).length} item(s)</td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openKitModal('${k}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteKit('${k}')">🗑</button>
@@ -1096,27 +2169,25 @@ function renderKits() {
 
 function renderSell() {
   const el = document.getElementById("sell-list");
-  const items = _config?.SellItems || {};
-  const keys = Object.keys(items);
+  const sell = _config?.SellItems || {};
+  const keys = Object.keys(sell);
   if (!keys.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">💰</div><p>Nenhum item para venda cadastrado</p></div>`;
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">💰</div><p>Nenhum item de venda cadastrado</p></div>`;
     return;
   }
   el.innerHTML = `
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>ID</th><th>Descrição</th><th>Preço (jogador recebe)</th><th>Qtd necessária</th><th>Blueprint</th><th>Ações</th>
+          <th>ID</th><th>Descrição</th><th>Preço (pts)</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${keys.map(k => {
-            const it = items[k];
+            const it = sell[k];
             return `<tr>
               <td><code>${k}</code></td>
-              <td>${it.Description||"-"}</td>
+              <td><span class="truncate">${it.Description||"-"}</span></td>
               <td class="price-tag">${it.Price??0} pts</td>
-              <td>${it.Amount??1}</td>
-              <td><span class="truncate" style="max-width:240px;font-size:11px;color:var(--text2)">${it.Blueprint||"-"}</span></td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openSellModal('${k}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteSell('${k}')">🗑</button>
@@ -1129,506 +2200,590 @@ function renderSell() {
 }
 
 function renderGeneral() {
-  if (!_config?.General) return;
-  const g = _config.General;
-  document.getElementById("general-form").innerHTML = `
+  const el = document.getElementById("general-form");
+  if (!_config) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚙️</div><p>Config não carregada</p></div>`; return; }
+  if (!_config.Settings) _config.Settings = {};
+  if (!_config.TimedPointsReward) _config.TimedPointsReward = {};
+  const s = _config.Settings;
+  const t = _config.TimedPointsReward;
+  const groups = t.Groups || {};
+  const groupRows = Object.entries(groups).map(([grp, v]) => `
+    <div class="toggle-row">
+      <label>${grp}</label>
+      <input id="g-grp-${grp}" type="number" value="${v.Amount??0}" style="width:90px;text-align:right;" />
+    </div>`).join("");
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-header"><div class="card-title">🏪 Configurações da Loja</div></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Nome da Loja</label><input id="g-shop-name" type="text" value="${escHtml(s.ShopName||"ARKLAND Shop")}" /></div>
+        <div class="form-group"><label>Pontos Iniciais</label><input id="g-starting-pts" type="number" value="${s.StartingPoints??100}" /></div>
+        <div class="form-group"><label>URL do Website</label><input id="g-website-url" type="text" value="${escHtml(s.WebsiteUrl||"")}" /></div>
+        <div class="form-group"><label>URL da API Web</label><input id="g-webapi-url" type="text" value="${escHtml(s.WebApiUrl||"http://127.0.0.1:5177")}" /></div>
+        <div class="form-group"><label>Chave API Web</label><input id="g-webapi-key" type="text" value="${escHtml(s.WebApiKey||"")}" /></div>
+        <div class="form-group"><label>URL do Discord</label><input id="g-discord-url" type="text" value="${escHtml(s.DiscordUrl||"")}" /></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="toggle-row"><label>Ocultar botão Vender</label><input type="checkbox" id="g-disable-sell" ${s.DisableSellButton?"checked":""} /></div>
+        <div class="toggle-row"><label>Ocultar botão Trocar</label><input type="checkbox" id="g-disable-trade" ${s.DisableTradeButton?"checked":""} /></div>
+        <div class="toggle-row"><label>Recompensas de Voto</label><input type="checkbox" id="g-vote-rewards" ${s.VoteRewards?"checked":""} /></div>
+        <div class="toggle-row"><label>Ocultar ícone de buff</label><input type="checkbox" id="g-hide-buff" ${s.HideBuffIcon?"checked":""} /></div>
+        <div class="toggle-row"><label>Usar Steam Overlay</label><input type="checkbox" id="g-steam-overlay" ${s.UseSteamOverlay?"checked":""} /></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-header"><div class="card-title">⏱ Recompensas por Tempo de Jogo</div></div>
-      <div class="toggle-row">
-        <label>Ativar recompensas por tempo</label>
-        <input type="checkbox" id="g-timed-enabled" ${g.TimedPointsReward?.Enabled?"checked":""} />
-      </div>
+      <div class="toggle-row"><label>Ativar recompensas por tempo</label><input type="checkbox" id="g-timed-enabled" ${t.Enabled?"checked":""} /></div>
       <div class="form-grid" style="margin-top:12px;">
-        <div class="form-group">
-          <label>Intervalo (minutos)</label>
-          <input id="g-interval" type="number" value="${g.TimedPointsReward?.Interval??30}" />
-        </div>
-        <div class="form-group">
-          <label>Empilhar recompensas de grupos</label>
-          <select id="g-stack">
-            <option value="false" ${!g.TimedPointsReward?.StackRewards?"selected":""}>Não</option>
-            <option value="true" ${g.TimedPointsReward?.StackRewards?"selected":""}>Sim</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Pts grupo Default</label>
-          <input id="g-default-pts" type="number" value="${g.TimedPointsReward?.Groups?.Default?.Amount??20}" />
-        </div>
+        <div class="form-group"><label>Intervalo (minutos)</label><input id="g-timed-interval" type="number" value="${t.Interval??30}" /></div>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">🎮 Interface da Loja</div></div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Itens por Página</label>
-          <input id="g-ipp" type="number" value="${g.ItemsPerPage??15}" />
-        </div>
-        <div class="form-group">
-          <label>Tempo de exibição (s)</label>
-          <input id="g-display-time" type="number" step="0.5" value="${g.ShopDisplayTime??15}" />
-        </div>
-        <div class="form-group">
-          <label>Tamanho do texto</label>
-          <input id="g-text-size" type="number" step="0.1" value="${g.ShopTextSize??1.3}" />
-        </div>
-        <div class="form-group">
-          <label>Kit padrão ao spawn</label>
-          <input id="g-default-kit" type="text" value="${g.DefaultKit||""}" placeholder="(deixe vazio)" />
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">🦕 Dinossauros</div></div>
-      <div class="toggle-row">
-        <label>Dar dinos em Cryopods</label>
-        <input type="checkbox" id="g-cryo" ${g.GiveDinosInCryopods?"checked":""} />
-      </div>
-      <div class="toggle-row">
-        <label>Usar Soul Traps (Dino Storage V2)</label>
-        <input type="checkbox" id="g-soul" ${g.UseSoulTraps?"checked":""} />
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">🚫 Restrições de Uso</div></div>
-      ${[
-        ["PreventUseNoglin","Bloquear uso com Noglin"],
-        ["PreventUseUnconscious","Bloquear uso inconsciente"],
-        ["PreventUseHandcuffed","Bloquear uso algemado"],
-        ["PreventUseCarried","Bloquear uso sendo carregado"],
-      ].map(([k,lbl]) => `
-        <div class="toggle-row">
-          <label>${lbl}</label>
-          <input type="checkbox" id="g-${k}" ${g[k]?"checked":""} />
-        </div>`).join("")}
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">🔗 Discord Webhook (Log)</div></div>
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Nome do sender</label>
-          <input id="g-discord-name" type="text" value="${g.Discord?.SenderName||"ArkShop"}" />
-        </div>
-        <div class="form-group">
-          <label>Webhook URL</label>
-          <input id="g-discord-url" type="text" value="${g.Discord?.URL||""}" placeholder="https://discord.com/api/webhooks/..." />
-        </div>
-        <div class="form-group">
-          <label>Ativar</label>
-          <select id="g-discord-enabled">
-            <option value="false" ${!g.Discord?.Enabled?"selected":""}>Não</option>
-            <option value="true" ${g.Discord?.Enabled?"selected":""}>Sim</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  `;
+      <div class="toggle-row"><label>Empilhar recompensas</label><input type="checkbox" id="g-stack-rewards" ${t.StackRewards?"checked":""} /></div>
+      ${groupRows ? `<div class="section-header">Pontos por grupo</div>${groupRows}` : ""}
+    </div>`;
 }
 
 function saveGeneral() {
   if (!_config) return;
-  const g = _config.General;
-  g.TimedPointsReward.Enabled = document.getElementById("g-timed-enabled").checked;
-  g.TimedPointsReward.Interval = parseInt(document.getElementById("g-interval").value)||30;
-  g.TimedPointsReward.StackRewards = document.getElementById("g-stack").value === "true";
-  if (!g.TimedPointsReward.Groups) g.TimedPointsReward.Groups = {};
-  if (!g.TimedPointsReward.Groups.Default) g.TimedPointsReward.Groups.Default = {};
-  g.TimedPointsReward.Groups.Default.Amount = parseInt(document.getElementById("g-default-pts").value)||20;
-  g.ItemsPerPage = parseInt(document.getElementById("g-ipp").value)||15;
-  g.ShopDisplayTime = parseFloat(document.getElementById("g-display-time").value)||15;
-  g.ShopTextSize = parseFloat(document.getElementById("g-text-size").value)||1.3;
-  g.DefaultKit = document.getElementById("g-default-kit").value;
-  g.GiveDinosInCryopods = document.getElementById("g-cryo").checked;
-  g.UseSoulTraps = document.getElementById("g-soul").checked;
-  g.PreventUseNoglin = document.getElementById("g-PreventUseNoglin").checked;
-  g.PreventUseUnconscious = document.getElementById("g-PreventUseUnconscious").checked;
-  g.PreventUseHandcuffed = document.getElementById("g-PreventUseHandcuffed").checked;
-  g.PreventUseCarried = document.getElementById("g-PreventUseCarried").checked;
-  if (!g.Discord) g.Discord = {};
-  g.Discord.Enabled = document.getElementById("g-discord-enabled").value === "true";
-  g.Discord.SenderName = document.getElementById("g-discord-name").value;
-  g.Discord.URL = document.getElementById("g-discord-url").value;
+  if (!_config.Settings) _config.Settings = {};
+  if (!_config.TimedPointsReward) _config.TimedPointsReward = {};
+  if (!_config.TimedPointsReward.Groups) _config.TimedPointsReward.Groups = {};
+  const s = _config.Settings;
+  const t = _config.TimedPointsReward;
+
+  s.ShopName          = document.getElementById("g-shop-name").value;
+  s.StartingPoints    = parseInt(document.getElementById("g-starting-pts").value) || 0;
+  s.WebsiteUrl        = document.getElementById("g-website-url").value;
+  s.WebApiUrl         = document.getElementById("g-webapi-url").value;
+  s.WebApiKey         = document.getElementById("g-webapi-key").value;
+  s.DiscordUrl        = document.getElementById("g-discord-url").value;
+  s.DisableSellButton = document.getElementById("g-disable-sell").checked;
+  s.DisableTradeButton= document.getElementById("g-disable-trade").checked;
+  s.VoteRewards       = document.getElementById("g-vote-rewards").checked;
+  s.HideBuffIcon      = document.getElementById("g-hide-buff").checked;
+  s.UseSteamOverlay   = document.getElementById("g-steam-overlay").checked;
+
+  t.Enabled      = document.getElementById("g-timed-enabled").checked;
+  t.Interval     = parseInt(document.getElementById("g-timed-interval").value) || 30;
+  t.StackRewards = document.getElementById("g-stack-rewards").checked;
+
+  Object.keys(t.Groups).forEach(grp => {
+    const el = document.getElementById(`g-grp-${grp}`);
+    if (el) t.Groups[grp].Amount = parseInt(el.value) || 0;
+  });
   saveConfig();
 }
 
 function renderMessages() {
-  if (!_config?.Messages) return;
-  const msgs = _config.Messages;
-  const keys = Object.keys(msgs);
-  const cmdKeys = keys.filter(k => k.endsWith("Cmd"));
-  const usageKeys = keys.filter(k => k.endsWith("Usage") || k.endsWith("Message") || k.endsWith("Format"));
-  const textKeys = keys.filter(k => !cmdKeys.includes(k) && !usageKeys.includes(k));
-
-  const section = (title, ks) => `
-    <div class="section-header">${title}</div>
-    <div class="form-grid">
-      ${ks.map(k => `
-        <div class="form-group">
-          <label>${k}</label>
-          <input id="msg-${k}" type="text" value="${escHtml(msgs[k]||"")}" />
-        </div>`).join("")}
-    </div>`;
-
-  document.getElementById("messages-form").innerHTML = `
+  const el = document.getElementById("messages-form");
+  if (!_config) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">💬</div><p>Config não carregada</p></div>`; return; }
+  const msgs = _config.Messages || {};
+  el.innerHTML = `
     <div class="card">
-      ${section("📢 Mensagens de Feedback", textKeys)}
-    </div>
-    <div class="card">
-      ${section("⌨️ Nomes dos Comandos", cmdKeys)}
-    </div>
-    <div class="card">
-      ${section("📋 Formatos e Uso", usageKeys)}
+      <div class="form-grid">
+        ${Object.entries(msgs).map(([k, v]) => `
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>${escHtml(k)}</label>
+            <input id="msg-${escHtml(k)}" type="text" value="${escHtml(v)}" />
+          </div>`).join("")}
+        ${Object.keys(msgs).length === 0
+          ? `<div style="color:var(--text2);padding:12px;">Nenhuma mensagem personalizada definida.</div>` : ""}
+      </div>
     </div>`;
 }
 
 function saveMessages() {
   if (!_config) return;
-  const msgs = _config.Messages;
-  Object.keys(msgs).forEach(k => {
-    const el = document.getElementById("msg-" + k);
-    if (el) msgs[k] = el.value;
+  if (!_config.Messages) _config.Messages = {};
+  Object.keys(_config.Messages).forEach(k => {
+    const el = document.getElementById(`msg-${k}`);
+    if (el) _config.Messages[k] = el.value;
   });
   saveConfig();
 }
 
-function escHtml(s) {
-  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+// ── Downloads ─────────────────────────────────────────────────────────────────
+let _downloads = [];
+const _dlIcons = {
+  discord: "💬", steam: "🎮", download: "⬇️", link: "🔗",
+  youtube: "▶️", twitch: "📺", github: "🐙", mod: "🧩",
+  tool: "🔧", map: "🗺️", patch: "📦", website: "🌐",
+};
+
+function _dlIcon(icon) {
+  return _dlIcons[icon] || _dlIcons.link;
 }
 
-// ── Item Modal ────────────────────────────────────────────────────────────────
-function itemFormHtml(data) {
-  const d = data || {};
-  const types = ["item","dino","command","beacon","experience","unlockengram"];
-  return `
+async function loadDownloads() {
+  try {
+    const r = await fetch(API + "/api/downloads");
+    const d = await r.json();
+    _downloads = d.downloads || [];
+    renderDownloads();
+  } catch(e) { console.warn("loadDownloads:", e); }
+}
+
+function renderDownloads() {
+  const grid  = document.getElementById("downloads-grid");
+  const empty = document.getElementById("downloads-empty");
+  if (!grid) return;
+  if (!_downloads.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+
+  // Artefatos automáticos do projeto (flag _auto) recebem destaque visual
+  grid.innerHTML = _downloads.map(d => {
+    const isAuto = d._auto;
+    const btnLabel = d.icon === "download" ? "⬇ Baixar Instalador" :
+                     d.icon === "github"   ? "🐙 Ver Releases"      :
+                     d.icon === "discord"  ? "💬 Entrar no Discord"  :
+                     d.icon === "steam"    ? "🎮 Ver no Steam"       : "⬇ Acessar";
+    return `
+    <div class="dl-card${isAuto ? " dl-card--featured" : ""}">
+      ${isAuto ? '<div style="position:absolute;top:10px;right:10px;font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--amber);text-transform:uppercase;">OFICIAL</div>' : ""}
+      <div class="dl-card__cat">${escHtml(d.category || "Geral")}</div>
+      <div class="dl-card__icon">${_dlIcon(d.icon)}</div>
+      <div class="dl-card__label">${escHtml(d.label)}</div>
+      ${d.description ? `<div class="dl-card__desc">${escHtml(d.description)}</div>` : ""}
+      <a class="dl-card__btn" href="${escHtml(d.url)}" target="_blank" rel="noopener">
+        ${btnLabel}
+      </a>
+    </div>`;
+  }).join("");
+}
+
+async function loadAdminDownloads() {
+  await loadDownloads();
+  renderAdminDownloads();
+}
+
+function renderAdminDownloads() {
+  const el = document.getElementById("admin-downloads-list");
+  if (!el) return;
+  if (!_downloads.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔗</div><p>Nenhum link cadastrado</p></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th>Ícone</th><th>Label</th><th>Categoria</th><th>URL</th><th>Ações</th></tr></thead>
+        <tbody>
+          ${_downloads.map(d => `<tr>
+            <td style="font-size:20px;text-align:center">${_dlIcon(d.icon)}</td>
+            <td><strong>${escHtml(d.label)}</strong></td>
+            <td><span style="color:var(--text2);font-size:12px">${escHtml(d.category||"Geral")}</span></td>
+            <td><a href="${escHtml(d.url)}" target="_blank" style="color:var(--amber);font-size:11px;font-family:'JetBrains Mono',monospace;">${escHtml(d.url.length>45?d.url.slice(0,45)+"…":d.url)}</a></td>
+            <td><div class="actions-col">
+              <button class="btn btn-ghost btn-sm" onclick="openDownloadModal('${d.id}')">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteDownload('${d.id}')">🗑</button>
+            </div></td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+let _editingDlId = null;
+function openDownloadModal(id) {
+  _editingDlId = id || null;
+  const dl = id ? _downloads.find(d => d.id === id) || {} : {};
+  document.getElementById("modal-dl-title").textContent = id ? "Editar Link" : "Novo Link";
+  const iconOptions = Object.keys(_dlIcons).map(k =>
+    `<option value="${k}" ${(dl.icon||"link")===k?"selected":""}>${_dlIcons[k]} ${k}</option>`
+  ).join("");
+  document.getElementById("modal-dl-body").innerHTML = `
     <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Label <span style="color:var(--danger)">*</span></label>
+        <input id="dl-label" type="text" value="${escHtml(dl.label||"")}" placeholder="ex: Discord ARKLAND" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>URL <span style="color:var(--danger)">*</span></label>
+        <input id="dl-url" type="url" value="${escHtml(dl.url||"")}" placeholder="https://..." />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Descrição</label>
+        <input id="dl-desc" type="text" value="${escHtml(dl.description||"")}" placeholder="Breve descrição opcional" />
+      </div>
       <div class="form-group">
-        <label>ID (chave única)</label>
-        <input id="fi-key" type="text" value="${d._key||""}" ${d._key?"readonly":""} placeholder="ex: sword_tek" />
+        <label>Ícone</label>
+        <select id="dl-icon">${iconOptions}</select>
+      </div>
+      <div class="form-group">
+        <label>Categoria</label>
+        <input id="dl-cat" type="text" value="${escHtml(dl.category||"Geral")}" placeholder="Geral, Mods, Comunidade…" />
+      </div>
+    </div>`;
+  openModal("modal-download");
+}
+
+async function confirmDownload() {
+  const label = document.getElementById("dl-label").value.trim();
+  const url   = document.getElementById("dl-url").value.trim();
+  if (!label || !url) { toast("Label e URL são obrigatórios", "warning"); return; }
+  const body = {
+    label,
+    url,
+    description: document.getElementById("dl-desc").value.trim(),
+    icon:        document.getElementById("dl-icon").value,
+    category:    document.getElementById("dl-cat").value.trim() || "Geral",
+  };
+  try {
+    let r;
+    if (_editingDlId) {
+      r = await fetch(API + `/api/downloads/${_editingDlId}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+    } else {
+      r = await fetch(API + "/api/downloads", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body) });
+    }
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Erro ao salvar", "error"); return; }
+    closeModal("modal-download");
+    toast("Link salvo com sucesso", "success");
+    await loadAdminDownloads();
+  } catch(e) { toast("Erro de rede", "error"); }
+}
+
+async function deleteDownload(id) {
+  if (!confirm("Remover este link de download?")) return;
+  try {
+    const r = await fetch(API + `/api/downloads/${id}`, { method:"DELETE" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Erro ao remover", "error"); return; }
+    toast("Link removido", "success");
+    await loadAdminDownloads();
+  } catch(e) { toast("Erro de rede", "error"); }
+}
+
+// ── Item modal ────────────────────────────────────────────────────────────────
+function openItemModal(key) {
+  _editingKey = key || null;
+  _editingSection = "shop";
+  const item = key ? (_config?.ShopItems?.[key] || {}) : {};
+  document.getElementById("modal-item-title").textContent = key ? `Editar: ${key}` : "Novo Item";
+  document.getElementById("modal-item-body").innerHTML = `
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Nome de Exibição <span style="color:var(--danger)">*</span></label>
+        <input id="mi-name" type="text" value="${escHtml(item.Name||"")}" placeholder="ex: Metal Ingot x100 (aparece na loja)" />
+      </div>
+      <div class="form-group">
+        <label>ID interno (slug único)</label>
+        <input id="mi-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: metal_ingot_100" />
       </div>
       <div class="form-group">
         <label>Tipo</label>
-        <select id="fi-type" onchange="toggleItemFields()">
-          ${types.map(t => `<option value="${t}" ${(d.Type||"item")===t?"selected":""}>${t}</option>`).join("")}
+        <select id="mi-type">
+          ${["item","dino","command","beacon","experience","unlockengram","kit"].map(t =>
+            `<option value="${t}" ${(item.Type||"item")===t?"selected":""}>${t}</option>`).join("")}
         </select>
       </div>
       <div class="form-group" style="grid-column:1/-1;">
         <label>Descrição</label>
-        <input id="fi-desc" type="text" value="${escHtml(d.Description||"")}" placeholder="Ex: Espada de metal" />
-      </div>
-      <div class="form-group">
-        <label>Preço (pontos)</label>
-        <input id="fi-price" type="number" value="${d.Price??0}" />
-      </div>
-      <div class="form-group">
-        <label>Nível mínimo</label>
-        <input id="fi-minlv" type="number" value="${d.MinLevel||""}" placeholder="(sem restrição)" />
-      </div>
-      <div class="form-group">
-        <label>Nível máximo</label>
-        <input id="fi-maxlv" type="number" value="${d.MaxLevel||""}" placeholder="(sem restrição)" />
+        <input id="mi-desc" type="text" value="${escHtml(item.Description||"")}" placeholder="Breve descrição visível ao jogador" />
       </div>
       <div class="form-group" style="grid-column:1/-1;">
-        <label>Permissões (grupos separados por vírgula)</label>
-        <input id="fi-perms" type="text" value="${d.Permissions||""}" placeholder="Default (vazio = todos)" />
+        <label>Blueprint Path</label>
+        <input id="mi-bp" type="text" value="${escHtml(item.Blueprint||"")}" placeholder="/Game/..." />
       </div>
+      <div class="form-group"><label>Preço (pts)</label><input id="mi-price" type="number" value="${item.Price??0}" /></div>
+      <div class="form-group"><label>Quantidade</label><input id="mi-qty" type="number" value="${item.Quantity??1}" /></div>
+      <div class="form-group"><label>Qualidade</label><input id="mi-quality" type="number" step="0.1" value="${item.Quality??0}" /></div>
+      <div class="form-group"><label>Nível mínimo</label><input id="mi-minlvl" type="number" value="${item.MinLevel??""}" /></div>
+      <div class="form-group"><label>Nível máximo</label><input id="mi-maxlvl" type="number" value="${item.MaxLevel??""}" /></div>
+      <div class="form-group"><label>Permissões</label><input id="mi-perms" type="text" value="${escHtml(item.Permissions||"")}" placeholder="VIP,Admin (vazio=todos)" /></div>
+      <div class="form-group"><label>Categoria</label><input id="mi-cat" type="text" value="${escHtml(item.Category||"")}" placeholder="Geral" /></div>
     </div>
-    <div id="fi-extra" style="margin-top:14px;"></div>
-    <div class="form-group" style="margin-top:14px;">
-      <label>JSON Completo (edição avançada)</label>
-      <textarea id="fi-json" rows="8" style="font-size:12px;font-family:monospace;">${JSON.stringify(d,null,2)}</textarea>
-      <small style="color:var(--text2)">O JSON tem prioridade ao salvar. Edite os campos acima para facilitar.</small>
-    </div>`;
-}
-
-function toggleItemFields() {
-  // Atualiza JSON preview ao mudar campos principais
-  syncItemToJson();
-}
-
-function syncItemToJson() {
-  const ta = document.getElementById("fi-json");
-  if (!ta) return;
-  try {
-    const current = JSON.parse(ta.value);
-    current.Type = document.getElementById("fi-type").value;
-    current.Description = document.getElementById("fi-desc").value;
-    current.Price = parseInt(document.getElementById("fi-price").value)||0;
-    const minlv = document.getElementById("fi-minlv").value;
-    const maxlv = document.getElementById("fi-maxlv").value;
-    if (minlv) current.MinLevel = parseInt(minlv); else delete current.MinLevel;
-    if (maxlv) current.MaxLevel = parseInt(maxlv); else delete current.MaxLevel;
-    const perms = document.getElementById("fi-perms").value;
-    if (perms) current.Permissions = perms; else delete current.Permissions;
-    ta.value = JSON.stringify(current, null, 2);
-  } catch(_){}
-}
-
-function openItemModal(key) {
-  _editingKey = key || null;
-  _editingSection = "shop";
-  const existing = key ? { ..._config.ShopItems[key], _key: key } : {};
-  document.getElementById("modal-item-title").textContent = key ? `Editar: ${key}` : "Novo Item da Loja";
-  document.getElementById("modal-item-body").innerHTML = itemFormHtml(existing);
-  // Sync ao mudar campos
-  ["fi-type","fi-desc","fi-price","fi-minlv","fi-maxlv","fi-perms"].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("input", syncItemToJson);
-  });
+    <div class="toggle-row" style="margin-top:10px;"><label>ForceBlueprint</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>`;
   openModal("modal-item");
 }
 
 function confirmItem() {
-  const keyEl = document.getElementById("fi-key");
-  const key = (keyEl?.value||"").trim();
-  if (!key) { toast("ID do item não pode ser vazio", "error"); return; }
-  try {
-    const jsonText = document.getElementById("fi-json").value;
-    const data = JSON.parse(jsonText);
-    delete data._key;
-    if (!_config.ShopItems) _config.ShopItems = {};
-    _config.ShopItems[key] = data;
-    closeModal("modal-item");
-    renderShop();
-    toast(`Item "${key}" salvo no config (lembre de clicar Salvar)`);
-  } catch(e) {
-    toast("JSON inválido: " + e.message, "error");
-  }
+  const key = document.getElementById("mi-key").value.trim();
+  if (!key) { toast("ID é obrigatório", "warning"); return; }
+  const nameVal = document.getElementById("mi-name").value.trim();
+  if (!nameVal) { toast("Nome de exibição é obrigatório", "warning"); return; }
+  if (!_config.ShopItems) _config.ShopItems = {};
+  const it = _config.ShopItems[key] || {};
+  it.Name          = nameVal;
+  it.Type          = document.getElementById("mi-type").value;
+  it.Description   = document.getElementById("mi-desc").value;
+  it.Blueprint     = document.getElementById("mi-bp").value;
+  it.Price         = parseInt(document.getElementById("mi-price").value) || 0;
+  it.Quantity      = parseInt(document.getElementById("mi-qty").value) || 1;
+  it.Quality       = parseFloat(document.getElementById("mi-quality").value) || 0;
+  it.ForceBlueprint= document.getElementById("mi-force-bp").checked;
+  const minLvl = document.getElementById("mi-minlvl").value;
+  const maxLvl = document.getElementById("mi-maxlvl").value;
+  if (minLvl) it.MinLevel = parseInt(minLvl);
+  if (maxLvl) it.MaxLevel = parseInt(maxLvl);
+  const perms = document.getElementById("mi-perms").value.trim();
+  if (perms) it.Permissions = perms; else delete it.Permissions;
+  const cat = document.getElementById("mi-cat").value.trim();
+  if (cat) it.Category = cat; else delete it.Category;
+  _config.ShopItems[key] = it;
+  closeModal("modal-item");
+  renderShop();
+  toast("Item salvo (lembre de clicar em Salvar & Reload)");
 }
 
 function deleteItem(key) {
   if (!confirm(`Remover item "${key}"?`)) return;
   delete _config.ShopItems[key];
   renderShop();
-  toast(`Item "${key}" removido`);
+  toast(`Item "${key}" removido.`);
 }
 
-// ── Kit Modal ─────────────────────────────────────────────────────────────────
-function kitFormHtml(data) {
-  const d = data || {};
-  return `
-    <div class="form-grid">
-      <div class="form-group">
-        <label>ID do Kit</label>
-        <input id="fk-key" type="text" value="${d._key||""}" ${d._key?"readonly":""} placeholder="ex: starter" />
-      </div>
-      <div class="form-group">
-        <label>Descrição</label>
-        <input id="fk-desc" type="text" value="${escHtml(d.Description||"")}" />
-      </div>
-      <div class="form-group">
-        <label>Preço</label>
-        <input id="fk-price" type="number" value="${d.Price??0}" />
-      </div>
-      <div class="form-group">
-        <label>Usos disponíveis (0 = grátis ilimitado)</label>
-        <input id="fk-amount" type="number" value="${d.DefaultAmount??1}" />
-      </div>
-      <div class="form-group">
-        <label>Nível mínimo</label>
-        <input id="fk-minlv" type="number" value="${d.MinLevel||""}" placeholder="(sem restrição)" />
-      </div>
-      <div class="form-group">
-        <label>Nível máximo</label>
-        <input id="fk-maxlv" type="number" value="${d.MaxLevel||""}" placeholder="(sem restrição)" />
-      </div>
-      <div class="form-group">
-        <label>Permissões</label>
-        <input id="fk-perms" type="text" value="${d.Permissions||""}" placeholder="Default (vazio = todos)" />
-      </div>
-      <div class="form-group">
-        <label>Somente no Spawn</label>
-        <select id="fk-spawn">
-          <option value="false" ${!d.OnlyFromSpawn?"selected":""}>Não</option>
-          <option value="true" ${d.OnlyFromSpawn?"selected":""}>Sim</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group" style="margin-top:14px;">
-      <label>JSON Completo (edição avançada)</label>
-      <textarea id="fk-json" rows="10" style="font-size:12px;font-family:monospace;">${JSON.stringify(d,null,2)}</textarea>
-    </div>`;
-}
-
+// ── Kit modal ─────────────────────────────────────────────────────────────────
 function openKitModal(key) {
   _editingKey = key || null;
   _editingSection = "kit";
-  const existing = key ? { ..._config.Kits[key], _key: key } : {};
+  const kit = key ? (_config?.Kits?.[key] || {}) : {};
   document.getElementById("modal-kit-title").textContent = key ? `Editar Kit: ${key}` : "Novo Kit";
-  document.getElementById("modal-kit-body").innerHTML = kitFormHtml(existing);
+  document.getElementById("modal-kit-body").innerHTML = `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ID do Kit</label>
+        <input id="mk-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: starter" />
+      </div>
+      <div class="form-group"><label>Preço (pts)</label><input id="mk-price" type="number" value="${kit.Price??0}" /></div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Descrição</label>
+        <input id="mk-desc" type="text" value="${escHtml(kit.Description||"")}" />
+      </div>
+      <div class="form-group"><label>Permissões</label><input id="mk-perms" type="text" value="${escHtml(kit.Permissions||"")}" /></div>
+      <div class="form-group"><label>Quantidade padrão</label><input id="mk-default-amt" type="number" value="${kit.DefaultAmount??1}" /></div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Comandos (um por linha)</label>
+        <textarea id="mk-cmds">${(kit.Commands||[]).join("\n")}</textarea>
+      </div>
+    </div>`;
   openModal("modal-kit");
 }
 
 function confirmKit() {
-  const keyEl = document.getElementById("fk-key");
-  const key = (keyEl?.value||"").trim();
-  if (!key) { toast("ID do kit não pode ser vazio", "error"); return; }
-  try {
-    const data = JSON.parse(document.getElementById("fk-json").value);
-    delete data._key;
-    if (!_config.Kits) _config.Kits = {};
-    _config.Kits[key] = data;
-    closeModal("modal-kit");
-    renderKits();
-    toast(`Kit "${key}" salvo`);
-  } catch(e) {
-    toast("JSON inválido: " + e.message, "error");
-  }
+  const key = document.getElementById("mk-key").value.trim();
+  if (!key) { toast("ID é obrigatório", "warning"); return; }
+  if (!_config.Kits) _config.Kits = {};
+  const kit = _config.Kits[key] || { Items: [] };
+  kit.Price         = parseInt(document.getElementById("mk-price").value) || 0;
+  kit.Description   = document.getElementById("mk-desc").value;
+  kit.DefaultAmount = parseInt(document.getElementById("mk-default-amt").value) || 1;
+  const perms = document.getElementById("mk-perms").value.trim();
+  if (perms) kit.Permissions = perms; else delete kit.Permissions;
+  const cmds = document.getElementById("mk-cmds").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  kit.Commands = cmds;
+  _config.Kits[key] = kit;
+  closeModal("modal-kit");
+  renderKits();
+  toast("Kit salvo (lembre de clicar em Salvar & Reload)");
 }
 
 function deleteKit(key) {
   if (!confirm(`Remover kit "${key}"?`)) return;
   delete _config.Kits[key];
   renderKits();
-  toast(`Kit "${key}" removido`);
+  toast(`Kit "${key}" removido.`);
 }
 
-// ── Sell Modal ────────────────────────────────────────────────────────────────
-function sellFormHtml(data) {
-  const d = data || {};
-  return `
-    <div class="form-grid">
-      <div class="form-group">
-        <label>ID</label>
-        <input id="fs-key" type="text" value="${d._key||""}" ${d._key?"readonly":""} placeholder="ex: stone" />
-      </div>
-      <div class="form-group">
-        <label>Descrição</label>
-        <input id="fs-desc" type="text" value="${escHtml(d.Description||"")}" />
-      </div>
-      <div class="form-group">
-        <label>Preço (pontos que jogador recebe)</label>
-        <input id="fs-price" type="number" value="${d.Price??0}" />
-      </div>
-      <div class="form-group">
-        <label>Quantidade necessária</label>
-        <input id="fs-amount" type="number" value="${d.Amount??1}" />
-      </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Blueprint</label>
-        <input id="fs-bp" type="text" value="${escHtml(d.Blueprint||"")}" placeholder="Blueprint'/Game/...'" />
-      </div>
-    </div>
-    <div class="form-group" style="margin-top:14px;">
-      <label>JSON Completo (edição avançada)</label>
-      <textarea id="fs-json" rows="7" style="font-size:12px;font-family:monospace;">${JSON.stringify(d,null,2)}</textarea>
-    </div>`;
-}
-
+// ── Sell modal ────────────────────────────────────────────────────────────────
 function openSellModal(key) {
   _editingKey = key || null;
-  const existing = key ? { ..._config.SellItems[key], _key: key } : {};
-  document.getElementById("modal-sell-title").textContent = key ? `Editar: ${key}` : "Novo Item à Venda";
-  document.getElementById("modal-sell-body").innerHTML = sellFormHtml(existing);
+  _editingSection = "sell";
+  const item = key ? (_config?.SellItems?.[key] || {}) : {};
+  document.getElementById("modal-sell-title").textContent = key ? `Editar Venda: ${key}` : "Novo Item para Venda";
+  document.getElementById("modal-sell-body").innerHTML = `
+    <div class="form-grid">
+      <div class="form-group">
+        <label>ID do Item</label>
+        <input id="ms-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} />
+      </div>
+      <div class="form-group"><label>Preço (pts)</label><input id="ms-price" type="number" value="${item.Price??0}" /></div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Descrição</label>
+        <input id="ms-desc" type="text" value="${escHtml(item.Description||"")}" />
+      </div>
+    </div>`;
   openModal("modal-sell");
 }
 
 function confirmSell() {
-  const key = (document.getElementById("fs-key")?.value||"").trim();
-  if (!key) { toast("ID não pode ser vazio", "error"); return; }
-  try {
-    const data = JSON.parse(document.getElementById("fs-json").value);
-    delete data._key;
-    if (!_config.SellItems) _config.SellItems = {};
-    _config.SellItems[key] = data;
-    closeModal("modal-sell");
-    renderSell();
-    toast(`Item de venda "${key}" salvo`);
-  } catch(e) {
-    toast("JSON inválido: " + e.message, "error");
-  }
+  const key = document.getElementById("ms-key").value.trim();
+  if (!key) { toast("ID é obrigatório", "warning"); return; }
+  if (!_config.SellItems) _config.SellItems = {};
+  _config.SellItems[key] = {
+    Price: parseInt(document.getElementById("ms-price").value) || 0,
+    Description: document.getElementById("ms-desc").value,
+  };
+  closeModal("modal-sell");
+  renderSell();
+  toast("Item de venda salvo");
 }
 
 function deleteSell(key) {
-  if (!confirm(`Remover item "${key}" da lista de venda?`)) return;
+  if (!confirm(`Remover item de venda "${key}"?`)) return;
   delete _config.SellItems[key];
   renderSell();
-  toast(`Item "${key}" removido`);
 }
 
-// ── RCON ──────────────────────────────────────────────────────────────────────
-async function rconReload() {
-  const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
-  const d = await r.json();
-  document.getElementById("rcon-output").textContent = d.ok ? ("✅ " + (d.response||"Shop recarregado")) : ("❌ " + d.error);
-  toast(d.ok ? "Shop recarregado!" : d.error, d.ok ? "success" : "error");
+// ── Settings ──────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  if (!_auth.is_admin) return;
+  try {
+    const r = await fetch(API + "/api/settings");
+    const s = await r.json();
+    document.getElementById("s-config-path").value    = s.config_path || "";
+    document.getElementById("s-rcon-host").value      = s.rcon_host || "127.0.0.1";
+    document.getElementById("s-rcon-port").value      = s.rcon_port || 27020;
+    document.getElementById("s-delivery-template").value = s.delivery_command_template || "";
+    document.getElementById("s-server-id").value      = s.server_id || "default";
+    document.getElementById("s-retry-max").value      = s.retry_max_attempts || 10;
+    document.getElementById("s-database-url").value   = s.database_url || "";
+    document.getElementById("s-db-host").value        = s.db_host || "";
+    document.getElementById("s-db-port").value        = s.db_port || 3306;
+    document.getElementById("s-db-name").value        = s.db_name || "arkland_shop";
+    document.getElementById("s-db-user").value        = s.db_user || "";
+    const dbStatus = document.getElementById("db-conn-status");
+    if (dbStatus) {
+      dbStatus.style.display = "block";
+      if (s.db_configured) {
+        dbStatus.style.background = "rgba(18,216,124,.1)";
+        dbStatus.style.color = "var(--success)";
+        dbStatus.style.border = "1px solid rgba(18,216,124,.2)";
+        dbStatus.textContent = "✅ Banco configurado";
+      } else {
+        dbStatus.style.background = "rgba(240,64,80,.1)";
+        dbStatus.style.color = "var(--danger)";
+        dbStatus.style.border = "1px solid rgba(240,64,80,.2)";
+        dbStatus.textContent = "⚠️ Banco não configurado";
+      }
+    }
+    setStatus(s.db_configured, s.db_configured ? "Banco conectado" : "Banco não configurado");
+  } catch(e) {
+    setStatus(false, "Falha ao carregar settings: " + e.message);
+  }
 }
 
-async function rconPoints(action) {
-  const player = document.getElementById("rcon-player").value.trim();
-  if (!isSteamId64(player)) { toast("Informe um SteamID64 válido", "warning"); return; }
-  const amount = parseInt(document.getElementById("rcon-amount").value)||0;
-  const r = await fetch(API + "/api/rcon/points", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ action, player, amount }),
-  });
-  const d = await r.json();
-  document.getElementById("rcon-output").textContent = d.ok ? d.response : ("❌ " + d.error);
+async function saveSettings() {
+  const body = {
+    config_path: document.getElementById("s-config-path").value,
+    rcon_host:   document.getElementById("s-rcon-host").value,
+    rcon_port:   parseInt(document.getElementById("s-rcon-port").value),
+    rcon_password: document.getElementById("s-rcon-password").value,
+    delivery_command_template: document.getElementById("s-delivery-template").value,
+    server_id:   document.getElementById("s-server-id").value,
+    retry_max_attempts: parseInt(document.getElementById("s-retry-max").value),
+    database_url: document.getElementById("s-database-url").value,
+    db_host:     document.getElementById("s-db-host").value,
+    db_port:     parseInt(document.getElementById("s-db-port").value),
+    db_name:     document.getElementById("s-db-name").value,
+    db_user:     document.getElementById("s-db-user").value,
+    db_password: document.getElementById("s-db-password").value,
+  };
+  try {
+    const r = await fetch(API + "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      toast("Configurações salvas!");
+      await loadSettings();
+    } else {
+      toast("Erro: " + (data.error || "Falha ao salvar"), "error");
+    }
+  } catch(e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
 }
 
-// ── Players (SteamID64) ─────────────────────────────────────────────────────
-function clearPlayerForm() {
-  document.getElementById("player-steam-id").value = "";
-  document.getElementById("player-name").value = "";
-  document.getElementById("player-tribe").value = "";
-  document.getElementById("player-note").value = "";
+async function testDbConnection() {
+  const dbStatus = document.getElementById("db-conn-status");
+  if (dbStatus) {
+    dbStatus.style.display = "block";
+    dbStatus.style.background = "rgba(232,120,32,.08)";
+    dbStatus.style.color = "var(--amber)";
+    dbStatus.style.border = "1px solid rgba(232,120,32,.2)";
+    dbStatus.textContent = "Testando conexão…";
+  }
+  try {
+    const r = await fetch(API + "/api/db/test", { method: "POST" });
+    const d = await r.json();
+    if (dbStatus) {
+      if (d.ok) {
+        dbStatus.style.background = "rgba(18,216,124,.1)";
+        dbStatus.style.color = "var(--success)";
+        dbStatus.style.border = "1px solid rgba(18,216,124,.2)";
+        dbStatus.textContent = "✅ " + (d.info || "Conectado");
+      } else {
+        dbStatus.style.background = "rgba(240,64,80,.12)";
+        dbStatus.style.color = "var(--danger)";
+        dbStatus.style.border = "1px solid rgba(240,64,80,.2)";
+        dbStatus.textContent = "❌ Falha: " + (d.error || "sem detalhes");
+      }
+    }
+  } catch(e) {
+    if (dbStatus) {
+      dbStatus.style.background = "rgba(240,64,80,.12)";
+      dbStatus.style.color = "var(--danger)";
+      dbStatus.style.border = "1px solid rgba(240,64,80,.2)";
+      dbStatus.textContent = "❌ Erro de rede: " + e.message;
+    }
+  }
 }
 
-function fillSteamId(steamId) {
-  document.getElementById("deliver-steam-id").value = steamId;
-  document.getElementById("rcon-player").value = steamId;
-}
-
+// ── Players ───────────────────────────────────────────────────────────────────
 async function loadPlayers() {
   if (!_auth.is_admin) return;
-  const r = await fetch(API + "/api/players");
-  _players = await r.json();
-  renderPlayers();
+  try {
+    const r = await fetch(API + "/api/players");
+    _players = await r.json();
+    renderPlayersList();
+  } catch(e) { /* ignore */ }
 }
 
-function renderPlayers() {
-  const box = document.getElementById("players-list");
-  if (!_players.length) {
-    box.innerHTML = `<div style="color:var(--text2);font-size:12px;">Nenhum jogador cadastrado ainda.</div>`;
-    return;
-  }
+function renderPlayersList() {
+  const el = document.getElementById("players-list");
+  if (!el) return;
+  if (!_players.length) { el.innerHTML = `<div style="color:var(--text2);padding:8px 0;font-size:12px;">Nenhum jogador cadastrado.</div>`; return; }
+  el.innerHTML = `<table class="tbl" style="margin-top:8px;">
+    <thead><tr><th>SteamID64</th><th>Nome</th><th>Tribo</th><th>Obs.</th><th>Ações</th></tr></thead>
+    <tbody>
+      ${_players.map(p => `<tr>
+        <td><code>${p.steam_id}</code></td>
+        <td>${escHtml(p.name||"")}</td>
+        <td>${escHtml(p.tribe||"")}</td>
+        <td style="color:var(--text2);font-size:12px;">${escHtml(p.note||"")}</td>
+        <td><div class="actions-col">
+          <button class="btn btn-ghost btn-sm" onclick="editPlayer('${p.steam_id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deletePlayer('${p.steam_id}')">🗑</button>
+        </div></td>
+      </tr>`).join("")}
+    </tbody>
+  </table>`;
+}
 
-  box.innerHTML = `
-    <table class="tbl">
-      <thead>
-        <tr>
-          <th>SteamID64</th><th>Nome</th><th>Tribo</th><th>Obs.</th><th>Ações</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${_players.map(p => `
-          <tr>
-            <td><code>${p.steam_id || ""}</code></td>
-            <td>${p.name || "-"}</td>
-            <td>${p.tribe || "-"}</td>
-            <td><span class="truncate" style="max-width:220px;">${escHtml(p.note || "-")}</span></td>
-            <td>
-              <div class="actions-col">
-                <button class="btn btn-ghost btn-sm" onclick="fillSteamId('${p.steam_id || ""}')">🎯 Usar</button>
-                <button class="btn btn-danger btn-sm" onclick="removePlayer('${p.steam_id || ""}')">🗑</button>
-              </div>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>`;
+function editPlayer(steamId) {
+  const p = _players.find(x => x.steam_id === steamId);
+  if (!p) return;
+  document.getElementById("player-steam-id").value = p.steam_id;
+  document.getElementById("player-name").value = p.name || "";
+  document.getElementById("player-tribe").value = p.tribe || "";
+  document.getElementById("player-note").value = p.note || "";
 }
 
 async function savePlayer() {
   const steam_id = document.getElementById("player-steam-id").value.trim();
-  if (!isSteamId64(steam_id)) {
-    toast("SteamID64 inválido", "error");
-    return;
-  }
+  if (!isSteamId64(steam_id)) { toast("SteamID64 inválido", "warning"); return; }
   const body = {
     steam_id,
-    name: document.getElementById("player-name").value.trim(),
+    name:  document.getElementById("player-name").value.trim(),
     tribe: document.getElementById("player-tribe").value.trim(),
-    note: document.getElementById("player-note").value.trim(),
+    note:  document.getElementById("player-note").value.trim(),
   };
   const r = await fetch(API + "/api/players", {
     method: "POST",
@@ -1636,41 +2791,34 @@ async function savePlayer() {
     body: JSON.stringify(body),
   });
   const d = await r.json();
-  if (!d.ok) {
-    toast(d.error || "Falha ao salvar jogador", "error");
-    return;
-  }
-  toast(d.updated ? "Jogador atualizado" : "Jogador cadastrado");
-  fillSteamId(steam_id);
-  await loadPlayers();
+  if (d.ok) { toast("Jogador salvo!"); await loadPlayers(); clearPlayerForm(); }
+  else { toast(d.error || "Falha ao salvar jogador", "error"); }
 }
 
-async function removePlayer(steamId) {
+async function deletePlayer(steamId) {
   if (!confirm(`Remover jogador ${steamId}?`)) return;
-  const r = await fetch(API + "/api/players/" + encodeURIComponent(steamId), { method: "DELETE" });
+  const r = await fetch(API + `/api/players/${encodeURIComponent(steamId)}`, { method: "DELETE" });
   const d = await r.json();
-  if (!d.ok) {
-    toast(d.error || "Falha ao remover", "error");
-    return;
-  }
-  toast("Jogador removido");
-  await loadPlayers();
+  if (d.ok) { toast("Jogador removido."); await loadPlayers(); }
+  else { toast(d.error || "Falha ao remover", "error"); }
 }
 
-async function deliverPurchase() {
-  const steam_id = document.getElementById("deliver-steam-id").value.trim();
-  const item_type = document.getElementById("deliver-item-type").value;
-  const item_id = document.getElementById("deliver-item-id").value.trim();
-  const amount = parseInt(document.getElementById("deliver-amount").value, 10) || 1;
+function clearPlayerForm() {
+  ["player-steam-id","player-name","player-tribe","player-note"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
+}
 
-  if (!isSteamId64(steam_id)) {
-    toast("SteamID64 inválido", "error");
-    return;
-  }
-  if (!item_id) {
-    toast("Informe o ID do item/kit", "warning");
-    return;
-  }
+// ── RCON ──────────────────────────────────────────────────────────────────────
+async function deliverPurchase() {
+  const steam_id  = document.getElementById("deliver-steam-id").value.trim();
+  const item_type = document.getElementById("deliver-item-type").value;
+  const item_id   = document.getElementById("deliver-item-id").value.trim();
+  const amount    = parseInt(document.getElementById("deliver-amount").value) || 1;
+
+  if (!isSteamId64(steam_id)) { toast("SteamID64 inválido", "warning"); return; }
+  if (!item_id) { toast("ID do item é obrigatório", "warning"); return; }
 
   const r = await fetch(API + "/api/rcon/purchase", {
     method: "POST",
@@ -1678,10 +2826,36 @@ async function deliverPurchase() {
     body: JSON.stringify({ steam_id, item_type, item_id, amount }),
   });
   const d = await r.json();
-  document.getElementById("rcon-output").textContent = d.ok
-    ? `✅ ${d.command}\n${d.response || ""}`
-    : `❌ ${d.error || "Falha"}\n${d.command || ""}`;
-  toast(d.ok ? "Entrega enviada via RCON" : (d.error || "Falha na entrega"), d.ok ? "success" : "error");
+  if (d.ok) toast(`Entrega: ${item_id} x${amount} → ${steam_id}`);
+  else toast(d.error || "Falha na entrega", "error");
+}
+
+async function rconPoints(action) {
+  const player = document.getElementById("rcon-player").value.trim();
+  const amount = parseInt(document.getElementById("rcon-amount").value) || 0;
+  if (!isSteamId64(player)) { toast("SteamID64 inválido", "warning"); return; }
+  const r = await fetch(API + "/api/rcon/points", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ action, player, amount }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    document.getElementById("rcon-output").textContent = d.response || "(sem resposta)";
+  } else {
+    toast(d.error || "Falha", "error");
+  }
+}
+
+async function rconReload() {
+  const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
+  const d = await r.json();
+  if (d.ok) {
+    document.getElementById("rcon-output").textContent = d.response || "Reloaded.";
+    toast("ArkShop recarregado via RCON");
+  } else {
+    toast(d.error || "Falha no RCON", "error");
+  }
 }
 
 async function sendRcon() {
@@ -1693,153 +2867,161 @@ async function sendRcon() {
     body: JSON.stringify({ command: cmd }),
   });
   const d = await r.json();
-  document.getElementById("rcon-output").textContent = d.ok ? d.response : ("❌ " + d.error);
+  document.getElementById("rcon-output").textContent = d.ok ? (d.response || "(sem resposta)") : ("❌ " + d.error);
 }
 
 // ── Servers ───────────────────────────────────────────────────────────────────
-let _editingServerId = null;
+let _servers = [];
 
 async function loadServers() {
   if (!_auth.is_admin) return;
-  const r = await fetch(API + "/api/servers");
-  const d = await r.json();
-  if (!d.ok) { toast(d.error || "Falha ao carregar servidores", "error"); return; }
-  const servers = d.items || [];
-  const box = document.getElementById("servers-list");
-  if (!servers.length) {
-    box.innerHTML = `<div class="card"><div class="empty-state"><div class="empty-icon">🌐</div><p>Nenhum servidor cadastrado. Clique em "+ Novo Servidor" para adicionar.</p></div></div>`;
+  try {
+    const r = await fetch(API + "/api/servers");
+    const data = await r.json();
+    _servers = data.items || [];
+    renderServers();
+  } catch(e) { /* ignore */ }
+}
+
+function renderServers() {
+  const el = document.getElementById("servers-list");
+  if (!el) return;
+  if (!_servers.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🌐</div><p>Nenhum servidor cadastrado</p></div>`;
     return;
   }
-  box.innerHTML = `
-    <div class="card">
-      <table class="tbl">
-        <thead><tr>
-          <th>ID</th><th>Label</th><th>RCON Host</th><th>Porta</th><th>Senha</th><th>Retentativas</th><th>Ações</th>
-        </tr></thead>
-        <tbody>
-          ${servers.map(s => `<tr>
-            <td><code>${s.server_id}</code></td>
-            <td>${s.label || s.server_id}</td>
-            <td>${s.rcon_host || "-"}</td>
-            <td>${s.rcon_port || "-"}</td>
-            <td>${s.rcon_password_set ? '<span style="color:var(--success)">Configurada</span>' : '<span style="color:var(--warning)">Não definida</span>'}</td>
-            <td>${s.retry_max_attempts ?? 10}</td>
-            <td><div class="actions-col">
-              <button class="btn btn-ghost btn-sm" onclick="openServerModal('${s.server_id}')">✏️ Editar</button>
-              <button class="btn btn-danger btn-sm" onclick="deleteServer('${s.server_id}')">🗑</button>
-            </div></td>
-          </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>`;
+  el.innerHTML = `<div class="card"><table class="tbl">
+    <thead><tr><th>ID</th><th>Label</th><th>RCON Host</th><th>Porta</th><th>Senha</th><th>Ações</th></tr></thead>
+    <tbody>
+      ${_servers.map(s => `<tr>
+        <td><code>${s.server_id}</code></td>
+        <td>${escHtml(s.label||"")}</td>
+        <td>${escHtml(s.rcon_host||"")}</td>
+        <td>${s.rcon_port||""}</td>
+        <td>${s.rcon_password_set ? '<span class="badge badge-item">Set</span>' : '<span class="badge badge-experience">Não set</span>'}</td>
+        <td><div class="actions-col">
+          <button class="btn btn-ghost btn-sm" onclick="openServerModal('${s.server_id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteServer('${s.server_id}')">🗑</button>
+        </div></td>
+      </tr>`).join("")}
+    </tbody>
+  </table></div>`;
 }
 
 function openServerModal(serverId) {
-  _editingServerId = serverId || null;
+  const s = serverId ? _servers.find(x => x.server_id === serverId) || {} : {};
   document.getElementById("modal-server-title").textContent = serverId ? `Editar: ${serverId}` : "Novo Servidor";
-  document.getElementById("srv-id").value = serverId || "";
-  document.getElementById("srv-id").readOnly = !!serverId;
-  if (serverId) {
-    fetch(API + "/api/servers").then(r => r.json()).then(d => {
-      const s = (d.items || []).find(x => x.server_id === serverId) || {};
-      document.getElementById("srv-label").value = s.label || "";
-      document.getElementById("srv-host").value = s.rcon_host || "127.0.0.1";
-      document.getElementById("srv-port").value = s.rcon_port || 27020;
-      document.getElementById("srv-retry").value = s.retry_max_attempts ?? 10;
-      document.getElementById("srv-template").value = s.delivery_command_template || "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}";
-      document.getElementById("srv-password").value = "";
-    });
-  } else {
-    document.getElementById("srv-label").value = "";
-    document.getElementById("srv-host").value = "127.0.0.1";
-    document.getElementById("srv-port").value = 27020;
-    document.getElementById("srv-retry").value = 10;
-    document.getElementById("srv-template").value = "Shop.Deliver {steam_id} {item_id} {amount}";
-    document.getElementById("srv-password").value = "";
-  }
+  document.getElementById("srv-id").value       = s.server_id || "";
+  document.getElementById("srv-label").value    = s.label || "";
+  document.getElementById("srv-host").value     = s.rcon_host || "127.0.0.1";
+  document.getElementById("srv-port").value     = s.rcon_port || 27020;
+  document.getElementById("srv-password").value = "";
+  document.getElementById("srv-retry").value    = s.retry_max_attempts || 10;
+  document.getElementById("srv-template").value = s.delivery_command_template || "Shop.Deliver {steam_id} {item_id} {amount}";
+  if (serverId) document.getElementById("srv-id").readOnly = true;
+  else document.getElementById("srv-id").readOnly = false;
   openModal("modal-server");
 }
 
 async function confirmServer() {
-  const server_id = document.getElementById("srv-id").value.trim();
-  if (!server_id) { toast("Server ID é obrigatório", "error"); return; }
   const body = {
-    server_id,
-    label: document.getElementById("srv-label").value.trim() || server_id,
-    rcon_host: document.getElementById("srv-host").value.trim() || "127.0.0.1",
-    rcon_port: parseInt(document.getElementById("srv-port").value) || 27020,
-    retry_max_attempts: parseInt(document.getElementById("srv-retry").value) || 10,
-    delivery_command_template: document.getElementById("srv-template").value.trim() || "ArkShopDeliver {steam_id} {item_type} {item_id} {amount}",
+    server_id:   document.getElementById("srv-id").value.trim(),
+    label:       document.getElementById("srv-label").value.trim(),
+    rcon_host:   document.getElementById("srv-host").value.trim(),
+    rcon_port:   parseInt(document.getElementById("srv-port").value),
     rcon_password: document.getElementById("srv-password").value,
+    retry_max_attempts: parseInt(document.getElementById("srv-retry").value),
+    delivery_command_template: document.getElementById("srv-template").value.trim(),
   };
+  if (!body.server_id) { toast("Server ID é obrigatório", "warning"); return; }
   const r = await fetch(API + "/api/servers", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify(body),
-  });
-  const d = await r.json();
-  if (!d.ok) { toast(d.error || "Falha ao salvar servidor", "error"); return; }
-  toast(d.updated ? "Servidor atualizado" : "Servidor cadastrado");
-  closeModal("modal-server");
-  await loadServers();
-}
-
-async function deleteServer(serverId) {
-  if (!confirm(`Remover servidor "${serverId}"?`)) return;
-  const r = await fetch(API + "/api/servers/" + encodeURIComponent(serverId), { method: "DELETE" });
-  const d = await r.json();
-  if (!d.ok) { toast(d.error || "Falha ao remover", "error"); return; }
-  toast("Servidor removido");
-  await loadServers();
-}
-
-// ── Settings ──────────────────────────────────────────────────────────────────
-async function loadSettings() {
-  const r = await fetch(API + "/api/settings");
-  const d = await r.json();
-  document.getElementById("s-config-path").value = d.config_path || "";
-  document.getElementById("s-rcon-host").value = d.rcon_host || "127.0.0.1";
-  document.getElementById("s-rcon-port").value = d.rcon_port || 27020;
-  document.getElementById("s-delivery-template").value = d.delivery_command_template || "";
-  document.getElementById("s-server-id").value = d.server_id || "default";
-  document.getElementById("s-retry-max").value = d.retry_max_attempts || 10;
-  document.getElementById("s-database-url").value = d.database_url || "";
-  document.getElementById("s-db-host").value = d.db_host || "";
-  document.getElementById("s-db-port").value = d.db_port || 3306;
-  document.getElementById("s-db-name").value = d.db_name || "arkshop";
-  document.getElementById("s-db-user").value = d.db_user || "";
-}
-
-async function saveSettings() {
-  const body = {
-    config_path: document.getElementById("s-config-path").value,
-    rcon_host:   document.getElementById("s-rcon-host").value,
-    rcon_port:   parseInt(document.getElementById("s-rcon-port").value)||27020,
-    delivery_command_template: document.getElementById("s-delivery-template").value,
-    server_id: document.getElementById("s-server-id").value || "default",
-    retry_max_attempts: parseInt(document.getElementById("s-retry-max").value, 10) || 10,
-    database_url: document.getElementById("s-database-url").value,
-    db_host: document.getElementById("s-db-host").value,
-    db_port: parseInt(document.getElementById("s-db-port").value, 10) || 3306,
-    db_name: document.getElementById("s-db-name").value || "arkshop",
-    db_user: document.getElementById("s-db-user").value,
-    db_password: document.getElementById("s-db-password").value,
-    rcon_password: document.getElementById("s-rcon-password").value,
-  };
-  const r = await fetch(API + "/api/settings", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify(body),
   });
   const d = await r.json();
-  if (d.ok) {
-    toast("Configurações salvas!");
-    if (!d.db_configured) {
-      toast("Banco ainda não configurado. Preencha IP/usuário/base/senha.", "warning");
+  if (d.ok) { closeModal("modal-server"); await loadServers(); toast("Servidor salvo!"); }
+  else { toast(d.error || "Falha ao salvar servidor", "error"); }
+}
+
+async function deleteServer(serverId) {
+  if (!confirm(`Remover servidor "${serverId}"?`)) return;
+  const r = await fetch(API + `/api/servers/${encodeURIComponent(serverId)}`, { method: "DELETE" });
+  const d = await r.json();
+  if (d.ok) { await loadServers(); toast("Servidor removido."); }
+  else { toast(d.error || "Falha ao remover", "error"); }
+}
+
+// ── HTML escape ───────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Modal de Compra ───────────────────────────────────────────────────────────
+let _buyItem = null;
+
+function openBuyModal(item) {
+  if (!_auth.authenticated) { toast("Faça login para comprar.", "warning"); return; }
+  _buyItem = item;
+  const bal = window._playerBalance ?? "?";
+  const canBuy = typeof bal === "number" && bal >= item.price;
+  document.getElementById("buy-modal-body").innerHTML = `
+    <div style="text-align:center;margin-bottom:20px;">
+      <div style="font-size:48px;filter:drop-shadow(0 0 16px rgba(232,120,32,.4));margin-bottom:10px;">${{"Dino":"🦕","Item":"📦","Blueprint":"📋","Command":"⚡","Experience":"✨","Kit":"🎁"}[item.type]||"🏷️"}</div>
+      <div style="font-family:'Cinzel',Georgia,serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">${escHtml(item.name)}</div>
+      ${item.desc ? `<div style="font-size:12px;color:var(--text2);">${escHtml(item.desc)}</div>` : ""}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:var(--radius);text-align:center;">
+        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Preço</div>
+        <div style="font-size:22px;font-weight:700;color:var(--amber);text-shadow:0 0 12px rgba(232,160,32,.4);">◈ ${item.price}</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid ${canBuy?'rgba(18,216,124,.2)':'rgba(240,64,80,.2)'};padding:12px;border-radius:var(--radius);text-align:center;">
+        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Seu Saldo</div>
+        <div style="font-size:22px;font-weight:700;color:${canBuy?'var(--success)':'var(--danger)'};">◈ ${bal}</div>
+      </div>
+    </div>
+    ${!canBuy ? `<div style="text-align:center;color:var(--danger);font-size:13px;margin-bottom:8px;font-weight:700;">⚠️ Saldo insuficiente</div>` : ""}`;
+  document.getElementById("buy-confirm-btn").disabled = !canBuy;
+  document.getElementById("buy-modal").style.display = "flex";
+}
+
+function closeBuyModal() {
+  document.getElementById("buy-modal").style.display = "none";
+  _buyItem = null;
+}
+
+async function confirmBuy() {
+  if (!_buyItem) return;
+  const btn = document.getElementById("buy-confirm-btn");
+  btn.disabled = true;
+  btn.textContent = "Processando...";
+  try {
+    const r = await fetch(API + "/api/player/purchase", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        item_id: _buyItem.key,
+        item_type: _buyItem.type || "shop",
+        amount: 1,
+        price: _buyItem.price,
+        idempotency_key: `${_auth.steam_id}_${_buyItem.key}_${Date.now()}`,
+      }),
+    });
+    const d = await r.json();
+    closeBuyModal();
+    if (d.ok) {
+      toast(`✅ Compra realizada! ${_buyItem.name}`, "success");
+      if (d.new_balance != null) window._playerBalance = d.new_balance;
+      loadMyArea();
+    } else {
+      toast(d.error || "Falha na compra", "error");
     }
-    loadConfig();
-  } else {
-    toast(d.error || "Falha ao salvar configurações", "error");
+  } catch(e) {
+    toast("Erro de rede: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "✅ Confirmar Compra";
   }
 }
 
@@ -1859,8 +3041,22 @@ async function saveSettings() {
     await loadServers();
   }
   await loadMyArea();
+  await loadDownloads();
   showAuthOverlay(false);
 })();
 </script>
+
+<!-- ── Modal de Compra ───────────────────────────────────────────────────────── -->
+<div id="buy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
+  <div class="buy-modal-inner">
+    <div class="buy-modal-title">🛒 Confirmar Compra</div>
+    <div id="buy-modal-body"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost" onclick="closeBuyModal()">Cancelar</button>
+      <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Compra</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -83,7 +83,7 @@ app.secret_key = os.environ.get("ARKSHOP_WEB_SECRET", "arkshop-web-dev-secret-ch
 
 _DEFAULT_CONFIG_PATH = os.environ.get(
     "ARKSHOP_CONFIG_PATH",
-    r"C:\ARK\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json",
+    str(Path(__file__).parent.parent / "CustomShop" / "configs" / "config.json"),
 )
 _STATE_FILE = Path(__file__).parent / "settings.json"
 _PLAYERS_FILE = Path(__file__).parent / "players.json"
@@ -324,11 +324,72 @@ def _load_state_settings_snapshot() -> dict[str, Any]:
 
 
 def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
+    # Se settings foram explicitamente fornecidas, tenta construir a URL a partir delas primeiro.
+    # Isso garante que 'save_settings' use as novas credenciais salvas, não a env var antiga.
+    if settings is not None:
+        url_from_settings = _build_database_url_from_settings(settings)
+        if url_from_settings:
+            return url_from_settings
+    # Fallback: env var de ambiente (definida no início do processo)
     if _DATABASE_URL:
         return _DATABASE_URL
+    # Último fallback: lê settings do disco
     if settings is None:
         settings = _load_state_settings_snapshot()
     return _build_database_url_from_settings(settings)
+
+
+def _migrate_schema(engine: Any) -> None:
+    """Detecta schema antigo (orders sem order_id) e recria as tabelas."""
+    is_mysql = "mysql" in str(engine.url).lower()
+    if not is_mysql:
+        Base.metadata.create_all(bind=engine)
+        return
+    with engine.connect() as conn:
+        tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
+        if tbl_row is not None:
+            col_row = conn.execute(text("SHOW COLUMNS FROM `orders` LIKE 'order_id'")).fetchone()
+            if col_row is None:
+                log.warning("Schema antigo detectado (orders sem order_id) — recriando tabelas")
+                conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+                for tbl in ("order_attempts", "rebuys", "disputes", "orders"):
+                    conn.execute(text(f"DROP TABLE IF EXISTS `{tbl}`"))
+                conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+                conn.commit()
+    Base.metadata.create_all(bind=engine)
+
+
+_db_reconnect_thread: threading.Thread | None = None
+_db_reconnect_stop   = threading.Event()
+
+
+def _start_db_reconnect_watcher() -> None:
+    """Inicia um thread que fica tentando migrate_schema a cada 5 s até ter sucesso."""
+    global _db_reconnect_thread
+
+    if _db_reconnect_thread is not None and _db_reconnect_thread.is_alive():
+        return  # já existe um watcher ativo
+
+    _db_reconnect_stop.clear()
+
+    def _watcher() -> None:
+        import time as _time
+        log.info("DB reconnect watcher iniciado — tentando a cada 5 s…")
+        while not _db_reconnect_stop.wait(5):
+            engine = _ENGINE
+            if engine is None:
+                continue
+            try:
+                _migrate_schema(engine)
+                log.info("DB reconnect watcher: schema OK — encerrando")
+                break
+            except Exception as exc:
+                log.debug("DB reconnect watcher: ainda sem conexão (%s)", exc)
+
+    _db_reconnect_thread = threading.Thread(
+        target=_watcher, name="arkshop-db-reconnect", daemon=True
+    )
+    _db_reconnect_thread.start()
 
 
 def _configure_database(url: str) -> None:
@@ -337,6 +398,9 @@ def _configure_database(url: str) -> None:
     normalized = (url or "").strip()
     if normalized == _ACTIVE_DATABASE_URL:
         return
+
+    # Para o watcher de reconexão da URL anterior (se houver)
+    _db_reconnect_stop.set()
 
     if _SessionLocal is not None:
         _SessionLocal.remove()
@@ -352,15 +416,42 @@ def _configure_database(url: str) -> None:
 
     engine = create_engine(normalized, future=True)
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
-    Base.metadata.create_all(bind=engine)
 
+    # Registra o DB como "configurado" ANTES de create_all.
+    # Assim _db_ready() retorna True mesmo se o MariaDB estiver offline no boot;
+    # as queries falharão com erro de conexão (não "Banco não configurado").
     _ENGINE = engine
     _SessionLocal = session_local
     _ACTIVE_DATABASE_URL = normalized
     _log("db_configured", url=normalized[:40] + "...")
 
+    schema_ok = False
+    try:
+        _migrate_schema(engine)
+        schema_ok = True
+    except Exception as exc:
+        log.warning("DB schema setup falhou (%s): %s — background thread tentará reconectar", normalized[:40], exc)
 
-_configure_database(_resolve_database_url())
+    if not schema_ok:
+        _start_db_reconnect_watcher()
+
+
+# Na inicialização: tenta settings.json primeiro (com descriptografia de senha),
+# depois env var, depois SQLite como fallback.
+_startup_settings = _load_state_settings_snapshot()
+# Descriptografa campos sensíveis manualmente (equivale a _load_settings())
+for _k in _SENSITIVE_SETTINGS_KEYS:
+    if _k in _startup_settings and _startup_settings[_k]:
+        try:
+            _startup_settings[_k] = _decrypt_value(_startup_settings[_k])
+        except Exception:
+            pass
+_startup_url = (
+    _build_database_url_from_settings(_startup_settings)
+    or _DATABASE_URL
+    or f"sqlite:///{Path(__file__).parent / 'orders.db'}"
+)
+_configure_database(_startup_url)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -380,9 +471,25 @@ def _get_db_session():
     return None
 
 
+def _db_is_alive() -> bool:
+    """Testa se o engine consegue abrir uma conexão real (não só se está configurado)."""
+    if _ENGINE is None:
+        return False
+    try:
+        with _ENGINE.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+
 def _require_db():
     if not _db_ready():
-        return jsonify({"ok": False, "error": "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"}), 500
+        return jsonify({
+            "ok": False,
+            "error": "Banco não configurado. Configure as credenciais em Configurações → DB.",
+            "db_offline": True,
+        }), 503
     return None
 
 
@@ -409,7 +516,7 @@ def _load_settings() -> Dict[str, Any]:
         "database_url": "",
         "db_host": "",
         "db_port": 3306,
-        "db_name": "arkshop",
+        "db_name": "arkland_shop",
         "db_user": "",
         "db_password": "",
     }
@@ -1126,13 +1233,34 @@ def delete_player(steam_id: str):
 
 # ── Config routes ─────────────────────────────────────────────────────────────
 
+def _normalize_config_to_web(data: dict) -> dict:
+    """Normaliza config.json (CustomShop: 'Items') para o formato web (ShopItems).
+    Aceita ambos os formatos — não destrói dados já no formato correto.
+    """
+    if "Items" in data and "ShopItems" not in data:
+        data = dict(data)
+        data["ShopItems"] = data.pop("Items")
+    if "Kits" in data and not isinstance(data.get("Kits"), dict):
+        pass  # mantém como está
+    return data
+
+
+def _normalize_config_to_file(data: dict) -> dict:
+    """Normaliza de volta para CustomShop ('ShopItems' -> 'Items') ao salvar."""
+    if "ShopItems" in data and "Items" not in data:
+        data = dict(data)
+        data["Items"] = data.pop("ShopItems")
+    return data
+
+
 @app.route("/api/config", methods=["GET"])
 @admin_required
 def get_config():
     s = _load_settings()
     path = Path(s["config_path"])
     if not path.exists():
-        return jsonify({"error": f"Arquivo não encontrado: {path}"}), 404
+        # Retorna estrutura vazia para o frontend inicializar corretamente
+        return jsonify({"ShopItems": {}, "Kits": {}, "_config_path_missing": str(path)})
     try:
         text_body = path.read_text(encoding="utf-8-sig")
         try:
@@ -1140,6 +1268,8 @@ def get_config():
         except json.JSONDecodeError:
             cleaned = re.sub(r"//[^\n]*", "", text_body)
             data = json.loads(cleaned)
+        # Normaliza Items -> ShopItems para o frontend web
+        data = _normalize_config_to_web(data)
         return jsonify(data)
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
@@ -1151,6 +1281,8 @@ def save_config():
     s = _load_settings()
     path = Path(s["config_path"])
     body = request.get_json(force=True)
+    # Normaliza ShopItems -> Items ao salvar (formato CustomShop)
+    body = _normalize_config_to_file(body)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(body, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -1158,6 +1290,207 @@ def save_config():
         return jsonify({"ok": True})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
+
+
+# ── DB test ───────────────────────────────────────────────────────────────────
+
+@app.route("/api/db/test", methods=["POST"])
+@admin_required
+def test_db_connection():
+    """Testa a conectividade com o banco de dados atual."""
+    if not _db_ready():
+        return jsonify({"ok": False, "error": "Banco não configurado. Preencha as credenciais em Configurações."}), 200
+    try:
+        session = _get_db_session()
+        if session is None:
+            return jsonify({"ok": False, "error": "SessionLocal não inicializado."}), 200
+        result = session.execute(text("SELECT 1")).fetchone()
+        session.close()
+        return jsonify({"ok": True, "info": f"Banco conectado ({_ACTIVE_DATABASE_URL[:30]}...)"})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 200
+
+
+# ── Catalog (público, sem autenticação) ───────────────────────────────────────
+
+@app.route("/api/catalog", methods=["GET"])
+def get_catalog():
+    """Retorna os itens da loja sem autenticação — visível a todos os jogadores."""
+    s = _load_settings()
+    path = Path(s["config_path"])
+    if not path.exists():
+        return jsonify({"items": {}})
+    try:
+        text_body = path.read_text(encoding="utf-8-sig")
+        try:
+            data = json.loads(text_body)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text_body)
+            data = json.loads(cleaned)
+        # Expõe somente os itens (sem configurações sensíveis)
+        items = data.get("Items") or data.get("ShopItems") or {}
+        return jsonify({"items": items})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+# ── Downloads (público + admin CRUD) ─────────────────────────────────────────
+
+_VERSION_JSON = Path(__file__).parent.parent.parent / "version.json"
+
+
+def _get_project_release() -> dict:
+    """Lê version.json e retorna os dados da versão atual do projeto."""
+    try:
+        if _VERSION_JSON.exists():
+            return json.loads(_VERSION_JSON.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
+
+
+def _load_downloads() -> list:
+    """Retorna a lista de links de download do config.json + artefatos do projeto."""
+    # Artefatos automáticos do projeto (lidos do version.json)
+    release = _get_project_release()
+    auto = []
+    if release.get("download_url"):
+        ver = release.get("version", "latest")
+        auto.append({
+            "id":          "arkland_installer",
+            "label":       f"ARKLAND Server Manager v{ver}",
+            "description": "Instalador completo — inclui app desktop, web store integrada e plugin CustomShop.",
+            "url":         release["download_url"],
+            "icon":        "download",
+            "category":    "ARKLAND",
+            "_auto":       True,
+        })
+        # Link direto para a página de releases no GitHub
+        releases_page = release["download_url"].split("/download/")[0].replace("/releases", "") + "/releases"
+        auto.append({
+            "id":          "arkland_releases",
+            "label":       "Todas as Versões (GitHub Releases)",
+            "description": "Histórico completo de releases, changelogs e versões anteriores.",
+            "url":         releases_page,
+            "icon":        "github",
+            "category":    "ARKLAND",
+            "_auto":       True,
+        })
+
+    # Links configurados manualmente no config.json
+    s = _load_settings()
+    path = Path(s["config_path"])
+    manual = []
+    if path.exists():
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                cleaned = re.sub(r"//[^\n]*", "", text)
+                data = json.loads(cleaned)
+            manual = [d for d in (data.get("Downloads") or []) if not d.get("_auto")]
+        except Exception:
+            pass
+
+    return auto + manual
+
+
+def _save_downloads(downloads: list) -> None:
+    """Persiste a lista de downloads no config.json."""
+    s = _load_settings()
+    path = Path(s["config_path"])
+    if not path.exists():
+        return
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text)
+            data = json.loads(cleaned)
+        data["Downloads"] = downloads
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        log.error("Erro ao salvar downloads: %s", exc)
+
+
+@app.route("/api/downloads", methods=["GET"])
+def get_downloads():
+    """Retorna links de download (público)."""
+    return jsonify({"ok": True, "downloads": _load_downloads()})
+
+
+@app.route("/api/downloads", methods=["POST"])
+@admin_required
+def create_download():
+    """Cria um novo link de download."""
+    body = request.get_json(force=True, silent=True) or {}
+    label = str(body.get("label", "")).strip()
+    url   = str(body.get("url",   "")).strip()
+    if not label or not url:
+        return jsonify({"ok": False, "error": "label e url são obrigatórios"}), 400
+    import uuid as _uuid
+    entry = {
+        "id":          body.get("id") or _uuid.uuid4().hex[:8],
+        "label":       label,
+        "description": str(body.get("description", "")).strip(),
+        "url":         url,
+        "icon":        str(body.get("icon", "link")).strip() or "link",
+        "category":    str(body.get("category", "Geral")).strip() or "Geral",
+    }
+    downloads = _load_downloads()
+    # Garante que o id é único
+    existing_ids = {d.get("id") for d in downloads}
+    while entry["id"] in existing_ids:
+        entry["id"] = _uuid.uuid4().hex[:8]
+    downloads.append(entry)
+    _save_downloads(downloads)
+    _log("download_created", id=entry["id"], label=label, admin=_steam_id_from_session())
+    return jsonify({"ok": True, "download": entry})
+
+
+@app.route("/api/downloads/<dl_id>", methods=["PUT"])
+@admin_required
+def update_download(dl_id: str):
+    """Atualiza um link de download existente."""
+    body = request.get_json(force=True, silent=True) or {}
+    downloads = _load_downloads()
+    for i, d in enumerate(downloads):
+        if d.get("id") == dl_id:
+            downloads[i] = {
+                "id":          dl_id,
+                "label":       str(body.get("label", d.get("label", ""))).strip(),
+                "description": str(body.get("description", d.get("description", ""))).strip(),
+                "url":         str(body.get("url", d.get("url", ""))).strip(),
+                "icon":        str(body.get("icon", d.get("icon", "link"))).strip() or "link",
+                "category":    str(body.get("category", d.get("category", "Geral"))).strip() or "Geral",
+            }
+            _save_downloads(downloads)
+            _log("download_updated", id=dl_id, admin=_steam_id_from_session())
+            return jsonify({"ok": True, "download": downloads[i]})
+    return jsonify({"ok": False, "error": "Download não encontrado"}), 404
+
+
+@app.route("/api/downloads/<dl_id>", methods=["DELETE"])
+@admin_required
+def delete_download(dl_id: str):
+    """Remove um link de download."""
+    downloads = _load_downloads()
+    new_list = [d for d in downloads if d.get("id") != dl_id]
+    if len(new_list) == len(downloads):
+        return jsonify({"ok": False, "error": "Download não encontrado"}), 404
+    _save_downloads(new_list)
+    _log("download_deleted", id=dl_id, admin=_steam_id_from_session())
+    return jsonify({"ok": True})
+
+
+# ── Versão / release info (público) ──────────────────────────────────────────
+
+@app.route("/api/version", methods=["GET"])
+def get_version():
+    """Retorna a versão atual do projeto e o link de download do instalador."""
+    return jsonify(_get_project_release())
 
 
 # ── RCON routes ───────────────────────────────────────────────────────────────
@@ -1270,8 +1603,23 @@ def player_purchase():
             _used_idempotency_keys.pop(idempotency_key, None)
         return jsonify({"ok": False, "error": error}), 400
     assert order is not None
+
+    # Deduz pontos do jogador após pedido criado com sucesso
+    if price > 0:
+        try:
+            db = _SessionLocal()
+            db.execute(
+                text("UPDATE players SET points = GREATEST(0, points - :price) WHERE steam_id = :sid"),
+                {"price": price, "sid": str(steam_id)},
+            )
+            db.commit()
+            db.close()
+        except Exception as _pts_err:
+            _log_error("debit_points", steam_id=str(steam_id), price=price, error=str(_pts_err))
+
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
+    result["new_balance"] = _get_player_points(str(steam_id))
     _log("purchase_ok", steam_id=str(steam_id), item_id=item_id,
          order_id=order.order_id, idempotency_key=idempotency_key or "none")
     return jsonify(result), 200 if result.get("ok") else 500
@@ -1309,6 +1657,14 @@ def player_summary():
                 "contested": contested,
             },
         })
+    except Exception as exc:
+        _log_error("player_summary", steam_id=steam_id, error=str(exc))
+        err_str = str(exc)
+        if "10061" in err_str or "Can't connect" in err_str or "Connection refused" in err_str:
+            msg = "Banco de dados temporariamente offline. Aguarde alguns segundos e recarregue a página."
+        else:
+            msg = f"Erro ao consultar banco: {exc}"
+        return jsonify({"ok": False, "error": msg, "db_offline": "10061" in err_str}), 503
     finally:
         db.close()
 
@@ -1352,6 +1708,9 @@ def player_history():
                 ],
             }
         )
+    except Exception as exc:
+        _log_error("player_history", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao consultar histórico: {exc}"}), 500
     finally:
         db.close()
 
@@ -1418,6 +1777,9 @@ def player_order_detail(order_id: str):
                 ],
             }
         )
+    except Exception as exc:
+        _log_error("player_order_detail", order_id=order_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao carregar pedido: {exc}"}), 500
     finally:
         db.close()
 
@@ -1446,6 +1808,9 @@ def player_contest(order_id: str):
         db.commit()
         _log("order_contested", order_id=order_id, steam_id=steam_id)
         return jsonify({"ok": True, "status": order.status})
+    except Exception as exc:
+        _log_error("player_contest", order_id=order_id, steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao contestar pedido: {exc}"}), 500
     finally:
         db.close()
 
@@ -1485,6 +1850,9 @@ def player_rebuy(order_id: str):
         db.refresh(new_order)
         new_order_id = new_order.order_id
         _log("order_rebuy", original_order_id=order_id, new_order_id=new_order_id, steam_id=steam_id)
+    except Exception as exc:
+        _log_error("player_rebuy", order_id=order_id, steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao recomprar pedido: {exc}"}), 500
     finally:
         db.close()
 
@@ -1516,6 +1884,9 @@ def admin_retry_pending():
             .all()
         )
         order_ids = [o.order_id for o in pending]
+    except Exception as exc:
+        _log_error("admin_retry_pending", error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao buscar pedidos pendentes: {exc}"}), 500
     finally:
         db.close()
 
@@ -1558,6 +1929,9 @@ def admin_list_orders():
                 ],
             }
         )
+    except Exception as exc:
+        _log_error("admin_list_orders", error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao listar pedidos: {exc}"}), 500
     finally:
         db.close()
 

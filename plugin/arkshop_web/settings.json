@@ -1,0 +1,16 @@
+{
+  "config_path": "C:\\Users\\Ciano\\Documents\\arkland-multi\\plugin\\CustomShop\\configs\\config.json",
+  "rcon_host": "127.0.0.1",
+  "rcon_port": 27020,
+  "rcon_password": "",
+  "delivery_command_template": "Shop.Deliver {steam_id} {item_id} {amount}",
+  "delivery_mode": "plugin",
+  "server_id": "default",
+  "retry_max_attempts": 10,
+  "database_url": "",
+  "db_host": "127.0.0.1",
+  "db_port": 3306,
+  "db_name": "arkland_shop",
+  "db_user": "arkland",
+  "db_password": "123456"
+}

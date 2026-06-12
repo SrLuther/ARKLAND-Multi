@@ -157,6 +157,8 @@ class ARKServerManagerApp(ctk.CTk):
         # Auto-start: sync e agente remoto (após janela renderizar)
         self.after(500, self._auto_start_services)
         self.after(600, self._asm_scan_running_servers)
+        # Auto-start: Web Store (aguarda 3s para o app estar totalmente pronto)
+        self.after(3000, self._auto_start_webstore)
         # B2: tick de indicadores ricos de status (a cada 30s)
         self.after(30_000, self._asm_status_tick)
 
@@ -329,6 +331,17 @@ class ARKServerManagerApp(ctk.CTk):
         if getattr(cfg, "remote_agent_enabled", False):
             self._start_remote_agent()
 
+    def _auto_start_webstore(self) -> None:
+        """Inicia a Web Store automaticamente no boot, sem precisar abrir a aba da Loja."""
+        import logging as _log2
+        try:
+            from .pages.customshop_panel import auto_start_webstore
+            auto_start_webstore(self)
+        except Exception as _exc:
+            _log2.getLogger(__name__).warning(
+                "auto_start_webstore error: %s", _exc, exc_info=True
+            )
+
     # ─────────────────────────────────────────────────────────────────────────
     # Preferências de UI (persistência do tema)
     # ─────────────────────────────────────────────────────────────────────────
@@ -411,30 +424,32 @@ class ARKServerManagerApp(ctk.CTk):
 
         # ── Logo / Título ─────────────────────────────────────────────────────
         logo_f = ctk.CTkFrame(sb, fg_color="transparent")
-        logo_f.grid(row=0, column=0, padx=20, pady=(20, 0), sticky="ew")
+        logo_f.grid(row=0, column=0, padx=16, pady=(20, 0), sticky="ew")
         logo_f.grid_columnconfigure(1, weight=1)
 
         logo_loaded = False
         try:
             from PIL import Image  # type: ignore[reportMissingImports]
             _img = Image.open(_resource_path(os.path.join("ig", "ark_manager.png")))
-            _logo_ctk = ctk.CTkImage(light_image=_img, dark_image=_img, size=(66, 44))
-            ctk.CTkLabel(logo_f, image=_logo_ctk, text="").grid(row=0, column=0, rowspan=2, padx=(0, 12))
+            _logo_ctk = ctk.CTkImage(light_image=_img, dark_image=_img, size=(54, 36))
+            ctk.CTkLabel(logo_f, image=_logo_ctk, text="").grid(row=0, column=0, rowspan=2, padx=(0, 10))
             logo_loaded = True
         except Exception:
             pass
 
         title_col = 1 if logo_loaded else 0
         ctk.CTkLabel(
-            logo_f, text="ARK Manager",
-            font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+            logo_f, text="ARKLAND",
+            font=ctk.CTkFont(family="Segoe UI", size=17, weight="bold"),
             text_color=accent,
-        ).grid(row=0, column=title_col, sticky="w")
+            anchor="w",
+        ).grid(row=0, column=title_col, sticky="ew")
         ctk.CTkLabel(
-            logo_f, text="Command Center",
-            font=ctk.CTkFont(family="Segoe UI", size=10),
+            logo_f, text="Server Manager",
+            font=ctk.CTkFont(family="Segoe UI", size=9),
             text_color=t_muted,
-        ).grid(row=1, column=title_col, sticky="w")
+            anchor="w",
+        ).grid(row=1, column=title_col, sticky="ew")
 
         # ── Separador ────────────────────────────────────────────────────────
         ctk.CTkFrame(sb, height=1, fg_color=sep_col).grid(

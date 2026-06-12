@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.1] - 2026-06-12
+
+### Feature
+
+- Novo (WebStore — Downloads): página pública de Downloads e painel admin 'Gerenciar Links' — links manuais via config.json + injeção automática do instalador e GitHub Releases a partir do version.json.
+- Novo (WebStore — /api/version): endpoint público que expõe versão, data e URL de download atual do projeto.
+
+### Fix
+
+- Fix (Sidebar): título 'ARK Manager' cortado na barra lateral — renomeado para 'ARKLAND / Server Manager', logo reduzida (54×36 px), padding ajustado e sidebar ampliada para 240 px; nenhum texto é truncado.
+- Fix (WebStore — Catálogo): nomes de produtos exibidos como ID interno — campo Name adicionado ao config.json; fallback formatKey() converte 'metal_ingot_100' → 'Metal Ingot 100' automaticamente.
+- Fix (WebStore — DB): MariaDB não iniciava antes do Flask em reinicializações — _ensure_mariadb_running() aguarda porta ativa antes de subir o processo Flask; _start_db_reconnect_watcher() reativa a conexão em background.
+- Fix (WebStore — Visual): redesign 'Primitive+TEK' — paleta âmbar/fogo, textura de pedra no fundo, logo em medallion com fundo branco visível, acentos ciano substituídos por âmbar em nav, botões, cards e modais.
+
 ## [1.8.0] - 2026-06-11
 
 ### Feature

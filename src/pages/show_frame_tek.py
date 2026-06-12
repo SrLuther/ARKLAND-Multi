@@ -24,6 +24,9 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
     elif name == "shop":
         from .customshop_panel import build_customshop_panel
         build_customshop_panel(app, frame)
+    elif name == "database":
+        from .db_manager_panel import build_db_manager_panel
+        build_db_manager_panel(app, frame)
     elif name == "sync":
         from .build_sync_panel import build_sync_panel
         build_sync_panel(app, frame)
@@ -62,7 +65,7 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
     srv = kwargs.get("srv")
     cache_key = f"server_{srv.id}" if srv else name
 
-    _static_nav = ("dashboard", "shop", "crashes", "settings", "about")
+    _static_nav = ("dashboard", "shop", "database", "crashes", "settings", "about")
     app._set_nav_active(name if name in _static_nav else "")
 
     # ── Oculta frame corrente (preserva no cache) ─────────────────────────

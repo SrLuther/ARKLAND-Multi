@@ -2,8 +2,7 @@
   "_comment": "CustomShop plugin config — deploy to: ArkApi/Plugins/CustomShop/config.json",
 
   "Settings": {
-    "ShopName":              "ARKLAND Shop",
-    "UiKey":                 "F3",
+    "ShopName":              "ARKLAND DONATIONS",
     "StartingPoints":        100,
     "DisableSellButton":     true,
     "DisableTradeButton":    false,
@@ -20,49 +19,59 @@
 
   "Items": {
     "metal_ingot_100": {
+      "Name":           "Metal Ingot x100",
       "Type":           "item",
       "Price":          10,
-      "Description":    "100x Metal Ingot",
+      "Description":    "100 unidades de Metal Ingot para forja e construção.",
       "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
       "Quantity":       100,
       "Quality":        0.0,
-      "ForceBlueprint": false
+      "ForceBlueprint": false,
+      "Category":       "Recursos"
     },
     "cementing_paste_50": {
+      "Name":           "Cementing Paste x50",
       "Type":           "item",
       "Price":          15,
-      "Description":    "50x Cementing Paste",
+      "Description":    "50 unidades de Cementing Paste essencial para construções avançadas.",
       "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
       "Quantity":       50,
       "Quality":        0.0,
-      "ForceBlueprint": false
+      "ForceBlueprint": false,
+      "Category":       "Recursos"
     },
     "polymer_30": {
+      "Name":           "Polymer x30",
       "Type":           "item",
       "Price":          25,
-      "Description":    "30x Polymer",
+      "Description":    "30 unidades de Polymer para crafts de alto nível.",
       "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer.PrimalItemResource_Polymer",
       "Quantity":       30,
       "Quality":        0.0,
-      "ForceBlueprint": false
+      "ForceBlueprint": false,
+      "Category":       "Recursos"
     },
     "rex_saddle_q80": {
+      "Name":           "Rex Saddle Q80",
       "Type":           "item",
       "Price":          500,
-      "Description":    "Rex Saddle (Quality 80)",
+      "Description":    "Sela de Rex com qualidade 80. Armadura excelente para seu T-Rex.",
       "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle",
       "Quantity":       1,
       "Quality":        80.0,
-      "ForceBlueprint": false
+      "ForceBlueprint": false,
+      "Category":       "Selas"
     },
     "ascendant_pike_bp": {
+      "Name":           "Pike Ascendente (BP)",
       "Type":           "item",
       "Price":          1200,
-      "Description":    "Ascendant Pike Blueprint",
+      "Description":    "Blueprint Ascendente de Lança — craft sua própria arma de elite.",
       "Blueprint":      "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponSpear.PrimalItem_WeaponSpear",
       "Quantity":       1,
       "Quality":        100.0,
-      "ForceBlueprint": true
+      "ForceBlueprint": true,
+      "Category":       "Armas"
     }
   },
 
@@ -122,12 +131,39 @@
     }
   },
 
+  "Downloads": [
+    {
+      "id":          "discord",
+      "label":       "Discord ARKLAND",
+      "description": "Entre no nosso servidor Discord para suporte, eventos e novidades.",
+      "url":         "https://discord.gg/",
+      "icon":        "discord",
+      "category":    "Comunidade"
+    },
+    {
+      "id":          "mods_collection",
+      "label":       "Coleção de Mods (Steam Workshop)",
+      "description": "Assine a coleção completa de mods necessários para jogar no ARKLAND.",
+      "url":         "https://steamcommunity.com/sharedfiles/filedetails/?id=",
+      "icon":        "steam",
+      "category":    "Mods"
+    },
+    {
+      "id":          "connect_guide",
+      "label":       "Como Conectar ao Servidor",
+      "description": "Guia passo a passo para entrar no ARKLAND pela primeira vez.",
+      "url":         "https://discord.gg/",
+      "icon":        "website",
+      "category":    "Comunidade"
+    }
+  ],
+
   "Database": {
     "_comment":  "MySQL Connector/C — libmysql.dll must be in the same folder as CustomShop.dll",
     "Host":      "127.0.0.1",
     "Port":      3306,
     "User":      "arkland",
-    "Password":  "changeme",
+    "Password":  "123456",
     "Database":  "arkland_shop"
   }
 }

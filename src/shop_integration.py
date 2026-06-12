@@ -239,18 +239,45 @@ def resolve_central_url(shop: "ShopGlobalConfig") -> str:
     return f"http://{host}:{port}"
 
 
+def _db_manager_prefs() -> dict:
+    """Lê as credenciais salvas pelo DB Manager como fallback."""
+    try:
+        import os, json as _json
+        appdata = os.environ.get("APPDATA", "")
+        prefs_file = Path(appdata) / "ARKLAND-ServerManager" / "db_server_prefs.json"
+        if prefs_file.exists():
+            raw = _json.loads(prefs_file.read_text(encoding="utf-8"))
+            return raw.get("last_connection", {})
+    except Exception:
+        pass
+    return {}
+
+
 def build_orders_database_url(shop: "ShopGlobalConfig") -> str:
     explicit = (shop.orders_db_url or "").strip()
     if explicit:
         return explicit
-    host = (shop.orders_db_host or "127.0.0.1").strip()
-    port = int(shop.orders_db_port or 3306)
-    name = (shop.orders_db_name or "arkshop").strip()
-    user = (shop.orders_db_user or "").strip()
+    host     = (shop.orders_db_host or "").strip()
+    port     = int(shop.orders_db_port or 3306)
+    name     = (shop.orders_db_name or "").strip()
+    user     = (shop.orders_db_user or "").strip()
     password = (shop.orders_db_password or "").strip()
+
+    # Fallback: usa credenciais do DB Manager se os campos da loja estiverem vazios
+    if not user:
+        prefs = _db_manager_prefs()
+        host     = host     or prefs.get("host", "127.0.0.1")
+        port     = port     or int(prefs.get("port", 3306))
+        name     = name     or prefs.get("database", "arkland_shop")
+        user     = prefs.get("user", "")
+        password = password or prefs.get("password", "")
+
+    name = name or "arkland_shop"
     if user:
-        auth = f"{user}:{password}@" if password else f"{user}@"
-        return f"mysql+pymysql://{auth}{host}:{port}/{name}"
+        import urllib.parse
+        u = urllib.parse.quote_plus(user)
+        p = urllib.parse.quote_plus(password)
+        return f"mysql+pymysql://{u}:{p}@{host}:{port}/{name}?charset=utf8mb4"
     return f"sqlite:///{_ARKSHOP_WEB_DIR / 'orders.db'}"
 
 

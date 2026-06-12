@@ -833,6 +833,7 @@ _ADMIN_FILE   = _WEBSTORE_DIR / "admin_steamids.json"
 _SETTINGS_FILE = _WEBSTORE_DIR / "settings.json"
 
 _web_process: Optional[subprocess.Popen] = None  # type: ignore[type-arg]
+_web_log_fh: Optional[Any] = None  # mantido em módulo para evitar GC prematuro
 
 
 def _load_webstore_settings() -> Dict[str, Any]:
@@ -863,6 +864,78 @@ def _save_admin_ids(ids: list[str]) -> None:
 def _is_web_running() -> bool:
     global _web_process
     return _web_process is not None and _web_process.poll() is None
+
+
+def _ensure_mariadb_running(timeout: int = 45) -> bool:
+    """Garante que o MariaDB local está rodando. Retorna True se online ao final."""
+    import socket as _socket
+    import time as _time
+
+    def _port_up() -> bool:
+        try:
+            with _socket.create_connection(("127.0.0.1", 3306), timeout=1):
+                return True
+        except OSError:
+            return False
+
+    # Se a porta já está respondendo, não precisa fazer nada
+    if _port_up():
+        return True
+
+    # Tenta iniciar o servidor MariaDB portable
+    try:
+        from src.pages.db_local_server import DbLocalServer
+        srv = DbLocalServer()
+        if not srv.is_installed():
+            # MariaDB não está instalado — a loja usará SQLite
+            return False
+        if not srv.is_running():
+            import logging as _log2
+            _log2.getLogger(__name__).info("auto_start_webstore: MariaDB não está rodando, iniciando…")
+            ok, msg = srv.start()
+            _log2.getLogger(__name__).info("auto_start_webstore: MariaDB start → %s (%s)", ok, msg)
+    except Exception as exc:
+        import logging as _log2
+        _log2.getLogger(__name__).warning("auto_start_webstore: não foi possível iniciar MariaDB: %s", exc)
+        return False
+
+    # Aguarda a porta subir (até `timeout` segundos)
+    deadline = _time.time() + timeout
+    while _time.time() < deadline:
+        if _port_up():
+            return True
+        _time.sleep(0.8)
+    return False
+
+
+def auto_start_webstore(app: "ARKServerManagerApp") -> None:
+    """Inicia a Web Store automaticamente no boot do app, sem precisar abrir a aba da Loja."""
+    global _web_process, _web_log_fh
+    if _is_web_running():
+        return
+    shop = app.config_manager.config.shop
+    if (shop.mode or "host") != "host":
+        return
+
+    def _launch() -> None:
+        global _web_process, _web_log_fh
+        # Passo 1: garante que o MariaDB está rodando antes de iniciar o Flask
+        _ensure_mariadb_running(timeout=45)
+        # Passo 2: inicia o processo Flask
+        env = get_shop_subprocess_env(shop)
+        _log_path = _WEBSTORE_DIR / "webstore.log"
+        _WEBSTORE_DIR.mkdir(parents=True, exist_ok=True)
+        _web_log_fh = open(_log_path, "a", encoding="utf-8")  # noqa: WPS515
+        _web_process = subprocess.Popen(
+            [sys.executable, str(_WEBSTORE_DIR / "app.py")],
+            cwd=str(_WEBSTORE_DIR),
+            env=env,
+            stdout=_web_log_fh,
+            stderr=_web_log_fh,
+        )
+
+    # Roda em thread para não bloquear a UI durante o wait do MariaDB
+    threading.Thread(target=_launch, daemon=True, name="WebStoreLauncher").start()
 
 
 def _build_webstore_tab(
@@ -1003,18 +1076,21 @@ def _build_webstore_tab(
         )
 
     def _start_web() -> None:
-        global _web_process
+        global _web_process, _web_log_fh
         if _mode_var.get() != "host" or _is_web_running():
             return
         _save_shop_from_ui()
         collect_catalog()
         env = get_shop_subprocess_env(shop)
+        _log_path = _WEBSTORE_DIR / "webstore.log"
+        _WEBSTORE_DIR.mkdir(parents=True, exist_ok=True)
+        _web_log_fh = open(_log_path, "a", encoding="utf-8")  # noqa: WPS515
         _web_process = subprocess.Popen(
             [sys.executable, str(_WEBSTORE_DIR / "app.py")],
             cwd=str(_WEBSTORE_DIR),
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=_web_log_fh,
+            stderr=_web_log_fh,
         )
         parent.after(900, _refresh_status)
 
@@ -1046,14 +1122,18 @@ def _build_webstore_tab(
     card_db.pack(fill="x", padx=12, pady=6)
     _head(card_db, "🗄️  Banco de Pedidos (arkshop_web)")
 
+    # Fallback: pré-preenche com credenciais do DB Manager se os campos estiverem vazios
+    from src.shop_integration import _db_manager_prefs
+    _dbm = _db_manager_prefs() if not shop.orders_db_user else {}
+
     _orders_url_var = tk.StringVar(value=shop.orders_db_url or "")
     _field_row(card_db, "URL completa (opcional)", _orders_url_var, bg=_INNER,
                hint="sqlite:///... ou mysql+pymysql://user:pass@host/db", width=360)
-    _odb_host = tk.StringVar(value=shop.orders_db_host or "127.0.0.1")
-    _odb_port = tk.StringVar(value=str(shop.orders_db_port or 3306))
-    _odb_name = tk.StringVar(value=shop.orders_db_name or "arkshop")
-    _odb_user = tk.StringVar(value=shop.orders_db_user or "")
-    _odb_pass = tk.StringVar(value=shop.orders_db_password or "")
+    _odb_host = tk.StringVar(value=shop.orders_db_host or _dbm.get("host", "127.0.0.1"))
+    _odb_port = tk.StringVar(value=str(shop.orders_db_port or _dbm.get("port", 3306)))
+    _odb_name = tk.StringVar(value=shop.orders_db_name or _dbm.get("database", "arkland_shop"))
+    _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
+    _odb_pass = tk.StringVar(value=shop.orders_db_password or _dbm.get("password", ""))
     _field_row(card_db, "MySQL Host (LAN)", _odb_host, bg=_INNER,
                hint="Use o IP da máquina host para clientes na rede", width=200)
     _field_row(card_db, "Porta", _odb_port, bg=_INNER, width=80)
@@ -1201,6 +1281,144 @@ def _build_webstore_tab(
     ctk.CTkButton(card_admins, text="💾  Salvar Admins",
                   height=32, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                   command=_save_admins).pack(anchor="w", padx=10, pady=(0, 10))
+
+    # ── Links de Download ──────────────────────────────────────────────────
+    card_dl = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
+    card_dl.pack(fill="x", padx=12, pady=6)
+    _head(card_dl, "⬇️  Links de Download (visíveis na web store)")
+
+    tk.Label(card_dl,
+             text="Adicione links que aparecem na aba 'Downloads' da loja web para os jogadores.",
+             bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10)).pack(anchor="w", padx=10, pady=(0, 4))
+
+    dl_list_frame = tk.Frame(card_dl, bg=_INNER)
+    dl_list_frame.pack(fill="x", padx=10, pady=(0, 4))
+
+    _dl_rows: list[dict] = []
+
+    def _load_dl_from_config() -> None:
+        """Lê Downloads do config.json."""
+        try:
+            import json as _json
+            p = Path(_CONFIG_PATH())
+            if p.exists():
+                d = _json.loads(p.read_text(encoding="utf-8-sig"))
+                return d.get("Downloads") or []
+        except Exception:
+            pass
+        return []
+
+    def _CONFIG_PATH() -> str:
+        from src.shop_integration import default_customshop_path
+        return default_customshop_path(None)
+
+    def _refresh_dl_list() -> None:
+        for w in dl_list_frame.winfo_children():
+            w.destroy()
+        for i, dl in enumerate(_dl_rows):
+            row = tk.Frame(dl_list_frame, bg=_INNER)
+            row.pack(fill="x", pady=2)
+            tk.Label(row, text=dl.get("label", "—"), bg=_INNER, fg="#d4c8a8",
+                     font=ctk.CTkFont(size=11, weight="bold"), width=20, anchor="w").pack(side="left")
+            tk.Label(row, text=dl.get("category", ""), bg=_INNER, fg="gray50",
+                     font=ctk.CTkFont(size=10), width=12, anchor="w").pack(side="left")
+            tk.Label(row, text=dl.get("url", "")[:50], bg=_INNER, fg="#7a6848",
+                     font=ctk.CTkFont(family="Courier New", size=9), anchor="w").pack(side="left", fill="x", expand=True)
+            ctk.CTkButton(row, text="✏️", width=28, height=22,
+                          fg_color="transparent", hover_color="#1a1508",
+                          command=lambda idx=i: _edit_dl(idx)).pack(side="right", padx=2)
+            ctk.CTkButton(row, text="🗑", width=28, height=22,
+                          fg_color="transparent", hover_color="#2a0a0a",
+                          command=lambda idx=i: _del_dl(idx)).pack(side="right")
+
+    def _save_downloads_to_config() -> None:
+        try:
+            import json as _json
+            p = Path(_CONFIG_PATH())
+            if not p.exists():
+                return
+            d = _json.loads(p.read_text(encoding="utf-8-sig"))
+            d["Downloads"] = _dl_rows
+            p.write_text(_json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+        except Exception as exc:
+            messagebox.showerror("Erro", f"Não foi possível salvar downloads:\n{exc}")
+
+    def _del_dl(idx: int) -> None:
+        _dl_rows.pop(idx)
+        _refresh_dl_list()
+        _save_downloads_to_config()
+
+    def _edit_dl(idx: int) -> None:
+        _open_dl_dialog(idx)
+
+    def _open_dl_dialog(idx: int | None = None) -> None:
+        dl = _dl_rows[idx] if idx is not None else {}
+        dlg = tk.Toplevel(card_dl)
+        dlg.title("Link de Download")
+        dlg.configure(bg="#0d0a06")
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        fields = {}
+        for label, key, default, w in [
+            ("Label *", "label", "", 280),
+            ("URL *", "url", "https://", 360),
+            ("Descrição", "description", "", 360),
+            ("Categoria", "category", "Geral", 160),
+            ("Ícone", "icon", "link", 120),
+        ]:
+            r = tk.Frame(dlg, bg="#0d0a06")
+            r.pack(fill="x", padx=16, pady=4)
+            tk.Label(r, text=label, bg="#0d0a06", fg="#d4c8a8",
+                     font=ctk.CTkFont(size=11), width=12, anchor="w").pack(side="left")
+            var = tk.StringVar(value=dl.get(key, default))
+            fields[key] = var
+            tk.Entry(r, textvariable=var, bg="#131008", fg="#d4c8a8",
+                     insertbackground="white", relief="flat",
+                     font=ctk.CTkFont(size=11), width=w // 8).pack(side="left", padx=4)
+
+        tk.Label(dlg, text="Ícones: discord, steam, download, link, youtube, twitch, mod, tool, map, patch, website",
+                 bg="#0d0a06", fg="gray45", font=ctk.CTkFont(size=9)).pack(padx=16, pady=(0, 8))
+
+        def _confirm():
+            label_v = fields["label"].get().strip()
+            url_v   = fields["url"].get().strip()
+            if not label_v or not url_v:
+                messagebox.showwarning("Atenção", "Label e URL são obrigatórios.", parent=dlg)
+                return
+            import uuid as _uuid
+            entry = {
+                "id":          dl.get("id") or _uuid.uuid4().hex[:8],
+                "label":       label_v,
+                "url":         url_v,
+                "description": fields["description"].get().strip(),
+                "category":    fields["category"].get().strip() or "Geral",
+                "icon":        fields["icon"].get().strip() or "link",
+            }
+            if idx is not None:
+                _dl_rows[idx] = entry
+            else:
+                _dl_rows.append(entry)
+            _refresh_dl_list()
+            _save_downloads_to_config()
+            dlg.destroy()
+
+        btn_row = tk.Frame(dlg, bg="#0d0a06")
+        btn_row.pack(fill="x", padx=16, pady=10)
+        ctk.CTkButton(btn_row, text="Salvar", fg_color="#923c0a", hover_color="#e87820",
+                      command=_confirm).pack(side="right", padx=4)
+        ctk.CTkButton(btn_row, text="Cancelar", fg_color="transparent",
+                      command=dlg.destroy).pack(side="right")
+
+    # Carrega downloads do config
+    _dl_rows.extend(_load_dl_from_config())
+    _refresh_dl_list()
+
+    btn_dl_row = tk.Frame(card_dl, bg=_INNER)
+    btn_dl_row.pack(fill="x", padx=10, pady=(4, 10))
+    ctk.CTkButton(btn_dl_row, text="➕  Novo Link",
+                  height=30, fg_color="#923c0a", hover_color="#e87820",
+                  command=lambda: _open_dl_dialog()).pack(side="left")
 
     _refresh_status()
 

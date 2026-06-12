@@ -201,6 +201,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(500, self._auto_start_sync)
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
+        self.after(3000, self._auto_start_webstore)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -485,6 +486,14 @@ class ARKServerManagerApp(ctk.CTk):
     def _auto_start_sync(self) -> None:
         if self.config_manager.config.auto_start:
             self._start_sync_engine()
+
+    def _auto_start_webstore(self) -> None:
+        import logging as _log2
+        try:
+            from .pages.customshop_panel import auto_start_webstore
+            auto_start_webstore(self)
+        except Exception as _exc:
+            _log2.getLogger(__name__).warning("auto_start_webstore error: %s", _exc, exc_info=True)
 
     def _start_sync_engine(self) -> None:
         if self._sync_engine is None:

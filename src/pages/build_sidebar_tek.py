@@ -14,28 +14,30 @@ except ImportError:
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 
-_SIDEBAR_W = 220
+_SIDEBAR_W = 240
 
 
 def _build_sidebar_tek_logo(app, sb, accent: str, t_muted: str) -> None:
     logo_f = ctk.CTkFrame(sb, fg_color="transparent")
-    logo_f.grid(row=0, column=0, padx=20, pady=(20, 0), sticky="ew")
+    logo_f.grid(row=0, column=0, padx=16, pady=(20, 0), sticky="ew")
     logo_f.grid_columnconfigure(1, weight=1)
     logo_loaded = False
     try:
         _img = _PILImage.open(_resource_path(os.path.join("ig", "ark_manager.png")))
-        _logo_ctk = ctk.CTkImage(light_image=_img, dark_image=_img, size=(66, 44))
-        ctk.CTkLabel(logo_f, image=_logo_ctk, text="").grid(row=0, column=0, rowspan=2, padx=(0, 12))
+        _logo_ctk = ctk.CTkImage(light_image=_img, dark_image=_img, size=(54, 36))
+        ctk.CTkLabel(logo_f, image=_logo_ctk, text="").grid(row=0, column=0, rowspan=2, padx=(0, 10))
         logo_loaded = True
     except Exception:
         pass
     col = 1 if logo_loaded else 0
-    ctk.CTkLabel(logo_f, text="ARK Manager",
-                 font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
-                 text_color=accent).grid(row=0, column=col, sticky="w")
-    ctk.CTkLabel(logo_f, text="Command Center",
-                 font=ctk.CTkFont(family="Segoe UI", size=10),
-                 text_color=t_muted).grid(row=1, column=col, sticky="w")
+    ctk.CTkLabel(logo_f, text="ARKLAND",
+                 font=ctk.CTkFont(family="Segoe UI", size=17, weight="bold"),
+                 text_color=accent,
+                 anchor="w").grid(row=0, column=col, sticky="ew")
+    ctk.CTkLabel(logo_f, text="Server Manager",
+                 font=ctk.CTkFont(family="Segoe UI", size=9),
+                 text_color=t_muted,
+                 anchor="w").grid(row=1, column=col, sticky="ew")
 
 
 def _build_sidebar_tek_nav(app, sb, theme: dict, accent: str,
@@ -45,6 +47,7 @@ def _build_sidebar_tek_nav(app, sb, theme: dict, accent: str,
     nav_items = [
         ("⊞",  "dashboard",   "Dashboard"),
         ("🛒", "shop",        "Loja"),
+        ("🗄", "database",   "Banco de Dados"),
         ("🔄", "sync",        "Sincronização"),
         ("⚡", "buffs",       "BUFFs"),
         ("📊", "desempenho",  "Desempenho"),
