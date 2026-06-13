@@ -154,12 +154,12 @@ class ARKServerManagerApp(ctk.CTk):
         self._show_frame("dashboard")
         # Watermark de fundo (aplicado após conteúdo existir)
         self.after(150, self._setup_bg_watermark)
-        # Auto-start: sync e agente remoto (após janela renderizar)
-        self.after(500, self._auto_start_services)
-        self.after(600, self._asm_scan_running_servers)
-        # Auto-start: Web Store (aguarda 3s para o app estar totalmente pronto)
-        self.after(3000, self._auto_start_webstore)
-        # B2: tick de indicadores ricos de status (a cada 30s)
+        # Auto-start: sync e agente remoto (após UI estável)
+        self.after(2000, self._auto_start_services)
+        self.after(2500, self._asm_scan_running_servers)
+        # Auto-start: Web Store (após painel estável)
+        self.after(5000, self._auto_start_webstore)
+        # B2: tick de indicadores ricos de status
         self.after(30_000, self._asm_status_tick)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -241,8 +241,13 @@ class ARKServerManagerApp(ctk.CTk):
 
         threading.Thread(target=_worker, daemon=True).start()
 
-        # Reagenda
-        self.after(30_000, self._asm_status_tick)
+        # Reagenda — 60s se janela minimizada/inativa
+        try:
+            inactive = self.state() == "iconic" or not self.winfo_viewable()
+        except Exception:
+            inactive = False
+        interval = 60_000 if inactive else 30_000
+        self.after(interval, self._asm_status_tick)
 
     def _on_server_status_change(self, server_id: str, new_status: str) -> None:
         """Chamado pela thread do monitor quando o status de um servidor muda."""
@@ -547,7 +552,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(60_000, self._asm_scheduler_tick)
 
         # Popula lista de servidores
-        self._rebuild_server_sidebar()
+        self._rebuild_server_sidebar(immediate=True)
 
     def _sidebar_clock_tick(self) -> None:
         """Atualiza o relógio no rodapé da sidebar."""
@@ -560,8 +565,22 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception:
             pass
 
-    def _rebuild_server_sidebar(self) -> None:
-        """Reconstrói a lista de servidores na sidebar."""
+    def _rebuild_server_sidebar(self, *, immediate: bool = False) -> None:
+        """Reconstrói a lista de servidores na sidebar (debounced por padrão)."""
+        if immediate:
+            self._rebuild_server_sidebar_now()
+            return
+        job = getattr(self, "_sidebar_rebuild_job", None)
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+        self._sidebar_rebuild_job = self.after(400, self._rebuild_server_sidebar_now)
+
+    def _rebuild_server_sidebar_now(self) -> None:
+        """Executa rebuild imediato da sidebar."""
+        self._sidebar_rebuild_job = None
         for w in self._servers_list_sb.winfo_children():
             w.destroy()
         self._sidebar_server_btns.clear()
@@ -704,8 +723,22 @@ class ARKServerManagerApp(ctk.CTk):
     # Dashboard
     # ─────────────────────────────────────────────────────────────────────────
 
-    def _asm_refresh_dashboard(self) -> None:
-        """Atualiza os cards do dashboard (preserva frame existente)."""
+    def _asm_refresh_dashboard(self, *, immediate: bool = False) -> None:
+        """Atualiza os cards do dashboard (debounced por padrão)."""
+        if immediate:
+            self._asm_refresh_dashboard_now()
+            return
+        job = getattr(self, "_dash_refresh_job", None)
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                pass
+        self._dash_refresh_job = self.after(400, self._asm_refresh_dashboard_now)
+
+    def _asm_refresh_dashboard_now(self) -> None:
+        """Executa refresh imediato do dashboard."""
+        self._dash_refresh_job = None
         from .asm_ui.asm_dashboard import _refresh_asm_dashboard
         _refresh_asm_dashboard(self)
 

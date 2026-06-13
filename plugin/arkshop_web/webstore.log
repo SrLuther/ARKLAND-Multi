@@ -455,3 +455,40 @@ WHERE orders.steam_id = %(steam_id_1)s) AS anon_1]
 2026-06-12T20:44:09Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 20:44:09] "GET /api/catalog HTTP/1.1" 200 -
 2026-06-12T20:44:55Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 20:44:55] "GET /api/downloads HTTP/1.1" 200 -
 2026-06-12T20:45:48Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 20:45:48] "GET /api/catalog HTTP/1.1" 200 -
+2026-06-12T20:55:09Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
+2026-06-12T20:55:09Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
+2026-06-12T20:55:09Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
+ * Serving Flask app 'app'
+ * Debug mode: off
+2026-06-12T20:55:09Z [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.0.0.17:5000
+2026-06-12T20:55:09Z [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-06-12T21:01:20Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
+2026-06-12T21:01:20Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
+2026-06-12T21:01:20Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
+ * Serving Flask app 'app'
+ * Debug mode: off
+2026-06-12T21:01:20Z [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.0.0.17:5000
+2026-06-12T21:01:20Z [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-06-12T21:05:05Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
+2026-06-12T21:05:05Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
+2026-06-12T21:05:05Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
+ * Serving Flask app 'app'
+ * Debug mode: off
+2026-06-12T21:05:05Z [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.0.0.17:5000
+2026-06-12T21:05:05Z [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-06-12T21:30:24Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:30:24] "GET /api/catalog HTTP/1.1" 200 -
+2026-06-12T21:30:44Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:30:44] "GET /api/catalog HTTP/1.1" 200 -
+2026-06-12T21:31:02Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:02] "GET /api/downloads HTTP/1.1" 200 -
+2026-06-12T21:31:19Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:19] "GET /api/catalog HTTP/1.1" 200 -
+2026-06-12T21:31:22Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:22] "GET /api/downloads HTTP/1.1" 200 -
+2026-06-12T21:31:23Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:23] "GET /api/player/summary HTTP/1.1" 200 -
+2026-06-12T21:31:23Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:23] "GET /api/player/history?limit=20&offset=0 HTTP/1.1" 200 -

@@ -210,188 +210,233 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     tabs.add("🗄️  Database")
     tabs.add("🌐  Web Store")
 
-    # ── Tab: Configurações ────────────────────────────────────────────────
-    t_cfg = ctk.CTkScrollableFrame(tabs.tab("⚙️  Configurações"), fg_color=_BG)
-    t_cfg.pack(fill="both", expand=True)
-    card_cfg = tk.Frame(t_cfg, bg=_INNER, highlightthickness=1,
-                        highlightbackground=_BDR)
-    card_cfg.pack(fill="x", padx=12, pady=8)
-
-    _head(card_cfg, "⚙️  Configurações Gerais da Loja")
-
-    s = data.get("Settings", {})
-    _sv = {
-        "ShopName":             tk.StringVar(value=str(s.get("ShopName", "ARKLAND Shop"))),
-        "UiKey":                tk.StringVar(value=str(s.get("UiKey", "F3"))),
-        "StartingPoints":       tk.StringVar(value=str(s.get("StartingPoints", 100))),
-        "WebsiteUrl":           tk.StringVar(value=str(s.get("WebsiteUrl", ""))),
-        "DiscordUrl":           tk.StringVar(value=str(s.get("DiscordUrl", ""))),
-        "OverrideCurrencyIcon": tk.StringVar(value=str(s.get("OverrideCurrencyIcon", ""))),
-        "DisableSellButton":    tk.BooleanVar(value=bool(s.get("DisableSellButton", True))),
-        "DisableTradeButton":   tk.BooleanVar(value=bool(s.get("DisableTradeButton", False))),
-        "VoteRewards":          tk.BooleanVar(value=bool(s.get("VoteRewards", False))),
-        "HideBuffIcon":         tk.BooleanVar(value=bool(s.get("HideBuffIcon", False))),
-        "UseSteamOverlay":      tk.BooleanVar(value=bool(s.get("UseSteamOverlay", False))),
-    }
-
-    _field_row(card_cfg, "Nome da Loja",        _sv["ShopName"],       bg=_INNER)
-    _field_row(card_cfg, "Tecla do Menu (UiKey)", _sv["UiKey"],         bg=_INNER,
-               hint="Legado MX-E — jogadores usam /shop ou a loja web", width=120)
-    _field_row(card_cfg, "Pontos Iniciais",      _sv["StartingPoints"], bg=_INNER,
-               hint="Pontos dados a novos jogadores", width=120)
-    _field_row(card_cfg, "URL do Website",       _sv["WebsiteUrl"],     bg=_INNER,
-               hint="Preenchida automaticamente ao sincronizar plugins", width=260)
-    _field_row(card_cfg, "URL do Discord",       _sv["DiscordUrl"],     bg=_INNER)
-    _field_row(card_cfg, "Ícone de Moeda (Override)", _sv["OverrideCurrencyIcon"], bg=_INNER,
-               hint="Blueprint path do ícone customizado (vazio = padrão)")
-
-    tk.Frame(card_cfg, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
-    _bool_row(card_cfg, "Desativar Botão de Vender",  _sv["DisableSellButton"],  bg=_INNER)
-    _bool_row(card_cfg, "Desativar Botão de Trocar",  _sv["DisableTradeButton"], bg=_INNER)
-    _bool_row(card_cfg, "Recompensas de Votação",     _sv["VoteRewards"],        bg=_INNER)
-    _bool_row(card_cfg, "Ocultar Ícone de Buff",      _sv["HideBuffIcon"],       bg=_INNER)
-    _bool_row(card_cfg, "Usar Steam Overlay",         _sv["UseSteamOverlay"],    bg=_INNER)
-
-    # ── Tab: Itens ────────────────────────────────────────────────────────
-    t_items = tabs.tab("🛒  Itens")
-    _build_items_tab(app, t_items, data)
-
-    # ── Tab: Kits ─────────────────────────────────────────────────────────
-    t_kits = tabs.tab("🎁  Kits")
-    _build_kits_tab(app, t_kits, data)
-
-    # ── Tab: Pontos Temporais ─────────────────────────────────────────────
-    t_timed = ctk.CTkScrollableFrame(tabs.tab("⏱️  Pontos Temporais"), fg_color=_BG)
-    t_timed.pack(fill="both", expand=True)
-    card_tp = tk.Frame(t_timed, bg=_INNER, highlightthickness=1,
-                       highlightbackground=_BDR)
-    card_tp.pack(fill="x", padx=12, pady=8)
-    _head(card_tp, "⏱️  TimedPointsReward")
-
-    tp = data.get("TimedPointsReward", {})
-    _tpv = {
-        "Enabled":      tk.BooleanVar(value=bool(tp.get("Enabled", True))),
-        "Interval":     tk.StringVar(value=str(tp.get("Interval", 30))),
-        "StackRewards": tk.BooleanVar(value=bool(tp.get("StackRewards", True))),
-    }
-    _bool_row(card_tp, "Ativado", _tpv["Enabled"], bg=_INNER)
-    _field_row(card_tp, "Intervalo (minutos)", _tpv["Interval"], bg=_INNER,
-               hint="Minutos entre cada distribuição de pontos", width=100)
-    _bool_row(card_tp, "Acumular Recompensas (Stack)", _tpv["StackRewards"], bg=_INNER)
-
-    tk.Frame(card_tp, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
-
-    grp_header = tk.Frame(card_tp, bg=_INNER)
-    grp_header.pack(fill="x", padx=10, pady=(4, 2))
-    tk.Label(grp_header, text="Pontos por Grupo:", bg=_INNER, fg="#c8c8e8",
-             font=ctk.CTkFont(size=11, weight="bold"), anchor="w").pack(side="left")
-
+    _built_shop_tabs: set[str] = set()
+    _sv: Dict[str, tk.Variable] = {}
+    _tpv: Dict[str, tk.Variable] = {}
+    _dbv: Dict[str, tk.Variable] = {}
     _tp_group_vars: Dict[str, tk.StringVar] = {}
-    groups_frame = tk.Frame(card_tp, bg=_INNER)
-    groups_frame.pack(fill="x", padx=10, pady=(0, 4))
 
-    def _rebuild_groups_ui() -> None:
-        for w in groups_frame.winfo_children():
-            w.destroy()
-        for g_name, v in list(_tp_group_vars.items()):
-            row = tk.Frame(groups_frame, bg=_INNER)
-            row.pack(fill="x", pady=2)
-            ctk.CTkLabel(row, text=g_name, anchor="w", text_color="gray60",
-                         width=120, font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 8))
-            ctk.CTkEntry(row, textvariable=v, width=80, height=24).pack(side="left")
-            ctk.CTkButton(row, text="✕", width=26, height=24,
-                          fg_color="#6a2020", hover_color="#8a3030",
-                          command=lambda k=g_name: _remove_group(k)).pack(side="left", padx=(6, 0))
+    def _build_tab_cfg() -> None:
+        t_cfg = ctk.CTkScrollableFrame(tabs.tab("⚙️  Configurações"), fg_color=_BG)
+        t_cfg.pack(fill="both", expand=True)
+        card_cfg = tk.Frame(t_cfg, bg=_INNER, highlightthickness=1,
+                            highlightbackground=_BDR)
+        card_cfg.pack(fill="x", padx=12, pady=8)
 
-    def _remove_group(name: str) -> None:
-        _tp_group_vars.pop(name, None)
+        _head(card_cfg, "⚙️  Configurações Gerais da Loja")
+
+        s = data.get("Settings", {})
+        _sv.clear()
+        _sv.update({
+            "ShopName":             tk.StringVar(value=str(s.get("ShopName", "ARKLAND Shop"))),
+            "UiKey":                tk.StringVar(value=str(s.get("UiKey", "F3"))),
+            "StartingPoints":       tk.StringVar(value=str(s.get("StartingPoints", 100))),
+            "WebsiteUrl":           tk.StringVar(value=str(s.get("WebsiteUrl", ""))),
+            "DiscordUrl":           tk.StringVar(value=str(s.get("DiscordUrl", ""))),
+            "OverrideCurrencyIcon": tk.StringVar(value=str(s.get("OverrideCurrencyIcon", ""))),
+            "DisableSellButton":    tk.BooleanVar(value=bool(s.get("DisableSellButton", True))),
+            "DisableTradeButton":   tk.BooleanVar(value=bool(s.get("DisableTradeButton", False))),
+            "VoteRewards":          tk.BooleanVar(value=bool(s.get("VoteRewards", False))),
+            "HideBuffIcon":         tk.BooleanVar(value=bool(s.get("HideBuffIcon", False))),
+            "UseSteamOverlay":      tk.BooleanVar(value=bool(s.get("UseSteamOverlay", False))),
+        })
+
+        _field_row(card_cfg, "Nome da Loja",        _sv["ShopName"],       bg=_INNER)
+        _field_row(card_cfg, "Tecla do Menu (UiKey)", _sv["UiKey"],         bg=_INNER,
+                   hint="Legado MX-E — jogadores usam /shop ou a loja web", width=120)
+        _field_row(card_cfg, "Pontos Iniciais",      _sv["StartingPoints"], bg=_INNER,
+                   hint="Pontos dados a novos jogadores", width=120)
+        _field_row(card_cfg, "URL do Website",       _sv["WebsiteUrl"],     bg=_INNER,
+                   hint="Preenchida automaticamente ao sincronizar plugins", width=260)
+        _field_row(card_cfg, "URL do Discord",       _sv["DiscordUrl"],     bg=_INNER)
+        _field_row(card_cfg, "Ícone de Moeda (Override)", _sv["OverrideCurrencyIcon"], bg=_INNER,
+                   hint="Blueprint path do ícone customizado (vazio = padrão)")
+
+        tk.Frame(card_cfg, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
+        _bool_row(card_cfg, "Desativar Botão de Vender",  _sv["DisableSellButton"],  bg=_INNER)
+        _bool_row(card_cfg, "Desativar Botão de Trocar",  _sv["DisableTradeButton"], bg=_INNER)
+        _bool_row(card_cfg, "Recompensas de Votação",     _sv["VoteRewards"],        bg=_INNER)
+        _bool_row(card_cfg, "Ocultar Ícone de Buff",      _sv["HideBuffIcon"],       bg=_INNER)
+        _bool_row(card_cfg, "Usar Steam Overlay",         _sv["UseSteamOverlay"],    bg=_INNER)
+
+    def _build_tab_timed() -> None:
+        t_timed = ctk.CTkScrollableFrame(tabs.tab("⏱️  Pontos Temporais"), fg_color=_BG)
+        t_timed.pack(fill="both", expand=True)
+        card_tp = tk.Frame(t_timed, bg=_INNER, highlightthickness=1,
+                           highlightbackground=_BDR)
+        card_tp.pack(fill="x", padx=12, pady=8)
+        _head(card_tp, "⏱️  TimedPointsReward")
+
+        tp = data.get("TimedPointsReward", {})
+        _tpv.clear()
+        _tpv.update({
+            "Enabled":      tk.BooleanVar(value=bool(tp.get("Enabled", True))),
+            "Interval":     tk.StringVar(value=str(tp.get("Interval", 30))),
+            "StackRewards": tk.BooleanVar(value=bool(tp.get("StackRewards", True))),
+        })
+        _bool_row(card_tp, "Ativado", _tpv["Enabled"], bg=_INNER)
+        _field_row(card_tp, "Intervalo (minutos)", _tpv["Interval"], bg=_INNER,
+                   hint="Minutos entre cada distribuição de pontos", width=100)
+        _bool_row(card_tp, "Acumular Recompensas (Stack)", _tpv["StackRewards"], bg=_INNER)
+
+        tk.Frame(card_tp, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
+
+        grp_header = tk.Frame(card_tp, bg=_INNER)
+        grp_header.pack(fill="x", padx=10, pady=(4, 2))
+        tk.Label(grp_header, text="Pontos por Grupo:", bg=_INNER, fg="#c8c8e8",
+                 font=ctk.CTkFont(size=11, weight="bold"), anchor="w").pack(side="left")
+
+        groups_frame = tk.Frame(card_tp, bg=_INNER)
+        groups_frame.pack(fill="x", padx=10, pady=(0, 4))
+
+        def _rebuild_groups_ui() -> None:
+            for w in groups_frame.winfo_children():
+                w.destroy()
+            for g_name, v in list(_tp_group_vars.items()):
+                row = tk.Frame(groups_frame, bg=_INNER)
+                row.pack(fill="x", pady=2)
+                ctk.CTkLabel(row, text=g_name, anchor="w", text_color="gray60",
+                             width=120, font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 8))
+                ctk.CTkEntry(row, textvariable=v, width=80, height=24).pack(side="left")
+                ctk.CTkButton(row, text="✕", width=26, height=24,
+                              fg_color="#6a2020", hover_color="#8a3030",
+                              command=lambda k=g_name: _remove_group(k)).pack(side="left", padx=(6, 0))
+
+        def _remove_group(name: str) -> None:
+            _tp_group_vars.pop(name, None)
+            _rebuild_groups_ui()
+
+        _tp_group_vars.clear()
+        groups = tp.get("Groups", {})
+        for g_name, g_val in groups.items():
+            amt = g_val.get("Amount", 0) if isinstance(g_val, dict) else 0
+            _tp_group_vars[g_name] = tk.StringVar(value=str(amt))
         _rebuild_groups_ui()
 
-    groups = tp.get("Groups", {})
-    for g_name, g_val in groups.items():
-        amt = g_val.get("Amount", 0) if isinstance(g_val, dict) else 0
-        _tp_group_vars[g_name] = tk.StringVar(value=str(amt))
-    _rebuild_groups_ui()
+        add_row = tk.Frame(card_tp, bg=_INNER)
+        add_row.pack(fill="x", padx=10, pady=(2, 8))
+        new_grp_name = tk.StringVar()
+        new_grp_amt  = tk.StringVar(value="25")
+        ctk.CTkEntry(add_row, textvariable=new_grp_name, width=120, height=26,
+                     placeholder_text="Nome (ex: VIP)").pack(side="left", padx=(0, 6))
+        ctk.CTkEntry(add_row, textvariable=new_grp_amt, width=72, height=26,
+                     placeholder_text="Pts").pack(side="left", padx=(0, 6))
 
-    add_row = tk.Frame(card_tp, bg=_INNER)
-    add_row.pack(fill="x", padx=10, pady=(2, 8))
-    new_grp_name = tk.StringVar()
-    new_grp_amt  = tk.StringVar(value="25")
-    ctk.CTkEntry(add_row, textvariable=new_grp_name, width=120, height=26,
-                 placeholder_text="Nome (ex: VIP)").pack(side="left", padx=(0, 6))
-    ctk.CTkEntry(add_row, textvariable=new_grp_amt, width=72, height=26,
-                 placeholder_text="Pts").pack(side="left", padx=(0, 6))
-    def _add_group() -> None:
-        name = new_grp_name.get().strip()
-        if not name:
-            return
-        _tp_group_vars[name] = tk.StringVar(value=new_grp_amt.get() or "25")
-        new_grp_name.set("")
-        _rebuild_groups_ui()
-    ctk.CTkButton(add_row, text="＋ Adicionar Grupo", height=26,
-                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                  command=_add_group).pack(side="left")
+        def _add_group() -> None:
+            name = new_grp_name.get().strip()
+            if not name:
+                return
+            _tp_group_vars[name] = tk.StringVar(value=new_grp_amt.get() or "25")
+            new_grp_name.set("")
+            _rebuild_groups_ui()
 
-    # ── Tab: Database ─────────────────────────────────────────────────────
-    t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
-    t_db.pack(fill="both", expand=True)
-    card_db = tk.Frame(t_db, bg=_INNER, highlightthickness=1,
-                       highlightbackground=_BDR)
-    card_db.pack(fill="x", padx=12, pady=8)
-    _head(card_db, "🗄️  Conexão MySQL (CustomShop)")
+        ctk.CTkButton(add_row, text="＋ Adicionar Grupo", height=26,
+                      fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                      command=_add_group).pack(side="left")
 
-    db = data.get("Database", {})
-    _dbv = {
-        "Host":     tk.StringVar(value=str(db.get("Host", "127.0.0.1"))),
-        "Port":     tk.StringVar(value=str(db.get("Port", 3306))),
-        "User":     tk.StringVar(value=str(db.get("User", "arkland"))),
-        "Password": tk.StringVar(value=str(db.get("Password", ""))),
-        "Database": tk.StringVar(value=str(db.get("Database", "arkland_shop"))),
-    }
-    _field_row(card_db, "Host",     _dbv["Host"],     bg=_INNER)
-    _field_row(card_db, "Porta",    _dbv["Port"],     bg=_INNER, width=100)
-    _field_row(card_db, "Usuário",  _dbv["User"],     bg=_INNER)
-    _field_row(card_db, "Senha",    _dbv["Password"], bg=_INNER, is_pass=True)
-    _field_row(card_db, "Database", _dbv["Database"], bg=_INNER)
+    def _build_tab_db() -> None:
+        t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
+        t_db.pack(fill="both", expand=True)
+        card_db = tk.Frame(t_db, bg=_INNER, highlightthickness=1,
+                           highlightbackground=_BDR)
+        card_db.pack(fill="x", padx=12, pady=8)
+        _head(card_db, "🗄️  Conexão MySQL (CustomShop)")
 
-    tk.Label(card_db,
-             text="⚠️  Requer libmysql.dll na mesma pasta do CustomShop.dll",
-             bg=_INNER, fg="#ffaa44",
-             font=ctk.CTkFont(size=10)).pack(anchor="w", padx=10, pady=(6, 8))
+        db = data.get("Database", {})
+        _dbv.clear()
+        _dbv.update({
+            "Host":     tk.StringVar(value=str(db.get("Host", "127.0.0.1"))),
+            "Port":     tk.StringVar(value=str(db.get("Port", 3306))),
+            "User":     tk.StringVar(value=str(db.get("User", "arkland"))),
+            "Password": tk.StringVar(value=str(db.get("Password", ""))),
+            "Database": tk.StringVar(value=str(db.get("Database", "arkland_shop"))),
+        })
+        _field_row(card_db, "Host",     _dbv["Host"],     bg=_INNER)
+        _field_row(card_db, "Porta",    _dbv["Port"],     bg=_INNER, width=100)
+        _field_row(card_db, "Usuário",  _dbv["User"],     bg=_INNER)
+        _field_row(card_db, "Senha",    _dbv["Password"], bg=_INNER, is_pass=True)
+        _field_row(card_db, "Database", _dbv["Database"], bg=_INNER)
 
-    # ── Funções de suporte ────────────────────────────────────────────────
+        tk.Label(card_db,
+                 text="⚠️  Requer libmysql.dll na mesma pasta do CustomShop.dll",
+                 bg=_INNER, fg="#ffaa44",
+                 font=ctk.CTkFont(size=10)).pack(anchor="w", padx=10, pady=(6, 8))
+
     def _collect_all() -> None:
-        s_out = data.setdefault("Settings", {})
-        s_out["ShopName"]             = _sv["ShopName"].get()
-        s_out["UiKey"]                = _sv["UiKey"].get()
-        s_out["StartingPoints"]       = _safe_int(_sv["StartingPoints"].get(), 100)
-        s_out["WebsiteUrl"]           = _sv["WebsiteUrl"].get()
-        s_out["DiscordUrl"]           = _sv["DiscordUrl"].get()
-        s_out["OverrideCurrencyIcon"] = _sv["OverrideCurrencyIcon"].get()
-        s_out["DisableSellButton"]    = _sv["DisableSellButton"].get()
-        s_out["DisableTradeButton"]   = _sv["DisableTradeButton"].get()
-        s_out["VoteRewards"]          = _sv["VoteRewards"].get()
-        s_out["HideBuffIcon"]         = _sv["HideBuffIcon"].get()
-        s_out["UseSteamOverlay"]      = _sv["UseSteamOverlay"].get()
-        central = resolve_central_url(shop_cfg)
-        s_out["WebsiteUrl"] = central
-        s_out["WebApiUrl"] = central
-        s_out["WebApiKey"] = shop_cfg.api_key or s_out.get("WebApiKey", "")
+        if _sv:
+            s_out = data.setdefault("Settings", {})
+            s_out["ShopName"]             = _sv["ShopName"].get()
+            s_out["UiKey"]                = _sv["UiKey"].get()
+            s_out["StartingPoints"]       = _safe_int(_sv["StartingPoints"].get(), 100)
+            s_out["WebsiteUrl"]           = _sv["WebsiteUrl"].get()
+            s_out["DiscordUrl"]           = _sv["DiscordUrl"].get()
+            s_out["OverrideCurrencyIcon"] = _sv["OverrideCurrencyIcon"].get()
+            s_out["DisableSellButton"]    = _sv["DisableSellButton"].get()
+            s_out["DisableTradeButton"]   = _sv["DisableTradeButton"].get()
+            s_out["VoteRewards"]          = _sv["VoteRewards"].get()
+            s_out["HideBuffIcon"]         = _sv["HideBuffIcon"].get()
+            s_out["UseSteamOverlay"]      = _sv["UseSteamOverlay"].get()
+            central = resolve_central_url(shop_cfg)
+            s_out["WebsiteUrl"] = central
+            s_out["WebApiUrl"] = central
+            s_out["WebApiKey"] = shop_cfg.api_key or s_out.get("WebApiKey", "")
 
-        tp_out = data.setdefault("TimedPointsReward", {})
-        tp_out["Enabled"]      = _tpv["Enabled"].get()
-        tp_out["Interval"]     = _safe_int(_tpv["Interval"].get(), 30)
-        tp_out["StackRewards"] = _tpv["StackRewards"].get()
-        grps = tp_out.setdefault("Groups", {})
-        for g_name, gv in _tp_group_vars.items():
-            grps[g_name] = {"Amount": _safe_int(gv.get(), 25)}
+        if _tpv:
+            tp_out = data.setdefault("TimedPointsReward", {})
+            tp_out["Enabled"]      = _tpv["Enabled"].get()
+            tp_out["Interval"]     = _safe_int(_tpv["Interval"].get(), 30)
+            tp_out["StackRewards"] = _tpv["StackRewards"].get()
+            grps = tp_out.setdefault("Groups", {})
+            for g_name, gv in _tp_group_vars.items():
+                grps[g_name] = {"Amount": _safe_int(gv.get(), 25)}
 
-        db_out = data.setdefault("Database", {})
-        db_out["Host"]     = _dbv["Host"].get()
-        db_out["Port"]     = _safe_int(_dbv["Port"].get(), 3306)
-        db_out["User"]     = _dbv["User"].get()
-        db_out["Password"] = _dbv["Password"].get()
-        db_out["Database"] = _dbv["Database"].get()
+        if _dbv:
+            db_out = data.setdefault("Database", {})
+            db_out["Host"]     = _dbv["Host"].get()
+            db_out["Port"]     = _safe_int(_dbv["Port"].get(), 3306)
+            db_out["User"]     = _dbv["User"].get()
+            db_out["Password"] = _dbv["Password"].get()
+            db_out["Database"] = _dbv["Database"].get()
+
+    _TAB_BUILDERS = {
+        "⚙️  Configurações": _build_tab_cfg,
+        "🛒  Itens": lambda: _build_items_tab(app, tabs.tab("🛒  Itens"), data),
+        "🎁  Kits": lambda: _build_kits_tab(app, tabs.tab("🎁  Kits"), data),
+        "⏱️  Pontos Temporais": _build_tab_timed,
+        "🗄️  Database": _build_tab_db,
+        "🌐  Web Store": lambda: _build_webstore_tab(
+            app, tabs.tab("🌐  Web Store"),
+            get_catalog=lambda: data,
+            get_catalog_path=lambda: Path(cfg_path),
+            collect_catalog=_collect_all,
+        ),
+    }
+
+    def _on_shop_tab_change() -> None:
+        tab = tabs.get()
+        if tab in _built_shop_tabs:
+            return
+        frame = tabs.tab(tab)
+        loading = ctk.CTkLabel(frame, text="⏳  Carregando…", text_color="gray50",
+                               font=ctk.CTkFont(size=13))
+        loading.place(relx=0.5, rely=0.5, anchor="center")
+        frame.update_idletasks()
+        _built_shop_tabs.add(tab)
+
+        def _do_build() -> None:
+            try:
+                loading.destroy()
+            except Exception:
+                pass
+            builder = _TAB_BUILDERS.get(tab)
+            if builder:
+                builder()
+
+        parent.after(0, _do_build)
+
+    tabs.configure(command=_on_shop_tab_change)
+    _built_shop_tabs.add("⚙️  Configurações")
+    _build_tab_cfg()
 
     def _reload() -> None:
         nonlocal data
@@ -407,14 +452,6 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         )
         if p:
             var.set(p)
-
-    # ── Tab: Web Store ────────────────────────────────────────────────────
-    _build_webstore_tab(
-        app, tabs.tab("🌐  Web Store"),
-        get_catalog=lambda: data,
-        get_catalog_path=lambda: Path(cfg_path),
-        collect_catalog=_collect_all,
-    )
 
 
 def _refresh_items_list(scroll_items, data: Dict[str, Any], on_select) -> None:

@@ -126,8 +126,8 @@ class _FileManagerWindow(ctk.CTkToplevel):
 
         self._app     = app
         self._srv     = srv
-        self._root    = Path(srv.install_dir)
-        self._current = Path(start_path) if start_path else self._root
+        self._install_root = Path(srv.install_dir) if srv.install_dir else Path(".")
+        self._current = Path(start_path) if start_path else self._install_root
 
         self.title(f"Arquivos — {srv.name}")
         self.geometry("860x560")
@@ -147,7 +147,7 @@ class _FileManagerWindow(ctk.CTkToplevel):
         ).pack(side="left", padx=(12, 6), pady=12)
 
         for label, rel_path in _SHORTCUTS.items():
-            abs_path = self._root / rel_path
+            abs_path = self._install_root / rel_path
             ctk.CTkButton(
                 shortcuts_bar, text=label,
                 width=max(70, len(label) * 9), height=28,
@@ -210,7 +210,7 @@ class _FileManagerWindow(ctk.CTkToplevel):
             self._open_file(path)
             return
         if not path.exists():
-            self._current = self._root
+            self._current = self._install_root
         else:
             self._current = path
         self._refresh()
@@ -230,12 +230,12 @@ class _FileManagerWindow(ctk.CTkToplevel):
 
         # Calcula partes relativas ao root
         try:
-            rel = self._current.relative_to(self._root)
-            parts = [self._root] + [self._root / Path(*rel.parts[:i + 1]) for i in range(len(rel.parts))]
-            labels = [self._root.name] + list(rel.parts)
+            rel = self._current.relative_to(self._install_root)
+            parts = [self._install_root] + [self._install_root / Path(*rel.parts[:i + 1]) for i in range(len(rel.parts))]
+            labels = [self._install_root.name or str(self._install_root)] + list(rel.parts)
         except ValueError:
-            parts = [self._root]
-            labels = [self._root.name]
+            parts = [self._install_root]
+            labels = [self._install_root.name or str(self._install_root)]
 
         for i, (lbl, pth) in enumerate(zip(labels, parts)):
             ctk.CTkButton(
@@ -271,7 +271,7 @@ class _FileManagerWindow(ctk.CTkToplevel):
             return
 
         # Botão subir (..)
-        if self._current != self._root and self._current.parent != self._current:
+        if self._current != self._install_root and self._current.parent != self._current:
             up_row = ctk.CTkFrame(self._list_scroll, fg_color="transparent", height=34)
             up_row.grid(row=0, column=0, sticky="ew", pady=1)
             up_row.grid_columnconfigure(1, weight=1)
@@ -296,7 +296,7 @@ class _FileManagerWindow(ctk.CTkToplevel):
             ).grid(row=0, column=0, pady=20)
             return
 
-        offset = 1 if (self._current != self._root) else 0
+        offset = 1 if (self._current != self._install_root) else 0
         for i, entry in enumerate(entries):
             row_bg = card_bg if i % 2 == 0 else "#0a1520"
             row = ctk.CTkFrame(

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "description": "Metas de performance da UI e medições coletadas em runtime (perf_monitor.py).",
+  "targets_ms": {
+    "server_panel_shell": 800,
+    "section_admin_first_visit": 1500,
+    "section_heavy_first_visit": 2000,
+    "section_revisit": 100,
+    "shop_db_first_tab": 1000,
+    "max_ui_freeze": 200
+  },
+  "generated_at": null,
+  "entries": []
+}

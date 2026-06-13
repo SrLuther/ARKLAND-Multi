@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.2] - 2026-06-13
+
+### Feature
+
+- Novo (DB): Assistente guiado de instalação do banco arkland_shop — wizard em 3 passos (MariaDB → root → senha arkland) com setup automático e prefs salvas para a Loja.
+
+### Fix
+
+- Fix (DB): setup_db.sql incluído no executável PyInstaller e no instalador; cópia em %APPDATA%\ARKLAND-ServerManager — corrige «Arquivo não encontrado» no Setup limpo.
+- Fix (DB): conexão retenta sem database quando arkland_shop ainda não existe (erro 1049).
+
+### Other
+
+- Performance: projeto UI concluído — chunking Engramas/Meio Ambiente/Estruturas, cache de busca, tail de Administração adiado, docs/UI_PATTERNS.md.
+
 ## [1.8.1] - 2026-06-12
 
 ### Feature

@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.1"
+APP_VERSION: str = "1.8.2"
 BUILD_DATE: str = "2026-06-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.2",
+        "date": "2026-06-13",
+        "changes": [
+            "Novo (DB): Assistente guiado de instalação do banco arkland_shop — wizard em 3 passos "
+            "(MariaDB → root → senha arkland) com setup automático e prefs salvas para a Loja.",
+            "Fix (DB): setup_db.sql incluído no executável PyInstaller e no instalador; cópia em "
+            "%APPDATA%\\ARKLAND-ServerManager — corrige «Arquivo não encontrado» no Setup limpo.",
+            "Fix (DB): conexão retenta sem database quando arkland_shop ainda não existe (erro 1049).",
+            "Performance: projeto UI concluído — chunking Engramas/Meio Ambiente/Estruturas, "
+            "cache de busca, tail de Administração adiado, docs/UI_PATTERNS.md.",
+        ],
+    },
     {
         "version": "1.8.1",
         "date": "2026-06-12",

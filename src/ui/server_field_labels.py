@@ -413,14 +413,21 @@ def fields_for_section(section_name: str) -> list[str]:
 
 
 def section_search_index() -> dict[str, str]:
-    """Texto agregado por seção TEK para filtro de busca."""
+    """Texto agregado por seção TEK para filtro de busca (cache singleton)."""
+    global _SECTION_SEARCH_INDEX_CACHE
+    if _SECTION_SEARCH_INDEX_CACHE is not None:
+        return _SECTION_SEARCH_INDEX_CACHE
     index: dict[str, str] = {}
     for key, meta in FIELD_LABELS.items():
         if not meta.section:
             continue
         index.setdefault(meta.section, "")
         index[meta.section] += " " + meta.search_text
+    _SECTION_SEARCH_INDEX_CACHE = index
     return index
+
+
+_SECTION_SEARCH_INDEX_CACHE: dict[str, str] | None = None
 
 
 def missing_pt_translations() -> list[str]:

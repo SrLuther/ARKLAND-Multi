@@ -527,6 +527,89 @@ def build_cards_layout(
     return row
 
 
+def build_cards_layout_chunked(
+    sf: ctk.CTkScrollableFrame,
+    ctx: TekPanelCtx,
+    cards: Sequence[CardSpec],
+    start_row: int = 1,
+    *,
+    on_complete: Optional[Callable[[int], None]] = None,
+    is_cancelled: Optional[Callable[[], bool]] = None,
+    on_progress: Optional[Callable[[int, int], None]] = None,
+    chunk_size: int = 1,
+) -> int:
+    """Como build_cards_layout, mas cria cards em lotes para não travar a UI."""
+    from .chunked_builder import ChunkedSectionBuilder
+
+    placements: list[tuple[int, int, CardSpec]] = []
+    row = start_row
+    i = 0
+    while i < len(cards):
+        for col in (0, 1):
+            if i >= len(cards):
+                break
+            placements.append((row, col, cards[i]))
+            i += 1
+        row += 1
+
+    final_row = row
+    if not placements:
+        if on_complete:
+            on_complete(final_row)
+        return final_row
+
+    builder = ChunkedSectionBuilder(
+        sf,
+        chunk_size=chunk_size,
+        on_progress=on_progress,
+        on_done=lambda: on_complete(final_row) if on_complete else None,
+    )
+
+    for r, col, spec in placements:
+        def task(row=r, column=col, card_spec=spec) -> None:
+            if is_cancelled and is_cancelled():
+                return
+            card = make_card(sf, row, column, ctx.theme)
+            fill_card(ctx, card, card_spec)
+
+        builder.add(task)
+
+    builder.run()
+    return final_row
+
+
+def run_ui_tasks_chunked(
+    parent: ctk.CTkBaseClass,
+    tasks: Sequence[Callable[[], None]],
+    *,
+    on_done: Optional[Callable[[], None]] = None,
+    is_cancelled: Optional[Callable[[], bool]] = None,
+    on_progress: Optional[Callable[[int, int], None]] = None,
+    chunk_size: int = 1,
+) -> None:
+    """Executa callables de construção de UI em lotes via after(0)."""
+    from .chunked_builder import ChunkedSectionBuilder
+
+    if not tasks:
+        if on_done:
+            on_done()
+        return
+
+    builder = ChunkedSectionBuilder(
+        parent, chunk_size=chunk_size, on_progress=on_progress, on_done=on_done,
+    )
+
+    for fn in tasks:
+        def task(f: Callable[[], None] = fn) -> None:
+            if is_cancelled and is_cancelled():
+                return
+            f()
+
+        builder.add(task)
+
+    builder.run()
+
+
 def add_card_header(card: ctk.CTkFrame, title: str, accent: str) -> None:
     ctk.CTkLabel(
         card, text=title,

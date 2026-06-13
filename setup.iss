@@ -9,7 +9,7 @@
 
 [Setup]
 AppName=ARKLAND - Server Manager
-AppVersion=1.8.1
+AppVersion=1.8.2
 AppPublisher=ARKLAND Tools
 AppPublisherURL=https://github.com/SrLuther/ARKLAND-Multi
 AppSupportURL=https://github.com/SrLuther/ARKLAND-Multi/issues
@@ -17,7 +17,7 @@ AppUpdatesURL=https://github.com/SrLuther/ARKLAND-Multi/releases
 DefaultDirName={autopf}\ARKLAND-ServerManager
 DefaultGroupName=ARKLAND-ServerManager
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.8.1
+OutputBaseFilename=ARKLAND-Multi-Setup-v1.8.2
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
@@ -43,6 +43,8 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Files]
 Source: "dist\ARKLAND-ServerManager.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "dist\ARKLAND-Updater.exe";       DestDir: "{app}"; Flags: ignoreversion
+Source: "setup_db.sql"; DestDir: "{userappdata}\ARKLAND-ServerManager"; Flags: ignoreversion
+Source: "setup_db.bat"; DestDir: "{userappdata}\ARKLAND-ServerManager"; Flags: ignoreversion onlyifdoesntexist
 
 [Icons]
 Name: "{group}\ARKLAND - Server Manager";       Filename: "{app}\ARKLAND-ServerManager.exe"

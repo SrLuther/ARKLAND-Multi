@@ -247,7 +247,7 @@ def _db_manager_prefs() -> dict:
         prefs_file = Path(appdata) / "ARKLAND-ServerManager" / "db_server_prefs.json"
         if prefs_file.exists():
             raw = _json.loads(prefs_file.read_text(encoding="utf-8"))
-            return raw.get("last_connection", {})
+            return raw.get("shop_db") or raw.get("last_connection", {})
     except Exception:
         pass
     return {}

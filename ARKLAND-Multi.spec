@@ -15,6 +15,7 @@ a = Analysis(
     binaries=[] + ctk_binaries + pil_binaries + tray_binaries,
     datas=[
         ('ig', 'ig'),
+        ('setup_db.sql', '.'),
         ('plugin/CustomShop/bin/CustomShop.dll',      'plugins'),
         ('plugin/CustomShop/bin/libmariadb.dll',       'plugins'),
         ('plugin/CustomShop/bin/z.dll',                'plugins'),

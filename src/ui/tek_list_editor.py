@@ -6,6 +6,9 @@ import tkinter as tk
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..ui_constants import get_theme
+from .chunked_builder import run_chunked_list
+
+_ROW_CHUNK = 6
 
 
 def build_class_multiplier_editor(
@@ -75,15 +78,19 @@ def build_class_multiplier_editor(
                       fg_color="#5c1a1a", hover_color="#7c2020",
                       command=_remove).grid(row=0, column=4, padx=(0, 6), pady=4)
 
-    for item in initial:
-        _add_row(item.get("class_name", ""), item.get("multiplier", 1.0))
-
     ctk.CTkButton(
         card, text="＋ Adicionar", width=120, height=28,
         fg_color="#0e4a6e", hover_color="#0a3550",
         font=ctk.CTkFont(size=11),
         command=lambda: _add_row(),
     ).grid(row=3, column=0, padx=12, pady=(4, 10), sticky="w")
+
+    if initial:
+        run_chunked_list(
+            card, initial,
+            lambda item: _add_row(item.get("class_name", ""), item.get("multiplier", 1.0)),
+            chunk_size=_ROW_CHUNK,
+        ).run()
 
 
 def build_spawn_weight_editor(
@@ -164,18 +171,22 @@ def build_spawn_weight_editor(
                       fg_color="#5c1a1a", hover_color="#7c2020",
                       command=_remove).grid(row=0, column=4, padx=(0, 6), pady=4)
 
-    for item in initial:
-        _add_row(
-            item.get("dino_name_tag", ""),
-            item.get("spawn_weight_multiplier", 1.0),
-            item.get("override_spawn_limit_percentage", False),
-            item.get("spawn_limit_percentage", 1.0),
-        )
-
     ctk.CTkButton(card, text="＋ Adicionar", width=120, height=28,
                   fg_color="#0e4a6e", hover_color="#0a3550",
                   font=ctk.CTkFont(size=11), command=lambda: _add_row()).grid(
         row=3, column=0, padx=12, pady=(4, 10), sticky="w")
+
+    if initial:
+        run_chunked_list(
+            card, initial,
+            lambda item: _add_row(
+                item.get("dino_name_tag", ""),
+                item.get("spawn_weight_multiplier", 1.0),
+                item.get("override_spawn_limit_percentage", False),
+                item.get("spawn_limit_percentage", 1.0),
+            ),
+            chunk_size=_ROW_CHUNK,
+        ).run()
 
 
 def build_class_name_list_editor(
@@ -231,13 +242,13 @@ def build_class_name_list_editor(
                       fg_color="#5c1a1a", hover_color="#7c2020",
                       command=_remove).grid(row=0, column=2, padx=(0, 6), pady=4)
 
-    for name in initial:
-        _add_row(name)
-
     ctk.CTkButton(card, text="＋ Adicionar", width=120, height=28,
                   fg_color="#0e4a6e", hover_color="#0a3550",
                   font=ctk.CTkFont(size=11), command=lambda: _add_row()).grid(
         row=3, column=0, padx=12, pady=(4, 10), sticky="w")
+
+    if initial:
+        run_chunked_list(card, initial, lambda name: _add_row(name), chunk_size=_ROW_CHUNK).run()
 
 
 def collect_class_multiplier_list(row_list: list[dict]) -> list[dict]:
