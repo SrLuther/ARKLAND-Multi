@@ -1,8 +1,9 @@
 {
-    "version": "1.8.3",
+    "version": "1.8.4",
     "date": "2026-06-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.3/ARKLAND-Multi-Setup-v1.8.3.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.4/ARKLAND-Multi-Setup-v1.8.4.exe",
     "changelog": [
-        "Fix (DB): conexão travava em «Conectando...» quando o login funcionava na primeira tentativa — finalização da conexão (state.conn + status Conectado) estava só no retry do erro 1049; corrigido para qualquer conexão bem-sucedida."
+        "Fix (Web Store): no instalador, a loja não iniciava — o app tentava rodar app.py com ARKLAND-ServerManager.exe (não é Python). Novo ARKLAND-WebStore.exe dedicado no instalador; dados persistentes em %APPDATA%\\ARKLAND-ServerManager\\arkshop_web.",
+        "Melhoria (Web Store): diagnóstico ao falhar (tail do webstore.log), espera pela porta e MariaDB antes de subir o Flask."
     ]
 }

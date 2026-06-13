@@ -87,6 +87,7 @@ if %USE_VENV%==1 (
 echo [1/4] Instalando dependencias...
 "%PYTHON%" -m pip install --upgrade pip --quiet
 "%PYTHON%" -m pip install -r "%~dp0requirements.txt" --quiet
+"%PYTHON%" -m pip install -r "%~dp0plugin\arkshop_web\requirements.txt" --quiet
 "%PYTHON%" -m pip install pyinstaller --quiet
 echo       Concluido.
 echo.
@@ -110,6 +111,16 @@ if !errorlevel! neq 0 (
     exit /b 1
 )
 echo       Executavel: dist\ARKLAND-Updater.exe
+echo.
+
+echo [2c/4] Gerando ARKLAND-WebStore.exe...
+"%PYTHON%" -m PyInstaller --noconfirm "%~dp0ARKLAND-WebStore.spec"
+if !errorlevel! neq 0 (
+    echo [ERRO] PyInstaller falhou ao gerar ARKLAND-WebStore.exe.
+    pause
+    exit /b 1
+)
+echo       Executavel: dist\ARKLAND-WebStore.exe
 echo.
 
 :: -- Gera o installer com Inno Setup (se dispon?vel) --------------------------

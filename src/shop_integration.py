@@ -27,6 +27,45 @@ _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
 _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 
 
+def webstore_data_dir() -> Path:
+    """Diretório gravável da Web Store (dev: plugin/; instalado: APPDATA)."""
+    import os
+
+    if getattr(sys, "frozen", False):
+        p = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "arkshop_web"
+    else:
+        p = _ARKSHOP_WEB_DIR
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def resolve_webstore_executable() -> Optional[Path]:
+    if not getattr(sys, "frozen", False):
+        return None
+    exe = Path(sys.executable).resolve().parent / "ARKLAND-WebStore.exe"
+    return exe if exe.is_file() else None
+
+
+def build_webstore_launch(shop: "ShopGlobalConfig") -> Tuple[List[str], str, Path]:
+    """Retorna (comando, cwd, caminho do log)."""
+    data = webstore_data_dir()
+    log_path = data / "webstore.log"
+    ws_exe = resolve_webstore_executable()
+    if ws_exe is not None:
+        return [str(ws_exe)], str(ws_exe.parent), log_path
+    app_py = _ARKSHOP_WEB_DIR / "app.py"
+    return [sys.executable, str(app_py)], str(_ARKSHOP_WEB_DIR), log_path
+
+
+def read_webstore_log_tail(max_lines: int = 6) -> str:
+    log_path = webstore_data_dir() / "webstore.log"
+    try:
+        lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return "\n".join(lines[-max_lines:]).strip()
+    except Exception:
+        return ""
+
+
 def get_local_ip() -> str:
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -278,7 +317,7 @@ def build_orders_database_url(shop: "ShopGlobalConfig") -> str:
         u = urllib.parse.quote_plus(user)
         p = urllib.parse.quote_plus(password)
         return f"mysql+pymysql://{u}:{p}@{host}:{port}/{name}?charset=utf8mb4"
-    return f"sqlite:///{_ARKSHOP_WEB_DIR / 'orders.db'}"
+    return f"sqlite:///{webstore_data_dir() / 'orders.db'}"
 
 
 def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
@@ -286,11 +325,15 @@ def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
 
     env = dict(os.environ)
     env["PORT"] = str(max(1, int(shop.port or 5177)))
+    env["ARKSHOP_DATA_DIR"] = str(webstore_data_dir())
     if shop.api_key:
         env["ARKSHOP_API_KEY"] = shop.api_key
     db_url = build_orders_database_url(shop)
     if db_url:
         env["ARKSHOP_DATABASE_URL"] = db_url
+    catalog = default_catalog_path(shop)
+    if catalog.is_file():
+        env["ARKSHOP_CONFIG_PATH"] = str(catalog)
     return env
 
 
@@ -362,9 +405,10 @@ def sync_arkshop_web_settings(
     central_url: str,
 ) -> None:
     data: Dict[str, Any] = {}
-    if _SETTINGS_FILE.exists():
+    settings_path = webstore_data_dir() / "settings.json"
+    if settings_path.exists():
         try:
-            data = json.loads(_SETTINGS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(settings_path.read_text(encoding="utf-8"))
         except Exception:
             data = {}
 
@@ -389,8 +433,9 @@ def sync_arkshop_web_settings(
         if shop.orders_db_password:
             data["db_password"] = shop.orders_db_password
 
-    _SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _SETTINGS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    settings_path = webstore_data_dir() / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def register_arkshop_servers(
@@ -398,10 +443,11 @@ def register_arkshop_servers(
     shop: "ShopGlobalConfig",
     asm_cm: Optional["AsmConfigManager"] = None,
 ) -> int:
+    servers_path = webstore_data_dir() / "servers.json"
     servers = []
-    if _SERVERS_FILE.exists():
+    if servers_path.exists():
         try:
-            raw = json.loads(_SERVERS_FILE.read_text(encoding="utf-8"))
+            raw = json.loads(servers_path.read_text(encoding="utf-8"))
             if isinstance(raw, list):
                 servers = raw
         except Exception:
@@ -414,8 +460,9 @@ def register_arkshop_servers(
         by_id[entry["server_id"]] = entry
         count += 1
 
-    _SERVERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _SERVERS_FILE.write_text(
+    servers_path = webstore_data_dir() / "servers.json"
+    servers_path.parent.mkdir(parents=True, exist_ok=True)
+    servers_path.write_text(
         json.dumps(list(by_id.values()), indent=2, ensure_ascii=False),
         encoding="utf-8",
     )

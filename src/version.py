@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.3"
+APP_VERSION: str = "1.8.4"
 BUILD_DATE: str = "2026-06-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.4",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (Web Store): no instalador, a loja não iniciava — o app tentava rodar app.py com "
+            "ARKLAND-ServerManager.exe (não é Python). Novo ARKLAND-WebStore.exe dedicado no "
+            "instalador; dados persistentes em %APPDATA%\\ARKLAND-ServerManager\\arkshop_web.",
+            "Melhoria (Web Store): diagnóstico ao falhar (tail do webstore.log), espera pela porta "
+            "e MariaDB antes de subir o Flask.",
+        ],
+    },
     {
         "version": "1.8.3",
         "date": "2026-06-12",

@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.4] - 2026-06-12
+
+### Improvement
+
+- Melhoria (Web Store): diagnóstico ao falhar (tail do webstore.log), espera pela porta e MariaDB antes de subir o Flask.
+
+### Fix
+
+- Fix (Web Store): no instalador, a loja não iniciava — o app tentava rodar app.py com ARKLAND-ServerManager.exe (não é Python). Novo ARKLAND-WebStore.exe dedicado no instalador; dados persistentes em %APPDATA%\ARKLAND-ServerManager\arkshop_web.
+
 ## [1.8.3] - 2026-06-12
 
 ### Fix

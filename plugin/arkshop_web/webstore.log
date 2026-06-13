@@ -492,3 +492,4 @@ WHERE orders.steam_id = %(steam_id_1)s) AS anon_1]
 2026-06-12T21:31:22Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:22] "GET /api/downloads HTTP/1.1" 200 -
 2026-06-12T21:31:23Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:23] "GET /api/player/summary HTTP/1.1" 200 -
 2026-06-12T21:31:23Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 21:31:23] "GET /api/player/history?limit=20&offset=0 HTTP/1.1" 200 -
+2026-06-12T22:31:50Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 22:31:50] "GET /api/auth/me HTTP/1.1" 200 -

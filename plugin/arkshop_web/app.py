@@ -11,6 +11,7 @@ import os
 import re
 import socket
 import struct
+import sys
 import threading
 import urllib.parse
 import urllib.request
@@ -67,28 +68,54 @@ def _log_error(event: str, **kw: Any) -> None:
     log.error('"%s" %s', event, parts)
 
 
+# ── Paths (dev vs PyInstaller) ────────────────────────────────────────────────
+
+def _bundle_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent
+
+
+def _data_dir() -> Path:
+    override = os.environ.get("ARKSHOP_DATA_DIR", "").strip()
+    if override:
+        p = Path(override)
+    elif getattr(sys, "frozen", False):
+        p = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "arkshop_web"
+    else:
+        p = Path(__file__).resolve().parent
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+_BUNDLE_DIR = _bundle_dir()
+_DATA_DIR = _data_dir()
+
 # ── Load environment variables ────────────────────────────────────────────────
 
 # Resolve .env na raiz do projeto (um nível acima de plugin/arkshop_web/)
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_ENV_PATH = _PROJECT_ROOT / ".env"
+_PROJECT_ROOT = _BUNDLE_DIR.parent.parent if not getattr(sys, "frozen", False) else _BUNDLE_DIR
+_ENV_PATH = (_PROJECT_ROOT / ".env") if not getattr(sys, "frozen", False) else Path()
 load_dotenv(dotenv_path=_ENV_PATH if _ENV_PATH.exists() else None)
 
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
-app = Flask(__name__, static_folder="static", static_url_path="")
+app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path="")
 CORS(app)
 app.secret_key = os.environ.get("ARKSHOP_WEB_SECRET", "arkshop-web-dev-secret-change-me")
 
-_DEFAULT_CONFIG_PATH = os.environ.get(
-    "ARKSHOP_CONFIG_PATH",
-    str(Path(__file__).parent.parent / "CustomShop" / "configs" / "config.json"),
-)
-_STATE_FILE = Path(__file__).parent / "settings.json"
-_PLAYERS_FILE = Path(__file__).parent / "players.json"
-_ADMIN_FILE = Path(__file__).parent / "admin_steamids.json"
-_SERVERS_FILE = Path(__file__).parent / "servers.json"
+_DEFAULT_CONFIG_PATH = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip()
+if not _DEFAULT_CONFIG_PATH:
+    _cfg_candidates = [
+        _BUNDLE_DIR / "CustomShop" / "configs" / "config.json",
+        _BUNDLE_DIR.parent / "CustomShop" / "configs" / "config.json",
+    ]
+    _DEFAULT_CONFIG_PATH = str(next((p for p in _cfg_candidates if p.is_file()), _cfg_candidates[0]))
+_STATE_FILE = _DATA_DIR / "settings.json"
+_PLAYERS_FILE = _DATA_DIR / "players.json"
+_ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
+_SERVERS_FILE = _DATA_DIR / "servers.json"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
@@ -449,7 +476,7 @@ for _k in _SENSITIVE_SETTINGS_KEYS:
 _startup_url = (
     _build_database_url_from_settings(_startup_settings)
     or _DATABASE_URL
-    or f"sqlite:///{Path(__file__).parent / 'orders.db'}"
+    or f"sqlite:///{_DATA_DIR / 'orders.db'}"
 )
 _configure_database(_startup_url)
 
@@ -1336,7 +1363,9 @@ def get_catalog():
 
 # ── Downloads (público + admin CRUD) ─────────────────────────────────────────
 
-_VERSION_JSON = Path(__file__).parent.parent.parent / "version.json"
+_VERSION_JSON = _BUNDLE_DIR / "version.json"
+if not _VERSION_JSON.is_file() and not getattr(sys, "frozen", False):
+    _VERSION_JSON = Path(__file__).resolve().parent.parent.parent / "version.json"
 
 
 def _get_project_release() -> dict:

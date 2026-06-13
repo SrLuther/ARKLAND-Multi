@@ -8,6 +8,7 @@ os servidores do app para cross-cluster multi-máquina.
 from __future__ import annotations
 
 import json
+import socket
 import subprocess
 import sys
 import threading
@@ -19,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..shop_integration import (
+    build_webstore_launch,
     default_catalog_path,
     default_customshop_path,
     get_local_ip,
@@ -26,10 +28,13 @@ from ..shop_integration import (
     install_customshop_all,
     is_customshop_installed,
     iter_shop_servers,
+    read_webstore_log_tail,
     resolve_central_url,
+    resolve_webstore_executable,
     slugify_server_id,
     sync_all_plugins,
     test_shop_connection,
+    webstore_data_dir,
 )
 from ..ui_constants import (
     _GREEN, _GREEN_DARK, _GREEN_HOVER,
@@ -865,7 +870,7 @@ def _build_kits_tab(app: "ARKServerManagerApp", parent: tk.Widget,
     _refresh_kits_list(scroll_kits, data, _select)
 
 
-_WEBSTORE_DIR = Path(__file__).parent.parent.parent / "plugin" / "arkshop_web"
+_WEBSTORE_DIR = webstore_data_dir()
 _ADMIN_FILE   = _WEBSTORE_DIR / "admin_steamids.json"
 _SETTINGS_FILE = _WEBSTORE_DIR / "settings.json"
 
@@ -898,9 +903,61 @@ def _save_admin_ids(ids: list[str]) -> None:
     _ADMIN_FILE.write_text(json.dumps(sorted(set(ids)), indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _is_web_running() -> bool:
+def _is_web_running(port: int = 0) -> bool:
     global _web_process
-    return _web_process is not None and _web_process.poll() is None
+    if _web_process is not None and _web_process.poll() is None:
+        return True
+    if port > 0:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.4):
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def _launch_webstore_process(shop) -> tuple[bool, str]:
+    """Inicia o processo Flask da Web Store. Retorna (ok, mensagem)."""
+    global _web_process, _web_log_fh
+
+    if getattr(sys, "frozen", False) and resolve_webstore_executable() is None:
+        return False, "ARKLAND-WebStore.exe não encontrado na pasta de instalação."
+
+    _ensure_mariadb_running(timeout=30)
+    env = get_shop_subprocess_env(shop)
+    cmd, cwd, log_path = build_webstore_launch(shop)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    if _web_log_fh:
+        try:
+            _web_log_fh.close()
+        except Exception:
+            pass
+    _web_log_fh = open(log_path, "a", encoding="utf-8")  # noqa: WPS515
+    try:
+        _web_process = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            env=env,
+            stdout=_web_log_fh,
+            stderr=_web_log_fh,
+        )
+    except Exception as exc:
+        return False, str(exc)
+
+    import time as _time
+    port = max(1, int(shop.port or 5177))
+    deadline = _time.time() + 12
+    while _time.time() < deadline:
+        if _web_process.poll() is not None:
+            tail = read_webstore_log_tail(8)
+            return False, tail or "Processo encerrou antes de abrir a porta."
+        if _is_web_running(port):
+            return True, f"Rodando na porta {port}"
+        _time.sleep(0.5)
+    if _web_process.poll() is None:
+        return True, f"Iniciando (porta {port} ainda não respondeu)"
+    tail = read_webstore_log_tail(8)
+    return False, tail or "Falha ao iniciar a Web Store."
 
 
 def _ensure_mariadb_running(timeout: int = 45) -> bool:
@@ -948,28 +1005,17 @@ def _ensure_mariadb_running(timeout: int = 45) -> bool:
 def auto_start_webstore(app: "ARKServerManagerApp") -> None:
     """Inicia a Web Store automaticamente no boot do app, sem precisar abrir a aba da Loja."""
     global _web_process, _web_log_fh
-    if _is_web_running():
+    if _is_web_running(max(1, int(shop.port or 5177))):
         return
     shop = app.config_manager.config.shop
     if (shop.mode or "host") != "host":
         return
 
     def _launch() -> None:
-        global _web_process, _web_log_fh
-        # Passo 1: garante que o MariaDB está rodando antes de iniciar o Flask
-        _ensure_mariadb_running(timeout=45)
-        # Passo 2: inicia o processo Flask
-        env = get_shop_subprocess_env(shop)
-        _log_path = _WEBSTORE_DIR / "webstore.log"
-        _WEBSTORE_DIR.mkdir(parents=True, exist_ok=True)
-        _web_log_fh = open(_log_path, "a", encoding="utf-8")  # noqa: WPS515
-        _web_process = subprocess.Popen(
-            [sys.executable, str(_WEBSTORE_DIR / "app.py")],
-            cwd=str(_WEBSTORE_DIR),
-            env=env,
-            stdout=_web_log_fh,
-            stderr=_web_log_fh,
-        )
+        ok, msg = _launch_webstore_process(shop)
+        if not ok:
+            import logging as _log2
+            _log2.getLogger(__name__).warning("auto_start_webstore: %s", msg)
 
     # Roda em thread para não bloquear a UI durante o wait do MariaDB
     threading.Thread(target=_launch, daemon=True, name="WebStoreLauncher").start()
@@ -1090,7 +1136,8 @@ def _build_webstore_tab(
 
     def _refresh_status() -> None:
         is_host = _mode_var.get() == "host"
-        running = _is_web_running() if is_host else False
+        port = max(1, int(_port_var.get().strip() or 5177))
+        running = _is_web_running(port) if is_host else False
         _save_shop_from_ui()
         url = resolve_central_url(shop)
         if is_host:
@@ -1107,29 +1154,34 @@ def _build_webstore_tab(
             btn_start.configure(state="disabled")
             btn_stop.configure(state="disabled")
         ok, msg = test_shop_connection(url)
+        detail = msg
+        if is_host and not ok and _web_process and _web_process.poll() is not None:
+            tail = read_webstore_log_tail(4)
+            if tail:
+                detail = f"{msg} | log: {tail[:180]}"
         conn_lbl.config(
-            text=f"Teste HTTP: {'✓' if ok else '✗'} {msg} — {url}",
+            text=f"Teste HTTP: {'✓' if ok else '✗'} {detail} — {url}",
             fg="#22c55e" if ok else "#f59e0b",
         )
 
     def _start_web() -> None:
-        global _web_process, _web_log_fh
-        if _mode_var.get() != "host" or _is_web_running():
+        if _mode_var.get() != "host" or _is_web_running(max(1, int(_port_var.get().strip() or 5177))):
             return
         _save_shop_from_ui()
         collect_catalog()
-        env = get_shop_subprocess_env(shop)
-        _log_path = _WEBSTORE_DIR / "webstore.log"
-        _WEBSTORE_DIR.mkdir(parents=True, exist_ok=True)
-        _web_log_fh = open(_log_path, "a", encoding="utf-8")  # noqa: WPS515
-        _web_process = subprocess.Popen(
-            [sys.executable, str(_WEBSTORE_DIR / "app.py")],
-            cwd=str(_WEBSTORE_DIR),
-            env=env,
-            stdout=_web_log_fh,
-            stderr=_web_log_fh,
-        )
-        parent.after(900, _refresh_status)
+
+        def _worker() -> None:
+            ok, msg = _launch_webstore_process(shop)
+            def _done() -> None:
+                if not ok:
+                    conn_lbl.config(
+                        text=f"Falha ao iniciar Web Store: {msg[:240]}",
+                        fg="#ef4444",
+                    )
+                _refresh_status()
+            parent.after(0, _done)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _stop_web() -> None:
         global _web_process
