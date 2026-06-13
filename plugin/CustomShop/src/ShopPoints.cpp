@@ -76,17 +76,14 @@ bool ShopPoints::Open() {
         return false;
 
     // Migrate existing databases that predate the kits column.
-    MYSQL_RES* col_res = nullptr;
-    if (mysql_query(db_,
-                    "SHOW COLUMNS FROM players LIKE 'kits'") == 0) {
-        col_res = mysql_store_result(db_);
+    if (mysql_query(db_, "ALTER TABLE players ADD COLUMN IF NOT EXISTS kits TEXT") != 0) {
+        const unsigned err = mysql_errno(db_);
+        // ER_DUP_FIELDNAME (1060) — coluna já existe; ignorar
+        if (err != 1060) {
+            Log::GetLog()->error("ShopPoints::Exec failed: {}", mysql_error(db_));
+            return false;
+        }
     }
-    const bool has_kits_col =
-        col_res && mysql_num_rows(col_res) > 0;
-    if (col_res)
-        mysql_free_result(col_res);
-    if (!has_kits_col)
-        Exec("ALTER TABLE players ADD COLUMN kits TEXT;");
 
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS transactions ("

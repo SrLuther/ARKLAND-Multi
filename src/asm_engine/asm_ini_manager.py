@@ -20,9 +20,9 @@ Opções disponíveis no dict:
 from __future__ import annotations
 
 import configparser
+import re
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 from .asm_server_config import AsmServerConfig
 
@@ -303,6 +303,19 @@ def effective_session_name(cfg: AsmServerConfig) -> str:
     if sn:
         return sn
     return (cfg.name or "").strip() or "My ARK Server"
+
+
+# Só nomes ASCII simples vão na CLI — o ARK não decodifica %XX e exibe literalmente
+# (ex: %5BBR%5D…). Nomes com [], espaços etc. ficam somente no GUS.ini (UTF-16 + aspas).
+_SIMPLE_CLI_SESSION_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _session_name_cli_param(cfg: AsmServerConfig) -> str | None:
+    """Retorna ?SessionName=… só para nomes simples; None = usar apenas INI."""
+    sn = effective_session_name(cfg)
+    if sn and _SIMPLE_CLI_SESSION_RE.match(sn):
+        return f"?SessionName={sn}"
+    return None
 
 
 def _ini_path(install_dir: str, file_key: str) -> Path:
@@ -698,9 +711,9 @@ def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
         f"{cfg.server_map}",
         "?listen",
     ]
-    _sn = effective_session_name(cfg)
-    if _sn:
-        params.append(f"?SessionName={quote(_sn, safe='')}")
+    _sn_cli = _session_name_cli_param(cfg)
+    if _sn_cli:
+        params.append(_sn_cli)
     params.extend([
         f"?Port={cfg.server_port}",
         f"?QueryPort={cfg.query_port}",
@@ -831,9 +844,9 @@ def _append_additional_args(flags: list[str], extra: str) -> None:
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
 
-    SessionName vai ao GUS.ini (SessionSettings + ServerSettings) e à travel URL
-    (?SessionName= com percent-encoding). RunServer.cmd duplica % como %% antes do
-    cmd.exe, evitando corrupção de nomes com espaços ou colchetes.
+    SessionName vai ao GUS.ini (SessionSettings + ServerSettings, UTF-16 + aspas).
+    Na travel URL só entra para nomes simples (A-Za-z0-9_-) — o ARK exibe %XX literal
+    se usar percent-encoding; nomes com [], espaços etc. ficam apenas no INI.
     """
     params = _launch_url_params(cfg)
     flags = _launch_dash_flags(cfg)

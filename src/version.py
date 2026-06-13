@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.8"
+APP_VERSION: str = "1.8.9"
 BUILD_DATE: str = "2026-06-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.9",
+        "date": "2026-06-13",
+        "changes": [
+            "Fix (ASM/launch): SessionName com colchetes/espaços não vai mais na CLI com "
+            "%5B/%20 — o ARK exibia o encoding literal; nome fica só no GUS.ini (aspas + UTF-16).",
+            "Fix (ASM/launch): ?SessionName= na CLI restrito a nomes simples (A-Za-z0-9_-) "
+            "para evitar 'ARK #NNNNNN' sem corromper nomes complexos.",
+            "Fix (CustomShop): migração kits com ADD COLUMN IF NOT EXISTS e tolerância a "
+            "ER_DUP_FIELDNAME (1060).",
+        ],
+    },
     {
         "version": "1.8.8",
         "date": "2026-06-13",
