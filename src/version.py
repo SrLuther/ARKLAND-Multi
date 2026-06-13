@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.4"
+APP_VERSION: str = "1.8.5"
 BUILD_DATE: str = "2026-06-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.5",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (Web Store): ARKLAND-WebStore.exe falhava com «No module named dotenv» — "
+            "python-dotenv adicionado às dependências e empacotado no build PyInstaller.",
+        ],
+    },
     {
         "version": "1.8.4",
         "date": "2026-06-12",

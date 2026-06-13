@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.5] - 2026-06-12
+
+### Fix
+
+- Fix (Web Store): ARKLAND-WebStore.exe falhava com «No module named dotenv» — python-dotenv adicionado às dependências e empacotado no build PyInstaller.
+
 ## [1.8.4] - 2026-06-12
 
 ### Improvement

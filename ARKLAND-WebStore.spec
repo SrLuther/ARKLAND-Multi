@@ -2,16 +2,20 @@
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 flask_datas, flask_binaries, flask_hiddenimports = collect_all('flask')
+cors_datas, cors_binaries, cors_hiddenimports = collect_all('flask_cors')
+limiter_datas, limiter_binaries, limiter_hiddenimports = collect_all('flask_limiter')
+dotenv_datas, dotenv_binaries, dotenv_hiddenimports = collect_all('dotenv')
+crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography')
 
 a = Analysis(
     ['plugin/arkshop_web/app.py'],
     pathex=[],
-    binaries=[] + flask_binaries,
+    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries,
     datas=[
         ('plugin/arkshop_web/static', 'static'),
         ('plugin/CustomShop/configs/config.json', 'CustomShop/configs'),
         ('version.json', '.'),
-    ] + flask_datas,
+    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas,
     hiddenimports=[
         'flask',
         'flask_cors',
@@ -20,6 +24,7 @@ a = Analysis(
         'limits',
         'limits.storage',
         'limits.storage.memory',
+        'ordered_set',
         'sqlalchemy',
         'sqlalchemy.dialects.mysql',
         'sqlalchemy.dialects.mysql.pymysql',
@@ -29,7 +34,9 @@ a = Analysis(
         'dotenv',
         'werkzeug',
         'jinja2',
-    ] + collect_submodules('sqlalchemy') + flask_hiddenimports,
+    ] + collect_submodules('sqlalchemy')
+      + flask_hiddenimports + cors_hiddenimports + limiter_hiddenimports
+      + dotenv_hiddenimports + crypto_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
