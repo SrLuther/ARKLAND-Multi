@@ -1,11 +1,10 @@
 {
-    "version": "1.8.6",
+    "version": "1.8.7",
     "date": "2026-06-13",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.6/ARKLAND-Multi-Setup-v1.8.6.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.7/ARKLAND-Multi-Setup-v1.8.7.exe",
     "changelog": [
-        "Fix (CustomShop): Error 126 — libmariadb.dll e z.dll copiadas para Win64/ além de Plugins/CustomShop/; diagnóstico de instalação incompleta.",
-        "Fix (CustomShop): SSL/TLS ao conectar em 127.0.0.1:3306 — MariaDB portable não usa TLS; plugin recompilado com MYSQL_OPT_SSL_ENFORCE=0.",
-        "Melhoria (CustomShop): instalar/sincronizar grava WebApiUrl, API Key e credenciais Database (arkland_shop) do DB Manager no config.json do plugin.",
-        "Melhoria (Web Store): IP público + URLs LAN/internet na aba; botão Firewall Windows; detecção automática de IP público; diagnóstico LAN vs localhost."
+        "Fix (ASM/launch): restaurado ?SessionName= na travel URL com percent-encoding — regressão da v1.7.6 causava nome genérico 'ARK #NNNNNN' na listagem.",
+        "Fix (ASM/INI): SessionName gravado por último no GUS.ini — INI customizado/raw não pode mais sobrescrever o nome efetivo do servidor.",
+        "Fix (CustomShop): migração da coluna kits idempotente (sem erro Duplicate column)."
     ]
 }

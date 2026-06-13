@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.6"
+APP_VERSION: str = "1.8.7"
 BUILD_DATE: str = "2026-06-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.7",
+        "date": "2026-06-13",
+        "changes": [
+            "Fix (ASM/launch): restaurado ?SessionName= na travel URL com percent-encoding — "
+            "regressão da v1.7.6 causava nome genérico 'ARK #NNNNNN' na listagem.",
+            "Fix (ASM/INI): SessionName gravado por último no GUS.ini — INI customizado/raw "
+            "não pode mais sobrescrever o nome efetivo do servidor.",
+            "Fix (CustomShop): migração da coluna kits idempotente (sem erro Duplicate column).",
+        ],
+    },
     {
         "version": "1.8.6",
         "date": "2026-06-12",

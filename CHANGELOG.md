@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.7] - 2026-06-13
+
+### Fix
+
+- Fix (ASM/launch): restaurado ?SessionName= na travel URL com percent-encoding — regressão da v1.7.6 causava nome genérico 'ARK #NNNNNN' na listagem.
+- Fix (ASM/INI): SessionName gravado por último no GUS.ini — INI customizado/raw não pode mais sobrescrever o nome efetivo do servidor.
+- Fix (CustomShop): migração da coluna kits idempotente (sem erro Duplicate column).
+
 ## [1.8.6] - 2026-06-12
 
 ### Improvement

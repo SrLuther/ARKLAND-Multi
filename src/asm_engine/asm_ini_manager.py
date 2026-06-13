@@ -22,6 +22,7 @@ from __future__ import annotations
 import configparser
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from .asm_server_config import AsmServerConfig
 
@@ -402,12 +403,6 @@ def write_ini(cfg: AsmServerConfig) -> None:
         section_key = _resolve_ini_section(file_key, section)
         target.setdefault(section_key, {})[ini_key] = value
 
-    # SessionName é obrigatório para listagem — grava em ambas as seções usadas pelo ARK/ASM
-    _sn = effective_session_name(cfg)
-    if _sn:
-        gus.setdefault("SessionSettings", {})["SessionName"] = _sn
-        gus.setdefault("ServerSettings", {})["SessionName"] = _sn
-
     # Seções customizadas livres (legado)
     for custom in cfg.custom_ini_sections:
         f = custom.get("file", "GUS").upper()
@@ -446,6 +441,12 @@ def write_ini(cfg: AsmServerConfig) -> None:
 
     if cfg.prevent_transfer_raw:
         _inject_raw(cfg.prevent_transfer_raw, gus)
+
+    # SessionName por último — raw/custom não pode sobrescrever o nome efetivo
+    _sn = effective_session_name(cfg)
+    if _sn:
+        gus.setdefault("SessionSettings", {})["SessionName"] = _sn
+        gus.setdefault("ServerSettings", {})["SessionName"] = _sn
 
     # Per-level stat multipliers (array-indexed — não entram no INI_MAP convencional)
     _PERLEVEL_MAP = [
@@ -696,10 +697,15 @@ def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
     params = [
         f"{cfg.server_map}",
         "?listen",
+    ]
+    _sn = effective_session_name(cfg)
+    if _sn:
+        params.append(f"?SessionName={quote(_sn, safe='')}")
+    params.extend([
         f"?Port={cfg.server_port}",
         f"?QueryPort={cfg.query_port}",
         f"?MaxPlayers={cfg.max_players}",
-    ]
+    ])
     if cfg.exclusive_join:
         params.append("?ExclusiveJoin")
     if cfg.active_event:
@@ -825,10 +831,9 @@ def _append_additional_args(flags: list[str], extra: str) -> None:
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
 
-    SessionName fica SOMENTE no GameUserSettings.ini (SessionSettings + ServerSettings).
-    Não incluir ?SessionName= na CLI: o servidor é lançado via RunServer.cmd e o
-    cmd.exe expande %XX (ex: %20, %5B) como variáveis de ambiente, corrompendo nomes
-    como '[BR] ARKLAND PVE 5X' em 'BBRDBARKLANDDBPVEDB5X…'.
+    SessionName vai ao GUS.ini (SessionSettings + ServerSettings) e à travel URL
+    (?SessionName= com percent-encoding). RunServer.cmd duplica % como %% antes do
+    cmd.exe, evitando corrupção de nomes com espaços ou colchetes.
     """
     params = _launch_url_params(cfg)
     flags = _launch_dash_flags(cfg)

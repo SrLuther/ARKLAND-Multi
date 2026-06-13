@@ -76,7 +76,17 @@ bool ShopPoints::Open() {
         return false;
 
     // Migrate existing databases that predate the kits column.
-    Exec("ALTER TABLE players ADD COLUMN kits TEXT;");
+    MYSQL_RES* col_res = nullptr;
+    if (mysql_query(db_,
+                    "SHOW COLUMNS FROM players LIKE 'kits'") == 0) {
+        col_res = mysql_store_result(db_);
+    }
+    const bool has_kits_col =
+        col_res && mysql_num_rows(col_res) > 0;
+    if (col_res)
+        mysql_free_result(col_res);
+    if (!has_kits_col)
+        Exec("ALTER TABLE players ADD COLUMN kits TEXT;");
 
     if (!Exec(
         "CREATE TABLE IF NOT EXISTS transactions ("
