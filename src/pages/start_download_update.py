@@ -8,6 +8,11 @@ def start_download_update(app: "ARKServerManagerApp") -> None:
     info = app.update_checker.latest
     if not info:
         return
+    try:
+        from .customshop_panel import stop_webstore
+        stop_webstore()
+    except Exception:
+        pass
     app._install_update_btn.configure(state="disabled", text="⏳  Iniciando agente...")
     app._check_update_btn.configure(state="disabled")
     app.update_checker.download_and_install(

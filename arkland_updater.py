@@ -228,7 +228,11 @@ class UpdaterApp:
         Usa taskkill para encerrar, depois verifica via tasklist se os processos
         realmente morreram — repetindo até 5 vezes antes de prosseguir.
         """
-        _TARGET_EXES = ("ARKLAND-ServerManager.exe", "ARKLAND-Multi.exe")
+        _TARGET_EXES = (
+            "ARKLAND-ServerManager.exe",
+            "ARKLAND-Multi.exe",
+            "ARKLAND-WebStore.exe",
+        )
 
         # 1ª passada: mata pelo nome — NÃO usamos /T (árvore) pois o próprio
         # updater é filho do app principal e seria encerrado junto.

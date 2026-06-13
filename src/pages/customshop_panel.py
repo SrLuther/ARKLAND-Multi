@@ -1011,10 +1011,10 @@ def _ensure_mariadb_running(timeout: int = 45) -> bool:
 def auto_start_webstore(app: "ARKServerManagerApp") -> None:
     """Inicia a Web Store automaticamente no boot do app, sem precisar abrir a aba da Loja."""
     global _web_process, _web_log_fh
-    if _is_web_running(max(1, int(shop.port or 5177))):
-        return
     shop = app.config_manager.config.shop
     if (shop.mode or "host") != "host":
+        return
+    if _is_web_running(max(1, int(shop.port or 5177))):
         return
 
     def _launch() -> None:
@@ -1025,6 +1025,35 @@ def auto_start_webstore(app: "ARKServerManagerApp") -> None:
 
     # Roda em thread para não bloquear a UI durante o wait do MariaDB
     threading.Thread(target=_launch, daemon=True, name="WebStoreLauncher").start()
+
+
+def stop_webstore() -> None:
+    """Encerra a Web Store — necessário antes de atualizar o app (libera o .exe)."""
+    global _web_process, _web_log_fh
+    if _web_process is not None and _web_process.poll() is None:
+        try:
+            _web_process.terminate()
+            try:
+                _web_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                _web_process.kill()
+        except Exception:
+            pass
+    _web_process = None
+    if _web_log_fh:
+        try:
+            _web_log_fh.close()
+        except Exception:
+            pass
+        _web_log_fh = None
+    if sys.platform == "win32":
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "ARKLAND-WebStore.exe"],
+                capture_output=True,
+            )
+        except Exception:
+            pass
 
 
 def _build_webstore_tab(

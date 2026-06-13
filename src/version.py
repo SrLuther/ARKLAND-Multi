@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.7"
+APP_VERSION: str = "1.8.8"
 BUILD_DATE: str = "2026-06-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.8",
+        "date": "2026-06-13",
+        "changes": [
+            "Fix (Updater): encerra ARKLAND-WebStore.exe antes de instalar — corrigia erro "
+            "'DeleteFile falhou; código 5 / Acesso negado' ao atualizar.",
+            "Fix (Updater/TEK): app fecha corretamente após iniciar o agente de atualização.",
+            "Fix (TEK): verificação automática de atualização ao iniciar o app (regressão do app_tek).",
+            "Fix (Web Store): auto_start_webstore usava variável shop antes de defini-la.",
+        ],
+    },
     {
         "version": "1.8.7",
         "date": "2026-06-13",

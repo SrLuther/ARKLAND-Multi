@@ -5,6 +5,15 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.8] - 2026-06-13
+
+### Fix
+
+- Fix (Updater): encerra ARKLAND-WebStore.exe antes de instalar — corrigia erro 'DeleteFile falhou; código 5 / Acesso negado' ao atualizar.
+- Fix (Updater/TEK): app fecha corretamente após iniciar o agente de atualização.
+- Fix (TEK): verificação automática de atualização ao iniciar o app (regressão do app_tek).
+- Fix (Web Store): auto_start_webstore usava variável shop antes de defini-la.
+
 ## [1.8.7] - 2026-06-13
 
 ### Fix

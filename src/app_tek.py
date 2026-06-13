@@ -159,6 +159,8 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(2500, self._asm_scan_running_servers)
         # Auto-start: Web Store (após painel estável)
         self.after(5000, self._auto_start_webstore)
+        # Verifica atualização do app ao iniciar
+        self.after(4000, self._check_updates_on_start)
         # B2: tick de indicadores ricos de status
         self.after(30_000, self._asm_status_tick)
 
@@ -1286,6 +1288,15 @@ class ARKServerManagerApp(ctk.CTk):
     # Atualizações do App
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _check_updates_on_start(self) -> None:
+        url = self.config_manager.config.update_url
+        if not url:
+            return
+        self.update_checker.check_async(
+            url,
+            on_result=lambda info: self.after(0, lambda: self._on_update_result(info)),
+        )
+
     def _check_updates_manual(self) -> None:
         url = self.config_manager.config.update_url
         if not url:
@@ -1327,11 +1338,21 @@ class ARKServerManagerApp(ctk.CTk):
         start_download_update(self)
 
     def _on_download_done(self, ok: bool, msg: str) -> None:
+        if ok:
+            messagebox.showinfo(
+                "Atualização",
+                "O agente de atualização foi iniciado.\n\n"
+                "O ARKLAND será fechado agora. Quando a instalação terminar, o app reiniciará automaticamente.",
+                parent=self,
+            )
+            self.destroy()
+            return
         if self._install_update_btn:
             self._install_update_btn.configure(state="normal", text="⬇️  Baixar e Instalar")
         if self._check_update_btn:
             self._check_update_btn.configure(state="normal")
-        messagebox.showinfo("Atualização", msg, parent=self)
+        if msg:
+            messagebox.showerror("Atualização", msg, parent=self)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Sync — ciclos de pasta
