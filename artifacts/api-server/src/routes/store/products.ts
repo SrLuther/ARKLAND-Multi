@@ -11,23 +11,28 @@ router.get("/products", async (req, res) => {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(48, Math.max(1, Number(req.query.limit) || 24));
     const offset = (page - 1) * limit;
-    const categorySlug = req.query.category as string | undefined;
-    const search = req.query.search as string | undefined;
+    const categorySlug = (req.query.category as string | undefined)?.trim();
+    const search = (req.query.search as string | undefined)?.trim();
 
     const conditions: ReturnType<typeof eq>[] = [
       eq(storeProductsTable.isActive, true),
     ];
 
-    let categoryId: number | undefined;
     if (categorySlug) {
       const [cat] = await db
         .select({ id: storeCategoriesTable.id })
         .from(storeCategoriesTable)
         .where(eq(storeCategoriesTable.slug, categorySlug));
-      if (cat) {
-        categoryId = cat.id;
-        conditions.push(eq(storeProductsTable.categoryId, cat.id) as any);
+      if (!cat) {
+        return res.json({
+          items: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        });
       }
+      conditions.push(eq(storeProductsTable.categoryId, cat.id) as any);
     }
     if (search) {
       conditions.push(ilike(storeProductsTable.name, `%${search}%`) as any);
@@ -35,34 +40,37 @@ router.get("/products", async (req, res) => {
 
     const where = and(...conditions);
 
-    const [{ value: total }] = await db
-      .select({ value: count() })
-      .from(storeProductsTable)
-      .where(where);
+    const [totalRows, items] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(storeProductsTable)
+        .where(where),
+      db
+        .select({
+          id: storeProductsTable.id,
+          slug: storeProductsTable.slug,
+          name: storeProductsTable.name,
+          description: storeProductsTable.description,
+          imageUrl: storeProductsTable.imageUrl,
+          price: storeProductsTable.price,
+          categoryId: storeProductsTable.categoryId,
+          categorySlug: storeCategoriesTable.slug,
+          blueprint: storeProductsTable.blueprint,
+          quantity: storeProductsTable.quantity,
+          quality: storeProductsTable.quality,
+          forceBlueprint: storeProductsTable.forceBlueprint,
+          isFeatured: storeProductsTable.isFeatured,
+          isActive: storeProductsTable.isActive,
+          createdAt: storeProductsTable.createdAt,
+        })
+        .from(storeProductsTable)
+        .leftJoin(storeCategoriesTable, eq(storeCategoriesTable.id, storeProductsTable.categoryId))
+        .where(where)
+        .limit(limit)
+        .offset(offset),
+    ]);
 
-    const items = await db
-      .select({
-        id: storeProductsTable.id,
-        slug: storeProductsTable.slug,
-        name: storeProductsTable.name,
-        description: storeProductsTable.description,
-        imageUrl: storeProductsTable.imageUrl,
-        price: storeProductsTable.price,
-        categoryId: storeProductsTable.categoryId,
-        categorySlug: storeCategoriesTable.slug,
-        blueprint: storeProductsTable.blueprint,
-        quantity: storeProductsTable.quantity,
-        quality: storeProductsTable.quality,
-        forceBlueprint: storeProductsTable.forceBlueprint,
-        isFeatured: storeProductsTable.isFeatured,
-        isActive: storeProductsTable.isActive,
-        createdAt: storeProductsTable.createdAt,
-      })
-      .from(storeProductsTable)
-      .leftJoin(storeCategoriesTable, eq(storeCategoriesTable.id, storeProductsTable.categoryId))
-      .where(where)
-      .limit(limit)
-      .offset(offset);
+    const total = totalRows[0]?.value ?? 0;
 
     return res.json({
       items: items.map((p) => ({

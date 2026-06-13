@@ -1,6 +1,6 @@
 # ARKLAND-Multi — Project Audit Report
 
-**Gerado em:** 21/05/2026 20:28:09 &nbsp;|&nbsp; **Tempo:** 8.3s &nbsp;|&nbsp; **Score:** 88/100
+**Gerado em:** 13/06/2026 08:48:34 &nbsp;|&nbsp; **Tempo:** 10.1s &nbsp;|&nbsp; **Score:** 76/100
 
 ---
 
@@ -8,12 +8,12 @@
 
 | Métrica | Valor |
 |---------|------:|
-| Arquivos analisados | 204 |
-| Total de issues | 502 |
-| Erros | 0 |
-| Warnings | 210 |
-| Infos | 292 |
-| Score geral | **88/100** |
+| Arquivos analisados | 299 |
+| Total de issues | 946 |
+| Erros | 28 |
+| Warnings | 536 |
+| Infos | 382 |
+| Score geral | **76/100** |
 
 ---
 
@@ -21,11 +21,10 @@
 
 | Categoria | Erros | Warnings | Infos | Total |
 |-----------|------:|---------:|------:|------:|
-| Imports | 0 | 29 | 274 | 303 |
-| Complexidade | 0 | 139 | 0 | 139 |
-| Estrutura | 0 | 5 | 8 | 13 |
-| Modularização | 0 | 4 | 10 | 14 |
-| Tkinter | 0 | 33 | 0 | 33 |
+| Imports | 1 | 200 | 336 | 537 |
+| Complexidade | 0 | 310 | 0 | 310 |
+| Estrutura | 27 | 8 | 21 | 56 |
+| Modularização | 0 | 18 | 25 | 43 |
 
 ---
 
@@ -33,323 +32,428 @@
 
 | # | Arquivo | Erros | Warnings | Total |
 |--:|---------|------:|---------:|------:|
-| 1 | `src\app.py` | 0 | 6 | 38 |
-| 2 | `src\ark_ini.py` | 0 | 15 | 16 |
-| 3 | `src\server_manager.py` | 0 | 15 | 16 |
-| 4 | `src\pages\tab_plugins.py` | 0 | 12 | 13 |
-| 5 | `tools\project_audit.py` | 0 | 6 | 9 |
-| 6 | `src\pages\tab_crashes.py` | 0 | 5 | 7 |
-| 7 | `src\pages\tab_general.py` | 0 | 4 | 7 |
-| 8 | `src\pages\tab_loot.py` | 0 | 6 | 7 |
-| 9 | `src\pages\tab_spawns.py` | 0 | 6 | 7 |
-| 10 | `src\dialogs\remote_control_dialog.py` | 0 | 4 | 6 |
-| 11 | `src\pages\ini_import.py` | 0 | 5 | 6 |
-| 12 | `src\dialogs\create_buff_dialog.py` | 0 | 4 | 5 |
-| 13 | `src\pages\tab_advanced.py` | 0 | 3 | 5 |
-| 14 | `src\pages\tab_game.py` | 0 | 3 | 5 |
-| 15 | `src\server_config.py` | 0 | 2 | 5 |
-| 16 | `src\breeding_calculator.py` | 0 | 2 | 4 |
-| 17 | `src\dialogs\mod_ini_dialog.py` | 0 | 3 | 4 |
-| 18 | `src\dialogs\mod_search_dialog.py` | 0 | 2 | 4 |
-| 19 | `src\dialogs\open_presets_manager.py` | 0 | 2 | 4 |
-| 20 | `src\mod_auto_updater.py` | 0 | 3 | 4 |
+| 1 | `src\asm_ui\asm_server_panel.py` | 1 | 121 | 124 |
+| 2 | `src\app.py` | 1 | 40 | 43 |
+| 3 | `src\app_tek.py` | 1 | 26 | 30 |
+| 4 | `src\server_manager.py` | 0 | 19 | 21 |
+| 5 | `src\pages\customshop_panel.py` | 0 | 18 | 20 |
+| 6 | `src\pages\db_manager_panel.py` | 0 | 16 | 19 |
+| 7 | `src\ark_ini.py` | 0 | 15 | 16 |
+| 8 | `src\pages\tab_crashes.py` | 0 | 8 | 11 |
+| 9 | `src\asm_engine\asm_ini_manager.py` | 0 | 8 | 10 |
+| 10 | `src\asm_engine\asm_steamcmd.py` | 0 | 7 | 10 |
+| 11 | `src\asm_ui\asm_ai_assistant.py` | 0 | 6 | 10 |
+| 12 | `src\asm_ui\asm_dashboard.py` | 0 | 7 | 10 |
+| 13 | `src\shop_integration.py` | 0 | 8 | 10 |
+| 14 | `src\mod_manager.py` | 0 | 7 | 9 |
+| 15 | `tools\project_audit.py` | 0 | 6 | 9 |
+| 16 | `src\asm_ui\asm_add_server_dialog.py` | 0 | 7 | 8 |
+| 17 | `src\asm_ui\spawn_exact_panel.py` | 0 | 6 | 8 |
+| 18 | `src\pages\tab_game.py` | 0 | 7 | 8 |
+| 19 | `src\remote_agent.py` | 0 | 6 | 8 |
+| 20 | `src\ui\server_field_widgets.py` | 0 | 6 | 8 |
 
 ---
 
 ## Sugestões Automáticas
 
-1. Extrair responsabilidades da classe em 'src\app.py'
-2. Executar 'ruff check . --fix' para remover ~274 imports não utilizados automaticamente
-3. 5 arquivo(s) com UI misturada a lógica — considere padrão MVP/MVC
+1. Revisar urgente 'src\app.py' — 1 erro(s) crítico(s)
+2. Revisar urgente 'src\app_tek.py' — 1 erro(s) crítico(s)
+3. Revisar urgente 'src\asm_ui\asm_server_panel.py' — 1 erro(s) crítico(s)
+4. Revisar urgente 'src\dialogs\add_server_dialog.py' — 1 erro(s) crítico(s)
+5. Revisar urgente 'src\dialogs\remote_control_dialog.py' — 1 erro(s) crítico(s)
+6. Resolver 1 dependência(s) circular(es) — pode causar ImportError em runtime
+7. Dividir 'src\app.py' (arquivo enorme)
+8. Dividir 'src\asm_ui\asm_server_panel.py' (arquivo enorme)
+9. Extrair responsabilidades da classe em 'src\app.py'
+10. Extrair responsabilidades da classe em 'src\app_tek.py'
+11. Extrair responsabilidades da classe em 'src\asm_ui\spawn_exact_panel.py'
+12. Executar 'ruff check . --fix' para remover ~336 imports não utilizados automaticamente
+13. 15 arquivo(s) com UI misturada a lógica — considere padrão MVP/MVC
 
 ---
 
 ## Todos os Issues
 
+### 🔴 Erros
+
+| Arquivo | Linha | Código | Mensagem | Fonte |
+|---------|------:|--------|----------|-------|
+| `src\app.py` | 1 | `SIZE003` | Arquivo enorme: 4099 linhas (limite: 3000) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1 | `SIZE003` | Arquivo enorme: 3875 linhas (limite: 3000) | ast |
+| `src\dialogs\add_server_dialog.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\dialogs\remote_control_dialog.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\broadcast_edit.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\build_static_frames.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\chat_process.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\chat_send.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\cluster_delete.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\cluster_sync_once.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\cluster_sync_start.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\collect_gpu_info.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\download_steamcmd.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\fetch_mod_names_async.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\fetch_steam_name.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\ini_import.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\ini_paste_section.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\log_perf_critical.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\on_sync_log.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\on_update_result.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\open_server_panel.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\perf_monitor_loop.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\performance_panel.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\rebuild_server_panel.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\remote_panel.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\show_cluster_health_dialog.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\pages\toast.py` | 1 | `AST001` | SyntaxError: invalid non-printable character U+FEFF | ast |
+| `src\app_tek.py` | 1 | `IMP004` | Dependência circular: src.app_tek → src.pages.build_sidebar_tek → src.app_tek | ast |
+
 ### 🟡 Warnings
 
 | Arquivo | Linha | Código | Mensagem | Fonte |
 |---------|------:|--------|----------|-------|
-| `src\app.py` | 1 | `SIZE002` | Arquivo grande: 1366 linhas (recomendado: < 1000) | ast |
-| `src\app.py` | 98 | `FUNC001` | Função '__init__': 121 linhas (máx: 50) | ast |
-| `src\app.py` | 96 | `CLS001` | Classe 'ARKServerManagerApp': 211 métodos (máx: 30) | ast |
-| `src\app.py` | 96 | `CLS002` | Classe 'ARKServerManagerApp': 1270 linhas (máx: 500) | ast |
-| `src\app.py` | 1069 | `IMP002` | Import duplicado: 'webbrowser' | ast |
-| `src\app.py` | 113 | `IMP002` | Import duplicado: 'Image' de 'PIL' | ast |
-| `src\ark_ini.py` | 1 | `SIZE002` | Arquivo grande: 1644 linhas (recomendado: < 1000) | ast |
-| `src\ark_ini.py` | 347 | `FUNC001` | Função 'populate_config_from_gus': 181 linhas (máx: 50) | ast |
-| `src\ark_ini.py` | 530 | `FUNC001` | Função 'populate_config_from_game_ini': 154 linhas (máx: 50) | ast |
-| `src\ark_ini.py` | 749 | `FUNC001` | Função '_parse_npc_spawn_container': 51 linhas (máx: 50) | ast |
-| `src\ark_ini.py` | 1242 | `FUNC001` | Função 'save_game_user_settings': 130 linhas (máx: 50) | ast |
-| `src\ark_ini.py` | 1373 | `FUNC001` | Função 'save_game_ini': 221 linhas (máx: 50) | ast |
-| `src\ark_ini.py` | 761 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 845 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 903 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 926 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 971 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 1016 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 1375 | `IMP002` | Import duplicado: 're' | ast |
-| `src\ark_ini.py` | 1533 | `IMP002` | Import duplicado: 'io' | ast |
-| `src\ark_ini.py` | 1611 | `IMP002` | Import duplicado: 're' | ast |
-| `src\backup_manager.py` | 100 | `FUNC001` | Função 'do_backup': 60 linhas (máx: 50) | ast |
-| `src\beacon_client.py` | 95 | `FUNC001` | Função 'authenticate_async': 82 linhas (máx: 50) | ast |
-| `src\beacon_client.py` | 112 | `FUNC001` | Função '_worker': 63 linhas (máx: 50) | ast |
-| `src\breeding_calculator.py` | 231 | `FUNC001` | Função 'open_breeding_calculator': 353 linhas (máx: 50) | ast |
-| `src\breeding_calculator.py` | 231 | `FUNC003` | Função 'open_breeding_calculator': 6 funções aninhadas (alta complexidade) | ast |
-| `src\change_logger.py` | 89 | `FUNC001` | Função 'snapshot_server': 52 linhas (máx: 50) | ast |
-| `src\dialogs\add_server_dialog.py` | 15 | `FUNC001` | Função 'dialog_add_server': 135 linhas (máx: 50) | ast |
-| `src\dialogs\add_server_dialog.py` | 15 | `FUNC003` | Função 'dialog_add_server': 4 funções aninhadas (alta complexidade) | ast |
-| `src\dialogs\clone_config_dialog.py` | 17 | `FUNC001` | Função 'open_clone_config_dialog': 99 linhas (máx: 50) | ast |
-| `src\dialogs\create_buff_dialog.py` | 20 | `FUNC001` | Função 'open_create_buff_dialog': 326 linhas (máx: 50) | ast |
-| `src\dialogs\create_buff_dialog.py` | 20 | `FUNC003` | Função 'open_create_buff_dialog': 5 funções aninhadas (alta complexidade) | ast |
-| `src\dialogs\create_buff_dialog.py` | 27 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\dialogs\create_buff_dialog.py` | 1 | `MOD003` | 'create_buff_dialog.py' tem 346 linhas — extrair sub-componentes | ast |
-| `src\dialogs\mod_ini_dialog.py` | 16 | `FUNC001` | Função 'open_mod_ini_dialog': 220 linhas (máx: 50) | ast |
-| `src\dialogs\mod_ini_dialog.py` | 16 | `FUNC003` | Função 'open_mod_ini_dialog': 4 funções aninhadas (alta complexidade) | ast |
-| `src\dialogs\mod_ini_dialog.py` | 58 | `FUNC001` | Função '_show_section_picker': 88 linhas (máx: 50) | ast |
-| `src\dialogs\mod_search_dialog.py` | 20 | `FUNC001` | Função 'open_mod_search_dialog': 132 linhas (máx: 50) | ast |
-| `src\dialogs\mod_search_dialog.py` | 20 | `FUNC003` | Função 'open_mod_search_dialog': 4 funções aninhadas (alta complexidade) | ast |
-| `src\dialogs\open_presets_manager.py` | 10 | `FUNC001` | Função 'open_presets_manager': 65 linhas (máx: 50) | ast |
-| `src\dialogs\open_presets_manager.py` | 62 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\dialogs\remote_control_dialog.py` | 20 | `FUNC001` | Função 'open_remote_control': 236 linhas (máx: 50) | ast |
-| `src\dialogs\remote_control_dialog.py` | 20 | `FUNC003` | Função 'open_remote_control': 14 funções aninhadas (alta complexidade) | ast |
-| `src\dialogs\remote_control_dialog.py` | 144 | `FUNC001` | Função '_rebuild_servers': 80 linhas (máx: 50) | ast |
-| `src\dialogs\remote_control_dialog.py` | 144 | `FUNC003` | Função '_rebuild_servers': 4 funções aninhadas (alta complexidade) | ast |
-| `src\dialogs\sync_ini_dialog.py` | 18 | `FUNC001` | Função 'open_sync_ini_dialog': 135 linhas (máx: 50) | ast |
-| `src\discord_notifier.py` | 73 | `FUNC001` | Função 'notify_status': 91 linhas (máx: 50) | ast |
-| `src\mod_auto_updater.py` | 206 | `FUNC001` | Função '_handle_mod_update': 180 linhas (máx: 50) | ast |
-| `src\mod_auto_updater.py` | 410 | `IMP002` | Import duplicado: 'RconClient' de 'rcon_client' | ast |
-| `src\mod_auto_updater.py` | 410 | `IMP002` | Import duplicado: 'RconError' de 'rcon_client' | ast |
-| `src\mod_manager.py` | 149 | `FUNC001` | Função '_download_worker': 108 linhas (máx: 50) | ast |
-| `src\mod_manager.py` | 283 | `FUNC001` | Função '_install_server_worker': 61 linhas (máx: 50) | ast |
-| `src\mod_manager.py` | 392 | `FUNC001` | Função '_create_dot_mod_from_mod_info': 94 linhas (máx: 50) | ast |
-| `src\pages\add_admin_id.py` | 17 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\add_mod.py` | 12 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\broadcast_add.py` | 14 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\broadcast_delete.py` | 12 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\broadcast_rcon.py` | 8 | `FUNC001` | Função 'broadcast_rcon': 51 linhas (máx: 50) | ast |
-| `src\pages\broadcast_rcon.py` | 33 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\broadcast_refresh_list.py` | 9 | `FUNC001` | Função 'broadcast_refresh_list': 62 linhas (máx: 50) | ast |
-| `src\pages\broadcast_test.py` | 12 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\build_about.py` | 10 | `FUNC001` | Função 'build_about': 84 linhas (máx: 50) | ast |
-| `src\pages\build_auto_update_panel.py` | 11 | `FUNC001` | Função 'build_auto_update_panel': 70 linhas (máx: 50) | ast |
-| `src\pages\build_buffs_panel.py` | 10 | `FUNC001` | Função 'build_buffs_panel': 62 linhas (máx: 50) | ast |
-| `src\pages\build_clusters_panel.py` | 10 | `FUNC001` | Função 'build_clusters_panel': 52 linhas (máx: 50) | ast |
-| `src\pages\build_config_search_bar.py` | 10 | `FUNC001` | Função 'build_config_search_bar': 118 linhas (máx: 50) | ast |
-| `src\pages\build_config_search_bar.py` | 10 | `FUNC003` | Função 'build_config_search_bar': 4 funções aninhadas (alta complexidade) | ast |
-| `src\pages\build_config_search_bar.py` | 39 | `FUNC001` | Função '_on_change': 84 linhas (máx: 50) | ast |
-| `src\pages\build_server_card.py` | 12 | `FUNC001` | Função 'build_server_card': 86 linhas (máx: 50) | ast |
-| `src\pages\build_server_card.py` | 12 | `FUNC003` | Função 'build_server_card': 4 funções aninhadas (alta complexidade) | ast |
-| `src\pages\build_sync_panel.py` | 10 | `FUNC001` | Função 'build_sync_panel': 99 linhas (máx: 50) | ast |
-| `src\pages\build_tab_admins.py` | 11 | `FUNC001` | Função 'build_tab_admins': 74 linhas (máx: 50) | ast |
-| `src\pages\build_tab_historico.py` | 11 | `FUNC001` | Função 'build_tab_historico': 52 linhas (máx: 50) | ast |
-| `src\pages\cancel_buff.py` | 8 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\clear_all_mods.py` | 12 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\cluster_detail.py` | 17 | `FUNC001` | Função 'build_cluster_detail': 303 linhas (máx: 50) | ast |
-| `src\pages\cluster_detail.py` | 242 | `IMP002` | Import duplicado: 'os' | ast |
-| `src\pages\cluster_save.py` | 9 | `FUNC001` | Função 'cluster_save': 53 linhas (máx: 50) | ast |
-| `src\pages\cluster_save.py` | 36 | `IMP002` | Import duplicado: 'os' | ast |
-| `src\pages\collect_gpu_info.py` | 7 | `FUNC001` | Função 'collect_gpu_info': 51 linhas (máx: 50) | ast |
-| `src\pages\confirm_delete_backup.py` | 9 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\confirm_remove_server.py` | 10 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\confirm_restore_backup.py` | 15 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\do_manual_backup.py` | 22 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\download_all_mods.py` | 10 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\download_steamcmd.py` | 9 | `FUNC001` | Função 'download_steamcmd': 78 linhas (máx: 50) | ast |
-| `src\pages\download_steamcmd.py` | 31 | `FUNC001` | Função '_worker': 54 linhas (máx: 50) | ast |
-| `src\pages\export_profile.py` | 25 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\get_cluster_health.py` | 8 | `FUNC001` | Função 'get_cluster_health': 156 linhas (máx: 50) | ast |
-| `src\pages\get_cpu_temp.py` | 23 | `IMP002` | Import duplicado: 'subprocess' | ast |
-| `src\pages\get_nvidia_gpu_pct.py` | 10 | `IMP002` | Import duplicado: 'subprocess' | ast |
-| `src\pages\get_nvidia_gpu_temp.py` | 10 | `IMP002` | Import duplicado: 'subprocess' | ast |
-| `src\pages\global_config.py` | 14 | `FUNC001` | Função 'build_global_config': 169 linhas (máx: 50) | ast |
-| `src\pages\historico_clear.py` | 10 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\import_profile.py` | 8 | `FUNC001` | Função 'import_profile': 52 linhas (máx: 50) | ast |
-| `src\pages\import_profile.py` | 21 | `IMP002` | Import duplicado: 'json' | ast |
-| `src\pages\import_profile.py` | 27 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\ini_import.py` | 17 | `FUNC001` | Função 'import_ini_from_disk': 179 linhas (máx: 50) | ast |
-| `src\pages\ini_import.py` | 17 | `FUNC003` | Função 'import_ini_from_disk': 5 funções aninhadas (alta complexidade) | ast |
-| `src\pages\ini_import.py` | 74 | `FUNC001` | Função '_do_import': 109 linhas (máx: 50) | ast |
-| `src\pages\ini_import.py` | 149 | `IMP002` | Import duplicado: 'threading' | ast |
-| `src\pages\ini_import.py` | 100 | `IMP002` | Import duplicado: 'get_ini_path' de 'ark_ini' | ast |
-| `src\pages\ini_paste_section.py` | 10 | `FUNC001` | Função 'ini_paste_section': 105 linhas (máx: 50) | ast |
-| `src\pages\ini_reload.py` | 9 | `FUNC001` | Função 'ini_reload': 57 linhas (máx: 50) | ast |
-| `src\pages\ini_save.py` | 8 | `FUNC001` | Função 'ini_save': 66 linhas (máx: 50) | ast |
-| `src\pages\ini_save.py` | 73 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\minimize_to_tray.py` | 11 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\on_download_done.py` | 12 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\on_server_status_change.py` | 11 | `FUNC001` | Função 'on_server_status_change': 77 linhas (máx: 50) | ast |
-| `src\pages\on_server_status_change.py` | 12 | `FUNC001` | Função '_do': 75 linhas (máx: 50) | ast |
-| `src\pages\perf_monitor_loop.py` | 8 | `FUNC001` | Função 'perf_monitor_loop': 111 linhas (máx: 50) | ast |
-| `src\pages\perf_monitor_loop.py` | 35 | `FUNC002` | Função '_update': 8 parâmetros (máx: 7) | ast |
-| `src\pages\performance_panel.py` | 15 | `FUNC001` | Função 'build_performance_panel': 165 linhas (máx: 50) | ast |
-| `src\pages\player_add_admin.py` | 17 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\player_ban.py` | 8 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\player_kick.py` | 8 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\rcon_auto_connect_tick.py` | 10 | `FUNC001` | Função 'rcon_auto_connect_tick': 60 linhas (máx: 50) | ast |
-| `src\pages\rebuild_server_sidebar.py` | 10 | `FUNC001` | Função 'rebuild_server_sidebar': 64 linhas (máx: 50) | ast |
-| `src\pages\refresh_buffs_ui.py` | 10 | `FUNC001` | Função 'refresh_buffs_ui': 103 linhas (máx: 50) | ast |
-| `src\pages\refresh_mods_list.py` | 11 | `FUNC001` | Função 'refresh_mods_list': 102 linhas (máx: 50) | ast |
-| `src\pages\refresh_remote_instances_list.py` | 10 | `FUNC001` | Função 'refresh_remote_instances_list': 121 linhas (máx: 50) | ast |
-| `src\pages\refresh_remote_instances_list.py` | 10 | `FUNC003` | Função 'refresh_remote_instances_list': 5 funções aninhadas (alta complexidade) | ast |
-| `src\pages\refresh_remote_instances_list.py` | 110 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\remote_panel.py` | 16 | `FUNC001` | Função 'build_remote_panel': 209 linhas (máx: 50) | ast |
-| `src\pages\remote_panel.py` | 16 | `FUNC003` | Função 'build_remote_panel': 7 funções aninhadas (alta complexidade) | ast |
-| `src\pages\remote_panel.py` | 128 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\run_server_install.py` | 9 | `FUNC001` | Função 'run_server_install': 110 linhas (máx: 50) | ast |
-| `src\pages\run_server_install.py` | 9 | `FUNC003` | Função 'run_server_install': 12 funções aninhadas (alta complexidade) | ast |
-| `src\pages\run_server_install.py` | 12 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\save_global_config.py` | 27 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\save_sync_config.py` | 22 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\server_panel.py` | 20 | `FUNC001` | Função 'build_server_panel': 211 linhas (máx: 50) | ast |
-| `src\pages\server_save.py` | 12 | `FUNC001` | Função 'save_server_config': 574 linhas (máx: 50) | ast |
-| `src\pages\server_save.py` | 422 | `FUNC001` | Função '_collect_loot_crates': 93 linhas (máx: 50) | ast |
-| `src\pages\show_cluster_health_dialog.py` | 10 | `FUNC001` | Função 'show_cluster_health_dialog': 81 linhas (máx: 50) | ast |
-| `src\pages\sidebar.py` | 15 | `FUNC001` | Função 'build_sidebar': 105 linhas (máx: 50) | ast |
-| `src\pages\start_remote_agent.py` | 25 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\start_server.py` | 21 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\tab_advanced.py` | 21 | `FUNC001` | Função 'build_tab_advanced': 549 linhas (máx: 50) | ast |
-| `src\pages\tab_advanced.py` | 21 | `FUNC003` | Função 'build_tab_advanced': 7 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_advanced.py` | 75 | `FUNC002` | Função '_fld': 8 parâmetros (máx: 7) | ast |
-| `src\pages\tab_backup.py` | 15 | `FUNC001` | Função 'build_tab_backup': 127 linhas (máx: 50) | ast |
-| `src\pages\tab_chat.py` | 18 | `FUNC001` | Função 'build_tab_chat': 181 linhas (máx: 50) | ast |
-| `src\pages\tab_crashes.py` | 15 | `FUNC001` | Função 'build_tab_crashes': 212 linhas (máx: 50) | ast |
-| `src\pages\tab_crashes.py` | 15 | `FUNC003` | Função 'build_tab_crashes': 4 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_crashes.py` | 45 | `FUNC001` | Função '_refresh': 59 linhas (máx: 50) | ast |
-| `src\pages\tab_crashes.py` | 105 | `FUNC001` | Função '_build_crash_card': 120 linhas (máx: 50) | ast |
-| `src\pages\tab_crashes.py` | 73 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\tab_game.py` | 16 | `FUNC001` | Função 'build_tab_game': 535 linhas (máx: 50) | ast |
-| `src\pages\tab_game.py` | 16 | `FUNC003` | Função 'build_tab_game': 20 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_game.py` | 402 | `FUNC001` | Função '_build_plsm_table': 96 linhas (máx: 50) | ast |
-| `src\pages\tab_general.py` | 24 | `FUNC001` | Função 'build_tab_general': 791 linhas (máx: 50) | ast |
-| `src\pages\tab_general.py` | 24 | `FUNC003` | Função 'build_tab_general': 13 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_general.py` | 698 | `FUNC001` | Função '_add_sched_row': 60 linhas (máx: 50) | ast |
-| `src\pages\tab_general.py` | 374 | `IMP002` | Import duplicado: 'os' | ast |
-| `src\pages\tab_ini_mods.py` | 18 | `FUNC001` | Função 'build_tab_ini_mods': 122 linhas (máx: 50) | ast |
-| `src\pages\tab_loot.py` | 15 | `FUNC001` | Função 'build_tab_loot': 295 linhas (máx: 50) | ast |
-| `src\pages\tab_loot.py` | 15 | `FUNC003` | Função 'build_tab_loot': 12 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_loot.py` | 59 | `FUNC001` | Função '_add_entry_row': 70 linhas (máx: 50) | ast |
-| `src\pages\tab_loot.py` | 59 | `FUNC002` | Função '_add_entry_row': 10 parâmetros (máx: 7) | ast |
-| `src\pages\tab_loot.py` | 130 | `FUNC001` | Função '_add_item_set_row': 79 linhas (máx: 50) | ast |
-| `src\pages\tab_loot.py` | 210 | `FUNC001` | Função '_add_crate_card': 85 linhas (máx: 50) | ast |
-| `src\pages\tab_mods.py` | 16 | `FUNC001` | Função 'build_tab_mods': 95 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 1 | `SIZE002` | Arquivo grande: 1562 linhas (recomendado: < 1000) | ast |
-| `src\pages\tab_plugins.py` | 24 | `FUNC001` | Função 'build_tab_plugins': 1538 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 24 | `FUNC003` | Função 'build_tab_plugins': 43 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_plugins.py` | 557 | `FUNC001` | Função '_add_ek_kit_item': 83 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 557 | `FUNC002` | Função '_add_ek_kit_item': 8 parâmetros (máx: 7) | ast |
-| `src\pages\tab_plugins.py` | 889 | `FUNC001` | Função '_collect_edit_kit': 56 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 1177 | `FUNC001` | Função '_convert_arkshop': 92 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 1302 | `FUNC001` | Função '_save_config': 120 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 1424 | `FUNC001` | Função '_refresh_status': 136 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 1424 | `FUNC003` | Função '_refresh_status': 4 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_plugins.py` | 1441 | `FUNC001` | Função '_apply_status': 107 linhas (máx: 50) | ast |
-| `src\pages\tab_plugins.py` | 1282 | `TK001` | Uso de 'messagebox' sem import explícito | ast |
-| `src\pages\tab_rcon.py` | 15 | `FUNC001` | Função 'build_tab_rcon': 82 linhas (máx: 50) | ast |
-| `src\pages\tab_spawns.py` | 16 | `FUNC001` | Função 'build_tab_spawns': 387 linhas (máx: 50) | ast |
-| `src\pages\tab_spawns.py` | 16 | `FUNC003` | Função 'build_tab_spawns': 8 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_spawns.py` | 68 | `FUNC001` | Função '_build_spawn_section': 209 linhas (máx: 50) | ast |
-| `src\pages\tab_spawns.py` | 68 | `FUNC003` | Função '_build_spawn_section': 4 funções aninhadas (alta complexidade) | ast |
-| `src\pages\tab_spawns.py` | 302 | `FUNC001` | Função '_build_dino_mult_section': 63 linhas (máx: 50) | ast |
-| `src\pages\tab_spawns.py` | 100 | `FUNC001` | Função '_add_container': 163 linhas (máx: 50) | ast |
-| `src\remote_agent.py` | 110 | `FUNC001` | Função 'start': 182 linhas (máx: 50) | ast |
-| `src\remote_agent.py` | 110 | `FUNC003` | Função 'start': 7 funções aninhadas (alta complexidade) | ast |
-| `src\remote_agent.py` | 203 | `FUNC001` | Função 'do_POST': 76 linhas (máx: 50) | ast |
-| `src\server_config.py` | 584 | `FUNC001` | Função 'build_launch_args': 187 linhas (máx: 50) | ast |
-| `src\server_config.py` | 379 | `IMP002` | Import duplicado: 'asdict' de 'dataclasses' | ast |
-| `src\server_manager.py` | 1 | `SIZE002` | Arquivo grande: 1177 linhas (recomendado: < 1000) | ast |
-| `src\server_manager.py` | 135 | `FUNC001` | Função '_parse_crash_folder': 71 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 221 | `FUNC001` | Função '_read_crash_info': 94 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 401 | `FUNC001` | Função '_scheduler_tick': 73 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 557 | `FUNC001` | Função 'scan_running_servers': 58 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 732 | `FUNC001` | Função '_start_worker': 85 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 818 | `FUNC001` | Função '_stop_worker': 60 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 898 | `FUNC001` | Função '_watch_ark_log': 167 linhas (máx: 50) | ast |
-| `src\server_manager.py` | 352 | `CLS002` | Classe 'ServerManager': 826 linhas (máx: 500) | ast |
-| `src\server_manager.py` | 137 | `IMP002` | Import duplicado: 're' | ast |
-| `src\server_manager.py` | 228 | `IMP002` | Import duplicado: 're' | ast |
-| `src\server_manager.py` | 476 | `IMP002` | Import duplicado: 'RconClient' de 'rcon_client' | ast |
-| `src\server_manager.py` | 881 | `IMP002` | Import duplicado: 'RconClient' de 'rcon_client' | ast |
+| `src\app.py` | 139 | `FUNC001` | Função '__init__': 67 linhas (máx: 50) | ast |
+| `src\app.py` | 221 | `FUNC001` | Função '_build_sidebar': 71 linhas (máx: 50) | ast |
+| `src\app.py` | 359 | `FUNC001` | Função '_build_sync_panel': 96 linhas (máx: 50) | ast |
+| `src\app.py` | 605 | `FUNC001` | Função '_build_server_card': 66 linhas (máx: 50) | ast |
+| `src\app.py` | 690 | `FUNC001` | Função '_build_server_panel': 123 linhas (máx: 50) | ast |
+| `src\app.py` | 818 | `FUNC001` | Função '_build_tab_general': 192 linhas (máx: 50) | ast |
+| `src\app.py` | 1015 | `FUNC001` | Função '_build_tab_game': 335 linhas (máx: 50) | ast |
+| `src\app.py` | 1015 | `FUNC003` | Função '_build_tab_game': 4 funções aninhadas (alta complexidade) | ast |
+| `src\app.py` | 1355 | `FUNC001` | Função '_build_tab_advanced': 229 linhas (máx: 50) | ast |
+| `src\app.py` | 1589 | `FUNC001` | Função '_build_tab_mods': 63 linhas (máx: 50) | ast |
+| `src\app.py` | 1653 | `FUNC001` | Função '_build_auto_update_panel': 70 linhas (máx: 50) | ast |
+| `src\app.py` | 1764 | `FUNC001` | Função '_refresh_mods_list': 62 linhas (máx: 50) | ast |
+| `src\app.py` | 1827 | `FUNC001` | Função '_open_mod_search_dialog': 132 linhas (máx: 50) | ast |
+| `src\app.py` | 1827 | `FUNC003` | Função '_open_mod_search_dialog': 4 funções aninhadas (alta complexidade) | ast |
+| `src\app.py` | 1985 | `FUNC001` | Função '_build_tab_plugins': 84 linhas (máx: 50) | ast |
+| `src\app.py` | 2072 | `FUNC001` | Função '_refresh_plugins_list': 120 linhas (máx: 50) | ast |
+| `src\app.py` | 2233 | `FUNC001` | Função '_install_plugin_from_zip': 60 linhas (máx: 50) | ast |
+| `src\app.py` | 2372 | `FUNC001` | Função '_build_tab_rcon': 82 linhas (máx: 50) | ast |
+| `src\app.py` | 2492 | `FUNC001` | Função '_build_global_config': 104 linhas (máx: 50) | ast |
+| `src\app.py` | 2601 | `FUNC001` | Função '_build_about': 84 linhas (máx: 50) | ast |
+| `src\app.py` | 2728 | `FUNC001` | Função '_run_server_install': 68 linhas (máx: 50) | ast |
+| `src\app.py` | 2728 | `FUNC003` | Função '_run_server_install': 8 funções aninhadas (alta complexidade) | ast |
+| `src\app.py` | 2797 | `FUNC001` | Função '_save_server_config': 175 linhas (máx: 50) | ast |
+| `src\app.py` | 2975 | `FUNC001` | Função '_import_ini_from_disk': 188 linhas (máx: 50) | ast |
+| `src\app.py` | 3185 | `FUNC001` | Função '_open_sync_ini_dialog': 137 linhas (máx: 50) | ast |
+| `src\app.py` | 3353 | `FUNC001` | Função '_open_mod_ini_dialog': 111 linhas (máx: 50) | ast |
+| `src\app.py` | 3700 | `FUNC001` | Função '_dialog_add_server': 80 linhas (máx: 50) | ast |
+| `src\app.py` | 3939 | `FUNC001` | Função '_download_steamcmd': 78 linhas (máx: 50) | ast |
+| `src\app.py` | 3031 | `FUNC001` | Função '_do_import': 121 linhas (máx: 50) | ast |
+| `src\app.py` | 3961 | `FUNC001` | Função '_worker': 54 linhas (máx: 50) | ast |
+| `src\app.py` | 3055 | `FUNC001` | Função '_load_from_folder': 77 linhas (máx: 50) | ast |
+| `src\app.py` | 137 | `CLS001` | Classe 'ARKServerManagerApp': 133 métodos (máx: 30) | ast |
+| `src\app.py` | 137 | `CLS002` | Classe 'ARKServerManagerApp': 3963 linhas (máx: 500) | ast |
+| `src\app.py` | 3198 | `IMP002` | Import duplicado: 'get_ini_path' de 'ark_ini' | ast |
+| `src\app.py` | 3488 | `IMP002` | Import duplicado: 'webbrowser' | ast |
+| `src\app.py` | 230 | `IMP002` | Import duplicado: 'Image' de 'PIL' | ast |
+| `src\app.py` | 3284 | `IMP002` | Import duplicado: 'shutil' | ast |
+| `src\app.py` | 3437 | `IMP002` | Import duplicado: 'ArkIniManager' de 'ark_ini' | ast |
+| `src\app.py` | 3983 | `IMP002` | Import duplicado: 'subprocess' | ast |
+| `src\app.py` | 154 | `IMP002` | Import duplicado: 'Image' de 'PIL' | ast |
+| `src\app_tek.py` | 1 | `SIZE002` | Arquivo grande: 1575 linhas (recomendado: < 1000) | ast |
+| `src\app_tek.py` | 48 | `FUNC001` | Função '__init__': 118 linhas (máx: 50) | ast |
+| `src\app_tek.py` | 171 | `FUNC001` | Função '_asm_status_tick': 82 linhas (máx: 50) | ast |
+| `src\app_tek.py` | 417 | `FUNC001` | Função '_build_sidebar_inline': 141 linhas (máx: 50) | ast |
+| `src\app_tek.py` | 656 | `FUNC001` | Função '_show_frame_inline': 67 linhas (máx: 50) | ast |
+| `src\app_tek.py` | 1077 | `FUNC001` | Função '_save_global_config': 117 linhas (máx: 50) | ast |
+| `src\app_tek.py` | 175 | `FUNC001` | Função '_worker': 68 linhas (máx: 50) | ast |
+| `src\app_tek.py` | 42 | `CLS001` | Classe 'ARKServerManagerApp': 121 métodos (máx: 30) | ast |
+| `src\app_tek.py` | 42 | `CLS002` | Classe 'ARKServerManagerApp': 1530 linhas (máx: 500) | ast |
+| `src\app_tek.py` | 297 | `IMP002` | Import duplicado: 'tkinter' | ast |
+| `src\app_tek.py` | 313 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\app_tek.py` | 370 | `IMP002` | Import duplicado: 'json' | ast |
+| `src\app_tek.py` | 782 | `IMP002` | Import duplicado: 'effective_session_name' de 'asm_engine.asm_ini_manager' | ast |
+| `src\app_tek.py` | 798 | `IMP002` | Import duplicado: 'messagebox' de 'tkinter' | ast |
+| `src\app_tek.py` | 936 | `IMP002` | Import duplicado: 'open_asm_workshop' de 'asm_ui.asm_workshop' | ast |
+| `src\app_tek.py` | 950 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\app_tek.py` | 979 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\app_tek.py` | 999 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\app_tek.py` | 1312 | `IMP002` | Import duplicado: 'APP_VERSION' de 'version' | ast |
+| `src\app_tek.py` | 1435 | `IMP002` | Import duplicado: 'logging' | ast |
+| `src\app_tek.py` | 1476 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\app_tek.py` | 439 | `IMP002` | Import duplicado: 'Image' de 'PIL' | ast |
+| `src\app_tek.py` | 972 | `IMP002` | Import duplicado: 'logging' | ast |
+| `src\app_tek.py` | 992 | `IMP002` | Import duplicado: 'logging' | ast |
+| `src\app_tek.py` | 1006 | `IMP002` | Import duplicado: 'RconClient' de 'rcon_client' | ast |
+| `src\app_tek.py` | 215 | `IMP002` | Import duplicado: 'RconClient' de 'rcon_client' | ast |
+| `src\ark_ini.py` | 1 | `SIZE002` | Arquivo grande: 1728 linhas (recomendado: < 1000) | ast |
+| `src\ark_ini.py` | 377 | `FUNC001` | Função 'populate_config_from_gus': 184 linhas (máx: 50) | ast |
+| `src\ark_ini.py` | 563 | `FUNC001` | Função 'populate_config_from_game_ini': 155 linhas (máx: 50) | ast |
+| `src\ark_ini.py` | 827 | `FUNC001` | Função '_parse_npc_spawn_container': 51 linhas (máx: 50) | ast |
+| `src\ark_ini.py` | 1321 | `FUNC001` | Função 'save_game_user_settings': 134 linhas (máx: 50) | ast |
+| `src\ark_ini.py` | 1456 | `FUNC001` | Função 'save_game_ini': 222 linhas (máx: 50) | ast |
+| `src\ark_ini.py` | 839 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 923 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 981 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 1004 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 1049 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 1094 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 1458 | `IMP002` | Import duplicado: 're' | ast |
+| `src\ark_ini.py` | 1617 | `IMP002` | Import duplicado: 'io' | ast |
+| `src\ark_ini.py` | 1695 | `IMP002` | Import duplicado: 're' | ast |
+| `src\asm_engine\asm_cloud_backup.py` | 159 | `IMP002` | Import duplicado: 'boto3' | ast |
+| `src\asm_engine\asm_cloud_backup.py` | 199 | `IMP002` | Import duplicado: 'boto3' | ast |
+| `src\asm_engine\asm_cloud_backup.py` | 222 | `IMP002` | Import duplicado: 'boto3' | ast |
+| `src\asm_engine\asm_game_list_ini.py` | 161 | `FUNC001` | Função 'populate_lists_from_game_ini': 52 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_ini_manager.py` | 367 | `FUNC001` | Função 'write_ini': 126 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_ini_manager.py` | 530 | `FUNC001` | Função 'read_ini': 91 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_ini_manager.py` | 623 | `FUNC001` | Função 'read_ini_from_paths': 83 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_ini_manager.py` | 741 | `FUNC001` | Função '_launch_dash_flags': 90 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_ini_manager.py` | 601 | `IMP002` | Import duplicado: 're' | ast |
+| `src\asm_engine\asm_ini_manager.py` | 686 | `IMP002` | Import duplicado: 're' | ast |
+| `src\asm_engine\asm_ini_manager.py` | 656 | `IMP002` | Import duplicado: 'fields' de 'dataclasses' | ast |
+| `src\asm_engine\asm_ini_manager.py` | 704 | `IMP002` | Import duplicado: 'populate_lists_from_game_ini' de 'asm_game_list_ini' | ast |
+| `src\asm_engine\asm_server_manager.py` | 197 | `FUNC001` | Função 'scan_running_servers': 56 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_server_manager.py` | 293 | `FUNC001` | Função '_start_worker': 101 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_server_manager.py` | 519 | `IMP002` | Import duplicado: 'psutil' | ast |
+| `src\asm_engine\asm_steamcmd.py` | 336 | `FUNC001` | Função '_worker': 74 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_steamcmd.py` | 477 | `FUNC001` | Função '_create_dot_mod_from_mod_info': 59 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_steamcmd.py` | 537 | `FUNC001` | Função '_copy_mod_to_server': 59 linhas (máx: 50) | ast |
+| `src\asm_engine\asm_steamcmd.py` | 37 | `CLS002` | Classe 'AsmSteamCmd': 559 linhas (máx: 500) | ast |
+| `src\asm_engine\asm_steamcmd.py` | 281 | `IMP002` | Import duplicado: 'subprocess' | ast |
+| `src\asm_engine\asm_steamcmd.py` | 308 | `IMP002` | Import duplicado: 're' | ast |
+| `src\asm_engine\asm_steamcmd.py` | 439 | `IMP002` | Import duplicado: 're' | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 134 | `FUNC001` | Função 'asm_add_server_dialog': 274 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 134 | `FUNC003` | Função 'asm_add_server_dialog': 13 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 265 | `FUNC001` | Função '_show_import_dir': 70 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 337 | `FUNC001` | Função '_show_import_profile': 58 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 357 | `IMP002` | Import duplicado: 'filedialog' de 'tkinter' | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 202 | `IMP002` | Import duplicado: 'filedialog' de 'tkinter' | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 1 | `MOD003` | 'asm_add_server_dialog.py' tem 407 linhas — extrair sub-componentes | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 53 | `FUNC001` | Função '_offline_advice': 64 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 221 | `FUNC001` | Função '_build_ui': 103 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 331 | `FUNC001` | Função '_open_help': 140 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 331 | `FUNC003` | Função '_open_help': 5 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 586 | `IMP002` | Import duplicado: 'Path' de 'pathlib' | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 587 | `IMP002` | Import duplicado: 'os' | ast |
+| `src\asm_ui\asm_dashboard.py` | 49 | `FUNC001` | Função 'build_asm_dashboard': 161 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_dashboard.py` | 212 | `FUNC001` | Função '_refresh_asm_dashboard': 192 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_dashboard.py` | 212 | `FUNC003` | Função '_refresh_asm_dashboard': 6 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_dashboard.py` | 282 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\asm_ui\asm_dashboard.py` | 290 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\asm_ui\asm_dashboard.py` | 300 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\asm_ui\asm_dashboard.py` | 375 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\asm_ui\asm_engram_editor.py` | 198 | `FUNC001` | Função '_refresh_table': 54 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_engram_editor.py` | 267 | `IMP002` | Import duplicado: 're' | ast |
+| `src\asm_ui\asm_file_manager.py` | 112 | `FUNC001` | Função '__init__': 92 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_file_manager.py` | 255 | `FUNC001` | Função '_render_listing': 96 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_file_manager.py` | 366 | `FUNC001` | Função '_open_editor_window': 59 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_firewall.py` | 140 | `FUNC001` | Função '__init__': 85 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_firewall.py` | 277 | `IMP002` | Import duplicado: 'threading' | ast |
+| `src\asm_ui\asm_import_ini_dialog.py` | 327 | `FUNC001` | Função '_build_file_section': 58 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_import_ini_dialog.py` | 388 | `FUNC001` | Função '_build_categories_section': 56 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_import_ini_dialog.py` | 485 | `FUNC001` | Função '_build_sync_section': 63 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_import_ini_dialog.py` | 1 | `MOD003` | 'asm_import_ini_dialog.py' tem 714 linhas — extrair sub-componentes | ast |
+| `src\asm_ui\asm_monitor_window.py` | 121 | `FUNC001` | Função '_build_ui': 57 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_perf_chart.py` | 57 | `FUNC001` | Função '__init__': 64 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_perf_chart.py` | 156 | `IMP002` | Import duplicado: 'psutil' | ast |
+| `src\asm_ui\asm_player_list.py` | 85 | `FUNC001` | Função '__init__': 104 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_player_list.py` | 222 | `FUNC001` | Função '_render': 78 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_rcon_window.py` | 74 | `FUNC001` | Função '__init__': 147 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_save_restore.py` | 89 | `FUNC001` | Função '__init__': 96 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_save_restore.py` | 188 | `FUNC001` | Função '_reload_list': 71 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_card.py` | 56 | `FUNC001` | Função 'build_asm_server_card': 309 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_card.py` | 56 | `FUNC003` | Função 'build_asm_server_card': 7 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_log_window.py` | 57 | `FUNC001` | Função '_build_ui': 71 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 109 | `FUNC001` | Função 'build_asm_server_panel': 508 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 109 | `FUNC003` | Função 'build_asm_server_panel': 18 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_panel.py` | 670 | `FUNC002` | Função '_str_entry': 10 parâmetros (máx: 7) | ast |
+| `src\asm_ui\asm_server_panel.py` | 705 | `FUNC002` | Função '_bool_check': 9 parâmetros (máx: 7) | ast |
+| `src\asm_ui\asm_server_panel.py` | 870 | `FUNC001` | Função '_build_administracao': 532 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 870 | `FUNC003` | Função '_build_administracao': 24 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1498 | `FUNC001` | Função '_build_rules': 73 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1721 | `FUNC001` | Função '_build_players': 64 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1721 | `FUNC003` | Função '_build_players': 5 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1791 | `FUNC001` | Função '_build_dinos': 91 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1791 | `FUNC003` | Função '_build_dinos': 6 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1888 | `FUNC001` | Função '_build_breeding': 60 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2004 | `FUNC001` | Função '_build_structures': 52 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2062 | `FUNC001` | Função '_build_engrams': 57 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2125 | `FUNC001` | Função '_build_server_files': 111 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2242 | `FUNC001` | Função '_build_level_progressions': 232 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2242 | `FUNC003` | Função '_build_level_progressions': 6 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2565 | `FUNC001` | Função '_build_tool_launcher': 60 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2565 | `FUNC002` | Função '_build_tool_launcher': 11 parâmetros (máx: 7) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2698 | `FUNC001` | Função '_build_crafting_overrides': 63 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2767 | `FUNC001` | Função '_build_stack_overrides': 54 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2827 | `FUNC001` | Função '_build_spawner_overrides': 88 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 2921 | `FUNC001` | Função '_build_supply_crate_overrides': 74 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 3115 | `FUNC001` | Função '_build_ini_editor': 391 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 3115 | `FUNC003` | Função '_build_ini_editor': 21 funções aninhadas (alta complexidade) | ast |
+| `src\asm_ui\asm_server_panel.py` | 3585 | `FUNC001` | Função '_sync_ui_to_cfg': 97 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 3743 | `FUNC001` | Função '_open_preset_dialog': 133 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1113 | `FUNC001` | Função '_add_mod_row': 76 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 1347 | `FUNC001` | Função '_build_admin_tail': 53 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 3225 | `FUNC001` | Função '_render_items': 67 linhas (máx: 50) | ast |
+| `src\asm_ui\asm_server_panel.py` | 746 | `IMP002` | Import duplicado: 'get_theme' de 'ui_constants' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1430 | `IMP002` | Import duplicado: 'CardSpec' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1430 | `IMP002` | Import duplicado: 'add_collapsible_help' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1430 | `IMP002` | Import duplicado: 'begin_tek_section' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1430 | `IMP002` | Import duplicado: 'build_cards_layout' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1452 | `IMP002` | Import duplicado: 'CardSpec' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1452 | `IMP002` | Import duplicado: 'add_collapsible_help' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1452 | `IMP002` | Import duplicado: 'begin_tek_section' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1452 | `IMP002` | Import duplicado: 'build_cards_layout' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1499 | `IMP002` | Import duplicado: 'CardSpec' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1499 | `IMP002` | Import duplicado: 'add_collapsible_help' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1499 | `IMP002` | Import duplicado: 'begin_tek_section' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1578 | `IMP002` | Import duplicado: 'CardSpec' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1578 | `IMP002` | Import duplicado: 'add_collapsible_help' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1578 | `IMP002` | Import duplicado: 'begin_tek_section' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1578 | `IMP002` | Import duplicado: 'build_cards_layout' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1607 | `IMP002` | Import duplicado: 'CardSpec' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1607 | `IMP002` | Import duplicado: 'add_collapsible_help' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1607 | `IMP002` | Import duplicado: 'begin_tek_section' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1607 | `IMP002` | Import duplicado: 'build_cards_layout' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1628 | `IMP002` | Import duplicado: 'CardSpec' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1628 | `IMP002` | Import duplicado: 'add_collapsible_help' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1628 | `IMP002` | Import duplicado: 'begin_tek_section' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1628 | `IMP002` | Import duplicado: 'build_cards_layout' de 'ui.server_field_widgets' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1722 | `IMP002` | Import duplicado: 'add_card_header' de 'ui.server_field_widgets' | ast |
 
-> _10 issue(s) adicionais omitidos. Veja `latest_report.json` para lista completa._
+> _336 issue(s) adicionais omitidos. Veja `latest_report.json` para lista completa._
 
 ### 🔵 Infos
 
 | Arquivo | Linha | Código | Mensagem | Fonte |
 |---------|------:|--------|----------|-------|
 | `src\app.py` | 4 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\app.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'io' | ast |
-| `src\app.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'json' | ast |
-| `src\app.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'platform' | ast |
-| `src\app.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'socket' | ast |
-| `src\app.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'sys' | ast |
-| `src\app.py` | 14 | `IMP001` | Import possivelmente não utilizado: 'ttk' | ast |
-| `src\app.py` | 16 | `IMP001` | Import possivelmente não utilizado: 'urllib' | ast |
-| `src\app.py` | 17 | `IMP001` | Import possivelmente não utilizado: 're' | ast |
-| `src\app.py` | 18 | `IMP001` | Import possivelmente não utilizado: 'uuid' | ast |
-| `src\app.py` | 20 | `IMP001` | Import possivelmente não utilizado: 'zipfile' | ast |
-| `src\app.py` | 21 | `IMP001` | Import possivelmente não utilizado: 'timezone' | ast |
-| `src\app.py` | 21 | `IMP001` | Import possivelmente não utilizado: 'timedelta' | ast |
-| `src\app.py` | 22 | `IMP001` | Import possivelmente não utilizado: 'Path' | ast |
-| `src\app.py` | 23 | `IMP001` | Import possivelmente não utilizado: 'messagebox' | ast |
-| `src\app.py` | 24 | `IMP001` | Import possivelmente não utilizado: 'Callable' | ast |
-| `src\app.py` | 59 | `IMP001` | Import possivelmente não utilizado: 'ArkIniManager' | ast |
-| `src\app.py` | 60 | `IMP001` | Import possivelmente não utilizado: 'open_breeding_calculator' | ast |
-| `src\app.py` | 61 | `IMP001` | Import possivelmente não utilizado: 'RconError' | ast |
-| `src\app.py` | 73 | `IMP001` | Import possivelmente não utilizado: 'BUILD_DATE' | ast |
-| `src\app.py` | 73 | `IMP001` | Import possivelmente não utilizado: 'CHANGELOG' | ast |
-| `src\app.py` | 74 | `IMP001` | Import possivelmente não utilizado: 'PluginManager' | ast |
-| `src\app.py` | 75 | `IMP001` | Import possivelmente não utilizado: 'snapshot_server' | ast |
-| `src\app.py` | 75 | `IMP001` | Import possivelmente não utilizado: 'diff_snapshots' | ast |
-| `src\app.py` | 76 | `IMP001` | Import possivelmente não utilizado: 'parse_ini_text_to_sections' | ast |
-| `src\app.py` | 76 | `IMP001` | Import possivelmente não utilizado: 'sections_to_ini_text' | ast |
-| `src\app.py` | 77 | `IMP001` | Import possivelmente não utilizado: 'build_dynamic_config' | ast |
-| `src\app.py` | 79 | `IMP001` | Import possivelmente não utilizado: 'RemoteClient' | ast |
-| `src\app.py` | 79 | `IMP001` | Import possivelmente não utilizado: 'make_identity_code' | ast |
-| `src\app.py` | 79 | `IMP001` | Import possivelmente não utilizado: 'parse_identity_code' | ast |
-| `src\app.py` | 79 | `IMP001` | Import possivelmente não utilizado: 'local_ip' | ast |
-| `src\app.py` | 1 | `MOD001` | Mistura UI (15 refs) + lógica (7 refs) — considere separar em camadas | ast |
+| `src\app.py` | 1 | `MOD001` | Mistura UI (661 refs) + lógica (71 refs) — considere separar em camadas | ast |
+| `src\app_tek.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\app_tek.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'webbrowser' | ast |
+| `src\app_tek.py` | 1 | `MOD001` | Mistura UI (78 refs) + lógica (25 refs) — considere separar em camadas | ast |
 | `src\ark_ini.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\ark_ini_fields.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 671 linhas (alvo: < 500) | ast |
+| `src\ark_ini_fields.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\ark_ini_fields.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'io' | ast |
+| `src\ark_ini_spawn.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\ark_log_watcher.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_cloud_backup.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_cloud_backup.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'hashlib' | ast |
+| `src\asm_engine\asm_cloud_backup.py` | 15 | `IMP001` | Import possivelmente não utilizado: 'zipfile' | ast |
+| `src\asm_engine\asm_config_manager.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_folder_manager.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_game_list_ini.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_ini_manager.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 859 linhas (alvo: < 500) | ast |
+| `src\asm_engine\asm_ini_manager.py` | 20 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_preset_manager.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_preset_manager.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'uuid' | ast |
+| `src\asm_engine\asm_preset_manager.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'asdict' | ast |
+| `src\asm_engine\asm_preset_manager.py` | 13 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_engine\asm_server_config.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_server_config.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_engine\asm_server_manager.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 532 linhas (alvo: < 500) | ast |
+| `src\asm_engine\asm_server_manager.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_server_manager.py` | 1 | `MOD002` | 3 classes no mesmo arquivo: _PsutilProcessWrapper, AsmServerInstance, AsmServerManager… — considere dividir | ast |
+| `src\asm_engine\asm_steamcmd.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 595 linhas (alvo: < 500) | ast |
+| `src\asm_engine\asm_steamcmd.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_engine\asm_steamcmd.py` | 1 | `MOD001` | Mistura UI (9 refs) + lógica (16 refs) — considere separar em camadas | ast |
+| `src\asm_ui\asm_add_server_dialog.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 619 linhas (alvo: < 500) | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 12 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_ui\asm_ai_assistant.py` | 1 | `MOD001` | Mistura UI (62 refs) + lógica (11 refs) — considere separar em camadas | ast |
+| `src\asm_ui\asm_dashboard.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_dashboard.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'platform' | ast |
+| `src\asm_ui\asm_dashboard.py` | 1 | `MOD001` | Mistura UI (55 refs) + lógica (10 refs) — considere separar em camadas | ast |
+| `src\asm_ui\asm_engram_editor.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_engram_editor.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'Any' | ast |
+| `src\asm_ui\asm_engram_editor.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_ui\asm_file_manager.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_file_manager.py` | 15 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
+| `src\asm_ui\asm_firewall.py` | 16 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_firewall.py` | 19 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_ui\asm_firewall.py` | 1 | `MOD001` | Mistura UI (34 refs) + lógica (9 refs) — considere separar em camadas | ast |
+| `src\asm_ui\asm_import_ini_dialog.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 714 linhas (alvo: < 500) | ast |
+| `src\asm_ui\asm_import_ini_dialog.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_monitor_window.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_monitor_window.py` | 12 | `IMP001` | Import possivelmente não utilizado: 'Any' | ast |
+| `src\asm_ui\asm_monitor_window.py` | 12 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_ui\asm_perf_chart.py` | 13 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_player_list.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_player_list.py` | 16 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
+| `src\asm_ui\asm_rcon_window.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_rcon_window.py` | 20 | `IMP001` | Import possivelmente não utilizado: 'RconError' | ast |
+| `src\asm_ui\asm_save_restore.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_server_card.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_server_card.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'time' | ast |
+| `src\asm_ui\asm_server_log_window.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_server_log_window.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\asm_ui\asm_server_panel.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_server_panel.py` | 1 | `MOD001` | Mistura UI (496 refs) + lógica (11 refs) — considere separar em camadas | ast |
+| `src\asm_ui\asm_spawner_editor.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_spawner_editor.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'Any' | ast |
+| `src\asm_ui\asm_spawner_editor.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'Dict' | ast |
+| `src\asm_ui\asm_spawner_editor.py` | 1 | `MOD002` | 3 classes no mesmo arquivo: _SpawnEntry, _SpawnContainer, _SpawnerEditorWindow… — considere dividir | ast |
+| `src\asm_ui\asm_steamcmd_ui.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_tribe_log.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_tribe_log.py` | 1 | `MOD001` | Mistura UI (22 refs) + lógica (6 refs) — considere separar em camadas | ast |
+| `src\asm_ui\asm_workshop.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 505 linhas (alvo: < 500) | ast |
+| `src\asm_ui\asm_workshop.py` | 12 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\asm_ui\asm_workshop.py` | 1 | `MOD001` | Mistura UI (54 refs) + lógica (11 refs) — considere separar em camadas | ast |
+| `src\asm_ui\spawn_exact_panel.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 988 linhas (alvo: < 500) | ast |
+| `src\asm_ui\spawn_exact_panel.py` | 17 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\backup_manager.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\battlemetrics_client.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\beacon_client.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\breeding_calculator.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 608 linhas (alvo: < 500) | ast |
 | `src\breeding_calculator.py` | 12 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\buff_manager.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 634 linhas (alvo: < 500) | ast |
+| `src\buff_manager.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 783 linhas (alvo: < 500) | ast |
 | `src\buff_manager.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\buff_manager.py` | 1 | `MOD002` | 4 classes no mesmo arquivo: BuffRates, BuffPreset, BuffEvent, BuffManager… — considere dividir | ast |
 | `src\change_logger.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\config_manager.py` | 1 | `MOD002` | 3 classes no mesmo arquivo: DiscordNotifyConfig, AppConfig, ConfigManager… — considere dividir | ast |
-| `src\dialogs\add_server_dialog.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\config_manager.py` | 1 | `MOD002` | 10 classes no mesmo arquivo: DiscordNotifyConfig, BackupConfig, AutoUpdateConfig, ShutdownConfig… — considere dividir | ast |
+| `src\crash_details_helper.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\crash_parser.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\db_setup_resources.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\db_setup_resources.py` | 5 | `IMP001` | Import possivelmente não utilizado: 're' | ast |
+| `src\db_setup_resources.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
 | `src\dialogs\clone_config_dialog.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\dialogs\create_buff_dialog.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 503 linhas (alvo: < 500) | ast |
 | `src\dialogs\create_buff_dialog.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\dialogs\mod_download_dialog.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\dialogs\mod_download_dialog.py` | 9 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
 | `src\dialogs\mod_ini_dialog.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\dialogs\mod_search_dialog.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\dialogs\mod_search_dialog.py` | 1 | `MOD001` | Mistura UI (34 refs) + lógica (6 refs) — considere separar em camadas | ast |
+| `src\dialogs\mod_search_dialog.py` | 1 | `MOD001` | Mistura UI (58 refs) + lógica (9 refs) — considere separar em camadas | ast |
 | `src\dialogs\open_presets_manager.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\dialogs\open_presets_manager.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\dialogs\remote_control_dialog.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\dialogs\remote_control_dialog.py` | 1 | `MOD001` | Mistura UI (54 refs) + lógica (7 refs) — considere separar em camadas | ast |
 | `src\dialogs\sync_ini_dialog.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\discord_notifier.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\discord_notifier.py` | 316 | `IMP001` | Import possivelmente não utilizado: 'ConfigManager' | ast |
 | `src\dynamic_config_server.py` | 15 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\mod_auto_updater.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 504 linhas (alvo: < 500) | ast |
 | `src\mod_auto_updater.py` | 13 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\mod_changelog_scraper.py` | 14 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\mod_manager.py` | 1 | `SIZE001` | Arquivo acima do recomendado: 657 linhas (alvo: < 500) | ast |
 | `src\mod_manager.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\obelisk_client.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\add_admin_id.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\add_mod.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\add_sync_cycle.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\add_sync_folder.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\asm_scheduler_tick.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\asm_scheduler_tick.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'ASM_STATUS_RUNNING' | ast |
+| `src\pages\asm_start_server.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\auto_start_dynamic_configs.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\auto_start_servers.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\auto_start_sync.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\auto_start_sync.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'os' | ast |
 | `src\pages\broadcast_add.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\broadcast_delete.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\broadcast_edit.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\broadcast_rcon.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\broadcast_refresh_list.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\broadcast_refresh_list.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
+| `src\pages\broadcast_refresh_list.py` | 3 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
 | `src\pages\broadcast_render_row.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\broadcast_render_row.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
+| `src\pages\broadcast_sched_add.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\broadcast_sched_delete.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\broadcast_sched_refresh.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\broadcast_sched_send_now.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\broadcast_sched_tick.py` | 7 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\broadcast_sched_toggle.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\broadcast_send_quick.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\broadcast_test.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\buff_countdown_tick.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
@@ -373,8 +477,8 @@
 | `src\pages\build_scheduled_buff_row.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
 | `src\pages\build_server_card.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\build_server_card.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\build_static_frames.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\build_static_frames.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
+| `src\pages\build_sidebar_tek.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\build_sidebar_tek.py` | 5 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
 | `src\pages\build_sync_panel.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\build_tab_admins.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\build_tab_historico.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
@@ -387,95 +491,33 @@
 | `src\pages\chat_clear.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\chat_clear.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
 | `src\pages\chat_fetch.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\chat_fetch.py` | 4 | `IMP001` | Import possivelmente não utilizado: 'datetime' | ast |
 | `src\pages\chat_poll_loop.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\chat_process.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\chat_send.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\chat_toggle_poll.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\check_updates_manual.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\clear_all_mods.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\clear_server_log.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\clear_server_log.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\cluster_delete.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\cluster_detail.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\cluster_import_from_manual.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\cluster_new.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\cluster_save.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\cluster_save.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'os' | ast |
-| `src\pages\cluster_sync_once.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\cluster_sync_start.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\clusters_refresh_list.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\clusters_refresh_list.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\collect_gpu_info.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\collect_server_stats.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\confirm_delete_backup.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\confirm_remove_server.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 | `src\pages\confirm_restore_backup.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\do_manual_backup.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\do_quit.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\do_quit.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'os' | ast |
-| `src\pages\do_restore.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\download_all_mods.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\download_mod.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\download_steamcmd.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\export_profile.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\fast_fill.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\fast_fill.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\fetch_mod_names_async.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\fetch_steam_name.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\force_sync_once.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\format_countdown.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\get_change_logger.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\get_cluster_health.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\get_cpu_temp.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\get_nvidia_gpu_pct.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\get_nvidia_gpu_temp.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\global_config.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\historico_clear.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\historico_refresh.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\import_profile.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_add_entry.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_add_entry.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\ini_add_entry.py` | 4 | `IMP001` | Import possivelmente não utilizado: 'ctk' | ast |
-| `src\pages\ini_add_section.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_add_section.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\ini_del_entry.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_delete_section.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_flush_current.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_import.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_paste_section.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_rebuild_section_list.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_rebuild_section_list.py` | 3 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\ini_reload.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_reload.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\ini_render_entry_row.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_render_section_item.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_render_section_item.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\ini_save.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\ini_select_section.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\init_backup_manager.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\init_buff_manager.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\log_perf_critical.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\lookup_admin_preview.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\minimize_to_tray.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_auto_updater_log.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_bm_update.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_bm_update.py` | 3 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\on_download_done.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_server_log.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_server_log.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\on_server_status_change.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_server_visibility_change.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_server_visibility_change.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\on_sync_log.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_sync_stats.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_sync_status.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_update_result.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\on_update_result.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\open_server_panel.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\open_server_panel.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'tk' | ast |
-| `src\pages\perf_monitor_loop.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\performance_panel.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\player_add_admin.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
-| `src\pages\player_ban.py` | 1 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\content_host.py` | 6 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\content_host.py` | 11 | `IMP001` | Import possivelmente não utilizado: 'ctk' | ast |
+| `src\pages\customshop_panel.py` | 8 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\customshop_panel.py` | 1 | `MOD001` | Mistura UI (218 refs) + lógica (23 refs) — considere separar em camadas | ast |
+| `src\pages\db_local_server.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\db_manager_panel.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\db_manager_panel.py` | 10 | `IMP001` | Import possivelmente não utilizado: 'Optional' | ast |
+| `src\pages\db_manager_panel.py` | 1 | `MOD001` | Mistura UI (233 refs) + lógica (16 refs) — considere separar em camadas | ast |
+| `src\pages\db_setup_wizard.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
+| `src\pages\dialog_add_server.py` | 2 | `IMP001` | Import possivelmente não utilizado: 'annotations' | ast |
 
-> _92 issue(s) adicionais omitidos. Veja `latest_report.json` para lista completa._
+> _182 issue(s) adicionais omitidos. Veja `latest_report.json` para lista completa._

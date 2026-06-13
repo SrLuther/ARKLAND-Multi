@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
 export default function ProductDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const productId = parseInt(id || "0");
   const { toast } = useToast();
   
@@ -84,7 +84,7 @@ export default function ProductDetail() {
         {/* Product Image */}
         <div className="bg-card border border-border rounded-xl aspect-square flex items-center justify-center overflow-hidden relative">
           {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full" />
+            <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full" loading="lazy" decoding="async" />
           ) : (
             <ImageIcon className="w-24 h-24 text-muted-foreground/30" />
           )}

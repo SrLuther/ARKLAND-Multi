@@ -726,28 +726,41 @@ class ServerManager:
             for idx, task in enumerate(cfg.scheduled_tasks):
                 if not task.get("enabled", True):
                     continue
-                days = task.get("days", list(range(7)))
+                days_raw = task.get("days", list(range(7)))
+                if not isinstance(days_raw, list):
+                    continue
+                days = [d for d in days_raw if isinstance(d, int) and 0 <= d <= 6]
                 if weekday not in days:
                     continue
-                task_time = task.get("time", "")
-                action    = task.get("action", "restart")
-                warn_min  = int(task.get("warn_minutes", 0))
+                task_time = str(task.get("time", "")).strip()
+                if len(task_time) != 5 or task_time[2] != ":":
+                    continue
+                try:
+                    h, m = map(int, task_time.split(":"))
+                except Exception:
+                    continue
+                if not (0 <= h <= 23 and 0 <= m <= 59):
+                    continue
+                action_raw = task.get("action", "restart")
+                action = action_raw if action_raw in ("stop", "restart", "update_restart") else "restart"
+                try:
+                    warn_min = int(task.get("warn_minutes", 0))
+                except Exception:
+                    warn_min = 0
+                if warn_min < 0:
+                    warn_min = 0
 
                 # ── Aviso antecipado ──────────────────────────────────────
                 if warn_min > 0:
-                    try:
-                        from datetime import timedelta
-                        h, m = map(int, task_time.split(":"))
-                        scheduled_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
-                        warn_dt = scheduled_dt - timedelta(minutes=warn_min)
-                        warn_hhmm = warn_dt.strftime("%H:%M")
-                        warn_key = f"{cfg.id}::{idx}::warn::{warn_hhmm}"
-                        if hhmm == warn_hhmm and self._sched_warned.get(warn_key) != today:
-                            self._sched_warned[warn_key] = today
-                            _labels = {"restart": "reiniciado", "stop": "desligado", "update_restart": "atualizado e reiniciado"}
-                            self._sched_broadcast(cfg, f"⚠ Servidor será {_labels.get(action, action)} em {warn_min} minuto(s)!")
-                    except Exception:
-                        pass
+                    from datetime import timedelta
+                    scheduled_dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+                    warn_dt = scheduled_dt - timedelta(minutes=warn_min)
+                    warn_hhmm = warn_dt.strftime("%H:%M")
+                    warn_key = f"{cfg.id}::{idx}::warn::{warn_hhmm}"
+                    if hhmm == warn_hhmm and self._sched_warned.get(warn_key) != today:
+                        self._sched_warned[warn_key] = today
+                        _labels = {"restart": "reiniciado", "stop": "desligado", "update_restart": "atualizado e reiniciado"}
+                        self._sched_broadcast(cfg, f"⚠ Servidor será {_labels.get(action, action)} em {warn_min} minuto(s)!")
 
                 # ── Ação principal ────────────────────────────────────────
                 if hhmm != task_time:

@@ -85,6 +85,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._asm_panel_vars: dict = {}
         self._current_frame: Optional[ctk.CTkFrame] = None
         self._sidebar_server_btns: Dict[str, tk.Label] = {}
+        self._sidebar_server_rows: Dict[str, Dict[str, Any]] = {}
+        self._sidebar_empty_lbl: Any = None
         self._nav_active: str = "dashboard"
         # Sync
         self._sync_engine: Optional[SyncEngine] = None
@@ -102,8 +104,10 @@ class ARKServerManagerApp(ctk.CTk):
         self._install_update_btn: Any = None
         self._update_progress: Any = None
         self._update_progress_label: Any = None
+        self._update_auto_started: bool = False
         # Performance
         self._perf_running: bool = False
+        self._asm_status_tick_running: bool = False
         self._perf_cpu_pct_var: Any = None
         self._perf_cpu_bar: Any = None
         self._perf_cpu_info_var: Any = None
@@ -172,74 +176,78 @@ class ARKServerManagerApp(ctk.CTk):
         """Atualiza cache de indicadores ricos para todos os servidores (a cada 30s)."""
         import threading
 
+        if self._asm_status_tick_running:
+            return
+        self._asm_status_tick_running = True
+
         def _worker():
-            for srv in self.asm_config_manager.servers:
-                rich_key = f"_asm_rich_status_{srv.id}"
-                inst = self.asm_server_manager.get_instance(srv.id)
-                status = inst.status if inst else ASM_STATUS_STOPPED
+            try:
+                for srv in self.asm_config_manager.servers:
+                    rich_key = f"_asm_rich_status_{srv.id}"
+                    inst = self.asm_server_manager.get_instance(srv.id)
+                    status = inst.status if inst else ASM_STATUS_STOPPED
 
-                if status != ASM_STATUS_RUNNING:
-                    setattr(self, rich_key, {
-                        "players": "—", "uptime": "—", "ram": "—", "version": "—"
-                    })
-                    continue
+                    if status != ASM_STATUS_RUNNING:
+                        setattr(self, rich_key, {
+                            "players": "—", "uptime": "—", "ram": "—", "version": "—"
+                        })
+                        continue
 
-                data: dict = {"players": "—", "uptime": "—", "ram": "—", "version": "—"}
+                    data: dict = {"players": "—", "uptime": "—", "ram": "—", "version": "—"}
 
-                # Uptime: desde reconexão/start do processo
-                uptime_attr = f"_asm_uptime_start_{srv.id}"
-                uptime_start = (
-                    inst.uptime_start if inst and inst.uptime_start else getattr(self, uptime_attr, None)
-                )
-                if uptime_start:
-                    elapsed = int(time.time() - uptime_start)
-                    hrs, rem = divmod(elapsed, 3600)
-                    mins, secs = divmod(rem, 60)
-                    data["uptime"] = f"{hrs}h {mins:02d}m" if hrs else f"{mins}m {secs:02d}s"
-                else:
-                    setattr(self, uptime_attr, time.time())
-                    data["uptime"] = "0m 00s"
+                    # Uptime: desde reconexão/start do processo
+                    uptime_attr = f"_asm_uptime_start_{srv.id}"
+                    inst_uptime_start = getattr(inst, "uptime_start", None) if inst else None
+                    uptime_start = inst_uptime_start if inst_uptime_start else getattr(self, uptime_attr, None)
+                    if uptime_start:
+                        elapsed = int(time.time() - uptime_start)
+                        hrs, rem = divmod(elapsed, 3600)
+                        mins, secs = divmod(rem, 60)
+                        data["uptime"] = f"{hrs}h {mins:02d}m" if hrs else f"{mins}m {secs:02d}s"
+                    else:
+                        setattr(self, uptime_attr, time.time())
+                        data["uptime"] = "0m 00s"
 
-                # Versão: lê version.txt
-                if srv.install_dir:
-                    ver_path = Path(srv.install_dir) / "version.txt"
-                    if ver_path.exists():
+                    # Versão: lê version.txt
+                    if srv.install_dir:
+                        ver_path = Path(srv.install_dir) / "version.txt"
+                        if ver_path.exists():
+                            try:
+                                data["version"] = ver_path.read_text(encoding="utf-8").strip()[:12]
+                            except Exception:
+                                pass
+
+                    # Players via RCON (melhor esforço)
+                    if srv.rcon_enabled and srv.admin_password:
                         try:
-                            data["version"] = ver_path.read_text(encoding="utf-8").strip()[:12]
+                            from .rcon_client import RconClient
+                            host = srv.server_ip or "127.0.0.1"
+                            rc = RconClient(host, srv.rcon_port, srv.admin_password)
+                            rc.connect()
+                            ok, resp = rc.send_command_safe("ListPlayers")
+                            rc.disconnect()
+                            if ok:
+                                lines = [ln for ln in resp.splitlines() if ln.strip()]
+                                data["players"] = f"{len(lines)}/{srv.max_players}"
+                            else:
+                                data["players"] = "?/?"
+                        except Exception:
+                            data["players"] = "?/?"
+
+                    # RAM via psutil (melhor esforço)
+                    if inst and inst.pid:
+                        try:
+                            import psutil
+                            p = psutil.Process(inst.pid)
+                            mem_mb = p.memory_info().rss / (1024 * 1024)
+                            data["ram"] = f"{mem_mb:.1f} MB"
                         except Exception:
                             pass
 
-                # Players via RCON (melhor esforço)
-                if srv.rcon_enabled and srv.admin_password:
-                    try:
-                        from .rcon_client import RconClient
-                        host = srv.server_ip or "127.0.0.1"
-                        rc = RconClient(host, srv.rcon_port, srv.admin_password)
-                        rc.connect()
-                        ok, resp = rc.send_command_safe("ListPlayers")
-                        rc.disconnect()
-                        if ok:
-                            lines = [ln for ln in resp.splitlines() if ln.strip()]
-                            data["players"] = f"{len(lines)}/{srv.max_players}"
-                        else:
-                            data["players"] = "?/?"
-                    except Exception:
-                        data["players"] = "?/?"
-
-                # RAM via psutil (melhor esforço)
-                if inst and inst.pid:
-                    try:
-                        import psutil
-                        p = psutil.Process(inst.pid)
-                        mem_mb = p.memory_info().rss / (1024 * 1024)
-                        data["ram"] = f"{mem_mb:.1f} MB"
-                    except Exception:
-                        pass
-
-                setattr(self, rich_key, data)
-
-            # Agenda refresh visual do dashboard
-            self.after(0, self._asm_refresh_dashboard)
+                    setattr(self, rich_key, data)
+            finally:
+                self._asm_status_tick_running = False
+                self.after(0, self._asm_refresh_dashboard)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -410,6 +418,9 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _build_sidebar(self) -> None:
+        self._sidebar_server_rows = {}
+        self._sidebar_server_btns = {}
+        self._sidebar_empty_lbl = None
         from .pages.build_sidebar_tek import build_sidebar_tek as _build
         _build(self)
         return
@@ -583,25 +594,51 @@ class ARKServerManagerApp(ctk.CTk):
     def _rebuild_server_sidebar_now(self) -> None:
         """Executa rebuild imediato da sidebar."""
         self._sidebar_rebuild_job = None
-        for w in self._servers_list_sb.winfo_children():
-            w.destroy()
-        self._sidebar_server_btns.clear()
 
         theme   = get_theme("tek")
-        accent  = theme["accent"]
         sb_bg   = theme["sidebar_bg"]
         t_sec   = theme["text_secondary"]
         hover   = theme["accent_hover"]
 
         servers = self.asm_config_manager.servers
+        existing_ids = set(self._sidebar_server_rows.keys())
+        current_ids = {srv.id for srv in servers}
+
+        for removed_id in existing_ids - current_ids:
+            row = self._sidebar_server_rows.pop(removed_id, None)
+            btn = self._sidebar_server_btns.pop(removed_id, None)
+            if btn is not None:
+                try:
+                    btn.destroy()
+                except Exception:
+                    pass
+            if row and row.get("frame") is not None:
+                try:
+                    row["frame"].destroy()
+                except Exception:
+                    pass
+
         if not servers:
-            ctk.CTkLabel(
-                self._servers_list_sb,
-                text="Nenhum servidor.\nClique ＋ para adicionar.",
-                text_color=theme["text_muted"],
-                font=ctk.CTkFont(size=10), justify="center",
-            ).pack(pady=12)
+            for row in self._sidebar_server_rows.values():
+                try:
+                    row["frame"].destroy()
+                except Exception:
+                    pass
+            self._sidebar_server_rows.clear()
+            self._sidebar_server_btns.clear()
+            if not self._sidebar_empty_lbl or not self._sidebar_empty_lbl.winfo_exists():
+                self._sidebar_empty_lbl = ctk.CTkLabel(
+                    self._servers_list_sb,
+                    text="Nenhum servidor.\nClique ＋ para adicionar.",
+                    text_color=theme["text_muted"],
+                    font=ctk.CTkFont(size=10), justify="center",
+                )
+            self._sidebar_empty_lbl.pack(pady=12)
             return
+
+        if self._sidebar_empty_lbl and self._sidebar_empty_lbl.winfo_exists():
+            self._sidebar_empty_lbl.destroy()
+        self._sidebar_empty_lbl = None
 
         for srv in servers:
             inst   = self.asm_server_manager.get_instance(srv.id)
@@ -611,24 +648,35 @@ class ARKServerManagerApp(ctk.CTk):
                 else "#f59e0b" if status in ("starting", "stopping", "updating")
                 else "#64748b"
             )
-            row_f = ctk.CTkFrame(self._servers_list_sb, fg_color="transparent")
-            row_f.pack(fill="x", pady=1)
-            row_f.grid_columnconfigure(1, weight=1)
+            row = self._sidebar_server_rows.get(srv.id)
+            if row is None:
+                row_f = ctk.CTkFrame(self._servers_list_sb, fg_color="transparent")
+                row_f.grid_columnconfigure(1, weight=1)
 
-            tk.Label(
-                row_f, text="●", fg=dot_color,
-                bg=sb_bg, font=("Segoe UI", 9),
-            ).grid(row=0, column=0, padx=(4, 2))
+                dot_lbl = tk.Label(
+                    row_f, text="●", fg=dot_color,
+                    bg=sb_bg, font=("Segoe UI", 9),
+                )
+                dot_lbl.grid(row=0, column=0, padx=(4, 2))
 
-            btn = ctk.CTkButton(
-                row_f, text=srv.name, anchor="w", height=32,
-                fg_color="transparent", text_color=t_sec,
-                hover_color=hover, corner_radius=8,
-                font=ctk.CTkFont(size=11),
-                command=lambda sid=srv.id: self._asm_open_server_panel(sid),
-            )
-            btn.grid(row=0, column=1, sticky="ew", padx=(0, 4))
-            self._sidebar_server_btns[srv.id] = btn
+                btn = ctk.CTkButton(
+                    row_f, text=srv.name, anchor="w", height=32,
+                    fg_color="transparent", text_color=t_sec,
+                    hover_color=hover, corner_radius=8,
+                    font=ctk.CTkFont(size=11),
+                    command=lambda sid=srv.id: self._asm_open_server_panel(sid),
+                )
+                btn.grid(row=0, column=1, sticky="ew", padx=(0, 4))
+
+                row = {"frame": row_f, "dot": dot_lbl, "btn": btn}
+                self._sidebar_server_rows[srv.id] = row
+                self._sidebar_server_btns[srv.id] = btn
+            else:
+                row["dot"].configure(fg=dot_color, bg=sb_bg)
+                row["btn"].configure(text=srv.name, text_color=t_sec, hover_color=hover)
+
+            row["frame"].pack_forget()
+            row["frame"].pack(fill="x", pady=1)
 
     def _set_nav_active(self, key: str) -> None:
         """Atualiza estilo do botão de navegação ativo."""
@@ -1327,6 +1375,9 @@ class ARKServerManagerApp(ctk.CTk):
                 self._update_status_lbl.configure(text_color="#4ade80")
             if self._install_update_btn:
                 self._install_update_btn.configure(state="normal")
+            if not manual and not self._update_auto_started and getattr(sys, "frozen", False):
+                self._update_auto_started = True
+                self.after(500, self._start_download_update)
         else:
             if self._update_status_var:
                 self._update_status_var.set("Você está na versão mais recente ✓")

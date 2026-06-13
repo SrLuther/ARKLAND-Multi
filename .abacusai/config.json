@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -NoProfile -Command \"try { npm --prefix C:\\Users\\Ciano\\Documents\\arkland-multi\\scripts run typecheck 2>&1 } c…)",
+      "Bash(powershell -NoProfile -Command \"cd C:\\Users\\Ciano\\Documents\\arkland-multi\\artifacts\\api-server; npm run typecheck 2>&1 |…)",
+      "Bash(powershell -NoProfile -Command \"Set-Location C:\\Users\\Ciano\\Documents\\arkland-multi\\artifacts\\api-server; npx tsc -p tsc…)",
+      "Bash(powershell -NoProfile -Command \"Test-Path 'C:\\Users\\Ciano\\Documents\\arkland-multi\\artifacts\\api-server\\node_modules'\")"
+    ]
+  }
+}

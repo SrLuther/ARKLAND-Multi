@@ -1,10 +1,9 @@
 {
-    "version": "1.8.9",
+    "version": "1.8.10",
     "date": "2026-06-13",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.9/ARKLAND-Multi-Setup-v1.8.9.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.10/ARKLAND-Multi-Setup-v1.8.10.exe",
     "changelog": [
-        "Fix (ASM/launch): SessionName com colchetes/espaços não vai mais na CLI com %5B/%20 — o ARK exibia o encoding literal; nome fica só no GUS.ini (aspas + UTF-16).",
-        "Fix (ASM/launch): ?SessionName= na CLI restrito a nomes simples (A-Za-z0-9_-) para evitar 'ARK #NNNNNN' sem corromper nomes complexos.",
-        "Fix (CustomShop): migração kits com ADD COLUMN IF NOT EXISTS e tolerância a ER_DUP_FIELDNAME (1060)."
+        "Fix (ASM/launch): SessionName removido da CLI em todos os casos; o nome da sessão agora é persistido somente no GameUserSettings.ini para evitar parsing inconsistente no Windows.",
+        "Docs: ARK_SERVER_CONFIG_REFERENCE.md alinhado ao comportamento atual de launch (SessionName apenas no INI, AltSaveDirectoryName e -clusterid corrigidos no mapeamento)."
     ]
 }

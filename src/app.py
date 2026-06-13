@@ -196,6 +196,7 @@ class ARKServerManagerApp(ctk.CTk):
         # auto-update de mods
         self._mod_auto_updater: Optional[ModAutoUpdater] = None
         self._auto_updater_log_box: Any = None
+        self._update_auto_started: bool = False
 
         self._build_ui()
         self.after(500, self._auto_start_sync)
@@ -3850,6 +3851,9 @@ class ARKServerManagerApp(ctk.CTk):
                 state="normal", text=f"⬇️  Instalar v{info.version}")
             self._sidebar_update_lbl.configure(text=f"🔔 v{info.version} disponível")
             self._nav_buttons.get("sobre", ctk.CTkButton(self)).configure(text="ℹ️  Sobre  🔔")
+            if not manual and not self._update_auto_started and getattr(sys, "frozen", False):
+                self._update_auto_started = True
+                self.after(500, self._start_download_update)
         else:
             self._update_status_var.set("✅  Versão mais recente")
             self._update_status_lbl.configure(text_color=_GREEN)
@@ -3860,6 +3864,11 @@ class ARKServerManagerApp(ctk.CTk):
         info = self.update_checker.latest
         if not info:
             return
+        try:
+            from .pages.customshop_panel import stop_webstore
+            stop_webstore()
+        except Exception:
+            pass
         self._install_update_btn.configure(state="disabled", text="⏳  Iniciando agente...")
         self._check_update_btn.configure(state="disabled")
         self.update_checker.download_and_install(

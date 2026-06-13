@@ -400,7 +400,6 @@ def _start_db_reconnect_watcher() -> None:
     _db_reconnect_stop.clear()
 
     def _watcher() -> None:
-        import time as _time
         log.info("DB reconnect watcher iniciado — tentando a cada 5 s…")
         while not _db_reconnect_stop.wait(5):
             engine = _ENGINE
@@ -463,22 +462,34 @@ def _configure_database(url: str) -> None:
         _start_db_reconnect_watcher()
 
 
-# Na inicialização: tenta settings.json primeiro (com descriptografia de senha),
-# depois env var, depois SQLite como fallback.
-_startup_settings = _load_state_settings_snapshot()
-# Descriptografa campos sensíveis manualmente (equivale a _load_settings())
-for _k in _SENSITIVE_SETTINGS_KEYS:
-    if _k in _startup_settings and _startup_settings[_k]:
+_DB_INIT_LOCK = threading.Lock()
+_DB_INITIALIZED = False
+
+
+def _initialize_database_if_needed() -> None:
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED:
+        return
+    with _DB_INIT_LOCK:
+        if _DB_INITIALIZED:
+            return
         try:
-            _startup_settings[_k] = _decrypt_value(_startup_settings[_k])
-        except Exception:
-            pass
-_startup_url = (
-    _build_database_url_from_settings(_startup_settings)
-    or _DATABASE_URL
-    or f"sqlite:///{_DATA_DIR / 'orders.db'}"
-)
-_configure_database(_startup_url)
+            startup_settings = _load_state_settings_snapshot()
+            for key in _SENSITIVE_SETTINGS_KEYS:
+                if key in startup_settings and startup_settings[key]:
+                    try:
+                        startup_settings[key] = _decrypt_value(startup_settings[key])
+                    except Exception:
+                        pass
+            startup_url = (
+                _build_database_url_from_settings(startup_settings)
+                or _DATABASE_URL
+                or f"sqlite:///{_DATA_DIR / 'orders.db'}"
+            )
+            _configure_database(startup_url)
+            _DB_INITIALIZED = True
+        except Exception as exc:
+            log.warning("DB lazy initialization failed: %s", exc)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -498,18 +509,6 @@ def _get_db_session():
     return None
 
 
-def _db_is_alive() -> bool:
-    """Testa se o engine consegue abrir uma conexão real (não só se está configurado)."""
-    if _ENGINE is None:
-        return False
-    try:
-        with _ENGINE.connect() as conn:
-            conn.execute(text("SELECT 1"))
-        return True
-    except Exception:
-        return False
-
-
 def _require_db():
     if not _db_ready():
         return jsonify({
@@ -518,6 +517,14 @@ def _require_db():
             "db_offline": True,
         }), 503
     return None
+
+
+def _ensure_runtime_initialized_before_request() -> None:
+    _initialize_database_if_needed()
+    _initialize_scheduler_if_needed()
+
+
+app.before_request(_ensure_runtime_initialized_before_request)
 
 
 def _load_settings() -> Dict[str, Any]:
@@ -915,6 +922,10 @@ def _retry_worker() -> None:
                 _process_order_delivery(oid)
 
 
+_SCHEDULER_INIT_LOCK = threading.Lock()
+_SCHEDULER_INITIALIZED = False
+
+
 def _start_scheduler() -> None:
     global _scheduler_thread
     if _scheduler_thread is not None and _scheduler_thread.is_alive():
@@ -924,7 +935,15 @@ def _start_scheduler() -> None:
     _scheduler_thread.start()
 
 
-_start_scheduler()
+def _initialize_scheduler_if_needed() -> None:
+    global _SCHEDULER_INITIALIZED
+    if _SCHEDULER_INITIALIZED:
+        return
+    with _SCHEDULER_INIT_LOCK:
+        if _SCHEDULER_INITIALIZED:
+            return
+        _start_scheduler()
+        _SCHEDULER_INITIALIZED = True
 
 
 # ── CustomShop internal API (requires X-API-Key header) ─────────────────────────
@@ -1331,7 +1350,7 @@ def test_db_connection():
         session = _get_db_session()
         if session is None:
             return jsonify({"ok": False, "error": "SessionLocal não inicializado."}), 200
-        result = session.execute(text("SELECT 1")).fetchone()
+        session.execute(text("SELECT 1")).fetchone()
         session.close()
         return jsonify({"ok": True, "info": f"Banco conectado ({_ACTIVE_DATABASE_URL[:30]}...)"})
     except Exception as exc:

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useListCategories, useListProducts } from "@workspace/api-client-react";
 import { Link, useSearch } from "wouter";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +13,8 @@ export default function Shop() {
   const initialCategory = searchParams.get("category") || undefined;
   
   const [category, setCategory] = useState<string | undefined>(initialCategory);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get("search") || "");
   const [page, setPage] = useState(1);
 
   const { data: categories, isLoading: categoriesLoading } = useListCategories();
@@ -25,11 +25,15 @@ export default function Shop() {
     limit: 12
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setDebouncedSearch(search);
-    setPage(1);
-  };
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [search]);
 
   const handleCategoryClick = (slug?: string) => {
     setCategory(slug);
@@ -82,7 +86,7 @@ export default function Shop() {
             <h2 className="text-xl font-bold hidden sm:block">
               {category ? categories?.find(c => c.slug === category)?.name || "Categoria" : "Todos os Produtos"}
             </h2>
-            <form onSubmit={handleSearch} className="flex-1 max-w-md relative">
+            <form onSubmit={(e) => e.preventDefault()} className="flex-1 max-w-md relative">
               <Input
                 type="search"
                 placeholder="Buscar produtos..."
@@ -90,7 +94,7 @@ export default function Shop() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pr-10"
               />
-              <Button type="submit" variant="ghost" size="icon" className="absolute right-0 top-0 h-full">
+              <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => { setDebouncedSearch(search.trim()); setPage(1); }}>
                 <Search className="w-4 h-4 text-muted-foreground" />
               </Button>
             </form>
@@ -128,7 +132,7 @@ export default function Shop() {
                   <Card key={product.id} className="flex flex-col overflow-hidden group hover:border-primary/50 transition-colors">
                     <div className="relative h-48 bg-muted flex items-center justify-center overflow-hidden">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
+                        <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                       ) : (
                         <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
                       )}

@@ -59,10 +59,9 @@
 start "Título da Janela" /normal "C:\caminho\ShooterGameServer.exe" "MAPA?listen?Opcao1=Valor1?Opcao2=Valor2" -flag1 -flag2
 ```
 
-> **CRÍTICO:** No Windows, o bloco `MAPA?...opções...` **DEVE estar entre aspas duplas**.  
-> O `cmd.exe` interpreta espaços como separadores de argumento. Se o valor de qualquer opção  
-> contiver espaço (ex: `SessionName=Meu Servidor ARK`), o processo recebe argumentos  
-> corrompidos e fecha imediatamente **sem logar o motivo**.
+> **CRÍTICO:** O `SessionName` não deve ser enviado na CLI.  
+> No ARKLAND atual, o nome da sessão é gravado no INI e a travel URL contém apenas opções seguras  
+> sem espaços (`?listen`, `?Port=`, `?QueryPort=`, `?MaxPlayers=`, etc.).
 
 ### Exemplo real gerado pelo ARKLAND:
 
@@ -408,12 +407,12 @@ Adicionar nas seções customizadas correspondentes — **nunca nas seções que
 
 ## 12. Bugs e Armadilhas Conhecidas
 
-### ❌ SessionName com espaços na CLI (causa: servidor não inicia)
+### ❌ SessionName na CLI (causa: inconsistência/risco de parsing)
 
-**Problema:** Incluir `?SessionName=Nome Com Espacos` na linha de comando sem aspas  
-faz o `cmd.exe` quebrar o argumento nos espaços. O ARK recebe mapa corrompido e fecha.
+**Problema:** Incluir `?SessionName=` na linha de comando (especialmente com espaços) aumenta risco  
+de parsing incorreto no Windows e divergência entre nome persistido e nome de boot.
 
-**Solução:** O ARKLAND (v1.5.5+) **não coloca `SessionName` na CLI**. O nome vai somente  
+**Solução:** O ARKLAND (v1.5.5+) **não coloca `SessionName` na CLI** em nenhum caso. O nome vai somente  
 no `GameUserSettings.ini` sob `[SessionSettings] SessionName=`.
 
 ---
@@ -503,8 +502,8 @@ Fonte: `src/asm_engine/asm_ini_manager.py` (INI_MAP) e `build_launch_args()`.
 | `query_port` | `?QueryPort=` | combined_map (E também INI) |
 | `max_players` | `?MaxPlayers=` | combined_map (E também INI) |
 | `server_ip` | `?MultiHome=` | combined_map somente |
-| `alt_save_directory_name` | `?AltSaveDir=` | combined_map somente |
-| `cross_ark_cluster_id` | `?ClusterId=` | combined_map somente |
+| `alt_save_directory_name` | `?AltSaveDirectoryName=` | combined_map somente |
+| `cross_ark_cluster_id` | `-clusterid=` | flag somente |
 | `allow_cave_flyers` | `-ForceAllowCaveFlyers` | flag |
 | `additional_args` | flags extras | flags |
 

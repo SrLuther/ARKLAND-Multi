@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.9"
+APP_VERSION: str = "1.8.10"
 BUILD_DATE: str = "2026-06-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.10",
+        "date": "2026-06-13",
+        "changes": [
+            "Fix (ASM/launch): SessionName removido da CLI em todos os casos; o nome da sessão "
+            "agora é persistido somente no GameUserSettings.ini para evitar parsing inconsistente no Windows.",
+            "Docs: ARK_SERVER_CONFIG_REFERENCE.md alinhado ao comportamento atual de launch "
+            "(SessionName apenas no INI, AltSaveDirectoryName e -clusterid corrigidos no mapeamento).",
+        ],
+    },
     {
         "version": "1.8.9",
         "date": "2026-06-13",

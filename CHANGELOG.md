@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.10] - 2026-06-13
+
+### Fix
+
+- Fix (ASM/launch): SessionName removido da CLI em todos os casos; o nome da sessão agora é persistido somente no GameUserSettings.ini para evitar parsing inconsistente no Windows.
+
+### Other
+
+- Docs: ARK_SERVER_CONFIG_REFERENCE.md alinhado ao comportamento atual de launch (SessionName apenas no INI, AltSaveDirectoryName e -clusterid corrigidos no mapeamento).
+
 ## [1.8.9] - 2026-06-13
 
 ### Fix

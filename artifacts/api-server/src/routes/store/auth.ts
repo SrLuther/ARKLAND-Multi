@@ -75,27 +75,28 @@ router.get("/auth/steam/callback", (req, res) => {
     const avatarUrl = profile?.avatarUrl ?? "";
 
     try {
-      const [existing] = await db
-        .select()
-        .from(storeUsersTable)
-        .where(eq(storeUsersTable.steamId, steamId));
-
-      let isAdmin = false;
-      if (existing) {
-        await db
-          .update(storeUsersTable)
-          .set({ displayName, avatarUrl })
-          .where(eq(storeUsersTable.steamId, steamId));
-        isAdmin = existing.isAdmin ?? false;
-      } else {
-        await db.insert(storeUsersTable).values({
+      await db
+        .insert(storeUsersTable)
+        .values({
           steamId,
           displayName,
           avatarUrl,
           points: 0,
           isAdmin: false,
+        })
+        .onConflictDoUpdate({
+          target: storeUsersTable.steamId,
+          set: {
+            displayName,
+            avatarUrl,
+          },
         });
-      }
+
+      const [user] = await db
+        .select({ isAdmin: storeUsersTable.isAdmin })
+        .from(storeUsersTable)
+        .where(eq(storeUsersTable.steamId, steamId));
+      const isAdmin = user?.isAdmin ?? false;
 
       const sess = req.session as any;
       sess.steamId = steamId;

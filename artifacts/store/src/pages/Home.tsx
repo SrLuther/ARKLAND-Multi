@@ -100,7 +100,7 @@ export default function Home() {
               <Card key={product.id} className="flex flex-col overflow-hidden group hover:border-primary/50 transition-colors">
                 <div className="relative h-48 bg-muted flex items-center justify-center overflow-hidden">
                   {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
+                    <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" />
                   ) : (
                     <ImageIcon className="w-12 h-12 text-muted-foreground/30" />
                   )}
