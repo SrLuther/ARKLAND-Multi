@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.2"
+APP_VERSION: str = "1.8.3"
 BUILD_DATE: str = "2026-06-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.3",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (DB): conexão travava em «Conectando...» quando o login funcionava na primeira "
+            "tentativa — finalização da conexão (state.conn + status Conectado) estava só no "
+            "retry do erro 1049; corrigido para qualquer conexão bem-sucedida.",
+        ],
+    },
     {
         "version": "1.8.2",
         "date": "2026-06-13",

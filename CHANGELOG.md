@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.3] - 2026-06-12
+
+### Fix
+
+- Fix (DB): conexão travava em «Conectando...» quando o login funcionava na primeira tentativa — finalização da conexão (state.conn + status Conectado) estava só no retry do erro 1049; corrigido para qualquer conexão bem-sucedida.
+
 ## [1.8.2] - 2026-06-13
 
 ### Feature

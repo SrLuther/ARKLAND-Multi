@@ -1,11 +1,8 @@
 {
-    "version": "1.8.2",
+    "version": "1.8.3",
     "date": "2026-06-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.2/ARKLAND-Multi-Setup-v1.8.2.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.3/ARKLAND-Multi-Setup-v1.8.3.exe",
     "changelog": [
-        "Novo (DB): Assistente guiado de instalação do banco arkland_shop — wizard em 3 passos (MariaDB → root → senha arkland) com setup automático e prefs salvas para a Loja.",
-        "Fix (DB): setup_db.sql incluído no executável PyInstaller e no instalador; cópia em %APPDATA%\\ARKLAND-ServerManager — corrige «Arquivo não encontrado» no Setup limpo.",
-        "Fix (DB): conexão retenta sem database quando arkland_shop ainda não existe (erro 1049).",
-        "Performance: projeto UI concluído — chunking Engramas/Meio Ambiente/Estruturas, cache de busca, tail de Administração adiado, docs/UI_PATTERNS.md."
+        "Fix (DB): conexão travava em «Conectando...» quando o login funcionava na primeira tentativa — finalização da conexão (state.conn + status Conectado) estava só no retry do erro 1049; corrigido para qualquer conexão bem-sucedida."
     ]
 }

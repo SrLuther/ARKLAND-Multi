@@ -845,17 +845,17 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                     return pymysql.connect(**conn_kwargs)
 
                 try:
-                    conn = _try_connect(use_db=True)
-                except Exception as exc1:
-                    err1 = str(exc1)
-                    if state.database and (
-                        "1049" in err1 or "Unknown database" in err1
-                    ):
-                        conn = _try_connect(use_db=False)
-                    else:
-                        raise exc1
+                    try:
+                        conn = _try_connect(use_db=True)
+                    except Exception as exc1:
+                        err1 = str(exc1)
+                        if state.database and (
+                            "1049" in err1 or "Unknown database" in err1
+                        ):
+                            conn = _try_connect(use_db=False)
+                        else:
+                            raise exc1
                     state.conn = conn
-                    # Persiste credenciais para reconexão automática
                     prefs = DbLocalServer._load_prefs()
                     prefs["last_connection"] = {
                         "host":     state.host,
@@ -894,8 +894,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         if DbLocalServer.get_autostart() and local_srv.is_installed():
             if local_srv.is_running():
                 # Servidor já rodando (ex: iniciou antes do painel abrir)
-                threading.Thread(target=lambda: parent.after(500, _do_connect),
-                                 daemon=True).start()
+                parent.after(500, _do_connect)
             else:
                 threading.Thread(target=_do_start, daemon=True).start()
     
