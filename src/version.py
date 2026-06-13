@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.5"
-BUILD_DATE: str = "2026-06-12"
+APP_VERSION: str = "1.8.6"
+BUILD_DATE: str = "2026-06-13"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.6",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (CustomShop): Error 126 — libmariadb.dll e z.dll copiadas para Win64/ além de "
+            "Plugins/CustomShop/; diagnóstico de instalação incompleta.",
+            "Fix (CustomShop): SSL/TLS ao conectar em 127.0.0.1:3306 — MariaDB portable não usa "
+            "TLS; plugin recompilado com MYSQL_OPT_SSL_ENFORCE=0.",
+            "Melhoria (CustomShop): instalar/sincronizar grava WebApiUrl, API Key e credenciais "
+            "Database (arkland_shop) do DB Manager no config.json do plugin.",
+            "Melhoria (Web Store): IP público + URLs LAN/internet na aba; botão Firewall Windows; "
+            "detecção automática de IP público; diagnóstico LAN vs localhost.",
+        ],
+    },
     {
         "version": "1.8.5",
         "date": "2026-06-12",

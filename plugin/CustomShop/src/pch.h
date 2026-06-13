@@ -19,8 +19,8 @@
 // nlohmann/json bundled with ArkApi SDK (no subdirectory)
 #include <json.hpp>
 
-// MySQL C Connector (via vcpkg libmysql)
-#include <mysql.h>
+// MariaDB Connector/C (linkado via libmariadb.lib em mariadb/lib/)
+#include "../mariadb/include/mysql.h"
 
 // WinHTTP for HTTP communication with arkshop_web
 #include <winhttp.h>

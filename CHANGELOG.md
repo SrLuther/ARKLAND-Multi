@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.6] - 2026-06-12
+
+### Improvement
+
+- Melhoria (CustomShop): instalar/sincronizar grava WebApiUrl, API Key e credenciais Database (arkland_shop) do DB Manager no config.json do plugin.
+- Melhoria (Web Store): IP público + URLs LAN/internet na aba; botão Firewall Windows; detecção automática de IP público; diagnóstico LAN vs localhost.
+
+### Fix
+
+- Fix (CustomShop): Error 126 — libmariadb.dll e z.dll copiadas para Win64/ além de Plugins/CustomShop/; diagnóstico de instalação incompleta.
+- Fix (CustomShop): SSL/TLS ao conectar em 127.0.0.1:3306 — MariaDB portable não usa TLS; plugin recompilado com MYSQL_OPT_SSL_ENFORCE=0.
+
 ## [1.8.5] - 2026-06-12
 
 ### Fix

@@ -1,8 +1,11 @@
 {
-    "version": "1.8.5",
-    "date": "2026-06-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.5/ARKLAND-Multi-Setup-v1.8.5.exe",
+    "version": "1.8.6",
+    "date": "2026-06-13",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.6/ARKLAND-Multi-Setup-v1.8.6.exe",
     "changelog": [
-        "Fix (Web Store): ARKLAND-WebStore.exe falhava com «No module named dotenv» — python-dotenv adicionado às dependências e empacotado no build PyInstaller."
+        "Fix (CustomShop): Error 126 — libmariadb.dll e z.dll copiadas para Win64/ além de Plugins/CustomShop/; diagnóstico de instalação incompleta.",
+        "Fix (CustomShop): SSL/TLS ao conectar em 127.0.0.1:3306 — MariaDB portable não usa TLS; plugin recompilado com MYSQL_OPT_SSL_ENFORCE=0.",
+        "Melhoria (CustomShop): instalar/sincronizar grava WebApiUrl, API Key e credenciais Database (arkland_shop) do DB Manager no config.json do plugin.",
+        "Melhoria (Web Store): IP público + URLs LAN/internet na aba; botão Firewall Windows; detecção automática de IP público; diagnóstico LAN vs localhost."
     ]
 }

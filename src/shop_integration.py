@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import socket
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -77,6 +78,54 @@ def get_local_ip() -> str:
         return "127.0.0.1"
 
 
+def fetch_public_ip(timeout: int = 6) -> Tuple[bool, str]:
+    """Consulta IP público via api.ipify.org. Retorna (ok, ip_ou_erro)."""
+    for url in ("https://api.ipify.org", "https://ifconfig.me/ip"):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ARKLAND/1.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                ip = resp.read().decode().strip()
+                if ip and not ip.startswith("{"):
+                    return True, ip
+        except Exception:
+            continue
+    return False, "Não foi possível detectar o IP público."
+
+
+def resolve_central_url(shop: "ShopGlobalConfig") -> str:
+    override = (shop.central_url or "").strip().rstrip("/")
+    if shop.mode == "client":
+        return override
+    if override:
+        return override
+    host = (shop.host_ip or "").strip() or get_local_ip()
+    port = max(1, int(shop.port or 5177))
+    return f"http://{host}:{port}"
+
+
+def resolve_public_shop_url(shop: "ShopGlobalConfig") -> str:
+    """URL da loja para acesso pela internet (IP público + porta)."""
+    pub = (shop.public_ip or "").strip()
+    if not pub:
+        return ""
+    port = max(1, int(shop.port or 5177))
+    return f"http://{pub}:{port}"
+
+
+def shop_access_urls(shop: "ShopGlobalConfig") -> dict[str, str]:
+    """Retorna URLs de acesso LAN e internet para exibição na UI."""
+    port = max(1, int(shop.port or 5177))
+    lan_ip = (shop.host_ip or "").strip() or get_local_ip()
+    pub_ip = (shop.public_ip or "").strip()
+    return {
+        "lan_ip": lan_ip,
+        "public_ip": pub_ip,
+        "lan_url": f"http://{lan_ip}:{port}",
+        "public_url": f"http://{pub_ip}:{port}" if pub_ip else "",
+        "central": resolve_central_url(shop),
+    }
+
+
 def slugify_server_id(name: str, srv_id: str) -> str:
     base = (name or srv_id or "server").strip().lower()
     slug = re.sub(r"[^a-z0-9]+", "_", base).strip("_")
@@ -95,6 +144,13 @@ def customshop_plugin_dir(install_dir: str) -> Path:
     )
 
 
+def server_win64_dir(install_dir: str) -> Path:
+    return Path(install_dir) / "ShooterGame" / "Binaries" / "Win64"
+
+
+_WIN64_RUNTIME_DLLS = ("libmariadb.dll", "z.dll")
+
+
 def default_customshop_path(install_dir: str) -> str:
     if not install_dir or not install_dir.strip():
         return ""
@@ -108,19 +164,66 @@ def bundled_customshop_root() -> Path:
 
 
 def bundled_customshop_files() -> Dict[str, Path]:
-    root = bundled_customshop_root()
+    """Localiza DLLs do CustomShop no bundle PyInstaller, bin/ do projeto ou MariaDB portable."""
+    candidates: list[Path] = [bundled_customshop_root(), _DEV_BIN_DIR]
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / "plugins")
+
     found: Dict[str, Path] = {}
     for name in _CUSTOMSHOP_DLLS:
-        p = root / name
-        if p.is_file():
-            found[name] = p
+        for root in candidates:
+            p = root / name
+            if p.is_file():
+                found[name] = p
+                break
+
+    if "libmariadb.dll" not in found:
+        try:
+            from .pages.db_local_server import DbLocalServer
+
+            mariadb_bin = DbLocalServer().mysqld_exe.parent
+            lm = mariadb_bin / "libmariadb.dll"
+            if lm.is_file():
+                found["libmariadb.dll"] = lm
+        except Exception:
+            pass
+
     return found
+
+
+def customshop_install_diagnostics(install_dir: str) -> list[str]:
+    """Lista problemas que causam Error 126 ao carregar CustomShop.dll."""
+    issues: list[str] = []
+    if not install_dir or not install_dir.strip():
+        return ["install_dir vazio"]
+
+    plugin = customshop_plugin_dir(install_dir)
+    win64 = server_win64_dir(install_dir)
+
+    if not (plugin / "CustomShop.dll").is_file():
+        issues.append("CustomShop.dll ausente em ArkApi/Plugins/CustomShop/")
+
+    for dll in _WIN64_RUNTIME_DLLS:
+        in_plugin = (plugin / dll).is_file()
+        in_win64 = (win64 / dll).is_file()
+        if not in_plugin and not in_win64:
+            issues.append(
+                f"{dll} ausente — copie para Plugins/CustomShop/ e Win64/ (causa Error 126)"
+            )
+        elif not in_win64:
+            issues.append(
+                f"{dll} não está em Win64/ — o ARK pode falhar ao carregar o plugin (Error 126)"
+            )
+    return issues
 
 
 def is_customshop_installed(install_dir: str) -> bool:
     if not install_dir or not install_dir.strip():
         return False
-    return (customshop_plugin_dir(install_dir) / "CustomShop.dll").is_file()
+    plugin = customshop_plugin_dir(install_dir)
+    if not (plugin / "CustomShop.dll").is_file():
+        return False
+    return not customshop_install_diagnostics(install_dir)
 
 
 def _default_config_template() -> Path:
@@ -152,18 +255,28 @@ def install_customshop_to_server(
 
     dest = customshop_plugin_dir(install_dir)
     dest.mkdir(parents=True, exist_ok=True)
+    win64 = server_win64_dir(install_dir)
+    win64.mkdir(parents=True, exist_ok=True)
 
     for name, src in bundled.items():
         target = dest / name
         if target.is_file() and not overwrite_dlls:
             ok.append(f"{name} (já existia)")
-            continue
-        shutil.copy2(src, target)
-        ok.append(name)
+        else:
+            shutil.copy2(src, target)
+            ok.append(f"{name} → Plugins/CustomShop/")
+        if name in _WIN64_RUNTIME_DLLS:
+            w64_target = win64 / name
+            if overwrite_dlls or not w64_target.is_file():
+                shutil.copy2(src, w64_target)
+                ok.append(f"{name} → Win64/")
 
-    for optional in ("libmariadb.dll", "z.dll"):
-        if optional not in bundled:
-            notes.append(f"{optional} ausente no bundle — MySQL pode falhar até copiar manualmente")
+    for required in _WIN64_RUNTIME_DLLS:
+        if required not in bundled:
+            notes.append(
+                f"{required} ausente no bundle — reinstale o ARKLAND ou copie manualmente "
+                f"para Plugins/CustomShop/ e Win64/ (Error 126)"
+            )
 
     if _PLUGIN_INFO.is_file():
         info_dest = dest / "PluginInfo.json"
@@ -267,17 +380,6 @@ def install_customshop_all(
     return ok, errors
 
 
-def resolve_central_url(shop: "ShopGlobalConfig") -> str:
-    override = (shop.central_url or "").strip().rstrip("/")
-    if shop.mode == "client":
-        return override
-    if override:
-        return override
-    host = (shop.host_ip or "").strip() or get_local_ip()
-    port = max(1, int(shop.port or 5177))
-    return f"http://{host}:{port}"
-
-
 def _db_manager_prefs() -> dict:
     """Lê as credenciais salvas pelo DB Manager como fallback."""
     try:
@@ -341,6 +443,8 @@ def test_shop_connection(url: str, api_key: str = "") -> Tuple[bool, str]:
     base = url.strip().rstrip("/")
     if not base:
         return False, "URL vazia"
+    if not base.startswith(("http://", "https://")):
+        base = f"http://{base}"
     try:
         req = urllib.request.Request(f"{base}/api/auth/me", method="GET")
         with urllib.request.urlopen(req, timeout=4) as resp:
@@ -355,6 +459,97 @@ def test_shop_connection(url: str, api_key: str = "") -> Tuple[bool, str]:
     return False, "Sem resposta"
 
 
+_WEBSTORE_FW_PREFIX = "ARKLAND-WebStore-"
+
+
+def check_webstore_firewall_rule(port: int) -> bool:
+    try:
+        rule = f"{_WEBSTORE_FW_PREFIX}{port}"
+        cmd = f'netsh advfirewall firewall show rule name="{rule}"'
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=6,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def create_webstore_firewall_rule(port: int) -> Tuple[bool, str]:
+    """Cria regra de entrada TCP para a Web Store (perfil Any)."""
+    from .pages.db_local_server import DbLocalServer
+
+    port = max(1, int(port or 5177))
+    rule = f"{_WEBSTORE_FW_PREFIX}{port}"
+    if check_webstore_firewall_rule(port):
+        return True, f"Regra já existe para porta {port}."
+
+    netsh_cmd = (
+        f'netsh advfirewall firewall delete rule name="{rule}" & '
+        f'netsh advfirewall firewall add rule name="{rule}" '
+        f"protocol=TCP dir=in localport={port} action=allow profile=any "
+        f'description="ARKLAND Web Store HTTP"'
+    )
+
+    if DbLocalServer.is_admin():
+        try:
+            result = subprocess.run(
+                netsh_cmd, shell=True, capture_output=True, text=True, timeout=10,
+            )
+            if check_webstore_firewall_rule(port):
+                return True, f"Porta {port} liberada no firewall."
+            out = (result.stdout + result.stderr).strip()
+            return False, out or f"Código {result.returncode}"
+        except Exception as exc:
+            return False, str(exc)
+
+    try:
+        import ctypes
+        import tempfile
+        import time as _time
+
+        bat = tempfile.NamedTemporaryFile(
+            suffix=".bat", mode="w", delete=False, encoding="utf-8",
+        )
+        bat.write(f"@echo off\n{netsh_cmd}\n")
+        bat.close()
+        try:
+            ret = ctypes.windll.shell32.ShellExecuteW(
+                None, "runas", "cmd.exe", f'/c "{bat.name}"', None, 0,
+            )
+            if ret <= 32:
+                return False, "UAC cancelado ou acesso negado."
+            for _ in range(16):
+                _time.sleep(0.5)
+                if check_webstore_firewall_rule(port):
+                    return True, f"Porta {port} liberada no firewall."
+            return False, "Timeout aguardando criação da regra."
+        finally:
+            try:
+                import os as _os
+                _os.unlink(bat.name)
+            except Exception:
+                pass
+    except Exception as exc:
+        return False, str(exc)
+
+
+def diagnose_webstore_access(shop: "ShopGlobalConfig") -> Tuple[bool, str, bool]:
+    """Testa localhost e IP LAN. Retorna (ok_lan, mensagem, ok_local)."""
+    port = max(1, int(shop.port or 5177))
+    host = (shop.host_ip or "").strip() or get_local_ip()
+    ok_local, msg_local = test_shop_connection(f"http://127.0.0.1:{port}")
+    ok_lan, msg_lan = test_shop_connection(f"http://{host}:{port}")
+    if ok_lan:
+        return True, "Loja respondendo (LAN)", ok_local
+    if ok_local:
+        fw = "sim" if check_webstore_firewall_rule(port) else "não"
+        return False, (
+            f"Loja OK em localhost, mas {host}:{port} não responde na LAN "
+            f"(firewall Windows: regra {fw})"
+        ), ok_local
+    return False, msg_lan or msg_local or "Sem resposta", ok_local
+
+
 def load_plugin_config(path: Path) -> Dict[str, Any]:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -365,6 +560,32 @@ def load_plugin_config(path: Path) -> Dict[str, Any]:
 def save_plugin_config(path: Path, data: Dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
+    """Monta bloco Database do config.json do plugin a partir da loja / DB Manager."""
+    host = (shop.orders_db_host or "").strip() or "127.0.0.1"
+    port = int(shop.orders_db_port or 3306)
+    name = (shop.orders_db_name or "").strip() or "arkland_shop"
+    user = (shop.orders_db_user or "").strip()
+    password = (shop.orders_db_password or "").strip()
+
+    if not user:
+        prefs = _db_manager_prefs()
+        host = host or prefs.get("host", "127.0.0.1")
+        port = port or int(prefs.get("port", 3306))
+        name = name or prefs.get("database", "arkland_shop")
+        user = prefs.get("user", "arkland")
+        password = password or prefs.get("password", "")
+
+    return {
+        "Host": host,
+        "Port": port,
+        "User": user,
+        "Password": password,
+        "Database": name,
+        "Ssl": False,
+    }
 
 
 def merge_plugin_config(
@@ -479,7 +700,10 @@ def sync_all_plugins(
     """Retorna (sucessos, erros)."""
     central = resolve_central_url(shop)
     api_key = shop.api_key or ""
-    db_settings = catalog.get("Database", {})
+    db_settings = build_plugin_database_settings(shop)
+    catalog_db = catalog.get("Database", {})
+    if catalog_db:
+        db_settings = {**catalog_db, **db_settings}
     ok: List[str] = []
     errors: List[str] = []
     classic_dirty = False

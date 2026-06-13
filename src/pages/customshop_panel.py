@@ -21,8 +21,12 @@ import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..shop_integration import (
     build_webstore_launch,
+    check_webstore_firewall_rule,
+    create_webstore_firewall_rule,
     default_catalog_path,
     default_customshop_path,
+    diagnose_webstore_access,
+    fetch_public_ip,
     get_local_ip,
     get_shop_subprocess_env,
     install_customshop_all,
@@ -30,7 +34,9 @@ from ..shop_integration import (
     iter_shop_servers,
     read_webstore_log_tail,
     resolve_central_url,
+    resolve_public_shop_url,
     resolve_webstore_executable,
+    shop_access_urls,
     slugify_server_id,
     sync_all_plugins,
     test_shop_connection,
@@ -1034,11 +1040,13 @@ def _build_webstore_tab(
 
     shop = app.config_manager.config.shop
     local_ip = get_local_ip()
+    _port_var = tk.StringVar(value=str(shop.port or 5177))
 
     def _save_shop_from_ui() -> None:
         shop.mode = _mode_var.get()
         shop.central_url = _central_url_var.get().strip()
         shop.host_ip = _host_ip_var.get().strip()
+        shop.public_ip = _public_ip_var.get().strip()
         shop.port = _safe_int(_port_var.get(), 5177)
         shop.api_key = _api_key_var.get().strip()
         shop.machine_label = _machine_var.get().strip()
@@ -1052,10 +1060,28 @@ def _build_webstore_tab(
         shop.orders_db_password = _odb_pass.get()
         app.config_manager.save()
 
-    def _refresh_central_label() -> None:
-        _save_shop_from_ui()
-        url = resolve_central_url(shop)
-        _central_url_lbl.config(text=url)
+    def _refresh_access_labels() -> None:
+        shop.mode = _mode_var.get()
+        shop.host_ip = _host_ip_var.get().strip()
+        shop.public_ip = _public_ip_var.get().strip()
+        shop.port = _safe_int(_port_var.get(), 5177)
+        shop.central_url = _central_url_var.get().strip()
+        urls = shop_access_urls(shop)
+        _central_url_lbl.config(text=f"URL plugins (LAN): {urls['central']}")
+        _lan_url_lbl.config(text=f"🏠  Rede local (LAN): {urls['lan_url']}")
+        pub = urls["public_url"]
+        if pub:
+            _public_url_lbl.config(
+                text=f"🌍  Internet (IP público): {pub}",
+                fg="#38bdf8",
+            )
+        else:
+            _public_url_lbl.config(
+                text="🌍  Internet: defina o IP público acima (ou clique em Detectar)",
+                fg="gray45",
+            )
+
+    _refresh_central_label = _refresh_access_labels
 
     # ── Modo Host / Cliente ───────────────────────────────────────────────
     card_mode = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
@@ -1082,18 +1108,103 @@ def _build_webstore_tab(
 
     _host_ip_var = tk.StringVar(value=shop.host_ip or local_ip)
     _field_row(card_mode, "IP LAN (host)", _host_ip_var, bg=_INNER,
-               hint="IP desta máquina na rede — usado para montar a URL central", width=200)
+               hint="Rede interna — mesma Wi‑Fi/rede local", width=200)
+
+    _public_ip_var = tk.StringVar(value=getattr(shop, "public_ip", "") or "")
+    pub_row = tk.Frame(card_mode, bg=_INNER)
+    pub_row.pack(fill="x", padx=10, pady=2)
+    pub_row.columnconfigure(0, weight=1)
+    ctk.CTkLabel(pub_row, text="IP público (internet)", anchor="w", text_color="gray65",
+                 font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
+    ctk.CTkLabel(
+        pub_row,
+        text="Endereço para jogadores fora da sua rede — requer port forwarding no roteador.",
+        anchor="w", text_color="gray40", font=ctk.CTkFont(size=9),
+    ).grid(row=1, column=0, sticky="w")
+    ctk.CTkEntry(pub_row, textvariable=_public_ip_var, width=200, height=26).grid(
+        row=0, column=1, rowspan=2, sticky="e", padx=(0, 6))
+    _pub_detect_btn = ctk.CTkButton(
+        pub_row, text="🔄 Detectar", width=90, height=26,
+        fg_color="#2a3050", hover_color="#3a4060",
+        font=ctk.CTkFont(size=10),
+    )
+    _pub_detect_btn.grid(row=0, column=2, rowspan=2, padx=(0, 4))
+    _pub_copy_btn = ctk.CTkButton(
+        pub_row, text="📋", width=36, height=26,
+        fg_color="#2a2a2a", hover_color="#404040",
+        font=ctk.CTkFont(size=11),
+    )
+    _pub_copy_btn.grid(row=0, column=3, rowspan=2)
+
+    def _detect_public_ip() -> None:
+        _pub_detect_btn.configure(state="disabled", text="⏳")
+
+        def _worker() -> None:
+            ok, result = fetch_public_ip()
+            def _done() -> None:
+                if ok:
+                    _public_ip_var.set(result)
+                    _refresh_access_labels()
+                else:
+                    messagebox.showwarning("IP público", result, parent=parent.winfo_toplevel())
+                _pub_detect_btn.configure(state="normal", text="🔄 Detectar")
+            parent.after(0, _done)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _copy_public_url() -> None:
+        _save_shop_from_ui()
+        url = resolve_public_shop_url(shop)
+        if not url:
+            messagebox.showinfo(
+                "Copiar URL",
+                "Defina o IP público primeiro.",
+                parent=parent.winfo_toplevel(),
+            )
+            return
+        try:
+            parent.winfo_toplevel().clipboard_clear()
+            parent.winfo_toplevel().clipboard_append(url)
+        except Exception:
+            pass
+
+    _pub_detect_btn.configure(command=_detect_public_ip)
+    _pub_copy_btn.configure(command=_copy_public_url)
+    _public_ip_var.trace_add("write", lambda *_: _refresh_access_labels())
 
     _central_url_var = tk.StringVar(value=shop.central_url or "")
     _field_row(card_mode, "URL central (cliente)", _central_url_var, bg=_INNER,
                hint="ex: http://192.168.1.10:5177 — obrigatório no modo cliente", width=320)
 
     _central_url_lbl = tk.Label(card_mode, bg=_INNER, fg=_GREEN,
-                                font=ctk.CTkFont(size=12, weight="bold"), anchor="w")
-    _central_url_lbl.pack(anchor="w", padx=10, pady=(4, 8))
+                                font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
+    _central_url_lbl.pack(anchor="w", padx=10, pady=(4, 2))
+    _lan_url_lbl = tk.Label(card_mode, bg=_INNER, fg=_GREEN,
+                            font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
+    _lan_url_lbl.pack(anchor="w", padx=10, pady=(0, 2))
+    _public_url_lbl = tk.Label(card_mode, bg=_INNER, fg="#38bdf8",
+                               font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
+    _public_url_lbl.pack(anchor="w", padx=10, pady=(0, 4))
+    tk.Label(
+        card_mode,
+        text="Port forwarding: encaminhe a porta da loja no roteador para o IP LAN desta máquina.",
+        bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
+    ).pack(anchor="w", padx=10, pady=(0, 8))
     # Valor inicial direto do shop já carregado (não chama _save_shop_from_ui
     # aqui pois as demais variáveis ainda não foram criadas neste ponto)
-    _central_url_lbl.config(text=resolve_central_url(shop))
+    _central_url_lbl.config(text=f"URL plugins (LAN): {resolve_central_url(shop)}")
+    _refresh_access_labels()
+
+    if not _public_ip_var.get().strip():
+        def _auto_detect_public() -> None:
+            ok, result = fetch_public_ip()
+            if ok:
+                def _apply() -> None:
+                    if not _public_ip_var.get().strip():
+                        _public_ip_var.set(result)
+                        _refresh_access_labels()
+                parent.after(0, _apply)
+        threading.Thread(target=_auto_detect_public, daemon=True).start()
 
     # ── Status & processo (somente host) ──────────────────────────────────
     card_status = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
@@ -1109,13 +1220,12 @@ def _build_webstore_tab(
     conn_lbl = tk.Label(card_status, bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10), anchor="w")
     conn_lbl.pack(fill="x", padx=10, pady=(0, 6))
 
-    _port_var = tk.StringVar(value=str(shop.port or 5177))
     port_row = tk.Frame(card_status, bg=_INNER)
     port_row.pack(fill="x", padx=10, pady=2)
     tk.Label(port_row, text="Porta:", bg=_INNER, fg="gray50",
              font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 8))
     ctk.CTkEntry(port_row, textvariable=_port_var, width=90, height=26).pack(side="left")
-    port_var_trace = _port_var.trace_add("write", lambda *_: _refresh_central_label())
+    port_var_trace = _port_var.trace_add("write", lambda *_: _refresh_access_labels())
 
     _api_key_var = tk.StringVar(value=shop.api_key or "")
     _field_row(card_status, "API Key (ARKSHOP_API_KEY)", _api_key_var, bg=_INNER, is_pass=True,
@@ -1153,8 +1263,10 @@ def _build_webstore_tab(
             status_lbl.config(text="Modo cliente", fg="#3b82f6")
             btn_start.configure(state="disabled")
             btn_stop.configure(state="disabled")
-        ok, msg = test_shop_connection(url)
+        ok, msg, _ok_local = diagnose_webstore_access(shop)
         detail = msg
+        if is_host and ok and not check_webstore_firewall_rule(port):
+            detail = f"{msg} — libere a porta {port} no firewall para outras máquinas"
         if is_host and not ok and _web_process and _web_process.poll() is not None:
             tail = read_webstore_log_tail(4)
             if tail:
@@ -1204,7 +1316,43 @@ def _build_webstore_tab(
     btn_stop.pack(side="left", padx=(0, 8))
     ctk.CTkButton(btn_row, text="🔍  Testar conexão", height=34,
                   fg_color=_BLUE, hover_color=_BLUE_HOVER,
-                  command=_refresh_status).pack(side="left")
+                  command=_refresh_status).pack(side="left", padx=(0, 8))
+
+    def _fix_webstore_firewall() -> None:
+        _save_shop_from_ui()
+        port = max(1, int(_port_var.get().strip() or 5177))
+        if not messagebox.askyesno(
+            "Firewall — Web Store",
+            f"Liberar TCP porta {port} no Windows Defender Firewall?\n\n"
+            "Necessário para outras máquinas na rede acessarem a loja.\n"
+            "Uma janela UAC pode aparecer.",
+            parent=parent.winfo_toplevel(),
+        ):
+            return
+
+        def _worker() -> None:
+            ok, msg = create_webstore_firewall_rule(port)
+
+            def _done() -> None:
+                if ok:
+                    messagebox.showinfo("Firewall", msg, parent=parent.winfo_toplevel())
+                else:
+                    messagebox.showerror("Firewall", msg, parent=parent.winfo_toplevel())
+                _refresh_status()
+
+            parent.after(0, _done)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    ctk.CTkButton(btn_row, text="🔒  Firewall", height=34,
+                  fg_color="#3a2a10", hover_color="#5a3a18",
+                  command=_fix_webstore_firewall).pack(side="left")
+
+    tk.Label(
+        card_status,
+        text="Outras máquinas na LAN: use http://IP-LAN:porta — exige regra no firewall do Windows (não só do modem).",
+        bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
+    ).pack(anchor="w", padx=10, pady=(0, 8))
 
     # ── Banco de pedidos ──────────────────────────────────────────────────
     card_db = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
@@ -1297,8 +1445,8 @@ def _build_webstore_tab(
             asm_cm=asm_cm,
         )
         msg = f"{len(ok)} plugin(s) atualizado(s)."
-        if errs:
-            msg += "\n" + "\n".join(errs[:5])
+        if all_errs:
+            msg += "\n" + "\n".join(all_errs[:5])
         try:
             app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
         except AttributeError:
@@ -1312,17 +1460,30 @@ def _build_webstore_tab(
             return
         if not messagebox.askyesno(
             "Instalar CustomShop",
-            f"Copiar CustomShop.dll e dependências para {len(targets)} servidor(es)?\n\n"
+            f"Copiar CustomShop.dll, libmariadb.dll e z.dll para {len(targets)} servidor(es)?\n\n"
+            "As DLLs de dependência vão para Plugins/CustomShop/ e Win64/\n"
+            "(necessário para evitar Error 126 ao carregar o plugin).\n\n"
             "config.json existente não será sobrescrito.",
         ):
             return
         ok, errs = install_customshop_all(
             app.config_manager, asm_cm, overwrite_dlls=True,
         )
+        _save_shop_from_ui()
+        collect_catalog()
+        shop_cfg = app.config_manager.config.shop
+        catalog = get_catalog()
+        sync_ok, sync_errs = sync_all_plugins(
+            app.config_manager, shop_cfg, catalog, get_catalog_path(),
+            asm_cm=asm_cm,
+        )
         _rebuild_server_rows()
         msg = f"{len(ok)} servidor(es) com plugin instalado."
-        if errs:
-            msg += "\n" + "\n".join(errs[:5])
+        if sync_ok:
+            msg += f" Config sincronizado em {len(sync_ok)}."
+        all_errs = list(errs) + list(sync_errs)
+        if all_errs:
+            msg += "\n" + "\n".join(all_errs[:5])
         try:
             app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
         except AttributeError:

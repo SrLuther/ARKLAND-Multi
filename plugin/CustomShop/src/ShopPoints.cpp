@@ -39,6 +39,12 @@ bool ShopPoints::Open() {
     my_bool reconnect = 1;
     mysql_options(db_, MYSQL_OPT_RECONNECT, &reconnect);
 
+    // MariaDB portable local não usa TLS — evita Error "SSL is required".
+    my_bool ssl_enforce = 0;
+    mysql_options(db_, MYSQL_OPT_SSL_ENFORCE, &ssl_enforce);
+    my_bool ssl_verify = 0;
+    mysql_options(db_, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_verify);
+
     unsigned int port = static_cast<unsigned int>(cfg.DbPort());
     if (!mysql_real_connect(db_,
                             cfg.DbHost().c_str(),

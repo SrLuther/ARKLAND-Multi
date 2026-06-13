@@ -159,11 +159,12 @@
   ],
 
   "Database": {
-    "_comment":  "MySQL Connector/C — libmysql.dll must be in the same folder as CustomShop.dll",
+    "_comment":  "MariaDB local (ARKLAND portable) — Ssl=false para 127.0.0.1",
     "Host":      "127.0.0.1",
     "Port":      3306,
     "User":      "arkland",
-    "Password":  "123456",
-    "Database":  "arkland_shop"
+    "Password":  "SUA_SENHA_AQUI",
+    "Database":  "arkland_shop",
+    "Ssl":       false
   }
 }

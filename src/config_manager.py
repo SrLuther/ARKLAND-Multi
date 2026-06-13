@@ -107,6 +107,7 @@ class ShopGlobalConfig:
     mode: str = "host"                    # "host" | "client"
     central_url: str = ""                 # URL manual ou IP:porta do host (cliente)
     host_ip: str = ""                     # IP LAN desta máquina (host); vazio = auto
+    public_ip: str = ""                   # IP público (internet); vazio = não exibido
     port: int = 5177
     api_key: str = ""
     delivery_mode: str = "plugin"         # plugin | rcon

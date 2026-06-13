@@ -7,10 +7,14 @@
   "delivery_mode": "plugin",
   "server_id": "default",
   "retry_max_attempts": 10,
-  "database_url": "",
+  "database_url": "mysql+pymysql://arkland:ArkServer%40123@127.0.0.1:3306/arkland_shop?charset=utf8mb4",
   "db_host": "127.0.0.1",
   "db_port": 3306,
   "db_name": "arkland_shop",
   "db_user": "arkland",
-  "db_password": "123456"
+  "db_password": "ArkServer@123",
+  "port": 5000,
+  "central_url": "http://10.0.0.17:5000",
+  "shop_mode": "host",
+  "machine_label": ""
 }
