@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.8.11] - 2026-06-14
+
+### Fix
+
+- Fix (CustomShop): ShopPoints::Exec agora trata ER_DUP_FIELDNAME (1060) como migração idempotente, evitando erro em runtime 'Duplicate column name kits'.
+
+### Other
+
+- Build (CustomShop): plugin recompilado e empacotado com CustomShop.dll corrigida.
+
 ## [1.8.10] - 2026-06-13
 
 ### Fix

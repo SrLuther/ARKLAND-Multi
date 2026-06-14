@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.10"
-BUILD_DATE: str = "2026-06-13"
+APP_VERSION: str = "1.8.11"
+BUILD_DATE: str = "2026-06-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.8.11",
+        "date": "2026-06-14",
+        "changes": [
+            "Fix (CustomShop): ShopPoints::Exec agora trata ER_DUP_FIELDNAME (1060) como migração idempotente, evitando erro em runtime 'Duplicate column name kits'.",
+            "Build (CustomShop): plugin recompilado e empacotado com CustomShop.dll corrigida.",
+        ],
+    },
     {
         "version": "1.8.10",
         "date": "2026-06-13",

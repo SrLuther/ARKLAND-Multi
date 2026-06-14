@@ -20,6 +20,11 @@ ShopPoints::~ShopPoints() {
 
 bool ShopPoints::Exec(const char* sql) {
     if (mysql_query(db_, sql) != 0) {
+        const unsigned err = mysql_errno(db_);
+        if (err == 1060) {
+            Log::GetLog()->warn("ShopPoints::Exec duplicate column ignored (idempotent migration): {}", mysql_error(db_));
+            return true;
+        }
         Log::GetLog()->error("ShopPoints::Exec failed: {}", mysql_error(db_));
         return false;
     }

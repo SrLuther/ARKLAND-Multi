@@ -1,9 +1,9 @@
 {
-    "version": "1.8.10",
-    "date": "2026-06-13",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.10/ARKLAND-Multi-Setup-v1.8.10.exe",
+    "version": "1.8.11",
+    "date": "2026-06-14",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.11/ARKLAND-Multi-Setup-v1.8.11.exe",
     "changelog": [
-        "Fix (ASM/launch): SessionName removido da CLI em todos os casos; o nome da sessão agora é persistido somente no GameUserSettings.ini para evitar parsing inconsistente no Windows.",
-        "Docs: ARK_SERVER_CONFIG_REFERENCE.md alinhado ao comportamento atual de launch (SessionName apenas no INI, AltSaveDirectoryName e -clusterid corrigidos no mapeamento)."
+        "Fix (CustomShop): ShopPoints::Exec agora trata ER_DUP_FIELDNAME (1060) como migração idempotente, evitando erro em runtime 'Duplicate column name kits'.",
+        "Build (CustomShop): plugin recompilado e empacotado com CustomShop.dll corrigida."
     ]
 }
