@@ -846,6 +846,10 @@ class ARKServerManagerApp(ctk.CTk):
         from tkinter import messagebox
 
         srv = self._asm_sync_server_cfg(srv)
+        try:
+            self.asm_config_manager.update_server(srv)
+        except Exception:
+            pass
         errors = self._validate_server_config(srv)
         if errors:
             msg = "\n\n".join(f"• {e}" for e in errors)

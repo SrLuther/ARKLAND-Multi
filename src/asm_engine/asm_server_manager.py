@@ -276,9 +276,21 @@ class AsmServerManager:
                 return
             inst.cfg = cfg
 
+        # Grava INI antes de reconectar — nome da sessão e demais configs no disco
+        try:
+            write_ini(cfg)
+        except Exception as exc:
+            if on_done:
+                on_done(False, f"Falha ao gravar GameUserSettings.ini: {exc}")
+            return
+
         if inst.status == ASM_STATUS_STOPPED and self.try_reconnect_server(cfg):
             if on_done:
-                on_done(True, "Servidor já em execução — reconectado ao gerenciador")
+                on_done(
+                    True,
+                    "Servidor já em execução — reconectado. "
+                    "Reinicie o servidor para aplicar nome e configurações atualizados.",
+                )
             return
 
         with self._lock:

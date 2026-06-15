@@ -358,24 +358,31 @@ class ModManager:
             return
 
         self._on_log(f"Instalando servidor ARK em: {install_dir}", "info")
-        app_update_args = ["+app_update", _ARK_SERVER_ID]
+        from ..asm_engine.asm_steamcmd import AsmSteamCmd
+
         _branch = (branch_name or "").strip()
-        if _branch:
-            app_update_args += ["-beta", _branch]
-            if branch_password:
-                app_update_args += ["-betapassword", branch_password]
-        else:
-            app_update_args += ["-beta", "public"]
-        if validate:
+        force_validate = validate or AsmSteamCmd.prepare_branch_update(install_dir, _branch)
+        beta_key = AsmSteamCmd.normalize_branch_key(_branch)
+
+        app_update_args = ["+app_update", _ARK_SERVER_ID, "-beta", beta_key]
+        if _branch and branch_password:
+            app_update_args += ["-betapassword", branch_password]
+        if force_validate:
             app_update_args.append("validate")
 
         cmd = [
             steamcmd,
+            "+@ShutdownOnFailedCommand", "1",
+            "+@NoPromptForPassword", "1",
             "+force_install_dir", install_dir,
             "+login", "anonymous",
             *app_update_args,
             "+quit",
         ]
+        self._on_log(
+            f"SteamCMD: branch={beta_key}" + (" + validate" if force_validate else ""),
+            "info",
+        )
 
         try:
             if show_console:

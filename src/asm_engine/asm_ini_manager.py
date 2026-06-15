@@ -305,6 +305,21 @@ def effective_session_name(cfg: AsmServerConfig) -> str:
     return (cfg.name or "").strip() or "My ARK Server"
 
 
+_SIMPLE_CLI_SESSION_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def _session_name_cli_param(cfg: AsmServerConfig) -> str | None:
+    """?SessionName= na CLI só para nomes simples (sem espaços/colchetes).
+
+    Nomes complexos ficam apenas no GUS.ini (UTF-16 + aspas). O RunServer.cmd
+    duplica % como %% — nomes simples na CLI ajudam quando o INI não é lido a tempo.
+    """
+    sn = effective_session_name(cfg)
+    if sn and _SIMPLE_CLI_SESSION_RE.match(sn):
+        return f"?SessionName={sn}"
+    return None
+
+
 def _ini_path(install_dir: str, file_key: str) -> Path:
     name = _FILE_NAMES[file_key]
     return Path(install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer" / name
@@ -698,6 +713,9 @@ def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
         f"{cfg.server_map}",
         "?listen",
     ]
+    _sn_cli = _session_name_cli_param(cfg)
+    if _sn_cli:
+        params.append(_sn_cli)
     params.extend([
         f"?Port={cfg.server_port}",
         f"?QueryPort={cfg.query_port}",
@@ -828,8 +846,8 @@ def _append_additional_args(flags: list[str], extra: str) -> None:
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:
     """Monta a lista de argumentos de linha de comando fiel ao ASM GetServerArgs().
 
-    SessionName vai ao GUS.ini (SessionSettings + ServerSettings, UTF-16 + aspas)
-    e nunca entra na travel URL.
+    SessionName vai ao GUS.ini (SessionSettings + ServerSettings, UTF-16 + aspas).
+    Na travel URL entra ?SessionName= apenas para nomes simples (A-Za-z0-9_-).
     """
     params = _launch_url_params(cfg)
     flags = _launch_dash_flags(cfg)

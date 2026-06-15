@@ -8,6 +8,7 @@ ARK Workshop Content App ID  : 346110
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import threading
@@ -22,6 +23,7 @@ from typing import Callable, List, Optional
 
 ARK_SERVER_APP_ID  = "376030"
 ARK_WORKSHOP_APP_ID = "346110"
+STABLE_BRANCH_KEY  = "public"
 
 _STEAMCMD_DEFAULT_PATHS = [
     r"C:\steamcmd\steamcmd.exe",
@@ -131,7 +133,13 @@ class AsmSteamCmd:
                 on_done(False, "steamcmd.exe não encontrado. Configure o caminho em Configurações.")
             return
 
-        args = self._build_install_args(install_dir, branch, branch_password, validate)
+        branch = (branch or "").strip()
+        force_validate = validate or self.prepare_branch_update(install_dir, branch)
+        args = self._build_install_args(install_dir, branch, branch_password, force_validate)
+        self._on_log(
+            f"SteamCMD: branch={branch or STABLE_BRANCH_KEY}"
+            + (" + validate" if force_validate else "")
+        )
         self._run_async(args, on_done, show_console=show_console)
 
     def validate_server(
@@ -251,6 +259,7 @@ class AsmSteamCmd:
         # +force_install_dir DEVE vir antes de +login (requisito Valve/SteamCMD).
         # Ordem errada faz o download ir para a biblioteca padrão do SteamCMD ou
         # reutilizar manifest antigo — servidor sobe em versão desatualizada (ex: 358.24).
+        beta_key = self.normalize_branch_key(branch)
         args = [
             self._steamcmd,
             "+@ShutdownOnFailedCommand", "1",
@@ -258,15 +267,64 @@ class AsmSteamCmd:
             "+force_install_dir", install_dir,
             "+login", "anonymous",
             "+app_update", ARK_SERVER_APP_ID,
+            "-beta", beta_key,
         ]
-        if branch:
-            args += ["-beta", branch]
-            if branch_password:
-                args += ["-betapassword", branch_password]
+        if (branch or "").strip() and branch_password:
+            args += ["-betapassword", branch_password]
         if validate:
             args.append("validate")
         args.append("+quit")
         return args
+
+    @staticmethod
+    def normalize_branch_key(branch: str) -> str:
+        """Branch vazio = estável público (última versão Steam)."""
+        return (branch or "").strip() or STABLE_BRANCH_KEY
+
+    @staticmethod
+    def read_installed_beta_key(install_dir: str) -> str:
+        """Lê betakey do appmanifest_376030.acf ('' ou ausente = public)."""
+        manifest = Path(install_dir) / "steamapps" / f"appmanifest_{ARK_SERVER_APP_ID}.acf"
+        if not manifest.exists():
+            return ""
+        try:
+            text = manifest.read_text(encoding="utf-8", errors="replace")
+            m = re.search(r'"betakey"\s+"([^"]*)"', text)
+            return (m.group(1) if m else "").strip()
+        except Exception:
+            return ""
+
+    @classmethod
+    def prepare_branch_update(cls, install_dir: str, branch: str) -> bool:
+        """Remove manifest obsoleto ao trocar de branch; retorna True se validate é obrigatório."""
+        if not install_dir or not Path(install_dir).is_dir():
+            return False
+
+        requested = cls.normalize_branch_key(branch)
+        installed_raw = cls.read_installed_beta_key(install_dir)
+        installed = installed_raw if installed_raw else STABLE_BRANCH_KEY
+
+        force_validate = requested != installed
+        manifest = Path(install_dir) / "steamapps" / f"appmanifest_{ARK_SERVER_APP_ID}.acf"
+
+        if force_validate and manifest.exists():
+            try:
+                manifest.unlink()
+                return True
+            except OSError:
+                return True
+
+        if requested == STABLE_BRANCH_KEY:
+            ver = cls.read_server_exe_version(install_dir) or ""
+            if ver.startswith("358."):
+                if manifest.exists():
+                    try:
+                        manifest.unlink()
+                    except OSError:
+                        pass
+                return True
+
+        return force_validate
 
     @staticmethod
     def read_server_exe_version(install_dir: str) -> Optional[str]:

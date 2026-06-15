@@ -5,6 +5,15 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.1] - 2026-06-12
+
+### Fix
+
+- Fix (SteamCMD/TEK): branch vazio agora usa -beta public no AsmSteamCmd (caminho real do TEK) — a v1.9.0 só corrigia o ModManager legado.
+- Fix (SteamCMD): ao trocar de preaquatica para estável, remove appmanifest antigo e força validate — corrigia instalação presa na v358.24.
+- Fix (SteamCMD): Instalar/Atualizar sincroniza o painel aberto antes de rodar (branch_name não ficava vazio se não salvasse).
+- Fix (ASM/SessionName): INI gravado antes de iniciar; ?SessionName= na CLI para nomes simples; aviso ao reconectar servidor já em execução.
+
 ## [1.9.0] - 2026-06-12
 
 ### Improvement

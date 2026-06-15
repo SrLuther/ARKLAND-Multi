@@ -1,11 +1,11 @@
 {
-    "version": "1.9.0",
-    "date": "2026-06-14",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.0/ARKLAND-Multi-Setup-v1.9.0.exe",
+    "version": "1.9.1",
+    "date": "2026-06-15",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.1/ARKLAND-Multi-Setup-v1.9.1.exe",
     "changelog": [
-        "Nova funcionalidade (TEK): menu suspenso para eventos oficiais ARK (ActiveEvent) em Administração → Evento sazonal ARK — FearEvolved, WinterWonderland, TurkeyTrial, etc.",
-        "Melhoria (Web Store): redesign da loja — hero, chips de categoria e cards com thumbnail.",
-        "Melhoria (CustomShop): botão para recarregar plugin via RCON em todos os servidores elegíveis.",
-        "Fix (SteamCMD): branch vazio agora usa -beta public explicitamente na instalação/atualização do servidor."
+        "Fix (SteamCMD/TEK): branch vazio agora usa -beta public no AsmSteamCmd (caminho real do TEK) — a v1.9.0 só corrigia o ModManager legado.",
+        "Fix (SteamCMD): ao trocar de preaquatica para estável, remove appmanifest antigo e força validate — corrigia instalação presa na v358.24.",
+        "Fix (SteamCMD): Instalar/Atualizar sincroniza o painel aberto antes de rodar (branch_name não ficava vazio se não salvasse).",
+        "Fix (ASM/SessionName): INI gravado antes de iniciar; ?SessionName= na CLI para nomes simples; aviso ao reconectar servidor já em execução."
     ]
 }

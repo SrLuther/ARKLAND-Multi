@@ -116,6 +116,21 @@ def _run_with_ui(
     return True
 
 
+def _resolve_srv_for_steamcmd(app: "ARKServerManagerApp", srv: AsmServerConfig) -> AsmServerConfig:
+    """Sincroniza painel aberto → cfg e persiste antes de SteamCMD (branch, etc.)."""
+    fresh = app.asm_config_manager.get_server(srv.id) or srv
+    try:
+        from ..asm_ui.asm_server_panel import _sync_ui_to_cfg
+        _sync_ui_to_cfg(app, fresh)
+    except Exception:
+        pass
+    try:
+        app.asm_config_manager.update_server(fresh)
+    except Exception:
+        pass
+    return fresh
+
+
 def start_server_install(
     app: "ARKServerManagerApp",
     srv: AsmServerConfig,
@@ -125,6 +140,8 @@ def start_server_install(
     if validate is None:
         # Pasta já com servidor → validate força arquivos/manifest atualizados
         validate = AsmSteamCmd.install_dir_has_server(srv.install_dir)
+
+    srv = _resolve_srv_for_steamcmd(app, srv)
 
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
         sc.install_server(
@@ -152,6 +169,8 @@ def start_mods_download(app: "ARKServerManagerApp", srv: AsmServerConfig) -> boo
 
 
 def start_server_validate(app: "ARKServerManagerApp", srv: AsmServerConfig) -> bool:
+    srv = _resolve_srv_for_steamcmd(app, srv)
+
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
         sc.validate_server(srv.install_dir, show_console=True, on_done=on_done)
 

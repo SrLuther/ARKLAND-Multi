@@ -1073,6 +1073,9 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         br = vars_ref.get("branch_name")
         if br is not None:
             br.set(val)
+        pw = vars_ref.get("branch_password")
+        if pw is not None and not val:
+            pw.set("")
 
     ctk.CTkButton(
         _branch_btn_row, text="✅  Padrão (Estável)", width=160, height=28,
