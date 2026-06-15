@@ -1,13 +1,9 @@
 {
-    "version": "1.9.3",
-    "date": "2026-06-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.3/ARKLAND-Multi-Setup-v1.9.3.exe",
+    "version": "1.9.4",
+    "date": "2026-06-15",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.4/ARKLAND-Multi-Setup-v1.9.4.exe",
     "changelog": [
-        "Novo (DB): setup_db.sql e wizard criam ark_permission além de arkland_shop — banco vazio para o Permissions.dll.",
-        "Novo (Permissions): template plugin/Permissions/configs/config.json incluído no bundle do app.",
-        "Novo (Loja): sync/instalação CustomShop grava Permissions/config.json com credenciais do DB Manager (MysqlDB: ark_permission).",
-        "Novo (DB Manager): status dos bancos arkland_shop e ark_permission, atalhos e aviso se Permissions.dll sem banco.",
-        "Novo (Loja): botão «Provisionar grupos (RCON)» — Permissions.AddGroup a partir do catálogo CustomShop.",
-        "Melhoria (Plugins): ASE Permissions marcado como obrigatório com grupos na stack CustomShop."
+        "Fix (DB Manager): layout da aba Banco de Dados restaurado — NameError interrompia a montagem do painel na v1.9.3.",
+        "Fix (DB Manager): status arkland_shop/ark_permission integrado na barra de conexão sem quebrar o grid."
     ]
 }

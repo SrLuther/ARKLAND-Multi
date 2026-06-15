@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.4] - 2026-06-15
+
+### Fix
+
+- Fix (DB Manager): layout da aba Banco de Dados restaurado — NameError interrompia a montagem do painel na v1.9.3.
+- Fix (DB Manager): status arkland_shop/ark_permission integrado na barra de conexão sem quebrar o grid.
+
 ## [1.9.3] - 2026-06-12
 
 ### Feature
