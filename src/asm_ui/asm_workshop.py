@@ -407,9 +407,11 @@ class _WorkshopWindow(ctk.CTkToplevel):
         self._open_download_window([mod_id])
 
     def _download_all_mods(self) -> None:
-        """Baixa todos os mods ativos via SteamCMD."""
+        """Baixa map mod + TC + mods ativos via SteamCMD (paridade ASM)."""
+        from ..asm_engine.asm_mod_utils import collect_mod_ids_for_install
+
         srv = self._srv
-        mod_ids = [m.strip() for m in (srv.active_mods or "").split(",") if m.strip()]
+        mod_ids = collect_mod_ids_for_install(srv)
         if not mod_ids:
             return
         self._open_download_window(mod_ids)

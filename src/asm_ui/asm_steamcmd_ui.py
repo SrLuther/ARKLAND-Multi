@@ -159,15 +159,25 @@ def start_server_install(
 
 
 def start_mods_download(app: "ARKServerManagerApp", srv: AsmServerConfig) -> bool:
-    if not srv.active_mods:
+    from ..asm_engine.asm_mod_utils import collect_mod_ids_for_install
+
+    mod_ids = collect_mod_ids_for_install(srv)
+    if not mod_ids:
         import tkinter.messagebox as mb
-        mb.showinfo("Sem mods", "Nenhum mod configurado na lista de Mods.", parent=app)
+        mb.showinfo(
+            "Sem mods",
+            "Nenhum mod para baixar.\n\n"
+            "Para mapa mod, use ServerMap no formato:\n"
+            "/Game/Mods/{workshopId}/{nomeInterno}\n"
+            "ou adicione mods na lista.",
+            parent=app,
+        )
         return False
 
     def _start(sc: AsmSteamCmd, on_done: Callable[[bool, str], None]) -> None:
-        sc.download_mods(srv.active_mods, srv.install_dir, show_console=True, on_done=on_done)
+        sc.download_mods(mod_ids, srv.install_dir, show_console=True, on_done=on_done)
 
-    return _run_with_ui(app, srv, f"Baixar {len(srv.active_mods)} mod(s)", _start)
+    return _run_with_ui(app, srv, f"Baixar {len(mod_ids)} mod(s)", _start)
 
 
 def start_server_validate(app: "ARKServerManagerApp", srv: AsmServerConfig) -> bool:

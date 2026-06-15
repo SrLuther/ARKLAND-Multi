@@ -935,10 +935,10 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     # Campo texto para mapa não oficial / customizado
     manual_f = ctk.CTkFrame(sf, fg_color="transparent")
     manual_f.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="ew")
-    ctk.CTkLabel(manual_f, text="Ou digite o nome interno:",
+    ctk.CTkLabel(manual_f, text="Mapa (vanilla ou mod):",
                  font=ctk.CTkFont(size=10), text_color="#64748b").pack(side="left", padx=(0, 6))
-    manual_entry = ctk.CTkEntry(manual_f, textvariable=map_var, width=220,
-                                placeholder_text="ex: Svartalfheim, PrimitivePlus_P…")
+    manual_entry = ctk.CTkEntry(manual_f, textvariable=map_var, width=280,
+                                placeholder_text="TheIsland  ou  /Game/Mods/123456/funny_map")
     manual_entry.pack(side="left")
 
     _str_entry(sf, "Total Conversion Mod ID",  "total_conversion_mod_id", srv, vars_ref, 6, accent)
@@ -1326,12 +1326,19 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     def _do_redownload_mods():
         from .asm_steamcmd_ui import start_mods_redownload
+        from ..asm_engine.asm_mod_utils import collect_mod_ids_for_install
         _app = vars_ref.get("_app")
         _lines = _hidden_mods.get("1.0", "end").strip().splitlines()
-        _ids = [l.strip() for l in _lines if l.strip()]
+        srv.active_mods = [l.strip() for l in _lines if l.strip()]
+        _ids = collect_mod_ids_for_install(srv)
         if not _ids:
             import tkinter.messagebox as mb
-            mb.showinfo("Sem mods", "Nenhum mod configurado na lista.")
+            mb.showinfo(
+                "Sem mods",
+                "Nenhum mod para baixar.\n\n"
+                "Mapa mod: use /Game/Mods/{id}/{nome} no campo Mapa.",
+                parent=_app,
+            )
             return
         start_mods_redownload(_app, srv, _ids)
 

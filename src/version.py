@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.6"
+APP_VERSION: str = "1.9.7"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.7",
+        "date": "2026-06-15",
+        "changes": [
+            "Fix (ASM/mods): paridade mapa mod — CLI usa nome interno (não /Game/Mods/...), "
+            "-TotalConversionMod= na launch, map mod baixado via workshop ID do ServerMap.",
+            "Fix (ASM/mods): ActiveMods no GUS exclui o ID do map mod (como ASM); "
+            "«Baixar Mods» inclui map mod + total conversion automaticamente.",
+            "Fix (ASM/mods): aviso ao iniciar se Content/Mods/{id}/ ou {id}.mod estiver ausente.",
+        ],
+    },
     {
         "version": "1.9.6",
         "date": "2026-06-15",

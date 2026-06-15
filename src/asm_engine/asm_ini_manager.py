@@ -490,6 +490,11 @@ def write_ini(cfg: AsmServerConfig) -> None:
     gus.setdefault("SessionSettings", {})["MaxPlayers"] = _mp
     gus.setdefault("GameSession", {})["MaxPlayers"] = _mp
 
+    # ActiveMods: map mod não entra (ASM exclui — carrega via Content/Mods + .mod)
+    from .asm_mod_utils import active_mods_for_ini
+    _mods_ini = active_mods_for_ini(cfg)
+    gus.setdefault("ServerSettings", {})["ActiveMods"] = ",".join(_mods_ini)
+
     # Per-level stat multipliers (array-indexed — não entram no INI_MAP convencional)
     _PERLEVEL_MAP = [
         ("per_level_player",              "PerLevelStatsMultiplier_Player"),
@@ -752,8 +757,10 @@ def read_ini_from_paths(
 
 def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
     """Parâmetros ?key=value concatenados ao mapa (estilo ASM/UE)."""
+    from .asm_mod_utils import map_cli_name
+
     params = [
-        f"{cfg.server_map}",
+        map_cli_name(cfg.server_map, cfg.install_dir or ""),
         "?listen",
     ]
     _sn_cli = _session_name_cli_param(cfg)
@@ -785,7 +792,12 @@ def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
 
 def _launch_dash_flags(cfg: AsmServerConfig) -> list[str]:
     """Flags -flag (dash) do executável do servidor."""
-    flags = ["-nosteamclient", "-game", "-server", "-log"]
+    flags: list[str] = []
+
+    if (cfg.total_conversion_mod_id or "").strip():
+        flags.append(f"-TotalConversionMod={cfg.total_conversion_mod_id.strip()}")
+
+    flags.extend(["-nosteamclient", "-game", "-server", "-log"])
 
     if not cfg.use_battleye:
         flags.append("-NoBattlEye")

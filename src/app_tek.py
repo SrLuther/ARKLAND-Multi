@@ -893,6 +893,18 @@ class ARKServerManagerApp(ctk.CTk):
             )
             return
 
+        from .asm_engine.asm_mod_utils import validate_map_mod_on_disk
+        map_issues = validate_map_mod_on_disk(srv)
+        if map_issues and not no_mods:
+            msg = "\n\n".join(f"• {e}" for e in map_issues)
+            if not messagebox.askyesno(
+                "Mapa mod — possível problema",
+                f"O servidor '{srv.name}' pode não carregar o mapa:\n\n{msg}\n\n"
+                "Deseja iniciar mesmo assim?",
+                parent=self,
+            ):
+                return
+
         cfg = srv
         if no_mods and srv.active_mods:
             import copy

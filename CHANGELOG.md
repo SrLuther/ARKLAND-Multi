@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.7] - 2026-06-15
+
+### Fix
+
+- Fix (ASM/mods): paridade mapa mod — CLI usa nome interno (não /Game/Mods/...), -TotalConversionMod= na launch, map mod baixado via workshop ID do ServerMap.
+- Fix (ASM/mods): ActiveMods no GUS exclui o ID do map mod (como ASM); «Baixar Mods» inclui map mod + total conversion automaticamente.
+- Fix (ASM/mods): aviso ao iniciar se Content/Mods/{id}/ ou {id}.mod estiver ausente.
+
 ## [1.9.6] - 2026-06-15
 
 ### Fix

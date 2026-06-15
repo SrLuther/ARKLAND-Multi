@@ -1,10 +1,10 @@
 {
-    "version": "1.9.6",
+    "version": "1.9.7",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.6/ARKLAND-Multi-Setup-v1.9.6.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.7/ARKLAND-Multi-Setup-v1.9.7.exe",
     "changelog": [
-        "Fix (INI): GameUserSettings.ini garante as 7 seções canônicas do servidor ASE (mesmo vazias) — ScalabilityGroups, SessionSettings, ServerSettings, GameSession, etc.",
-        "Fix (INI): ordem estável de seções na gravação GUS (template hosting/ASM).",
-        "Fix (INI): apenas Version=5 injetado automaticamente; sem defaults inventados em seções vazias."
+        "Fix (ASM/mods): paridade mapa mod — CLI usa nome interno (não /Game/Mods/...), -TotalConversionMod= na launch, map mod baixado via workshop ID do ServerMap.",
+        "Fix (ASM/mods): ActiveMods no GUS exclui o ID do map mod (como ASM); «Baixar Mods» inclui map mod + total conversion automaticamente.",
+        "Fix (ASM/mods): aviso ao iniciar se Content/Mods/{id}/ ou {id}.mod estiver ausente."
     ]
 }
