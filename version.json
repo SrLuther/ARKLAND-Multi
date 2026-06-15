@@ -1,10 +1,10 @@
 {
-    "version": "1.9.7",
+    "version": "1.9.8",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.7/ARKLAND-Multi-Setup-v1.9.7.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.8/ARKLAND-Multi-Setup-v1.9.8.exe",
     "changelog": [
-        "Fix (ASM/mods): paridade mapa mod — CLI usa nome interno (não /Game/Mods/...), -TotalConversionMod= na launch, map mod baixado via workshop ID do ServerMap.",
-        "Fix (ASM/mods): ActiveMods no GUS exclui o ID do map mod (como ASM); «Baixar Mods» inclui map mod + total conversion automaticamente.",
-        "Fix (ASM/mods): aviso ao iniciar se Content/Mods/{id}/ ou {id}.mod estiver ausente."
+        "Fix (TEK/mods): reparo de arquivos .mod antes do start — paridade modo primitivo (Steam Client oficial ou geração via mod.info).",
+        "Fix (TEK/mods): ActiveMods no GUS inclui o ID do map mod (como no modo primitivo).",
+        "Fix (TEK/mods): «Baixar Mods» usa +force_install_dir na pasta do servidor e validate, igual ao modo primitivo."
     ]
 }

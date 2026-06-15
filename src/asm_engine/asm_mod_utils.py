@@ -121,13 +121,20 @@ def collect_mod_ids_for_install(cfg: AsmServerConfig) -> list[str]:
 
 
 def active_mods_for_ini(cfg: AsmServerConfig) -> list[str]:
-    """ActiveMods no GUS — map mod fica fora (paridade ASM)."""
-    map_id = get_map_mod_id(cfg.server_map)
-    return [
-        str(m).strip()
-        for m in (cfg.active_mods or [])
-        if str(m).strip() and str(m).strip() != map_id
-    ]
+    """ActiveMods no GUS — paridade modo primitivo (inclui map mod)."""
+    seen: set[str] = set()
+    out: list[str] = []
+
+    def _add(mid: str) -> None:
+        m = (mid or "").strip()
+        if m and m not in seen:
+            seen.add(m)
+            out.append(m)
+
+    _add(get_map_mod_id(cfg.server_map))
+    for mid in cfg.active_mods or []:
+        _add(str(mid))
+    return out
 
 
 def validate_map_mod_on_disk(cfg: AsmServerConfig) -> list[str]:

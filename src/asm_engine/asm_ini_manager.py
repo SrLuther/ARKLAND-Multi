@@ -490,7 +490,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
     gus.setdefault("SessionSettings", {})["MaxPlayers"] = _mp
     gus.setdefault("GameSession", {})["MaxPlayers"] = _mp
 
-    # ActiveMods: map mod não entra (ASM exclui — carrega via Content/Mods + .mod)
+    # ActiveMods: inclui map mod (paridade modo primitivo)
     from .asm_mod_utils import active_mods_for_ini
     _mods_ini = active_mods_for_ini(cfg)
     gus.setdefault("ServerSettings", {})["ActiveMods"] = ",".join(_mods_ini)

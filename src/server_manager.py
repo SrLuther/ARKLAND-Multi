@@ -1066,36 +1066,12 @@ class ServerManager:
             if dynamic_url:
                 self._emit_log(server_id, f"Config dinâmica ativa: {dynamic_url}", "info")
         # ── Restaurar/reparar arquivos .mod antes de iniciar ─────────────────
-        # Garante que cada mod tenha o .mod oficial do Steam Client em disco.
-        # Cobre dois casos: (1) arquivos deletados pelo usuário; (2) arquivos
-        # gerados por versões antigas do ARKLAND com modPath incorreto (T11).
         if cfg.mods and cfg.install_dir:
-            _mods_dir = Path(cfg.install_dir) / "ShooterGame" / "Content" / "Mods"
-            for _mid in cfg.mods:
-                _mid = _mid.strip()
-                if not _mid.isdigit():
-                    continue
-                _official = ModManager._find_official_dot_mod(_mid)
-                if _official:
-                    _dst = _mods_dir / f"{_mid}.mod"
-                    try:
-                        _mods_dir.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(_official, _dst)
-                        self._emit_log(server_id, f"Mod {_mid}: .mod oficial aplicado.", "info")
-                    except Exception as _e:
-                        self._emit_log(server_id, f"Mod {_mid}: falha ao aplicar .mod ({_e}).", "warning")
-                else:
-                    # Fallback: gera .mod a partir do mod.info local (modPath vazio — formato correto)
-                    _dst = _mods_dir / f"{_mid}.mod"
-                    _mod_folder = _mods_dir / _mid
-                    if _mod_folder.exists() and ModManager._create_dot_mod_from_mod_info(_mod_folder, _mid, _dst):
-                        self._emit_log(server_id, f"Mod {_mid}: .mod gerado a partir do mod.info.", "info")
-                    elif not _dst.exists():
-                        self._emit_log(
-                            server_id,
-                            f"Mod {_mid}: .mod ausente e mod.info não encontrado — re-baixe o mod na aba Mods.",
-                            "warning",
-                        )
+            ModManager.ensure_mod_dot_files_before_start(
+                cfg.install_dir,
+                cfg.mods,
+                on_log=lambda msg, level: self._emit_log(server_id, msg, level),
+            )
         # ─────────────────────────────────────────────────────────────────────
 
         # Monta linha de comando

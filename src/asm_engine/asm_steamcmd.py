@@ -177,8 +177,9 @@ class AsmSteamCmd:
 
         args = [
             self._steamcmd,
+            "+force_install_dir", install_dir,
             "+login", "anonymous",
-            "+workshop_download_item", ARK_WORKSHOP_APP_ID, mod_id,
+            "+workshop_download_item", ARK_WORKSHOP_APP_ID, mod_id, "validate",
             "+quit",
         ]
 
@@ -210,9 +211,9 @@ class AsmSteamCmd:
                 on_done(True, "Nenhum mod para baixar.")
             return
 
-        args = [self._steamcmd, "+login", "anonymous"]
+        args = [self._steamcmd, "+force_install_dir", install_dir, "+login", "anonymous"]
         for mid in mod_ids:
-            args += ["+workshop_download_item", ARK_WORKSHOP_APP_ID, mid]
+            args += ["+workshop_download_item", ARK_WORKSHOP_APP_ID, mid, "validate"]
         args.append("+quit")
 
         def _after(success: bool, msg: str) -> None:
@@ -603,11 +604,13 @@ class AsmSteamCmd:
 
         Retorna True se copiado com sucesso, False se pasta não encontrada.
         """
-        # Localiza pasta workshop relativa ao steamcmd.exe
-        steamcmd_dir = Path(self._steamcmd).parent
-        workshop_src = steamcmd_dir / "steamapps" / "workshop" / "content" / ARK_WORKSHOP_APP_ID / mod_id
-
-        # Fallback: pasta do Steam instalado
+        # Prioridade: workshop na pasta do servidor (+force_install_dir), como no modo primitivo
+        workshop_src = (
+            Path(install_dir) / "steamapps" / "workshop" / "content" / ARK_WORKSHOP_APP_ID / mod_id
+        )
+        if not workshop_src.exists():
+            steamcmd_dir = Path(self._steamcmd).parent
+            workshop_src = steamcmd_dir / "steamapps" / "workshop" / "content" / ARK_WORKSHOP_APP_ID / mod_id
         if not workshop_src.exists():
             alt = self._get_steamcmd_workshop_dir()
             if alt:

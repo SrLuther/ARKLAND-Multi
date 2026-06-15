@@ -136,7 +136,9 @@ from .asm_server_config import (
     ASM_STATUS_STOPPING,
     ASM_STATUS_CRASHED,
 )
+from ..mod_manager import ModManager
 from .asm_ini_manager import write_ini, build_launch_args
+from .asm_mod_utils import collect_mod_ids_for_install
 
 
 def _escape_runserver_cmd_line(cmd: str) -> str:
@@ -305,6 +307,13 @@ class AsmServerManager:
     def _start_worker(self, cfg: AsmServerConfig, inst: AsmServerInstance,
                       on_done: Optional[Callable[[bool, str], None]]) -> None:
         try:
+            # 0. Repara .mod antes do start (paridade modo primitivo)
+            if cfg.install_dir:
+                ModManager.ensure_mod_dot_files_before_start(
+                    cfg.install_dir,
+                    collect_mod_ids_for_install(cfg),
+                )
+
             # 1. Escreve INIs
             write_ini(cfg)
 

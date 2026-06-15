@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.7"
+APP_VERSION: str = "1.9.8"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.8",
+        "date": "2026-06-15",
+        "changes": [
+            "Fix (TEK/mods): reparo de arquivos .mod antes do start — paridade modo primitivo "
+            "(Steam Client oficial ou geração via mod.info).",
+            "Fix (TEK/mods): ActiveMods no GUS inclui o ID do map mod (como no modo primitivo).",
+            "Fix (TEK/mods): «Baixar Mods» usa +force_install_dir na pasta do servidor e validate, "
+            "igual ao modo primitivo.",
+        ],
+    },
     {
         "version": "1.9.7",
         "date": "2026-06-15",

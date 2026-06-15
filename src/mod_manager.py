@@ -486,6 +486,41 @@ class ModManager:
         return repaired
 
     @staticmethod
+    def ensure_mod_dot_files_before_start(
+        install_dir: str,
+        mod_ids: List[str],
+        on_log: Optional[Callable[[str, str], None]] = None,
+    ) -> None:
+        """Garante .mod oficial ou gerado via mod.info antes de iniciar o servidor."""
+        _log = on_log or (lambda _msg, _level: None)
+        if not (install_dir or "").strip() or not mod_ids:
+            return
+        mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
+        for mid in mod_ids:
+            mid = mid.strip()
+            if not mid.isdigit():
+                continue
+            official = ModManager._find_official_dot_mod(mid)
+            if official:
+                dst = mods_dir / f"{mid}.mod"
+                try:
+                    mods_dir.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(official, dst)
+                    _log(f"Mod {mid}: .mod oficial aplicado.", "info")
+                except Exception as exc:
+                    _log(f"Mod {mid}: falha ao aplicar .mod ({exc}).", "warning")
+            else:
+                dst = mods_dir / f"{mid}.mod"
+                mod_folder = mods_dir / mid
+                if mod_folder.exists() and ModManager._create_dot_mod_from_mod_info(mod_folder, mid, dst):
+                    _log(f"Mod {mid}: .mod gerado a partir do mod.info.", "info")
+                elif not dst.exists():
+                    _log(
+                        f"Mod {mid}: .mod ausente e mod.info não encontrado — re-baixe o mod na aba Mods.",
+                        "warning",
+                    )
+
+    @staticmethod
     def _find_official_dot_mod(mod_id: str) -> Optional[Path]:
         """Procura o arquivo .mod oficial no cache de Workshop do Steam Client local.
 

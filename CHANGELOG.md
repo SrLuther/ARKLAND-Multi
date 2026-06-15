@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.8] - 2026-06-15
+
+### Fix
+
+- Fix (TEK/mods): reparo de arquivos .mod antes do start — paridade modo primitivo (Steam Client oficial ou geração via mod.info).
+- Fix (TEK/mods): ActiveMods no GUS inclui o ID do map mod (como no modo primitivo).
+- Fix (TEK/mods): «Baixar Mods» usa +force_install_dir na pasta do servidor e validate, igual ao modo primitivo.
+
 ## [1.9.7] - 2026-06-15
 
 ### Fix
