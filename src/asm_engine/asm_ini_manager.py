@@ -355,10 +355,30 @@ def _ini_quote_value(value: str) -> str:
     return value
 
 
-def _render_ini_text(parser: configparser.RawConfigParser) -> str:
+def _render_ini_text(
+    parser: configparser.RawConfigParser,
+    section_order: tuple[str, ...] | None = None,
+) -> str:
     """Renderiza INI no formato nativo do ARK (key=value, seções separadas por linha em branco)."""
+    if section_order:
+        order_lower = {s.lower(): s for s in section_order}
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for sec in section_order:
+            for existing in parser.sections():
+                if existing.lower() == sec.lower() and existing not in seen:
+                    ordered.append(existing)
+                    seen.add(existing)
+                    break
+        for sec in parser.sections():
+            if sec not in seen:
+                ordered.append(sec)
+        sections = ordered
+    else:
+        sections = parser.sections()
+
     lines: list[str] = []
-    for section in parser.sections():
+    for section in sections:
         lines.append(f"[{section}]")
         for key, value in parser.items(section, raw=True):
             lines.append(f"{key}={_ini_quote_value(value)}")
@@ -463,6 +483,13 @@ def write_ini(cfg: AsmServerConfig) -> None:
         gus.setdefault("SessionSettings", {})["SessionName"] = _sn
         gus.setdefault("ServerSettings", {})["SessionName"] = _sn
 
+    # MaxPlayers: espelhar em todas as seções que o ARK/Steam podem ler.
+    # Só atualizar [/Script/Engine.GameSession] deixa MaxPlayers=70 obsoleto em
+    # [SessionSettings] (modo primitivo / ASM legado) — a listagem Steam usa o valor antigo.
+    _mp = _format_value(cfg.max_players)
+    gus.setdefault("SessionSettings", {})["MaxPlayers"] = _mp
+    gus.setdefault("GameSession", {})["MaxPlayers"] = _mp
+
     # Per-level stat multipliers (array-indexed — não entram no INI_MAP convencional)
     _PERLEVEL_MAP = [
         ("per_level_player",              "PerLevelStatsMultiplier_Player"),
@@ -519,10 +546,17 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
         for key, value in kvs.items():
             parser.set(section, key, value)
 
+    if path.name.lower() == "gameusersettings.ini":
+        from ..ark_ini_fields import ensure_gus_ark_skeleton, GUS_SECTION_ORDER
+        ensure_gus_ark_skeleton(parser)
+        _section_order = GUS_SECTION_ORDER
+    else:
+        _section_order = None
+
     # ARK no Windows lê os INIs em UTF-16 LE com BOM.
     # configparser.write() não cita valores com '[' — o ARK interpreta como seção nova.
     tmp = path.with_suffix(".tmp")
-    text = _render_ini_text(parser)
+    text = _render_ini_text(parser, section_order=_section_order)
     with open(tmp, "wb") as fh:
         fh.write(b"\xff\xfe")
         fh.write(text.encode("utf-16-le"))
@@ -591,6 +625,15 @@ def read_ini(cfg: AsmServerConfig) -> None:
                 if _sn:
                     cfg.session_name = _sn
                     break
+
+    # MaxPlayers: prioridade [/Script/Engine.GameSession] → [GameSession] → [SessionSettings]
+    for _sec in (_GUS_GAME_SESSION_SECTION, "GameSession", "SessionSettings"):
+        if _gus.has_option(_sec, "MaxPlayers"):
+            try:
+                cfg.max_players = int(float(_gus.get(_sec, "MaxPlayers")))
+                break
+            except ValueError:
+                pass
 
     # Per-level stat multipliers (array-indexed)
     _PERLEVEL_INI_TO_FIELD = {

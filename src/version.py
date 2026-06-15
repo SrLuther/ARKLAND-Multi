@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.4"
+APP_VERSION: str = "1.9.6"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.6",
+        "date": "2026-06-15",
+        "changes": [
+            "Fix (INI): GameUserSettings.ini garante as 7 seções canônicas do servidor ASE "
+            "(mesmo vazias) — ScalabilityGroups, SessionSettings, ServerSettings, GameSession, etc.",
+            "Fix (INI): ordem estável de seções na gravação GUS (template hosting/ASM).",
+            "Fix (INI): apenas Version=5 injetado automaticamente; sem defaults inventados em seções vazias.",
+        ],
+    },
+    {
+        "version": "1.9.5",
+        "date": "2026-06-15",
+        "changes": [
+            "Fix crítico (INI): GameUserSettings.ini agora preserva [/Script/ShooterGame.ShooterGameUserSettings] "
+            "com Version=5 — sem isso o ARK regravava o arquivo inteiro com defaults no boot.",
+            "Fix (INI): MaxPlayers espelhado em SessionSettings/GameSession além de [/Script/Engine.GameSession].",
+            "Fix (INI): normalização de case das seções GUS evita duplicatas que invalidam o arquivo.",
+        ],
+    },
     {
         "version": "1.9.4",
         "date": "2026-06-15",

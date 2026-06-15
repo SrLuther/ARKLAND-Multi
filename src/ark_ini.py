@@ -1450,6 +1450,9 @@ class ArkIniManager:
         elif parser.has_option(ss, "ServerAutoForceRespawnWildDinosInterval"):
             parser.remove_option(ss, "ServerAutoForceRespawnWildDinosInterval")
 
+        from .ark_ini_fields import ensure_gus_ark_skeleton
+        ensure_gus_ark_skeleton(parser)
+
         with open(str(path), "w", encoding=_write_encoding(path)) as fh:
             parser.write(fh)
 

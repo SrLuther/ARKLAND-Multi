@@ -279,6 +279,53 @@ def _normalize_section_case(parser: configparser.RawConfigParser, canonical: str
             break
 
 
+_GUS_SHOOTER_USER_SETTINGS_SECTION = "/Script/ShooterGame.ShooterGameUserSettings"
+_GUS_ENGINE_GAME_SESSION_SECTION = "/Script/Engine.GameSession"
+
+# Ordem canônica de escrita (templates Shockbyte/PingPerfect / ASM legado).
+GUS_SECTION_ORDER: tuple[str, ...] = (
+    _GUS_SHOOTER_USER_SETTINGS_SECTION,
+    "ScalabilityGroups",
+    "SessionSettings",
+    "ServerSettings",
+    _GUS_ENGINE_GAME_SESSION_SECTION,
+    "GameSession",
+    "MessageOfTheDay",
+)
+
+_GUS_CANONICAL_SECTIONS = GUS_SECTION_ORDER
+
+_GUS_REQUIRED_MIN_KEYS: dict[str, dict[str, str]] = {
+    _GUS_SHOOTER_USER_SETTINGS_SECTION: {"Version": "5"},
+}
+
+
+def ensure_gus_ark_sections(parser: configparser.RawConfigParser) -> None:
+    """Garante todas as seções canônicas do GameUserSettings.ini do ARK ASE.
+
+    Seções podem ficar vazias (apenas cabeçalho [Seção]) — exceto
+    [/Script/ShooterGame.ShooterGameUserSettings], que exige Version=5.
+    Sem isso o servidor considera o arquivo inválido e o regrava inteiro
+    com valores padrão no boot (arkmanager/ark-server-tools#722).
+    """
+    for sec in _GUS_CANONICAL_SECTIONS:
+        _normalize_section_case(parser, sec)
+
+    for sec in _GUS_CANONICAL_SECTIONS:
+        if not parser.has_section(sec):
+            parser.add_section(sec)
+
+    for sec, keys in _GUS_REQUIRED_MIN_KEYS.items():
+        for key, value in keys.items():
+            if not parser.has_option(sec, key):
+                parser.set(sec, key, value)
+
+
+def ensure_gus_ark_skeleton(parser: configparser.RawConfigParser) -> None:
+    """Alias de ensure_gus_ark_sections — mantido para imports existentes."""
+    ensure_gus_ark_sections(parser)
+
+
 def _write_encoding(path: Path) -> str:
     """Retorna o encoding para escrever o arquivo preservando o BOM original.
 

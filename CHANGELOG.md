@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.6] - 2026-06-15
+
+### Fix
+
+- Fix (INI): GameUserSettings.ini garante as 7 seções canônicas do servidor ASE (mesmo vazias) — ScalabilityGroups, SessionSettings, ServerSettings, GameSession, etc.
+- Fix (INI): ordem estável de seções na gravação GUS (template hosting/ASM).
+- Fix (INI): apenas Version=5 injetado automaticamente; sem defaults inventados em seções vazias.
+
+## [1.9.5] - 2026-06-15
+
+### Fix
+
+- Fix crítico (INI): GameUserSettings.ini agora preserva [/Script/ShooterGame.ShooterGameUserSettings] com Version=5 — sem isso o ARK regravava o arquivo inteiro com defaults no boot.
+- Fix (INI): MaxPlayers espelhado em SessionSettings/GameSession além de [/Script/Engine.GameSession].
+- Fix (INI): normalização de case das seções GUS evita duplicatas que invalidam o arquivo.
+
 ## [1.9.4] - 2026-06-15
 
 ### Fix
