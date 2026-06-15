@@ -202,7 +202,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     # ── Corpo principal ────────────────────────────────────────────────────
     body = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
     body.grid(row=1, column=0, sticky="nsew")
-    body.grid_rowconfigure(3, weight=1)
+    body.grid_rowconfigure(2, weight=1)
     body.grid_columnconfigure(0, weight=1)
 
     # ── Seção: Servidor Local ──────────────────────────────────────────────
@@ -403,7 +403,6 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     # Verifica status inicial em background
     threading.Thread(target=lambda: parent.after(200, _refresh_srv_ui),
                      daemon=True).start()
-    parent.after(400, _refresh_bank_status)
 
     # ── Barra de conexão ───────────────────────────────────────────────────
     conn_bar = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)
@@ -505,35 +504,34 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
     _btn_wizard.configure(command=_open_wizard_early)
 
-    # ── Status dos bancos ARKLAND ──────────────────────────────────────────
-    db_status_bar = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)
-    db_status_bar.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 6))
-    db_status_bar.grid_columnconfigure(2, weight=1)
-
-    _shop_db_status = tk.StringVar(value=f"{_DB_NAME}: verificando…")
-    _perm_db_status = tk.StringVar(value=f"{_PERM_DB_NAME}: verificando…")
+    # Status dos bancos ARKLAND (linha 1 da barra de conexão)
+    _shop_db_status = tk.StringVar(value=f"{_DB_NAME}: —")
+    _perm_db_status = tk.StringVar(value=f"{_PERM_DB_NAME}: —")
     _perm_warn_var = tk.StringVar(value="")
 
-    ctk.CTkLabel(db_status_bar, textvariable=_shop_db_status,
+    status_row = ctk.CTkFrame(conn_bar, fg_color="transparent")
+    status_row.grid(row=1, column=0, columnspan=20, sticky="ew", padx=14, pady=(0, 8))
+
+    ctk.CTkLabel(status_row, textvariable=_shop_db_status,
                  font=ctk.CTkFont(size=10), text_color=t_sec
-                 ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
-    ctk.CTkLabel(db_status_bar, textvariable=_perm_db_status,
+                 ).pack(side="left", padx=(0, 12))
+    ctk.CTkLabel(status_row, textvariable=_perm_db_status,
                  font=ctk.CTkFont(size=10), text_color=t_sec
-                 ).grid(row=0, column=1, padx=(0, 8), pady=8, sticky="w")
+                 ).pack(side="left", padx=(0, 12))
 
     def _switch_db(name: str) -> None:
         _v_db.set(name)
 
-    ctk.CTkButton(db_status_bar, text=_DB_NAME, width=110, height=24,
+    ctk.CTkButton(status_row, text=_DB_NAME, width=100, height=22,
                   font=ctk.CTkFont(size=10),
-                  command=lambda: _switch_db(_DB_NAME)).grid(row=0, column=3, padx=4, pady=8)
-    ctk.CTkButton(db_status_bar, text=_PERM_DB_NAME, width=120, height=24,
+                  command=lambda: _switch_db(_DB_NAME)).pack(side="left", padx=(0, 4))
+    ctk.CTkButton(status_row, text=_PERM_DB_NAME, width=110, height=22,
                   font=ctk.CTkFont(size=10),
-                  command=lambda: _switch_db(_PERM_DB_NAME)).grid(row=0, column=4, padx=(4, 12), pady=8)
+                  command=lambda: _switch_db(_PERM_DB_NAME)).pack(side="left")
 
-    ctk.CTkLabel(db_status_bar, textvariable=_perm_warn_var, wraplength=700,
+    ctk.CTkLabel(conn_bar, textvariable=_perm_warn_var, wraplength=900,
                  font=ctk.CTkFont(size=10), text_color="#f59e0b"
-                 ).grid(row=1, column=0, columnspan=5, padx=12, pady=(0, 8), sticky="w")
+                 ).grid(row=2, column=0, columnspan=20, padx=14, pady=(0, 8), sticky="w")
 
     def _refresh_bank_status() -> None:
         shop_ok = perm_ok = False
@@ -544,11 +542,10 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             except Exception:
                 pass
         _shop_db_status.set(
-            f"{_DB_NAME}: {'✓ existe' if shop_ok else '✗ ausente'}"
+            f"{_DB_NAME}: {'✓' if shop_ok else '✗'}"
         )
         _perm_db_status.set(
-            f"{_PERM_DB_NAME}: {'✓ existe' if perm_ok else '✗ ausente'}"
-            + (" — tabelas criadas pelo Permissions.dll no 1º start" if perm_ok else "")
+            f"{_PERM_DB_NAME}: {'✓' if perm_ok else '✗'}"
         )
 
         needs_perm = False
@@ -561,19 +558,20 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                     break
         if needs_perm and not perm_ok:
             _perm_warn_var.set(
-                "⚠ Permissions.dll detectado mas banco ark_permission ausente — "
-                "execute «Setup limpo» ou o Assistente de banco."
+                "⚠ Permissions.dll instalado — execute Setup limpo ou Assistente para criar ark_permission."
             )
         elif not perm_ok:
             _perm_warn_var.set(
-                f"Dica: {_PERM_DB_NAME} é usado pelo plugin Permissions (grupos VIP)."
+                f"Dica: {_PERM_DB_NAME} é usado pelo plugin Permissions (grupos)."
             )
         else:
             _perm_warn_var.set("")
 
+    parent.after(400, _refresh_bank_status)
+
     # ── Browser (lazy) ─────────────────────────────────────────────────────
     browser_host = ctk.CTkFrame(body, fg_color=bg, corner_radius=0)
-    browser_host.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 10))
+    browser_host.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 10))
     browser_host.grid_rowconfigure(0, weight=1)
     browser_host.grid_columnconfigure(0, weight=1)
     _db_loading = ctk.CTkLabel(
