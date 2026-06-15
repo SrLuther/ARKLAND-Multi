@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.1"
+APP_VERSION: str = "1.9.2"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.2",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (TEK/paridade primitiva): novo _asm_persist_server — Iniciar, Reiniciar e Instalar agora seguem o mesmo fluxo do modo primitivo (widgets → JSON → INI → ação).",
+            "Fix (TEK/SessionName): nome da sessão vazio usa automaticamente o nome do gerenciador, igual ao server_name do modo primitivo.",
+            "Fix (TEK): caminhos duplicados de start consolidados; SteamCMD usa persistência completa antes de rodar.",
+        ],
+    },
     {
         "version": "1.9.1",
         "date": "2026-06-12",

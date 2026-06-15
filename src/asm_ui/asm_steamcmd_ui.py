@@ -117,7 +117,9 @@ def _run_with_ui(
 
 
 def _resolve_srv_for_steamcmd(app: "ARKServerManagerApp", srv: AsmServerConfig) -> AsmServerConfig:
-    """Sincroniza painel aberto → cfg e persiste antes de SteamCMD (branch, etc.)."""
+    """Sincroniza painel → cfg → JSON → INI antes de SteamCMD (paridade primitiva)."""
+    if hasattr(app, "_asm_persist_server"):
+        return app._asm_persist_server(srv)
     fresh = app.asm_config_manager.get_server(srv.id) or srv
     try:
         from ..asm_ui.asm_server_panel import _sync_ui_to_cfg

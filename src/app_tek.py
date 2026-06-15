@@ -825,9 +825,17 @@ class ARKServerManagerApp(ctk.CTk):
             errors.append("Senha admin não definida (obrigatória para RCON e acesso administrativo)")
         return errors
 
-    def _asm_sync_server_cfg(self, srv: AsmServerConfig) -> AsmServerConfig:
-        """Sincroniza painel aberto → cfg e retorna o objeto mais recente do manager."""
-        from .asm_engine.asm_ini_manager import effective_session_name
+    def _asm_persist_server(
+        self, srv: AsmServerConfig, *, write_ini_disk: bool = True,
+    ) -> AsmServerConfig:
+        """Paridade com o modo primitivo: equivalente a _save_server_config(silent=True).
+
+        O primitivo sempre lê os widgets, grava o JSON e escreve os INIs antes de
+        iniciar/instalar. O TEK tinha caminhos paralelos (AsmSteamCmd, asm_ini_manager)
+        que pulavam essa etapa e causavam regressões (branch, SessionName).
+        """
+        import logging
+        import os
 
         fresh = self.asm_config_manager.get_server(srv.id) or srv
         try:
@@ -835,21 +843,34 @@ class ARKServerManagerApp(ctk.CTk):
             _sync_ui_to_cfg(self, fresh)
         except Exception:
             pass
-        # Nome da sessão vazio no painel → usa nome do gerenciador (card/sidebar)
-        if not (fresh.session_name or "").strip():
-            _eff = effective_session_name(fresh)
-            if _eff and _eff != "My ARK Server":
-                fresh.session_name = _eff
+
+        # Igual server_save.py / tab_general_prim: Nome do Servidor = campo OU nome interno
+        sn = (fresh.session_name or "").strip()
+        if not sn:
+            fresh.session_name = (fresh.name or "").strip() or "My ARK Server"
+
+        try:
+            self.asm_config_manager.update_server(fresh)
+        except Exception as exc:
+            logging.getLogger("arkland").warning("persist server JSON falhou: %s", exc)
+
+        if write_ini_disk and fresh.install_dir and os.path.isdir(fresh.install_dir):
+            try:
+                from .asm_engine.asm_ini_manager import write_ini
+                write_ini(fresh)
+            except Exception as exc:
+                logging.getLogger("arkland").warning("write_ini falhou: %s", exc)
+
         return fresh
+
+    def _asm_sync_server_cfg(self, srv: AsmServerConfig) -> AsmServerConfig:
+        """Alias de _asm_persist_server — mantido para compatibilidade interna."""
+        return self._asm_persist_server(srv)
 
     def _asm_start_server(self, srv: AsmServerConfig, no_mods: bool = False) -> None:
         from tkinter import messagebox
 
-        srv = self._asm_sync_server_cfg(srv)
-        try:
-            self.asm_config_manager.update_server(srv)
-        except Exception:
-            pass
+        srv = self._asm_persist_server(srv)
         errors = self._validate_server_config(srv)
         if errors:
             msg = "\n\n".join(f"• {e}" for e in errors)
@@ -918,7 +939,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._asm_refresh_dashboard()
 
     def _asm_restart_server(self, srv: AsmServerConfig) -> None:
-        srv = self._asm_sync_server_cfg(srv)
+        srv = self._asm_persist_server(srv)
         self.asm_server_manager.restart(
             srv,
             on_done=lambda ok, msg: self.after(0, self._asm_refresh_dashboard),

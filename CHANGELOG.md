@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.2] - 2026-06-12
+
+### Fix
+
+- Fix (TEK/paridade primitiva): novo _asm_persist_server — Iniciar, Reiniciar e Instalar agora seguem o mesmo fluxo do modo primitivo (widgets → JSON → INI → ação).
+- Fix (TEK/SessionName): nome da sessão vazio usa automaticamente o nome do gerenciador, igual ao server_name do modo primitivo.
+- Fix (TEK): caminhos duplicados de start consolidados; SteamCMD usa persistência completa antes de rodar.
+
 ## [1.9.1] - 2026-06-12
 
 ### Fix
