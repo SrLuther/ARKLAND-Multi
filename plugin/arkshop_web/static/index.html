@@ -557,25 +557,128 @@
       cursor: pointer;
     }
 
-    /* ── Catalog Grid ─────────────────────────────────────────────────────── */
+    /* ── Catalog (layout inspirado em lojas ARK — hero + chips + grid) ───── */
+    .catalog-hero {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding: 22px 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-g);
+      background:
+        linear-gradient(135deg, rgba(232,120,32,.08) 0%, transparent 45%),
+        linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    }
+    .catalog-hero__title {
+      font-family: 'Cinzel', serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: .04em;
+      line-height: 1.2;
+    }
+    .catalog-hero__tagline {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text2);
+      max-width: 520px;
+    }
+    .catalog-hero__meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .catalog-points {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,120,32,.35);
+      background: rgba(232,120,32,.12);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--amber);
+    }
+    .catalog-toolbar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    .catalog-cats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding-bottom: 4px;
+    }
+    .catalog-cat-chip {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: all .15s ease;
+      white-space: nowrap;
+    }
+    .catalog-cat-chip:hover {
+      border-color: var(--border-g);
+      color: var(--text);
+    }
+    .catalog-cat-chip.active {
+      border-color: rgba(232,120,32,.55);
+      background: rgba(232,120,32,.15);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(232,120,32,.2);
+    }
+    #catalog-cat { display: none; }
+
     #catalog-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px,1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 18px;
     }
 
     .item-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      padding: 20px 16px 16px;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 8px;
       transition: all .2s ease;
       position: relative;
       overflow: hidden;
       cursor: default;
+    }
+    .item-card__thumb {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 110px;
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(232,120,32,.12) 0%, transparent 70%),
+        linear-gradient(180deg, var(--surface3) 0%, var(--surface) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .item-card__body {
+      padding: 14px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
     }
     .item-card::before {
       content: '';
@@ -634,20 +737,24 @@
       justify-content: space-between;
       align-items: center;
       margin-top: auto;
-      padding-top: 10px;
+      padding-top: 12px;
       border-top: 1px solid var(--border);
       gap: 8px;
     }
     .item-card__price {
       font-family: 'Rajdhani', system-ui, sans-serif;
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--amber);
       text-shadow: 0 0 12px rgba(232,160,32,.4);
     }
+    .btn-buy {
+      flex-shrink: 0;
+      min-width: 88px;
+    }
 
-    /* catalog filter bar */
-    #catalog-filter {
+    /* catalog filter bar (legado — select oculto, chips visíveis) */
+    #catalog-toolbar {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
@@ -1107,7 +1214,6 @@
       Acesse sua conta Steam para entrar no painel.
     </div>
     <button class="btn-steam" onclick="loginWithSteam()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 0C5.372 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
       Entrar com Steam
     </button>
   </div>
@@ -1192,18 +1298,27 @@
 
       <!-- PAGE: Catálogo (todos os jogadores) -->
       <div id="page-catalog" class="page">
-        <div id="topbar">
-          <div class="page-title">Catálogo da Loja</div>
-          <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadCatalog()">↺ Atualizar</button>
+        <div class="catalog-hero">
+          <div>
+            <div class="catalog-hero__title" id="catalog-shop-name">Loja do Servidor</div>
+            <div class="catalog-hero__tagline">
+              Compre itens, dinos e kits com pontos — entrega automática no servidor.
+            </div>
+          </div>
+          <div class="catalog-hero__meta">
+            <div id="catalog-points-pill" class="catalog-points hidden">
+              💰 <span id="catalog-points-val">—</span> pts
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
           </div>
         </div>
-        <div id="catalog-filter">
+        <div class="catalog-toolbar">
           <input id="catalog-search" type="text" placeholder="🔍 Buscar item…" oninput="renderCatalog()" />
           <select id="catalog-cat" onchange="renderCatalog()">
             <option value="">Todas as categorias</option>
           </select>
         </div>
+        <div id="catalog-cats" class="catalog-cats"></div>
         <div id="catalog-grid"></div>
         <p id="catalog-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum item encontrado.</p>
       </div>
@@ -1737,6 +1852,47 @@ function formatKey(key) {
 
 // ── Catálogo (visível a todos) ────────────────────────────────────────────────
 let _catalogItems = [];
+let _catalogActiveCat = "";
+
+function setCatalogCategory(cat) {
+  _catalogActiveCat = cat || "";
+  const sel = document.getElementById("catalog-cat");
+  if (sel) sel.value = _catalogActiveCat;
+  document.querySelectorAll(".catalog-cat-chip").forEach(el => {
+    el.classList.toggle("active", (el.dataset.cat || "") === _catalogActiveCat);
+  });
+  renderCatalog();
+}
+
+function renderCatalogCats(cats) {
+  const bar = document.getElementById("catalog-cats");
+  if (!bar) return;
+  const all = ["", ...cats];
+  const labels = { "": "Todos os produtos" };
+  bar.innerHTML = all.map(c => {
+    const label = labels[c] || c;
+    const active = (c === _catalogActiveCat) ? " active" : "";
+    return `<button type="button" class="catalog-cat-chip${active}" data-cat="${escHtml(c)}" onclick="setCatalogCategory(this.dataset.cat)">${escHtml(label)}</button>`;
+  }).join("");
+}
+
+async function updateCatalogPoints() {
+  const pill = document.getElementById("catalog-points-pill");
+  const valEl = document.getElementById("catalog-points-val");
+  if (!pill || !valEl) return;
+  if (!_auth.authenticated) {
+    pill.classList.add("hidden");
+    return;
+  }
+  try {
+    const r = await fetch(API + "/api/player/summary");
+    const data = await r.json().catch(() => ({}));
+    if (r.ok && data.ok && data.points != null) {
+      valEl.textContent = data.points;
+      pill.classList.remove("hidden");
+    }
+  } catch (_) { /* ignore */ }
+}
 
 async function loadCatalog() {
   try {
@@ -1744,6 +1900,8 @@ async function loadCatalog() {
     if (!r.ok) return;
     const data = await r.json();
     const shop = data.items || data.ShopItems || data.Items || {};
+    const title = document.getElementById("catalog-shop-name");
+    if (title && data.shop_name) title.textContent = data.shop_name;
     _catalogItems = Object.entries(shop).map(([key, v]) => ({
       key,
       name:     v.Name || v.name || formatKey(key),
@@ -1752,20 +1910,22 @@ async function loadCatalog() {
       type:     v.Type  || v.type  || "",
       category: v.Category || v.category || "Geral",
     }));
-    // Popula filtro de categorias
     const cats = [...new Set(_catalogItems.map(i => i.category))].sort();
     const sel = document.getElementById("catalog-cat");
     if (sel) {
       sel.innerHTML = '<option value="">Todas as categorias</option>'
-        + cats.map(c => `<option value="${c}">${c}</option>`).join("");
+        + cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("");
+      sel.value = _catalogActiveCat;
     }
+    renderCatalogCats(cats);
     renderCatalog();
+    updateCatalogPoints();
   } catch (e) { console.warn("loadCatalog:", e); }
 }
 
 function renderCatalog() {
   const search = (document.getElementById("catalog-search")?.value || "").toLowerCase();
-  const cat    = document.getElementById("catalog-cat")?.value || "";
+  const cat    = _catalogActiveCat || document.getElementById("catalog-cat")?.value || "";
   const grid   = document.getElementById("catalog-grid");
   const empty  = document.getElementById("catalog-empty");
   if (!grid) return;
@@ -1783,7 +1943,7 @@ function renderCatalog() {
   }
   if (empty) empty.style.display = "none";
 
-  const typeIcon  = t => ({ Dino:"🦕", Item:"📦", Blueprint:"📋", Command:"⚡", Experience:"✨", Kit:"🎁" }[t] || "🏷️");
+  const typeIcon  = t => ({ Dino:"🦕", Item:"📦", Blueprint:"📋", Command:"⚡", Experience:"✨", Kit:"🎁" }[t] || "📦");
   const typeClass = t => ({
     Dino:"type-dino", Item:"type-item", Blueprint:"type-bp",
     Command:"type-cmd", Experience:"type-xp", Kit:"type-kit"
@@ -1791,15 +1951,19 @@ function renderCatalog() {
 
   grid.innerHTML = filtered.map(i => `
     <div class="item-card ${typeClass(i.type)}">
-      <div class="item-card__icon">${typeIcon(i.type)}</div>
-      <div class="item-card__cat">${escHtml(i.category)}</div>
-      <div class="item-card__name">${escHtml(i.name)}</div>
-      ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
-      <div class="item-card__footer">
-        <span class="item-card__price">◈ ${i.price} pts</span>
-        ${_auth.authenticated
-          ? `<button class="btn-buy" onclick="openBuyModal(${JSON.stringify(i).replace(/"/g,'&quot;')})">Comprar</button>`
-          : `<span style="font-size:11px;color:var(--text2);">Login p/ comprar</span>`}
+      <div class="item-card__thumb">
+        <div class="item-card__icon">${typeIcon(i.type)}</div>
+      </div>
+      <div class="item-card__body">
+        <div class="item-card__cat">${escHtml(i.category)}</div>
+        <div class="item-card__name">${escHtml(i.name)}</div>
+        ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
+        <div class="item-card__footer">
+          <span class="item-card__price">◈ ${i.price}</span>
+          ${_auth.authenticated
+            ? `<button class="btn-buy" onclick="openBuyModal(${JSON.stringify(i).replace(/"/g,'&quot;')})">Comprar</button>`
+            : `<span style="font-size:11px;color:var(--text2);">Login p/ comprar</span>`}
+        </div>
       </div>
     </div>`).join("");
 }

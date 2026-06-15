@@ -11,9 +11,17 @@ from typing import Any, Callable, Optional, Sequence
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..asm_engine.asm_server_config import AsmServerConfig
-from ..ui_constants import get_theme
+from ..ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_OFFICIAL_EVENTS, get_theme
 from .responsive import ResponsiveWatcher, attach_slider_visibility
 from .server_field_labels import FieldMeta, get_field_meta
+
+# Campos com opções fixas → CTkComboBox (rótulo exibido; ID gravado no sync)
+COMBO_FIELD_VALUES: dict[str, list[str]] = {
+    "active_event": [label for _, label in _ARK_OFFICIAL_EVENTS],
+}
+COMBO_FIELD_ID_TO_LABEL: dict[str, dict[str, str]] = {
+    "active_event": _ARK_EVENT_ID_TO_LABEL,
+}
 
 STAT_NAMES = [
     ("❤", "Vida"),
@@ -443,6 +451,44 @@ def begin_tek_section(
     return ctx
 
 
+def add_combo_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) -> None:
+    meta = get_field_meta(field)
+    dual_label(card, meta, row * 2, ctx.accent, ctx.theme)
+
+    ctrl = ctk.CTkFrame(card, fg_color="transparent")
+    ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
+    ctrl.grid_columnconfigure(0, weight=1)
+
+    raw_val = getattr(ctx.srv, field, "") or ""
+    id_to_label = COMBO_FIELD_ID_TO_LABEL.get(field, {})
+    display = id_to_label.get(str(raw_val), str(raw_val))
+    if display not in COMBO_FIELD_VALUES.get(field, []):
+        display = COMBO_FIELD_VALUES[field][0] if field in COMBO_FIELD_VALUES else display
+
+    var = tk.StringVar(value=display)
+    ctx.vars_ref[field] = var
+
+    ctk.CTkComboBox(
+        ctrl, variable=var,
+        values=COMBO_FIELD_VALUES[field],
+        width=300, height=30,
+        dropdown_font=ctk.CTkFont(size=12),
+    ).grid(row=0, column=0, sticky="ew")
+
+    default_display = id_to_label.get(str(raw_val), COMBO_FIELD_VALUES[field][0])
+    badge = ctk.CTkLabel(ctrl, text="●", text_color="#fbbf24", width=16)
+    reset_btn = ctk.CTkButton(
+        ctrl, text="↺", width=28, height=28,
+        fg_color="transparent", hover_color=ctx.theme.get("accent_muted_bg", "#052e16"),
+        text_color=ctx.accent,
+    )
+    badge.grid(row=0, column=1, padx=(8, 0))
+    reset_btn.grid(row=0, column=2)
+    badge.grid_remove()
+    reset_btn.grid_remove()
+    _track_modified(ctx, field, var, badge, reset_btn, default_display)
+
+
 def add_str_field(
     ctx: TekPanelCtx,
     card: ctk.CTkFrame,
@@ -484,7 +530,9 @@ def add_str_field(
 
 def add_field_auto(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) -> None:
     meta = get_field_meta(field)
-    if meta.field_type == "bool":
+    if field in COMBO_FIELD_VALUES:
+        add_combo_field(ctx, card, field, row)
+    elif meta.field_type == "bool":
         add_bool_field(ctx, card, field, row, col=0)
     elif meta.field_type == "int":
         add_int_field(ctx, card, field, row)

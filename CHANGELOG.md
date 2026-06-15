@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.0] - 2026-06-12
+
+### Improvement
+
+- Melhoria (Web Store): redesign da loja — hero, chips de categoria e cards com thumbnail.
+- Melhoria (CustomShop): botão para recarregar plugin via RCON em todos os servidores elegíveis.
+
+### Fix
+
+- Fix (SteamCMD): branch vazio agora usa -beta public explicitamente na instalação/atualização do servidor.
+
+### Other
+
+- Nova funcionalidade (TEK): menu suspenso para eventos oficiais ARK (ActiveEvent) em Administração → Evento sazonal ARK — FearEvolved, WinterWonderland, TurkeyTrial, etc.
+
 ## [1.8.11] - 2026-06-14
 
 ### Fix

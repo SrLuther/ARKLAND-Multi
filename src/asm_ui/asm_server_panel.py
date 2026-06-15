@@ -702,6 +702,41 @@ def _float_entry(parent, label, field, srv, vars_ref, row):
     _attach_modified_badge(parent, v, field, getattr(_DEFAULT_SRV, field, 1.0), row)
 
 
+def _event_combo_entry(parent, srv, vars_ref, row, accent):
+    """ActiveEvent — eventos oficiais ARK (FearEvolved, WinterWonderland, …)."""
+    from ..ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_OFFICIAL_EVENTS
+
+    ctk.CTkLabel(
+        parent,
+        text="Evento ativo (ActiveEvent)",
+        font=ctk.CTkFont(size=11),
+        anchor="w",
+    ).grid(row=row, column=0, padx=(8, 4), pady=3, sticky="w")
+
+    raw = (getattr(srv, "active_event", "") or "").strip()
+    labels = [label for _, label in _ARK_OFFICIAL_EVENTS]
+    display = _ARK_EVENT_ID_TO_LABEL.get(raw, raw) or labels[0]
+    if display not in labels:
+        display = labels[0]
+
+    v = tk.StringVar(value=display)
+    vars_ref["active_event"] = v
+    ctk.CTkComboBox(
+        parent,
+        variable=v,
+        values=labels,
+        width=360,
+        height=30,
+        dropdown_font=ctk.CTkFont(size=12),
+        button_color=accent,
+        button_hover_color="#16a34a",
+    ).grid(row=row, column=1, padx=(0, 8), pady=3, sticky="w")
+
+    default_id = (getattr(_DEFAULT_SRV, "active_event", "") or "").strip()
+    default_display = _ARK_EVENT_ID_TO_LABEL.get(default_id, default_id) or labels[0]
+    _attach_modified_badge(parent, v, "active_event", default_display, row)
+
+
 def _bool_check(parent, label, field, srv, vars_ref, row, accent, col=0, colspan=2):
     v = tk.BooleanVar(value=bool(getattr(srv, field, False)))
     vars_ref[field] = v
@@ -915,11 +950,14 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _str_entry(sf, "Alt Save Directory",       "alt_save_directory_name", srv, vars_ref, 9, accent)
     _float_entry(sf,"Auto-save (min)",         "auto_save_period", srv, vars_ref, 10)
 
-    _section_label(sf, "Rede",           11, accent)
-    _int_entry(sf,   "Porta (game)",           "server_port",      srv, vars_ref, 12)
+    _section_label(sf, "Evento sazonal ARK",  11, accent)
+    _event_combo_entry(sf, srv, vars_ref, 12, accent)
+
+    _section_label(sf, "Rede",           13, accent)
+    _int_entry(sf,   "Porta (game)",           "server_port",      srv, vars_ref, 14)
 
     # Porta peer — sempre game_port + 1, read-only
-    _peer_row = 13
+    _peer_row = 15
     ctk.CTkLabel(sf, text="Porta (peer)", font=ctk.CTkFont(size=11), anchor="w").grid(
         row=_peer_row, column=0, padx=(8, 4), pady=3, sticky="w")
     _peer_var = tk.StringVar(value=str(getattr(srv, "server_port", 7777) + 1))
@@ -936,16 +974,16 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             pass
     vars_ref["server_port"].trace_add("write", _on_game_port_change)
 
-    _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 14)
-    _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 15)
+    _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 16)
+    _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 17)
 
     # ── IP Bind com botão de detecção automática ─────────────────────────────
     ctk.CTkLabel(sf, text="IP Bind (MultiHome)", font=ctk.CTkFont(size=11), anchor="w").grid(
-        row=16, column=0, padx=(8, 4), pady=3, sticky="w")
+        row=18, column=0, padx=(8, 4), pady=3, sticky="w")
     _ip_var = tk.StringVar(value=str(getattr(srv, "server_ip", "")))
     vars_ref["server_ip"] = _ip_var
     _ip_frame = ctk.CTkFrame(sf, fg_color="transparent")
-    _ip_frame.grid(row=16, column=1, padx=(0, 8), pady=3, sticky="w")
+    _ip_frame.grid(row=18, column=1, padx=(0, 8), pady=3, sticky="w")
     _ip_entry = ctk.CTkEntry(_ip_frame, textvariable=_ip_var,
                              placeholder_text="vazio = escuta em todas as interfaces", width=160)
     _ip_entry.pack(side="left", padx=(0, 4))
@@ -996,40 +1034,40 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     # O botão "Detectar IP" existe apenas para uso manual quando o servidor
     # tem múltiplas interfaces e o usuário quer forçar bind em uma específica.
 
-    _section_label(sf, "Senhas",         17, accent)
-    _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 18, accent, pw=True)
-    _str_entry(sf, "Senha admin",              "admin_password",   srv, vars_ref, 19, accent, pw=True)
-    _str_entry(sf, "Senha spectator",          "spectator_password", srv, vars_ref, 20, accent, pw=True)
+    _section_label(sf, "Senhas",         19, accent)
+    _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 20, accent, pw=True)
+    _str_entry(sf, "Senha admin",              "admin_password",   srv, vars_ref, 21, accent, pw=True)
+    _str_entry(sf, "Senha spectator",          "spectator_password", srv, vars_ref, 22, accent, pw=True)
 
-    _section_label(sf, "RCON",           21, accent)
-    _bool_check(sf,  "Habilitar RCON",         "rcon_enabled",     srv, vars_ref, 22, accent)
-    _int_entry(sf,   "Porta RCON",             "rcon_port",        srv, vars_ref, 23)
-    _int_entry(sf,   "Buffer log RCON",        "rcon_log_buffer",  srv, vars_ref, 24)
+    _section_label(sf, "RCON",           23, accent)
+    _bool_check(sf,  "Habilitar RCON",         "rcon_enabled",     srv, vars_ref, 24, accent)
+    _int_entry(sf,   "Porta RCON",             "rcon_port",        srv, vars_ref, 25)
+    _int_entry(sf,   "Buffer log RCON",        "rcon_log_buffer",  srv, vars_ref, 26)
 
-    _section_label(sf, "Logs / Admin",   25, accent)
-    _bool_check(sf,  "Admin logging",          "admin_logging",    srv, vars_ref, 26, accent)
-    _int_entry(sf,   "Max tribe logs",         "max_tribe_logs",   srv, vars_ref, 27)
-    _bool_check(sf, "Log estruturas destruídas por inimigos", "tribe_log_destroyed_enemy_structures", srv, vars_ref, 28, accent)
-    _bool_check(sf, "Ocultar fonte de dano nos logs",         "allow_hide_damage_source",             srv, vars_ref, 29, accent)
+    _section_label(sf, "Logs / Admin",   27, accent)
+    _bool_check(sf,  "Admin logging",          "admin_logging",    srv, vars_ref, 28, accent)
+    _int_entry(sf,   "Max tribe logs",         "max_tribe_logs",   srv, vars_ref, 29)
+    _bool_check(sf, "Log estruturas destruídas por inimigos", "tribe_log_destroyed_enemy_structures", srv, vars_ref, 30, accent)
+    _bool_check(sf, "Ocultar fonte de dano nos logs",         "allow_hide_damage_source",             srv, vars_ref, 31, accent)
 
-    _section_label(sf, "Extinction / Respawn Dinos", 30, accent)
-    _bool_check(sf,  "Evento de extinção",      "enable_extinction_event",         srv, vars_ref, 31, accent)
-    _int_entry(sf,   "Intervalo extinção (s)",  "extinction_event_interval",        srv, vars_ref, 32)
-    _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 33, accent)
-    _int_entry(sf,   "Intervalo respawn (s)",   "auto_respawn_wild_dinos_interval", srv, vars_ref, 34)
+    _section_label(sf, "Extinction / Respawn Dinos", 32, accent)
+    _bool_check(sf,  "Evento de extinção",      "enable_extinction_event",         srv, vars_ref, 33, accent)
+    _int_entry(sf,   "Intervalo extinção (s)",  "extinction_event_interval",        srv, vars_ref, 34)
+    _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 35, accent)
+    _int_entry(sf,   "Intervalo respawn (s)",   "auto_respawn_wild_dinos_interval", srv, vars_ref, 36)
 
-    _section_label(sf, "Jogadores Ociosos", 35, accent)
-    _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 36, accent)
-    _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 37)
+    _section_label(sf, "Jogadores Ociosos", 37, accent)
+    _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 38, accent)
+    _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 39)
 
-    _section_label(sf, "Cluster / Cross-ARK", 38, accent)
-    _str_entry(sf, "Cluster ID",               "cross_ark_cluster_id",             srv, vars_ref, 39, accent)
-    _str_entry(sf, "Cluster Dir Override",     "cluster_dir_override",             srv, vars_ref, 40, accent, wide=True)
-    _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 41, accent)
+    _section_label(sf, "Cluster / Cross-ARK", 40, accent)
+    _str_entry(sf, "Cluster ID",               "cross_ark_cluster_id",             srv, vars_ref, 41, accent)
+    _str_entry(sf, "Cluster Dir Override",     "cluster_dir_override",             srv, vars_ref, 42, accent, wide=True)
+    _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 43, accent)
 
-    _section_label(sf, "Branch SteamCMD (Beta)", 44, accent)
+    _section_label(sf, "Branch SteamCMD (Beta)", 46, accent)
     _branch_btn_row = ctk.CTkFrame(sf, fg_color="transparent")
-    _branch_btn_row.grid(row=45, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
+    _branch_btn_row.grid(row=47, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
 
     def _set_branch(val: str) -> None:
         br = vars_ref.get("branch_name")
@@ -1047,19 +1085,19 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         command=lambda: _set_branch("preaquatica"),
     ).pack(side="left")
 
-    _str_entry(sf, "Branch Name",     "branch_name",     srv, vars_ref, 46, accent)
-    _str_entry(sf, "Branch Password", "branch_password", srv, vars_ref, 47, accent, pw=True)
+    _str_entry(sf, "Branch Name",     "branch_name",     srv, vars_ref, 48, accent)
+    _str_entry(sf, "Branch Password", "branch_password", srv, vars_ref, 49, accent, pw=True)
     ctk.CTkLabel(
         sf,
         text="preaquatica = ASE v358 (última com ArkApi/plugins). Vazio = versão estável atual.",
         font=ctk.CTkFont(size=10), text_color="#64748b", anchor="w", wraplength=520,
-    ).grid(row=48, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
+    ).grid(row=50, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
 
-    _section_label(sf, "Mods (Steam Workshop)", 42, accent)
+    _section_label(sf, "Mods (Steam Workshop)", 44, accent)
 
     # ── Container principal do gerenciador de mods ────────────────────────────
     _mod_frame = ctk.CTkFrame(sf, fg_color="#0d1b2a", corner_radius=8)
-    _mod_frame.grid(row=43, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
+    _mod_frame.grid(row=45, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
     _mod_frame.grid_columnconfigure(0, weight=1)
 
     # Cache de informações: {mod_id: {"name": ..., "info": ...}}
@@ -1394,6 +1432,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             ("Nome no gerenciador", "Identificação interna usada apenas no aplicativo. Não afeta o servidor."),
             ("Pasta de instalação", "Diretório raiz do servidor ARK (contém ShooterGame/)."),
             ("Mapa", "Mapa do servidor. Use o seletor visual ou digite o nome interno."),
+            ("Evento sazonal ARK", "ActiveEvent — ativa eventos oficiais (FearEvolved, WinterWonderland, etc.) na linha de comando e no INI."),
             ("RCON", "Remote Console — necessário para ferramentas de administração in-game."),
             ("Mods", "IDs numéricos do Steam Workshop, na ordem de carregamento."),
         ], _tags_row + 3)
@@ -3589,6 +3628,7 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     vars_ref = getattr(app, "_asm_panel_vars", {}).get(srv.id, {})
 
     from dataclasses import fields as _fields
+    from ..ui_constants import _ARK_EVENT_LABEL_TO_ID
     field_types = {f.name: f.type for f in _fields(AsmServerConfig)}
 
     for field_name, var in vars_ref.items():
@@ -3597,6 +3637,9 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         ftype = field_types.get(field_name)
         try:
             raw = var.get()
+            if field_name == "active_event":
+                setattr(srv, field_name, _ARK_EVENT_LABEL_TO_ID.get(str(raw), str(raw).strip()))
+                continue
             if ftype in ("bool", bool) or str(ftype) == "bool":
                 setattr(srv, field_name, bool(raw))
             elif ftype in ("int", int) or str(ftype) == "int":

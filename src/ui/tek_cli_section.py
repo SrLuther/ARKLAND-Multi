@@ -12,7 +12,7 @@ from .server_field_widgets import (
 
 _CLI_CARDS: list[CardSpec] = [
     CardSpec("Inicialização", [
-        "use_battleye", "force_respawn_dinos", "use_allcores", "active_event",
+        "use_battleye", "force_respawn_dinos", "use_allcores",
     ]),
     CardSpec("Rede / plataformas", [
         "crossplay", "epic_only", "public_ip_for_epic", "use_vivox",

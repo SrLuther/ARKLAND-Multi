@@ -359,10 +359,13 @@ class ModManager:
 
         self._on_log(f"Instalando servidor ARK em: {install_dir}", "info")
         app_update_args = ["+app_update", _ARK_SERVER_ID]
-        if branch_name:
-            app_update_args += ["-beta", branch_name]
+        _branch = (branch_name or "").strip()
+        if _branch:
+            app_update_args += ["-beta", _branch]
             if branch_password:
                 app_update_args += ["-betapassword", branch_password]
+        else:
+            app_update_args += ["-beta", "public"]
         if validate:
             app_update_args.append("validate")
 

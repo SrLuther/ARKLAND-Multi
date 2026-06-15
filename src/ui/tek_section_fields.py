@@ -4,7 +4,7 @@ from __future__ import annotations
 SECTION_FIELDS: dict[str, list[str]] = {
     "Administração": [
         "name", "install_dir", "server_map", "total_conversion_mod_id",
-        "session_name", "alt_save_directory_name", "auto_save_period",
+        "session_name", "alt_save_directory_name", "auto_save_period", "active_event",
         "server_port", "query_port", "max_players", "server_ip",
         "server_password", "admin_password", "spectator_password",
         "rcon_enabled", "rcon_port", "rcon_log_buffer", "admin_logging",
@@ -14,7 +14,7 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "enable_kick_idle_players", "kick_idle_players",
         "cross_ark_cluster_id", "cluster_dir_override", "cross_ark_allow_foreign_dino_downloads",
         "branch_name", "branch_password", "active_mods",
-        "use_battleye", "force_respawn_dinos", "use_allcores", "active_event",
+        "use_battleye", "force_respawn_dinos", "use_allcores",
         "crossplay", "epic_only", "public_ip_for_epic", "use_vivox", "use_item_dupe_check",
         "use_raw_sockets", "no_net_threading", "force_net_threading", "no_transfer_from_filtering",
         "disable_vac", "disable_anti_speed_hack", "speed_hack_bias", "disable_player_move_physics_opt",

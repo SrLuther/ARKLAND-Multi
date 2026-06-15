@@ -64,7 +64,8 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
 
         srv.name           = w["name"].get().strip() or srv.name
         srv.install_dir    = w["install_dir"].get().strip()
-        srv.server_name    = w["server_name"].get().strip()
+        _new_server_name = w["server_name"].get().strip()
+        srv.server_name    = _new_server_name or srv.name or srv.server_name
         map_raw = w["map"].get()
         if "(" in map_raw and map_raw.endswith(")"):
             srv.map = map_raw.split("(")[-1].rstrip(")")

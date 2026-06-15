@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.8.11"
+APP_VERSION: str = "1.9.0"
 BUILD_DATE: str = "2026-06-14"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.0",
+        "date": "2026-06-12",
+        "changes": [
+            "Nova funcionalidade (TEK): menu suspenso para eventos oficiais ARK (ActiveEvent) em Administração → Evento sazonal ARK — FearEvolved, WinterWonderland, TurkeyTrial, etc.",
+            "Melhoria (Web Store): redesign da loja — hero, chips de categoria e cards com thumbnail.",
+            "Melhoria (CustomShop): botão para recarregar plugin via RCON em todos os servidores elegíveis.",
+            "Fix (SteamCMD): branch vazio agora usa -beta public explicitamente na instalação/atualização do servidor.",
+        ],
+    },
     {
         "version": "1.8.11",
         "date": "2026-06-14",

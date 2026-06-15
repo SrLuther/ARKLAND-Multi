@@ -1375,7 +1375,8 @@ def get_catalog():
             data = json.loads(cleaned)
         # Expõe somente os itens (sem configurações sensíveis)
         items = data.get("Items") or data.get("ShopItems") or {}
-        return jsonify({"items": items})
+        shop_name = data.get("ShopName") or data.get("shop_name") or "ARKLAND Shop"
+        return jsonify({"items": items, "shop_name": shop_name})
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 

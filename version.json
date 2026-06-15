@@ -1,9 +1,11 @@
 {
-    "version": "1.8.11",
+    "version": "1.9.0",
     "date": "2026-06-14",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.8.11/ARKLAND-Multi-Setup-v1.8.11.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.0/ARKLAND-Multi-Setup-v1.9.0.exe",
     "changelog": [
-        "Fix (CustomShop): ShopPoints::Exec agora trata ER_DUP_FIELDNAME (1060) como migração idempotente, evitando erro em runtime 'Duplicate column name kits'.",
-        "Build (CustomShop): plugin recompilado e empacotado com CustomShop.dll corrigida."
+        "Nova funcionalidade (TEK): menu suspenso para eventos oficiais ARK (ActiveEvent) em Administração → Evento sazonal ARK — FearEvolved, WinterWonderland, TurkeyTrial, etc.",
+        "Melhoria (Web Store): redesign da loja — hero, chips de categoria e cards com thumbnail.",
+        "Melhoria (CustomShop): botão para recarregar plugin via RCON em todos os servidores elegíveis.",
+        "Fix (SteamCMD): branch vazio agora usa -beta public explicitamente na instalação/atualização do servidor."
     ]
 }

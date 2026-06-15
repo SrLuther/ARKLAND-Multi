@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
+from ..rcon_client import RconClient
 from ..shop_integration import (
     build_webstore_launch,
     check_webstore_firewall_rule,
@@ -922,6 +923,63 @@ def _is_web_running(port: int = 0) -> bool:
     return False
 
 
+def _reload_customshop_rcon_all(app: "ARKServerManagerApp") -> tuple[list[str], list[str], list[str]]:
+    """Envia comando de reload do CustomShop via RCON para todos os servidores elegíveis."""
+    asm_cm = getattr(app, "asm_config_manager", None)
+    servers = iter_shop_servers(app.config_manager, asm_cm)
+    ok: list[str] = []
+    failed: list[str] = []
+    skipped: list[str] = []
+    commands = [
+        "plugins.reload CustomShop",
+        "ReloadPlugin CustomShop",
+        "reloadplugin CustomShop",
+    ]
+
+    for _kind, srv in servers:
+        name = getattr(srv, "name", "") or getattr(srv, "id", "") or "Servidor"
+        if not getattr(srv, "rcon_enabled", False):
+            skipped.append(f"{name}: RCON desativado")
+            continue
+        rcon_pass = (getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or "").strip()
+        if not rcon_pass:
+            skipped.append(f"{name}: senha RCON/admin não definida")
+            continue
+
+        host = (getattr(srv, "server_ip", "") or "127.0.0.1").strip() or "127.0.0.1"
+        port = int(getattr(srv, "rcon_port", None) or 27020)
+
+        inst = app.server_manager.get_instance(getattr(srv, "id", ""))
+        if inst is not None and getattr(inst, "status", "") != "running":
+            skipped.append(f"{name}: servidor não está em execução")
+            continue
+
+        client = RconClient(host, port, rcon_pass)
+        last_err = ""
+        success = False
+        try:
+            client.connect()
+            for cmd in commands:
+                cmd_ok, result = client.send_command_with_retry(cmd, retries=2)
+                if cmd_ok:
+                    ok.append(f"{name}: {cmd}")
+                    success = True
+                    break
+                last_err = result
+        except Exception as exc:
+            last_err = str(exc)
+        finally:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+        if not success:
+            failed.append(f"{name}: {last_err or 'falha no comando RCON'}")
+
+    return ok, failed, skipped
+
+
 def _launch_webstore_process(shop) -> tuple[bool, str]:
     """Inicia o processo Flask da Web Store. Retorna (ok, mensagem)."""
     global _web_process, _web_log_fh
@@ -1088,6 +1146,30 @@ def _build_webstore_tab(
         shop.orders_db_user = _odb_user.get().strip()
         shop.orders_db_password = _odb_pass.get()
         app.config_manager.save()
+
+    def _validate_shared_shop_requirements() -> bool:
+        is_client = (_mode_var.get() == "client")
+        central = _central_url_var.get().strip()
+        db_url = _orders_url_var.get().strip().lower()
+        using_sqlite = db_url.startswith("sqlite:///") or (
+            not db_url and not _odb_user.get().strip()
+        )
+        if is_client and not central:
+            messagebox.showerror(
+                "Loja central",
+                "No modo Cliente, defina a URL central da loja (Host).",
+                parent=parent.winfo_toplevel(),
+            )
+            return False
+        if is_client and using_sqlite:
+            messagebox.showerror(
+                "Banco compartilhado obrigatório",
+                "Para rodar em 2 máquinas/instâncias com a mesma loja, use o mesmo banco MySQL compartilhado.\n"
+                "SQLite local não mantém sincronização entre instâncias.",
+                parent=parent.winfo_toplevel(),
+            )
+            return False
+        return True
 
     def _refresh_access_labels() -> None:
         shop.mode = _mode_var.get()
@@ -1459,6 +1541,8 @@ def _build_webstore_tab(
     _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
 
     def _apply_plugins() -> None:
+        if not _validate_shared_shop_requirements():
+            return
         _save_shop_from_ui()
         collect_catalog()
         for _kind, srv, sid_var, path_var in _server_rows:
@@ -1474,14 +1558,16 @@ def _build_webstore_tab(
             asm_cm=asm_cm,
         )
         msg = f"{len(ok)} plugin(s) atualizado(s)."
-        if all_errs:
-            msg += "\n" + "\n".join(all_errs[:5])
+        if errs:
+            msg += "\n" + "\n".join(errs[:5])
         try:
             app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
         except AttributeError:
             messagebox.showinfo("Sincronizar", msg)
 
     def _install_customshop() -> None:
+        if not _validate_shared_shop_requirements():
+            return
         asm_cm = getattr(app, "asm_config_manager", None)
         targets = iter_shop_servers(app.config_manager, asm_cm)
         if not targets:
@@ -1518,6 +1604,53 @@ def _build_webstore_tab(
         except AttributeError:
             messagebox.showinfo("Instalar CustomShop", msg)
 
+    def _reload_customshop_all_servers() -> None:
+        if not _validate_shared_shop_requirements():
+            return
+        _save_shop_from_ui()
+        collect_catalog()
+        for _kind, srv, sid_var, path_var in _server_rows:
+            srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
+            srv.customshop_config_path = path_var.get().strip()
+        app.config_manager.save_servers()
+        asm_cm = getattr(app, "asm_config_manager", None)
+        if asm_cm:
+            asm_cm.save()
+        catalog = get_catalog()
+        sync_ok, sync_errs = sync_all_plugins(
+            app.config_manager, shop, catalog, get_catalog_path(),
+            asm_cm=asm_cm,
+        )
+        rcon_ok, rcon_errs, rcon_skips = _reload_customshop_rcon_all(app)
+
+        lines = [
+            f"Sincronizados: {len(sync_ok)} plugin(s)",
+            f"Reload RCON OK: {len(rcon_ok)} servidor(es)",
+        ]
+        if rcon_skips:
+            lines.append(f"Ignorados: {len(rcon_skips)}")
+        if sync_errs or rcon_errs:
+            lines.append("Erros:")
+            for err in list(sync_errs)[:3]:
+                lines.append(f"- {err}")
+            for err in rcon_errs[:3]:
+                lines.append(f"- {err}")
+        if rcon_skips:
+            lines.append("Ignorados:")
+            for skip in rcon_skips[:3]:
+                lines.append(f"- {skip}")
+
+        msg = "\n".join(lines)
+        level = "success" if rcon_ok else "warning"
+        try:
+            app._show_toast(
+                f"Loja recarregada em {len(rcon_ok)} servidor(es)",
+                level,
+            )  # type: ignore[attr-defined]
+        except AttributeError:
+            pass
+        messagebox.showinfo("Recarregar plugin CustomShop", msg, parent=parent.winfo_toplevel())
+
     act_row = tk.Frame(card_srv, bg=_INNER)
     act_row.pack(fill="x", padx=10, pady=(6, 10))
     ctk.CTkButton(act_row, text="📦  Instalar CustomShop",
@@ -1526,6 +1659,9 @@ def _build_webstore_tab(
     ctk.CTkButton(act_row, text="🔄  Aplicar em todos os plugins",
                   height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                   command=_apply_plugins).pack(side="left", padx=(0, 10))
+    ctk.CTkButton(act_row, text="♻  Sync + Reload RCON (todos)",
+                  height=34, fg_color="#0e7490", hover_color="#155e75",
+                  command=_reload_customshop_all_servers).pack(side="left", padx=(0, 10))
     ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
                     variable=_auto_sync_var).pack(side="left")
     ctk.CTkButton(act_row, text="↻  Atualizar lista",

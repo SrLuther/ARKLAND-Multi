@@ -7,7 +7,10 @@ from typing import TYPE_CHECKING, List, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..server_config import ServerConfig, ARK_MAPS, ARK_MAP_NAMES
-from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _BLUE, _BLUE_HOVER, _CARD_BG
+from ..ui_constants import (
+    _ARK_EVENT_ID_TO_LABEL, _ARK_EVENT_LABEL_TO_ID, _ARK_OFFICIAL_EVENTS,
+    _GREEN_DARK, _GREEN_HOVER, _BLUE, _BLUE_HOVER, _CARD_BG,
+)
 
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
@@ -59,7 +62,8 @@ def build_tab_general_primitive(app: "ARKServerManagerApp", parent, srv: ServerC
     w["query_port"]      = tk.StringVar(value=str(srv.query_port))
     w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
     w["extra_args"]      = tk.StringVar(value=srv.extra_args)
-    w["active_event"]    = tk.StringVar(value=srv.active_event)
+    w["active_event"]    = tk.StringVar(
+        value=_ARK_EVENT_ID_TO_LABEL.get(srv.active_event, srv.active_event) or "(nenhum evento)")
     w["auto_save"]       = tk.StringVar(value=str(srv.auto_save_period))
 
     app._section_lbl(scroll, 0, "🖥️  Identificação")
@@ -107,8 +111,9 @@ def build_tab_general_primitive(app: "ARKServerManagerApp", parent, srv: ServerC
 
     app._section_lbl(scroll, 15, "⚙️  Opções de Inicialização")
     row("Evento Ativo:",
-        "Ex: WinterWonderland, FearEvolved. Deixe vazio para sem evento.",
-        w["active_event"], 16)
+        "Selecione o evento oficial do ARK ou deixe em «(nenhum evento)».",
+        w["active_event"], 16,
+        combo=[label for _, label in _ARK_OFFICIAL_EVENTS])
     row("Auto-Save (min):",
         "Intervalo de salvamento automático em minutos. Padrão: 15.",
         w["auto_save"], 17)

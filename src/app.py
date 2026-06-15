@@ -48,6 +48,7 @@ from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
 from .mod_auto_updater import ModAutoUpdater
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
+from .ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_EVENT_LABEL_TO_ID, _ARK_OFFICIAL_EVENTS
 
 APP_NAME = "ARKLAND - Server Manager"
 
@@ -862,7 +863,8 @@ class ARKServerManagerApp(ctk.CTk):
         w["query_port"]      = tk.StringVar(value=str(srv.query_port))
         w["rcon_port"]       = tk.StringVar(value=str(srv.rcon_port))
         w["extra_args"]      = tk.StringVar(value=srv.extra_args)
-        w["active_event"]    = tk.StringVar(value=srv.active_event)
+        w["active_event"]    = tk.StringVar(
+            value=_ARK_EVENT_ID_TO_LABEL.get(srv.active_event, srv.active_event) or "(nenhum evento)")
         w["auto_save"]       = tk.StringVar(value=str(srv.auto_save_period))
 
         self._section_lbl(scroll, 0, "🖥️  Identificação")
@@ -910,8 +912,9 @@ class ARKServerManagerApp(ctk.CTk):
 
         self._section_lbl(scroll, 15, "⚙️  Opções de Inicialização")
         row("Evento Ativo:",
-            "Ex: WinterWonderland, FearEvolved. Deixe vazio para sem evento.",
-            w["active_event"], 16)
+            "Selecione o evento oficial do ARK ou deixe em «(nenhum evento)».",
+            w["active_event"], 16,
+            combo=[label for _, label in _ARK_OFFICIAL_EVENTS])
         row("Auto-Save (min):",
             "Intervalo de salvamento automático em minutos. Padrão: 15.",
             w["auto_save"], 17)
@@ -2793,7 +2796,18 @@ class ARKServerManagerApp(ctk.CTk):
             self.mod_manager._on_log = orig_log
             _on_done(ok)
 
-        self.mod_manager.install_server(install_dir, validate=validate, on_done=_wrapped_done)
+        srv_cfg = self.config_manager.get_server(server_id)
+        _branch_widget = w.get("branch_name", tk.StringVar()).get().strip()
+        _branch = _branch_widget if _branch_widget or ("branch_name" in w) else (srv_cfg.branch_name if srv_cfg else "")
+        _branch_pw_widget = w.get("branch_password", tk.StringVar()).get()
+        _branch_pw = _branch_pw_widget if _branch_pw_widget or ("branch_password" in w) else (srv_cfg.branch_password if srv_cfg else "")
+        self.mod_manager.install_server(
+            install_dir,
+            validate=validate,
+            on_done=_wrapped_done,
+            branch_name=_branch,
+            branch_password=_branch_pw,
+        )
 
     def _save_server_config(self, server_id: str, silent: bool = False) -> None:
         """Lê todos os widgets do servidor, salva no config e escreve os .ini."""
@@ -2834,7 +2848,8 @@ class ARKServerManagerApp(ctk.CTk):
             except (ValueError, KeyError):
                 pass
             srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
-            srv.active_event          = w.get("active_event",  tk.StringVar()).get().strip()
+            _evt_raw = w.get("active_event", tk.StringVar()).get().strip()
+            srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
             try:
                 srv.auto_save_period  = float(w.get("auto_save", tk.StringVar(value="15")).get())
             except ValueError:
