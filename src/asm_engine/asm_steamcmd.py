@@ -595,62 +595,26 @@ class AsmSteamCmd:
 
     def _copy_mod_to_server(self, mod_id: str, install_dir: str) -> bool:
         """
-        Copia mod baixado pelo SteamCMD para a pasta de mods do servidor.
-        Cria também o arquivo .mod exigido pelo ARK para carregar o mod.
-
-        Fonte:  ``<steamcmd_dir>/steamapps/workshop/content/346110/<mod_id>/``
-        Destino: ``<install_dir>/ShooterGame/Content/Mods/<mod_id>/``
-                 ``<install_dir>/ShooterGame/Content/Mods/<mod_id>.mod``
-
-        Retorna True se copiado com sucesso, False se pasta não encontrada.
+        Instala mod no servidor com descompressão UE4 (.z → .uasset) — paridade ASM CopyMod.
         """
-        # Prioridade: workshop na pasta do servidor (+force_install_dir), como no modo primitivo
-        workshop_src = (
-            Path(install_dir) / "steamapps" / "workshop" / "content" / ARK_WORKSHOP_APP_ID / mod_id
+        from .asm_mod_copy import find_workshop_mod_folder, install_mod_from_workshop
+
+        steamcmd_dir = Path(self._steamcmd).parent
+        workshop_src = find_workshop_mod_folder(
+            mod_id, install_dir, steamcmd_dir
         )
-        if not workshop_src.exists():
-            steamcmd_dir = Path(self._steamcmd).parent
-            workshop_src = steamcmd_dir / "steamapps" / "workshop" / "content" / ARK_WORKSHOP_APP_ID / mod_id
-        if not workshop_src.exists():
+        if workshop_src is None:
             alt = self._get_steamcmd_workshop_dir()
-            if alt:
+            if alt and (alt / mod_id).is_dir():
                 workshop_src = alt / mod_id
 
-        if not workshop_src.exists():
-            self._on_log(f"[AVISO] Pasta do mod {mod_id} não encontrada em {workshop_src}")
+        if workshop_src is None:
+            self._on_log(f"[AVISO] Pasta do mod {mod_id} não encontrada no workshop")
             return False
 
-        mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
-        mods_dir.mkdir(parents=True, exist_ok=True)
-        dest = mods_dir / mod_id
-
-        # O SteamCMD baixa com subpasta WindowsNoEditor/ — o ARK espera
-        # o conteúdo na raiz de Content/Mods/<mod_id>/
-        win_src = workshop_src / "WindowsNoEditor"
-        effective_src = win_src if win_src.exists() else workshop_src
-
-        if dest.exists():
-            shutil.rmtree(dest)
-        shutil.copytree(str(effective_src), str(dest))
-        self._on_log(f"[OK] Mod {mod_id} copiado para {dest}")
-
-        # Cria o arquivo .mod exigido pelo ARK
-        dot_mod_dest = mods_dir / f"{mod_id}.mod"
-        # 1) Procura .mod já pronto ao lado da pasta no workshop
-        src_dot_mod = workshop_src.parent / f"{mod_id}.mod"
-        if not src_dot_mod.exists():
-            src_dot_mod = workshop_src / f"{mod_id}.mod"
-        if not src_dot_mod.exists():
-            # 2) Procura no Steam Client
-            src_dot_mod = self._find_official_dot_mod(mod_id)
-        if src_dot_mod and Path(src_dot_mod).exists():
-            shutil.copy2(str(src_dot_mod), str(dot_mod_dest))
-            self._on_log(f"[OK] Mod {mod_id}: arquivo .mod copiado.")
-        else:
-            # 3) Gera .mod a partir do mod.info do SteamCMD
-            if self._create_dot_mod_from_mod_info(workshop_src, mod_id, dot_mod_dest):
-                self._on_log(f"[OK] Mod {mod_id}: arquivo .mod gerado a partir do mod.info.")
-            else:
-                self._on_log(f"[AVISO] Mod {mod_id}: arquivo .mod não criado — mod.info ausente. Re-baixe pelo Steam Client.")
-
-        return True
+        return install_mod_from_workshop(
+            workshop_src,
+            install_dir,
+            mod_id,
+            on_log=self._on_log,
+        )

@@ -1,10 +1,10 @@
 {
-    "version": "1.9.8",
+    "version": "1.9.9",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.8/ARKLAND-Multi-Setup-v1.9.8.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.9/ARKLAND-Multi-Setup-v1.9.9.exe",
     "changelog": [
-        "Fix (TEK/mods): reparo de arquivos .mod antes do start — paridade modo primitivo (Steam Client oficial ou geração via mod.info).",
-        "Fix (TEK/mods): ActiveMods no GUS inclui o ID do map mod (como no modo primitivo).",
-        "Fix (TEK/mods): «Baixar Mods» usa +force_install_dir na pasta do servidor e validate, igual ao modo primitivo."
+        "Fix (mods): descompressão UE4 de arquivos .z na instalação de mods — paridade ModUtils.CopyMod do ASM; PrimalGameData e mapas mod passam a carregar corretamente.",
+        "Fix (mods): reparo automático antes do start se PrimalGameData ainda estiver comprimido (.uasset.z sem .uasset).",
+        "Fix (mods): geração de .mod via WriteModFile (mod.info + modmeta.info) na cópia."
     ]
 }

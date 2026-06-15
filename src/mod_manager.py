@@ -138,43 +138,25 @@ class ModManager:
         Deve ser chamado APÓS o servidor parar para evitar file locking.
         Retorna True se todos copiados com sucesso.
         """
+        from .asm_engine.asm_mod_copy import install_mod_from_workshop
+
         success = True
         for mod_id in mod_ids:
             mod_id = mod_id.strip()
-            src_dir  = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
-            mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
-            dst_dir  = mods_dir / mod_id
+            src_dir = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
             if not src_dir.exists():
                 self._on_log(f"Aviso: pasta do Workshop não encontrada para mod {mod_id}.", "warning")
                 success = False
                 continue
             try:
-                mods_dir.mkdir(parents=True, exist_ok=True)
-                if dst_dir.exists():
-                    shutil.rmtree(dst_dir)
-                # O SteamCMD baixa mods com subpasta WindowsNoEditor/ (e LinuxNoEditor/).
-                # O ARK servidor espera o conteúdo na RAIZ de Content/Mods/<mod_id>/.
-                # Copiar src_dir inteiro resultaria em Content/Mods/<id>/WindowsNoEditor/ — incorreto.
-                win_src = src_dir / "WindowsNoEditor"
-                effective_src = win_src if win_src.exists() else src_dir
-                shutil.copytree(effective_src, dst_dir)
-                dot_mod_dest = mods_dir / f"{mod_id}.mod"
-                src_dot_mod = (
-                    self._find_dot_mod(src_dir, mod_id)
-                    or self._find_official_dot_mod(mod_id)
+                ok = install_mod_from_workshop(
+                    src_dir,
+                    install_dir,
+                    mod_id,
+                    on_log=lambda m: self._on_log(m, "info"),
                 )
-                if src_dot_mod:
-                    shutil.copy2(src_dot_mod, dot_mod_dest)
-                    self._on_log(f"Mod {mod_id}: arquivo .mod copiado de {src_dot_mod.parent}.", "debug")
-                elif self._create_dot_mod_from_mod_info(src_dir, mod_id, dot_mod_dest):
-                    self._on_log(f"Mod {mod_id}: arquivo .mod gerado a partir do mod.info (Steam Client ausente).", "info")
-                else:
-                    self._on_log(
-                        f"[ATEN\u00c7\u00c3O] Mod {mod_id}: arquivo .mod n\u00e3o encontrado e mod.info ausente. "
-                        "Re-baixe o mod ou subscreva-o no Steam Client.",
-                        "error"
-                    )
-                self._on_log(f"Mod {mod_id} instalado em Mods/.", "info")
+                if not ok:
+                    success = False
             except Exception as exc:
                 self._on_log(f"Erro ao instalar mod {mod_id}: {exc}", "error")
                 success = False
@@ -255,36 +237,19 @@ class ModManager:
                 return
 
             _log(f"SteamCMD concluído — instalando {len(valid_ids)} mod(s) na pasta do servidor…", "info")
+            from .asm_engine.asm_mod_copy import install_mod_from_workshop
             for mod_id in valid_ids:
                 src_mod = Path(install_dir) / "steamapps" / "workshop" / "content" / _ARK_GAME_ID / mod_id
                 if copy_to_mods:
-                    mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
-                    dst_mod  = mods_dir / mod_id
                     copy_ok = False
                     if src_mod.exists():
                         try:
-                            mods_dir.mkdir(parents=True, exist_ok=True)
-                            if dst_mod.exists():
-                                shutil.rmtree(dst_mod)
-                            win_src = src_mod / "WindowsNoEditor"
-                            effective_src = win_src if win_src.exists() else src_mod
-                            shutil.copytree(effective_src, dst_mod)
-                            dot_mod_dest = mods_dir / f"{mod_id}.mod"
-                            src_dot_mod = (
-                                self._find_dot_mod(src_mod, mod_id)
-                                or self._find_official_dot_mod(mod_id)
+                            copy_ok = install_mod_from_workshop(
+                                src_mod,
+                                install_dir,
+                                mod_id,
+                                on_log=lambda m: _log(m, "info"),
                             )
-                            if src_dot_mod:
-                                shutil.copy2(src_dot_mod, dot_mod_dest)
-                            elif self._create_dot_mod_from_mod_info(src_mod, mod_id, dot_mod_dest):
-                                _log(f"Mod {mod_id}: arquivo .mod gerado a partir do mod.info.", "info")
-                            else:
-                                _log(
-                                    f"[ATENÇÃO] Mod {mod_id}: arquivo .mod não encontrado e mod.info ausente.",
-                                    "error",
-                                )
-                            _log(f"Mod {mod_id} instalado em Mods/.", "info")
-                            copy_ok = True
                         except Exception as copy_exc:
                             _log(f"Falha ao copiar mod {mod_id}: {copy_exc}", "warning")
                     else:
@@ -491,15 +456,24 @@ class ModManager:
         mod_ids: List[str],
         on_log: Optional[Callable[[str, str], None]] = None,
     ) -> None:
-        """Garante .mod oficial ou gerado via mod.info antes de iniciar o servidor."""
+        """Garante .mod e PrimalGameData descomprimido antes de iniciar o servidor."""
         _log = on_log or (lambda _msg, _level: None)
         if not (install_dir or "").strip() or not mod_ids:
             return
+
+        from .asm_engine.asm_mod_copy import repair_mod_decompression
         mods_dir = Path(install_dir) / "ShooterGame" / "Content" / "Mods"
         for mid in mod_ids:
             mid = mid.strip()
             if not mid.isdigit():
                 continue
+
+            repair_mod_decompression(
+                install_dir,
+                mid,
+                on_log=lambda m: _log(m, "warning"),
+            )
+
             official = ModManager._find_official_dot_mod(mid)
             if official:
                 dst = mods_dir / f"{mid}.mod"

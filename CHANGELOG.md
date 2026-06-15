@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.9] - 2026-06-15
+
+### Fix
+
+- Fix (mods): descompressão UE4 de arquivos .z na instalação de mods — paridade ModUtils.CopyMod do ASM; PrimalGameData e mapas mod passam a carregar corretamente.
+- Fix (mods): reparo automático antes do start se PrimalGameData ainda estiver comprimido (.uasset.z sem .uasset).
+- Fix (mods): geração de .mod via WriteModFile (mod.info + modmeta.info) na cópia.
+
 ## [1.9.8] - 2026-06-15
 
 ### Fix

@@ -154,8 +154,15 @@ def validate_map_mod_on_disk(cfg: AsmServerConfig) -> list[str]:
     elif not dot_mod.is_file():
         issues.append(
             f"Arquivo {mod_id}.mod ausente — o ARK não carrega o mapa sem ele. "
-            "Baixe o mod pelo SteamCMD."
+            "Use «Baixar Mods»."
         )
+    else:
+        from .asm_mod_copy import mod_needs_decompress_repair
+        if mod_needs_decompress_repair(mod_dir):
+            issues.append(
+                f"Map mod {mod_id}: PrimalGameData ainda comprimido (.uasset.z) — "
+                "use «Baixar Mods» para descomprimir (paridade ASM)."
+            )
     cli = map_cli_name(cfg.server_map, cfg.install_dir)
     expected = get_map_name_from_path(cfg.server_map)
     if expected and cli and expected != cli and dot_mod.is_file():

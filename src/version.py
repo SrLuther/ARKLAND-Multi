@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.8"
+APP_VERSION: str = "1.9.9"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.9",
+        "date": "2026-06-15",
+        "changes": [
+            "Fix (mods): descompressão UE4 de arquivos .z na instalação de mods — paridade "
+            "ModUtils.CopyMod do ASM; PrimalGameData e mapas mod passam a carregar corretamente.",
+            "Fix (mods): reparo automático antes do start se PrimalGameData ainda estiver "
+            "comprimido (.uasset.z sem .uasset).",
+            "Fix (mods): geração de .mod via WriteModFile (mod.info + modmeta.info) na cópia.",
+        ],
+    },
     {
         "version": "1.9.8",
         "date": "2026-06-15",
