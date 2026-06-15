@@ -11,7 +11,15 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
-from ..db_setup_resources import ensure_setup_sql_cached, load_setup_sql_template
+from ..db_setup_resources import (
+    _DB_NAME,
+    _PERM_DB_NAME,
+    database_exists,
+    ensure_setup_sql_cached,
+    load_setup_sql_template,
+    permission_database_exists,
+)
+from ..shop_integration import iter_shop_servers, permissions_dll_installed
 from ..ui_constants import get_theme
 from .db_local_server import DbLocalServer
 from .db_setup_wizard import show_db_setup_wizard
@@ -194,7 +202,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     # ── Corpo principal ────────────────────────────────────────────────────
     body = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
     body.grid(row=1, column=0, sticky="nsew")
-    body.grid_rowconfigure(2, weight=1)
+    body.grid_rowconfigure(3, weight=1)
     body.grid_columnconfigure(0, weight=1)
 
     # ── Seção: Servidor Local ──────────────────────────────────────────────
@@ -395,6 +403,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     # Verifica status inicial em background
     threading.Thread(target=lambda: parent.after(200, _refresh_srv_ui),
                      daemon=True).start()
+    parent.after(400, _refresh_bank_status)
 
     # ── Barra de conexão ───────────────────────────────────────────────────
     conn_bar = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)
@@ -496,9 +505,75 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
     _btn_wizard.configure(command=_open_wizard_early)
 
+    # ── Status dos bancos ARKLAND ──────────────────────────────────────────
+    db_status_bar = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)
+    db_status_bar.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 6))
+    db_status_bar.grid_columnconfigure(2, weight=1)
+
+    _shop_db_status = tk.StringVar(value=f"{_DB_NAME}: verificando…")
+    _perm_db_status = tk.StringVar(value=f"{_PERM_DB_NAME}: verificando…")
+    _perm_warn_var = tk.StringVar(value="")
+
+    ctk.CTkLabel(db_status_bar, textvariable=_shop_db_status,
+                 font=ctk.CTkFont(size=10), text_color=t_sec
+                 ).grid(row=0, column=0, padx=(12, 8), pady=8, sticky="w")
+    ctk.CTkLabel(db_status_bar, textvariable=_perm_db_status,
+                 font=ctk.CTkFont(size=10), text_color=t_sec
+                 ).grid(row=0, column=1, padx=(0, 8), pady=8, sticky="w")
+
+    def _switch_db(name: str) -> None:
+        _v_db.set(name)
+
+    ctk.CTkButton(db_status_bar, text=_DB_NAME, width=110, height=24,
+                  font=ctk.CTkFont(size=10),
+                  command=lambda: _switch_db(_DB_NAME)).grid(row=0, column=3, padx=4, pady=8)
+    ctk.CTkButton(db_status_bar, text=_PERM_DB_NAME, width=120, height=24,
+                  font=ctk.CTkFont(size=10),
+                  command=lambda: _switch_db(_PERM_DB_NAME)).grid(row=0, column=4, padx=(4, 12), pady=8)
+
+    ctk.CTkLabel(db_status_bar, textvariable=_perm_warn_var, wraplength=700,
+                 font=ctk.CTkFont(size=10), text_color="#f59e0b"
+                 ).grid(row=1, column=0, columnspan=5, padx=12, pady=(0, 8), sticky="w")
+
+    def _refresh_bank_status() -> None:
+        shop_ok = perm_ok = False
+        if state.is_connected():
+            try:
+                shop_ok = database_exists(state.conn, _DB_NAME)
+                perm_ok = permission_database_exists(state.conn)
+            except Exception:
+                pass
+        _shop_db_status.set(
+            f"{_DB_NAME}: {'✓ existe' if shop_ok else '✗ ausente'}"
+        )
+        _perm_db_status.set(
+            f"{_PERM_DB_NAME}: {'✓ existe' if perm_ok else '✗ ausente'}"
+            + (" — tabelas criadas pelo Permissions.dll no 1º start" if perm_ok else "")
+        )
+
+        needs_perm = False
+        asm_cm = getattr(app, "asm_config_manager", None)
+        cm = getattr(app, "config_manager", None)
+        if cm is not None:
+            for _kind, srv in iter_shop_servers(cm, asm_cm):
+                if permissions_dll_installed(getattr(srv, "install_dir", "") or ""):
+                    needs_perm = True
+                    break
+        if needs_perm and not perm_ok:
+            _perm_warn_var.set(
+                "⚠ Permissions.dll detectado mas banco ark_permission ausente — "
+                "execute «Setup limpo» ou o Assistente de banco."
+            )
+        elif not perm_ok:
+            _perm_warn_var.set(
+                f"Dica: {_PERM_DB_NAME} é usado pelo plugin Permissions (grupos VIP)."
+            )
+        else:
+            _perm_warn_var.set("")
+
     # ── Browser (lazy) ─────────────────────────────────────────────────────
     browser_host = ctk.CTkFrame(body, fg_color=bg, corner_radius=0)
-    browser_host.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 10))
+    browser_host.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 10))
     browser_host.grid_rowconfigure(0, weight=1)
     browser_host.grid_columnconfigure(0, weight=1)
     _db_loading = ctk.CTkLabel(
@@ -792,17 +867,23 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         def _set_status(connected: bool, msg: str = "") -> None:
             if connected:
                 _status_dot.configure(text_color="#22c55e")
-                _v_status.set(msg or "Conectado")
+                extra = ""
+                if state.database == _PERM_DB_NAME:
+                    extra = " — tabelas do Permissions.dll no 1º start do servidor"
+                _v_status.set((msg or "Conectado") + extra)
                 _btn_connect.configure(state="disabled")
                 _btn_disconnect.configure(state="normal")
                 _btn_setup.configure(state="normal")
                 _btn_migrate.configure(state="normal")
                 _btn_newuser.configure(state="normal")
+                _refresh_bank_status()
             else:
                 _status_dot.configure(text_color="#ef4444")
                 _v_status.set(msg or "Desconectado")
                 _btn_connect.configure(state="normal")
                 _btn_disconnect.configure(state="disabled")
+                _shop_db_status.set(f"{_DB_NAME}: desconectado")
+                _perm_db_status.set(f"{_PERM_DB_NAME}: desconectado")
     
         def _do_connect() -> None:
             global pymysql, _PYMYSQL_OK  # noqa: PLW0603

@@ -1,0 +1,13 @@
+{
+  "UseMysql": true,
+  "MysqlHost": "127.0.0.1",
+  "MysqlUser": "arkland",
+  "MysqlPass": "SUA_SENHA_AQUI",
+  "MysqlDB": "ark_permission",
+  "MysqlPort": 3306,
+  "MysqlPlayersTable": "",
+  "MysqlGroupsTable": "",
+  "MysqlTribesTable": "",
+  "DbPathOverride": "",
+  "ClusterSyncTime": 60
+}

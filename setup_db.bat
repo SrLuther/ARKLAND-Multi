@@ -3,7 +3,7 @@ setlocal EnableDelayedExpansion
 title ARKLAND - Configurar banco de dados
 
 echo ============================================================
-echo   ARKLAND Shop - Configuracao do banco de dados
+echo   ARKLAND - Bancos arkland_shop + ark_permission
 echo ============================================================
 echo.
 
@@ -86,29 +86,37 @@ del /f "%SQL_TMP%" 2>nul
 echo.
 echo [2/2] Atualizando config.json do CustomShop...
 
-:: Tenta encontrar config.json do plugin
-set "CFG_FILE=%~dp0plugin\CustomShop\bin\config.json"
-if not exist "%CFG_FILE%" goto :skip_cfg
+:: ── Atualiza configs do CustomShop e Permissions ────────────
+set "CFG_CS=%~dp0plugin\CustomShop\bin\config.json"
+if exist "%CFG_CS%" (
+    powershell -NoProfile -Command ^
+      "(Get-Content '%CFG_CS%') -replace '\"Password\":\s*\"[^\"]*\"', '\"Password\": \"%ARKLAND_PASS%\"' | Set-Content '%CFG_CS%' -Encoding UTF8"
+    echo   CustomShop config.json atualizado.
+)
 
-powershell -NoProfile -Command ^
-  "(Get-Content '%CFG_FILE%') -replace '\"Password\":\s*\"[^\"]*\"', '\"Password\": \"%ARKLAND_PASS%\"' | Set-Content '%CFG_FILE%' -Encoding UTF8"
-
-echo   config.json atualizado com a senha do usuario arkland.
-
-:skip_cfg
+set "CFG_PERM=%~dp0plugin\Permissions\configs\config.json"
+if exist "%CFG_PERM%" (
+    powershell -NoProfile -Command ^
+      "(Get-Content '%CFG_PERM%') -replace '\"MysqlPass\":\s*\"[^\"]*\"', '\"MysqlPass\": \"%ARKLAND_PASS%\"' | Set-Content '%CFG_PERM%' -Encoding UTF8"
+    echo   Permissions config.json atualizado.
+)
 
 echo.
 echo ============================================================
-echo   BANCO CRIADO COM SUCESSO!
+echo   BANCOS CRIADOS COM SUCESSO!
 echo.
 echo   Host     : 127.0.0.1
 echo   Porta    : 3306
-echo   Database : arkland_shop
 echo   Usuario  : arkland
 echo   Senha    : (a que voce definiu acima)
 echo.
+echo   Bancos:
+echo     - arkland_shop    (CustomShop + Web Store)
+echo     - ark_permission  (Permissions.dll — tabelas criadas no 1o start)
+echo.
 echo   Configure esses valores em:
-echo     - Plugin: ArkApi/Plugins/CustomShop/config.json ^> Database
+echo     - CustomShop: ArkApi/Plugins/CustomShop/config.json ^> Database
+echo     - Permissions: ArkApi/Plugins/Permissions/config.json
 echo     - App ARKLAND: aba Loja ^> Web Store ^> Banco de dados
 echo ============================================================
 echo.

@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.3] - 2026-06-12
+
+### Feature
+
+- Novo (DB): setup_db.sql e wizard criam ark_permission além de arkland_shop — banco vazio para o Permissions.dll.
+- Novo (Permissions): template plugin/Permissions/configs/config.json incluído no bundle do app.
+- Novo (Loja): sync/instalação CustomShop grava Permissions/config.json com credenciais do DB Manager (MysqlDB: ark_permission).
+- Novo (DB Manager): status dos bancos arkland_shop e ark_permission, atalhos e aviso se Permissions.dll sem banco.
+- Novo (Loja): botão «Provisionar grupos (RCON)» — Permissions.AddGroup a partir do catálogo CustomShop.
+
+### Improvement
+
+- Melhoria (Plugins): ASE Permissions marcado como obrigatório com grupos na stack CustomShop.
+
 ## [1.9.2] - 2026-06-12
 
 ### Fix

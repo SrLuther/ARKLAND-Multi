@@ -23,6 +23,7 @@ from ..rcon_client import RconClient
 from ..shop_integration import (
     build_webstore_launch,
     check_webstore_firewall_rule,
+    collect_groups_from_catalog,
     create_webstore_firewall_rule,
     default_catalog_path,
     default_customshop_path,
@@ -33,6 +34,7 @@ from ..shop_integration import (
     install_customshop_all,
     is_customshop_installed,
     iter_shop_servers,
+    provision_permission_groups_for_servers,
     read_webstore_log_tail,
     resolve_central_url,
     resolve_public_shop_url,
@@ -1578,7 +1580,8 @@ def _build_webstore_tab(
             f"Copiar CustomShop.dll, libmariadb.dll e z.dll para {len(targets)} servidor(es)?\n\n"
             "As DLLs de dependência vão para Plugins/CustomShop/ e Win64/\n"
             "(necessário para evitar Error 126 ao carregar o plugin).\n\n"
-            "config.json existente não será sobrescrito.",
+            "Também será criado/sincronizado Permissions/config.json (banco ark_permission).\n"
+            "config.json existente do CustomShop não será sobrescrito.",
         ):
             return
         ok, errs = install_customshop_all(
@@ -1651,6 +1654,47 @@ def _build_webstore_tab(
             pass
         messagebox.showinfo("Recarregar plugin CustomShop", msg, parent=parent.winfo_toplevel())
 
+    def _provision_groups() -> None:
+        if not _validate_shared_shop_requirements():
+            return
+        catalog = get_catalog()
+        groups = collect_groups_from_catalog(catalog)
+        if not groups:
+            messagebox.showinfo(
+                "Grupos Permissions",
+                "Nenhum grupo definido no catálogo (Kits.Permissions ou TimedPointsReward.Groups).",
+                parent=parent.winfo_toplevel(),
+            )
+            return
+        asm_cm = getattr(app, "asm_config_manager", None)
+        servers = iter_shop_servers(app.config_manager, asm_cm)
+        preview = ", ".join(groups[:12])
+        if len(groups) > 12:
+            preview += f" (+{len(groups) - 12})"
+        if not messagebox.askyesno(
+            "Provisionar grupos via RCON",
+            f"Criar {len(groups)} grupo(s) via Permissions.AddGroup?\n\n{preview}\n\n"
+            "Requer servidor online com RCON ativo e Permissions.dll carregado.",
+            parent=parent.winfo_toplevel(),
+        ):
+            return
+
+        ok, failed, skipped = provision_permission_groups_for_servers(
+            servers, catalog, server_manager=app.server_manager,
+        )
+        lines = [f"Grupos provisionados: {len(ok)} comando(s) OK"]
+        if failed:
+            lines.append(f"Falhas: {len(failed)}")
+            lines.extend(f"- {e}" for e in failed[:5])
+        if skipped:
+            lines.append(f"Ignorados: {len(skipped)}")
+            lines.extend(f"- {s}" for s in skipped[:5])
+        messagebox.showinfo(
+            "Grupos Permissions",
+            "\n".join(lines),
+            parent=parent.winfo_toplevel(),
+        )
+
     act_row = tk.Frame(card_srv, bg=_INNER)
     act_row.pack(fill="x", padx=10, pady=(6, 10))
     ctk.CTkButton(act_row, text="📦  Instalar CustomShop",
@@ -1662,6 +1706,9 @@ def _build_webstore_tab(
     ctk.CTkButton(act_row, text="♻  Sync + Reload RCON (todos)",
                   height=34, fg_color="#0e7490", hover_color="#155e75",
                   command=_reload_customshop_all_servers).pack(side="left", padx=(0, 10))
+    ctk.CTkButton(act_row, text="👥  Provisionar grupos (RCON)",
+                  height=34, fg_color="#4a3728", hover_color="#5c4632",
+                  command=_provision_groups).pack(side="left", padx=(0, 10))
     ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
                     variable=_auto_sync_var).pack(side="left")
     ctk.CTkButton(act_row, text="↻  Atualizar lista",

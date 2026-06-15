@@ -43,10 +43,11 @@ _OFFICIAL_PLUGINS = [
         "name":       "ASE Permissions",
         "version":    "2.1",
         "author":     "Pelayori",
-        "tag":        "Dependência do ArkShop",
+        "tag":        "Obrigatório com grupos / CustomShop",
         "tag_color":  "#1a3a6a",
-        "desc":       "Adiciona sistema de grupos e permissões ao ArkApi.\n"
-                      "Necessário para controle de grupos no ArkShop.",
+        "desc":       "Gerencia grupos e permissões no ArkApi.\n"
+                      "O CustomShop valida grupos via Permissions.dll (kits VIP, pontos por grupo).\n"
+                      "Requer banco MySQL dedicado ark_permission (provisionado pelo DB Manager).",
         "url":        "https://ark-server-api.com/resources/ase-permissions.35/",
         "detect":     lambda d: (d / _PLUGINS / "Permissions" / "Permissions.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,

@@ -12,7 +12,7 @@ Plugin C++ para **ARK Survival Evolved (ASE)** que gerencia economia de pontos, 
 | [arkshop_web](../arkshop_web/) | — | Interface web + fila de pedidos pendentes |
 | Visual Studio 2022 | C++20 | Compilador |
 | [vcpkg](https://github.com/microsoft/vcpkg) | — | `nlohmann-json`, `sqlite3` |
-| [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) | 2.1+ | *(Opcional)* Kits restritos por grupo |
+| [ASE Permissions](https://ark-server-api.com/resources/ase-permissions.35/) | 2.1+ | **Obrigatório** quando o config usa grupos (kits VIP, pontos por grupo). Banco dedicado `ark_permission`. |
 
 > **Não** instale ArkShop, ArkShopUI nem o mod Workshop **2693727499** (MX-E). A loja é acessada pela web.
 

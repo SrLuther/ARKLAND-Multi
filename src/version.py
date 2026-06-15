@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.2"
-BUILD_DATE: str = "2026-06-15"
+APP_VERSION: str = "1.9.3"
+BUILD_DATE: str = "2026-06-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.3",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (DB): setup_db.sql e wizard criam ark_permission além de arkland_shop — banco vazio para o Permissions.dll.",
+            "Novo (Permissions): template plugin/Permissions/configs/config.json incluído no bundle do app.",
+            "Novo (Loja): sync/instalação CustomShop grava Permissions/config.json com credenciais do DB Manager (MysqlDB: ark_permission).",
+            "Novo (DB Manager): status dos bancos arkland_shop e ark_permission, atalhos e aviso se Permissions.dll sem banco.",
+            "Novo (Loja): botão «Provisionar grupos (RCON)» — Permissions.AddGroup a partir do catálogo CustomShop.",
+            "Melhoria (Plugins): ASE Permissions marcado como obrigatório com grupos na stack CustomShop.",
+        ],
+    },
     {
         "version": "1.9.2",
         "date": "2026-06-12",

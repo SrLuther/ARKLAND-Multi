@@ -19,6 +19,7 @@ a = Analysis(
         ('plugin/CustomShop/bin/CustomShop.dll',      'plugins'),
         ('plugin/CustomShop/bin/libmariadb.dll',       'plugins'),
         ('plugin/CustomShop/bin/z.dll',                'plugins'),
+        ('plugin/Permissions/configs/config.json',   'Permissions/configs'),
     ] + ctk_datas + pil_datas + tray_datas,
     hiddenimports=[
         # customtkinter

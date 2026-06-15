@@ -1,10 +1,14 @@
 -- ============================================================
---  ARKLAND Shop — Banco de dados limpo
+--  ARKLAND — Bancos de dados (loja + permissões)
 --  Execute como root: mysql -u root -p < setup_db.sql
 -- ============================================================
 
--- 1) Banco de dados
+-- 1) Bancos de dados
 CREATE DATABASE IF NOT EXISTS arkland_shop
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+CREATE DATABASE IF NOT EXISTS ark_permission
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
@@ -14,6 +18,8 @@ CREATE USER IF NOT EXISTS 'arkland'@'%'         IDENTIFIED BY 'SUA_SENHA_AQUI';
 
 GRANT ALL PRIVILEGES ON arkland_shop.* TO 'arkland'@'localhost';
 GRANT ALL PRIVILEGES ON arkland_shop.* TO 'arkland'@'%';
+GRANT ALL PRIVILEGES ON ark_permission.* TO 'arkland'@'localhost';
+GRANT ALL PRIVILEGES ON ark_permission.* TO 'arkland'@'%';
 FLUSH PRIVILEGES;
 
 USE arkland_shop;
@@ -113,6 +119,10 @@ CREATE TABLE IF NOT EXISTS shop_admins (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================
-SELECT '>>> Banco arkland_shop criado com sucesso!' AS resultado;
+--  ark_permission: tabelas criadas pelo Permissions.dll no primeiro start
+-- ============================================================
+
+SELECT '>>> Bancos arkland_shop e ark_permission criados com sucesso!' AS resultado;
+USE arkland_shop;
 SHOW TABLES;
 -- ============================================================

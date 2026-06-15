@@ -1,4 +1,4 @@
-"""Recursos e helpers para instalação do banco arkland_shop (dev + PyInstaller)."""
+"""Recursos e helpers para instalação dos bancos arkland_shop + ark_permission (dev + PyInstaller)."""
 from __future__ import annotations
 
 import os
@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 _PASSWORD_PLACEHOLDER = "SUA_SENHA_AQUI"
 _DB_NAME = "arkland_shop"
+_PERM_DB_NAME = "ark_permission"
 _SHOP_USER = "arkland"
 
 
@@ -146,6 +147,11 @@ def database_exists(conn: Any, name: str = _DB_NAME) -> bool:
         cur.close()
 
 
+def permission_database_exists(conn: Any, name: str = _PERM_DB_NAME) -> bool:
+    """Verifica se o banco ark_permission (Permissions.dll) existe."""
+    return database_exists(conn, name)
+
+
 def save_shop_connection_prefs(
     *,
     host: str,
@@ -153,6 +159,7 @@ def save_shop_connection_prefs(
     user: str,
     password: str,
     database: str = _DB_NAME,
+    permission_database: str = _PERM_DB_NAME,
 ) -> None:
     from .pages.db_local_server import DbLocalServer
 
@@ -163,6 +170,7 @@ def save_shop_connection_prefs(
         "user": user,
         "password": password,
         "database": database,
+        "permission_database": permission_database,
     }
     prefs["shop_db"] = {
         "host": host,
@@ -170,5 +178,6 @@ def save_shop_connection_prefs(
         "user": user,
         "password": password,
         "database": database,
+        "permission_database": permission_database,
     }
     DbLocalServer._save_prefs(prefs)

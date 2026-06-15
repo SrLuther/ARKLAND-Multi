@@ -21,6 +21,9 @@ if TYPE_CHECKING:
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_CATALOG = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
 _PLUGIN_INFO = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "PluginInfo.json"
+_PERM_CONFIG_TEMPLATE = _PROJECT_ROOT / "plugin" / "Permissions" / "configs" / "config.json"
+_PERM_DB_NAME = "ark_permission"
+_PERM_PASSWORD_PLACEHOLDER = "SUA_SENHA_AQUI"
 _DEV_BIN_DIR = _PROJECT_ROOT / "plugin" / "CustomShop" / "bin"
 _ARKSHOP_WEB_DIR = _PROJECT_ROOT / "plugin" / "arkshop_web"
 _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
@@ -144,6 +147,38 @@ def customshop_plugin_dir(install_dir: str) -> Path:
     )
 
 
+def permissions_plugin_dir(install_dir: str) -> Path:
+    return (
+        Path(install_dir)
+        / "ShooterGame"
+        / "Binaries"
+        / "Win64"
+        / "ArkApi"
+        / "Plugins"
+        / "Permissions"
+    )
+
+
+def default_permissions_config_path(install_dir: str) -> str:
+    if not install_dir or not install_dir.strip():
+        return ""
+    return str(permissions_plugin_dir(install_dir) / "config.json")
+
+
+def permissions_dll_installed(install_dir: str) -> bool:
+    if not install_dir or not install_dir.strip():
+        return False
+    return (permissions_plugin_dir(install_dir) / "Permissions.dll").is_file()
+
+
+def _default_permissions_template() -> Path:
+    if getattr(sys, "frozen", False):
+        bundled = Path(sys._MEIPASS) / "Permissions" / "configs" / "config.json"  # type: ignore[attr-defined]
+        if bundled.is_file():
+            return bundled
+    return _PERM_CONFIG_TEMPLATE if _PERM_CONFIG_TEMPLATE.is_file() else _PERM_CONFIG_TEMPLATE
+
+
 def server_win64_dir(install_dir: str) -> Path:
     return Path(install_dir) / "ShooterGame" / "Binaries" / "Win64"
 
@@ -237,6 +272,7 @@ def install_customshop_to_server(
     install_dir: str,
     *,
     overwrite_dlls: bool = True,
+    shop: Optional["ShopGlobalConfig"] = None,
 ) -> Tuple[List[str], List[str]]:
     """Copia DLLs embutidas + PluginInfo/config padrão. Retorna (copiados, avisos/erros)."""
     ok: List[str] = []
@@ -293,7 +329,172 @@ def install_customshop_to_server(
         else:
             notes.append("config.json padrão não encontrado no app")
 
+    perm_notes = _ensure_permissions_config_on_server(install_dir, shop=shop)
+    ok.extend(perm_notes[0])
+    notes.extend(perm_notes[1])
+
     return ok, notes
+
+
+def build_permissions_config_settings(shop: Optional["ShopGlobalConfig"] = None) -> Dict[str, Any]:
+    """Monta credenciais MySQL para Permissions/config.json (sempre ark_permission)."""
+    host = "127.0.0.1"
+    port = 3306
+    user = "arkland"
+    password = ""
+
+    if shop is not None:
+        host = (shop.orders_db_host or "").strip() or host
+        port = int(shop.orders_db_port or port)
+        user = (shop.orders_db_user or "").strip() or user
+        password = (shop.orders_db_password or "").strip()
+
+    prefs = _db_manager_prefs()
+    host = host or prefs.get("host", "127.0.0.1")
+    port = port or int(prefs.get("port", 3306))
+    user = user or prefs.get("user", "arkland")
+    password = password or prefs.get("password", "")
+
+    return {
+        "UseMysql": True,
+        "MysqlHost": host,
+        "MysqlUser": user,
+        "MysqlPass": password,
+        "MysqlDB": _PERM_DB_NAME,
+        "MysqlPort": port,
+    }
+
+
+def merge_permissions_config(
+    existing: Dict[str, Any],
+    settings: Dict[str, Any],
+) -> Dict[str, Any]:
+    out = deepcopy(existing) if existing else {}
+    for key in ("UseMysql", "MysqlHost", "MysqlUser", "MysqlPass", "MysqlDB", "MysqlPort"):
+        if key in settings and settings[key] not in (None, ""):
+            out[key] = settings[key]
+    out["UseMysql"] = True
+    out["MysqlDB"] = _PERM_DB_NAME
+    return out
+
+
+def sync_permissions_at_path(plugin_path: Path, settings: Dict[str, Any]) -> None:
+    existing: Dict[str, Any] = {}
+    if plugin_path.exists():
+        existing = load_plugin_config(plugin_path)
+    elif _default_permissions_template().is_file():
+        existing = load_plugin_config(_default_permissions_template())
+    merged = merge_permissions_config(existing, settings)
+    save_plugin_config(plugin_path, merged)
+
+
+def _ensure_permissions_config_on_server(
+    install_dir: str,
+    shop: Optional["ShopGlobalConfig"] = None,
+) -> Tuple[List[str], List[str]]:
+    """Garante Permissions/config.json no servidor. Retorna (ok, notes)."""
+    ok: List[str] = []
+    notes: List[str] = []
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio (Permissions)"]
+
+    dest = permissions_plugin_dir(install_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+    cfg_path = dest / "config.json"
+    try:
+        sync_permissions_at_path(cfg_path, build_permissions_config_settings(shop))
+        ok.append(f"Permissions/config.json → {cfg_path}")
+    except Exception as exc:
+        notes.append(f"Permissions config: {exc}")
+    return ok, notes
+
+
+def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
+    """Extrai nomes de grupos únicos do catálogo CustomShop."""
+    found: set[str] = set()
+    for kit in catalog.get("Kits", {}).values():
+        if not isinstance(kit, dict):
+            continue
+        perms = kit.get("Permissions", "")
+        if isinstance(perms, list):
+            for g in perms:
+                g = str(g).strip()
+                if g:
+                    found.add(g)
+        elif perms:
+            for token in str(perms).split(","):
+                g = token.strip()
+                if g:
+                    found.add(g)
+
+    timed = catalog.get("TimedPointsReward", {})
+    if isinstance(timed, dict):
+        groups = timed.get("Groups", {})
+        if isinstance(groups, dict):
+            for name in groups:
+                g = str(name).strip()
+                if g:
+                    found.add(g)
+    return sorted(found)
+
+
+def provision_permission_groups_for_servers(
+    servers: List[Tuple[str, Any]],
+    catalog: Dict[str, Any],
+    *,
+    server_manager: Any = None,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Cria grupos via RCON (Permissions.AddGroup). Retorna (ok, erros, ignorados)."""
+    from .rcon_client import RconClient
+
+    groups = collect_groups_from_catalog(catalog)
+    if not groups:
+        return [], [], ["Nenhum grupo definido no catálogo"]
+
+    ok: List[str] = []
+    failed: List[str] = []
+    skipped: List[str] = []
+
+    for _kind, srv in servers:
+        name = getattr(srv, "name", "") or getattr(srv, "id", "") or "Servidor"
+        if not getattr(srv, "rcon_enabled", False):
+            skipped.append(f"{name}: RCON desativado")
+            continue
+        rcon_pass = (
+            getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
+        ).strip()
+        if not rcon_pass:
+            skipped.append(f"{name}: senha RCON/admin não definida")
+            continue
+
+        host = (getattr(srv, "server_ip", "") or "127.0.0.1").strip() or "127.0.0.1"
+        port = int(getattr(srv, "rcon_port", None) or 27020)
+
+        if server_manager is not None:
+            inst = server_manager.get_instance(getattr(srv, "id", ""))
+            if inst is not None and getattr(inst, "status", "") != "running":
+                skipped.append(f"{name}: servidor não está em execução")
+                continue
+
+        client = RconClient(host, port, rcon_pass)
+        try:
+            client.connect()
+            for group in groups:
+                cmd = f"Permissions.AddGroup {group}"
+                cmd_ok, result = client.send_command_with_retry(cmd, retries=2)
+                if cmd_ok:
+                    ok.append(f"{name}: {group}")
+                else:
+                    failed.append(f"{name}/{group}: {result or 'falha'}")
+        except Exception as exc:
+            failed.append(f"{name}: {exc}")
+        finally:
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+
+    return ok, failed, skipped
 
 
 def iter_shop_servers(
@@ -343,13 +544,14 @@ def install_customshop_all(
     classic_dirty = False
     tek_dirty = False
 
+    shop = cm.config.shop
     for kind, srv in iter_shop_servers(cm, asm_cm):
         name = getattr(srv, "name", "") or getattr(srv, "id", "")
         if not getattr(srv, "install_dir", ""):
             errors.append(f"{name}: sem install_dir")
             continue
         copied, notes = install_customshop_to_server(
-            srv.install_dir, overwrite_dlls=overwrite_dlls,
+            srv.install_dir, overwrite_dlls=overwrite_dlls, shop=shop,
         )
         if not copied and notes:
             errors.append(f"{name}: {'; '.join(notes)}")
@@ -734,7 +936,17 @@ def sync_all_plugins(
                     tek_dirty = True
                 else:
                     classic_dirty = True
-            ok.append(f"{getattr(srv, 'name', '')} → {plugin_path}")
+            ok.append(f"{getattr(srv, 'name', '')} → CustomShop {plugin_path}")
+
+            install_dir = getattr(srv, "install_dir", "") or ""
+            if install_dir:
+                perm_ok, perm_notes = _ensure_permissions_config_on_server(
+                    install_dir, shop=shop,
+                )
+                for line in perm_ok:
+                    ok.append(f"{getattr(srv, 'name', '')} → {line}")
+                for line in perm_notes:
+                    errors.append(f"{getattr(srv, 'name', '')}: {line}")
         except Exception as exc:
             errors.append(f"{getattr(srv, 'name', '')}: {exc}")
 

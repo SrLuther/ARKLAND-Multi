@@ -1,4 +1,4 @@
-"""Assistente guiado — instalação MariaDB + banco arkland_shop."""
+"""Assistente guiado — instalação MariaDB + bancos arkland_shop e ark_permission."""
 from __future__ import annotations
 
 import threading
@@ -9,10 +9,12 @@ import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..db_setup_resources import (
     _DB_NAME,
+    _PERM_DB_NAME,
     _SHOP_USER,
     build_setup_sql,
     database_exists,
     execute_setup_sql,
+    permission_database_exists,
     save_shop_connection_prefs,
     test_connection,
 )
@@ -30,7 +32,7 @@ def show_db_setup_wizard(
     *,
     on_connected: Optional[Callable[[], None]] = None,
 ) -> None:
-    """Abre wizard em 3 passos: servidor → root → criar arkland_shop."""
+    """Abre wizard em 3 passos: servidor → root → criar arkland_shop + ark_permission."""
     theme = get_theme("tek")
     card_bg = theme["card_bg"]
     accent = theme["accent"]
@@ -52,7 +54,7 @@ def show_db_setup_wizard(
     status_color = tk.StringVar(value=t_mut)
 
     ctk.CTkLabel(
-        dlg, text="Configuração do banco arkland_shop",
+        dlg, text="Bancos arkland_shop + ark_permission",
         font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
         text_color=accent,
     ).grid(row=0, column=0, padx=24, pady=(20, 4), sticky="w")
@@ -162,7 +164,7 @@ def show_db_setup_wizard(
             btn_next.configure(text="Próximo →", state="normal")
             btn_run.grid_remove()
         else:
-            step_lbl.configure(text="Passo 3 de 3 — Criar banco e usuário")
+            step_lbl.configure(text="Passo 3 de 3 — Criar bancos e usuário")
             p3.grid(row=0, column=0, columnspan=2, sticky="ew", padx=16, pady=16)
             btn_back.configure(state="normal")
             btn_next.grid_remove()
@@ -205,7 +207,7 @@ def show_db_setup_wizard(
             _set_status("As senhas não coincidem.", error=True)
             return
         btn_run.configure(state="disabled")
-        _set_status("Criando banco e tabelas...")
+        _set_status("Criando bancos e tabelas da loja...")
 
         def _worker() -> None:
             try:
@@ -215,17 +217,20 @@ def show_db_setup_wizard(
                     host="127.0.0.1", port=3306, user="root",
                     password=v_root_pass.get(), connect_timeout=8,
                 )
-                if database_exists(conn):
+                if database_exists(conn, _DB_NAME) and permission_database_exists(conn):
                     conn.close()
                     dlg.after(0, lambda: (
                         _set_status(
-                            f"Banco {_DB_NAME} já existe. Use «Migrar pts» se precisar importar dados.",
+                            f"Bancos {_DB_NAME} e {_PERM_DB_NAME} já existem. "
+                            "Use «Migrar pts» se precisar importar dados.",
                             error=True,
                         ),
                         btn_run.configure(state="normal"),
                     ))
                     return
                 executed, errors = execute_setup_sql(conn, pwd)
+                shop_ok = database_exists(conn, _DB_NAME)
+                perm_ok = permission_database_exists(conn)
                 conn.close()
                 if errors:
                     dlg.after(0, lambda: (
@@ -233,21 +238,35 @@ def show_db_setup_wizard(
                         btn_run.configure(state="normal"),
                     ))
                     return
+                if not shop_ok or not perm_ok:
+                    dlg.after(0, lambda: (
+                        _set_status(
+                            f"Setup incompleto — shop={shop_ok}, permission={perm_ok}",
+                            error=True,
+                        ),
+                        btn_run.configure(state="normal"),
+                    ))
+                    return
                 save_shop_connection_prefs(
                     host="127.0.0.1", port=3306,
                     user=_SHOP_USER, password=pwd, database=_DB_NAME,
+                    permission_database=_PERM_DB_NAME,
                 )
 
                 def _done() -> None:
                     from tkinter import messagebox
                     messagebox.showinfo(
-                        "Banco criado",
-                        f"Banco {_DB_NAME} criado com sucesso!\n\n"
+                        "Bancos criados",
+                        f"Bancos criados com sucesso!\n\n"
+                        f"• {_DB_NAME} — CustomShop + Web Store\n"
+                        f"• {_PERM_DB_NAME} — Permissions.dll "
+                        f"(tabelas criadas no 1º start)\n\n"
                         f"Usuário: {_SHOP_USER}\n"
                         f"Host: 127.0.0.1:3306\n\n"
                         "Configure os mesmos dados em:\n"
                         "• Loja → Web Store → Banco de Pedidos\n"
-                        "• CustomShop → config.json → Database",
+                        "• CustomShop → config.json → Database\n"
+                        "• Permissions → config.json (sincronizado ao instalar loja)",
                         parent=dlg,
                     )
                     dlg.destroy()

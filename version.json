@@ -1,10 +1,13 @@
 {
-    "version": "1.9.2",
-    "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.2/ARKLAND-Multi-Setup-v1.9.2.exe",
+    "version": "1.9.3",
+    "date": "2026-06-12",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.3/ARKLAND-Multi-Setup-v1.9.3.exe",
     "changelog": [
-        "Fix (TEK/paridade primitiva): novo _asm_persist_server — Iniciar, Reiniciar e Instalar agora seguem o mesmo fluxo do modo primitivo (widgets → JSON → INI → ação).",
-        "Fix (TEK/SessionName): nome da sessão vazio usa automaticamente o nome do gerenciador, igual ao server_name do modo primitivo.",
-        "Fix (TEK): caminhos duplicados de start consolidados; SteamCMD usa persistência completa antes de rodar."
+        "Novo (DB): setup_db.sql e wizard criam ark_permission além de arkland_shop — banco vazio para o Permissions.dll.",
+        "Novo (Permissions): template plugin/Permissions/configs/config.json incluído no bundle do app.",
+        "Novo (Loja): sync/instalação CustomShop grava Permissions/config.json com credenciais do DB Manager (MysqlDB: ark_permission).",
+        "Novo (DB Manager): status dos bancos arkland_shop e ark_permission, atalhos e aviso se Permissions.dll sem banco.",
+        "Novo (Loja): botão «Provisionar grupos (RCON)» — Permissions.AddGroup a partir do catálogo CustomShop.",
+        "Melhoria (Plugins): ASE Permissions marcado como obrigatório com grupos na stack CustomShop."
     ]
 }
