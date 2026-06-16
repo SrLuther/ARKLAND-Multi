@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.18"
+APP_VERSION: str = "1.9.19"
 BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.19",
+        "date": "2026-06-16",
+        "changes": [
+            "Fix (PIX): impede crédito duplicado de pontos — webhook e polling na mesma transação "
+            "com trava no banco.",
+            "Fix (CustomShop/TimedPoints): Default (+25 etc.) só para jogadores conectados; "
+            "sem acúmulo offline.",
+            "Novo (CustomShop): licença VIP ao entregar kit — campo VipLicense (tier + até 30 dias) "
+            "registra vip_players na entrega web.",
+            "Melhoria (TimedPoints): bônus VIP por licença web resgatada ou permissão in-game; "
+            "Stack configurável.",
+        ],
+    },
     {
         "version": "1.9.18",
         "date": "2026-06-16",

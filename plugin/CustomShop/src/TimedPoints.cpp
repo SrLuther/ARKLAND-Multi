@@ -4,6 +4,7 @@
 #include "ShopPoints.h"
 #include "ShopBridge.h"
 #include "ShopPerms.h"
+#include "ShopVip.h"
 
 #include <Timer.h>
 
@@ -17,7 +18,6 @@ void Tick() {
     const auto& groups_cfg = cfg.value("Groups", nlohmann::json::object());
     if (groups_cfg.empty()) return;
 
-    // Build sorted list of (group_name, amount) — exclude zero-amount entries.
     std::vector<std::pair<std::string, int>> group_amounts;
     group_amounts.reserve(groups_cfg.size());
     for (const auto& [grp, val] : groups_cfg.items()) {
@@ -27,7 +27,7 @@ void Tick() {
     }
     if (group_amounts.empty()) return;
 
-    // Iterate all connected players.
+    // Only connected players — no offline accumulation.
     const auto& controllers =
         ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
 
@@ -45,14 +45,25 @@ void Tick() {
             continue;
         }
 
-        // Calculate award based on group membership.
         int total = 0;
         int best  = 0;
+
         for (const auto& [grp, amt] : group_amounts) {
-            if (CustomShop::Perms::IsInGroup(steam_id, grp)) {
-                total += amt;
-                if (amt > best) best = amt;
+            bool qualifies = false;
+            if (grp == "Default") {
+                // Base interval reward — every connected player.
+                qualifies = true;
+            } else if (CustomShop::Perms::IsInGroup(steam_id, grp)) {
+                qualifies = true;
+            } else {
+                // Web-redeemed VIP license (vip_players) matching this tier.
+                const std::string tier = CustomShop::ShopVip::Get().GetActiveTier(sid);
+                qualifies = (!tier.empty() && tier == grp);
             }
+
+            if (!qualifies) continue;
+            total += amt;
+            if (amt > best) best = amt;
         }
 
         const int award = stack ? total : best;
@@ -78,11 +89,10 @@ void Start() {
     const int interval_min  = cfg.value("Interval", 30);
     const int interval_secs = interval_min * 60;
 
-    // -1 = repeat forever; false = run on game thread (safe for Ark API calls).
     API::Timer::Get().RecurringExecute(Tick, interval_secs, -1, false);
 
     Log::GetLog()->info(
-        "TimedPoints: started (interval={} min, stack={}).",
+        "TimedPoints: started (interval={} min, stack={}, online players only).",
         interval_min,
         cfg.value("StackRewards", true) ? "yes" : "no");
 }

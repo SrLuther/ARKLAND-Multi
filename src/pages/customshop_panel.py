@@ -102,10 +102,16 @@ def _load_config(path: Path) -> Dict[str, Any]:
             "Items": {},
             "Kits": {},
             "TimedPointsReward": {
-                "Enabled": True,
+                "Enabled": False,
                 "Interval": 30,
                 "StackRewards": True,
-                "Groups": {"Default": {"Amount": 25}},
+                "Groups": {
+                    "Default": {"Amount": 25},
+                    "VIPBronze": {"Amount": 20},
+                    "VIPPrata": {"Amount": 30},
+                    "VIPOuro": {"Amount": 50},
+                    "VIPDiamante": {"Amount": 75},
+                },
             },
             "Database": {
                 "Host": "127.0.0.1",
@@ -387,6 +393,16 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                            highlightbackground=_BDR)
         card_tp.pack(fill="x", padx=12, pady=8)
         _head(card_tp, "⏱️  TimedPointsReward")
+        tk.Label(
+            card_tp,
+            text=(
+                "Default: pontos base para quem está conectado no servidor. "
+                "Grupos VIP: bônus com licença resgatada na loja web ou permissão no jogo. "
+                "Sem pontos offline."
+            ),
+            bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
+            anchor="w", justify="left", wraplength=720,
+        ).pack(fill="x", padx=10, pady=(0, 6))
 
         tp = data.get("TimedPointsReward", {})
         _tpv.clear()
@@ -397,7 +413,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         })
         _bool_row(card_tp, "Ativado", _tpv["Enabled"], bg=_INNER)
         _field_row(card_tp, "Intervalo (minutos)", _tpv["Interval"], bg=_INNER,
-                   hint="Minutos entre cada distribuição de pontos", width=100)
+                   hint="Minutos entre cada distribuição — só jogadores conectados", width=100)
         _bool_row(card_tp, "Acumular Recompensas (Stack)", _tpv["StackRewards"], bg=_INNER)
 
         tk.Frame(card_tp, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)

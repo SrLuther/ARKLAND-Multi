@@ -3,35 +3,28 @@
 #include "pch.h"
 
 // ─────────────────────────────────────────────────────────────────
-//  TimedPoints — awards shop points to every online player on a
-//  configurable interval, with per-permission-group amounts.
+//  TimedPoints — awards shop points on a fixed interval to players
+//  who are connected on the server. No offline accumulation.
 //
-//  Config section (config.json):
+//  Default group: base reward for every online player.
+//  Other groups: permission group and/or active VIP license (vip_players)
+//  from a web-redeemed kit (VipLicense in kit JSON).
+//
 //  "TimedPointsReward": {
 //    "Enabled": true,
-//    "Interval": 30,          // minutes
-//    "StackRewards": true,    // add all groups the player is in
+//    "Interval": 30,
+//    "StackRewards": true,
 //    "Groups": {
 //      "Default":     { "Amount": 25  },
 //      "VIPBronze":   { "Amount": 20  },
-//      "VIPPrata":    { "Amount": 30  },
-//      "VIPOuro":     { "Amount": 50  },
-//      "VIPDiamante": { "Amount": 75  },
-//      "VIPDoacao":   { "Amount": 100 },
-//      "Staff":       { "Amount": 1000}
+//      ...
 //    }
 //  }
-//
-//  With StackRewards=true a Staff + VIPOuro player receives
-//  Default(25) + VIPOuro(50) + Staff(1000) = 1075 pts per tick.
-//  With StackRewards=false they receive only the highest value (1000).
 // ─────────────────────────────────────────────────────────────────
 
 namespace CustomShop {
 namespace TimedPoints {
 
-// Register the recurring timer.  Call once in Plugin_Init after
-// ShopConfig and ShopPoints are initialised.
 void Start();
 
 } // namespace TimedPoints

@@ -3618,7 +3618,7 @@
     }
   },
   "TimedPointsReward": {
-    "_comment": "Awards points to every online player on a fixed interval. Amounts stack if StackRewards=true.",
+    "_comment": "Interval rewards for connected players only. Default = base for everyone online.",
     "Enabled": true,
     "Interval": 30,
     "StackRewards": true,
@@ -3640,9 +3640,6 @@
       },
       "VIPDoacao": {
         "Amount": 100
-      },
-      "Staff": {
-        "Amount": 1000
       }
     }
   },
@@ -3842,6 +3839,10 @@
       "Price": 0,
       "Description": "VIP Bronze (R$20,00)",
       "Permissions": "Admins,VIPBronze",
+      "VipLicense": {
+        "Tier": "VIPBronze",
+        "Days": 30
+      },
       "Items": [
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Transmitter/PrimalItemStructure_TransmitterPlus.PrimalItemStructure_TransmitterPlus",
@@ -3969,6 +3970,10 @@
       "Price": 0,
       "Description": "VIP Prata (R$30,00)",
       "Permissions": "Admins,VIPPrata",
+      "VipLicense": {
+        "Tier": "VIPPrata",
+        "Days": 30
+      },
       "Items": [
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Transmitter/PrimalItemStructure_TransmitterPlus.PrimalItemStructure_TransmitterPlus",
@@ -4194,6 +4199,10 @@
       "Price": 0,
       "Description": "VIP Ouro(R$50,00)",
       "Permissions": "Admins,VIPOuro",
+      "VipLicense": {
+        "Tier": "VIPOuro",
+        "Days": 30
+      },
       "Items": [
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Transmitter/PrimalItemStructure_TransmitterPlus.PrimalItemStructure_TransmitterPlus",
@@ -4433,6 +4442,10 @@
       "Price": 0,
       "Description": "VIP Diamante (R$75,00)",
       "Permissions": "Admins,VIPDiamante",
+      "VipLicense": {
+        "Tier": "VIPDiamante",
+        "Days": 30
+      },
       "Items": [
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Transmitter/PrimalItemStructure_TransmitterPlus.PrimalItemStructure_TransmitterPlus",

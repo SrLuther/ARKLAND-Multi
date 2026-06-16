@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.19] - 2026-06-16
+
+### Feature
+
+- Novo (CustomShop): licença VIP ao entregar kit — campo VipLicense (tier + até 30 dias) registra vip_players na entrega web.
+
+### Improvement
+
+- Melhoria (TimedPoints): bônus VIP por licença web resgatada ou permissão in-game; Stack configurável.
+
+### Fix
+
+- Fix (PIX): impede crédito duplicado de pontos — webhook e polling na mesma transação com trava no banco.
+- Fix (CustomShop/TimedPoints): Default (+25 etc.) só para jogadores conectados; sem acúmulo offline.
+
 ## [1.9.18] - 2026-06-16
 
 ### Feature

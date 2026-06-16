@@ -4,6 +4,7 @@
 #include "ShopConfig.h"
 #include "ShopPoints.h"
 #include "ShopPerms.h"
+#include "ShopVip.h"
 
 namespace {
 
@@ -236,6 +237,25 @@ bool GiveKit(AShooterPlayerController* controller,
     if (kit.contains("Items"))    GiveItemsArray(controller,  kit.at("Items"));
     if (kit.contains("Dinos"))    SpawnDinosArray(controller, kit.at("Dinos"));
     if (kit.contains("Commands")) RunCommands(kit.at("Commands"), controller, id);
+
+    if (kit.contains("VipLicense") && kit.at("VipLicense").is_object()) {
+        const auto& lic = kit.at("VipLicense");
+        const std::string tier = lic.value("Tier", "");
+        const int days_raw = lic.value("Days", 30);
+        const int days = std::max(1, std::min(30, days_raw));
+        if (!tier.empty()) {
+            const std::string notes = "kit:" + kit_id;
+            if (ShopVip::Get().AddVip(id, days, tier, notes)) {
+                Log::GetLog()->info(
+                    "GiveKit: VIP license tier={} days={} for player '{}'",
+                    tier, days, id);
+            } else {
+                Log::GetLog()->error(
+                    "GiveKit: failed to register VIP license for player '{}'",
+                    id);
+            }
+        }
+    }
 
     Log::GetLog()->info("GiveKit: kit '{}' delivered to player '{}'", kit_id, id);
     return true;

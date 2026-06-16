@@ -76,7 +76,7 @@
   },
 
   "TimedPointsReward": {
-    "_comment":      "Awards points to every online player on a fixed interval. Amounts stack if StackRewards=true.",
+    "_comment": "Interval rewards for connected players only. Default = base for everyone online.",
     "Enabled":       true,
     "Interval":      30,
     "StackRewards":  true,
@@ -86,8 +86,7 @@
       "VIPPrata":    { "Amount": 30   },
       "VIPOuro":     { "Amount": 50   },
       "VIPDiamante": { "Amount": 75   },
-      "VIPDoacao":   { "Amount": 100  },
-      "Staff":       { "Amount": 1000 }
+      "VIPDoacao":   { "Amount": 100  }
     }
   },
 

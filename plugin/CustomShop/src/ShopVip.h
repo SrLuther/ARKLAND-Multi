@@ -39,6 +39,9 @@ public:
     // True if the player has a non-expired VIP row.
     bool IsVip(const std::string& steam_id);
 
+    // Tier name for an active (non-expired) license, or empty if none.
+    std::string GetActiveTier(const std::string& steam_id);
+
     // Returns all VIP rows (expired ones included, for display).
     std::vector<VipEntry> ListVip();
 

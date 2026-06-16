@@ -68,25 +68,34 @@ bool ShopVip::RemoveVip(const std::string& steam_id) {
 }
 
 bool ShopVip::IsVip(const std::string& steam_id) {
-    if (!db_) return false;
+    return !GetActiveTier(steam_id).empty();
+}
+
+std::string ShopVip::GetActiveTier(const std::string& steam_id) {
+    if (!db_ || steam_id.empty()) return "";
 
     char buf[64];
     mysql_real_escape_string(db_, buf,
         steam_id.c_str(), static_cast<unsigned long>(steam_id.size()));
 
     const std::string sql =
-        "SELECT 1 FROM vip_players "
+        "SELECT tier FROM vip_players "
         "WHERE steam_id = '" + std::string(buf) + "' "
-        "  AND (expires IS NULL OR expires > NOW()) LIMIT 1;";
+        "  AND (expires IS NULL OR expires > NOW()) "
+        "ORDER BY expires IS NULL ASC, expires DESC LIMIT 1;";
 
-    if (mysql_query(db_, sql.c_str()) != 0) return false;
+    if (mysql_query(db_, sql.c_str()) != 0) return "";
 
     MYSQL_RES* res = mysql_store_result(db_);
-    if (!res) return false;
+    if (!res) return "";
 
-    const bool found = (mysql_num_rows(res) > 0);
+    std::string tier;
+    MYSQL_ROW row = mysql_fetch_row(res);
+    if (row && row[0] && row[0][0]) {
+        tier = row[0];
+    }
     mysql_free_result(res);
-    return found;
+    return tier;
 }
 
 std::vector<VipEntry> ShopVip::ListVip() {

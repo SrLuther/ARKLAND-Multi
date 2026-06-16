@@ -704,25 +704,35 @@ def _add_player_points(steam_id: str, amount: int) -> int | None:
         return None
     db = _SessionLocal()
     try:
-        db.execute(
-            text(
-                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
-                "ON DUPLICATE KEY UPDATE points = points + :pts"
-            ),
-            {"sid": steam_id, "pts": amount},
-        )
+        new_balance = _add_player_points_tx(db, steam_id, amount)
         db.commit()
-        row = db.execute(
-            text("SELECT points FROM players WHERE steam_id = :sid"),
-            {"sid": steam_id},
-        ).fetchone()
-        return int(row[0]) if row else None
+        return new_balance
     except Exception as exc:
         db.rollback()
         _log_error("add_player_points", steam_id=steam_id, amount=amount, error=str(exc))
         return None
     finally:
         db.close()
+
+
+def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
+    """Credita pontos na sessão atual (sem commit)."""
+    if amount <= 0:
+        raise ValueError("amount must be positive")
+    db.execute(
+        text(
+            "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+            "ON DUPLICATE KEY UPDATE points = points + :pts"
+        ),
+        {"sid": steam_id, "pts": amount},
+    )
+    row = db.execute(
+        text("SELECT points FROM players WHERE steam_id = :sid"),
+        {"sid": steam_id},
+    ).fetchone()
+    if not row:
+        raise RuntimeError("player row missing after credit")
+    return int(row[0])
 
 
 def _read_shop_config() -> dict[str, Any]:
@@ -1853,26 +1863,37 @@ def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
 
 def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str) -> None:
     mapped = map_mp_status(mp_status)
+    locked = (
+        db.query(PointPayment)
+        .filter(PointPayment.payment_id == payment.payment_id)
+        .with_for_update()
+        .first()
+    )
+    if not locked:
+        return
+    payment = locked
     payment.status = mapped
     payment.updated_at = _now()
     if mapped == "APROVADO" and not payment.credited:
-        balance = _add_player_points(payment.steam_id, payment.points)
-        if balance is not None:
+        try:
+            new_balance = _add_player_points_tx(db, payment.steam_id, payment.points)
             payment.credited = True
             _log(
                 "pix_credited",
                 payment_id=payment.payment_id,
                 steam_id=payment.steam_id,
                 points=payment.points,
-                new_balance=balance,
+                new_balance=new_balance,
             )
-        else:
+        except Exception as exc:
             _log_error(
                 "pix_credit_failed",
                 payment_id=payment.payment_id,
                 steam_id=payment.steam_id,
                 points=payment.points,
+                error=str(exc),
             )
+            raise
 
 
 @app.route("/api/player/available", methods=["GET"])
@@ -2053,7 +2074,17 @@ def player_pix_status(payment_id: str):
 
         poll_error = None
         mp_status_raw = None
-        if payment.status not in ("APROVADO", "RECUSADO", "EXPIRADO", "ESTORNADO") and payment.mp_payment_id:
+        if payment.credited:
+            pass
+        elif payment.status == "APROVADO":
+            try:
+                _finalize_pix_payment(db, payment, "approved")
+                db.commit()
+            except Exception as exc:
+                db.rollback()
+                poll_error = str(exc)
+                _log_error("pix_status_retry_credit", payment_id=payment_id, error=poll_error)
+        elif payment.status not in ("RECUSADO", "EXPIRADO", "ESTORNADO") and payment.mp_payment_id:
             token = _get_mp_access_token()
             if not token:
                 poll_error = "Access Token do Mercado Pago não configurado"
