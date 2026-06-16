@@ -22,6 +22,10 @@ import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..rcon_client import RconClient
 from ..shop_catalog_import import import_catalog_from_file
 from ..shop_integration import (
+    DEFAULT_REMOTE_SHOP_HOST,
+    DEFAULT_REMOTE_SHOP_PUBLIC_IP,
+    DEFAULT_SHOP_PORT,
+    DEFAULT_SHOP_PUBLIC_URL,
     build_webstore_launch,
     check_webstore_firewall_rule,
     collect_groups_from_catalog,
@@ -38,7 +42,9 @@ from ..shop_integration import (
     provision_permission_groups_for_servers,
     read_webstore_log_tail,
     resolve_central_url,
+    resolve_plugin_api_url,
     resolve_public_shop_url,
+    resolve_website_url,
     resolve_webstore_executable,
     shop_access_urls,
     slugify_server_id,
@@ -241,10 +247,12 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                 amt = g_data.get("Amount", 25) if isinstance(g_data, dict) else 25
                 _tp_group_vars[g_name] = tk.StringVar(value=str(amt))
 
-        _built_shop_tabs.discard("🛒  Itens")
-        _built_shop_tabs.discard("🎁  Kits")
+        _reset_shop_tab("🛒  Itens")
+        _reset_shop_tab("🎁  Kits")
         if import_timed:
-            _built_shop_tabs.discard("⏱️  Pontos Temporais")
+            _reset_shop_tab("⏱️  Pontos Temporais")
+        if tabs.get() in ("🛒  Itens", "🎁  Kits", "⏱️  Pontos Temporais"):
+            _rebuild_shop_tab(tabs.get())
 
         msg = (
             f"Formato: {result['format']}\n"
@@ -292,6 +300,29 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     tabs.add("🌐  Web Store")
 
     _built_shop_tabs: set[str] = set()
+
+    def _clear_tab_frame(frame: tk.Widget) -> None:
+        for w in list(frame.winfo_children()):
+            try:
+                w.destroy()
+            except Exception:
+                pass
+
+    def _reset_shop_tab(tab_name: str) -> None:
+        """Remove UI antiga para evitar painéis duplicados ao remontar a aba."""
+        _built_shop_tabs.discard(tab_name)
+        try:
+            _clear_tab_frame(tabs.tab(tab_name))
+        except Exception:
+            pass
+
+    def _rebuild_shop_tab(tab_name: str) -> None:
+        _reset_shop_tab(tab_name)
+        builder = _TAB_BUILDERS.get(tab_name)
+        if not builder:
+            return
+        _built_shop_tabs.add(tab_name)
+        builder()
     _sv: Dict[str, tk.Variable] = {}
     _tpv: Dict[str, tk.Variable] = {}
     _dbv: Dict[str, tk.Variable] = {}
@@ -328,7 +359,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         _field_row(card_cfg, "Pontos Iniciais",      _sv["StartingPoints"], bg=_INNER,
                    hint="Pontos dados a novos jogadores", width=120)
         _field_row(card_cfg, "URL do Website",       _sv["WebsiteUrl"],     bg=_INNER,
-                   hint="Preenchida automaticamente ao sincronizar plugins", width=260)
+                   hint="Preenchida ao salvar — usa domínio público configurado na Web Store", width=260)
         _field_row(card_cfg, "URL do Discord",       _sv["DiscordUrl"],     bg=_INNER)
         _field_row(card_cfg, "Ícone de Moeda (Override)", _sv["OverrideCurrencyIcon"], bg=_INNER,
                    hint="Blueprint path do ícone customizado (vazio = padrão)")
@@ -457,9 +488,9 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             s_out["VoteRewards"]          = _sv["VoteRewards"].get()
             s_out["HideBuffIcon"]         = _sv["HideBuffIcon"].get()
             s_out["UseSteamOverlay"]      = _sv["UseSteamOverlay"].get()
-            central = resolve_central_url(shop_cfg)
+            central = resolve_website_url(shop_cfg)
             s_out["WebsiteUrl"] = central
-            s_out["WebApiUrl"] = central
+            s_out["WebApiUrl"] = resolve_plugin_api_url(shop_cfg)
             s_out["WebApiKey"] = shop_cfg.api_key or s_out.get("WebApiKey", "")
 
         if _tpv:
@@ -509,6 +540,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                 loading.destroy()
             except Exception:
                 pass
+            _clear_tab_frame(frame)
             builder = _TAB_BUILDERS.get(tab)
             if builder:
                 builder()
@@ -1078,7 +1110,7 @@ def _launch_webstore_process(shop) -> tuple[bool, str]:
         return False, str(exc)
 
     import time as _time
-    port = max(1, int(shop.port or 5177))
+    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
     deadline = _time.time() + 12
     while _time.time() < deadline:
         if _web_process.poll() is not None:
@@ -1139,9 +1171,9 @@ def auto_start_webstore(app: "ARKServerManagerApp") -> None:
     """Inicia a Web Store automaticamente no boot do app, sem precisar abrir a aba da Loja."""
     global _web_process, _web_log_fh
     shop = app.config_manager.config.shop
-    if (shop.mode or "host") != "host":
+    if (shop.mode or "client") != "host":
         return
-    if _is_web_running(max(1, int(shop.port or 5177))):
+    if _is_web_running(max(1, int(shop.port or DEFAULT_SHOP_PORT))):
         return
 
     def _launch() -> None:
@@ -1195,15 +1227,15 @@ def _build_webstore_tab(
     scr.pack(fill="both", expand=True)
 
     shop = app.config_manager.config.shop
-    local_ip = get_local_ip()
-    _port_var = tk.StringVar(value=str(shop.port or 5177))
+    _port_var = tk.StringVar(value=str(shop.port or DEFAULT_SHOP_PORT))
 
     def _save_shop_from_ui() -> None:
         shop.mode = _mode_var.get()
         shop.central_url = _central_url_var.get().strip()
+        shop.public_url = _public_shop_url_var.get().strip()
         shop.host_ip = _host_ip_var.get().strip()
         shop.public_ip = _public_ip_var.get().strip()
-        shop.port = _safe_int(_port_var.get(), 5177)
+        shop.port = _safe_int(_port_var.get(), DEFAULT_SHOP_PORT)
         shop.api_key = _api_key_var.get().strip()
         shop.machine_label = _machine_var.get().strip()
         shop.delivery_mode = _delivery_var.get()
@@ -1225,8 +1257,8 @@ def _build_webstore_tab(
         )
         if is_client and not central:
             messagebox.showerror(
-                "Loja central",
-                "No modo Cliente, defina a URL central da loja (Host).",
+                "Loja remota",
+                "No modo Cliente, defina a URL da loja (ex: https://arkland.com.br).",
                 parent=parent.winfo_toplevel(),
             )
             return False
@@ -1244,22 +1276,63 @@ def _build_webstore_tab(
         shop.mode = _mode_var.get()
         shop.host_ip = _host_ip_var.get().strip()
         shop.public_ip = _public_ip_var.get().strip()
-        shop.port = _safe_int(_port_var.get(), 5177)
+        shop.public_url = _public_shop_url_var.get().strip()
+        shop.port = _safe_int(_port_var.get(), DEFAULT_SHOP_PORT)
         shop.central_url = _central_url_var.get().strip()
         urls = shop_access_urls(shop)
-        _central_url_lbl.config(text=f"URL plugins (LAN): {urls['central']}")
-        _lan_url_lbl.config(text=f"🏠  Rede local (LAN): {urls['lan_url']}")
-        pub = urls["public_url"]
-        if pub:
+        is_remote = shop.mode == "client"
+        _central_url_lbl.config(
+            text=f"🔌  API plugins → {urls['plugin_api']}"
+            + (" (loja remota)" if is_remote else ""),
+        )
+        if is_remote:
+            if urls["lan_url"]:
+                _lan_url_lbl.config(
+                    text=f"🏠  Servidor remoto (LAN): {urls['lan_url']}",
+                    fg=_GREEN,
+                )
+            else:
+                _lan_url_lbl.config(
+                    text="🏠  Servidor remoto (LAN): defina IP LAN do host acima",
+                    fg="gray45",
+                )
+            rp = urls.get("remote_public_url") or ""
+            if rp:
+                _remote_inet_lbl.config(text=f"🌍  Internet (IP público): {rp}", fg="#38bdf8")
+                _remote_inet_lbl.pack(anchor="w", padx=10, pady=(0, 2), after=_lan_url_lbl)
+            else:
+                _remote_inet_lbl.pack_forget()
+        elif urls["lan_url"]:
+            _remote_inet_lbl.pack_forget()
+            _lan_url_lbl.config(text=f"🏠  Rede local (host): {urls['lan_url']}", fg=_GREEN)
+        else:
+            _remote_inet_lbl.pack_forget()
+            _lan_url_lbl.config(
+                text="🏠  IP LAN do host não definido (opcional se usar só domínio)",
+                fg="gray45",
+            )
+        shop_pub = urls.get("shop_url") or urls.get("public_url") or ""
+        if shop_pub:
             _public_url_lbl.config(
-                text=f"🌍  Internet (IP público): {pub}",
-                fg="#38bdf8",
+                text=f"🛒  Loja (jogadores): {shop_pub}",
+                fg="#a78bfa",
             )
         else:
             _public_url_lbl.config(
-                text="🌍  Internet: defina o IP público acima (ou clique em Detectar)",
+                text="🛒  Loja pública: defina arkland.com.br acima",
                 fg="gray45",
             )
+        if _host_only_widgets:
+            _toggle_host_only_widgets(is_remote)
+
+    _host_only_widgets: list[tk.Widget] = []
+
+    def _toggle_host_only_widgets(is_remote: bool) -> None:
+        for w in _host_only_widgets:
+            try:
+                w.pack_forget() if is_remote else w.pack()
+            except Exception:
+                pass
 
     _refresh_central_label = _refresh_access_labels
 
@@ -1270,35 +1343,61 @@ def _build_webstore_tab(
 
     tk.Label(
         card_mode,
-        text="Host: esta máquina hospeda a loja. Cliente: aponta para a loja de outra máquina na LAN.",
+        text="Cliente (padrão): esta máquina só gerencia servidores — a loja roda em outro servidor (arkland.com.br). "
+             "Host: use apenas na máquina que hospeda a web store.",
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10), wraplength=720, justify="left",
     ).pack(anchor="w", padx=10, pady=(0, 6))
 
-    _mode_var = tk.StringVar(value=shop.mode or "host")
+    _mode_var = tk.StringVar(value=shop.mode or "client")
     mode_row = tk.Frame(card_mode, bg=_INNER)
     mode_row.pack(fill="x", padx=10, pady=4)
-    ctk.CTkRadioButton(mode_row, text="Host (hospedar loja aqui)", variable=_mode_var,
-                       value="host", command=_refresh_central_label).pack(side="left", padx=(0, 16))
-    ctk.CTkRadioButton(mode_row, text="Cliente (usar loja remota)", variable=_mode_var,
-                       value="client", command=_refresh_central_label).pack(side="left")
+    ctk.CTkRadioButton(mode_row, text="Cliente (loja remota — recomendado)", variable=_mode_var,
+                       value="client", command=_refresh_central_label).pack(side="left", padx=(0, 16))
+    ctk.CTkRadioButton(mode_row, text="Host (loja nesta máquina)", variable=_mode_var,
+                       value="host", command=_refresh_central_label).pack(side="left")
 
     _machine_var = tk.StringVar(value=shop.machine_label or "")
     _field_row(card_mode, "Rótulo desta máquina", _machine_var, bg=_INNER,
                hint="ex: Maquina-A — aparece no registro de servidores", width=200)
 
-    _host_ip_var = tk.StringVar(value=shop.host_ip or local_ip)
-    _field_row(card_mode, "IP LAN (host)", _host_ip_var, bg=_INNER,
-               hint="Rede interna — mesma Wi‑Fi/rede local", width=200)
+    _host_ip_var = tk.StringVar(value=shop.host_ip or DEFAULT_REMOTE_SHOP_HOST)
+    _field_row(card_mode, "IP LAN (servidor remoto)", _host_ip_var, bg=_INNER,
+               hint="Máquina onde banco/loja rodam — ex: 192.168.15.51", width=200)
 
-    _public_ip_var = tk.StringVar(value=getattr(shop, "public_ip", "") or "")
+    _public_shop_url_var = tk.StringVar(
+        value=getattr(shop, "public_url", "") or DEFAULT_SHOP_PUBLIC_URL,
+    )
+    pub_shop_row = tk.Frame(card_mode, bg=_INNER)
+    pub_shop_row.pack(fill="x", padx=10, pady=(6, 2))
+    pub_shop_row.columnconfigure(0, weight=1)
+    ctk.CTkLabel(pub_shop_row, text="Domínio público da loja", anchor="w", text_color="gray65",
+                 font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
+    ctk.CTkLabel(
+        pub_shop_row,
+        text="Endereço que os jogadores verão — padrão: arkland.com.br. "
+             "Aponte o DNS para seu servidor e use reverse proxy (443) → porta da loja.",
+        anchor="w", text_color="gray40", font=ctk.CTkFont(size=9), wraplength=680,
+    ).grid(row=1, column=0, sticky="w")
+    ctk.CTkEntry(pub_shop_row, textvariable=_public_shop_url_var, width=360, height=26).grid(
+        row=0, column=1, rowspan=2, sticky="e", padx=(0, 6))
+    _shop_url_copy_btn = ctk.CTkButton(
+        pub_shop_row, text="📋", width=36, height=26,
+        fg_color="#2a2a2a", hover_color="#404040",
+        font=ctk.CTkFont(size=11),
+    )
+    _shop_url_copy_btn.grid(row=0, column=2, rowspan=2)
+
+    _public_ip_var = tk.StringVar(
+        value=getattr(shop, "public_ip", "") or DEFAULT_REMOTE_SHOP_PUBLIC_IP,
+    )
     pub_row = tk.Frame(card_mode, bg=_INNER)
     pub_row.pack(fill="x", padx=10, pady=2)
     pub_row.columnconfigure(0, weight=1)
-    ctk.CTkLabel(pub_row, text="IP público (internet)", anchor="w", text_color="gray65",
+    ctk.CTkLabel(pub_row, text="IP público (legado)", anchor="w", text_color="gray65",
                  font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
     ctk.CTkLabel(
         pub_row,
-        text="Endereço para jogadores fora da sua rede — requer port forwarding no roteador.",
+        text="Opcional — usado só se o domínio acima estiver vazio. Prefira sempre o domínio.",
         anchor="w", text_color="gray40", font=ctk.CTkFont(size=9),
     ).grid(row=1, column=0, sticky="w")
     ctk.CTkEntry(pub_row, textvariable=_public_ip_var, width=200, height=26).grid(
@@ -1315,6 +1414,7 @@ def _build_webstore_tab(
         font=ctk.CTkFont(size=11),
     )
     _pub_copy_btn.grid(row=0, column=3, rowspan=2)
+    _host_only_widgets.extend([pub_row])
 
     def _detect_public_ip() -> None:
         _pub_detect_btn.configure(state="disabled", text="⏳")
@@ -1334,27 +1434,39 @@ def _build_webstore_tab(
 
     def _copy_public_url() -> None:
         _save_shop_from_ui()
-        url = resolve_public_shop_url(shop)
+        url = resolve_public_shop_url(shop) or resolve_website_url(shop)
         if not url:
             messagebox.showinfo(
                 "Copiar URL",
-                "Defina o IP público primeiro.",
+                "Defina o domínio público da loja primeiro.",
                 parent=parent.winfo_toplevel(),
             )
             return
         try:
             parent.winfo_toplevel().clipboard_clear()
             parent.winfo_toplevel().clipboard_append(url)
+            toast_msg = f"URL copiada: {url}"
+            try:
+                app._show_toast(toast_msg, "success")  # type: ignore[attr-defined]
+            except AttributeError:
+                messagebox.showinfo("Copiar URL", toast_msg, parent=parent.winfo_toplevel())
         except Exception:
             pass
 
+    def _copy_shop_url() -> None:
+        _copy_public_url()
+
     _pub_detect_btn.configure(command=_detect_public_ip)
     _pub_copy_btn.configure(command=_copy_public_url)
+    _shop_url_copy_btn.configure(command=_copy_shop_url)
     _public_ip_var.trace_add("write", lambda *_: _refresh_access_labels())
+    _public_shop_url_var.trace_add("write", lambda *_: _refresh_access_labels())
 
-    _central_url_var = tk.StringVar(value=shop.central_url or "")
-    _field_row(card_mode, "URL central (cliente)", _central_url_var, bg=_INNER,
-               hint="ex: http://192.168.1.10:5177 — obrigatório no modo cliente", width=320)
+    _central_url_var = tk.StringVar(
+        value=shop.central_url or DEFAULT_SHOP_PUBLIC_URL,
+    )
+    _field_row(card_mode, "URL da loja remota", _central_url_var, bg=_INNER,
+               hint="https://arkland.com.br — servidor onde a web store está instalada", width=320)
 
     _central_url_lbl = tk.Label(card_mode, bg=_INNER, fg=_GREEN,
                                 font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
@@ -1362,29 +1474,19 @@ def _build_webstore_tab(
     _lan_url_lbl = tk.Label(card_mode, bg=_INNER, fg=_GREEN,
                             font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
     _lan_url_lbl.pack(anchor="w", padx=10, pady=(0, 2))
-    _public_url_lbl = tk.Label(card_mode, bg=_INNER, fg="#38bdf8",
+    _remote_inet_lbl = tk.Label(card_mode, bg=_INNER, fg="#38bdf8",
+                                font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
+    _public_url_lbl = tk.Label(card_mode, bg=_INNER, fg="#a78bfa",
                                font=ctk.CTkFont(size=11, weight="bold"), anchor="w")
     _public_url_lbl.pack(anchor="w", padx=10, pady=(0, 4))
     tk.Label(
         card_mode,
-        text="Port forwarding: encaminhe a porta da loja no roteador para o IP LAN desta máquina.",
+        text="No servidor remoto (179.185.19.88): port forwarding da porta 27199 → 192.168.15.51. "
+             "DNS arkland.com.br → IP público + reverse proxy HTTPS (443) → porta da loja.",
         bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
     ).pack(anchor="w", padx=10, pady=(0, 8))
-    # Valor inicial direto do shop já carregado (não chama _save_shop_from_ui
-    # aqui pois as demais variáveis ainda não foram criadas neste ponto)
-    _central_url_lbl.config(text=f"URL plugins (LAN): {resolve_central_url(shop)}")
+    _central_url_lbl.config(text=f"🔌  API plugins → {resolve_plugin_api_url(shop)}")
     _refresh_access_labels()
-
-    if not _public_ip_var.get().strip():
-        def _auto_detect_public() -> None:
-            ok, result = fetch_public_ip()
-            if ok:
-                def _apply() -> None:
-                    if not _public_ip_var.get().strip():
-                        _public_ip_var.set(result)
-                        _refresh_access_labels()
-                parent.after(0, _apply)
-        threading.Thread(target=_auto_detect_public, daemon=True).start()
 
     # ── Status & processo (somente host) ──────────────────────────────────
     card_status = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
@@ -1426,10 +1528,10 @@ def _build_webstore_tab(
 
     def _refresh_status() -> None:
         is_host = _mode_var.get() == "host"
-        port = max(1, int(_port_var.get().strip() or 5177))
+        port = max(1, int(_port_var.get().strip() or DEFAULT_SHOP_PORT))
         running = _is_web_running(port) if is_host else False
         _save_shop_from_ui()
-        url = resolve_central_url(shop)
+        url = resolve_website_url(shop)
         if is_host:
             status_dot.config(fg="#22c55e" if running else "#ef4444")
             status_lbl.config(
@@ -1457,7 +1559,7 @@ def _build_webstore_tab(
         )
 
     def _start_web() -> None:
-        if _mode_var.get() != "host" or _is_web_running(max(1, int(_port_var.get().strip() or 5177))):
+        if _mode_var.get() != "host" or _is_web_running(max(1, int(_port_var.get().strip() or DEFAULT_SHOP_PORT))):
             return
         _save_shop_from_ui()
         collect_catalog()
@@ -1500,7 +1602,7 @@ def _build_webstore_tab(
 
     def _fix_webstore_firewall() -> None:
         _save_shop_from_ui()
-        port = max(1, int(_port_var.get().strip() or 5177))
+        port = max(1, int(_port_var.get().strip() or DEFAULT_SHOP_PORT))
         if not messagebox.askyesno(
             "Firewall — Web Store",
             f"Liberar TCP porta {port} no Windows Defender Firewall?\n\n"
@@ -1546,13 +1648,13 @@ def _build_webstore_tab(
     _orders_url_var = tk.StringVar(value=shop.orders_db_url or "")
     _field_row(card_db, "URL completa (opcional)", _orders_url_var, bg=_INNER,
                hint="sqlite:///... ou mysql+pymysql://user:pass@host/db", width=360)
-    _odb_host = tk.StringVar(value=shop.orders_db_host or _dbm.get("host", "127.0.0.1"))
+    _odb_host = tk.StringVar(value=shop.orders_db_host or _dbm.get("host", DEFAULT_REMOTE_SHOP_HOST))
     _odb_port = tk.StringVar(value=str(shop.orders_db_port or _dbm.get("port", 3306)))
     _odb_name = tk.StringVar(value=shop.orders_db_name or _dbm.get("database", "arkland_shop"))
     _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
     _odb_pass = tk.StringVar(value=shop.orders_db_password or _dbm.get("password", ""))
-    _field_row(card_db, "MySQL Host (LAN)", _odb_host, bg=_INNER,
-               hint="Use o IP da máquina host para clientes na rede", width=200)
+    _field_row(card_db, "MySQL Host (servidor remoto)", _odb_host, bg=_INNER,
+               hint="IP LAN do servidor onde o MySQL roda (192.168.15.51)", width=200)
     _field_row(card_db, "Porta", _odb_port, bg=_INNER, width=80)
     _field_row(card_db, "Database", _odb_name, bg=_INNER, width=160)
     _field_row(card_db, "Usuário", _odb_user, bg=_INNER, width=160)

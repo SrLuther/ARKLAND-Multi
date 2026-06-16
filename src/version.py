@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.11"
+APP_VERSION: str = "1.9.12"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.12",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (Web Store): abas Catálogo — Itens, Kits, Disponível (resgate) e Recarga PIX.",
+            "Novo (Web Store): recarga PIX via Mercado Pago (MP_ACCESS_TOKEN) com QR code e webhook.",
+            "Melhoria (Loja): domínio padrão arkland.com.br; modo Cliente para loja/banco em servidor remoto.",
+            "Melhoria (Loja): defaults do servidor remoto — LAN 192.168.15.51, IP público 179.185.19.88, "
+            "porta 27199; MySQL de pedidos aponta para o host remoto.",
+            "Melhoria (Loja): UI Web Store exibe URLs do servidor remoto (LAN, internet e domínio para jogadores).",
+            "Fix (Loja): abas Itens/Kits do painel CustomShop não duplicam conteúdo após importar catálogo.",
+            "Novo (API): /api/player/available — resgate de entregas pendentes na web store.",
+        ],
+    },
     {
         "version": "1.9.11",
         "date": "2026-06-12",

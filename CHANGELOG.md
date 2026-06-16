@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.12] - 2026-06-12
+
+### Feature
+
+- Novo (Web Store): abas Catálogo — Itens, Kits, Disponível (resgate) e Recarga PIX.
+- Novo (Web Store): recarga PIX via Mercado Pago (MP_ACCESS_TOKEN) com QR code e webhook.
+- Novo (API): /api/player/available — resgate de entregas pendentes na web store.
+
+### Improvement
+
+- Melhoria (Loja): domínio padrão arkland.com.br; modo Cliente para loja/banco em servidor remoto.
+- Melhoria (Loja): defaults do servidor remoto — LAN 192.168.15.51, IP público 179.185.19.88, porta 27199; MySQL de pedidos aponta para o host remoto.
+- Melhoria (Loja): UI Web Store exibe URLs do servidor remoto (LAN, internet e domínio para jogadores).
+
+### Fix
+
+- Fix (Loja): abas Itens/Kits do painel CustomShop não duplicam conteúdo após importar catálogo.
+
 ## [1.9.11] - 2026-06-12
 
 ### Feature

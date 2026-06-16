@@ -23,11 +23,19 @@ from typing import Any, Callable, Dict, Optional
 from dotenv import load_dotenv
 
 from cryptography.fernet import Fernet
+
+from pix_payments import (
+    PixPaymentError,
+    create_pix_payment,
+    extract_pix_data,
+    fetch_payment,
+    map_mp_status,
+)
 from flask import Flask, jsonify, redirect, request, send_from_directory, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, create_engine, text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
@@ -56,6 +64,8 @@ logging.config.dictConfig({
 })
 
 log = logging.getLogger("arkshop")
+
+DEFAULT_SHOP_PUBLIC_URL = "https://arkland.com.br"
 
 
 def _log(event: str, **kw: Any) -> None:
@@ -144,7 +154,14 @@ else:
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token")
+
+_DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
+    {"id": "p500", "label": "500 pontos", "points": 500, "price_brl": 5.0},
+    {"id": "p1200", "label": "1.200 pontos", "points": 1200, "price_brl": 10.0},
+    {"id": "p3000", "label": "3.000 pontos", "points": 3000, "price_brl": 20.0},
+    {"id": "p8000", "label": "8.000 pontos", "points": 8000, "price_brl": 45.0},
+]
 
 # Rate limiter
 limiter = Limiter(
@@ -314,6 +331,24 @@ class ShopAdmin(Base):
     __tablename__ = "shop_admins"
 
     steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+
+class PointPayment(Base):
+    __tablename__ = "point_payments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    payment_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    mp_payment_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    package_id: Mapped[str] = mapped_column(String(64))
+    amount_brl: Mapped[float] = mapped_column(Float, default=0.0)
+    points: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
+    pix_qr_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
+    pix_copy_paste: Mapped[str | None] = mapped_column(Text, nullable=True)
+    credited: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
@@ -553,6 +588,8 @@ def _load_settings() -> Dict[str, Any]:
         "db_name": "arkland_shop",
         "db_user": "",
         "db_password": "",
+        "point_packages": _DEFAULT_POINT_PACKAGES,
+        "mp_access_token": "",
     }
 
 
@@ -628,6 +665,72 @@ def _get_player_points(steam_id: str) -> int | None:
         return None
     finally:
         db.close()
+
+
+def _add_player_points(steam_id: str, amount: int) -> int | None:
+    """Credita pontos ao jogador. Retorna novo saldo ou None."""
+    if not _db_ready() or amount <= 0:
+        return None
+    db = _SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "ON DUPLICATE KEY UPDATE points = points + :pts"
+            ),
+            {"sid": steam_id, "pts": amount},
+        )
+        db.commit()
+        row = db.execute(
+            text("SELECT points FROM players WHERE steam_id = :sid"),
+            {"sid": steam_id},
+        ).fetchone()
+        return int(row[0]) if row else None
+    except Exception as exc:
+        db.rollback()
+        _log_error("add_player_points", steam_id=steam_id, amount=amount, error=str(exc))
+        return None
+    finally:
+        db.close()
+
+
+def _read_shop_config() -> dict[str, Any]:
+    s = _load_settings()
+    path = Path(s.get("config_path", _DEFAULT_CONFIG_PATH))
+    if not path.exists():
+        return {}
+    try:
+        text_body = path.read_text(encoding="utf-8-sig")
+        try:
+            return json.loads(text_body)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text_body)
+            return json.loads(cleaned)
+    except Exception:
+        return {}
+
+
+def _load_point_packages() -> list[dict[str, Any]]:
+    cfg = _read_shop_config()
+    packages = cfg.get("PointPackages")
+    if isinstance(packages, list) and packages:
+        return packages
+    s = _load_settings()
+    stored = s.get("point_packages")
+    if isinstance(stored, list) and stored:
+        return stored
+    return _DEFAULT_POINT_PACKAGES
+
+
+def _get_mp_access_token() -> str:
+    env_token = os.environ.get("MP_ACCESS_TOKEN", "").strip()
+    if env_token:
+        return env_token
+    return str(_load_settings().get("mp_access_token", "")).strip()
+
+
+def _pix_enabled() -> bool:
+    return bool(_get_mp_access_token())
 
 
 def _steam_id_from_session() -> str | None:
@@ -1116,9 +1219,12 @@ def auth_me():
 @admin_required
 def get_settings():
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
+    safe["mp_access_token_set"] = bool(_get_mp_access_token())
+    safe["pix_enabled"] = _pix_enabled()
+    safe["point_packages"] = _load_point_packages()
     safe["db_configured"] = _db_ready()
     safe["db_from_env"] = bool(_DATABASE_URL)
     return jsonify(safe)
@@ -1142,6 +1248,7 @@ def save_settings():
         "db_port",
         "db_name",
         "db_user",
+        "point_packages",
     ):
         if key in body:
             s[key] = body[key]
@@ -1149,6 +1256,8 @@ def save_settings():
         s["rcon_password"] = body["rcon_password"]
     if "db_password" in body and body["db_password"] != "":
         s["db_password"] = body["db_password"]
+    if "mp_access_token" in body and body["mp_access_token"] != "":
+        s["mp_access_token"] = body["mp_access_token"]
     _save_settings(s)
 
     reconnect_error = None
@@ -1361,24 +1470,29 @@ def test_db_connection():
 
 @app.route("/api/catalog", methods=["GET"])
 def get_catalog():
-    """Retorna os itens da loja sem autenticação — visível a todos os jogadores."""
+    """Retorna catálogo público (itens, kits, pacotes de recarga)."""
+    data = _read_shop_config()
+    items = data.get("Items") or data.get("ShopItems") or {}
+    kits = data.get("Kits") or {}
+    settings_block = data.get("Settings") or {}
+    shop_name = (
+        settings_block.get("ShopName")
+        or data.get("ShopName")
+        or data.get("shop_name")
+        or "ARKLAND Shop"
+    )
+    packages = _load_point_packages()
     s = _load_settings()
-    path = Path(s["config_path"])
-    if not path.exists():
-        return jsonify({"items": {}})
-    try:
-        text_body = path.read_text(encoding="utf-8-sig")
-        try:
-            data = json.loads(text_body)
-        except json.JSONDecodeError:
-            cleaned = re.sub(r"//[^\n]*", "", text_body)
-            data = json.loads(cleaned)
-        # Expõe somente os itens (sem configurações sensíveis)
-        items = data.get("Items") or data.get("ShopItems") or {}
-        shop_name = data.get("ShopName") or data.get("shop_name") or "ARKLAND Shop"
-        return jsonify({"items": items, "shop_name": shop_name})
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+    public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
+    return jsonify({
+        "items": items,
+        "kits": kits,
+        "shop_name": shop_name,
+        "point_packages": packages,
+        "pix_enabled": _pix_enabled(),
+        "public_url": public_url,
+        "shop_url": public_url,
+    })
 
 
 # ── Downloads (público + admin CRUD) ─────────────────────────────────────────
@@ -1680,6 +1794,261 @@ def player_points():
     steam_id = str(_steam_id_from_session())
     balance = _get_player_points(steam_id)
     return jsonify({"ok": True, "steam_id": steam_id, "points": balance})
+
+
+def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
+    data = _read_shop_config()
+    if item_type == "kit":
+        entry = (data.get("Kits") or {}).get(item_id) or {}
+    else:
+        entry = (data.get("Items") or data.get("ShopItems") or {}).get(item_id) or {}
+    return {
+        "name": entry.get("Description") or item_id,
+        "description": entry.get("Description") or "",
+        "price": int(entry.get("Price", 0) or 0),
+        "type": entry.get("Type") or ("kit" if item_type == "kit" else "item"),
+    }
+
+
+def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str) -> None:
+    mapped = map_mp_status(mp_status)
+    payment.status = mapped
+    payment.updated_at = _now()
+    if mapped == "APROVADO" and not payment.credited:
+        balance = _add_player_points(payment.steam_id, payment.points)
+        payment.credited = True
+        _log(
+            "pix_credited",
+            payment_id=payment.payment_id,
+            steam_id=payment.steam_id,
+            points=payment.points,
+            new_balance=balance,
+        )
+
+
+@app.route("/api/player/available", methods=["GET"])
+@login_required
+def player_available():
+    """Itens/kits pendentes de resgate e ofertas gratuitas."""
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    db = _SessionLocal()
+    try:
+        pending_rows = (
+            db.query(Order)
+            .filter(Order.steam_id == steam_id, Order.status == "PENDENTE")
+            .order_by(Order.created_at.desc())
+            .limit(100)
+            .all()
+        )
+        pending = []
+        for row in pending_rows:
+            meta = _describe_catalog_entry(row.item_type, row.item_id)
+            pending.append({
+                "order_id": row.order_id,
+                "item_type": row.item_type,
+                "item_id": row.item_id,
+                "amount": row.amount,
+                "status": row.status,
+                "name": meta["name"],
+                "description": meta["description"],
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+            })
+
+        redeemable: list[dict[str, Any]] = []
+        cfg = _read_shop_config()
+        for key, itm in (cfg.get("Items") or cfg.get("ShopItems") or {}).items():
+            if not isinstance(itm, dict):
+                continue
+            price = int(itm.get("Price", 0) or 0)
+            if price == 0:
+                redeemable.append({
+                    "key": key,
+                    "catalog_kind": "item",
+                    "purchase_type": "shop",
+                    "name": itm.get("Description") or key,
+                    "description": itm.get("Description") or "",
+                    "price": 0,
+                    "type": itm.get("Type") or "item",
+                })
+        for key, kit in (cfg.get("Kits") or {}).items():
+            if not isinstance(kit, dict):
+                continue
+            price = int(kit.get("Price", 0) or 0)
+            if price == 0:
+                redeemable.append({
+                    "key": key,
+                    "catalog_kind": "kit",
+                    "purchase_type": "kit",
+                    "name": kit.get("Description") or key,
+                    "description": kit.get("Description") or "",
+                    "price": 0,
+                    "type": "kit",
+                })
+
+        return jsonify({"ok": True, "pending": pending, "redeemable": redeemable})
+    except Exception as exc:
+        _log_error("player_available", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/player/pix/checkout", methods=["POST"])
+@login_required
+@limiter.limit("5 per minute; 20 per hour")
+def player_pix_checkout():
+    if (err := _require_db()) is not None:
+        return err
+    if not _pix_enabled():
+        return jsonify({"ok": False, "error": "Pagamento PIX não configurado (MP_ACCESS_TOKEN)"}), 503
+
+    body = request.get_json(force=True, silent=True) or {}
+    package_id = str(body.get("package_id", "")).strip()
+    packages = _load_point_packages()
+    package = next((p for p in packages if str(p.get("id")) == package_id), None)
+    if not package:
+        return jsonify({"ok": False, "error": "Pacote de pontos inválido"}), 400
+
+    points = int(package.get("points", 0) or 0)
+    price_brl = float(package.get("price_brl", 0) or 0)
+    if points <= 0 or price_brl <= 0:
+        return jsonify({"ok": False, "error": "Pacote mal configurado"}), 400
+
+    steam_id = str(_steam_id_from_session())
+    payment_id = str(uuid.uuid4())
+    label = str(package.get("label") or f"{points} pontos")
+    description = f"Recarga ARKLAND — {label} ({steam_id})"
+
+    try:
+        mp_resp = create_pix_payment(
+            _get_mp_access_token(),
+            amount_brl=price_brl,
+            description=description,
+            external_reference=payment_id,
+            idempotency_key=payment_id,
+        )
+    except PixPaymentError as exc:
+        return jsonify({"ok": False, "error": f"Mercado Pago: {exc}"}), 502
+
+    mp_id, qr_b64, copy_paste = extract_pix_data(mp_resp)
+    if not mp_id:
+        return jsonify({"ok": False, "error": "Resposta PIX inválida do Mercado Pago"}), 502
+
+    db = _SessionLocal()
+    try:
+        row = PointPayment(
+            payment_id=payment_id,
+            mp_payment_id=mp_id,
+            steam_id=steam_id,
+            package_id=package_id,
+            amount_brl=price_brl,
+            points=points,
+            status=map_mp_status(str(mp_resp.get("status", "pending"))),
+            pix_qr_base64=qr_b64,
+            pix_copy_paste=copy_paste,
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        db.add(row)
+        db.commit()
+        _log("pix_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id, mp_id=mp_id)
+        return jsonify({
+            "ok": True,
+            "payment_id": payment_id,
+            "mp_payment_id": mp_id,
+            "status": row.status,
+            "points": points,
+            "amount_brl": price_brl,
+            "label": label,
+            "pix_qr_base64": qr_b64,
+            "pix_copy_paste": copy_paste,
+        })
+    except Exception as exc:
+        db.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/player/pix/<payment_id>/status", methods=["GET"])
+@login_required
+def player_pix_status(payment_id: str):
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    db = _SessionLocal()
+    try:
+        payment = db.query(PointPayment).filter(
+            PointPayment.payment_id == payment_id,
+            PointPayment.steam_id == steam_id,
+        ).first()
+        if not payment:
+            return jsonify({"ok": False, "error": "Pagamento não encontrado"}), 404
+
+        if payment.status not in ("APROVADO", "RECUSADO", "EXPIRADO", "ESTORNADO") and payment.mp_payment_id:
+            token = _get_mp_access_token()
+            if token:
+                try:
+                    mp_resp = fetch_payment(token, payment.mp_payment_id)
+                    _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")))
+                    db.commit()
+                except PixPaymentError as exc:
+                    _log_error("pix_status_poll", payment_id=payment_id, error=str(exc))
+
+        new_balance = _get_player_points(steam_id) if payment.credited else None
+        return jsonify({
+            "ok": True,
+            "payment_id": payment.payment_id,
+            "status": payment.status,
+            "credited": payment.credited,
+            "points": payment.points,
+            "new_balance": new_balance,
+        })
+    finally:
+        db.close()
+
+
+@app.route("/api/payments/webhook", methods=["POST"])
+@limiter.limit("120 per hour")
+def payments_webhook():
+    """Webhook Mercado Pago — confirma PIX e credita pontos."""
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    mp_id = str(body.get("data", {}).get("id") or body.get("id") or "").strip()
+    if not mp_id:
+        return jsonify({"ok": True, "ignored": True})
+
+    token = _get_mp_access_token()
+    if not token:
+        return jsonify({"ok": False, "error": "PIX não configurado"}), 503
+
+    try:
+        mp_resp = fetch_payment(token, mp_id)
+    except PixPaymentError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 502
+
+    external_ref = str(mp_resp.get("external_reference") or "").strip()
+    db = _SessionLocal()
+    try:
+        payment = None
+        if external_ref:
+            payment = db.query(PointPayment).filter(PointPayment.payment_id == external_ref).first()
+        if not payment:
+            payment = db.query(PointPayment).filter(PointPayment.mp_payment_id == mp_id).first()
+        if not payment:
+            return jsonify({"ok": True, "ignored": True})
+
+        _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")))
+        db.commit()
+        return jsonify({"ok": True, "payment_id": payment.payment_id, "status": payment.status})
+    except Exception as exc:
+        db.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
 
 
 @app.route("/api/player/summary", methods=["GET"])

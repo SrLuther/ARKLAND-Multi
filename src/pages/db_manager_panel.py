@@ -19,7 +19,7 @@ from ..db_setup_resources import (
     load_setup_sql_template,
     permission_database_exists,
 )
-from ..shop_integration import iter_shop_servers, permissions_dll_installed
+from ..shop_integration import DEFAULT_REMOTE_SHOP_HOST, iter_shop_servers, permissions_dll_installed
 from ..ui_constants import get_theme
 from .db_local_server import DbLocalServer
 from .db_setup_wizard import show_db_setup_wizard
@@ -243,7 +243,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         try:
             shop = app._shop_config  # type: ignore[attr-defined]
             if shop:
-                state.host     = shop.orders_db_host or "127.0.0.1"
+                state.host     = shop.orders_db_host or DEFAULT_REMOTE_SHOP_HOST
                 state.port     = int(shop.orders_db_port or 3306)
                 state.user     = shop.orders_db_user or "arkland"
                 state.password = shop.orders_db_password or ""

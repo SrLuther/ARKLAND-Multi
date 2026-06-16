@@ -645,7 +645,130 @@
     }
     #catalog-cat { display: none; }
 
-    #catalog-grid {
+    .catalog-tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .catalog-tab {
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .catalog-tab:hover {
+      border-color: var(--border-g);
+      color: var(--text);
+    }
+    .catalog-tab.active {
+      border-color: rgba(232,120,32,.55);
+      background: rgba(232,120,32,.12);
+      color: #fff;
+      box-shadow: 0 0 0 1px rgba(232,120,32,.15);
+    }
+
+    .catalog-panel { display: none; }
+    .catalog-panel.active { display: block; }
+
+    .available-section {
+      margin-bottom: 28px;
+    }
+    .available-section__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--amber);
+      margin-bottom: 12px;
+      letter-spacing: .06em;
+    }
+    .available-hint {
+      color: var(--text2);
+      font-size: 13px;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .available-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .available-card__name {
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .available-card__meta {
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    .recharge-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 18px;
+    }
+    .recharge-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 18px;
+      text-align: center;
+      transition: all .2s ease;
+    }
+    .recharge-card:hover {
+      border-color: rgba(18,216,124,.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,.45);
+    }
+    .recharge-card__points {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--amber);
+      margin: 8px 0;
+    }
+    .recharge-card__price {
+      font-size: 18px;
+      color: var(--success);
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .pix-modal-qr {
+      display: block;
+      max-width: 220px;
+      margin: 0 auto 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .pix-copy-box {
+      width: 100%;
+      min-height: 72px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 10px;
+      resize: vertical;
+    }
+
+    #catalog-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 18px;
@@ -1301,8 +1424,9 @@
         <div class="catalog-hero">
           <div>
             <div class="catalog-hero__title" id="catalog-shop-name">Loja do Servidor</div>
+            <div class="catalog-hero__tagline" id="catalog-shop-url" style="display:none;font-size:12px;color:var(--tek);margin-top:4px;"></div>
             <div class="catalog-hero__tagline">
-              Compre itens, dinos e kits com pontos — entrega automática no servidor.
+              Compre itens e kits com pontos, resgate entregas pendentes ou recarregue via PIX.
             </div>
           </div>
           <div class="catalog-hero__meta">
@@ -1312,15 +1436,44 @@
             <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
           </div>
         </div>
-        <div class="catalog-toolbar">
-          <input id="catalog-search" type="text" placeholder="🔍 Buscar item…" oninput="renderCatalog()" />
-          <select id="catalog-cat" onchange="renderCatalog()">
-            <option value="">Todas as categorias</option>
-          </select>
+        <div class="catalog-tabs">
+          <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💳 Recarga PIX</button>
         </div>
-        <div id="catalog-cats" class="catalog-cats"></div>
-        <div id="catalog-grid"></div>
-        <p id="catalog-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum item encontrado.</p>
+        <div id="catalog-panel-items" class="catalog-panel active">
+          <div class="catalog-toolbar">
+            <input id="catalog-search" type="text" placeholder="🔍 Buscar item…" oninput="renderCatalogItems()" />
+            <select id="catalog-cat" onchange="renderCatalogItems()">
+              <option value="">Todas as categorias</option>
+            </select>
+          </div>
+          <div id="catalog-cats" class="catalog-cats"></div>
+          <div id="catalog-grid"></div>
+          <p id="catalog-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum item encontrado.</p>
+        </div>
+        <div id="catalog-panel-kits" class="catalog-panel">
+          <div class="catalog-toolbar">
+            <input id="catalog-kits-search" type="text" placeholder="🔍 Buscar kit…" oninput="renderCatalogKits()" />
+          </div>
+          <div id="catalog-kits-grid"></div>
+          <p id="catalog-kits-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum kit encontrado.</p>
+        </div>
+        <div id="catalog-panel-available" class="catalog-panel">
+          <p class="available-hint">
+            Pedidos <strong>pendentes</strong> serão entregues automaticamente quando você entrar no servidor.
+            Itens e kits <strong>grátis</strong> podem ser resgatados aqui.
+          </p>
+          <div id="catalog-available-content"></div>
+        </div>
+        <div id="catalog-panel-recharge" class="catalog-panel">
+          <p class="available-hint" id="recharge-hint">
+            Recarregue pontos via PIX. Após o pagamento, o saldo é creditado automaticamente.
+          </p>
+          <div id="catalog-recharge-grid" class="recharge-grid"></div>
+          <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Recarga PIX indisponível.</p>
+        </div>
       </div>
 
       <!-- PAGE: Itens da Loja (admin) -->
@@ -1543,6 +1696,17 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label>DB Senha</label>
               <input id="s-db-password" type="password" placeholder="(deixe vazio para não alterar)" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              💳 Recarga PIX (Mercado Pago) — defina <code>MP_ACCESS_TOKEN</code> no ambiente ou abaixo
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Token Mercado Pago (Access Token)</label>
+              <input id="s-mp-token" type="password" placeholder="(deixe vazio para não alterar)" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Pacotes de pontos (JSON)</label>
+              <textarea id="s-point-packages" rows="6" placeholder='[{"id":"p500","label":"500 pontos","points":500,"price_brl":5}]' style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;"></textarea>
             </div>
           </div>
           <div id="db-conn-status"></div>
@@ -1852,7 +2016,28 @@ function formatKey(key) {
 
 // ── Catálogo (visível a todos) ────────────────────────────────────────────────
 let _catalogItems = [];
+let _catalogKits = [];
+let _catalogPackages = [];
+let _catalogPixEnabled = false;
 let _catalogActiveCat = "";
+let _catalogActiveTab = "items";
+let _pixPollTimer = null;
+
+function setCatalogTab(tab) {
+  _catalogActiveTab = tab;
+  document.querySelectorAll(".catalog-tab").forEach(el => {
+    el.classList.toggle("active", el.dataset.catalogTab === tab);
+  });
+  document.querySelectorAll(".catalog-panel").forEach(el => {
+    el.classList.remove("active");
+  });
+  const panel = document.getElementById("catalog-panel-" + tab);
+  if (panel) panel.classList.add("active");
+  if (tab === "items") renderCatalogItems();
+  if (tab === "kits") renderCatalogKits();
+  if (tab === "available") loadAvailable();
+  if (tab === "recharge") renderRecharge();
+}
 
 function setCatalogCategory(cat) {
   _catalogActiveCat = cat || "";
@@ -1861,7 +2046,7 @@ function setCatalogCategory(cat) {
   document.querySelectorAll(".catalog-cat-chip").forEach(el => {
     el.classList.toggle("active", (el.dataset.cat || "") === _catalogActiveCat);
   });
-  renderCatalog();
+  renderCatalogItems();
 }
 
 function renderCatalogCats(cats) {
@@ -1874,6 +2059,39 @@ function renderCatalogCats(cats) {
     const active = (c === _catalogActiveCat) ? " active" : "";
     return `<button type="button" class="catalog-cat-chip${active}" data-cat="${escHtml(c)}" onclick="setCatalogCategory(this.dataset.cat)">${escHtml(label)}</button>`;
   }).join("");
+}
+
+function _catalogTypeIcon(t) {
+  return ({ dino:"🦕", item:"📦", blueprint:"📋", command:"⚡", experience:"✨", kit:"🎁" })[String(t||"").toLowerCase()] || "📦";
+}
+
+function _catalogTypeClass(t) {
+  const k = String(t || "item").toLowerCase();
+  return ({
+    dino:"type-dino", item:"type-item", blueprint:"type-bp",
+    command:"type-cmd", experience:"type-xp", kit:"type-kit"
+  })[k] || "type-item";
+}
+
+function _renderProductCard(i, btnLabel) {
+  const buyBtn = _auth.authenticated
+    ? `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Comprar"}</button>`
+    : `<span style="font-size:11px;color:var(--text2);">Login p/ comprar</span>`;
+  return `
+    <div class="item-card ${_catalogTypeClass(i.type)}">
+      <div class="item-card__thumb">
+        <div class="item-card__icon">${_catalogTypeIcon(i.type)}</div>
+      </div>
+      <div class="item-card__body">
+        <div class="item-card__cat">${escHtml(i.category || (i.catalogKind === "kit" ? "Kit" : "Item"))}</div>
+        <div class="item-card__name">${escHtml(i.name)}</div>
+        ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
+        <div class="item-card__footer">
+          <span class="item-card__price">${i.price > 0 ? "◈ " + i.price : "Grátis"}</span>
+          ${buyBtn}
+        </div>
+      </div>
+    </div>`;
 }
 
 async function updateCatalogPoints() {
@@ -1889,6 +2107,7 @@ async function updateCatalogPoints() {
     const data = await r.json().catch(() => ({}));
     if (r.ok && data.ok && data.points != null) {
       valEl.textContent = data.points;
+      window._playerBalance = data.points;
       pill.classList.remove("hidden");
     }
   } catch (_) { /* ignore */ }
@@ -1900,16 +2119,47 @@ async function loadCatalog() {
     if (!r.ok) return;
     const data = await r.json();
     const shop = data.items || data.ShopItems || data.Items || {};
+    const kits = data.kits || data.Kits || {};
     const title = document.getElementById("catalog-shop-name");
     if (title && data.shop_name) title.textContent = data.shop_name;
+    const urlEl = document.getElementById("catalog-shop-url");
+    const shopUrl = data.shop_url || data.public_url || "";
+    if (urlEl) {
+      if (shopUrl) {
+        urlEl.style.display = "";
+        urlEl.textContent = shopUrl;
+      } else {
+        urlEl.style.display = "none";
+        urlEl.textContent = "";
+      }
+    }
+
     _catalogItems = Object.entries(shop).map(([key, v]) => ({
       key,
       name:     v.Name || v.name || formatKey(key),
       desc:     v.Description || v.description || "",
       price:    v.Price ?? v.price ?? 0,
-      type:     v.Type  || v.type  || "",
+      type:     v.Type  || v.type  || "item",
       category: v.Category || v.category || "Geral",
+      catalogKind: "item",
+      purchaseType: "shop",
     }));
+
+    _catalogKits = Object.entries(kits).map(([key, v]) => ({
+      key,
+      name:     v.Description || v.description || formatKey(key),
+      desc:     v.Description || v.description || "",
+      price:    v.Price ?? v.price ?? 0,
+      type:     "kit",
+      category: "Kit",
+      catalogKind: "kit",
+      purchaseType: "kit",
+      kitItems: (v.Items || []).length,
+    }));
+
+    _catalogPackages = data.point_packages || [];
+    _catalogPixEnabled = !!data.pix_enabled;
+
     const cats = [...new Set(_catalogItems.map(i => i.category))].sort();
     const sel = document.getElementById("catalog-cat");
     if (sel) {
@@ -1918,12 +2168,15 @@ async function loadCatalog() {
       sel.value = _catalogActiveCat;
     }
     renderCatalogCats(cats);
-    renderCatalog();
+    if (_catalogActiveTab === "items") renderCatalogItems();
+    if (_catalogActiveTab === "kits") renderCatalogKits();
+    if (_catalogActiveTab === "available") loadAvailable();
+    if (_catalogActiveTab === "recharge") renderRecharge();
     updateCatalogPoints();
   } catch (e) { console.warn("loadCatalog:", e); }
 }
 
-function renderCatalog() {
+function renderCatalogItems() {
   const search = (document.getElementById("catalog-search")?.value || "").toLowerCase();
   const cat    = _catalogActiveCat || document.getElementById("catalog-cat")?.value || "";
   const grid   = document.getElementById("catalog-grid");
@@ -1942,30 +2195,193 @@ function renderCatalog() {
     return;
   }
   if (empty) empty.style.display = "none";
+  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Comprar")).join("");
+}
 
-  const typeIcon  = t => ({ Dino:"🦕", Item:"📦", Blueprint:"📋", Command:"⚡", Experience:"✨", Kit:"🎁" }[t] || "📦");
-  const typeClass = t => ({
-    Dino:"type-dino", Item:"type-item", Blueprint:"type-bp",
-    Command:"type-cmd", Experience:"type-xp", Kit:"type-kit"
-  }[t] || "type-item");
+function renderCatalogKits() {
+  const search = (document.getElementById("catalog-kits-search")?.value || "").toLowerCase();
+  const grid = document.getElementById("catalog-kits-grid");
+  const empty = document.getElementById("catalog-kits-empty");
+  if (!grid) return;
 
-  grid.innerHTML = filtered.map(i => `
-    <div class="item-card ${typeClass(i.type)}">
-      <div class="item-card__thumb">
-        <div class="item-card__icon">${typeIcon(i.type)}</div>
-      </div>
-      <div class="item-card__body">
-        <div class="item-card__cat">${escHtml(i.category)}</div>
-        <div class="item-card__name">${escHtml(i.name)}</div>
-        ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
-        <div class="item-card__footer">
-          <span class="item-card__price">◈ ${i.price}</span>
-          ${_auth.authenticated
-            ? `<button class="btn-buy" onclick="openBuyModal(${JSON.stringify(i).replace(/"/g,'&quot;')})">Comprar</button>`
-            : `<span style="font-size:11px;color:var(--text2);">Login p/ comprar</span>`}
-        </div>
-      </div>
+  const filtered = _catalogKits.filter(k => {
+    return !search || k.name.toLowerCase().includes(search) || k.desc.toLowerCase().includes(search);
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  grid.innerHTML = filtered.map(k => _renderProductCard(k, "Comprar Kit")).join("");
+}
+
+async function loadAvailable() {
+  const host = document.getElementById("catalog-available-content");
+  if (!host) return;
+  if (!_auth.authenticated) {
+    host.innerHTML = `<p style="color:var(--text2);text-align:center;margin-top:24px;">Faça login para ver itens disponíveis.</p>`;
+    return;
+  }
+  host.innerHTML = `<p style="color:var(--text2);text-align:center;">Carregando…</p>`;
+  try {
+    const r = await fetch(API + "/api/player/available");
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      host.innerHTML = `<p style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar")}</p>`;
+      return;
+    }
+    let html = "";
+    const pending = d.pending || [];
+    const redeemable = d.redeemable || [];
+
+    html += `<div class="available-section"><div class="available-section__title">⏳ Aguardando resgate no servidor</div>`;
+    if (!pending.length) {
+      html += `<p class="available-hint">Nenhum pedido pendente. Compras entregues aparecem aqui até você entrar no jogo.</p>`;
+    } else {
+      html += pending.map(p => `
+        <div class="available-card">
+          <div>
+            <div class="available-card__name">${escHtml(p.name)}</div>
+            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}</div>
+          </div>
+          <span style="font-size:12px;color:var(--text2);">Entre no servidor</span>
+        </div>`).join("");
+    }
+    html += `</div>`;
+
+    html += `<div class="available-section"><div class="available-section__title">🎁 Grátis para resgatar</div>`;
+    if (!redeemable.length) {
+      html += `<p class="available-hint">Nenhum item ou kit gratuito no momento.</p>`;
+    } else {
+      html += `<div id="catalog-available-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;">`;
+      html += redeemable.map(i => _renderProductCard({
+        key: i.key,
+        name: i.name,
+        desc: i.description,
+        price: 0,
+        type: i.type,
+        catalogKind: i.catalog_kind,
+        purchaseType: i.purchase_type,
+        category: i.catalog_kind === "kit" ? "Kit grátis" : "Item grátis",
+      }, "Resgatar")).join("");
+      html += `</div>`;
+    }
+    html += `</div>`;
+    host.innerHTML = html;
+  } catch (e) {
+    host.innerHTML = `<p style="color:var(--danger);">Erro de rede: ${escHtml(e.message)}</p>`;
+  }
+}
+
+function renderRecharge() {
+  const grid = document.getElementById("catalog-recharge-grid");
+  const empty = document.getElementById("catalog-recharge-empty");
+  const hint = document.getElementById("recharge-hint");
+  if (!grid) return;
+
+  if (!_catalogPixEnabled) {
+    grid.innerHTML = "";
+    if (empty) {
+      empty.style.display = "";
+      empty.textContent = "Configure MP_ACCESS_TOKEN (ou token Mercado Pago em Configurar Paths) para habilitar PIX.";
+    }
+    if (hint) hint.textContent = "Recarga via PIX ainda não está configurada neste servidor.";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  if (hint) hint.textContent = "Escolha um pacote, pague via PIX e aguarde a confirmação automática.";
+
+  const pkgs = _catalogPackages || [];
+  if (!pkgs.length) {
+    grid.innerHTML = "";
+    if (empty) { empty.style.display = ""; empty.textContent = "Nenhum pacote de pontos configurado."; }
+    return;
+  }
+
+  grid.innerHTML = pkgs.map(p => `
+    <div class="recharge-card">
+      <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;">${escHtml(p.label || p.id)}</div>
+      <div class="recharge-card__points">◈ ${p.points}</div>
+      <div class="recharge-card__price">R$ ${Number(p.price_brl || 0).toFixed(2).replace(".", ",")}</div>
+      ${_auth.authenticated
+        ? `<button class="btn btn-success" onclick="startPixCheckout('${escHtml(p.id)}')">Pagar com PIX</button>`
+        : `<span style="font-size:12px;color:var(--text2);">Login para recarregar</span>`}
     </div>`).join("");
+}
+
+function closePixModal() {
+  if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
+  document.getElementById("pix-modal").style.display = "none";
+}
+
+async function startPixCheckout(packageId) {
+  if (!_auth.authenticated) { toast("Faça login para recarregar.", "warning"); return; }
+  try {
+    const r = await fetch(API + "/api/player/pix/checkout", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ package_id: packageId }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      toast(d.error || "Falha ao gerar PIX", "error");
+      return;
+    }
+    showPixModal(d);
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
+function showPixModal(data) {
+  const body = document.getElementById("pix-modal-body");
+  const qr = data.pix_qr_base64
+    ? `<img class="pix-modal-qr" src="data:image/png;base64,${data.pix_qr_base64}" alt="QR Code PIX" />`
+    : "";
+  body.innerHTML = `
+    <p style="text-align:center;margin-bottom:12px;color:var(--text2);">${escHtml(data.label || "")} — <strong style="color:var(--amber);">◈ ${data.points}</strong></p>
+    ${qr}
+    <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:6px;">Copia e cola PIX</label>
+    <textarea class="pix-copy-box" readonly id="pix-copy-field">${escHtml(data.pix_copy_paste || "")}</textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copy-field').value);toast('Código PIX copiado!','success')">📋 Copiar</button>
+    </div>
+    <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">Aguardando pagamento…</p>`;
+  document.getElementById("pix-modal").style.display = "flex";
+  if (_pixPollTimer) clearInterval(_pixPollTimer);
+  _pixPollTimer = setInterval(() => pollPixStatus(data.payment_id), 3000);
+  pollPixStatus(data.payment_id);
+}
+
+async function pollPixStatus(paymentId) {
+  try {
+    const r = await fetch(API + "/api/player/pix/" + encodeURIComponent(paymentId) + "/status");
+    const d = await r.json();
+    if (!r.ok || !d.ok) return;
+    const line = document.getElementById("pix-status-line");
+    if (!line) return;
+    if (d.status === "APROVADO") {
+      line.textContent = "✅ Pagamento confirmado! Pontos creditados.";
+      line.style.color = "var(--success)";
+      if (d.new_balance != null) window._playerBalance = d.new_balance;
+      updateCatalogPoints();
+      loadMyArea();
+      if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
+      toast("Pontos creditados com sucesso!", "success");
+    } else if (d.status === "RECUSADO" || d.status === "EXPIRADO") {
+      line.textContent = "❌ Pagamento " + d.status.toLowerCase();
+      line.style.color = "var(--danger)";
+      if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
+    } else {
+      line.textContent = "Aguardando pagamento…";
+    }
+  } catch (_) { /* ignore */ }
+}
+
+function renderCatalog() {
+  renderCatalogItems();
 }
 
 function fmtDate(iso) {
@@ -2810,6 +3226,10 @@ async function loadSettings() {
     document.getElementById("s-db-port").value        = s.db_port || 3306;
     document.getElementById("s-db-name").value        = s.db_name || "arkland_shop";
     document.getElementById("s-db-user").value        = s.db_user || "";
+    const pkgEl = document.getElementById("s-point-packages");
+    if (pkgEl) {
+      pkgEl.value = JSON.stringify(s.point_packages || [], null, 2);
+    }
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -2832,6 +3252,17 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
+  let pointPackages = undefined;
+  const pkgRaw = document.getElementById("s-point-packages")?.value?.trim();
+  if (pkgRaw) {
+    try {
+      pointPackages = JSON.parse(pkgRaw);
+      if (!Array.isArray(pointPackages)) throw new Error("Deve ser um array JSON");
+    } catch (e) {
+      toast("Pacotes de pontos: JSON inválido — " + e.message, "error");
+      return;
+    }
+  }
   const body = {
     config_path: document.getElementById("s-config-path").value,
     rcon_host:   document.getElementById("s-rcon-host").value,
@@ -2847,6 +3278,9 @@ async function saveSettings() {
     db_user:     document.getElementById("s-db-user").value,
     db_password: document.getElementById("s-db-password").value,
   };
+  const mpToken = document.getElementById("s-mp-token")?.value?.trim();
+  if (mpToken) body.mp_access_token = mpToken;
+  if (pointPackages) body.point_packages = pointPackages;
   try {
     const r = await fetch(API + "/api/settings", {
       method: "POST",
@@ -3166,7 +3600,7 @@ async function confirmBuy() {
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
         item_id: _buyItem.key,
-        item_type: _buyItem.type || "shop",
+        item_type: _buyItem.purchaseType || (_buyItem.catalogKind === "kit" ? "kit" : "shop"),
         amount: 1,
         price: _buyItem.price,
         idempotency_key: `${_auth.steam_id}_${_buyItem.key}_${Date.now()}`,
@@ -3178,6 +3612,8 @@ async function confirmBuy() {
       toast(`✅ Compra realizada! ${_buyItem.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       loadMyArea();
+      updateCatalogPoints();
+      if (_catalogActiveTab === "available") loadAvailable();
     } else {
       toast(d.error || "Falha na compra", "error");
     }
@@ -3209,6 +3645,17 @@ async function confirmBuy() {
   showAuthOverlay(false);
 })();
 </script>
+
+<!-- ── Modal PIX ─────────────────────────────────────────────────────────────── -->
+<div id="pix-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
+  <div class="buy-modal-inner" style="max-width:420px;">
+    <div class="buy-modal-title">💳 Pagamento PIX</div>
+    <div id="pix-modal-body"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost" onclick="closePixModal()">Fechar</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── Modal de Compra ───────────────────────────────────────────────────────── -->
 <div id="buy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">

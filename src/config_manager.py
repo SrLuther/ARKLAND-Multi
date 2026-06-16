@@ -104,11 +104,12 @@ class DiscordBotConfig:
 @dataclass
 class ShopGlobalConfig:
     """Loja central cross-cluster (host na LAN ou cliente apontando para host remoto)."""
-    mode: str = "host"                    # "host" | "client"
-    central_url: str = ""                 # URL manual ou IP:porta do host (cliente)
-    host_ip: str = ""                     # IP LAN desta máquina (host); vazio = auto
-    public_ip: str = ""                   # IP público (internet); vazio = não exibido
-    port: int = 5177
+    mode: str = "client"                  # "host" | "client" — loja remota = client
+    central_url: str = "https://arkland.com.br"  # URL da loja (servidor remoto)
+    public_url: str = "https://arkland.com.br"  # Domínio público da loja
+    host_ip: str = "192.168.15.51"        # IP LAN do servidor remoto (banco/loja)
+    public_ip: str = "179.185.19.88"      # IP público do servidor remoto
+    port: int = 27199
     api_key: str = ""
     delivery_mode: str = "plugin"         # plugin | rcon
     catalog_config_path: str = ""         # catálogo mestre Items/Kits
@@ -116,7 +117,7 @@ class ShopGlobalConfig:
     auto_sync_on_save: bool = True
     # Banco de pedidos (arkshop_web)
     orders_db_url: str = ""
-    orders_db_host: str = "127.0.0.1"
+    orders_db_host: str = "192.168.15.51"
     orders_db_port: int = 3306
     orders_db_name: str = "arkshop"
     orders_db_user: str = ""

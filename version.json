@@ -1,10 +1,14 @@
 {
-    "version": "1.9.11",
+    "version": "1.9.12",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.11/ARKLAND-Multi-Setup-v1.9.11.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.12/ARKLAND-Multi-Setup-v1.9.12.exe",
     "changelog": [
-        "Novo (Loja): botão «Importar JSON» no painel CustomShop — carrega catálogo ArkShop (ShopItems/Kits) com conversão automática para formato CustomShop.",
-        "Novo (Loja): importação normaliza Blueprints, Amount→Quantity, itens dino (Dinos) e command (Commands); opção mesclar/substituir e importar TimedPointsReward.",
-        "Fix (CustomShop): BuyItem entrega dinos e executa comandos na compra; bundles aceitam Amount como alias de Quantity."
+        "Novo (Web Store): abas Catálogo — Itens, Kits, Disponível (resgate) e Recarga PIX.",
+        "Novo (Web Store): recarga PIX via Mercado Pago (MP_ACCESS_TOKEN) com QR code e webhook.",
+        "Melhoria (Loja): domínio padrão arkland.com.br; modo Cliente para loja/banco em servidor remoto.",
+        "Melhoria (Loja): defaults do servidor remoto — LAN 192.168.15.51, IP público 179.185.19.88, porta 27199; MySQL de pedidos aponta para o host remoto.",
+        "Melhoria (Loja): UI Web Store exibe URLs do servidor remoto (LAN, internet e domínio para jogadores).",
+        "Fix (Loja): abas Itens/Kits do painel CustomShop não duplicam conteúdo após importar catálogo.",
+        "Novo (API): /api/player/available — resgate de entregas pendentes na web store."
     ]
 }

@@ -25,6 +25,10 @@ _PERM_CONFIG_TEMPLATE = _PROJECT_ROOT / "plugin" / "Permissions" / "configs" / "
 _PERM_DB_NAME = "ark_permission"
 _PERM_PASSWORD_PLACEHOLDER = "SUA_SENHA_AQUI"
 _DEV_BIN_DIR = _PROJECT_ROOT / "plugin" / "CustomShop" / "bin"
+DEFAULT_SHOP_PUBLIC_URL = "https://arkland.com.br"
+DEFAULT_SHOP_PORT = 27199
+DEFAULT_REMOTE_SHOP_HOST = "192.168.15.51"
+DEFAULT_REMOTE_SHOP_PUBLIC_IP = "179.185.19.88"
 _ARKSHOP_WEB_DIR = _PROJECT_ROOT / "plugin" / "arkshop_web"
 _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
 _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
@@ -95,37 +99,105 @@ def fetch_public_ip(timeout: int = 6) -> Tuple[bool, str]:
     return False, "Não foi possível detectar o IP público."
 
 
+def normalize_shop_url(url: str) -> str:
+    """Normaliza URL da loja (domínio ou endereço completo)."""
+    u = (url or "").strip()
+    if not u:
+        return ""
+    if not re.match(r"^https?://", u, re.I):
+        u = f"https://{u}"
+    return u.rstrip("/")
+
+
+def effective_shop_public_url(shop: "ShopGlobalConfig") -> str:
+    """Domínio público efetivo da loja (configurado ou padrão arkland.com.br)."""
+    return normalize_shop_url(getattr(shop, "public_url", "") or "") or DEFAULT_SHOP_PUBLIC_URL
+
+
 def resolve_central_url(shop: "ShopGlobalConfig") -> str:
-    override = (shop.central_url or "").strip().rstrip("/")
+    """URL da loja para sync — domínio remoto; não usa IP desta máquina."""
+    override = normalize_shop_url((shop.central_url or "").strip())
+    if not override and (shop.central_url or "").strip():
+        override = (shop.central_url or "").strip().rstrip("/")
     if shop.mode == "client":
-        return override
+        return override or effective_shop_public_url(shop)
     if override:
         return override
-    host = (shop.host_ip or "").strip() or get_local_ip()
-    port = max(1, int(shop.port or 5177))
-    return f"http://{host}:{port}"
+    domain = effective_shop_public_url(shop)
+    if domain:
+        return domain
+    host = (shop.host_ip or "").strip()
+    if host:
+        port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+        return f"http://{host}:{port}"
+    return DEFAULT_SHOP_PUBLIC_URL
 
 
 def resolve_public_shop_url(shop: "ShopGlobalConfig") -> str:
-    """URL da loja para acesso pela internet (IP público + porta)."""
-    pub = (shop.public_ip or "").strip()
-    if not pub:
-        return ""
-    port = max(1, int(shop.port or 5177))
-    return f"http://{pub}:{port}"
+    """URL pública da loja para jogadores (domínio preferido sobre IP)."""
+    domain = normalize_shop_url(getattr(shop, "public_url", "") or "")
+    if domain:
+        return domain
+    pub_ip = (shop.public_ip or "").strip()
+    if pub_ip:
+        port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+        if port == 80:
+            return f"http://{pub_ip}"
+        if port == 443:
+            return f"https://{pub_ip}"
+        return f"http://{pub_ip}:{port}"
+    return DEFAULT_SHOP_PUBLIC_URL
+
+
+def resolve_website_url(shop: "ShopGlobalConfig") -> str:
+    """URL exibida ao jogador (/shop, Discord, etc.)."""
+    pub = resolve_public_shop_url(shop)
+    if pub:
+        return pub
+    if shop.mode == "client":
+        client = normalize_shop_url(shop.central_url or "")
+        if client:
+            return client
+    return resolve_central_url(shop)
+
+
+def resolve_plugin_api_url(shop: "ShopGlobalConfig") -> str:
+    """URL HTTP que o CustomShop.dll usa para a API da web store."""
+    domain = effective_shop_public_url(shop)
+    if domain:
+        return domain
+    if shop.mode == "client":
+        client = (shop.central_url or "").strip().rstrip("/")
+        if client:
+            return client
+    return resolve_central_url(shop)
 
 
 def shop_access_urls(shop: "ShopGlobalConfig") -> dict[str, str]:
-    """Retorna URLs de acesso LAN e internet para exibição na UI."""
-    port = max(1, int(shop.port or 5177))
-    lan_ip = (shop.host_ip or "").strip() or get_local_ip()
+    """Retorna URLs de acesso para exibição na UI."""
+    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+    lan_ip = (shop.host_ip or "").strip()
     pub_ip = (shop.public_ip or "").strip()
+    domain = effective_shop_public_url(shop)
+    shop_url = resolve_website_url(shop)
+    lan_url = f"http://{lan_ip}:{port}" if lan_ip else ""
+    if pub_ip:
+        if port in (80, 443):
+            remote_public_url = f"{'https' if port == 443 else 'http'}://{pub_ip}"
+        else:
+            remote_public_url = f"http://{pub_ip}:{port}"
+    else:
+        remote_public_url = ""
     return {
         "lan_ip": lan_ip,
         "public_ip": pub_ip,
-        "lan_url": f"http://{lan_ip}:{port}",
-        "public_url": f"http://{pub_ip}:{port}" if pub_ip else "",
+        "lan_url": lan_url,
+        "remote_public_url": remote_public_url,
+        "public_url": domain,
+        "shop_url": shop_url,
         "central": resolve_central_url(shop),
+        "plugin_api": resolve_plugin_api_url(shop),
+        "remote": shop.mode == "client",
     }
 
 
@@ -628,7 +700,7 @@ def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     import os
 
     env = dict(os.environ)
-    env["PORT"] = str(max(1, int(shop.port or 5177)))
+    env["PORT"] = str(max(1, int(shop.port or DEFAULT_SHOP_PORT)))
     env["ARKSHOP_DATA_DIR"] = str(webstore_data_dir())
     if shop.api_key:
         env["ARKSHOP_API_KEY"] = shop.api_key
@@ -680,7 +752,7 @@ def create_webstore_firewall_rule(port: int) -> Tuple[bool, str]:
     """Cria regra de entrada TCP para a Web Store (perfil Any)."""
     from .pages.db_local_server import DbLocalServer
 
-    port = max(1, int(port or 5177))
+    port = max(1, int(port or DEFAULT_SHOP_PORT))
     rule = f"{_WEBSTORE_FW_PREFIX}{port}"
     if check_webstore_firewall_rule(port):
         return True, f"Regra já existe para porta {port}."
@@ -736,11 +808,19 @@ def create_webstore_firewall_rule(port: int) -> Tuple[bool, str]:
 
 
 def diagnose_webstore_access(shop: "ShopGlobalConfig") -> Tuple[bool, str, bool]:
-    """Testa localhost e IP LAN. Retorna (ok_lan, mensagem, ok_local)."""
-    port = max(1, int(shop.port or 5177))
-    host = (shop.host_ip or "").strip() or get_local_ip()
+    """Testa conectividade com a loja. Em modo client, testa o domínio remoto."""
+    if shop.mode == "client":
+        url = effective_shop_public_url(shop)
+        ok, msg = test_shop_connection(url)
+        return ok, f"Loja remota ({url}): {msg}", False
+
+    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+    host = (shop.host_ip or "").strip()
     ok_local, msg_local = test_shop_connection(f"http://127.0.0.1:{port}")
-    ok_lan, msg_lan = test_shop_connection(f"http://{host}:{port}")
+    if host:
+        ok_lan, msg_lan = test_shop_connection(f"http://{host}:{port}")
+    else:
+        ok_lan, msg_lan = False, "IP LAN do host não configurado"
     if ok_lan:
         return True, "Loja respondendo (LAN)", ok_local
     if ok_local:
@@ -766,7 +846,7 @@ def save_plugin_config(path: Path, data: Dict[str, Any]) -> None:
 
 def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
     """Monta bloco Database do config.json do plugin a partir da loja / DB Manager."""
-    host = (shop.orders_db_host or "").strip() or "127.0.0.1"
+    host = (shop.orders_db_host or "").strip() or DEFAULT_REMOTE_SHOP_HOST
     port = int(shop.orders_db_port or 3306)
     name = (shop.orders_db_name or "").strip() or "arkland_shop"
     user = (shop.orders_db_user or "").strip()
@@ -792,14 +872,15 @@ def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
 
 def merge_plugin_config(
     catalog: Dict[str, Any],
-    central_url: str,
+    website_url: str,
+    api_url: str,
     api_key: str,
     db_settings: Dict[str, Any],
 ) -> Dict[str, Any]:
     out = deepcopy(catalog)
     settings = out.setdefault("Settings", {})
-    settings["WebsiteUrl"] = central_url
-    settings["WebApiUrl"] = central_url
+    settings["WebsiteUrl"] = website_url
+    settings["WebApiUrl"] = api_url
     settings["WebApiKey"] = api_key
     if db_settings:
         out["Database"] = deepcopy(db_settings)
@@ -809,12 +890,13 @@ def merge_plugin_config(
 def sync_plugin_at_path(
     catalog: Dict[str, Any],
     plugin_path: Path,
-    central_url: str,
+    website_url: str,
+    api_url: str,
     api_key: str,
     db_settings: Dict[str, Any],
 ) -> None:
     existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
-    merged = merge_plugin_config(catalog, central_url, api_key, db_settings)
+    merged = merge_plugin_config(catalog, website_url, api_url, api_key, db_settings)
     if existing.get("Settings"):
         for k, v in existing["Settings"].items():
             if k not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
@@ -825,7 +907,9 @@ def sync_plugin_at_path(
 def sync_arkshop_web_settings(
     shop: "ShopGlobalConfig",
     catalog_path: Path,
-    central_url: str,
+    *,
+    website_url: str = "",
+    api_url: str = "",
 ) -> None:
     data: Dict[str, Any] = {}
     settings_path = webstore_data_dir() / "settings.json"
@@ -835,10 +919,11 @@ def sync_arkshop_web_settings(
         except Exception:
             data = {}
 
-    data["port"] = int(shop.port or 5177)
+    data["port"] = int(shop.port or DEFAULT_SHOP_PORT)
     data["delivery_mode"] = shop.delivery_mode or "plugin"
     data["config_path"] = str(catalog_path)
-    data["central_url"] = central_url
+    data["central_url"] = resolve_central_url(shop)
+    data["public_url"] = effective_shop_public_url(shop)
     data["shop_mode"] = shop.mode
     data["machine_label"] = shop.machine_label or ""
     if shop.api_key:
@@ -900,7 +985,8 @@ def sync_all_plugins(
     asm_cm: Optional["AsmConfigManager"] = None,
 ) -> Tuple[List[str], List[str]]:
     """Retorna (sucessos, erros)."""
-    central = resolve_central_url(shop)
+    website = resolve_website_url(shop)
+    api = resolve_plugin_api_url(shop)
     api_key = shop.api_key or ""
     db_settings = build_plugin_database_settings(shop)
     catalog_db = catalog.get("Database", {})
@@ -920,7 +1006,7 @@ def sync_all_plugins(
             continue
         plugin_path = Path(path_str)
         try:
-            sync_plugin_at_path(catalog, plugin_path, central, api_key, db_settings)
+            sync_plugin_at_path(catalog, plugin_path, website, api, api_key, db_settings)
             sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
                 getattr(srv, "name", ""), getattr(srv, "id", ""),
             )
@@ -954,7 +1040,7 @@ def sync_all_plugins(
         cm.save_servers()
     if tek_dirty and asm_cm is not None:
         asm_cm.save()
-    sync_arkshop_web_settings(shop, catalog_path, central)
+    sync_arkshop_web_settings(shop, catalog_path, website_url=website, api_url=api)
     register_arkshop_servers(cm, shop, asm_cm=asm_cm)
     return ok, errors
 
