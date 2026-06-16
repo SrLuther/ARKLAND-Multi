@@ -1,11 +1,10 @@
 {
-    "version": "1.9.10",
+    "version": "1.9.11",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.10/ARKLAND-Multi-Setup-v1.9.10.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.11/ARKLAND-Multi-Setup-v1.9.11.exe",
     "changelog": [
-        "Fix (BUFFs/TEK): sistema de rates temporários funciona em servidores TEK — start/stop, INI e combo unificado (TEK + legado).",
-        "Novo (TEK): remover servidores legados (modo primitivo) em Configurações → Servidores legados, sem precisar abrir o modo primitivo.",
-        "Fix (DB): botão «Sync jogadores» — recria arkland_shop.players com schema CustomShop e importa SteamId de ark_permission.players.",
-        "Fix (DB): botão «Recarregar» na barra de conexão e na aba Dados; aviso se players tiver schema do Permissions."
+        "Novo (Loja): botão «Importar JSON» no painel CustomShop — carrega catálogo ArkShop (ShopItems/Kits) com conversão automática para formato CustomShop.",
+        "Novo (Loja): importação normaliza Blueprints, Amount→Quantity, itens dino (Dinos) e command (Commands); opção mesclar/substituir e importar TimedPointsReward.",
+        "Fix (CustomShop): BuyItem entrega dinos e executa comandos na compra; bundles aceitam Amount como alias de Quantity."
     ]
 }

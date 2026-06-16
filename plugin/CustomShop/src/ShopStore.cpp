@@ -48,9 +48,12 @@ void GiveSingleItem(AShooterPlayerController* controller,
 void GiveItemsArray(AShooterPlayerController* controller,
                     const nlohmann::json& items_array) {
     for (const auto& entry : items_array) {
+        const int qty = entry.contains("Quantity")
+            ? entry.value("Quantity", 1)
+            : entry.value("Amount", 1);
         GiveSingleItem(controller,
                        entry.value("Blueprint",     ""),
-                       entry.value("Quantity",      1),
+                       qty,
                        entry.value("Quality",       0.0f),
                        entry.value("ForceBlueprint",false));
     }
@@ -145,6 +148,12 @@ bool BuyItem(AShooterPlayerController* controller,
     // Multi-item bundle (Items array)
     if (item.contains("Items"))
         GiveItemsArray(controller, item.at("Items"));
+
+    if (item.contains("Dinos"))
+        SpawnDinosArray(controller, item.at("Dinos"));
+
+    if (item.contains("Commands"))
+        RunCommands(item.at("Commands"), controller, id);
 
     Log::GetLog()->info("BuyItem: player {} bought '{}' x{}", id, item_id, amount);
     return true;

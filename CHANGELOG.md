@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.11] - 2026-06-12
+
+### Feature
+
+- Novo (Loja): botão «Importar JSON» no painel CustomShop — carrega catálogo ArkShop (ShopItems/Kits) com conversão automática para formato CustomShop.
+- Novo (Loja): importação normaliza Blueprints, Amount→Quantity, itens dino (Dinos) e command (Commands); opção mesclar/substituir e importar TimedPointsReward.
+
+### Fix
+
+- Fix (CustomShop): BuyItem entrega dinos e executa comandos na compra; bundles aceitam Amount como alias de Quantity.
+
 ## [1.9.10] - 2026-06-15
 
 ### Feature

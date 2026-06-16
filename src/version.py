@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.10"
+APP_VERSION: str = "1.9.11"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.11",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (Loja): botão «Importar JSON» no painel CustomShop — carrega catálogo ArkShop "
+            "(ShopItems/Kits) com conversão automática para formato CustomShop.",
+            "Novo (Loja): importação normaliza Blueprints, Amount→Quantity, itens dino (Dinos) e "
+            "command (Commands); opção mesclar/substituir e importar TimedPointsReward.",
+            "Fix (CustomShop): BuyItem entrega dinos e executa comandos na compra; bundles aceitam "
+            "Amount como alias de Quantity.",
+        ],
+    },
     {
         "version": "1.9.10",
         "date": "2026-06-15",

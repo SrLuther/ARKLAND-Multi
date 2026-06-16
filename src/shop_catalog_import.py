@@ -1,0 +1,215 @@
+"""Conversão de catálogo ArkShop → formato CustomShop (config.json)."""
+from __future__ import annotations
+
+import copy
+import json
+import re
+from pathlib import Path
+from typing import Any, Dict, Tuple
+
+_BP_RE = re.compile(r"^Blueprint'(.+)'$")
+
+
+def normalize_blueprint(value: str) -> str:
+    """ArkShop: Blueprint'/Game/...' → /Game/..."""
+    if not value:
+        return ""
+    m = _BP_RE.match(value.strip())
+    return m.group(1) if m else value.strip()
+
+
+def _normalize_item_entry(entry: dict) -> dict:
+    out: dict[str, Any] = {}
+    if "Blueprint" in entry:
+        out["Blueprint"] = normalize_blueprint(str(entry["Blueprint"]))
+    qty = entry.get("Quantity", entry.get("Amount", 1))
+    out["Quantity"] = int(qty) if qty is not None else 1
+    for key in ("Quality", "ForceBlueprint"):
+        if key in entry:
+            out[key] = entry[key]
+    return out
+
+
+def _normalize_dino_entry(entry: dict) -> dict:
+    out: dict[str, Any] = {
+        "Blueprint": normalize_blueprint(str(entry.get("Blueprint", ""))),
+        "Level": int(entry.get("Level", 150)),
+        "ForceTame": bool(entry.get("ForceTame", True)),
+        "Neutered": bool(entry.get("Neutered", False)),
+    }
+    if "Gender" in entry:
+        out["Gender"] = entry["Gender"]
+    return out
+
+
+def _commands_from_arkshop(raw: dict) -> list[str]:
+    cmds: list[str] = []
+    for entry in raw.get("Items", []):
+        cmd = entry.get("Command")
+        if not cmd:
+            continue
+        cmds.append(
+            str(cmd).replace("{steamid}", "{SteamID}").replace("{SteamID}", "{SteamID}")
+        )
+    for entry in raw.get("Commands", []):
+        if isinstance(entry, str):
+            cmds.append(entry.replace("{steamid}", "{SteamID}"))
+    return cmds
+
+
+def convert_shop_item(key: str, raw: dict) -> dict:
+    """Converte um ShopItem/Item ArkShop para CustomShop."""
+    item_type = str(raw.get("Type", "item")).lower()
+    out: dict[str, Any] = {
+        "Type": item_type,
+        "Price": int(raw.get("Price", 0)),
+        "Description": str(raw.get("Description", key)),
+    }
+
+    if item_type == "dino":
+        if raw.get("Dinos"):
+            out["Dinos"] = [_normalize_dino_entry(d) for d in raw["Dinos"]]
+        elif raw.get("Blueprint"):
+            dino = _normalize_dino_entry(raw)
+            out["Dinos"] = [dino]
+        return out
+
+    if item_type == "command":
+        cmds = _commands_from_arkshop(raw)
+        if cmds:
+            out["Commands"] = cmds
+        return out
+
+    if raw.get("Items"):
+        out["Items"] = [_normalize_item_entry(e) for e in raw["Items"] if e.get("Blueprint")]
+    elif raw.get("Blueprint"):
+        out["Blueprint"] = normalize_blueprint(str(raw["Blueprint"]))
+        out["Quantity"] = int(raw.get("Quantity", raw.get("Amount", 1)))
+        for key in ("Quality", "ForceBlueprint"):
+            if key in raw:
+                out[key] = raw[key]
+
+    return out
+
+
+def convert_kit(key: str, raw: dict) -> dict:
+    """Converte um Kit ArkShop para CustomShop."""
+    out: dict[str, Any] = {
+        "Price": int(raw.get("Price", 0)),
+        "Description": str(raw.get("Description", key)),
+    }
+    if "DefaultAmount" in raw:
+        out["DefaultAmount"] = int(raw["DefaultAmount"])
+    if raw.get("Permissions"):
+        out["Permissions"] = str(raw["Permissions"])
+    if raw.get("Items"):
+        out["Items"] = [_normalize_item_entry(e) for e in raw["Items"] if e.get("Blueprint")]
+    if raw.get("Dinos"):
+        out["Dinos"] = [_normalize_dino_entry(d) for d in raw["Dinos"]]
+    cmds = _commands_from_arkshop(raw)
+    if cmds:
+        out["Commands"] = cmds
+    return out
+
+
+def detect_format(raw: dict) -> str:
+    if "ShopItems" in raw or ("Mysql" in raw and "General" in raw):
+        return "arkshop"
+    if "Items" in raw or "Kits" in raw:
+        return "customshop"
+    return "unknown"
+
+
+def extract_catalog(raw: dict) -> Tuple[dict, dict, dict | None]:
+    """Retorna (items, kits, timed_points_reward|None) no formato CustomShop."""
+    fmt = detect_format(raw)
+    items_src = raw.get("ShopItems") or raw.get("Items") or {}
+    kits_src = raw.get("Kits") or {}
+
+    items = {k: convert_shop_item(k, v) for k, v in items_src.items() if isinstance(v, dict)}
+    kits = {k: convert_kit(k, v) for k, v in kits_src.items() if isinstance(v, dict)}
+
+    timed: dict | None = None
+    if fmt == "arkshop":
+        general = raw.get("General") or {}
+        if isinstance(general.get("TimedPointsReward"), dict):
+            timed = copy.deepcopy(general["TimedPointsReward"])
+    elif isinstance(raw.get("TimedPointsReward"), dict):
+        timed = copy.deepcopy(raw["TimedPointsReward"])
+
+    # Normaliza blueprints em catálogo já CustomShop (re-importação)
+    if fmt == "customshop":
+        for itm in items.values():
+            if itm.get("Blueprint"):
+                itm["Blueprint"] = normalize_blueprint(str(itm["Blueprint"]))
+            if itm.get("Items"):
+                itm["Items"] = [_normalize_item_entry(e) for e in itm["Items"]]
+            if itm.get("Dinos"):
+                itm["Dinos"] = [_normalize_dino_entry(d) for d in itm["Dinos"]]
+        for kit in kits.values():
+            if kit.get("Items"):
+                kit["Items"] = [_normalize_item_entry(e) for e in kit["Items"]]
+            if kit.get("Dinos"):
+                kit["Dinos"] = [_normalize_dino_entry(d) for d in kit["Dinos"]]
+
+    return items, kits, timed
+
+
+def apply_catalog_to_target(
+    target: dict,
+    items: dict,
+    kits: dict,
+    timed: dict | None = None,
+    *,
+    merge: bool = True,
+    import_timed: bool = False,
+) -> dict[str, int]:
+    """Mescla catálogo convertido em `target` (config CustomShop in-place)."""
+    stats = {"items_added": 0, "kits_added": 0, "items_skipped": 0, "kits_skipped": 0}
+
+    tgt_items = target.setdefault("Items", {})
+    tgt_kits = target.setdefault("Kits", {})
+
+    if not merge:
+        tgt_items.clear()
+        tgt_kits.clear()
+
+    for key, itm in items.items():
+        if merge and key in tgt_items:
+            stats["items_skipped"] += 1
+        tgt_items[key] = itm
+        stats["items_added"] += 1
+
+    for key, kit in kits.items():
+        if merge and key in tgt_kits:
+            stats["kits_skipped"] += 1
+        tgt_kits[key] = kit
+        stats["kits_added"] += 1
+
+    if import_timed and timed is not None:
+        target["TimedPointsReward"] = timed
+
+    return stats
+
+
+def import_catalog_from_file(
+    source_path: str | Path,
+    target: dict,
+    *,
+    merge: bool = True,
+    import_timed: bool = False,
+) -> dict[str, Any]:
+    """Lê JSON (ArkShop ou CustomShop) e aplica ao `target`."""
+    path = Path(source_path)
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    items, kits, timed = extract_catalog(raw)
+    stats = apply_catalog_to_target(
+        target, items, kits, timed, merge=merge, import_timed=import_timed,
+    )
+    return {
+        "source": str(path),
+        "format": detect_format(raw),
+        "items_total": len(items),
+        "kits_total": len(kits),
+        **stats,
+    }

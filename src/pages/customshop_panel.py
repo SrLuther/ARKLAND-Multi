@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..rcon_client import RconClient
+from ..shop_catalog_import import import_catalog_from_file
 from ..shop_integration import (
     build_webstore_launch,
     check_webstore_firewall_rule,
@@ -198,6 +199,72 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         top_bar, text="🔄  Recarregar do Disco",
         height=36, width=190, fg_color=_BLUE, hover_color=_BLUE_HOVER,
         command=lambda: _reload(),
+    ).pack(side="left", padx=(10, 0), pady=8)
+
+    def _import_catalog() -> None:
+        from tkinter import filedialog
+        src = filedialog.askopenfilename(
+            title="Importar catálogo (ArkShop / CustomShop)",
+            filetypes=[("JSON", "*.json"), ("Todos", "*.*")],
+            initialfile="loja.json",
+        )
+        if not src:
+            return
+        merge = messagebox.askyesno(
+            "Modo de importação",
+            "Mesclar com o catálogo atual?\n\n"
+            "Sim = mantém itens/kits existentes e sobrescreve chaves iguais\n"
+            "Não = substitui todo o catálogo (Itens + Kits)",
+            parent=parent.winfo_toplevel(),
+        )
+        import_timed = messagebox.askyesno(
+            "Pontos temporais",
+            "Importar também TimedPointsReward (grupos VIP, intervalo, etc.)?\n\n"
+            "Não altera Database nem credenciais.",
+            parent=parent.winfo_toplevel(),
+        )
+        try:
+            result = import_catalog_from_file(
+                src, data, merge=merge, import_timed=import_timed,
+            )
+        except Exception as exc:
+            messagebox.showerror("Erro na importação", str(exc), parent=parent.winfo_toplevel())
+            return
+
+        if import_timed and _tpv and data.get("TimedPointsReward"):
+            tp = data["TimedPointsReward"]
+            _tpv["Enabled"].set(bool(tp.get("Enabled", True)))
+            _tpv["Interval"].set(str(tp.get("Interval", 30)))
+            _tpv["StackRewards"].set(bool(tp.get("StackRewards", True)))
+            _tp_group_vars.clear()
+            for g_name, g_data in (tp.get("Groups") or {}).items():
+                amt = g_data.get("Amount", 25) if isinstance(g_data, dict) else 25
+                _tp_group_vars[g_name] = tk.StringVar(value=str(amt))
+
+        _built_shop_tabs.discard("🛒  Itens")
+        _built_shop_tabs.discard("🎁  Kits")
+        if import_timed:
+            _built_shop_tabs.discard("⏱️  Pontos Temporais")
+
+        msg = (
+            f"Formato: {result['format']}\n"
+            f"Arquivo: {result['source']}\n\n"
+            f"Itens: {result['items_total']} ({result['items_added']} aplicados"
+        )
+        if result.get("items_skipped"):
+            msg += f", {result['items_skipped']} sobrescritos"
+        msg += (
+            f")\nKits: {result['kits_total']} ({result['kits_added']} aplicados"
+        )
+        if result.get("kits_skipped"):
+            msg += f", {result['kits_skipped']} sobrescritos"
+        msg += ")\n\nUse «Salvar config.json» para gravar no disco."
+        messagebox.showinfo("Importação concluída", msg, parent=parent.winfo_toplevel())
+
+    ctk.CTkButton(
+        top_bar, text="📥  Importar JSON",
+        height=36, width=160, fg_color="#3a3a6a", hover_color="#4a4a8a",
+        command=_import_catalog,
     ).pack(side="left", padx=(10, 0), pady=8)
 
     path_var = tk.StringVar(value=str(cfg_path))
