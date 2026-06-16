@@ -2177,7 +2177,7 @@ def _build_server_files(sf, srv, vars_ref, bg, accent):
             "title": "Administradores",
             "icon": "🛡",
             "sub": "SteamID64 de cada admin, um por linha.",
-            "hint": "Jogadores com esses SteamIDs têm acesso a comandos admin sem precisar da senha de admin.",
+            "hint": "Gravado em ShooterGame/Saved/AllowedCheaterSteamIDs.txt ao salvar ou iniciar o servidor.",
             "key": "_admin_ids_text",
             "items": srv.admin_ids,
         },
@@ -3754,7 +3754,7 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
             pass
         frame_cache.pop(cache_key, None)
 
-    # 4. Escreve os INIs imediatamente (se install_dir existir)
+    # 4. Escreve os INIs e arquivos de Steam ID (se install_dir existir)
     import os as _os
     if srv.install_dir and _os.path.isdir(srv.install_dir):
         try:
@@ -3762,6 +3762,20 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
             write_ini(srv)
         except Exception:
             pass  # INIs serão escritos no próximo start
+
+        from ..ark_server_files import write_allowed_cheater_steam_ids_safe
+
+        def _warn(msg: str) -> None:
+            log_fn = getattr(app, "_global_log", None)
+            if log_fn:
+                log_fn(msg, "warning")
+
+        write_allowed_cheater_steam_ids_safe(
+            srv.install_dir,
+            list(srv.admin_ids or []),
+            server_name=srv.name,
+            on_warning=_warn,
+        )
 
     # 5. Atualiza dashboard e sidebar
     try:

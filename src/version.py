@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.12"
+APP_VERSION: str = "1.9.13"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.13",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (TEK/Admins): AllowedCheaterSteamIDs.txt passa a ser gravado em "
+            "ShooterGame/Saved/ ao salvar ou iniciar o servidor (modo TEK não escrevia o arquivo).",
+            "Fix (Admins): gravação centralizada em ark_server_files.py; promoção de jogador a admin "
+            "atualiza o arquivo imediatamente.",
+            "Melhoria (TEK): hint na seção Administradores indica caminho e momento da gravação.",
+        ],
+    },
     {
         "version": "1.9.12",
         "date": "2026-06-12",

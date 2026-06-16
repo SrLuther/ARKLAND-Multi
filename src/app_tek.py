@@ -1662,6 +1662,10 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.toast import toast
         toast(self, msg, kind)
 
+    def _write_allowed_admins(self, server_id: str) -> None:
+        from .pages.write_allowed_admins import write_allowed_admins
+        write_allowed_admins(self, server_id)
+
 
 # Alias para TYPE_CHECKING e módulos importados da Fix
 ARKTEKApp = ARKServerManagerApp

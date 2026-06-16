@@ -13,11 +13,13 @@ def player_add_admin(app: "ARKServerManagerApp", server_id: str, steam_id: str, 
     if name:
         srv.admin_names[steam_id] = name
     app.config_manager.update_server(srv)
+    app._write_allowed_admins(server_id)
     app._refresh_admins_list(server_id)
     app._refresh_players(server_id)
     messagebox.showinfo(
         "Admin adicionado",
-        f"'{name}' foi adicionado à lista de admins.\nLembre-se de salvar as configurações.",
+        f"'{name}' foi adicionado à lista de admins.\n"
+        f"Arquivo AllowedCheaterSteamIDs.txt atualizado em ShooterGame/Saved/.",
         parent=app,
     )
 

@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.13] - 2026-06-12
+
+### Improvement
+
+- Melhoria (TEK): hint na seção Administradores indica caminho e momento da gravação.
+
+### Fix
+
+- Fix (TEK/Admins): AllowedCheaterSteamIDs.txt passa a ser gravado em ShooterGame/Saved/ ao salvar ou iniciar o servidor (modo TEK não escrevia o arquivo).
+- Fix (Admins): gravação centralizada em ark_server_files.py; promoção de jogador a admin atualiza o arquivo imediatamente.
+
 ## [1.9.12] - 2026-06-12
 
 ### Feature

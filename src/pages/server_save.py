@@ -575,22 +575,14 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         except Exception as exc:
             app._global_log(f"Erro ao salvar .ini para {srv.name}: {exc}", "error")
 
-        # Grava AllowedCheaterSteamIDs.txt
-        # Localização correta: ShooterGame/Saved/
-        try:
-            import pathlib
-            allowed_path = (
-                pathlib.Path(srv.install_dir)
-                / "ShooterGame" / "Saved"
-                / "AllowedCheaterSteamIDs.txt"
-            )
-            allowed_path.parent.mkdir(parents=True, exist_ok=True)
-            allowed_path.write_text("\n".join(srv.admin_ids), encoding="utf-8")
-        except Exception as exc:
-            app._global_log(
-                f"[{srv.name}] Aviso: não foi possível gravar AllowedCheaterSteamIDs.txt: {exc}",
-                "warning",
-            )
+        # Grava AllowedCheaterSteamIDs.txt (ShooterGame/Saved/)
+        from ..ark_server_files import write_allowed_cheater_steam_ids_safe
+        write_allowed_cheater_steam_ids_safe(
+            srv.install_dir,
+            srv.admin_ids,
+            server_name=srv.name,
+            on_warning=lambda m: app._global_log(m, "warning"),
+        )
 
     app._rebuild_server_sidebar()
     app._refresh_dashboard()

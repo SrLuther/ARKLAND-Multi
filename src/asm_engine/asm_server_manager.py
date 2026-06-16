@@ -286,6 +286,9 @@ class AsmServerManager:
                 on_done(False, f"Falha ao gravar GameUserSettings.ini: {exc}")
             return
 
+        from ..ark_server_files import write_allowed_cheater_steam_ids_safe
+        write_allowed_cheater_steam_ids_safe(cfg.install_dir, list(cfg.admin_ids or []))
+
         if inst.status == ASM_STATUS_STOPPED and self.try_reconnect_server(cfg):
             if on_done:
                 on_done(

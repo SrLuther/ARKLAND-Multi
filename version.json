@@ -1,14 +1,10 @@
 {
-    "version": "1.9.12",
+    "version": "1.9.13",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.12/ARKLAND-Multi-Setup-v1.9.12.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.13/ARKLAND-Multi-Setup-v1.9.13.exe",
     "changelog": [
-        "Novo (Web Store): abas Catálogo — Itens, Kits, Disponível (resgate) e Recarga PIX.",
-        "Novo (Web Store): recarga PIX via Mercado Pago (MP_ACCESS_TOKEN) com QR code e webhook.",
-        "Melhoria (Loja): domínio padrão arkland.com.br; modo Cliente para loja/banco em servidor remoto.",
-        "Melhoria (Loja): defaults do servidor remoto — LAN 192.168.15.51, IP público 179.185.19.88, porta 27199; MySQL de pedidos aponta para o host remoto.",
-        "Melhoria (Loja): UI Web Store exibe URLs do servidor remoto (LAN, internet e domínio para jogadores).",
-        "Fix (Loja): abas Itens/Kits do painel CustomShop não duplicam conteúdo após importar catálogo.",
-        "Novo (API): /api/player/available — resgate de entregas pendentes na web store."
+        "Fix (TEK/Admins): AllowedCheaterSteamIDs.txt passa a ser gravado em ShooterGame/Saved/ ao salvar ou iniciar o servidor (modo TEK não escrevia o arquivo).",
+        "Fix (Admins): gravação centralizada em ark_server_files.py; promoção de jogador a admin atualiza o arquivo imediatamente.",
+        "Melhoria (TEK): hint na seção Administradores indica caminho e momento da gravação."
     ]
 }
