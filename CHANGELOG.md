@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.20] - 2026-06-16
+
+### Feature
+
+- Novo (Web Store): layout responsivo para mobile e tablet — menu hambúrguer, sidebar deslizante, tabelas com scroll e modais adaptados.
+
+### Improvement
+
+- Melhoria (Web Store): barra mobile com saldo de pontos; catálogo e formulários empilhados em telas estreitas.
+
 ## [1.9.19] - 2026-06-16
 
 ### Feature

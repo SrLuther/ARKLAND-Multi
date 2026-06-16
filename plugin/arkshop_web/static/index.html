@@ -1534,6 +1534,298 @@
     .dl-card--featured::before {
       background: linear-gradient(90deg, transparent, rgba(232,120,32,.5), transparent);
     }
+
+    /* ── Mobile header & sidebar drawer ───────────────────────────────────── */
+    .mobile-header {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      padding-top: max(10px, env(safe-area-inset-top));
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 100;
+    }
+    .mobile-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .mobile-menu-btn:active { transform: scale(.96); }
+    .mobile-header__brand {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      color: var(--amber);
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mobile-header__actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mobile-balance {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--amber);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,120,32,.35);
+      background: rgba(232,120,32,.1);
+      white-space: nowrap;
+    }
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1090;
+      background: rgba(0,0,0,.65);
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-backdrop.visible { display: block; }
+
+    .tbl-scroll-host {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tbl-scroll-host .tbl { min-width: 520px; }
+
+    #main-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* ── Responsive ───────────────────────────────────────────────────────── */
+    @media (max-width: 1024px) {
+      .mobile-header { display: flex; }
+
+      #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 1100;
+        width: min(280px, 88vw);
+        min-width: 0;
+        transform: translateX(-105%);
+        transition: transform .25s ease;
+        box-shadow: 8px 0 32px rgba(0,0,0,.55);
+      }
+      #sidebar.open { transform: translateX(0); }
+
+      #main {
+        padding: 16px 14px 20px;
+      }
+
+      .catalog-hero {
+        padding: 16px;
+      }
+      .catalog-hero__title {
+        font-size: 20px;
+      }
+      .catalog-hero__meta {
+        width: 100%;
+      }
+      .catalog-hero__meta .btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .catalog-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      #catalog-search {
+        max-width: none;
+        width: 100%;
+      }
+      #catalog-cat,
+      .catalog-toolbar select {
+        width: 100%;
+      }
+
+      #catalog-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid,
+      .recharge-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      #topbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .topbar-actions {
+        width: 100%;
+      }
+      .topbar-actions .btn,
+      .topbar-actions select {
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: center;
+      }
+
+      .card {
+        padding: 14px;
+      }
+      .card-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .available-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .available-card .btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .modal-backdrop {
+        padding: 10px;
+        align-items: flex-end;
+      }
+      .modal {
+        max-width: 100%;
+        max-height: 92vh;
+        padding: 18px 16px;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+      .modal-footer {
+        flex-wrap: wrap;
+      }
+      .modal-footer .btn {
+        flex: 1 1 100%;
+        justify-content: center;
+      }
+
+      #toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: max(12px, env(safe-area-inset-bottom));
+      }
+      .toast {
+        min-width: 0;
+        width: 100%;
+      }
+
+      #statusbar {
+        padding: 8px 12px;
+        padding-bottom: max(8px, env(safe-area-inset-bottom));
+        flex-wrap: wrap;
+        font-size: 10px;
+      }
+      .sb-balance {
+        margin-left: auto;
+      }
+
+      .auth-card {
+        padding: 28px 20px;
+      }
+      .auth-logo-medallion {
+        width: 110px;
+        height: 110px;
+      }
+
+      .actions-col {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+
+      #pix-modal,
+      #buy-modal {
+        padding: 10px !important;
+        align-items: flex-end !important;
+      }
+      #pix-modal .buy-modal-inner,
+      #buy-modal .buy-modal-inner {
+        max-width: 100% !important;
+        width: 100%;
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #main { padding: 12px 10px 16px; }
+
+      .page-title {
+        font-size: 15px;
+      }
+
+      .catalog-tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .catalog-tab {
+        padding: 10px 8px;
+        font-size: 12px;
+        text-align: center;
+      }
+
+      #catalog-grid, #catalog-kits-grid, #catalog-recharge-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .item-card__footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .item-card__footer .btn-buy {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .donation-policy-banner {
+        padding: 14px;
+      }
+
+      .logo-medallion {
+        width: 84px;
+        height: 84px;
+      }
+      .sidebar-logo {
+        padding: 16px 12px;
+      }
+
+      .btn {
+        padding: 10px 14px;
+      }
+    }
+
+    @media (min-width: 1025px) {
+      .sidebar-backdrop { display: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -1636,8 +1928,17 @@
 
   </aside>
 
+  <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="closeSidebar()" aria-hidden="true"></div>
+
   <!-- ── Main + Statusbar ──────────────────────────────────────────────────── -->
-  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+  <div id="main-wrap">
+    <header id="mobile-header" class="mobile-header">
+      <button id="sidebar-toggle" class="mobile-menu-btn" type="button" aria-label="Abrir menu" onclick="toggleSidebar()">☰</button>
+      <div class="mobile-header__brand">ARKLAND DONATIONS</div>
+      <div class="mobile-header__actions">
+        <span id="mobile-balance" class="mobile-balance hidden">◈ <span id="mobile-balance-val">0</span></span>
+      </div>
+    </header>
     <div id="main">
 
       <!-- PAGE: Catálogo (todos os jogadores) -->
@@ -2244,11 +2545,41 @@ let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 const API = "";  // mesmo origin
 
 // ── Navigation ───────────────────────────────────────────────────────────────
+function isMobileNav() {
+  return window.matchMedia("(max-width: 1024px)").matches;
+}
+
+function toggleSidebar(forceOpen) {
+  const sidebar = document.getElementById("sidebar");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  if (!sidebar || !backdrop) return;
+  const open = typeof forceOpen === "boolean" ? forceOpen : !sidebar.classList.contains("open");
+  sidebar.classList.toggle("open", open);
+  backdrop.classList.toggle("visible", open);
+  document.body.style.overflow = open ? "hidden" : "";
+}
+
+function closeSidebar() {
+  toggleSidebar(false);
+}
+
+function wrapTablesForScroll(root) {
+  (root || document).querySelectorAll("#main .tbl").forEach(tbl => {
+    const parent = tbl.parentElement;
+    if (parent && parent.classList.contains("tbl-scroll-host")) return;
+    const wrap = document.createElement("div");
+    wrap.className = "tbl-scroll-host";
+    tbl.replaceWith(wrap);
+    wrap.appendChild(tbl);
+  });
+}
+
 function nav(el) {
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   el.classList.add("active");
   document.getElementById("page-" + el.dataset.page).classList.add("active");
+  if (isMobileNav()) closeSidebar();
   // Recarrega dados ao navegar para páginas que dependem do banco
   if (el.dataset.page === "myarea" && _auth.authenticated) loadMyArea();
   if (el.dataset.page === "catalog") loadCatalog();
@@ -2256,6 +2587,7 @@ function nav(el) {
   if (el.dataset.page === "admin-downloads") loadAdminDownloads();
   if (el.dataset.page === "recharge-admin") loadRechargeAdmin();
   if (_auth.authenticated) refreshPlayerBalance();
+  requestAnimationFrame(() => wrapTablesForScroll(document.getElementById("main")));
 }
 
 function showAuthOverlay(show, msg) {
@@ -2318,8 +2650,8 @@ function formatPoints(n) {
 }
 
 async function refreshPlayerBalance() {
-  const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance"];
-  const valIds = ["auth-balance-val", "catalog-points-val", "sb-balance-val"];
+  const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance", "mobile-balance"];
+  const valIds = ["auth-balance-val", "catalog-points-val", "sb-balance-val", "mobile-balance-val"];
 
   if (!_auth.authenticated) {
     pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
@@ -4420,6 +4752,18 @@ async function confirmBuy() {
   await loadMyArea();
   await loadDownloads();
   showAuthOverlay(false);
+
+  wrapTablesForScroll(document.getElementById("main"));
+  const mainEl = document.getElementById("main");
+  if (mainEl) {
+    new MutationObserver(() => wrapTablesForScroll(mainEl)).observe(mainEl, { childList: true, subtree: true });
+  }
+  window.addEventListener("resize", () => {
+    if (!isMobileNav()) closeSidebar();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSidebar();
+  });
 })();
 </script>
 
