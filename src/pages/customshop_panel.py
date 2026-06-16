@@ -1250,6 +1250,17 @@ def _build_webstore_tab(
     _caddy_dir_var = tk.StringVar(value=getattr(shop, "caddy_dir", "") or r"C:\caddy")
     _caddy_auto_var = tk.BooleanVar(value=bool(getattr(shop, "caddy_auto_start", True)))
 
+    from src.shop_integration import _db_manager_prefs
+
+    _dbm = _db_manager_prefs() if not shop.orders_db_user else {}
+    _orders_url_var = tk.StringVar(value=shop.orders_db_url or "")
+    _odb_host = tk.StringVar(value=shop.orders_db_host or _dbm.get("host", DEFAULT_REMOTE_SHOP_HOST))
+    _odb_port = tk.StringVar(value=str(shop.orders_db_port or _dbm.get("port", 3306)))
+    _odb_name = tk.StringVar(value=shop.orders_db_name or _dbm.get("database", "arkland_shop"))
+    _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
+    _odb_pass = tk.StringVar(value=shop.orders_db_password or _dbm.get("password", ""))
+    _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
+
     def _save_shop_from_ui() -> None:
         shop.mode = _mode_var.get()
         shop.central_url = _central_url_var.get().strip()
@@ -1687,7 +1698,10 @@ def _build_webstore_tab(
     caddy_btn_row.pack(fill="x", padx=10, pady=(2, 4))
 
     def _refresh_caddy_status() -> None:
-        _save_shop_from_ui()
+        shop.caddy_dir = _caddy_dir_var.get().strip()
+        shop.caddy_auto_start = bool(_caddy_auto_var.get())
+        shop.port = _safe_int(_port_var.get(), DEFAULT_SHOP_PORT)
+        shop.public_url = _public_shop_url_var.get().strip()
         st = caddy_status(shop)
         caddy_dot.config(fg="#22c55e" if st["running"] else "#ef4444")
         caddy_status_lbl.config(
@@ -1702,10 +1716,20 @@ def _build_webstore_tab(
         caddy_btn_stop.configure(state="normal" if st["running"] else "disabled")
 
     def _caddy_worker(fn, success_title: str = "Caddy") -> None:
-        _save_shop_from_ui()
+        try:
+            _save_shop_from_ui()
+        except Exception as exc:
+            messagebox.showerror(
+                success_title, f"Erro ao salvar config:\n{exc}",
+                parent=parent.winfo_toplevel(),
+            )
+            return
 
         def _run() -> None:
-            ok, msg = fn(shop)
+            try:
+                ok, msg = fn(shop)
+            except Exception as exc:
+                ok, msg = False, str(exc)
 
             def _done() -> None:
                 if ok:
@@ -1761,25 +1785,14 @@ def _build_webstore_tab(
     ).pack(anchor="w")
 
     _host_only_widgets.extend([card_status, card_caddy])
-    _refresh_caddy_status()
 
     # ── Banco de pedidos ──────────────────────────────────────────────────
     card_db = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
     card_db.pack(fill="x", padx=12, pady=6)
     _head(card_db, "🗄️  Banco de Pedidos (arkshop_web)")
 
-    # Fallback: pré-preenche com credenciais do DB Manager se os campos estiverem vazios
-    from src.shop_integration import _db_manager_prefs
-    _dbm = _db_manager_prefs() if not shop.orders_db_user else {}
-
-    _orders_url_var = tk.StringVar(value=shop.orders_db_url or "")
     _field_row(card_db, "URL completa (opcional)", _orders_url_var, bg=_INNER,
                hint="sqlite:///... ou mysql+pymysql://user:pass@host/db", width=360)
-    _odb_host = tk.StringVar(value=shop.orders_db_host or _dbm.get("host", DEFAULT_REMOTE_SHOP_HOST))
-    _odb_port = tk.StringVar(value=str(shop.orders_db_port or _dbm.get("port", 3306)))
-    _odb_name = tk.StringVar(value=shop.orders_db_name or _dbm.get("database", "arkland_shop"))
-    _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
-    _odb_pass = tk.StringVar(value=shop.orders_db_password or _dbm.get("password", ""))
     _field_row(card_db, "MySQL Host (servidor remoto)", _odb_host, bg=_INNER,
                hint="IP LAN do servidor onde o MySQL roda (192.168.15.51)", width=200)
     _field_row(card_db, "Porta", _odb_port, bg=_INNER, width=80)
@@ -1835,8 +1848,6 @@ def _build_webstore_tab(
             _server_rows.append((kind, srv, sid_var, path_var))
 
     _rebuild_server_rows()
-
-    _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
 
     def _apply_plugins() -> None:
         if not _validate_shared_shop_requirements():
@@ -2178,6 +2189,7 @@ def _build_webstore_tab(
                   height=30, fg_color="#923c0a", hover_color="#e87820",
                   command=lambda: _open_dl_dialog()).pack(side="left")
 
+    _refresh_caddy_status()
     _refresh_status()
 
 

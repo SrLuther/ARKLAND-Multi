@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.14"
-BUILD_DATE: str = "2026-06-12"
+APP_VERSION: str = "1.9.15"
+BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.15",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (HTTPS/Caddy): botões Instalar/Iniciar/Parar/Reiniciar não respondiam — "
+            "_save_shop_from_ui() acessava campos do banco ainda não criados (NameError silencioso).",
+            "Fix (HTTPS/Caddy): status Caddy atualiza ao final da aba Web Store; erros exibidos em messagebox.",
+        ],
+    },
     {
         "version": "1.9.14",
         "date": "2026-06-12",

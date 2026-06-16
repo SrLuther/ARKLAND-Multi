@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.15] - 2026-06-12
+
+### Fix
+
+- Fix (HTTPS/Caddy): botões Instalar/Iniciar/Parar/Reiniciar não respondiam — _save_shop_from_ui() acessava campos do banco ainda não criados (NameError silencioso).
+- Fix (HTTPS/Caddy): status Caddy atualiza ao final da aba Web Store; erros exibidos em messagebox.
+
 ## [1.9.14] - 2026-06-12
 
 ### Feature
