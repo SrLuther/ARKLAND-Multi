@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.20"
+APP_VERSION: str = "1.9.21"
 BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.21",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (Web Store): editor estruturado de kits — itens (Amount/Quality), dinos "
+            "(Level/Gender/ForceTame) e comandos com quantidade, sem perder campos ao salvar.",
+            "Fix (Web Store): edição de kits preserva Dinos, Items, Commands e VipLicense "
+            "existentes (merge com o JSON do config).",
+            "Fix (CustomShop): Commands aceita string ou objeto { Command, ExecuteAsAdmin }; "
+            "placeholder {steamid} além de {SteamID}.",
+        ],
+    },
     {
         "version": "1.9.20",
         "date": "2026-06-16",

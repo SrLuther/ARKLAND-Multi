@@ -89,20 +89,29 @@ void SpawnDinosArray(AShooterPlayerController* controller,
     }
 }
 
-// Executes kit Commands[], replacing {SteamID} placeholder.
+// Executes kit Commands[] — string or { "Command", "ExecuteAsAdmin" }.
 void RunCommands(const nlohmann::json& commands_array,
                  AShooterPlayerController* controller,
                  const std::string& steam_id) {
     for (const auto& cmd_json : commands_array) {
-        if (!cmd_json.is_string()) continue;
-        std::string cmd = cmd_json.get<std::string>();
+        std::string cmd;
+        if (cmd_json.is_string()) {
+            cmd = cmd_json.get<std::string>();
+        } else if (cmd_json.is_object()) {
+            cmd = cmd_json.value("Command", "");
+        } else {
+            continue;
+        }
+        if (cmd.empty()) continue;
 
-        // Replace {SteamID} placeholder
-        const std::string token = "{SteamID}";
-        size_t pos = 0;
-        while ((pos = cmd.find(token, pos)) != std::string::npos) {
-            cmd.replace(pos, token.size(), steam_id);
-            pos += steam_id.size();
+        // Replace {SteamID} / {steamid} placeholder
+        for (const auto& token : {"{SteamID}", "{steamid}"}) {
+            size_t pos = 0;
+            const std::string tok(token);
+            while ((pos = cmd.find(tok, pos)) != std::string::npos) {
+                cmd.replace(pos, tok.size(), steam_id);
+                pos += steam_id.size();
+            }
         }
 
         FString fscmd(cmd.c_str());

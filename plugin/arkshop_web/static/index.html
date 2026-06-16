@@ -573,6 +573,105 @@
     }
     .form-group input[readonly] { opacity: .7; cursor: default; }
     .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group textarea.kit-json {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      min-height: 160px;
+      line-height: 1.45;
+    }
+    .kit-json-hint {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    #modal-kit .modal { max-width: 960px; max-height: 92vh; }
+    #modal-kit .modal-body-scroll {
+      max-height: calc(92vh - 130px);
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .kit-section {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .kit-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .kit-section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: .02em;
+    }
+    .kit-entries { display: flex; flex-direction: column; gap: 8px; }
+    .kit-entry {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .kit-entry-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+    .kit-entry-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--amber);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .kit-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 10px;
+    }
+    .kit-entry-grid .form-group { margin: 0; }
+    .kit-entry-grid .form-group.span-2 { grid-column: 1 / -1; }
+    .kit-entry-grid .form-group label {
+      font-size: 10px;
+      color: var(--text2);
+      margin-bottom: 3px;
+      display: block;
+    }
+    .kit-entry-grid input,
+    .kit-entry-grid select {
+      width: 100%;
+      padding: 7px 9px;
+      font-size: 12px;
+    }
+    .kit-entry-checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 16px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .kit-entry-checks label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .kit-empty-hint {
+      font-size: 12px;
+      color: var(--text2);
+      padding: 8px 0 4px;
+      font-style: italic;
+    }
+    @media (max-width: 640px) {
+      .kit-entry-grid { grid-template-columns: 1fr; }
+    }
     .form-group select option { background: var(--surface); }
 
     /* Toggle rows */
@@ -3704,7 +3803,7 @@ function renderKits() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>ID</th><th>Descrição</th><th>Preço</th><th>Permissões</th><th>Itens</th><th>Ações</th>
+          <th>ID</th><th>Descrição</th><th>Preço</th><th>Permissões</th><th>Conteúdo</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${keys.map(k => {
@@ -3714,7 +3813,7 @@ function renderKits() {
               <td><span class="truncate">${kit.Description||"-"}</span></td>
               <td class="price-tag">${kit.Price??0} pts</td>
               <td>${kit.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
-              <td>${(kit.Items||[]).length} item(s)</td>
+              <td>${(kit.Items||[]).length} item(s) · ${(kit.Dinos||[]).length} dino(s) · ${(kit.Commands||[]).length} cmd(s)${kit.VipLicense ? " · VIP" : ""}</td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openKitModal('${k}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteKit('${k}')">🗑</button>
@@ -4096,46 +4195,399 @@ function deleteItem(key) {
   toast(`Item "${key}" removido.`);
 }
 
-// ── Kit modal ─────────────────────────────────────────────────────────────────
+// ── Kit modal (editor estruturado: Items, Dinos, Commands) ───────────────────
+let _kitItemsDraft = [];
+let _kitDinosDraft = [];
+let _kitCommandsDraft = [];
+
+function normalizeKitItem(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { Blueprint: "", Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "" };
+  }
+  return {
+    Blueprint: raw.Blueprint || "",
+    Amount: raw.Amount ?? raw.Quantity ?? 1,
+    Quality: raw.Quality ?? 0,
+    ForceBlueprint: !!raw.ForceBlueprint,
+    Damage: raw.Damage ?? "",
+    Durability: raw.Durability ?? "",
+    Armor: raw.Armor ?? "",
+  };
+}
+
+function normalizeKitDino(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { Blueprint: "", Level: 150, Gender: "", ForceTame: true, Neutered: false, SaddleBlueprint: "" };
+  }
+  return {
+    Blueprint: raw.Blueprint || "",
+    Level: raw.Level ?? 150,
+    Gender: raw.Gender ?? "",
+    ForceTame: raw.ForceTame !== false,
+    Neutered: !!raw.Neutered,
+    SaddleBlueprint: raw.SaddleBlueprint || "",
+  };
+}
+
+function normalizeKitCommand(raw) {
+  if (typeof raw === "string") {
+    return { Command: raw, ExecuteAsAdmin: false, DisplayAs: "" };
+  }
+  if (raw && typeof raw === "object") {
+    return {
+      Command: raw.Command || "",
+      ExecuteAsAdmin: !!raw.ExecuteAsAdmin,
+      DisplayAs: raw.DisplayAs || "",
+    };
+  }
+  return { Command: "", ExecuteAsAdmin: false, DisplayAs: "" };
+}
+
+function kitItemEntryHtml(item, idx) {
+  return `
+    <div class="kit-entry" data-kind="item" data-idx="${idx}">
+      <div class="kit-entry-head">
+        <span class="kit-entry-label">📦 Item ${idx + 1}</span>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeKitItemEntry(${idx})">✕</button>
+      </div>
+      <div class="kit-entry-grid">
+        <div class="form-group span-2">
+          <label>Blueprint</label>
+          <input data-field="blueprint" type="text" value="${escHtml(item.Blueprint)}" placeholder="Blueprint'/Game/...'" />
+        </div>
+        <div class="form-group">
+          <label>Quantidade (Amount)</label>
+          <input data-field="amount" type="number" min="1" value="${item.Amount ?? 1}" />
+        </div>
+        <div class="form-group">
+          <label>Qualidade</label>
+          <input data-field="quality" type="number" step="0.1" value="${item.Quality ?? 0}" />
+        </div>
+        <div class="form-group">
+          <label>Dano %</label>
+          <input data-field="damage" type="number" step="0.1" value="${item.Damage === "" ? "" : item.Damage}" placeholder="opcional" />
+        </div>
+        <div class="form-group">
+          <label>Durabilidade %</label>
+          <input data-field="durability" type="number" step="0.1" value="${item.Durability === "" ? "" : item.Durability}" placeholder="opcional" />
+        </div>
+        <div class="form-group">
+          <label>Armadura %</label>
+          <input data-field="armor" type="number" step="0.1" value="${item.Armor === "" ? "" : item.Armor}" placeholder="opcional" />
+        </div>
+      </div>
+      <div class="kit-entry-checks">
+        <label><input data-field="forcebp" type="checkbox" ${item.ForceBlueprint ? "checked" : ""} /> Force Blueprint</label>
+      </div>
+    </div>`;
+}
+
+function kitDinoEntryHtml(dino, idx) {
+  const gender = (dino.Gender || "").toLowerCase();
+  return `
+    <div class="kit-entry" data-kind="dino" data-idx="${idx}">
+      <div class="kit-entry-head">
+        <span class="kit-entry-label">🦕 Dino ${idx + 1}</span>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeKitDinoEntry(${idx})">✕</button>
+      </div>
+      <div class="kit-entry-grid">
+        <div class="form-group span-2">
+          <label>Blueprint</label>
+          <input data-field="blueprint" type="text" value="${escHtml(dino.Blueprint)}" placeholder="/Game/Mods/.../Dino_Character_BP" />
+        </div>
+        <div class="form-group">
+          <label>Nível</label>
+          <input data-field="level" type="number" min="1" value="${dino.Level ?? 150}" />
+        </div>
+        <div class="form-group">
+          <label>Sexo</label>
+          <select data-field="gender">
+            <option value="" ${!gender ? "selected" : ""}>—</option>
+            <option value="male" ${gender === "male" ? "selected" : ""}>Macho</option>
+            <option value="female" ${gender === "female" ? "selected" : ""}>Fêmea</option>
+          </select>
+        </div>
+        <div class="form-group span-2">
+          <label>Saddle Blueprint (opcional)</label>
+          <input data-field="saddle" type="text" value="${escHtml(dino.SaddleBlueprint)}" placeholder="Blueprint da sela" />
+        </div>
+      </div>
+      <div class="kit-entry-checks">
+        <label><input data-field="forcetame" type="checkbox" ${dino.ForceTame !== false ? "checked" : ""} /> Force Tame</label>
+        <label><input data-field="neutered" type="checkbox" ${dino.Neutered ? "checked" : ""} /> Castrado</label>
+      </div>
+    </div>`;
+}
+
+function kitCommandEntryHtml(cmd, idx) {
+  return `
+    <div class="kit-entry" data-kind="command" data-idx="${idx}">
+      <div class="kit-entry-head">
+        <span class="kit-entry-label">⚡ Comando ${idx + 1}</span>
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeKitCommandEntry(${idx})">✕</button>
+      </div>
+      <div class="kit-entry-grid">
+        <div class="form-group span-2">
+          <label>Comando</label>
+          <input data-field="command" type="text" value="${escHtml(cmd.Command)}" placeholder="AddPoints {SteamID} 1000" />
+        </div>
+        <div class="form-group span-2">
+          <label>DisplayAs (opcional)</label>
+          <input data-field="display-as" type="text" value="${escHtml(cmd.DisplayAs)}" placeholder="Texto exibido na loja" />
+        </div>
+      </div>
+      <div class="kit-entry-checks">
+        <label><input data-field="exec-admin" type="checkbox" ${cmd.ExecuteAsAdmin ? "checked" : ""} /> Executar como Admin</label>
+      </div>
+      <div class="kit-json-hint">Use {SteamID} ou {steamid} como placeholder do jogador.</div>
+    </div>`;
+}
+
+function syncKitDraftFromDOM() {
+  document.querySelectorAll("#mk-items-list .kit-entry").forEach((row, idx) => {
+    if (!_kitItemsDraft[idx]) return;
+    _kitItemsDraft[idx] = {
+      Blueprint: row.querySelector('[data-field="blueprint"]')?.value || "",
+      Amount: parseInt(row.querySelector('[data-field="amount"]')?.value, 10) || 1,
+      Quality: parseFloat(row.querySelector('[data-field="quality"]')?.value) || 0,
+      ForceBlueprint: row.querySelector('[data-field="forcebp"]')?.checked || false,
+      Damage: row.querySelector('[data-field="damage"]')?.value ?? "",
+      Durability: row.querySelector('[data-field="durability"]')?.value ?? "",
+      Armor: row.querySelector('[data-field="armor"]')?.value ?? "",
+    };
+  });
+  document.querySelectorAll("#mk-dinos-list .kit-entry").forEach((row, idx) => {
+    if (!_kitDinosDraft[idx]) return;
+    _kitDinosDraft[idx] = {
+      Blueprint: row.querySelector('[data-field="blueprint"]')?.value || "",
+      Level: parseInt(row.querySelector('[data-field="level"]')?.value, 10) || 150,
+      Gender: row.querySelector('[data-field="gender"]')?.value || "",
+      ForceTame: row.querySelector('[data-field="forcetame"]')?.checked !== false,
+      Neutered: row.querySelector('[data-field="neutered"]')?.checked || false,
+      SaddleBlueprint: row.querySelector('[data-field="saddle"]')?.value || "",
+    };
+  });
+  document.querySelectorAll("#mk-cmds-list .kit-entry").forEach((row, idx) => {
+    if (!_kitCommandsDraft[idx]) return;
+    _kitCommandsDraft[idx] = {
+      Command: row.querySelector('[data-field="command"]')?.value || "",
+      ExecuteAsAdmin: row.querySelector('[data-field="exec-admin"]')?.checked || false,
+      DisplayAs: row.querySelector('[data-field="display-as"]')?.value || "",
+    };
+  });
+}
+
+function renderKitEntrySections() {
+  const itemsEl = document.getElementById("mk-items-list");
+  const dinosEl = document.getElementById("mk-dinos-list");
+  const cmdsEl = document.getElementById("mk-cmds-list");
+  if (!itemsEl || !dinosEl || !cmdsEl) return;
+
+  itemsEl.innerHTML = _kitItemsDraft.length
+    ? _kitItemsDraft.map(kitItemEntryHtml).join("")
+    : `<div class="kit-empty-hint">Nenhum item — clique em + Item</div>`;
+  dinosEl.innerHTML = _kitDinosDraft.length
+    ? _kitDinosDraft.map(kitDinoEntryHtml).join("")
+    : `<div class="kit-empty-hint">Nenhum dino — clique em + Dino</div>`;
+  cmdsEl.innerHTML = _kitCommandsDraft.length
+    ? _kitCommandsDraft.map(kitCommandEntryHtml).join("")
+    : `<div class="kit-empty-hint">Nenhum comando — clique em + Comando</div>`;
+}
+
+function addKitItemEntry() {
+  syncKitDraftFromDOM();
+  _kitItemsDraft.push(normalizeKitItem({ Amount: 1 }));
+  renderKitEntrySections();
+}
+
+function removeKitItemEntry(idx) {
+  syncKitDraftFromDOM();
+  _kitItemsDraft.splice(idx, 1);
+  renderKitEntrySections();
+}
+
+function addKitDinoEntry() {
+  syncKitDraftFromDOM();
+  _kitDinosDraft.push(normalizeKitDino({ Level: 1, ForceTame: true }));
+  renderKitEntrySections();
+}
+
+function removeKitDinoEntry(idx) {
+  syncKitDraftFromDOM();
+  _kitDinosDraft.splice(idx, 1);
+  renderKitEntrySections();
+}
+
+function addKitCommandEntry() {
+  syncKitDraftFromDOM();
+  _kitCommandsDraft.push(normalizeKitCommand(""));
+  renderKitEntrySections();
+}
+
+function removeKitCommandEntry(idx) {
+  syncKitDraftFromDOM();
+  _kitCommandsDraft.splice(idx, 1);
+  renderKitEntrySections();
+}
+
+function readKitItemsFromDOM() {
+  syncKitDraftFromDOM();
+  const out = [];
+  _kitItemsDraft.forEach(item => {
+    const bp = (item.Blueprint || "").trim();
+    if (!bp) return;
+    const entry = {
+      Blueprint: bp,
+      Amount: Math.max(1, parseInt(item.Amount, 10) || 1),
+      Quality: parseFloat(item.Quality) || 0,
+      ForceBlueprint: !!item.ForceBlueprint,
+    };
+    const dmg = String(item.Damage ?? "").trim();
+    const dur = String(item.Durability ?? "").trim();
+    const arm = String(item.Armor ?? "").trim();
+    if (dmg !== "") entry.Damage = parseFloat(dmg);
+    if (dur !== "") entry.Durability = parseFloat(dur);
+    if (arm !== "") entry.Armor = parseFloat(arm);
+    out.push(entry);
+  });
+  return out;
+}
+
+function readKitDinosFromDOM() {
+  syncKitDraftFromDOM();
+  const out = [];
+  _kitDinosDraft.forEach(dino => {
+    const bp = (dino.Blueprint || "").trim();
+    if (!bp) return;
+    const entry = {
+      Blueprint: bp,
+      Level: Math.max(1, parseInt(dino.Level, 10) || 150),
+      ForceTame: dino.ForceTame !== false,
+      Neutered: !!dino.Neutered,
+    };
+    const gender = (dino.Gender || "").trim();
+    if (gender) entry.Gender = gender;
+    const saddle = (dino.SaddleBlueprint || "").trim();
+    if (saddle) entry.SaddleBlueprint = saddle;
+    out.push(entry);
+  });
+  return out;
+}
+
+function readKitCommandsFromDOM() {
+  syncKitDraftFromDOM();
+  const out = [];
+  _kitCommandsDraft.forEach(cmd => {
+    const text = (cmd.Command || "").trim();
+    if (!text) return;
+    const execAdmin = !!cmd.ExecuteAsAdmin;
+    const displayAs = (cmd.DisplayAs || "").trim();
+    if (execAdmin || displayAs) {
+      const obj = { Command: text };
+      if (execAdmin) obj.ExecuteAsAdmin = true;
+      if (displayAs) obj.DisplayAs = displayAs;
+      out.push(obj);
+    } else {
+      out.push(text);
+    }
+  });
+  return out;
+}
+
 function openKitModal(key) {
   _editingKey = key || null;
   _editingSection = "kit";
   const kit = key ? (_config?.Kits?.[key] || {}) : {};
+  const vip = kit.VipLicense || {};
+
+  _kitItemsDraft = (Array.isArray(kit.Items) ? kit.Items : []).map(normalizeKitItem);
+  _kitDinosDraft = (Array.isArray(kit.Dinos) ? kit.Dinos : []).map(normalizeKitDino);
+  _kitCommandsDraft = (Array.isArray(kit.Commands) ? kit.Commands : []).map(normalizeKitCommand);
+
   document.getElementById("modal-kit-title").textContent = key ? `Editar Kit: ${key}` : "Novo Kit";
   document.getElementById("modal-kit-body").innerHTML = `
-    <div class="form-grid">
-      <div class="form-group">
-        <label>ID do Kit</label>
-        <input id="mk-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: starter" />
+    <div class="modal-body-scroll">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>ID do Kit</label>
+          <input id="mk-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: acro_pack10" />
+        </div>
+        <div class="form-group"><label>Preço (pts)</label><input id="mk-price" type="number" value="${kit.Price??0}" /></div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Descrição</label>
+          <input id="mk-desc" type="text" value="${escHtml(kit.Description||"")}" />
+        </div>
+        <div class="form-group"><label>Permissões</label><input id="mk-perms" type="text" value="${escHtml(kit.Permissions||"")}" placeholder="VIPBronze, Staff (vazio = todos)" /></div>
+        <div class="form-group"><label>Usos padrão (DefaultAmount)</label><input id="mk-default-amt" type="number" min="1" value="${kit.DefaultAmount??1}" /></div>
+        <div class="form-group"><label>VIP — Tier</label><input id="mk-vip-tier" type="text" value="${escHtml(vip.Tier||"")}" placeholder="VIPBronze (opcional)" /></div>
+        <div class="form-group"><label>VIP — Dias</label><input id="mk-vip-days" type="number" min="1" value="${vip.Days??""}" placeholder="30" /></div>
       </div>
-      <div class="form-group"><label>Preço (pts)</label><input id="mk-price" type="number" value="${kit.Price??0}" /></div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Descrição</label>
-        <input id="mk-desc" type="text" value="${escHtml(kit.Description||"")}" />
+
+      <div class="kit-section">
+        <div class="kit-section-header">
+          <span class="kit-section-title">📦 Itens do kit</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addKitItemEntry()">+ Item</button>
+        </div>
+        <div id="mk-items-list" class="kit-entries"></div>
       </div>
-      <div class="form-group"><label>Permissões</label><input id="mk-perms" type="text" value="${escHtml(kit.Permissions||"")}" /></div>
-      <div class="form-group"><label>Quantidade padrão</label><input id="mk-default-amt" type="number" value="${kit.DefaultAmount??1}" /></div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Comandos (um por linha)</label>
-        <textarea id="mk-cmds">${(kit.Commands||[]).join("\n")}</textarea>
+
+      <div class="kit-section">
+        <div class="kit-section-header">
+          <span class="kit-section-title">🦕 Dinos do kit</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addKitDinoEntry()">+ Dino</button>
+        </div>
+        <div id="mk-dinos-list" class="kit-entries"></div>
+      </div>
+
+      <div class="kit-section">
+        <div class="kit-section-header">
+          <span class="kit-section-title">⚡ Comandos</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addKitCommandEntry()">+ Comando</button>
+        </div>
+        <div id="mk-cmds-list" class="kit-entries"></div>
       </div>
     </div>`;
+
+  renderKitEntrySections();
   openModal("modal-kit");
 }
 
 function confirmKit() {
+  const oldKey = _editingKey;
   const key = document.getElementById("mk-key").value.trim();
   if (!key) { toast("ID é obrigatório", "warning"); return; }
   if (!_config.Kits) _config.Kits = {};
-  const kit = _config.Kits[key] || { Items: [] };
-  kit.Price         = parseInt(document.getElementById("mk-price").value) || 0;
+
+  const existing = oldKey ? (_config.Kits[oldKey] || {}) : {};
+  const kit = JSON.parse(JSON.stringify(existing));
+
+  kit.Price         = parseInt(document.getElementById("mk-price").value, 10) || 0;
   kit.Description   = document.getElementById("mk-desc").value;
-  kit.DefaultAmount = parseInt(document.getElementById("mk-default-amt").value) || 1;
+  kit.DefaultAmount = parseInt(document.getElementById("mk-default-amt").value, 10) || 1;
+
   const perms = document.getElementById("mk-perms").value.trim();
   if (perms) kit.Permissions = perms; else delete kit.Permissions;
-  const cmds = document.getElementById("mk-cmds").value.split("\n").map(s=>s.trim()).filter(Boolean);
-  kit.Commands = cmds;
+
+  const items = readKitItemsFromDOM();
+  if (items.length) kit.Items = items; else delete kit.Items;
+
+  const dinos = readKitDinosFromDOM();
+  if (dinos.length) kit.Dinos = dinos; else delete kit.Dinos;
+
+  const commands = readKitCommandsFromDOM();
+  if (commands.length) kit.Commands = commands; else delete kit.Commands;
+
+  const vipTier = document.getElementById("mk-vip-tier").value.trim();
+  const vipDays = parseInt(document.getElementById("mk-vip-days").value, 10);
+  if (vipTier && vipDays > 0) {
+    kit.VipLicense = { Tier: vipTier, Days: vipDays };
+  } else {
+    delete kit.VipLicense;
+  }
+
+  if (oldKey && oldKey !== key) delete _config.Kits[oldKey];
   _config.Kits[key] = kit;
+  _editingKey = key;
   closeModal("modal-kit");
   renderKits();
   toast("Kit salvo (lembre de clicar em Salvar & Reload)");
