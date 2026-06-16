@@ -1,9 +1,13 @@
 {
-    "version": "1.9.15",
+    "version": "1.9.16",
     "date": "2026-06-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.15/ARKLAND-Multi-Setup-v1.9.15.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.16/ARKLAND-Multi-Setup-v1.9.16.exe",
     "changelog": [
-        "Fix (HTTPS/Caddy): botões Instalar/Iniciar/Parar/Reiniciar não respondiam — _save_shop_from_ui() acessava campos do banco ainda não criados (NameError silencioso).",
-        "Fix (HTTPS/Caddy): status Caddy atualiza ao final da aba Web Store; erros exibidos em messagebox."
+        "Novo (Web Store): ARKLAND Donations — política de doações com modal, banner e aceite obrigatório antes de doar via PIX ou resgatar com pontos.",
+        "Melhoria (Web Store): linguagem de doação/resgate em toda a UI (sem termos de compra/venda); aba Doação PIX; resgates com pontos no catálogo.",
+        "Novo (Web Store): admin Doações PIX — pacotes, token Mercado Pago e tabela de gestão.",
+        "Fix (Web Store): saldo de pontos na sidebar, statusbar e catálogo; retorno 0 se jogador não existe no banco.",
+        "Fix (PIX): e-mail válido no checkout Mercado Pago (player{steamid}@arkland.com.br).",
+        "Fix (Web Store): aba Disponível — migração orders.id para schema SQLAlchemy; setup_db.sql atualizado."
     ]
 }

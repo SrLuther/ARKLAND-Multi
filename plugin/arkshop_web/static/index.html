@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARKLAND DONATIONS — Loja do Servidor</title>
+  <title>ARKLAND DONATIONS — Doações e Resgates</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -238,6 +238,41 @@
       color: var(--text);
       word-break: break-all;
       margin-bottom: 8px;
+    }
+    .auth-balance-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(232,120,32,.45);
+      background: linear-gradient(135deg, rgba(232,120,32,.18), rgba(232,120,32,.08));
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .02em;
+    }
+    .auth-balance-pill .auth-balance-unit {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(232,180,100,.85);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .sb-balance {
+      margin-left: auto;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,120,32,.35);
+      background: rgba(232,120,32,.1);
+      color: var(--amber);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
     }
 
     /* Nav sections */
@@ -748,6 +783,129 @@
       font-weight: 700;
       margin-bottom: 14px;
     }
+    .recharge-trust {
+      background: linear-gradient(135deg, rgba(18,216,124,.08), rgba(232,120,32,.06));
+      border: 1px solid rgba(18,216,124,.25);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      margin-bottom: 20px;
+    }
+    .recharge-trust__title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+    .recharge-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .recharge-step {
+      background: rgba(0,0,0,.25);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .recharge-step strong {
+      display: block;
+      color: var(--amber);
+      font-size: 11px;
+      letter-spacing: .06em;
+      margin-bottom: 4px;
+    }
+    .recharge-balance-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .pix-modal-summary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      font-size: 13px;
+    }
+    .pix-trust-note {
+      font-size: 11px;
+      color: var(--text2);
+      text-align: center;
+      margin-top: 12px;
+      line-height: 1.5;
+    }
+    .pkg-admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .pkg-admin-table th, .pkg-admin-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .pkg-admin-table th {
+      color: var(--text2);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .donation-policy-banner {
+      background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(232,120,32,.08));
+      border: 1px solid rgba(59,130,246,.28);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .donation-policy-banner:hover { border-color: rgba(59,130,246,.5); }
+    .donation-policy-banner__title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #93c5fd;
+      margin-bottom: 6px;
+    }
+    .donation-policy-banner__text {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.55;
+    }
+    .donation-policy-banner__link {
+      font-size: 11px;
+      color: var(--tek);
+      margin-top: 8px;
+      text-decoration: underline;
+    }
+    .policy-modal-body {
+      max-height: 60vh;
+      overflow-y: auto;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.65;
+    }
+    .policy-modal-body h4 {
+      color: var(--amber);
+      font-family: 'Rajdhani', sans-serif;
+      margin: 16px 0 8px;
+      font-size: 14px;
+    }
+    .policy-modal-body h4:first-child { margin-top: 0; }
+    .policy-modal-body ul { margin: 8px 0 8px 18px; }
+    .policy-modal-body li { margin-bottom: 6px; }
+
     .pix-modal-qr {
       display: block;
       max-width: 220px;
@@ -1334,7 +1492,7 @@
     <div class="auth-title">ARKLAND</div>
     <div class="auth-sub">DONATIONS</div>
     <div class="auth-desc" id="auth-desc">
-      Acesse sua conta Steam para entrar no painel.
+      Plataforma de doações voluntárias. Resgate recompensas no jogo com pontos — não vendemos itens do ARK.
     </div>
     <button class="btn-steam" onclick="loginWithSteam()">
       Entrar com Steam
@@ -1361,6 +1519,11 @@
 
     <!-- User box -->
     <div id="auth-userbox" class="hidden">
+      <div id="auth-balance-pill" class="auth-balance-pill hidden">
+        <span>◈</span>
+        <span><span id="auth-balance-val">0</span></span>
+        <span class="auth-balance-unit">pontos</span>
+      </div>
       <div id="auth-userline"></div>
       <button class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
     </div>
@@ -1373,8 +1536,11 @@
     <div class="nav-item admin-only" data-page="kits" onclick="nav(this)">
       <span class="nav-icon">🎁</span> Kits
     </div>
-    <div class="nav-item admin-only" data-page="sell" onclick="nav(this)">
-      <span class="nav-icon">💰</span> Itens à Venda
+    <div class="nav-item admin-only" data-page="recharge-admin" onclick="nav(this)">
+      <span class="nav-icon">💳</span> Doações PIX
+    </div>
+    <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com pontos no catálogo">
+      <span class="nav-icon">💰</span> Venda in-game (legado)
     </div>
 
     <!-- Nav: Sistema (admin) -->
@@ -1404,7 +1570,7 @@
     <!-- Nav: Jogador (todos) -->
     <div class="nav-section">Jogador</div>
     <div class="nav-item" data-page="catalog" onclick="nav(this)">
-      <span class="nav-icon">🛒</span> Catálogo
+      <span class="nav-icon">📦</span> Catálogo
     </div>
     <div class="nav-item" data-page="downloads" onclick="nav(this)">
       <span class="nav-icon">⬇️</span> Downloads
@@ -1423,24 +1589,33 @@
       <div id="page-catalog" class="page">
         <div class="catalog-hero">
           <div>
-            <div class="catalog-hero__title" id="catalog-shop-name">Loja do Servidor</div>
+            <div class="catalog-hero__title" id="catalog-shop-name">ARKLAND DONATIONS</div>
             <div class="catalog-hero__tagline" id="catalog-shop-url" style="display:none;font-size:12px;color:var(--tek);margin-top:4px;"></div>
             <div class="catalog-hero__tagline">
-              Compre itens e kits com pontos, resgate entregas pendentes ou recarregue via PIX.
+              Doe via PIX e receba pontos como recompensa. Use os pontos para resgatar itens e kits no catálogo.
             </div>
           </div>
           <div class="catalog-hero__meta">
             <div id="catalog-points-pill" class="catalog-points hidden">
               💰 <span id="catalog-points-val">—</span> pts
             </div>
+            <button class="btn btn-ghost btn-sm" onclick="openPolicyModal(false)">📜 Política</button>
             <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
           </div>
+        </div>
+        <div class="donation-policy-banner" onclick="openPolicyModal(false)" role="button" tabindex="0">
+          <div class="donation-policy-banner__title">⚖️ Política de Doações — leia antes de doar ou resgatar</div>
+          <div class="donation-policy-banner__text">
+            As doações PIX são <strong>voluntárias</strong> e apoiam a manutenção do servidor. Os pontos são recompensa simbólica pelo seu apoio.
+            <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com pontos</strong> nesta plataforma.
+          </div>
+          <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
         </div>
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
           <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
           <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
-          <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💳 Recarga PIX</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação PIX</button>
         </div>
         <div id="catalog-panel-items" class="catalog-panel active">
           <div class="catalog-toolbar">
@@ -1462,17 +1637,33 @@
         </div>
         <div id="catalog-panel-available" class="catalog-panel">
           <p class="available-hint">
-            Pedidos <strong>pendentes</strong> serão entregues automaticamente quando você entrar no servidor.
-            Itens e kits <strong>grátis</strong> podem ser resgatados aqui.
+            Resgates <strong>pendentes</strong> serão entregues automaticamente quando você entrar no servidor.
+            Itens e kits <strong>grátis</strong> podem ser resgatados aqui com pontos.
           </p>
           <div id="catalog-available-content"></div>
         </div>
         <div id="catalog-panel-recharge" class="catalog-panel">
+          <div class="recharge-balance-bar" id="recharge-balance-bar">
+            <span style="color:var(--text2);font-size:13px;">Seu saldo atual</span>
+            <span style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--amber);">◈ <span id="recharge-balance-val">0</span> pontos</span>
+          </div>
+          <div class="recharge-trust">
+            <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX)</div>
+            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.55;">
+              Você faz uma <strong>doação</strong> ao servidor pelo app do banco. Como recompensa simbólica, recebe pontos equivalentes ao valor doado.
+              <strong>Doação definitiva — sem reembolso.</strong>
+            </p>
+            <div class="recharge-steps">
+              <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de pontos (valor da doação)</div>
+              <div class="recharge-step"><strong>2. DOE</strong>PIX pelo app do banco — QR Code ou copia e cola</div>
+              <div class="recharge-step"><strong>3. RESGATE</strong>Pontos creditados para resgatar itens no catálogo</div>
+            </div>
+          </div>
           <p class="available-hint" id="recharge-hint">
-            Recarregue pontos via PIX. Após o pagamento, o saldo é creditado automaticamente.
+            Selecione um pacote e clique em «Doar via PIX». Ao continuar, você aceita a política de doações.
           </p>
           <div id="catalog-recharge-grid" class="recharge-grid"></div>
-          <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Recarga PIX indisponível.</p>
+          <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doação PIX indisponível.</p>
         </div>
       </div>
 
@@ -1502,10 +1693,51 @@
         <div id="kits-list"></div>
       </div>
 
-      <!-- PAGE: Itens à Venda (admin) -->
+      <!-- PAGE: Doações PIX (admin) -->
+      <div id="page-recharge-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Doações PIX</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadRechargeAdmin()">↺ Recarregar</button>
+            <button class="btn btn-primary" onclick="openPackageModal()">+ Novo Pacote</button>
+            <button class="btn btn-success" onclick="saveRechargeAdmin()">💾 Salvar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header"><div class="card-title">Mercado Pago</div></div>
+          <div style="padding:14px 16px;display:grid;gap:12px;">
+            <div id="recharge-mp-status" style="font-size:13px;color:var(--text2);">Verificando…</div>
+            <div class="form-group" style="margin:0;">
+              <label>Access Token (Mercado Pago)</label>
+              <input id="ra-mp-token" type="password" placeholder="Cole o Access Token — deixe vazio para manter o atual" />
+            </div>
+            <p style="font-size:11px;color:var(--text2);margin:0;">
+              Obtenha em <a href="https://www.mercadopago.com.br/developers/panel" target="_blank" rel="noopener" style="color:var(--tek);">mercadopago.com.br/developers</a>.
+              Webhook recomendado: <code style="color:var(--amber);">https://arkland.com.br/api/payments/webhook</code>
+            </p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Pacotes de pontos</div></div>
+          <div style="padding:0 16px 16px;overflow-x:auto;">
+            <table class="pkg-admin-table">
+              <thead>
+                <tr><th>ID</th><th>Nome</th><th>Pontos</th><th>Preço (R$)</th><th>R$/1000 pts</th><th></th></tr>
+              </thead>
+              <tbody id="recharge-packages-tbody"></tbody>
+            </table>
+            <p id="recharge-packages-empty" style="display:none;color:var(--text2);text-align:center;padding:24px;">Nenhum pacote. Clique em «+ Novo Pacote».</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: Venda in-game legado (admin, oculto) -->
       <div id="page-sell" class="page">
         <div id="topbar">
-          <div class="page-title">Itens à Venda</div>
+          <div class="page-title">Venda in-game (legado)</div>
+          <p style="font-size:12px;color:var(--amber);margin-top:6px;max-width:720px;">
+            Desativado pela política ARKLAND Donations. Jogadores obtêm itens apenas por resgate com pontos no catálogo.
+          </p>
           <div class="topbar-actions">
             <button class="btn btn-primary" onclick="openSellModal()">+ Novo Item</button>
             <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
@@ -1573,7 +1805,7 @@
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📦 Entrega de Compra</div>
+            <div class="card-title">📦 Entrega de Resgate</div>
           </div>
           <div class="form-grid" style="margin-bottom:14px;">
             <div class="form-group">
@@ -1597,7 +1829,7 @@
             </div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-success" onclick="deliverPurchase()">🚚 Entregar Compra</button>
+            <button class="btn btn-success" onclick="deliverPurchase()">🚚 Entregar Resgate</button>
           </div>
         </div>
 
@@ -1698,15 +1930,14 @@
               <input id="s-db-password" type="password" placeholder="(deixe vazio para não alterar)" />
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
-              💳 Recarga PIX (Mercado Pago) — defina <code>MP_ACCESS_TOKEN</code> no ambiente ou abaixo
+              💚 Doação PIX (Mercado Pago) — defina <code>MP_ACCESS_TOKEN</code> no ambiente ou abaixo
             </div>
             <div class="form-group" style="grid-column:1/-1;">
               <label>Token Mercado Pago (Access Token)</label>
               <input id="s-mp-token" type="password" placeholder="(deixe vazio para não alterar)" />
             </div>
-            <div class="form-group" style="grid-column:1/-1;">
-              <label>Pacotes de pontos (JSON)</label>
-              <textarea id="s-point-packages" rows="6" placeholder='[{"id":"p500","label":"500 pontos","points":500,"price_brl":5}]' style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;"></textarea>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              💚 Pacotes de doação PIX: gerencie em <strong>Loja → Doações PIX</strong> (mais fácil que JSON).
             </div>
           </div>
           <div id="db-conn-status"></div>
@@ -1774,7 +2005,7 @@
         </div>
         <div class="card">
           <div class="card-header">
-            <div class="card-title">🧾 Histórico de Compras</div>
+            <div class="card-title">🧾 Histórico de Resgates</div>
           </div>
           <div id="myarea-history"></div>
           <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
@@ -1803,6 +2034,7 @@
     <div id="statusbar">
       <span id="sb-dot" class="status-dot"></span>
       <span id="sb-text">Inicializando…</span>
+      <span id="sb-balance" class="sb-balance hidden">◈ <span id="sb-balance-val">0</span> pts</span>
     </div>
   </div>
 
@@ -1951,6 +2183,8 @@ function nav(el) {
   if (el.dataset.page === "catalog") loadCatalog();
   if (el.dataset.page === "downloads") loadDownloads();
   if (el.dataset.page === "admin-downloads") loadAdminDownloads();
+  if (el.dataset.page === "recharge-admin") loadRechargeAdmin();
+  if (_auth.authenticated) refreshPlayerBalance();
 }
 
 function showAuthOverlay(show, msg) {
@@ -2004,6 +2238,47 @@ function applyRoleUi() {
     // Admins também podem ver o catálogo
     loadCatalog();
   }
+  refreshPlayerBalance();
+}
+
+function formatPoints(n) {
+  const v = Number(n);
+  return Number.isFinite(v) ? v.toLocaleString("pt-BR") : "0";
+}
+
+async function refreshPlayerBalance() {
+  const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance"];
+  const valIds = ["auth-balance-val", "catalog-points-val", "sb-balance-val"];
+
+  if (!_auth.authenticated) {
+    pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
+    return;
+  }
+
+  try {
+    const r = await fetch(API + "/api/player/summary");
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.ok) {
+      pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
+      return;
+    }
+    const pts = data.points != null ? data.points : 0;
+    window._playerBalance = pts;
+    const label = formatPoints(pts);
+    valIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = label;
+    });
+    pillIds.forEach(id => document.getElementById(id)?.classList.remove("hidden"));
+    const rb = document.getElementById("recharge-balance-val");
+    if (rb) rb.textContent = label;
+  } catch (_) {
+    pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
+  }
+}
+
+async function updateCatalogPoints() {
+  await refreshPlayerBalance();
 }
 
 // ── Utilitário: formata chave interna em nome legível ─────────────────────────
@@ -2022,6 +2297,39 @@ let _catalogPixEnabled = false;
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
 let _pixPollTimer = null;
+let _pendingPixPackageId = null;
+let _pendingRedeemItem = null;
+const DONATION_POLICY_KEY = "arkland_donation_policy_v1";
+
+function openPolicyModal(requireAccept) {
+  const acceptRow = document.getElementById("policy-accept-row");
+  if (acceptRow) acceptRow.style.display = requireAccept ? "flex" : "none";
+  document.getElementById("modal-policy").classList.remove("hidden");
+}
+
+function closePolicyModal(clearPending = true) {
+  document.getElementById("modal-policy").classList.add("hidden");
+  if (clearPending) {
+    _pendingPixPackageId = null;
+    _pendingRedeemItem = null;
+  }
+}
+
+function acceptDonationPolicy() {
+  try { localStorage.setItem(DONATION_POLICY_KEY, "1"); } catch (_) {}
+  closePolicyModal(false);
+  if (_pendingPixPackageId) {
+    const pkg = _pendingPixPackageId;
+    _pendingPixPackageId = null;
+    startPixCheckout(pkg, true);
+    return;
+  }
+  if (_pendingRedeemItem) {
+    const item = _pendingRedeemItem;
+    _pendingRedeemItem = null;
+    openBuyModal(item, true);
+  }
+}
 
 function setCatalogTab(tab) {
   _catalogActiveTab = tab;
@@ -2053,7 +2361,7 @@ function renderCatalogCats(cats) {
   const bar = document.getElementById("catalog-cats");
   if (!bar) return;
   const all = ["", ...cats];
-  const labels = { "": "Todos os produtos" };
+  const labels = { "": "Todos os itens" };
   bar.innerHTML = all.map(c => {
     const label = labels[c] || c;
     const active = (c === _catalogActiveCat) ? " active" : "";
@@ -2075,8 +2383,8 @@ function _catalogTypeClass(t) {
 
 function _renderProductCard(i, btnLabel) {
   const buyBtn = _auth.authenticated
-    ? `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Comprar"}</button>`
-    : `<span style="font-size:11px;color:var(--text2);">Login p/ comprar</span>`;
+    ? `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`
+    : `<span style="font-size:11px;color:var(--text2);">Login p/ resgatar</span>`;
   return `
     <div class="item-card ${_catalogTypeClass(i.type)}">
       <div class="item-card__thumb">
@@ -2094,25 +2402,6 @@ function _renderProductCard(i, btnLabel) {
     </div>`;
 }
 
-async function updateCatalogPoints() {
-  const pill = document.getElementById("catalog-points-pill");
-  const valEl = document.getElementById("catalog-points-val");
-  if (!pill || !valEl) return;
-  if (!_auth.authenticated) {
-    pill.classList.add("hidden");
-    return;
-  }
-  try {
-    const r = await fetch(API + "/api/player/summary");
-    const data = await r.json().catch(() => ({}));
-    if (r.ok && data.ok && data.points != null) {
-      valEl.textContent = data.points;
-      window._playerBalance = data.points;
-      pill.classList.remove("hidden");
-    }
-  } catch (_) { /* ignore */ }
-}
-
 async function loadCatalog() {
   try {
     const r = await fetch(API + "/api/catalog");
@@ -2122,6 +2411,7 @@ async function loadCatalog() {
     const kits = data.kits || data.Kits || {};
     const title = document.getElementById("catalog-shop-name");
     if (title && data.shop_name) title.textContent = data.shop_name;
+    else if (title) title.textContent = "ARKLAND DONATIONS";
     const urlEl = document.getElementById("catalog-shop-url");
     const shopUrl = data.shop_url || data.public_url || "";
     if (urlEl) {
@@ -2195,7 +2485,7 @@ function renderCatalogItems() {
     return;
   }
   if (empty) empty.style.display = "none";
-  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Comprar")).join("");
+  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
 }
 
 function renderCatalogKits() {
@@ -2214,7 +2504,7 @@ function renderCatalogKits() {
     return;
   }
   if (empty) empty.style.display = "none";
-  grid.innerHTML = filtered.map(k => _renderProductCard(k, "Comprar Kit")).join("");
+  grid.innerHTML = filtered.map(k => _renderProductCard(k, "Resgatar Kit")).join("");
 }
 
 async function loadAvailable() {
@@ -2238,7 +2528,7 @@ async function loadAvailable() {
 
     html += `<div class="available-section"><div class="available-section__title">⏳ Aguardando resgate no servidor</div>`;
     if (!pending.length) {
-      html += `<p class="available-hint">Nenhum pedido pendente. Compras entregues aparecem aqui até você entrar no jogo.</p>`;
+      html += `<p class="available-hint">Nenhum resgate pendente. Entregas aparecem aqui até você entrar no jogo.</p>`;
     } else {
       html += pending.map(p => `
         <div class="available-card">
@@ -2281,34 +2571,45 @@ function renderRecharge() {
   const hint = document.getElementById("recharge-hint");
   if (!grid) return;
 
+  if (_auth.authenticated) refreshPlayerBalance();
+
   if (!_catalogPixEnabled) {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.textContent = "Configure MP_ACCESS_TOKEN (ou token Mercado Pago em Configurar Paths) para habilitar PIX.";
+      empty.textContent = "Doação PIX ainda não está ativa. O administrador precisa configurar o Mercado Pago em Doações PIX.";
     }
-    if (hint) hint.textContent = "Recarga via PIX ainda não está configurada neste servidor.";
+    if (hint) hint.textContent = "";
     return;
   }
   if (empty) empty.style.display = "none";
-  if (hint) hint.textContent = "Escolha um pacote, pague via PIX e aguarde a confirmação automática.";
+  if (hint) hint.textContent = "Selecione um pacote e clique em «Doar via PIX».";
 
   const pkgs = _catalogPackages || [];
   if (!pkgs.length) {
     grid.innerHTML = "";
-    if (empty) { empty.style.display = ""; empty.textContent = "Nenhum pacote de pontos configurado."; }
+    if (empty) {
+      empty.style.display = "";
+      empty.textContent = "Nenhum pacote disponível no momento. Peça ao admin para configurar em Loja → Doações PIX.";
+    }
     return;
   }
 
-  grid.innerHTML = pkgs.map(p => `
+  grid.innerHTML = pkgs.map(p => {
+    const pts = Number(p.points || 0);
+    const price = Number(p.price_brl || 0);
+    const perK = pts > 0 ? ((price / pts) * 1000).toFixed(2).replace(".", ",") : "—";
+    return `
     <div class="recharge-card">
       <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;">${escHtml(p.label || p.id)}</div>
-      <div class="recharge-card__points">◈ ${p.points}</div>
-      <div class="recharge-card__price">R$ ${Number(p.price_brl || 0).toFixed(2).replace(".", ",")}</div>
+      <div class="recharge-card__points">◈ ${pts.toLocaleString("pt-BR")}</div>
+      <div class="recharge-card__price">Doação: R$ ${price.toFixed(2).replace(".", ",")}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">≈ R$ ${perK} / 1.000 pts</div>
       ${_auth.authenticated
-        ? `<button class="btn btn-success" onclick="startPixCheckout('${escHtml(p.id)}')">Pagar com PIX</button>`
-        : `<span style="font-size:12px;color:var(--text2);">Login para recarregar</span>`}
-    </div>`).join("");
+        ? `<button class="btn btn-success" style="width:100%;" onclick="startPixCheckout('${escHtml(p.id)}')">Doar via PIX</button>`
+        : `<span style="font-size:12px;color:var(--text2);">Faça login com Steam para doar</span>`}
+    </div>`;
+  }).join("");
 }
 
 function closePixModal() {
@@ -2316,8 +2617,21 @@ function closePixModal() {
   document.getElementById("pix-modal").style.display = "none";
 }
 
-async function startPixCheckout(packageId) {
-  if (!_auth.authenticated) { toast("Faça login para recarregar.", "warning"); return; }
+async function startPixCheckout(packageId, policyAlreadyAccepted) {
+  if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
+  if (!policyAlreadyAccepted) {
+    try {
+      if (!localStorage.getItem(DONATION_POLICY_KEY)) {
+        _pendingPixPackageId = packageId;
+        openPolicyModal(true);
+        return;
+      }
+    } catch (_) {
+      openPolicyModal(true);
+      _pendingPixPackageId = packageId;
+      return;
+    }
+  }
   try {
     const r = await fetch(API + "/api/player/pix/checkout", {
       method: "POST",
@@ -2326,7 +2640,7 @@ async function startPixCheckout(packageId) {
     });
     const d = await r.json();
     if (!r.ok || !d.ok) {
-      toast(d.error || "Falha ao gerar PIX", "error");
+      toast(d.error || "Falha ao gerar PIX da doação", "error");
       return;
     }
     showPixModal(d);
@@ -2337,18 +2651,25 @@ async function startPixCheckout(packageId) {
 
 function showPixModal(data) {
   const body = document.getElementById("pix-modal-body");
+  const amount = Number(data.amount_brl || 0).toFixed(2).replace(".", ",");
   const qr = data.pix_qr_base64
     ? `<img class="pix-modal-qr" src="data:image/png;base64,${data.pix_qr_base64}" alt="QR Code PIX" />`
     : "";
   body.innerHTML = `
-    <p style="text-align:center;margin-bottom:12px;color:var(--text2);">${escHtml(data.label || "")} — <strong style="color:var(--amber);">◈ ${data.points}</strong></p>
+    <div class="pix-modal-summary">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Doação</span><strong>${escHtml(data.label || "")}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Recompensa (pontos)</span><strong style="color:var(--amber);">◈ ${Number(data.points || 0).toLocaleString("pt-BR")}</strong></div>
+      <div style="display:flex;justify-content:space-between;"><span>Valor doado (PIX)</span><strong style="color:var(--success);">R$ ${amount}</strong></div>
+    </div>
+    <p style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:10px;">Doação voluntária — sem reembolso. Abra o app do banco → PIX → escaneie ou cole o código.</p>
     ${qr}
-    <label style="display:block;font-size:11px;color:var(--text2);margin-bottom:6px;">Copia e cola PIX</label>
+    <label style="display:block;font-size:11px;color:var(--text2);margin:12px 0 6px;">Copia e cola PIX</label>
     <textarea class="pix-copy-box" readonly id="pix-copy-field">${escHtml(data.pix_copy_paste || "")}</textarea>
     <div style="display:flex;gap:8px;margin-top:10px;">
-      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copy-field').value);toast('Código PIX copiado!','success')">📋 Copiar</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copy-field').value);toast('Código PIX copiado!','success')">📋 Copiar código</button>
     </div>
-    <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">Aguardando pagamento…</p>`;
+    <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">⏳ Aguardando confirmação da doação…</p>
+    <p class="pix-trust-note">Processado pelo Mercado Pago. Ao confirmar, os pontos serão creditados como recompensa simbólica pela doação.</p>`;
   document.getElementById("pix-modal").style.display = "flex";
   if (_pixPollTimer) clearInterval(_pixPollTimer);
   _pixPollTimer = setInterval(() => pollPixStatus(data.payment_id), 3000);
@@ -2363,19 +2684,19 @@ async function pollPixStatus(paymentId) {
     const line = document.getElementById("pix-status-line");
     if (!line) return;
     if (d.status === "APROVADO") {
-      line.textContent = "✅ Pagamento confirmado! Pontos creditados.";
+      line.textContent = "✅ Doação confirmada! Pontos creditados como recompensa.";
       line.style.color = "var(--success)";
       if (d.new_balance != null) window._playerBalance = d.new_balance;
-      updateCatalogPoints();
+      refreshPlayerBalance();
       loadMyArea();
       if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
-      toast("Pontos creditados com sucesso!", "success");
+      toast("Pontos creditados — use-os para resgatar itens no catálogo.", "success");
     } else if (d.status === "RECUSADO" || d.status === "EXPIRADO") {
-      line.textContent = "❌ Pagamento " + d.status.toLowerCase();
+      line.textContent = "❌ Doação " + d.status.toLowerCase();
       line.style.color = "var(--danger)";
       if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
     } else {
-      line.textContent = "Aguardando pagamento…";
+      line.textContent = "Aguardando confirmação da doação…";
     }
   } catch (_) { /* ignore */ }
 }
@@ -2433,6 +2754,7 @@ async function loadMyArea() {
     <div class="form-group"><label>Contestados</label><input readonly value="${st.contested ?? 0}" /></div>
   `;
   window._playerBalance = summary.points ?? 0;
+  refreshPlayerBalance();
 
   await loadMyAreaHistory();
 }
@@ -2461,7 +2783,7 @@ async function loadMyAreaHistory() {
   if (pageInfo) pageInfo.textContent = `Pág. ${pageNum} / ${totalPages} (${_myAreaPage.total} pedidos)`;
 
   if (!items.length) {
-    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--text2)">Nenhuma compra registrada.</div>`;
+    document.getElementById("myarea-history").innerHTML = `<div style="color:var(--text2)">Nenhum resgate registrado.</div>`;
     return;
   }
 
@@ -2514,11 +2836,11 @@ async function contestOrder(orderId) {
 }
 
 async function rebuyOrder(orderId) {
-  if (!confirm("Recriar este pedido (recompra)?")) return;
+  if (!confirm("Recriar este resgate (repetir entrega)?")) return;
   const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/rebuy`, { method: "POST" });
   const d = await r.json();
-  if (d.ok) { toast("Recompra criada e na fila de entrega.", "success"); loadMyAreaHistory(); }
-  else { toast(d.error || "Falha na recompra", "error"); }
+  if (d.ok) { toast("Resgate recriado e na fila de entrega.", "success"); loadMyAreaHistory(); }
+  else { toast(d.error || "Falha ao recriar resgate", "error"); }
 }
 
 async function viewOrderDetail(orderId) {
@@ -2797,7 +3119,7 @@ function renderGeneral() {
     <div class="card">
       <div class="card-header"><div class="card-title">🏪 Configurações da Loja</div></div>
       <div class="form-grid">
-        <div class="form-group"><label>Nome da Loja</label><input id="g-shop-name" type="text" value="${escHtml(s.ShopName||"ARKLAND Shop")}" /></div>
+        <div class="form-group"><label>Nome exibido</label><input id="g-shop-name" type="text" value="${escHtml(s.ShopName||"ARKLAND Donations")}" /></div>
         <div class="form-group"><label>Pontos Iniciais</label><input id="g-starting-pts" type="number" value="${s.StartingPoints??100}" /></div>
         <div class="form-group"><label>URL do Website</label><input id="g-website-url" type="text" value="${escHtml(s.WebsiteUrl||"")}" /></div>
         <div class="form-group"><label>URL da API Web</label><input id="g-webapi-url" type="text" value="${escHtml(s.WebApiUrl||"http://127.0.0.1:5177")}" /></div>
@@ -2805,7 +3127,7 @@ function renderGeneral() {
         <div class="form-group"><label>URL do Discord</label><input id="g-discord-url" type="text" value="${escHtml(s.DiscordUrl||"")}" /></div>
       </div>
       <div style="margin-top:14px;">
-        <div class="toggle-row"><label>Ocultar botão Vender</label><input type="checkbox" id="g-disable-sell" ${s.DisableSellButton?"checked":""} /></div>
+        <div class="toggle-row"><label>Ocultar venda in-game (legado)</label><input type="checkbox" id="g-disable-sell" ${s.DisableSellButton?"checked":""} /></div>
         <div class="toggle-row"><label>Ocultar botão Trocar</label><input type="checkbox" id="g-disable-trade" ${s.DisableTradeButton?"checked":""} /></div>
         <div class="toggle-row"><label>Recompensas de Voto</label><input type="checkbox" id="g-vote-rewards" ${s.VoteRewards?"checked":""} /></div>
         <div class="toggle-row"><label>Ocultar ícone de buff</label><input type="checkbox" id="g-hide-buff" ${s.HideBuffIcon?"checked":""} /></div>
@@ -3210,6 +3532,136 @@ function deleteSell(key) {
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
+let _adminPointPackages = [];
+let _editingPackageIdx = null;
+
+function slugPackageId(label) {
+  return (label || "pacote")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "") || "pacote";
+}
+
+async function loadRechargeAdmin() {
+  if (!_auth.is_admin) return;
+  try {
+    const r = await fetch(API + "/api/settings");
+    const s = await r.json();
+    _adminPointPackages = Array.isArray(s.point_packages) ? s.point_packages.map(p => ({...p})) : [];
+    const st = document.getElementById("recharge-mp-status");
+    if (st) {
+      if (s.mp_access_token_set || s.pix_enabled) {
+        st.innerHTML = '<span style="color:var(--success);">✅ Mercado Pago configurado — PIX ativo para jogadores</span>';
+      } else {
+        st.innerHTML = '<span style="color:var(--danger);">⚠️ Access Token não configurado — jogadores não conseguem recarregar</span>';
+      }
+    }
+    renderRechargePackagesAdmin();
+  } catch (e) {
+    toast("Erro ao carregar doações PIX: " + e.message, "error");
+  }
+}
+
+function renderRechargePackagesAdmin() {
+  const tbody = document.getElementById("recharge-packages-tbody");
+  const empty = document.getElementById("recharge-packages-empty");
+  if (!tbody) return;
+  const pkgs = _adminPointPackages || [];
+  if (!pkgs.length) {
+    tbody.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  tbody.innerHTML = pkgs.map((p, i) => {
+    const pts = Number(p.points || 0);
+    const price = Number(p.price_brl || 0);
+    const perK = pts > 0 ? ((price / pts) * 1000).toFixed(2).replace(".", ",") : "—";
+    return `<tr>
+      <td><code>${escHtml(p.id || "")}</code></td>
+      <td>${escHtml(p.label || "")}</td>
+      <td>${pts.toLocaleString("pt-BR")}</td>
+      <td>R$ ${price.toFixed(2).replace(".", ",")}</td>
+      <td>R$ ${perK}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="openPackageModal(${i})">✏️</button>
+        <button class="btn btn-ghost btn-sm" onclick="deletePackage(${i})">🗑</button>
+      </td>
+    </tr>`;
+  }).join("");
+}
+
+function openPackageModal(idx) {
+  _editingPackageIdx = idx != null ? idx : null;
+  const p = idx != null ? (_adminPointPackages[idx] || {}) : {};
+  document.getElementById("modal-pkg-title").textContent = idx != null ? "Editar Pacote" : "Novo Pacote";
+  document.getElementById("pkg-id").value = p.id || "";
+  document.getElementById("pkg-label").value = p.label || "";
+  document.getElementById("pkg-points").value = p.points ?? "";
+  document.getElementById("pkg-price").value = p.price_brl ?? "";
+  document.getElementById("modal-package").classList.remove("hidden");
+}
+
+function closePackageModal() {
+  document.getElementById("modal-package").classList.add("hidden");
+  _editingPackageIdx = null;
+}
+
+function confirmPackage() {
+  const label = document.getElementById("pkg-label").value.trim();
+  let id = document.getElementById("pkg-id").value.trim();
+  const points = parseInt(document.getElementById("pkg-points").value, 10);
+  const price_brl = parseFloat(document.getElementById("pkg-price").value);
+  if (!label) { toast("Informe o nome do pacote.", "warning"); return; }
+  if (!id) id = slugPackageId(label);
+  if (!Number.isFinite(points) || points <= 0) { toast("Pontos inválidos.", "warning"); return; }
+  if (!Number.isFinite(price_brl) || price_brl <= 0) { toast("Preço inválido.", "warning"); return; }
+  const entry = { id, label, points, price_brl };
+  if (_editingPackageIdx != null) {
+    _adminPointPackages[_editingPackageIdx] = entry;
+  } else {
+    if (_adminPointPackages.some(p => p.id === id)) {
+      toast("Já existe um pacote com este ID.", "warning");
+      return;
+    }
+    _adminPointPackages.push(entry);
+  }
+  renderRechargePackagesAdmin();
+  closePackageModal();
+}
+
+function deletePackage(idx) {
+  if (!confirm("Remover este pacote de doação?")) return;
+  _adminPointPackages.splice(idx, 1);
+  renderRechargePackagesAdmin();
+}
+
+async function saveRechargeAdmin() {
+  if (!_auth.is_admin) return;
+  const body = { point_packages: _adminPointPackages };
+  const mpToken = document.getElementById("ra-mp-token")?.value?.trim();
+  if (mpToken) body.mp_access_token = mpToken;
+  try {
+    const r = await fetch(API + "/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      toast("Doações PIX salvas!");
+      document.getElementById("ra-mp-token").value = "";
+      await loadRechargeAdmin();
+      await loadCatalog();
+    } else {
+      toast("Erro: " + (data.error || "Falha ao salvar"), "error");
+    }
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
 async function loadSettings() {
   if (!_auth.is_admin) return;
   try {
@@ -3226,10 +3678,6 @@ async function loadSettings() {
     document.getElementById("s-db-port").value        = s.db_port || 3306;
     document.getElementById("s-db-name").value        = s.db_name || "arkland_shop";
     document.getElementById("s-db-user").value        = s.db_user || "";
-    const pkgEl = document.getElementById("s-point-packages");
-    if (pkgEl) {
-      pkgEl.value = JSON.stringify(s.point_packages || [], null, 2);
-    }
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -3252,17 +3700,6 @@ async function loadSettings() {
 }
 
 async function saveSettings() {
-  let pointPackages = undefined;
-  const pkgRaw = document.getElementById("s-point-packages")?.value?.trim();
-  if (pkgRaw) {
-    try {
-      pointPackages = JSON.parse(pkgRaw);
-      if (!Array.isArray(pointPackages)) throw new Error("Deve ser um array JSON");
-    } catch (e) {
-      toast("Pacotes de pontos: JSON inválido — " + e.message, "error");
-      return;
-    }
-  }
   const body = {
     config_path: document.getElementById("s-config-path").value,
     rcon_host:   document.getElementById("s-rcon-host").value,
@@ -3280,7 +3717,6 @@ async function saveSettings() {
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;
-  if (pointPackages) body.point_packages = pointPackages;
   try {
     const r = await fetch(API + "/api/settings", {
       method: "POST",
@@ -3555,11 +3991,24 @@ function escHtml(str) {
   return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-// ── Modal de Compra ───────────────────────────────────────────────────────────
+// ── Modal de Resgate (pontos) ─────────────────────────────────────────────────
 let _buyItem = null;
 
-function openBuyModal(item) {
-  if (!_auth.authenticated) { toast("Faça login para comprar.", "warning"); return; }
+function openBuyModal(item, policyAlreadyAccepted) {
+  if (!_auth.authenticated) { toast("Faça login para resgatar.", "warning"); return; }
+  if (!policyAlreadyAccepted) {
+    try {
+      if (!localStorage.getItem(DONATION_POLICY_KEY)) {
+        _pendingRedeemItem = item;
+        openPolicyModal(true);
+        return;
+      }
+    } catch (_) {
+      _pendingRedeemItem = item;
+      openPolicyModal(true);
+      return;
+    }
+  }
   _buyItem = item;
   const bal = window._playerBalance ?? "?";
   const canBuy = typeof bal === "number" && bal >= item.price;
@@ -3569,9 +4018,12 @@ function openBuyModal(item) {
       <div style="font-family:'Cinzel',Georgia,serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">${escHtml(item.name)}</div>
       ${item.desc ? `<div style="font-size:12px;color:var(--text2);">${escHtml(item.desc)}</div>` : ""}
     </div>
+    <p style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:14px;line-height:1.5;">
+      Resgate com pontos obtidos por doação ao servidor.
+    </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
       <div style="background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:var(--radius);text-align:center;">
-        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Preço</div>
+        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Custo (pontos)</div>
         <div style="font-size:22px;font-weight:700;color:var(--amber);text-shadow:0 0 12px rgba(232,160,32,.4);">◈ ${item.price}</div>
       </div>
       <div style="background:var(--surface2);border:1px solid ${canBuy?'rgba(18,216,124,.2)':'rgba(240,64,80,.2)'};padding:12px;border-radius:var(--radius);text-align:center;">
@@ -3609,19 +4061,19 @@ async function confirmBuy() {
     const d = await r.json();
     closeBuyModal();
     if (d.ok) {
-      toast(`✅ Compra realizada! ${_buyItem.name}`, "success");
+      toast(`✅ Resgate solicitado: ${_buyItem.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
+      refreshPlayerBalance();
       loadMyArea();
-      updateCatalogPoints();
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
-      toast(d.error || "Falha na compra", "error");
+      toast(d.error || "Falha no resgate", "error");
     }
   } catch(e) {
     toast("Erro de rede: " + e.message, "error");
   } finally {
     btn.disabled = false;
-    btn.textContent = "✅ Confirmar Compra";
+    btn.textContent = "✅ Confirmar Resgate";
   }
 }
 
@@ -3629,7 +4081,7 @@ async function confirmBuy() {
 (async () => {
   await loadAuth();
   if (!_auth.authenticated) {
-    showAuthOverlay(true, "Faça login com a Steam para usar o painel.");
+    showAuthOverlay(true, "Faça login com a Steam para acessar doações e resgates.");
     return;
   }
 
@@ -3646,10 +4098,77 @@ async function confirmBuy() {
 })();
 </script>
 
+<!-- ── Modal: Política de Doações ───────────────────────────────────────────── -->
+<div id="modal-policy" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">📜 Política de Doações — ARKLAND Donations</div>
+      <button class="btn btn-ghost btn-sm" onclick="closePolicyModal()">✕</button>
+    </div>
+    <div class="policy-modal-body">
+      <h4>1. Natureza do serviço</h4>
+      <p>O site <strong>ARKLAND Donations</strong> é uma plataforma de <strong>doações voluntárias</strong> para apoiar a manutenção do servidor. <strong>Não vendemos</strong> itens, dinos, recursos ou qualquer conteúdo do ARK: Survival Evolved.</p>
+      <h4>2. Doações via PIX</h4>
+      <ul>
+        <li>Valores enviados por PIX são <strong>doações</strong>, não pagamentos por produtos digitais.</li>
+        <li>Como reconhecimento simbólico, o doador recebe <strong>pontos</strong> proporcionais ao valor doado.</li>
+        <li>Os pontos não têm valor monetário e não podem ser convertidos em dinheiro.</li>
+      </ul>
+      <h4>3. Sem reembolso</h4>
+      <p>Doações são definitivas. <strong>Não há reembolso</strong>, estorno ou chargeback automático pela plataforma. Ao doar, você declara estar ciente e de acordo.</p>
+      <h4>4. Resgate de recompensas</h4>
+      <ul>
+        <li>Itens e kits do jogo são obtidos exclusivamente por <strong>resgate com pontos</strong> nesta interface.</li>
+        <li>Resgates geram entregas no servidor conforme disponibilidade técnica do jogo.</li>
+        <li>Nada neste site constitui venda de conteúdo oficial do ARK ou da Studio Wildcard.</li>
+      </ul>
+      <h4>5. Aceite</h4>
+      <p>Ao usar doação PIX ou resgatar com pontos, você confirma que leu e aceita esta política.</p>
+    </div>
+    <div id="policy-accept-row" style="display:none;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost" onclick="closePolicyModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="acceptDonationPolicy()">Li e aceito — continuar</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <button class="btn btn-ghost" onclick="closePolicyModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Pacote de Doação ─────────────────────────────────────────────── -->
+<div id="modal-package" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-pkg-title">Novo Pacote</div>
+      <button class="btn btn-ghost btn-sm" onclick="closePackageModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label>Nome exibido *</label>
+      <input id="pkg-label" type="text" placeholder="Ex: 500 pontos" oninput="if(!document.getElementById('pkg-id').value.trim()) document.getElementById('pkg-id').value=slugPackageId(this.value)" />
+    </div>
+    <div class="form-group">
+      <label>ID interno</label>
+      <input id="pkg-id" type="text" placeholder="p500 (gerado automaticamente)" />
+    </div>
+    <div class="form-group">
+      <label>Pontos *</label>
+      <input id="pkg-points" type="number" min="1" placeholder="500" />
+    </div>
+    <div class="form-group">
+      <label>Valor sugerido da doação (R$) *</label>
+      <input id="pkg-price" type="number" min="0.01" step="0.01" placeholder="5.00" />
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closePackageModal()">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmPackage()">Salvar pacote</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal PIX ─────────────────────────────────────────────────────────────── -->
 <div id="pix-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
   <div class="buy-modal-inner" style="max-width:420px;">
-    <div class="buy-modal-title">💳 Pagamento PIX</div>
+    <div class="buy-modal-title">💚 Doação via PIX</div>
     <div id="pix-modal-body"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
       <button class="btn btn-ghost" onclick="closePixModal()">Fechar</button>
@@ -3657,14 +4176,14 @@ async function confirmBuy() {
   </div>
 </div>
 
-<!-- ── Modal de Compra ───────────────────────────────────────────────────────── -->
+<!-- ── Modal de Resgate ───────────────────────────────────────────────────────── -->
 <div id="buy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
   <div class="buy-modal-inner">
-    <div class="buy-modal-title">🛒 Confirmar Compra</div>
+    <div class="buy-modal-title">🎁 Confirmar Resgate</div>
     <div id="buy-modal-body"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
       <button class="btn btn-ghost" onclick="closeBuyModal()">Cancelar</button>
-      <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Compra</button>
+      <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Resgate</button>
     </div>
   </div>
 </div>

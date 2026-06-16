@@ -5,6 +5,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.16] - 2026-06-12
+
+### Feature
+
+- Novo (Web Store): ARKLAND Donations — política de doações com modal, banner e aceite obrigatório antes de doar via PIX ou resgatar com pontos.
+- Novo (Web Store): admin Doações PIX — pacotes, token Mercado Pago e tabela de gestão.
+
+### Improvement
+
+- Melhoria (Web Store): linguagem de doação/resgate em toda a UI (sem termos de compra/venda); aba Doação PIX; resgates com pontos no catálogo.
+
+### Fix
+
+- Fix (Web Store): saldo de pontos na sidebar, statusbar e catálogo; retorno 0 se jogador não existe no banco.
+- Fix (PIX): e-mail válido no checkout Mercado Pago (player{steamid}@arkland.com.br).
+- Fix (Web Store): aba Disponível — migração orders.id para schema SQLAlchemy; setup_db.sql atualizado.
+
 ## [1.9.15] - 2026-06-12
 
 ### Fix

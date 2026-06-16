@@ -30,6 +30,7 @@ from pix_payments import (
     extract_pix_data,
     fetch_payment,
     map_mp_status,
+    payer_email_for_steam,
 )
 from flask import Flask, jsonify, redirect, request, send_from_directory, session
 from flask_cors import CORS
@@ -402,7 +403,7 @@ def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
 
 
 def _migrate_schema(engine: Any) -> None:
-    """Detecta schema antigo (orders sem order_id) e recria as tabelas."""
+    """Alinha schema MySQL com os modelos SQLAlchemy (incl. setup_db.sql legado)."""
     is_mysql = "mysql" in str(engine.url).lower()
     if not is_mysql:
         Base.metadata.create_all(bind=engine)
@@ -410,13 +411,28 @@ def _migrate_schema(engine: Any) -> None:
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
         if tbl_row is not None:
-            col_row = conn.execute(text("SHOW COLUMNS FROM `orders` LIKE 'order_id'")).fetchone()
-            if col_row is None:
+            order_id_row = conn.execute(text("SHOW COLUMNS FROM `orders` LIKE 'order_id'")).fetchone()
+            id_row = conn.execute(text("SHOW COLUMNS FROM `orders` LIKE 'id'")).fetchone()
+            if order_id_row is None:
                 log.warning("Schema antigo detectado (orders sem order_id) — recriando tabelas")
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-                for tbl in ("order_attempts", "rebuys", "disputes", "orders"):
+                for tbl in ("order_attempts", "rebuys", "disputes", "point_payments", "orders"):
                     conn.execute(text(f"DROP TABLE IF EXISTS `{tbl}`"))
                 conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+                conn.commit()
+            elif id_row is None:
+                log.warning("Schema legado (orders.order_id como PK, sem id) — migrando")
+                conn.execute(text("ALTER TABLE `orders` DROP PRIMARY KEY"))
+                conn.execute(text(
+                    "ALTER TABLE `orders` ADD COLUMN `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST"
+                ))
+                idx_rows = conn.execute(text(
+                    "SHOW INDEX FROM `orders` WHERE Column_name = 'order_id' AND Non_unique = 0"
+                )).fetchall()
+                if not idx_rows:
+                    conn.execute(text(
+                        "ALTER TABLE `orders` ADD UNIQUE INDEX `ix_orders_order_id` (`order_id`)"
+                    ))
                 conn.commit()
     Base.metadata.create_all(bind=engine)
 
@@ -660,7 +676,7 @@ def _get_player_points(steam_id: str) -> int | None:
             text("SELECT points FROM players WHERE steam_id = :sid"),
             {"sid": steam_id},
         ).fetchone()
-        return int(row[0]) if row else None
+        return int(row[0]) if row else 0
     except Exception:
         return None
     finally:
@@ -1470,7 +1486,7 @@ def test_db_connection():
 
 @app.route("/api/catalog", methods=["GET"])
 def get_catalog():
-    """Retorna catálogo público (itens, kits, pacotes de recarga)."""
+    """Retorna catálogo público (itens, kits, pacotes de doação)."""
     data = _read_shop_config()
     items = data.get("Items") or data.get("ShopItems") or {}
     kits = data.get("Kits") or {}
@@ -1479,7 +1495,7 @@ def get_catalog():
         settings_block.get("ShopName")
         or data.get("ShopName")
         or data.get("shop_name")
-        or "ARKLAND Shop"
+        or "ARKLAND Donations"
     )
     packages = _load_point_packages()
     s = _load_settings()
@@ -1748,7 +1764,7 @@ def player_purchase():
             # Duplicate request — find and return the existing order
             _log("purchase_duplicate_idempotency", steam_id=str(steam_id),
                  idempotency_key=idempotency_key)
-            return jsonify({"ok": False, "error": "Pedido duplicado — esta compra já foi processada",
+            return jsonify({"ok": False, "error": "Pedido duplicado — este resgate já foi processado",
                            "idempotency_key": idempotency_key}), 409
 
     price = int(body.get("price", 0))
@@ -1902,7 +1918,7 @@ def player_pix_checkout():
     if (err := _require_db()) is not None:
         return err
     if not _pix_enabled():
-        return jsonify({"ok": False, "error": "Pagamento PIX não configurado (MP_ACCESS_TOKEN)"}), 503
+        return jsonify({"ok": False, "error": "Doação PIX não configurada (indisponível)"}), 503
 
     body = request.get_json(force=True, silent=True) or {}
     package_id = str(body.get("package_id", "")).strip()
@@ -1919,18 +1935,27 @@ def player_pix_checkout():
     steam_id = str(_steam_id_from_session())
     payment_id = str(uuid.uuid4())
     label = str(package.get("label") or f"{points} pontos")
-    description = f"Recarga ARKLAND — {label} ({steam_id})"
+    description = f"Doação ARKLAND — {label} ({steam_id})"
 
     try:
+        shop_settings = _load_settings()
+        public_url = str(shop_settings.get("public_url") or shop_settings.get("central_url") or "arkland.com.br")
         mp_resp = create_pix_payment(
             _get_mp_access_token(),
             amount_brl=price_brl,
             description=description,
             external_reference=payment_id,
             idempotency_key=payment_id,
+            payer_email=payer_email_for_steam(steam_id, domain=public_url),
         )
     except PixPaymentError as exc:
-        return jsonify({"ok": False, "error": f"Mercado Pago: {exc}"}), 502
+        err_raw = str(exc)
+        try:
+            err_json = json.loads(err_raw)
+            err_msg = err_json.get("message") or err_raw
+        except Exception:
+            err_msg = err_raw
+        return jsonify({"ok": False, "error": f"Mercado Pago: {err_msg}"}), 502
 
     mp_id, qr_b64, copy_paste = extract_pix_data(mp_resp)
     if not mp_id:
@@ -1985,7 +2010,7 @@ def player_pix_status(payment_id: str):
             PointPayment.steam_id == steam_id,
         ).first()
         if not payment:
-            return jsonify({"ok": False, "error": "Pagamento não encontrado"}), 404
+            return jsonify({"ok": False, "error": "Doação PIX não encontrada"}), 404
 
         if payment.status not in ("APROVADO", "RECUSADO", "EXPIRADO", "ESTORNADO") and payment.mp_payment_id:
             token = _get_mp_access_token()
@@ -2270,12 +2295,12 @@ def player_rebuy(order_id: str):
         _log("order_rebuy", original_order_id=order_id, new_order_id=new_order_id, steam_id=steam_id)
     except Exception as exc:
         _log_error("player_rebuy", order_id=order_id, steam_id=steam_id, error=str(exc))
-        return jsonify({"ok": False, "error": f"Erro ao recomprar pedido: {exc}"}), 500
+        return jsonify({"ok": False, "error": f"Erro ao recriar resgate: {exc}"}), 500
     finally:
         db.close()
 
     if not new_order_id:
-        return jsonify({"ok": False, "error": "Falha ao criar recompra"}), 500
+        return jsonify({"ok": False, "error": "Falha ao recriar resgate"}), 500
 
     result = _process_order_delivery(new_order_id)
     result["order_id"] = new_order_id

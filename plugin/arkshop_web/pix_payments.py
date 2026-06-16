@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 from typing import Any
@@ -9,6 +10,19 @@ from typing import Any
 
 class PixPaymentError(Exception):
     pass
+
+
+_DEFAULT_PAYER_EMAIL = "pagamentos@arkland.com.br"
+
+
+def payer_email_for_steam(steam_id: str, *, domain: str = "arkland.com.br") -> str:
+    """E-mail válido para a API MP (rejeita .local e formatos inválidos)."""
+    sid = re.sub(r"\D", "", (steam_id or "").strip()) or "0"
+    host = (domain or "arkland.com.br").strip().lower()
+    host = re.sub(r"^https?://", "", host).split("/")[0].split(":")[0]
+    if not host or "." not in host:
+        host = "arkland.com.br"
+    return f"player{sid}@{host}"
 
 
 def _mp_request(
@@ -50,13 +64,17 @@ def create_pix_payment(
     description: str,
     external_reference: str,
     idempotency_key: str,
+    payer_email: str | None = None,
 ) -> dict[str, Any]:
+    email = (payer_email or "").strip()
+    if not email or "@" not in email or email.lower().endswith(".local"):
+        email = _DEFAULT_PAYER_EMAIL
     payload = {
         "transaction_amount": round(float(amount_brl), 2),
         "description": description[:256],
         "payment_method_id": "pix",
         "external_reference": external_reference[:256],
-        "payer": {"email": "pagamentos@arkland.local"},
+        "payer": {"email": email},
     }
     return _mp_request(
         access_token,

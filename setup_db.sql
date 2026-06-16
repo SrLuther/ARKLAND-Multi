@@ -65,19 +65,21 @@ CREATE TABLE IF NOT EXISTS vip_players (
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS orders (
-  order_id          VARCHAR(36)   PRIMARY KEY NOT NULL,
-  steam_id          VARCHAR(20)   NOT NULL,
+  id                INT           NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  order_id          VARCHAR(64)   NOT NULL,
+  steam_id          VARCHAR(32)   NOT NULL,
   server_id         VARCHAR(64)   NOT NULL DEFAULT 'default',
   item_type         VARCHAR(32)   NOT NULL DEFAULT 'shop',
   item_id           VARCHAR(128)  NOT NULL,
   amount            INT           NOT NULL DEFAULT 1,
-  status            VARCHAR(20)   NOT NULL DEFAULT 'PENDENTE',
+  status            VARCHAR(32)   NOT NULL DEFAULT 'PENDENTE',
   retry_count       INT           NOT NULL DEFAULT 0,
   last_error        TEXT          DEFAULT NULL,
   contested         TINYINT(1)    NOT NULL DEFAULT 0,
-  original_order_id VARCHAR(36)   DEFAULT NULL,
+  original_order_id VARCHAR(64)   DEFAULT NULL,
   created_at        DATETIME      DEFAULT NULL,
   updated_at        DATETIME      DEFAULT NULL,
+  UNIQUE KEY ix_orders_order_id (order_id),
   INDEX idx_steam_status (steam_id, status),
   INDEX idx_server       (server_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
