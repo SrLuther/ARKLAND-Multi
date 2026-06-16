@@ -18,6 +18,7 @@ from ..db_setup_resources import (
     ensure_setup_sql_cached,
     load_setup_sql_template,
     permission_database_exists,
+    save_shop_connection_prefs,
 )
 from ..shop_integration import DEFAULT_REMOTE_SHOP_HOST, iter_shop_servers, permissions_dll_installed
 from ..ui_constants import get_theme
@@ -40,6 +41,84 @@ def _apply_connection_prefs(state: Any, prefs: dict, *, default_user: str) -> No
     state.user = prefs.get("user", default_user)
     state.password = prefs.get("password", "")
     state.database = prefs.get("database", "")
+
+
+def _is_ephemeral_local_root(prefs: dict) -> bool:
+    """Conexão root@localhost gerada pelo auto-connect — não deve sobrescrever prefs da loja."""
+    if not prefs:
+        return False
+    return (
+        _is_local_db_host(prefs.get("host", ""))
+        and (prefs.get("user") or "root").strip().lower() == "root"
+    )
+
+
+def _shop_config_db_prefs(app: "ARKTEKApp") -> dict:
+    """Credenciais MySQL da aba Loja → Web Store (orders_db_*)."""
+    try:
+        shop = app._shop_config  # type: ignore[attr-defined]
+    except Exception:
+        return {}
+    if not shop:
+        return {}
+    host = (shop.orders_db_host or "").strip()
+    user = (shop.orders_db_user or "").strip()
+    if not host and not user:
+        return {}
+    return {
+        "host": host or DEFAULT_REMOTE_SHOP_HOST,
+        "port": int(shop.orders_db_port or 3306),
+        "user": user or "arkland",
+        "password": shop.orders_db_password or "",
+        "database": (shop.orders_db_name or "").strip() or _DB_NAME,
+    }
+
+
+def _resolve_initial_connection(state: Any, app: "ARKTEKApp", all_prefs: dict) -> None:
+    """Prioridade: shop_db remoto → config da loja → shop_db → last_connection (≠ root efêmero)."""
+    shop_prefs = all_prefs.get("shop_db") or {}
+    conn_prefs = all_prefs.get("last_connection") or {}
+    app_shop = _shop_config_db_prefs(app)
+
+    if shop_prefs.get("host") and not _is_local_db_host(shop_prefs.get("host", "")):
+        _apply_connection_prefs(state, shop_prefs, default_user="arkland")
+        return
+
+    if app_shop.get("host") and not _is_local_db_host(app_shop.get("host", "")):
+        _apply_connection_prefs(state, app_shop, default_user="arkland")
+        return
+
+    if app_shop.get("user"):
+        _apply_connection_prefs(state, app_shop, default_user="arkland")
+        return
+
+    if shop_prefs:
+        _apply_connection_prefs(state, shop_prefs, default_user="arkland")
+        return
+
+    if conn_prefs and not _is_ephemeral_local_root(conn_prefs):
+        _apply_connection_prefs(state, conn_prefs, default_user="root")
+        return
+
+    if app_shop:
+        _apply_connection_prefs(state, app_shop, default_user="arkland")
+        return
+
+    state.host = "127.0.0.1"
+    state.port = 3306
+    state.user = "root"
+    state.password = ""
+    state.database = _DB_NAME
+
+
+def _connection_prefs_from_state(state: Any) -> dict:
+    return {
+        "host": state.host,
+        "port": state.port,
+        "user": state.user,
+        "password": state.password,
+        "database": state.database or _DB_NAME,
+    }
 
 
 # ── tentativa de importar pymysql ──────────────────────────────────────────
@@ -238,36 +317,9 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     except Exception:
         pass
 
-    # Carrega credenciais persistidas (shop_db remoto tem prioridade sobre root local)
+    # Carrega credenciais: shop_db / config da loja têm prioridade sobre root local efêmero
     _all_prefs = DbLocalServer._load_prefs()
-    _conn_prefs = _all_prefs.get("last_connection", {})
-    _shop_prefs = _all_prefs.get("shop_db", {})
-    _conn_is_ephemeral_root = (
-        _conn_prefs
-        and _is_local_db_host(_conn_prefs.get("host", ""))
-        and (_conn_prefs.get("user") or "root").strip().lower() == "root"
-    )
-    _shop_is_remote = _shop_prefs and not _is_local_db_host(_shop_prefs.get("host", ""))
-
-    if _shop_is_remote:
-        _apply_connection_prefs(state, _shop_prefs, default_user="arkland")
-    elif _conn_prefs and not (_conn_is_ephemeral_root and _shop_prefs):
-        _apply_connection_prefs(state, _conn_prefs, default_user="root")
-    elif _shop_prefs:
-        _apply_connection_prefs(state, _shop_prefs, default_user="arkland")
-    else:
-        # Fallback: config da loja
-        try:
-            shop = app._shop_config  # type: ignore[attr-defined]
-            if shop:
-                state.host     = shop.orders_db_host or DEFAULT_REMOTE_SHOP_HOST
-                state.port     = int(shop.orders_db_port or 3306)
-                state.user     = shop.orders_db_user or "arkland"
-                state.password = shop.orders_db_password or ""
-        except Exception:
-            state.host = "127.0.0.1"
-            state.port = 3306
-            state.user = "root"
+    _resolve_initial_connection(state, app, _all_prefs)
 
     parent.grid_rowconfigure(1, weight=1)
     parent.grid_columnconfigure(0, weight=1)
@@ -390,13 +442,26 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             _fw_dot.configure(text="🔒")
             _btn_fw.configure(state="normal")
 
-        # Sugere root local apenas se a barra ainda aponta para localhost
+        # Preenche root local só se os campos estiverem vazios e não houver credenciais da loja
         if running and _is_local_db_host(_v_host.get()):
-            _v_host.set("127.0.0.1")
-            _v_user.set("root")
-            _v_pass.set(local_srv.get_root_password())
-            if not _v_db.get():
-                _v_db.set("arkland_shop")
+            shop_prefs = DbLocalServer._load_prefs().get("shop_db") or {}
+            app_shop = _shop_config_db_prefs(app)
+            has_shop_user = (
+                (shop_prefs.get("user") or "").strip().lower() not in ("", "root")
+                or (app_shop.get("user") or "").strip().lower() not in ("", "root")
+            )
+            has_remote = (
+                (shop_prefs.get("host") and not _is_local_db_host(shop_prefs.get("host", "")))
+                or (app_shop.get("host") and not _is_local_db_host(app_shop.get("host", "")))
+            )
+            current_user = (_v_user.get() or "").strip().lower()
+            if not has_remote and not has_shop_user and current_user in ("", "root"):
+                if not current_user:
+                    _v_user.set("root")
+                if not (_v_pass.get() or "").strip():
+                    _v_pass.set(local_srv.get_root_password())
+            if not (_v_db.get() or "").strip():
+                _v_db.set(_DB_NAME)
 
     def _do_download() -> None:
         _btn_download.configure(state="disabled")
@@ -1063,13 +1128,11 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                     )
                     if manual or not (is_local_root and shop_is_remote):
                         prefs = DbLocalServer._load_prefs()
-                        prefs["last_connection"] = {
-                            "host":     state.host,
-                            "port":     state.port,
-                            "user":     state.user,
-                            "password": state.password,
-                            "database": state.database,
-                        }
+                        conn_entry = _connection_prefs_from_state(state)
+                        prefs["last_connection"] = conn_entry
+                        # Persiste shop_db quando não for root@localhost efêmero
+                        if manual or not is_local_root:
+                            prefs["shop_db"] = conn_entry
                         DbLocalServer._save_prefs(prefs)
                     parent.after(0, lambda: _set_status(True,
                         f"Conectado a {state.host}:{state.port}"))
@@ -1151,14 +1214,32 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             _pending_connect_after_wizard[0] = False
             _do_connect(manual=True)
     
+        def _restore_shop_credentials_on_bar() -> None:
+            """Evita auto-connect como root quando a loja usa outro usuário/host."""
+            if (_v_user.get() or "").strip().lower() not in ("", "root"):
+                return
+            shop_prefs = DbLocalServer._load_prefs().get("shop_db") or {}
+            app_shop = _shop_config_db_prefs(app)
+            for source in (shop_prefs, app_shop):
+                user = (source.get("user") or "").strip()
+                if user and user.lower() != "root":
+                    _v_host.set(source.get("host", _v_host.get()))
+                    _v_port.set(str(source.get("port", 3306)))
+                    _v_user.set(user)
+                    _v_pass.set(source.get("password", ""))
+                    _v_db.set(source.get("database", _DB_NAME))
+                    return
+
+        def _auto_connect() -> None:
+            _restore_shop_credentials_on_bar()
+            _do_connect(manual=False)
+
         # ── Auto-start + auto-connect ao inicializar o painel ─────────────────────
-        # Registra auto-connect como hook pós-start
-        _after_start_hooks.append(lambda: _do_connect(manual=False))
-    
+        _after_start_hooks.append(_auto_connect)
+
         if DbLocalServer.get_autostart() and local_srv.is_installed():
             if local_srv.is_running():
-                # Servidor já rodando (ex: iniciou antes do painel abrir)
-                parent.after(500, lambda: _do_connect(manual=False))
+                parent.after(500, _auto_connect)
             else:
                 threading.Thread(target=_do_start, daemon=True).start()
     

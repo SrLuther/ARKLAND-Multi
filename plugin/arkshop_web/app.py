@@ -25,12 +25,15 @@ from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 
 from pix_payments import (
+    PIX_PAYER_FORM,
+    PayerValidationError,
     PixPaymentError,
     create_pix_payment,
     extract_pix_data,
     fetch_payment,
     map_mp_status,
-    payer_email_for_steam,
+    normalize_payer_input,
+    parse_mp_error_message,
 )
 from flask import Flask, jsonify, redirect, request, send_from_directory, session
 from flask_cors import CORS
@@ -347,6 +350,7 @@ class PointPayment(Base):
     status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
     pix_qr_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
     pix_copy_paste: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     credited: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -433,6 +437,17 @@ def _migrate_schema(engine: Any) -> None:
                     conn.execute(text(
                         "ALTER TABLE `orders` ADD UNIQUE INDEX `ix_orders_order_id` (`order_id`)"
                     ))
+                conn.commit()
+        pp_row = conn.execute(text("SHOW TABLES LIKE 'point_payments'")).fetchone()
+        if pp_row is not None:
+            payer_col = conn.execute(text(
+                "SHOW COLUMNS FROM `point_payments` LIKE 'payer_email'"
+            )).fetchone()
+            if payer_col is None:
+                log.warning("Migrando point_payments — adicionando payer_email")
+                conn.execute(text(
+                    "ALTER TABLE `point_payments` ADD COLUMN `payer_email` VARCHAR(255) NULL"
+                ))
                 conn.commit()
     Base.metadata.create_all(bind=engine)
 
@@ -1911,6 +1926,13 @@ def player_available():
         db.close()
 
 
+@app.route("/api/player/pix/payer-form", methods=["GET"])
+@login_required
+def player_pix_payer_form():
+    """Campos exigidos ao jogador antes de gerar PIX (Mercado Pago / Brasil)."""
+    return jsonify({"ok": True, "fields": PIX_PAYER_FORM})
+
+
 @app.route("/api/player/pix/checkout", methods=["POST"])
 @login_required
 @limiter.limit("5 per minute; 20 per hour")
@@ -1927,6 +1949,11 @@ def player_pix_checkout():
     if not package:
         return jsonify({"ok": False, "error": "Pacote de pontos inválido"}), 400
 
+    try:
+        payer = normalize_payer_input(body.get("payer"))
+    except PayerValidationError as exc:
+        return jsonify({"ok": False, "error": str(exc), "field": exc.field}), 400
+
     points = int(package.get("points", 0) or 0)
     price_brl = float(package.get("price_brl", 0) or 0)
     if points <= 0 or price_brl <= 0:
@@ -1938,24 +1965,16 @@ def player_pix_checkout():
     description = f"Doação ARKLAND — {label} ({steam_id})"
 
     try:
-        shop_settings = _load_settings()
-        public_url = str(shop_settings.get("public_url") or shop_settings.get("central_url") or "arkland.com.br")
         mp_resp = create_pix_payment(
             _get_mp_access_token(),
             amount_brl=price_brl,
             description=description,
             external_reference=payment_id,
             idempotency_key=payment_id,
-            payer_email=payer_email_for_steam(steam_id, domain=public_url),
+            payer=payer,
         )
     except PixPaymentError as exc:
-        err_raw = str(exc)
-        try:
-            err_json = json.loads(err_raw)
-            err_msg = err_json.get("message") or err_raw
-        except Exception:
-            err_msg = err_raw
-        return jsonify({"ok": False, "error": f"Mercado Pago: {err_msg}"}), 502
+        return jsonify({"ok": False, "error": f"Mercado Pago: {exc}"}), 502
 
     mp_id, qr_b64, copy_paste = extract_pix_data(mp_resp)
     if not mp_id:
@@ -1973,6 +1992,7 @@ def player_pix_checkout():
             status=map_mp_status(str(mp_resp.get("status", "pending"))),
             pix_qr_base64=qr_b64,
             pix_copy_paste=copy_paste,
+            payer_email=payer.get("email"),
             created_at=_now(),
             updated_at=_now(),
         )

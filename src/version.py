@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.16"
+APP_VERSION: str = "1.9.17"
 BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.17",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (Web Store/PIX): formulário do pagador antes do PIX — e-mail, nome, CPF e telefone "
+            "(exigidos pelo Mercado Pago); dados repassados ao MP, sem e-mail fictício.",
+            "Melhoria (Web Store): transparência sobre dados na doação — política, modal e hints "
+            "deixam claro que o MP solicita os dados e a ARKLAND não usa para marketing.",
+            "Fix (PIX): crédito automático de pontos após confirmação (poll 3s + webhook); "
+            "payer_email gravado em point_payments.",
+            "Fix (DB Manager): não sobrescreve mais usuário/senha com root@localhost quando MariaDB "
+            "local está rodando; prioriza shop_db e config da Web Store.",
+            "Melhoria (Loja): salvar Web Store grava credenciais MySQL em shop_db (prefs do DB Manager).",
+        ],
+    },
     {
         "version": "1.9.16",
         "date": "2026-06-12",

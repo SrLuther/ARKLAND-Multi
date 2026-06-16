@@ -926,6 +926,61 @@
       resize: vertical;
     }
 
+    .payer-form-intro {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+    .payer-privacy-box {
+      margin: 0 16px 14px;
+      padding: 12px 14px;
+      background: rgba(59, 130, 246, .08);
+      border: 1px solid rgba(59, 130, 246, .28);
+      border-radius: var(--radius);
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.55;
+    }
+    .payer-privacy-box strong { color: var(--tek); font-weight: 600; }
+    .payer-privacy-box ul {
+      margin: 8px 0 0 16px;
+      padding: 0;
+    }
+    .payer-privacy-box li { margin-bottom: 5px; }
+    .payer-field {
+      margin-bottom: 12px;
+    }
+    .payer-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    .payer-field label .req { color: var(--amber); }
+    .payer-field input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 12px;
+    }
+    .payer-field input:focus {
+      outline: none;
+      border-color: rgba(0, 200, 255, .45);
+    }
+    .payer-field .hint {
+      font-size: 10px;
+      color: var(--text2);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
     #catalog-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1492,7 +1547,7 @@
     <div class="auth-title">ARKLAND</div>
     <div class="auth-sub">DONATIONS</div>
     <div class="auth-desc" id="auth-desc">
-      Plataforma de doações voluntárias. Resgate recompensas no jogo com pontos — não vendemos itens do ARK.
+      Plataforma de doações voluntárias. Resgate recompensas com pontos. Dados de PIX são exigidos pelo Mercado Pago — a ARKLAND não usa dados pessoais para marketing.
     </div>
     <button class="btn-steam" onclick="loginWithSteam()">
       Entrar com Steam
@@ -1606,8 +1661,8 @@
         <div class="donation-policy-banner" onclick="openPolicyModal(false)" role="button" tabindex="0">
           <div class="donation-policy-banner__title">⚖️ Política de Doações — leia antes de doar ou resgatar</div>
           <div class="donation-policy-banner__text">
-            As doações PIX são <strong>voluntárias</strong> e apoiam a manutenção do servidor. Os pontos são recompensa simbólica pelo seu apoio.
-            <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com pontos</strong> nesta plataforma.
+            As doações PIX são <strong>voluntárias</strong>. E-mail, nome e CPF na doação são <strong>exigidos pelo Mercado Pago</strong> — repassamos ao MP e não usamos para marketing.
+            <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com pontos</strong>.
           </div>
           <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
         </div>
@@ -1649,9 +1704,13 @@
           </div>
           <div class="recharge-trust">
             <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX)</div>
-            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.55;">
+            <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.55;">
               Você faz uma <strong>doação</strong> ao servidor pelo app do banco. Como recompensa simbólica, recebe pontos equivalentes ao valor doado.
               <strong>Doação definitiva — sem reembolso.</strong>
+            </p>
+            <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.5;opacity:.92;">
+              E-mail, nome e CPF são <strong>solicitados pelo Mercado Pago</strong> para validar e gerar o PIX — não pela ARKLAND para outros fins.
+              Repassamos esses dados apenas ao Mercado Pago. Não vendemos nem usamos dados pessoais para marketing.
             </p>
             <div class="recharge-steps">
               <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de pontos (valor da doação)</div>
@@ -1660,7 +1719,7 @@
             </div>
           </div>
           <p class="available-hint" id="recharge-hint">
-            Selecione um pacote e clique em «Doar via PIX». Ao continuar, você aceita a política de doações.
+            Selecione um pacote e clique em «Doar via PIX». Na etapa seguinte, o Mercado Pago pedirá e-mail, nome e CPF para validar a doação — a ARKLAND só repassa esses dados ao MP.
           </p>
           <div id="catalog-recharge-grid" class="recharge-grid"></div>
           <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doação PIX indisponível.</p>
@@ -2299,7 +2358,10 @@ let _catalogActiveTab = "items";
 let _pixPollTimer = null;
 let _pendingPixPackageId = null;
 let _pendingRedeemItem = null;
+let _pixPayerFields = null;
+let _pixCheckoutPackageId = null;
 const DONATION_POLICY_KEY = "arkland_donation_policy_v1";
+const PAYER_PROFILE_KEY = "arkland_payer_profile_v1";
 
 function openPolicyModal(requireAccept) {
   const acceptRow = document.getElementById("policy-accept-row");
@@ -2617,6 +2679,138 @@ function closePixModal() {
   document.getElementById("pix-modal").style.display = "none";
 }
 
+function _loadPayerProfile() {
+  try {
+    const raw = localStorage.getItem(PAYER_PROFILE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function _savePayerProfile(data) {
+  try {
+    localStorage.setItem(PAYER_PROFILE_KEY, JSON.stringify(data));
+  } catch (_) {}
+}
+
+function _formatCpfInput(el) {
+  let v = (el.value || "").replace(/\D/g, "").slice(0, 11);
+  if (v.length > 9) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, "$1.$2.$3-$4");
+  else if (v.length > 6) v = v.replace(/^(\d{3})(\d{3})(\d{0,3}).*/, "$1.$2.$3");
+  else if (v.length > 3) v = v.replace(/^(\d{3})(\d{0,3}).*/, "$1.$2");
+  el.value = v;
+}
+
+function _formatPhoneInput(el) {
+  let v = (el.value || "").replace(/\D/g, "").slice(0, 11);
+  if (v.length > 10) v = v.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, "($1) $2-$3");
+  else if (v.length > 6) v = v.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,5}).*/, "($1) $2");
+  else if (v.length > 0) v = v.replace(/^(\d{0,2}).*/, "($1");
+  el.value = v;
+}
+
+async function _ensurePixPayerFields() {
+  if (_pixPayerFields && _pixPayerFields.length) return _pixPayerFields;
+  try {
+    const r = await fetch(API + "/api/player/pix/payer-form");
+    const d = await r.json();
+    if (d.ok && d.fields) {
+      _pixPayerFields = d.fields;
+      return _pixPayerFields;
+    }
+  } catch (_) {}
+  _pixPayerFields = [
+    { id: "email", label: "E-mail", hint: "Exigido pelo Mercado Pago — comprovante da doação", type: "email", required: true },
+    { id: "full_name", label: "Nome completo", hint: "Exigido pelo Mercado Pago — validação da doação", type: "text", required: true },
+    { id: "cpf", label: "CPF", hint: "Exigido pelo Mercado Pago para PIX no Brasil", type: "cpf", required: true },
+    { id: "phone", label: "Telefone (celular)", hint: "Opcional — só se o Mercado Pago solicitar", type: "phone", required: false },
+  ];
+  return _pixPayerFields;
+}
+
+function closePixPayerModal() {
+  document.getElementById("pix-payer-modal").classList.add("hidden");
+  _pixCheckoutPackageId = null;
+}
+
+async function openPixPayerModal(packageId) {
+  _pixCheckoutPackageId = packageId;
+  const fields = await _ensurePixPayerFields();
+  const saved = _loadPayerProfile();
+  const body = document.getElementById("pix-payer-form-body");
+  body.innerHTML = fields.map(f => {
+    const val = escHtml(saved[f.id] || "");
+    const req = f.required ? ' <span class="req">*</span>' : "";
+    const hint = f.hint ? `<div class="hint">${escHtml(f.hint)}</div>` : "";
+    let extra = "";
+    if (f.type === "cpf") extra = ` oninput="_formatCpfInput(this)" placeholder="000.000.000-00"`;
+    else if (f.type === "phone") extra = ` oninput="_formatPhoneInput(this)" placeholder="(11) 98765-4321"`;
+    else if (f.type === "email") extra = ` placeholder="seu@email.com" autocomplete="email"`;
+    else extra = ` placeholder="${escHtml(f.label)}" autocomplete="name"`;
+    return `<div class="payer-field">
+      <label for="payer-${f.id}">${escHtml(f.label)}${req}</label>
+      <input id="payer-${f.id}" type="${f.type === "email" ? "email" : "text"}" value="${val}"${extra} />
+      ${hint}
+    </div>`;
+  }).join("");
+  document.getElementById("pix-payer-modal").classList.remove("hidden");
+  const first = document.getElementById("payer-email");
+  if (first) first.focus();
+}
+
+function _collectPayerFromForm() {
+  const fields = _pixPayerFields || [];
+  const payer = {};
+  for (const f of fields) {
+    const el = document.getElementById("payer-" + f.id);
+    payer[f.id] = el ? el.value.trim() : "";
+    if (f.required && !payer[f.id]) {
+      throw new Error("Preencha: " + f.label);
+    }
+  }
+  return payer;
+}
+
+async function submitPixPayerForm() {
+  if (!_pixCheckoutPackageId) return;
+  const btn = document.getElementById("pix-payer-submit-btn");
+  let payer;
+  try {
+    payer = _collectPayerFromForm();
+  } catch (e) {
+    toast(e.message || "Preencha os campos obrigatórios.", "warning");
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = "Gerando PIX…";
+  try {
+    const r = await fetch(API + "/api/player/pix/checkout", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ package_id: _pixCheckoutPackageId, payer }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      toast(d.error || "Falha ao gerar PIX da doação", "error");
+      if (d.field) {
+        const el = document.getElementById("payer-" + d.field);
+        if (el) el.focus();
+      }
+      return;
+    }
+    _savePayerProfile(payer);
+    closePixPayerModal();
+    showPixModal(d);
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Continuar para PIX";
+  }
+}
+
 async function startPixCheckout(packageId, policyAlreadyAccepted) {
   if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
   if (!policyAlreadyAccepted) {
@@ -2632,21 +2826,7 @@ async function startPixCheckout(packageId, policyAlreadyAccepted) {
       return;
     }
   }
-  try {
-    const r = await fetch(API + "/api/player/pix/checkout", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ package_id: packageId }),
-    });
-    const d = await r.json();
-    if (!r.ok || !d.ok) {
-      toast(d.error || "Falha ao gerar PIX da doação", "error");
-      return;
-    }
-    showPixModal(d);
-  } catch (e) {
-    toast("Erro de rede: " + e.message, "error");
-  }
+  await openPixPayerModal(packageId);
 }
 
 function showPixModal(data) {
@@ -2669,7 +2849,7 @@ function showPixModal(data) {
       <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copy-field').value);toast('Código PIX copiado!','success')">📋 Copiar código</button>
     </div>
     <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">⏳ Aguardando confirmação da doação…</p>
-    <p class="pix-trust-note">Processado pelo Mercado Pago. Ao confirmar, os pontos serão creditados como recompensa simbólica pela doação.</p>`;
+    <p class="pix-trust-note">PIX processado pelo Mercado Pago. Comprovantes da transação podem ser enviados pelo MP ao e-mail informado. A ARKLAND credita pontos como recompensa simbólica — doação voluntária, sem reembolso.</p>`;
   document.getElementById("pix-modal").style.display = "flex";
   if (_pixPollTimer) clearInterval(_pixPollTimer);
   _pixPollTimer = setInterval(() => pollPixStatus(data.payment_id), 3000);
@@ -4122,7 +4302,15 @@ async function confirmBuy() {
         <li>Resgates geram entregas no servidor conforme disponibilidade técnica do jogo.</li>
         <li>Nada neste site constitui venda de conteúdo oficial do ARK ou da Studio Wildcard.</li>
       </ul>
-      <h4>5. Aceite</h4>
+      <h4>5. Dados na doação PIX (transparência)</h4>
+      <ul>
+        <li><strong>E-mail, nome, CPF e telefone</strong> (quando aplicável) são <strong>exigidos pelo Mercado Pago</strong> para validar a doação e gerar o código PIX — não coletamos esses dados por iniciativa própria.</li>
+        <li>A ARKLAND <strong>repassa</strong> ao Mercado Pago somente o necessário para processar a doação. O tratamento posterior obedece à <a href="https://www.mercadopago.com.br/privacidade" target="_blank" rel="noopener" style="color:var(--tek);">política de privacidade do Mercado Pago</a>.</li>
+        <li><strong>Não vendemos</strong> dados pessoais, <strong>não usamos</strong> para publicidade ou marketing e <strong>não compartilhamos</strong> com terceiros além do Mercado Pago para esta doação.</li>
+        <li>O login Steam <strong>não fornece</strong> e-mail nem CPF — por isso você informa manualmente na etapa do PIX.</li>
+        <li>Guardamos apenas o <strong>e-mail informado</strong> vinculado ao registro da doação (histórico e suporte). Opcionalmente, o navegador pode lembrar os campos <strong>só no seu aparelho</strong> para facilitar a próxima doação.</li>
+      </ul>
+      <h4>6. Aceite</h4>
       <p>Ao usar doação PIX ou resgatar com pontos, você confirma que leu e aceita esta política.</p>
     </div>
     <div id="policy-accept-row" style="display:none;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
@@ -4161,6 +4349,33 @@ async function confirmBuy() {
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="closePackageModal()">Cancelar</button>
       <button class="btn btn-success" onclick="confirmPackage()">Salvar pacote</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Dados do pagador (Mercado Pago) ───────────────────────────────── -->
+<div id="pix-payer-modal" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">💚 Dados para doação PIX (Mercado Pago)</div>
+      <button class="btn btn-ghost btn-sm" onclick="closePixPayerModal()">✕</button>
+    </div>
+    <p class="payer-form-intro" style="padding:0 16px;">
+      Preencha os campos abaixo. Eles são <strong>solicitados pelo Mercado Pago</strong> para validar a doação e gerar o PIX — a ARKLAND não pede esses dados para outros fins.
+    </p>
+    <div class="payer-privacy-box">
+      <strong>🔒 Transparência — como usamos seus dados</strong>
+      <ul>
+        <li><strong>Quem exige:</strong> Mercado Pago (processador do PIX), para cumprir regras de pagamento no Brasil.</li>
+        <li><strong>O que a ARKLAND faz:</strong> repassa os dados ao Mercado Pago e guarda o e-mail no registro da doação (histórico/suporte).</li>
+        <li><strong>O que a ARKLAND não faz:</strong> vender dados, enviar spam, publicidade, criar perfil comercial ou compartilhar com terceiros além do MP nesta doação.</li>
+        <li><strong>No seu navegador:</strong> os campos podem ser lembrados localmente só para facilitar a próxima doação — você pode apagar limpando os dados do site.</li>
+      </ul>
+    </div>
+    <div id="pix-payer-form-body" style="padding:0 16px;"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin:16px;padding-top:14px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost" onclick="closePixPayerModal()">Cancelar</button>
+      <button id="pix-payer-submit-btn" class="btn btn-success" onclick="submitPixPayerForm()">Continuar para PIX</button>
     </div>
   </div>
 </div>

@@ -1281,6 +1281,17 @@ def _build_webstore_tab(
         shop.caddy_dir = _caddy_dir_var.get().strip()
         shop.caddy_auto_start = bool(_caddy_auto_var.get())
         app.config_manager.save()
+        host = shop.orders_db_host.strip()
+        user = shop.orders_db_user.strip()
+        if host and user:
+            from ..db_setup_resources import save_shop_connection_prefs
+            save_shop_connection_prefs(
+                host=host,
+                port=int(shop.orders_db_port or 3306),
+                user=user,
+                password=shop.orders_db_password or "",
+                database=shop.orders_db_name.strip() or "arkland_shop",
+            )
 
     def _validate_shared_shop_requirements() -> bool:
         is_client = (_mode_var.get() == "client")

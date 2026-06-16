@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.17] - 2026-06-12
+
+### Feature
+
+- Novo (Web Store/PIX): formulário do pagador antes do PIX — e-mail, nome, CPF e telefone (exigidos pelo Mercado Pago); dados repassados ao MP, sem e-mail fictício.
+
+### Improvement
+
+- Melhoria (Web Store): transparência sobre dados na doação — política, modal e hints deixam claro que o MP solicita os dados e a ARKLAND não usa para marketing.
+- Melhoria (Loja): salvar Web Store grava credenciais MySQL em shop_db (prefs do DB Manager).
+
+### Fix
+
+- Fix (PIX): crédito automático de pontos após confirmação (poll 3s + webhook); payer_email gravado em point_payments.
+- Fix (DB Manager): não sobrescreve mais usuário/senha com root@localhost quando MariaDB local está rodando; prioriza shop_db e config da Web Store.
+
 ## [1.9.16] - 2026-06-12
 
 ### Feature
