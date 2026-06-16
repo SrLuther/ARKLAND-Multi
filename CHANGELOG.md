@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.10] - 2026-06-15
+
+### Feature
+
+- Novo (TEK): remover servidores legados (modo primitivo) em Configurações → Servidores legados, sem precisar abrir o modo primitivo.
+
+### Fix
+
+- Fix (BUFFs/TEK): sistema de rates temporários funciona em servidores TEK — start/stop, INI e combo unificado (TEK + legado).
+- Fix (DB): botão «Sync jogadores» — recria arkland_shop.players com schema CustomShop e importa SteamId de ark_permission.players.
+- Fix (DB): botão «Recarregar» na barra de conexão e na aba Dados; aviso se players tiver schema do Permissions.
+
 ## [1.9.9] - 2026-06-15
 
 ### Fix

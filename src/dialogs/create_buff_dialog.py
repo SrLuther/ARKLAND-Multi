@@ -16,6 +16,7 @@ from ..buff_manager import (
     BUFF_RECURRENCE_LABELS,
 )
 from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _CARD_BG, _BLUE, _BLUE_HOVER
+from ..buff_server_bridge import list_buff_servers
 from datetime import datetime, timedelta
 import uuid
 
@@ -29,14 +30,16 @@ def open_create_buff_dialog(
     server_id: Optional[str] = None,
     event: Optional[BuffEvent] = None,  # preenchido para editar buff agendado
 ) -> None:
-    servers = app.config_manager.servers
-    if not servers:
+    entries = list_buff_servers(app)
+    if not entries:
         messagebox.showwarning(
             "Sem Servidores",
-            "Adicione ao menos um servidor antes de criar um BUFF.",
+            "Adicione ao menos um servidor (TEK ou legado) antes de criar um BUFF.",
             parent=app,
         )
         return
+
+    servers = entries  # BuffServerEntry list — usa .id e .label
 
     is_editing = event is not None
     dlg_title  = "✏️  Editar BUFF" if is_editing else "⚡  Criar Novo BUFF"
@@ -99,9 +102,10 @@ def open_create_buff_dialog(
         _presel_ids = {server_id}
     else:
         sel_name = app._buffs_server_var.get() if app._buffs_server_var else ""
-        sel = next((s for s in servers if s.name == sel_name), None)
-        if sel:
-            _presel_ids = {sel.id}
+        from ..buff_server_bridge import resolve_buff_server_id
+        resolved = resolve_buff_server_id(app, sel_name)
+        if resolved:
+            _presel_ids = {resolved}
         elif servers:
             _presel_ids = {servers[0].id}
 
@@ -109,7 +113,7 @@ def open_create_buff_dialog(
         var = tk.BooleanVar(value=(srv.id in _presel_ids))
         srv_vars[srv.id] = var
         ctk.CTkCheckBox(
-            srv_card, text=srv.name, variable=var,
+            srv_card, text=srv.label, variable=var,
             font=ctk.CTkFont(size=12),
         ).grid(row=ci // 3, column=ci % 3, padx=16, pady=8, sticky="w")
 

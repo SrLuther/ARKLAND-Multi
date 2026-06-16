@@ -3,6 +3,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _BLUE, _BLUE_HOVER, _CARD_BG, _BG
+from ..buff_server_bridge import list_buff_servers
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
@@ -51,17 +52,18 @@ def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> Non
     ).grid(row=0, column=0, padx=(16, 8), pady=10, sticky="w")
 
     app._buffs_server_var = tk.StringVar()
-    srv_names = [s.name for s in app.config_manager.servers]
+    entries = list_buff_servers(app)
+    labels = [e.label for e in entries]
     srv_combo = ctk.CTkComboBox(
         sel_bar,
         variable=app._buffs_server_var,
-        values=srv_names if srv_names else ["(nenhum servidor)"],
+        values=labels if labels else ["(nenhum servidor)"],
         state="readonly",
         width=300,
         command=lambda _: app._refresh_buffs_ui(),
     )
-    if srv_names:
-        app._buffs_server_var.set(srv_names[0])
+    if labels:
+        app._buffs_server_var.set(labels[0])
     srv_combo.grid(row=0, column=1, padx=(0, 16), pady=10, sticky="w")
 
     # ── Body scrollável (row 2, reconstruído no refresh) ────────────────

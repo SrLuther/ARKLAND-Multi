@@ -134,6 +134,74 @@ def _table_rows(state: _DBState, db: str, table: str,
     return rows, total
 
 
+_CUSTOMSHOP_PLAYERS_DDL = """
+CREATE TABLE IF NOT EXISTS players (
+  steam_id  VARCHAR(20)  PRIMARY KEY NOT NULL,
+  points    INT          NOT NULL DEFAULT 0,
+  kits      TEXT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+"""
+
+
+def _table_field_names(state: _DBState, db: str, table: str) -> set[str]:
+    return {str(c.get("Field", "")).lower() for c in _table_columns(state, db, table)}
+
+
+def _customshop_players_schema_ok(state: _DBState) -> tuple[bool, str]:
+    """True se arkland_shop.players tem colunas steam_id + points (CustomShop)."""
+    if not state.is_connected():
+        return False, "Sem conexão"
+    if _DB_NAME not in _list_databases(state):
+        return False, f"Banco {_DB_NAME} não existe"
+    if "players" not in _list_tables(state, _DB_NAME):
+        return False, "Tabela players não existe em arkland_shop"
+    cols = _table_field_names(state, _DB_NAME, "players")
+    if "steam_id" in cols and "points" in cols:
+        return True, ""
+    if "steamid" in cols:
+        return (
+            False,
+            "Tabela players em arkland_shop usa schema do Permissions (SteamId) — "
+            "CustomShop não consegue inserir jogadores",
+        )
+    return False, f"Schema inesperado em arkland_shop.players: {', '.join(sorted(cols))}"
+
+
+def _recreate_customshop_players_table(state: _DBState) -> None:
+    _execute(state, f"USE `{_DB_NAME}`")
+    _execute(state, "DROP TABLE IF EXISTS players")
+    _execute(state, _CUSTOMSHOP_PLAYERS_DDL.strip())
+
+
+def _sync_shop_players_from_permissions(state: _DBState, starting_points: int = 100) -> int:
+    """Cria jogadores no CustomShop a partir de ark_permission.players."""
+    if _PERM_DB_NAME not in _list_databases(state):
+        raise RuntimeError(f"Banco {_PERM_DB_NAME} não encontrado")
+    if "players" not in _list_tables(state, _PERM_DB_NAME):
+        raise RuntimeError(f"Tabela players não existe em {_PERM_DB_NAME}")
+
+    perm_cols = _table_field_names(state, _PERM_DB_NAME, "players")
+    steam_col = "SteamId" if "steamid" in perm_cols else "steam_id"
+    if steam_col.lower() not in perm_cols:
+        raise RuntimeError("Coluna SteamId não encontrada em ark_permission.players")
+
+    ok, msg = _customshop_players_schema_ok(state)
+    if not ok:
+        if "permissions" in msg.lower() or "não existe" in msg.lower() or "inesperado" in msg.lower():
+            _recreate_customshop_players_table(state)
+        else:
+            raise RuntimeError(msg)
+
+    pts = max(0, int(starting_points))
+    sql = (
+        f"INSERT IGNORE INTO `{_DB_NAME}`.players (steam_id, points, kits) "
+        f"SELECT CAST(`{steam_col}` AS CHAR), {pts}, '{{}}' "
+        f"FROM `{_PERM_DB_NAME}`.players "
+        f"WHERE `{steam_col}` IS NOT NULL AND `{steam_col}` != ''"
+    )
+    return _execute(state, sql)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  Construção do painel
 # ══════════════════════════════════════════════════════════════════════════════
@@ -475,6 +543,17 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                                     state="disabled")
     _btn_disconnect.grid(row=0, column=col, padx=(0, 6), pady=8)
     col += 1
+
+    _reload_fn_box: list = [lambda: None]
+    _btn_reload_db = ctk.CTkButton(conn_bar, text="⟳ Recarregar", width=110, height=30,
+                                   fg_color=theme.get("accent_muted_bg", "#164e63"),
+                                   text_color=accent, corner_radius=6,
+                                   font=ctk.CTkFont(family="Segoe UI", size=11),
+                                   state="disabled",
+                                   command=lambda: _reload_fn_box[0]())
+    _btn_reload_db.grid(row=0, column=col, padx=(0, 6), pady=8)
+    col += 1
+
     _btn_wizard = ctk.CTkButton(conn_bar, text="🧙 Assistente", width=110, height=30,
                                 fg_color=theme.get("accent_muted_bg", "#164e63"),
                                 text_color=accent, corner_radius=6,
@@ -567,6 +646,17 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         else:
             _perm_warn_var.set("")
 
+        if shop_ok and state.is_connected():
+            try:
+                schema_ok, schema_msg = _customshop_players_schema_ok(state)
+                if not schema_ok:
+                    _perm_warn_var.set(
+                        f"⚠ CustomShop: {schema_msg}. "
+                        "Use «Sync jogadores» para recriar a tabela e importar do Permissions."
+                    )
+            except Exception:
+                pass
+
     parent.after(400, _refresh_bank_status)
 
     # ── Browser (lazy) ─────────────────────────────────────────────────────
@@ -648,6 +738,14 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                                       text_color=accent,
                                       font=ctk.CTkFont(family="Segoe UI", size=10))
         _btn_rootpwd.grid(row=1, column=1, pady=(0, 4), sticky="ew")
+
+        _btn_sync_players = ctk.CTkButton(actions, text="👥 Sync jogadores", height=28,
+                                          corner_radius=6,
+                                          fg_color=theme.get("accent_muted_bg", "#164e63"),
+                                          text_color=accent,
+                                          font=ctk.CTkFont(family="Segoe UI", size=10),
+                                          state="disabled")
+        _btn_sync_players.grid(row=2, column=0, columnspan=2, pady=(0, 4), sticky="ew")
     
         # ── Painel direito: abas ───────────────────────────────────────────────
         right = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8)
@@ -741,13 +839,11 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                      font=ctk.CTkFont(family="Segoe UI", size=10),
                      text_color=t_mut).grid(row=0, column=2, padx=8)
     
-        _btn_refresh = ctk.CTkButton(page_bar, text="⟳", width=32, height=26,
+        _btn_refresh = ctk.CTkButton(page_bar, text="⟳ Recarregar", width=100, height=26,
                                       fg_color=theme.get("accent_muted_bg", "#164e63"),
                                       text_color=accent, corner_radius=6,
-                                      font=ctk.CTkFont(size=13),
-                                      command=lambda: threading.Thread(
-                                          target=lambda: parent.after(0, _load_data),
-                                          daemon=True).start())
+                                      font=ctk.CTkFont(size=10),
+                                      command=lambda: _do_reload_db())
         _btn_refresh.grid(row=0, column=0, padx=(0, 4))
     
         _btn_prev = ctk.CTkButton(page_bar, text="◀ Anterior", width=90, height=26,
@@ -874,12 +970,16 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 _btn_setup.configure(state="normal")
                 _btn_migrate.configure(state="normal")
                 _btn_newuser.configure(state="normal")
+                _btn_sync_players.configure(state="normal")
+                _btn_reload_db.configure(state="normal")
                 _refresh_bank_status()
             else:
                 _status_dot.configure(text_color="#ef4444")
                 _v_status.set(msg or "Desconectado")
                 _btn_connect.configure(state="normal")
                 _btn_disconnect.configure(state="disabled")
+                _btn_sync_players.configure(state="disabled")
+                _btn_reload_db.configure(state="disabled")
                 _shop_db_status.set(f"{_DB_NAME}: desconectado")
                 _perm_db_status.set(f"{_PERM_DB_NAME}: desconectado")
     
@@ -952,6 +1052,64 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
             threading.Thread(target=_worker, daemon=True).start()
     
+        def _do_reload_db() -> None:
+            if not state.is_connected():
+                _v_status.set("Desconectado — conecte antes de recarregar")
+                return
+            try:
+                state.conn.ping(reconnect=True)
+            except Exception:
+                pass
+            _refresh_tree()
+            _refresh_bank_status()
+            if state.selected_db and state.selected_table:
+                _page_state["offset"] = 0
+                _load_data()
+                _load_structure()
+            else:
+                _page_lbl_var.set("Árvore atualizada — selecione uma tabela")
+
+        _reload_fn_box[0] = _do_reload_db
+
+        def _do_sync_shop_players() -> None:
+            from tkinter import messagebox
+
+            if not state.is_connected():
+                messagebox.showwarning("Sem conexão", "Conecte ao banco antes de sincronizar.",
+                                       parent=parent)
+                return
+
+            schema_ok, schema_msg = _customshop_players_schema_ok(state)
+            if not schema_ok:
+                if not messagebox.askyesno(
+                    "Corrigir tabela players",
+                    f"{schema_msg}\n\n"
+                    "Recriar arkland_shop.players com o schema do CustomShop e "
+                    "importar todos os SteamId de ark_permission.players?",
+                    parent=parent,
+                ):
+                    return
+
+            def _worker():
+                try:
+                    n = _sync_shop_players_from_permissions(state, starting_points=100)
+                    def _done():
+                        messagebox.showinfo(
+                            "Sync jogadores",
+                            f"{n} jogador(es) importado(s) para arkland_shop.players.\n"
+                            "Recarregue o plugin CustomShop no servidor (RCON) se já estiver online.",
+                            parent=parent,
+                        )
+                        _do_reload_db()
+                    parent.after(0, _done)
+                except Exception as exc:
+                    parent.after(0, lambda e=exc: messagebox.showerror(
+                        "Sync jogadores", str(e), parent=parent))
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        _btn_sync_players.configure(command=_do_sync_shop_players)
+
         def _do_disconnect() -> None:
             state.close()
             _db_tree.delete(*_db_tree.get_children())

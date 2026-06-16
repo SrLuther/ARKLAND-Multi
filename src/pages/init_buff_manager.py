@@ -6,10 +6,17 @@ if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 from ..server_config import SERVER_STATUS_STOPPED
 from ..buff_manager import BuffManager
+from ..buff_server_bridge import (
+    buff_get_server_status,
+    buff_persist_server_config,
+    buff_start_server,
+    buff_stop_server,
+    get_buff_server_config,
+)
 
 
 def init_buff_manager(app: "ARKServerManagerApp") -> None:
-    """Inicializa o BuffManager após a UI ser construída."""
+    """Inicializa o BuffManager após a UI ser construída (TEK + legado)."""
     data_dir = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
 
     def _discord_notify(action: str, event) -> None:
@@ -19,21 +26,15 @@ def init_buff_manager(app: "ARKServerManagerApp") -> None:
 
     app._buff_manager = BuffManager(
         data_dir=data_dir,
-        get_server_config=lambda sid: next(
-            (s for s in app.config_manager.servers if s.id == sid), None
-        ),
-        start_server=app.server_manager.start_server,
-        stop_server=app.server_manager.stop_server,
-        get_server_status=lambda sid: (
-            inst.status
-            if (inst := app.server_manager.get_instance(sid))
-            else SERVER_STATUS_STOPPED
-        ),
+        get_server_config=lambda sid: get_buff_server_config(app, sid),
+        start_server=lambda sid: buff_start_server(app, sid),
+        stop_server=lambda sid: buff_stop_server(app, sid),
+        get_server_status=lambda sid: buff_get_server_status(app, sid),
         on_log=app._global_log if callable(getattr(app, "_global_log", None)) else None,
         discord_notify=_discord_notify,
+        persist_server_config=lambda sid, cfg: buff_persist_server_config(app, sid, cfg),
     )
     app._buff_manager.add_change_callback(
         lambda: app.after(0, app._refresh_buffs_ui)
     )
     app._refresh_buffs_ui()
-

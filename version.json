@@ -1,10 +1,11 @@
 {
-    "version": "1.9.9",
+    "version": "1.9.10",
     "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.9/ARKLAND-Multi-Setup-v1.9.9.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.10/ARKLAND-Multi-Setup-v1.9.10.exe",
     "changelog": [
-        "Fix (mods): descompressão UE4 de arquivos .z na instalação de mods — paridade ModUtils.CopyMod do ASM; PrimalGameData e mapas mod passam a carregar corretamente.",
-        "Fix (mods): reparo automático antes do start se PrimalGameData ainda estiver comprimido (.uasset.z sem .uasset).",
-        "Fix (mods): geração de .mod via WriteModFile (mod.info + modmeta.info) na cópia."
+        "Fix (BUFFs/TEK): sistema de rates temporários funciona em servidores TEK — start/stop, INI e combo unificado (TEK + legado).",
+        "Novo (TEK): remover servidores legados (modo primitivo) em Configurações → Servidores legados, sem precisar abrir o modo primitivo.",
+        "Fix (DB): botão «Sync jogadores» — recria arkland_shop.players com schema CustomShop e importa SteamId de ark_permission.players.",
+        "Fix (DB): botão «Recarregar» na barra de conexão e na aba Dados; aviso se players tiver schema do Permissions."
     ]
 }

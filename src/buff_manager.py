@@ -269,12 +269,14 @@ class BuffManager:
         get_server_status,    # Callable[[str], str]
         on_log: Optional[Callable[[str, str], None]] = None,
         discord_notify: Optional[Callable] = None,  # Callable[[str, BuffEvent], None]
+        persist_server_config: Optional[Callable[[str, object], None]] = None,
     ) -> None:
         self._data_dir          = data_dir
         self._get_server_config = get_server_config
         self._start_server      = start_server
         self._stop_server       = stop_server
         self._get_server_status = get_server_status
+        self._persist_server_config = persist_server_config
         self._on_log            = on_log or (lambda m, lvl: None)
         self._discord_notify    = discord_notify  # (action, event) → None
 
@@ -508,19 +510,36 @@ class BuffManager:
 
     def _apply_rates(self, server_id: str, rates: BuffRates) -> bool:
         cfg = self._get_server_config(server_id)
-        if not cfg or not cfg.install_dir:
+        if not cfg or not getattr(cfg, "install_dir", ""):
             return False
-        ini = ArkIniManager(cfg.install_dir)
-        ini.load_game_user_settings(cfg)
-        ini.load_game_ini(cfg)
-        gs = cfg.game_settings
-        for fname_group in BUFF_RATE_FIELDS.values():
-            for field_name, _, _ in fname_group:
-                val = getattr(rates, field_name, None)
-                if val is not None:
-                    setattr(gs, field_name, val)
-        ini.save_game_user_settings(cfg)
-        ini.save_game_ini(cfg)
+
+        try:
+            if hasattr(cfg, "game_settings"):
+                ini = ArkIniManager(cfg.install_dir)
+                ini.load_game_user_settings(cfg)
+                ini.load_game_ini(cfg)
+                gs = cfg.game_settings
+                for fname_group in BUFF_RATE_FIELDS.values():
+                    for field_name, _, _ in fname_group:
+                        val = getattr(rates, field_name, None)
+                        if val is not None:
+                            setattr(gs, field_name, val)
+                ini.save_game_user_settings(cfg)
+                ini.save_game_ini(cfg)
+            else:
+                for fname_group in BUFF_RATE_FIELDS.values():
+                    for field_name, _, _ in fname_group:
+                        val = getattr(rates, field_name, None)
+                        if val is not None and hasattr(cfg, field_name):
+                            setattr(cfg, field_name, val)
+                from .asm_engine.asm_ini_manager import write_ini
+                write_ini(cfg)
+                if self._persist_server_config:
+                    self._persist_server_config(server_id, cfg)
+        except Exception as exc:
+            self._on_log(f"[BUFF] Falha ao aplicar rates: {exc}", "error")
+            return False
+
         self._on_log("[BUFF] Rates aplicados nos INIs.", "info")
         return True
 

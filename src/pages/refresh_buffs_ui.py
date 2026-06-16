@@ -3,6 +3,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..ui_constants import _CARD_BG
+from ..buff_server_bridge import resolve_buff_server_id
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
@@ -27,15 +28,11 @@ def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
         w.destroy()
 
     bm = app._buff_manager
-    servers = app.config_manager.servers
 
-    # Resolve servidor selecionado
+    # Resolve servidor selecionado (TEK ou legado)
     srv_id: Optional[str] = None
     srv_name_sel = app._buffs_server_var.get() if app._buffs_server_var else ""
-    for s in servers:
-        if s.name == srv_name_sel:
-            srv_id = s.id
-            break
+    srv_id = resolve_buff_server_id(app, srv_name_sel)
 
     row_idx = 0
 

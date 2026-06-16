@@ -1519,6 +1519,10 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.buff_countdown_tick import buff_countdown_tick
         buff_countdown_tick(self)
 
+    def _confirm_remove_primitive_server(self, server_id: str) -> None:
+        from .pages.confirm_remove_primitive_server import confirm_remove_primitive_server
+        confirm_remove_primitive_server(self, server_id)
+
     def _global_log(self, msg: str, level: str = "info") -> None:
         import logging
         _logger = logging.getLogger(__name__)

@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.9"
+APP_VERSION: str = "1.9.10"
 BUILD_DATE: str = "2026-06-15"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.10",
+        "date": "2026-06-15",
+        "changes": [
+            "Fix (BUFFs/TEK): sistema de rates temporários funciona em servidores TEK — "
+            "start/stop, INI e combo unificado (TEK + legado).",
+            "Novo (TEK): remover servidores legados (modo primitivo) em Configurações → "
+            "Servidores legados, sem precisar abrir o modo primitivo.",
+            "Fix (DB): botão «Sync jogadores» — recria arkland_shop.players com schema CustomShop "
+            "e importa SteamId de ark_permission.players.",
+            "Fix (DB): botão «Recarregar» na barra de conexão e na aba Dados; aviso se "
+            "players tiver schema do Permissions.",
+        ],
+    },
     {
         "version": "1.9.9",
         "date": "2026-06-15",

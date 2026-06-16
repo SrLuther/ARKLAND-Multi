@@ -581,6 +581,46 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                         checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                         ).grid(row=0, column=ci, padx=8, pady=3, sticky="w")
 
+    # ── Servidores legados (modo primitivo) ───────────────────────────────
+    _legacy = list(app.config_manager.servers)
+    if _legacy:
+        app._section_lbl(parent, 25, "📦  Servidores legados (modo primitivo)")
+        leg_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
+        leg_card.grid(row=26, column=0, padx=20, pady=(0, 14), sticky="ew")
+        leg_card.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            leg_card,
+            text="Estes servidores foram criados no modo primitivo. "
+                 "Remova-os aqui se não tiver mais acesso àquele modo.",
+            text_color="gray50",
+            font=ctk.CTkFont(size=11),
+            wraplength=700,
+            justify="left",
+        ).grid(row=0, column=0, columnspan=3, padx=16, pady=(14, 8), sticky="w")
+
+        for ri, srv in enumerate(_legacy):
+            ctk.CTkLabel(
+                leg_card, text=srv.name, anchor="w",
+                font=ctk.CTkFont(size=12, weight="bold"),
+            ).grid(row=ri + 1, column=0, padx=16, pady=6, sticky="w")
+            ctk.CTkLabel(
+                leg_card,
+                text=(srv.install_dir or "(sem pasta)")[:72],
+                text_color="gray55",
+                font=ctk.CTkFont(size=10),
+                anchor="w",
+            ).grid(row=ri + 1, column=1, padx=8, pady=6, sticky="ew")
+            ctk.CTkButton(
+                leg_card, text="Remover", width=90, height=28,
+                fg_color="#7f1d1d", hover_color="#991b1b",
+                command=lambda sid=srv.id: (
+                    app._confirm_remove_primitive_server(sid)
+                    if hasattr(app, "_confirm_remove_primitive_server")
+                    else app._confirm_remove_server(sid)
+                ),
+            ).grid(row=ri + 1, column=2, padx=(0, 16), pady=6)
+
     ctk.CTkButton(
         parent, text="💾  Salvar Configurações Globais",
         height=44, font=ctk.CTkFont(size=14, weight="bold"),
