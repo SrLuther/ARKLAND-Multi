@@ -1,12 +1,10 @@
 {
-    "version": "1.9.17",
+    "version": "1.9.18",
     "date": "2026-06-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.17/ARKLAND-Multi-Setup-v1.9.17.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.18/ARKLAND-Multi-Setup-v1.9.18.exe",
     "changelog": [
-        "Novo (Web Store/PIX): formulário do pagador antes do PIX — e-mail, nome, CPF e telefone (exigidos pelo Mercado Pago); dados repassados ao MP, sem e-mail fictício.",
-        "Melhoria (Web Store): transparência sobre dados na doação — política, modal e hints deixam claro que o MP solicita os dados e a ARKLAND não usa para marketing.",
-        "Fix (PIX): crédito automático de pontos após confirmação (poll 3s + webhook); payer_email gravado em point_payments.",
-        "Fix (DB Manager): não sobrescreve mais usuário/senha com root@localhost quando MariaDB local está rodando; prioriza shop_db e config da Web Store.",
-        "Melhoria (Loja): salvar Web Store grava credenciais MySQL em shop_db (prefs do DB Manager)."
+        "Fix (PIX): rate limit 429 no polling de status — limite dedicado ao endpoint e consultas mais espaçadas com backoff automático.",
+        "Novo (Web Store): Histórico de Doações em Minha Área — pontos creditados, data/hora, valor PIX e status de cada doação.",
+        "Melhoria (Web Store): resumo de Minha Área separa doações creditadas e resgates de itens."
     ]
 }

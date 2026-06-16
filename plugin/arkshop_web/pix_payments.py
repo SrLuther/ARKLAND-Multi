@@ -228,7 +228,7 @@ def extract_pix_data(mp_response: dict[str, Any]) -> tuple[str | None, str | Non
 
 def map_mp_status(status: str) -> str:
     s = (status or "").lower()
-    if s in ("approved",):
+    if s in ("approved", "accredited", "authorized"):
         return "APROVADO"
     if s in ("rejected", "cancelled"):
         return "RECUSADO"

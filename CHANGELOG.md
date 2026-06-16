@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.18] - 2026-06-16
+
+### Feature
+
+- Novo (Web Store): Histórico de Doações em Minha Área — pontos creditados, data/hora, valor PIX e status de cada doação.
+
+### Improvement
+
+- Melhoria (Web Store): resumo de Minha Área separa doações creditadas e resgates de itens.
+
+### Fix
+
+- Fix (PIX): rate limit 429 no polling de status — limite dedicado ao endpoint e consultas mais espaçadas com backoff automático.
+
 ## [1.9.17] - 2026-06-12
 
 ### Feature

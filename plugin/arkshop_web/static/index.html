@@ -2064,6 +2064,17 @@
         </div>
         <div class="card">
           <div class="card-header">
+            <div class="card-title">💝 Histórico de Doações</div>
+          </div>
+          <div id="myarea-donations"></div>
+          <div style="margin-top:14px;display:flex;gap:10px;align-items:center;">
+            <button class="btn btn-ghost btn-sm" onclick="prevMyDonationsPage()">◀ Anterior</button>
+            <span id="myarea-donations-page-info" style="color:var(--text2);font-size:12px;flex:1;text-align:center;"></span>
+            <button class="btn btn-ghost btn-sm" onclick="nextMyDonationsPage()">Próxima ▶</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
             <div class="card-title">🧾 Histórico de Resgates</div>
           </div>
           <div id="myarea-history"></div>
@@ -2228,6 +2239,7 @@ let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
 let _auth = { authenticated: false, is_admin: false, steam_id: null };
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
+let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
 const API = "";  // mesmo origin
 
@@ -2356,6 +2368,8 @@ let _catalogPixEnabled = false;
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
 let _pixPollTimer = null;
+let _pixPollDelayMs = 5000;
+let _pixPollPaymentId = null;
 let _pendingPixPackageId = null;
 let _pendingRedeemItem = null;
 let _pixPayerFields = null;
@@ -2674,8 +2688,21 @@ function renderRecharge() {
   }).join("");
 }
 
+function stopPixPoll() {
+  if (_pixPollTimer) { clearTimeout(_pixPollTimer); _pixPollTimer = null; }
+  _pixPollPaymentId = null;
+  _pixPollDelayMs = 5000;
+}
+
+function schedulePixPoll(paymentId, delayMs) {
+  if (_pixPollTimer) clearTimeout(_pixPollTimer);
+  _pixPollPaymentId = paymentId;
+  _pixPollDelayMs = delayMs;
+  _pixPollTimer = setTimeout(() => pollPixStatus(paymentId), delayMs);
+}
+
 function closePixModal() {
-  if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
+  stopPixPoll();
   document.getElementById("pix-modal").style.display = "none";
 }
 
@@ -2851,34 +2878,67 @@ function showPixModal(data) {
     <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">⏳ Aguardando confirmação da doação…</p>
     <p class="pix-trust-note">PIX processado pelo Mercado Pago. Comprovantes da transação podem ser enviados pelo MP ao e-mail informado. A ARKLAND credita pontos como recompensa simbólica — doação voluntária, sem reembolso.</p>`;
   document.getElementById("pix-modal").style.display = "flex";
-  if (_pixPollTimer) clearInterval(_pixPollTimer);
-  _pixPollTimer = setInterval(() => pollPixStatus(data.payment_id), 3000);
+  stopPixPoll();
   pollPixStatus(data.payment_id);
 }
 
 async function pollPixStatus(paymentId) {
   try {
     const r = await fetch(API + "/api/player/pix/" + encodeURIComponent(paymentId) + "/status");
-    const d = await r.json();
-    if (!r.ok || !d.ok) return;
     const line = document.getElementById("pix-status-line");
     if (!line) return;
-    if (d.status === "APROVADO") {
+
+    if (r.status === 429) {
+      const nextDelay = Math.min(_pixPollDelayMs * 2, 30000);
+      line.textContent = "⏳ Aguardando confirmação da doação… (consultando mais devagar)";
+      line.style.color = "var(--amber)";
+      schedulePixPoll(paymentId, nextDelay);
+      return;
+    }
+
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      line.textContent = "⚠️ " + (d.error || "Erro ao consultar status (" + r.status + ")");
+      line.style.color = "var(--danger)";
+      schedulePixPoll(paymentId, 10000);
+      return;
+    }
+    if (d.poll_error) {
+      line.textContent = "⚠️ Mercado Pago: " + d.poll_error;
+      line.style.color = "var(--danger)";
+      schedulePixPoll(paymentId, 10000);
+      return;
+    }
+    if (d.status === "APROVADO" && d.credited) {
       line.textContent = "✅ Doação confirmada! Pontos creditados como recompensa.";
       line.style.color = "var(--success)";
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
       loadMyArea();
-      if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
+      stopPixPoll();
       toast("Pontos creditados — use-os para resgatar itens no catálogo.", "success");
+    } else if (d.status === "APROVADO" && !d.credited) {
+      line.textContent = "⚠️ Pagamento aprovado, mas falha ao creditar pontos no banco. Contate o admin.";
+      line.style.color = "var(--danger)";
+      stopPixPoll();
     } else if (d.status === "RECUSADO" || d.status === "EXPIRADO") {
       line.textContent = "❌ Doação " + d.status.toLowerCase();
       line.style.color = "var(--danger)";
-      if (_pixPollTimer) { clearInterval(_pixPollTimer); _pixPollTimer = null; }
+      stopPixPoll();
     } else {
-      line.textContent = "Aguardando confirmação da doação…";
+      const mpHint = d.mp_status ? " (MP: " + d.mp_status + ")" : "";
+      line.textContent = "Aguardando confirmação da doação…" + mpHint;
+      line.style.color = "var(--amber)";
+      schedulePixPoll(paymentId, 5000);
     }
-  } catch (_) { /* ignore */ }
+  } catch (e) {
+    const line = document.getElementById("pix-status-line");
+    if (line) {
+      line.textContent = "⚠️ Erro de rede ao consultar status";
+      line.style.color = "var(--danger)";
+    }
+    schedulePixPoll(paymentId, 10000);
+  }
 }
 
 function renderCatalog() {
@@ -2892,6 +2952,22 @@ function fmtDate(iso) {
   } catch (_) {
     return iso;
   }
+}
+
+function donationStatusBadge(s, credited) {
+  if (credited) return `<span class="badge badge-item">Creditado</span>`;
+  const status = (s || "").toUpperCase();
+  if (status === "APROVADO") return `<span class="badge badge-beacon">Aprovado</span>`;
+  if (status === "PENDENTE") return `<span class="badge badge-beacon">${status}</span>`;
+  if (status === "RECUSADO" || status === "EXPIRADO" || status === "ESTORNADO") {
+    return `<span class="badge badge-experience">${status}</span>`;
+  }
+  return `<span class="badge">${status || "-"}</span>`;
+}
+
+function fmtBrl(value) {
+  const n = Number(value || 0);
+  return "R$ " + n.toFixed(2).replace(".", ",");
 }
 
 function statusBadge(status) {
@@ -2922,21 +2998,90 @@ async function loadMyArea() {
          </div>`
       : `<div style="color:var(--danger);grid-column:1/-1">${errMsg}</div>`;
     document.getElementById("myarea-history").innerHTML = "";
+    document.getElementById("myarea-donations").innerHTML = "";
     return;
   }
   const st = summary.stats || {};
   const pts = summary.points != null ? summary.points : "—";
   document.getElementById("myarea-summary").innerHTML = `
     <div class="form-group"><label>◈ Saldo de Pontos</label><input readonly value="${pts}" style="font-weight:700;color:var(--amber);font-size:16px;"/></div>
-    <div class="form-group"><label>Total de Pedidos</label><input readonly value="${st.total_orders ?? 0}" /></div>
-    <div class="form-group"><label>Entregues</label><input readonly value="${st.delivered ?? 0}" /></div>
-    <div class="form-group"><label>Pendentes</label><input readonly value="${st.pending ?? 0}" /></div>
-    <div class="form-group"><label>Contestados</label><input readonly value="${st.contested ?? 0}" /></div>
+    <div class="form-group"><label>Doações creditadas</label><input readonly value="${st.donations_credited ?? 0}" /></div>
+    <div class="form-group"><label>Total de resgates</label><input readonly value="${st.total_orders ?? 0}" /></div>
+    <div class="form-group"><label>Resgates entregues</label><input readonly value="${st.delivered ?? 0}" /></div>
+    <div class="form-group"><label>Resgates pendentes</label><input readonly value="${st.pending ?? 0}" /></div>
+    <div class="form-group"><label>Resgates contestados</label><input readonly value="${st.contested ?? 0}" /></div>
   `;
   window._playerBalance = summary.points ?? 0;
   refreshPlayerBalance();
 
+  await loadMyAreaDonations();
   await loadMyAreaHistory();
+}
+
+async function loadMyAreaDonations() {
+  const q = `?limit=${_myDonationsPage.limit}&offset=${_myDonationsPage.offset}`;
+  let r, d;
+  try {
+    r = await fetch(API + "/api/player/donations" + q);
+    d = await r.json();
+  } catch (e) {
+    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--danger)">Erro de rede ao carregar doações: ${e.message}</div>`;
+    return;
+  }
+  if (!d.ok) {
+    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--danger)">${d.error || "Falha ao carregar doações"}</div>`;
+    return;
+  }
+  _myDonationsPage.total = d.total || 0;
+  const items = d.items || [];
+
+  const pageNum = Math.floor(_myDonationsPage.offset / _myDonationsPage.limit) + 1;
+  const totalPages = Math.max(1, Math.ceil(_myDonationsPage.total / _myDonationsPage.limit));
+  const pageInfo = document.getElementById("myarea-donations-page-info");
+  if (pageInfo) pageInfo.textContent = `Pág. ${pageNum} / ${totalPages} (${_myDonationsPage.total} doações)`;
+
+  if (!items.length) {
+    document.getElementById("myarea-donations").innerHTML = `<div style="color:var(--text2)">Nenhuma doação registrada.</div>`;
+    return;
+  }
+
+  document.getElementById("myarea-donations").innerHTML = `
+    <table class="tbl">
+      <thead>
+        <tr>
+          <th>Data / hora</th><th>Pacote</th><th>Valor doado</th><th>Pontos</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map(o => {
+          const when = o.credited && o.credited_at ? o.credited_at : o.created_at;
+          const ptsCell = o.credited
+            ? `<strong style="color:var(--amber);">+${Number(o.points || 0).toLocaleString("pt-BR")}</strong>`
+            : `<span style="color:var(--text2);">${Number(o.points || 0).toLocaleString("pt-BR")}</span>`;
+          return `
+          <tr>
+            <td style="font-size:12px;">${fmtDate(when)}</td>
+            <td>${escHtml(o.package_label || o.package_id || "Doação PIX")}</td>
+            <td>${fmtBrl(o.amount_brl)}</td>
+            <td>${ptsCell}</td>
+            <td>${donationStatusBadge(o.status, o.credited)}</td>
+          </tr>`;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function prevMyDonationsPage() {
+  _myDonationsPage.offset = Math.max(0, _myDonationsPage.offset - _myDonationsPage.limit);
+  loadMyAreaDonations();
+}
+
+function nextMyDonationsPage() {
+  const nextOffset = _myDonationsPage.offset + _myDonationsPage.limit;
+  if (nextOffset >= _myDonationsPage.total) return;
+  _myDonationsPage.offset = nextOffset;
+  loadMyAreaDonations();
 }
 
 async function loadMyAreaHistory() {

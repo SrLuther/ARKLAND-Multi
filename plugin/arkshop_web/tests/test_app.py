@@ -89,6 +89,35 @@ def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status=
         db.close()
 
 
+def _create_donation_direct(
+    steam_id=USER_STEAM,
+    points=100,
+    amount_brl=10.0,
+    credited=True,
+    status="APROVADO",
+    package_id="pkg_test",
+):
+    db = _app_module._SessionLocal()
+    try:
+        row = _app_module.PointPayment(
+            payment_id=str(uuid.uuid4()),
+            mp_payment_id="mp_test_1",
+            steam_id=steam_id,
+            package_id=package_id,
+            amount_brl=amount_brl,
+            points=points,
+            status=status,
+            credited=credited,
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        db.add(row)
+        db.commit()
+        return row.payment_id
+    finally:
+        db.close()
+
+
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
 class TestAuth:
@@ -171,6 +200,40 @@ class TestPlayerHistory:
 
     def test_history_requires_auth(self, client):
         r = client.get("/api/player/history")
+        assert r.status_code == 401
+
+    def test_donations_empty(self, client):
+        _login(client, USER_STEAM)
+        r = client.get("/api/player/donations")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["total"] == 0
+        assert d["items"] == []
+
+    def test_donations_lists_credited(self, client):
+        _login(client, USER_STEAM)
+        _create_donation_direct(points=500, amount_brl=25.0)
+        _create_donation_direct(points=200, amount_brl=10.0, credited=False, status="PENDENTE")
+        r = client.get("/api/player/donations")
+        d = r.get_json()
+        assert d["total"] == 2
+        points = {item["points"] for item in d["items"]}
+        assert points == {500, 200}
+        credited = [item for item in d["items"] if item["credited"]]
+        assert len(credited) == 1
+        assert credited[0]["credited_at"] is not None
+
+    def test_summary_includes_donation_stats(self, client):
+        _login(client, USER_STEAM)
+        _create_donation_direct(points=100, credited=True)
+        _create_donation_direct(points=50, credited=False, status="PENDENTE")
+        r = client.get("/api/player/summary")
+        d = r.get_json()
+        assert d["stats"]["donations_total"] == 2
+        assert d["stats"]["donations_credited"] == 1
+
+    def test_donations_requires_auth(self, client):
+        r = client.get("/api/player/donations")
         assert r.status_code == 401
 
 

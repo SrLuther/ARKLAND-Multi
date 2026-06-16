@@ -753,6 +753,16 @@ def _load_point_packages() -> list[dict[str, Any]]:
     return _DEFAULT_POINT_PACKAGES
 
 
+def _package_label(package_id: str) -> str:
+    pid = str(package_id or "").strip()
+    if not pid:
+        return "Doação PIX"
+    for pkg in _load_point_packages():
+        if str(pkg.get("id", "")).strip() == pid:
+            return str(pkg.get("label") or pkg.get("name") or pid)
+    return pid
+
+
 def _get_mp_access_token() -> str:
     env_token = os.environ.get("MP_ACCESS_TOKEN", "").strip()
     if env_token:
@@ -1847,14 +1857,22 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str) -> Non
     payment.updated_at = _now()
     if mapped == "APROVADO" and not payment.credited:
         balance = _add_player_points(payment.steam_id, payment.points)
-        payment.credited = True
-        _log(
-            "pix_credited",
-            payment_id=payment.payment_id,
-            steam_id=payment.steam_id,
-            points=payment.points,
-            new_balance=balance,
-        )
+        if balance is not None:
+            payment.credited = True
+            _log(
+                "pix_credited",
+                payment_id=payment.payment_id,
+                steam_id=payment.steam_id,
+                points=payment.points,
+                new_balance=balance,
+            )
+        else:
+            _log_error(
+                "pix_credit_failed",
+                payment_id=payment.payment_id,
+                steam_id=payment.steam_id,
+                points=payment.points,
+            )
 
 
 @app.route("/api/player/available", methods=["GET"])
@@ -2019,6 +2037,7 @@ def player_pix_checkout():
 
 @app.route("/api/player/pix/<payment_id>/status", methods=["GET"])
 @login_required
+@limiter.limit("20 per minute; 300 per hour", override_defaults=True)
 def player_pix_status(payment_id: str):
     if (err := _require_db()) is not None:
         return err
@@ -2032,15 +2051,21 @@ def player_pix_status(payment_id: str):
         if not payment:
             return jsonify({"ok": False, "error": "Doação PIX não encontrada"}), 404
 
+        poll_error = None
+        mp_status_raw = None
         if payment.status not in ("APROVADO", "RECUSADO", "EXPIRADO", "ESTORNADO") and payment.mp_payment_id:
             token = _get_mp_access_token()
-            if token:
+            if not token:
+                poll_error = "Access Token do Mercado Pago não configurado"
+            else:
                 try:
                     mp_resp = fetch_payment(token, payment.mp_payment_id)
-                    _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")))
+                    mp_status_raw = str(mp_resp.get("status", "") or "")
+                    _finalize_pix_payment(db, payment, mp_status_raw)
                     db.commit()
                 except PixPaymentError as exc:
-                    _log_error("pix_status_poll", payment_id=payment_id, error=str(exc))
+                    poll_error = str(exc)
+                    _log_error("pix_status_poll", payment_id=payment_id, error=poll_error)
 
         new_balance = _get_player_points(steam_id) if payment.credited else None
         return jsonify({
@@ -2050,19 +2075,26 @@ def player_pix_status(payment_id: str):
             "credited": payment.credited,
             "points": payment.points,
             "new_balance": new_balance,
+            "mp_status": mp_status_raw,
+            "poll_error": poll_error,
         })
     finally:
         db.close()
 
 
-@app.route("/api/payments/webhook", methods=["POST"])
+@app.route("/api/payments/webhook", methods=["GET", "POST"])
 @limiter.limit("120 per hour")
 def payments_webhook():
     """Webhook Mercado Pago — confirma PIX e credita pontos."""
+    if request.method == "GET":
+        # Validação de URL no painel MP ou IPN legado (?topic=payment&id=)
+        return jsonify({"ok": True}), 200
     if (err := _require_db()) is not None:
         return err
     body = request.get_json(force=True, silent=True) or {}
     mp_id = str(body.get("data", {}).get("id") or body.get("id") or "").strip()
+    if not mp_id:
+        mp_id = str(request.args.get("data.id") or request.args.get("id") or "").strip()
     if not mp_id:
         return jsonify({"ok": True, "ignored": True})
 
@@ -2108,6 +2140,11 @@ def player_summary():
         delivered = db.query(Order).filter(Order.steam_id == steam_id, Order.status == "ENTREGUE").count()
         pending = db.query(Order).filter(Order.steam_id == steam_id, Order.status == "PENDENTE").count()
         contested = db.query(Order).filter(Order.steam_id == steam_id, Order.contested.is_(True)).count()
+        donations_total = db.query(PointPayment).filter(PointPayment.steam_id == steam_id).count()
+        donations_credited = db.query(PointPayment).filter(
+            PointPayment.steam_id == steam_id,
+            PointPayment.credited.is_(True),
+        ).count()
         balance = _get_player_points(steam_id)
         return jsonify({
             "ok": True,
@@ -2118,6 +2155,8 @@ def player_summary():
                 "delivered": delivered,
                 "pending": pending,
                 "contested": contested,
+                "donations_total": donations_total,
+                "donations_credited": donations_credited,
             },
         })
     except Exception as exc:
@@ -2174,6 +2213,45 @@ def player_history():
     except Exception as exc:
         _log_error("player_history", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao consultar histórico: {exc}"}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/player/donations", methods=["GET"])
+@login_required
+def player_donations():
+    """Histórico de doações PIX do jogador (recompensa em pontos)."""
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    limit = max(1, min(100, int(request.args.get("limit", 20))))
+    offset = max(0, int(request.args.get("offset", 0)))
+    db = _SessionLocal()
+    try:
+        q = db.query(PointPayment).filter(PointPayment.steam_id == steam_id)
+        total = q.count()
+        rows = q.order_by(PointPayment.created_at.desc()).offset(offset).limit(limit).all()
+        return jsonify({
+            "ok": True,
+            "total": total,
+            "items": [
+                {
+                    "payment_id": r.payment_id,
+                    "package_id": r.package_id,
+                    "package_label": _package_label(r.package_id),
+                    "amount_brl": r.amount_brl,
+                    "points": r.points,
+                    "status": r.status,
+                    "credited": r.credited,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "credited_at": r.updated_at.isoformat() if r.credited and r.updated_at else None,
+                }
+                for r in rows
+            ],
+        })
+    except Exception as exc:
+        _log_error("player_donations", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao consultar doações: {exc}"}), 500
     finally:
         db.close()
 
