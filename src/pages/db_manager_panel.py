@@ -27,6 +27,21 @@ from .db_setup_wizard import show_db_setup_wizard
 if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 
+_LOCAL_DB_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def _is_local_db_host(host: str) -> bool:
+    return (host or "").strip().lower() in _LOCAL_DB_HOSTS
+
+
+def _apply_connection_prefs(state: Any, prefs: dict, *, default_user: str) -> None:
+    state.host = prefs.get("host", "127.0.0.1")
+    state.port = int(prefs.get("port", 3306))
+    state.user = prefs.get("user", default_user)
+    state.password = prefs.get("password", "")
+    state.database = prefs.get("database", "")
+
+
 # ── tentativa de importar pymysql ──────────────────────────────────────────
 def _try_import_pymysql():
     """Tenta importar pymysql; retorna (módulo, ok)."""
@@ -223,21 +238,23 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     except Exception:
         pass
 
-    # Carrega credenciais persistidas (última conexão usada)
-    _conn_prefs = DbLocalServer._load_prefs().get("last_connection", {})
-    _shop_prefs = DbLocalServer._load_prefs().get("shop_db", {})
-    if _conn_prefs:
-        state.host     = _conn_prefs.get("host", "127.0.0.1")
-        state.port     = int(_conn_prefs.get("port", 3306))
-        state.user     = _conn_prefs.get("user", "root")
-        state.password = _conn_prefs.get("password", "")
-        state.database = _conn_prefs.get("database", "")
+    # Carrega credenciais persistidas (shop_db remoto tem prioridade sobre root local)
+    _all_prefs = DbLocalServer._load_prefs()
+    _conn_prefs = _all_prefs.get("last_connection", {})
+    _shop_prefs = _all_prefs.get("shop_db", {})
+    _conn_is_ephemeral_root = (
+        _conn_prefs
+        and _is_local_db_host(_conn_prefs.get("host", ""))
+        and (_conn_prefs.get("user") or "root").strip().lower() == "root"
+    )
+    _shop_is_remote = _shop_prefs and not _is_local_db_host(_shop_prefs.get("host", ""))
+
+    if _shop_is_remote:
+        _apply_connection_prefs(state, _shop_prefs, default_user="arkland")
+    elif _conn_prefs and not (_conn_is_ephemeral_root and _shop_prefs):
+        _apply_connection_prefs(state, _conn_prefs, default_user="root")
     elif _shop_prefs:
-        state.host     = _shop_prefs.get("host", "127.0.0.1")
-        state.port     = int(_shop_prefs.get("port", 3306))
-        state.user     = _shop_prefs.get("user", "arkland")
-        state.password = _shop_prefs.get("password", "")
-        state.database = _shop_prefs.get("database", "arkland_shop")
+        _apply_connection_prefs(state, _shop_prefs, default_user="arkland")
     else:
         # Fallback: config da loja
         try:
@@ -373,8 +390,8 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             _fw_dot.configure(text="🔒")
             _btn_fw.configure(state="normal")
 
-        # Preenche barra de conexão se servidor local estiver rodando
-        if running:
+        # Sugere root local apenas se a barra ainda aponta para localhost
+        if running and _is_local_db_host(_v_host.get()):
             _v_host.set("127.0.0.1")
             _v_user.set("root")
             _v_pass.set(local_srv.get_root_password())
@@ -983,7 +1000,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 _shop_db_status.set(f"{_DB_NAME}: desconectado")
                 _perm_db_status.set(f"{_PERM_DB_NAME}: desconectado")
     
-        def _do_connect() -> None:
+        def _do_connect(*, manual: bool = False) -> None:
             global pymysql, _PYMYSQL_OK  # noqa: PLW0603
     
             state.close()
@@ -1035,15 +1052,25 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                         else:
                             raise exc1
                     state.conn = conn
-                    prefs = DbLocalServer._load_prefs()
-                    prefs["last_connection"] = {
-                        "host":     state.host,
-                        "port":     state.port,
-                        "user":     state.user,
-                        "password": state.password,
-                        "database": state.database,
-                    }
-                    DbLocalServer._save_prefs(prefs)
+                    is_local_root = (
+                        _is_local_db_host(state.host)
+                        and (state.user or "").strip().lower() == "root"
+                    )
+                    shop_prefs = DbLocalServer._load_prefs().get("shop_db") or {}
+                    shop_is_remote = (
+                        shop_prefs.get("host")
+                        and not _is_local_db_host(shop_prefs.get("host", ""))
+                    )
+                    if manual or not (is_local_root and shop_is_remote):
+                        prefs = DbLocalServer._load_prefs()
+                        prefs["last_connection"] = {
+                            "host":     state.host,
+                            "port":     state.port,
+                            "user":     state.user,
+                            "password": state.password,
+                            "database": state.database,
+                        }
+                        DbLocalServer._save_prefs(prefs)
                     parent.after(0, lambda: _set_status(True,
                         f"Conectado a {state.host}:{state.port}"))
                     parent.after(0, _refresh_tree)
@@ -1115,23 +1142,23 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             _db_tree.delete(*_db_tree.get_children())
             _set_status(False)
     
-        _btn_connect.configure(command=_do_connect)
+        _btn_connect.configure(command=lambda: _do_connect(manual=True))
         _btn_disconnect.configure(command=_do_disconnect)
 
         _connect_ready.clear()
-        _connect_ready.append(_do_connect)
+        _connect_ready.append(lambda: _do_connect(manual=True))
         if _pending_connect_after_wizard[0]:
             _pending_connect_after_wizard[0] = False
-            _do_connect()
+            _do_connect(manual=True)
     
         # ── Auto-start + auto-connect ao inicializar o painel ─────────────────────
         # Registra auto-connect como hook pós-start
-        _after_start_hooks.append(_do_connect)
+        _after_start_hooks.append(lambda: _do_connect(manual=False))
     
         if DbLocalServer.get_autostart() and local_srv.is_installed():
             if local_srv.is_running():
                 # Servidor já rodando (ex: iniciou antes do painel abrir)
-                parent.after(500, _do_connect)
+                parent.after(500, lambda: _do_connect(manual=False))
             else:
                 threading.Thread(target=_do_start, daemon=True).start()
     

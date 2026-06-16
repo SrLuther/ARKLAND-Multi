@@ -1,10 +1,11 @@
 {
-    "version": "1.9.13",
-    "date": "2026-06-15",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.13/ARKLAND-Multi-Setup-v1.9.13.exe",
+    "version": "1.9.14",
+    "date": "2026-06-12",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.14/ARKLAND-Multi-Setup-v1.9.14.exe",
     "changelog": [
-        "Fix (TEK/Admins): AllowedCheaterSteamIDs.txt passa a ser gravado em ShooterGame/Saved/ ao salvar ou iniciar o servidor (modo TEK não escrevia o arquivo).",
-        "Fix (Admins): gravação centralizada em ark_server_files.py; promoção de jogador a admin atualiza o arquivo imediatamente.",
-        "Melhoria (TEK): hint na seção Administradores indica caminho e momento da gravação."
+        "Novo (HTTPS): integração Caddy no app — instalar, iniciar, parar, reiniciar, firewall 80/443 e boot automático no Windows (modo Host, aba Web Store).",
+        "Melhoria (HTTPS): Caddyfile gerado automaticamente (domínio → localhost:porta da loja); auto-start do Caddy após subir a web store.",
+        "Fix (DB): ao reiniciar o app, o Gerenciador de DB mantém a última conexão remota (ex.: arkland@192.168.15.51) em vez de sobrescrever com root@127.0.0.1 quando o MariaDB local está rodando.",
+        "Fix (DB): auto-connect local como root não grava prefs quando shop_db aponta para servidor remoto da loja."
     ]
 }

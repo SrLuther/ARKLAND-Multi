@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.13"
-BUILD_DATE: str = "2026-06-15"
+APP_VERSION: str = "1.9.14"
+BUILD_DATE: str = "2026-06-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.14",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (HTTPS): integração Caddy no app — instalar, iniciar, parar, reiniciar, "
+            "firewall 80/443 e boot automático no Windows (modo Host, aba Web Store).",
+            "Melhoria (HTTPS): Caddyfile gerado automaticamente (domínio → localhost:porta da loja); "
+            "auto-start do Caddy após subir a web store.",
+            "Fix (DB): ao reiniciar o app, o Gerenciador de DB mantém a última conexão remota "
+            "(ex.: arkland@192.168.15.51) em vez de sobrescrever com root@127.0.0.1 quando o "
+            "MariaDB local está rodando.",
+            "Fix (DB): auto-connect local como root não grava prefs quando shop_db aponta para "
+            "servidor remoto da loja.",
+        ],
+    },
     {
         "version": "1.9.13",
         "date": "2026-06-12",

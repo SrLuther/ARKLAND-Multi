@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.14] - 2026-06-12
+
+### Feature
+
+- Novo (HTTPS): integração Caddy no app — instalar, iniciar, parar, reiniciar, firewall 80/443 e boot automático no Windows (modo Host, aba Web Store).
+
+### Improvement
+
+- Melhoria (HTTPS): Caddyfile gerado automaticamente (domínio → localhost:porta da loja); auto-start do Caddy após subir a web store.
+
+### Fix
+
+- Fix (DB): ao reiniciar o app, o Gerenciador de DB mantém a última conexão remota (ex.: arkland@192.168.15.51) em vez de sobrescrever com root@127.0.0.1 quando o MariaDB local está rodando.
+- Fix (DB): auto-connect local como root não grava prefs quando shop_db aponta para servidor remoto da loja.
+
 ## [1.9.13] - 2026-06-12
 
 ### Improvement

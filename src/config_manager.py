@@ -122,6 +122,9 @@ class ShopGlobalConfig:
     orders_db_name: str = "arkshop"
     orders_db_user: str = ""
     orders_db_password: str = ""
+    # Reverse proxy HTTPS (Caddy) — somente modo Host
+    caddy_dir: str = r"C:\caddy"
+    caddy_auto_start: bool = True
 
 
 @dataclass
