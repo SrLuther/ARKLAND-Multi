@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.23] - 2026-06-12
+
+### Fix
+
+- Fix (TEK): nova seção Mods (Workshop) na barra lateral do painel do servidor — lista de mods e atualização automática Workshop deixam de ficar escondidas em Administração.
+- Fix (TEK): conflito de layout entre lista de mods e Branch SteamCMD corrigido (widgets sobrepostos na mesma linha do grid).
+
 ## [1.9.22] - 2026-06-12
 
 ### Feature
