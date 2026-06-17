@@ -1081,7 +1081,7 @@
       line-height: 1.4;
     }
 
-    #catalog-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid {
+    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 18px;
@@ -1764,7 +1764,7 @@
         width: 100%;
       }
 
-      #catalog-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid,
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid,
       .recharge-grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
         gap: 12px;
@@ -1892,7 +1892,7 @@
         text-align: center;
       }
 
-      #catalog-grid, #catalog-kits-grid, #catalog-recharge-grid {
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-recharge-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1926,6 +1926,445 @@
     @media (min-width: 1025px) {
       .sidebar-backdrop { display: none !important; }
     }
+
+    /* ── Home (landing) ───────────────────────────────────────────────────── */
+    .home-root { padding: 0 4px 40px; max-width: 1100px; margin: 0 auto; }
+
+    .home-hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: 1fr minmax(200px, 280px);
+      gap: 28px;
+      align-items: center;
+      padding: 40px 36px 36px;
+      margin-bottom: 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232,120,32,.35);
+      background:
+        radial-gradient(ellipse 90% 70% at 20% 100%, rgba(255,80,0,.12) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 50% at 90% 20%, rgba(0,200,255,.06) 0%, transparent 50%),
+        linear-gradient(165deg, #141008 0%, #0a0804 50%, #0d0a06 100%);
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,180,80,.08);
+    }
+    .home-hero::after {
+      content: '⚜';
+      position: absolute;
+      top: 16px; right: 20px;
+      font-size: 48px;
+      opacity: .06;
+      pointer-events: none;
+    }
+    .home-hero__eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 10px;
+    }
+    .home-hero__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: clamp(28px, 4.5vw, 44px);
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: .04em;
+      line-height: 1.15;
+      text-shadow: 0 0 40px rgba(232,120,32,.4);
+      margin-bottom: 12px;
+    }
+    .home-hero__tagline {
+      font-size: 15px;
+      color: var(--text);
+      max-width: 520px;
+      line-height: 1.65;
+      margin-bottom: 16px;
+      opacity: .92;
+    }
+    .home-hero__badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+    .home-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      border: 1px solid var(--border-g);
+      background: rgba(0,0,0,.35);
+    }
+    .home-badge--fire { border-color: rgba(232,120,32,.4); color: #ffb070; }
+    .home-badge--tek  { border-color: rgba(0,200,255,.35); color: #7ee8ff; }
+    .home-badge--ok   { border-color: rgba(18,216,124,.35); color: #6ee7a8; }
+    .home-hero__actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .home-hero__visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(0,200,255,.2);
+      background: radial-gradient(circle at 50% 30%, rgba(0,200,255,.08) 0%, transparent 65%);
+    }
+    .home-hero__logo {
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 2px solid rgba(232,120,32,.5);
+      box-shadow: 0 0 40px rgba(255,96,16,.25), inset 0 0 30px rgba(0,0,0,.5);
+      object-fit: cover;
+    }
+
+    .home-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .home-stat {
+      text-align: center;
+      padding: 16px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
+    }
+    .home-stat__val {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--amber);
+      line-height: 1.1;
+      text-shadow: 0 0 20px rgba(232,120,32,.3);
+    }
+    .home-stat__lbl {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--text2);
+      margin-top: 6px;
+    }
+
+    .home-section {
+      margin-bottom: 24px;
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .home-section__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .home-section__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+    .home-section__body {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+    .home-section__body p { margin-bottom: 12px; }
+    .home-section__body p:last-child { margin-bottom: 0; }
+
+    .home-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .home-step {
+      position: relative;
+      padding: 18px 16px 16px 52px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface3);
+    }
+    .home-step__num {
+      position: absolute;
+      left: 14px; top: 16px;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--amber-dim);
+      border: 1px solid rgba(232,120,32,.4);
+      color: var(--amber);
+      font-family: 'Cinzel', serif;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .home-step__title { font-weight: 700; color: #fff; margin-bottom: 6px; font-size: 13px; }
+    .home-step__text { font-size: 12px; color: var(--text2); line-height: 1.55; }
+
+    .home-servers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .home-server-card {
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-g);
+      background: linear-gradient(135deg, var(--surface3) 0%, var(--surface2) 100%);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .home-server-card:hover {
+      border-color: rgba(0,200,255,.35);
+      box-shadow: 0 0 24px rgba(0,200,255,.08);
+    }
+    .home-server-card__name {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .home-server-card__id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text2);
+    }
+    .home-server-card__status {
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--success);
+    }
+    .home-map-card {
+      padding: 18px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,200,255,.25);
+      background: linear-gradient(145deg, rgba(0,200,255,.06) 0%, var(--surface3) 45%, var(--surface2) 100%);
+    }
+    .home-map-card__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .home-map-card__name {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .home-map-badge {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,200,255,.4);
+      color: var(--tek);
+      background: var(--tek-dim);
+    }
+    .home-map-card__text { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .home-season-banner {
+      padding: 16px 18px;
+      margin-bottom: 14px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(232,120,32,.35);
+      background: linear-gradient(90deg, rgba(255,96,16,.08) 0%, transparent 100%);
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.65;
+    }
+    .home-season-list {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0;
+    }
+    .home-season-list li {
+      position: relative;
+      padding: 8px 0 8px 18px;
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.55;
+      border-bottom: 1px solid var(--border);
+    }
+    .home-season-list li:last-child { border-bottom: none; }
+    .home-season-list li::before {
+      content: '🍂';
+      position: absolute;
+      left: 0;
+      font-size: 11px;
+    }
+
+    .home-pillars {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .home-pillar {
+      padding: 18px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .home-pillar__icon { font-size: 32px; margin-bottom: 10px; filter: drop-shadow(0 0 8px rgba(232,120,32,.3)); }
+    .home-pillar__title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .home-pillar__text { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+    .home-pkg-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .home-pkg {
+      padding: 14px;
+      text-align: center;
+      border-radius: var(--radius);
+      border: 1px solid rgba(18,216,124,.25);
+      background: rgba(18,216,124,.04);
+    }
+    .home-pkg__pts { font-size: 20px; font-weight: 700; color: var(--amber); }
+    .home-pkg__brl { font-size: 12px; color: var(--success); margin-top: 4px; }
+    .home-pkg__lbl { font-size: 10px; color: var(--text2); margin-top: 6px; }
+
+    .home-util-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+    .home-util {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface3);
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .2s;
+    }
+    .home-util:hover { border-color: var(--amber); }
+    .home-util__icon { font-size: 24px; flex-shrink: 0; }
+    .home-util__label { font-weight: 600; font-size: 13px; color: #fff; }
+    .home-util__desc { font-size: 11px; color: var(--text2); margin-top: 4px; line-height: 1.4; }
+
+    .home-faq details {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      background: var(--surface3);
+      overflow: hidden;
+    }
+    .home-faq summary {
+      padding: 14px 16px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+      list-style: none;
+    }
+    .home-faq summary::-webkit-details-marker { display: none; }
+    .home-faq details[open] summary { color: var(--amber); border-bottom: 1px solid var(--border); }
+    .home-faq__a { padding: 12px 16px 16px; font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+    .home-cta {
+      text-align: center;
+      padding: 32px 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232,120,32,.35);
+      background:
+        radial-gradient(ellipse 80% 100% at 50% 100%, rgba(255,96,16,.1) 0%, transparent 60%),
+        var(--surface2);
+    }
+    .home-cta__title {
+      font-family: 'Cinzel', serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .home-cta__sub { font-size: 14px; color: var(--text2); margin-bottom: 20px; }
+    .home-cta__actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+
+    .home-links-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .home-link-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-g);
+      background: var(--surface3);
+      color: var(--tek);
+      font-size: 12px;
+      text-decoration: none;
+      transition: background .2s;
+    }
+    .home-link-chip:hover { background: var(--tek-dim); color: #fff; }
+
+    @media (max-width: 768px) {
+      .home-hero { grid-template-columns: 1fr; padding: 28px 20px; }
+      .home-hero__visual { order: -1; }
+      .home-hero__logo { width: 88px; height: 88px; }
+    }
+
+    /* ── Auditoria — detalhe formatado ────────────────────────────────────── */
+    .audit-detail-grid { display: grid; gap: 8px; }
+    .audit-detail-row {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .audit-detail-row label { color: var(--text2); font-weight: 600; }
+    .audit-detail-row span { color: var(--text); word-break: break-word; }
+    .audit-detail-payload {
+      margin-top: 12px;
+      padding: 10px;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      max-height: 160px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .audit-timeline-item {
+      border-left: 2px solid var(--border-g);
+      padding: 0 0 12px 14px;
+      margin-left: 6px;
+      position: relative;
+    }
+    .audit-timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -5px; top: 4px;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
   </style>
 </head>
 <body>
@@ -1943,6 +2382,9 @@
     </div>
     <button class="btn-steam" onclick="loginWithSteam()">
       Entrar com Steam
+    </button>
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px;" onclick="showAuthOverlay(false)">
+      Continuar como visitante
     </button>
   </div>
 </div>
@@ -1972,7 +2414,7 @@
         <span class="auth-balance-unit">pontos</span>
       </div>
       <div id="auth-userline"></div>
-      <button class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
+      <button id="auth-action-btn" class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
     </div>
 
     <!-- Nav: Loja (admin) -->
@@ -1993,7 +2435,7 @@
     <!-- Nav: Sistema (admin) -->
     <div class="nav-section admin-only">Sistema</div>
     <div class="nav-item admin-only" data-page="admin-downloads" onclick="nav(this)">
-      <span class="nav-icon">🔗</span> Gerenciar Links
+      <span class="nav-icon">🔗</span> Utilidades (admin)
     </div>
     <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
       <span class="nav-icon">⚙️</span> Configurações
@@ -2019,11 +2461,14 @@
 
     <!-- Nav: Jogador (todos) -->
     <div class="nav-section">Jogador</div>
+    <div class="nav-item active" data-page="home" onclick="nav(this)">
+      <span class="nav-icon">🏠</span> Início
+    </div>
     <div class="nav-item" data-page="catalog" onclick="nav(this)">
       <span class="nav-icon">📦</span> Catálogo
     </div>
     <div class="nav-item" data-page="downloads" onclick="nav(this)">
-      <span class="nav-icon">⬇️</span> Downloads
+      <span class="nav-icon">🧰</span> Utilidades
     </div>
     <div class="nav-item" data-page="myarea" onclick="nav(this)">
       <span class="nav-icon">👤</span> Minha Área
@@ -2044,7 +2489,14 @@
     </header>
     <div id="main">
 
-      <!-- PAGE: Catálogo (todos os jogadores) -->
+      <!-- PAGE: Início (público) -->
+      <div id="page-home" class="page active">
+        <div id="home-root" class="home-root">
+          <div style="text-align:center;padding:60px 20px;color:var(--text2);">Carregando portal…</div>
+        </div>
+      </div>
+
+      <!-- PAGE: Catálogo (público — login só para doar/resgatar) -->
       <div id="page-catalog" class="page">
         <div class="catalog-hero">
           <div>
@@ -2072,9 +2524,10 @@
         </div>
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="dinos" onclick="setCatalogTab('dinos')">🦕 Dinos</button>
           <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação</button>
           <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
-          <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação PIX</button>
         </div>
         <div id="catalog-panel-items" class="catalog-panel active">
           <div class="catalog-toolbar">
@@ -2086,6 +2539,13 @@
           <div id="catalog-cats" class="catalog-cats"></div>
           <div id="catalog-grid"></div>
           <p id="catalog-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum item encontrado.</p>
+        </div>
+        <div id="catalog-panel-dinos" class="catalog-panel">
+          <div class="catalog-toolbar">
+            <input id="catalog-dinos-search" type="text" placeholder="🔍 Buscar dino…" oninput="renderCatalogDinos()" />
+          </div>
+          <div id="catalog-dinos-grid"></div>
+          <p id="catalog-dinos-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum dino encontrado.</p>
         </div>
         <div id="catalog-panel-kits" class="catalog-panel">
           <div class="catalog-toolbar">
@@ -2131,7 +2591,7 @@
       </div>
 
       <!-- PAGE: Itens da Loja (admin) -->
-      <div id="page-shop" class="page active">
+      <div id="page-shop" class="page">
         <div id="topbar">
           <div class="page-title">Itens da Loja</div>
           <div class="topbar-actions">
@@ -2411,10 +2871,10 @@
         </div>
       </div>
 
-      <!-- PAGE: Downloads (público) -->
+      <!-- PAGE: Utilidades (público) -->
       <div id="page-downloads" class="page">
         <div id="topbar">
-          <div class="page-title">Downloads</div>
+          <div class="page-title">Utilidades</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadDownloads()">↺ Atualizar</button>
           </div>
@@ -2422,14 +2882,14 @@
         <div id="downloads-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;"></div>
         <div id="downloads-empty" class="empty-state" style="display:none;">
           <div class="empty-icon">📭</div>
-          <p>Nenhum link de download disponível.</p>
+          <p>Nenhuma utilidade disponível no momento.</p>
         </div>
       </div>
 
       <!-- PAGE: Gerenciar Links (admin) -->
       <div id="page-admin-downloads" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Gerenciar Links de Download</div>
+          <div class="page-title">Gerenciar Utilidades</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadAdminDownloads()">↺ Recarregar</button>
             <button class="btn btn-primary" onclick="openDownloadModal()">+ Novo Link</button>
@@ -2566,7 +3026,7 @@
             <div class="modal-title">Detalhe do evento</div>
             <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-audit-detail')">✕</button>
           </div>
-          <pre id="audit-detail-body" style="max-height:400px;overflow:auto;font-size:11px;white-space:pre-wrap;"></pre>
+          <div id="audit-detail-body" style="max-height:420px;overflow:auto;font-size:12px;"></div>
         </div>
       </div>
 
@@ -2750,19 +3210,37 @@ function wrapTablesForScroll(root) {
   });
 }
 
+function goToPage(page) {
+  const el = document.querySelector(`.nav-item[data-page="${page}"]`);
+  if (el) nav(el);
+}
+
+function promptLogin(context) {
+  toast(context ? `Faça login com Steam para acessar: ${context}` : "Faça login com Steam.", "warning");
+  showAuthOverlay(true, context
+    ? `Para ${context}, entre com sua conta Steam.`
+    : "Entre com Steam para doar, resgatar e acessar sua área.");
+}
+
 function nav(el) {
+  const page = el.dataset.page;
+  if (page === "myarea" && !_auth.authenticated) {
+    promptLogin("Minha Área");
+    return;
+  }
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   el.classList.add("active");
-  document.getElementById("page-" + el.dataset.page).classList.add("active");
+  const pageEl = document.getElementById("page-" + page);
+  if (pageEl) pageEl.classList.add("active");
   if (isMobileNav()) closeSidebar();
-  // Recarrega dados ao navegar para páginas que dependem do banco
-  if (el.dataset.page === "myarea" && _auth.authenticated) loadMyArea();
-  if (el.dataset.page === "catalog") loadCatalog();
-  if (el.dataset.page === "downloads") loadDownloads();
-  if (el.dataset.page === "admin-downloads") loadAdminDownloads();
-  if (el.dataset.page === "recharge-admin") loadRechargeAdmin();
-  if (el.dataset.page === "audit") { loadAudit(); loadAdminOrders(); }
+  if (page === "home") loadHome();
+  if (page === "myarea" && _auth.authenticated) loadMyArea();
+  if (page === "catalog") loadCatalog();
+  if (page === "downloads") loadDownloads();
+  if (page === "admin-downloads") loadAdminDownloads();
+  if (page === "recharge-admin") loadRechargeAdmin();
+  if (page === "audit") { loadAudit(); loadAdminOrders(); }
   if (_auth.authenticated) refreshPlayerBalance();
   requestAnimationFrame(() => wrapTablesForScroll(document.getElementById("main")));
 }
@@ -2792,12 +3270,22 @@ async function loadAuth() {
 function applyRoleUi() {
   const userBox = document.getElementById("auth-userbox");
   const userLine = document.getElementById("auth-userline");
+  const actionBtn = document.getElementById("auth-action-btn");
   userBox.classList.remove("hidden");
 
   if (_auth.authenticated) {
     userLine.textContent = `SteamID: ${_auth.steam_id} | ${_auth.is_admin ? "Admin" : "Jogador"}`;
+    if (actionBtn) {
+      actionBtn.textContent = "Sair";
+      actionBtn.onclick = logout;
+    }
   } else {
-    userLine.textContent = "Não autenticado";
+    userLine.textContent = "Visitante — catálogo público";
+    if (actionBtn) {
+      actionBtn.textContent = "Entrar com Steam";
+      actionBtn.onclick = loginWithSteam;
+    }
+    document.getElementById("auth-balance-pill")?.classList.add("hidden");
   }
 
   if (!_auth.is_admin) {
@@ -2805,20 +3293,26 @@ function applyRoleUi() {
       el.style.display = "none";
     });
     const profile = document.getElementById("myarea-profile");
-    if (profile) {
+    if (profile && _auth.authenticated) {
       profile.textContent = `SteamID autenticado: ${_auth.steam_id}.`;
     }
-    // Não-admins vão direto ao Catálogo
-    const catalogNav = document.querySelector('.nav-item[data-page="catalog"]');
-    if (catalogNav) nav(catalogNav);
-    loadCatalog();
+    if (!_auth.authenticated) {
+      const homeNav = document.querySelector('.nav-item[data-page="home"]');
+      if (homeNav && !document.getElementById("page-home")?.classList.contains("active")) {
+        goToPage("home");
+      }
+    }
   } else {
+    document.querySelectorAll(".admin-only").forEach((el) => {
+      el.style.display = "";
+    });
     const shopNav = document.querySelector('.nav-item[data-page="shop"]');
     if (shopNav) nav(shopNav);
-    // Admins também podem ver o catálogo
-    loadCatalog();
   }
-  refreshPlayerBalance();
+
+  loadHome();
+  loadCatalog();
+  if (_auth.authenticated) refreshPlayerBalance();
 }
 
 function formatPoints(n) {
@@ -2835,14 +3329,21 @@ async function refreshPlayerBalance() {
     return;
   }
 
+  let pts = null;
   try {
-    const r = await fetch(API + "/api/player/summary");
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok || !data.ok) {
+    let r = await fetch(API + "/api/player/points");
+    let data = await r.json().catch(() => ({}));
+    if (r.ok && data.ok && data.points != null) {
+      pts = Number(data.points);
+    } else {
+      r = await fetch(API + "/api/player/summary");
+      data = await r.json().catch(() => ({}));
+      if (r.ok && data.ok) pts = data.points != null ? Number(data.points) : 0;
+    }
+    if (pts == null || !Number.isFinite(pts)) {
       pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
       return;
     }
-    const pts = data.points != null ? data.points : 0;
     window._playerBalance = pts;
     const label = formatPoints(pts);
     valIds.forEach(id => {
@@ -2917,6 +3418,10 @@ function acceptDonationPolicy() {
 }
 
 function setCatalogTab(tab) {
+  if ((tab === "available" || tab === "recharge") && !_auth.authenticated) {
+    promptLogin(tab === "recharge" ? "Doação PIX" : "Disponível");
+    return;
+  }
   _catalogActiveTab = tab;
   document.querySelectorAll(".catalog-tab").forEach(el => {
     el.classList.toggle("active", el.dataset.catalogTab === tab);
@@ -2927,9 +3432,14 @@ function setCatalogTab(tab) {
   const panel = document.getElementById("catalog-panel-" + tab);
   if (panel) panel.classList.add("active");
   if (tab === "items") renderCatalogItems();
+  if (tab === "dinos") renderCatalogDinos();
   if (tab === "kits") renderCatalogKits();
   if (tab === "available") loadAvailable();
   if (tab === "recharge") renderRecharge();
+}
+
+function _isDinoType(t) {
+  return String(t || "").toLowerCase() === "dino";
 }
 
 function setCatalogCategory(cat) {
@@ -2969,7 +3479,7 @@ function _catalogTypeClass(t) {
 function _renderProductCard(i, btnLabel) {
   const buyBtn = _auth.authenticated
     ? `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`
-    : `<span style="font-size:11px;color:var(--text2);">Login p/ resgatar</span>`;
+    : `<button class="btn btn-ghost btn-sm" onclick="promptLogin('resgate')">Login p/ resgatar</button>`;
   return `
     <div class="item-card ${_catalogTypeClass(i.type)}">
       <div class="item-card__thumb">
@@ -3035,7 +3545,7 @@ async function loadCatalog() {
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
 
-    const cats = [...new Set(_catalogItems.map(i => i.category))].sort();
+    const cats = [...new Set(_catalogItems.filter(i => !_isDinoType(i.type)).map(i => i.category))].sort();
     const sel = document.getElementById("catalog-cat");
     if (sel) {
       sel.innerHTML = '<option value="">Todas as categorias</option>'
@@ -3044,6 +3554,7 @@ async function loadCatalog() {
     }
     renderCatalogCats(cats);
     if (_catalogActiveTab === "items") renderCatalogItems();
+    if (_catalogActiveTab === "dinos") renderCatalogDinos();
     if (_catalogActiveTab === "kits") renderCatalogKits();
     if (_catalogActiveTab === "available") loadAvailable();
     if (_catalogActiveTab === "recharge") renderRecharge();
@@ -3059,6 +3570,7 @@ function renderCatalogItems() {
   if (!grid) return;
 
   const filtered = _catalogItems.filter(i => {
+    if (_isDinoType(i.type)) return false;
     const matchSearch = !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
     const matchCat    = !cat    || i.category === cat;
     return matchSearch && matchCat;
@@ -3071,6 +3583,26 @@ function renderCatalogItems() {
   }
   if (empty) empty.style.display = "none";
   grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
+}
+
+function renderCatalogDinos() {
+  const search = (document.getElementById("catalog-dinos-search")?.value || "").toLowerCase();
+  const grid = document.getElementById("catalog-dinos-grid");
+  const empty = document.getElementById("catalog-dinos-empty");
+  if (!grid) return;
+
+  const filtered = _catalogItems.filter(i => {
+    if (!_isDinoType(i.type)) return false;
+    return !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar Dino")).join("");
 }
 
 function renderCatalogKits() {
@@ -3096,7 +3628,8 @@ async function loadAvailable() {
   const host = document.getElementById("catalog-available-content");
   if (!host) return;
   if (!_auth.authenticated) {
-    host.innerHTML = `<p style="color:var(--text2);text-align:center;margin-top:24px;">Faça login para ver itens disponíveis.</p>`;
+    host.innerHTML = `<p style="color:var(--text2);text-align:center;margin-top:24px;">Faça login para ver itens disponíveis e pendentes.</p>
+      <div style="text-align:center;margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="promptLogin('Disponível')">Entrar com Steam</button></div>`;
     return;
   }
   host.innerHTML = `<p style="color:var(--text2);text-align:center;">Carregando…</p>`;
@@ -4097,14 +4630,12 @@ function renderDownloads() {
 
   // Artefatos automáticos do projeto (flag _auto) recebem destaque visual
   grid.innerHTML = _downloads.map(d => {
-    const isAuto = d._auto;
-    const btnLabel = d.icon === "download" ? "⬇ Baixar Instalador" :
-                     d.icon === "github"   ? "🐙 Ver Releases"      :
-                     d.icon === "discord"  ? "💬 Entrar no Discord"  :
-                     d.icon === "steam"    ? "🎮 Ver no Steam"       : "⬇ Acessar";
+    const btnLabel = d.icon === "discord"  ? "💬 Entrar no Discord"  :
+                     d.icon === "steam"    ? "🎮 Ver no Steam"       :
+                     d.icon === "download" ? "⬇ Baixar"              :
+                     d.icon === "github"   ? "🐙 Acessar"            : "⬇ Acessar";
     return `
-    <div class="dl-card${isAuto ? " dl-card--featured" : ""}">
-      ${isAuto ? '<div style="position:absolute;top:10px;right:10px;font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--amber);text-transform:uppercase;">OFICIAL</div>' : ""}
+    <div class="dl-card">
       <div class="dl-card__cat">${escHtml(d.category || "Geral")}</div>
       <div class="dl-card__icon">${_dlIcon(d.icon)}</div>
       <div class="dl-card__label">${escHtml(d.label)}</div>
@@ -5576,11 +6107,292 @@ async function loadAudit() {
   }
 }
 
+async function loadHome() {
+  const root = document.getElementById("home-root");
+  if (!root) return;
+  try {
+    const r = await fetch(API + "/api/public/home");
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao carregar");
+    renderHomePage(d);
+  } catch (e) {
+    root.innerHTML = `
+      <div class="home-section" style="text-align:center;padding:40px;">
+        <div style="font-size:32px;margin-bottom:12px;">🔥</div>
+        <div class="home-section__title" style="justify-content:center;">ARKLAND DONATIONS</div>
+        <p style="color:var(--text2);margin:16px 0;">Portal de doações e resgates para servidores ARK.</p>
+        <button class="btn btn-primary" onclick="goToPage('catalog')">Ver catálogo</button>
+      </div>`;
+  }
+}
+
+function renderHomePage(d) {
+  const root = document.getElementById("home-root");
+  if (!root) return;
+  const st = d.stats || {};
+  const auth = _auth.authenticated;
+  const pixOn = !!d.pix_enabled;
+  const fmtBrlHome = (n) => "R$ " + Number(n || 0).toFixed(2).replace(".", ",");
+
+  const badges = `
+    <span class="home-badge home-badge--fire">🔥 Doação voluntária</span>
+    <span class="home-badge home-badge--tek">🍂 Eventos sazonais</span>
+    ${pixOn ? '<span class="home-badge home-badge--ok">💚 PIX ativo</span>' : '<span class="home-badge">PIX indisponível</span>'}
+    <span class="home-badge home-badge--tek">⚡ Entrega in-game</span>
+  `;
+
+  const seasonal = d.seasonal_events || {};
+  const seasonalHtml = seasonal.description ? `
+    <div class="home-section">
+      <div class="home-section__title" style="margin-bottom:14px;">🍂 ${escHtml(seasonal.title || "Eventos Sazonais")}</div>
+      <div class="home-season-banner">${escHtml(seasonal.description)}</div>
+      ${(seasonal.highlights || []).length ? `
+        <ul class="home-season-list">
+          ${(seasonal.highlights || []).map(h => `<li>${escHtml(h)}</li>`).join("")}
+        </ul>` : ""}
+    </div>` : "";
+
+  const maps = d.featured_maps || [];
+  const mapsHtml = maps.length ? `
+    <div class="home-section">
+      <div class="home-section__title" style="margin-bottom:14px;">🗻 Mapas do cluster</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+        Além dos mapas oficiais, rodamos <strong style="color:var(--tek);">mapas mod</strong> selecionados pela qualidade —
+        cenários únicos, otimizados para PvE/PvP em cluster e integrados ao nosso sistema de eventos sazonais.
+      </p>
+      <div class="home-servers-grid">
+        ${maps.map(m => `
+          <div class="home-map-card">
+            <div class="home-map-card__head">
+              <div class="home-map-card__name">${escHtml(m.name || "")}</div>
+              ${m.mod_map ? '<span class="home-map-badge">Mapa Mod</span>' : ""}
+            </div>
+            <div class="home-map-card__text">${escHtml(m.description || "")}</div>
+          </div>`).join("")}
+      </div>
+    </div>` : "";
+
+  const authActions = auth
+    ? `<button class="btn btn-primary" onclick="goToPage('catalog')">📦 Explorar catálogo</button>
+       <button class="btn btn-ghost" onclick="goToPage('myarea')">👤 Minha área</button>
+       ${pixOn ? `<button class="btn btn-success" onclick="goToPage('catalog');setTimeout(()=>setCatalogTab('recharge'),200)">💚 Doar via PIX</button>` : ""}`
+    : `<button class="btn btn-primary" onclick="goToPage('catalog')">📦 Ver catálogo (público)</button>
+       <button class="btn btn-ghost" onclick="loginWithSteam()">Entrar com Steam</button>`;
+
+  const externalLinks = [
+    d.website_url ? { href: d.website_url, label: "🌐 Site oficial", ext: true } : null,
+    d.discord_url ? { href: d.discord_url, label: "💬 Discord", ext: true } : null,
+    d.public_url && d.public_url !== d.website_url ? { href: d.public_url, label: "🔗 Loja web", ext: true } : null,
+  ].filter(Boolean);
+
+  const serversHtml = (d.servers || []).length
+    ? (d.servers || []).map(s => `
+        <div class="home-server-card">
+          <div class="home-server-card__name">${escHtml(s.label || s.server_id)}</div>
+          <div class="home-server-card__id">ID: ${escHtml(s.server_id)}</div>
+          ${s.machine_label ? `<div class="home-server-card__id">Host: ${escHtml(s.machine_label)}</div>` : ""}
+          <div class="home-server-card__status">● Cluster ARKLAND · entrega via /shop</div>
+        </div>`).join("")
+    : `<p style="color:var(--text2);font-size:13px;">Nenhum servidor cadastrado no painel. Os mapas do cluster aparecerão aqui quando configurados.</p>`;
+
+  const pkgsHtml = pixOn && (d.donation_packages || []).length
+    ? `<div class="home-section">
+        <div class="home-section__head">
+          <div class="home-section__title">💚 Pacotes de doação</div>
+          <button class="btn btn-ghost btn-sm" onclick="goToPage('catalog');setTimeout(()=>setCatalogTab('recharge'),200)">Ver todos →</button>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Doação processada pelo Mercado Pago. Pontos creditados como recompensa simbólica — sem reembolso.</p>
+        <div class="home-pkg-grid">
+          ${(d.donation_packages || []).map(p => `
+            <div class="home-pkg">
+              <div class="home-pkg__pts">◈ ${Number(p.points || 0).toLocaleString("pt-BR")}</div>
+              <div class="home-pkg__brl">${fmtBrlHome(p.price_brl)}</div>
+              <div class="home-pkg__lbl">${escHtml(p.label || "")}</div>
+            </div>`).join("")}
+        </div>
+      </div>`
+    : "";
+
+  const utilsHtml = (d.utilities_preview || []).length
+    ? `<div class="home-section">
+        <div class="home-section__head">
+          <div class="home-section__title">🧰 Utilidades & links</div>
+          <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Abrir tudo →</button>
+        </div>
+        <div class="home-util-grid">
+          ${(d.utilities_preview || []).map(u => `
+            <a class="home-util" href="${escHtml(u.url)}" target="_blank" rel="noopener">
+              <span class="home-util__icon">${_dlIcon(u.icon)}</span>
+              <div>
+                <div class="home-util__label">${escHtml(u.label)}</div>
+                ${u.description ? `<div class="home-util__desc">${escHtml(u.description)}</div>` : ""}
+              </div>
+            </a>`).join("")}
+        </div>
+      </div>`
+    : "";
+
+  const startPts = Number(d.starting_points || 0);
+  const startPtsNote = startPts > 0
+    ? `<p>Novos jogadores podem receber <strong style="color:var(--amber);">◈ ${startPts.toLocaleString("pt-BR")} pontos</strong> de boas-vindas (conforme configuração do servidor).</p>`
+    : "";
+
+  root.innerHTML = `
+    <section class="home-hero">
+      <div>
+        <div class="home-hero__eyebrow">Portal oficial · ARKLAND</div>
+        <h1 class="home-hero__title">${escHtml(d.shop_name || "ARKLAND DONATIONS")}</h1>
+        <p class="home-hero__tagline">${escHtml(d.tagline || "")}</p>
+        <div class="home-hero__badges">${badges}</div>
+        <div class="home-hero__actions">${authActions}</div>
+        ${externalLinks.length ? `<div class="home-links-row">${externalLinks.map(l =>
+          `<a class="home-link-chip" href="${escHtml(l.href)}" target="_blank" rel="noopener">${escHtml(l.label)}</a>`
+        ).join("")}</div>` : ""}
+      </div>
+      <div class="home-hero__visual">
+        <img class="home-hero__logo" src="/logo.png" alt="ARKLAND" />
+      </div>
+    </section>
+
+    <div class="home-stats">
+      <div class="home-stat"><div class="home-stat__val">${st.items ?? 0}</div><div class="home-stat__lbl">Itens</div></div>
+      <div class="home-stat"><div class="home-stat__val">${st.dinos ?? 0}</div><div class="home-stat__lbl">Dinos</div></div>
+      <div class="home-stat"><div class="home-stat__val">${st.kits ?? 0}</div><div class="home-stat__lbl">Kits</div></div>
+      <div class="home-stat"><div class="home-stat__val">${st.packages ?? 0}</div><div class="home-stat__lbl">Pacotes PIX</div></div>
+      <div class="home-stat"><div class="home-stat__val">${st.servers ?? 0}</div><div class="home-stat__lbl">Servidores</div></div>
+      <div class="home-stat"><div class="home-stat__val">${st.utilities ?? 0}</div><div class="home-stat__lbl">Utilidades</div></div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-section__title" style="margin-bottom:14px;">🏛 Sobre o projeto</div>
+      <div class="home-section__body">
+        <p>${escHtml(d.description || "")}</p>
+        ${d.welcome_message && d.welcome_message !== d.description
+          ? `<p style="padding:12px 14px;border-left:3px solid var(--amber);background:var(--surface3);border-radius:0 8px 8px 0;color:var(--text);"><em>${escHtml(d.welcome_message)}</em></p>` : ""}
+        ${startPtsNote}
+        <p>O catálogo é <strong>público</strong> — qualquer visitante pode ver itens, dinos e kits. Para <strong>doar</strong>, <strong>resgatar</strong> ou acessar <strong>Minha Área</strong>, use login Steam.</p>
+      </div>
+    </div>
+
+    <div class="home-section">
+      <div class="home-section__title" style="margin-bottom:16px;">🗺 Como funciona</div>
+      <div class="home-steps">
+        <div class="home-step"><span class="home-step__num">1</span><div class="home-step__title">Explore o catálogo</div><div class="home-step__text">Navegue por itens, dinos e kits sem criar conta. Veja preços em pontos e descrições.</div></div>
+        <div class="home-step"><span class="home-step__num">2</span><div class="home-step__title">Entre com Steam</div><div class="home-step__text">Autenticação segura via Steam OpenID. Seu SteamID vincula doações e resgates à sua conta.</div></div>
+        <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago. Pontos são creditados como recompensa simbólica.</div></div>
+        <div class="home-step"><span class="home-step__num">4</span><div class="home-step__title">Resgate in-game</div><div class="home-step__text">Gaste pontos no catálogo. Ao entrar no servidor, use <code>/shop</code> — a entrega é automática.</div></div>
+      </div>
+    </div>
+
+    ${seasonalHtml}
+
+    <div class="home-section">
+      <div class="home-section__head">
+        <div class="home-section__title">⚔ Servidores do cluster</div>
+        <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Guia de conexão →</button>
+      </div>
+      <div class="home-servers-grid">${serversHtml}</div>
+    </div>
+
+    ${mapsHtml}
+
+    <div class="home-section">
+      <div class="home-section__title" style="margin-bottom:16px;">🛡 Pilares ARKLAND</div>
+      <div class="home-pillars">
+        <div class="home-pillar"><div class="home-pillar__icon">🔥</div><div class="home-pillar__title">Comunidade</div><div class="home-pillar__text">Servidores gerenciados com ARKLAND Multi — mods, cluster, backups e loja integrada.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon">◈</div><div class="home-pillar__title">Economia justa</div><div class="home-pillar__text">Tudo é resgatado com pontos. Sem venda direta de itens — doação voluntária com recompensa simbólica.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon">📋</div><div class="home-pillar__title">Transparência</div><div class="home-pillar__text">Histórico de resgates e doações na Minha Área. Política clara: sem reembolso de doações PIX.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon">⚡</div><div class="home-pillar__title">CustomShop</div><div class="home-pillar__text">Plugin CustomShop entrega itens, dinos e kits na fila web — sincronizado com este portal.</div></div>
+      </div>
+    </div>
+
+    ${pkgsHtml}
+    ${utilsHtml}
+
+    <div class="home-section home-faq">
+      <div class="home-section__title" style="margin-bottom:14px;">❓ Perguntas frequentes</div>
+      <details><summary>Preciso pagar para jogar?</summary><div class="home-faq__a">Não. O acesso ao servidor ARK é independente deste portal. Aqui você apenas doa (opcional) e resgata recompensas com pontos.</div></details>
+      <details><summary>Como recebo o que resgatei?</summary><div class="home-faq__a">Entre no servidor ARK com o mesmo SteamID da loja. Pedidos pendentes são entregues automaticamente; use o comando <strong>/shop</strong> in-game para forçar a sincronização.</div></details>
+      <details><summary>Doações têm reembolso?</summary><div class="home-faq__a">Não. São doações voluntárias processadas pelo Mercado Pago. Os pontos são uma recompensa simbólica, não um produto com garantia de devolução.</div></details>
+      <details><summary>Por que pedem CPF e e-mail no PIX?</summary><div class="home-faq__a">Exigência do Mercado Pago para gerar e validar cobranças PIX. A ARKLAND repassa esses dados apenas ao MP — não usa para marketing.</div></details>
+      <details><summary>Posso ver o catálogo sem login?</summary><div class="home-faq__a">Sim. Abas Itens, Dinos e Kits são públicas. Login Steam é necessário para doar, resgatar e acessar Minha Área.</div></details>
+      <details><summary>Como funcionam os eventos sazonais?</summary><div class="home-faq__a">Como nos servidores oficiais: definimos um evento sazonal ativo (ex.: Fear Evolved, Winter Wonderland) e ajustamos periodicamente os rates de <strong>todos os mapas</strong> do cluster para combinar com esse evento. Fique atento ao Discord para saber quando a temporada muda.</div></details>
+    </div>
+
+    <div class="home-cta">
+      <div class="home-cta__title">Pronto para apoiar o servidor?</div>
+      <div class="home-cta__sub">Explore o catálogo ou entre com Steam para começar.</div>
+      <div class="home-cta__actions">
+        <button class="btn btn-primary" onclick="goToPage('catalog')">📦 Abrir catálogo</button>
+        ${auth
+          ? `<button class="btn btn-ghost" onclick="openPolicyModal(false)">📜 Política de doações</button>`
+          : `<button class="btn btn-ghost" onclick="loginWithSteam()">Entrar com Steam</button>`}
+        <button class="btn btn-ghost" onclick="goToPage('downloads')">🧰 Utilidades</button>
+      </div>
+    </div>
+  `;
+}
+
+function _auditRow(label, value) {
+  const v = value == null || value === "" ? "—" : String(value);
+  return `<div class="audit-detail-row"><label>${escHtml(label)}</label><span>${escHtml(v)}</span></div>`;
+}
+
+function renderAuditEventDetail(event) {
+  const e = event || {};
+  let payloadBlock = "";
+  if (e.payload && typeof e.payload === "object" && Object.keys(e.payload).length) {
+    payloadBlock = `<div style="margin-top:12px;font-size:11px;color:var(--text2);font-weight:600;">Payload</div>
+      <div class="audit-detail-payload">${escHtml(JSON.stringify(e.payload, null, 2))}</div>`;
+  } else if (e.payload) {
+    payloadBlock = `<div class="audit-detail-payload">${escHtml(String(e.payload))}</div>`;
+  }
+  return `<div class="audit-detail-grid">
+    ${_auditRow("Tipo", e.event_type)}
+    ${_auditRow("Severidade", e.severity)}
+    ${_auditRow("Data", fmtDate(e.created_at))}
+    ${_auditRow("Origem", e.source)}
+    ${_auditRow("Ator", e.actor_type + (e.actor_steam_id ? ` (${e.actor_steam_id})` : ""))}
+    ${_auditRow("Alvo (Steam)", e.target_steam_id)}
+    ${_auditRow("Pedido", e.order_id)}
+    ${_auditRow("Servidor", e.server_id)}
+    ${_auditRow("Item", e.item_type && e.item_id ? `${e.item_type}:${e.item_id}` : (e.item_id || ""))}
+    ${_auditRow("Quantidade", e.amount)}
+    ${_auditRow("Status antes", e.status_before)}
+    ${_auditRow("Status depois", e.status_after)}
+    ${_auditRow("IP", e.ip_address)}
+    ${_auditRow("Mensagem", e.message)}
+  </div>${payloadBlock}`;
+}
+
+function renderAuditTimelineDetail(data) {
+  const order = data.order || {};
+  let html = `<div style="margin-bottom:14px;font-family:'Cinzel',serif;font-size:13px;color:var(--amber);">Pedido ${escHtml((order.order_id || "").substring(0, 8))}…</div>`;
+  html += `<div class="audit-detail-grid" style="margin-bottom:16px;">
+    ${_auditRow("Jogador", order.steam_id)}
+    ${_auditRow("Item", `${order.item_type || ""}:${order.item_id || ""}`)}
+    ${_auditRow("Status", order.status)}
+    ${_auditRow("Criado", fmtDate(order.created_at))}
+  </div>`;
+  const events = data.audit_events || [];
+  if (events.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Linha do tempo</div>`;
+    html += events.map(ev => `
+      <div class="audit-timeline-item">
+        <div style="font-size:11px;color:var(--text2);">${fmtDate(ev.created_at)} · ${escHtml(ev.event_type || "")}</div>
+        <div style="font-size:12px;margin-top:2px;">${escHtml(ev.message || "")}</div>
+        ${ev.status_before || ev.status_after ? `<div style="font-size:11px;color:var(--amber);margin-top:2px;">${escHtml(ev.status_before || "")} → ${escHtml(ev.status_after || "")}</div>` : ""}
+      </div>`).join("");
+  }
+  return html;
+}
+
 async function viewAuditDetail(id) {
   const r = await fetch(API + `/api/admin/audit/${id}`);
   const d = await r.json();
   if (!d.ok) { toast(d.error || "Erro", "error"); return; }
-  document.getElementById("audit-detail-body").textContent = JSON.stringify(d.event, null, 2);
+  const body = document.getElementById("audit-detail-body");
+  if (body) body.innerHTML = renderAuditEventDetail(d.event);
   document.getElementById("modal-audit-detail").classList.remove("hidden");
 }
 
@@ -5646,28 +6458,25 @@ async function viewAdminTimeline(orderId) {
   const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/timeline`);
   const d = await r.json();
   if (!d.ok) { toast(d.error || "Erro", "error"); return; }
-  document.getElementById("audit-detail-body").textContent = JSON.stringify(d, null, 2);
+  const body = document.getElementById("audit-detail-body");
+  if (body) body.innerHTML = renderAuditTimelineDetail(d);
   document.getElementById("modal-audit-detail").classList.remove("hidden");
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
   await loadAuth();
-  if (!_auth.authenticated) {
-    showAuthOverlay(true, "Faça login com a Steam para acessar doações e resgates.");
-    return;
-  }
-
   applyRoleUi();
+  showAuthOverlay(false);
+
   if (_auth.is_admin) {
     await loadSettings();
     await loadPlayers();
     await loadConfig();
     await loadServers();
   }
-  await loadMyArea();
+  if (_auth.authenticated) await loadMyArea();
   await loadDownloads();
-  showAuthOverlay(false);
 
   wrapTablesForScroll(document.getElementById("main"));
   const mainEl = document.getElementById("main");

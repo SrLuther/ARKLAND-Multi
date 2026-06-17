@@ -5,6 +5,25 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.27] - 2026-06-17
+
+### Feature
+
+- Novo (Web Store): página inicial completa — hero, servidores do cluster, estatísticas do catálogo, pacotes PIX, utilidades e FAQ focados no jogador.
+- Novo (Web Store): seção Eventos Sazonais — rates ajustados periodicamente em todos os mapas, no estilo dos servidores oficiais.
+- Novo (Web Store): destaque dos mapas mod Brighamia e Alps na home.
+- Novo (Web Store): catálogo público (Itens, Dinos, Kits) sem login; Steam só para doar, resgatar e Minha Área.
+
+### Improvement
+
+- Melhoria (Web Store): menu Downloads renomeado para Utilidades; removidos cards automáticos do instalador/releases do painel admin.
+- Melhoria (Web Store): home sem versão do app nem changelog do projeto — foco nos servidores.
+
+### Fix
+
+- Fix (Web Store): grade de dinos no catálogo desktop; saldo de pontos via /api/player/points.
+- Fix (Web Store): auditoria admin com modal formatado em vez de JSON cru; boot não exige login.
+
 ## [1.9.26] - 2026-06-12
 
 ### Feature

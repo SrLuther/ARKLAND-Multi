@@ -1827,6 +1827,140 @@ def test_db_connection():
         return jsonify({"ok": False, "error": str(exc)}), 200
 
 
+# ── Público (home + catálogo sem login) ───────────────────────────────────────
+
+def _catalog_public_stats(data: dict[str, Any]) -> dict[str, int]:
+    """Contagens públicas do catálogo para a home."""
+    items_map = data.get("Items") or data.get("ShopItems") or {}
+    items_n = dinos_n = 0
+    for entry in items_map.values():
+        if not isinstance(entry, dict):
+            continue
+        if str(entry.get("Type") or "item").lower() == "dino":
+            dinos_n += 1
+        else:
+            items_n += 1
+    kits_n = len(data.get("Kits") or {})
+    return {"items": items_n, "dinos": dinos_n, "kits": kits_n}
+
+
+@app.route("/api/public/home", methods=["GET"])
+def public_home():
+    """Dados públicos para a página inicial (sem autenticação)."""
+    data = _read_shop_config()
+    settings_block = data.get("Settings") or {}
+    shop_name = (
+        settings_block.get("ShopName")
+        or data.get("ShopName")
+        or data.get("shop_name")
+        or "ARKLAND Donations"
+    )
+    s = _load_settings()
+    public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
+    website_url = str(settings_block.get("WebsiteUrl") or settings_block.get("WebApiUrl") or public_url).strip()
+    discord_url = str(settings_block.get("DiscordUrl") or "").strip()
+    servers = [
+        {
+            "server_id": srv.get("server_id", ""),
+            "label": srv.get("label") or srv.get("server_id", ""),
+            "machine_label": str(srv.get("machine_label") or "").strip(),
+        }
+        for srv in _load_servers()
+        if srv.get("server_id")
+    ]
+    utilities = _load_downloads()
+    packages = _load_point_packages()
+    stats = _catalog_public_stats(data)
+    stats["kits"] = stats.get("kits", 0)
+    stats["packages"] = len(packages)
+    stats["utilities"] = len(utilities)
+    stats["servers"] = len(servers)
+
+    messages = data.get("Messages") or {}
+    welcome = str(
+        messages.get("Welcome")
+        or messages.get("HomeWelcome")
+        or messages.get("MOTD")
+        or ""
+    ).strip()
+
+    default_description = (
+        "O ARKLAND é um ecossistema de servidores ARK: Survival Evolved pensado para "
+        "comunidades que jogam em cluster, com loja integrada, entrega automática in-game "
+        "e suporte a doações voluntárias via PIX. Aqui você apoia o servidor e resgata "
+        "recompensas simbólicas em pontos — itens, dinos e kits entregues quando você conecta."
+    )
+
+    return jsonify({
+        "ok": True,
+        "shop_name": shop_name,
+        "public_url": public_url,
+        "website_url": website_url,
+        "discord_url": discord_url,
+        "pix_enabled": _pix_enabled(),
+        "starting_points": int(settings_block.get("StartingPoints") or 0),
+        "servers": servers,
+        "stats": stats,
+        "tagline": (
+            "Doações voluntárias · Pontos simbólicos · Entrega automática no ARK"
+        ),
+        "description": str(settings_block.get("HomeDescription") or "").strip() or welcome or default_description,
+        "welcome_message": welcome,
+        "donation_packages": [
+            {
+                "id": p.get("id", ""),
+                "label": p.get("label", ""),
+                "points": int(p.get("points", 0) or 0),
+                "price_brl": float(p.get("price_brl", 0) or 0),
+            }
+            for p in packages[:6]
+        ],
+        "utilities_preview": [
+            {
+                "id": u.get("id", ""),
+                "label": u.get("label", ""),
+                "description": u.get("description", ""),
+                "icon": u.get("icon", "link"),
+                "category": u.get("category", "Geral"),
+                "url": u.get("url", ""),
+            }
+            for u in utilities[:8]
+        ],
+        "seasonal_events": {
+            "title": "Eventos Sazonais",
+            "description": (
+                "Utilizamos um sistema de Eventos Sazonais semelhante ao dos servidores oficiais da Wildcard. "
+                "Em cada ciclo, um evento sazonal é definido para o cluster — Fear Evolved, Winter Wonderland, "
+                "Summer Bash e outros — e todos os mapas passam a operar com rates e regras específicas "
+                "ajustadas periodicamente de acordo com o evento ativo."
+            ),
+            "highlights": [
+                "Rates de XP, reprodução, consumo e coleta calibrados por evento, em todos os mapas do cluster.",
+                "Rotação periódica — a experiência muda ao longo da temporada, como nos servidores oficiais.",
+                "Anúncios no Discord e neste portal quando um novo evento entra em vigor.",
+            ],
+        },
+        "featured_maps": [
+            {
+                "name": "Brighamia",
+                "mod_map": True,
+                "description": (
+                    "Mapa mod de alta qualidade — paisagens únicas, exploração recompensadora e "
+                    "ótimo desempenho em servidor dedicado. Uma das joias do nosso cluster."
+                ),
+            },
+            {
+                "name": "Alps",
+                "mod_map": True,
+                "description": (
+                    "Mapa mod alpino com biomas dramáticos, rotas de voo desafiadoras e bases "
+                    "espetaculares. Excelente para tribos que buscam cenário épico e variedade."
+                ),
+            },
+        ],
+    })
+
+
 # ── Catalog (público, sem autenticação) ───────────────────────────────────────
 
 @app.route("/api/catalog", methods=["GET"])
@@ -1874,50 +2008,21 @@ def _get_project_release() -> dict:
 
 
 def _load_downloads() -> list:
-    """Retorna a lista de links de download do config.json + artefatos do projeto."""
-    # Artefatos automáticos do projeto (lidos do version.json)
-    release = _get_project_release()
-    auto = []
-    if release.get("download_url"):
-        ver = release.get("version", "latest")
-        auto.append({
-            "id":          "arkland_installer",
-            "label":       f"ARKLAND Server Manager v{ver}",
-            "description": "Instalador completo — inclui app desktop, web store integrada e plugin CustomShop.",
-            "url":         release["download_url"],
-            "icon":        "download",
-            "category":    "ARKLAND",
-            "_auto":       True,
-        })
-        # Link direto para a página de releases no GitHub
-        releases_page = release["download_url"].split("/download/")[0].replace("/releases", "") + "/releases"
-        auto.append({
-            "id":          "arkland_releases",
-            "label":       "Todas as Versões (GitHub Releases)",
-            "description": "Histórico completo de releases, changelogs e versões anteriores.",
-            "url":         releases_page,
-            "icon":        "github",
-            "category":    "ARKLAND",
-            "_auto":       True,
-        })
-
-    # Links configurados manualmente no config.json
+    """Retorna links de utilidades cadastrados manualmente no config.json."""
     s = _load_settings()
     path = Path(s["config_path"])
-    manual = []
-    if path.exists():
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8-sig")
         try:
-            text = path.read_text(encoding="utf-8-sig")
-            try:
-                data = json.loads(text)
-            except json.JSONDecodeError:
-                cleaned = re.sub(r"//[^\n]*", "", text)
-                data = json.loads(cleaned)
-            manual = [d for d in (data.get("Downloads") or []) if not d.get("_auto")]
-        except Exception:
-            pass
-
-    return auto + manual
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text)
+            data = json.loads(cleaned)
+        return [d for d in (data.get("Downloads") or []) if not d.get("_auto")]
+    except Exception:
+        return []
 
 
 def _save_downloads(downloads: list) -> None:
@@ -2174,7 +2279,7 @@ def player_purchase():
 def player_points():
     steam_id = str(_steam_id_from_session())
     balance = _get_player_points(steam_id)
-    return jsonify({"ok": True, "steam_id": steam_id, "points": balance})
+    return jsonify({"ok": True, "steam_id": steam_id, "points": balance if balance is not None else 0})
 
 
 def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
@@ -2510,7 +2615,7 @@ def player_summary():
         return jsonify({
             "ok": True,
             "steam_id": steam_id,
-            "points": balance,
+            "points": balance if balance is not None else 0,
             "stats": {
                 "total_orders": total,
                 "delivered": delivered,

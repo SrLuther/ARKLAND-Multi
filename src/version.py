@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.26"
-BUILD_DATE: str = "2026-06-16"
+APP_VERSION: str = "1.9.27"
+BUILD_DATE: str = "2026-06-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.27",
+        "date": "2026-06-17",
+        "changes": [
+            "Novo (Web Store): página inicial completa — hero, servidores do cluster, estatísticas do "
+            "catálogo, pacotes PIX, utilidades e FAQ focados no jogador.",
+            "Novo (Web Store): seção Eventos Sazonais — rates ajustados periodicamente em todos os mapas, "
+            "no estilo dos servidores oficiais.",
+            "Novo (Web Store): destaque dos mapas mod Brighamia e Alps na home.",
+            "Novo (Web Store): catálogo público (Itens, Dinos, Kits) sem login; Steam só para doar, "
+            "resgatar e Minha Área.",
+            "Melhoria (Web Store): menu Downloads renomeado para Utilidades; removidos cards automáticos "
+            "do instalador/releases do painel admin.",
+            "Melhoria (Web Store): home sem versão do app nem changelog do projeto — foco nos servidores.",
+            "Fix (Web Store): grade de dinos no catálogo desktop; saldo de pontos via /api/player/points.",
+            "Fix (Web Store): auditoria admin com modal formatado em vez de JSON cru; boot não exige login.",
+        ],
+    },
     {
         "version": "1.9.26",
         "date": "2026-06-12",
