@@ -37,16 +37,12 @@ def build_mods_workshop_section(
 
     _section_label(sf, "Lista de Mods", 2, accent)
 
-    # ?????? Container principal do gerenciador de mods ????????????????????????????????????????????????????????????????????????????????????
     _mod_frame = ctk.CTkFrame(sf, fg_color="#0d1b2a", corner_radius=8)
     _mod_frame.grid(row=3, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
     _mod_frame.grid_columnconfigure(0, weight=1)
 
-
-    # Cache de informa????es: {mod_id: {"name": ..., "info": ...}}
     _mod_cache: dict = vars_ref.setdefault("_mod_info_cache", {})
 
-    # Hidden textbox ??? sistema de save l?? daqui via vars_ref["_mods_text"]
     _hidden_mods = ctk.CTkTextbox(_mod_frame, height=1,
                                   fg_color="#0d1b2a", text_color="#0d1b2a", border_width=0)
     _hidden_mods.grid(row=99, column=0, sticky="ew")
@@ -82,11 +78,11 @@ def build_mods_workshop_section(
             mid = r["id_var"].get().strip()
             cd = _mod_cache.get(mid)
             if cd:
-                r["name_lbl"].configure(text=cd.get("name", "???"))
-                r["info_lbl"].configure(text=cd.get("info", "???"))
+                r["name_lbl"].configure(text=cd.get("name", "—"))
+                r["info_lbl"].configure(text=cd.get("info", "—"))
             elif mid:
                 r["name_lbl"].configure(text="(clique em Buscar)")
-                r["info_lbl"].configure(text="???")
+                r["info_lbl"].configure(text="—")
             else:
                 r["name_lbl"].configure(text="")
                 r["info_lbl"].configure(text="")
@@ -111,7 +107,7 @@ def build_mods_workshop_section(
                                 text_color="#475569", width=170, anchor="w")
         info_lbl.grid(row=0, column=2, padx=(0, 4))
 
-        status_lbl = ctk.CTkLabel(rf, text="???", font=ctk.CTkFont(size=10),
+        status_lbl = ctk.CTkLabel(rf, text="", font=ctk.CTkFont(size=10),
                                   text_color="gray50", width=90, anchor="e")
         status_lbl.grid(row=0, column=3, padx=(0, 4))
 
@@ -130,11 +126,11 @@ def build_mods_workshop_section(
                 has_folder = (base / _mid).exists()
                 has_dot_mod = (base / f"{_mid}.mod").exists()
                 if has_folder and has_dot_mod:
-                    txt, col = "??? instalado", "#4ade80"
+                    txt, col = "✅ instalado", "#4ade80"
                 elif has_folder:
-                    txt, col = "??? sem .mod", "#facc15"
+                    txt, col = "⚠ sem .mod", "#facc15"
                 else:
-                    txt, col = "??? n??o instalado", "#f87171"
+                    txt, col = "❌ não instalado", "#f87171"
                 try:
                     sf.after(0, lambda t=txt, c=col: _lbl.configure(text=t, text_color=c))
                 except Exception:
@@ -149,7 +145,7 @@ def build_mods_workshop_section(
                 x["frame"].grid(row=i, column=0, sticky="ew", padx=4, pady=1)
             _sync_hidden()
 
-        ctk.CTkButton(rf, text="???", width=24, height=24,
+        ctk.CTkButton(rf, text="✕", width=24, height=24,
                       fg_color="#5c1a1a", hover_color="#7c2020",
                       font=ctk.CTkFont(size=10), corner_radius=4,
                       command=_del).grid(row=0, column=4, padx=(0, 4))
@@ -159,16 +155,14 @@ def build_mods_workshop_section(
 
         cd = _mod_cache.get(mod_id.strip())
         if cd:
-            name_lbl.configure(text=cd.get("name", "???"))
-            info_lbl.configure(text=cd.get("info", "???"))
+            name_lbl.configure(text=cd.get("name", "—"))
+            info_lbl.configure(text=cd.get("info", "—"))
         elif mod_id.strip():
             name_lbl.configure(text="(clique em Buscar)")
 
-        # Verifica status de instala????o (adi??vel para n??o bloquear abertura da se????o)
         if mod_id.strip() and not defer_status:
             _check_status(mod_id.strip())
 
-    # ?????? Importar linha (IDs separados por v??rgula) ?????????????????????????????????????????????????????????????????????????????????
     _bulk_row = ctk.CTkFrame(_mod_frame, fg_color="transparent")
     _bulk_row.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 2))
     _bulk_row.grid_columnconfigure(1, weight=1)
@@ -191,8 +185,8 @@ def build_mods_workshop_section(
             import tkinter.messagebox as mb
             mb.showinfo(
                 "Importar mods",
-                "Nenhum ID v??lido encontrado.\n\n"
-                "Cole IDs num??ricos do Workshop separados por v??rgula.",
+                "Nenhum ID válido encontrado.\n\n"
+                "Cole IDs numéricos do Workshop separados por vírgula.",
                 parent=sf,
             )
             return
@@ -203,7 +197,7 @@ def build_mods_workshop_section(
         _bulk_var.set("")
 
     ctk.CTkButton(
-        _bulk_row, text="????  Aplicar lista", width=110, height=28,
+        _bulk_row, text="Aplicar lista", width=110, height=28,
         fg_color="#14532d", hover_color="#166534",
         font=ctk.CTkFont(size=11),
         command=_apply_bulk_mod_line,
@@ -212,15 +206,14 @@ def build_mods_workshop_section(
 
     ctk.CTkLabel(
         _mod_frame,
-        text="Substitui a lista atual pela ordem dos IDs colados (v??rgula, espa??o ou ponto-e-v??rgula).",
+        text="Substitui a lista atual pela ordem dos IDs colados (vírgula, espaço ou ponto-e-vírgula).",
         font=ctk.CTkFont(size=9), text_color="#475569", anchor="w",
     ).grid(row=1, column=0, sticky="w", padx=8, pady=(0, 4))
 
-    # ?????? Toolbar ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     _mods_tb = ctk.CTkFrame(_mod_frame, fg_color="transparent")
     _mods_tb.grid(row=2, column=0, sticky="ew", padx=8, pady=(0, 4))
 
-    ctk.CTkButton(_mods_tb, text="??? Mod", width=82, height=28,
+    ctk.CTkButton(_mods_tb, text="+ Mod", width=82, height=28,
                   fg_color="#14532d", hover_color="#166534",
                   font=ctk.CTkFont(size=11),
                   command=_add_mod_row).pack(side="left", padx=(0, 4))
@@ -231,7 +224,7 @@ def build_mods_workshop_section(
         ids = [r["id_var"].get().strip() for r in _mod_rows if r["id_var"].get().strip()]
         if not ids:
             return
-        _fetch_btn.configure(state="disabled", text="???  Buscando...")
+        _fetch_btn.configure(state="disabled", text="Buscando...")
 
         def _worker():
             try:
@@ -247,20 +240,20 @@ def build_mods_workshop_section(
                     if d.get("result") == 1:
                         from datetime import datetime as _dt
                         ts = d.get("time_updated", 0)
-                        date_str = _dt.fromtimestamp(ts).strftime("%d/%m/%Y") if ts else "???"
-                        _mod_cache[fid] = {"name": d.get("title", "???"), "info": f"Atualiz.: {date_str}"}
+                        date_str = _dt.fromtimestamp(ts).strftime("%d/%m/%Y") if ts else "—"
+                        _mod_cache[fid] = {"name": d.get("title", "—"), "info": f"Atualiz.: {date_str}"}
                     else:
-                        _mod_cache[fid] = {"name": "??? ID inv??lido", "info": "???"}
+                        _mod_cache[fid] = {"name": "❌ ID inválido", "info": "—"}
             except Exception:
                 pass
             sf.after(0, lambda: (
-                _fetch_btn.configure(state="normal", text="????  Buscar Info"),
+                _fetch_btn.configure(state="normal", text="Buscar Info"),
                 _refresh_mod_labels(),
             ))
 
         threading.Thread(target=_worker, daemon=True).start()
 
-    _fetch_btn = ctk.CTkButton(_mods_tb, text="????  Buscar Info", width=118, height=28,
+    _fetch_btn = ctk.CTkButton(_mods_tb, text="Buscar Info", width=118, height=28,
                                fg_color="#0e4a6e", hover_color="#0a3550",
                                font=ctk.CTkFont(size=11),
                                command=_do_fetch_workshop)
@@ -284,17 +277,16 @@ def build_mods_workshop_section(
             return
         start_mods_redownload(_app, srv, _ids)
 
-    ctk.CTkButton(_mods_tb, text="???  Redownload Mods", width=155, height=28,
+    ctk.CTkButton(_mods_tb, text="Redownload Mods", width=155, height=28,
                   fg_color="#1e3a5f", hover_color="#1e40af",
                   font=ctk.CTkFont(size=11),
                   command=_do_redownload_mods).pack(side="left", padx=(0, 4))
 
-    ctk.CTkButton(_mods_tb, text="???  Validar IDs", width=105, height=28,
+    ctk.CTkButton(_mods_tb, text="Validar IDs", width=105, height=28,
                   fg_color="#1c1917", hover_color="#292524",
                   font=ctk.CTkFont(size=11),
                   command=_do_fetch_workshop).pack(side="left")
 
-    # ?????? Cabe??alho das colunas ???????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     _mods_hdr = ctk.CTkFrame(_mod_frame, fg_color="#0f2030", corner_radius=4, height=24)
     _mods_hdr.grid(row=3, column=0, sticky="ew", padx=8, pady=(0, 2))
     _mods_hdr.grid_columnconfigure(1, weight=1)
@@ -302,11 +294,10 @@ def build_mods_workshop_section(
                  text_color="#475569", width=115, anchor="center").grid(row=0, column=0, padx=(4, 4), pady=2)
     ctk.CTkLabel(_mods_hdr, text="Nome do Mod", font=ctk.CTkFont(size=9, weight="bold"),
                  text_color="#475569", anchor="w").grid(row=0, column=1, padx=(0, 4), sticky="w", pady=2)
-    ctk.CTkLabel(_mods_hdr, text="??ltima Atualiza????o", font=ctk.CTkFont(size=9, weight="bold"),
+    ctk.CTkLabel(_mods_hdr, text="Última Atualização", font=ctk.CTkFont(size=9, weight="bold"),
                  text_color="#475569", width=170, anchor="w").grid(row=0, column=2, padx=(0, 4), pady=2)
     ctk.CTkLabel(_mods_hdr, text="", width=28).grid(row=0, column=3)
 
-    # ?????? ??rea das linhas ?????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
     _rows_outer = ctk.CTkFrame(_mod_frame, fg_color="#060d14", corner_radius=6)
     _rows_outer.grid(row=4, column=0, sticky="ew", padx=8, pady=(0, 8))
     _rows_outer.grid_columnconfigure(0, weight=1)
@@ -317,7 +308,6 @@ def build_mods_workshop_section(
             if mid:
                 _check_status(mid)
 
-    # Popula mods em lotes ??? evita freeze com listas longas
     _mod_ids_to_load = list(srv.active_mods)
 
     def _populate_mod_rows_chunk(start: int = 0, chunk: int = 5) -> None:
@@ -331,4 +321,3 @@ def build_mods_workshop_section(
                 _add_mod_row()
             sf.after(120, _run_mod_status_checks)
     sf.after(0, lambda: _populate_mod_rows_chunk())
-

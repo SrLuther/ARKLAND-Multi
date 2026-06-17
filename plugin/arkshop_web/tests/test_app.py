@@ -298,46 +298,59 @@ class TestContest:
             db.close()
 
 
-# ── Rebuy ─────────────────────────────────────────────────────────────────────
+# ── Reemissão admin ───────────────────────────────────────────────────────────
 
-class TestRebuy:
-    def test_rebuy_sets_original_to_reemitido(self, client):
+class TestAdminReissue:
+    def test_player_rebuy_forbidden(self, client):
         _login(client, USER_STEAM)
         oid = _create_order_direct(status="ERRO")
-        with patch.object(_app_module, "_rcon_command", return_value="ok"):
-            r = client.post(f"/api/player/orders/{oid}/rebuy", json={})
+        r = client.post(f"/api/player/orders/{oid}/rebuy", json={})
+        assert r.status_code == 403
+
+    def test_admin_reissue_sets_original_to_reemitido(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="ENTREGUE")
+        r = client.post(
+            f"/api/admin/orders/{oid}/reissue",
+            json={"reason": "Teste reemissão", "force_reset": True},
+        )
         d = r.get_json()
-        assert "order_id" in d
+        assert d.get("ok") is True
+        assert "new_order_id" in d
 
         db = _app_module._SessionLocal()
         try:
             original = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
             assert original.status == "REEMITIDO"
+            reissue = db.query(_app_module.AdminReissue).filter(
+                _app_module.AdminReissue.original_order_id == oid
+            ).first()
+            assert reissue is not None
+            assert reissue.admin_steam_id == ADMIN_STEAM
+            assert reissue.reason == "Teste reemissão"
         finally:
             db.close()
 
-    def test_rebuy_creates_new_order(self, client):
-        _login(client, USER_STEAM)
-        oid = _create_order_direct(status="ERRO")
-        with patch.object(_app_module, "_rcon_command", return_value="ok"):
-            r = client.post(f"/api/player/orders/{oid}/rebuy", json={})
-        new_oid = r.get_json()["order_id"]
-        assert new_oid != oid
+    def test_admin_reissue_requires_reason(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="ENTREGUE")
+        r = client.post(f"/api/admin/orders/{oid}/reissue", json={})
+        assert r.status_code == 400
 
-        db = _app_module._SessionLocal()
-        try:
-            new_order = db.query(_app_module.Order).filter(_app_module.Order.order_id == new_oid).first()
-            assert new_order is not None
-            assert new_order.original_order_id == oid
-            rebuy = db.query(_app_module.Rebuy).filter(_app_module.Rebuy.original_order_id == oid).first()
-            assert rebuy is not None
-        finally:
-            db.close()
 
-    def test_rebuy_not_found(self, client):
+class TestAudit:
+    def test_audit_forbidden_for_player(self, client):
         _login(client, USER_STEAM)
-        r = client.post("/api/player/orders/nonexistent/rebuy", json={})
-        assert r.status_code == 404
+        r = client.get("/api/admin/audit")
+        assert r.status_code in (401, 403)
+
+    def test_audit_list_for_admin(self, client):
+        _login(client, ADMIN_STEAM)
+        _create_order_direct()
+        r = client.get("/api/admin/audit")
+        d = r.get_json()
+        assert d.get("ok") is True
+        assert "items" in d
 
 
 # ── Idempotência ──────────────────────────────────────────────────────────────

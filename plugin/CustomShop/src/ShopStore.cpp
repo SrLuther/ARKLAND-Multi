@@ -61,32 +61,38 @@ void GiveItemsArray(AShooterPlayerController* controller,
 }
 
 // Spawns one tamed dino near the player.
-void SpawnSingleDino(AShooterPlayerController* controller,
+bool SpawnSingleDino(AShooterPlayerController* controller,
                      const std::string& blueprint,
                      int level,
                      bool force_tame,
                      bool neutered) {
-    if (blueprint.empty() || !controller) return;
+    if (blueprint.empty() || !controller) return false;
 
     FString fbp(blueprint.c_str());
-    // location = nullptr → spawn near player
     APrimalDinoCharacter* dino = ArkApi::GetApiUtils().SpawnDino(
         controller, fbp, nullptr, level, force_tame, neutered);
 
-    if (!dino)
+    if (!dino) {
         Log::GetLog()->warn("SpawnSingleDino: failed to spawn '{}'", blueprint);
+        return false;
+    }
+    return true;
 }
 
 // Spawns all dinos in a "Dinos" JSON array.
-void SpawnDinosArray(AShooterPlayerController* controller,
+bool SpawnDinosArray(AShooterPlayerController* controller,
                      const nlohmann::json& dinos_array) {
+    if (!dinos_array.is_array() || dinos_array.empty()) return false;
+    bool ok = true;
     for (const auto& entry : dinos_array) {
-        SpawnSingleDino(controller,
-                        entry.value("Blueprint",  ""),
-                        entry.value("Level",      150),
-                        entry.value("ForceTame",  true),
-                        entry.value("Neutered",   false));
+        if (!SpawnSingleDino(controller,
+                             entry.value("Blueprint",  ""),
+                             entry.value("Level",      150),
+                             entry.value("ForceTame",  true),
+                             entry.value("Neutered",   false)))
+            ok = false;
     }
+    return ok;
 }
 
 // Executes kit Commands[] — string or { "Command", "ExecuteAsAdmin" }.
@@ -242,10 +248,23 @@ bool GiveKit(AShooterPlayerController* controller,
 
     const auto& kit = kits.at(kit_id);
     const std::string id = Bridge::GetSteamId(controller);
+    bool ok = false;
 
-    if (kit.contains("Items"))    GiveItemsArray(controller,  kit.at("Items"));
-    if (kit.contains("Dinos"))    SpawnDinosArray(controller, kit.at("Dinos"));
-    if (kit.contains("Commands")) RunCommands(kit.at("Commands"), controller, id);
+    if (kit.contains("Items")) {
+        GiveItemsArray(controller, kit.at("Items"));
+        ok = true;
+    }
+    if (kit.contains("Dinos")) {
+        if (!SpawnDinosArray(controller, kit.at("Dinos"))) {
+            Log::GetLog()->error("GiveKit: dino spawn failed for kit '{}'", kit_id);
+            return false;
+        }
+        ok = true;
+    }
+    if (kit.contains("Commands")) {
+        RunCommands(kit.at("Commands"), controller, id);
+        ok = true;
+    }
 
     if (kit.contains("VipLicense") && kit.at("VipLicense").is_object()) {
         const auto& lic = kit.at("VipLicense");
@@ -266,6 +285,11 @@ bool GiveKit(AShooterPlayerController* controller,
         }
     }
 
+    if (!ok) {
+        Log::GetLog()->warn("GiveKit: kit '{}' has no deliverable content", kit_id);
+        return false;
+    }
+
     Log::GetLog()->info("GiveKit: kit '{}' delivered to player '{}'", kit_id, id);
     return true;
 }
@@ -283,6 +307,7 @@ bool GiveItem(AShooterPlayerController* controller,
 
     const auto& item = items.at(item_id);
     bool ok = false;
+    const std::string id = Bridge::GetSteamId(controller);
 
     const std::string bp = item.value("Blueprint", "");
     if (!bp.empty()) {
@@ -298,7 +323,19 @@ bool GiveItem(AShooterPlayerController* controller,
         ok = true;
     }
 
-    const std::string id = Bridge::GetSteamId(controller);
+    if (item.contains("Dinos")) {
+        if (!SpawnDinosArray(controller, item.at("Dinos"))) {
+            Log::GetLog()->error("GiveItem: dino spawn failed for item '{}'", item_id);
+            return false;
+        }
+        ok = true;
+    }
+
+    if (item.contains("Commands")) {
+        RunCommands(item.at("Commands"), controller, id);
+        ok = true;
+    }
+
     Log::GetLog()->info("GiveItem: item '{}' x{} delivered to player '{}' (ok={})",
                         item_id, amount, id, ok);
     return ok;

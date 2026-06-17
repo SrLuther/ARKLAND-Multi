@@ -29,8 +29,13 @@ def _save_discord(app, dc) -> None:
 def _save_backup(app, bk) -> None:
     bk.backup_dir          = _g(app, "_bk_dir_var",           strip=True)
     bk.include_savegames   = _g(app, "_bk_include_saves_var", tk.BooleanVar)
-    bk.exclude_old_backups = _g(app, "_bk_exclude_old_var",   tk.BooleanVar)
-    bk.max_backup_days     = _g(app, "_bk_max_days_var",      tk.IntVar)
+    bk.include_config      = _g(app, "_bk_include_config_var", tk.BooleanVar)
+    bk.limit_backup_count  = _g(app, "_bk_limit_count_var",   tk.BooleanVar)
+    try:
+        bk.max_backup_count = max(1, int(_g(app, "_bk_max_count_var")))
+    except ValueError:
+        bk.max_backup_count = 10
+    bk.exclude_old_backups = bk.limit_backup_count
     bk.rcon_broadcast_mode = _g(app, "_bk_rcon_mode_var")
     bk.save_message        = _g(app, "_bk_save_msg_var")
     bk.auto_backup         = _g(app, "_bk_auto_var",          tk.BooleanVar)

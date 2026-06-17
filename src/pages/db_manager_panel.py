@@ -339,7 +339,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     # ── Corpo principal ────────────────────────────────────────────────────
     body = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
     body.grid(row=1, column=0, sticky="nsew")
-    body.grid_rowconfigure(2, weight=1)
+    body.grid_rowconfigure(3, weight=1)
     body.grid_columnconfigure(0, weight=1)
 
     # ── Seção: Servidor Local ──────────────────────────────────────────────
@@ -741,9 +741,28 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
     parent.after(400, _refresh_bank_status)
 
+    def _db_backup_connection() -> dict:
+        try:
+            port = int((_v_port.get() or "3306").strip())
+        except ValueError:
+            port = 3306
+        return {
+            "host": (_v_host.get() or "").strip(),
+            "port": port,
+            "user": (_v_user.get() or "").strip(),
+            "password": _v_pass.get() or "",
+        }
+
+    from .db_backup_section import build_db_backup_section
+    build_db_backup_section(
+        app, body, theme=theme,
+        get_connection=_db_backup_connection,
+        grid_row=2,
+    )
+
     # ── Browser (lazy) ─────────────────────────────────────────────────────
     browser_host = ctk.CTkFrame(body, fg_color=bg, corner_radius=0)
-    browser_host.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 10))
+    browser_host.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 10))
     browser_host.grid_rowconfigure(0, weight=1)
     browser_host.grid_columnconfigure(0, weight=1)
     _db_loading = ctk.CTkLabel(

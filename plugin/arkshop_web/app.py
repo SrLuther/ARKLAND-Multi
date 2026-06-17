@@ -82,6 +82,123 @@ def _log_error(event: str, **kw: Any) -> None:
     log.error('"%s" %s', event, parts)
 
 
+def _request_meta() -> tuple[str | None, str | None]:
+    try:
+        ip = get_remote_address()
+        ua = (request.headers.get("User-Agent") or "")[:512]
+        return ip, ua
+    except Exception:
+        return None, None
+
+
+def _audit_event(
+    event_type: str,
+    *,
+    severity: str = "info",
+    source: str = "web",
+    actor_type: str = "system",
+    actor_steam_id: str | None = None,
+    target_steam_id: str | None = None,
+    order_id: str | None = None,
+    server_id: str | None = None,
+    item_type: str | None = None,
+    item_id: str | None = None,
+    amount: int | None = None,
+    status_before: str | None = None,
+    status_after: str | None = None,
+    message: str | None = None,
+    persist: bool = True,
+    **payload: Any,
+) -> None:
+    """Grava evento estruturado no banco (se disponível) e no log de arquivo."""
+    ip, ua = _request_meta()
+    payload_clean = {k: v for k, v in payload.items() if v is not None}
+    payload_str: str | None = None
+    if payload_clean:
+        try:
+            raw = json.dumps(payload_clean, ensure_ascii=False, default=str)
+            if len(raw) > 16384:
+                payload_clean["truncated"] = True
+                raw = json.dumps(payload_clean, ensure_ascii=False, default=str)[:16384]
+            payload_str = raw
+        except Exception:
+            payload_str = str(payload_clean)[:16384]
+
+    log_fn = _log_error if severity == "error" else _log
+    log_fn(
+        event_type,
+        severity=severity,
+        source=source,
+        actor_type=actor_type,
+        actor_steam_id=actor_steam_id,
+        target_steam_id=target_steam_id,
+        order_id=order_id,
+        message=message,
+        **payload_clean,
+    )
+
+    if not persist or not _db_ready() or _SessionLocal is None:
+        return
+    db = _SessionLocal()
+    try:
+        row = AuditEvent(
+            event_type=event_type,
+            severity=severity,
+            source=source,
+            actor_type=actor_type,
+            actor_steam_id=actor_steam_id,
+            target_steam_id=target_steam_id,
+            order_id=order_id,
+            server_id=server_id,
+            item_type=item_type,
+            item_id=item_id,
+            amount=amount,
+            status_before=status_before,
+            status_after=status_after,
+            message=message,
+            payload_json=payload_str,
+            ip_address=ip,
+            user_agent=ua,
+            created_at=_now(),
+        )
+        db.add(row)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        _log_error("audit_persist_failed", event_type=event_type, error=str(exc))
+    finally:
+        db.close()
+
+
+def _audit_row_dict(row: AuditEvent) -> dict[str, Any]:
+    payload: Any = None
+    if row.payload_json:
+        try:
+            payload = json.loads(row.payload_json)
+        except Exception:
+            payload = row.payload_json
+    return {
+        "id": row.id,
+        "event_type": row.event_type,
+        "severity": row.severity,
+        "source": row.source,
+        "actor_type": row.actor_type,
+        "actor_steam_id": row.actor_steam_id,
+        "target_steam_id": row.target_steam_id,
+        "order_id": row.order_id,
+        "server_id": row.server_id,
+        "item_type": row.item_type,
+        "item_id": row.item_id,
+        "amount": row.amount,
+        "status_before": row.status_before,
+        "status_after": row.status_after,
+        "message": row.message,
+        "payload": payload,
+        "ip_address": row.ip_address,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
 # ── Paths (dev vs PyInstaller) ────────────────────────────────────────────────
 
 def _bundle_dir() -> Path:
@@ -354,6 +471,45 @@ class PointPayment(Base):
     credited: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="info")
+    source: Mapped[str] = mapped_column(String(32), default="web")
+    actor_type: Mapped[str] = mapped_column(String(16), default="system")
+    actor_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    target_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    server_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    item_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    item_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status_before: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status_after: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
+
+
+class AdminReissue(Base):
+    __tablename__ = "admin_reissues"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    admin_steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    player_steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    original_order_id: Mapped[str] = mapped_column(String(64), index=True)
+    new_order_id: Mapped[str] = mapped_column(String(64), index=True)
+    reason: Mapped[str] = mapped_column(Text)
+    force_reset: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 # ── DB setup ──────────────────────────────────────────────────────────────────
@@ -1123,6 +1279,16 @@ def get_pending_deliveries(steam_id: str):
             "amount": o.amount,
             "item_type": o.item_type,
         } for o in orders]
+        _audit_event(
+            "pending_polled",
+            source="plugin",
+            actor_type="plugin",
+            target_steam_id=steam_id,
+            message=f"Plugin consultou {len(items)} pedido(s) pendente(s)",
+            persist=True,
+            pending_count=len(items),
+            order_ids=[i["order_id"] for i in items],
+        )
         return jsonify({"ok": True, "items": items, "orders": items})
     except Exception as exc:
         _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
@@ -1141,6 +1307,7 @@ def mark_pending_delivered_batch():
     body = request.get_json(force=True, silent=True) or {}
     steam_id = str(body.get("steam_id", "")).strip()
     order_ids = body.get("order_ids") or []
+    deliveries = body.get("deliveries") or []
     if not steam_id or not _is_valid_steamid64(steam_id):
         return jsonify({"ok": False, "error": "steam_id inválido"}), 400
     if not isinstance(order_ids, list) or not order_ids:
@@ -1161,12 +1328,40 @@ def mark_pending_delivered_batch():
             ).first()
             if not order:
                 continue
+            before = order.status
             order.status = "ENTREGUE"
             order.last_error = None
             order.updated_at = _now()
             delivered.append(order_id)
+            delivery_detail = next(
+                (d for d in deliveries if isinstance(d, dict) and str(d.get("order_id", "")) == order_id),
+                None,
+            )
+            _audit_event(
+                "delivery_confirmed",
+                source="plugin",
+                actor_type="plugin",
+                target_steam_id=steam_id,
+                order_id=order_id,
+                server_id=order.server_id,
+                item_type=order.item_type,
+                item_id=order.item_id,
+                amount=order.amount,
+                status_before=before,
+                status_after="ENTREGUE",
+                message=f"Plugin confirmou entrega de {order.item_id}",
+                delivery=delivery_detail,
+            )
         db.commit()
-        _log("orders_marked_delivered", steam_id=steam_id, count=len(delivered))
+        _audit_event(
+            "orders_marked_delivered",
+            source="plugin",
+            actor_type="plugin",
+            target_steam_id=steam_id,
+            message=f"{len(delivered)} pedido(s) marcado(s) ENTREGUE",
+            count=len(delivered),
+            order_ids=delivered,
+        )
         return jsonify({"ok": True, "delivered": delivered})
     except Exception as exc:
         db.rollback()
@@ -1952,8 +2147,25 @@ def player_purchase():
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
     result["new_balance"] = _get_player_points(str(steam_id))
-    _log("purchase_ok", steam_id=str(steam_id), item_id=item_id,
-         order_id=order.order_id, idempotency_key=idempotency_key or "none")
+    new_balance = result.get("new_balance")
+    _audit_event(
+        "purchase_created",
+        actor_type="player",
+        actor_steam_id=str(steam_id),
+        target_steam_id=str(steam_id),
+        order_id=order.order_id,
+        server_id=order.server_id,
+        item_type=item_type,
+        item_id=item_id,
+        amount=amount,
+        status_after=order.status,
+        message=f"Resgate criado: {item_id}",
+        price=price,
+        idempotency_key=idempotency_key or None,
+        points_after=new_balance,
+        delivery_mode=result.get("delivery_mode"),
+        queued=result.get("queued"),
+    )
     return jsonify(result), 200 if result.get("ok") else 500
 
 
@@ -2491,13 +2703,27 @@ def player_contest(order_id: str):
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
 
+        status_before = order.status
         order.contested = True
         order.status = "CONTESTADO"
         order.updated_at = _now()
         db.add(Dispute(order_id=order.order_id, steam_id=steam_id, reason=reason, status="ABERTO", created_at=_now()))
         db.commit()
-        _log("order_contested", order_id=order_id, steam_id=steam_id)
-        return jsonify({"ok": True, "status": order.status})
+        final_status = order.status
+        _audit_event(
+            "order_contested",
+            actor_type="player",
+            actor_steam_id=steam_id,
+            target_steam_id=steam_id,
+            order_id=order_id,
+            item_type=order.item_type,
+            item_id=order.item_id,
+            status_before=status_before,
+            status_after="CONTESTADO",
+            message=f"Jogador contestou pedido {order_id[:8]}…",
+            reason=reason,
+        )
+        return jsonify({"ok": True, "status": final_status})
     except Exception as exc:
         _log_error("player_contest", order_id=order_id, steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao contestar pedido: {exc}"}), 500
@@ -2508,50 +2734,11 @@ def player_contest(order_id: str):
 @app.route("/api/player/orders/<order_id>/rebuy", methods=["POST"])
 @login_required
 def player_rebuy(order_id: str):
-    if (err := _require_db()) is not None:
-        return err
-    steam_id = str(_steam_id_from_session())
-    db = _SessionLocal()
-    new_order_id: str | None = None
-    try:
-        original = db.query(Order).filter(Order.order_id == order_id, Order.steam_id == steam_id).first()
-        if not original:
-            return jsonify({"ok": False, "error": "Pedido original não encontrado"}), 404
-
-        new_order = Order(
-            order_id=str(uuid.uuid4()),
-            steam_id=steam_id,
-            server_id=original.server_id,
-            item_type=original.item_type,
-            item_id=original.item_id,
-            amount=original.amount,
-            status="PENDENTE",
-            original_order_id=original.order_id,
-            created_at=_now(),
-            updated_at=_now(),
-        )
-        db.add(new_order)
-        db.add(Rebuy(steam_id=steam_id, original_order_id=original.order_id, new_order_id=new_order.order_id, created_at=_now()))
-
-        original.status = "REEMITIDO"
-        original.updated_at = _now()
-
-        db.commit()
-        db.refresh(new_order)
-        new_order_id = new_order.order_id
-        _log("order_rebuy", original_order_id=order_id, new_order_id=new_order_id, steam_id=steam_id)
-    except Exception as exc:
-        _log_error("player_rebuy", order_id=order_id, steam_id=steam_id, error=str(exc))
-        return jsonify({"ok": False, "error": f"Erro ao recriar resgate: {exc}"}), 500
-    finally:
-        db.close()
-
-    if not new_order_id:
-        return jsonify({"ok": False, "error": "Falha ao recriar resgate"}), 500
-
-    result = _process_order_delivery(new_order_id)
-    result["order_id"] = new_order_id
-    return jsonify(result), 200 if result.get("ok") else 500
+    """Desativado — reemissão apenas por admin."""
+    return jsonify({
+        "ok": False,
+        "error": "Reemissão disponível apenas para administradores. Use Contestação (⚠️) ou contate um admin.",
+    }), 403
 
 
 # ── Admin order routes ────────────────────────────────────────────────────────
@@ -2632,22 +2819,264 @@ def admin_reprocess_order(order_id: str):
     if (err := _require_db()) is not None:
         return err
     force_rcon = request.args.get("force_rcon", "").lower() in ("1", "true", "yes")
+    force_reset = request.args.get("force_reset", "").lower() in ("1", "true", "yes")
+    admin_id = str(_steam_id_from_session())
     db = _SessionLocal()
+    status_before = ""
+    player_steam = ""
     try:
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
-        if order.status == "ENTREGUE":
-            return jsonify({"ok": False, "error": "Pedido já entregue"}), 400
+        status_before = order.status
+        player_steam = order.steam_id
+        if order.status == "ENTREGUE" and not force_reset:
+            return jsonify({"ok": False, "error": "Pedido já entregue — use force_reset=1 para reabrir"}), 400
         order.status = "PENDENTE"
+        order.last_error = None
         order.updated_at = _now()
         db.commit()
     finally:
         db.close()
 
-    _log("admin_reprocess", order_id=order_id, admin=_steam_id_from_session(), force_rcon=force_rcon)
+    _audit_event(
+        "admin_reprocess",
+        actor_type="admin",
+        actor_steam_id=admin_id,
+        target_steam_id=player_steam or None,
+        order_id=order_id,
+        status_before=status_before,
+        status_after="PENDENTE",
+        message=f"Admin reprocessou pedido {order_id[:8]}…",
+        force_rcon=force_rcon,
+        force_reset=force_reset,
+    )
     result = _process_order_delivery(order_id, force_rcon=force_rcon)
     return jsonify(result), 200 if result.get("ok") else 500
+
+
+@app.route("/api/admin/orders/<order_id>/reissue", methods=["POST"])
+@admin_required
+def admin_reissue_order(order_id: str):
+    """Reemissão admin — cria novo pedido PENDENTE sem debitar pontos."""
+    if (err := _require_db()) is not None:
+        return err
+    admin_id = str(_steam_id_from_session())
+    body = request.get_json(force=True, silent=True) or {}
+    reason = str(body.get("reason", "")).strip()
+    force_reset = bool(body.get("force_reset", True))
+    if not reason:
+        return jsonify({"ok": False, "error": "Motivo da reemissão é obrigatório"}), 400
+
+    db = _SessionLocal()
+    new_order_id: str | None = None
+    try:
+        original = db.query(Order).filter(Order.order_id == order_id).first()
+        if not original:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+
+        before = original.status
+        new_order = Order(
+            order_id=str(uuid.uuid4()),
+            steam_id=original.steam_id,
+            server_id=original.server_id,
+            item_type=original.item_type,
+            item_id=original.item_id,
+            amount=original.amount,
+            status="PENDENTE",
+            original_order_id=original.order_id,
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        db.add(new_order)
+        db.add(AdminReissue(
+            admin_steam_id=admin_id,
+            player_steam_id=original.steam_id,
+            original_order_id=original.order_id,
+            new_order_id=new_order.order_id,
+            reason=reason,
+            force_reset=force_reset,
+            created_at=_now(),
+        ))
+        if before != "REEMITIDO":
+            original.status = "REEMITIDO"
+            original.updated_at = _now()
+        db.commit()
+        db.refresh(new_order)
+        new_order_id = new_order.order_id
+
+        _audit_event(
+            "admin_reissue",
+            actor_type="admin",
+            actor_steam_id=admin_id,
+            target_steam_id=original.steam_id,
+            order_id=original.order_id,
+            server_id=original.server_id,
+            item_type=original.item_type,
+            item_id=original.item_id,
+            amount=original.amount,
+            status_before=before,
+            status_after="REEMITIDO",
+            message=f"Admin reemitiu {original.item_id} para {original.steam_id}",
+            reason=reason,
+            new_order_id=new_order_id,
+            force_reset=force_reset,
+        )
+    except Exception as exc:
+        db.rollback()
+        _log_error("admin_reissue", order_id=order_id, admin=admin_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao reemitir: {exc}"}), 500
+    finally:
+        db.close()
+
+    if not new_order_id:
+        return jsonify({"ok": False, "error": "Falha ao reemitir"}), 500
+
+    result = _process_order_delivery(new_order_id)
+    result["order_id"] = new_order_id
+    result["new_order_id"] = new_order_id
+    return jsonify(result), 200 if result.get("ok") else 500
+
+
+# ── Admin audit routes ────────────────────────────────────────────────────────
+
+@app.route("/api/admin/audit", methods=["GET"])
+@admin_required
+def admin_list_audit():
+    if (err := _require_db()) is not None:
+        return err
+    event_type = str(request.args.get("event_type", "")).strip()
+    severity = str(request.args.get("severity", "")).strip()
+    steam_id = str(request.args.get("steam_id", "")).strip()
+    order_id = str(request.args.get("order_id", "")).strip()
+    admin_steam_id = str(request.args.get("admin_steam_id", "")).strip()
+    q = str(request.args.get("q", "")).strip().lower()
+    limit = max(1, min(200, int(request.args.get("limit", 50))))
+    offset = max(0, int(request.args.get("offset", 0)))
+
+    db = _SessionLocal()
+    try:
+        query = db.query(AuditEvent)
+        if event_type:
+            query = query.filter(AuditEvent.event_type == event_type)
+        if severity:
+            query = query.filter(AuditEvent.severity == severity)
+        if steam_id:
+            query = query.filter(
+                (AuditEvent.target_steam_id == steam_id) | (AuditEvent.actor_steam_id == steam_id)
+            )
+        if order_id:
+            query = query.filter(AuditEvent.order_id == order_id)
+        if admin_steam_id:
+            query = query.filter(AuditEvent.actor_steam_id == admin_steam_id)
+        if q:
+            query = query.filter(
+                (AuditEvent.message.ilike(f"%{q}%"))
+                | (AuditEvent.event_type.ilike(f"%{q}%"))
+                | (AuditEvent.item_id.ilike(f"%{q}%"))
+            )
+        total = query.count()
+        rows = query.order_by(AuditEvent.created_at.desc()).offset(offset).limit(limit).all()
+        return jsonify({
+            "ok": True,
+            "total": total,
+            "items": [_audit_row_dict(r) for r in rows],
+        })
+    except Exception as exc:
+        _log_error("admin_list_audit", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/audit/<int:event_id>", methods=["GET"])
+@admin_required
+def admin_audit_detail(event_id: int):
+    if (err := _require_db()) is not None:
+        return err
+    db = _SessionLocal()
+    try:
+        row = db.query(AuditEvent).filter(AuditEvent.id == event_id).first()
+        if not row:
+            return jsonify({"ok": False, "error": "Evento não encontrado"}), 404
+        return jsonify({"ok": True, "event": _audit_row_dict(row)})
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/orders/<order_id>/timeline", methods=["GET"])
+@admin_required
+def admin_order_timeline(order_id: str):
+    if (err := _require_db()) is not None:
+        return err
+    db = _SessionLocal()
+    try:
+        order = db.query(Order).filter(Order.order_id == order_id).first()
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+
+        events = (
+            db.query(AuditEvent)
+            .filter(AuditEvent.order_id == order_id)
+            .order_by(AuditEvent.created_at.asc())
+            .all()
+        )
+        attempts = (
+            db.query(OrderAttempt)
+            .filter(OrderAttempt.order_id == order_id)
+            .order_by(OrderAttempt.attempted_at.asc())
+            .all()
+        )
+        disputes = db.query(Dispute).filter(Dispute.order_id == order_id).all()
+        reissues = db.query(AdminReissue).filter(
+            (AdminReissue.original_order_id == order_id) | (AdminReissue.new_order_id == order_id)
+        ).all()
+
+        return jsonify({
+            "ok": True,
+            "order": {
+                "order_id": order.order_id,
+                "steam_id": order.steam_id,
+                "server_id": order.server_id,
+                "item_type": order.item_type,
+                "item_id": order.item_id,
+                "amount": order.amount,
+                "status": order.status,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+            },
+            "audit_events": [_audit_row_dict(e) for e in events],
+            "attempts": [
+                {
+                    "attempted_at": a.attempted_at.isoformat() if a.attempted_at else None,
+                    "success": a.success,
+                    "command": a.command,
+                    "error": a.error,
+                }
+                for a in attempts
+            ],
+            "disputes": [
+                {"reason": d.reason, "status": d.status,
+                 "created_at": d.created_at.isoformat() if d.created_at else None}
+                for d in disputes
+            ],
+            "reissues": [
+                {
+                    "admin_steam_id": r.admin_steam_id,
+                    "player_steam_id": r.player_steam_id,
+                    "original_order_id": r.original_order_id,
+                    "new_order_id": r.new_order_id,
+                    "reason": r.reason,
+                    "force_reset": r.force_reset,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in reissues
+            ],
+        })
+    except Exception as exc:
+        _log_error("admin_order_timeline", order_id=order_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
 
 
 # ── Admin admins routes ───────────────────────────────────────────────────────

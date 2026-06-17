@@ -30,12 +30,26 @@ class DiscordNotifyConfig:
 class BackupConfig:
     backup_dir:            str  = ""
     include_savegames:     bool = True
-    exclude_old_backups:   bool = True
-    max_backup_days:       int  = 5
+    include_config:        bool = True
+    limit_backup_count:    bool = True
+    max_backup_count:      int  = 10
+    exclude_old_backups:   bool = True   # legado — espelha limit_backup_count
+    max_backup_days:       int  = 5      # legado — ignorado quando limit_backup_count
     rcon_broadcast_mode:   str  = "Broadcast"
     save_message:          str  = "ARKLAND: Auto save em andamento"
-    auto_backup:           bool = True
-    backup_interval:       str  = "01:00"
+    auto_backup:           bool = False
+    backup_interval:       str  = "06:00"
+
+
+@dataclass
+class DbBackupConfig:
+    enabled:               bool = False
+    backup_dir:            str  = ""
+    interval_hours:        int  = 6
+    limit_backup_count:    bool = True
+    max_backup_count:      int  = 10
+    include_arkshop:       bool = True
+    include_permissions:   bool = True
 
 
 @dataclass
@@ -175,6 +189,7 @@ class AppConfig:
     discord_notify: DiscordNotifyConfig = field(default_factory=DiscordNotifyConfig)
     # Backup
     backup: BackupConfig = field(default_factory=BackupConfig)
+    db_backup: DbBackupConfig = field(default_factory=DbBackupConfig)
     # Auto-update
     auto_update: AutoUpdateConfig = field(default_factory=AutoUpdateConfig)
     # Shutdown
@@ -218,6 +233,7 @@ class ConfigManager:
 
                 _deserialize(DiscordNotifyConfig, "discord_notify")
                 _deserialize(BackupConfig,        "backup")
+                _deserialize(DbBackupConfig,      "db_backup")
                 _deserialize(AutoUpdateConfig,    "auto_update")
                 _deserialize(ShutdownConfig,      "shutdown")
                 _deserialize(AlertMessagesConfig, "alert_messages")

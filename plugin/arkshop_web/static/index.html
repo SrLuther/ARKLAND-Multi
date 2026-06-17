@@ -2001,6 +2001,9 @@
     <div class="nav-item admin-only" data-page="messages" onclick="nav(this)">
       <span class="nav-icon">💬</span> Mensagens
     </div>
+    <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
+      <span class="nav-icon">📋</span> Auditoria
+    </div>
 
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
@@ -2499,6 +2502,74 @@
         <div id="servers-list"></div>
       </div>
 
+      <!-- PAGE: Auditoria (admin) -->
+      <div id="page-audit" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Auditoria de Resgates</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadAudit()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Filtros</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;min-width:140px;">
+              <label>Tipo</label>
+              <select id="audit-filter-type" onchange="resetAuditPage()">
+                <option value="">Todos</option>
+                <option value="purchase_created">Resgate criado</option>
+                <option value="delivery_confirmed">Entrega confirmada</option>
+                <option value="delivery_failed">Entrega falhou</option>
+                <option value="pending_polled">Consulta pending</option>
+                <option value="order_contested">Contestação</option>
+                <option value="admin_reissue">Reemissão admin</option>
+                <option value="admin_reprocess">Reprocessamento</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:120px;">
+              <label>Severidade</label>
+              <select id="audit-filter-severity" onchange="resetAuditPage()">
+                <option value="">Todas</option>
+                <option value="info">info</option>
+                <option value="warn">warn</option>
+                <option value="error">error</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:180px;">
+              <label>SteamID / Pedido</label>
+              <input id="audit-filter-steam" type="text" placeholder="7656119… ou order_id" onkeydown="if(event.key==='Enter')resetAuditPage()" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+              <label>Busca</label>
+              <input id="audit-filter-q" type="text" placeholder="item, mensagem…" onkeydown="if(event.key==='Enter')resetAuditPage()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="resetAuditPage()">Filtrar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Eventos <span id="audit-page-info" style="font-weight:400;color:var(--text2);font-size:12px;"></span></div>
+          <div id="audit-list"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="prevAuditPage()">◀ Anterior</button>
+            <button class="btn btn-ghost btn-sm" onclick="nextAuditPage()">Próxima ▶</button>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-title">Pedidos (admin)</div>
+          <div id="admin-orders-list"></div>
+        </div>
+      </div>
+
+      <div id="modal-audit-detail" class="modal-backdrop hidden">
+        <div class="modal" style="max-width:640px;">
+          <div class="modal-header">
+            <div class="modal-title">Detalhe do evento</div>
+            <button class="btn btn-ghost btn-sm" onclick="closeModal('modal-audit-detail')">✕</button>
+          </div>
+          <pre id="audit-detail-body" style="max-height:400px;overflow:auto;font-size:11px;white-space:pre-wrap;"></pre>
+        </div>
+      </div>
+
     </div>
 
     <!-- Status bar -->
@@ -2691,6 +2762,7 @@ function nav(el) {
   if (el.dataset.page === "downloads") loadDownloads();
   if (el.dataset.page === "admin-downloads") loadAdminDownloads();
   if (el.dataset.page === "recharge-admin") loadRechargeAdmin();
+  if (el.dataset.page === "audit") { loadAudit(); loadAdminOrders(); }
   if (_auth.authenticated) refreshPlayerBalance();
   requestAnimationFrame(() => wrapTablesForScroll(document.getElementById("main")));
 }
@@ -3568,7 +3640,6 @@ async function loadMyAreaHistory() {
             <td>
               <div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="viewOrderDetail('${o.order_id}')">🔍</button>
-                <button class="btn btn-ghost btn-sm" onclick="rebuyOrder('${o.order_id}')">🔁</button>
                 <button class="btn btn-danger btn-sm" onclick="contestOrder('${o.order_id}')">⚠️</button>
               </div>
             </td>
@@ -3595,14 +3666,6 @@ async function contestOrder(orderId) {
   const d = await r.json();
   if (d.ok) { toast("Contestação enviada.", "success"); loadMyAreaHistory(); }
   else { toast(d.error || "Falha ao contestar", "error"); }
-}
-
-async function rebuyOrder(orderId) {
-  if (!confirm("Recriar este resgate (repetir entrega)?")) return;
-  const r = await fetch(API + `/api/player/orders/${encodeURIComponent(orderId)}/rebuy`, { method: "POST" });
-  const d = await r.json();
-  if (d.ok) { toast("Resgate recriado e na fila de entrega.", "success"); loadMyAreaHistory(); }
-  else { toast(d.error || "Falha ao recriar resgate", "error"); }
 }
 
 async function viewOrderDetail(orderId) {
@@ -5444,6 +5507,147 @@ async function confirmBuy() {
     btn.disabled = false;
     btn.textContent = "✅ Confirmar Resgate";
   }
+}
+
+// ── Auditoria (admin) ─────────────────────────────────────────────────────────
+let _auditPage = { limit: 50, offset: 0, total: 0 };
+
+function resetAuditPage() { _auditPage.offset = 0; loadAudit(); }
+function prevAuditPage() { _auditPage.offset = Math.max(0, _auditPage.offset - _auditPage.limit); loadAudit(); }
+function nextAuditPage() {
+  if (_auditPage.offset + _auditPage.limit < _auditPage.total) {
+    _auditPage.offset += _auditPage.limit;
+    loadAudit();
+  }
+}
+
+async function loadAudit() {
+  const type = document.getElementById("audit-filter-type")?.value || "";
+  const severity = document.getElementById("audit-filter-severity")?.value || "";
+  const steam = document.getElementById("audit-filter-steam")?.value.trim() || "";
+  const q = document.getElementById("audit-filter-q")?.value.trim() || "";
+  let url = `${API}/api/admin/audit?limit=${_auditPage.limit}&offset=${_auditPage.offset}`;
+  if (type) url += `&event_type=${encodeURIComponent(type)}`;
+  if (severity) url += `&severity=${encodeURIComponent(severity)}`;
+  if (steam) {
+    if (steam.length >= 32) url += `&steam_id=${encodeURIComponent(steam)}`;
+    else url += `&order_id=${encodeURIComponent(steam)}`;
+  }
+  if (q) url += `&q=${encodeURIComponent(q)}`;
+  const el = document.getElementById("audit-list");
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    _auditPage.total = d.total || 0;
+    const pageNum = Math.floor(_auditPage.offset / _auditPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_auditPage.total / _auditPage.limit));
+    const info = document.getElementById("audit-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_auditPage.total} eventos)`;
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2)">Nenhum evento encontrado.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <table class="tbl">
+        <thead><tr>
+          <th>Data</th><th>Tipo</th><th>Sev.</th><th>Ator</th><th>Alvo</th><th>Pedido</th><th>Resumo</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${items.map(e => `
+            <tr>
+              <td style="font-size:11px;">${fmtDate(e.created_at)}</td>
+              <td><code style="font-size:10px;">${escHtml(e.event_type)}</code></td>
+              <td>${escHtml(e.severity || "")}</td>
+              <td style="font-size:10px;">${escHtml((e.actor_steam_id || e.actor_type || "").substring(0,12))}</td>
+              <td style="font-size:10px;">${escHtml((e.target_steam_id || "").substring(0,12))}</td>
+              <td><code style="font-size:10px;">${e.order_id ? escHtml(e.order_id.substring(0,8)) + "…" : "—"}</code></td>
+              <td style="font-size:11px;">${escHtml(e.message || e.item_id || "")}</td>
+              <td><button class="btn btn-ghost btn-sm" onclick="viewAuditDetail(${e.id})">🔍</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function viewAuditDetail(id) {
+  const r = await fetch(API + `/api/admin/audit/${id}`);
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+  document.getElementById("audit-detail-body").textContent = JSON.stringify(d.event, null, 2);
+  document.getElementById("modal-audit-detail").classList.remove("hidden");
+}
+
+async function loadAdminOrders() {
+  const el = document.getElementById("admin-orders-list");
+  if (!el) return;
+  try {
+    const r = await fetch(API + "/api/admin/orders?limit=50");
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    const items = d.items || [];
+    if (!items.length) { el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido.</div>`; return; }
+    el.innerHTML = `
+      <table class="tbl">
+        <thead><tr>
+          <th>Pedido</th><th>Jogador</th><th>Item</th><th>Status</th><th>Criado</th><th>Ações</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(o => `
+            <tr>
+              <td><code>${escHtml(o.order_id.substring(0,8))}…</code></td>
+              <td style="font-size:10px;">${escHtml(o.steam_id)}</td>
+              <td>${escHtml(o.item_type)}:${escHtml(o.item_id)}</td>
+              <td>${statusBadge(o.status)}</td>
+              <td style="font-size:11px;">${fmtDate(o.created_at)}</td>
+              <td>
+                <button class="btn btn-ghost btn-sm" title="Timeline" onclick="viewAdminTimeline('${o.order_id}')">📋</button>
+                <button class="btn btn-ghost btn-sm" title="Reprocessar" onclick="adminReprocess('${o.order_id}')">↺</button>
+                <button class="btn btn-success btn-sm" title="Reemitir" onclick="adminReissue('${o.order_id}')">🔁</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function adminReprocess(orderId) {
+  const force = confirm("Pedido já ENTREGUE? OK = force_reset (reabre para entrega). Cancelar = só reprocessar PENDENTE.");
+  const url = `${API}/api/admin/orders/${encodeURIComponent(orderId)}/reprocess` + (force ? "?force_reset=1" : "");
+  const r = await fetch(url, { method: "POST" });
+  const d = await r.json();
+  if (d.ok) { toast("Pedido reprocessado.", "success"); loadAdminOrders(); loadAudit(); }
+  else toast(d.error || "Falha", "error");
+}
+
+async function adminReissue(orderId) {
+  const reason = prompt("Motivo da reemissão (obrigatório):");
+  if (!reason || !reason.trim()) return;
+  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/reissue`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ reason: reason.trim(), force_reset: true }),
+  });
+  const d = await r.json();
+  if (d.ok) { toast("Reemissão criada na fila.", "success"); loadAdminOrders(); loadAudit(); }
+  else toast(d.error || "Falha na reemissão", "error");
+}
+
+async function viewAdminTimeline(orderId) {
+  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/timeline`);
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+  document.getElementById("audit-detail-body").textContent = JSON.stringify(d, null, 2);
+  document.getElementById("modal-audit-detail").classList.remove("hidden");
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

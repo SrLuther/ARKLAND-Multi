@@ -18,8 +18,26 @@ from typing import Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .server_config import ServerConfig
+    from .config_manager import BackupConfig
+    from .asm_engine.asm_server_config import AsmServerConfig
 
 _DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+
+
+def asm_server_to_backup_target(asm_srv: "AsmServerConfig", global_bk: "BackupConfig") -> "ServerConfig":
+    """Converte servidor TEK + config global em ServerConfig para backup."""
+    from .server_config import ServerConfig
+
+    keep = global_bk.max_backup_count if global_bk.limit_backup_count else 0
+    return ServerConfig(
+        id=asm_srv.id,
+        name=asm_srv.session_name or asm_srv.name,
+        install_dir=asm_srv.install_dir,
+        backup_dir=global_bk.backup_dir,
+        backup_include_saves=global_bk.include_savegames,
+        backup_include_config=global_bk.include_config,
+        backup_keep_count=keep,
+    )
 
 
 class BackupEntry:
@@ -160,6 +178,9 @@ class BackupManager:
 
     def _prune(self, srv: "ServerConfig") -> None:
         """Remove os backups mais antigos excedendo o limite de retenção."""
+        keep = max(0, srv.backup_keep_count)
+        if keep <= 0:
+            return
         bdir = self.backup_dir(srv)
         if not bdir.exists():
             return
@@ -167,7 +188,6 @@ class BackupManager:
             [i for i in bdir.iterdir() if (i.is_file() and i.suffix == ".zip") or i.is_dir()],
             key=lambda i: i.stem if i.suffix == ".zip" else i.name,
         )
-        keep = max(1, srv.backup_keep_count)
         for old in all_items[:-keep]:
             try:
                 if old.is_file():
@@ -177,6 +197,26 @@ class BackupManager:
                 self._on_log(f"[Backup] Snapshot antigo removido: {old.name}", "debug")
             except Exception as exc:
                 self._on_log(f"[Backup] Erro ao remover {old.name}: {exc}", "warning")
+
+    def backup_all_servers(
+        self,
+        servers: List["AsmServerConfig"],
+        global_bk: "BackupConfig",
+    ) -> List[str]:
+        """Executa backup ZIP de todos os servidores com install_dir configurado."""
+        created: List[str] = []
+        active = [s for s in servers if (s.install_dir or "").strip()]
+        if not active:
+            self._on_log("[Backup] Nenhum servidor com pasta de instalação para backup.", "warning")
+            return created
+        self._on_log(f"[Backup] Iniciando backup global de {len(active)} servidor(es)...", "info")
+        for asm_srv in active:
+            target = asm_server_to_backup_target(asm_srv, global_bk)
+            path = self.do_backup(target)
+            if path:
+                created.append(path)
+        self._on_log(f"[Backup] Backup global concluído ({len(created)}/{len(active)}).", "info")
+        return created
 
     # ── Restaurar backup ──────────────────────────────────────────────────────
 

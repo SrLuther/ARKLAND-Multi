@@ -76,6 +76,18 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.init_discord_notifier import init_discord_notifier
         init_discord_notifier(self)
         self.server_manager  = ServerManager(discord_notifier=self._discord_notifier)
+        from .backup_manager import BackupManager
+        from .db_backup_manager import DbBackupManager
+        self._backup_manager = BackupManager(
+            get_servers=lambda: self.asm_config_manager.servers,
+            on_log=self._global_log,
+            discord_notifier=self._discord_notifier,
+        )
+        self._db_backup_manager = DbBackupManager(on_log=self._global_log)
+        self._global_backup_last_run: Optional[datetime] = datetime.now()
+        self._db_backup_last_run: Optional[datetime] = datetime.now()
+        self._global_backup_running = False
+        self._db_backup_running = False
         from .mod_manager import ModManager
         self.mod_manager = ModManager(
             steamcmd_path=self.config_manager.config.steamcmd_path,
@@ -1057,34 +1069,67 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _asm_do_auto_backup(self, srv: AsmServerConfig) -> None:
         """Executa backup automático do servidor (disparado pelo scheduler diário)."""
+        self._run_global_backup()
+
+    def _run_global_backup(self) -> None:
+        """Backup ZIP de todos os servidores TEK (manual ou agendado)."""
         import threading as _th
+
+        if self._global_backup_running:
+            self._global_log("[Backup] Backup global já em andamento.", "warning")
+            return
+        self._global_backup_running = True
+        bk = self.config_manager.config.backup
 
         def _worker():
             try:
-                from .backup_manager import BackupManager
-                bm = BackupManager(
-                    get_servers=lambda: self.asm_config_manager.servers,
-                    on_log=self._global_log,
-                    discord_notifier=self._discord_notifier,
-                )
-                srv_cfg = bm._to_server_config(srv) if hasattr(bm, "_to_server_config") else None
-                if srv_cfg is None:
-                    from .server_config import ServerConfig as _SC
-                    srv_cfg = _SC.__new__(_SC)
-                    srv_cfg.__dict__.update({
-                        "id": srv.id,
-                        "session_name": srv.session_name,
-                        "install_dir": srv.install_dir,
-                        "backup_dir": getattr(srv, "backup_dir", ""),
-                        "include_savegames": getattr(srv, "include_savegames", True),
-                        "exclude_old_backups": getattr(srv, "exclude_old_backups", False),
-                        "max_backup_days": getattr(srv, "max_backup_days", 30),
-                    })
-                bm.create_backup(srv_cfg, include_config=True,
-                                 include_saves=getattr(srv, "include_savegames", True))
+                servers = self.asm_config_manager.servers
+                created = self._backup_manager.backup_all_servers(servers, bk)
+                active = [s for s in servers if (s.install_dir or "").strip()]
+                if not active or created:
+                    self._global_backup_last_run = datetime.now()
             except Exception as exc:
                 import logging
-                logging.getLogger("arkland").warning("auto_backup falhou: %s", exc)
+                logging.getLogger("arkland").warning("global_backup falhou: %s", exc)
+            finally:
+                self._global_backup_running = False
+
+        _th.Thread(target=_worker, daemon=True).start()
+
+    def _run_scheduled_db_backup(self) -> None:
+        """Backup automático do MariaDB usando credenciais salvas."""
+        import threading as _th
+        from .pages.db_local_server import DbLocalServer
+
+        if self._db_backup_running:
+            return
+        cfg = self.config_manager.config.db_backup
+        if not cfg.enabled:
+            return
+
+        prefs = DbLocalServer._load_prefs().get("shop_db") or {}
+        shop = getattr(self.config_manager.config, "shop", None)
+        host = (prefs.get("host") or getattr(shop, "orders_db_host", "") or "127.0.0.1").strip()
+        port = int(prefs.get("port") or getattr(shop, "orders_db_port", None) or 3306)
+        user = (prefs.get("user") or getattr(shop, "orders_db_user", "") or "arkland").strip()
+        password = prefs.get("password") or getattr(shop, "orders_db_password", "") or ""
+        if host in ("127.0.0.1", "localhost", "::1") and user == "root" and not password:
+            password = DbLocalServer.get_root_password()
+
+        self._db_backup_running = True
+
+        def _worker():
+            try:
+                path = self._db_backup_manager.create_backup(
+                    cfg, host=host, port=port, user=user, password=password,
+                )
+                if path:
+                    self._db_backup_last_run = datetime.now()
+            except Exception as exc:
+                import logging
+                logging.getLogger("arkland").warning("db_backup falhou: %s", exc)
+            finally:
+                self._db_backup_running = False
 
         _th.Thread(target=_worker, daemon=True).start()
 
@@ -1273,8 +1318,13 @@ class ARKServerManagerApp(ctk.CTk):
         bk = cfg.backup
         bk.backup_dir          = getattr(self, "_bk_dir_var",           tk.StringVar()).get().strip()
         bk.include_savegames   = getattr(self, "_bk_include_saves_var", tk.BooleanVar()).get()
-        bk.exclude_old_backups = getattr(self, "_bk_exclude_old_var",   tk.BooleanVar()).get()
-        bk.max_backup_days     = getattr(self, "_bk_max_days_var",      tk.IntVar()).get()
+        bk.include_config      = getattr(self, "_bk_include_config_var", tk.BooleanVar(value=True)).get()
+        bk.limit_backup_count  = getattr(self, "_bk_limit_count_var",   tk.BooleanVar(value=True)).get()
+        try:
+            bk.max_backup_count = max(1, int(getattr(self, "_bk_max_count_var", tk.StringVar(value="10")).get()))
+        except ValueError:
+            bk.max_backup_count = 10
+        bk.exclude_old_backups = bk.limit_backup_count
         bk.rcon_broadcast_mode = getattr(self, "_bk_rcon_mode_var",     tk.StringVar()).get()
         bk.save_message        = getattr(self, "_bk_save_msg_var",      tk.StringVar()).get()
         bk.auto_backup         = getattr(self, "_bk_auto_var",          tk.BooleanVar()).get()

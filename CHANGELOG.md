@@ -5,6 +5,34 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.26] - 2026-06-12
+
+### Feature
+
+- Novo (Configurações): backup automático global de todos os servidores — pasta centralizada, ZIP compactado (nível 9), retenção por quantidade e botão executar agora.
+- Novo (Banco de Dados): backup automático do MariaDB (arkland_shop / ark_permission) com intervalo configurável, restauração e retenção por quantidade.
+- Novo (Web Store): sistema de auditoria completo — tabela audit_events, timeline por pedido e página Admin Auditoria.
+- Novo (Web Store): reemissão só por admin com motivo e registro de qual admin reemitiu.
+
+### Fix
+
+- Fix (CustomShop): GiveItem entrega Dinos e Commands na fila web — resgates de carcharodontosaurus e itens similares passam a spawnar no jogo.
+- Fix (CustomShop): GiveKit/GiveItem só marcam sucesso quando o spawn do dino realmente ocorre; /shop deixa de reportar entrega falsa.
+- Fix (TEK Mods): textos e ícones da aba Mods (Workshop) corrigidos (encoding UTF-8).
+
+## [1.9.25] - 2026-06-16
+
+### Feature
+
+- Novo (Web Store): sistema de auditoria completo — tabela audit_events, timeline por pedido e página Admin Auditoria.
+- Novo (Web Store): reemissão só por admin com motivo e registro de qual admin reemitiu.
+
+### Fix
+
+- Fix (CustomShop): GiveItem entrega Dinos e Commands na fila web — resgates de carcharodontosaurus e itens similares passam a spawnar no jogo.
+- Fix (CustomShop): GiveKit/GiveItem só marcam sucesso quando o spawn do dino realmente ocorre; /shop deixa de reportar entrega falsa.
+- Fix (TEK Mods): textos e ícones da aba Mods (Workshop) corrigidos (encoding UTF-8).
+
 ## [1.9.24] - 2026-06-12
 
 ### Improvement

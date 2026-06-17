@@ -3,11 +3,43 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.24"
+APP_VERSION: str = "1.9.26"
 BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.26",
+        "date": "2026-06-12",
+        "changes": [
+            "Novo (Configurações): backup automático global de todos os servidores — pasta "
+            "centralizada, ZIP compactado (nível 9), retenção por quantidade e botão executar agora.",
+            "Novo (Banco de Dados): backup automático do MariaDB (arkland_shop / ark_permission) "
+            "com intervalo configurável, restauração e retenção por quantidade.",
+            "Fix (CustomShop): GiveItem entrega Dinos e Commands na fila web — resgates de "
+            "carcharodontosaurus e itens similares passam a spawnar no jogo.",
+            "Fix (CustomShop): GiveKit/GiveItem só marcam sucesso quando o spawn do dino realmente "
+            "ocorre; /shop deixa de reportar entrega falsa.",
+            "Novo (Web Store): sistema de auditoria completo — tabela audit_events, timeline por "
+            "pedido e página Admin Auditoria.",
+            "Novo (Web Store): reemissão só por admin com motivo e registro de qual admin reemitiu.",
+            "Fix (TEK Mods): textos e ícones da aba Mods (Workshop) corrigidos (encoding UTF-8).",
+        ],
+    },
+    {
+        "version": "1.9.25",
+        "date": "2026-06-16",
+        "changes": [
+            "Fix (CustomShop): GiveItem entrega Dinos e Commands na fila web — resgates de "
+            "carcharodontosaurus e itens similares passam a spawnar no jogo.",
+            "Fix (CustomShop): GiveKit/GiveItem só marcam sucesso quando o spawn do dino realmente "
+            "ocorre; /shop deixa de reportar entrega falsa.",
+            "Novo (Web Store): sistema de auditoria completo — tabela audit_events, timeline por "
+            "pedido e página Admin Auditoria.",
+            "Novo (Web Store): reemissão só por admin com motivo e registro de qual admin reemitiu.",
+            "Fix (TEK Mods): textos e ícones da aba Mods (Workshop) corrigidos (encoding UTF-8).",
+        ],
+    },
     {
         "version": "1.9.24",
         "date": "2026-06-12",

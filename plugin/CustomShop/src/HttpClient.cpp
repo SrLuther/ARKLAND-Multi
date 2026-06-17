@@ -253,7 +253,10 @@ bool DeliverPending(AShooterPlayerController* controller) {
                         items.size(), steam_id);
 
     std::vector<std::string> delivered_ids;
+    nlohmann::json deliveries = nlohmann::json::array();
     int success_count = 0;
+    int fail_count = 0;
+    const int total = static_cast<int>(items.size());
 
     for (const auto& item : items) {
         const std::string order_id = item.value("order_id", "");
@@ -264,16 +267,29 @@ bool DeliverPending(AShooterPlayerController* controller) {
         if (order_id.empty() || item_id.empty()) continue;
 
         bool ok = false;
+        std::string detail;
 
         if (item_type == "kit") {
             ok = Store::GiveKit(controller, item_id);
+            detail = ok ? "GiveKit ok" : "GiveKit failed";
             Log::GetLog()->info("HttpClient: GiveKit '{}' for order {}: {}",
                                 item_id, order_id, ok ? "OK" : "FAIL");
         } else {
             ok = Store::GiveItem(controller, item_id, amount);
+            detail = ok ? "GiveItem ok" : "GiveItem failed";
             Log::GetLog()->info("HttpClient: GiveItem '{}' x{} for order {}: {}",
                                 item_id, amount, order_id, ok ? "OK" : "FAIL");
         }
+
+        deliveries.push_back({
+            {"order_id", order_id},
+            {"item_id", item_id},
+            {"item_type", item_type},
+            {"amount", amount},
+            {"ok", ok},
+            {"trigger", "auto"},
+            {"details", detail},
+        });
 
         if (ok) {
             ShopPoints::Get().LogTransaction(
@@ -283,24 +299,37 @@ bool DeliverPending(AShooterPlayerController* controller) {
             Log::GetLog()->info("HttpClient: delivered '{}' x{} for order {}",
                                 item_id, amount, order_id);
         } else {
+            fail_count++;
             Log::GetLog()->error("HttpClient: failed to deliver '{}' for order {}",
                                  item_id, order_id);
         }
     }
 
     if (success_count > 0) {
-        const std::wstring msg = L"[Shop] " + std::to_wstring(success_count)
-                               + L" item(ns) da loja web entregue(s)!";
+        std::wstring msg;
+        if (fail_count > 0) {
+            msg = L"[Shop] " + std::to_wstring(success_count) + L"/"
+                + std::to_wstring(total) + L" resgate(s) entregue(s)";
+        } else {
+            msg = L"[Shop] " + std::to_wstring(success_count)
+                + L" item(ns) da loja web entregue(s)!";
+        }
         ArkApi::GetApiUtils().SendNotification(
             controller, FLinearColor(0, 1, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
 
         nlohmann::json body = {
             {"steam_id", steam_id},
-            {"order_ids", delivered_ids}
+            {"order_ids", delivered_ids},
+            {"deliveries", deliveries},
         };
         const std::string deliver_url = g_web_url + "/api/pending/delivered";
         std::string deliver_resp = HttpPostJson(deliver_url, body.dump());
         Log::GetLog()->info("HttpClient: mark delivered response: {}", deliver_resp);
+    } else if (fail_count > 0) {
+        const std::wstring msg = L"[Shop] Falha ao entregar "
+            + std::to_wstring(fail_count) + L" resgate(s). Contate um admin.";
+        ArkApi::GetApiUtils().SendNotification(
+            controller, FLinearColor(1, 0.6f, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
     }
 
     return success_count > 0;

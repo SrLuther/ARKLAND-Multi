@@ -1,10 +1,14 @@
 {
-    "version": "1.9.24",
+    "version": "1.9.26",
     "date": "2026-06-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.24/ARKLAND-Multi-Setup-v1.9.24.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.26/ARKLAND-Multi-Setup-v1.9.26.exe",
     "changelog": [
-        "Fix (Discord): DiscordNotifier nunca era inicializado no app TEK — webhooks globais (start/stop/crash, backup, mods, BUFFs) voltam a funcionar.",
-        "Fix (Discord TEK): notificações por servidor via webhook em Gerenciamento Automático + Detalhes do Discord Bot (start/stop e join/leave via ListPlayers).",
-        "Melhoria (Discord): erros de webhook passam a aparecer no log com corpo da resposta HTTP."
+        "Novo (Configurações): backup automático global de todos os servidores — pasta centralizada, ZIP compactado (nível 9), retenção por quantidade e botão executar agora.",
+        "Novo (Banco de Dados): backup automático do MariaDB (arkland_shop / ark_permission) com intervalo configurável, restauração e retenção por quantidade.",
+        "Fix (CustomShop): GiveItem entrega Dinos e Commands na fila web — resgates de carcharodontosaurus e itens similares passam a spawnar no jogo.",
+        "Fix (CustomShop): GiveKit/GiveItem só marcam sucesso quando o spawn do dino realmente ocorre; /shop deixa de reportar entrega falsa.",
+        "Novo (Web Store): sistema de auditoria completo — tabela audit_events, timeline por pedido e página Admin Auditoria.",
+        "Novo (Web Store): reemissão só por admin com motivo e registro de qual admin reemitiu.",
+        "Fix (TEK Mods): textos e ícones da aba Mods (Workshop) corrigidos (encoding UTF-8)."
     ]
 }

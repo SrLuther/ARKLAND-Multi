@@ -215,8 +215,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     bk = cfg.backup
     app._bk_dir_var             = tk.StringVar(value=bk.backup_dir)
     app._bk_include_saves_var   = tk.BooleanVar(value=bk.include_savegames)
-    app._bk_exclude_old_var     = tk.BooleanVar(value=bk.exclude_old_backups)
-    app._bk_max_days_var        = tk.IntVar(value=bk.max_backup_days)
+    app._bk_include_config_var  = tk.BooleanVar(value=getattr(bk, "include_config", True))
+    app._bk_limit_count_var     = tk.BooleanVar(value=getattr(bk, "limit_backup_count", bk.exclude_old_backups))
+    app._bk_max_count_var       = tk.StringVar(value=str(getattr(bk, "max_backup_count", 10)))
     app._bk_rcon_mode_var       = tk.StringVar(value=bk.rcon_broadcast_mode)
     app._bk_save_msg_var        = tk.StringVar(value=bk.save_message)
     app._bk_auto_var            = tk.BooleanVar(value=bk.auto_backup)
@@ -235,41 +236,58 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                   fg_color="#5c1a1a", hover_color="#7c2020",
                   command=lambda: app._bk_dir_var.set("")).grid(row=0, column=2, padx=(4, 0))
 
-    ctk.CTkCheckBox(bk_card, text="Incluir a pasta SaveGames ao realizar um backup do WorldSave",
+    ctk.CTkCheckBox(bk_card, text="Incluir saves do mundo (SavedArks)",
                     variable=app._bk_include_saves_var,
                     checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                     ).grid(row=1, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
-    ctk.CTkCheckBox(bk_card, text="Excluir arquivos de backup antigos",
-                    variable=app._bk_exclude_old_var,
+    ctk.CTkCheckBox(bk_card, text="Incluir arquivos de configuração (Game.ini / GameUserSettings.ini)",
+                    variable=app._bk_include_config_var,
                     checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                     ).grid(row=2, column=0, columnspan=2, padx=16, pady=(2, 2), sticky="w")
+    ctk.CTkLabel(bk_card,
+                 text="Backups de todos os servidores ativos são salvos em subpastas por servidor (ZIP compactado).",
+                 text_color="gray45", font=ctk.CTkFont(size=10), justify="left",
+                 ).grid(row=3, column=0, columnspan=2, padx=16, pady=(2, 6), sticky="w")
 
-    fr_days = ctk.CTkFrame(bk_card, fg_color="transparent")
-    fr_days.grid(row=3, column=0, columnspan=2, padx=16, pady=(2, 8), sticky="w")
-    ctk.CTkLabel(fr_days, text="Mais velho que:", text_color="gray60").pack(side="left")
-    ctk.CTkEntry(fr_days, textvariable=app._bk_max_days_var, width=60, height=28).pack(side="left", padx=6)
-    ctk.CTkLabel(fr_days, text="dias", text_color="gray60").pack(side="left")
+    fr_keep = ctk.CTkFrame(bk_card, fg_color="transparent")
+    fr_keep.grid(row=4, column=0, columnspan=2, padx=16, pady=(2, 8), sticky="w")
+    ctk.CTkCheckBox(fr_keep, text="Manter apenas os",
+                    variable=app._bk_limit_count_var,
+                    checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                    ).pack(side="left")
+    ctk.CTkEntry(fr_keep, textvariable=app._bk_max_count_var, width=50, height=28).pack(side="left", padx=6)
+    ctk.CTkLabel(fr_keep, text="backups mais recentes por servidor", text_color="gray60").pack(side="left")
 
     fr_rcon = ctk.CTkFrame(bk_card, fg_color="transparent")
-    fr_rcon.grid(row=4, column=0, columnspan=2, padx=16, pady=(4, 2), sticky="w")
+    fr_rcon.grid(row=5, column=0, columnspan=2, padx=16, pady=(4, 2), sticky="w")
     ctk.CTkLabel(fr_rcon, text="Modo RCON Broadcast:", text_color="gray60", width=180, anchor="w").pack(side="left")
     ctk.CTkComboBox(fr_rcon, variable=app._bk_rcon_mode_var, width=160, height=28,
                     values=["Broadcast", "ServerChat", "SendRcon"]).pack(side="left", padx=6)
 
     ctk.CTkLabel(bk_card, text="Mensagem do Save:", width=200, anchor="w",
-                 text_color="gray60").grid(row=5, column=0, padx=16, pady=(8, 2), sticky="w")
+                 text_color="gray60").grid(row=6, column=0, padx=16, pady=(8, 2), sticky="w")
     ctk.CTkEntry(bk_card, textvariable=app._bk_save_msg_var, height=30).grid(
-        row=5, column=1, padx=(0, 16), pady=(8, 2), sticky="ew")
+        row=6, column=1, padx=(0, 16), pady=(8, 2), sticky="ew")
 
-    ctk.CTkCheckBox(bk_card, text="Ativar backup automático",
+    ctk.CTkCheckBox(bk_card, text="Ativar backup automático de todos os servidores",
                     variable=app._bk_auto_var,
                     checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-                    ).grid(row=6, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
+                    ).grid(row=7, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
     fr_bk_int = ctk.CTkFrame(bk_card, fg_color="transparent")
-    fr_bk_int.grid(row=7, column=0, columnspan=2, padx=16, pady=(2, 14), sticky="w")
-    ctk.CTkLabel(fr_bk_int, text="Intervalo de backup:", text_color="gray60").pack(side="left")
+    fr_bk_int.grid(row=8, column=0, columnspan=2, padx=16, pady=(2, 8), sticky="w")
+    ctk.CTkLabel(fr_bk_int, text="Intervalo entre backups (HH:MM):", text_color="gray60").pack(side="left")
     ctk.CTkEntry(fr_bk_int, textvariable=app._bk_interval_var, width=80, height=28,
-                 placeholder_text="01:00").pack(side="left", padx=6)
+                 placeholder_text="06:00").pack(side="left", padx=6)
+
+    def _run_global_backup_now() -> None:
+        if hasattr(app, "_run_global_backup"):
+            app._run_global_backup()
+
+    ctk.CTkButton(
+        bk_card, text="▶ Executar backup agora", height=32,
+        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+        command=_run_global_backup_now,
+    ).grid(row=9, column=0, columnspan=2, padx=16, pady=(0, 14), sticky="w")
 
     # ── Seção Auto-Atualização ───────────────────────────────────────────────
     app._section_lbl(parent, 14, "🔄  Atualização Automática")
