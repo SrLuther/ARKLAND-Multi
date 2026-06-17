@@ -1,13 +1,8 @@
 {
-    "version": "1.9.28",
+    "version": "1.9.29",
     "date": "2026-06-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.28/ARKLAND-Multi-Setup-v1.9.28.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.29/ARKLAND-Multi-Setup-v1.9.29.exe",
     "changelog": [
-        "Novo (Web Store): moeda oficial Âmbar/Âmbares com ícone, lore completa na home (A Lenda do Âmbar de Arkland) e frase oficial da moeda.",
-        "Novo (Web Store): aba Licenças no catálogo — permissões, nuvem e benefícios por comando.",
-        "Melhoria (Web Store): interface pública sem a palavra Shop — ARKLAND Donations; normalização automática do nome exibido.",
-        "Fix (TEK): MOTD visível em Detalhes do Servidor — card em largura total no topo (antes era coberto por BanList/Branch).",
-        "Fix (TEK): painel CustomShop — padrão ARKLAND Donations em vez de ARKLAND Shop.",
-        "Melhoria (Web Store): licenca_nuvem categorizada como Licenças no config."
+        "Melhoria (Web Store): editor de itens com menu Modalidade no catálogo — Item, Dino, Licença, Comando e subcategorias; define Type e Category automaticamente."
     ]
 }

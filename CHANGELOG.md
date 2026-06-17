@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.29] - 2026-06-17
+
+### Improvement
+
+- Melhoria (Web Store): editor de itens com menu Modalidade no catálogo — Item, Dino, Licença, Comando e subcategorias; define Type e Category automaticamente.
+
 ## [1.9.28] - 2026-06-17
 
 ### Feature

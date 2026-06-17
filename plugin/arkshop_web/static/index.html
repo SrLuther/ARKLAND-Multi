@@ -3636,6 +3636,66 @@ function _catalogDisplayType(v, key) {
   return type;
 }
 
+/** Opções do menu Modalidade no catálogo (admin). value = type|category */
+const CATALOG_MODE_OPTIONS = [
+  { group: "Itens (aba Itens)", options: [
+    { value: "item|Geral", label: "📦 Item — Geral" },
+    { value: "item|Recursos", label: "📦 Item — Recursos" },
+    { value: "item|Selas", label: "📦 Item — Selas" },
+    { value: "item|Armas", label: "📦 Item — Armas" },
+    { value: "item|Ferramentas", label: "📦 Item — Ferramentas" },
+    { value: "item|Armaduras", label: "📦 Item — Armaduras" },
+  ]},
+  { group: "Outras abas", options: [
+    { value: "dino|", label: "🦕 Dino (aba Dinos)" },
+    { value: "command|Licenças", label: "📜 Licença (aba Licenças)" },
+    { value: "command|Geral", label: "⚡ Comando (aba Itens)" },
+    { value: "experience|Geral", label: "✨ Experiência (aba Itens)" },
+    { value: "beacon|Geral", label: "📡 Beacon (aba Itens)" },
+  ]},
+];
+
+function _catalogModeFromItem(item) {
+  const type = String(item.Type || item.type || "item").toLowerCase();
+  let cat = String(item.Category || item.category || "").trim();
+  const text = `${item.Name || ""} ${item.Description || ""}`;
+  if (type === "dino") return "dino|";
+  if (cat === "Licenças" || (type === "command" && /licen[çc]a|license/i.test(text))) return "command|Licenças";
+  if (type === "command") return `command|${cat || "Geral"}`;
+  if (type === "experience") return "experience|Geral";
+  if (type === "beacon") return "beacon|Geral";
+  if (type === "item" && cat) return `item|${cat}`;
+  return "item|Geral";
+}
+
+function _parseCatalogMode(value) {
+  const raw = String(value || "item|Geral");
+  const pipe = raw.indexOf("|");
+  if (pipe < 0) return { type: "item", category: "Geral" };
+  const type = raw.slice(0, pipe) || "item";
+  const category = raw.slice(pipe + 1).trim();
+  return { type, category };
+}
+
+function _catalogModeSelectHtml(selected) {
+  const sel = selected || "item|Geral";
+  const allValues = CATALOG_MODE_OPTIONS.flatMap(g => g.options.map(o => o.value));
+  let extra = "";
+  if (!allValues.includes(sel)) {
+    const parsed = _parseCatalogMode(sel);
+    extra = `<option value="${escHtml(sel)}" selected>⚙️ ${escHtml(parsed.type)} — ${escHtml(parsed.category || "sem categoria")} (atual)</option>`;
+  }
+  let html = "";
+  for (const g of CATALOG_MODE_OPTIONS) {
+    html += `<optgroup label="${escHtml(g.group)}">`;
+    for (const o of g.options) {
+      html += `<option value="${escHtml(o.value)}"${o.value === sel ? " selected" : ""}>${escHtml(o.label)}</option>`;
+    }
+    html += "</optgroup>";
+  }
+  return extra + html;
+}
+
 function setCatalogCategory(cat) {
   _catalogActiveCat = cat || "";
   const sel = document.getElementById("catalog-cat");
@@ -5141,12 +5201,13 @@ function openItemModal(key) {
           <label>ID interno (slug único)</label>
           <input id="mi-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: metal_ingot_100" />
         </div>
-        <div class="form-group">
-          <label>Tipo</label>
-          <select id="mi-type">
-            ${["item","dino","command","beacon","experience","unlockengram","kit"].map(t =>
-              `<option value="${t}" ${(item.Type||"item")===t?"selected":""}>${t}</option>`).join("")}
-          </select>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Modalidade no catálogo <span style="color:var(--danger)">*</span></label>
+          <select id="mi-catalog-mode">${_catalogModeSelectHtml(_catalogModeFromItem(item))}</select>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.45;">
+            Define em qual aba o jogador vê o produto (Itens, Dinos ou Licenças).
+            <strong>Kits</strong> são cadastrados em <em>Kits → Novo Kit</em>, não aqui.
+          </div>
         </div>
         <div class="form-group" style="grid-column:1/-1;">
           <label>Descrição</label>
@@ -5162,7 +5223,6 @@ function openItemModal(key) {
         <div class="form-group"><label>Nível mínimo</label><input id="mi-minlvl" type="number" value="${item.MinLevel??""}" /></div>
         <div class="form-group"><label>Nível máximo</label><input id="mi-maxlvl" type="number" value="${item.MaxLevel??""}" /></div>
         <div class="form-group"><label>Permissões</label><input id="mi-perms" type="text" value="${escHtml(item.Permissions||"")}" placeholder="VIP,Admin (vazio=todos)" /></div>
-        <div class="form-group"><label>Categoria</label><input id="mi-cat" type="text" value="${escHtml(item.Category||"")}" placeholder="Geral, Licenças, Recursos…" /></div>
       </div>
       <div class="toggle-row" style="margin:10px 0;"><label>ForceBlueprint (item simples)</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>
 
@@ -5206,7 +5266,8 @@ async function confirmItem() {
   const it = JSON.parse(JSON.stringify(existing));
 
   it.Name          = nameVal;
-  it.Type          = document.getElementById("mi-type").value;
+  const mode = _parseCatalogMode(document.getElementById("mi-catalog-mode").value);
+  it.Type          = mode.type;
   it.Description   = document.getElementById("mi-desc").value || nameVal;
   it.Price         = parseInt(document.getElementById("mi-price").value, 10) || 0;
   it.Quality       = parseFloat(document.getElementById("mi-quality").value) || 0;
@@ -5225,8 +5286,8 @@ async function confirmItem() {
 
   const perms = document.getElementById("mi-perms").value.trim();
   if (perms) it.Permissions = perms; else delete it.Permissions;
-  const cat = document.getElementById("mi-cat").value.trim();
-  if (cat) it.Category = cat; else delete it.Category;
+  if (mode.category) it.Category = mode.category;
+  else delete it.Category;
 
   const subItems = readShopItemSubItemsFromDOM();
   if (subItems.length) it.Items = subItems; else delete it.Items;
