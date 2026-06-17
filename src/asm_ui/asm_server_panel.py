@@ -1216,11 +1216,12 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Detalhes do Servidor", "Detalhes do servidor")
 
     motd_card = make_card(sf, 1, 0, ctx.theme)
-    add_card_header(motd_card, "MOTD (Message of the Day)", accent)
-    ctk.CTkLabel(motd_card, text="Mensagem exibida ao entrar no servidor",
+    motd_card.grid(columnspan=2, sticky="ew")
+    add_card_header(motd_card, "MOTD — Mensagem do Dia", accent)
+    ctk.CTkLabel(motd_card, text="Exibida ao jogador ao entrar no servidor (GameUserSettings.ini)",
                  font=ctk.CTkFont(size=10), text_color=ctx.theme["text_muted"]).grid(
         row=1, column=0, padx=12, pady=(0, 4), sticky="w")
-    motd_box = ctk.CTkTextbox(motd_card, height=80, font=ctk.CTkFont(size=11))
+    motd_box = ctk.CTkTextbox(motd_card, height=160, font=ctk.CTkFont(size=11))
     motd_box.grid(row=2, column=0, padx=12, pady=(0, 8), sticky="ew")
     motd_box.insert("1.0", srv.motd)
     vars_ref["_motd_text"] = motd_box
@@ -1229,7 +1230,7 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
     row = build_cards_layout(sf, ctx, [
         CardSpec("BanList", ["enable_ban_list_url", "ban_list_url"]),
         CardSpec("Branch SteamCMD", ["branch_name", "branch_password"]),
-    ], start_row=1)
+    ], start_row=2)
 
     notes_card = make_card(sf, row, 0, ctx.theme)
     notes_card.grid(columnspan=2, sticky="ew")

@@ -1,15 +1,13 @@
 {
-    "version": "1.9.27",
+    "version": "1.9.28",
     "date": "2026-06-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.27/ARKLAND-Multi-Setup-v1.9.27.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.28/ARKLAND-Multi-Setup-v1.9.28.exe",
     "changelog": [
-        "Novo (Web Store): página inicial completa — hero, servidores do cluster, estatísticas do catálogo, pacotes PIX, utilidades e FAQ focados no jogador.",
-        "Novo (Web Store): seção Eventos Sazonais — rates ajustados periodicamente em todos os mapas, no estilo dos servidores oficiais.",
-        "Novo (Web Store): destaque dos mapas mod Brighamia e Alps na home.",
-        "Novo (Web Store): catálogo público (Itens, Dinos, Kits) sem login; Steam só para doar, resgatar e Minha Área.",
-        "Melhoria (Web Store): menu Downloads renomeado para Utilidades; removidos cards automáticos do instalador/releases do painel admin.",
-        "Melhoria (Web Store): home sem versão do app nem changelog do projeto — foco nos servidores.",
-        "Fix (Web Store): grade de dinos no catálogo desktop; saldo de pontos via /api/player/points.",
-        "Fix (Web Store): auditoria admin com modal formatado em vez de JSON cru; boot não exige login."
+        "Novo (Web Store): moeda oficial Âmbar/Âmbares com ícone, lore completa na home (A Lenda do Âmbar de Arkland) e frase oficial da moeda.",
+        "Novo (Web Store): aba Licenças no catálogo — permissões, nuvem e benefícios por comando.",
+        "Melhoria (Web Store): interface pública sem a palavra Shop — ARKLAND Donations; normalização automática do nome exibido.",
+        "Fix (TEK): MOTD visível em Detalhes do Servidor — card em largura total no topo (antes era coberto por BanList/Branch).",
+        "Fix (TEK): painel CustomShop — padrão ARKLAND Donations em vez de ARKLAND Shop.",
+        "Melhoria (Web Store): licenca_nuvem categorizada como Licenças no config."
     ]
 }

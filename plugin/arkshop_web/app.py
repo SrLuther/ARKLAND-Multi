@@ -278,11 +278,16 @@ _ENCRYPTED_PREFIX = "ENC:"
 _SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token")
 
 _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
-    {"id": "p500", "label": "500 pontos", "points": 500, "price_brl": 5.0},
-    {"id": "p1200", "label": "1.200 pontos", "points": 1200, "price_brl": 10.0},
-    {"id": "p3000", "label": "3.000 pontos", "points": 3000, "price_brl": 20.0},
-    {"id": "p8000", "label": "8.000 pontos", "points": 8000, "price_brl": 45.0},
+    {"id": "p500", "label": "500 Âmbares", "points": 500, "price_brl": 5.0},
+    {"id": "p1200", "label": "1.200 Âmbares", "points": 1200, "price_brl": 10.0},
+    {"id": "p3000", "label": "3.000 Âmbares", "points": 3000, "price_brl": 20.0},
+    {"id": "p8000", "label": "8.000 Âmbares", "points": 8000, "price_brl": 45.0},
 ]
+
+_AMBER_SINGULAR = "Âmbar"
+_AMBER_PLURAL = "Âmbares"
+_AMBER_ICON_URL = "/ambar.png"
+_DEFAULT_PUBLIC_BRAND = "ARKLAND DONATIONS"
 
 # Rate limiter
 limiter = Limiter(
@@ -1791,6 +1796,9 @@ def get_config():
 def save_config():
     s = _load_settings()
     body = request.get_json(force=True)
+    settings = body.get("Settings")
+    if isinstance(settings, dict) and settings.get("ShopName"):
+        settings["ShopName"] = _public_brand_name(str(settings["ShopName"]))
     written, write_errors = _write_config_all_targets(body, s)
     if not written and write_errors:
         return jsonify({"ok": False, "error": write_errors[0]["error"], "written": [], "errors": write_errors}), 500
@@ -1844,16 +1852,136 @@ def _catalog_public_stats(data: dict[str, Any]) -> dict[str, int]:
     return {"items": items_n, "dinos": dinos_n, "kits": kits_n}
 
 
+def _public_currency() -> dict[str, str]:
+    return {
+        "singular": _AMBER_SINGULAR,
+        "plural": _AMBER_PLURAL,
+        "image_url": _AMBER_ICON_URL,
+    }
+
+
+def _public_brand_name(raw: str) -> str:
+    """Nome público do portal — nunca exibe 'Shop' (evita conotação de loja comercial)."""
+    name = str(raw or "").strip()
+    if not name:
+        return _DEFAULT_PUBLIC_BRAND
+    if re.search(r"\bshop\b", name, re.IGNORECASE):
+        base = re.sub(r"\s*\bshop\b", "", name, flags=re.IGNORECASE).strip()
+        if not base or re.fullmatch(r"arkland", base, re.IGNORECASE):
+            return _DEFAULT_PUBLIC_BRAND
+        if re.search(r"\bdonations?\b", base, re.IGNORECASE):
+            return base.upper() if base.upper().startswith("ARKLAND") else base
+        return _DEFAULT_PUBLIC_BRAND if re.fullmatch(r"arkland", base, re.IGNORECASE) else base
+    if re.fullmatch(r"arkland", name, re.IGNORECASE):
+        return _DEFAULT_PUBLIC_BRAND
+    return name
+
+
+def _default_amber_lore() -> dict[str, Any]:
+    return {
+        "title": "A Lenda do Âmbar de Arkland",
+        "sections": [
+            {
+                "paragraphs": [
+                    "Antes dos sobreviventes erguerem muralhas, antes das tribos dominarem os céus "
+                    "com Wyverns e os mares com Mosassauros, existia apenas o silêncio.",
+                    "Dizem que, quando os primeiros Obeliscos surgiram sobre Arkland, uma chuva dourada "
+                    "caiu dos céus durante sete dias e sete noites. Não era fogo, nem cristal. Eram "
+                    "fragmentos de uma substância desconhecida que brilhava como o sol ao amanhecer.",
+                    "Os sobreviventes que encontraram esses fragmentos perceberam algo estranho. "
+                    "Dentro deles havia memórias.",
+                    "Alguns continham folhas de árvores extintas. Outros guardavam insetos ancestrais. "
+                    "Os mais raros aprisionavam fragmentos da essência das criaturas primordiais.",
+                    "Um caçador encontrou um pedaço tão puro que dentro dele podia ser visto o crânio "
+                    "de um Rex ancestral.",
+                    "Quando o fragmento foi levado até o Grande Obelisco, o cristal reagiu. "
+                    "A luz dos Obeliscos reconhecia aquela substância.",
+                    "Naquele momento nasceu o nome que atravessaria gerações: Âmbar.",
+                    "Os sábios de Arkland descobriram que cada pedaço de Âmbar continha energia "
+                    "ancestral condensada durante milhares de anos. Não era apenas uma pedra. "
+                    "Era tempo solidificado. Era a memória viva do mundo primitivo.",
+                    "Por isso nenhuma tribo ousava destruí-lo. Nenhum comerciante recusava recebê-lo. "
+                    "Nenhum governante conseguia ignorar seu valor.",
+                    "Com o passar dos anos, o Âmbar tornou-se a moeda oficial de Arkland. "
+                    "Não porque alguém decretou. Mas porque todos concordaram que nada era mais valioso "
+                    "do que a própria história do mundo.",
+                ],
+            },
+            {
+                "heading": "Valor Cultural",
+                "paragraphs": [
+                    "Para os habitantes de Arkland:",
+                    "Ouro representa riqueza.",
+                    "Cristais representam tecnologia.",
+                    "Elemento representa poder.",
+                    "Mas o Âmbar representa algo maior: Legado.",
+                    "Cada moeda é considerada um fragmento preservado da Era Primitiva.",
+                    "Ao trocar Âmbares, os sobreviventes acreditam estar transferindo parte da "
+                    "história de Arkland para outra pessoa.",
+                ],
+            },
+            {
+                "heading": "A Coroa de Âmbar",
+                "paragraphs": [
+                    "Entre todas as moedas já cunhadas, existe uma categoria lendária. "
+                    "As Coroas de Âmbar.",
+                    "Produzidas apenas pelos Guardiões dos Obeliscos, elas utilizam os fragmentos "
+                    "mais puros já encontrados.",
+                    "Acredita-se que cada Coroa de Âmbar contenha a essência de um Alfa ancestral.",
+                    "Possuir uma delas não significa apenas riqueza. Significa prestígio. "
+                    "Significa que o próprio Ark reconheceu seu valor.",
+                ],
+                "blockquote": (
+                    "O ouro compra ferramentas.\n"
+                    "O cristal compra poder.\n"
+                    "Mas o Âmbar compra o respeito do tempo."
+                ),
+                "blockquote_attribution": "Uma antiga inscrição encontrada em uma ruína",
+            },
+        ],
+        "quote": {
+            "label": "Frase oficial da moeda",
+            "title": "Âmbar",
+            "text": (
+                "Quando os dinossauros desaparecerem, quando as tribos ruírem e quando os obeliscos "
+                "se apagarem, o Âmbar ainda contará a história de quem viveu aqui."
+            ),
+        },
+    }
+
+
+def _amber_lore_block(settings_block: dict[str, Any]) -> dict[str, Any]:
+    """Lore do Âmbar — editável via Settings.AmberLore / AmberLoreTitle no config da loja."""
+    default = _default_amber_lore()
+    title = str(settings_block.get("AmberLoreTitle") or default["title"]).strip()
+    raw = str(settings_block.get("AmberLore") or "").strip()
+    if raw:
+        return {
+            "title": title,
+            "paragraphs": [p.strip() for p in raw.split("\n\n") if p.strip()],
+            "sections": [],
+            "quote": default.get("quote"),
+            "image_url": _AMBER_ICON_URL,
+        }
+    return {
+        "title": title,
+        "sections": default["sections"],
+        "paragraphs": [],
+        "quote": default.get("quote"),
+        "image_url": _AMBER_ICON_URL,
+    }
+
+
 @app.route("/api/public/home", methods=["GET"])
 def public_home():
     """Dados públicos para a página inicial (sem autenticação)."""
     data = _read_shop_config()
     settings_block = data.get("Settings") or {}
-    shop_name = (
+    shop_name = _public_brand_name(
         settings_block.get("ShopName")
         or data.get("ShopName")
         or data.get("shop_name")
-        or "ARKLAND Donations"
+        or _DEFAULT_PUBLIC_BRAND
     )
     s = _load_settings()
     public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
@@ -1888,7 +2016,7 @@ def public_home():
         "O ARKLAND é um ecossistema de servidores ARK: Survival Evolved pensado para "
         "comunidades que jogam em cluster, com loja integrada, entrega automática in-game "
         "e suporte a doações voluntárias via PIX. Aqui você apoia o servidor e resgata "
-        "recompensas simbólicas em pontos — itens, dinos e kits entregues quando você conecta."
+        "recompensas simbólicas em Âmbares — itens, dinos e kits entregues quando você conecta."
     )
 
     return jsonify({
@@ -1897,12 +2025,14 @@ def public_home():
         "public_url": public_url,
         "website_url": website_url,
         "discord_url": discord_url,
+        "currency": _public_currency(),
+        "amber_lore": _amber_lore_block(settings_block),
         "pix_enabled": _pix_enabled(),
         "starting_points": int(settings_block.get("StartingPoints") or 0),
         "servers": servers,
         "stats": stats,
         "tagline": (
-            "Doações voluntárias · Pontos simbólicos · Entrega automática no ARK"
+            "Doações voluntárias · Âmbar simbólico · Entrega automática no ARK"
         ),
         "description": str(settings_block.get("HomeDescription") or "").strip() or welcome or default_description,
         "welcome_message": welcome,
@@ -1970,11 +2100,11 @@ def get_catalog():
     items = data.get("Items") or data.get("ShopItems") or {}
     kits = data.get("Kits") or {}
     settings_block = data.get("Settings") or {}
-    shop_name = (
+    shop_name = _public_brand_name(
         settings_block.get("ShopName")
         or data.get("ShopName")
         or data.get("shop_name")
-        or "ARKLAND Donations"
+        or _DEFAULT_PUBLIC_BRAND
     )
     packages = _load_point_packages()
     s = _load_settings()
@@ -1984,6 +2114,7 @@ def get_catalog():
         "kits": kits,
         "shop_name": shop_name,
         "point_packages": packages,
+        "currency": _public_currency(),
         "pix_enabled": _pix_enabled(),
         "public_url": public_url,
         "shop_url": public_url,
@@ -2435,7 +2566,7 @@ def player_pix_checkout():
 
     steam_id = str(_steam_id_from_session())
     payment_id = str(uuid.uuid4())
-    label = str(package.get("label") or f"{points} pontos")
+    label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
     description = f"Doação ARKLAND — {label} ({steam_id})"
 
     try:

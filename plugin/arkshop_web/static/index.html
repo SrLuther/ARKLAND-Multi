@@ -1081,7 +1081,7 @@
       line-height: 1.4;
     }
 
-    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid {
+    #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
       gap: 18px;
@@ -1136,6 +1136,7 @@
     .type-dino::after     { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#e8a020,#a06010); }
     .type-bp::after       { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#a78bfa,#6030cc); }
     .type-cmd::after      { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#f04050,#a01828); }
+    .type-license::after  { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#00c8ff,#0066aa); }
     .type-xp::after       { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#12d87c,#0a9e5e); }
     .type-kit::after      { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#fbbf24,#d09010); }
 
@@ -1764,7 +1765,7 @@
         width: 100%;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-available-grid, #catalog-recharge-grid,
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
       .recharge-grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
         gap: 12px;
@@ -1892,7 +1893,7 @@
         text-align: center;
       }
 
-      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-recharge-grid {
+      #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-recharge-grid {
         grid-template-columns: 1fr;
       }
 
@@ -2203,6 +2204,109 @@
       left: 0;
       font-size: 11px;
     }
+    .amber-icon {
+      display: inline-block;
+      vertical-align: middle;
+      object-fit: contain;
+      filter: drop-shadow(0 0 6px rgba(232,160,32,.45));
+    }
+    .amber-price {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--amber);
+      font-weight: 700;
+    }
+    .home-amber-lore {
+      display: grid;
+      grid-template-columns: minmax(160px, 220px) 1fr;
+      gap: 28px;
+      align-items: start;
+    }
+    @media (max-width: 640px) {
+      .home-amber-lore { grid-template-columns: 1fr; text-align: center; }
+      .home-amber-coin { margin: 0 auto; }
+      .home-amber-lore__visual { position: static; }
+    }
+    .home-amber-lore__visual {
+      position: sticky;
+      top: 16px;
+    }
+    .home-amber-coin {
+      width: 100%;
+      max-width: 220px;
+      border-radius: 50%;
+      border: 2px solid rgba(232,120,32,.45);
+      box-shadow: 0 0 48px rgba(255,96,16,.2), inset 0 0 24px rgba(0,0,0,.4);
+    }
+    .home-amber-lore__text p {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.75;
+      margin: 0 0 12px;
+    }
+    .home-amber-lore__heading {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .06em;
+      margin: 20px 0 10px;
+      padding-top: 4px;
+      border-top: 1px solid rgba(232,120,32,.2);
+    }
+    .home-amber-lore__heading:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+    .home-amber-lore__blockquote {
+      margin: 16px 0 4px;
+      padding: 14px 16px 12px;
+      border-left: 3px solid var(--amber);
+      background: linear-gradient(90deg, rgba(255,96,16,.08) 0%, transparent 100%);
+      border-radius: 0 8px 8px 0;
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.65;
+      font-style: italic;
+    }
+    .home-amber-lore__blockquote cite {
+      display: block;
+      margin-top: 10px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-style: normal;
+      color: var(--text2);
+      letter-spacing: .04em;
+    }
+    .home-amber-lore__official {
+      margin-top: 22px;
+      padding: 18px 20px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(232,120,32,.35);
+      background: linear-gradient(145deg, rgba(255,96,16,.06) 0%, var(--surface3) 50%, var(--surface2) 100%);
+      text-align: center;
+    }
+    .home-amber-lore__official-label {
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+    .home-amber-lore__official-title {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--amber);
+      margin-bottom: 10px;
+      text-shadow: 0 0 20px rgba(232,160,32,.25);
+    }
+    .home-amber-lore__official-text {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.7;
+      font-style: italic;
+      margin: 0;
+    }
 
     .home-pillars {
       display: grid;
@@ -2378,7 +2482,7 @@
     <div class="auth-title">ARKLAND</div>
     <div class="auth-sub">DONATIONS</div>
     <div class="auth-desc" id="auth-desc">
-      Plataforma de doações voluntárias. Resgate recompensas com pontos. Dados de PIX são exigidos pelo Mercado Pago — a ARKLAND não usa dados pessoais para marketing.
+      Plataforma de doações voluntárias. Resgate recompensas com Âmbar. Dados de PIX são exigidos pelo Mercado Pago — a ARKLAND não usa dados pessoais para marketing.
     </div>
     <button class="btn-steam" onclick="loginWithSteam()">
       Entrar com Steam
@@ -2409,9 +2513,9 @@
     <!-- User box -->
     <div id="auth-userbox" class="hidden">
       <div id="auth-balance-pill" class="auth-balance-pill hidden">
-        <span>◈</span>
+        <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="16" height="16" />
         <span><span id="auth-balance-val">0</span></span>
-        <span class="auth-balance-unit">pontos</span>
+        <span class="auth-balance-unit amber-unit-label">Âmbares</span>
       </div>
       <div id="auth-userline"></div>
       <button id="auth-action-btn" class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
@@ -2428,7 +2532,7 @@
     <div class="nav-item admin-only" data-page="recharge-admin" onclick="nav(this)">
       <span class="nav-icon">💳</span> Doações PIX
     </div>
-    <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com pontos no catálogo">
+    <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com Âmbar no catálogo">
       <span class="nav-icon">💰</span> Venda in-game (legado)
     </div>
 
@@ -2484,7 +2588,7 @@
       <button id="sidebar-toggle" class="mobile-menu-btn" type="button" aria-label="Abrir menu" onclick="toggleSidebar()">☰</button>
       <div class="mobile-header__brand">ARKLAND DONATIONS</div>
       <div class="mobile-header__actions">
-        <span id="mobile-balance" class="mobile-balance hidden">◈ <span id="mobile-balance-val">0</span></span>
+        <span id="mobile-balance" class="mobile-balance hidden"><img class="amber-icon" src="/ambar.png" alt="Âmbar" width="14" height="14" /> <span id="mobile-balance-val">0</span></span>
       </div>
     </header>
     <div id="main">
@@ -2503,12 +2607,14 @@
             <div class="catalog-hero__title" id="catalog-shop-name">ARKLAND DONATIONS</div>
             <div class="catalog-hero__tagline" id="catalog-shop-url" style="display:none;font-size:12px;color:var(--tek);margin-top:4px;"></div>
             <div class="catalog-hero__tagline">
-              Doe via PIX e receba pontos como recompensa. Use os pontos para resgatar itens e kits no catálogo.
+              Doe via PIX e receba Âmbares como recompensa. Use o Âmbar para resgatar itens e kits no catálogo.
             </div>
           </div>
           <div class="catalog-hero__meta">
             <div id="catalog-points-pill" class="catalog-points hidden">
-              💰 <span id="catalog-points-val">—</span> pts
+              <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="16" height="16" />
+              <span id="catalog-points-val">—</span>
+              <span class="amber-unit-label">Âmbares</span>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="openPolicyModal(false)">📜 Política</button>
             <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
@@ -2518,7 +2624,7 @@
           <div class="donation-policy-banner__title">⚖️ Política de Doações — leia antes de doar ou resgatar</div>
           <div class="donation-policy-banner__text">
             As doações PIX são <strong>voluntárias</strong>. E-mail, nome e CPF na doação são <strong>exigidos pelo Mercado Pago</strong> — repassamos ao MP e não usamos para marketing.
-            <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com pontos</strong>.
+            <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com Âmbar</strong>.
           </div>
           <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
         </div>
@@ -2526,6 +2632,7 @@
           <button type="button" class="catalog-tab active" data-catalog-tab="items" onclick="setCatalogTab('items')">📦 Itens</button>
           <button type="button" class="catalog-tab" data-catalog-tab="dinos" onclick="setCatalogTab('dinos')">🦕 Dinos</button>
           <button type="button" class="catalog-tab" data-catalog-tab="kits" onclick="setCatalogTab('kits')">🎁 Kits</button>
+          <button type="button" class="catalog-tab" data-catalog-tab="licenses" onclick="setCatalogTab('licenses')">📜 Licenças</button>
           <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação</button>
           <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
         </div>
@@ -2554,22 +2661,32 @@
           <div id="catalog-kits-grid"></div>
           <p id="catalog-kits-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum kit encontrado.</p>
         </div>
+        <div id="catalog-panel-licenses" class="catalog-panel">
+          <p class="available-hint" style="margin-bottom:14px;">
+            Licenças especiais do cluster — permissões temporárias, nuvem, VIP e benefícios entregues via comando ao resgatar.
+          </p>
+          <div class="catalog-toolbar">
+            <input id="catalog-licenses-search" type="text" placeholder="🔍 Buscar licença…" oninput="renderCatalogLicenses()" />
+          </div>
+          <div id="catalog-licenses-grid"></div>
+          <p id="catalog-licenses-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhuma licença cadastrada.</p>
+        </div>
         <div id="catalog-panel-available" class="catalog-panel">
           <p class="available-hint">
             Resgates <strong>pendentes</strong> serão entregues automaticamente quando você entrar no servidor.
-            Itens e kits <strong>grátis</strong> podem ser resgatados aqui com pontos.
+            Itens e kits <strong>grátis</strong> podem ser resgatados aqui com Âmbar.
           </p>
           <div id="catalog-available-content"></div>
         </div>
         <div id="catalog-panel-recharge" class="catalog-panel">
           <div class="recharge-balance-bar" id="recharge-balance-bar">
             <span style="color:var(--text2);font-size:13px;">Seu saldo atual</span>
-            <span style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--amber);">◈ <span id="recharge-balance-val">0</span> pontos</span>
+            <span style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--amber);display:inline-flex;align-items:center;gap:8px;"><img class="amber-icon" src="/ambar.png" alt="Âmbar" width="22" height="22" /> <span id="recharge-balance-val">0</span> <span class="amber-unit-label">Âmbares</span></span>
           </div>
           <div class="recharge-trust">
             <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX)</div>
             <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.55;">
-              Você faz uma <strong>doação</strong> ao servidor pelo app do banco. Como recompensa simbólica, recebe pontos equivalentes ao valor doado.
+              Você faz uma <strong>doação</strong> ao servidor pelo app do banco. Como recompensa simbólica, recebe Âmbares equivalentes ao valor doado.
               <strong>Doação definitiva — sem reembolso.</strong>
             </p>
             <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.5;opacity:.92;">
@@ -2577,7 +2694,7 @@
               Repassamos esses dados apenas ao Mercado Pago. Não vendemos nem usamos dados pessoais para marketing.
             </p>
             <div class="recharge-steps">
-              <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de pontos (valor da doação)</div>
+              <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de Âmbares (valor da doação)</div>
               <div class="recharge-step"><strong>2. DOE</strong>PIX pelo app do banco — QR Code ou copia e cola</div>
               <div class="recharge-step"><strong>3. RESGATE</strong>Pontos creditados para resgatar itens no catálogo</div>
             </div>
@@ -2641,11 +2758,11 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Pacotes de pontos</div></div>
+          <div class="card-header"><div class="card-title">Pacotes de Âmbar</div></div>
           <div style="padding:0 16px 16px;overflow-x:auto;">
             <table class="pkg-admin-table">
               <thead>
-                <tr><th>ID</th><th>Nome</th><th>Pontos</th><th>Preço (R$)</th><th>R$/1000 pts</th><th></th></tr>
+                <tr><th>ID</th><th>Nome</th><th>Âmbares</th><th>Preço (R$)</th><th>R$/1.000 Âmbares</th><th></th></tr>
               </thead>
               <tbody id="recharge-packages-tbody"></tbody>
             </table>
@@ -2659,7 +2776,7 @@
         <div id="topbar">
           <div class="page-title">Venda in-game (legado)</div>
           <p style="font-size:12px;color:var(--amber);margin-top:6px;max-width:720px;">
-            Desativado pela política ARKLAND Donations. Jogadores obtêm itens apenas por resgate com pontos no catálogo.
+            Desativado pela política ARKLAND Donations. Jogadores obtêm itens apenas por resgate com Âmbar no catálogo.
           </p>
           <div class="topbar-actions">
             <button class="btn btn-primary" onclick="openSellModal()">+ Novo Item</button>
@@ -3036,7 +3153,7 @@
     <div id="statusbar">
       <span id="sb-dot" class="status-dot"></span>
       <span id="sb-text">Inicializando…</span>
-      <span id="sb-balance" class="sb-balance hidden">◈ <span id="sb-balance-val">0</span> pts</span>
+      <span id="sb-balance" class="sb-balance hidden"><img class="amber-icon" src="/ambar.png" alt="Âmbar" width="14" height="14" /> <span id="sb-balance-val">0</span> <span class="amber-unit-label">Âmbares</span></span>
     </div>
   </div>
 
@@ -3180,6 +3297,55 @@ let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
 const API = "";  // mesmo origin
 
+let CURRENCY = { singular: "Âmbar", plural: "Âmbares", image_url: "/ambar.png" };
+
+function applyCurrency(c) {
+  if (!c) return;
+  if (c.singular) CURRENCY.singular = c.singular;
+  if (c.plural) CURRENCY.plural = c.plural;
+  if (c.image_url) CURRENCY.image_url = c.image_url;
+  document.querySelectorAll(".amber-icon").forEach(img => { img.src = CURRENCY.image_url; });
+}
+
+function formatAmberAmount(n) {
+  const v = Number(n);
+  return Number.isFinite(v) ? v.toLocaleString("pt-BR") : "0";
+}
+
+function amberWord(n) {
+  const v = Math.abs(Math.round(Number(n) || 0));
+  return v === 1 ? CURRENCY.singular : CURRENCY.plural;
+}
+
+function amberFmt(n) {
+  return `${formatAmberAmount(n)} ${amberWord(n)}`;
+}
+
+function amberIconHtml(size = 18, cls = "amber-icon") {
+  return `<img class="${cls}" src="${escHtml(CURRENCY.image_url)}" alt="${escHtml(CURRENCY.singular)}" width="${size}" height="${size}" loading="lazy" />`;
+}
+
+function amberPriceHtml(n, size = 18) {
+  return `<span class="amber-price">${amberIconHtml(size)} ${formatAmberAmount(n)}</span>`;
+}
+
+function syncAmberUnits(balance) {
+  const word = amberWord(balance != null ? balance : 0);
+  document.querySelectorAll(".auth-balance-unit, .amber-unit-label").forEach(el => { el.textContent = word; });
+}
+
+function displayBrandName(name) {
+  const n = String(name || "").trim() || "ARKLAND DONATIONS";
+  if (/\bshop\b/i.test(n)) {
+    const base = n.replace(/\s*\bshop\b/gi, "").trim();
+    if (!base || /^arkland$/i.test(base)) return "ARKLAND DONATIONS";
+    if (/\bdonations?\b/i.test(base)) return base.toUpperCase().startsWith("ARKLAND") ? base.toUpperCase() : base;
+    return "ARKLAND DONATIONS";
+  }
+  if (/^arkland$/i.test(n)) return "ARKLAND DONATIONS";
+  return n;
+}
+
 // ── Navigation ───────────────────────────────────────────────────────────────
 function isMobileNav() {
   return window.matchMedia("(max-width: 1024px)").matches;
@@ -3316,8 +3482,7 @@ function applyRoleUi() {
 }
 
 function formatPoints(n) {
-  const v = Number(n);
-  return Number.isFinite(v) ? v.toLocaleString("pt-BR") : "0";
+  return formatAmberAmount(n);
 }
 
 async function refreshPlayerBalance() {
@@ -3345,11 +3510,12 @@ async function refreshPlayerBalance() {
       return;
     }
     window._playerBalance = pts;
-    const label = formatPoints(pts);
+    const label = formatAmberAmount(pts);
     valIds.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.textContent = label;
     });
+    syncAmberUnits(pts);
     pillIds.forEach(id => document.getElementById(id)?.classList.remove("hidden"));
     const rb = document.getElementById("recharge-balance-val");
     if (rb) rb.textContent = label;
@@ -3434,12 +3600,40 @@ function setCatalogTab(tab) {
   if (tab === "items") renderCatalogItems();
   if (tab === "dinos") renderCatalogDinos();
   if (tab === "kits") renderCatalogKits();
+  if (tab === "licenses") renderCatalogLicenses();
   if (tab === "available") loadAvailable();
   if (tab === "recharge") renderRecharge();
 }
 
 function _isDinoType(t) {
   return String(t || "").toLowerCase() === "dino";
+}
+
+function _isLicenseItem(i) {
+  const cat = String(i.category || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+  if (cat === "licencas") return true;
+  const t = String(i.type || "").toLowerCase();
+  if (t === "license" || t === "licenca") return true;
+  const text = `${i.name || ""} ${i.desc || ""}`.toLowerCase();
+  if (/licen[çc]a|license/.test(text) && (t === "command" || t === "license")) return true;
+  return false;
+}
+
+function _resolveItemCategory(v, key) {
+  const explicit = String(v.Category || v.category || "").trim();
+  if (explicit) return explicit;
+  const type = String(v.Type || v.type || "item").toLowerCase();
+  const text = `${v.Name || v.name || key} ${v.Description || v.description || ""}`;
+  if (type === "command" && /licen[çc]a|license/i.test(text)) return "Licenças";
+  return "Geral";
+}
+
+function _catalogDisplayType(v, key) {
+  const type = String(v.Type || v.type || "item").toLowerCase();
+  const text = `${v.Name || v.name || key} ${v.Description || v.description || ""}`;
+  if (type === "command" && /licen[çc]a|license/i.test(text)) return "license";
+  if (String(v.Category || v.category || "").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "") === "licencas") return "license";
+  return type;
 }
 
 function setCatalogCategory(cat) {
@@ -3465,14 +3659,15 @@ function renderCatalogCats(cats) {
 }
 
 function _catalogTypeIcon(t) {
-  return ({ dino:"🦕", item:"📦", blueprint:"📋", command:"⚡", experience:"✨", kit:"🎁" })[String(t||"").toLowerCase()] || "📦";
+  return ({ dino:"🦕", item:"📦", blueprint:"📋", command:"⚡", experience:"✨", kit:"🎁", license:"📜", licenca:"📜" })[String(t||"").toLowerCase()] || "📦";
 }
 
 function _catalogTypeClass(t) {
   const k = String(t || "item").toLowerCase();
   return ({
     dino:"type-dino", item:"type-item", blueprint:"type-bp",
-    command:"type-cmd", experience:"type-xp", kit:"type-kit"
+    command:"type-cmd", experience:"type-xp", kit:"type-kit",
+    license:"type-license", licenca:"type-license",
   })[k] || "type-item";
 }
 
@@ -3490,7 +3685,7 @@ function _renderProductCard(i, btnLabel) {
         <div class="item-card__name">${escHtml(i.name)}</div>
         ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
         <div class="item-card__footer">
-          <span class="item-card__price">${i.price > 0 ? "◈ " + i.price : "Grátis"}</span>
+          <span class="item-card__price">${i.price > 0 ? amberPriceHtml(i.price, 16) : "Grátis"}</span>
           ${buyBtn}
         </div>
       </div>
@@ -3502,10 +3697,11 @@ async function loadCatalog() {
     const r = await fetch(API + "/api/catalog");
     if (!r.ok) return;
     const data = await r.json();
+    if (data.currency) applyCurrency(data.currency);
     const shop = data.items || data.ShopItems || data.Items || {};
     const kits = data.kits || data.Kits || {};
     const title = document.getElementById("catalog-shop-name");
-    if (title && data.shop_name) title.textContent = data.shop_name;
+    if (title && data.shop_name) title.textContent = displayBrandName(data.shop_name);
     else if (title) title.textContent = "ARKLAND DONATIONS";
     const urlEl = document.getElementById("catalog-shop-url");
     const shopUrl = data.shop_url || data.public_url || "";
@@ -3524,8 +3720,8 @@ async function loadCatalog() {
       name:     v.Name || v.name || formatKey(key),
       desc:     v.Description || v.description || "",
       price:    v.Price ?? v.price ?? 0,
-      type:     v.Type  || v.type  || "item",
-      category: v.Category || v.category || "Geral",
+      type:     _catalogDisplayType(v, key),
+      category: _resolveItemCategory(v, key),
       catalogKind: "item",
       purchaseType: "shop",
     }));
@@ -3545,7 +3741,7 @@ async function loadCatalog() {
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
 
-    const cats = [...new Set(_catalogItems.filter(i => !_isDinoType(i.type)).map(i => i.category))].sort();
+    const cats = [...new Set(_catalogItems.filter(i => !_isDinoType(i.type) && !_isLicenseItem(i)).map(i => i.category))].sort();
     const sel = document.getElementById("catalog-cat");
     if (sel) {
       sel.innerHTML = '<option value="">Todas as categorias</option>'
@@ -3556,6 +3752,7 @@ async function loadCatalog() {
     if (_catalogActiveTab === "items") renderCatalogItems();
     if (_catalogActiveTab === "dinos") renderCatalogDinos();
     if (_catalogActiveTab === "kits") renderCatalogKits();
+    if (_catalogActiveTab === "licenses") renderCatalogLicenses();
     if (_catalogActiveTab === "available") loadAvailable();
     if (_catalogActiveTab === "recharge") renderRecharge();
     updateCatalogPoints();
@@ -3571,6 +3768,7 @@ function renderCatalogItems() {
 
   const filtered = _catalogItems.filter(i => {
     if (_isDinoType(i.type)) return false;
+    if (_isLicenseItem(i)) return false;
     const matchSearch = !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
     const matchCat    = !cat    || i.category === cat;
     return matchSearch && matchCat;
@@ -3622,6 +3820,26 @@ function renderCatalogKits() {
   }
   if (empty) empty.style.display = "none";
   grid.innerHTML = filtered.map(k => _renderProductCard(k, "Resgatar Kit")).join("");
+}
+
+function renderCatalogLicenses() {
+  const search = (document.getElementById("catalog-licenses-search")?.value || "").toLowerCase();
+  const grid = document.getElementById("catalog-licenses-grid");
+  const empty = document.getElementById("catalog-licenses-empty");
+  if (!grid) return;
+
+  const filtered = _catalogItems.filter(i => {
+    if (!_isLicenseItem(i)) return false;
+    return !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
+  });
+
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar Licença")).join("");
 }
 
 async function loadAvailable() {
@@ -3720,9 +3938,9 @@ function renderRecharge() {
     return `
     <div class="recharge-card">
       <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;">${escHtml(p.label || p.id)}</div>
-      <div class="recharge-card__points">◈ ${pts.toLocaleString("pt-BR")}</div>
+      <div class="recharge-card__points">${amberPriceHtml(pts, 20)}</div>
       <div class="recharge-card__price">Doação: R$ ${price.toFixed(2).replace(".", ",")}</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">≈ R$ ${perK} / 1.000 pts</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">≈ R$ ${perK} / 1.000 ${escHtml(CURRENCY.plural)}</div>
       ${_auth.authenticated
         ? `<button class="btn btn-success" style="width:100%;" onclick="startPixCheckout('${escHtml(p.id)}')">Doar via PIX</button>`
         : `<span style="font-size:12px;color:var(--text2);">Faça login com Steam para doar</span>`}
@@ -3907,7 +4125,7 @@ function showPixModal(data) {
   body.innerHTML = `
     <div class="pix-modal-summary">
       <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Doação</span><strong>${escHtml(data.label || "")}</strong></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Recompensa (pontos)</span><strong style="color:var(--amber);">◈ ${Number(data.points || 0).toLocaleString("pt-BR")}</strong></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span>Recompensa (${escHtml(CURRENCY.plural)})</span><strong style="color:var(--amber);display:inline-flex;align-items:center;gap:6px;">${amberIconHtml(16)} ${Number(data.points || 0).toLocaleString("pt-BR")}</strong></div>
       <div style="display:flex;justify-content:space-between;"><span>Valor doado (PIX)</span><strong style="color:var(--success);">R$ ${amount}</strong></div>
     </div>
     <p style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:10px;">Doação voluntária — sem reembolso. Abra o app do banco → PIX → escaneie ou cole o código.</p>
@@ -3918,7 +4136,7 @@ function showPixModal(data) {
       <button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('pix-copy-field').value);toast('Código PIX copiado!','success')">📋 Copiar código</button>
     </div>
     <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">⏳ Aguardando confirmação da doação…</p>
-    <p class="pix-trust-note">PIX processado pelo Mercado Pago. Comprovantes da transação podem ser enviados pelo MP ao e-mail informado. A ARKLAND credita pontos como recompensa simbólica — doação voluntária, sem reembolso.</p>`;
+    <p class="pix-trust-note">PIX processado pelo Mercado Pago. Comprovantes da transação podem ser enviados pelo MP ao e-mail informado. A ARKLAND credita Âmbares como recompensa simbólica — doação voluntária, sem reembolso.</p>`;
   document.getElementById("pix-modal").style.display = "flex";
   stopPixPoll();
   pollPixStatus(data.payment_id);
@@ -3960,7 +4178,7 @@ async function pollPixStatus(paymentId) {
       stopPixPoll();
       toast("Pontos creditados — use-os para resgatar itens no catálogo.", "success");
     } else if (d.status === "APROVADO" && !d.credited) {
-      line.textContent = "⚠️ Pagamento aprovado, mas falha ao creditar pontos no banco. Contate o admin.";
+      line.textContent = "⚠️ Pagamento aprovado, mas falha ao creditar Âmbares no banco. Contate o admin.";
       line.style.color = "var(--danger)";
       stopPixPoll();
     } else if (d.status === "RECUSADO" || d.status === "EXPIRADO") {
@@ -4046,7 +4264,7 @@ async function loadMyArea() {
   const st = summary.stats || {};
   const pts = summary.points != null ? summary.points : "—";
   document.getElementById("myarea-summary").innerHTML = `
-    <div class="form-group"><label>◈ Saldo de Pontos</label><input readonly value="${pts}" style="font-weight:700;color:var(--amber);font-size:16px;"/></div>
+    <div class="form-group"><label>Saldo de ${escHtml(CURRENCY.plural)}</label><input readonly value="${pts}" style="font-weight:700;color:var(--amber);font-size:16px;"/></div>
     <div class="form-group"><label>Doações creditadas</label><input readonly value="${st.donations_credited ?? 0}" /></div>
     <div class="form-group"><label>Total de resgates</label><input readonly value="${st.total_orders ?? 0}" /></div>
     <div class="form-group"><label>Resgates entregues</label><input readonly value="${st.delivered ?? 0}" /></div>
@@ -4091,7 +4309,7 @@ async function loadMyAreaDonations() {
     <table class="tbl">
       <thead>
         <tr>
-          <th>Data / hora</th><th>Pacote</th><th>Valor doado</th><th>Pontos</th><th>Status</th>
+          <th>Data / hora</th><th>Pacote</th><th>Valor doado</th><th>Âmbares</th><th>Status</th>
         </tr>
       </thead>
       <tbody>
@@ -4413,7 +4631,7 @@ function renderShop() {
               </td>
               <td>${typeBadge(it.Type||"item")}</td>
               <td><span style="color:var(--text2);font-size:12px">${escHtml(it.Category||"Geral")}</span></td>
-              <td class="price-tag">${it.Price??0} pts</td>
+              <td class="price-tag">${it.Price??0} ${escHtml(CURRENCY.plural)}</td>
               <td><span style="font-size:11px;color:var(--text2)">${content}</span></td>
               <td>${it.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
               <td><div class="actions-col">
@@ -4447,7 +4665,7 @@ function renderKits() {
             return `<tr>
               <td><code>${k}</code></td>
               <td><span class="truncate">${kit.Description||"-"}</span></td>
-              <td class="price-tag">${kit.Price??0} pts</td>
+              <td class="price-tag">${kit.Price??0} ${escHtml(CURRENCY.plural)}</td>
               <td>${kit.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
               <td>${(kit.Items||[]).length} item(s) · ${(kit.Dinos||[]).length} dino(s) · ${(kit.Commands||[]).length} cmd(s)${kit.VipLicense ? " · VIP" : ""}</td>
               <td><div class="actions-col">
@@ -4473,7 +4691,7 @@ function renderSell() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>ID</th><th>Descrição</th><th>Preço (pts)</th><th>Ações</th>
+          <th>ID</th><th>Descrição</th><th>Preço (${escHtml(CURRENCY.plural)})</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${keys.map(k => {
@@ -4481,7 +4699,7 @@ function renderSell() {
             return `<tr>
               <td><code>${k}</code></td>
               <td><span class="truncate">${it.Description||"-"}</span></td>
-              <td class="price-tag">${it.Price??0} pts</td>
+              <td class="price-tag">${it.Price??0} ${escHtml(CURRENCY.plural)}</td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openSellModal('${k}')">✏️</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteSell('${k}')">🗑</button>
@@ -4511,8 +4729,8 @@ function renderGeneral() {
     <div class="card">
       <div class="card-header"><div class="card-title">🏪 Configurações da Loja</div></div>
       <div class="form-grid">
-        <div class="form-group"><label>Nome exibido</label><input id="g-shop-name" type="text" value="${escHtml(s.ShopName||"ARKLAND Donations")}" /></div>
-        <div class="form-group"><label>Pontos Iniciais</label><input id="g-starting-pts" type="number" value="${s.StartingPoints??100}" /></div>
+        <div class="form-group"><label>Nome exibido (portal)</label><input id="g-shop-name" type="text" value="${escHtml(displayBrandName(s.ShopName || "ARKLAND Donations"))}" placeholder="ARKLAND Donations" /></div>
+        <div class="form-group"><label>Âmbares iniciais</label><input id="g-starting-pts" type="number" value="${s.StartingPoints??100}" /></div>
         <div class="form-group"><label>URL do Website</label><input id="g-website-url" type="text" value="${escHtml(s.WebsiteUrl||"")}" /></div>
         <div class="form-group"><label>URL da API Web</label><input id="g-webapi-url" type="text" value="${escHtml(s.WebApiUrl||"http://127.0.0.1:5177")}" /></div>
         <div class="form-group"><label>Chave API Web</label><input id="g-webapi-key" type="text" value="${escHtml(s.WebApiKey||"")}" /></div>
@@ -4545,7 +4763,7 @@ function saveGeneral() {
   const s = _config.Settings;
   const t = _config.TimedPointsReward;
 
-  s.ShopName          = document.getElementById("g-shop-name").value;
+  s.ShopName          = displayBrandName(document.getElementById("g-shop-name").value.trim());
   s.StartingPoints    = parseInt(document.getElementById("g-starting-pts").value) || 0;
   s.WebsiteUrl        = document.getElementById("g-website-url").value;
   s.WebApiUrl         = document.getElementById("g-webapi-url").value;
@@ -4938,13 +5156,13 @@ function openItemModal(key) {
           <label>Blueprint único (item simples — opcional se usar lista abaixo)</label>
           <input id="mi-bp" type="text" value="${escHtml(item.Blueprint||"")}" placeholder="/Game/PrimalEarth/..." />
         </div>
-        <div class="form-group"><label>Preço (pts)</label><input id="mi-price" type="number" value="${item.Price??0}" /></div>
+        <div class="form-group"><label>Preço (${escHtml(CURRENCY.plural)})</label><input id="mi-price" type="number" value="${item.Price??0}" /></div>
         <div class="form-group"><label>Quantidade (item simples)</label><input id="mi-qty" type="number" value="${item.Quantity??item.Amount??1}" /></div>
         <div class="form-group"><label>Qualidade</label><input id="mi-quality" type="number" step="0.1" value="${item.Quality??0}" /></div>
         <div class="form-group"><label>Nível mínimo</label><input id="mi-minlvl" type="number" value="${item.MinLevel??""}" /></div>
         <div class="form-group"><label>Nível máximo</label><input id="mi-maxlvl" type="number" value="${item.MaxLevel??""}" /></div>
         <div class="form-group"><label>Permissões</label><input id="mi-perms" type="text" value="${escHtml(item.Permissions||"")}" placeholder="VIP,Admin (vazio=todos)" /></div>
-        <div class="form-group"><label>Categoria</label><input id="mi-cat" type="text" value="${escHtml(item.Category||"")}" placeholder="Geral" /></div>
+        <div class="form-group"><label>Categoria</label><input id="mi-cat" type="text" value="${escHtml(item.Category||"")}" placeholder="Geral, Licenças, Recursos…" /></div>
       </div>
       <div class="toggle-row" style="margin:10px 0;"><label>ForceBlueprint (item simples)</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>
 
@@ -5358,7 +5576,7 @@ function openKitModal(key) {
           <label>ID do Kit</label>
           <input id="mk-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: acro_pack10" />
         </div>
-        <div class="form-group"><label>Preço (pts)</label><input id="mk-price" type="number" value="${kit.Price??0}" /></div>
+        <div class="form-group"><label>Preço (${escHtml(CURRENCY.plural)})</label><input id="mk-price" type="number" value="${kit.Price??0}" /></div>
         <div class="form-group" style="grid-column:1/-1;">
           <label>Descrição</label>
           <input id="mk-desc" type="text" value="${escHtml(kit.Description||"")}" />
@@ -5464,7 +5682,7 @@ function openSellModal(key) {
         <label>ID do Item</label>
         <input id="ms-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} />
       </div>
-      <div class="form-group"><label>Preço (pts)</label><input id="ms-price" type="number" value="${item.Price??0}" /></div>
+      <div class="form-group"><label>Preço (${escHtml(CURRENCY.plural)})</label><input id="ms-price" type="number" value="${item.Price??0}" /></div>
       <div class="form-group" style="grid-column:1/-1;">
         <label>Descrição</label>
         <input id="ms-desc" type="text" value="${escHtml(item.Description||"")}" />
@@ -5953,7 +6171,7 @@ function escHtml(str) {
   return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
-// ── Modal de Resgate (pontos) ─────────────────────────────────────────────────
+// ── Modal de Resgate (Âmbar) ─────────────────────────────────────────────────
 let _buyItem = null;
 
 function openBuyModal(item, policyAlreadyAccepted) {
@@ -5981,16 +6199,16 @@ function openBuyModal(item, policyAlreadyAccepted) {
       ${item.desc ? `<div style="font-size:12px;color:var(--text2);">${escHtml(item.desc)}</div>` : ""}
     </div>
     <p style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:14px;line-height:1.5;">
-      Resgate com pontos obtidos por doação ao servidor.
+      Resgate com ${escHtml(CURRENCY.plural)} obtidos por doação ao servidor.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
       <div style="background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:var(--radius);text-align:center;">
-        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Custo (pontos)</div>
-        <div style="font-size:22px;font-weight:700;color:var(--amber);text-shadow:0 0 12px rgba(232,160,32,.4);">◈ ${item.price}</div>
+        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Custo (${escHtml(CURRENCY.plural)})</div>
+        <div style="font-size:22px;font-weight:700;color:var(--amber);display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(22)} ${formatAmberAmount(item.price)}</div>
       </div>
       <div style="background:var(--surface2);border:1px solid ${canBuy?'rgba(18,216,124,.2)':'rgba(240,64,80,.2)'};padding:12px;border-radius:var(--radius);text-align:center;">
         <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Seu Saldo</div>
-        <div style="font-size:22px;font-weight:700;color:${canBuy?'var(--success)':'var(--danger)'};">◈ ${bal}</div>
+        <div style="font-size:22px;font-weight:700;color:${canBuy?'var(--success)':'var(--danger)'};display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(22)} ${formatAmberAmount(bal)}</div>
       </div>
     </div>
     ${!canBuy ? `<div style="text-align:center;color:var(--danger);font-size:13px;margin-bottom:8px;font-weight:700;">⚠️ Saldo insuficiente</div>` : ""}`;
@@ -6107,6 +6325,53 @@ async function loadAudit() {
   }
 }
 
+function renderAmberLoreSection(lore) {
+  const hasSections = (lore.sections || []).length > 0;
+  const hasParagraphs = (lore.paragraphs || []).length > 0;
+  if (!hasSections && !hasParagraphs) return "";
+
+  let body = "";
+  if (hasSections) {
+    body = (lore.sections || []).map(sec => {
+      const heading = sec.heading
+        ? `<h3 class="home-amber-lore__heading">${escHtml(sec.heading)}</h3>` : "";
+      const paragraphs = (sec.paragraphs || []).map(p => `<p>${escHtml(p)}</p>`).join("");
+      let blockquote = "";
+      if (sec.blockquote) {
+        const lines = String(sec.blockquote).split("\n").map(l => escHtml(l)).join("<br>");
+        const cite = sec.blockquote_attribution
+          ? `<cite>— ${escHtml(sec.blockquote_attribution)}</cite>` : "";
+        blockquote = `<blockquote class="home-amber-lore__blockquote">${lines}${cite}</blockquote>`;
+      }
+      return heading + paragraphs + blockquote;
+    }).join("");
+  } else {
+    body = (lore.paragraphs || []).map(p => `<p>${escHtml(p)}</p>`).join("");
+  }
+
+  const q = lore.quote || {};
+  const quoteHtml = q.text ? `
+    <div class="home-amber-lore__official">
+      <div class="home-amber-lore__official-label">${escHtml(q.label || "Frase oficial da moeda")}</div>
+      <div class="home-amber-lore__official-title">${escHtml(q.title || CURRENCY.singular)}</div>
+      <p class="home-amber-lore__official-text">"${escHtml(q.text)}"</p>
+    </div>` : "";
+
+  return `
+    <div class="home-section">
+      <div class="home-amber-lore">
+        <div class="home-amber-lore__visual">
+          <img class="home-amber-coin" src="${escHtml(lore.image_url || CURRENCY.image_url)}" alt="${escHtml(CURRENCY.singular)}" />
+        </div>
+        <div class="home-amber-lore__text">
+          <div class="home-section__title" style="margin-bottom:14px;">✦ ${escHtml(lore.title || ("A Lenda do " + CURRENCY.singular + " de Arkland"))}</div>
+          ${body}
+          ${quoteHtml}
+        </div>
+      </div>
+    </div>`;
+}
+
 async function loadHome() {
   const root = document.getElementById("home-root");
   if (!root) return;
@@ -6114,6 +6379,7 @@ async function loadHome() {
     const r = await fetch(API + "/api/public/home");
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao carregar");
+    if (d.currency) applyCurrency(d.currency);
     renderHomePage(d);
   } catch (e) {
     root.innerHTML = `
@@ -6137,6 +6403,7 @@ function renderHomePage(d) {
   const badges = `
     <span class="home-badge home-badge--fire">🔥 Doação voluntária</span>
     <span class="home-badge home-badge--tek">🍂 Eventos sazonais</span>
+    <span class="home-badge home-badge--tek">🪙 ${escHtml(CURRENCY.singular)}</span>
     ${pixOn ? '<span class="home-badge home-badge--ok">💚 PIX ativo</span>' : '<span class="home-badge">PIX indisponível</span>'}
     <span class="home-badge home-badge--tek">⚡ Entrega in-game</span>
   `;
@@ -6182,7 +6449,7 @@ function renderHomePage(d) {
   const externalLinks = [
     d.website_url ? { href: d.website_url, label: "🌐 Site oficial", ext: true } : null,
     d.discord_url ? { href: d.discord_url, label: "💬 Discord", ext: true } : null,
-    d.public_url && d.public_url !== d.website_url ? { href: d.public_url, label: "🔗 Loja web", ext: true } : null,
+    d.public_url && d.public_url !== d.website_url ? { href: d.public_url, label: "🔗 Portal", ext: true } : null,
   ].filter(Boolean);
 
   const serversHtml = (d.servers || []).length
@@ -6201,11 +6468,11 @@ function renderHomePage(d) {
           <div class="home-section__title">💚 Pacotes de doação</div>
           <button class="btn btn-ghost btn-sm" onclick="goToPage('catalog');setTimeout(()=>setCatalogTab('recharge'),200)">Ver todos →</button>
         </div>
-        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Doação processada pelo Mercado Pago. Pontos creditados como recompensa simbólica — sem reembolso.</p>
+        <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Doação processada pelo Mercado Pago. Âmbares creditados como recompensa simbólica — sem reembolso.</p>
         <div class="home-pkg-grid">
           ${(d.donation_packages || []).map(p => `
             <div class="home-pkg">
-              <div class="home-pkg__pts">◈ ${Number(p.points || 0).toLocaleString("pt-BR")}</div>
+              <div class="home-pkg__pts">${amberPriceHtml(p.points, 18)}</div>
               <div class="home-pkg__brl">${fmtBrlHome(p.price_brl)}</div>
               <div class="home-pkg__lbl">${escHtml(p.label || "")}</div>
             </div>`).join("")}
@@ -6234,14 +6501,17 @@ function renderHomePage(d) {
 
   const startPts = Number(d.starting_points || 0);
   const startPtsNote = startPts > 0
-    ? `<p>Novos jogadores podem receber <strong style="color:var(--amber);">◈ ${startPts.toLocaleString("pt-BR")} pontos</strong> de boas-vindas (conforme configuração do servidor).</p>`
+    ? `<p>Novos jogadores podem receber <strong style="color:var(--amber);">${amberPriceHtml(startPts, 18)} ${escHtml(CURRENCY.plural)}</strong> de boas-vindas (conforme configuração do servidor).</p>`
     : "";
+
+  const lore = d.amber_lore || {};
+  const amberLoreHtml = renderAmberLoreSection(lore);
 
   root.innerHTML = `
     <section class="home-hero">
       <div>
         <div class="home-hero__eyebrow">Portal oficial · ARKLAND</div>
-        <h1 class="home-hero__title">${escHtml(d.shop_name || "ARKLAND DONATIONS")}</h1>
+        <h1 class="home-hero__title">${escHtml(displayBrandName(d.shop_name))}</h1>
         <p class="home-hero__tagline">${escHtml(d.tagline || "")}</p>
         <div class="home-hero__badges">${badges}</div>
         <div class="home-hero__actions">${authActions}</div>
@@ -6263,6 +6533,8 @@ function renderHomePage(d) {
       <div class="home-stat"><div class="home-stat__val">${st.utilities ?? 0}</div><div class="home-stat__lbl">Utilidades</div></div>
     </div>
 
+    ${amberLoreHtml}
+
     <div class="home-section">
       <div class="home-section__title" style="margin-bottom:14px;">🏛 Sobre o projeto</div>
       <div class="home-section__body">
@@ -6277,10 +6549,10 @@ function renderHomePage(d) {
     <div class="home-section">
       <div class="home-section__title" style="margin-bottom:16px;">🗺 Como funciona</div>
       <div class="home-steps">
-        <div class="home-step"><span class="home-step__num">1</span><div class="home-step__title">Explore o catálogo</div><div class="home-step__text">Navegue por itens, dinos e kits sem criar conta. Veja preços em pontos e descrições.</div></div>
+        <div class="home-step"><span class="home-step__num">1</span><div class="home-step__title">Explore o catálogo</div><div class="home-step__text">Navegue por itens, dinos e kits sem criar conta. Veja preços em ${escHtml(CURRENCY.plural)} e descrições.</div></div>
         <div class="home-step"><span class="home-step__num">2</span><div class="home-step__title">Entre com Steam</div><div class="home-step__text">Autenticação segura via Steam OpenID. Seu SteamID vincula doações e resgates à sua conta.</div></div>
-        <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago. Pontos são creditados como recompensa simbólica.</div></div>
-        <div class="home-step"><span class="home-step__num">4</span><div class="home-step__title">Resgate in-game</div><div class="home-step__text">Gaste pontos no catálogo. Ao entrar no servidor, use <code>/shop</code> — a entrega é automática.</div></div>
+        <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago. ${escHtml(CURRENCY.plural)} são creditados como recompensa simbólica.</div></div>
+        <div class="home-step"><span class="home-step__num">4</span><div class="home-step__title">Resgate in-game</div><div class="home-step__text">Gaste ${escHtml(CURRENCY.plural)} no catálogo. Ao entrar no servidor, use <code>/shop</code> — a entrega é automática.</div></div>
       </div>
     </div>
 
@@ -6299,8 +6571,8 @@ function renderHomePage(d) {
     <div class="home-section">
       <div class="home-section__title" style="margin-bottom:16px;">🛡 Pilares ARKLAND</div>
       <div class="home-pillars">
-        <div class="home-pillar"><div class="home-pillar__icon">🔥</div><div class="home-pillar__title">Comunidade</div><div class="home-pillar__text">Servidores gerenciados com ARKLAND Multi — mods, cluster, backups e loja integrada.</div></div>
-        <div class="home-pillar"><div class="home-pillar__icon">◈</div><div class="home-pillar__title">Economia justa</div><div class="home-pillar__text">Tudo é resgatado com pontos. Sem venda direta de itens — doação voluntária com recompensa simbólica.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon">🔥</div><div class="home-pillar__title">Comunidade</div><div class="home-pillar__text">Servidores gerenciados com ARKLAND Multi — mods, cluster, backups e portal de doações integrado.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon"><img class="amber-icon" src="${escHtml(CURRENCY.image_url)}" alt="${escHtml(CURRENCY.singular)}" width="32" height="32" /></div><div class="home-pillar__title">Economia justa</div><div class="home-pillar__text">Tudo é resgatado com ${escHtml(CURRENCY.singular)}. Sem venda direta de itens — doação voluntária com recompensa simbólica.</div></div>
         <div class="home-pillar"><div class="home-pillar__icon">📋</div><div class="home-pillar__title">Transparência</div><div class="home-pillar__text">Histórico de resgates e doações na Minha Área. Política clara: sem reembolso de doações PIX.</div></div>
         <div class="home-pillar"><div class="home-pillar__icon">⚡</div><div class="home-pillar__title">CustomShop</div><div class="home-pillar__text">Plugin CustomShop entrega itens, dinos e kits na fila web — sincronizado com este portal.</div></div>
       </div>
@@ -6311,9 +6583,9 @@ function renderHomePage(d) {
 
     <div class="home-section home-faq">
       <div class="home-section__title" style="margin-bottom:14px;">❓ Perguntas frequentes</div>
-      <details><summary>Preciso pagar para jogar?</summary><div class="home-faq__a">Não. O acesso ao servidor ARK é independente deste portal. Aqui você apenas doa (opcional) e resgata recompensas com pontos.</div></details>
-      <details><summary>Como recebo o que resgatei?</summary><div class="home-faq__a">Entre no servidor ARK com o mesmo SteamID da loja. Pedidos pendentes são entregues automaticamente; use o comando <strong>/shop</strong> in-game para forçar a sincronização.</div></details>
-      <details><summary>Doações têm reembolso?</summary><div class="home-faq__a">Não. São doações voluntárias processadas pelo Mercado Pago. Os pontos são uma recompensa simbólica, não um produto com garantia de devolução.</div></details>
+      <details><summary>Preciso pagar para jogar?</summary><div class="home-faq__a">Não. O acesso ao servidor ARK é independente deste portal. Aqui você apenas doa (opcional) e resgata recompensas com ${escHtml(CURRENCY.singular)}.</div></details>
+      <details><summary>Como recebo o que resgatei?</summary><div class="home-faq__a">Entre no servidor ARK com o mesmo SteamID deste portal. Pedidos pendentes são entregues automaticamente; use o comando <strong>/shop</strong> in-game para forçar a sincronização.</div></details>
+      <details><summary>Doações têm reembolso?</summary><div class="home-faq__a">Não. São doações voluntárias processadas pelo Mercado Pago. Os ${escHtml(CURRENCY.plural)} são uma recompensa simbólica, não um produto com garantia de devolução.</div></details>
       <details><summary>Por que pedem CPF e e-mail no PIX?</summary><div class="home-faq__a">Exigência do Mercado Pago para gerar e validar cobranças PIX. A ARKLAND repassa esses dados apenas ao MP — não usa para marketing.</div></details>
       <details><summary>Posso ver o catálogo sem login?</summary><div class="home-faq__a">Sim. Abas Itens, Dinos e Kits são públicas. Login Steam é necessário para doar, resgatar e acessar Minha Área.</div></details>
       <details><summary>Como funcionam os eventos sazonais?</summary><div class="home-faq__a">Como nos servidores oficiais: definimos um evento sazonal ativo (ex.: Fear Evolved, Winter Wonderland) e ajustamos periodicamente os rates de <strong>todos os mapas</strong> do cluster para combinar com esse evento. Fique atento ao Discord para saber quando a temporada muda.</div></details>
@@ -6505,14 +6777,14 @@ async function viewAdminTimeline(orderId) {
       <h4>2. Doações via PIX</h4>
       <ul>
         <li>Valores enviados por PIX são <strong>doações</strong>, não pagamentos por produtos digitais.</li>
-        <li>Como reconhecimento simbólico, o doador recebe <strong>pontos</strong> proporcionais ao valor doado.</li>
-        <li>Os pontos não têm valor monetário e não podem ser convertidos em dinheiro.</li>
+        <li>Como reconhecimento simbólico, o doador recebe <strong>Âmbares</strong> proporcionais ao valor doado.</li>
+        <li>Os Âmbares não têm valor monetário e não podem ser convertidos em dinheiro.</li>
       </ul>
       <h4>3. Sem reembolso</h4>
       <p>Doações são definitivas. <strong>Não há reembolso</strong>, estorno ou chargeback automático pela plataforma. Ao doar, você declara estar ciente e de acordo.</p>
       <h4>4. Resgate de recompensas</h4>
       <ul>
-        <li>Itens e kits do jogo são obtidos exclusivamente por <strong>resgate com pontos</strong> nesta interface.</li>
+        <li>Itens e kits do jogo são obtidos exclusivamente por <strong>resgate com Âmbar</strong> nesta interface.</li>
         <li>Resgates geram entregas no servidor conforme disponibilidade técnica do jogo.</li>
         <li>Nada neste site constitui venda de conteúdo oficial do ARK ou da Studio Wildcard.</li>
       </ul>
@@ -6525,7 +6797,7 @@ async function viewAdminTimeline(orderId) {
         <li>Guardamos apenas o <strong>e-mail informado</strong> vinculado ao registro da doação (histórico e suporte). Opcionalmente, o navegador pode lembrar os campos <strong>só no seu aparelho</strong> para facilitar a próxima doação.</li>
       </ul>
       <h4>6. Aceite</h4>
-      <p>Ao usar doação PIX ou resgatar com pontos, você confirma que leu e aceita esta política.</p>
+      <p>Ao usar doação PIX ou resgatar com Âmbar, você confirma que leu e aceita esta política.</p>
     </div>
     <div id="policy-accept-row" style="display:none;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
       <button class="btn btn-ghost" onclick="closePolicyModal()">Cancelar</button>
@@ -6546,7 +6818,7 @@ async function viewAdminTimeline(orderId) {
     </div>
     <div class="form-group">
       <label>Nome exibido *</label>
-      <input id="pkg-label" type="text" placeholder="Ex: 500 pontos" oninput="if(!document.getElementById('pkg-id').value.trim()) document.getElementById('pkg-id').value=slugPackageId(this.value)" />
+      <input id="pkg-label" type="text" placeholder="Ex: 500 Âmbares" oninput="if(!document.getElementById('pkg-id').value.trim()) document.getElementById('pkg-id').value=slugPackageId(this.value)" />
     </div>
     <div class="form-group">
       <label>ID interno</label>

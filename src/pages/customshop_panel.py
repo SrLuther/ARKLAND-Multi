@@ -86,7 +86,7 @@ def _load_config(path: Path) -> Dict[str, Any]:
     except Exception:
         return {
             "Settings": {
-                "ShopName": "ARKLAND Shop",
+                "ShopName": "ARKLAND Donations",
                 "UiKey": "F3",
                 "StartingPoints": 100,
                 "DisableSellButton": True,
@@ -355,7 +355,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         s = data.get("Settings", {})
         _sv.clear()
         _sv.update({
-            "ShopName":             tk.StringVar(value=str(s.get("ShopName", "ARKLAND Shop"))),
+            "ShopName":             tk.StringVar(value=str(s.get("ShopName", "ARKLAND Donations"))),
             "UiKey":                tk.StringVar(value=str(s.get("UiKey", "F3"))),
             "StartingPoints":       tk.StringVar(value=str(s.get("StartingPoints", 100))),
             "WebsiteUrl":           tk.StringVar(value=str(s.get("WebsiteUrl", ""))),
@@ -368,7 +368,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             "UseSteamOverlay":      tk.BooleanVar(value=bool(s.get("UseSteamOverlay", False))),
         })
 
-        _field_row(card_cfg, "Nome da Loja",        _sv["ShopName"],       bg=_INNER)
+        _field_row(card_cfg, "Nome exibido (portal)", _sv["ShopName"],       bg=_INNER)
         _field_row(card_cfg, "Tecla do Menu (UiKey)", _sv["UiKey"],         bg=_INNER,
                    hint="Legado MX-E — jogadores usam /shop ou a loja web", width=120)
         _field_row(card_cfg, "Pontos Iniciais",      _sv["StartingPoints"], bg=_INNER,

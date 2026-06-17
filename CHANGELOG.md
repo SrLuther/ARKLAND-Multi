@@ -5,6 +5,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.28] - 2026-06-17
+
+### Feature
+
+- Novo (Web Store): moeda oficial Âmbar/Âmbares com ícone, lore completa na home (A Lenda do Âmbar de Arkland) e frase oficial da moeda.
+- Novo (Web Store): aba Licenças no catálogo — permissões, nuvem e benefícios por comando.
+
+### Improvement
+
+- Melhoria (Web Store): interface pública sem a palavra Shop — ARKLAND Donations; normalização automática do nome exibido.
+- Melhoria (Web Store): licenca_nuvem categorizada como Licenças no config.
+
+### Fix
+
+- Fix (TEK): MOTD visível em Detalhes do Servidor — card em largura total no topo (antes era coberto por BanList/Branch).
+- Fix (TEK): painel CustomShop — padrão ARKLAND Donations em vez de ARKLAND Shop.
+
 ## [1.9.27] - 2026-06-17
 
 ### Feature

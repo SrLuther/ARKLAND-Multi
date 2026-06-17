@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.27"
+APP_VERSION: str = "1.9.28"
 BUILD_DATE: str = "2026-06-17"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.28",
+        "date": "2026-06-17",
+        "changes": [
+            "Novo (Web Store): moeda oficial Âmbar/Âmbares com ícone, lore completa na home "
+            "(A Lenda do Âmbar de Arkland) e frase oficial da moeda.",
+            "Novo (Web Store): aba Licenças no catálogo — permissões, nuvem e benefícios por comando.",
+            "Melhoria (Web Store): interface pública sem a palavra Shop — ARKLAND Donations; "
+            "normalização automática do nome exibido.",
+            "Fix (TEK): MOTD visível em Detalhes do Servidor — card em largura total no topo "
+            "(antes era coberto por BanList/Branch).",
+            "Fix (TEK): painel CustomShop — padrão ARKLAND Donations em vez de ARKLAND Shop.",
+            "Melhoria (Web Store): licenca_nuvem categorizada como Licenças no config.",
+        ],
+    },
     {
         "version": "1.9.27",
         "date": "2026-06-17",

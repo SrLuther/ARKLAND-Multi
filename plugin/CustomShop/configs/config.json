@@ -18,6 +18,8 @@
   "Items": {
     "licenca_nuvem": {
       "Type": "command",
+      "Category": "Licenças",
+      "Name": "Licença Nuvem",
       "Price": 5000,
       "Description": "Licença de Nuvem (30 dias)",
       "Commands": [
