@@ -52,9 +52,50 @@ def _post_webhook(url: str, payload: dict) -> None:
             if resp.status not in (200, 204):
                 _logger.warning("Discord webhook retornou status %s", resp.status)
     except urllib.error.HTTPError as exc:
-        _logger.warning("Discord webhook HTTP %s: %s", exc.code, exc.reason)
+        body = ""
+        try:
+            body = exc.read().decode("utf-8", errors="replace")[:300]
+        except Exception:
+            pass
+        _logger.warning(
+            "Discord webhook HTTP %s: %s%s",
+            exc.code,
+            exc.reason,
+            f" — {body}" if body else "",
+        )
     except Exception as exc:
-        _logger.debug("Falha ao enviar notificação Discord: %s", exc)
+        _logger.warning("Falha ao enviar notificação Discord: %s", exc)
+
+
+def post_discord_embed_url(
+    url: str,
+    *,
+    username: str,
+    title: str,
+    description: str = "",
+    color: int = 0x3498DB,
+    fields: Optional[List[dict]] = None,
+) -> None:
+    """Envia embed para um webhook arbitrário (ex.: por servidor TEK)."""
+    if not (url or "").strip():
+        return
+    embed: dict = {
+        "title": title,
+        "color": color,
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "footer": {"text": _FOOTER_TEXT},
+    }
+    if description:
+        embed["description"] = description
+    if fields:
+        embed["fields"] = fields
+    payload = {"username": username or "ARKLAND", "embeds": [embed]}
+    threading.Thread(
+        target=_post_webhook,
+        args=(url.strip(), payload),
+        daemon=True,
+        name="discord-webhook-custom",
+    ).start()
 
 
 class DiscordNotifier:

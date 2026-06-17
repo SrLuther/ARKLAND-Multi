@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.24] - 2026-06-12
+
+### Improvement
+
+- Melhoria (Discord): erros de webhook passam a aparecer no log com corpo da resposta HTTP.
+
+### Fix
+
+- Fix (Discord): DiscordNotifier nunca era inicializado no app TEK — webhooks globais (start/stop/crash, backup, mods, BUFFs) voltam a funcionar.
+- Fix (Discord TEK): notificações por servidor via webhook em Gerenciamento Automático + Detalhes do Discord Bot (start/stop e join/leave via ListPlayers).
+
 ## [1.9.23] - 2026-06-12
 
 ### Fix

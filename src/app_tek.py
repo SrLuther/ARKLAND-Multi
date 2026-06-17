@@ -73,7 +73,9 @@ class ARKServerManagerApp(ctk.CTk):
             on_status_change=self._on_server_status_change
         )
         self.config_manager  = ConfigManager()
-        self.server_manager  = ServerManager()
+        from .pages.init_discord_notifier import init_discord_notifier
+        init_discord_notifier(self)
+        self.server_manager  = ServerManager(discord_notifier=self._discord_notifier)
         from .mod_manager import ModManager
         self.mod_manager = ModManager(
             steamcmd_path=self.config_manager.config.steamcmd_path,
@@ -146,8 +148,6 @@ class ARKServerManagerApp(ctk.CTk):
         self._remote_code_var: Any = None
         self._remote_ip_var: Any = None
         self._udp_discovery: Any = None
-        # Discord / notificações
-        self._discord_notifier: Any = None
 
         # ── Layout principal: sidebar + conteúdo ──────────────────────────────
         self.grid_rowconfigure(0, weight=1)
@@ -238,6 +238,11 @@ class ARKServerManagerApp(ctk.CTk):
                             if ok:
                                 lines = [ln for ln in resp.splitlines() if ln.strip()]
                                 data["players"] = f"{len(lines)}/{srv.max_players}"
+                                try:
+                                    from .asm_engine.asm_discord_hooks import poll_tek_player_discord
+                                    poll_tek_player_discord(self, srv, players_resp=resp)
+                                except Exception:
+                                    pass
                             else:
                                 data["players"] = "?/?"
                         except Exception:
@@ -270,6 +275,17 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _on_server_status_change(self, server_id: str, new_status: str) -> None:
         """Chamado pela thread do monitor quando o status de um servidor muda."""
+        try:
+            from .asm_engine.asm_discord_hooks import (
+                clear_tek_player_cache,
+                notify_tek_server_status,
+            )
+            notify_tek_server_status(self, server_id, new_status)
+            if new_status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED):
+                clear_tek_player_cache(self, server_id)
+        except Exception:
+            pass
+
         # B2: registra timestamp de início do uptime quando fica RUNNING
         if new_status == ASM_STATUS_RUNNING:
             inst = self.asm_server_manager.get_instance(server_id)
@@ -1046,7 +1062,11 @@ class ARKServerManagerApp(ctk.CTk):
         def _worker():
             try:
                 from .backup_manager import BackupManager
-                bm = BackupManager(get_servers=lambda: self.asm_config_manager.servers)
+                bm = BackupManager(
+                    get_servers=lambda: self.asm_config_manager.servers,
+                    on_log=self._global_log,
+                    discord_notifier=self._discord_notifier,
+                )
                 srv_cfg = bm._to_server_config(srv) if hasattr(bm, "_to_server_config") else None
                 if srv_cfg is None:
                     from .server_config import ServerConfig as _SC

@@ -1,9 +1,10 @@
 {
-    "version": "1.9.23",
+    "version": "1.9.24",
     "date": "2026-06-16",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.23/ARKLAND-Multi-Setup-v1.9.23.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.24/ARKLAND-Multi-Setup-v1.9.24.exe",
     "changelog": [
-        "Fix (TEK): nova seção Mods (Workshop) na barra lateral do painel do servidor — lista de mods e atualização automática Workshop deixam de ficar escondidas em Administração.",
-        "Fix (TEK): conflito de layout entre lista de mods e Branch SteamCMD corrigido (widgets sobrepostos na mesma linha do grid)."
+        "Fix (Discord): DiscordNotifier nunca era inicializado no app TEK — webhooks globais (start/stop/crash, backup, mods, BUFFs) voltam a funcionar.",
+        "Fix (Discord TEK): notificações por servidor via webhook em Gerenciamento Automático + Detalhes do Discord Bot (start/stop e join/leave via ListPlayers).",
+        "Melhoria (Discord): erros de webhook passam a aparecer no log com corpo da resposta HTTP."
     ]
 }

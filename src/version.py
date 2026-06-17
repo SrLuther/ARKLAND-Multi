@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.23"
+APP_VERSION: str = "1.9.24"
 BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.24",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (Discord): DiscordNotifier nunca era inicializado no app TEK — webhooks globais "
+            "(start/stop/crash, backup, mods, BUFFs) voltam a funcionar.",
+            "Fix (Discord TEK): notificações por servidor via webhook em Gerenciamento Automático + "
+            "Detalhes do Discord Bot (start/stop e join/leave via ListPlayers).",
+            "Melhoria (Discord): erros de webhook passam a aparecer no log com corpo da resposta HTTP.",
+        ],
+    },
     {
         "version": "1.9.23",
         "date": "2026-06-12",
