@@ -74,6 +74,13 @@ class ARKServerManagerApp(ctk.CTk):
         )
         self.config_manager  = ConfigManager()
         self.server_manager  = ServerManager()
+        from .mod_manager import ModManager
+        self.mod_manager = ModManager(
+            steamcmd_path=self.config_manager.config.steamcmd_path,
+            on_log=lambda msg, level: self._global_log(msg, level),
+        )
+        self._mod_auto_updater = None
+        self._auto_updater_log_box = None
         self.update_checker  = UpdateChecker(on_log=lambda m, level: None)
         # Carrega servidores primitivos salvos no server_manager
         for srv in self.config_manager.servers:
@@ -161,6 +168,8 @@ class ARKServerManagerApp(ctk.CTk):
         # Auto-start: sync e agente remoto (após UI estável)
         self.after(2000, self._auto_start_services)
         self.after(2500, self._asm_scan_running_servers)
+        self.after(2500, self._ensure_buff_manager)
+        self.after(3000, self._start_mod_auto_updater)
         # Auto-start: Web Store (após painel estável)
         self.after(5000, self._auto_start_webstore)
         # Verifica atualização do app ao iniciar
@@ -1101,26 +1110,87 @@ class ARKServerManagerApp(ctk.CTk):
 
         _th.Thread(target=_worker, daemon=True).start()
 
+    def _ensure_buff_manager(self) -> None:
+        """Inicia o scheduler de BUFFs ao abrir o app (não só ao abrir a aba)."""
+        if self._buff_manager is None:
+            self._init_buff_manager()
+
     def _asm_check_update_worker(self, srv: AsmServerConfig) -> None:
         """Verifica no Steam se há atualização disponível para o servidor."""
+        import threading as _th
+
+        def _log(msg: str, level: str = "info") -> None:
+            if hasattr(self, "_global_log"):
+                self.after(0, lambda m=msg, lv=level: self._global_log(m, lv))
+
         try:
-            from .asm_engine.asm_steamcmd import AsmSteamCmd  # noqa: PLC0415
+            from .asm_engine.asm_steamcmd import AsmSteamCmd
+            from .asm_engine.asm_server_config import ASM_STATUS_RUNNING
+
             scmd_path = (
                 getattr(getattr(self.config_manager, "config", None), "steamcmd_path", None)
                 or AsmSteamCmd.find_steamcmd()
             )
             if not scmd_path:
+                _log(f"[AutoUpdate] {srv.name}: SteamCMD não configurado.", "warning")
                 return
-            sc = AsmSteamCmd(scmd_path, on_log=lambda msg: None)
+            if not srv.install_dir:
+                _log(f"[AutoUpdate] {srv.name}: pasta de instalação vazia.", "warning")
+                return
+
+            build_before = AsmSteamCmd.read_installed_build_id(srv.install_dir)
+            was_running = self.asm_server_manager.get_status(srv.id) == ASM_STATUS_RUNNING
+            done = _th.Event()
+            result: list = [False, ""]
+
+            def _on_done(ok: bool, msg: str) -> None:
+                result[0], result[1] = ok, msg
+                done.set()
+
+            sc = AsmSteamCmd(scmd_path, on_log=lambda m: _log(f"[AutoUpdate] {m}", "debug"))
+            _log(f"[AutoUpdate] Verificando atualização do servidor '{srv.name}'…", "info")
             sc.install_server(
                 install_dir=srv.install_dir,
                 branch=getattr(srv, "branch_name", ""),
                 branch_password=getattr(srv, "branch_password", ""),
                 validate=False,
-                on_done=lambda ok, msg: None,
+                on_done=_on_done,
             )
-        except Exception:
-            pass
+            if not done.wait(timeout=3600):
+                _log(f"[AutoUpdate] {srv.name}: timeout aguardando SteamCMD.", "error")
+                return
+
+            ok, msg = result[0], result[1]
+            build_after = AsmSteamCmd.read_installed_build_id(srv.install_dir)
+            updated = bool(build_after and build_after != build_before)
+
+            if not ok:
+                _log(f"[AutoUpdate] {srv.name}: falhou — {msg}", "error")
+                return
+
+            if updated:
+                _log(
+                    f"[AutoUpdate] {srv.name}: build atualizado "
+                    f"({build_before or '?'} → {build_after}). {msg}",
+                    "info",
+                )
+            else:
+                _log(f"[AutoUpdate] {srv.name}: já está na versão mais recente ({build_after or msg}).", "info")
+                return
+
+            au = getattr(self.config_manager.config, "auto_update", None)
+            restart = bool(getattr(au, "replace_restart_after_update", False))
+            if was_running and restart:
+                _log(f"[AutoUpdate] {srv.name}: reiniciando após atualização…", "info")
+                self.after(0, lambda s=srv: self._asm_restart_server(s))
+            elif was_running:
+                _log(
+                    f"[AutoUpdate] {srv.name}: atualizado — reinicie manualmente ou ative "
+                    "'Reiniciar após atualização' em Configurações globais.",
+                    "warning",
+                )
+        except Exception as exc:
+            _log(f"[AutoUpdate] {srv.name}: erro — {exc}", "error")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Helpers de UI (usados pelos builders de pages)
@@ -1275,6 +1345,9 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception:
             pass
         self.config_manager.save()
+        self.mod_manager.steamcmd_path = cfg.steamcmd_path
+        if self._mod_auto_updater is not None:
+            self._mod_auto_updater.set_steam_api_key(cfg.steam_api_key)
         messagebox.showinfo("Salvo", "Configurações globais salvas!", parent=self)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1499,9 +1572,30 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.init_buff_manager import init_buff_manager
         init_buff_manager(self)
 
-    def _build_active_buff_card(self, parent, row: int, event) -> None:
+    def _on_auto_updater_log(self, msg: str, level: str = "info") -> None:
+        self._global_log(msg, level)
+        box = getattr(self, "_auto_updater_log_box", None)
+        if box is None:
+            return
+        try:
+            box.configure(state="normal")
+            box.insert("end", msg + "\n", level if level in ("info", "warning", "error", "debug") else "info")
+            box.see("end")
+            box.configure(state="disabled")
+        except Exception:
+            pass
+
+    def _start_mod_auto_updater(self) -> None:
+        from .pages.start_mod_auto_updater import start_mod_auto_updater
+        start_mod_auto_updater(self)
+
+    def _toggle_mod_auto_updater(self, server_id: str = "") -> None:
+        from .pages.toggle_mod_auto_updater import toggle_mod_auto_updater
+        toggle_mod_auto_updater(self, server_id)
+
+    def _build_active_buff_card(self, parent, row: int, event, *, activating: bool = False) -> None:
         from .pages.build_active_buff_card import build_active_buff_card
-        build_active_buff_card(self, parent, row, event)
+        build_active_buff_card(self, parent, row, event, activating=activating)
 
     def _build_scheduled_buff_row(self, parent, row: int, event) -> None:
         from .pages.build_scheduled_buff_row import build_scheduled_buff_row

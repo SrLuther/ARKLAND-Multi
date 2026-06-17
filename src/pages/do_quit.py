@@ -1,40 +1,43 @@
 from __future__ import annotations
-import os
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
 def do_quit(app: "ARKServerManagerApp") -> None:
-    if app._tray_icon:
+    tray = getattr(app, "_tray_icon", None)
+    if tray:
         try:
-            app._tray_icon.stop()
+            tray.stop()
         except Exception:
             pass
         app._tray_icon = None
-    if app._sync_engine and app._sync_engine.is_running:
-        app._sync_engine.stop()
-    for _eng in list(app._cluster_sync_engines.values()):
+    sync = getattr(app, "_sync_engine", None)
+    if sync and sync.is_running:
+        sync.stop()
+    for _eng in list(getattr(app, "_cluster_sync_engines", {}).values()):
         if _eng.is_running:
             _eng.stop()
-    app._cluster_sync_engines.clear()
-    app._dynamic_config_server.stop()
+    if hasattr(app, "_cluster_sync_engines"):
+        app._cluster_sync_engines.clear()
+    dyn = getattr(app, "_dynamic_config_server", None)
+    if dyn is not None:
+        dyn.stop()
     if app._mod_auto_updater and app._mod_auto_updater.enabled:
         app._mod_auto_updater.stop()
     if app._buff_manager:
         app._buff_manager.stop()
-    if app._backup_manager:
-        app._backup_manager.shutdown()
-    if app._remote_agent and app._remote_agent.is_running:
-        app._remote_agent.stop()
+    backup = getattr(app, "_backup_manager", None)
+    if backup is not None:
+        backup.shutdown()
+    remote = getattr(app, "_remote_agent", None)
+    if remote and remote.is_running:
+        remote.stop()
     app._perf_running = False
-    # Os processos dos servidores (mapas) são mantidos em execução intencionalmente.
-    # Apenas recursos internos do app são encerrados.
-    for client in list(app._rcon_clients.values()):
+    for client in list(getattr(app, "_rcon_clients", {}).values()):
         try:
             client.disconnect()
         except Exception:
             pass
     app.config_manager.save()
     app.destroy()
-

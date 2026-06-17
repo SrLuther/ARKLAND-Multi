@@ -601,6 +601,9 @@ def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
         "rcon_password": rcon_pass,
         "delivery_mode": shop.delivery_mode or "plugin",
         "machine_label": shop.machine_label or "",
+        "plugin_config_path": (
+            getattr(srv, "customshop_config_path", "") or default_customshop_path(getattr(srv, "install_dir", ""))
+        ),
     }
 
 

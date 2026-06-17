@@ -288,6 +288,7 @@ class BuffManager:
         self._presets: List[BuffPreset] = []
         self._lock = threading.Lock()
         self._change_callbacks: List[Callable] = []
+        self._activating: set[str] = set()
         # Controle de avisos RCON já enviados: set de "event_id:threshold"
         self._rcon_warnings_sent: set = set()
 
@@ -353,11 +354,24 @@ class BuffManager:
                     return e
         return None
 
+    def get_activating_event(self, server_id: str) -> Optional[BuffEvent]:
+        """Evento agendado/ativo em processo de ativação (reinício + INI)."""
+        with self._lock:
+            for e in self._events:
+                if e.server_id == server_id and e.id in self._activating:
+                    return e
+        return None
+
+    def is_activating(self, event_id: str) -> bool:
+        with self._lock:
+            return event_id in self._activating
+
     def get_scheduled_events(self, server_id: Optional[str] = None) -> List[BuffEvent]:
         with self._lock:
             evts = [
                 e for e in self._events
                 if e.status == BUFF_STATUS_SCHEDULED
+                and e.id not in self._activating
                 and (server_id is None or e.server_id == server_id)
             ]
         return sorted(evts, key=lambda e: e.start_dt)
@@ -511,10 +525,23 @@ class BuffManager:
     def _apply_rates(self, server_id: str, rates: BuffRates) -> bool:
         cfg = self._get_server_config(server_id)
         if not cfg or not getattr(cfg, "install_dir", ""):
+            self._on_log("[BUFF] install_dir não configurado — rates não aplicados.", "error")
             return False
 
         try:
-            if hasattr(cfg, "game_settings"):
+            from .asm_engine.asm_server_config import AsmServerConfig
+
+            if isinstance(cfg, AsmServerConfig):
+                for fname_group in BUFF_RATE_FIELDS.values():
+                    for field_name, _, _ in fname_group:
+                        val = getattr(rates, field_name, None)
+                        if val is not None and hasattr(cfg, field_name):
+                            setattr(cfg, field_name, val)
+                from .asm_engine.asm_ini_manager import write_ini
+                write_ini(cfg)
+                if self._persist_server_config:
+                    self._persist_server_config(server_id, cfg)
+            elif hasattr(cfg, "game_settings"):
                 ini = ArkIniManager(cfg.install_dir)
                 ini.load_game_user_settings(cfg)
                 ini.load_game_ini(cfg)
@@ -527,15 +554,8 @@ class BuffManager:
                 ini.save_game_user_settings(cfg)
                 ini.save_game_ini(cfg)
             else:
-                for fname_group in BUFF_RATE_FIELDS.values():
-                    for field_name, _, _ in fname_group:
-                        val = getattr(rates, field_name, None)
-                        if val is not None and hasattr(cfg, field_name):
-                            setattr(cfg, field_name, val)
-                from .asm_engine.asm_ini_manager import write_ini
-                write_ini(cfg)
-                if self._persist_server_config:
-                    self._persist_server_config(server_id, cfg)
+                self._on_log("[BUFF] Tipo de servidor não suportado para aplicar rates.", "error")
+                return False
         except Exception as exc:
             self._on_log(f"[BUFF] Falha ao aplicar rates: {exc}", "error")
             return False
@@ -543,17 +563,24 @@ class BuffManager:
         self._on_log("[BUFF] Rates aplicados nos INIs.", "info")
         return True
 
+    @staticmethod
+    def _cfg_rcon_password(cfg: object) -> str:
+        return (
+            getattr(cfg, "rcon_password", "") or getattr(cfg, "admin_password", "") or ""
+        ).strip()
+
     # ── RCON ──────────────────────────────────────────────────────────────────
 
     def _rcon_broadcast(self, server_id: str, message: str) -> None:
         from .server_config import SERVER_STATUS_RUNNING
         cfg = self._get_server_config(server_id)
-        if not cfg or not cfg.rcon_enabled or not cfg.rcon_password:
+        pwd = self._cfg_rcon_password(cfg) if cfg else ""
+        if not cfg or not cfg.rcon_enabled or not pwd:
             return
         if self._get_server_status(server_id) != SERVER_STATUS_RUNNING:
             return
         try:
-            client = RconClient("127.0.0.1", cfg.rcon_port, cfg.rcon_password)
+            client = RconClient("127.0.0.1", cfg.rcon_port, pwd)
             client.connect()
             client.send_command(f"Broadcast {message}")
             client.disconnect()
@@ -562,7 +589,7 @@ class BuffManager:
 
     # ── Wait helpers ──────────────────────────────────────────────────────────
 
-    def _wait_stopped(self, server_id: str, timeout: int = 120) -> bool:
+    def _wait_stopped(self, server_id: str, timeout: int = 180) -> bool:
         from .server_config import SERVER_STATUS_STOPPED
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -571,57 +598,76 @@ class BuffManager:
             time.sleep(2)
         return False
 
+    def _wait_running(self, server_id: str, timeout: int = 300) -> bool:
+        from .server_config import SERVER_STATUS_RUNNING
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self._get_server_status(server_id) == SERVER_STATUS_RUNNING:
+                return True
+            time.sleep(3)
+        return False
+
     # ── Activation / deactivation workers ─────────────────────────────────────
 
     def _activate_worker(self, event: BuffEvent) -> None:
         self._on_log(f"[BUFF] Ativando BUFF: '{event.name}'", "info")
-
-        # 1. Marca como ativo imediatamente (evita dupla ativação)
         with self._lock:
-            for e in self._events:
-                if e.id == event.id:
-                    e.status = BUFF_STATUS_ACTIVE
-                    break
-            self._save()
-        self._notify()
+            if event.id in self._activating:
+                return
+            self._activating.add(event.id)
 
-        # 2. Broadcast e aguarda
-        self._rcon_broadcast(
-            event.server_id,
-            "[BUFF] Servidor reiniciará para ativação de rates especiais.",
-        )
-        time.sleep(10)
+        try:
+            self._rcon_broadcast(
+                event.server_id,
+                "[BUFF] Servidor reiniciará para ativação de rates especiais.",
+            )
+            time.sleep(10)
 
-        # 3. Para o servidor
-        self._stop_server(event.server_id)
-        if not self._wait_stopped(event.server_id):
-            self._on_log("[BUFF] Timeout aguardando parada do servidor.", "warning")
+            self._stop_server(event.server_id)
+            if not self._wait_stopped(event.server_id):
+                self._on_log("[BUFF] Timeout aguardando parada do servidor.", "warning")
 
-        # 4. Backup dos INIs originais
-        backup_path = self._backup_ini(event.server_id, event.name)
+            backup_path = self._backup_ini(event.server_id, event.name)
+            if not self._apply_rates(event.server_id, event.rates):
+                raise RuntimeError("Falha ao aplicar rates nos INIs")
 
-        # 5. Aplica rates
-        self._apply_rates(event.server_id, event.rates)
+            with self._lock:
+                for e in self._events:
+                    if e.id == event.id:
+                        e.backup_path = backup_path
+                        break
+                self._save()
 
-        # 6. Salva caminho do backup
-        with self._lock:
-            for e in self._events:
-                if e.id == event.id:
-                    e.backup_path = backup_path
-                    break
-            self._save()
+            self._start_server(event.server_id)
+            if not self._wait_running(event.server_id):
+                raise RuntimeError("Servidor não voltou a ficar online após reinício")
 
-        # 7. Liga o servidor
-        self._start_server(event.server_id)
-        self._notify()
-        self._on_log(f"[BUFF] BUFF '{event.name}' ativado com sucesso.", "info")
+            with self._lock:
+                for e in self._events:
+                    if e.id == event.id:
+                        e.status = BUFF_STATUS_ACTIVE
+                        break
+                self._save()
+            self._notify()
+            self._on_log(f"[BUFF] BUFF '{event.name}' ativado com sucesso.", "info")
 
-        # 8. Notifica Discord
-        if self._discord_notify:
-            try:
-                self._discord_notify("start", event)
-            except Exception:
-                pass
+            if self._discord_notify:
+                try:
+                    self._discord_notify("start", event)
+                except Exception:
+                    pass
+        except Exception as exc:
+            self._on_log(f"[BUFF] Falha ao ativar '{event.name}': {exc}", "error")
+            with self._lock:
+                for e in self._events:
+                    if e.id == event.id and e.status != BUFF_STATUS_ACTIVE:
+                        e.status = BUFF_STATUS_SCHEDULED
+                        break
+                self._save()
+            self._notify()
+        finally:
+            with self._lock:
+                self._activating.discard(event.id)
 
     def _deactivate_worker(self, event: BuffEvent) -> None:
         self._on_log(f"[BUFF] Desativando BUFF: '{event.name}'", "info")
@@ -782,6 +828,9 @@ class BuffManager:
                 )
 
         for e in to_activate:
+            with self._lock:
+                if e.id in self._activating:
+                    continue
             threading.Thread(
                 target=self._activate_worker,
                 args=(e,),

@@ -3,11 +3,30 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.21"
+APP_VERSION: str = "1.9.22"
 BUILD_DATE: str = "2026-06-16"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.22",
+        "date": "2026-06-12",
+        "changes": [
+            "Fix (BUFFs TEK): scheduler inicia ao abrir o app; reinício aplica rates nos INIs "
+            "e só marca ativo quando o servidor volta online; UI mostra estado ATIVANDO.",
+            "Fix (BUFFs TEK): RCON usa admin_password; parada/início via asm_server_manager "
+            "sem diálogos que bloqueavam a thread em background.",
+            "Fix (ModAutoUpdater TEK): ponte unificada para servidores TEK; card na aba Mods "
+            "com ativar/parar, intervalo e log; Steam API Key repassada ao salvar config global.",
+            "Fix (AutoUpdate servidor TEK): verificação agendada aguarda SteamCMD, compara "
+            "build ID e registra log; reinício opcional após update (config global).",
+            "Fix (Web Store): resgate confirmBuy não quebra toast após fechar modal.",
+            "Novo (Web Store): editor estruturado de itens + Salvar & Aplicar grava disco e "
+            "recarrega CustomShop em todos os servidores cadastrados.",
+            "Melhoria (Web Store): save_config sincroniza catálogo em cada plugin_config_path "
+            "e Shop.Reload via RCON em todos os servidores registrados.",
+        ],
+    },
     {
         "version": "1.9.21",
         "date": "2026-06-12",

@@ -586,6 +586,7 @@
       line-height: 1.4;
     }
     #modal-kit .modal { max-width: 960px; max-height: 92vh; }
+    #modal-item .modal { max-width: 960px; max-height: 92vh; }
     #modal-kit .modal-body-scroll {
       max-height: calc(92vh - 130px);
       overflow-y: auto;
@@ -2535,7 +2536,7 @@
     <div id="modal-item-body"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-item')">Cancelar</button>
-      <button class="btn btn-success" onclick="confirmItem()">✔ Salvar</button>
+      <button class="btn btn-success" id="modal-item-save-btn" onclick="confirmItem()">💾 Salvar & Aplicar</button>
     </div>
   </div>
 </div>
@@ -2550,7 +2551,7 @@
     <div id="modal-kit-body"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-kit')">Cancelar</button>
-      <button class="btn btn-success" onclick="confirmKit()">✔ Salvar</button>
+      <button class="btn btn-success" id="modal-kit-save-btn" onclick="confirmKit()">💾 Salvar & Aplicar</button>
     </div>
   </div>
 </div>
@@ -2619,6 +2620,11 @@
       <div class="form-group" style="grid-column:1/-1;">
         <label>Template de Entrega</label>
         <input id="srv-template" type="text" placeholder="Shop.Deliver {steam_id} {item_id} {amount}" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>config.json do CustomShop (destino da sincronização)</label>
+        <input id="srv-config-path" type="text" placeholder="C:\...\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json" />
+        <div class="kit-json-hint">O catálogo mestre é copiado para este arquivo ao salvar. Cadastre um servidor por mapa/cluster.</div>
       </div>
     </div>
     <div class="modal-footer">
@@ -3723,25 +3729,52 @@ async function loadConfig() {
 }
 
 // ── Save config ───────────────────────────────────────────────────────────────
-async function saveConfig() {
+async function saveConfig(silent) {
   const r = await fetch(API + "/api/config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(_config),
   });
   const data = await r.json();
-  if (data.ok) { toast("Config salva com sucesso!"); }
-  else { toast("Erro ao salvar: " + data.error, "error"); }
-  return data.ok;
+  if (data.ok) {
+    if (!silent) {
+      const n = data.sync_count || (data.written || []).length || 1;
+      toast(`config.json gravado em ${n} destino(s)`, "success");
+    }
+    if ((data.errors || []).length) {
+      toast("Alguns destinos falharam: " + data.errors.map(e => e.label).join(", "), "warning");
+    }
+  } else {
+    toast("Erro ao salvar config.json: " + (data.error || "desconhecido"), "error");
+  }
+  return data;
 }
 
 async function saveAndReload() {
-  const saved = await saveConfig();
-  if (!saved) return;
+  toast("Gravando config.json em todos os servidores…", "success");
+  const saveData = await saveConfig(true);
+  if (!saveData.ok) return false;
+
+  const written = saveData.written || [];
+  const syncN = saveData.sync_count || written.length || 0;
+
   const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
-  const data = await r.json();
-  if (data.ok) toast("ArkShop recarregado via RCON: " + (data.response||"ok"));
-  else toast("RCON: " + data.error, "warning");
+  const reloadData = await r.json();
+  const results = reloadData.results || [];
+  const reloadOk = results.filter(x => x.ok).length;
+  const reloadTotal = results.length;
+
+  if (reloadData.ok || reloadOk > 0) {
+    const paths = written.map(w => w.label).join(", ");
+    toast(`✅ Gravado em ${syncN} config(s) [${paths}] · Reload ${reloadOk}/${reloadTotal} servidor(es)`, "success");
+    setStatus(true, `${syncN} config(s) · reload ${reloadOk}/${reloadTotal}`);
+    return true;
+  }
+
+  const paths = written.map(w => w.label).join(", ");
+  toast(`Config gravada em ${syncN} destino(s) [${paths}], mas RCON falhou em todos`, "warning");
+  setStatus(true, `${syncN} config(s) · RCON falhou`);
+  return false;
 }
 
 // ── Render pages ──────────────────────────────────────────────────────────────
@@ -3765,12 +3798,18 @@ function renderShop() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Permissões</th><th>Ações</th>
+          <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Conteúdo</th><th>Permissões</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${keys.map(k => {
             const it = items[k];
-            const displayName = it.Name || formatKey(k);
+            const displayName = it.Name || it.Description || formatKey(k);
+            const parts = [];
+            if (it.Blueprint) parts.push("1 bp");
+            if ((it.Items || []).length) parts.push(`${it.Items.length} item(s)`);
+            if ((it.Dinos || []).length) parts.push(`${it.Dinos.length} dino(s)`);
+            if ((it.Commands || []).length) parts.push(`${it.Commands.length} cmd(s)`);
+            const content = parts.length ? parts.join(" · ") : "—";
             return `<tr>
               <td>
                 <div style="font-weight:600;color:var(--text)">${escHtml(displayName)}</div>
@@ -3779,6 +3818,7 @@ function renderShop() {
               <td>${typeBadge(it.Type||"item")}</td>
               <td><span style="color:var(--text2);font-size:12px">${escHtml(it.Category||"Geral")}</span></td>
               <td class="price-tag">${it.Price??0} pts</td>
+              <td><span style="font-size:11px;color:var(--text2)">${content}</span></td>
               <td>${it.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openItemModal('${k}')">✏️</button>
@@ -4116,76 +4156,285 @@ async function deleteDownload(id) {
   } catch(e) { toast("Erro de rede", "error"); }
 }
 
-// ── Item modal ────────────────────────────────────────────────────────────────
+// ── Item modal (editor estruturado + salvar/aplicar) ─────────────────────────
+let _shopItemItemsDraft = [];
+let _shopItemDinosDraft = [];
+let _shopItemCommandsDraft = [];
+
+function syncShopItemDraftFromDOM() {
+  document.querySelectorAll("#shop-item-items-list .kit-entry").forEach((row, idx) => {
+    if (!_shopItemItemsDraft[idx]) return;
+    _shopItemItemsDraft[idx] = {
+      Blueprint: row.querySelector('[data-field="blueprint"]')?.value || "",
+      Amount: parseInt(row.querySelector('[data-field="amount"]')?.value, 10) || 1,
+      Quality: parseFloat(row.querySelector('[data-field="quality"]')?.value) || 0,
+      ForceBlueprint: row.querySelector('[data-field="forcebp"]')?.checked || false,
+      Damage: row.querySelector('[data-field="damage"]')?.value ?? "",
+      Durability: row.querySelector('[data-field="durability"]')?.value ?? "",
+      Armor: row.querySelector('[data-field="armor"]')?.value ?? "",
+    };
+  });
+  document.querySelectorAll("#shop-item-dinos-list .kit-entry").forEach((row, idx) => {
+    if (!_shopItemDinosDraft[idx]) return;
+    _shopItemDinosDraft[idx] = {
+      Blueprint: row.querySelector('[data-field="blueprint"]')?.value || "",
+      Level: parseInt(row.querySelector('[data-field="level"]')?.value, 10) || 150,
+      Gender: row.querySelector('[data-field="gender"]')?.value || "",
+      ForceTame: row.querySelector('[data-field="forcetame"]')?.checked !== false,
+      Neutered: row.querySelector('[data-field="neutered"]')?.checked || false,
+      SaddleBlueprint: row.querySelector('[data-field="saddle"]')?.value || "",
+    };
+  });
+  document.querySelectorAll("#shop-item-cmds-list .kit-entry").forEach((row, idx) => {
+    if (!_shopItemCommandsDraft[idx]) return;
+    _shopItemCommandsDraft[idx] = {
+      Command: row.querySelector('[data-field="command"]')?.value || "",
+      ExecuteAsAdmin: row.querySelector('[data-field="exec-admin"]')?.checked || false,
+      DisplayAs: row.querySelector('[data-field="display-as"]')?.value || "",
+    };
+  });
+}
+
+function renderShopItemEntrySections() {
+  const itemsEl = document.getElementById("shop-item-items-list");
+  const dinosEl = document.getElementById("shop-item-dinos-list");
+  const cmdsEl = document.getElementById("shop-item-cmds-list");
+  if (!itemsEl || !dinosEl || !cmdsEl) return;
+  itemsEl.innerHTML = _shopItemItemsDraft.length
+    ? _shopItemItemsDraft.map((it, i) => kitItemEntryHtml(it, i, "removeShopItemSubEntry")).join("")
+    : `<div class="kit-empty-hint">Nenhum item empacotado — clique em + Item (a maioria dos itens do config usa Items[] aqui)</div>`;
+  dinosEl.innerHTML = _shopItemDinosDraft.length
+    ? _shopItemDinosDraft.map((d, i) => kitDinoEntryHtml(d, i, "removeShopItemDinoEntry")).join("")
+    : `<div class="kit-empty-hint">Nenhum dino — clique em + Dino</div>`;
+  cmdsEl.innerHTML = _shopItemCommandsDraft.length
+    ? _shopItemCommandsDraft.map((c, i) => kitCommandEntryHtml(c, i, "removeShopItemCommandEntry")).join("")
+    : `<div class="kit-empty-hint">Nenhum comando — clique em + Comando</div>`;
+}
+
+function addShopItemSubEntry() {
+  syncShopItemDraftFromDOM();
+  _shopItemItemsDraft.push(normalizeKitItem({ Amount: 1 }));
+  renderShopItemEntrySections();
+}
+function removeShopItemSubEntry(idx) {
+  syncShopItemDraftFromDOM();
+  _shopItemItemsDraft.splice(idx, 1);
+  renderShopItemEntrySections();
+}
+function addShopItemDinoEntry() {
+  syncShopItemDraftFromDOM();
+  _shopItemDinosDraft.push(normalizeKitDino({ Level: 1, ForceTame: true }));
+  renderShopItemEntrySections();
+}
+function removeShopItemDinoEntry(idx) {
+  syncShopItemDraftFromDOM();
+  _shopItemDinosDraft.splice(idx, 1);
+  renderShopItemEntrySections();
+}
+function addShopItemCommandEntry() {
+  syncShopItemDraftFromDOM();
+  _shopItemCommandsDraft.push(normalizeKitCommand(""));
+  renderShopItemEntrySections();
+}
+function removeShopItemCommandEntry(idx) {
+  syncShopItemDraftFromDOM();
+  _shopItemCommandsDraft.splice(idx, 1);
+  renderShopItemEntrySections();
+}
+
+function readShopItemSubItemsFromDOM() {
+  syncShopItemDraftFromDOM();
+  const out = [];
+  _shopItemItemsDraft.forEach(item => {
+    const bp = (item.Blueprint || "").trim();
+    if (!bp) return;
+    const entry = {
+      Blueprint: bp,
+      Quantity: Math.max(1, parseInt(item.Amount ?? item.Quantity, 10) || 1),
+    };
+    const qual = parseFloat(item.Quality);
+    if (qual) entry.Quality = qual;
+    if (item.ForceBlueprint) entry.ForceBlueprint = true;
+    const dmg = String(item.Damage ?? "").trim();
+    const dur = String(item.Durability ?? "").trim();
+    const arm = String(item.Armor ?? "").trim();
+    if (dmg !== "") entry.Damage = parseFloat(dmg);
+    if (dur !== "") entry.Durability = parseFloat(dur);
+    if (arm !== "") entry.Armor = parseFloat(arm);
+    out.push(entry);
+  });
+  return out;
+}
+
+function readShopItemDinosFromDOM() {
+  syncShopItemDraftFromDOM();
+  const out = [];
+  _shopItemDinosDraft.forEach(dino => {
+    const bp = (dino.Blueprint || "").trim();
+    if (!bp) return;
+    const entry = {
+      Blueprint: bp,
+      Level: Math.max(1, parseInt(dino.Level, 10) || 150),
+      ForceTame: dino.ForceTame !== false,
+      Neutered: !!dino.Neutered,
+    };
+    const gender = (dino.Gender || "").trim();
+    if (gender) entry.Gender = gender;
+    const saddle = (dino.SaddleBlueprint || "").trim();
+    if (saddle) entry.SaddleBlueprint = saddle;
+    out.push(entry);
+  });
+  return out;
+}
+
+function readShopItemCommandsFromDOM() {
+  syncShopItemDraftFromDOM();
+  const out = [];
+  _shopItemCommandsDraft.forEach(cmd => {
+    const text = (cmd.Command || "").trim();
+    if (!text) return;
+    const execAdmin = !!cmd.ExecuteAsAdmin;
+    const displayAs = (cmd.DisplayAs || "").trim();
+    if (execAdmin || displayAs) {
+      const obj = { Command: text };
+      if (execAdmin) obj.ExecuteAsAdmin = true;
+      if (displayAs) obj.DisplayAs = displayAs;
+      out.push(obj);
+    } else {
+      out.push(text);
+    }
+  });
+  return out;
+}
+
 function openItemModal(key) {
   _editingKey = key || null;
   _editingSection = "shop";
   const item = key ? (_config?.ShopItems?.[key] || {}) : {};
+  const displayName = item.Name || item.Description || "";
+
+  _shopItemItemsDraft = (Array.isArray(item.Items) ? item.Items : []).map(normalizeKitItem);
+  _shopItemDinosDraft = (Array.isArray(item.Dinos) ? item.Dinos : []).map(normalizeKitDino);
+  _shopItemCommandsDraft = (Array.isArray(item.Commands) ? item.Commands : []).map(normalizeKitCommand);
+
   document.getElementById("modal-item-title").textContent = key ? `Editar: ${key}` : "Novo Item";
   document.getElementById("modal-item-body").innerHTML = `
-    <div class="form-grid">
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Nome de Exibição <span style="color:var(--danger)">*</span></label>
-        <input id="mi-name" type="text" value="${escHtml(item.Name||"")}" placeholder="ex: Metal Ingot x100 (aparece na loja)" />
+    <div class="modal-body-scroll">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Nome de Exibição <span style="color:var(--danger)">*</span></label>
+          <input id="mi-name" type="text" value="${escHtml(displayName)}" placeholder="ex: Metal Ingot x100 (aparece na loja)" />
+        </div>
+        <div class="form-group">
+          <label>ID interno (slug único)</label>
+          <input id="mi-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: metal_ingot_100" />
+        </div>
+        <div class="form-group">
+          <label>Tipo</label>
+          <select id="mi-type">
+            ${["item","dino","command","beacon","experience","unlockengram","kit"].map(t =>
+              `<option value="${t}" ${(item.Type||"item")===t?"selected":""}>${t}</option>`).join("")}
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Descrição</label>
+          <input id="mi-desc" type="text" value="${escHtml(item.Description||"")}" placeholder="Breve descrição visível ao jogador" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Blueprint único (item simples — opcional se usar lista abaixo)</label>
+          <input id="mi-bp" type="text" value="${escHtml(item.Blueprint||"")}" placeholder="/Game/PrimalEarth/..." />
+        </div>
+        <div class="form-group"><label>Preço (pts)</label><input id="mi-price" type="number" value="${item.Price??0}" /></div>
+        <div class="form-group"><label>Quantidade (item simples)</label><input id="mi-qty" type="number" value="${item.Quantity??item.Amount??1}" /></div>
+        <div class="form-group"><label>Qualidade</label><input id="mi-quality" type="number" step="0.1" value="${item.Quality??0}" /></div>
+        <div class="form-group"><label>Nível mínimo</label><input id="mi-minlvl" type="number" value="${item.MinLevel??""}" /></div>
+        <div class="form-group"><label>Nível máximo</label><input id="mi-maxlvl" type="number" value="${item.MaxLevel??""}" /></div>
+        <div class="form-group"><label>Permissões</label><input id="mi-perms" type="text" value="${escHtml(item.Permissions||"")}" placeholder="VIP,Admin (vazio=todos)" /></div>
+        <div class="form-group"><label>Categoria</label><input id="mi-cat" type="text" value="${escHtml(item.Category||"")}" placeholder="Geral" /></div>
       </div>
-      <div class="form-group">
-        <label>ID interno (slug único)</label>
-        <input id="mi-key" type="text" value="${escHtml(key||"")}" ${key?"readonly":""} placeholder="ex: metal_ingot_100" />
+      <div class="toggle-row" style="margin:10px 0;"><label>ForceBlueprint (item simples)</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>
+
+      <div class="kit-section">
+        <div class="kit-section-header">
+          <span class="kit-section-title">📦 Itens empacotados (Items[])</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addShopItemSubEntry()">+ Item</button>
+        </div>
+        <div id="shop-item-items-list" class="kit-entries"></div>
       </div>
-      <div class="form-group">
-        <label>Tipo</label>
-        <select id="mi-type">
-          ${["item","dino","command","beacon","experience","unlockengram","kit"].map(t =>
-            `<option value="${t}" ${(item.Type||"item")===t?"selected":""}>${t}</option>`).join("")}
-        </select>
+
+      <div class="kit-section">
+        <div class="kit-section-header">
+          <span class="kit-section-title">🦕 Dinos (Dinos[])</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addShopItemDinoEntry()">+ Dino</button>
+        </div>
+        <div id="shop-item-dinos-list" class="kit-entries"></div>
       </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Descrição</label>
-        <input id="mi-desc" type="text" value="${escHtml(item.Description||"")}" placeholder="Breve descrição visível ao jogador" />
+
+      <div class="kit-section">
+        <div class="kit-section-header">
+          <span class="kit-section-title">⚡ Comandos (Commands[])</span>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="addShopItemCommandEntry()">+ Comando</button>
+        </div>
+        <div id="shop-item-cmds-list" class="kit-entries"></div>
       </div>
-      <div class="form-group" style="grid-column:1/-1;">
-        <label>Blueprint Path</label>
-        <input id="mi-bp" type="text" value="${escHtml(item.Blueprint||"")}" placeholder="/Game/..." />
-      </div>
-      <div class="form-group"><label>Preço (pts)</label><input id="mi-price" type="number" value="${item.Price??0}" /></div>
-      <div class="form-group"><label>Quantidade</label><input id="mi-qty" type="number" value="${item.Quantity??1}" /></div>
-      <div class="form-group"><label>Qualidade</label><input id="mi-quality" type="number" step="0.1" value="${item.Quality??0}" /></div>
-      <div class="form-group"><label>Nível mínimo</label><input id="mi-minlvl" type="number" value="${item.MinLevel??""}" /></div>
-      <div class="form-group"><label>Nível máximo</label><input id="mi-maxlvl" type="number" value="${item.MaxLevel??""}" /></div>
-      <div class="form-group"><label>Permissões</label><input id="mi-perms" type="text" value="${escHtml(item.Permissions||"")}" placeholder="VIP,Admin (vazio=todos)" /></div>
-      <div class="form-group"><label>Categoria</label><input id="mi-cat" type="text" value="${escHtml(item.Category||"")}" placeholder="Geral" /></div>
-    </div>
-    <div class="toggle-row" style="margin-top:10px;"><label>ForceBlueprint</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>`;
+    </div>`;
+
+  renderShopItemEntrySections();
   openModal("modal-item");
 }
 
-function confirmItem() {
+async function confirmItem() {
   const key = document.getElementById("mi-key").value.trim();
   if (!key) { toast("ID é obrigatório", "warning"); return; }
   const nameVal = document.getElementById("mi-name").value.trim();
   if (!nameVal) { toast("Nome de exibição é obrigatório", "warning"); return; }
   if (!_config.ShopItems) _config.ShopItems = {};
-  const it = _config.ShopItems[key] || {};
+
+  const existing = _config.ShopItems[key] || {};
+  const it = JSON.parse(JSON.stringify(existing));
+
   it.Name          = nameVal;
   it.Type          = document.getElementById("mi-type").value;
-  it.Description   = document.getElementById("mi-desc").value;
-  it.Blueprint     = document.getElementById("mi-bp").value;
-  it.Price         = parseInt(document.getElementById("mi-price").value) || 0;
-  it.Quantity      = parseInt(document.getElementById("mi-qty").value) || 1;
+  it.Description   = document.getElementById("mi-desc").value || nameVal;
+  it.Price         = parseInt(document.getElementById("mi-price").value, 10) || 0;
   it.Quality       = parseFloat(document.getElementById("mi-quality").value) || 0;
   it.ForceBlueprint= document.getElementById("mi-force-bp").checked;
+
+  const bp = document.getElementById("mi-bp").value.trim();
+  if (bp) it.Blueprint = bp; else delete it.Blueprint;
+
+  const qty = parseInt(document.getElementById("mi-qty").value, 10) || 1;
+  if (bp) it.Quantity = qty; else delete it.Quantity;
+
   const minLvl = document.getElementById("mi-minlvl").value;
   const maxLvl = document.getElementById("mi-maxlvl").value;
-  if (minLvl) it.MinLevel = parseInt(minLvl);
-  if (maxLvl) it.MaxLevel = parseInt(maxLvl);
+  if (minLvl) it.MinLevel = parseInt(minLvl, 10); else delete it.MinLevel;
+  if (maxLvl) it.MaxLevel = parseInt(maxLvl, 10); else delete it.MaxLevel;
+
   const perms = document.getElementById("mi-perms").value.trim();
   if (perms) it.Permissions = perms; else delete it.Permissions;
   const cat = document.getElementById("mi-cat").value.trim();
   if (cat) it.Category = cat; else delete it.Category;
+
+  const subItems = readShopItemSubItemsFromDOM();
+  if (subItems.length) it.Items = subItems; else delete it.Items;
+
+  const dinos = readShopItemDinosFromDOM();
+  if (dinos.length) it.Dinos = dinos; else delete it.Dinos;
+
+  const commands = readShopItemCommandsFromDOM();
+  if (commands.length) it.Commands = commands; else delete it.Commands;
+
   _config.ShopItems[key] = it;
+
+  const btn = document.getElementById("modal-item-save-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
+
   closeModal("modal-item");
   renderShop();
-  toast("Item salvo (lembre de clicar em Salvar & Reload)");
+  await saveAndReload();
+
+  if (btn) { btn.disabled = false; btn.textContent = "💾 Salvar & Aplicar"; }
 }
 
 function deleteItem(key) {
@@ -4243,12 +4492,13 @@ function normalizeKitCommand(raw) {
   return { Command: "", ExecuteAsAdmin: false, DisplayAs: "" };
 }
 
-function kitItemEntryHtml(item, idx) {
+function kitItemEntryHtml(item, idx, removeFn) {
+  const rm = removeFn || "removeKitItemEntry";
   return `
     <div class="kit-entry" data-kind="item" data-idx="${idx}">
       <div class="kit-entry-head">
         <span class="kit-entry-label">📦 Item ${idx + 1}</span>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removeKitItemEntry(${idx})">✕</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="${rm}(${idx})">✕</button>
       </div>
       <div class="kit-entry-grid">
         <div class="form-group span-2">
@@ -4282,13 +4532,14 @@ function kitItemEntryHtml(item, idx) {
     </div>`;
 }
 
-function kitDinoEntryHtml(dino, idx) {
+function kitDinoEntryHtml(dino, idx, removeFn) {
+  const rm = removeFn || "removeKitDinoEntry";
   const gender = (dino.Gender || "").toLowerCase();
   return `
     <div class="kit-entry" data-kind="dino" data-idx="${idx}">
       <div class="kit-entry-head">
         <span class="kit-entry-label">🦕 Dino ${idx + 1}</span>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removeKitDinoEntry(${idx})">✕</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="${rm}(${idx})">✕</button>
       </div>
       <div class="kit-entry-grid">
         <div class="form-group span-2">
@@ -4319,12 +4570,13 @@ function kitDinoEntryHtml(dino, idx) {
     </div>`;
 }
 
-function kitCommandEntryHtml(cmd, idx) {
+function kitCommandEntryHtml(cmd, idx, removeFn) {
+  const rm = removeFn || "removeKitCommandEntry";
   return `
     <div class="kit-entry" data-kind="command" data-idx="${idx}">
       <div class="kit-entry-head">
         <span class="kit-entry-label">⚡ Comando ${idx + 1}</span>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removeKitCommandEntry(${idx})">✕</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="${rm}(${idx})">✕</button>
       </div>
       <div class="kit-entry-grid">
         <div class="form-group span-2">
@@ -4552,7 +4804,7 @@ function openKitModal(key) {
   openModal("modal-kit");
 }
 
-function confirmKit() {
+async function confirmKit() {
   const oldKey = _editingKey;
   const key = document.getElementById("mk-key").value.trim();
   if (!key) { toast("ID é obrigatório", "warning"); return; }
@@ -4588,9 +4840,15 @@ function confirmKit() {
   if (oldKey && oldKey !== key) delete _config.Kits[oldKey];
   _config.Kits[key] = kit;
   _editingKey = key;
+
+  const btn = document.getElementById("modal-kit-save-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
+
   closeModal("modal-kit");
   renderKits();
-  toast("Kit salvo (lembre de clicar em Salvar & Reload)");
+  await saveAndReload();
+
+  if (btn) { btn.disabled = false; btn.textContent = "💾 Salvar & Aplicar"; }
 }
 
 function deleteKit(key) {
@@ -5034,14 +5292,13 @@ function renderServers() {
     return;
   }
   el.innerHTML = `<div class="card"><table class="tbl">
-    <thead><tr><th>ID</th><th>Label</th><th>RCON Host</th><th>Porta</th><th>Senha</th><th>Ações</th></tr></thead>
+    <thead><tr><th>ID</th><th>Label</th><th>RCON</th><th>config.json</th><th>Ações</th></tr></thead>
     <tbody>
       ${_servers.map(s => `<tr>
         <td><code>${s.server_id}</code></td>
         <td>${escHtml(s.label||"")}</td>
-        <td>${escHtml(s.rcon_host||"")}</td>
-        <td>${s.rcon_port||""}</td>
-        <td>${s.rcon_password_set ? '<span class="badge badge-item">Set</span>' : '<span class="badge badge-experience">Não set</span>'}</td>
+        <td>${escHtml(s.rcon_host||"")}:${s.rcon_port||""}</td>
+        <td><span class="truncate" style="font-size:11px;color:var(--text2);max-width:220px;display:inline-block;">${escHtml(s.plugin_config_path||"—")}</span></td>
         <td><div class="actions-col">
           <button class="btn btn-ghost btn-sm" onclick="openServerModal('${s.server_id}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteServer('${s.server_id}')">🗑</button>
@@ -5061,6 +5318,7 @@ function openServerModal(serverId) {
   document.getElementById("srv-password").value = "";
   document.getElementById("srv-retry").value    = s.retry_max_attempts || 10;
   document.getElementById("srv-template").value = s.delivery_command_template || "Shop.Deliver {steam_id} {item_id} {amount}";
+  document.getElementById("srv-config-path").value = s.plugin_config_path || s.customshop_config_path || "";
   if (serverId) document.getElementById("srv-id").readOnly = true;
   else document.getElementById("srv-id").readOnly = false;
   openModal("modal-server");
@@ -5075,6 +5333,7 @@ async function confirmServer() {
     rcon_password: document.getElementById("srv-password").value,
     retry_max_attempts: parseInt(document.getElementById("srv-retry").value),
     delivery_command_template: document.getElementById("srv-template").value.trim(),
+    plugin_config_path: document.getElementById("srv-config-path").value.trim(),
   };
   if (!body.server_id) { toast("Server ID é obrigatório", "warning"); return; }
   const r = await fetch(API + "/api/servers", {
@@ -5152,6 +5411,7 @@ function closeBuyModal() {
 
 async function confirmBuy() {
   if (!_buyItem) return;
+  const item = _buyItem;
   const btn = document.getElementById("buy-confirm-btn");
   btn.disabled = true;
   btn.textContent = "Processando...";
@@ -5160,17 +5420,17 @@ async function confirmBuy() {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({
-        item_id: _buyItem.key,
-        item_type: _buyItem.purchaseType || (_buyItem.catalogKind === "kit" ? "kit" : "shop"),
+        item_id: item.key,
+        item_type: item.purchaseType || (item.catalogKind === "kit" ? "kit" : "shop"),
         amount: 1,
-        price: _buyItem.price,
-        idempotency_key: `${_auth.steam_id}_${_buyItem.key}_${Date.now()}`,
+        price: item.price,
+        idempotency_key: `${_auth.steam_id}_${item.key}_${Date.now()}`,
       }),
     });
     const d = await r.json();
-    closeBuyModal();
     if (d.ok) {
-      toast(`✅ Resgate solicitado: ${_buyItem.name}`, "success");
+      closeBuyModal();
+      toast(`✅ Resgate solicitado: ${item.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
       loadMyArea();

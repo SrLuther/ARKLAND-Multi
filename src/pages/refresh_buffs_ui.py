@@ -44,8 +44,17 @@ def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
     row_idx += 1
 
     active = bm.get_active_event(srv_id) if bm and srv_id else None
+    activating = False
+    if not active and bm and srv_id:
+        pending = bm.get_activating_event(srv_id)
+        if pending:
+            active = pending
+            activating = True
+    elif active and bm:
+        activating = bm.is_activating(active.id)
+
     if active:
-        app._build_active_buff_card(body, row_idx, active)
+        app._build_active_buff_card(body, row_idx, active, activating=activating)
     else:
         none_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
         none_card.grid(row=row_idx, column=0, padx=20, pady=(0, 8), sticky="ew")

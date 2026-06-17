@@ -1101,6 +1101,14 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _mod_frame.grid(row=45, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
     _mod_frame.grid_columnconfigure(0, weight=1)
 
+    _app_ref = vars_ref.get("_app")
+    if _app_ref and not getattr(_app_ref, "_tek_mod_au_card_built", False):
+        _app_ref._tek_mod_au_card_built = True
+        _au_wrap = ctk.CTkFrame(sf, fg_color="transparent")
+        _au_wrap.grid(row=46, column=0, columnspan=2, sticky="ew", padx=8, pady=(4, 8))
+        from ..pages.build_tek_mod_auto_update_card import build_tek_mod_auto_update_card
+        build_tek_mod_auto_update_card(_app_ref, _au_wrap, srv.id)
+
     # Cache de informações: {mod_id: {"name": ..., "info": ...}}
     _mod_cache: dict = vars_ref.setdefault("_mod_info_cache", {})
 

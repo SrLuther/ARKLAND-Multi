@@ -1357,12 +1357,16 @@ def upsert_server():
         "delivery_command_template": str(body.get("delivery_command_template", "Shop.Deliver {steam_id} {item_id} {amount}")).strip(),
         "retry_max_attempts": int(body.get("retry_max_attempts", 10)),
     }
+    if "plugin_config_path" in body:
+        entry["plugin_config_path"] = str(body.get("plugin_config_path") or "").strip()
     if "rcon_password" in body and body["rcon_password"] != "":
         entry["rcon_password"] = body["rcon_password"]
     else:
         for existing in servers:
             if existing.get("server_id") == server_id:
                 entry["rcon_password"] = existing.get("rcon_password", "")
+                if "plugin_config_path" not in body and existing.get("plugin_config_path"):
+                    entry["plugin_config_path"] = existing.get("plugin_config_path")
                 break
 
     replaced = False
@@ -1459,6 +1463,112 @@ def _normalize_config_to_file(data: dict) -> dict:
     return data
 
 
+def _read_json_file(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        text_body = path.read_text(encoding="utf-8-sig")
+        try:
+            return json.loads(text_body)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text_body)
+            return json.loads(cleaned)
+    except Exception:
+        return {}
+
+
+def _merge_catalog_into_plugin(existing: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:
+    """Mescla catálogo mestre no config de um servidor, preservando Settings locais."""
+    merged = json.loads(json.dumps(catalog, ensure_ascii=False))
+    ex_settings = existing.get("Settings") or {}
+    if ex_settings:
+        out_settings = merged.setdefault("Settings", {})
+        for key, val in ex_settings.items():
+            if key not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
+                out_settings.setdefault(key, val)
+    if not merged.get("Database") and existing.get("Database"):
+        merged["Database"] = existing["Database"]
+    return merged
+
+
+def _plugin_sync_targets(settings: dict[str, Any]) -> list[dict[str, str]]:
+    """Destinos onde o config.json do CustomShop deve ser gravado (sem duplicatas)."""
+    targets: list[dict[str, str]] = []
+    seen: set[str] = set()
+
+    master = str(settings.get("config_path") or _DEFAULT_CONFIG_PATH).strip()
+    if master:
+        targets.append({"label": "Catálogo mestre", "path": master, "kind": "master"})
+        seen.add(master.lower())
+
+    for srv in _load_servers():
+        path = str(
+            srv.get("plugin_config_path")
+            or srv.get("customshop_config_path")
+            or ""
+        ).strip()
+        if not path:
+            continue
+        key = path.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        label = str(srv.get("label") or srv.get("server_id") or path).strip()
+        targets.append({"label": label, "path": path, "kind": "server"})
+
+    return targets
+
+
+def _write_config_all_targets(body: dict[str, Any], settings: dict[str, Any]) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Grava catálogo em todos os destinos. Retorna (written, errors)."""
+    written: list[dict[str, str]] = []
+    errors: list[dict[str, str]] = []
+    file_body = _normalize_config_to_file(body)
+
+    for target in _plugin_sync_targets(settings):
+        path = Path(target["path"])
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            existing = _read_json_file(path)
+            merged = _merge_catalog_into_plugin(existing, file_body) if existing else file_body
+            path.write_text(json.dumps(merged, indent=2, ensure_ascii=False), encoding="utf-8")
+            written.append({"label": target["label"], "path": str(path)})
+        except Exception as exc:
+            errors.append({"label": target["label"], "path": str(path), "error": str(exc)})
+
+    return written, errors
+
+
+def _reload_all_plugins(settings: dict[str, Any]) -> list[dict[str, Any]]:
+    """Shop.Reload via RCON em todos os servidores registrados (+ fallback global)."""
+    results: list[dict[str, Any]] = []
+    servers = _load_servers()
+
+    if servers:
+        for srv in servers:
+            sid = str(srv.get("server_id") or "server")
+            label = str(srv.get("label") or sid)
+            host = str(srv.get("rcon_host") or settings.get("rcon_host") or "127.0.0.1")
+            port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
+            password = str(srv.get("rcon_password") or settings.get("rcon_password") or "")
+            try:
+                resp = _rcon_command(host, port, password, "Shop.Reload")
+                results.append({"server_id": sid, "label": label, "ok": True, "response": resp[:200]})
+            except Exception as exc:
+                results.append({"server_id": sid, "label": label, "ok": False, "error": str(exc)})
+        return results
+
+    host = str(settings.get("rcon_host") or "127.0.0.1")
+    port = int(settings.get("rcon_port") or 27020)
+    password = str(settings.get("rcon_password") or "")
+    try:
+        resp = _rcon_command(host, port, password, "Shop.Reload")
+        results.append({"server_id": "default", "label": "RCON global", "ok": True, "response": resp[:200]})
+    except Exception as exc:
+        results.append({"server_id": "default", "label": "RCON global", "ok": False, "error": str(exc)})
+    return results
+
+
 @app.route("/api/config", methods=["GET"])
 @admin_required
 def get_config():
@@ -1485,17 +1595,22 @@ def get_config():
 @admin_required
 def save_config():
     s = _load_settings()
-    path = Path(s["config_path"])
     body = request.get_json(force=True)
-    # Normaliza ShopItems -> Items ao salvar (formato CustomShop)
-    body = _normalize_config_to_file(body)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(body, indent=2, ensure_ascii=False), encoding="utf-8")
-        _log("config_saved", path=str(path), admin=_steam_id_from_session())
-        return jsonify({"ok": True})
-    except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+    written, write_errors = _write_config_all_targets(body, s)
+    if not written and write_errors:
+        return jsonify({"ok": False, "error": write_errors[0]["error"], "written": [], "errors": write_errors}), 500
+    _log(
+        "config_saved",
+        paths=[w["path"] for w in written],
+        admin=_steam_id_from_session(),
+        errors=len(write_errors),
+    )
+    return jsonify({
+        "ok": True,
+        "written": written,
+        "errors": write_errors,
+        "sync_count": len(written),
+    })
 
 
 # ── DB test ───────────────────────────────────────────────────────────────────
@@ -1714,13 +1829,16 @@ def get_version():
 @limiter.limit("10 per hour")
 def rcon_reload():
     s = _load_settings()
-    try:
-        resp = _rcon_command(s.get("rcon_host", "127.0.0.1"), int(s.get("rcon_port", 27020)), s.get("rcon_password", ""), "Shop.Reload")
-        _log("rcon_reload", admin=_steam_id_from_session(), response=resp[:100])
-        return jsonify({"ok": True, "response": resp})
-    except Exception as exc:
-        _log_error("rcon_reload", admin=_steam_id_from_session(), error=str(exc))
-        return jsonify({"ok": False, "error": str(exc)}), 500
+    results = _reload_all_plugins(s)
+    ok_count = sum(1 for r in results if r.get("ok"))
+    all_ok = ok_count == len(results) and bool(results)
+    _log("rcon_reload", admin=_steam_id_from_session(), ok=ok_count, total=len(results))
+    return jsonify({
+        "ok": all_ok,
+        "results": results,
+        "reload_count": ok_count,
+        "reload_total": len(results),
+    }), 200 if all_ok or ok_count > 0 else 500
 
 
 @app.route("/api/rcon/points", methods=["POST"])

@@ -42,12 +42,16 @@ class ModAutoUpdater:
         self,
         server_manager: "ServerManager",
         mod_manager: "ModManager",
-        get_servers: Callable[[], List["ServerConfig"]],
+        get_servers: Callable[[], List],
         on_log: Optional[Callable[[str, str], None]] = None,
         check_interval_minutes: int = 15,
         warning_minutes: int = 5,
         discord_notifier: Optional[object] = None,
         steam_api_key: str = "",
+        get_server_status: Optional[Callable[[str], Optional[str]]] = None,
+        stop_server: Optional[Callable[[str], None]] = None,
+        start_server: Optional[Callable[[str], None]] = None,
+        get_server_view: Optional[Callable[[str], object]] = None,
     ) -> None:
         self._server_manager      = server_manager
         self._mod_manager         = mod_manager
@@ -57,6 +61,10 @@ class ModAutoUpdater:
         self._warning_seconds     = warning_minutes * 60
         self._discord_notifier    = discord_notifier
         self._steam_api_key       = steam_api_key
+        self._get_server_status_fn = get_server_status
+        self._stop_server_fn      = stop_server
+        self._start_server_fn     = start_server
+        self._get_server_view_fn  = get_server_view
         self._enabled             = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event          = threading.Event()
@@ -64,6 +72,52 @@ class ModAutoUpdater:
         self._known_timestamps: Dict[str, int] = {}
         # mod_id → nome amigável
         self._mod_names: Dict[str, str] = {}
+
+    @staticmethod
+    def _rcon_password(cfg: object) -> str:
+        return (
+            getattr(cfg, "rcon_password", "") or getattr(cfg, "admin_password", "") or ""
+        ).strip()
+
+    def _server_status(self, server_id: str) -> Optional[str]:
+        if self._get_server_status_fn:
+            return self._get_server_status_fn(server_id)
+        inst = self._server_manager.get_instance(server_id)
+        return inst.status if inst else None
+
+    def _server_view(self, server_id: str):
+        if self._get_server_view_fn:
+            return self._get_server_view_fn(server_id)
+        inst = self._server_manager.get_instance(server_id)
+        return inst.config if inst else None
+
+    def _server_name(self, server_id: str) -> str:
+        view = self._server_view(server_id)
+        if view is None:
+            return server_id
+        return getattr(view, "name", None) or server_id
+
+    def _stop(self, server_id: str) -> None:
+        if self._stop_server_fn:
+            self._stop_server_fn(server_id)
+        else:
+            self._server_manager.stop_server(server_id)
+
+    def _start(self, server_id: str) -> None:
+        if self._start_server_fn:
+            self._start_server_fn(server_id)
+        else:
+            self._server_manager.start_server(server_id)
+
+    def _is_running_or_starting(self, server_id: str) -> bool:
+        return self._server_status(server_id) in ("running", "starting")
+
+    def _is_running(self, server_id: str) -> bool:
+        return self._server_status(server_id) == "running"
+
+    def _is_stopped(self, server_id: str) -> bool:
+        st = self._server_status(server_id)
+        return st in (None, "stopped", "crashed")
 
     # ── Controle ──────────────────────────────────────────────────────────────
 
@@ -243,9 +297,7 @@ class ModAutoUpdater:
         # Inclui servidores em "starting" — RCON pode não estar disponível ainda
         # mas o try/except em _broadcast_all já trata isso graciosamente.
         running_servers = [
-            sid for sid in server_ids
-            if self._server_manager.get_instance(sid) is not None
-            and self._server_manager.get_instance(sid).status in ("running", "starting")  # type: ignore[union-attr]
+            sid for sid in server_ids if self._is_running_or_starting(sid)
         ]
 
         if running_servers:
@@ -280,9 +332,7 @@ class ModAutoUpdater:
                         return
                     elapsed += sleep_now
                 running_servers = [
-                    sid for sid in server_ids
-                    if self._server_manager.get_instance(sid) is not None
-                    and self._server_manager.get_instance(sid).status == "running"  # type: ignore[union-attr]
+                    sid for sid in server_ids if self._is_running(sid)
                 ]
                 if running_servers:
                     self._broadcast_all(
@@ -319,9 +369,7 @@ class ModAutoUpdater:
 
         # Aviso final antes do shutdown
         final_running = [
-            sid for sid in server_ids
-            if self._server_manager.get_instance(sid) is not None
-            and self._server_manager.get_instance(sid).status == "running"  # type: ignore[union-attr]
+            sid for sid in server_ids if self._is_running(sid)
         ]
         if final_running:
             self._broadcast_all(
@@ -336,23 +384,15 @@ class ModAutoUpdater:
 
         # ── Fase 5: parar servidores ──────────────────────────────────────────
         running_now = [
-            sid for sid in server_ids
-            if self._server_manager.get_instance(sid) is not None
-            and self._server_manager.get_instance(sid).status  # type: ignore[union-attr]
-            in ("running", "starting")
+            sid for sid in server_ids if self._is_running_or_starting(sid)
         ]
         for sid in running_now:
             self._log(f"Parando servidor '{sid}' para aplicar mod {mod_id}…", "info")
-            self._server_manager.stop_server(sid)
+            self._stop(sid)
 
-        # Aguarda todos pararem (máx 180 s — _stop_worker pode levar ~110 s: 90 s graceful + taskkill)
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
-            all_stopped = all(
-                self._server_manager.get_instance(sid) is None
-                or self._server_manager.get_instance(sid).status == "stopped"  # type: ignore[union-attr]
-                for sid in server_ids
-            )
+            all_stopped = all(self._is_stopped(sid) for sid in server_ids)
             if all_stopped:
                 break
             time.sleep(2)
@@ -363,28 +403,21 @@ class ModAutoUpdater:
 
         # ── Fase 6: reiniciar servidores parados ──────────────────────────────
         for sid in running_now:
-            inst = self._server_manager.get_instance(sid)
-            # Aceita "stopped" e "crashed" — start_server já rejeita "running"/"starting"/"stopping"
-            if inst and inst.status in ("stopped", "crashed"):
+            st = self._server_status(sid)
+            if st in ("stopped", "crashed"):
                 self._log(f"Reiniciando servidor '{sid}'…", "info")
-                self._server_manager.start_server(sid)
-            elif inst and inst.status not in ("running", "starting"):
-                # Status inesperado (ex: ainda "stopping" após timeout) — aguarda mais 30s e tenta
-                self._log(f"Servidor '{sid}' ainda em status '{inst.status}' após timeout; aguardando 30s…", "warning")
+                self._start(sid)
+            elif st not in ("running", "starting", "stopping", None):
+                self._log(f"Servidor '{sid}' ainda em status '{st}' após timeout; aguardando 30s…", "warning")
                 time.sleep(30)
-                inst = self._server_manager.get_instance(sid)
-                if inst and inst.status not in ("running", "starting", "stopping"):
+                st = self._server_status(sid)
+                if st not in ("running", "starting", "stopping", None):
                     self._log(f"Reiniciando servidor '{sid}'…", "info")
-                    self._server_manager.start_server(sid)
-            time.sleep(3)  # pequeno intervalo entre starts
-        # ── Notifica Discord sobre a atualização ──────────────────────────────────
+                    self._start(sid)
+            time.sleep(3)
         if self._discord_notifier:
             mod_name = self._mod_names.get(mod_id, mod_id)
-            server_names = []
-            for sid in running_now:
-                inst = self._server_manager.get_instance(sid)
-                if inst:
-                    server_names.append(inst.config.name or sid)
+            server_names = [self._server_name(sid) for sid in running_now]
 
             # Busca nota de changelog do Workshop (operação bloqueante, já estamos em thread)
             changelog: str = ""
@@ -416,17 +449,17 @@ class ModAutoUpdater:
     def _broadcast_all(self, server_ids: List[str], message: str) -> None:
         from .rcon_client import RconClient, RconError
         for sid in server_ids:
-            inst = self._server_manager.get_instance(sid)
-            if not inst:
+            cfg = self._server_view(sid)
+            if not cfg:
                 continue
-            cfg = inst.config
-            if not cfg.rcon_enabled or not cfg.rcon_password:
+            pwd = self._rcon_password(cfg)
+            if not cfg.rcon_enabled or not pwd:
                 continue
             try:
                 rcon = RconClient(
                     host="127.0.0.1",
                     port=cfg.rcon_port,
-                    password=cfg.rcon_password,
+                    password=pwd,
                 )
                 rcon.send_command(f"Broadcast {message[:900]}")
                 rcon.disconnect()
@@ -437,17 +470,17 @@ class ModAutoUpdater:
         """Envia SaveWorld via RCON para salvar o mundo e os perfis em todos os servidores."""
         from .rcon_client import RconClient, RconError
         for sid in server_ids:
-            inst = self._server_manager.get_instance(sid)
-            if not inst:
+            cfg = self._server_view(sid)
+            if not cfg:
                 continue
-            cfg = inst.config
-            if not cfg.rcon_enabled or not cfg.rcon_password:
+            pwd = self._rcon_password(cfg)
+            if not cfg.rcon_enabled or not pwd:
                 continue
             try:
                 rcon = RconClient(
                     host="127.0.0.1",
                     port=cfg.rcon_port,
-                    password=cfg.rcon_password,
+                    password=pwd,
                 )
                 rcon.send_command("SaveWorld")
                 rcon.disconnect()

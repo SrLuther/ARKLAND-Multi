@@ -72,8 +72,15 @@ def buff_start_server(app: Any, server_id: str) -> None:
     if kind == "tek":
         asm_cm = getattr(app, "asm_config_manager", None)
         srv = asm_cm.get_server(server_id) if asm_cm else None
-        if srv and hasattr(app, "_asm_start_server"):
-            app._asm_start_server(srv)
+        if srv is not None:
+            app.asm_server_manager.start(
+                srv,
+                on_done=lambda _ok, _msg: (
+                    app.after(0, app._asm_refresh_dashboard)
+                    if hasattr(app, "_asm_refresh_dashboard")
+                    else None
+                ),
+            )
         return
     app.server_manager.start_server(server_id)
 
@@ -88,13 +95,33 @@ def buff_stop_server(app: Any, server_id: str) -> None:
 
 
 def buff_get_server_status(app: Any, server_id: str) -> str:
-    from .server_config import SERVER_STATUS_RUNNING, SERVER_STATUS_STOPPED
+    from .server_config import (
+        SERVER_STATUS_CRASHED,
+        SERVER_STATUS_RUNNING,
+        SERVER_STATUS_STARTING,
+        SERVER_STATUS_STOPPED,
+        SERVER_STATUS_STOPPING,
+    )
 
     kind = buff_server_kind(app, server_id)
     if kind == "tek":
-        from .asm_engine.asm_server_config import ASM_STATUS_RUNNING
+        from .asm_engine.asm_server_config import (
+            ASM_STATUS_CRASHED,
+            ASM_STATUS_RUNNING,
+            ASM_STATUS_STARTING,
+            ASM_STATUS_STOPPED,
+            ASM_STATUS_STOPPING,
+        )
         st = app.asm_server_manager.get_status(server_id)
-        return SERVER_STATUS_RUNNING if st == ASM_STATUS_RUNNING else SERVER_STATUS_STOPPED
+        if st == ASM_STATUS_RUNNING:
+            return SERVER_STATUS_RUNNING
+        if st == ASM_STATUS_STARTING:
+            return SERVER_STATUS_STARTING
+        if st == ASM_STATUS_STOPPING:
+            return SERVER_STATUS_STOPPING
+        if st == ASM_STATUS_CRASHED:
+            return SERVER_STATUS_CRASHED
+        return SERVER_STATUS_STOPPED
     inst = app.server_manager.get_instance(server_id)
     return inst.status if inst else SERVER_STATUS_STOPPED
 
