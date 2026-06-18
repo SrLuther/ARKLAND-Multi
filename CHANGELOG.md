@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.34] - 2026-06-18
+
+### Improvement
+
+- Melhoria (CustomShop): sync preserva senha válida já no config.json do servidor quando o app ainda não tem credencial configurada.
+
+### Fix
+
+- Fix (CustomShop / DB): senha MySQL não é mais gravada no catálogo nem sobrescrita com placeholder changeme ao salvar ou sincronizar plugins.
+- Fix (Loja): resolve_shop_db_password — senha efetiva vem do DB Manager / Banco de Pedidos; placeholders (changeme, SUA_SENHA_AQUI) são ignorados.
+
+### Other
+
+- Docs: projeto Inventário na Nuvem (upload/download) documentado para discussão antes da implementação.
+
 ## [1.9.33] - 2026-06-18
 
 ### Feature

@@ -162,6 +162,10 @@ def save_shop_connection_prefs(
     permission_database: str = _PERM_DB_NAME,
 ) -> None:
     from .pages.db_local_server import DbLocalServer
+    from .shop_integration import _is_placeholder_db_password
+
+    if _is_placeholder_db_password(password):
+        return
 
     prefs = DbLocalServer._load_prefs()
     prefs["last_connection"] = {

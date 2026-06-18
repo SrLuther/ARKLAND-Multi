@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.33"
+APP_VERSION: str = "1.9.34"
 BUILD_DATE: str = "2026-06-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.34",
+        "date": "2026-06-18",
+        "changes": [
+            "Fix (CustomShop / DB): senha MySQL não é mais gravada no catálogo nem sobrescrita com "
+            "placeholder changeme ao salvar ou sincronizar plugins.",
+            "Fix (Loja): resolve_shop_db_password — senha efetiva vem do DB Manager / Banco de Pedidos; "
+            "placeholders (changeme, SUA_SENHA_AQUI) são ignorados.",
+            "Melhoria (CustomShop): sync preserva senha válida já no config.json do servidor quando o "
+            "app ainda não tem credencial configurada.",
+            "Docs: projeto Inventário na Nuvem (upload/download) documentado para discussão antes da implementação.",
+        ],
+    },
     {
         "version": "1.9.33",
         "date": "2026-06-18",

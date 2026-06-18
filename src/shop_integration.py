@@ -419,13 +419,12 @@ def build_permissions_config_settings(shop: Optional["ShopGlobalConfig"] = None)
         host = (shop.orders_db_host or "").strip() or host
         port = int(shop.orders_db_port or port)
         user = (shop.orders_db_user or "").strip() or user
-        password = (shop.orders_db_password or "").strip()
 
     prefs = _db_manager_prefs()
     host = host or prefs.get("host", "127.0.0.1")
     port = port or int(prefs.get("port", 3306))
     user = user or prefs.get("user", "arkland")
-    password = password or prefs.get("password", "")
+    password = resolve_shop_db_password(shop)
 
     return {
         "UseMysql": True,
@@ -689,6 +688,28 @@ def _db_manager_prefs() -> dict:
     return {}
 
 
+_PLACEHOLDER_DB_PASSWORDS = frozenset(
+    {"", "SUA_SENHA_AQUI", "changeme", "password", "senha"}
+)
+
+
+def _is_placeholder_db_password(value: str) -> bool:
+    return (value or "").strip() in _PLACEHOLDER_DB_PASSWORDS
+
+
+def resolve_shop_db_password(shop: Optional["ShopGlobalConfig"] = None) -> str:
+    """Senha efetiva: loja → DB Manager. Nunca retorna placeholders (changeme, etc.)."""
+    prefs = _db_manager_prefs()
+    candidates: list[str] = []
+    if shop is not None:
+        candidates.append((shop.orders_db_password or "").strip())
+    candidates.append((prefs.get("password") or "").strip())
+    for pwd in candidates:
+        if pwd and not _is_placeholder_db_password(pwd):
+            return pwd
+    return ""
+
+
 def build_orders_database_url(shop: "ShopGlobalConfig") -> str:
     explicit = (shop.orders_db_url or "").strip()
     if explicit:
@@ -697,16 +718,15 @@ def build_orders_database_url(shop: "ShopGlobalConfig") -> str:
     port     = int(shop.orders_db_port or 3306)
     name     = (shop.orders_db_name or "").strip()
     user     = (shop.orders_db_user or "").strip()
-    password = (shop.orders_db_password or "").strip()
+    password = resolve_shop_db_password(shop)
 
     # Fallback: usa credenciais do DB Manager se os campos da loja estiverem vazios
+    prefs = _db_manager_prefs()
     if not user:
-        prefs = _db_manager_prefs()
-        host     = host     or prefs.get("host", "127.0.0.1")
-        port     = port     or int(prefs.get("port", 3306))
-        name     = name     or prefs.get("database", "arkland_shop")
-        user     = prefs.get("user", "")
-        password = password or prefs.get("password", "")
+        host = host or prefs.get("host", "127.0.0.1")
+        port = port or int(prefs.get("port", 3306))
+        name = name or prefs.get("database", "arkland_shop")
+        user = prefs.get("user", "")
 
     name = name or "arkland_shop"
     if user:
@@ -867,19 +887,17 @@ def save_plugin_config(path: Path, data: Dict[str, Any]) -> None:
 
 def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
     """Monta bloco Database do config.json do plugin a partir da loja / DB Manager."""
+    prefs = _db_manager_prefs()
     host = (shop.orders_db_host or "").strip() or DEFAULT_REMOTE_SHOP_HOST
     port = int(shop.orders_db_port or 3306)
     name = (shop.orders_db_name or "").strip() or "arkland_shop"
     user = (shop.orders_db_user or "").strip()
-    password = (shop.orders_db_password or "").strip()
+    password = resolve_shop_db_password(shop)
 
-    if not user:
-        prefs = _db_manager_prefs()
-        host = host or prefs.get("host", "127.0.0.1")
-        port = port or int(prefs.get("port", 3306))
-        name = name or prefs.get("database", "arkland_shop")
-        user = prefs.get("user", "arkland")
-        password = password or prefs.get("password", "")
+    host = host or prefs.get("host", "127.0.0.1")
+    port = port or int(prefs.get("port", 3306))
+    name = name or prefs.get("database", "arkland_shop")
+    user = user or prefs.get("user", "arkland")
 
     return {
         "Host": host,
@@ -918,6 +936,14 @@ def sync_plugin_at_path(
 ) -> None:
     existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
     merged = merge_plugin_config(catalog, website_url, api_url, api_key, db_settings)
+    # Não sobrescrever senha válida já no plugin com placeholder do app.
+    merged_db = merged.get("Database") or {}
+    existing_db = existing.get("Database") or {}
+    merged_pw = str(merged_db.get("Password") or "")
+    existing_pw = str(existing_db.get("Password") or "")
+    if _is_placeholder_db_password(merged_pw) and existing_pw and not _is_placeholder_db_password(existing_pw):
+        merged_db["Password"] = existing_pw
+        merged["Database"] = merged_db
     if existing.get("Settings"):
         for k, v in existing["Settings"].items():
             if k not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
@@ -1012,6 +1038,8 @@ def sync_all_plugins(
     db_settings = build_plugin_database_settings(shop)
     catalog_db = catalog.get("Database", {})
     if catalog_db:
+        # Senha nunca vem do catálogo (template pode ter SUA_SENHA_AQUI).
+        catalog_db = {k: v for k, v in catalog_db.items() if k != "Password"}
         db_settings = {**catalog_db, **db_settings}
     ok: List[str] = []
     errors: List[str] = []

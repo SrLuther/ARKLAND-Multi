@@ -61,6 +61,8 @@ from ..shop_integration import (
     sync_all_plugins,
     test_shop_connection,
     webstore_data_dir,
+    resolve_shop_db_password,
+    _is_placeholder_db_password,
 )
 from ..ui_constants import (
     _GREEN, _GREEN_DARK, _GREEN_HOVER,
@@ -83,7 +85,9 @@ _DEFAULT_CONFIG_PATH = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "co
 
 def _load_config(path: Path) -> Dict[str, Any]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        _strip_catalog_db_password(data)
+        return data
     except Exception:
         return {
             "Settings": {
@@ -118,16 +122,24 @@ def _load_config(path: Path) -> Dict[str, Any]:
                 "Host": "127.0.0.1",
                 "Port": 3306,
                 "User": "arkland",
-                "Password": "changeme",
                 "Database": "arkland_shop",
             },
         }
 
 
+def _strip_catalog_db_password(data: Dict[str, Any]) -> None:
+    """Senha MySQL não fica no catálogo — só no DB Manager / Web Store."""
+    db = data.get("Database")
+    if isinstance(db, dict):
+        db.pop("Password", None)
+
+
 def _save_config(path: Path, data: Dict[str, Any]) -> bool:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        payload = json.loads(json.dumps(data))  # cópia para não mutar o estado da UI
+        _strip_catalog_db_password(payload)
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         return True
     except Exception as e:
         messagebox.showerror("Erro ao Salvar", str(e))
@@ -482,13 +494,19 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
 
         db = data.get("Database", {})
         _dbv.clear()
+        resolved_pw = resolve_shop_db_password(shop_cfg)
         _dbv.update({
             "Host":     tk.StringVar(value=str(db.get("Host", "127.0.0.1"))),
             "Port":     tk.StringVar(value=str(db.get("Port", 3306))),
             "User":     tk.StringVar(value=str(db.get("User", "arkland"))),
-            "Password": tk.StringVar(value=str(db.get("Password", ""))),
+            "Password": tk.StringVar(value=resolved_pw),
             "Database": tk.StringVar(value=str(db.get("Database", "arkland_shop"))),
         })
+        tk.Label(card_db,
+                 text="A senha é lida do Banco de Pedidos (Web Store) ou do DB Manager — "
+                      "não é salva neste catálogo.",
+                 bg=_INNER, fg="gray55",
+                 font=ctk.CTkFont(size=10), wraplength=680).pack(anchor="w", padx=10, pady=(0, 4))
         _field_row(card_db, "Host",     _dbv["Host"],     bg=_INNER)
         _field_row(card_db, "Porta",    _dbv["Port"],     bg=_INNER, width=100)
         _field_row(card_db, "Usuário",  _dbv["User"],     bg=_INNER)
@@ -533,8 +551,20 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             db_out["Host"]     = _dbv["Host"].get()
             db_out["Port"]     = _safe_int(_dbv["Port"].get(), 3306)
             db_out["User"]     = _dbv["User"].get()
-            db_out["Password"] = _dbv["Password"].get()
             db_out["Database"] = _dbv["Database"].get()
+            db_out.pop("Password", None)
+            pw = (_dbv["Password"].get() or "").strip()
+            if pw and not _is_placeholder_db_password(pw):
+                shop_cfg.orders_db_password = pw
+                from ..db_setup_resources import save_shop_connection_prefs
+                save_shop_connection_prefs(
+                    host=db_out["Host"],
+                    port=int(db_out["Port"]),
+                    user=db_out["User"],
+                    password=pw,
+                    database=db_out["Database"],
+                )
+                app.config_manager.save()
 
     _TAB_BUILDERS = {
         "⚙️  Configurações": _build_tab_cfg,
@@ -1273,7 +1303,7 @@ def _build_webstore_tab(
     _odb_port = tk.StringVar(value=str(shop.orders_db_port or _dbm.get("port", 3306)))
     _odb_name = tk.StringVar(value=shop.orders_db_name or _dbm.get("database", "arkland_shop"))
     _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
-    _odb_pass = tk.StringVar(value=shop.orders_db_password or _dbm.get("password", ""))
+    _odb_pass = tk.StringVar(value=resolve_shop_db_password(shop) or _dbm.get("password", ""))
     _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
 
     def _save_shop_from_ui() -> None:
@@ -1292,7 +1322,9 @@ def _build_webstore_tab(
         shop.orders_db_port = _safe_int(_odb_port.get(), 3306)
         shop.orders_db_name = _odb_name.get().strip()
         shop.orders_db_user = _odb_user.get().strip()
-        shop.orders_db_password = _odb_pass.get()
+        raw_pass = _odb_pass.get()
+        if not _is_placeholder_db_password(raw_pass):
+            shop.orders_db_password = raw_pass
         shop.caddy_dir = _caddy_dir_var.get().strip()
         shop.caddy_auto_start = bool(_caddy_auto_var.get())
         app.config_manager.save()
@@ -1300,13 +1332,15 @@ def _build_webstore_tab(
         user = shop.orders_db_user.strip()
         if host and user:
             from ..db_setup_resources import save_shop_connection_prefs
-            save_shop_connection_prefs(
-                host=host,
-                port=int(shop.orders_db_port or 3306),
-                user=user,
-                password=shop.orders_db_password or "",
-                database=shop.orders_db_name.strip() or "arkland_shop",
-            )
+            pw = shop.orders_db_password or ""
+            if pw and not _is_placeholder_db_password(pw):
+                save_shop_connection_prefs(
+                    host=host,
+                    port=int(shop.orders_db_port or 3306),
+                    user=user,
+                    password=pw,
+                    database=shop.orders_db_name.strip() or "arkland_shop",
+                )
 
     def _validate_shared_shop_requirements() -> bool:
         is_client = (_mode_var.get() == "client")

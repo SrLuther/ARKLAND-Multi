@@ -162,7 +162,7 @@
     "Host":      "127.0.0.1",
     "Port":      3306,
     "User":      "arkland",
-    "Password":  "SUA_SENHA_AQUI",
+    "Password":  "",
     "Database":  "arkland_shop",
     "Ssl":       false
   }

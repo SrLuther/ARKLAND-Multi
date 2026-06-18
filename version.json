@@ -1,10 +1,11 @@
 {
-    "version": "1.9.33",
+    "version": "1.9.34",
     "date": "2026-06-18",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.33/ARKLAND-Multi-Setup-v1.9.33.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.34/ARKLAND-Multi-Setup-v1.9.34.exe",
     "changelog": [
-        "Novo (Web Store): Sistema de Documentação Automática do Sistema de Resgates — painéis explicativos por categoria (Itens, Kits, Dinos, Licenças, Disponível, Doação).",
-        "Novo (Web Store): documentação gerada automaticamente por item — descrição curta/detalhada, requisitos, licença necessária, avisos e texto de confirmação no modal de resgate.",
-        "Melhoria (Web Store): grid de licenças Gamma/Beta/Alfa com duração e bônus de Âmbar documentados."
+        "Fix (CustomShop / DB): senha MySQL não é mais gravada no catálogo nem sobrescrita com placeholder changeme ao salvar ou sincronizar plugins.",
+        "Fix (Loja): resolve_shop_db_password — senha efetiva vem do DB Manager / Banco de Pedidos; placeholders (changeme, SUA_SENHA_AQUI) são ignorados.",
+        "Melhoria (CustomShop): sync preserva senha válida já no config.json do servidor quando o app ainda não tem credencial configurada.",
+        "Docs: projeto Inventário na Nuvem (upload/download) documentado para discussão antes da implementação."
     ]
 }

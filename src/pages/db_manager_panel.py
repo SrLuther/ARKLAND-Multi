@@ -20,7 +20,12 @@ from ..db_setup_resources import (
     permission_database_exists,
     save_shop_connection_prefs,
 )
-from ..shop_integration import DEFAULT_REMOTE_SHOP_HOST, iter_shop_servers, permissions_dll_installed
+from ..shop_integration import (
+    DEFAULT_REMOTE_SHOP_HOST,
+    iter_shop_servers,
+    permissions_dll_installed,
+    resolve_shop_db_password,
+)
 from ..ui_constants import get_theme
 from .db_local_server import DbLocalServer
 from .db_setup_wizard import show_db_setup_wizard
@@ -69,7 +74,7 @@ def _shop_config_db_prefs(app: "ARKTEKApp") -> dict:
         "host": host or DEFAULT_REMOTE_SHOP_HOST,
         "port": int(shop.orders_db_port or 3306),
         "user": user or "arkland",
-        "password": shop.orders_db_password or "",
+        "password": resolve_shop_db_password(shop),
         "database": (shop.orders_db_name or "").strip() or _DB_NAME,
     }
 
