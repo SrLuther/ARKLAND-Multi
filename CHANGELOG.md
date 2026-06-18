@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.33] - 2026-06-18
+
+### Feature
+
+- Novo (Web Store): Sistema de Documentação Automática do Sistema de Resgates — painéis explicativos por categoria (Itens, Kits, Dinos, Licenças, Disponível, Doação).
+- Novo (Web Store): documentação gerada automaticamente por item — descrição curta/detalhada, requisitos, licença necessária, avisos e texto de confirmação no modal de resgate.
+
+### Improvement
+
+- Melhoria (Web Store): grid de licenças Gamma/Beta/Alfa com duração e bônus de Âmbar documentados.
+
 ## [1.9.32] - 2026-06-18
 
 ### Fix

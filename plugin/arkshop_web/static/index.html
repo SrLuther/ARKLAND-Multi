@@ -1201,6 +1201,163 @@
       line-height: 1.4;
       flex: 1;
     }
+    .item-card__desc--admin {
+      font-size: 10px;
+      opacity: .8;
+      font-style: italic;
+    }
+    .item-card__doc-short {
+      font-size: 11px;
+      color: var(--text2);
+      text-align: center;
+      line-height: 1.45;
+      flex: 1;
+    }
+    .item-card__req {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--amber);
+      text-align: center;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    /* ── Documentação do Sistema de Resgates ─────────────────────────────── */
+    .redeem-doc-panel {
+      margin-bottom: 18px;
+      padding: 16px 18px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232,120,32,.22);
+      background: linear-gradient(145deg, rgba(232,120,32,.07) 0%, var(--surface) 55%);
+    }
+    .redeem-doc-panel__header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .redeem-doc-panel__icon {
+      font-size: 28px;
+      line-height: 1;
+      filter: drop-shadow(0 0 8px rgba(232,120,32,.25));
+    }
+    .redeem-doc-panel__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 4px;
+    }
+    .redeem-doc-panel__short {
+      font-size: 13px;
+      color: var(--amber);
+      margin: 0;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+    .redeem-doc-panel__detailed {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.6;
+      margin: 0 0 12px;
+    }
+    .redeem-doc-block {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+    .redeem-doc-block--warn {
+      border-color: rgba(240,64,80,.28);
+      background: rgba(240,64,80,.06);
+    }
+    .redeem-doc-block--license {
+      border-color: rgba(0,200,255,.25);
+      background: rgba(0,200,255,.05);
+    }
+    .redeem-doc-block__title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+    .redeem-doc-block--warn .redeem-doc-block__title { color: #f08090; }
+    .redeem-doc-block__list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.55;
+    }
+    .redeem-doc-block__list li { margin-bottom: 4px; }
+    .redeem-license-tiers {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .redeem-license-tier {
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,200,255,.2);
+      background: rgba(0,0,0,.2);
+    }
+    .redeem-license-tier__name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--tek);
+    }
+    .redeem-license-tier__meta {
+      font-size: 11px;
+      color: var(--amber);
+      margin: 4px 0 6px;
+      font-weight: 600;
+    }
+    .redeem-license-tier__desc {
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .redeem-modal-docs {
+      margin-top: 14px;
+      text-align: left;
+    }
+    .redeem-modal-section__label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    .redeem-modal-section__text {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.55;
+      margin: 0;
+    }
+    .redeem-modal-section__meta {
+      font-size: 11px;
+      color: var(--amber);
+      margin-top: 6px;
+      font-weight: 600;
+    }
+    #buy-modal-confirm-hint {
+      font-size: 11px;
+      color: var(--text2);
+      text-align: center;
+      line-height: 1.5;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+    }
+
     .item-card__footer {
       display: flex;
       justify-content: space-between;
@@ -2755,6 +2912,7 @@
           <button type="button" class="catalog-tab" data-catalog-tab="recharge" onclick="setCatalogTab('recharge')">💚 Doação</button>
           <button type="button" class="catalog-tab" data-catalog-tab="available" onclick="setCatalogTab('available')">✅ Disponível</button>
         </div>
+        <div id="catalog-category-doc" class="catalog-category-doc"></div>
         <div id="catalog-panel-items" class="catalog-panel active">
           <div class="catalog-toolbar">
             <input id="catalog-search" type="text" placeholder="🔍 Buscar item…" oninput="renderCatalogItems()" />
@@ -2781,9 +2939,6 @@
           <p id="catalog-kits-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum kit encontrado.</p>
         </div>
         <div id="catalog-panel-licenses" class="catalog-panel">
-          <p class="available-hint" style="margin-bottom:14px;">
-            Licenças especiais do cluster — permissões temporárias, nuvem, VIP e benefícios entregues via comando ao resgatar.
-          </p>
           <div class="catalog-toolbar">
             <input id="catalog-licenses-search" type="text" placeholder="🔍 Buscar licença…" oninput="renderCatalogLicenses()" />
           </div>
@@ -2791,10 +2946,6 @@
           <p id="catalog-licenses-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhuma licença cadastrada.</p>
         </div>
         <div id="catalog-panel-available" class="catalog-panel">
-          <p class="available-hint">
-            Resgates <strong>pendentes</strong> serão entregues automaticamente quando você entrar no servidor.
-            Itens e kits <strong>grátis</strong> podem ser resgatados aqui com Âmbar.
-          </p>
           <div id="catalog-available-content"></div>
         </div>
         <div id="catalog-panel-recharge" class="catalog-panel">
@@ -3464,6 +3615,7 @@
 <!-- ── Toast container ──────────────────────────────────────────────────────── -->
 <div id="toast-container"></div>
 
+<script src="redeem_docs.js"></script>
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
 let _config = null;
@@ -3837,6 +3989,7 @@ function setCatalogTab(tab) {
   if (tab === "licenses") renderCatalogLicenses();
   if (tab === "available") loadAvailable();
   if (tab === "recharge") renderRecharge();
+  if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(tab);
 }
 
 function _isDinoType(t) {
@@ -3988,25 +4141,48 @@ function _missingLicenses(item) {
   return perms.filter(g => !active.has(g));
 }
 
+function _redeemDocHelpers() {
+  return {
+    isDino: _isDinoType,
+    isLicense: _isLicenseItem,
+    formatAmber: formatAmberAmount,
+    authenticated: _auth.authenticated,
+  };
+}
+
+function _attachRedeemDoc(item) {
+  if (typeof RedeemDocs !== "undefined") {
+    item._redeemDoc = RedeemDocs.buildItemRedeemDoc(item, _redeemDocHelpers());
+  }
+  return item;
+}
+
 function _renderProductCard(i, btnLabel) {
+  const doc = i._redeemDoc || (typeof RedeemDocs !== "undefined" ? RedeemDocs.buildItemRedeemDoc(i, _redeemDocHelpers()) : null);
   const locked = _auth.authenticated && _parsePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
   const buyBtn = !_auth.authenticated
     ? `<button class="btn btn-ghost btn-sm" onclick="promptLogin('resgate')">Login p/ resgatar</button>`
     : locked
       ? `<button class="btn btn-ghost btn-sm" disabled title="Licença necessária">🔒 Licença</button>`
       : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
-  const lockHint = locked
-    ? `<div class="item-card__desc" style="color:var(--amber);font-size:11px;">Requer: ${_missingLicenses(i).join(", ")}</div>`
+  const docHtml = doc && typeof RedeemDocs !== "undefined" ? RedeemDocs.renderProductDocHtml(doc) : "";
+  const adminDesc = String(i.desc || "").trim();
+  const adminLine = adminDesc && adminDesc !== i.name && (!doc || adminDesc !== doc.detailedDescription)
+    ? `<div class="item-card__desc item-card__desc--admin">${escHtml(adminDesc)}</div>`
+    : "";
+  const lockHint = locked && !docHtml
+    ? `<div class="item-card__req">Requer: ${escHtml(_missingLicenses(i).join(" ou "))}</div>`
     : "";
   return `
-    <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}">
+    <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}" title="${doc ? escHtml(doc.shortDescription) : ""}">
       <div class="item-card__thumb">
         <div class="item-card__icon">${locked ? "🔒" : _catalogTypeIcon(i.type)}</div>
       </div>
       <div class="item-card__body">
-        <div class="item-card__cat">${escHtml(i.category || (i.catalogKind === "kit" ? "Kit" : "Item"))}</div>
+        <div class="item-card__cat">${escHtml(doc ? doc.categoryLabel : (i.category || (i.catalogKind === "kit" ? "Kit" : "Item")))}</div>
         <div class="item-card__name">${escHtml(i.name)}</div>
-        ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
+        ${docHtml || (i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : "")}
+        ${adminLine}
         ${lockHint}
         <div class="item-card__footer">
           <span class="item-card__price">${i.price > 0 ? amberPriceHtml(i.price, 16) : "Grátis"}</span>
@@ -4039,7 +4215,7 @@ async function loadCatalog() {
       }
     }
 
-    _catalogItems = Object.entries(shop).map(([key, v]) => ({
+    _catalogItems = Object.entries(shop).map(([key, v]) => _attachRedeemDoc({
       key,
       name:     v.Name || v.name || formatKey(key),
       desc:     v.Description || v.description || "",
@@ -4050,9 +4226,10 @@ async function loadCatalog() {
       purchaseType: "shop",
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
+      licenseGrant: v.LicenseGrant || null,
     }));
 
-    _catalogKits = Object.entries(kits).map(([key, v]) => ({
+    _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
       key,
       name:     v.Description || v.description || formatKey(key),
       desc:     v.Description || v.description || "",
@@ -4098,6 +4275,7 @@ async function loadCatalog() {
     if (_catalogActiveTab === "available") loadAvailable();
     if (_catalogActiveTab === "recharge") renderRecharge();
     updateCatalogPoints();
+    if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(_catalogActiveTab);
   } catch (e) { console.warn("loadCatalog:", e); }
 }
 
@@ -4205,8 +4383,9 @@ async function loadAvailable() {
     const redeemable = d.redeemable || [];
 
     html += `<div class="available-section"><div class="available-section__title">⏳ Aguardando resgate no servidor</div>`;
+    html += `<p class="available-hint">Conecte-se ao servidor e use <strong>/shop</strong> no chat para retirar. Antes da entrega, você pode desistir e receber reembolso em Âmbares.</p>`;
     if (!pending.length) {
-      html += `<p class="available-hint">Nenhum resgate pendente. Entregas aparecem aqui até você entrar no jogo.</p>`;
+      html += `<p class="available-hint">Nenhum resgate pendente no momento.</p>`;
     } else {
       html += pending.map(p => `
         <div class="available-card">
@@ -4227,7 +4406,7 @@ async function loadAvailable() {
       html += `<p class="available-hint">Nenhum item ou kit gratuito no momento.</p>`;
     } else {
       html += `<div id="catalog-available-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;">`;
-      html += redeemable.map(i => _renderProductCard({
+      html += redeemable.map(i => _renderProductCard(_attachRedeemDoc({
         key: i.key,
         name: i.name,
         desc: i.description,
@@ -4236,7 +4415,8 @@ async function loadAvailable() {
         catalogKind: i.catalog_kind,
         purchaseType: i.purchase_type,
         category: i.catalog_kind === "kit" ? "Kit grátis" : "Item grátis",
-      }, "Resgatar")).join("");
+        permissions: i.permissions || "",
+      }), "Resgatar")).join("");
       html += `</div>`;
     }
     html += `</div>`;
@@ -6727,31 +6907,40 @@ function openBuyModal(item, policyAlreadyAccepted) {
     }
   }
   _buyItem = item;
+  const doc = item._redeemDoc || (typeof RedeemDocs !== "undefined" ? RedeemDocs.buildItemRedeemDoc(item, _redeemDocHelpers()) : null);
   const bal = window._playerBalance ?? "?";
   const hasLicense = _itemCanPurchase(item);
   const canBuy = hasLicense && (typeof bal === "number" && bal >= item.price);
+  const typeIcon = { dino:"🦕", item:"📦", blueprint:"📋", command:"⚡", experience:"✨", kit:"🎁", license:"📜" }[String(item.type||"").toLowerCase()] || "🏷️";
+  const docModal = doc && typeof RedeemDocs !== "undefined"
+    ? RedeemDocs.renderModalDocHtml(doc, {
+        balanceWarning: hasLicense && !canBuy ? "Seu saldo de Âmbares não é suficiente para este resgate." : "",
+        licenseWarning: !hasLicense ? `Licença necessária: ${_missingLicenses(item).join(" ou ") || "—"}` : "",
+      })
+    : "";
   document.getElementById("buy-modal-body").innerHTML = `
-    <div style="text-align:center;margin-bottom:20px;">
-      <div style="font-size:48px;filter:drop-shadow(0 0 16px rgba(232,120,32,.4));margin-bottom:10px;">${{"Dino":"🦕","Item":"📦","Blueprint":"📋","Command":"⚡","Experience":"✨","Kit":"🎁"}[item.type]||"🏷️"}</div>
+    <div style="text-align:center;margin-bottom:16px;">
+      <div style="font-size:48px;filter:drop-shadow(0 0 16px rgba(232,120,32,.4));margin-bottom:10px;">${typeIcon}</div>
       <div style="font-family:'Cinzel',Georgia,serif;font-size:16px;font-weight:700;color:#fff;margin-bottom:4px;">${escHtml(item.name)}</div>
-      ${item.desc ? `<div style="font-size:12px;color:var(--text2);">${escHtml(item.desc)}</div>` : ""}
+      ${doc ? `<div style="font-size:12px;color:var(--amber);font-weight:600;">${escHtml(doc.categoryLabel)}</div>` : ""}
+      ${doc ? `<p style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.5;">${escHtml(doc.shortDescription)}</p>` : (item.desc ? `<div style="font-size:12px;color:var(--text2);">${escHtml(item.desc)}</div>` : "")}
     </div>
-    <p style="font-size:11px;color:var(--text2);text-align:center;margin-bottom:14px;line-height:1.5;">
-      Resgate com ${escHtml(CURRENCY.plural)} obtidos por doação ao servidor.
-    </p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
       <div style="background:var(--surface2);border:1px solid var(--border);padding:12px;border-radius:var(--radius);text-align:center;">
-        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Custo (${escHtml(CURRENCY.plural)})</div>
-        <div style="font-size:22px;font-weight:700;color:var(--amber);display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(22)} ${formatAmberAmount(item.price)}</div>
+        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Custo</div>
+        <div style="font-size:20px;font-weight:700;color:var(--amber);display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(20)} ${doc ? escHtml(doc.costLabel) : formatAmberAmount(item.price)}</div>
       </div>
       <div style="background:var(--surface2);border:1px solid ${canBuy?'rgba(18,216,124,.2)':'rgba(240,64,80,.2)'};padding:12px;border-radius:var(--radius);text-align:center;">
-        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Seu Saldo</div>
-        <div style="font-size:22px;font-weight:700;color:${canBuy?'var(--success)':'var(--danger)'};display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(22)} ${formatAmberAmount(bal)}</div>
+        <div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:4px;">Seu saldo</div>
+        <div style="font-size:20px;font-weight:700;color:${canBuy?'var(--success)':'var(--danger)'};display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(20)} ${formatAmberAmount(bal)}</div>
       </div>
     </div>
-    ${!hasLicense ? `<div style="text-align:center;color:var(--amber);font-size:13px;margin-bottom:8px;font-weight:700;">🔒 Licença necessária: ${_missingLicenses(item).join(", ") || "—"}</div>` : ""}
-    ${hasLicense && !canBuy ? `<div style="text-align:center;color:var(--danger);font-size:13px;margin-bottom:8px;font-weight:700;">⚠️ Saldo insuficiente</div>` : ""}`;
-  document.getElementById("buy-confirm-btn").disabled = !canBuy;
+    ${docModal}`;
+  const hintEl = document.getElementById("buy-modal-confirm-hint");
+  if (hintEl) hintEl.textContent = doc ? doc.confirmText : `Confirmo o resgate de "${item.name}".`;
+  const btn = document.getElementById("buy-confirm-btn");
+  btn.disabled = !canBuy;
+  btn.textContent = "✅ Confirmar Resgate";
   document.getElementById("buy-modal").style.display = "flex";
 }
 
@@ -7421,6 +7610,7 @@ async function viewAdminTimeline(orderId) {
   <div class="buy-modal-inner">
     <div class="buy-modal-title">🎁 Confirmar Resgate</div>
     <div id="buy-modal-body"></div>
+    <div id="buy-modal-confirm-hint"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
       <button class="btn btn-ghost" onclick="closeBuyModal()">Cancelar</button>
       <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Resgate</button>

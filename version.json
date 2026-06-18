@@ -1,8 +1,10 @@
 {
-    "version": "1.9.32",
+    "version": "1.9.33",
     "date": "2026-06-18",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.32/ARKLAND-Multi-Setup-v1.9.32.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.33/ARKLAND-Multi-Setup-v1.9.33.exe",
     "changelog": [
-        "Fix (Web Store): card de saldo de Âmbares — valor inteiro completo em cima, rótulo Âmbar/Âmbares abaixo; fonte reduz automaticamente para caber em saldos altos (sidebar, catálogo, recarga e mobile)."
+        "Novo (Web Store): Sistema de Documentação Automática do Sistema de Resgates — painéis explicativos por categoria (Itens, Kits, Dinos, Licenças, Disponível, Doação).",
+        "Novo (Web Store): documentação gerada automaticamente por item — descrição curta/detalhada, requisitos, licença necessária, avisos e texto de confirmação no modal de resgate.",
+        "Melhoria (Web Store): grid de licenças Gamma/Beta/Alfa com duração e bônus de Âmbar documentados."
     ]
 }
