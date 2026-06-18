@@ -243,36 +243,81 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
       margin-bottom: 10px;
       padding: 10px 12px;
       border-radius: var(--radius);
       border: 1px solid rgba(232,120,32,.45);
       background: linear-gradient(135deg, rgba(232,120,32,.18), rgba(232,120,32,.08));
+      min-width: 0;
+    }
+    .auth-balance-pill .amber-icon {
+      flex-shrink: 0;
+    }
+    .balance-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      flex: 1;
+      text-align: center;
+      gap: 2px;
+    }
+    .balance-stack__value {
       font-family: 'Rajdhani', sans-serif;
-      font-size: 22px;
       font-weight: 700;
       color: var(--amber);
-      letter-spacing: .02em;
+      font-size: 22px;
+      line-height: 1.05;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .01em;
+      max-width: 100%;
+      white-space: nowrap;
     }
-    .auth-balance-pill .auth-balance-unit {
-      font-size: 11px;
+    .balance-stack__unit {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 9px;
       font-weight: 600;
       color: rgba(232,180,100,.85);
       text-transform: uppercase;
-      letter-spacing: .08em;
+      letter-spacing: .12em;
+      line-height: 1;
+    }
+    .balance-stack--compact .balance-stack__value {
+      font-size: 14px;
+    }
+    .balance-stack--compact .balance-stack__unit {
+      font-size: 8px;
+    }
+    .balance-stack--wide .balance-stack__value {
+      font-size: 26px;
+    }
+    .catalog-points {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(232,120,32,.35);
+      background: rgba(232,120,32,.12);
+    }
+    .catalog-points .balance-stack__value {
+      font-size: 18px;
+    }
+    .recharge-balance-display {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
     }
     .sb-balance {
       margin-left: auto;
-      padding: 3px 10px;
-      border-radius: 999px;
+      padding: 4px 10px;
+      border-radius: var(--radius);
       border: 1px solid rgba(232,120,32,.35);
       background: rgba(232,120,32,.1);
-      color: var(--amber);
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
+      min-width: 0;
+      max-width: min(42vw, 200px);
     }
 
     /* Nav sections */
@@ -727,19 +772,6 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
-    }
-    .catalog-points {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      border: 1px solid rgba(232,120,32,.35);
-      background: rgba(232,120,32,.12);
-      font-family: 'Rajdhani', sans-serif;
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--amber);
     }
     .catalog-toolbar {
       display: flex;
@@ -1686,14 +1718,12 @@
       flex-shrink: 0;
     }
     .mobile-balance {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--amber);
-      padding: 6px 10px;
-      border-radius: 999px;
+      padding: 4px 8px;
+      border-radius: var(--radius);
       border: 1px solid rgba(232,120,32,.35);
       background: rgba(232,120,32,.1);
-      white-space: nowrap;
+      min-width: 0;
+      max-width: 120px;
     }
     .sidebar-backdrop {
       display: none;
@@ -2590,9 +2620,11 @@
     <!-- User box -->
     <div id="auth-userbox" class="hidden">
       <div id="auth-balance-pill" class="auth-balance-pill hidden">
-        <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="16" height="16" />
-        <span><span id="auth-balance-val">0</span></span>
-        <span class="auth-balance-unit amber-unit-label">Âmbares</span>
+        <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="18" height="18" />
+        <div class="balance-stack">
+          <span id="auth-balance-val" class="balance-stack__value">0</span>
+          <span class="auth-balance-unit amber-unit-label balance-stack__unit">Âmbares</span>
+        </div>
       </div>
       <div id="auth-userline"></div>
       <button id="auth-action-btn" class="btn btn-ghost btn-sm" onclick="logout()" style="width:100%;margin-top:6px;justify-content:center;">Sair</button>
@@ -2668,7 +2700,12 @@
       <button id="sidebar-toggle" class="mobile-menu-btn" type="button" aria-label="Abrir menu" onclick="toggleSidebar()">☰</button>
       <div class="mobile-header__brand">ARKLAND DONATIONS</div>
       <div class="mobile-header__actions">
-        <span id="mobile-balance" class="mobile-balance hidden"><img class="amber-icon" src="/ambar.png" alt="Âmbar" width="14" height="14" /> <span id="mobile-balance-val">0</span></span>
+        <span id="mobile-balance" class="mobile-balance hidden">
+          <div class="balance-stack balance-stack--compact">
+            <span id="mobile-balance-val" class="balance-stack__value">0</span>
+            <span class="amber-unit-label balance-stack__unit">Âmbar</span>
+          </div>
+        </span>
       </div>
     </header>
     <div id="main">
@@ -2693,8 +2730,10 @@
           <div class="catalog-hero__meta">
             <div id="catalog-points-pill" class="catalog-points hidden">
               <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="16" height="16" />
-              <span id="catalog-points-val">—</span>
-              <span class="amber-unit-label">Âmbares</span>
+              <div class="balance-stack">
+                <span id="catalog-points-val" class="balance-stack__value">—</span>
+                <span class="amber-unit-label balance-stack__unit">Âmbares</span>
+              </div>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="openPolicyModal(false)">📜 Política</button>
             <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
@@ -2761,7 +2800,13 @@
         <div id="catalog-panel-recharge" class="catalog-panel">
           <div class="recharge-balance-bar" id="recharge-balance-bar">
             <span style="color:var(--text2);font-size:13px;">Seu saldo atual</span>
-            <span style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--amber);display:inline-flex;align-items:center;gap:8px;"><img class="amber-icon" src="/ambar.png" alt="Âmbar" width="22" height="22" /> <span id="recharge-balance-val">0</span> <span class="amber-unit-label">Âmbares</span></span>
+            <span class="recharge-balance-display">
+              <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="22" height="22" />
+              <div class="balance-stack balance-stack--wide">
+                <span id="recharge-balance-val" class="balance-stack__value">0</span>
+                <span class="amber-unit-label balance-stack__unit">Âmbares</span>
+              </div>
+            </span>
           </div>
           <div class="recharge-trust">
             <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX)</div>
@@ -3286,7 +3331,12 @@
     <div id="statusbar">
       <span id="sb-dot" class="status-dot"></span>
       <span id="sb-text">Inicializando…</span>
-      <span id="sb-balance" class="sb-balance hidden"><img class="amber-icon" src="/ambar.png" alt="Âmbar" width="14" height="14" /> <span id="sb-balance-val">0</span> <span class="amber-unit-label">Âmbares</span></span>
+      <span id="sb-balance" class="sb-balance hidden">
+        <div class="balance-stack balance-stack--compact">
+          <span id="sb-balance-val" class="balance-stack__value">0</span>
+          <span class="amber-unit-label balance-stack__unit">Âmbar</span>
+        </div>
+      </span>
     </div>
   </div>
 
@@ -3441,6 +3491,57 @@ function formatAmberAmount(n) {
   return Number.isFinite(v) ? v.toLocaleString("pt-BR") : "0";
 }
 
+/** Reduz a fonte do valor até caber no card (número inteiro completo). */
+function fitBalanceValueEl(el) {
+  if (!el) return;
+  const stack = el.closest(".balance-stack");
+  const base = parseFloat(getComputedStyle(el).fontSize) || 22;
+  const min = stack?.classList.contains("balance-stack--compact") ? 9
+    : stack?.classList.contains("balance-stack--wide") ? 14 : 11;
+  el.style.fontSize = base + "px";
+  const maxW = stack ? stack.clientWidth : el.parentElement?.clientWidth || el.clientWidth;
+  if (!maxW) return;
+  let size = base;
+  while (el.scrollWidth > maxW && size > min) {
+    size -= 1;
+    el.style.fontSize = size + "px";
+  }
+}
+
+function updateBalanceDisplays(pts) {
+  const label = formatAmberAmount(pts);
+  const word = amberWord(pts);
+  window._playerBalance = pts;
+
+  const mappings = [
+    { valId: "auth-balance-val", pillId: "auth-balance-pill" },
+    { valId: "catalog-points-val", pillId: "catalog-points-pill" },
+    { valId: "sb-balance-val", pillId: "sb-balance" },
+    { valId: "mobile-balance-val", pillId: "mobile-balance" },
+    { valId: "recharge-balance-val", pillId: null },
+  ];
+
+  mappings.forEach(({ valId, pillId }) => {
+    const el = document.getElementById(valId);
+    if (el) {
+      el.textContent = label;
+      el.title = label + " " + word;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => fitBalanceValueEl(el));
+      });
+    }
+    if (pillId) {
+      const pill = document.getElementById(pillId);
+      if (pill) {
+        pill.classList.remove("hidden");
+        pill.title = label + " " + word;
+        const unit = pill.querySelector(".balance-stack__unit, .amber-unit-label");
+        if (unit) unit.textContent = word;
+      }
+    }
+  });
+}
+
 function amberWord(n) {
   const v = Math.abs(Math.round(Number(n) || 0));
   return v === 1 ? CURRENCY.singular : CURRENCY.plural;
@@ -3460,7 +3561,11 @@ function amberPriceHtml(n, size = 18) {
 
 function syncAmberUnits(balance) {
   const word = amberWord(balance != null ? balance : 0);
-  document.querySelectorAll(".auth-balance-unit, .amber-unit-label").forEach(el => { el.textContent = word; });
+  document.querySelectorAll(".balance-stack__unit, .auth-balance-unit, .amber-unit-label").forEach(el => {
+    if (el.closest(".balance-stack") || el.classList.contains("auth-balance-unit")) {
+      el.textContent = word;
+    }
+  });
 }
 
 function displayBrandName(name) {
@@ -3622,7 +3727,6 @@ function formatPoints(n) {
 
 async function refreshPlayerBalance() {
   const pillIds = ["auth-balance-pill", "catalog-points-pill", "sb-balance", "mobile-balance"];
-  const valIds = ["auth-balance-val", "catalog-points-val", "sb-balance-val", "mobile-balance-val"];
 
   if (!_auth.authenticated) {
     pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
@@ -3645,15 +3749,8 @@ async function refreshPlayerBalance() {
       return;
     }
     window._playerBalance = pts;
-    const label = formatAmberAmount(pts);
-    valIds.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = label;
-    });
+    updateBalanceDisplays(pts);
     syncAmberUnits(pts);
-    pillIds.forEach(id => document.getElementById(id)?.classList.remove("hidden"));
-    const rb = document.getElementById("recharge-balance-val");
-    if (rb) rb.textContent = label;
   } catch (_) {
     pillIds.forEach(id => document.getElementById(id)?.classList.add("hidden"));
   }
@@ -7198,6 +7295,7 @@ async function viewAdminTimeline(orderId) {
   }
   window.addEventListener("resize", () => {
     if (!isMobileNav()) closeSidebar();
+    document.querySelectorAll(".balance-stack__value").forEach(fitBalanceValueEl);
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeSidebar();

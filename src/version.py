@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.31"
+APP_VERSION: str = "1.9.32"
 BUILD_DATE: str = "2026-06-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.32",
+        "date": "2026-06-18",
+        "changes": [
+            "Fix (Web Store): card de saldo de Âmbares — valor inteiro completo em cima, rótulo Âmbar/Âmbares "
+            "abaixo; fonte reduz automaticamente para caber em saldos altos (sidebar, catálogo, recarga e mobile).",
+        ],
+    },
     {
         "version": "1.9.31",
         "date": "2026-06-12",

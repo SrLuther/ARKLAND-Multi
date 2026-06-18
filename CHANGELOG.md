@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.32] - 2026-06-18
+
+### Fix
+
+- Fix (Web Store): card de saldo de Âmbares — valor inteiro completo em cima, rótulo Âmbar/Âmbares abaixo; fonte reduz automaticamente para caber em saldos altos (sidebar, catálogo, recarga e mobile).
+
 ## [1.9.31] - 2026-06-12
 
 ### Feature
