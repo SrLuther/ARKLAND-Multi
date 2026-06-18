@@ -2219,25 +2219,98 @@
     }
     .home-amber-lore {
       display: grid;
-      grid-template-columns: minmax(160px, 220px) 1fr;
-      gap: 28px;
+      grid-template-columns: 1fr;
+      gap: 24px;
       align-items: start;
     }
-    @media (max-width: 640px) {
-      .home-amber-lore { grid-template-columns: 1fr; text-align: center; }
-      .home-amber-coin { margin: 0 auto; }
-      .home-amber-lore__visual { position: static; }
-    }
     .home-amber-lore__visual {
-      position: sticky;
-      top: 16px;
+      position: relative;
+      width: 100%;
+      max-width: 200px;
+      margin: 0 auto 8px;
+      z-index: 1;
+      flex-shrink: 0;
     }
     .home-amber-coin {
+      display: block;
       width: 100%;
-      max-width: 220px;
+      max-width: 180px;
+      height: auto;
+      margin: 0 auto;
       border-radius: 50%;
       border: 2px solid rgba(232,120,32,.45);
       box-shadow: 0 0 48px rgba(255,96,16,.2), inset 0 0 24px rgba(0,0,0,.4);
+      position: relative;
+      transform: none;
+      animation: none;
+    }
+    @keyframes amberCoinFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    /* Mobile / tablet — moeda fixa no fluxo, sem animação nem sobreposição */
+    @media (max-width: 900px) {
+      .home-amber-lore {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+      }
+      .home-amber-lore__visual {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        width: 100%;
+        max-width: 148px;
+        margin: 0 auto 4px;
+        padding: 14px;
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(232,120,32,.28);
+        background: radial-gradient(circle at 50% 35%, rgba(255,96,16,.08) 0%, transparent 70%);
+        box-sizing: border-box;
+      }
+      .home-amber-coin {
+        position: static !important;
+        display: block;
+        width: 100%;
+        max-width: 120px;
+        margin: 0 auto;
+        transform: none !important;
+        animation: none !important;
+        box-shadow: 0 0 28px rgba(255,96,16,.18), inset 0 0 16px rgba(0,0,0,.35);
+      }
+      .home-amber-lore__text {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        min-width: 0;
+      }
+      .home-amber-lore { text-align: center; }
+      .home-amber-lore__text { text-align: left; }
+    }
+    /* Desktop — coluna lateral + animação flutuante */
+    @media (min-width: 901px) {
+      .home-amber-lore {
+        display: grid;
+        grid-template-columns: minmax(160px, 220px) 1fr;
+        gap: 28px;
+      }
+      .home-amber-lore__visual {
+        position: sticky;
+        top: 16px;
+        max-width: 220px;
+        margin: 0;
+        padding: 0;
+        border: none;
+        background: none;
+      }
+      .home-amber-coin {
+        max-width: 220px;
+        animation: amberCoinFloat 5s ease-in-out infinite;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .home-amber-coin { animation: none !important; transform: none !important; }
     }
     .home-amber-lore__text p {
       font-size: 13px;
@@ -3023,6 +3096,7 @@
             <select id="myarea-status-filter" class="btn btn-ghost" style="padding:7px 12px;" onchange="resetMyAreaPage()">
               <option value="">Todos os status</option>
               <option value="PENDENTE">Pendente</option>
+              <option value="CANCELADO">Cancelado</option>
               <option value="ENTREGUE">Entregue</option>
               <option value="ERRO">Erro</option>
               <option value="CONTESTADO">Contestado</option>
@@ -3042,6 +3116,12 @@
             <div class="card-title">📊 Resumo</div>
           </div>
           <div id="myarea-summary" class="form-grid"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📜 Licenças ativas</div>
+          </div>
+          <div id="myarea-licenses" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
         <div class="card">
           <div class="card-header">
@@ -3540,6 +3620,8 @@ function formatKey(key) {
 let _catalogItems = [];
 let _catalogKits = [];
 let _catalogPackages = [];
+let _playerEntitlements = [];
+let _playerTimedPointsTotal = 25;
 let _catalogPixEnabled = false;
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
@@ -3731,19 +3813,49 @@ function _catalogTypeClass(t) {
   })[k] || "type-item";
 }
 
+function _parsePermsList(raw) {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.map(String).map(s => s.trim()).filter(Boolean);
+  return String(raw).split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function _itemCanPurchase(item) {
+  if (item.canPurchase === false) return false;
+  const perms = _parsePermsList(item.permissions || item.Permissions);
+  if (!perms.length || !_auth.authenticated) return item.canPurchase !== false;
+  const mode = String(item.permissionsMode || item.PermissionsMode || "any").toLowerCase();
+  const active = _playerEntitlements.map(e => e.group);
+  const has = g => active.includes(g);
+  if (mode === "all") return perms.every(has);
+  return perms.some(has);
+}
+
+function _missingLicenses(item) {
+  const perms = _parsePermsList(item.permissions || item.Permissions);
+  const active = new Set(_playerEntitlements.map(e => e.group));
+  return perms.filter(g => !active.has(g));
+}
+
 function _renderProductCard(i, btnLabel) {
-  const buyBtn = _auth.authenticated
-    ? `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`
-    : `<button class="btn btn-ghost btn-sm" onclick="promptLogin('resgate')">Login p/ resgatar</button>`;
+  const locked = _auth.authenticated && _parsePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
+  const buyBtn = !_auth.authenticated
+    ? `<button class="btn btn-ghost btn-sm" onclick="promptLogin('resgate')">Login p/ resgatar</button>`
+    : locked
+      ? `<button class="btn btn-ghost btn-sm" disabled title="Licença necessária">🔒 Licença</button>`
+      : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
+  const lockHint = locked
+    ? `<div class="item-card__desc" style="color:var(--amber);font-size:11px;">Requer: ${_missingLicenses(i).join(", ")}</div>`
+    : "";
   return `
-    <div class="item-card ${_catalogTypeClass(i.type)}">
+    <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}">
       <div class="item-card__thumb">
-        <div class="item-card__icon">${_catalogTypeIcon(i.type)}</div>
+        <div class="item-card__icon">${locked ? "🔒" : _catalogTypeIcon(i.type)}</div>
       </div>
       <div class="item-card__body">
         <div class="item-card__cat">${escHtml(i.category || (i.catalogKind === "kit" ? "Kit" : "Item"))}</div>
         <div class="item-card__name">${escHtml(i.name)}</div>
         ${i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : ""}
+        ${lockHint}
         <div class="item-card__footer">
           <span class="item-card__price">${i.price > 0 ? amberPriceHtml(i.price, 16) : "Grátis"}</span>
           ${buyBtn}
@@ -3784,6 +3896,8 @@ async function loadCatalog() {
       category: _resolveItemCategory(v, key),
       catalogKind: "item",
       purchaseType: "shop",
+      permissions: v.Permissions || v.RequiredPermissions || "",
+      permissionsMode: v.PermissionsMode || "any",
     }));
 
     _catalogKits = Object.entries(kits).map(([key, v]) => ({
@@ -3796,10 +3910,26 @@ async function loadCatalog() {
       catalogKind: "kit",
       purchaseType: "kit",
       kitItems: (v.Items || []).length,
+      permissions: v.Permissions || v.RequiredPermissions || "",
+      permissionsMode: v.PermissionsMode || "any",
     }));
 
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
+
+    if (_auth.authenticated) {
+      try {
+        const er = await fetch(API + "/api/player/entitlements");
+        const ed = await er.json();
+        if (ed.ok) {
+          _playerEntitlements = ed.entitlements || [];
+          _playerTimedPointsTotal = ed.timed_points_total || 25;
+        }
+      } catch (_) {}
+    } else {
+      _playerEntitlements = [];
+      _playerTimedPointsTotal = 25;
+    }
 
     const cats = [...new Set(_catalogItems.filter(i => !_isDinoType(i.type) && !_isLicenseItem(i)).map(i => i.category))].sort();
     const sel = document.getElementById("catalog-cat");
@@ -3930,9 +4060,12 @@ async function loadAvailable() {
         <div class="available-card">
           <div>
             <div class="available-card__name">${escHtml(p.name)}</div>
-            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}</div>
+            <div class="available-card__meta">${escHtml(p.item_type)} · ${escHtml(p.item_id)} · x${p.amount} · ${statusBadge(p.status)}${p.points_spent ? ` · ${formatAmberAmount(p.points_spent)}` : ""}</div>
           </div>
-          <span style="font-size:12px;color:var(--text2);">Entre no servidor</span>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            <span style="font-size:12px;color:var(--text2);">Entre no servidor</span>
+            ${p.can_cancel ? `<button class="btn btn-ghost btn-sm" onclick="cancelPendingOrder('${escHtml(p.order_id)}')">Desistir</button>` : ""}
+          </div>
         </div>`).join("");
     }
     html += `</div>`;
@@ -4294,6 +4427,7 @@ function statusBadge(status) {
   const s = (status || "").toUpperCase();
   if (s === "ENTREGUE")  return `<span class="badge badge-item">${s}</span>`;
   if (s === "PENDENTE")  return `<span class="badge badge-beacon">${s}</span>`;
+  if (s === "CANCELADO") return `<span class="badge badge-experience">${s}</span>`;
   if (s === "CONTESTADO")return `<span class="badge badge-command">${s}</span>`;
   if (s === "ERRO")      return `<span class="badge badge-experience">${s}</span>`;
   if (s === "REEMITIDO") return `<span class="badge badge-reemitido">${s}</span>`;
@@ -4335,7 +4469,60 @@ async function loadMyArea() {
   refreshPlayerBalance();
 
   await loadMyAreaDonations();
+  await loadMyAreaLicenses();
   await loadMyAreaHistory();
+}
+
+async function loadMyAreaLicenses() {
+  const host = document.getElementById("myarea-licenses");
+  if (!host) return;
+  try {
+    const r = await fetch(API + "/api/player/entitlements");
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      host.innerHTML = `<span style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar licenças")}</span>`;
+      return;
+    }
+    _playerEntitlements = d.entitlements || [];
+    _playerTimedPointsTotal = d.timed_points_total || 25;
+    const ents = d.entitlements || [];
+    if (!ents.length) {
+      host.innerHTML = `<p style="margin:0;">Nenhuma licença ativa. Resgate na aba <strong>Licenças</strong> do catálogo.</p>
+        <p style="margin:8px 0 0;font-size:12px;">Default: 25 Âmbar / 30 min (online).</p>`;
+      return;
+    }
+    host.innerHTML = `
+      <p style="margin:0 0 12px;font-size:12px;color:var(--amber);">Total online: <strong>${d.timed_points_total || 25}</strong> Âmbar a cada 30 min (Default + licenças ativas)</p>
+      <table class="tbl"><thead><tr><th>Licença</th><th>Bônus / 30 min</th><th>Validade</th></tr></thead><tbody>
+      ${ents.map(e => `<tr>
+        <td><strong>${escHtml(e.group)}</strong></td>
+        <td>+${e.timed_points_bonus || 0}</td>
+        <td>${e.permanent ? "Permanente" : escHtml(e.expires_at || "—")}</td>
+      </tr>`).join("")}
+      </tbody></table>`;
+  } catch (e) {
+    host.innerHTML = `<span style="color:var(--danger);">Erro: ${escHtml(e.message)}</span>`;
+  }
+}
+
+async function cancelPendingOrder(orderId) {
+  if (!orderId) return;
+  if (!confirm("Desistir deste resgate? O valor em Âmbar será reembolsado se ainda não foi entregue no servidor.")) return;
+  try {
+    const r = await fetch(API + "/api/player/orders/" + encodeURIComponent(orderId) + "/cancel", { method: "POST" });
+    const d = await r.json();
+    if (d.ok) {
+      toast(`Desistência confirmada — ${formatAmberAmount(d.refunded || 0)} reembolsados`, "success");
+      if (d.new_balance != null) window._playerBalance = d.new_balance;
+      refreshPlayerBalance();
+      loadMyArea();
+      if (_catalogActiveTab === "available") loadAvailable();
+    } else {
+      toast(d.error || "Não foi possível cancelar", "error");
+    }
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
 }
 
 async function loadMyAreaDonations() {
@@ -6252,7 +6439,8 @@ function openBuyModal(item, policyAlreadyAccepted) {
   }
   _buyItem = item;
   const bal = window._playerBalance ?? "?";
-  const canBuy = typeof bal === "number" && bal >= item.price;
+  const hasLicense = _itemCanPurchase(item);
+  const canBuy = hasLicense && (typeof bal === "number" && bal >= item.price);
   document.getElementById("buy-modal-body").innerHTML = `
     <div style="text-align:center;margin-bottom:20px;">
       <div style="font-size:48px;filter:drop-shadow(0 0 16px rgba(232,120,32,.4));margin-bottom:10px;">${{"Dino":"🦕","Item":"📦","Blueprint":"📋","Command":"⚡","Experience":"✨","Kit":"🎁"}[item.type]||"🏷️"}</div>
@@ -6272,7 +6460,8 @@ function openBuyModal(item, policyAlreadyAccepted) {
         <div style="font-size:22px;font-weight:700;color:${canBuy?'var(--success)':'var(--danger)'};display:flex;align-items:center;justify-content:center;gap:8px;">${amberIconHtml(22)} ${formatAmberAmount(bal)}</div>
       </div>
     </div>
-    ${!canBuy ? `<div style="text-align:center;color:var(--danger);font-size:13px;margin-bottom:8px;font-weight:700;">⚠️ Saldo insuficiente</div>` : ""}`;
+    ${!hasLicense ? `<div style="text-align:center;color:var(--amber);font-size:13px;margin-bottom:8px;font-weight:700;">🔒 Licença necessária: ${_missingLicenses(item).join(", ") || "—"}</div>` : ""}
+    ${hasLicense && !canBuy ? `<div style="text-align:center;color:var(--danger);font-size:13px;margin-bottom:8px;font-weight:700;">⚠️ Saldo insuficiente</div>` : ""}`;
   document.getElementById("buy-confirm-btn").disabled = !canBuy;
   document.getElementById("buy-modal").style.display = "flex";
 }
@@ -6296,7 +6485,6 @@ async function confirmBuy() {
         item_id: item.key,
         item_type: item.purchaseType || (item.catalogKind === "kit" ? "kit" : "shop"),
         amount: 1,
-        price: item.price,
         idempotency_key: `${_auth.steam_id}_${item.key}_${Date.now()}`,
       }),
     });

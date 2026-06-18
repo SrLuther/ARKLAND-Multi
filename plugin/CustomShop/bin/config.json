@@ -82,11 +82,11 @@
     "StackRewards":  true,
     "Groups": {
       "Default":     { "Amount": 25   },
-      "VIPBronze":   { "Amount": 20   },
-      "VIPPrata":    { "Amount": 30   },
-      "VIPOuro":     { "Amount": 50   },
-      "VIPDiamante": { "Amount": 75   },
-      "VIPDoacao":   { "Amount": 100  }
+      "Gamma":       { "Amount": 25   },
+      "Beta":        { "Amount": 50   },
+      "Alfa":        { "Amount": 75   },
+      "Moderacao":   { "Amount": 500  },
+      "STAFF":       { "Amount": 1000 }
     }
   },
 

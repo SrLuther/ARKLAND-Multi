@@ -30,6 +30,7 @@ set(SOURCES
     src/ShopPoints.cpp
     src/ShopStore.cpp
     src/ShopVip.cpp
+    src/ShopEntitlements.cpp
     src/TimedPoints.cpp
     src/Commands.cpp
     src/HttpClient.cpp

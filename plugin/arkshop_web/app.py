@@ -411,6 +411,7 @@ class Order(Base):
     item_type: Mapped[str] = mapped_column(String(32), default="shop")
     item_id: Mapped[str] = mapped_column(String(128), index=True)
     amount: Mapped[int] = mapped_column(Integer, default=1)
+    points_spent: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
     original_order_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -608,6 +609,17 @@ def _migrate_schema(engine: Any) -> None:
                 log.warning("Migrando point_payments — adicionando payer_email")
                 conn.execute(text(
                     "ALTER TABLE `point_payments` ADD COLUMN `payer_email` VARCHAR(255) NULL"
+                ))
+                conn.commit()
+        orders_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
+        if orders_row is not None:
+            pts_col = conn.execute(text(
+                "SHOW COLUMNS FROM `orders` LIKE 'points_spent'"
+            )).fetchone()
+            if pts_col is None:
+                log.warning("Migrando orders — adicionando points_spent")
+                conn.execute(text(
+                    "ALTER TABLE `orders` ADD COLUMN `points_spent` INT NOT NULL DEFAULT 0"
                 ))
                 conn.commit()
     Base.metadata.create_all(bind=engine)
@@ -912,6 +924,193 @@ def _read_shop_config() -> dict[str, Any]:
         return {}
 
 
+PAID_LICENSE_GROUPS = frozenset({"Gamma", "Beta", "Alfa"})
+LICENSE_TIMED_BONUS = {
+    "Default": 25,
+    "Gamma": 25,
+    "Beta": 50,
+    "Alfa": 75,
+    "Moderacao": 500,
+    "STAFF": 1000,
+}
+
+
+def _parse_permissions_field(entry: dict[str, Any]) -> list[str]:
+    raw = entry.get("Permissions") or entry.get("RequiredPermissions") or ""
+    if isinstance(raw, list):
+        return [str(g).strip() for g in raw if str(g).strip()]
+    if not raw:
+        return []
+    return [t.strip() for t in str(raw).split(",") if t.strip()]
+
+
+def _get_license_grant(entry: dict[str, Any]) -> dict[str, Any] | None:
+    lic = entry.get("LicenseGrant")
+    if isinstance(lic, dict) and lic.get("Group"):
+        return lic
+    return None
+
+
+def _catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
+    data = _read_shop_config()
+    if item_type == "kit":
+        return (data.get("Kits") or {}).get(item_id) or {}
+    return (data.get("Items") or data.get("ShopItems") or {}).get(item_id) or {}
+
+
+def _catalog_price(entry: dict[str, Any], amount: int = 1) -> int:
+    return max(0, int(entry.get("Price", 0) or 0)) * max(1, amount)
+
+
+def _ensure_entitlements_table(conn: Any) -> None:
+    conn.execute(text(
+        "CREATE TABLE IF NOT EXISTS player_entitlements ("
+        "  id INT AUTO_INCREMENT PRIMARY KEY,"
+        "  steam_id VARCHAR(20) NOT NULL,"
+        "  group_name VARCHAR(32) NOT NULL,"
+        "  expires DATETIME DEFAULT NULL,"
+        "  source VARCHAR(64) DEFAULT NULL,"
+        "  notes VARCHAR(255) DEFAULT NULL,"
+        "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+        "  UNIQUE KEY uq_steam_group (steam_id, group_name),"
+        "  INDEX idx_steam_expires (steam_id, expires)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    ))
+
+
+def _get_player_entitlements(steam_id: str) -> list[dict[str, Any]]:
+    if not _db_ready():
+        return []
+    db = _SessionLocal()
+    try:
+        _ensure_entitlements_table(db)
+        rows = db.execute(
+            text(
+                "SELECT group_name, expires, source, notes, created_at "
+                "FROM player_entitlements "
+                "WHERE steam_id = :sid AND (expires IS NULL OR expires > NOW()) "
+                "ORDER BY expires IS NULL DESC, expires ASC"
+            ),
+            {"sid": str(steam_id)},
+        ).fetchall()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            grp = str(row[0])
+            bonus = LICENSE_TIMED_BONUS.get(grp, 0)
+            out.append({
+                "group": grp,
+                "expires_at": row[1].isoformat() if row[1] else None,
+                "permanent": row[1] is None,
+                "source": row[2],
+                "notes": row[3],
+                "timed_points_bonus": bonus,
+            })
+        return out
+    except Exception as exc:
+        _log_error("get_player_entitlements", steam_id=steam_id, error=str(exc))
+        return []
+    finally:
+        db.close()
+
+
+def _compute_timed_points_total(groups: list[str]) -> int:
+    total = LICENSE_TIMED_BONUS.get("Default", 25)
+    for g in groups:
+        if g == "Default":
+            continue
+        total += LICENSE_TIMED_BONUS.get(g, 0)
+    return total
+
+
+def _player_has_license(steam_id: str, group: str) -> bool:
+    if group == "Default":
+        return True
+    for ent in _get_player_entitlements(steam_id):
+        if ent["group"] == group:
+            return True
+    return False
+
+
+def _check_entry_permissions(steam_id: str, entry: dict[str, Any]) -> tuple[bool, list[str]]:
+    groups = _parse_permissions_field(entry)
+    if not groups:
+        return True, []
+    mode = str(entry.get("PermissionsMode", "any")).strip().lower()
+    active = [g for g in groups if _player_has_license(steam_id, g)]
+    if mode == "all":
+        ok = len(active) == len(groups)
+    else:
+        ok = len(active) > 0
+    missing = [g for g in groups if g not in active]
+    return ok, missing
+
+
+def _grant_player_entitlement(
+    steam_id: str,
+    group: str,
+    days: int,
+    *,
+    source: str = "",
+    notes: str = "",
+) -> None:
+    db = _SessionLocal()
+    try:
+        _ensure_entitlements_table(db)
+        if group in PAID_LICENSE_GROUPS:
+            db.execute(
+                text(
+                    "DELETE FROM player_entitlements "
+                    "WHERE steam_id = :sid AND group_name IN ('Gamma','Beta','Alfa') "
+                    "AND group_name != :grp"
+                ),
+                {"sid": str(steam_id), "grp": group},
+            )
+        if days <= 0:
+            db.execute(
+                text(
+                    "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+                    "VALUES (:sid, :grp, NULL, :src, :notes) "
+                    "ON DUPLICATE KEY UPDATE expires = NULL, source = :src, notes = :notes"
+                ),
+                {"sid": str(steam_id), "grp": group, "src": source, "notes": notes},
+            )
+        else:
+            db.execute(
+                text(
+                    "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+                    "VALUES (:sid, :grp, DATE_ADD(NOW(), INTERVAL :days DAY), :src, :notes) "
+                    "ON DUPLICATE KEY UPDATE "
+                    "expires = DATE_ADD(GREATEST(COALESCE(expires, NOW()), NOW()), INTERVAL :days DAY), "
+                    "source = :src, notes = :notes"
+                ),
+                {
+                    "sid": str(steam_id),
+                    "grp": group,
+                    "days": days,
+                    "src": source,
+                    "notes": notes,
+                },
+            )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _revoke_entitlement_for_order(steam_id: str, order_id: str) -> None:
+    db = _SessionLocal()
+    try:
+        db.execute(
+            text(
+                "DELETE FROM player_entitlements "
+                "WHERE steam_id = :sid AND source = :oid"
+            ),
+            {"sid": str(steam_id), "oid": order_id},
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
 def _load_point_packages() -> list[dict[str, Any]]:
     cfg = _read_shop_config()
     packages = cfg.get("PointPackages")
@@ -1102,7 +1301,9 @@ def _attempt_delivery(order: Order, settings: dict[str, Any]) -> tuple[bool, str
 
 # ── Order core ────────────────────────────────────────────────────────────────
 
-def _create_order(steam_id: str, item_type: str, item_id: str, amount: int, original_order_id: str | None = None) -> tuple[Order | None, str | None]:
+def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
+                  original_order_id: str | None = None,
+                  points_spent: int = 0) -> tuple[Order | None, str | None]:
     if not _db_ready():
         return None, "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"
 
@@ -1121,6 +1322,7 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int, orig
         item_type=item_type or "shop",
         item_id=item_id,
         amount=amount,
+        points_spent=max(0, int(points_spent)),
         status="PENDENTE",
         original_order_id=original_order_id,
         created_at=_now(),
@@ -2341,33 +2543,55 @@ def player_purchase():
     if (err := _require_db()) is not None:
         return err
 
-    # Idempotency check — client must supply a unique key per purchase attempt
     idempotency_key = str(body.get("idempotency_key", "")).strip()
     if idempotency_key:
         if not _check_idempotency(idempotency_key):
-            # Duplicate request — find and return the existing order
             _log("purchase_duplicate_idempotency", steam_id=str(steam_id),
                  idempotency_key=idempotency_key)
             return jsonify({"ok": False, "error": "Pedido duplicado — este resgate já foi processado",
                            "idempotency_key": idempotency_key}), 409
 
-    price = int(body.get("price", 0))
+    entry = _catalog_entry("kit" if item_type == "kit" else "shop", item_id)
+    if not entry:
+        if idempotency_key:
+            _used_idempotency_keys.pop(idempotency_key, None)
+        return jsonify({"ok": False, "error": "Item não encontrado no catálogo"}), 404
+
+    lic = _get_license_grant(entry)
+    if lic and (lic.get("AdminOnly") or lic.get("Redeemable") is False):
+        if idempotency_key:
+            _used_idempotency_keys.pop(idempotency_key, None)
+        return jsonify({"ok": False, "error": "Esta licença não pode ser resgatada na loja"}), 403
+
+    can_buy, missing = _check_entry_permissions(str(steam_id), entry)
+    if not can_buy:
+        if idempotency_key:
+            _used_idempotency_keys.pop(idempotency_key, None)
+        need = ", ".join(missing)
+        return jsonify({
+            "ok": False,
+            "error": f"Licença necessária: {need}",
+            "missing_licenses": missing,
+        }), 403
+
+    price = _catalog_price(entry, amount)
     if price > 0:
         balance = _get_player_points(str(steam_id))
         if balance is not None and balance < price:
-            # Refund idempotency key — insufficient funds is not a successful op
             if idempotency_key:
                 _used_idempotency_keys.pop(idempotency_key, None)
-            return jsonify({"ok": False, "error": f"Saldo insuficiente ({balance} pts, necessário {price} pts)"}), 402
+            return jsonify({
+                "ok": False,
+                "error": f"Saldo insuficiente ({balance} pts, necessário {price} pts)",
+            }), 402
 
-    order, error = _create_order(str(steam_id), item_type, item_id, amount)
+    order, error = _create_order(str(steam_id), item_type, item_id, amount, points_spent=price)
     if error:
         if idempotency_key:
             _used_idempotency_keys.pop(idempotency_key, None)
         return jsonify({"ok": False, "error": error}), 400
     assert order is not None
 
-    # Deduz pontos do jogador após pedido criado com sucesso
     if price > 0:
         try:
             db = _SessionLocal()
@@ -2380,9 +2604,22 @@ def player_purchase():
         except Exception as _pts_err:
             _log_error("debit_points", steam_id=str(steam_id), price=price, error=str(_pts_err))
 
+    if lic and lic.get("Redeemable", True):
+        try:
+            _grant_player_entitlement(
+                str(steam_id),
+                str(lic["Group"]),
+                int(lic.get("Days", 30)),
+                source=order.order_id,
+                notes=f"web:{item_id}",
+            )
+        except Exception as exc:
+            _log_error("grant_license", steam_id=str(steam_id), item_id=item_id, error=str(exc))
+
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
     result["new_balance"] = _get_player_points(str(steam_id))
+    result["points_spent"] = price
     new_balance = result.get("new_balance")
     _audit_event(
         "purchase_created",
@@ -2403,6 +2640,94 @@ def player_purchase():
         queued=result.get("queued"),
     )
     return jsonify(result), 200 if result.get("ok") else 500
+
+
+@app.route("/api/player/orders/<order_id>/cancel", methods=["POST"])
+@login_required
+@limiter.limit("20 per minute")
+def player_cancel_order(order_id: str):
+    """Desistência — cancela pedido PENDENTE e reembolsa Âmbar."""
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    db = _SessionLocal()
+    try:
+        order = (
+            db.query(Order)
+            .filter(Order.order_id == order_id, Order.steam_id == steam_id)
+            .with_for_update()
+            .first()
+        )
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if order.status != "PENDENTE":
+            return jsonify({
+                "ok": False,
+                "error": "Só é possível desistir de resgates ainda pendentes (aguardando entrada no servidor)",
+            }), 409
+
+        refund = int(order.points_spent or 0)
+        if refund <= 0:
+            entry = _catalog_entry(
+                "kit" if order.item_type == "kit" else "shop",
+                order.item_id,
+            )
+            refund = _catalog_price(entry, order.amount)
+
+        if refund > 0:
+            db.execute(
+                text("UPDATE players SET points = points + :amt WHERE steam_id = :sid"),
+                {"amt": refund, "sid": steam_id},
+            )
+
+        order.status = "CANCELADO"
+        order.updated_at = _now()
+        db.commit()
+
+        _revoke_entitlement_for_order(steam_id, order_id)
+
+        new_balance = _get_player_points(steam_id)
+        _audit_event(
+            "order_cancelled",
+            actor_type="player",
+            actor_steam_id=steam_id,
+            target_steam_id=steam_id,
+            order_id=order_id,
+            item_type=order.item_type,
+            item_id=order.item_id,
+            status_before="PENDENTE",
+            status_after="CANCELADO",
+            message=f"Desistência — reembolso de {refund} Âmbar",
+            price=refund,
+            points_after=new_balance,
+        )
+        return jsonify({
+            "ok": True,
+            "order_id": order_id,
+            "status": "CANCELADO",
+            "refunded": refund,
+            "new_balance": new_balance,
+        })
+    except Exception as exc:
+        db.rollback()
+        _log_error("player_cancel_order", order_id=order_id, steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/player/entitlements", methods=["GET"])
+@login_required
+def player_entitlements():
+    steam_id = str(_steam_id_from_session())
+    ents = _get_player_entitlements(steam_id)
+    groups = [e["group"] for e in ents]
+    return jsonify({
+        "ok": True,
+        "entitlements": ents,
+        "timed_points_total": _compute_timed_points_total(groups),
+        "timed_points_interval_min": 30,
+    })
 
 
 @app.route("/api/player/points", methods=["GET"])
@@ -2487,6 +2812,8 @@ def player_available():
                 "item_id": row.item_id,
                 "amount": row.amount,
                 "status": row.status,
+                "points_spent": int(row.points_spent or 0),
+                "can_cancel": row.status == "PENDENTE",
                 "name": meta["name"],
                 "description": meta["description"],
                 "created_at": row.created_at.isoformat() if row.created_at else None,

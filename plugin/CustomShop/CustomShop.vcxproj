@@ -75,6 +75,7 @@
     <ClCompile Include="src\TimedPoints.cpp" />
     <ClCompile Include="src\Commands.cpp" />
     <ClCompile Include="src\ShopVip.cpp" />
+    <ClCompile Include="src\ShopEntitlements.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h" />
@@ -86,6 +87,7 @@
     <ClInclude Include="src\ShopStore.h" />
     <ClInclude Include="src\TimedPoints.h" />
     <ClInclude Include="src\ShopVip.h" />
+    <ClInclude Include="src\ShopEntitlements.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\mysql.h" />
   </ItemGroup>

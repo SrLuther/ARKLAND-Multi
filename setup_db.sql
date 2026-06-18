@@ -50,12 +50,25 @@ CREATE TABLE IF NOT EXISTS transactions (
   INDEX idx_ts    (ts)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Jogadores VIP
+-- Jogadores VIP (legado — migrar para player_entitlements)
 CREATE TABLE IF NOT EXISTS vip_players (
   steam_id  VARCHAR(20)   PRIMARY KEY NOT NULL,
   expires   DATETIME      DEFAULT NULL,
   tier      VARCHAR(32)   NOT NULL DEFAULT 'vip',
   notes     VARCHAR(255)  DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Licenças ativas (Gamma, Beta, Alfa, Moderacao, STAFF — múltiplas por jogador)
+CREATE TABLE IF NOT EXISTS player_entitlements (
+  id         INT AUTO_INCREMENT PRIMARY KEY,
+  steam_id   VARCHAR(20)   NOT NULL,
+  group_name VARCHAR(32)   NOT NULL,
+  expires    DATETIME      DEFAULT NULL,
+  source     VARCHAR(64)   DEFAULT NULL,
+  notes      VARCHAR(255)  DEFAULT NULL,
+  created_at DATETIME      DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_steam_group (steam_id, group_name),
+  INDEX idx_steam_expires (steam_id, expires)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- ============================================================

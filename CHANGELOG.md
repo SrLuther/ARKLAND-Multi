@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.30] - 2026-06-17
+
+### Feature
+
+- Novo (Web Store + CustomShop): sistema de licenças Gamma/Beta/Alfa — player_entitlements, TimedPoints empilhado (Default + licenças), preços 50k/75k/100k.
+- Novo (Web Store): Desistência — cancelar resgate PENDENTE com reembolso de Âmbar.
+- Novo (CustomShop): ShopEntitlements — grant/revoke, CanRedeem em Buy/Give kit e item.
+
+### Improvement
+
+- Melhoria (Web Store): resgate valida preço server-side e licenças exigidas (Permissions); Minha Área exibe licenças ativas; catálogo com cadeado.
+
+### Fix
+
+- Fix (Web Store): moeda Âmbar na home sem sobreposição em mobile — animação só em desktop (901px+).
+
 ## [1.9.29] - 2026-06-17
 
 ### Improvement

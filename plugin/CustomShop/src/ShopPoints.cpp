@@ -115,6 +115,20 @@ bool ShopPoints::Open() {
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
 
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS player_entitlements ("
+        "  id         INT AUTO_INCREMENT PRIMARY KEY,"
+        "  steam_id   VARCHAR(20) NOT NULL,"
+        "  group_name VARCHAR(32) NOT NULL,"
+        "  expires    DATETIME DEFAULT NULL,"
+        "  source     VARCHAR(64) DEFAULT NULL,"
+        "  notes      VARCHAR(255) DEFAULT NULL,"
+        "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+        "  UNIQUE KEY uq_steam_group (steam_id, group_name),"
+        "  INDEX idx_steam_expires (steam_id, expires)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
     Log::GetLog()->info("ShopPoints: MySQL connected to {}:{}/{}",
                         cfg.DbHost(), cfg.DbPort(), cfg.DbDatabase());
     return true;

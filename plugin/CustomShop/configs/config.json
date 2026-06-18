@@ -26,6 +26,45 @@
         "Permissions.AddTimed {SteamID} keyvault 720"
       ]
     },
+    "licenca_gamma": {
+      "Type": "license",
+      "Category": "Licenças",
+      "Name": "Licença Gamma",
+      "Price": 50000,
+      "Description": "Licença Gamma (30 dias) — 50 Âmbar a cada 30 min online",
+      "LicenseGrant": {
+        "Group": "Gamma",
+        "Days": 30,
+        "Redeemable": true
+      },
+      "TimedPointsBonus": 25
+    },
+    "licenca_beta": {
+      "Type": "license",
+      "Category": "Licenças",
+      "Name": "Licença Beta",
+      "Price": 75000,
+      "Description": "Licença Beta (30 dias) — 75 Âmbar a cada 30 min online",
+      "LicenseGrant": {
+        "Group": "Beta",
+        "Days": 30,
+        "Redeemable": true
+      },
+      "TimedPointsBonus": 50
+    },
+    "licenca_alfa": {
+      "Type": "license",
+      "Category": "Licenças",
+      "Name": "Licença Alfa",
+      "Price": 100000,
+      "Description": "Licença Alfa (30 dias) — 100 Âmbar a cada 30 min online",
+      "LicenseGrant": {
+        "Group": "Alfa",
+        "Days": 30,
+        "Redeemable": true
+      },
+      "TimedPointsBonus": 75
+    },
     "kitboss_king": {
       "Type": "item",
       "Price": 20000,
@@ -3628,20 +3667,20 @@
       "Default": {
         "Amount": 25
       },
-      "VIPBronze": {
-        "Amount": 20
+      "Gamma": {
+        "Amount": 25
       },
-      "VIPPrata": {
-        "Amount": 30
-      },
-      "VIPOuro": {
+      "Beta": {
         "Amount": 50
       },
-      "VIPDiamante": {
+      "Alfa": {
         "Amount": 75
       },
-      "VIPDoacao": {
-        "Amount": 100
+      "Moderacao": {
+        "Amount": 500
+      },
+      "STAFF": {
+        "Amount": 1000
       }
     }
   },

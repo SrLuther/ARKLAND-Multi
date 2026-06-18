@@ -499,6 +499,24 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
                 if g:
                     found.add(g)
 
+    for item in (catalog.get("Items") or catalog.get("ShopItems") or {}).values():
+        if not isinstance(item, dict):
+            continue
+        perms = item.get("Permissions", "")
+        if isinstance(perms, list):
+            for g in perms:
+                g = str(g).strip()
+                if g:
+                    found.add(g)
+        elif perms:
+            for token in str(perms).split(","):
+                g = token.strip()
+                if g:
+                    found.add(g)
+
+    for lic in ("Gamma", "Beta", "Alfa", "Moderacao", "STAFF"):
+        found.add(lic)
+
     timed = catalog.get("TimedPointsReward", {})
     if isinstance(timed, dict):
         groups = timed.get("Groups", {})

@@ -5,6 +5,7 @@
 #include "ShopPoints.h"
 #include "ShopPerms.h"
 #include "ShopVip.h"
+#include "ShopEntitlements.h"
 
 namespace {
 
@@ -146,6 +147,14 @@ bool BuyItem(AShooterPlayerController* controller,
     const int price   = item.value("Price", 0) * amount;
     const std::string id = Bridge::GetSteamId(controller);
 
+    uint64_t steam_id = 0;
+    try { steam_id = std::stoull(id); } catch (...) {}
+    if (!ShopEntitlements::Get().CanRedeem(steam_id, item)) {
+        Log::GetLog()->info(
+            "BuyItem: player {} lacks license for item '{}'", id, item_id);
+        return false;
+    }
+
     if (!ShopPoints::Get().SpendPoints(id, price)) {
         Log::GetLog()->info("BuyItem: player {} cannot afford '{}' (price={})",
                             id, item_id, price);
@@ -192,30 +201,12 @@ bool BuyKit(AShooterPlayerController* controller,
     // ── Permission check ──────────────────────────────────────────
     // "Permissions" is an optional comma-separated list of group names.
     // If present, the player must belong to at least one of them.
-    if (kit.contains("Permissions")) {
-        const std::string perms_str = kit.value("Permissions", "");
-        if (!perms_str.empty()) {
-            std::vector<std::string> required_groups;
-            std::stringstream ss(perms_str);
-            std::string token;
-            while (std::getline(ss, token, ',')) {
-                // trim leading/trailing whitespace
-                const auto first = token.find_first_not_of(" \t");
-                if (first == std::string::npos) continue;
-                const auto last = token.find_last_not_of(" \t");
-                required_groups.push_back(token.substr(first, last - first + 1));
-            }
-
-            uint64_t steam_id = 0;
-            try { steam_id = std::stoull(id); } catch (...) {}
-
-            if (!Perms::IsInAnyGroup(steam_id, required_groups)) {
-                Log::GetLog()->info(
-                    "BuyKit: player {} lacks permission for kit '{}' (requires: {})",
-                    id, kit_id, perms_str);
-                return false;
-            }
-        }
+    uint64_t steam_id = 0;
+    try { steam_id = std::stoull(id); } catch (...) {}
+    if (!ShopEntitlements::Get().CanRedeem(steam_id, kit)) {
+        Log::GetLog()->info(
+            "BuyKit: player {} lacks license for kit '{}'", id, kit_id);
+        return false;
     }
     // ─────────────────────────────────────────────────────────────
 
@@ -248,6 +239,15 @@ bool GiveKit(AShooterPlayerController* controller,
 
     const auto& kit = kits.at(kit_id);
     const std::string id = Bridge::GetSteamId(controller);
+
+    uint64_t steam_id = 0;
+    try { steam_id = std::stoull(id); } catch (...) {}
+    if (!ShopEntitlements::Get().CanRedeem(steam_id, kit)) {
+        Log::GetLog()->info(
+            "GiveKit: player {} lacks license for kit '{}'", id, kit_id);
+        return false;
+    }
+
     bool ok = false;
 
     if (kit.contains("Items")) {
@@ -266,6 +266,11 @@ bool GiveKit(AShooterPlayerController* controller,
         ok = true;
     }
 
+    if (kit.contains("LicenseGrant")) {
+        ShopEntitlements::Get().ApplyLicenseGrant(controller, kit, kit_id);
+        ok = true;
+    }
+
     if (kit.contains("VipLicense") && kit.at("VipLicense").is_object()) {
         const auto& lic = kit.at("VipLicense");
         const std::string tier = lic.value("Tier", "");
@@ -273,14 +278,11 @@ bool GiveKit(AShooterPlayerController* controller,
         const int days = std::max(1, std::min(30, days_raw));
         if (!tier.empty()) {
             const std::string notes = "kit:" + kit_id;
+            ShopEntitlements::Get().Grant(id, tier, days, notes, notes);
             if (ShopVip::Get().AddVip(id, days, tier, notes)) {
                 Log::GetLog()->info(
                     "GiveKit: VIP license tier={} days={} for player '{}'",
                     tier, days, id);
-            } else {
-                Log::GetLog()->error(
-                    "GiveKit: failed to register VIP license for player '{}'",
-                    id);
             }
         }
     }
@@ -309,6 +311,14 @@ bool GiveItem(AShooterPlayerController* controller,
     bool ok = false;
     const std::string id = Bridge::GetSteamId(controller);
 
+    uint64_t steam_id = 0;
+    try { steam_id = std::stoull(id); } catch (...) {}
+    if (!ShopEntitlements::Get().CanRedeem(steam_id, item)) {
+        Log::GetLog()->info(
+            "GiveItem: player {} lacks license for item '{}'", id, item_id);
+        return false;
+    }
+
     const std::string bp = item.value("Blueprint", "");
     if (!bp.empty()) {
         const int   qty   = item.value("Quantity",       1) * amount;
@@ -333,6 +343,11 @@ bool GiveItem(AShooterPlayerController* controller,
 
     if (item.contains("Commands")) {
         RunCommands(item.at("Commands"), controller, id);
+        ok = true;
+    }
+
+    if (item.contains("LicenseGrant")) {
+        ShopEntitlements::Get().ApplyLicenseGrant(controller, item, item_id);
         ok = true;
     }
 

@@ -5,6 +5,7 @@
 #include "ShopBridge.h"
 #include "ShopPerms.h"
 #include "ShopVip.h"
+#include "ShopEntitlements.h"
 
 #include <Timer.h>
 
@@ -51,12 +52,12 @@ void Tick() {
         for (const auto& [grp, amt] : group_amounts) {
             bool qualifies = false;
             if (grp == "Default") {
-                // Base interval reward — every connected player.
+                qualifies = true;
+            } else if (CustomShop::ShopEntitlements::Get().HasActive(sid, grp)) {
                 qualifies = true;
             } else if (CustomShop::Perms::IsInGroup(steam_id, grp)) {
                 qualifies = true;
             } else {
-                // Web-redeemed VIP license (vip_players) matching this tier.
                 const std::string tier = CustomShop::ShopVip::Get().GetActiveTier(sid);
                 qualifies = (!tier.empty() && tier == grp);
             }
