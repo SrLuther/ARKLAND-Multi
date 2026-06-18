@@ -1,5 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+from pathlib import Path
+
 from PyInstaller.utils.hooks import collect_all, collect_submodules
+
+_project_root = Path(SPEC).parent.resolve()
 
 flask_datas, flask_binaries, flask_hiddenimports = collect_all('flask')
 cors_datas, cors_binaries, cors_hiddenimports = collect_all('flask_cors')
@@ -9,7 +14,7 @@ crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography'
 
 a = Analysis(
     ['plugin/arkshop_web/app.py'],
-    pathex=[],
+    pathex=[str(_project_root)],
     binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries,
     datas=[
         ('plugin/arkshop_web/static', 'static'),
@@ -29,6 +34,9 @@ a = Analysis(
         'sqlalchemy.dialects.mysql',
         'sqlalchemy.dialects.mysql.pymysql',
         'pymysql',
+        'rcon_bridge',
+        'src.rcon_client',
+        'src.rcon_util',
         'cryptography',
         'cryptography.fernet',
         'dotenv',

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..rcon_client import RconClient
+from ..rcon_util import CUSTOMSHOP_RELOAD_COMMANDS, sanitize_rcon_password
 from ..shop_catalog_import import import_catalog_from_file
 from ..caddy_proxy import (
     caddy_status,
@@ -1056,18 +1057,16 @@ def _reload_customshop_rcon_all(app: "ARKServerManagerApp") -> tuple[list[str], 
     ok: list[str] = []
     failed: list[str] = []
     skipped: list[str] = []
-    commands = [
-        "plugins.reload CustomShop",
-        "ReloadPlugin CustomShop",
-        "reloadplugin CustomShop",
-    ]
+    commands = list(CUSTOMSHOP_RELOAD_COMMANDS)
 
     for _kind, srv in servers:
         name = getattr(srv, "name", "") or getattr(srv, "id", "") or "Servidor"
         if not getattr(srv, "rcon_enabled", False):
             skipped.append(f"{name}: RCON desativado")
             continue
-        rcon_pass = (getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or "").strip()
+        rcon_pass = sanitize_rcon_password(
+            getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
+        )
         if not rcon_pass:
             skipped.append(f"{name}: senha RCON/admin não definida")
             continue

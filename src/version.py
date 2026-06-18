@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.30"
-BUILD_DATE: str = "2026-06-17"
+APP_VERSION: str = "1.9.31"
+BUILD_DATE: str = "2026-06-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.31",
+        "date": "2026-06-12",
+        "changes": [
+            "Melhoria (Web Store): RCON ASE unificado — RconClient + ThreadPoolExecutor, retry no Shop.Reload "
+            "(até 5 tentativas) e GET /api/rcon/status para teste de conectividade.",
+            "Melhoria (Web Store): Console do Servidor — log append-only, histórico ↑/↓, Enter para enviar, "
+            "loading nos botões e rate limit ajustado (60/min).",
+            "Melhoria (Web Store): pontos e entregas 100% via banco/fila plugin — RCON bloqueado para "
+            "Shop.AddPoints, Shop.SetPoints, Shop.GetPoints e Shop.Deliver.",
+            "Melhoria (TEK): asm_rcon_window com auto-reconnect, send_command_with_retry e ping keep-alive.",
+            "Melhoria (TEK + classic): módulos rcon_*.py ligados — auto-reconnect, retry e status no Console RCON.",
+            "Fix (TEK): remote_agent usa connect() + send_command_safe() em vez de API inexistente do RconClient.",
+            "Melhoria (TEK): reload CustomShop unificado em Shop.Reload (alinhado ao plugin e Web Store).",
+            "Novo (TEK ASE): pasta custom de INI (user_config_folder) — lê/grava fora do install_dir e "
+            "sincroniza para WindowsServer no start.",
+            "Novo (TEK + classic): toggle EnableCryoSicknessPVP (Cryo Sickness em PvP).",
+            "Fix (RCON): sanitização de senhas corrompidas com sufixo ?ServerPassword= (TEK, Web Store e RconClient).",
+        ],
+    },
     {
         "version": "1.9.30",
         "date": "2026-06-17",

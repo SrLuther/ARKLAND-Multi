@@ -20,6 +20,7 @@ class AsmServerConfig:
 
     # ── Localização ──────────────────────────────────────────────────────────
     install_dir:  str = ""
+    user_config_folder: str = ""   # Pasta ASE custom de INI (sync → WindowsServer no start)
     server_exe:   str = "ShooterGameServer.exe"
 
     # ── Administration ───────────────────────────────────────────────────────
@@ -126,6 +127,7 @@ class AsmServerConfig:
     allow_custom_recipes:            bool  = True
     enable_diseases:                 bool  = True    # PreventDiseases = not enable_diseases
     prevent_pvp_offline:             bool  = False
+    enable_cryo_sickness_pvp:        bool  = False
     auto_pve_timer:                  bool  = False
 
     # ── ChatAndNotifications ──────────────────────────────────────────────────

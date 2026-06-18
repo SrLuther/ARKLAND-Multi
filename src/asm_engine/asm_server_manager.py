@@ -137,7 +137,7 @@ from .asm_server_config import (
     ASM_STATUS_CRASHED,
 )
 from ..mod_manager import ModManager
-from .asm_ini_manager import write_ini, build_launch_args
+from .asm_ini_manager import write_ini, build_launch_args, sync_user_config_folder_to_server
 from .asm_mod_utils import collect_mod_ids_for_install
 
 
@@ -280,6 +280,7 @@ class AsmServerManager:
 
         # Grava INI antes de reconectar — nome da sessão e demais configs no disco
         try:
+            sync_user_config_folder_to_server(cfg)
             write_ini(cfg)
         except Exception as exc:
             if on_done:
@@ -318,6 +319,7 @@ class AsmServerManager:
                 )
 
             # 1. Escreve INIs
+            sync_user_config_folder_to_server(cfg)
             write_ini(cfg)
 
             # 2. Monta comando como string (igual ao PRIMITIVE)

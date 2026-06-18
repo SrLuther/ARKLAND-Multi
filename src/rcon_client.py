@@ -70,6 +70,8 @@ class RconClient:
             raise ValueError("Host RCON não pode ser vazio.")
         if not (1 <= port <= 65535):
             raise ValueError(f"Porta RCON inválida: {port}. Use um valor entre 1 e 65535.")
+        from .rcon_util import sanitize_rcon_password
+        password = sanitize_rcon_password(password)
         if not password:
             raise ValueError("Senha RCON não pode ser vazia.")
 

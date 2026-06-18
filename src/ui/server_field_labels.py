@@ -40,6 +40,8 @@ _PT_OVERRIDES: dict[str, str] = {
     # Administração
     "name": "Nome no gerenciador",
     "install_dir": "Pasta de instalação",
+    "user_config_folder": "Pasta custom de INI (ASE)",
+    "enable_cryo_sickness_pvp": "Cryo Sickness em PvP",
     "server_exe": "Executável do servidor",
     "session_name": "Nome da sessão (browser)",
     "server_password": "Senha do servidor",

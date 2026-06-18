@@ -907,14 +907,15 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _section_label(sf, "Identificação", 0, accent)
     _str_entry(sf, "Nome no gerenciador",      "name",             srv, vars_ref,  1, accent, wide=True)
     _str_entry(sf, "Pasta de instalação",      "install_dir",      srv, vars_ref,  2, accent, wide=True)
+    _str_entry(sf, "Pasta custom de INI (ASE)", "user_config_folder", srv, vars_ref, 3, accent, wide=True)
 
     # ── Seletor visual de mapa ────────────────────────────────────────────────
-    _section_label(sf, "Mapa", 3, accent)
+    _section_label(sf, "Mapa", 4, accent)
     map_var = tk.StringVar(value=srv.server_map)
     vars_ref["server_map"] = map_var
 
     map_display_f = ctk.CTkFrame(sf, fg_color="transparent")
-    map_display_f.grid(row=4, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
+    map_display_f.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="ew")
 
     map_lbl = ctk.CTkLabel(
         map_display_f,
@@ -937,28 +938,28 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     # Campo texto para mapa não oficial / customizado
     manual_f = ctk.CTkFrame(sf, fg_color="transparent")
-    manual_f.grid(row=5, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="ew")
+    manual_f.grid(row=6, column=0, columnspan=2, padx=8, pady=(0, 6), sticky="ew")
     ctk.CTkLabel(manual_f, text="Mapa (vanilla ou mod):",
                  font=ctk.CTkFont(size=10), text_color="#64748b").pack(side="left", padx=(0, 6))
     manual_entry = ctk.CTkEntry(manual_f, textvariable=map_var, width=280,
                                 placeholder_text="TheIsland  ou  /Game/Mods/123456/funny_map")
     manual_entry.pack(side="left")
 
-    _str_entry(sf, "Total Conversion Mod ID",  "total_conversion_mod_id", srv, vars_ref, 6, accent)
+    _str_entry(sf, "Total Conversion Mod ID",  "total_conversion_mod_id", srv, vars_ref, 7, accent)
 
-    _section_label(sf, "Sessão",          7, accent)
-    _str_entry(sf, "Nome da sessão",           "session_name",     srv, vars_ref,  8, accent, wide=True)
-    _str_entry(sf, "Alt Save Directory",       "alt_save_directory_name", srv, vars_ref, 9, accent)
-    _float_entry(sf,"Auto-save (min)",         "auto_save_period", srv, vars_ref, 10)
+    _section_label(sf, "Sessão",          8, accent)
+    _str_entry(sf, "Nome da sessão",           "session_name",     srv, vars_ref,  9, accent, wide=True)
+    _str_entry(sf, "Alt Save Directory",       "alt_save_directory_name", srv, vars_ref, 10, accent)
+    _float_entry(sf,"Auto-save (min)",         "auto_save_period", srv, vars_ref, 11)
 
-    _section_label(sf, "Evento sazonal ARK",  11, accent)
-    _event_combo_entry(sf, srv, vars_ref, 12, accent)
+    _section_label(sf, "Evento sazonal ARK",  12, accent)
+    _event_combo_entry(sf, srv, vars_ref, 13, accent)
 
-    _section_label(sf, "Rede",           13, accent)
-    _int_entry(sf,   "Porta (game)",           "server_port",      srv, vars_ref, 14)
+    _section_label(sf, "Rede",           14, accent)
+    _int_entry(sf,   "Porta (game)",           "server_port",      srv, vars_ref, 15)
 
     # Porta peer — sempre game_port + 1, read-only
-    _peer_row = 15
+    _peer_row = 16
     ctk.CTkLabel(sf, text="Porta (peer)", font=ctk.CTkFont(size=11), anchor="w").grid(
         row=_peer_row, column=0, padx=(8, 4), pady=3, sticky="w")
     _peer_var = tk.StringVar(value=str(getattr(srv, "server_port", 7777) + 1))
@@ -975,16 +976,16 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             pass
     vars_ref["server_port"].trace_add("write", _on_game_port_change)
 
-    _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 16)
-    _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 17)
+    _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 17)
+    _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 18)
 
     # ── IP Bind com botão de detecção automática ─────────────────────────────
     ctk.CTkLabel(sf, text="IP Bind (MultiHome)", font=ctk.CTkFont(size=11), anchor="w").grid(
-        row=18, column=0, padx=(8, 4), pady=3, sticky="w")
+        row=19, column=0, padx=(8, 4), pady=3, sticky="w")
     _ip_var = tk.StringVar(value=str(getattr(srv, "server_ip", "")))
     vars_ref["server_ip"] = _ip_var
     _ip_frame = ctk.CTkFrame(sf, fg_color="transparent")
-    _ip_frame.grid(row=18, column=1, padx=(0, 8), pady=3, sticky="w")
+    _ip_frame.grid(row=19, column=1, padx=(0, 8), pady=3, sticky="w")
     _ip_entry = ctk.CTkEntry(_ip_frame, textvariable=_ip_var,
                              placeholder_text="vazio = escuta em todas as interfaces", width=160)
     _ip_entry.pack(side="left", padx=(0, 4))
@@ -1035,27 +1036,27 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     # O botão "Detectar IP" existe apenas para uso manual quando o servidor
     # tem múltiplas interfaces e o usuário quer forçar bind em uma específica.
 
-    _section_label(sf, "Senhas",         19, accent)
-    _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 20, accent, pw=True)
-    _str_entry(sf, "Senha admin",              "admin_password",   srv, vars_ref, 21, accent, pw=True)
-    _str_entry(sf, "Senha spectator",          "spectator_password", srv, vars_ref, 22, accent, pw=True)
+    _section_label(sf, "Senhas",         20, accent)
+    _str_entry(sf, "Senha do servidor",        "server_password",  srv, vars_ref, 21, accent, pw=True)
+    _str_entry(sf, "Senha admin",              "admin_password",   srv, vars_ref, 22, accent, pw=True)
+    _str_entry(sf, "Senha spectator",          "spectator_password", srv, vars_ref, 23, accent, pw=True)
 
-    _section_label(sf, "RCON",           23, accent)
-    _bool_check(sf,  "Habilitar RCON",         "rcon_enabled",     srv, vars_ref, 24, accent)
-    _int_entry(sf,   "Porta RCON",             "rcon_port",        srv, vars_ref, 25)
-    _int_entry(sf,   "Buffer log RCON",        "rcon_log_buffer",  srv, vars_ref, 26)
+    _section_label(sf, "RCON",           24, accent)
+    _bool_check(sf,  "Habilitar RCON",         "rcon_enabled",     srv, vars_ref, 25, accent)
+    _int_entry(sf,   "Porta RCON",             "rcon_port",        srv, vars_ref, 26)
+    _int_entry(sf,   "Buffer log RCON",        "rcon_log_buffer",  srv, vars_ref, 27)
 
-    _section_label(sf, "Logs / Admin",   27, accent)
-    _bool_check(sf,  "Admin logging",          "admin_logging",    srv, vars_ref, 28, accent)
-    _int_entry(sf,   "Max tribe logs",         "max_tribe_logs",   srv, vars_ref, 29)
-    _bool_check(sf, "Log estruturas destruídas por inimigos", "tribe_log_destroyed_enemy_structures", srv, vars_ref, 30, accent)
-    _bool_check(sf, "Ocultar fonte de dano nos logs",         "allow_hide_damage_source",             srv, vars_ref, 31, accent)
+    _section_label(sf, "Logs / Admin",   28, accent)
+    _bool_check(sf,  "Admin logging",          "admin_logging",    srv, vars_ref, 29, accent)
+    _int_entry(sf,   "Max tribe logs",         "max_tribe_logs",   srv, vars_ref, 30)
+    _bool_check(sf, "Log estruturas destruídas por inimigos", "tribe_log_destroyed_enemy_structures", srv, vars_ref, 31, accent)
+    _bool_check(sf, "Ocultar fonte de dano nos logs",         "allow_hide_damage_source",             srv, vars_ref, 32, accent)
 
-    _section_label(sf, "Extinction / Respawn Dinos", 32, accent)
-    _bool_check(sf,  "Evento de extinção",      "enable_extinction_event",         srv, vars_ref, 33, accent)
-    _int_entry(sf,   "Intervalo extinção (s)",  "extinction_event_interval",        srv, vars_ref, 34)
-    _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 35, accent)
-    _int_entry(sf,   "Intervalo respawn (s)",   "auto_respawn_wild_dinos_interval", srv, vars_ref, 36)
+    _section_label(sf, "Extinction / Respawn Dinos", 33, accent)
+    _bool_check(sf,  "Evento de extinção",      "enable_extinction_event",         srv, vars_ref, 34, accent)
+    _int_entry(sf,   "Intervalo extinção (s)",  "extinction_event_interval",        srv, vars_ref, 35)
+    _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 36, accent)
+    _int_entry(sf,   "Intervalo respawn (s)",   "auto_respawn_wild_dinos_interval", srv, vars_ref, 37)
 
     _section_label(sf, "Jogadores Ociosos", 37, accent)
     _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 38, accent)
@@ -1282,6 +1283,7 @@ def _build_rules(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
         CardSpec("PvP offline", [
             "prevent_pvp_offline", "prevent_pvp_offline_interval",
             "prevent_pvp_offline_invincible_interval",
+            "enable_cryo_sickness_pvp",
         ]),
         CardSpec("PvE auto timer", [
             "auto_pve_timer", "auto_pve_use_system_time",

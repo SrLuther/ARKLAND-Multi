@@ -241,6 +241,7 @@ class ServerAdvancedSettings:
 
     # Cryopod
     enable_cryopod_nerf: bool = False
+    enable_cryo_sickness_pvp: bool = False
     cryopod_nerf_duration: float = 10.0
     cryopod_nerf_damage_mult: float = 0.01
 

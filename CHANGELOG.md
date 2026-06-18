@@ -5,6 +5,27 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.31] - 2026-06-12
+
+### Feature
+
+- Novo (TEK ASE): pasta custom de INI (user_config_folder) — lê/grava fora do install_dir e sincroniza para WindowsServer no start.
+- Novo (TEK + classic): toggle EnableCryoSicknessPVP (Cryo Sickness em PvP).
+
+### Improvement
+
+- Melhoria (Web Store): RCON ASE unificado — RconClient + ThreadPoolExecutor, retry no Shop.Reload (até 5 tentativas) e GET /api/rcon/status para teste de conectividade.
+- Melhoria (Web Store): Console do Servidor — log append-only, histórico ↑/↓, Enter para enviar, loading nos botões e rate limit ajustado (60/min).
+- Melhoria (Web Store): pontos e entregas 100% via banco/fila plugin — RCON bloqueado para Shop.AddPoints, Shop.SetPoints, Shop.GetPoints e Shop.Deliver.
+- Melhoria (TEK): asm_rcon_window com auto-reconnect, send_command_with_retry e ping keep-alive.
+- Melhoria (TEK + classic): módulos rcon_*.py ligados — auto-reconnect, retry e status no Console RCON.
+- Melhoria (TEK): reload CustomShop unificado em Shop.Reload (alinhado ao plugin e Web Store).
+
+### Fix
+
+- Fix (TEK): remote_agent usa connect() + send_command_safe() em vez de API inexistente do RconClient.
+- Fix (RCON): sanitização de senhas corrompidas com sufixo ?ServerPassword= (TEK, Web Store e RconClient).
+
 ## [1.9.30] - 2026-06-17
 
 ### Feature

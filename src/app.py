@@ -182,6 +182,8 @@ class ARKServerManagerApp(ctk.CTk):
         self._server_frames: Dict[str, ctk.CTkFrame] = {}
         self._server_widgets: Dict[str, Dict[str, Any]] = {}
         self._rcon_clients: Dict[str, RconClient] = {}
+        self._rcon_auto_enabled: Dict[str, bool] = {}
+        self._rcon_auto_jobs: Dict[str, str] = {}
         self._current_frame: str = "dashboard"
         self._sidebar_server_btns: Dict[str, ctk.CTkButton] = {}
         self._global_log_buf: List[str] = []
@@ -1468,6 +1470,10 @@ class ARKServerManagerApp(ctk.CTk):
         brow("Nerf de Criôpod Ativado",
              "Aplica penalidade de dano em dinos recém-lançados do criôpod. Útil para PvP.",
              "enable_cryopod_nerf",                       adv.enable_cryopod_nerf,                       r)
+        r += 1
+        brow("Cryo Sickness em PvP",
+             "Permite Cryo Sickness (doença de criôpod) em servidores PvP.",
+             "enable_cryo_sickness_pvp",                  adv.enable_cryo_sickness_pvp,                  r)
         r += 1
         frow("Duração do Nerf de Criôpod (s)",
              "Quantos segundos dura a penalidade após sair do criôpod.",
@@ -2929,7 +2935,7 @@ class ARKServerManagerApp(ctk.CTk):
         adv_bool = [
             "prevent_download_survivors", "prevent_download_items", "prevent_download_dinos",
             "prevent_upload_survivors", "prevent_upload_items", "prevent_upload_dinos",
-            "no_transfer_from_filtering", "enable_cryopod_nerf",
+            "no_transfer_from_filtering", "enable_cryopod_nerf", "enable_cryo_sickness_pvp",
             "allow_crateSpawns_on_top_of_structures", "use_optimized_harvesting_health",
             "b_passive_defenses_damage_riderless_dinos", "global_voice_chat",
             "proximity_chat", "allow_raid_dino_feeding", "b_auto_pve_timer",
@@ -3110,6 +3116,7 @@ class ARKServerManagerApp(ctk.CTk):
                         ("prevent_upload_dinos", "bPreventUploadDinos"),
                         ("no_transfer_from_filtering", "NoTransferFromFiltering"),
                         ("enable_cryopod_nerf", "EnableCryopodNerf"),
+                        ("enable_cryo_sickness_pvp", "EnableCryoSicknessPVP"),
                         ("allow_crateSpawns_on_top_of_structures", "AllowCrateSpawnsOnTopOfStructures"),
                         ("use_optimized_harvesting_health", "UseOptimizedHarvestingHealth"),
                         ("b_passive_defenses_damage_riderless_dinos", "bPassiveDefensesDamageRiderlessDinos"),
@@ -3507,49 +3514,25 @@ class ARKServerManagerApp(ctk.CTk):
     # ── RCON ──────────────────────────────────────────────────────────────────
 
     def _rcon_connect(self, server_id: str) -> None:
-        w   = self._server_widgets.get(server_id, {})
-        srv = self.config_manager.get_server(server_id)
-        if not srv:
-            return
+        from .pages.rcon_connect import rcon_connect
+        rcon_connect(self, server_id)
 
-        host     = w.get("rcon_host",        tk.StringVar(value="127.0.0.1")).get()
-        port_str = w.get("rcon_port_entry",   tk.StringVar(value=str(srv.rcon_port))).get()
-        password = srv.rcon_password or srv.admin_password
+    def _rcon_schedule_auto_connect(self, server_id: str, delay_ms: int = 20_000) -> None:
+        self._rcon_cancel_auto_job(server_id)
 
-        existing = self._rcon_clients.get(server_id)
-        if existing and existing.is_connected:
-            existing.disconnect()
-            del self._rcon_clients[server_id]
-            w.get("rcon_status_var", tk.StringVar()).set("⬛ Desconectado")
-            w["rcon_connect_btn"].configure(text="🔌 Conectar",
-                                            fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER)
-            return
+        def _tick() -> None:
+            from .pages.rcon_auto_connect_tick import rcon_auto_connect_tick
+            rcon_auto_connect_tick(self, server_id)
 
-        try:
-            port = int(port_str)
-        except ValueError:
-            port = srv.rcon_port
+        self._rcon_auto_jobs[server_id] = self.after(delay_ms, _tick)
 
-        def _do_connect():
-            client = RconClient(host, port, password,
-                                on_log=lambda m, level: self._global_log(f"[RCON] {m}", level))
+    def _rcon_cancel_auto_job(self, server_id: str) -> None:
+        aid = self._rcon_auto_jobs.pop(server_id, None)
+        if aid:
             try:
-                client.connect()
-                self._rcon_clients[server_id] = client
-                def _ok():
-                    w.get("rcon_status_var", tk.StringVar()).set(f"🟢 Conectado a {host}:{port}")
-                    w["rcon_connect_btn"].configure(text="🔌 Desconectar",
-                                                   fg_color=_RED_DARK, hover_color=_RED_HOVER)
-                    self._rcon_append(server_id, f"Conectado a {host}:{port}\n", "sys")
-                self.after(0, _ok)
-            except RconError as exc:
-                err_msg = str(exc)
-                def _err(msg: str = err_msg):
-                    w.get("rcon_status_var", tk.StringVar()).set(f"🔴 Erro: {msg}")
-                    self._rcon_append(server_id, f"Erro de conexão: {msg}\n", "err")
-                self.after(0, _err)
-
-        threading.Thread(target=_do_connect, daemon=True).start()
+                self.after_cancel(aid)
+            except Exception:
+                pass
 
     def _rcon_send(self, server_id: str) -> None:
         w = self._server_widgets.get(server_id, {})
@@ -3560,65 +3543,18 @@ class ARKServerManagerApp(ctk.CTk):
         self._rcon_exec(server_id, cmd)
 
     def _rcon_exec(self, server_id: str, command: str) -> None:
-        client = self._rcon_clients.get(server_id)
-        self._rcon_append(server_id, f"> {command}\n", "cmd")
-
-        if not client or not client.is_connected:
-            self._rcon_append(server_id, "Não conectado. Clique em 'Conectar' primeiro.\n", "err")
-            return
-
-        def _do():
-            ok, result = client.send_command_safe(command)
-            level = "resp" if ok else "err"
-            self.after(0, lambda: self._rcon_append(
-                server_id, (result or "(sem resposta)") + "\n", level))
-
-        threading.Thread(target=_do, daemon=True).start()
+        from .pages.rcon_exec import rcon_exec as rcon_exec_page
+        rcon_exec_page(self, server_id, command)
 
     def _rcon_append(self, server_id: str, text: str, tag: str = "resp") -> None:
-        w = self._server_widgets.get(server_id, {})
-        box: Optional[ctk.CTkTextbox] = w.get("rcon_output")
-        if not box:
-            return
-        box.configure(state="normal")
-        box._textbox.insert("end", text, tag)
-        box._textbox.see("end")
-        box.configure(state="disabled")
+        from .pages.rcon_append import rcon_append
+        rcon_append(self, server_id, text, tag)
 
     # ── Callbacks de status e log ─────────────────────────────────────────────
 
     def _on_server_status_change(self, server_id: str, status: str) -> None:
-        def _do():
-            color = _STATUS_COLOR.get(status, "#ff6666")
-            label = _STATUS_LABEL.get(status, status)
-
-            w = self._server_widgets.get(server_id, {})
-            sv: Optional[tk.StringVar]  = w.get("_status_var")
-            sl: Optional[ctk.CTkLabel]  = w.get("_status_lbl")
-            ss: Optional[ctk.CTkButton] = w.get("_start_stop_btn")
-            if sv:
-                sv.set(label)
-            if sl:
-                sl.configure(text_color=color)
-            if ss:
-                is_running = status == SERVER_STATUS_RUNNING
-                is_busy    = status in (SERVER_STATUS_STARTING, SERVER_STATUS_STOPPING)
-                ss.configure(
-                    text="▶ Iniciar" if not is_running else "⏹ Parar",
-                    fg_color=_GREEN_DARK if not is_running else _RED_DARK,
-                    hover_color=_GREEN_HOVER if not is_running else _RED_HOVER,
-                    state="disabled" if is_busy else "normal",
-                )
-
-            # Bloquear/desbloquear configurações
-            self._set_config_editable(server_id, status == SERVER_STATUS_STOPPED)
-
-            btn = self._sidebar_server_btns.get(server_id)
-            if btn and hasattr(btn, "_status_dot"):
-                btn._status_dot.configure(text_color=color)  # type: ignore[reportAttributeAccessIssue]
-
-            self._refresh_dashboard()
-        self.after(0, _do)
+        from .pages.on_server_status_change import on_server_status_change
+        on_server_status_change(self, server_id, status)
 
     def _set_config_editable(self, server_id: str, editable: bool) -> None:
         """Habilita ou desabilita todos os widgets de configuração das abas do servidor."""

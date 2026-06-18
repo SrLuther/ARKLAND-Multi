@@ -357,13 +357,18 @@ class RemoteAgent:
                                 return
                             try:
                                 from .rcon_client import RconClient
+                                from .rcon_util import sanitize_rcon_password
+                                pwd = sanitize_rcon_password(inst.config.admin_password)
                                 client = RconClient(
                                     host="127.0.0.1",
                                     port=inst.config.rcon_port,
-                                    password=inst.config.admin_password,
+                                    password=pwd,
                                 )
-                                with client:
-                                    resp = client.send(cmd)
+                                client.connect()
+                                ok, resp = client.send_command_safe(cmd)
+                                client.disconnect()
+                                if not ok:
+                                    raise RuntimeError(resp or "falha RCON")
                                 self._json(200, {"ok": True, "response": resp})
                             except Exception as exc:
                                 self._json(500, {"error": str(exc)})

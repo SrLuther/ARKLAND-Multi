@@ -379,9 +379,7 @@ class TestServers:
         r = client.post("/api/servers", json={
             "server_id": "pve1",
             "label": "PvE 1",
-            "rcon_host": "10.0.0.1",
-            "rcon_port": 27020,
-            "rcon_password": "secret",
+            "plugin_config_path": "C:\\ARK\\CustomShop\\config.json",
             "retry_max_attempts": 5,
         })
         assert r.get_json()["ok"] is True
@@ -390,12 +388,11 @@ class TestServers:
         items = r2.get_json()["items"]
         assert len(items) == 1
         assert items[0]["server_id"] == "pve1"
-        assert items[0]["rcon_password_set"] is True
-        assert "rcon_password" not in items[0]
+        assert items[0]["plugin_config_path"] == "C:\\ARK\\CustomShop\\config.json"
 
     def test_delete_server(self, client):
         _login(client, ADMIN_STEAM)
-        client.post("/api/servers", json={"server_id": "pvp1", "rcon_host": "127.0.0.1", "rcon_port": 27020})
+        client.post("/api/servers", json={"server_id": "pvp1", "plugin_config_path": "C:\\cfg.json"})
         r = client.delete("/api/servers/pvp1")
         assert r.get_json()["ok"] is True
         r2 = client.get("/api/servers")
@@ -521,6 +518,62 @@ class TestConcurrency:
             assert order.status == "ENTREGUE"
         finally:
             db.close()
+
+
+# ── RCON (reload + comandos in-game) ─────────────────────────────────────────
+
+class TestRconScope:
+    def test_rcon_blocks_shop_points(self, client):
+        _login(client, ADMIN_STEAM)
+        r = client.post("/api/rcon/command", json={"command": "Shop.AddPoints 76561198000000002 100"})
+        assert r.status_code == 400
+        assert "banco central" in r.get_json()["error"].lower()
+
+    def test_rcon_status(self, client):
+        _login(client, ADMIN_STEAM)
+        with patch.object(_app_module, "_rcon_test_connection", return_value=(True, "No players")):
+            r = client.get("/api/rcon/status")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["connected"] is True
+
+    def test_rcon_reload_calls_plugin(self, client, tmp_path):
+        _write_settings(tmp_path)
+        _login(client, ADMIN_STEAM)
+        with patch.object(_app_module, "_rcon_command", return_value="CustomShop reloaded") as mock:
+            r = client.post("/api/rcon/reload")
+        assert r.get_json()["ok"] is True
+        mock.assert_called()
+        assert mock.call_args.kwargs.get("connect_retries") == 5 or (
+            len(mock.call_args) > 0 and mock.call_args[1].get("connect_retries") == 5
+        )
+
+
+# ── Admin pontos (banco central) ──────────────────────────────────────────────
+
+class TestAdminPoints:
+    def test_add_and_get_points(self, client):
+        _login(client, ADMIN_STEAM)
+        sid = USER_STEAM
+        r = client.post("/api/admin/points", json={"action": "add", "steam_id": sid, "amount": 1000})
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["points"] == 1000
+
+        r2 = client.post("/api/admin/points", json={"action": "get", "steam_id": sid})
+        assert r2.get_json()["points"] == 1000
+
+    def test_set_points(self, client):
+        _login(client, ADMIN_STEAM)
+        sid = USER_STEAM
+        client.post("/api/admin/points", json={"action": "set", "steam_id": sid, "amount": 250})
+        r = client.post("/api/admin/points", json={"action": "get", "steam_id": sid})
+        assert r.get_json()["points"] == 250
+
+    def test_points_requires_admin(self, client):
+        _login(client, USER_STEAM)
+        r = client.post("/api/admin/points", json={"action": "get", "steam_id": USER_STEAM})
+        assert r.status_code == 403
 
 
 # ── Admin reprocess ───────────────────────────────────────────────────────────

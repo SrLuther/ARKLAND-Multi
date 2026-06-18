@@ -6,6 +6,7 @@ from ..ui_constants import _RED_DARK, _RED_HOVER
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 from ..rcon_client import RconClient, RconError
+from ..rcon_util import sanitize_rcon_password
 
 # Intervalos de backoff exponencial (ms) para reconexão após falhas:
 # 1ª falha → 10s, 2ª → 20s, 3ª → 40s, 4ª+ → 60s
@@ -68,7 +69,7 @@ def rcon_auto_connect_tick(app: "ARKServerManagerApp", server_id: str) -> None:
 
     host     = (w.get("rcon_host", tk.StringVar(value="127.0.0.1")).get() or "127.0.0.1").strip()
     port_str = (w.get("rcon_port_entry", tk.StringVar(value=str(srv.rcon_port))).get() or "").strip()
-    password = (srv.rcon_password or srv.admin_password or "").strip()
+    password = sanitize_rcon_password(srv.rcon_password or srv.admin_password)
 
     if not password:
         return  # sem senha, não adianta tentar

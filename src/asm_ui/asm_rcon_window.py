@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..rcon_client import RconClient, RconError
+from ..rcon_util import sanitize_rcon_password
 from ..asm_engine.asm_server_config import AsmServerConfig
 from ..ui_constants import get_theme
 
@@ -229,8 +230,12 @@ class _RconWindow(ctk.CTkToplevel):
     def _connect_worker(self) -> None:
         srv = self._srv
         host = srv.server_ip or "127.0.0.1"
+        password = sanitize_rcon_password(srv.admin_password)
+        if not password:
+            self.after(0, lambda: self._on_connect_error("Senha RCON/admin não configurada"))
+            return
         try:
-            client = RconClient(host, srv.rcon_port, srv.admin_password)
+            client = RconClient(host, srv.rcon_port, password)
             client.connect()
             with self._lock:
                 self._client = client
@@ -291,13 +296,36 @@ class _RconWindow(ctk.CTkToplevel):
         threading.Thread(target=self._send_worker, args=(client, cmd), daemon=True).start()
 
     def _send_worker(self, client: RconClient, cmd: str) -> None:
-        ok, resp = client.send_command_safe(cmd)
+        ok, resp = client.send_command_with_retry(cmd, retries=2)
+        if not ok:
+            host = self._srv.server_ip or "127.0.0.1"
+            password = sanitize_rcon_password(self._srv.admin_password)
+            try:
+                new_client = RconClient(host, self._srv.rcon_port, password)
+                new_client.connect()
+                with self._lock:
+                    old = self._client
+                    self._client = new_client
+                if old and old is not client:
+                    try:
+                        old.disconnect()
+                    except Exception:
+                        pass
+                ok, resp = new_client.send_command_with_retry(cmd, retries=2)
+                if ok:
+                    self.after(0, lambda h=host: self._log_line(
+                        f"[Auto-reconectado a {h}:{self._srv.rcon_port}]", color="#93c5fd"))
+                    self.after(0, lambda: self._set_status(
+                        f"Conectado a {host}:{self._srv.rcon_port}", "#22c55e"))
+            except Exception as exc:
+                ok = False
+                resp = str(exc)
+
         resp = resp.strip() if resp else ""
         if ok:
-            self.after(0, lambda r=resp: self._log_line(r or "(sem resposta)", color="#d1fae5"))
+            self.after(0, lambda r=resp: self._log_line(r or "(ok — sem resposta)", color="#d1fae5"))
         else:
             self.after(0, lambda r=resp: self._log_line(f"[ERRO] {r}", color="#f87171"))
-            # Marca como desconectado
             self.after(0, lambda: self._set_status("Conexão perdida", "#ef4444"))
             with self._lock:
                 self._client = None
@@ -379,6 +407,10 @@ class _RconWindow(ctk.CTkToplevel):
     def _ping_worker(self, client: RconClient) -> None:
         alive = client.ping()
         if not alive:
-            self.after(0, lambda: self._set_status("Conexão perdida (ping)", "#ef4444"))
             with self._lock:
-                self._client = None
+                stale = self._client is client
+                if stale:
+                    self._client = None
+            if stale:
+                self.after(0, lambda: self._set_status("Conexão perdida — reconectando…", "#f59e0b"))
+                self.after(500, self._connect)

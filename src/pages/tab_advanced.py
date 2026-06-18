@@ -313,6 +313,9 @@ def build_tab_advanced(app: "ARKServerManagerApp", parent, srv: "ServerConfig") 
     _b(c_game, "Nerf de Criôpod Ativado",
        "Aplica penalidade de dano em dinos recém-lançados do criôpod. Útil para PvP.",
        "enable_cryopod_nerf", adv.enable_cryopod_nerf)
+    _b(c_game, "Cryo Sickness em PvP",
+       "Permite Cryo Sickness (doença de criôpod) em servidores PvP.",
+       "enable_cryo_sickness_pvp", adv.enable_cryo_sickness_pvp)
     _f(c_game, "Duração do Nerf de Criôpod (s)",
        "Quantos segundos dura a penalidade após sair do criôpod.",
        "cryopod_nerf_duration", adv.cryopod_nerf_duration)

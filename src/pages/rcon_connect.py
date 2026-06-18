@@ -7,6 +7,7 @@ from ..ui_constants import _GREEN_DARK, _GREEN_HOVER, _RED_DARK, _RED_HOVER
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 from ..rcon_client import RconClient, RconError, RconAuthError
+from ..rcon_util import sanitize_rcon_password
 
 
 def rcon_connect(app: "ARKServerManagerApp", server_id: str) -> None:
@@ -18,7 +19,7 @@ def rcon_connect(app: "ARKServerManagerApp", server_id: str) -> None:
 
     host     = (srv.server_ip or "127.0.0.1").strip()
     port     = srv.rcon_port
-    password = (srv.rcon_password or srv.admin_password or "").strip()
+    password = sanitize_rcon_password(srv.rcon_password or srv.admin_password)
 
     # ── Desconexão manual ─────────────────────────────────────────────────
     existing = app._rcon_clients.get(server_id)

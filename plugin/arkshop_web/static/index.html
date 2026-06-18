@@ -1477,6 +1477,10 @@
     .admin-only { /* controlled by JS */ }
 
     /* RCON terminal output */
+    #rcon-output, .rcon-log {
+      max-height: 320px;
+      overflow-y: auto;
+    }
     #rcon-output {
       margin-top: 14px;
       background: #040608;
@@ -2627,7 +2631,10 @@
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
     <div class="nav-item admin-only" data-page="rcon" onclick="nav(this)">
-      <span class="nav-icon">🖥️</span> Console RCON
+      <span class="nav-icon">👤</span> Jogadores & Entregas
+    </div>
+    <div class="nav-item admin-only" data-page="server-console" onclick="nav(this)">
+      <span class="nav-icon">🖥️</span> Console do Servidor
     </div>
     <div class="nav-item admin-only" data-page="settings" onclick="nav(this)">
       <span class="nav-icon">🔧</span> Configurar Paths
@@ -2787,7 +2794,7 @@
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadConfig()">↺ Recarregar</button>
             <button class="btn btn-primary" onclick="openItemModal()">+ Novo Item</button>
-            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
+            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload Plugin</button>
           </div>
         </div>
         <div id="shop-list"></div>
@@ -2800,7 +2807,7 @@
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadConfig()">↺ Recarregar</button>
             <button class="btn btn-primary" onclick="openKitModal()">+ Novo Kit</button>
-            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
+            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload Plugin</button>
           </div>
         </div>
         <div id="kits-list"></div>
@@ -2853,7 +2860,7 @@
           </p>
           <div class="topbar-actions">
             <button class="btn btn-primary" onclick="openSellModal()">+ Novo Item</button>
-            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload</button>
+            <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload Plugin</button>
           </div>
         </div>
         <div id="sell-list"></div>
@@ -2881,10 +2888,10 @@
         <div id="messages-form"></div>
       </div>
 
-      <!-- PAGE: RCON (admin) -->
+      <!-- PAGE: Admin — jogadores, pontos e entregas -->
       <div id="page-rcon" class="page">
         <div id="topbar">
-          <div class="page-title">Console RCON</div>
+          <div class="page-title">Jogadores & Entregas</div>
         </div>
 
         <div class="card">
@@ -2919,6 +2926,7 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">📦 Entrega de Resgate</div>
+            <div style="font-size:12px;color:var(--text2);">Cria pedido PENDENTE — o CustomShop entrega quando o jogador estiver online</div>
           </div>
           <div class="form-grid" style="margin-bottom:14px;">
             <div class="form-group">
@@ -2949,34 +2957,80 @@
         <div class="card">
           <div class="card-header">
             <div class="card-title">🔃 Pontos de Jogador</div>
+            <div style="font-size:12px;color:var(--text2);">Saldo no banco central MySQL — independente do servidor ARK estar online</div>
           </div>
           <div class="form-grid" style="margin-bottom:14px;">
             <div class="form-group">
               <label>SteamID64</label>
-              <input id="rcon-player" type="text" placeholder="7656119XXXXXXXXXX" />
+              <input id="admin-points-steam" type="text" placeholder="7656119XXXXXXXXXX" />
             </div>
             <div class="form-group">
               <label>Quantidade</label>
-              <input id="rcon-amount" type="number" value="0" />
+              <input id="admin-points-amount" type="number" value="0" />
             </div>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-ghost" onclick="rconPoints('get')">🔍 Consultar</button>
-            <button class="btn btn-primary" onclick="rconPoints('add')">+ Adicionar Pontos</button>
-            <button class="btn btn-ghost" onclick="rconPoints('set')">✏️ Definir Pontos</button>
-            <button class="btn btn-success" onclick="rconReload()">↺ Reload ArkShop</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-ghost" onclick="adminPoints('get')">🔍 Consultar</button>
+            <button class="btn btn-primary" onclick="adminPoints('add')">+ Adicionar Pontos</button>
+            <button class="btn btn-ghost" onclick="adminPoints('set')">✏️ Definir Pontos</button>
+          </div>
+          <pre id="admin-points-output" style="margin-top:12px;min-height:2.4em;"></pre>
+        </div>
+      </div>
+
+      <!-- PAGE: Console do Servidor (RCON — só in-game) -->
+      <div id="page-server-console" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Console do Servidor</div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px;padding:12px 16px;background:var(--surface2);border:1px solid var(--border);">
+          <div style="font-size:13px;color:var(--text2);line-height:1.5;">
+            <strong>RCON</strong> é só para o que precisa rodar <em>dentro</em> do mapa: reload do CustomShop, broadcast, saveworld, etc.
+            Pontos, entregas e catálogo são pelo <strong>banco central</strong> e painel web — não use <code>Shop.AddPoints</code> / <code>Shop.Deliver</code> aqui.
           </div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">⌨️ Comando RCON Livre</div>
+            <div class="card-title">↺ Reload CustomShop</div>
+            <div style="font-size:12px;color:var(--text2);">Após sincronizar o config.json, recarrega o plugin em todos os servidores cadastrados</div>
           </div>
-          <div style="display:flex;gap:8px;">
-            <input id="rcon-cmd" type="text" placeholder="ex: ListPlayers" />
-            <button class="btn btn-primary" onclick="sendRcon()">Enviar</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="rconReloadAll()">↺ Shop.Reload em todos</button>
           </div>
-          <pre id="rcon-output"></pre>
+          <pre id="rcon-reload-output" style="margin-top:12px;min-height:2em;"></pre>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⌨️ Comando in-game</div>
+          </div>
+          <div class="form-grid" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label>Servidor</label>
+              <select id="rcon-server-select" onchange="onRconServerChange()">
+                <option value="">Padrão (settings)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Conexão</label>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <span id="rcon-status-pill" class="badge" style="background:var(--surface2);color:var(--text2);">—</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="rcon-test-btn" onclick="testRconConnection()">Testar RCON</button>
+              </div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Comando</label>
+              <input id="rcon-cmd" type="text" placeholder="ex: saveworld, broadcast Olá!, ListPlayers" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-primary" id="rcon-send-btn" onclick="sendRcon()">Enviar via RCON</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="appendRconQuick('ListPlayers')">ListPlayers</button>
+            <button class="btn btn-ghost btn-sm" type="button" onclick="appendRconQuick('saveworld')">SaveWorld</button>
+          </div>
+          <pre id="rcon-output" class="rcon-log"></pre>
         </div>
       </div>
 
@@ -2988,32 +3042,31 @@
         <div class="card">
           <div class="form-grid">
             <div class="form-group" style="grid-column:1/-1;">
-              <label>Caminho para config.json do ArkShop</label>
-              <input id="s-config-path" type="text" placeholder="C:\ARK\...\ArkShop\config.json" />
+              <label>Caminho para config.json do CustomShop (catálogo mestre)</label>
+              <input id="s-config-path" type="text" placeholder="C:\ARK\...\CustomShop\config.json" />
             </div>
             <div class="form-group">
-              <label>Host RCON</label>
-              <input id="s-rcon-host" type="text" placeholder="127.0.0.1" />
-            </div>
-            <div class="form-group">
-              <label>Porta RCON</label>
-              <input id="s-rcon-port" type="number" placeholder="27020" />
-            </div>
-            <div class="form-group">
-              <label>Senha RCON</label>
-              <input id="s-rcon-password" type="password" placeholder="(deixe vazio para não alterar)" />
-            </div>
-            <div class="form-group" style="grid-column:1/-1;">
-              <label>Template de Entrega RCON</label>
-              <input id="s-delivery-template" type="text" placeholder="ArkShopDeliver {steam_id} {item_type} {item_id} {amount}" />
-            </div>
-            <div class="form-group">
-              <label>Server ID</label>
+              <label>Server ID padrão</label>
               <input id="s-server-id" type="text" placeholder="default" />
             </div>
             <div class="form-group">
               <label>Máx. Retentativas</label>
               <input id="s-retry-max" type="number" min="1" value="10" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              🖥️ RCON (fallback global) — reload do plugin e comandos in-game. Cadastre host/porta/senha por mapa em <strong>Servidores</strong>.
+            </div>
+            <div class="form-group">
+              <label>Host RCON (fallback)</label>
+              <input id="s-rcon-host" type="text" placeholder="127.0.0.1" />
+            </div>
+            <div class="form-group">
+              <label>Porta RCON (fallback)</label>
+              <input id="s-rcon-port" type="number" placeholder="27020" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Senha RCON (fallback)</label>
+              <input id="s-rcon-password" type="password" placeholder="(deixe vazio para não alterar)" />
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               🗄️ Banco central MySQL — use o IP da máquina onde o banco está rodando
@@ -3346,10 +3399,6 @@
         <input id="srv-retry" type="number" min="1" value="10" />
       </div>
       <div class="form-group" style="grid-column:1/-1;">
-        <label>Template de Entrega</label>
-        <input id="srv-template" type="text" placeholder="Shop.Deliver {steam_id} {item_id} {amount}" />
-      </div>
-      <div class="form-group" style="grid-column:1/-1;">
         <label>config.json do CustomShop (destino da sincronização)</label>
         <input id="srv-config-path" type="text" placeholder="C:\...\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json" />
         <div class="kit-json-hint">O catálogo mestre é copiado para este arquivo ao salvar. Cadastre um servidor por mapa/cluster.</div>
@@ -3487,6 +3536,12 @@ function nav(el) {
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadAudit(); loadAdminOrders(); }
+  if (page === "server-console") {
+    loadServers().then(() => {
+      populateRconServerSelect();
+      initRconConsole();
+    });
+  }
   if (_auth.authenticated) refreshPlayerBalance();
   requestAnimationFrame(() => wrapTablesForScroll(document.getElementById("main")));
 }
@@ -4824,16 +4879,18 @@ async function saveAndReload() {
   const results = reloadData.results || [];
   const reloadOk = results.filter(x => x.ok).length;
   const reloadTotal = results.length;
+  const paths = written.map(w => w.label).join(", ");
 
   if (reloadData.ok || reloadOk > 0) {
-    const paths = written.map(w => w.label).join(", ");
-    toast(`✅ Gravado em ${syncN} config(s) [${paths}] · Reload ${reloadOk}/${reloadTotal} servidor(es)`, "success");
+    toast(`✅ Gravado em ${syncN} config(s) [${paths}] · Shop.Reload ${reloadOk}/${reloadTotal}`, "success");
     setStatus(true, `${syncN} config(s) · reload ${reloadOk}/${reloadTotal}`);
     return true;
   }
 
-  const paths = written.map(w => w.label).join(", ");
-  toast(`Config gravada em ${syncN} destino(s) [${paths}], mas RCON falhou em todos`, "warning");
+  toast(
+    `Config gravada em ${syncN} destino(s) [${paths}], mas RCON falhou — verifique host/porta/senha em Servidores`,
+    "warning"
+  );
   setStatus(true, `${syncN} config(s) · RCON falhou`);
   return false;
 }
@@ -6095,11 +6152,10 @@ async function loadSettings() {
     const r = await fetch(API + "/api/settings");
     const s = await r.json();
     document.getElementById("s-config-path").value    = s.config_path || "";
-    document.getElementById("s-rcon-host").value      = s.rcon_host || "127.0.0.1";
-    document.getElementById("s-rcon-port").value      = s.rcon_port || 27020;
-    document.getElementById("s-delivery-template").value = s.delivery_command_template || "";
     document.getElementById("s-server-id").value      = s.server_id || "default";
     document.getElementById("s-retry-max").value      = s.retry_max_attempts || 10;
+    document.getElementById("s-rcon-host").value      = s.rcon_host || "127.0.0.1";
+    document.getElementById("s-rcon-port").value      = s.rcon_port || 27020;
     document.getElementById("s-database-url").value   = s.database_url || "";
     document.getElementById("s-db-host").value        = s.db_host || "";
     document.getElementById("s-db-port").value        = s.db_port || 3306;
@@ -6129,12 +6185,11 @@ async function loadSettings() {
 async function saveSettings() {
   const body = {
     config_path: document.getElementById("s-config-path").value,
+    server_id:   document.getElementById("s-server-id").value,
+    retry_max_attempts: parseInt(document.getElementById("s-retry-max").value),
     rcon_host:   document.getElementById("s-rcon-host").value,
     rcon_port:   parseInt(document.getElementById("s-rcon-port").value),
     rcon_password: document.getElementById("s-rcon-password").value,
-    delivery_command_template: document.getElementById("s-delivery-template").value,
-    server_id:   document.getElementById("s-server-id").value,
-    retry_max_attempts: parseInt(document.getElementById("s-retry-max").value),
     database_url: document.getElementById("s-database-url").value,
     db_host:     document.getElementById("s-db-host").value,
     db_port:     parseInt(document.getElementById("s-db-port").value),
@@ -6271,7 +6326,7 @@ function clearPlayerForm() {
   });
 }
 
-// ── RCON ──────────────────────────────────────────────────────────────────────
+// ── Admin: pontos e entregas ───────────────────────────────────────────────────
 async function deliverPurchase() {
   const steam_id  = document.getElementById("deliver-steam-id").value.trim();
   const item_type = document.getElementById("deliver-item-type").value;
@@ -6281,54 +6336,192 @@ async function deliverPurchase() {
   if (!isSteamId64(steam_id)) { toast("SteamID64 inválido", "warning"); return; }
   if (!item_id) { toast("ID do item é obrigatório", "warning"); return; }
 
-  const r = await fetch(API + "/api/rcon/purchase", {
+  const r = await fetch(API + "/api/admin/deliver", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ steam_id, item_type, item_id, amount }),
   });
   const d = await r.json();
-  if (d.ok) toast(`Entrega: ${item_id} x${amount} → ${steam_id}`);
-  else toast(d.error || "Falha na entrega", "error");
+  if (d.ok) {
+    const msg = d.queued
+      ? `Pedido ${d.order_id} na fila — CustomShop entrega quando o jogador conectar`
+      : `Entrega: ${item_id} x${amount} → ${steam_id}`;
+    toast(msg, "success");
+  } else {
+    toast(d.error || "Falha na entrega", "error");
+  }
 }
 
-async function rconPoints(action) {
-  const player = document.getElementById("rcon-player").value.trim();
-  const amount = parseInt(document.getElementById("rcon-amount").value) || 0;
-  if (!isSteamId64(player)) { toast("SteamID64 inválido", "warning"); return; }
-  const r = await fetch(API + "/api/rcon/points", {
+async function adminPoints(action) {
+  const steam_id = document.getElementById("admin-points-steam").value.trim();
+  const amount = parseInt(document.getElementById("admin-points-amount").value) || 0;
+  if (!isSteamId64(steam_id)) { toast("SteamID64 inválido", "warning"); return; }
+  const r = await fetch(API + "/api/admin/points", {
     method: "POST",
     headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ action, player, amount }),
+    body: JSON.stringify({ action, steam_id, amount }),
   });
   const d = await r.json();
+  const out = document.getElementById("admin-points-output");
   if (d.ok) {
-    document.getElementById("rcon-output").textContent = d.response || "(sem resposta)";
+    const text = d.response || `Saldo: ${d.points ?? "—"}`;
+    if (out) out.textContent = text;
+    toast(text, "success");
   } else {
+    if (out) out.textContent = "";
     toast(d.error || "Falha", "error");
   }
 }
 
-async function rconReload() {
-  const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
-  const d = await r.json();
-  if (d.ok) {
-    document.getElementById("rcon-output").textContent = d.response || "Reloaded.";
-    toast("ArkShop recarregado via RCON");
-  } else {
-    toast(d.error || "Falha no RCON", "error");
+// ── RCON (reload plugin + comandos in-game) ───────────────────────────────────
+const _RCON_LOG_MAX = 200;
+const _rconLogLines = [];
+const _rconCmdHistory = [];
+let _rconHistoryIdx = -1;
+
+function _rconTimestamp() {
+  return new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+function appendRconLog(line, kind) {
+  const prefix = kind === "err" ? "❌" : kind === "ok" ? "✅" : "›";
+  _rconLogLines.push(`[${_rconTimestamp()}] ${prefix} ${line}`);
+  if (_rconLogLines.length > _RCON_LOG_MAX) _rconLogLines.shift();
+  const out = document.getElementById("rcon-output");
+  if (out) {
+    out.textContent = _rconLogLines.join("\n");
+    out.scrollTop = out.scrollHeight;
+  }
+}
+
+function initRconConsole() {
+  const input = document.getElementById("rcon-cmd");
+  if (!input || input.dataset.rconBound) return;
+  input.dataset.rconBound = "1";
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendRcon();
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!_rconCmdHistory.length) return;
+      _rconHistoryIdx = Math.max(0, _rconHistoryIdx < 0 ? _rconCmdHistory.length - 1 : _rconHistoryIdx - 1);
+      input.value = _rconCmdHistory[_rconHistoryIdx];
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (_rconHistoryIdx < 0) return;
+      _rconHistoryIdx++;
+      if (_rconHistoryIdx >= _rconCmdHistory.length) {
+        _rconHistoryIdx = -1;
+        input.value = "";
+      } else {
+        input.value = _rconCmdHistory[_rconHistoryIdx];
+      }
+    }
+  });
+}
+
+function setRconStatusPill(ok, text) {
+  const pill = document.getElementById("rcon-status-pill");
+  if (!pill) return;
+  pill.textContent = text;
+  pill.style.background = ok ? "rgba(18,216,124,.15)" : ok === false ? "rgba(240,64,80,.15)" : "var(--surface2)";
+  pill.style.color = ok ? "var(--success)" : ok === false ? "var(--danger)" : "var(--text2)";
+}
+
+function onRconServerChange() {
+  setRconStatusPill(null, "—");
+}
+
+function appendRconQuick(cmd) {
+  const input = document.getElementById("rcon-cmd");
+  if (input) input.value = cmd;
+  sendRcon();
+}
+
+async function testRconConnection() {
+  const server_id = document.getElementById("rcon-server-select")?.value || "";
+  const btn = document.getElementById("rcon-test-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Testando…"; }
+  setRconStatusPill(null, "testando…");
+  try {
+    const q = server_id ? `?server_id=${encodeURIComponent(server_id)}` : "";
+    const r = await fetch(API + "/api/rcon/status" + q);
+    const d = await r.json();
+    setRconStatusPill(d.ok, d.ok ? `online (${d.server})` : "offline");
+    appendRconLog(d.ok ? `[${d.server}] ${d.message}` : `[${d.server}] ${d.message}`, d.ok ? "ok" : "err");
+    if (!d.ok) toast(d.message || "RCON indisponível", "error");
+  } catch (e) {
+    setRconStatusPill(false, "erro");
+    appendRconLog("Falha ao testar: " + e.message, "err");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Testar RCON"; }
+  }
+}
+
+function populateRconServerSelect() {
+  const sel = document.getElementById("rcon-server-select");
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">Padrão (settings)</option>` +
+    _servers.map(s => {
+      const sid = String(s.server_id || "").replace(/"/g, "");
+      return `<option value="${sid}">${escHtml(s.label || s.server_id)} (${escHtml(s.rcon_host||"?")}:${s.rcon_port||"?"})</option>`;
+    }).join("");
+  if (cur) sel.value = cur;
+}
+
+async function rconReloadAll() {
+  const btn = document.querySelector('[onclick="rconReloadAll()"]');
+  if (btn) btn.disabled = true;
+  appendRconLog("Shop.Reload em todos os servidores…");
+  try {
+    const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
+    const d = await r.json();
+    (d.results || []).forEach(x => {
+      appendRconLog(
+        x.ok ? `${x.label}: ${x.response || "OK"}` : `${x.label}: ${x.error || "falhou"}`,
+        x.ok ? "ok" : "err"
+      );
+    });
+    if (d.ok) toast(`Shop.Reload: ${d.reload_count}/${d.reload_total} servidor(es)`, "success");
+    else toast("RCON falhou — verifique host/porta/senha", "error");
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
 async function sendRcon() {
-  const cmd = document.getElementById("rcon-cmd").value.trim();
+  const input = document.getElementById("rcon-cmd");
+  const cmd = input?.value.trim();
   if (!cmd) return;
-  const r = await fetch(API + "/api/rcon/command", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({ command: cmd }),
-  });
-  const d = await r.json();
-  document.getElementById("rcon-output").textContent = d.ok ? (d.response || "(sem resposta)") : ("❌ " + d.error);
+  const server_id = document.getElementById("rcon-server-select")?.value || "";
+  const btn = document.getElementById("rcon-send-btn");
+  if (btn) btn.disabled = true;
+  appendRconLog(`> ${cmd}`);
+  if (_rconCmdHistory[_rconCmdHistory.length - 1] !== cmd) _rconCmdHistory.push(cmd);
+  _rconHistoryIdx = -1;
+  try {
+    const r = await fetch(API + "/api/rcon/command", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ command: cmd, server_id: server_id || undefined }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      appendRconLog(`[${d.server || "?"}] ${d.response || "(sem resposta)"}`, "ok");
+    } else {
+      appendRconLog(`[${d.server || "?"}] ${d.error}`, "err");
+      toast(d.error || "Falha no RCON", "error");
+    }
+  } catch (e) {
+    appendRconLog("Erro de rede: " + e.message, "err");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ── Servers ───────────────────────────────────────────────────────────────────
@@ -6341,6 +6534,7 @@ async function loadServers() {
     const data = await r.json();
     _servers = data.items || [];
     renderServers();
+    populateRconServerSelect();
   } catch(e) { /* ignore */ }
 }
 
@@ -6357,7 +6551,7 @@ function renderServers() {
       ${_servers.map(s => `<tr>
         <td><code>${s.server_id}</code></td>
         <td>${escHtml(s.label||"")}</td>
-        <td>${escHtml(s.rcon_host||"")}:${s.rcon_port||""}</td>
+        <td style="font-size:11px;color:var(--text2)">${escHtml(s.rcon_host||"—")}:${s.rcon_port||"—"}</td>
         <td><span class="truncate" style="font-size:11px;color:var(--text2);max-width:220px;display:inline-block;">${escHtml(s.plugin_config_path||"—")}</span></td>
         <td><div class="actions-col">
           <button class="btn btn-ghost btn-sm" onclick="openServerModal('${s.server_id}')">✏️</button>
@@ -6377,7 +6571,6 @@ function openServerModal(serverId) {
   document.getElementById("srv-port").value     = s.rcon_port || 27020;
   document.getElementById("srv-password").value = "";
   document.getElementById("srv-retry").value    = s.retry_max_attempts || 10;
-  document.getElementById("srv-template").value = s.delivery_command_template || "Shop.Deliver {steam_id} {item_id} {amount}";
   document.getElementById("srv-config-path").value = s.plugin_config_path || s.customshop_config_path || "";
   if (serverId) document.getElementById("srv-id").readOnly = true;
   else document.getElementById("srv-id").readOnly = false;
@@ -6392,7 +6585,6 @@ async function confirmServer() {
     rcon_port:   parseInt(document.getElementById("srv-port").value),
     rcon_password: document.getElementById("srv-password").value,
     retry_max_attempts: parseInt(document.getElementById("srv-retry").value),
-    delivery_command_template: document.getElementById("srv-template").value.trim(),
     plugin_config_path: document.getElementById("srv-config-path").value.trim(),
   };
   if (!body.server_id) { toast("Server ID é obrigatório", "warning"); return; }

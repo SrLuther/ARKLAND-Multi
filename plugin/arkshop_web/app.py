@@ -9,8 +9,6 @@ import logging
 import logging.config
 import os
 import re
-import socket
-import struct
 import sys
 import threading
 import urllib.parse
@@ -41,6 +39,13 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
+
+from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+from src.rcon_util import sanitize_rcon_password  # noqa: E402
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
 
@@ -573,6 +578,15 @@ def _migrate_schema(engine: Any) -> None:
     is_mysql = "mysql" in str(engine.url).lower()
     if not is_mysql:
         Base.metadata.create_all(bind=engine)
+        with engine.connect() as conn:
+            conn.execute(text(
+                "CREATE TABLE IF NOT EXISTS players ("
+                "  steam_id VARCHAR(20) PRIMARY KEY NOT NULL,"
+                "  points INTEGER NOT NULL DEFAULT 0,"
+                "  kits TEXT DEFAULT '{}'"
+                ")"
+            ))
+            conn.commit()
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -888,17 +902,31 @@ def _add_player_points(steam_id: str, amount: int) -> int | None:
         db.close()
 
 
+def _is_mysql_engine(db: Any | None = None) -> bool:
+    url = str(getattr(db, "bind", None).url if db is not None and getattr(db, "bind", None) else (_ACTIVE_DATABASE_URL or ""))
+    return "mysql" in url.lower()
+
+
 def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
     """Credita pontos na sessão atual (sem commit)."""
     if amount <= 0:
         raise ValueError("amount must be positive")
-    db.execute(
-        text(
-            "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
-            "ON DUPLICATE KEY UPDATE points = points + :pts"
-        ),
-        {"sid": steam_id, "pts": amount},
-    )
+    if _is_mysql_engine(db):
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "ON DUPLICATE KEY UPDATE points = points + :pts"
+            ),
+            {"sid": steam_id, "pts": amount},
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "ON CONFLICT(steam_id) DO UPDATE SET points = points + :pts"
+            ),
+            {"sid": steam_id, "pts": amount},
+        )
     row = db.execute(
         text("SELECT points FROM players WHERE steam_id = :sid"),
         {"sid": steam_id},
@@ -906,6 +934,99 @@ def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
     if not row:
         raise RuntimeError("player row missing after credit")
     return int(row[0])
+
+
+def _set_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
+    """Define saldo absoluto na sessão atual (sem commit)."""
+    amount = max(0, int(amount))
+    if _is_mysql_engine(db):
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "ON DUPLICATE KEY UPDATE points = :pts"
+            ),
+            {"sid": steam_id, "pts": amount},
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "ON CONFLICT(steam_id) DO UPDATE SET points = :pts"
+            ),
+            {"sid": steam_id, "pts": amount},
+        )
+    row = db.execute(
+        text("SELECT points FROM players WHERE steam_id = :sid"),
+        {"sid": steam_id},
+    ).fetchone()
+    if not row:
+        raise RuntimeError("player row missing after set")
+    return int(row[0])
+
+
+def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[str, Any]:
+    """Consulta, credita ou define pontos diretamente no banco central."""
+    steam_id = str(steam_id or "").strip()
+    if not steam_id:
+        return {"ok": False, "error": "SteamID64 é obrigatório"}
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado. Configure as credenciais em Configurações → DB."}
+
+    db = _SessionLocal()
+    try:
+        if action == "get":
+            balance = _get_player_points(steam_id)
+            return {
+                "ok": True,
+                "steam_id": steam_id,
+                "points": balance if balance is not None else 0,
+                "response": f"Saldo: {balance if balance is not None else 0:,}".replace(",", "."),
+            }
+        if action == "add":
+            if amount <= 0:
+                return {"ok": False, "error": "Quantidade deve ser maior que zero"}
+            new_balance = _add_player_points_tx(db, steam_id, amount)
+            db.commit()
+            _audit_event(
+                "admin_points_add",
+                actor_type="admin",
+                actor_steam_id=str(_steam_id_from_session() or ""),
+                target_steam_id=steam_id,
+                amount=amount,
+                message=f"Saldo após crédito: {new_balance}",
+            )
+            return {
+                "ok": True,
+                "steam_id": steam_id,
+                "points": new_balance,
+                "response": f"+{amount:,} → saldo {new_balance:,}".replace(",", "."),
+            }
+        if action == "set":
+            if amount < 0:
+                return {"ok": False, "error": "Saldo não pode ser negativo"}
+            new_balance = _set_player_points_tx(db, steam_id, amount)
+            db.commit()
+            _audit_event(
+                "admin_points_set",
+                actor_type="admin",
+                actor_steam_id=str(_steam_id_from_session() or ""),
+                target_steam_id=steam_id,
+                amount=new_balance,
+                message=f"Saldo definido: {new_balance}",
+            )
+            return {
+                "ok": True,
+                "steam_id": steam_id,
+                "points": new_balance,
+                "response": f"Saldo definido: {new_balance:,}".replace(",", "."),
+            }
+        return {"ok": False, "error": f"Ação inválida: {action}"}
+    except Exception as exc:
+        db.rollback()
+        _log_error("admin_points", action=action, steam_id=steam_id, amount=amount, error=str(exc))
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
 
 
 def _read_shop_config() -> dict[str, Any]:
@@ -1241,37 +1362,68 @@ def admin_required(fn: Callable[..., Any]) -> Callable[..., Any]:
 
 # ── RCON ──────────────────────────────────────────────────────────────────────
 
-def _rcon_command(host: str, port: int, password: str, command: str, timeout: float = 5.0) -> str:
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(timeout)
-    sock.connect((host, port))
+def _rcon_command(
+    host: str,
+    port: int,
+    password: str,
+    command: str,
+    timeout: float = 18.0,
+    *,
+    connect_retries: int = 1,
+) -> str:
+    """Envia comando RCON via RconClient compartilhado (thread pool, ASE)."""
+    return _rcon_send(
+        host,
+        port,
+        password,
+        command,
+        timeout=max(timeout, 12.0),
+        connect_retries=connect_retries,
+    )
 
-    def _pack(pkt_id: int, pkt_type: int, body: str) -> bytes:
-        encoded = body.encode("utf-8") + b"\x00\x00"
-        size = 4 + 4 + len(encoded)
-        return struct.pack("<iii", size, pkt_id, pkt_type) + encoded
 
-    def _recv() -> tuple[int, int, str]:
-        raw_size = sock.recv(4)
-        size = struct.unpack("<i", raw_size)[0]
-        data = b""
-        while len(data) < size:
-            chunk = sock.recv(size - len(data))
-            if not chunk:
-                break
-            data += chunk
-        pkt_id, pkt_type = struct.unpack("<ii", data[:8])
-        body = data[8:].rstrip(b"\x00").decode("utf-8", errors="replace")
-        return pkt_id, pkt_type, body
+# Comandos que o painel web / banco central já cobrem — não devem ir via RCON.
+_RCON_BLOCKED_COMMANDS = frozenset({
+    "shop.addpoints",
+    "shop.setpoints",
+    "shop.getpoints",
+    "shop.deliver",
+    "arkshopdeliver",
+})
 
-    try:
-        sock.send(_pack(1, 3, password))
-        _recv()
-        sock.send(_pack(2, 2, command))
-        _, _, response = _recv()
-        return response
-    finally:
-        sock.close()
+
+def _rcon_command_blocked_reason(command: str) -> str | None:
+    token = (command.strip().split() or [""])[0].lower()
+    if token in _RCON_BLOCKED_COMMANDS:
+        return (
+            "Este comando é gerenciado fora do jogo (banco central / painel web). "
+            "Use Jogadores & Entregas para pontos e entregas."
+        )
+    return None
+
+
+def _resolve_rcon_target(
+    server_id: str | None,
+    settings: dict[str, Any],
+) -> tuple[str, int, str, str]:
+    """Resolve host, porta, senha e label para RCON (servidor específico ou fallback global)."""
+    if server_id:
+        for srv in _load_servers():
+            if str(srv.get("server_id", "")).strip() == str(server_id).strip():
+                return (
+                    str(srv.get("rcon_host") or settings.get("rcon_host") or "127.0.0.1"),
+                    int(srv.get("rcon_port") or settings.get("rcon_port") or 27020),
+                    sanitize_rcon_password(
+                        str(srv.get("rcon_password") or settings.get("rcon_password") or "")
+                    ),
+                    str(srv.get("label") or server_id),
+                )
+    return (
+        str(settings.get("rcon_host") or "127.0.0.1"),
+        int(settings.get("rcon_port") or 27020),
+        sanitize_rcon_password(str(settings.get("rcon_password") or "")),
+        "padrão",
+    )
 
 
 def _build_delivery_command(template: str, steam_id: str, item_type: str, item_id: str, amount: int) -> str:
@@ -1754,22 +1906,33 @@ def upsert_server():
     entry: Dict[str, Any] = {
         "server_id": server_id,
         "label": str(body.get("label", server_id)).strip(),
-        "rcon_host": str(body.get("rcon_host", "127.0.0.1")).strip(),
-        "rcon_port": int(body.get("rcon_port", 27020)),
-        "delivery_command_template": str(body.get("delivery_command_template", "Shop.Deliver {steam_id} {item_id} {amount}")).strip(),
+        "plugin_config_path": str(body.get("plugin_config_path") or "").strip(),
         "retry_max_attempts": int(body.get("retry_max_attempts", 10)),
     }
-    if "plugin_config_path" in body:
-        entry["plugin_config_path"] = str(body.get("plugin_config_path") or "").strip()
-    if "rcon_password" in body and body["rcon_password"] != "":
-        entry["rcon_password"] = body["rcon_password"]
-    else:
-        for existing in servers:
-            if existing.get("server_id") == server_id:
-                entry["rcon_password"] = existing.get("rcon_password", "")
-                if "plugin_config_path" not in body and existing.get("plugin_config_path"):
-                    entry["plugin_config_path"] = existing.get("plugin_config_path")
-                break
+    for key in (
+        "rcon_host",
+        "rcon_port",
+        "rcon_password",
+        "delivery_command_template",
+        "delivery_mode",
+    ):
+        if key in body and body[key] not in (None, ""):
+            entry[key] = body[key]
+
+    for existing in servers:
+        if existing.get("server_id") == server_id:
+            if not entry["plugin_config_path"]:
+                entry["plugin_config_path"] = str(existing.get("plugin_config_path") or "").strip()
+            for key in (
+                "rcon_host",
+                "rcon_port",
+                "rcon_password",
+                "delivery_command_template",
+                "delivery_mode",
+            ):
+                if key not in entry and existing.get(key) not in (None, ""):
+                    entry[key] = existing[key]
+            break
 
     replaced = False
     for idx, s in enumerate(servers):
@@ -1950,24 +2113,22 @@ def _reload_all_plugins(settings: dict[str, Any]) -> list[dict[str, Any]]:
         for srv in servers:
             sid = str(srv.get("server_id") or "server")
             label = str(srv.get("label") or sid)
-            host = str(srv.get("rcon_host") or settings.get("rcon_host") or "127.0.0.1")
-            port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
-            password = str(srv.get("rcon_password") or settings.get("rcon_password") or "")
+            host, port, password, _ = _resolve_rcon_target(sid, settings)
             try:
-                resp = _rcon_command(host, port, password, "Shop.Reload")
+                resp = _rcon_command(
+                    host, port, password, "Shop.Reload", connect_retries=5,
+                )
                 results.append({"server_id": sid, "label": label, "ok": True, "response": resp[:200]})
             except Exception as exc:
                 results.append({"server_id": sid, "label": label, "ok": False, "error": str(exc)})
         return results
 
-    host = str(settings.get("rcon_host") or "127.0.0.1")
-    port = int(settings.get("rcon_port") or 27020)
-    password = str(settings.get("rcon_password") or "")
+    host, port, password, label = _resolve_rcon_target(None, settings)
     try:
-        resp = _rcon_command(host, port, password, "Shop.Reload")
-        results.append({"server_id": "default", "label": "RCON global", "ok": True, "response": resp[:200]})
+        resp = _rcon_command(host, port, password, "Shop.Reload", connect_retries=5)
+        results.append({"server_id": "default", "label": label, "ok": True, "response": resp[:200]})
     except Exception as exc:
-        results.append({"server_id": "default", "label": "RCON global", "ok": False, "error": str(exc)})
+        results.append({"server_id": "default", "label": label, "ok": False, "error": str(exc)})
     return results
 
 
@@ -2455,19 +2616,66 @@ def get_version():
     return jsonify(_get_project_release())
 
 
-# ── RCON routes ───────────────────────────────────────────────────────────────
+# ── Admin: pontos e entregas (banco + fila plugin) ────────────────────────────
+
+@app.route("/api/admin/points", methods=["POST"])
+@admin_required
+@limiter.limit("60 per hour")
+def admin_points():
+    body = request.get_json(force=True)
+    action = str(body.get("action", "get")).strip().lower()
+    steam_id = str(body.get("steam_id") or body.get("player") or "").strip()
+    amount = int(body.get("amount", 0) or 0)
+    result = _admin_points_action(action, steam_id, amount)
+    status = 200 if result.get("ok") else 400 if "inválida" in str(result.get("error", "")).lower() else 500
+    return jsonify(result), status
+
+
+@app.route("/api/admin/deliver", methods=["POST"])
+@admin_required
+def admin_deliver():
+    return _admin_deliver_order()
+
+
+@app.route("/api/rcon/status", methods=["GET"])
+@admin_required
+@limiter.limit("60 per minute")
+def rcon_status():
+    s = _load_settings()
+    server_id = str(request.args.get("server_id") or "").strip() or None
+    host, port, password, label = _resolve_rcon_target(server_id, s)
+    ok, message = _rcon_test_connection(host, port, password)
+    return jsonify({
+        "ok": ok,
+        "connected": ok,
+        "server": label,
+        "host": host,
+        "port": port,
+        "message": message,
+    }), 200 if ok else 503
+
 
 @app.route("/api/rcon/reload", methods=["POST"])
 @admin_required
-@limiter.limit("10 per hour")
+@limiter.limit("30 per hour")
 def rcon_reload():
     s = _load_settings()
-    results = _reload_all_plugins(s)
+    body = request.get_json(silent=True) or {}
+    server_id = str(body.get("server_id") or "").strip() or None
+    if server_id:
+        host, port, password, label = _resolve_rcon_target(server_id, s)
+        try:
+            resp = _rcon_command(host, port, password, "Shop.Reload", connect_retries=5)
+            results = [{"server_id": server_id, "label": label, "ok": True, "response": resp[:200]}]
+        except Exception as exc:
+            results = [{"server_id": server_id, "label": label, "ok": False, "error": str(exc)}]
+    else:
+        results = _reload_all_plugins(s)
     ok_count = sum(1 for r in results if r.get("ok"))
     all_ok = ok_count == len(results) and bool(results)
     _log("rcon_reload", admin=_steam_id_from_session(), ok=ok_count, total=len(results))
     return jsonify({
-        "ok": all_ok,
+        "ok": all_ok or ok_count > 0,
         "results": results,
         "reload_count": ok_count,
         "reload_total": len(results),
@@ -2476,40 +2684,46 @@ def rcon_reload():
 
 @app.route("/api/rcon/points", methods=["POST"])
 @admin_required
-@limiter.limit("20 per hour")
+@limiter.limit("60 per hour")
 def rcon_points():
-    s = _load_settings()
     body = request.get_json(force=True)
-    action = body.get("action", "get")
-    player = body.get("player", "")
-    amount = body.get("amount", 0)
-    cmd = f"Shop.GetPoints {player}" if action == "get" else f"Shop.AddPoints {player} {amount}" if action == "add" else f"Shop.SetPoints {player} {amount}"
-    try:
-        resp = _rcon_command(s.get("rcon_host", "127.0.0.1"), int(s.get("rcon_port", 27020)), s.get("rcon_password", ""), cmd)
-        return jsonify({"ok": True, "response": resp})
-    except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+    result = _admin_points_action(
+        str(body.get("action", "get")).strip().lower(),
+        str(body.get("player") or body.get("steam_id") or "").strip(),
+        int(body.get("amount", 0) or 0),
+    )
+    status = 200 if result.get("ok") else 400 if "inválida" in str(result.get("error", "")).lower() else 500
+    return jsonify(result), status
 
 
 @app.route("/api/rcon/command", methods=["POST"])
 @admin_required
-@limiter.limit("20 per hour")
+@limiter.limit("60 per minute; 300 per hour")
 def rcon_custom():
     s = _load_settings()
     body = request.get_json(force=True)
-    cmd = body.get("command", "")
+    cmd = str(body.get("command", "")).strip()
+    server_id = str(body.get("server_id") or "").strip() or None
     if not cmd:
-        return jsonify({"error": "Comando vazio"}), 400
+        return jsonify({"ok": False, "error": "Comando vazio"}), 400
+    blocked = _rcon_command_blocked_reason(cmd)
+    if blocked:
+        return jsonify({"ok": False, "error": blocked}), 400
+    host, port, password, label = _resolve_rcon_target(server_id, s)
     try:
-        resp = _rcon_command(s.get("rcon_host", "127.0.0.1"), int(s.get("rcon_port", 27020)), s.get("rcon_password", ""), cmd)
-        return jsonify({"ok": True, "response": resp})
+        resp = _rcon_command(host, port, password, cmd)
+        return jsonify({"ok": True, "response": resp, "server": label})
     except Exception as exc:
-        return jsonify({"ok": False, "error": str(exc)}), 500
+        return jsonify({"ok": False, "error": str(exc), "server": label}), 500
 
 
 @app.route("/api/rcon/purchase", methods=["POST"])
 @admin_required
 def rcon_purchase_admin():
+    return _admin_deliver_order()
+
+
+def _admin_deliver_order():
     body = request.get_json(force=True)
     steam_id = str(body.get("steam_id", "")).strip()
     item_id = str(body.get("item_id", "")).strip()

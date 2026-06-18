@@ -1,12 +1,17 @@
 {
-    "version": "1.9.30",
-    "date": "2026-06-17",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.30/ARKLAND-Multi-Setup-v1.9.30.exe",
+    "version": "1.9.31",
+    "date": "2026-06-18",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.31/ARKLAND-Multi-Setup-v1.9.31.exe",
     "changelog": [
-        "Novo (Web Store + CustomShop): sistema de licenças Gamma/Beta/Alfa — player_entitlements, TimedPoints empilhado (Default + licenças), preços 50k/75k/100k.",
-        "Novo (Web Store): Desistência — cancelar resgate PENDENTE com reembolso de Âmbar.",
-        "Melhoria (Web Store): resgate valida preço server-side e licenças exigidas (Permissions); Minha Área exibe licenças ativas; catálogo com cadeado.",
-        "Novo (CustomShop): ShopEntitlements — grant/revoke, CanRedeem em Buy/Give kit e item.",
-        "Fix (Web Store): moeda Âmbar na home sem sobreposição em mobile — animação só em desktop (901px+)."
+        "Melhoria (Web Store): RCON ASE unificado — RconClient + ThreadPoolExecutor, retry no Shop.Reload (até 5 tentativas) e GET /api/rcon/status para teste de conectividade.",
+        "Melhoria (Web Store): Console do Servidor — log append-only, histórico ↑/↓, Enter para enviar, loading nos botões e rate limit ajustado (60/min).",
+        "Melhoria (Web Store): pontos e entregas 100% via banco/fila plugin — RCON bloqueado para Shop.AddPoints, Shop.SetPoints, Shop.GetPoints e Shop.Deliver.",
+        "Melhoria (TEK): asm_rcon_window com auto-reconnect, send_command_with_retry e ping keep-alive.",
+        "Melhoria (TEK + classic): módulos rcon_*.py ligados — auto-reconnect, retry e status no Console RCON.",
+        "Fix (TEK): remote_agent usa connect() + send_command_safe() em vez de API inexistente do RconClient.",
+        "Melhoria (TEK): reload CustomShop unificado em Shop.Reload (alinhado ao plugin e Web Store).",
+        "Novo (TEK ASE): pasta custom de INI (user_config_folder) — lê/grava fora do install_dir e sincroniza para WindowsServer no start.",
+        "Novo (TEK + classic): toggle EnableCryoSicknessPVP (Cryo Sickness em PvP).",
+        "Fix (RCON): sanitização de senhas corrompidas com sufixo ?ServerPassword= (TEK, Web Store e RconClient)."
     ]
 }

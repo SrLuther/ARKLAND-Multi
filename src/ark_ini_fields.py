@@ -582,6 +582,7 @@ _GAME_INI_ADV_BOOL_FIELDS: list = [
     ("prevent_upload_dinos",                     "bPreventUploadDinos"),
     ("no_transfer_from_filtering",               "NoTransferFromFiltering"),
     ("enable_cryopod_nerf",                      "EnableCryopodNerf"),
+    ("enable_cryo_sickness_pvp",                 "EnableCryoSicknessPVP"),
     ("allow_crateSpawns_on_top_of_structures",   "AllowCrateSpawnsOnTopOfStructures"),
     ("use_optimized_harvesting_health",          "UseOptimizedHarvestingHealth"),
     ("b_passive_defenses_damage_riderless_dinos","bPassiveDefensesDamageRiderlessDinos"),

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import configparser
 import re
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +72,7 @@ INI_MAP: dict[str, tuple] = {
     "allow_custom_recipes":         ("Game","GameMode",       "bAllowCustomRecipes",           {}),
     "enable_diseases":              ("GUS", "ServerSettings", "PreventDiseases",              {"inverted": True}),
     "prevent_pvp_offline":          ("GUS", "ServerSettings", "PreventOfflinePvP",            {}),
+    "enable_cryo_sickness_pvp":     ("GUS", "ServerSettings", "EnableCryoSicknessPVP",      {}),
     "auto_pve_timer":               ("Game","GameMode",       "bAutoPvETimer",                {}),
 
     # ChatAndNotifications
@@ -320,9 +322,44 @@ def _session_name_cli_param(cfg: AsmServerConfig) -> str | None:
     return None
 
 
+def _windows_server_ini_dir(cfg: AsmServerConfig) -> Path:
+    return Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
+
+
+def _read_ini_dir(cfg: AsmServerConfig) -> Path:
+    """Diretório de leitura: pasta custom ASE se definida, senão WindowsServer."""
+    custom = (cfg.user_config_folder or "").strip()
+    if custom:
+        p = Path(custom)
+        if p.is_dir():
+            return p
+    return _windows_server_ini_dir(cfg)
+
+
+def sync_user_config_folder_to_server(cfg: AsmServerConfig) -> None:
+    """Copia INIs da pasta custom para WindowsServer antes do start (paridade ASM ASE)."""
+    custom = (cfg.user_config_folder or "").strip()
+    if not custom or not cfg.install_dir:
+        return
+    src_dir = Path(custom)
+    if not src_dir.is_dir():
+        return
+    dest_dir = _windows_server_ini_dir(cfg)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("GameUserSettings.ini", "Game.ini", "Engine.ini"):
+        src = src_dir / name
+        if src.is_file():
+            shutil.copy2(src, dest_dir / name)
+
+
 def _ini_path(install_dir: str, file_key: str) -> Path:
     name = _FILE_NAMES[file_key]
     return Path(install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer" / name
+
+
+def _ini_path_for_cfg(cfg: AsmServerConfig, file_key: str, *, write: bool = False) -> Path:
+    base = _windows_server_ini_dir(cfg) if write else _read_ini_dir(cfg)
+    return base / _FILE_NAMES[file_key]
 
 
 def _bool_str(val: bool) -> str:
@@ -509,8 +546,8 @@ def write_ini(cfg: AsmServerConfig) -> None:
         for _idx, _val in enumerate(_values):
             game_mode_sec[f"{_prefix}[{_idx}]"] = _format_value(_val)
 
-    _write_ini_file(_ini_path(cfg.install_dir, "GUS"),  gus)
-    _game_path = _ini_path(cfg.install_dir, "Game")
+    _write_ini_file(_ini_path_for_cfg(cfg, "GUS", write=True),  gus)
+    _game_path = _ini_path_for_cfg(cfg, "Game", write=True)
     _write_ini_file(_game_path, game)
 
     from .asm_game_list_ini import build_repeated_game_lines, patch_game_ini_repeated_lines
@@ -521,9 +558,18 @@ def write_ini(cfg: AsmServerConfig) -> None:
         engine: dict[str, dict[str, str]] = {}
         _inject_raw(cfg.custom_engine_ini_raw, engine)  # type: ignore[arg-type]
         _write_ini_file(
-            Path(cfg.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer" / "Engine.ini",
+            _windows_server_ini_dir(cfg) / "Engine.ini",
             engine,
         )
+
+    custom = (cfg.user_config_folder or "").strip()
+    if custom:
+        dest_custom = Path(custom)
+        dest_custom.mkdir(parents=True, exist_ok=True)
+        for fk in ("GUS", "Game"):
+            src = _ini_path_for_cfg(cfg, fk, write=True)
+            if src.is_file():
+                shutil.copy2(src, dest_custom / _FILE_NAMES[fk])
 
 
 def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
@@ -577,7 +623,7 @@ def read_ini(cfg: AsmServerConfig) -> None:
     for fk in ("GUS", "Game"):
         p = configparser.RawConfigParser()
         p.optionxform = str  # type: ignore[assignment]
-        fp = _ini_path(cfg.install_dir, fk)
+        fp = _ini_path_for_cfg(cfg, fk, write=False)
         if fp.exists():
             for enc in ("utf-16", "utf-8-sig", "utf-8", "latin-1"):
                 try:
@@ -667,7 +713,10 @@ def read_ini(cfg: AsmServerConfig) -> None:
 
     if cfg.install_dir:
         from .asm_game_list_ini import populate_lists_from_game_ini
-        populate_lists_from_game_ini(cfg, _ini_path(cfg.install_dir, "Game"))
+        populate_lists_from_game_ini(cfg, _ini_path_for_cfg(cfg, "Game", write=False))
+
+    from ..rcon_util import sanitize_rcon_password
+    cfg.admin_password = sanitize_rcon_password(cfg.admin_password)
 
 
 def read_ini_from_paths(
