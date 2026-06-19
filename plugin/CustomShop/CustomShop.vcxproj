@@ -77,6 +77,7 @@
     <ClCompile Include="src\ShopVip.cpp" />
     <ClCompile Include="src\ShopEntitlements.cpp" />
     <ClCompile Include="src\ShopCloudInventory.cpp" />
+    <ClCompile Include="src\ShopCryoDino.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h" />
@@ -90,6 +91,7 @@
     <ClInclude Include="src\ShopVip.h" />
     <ClInclude Include="src\ShopEntitlements.h" />
     <ClInclude Include="src\ShopCloudInventory.h" />
+    <ClInclude Include="src\ShopCryoDino.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\mysql.h" />
   </ItemGroup>

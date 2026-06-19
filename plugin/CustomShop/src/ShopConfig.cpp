@@ -82,6 +82,21 @@ std::string ShopConfig::WebsiteUrl() const {
     return settings_.value("WebsiteUrl", "");
 }
 
+bool ShopConfig::DeliverDinosInCryopods() const {
+    return settings_.value("DeliverDinosInCryopods", false);
+}
+
+std::string ShopConfig::CryoItemPath() const {
+    return settings_.value(
+        "CryoItemPath",
+        "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/"
+        "PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'");
+}
+
+bool ShopConfig::CryoLimitedTime() const {
+    return settings_.value("CryoLimitedTime", false);
+}
+
 std::string ShopConfig::DbHost() const {
     return db_cfg_.value("Host", "127.0.0.1");
 }

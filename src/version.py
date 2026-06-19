@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.37"
+APP_VERSION: str = "1.9.38"
 BUILD_DATE: str = "2026-06-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.38",
+        "date": "2026-06-19",
+        "changes": [
+            "Novo (CustomShop): entrega de dinos em cryopods — módulo ShopCryoDino com cryopod vanilla "
+            "(Extinction) direto no inventário do jogador.",
+            "Melhoria (CustomShop): Settings.DeliverDinosInCryopods, CryoItemPath e CryoLimitedTime; "
+            "por dino Cryopod/PreventCryo sobrescreve o padrão global.",
+            "Melhoria (Web Store): painel Entrega de Dinos nas configurações gerais e seletor de "
+            "entrega (padrão / cryopod / spawn) no editor de dinos.",
+        ],
+    },
     {
         "version": "1.9.37",
         "date": "2026-06-19",

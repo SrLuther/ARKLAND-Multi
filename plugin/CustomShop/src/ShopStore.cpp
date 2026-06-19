@@ -6,6 +6,7 @@
 #include "ShopPerms.h"
 #include "ShopVip.h"
 #include "ShopEntitlements.h"
+#include "ShopCryoDino.h"
 
 namespace {
 
@@ -61,36 +62,13 @@ void GiveItemsArray(AShooterPlayerController* controller,
     }
 }
 
-// Spawns one tamed dino near the player.
-bool SpawnSingleDino(AShooterPlayerController* controller,
-                     const std::string& blueprint,
-                     int level,
-                     bool force_tame,
-                     bool neutered) {
-    if (blueprint.empty() || !controller) return false;
-
-    FString fbp(blueprint.c_str());
-    APrimalDinoCharacter* dino = ArkApi::GetApiUtils().SpawnDino(
-        controller, fbp, nullptr, level, force_tame, neutered);
-
-    if (!dino) {
-        Log::GetLog()->warn("SpawnSingleDino: failed to spawn '{}'", blueprint);
-        return false;
-    }
-    return true;
-}
-
 // Spawns all dinos in a "Dinos" JSON array.
 bool SpawnDinosArray(AShooterPlayerController* controller,
                      const nlohmann::json& dinos_array) {
     if (!dinos_array.is_array() || dinos_array.empty()) return false;
     bool ok = true;
     for (const auto& entry : dinos_array) {
-        if (!SpawnSingleDino(controller,
-                             entry.value("Blueprint",  ""),
-                             entry.value("Level",      150),
-                             entry.value("ForceTame",  true),
-                             entry.value("Neutered",   false)))
+        if (!CustomShop::DeliverDino(controller, entry))
             ok = false;
     }
     return ok;

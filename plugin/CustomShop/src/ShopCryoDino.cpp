@@ -1,0 +1,203 @@
+#include "pch.h"
+#include "ShopCryoDino.h"
+#include "ShopConfig.h"
+
+namespace {
+
+constexpr const char* kDefaultCryoBp =
+    "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/"
+    "PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'";
+
+bool ShouldUseCryopod(const nlohmann::json& entry) {
+    if (entry.value("PreventCryo", false))
+        return false;
+    if (entry.contains("Cryopod"))
+        return entry.value("Cryopod", false);
+    return CustomShop::ShopConfig::Get().DeliverDinosInCryopods();
+}
+
+void ApplyGender(APrimalDinoCharacter* dino, const std::string& gender) {
+    if (!dino || gender.empty() || !dino->bUsesGender()())
+        return;
+    if (gender == "male" || gender == "Male")
+        dino->bIsFemale() = false;
+    else if (gender == "female" || gender == "Female")
+        dino->bIsFemale() = true;
+}
+
+UPrimalItem* CreateSaddleItem(const std::string& saddle_blueprint) {
+    if (saddle_blueprint.empty())
+        return nullptr;
+    FString fbp(saddle_blueprint.c_str());
+    UClass* cls = UVictoryCore::BPLoadClass(&fbp);
+    if (!cls)
+        return nullptr;
+    return UPrimalItem::AddNewItem(
+        cls, nullptr, false, false, 0.0f, false, 0, false, 0.0f,
+        false, nullptr, 0.0f, false, false);
+}
+
+FCustomItemData BuildCryoCustomData(APrimalDinoCharacter* dino, UPrimalItem* saddle) {
+    FCustomItemData customItemData;
+    FARKDinoData dinoData;
+    dino->GetDinoData(&dinoData);
+
+    customItemData.CustomDataName = FName("Dino", EFindName::FNAME_Add);
+    customItemData.CustomDataNames.Add(FName("MissionTemporary", EFindName::FNAME_Add));
+    customItemData.CustomDataNames.Add(FName("None", EFindName::FNAME_Find));
+
+    auto* stat = dino->MyCharacterStatusComponentField();
+    if (stat) {
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Health]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Stamina]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Torpidity]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Oxygen]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Food]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Water]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Temperature]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Weight]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::MeleeDamageMultiplier]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::SpeedMultiplier]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::TemperatureFortitude]);
+        customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::CraftingSpeedMultiplier]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Health]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Stamina]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Torpidity]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Oxygen]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Food]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Water]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Temperature]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Weight]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::MeleeDamageMultiplier]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::SpeedMultiplier]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::TemperatureFortitude]);
+        customItemData.CustomDataFloats.Add(stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::CraftingSpeedMultiplier]);
+        customItemData.CustomDataFloats.Add(dino->bIsFemale()());
+    }
+
+    const double now = ArkApi::GetApiUtils().GetShooterGameMode()->GetWorld()->TimeSecondsField();
+    customItemData.CustomDataDoubles.Doubles.Add(now);
+    customItemData.CustomDataDoubles.Doubles.Add(dino->BabyNextCuddleTimeField() - now);
+    customItemData.CustomDataDoubles.Doubles.Add(dino->NextAllowedMatingTimeField());
+    customItemData.CustomDataDoubles.Doubles.Add(static_cast<double>(static_cast<float>(dino->RandomMutationsMaleField())));
+    customItemData.CustomDataDoubles.Doubles.Add(static_cast<double>(static_cast<float>(dino->RandomMutationsFemaleField())));
+    if (stat)
+        customItemData.CustomDataDoubles.Doubles.Add(static_cast<double>(stat->DinoImprintingQualityField()));
+
+    FString sNeutered;
+    FString sGender = dino->bIsFemale()() ? FString("FEMALE") : FString("Male");
+    if (dino->bNeutered()())
+        sNeutered = FString("NEUTERED");
+
+    FString color_indices;
+    dino->GetColorSetInidcesAsString(&color_indices);
+    customItemData.CustomDataStrings.Add(dinoData.DinoNameInMap);
+    customItemData.CustomDataStrings.Add(dinoData.DinoName);
+    customItemData.CustomDataStrings.Add(color_indices);
+    customItemData.CustomDataStrings.Add(sNeutered);
+    customItemData.CustomDataStrings.Add(sGender);
+    customItemData.CustomDataClasses.Add(dinoData.DinoClass);
+
+    FCustomItemByteArray dinoBytes;
+    dinoBytes.Bytes = dinoData.DinoData;
+    customItemData.CustomDataBytes.ByteArrays.Add(dinoBytes);
+    if (saddle) {
+        FCustomItemByteArray saddleBytes;
+        saddle->GetItemBytes(&saddleBytes.Bytes);
+        customItemData.CustomDataBytes.ByteArrays.Add(saddleBytes);
+    }
+
+    return customItemData;
+}
+
+bool GiveCryopod(AShooterPlayerController* controller,
+                 APrimalDinoCharacter* dino,
+                 UPrimalItem* saddle) {
+    if (!controller || !dino)
+        return false;
+
+    const auto& cfg = CustomShop::ShopConfig::Get();
+    std::string cryoPath = cfg.CryoItemPath();
+    if (cryoPath.empty())
+        cryoPath = kDefaultCryoBp;
+
+    FString fcryo(cryoPath.c_str());
+    UClass* cryoClass = UVictoryCore::BPLoadClass(&fcryo);
+    if (!cryoClass) {
+        Log::GetLog()->warn("ShopCryoDino: failed to load cryopod class '{}'", cryoPath);
+        return false;
+    }
+
+    UPrimalItem* item = UPrimalItem::AddNewItem(
+        cryoClass, nullptr, false, false, 0.0f, false, 0, false, 0.0f,
+        false, nullptr, 0.0f, false, false);
+    if (!item) {
+        Log::GetLog()->warn("ShopCryoDino: failed to create cryopod item");
+        return false;
+    }
+
+    if (cfg.CryoLimitedTime())
+        item->AddItemDurability((item->ItemDurabilityField() - 3600) * -1);
+
+    FCustomItemData customData = BuildCryoCustomData(dino, saddle);
+    item->SetCustomItemData(&customData);
+    item->UpdatedItem(true);
+
+    UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
+    if (!inv) {
+        Log::GetLog()->warn("ShopCryoDino: player has no inventory");
+        return false;
+    }
+
+    UPrimalItem* added = inv->AddItemObject(item);
+    if (!added) {
+        Log::GetLog()->warn("ShopCryoDino: inventory full or AddItemObject failed");
+        return false;
+    }
+
+    dino->Destroy(true, false);
+    return true;
+}
+
+} // anonymous namespace
+
+namespace CustomShop {
+
+bool DeliverDino(AShooterPlayerController* controller,
+                 const nlohmann::json& entry) {
+    if (!controller)
+        return false;
+
+    const std::string blueprint = entry.value("Blueprint", "");
+    if (blueprint.empty())
+        return false;
+
+    const int level = entry.value("Level", 150);
+    const bool force_tame = entry.value("ForceTame", true);
+    const bool neutered = entry.value("Neutered", false);
+    const std::string gender = entry.value("Gender", "");
+    const std::string saddle_bp = entry.value("SaddleBlueprint", "");
+
+    FString fbp(blueprint.c_str());
+    APrimalDinoCharacter* dino = ArkApi::GetApiUtils().SpawnDino(
+        controller, fbp, nullptr, level, force_tame, neutered);
+    if (!dino) {
+        Log::GetLog()->warn("ShopCryoDino: failed to spawn '{}'", blueprint);
+        return false;
+    }
+
+    ApplyGender(dino, gender);
+
+    if (ShouldUseCryopod(entry)) {
+        UPrimalItem* saddle = CreateSaddleItem(saddle_bp);
+        const bool ok = GiveCryopod(controller, dino, saddle);
+        if (ok)
+            Log::GetLog()->info("ShopCryoDino: delivered '{}' in cryopod", blueprint);
+        return ok;
+    }
+
+    Log::GetLog()->info("ShopCryoDino: spawned '{}' near player", blueprint);
+    return true;
+}
+
+} // namespace CustomShop

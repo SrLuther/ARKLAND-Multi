@@ -39,6 +39,11 @@ public:
     bool        CloudRequireLicenseForDownload() const;
     std::string WebsiteUrl()                    const;
 
+    // Dino delivery
+    bool        DeliverDinosInCryopods() const;
+    std::string CryoItemPath()           const;
+    bool        CryoLimitedTime()        const;
+
     // Database (MySQL)
     std::string DbHost()             const;
     int         DbPort()             const;

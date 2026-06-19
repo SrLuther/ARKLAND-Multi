@@ -17,7 +17,10 @@
     "CloudInventoryEnabled": true,
     "CloudMaxItems": 250,
     "CloudCooldownSeconds": 30,
-    "CloudRequireLicenseForDownload": false
+    "CloudRequireLicenseForDownload": false,
+    "DeliverDinosInCryopods": true,
+    "CryoItemPath": "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'",
+    "CryoLimitedTime": false
   },
   "Items": {
     "licenca_nuvem": {

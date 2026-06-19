@@ -5329,6 +5329,25 @@ function renderGeneral() {
       </div>
     </div>
     <div class="card">
+      <div class="card-header"><div class="card-title">🧊 Entrega de Dinos</div></div>
+      <div class="toggle-row">
+        <label>Entregar dinos em cryopods (padrão global)</label>
+        <input type="checkbox" id="g-deliver-cryopods" ${s.DeliverDinosInCryopods ? "checked" : ""} />
+      </div>
+      <div class="toggle-row">
+        <label>Cryopod com tempo limitado (6h após arremesso)</label>
+        <input type="checkbox" id="g-cryo-limited" ${s.CryoLimitedTime?"checked":""} />
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label>Blueprint do cryopod (opcional)</label>
+        <input id="g-cryo-bp" type="text" value="${escHtml(s.CryoItemPath||"")}" placeholder="PrimalItem_WeaponEmptyCryopod (Extinction vanilla)" />
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:8px;line-height:1.45;">
+        Com cryopods ativos, o dino vai para o inventário do jogador em vez de spawnar no chão.
+        Por dino/kit você pode sobrescrever em <em>Entrega</em> no editor.
+      </div>
+    </div>
+    <div class="card">
       <div class="card-header"><div class="card-title">⏱ Recompensas por Tempo de Jogo</div></div>
       <div class="toggle-row"><label>Ativar recompensas por tempo</label><input type="checkbox" id="g-timed-enabled" ${t.Enabled?"checked":""} /></div>
       <div class="form-grid" style="margin-top:12px;">
@@ -5358,6 +5377,10 @@ function saveGeneral() {
   s.VoteRewards       = document.getElementById("g-vote-rewards").checked;
   s.HideBuffIcon      = document.getElementById("g-hide-buff").checked;
   s.UseSteamOverlay   = document.getElementById("g-steam-overlay").checked;
+  s.DeliverDinosInCryopods = document.getElementById("g-deliver-cryopods").checked;
+  s.CryoLimitedTime   = document.getElementById("g-cryo-limited").checked;
+  const cryoBp = document.getElementById("g-cryo-bp").value.trim();
+  if (cryoBp) s.CryoItemPath = cryoBp; else delete s.CryoItemPath;
 
   t.Enabled      = document.getElementById("g-timed-enabled").checked;
   t.Interval     = parseInt(document.getElementById("g-timed-interval").value) || 30;
@@ -5579,6 +5602,7 @@ function syncShopItemDraftFromDOM() {
       ForceTame: row.querySelector('[data-field="forcetame"]')?.checked !== false,
       Neutered: row.querySelector('[data-field="neutered"]')?.checked || false,
       SaddleBlueprint: row.querySelector('[data-field="saddle"]')?.value || "",
+      CryoDelivery: row.querySelector('[data-field="cryo-delivery"]')?.value || "default",
     };
   });
   document.querySelectorAll("#shop-item-cmds-list .kit-entry").forEach((row, idx) => {
@@ -5678,6 +5702,7 @@ function readShopItemDinosFromDOM() {
     if (gender) entry.Gender = gender;
     const saddle = (dino.SaddleBlueprint || "").trim();
     if (saddle) entry.SaddleBlueprint = saddle;
+    _applyDinoCryoMode(entry, dino.CryoDelivery || "default");
     out.push(entry);
   });
   return out;
@@ -5990,9 +6015,23 @@ function normalizeKitItem(raw) {
   };
 }
 
+function _dinoCryoModeFromEntry(dino) {
+  if (dino?.PreventCryo) return "spawn";
+  if (dino?.Cryopod === true) return "cryopod";
+  if (dino?.Cryopod === false) return "spawn";
+  return "default";
+}
+
+function _applyDinoCryoMode(entry, mode) {
+  delete entry.Cryopod;
+  delete entry.PreventCryo;
+  if (mode === "cryopod") entry.Cryopod = true;
+  else if (mode === "spawn") entry.PreventCryo = true;
+}
+
 function normalizeKitDino(raw) {
   if (!raw || typeof raw !== "object") {
-    return { Blueprint: "", Level: 150, Gender: "", ForceTame: true, Neutered: false, SaddleBlueprint: "" };
+    return { Blueprint: "", Level: 150, Gender: "", ForceTame: true, Neutered: false, SaddleBlueprint: "", CryoDelivery: "default" };
   }
   return {
     Blueprint: raw.Blueprint || "",
@@ -6001,6 +6040,7 @@ function normalizeKitDino(raw) {
     ForceTame: raw.ForceTame !== false,
     Neutered: !!raw.Neutered,
     SaddleBlueprint: raw.SaddleBlueprint || "",
+    CryoDelivery: _dinoCryoModeFromEntry(raw),
   };
 }
 
@@ -6061,6 +6101,7 @@ function kitItemEntryHtml(item, idx, removeFn) {
 function kitDinoEntryHtml(dino, idx, removeFn) {
   const rm = removeFn || "removeKitDinoEntry";
   const gender = (dino.Gender || "").toLowerCase();
+  const cryoMode = dino.CryoDelivery || "default";
   return `
     <div class="kit-entry" data-kind="dino" data-idx="${idx}">
       <div class="kit-entry-head">
@@ -6087,6 +6128,14 @@ function kitDinoEntryHtml(dino, idx, removeFn) {
         <div class="form-group span-2">
           <label>Saddle Blueprint (opcional)</label>
           <input data-field="saddle" type="text" value="${escHtml(dino.SaddleBlueprint)}" placeholder="Blueprint da sela" />
+        </div>
+        <div class="form-group span-2">
+          <label>Entrega</label>
+          <select data-field="cryo-delivery">
+            <option value="default" ${cryoMode === "default" ? "selected" : ""}>🌐 Padrão global (config)</option>
+            <option value="cryopod" ${cryoMode === "cryopod" ? "selected" : ""}>🧊 Cryopod no inventário</option>
+            <option value="spawn" ${cryoMode === "spawn" ? "selected" : ""}>🦕 Spawn no chão</option>
+          </select>
         </div>
       </div>
       <div class="kit-entry-checks">
@@ -6143,6 +6192,7 @@ function syncKitDraftFromDOM() {
       ForceTame: row.querySelector('[data-field="forcetame"]')?.checked !== false,
       Neutered: row.querySelector('[data-field="neutered"]')?.checked || false,
       SaddleBlueprint: row.querySelector('[data-field="saddle"]')?.value || "",
+      CryoDelivery: row.querySelector('[data-field="cryo-delivery"]')?.value || "default",
     };
   });
   document.querySelectorAll("#mk-cmds-list .kit-entry").forEach((row, idx) => {
@@ -6247,6 +6297,7 @@ function readKitDinosFromDOM() {
     if (gender) entry.Gender = gender;
     const saddle = (dino.SaddleBlueprint || "").trim();
     if (saddle) entry.SaddleBlueprint = saddle;
+    _applyDinoCryoMode(entry, dino.CryoDelivery || "default");
     out.push(entry);
   });
   return out;

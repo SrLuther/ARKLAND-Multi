@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.38] - 2026-06-19
+
+### Feature
+
+- Novo (CustomShop): entrega de dinos em cryopods — módulo ShopCryoDino com cryopod vanilla (Extinction) direto no inventário do jogador.
+
+### Improvement
+
+- Melhoria (CustomShop): Settings.DeliverDinosInCryopods, CryoItemPath e CryoLimitedTime; por dino Cryopod/PreventCryo sobrescreve o padrão global.
+- Melhoria (Web Store): painel Entrega de Dinos nas configurações gerais e seletor de entrega (padrão / cryopod / spawn) no editor de dinos.
+
 ## [1.9.37] - 2026-06-19
 
 ### Improvement

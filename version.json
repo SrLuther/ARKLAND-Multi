@@ -1,10 +1,10 @@
 {
-    "version": "1.9.37",
+    "version": "1.9.38",
     "date": "2026-06-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.37/ARKLAND-Multi-Setup-v1.9.37.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.38/ARKLAND-Multi-Setup-v1.9.38.exe",
     "changelog": [
-        "Melhoria (Web Store): editor de itens e kits com LicenseGrant — Group, Days, Redeemable e TimedPointsBonus sem editar config.json manualmente.",
-        "Melhoria (Web Store): presets rápidos Nuvem (keyvault), Gamma, Beta e Alfa — inclui comando Permissions.AddTimed e modalidade correta no catálogo.",
-        "Melhoria (Web Store): modalidade Licença VIP (Type license) e badge do grupo na lista admin."
+        "Novo (CustomShop): entrega de dinos em cryopods — módulo ShopCryoDino com cryopod vanilla (Extinction) direto no inventário do jogador.",
+        "Melhoria (CustomShop): Settings.DeliverDinosInCryopods, CryoItemPath e CryoLimitedTime; por dino Cryopod/PreventCryo sobrescreve o padrão global.",
+        "Melhoria (Web Store): painel Entrega de Dinos nas configurações gerais e seletor de entrega (padrão / cryopod / spawn) no editor de dinos."
     ]
 }
