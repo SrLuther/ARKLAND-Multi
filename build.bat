@@ -92,6 +92,22 @@ echo [1/4] Instalando dependencias...
 echo       Concluido.
 echo.
 
+echo [1b/4] Compilando CustomShop.dll...
+if exist "%~dp0plugin\CustomShop\build_cl.bat" (
+    pushd "%~dp0plugin\CustomShop"
+    call build_cl.bat
+    set CS_BUILD=!errorlevel!
+    popd
+    if !CS_BUILD! neq 0 (
+        echo [AVISO] build CustomShop falhou — usando DLL existente em plugin\CustomShop\bin\
+    ) else (
+        echo       CustomShop.dll atualizado em plugin\CustomShop\bin\
+    )
+) else (
+    echo [AVISO] plugin\CustomShop\build_cl.bat nao encontrado — pulando compile do plugin.
+)
+echo.
+
 :: -- Gera o execut?vel --------------------------------------------------------
 echo [2/4] Gerando executavel com PyInstaller (modo onefile)...
 "%PYTHON%" -m PyInstaller --noconfirm "%~dp0ARKLAND-Multi.spec"

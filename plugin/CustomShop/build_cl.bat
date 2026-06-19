@@ -83,7 +83,7 @@ echo === MSVC: %MSVC_DIR% ===
 echo === Compiling C++ sources ===
 "%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
-  /I"%SDK_DIR%" /I"%SRC_DIR%" /I"%MYSQL_DIR%\include" ^
+  /I"%SDK_DIR%" /I"%PLUGIN_DIR%ArkServerAPI" /I"%SRC_DIR%" /I"%MYSQL_DIR%\include" ^
   /DWIN32 /D_WINDOWS /D_USRDLL /DNDEBUG /DARK_GAME ^
   /DUNICODE /D_UNICODE ^
   /D_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS /D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR ^

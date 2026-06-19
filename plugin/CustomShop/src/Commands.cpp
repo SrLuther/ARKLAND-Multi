@@ -122,6 +122,47 @@ void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMod
             "Nuvem: voce tem " + std::to_string(count) + " item(ns) armazenados.");
 }
 
+bool MatchCloudChat(const std::string& msg, const char* cmd) {
+    if (msg == cmd) return true;
+    const std::string prefix = std::string(cmd) + " ";
+    return msg.size() > prefix.size() && msg.compare(0, prefix.size(), prefix) == 0;
+}
+
+bool OnCloudChatMessage(AShooterPlayerController* player, FString* message,
+                        EChatSendMode::Type mode, bool /*spam_check*/, bool command_executed) {
+    if (command_executed || !player || !message)
+        return false;
+    const std::string msg = message->ToString();
+    if (MatchCloudChat(msg, "/upload")) {
+        CmdCloudUpload(player, message, mode);
+        return true;
+    }
+    if (MatchCloudChat(msg, "/download")) {
+        CmdCloudDownload(player, message, mode);
+        return true;
+    }
+    if (MatchCloudChat(msg, "/nuvem") || MatchCloudChat(msg, "/cloud")) {
+        CmdCloudStatus(player, message, mode);
+        return true;
+    }
+    return false;
+}
+
+void CmdConsoleCloudUpload(APlayerController* pc, FString*, bool) {
+    auto* c = static_cast<AShooterPlayerController*>(pc);
+    if (c) CmdCloudUpload(c, nullptr, EChatSendMode::GlobalChat);
+}
+
+void CmdConsoleCloudDownload(APlayerController* pc, FString*, bool) {
+    auto* c = static_cast<AShooterPlayerController*>(pc);
+    if (c) CmdCloudDownload(c, nullptr, EChatSendMode::GlobalChat);
+}
+
+void CmdConsoleCloudStatus(APlayerController* pc, FString*, bool) {
+    auto* c = static_cast<AShooterPlayerController*>(pc);
+    if (c) CmdCloudStatus(c, nullptr, EChatSendMode::GlobalChat);
+}
+
 void CmdBuyItem(APlayerController* pc, FString* cmd_str, bool) {
     auto* controller = static_cast<AShooterPlayerController*>(pc);
     if (!controller || !cmd_str) return;
@@ -666,8 +707,14 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/download",     &CmdCloudDownload);
     ArkApi::GetCommands().AddChatCommand("/nuvem",         &CmdCloudStatus);
     ArkApi::GetCommands().AddChatCommand("/cloud",         &CmdCloudStatus);
+    ArkApi::GetCommands().AddOnChatMessageCallback(
+        "CustomShopCloudChat", &OnCloudChatMessage);
 
     // Admin (RCON ou console in-game)
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Upload",     &CmdConsoleCloudUpload);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Download",   &CmdConsoleCloudDownload);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Nuvem",      &CmdConsoleCloudStatus);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Cloud",      &CmdConsoleCloudStatus);
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddPoints",  &CmdAdminAddPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.SetPoints",  &CmdAdminSetPoints);
     ArkApi::GetCommands().AddConsoleCommand("Shop.GetPoints",  &CmdAdminGetPoints);
@@ -687,7 +734,12 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/upload");
     ArkApi::GetCommands().RemoveChatCommand("/download");
     ArkApi::GetCommands().RemoveChatCommand("/nuvem");
+    ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Upload");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Download");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Nuvem");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.Cloud");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.AddPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.SetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GetPoints");

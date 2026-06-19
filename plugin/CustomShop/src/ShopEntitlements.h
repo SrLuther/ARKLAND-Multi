@@ -1,7 +1,6 @@
 #pragma once
 
 #include "pch.h"
-#include <nlohmann/json.hpp>
 
 // ShopEntitlements — player_entitlements table (multiple license rows per steam_id).
 

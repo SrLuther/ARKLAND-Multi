@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.39] - 2026-06-19
+
+### Improvement
+
+- Melhoria (CustomShop): comandos console Shop.Upload, Shop.Download e Shop.Nuvem para teste via RCON.
+
+### Fix
+
+- Fix (CustomShop): comandos /upload /download /nuvem funcionam no chat LOCAL (AddOnChatMessageCallback) — antes só respondiam no chat global.
+- Fix (CustomShop): build.bat recompila CustomShop.dll antes do instalador — releases incluem plugin com inventário na nuvem.
+
 ## [1.9.38] - 2026-06-19
 
 ### Feature

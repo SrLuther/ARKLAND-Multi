@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.38"
+APP_VERSION: str = "1.9.39"
 BUILD_DATE: str = "2026-06-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.39",
+        "date": "2026-06-19",
+        "changes": [
+            "Fix (CustomShop): comandos /upload /download /nuvem funcionam no chat LOCAL "
+            "(AddOnChatMessageCallback) — antes só respondiam no chat global.",
+            "Fix (CustomShop): build.bat recompila CustomShop.dll antes do instalador — releases "
+            "incluem plugin com inventário na nuvem.",
+            "Melhoria (CustomShop): comandos console Shop.Upload, Shop.Download e Shop.Nuvem para teste via RCON.",
+        ],
+    },
     {
         "version": "1.9.38",
         "date": "2026-06-19",

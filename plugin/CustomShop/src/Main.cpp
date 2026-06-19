@@ -141,9 +141,10 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         SchedulePendingPoll();
     }
 
-    Log::GetLog()->info("CustomShop: ready  (shop='{}', web='{}')",
-                        CustomShop::ShopConfig::Get().ShopName(),
-                        CustomShop::ShopConfig::Get().WebApiUrl());
+    Log::GetLog()->info(
+        "CustomShop: ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem)",
+        CustomShop::ShopConfig::Get().ShopName(),
+        CustomShop::ShopConfig::Get().WebApiUrl());
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
