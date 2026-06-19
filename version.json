@@ -1,12 +1,10 @@
 {
-    "version": "1.9.36",
+    "version": "1.9.37",
     "date": "2026-06-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.36/ARKLAND-Multi-Setup-v1.9.36.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.37/ARKLAND-Multi-Setup-v1.9.37.exe",
     "changelog": [
-        "Novo (CustomShop): Inventário na Nuvem — /upload (até 250 itens), /download e /nuvem (alias /cloud) em qualquer mapa do cluster.",
-        "Novo (CustomShop): módulo ShopCloudInventory — serialização GetItemBytes/CreateFromBytes, tabelas player_cloud_inventory e player_cloud_items.",
-        "Novo (CustomShop): exige Licença Nuvem (keyvault) no upload; download liberado após expirar.",
-        "Melhoria (Web Store): documentação automática da Licença Nuvem em redeem_docs.js.",
-        "Melhoria (config): LicenseGrant em licenca_nuvem; CloudMaxItems=250, cooldown 30s."
+        "Melhoria (Web Store): editor de itens e kits com LicenseGrant — Group, Days, Redeemable e TimedPointsBonus sem editar config.json manualmente.",
+        "Melhoria (Web Store): presets rápidos Nuvem (keyvault), Gamma, Beta e Alfa — inclui comando Permissions.AddTimed e modalidade correta no catálogo.",
+        "Melhoria (Web Store): modalidade Licença VIP (Type license) e badge do grupo na lista admin."
     ]
 }

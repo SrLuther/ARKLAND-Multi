@@ -4035,7 +4035,8 @@ const CATALOG_MODE_OPTIONS = [
   ]},
   { group: "Outras abas", options: [
     { value: "dino|", label: "🦕 Dino (aba Dinos)" },
-    { value: "command|Licenças", label: "📜 Licença (aba Licenças)" },
+    { value: "command|Licenças", label: "📜 Licença + comandos (aba Licenças)" },
+    { value: "license|Licenças", label: "📜 Licença VIP / Âmbar timed (aba Licenças)" },
     { value: "command|Geral", label: "⚡ Comando (aba Itens)" },
     { value: "experience|Geral", label: "✨ Experiência (aba Itens)" },
     { value: "beacon|Geral", label: "📡 Beacon (aba Itens)" },
@@ -4047,6 +4048,7 @@ function _catalogModeFromItem(item) {
   let cat = String(item.Category || item.category || "").trim();
   const text = `${item.Name || ""} ${item.Description || ""}`;
   if (type === "dino") return "dino|";
+  if (type === "license" || type === "licenca") return "license|Licenças";
   if (cat === "Licenças" || (type === "command" && /licen[çc]a|license/i.test(text))) return "command|Licenças";
   if (type === "command") return `command|${cat || "Geral"}`;
   if (type === "experience") return "experience|Geral";
@@ -5204,6 +5206,7 @@ function renderShop() {
             if ((it.Items || []).length) parts.push(`${it.Items.length} item(s)`);
             if ((it.Dinos || []).length) parts.push(`${it.Dinos.length} dino(s)`);
             if ((it.Commands || []).length) parts.push(`${it.Commands.length} cmd(s)`);
+            if (it.LicenseGrant?.Group) parts.push(`📜 ${escHtml(it.LicenseGrant.Group)}`);
             const content = parts.length ? parts.join(" · ") : "—";
             return `<tr>
               <td>
@@ -5700,6 +5703,119 @@ function readShopItemCommandsFromDOM() {
   return out;
 }
 
+const LICENSE_GRANT_PRESETS = {
+  keyvault: {
+    Group: "keyvault", Days: 30, Redeemable: true,
+    command: "Permissions.AddTimed {SteamID} keyvault 720",
+    catalogMode: "command|Licenças",
+  },
+  gamma: { Group: "Gamma", Days: 30, Redeemable: true, TimedPointsBonus: 25, catalogMode: "license|Licenças" },
+  beta:  { Group: "Beta",  Days: 30, Redeemable: true, TimedPointsBonus: 50, catalogMode: "license|Licenças" },
+  alfa:  { Group: "Alfa",  Days: 30, Redeemable: true, TimedPointsBonus: 75, catalogMode: "license|Licenças" },
+};
+
+function licenseGrantEditorHtml(prefix, entry) {
+  const lic = entry?.LicenseGrant || {};
+  const enabled = !!lic.Group;
+  return `
+    <div class="kit-section" id="${prefix}-license-section">
+      <div class="kit-section-header">
+        <span class="kit-section-title">📜 Concessão de licença (LicenseGrant)</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','keyvault')">☁️ Nuvem</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','gamma')">Γ Gamma</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','beta')">β Beta</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','alfa')">α Alfa</button>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <label>Registrar licença no resgate (MySQL + plugin)</label>
+        <input type="checkbox" id="${prefix}-lic-enabled" ${enabled ? "checked" : ""} onchange="toggleLicenseGrantFields('${prefix}')" />
+      </div>
+      <div id="${prefix}-lic-fields" style="${enabled ? "" : "display:none"}">
+        <div class="form-grid" style="margin-top:8px;">
+          <div class="form-group">
+            <label>Grupo Ark (Group) <span style="color:var(--danger)">*</span></label>
+            <input id="${prefix}-lic-group" type="text" value="${escHtml(lic.Group || "")}" placeholder="keyvault, Gamma, Beta, Alfa…" />
+          </div>
+          <div class="form-group">
+            <label>Duração (Days)</label>
+            <input id="${prefix}-lic-days" type="number" min="1" value="${lic.Days ?? 30}" />
+          </div>
+          <div class="form-group">
+            <label>Bônus Âmbar timed (TimedPointsBonus)</label>
+            <input id="${prefix}-lic-timed-bonus" type="number" min="0" value="${entry?.TimedPointsBonus ?? ""}" placeholder="25 / 50 / 75 (Gamma/Beta/Alfa)" />
+          </div>
+        </div>
+        <div class="toggle-row">
+          <label>Resgatável na loja web (Redeemable)</label>
+          <input type="checkbox" id="${prefix}-lic-redeemable" ${lic.Redeemable !== false ? "checked" : ""} />
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:6px;line-height:1.45;">
+          Grava <code>player_entitlements</code> no resgate web e o plugin aplica o mesmo grupo via
+          <code>GiveItem</code>. Para Nuvem (<code>keyvault</code>), use o preset ☁️ Nuvem — ele também
+          adiciona o comando <code>Permissions.AddTimed</code>.
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleLicenseGrantFields(prefix) {
+  const on = document.getElementById(`${prefix}-lic-enabled`)?.checked;
+  const fields = document.getElementById(`${prefix}-lic-fields`);
+  if (fields) fields.style.display = on ? "" : "none";
+}
+
+function readLicenseGrantFromDOM(prefix) {
+  if (!document.getElementById(`${prefix}-lic-enabled`)?.checked) return null;
+  const group = document.getElementById(`${prefix}-lic-group`)?.value.trim();
+  if (!group) return null;
+  const days = parseInt(document.getElementById(`${prefix}-lic-days`)?.value, 10) || 30;
+  const redeemable = document.getElementById(`${prefix}-lic-redeemable`)?.checked !== false;
+  return { Group: group, Days: days, Redeemable: redeemable };
+}
+
+function readTimedPointsBonusFromDOM(prefix) {
+  const raw = document.getElementById(`${prefix}-lic-timed-bonus`)?.value;
+  if (raw === "" || raw == null) return null;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function applyLicensePreset(prefix, presetKey) {
+  const preset = LICENSE_GRANT_PRESETS[presetKey];
+  if (!preset) return;
+  const enabledEl = document.getElementById(`${prefix}-lic-enabled`);
+  if (!enabledEl) return;
+  enabledEl.checked = true;
+  toggleLicenseGrantFields(prefix);
+  document.getElementById(`${prefix}-lic-group`).value = preset.Group;
+  document.getElementById(`${prefix}-lic-days`).value = preset.Days;
+  document.getElementById(`${prefix}-lic-redeemable`).checked = preset.Redeemable !== false;
+  const bonusEl = document.getElementById(`${prefix}-lic-timed-bonus`);
+  if (bonusEl) bonusEl.value = preset.TimedPointsBonus ?? "";
+  if (prefix === "mi" && preset.catalogMode) {
+    const modeEl = document.getElementById("mi-catalog-mode");
+    if (modeEl) modeEl.value = preset.catalogMode;
+  }
+  if (preset.command && prefix === "mi") {
+    syncShopItemDraftFromDOM();
+    const hasCmd = _shopItemCommandsDraft.some(c => String(c.Command || "").includes(preset.Group));
+    if (!hasCmd) {
+      _shopItemCommandsDraft.push(normalizeKitCommand({ Command: preset.command, ExecuteAsAdmin: true }));
+      renderShopItemEntrySections();
+    }
+  } else if (preset.command && prefix === "mk") {
+    syncKitDraftFromDOM();
+    const hasCmd = _kitCommandsDraft.some(c => String(c.Command || "").includes(preset.Group));
+    if (!hasCmd) {
+      _kitCommandsDraft.push(normalizeKitCommand({ Command: preset.command, ExecuteAsAdmin: true }));
+      renderKitEntrySections();
+    }
+  }
+  toast(`Preset ${preset.Group} aplicado`, "success");
+}
+
 function openItemModal(key) {
   _editingKey = key || null;
   _editingSection = "shop";
@@ -5763,6 +5879,8 @@ function openItemModal(key) {
         <div id="shop-item-dinos-list" class="kit-entries"></div>
       </div>
 
+      ${licenseGrantEditorHtml("mi", item)}
+
       <div class="kit-section">
         <div class="kit-section-header">
           <span class="kit-section-title">⚡ Comandos (Commands[])</span>
@@ -5818,6 +5936,20 @@ async function confirmItem() {
 
   const commands = readShopItemCommandsFromDOM();
   if (commands.length) it.Commands = commands; else delete it.Commands;
+
+  if (document.getElementById("mi-lic-enabled")?.checked) {
+    const licGrant = readLicenseGrantFromDOM("mi");
+    if (!licGrant?.Group) {
+      toast("LicenseGrant ativo: informe o grupo Ark (ex: keyvault)", "warning");
+      return;
+    }
+    it.LicenseGrant = licGrant;
+  } else {
+    delete it.LicenseGrant;
+  }
+
+  const timedBonus = readTimedPointsBonusFromDOM("mi");
+  if (timedBonus != null) it.TimedPointsBonus = timedBonus; else delete it.TimedPointsBonus;
 
   _config.ShopItems[key] = it;
 
@@ -6185,6 +6317,8 @@ function openKitModal(key) {
         <div id="mk-dinos-list" class="kit-entries"></div>
       </div>
 
+      ${licenseGrantEditorHtml("mk", kit)}
+
       <div class="kit-section">
         <div class="kit-section-header">
           <span class="kit-section-title">⚡ Comandos</span>
@@ -6222,6 +6356,20 @@ async function confirmKit() {
 
   const commands = readKitCommandsFromDOM();
   if (commands.length) kit.Commands = commands; else delete kit.Commands;
+
+  if (document.getElementById("mk-lic-enabled")?.checked) {
+    const licGrant = readLicenseGrantFromDOM("mk");
+    if (!licGrant?.Group) {
+      toast("LicenseGrant ativo: informe o grupo Ark (ex: keyvault)", "warning");
+      return;
+    }
+    kit.LicenseGrant = licGrant;
+  } else {
+    delete kit.LicenseGrant;
+  }
+
+  const timedBonus = readTimedPointsBonusFromDOM("mk");
+  if (timedBonus != null) kit.TimedPointsBonus = timedBonus; else delete kit.TimedPointsBonus;
 
   const vipTier = document.getElementById("mk-vip-tier").value.trim();
   const vipDays = parseInt(document.getElementById("mk-vip-days").value, 10);

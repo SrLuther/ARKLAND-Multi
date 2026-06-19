@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.37] - 2026-06-19
+
+### Improvement
+
+- Melhoria (Web Store): editor de itens e kits com LicenseGrant — Group, Days, Redeemable e TimedPointsBonus sem editar config.json manualmente.
+- Melhoria (Web Store): presets rápidos Nuvem (keyvault), Gamma, Beta e Alfa — inclui comando Permissions.AddTimed e modalidade correta no catálogo.
+- Melhoria (Web Store): modalidade Licença VIP (Type license) e badge do grupo na lista admin.
+
 ## [1.9.36] - 2026-06-19
 
 ### Feature
