@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.35"
-BUILD_DATE: str = "2026-06-18"
+APP_VERSION: str = "1.9.36"
+BUILD_DATE: str = "2026-06-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.36",
+        "date": "2026-06-19",
+        "changes": [
+            "Novo (CustomShop): Inventário na Nuvem — /upload (até 250 itens), /download e /nuvem "
+            "(alias /cloud) em qualquer mapa do cluster.",
+            "Novo (CustomShop): módulo ShopCloudInventory — serialização GetItemBytes/CreateFromBytes, "
+            "tabelas player_cloud_inventory e player_cloud_items.",
+            "Novo (CustomShop): exige Licença Nuvem (keyvault) no upload; download liberado após expirar.",
+            "Melhoria (Web Store): documentação automática da Licença Nuvem em redeem_docs.js.",
+            "Melhoria (config): LicenseGrant em licenca_nuvem; CloudMaxItems=250, cooldown 30s.",
+        ],
+    },
     {
         "version": "1.9.35",
         "date": "2026-06-18",

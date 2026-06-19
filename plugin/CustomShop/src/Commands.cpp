@@ -6,6 +6,7 @@
 #include "ShopPoints.h"
 #include "ShopStore.h"
 #include "ShopVip.h"
+#include "ShopCloudInventory.h"
 #include "HttpClient.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
@@ -33,6 +34,92 @@ std::vector<std::string> SplitCmd(FString* cmd_str) {
 void SendMsg(AShooterPlayerController* c, const FLinearColor& color,
              const std::string& msg) {
     ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
+}
+
+std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
+    using CustomShop::CloudResult;
+    const auto& cfg = CustomShop::ShopConfig::Get();
+    switch (result) {
+    case CloudResult::Ok:
+        if (count > 0)
+            return "Nuvem: operacao concluida com " + std::to_string(count) + " item(ns).";
+        return "Nuvem: operacao concluida.";
+    case CloudResult::Disabled:
+        return "Inventario na nuvem desativado neste servidor.";
+    case CloudResult::NoLicense: {
+        std::string url = cfg.WebsiteUrl();
+        if (url.empty()) url = cfg.WebApiUrl();
+        return "Voce precisa de uma Licenca Nuvem ativa para enviar itens. Adquira na loja: " + url;
+    }
+    case CloudResult::AlreadyStored:
+        return "Voce ja possui itens na nuvem. Use /download para recupera-los antes de um novo upload.";
+    case CloudResult::EmptyInventory:
+        return "Seu inventario esta vazio. Nada para enviar a nuvem.";
+    case CloudResult::TooManyItems:
+        return "Limite de " + std::to_string(cfg.CloudMaxItems())
+             + " itens na nuvem. Reduza seu inventario e tente novamente.";
+    case CloudResult::DbError:
+        return "Erro ao acessar a nuvem. Tente novamente ou contate um admin.";
+    case CloudResult::InventoryFull:
+        return "Inventario sem espaco suficiente. Libere slots e use /download novamente.";
+    case CloudResult::PartialRestore:
+        return "Falha ao restaurar alguns itens. Seu cofre na nuvem foi mantido — tente de novo.";
+    case CloudResult::NothingStored:
+        return "Nuvem: voce nao possui itens armazenados.";
+    case CloudResult::Cooldown:
+        return "Aguarde " + std::to_string(cfg.CloudCooldownSeconds())
+             + " segundos antes de usar a nuvem novamente.";
+    case CloudResult::PlayerBusy:
+        return "Voce precisa estar vivo para usar a nuvem.";
+    default:
+        return "Comando de nuvem indisponivel.";
+    }
+}
+
+FLinearColor CloudResultColor(CustomShop::CloudResult result) {
+    using CustomShop::CloudResult;
+    switch (result) {
+    case CloudResult::Ok:
+        return FColorList::Green;
+    case CloudResult::NothingStored:
+        return FColorList::Yellow;
+    default:
+        return FColorList::Red;
+    }
+}
+
+void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    const auto result = CustomShop::ShopCloudInventory::Get().Upload(controller);
+    const int count = CustomShop::ShopCloudInventory::Get().LastOperationCount();
+    std::string msg = FormatCloudMessage(result, count);
+    if (result == CustomShop::CloudResult::Ok)
+        msg = "Nuvem: " + std::to_string(count)
+            + " itens salvos. Seu inventario foi esvaziado.";
+    SendMsg(controller, CloudResultColor(result), msg);
+}
+
+void CmdCloudDownload(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    const auto result = CustomShop::ShopCloudInventory::Get().Download(controller);
+    const int count = CustomShop::ShopCloudInventory::Get().LastOperationCount();
+    std::string msg = FormatCloudMessage(result, count);
+    if (result == CustomShop::CloudResult::Ok)
+        msg = "Nuvem: " + std::to_string(count) + " itens devolvidos ao seu inventario.";
+    SendMsg(controller, CloudResultColor(result), msg);
+}
+
+void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    const std::string steam_id = CustomShop::Bridge::GetSteamId(controller);
+    const int count = CustomShop::ShopCloudInventory::Get().GetStoredItemCount(steam_id);
+    if (count <= 0) {
+        SendMsg(controller, FColorList::Yellow,
+                "Nuvem: voce nao possui itens armazenados.");
+        return;
+    }
+    SendMsg(controller, FColorList::Green,
+            "Nuvem: voce tem " + std::to_string(count) + " item(ns) armazenados.");
 }
 
 void CmdBuyItem(APlayerController* pc, FString* cmd_str, bool) {
@@ -575,6 +662,10 @@ void Register() {
     // Jogador — redireciona para a loja web
     ArkApi::GetCommands().AddChatCommand("/shop",          &CmdShop);
     ArkApi::GetCommands().AddChatCommand("/shop debug",    &CmdShopDebugSelf);
+    ArkApi::GetCommands().AddChatCommand("/upload",        &CmdCloudUpload);
+    ArkApi::GetCommands().AddChatCommand("/download",     &CmdCloudDownload);
+    ArkApi::GetCommands().AddChatCommand("/nuvem",         &CmdCloudStatus);
+    ArkApi::GetCommands().AddChatCommand("/cloud",         &CmdCloudStatus);
 
     // Admin (RCON ou console in-game)
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddPoints",  &CmdAdminAddPoints);
@@ -593,6 +684,10 @@ void Register() {
 void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/shop");
     ArkApi::GetCommands().RemoveChatCommand("/shop debug");
+    ArkApi::GetCommands().RemoveChatCommand("/upload");
+    ArkApi::GetCommands().RemoveChatCommand("/download");
+    ArkApi::GetCommands().RemoveChatCommand("/nuvem");
+    ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.AddPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.SetPoints");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.GetPoints");

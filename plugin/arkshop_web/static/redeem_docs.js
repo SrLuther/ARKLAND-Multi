@@ -24,6 +24,12 @@
       timedBonus: 75,
       summary: "Licença avançada — máximo bônus por tempo online e acesso aos conteúdos mais raros.",
     },
+    keyvault: {
+      label: "Nuvem",
+      durationDays: 30,
+      timedBonus: 0,
+      summary: "Cofre de inventário no cluster — use /upload, /download e /nuvem no chat (até 250 itens).",
+    },
   };
 
   const CATEGORY_DOCS = {
@@ -92,6 +98,7 @@
       notes: [
         "Validade: 30 dias a partir do resgate.",
         "Três níveis: Gamma (+25), Beta (+50) e Alfa (+75) de bônus por ciclo de tempo online.",
+        "Licença Nuvem: armazena até 250 itens do inventário (/upload) e recupera em qualquer mapa (/download).",
         "Vários conteúdos do catálogo só aparecem desbloqueados com a licença correta ativa.",
         "Você pode renovar antes do vencimento resgatando novamente, se disponível no catálogo.",
       ],
@@ -157,6 +164,7 @@
     if (/\balfa\b/.test(text)) return "Alfa";
     if (/\bbeta\b/.test(text)) return "Beta";
     if (/\bgamma\b/.test(text)) return "Gamma";
+    if (/\bnuvem\b/.test(text) || /\bkeyvault\b/.test(text)) return "keyvault";
     return null;
   }
 
@@ -215,6 +223,10 @@
     }
     if (category === "licenses" && tierInfo) {
       warnings.push(`Licença ${tierInfo.label} expira em ${tierInfo.durationDays} dias.`);
+      if (tierInfo.label === "Nuvem") {
+        warnings.push("Máximo 250 itens por upload. Use /download antes de um novo /upload.");
+        warnings.push("Download permitido mesmo após expirar a licença (itens já armazenados).");
+      }
     }
     if (isFree && category !== "licenses") {
       warnings.push("Item gratuito — resgate único conforme regras do servidor.");
@@ -250,8 +262,13 @@
       }
     } else if (category === "licenses") {
       if (tierInfo) {
-        shortDescription =
-          `Licença ${tierInfo.label} — ${tierInfo.durationDays} dias, +${tierInfo.timedBonus} Âmbar por ciclo online.`;
+        if (tierInfo.timedBonus > 0) {
+          shortDescription =
+            `Licença ${tierInfo.label} — ${tierInfo.durationDays} dias, +${tierInfo.timedBonus} Âmbar por ciclo online.`;
+        } else {
+          shortDescription =
+            `Licença ${tierInfo.label} — ${tierInfo.durationDays} dias. ${tierInfo.summary}`;
+        }
         if (!detailedDescription) detailedDescription = tierInfo.summary;
       } else {
         shortDescription = `Licença ${name} — acesso temporário a conteúdos exclusivos.`;

@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | 🟡 Aguardando discussão e aprovação — **não implementar** até decisões fechadas |
+| **Status** | 🟢 Aprovado e implementado (v1.9.36 pendente) |
 | **Versão do documento** | 1.0 |
 | **Data** | 2026-06-18 |
 | **Release base do app** | v1.9.34 |
@@ -228,12 +228,12 @@ Preencha ou escolha uma opção em cada linha. Implementação só inicia após 
 
 | # | Tema | Opções | Recomendação |
 |---|------|--------|--------------|
-| **1** | Download com licença **expirada** | **A)** Exige licença ativa também no download · **B)** Permite download dos itens já pagos mesmo sem licença | **B** — melhor UX; jogador não perde o que já guardou |
-| **2** | Nome do comando de status | `/nuvem` · `/cloud` · ambos | `/nuvem` (PT) + alias `/cloud` |
-| **3** | Limite de itens por upload | Sem limite · 300 · 500 · outro: ___ | **300** itens (balanceamento DB) |
-| **4** | Limite de tamanho total | Sem limite · 50 MB · outro: ___ | **50 MB** por snapshot |
-| **5** | Cooldown entre comandos | 0 s · 30 s · 60 s | **30 s** |
-| **6** | Grupo da licença | Manter `keyvault` · renomear para `Nuvem` | Manter **`keyvault`** (já em produção) |
+| **1** | Download com licença **expirada** | **B)** Permite download dos itens já pagos | **Aprovado** |
+| **2** | Nome do comando de status | `/nuvem` + alias `/cloud` | **Aprovado** |
+| **3** | Limite de itens por upload | **250** itens | **Aprovado** |
+| **4** | Limite de tamanho total | Monitorar via contagem (250 itens) | **Aprovado** |
+| **5** | Cooldown entre comandos | **30 s** | **Aprovado** |
+| **6** | Grupo da licença | **`keyvault`** | **Aprovado** |
 | **7** | Admin: limpar cofre de jogador | RCON `Shop.CloudClear <steamid>` na v1? | Sim, na **Fase 5** (não bloqueia v1) |
 | **8** | Painel web admin (listar cofres) | Sim na v1 · depois | **Depois** (Fase 5) |
 | **9** | Preço / duração licença nuvem | Manter atual · alterar: ___ | Manter (revisar no `config.json`) |

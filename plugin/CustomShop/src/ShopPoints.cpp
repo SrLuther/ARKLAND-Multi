@@ -172,6 +172,29 @@ bool ShopPoints::Open() {
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
 
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS player_cloud_inventory ("
+        "  steam_id     VARCHAR(20) PRIMARY KEY NOT NULL,"
+        "  item_count   INT NOT NULL DEFAULT 0,"
+        "  uploaded_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "  source_map   VARCHAR(128) DEFAULT NULL,"
+        "  INDEX idx_uploaded (uploaded_at)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS player_cloud_items ("
+        "  id           BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  steam_id     VARCHAR(20) NOT NULL,"
+        "  sort_order   INT NOT NULL,"
+        "  item_blob    MEDIUMBLOB NOT NULL,"
+        "  INDEX idx_steam_order (steam_id, sort_order),"
+        "  CONSTRAINT fk_cloud_steam"
+        "    FOREIGN KEY (steam_id) REFERENCES player_cloud_inventory(steam_id)"
+        "    ON DELETE CASCADE"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
     Log::GetLog()->info("ShopPoints: MySQL connected to {}:{}/{}",
                         cfg.DbHost(), cfg.DbPort(), cfg.DbDatabase());
     return true;

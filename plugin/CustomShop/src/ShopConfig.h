@@ -32,6 +32,13 @@ public:
     bool        DisableSell()        const;
     bool        DisableTrade()       const;
 
+    // Cloud inventory (Nuvem)
+    bool        CloudEnabled()                  const;
+    int         CloudMaxItems()                 const;
+    int         CloudCooldownSeconds()          const;
+    bool        CloudRequireLicenseForDownload() const;
+    std::string WebsiteUrl()                    const;
+
     // Database (MySQL)
     std::string DbHost()             const;
     int         DbPort()             const;

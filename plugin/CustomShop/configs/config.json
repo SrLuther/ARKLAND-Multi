@@ -13,7 +13,11 @@
     "HideBuffIcon": false,
     "OverrideCurrencyIcon": "",
     "UseSteamOverlay": false,
-    "OverrideLabels": []
+    "OverrideLabels": [],
+    "CloudInventoryEnabled": true,
+    "CloudMaxItems": 250,
+    "CloudCooldownSeconds": 30,
+    "CloudRequireLicenseForDownload": false
   },
   "Items": {
     "licenca_nuvem": {
@@ -21,7 +25,12 @@
       "Category": "Licenças",
       "Name": "Licença Nuvem",
       "Price": 5000,
-      "Description": "Licença de Nuvem (30 dias)",
+      "Description": "Licença de Nuvem (30 dias) — /upload, /download e /nuvem em qualquer mapa do cluster",
+      "LicenseGrant": {
+        "Group": "keyvault",
+        "Days": 30,
+        "Redeemable": true
+      },
       "Commands": [
         "Permissions.AddTimed {SteamID} keyvault 720"
       ]

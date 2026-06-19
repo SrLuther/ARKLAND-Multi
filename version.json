@@ -1,12 +1,12 @@
 {
-    "version": "1.9.35",
-    "date": "2026-06-18",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.35/ARKLAND-Multi-Setup-v1.9.35.exe",
+    "version": "1.9.36",
+    "date": "2026-06-19",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.36/ARKLAND-Multi-Setup-v1.9.36.exe",
     "changelog": [
-        "Fix (CustomShop / DB): sync não usa mais senha do root para o usuário arkland — evita gravar 123456/changeme no config.json do plugin.",
-        "Fix (Loja): validate_plugin_database_settings testa MySQL antes do sync; falha com mensagem clara em vez de propagar credencial inválida.",
-        "Fix (DB): probe_mysql_host — detecta host correto (127.0.0.1 vs localhost) para MariaDB no Windows.",
-        "Novo (DB Manager): botão «Arkland localhost+%» recria arkland@localhost e arkland@% com a mesma senha.",
-        "Melhoria (CustomShop.dll): conexão MySQL tenta múltiplos hosts e registra pw_len no log para diagnóstico."
+        "Novo (CustomShop): Inventário na Nuvem — /upload (até 250 itens), /download e /nuvem (alias /cloud) em qualquer mapa do cluster.",
+        "Novo (CustomShop): módulo ShopCloudInventory — serialização GetItemBytes/CreateFromBytes, tabelas player_cloud_inventory e player_cloud_items.",
+        "Novo (CustomShop): exige Licença Nuvem (keyvault) no upload; download liberado após expirar.",
+        "Melhoria (Web Store): documentação automática da Licença Nuvem em redeem_docs.js.",
+        "Melhoria (config): LicenseGrant em licenca_nuvem; CloudMaxItems=250, cooldown 30s."
     ]
 }

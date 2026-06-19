@@ -62,6 +62,26 @@ bool ShopConfig::DisableTrade() const {
     return settings_.value("DisableTradeButton", true);
 }
 
+bool ShopConfig::CloudEnabled() const {
+    return settings_.value("CloudInventoryEnabled", true);
+}
+
+int ShopConfig::CloudMaxItems() const {
+    return settings_.value("CloudMaxItems", 250);
+}
+
+int ShopConfig::CloudCooldownSeconds() const {
+    return settings_.value("CloudCooldownSeconds", 30);
+}
+
+bool ShopConfig::CloudRequireLicenseForDownload() const {
+    return settings_.value("CloudRequireLicenseForDownload", false);
+}
+
+std::string ShopConfig::WebsiteUrl() const {
+    return settings_.value("WebsiteUrl", "");
+}
+
 std::string ShopConfig::DbHost() const {
     return db_cfg_.value("Host", "127.0.0.1");
 }

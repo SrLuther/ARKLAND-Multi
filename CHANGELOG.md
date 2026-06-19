@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.36] - 2026-06-19
+
+### Feature
+
+- Novo (CustomShop): Inventário na Nuvem — /upload (até 250 itens), /download e /nuvem (alias /cloud) em qualquer mapa do cluster.
+- Novo (CustomShop): módulo ShopCloudInventory — serialização GetItemBytes/CreateFromBytes, tabelas player_cloud_inventory e player_cloud_items.
+- Novo (CustomShop): exige Licença Nuvem (keyvault) no upload; download liberado após expirar.
+
+### Improvement
+
+- Melhoria (Web Store): documentação automática da Licença Nuvem em redeem_docs.js.
+- Melhoria (config): LicenseGrant em licenca_nuvem; CloudMaxItems=250, cooldown 30s.
+
 ## [1.9.35] - 2026-06-18
 
 ### Feature

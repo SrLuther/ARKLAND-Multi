@@ -6,6 +6,7 @@
 #include "ShopPoints.h"
 #include "ShopVip.h"
 #include "ShopEntitlements.h"
+#include "ShopCloudInventory.h"
 #include "ShopPerms.h"
 #include "TimedPoints.h"
 #include "HttpClient.h"
@@ -103,6 +104,8 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         CustomShop::ShopVip::Get().SetDb(
             CustomShop::ShopPoints::Get().GetDb());
         CustomShop::ShopEntitlements::Get().SetDb(
+            CustomShop::ShopPoints::Get().GetDb());
+        CustomShop::ShopCloudInventory::Get().SetDb(
             CustomShop::ShopPoints::Get().GetDb());
         CustomShop::ShopVip::Get().PruneExpired();
         CustomShop::ShopEntitlements::Get().PruneExpired();
