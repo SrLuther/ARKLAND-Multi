@@ -8,6 +8,21 @@ constexpr const char* kDefaultCryoBp =
     "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/"
     "PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'";
 
+std::string NormalizeBlueprintPath(std::string bp) {
+    if (bp.empty()) return bp;
+    if (bp.find("Blueprint'") != std::string::npos) return bp;
+    if (bp.front() == '/')
+        return "Blueprint'" + bp + "'";
+    return "Blueprint'/Game/" + bp + "'";
+}
+
+void NotifyPlayer(AShooterPlayerController* controller,
+                  const FLinearColor& color,
+                  const std::string& msg) {
+    if (controller && !msg.empty())
+        ArkApi::GetApiUtils().SendServerMessage(controller, color, msg.c_str());
+}
+
 bool ShouldUseCryopod(const nlohmann::json& entry) {
     if (entry.value("PreventCryo", false))
         return false;
@@ -28,7 +43,8 @@ void ApplyGender(APrimalDinoCharacter* dino, const std::string& gender) {
 UPrimalItem* CreateSaddleItem(const std::string& saddle_blueprint) {
     if (saddle_blueprint.empty())
         return nullptr;
-    FString fbp(saddle_blueprint.c_str());
+    const std::string bp = NormalizeBlueprintPath(saddle_blueprint);
+    FString fbp(bp.c_str());
     UClass* cls = UVictoryCore::BPLoadClass(&fbp);
     if (!cls)
         return nullptr;
@@ -110,6 +126,42 @@ FCustomItemData BuildCryoCustomData(APrimalDinoCharacter* dino, UPrimalItem* sad
     return customItemData;
 }
 
+UPrimalItem* AddCryopodToInventory(AShooterPlayerController* controller,
+                                   UClass* cryoClass,
+                                   const FCustomItemData& customData,
+                                   UPrimalItem* orphanItem) {
+    if (!controller || !cryoClass) return nullptr;
+
+    UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
+    if (!inv) return nullptr;
+
+    if (orphanItem) {
+        UPrimalItem* added = inv->AddItemObject(orphanItem);
+        if (added) return added;
+    }
+
+    UPrimalItem* direct = UPrimalItem::AddNewItem(
+        TSubclassOf<UPrimalItem>(cryoClass),
+        inv,
+        /*bEquipItem=*/false,
+        /*bDontStack=*/false,
+        /*ItemQuality=*/0.0f,
+        /*bForceNoBlueprint=*/false,
+        /*ItemQuantity=*/1,
+        /*bForceBlueprint=*/false,
+        /*MaxItemDifficultyClamp=*/0.0f,
+        /*CreateOnClient=*/false,
+        TSubclassOf<UPrimalItem>(),
+        /*MinRandomQuality=*/0.0f,
+        /*clampStats=*/false,
+        /*bIgnoreAbsoluteMaxInventory=*/true);
+    if (!direct) return nullptr;
+
+    direct->SetCustomItemData(const_cast<FCustomItemData*>(&customData));
+    direct->UpdatedItem(true);
+    return direct;
+}
+
 bool GiveCryopod(AShooterPlayerController* controller,
                  APrimalDinoCharacter* dino,
                  UPrimalItem* saddle) {
@@ -120,6 +172,7 @@ bool GiveCryopod(AShooterPlayerController* controller,
     std::string cryoPath = cfg.CryoItemPath();
     if (cryoPath.empty())
         cryoPath = kDefaultCryoBp;
+    cryoPath = NormalizeBlueprintPath(cryoPath);
 
     FString fcryo(cryoPath.c_str());
     UClass* cryoClass = UVictoryCore::BPLoadClass(&fcryo);
@@ -143,15 +196,9 @@ bool GiveCryopod(AShooterPlayerController* controller,
     item->SetCustomItemData(&customData);
     item->UpdatedItem(true);
 
-    UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
-    if (!inv) {
-        Log::GetLog()->warn("ShopCryoDino: player has no inventory");
-        return false;
-    }
-
-    UPrimalItem* added = inv->AddItemObject(item);
+    UPrimalItem* added = AddCryopodToInventory(controller, cryoClass, customData, item);
     if (!added) {
-        Log::GetLog()->warn("ShopCryoDino: inventory full or AddItemObject failed");
+        Log::GetLog()->warn("ShopCryoDino: inventory full or failed to add cryopod");
         return false;
     }
 
@@ -168,7 +215,7 @@ bool DeliverDino(AShooterPlayerController* controller,
     if (!controller)
         return false;
 
-    const std::string blueprint = entry.value("Blueprint", "");
+    const std::string blueprint = NormalizeBlueprintPath(entry.value("Blueprint", ""));
     if (blueprint.empty())
         return false;
 
@@ -183,20 +230,37 @@ bool DeliverDino(AShooterPlayerController* controller,
         controller, fbp, nullptr, level, force_tame, neutered);
     if (!dino) {
         Log::GetLog()->warn("ShopCryoDino: failed to spawn '{}'", blueprint);
+        NotifyPlayer(controller, FColorList::Red,
+                     "Falha ao spawnar o dino. Verifique o blueprint no config.");
         return false;
     }
 
     ApplyGender(dino, gender);
 
     if (ShouldUseCryopod(entry)) {
+        Log::GetLog()->info(
+            "ShopCryoDino: cryo mode for '{}' (DeliverDinosInCryopods={})",
+            blueprint, CustomShop::ShopConfig::Get().DeliverDinosInCryopods());
+
         UPrimalItem* saddle = CreateSaddleItem(saddle_bp);
         const bool ok = GiveCryopod(controller, dino, saddle);
-        if (ok)
+        if (ok) {
             Log::GetLog()->info("ShopCryoDino: delivered '{}' in cryopod", blueprint);
-        return ok;
+            NotifyPlayer(controller, FColorList::Green,
+                         "Dino entregue em cryopod no seu inventario.");
+            return true;
+        }
+
+        Log::GetLog()->warn(
+            "ShopCryoDino: cryopod failed for '{}' — dino permanece no chao como fallback",
+            blueprint);
+        NotifyPlayer(controller, FColorList::Yellow,
+                     "Cryopod falhou (inventario cheio?). O dino foi spawnado ao seu lado.");
+        return true;
     }
 
     Log::GetLog()->info("ShopCryoDino: spawned '{}' near player", blueprint);
+    NotifyPlayer(controller, FColorList::Green, "Dino spawnado ao seu lado.");
     return true;
 }
 

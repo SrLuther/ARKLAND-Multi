@@ -30,8 +30,9 @@ void ShopConfig::Load() {
     db_cfg_        = config_.value("Database",          nlohmann::json::object());
     timed_points_  = config_.value("TimedPointsReward", nlohmann::json::object());
 
-    Log::GetLog()->info("ShopConfig: loaded ({} items, {} kits)",
-                        items_.size(), kits_.size());
+    Log::GetLog()->info("ShopConfig: loaded ({} items, {} kits, DeliverDinosInCryopods={})",
+                        items_.size(), kits_.size(),
+                        settings_.value("DeliverDinosInCryopods", true));
 }
 
 int ShopConfig::StartingPoints() const {
@@ -83,7 +84,7 @@ std::string ShopConfig::WebsiteUrl() const {
 }
 
 bool ShopConfig::DeliverDinosInCryopods() const {
-    return settings_.value("DeliverDinosInCryopods", false);
+    return settings_.value("DeliverDinosInCryopods", true);
 }
 
 std::string ShopConfig::CryoItemPath() const {

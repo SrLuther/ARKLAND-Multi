@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.41] - 2026-06-19
+
+### Feature
+
+- Novo (TEK): tradução PT-BR completa das opções de servidor — 322 campos, tooltips em todos os campos e auditoria de qualidade (check_field_labels).
+
+### Improvement
+
+- Melhoria (CustomShop): recompensa por tempo online avisa no chat do jogo — valor creditado e saldo total de Âmbares (Default + licenças com StackRewards).
+
+### Fix
+
+- Fix (CustomShop): dinos da loja web entregues em cryopod — AddItemObject (padrão ArkShop), cryo ativo por padrão e logs de diagnóstico no boot.
+- Fix (CustomShop): /upload ignora slots internos do ARK (cores, craft, tributo) — contagem real de pilhas no inventário do jogador.
+
 ## [1.9.40] - 2026-06-19
 
 ### Improvement

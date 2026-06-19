@@ -58,10 +58,10 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     case CloudResult::TooManyItems:
         if (count > 0)
             return "Seu inventario tem " + std::to_string(count)
-                 + " itens validos (limite: " + std::to_string(cfg.CloudMaxItems())
-                 + "). Reduza stacks e tente novamente.";
+                 + " pilhas para enviar (limite: " + std::to_string(cfg.CloudMaxItems())
+                 + "). Reduza itens e tente novamente.";
         return "Limite de " + std::to_string(cfg.CloudMaxItems())
-             + " itens na nuvem. Reduza seu inventario e tente novamente.";
+             + " pilhas na nuvem. Reduza seu inventario e tente novamente.";
     case CloudResult::DbError:
         return "Erro ao acessar a nuvem. Tente novamente ou contate um admin.";
     case CloudResult::InventoryFull:

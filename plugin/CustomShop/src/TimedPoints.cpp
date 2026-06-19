@@ -8,8 +8,22 @@
 #include "ShopEntitlements.h"
 
 #include <Timer.h>
+#include <sstream>
 
 namespace {
+
+void NotifyTimedReward(AShooterPlayerController* controller,
+                       int awarded,
+                       int balance) {
+    if (!controller || awarded <= 0) return;
+
+    std::ostringstream msg;
+    msg << "Foram adicionados +" << awarded
+        << " Ambares em sua conta e agora voce tem "
+        << balance << " Ambares";
+    ArkApi::GetApiUtils().SendServerMessage(
+        controller, FColorList::Green, msg.str().c_str());
+}
 
 void Tick() {
     const auto& cfg = CustomShop::ShopConfig::Get().TimedPointsReward();
@@ -70,8 +84,16 @@ void Tick() {
         const int award = stack ? total : best;
         if (award <= 0) continue;
 
-        CustomShop::ShopPoints::Get().AddPoints(sid, award);
-        Log::GetLog()->debug("TimedPoints: {} +{} pts", sid, award);
+        if (CustomShop::ShopPoints::Get().AddPoints(sid, award)) {
+            const int balance =
+                CustomShop::ShopPoints::Get().GetPoints(sid);
+            NotifyTimedReward(sc, award, balance);
+            Log::GetLog()->info(
+                "TimedPoints: {} +{} pts (balance={})", sid, award, balance);
+        } else {
+            Log::GetLog()->warn(
+                "TimedPoints: failed to award {} pts to {}", award, sid);
+        }
     }
 }
 

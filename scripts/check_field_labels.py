@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifica cobertura do catálogo server_field_labels vs AsmServerConfig."""
+"""Verifica cobertura e qualidade do catálogo server_field_labels vs AsmServerConfig."""
 from __future__ import annotations
 
 import sys
@@ -12,7 +12,12 @@ from dataclasses import fields as dc_fields  # noqa: E402
 
 from src.asm_engine.asm_server_config import AsmServerConfig  # noqa: E402
 from src.asm_engine.asm_ini_manager import INI_MAP  # noqa: E402
-from src.ui.server_field_labels import FIELD_LABELS, missing_pt_translations  # noqa: E402
+from src.ui.server_field_labels import (  # noqa: E402
+    FIELD_LABELS,
+    missing_hints,
+    missing_pt_translations,
+    weak_pt_labels,
+)
 
 
 def main() -> int:
@@ -66,6 +71,9 @@ def main() -> int:
     )
 
     no_pt = missing_pt_translations()
+    weak = weak_pt_labels()
+    no_manual_hint = missing_hints()
+    with_hint = sum(1 for m in FIELD_LABELS.values() if (m.hint or "").strip())
 
     print("=== check_field_labels ===")
     print(f"AsmServerConfig fields: {len(cfg_fields)}")
@@ -100,6 +108,26 @@ def main() -> int:
             print(f"  - {k}")
         if len(no_pt) > 30:
             print(f"  ... +{len(no_pt) - 30} more")
+    print()
+
+    print(f"Weak PT labels ({len(weak)}) — inglês disfarçado de tradução")
+    if weak:
+        for k in weak[:40]:
+            meta = FIELD_LABELS[k]
+            print(f"  - {k}: {meta.pt!r}")
+        if len(weak) > 40:
+            print(f"  ... +{len(weak) - 40} more")
+    print()
+
+    print(f"Fields with tooltip ({with_hint}/{len(label_fields)}) — manual + automático")
+    print(f"Fields without manual hint ({len(no_manual_hint)}) — usam gerador automático")
+    if no_manual_hint and len(no_manual_hint) <= 15:
+        for k in no_manual_hint:
+            print(f"  - {k}")
+    elif no_manual_hint:
+        for k in no_manual_hint[:10]:
+            print(f"  - {k}")
+        print(f"  ... +{len(no_manual_hint) - 10} more")
     print()
 
     if ok and not missing_in_catalog:

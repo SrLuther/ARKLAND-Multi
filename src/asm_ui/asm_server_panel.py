@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..asm_engine.asm_server_config import AsmServerConfig
+from ..ui.server_field_labels import get_field_meta
 from ..ui_constants import get_theme
 
 if TYPE_CHECKING:
@@ -668,8 +669,15 @@ def _attach_modified_badge(parent, var: tk.Variable, field: str, default_val, ro
     _check()
 
 
+def _field_label(field: str, label: str | None) -> str:
+    if label is not None:
+        return label
+    return get_field_meta(field).pt
+
+
 def _str_entry(parent, label, field, srv, vars_ref, row, accent,
                wide=False, pw=False, placeholder=""):
+    label = _field_label(field, label)
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
     v = tk.StringVar(value=str(getattr(srv, field, "")))
@@ -684,6 +692,7 @@ def _str_entry(parent, label, field, srv, vars_ref, row, accent,
 
 
 def _int_entry(parent, label, field, srv, vars_ref, row):
+    label = _field_label(field, label)
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
     v = tk.StringVar(value=str(getattr(srv, field, 0)))
@@ -694,6 +703,7 @@ def _int_entry(parent, label, field, srv, vars_ref, row):
 
 
 def _float_entry(parent, label, field, srv, vars_ref, row):
+    label = _field_label(field, label)
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
     v = tk.StringVar(value=str(getattr(srv, field, 1.0)))
@@ -709,7 +719,7 @@ def _event_combo_entry(parent, srv, vars_ref, row, accent):
 
     ctk.CTkLabel(
         parent,
-        text="Evento ativo (ActiveEvent)",
+        text=get_field_meta("active_event").pt,
         font=ctk.CTkFont(size=11),
         anchor="w",
     ).grid(row=row, column=0, padx=(8, 4), pady=3, sticky="w")
@@ -739,6 +749,7 @@ def _event_combo_entry(parent, srv, vars_ref, row, accent):
 
 
 def _bool_check(parent, label, field, srv, vars_ref, row, accent, col=0, colspan=2):
+    label = _field_label(field, label)
     v = tk.BooleanVar(value=bool(getattr(srv, field, False)))
     vars_ref[field] = v
     frm = ctk.CTkFrame(parent, fg_color="transparent")
@@ -945,12 +956,12 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
                                 placeholder_text="TheIsland  ou  /Game/Mods/123456/funny_map")
     manual_entry.pack(side="left")
 
-    _str_entry(sf, "Total Conversion Mod ID",  "total_conversion_mod_id", srv, vars_ref, 7, accent)
+    _str_entry(sf, None, "total_conversion_mod_id", srv, vars_ref, 7, accent)
 
     _section_label(sf, "Sessão",          8, accent)
-    _str_entry(sf, "Nome da sessão",           "session_name",     srv, vars_ref,  9, accent, wide=True)
-    _str_entry(sf, "Alt Save Directory",       "alt_save_directory_name", srv, vars_ref, 10, accent)
-    _float_entry(sf,"Auto-save (min)",         "auto_save_period", srv, vars_ref, 11)
+    _str_entry(sf, None, "session_name",     srv, vars_ref,  9, accent, wide=True)
+    _str_entry(sf, None, "alt_save_directory_name", srv, vars_ref, 10, accent)
+    _float_entry(sf, None, "auto_save_period", srv, vars_ref, 11)
 
     _section_label(sf, "Evento sazonal ARK",  12, accent)
     _event_combo_entry(sf, srv, vars_ref, 13, accent)
@@ -976,11 +987,11 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             pass
     vars_ref["server_port"].trace_add("write", _on_game_port_change)
 
-    _int_entry(sf,   "Porta (query)",          "query_port",       srv, vars_ref, 17)
+    _int_entry(sf,   None, "query_port",       srv, vars_ref, 17)
     _int_entry(sf,   "Max jogadores",          "max_players",      srv, vars_ref, 18)
 
     # ── IP Bind com botão de detecção automática ─────────────────────────────
-    ctk.CTkLabel(sf, text="IP Bind (MultiHome)", font=ctk.CTkFont(size=11), anchor="w").grid(
+    ctk.CTkLabel(sf, text=get_field_meta("server_ip").pt, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=19, column=0, padx=(8, 4), pady=3, sticky="w")
     _ip_var = tk.StringVar(value=str(getattr(srv, "server_ip", "")))
     vars_ref["server_ip"] = _ip_var
@@ -1042,17 +1053,17 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _str_entry(sf, "Senha spectator",          "spectator_password", srv, vars_ref, 23, accent, pw=True)
 
     _section_label(sf, "RCON",           24, accent)
-    _bool_check(sf,  "Habilitar RCON",         "rcon_enabled",     srv, vars_ref, 25, accent)
-    _int_entry(sf,   "Porta RCON",             "rcon_port",        srv, vars_ref, 26)
-    _int_entry(sf,   "Buffer log RCON",        "rcon_log_buffer",  srv, vars_ref, 27)
+    _bool_check(sf,  None, "rcon_enabled",     srv, vars_ref, 25, accent)
+    _int_entry(sf,   None, "rcon_port",        srv, vars_ref, 26)
+    _int_entry(sf,   None, "rcon_log_buffer",  srv, vars_ref, 27)
 
     _section_label(sf, "Logs / Admin",   28, accent)
-    _bool_check(sf,  "Admin logging",          "admin_logging",    srv, vars_ref, 29, accent)
-    _int_entry(sf,   "Max tribe logs",         "max_tribe_logs",   srv, vars_ref, 30)
+    _bool_check(sf,  None, "admin_logging",    srv, vars_ref, 29, accent)
+    _int_entry(sf,   None, "max_tribe_logs",   srv, vars_ref, 30)
     _bool_check(sf, "Log estruturas destruídas por inimigos", "tribe_log_destroyed_enemy_structures", srv, vars_ref, 31, accent)
     _bool_check(sf, "Ocultar fonte de dano nos logs",         "allow_hide_damage_source",             srv, vars_ref, 32, accent)
 
-    _section_label(sf, "Extinction / Respawn Dinos", 33, accent)
+    _section_label(sf, "Extinção / Respawn de dinos", 33, accent)
     _bool_check(sf,  "Evento de extinção",      "enable_extinction_event",         srv, vars_ref, 34, accent)
     _int_entry(sf,   "Intervalo extinção (s)",  "extinction_event_interval",        srv, vars_ref, 35)
     _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 36, accent)
@@ -1063,8 +1074,8 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 39)
 
     _section_label(sf, "Cluster / Cross-ARK", 40, accent)
-    _str_entry(sf, "Cluster ID",               "cross_ark_cluster_id",             srv, vars_ref, 41, accent)
-    _str_entry(sf, "Cluster Dir Override",     "cluster_dir_override",             srv, vars_ref, 42, accent, wide=True)
+    _str_entry(sf, None, "cross_ark_cluster_id",             srv, vars_ref, 41, accent)
+    _str_entry(sf, None, "cluster_dir_override",             srv, vars_ref, 42, accent, wide=True)
     _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 43, accent)
 
     _section_label(sf, "Branch SteamCMD (Beta)", 46, accent)
@@ -1090,8 +1101,8 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         command=lambda: _set_branch("preaquatica"),
     ).pack(side="left")
 
-    _str_entry(sf, "Branch Name",     "branch_name",     srv, vars_ref, 48, accent)
-    _str_entry(sf, "Branch Password", "branch_password", srv, vars_ref, 49, accent, pw=True)
+    _str_entry(sf, None, "branch_name",     srv, vars_ref, 48, accent)
+    _str_entry(sf, None, "branch_password", srv, vars_ref, 49, accent, pw=True)
     ctk.CTkLabel(
         sf,
         text="preaquatica = ASE v358 (última com ArkApi/plugins). Vazio = versão estável atual.",
@@ -1103,7 +1114,7 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         _cli_start = max(51, sf.grid_size()[1])
         _cli_next = build_cli_avancado_section(sf, srv, vars_ref, accent, _cli_start)
         _section_label(sf, "Args CLI adicionais", _cli_next, accent)
-        _str_entry(sf, "Additional Args", "additional_args", srv, vars_ref, _cli_next + 1, accent, wide=True)
+        _str_entry(sf, None, "additional_args", srv, vars_ref, _cli_next + 1, accent, wide=True)
 
         _pers_row = _cli_next + 2
         _section_label(sf, "Personalização do Card", _pers_row, accent)
@@ -1148,8 +1159,8 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
             ("Nome no gerenciador", "Identificação interna usada apenas no aplicativo. Não afeta o servidor."),
             ("Pasta de instalação", "Diretório raiz do servidor ARK (contém ShooterGame/)."),
             ("Mapa", "Mapa do servidor. Use o seletor visual ou digite o nome interno."),
-            ("Evento sazonal ARK", "ActiveEvent — ativa eventos oficiais (FearEvolved, WinterWonderland, etc.) na linha de comando e no INI."),
-            ("RCON", "Remote Console — necessário para ferramentas de administração in-game."),
+            ("Evento sazonal ARK", "ActiveEvent — ativa eventos oficiais (Fear Evolved, Winter Wonderland, etc.) na linha de comando e no INI."),
+            ("RCON", "Console remoto — necessário para ferramentas de administração in-game."),
             ("Mods", "Use a seção Mods (Workshop) na barra lateral para gerenciar mods."),
         ], _tags_row + 3)
 
@@ -1200,7 +1211,7 @@ def _build_discord(sf, srv, vars_ref, bg, accent):
     add_collapsible_help(sf, [
         ("URL do Webhook", "Discord → Integrações → Webhooks → Copiar URL."),
         ("Servidor iniciado/parado", "Notifica quando o processo do servidor inicia ou encerra."),
-        ("Jogador join/leave", "Notifica quando um jogador entra ou sai."),
+        ("Jogador entrou / saiu", "Notifica quando um jogador entra ou sai do servidor."),
     ], row)
 
 
@@ -1246,8 +1257,8 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
 
     add_collapsible_help(sf, [
         ("MOTD", "Mensagem ao entrar. Duração em segundos."),
-        ("BanList URL", "Lista global de IDs banidos."),
-        ("Branch SteamCMD", "Versão beta/experimental. Vazio = estável."),
+        ("Lista de ban (URL)", "URL de lista global de SteamIDs banidos."),
+        ("Branch do SteamCMD", "Versão beta ou experimental. Vazio = estável."),
         ("Notas internas", "Campo livre para sua referência."),
     ], row + 1)
 
@@ -1308,14 +1319,14 @@ def _build_rules(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
     ]
     help_items = [
         ("PvP / PvE", "Modo principal — PvP permite atacar outros jogadores."),
-        ("Hardcore", "Ao morrer, personagem volta ao nível 1."),
-        ("OverrideOfficialDifficulty", "Nível máx. dos dinos selvagens. 5.0 = até 150."),
-        ("DifficultyOffset", "Modificador adicional (0.0–1.0)."),
-        ("Max membros na tribo", "0 = sem limite."),
-        ("PvP Offline", "Protege bases quando tribo está offline."),
-        ("Auto PvE Timer", "Alterna PvP/PvE nos horários (segundos desde meia-noite)."),
-        ("Corpse Locator", "Marcador no mapa onde você morreu."),
-        ("Allow Unlimited Respecs", "Mindwipe Tonic sem limite."),
+        ("Modo hardcore", "Ao morrer, o personagem volta ao nível 1."),
+        ("Dificuldade oficial", "Nível máx. dos dinos selvagens. 5.0 ≈ nível 150."),
+        ("Offset de dificuldade", "Modificador adicional (0.0–1.0)."),
+        ("Máx. membros na tribo", "0 = sem limite."),
+        ("PvP offline", "Protege bases quando a tribo está offline."),
+        ("Timer automático PvE", "Alterna PvP/PvE nos horários (segundos desde meia-noite)."),
+        ("Marcador de cadáver", "Mostra no mapa onde você morreu."),
+        ("Respecs ilimitados", "Mindwipe Tonic sem limite de uso."),
     ]
 
     def _after_cards(row: int) -> None:
@@ -1350,14 +1361,14 @@ def _build_transfers(sf, srv, vars_ref, bg, accent):
         CardSpec("Expiração — items", ["save_tribute_item_expiration", "tribute_item_expiration_seconds"]),
         CardSpec("Expiração — dinos", ["save_tribute_dino_expiration", "tribute_dino_expiration_seconds"]),
         CardSpec("Re-upload de dinos", ["save_min_dino_reupload_interval", "min_dino_reupload_interval"]),
-        CardSpec("Exclusive join", ["exclusive_join"], bool_grid=True),
+        CardSpec("Acesso exclusivo", ["exclusive_join"], bool_grid=True),
     ])
     add_collapsible_help(sf, [
-        ("Downloads / Uploads", "Controla transferências via obelisco ou tribute."),
-        ("Bloquear download/upload", "Impede transferência de survivors, items ou dinos."),
+        ("Downloads / uploads", "Controla transferências via obelisco ou terminal de tributo."),
+        ("Bloquear download/upload", "Impede transferência de personagens, itens ou dinos."),
         ("Expiração de tributo", "Remove automaticamente após o tempo configurado."),
-        ("Min Dino Reupload Interval", "Tempo mínimo entre uploads do mesmo dino."),
-        ("Exclusive Join", "Apenas whitelist — IDs em Arquivos do Servidor."),
+        ("Re-upload de dino", "Tempo mínimo entre uploads do mesmo dino."),
+        ("Acesso exclusivo", "Somente SteamIDs na whitelist podem entrar."),
     ], row)
 
 
@@ -1376,8 +1387,8 @@ def _build_chat(sf, srv, vars_ref, bg, accent):
         ], bool_grid=True),
     ])
     add_collapsible_help(sf, [
-        ("Voice chat global", "Todos os jogadores ouvem o chat de voz, independente da distância."),
-        ("Proximity chat", "Apenas jogadores próximos ouvem o chat de voz."),
+        ("Chat de voz global", "Todos os jogadores ouvem a voz, independente da distância."),
+        ("Chat por proximidade", "Somente jogadores próximos ouvem mensagens e voz."),
         ("Notificar entrada/saída", "Mensagem no chat quando um jogador entra ou sai."),
     ], row)
 
@@ -1397,12 +1408,12 @@ def _build_hud(sf, srv, vars_ref, bg, accent):
         ], bool_grid=True),
     ])
     add_collapsible_help(sf, [
-        ("Crosshair", "Exibe a mira na tela dos jogadores."),
+        ("Mira", "Exibe a mira na tela dos jogadores."),
         ("HUD habilitado", "Barras de vida, stamina, comida e indicadores."),
         ("Terceira pessoa", "Permite câmera em terceira pessoa."),
-        ("Mostrar posição no mapa", "Localização do jogador no mapa."),
-        ("Floating damage text", "Números de dano flutuando sobre alvos."),
-        ("Hit markers", "Marcador visual quando um acerto é registrado."),
+        ("Posição no mapa", "Mostra a localização do jogador no mapa."),
+        ("Texto flutuante de dano", "Números de dano flutuando sobre os alvos."),
+        ("Marcadores de acerto", "Indicador visual quando um acerto é registrado."),
     ], row)
 
 
@@ -1529,11 +1540,11 @@ def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
 
     def _help() -> None:
         add_collapsible_help(sf, [
-            ("Multiplicadores (1.0 = vanilla)", "Valores acima de 1.0 aumentam o atributo; abaixo diminuem."),
-            ("XP Multiplier", "Multiplicador geral de XP. Outros tipos são aplicados adicionalmente."),
-            ("Max XP (0 = padrão)", "Cap de XP máximo. 0 usa o padrão do jogo."),
-            ("Pts/nível", "Crescimento por ponto investido. 1.0 = vanilla."),
-            ("Allow Flyer Carry PvE", "Voadores podem carregar outros dinos em PvE."),
+            ("Multiplicadores (1,0 = vanilla)", "Valores acima de 1,0 aumentam o atributo; abaixo diminuem."),
+            ("Multiplicador de XP", "Multiplicador geral de XP. Outros tipos são aplicados adicionalmente."),
+            ("XP máximo (0 = padrão)", "Limite de XP atingível. 0 usa o padrão do jogo."),
+            ("Pontos por nível", "Crescimento por ponto investido. 1,0 = vanilla."),
+            ("Carregar com voador (PvE)", "Voadores podem carregar outros dinos em PvE."),
         ], 4)
 
     run_ui_tasks_chunked(
@@ -1626,11 +1637,11 @@ def _build_dinos(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
 
     def _help() -> None:
         add_collapsible_help(sf, [
-            ("Dano / Resistência", "Afeta todos os dinos. 1.5 = 50% a mais."),
-            ("Max Tamed Dinos", "Limite global. Recomendado: 300–500 para evitar lag."),
-            ("Taming Speed", ">1.0 = mais rápido; <1.0 = mais lento."),
-            ("Imprint Buff", "Bônus de imprinting — 100% para efeito máximo."),
-            ("Wild / Dom. / +Add / +Afi", "Multiplicadores de atributo por nível."),
+            ("Dano / resistência", "Afeta todos os dinos. 1,5 = 50% a mais."),
+            ("Máx. dinos domesticados", "Limite global. Recomendado: 300–500 para evitar lag."),
+            ("Velocidade de tame", "Maior que 1,0 = mais rápido; menor = mais lento."),
+            ("Bônus de imprint", "Multiplicador do buff de imprint — 100% para efeito máximo."),
+            ("Selvagem / domado / extra / afinidade", "Multiplicadores de atributo por nível."),
         ], 4)
 
     run_ui_tasks_chunked(
@@ -1700,12 +1711,12 @@ def _build_breeding(sf, srv, vars_ref, bg, accent):
     ).pack(side="left")
 
     add_collapsible_help(sf, [
-        ("Mating Interval", "<1.0 = acasalamento mais frequente."),
-        ("Egg Hatch Speed", ">1.0 = ovos eclodem mais rápido."),
-        ("Baby Mature Speed", ">1.0 = filhotes crescem mais rápido."),
-        ("Baby Cuddle Interval", "<1.0 = carinhos mais frequentes."),
-        ("Baby Imprinting Stat Scale", "Multiplica o bônus de atributo do imprinting."),
-        ("Calculadora de Breeding", "Calcula multiplicadores ideais automaticamente."),
+        ("Intervalo de acasalamento", "Menor que 1,0 = acasalamento mais frequente."),
+        ("Velocidade de eclosão", "Maior que 1,0 = ovos eclodem mais rápido."),
+        ("Velocidade de maturação", "Maior que 1,0 = filhotes crescem mais rápido."),
+        ("Intervalo de carinho", "Menor que 1,0 = carinhos mais frequentes (imprint mais fácil)."),
+        ("Escala de stats de imprint", "Multiplica o bônus de atributo do imprinting."),
+        ("Calculadora de breeding", "Calcula multiplicadores ideais automaticamente."),
     ], 3)
 
 
@@ -1737,12 +1748,12 @@ def _build_environment(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancel
         ]),
     ]
     help_items = [
-        ("Harvest Amount", "Recursos por golpe. 2.0 = coleta dupla."),
-        ("Resources Respawn", "Reaparecimento dos recursos. <1.0 = mais rápido."),
-        ("Day/Night Cycle Speed", ">1.0 = dias/noites mais curtos."),
-        ("Global Spoiling Time", ">1.0 = itens duram mais."),
-        ("Corpse Decomposition", "Tempo até o corpo desaparecer."),
-        ("Crop Growth / Decay", "Crescimento e deterioração das plantações."),
+        ("Quantidade coletada", "Recursos por golpe. 2.0 = coleta dupla."),
+        ("Respawn de recursos", "Velocidade de reaparecimento. Valores menores = mais rápido."),
+        ("Ciclo dia/noite", "Valores maiores = dias e noites mais curtos."),
+        ("Tempo de spoil global", "Valores maiores = itens estragam mais devagar."),
+        ("Decomposição de cadáveres", "Tempo até o corpo desaparecer."),
+        ("Plantações", "Crescimento e deterioração das plantações."),
     ]
 
     def _after_cards(row: int) -> None:
@@ -1796,11 +1807,11 @@ def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
         ]),
     ]
     help_items = [
-        ("Structure Resistance / Damage", "Dano recebido/causado por estruturas. 1.0 = vanilla."),
-        ("Max Structures In Range", "Limite por raio — reduz lag em bases grandes."),
-        ("Decay PvE", "Remove bases abandonadas automaticamente."),
-        ("Turrets In Range", "Limita torretas por raio — recomendado em cercos."),
-        ("Force All Structure Locking", "Estruturas trancadas ao construir."),
+        ("Resistência e dano", "Dano recebido/causado por estruturas. 1.0 = vanilla."),
+        ("Máx. estruturas por raio", "Limite por área — reduz lag em bases grandes."),
+        ("Decay em PvE", "Remove bases abandonadas automaticamente."),
+        ("Limite de torretas", "Teto de torretas por raio — recomendado em cercos."),
+        ("Trancar ao construir", "Estruturas ficam trancadas ao serem colocadas."),
     ]
 
     def _after_cards(row: int) -> None:
@@ -1832,10 +1843,10 @@ def _build_engrams(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
 
     def _help() -> None:
         add_collapsible_help(sf, [
-            ("Only Allow Specified Engrams", "Apenas engramas listados ficam disponíveis."),
-            ("Auto Unlock All Engrams", "Desbloqueia todos ao subir de nível."),
-            ("Override de Engramas", "Formato Game.ini OverrideNamedEngramEntries=..."),
-            ("Editor Visual", "Gera entries automaticamente."),
+            ("Só engramas listados", "Apenas engramas configurados ficam disponíveis."),
+            ("Desbloquear todos os engramas", "Libera todos os engramas ao subir de nível."),
+            ("Substituição de engramas", "Formato Game.ini: OverrideNamedEngramEntries=..."),
+            ("Editor visual", "Gera entradas automaticamente."),
         ], final_row[0])
         if on_done:
             on_done()
@@ -1992,8 +2003,8 @@ def _build_server_files(sf, srv, vars_ref, bg, accent):
 
     _add_help(sf, [
         ("IDs de Admin", "SteamIDs dos administradores do servidor. Acesso total a comandos admin sem senha."),
-        ("Whitelist", "SteamIDs permitidos. Ative 'Exclusive Join' na seção Transferências para restringir."),
-        ("Exclusive Join", "SteamIDs com acesso garantido mesmo com servidor cheio ou restrito."),
+        ("Whitelist", "SteamIDs permitidos. Ative «Acesso exclusivo» na seção Transferências para restringir."),
+        ("Acesso exclusivo", "SteamIDs com entrada garantida mesmo com servidor cheio ou restrito."),
     ])
 
 
@@ -2228,9 +2239,9 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     vars_ref["_raw_dino_level_stats_raw"] = box_d
 
     _add_help(sf, [
-        ("LevelExperienceRampOverrides", "Define quanto XP é necessário para cada nível do jogador. Um item por nível."),
-        ("OverridePlayerLevelEngramPoints", "Quantidade de pontos de engrama ganhos em cada nível. Um item por nível."),
-        ("DinoMaxLevelExperienceRampOverrides", "Define a tabela de XP dos dinos. Um item por nível."),
+        ("Tabela de XP do jogador", "Define quanto XP é necessário para cada nível do jogador. Uma linha por nível."),
+        ("Pontos de engrama por nível", "Quantidade de pontos de engrama ganhos em cada nível. Uma linha por nível."),
+        ("Tabela de XP do dino", "Define a progressão de XP dos dinos. Uma linha por nível."),
         ("Gerador rápido", "Calcula automaticamente os valores com base em nível máximo, XP base e multiplicador."),
     ])
 
@@ -2397,7 +2408,7 @@ def _build_harvest_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is
     def _help() -> None:
         _add_help(sf, [
             ("Formato", "HarvestResourceItemAmountClassMultipliers=(ClassName=\"PrimalItemResource_Stone_C\",Multiplier=2.0)"),
-            ("Empilhamento", "Multiplica junto com HarvestAmountMultiplier global do Meio Ambiente."),
+            ("Empilhamento", "Multiplica junto com o multiplicador global de coleta em Meio Ambiente."),
         ])
 
     def _after_main() -> None:
@@ -2417,8 +2428,8 @@ def _build_dino_class_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None,
 
     def _help() -> None:
         _add_help(sf, [
-            ("Classe", "Use o nome curto com sufixo _C, ex: Rex_Character_BP_C."),
-            ("Multiplier", "1.0 = padrão; valores maiores aumentam o efeito (dano ou resistência)."),
+            ("Classe", "Use o nome curto com sufixo _C, ex.: Rex_Character_BP_C."),
+            ("Multiplicador", "1,0 = padrão; valores maiores aumentam o efeito (dano ou resistência)."),
         ])
 
     def _after_main() -> None:
@@ -2438,8 +2449,8 @@ def _build_spawn_tame_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None,
 
     def _help() -> None:
         _add_help(sf, [
-            ("SpawnWeight", "SpawnWeightMultiplier controla frequência relativa no pool de spawn."),
-            ("PreventTame", "PreventDinoTameClassNames bloqueia domesticação da classe informada."),
+            ("Peso de spawn", "SpawnWeightMultiplier controla a frequência relativa no pool de spawn."),
+            ("Bloquear tame", "PreventDinoTameClassNames impede a domesticação da classe informada."),
         ])
 
     def _after_main() -> None:
@@ -2517,7 +2528,7 @@ def _build_crafting_overrides(sf, srv, vars_ref, bg, accent):
 
     _add_help(sf, [
         ("Formato", "ConfigOverrideItemCraftingCosts=(ItemClassString=\"Classe_C\",BaseCraftingResourceRequirements=((ResourceItemTypeString=\"Recurso_C\",BaseResourceRequirement=10.0,...)))"),
-        ("bCraftingRequireExactResourceType", "True = exige exatamente a classe informada; False = aceita subclasses (ex: qualquer madeira)."),
+        ("Tipo exato de recurso", "Verdadeiro = exige exatamente a classe informada; falso = aceita subclasses (ex.: qualquer madeira)."),
         ("Gerador rápido", "Preencha os campos acima e clique em Adicionar linha para gerar a entrada automaticamente."),
     ])
 
@@ -2578,7 +2589,7 @@ def _build_stack_overrides(sf, srv, vars_ref, bg, accent):
 
     _add_help(sf, [
         ("Formato", "ConfigOverrideItemMaxQuantity=(ItemClassString=\"Classe_C\",Quantity=(MaxItemQuantity=500,bIgnoreMultiplier=True))"),
-        ("bIgnoreMultiplier", "True = usa a quantidade absoluta ignorando o multiplicador global de stack."),
+        ("Ignorar multiplicador global", "Verdadeiro = usa a quantidade absoluta, ignorando o multiplicador global de pilha."),
     ])
 
 
@@ -2667,12 +2678,12 @@ def _build_spawner_overrides(sf, srv, vars_ref, bg, accent):
     vars_ref["_raw_npc_spawn_overrides_raw"] = box
 
     _add_help(sf, [
-        ("ConfigAddNPCSpawnEntriesContainer", "Adiciona dinos a um container de spawn existente sem remover os originais."),
-        ("ConfigSubtractNPCSpawnEntriesContainer", "Remove entradas específicas de um container de spawn."),
-        ("ConfigOverrideNPCSpawnEntriesContainer", "Substitui completamente um container de spawn."),
-        ("EntryWeight", "Peso relativo do spawn. Valores maiores = mais comum. Use valores entre 0.001 e 1.0."),
-        ("MaxPercentageOfDesiredNumToAllow", "Percentual máximo do total de spawns permitido para essa criatura."),
-        ("Editor Visual", "Use o botão acima para uma interface gráfica que facilita a criação de spawners."),
+        ("Adicionar spawn", "Adiciona dinos a um container de spawn existente sem remover os originais."),
+        ("Remover spawn", "Remove entradas específicas de um container de spawn."),
+        ("Substituir spawn", "Substitui completamente um container de spawn."),
+        ("Peso da entrada", "Peso relativo do spawn. Valores maiores = mais comum. Use entre 0,001 e 1,0."),
+        ("Percentual máximo", "Percentual máximo do total de spawns permitido para essa criatura."),
+        ("Editor visual", "Use o botão acima para uma interface gráfica que facilita a criação de spawners."),
     ])
 
 
@@ -2749,10 +2760,10 @@ def _build_supply_crate_overrides(sf, srv, vars_ref, bg, accent):
     vars_ref["_raw_supply_crate_overrides_raw"] = box
 
     _add_help(sf, [
-        ("ConfigOverrideSupplyCrateItems", "Substitui completamente o conteúdo de um supply crate (bea/drop/deep sea). Formato complexo — use o gerador rápido."),
-        ("SupplyCrateClassString", "Classe do container alvo (ex: SupplyCrate_Level03_C)."),
-        ("MinItemSets / MaxItemSets", "Quantos conjuntos de itens aparecem no drop (mínimo e máximo)."),
-        ("SetWeight", "Peso do conjunto. Sets com peso maior aparecem com mais frequência."),
+        ("Substituir loot de crate", "Substitui o conteúdo de uma caixa de loot (bea/drop/mar). Formato complexo — use o gerador rápido."),
+        ("Classe da crate", "Classe do container alvo (ex.: SupplyCrate_Level03_C)."),
+        ("Conjuntos mín./máx.", "Quantos conjuntos de itens aparecem no drop (mínimo e máximo)."),
+        ("Peso do conjunto", "Conjuntos com peso maior aparecem com mais frequência."),
     ])
 
 

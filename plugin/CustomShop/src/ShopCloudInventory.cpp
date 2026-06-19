@@ -48,6 +48,29 @@ std::string CurrentMapName() {
 
 std::unordered_map<std::string, std::chrono::steady_clock::time_point> g_cloud_cooldown;
 
+void AddItemsToSet(TArray<UPrimalItem*> items, std::unordered_set<UPrimalItem*>& out) {
+    for (int i = 0; i < items.Num(); ++i) {
+        if (items[i]) out.insert(items[i]);
+    }
+}
+
+bool IsUploadableItem(UPrimalItem* item,
+                      UPrimalInventoryComponent* inv,
+                      const std::unordered_set<UPrimalItem*>& excluded) {
+    if (!item || !inv) return false;
+    if (excluded.count(item)) return false;
+    if (item->bPreventUpload().Get()) return false;
+    if (item->bIsEngram().Get()) return false;
+
+    const int qty = item->GetItemQuantity();
+    if (qty <= 0) return false;
+
+    UPrimalInventoryComponent* owner = item->OwnerInventoryField().Get();
+    if (owner && owner != inv) return false;
+
+    return true;
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -138,20 +161,39 @@ std::vector<ShopCloudInventory::UploadEntry> ShopCloudInventory::CollectUploadab
     std::vector<UploadEntry> out;
     if (!inv) return out;
 
-    const TArray<UPrimalItem*>& items = inv->InventoryItemsField();
+    // Cores de tinta, fila de craft e tributo ARK ficam no TArray interno mas nao
+    // aparecem no inventario visivel — contam centenas de entradas fantasma.
+    std::unordered_set<UPrimalItem*> excluded;
+    AddItemsToSet(inv->AllDyeColorItemsField(), excluded);
+    AddItemsToSet(inv->ArkTributeItemsField(), excluded);
+    AddItemsToSet(inv->CraftingItemsField(), excluded);
+
     std::unordered_set<UPrimalItem*> seen;
+    std::vector<UPrimalItem*> candidates;
+    const auto collect = [&](TArray<UPrimalItem*> items) {
+        for (int i = 0; i < items.Num(); ++i) {
+            UPrimalItem* item = items[i];
+            if (!item || !seen.insert(item).second) continue;
+            candidates.push_back(item);
+        }
+    };
+    collect(inv->InventoryItemsField());
+    collect(inv->ItemSlotsField());
+    collect(inv->EquippedItemsField());
+
+    const int raw_slots = inv->InventoryItemsField().Num();
     int skipped_null = 0;
     int skipped_dup = 0;
+    int skipped_filtered = 0;
     int skipped_empty = 0;
 
-    for (int i = 0; i < items.Num(); ++i) {
-        UPrimalItem* item = items[i];
+    for (UPrimalItem* item : candidates) {
         if (!item) {
             ++skipped_null;
             continue;
         }
-        if (!seen.insert(item).second) {
-            ++skipped_dup;
+        if (!IsUploadableItem(item, inv, excluded)) {
+            ++skipped_filtered;
             continue;
         }
 
@@ -159,19 +201,18 @@ std::vector<ShopCloudInventory::UploadEntry> ShopCloudInventory::CollectUploadab
         item->GetItemBytes(&bytes);
         if (bytes.Num() <= 0) {
             ++skipped_empty;
-            Log::GetLog()->info(
-                "ShopCloudInventory: skip item idx={} (empty bytes) steam={}", i, steam_id);
             continue;
         }
 
         out.push_back(UploadEntry{item, HexEncode(bytes)});
     }
 
-    if (skipped_null > 0 || skipped_dup > 0 || skipped_empty > 0) {
+    if (skipped_null > 0 || skipped_dup > 0 || skipped_empty > 0 || skipped_filtered > 0) {
         Log::GetLog()->info(
-            "ShopCloudInventory: inventory scan steam={} raw={} uploadable={} "
-            "skipped(null={} dup={} empty={})",
-            steam_id, items.Num(), out.size(), skipped_null, skipped_dup, skipped_empty);
+            "ShopCloudInventory: inventory scan steam={} raw={} candidates={} uploadable={} "
+            "skipped(null={} dup={} filtered={} empty={} excluded_internal={})",
+            steam_id, raw_slots, candidates.size(), out.size(),
+            skipped_null, skipped_dup, skipped_filtered, skipped_empty, excluded.size());
     }
 
     return out;
@@ -358,7 +399,7 @@ const char* ShopCloudInventory::ResultMessage(CloudResult result, int item_count
     case CloudResult::EmptyInventory:
         return "Seu inventario esta vazio. Nada para enviar a nuvem.";
     case CloudResult::TooManyItems:
-        return "Limite de itens na nuvem excedido. Reduza seu inventario e tente novamente.";
+        return "Limite de itens na nuvem excedido. Reduza pilhas no inventario e tente novamente.";
     case CloudResult::DbError:
         return "Erro ao acessar a nuvem. Tente novamente ou contate um admin.";
     case CloudResult::InventoryFull:

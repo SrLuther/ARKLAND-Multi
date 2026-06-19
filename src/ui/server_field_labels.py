@@ -215,6 +215,10 @@ _PT_OVERRIDES: dict[str, str] = {
     "per_level_dino_tamed_affinity": "Stats por nível — Dino (bônus de domesticação)",
 }
 
+from .field_i18n_extra import EXTRA_HINTS, EXTRA_PT_OVERRIDES
+
+_PT_OVERRIDES.update(EXTRA_PT_OVERRIDES)
+
 # ── Hints (tooltips) ──────────────────────────────────────────────────────────
 _HINTS: dict[str, str] = {
     "xp_multiplier": "Multiplicador geral de XP. Outros tipos de XP são aplicados adicionalmente.",
@@ -244,6 +248,31 @@ _HINTS: dict[str, str] = {
     "max_tribute_dinos": "Padrão ARK: 20. Valores muito altos podem corromper o cluster.",
     "enable_creative_mode": "Equivalente a bShowCreativeMode no Game.ini.",
 }
+
+_HINTS.update(EXTRA_HINTS)
+
+# Termos de jogo/tecnologia aceitos em rótulos PT (não marcar como "fraco")
+_PT_TERM_WHITELIST = frozenset({
+    "ark", "battleye", "cli", "cryo", "epic", "hud", "ini", "mods", "pvp", "pve",
+    "rcon", "sickness", "steam", "steamcmd", "vac", "vivox", "xp",
+})
+
+_EN_LABEL_RE = re.compile(
+    r"\b(?:Enable|Disable|Allow|Prevent|Override|Multiplier|Interval|Structure|"
+    r"Harvest|Decay|Fast|Hard|Auto|Destroy|Clamp|Crop|Day|Night|Flyer|Platform|"
+    r"Saddle|Supply|Crate|Turret|Water|Pipe|Exclusive|Difficulty|Effectiveness|"
+    r"Skill|Fishing|Loot|Quality|Temperature|Weather|Fog|Spoiling|Decomposition|"
+    r"Additional|Args|Branch|Password|Cluster|Directory|Save|Logging|Tribe|Logs|"
+    r"Marker|Crosshair|Respec|Hardcore|Download|Upload|Tribute|Gamma)\b",
+    re.IGNORECASE,
+)
+
+_PT_LABEL_PREFIX = re.compile(
+    r"^(?:Ativar|Desativar|Permitir|Bloquear|Usar|Forçar|Sem |Modo |Máx\.?|Máximo|"
+    r"Intervalo|Velocidade|Qualidade|Multiplicador|Bônus|Ocultar|Auto-|Pasta |"
+    r"Senha |Nome |Porta |Log |Tempo |Duração |Quantidade |Raio |Teto )",
+    re.IGNORECASE,
+)
 
 # ── Seção TEK por campo (para busca na nav) ─────────────────────────────────
 _SECTION_BY_FIELD: dict[str, str] = {
@@ -374,6 +403,46 @@ def _all_section_by_field() -> dict[str, str]:
     return merged
 
 
+def _build_default_hint(key: str, pt: str, ftype: FieldType, section: str) -> str:
+    """Tooltip PT gerado quando não há hint manual no catálogo."""
+    if key.endswith("_raw") or ftype == "raw":
+        return f"Editor de texto com entradas de {pt.lower()} no formato INI do ARK."
+    if ftype == "bool":
+        low = pt[0].lower() + pt[1:] if pt else pt
+        if key.startswith(("enable_", "allow_")):
+            return f"Ativo: {low}. Desativado: comportamento padrão do jogo."
+        if key.startswith(("disable_", "prevent_")):
+            return f"Ativo: {low}."
+        return f"Opção sim/não — {low}."
+    if ftype in ("int", "float"):
+        if "multiplier" in key or "scale" in key:
+            return f"{pt}. 1,0 = padrão vanilla; valores maiores intensificam o efeito."
+        if "interval" in key or "period" in key or key.endswith("_seconds"):
+            return f"{pt}. Valor em segundos."
+        if "minutes" in key or key.endswith("_minutes"):
+            return f"{pt}. Valor em minutos."
+        if "port" in key:
+            return f"{pt}. Libere a porta no firewall do servidor."
+        if "password" in key:
+            return f"{pt}. Deixe vazio para não exigir senha."
+        if "time" in key and ftype == "int":
+            return f"{pt}. Horário no formato HH:MM (24h) quando aplicável."
+        return f"{pt}. Campo numérico — ajuste conforme a experiência desejada no servidor."
+    if ftype == "list":
+        return f"{pt}. Lista editável neste painel."
+    if "url" in key or "webhook" in key:
+        return f"{pt}. Informe a URL completa (https://...)."
+    if any(x in key for x in ("path", "dir", "folder", "install")):
+        return f"{pt}. Caminho no disco do servidor."
+    if key in ("active_mods",):
+        return "IDs numéricos dos mods da Steam Workshop, separados por vírgula."
+    if key in ("admin_ids", "whitelist_ids", "exclusive_join_ids"):
+        return "SteamIDs de 17 dígitos, um por linha ou separados por vírgula."
+    if section:
+        return f"{pt}. Configuração da seção «{section}»."
+    return f"{pt}."
+
+
 def _build_catalog() -> dict[str, FieldMeta]:
     section_map = _all_section_by_field()
     catalog: dict[str, FieldMeta] = {}
@@ -389,7 +458,7 @@ def _build_catalog() -> dict[str, FieldMeta]:
         ini_key = INI_MAP[key][2] if key in INI_MAP else ""
         en = _humanize_en(key)
         pt = _humanize_pt(key)
-        hint = _HINTS.get(key, "")
+        hint = _HINTS.get(key) or _build_default_hint(key, pt, ftype, section_map.get(key, ""))
         section = section_map.get(key, "")
         mn, mx = _SLIDER_RANGES.get(key, (None, None))
         search = f"{key} {pt} {en} {ini_key} {hint}".lower()
@@ -432,6 +501,34 @@ def section_search_index() -> dict[str, str]:
 _SECTION_SEARCH_INDEX_CACHE: dict[str, str] | None = None
 
 
+def _looks_english_pt(text: str) -> bool:
+    """Heurística: rótulo ainda parece inglês de config ARK."""
+    if not text or not text.strip():
+        return False
+    if _PT_LABEL_PREFIX.match(text.strip()):
+        return False
+    words = [w for w in re.split(r"[\s/()—–-]+", text) if w.isalpha()]
+    pt_particles = {"de", "do", "da", "dos", "das", "em", "no", "na", "por", "para", "com", "sem", "ao", "aos", "ou"}
+    if words:
+        lower = {w.lower() for w in words}
+        if lower & pt_particles:
+            return False
+    low = text.lower()
+    if any(term in low for term in _PT_TERM_WHITELIST):
+        # Ainda pode ser inglês puro — checa marcadores fortes
+        if not _EN_LABEL_RE.search(text):
+            return False
+    if _EN_LABEL_RE.search(text):
+        return True
+    if len(words) < 2:
+        return False
+    lower = {w.lower() for w in words}
+    if lower & pt_particles:
+        return False
+    titled = sum(1 for w in words if w[0].isupper())
+    return titled >= len(words) * 0.6
+
+
 def missing_pt_translations() -> list[str]:
     """Campos cujo PT é igual ao EN humanizado (sem override nem legado)."""
     missing = []
@@ -441,3 +538,20 @@ def missing_pt_translations() -> list[str]:
         if meta.pt == meta.en:
             missing.append(key)
     return sorted(missing)
+
+
+def weak_pt_labels() -> list[str]:
+    """Campos com PT no catálogo mas rótulo ainda parecendo inglês."""
+    weak = []
+    for key, meta in FIELD_LABELS.items():
+        if meta.pt == meta.en:
+            weak.append(key)
+            continue
+        if _looks_english_pt(meta.pt):
+            weak.append(key)
+    return sorted(weak)
+
+
+def missing_hints() -> list[str]:
+    """Campos sem tooltip manual (os automáticos não entram nesta lista)."""
+    return sorted(k for k in FIELD_LABELS if k not in _HINTS and k not in EXTRA_HINTS)
