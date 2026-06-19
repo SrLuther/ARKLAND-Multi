@@ -1,10 +1,10 @@
 {
-    "version": "1.9.39",
+    "version": "1.9.40",
     "date": "2026-06-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.39/ARKLAND-Multi-Setup-v1.9.39.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.40/ARKLAND-Multi-Setup-v1.9.40.exe",
     "changelog": [
-        "Fix (CustomShop): comandos /upload /download /nuvem funcionam no chat LOCAL (AddOnChatMessageCallback) — antes só respondiam no chat global.",
-        "Fix (CustomShop): build.bat recompila CustomShop.dll antes do instalador — releases incluem plugin com inventário na nuvem.",
-        "Melhoria (CustomShop): comandos console Shop.Upload, Shop.Download e Shop.Nuvem para teste via RCON."
+        "Fix (Web Store): modal de resgate com scroll — botão Confirmar Resgate sempre visível em licenças com documentação longa (ex.: Licença Nuvem).",
+        "Fix (CustomShop): /upload conta apenas itens válidos serializáveis — corrige falso limite de 250 itens quando o inventário tinha poucos itens reais.",
+        "Melhoria (CustomShop): mensagens de /upload e /nuvem mais claras (contagem real de itens e orientação de uso)."
     ]
 }

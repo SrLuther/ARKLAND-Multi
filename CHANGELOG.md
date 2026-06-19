@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.40] - 2026-06-19
+
+### Improvement
+
+- Melhoria (CustomShop): mensagens de /upload e /nuvem mais claras (contagem real de itens e orientação de uso).
+
+### Fix
+
+- Fix (Web Store): modal de resgate com scroll — botão Confirmar Resgate sempre visível em licenças com documentação longa (ex.: Licença Nuvem).
+- Fix (CustomShop): /upload conta apenas itens válidos serializáveis — corrige falso limite de 250 itens quando o inventário tinha poucos itens reais.
+
 ## [1.9.39] - 2026-06-19
 
 ### Improvement

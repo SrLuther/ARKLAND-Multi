@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.39"
+APP_VERSION: str = "1.9.40"
 BUILD_DATE: str = "2026-06-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.40",
+        "date": "2026-06-19",
+        "changes": [
+            "Fix (Web Store): modal de resgate com scroll — botão Confirmar Resgate "
+            "sempre visível em licenças com documentação longa (ex.: Licença Nuvem).",
+            "Fix (CustomShop): /upload conta apenas itens válidos serializáveis — "
+            "corrige falso limite de 250 itens quando o inventário tinha poucos itens reais.",
+            "Melhoria (CustomShop): mensagens de /upload e /nuvem mais claras "
+            "(contagem real de itens e orientação de uso).",
+        ],
+    },
     {
         "version": "1.9.39",
         "date": "2026-06-19",

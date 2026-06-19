@@ -56,6 +56,10 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     case CloudResult::EmptyInventory:
         return "Seu inventario esta vazio. Nada para enviar a nuvem.";
     case CloudResult::TooManyItems:
+        if (count > 0)
+            return "Seu inventario tem " + std::to_string(count)
+                 + " itens validos (limite: " + std::to_string(cfg.CloudMaxItems())
+                 + "). Reduza stacks e tente novamente.";
         return "Limite de " + std::to_string(cfg.CloudMaxItems())
              + " itens na nuvem. Reduza seu inventario e tente novamente.";
     case CloudResult::DbError:
@@ -92,7 +96,9 @@ void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMod
     if (!controller) return;
     const auto result = CustomShop::ShopCloudInventory::Get().Upload(controller);
     const int count = CustomShop::ShopCloudInventory::Get().LastOperationCount();
-    std::string msg = FormatCloudMessage(result, count);
+    const int diag = CustomShop::ShopCloudInventory::Get().LastDiagnosticCount();
+    const int msg_count = (result == CustomShop::CloudResult::TooManyItems) ? diag : count;
+    std::string msg = FormatCloudMessage(result, msg_count);
     if (result == CustomShop::CloudResult::Ok)
         msg = "Nuvem: " + std::to_string(count)
             + " itens salvos. Seu inventario foi esvaziado.";
@@ -115,11 +121,11 @@ void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMod
     const int count = CustomShop::ShopCloudInventory::Get().GetStoredItemCount(steam_id);
     if (count <= 0) {
         SendMsg(controller, FColorList::Yellow,
-                "Nuvem: voce nao possui itens armazenados.");
+                "Nuvem: voce nao possui itens armazenados. Use /upload para enviar seu inventario.");
         return;
     }
     SendMsg(controller, FColorList::Green,
-            "Nuvem: voce tem " + std::to_string(count) + " item(ns) armazenados.");
+            "Nuvem: voce tem " + std::to_string(count) + " item(ns) armazenados. Use /download para recuperar.");
 }
 
 bool MatchCloudChat(const std::string& msg, const char* cmd) {

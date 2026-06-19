@@ -1347,6 +1347,7 @@
       font-weight: 600;
     }
     #buy-modal-confirm-hint {
+      flex-shrink: 0;
       font-size: 11px;
       color: var(--text2);
       text-align: center;
@@ -1706,27 +1707,35 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
-    /* Buy modal */
-    #buy-modal {
+    /* Buy / PIX modal */
+    #buy-modal,
+    #pix-modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.8);
+      background: rgba(0,0,0,.82);
       backdrop-filter: blur(6px);
       z-index: 9999;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
+      overflow-y: auto;
+      padding: max(16px, env(safe-area-inset-top)) 16px
+               max(16px, env(safe-area-inset-bottom));
     }
     .buy-modal-inner {
       background: var(--surface);
       border: 1px solid var(--border-g);
       border-radius: var(--radius-lg);
       padding: 32px 28px 24px;
-      max-width: 400px;
-      width: 90%;
+      max-width: 440px;
+      width: min(440px, 100%);
+      max-height: min(92vh, calc(100dvh - 32px));
+      display: flex;
+      flex-direction: column;
       box-shadow: var(--shadow), 0 0 40px rgba(200,60,0,.08);
       position: relative;
       overflow: hidden;
+      margin: auto;
     }
     .buy-modal-inner::before {
       content: '';
@@ -1736,12 +1745,30 @@
       background: linear-gradient(90deg, transparent, rgba(232,120,32,.5), transparent);
     }
     .buy-modal-title {
+      flex-shrink: 0;
       font-family: 'Cinzel', Georgia, serif;
       font-size: 15px;
       font-weight: 700;
       text-align: center;
       margin-bottom: 20px;
       color: #fff;
+    }
+    .buy-modal-body {
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+      -webkit-overflow-scrolling: touch;
+      padding-right: 4px;
+    }
+    .buy-modal-footer {
+      flex-shrink: 0;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
     }
 
     /* scrollbar polish */
@@ -2061,6 +2088,8 @@
       #buy-modal .buy-modal-inner {
         max-width: 100% !important;
         width: 100%;
+        max-height: 92dvh;
+        margin: 0;
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
       }
@@ -7794,23 +7823,23 @@ async function viewAdminTimeline(orderId) {
 </div>
 
 <!-- ── Modal PIX ─────────────────────────────────────────────────────────────── -->
-<div id="pix-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
-  <div class="buy-modal-inner" style="max-width:420px;">
+<div id="pix-modal">
+  <div class="buy-modal-inner">
     <div class="buy-modal-title">💚 Doação via PIX</div>
-    <div id="pix-modal-body"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+    <div id="pix-modal-body" class="buy-modal-body"></div>
+    <div class="buy-modal-footer">
       <button class="btn btn-ghost" onclick="closePixModal()">Fechar</button>
     </div>
   </div>
 </div>
 
 <!-- ── Modal de Resgate ───────────────────────────────────────────────────────── -->
-<div id="buy-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;">
+<div id="buy-modal">
   <div class="buy-modal-inner">
     <div class="buy-modal-title">🎁 Confirmar Resgate</div>
-    <div id="buy-modal-body"></div>
+    <div id="buy-modal-body" class="buy-modal-body"></div>
     <div id="buy-modal-confirm-hint"></div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+    <div class="buy-modal-footer">
       <button class="btn btn-ghost" onclick="closeBuyModal()">Cancelar</button>
       <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Resgate</button>
     </div>

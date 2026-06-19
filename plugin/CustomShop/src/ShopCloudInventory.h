@@ -36,11 +36,20 @@ public:
     CloudResult Download(AShooterPlayerController* controller);
 
     int LastOperationCount() const { return last_op_count_; }
+    int LastDiagnosticCount() const { return last_diag_count_; }
 
     static const char* ResultMessage(CloudResult result, int item_count = 0);
 
 private:
     ShopCloudInventory() = default;
+
+    struct UploadEntry {
+        UPrimalItem* item = nullptr;
+        std::string  hex;
+    };
+
+    static std::vector<UploadEntry> CollectUploadableItems(UPrimalInventoryComponent* inv,
+                                                           const std::string& steam_id);
 
     bool Exec(const char* sql);
     bool Escape(const std::string& in, char* out, size_t out_size);
@@ -51,6 +60,7 @@ private:
 
     MYSQL* db_ = nullptr;
     int last_op_count_ = 0;
+    int last_diag_count_ = 0;
 };
 
 } // namespace CustomShop

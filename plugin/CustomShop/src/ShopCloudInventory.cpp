@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace {
 
@@ -131,6 +132,51 @@ int ShopCloudInventory::GetStoredItemCount(const std::string& steam_id) {
     return count;
 }
 
+std::vector<ShopCloudInventory::UploadEntry> ShopCloudInventory::CollectUploadableItems(
+    UPrimalInventoryComponent* inv,
+    const std::string& steam_id) {
+    std::vector<UploadEntry> out;
+    if (!inv) return out;
+
+    const TArray<UPrimalItem*>& items = inv->InventoryItemsField();
+    std::unordered_set<UPrimalItem*> seen;
+    int skipped_null = 0;
+    int skipped_dup = 0;
+    int skipped_empty = 0;
+
+    for (int i = 0; i < items.Num(); ++i) {
+        UPrimalItem* item = items[i];
+        if (!item) {
+            ++skipped_null;
+            continue;
+        }
+        if (!seen.insert(item).second) {
+            ++skipped_dup;
+            continue;
+        }
+
+        TArray<unsigned char> bytes;
+        item->GetItemBytes(&bytes);
+        if (bytes.Num() <= 0) {
+            ++skipped_empty;
+            Log::GetLog()->info(
+                "ShopCloudInventory: skip item idx={} (empty bytes) steam={}", i, steam_id);
+            continue;
+        }
+
+        out.push_back(UploadEntry{item, HexEncode(bytes)});
+    }
+
+    if (skipped_null > 0 || skipped_dup > 0 || skipped_empty > 0) {
+        Log::GetLog()->info(
+            "ShopCloudInventory: inventory scan steam={} raw={} uploadable={} "
+            "skipped(null={} dup={} empty={})",
+            steam_id, items.Num(), out.size(), skipped_null, skipped_dup, skipped_empty);
+    }
+
+    return out;
+}
+
 CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
     if (!db_ || !controller) return CloudResult::DbError;
     if (!ShopConfig::Get().CloudEnabled()) return CloudResult::Disabled;
@@ -146,31 +192,16 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
     if (!inv) return CloudResult::DbError;
 
-    const TArray<UPrimalItem*>& items = inv->InventoryItemsField();
-    const int item_count = items.Num();
-    if (item_count <= 0) return CloudResult::EmptyInventory;
+    const std::vector<UploadEntry> entries = CollectUploadableItems(inv, steam_id);
+    last_diag_count_ = static_cast<int>(entries.size());
+    if (entries.empty()) return CloudResult::EmptyInventory;
 
     const int max_items = ShopConfig::Get().CloudMaxItems();
-    if (item_count > max_items) return CloudResult::TooManyItems;
-
-    std::vector<UPrimalItem*> item_ptrs;
-    item_ptrs.reserve(static_cast<size_t>(item_count));
-    for (int i = 0; i < item_count; ++i) {
-        if (items[i]) item_ptrs.push_back(items[i]);
-    }
-
-    if (item_ptrs.empty()) return CloudResult::EmptyInventory;
-
-    std::vector<std::string> blobs_hex;
-    blobs_hex.reserve(item_ptrs.size());
-    for (UPrimalItem* item : item_ptrs) {
-        TArray<unsigned char> bytes;
-        item->GetItemBytes(&bytes);
-        if (bytes.Num() <= 0) {
-            Log::GetLog()->warn("ShopCloudInventory: empty bytes for item (steam={})", steam_id);
-            return CloudResult::DbError;
-        }
-        blobs_hex.push_back(HexEncode(bytes));
+    if (static_cast<int>(entries.size()) > max_items) {
+        Log::GetLog()->warn(
+            "ShopCloudInventory: upload rejected steam={} items={} max={} raw_slots={}",
+            steam_id, entries.size(), max_items, inv->InventoryItemsField().Num());
+        return CloudResult::TooManyItems;
     }
 
     char buf_id[64], buf_map[256];
@@ -183,7 +214,7 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
     const std::string header_sql =
         "INSERT INTO player_cloud_inventory (steam_id, item_count, source_map) VALUES ('"
         + std::string(buf_id) + "', "
-        + std::to_string(static_cast<int>(blobs_hex.size())) + ", '"
+        + std::to_string(static_cast<int>(entries.size())) + ", '"
         + std::string(buf_map) + "');";
 
     if (!Exec(header_sql.c_str())) {
@@ -193,12 +224,12 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
         return CloudResult::DbError;
     }
 
-    for (size_t i = 0; i < blobs_hex.size(); ++i) {
+    for (size_t i = 0; i < entries.size(); ++i) {
         const std::string item_sql =
             "INSERT INTO player_cloud_items (steam_id, sort_order, item_blob) VALUES ('"
             + std::string(buf_id) + "', "
             + std::to_string(static_cast<int>(i)) + ", UNHEX('"
-            + blobs_hex[i] + "'));";
+            + entries[i].hex + "'));";
         if (!Exec(item_sql.c_str())) {
             Exec("ROLLBACK");
             return CloudResult::DbError;
@@ -211,16 +242,16 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
     }
 
     int removed = 0;
-    for (UPrimalItem* item : item_ptrs) {
-        if (!item) continue;
-        if (item->RemoveItemFromInventory(/*bForceRemoval=*/true, /*showHUDMessage=*/false))
+    for (const UploadEntry& entry : entries) {
+        if (!entry.item) continue;
+        if (entry.item->RemoveItemFromInventory(/*bForceRemoval=*/true, /*showHUDMessage=*/false))
             ++removed;
     }
 
     TouchCooldown(steam_id);
-    last_op_count_ = static_cast<int>(blobs_hex.size());
+    last_op_count_ = static_cast<int>(entries.size());
     Log::GetLog()->info("ShopCloudInventory: upload ok steam={} items={} removed={}",
-                        steam_id, blobs_hex.size(), removed);
+                        steam_id, entries.size(), removed);
     return CloudResult::Ok;
 }
 
