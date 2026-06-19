@@ -67,6 +67,8 @@ private:
     // Runs a fire-and-forget SQL statement; logs on error.
     bool Exec(const char* sql);
 
+    bool TryConnect(const std::string& host, std::string& err_out);
+
     // INSERT IGNORE player row with starting_points if not present.
     void EnsurePlayer(const std::string& steam_id, int starting_points);
 

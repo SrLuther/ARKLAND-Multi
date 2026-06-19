@@ -674,18 +674,29 @@ def install_customshop_all(
     return ok, errors
 
 
-def _db_manager_prefs() -> dict:
-    """Lê as credenciais salvas pelo DB Manager como fallback."""
+def _read_db_prefs_file() -> dict:
     try:
         import os, json as _json
         appdata = os.environ.get("APPDATA", "")
         prefs_file = Path(appdata) / "ARKLAND-ServerManager" / "db_server_prefs.json"
         if prefs_file.exists():
-            raw = _json.loads(prefs_file.read_text(encoding="utf-8"))
-            return raw.get("shop_db") or raw.get("last_connection", {})
+            return _json.loads(prefs_file.read_text(encoding="utf-8"))
     except Exception:
         pass
     return {}
+
+
+def _db_manager_prefs() -> dict:
+    """Credenciais do DB Manager — shop_db tem prioridade; não mistura root com arkland."""
+    raw = _read_db_prefs_file()
+    shop_db = raw.get("shop_db") or {}
+    if (shop_db.get("user") or "").strip() and (shop_db.get("password") or "").strip():
+        return shop_db
+    last = raw.get("last_connection") or {}
+    last_user = (last.get("user") or "").strip().lower()
+    if last_user and last_user != "root":
+        return last
+    return shop_db
 
 
 _PLACEHOLDER_DB_PASSWORDS = frozenset(
@@ -697,16 +708,28 @@ def _is_placeholder_db_password(value: str) -> bool:
     return (value or "").strip() in _PLACEHOLDER_DB_PASSWORDS
 
 
-def resolve_shop_db_password(shop: Optional["ShopGlobalConfig"] = None) -> str:
-    """Senha efetiva: loja → DB Manager. Nunca retorna placeholders (changeme, etc.)."""
-    prefs = _db_manager_prefs()
-    candidates: list[str] = []
+def _shop_target_user(shop: Optional["ShopGlobalConfig"] = None) -> str:
     if shop is not None:
-        candidates.append((shop.orders_db_password or "").strip())
-    candidates.append((prefs.get("password") or "").strip())
-    for pwd in candidates:
+        user = (shop.orders_db_user or "").strip()
+        if user:
+            return user
+    prefs = _db_manager_prefs()
+    return (prefs.get("user") or "").strip() or "arkland"
+
+
+def resolve_shop_db_password(shop: Optional["ShopGlobalConfig"] = None) -> str:
+    """Senha efetiva: loja → shop_db (mesmo usuário). Nunca usa senha do root."""
+    target_user = _shop_target_user(shop)
+    if shop is not None:
+        pwd = (shop.orders_db_password or "").strip()
         if pwd and not _is_placeholder_db_password(pwd):
             return pwd
+
+    prefs = _db_manager_prefs()
+    pref_user = (prefs.get("user") or "").strip()
+    pref_pass = (prefs.get("password") or "").strip()
+    if pref_user == target_user and pref_pass and not _is_placeholder_db_password(pref_pass):
+        return pref_pass
     return ""
 
 
@@ -887,17 +910,29 @@ def save_plugin_config(path: Path, data: Dict[str, Any]) -> None:
 
 def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
     """Monta bloco Database do config.json do plugin a partir da loja / DB Manager."""
+    from .db_setup_resources import probe_mysql_host
+
     prefs = _db_manager_prefs()
     host = (shop.orders_db_host or "").strip() or DEFAULT_REMOTE_SHOP_HOST
     port = int(shop.orders_db_port or 3306)
     name = (shop.orders_db_name or "").strip() or "arkland_shop"
-    user = (shop.orders_db_user or "").strip()
+    user = _shop_target_user(shop)
     password = resolve_shop_db_password(shop)
 
     host = host or prefs.get("host", "127.0.0.1")
     port = port or int(prefs.get("port", 3306))
     name = name or prefs.get("database", "arkland_shop")
-    user = user or prefs.get("user", "arkland")
+
+    if password:
+        working_host, probe_msg = probe_mysql_host(
+            port=port,
+            user=user,
+            password=password,
+            database=name,
+            preferred_host=host,
+        )
+        if "Conectado" in probe_msg:
+            host = working_host
 
     return {
         "Host": host,
@@ -907,6 +942,43 @@ def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
         "Database": name,
         "Ssl": False,
     }
+
+
+def validate_plugin_database_settings(db_settings: Dict[str, Any]) -> Tuple[bool, str]:
+    """Valida credenciais antes de gravar no plugin CustomShop."""
+    from .db_setup_resources import probe_mysql_host
+
+    user = (db_settings.get("User") or "").strip()
+    password = (db_settings.get("Password") or "").strip()
+    name = (db_settings.get("Database") or "").strip() or "arkland_shop"
+    port = int(db_settings.get("Port") or 3306)
+    host = (db_settings.get("Host") or "127.0.0.1").strip()
+
+    if not user:
+        return False, "Usuário MySQL não configurado (Banco de Pedidos / DB Manager)."
+    if not password or _is_placeholder_db_password(password):
+        return False, (
+            f"Senha do usuário '{user}' não configurada. "
+            "Preencha em CustomShop → Web Store → Banco de Pedidos e salve."
+        )
+
+    working_host, probe_msg = probe_mysql_host(
+        port=port,
+        user=user,
+        password=password,
+        database=name,
+        preferred_host=host,
+    )
+    if "Conectado" in probe_msg:
+        if working_host != host:
+            db_settings["Host"] = working_host
+        return True, f"MySQL OK ({user}@{working_host})"
+
+    return False, (
+        f"MySQL recusou '{user}' em 127.0.0.1 e localhost: {probe_msg}. "
+        "No DB Manager, reconecte como arkland ou use «Criar usuário» para "
+        "localhost + % com a mesma senha."
+    )
 
 
 def merge_plugin_config(
@@ -1036,6 +1108,11 @@ def sync_all_plugins(
     api = resolve_plugin_api_url(shop)
     api_key = shop.api_key or ""
     db_settings = build_plugin_database_settings(shop)
+    db_ok, db_msg = validate_plugin_database_settings(db_settings)
+    if not db_ok:
+        errors: List[str] = [f"CustomShop DB: {db_msg}"]
+        return [], errors
+
     catalog_db = catalog.get("Database", {})
     if catalog_db:
         # Senha nunca vem do catálogo (template pode ter SUA_SENHA_AQUI).

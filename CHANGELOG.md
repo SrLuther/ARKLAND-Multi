@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.35] - 2026-06-18
+
+### Feature
+
+- Novo (DB Manager): botão «Arkland localhost+%» recria arkland@localhost e arkland@% com a mesma senha.
+
+### Improvement
+
+- Melhoria (CustomShop.dll): conexão MySQL tenta múltiplos hosts e registra pw_len no log para diagnóstico.
+
+### Fix
+
+- Fix (CustomShop / DB): sync não usa mais senha do root para o usuário arkland — evita gravar 123456/changeme no config.json do plugin.
+- Fix (Loja): validate_plugin_database_settings testa MySQL antes do sync; falha com mensagem clara em vez de propagar credencial inválida.
+- Fix (DB): probe_mysql_host — detecta host correto (127.0.0.1 vs localhost) para MariaDB no Windows.
+
 ## [1.9.34] - 2026-06-18
 
 ### Improvement

@@ -2,6 +2,9 @@
 #include "ShopPoints.h"
 #include "ShopConfig.h"
 
+#include <algorithm>
+#include <vector>
+
 namespace CustomShop {
 
 ShopPoints& ShopPoints::Get() {
@@ -31,8 +34,14 @@ bool ShopPoints::Exec(const char* sql) {
     return true;
 }
 
-bool ShopPoints::Open() {
+bool ShopPoints::TryConnect(const std::string& host, std::string& err_out) {
     const auto& cfg = ShopConfig::Get();
+    const unsigned int port = static_cast<unsigned int>(cfg.DbPort());
+
+    if (db_) {
+        mysql_close(db_);
+        db_ = nullptr;
+    }
 
     db_ = mysql_init(nullptr);
     if (!db_) {
@@ -40,36 +49,70 @@ bool ShopPoints::Open() {
         return false;
     }
 
-    // Reconnect automatically if the connection drops.
     my_bool reconnect = 1;
     mysql_options(db_, MYSQL_OPT_RECONNECT, &reconnect);
 
-    // MariaDB portable local não usa TLS — evita Error "SSL is required".
     my_bool ssl_enforce = 0;
     mysql_options(db_, MYSQL_OPT_SSL_ENFORCE, &ssl_enforce);
     my_bool ssl_verify = 0;
     mysql_options(db_, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_verify);
 
-    unsigned int port = static_cast<unsigned int>(cfg.DbPort());
+    const std::string& user = cfg.DbUser();
+    const std::string& password = cfg.DbPassword();
+    const std::string& database = cfg.DbDatabase();
+
+    Log::GetLog()->info(
+        "ShopPoints: connecting user='{}' host='{}' port={} db='{}' pw_len={}",
+        user, host, port, database, password.size());
+
     if (!mysql_real_connect(db_,
-                            cfg.DbHost().c_str(),
-                            cfg.DbUser().c_str(),
-                            cfg.DbPassword().c_str(),
-                            cfg.DbDatabase().c_str(),
+                            host.c_str(),
+                            user.c_str(),
+                            password.c_str(),
+                            database.c_str(),
                             port,
                             nullptr, 0)) {
-        Log::GetLog()->critical("ShopPoints: cannot connect to MySQL at {}:{} — {}",
-                                cfg.DbHost(), cfg.DbPort(), mysql_error(db_));
+        err_out = mysql_error(db_) ? mysql_error(db_) : "connect failed";
+        Log::GetLog()->warn("ShopPoints: connect failed ({}:{} as {}): {}",
+                            host, port, user, err_out);
         mysql_close(db_);
         db_ = nullptr;
         return false;
     }
 
-    // Set charset explicitly
     mysql_set_character_set(db_, "utf8mb4");
-
-    // Disable strict SQL mode to avoid TEXT/BLOB DEFAULT restrictions
     mysql_query(db_, "SET SESSION sql_mode='NO_ENGINE_SUBSTITUTION'");
+    return true;
+}
+
+bool ShopPoints::Open() {
+    const auto& cfg = ShopConfig::Get();
+    const std::string preferred = cfg.DbHost();
+    std::vector<std::string> hosts;
+    auto push_unique = [&](const std::string& h) {
+        if (h.empty()) return;
+        if (std::find(hosts.begin(), hosts.end(), h) == hosts.end())
+            hosts.push_back(h);
+    };
+    push_unique(preferred);
+    push_unique("127.0.0.1");
+    push_unique("localhost");
+
+    std::string last_err = "no hosts tried";
+    for (const auto& host : hosts) {
+        if (TryConnect(host, last_err)) {
+            Log::GetLog()->info("ShopPoints: MySQL connected to {}:{}/{} (user={})",
+                                host, cfg.DbPort(), cfg.DbDatabase(), cfg.DbUser());
+            break;
+        }
+    }
+
+    if (!db_) {
+        Log::GetLog()->critical(
+            "ShopPoints: cannot connect to MySQL — {} (tried hosts: {}:{}, user='{}', pw_len={})",
+            last_err, preferred, cfg.DbPort(), cfg.DbUser(), cfg.DbPassword().size());
+        return false;
+    }
 
     // ── Create tables ────────────────────────────────────────────────
     if (!Exec(

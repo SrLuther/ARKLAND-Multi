@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.34"
+APP_VERSION: str = "1.9.35"
 BUILD_DATE: str = "2026-06-18"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.35",
+        "date": "2026-06-18",
+        "changes": [
+            "Fix (CustomShop / DB): sync não usa mais senha do root para o usuário arkland — evita gravar "
+            "123456/changeme no config.json do plugin.",
+            "Fix (Loja): validate_plugin_database_settings testa MySQL antes do sync; falha com mensagem "
+            "clara em vez de propagar credencial inválida.",
+            "Fix (DB): probe_mysql_host — detecta host correto (127.0.0.1 vs localhost) para MariaDB no Windows.",
+            "Novo (DB Manager): botão «Arkland localhost+%» recria arkland@localhost e arkland@% com a mesma senha.",
+            "Melhoria (CustomShop.dll): conexão MySQL tenta múltiplos hosts e registra pw_len no log para diagnóstico.",
+        ],
+    },
     {
         "version": "1.9.34",
         "date": "2026-06-18",

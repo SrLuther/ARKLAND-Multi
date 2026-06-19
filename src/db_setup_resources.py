@@ -138,6 +138,78 @@ def test_connection(
         return False, str(exc)
 
 
+_LOCAL_DB_HOSTS = ("127.0.0.1", "localhost")
+
+
+def probe_mysql_host(
+    *,
+    port: int,
+    user: str,
+    password: str,
+    database: str = "",
+    preferred_host: str = "127.0.0.1",
+) -> tuple[str, str]:
+    """Testa hosts locais e retorna (host_que_funcionou, mensagem_erro_ou_ok).
+
+    No Windows/MariaDB, libmysql pode autenticar como user@localhost enquanto
+    pymysql em 127.0.0.1 usa user@% — hosts diferentes exigem senhas/contas distintas.
+    """
+    seen: set[str] = set()
+    order: list[str] = []
+    for h in (preferred_host, "127.0.0.1", "localhost"):
+        h = (h or "127.0.0.1").strip()
+        if h not in seen:
+            seen.add(h)
+            order.append(h)
+
+    last_err = ""
+    for host in order:
+        ok, msg = test_connection(
+            host=host, port=port, user=user, password=password, database=database,
+        )
+        if ok:
+            return host, msg
+        last_err = msg
+    return preferred_host or "127.0.0.1", last_err or "Falha em todos os hosts"
+
+
+def ensure_mysql_user_both_hosts(
+    conn: Any,
+    *,
+    user: str,
+    password: str,
+    database: str,
+) -> tuple[int, list[str]]:
+    """Garante user@localhost e user@% com a mesma senha (MariaDB portable)."""
+    errors: list[str] = []
+    executed = 0
+    cur = conn.cursor()
+    try:
+        safe_user = user.replace("'", "''")
+        safe_pwd = password.replace("'", "''")
+        safe_db = database.replace("`", "``")
+        for host in ("localhost", "%"):
+            try:
+                cur.execute(
+                    f"CREATE OR REPLACE USER '{safe_user}'@'{host}' "
+                    f"IDENTIFIED BY '{safe_pwd}'"
+                )
+                cur.execute(
+                    f"GRANT ALL PRIVILEGES ON `{safe_db}`.* TO '{safe_user}'@'{host}'"
+                )
+                executed += 1
+            except Exception as exc:
+                errors.append(f"{user}@{host}: {exc}")
+        try:
+            cur.execute("FLUSH PRIVILEGES")
+        except Exception as exc:
+            errors.append(f"FLUSH PRIVILEGES: {exc}")
+        conn.commit()
+    finally:
+        cur.close()
+    return executed, errors
+
+
 def database_exists(conn: Any, name: str = _DB_NAME) -> bool:
     cur = conn.cursor()
     try:

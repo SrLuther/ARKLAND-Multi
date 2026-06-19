@@ -15,6 +15,7 @@ from ..db_setup_resources import (
     _DB_NAME,
     _PERM_DB_NAME,
     database_exists,
+    ensure_mysql_user_both_hosts,
     ensure_setup_sql_cached,
     load_setup_sql_template,
     permission_database_exists,
@@ -845,13 +846,22 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                                       font=ctk.CTkFont(family="Segoe UI", size=10))
         _btn_rootpwd.grid(row=1, column=1, pady=(0, 4), sticky="ew")
 
+        _btn_fix_arkland = ctk.CTkButton(
+            actions, text="🔧 Arkland localhost+%", height=28, corner_radius=6,
+            fg_color=theme.get("accent_muted_bg", "#164e63"),
+            text_color=accent,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            state="disabled",
+        )
+        _btn_fix_arkland.grid(row=2, column=0, columnspan=2, pady=(0, 4), sticky="ew")
+
         _btn_sync_players = ctk.CTkButton(actions, text="👥 Sync jogadores", height=28,
                                           corner_radius=6,
                                           fg_color=theme.get("accent_muted_bg", "#164e63"),
                                           text_color=accent,
                                           font=ctk.CTkFont(family="Segoe UI", size=10),
                                           state="disabled")
-        _btn_sync_players.grid(row=2, column=0, columnspan=2, pady=(0, 4), sticky="ew")
+        _btn_sync_players.grid(row=3, column=0, columnspan=2, pady=(0, 4), sticky="ew")
     
         # ── Painel direito: abas ───────────────────────────────────────────────
         right = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8)
@@ -1076,6 +1086,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 _btn_setup.configure(state="normal")
                 _btn_migrate.configure(state="normal")
                 _btn_newuser.configure(state="normal")
+                _btn_fix_arkland.configure(state="normal")
                 _btn_sync_players.configure(state="normal")
                 _btn_reload_db.configure(state="normal")
                 _refresh_bank_status()
@@ -1085,6 +1096,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 _btn_connect.configure(state="normal")
                 _btn_disconnect.configure(state="disabled")
                 _btn_sync_players.configure(state="disabled")
+                _btn_fix_arkland.configure(state="disabled")
                 _btn_reload_db.configure(state="disabled")
                 _shop_db_status.set(f"{_DB_NAME}: desconectado")
                 _perm_db_status.set(f"{_PERM_DB_NAME}: desconectado")
@@ -1581,9 +1593,61 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                           font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
                           command=_apply).grid(row=3, column=0, columnspan=2, pady=12)
     
+        def _do_fix_arkland_user() -> None:
+            from tkinter import messagebox, simpledialog
+
+            if not state.is_connected():
+                messagebox.showwarning(
+                    "Sem conexão",
+                    "Conecte como root (ou admin) antes de corrigir o usuário arkland.",
+                    parent=parent,
+                )
+                return
+
+            shop = getattr(app.config_manager.config, "shop", None)
+            pwd = resolve_shop_db_password(shop) if shop else ""
+            if not pwd:
+                pwd = simpledialog.askstring(
+                    "Senha arkland",
+                    "Senha do usuário MySQL 'arkland' (mesma do Banco de Pedidos):",
+                    show="*",
+                    parent=parent,
+                ) or ""
+            pwd = pwd.strip()
+            if not pwd:
+                return
+
+            try:
+                n, errs = ensure_mysql_user_both_hosts(
+                    state.conn,
+                    user="arkland",
+                    password=pwd,
+                    database=_DB_NAME,
+                )
+                save_shop_connection_prefs(
+                    host=state.host or "127.0.0.1",
+                    port=int(state.port or 3306),
+                    user="arkland",
+                    password=pwd,
+                    database=_DB_NAME,
+                )
+                if shop is not None:
+                    shop.orders_db_user = "arkland"
+                    shop.orders_db_password = pwd
+                    shop.orders_db_host = state.host or "127.0.0.1"
+                    shop.orders_db_name = _DB_NAME
+                    app.config_manager.save()
+                msg = f"Usuário arkland atualizado em {n} host(s) (localhost + %)."
+                if errs:
+                    msg += "\nAvisos:\n" + "\n".join(errs[:5])
+                messagebox.showinfo("Arkland MySQL", msg, parent=parent)
+            except Exception as exc:
+                messagebox.showerror("Arkland MySQL", str(exc), parent=parent)
+
         _btn_setup.configure(command=_do_setup_db, state="disabled")
         _btn_migrate.configure(command=_do_migrate, state="disabled")
         _btn_newuser.configure(command=_do_newuser, state="disabled")
+        _btn_fix_arkland.configure(command=_do_fix_arkland_user, state="disabled")
         _btn_rootpwd.configure(command=_do_rootpwd)
     
         # ── Diálogos auxiliares ────────────────────────────────────────────────

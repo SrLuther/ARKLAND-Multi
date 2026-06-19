@@ -1,11 +1,12 @@
 {
-    "version": "1.9.34",
+    "version": "1.9.35",
     "date": "2026-06-18",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.34/ARKLAND-Multi-Setup-v1.9.34.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.35/ARKLAND-Multi-Setup-v1.9.35.exe",
     "changelog": [
-        "Fix (CustomShop / DB): senha MySQL não é mais gravada no catálogo nem sobrescrita com placeholder changeme ao salvar ou sincronizar plugins.",
-        "Fix (Loja): resolve_shop_db_password — senha efetiva vem do DB Manager / Banco de Pedidos; placeholders (changeme, SUA_SENHA_AQUI) são ignorados.",
-        "Melhoria (CustomShop): sync preserva senha válida já no config.json do servidor quando o app ainda não tem credencial configurada.",
-        "Docs: projeto Inventário na Nuvem (upload/download) documentado para discussão antes da implementação."
+        "Fix (CustomShop / DB): sync não usa mais senha do root para o usuário arkland — evita gravar 123456/changeme no config.json do plugin.",
+        "Fix (Loja): validate_plugin_database_settings testa MySQL antes do sync; falha com mensagem clara em vez de propagar credencial inválida.",
+        "Fix (DB): probe_mysql_host — detecta host correto (127.0.0.1 vs localhost) para MariaDB no Windows.",
+        "Novo (DB Manager): botão «Arkland localhost+%» recria arkland@localhost e arkland@% com a mesma senha.",
+        "Melhoria (CustomShop.dll): conexão MySQL tenta múltiplos hosts e registra pw_len no log para diagnóstico."
     ]
 }
