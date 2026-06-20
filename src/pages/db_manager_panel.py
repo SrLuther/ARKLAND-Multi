@@ -306,6 +306,50 @@ def _sync_shop_players_from_permissions(state: _DBState, starting_points: int = 
 #  Construção do painel
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _make_collapsible_card(
+    parent: ctk.CTkFrame,
+    row: int,
+    title: str,
+    *,
+    card_bg: str,
+    accent: str,
+    hover_bg: str,
+    start_collapsed: bool = True,
+    padx: int = 12,
+    pady: tuple[int, int] = (10, 0),
+) -> tuple[ctk.CTkFrame, ctk.CTkFrame]:
+    """Cartão com cabeçalho clicável; retorna (wrapper, frame interno para conteúdo)."""
+    wrapper = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=8)
+    wrapper.grid(row=row, column=0, sticky="ew", padx=padx, pady=pady)
+    wrapper.grid_columnconfigure(0, weight=1)
+
+    expanded = [not start_collapsed]
+    arrow_var = tk.StringVar(value=("▶ " if start_collapsed else "▼ ") + title)
+    content = ctk.CTkFrame(wrapper, fg_color="transparent")
+    content.grid_columnconfigure(0, weight=1)
+
+    def _toggle() -> None:
+        expanded[0] = not expanded[0]
+        if expanded[0]:
+            arrow_var.set("▼ " + title)
+            content.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 8))
+        else:
+            arrow_var.set("▶ " + title)
+            content.grid_remove()
+
+    ctk.CTkButton(
+        wrapper, textvariable=arrow_var, anchor="w",
+        fg_color="transparent", hover_color=hover_bg,
+        text_color=accent, font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+        height=30, corner_radius=6, command=_toggle,
+    ).grid(row=0, column=0, sticky="ew", padx=6, pady=(4, 2))
+
+    if not start_collapsed:
+        content.grid(row=1, column=0, sticky="ew", padx=6, pady=(0, 8))
+
+    return wrapper, content
+
+
 def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     theme   = get_theme("tek")
     bg      = theme["bg"]
@@ -333,40 +377,40 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     local_srv = DbLocalServer()
 
     # ── Cabeçalho ──────────────────────────────────────────────────────────
-    hdr = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=0, height=52)
+    hdr = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=0, height=44)
     hdr.grid(row=0, column=0, sticky="ew")
     hdr.grid_propagate(False)
     hdr.grid_columnconfigure(99, weight=1)
 
     ctk.CTkLabel(hdr, text="🗄  Gerenciador de Banco de Dados",
                  font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
-                 text_color=accent).grid(row=0, column=0, padx=20, pady=14, sticky="w")
+                 text_color=accent).grid(row=0, column=0, padx=16, pady=10, sticky="w")
 
     # ── Corpo principal ────────────────────────────────────────────────────
     body = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
     body.grid(row=1, column=0, sticky="nsew")
-    body.grid_rowconfigure(3, weight=1)
+    body.grid_rowconfigure(3, weight=1, minsize=420)
     body.grid_columnconfigure(0, weight=1)
 
-    # ── Seção: Servidor Local ──────────────────────────────────────────────
-    srv_card = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)
-    srv_card.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 0))
-    srv_card.grid_columnconfigure(99, weight=1)
+    # ── Seção: Servidor Local (colapsável — libera espaço para o browser) ──
+    _hover_bg = theme.get("accent_muted_bg", "#164e63")
+    _, srv_content = _make_collapsible_card(
+        body, 0, "Servidor Local (MariaDB portable)",
+        card_bg=card_bg, accent=accent, hover_bg=_hover_bg,
+        start_collapsed=True, pady=(6, 0),
+    )
 
     _admin_ok = DbLocalServer.is_admin()
     _admin_badge = ("🛡 Admin" if _admin_ok else "⚠ Sem privilégios de admin")
     _admin_color = "#22c55e" if _admin_ok else "#ef4444"
-    _hdr_row = ctk.CTkFrame(srv_card, fg_color="transparent")
-    _hdr_row.grid(row=0, column=0, padx=14, pady=(10, 4), sticky="w")
-    ctk.CTkLabel(_hdr_row, text="Servidor Local (MariaDB portable)",
-                 font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-                 text_color=accent).pack(side="left")
-    ctk.CTkLabel(_hdr_row, text=f"  {_admin_badge}",
+    _hdr_row = ctk.CTkFrame(srv_content, fg_color="transparent")
+    _hdr_row.grid(row=0, column=0, padx=8, pady=(0, 4), sticky="w")
+    ctk.CTkLabel(_hdr_row, text=_admin_badge,
                  font=ctk.CTkFont(family="Segoe UI", size=10),
-                 text_color=_admin_color).pack(side="left", padx=(8, 0))
+                 text_color=_admin_color).pack(side="left")
 
-    srv_row = ctk.CTkFrame(srv_card, fg_color="transparent")
-    srv_row.grid(row=1, column=0, columnspan=100, padx=14, pady=(0, 10), sticky="ew")
+    srv_row = ctk.CTkFrame(srv_content, fg_color="transparent")
+    srv_row.grid(row=1, column=0, columnspan=100, padx=8, pady=(0, 4), sticky="ew")
 
     _srv_dot = ctk.CTkLabel(srv_row, text="●", text_color="#ef4444",
                              font=ctk.CTkFont(size=13))
@@ -562,7 +606,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
     # ── Barra de conexão ───────────────────────────────────────────────────
     conn_bar = ctk.CTkFrame(body, fg_color=card_bg, corner_radius=8)
-    conn_bar.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
+    conn_bar.grid(row=1, column=0, sticky="ew", padx=12, pady=(4, 4))
 
     _v_host   = tk.StringVar(value=state.host)
     _v_port   = tk.StringVar(value=str(state.port))
@@ -759,16 +803,22 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             "password": _v_pass.get() or "",
         }
 
+    _, bk_content = _make_collapsible_card(
+        body, 2, "💾 Backup Automático do Banco",
+        card_bg=card_bg, accent=accent, hover_bg=_hover_bg,
+        start_collapsed=True, pady=(4, 4),
+    )
     from .db_backup_section import build_db_backup_section
     build_db_backup_section(
-        app, body, theme=theme,
+        app, bk_content, theme=theme,
         get_connection=_db_backup_connection,
-        grid_row=2,
+        grid_row=0,
+        bare=True,
     )
 
     # ── Browser (lazy) ─────────────────────────────────────────────────────
     browser_host = ctk.CTkFrame(body, fg_color=bg, corner_radius=0)
-    browser_host.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 10))
+    browser_host.grid(row=3, column=0, sticky="nsew", padx=8, pady=(4, 6))
     browser_host.grid_rowconfigure(0, weight=1)
     browser_host.grid_columnconfigure(0, weight=1)
     _db_loading = ctk.CTkLabel(
@@ -786,8 +836,8 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         split.grid_columnconfigure(1, weight=1)
     
         # ── Painel esquerdo: árvore ────────────────────────────────────────────
-        left = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8, width=220)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8, width=200)
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         left.grid_propagate(False)
         left.grid_rowconfigure(1, weight=1)
         left.grid_columnconfigure(0, weight=1)
@@ -878,7 +928,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         _tab_btns: dict[str, ctk.CTkButton] = {}
     
         tab_content = ctk.CTkFrame(right, fg_color="transparent")
-        tab_content.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+        tab_content.grid(row=1, column=0, sticky="nsew", padx=6, pady=(4, 6))
         tab_content.grid_rowconfigure(0, weight=1)
         tab_content.grid_columnconfigure(0, weight=1)
     
@@ -975,7 +1025,9 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         # ── Tab Estrutura ──────────────────────────────────────────────────────
         struct_frame = _tab_frames["estrutura"]
-    
+        struct_frame.grid_rowconfigure(0, weight=1)
+        struct_frame.grid_columnconfigure(0, weight=1)
+
         struct_style = ttk.Style()
         struct_style.configure("Struct.Treeview",
                                background="#0f172a", foreground="#e2e8f0",
@@ -1012,24 +1064,26 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         # ── Tab SQL ────────────────────────────────────────────────────────────
         sql_frame = _tab_frames["sql"]
+        sql_frame.grid_rowconfigure(0, weight=0)
         sql_frame.grid_rowconfigure(1, weight=1)
         sql_frame.grid_columnconfigure(0, weight=1)
-    
+
         sql_top = ctk.CTkFrame(sql_frame, fg_color="transparent")
         sql_top.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         sql_top.grid_columnconfigure(0, weight=1)
-    
+
         _sql_editor = ctk.CTkTextbox(
-            sql_top, height=130, corner_radius=6,
+            sql_top, height=72, corner_radius=6,
             fg_color=theme.get("input_bg", "#1e293b"),
             text_color=t_pri, border_color=sep_col, border_width=1,
             font=ctk.CTkFont(family="Consolas", size=12),
+            wrap="word",
         )
         _sql_editor.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         _sql_editor.insert("end", "SELECT * FROM players LIMIT 50;")
-    
+
         sql_btn_col = ctk.CTkFrame(sql_top, fg_color="transparent")
-        sql_btn_col.grid(row=0, column=1, sticky="n")
+        sql_btn_col.grid(row=0, column=1, sticky="ne")
     
         _btn_exec = ctk.CTkButton(sql_btn_col, text="▶ Executar",
                                   width=100, height=36, corner_radius=6,

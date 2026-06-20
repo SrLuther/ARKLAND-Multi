@@ -21,6 +21,7 @@ def build_db_backup_section(
     theme: dict,
     get_connection: Callable[[], dict],
     grid_row: int,
+    bare: bool = False,
 ) -> None:
     """Painel de backup/restore do MariaDB com retenção e compactação."""
     card_bg = theme["card_bg"]
@@ -33,21 +34,28 @@ def build_db_backup_section(
     if not hasattr(app, "_db_backup_manager"):
         app._db_backup_manager = DbBackupManager(on_log=app._global_log)
 
-    card = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=8)
-    card.grid(row=grid_row, column=0, sticky="ew", padx=12, pady=(0, 8))
+    if bare:
+        card = parent
+        card.grid(row=grid_row, column=0, sticky="ew")
+        content_row = 0
+    else:
+        card = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=8)
+        card.grid(row=grid_row, column=0, sticky="ew", padx=12, pady=(0, 8))
+
+        hdr = ctk.CTkFrame(card, fg_color="transparent")
+        hdr.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 4))
+        hdr.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            hdr, text="💾  Backup Automático do Banco",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color=accent,
+        ).grid(row=0, column=0, sticky="w")
+        content_row = 1
+
     card.grid_columnconfigure(0, weight=1)
 
-    hdr = ctk.CTkFrame(card, fg_color="transparent")
-    hdr.grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 4))
-    hdr.grid_columnconfigure(0, weight=1)
-    ctk.CTkLabel(
-        hdr, text="💾  Backup Automático do Banco",
-        font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-        text_color=accent,
-    ).grid(row=0, column=0, sticky="w")
-
     opts = ctk.CTkFrame(card, fg_color="transparent")
-    opts.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 6))
+    opts.grid(row=content_row, column=0, sticky="ew", padx=14 if not bare else 8, pady=(0, 6))
     opts.grid_columnconfigure(1, weight=1)
 
     app._db_bk_enabled_var = tk.BooleanVar(value=cfg.enabled)
@@ -115,7 +123,7 @@ def build_db_backup_section(
     ).pack(side="left")
 
     btn_row = ctk.CTkFrame(card, fg_color="transparent")
-    btn_row.grid(row=2, column=0, sticky="ew", padx=14, pady=(4, 6))
+    btn_row.grid(row=content_row + 1, column=0, sticky="ew", padx=14 if not bare else 8, pady=(4, 6))
     _status_var = tk.StringVar(value="")
     ctk.CTkLabel(btn_row, textvariable=_status_var, text_color=t_mut,
                  font=ctk.CTkFont(size=10)).pack(side="left", padx=(0, 12))
@@ -164,7 +172,7 @@ def build_db_backup_section(
     ).pack(side="left")
 
     list_frame = ctk.CTkFrame(card, fg_color="transparent")
-    list_frame.grid(row=3, column=0, sticky="ew", padx=14, pady=(0, 10))
+    list_frame.grid(row=content_row + 2, column=0, sticky="ew", padx=14 if not bare else 8, pady=(0, 6))
     list_frame.grid_columnconfigure(0, weight=1)
 
     ctk.CTkLabel(
@@ -173,7 +181,7 @@ def build_db_backup_section(
     ).grid(row=0, column=0, sticky="w", pady=(0, 4))
 
     list_box = ctk.CTkScrollableFrame(
-        list_frame, height=120, fg_color=theme.get("input_bg", "#1e293b"),
+        list_frame, height=72, fg_color=theme.get("input_bg", "#1e293b"),
         border_color=sep_col, border_width=1,
     )
     list_box.grid(row=1, column=0, sticky="ew")

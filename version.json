@@ -1,11 +1,11 @@
 {
-    "version": "1.9.41",
+    "version": "1.9.42",
     "date": "2026-06-19",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.41/ARKLAND-Multi-Setup-v1.9.41.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.42/ARKLAND-Multi-Setup-v1.9.42.exe",
     "changelog": [
-        "Fix (CustomShop): dinos da loja web entregues em cryopod — AddItemObject (padrão ArkShop), cryo ativo por padrão e logs de diagnóstico no boot.",
-        "Fix (CustomShop): /upload ignora slots internos do ARK (cores, craft, tributo) — contagem real de pilhas no inventário do jogador.",
-        "Novo (TEK): tradução PT-BR completa das opções de servidor — 322 campos, tooltips em todos os campos e auditoria de qualidade (check_field_labels).",
-        "Melhoria (CustomShop): recompensa por tempo online avisa no chat do jogo — valor creditado e saldo total de Âmbares (Default + licenças com StackRewards)."
+        "Fix (CustomShop): nuvem reescrita com segurança transacional — remove itens antes do banco, rollback automático do inventário em qualquer falha.",
+        "Fix (CustomShop): /download conta pilhas reais (não slots internos ARK) e reverte itens já adicionados se a restauração falhar no meio.",
+        "Melhoria (CustomShop): /nuvem mostra pilhas locais, slots livres e aviso se não há espaço para /download; lock anti-operação simultânea.",
+        "Melhoria (DB Manager): área de dados/SQL expandida — seções Servidor Local e Backup colapsáveis; resultados SQL e tabelas ocupam o espaço disponível."
     ]
 }

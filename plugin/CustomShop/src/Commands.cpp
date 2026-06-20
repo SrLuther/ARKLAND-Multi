@@ -54,7 +54,7 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     case CloudResult::AlreadyStored:
         return "Voce ja possui itens na nuvem. Use /download para recupera-los antes de um novo upload.";
     case CloudResult::EmptyInventory:
-        return "Seu inventario esta vazio. Nada para enviar a nuvem.";
+        return "Nenhum item valido no inventario para enviar. Equipe ou pilhas vazias nao contam.";
     case CloudResult::TooManyItems:
         if (count > 0)
             return "Seu inventario tem " + std::to_string(count)
@@ -64,10 +64,21 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
              + " pilhas na nuvem. Reduza seu inventario e tente novamente.";
     case CloudResult::DbError:
         return "Erro ao acessar a nuvem. Tente novamente ou contate um admin.";
-    case CloudResult::InventoryFull:
-        return "Inventario sem espaco suficiente. Libere slots e use /download novamente.";
+    case CloudResult::InventoryFull: {
+        const int need = CustomShop::ShopCloudInventory::Get().LastDiagnosticCount();
+        const int free = CustomShop::ShopCloudInventory::Get().LastFreeSlots();
+        return "Inventario sem espaco: precisa de " + std::to_string(need)
+            + " slots livres, voce tem " + std::to_string(free)
+            + ". Libere espaco e use /download novamente.";
+    }
     case CloudResult::PartialRestore:
         return "Falha ao restaurar alguns itens. Seu cofre na nuvem foi mantido — tente de novo.";
+    case CloudResult::RemovalFailed:
+        return "Falha ao remover itens do inventario. Nada foi salvo na nuvem — tente novamente.";
+    case CloudResult::OperationInProgress:
+        return "Aguarde a operacao anterior da nuvem terminar.";
+    case CloudResult::DataInconsistent:
+        return "Dados da nuvem inconsistentes. Contate um admin.";
     case CloudResult::NothingStored:
         return "Nuvem: voce nao possui itens armazenados.";
     case CloudResult::Cooldown:
@@ -101,7 +112,7 @@ void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMod
     std::string msg = FormatCloudMessage(result, msg_count);
     if (result == CustomShop::CloudResult::Ok)
         msg = "Nuvem: " + std::to_string(count)
-            + " itens salvos. Seu inventario foi esvaziado.";
+            + " pilhas salvas. Itens transferiveis removidos do inventario.";
     SendMsg(controller, CloudResultColor(result), msg);
 }
 
@@ -117,15 +128,40 @@ void CmdCloudDownload(AShooterPlayerController* controller, FString*, EChatSendM
 
 void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
-    const std::string steam_id = CustomShop::Bridge::GetSteamId(controller);
-    const int count = CustomShop::ShopCloudInventory::Get().GetStoredItemCount(steam_id);
-    if (count <= 0) {
-        SendMsg(controller, FColorList::Yellow,
-                "Nuvem: voce nao possui itens armazenados. Use /upload para enviar seu inventario.");
+
+    if (!CustomShop::ShopConfig::Get().CloudEnabled()) {
+        SendMsg(controller, FColorList::Red,
+                "Inventario na nuvem desativado neste servidor.");
         return;
     }
-    SendMsg(controller, FColorList::Green,
-            "Nuvem: voce tem " + std::to_string(count) + " item(ns) armazenados. Use /download para recuperar.");
+
+    const CustomShop::CloudStatusInfo status =
+        CustomShop::ShopCloudInventory::Get().QueryStatus(controller);
+
+    if (status.blob_count <= 0) {
+        std::string msg =
+            "Nuvem: vazio. Inventario local: " + std::to_string(status.local_occupied)
+            + "/" + std::to_string(status.local_capacity) + " pilhas.";
+        if (status.local_occupied > 0)
+            msg += " Use /upload para enviar.";
+        SendMsg(controller, FColorList::Yellow, msg);
+        return;
+    }
+
+    if (status.has_header && status.header_count != status.blob_count) {
+        Log::GetLog()->warn(
+            "ShopCloudStatus: mismatch header={} blobs={}",
+            status.header_count, status.blob_count);
+    }
+
+    std::string msg =
+        "Nuvem: " + std::to_string(status.blob_count)
+        + " pilha(s) armazenada(s). Slots livres no inventario: "
+        + std::to_string(status.local_free) + "/" + std::to_string(status.local_capacity)
+        + ". Use /download para recuperar.";
+    if (status.local_free < status.blob_count)
+        msg += " ATENCAO: libere espaco antes do download.";
+    SendMsg(controller, FColorList::Green, msg);
 }
 
 bool MatchCloudChat(const std::string& msg, const char* cmd) {

@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.42] - 2026-06-19
+
+### Improvement
+
+- Melhoria (CustomShop): /nuvem mostra pilhas locais, slots livres e aviso se não há espaço para /download; lock anti-operação simultânea.
+- Melhoria (DB Manager): área de dados/SQL expandida — seções Servidor Local e Backup colapsáveis; resultados SQL e tabelas ocupam o espaço disponível.
+
+### Fix
+
+- Fix (CustomShop): nuvem reescrita com segurança transacional — remove itens antes do banco, rollback automático do inventário em qualquer falha.
+- Fix (CustomShop): /download conta pilhas reais (não slots internos ARK) e reverte itens já adicionados se a restauração falhar no meio.
+
 ## [1.9.41] - 2026-06-19
 
 ### Feature

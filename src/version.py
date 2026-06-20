@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.41"
+APP_VERSION: str = "1.9.42"
 BUILD_DATE: str = "2026-06-19"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.42",
+        "date": "2026-06-19",
+        "changes": [
+            "Fix (CustomShop): nuvem reescrita com segurança transacional — remove itens "
+            "antes do banco, rollback automático do inventário em qualquer falha.",
+            "Fix (CustomShop): /download conta pilhas reais (não slots internos ARK) e "
+            "reverte itens já adicionados se a restauração falhar no meio.",
+            "Melhoria (CustomShop): /nuvem mostra pilhas locais, slots livres e aviso "
+            "se não há espaço para /download; lock anti-operação simultânea.",
+            "Melhoria (DB Manager): área de dados/SQL expandida — seções Servidor Local e "
+            "Backup colapsáveis; resultados SQL e tabelas ocupam o espaço disponível.",
+        ],
+    },
     {
         "version": "1.9.41",
         "date": "2026-06-19",
