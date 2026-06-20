@@ -76,7 +76,11 @@ private:
     int  CountOccupiedSlots(UPrimalInventoryComponent* inv,
                             const std::string& steam_id) const;
     int  InventoryCapacity(UPrimalInventoryComponent* inv) const;
-    bool RemoveUploadedItem(UPrimalItem* item) const;
+    bool RemoveUploadedItem(UPrimalItem* item,
+                            UPrimalInventoryComponent* inv,
+                            AShooterPlayerController* controller = nullptr) const;
+    void SyncInventoryToClient(UPrimalInventoryComponent* inv,
+                               AShooterPlayerController* controller) const;
     bool TryAddItemToInventory(UPrimalInventoryComponent* inv,
                                UPrimalItem* item,
                                AShooterCharacter* character,

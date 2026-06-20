@@ -99,11 +99,46 @@ void AddItemsToSet(TArray<UPrimalItem*> items, std::unordered_set<UPrimalItem*>&
     }
 }
 
+// Specimen Implant (PrimalItem_StartingNote) — permanente no personagem; nunca na nuvem.
+constexpr const char* kSpecimenImplantBlueprint =
+    "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Notes/"
+    "PrimalItem_StartingNote.PrimalItem_StartingNote'";
+
+UClass* SpecimenImplantClass() {
+    static UClass* cached = nullptr;
+    static bool tried = false;
+    if (!tried) {
+        tried = true;
+        FString bp(kSpecimenImplantBlueprint);
+        cached = UVictoryCore::BPLoadClass(&bp);
+    }
+    return cached;
+}
+
+bool IsSpecimenImplant(UPrimalItem* item) {
+    if (!item) return false;
+
+    if (UClass* implant_cls = SpecimenImplantClass()) {
+        if (item->IsA(implant_cls))
+            return true;
+    }
+
+    UClass* item_cls = item->ClassField();
+    if (!item_cls) return false;
+
+    FString class_name;
+    item_cls->GetFullName(&class_name, nullptr);
+    const std::string name = class_name.ToString();
+    return name.find("PrimalItem_StartingNote") != std::string::npos
+        || name.find("StartingNote") != std::string::npos;
+}
+
 bool IsUploadableItem(UPrimalItem* item,
                       UPrimalInventoryComponent* inv,
                       const std::unordered_set<UPrimalItem*>& excluded) {
     if (!item || !inv) return false;
     if (excluded.count(item)) return false;
+    if (IsSpecimenImplant(item)) return false;
     if (item->bPreventUpload().Get()) return false;
     if (item->bIsEngram().Get()) return false;
 
@@ -114,6 +149,13 @@ bool IsUploadableItem(UPrimalItem* item,
     if (owner && owner != inv) return false;
 
     return true;
+}
+
+bool ItemStillInInventory(UPrimalInventoryComponent* inv, const FItemNetID& item_id) {
+    if (!inv) return false;
+    int idx = 0;
+    FItemNetID id = item_id;
+    return inv->FindItem(&id, /*bEquippedItems=*/true, /*bAllItems=*/true, &idx) != nullptr;
 }
 
 } // anonymous namespace
@@ -316,25 +358,66 @@ int ShopCloudInventory::InventoryCapacity(UPrimalInventoryComponent* inv) const 
     return inv->AbsoluteMaxInventoryItemsField();
 }
 
-bool ShopCloudInventory::RemoveUploadedItem(UPrimalItem* item) const {
-    if (!item) return false;
+bool ShopCloudInventory::RemoveUploadedItem(UPrimalItem* item,
+                                            UPrimalInventoryComponent* inv,
+                                            AShooterPlayerController* controller) const {
+    if (!item || !inv) return false;
 
-    if (item->RemoveItemFromInventory(/*bForceRemoval=*/true, /*showHUDMessage=*/false))
-        return true;
-
-    UPrimalInventoryComponent* owner = item->OwnerInventoryField().Get();
-    if (!owner) return false;
-
+    const bool was_equipped = item->bEquippedItem().Get();
     FItemNetID item_id = item->ItemIDField();
-    if (owner->RemoveItem(
+
+    // Hotbar / equipados precisam sair do slot antes da remocao.
+    item->RemoveFromSlot(/*bForce=*/true);
+
+    if (inv->RemoveItem(
             &item_id,
             /*bDoDrop=*/false,
             /*bSecondryAction=*/false,
             /*bForceRemoval=*/true,
-            /*showHUDMessage=*/false))
+            /*showHUDMessage=*/false)) {
+        if (controller)
+            controller->ClientRemoveActorItem(inv, item_id, /*showHUDMessage=*/false);
         return true;
+    }
 
-    return false;
+    if (item->RemoveItemFromInventory(/*bForceRemoval=*/true, /*showHUDMessage=*/false)) {
+        inv->NotifyItemRemoved(item);
+        inv->NotifyClientsItemStatus(
+            item, was_equipped, /*bRemovedItem=*/true,
+            false, false, false,
+            nullptr, nullptr,
+            false, false, false);
+        if (controller)
+            controller->ClientRemoveActorItem(inv, item_id, /*showHUDMessage=*/false);
+        return true;
+    }
+
+    if (controller) {
+        controller->ServerRemovePawnItem(item_id, /*bSecondryAction=*/false);
+        if (!ItemStillInInventory(inv, item_id))
+            return true;
+    }
+
+    return !ItemStillInInventory(inv, item_id);
+}
+
+void ShopCloudInventory::SyncInventoryToClient(UPrimalInventoryComponent* inv,
+                                               AShooterPlayerController* controller) const {
+    if (!inv || !controller) return;
+
+    // Handshake completo (mesmo padrao do respawn/morte): reenvia inventario vazio ao cliente.
+    controller->ClientStartReceivingActorItems(inv, /*bEquippedItems=*/false);
+    controller->ServerRequestActorItems(inv, /*bInventoryItems=*/true, /*bIsFirstSpawn=*/false);
+    controller->ClientFinishedReceivingActorItems(inv, false);
+
+    controller->ClientStartReceivingActorItems(inv, /*bEquippedItems=*/true);
+    controller->ServerRequestActorItems(inv, /*bInventoryItems=*/false, /*bIsFirstSpawn=*/false);
+    controller->ClientFinishedReceivingActorItems(inv, true);
+
+    inv->InventoryRefresh();
+
+    if (AShooterCharacter* character = controller->GetPlayerCharacter())
+        character->RefreshDefaultAttachments(character, /*bIsSnapshot=*/false);
 }
 
 bool ShopCloudInventory::TryAddItemToInventory(UPrimalInventoryComponent* inv,
@@ -462,7 +545,7 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
             return CloudResult::RemovalFailed;
         }
 
-        if (!RemoveUploadedItem(entry.item)) {
+        if (!RemoveUploadedItem(entry.item, inv, controller)) {
             Log::GetLog()->error(
                 "ShopCloudInventory: remove failed steam={} at {}/{}",
                 steam_id, i, entries.size());
@@ -475,6 +558,8 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
         }
         removed_hexes.push_back(entry.hex);
     }
+
+    SyncInventoryToClient(inv, controller);
 
     const int remaining = CountOccupiedSlots(inv, steam_id);
     if (remaining > 0) {
@@ -539,6 +624,7 @@ CloudResult ShopCloudInventory::Upload(AShooterPlayerController* controller) {
 
     TouchCooldown(steam_id);
     last_op_count_ = static_cast<int>(entries.size());
+    SyncInventoryToClient(inv, controller);
     Log::GetLog()->info(
         "ShopCloudInventory: upload ok steam={} items={} map='{}'",
         steam_id, entries.size(), map_name);
@@ -587,16 +673,6 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
     const int occupied = CountOccupiedSlots(inv, steam_id);
     const int free_slots = std::max(0, capacity - occupied);
     last_free_slots_ = free_slots;
-    last_diag_count_ = to_restore;
-
-    if (free_slots < to_restore) {
-        Log::GetLog()->warn(
-            "ShopCloudInventory: download rejected steam={} need={} free={} "
-            "(capacity={} occupied={} raw_array={})",
-            steam_id, to_restore, free_slots, capacity, occupied,
-            inv->InventoryItemsField().Num());
-        return CloudResult::InventoryFull;
-    }
 
     char buf_id[64];
     if (!Escape(steam_id, buf_id, sizeof(buf_id))) return CloudResult::DbError;
@@ -630,17 +706,64 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
         return CloudResult::DataInconsistent;
     }
 
+    // Ignora implantes antigos gravados na nuvem antes deste filtro.
+    std::vector<std::string> restore_rows;
+    restore_rows.reserve(hex_rows.size());
+    int skipped_implants = 0;
+    for (const std::string& hex : hex_rows) {
+        TArray<unsigned char> bytes;
+        if (!HexDecode(hex, bytes)) {
+            Log::GetLog()->error(
+                "ShopCloudInventory: hex decode failed steam={} during pre-scan", steam_id);
+            return CloudResult::DataInconsistent;
+        }
+        UPrimalItem* probe = UPrimalItem::CreateFromBytes(&bytes);
+        if (!probe) {
+            Log::GetLog()->error(
+                "ShopCloudInventory: CreateFromBytes failed steam={} during pre-scan", steam_id);
+            return CloudResult::DataInconsistent;
+        }
+        if (IsSpecimenImplant(probe)) {
+            ++skipped_implants;
+            Log::GetLog()->warn(
+                "ShopCloudInventory: skipping specimen implant blob steam={}", steam_id);
+            continue;
+        }
+        restore_rows.push_back(hex);
+    }
+
+    last_diag_count_ = static_cast<int>(restore_rows.size());
+
+    if (restore_rows.empty()) {
+        Log::GetLog()->warn(
+            "ShopCloudInventory: cloud only had specimen implants steam={} count={} — purging",
+            steam_id, skipped_implants);
+        PurgeCloudRecord(steam_id);
+        TouchCooldown(steam_id);
+        last_op_count_ = 0;
+        return CloudResult::Ok;
+    }
+
+    if (free_slots < static_cast<int>(restore_rows.size())) {
+        Log::GetLog()->warn(
+            "ShopCloudInventory: download rejected steam={} need={} free={} "
+            "(skipped_implants={} capacity={} occupied={})",
+            steam_id, restore_rows.size(), free_slots, skipped_implants,
+            capacity, occupied);
+        return CloudResult::InventoryFull;
+    }
+
     std::vector<UPrimalItem*> added_items;
-    added_items.reserve(hex_rows.size());
+    added_items.reserve(restore_rows.size());
     int restored = 0;
 
-    for (size_t i = 0; i < hex_rows.size(); ++i) {
+    for (size_t i = 0; i < restore_rows.size(); ++i) {
         TArray<unsigned char> bytes;
-        if (!HexDecode(hex_rows[i], bytes)) {
+        if (!HexDecode(restore_rows[i], bytes)) {
             Log::GetLog()->error(
                 "ShopCloudInventory: hex decode failed steam={} index={}", steam_id, i);
             for (UPrimalItem* rollback_item : added_items)
-                RemoveUploadedItem(rollback_item);
+                RemoveUploadedItem(rollback_item, inv, controller);
             return CloudResult::PartialRestore;
         }
 
@@ -649,16 +772,24 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
             Log::GetLog()->error(
                 "ShopCloudInventory: CreateFromBytes failed steam={} index={}", steam_id, i);
             for (UPrimalItem* rollback_item : added_items)
-                RemoveUploadedItem(rollback_item);
+                RemoveUploadedItem(rollback_item, inv, controller);
             return CloudResult::PartialRestore;
+        }
+
+        if (IsSpecimenImplant(new_item)) {
+            Log::GetLog()->warn(
+                "ShopCloudInventory: unexpected implant at restore steam={} index={}",
+                steam_id, i);
+            continue;
         }
 
         UPrimalItem* added = nullptr;
         if (!TryAddItemToInventory(inv, new_item, character, &added) || !added) {
             Log::GetLog()->error(
-                "ShopCloudInventory: add failed steam={} index={}/{}", steam_id, i, hex_rows.size());
+                "ShopCloudInventory: add failed steam={} index={}/{}",
+                steam_id, i, restore_rows.size());
             for (UPrimalItem* rollback_item : added_items)
-                RemoveUploadedItem(rollback_item);
+                RemoveUploadedItem(rollback_item, inv, controller);
             return CloudResult::PartialRestore;
         }
 
@@ -666,9 +797,9 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
         ++restored;
     }
 
-    if (restored != static_cast<int>(hex_rows.size())) {
+    if (restored != static_cast<int>(restore_rows.size())) {
         for (UPrimalItem* rollback_item : added_items)
-            RemoveUploadedItem(rollback_item);
+            RemoveUploadedItem(rollback_item, inv, controller);
         return CloudResult::PartialRestore;
     }
 
@@ -677,12 +808,13 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
             "ShopCloudInventory: purge failed after restore steam={} — keeping cloud intact",
             steam_id);
         for (UPrimalItem* rollback_item : added_items)
-            RemoveUploadedItem(rollback_item);
+            RemoveUploadedItem(rollback_item, inv, controller);
         return CloudResult::PartialRestore;
     }
 
     TouchCooldown(steam_id);
     last_op_count_ = restored;
+    SyncInventoryToClient(inv, controller);
     Log::GetLog()->info("ShopCloudInventory: download ok steam={} items={}", steam_id, restored);
     return CloudResult::Ok;
 }

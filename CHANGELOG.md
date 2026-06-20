@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.43] - 2026-06-19
+
+### Fix
+
+- Fix (CustomShop): /upload sincroniza inventario no cliente apos remover itens (ClientRemoveActorItem + handshake completo) — corrige itens fantasmas na UI.
+- Fix (CustomShop): Specimen Implant (PrimalItem_StartingNote) excluido da nuvem no upload e download — evita duplicar o implante no inventario.
+
 ## [1.9.42] - 2026-06-19
 
 ### Improvement
