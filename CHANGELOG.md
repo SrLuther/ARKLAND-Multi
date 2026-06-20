@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.49] - 2026-06-20
+
+### Fix
+
+- Fix (Web Store): rotas /api/market/* retornavam 500 HTML — session_factory capturava _SessionLocal=None na importação; Comércio P2P inoperante.
+- Fix (TEK): Gerenciador de Banco de Dados — scrollbars e treeviews com tema correto, layout da aba Dados e faixa branca na base.
+
 ## [1.9.48] - 2026-06-20
 
 ### Fix

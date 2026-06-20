@@ -1,8 +1,9 @@
 {
-    "version": "1.9.48",
+    "version": "1.9.49",
     "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.48/ARKLAND-Multi-Setup-v1.9.48.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.49/ARKLAND-Multi-Setup-v1.9.49.exe",
     "changelog": [
-        "Fix (CustomShop): build_cl.bat inclui ShopCryoReader/ShopMarket; APIs Ark corrigidas para compilar o módulo Comércio P2P."
+        "Fix (Web Store): rotas /api/market/* retornavam 500 HTML — session_factory capturava _SessionLocal=None na importação; Comércio P2P inoperante.",
+        "Fix (TEK): Gerenciador de Banco de Dados — scrollbars e treeviews com tema correto, layout da aba Dados e faixa branca na base."
     ]
 }

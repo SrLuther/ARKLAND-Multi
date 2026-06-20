@@ -952,6 +952,11 @@ def _db_ready() -> bool:
     return _SessionLocal is not None
 
 
+def _db_session_factory():
+    """Sessão SQLAlchemy atual — usado por market_routes (não capturar _SessionLocal na importação)."""
+    return _SessionLocal()
+
+
 def _get_db_session():
     """Get a database session, or None if not ready."""
     if _SessionLocal is not None:
@@ -4357,7 +4362,7 @@ from market_routes import register_market_routes
 register_market_routes(
     app,
     db_ready=_db_ready,
-    session_factory=_SessionLocal,
+    session_factory=_db_session_factory,
     read_shop_config=_read_shop_config,
     admin_required=admin_required,
     login_required=login_required,
