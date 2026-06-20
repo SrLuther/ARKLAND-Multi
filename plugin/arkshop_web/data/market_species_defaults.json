@@ -1,0 +1,174 @@
+{
+  "_comment": "Multiplicadores sugeridos por espécie — editáveis pelo admin. root_value sincroniza com Price da loja.",
+  "_tier_legend": {
+    "S+": "Apex/boss/tek — breeding extremamente difícil ou raro",
+    "S": "Apex PvP — linhagens premium (Giga, Bionic, Lionfish)",
+    "A": "Meta breeding — alto impacto competitivo (Rex, Carcha)",
+    "B": "Intermediário — utilidade ou breeding moderado",
+    "C": "Entrada — mais acessível na loja, stats ainda relevantes"
+  },
+  "global_stat_labels": {
+    "health": "Vida",
+    "melee": "Dano",
+    "weight": "Peso",
+    "stamina": "Estamina",
+    "oxygen": "Oxigênio",
+    "food": "Comida",
+    "speed": "Velocidade"
+  },
+  "species": [
+    {
+      "species_key": "indominus_femea",
+      "catalog_item_id": "indominus_femea",
+      "display_name": "Indominus Rex Fêmea",
+      "tier": "S+",
+      "breeding_difficulty": "extremo",
+      "breeding_notes": "Boss hybrid; mutações e stats de combate extremamente valorizados",
+      "multipliers": { "health": 95, "melee": 850, "weight": 100, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "armaedron_femea",
+      "catalog_item_id": "armaedron_femea",
+      "display_name": "Armaedron Fêmea",
+      "tier": "S+",
+      "breeding_difficulty": "extremo",
+      "breeding_notes": "Criatura de endgame; linhagem rara e cara de manter",
+      "multipliers": { "health": 92, "melee": 820, "weight": 105, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "tekstrider_femea",
+      "catalog_item_id": "tekstrider_femea",
+      "display_name": "Tek Strider Fêmea",
+      "tier": "S+",
+      "breeding_difficulty": "muito alto",
+      "breeding_notes": "Tek utilitário; peso e stamina relevantes para logística",
+      "multipliers": { "health": 75, "melee": 450, "weight": 180, "stamina": 35, "oxygen": 0, "food": 0, "speed": 15 }
+    },
+    {
+      "species_key": "bionicgigant_femea",
+      "catalog_item_id": "bionicgigant_femea",
+      "display_name": "Bionic Giganotosaurus Fêmea",
+      "tier": "S",
+      "breeding_difficulty": "muito alto",
+      "breeding_notes": "Variante Giga; foco total em HP e dano",
+      "multipliers": { "health": 90, "melee": 780, "weight": 110, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "bionicrex_femea",
+      "catalog_item_id": "bionicrex_femea",
+      "display_name": "Bionic Rex Fêmea",
+      "tier": "S",
+      "breeding_difficulty": "muito alto",
+      "breeding_notes": "Rex tek/bionic; linha de dano premium",
+      "multipliers": { "health": 82, "melee": 760, "weight": 115, "stamina": 22, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "giga_femea",
+      "catalog_item_id": "giga_femea",
+      "display_name": "Giganotosaurus Fêmea",
+      "tier": "S",
+      "breeding_difficulty": "muito alto",
+      "breeding_notes": "Apex clássico; HP e dano dominam o valor genético",
+      "multipliers": { "health": 88, "melee": 750, "weight": 105, "stamina": 16, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "lionfish_femea",
+      "catalog_item_id": "lionfish_femea",
+      "display_name": "Lionfish Lion Fêmea",
+      "tier": "S",
+      "breeding_difficulty": "muito alto",
+      "breeding_notes": "Apex aquático; stats de combate muito valorizados",
+      "multipliers": { "health": 85, "melee": 740, "weight": 100, "stamina": 20, "oxygen": 12, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "carcha_femea",
+      "catalog_item_id": "carcha_femea",
+      "display_name": "Carcharodontosaurus Fêmea",
+      "tier": "A",
+      "breeding_difficulty": "alto",
+      "breeding_notes": "Meta PvP; mutações de dano e vida muito disputadas",
+      "multipliers": { "health": 84, "melee": 720, "weight": 108, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "volcanorex_femea",
+      "catalog_item_id": "volcanorex_femea",
+      "display_name": "Volcano Rex Fêmea",
+      "tier": "A",
+      "breeding_difficulty": "alto",
+      "breeding_notes": "Variante Rex; breeding competitivo de dano",
+      "multipliers": { "health": 80, "melee": 710, "weight": 118, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "rex_femea",
+      "catalog_item_id": "rex_femea",
+      "display_name": "Rex Fêmea",
+      "tier": "A",
+      "breeding_difficulty": "alto",
+      "breeding_notes": "Meta universal de dano; preço loja baixo mas valor genético alto",
+      "multipliers": { "health": 78, "melee": 700, "weight": 120, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "desmodus_femea",
+      "catalog_item_id": "desmodus_femea",
+      "display_name": "Desmodus Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio-alto",
+      "breeding_notes": "Flyer Fjordur; stamina e peso úteis para utilidade",
+      "multipliers": { "health": 70, "melee": 520, "weight": 140, "stamina": 32, "oxygen": 8, "food": 0, "speed": 18 }
+    },
+    {
+      "species_key": "xenomorphgen2_femea",
+      "catalog_item_id": "xenomorphgen2_femea",
+      "display_name": "Xenomorph Gen2 Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "Utilidade PvE; stats balanceados",
+      "multipliers": { "health": 72, "melee": 580, "weight": 125, "stamina": 22, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "acrocanto_femea",
+      "catalog_item_id": "acrocanto_femea",
+      "display_name": "Acrocantossauro Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio-alto",
+      "breeding_notes": "Tanque médio; HP relevante",
+      "multipliers": { "health": 82, "melee": 620, "weight": 115, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "xenomorph_femea",
+      "catalog_item_id": "xenomorph_femea",
+      "display_name": "Xenomorph Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "Versátil; valor genético moderado",
+      "multipliers": { "health": 68, "melee": 560, "weight": 120, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "megalosaurus_aberrant_femea",
+      "catalog_item_id": "megalosaurus_aberrant_femea",
+      "display_name": "Megalosaurus Aberrante Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "Breeding noturno; nicho específico",
+      "multipliers": { "health": 74, "melee": 640, "weight": 118, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "megalosaurus_femea",
+      "catalog_item_id": "megalosaurus_femea",
+      "display_name": "Megalosaurus Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "Similar aberrant; linha de dano média",
+      "multipliers": { "health": 72, "melee": 620, "weight": 118, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+    },
+    {
+      "species_key": "deinonychus_femea",
+      "catalog_item_id": "deinonychus_femea",
+      "display_name": "Deinonychus Fêmea",
+      "tier": "B",
+      "breeding_difficulty": "médio",
+      "breeding_notes": "Glass cannon; multiplicador de dano elevado para o tier",
+      "multipliers": { "health": 60, "melee": 680, "weight": 100, "stamina": 24, "oxygen": 0, "food": 0, "speed": 12 }
+    }
+  ]
+}

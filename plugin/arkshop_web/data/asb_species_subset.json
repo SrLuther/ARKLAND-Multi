@@ -1,0 +1,903 @@
+{
+  "asb_version": "358.17.12291776",
+  "format": "1.14-flyerspeed",
+  "species": {
+    "giga_femea": {
+      "species_key": "giga_femea",
+      "name": "Giganotosaurus",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Giganotosaurus/Gigant_Character_BP.Gigant_Character_BP",
+      "fullStatsRaw": [
+        [
+          80000,
+          0.0005,
+          0.002,
+          -63000,
+          0
+        ],
+        [
+          400,
+          0.0005,
+          0.01,
+          0,
+          0
+        ],
+        [
+          10000,
+          0.06,
+          0,
+          0,
+          0
+        ],
+        [
+          150,
+          0.0025,
+          0.025,
+          0,
+          0
+        ],
+        [
+          4000,
+          0.0025,
+          0.025,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          700,
+          0.01,
+          0.01,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.05,
+          -0.8,
+          0
+        ],
+        [
+          1,
+          0,
+          0.0031,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "desmodus_femea": {
+      "species_key": "desmodus_femea",
+      "name": "Desmodus",
+      "blueprintPath": "/Game/Fjordur/Dinos/Desmodus/Desmodus_Character_BP.Desmodus_Character_BP",
+      "fullStatsRaw": [
+        [
+          325,
+          0.17,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          500,
+          0.05,
+          0.06,
+          0,
+          0
+        ],
+        [
+          450,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          1600,
+          0.1,
+          0.1,
+          0,
+          0.15
+        ],
+        null,
+        null,
+        [
+          350,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0.365,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "bionicgigant_femea": {
+      "species_key": "bionicgigant_femea",
+      "name": "Tek Giganotosaurus",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Giganotosaurus/BionicGigant_Character_BP.BionicGigant_Character_BP",
+      "fullStatsRaw": [
+        [
+          80000,
+          0.0005,
+          0.002,
+          -63000,
+          0
+        ],
+        [
+          400,
+          0.0005,
+          0.01,
+          0,
+          0
+        ],
+        [
+          10000,
+          0.06,
+          0,
+          0,
+          0
+        ],
+        [
+          150,
+          0.0025,
+          0.025,
+          0,
+          0
+        ],
+        [
+          4000,
+          0.0025,
+          0.025,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          700,
+          0.01,
+          0.01,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.05,
+          -0.8,
+          0
+        ],
+        [
+          1,
+          0,
+          0.0031,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "tekstrider_femea": {
+      "species_key": "tekstrider_femea",
+      "name": "Tek Stryder",
+      "blueprintPath": "/Game/Genesis2/Dinos/TekStrider/TekStrider_Character_BP.TekStrider_Character_BP",
+      "fullStatsRaw": [
+        [
+          4000,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          600,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          2000,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        null,
+        [
+          1250,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": true
+    },
+    "carcha_femea": {
+      "species_key": "carcha_femea",
+      "name": "Carcharodontosaurus",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Carcharodontosaurus/Carcha_Character_BP.Carcha_Character_BP",
+      "fullStatsRaw": [
+        [
+          70000,
+          0.0008,
+          0.004,
+          -54000,
+          0
+        ],
+        [
+          480,
+          0.006,
+          0.025,
+          0,
+          0
+        ],
+        [
+          6000,
+          0.06,
+          0,
+          0,
+          0
+        ],
+        [
+          150,
+          0.0025,
+          0.025,
+          0,
+          0
+        ],
+        [
+          4000,
+          0.0025,
+          0.025,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          650,
+          0.02,
+          0.01,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.05,
+          -0.8,
+          0
+        ],
+        [
+          1,
+          0,
+          0.0031,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "deinonychus_femea": {
+      "species_key": "deinonychus_femea",
+      "name": "Deinonychus",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Raptor/Uberraptor/Deinonychus_Character_BP.Deinonychus_Character_BP",
+      "fullStatsRaw": [
+        [
+          200,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          180,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          1200,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          140,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.015,
+          0.2,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "megalosaurus_femea": {
+      "species_key": "megalosaurus_femea",
+      "name": "Megalosaurus",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP.Megalosaurus_Character_BP",
+      "fullStatsRaw": [
+        [
+          1025,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          300,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          775,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          2000,
+          0.1,
+          0.1,
+          0,
+          0.15
+        ],
+        null,
+        null,
+        [
+          300,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "xenomorphgen2_femea": {
+      "species_key": "xenomorphgen2_femea",
+      "name": "R-Reaper King",
+      "blueprintPath": "/Game/Genesis2/Dinos/Summoner/SummonedDinos/Xenomorph_Character_BP_Male_Gen2_Summoned.Xenomorph_Character_BP_Male_Gen2_Summoned",
+      "fullStatsRaw": [
+        [
+          1250,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          480,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          925,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          3000,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          415,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 0.97,
+      "noGender": true
+    },
+    "volcanorex_femea": {
+      "species_key": "volcanorex_femea",
+      "name": "X-Rex",
+      "blueprintPath": "/Game/Genesis/Dinos/BiomeVariants/Volcano_Rex/Volcano_Rex_Character_BP.Volcano_Rex_Character_BP",
+      "fullStatsRaw": [
+        [
+          1100,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          420,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          1550,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          3000,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          500,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 0.97,
+      "noGender": false
+    },
+    "bionicrex_femea": {
+      "species_key": "bionicrex_femea",
+      "name": "Tek Rex",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Rex/BionicRex_Character_BP.BionicRex_Character_BP",
+      "fullStatsRaw": [
+        [
+          1100,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          420,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          1550,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          3000,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          500,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "rex_femea": {
+      "species_key": "rex_femea",
+      "name": "Rex",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+      "fullStatsRaw": [
+        [
+          1100,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          420,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          1550,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          3000,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          500,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "lionfish_femea": {
+      "species_key": "lionfish_femea",
+      "name": "Shadowmane",
+      "blueprintPath": "/Game/Genesis2/Dinos/LionfishLion/LionfishLion_Character_BP.LionfishLion_Character_BP",
+      "fullStatsRaw": [
+        [
+          825,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          450,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          700,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          1500,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        null,
+        null,
+        [
+          425,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 1,
+      "noGender": false
+    },
+    "megalosaurus_aberrant_femea": {
+      "species_key": "megalosaurus_aberrant_femea",
+      "name": "Aberrant Megalosaurus",
+      "blueprintPath": "/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP_Aberrant.Megalosaurus_Character_BP_Aberrant",
+      "fullStatsRaw": [
+        [
+          1025,
+          0.2,
+          0.27,
+          0.5,
+          0
+        ],
+        [
+          300,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          775,
+          0.06,
+          0,
+          0.5,
+          0
+        ],
+        [
+          150,
+          0.1,
+          0.1,
+          0,
+          0
+        ],
+        [
+          2000,
+          0.1,
+          0.1,
+          0,
+          0.15
+        ],
+        null,
+        null,
+        [
+          300,
+          0.02,
+          0.04,
+          0,
+          0
+        ],
+        [
+          1,
+          0.05,
+          0.1,
+          0.5,
+          0.4
+        ],
+        [
+          1,
+          0,
+          0.01,
+          0,
+          0
+        ],
+        null,
+        null
+      ],
+      "TamedBaseHealthMultiplier": 0.96,
+      "noGender": false
+    }
+  },
+  "missing": [
+    "xenomorph_femea (/game/aberration/dinos/nameless/xenomorph_character_bp_male.xenomorph_character_bp_male)",
+    "indominus_femea (/game/mods/indominusrex/models/indominusrex_character_bp.indominusrex_character_bp)",
+    "armaedron_femea (/game/mods/grandhunt/monsters/armaedron/armaedron_character_bp.armaedron_character_bp)",
+    "acrocanto_femea (/game/mods/additions_pack/acrocanthosaurus/dinos/acrocanthosaurus_character_bp.acrocanthosaurus_character_bp)"
+  ]
+}

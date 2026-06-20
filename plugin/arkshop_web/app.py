@@ -37,7 +37,7 @@ from flask import Flask, jsonify, redirect, request, send_from_directory, sessio
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, create_engine, text
+from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
@@ -523,6 +523,191 @@ class AdminReissue(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
+class MarketSpecies(Base):
+    __tablename__ = "market_species"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    species_key: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    catalog_item_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(128))
+    blueprint_path: Mapped[str] = mapped_column(String(512), default="")
+    reference_level: Mapped[int] = mapped_column(Integer, default=1)
+    root_value: Mapped[int] = mapped_column(Integer, default=0)
+    tier: Mapped[str] = mapped_column(String(8), default="B")
+    breeding_difficulty: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    breeding_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="PRE_REGISTERED", index=True)
+    shop_price_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    activated_by: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class MarketSpeciesStatMultiplier(Base):
+    __tablename__ = "market_species_stat_multipliers"
+    __table_args__ = (
+        UniqueConstraint("species_id", "stat_key", name="uq_market_species_stat"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    species_id: Mapped[int] = mapped_column(Integer, index=True)
+    stat_key: Mapped[str] = mapped_column(String(32))
+    multiplier: Mapped[int] = mapped_column(Integer, default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class MarketPlayerProfile(Base):
+    __tablename__ = "market_player_profile"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    market_display_name: Mapped[str] = mapped_column(String(32))
+    name_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    commerce_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class MarketCryopodVault(Base):
+    __tablename__ = "market_cryopod_vault"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    seller_steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    item_blob: Mapped[bytes] = mapped_column(LargeBinary)
+    blob_hash: Mapped[str] = mapped_column(String(64), index=True)
+    metadata_json: Mapped[str] = mapped_column(Text)
+    species_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class MarketListing(Base):
+    __tablename__ = "market_listings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vault_id: Mapped[int] = mapped_column(Integer)
+    seller_steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    species_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="DRAFT", index=True)
+    price_mode: Mapped[str] = mapped_column(String(16), default="ABSOLUTE")
+    price_absolute: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    price_offset_percent: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    computed_base_value: Mapped[int] = mapped_column(Integer, default=0)
+    effective_price: Mapped[int] = mapped_column(Integer, default=0)
+    buyer_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    dino_display_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    stat_health: Mapped[int] = mapped_column(Integer, default=0)
+    stat_melee: Mapped[int] = mapped_column(Integer, default=0)
+    stat_weight: Mapped[int] = mapped_column(Integer, default=0)
+    stat_stamina: Mapped[int] = mapped_column(Integer, default=0)
+    stat_oxygen: Mapped[int] = mapped_column(Integer, default=0)
+    stat_food: Mapped[int] = mapped_column(Integer, default=0)
+    stat_speed: Mapped[int] = mapped_column(Integer, default=0)
+    mutations_male: Mapped[int] = mapped_column(Integer, default=0)
+    mutations_female: Mapped[int] = mapped_column(Integer, default=0)
+    dino_level: Mapped[int] = mapped_column(Integer, default=0)
+    imprint_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    is_female: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_neutered: Mapped[bool] = mapped_column(Boolean, default=False)
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MarketTransaction(Base):
+    __tablename__ = "market_transactions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    listing_id: Mapped[int] = mapped_column(Integer, index=True)
+    buyer_steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    seller_steam_id: Mapped[str] = mapped_column(String(32))
+    price_paid: Mapped[int] = mapped_column(Integer, default=0)
+    base_value_at_sale: Mapped[int] = mapped_column(Integer, default=0)
+    fee_amount: Mapped[int] = mapped_column(Integer, default=0)
+    buyer_points_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    buyer_points_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seller_points_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    seller_points_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class MarketClaim(Base):
+    __tablename__ = "market_claims"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    listing_id: Mapped[int] = mapped_column(Integer, index=True)
+    recipient_steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    claim_type: Mapped[str] = mapped_column(String(32), default="BUYER")
+    status: Mapped[str] = mapped_column(String(32), default="PENDENTE", index=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class MarketAuditEvent(Base):
+    __tablename__ = "market_audit_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="INFO")
+    steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    counterparty_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    market_display_name: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    listing_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    vault_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    claim_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    blob_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    computed_base_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    effective_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    points_delta: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    points_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    points_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    parser_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    plugin_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    web_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    source: Mapped[str] = mapped_column(String(16), default="web")
+    metadata_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
+
+
 # ── DB setup ──────────────────────────────────────────────────────────────────
 
 _ENGINE: Any = None
@@ -587,6 +772,12 @@ def _migrate_schema(engine: Any) -> None:
                 ")"
             ))
             conn.commit()
+        try:
+            from market_migrate import ensure_market_schema
+
+            ensure_market_schema(engine, bootstrap=False)
+        except Exception as exc:
+            log.warning("Mercado (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -637,6 +828,12 @@ def _migrate_schema(engine: Any) -> None:
                 ))
                 conn.commit()
     Base.metadata.create_all(bind=engine)
+    try:
+        from market_migrate import ensure_market_schema
+
+        ensure_market_schema(engine, bootstrap=True)
+    except Exception as exc:
+        log.warning("Mercado: migrate falhou (será retentado pelo watcher): %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -4153,6 +4350,22 @@ def admin_remove_admin(steam_id: str):
 
     _log("admin_removed", steam_id=steam_id, by=_steam_id_from_session())
     return jsonify({"ok": True})
+
+
+from market_routes import register_market_routes
+
+register_market_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_SessionLocal,
+    read_shop_config=_read_shop_config,
+    admin_required=admin_required,
+    login_required=login_required,
+    api_key_required=api_key_required,
+    steam_id_from_session=_steam_id_from_session,
+    audit_event=_audit_event,
+    limiter=limiter,
+)
 
 
 if __name__ == "__main__":

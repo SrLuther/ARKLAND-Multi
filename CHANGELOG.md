@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.47] - 2026-06-20
+
+### Feature
+
+- Novo (Comércio P2P): Mercado de dinos via cryopod — upload /enviar e /confirmar, vault, anúncios, compra em Âmbares e resgate /resgatarmercado.
+- Novo (Web Store): API mercado (economia, listings, claims, auditoria, migração automática market_*), UI Comércio e admin (espécies, classificação, vitrine).
+- Novo (CustomShop): ShopCryoReader + ShopMarket — parse cryopod, strip timer no upload, anti-duplicação, claim/release seguro e validação de perfil in-game.
+
 ## [1.9.46] - 2026-06-20
 
 ### Fix

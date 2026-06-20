@@ -203,6 +203,15 @@ void Shutdown() {
     }
 }
 
+std::string PostJson(const std::string& path, const std::string& json_body) {
+    const std::string url = g_web_url + path;
+    return HttpPostJson(url, json_body);
+}
+
+std::string Get(const std::string& path) {
+    return HttpGet(g_web_url + path);
+}
+
 // ── Pending delivery API ──────────────────────────────────────────
 
 bool DeliverPending(AShooterPlayerController* controller) {

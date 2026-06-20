@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.46"
+APP_VERSION: str = "1.9.47"
 BUILD_DATE: str = "2026-06-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.47",
+        "date": "2026-06-20",
+        "changes": [
+            "Novo (Comércio P2P): Mercado de dinos via cryopod — upload /enviar e /confirmar, "
+            "vault, anúncios, compra em Âmbares e resgate /resgatarmercado.",
+            "Novo (Web Store): API mercado (economia, listings, claims, auditoria, migração "
+            "automática market_*), UI Comércio e admin (espécies, classificação, vitrine).",
+            "Novo (CustomShop): ShopCryoReader + ShopMarket — parse cryopod, strip timer no "
+            "upload, anti-duplicação, claim/release seguro e validação de perfil in-game.",
+        ],
+    },
     {
         "version": "1.9.46",
         "date": "2026-06-20",

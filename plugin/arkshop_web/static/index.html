@@ -2827,6 +2827,9 @@
     <div class="nav-item admin-only" data-page="recharge-admin" onclick="nav(this)">
       <span class="nav-icon">💳</span> Doações PIX
     </div>
+    <div class="nav-item admin-only" data-page="market-admin" onclick="nav(this)">
+      <span class="nav-icon">🦖</span> Comércio (admin)
+    </div>
     <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com Âmbar no catálogo">
       <span class="nav-icon">💰</span> Venda in-game (legado)
     </div>
@@ -2868,6 +2871,9 @@
     </div>
     <div class="nav-item" data-page="catalog" onclick="nav(this)">
       <span class="nav-icon">📦</span> Catálogo
+    </div>
+    <div class="nav-item" data-page="market" onclick="nav(this)">
+      <span class="nav-icon">🦖</span> Comércio
     </div>
     <div class="nav-item" data-page="downloads" onclick="nav(this)">
       <span class="nav-icon">🧰</span> Utilidades
@@ -3012,6 +3018,77 @@
         </div>
       </div>
 
+      <!-- PAGE: Comércio (público) -->
+      <div id="page-market" class="page">
+        <div class="catalog-hero">
+          <div>
+            <div class="catalog-hero__title">Comércio de Dinos</div>
+            <div class="catalog-hero__tagline">
+              Marketplace P2P via cryopod oficial — <strong>exclusivamente Âmbares</strong>, sem dinheiro real. Taxa zero.
+            </div>
+          </div>
+          <div class="catalog-hero__meta">
+            <button class="btn btn-ghost btn-sm" onclick="reloadMarketPage()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="donation-policy-banner" style="margin-bottom:16px;cursor:default;">
+          <div class="donation-policy-banner__title">⚖️ Comércio P2P — regras</div>
+          <div class="donation-policy-banner__text">
+            Envio in-game: <strong>/enviar</strong> → preview → <strong>/confirmar</strong> (requer Licença Nuvem + imprint 100%).
+            Cryopods com timer são aceitas — o timer é <strong>removido permanentemente</strong> na confirmação.
+            Resgate: <strong>/resgatarmercado</strong>. Preço mínimo = valor sugerido. Nome de exibição obrigatório em Minha Área.
+          </div>
+        </div>
+        <div class="catalog-tabs">
+          <button type="button" class="catalog-tab active" data-market-tab="table" onclick="setMarketTab('table')">📋 Tabela Oficial</button>
+          <button type="button" class="catalog-tab" data-market-tab="browse" onclick="setMarketTab('browse')">🛒 Mercado</button>
+          <button type="button" class="catalog-tab" data-market-tab="myshop" onclick="setMarketTab('myshop')">🏪 Minha Loja</button>
+        </div>
+        <div id="market-panel-table" class="catalog-panel active">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Tabela Oficial — Valores Base (Nível 1)</div>
+            <div class="catalog-toolbar" style="margin-bottom:12px;">
+              <input id="market-search" type="text" placeholder="🔍 Buscar espécie…" oninput="renderMarketTable()" />
+            </div>
+            <div id="market-table-root">
+              <div style="text-align:center;padding:40px;color:var(--text2);">Carregando…</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Como calculamos o valor sugerido</div>
+            <p style="font-size:13px;color:var(--text2);line-height:1.6;margin:0;">
+              <strong>Valor sugerido = Valor raiz (nível 1)</strong> + Σ(pontos de stat × multiplicador da espécie).
+              Pontos já incluem mutações. Imprint 100% obrigatório.
+            </p>
+          </div>
+        </div>
+        <div id="market-panel-browse" class="catalog-panel">
+          <div class="catalog-toolbar" style="margin-bottom:12px;">
+            <input id="market-browse-search" type="text" placeholder="🔍 Buscar dino ou vendedor…" oninput="renderMarketBrowse()" />
+            <input id="market-browse-seller" type="text" placeholder="SteamID vitrine (opcional)…" style="max-width:220px;" onkeydown="if(event.key==='Enter')loadMarketVitrine()" />
+            <button class="btn btn-ghost btn-sm" onclick="loadMarketVitrine()">🏪 Vitrine</button>
+          </div>
+          <div id="market-browse-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
+          <p id="market-browse-empty" style="display:none;color:var(--text2);text-align:center;padding:48px;">Nenhum anúncio ativo.</p>
+        </div>
+        <div id="market-panel-myshop" class="catalog-panel">
+          <div id="market-myshop-gate" style="display:none;padding:24px;text-align:center;color:var(--text2);">
+            <p>Faça login com Steam para gerenciar sua loja.</p>
+            <button class="btn btn-primary" onclick="loginWithSteam()">Entrar com Steam</button>
+          </div>
+          <div id="market-myshop-content" style="display:none;">
+            <div class="card" style="margin-bottom:16px;">
+              <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+                Envie dinos in-game com <code>/enviar</code> e <code>/confirmar</code>. Defina preço e ative abaixo.
+                Resgate próprio: botão «Recuperar» + <code>/resgatarmercado</code>.
+              </p>
+            </div>
+            <div id="market-myshop-list"></div>
+            <div id="market-myshop-history" style="margin-top:20px;display:none;"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- PAGE: Itens da Loja (admin) -->
       <div id="page-shop" class="page">
         <div id="topbar">
@@ -3036,6 +3113,64 @@
           </div>
         </div>
         <div id="kits-list"></div>
+      </div>
+
+      <!-- PAGE: Comércio admin -->
+      <div id="page-market-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Comércio — Admin</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="reloadMarketAdminPage()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="catalog-tabs">
+          <button type="button" class="catalog-tab active" data-market-admin-tab="species" onclick="setMarketAdminTab('species')">🦖 Espécies</button>
+          <button type="button" class="catalog-tab" data-market-admin-tab="pending" onclick="setMarketAdminTab('pending')">⏳ Classificar</button>
+          <button type="button" class="catalog-tab" data-market-admin-tab="audit" onclick="setMarketAdminTab('audit')">📋 Auditoria Mercado</button>
+        </div>
+        <div id="market-admin-panel-species" class="catalog-panel active">
+          <div id="market-admin-schema-banner" style="display:none;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+            <button class="btn btn-primary" onclick="marketSyncCatalog(false)">↻ Sync catálogo</button>
+            <button class="btn btn-success" onclick="marketSyncCatalog(true)">✓ Sync + ativar todas</button>
+          </div>
+          <div class="card" style="margin-bottom:16px;">
+            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+              Importa dinos <code>Type: dino</code> do <code>config.json</code>. Espécies <strong>PRE_REGISTERED</strong> até ativar.
+            </p>
+          </div>
+          <div id="market-admin-list"></div>
+        </div>
+        <div id="market-admin-panel-pending" class="catalog-panel">
+          <div class="card" style="margin-bottom:16px;">
+            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+              Listings aguardando espécie <strong>ACTIVE</strong>. Ative a espécie na aba Espécies para promover automaticamente a <strong>DRAFT</strong>.
+            </p>
+          </div>
+          <div id="market-admin-pending-list"></div>
+        </div>
+        <div id="market-admin-panel-audit" class="catalog-panel">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Filtros</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+              <div class="form-group" style="margin:0;min-width:180px;">
+                <label>Tipo de evento</label>
+                <input id="market-audit-filter-type" type="text" placeholder="MARKET_PURCHASE_…" onkeydown="if(event.key==='Enter')loadMarketAudit()" />
+              </div>
+              <div class="form-group" style="margin:0;min-width:160px;">
+                <label>SteamID</label>
+                <input id="market-audit-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter')loadMarketAudit()" />
+              </div>
+              <div class="form-group" style="margin:0;min-width:200px;">
+                <label>Trace ID</label>
+                <input id="market-audit-filter-trace" type="text" placeholder="UUID" onkeydown="if(event.key==='Enter')loadMarketAudit()" />
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="loadMarketAudit()">Filtrar</button>
+              <a class="btn btn-ghost btn-sm" href="#" onclick="marketExportAuditCsv();return false;">⬇ CSV</a>
+            </div>
+          </div>
+          <div id="market-audit-list"></div>
+        </div>
       </div>
 
       <!-- PAGE: Doações PIX (admin) -->
@@ -3388,6 +3523,20 @@
             <div class="card-title">📌 Perfil</div>
           </div>
           <div id="myarea-profile" style="color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;"></div>
+          <div id="myarea-commerce" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div class="card-title" style="font-size:14px;margin-bottom:10px;">🦖 Comércio de Dinos</div>
+            <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
+              Nome de exibição <strong>obrigatório</strong> para comprar ou vender no Comércio (3–32 caracteres).
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+              <div class="form-group" style="margin:0;flex:1;min-width:200px;">
+                <label>Nome no mercado</label>
+                <input id="myarea-market-name" type="text" maxlength="32" placeholder="Ex: RexMaster_BR" />
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="saveMarketDisplayName()">Salvar nome</button>
+            </div>
+            <div id="myarea-market-status" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
+          </div>
         </div>
         <div class="card">
           <div class="card-header">
@@ -3818,6 +3967,8 @@ function nav(el) {
   if (page === "home") loadHome();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "catalog") loadCatalog();
+  if (page === "market") loadMarket();
+  if (page === "market-admin") reloadMarketAdminPage();
   if (page === "downloads") loadDownloads();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "recharge-admin") loadRechargeAdmin();
@@ -4834,6 +4985,54 @@ async function loadMyArea() {
   await loadMyAreaDonations();
   await loadMyAreaLicenses();
   await loadMyAreaHistory();
+  await loadMyAreaMarketProfile();
+}
+
+async function loadMyAreaMarketProfile() {
+  const statusEl = document.getElementById("myarea-market-status");
+  const nameInput = document.getElementById("myarea-market-name");
+  if (!nameInput) return;
+  try {
+    const r = await fetch(API + "/api/market/profile");
+    const d = await r.json();
+    if (!d.ok) {
+      if (statusEl) statusEl.textContent = d.error || "Comércio indisponível (DB offline?)";
+      return;
+    }
+    const prof = d.profile;
+    if (prof && prof.market_display_name) {
+      nameInput.value = prof.market_display_name;
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--success);">✓ Perfil de comércio ativo</span>`;
+    } else {
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--warn);">Defina um nome para usar o Comércio</span>`;
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = "Erro ao carregar perfil de comércio.";
+  }
+}
+
+async function saveMarketDisplayName() {
+  const name = (document.getElementById("myarea-market-name")?.value || "").trim();
+  if (!name) {
+    toast("Informe um nome de exibição", "warning");
+    return;
+  }
+  try {
+    const r = await fetch(API + "/api/market/profile/display-name", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ market_display_name: name }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha ao salvar", "error");
+      return;
+    }
+    toast("Nome de comércio salvo!", "success");
+    loadMyAreaMarketProfile();
+  } catch (e) {
+    toast(String(e), "error");
+  }
 }
 
 async function loadMyAreaLicenses() {
@@ -5471,6 +5670,594 @@ async function loadDownloads() {
   } catch(e) { console.warn("loadDownloads:", e); }
 }
 
+// ── Comércio (Mercado de Dinos) ───────────────────────────────────────────────
+let _marketTable = null;
+let _marketBrowse = [];
+let _marketMyListings = [];
+let _marketAdminSpecies = [];
+let _marketAuditEvents = [];
+let _marketTab = "table";
+let _marketAdminTab = "species";
+let _marketMyShopTab = "active";
+
+function setMarketTab(tab) {
+  _marketTab = tab;
+  document.querySelectorAll("[data-market-tab]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.marketTab === tab);
+  });
+  document.querySelectorAll("#page-market .catalog-panel").forEach(p => p.classList.remove("active"));
+  const panel = document.getElementById("market-panel-" + tab);
+  if (panel) panel.classList.add("active");
+  if (tab === "table") loadMarketTable();
+  if (tab === "browse") loadMarketBrowse();
+  if (tab === "myshop") loadMarketMyShop();
+}
+
+function setMarketMyShopTab(tab) {
+  _marketMyShopTab = tab;
+  document.querySelectorAll("[data-myshop-tab]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.myshopTab === tab);
+  });
+  renderMarketMyShop();
+}
+
+function setMarketAdminTab(tab) {
+  _marketAdminTab = tab;
+  document.querySelectorAll("[data-market-admin-tab]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.marketAdminTab === tab);
+  });
+  document.querySelectorAll("#page-market-admin .catalog-panel").forEach(p => p.classList.remove("active"));
+  const panel = document.getElementById("market-admin-panel-" + tab);
+  if (panel) panel.classList.add("active");
+  if (tab === "species") loadMarketAdmin();
+  if (tab === "pending") loadMarketPendingClassification();
+  if (tab === "audit") loadMarketAudit();
+}
+
+function reloadMarketPage() {
+  if (_marketTab === "table") loadMarketTable();
+  else if (_marketTab === "browse") loadMarketBrowse();
+  else loadMarketMyShop();
+}
+
+function reloadMarketAdminPage() {
+  if (_marketAdminTab === "audit") loadMarketAudit();
+  else if (_marketAdminTab === "pending") loadMarketPendingClassification();
+  else loadMarketAdmin();
+}
+
+async function loadMarket() {
+  setMarketTab(_marketTab || "table");
+}
+
+async function loadMarketTable() {
+  const root = document.getElementById("market-table-root");
+  if (!root) return;
+  root.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2);">Carregando…</div>';
+  try {
+    const r = await fetch(API + "/api/market/species-table");
+    const d = await r.json();
+    if (d.error && !d.species) {
+      root.innerHTML = `<p style="color:var(--warn);padding:16px;">${escHtml(d.error)}</p>`;
+      return;
+    }
+    _marketTable = d;
+    renderMarketTable();
+  } catch (e) {
+    root.innerHTML = `<p style="color:var(--danger);padding:16px;">Erro ao carregar: ${escHtml(String(e))}</p>`;
+  }
+}
+
+function _marketMultSummary(multipliers) {
+  if (!multipliers) return "—";
+  return Object.values(multipliers)
+    .filter(v => v && v.enabled && v.multiplier > 0)
+    .map(v => `${v.label || v.stat_key} ×${v.multiplier}`)
+    .join(" · ") || "—";
+}
+
+function renderMarketTable() {
+  const root = document.getElementById("market-table-root");
+  const search = (document.getElementById("market-search")?.value || "").toLowerCase();
+  if (!root || !_marketTable) return;
+  const species = (_marketTable.species || []).filter(s =>
+    !search || (s.display_name || "").toLowerCase().includes(search)
+  );
+  if (!species.length) {
+    root.innerHTML = '<p style="color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie homologada ainda. O admin precisa sincronizar e ativar espécies.</p>';
+    return;
+  }
+  const rows = species.map(s => `<tr>
+    <td>${escHtml(s.display_name)}</td>
+    <td>${s.reference_level || 1}</td>
+    <td><strong style="color:var(--amber);">${Number(s.root_value || 0).toLocaleString("pt-BR")}</strong></td>
+    <td>${escHtml(s.tier || "—")}</td>
+    <td style="font-size:12px;color:var(--text2);">${escHtml(_marketMultSummary(s.multipliers))}</td>
+  </tr>`).join("");
+  root.innerHTML = `
+    <table class="tbl">
+      <thead><tr>
+        <th>Espécie</th><th>Nível ref.</th><th>Valor base (Âmbar)</th><th>Tier</th><th>Multiplicadores</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p style="font-size:12px;color:var(--text2);margin-top:12px;line-height:1.5;">
+      ${escHtml(_marketTable.description || "")}
+    </p>`;
+  requestAnimationFrame(() => wrapTablesForScroll(root));
+}
+
+function _marketBreakdownHtml(breakdown) {
+  const rows = (breakdown || []).filter(r => r.kind === "stat" || r.kind === "root");
+  if (!rows.length) return "";
+  const lines = rows.map(r => {
+    if (r.kind === "root") return `Raiz nível 1: ${Number(r.value || 0).toLocaleString("pt-BR")} Âmbar`;
+    return `${r.label || r.stat_key}: ${r.points} pts × ${r.multiplier} = ${Number(r.subtotal || 0).toLocaleString("pt-BR")}`;
+  }).join("<br>");
+  return `<details style="margin-top:8px;font-size:11px;color:var(--text2);"><summary>▼ Como calculamos</summary><div style="margin-top:6px;line-height:1.5;">${lines}</div></details>`;
+}
+
+function _marketListingCard(l, { showBuy = false, showSellerActions = false } = {}) {
+  const stats = l.stats || {};
+  const gender = l.is_female ? "♀" : "♂";
+  const breakdownHtml = _marketBreakdownHtml(l.calculation_breakdown);
+  let actions = "";
+  if (showBuy && l.status === "ACTIVE") {
+    actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="marketPurchaseListing(${l.listing_id})">Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar</button>`;
+  }
+  if (showSellerActions) {
+    const minP = l.computed_base_value || 0;
+    actions = `
+      <div style="margin-top:10px;display:grid;gap:6px;">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <input id="market-price-${l.listing_id}" type="number" min="${minP}" value="${l.effective_price || minP}" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+          <button class="btn btn-ghost btn-sm" onclick="marketSetPrice(${l.listing_id}, false)">Salvar preço</button>
+          ${l.status === "DRAFT" || l.status === "PAUSED" ? `<button class="btn btn-success btn-sm" onclick="marketSetPrice(${l.listing_id}, true)">Ativar</button>` : ""}
+        </div>
+        ${l.status === "ACTIVE" ? `<button class="btn btn-ghost btn-sm" onclick="marketPauseListing(${l.listing_id})">Pausar</button>` : ""}
+        ${["DRAFT","ACTIVE","PAUSED"].includes(l.status) ? `<button class="btn btn-ghost btn-sm" onclick="marketWithdrawListing(${l.listing_id})">Recuperar dino</button>` : ""}
+        ${l.status === "PENDING_CLASSIFICATION" ? `<span style="font-size:12px;color:var(--warn);">Aguardando classificação admin</span>` : ""}
+        ${l.status === "AWAITING_CLAIM" ? `<span style="font-size:12px;color:var(--amber);">Use /resgatarmercado in-game</span>` : ""}
+      </div>`;
+  }
+  const statusBadge = l.status === "PENDING_CLASSIFICATION"
+    ? '<span class="badge" style="background:var(--warn);">PENDENTE</span>'
+    : `<span class="badge">${escHtml(l.status)}</span>`;
+  return `
+    <div class="card" style="margin:0;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div>
+          <strong>${escHtml(l.dino_display_name || l.species_key || "Dino")}</strong> ${gender}
+          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(l.seller_display_name || "Vendedor")}</div>
+        </div>
+        ${statusBadge}
+      </div>
+      <div style="margin-top:10px;font-size:13px;">
+        <div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
+        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}</div>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px;">Mut ${l.mutations_male}/${l.mutations_female} · Lvl ${l.dino_level || "?"}</div>
+        <div style="color:var(--text2);font-size:11px;margin-top:4px;">HP ${stats.health} · Dmg ${stats.melee} · Peso ${stats.weight}</div>
+        ${breakdownHtml}
+      </div>
+      ${actions}
+    </div>`;
+}
+
+async function loadMarketBrowse() {
+  const grid = document.getElementById("market-browse-grid");
+  const empty = document.getElementById("market-browse-empty");
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text2);">Carregando…</div>';
+  try {
+    const r = await fetch(API + "/api/market/listings?limit=100");
+    const d = await r.json();
+    _marketBrowse = d.listings || [];
+    renderMarketBrowse();
+  } catch (e) {
+    grid.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+async function loadMarketVitrine() {
+  const seller = (document.getElementById("market-browse-seller")?.value || "").trim();
+  if (!seller) {
+    toast("Informe SteamID do vendedor", "warning");
+    return;
+  }
+  const grid = document.getElementById("market-browse-grid");
+  const empty = document.getElementById("market-browse-empty");
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:32px;color:var(--text2);">Carregando vitrine…</div>';
+  try {
+    const r = await fetch(API + "/api/market/vitrine/" + encodeURIComponent(seller));
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Vitrine não encontrada", "error");
+      return;
+    }
+    _marketBrowse = d.listings || [];
+    if (empty) empty.style.display = _marketBrowse.length ? "none" : "";
+    const title = d.seller_display_name || seller;
+    grid.innerHTML = `<div style="grid-column:1/-1;margin-bottom:8px;"><strong>🏪 ${escHtml(title)}</strong> <span style="font-size:12px;color:var(--text2);">${escHtml(seller)}</span></div>`
+      + _marketBrowse.map(l => {
+        l.seller_display_name = d.seller_display_name || l.seller_display_name;
+        return _marketListingCard(l, { showBuy: _auth.authenticated });
+      }).join("");
+  } catch (e) {
+    grid.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+function renderMarketBrowse() {
+  const grid = document.getElementById("market-browse-grid");
+  const empty = document.getElementById("market-browse-empty");
+  if (!grid) return;
+  const q = (document.getElementById("market-browse-search")?.value || "").toLowerCase();
+  const items = _marketBrowse.filter(l => {
+    if (!q) return true;
+    const hay = [l.dino_display_name, l.species_key, l.seller_display_name, l.seller_steam_id].join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+  if (!items.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  grid.innerHTML = items.map(l => _marketListingCard(l, { showBuy: _auth.authenticated })).join("");
+}
+
+async function marketPurchaseListing(listingId) {
+  if (!_auth.authenticated) {
+    promptLogin("comprar no Comércio");
+    return;
+  }
+  if (!confirm("Confirmar compra com Âmbares? Não há reembolso.")) return;
+  try {
+    const r = await fetch(API + "/api/market/listings/" + listingId + "/purchase", { method: "POST" });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Compra falhou", "error");
+      return;
+    }
+    toast(`Comprado! Use /resgatarmercado in-game. Saldo: ${d.buyer_balance}`, "success");
+    refreshPlayerBalance();
+    loadMarketBrowse();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function loadMarketMyShop() {
+  const gate = document.getElementById("market-myshop-gate");
+  const content = document.getElementById("market-myshop-content");
+  const list = document.getElementById("market-myshop-list");
+  if (!gate || !content) return;
+  if (!_auth.authenticated) {
+    gate.style.display = "";
+    content.style.display = "none";
+    return;
+  }
+  gate.style.display = "none";
+  content.style.display = "";
+  if (list) list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  try {
+    const r = await fetch(API + "/api/market/my/listings");
+    const d = await r.json();
+    if (!d.ok) {
+      if (list) list.innerHTML = `<p style="color:var(--warn);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _marketMyListings = d.listings || [];
+    renderMarketMyShop();
+    loadMarketMyHistory();
+  } catch (e) {
+    if (list) list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+async function loadMarketMyHistory() {
+  const root = document.getElementById("market-myshop-history");
+  if (!root || !_auth.authenticated) return;
+  try {
+    const r = await fetch(API + "/api/market/my/history");
+    const d = await r.json();
+    if (!d.ok) return;
+    const sales = (d.sales || []).slice(0, 5).map(s => `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`).join(" · ") || "—";
+    const purchases = (d.purchases || []).slice(0, 5).map(s => `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`).join(" · ") || "—";
+    root.style.display = "";
+    root.innerHTML = `<div class="card"><div class="card-title">Histórico recente</div>
+      <p style="font-size:12px;margin:0 0 8px;color:var(--text2);">Vendas: ${escHtml(sales)}</p>
+      <p style="font-size:12px;margin:0;color:var(--text2);">Compras: ${escHtml(purchases)}</p></div>`;
+  } catch (_) {}
+}
+
+function renderMarketMyShop() {
+  const list = document.getElementById("market-myshop-list");
+  if (!list) return;
+  const pending = _marketMyListings.filter(l => l.status === "PENDING_CLASSIFICATION");
+  const active = _marketMyListings.filter(l => l.status !== "PENDING_CLASSIFICATION");
+  const items = _marketMyShopTab === "pending" ? pending : active;
+  if (!_marketMyListings.length) {
+    list.innerHTML = `<div class="card"><p style="margin:0;color:var(--text2);">Nenhum anúncio. Envie um dino in-game com <code>/enviar</code> e <code>/confirmar</code>.</p></div>`;
+    return;
+  }
+  const tabs = `<div class="catalog-tabs" style="margin-bottom:12px;">
+    <button type="button" class="catalog-tab ${_marketMyShopTab === "active" ? "active" : ""}" data-myshop-tab="active" onclick="setMarketMyShopTab('active')">Anúncios (${active.length})</button>
+    <button type="button" class="catalog-tab ${_marketMyShopTab === "pending" ? "active" : ""}" data-myshop-tab="pending" onclick="setMarketMyShopTab('pending')">Aguardando classificação (${pending.length})</button>
+  </div>`;
+  if (!items.length) {
+    list.innerHTML = tabs + `<div class="card"><p style="margin:0;color:var(--text2);">Nenhum item nesta aba.</p></div>`;
+    return;
+  }
+  list.innerHTML = tabs + `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+    ${items.map(l => _marketListingCard(l, { showSellerActions: true })).join("")}
+  </div>`;
+}
+
+async function marketSetPrice(listingId, activate) {
+  const inp = document.getElementById("market-price-" + listingId);
+  const price = inp ? parseInt(inp.value, 10) : null;
+  try {
+    const r = await fetch(API + "/api/market/listings/" + listingId + "/price", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ price_absolute: price, activate: !!activate }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha", "error");
+      return;
+    }
+    toast(activate ? "Anúncio ativado!" : "Preço salvo", "success");
+    loadMarketMyShop();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function marketPauseListing(listingId) {
+  try {
+    const r = await fetch(API + "/api/market/listings/" + listingId + "/pause", { method: "POST" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Anúncio pausado", "success");
+    loadMarketMyShop();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketWithdrawListing(listingId) {
+  if (!confirm("Recuperar dino? Use /resgatarmercado in-game após confirmar.")) return;
+  try {
+    const r = await fetch(API + "/api/market/listings/" + listingId + "/withdraw", { method: "POST" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(d.message || "Resgate solicitado", "success");
+    loadMarketMyShop();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function loadMarketAudit() {
+  const list = document.getElementById("market-audit-list");
+  if (!list) return;
+  list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  const params = new URLSearchParams();
+  const et = document.getElementById("market-audit-filter-type")?.value?.trim();
+  const sid = document.getElementById("market-audit-filter-steam")?.value?.trim();
+  const trace = document.getElementById("market-audit-filter-trace")?.value?.trim();
+  if (et) params.set("event_type", et);
+  if (sid) params.set("steam_id", sid);
+  if (trace) params.set("market_trace_id", trace);
+  try {
+    const r = await fetch(API + "/api/market/admin/audit?" + params.toString());
+    const d = await r.json();
+    if (!d.ok) {
+      list.innerHTML = `<p style="color:var(--warn);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _marketAuditEvents = d.events || [];
+    renderMarketAudit();
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+function renderMarketAudit() {
+  const list = document.getElementById("market-audit-list");
+  if (!list) return;
+  if (!_marketAuditEvents.length) {
+    list.innerHTML = '<div class="card"><p style="margin:0;color:var(--text2);">Nenhum evento encontrado.</p></div>';
+    return;
+  }
+  const rows = _marketAuditEvents.map(ev => `<tr>
+    <td style="white-space:nowrap;font-size:11px;">${escHtml((ev.created_at || "").replace("T"," ").slice(0,19))}</td>
+    <td><code style="font-size:11px;">${escHtml(ev.event_type)}</code></td>
+    <td style="font-size:11px;">${escHtml(ev.severity || "")}</td>
+    <td style="font-size:11px;font-family:monospace;">${escHtml(ev.steam_id || "—")}</td>
+    <td>${ev.listing_id || "—"}</td>
+    <td style="font-size:11px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${escHtml(ev.market_trace_id || "—")}</td>
+    <td>${ev.effective_price != null ? Number(ev.effective_price).toLocaleString("pt-BR") : "—"}</td>
+  </tr>`).join("");
+  list.innerHTML = `<div class="card"><table class="tbl"><thead><tr>
+    <th>Data</th><th>Evento</th><th>Sev.</th><th>Steam</th><th>Listing</th><th>Trace</th><th>Preço</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
+  requestAnimationFrame(() => wrapTablesForScroll(list));
+}
+
+function marketExportAuditCsv() {
+  const params = new URLSearchParams();
+  const et = document.getElementById("market-audit-filter-type")?.value?.trim();
+  const sid = document.getElementById("market-audit-filter-steam")?.value?.trim();
+  if (et) params.set("event_type", et);
+  if (sid) params.set("steam_id", sid);
+  window.open(API + "/api/market/admin/audit/export?" + params.toString(), "_blank");
+}
+
+async function loadMarketPendingClassification() {
+  const list = document.getElementById("market-admin-pending-list");
+  if (!list) return;
+  list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  try {
+    const r = await fetch(API + "/api/market/admin/species/pending-classification");
+    const d = await r.json();
+    if (!d.ok) {
+      list.innerHTML = `<p style="color:var(--warn);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    const items = d.listings || [];
+    if (!items.length) {
+      list.innerHTML = '<div class="card"><p style="margin:0;color:var(--text2);">Nenhum listing aguardando classificação.</p></div>';
+      return;
+    }
+    list.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
+      ${items.map(l => _marketListingCard(l)).join("")}
+    </div>`;
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+async function marketEditMultipliers(speciesKey) {
+  const species = _marketAdminSpecies.find(s => s.species_key === speciesKey);
+  if (!species) return;
+  const mults = species.multipliers || {};
+  const melee = mults.melee?.multiplier ?? 0;
+  const val = prompt(`Multiplicador melee para ${species.display_name}:`, String(melee));
+  if (val == null) return;
+  const n = parseInt(val, 10);
+  if (Number.isNaN(n) || n < 0) {
+    toast("Valor inválido", "warning");
+    return;
+  }
+  try {
+    const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey) + "/multipliers", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ multipliers: { melee: { multiplier: n, enabled: n > 0 } } }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Multiplicadores atualizados", "success");
+    loadMarketAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function loadMarketAdmin() {
+  const list = document.getElementById("market-admin-list");
+  const banner = document.getElementById("market-admin-schema-banner");
+  if (banner) {
+    try {
+      const sr = await fetch(API + "/api/market/admin/schema-status");
+      const sd = await sr.json();
+      if (sd.ok && sd.tables) {
+        const missing = Object.entries(sd.tables).filter(([, ok]) => !ok).map(([n]) => n);
+        if (missing.length) {
+          banner.style.display = "";
+          banner.className = "card";
+          banner.innerHTML = `<p style="margin:0;color:var(--danger);">Schema incompleto: ${escHtml(missing.join(", "))}. Reinicie a Web Store ou verifique logs.</p>`;
+        } else {
+          banner.style.display = "";
+          banner.className = "card";
+          banner.innerHTML = `<p style="margin:0;color:var(--success);font-size:13px;">✓ Schema Mercado v${escHtml(sd.schema_version || "?")} OK — migração automática no boot.</p>`;
+        }
+      }
+    } catch (_) { if (banner) banner.style.display = "none"; }
+  }
+  if (!list) return;
+  list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  try {
+    const r = await fetch(API + "/api/market/admin/species");
+    const d = await r.json();
+    if (!d.ok) {
+      list.innerHTML = `<p style="color:var(--warn);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _marketAdminSpecies = d.species || [];
+    renderMarketAdmin();
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+function renderMarketAdmin() {
+  const list = document.getElementById("market-admin-list");
+  if (!list) return;
+  if (!_marketAdminSpecies.length) {
+    list.innerHTML = '<div class="card"><p style="color:var(--text2);margin:0;">Nenhuma espécie. Clique em «Sync catálogo».</p></div>';
+    return;
+  }
+  const rows = _marketAdminSpecies.map(s => {
+    const st = s.status || "PRE_REGISTERED";
+    const badge = st === "ACTIVE"
+      ? '<span style="color:var(--success);">ACTIVE</span>'
+      : '<span style="color:var(--warn);">' + escHtml(st) + '</span>';
+    const btn = st === "ACTIVE"
+      ? `<button class="btn btn-sm btn-ghost market-mult-btn" data-species-key="${escHtml(s.species_key)}">Mult.</button>`
+      : `<button class="btn btn-sm btn-primary market-activate-btn" data-species-key="${escHtml(s.species_key)}">Ativar</button>`;
+    return `<tr>
+      <td>${escHtml(s.display_name)}</td>
+      <td><code>${escHtml(s.species_key)}</code></td>
+      <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
+      <td>${escHtml(s.tier || "—")}</td>
+      <td>${badge}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:280px;">${escHtml(_marketMultSummary(s.multipliers))}</td>
+      <td>${btn}</td>
+    </tr>`;
+  }).join("");
+  list.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr>
+          <th>Espécie</th><th>Key</th><th>Raiz</th><th>Tier</th><th>Status</th><th>Mult.</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  requestAnimationFrame(() => wrapTablesForScroll(list));
+  list.querySelectorAll(".market-activate-btn").forEach(btn => {
+    btn.addEventListener("click", () => marketActivateSpecies(btn.dataset.speciesKey));
+  });
+  list.querySelectorAll(".market-mult-btn").forEach(btn => {
+    btn.addEventListener("click", () => marketEditMultipliers(btn.dataset.speciesKey));
+  });
+}
+
+async function marketSyncCatalog(activate) {
+  try {
+    const r = await fetch(API + "/api/market/admin/species/sync-catalog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ activate: !!activate }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Sync falhou", "error");
+      return;
+    }
+    toast(`Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`, "success");
+    loadMarketAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function marketActivateSpecies(speciesKey) {
+  try {
+    const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey) + "/activate", {
+      method: "POST",
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha ao ativar", "error");
+      return;
+    }
+    toast(`${speciesKey} ativada`, "success");
+    loadMarketAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
 function renderDownloads() {
   const grid  = document.getElementById("downloads-grid");
   const empty = document.getElementById("downloads-empty");
@@ -5916,6 +6703,10 @@ function openItemModal(key) {
         <div class="form-group"><label>Permissões</label><input id="mi-perms" type="text" value="${escHtml(item.Permissions||"")}" placeholder="VIP,Admin (vazio=todos)" /></div>
       </div>
       <div class="toggle-row" style="margin:10px 0;"><label>ForceBlueprint (item simples)</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>
+      <div class="toggle-row" id="mi-market-row" style="margin:10px 0;display:${_catalogModeFromItem(item).startsWith("dino") ? "" : "none"};">
+        <label>Incluir no Comércio (pré-cadastro espécie)</label>
+        <input type="checkbox" id="mi-market-include" ${item.MarketInclude?"checked":""} />
+      </div>
 
       <div class="kit-section">
         <div class="kit-section-header">
@@ -5945,6 +6736,13 @@ function openItemModal(key) {
     </div>`;
 
   renderShopItemEntrySections();
+  const modeSel = document.getElementById("mi-catalog-mode");
+  const marketRow = document.getElementById("mi-market-row");
+  if (modeSel && marketRow) {
+    modeSel.addEventListener("change", () => {
+      marketRow.style.display = modeSel.value.startsWith("dino") ? "" : "none";
+    });
+  }
   openModal("modal-item");
 }
 
@@ -6005,6 +6803,10 @@ async function confirmItem() {
   const timedBonus = readTimedPointsBonusFromDOM("mi");
   if (timedBonus != null) it.TimedPointsBonus = timedBonus; else delete it.TimedPointsBonus;
 
+  const marketInclude = document.getElementById("mi-market-include")?.checked;
+  if (marketInclude && mode.type === "dino") it.MarketInclude = true;
+  else delete it.MarketInclude;
+
   _config.ShopItems[key] = it;
 
   const btn = document.getElementById("modal-item-save-btn");
@@ -6013,6 +6815,21 @@ async function confirmItem() {
   closeModal("modal-item");
   renderShop();
   await saveAndReload();
+
+  if (marketInclude && mode.type === "dino") {
+    try {
+      const pr = await fetch(API + "/api/market/catalog/pre-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ catalog_item_id: key }),
+      });
+      const pd = await pr.json();
+      if (pd.ok) toast(`Comércio: espécie ${pd.species_key} pré-cadastrada`, "success");
+      else toast(pd.error || "Pré-cadastro Comércio falhou", "warning");
+    } catch (e) {
+      toast("Pré-cadastro Comércio: " + String(e), "warning");
+    }
+  }
 
   if (btn) { btn.disabled = false; btn.textContent = "💾 Salvar & Aplicar"; }
 }

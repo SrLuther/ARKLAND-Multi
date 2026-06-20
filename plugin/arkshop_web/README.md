@@ -58,6 +58,21 @@ RCON (`Shop.Deliver`) permanece disponível como modo legado (`delivery_mode: rc
 }
 ```
 
+## Deploy em produção (MariaDB)
+
+Ao iniciar, a Web Store executa **migração automática** do schema (`_migrate_schema` + `market_migrate`). Não é necessário rodar SQL manualmente em upgrades — as tabelas do **Mercado de Dinos** (`market_*`) são criadas no primeiro boot com MariaDB configurado.
+
+Instalação **limpa** via ARKLAND Server Manager continua usando `setup_db.sql` (já inclui as tabelas `market_*`).
+
+### Variáveis de ambiente opcionais (Mercado)
+
+| Variável | Padrão | Efeito |
+|----------|--------|--------|
+| `MARKET_AUTO_SYNC_CATALOG` | `0` | Se `1`, importa dinos `Type: dino` do catálogo quando `market_species` está vazio |
+| `MARKET_AUTO_ACTIVATE_SPECIES` | `0` | Com sync automático, ativa todas as espécies (`ACTIVE`) |
+
+Diagnóstico admin: `GET /api/market/admin/schema-status` ou aba **Comércio (admin)** na Web Store.
+
 ## Porta customizada
 ```bat
 set PORT=8080

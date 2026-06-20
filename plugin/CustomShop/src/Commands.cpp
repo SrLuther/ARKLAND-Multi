@@ -8,6 +8,7 @@
 #include "ShopVip.h"
 #include "ShopCloudInventory.h"
 #include "HttpClient.h"
+#include "ShopMarket.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
@@ -752,6 +753,8 @@ void Register() {
     ArkApi::GetCommands().AddOnChatMessageCallback(
         "CustomShopCloudChat", &OnCloudChatMessage);
 
+    ShopMarket::RegisterCommands();
+
     // Admin (RCON ou console in-game)
     ArkApi::GetCommands().AddConsoleCommand("Shop.Upload",     &CmdConsoleCloudUpload);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Download",   &CmdConsoleCloudDownload);
@@ -777,6 +780,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/download");
     ArkApi::GetCommands().RemoveChatCommand("/nuvem");
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
+    ShopMarket::UnregisterCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Upload");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Download");

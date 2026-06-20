@@ -34,6 +34,10 @@ set(SOURCES
     src/TimedPoints.cpp
     src/Commands.cpp
     src/HttpClient.cpp
+    src/ShopCloudInventory.cpp
+    src/ShopCryoDino.cpp
+    src/ShopCryoReader.cpp
+    src/ShopMarket.cpp
 )
 
 add_library(CustomShop SHARED ${SOURCES})

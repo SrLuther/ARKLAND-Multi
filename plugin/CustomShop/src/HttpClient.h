@@ -14,9 +14,13 @@ void Configure(const std::string& web_url, const std::string& api_key = "");
 void Shutdown();
 
 /// Fetch pending orders from arkshop_web for a player and deliver them.
-/// Should be called when a player connects (HandleNewPlayer).
-/// @return true if at least one pending item was delivered.
 bool DeliverPending(AShooterPlayerController* controller);
+
+/// POST JSON para path relativo (ex.: /api/market/upload).
+std::string PostJson(const std::string& path, const std::string& json_body);
+
+/// GET path relativo.
+std::string Get(const std::string& path);
 
 // Internal — access the configured URL (used by ShopConfig reload)
 extern std::string g_web_url;
