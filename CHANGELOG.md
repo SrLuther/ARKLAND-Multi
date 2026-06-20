@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.48] - 2026-06-20
+
+### Fix
+
+- Fix (CustomShop): build_cl.bat inclui ShopCryoReader/ShopMarket; APIs Ark corrigidas para compilar o módulo Comércio P2P.
+
 ## [1.9.47] - 2026-06-20
 
 ### Feature

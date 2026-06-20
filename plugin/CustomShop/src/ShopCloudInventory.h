@@ -49,6 +49,11 @@ public:
     CloudResult Download(AShooterPlayerController* controller);
     CloudStatusInfo QueryStatus(AShooterPlayerController* controller) const;
 
+    bool HasCloudLicense(const std::string& steam_id, bool for_upload) const;
+    bool RemovePlayerItem(UPrimalItem* item,
+                          UPrimalInventoryComponent* inv,
+                          AShooterPlayerController* controller) const;
+
     int LastOperationCount() const { return last_op_count_; }
     int LastDiagnosticCount() const { return last_diag_count_; }
     int LastFreeSlots() const { return last_free_slots_; }
@@ -95,7 +100,6 @@ private:
     bool CheckCooldown(const std::string& steam_id);
     void TouchCooldown(const std::string& steam_id);
     bool IsPlayerReady(AShooterPlayerController* controller) const;
-    bool HasCloudLicense(const std::string& steam_id, bool for_upload) const;
 
     MYSQL* db_ = nullptr;
     int last_op_count_ = 0;

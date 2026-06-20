@@ -214,6 +214,12 @@ bool ShopCloudInventory::IsPlayerReady(AShooterPlayerController* controller) con
     return true;
 }
 
+bool ShopCloudInventory::RemovePlayerItem(UPrimalItem* item,
+                                          UPrimalInventoryComponent* inv,
+                                          AShooterPlayerController* controller) const {
+    return RemoveUploadedItem(item, inv, controller);
+}
+
 bool ShopCloudInventory::HasCloudLicense(const std::string& steam_id,
                                          bool for_upload) const {
     if (!for_upload && !ShopConfig::Get().CloudRequireLicenseForDownload())

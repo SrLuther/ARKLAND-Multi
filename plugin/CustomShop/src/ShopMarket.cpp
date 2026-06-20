@@ -67,7 +67,7 @@ void SendMsg(AShooterPlayerController* c, const FLinearColor& color, const std::
 }
 
 bool ProfileCommerceReady(const std::string& steam_id, std::string* error_out) {
-    const std::string resp = HttpClient::Get("/api/market/plugin/profile/" + steam_id);
+    const std::string resp = CustomShop::HttpClient::Get("/api/market/plugin/profile/" + steam_id);
     nlohmann::json json;
     try {
         json = nlohmann::json::parse(resp);
@@ -88,7 +88,7 @@ void ReleaseClaims(const std::string& steam_id, const std::vector<int>& claim_id
     nlohmann::json body{{"steam_id", steam_id}, {"claim_ids", nlohmann::json::array()}};
     for (int id : claim_ids)
         body["claim_ids"].push_back(id);
-    HttpClient::PostJson("/api/market/claims/release", body.dump());
+    CustomShop::HttpClient::PostJson("/api/market/claims/release", body.dump());
 }
 
 } // anonymous namespace
@@ -217,7 +217,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
     const std::string upload_id = NewUploadId();
 
     UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
-    if (!inv || !inv->RemoveItemFromInventory(cryo, false, false, false)) {
+    if (!inv || !ShopCloudInventory::Get().RemovePlayerItem(cryo, inv, player)) {
         SendMsg(player, FColorList::Red, "Falha ao remover cryopod do inventario.");
         return;
     }
@@ -243,7 +243,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
 
     if (!json.value("ok", false)) {
         Log::GetLog()->warn("ShopMarket: upload failed steam={} resp={}", sid, resp);
-        UPrimalItem* restored = UPrimalItem::CreateFromBytes(bytes.Bytes);
+        UPrimalItem* restored = UPrimalItem::CreateFromBytes(&bytes.Bytes);
         if (restored && inv) {
             inv->AddItemObject(restored);
             SendMsg(player, FColorList::Yellow,

@@ -8,8 +8,6 @@ constexpr const char* kDefaultCryoBp =
     "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/"
     "PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'";
 
-using StatIdx = EPrimalCharacterStatusValue;
-
 bool FloatAt(const TArray<float>& arr, int idx, float& out) {
     if (idx < 0 || idx >= arr.Num()) return false;
     out = arr[idx];
@@ -24,7 +22,9 @@ double DoubleAt(const TArray<double>& arr, int idx, double& out) {
 
 std::string ClassPath(UClass* cls) {
     if (!cls) return "";
-    return cls->GetFullName();
+    FString class_name;
+    cls->GetFullName(&class_name, nullptr);
+    return class_name.ToString();
 }
 
 } // anonymous namespace
@@ -34,11 +34,14 @@ namespace CustomShop {
 bool IsOfficialCryopodItem(UPrimalItem* item) {
     if (!item) return false;
     UClass* cls = item->ClassField();
-    if (!cls) return false;
-    const std::string name = cls->GetName();
-    if (name.find("Cryopod") != std::string::npos) return true;
-    if (name.find("cryopod") != std::string::npos) return true;
-    return item->GetCustomItemDataName().ToString() == "Dino";
+    if (cls) {
+        FString class_name;
+        cls->GetFullName(&class_name, nullptr);
+        const std::string name = class_name.ToString();
+        if (name.find("Cryopod") != std::string::npos) return true;
+        if (name.find("cryopod") != std::string::npos) return true;
+    }
+    return item->HasCustomItemData(FName("Dino", EFindName::FNAME_Find));
 }
 
 UPrimalItem* FindCryopodInInventory(AShooterPlayerController* controller, int slot_index) {
@@ -102,15 +105,13 @@ bool CryopodHasTimer(UPrimalItem* item) {
     if (!item) return false;
     const float max_dur = item->ItemDurabilityField();
     if (max_dur <= 0.f) return false;
-    // CryoLimitedTime reduz o teto (max < 3600s) — pode estar a 100% do teto reduzido
     if (max_dur < kStandardCryoDurability - 0.5f) return true;
-    return item->GetItemDurabilityPercentage() < 0.999f;
+    return item->BPGetItemDurabilityPercentage() < 0.999f;
 }
 
 bool StripCryopodTimer(UPrimalItem* item) {
     if (!item || !CryopodHasTimer(item)) return false;
     const float max_dur = item->ItemDurabilityField();
-    // Inverso de ShopCryoDino::GiveCryopod (CryoLimitedTime): restaura max para 3600s
     const float delta = kStandardCryoDurability - max_dur;
     if (delta > 0.01f || delta < -0.01f)
         item->AddItemDurability(delta);
@@ -129,12 +130,8 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
     }
 
     FCustomItemData custom_data;
-    if (!item->GetCustomItemData(&custom_data)) {
+    if (!item->GetCustomItemData(FName("Dino", EFindName::FNAME_Find), &custom_data)) {
         if (error) *error = "sem CustomItemData";
-        return false;
-    }
-    if (custom_data.CustomDataName.ToString() != "Dino") {
-        if (error) *error = "cryopod vazia (sem dino)";
         return false;
     }
 
@@ -147,13 +144,13 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
     out = CryoParsedMetadata{};
     out.has_dino_data = true;
 
-    FloatAt(floats, static_cast<int>(StatIdx::Health) + 12, out.health.value);
-    FloatAt(floats, static_cast<int>(StatIdx::Stamina) + 12, out.stamina.value);
-    FloatAt(floats, static_cast<int>(StatIdx::Oxygen) + 12, out.oxygen.value);
-    FloatAt(floats, static_cast<int>(StatIdx::Food) + 12, out.food.value);
-    FloatAt(floats, static_cast<int>(StatIdx::Weight) + 12, out.weight.value);
-    FloatAt(floats, static_cast<int>(StatIdx::MeleeDamageMultiplier) + 12, out.melee.value);
-    FloatAt(floats, static_cast<int>(StatIdx::SpeedMultiplier) + 12, out.speed.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Health) + 12, out.health.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Stamina) + 12, out.stamina.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Oxygen) + 12, out.oxygen.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Food) + 12, out.food.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Weight) + 12, out.weight.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::MeleeDamageMultiplier) + 12, out.melee.value);
+    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::SpeedMultiplier) + 12, out.speed.value);
 
     float is_female_f = 0.f;
     if (FloatAt(floats, 24, is_female_f))

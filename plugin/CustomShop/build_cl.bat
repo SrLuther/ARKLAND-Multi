@@ -99,6 +99,8 @@ echo === Compiling C++ sources ===
   "%SRC_DIR%\ShopEntitlements.cpp" ^
   "%SRC_DIR%\ShopCloudInventory.cpp" ^
   "%SRC_DIR%\ShopCryoDino.cpp" ^
+  "%SRC_DIR%\ShopCryoReader.cpp" ^
+  "%SRC_DIR%\ShopMarket.cpp" ^
   "%SRC_DIR%\TimedPoints.cpp" ^
   "%SRC_DIR%\Commands.cpp" ^
   "%SRC_DIR%\HttpClient.cpp"
@@ -125,6 +127,8 @@ echo === Linking DLL ===
   "%OBJ_DIR%\ShopEntitlements.obj" ^
   "%OBJ_DIR%\ShopCloudInventory.obj" ^
   "%OBJ_DIR%\ShopCryoDino.obj" ^
+  "%OBJ_DIR%\ShopCryoReader.obj" ^
+  "%OBJ_DIR%\ShopMarket.obj" ^
   "%OBJ_DIR%\TimedPoints.obj" ^
   "%OBJ_DIR%\Commands.obj" ^
   "%OBJ_DIR%\HttpClient.obj"
