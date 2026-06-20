@@ -208,12 +208,16 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     if srv.active_mods:
         _chip(f"🔧  {len(srv.active_mods)} mods", border="#1e3a5f", tc="#7dd3fc")
 
-    # ── B2: INDICADORES RICOS DE STATUS ───────────────────────────────────────
-    # Players / Uptime / RAM / Versão — atualizados via app.after()
-    rich_r = ctk.CTkFrame(card, fg_color="transparent")
-    rich_r.grid(row=2, column=0, padx=14, pady=(0, 6), sticky="w")
+    # ── INDICADORES RICOS (jogadores, uptime, RAM, versão) ─────────────────
+    rich_r = ctk.CTkFrame(
+        card,
+        fg_color="#0f172a" if not is_light else "#e8eef4",
+        corner_radius=8,
+        border_width=1,
+        border_color="#1e3a5f" if not is_light else "#cbd5e1",
+    )
+    rich_r.grid(row=2, column=0, padx=14, pady=(6, 10), sticky="ew")
 
-    # Recupera dados do cache global do app (atualizado por _asm_status_tick)
     rich_key = f"_asm_rich_status_{srv.id}"
     rich_data: dict = getattr(app, rich_key, {})
 
@@ -222,16 +226,26 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     ram_txt     = rich_data.get("ram", "—")
     ver_txt     = rich_data.get("version", "—")
 
-    _rich_tc = "#94a3b8" if is_light else "#475569"
+    _val_tc = accent if is_running else t_sec
+    _val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
+    _hint_font = ctk.CTkFont(family="Segoe UI", size=10)
 
-    def _rich_lbl(parent, text: str) -> ctk.CTkLabel:
-        return ctk.CTkLabel(
-            parent, text=text,
-            font=ctk.CTkFont(family="Segoe UI", size=9),
-            text_color=_rich_tc,
-        )
-
-    _rich_lbl(rich_r, f"👥 {players_txt}  |  🕐 {uptime_txt}  |  💾 {ram_txt}  |  📋 {ver_txt}").pack(side="left")
+    for icon, val, hint in (
+        ("👥", players_txt, "Jogadores"),
+        ("🕐", uptime_txt, "Uptime"),
+        ("💾", ram_txt, "Memória"),
+        ("📋", ver_txt, "Versão"),
+    ):
+        chip = ctk.CTkFrame(rich_r, fg_color="transparent")
+        chip.pack(side="left", padx=(12, 16), pady=10)
+        ctk.CTkLabel(
+            chip, text=f"{icon}  {val}",
+            font=_val_font, text_color=_val_tc,
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            chip, text=hint,
+            font=_hint_font, text_color=t_mut,
+        ).pack(anchor="w", pady=(2, 0))
 
     # ── SEPARADOR ─────────────────────────────────────────────────────────────
     ctk.CTkFrame(card, height=1, fg_color=sep).grid(

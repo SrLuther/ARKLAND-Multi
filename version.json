@@ -1,9 +1,8 @@
 {
-    "version": "1.9.43",
+    "version": "1.9.44",
     "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.43/ARKLAND-Multi-Setup-v1.9.43.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.44/ARKLAND-Multi-Setup-v1.9.44.exe",
     "changelog": [
-        "Fix (CustomShop): /upload sincroniza inventario no cliente apos remover itens (ClientRemoveActorItem + handshake completo) — corrige itens fantasmas na UI.",
-        "Fix (CustomShop): Specimen Implant (PrimalItem_StartingNote) excluido da nuvem no upload e download — evita duplicar o implante no inventario."
+        "Melhoria (Dashboard TEK): metricas do servidor (jogadores, uptime, RAM, versao) com fonte maior, chips destacados e melhor contraste nos cards."
     ]
 }

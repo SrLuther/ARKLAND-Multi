@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.44] - 2026-06-20
+
+### Improvement
+
+- Melhoria (Dashboard TEK): metricas do servidor (jogadores, uptime, RAM, versao) com fonte maior, chips destacados e melhor contraste nos cards.
+
 ## [1.9.43] - 2026-06-19
 
 ### Fix
