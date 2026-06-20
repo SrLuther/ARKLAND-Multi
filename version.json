@@ -1,10 +1,8 @@
 {
-    "version": "1.9.47",
+    "version": "1.9.48",
     "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.47/ARKLAND-Multi-Setup-v1.9.47.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.48/ARKLAND-Multi-Setup-v1.9.48.exe",
     "changelog": [
-        "Novo (Comércio P2P): Mercado de dinos via cryopod — upload /enviar e /confirmar, vault, anúncios, compra em Âmbares e resgate /resgatarmercado.",
-        "Novo (Web Store): API mercado (economia, listings, claims, auditoria, migração automática market_*), UI Comércio e admin (espécies, classificação, vitrine).",
-        "Novo (CustomShop): ShopCryoReader + ShopMarket — parse cryopod, strip timer no upload, anti-duplicação, claim/release seguro e validação de perfil in-game."
+        "Fix (CustomShop): build_cl.bat inclui ShopCryoReader/ShopMarket; APIs Ark corrigidas para compilar o módulo Comércio P2P."
     ]
 }
