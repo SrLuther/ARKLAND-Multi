@@ -214,29 +214,26 @@ bool DeliverPending(AShooterPlayerController* controller) {
     Log::GetLog()->info("HttpClient: checking pending deliveries for '{}' at {}",
                         steam_id, g_web_url);
 
-    // GET /api/pending/{steam_id}
-    const std::string url = g_web_url + "/api/pending/" + steam_id;
-    std::string response = HttpGet(url);
+    // Atomically claim PENDENTE orders (prevents duplicate AddTimed on race).
+    const std::string claim_url = g_web_url + "/api/pending/claim";
+    const std::string claim_body = nlohmann::json{{"steam_id", steam_id}}.dump();
+    std::string claim_resp = HttpPostJson(claim_url, claim_body);
 
-    if (response.empty()) {
-        Log::GetLog()->warn("HttpClient: empty response from {}", url);
-        ArkApi::GetApiUtils().SendNotification(
-            controller, FLinearColor(1, 0.4f, 0, 1), 1.2f, 6.f, nullptr,
-            L"[Shop] Servico de entrega indisponivel");
-        return false;
-    }
-
-    // Parse JSON response
     nlohmann::json json;
     try {
-        json = nlohmann::json::parse(response);
+        json = nlohmann::json::parse(claim_resp);
     } catch (const std::exception& e) {
-        Log::GetLog()->error("HttpClient: JSON parse error: {}", e.what());
+        Log::GetLog()->error("HttpClient: claim JSON parse error: {}", e.what());
         return false;
     }
 
     if (!json.value("ok", false)) {
-        Log::GetLog()->warn("HttpClient: API returned not ok: {}", response);
+        Log::GetLog()->warn("HttpClient: claim API returned not ok: {}", claim_resp);
+        if (claim_resp.empty()) {
+            ArkApi::GetApiUtils().SendNotification(
+                controller, FLinearColor(1, 0.4f, 0, 1), 1.2f, 6.f, nullptr,
+                L"[Shop] Servico de entrega indisponivel");
+        }
         return false;
     }
 
@@ -249,10 +246,11 @@ bool DeliverPending(AShooterPlayerController* controller) {
         return true;  // nothing to deliver, but not an error
     }
 
-    Log::GetLog()->info("HttpClient: found {} pending items for '{}'",
+    Log::GetLog()->info("HttpClient: claimed {} pending item(s) for '{}'",
                         items.size(), steam_id);
 
     std::vector<std::string> delivered_ids;
+    std::vector<std::string> failed_ids;
     nlohmann::json deliveries = nlohmann::json::array();
     int success_count = 0;
     int fail_count = 0;
@@ -299,10 +297,22 @@ bool DeliverPending(AShooterPlayerController* controller) {
             Log::GetLog()->info("HttpClient: delivered '{}' x{} for order {}",
                                 item_id, amount, order_id);
         } else {
+            failed_ids.push_back(order_id);
             fail_count++;
             Log::GetLog()->error("HttpClient: failed to deliver '{}' for order {}",
                                  item_id, order_id);
         }
+    }
+
+    if (!failed_ids.empty()) {
+        nlohmann::json release_body = {
+            {"steam_id", steam_id},
+            {"order_ids", failed_ids},
+        };
+        const std::string release_url = g_web_url + "/api/pending/release";
+        std::string release_resp = HttpPostJson(release_url, release_body.dump());
+        Log::GetLog()->warn("HttpClient: released {} failed order(s): {}",
+                            failed_ids.size(), release_resp);
     }
 
     if (success_count > 0) {

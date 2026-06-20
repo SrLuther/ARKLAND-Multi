@@ -1,8 +1,10 @@
 {
-    "version": "1.9.44",
+    "version": "1.9.46",
     "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.44/ARKLAND-Multi-Setup-v1.9.44.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.46/ARKLAND-Multi-Setup-v1.9.46.exe",
     "changelog": [
-        "Melhoria (Dashboard TEK): metricas do servidor (jogadores, uptime, RAM, versao) com fonte maior, chips destacados e melhor contraste nos cards."
+        "Fix (CustomShop): ShopEntitlements::Grant — SQL alinhado com a web (sem subquery em player_entitlements), corrige erro MySQL 1093 e licenças Gamma/Beta/Alfa.",
+        "Fix (CustomShop): GiveItem/GiveKit falham se LicenseGrant não gravar; claim atômico de pedidos pendentes; alias Gamma→licenca_gamma na entrega.",
+        "Fix (Web Store): repair-license para pedidos entregues sem grant; claim/release de pedidos PENDENTE/ENTREGANDO."
     ]
 }

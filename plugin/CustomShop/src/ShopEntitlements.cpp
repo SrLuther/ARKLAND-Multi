@@ -48,6 +48,9 @@ void RunPermissionConsole(const std::string& steam_id, const std::string& cmd) {
     FString fscmd(cmd.c_str());
     FString result;
     target->ConsoleCommand(&result, &fscmd, true);
+    Log::GetLog()->info(
+        "ShopEntitlements: Permissions sync cmd='{}' steam_id={} result='{}'",
+        cmd, steam_id, result.ToString());
 }
 
 } // anonymous namespace
@@ -95,26 +98,37 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
 
     if (IsPaidTier(group)) {
         const std::string del = "DELETE FROM player_entitlements WHERE steam_id = '"
-            + std::string(buf_id) + "' AND group_name IN ('Gamma','Beta','Alfa');";
+            + std::string(buf_id) + "' AND group_name IN ('Gamma','Beta','Alfa') "
+            "AND group_name != '" + std::string(buf_grp) + "';";
         mysql_query(db_, del.c_str());
     }
 
-    const std::string expires_expr =
-        (days <= 0)
-            ? "NULL"
-            : "DATE_ADD(GREATEST(COALESCE((SELECT expires FROM player_entitlements "
-              "WHERE steam_id = '" + std::string(buf_id) + "' AND group_name = '"
-              + std::string(buf_grp) + "' AND expires > NOW()), NOW()), NOW()), "
-              "INTERVAL " + std::to_string(days) + " DAY)";
-
-    const std::string sql =
-        "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) VALUES ('"
-        + std::string(buf_id) + "', '" + std::string(buf_grp) + "', "
-        + expires_expr + ", '" + std::string(buf_src) + "', '" + std::string(buf_notes) + "') "
-        "ON DUPLICATE KEY UPDATE "
-        "  expires = " + expires_expr + ","
-        "  source  = '" + std::string(buf_src) + "',"
-        "  notes   = '" + std::string(buf_notes) + "';";
+    std::string sql;
+    if (days <= 0) {
+        sql =
+            "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) VALUES ('"
+            + std::string(buf_id) + "', '" + std::string(buf_grp) + "', NULL, '"
+            + std::string(buf_src) + "', '" + std::string(buf_notes) + "') "
+            "ON DUPLICATE KEY UPDATE "
+            "  expires = NULL,"
+            "  source  = '" + std::string(buf_src) + "',"
+            "  notes   = '" + std::string(buf_notes) + "';";
+    } else {
+        const std::string insert_expires =
+            "DATE_ADD(NOW(), INTERVAL " + std::to_string(days) + " DAY)";
+        const std::string update_expires =
+            "DATE_ADD(GREATEST(COALESCE(expires, NOW()), NOW()), INTERVAL "
+            + std::to_string(days) + " DAY)";
+        sql =
+            "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) VALUES ('"
+            + std::string(buf_id) + "', '" + std::string(buf_grp) + "', "
+            + insert_expires + ", '" + std::string(buf_src) + "', '"
+            + std::string(buf_notes) + "') "
+            "ON DUPLICATE KEY UPDATE "
+            "  expires = " + update_expires + ","
+            "  source  = '" + std::string(buf_src) + "',"
+            "  notes   = '" + std::string(buf_notes) + "';";
+    }
 
     if (mysql_query(db_, sql.c_str()) != 0) {
         Log::GetLog()->error("ShopEntitlements::Grant failed: {}", mysql_error(db_));

@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.44"
+APP_VERSION: str = "1.9.46"
 BUILD_DATE: str = "2026-06-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.46",
+        "date": "2026-06-20",
+        "changes": [
+            "Fix (CustomShop): ShopEntitlements::Grant — SQL alinhado com a web (sem subquery "
+            "em player_entitlements), corrige erro MySQL 1093 e licenças Gamma/Beta/Alfa.",
+            "Fix (CustomShop): GiveItem/GiveKit falham se LicenseGrant não gravar; claim atômico "
+            "de pedidos pendentes; alias Gamma→licenca_gamma na entrega.",
+            "Fix (Web Store): repair-license para pedidos entregues sem grant; claim/release "
+            "de pedidos PENDENTE/ENTREGANDO.",
+        ],
+    },
+    {
+        "version": "1.9.45",
+        "date": "2026-06-20",
+        "changes": [
+            "Fix (Web Store): desistencia de resgate PENDENTE reembolsa Âmbares corretamente "
+            "e elimina erro SQLAlchemy ao cancelar pedido.",
+        ],
+    },
     {
         "version": "1.9.44",
         "date": "2026-06-20",

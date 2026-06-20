@@ -455,6 +455,38 @@ class TestPluginDeliveryQueue:
         finally:
             db.close()
 
+    def test_pending_claim_reserves_orders(self, client):
+        oid = _create_order_direct(item_id="Gamma", status="PENDENTE")
+        r = client.post(
+            "/api/pending/claim",
+            json={"steam_id": USER_STEAM},
+            headers={"X-API-Key": API_KEY},
+        )
+        d = r.get_json()
+        assert d["ok"] is True
+        assert len(d["items"]) == 1
+        assert d["items"][0]["order_id"] == oid
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "ENTREGANDO"
+        finally:
+            db.close()
+
+    def test_repair_license_grants_entitlement(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(item_id="Gamma", status="ENTREGUE")
+        fake_entitlements = [{"group": "Gamma", "timed_points_bonus": 25}]
+        with patch.object(_app_module, "_ensure_license_entitlement_for_order", return_value=True), \
+             patch.object(_app_module, "_get_player_entitlements", return_value=fake_entitlements):
+            r = client.post(f"/api/admin/orders/{oid}/repair-license")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["repaired"] is True
+        assert d["timed_points_total"] == 50
+        assert "Gamma" in [e["group"] for e in d["entitlements"]]
+
 
 # ── Delivery com RCON por servidor (modo legado) ─────────────────────────────
 

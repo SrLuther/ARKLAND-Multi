@@ -8,7 +8,38 @@
 #include "ShopEntitlements.h"
 #include "ShopCryoDino.h"
 
+#include <cctype>
+
 namespace {
+
+std::string ToLowerAscii(std::string value) {
+    for (char& ch : value)
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return value;
+}
+
+std::string ResolveItemId(const nlohmann::json& items, const std::string& item_id) {
+    if (items.contains(item_id)) return item_id;
+    const std::string lower = ToLowerAscii(item_id);
+    if (items.contains(lower)) return lower;
+    const std::string lic_key = "licenca_" + lower;
+    if (items.contains(lic_key)) return lic_key;
+    return item_id;
+}
+
+bool IsLicenseEntry(const nlohmann::json& entry) {
+    return entry.value("Type", "") == "license" || entry.contains("LicenseGrant");
+}
+
+bool IsPermissionGrantCommand(const std::string& cmd, const std::string& group) {
+    if (group.empty()) return false;
+    if (cmd.find("Permissions.AddTimed") == std::string::npos
+        && cmd.find("Permissions.Add ") == std::string::npos
+        && cmd.find("Permissions.Add\t") == std::string::npos) {
+        return false;
+    }
+    return cmd.find(group) != std::string::npos;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -77,7 +108,8 @@ bool SpawnDinosArray(AShooterPlayerController* controller,
 // Executes kit Commands[] — string or { "Command", "ExecuteAsAdmin" }.
 void RunCommands(const nlohmann::json& commands_array,
                  AShooterPlayerController* controller,
-                 const std::string& steam_id) {
+                 const std::string& steam_id,
+                 const std::string& skip_permission_group = "") {
     for (const auto& cmd_json : commands_array) {
         std::string cmd;
         if (cmd_json.is_string()) {
@@ -88,6 +120,14 @@ void RunCommands(const nlohmann::json& commands_array,
             continue;
         }
         if (cmd.empty()) continue;
+
+        if (!skip_permission_group.empty()
+            && IsPermissionGrantCommand(cmd, skip_permission_group)) {
+            Log::GetLog()->info(
+                "RunCommands: skipping duplicate Permissions grant for group '{}'",
+                skip_permission_group);
+            continue;
+        }
 
         // Replace {SteamID} / {steamid} placeholder
         for (const auto& token : {"{SteamID}", "{steamid}"}) {
@@ -155,8 +195,12 @@ bool BuyItem(AShooterPlayerController* controller,
     if (item.contains("Dinos"))
         SpawnDinosArray(controller, item.at("Dinos"));
 
-    if (item.contains("Commands"))
-        RunCommands(item.at("Commands"), controller, id);
+    if (item.contains("Commands")) {
+        const std::string perm_skip = item.contains("LicenseGrant")
+            ? item.at("LicenseGrant").value("Group", "")
+            : "";
+        RunCommands(item.at("Commands"), controller, id, perm_skip);
+    }
 
     Log::GetLog()->info("BuyItem: player {} bought '{}' x{}", id, item_id, amount);
     return true;
@@ -240,13 +284,23 @@ bool GiveKit(AShooterPlayerController* controller,
         ok = true;
     }
     if (kit.contains("Commands")) {
-        RunCommands(kit.at("Commands"), controller, id);
+        const std::string perm_skip = kit.contains("LicenseGrant")
+            ? kit.at("LicenseGrant").value("Group", "")
+            : "";
+        RunCommands(kit.at("Commands"), controller, id, perm_skip);
         ok = true;
     }
 
     if (kit.contains("LicenseGrant")) {
-        ShopEntitlements::Get().ApplyLicenseGrant(controller, kit, kit_id);
-        ok = true;
+        const bool granted =
+            ShopEntitlements::Get().ApplyLicenseGrant(controller, kit, kit_id);
+        if (IsLicenseEntry(kit) && !granted) {
+            Log::GetLog()->error(
+                "GiveKit: LicenseGrant failed for license kit '{}' player '{}'",
+                kit_id, id);
+            return false;
+        }
+        ok = ok || granted;
     }
 
     if (kit.contains("VipLicense") && kit.at("VipLicense").is_object()) {
@@ -280,12 +334,14 @@ bool GiveItem(AShooterPlayerController* controller,
     if (!controller || amount < 1) return false;
 
     const auto& items = ShopConfig::Get().Items();
-    if (!items.contains(item_id)) {
-        Log::GetLog()->warn("GiveItem: unknown item_id '{}'", item_id);
+    const std::string resolved_id = ResolveItemId(items, item_id);
+    if (!items.contains(resolved_id)) {
+        Log::GetLog()->warn("GiveItem: unknown item_id '{}' (resolved='{}')",
+                            item_id, resolved_id);
         return false;
     }
 
-    const auto& item = items.at(item_id);
+    const auto& item = items.at(resolved_id);
     bool ok = false;
     const std::string id = Bridge::GetSteamId(controller);
 
@@ -320,13 +376,30 @@ bool GiveItem(AShooterPlayerController* controller,
     }
 
     if (item.contains("Commands")) {
-        RunCommands(item.at("Commands"), controller, id);
+        const std::string perm_skip = item.contains("LicenseGrant")
+            ? item.at("LicenseGrant").value("Group", "")
+            : "";
+        RunCommands(item.at("Commands"), controller, id, perm_skip);
         ok = true;
     }
 
     if (item.contains("LicenseGrant")) {
-        ShopEntitlements::Get().ApplyLicenseGrant(controller, item, item_id);
-        ok = true;
+        const bool granted =
+            ShopEntitlements::Get().ApplyLicenseGrant(controller, item, item_id);
+        if (IsLicenseEntry(item) && !granted) {
+            Log::GetLog()->error(
+                "GiveItem: LicenseGrant failed for license item '{}' player '{}'",
+                item_id, id);
+            return false;
+        }
+        ok = ok || granted;
+    }
+
+    if (IsLicenseEntry(item) && !item.contains("LicenseGrant")) {
+        Log::GetLog()->error(
+            "GiveItem: license item '{}' missing LicenseGrant for player '{}'",
+            item_id, id);
+        return false;
     }
 
     Log::GetLog()->info("GiveItem: item '{}' x{} delivered to player '{}' (ok={})",

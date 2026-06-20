@@ -1072,11 +1072,44 @@ def _get_license_grant(entry: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def _catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
+def _catalog_item_map(data: dict[str, Any]) -> dict[str, Any]:
+    raw = data.get("Items") or data.get("ShopItems") or {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _resolve_catalog_item_id(item_type: str, item_id: str) -> str:
+    """Resolve aliases (ex.: Gamma → licenca_gamma) para o ID canônico no config."""
+    item_id = str(item_id or "").strip()
+    if not item_id:
+        return item_id
     data = _read_shop_config()
     if item_type == "kit":
-        return (data.get("Kits") or {}).get(item_id) or {}
-    return (data.get("Items") or data.get("ShopItems") or {}).get(item_id) or {}
+        kits = data.get("Kits") or {}
+        if item_id in kits:
+            return item_id
+        lower = item_id.lower()
+        if lower in kits:
+            return lower
+        return item_id
+
+    items = _catalog_item_map(data)
+    if item_id in items:
+        return item_id
+    lower = item_id.lower()
+    if lower in items:
+        return lower
+    lic_key = f"licenca_{lower}"
+    if lic_key in items:
+        return lic_key
+    return item_id
+
+
+def _catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
+    data = _read_shop_config()
+    resolved = _resolve_catalog_item_id(item_type, item_id)
+    if item_type == "kit":
+        return (data.get("Kits") or {}).get(resolved) or {}
+    return _catalog_item_map(data).get(resolved) or {}
 
 
 def _catalog_price(entry: dict[str, Any], amount: int = 1) -> int:
@@ -1166,6 +1199,51 @@ def _check_entry_permissions(steam_id: str, entry: dict[str, Any]) -> tuple[bool
     return ok, missing
 
 
+def _ensure_license_entitlement_for_order(order: Order, *, reason: str = "") -> bool:
+    """Garante player_entitlements para pedidos de licença (reparo pós-entrega)."""
+    item_type = str(order.item_type or "shop")
+    item_id = str(order.item_id or "")
+    entry = _catalog_entry(
+        "kit" if item_type == "kit" else "shop",
+        item_id,
+    )
+    lic = _get_license_grant(entry)
+    if not lic or lic.get("Redeemable") is False:
+        return False
+    group = str(lic.get("Group") or "").strip()
+    if not group:
+        return False
+    if _player_has_license(str(order.steam_id), group):
+        return True
+    note = reason or f"repair:{item_id}"
+    try:
+        _grant_player_entitlement(
+            str(order.steam_id),
+            group,
+            int(lic.get("Days", 30)),
+            source=str(order.order_id),
+            notes=note,
+        )
+        _log(
+            "license_entitlement_repaired",
+            order_id=order.order_id,
+            steam_id=str(order.steam_id),
+            group=group,
+            item_id=item_id,
+            reason=reason or "missing_after_delivery",
+        )
+        return True
+    except Exception as exc:
+        _log_error(
+            "license_entitlement_repair_failed",
+            order_id=order.order_id,
+            steam_id=str(order.steam_id),
+            group=group,
+            error=str(exc),
+        )
+        return False
+
+
 def _grant_player_entitlement(
     steam_id: str,
     group: str,
@@ -1217,19 +1295,22 @@ def _grant_player_entitlement(
         db.close()
 
 
-def _revoke_entitlement_for_order(steam_id: str, order_id: str) -> None:
-    db = _SessionLocal()
+def _revoke_entitlement_for_order(steam_id: str, order_id: str, db: Any | None = None) -> None:
+    """Remove entitlement vinculado ao pedido. Se `db` for passado, usa a sessão atual."""
+    sql = text(
+        "DELETE FROM player_entitlements "
+        "WHERE steam_id = :sid AND source = :oid"
+    )
+    params = {"sid": str(steam_id), "oid": order_id}
+    if db is not None:
+        db.execute(sql, params)
+        return
+    sess = _SessionLocal()
     try:
-        db.execute(
-            text(
-                "DELETE FROM player_entitlements "
-                "WHERE steam_id = :sid AND source = :oid"
-            ),
-            {"sid": str(steam_id), "oid": order_id},
-        )
-        db.commit()
+        sess.execute(sql, params)
+        sess.commit()
     finally:
-        db.close()
+        sess.close()
 
 
 def _load_point_packages() -> list[dict[str, Any]]:
@@ -1630,11 +1711,12 @@ def get_pending_deliveries(steam_id: str):
     try:
         orders = db.query(Order).filter(
             Order.steam_id == steam_id,
-            Order.status == "PENDENTE"
+            Order.status.in_(("PENDENTE", "ENTREGANDO"))
         ).all()
         items = [{
             "order_id": o.order_id,
-            "item_id": o.item_id,
+            "item_id": _resolve_catalog_item_id(o.item_type or "shop", o.item_id),
+            "catalog_item_id": o.item_id,
             "amount": o.amount,
             "item_type": o.item_type,
         } for o in orders]
@@ -1651,6 +1733,109 @@ def get_pending_deliveries(steam_id: str):
         return jsonify({"ok": True, "items": items, "orders": items})
     except Exception as exc:
         _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/pending/claim", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("60 per minute")
+def claim_pending_orders():
+    """Reserva pedidos PENDENTE para entrega atômica (evita duplicar AddTimed)."""
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    steam_id = str(body.get("steam_id", "")).strip()
+    raw_ids = body.get("order_ids") or []
+    if not steam_id or not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "steam_id inválido"}), 400
+
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    claimed: list[dict[str, Any]] = []
+    try:
+        targets = (
+            [str(x).strip() for x in raw_ids if str(x).strip()]
+            if isinstance(raw_ids, list) and raw_ids
+            else None
+        )
+        q = db.query(Order).filter(
+            Order.steam_id == steam_id,
+            Order.status == "PENDENTE",
+        )
+        if targets:
+            q = q.filter(Order.order_id.in_(targets))
+        pending = q.order_by(Order.created_at.asc()).all()
+
+        now = _now()
+        for order in pending:
+            updated = db.execute(
+                text(
+                    "UPDATE orders SET status = 'ENTREGANDO', updated_at = :now "
+                    "WHERE order_id = :oid AND steam_id = :sid AND status = 'PENDENTE'"
+                ),
+                {"now": now, "oid": order.order_id, "sid": steam_id},
+            )
+            if int(getattr(updated, "rowcount", 0) or 0) <= 0:
+                continue
+            item_type = str(order.item_type or "shop")
+            resolved_id = _resolve_catalog_item_id(item_type, str(order.item_id or ""))
+            claimed.append({
+                "order_id": order.order_id,
+                "item_id": resolved_id,
+                "catalog_item_id": order.item_id,
+                "amount": order.amount,
+                "item_type": item_type,
+            })
+        db.commit()
+        return jsonify({"ok": True, "items": claimed, "orders": claimed})
+    except Exception as exc:
+        db.rollback()
+        _log_error("claim_pending_orders", steam_id=steam_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/pending/release", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+@limiter.limit("60 per minute")
+def release_pending_orders():
+    """Reabre pedidos ENTREGANDO após falha na entrega pelo plugin."""
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    steam_id = str(body.get("steam_id", "")).strip()
+    raw_ids = body.get("order_ids") or []
+    if not steam_id or not isinstance(raw_ids, list) or not raw_ids:
+        return jsonify({"ok": False, "error": "steam_id e order_ids são obrigatórios"}), 400
+
+    db = _get_db_session()
+    if db is None:
+        return jsonify({"ok": False, "error": "Database not available"}), 500
+    released: list[str] = []
+    try:
+        now = _now()
+        for raw_id in raw_ids:
+            order_id = str(raw_id).strip()
+            if not order_id:
+                continue
+            updated = db.execute(
+                text(
+                    "UPDATE orders SET status = 'PENDENTE', updated_at = :now "
+                    "WHERE order_id = :oid AND steam_id = :sid AND status = 'ENTREGANDO'"
+                ),
+                {"now": now, "oid": order_id, "sid": steam_id},
+            )
+            if int(getattr(updated, "rowcount", 0) or 0) > 0:
+                released.append(order_id)
+        db.commit()
+        return jsonify({"ok": True, "released": released})
+    except Exception as exc:
+        db.rollback()
+        _log_error("release_pending_orders", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
@@ -1687,11 +1872,14 @@ def mark_pending_delivered_batch():
             ).first()
             if not order:
                 continue
+            if order.status not in ("PENDENTE", "ENTREGANDO"):
+                continue
             before = order.status
             order.status = "ENTREGUE"
             order.last_error = None
             order.updated_at = _now()
             delivered.append(order_id)
+            _ensure_license_entitlement_for_order(order, reason="post_delivery_repair")
             delivery_detail = next(
                 (d for d in deliveries if isinstance(d, dict) and str(d.get("order_id", "")) == order_id),
                 None,
@@ -2769,9 +2957,19 @@ def player_purchase():
     if not entry:
         if idempotency_key:
             _used_idempotency_keys.pop(idempotency_key, None)
-        return jsonify({"ok": False, "error": "Item não encontrado no catálogo"}), 404
+        resolved = _resolve_catalog_item_id(item_type, item_id)
+        hint = f" (tentou também '{resolved}')" if resolved != item_id else ""
+        return jsonify({"ok": False, "error": f"Item não encontrado no catálogo{hint}"}), 404
 
     lic = _get_license_grant(entry)
+    if str(entry.get("Type", "")).strip().lower() == "license" and not lic:
+        if idempotency_key:
+            _used_idempotency_keys.pop(idempotency_key, None)
+        return jsonify({
+            "ok": False,
+            "error": "Item de licença mal configurado (sem LicenseGrant no catálogo). Contate um admin.",
+        }), 500
+
     if lic and (lic.get("AdminOnly") or lic.get("Redeemable") is False):
         if idempotency_key:
             _used_idempotency_keys.pop(idempotency_key, None)
@@ -2880,54 +3078,63 @@ def player_cancel_order(order_id: str):
                 "error": "Só é possível desistir de resgates ainda pendentes (aguardando entrada no servidor)",
             }), 409
 
+        item_type = str(order.item_type or "shop")
+        item_id = str(order.item_id or "")
+        order_amount = int(order.amount or 1)
+
         refund = int(order.points_spent or 0)
         if refund <= 0:
             entry = _catalog_entry(
-                "kit" if order.item_type == "kit" else "shop",
-                order.item_id,
+                "kit" if item_type == "kit" else "shop",
+                item_id,
             )
-            refund = _catalog_price(entry, order.amount)
+            refund = _catalog_price(entry, order_amount)
 
+        new_balance: int | None = None
         if refund > 0:
-            db.execute(
-                text("UPDATE players SET points = points + :amt WHERE steam_id = :sid"),
-                {"amt": refund, "sid": steam_id},
-            )
+            new_balance = _add_player_points_tx(db, steam_id, refund)
+        else:
+            row = db.execute(
+                text("SELECT points FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            new_balance = int(row[0]) if row else 0
 
         order.status = "CANCELADO"
         order.updated_at = _now()
+        _revoke_entitlement_for_order(steam_id, order_id, db=db)
         db.commit()
-
-        _revoke_entitlement_for_order(steam_id, order_id)
-
-        new_balance = _get_player_points(steam_id)
-        _audit_event(
-            "order_cancelled",
-            actor_type="player",
-            actor_steam_id=steam_id,
-            target_steam_id=steam_id,
-            order_id=order_id,
-            item_type=order.item_type,
-            item_id=order.item_id,
-            status_before="PENDENTE",
-            status_after="CANCELADO",
-            message=f"Desistência — reembolso de {refund} Âmbar",
-            price=refund,
-            points_after=new_balance,
-        )
-        return jsonify({
-            "ok": True,
-            "order_id": order_id,
-            "status": "CANCELADO",
-            "refunded": refund,
-            "new_balance": new_balance,
-        })
     except Exception as exc:
         db.rollback()
         _log_error("player_cancel_order", order_id=order_id, steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
+
+    if new_balance is None:
+        new_balance = _get_player_points(steam_id)
+
+    _audit_event(
+        "order_cancelled",
+        actor_type="player",
+        actor_steam_id=steam_id,
+        target_steam_id=steam_id,
+        order_id=order_id,
+        item_type=item_type,
+        item_id=item_id,
+        status_before="PENDENTE",
+        status_after="CANCELADO",
+        message=f"Desistência — reembolso de {refund} Âmbar",
+        price=refund,
+        points_after=new_balance,
+    )
+    return jsonify({
+        "ok": True,
+        "order_id": order_id,
+        "status": "CANCELADO",
+        "refunded": refund,
+        "new_balance": new_balance,
+    })
 
 
 @app.route("/api/player/entitlements", methods=["GET"])
@@ -3586,6 +3793,41 @@ def admin_list_orders():
     except Exception as exc:
         _log_error("admin_list_orders", error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao listar pedidos: {exc}"}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/orders/<order_id>/repair-license", methods=["POST"])
+@admin_required
+def admin_repair_order_license(order_id: str):
+    """Recria player_entitlements para pedido de licença já entregue sem grant no banco."""
+    if (err := _require_db()) is not None:
+        return err
+    admin_id = str(_steam_id_from_session())
+    db = _SessionLocal()
+    try:
+        order = db.query(Order).filter(Order.order_id == order_id).first()
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        repaired = _ensure_license_entitlement_for_order(order, reason="admin_repair")
+        entitlements = _get_player_entitlements(str(order.steam_id))
+        _audit_event(
+            "admin_repair_license",
+            actor_type="admin",
+            actor_steam_id=admin_id,
+            target_steam_id=str(order.steam_id),
+            order_id=order_id,
+            item_type=order.item_type,
+            item_id=order.item_id,
+            message="Licença reparada no banco" if repaired else "Nada a reparar ou item sem LicenseGrant",
+            repaired=repaired,
+        )
+        return jsonify({
+            "ok": True,
+            "repaired": repaired,
+            "entitlements": entitlements,
+            "timed_points_total": _compute_timed_points_total([e["group"] for e in entitlements]),
+        })
     finally:
         db.close()
 

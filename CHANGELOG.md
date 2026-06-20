@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.46] - 2026-06-20
+
+### Fix
+
+- Fix (CustomShop): ShopEntitlements::Grant — SQL alinhado com a web (sem subquery em player_entitlements), corrige erro MySQL 1093 e licenças Gamma/Beta/Alfa.
+- Fix (CustomShop): GiveItem/GiveKit falham se LicenseGrant não gravar; claim atômico de pedidos pendentes; alias Gamma→licenca_gamma na entrega.
+- Fix (Web Store): repair-license para pedidos entregues sem grant; claim/release de pedidos PENDENTE/ENTREGANDO.
+
+## [1.9.45] - 2026-06-20
+
+### Fix
+
+- Fix (Web Store): desistencia de resgate PENDENTE reembolsa Âmbares corretamente e elimina erro SQLAlchemy ao cancelar pedido.
+
 ## [1.9.44] - 2026-06-20
 
 ### Improvement
