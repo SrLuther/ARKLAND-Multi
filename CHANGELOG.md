@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.67] - 2026-06-21
+
+### Fix
+
+- Fix (Comercio): layout alinhado do simulador na pagina Economia Comercio (grid HP/DM/WE/ST/SP).
+
 ## [1.9.66] - 2026-06-21
 
 ### Fix

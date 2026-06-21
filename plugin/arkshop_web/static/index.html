@@ -668,6 +668,35 @@
       min-height: 160px;
       line-height: 1.45;
     }
+    .me-sim-form {
+      display: grid;
+      gap: 12px;
+      max-width: 520px;
+    }
+    .me-sim-form > .form-group label,
+    .me-sim-stats .form-group label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      text-transform: none;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    .me-sim-form > .form-group input,
+    .me-sim-form > .form-group select,
+    .me-sim-stats .form-group input {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .me-sim-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 12px;
+    }
+    .me-sim-stats .form-group {
+      min-width: 0;
+    }
     .kit-json-hint {
       font-size: 11px;
       color: var(--text2);
@@ -7053,17 +7082,40 @@ function renderMarketEconomySim(species) {
   if (!root) return;
   const opts = (species || []).map(s => `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name)} (${escHtml(s.species_key)})</option>`).join("");
   root.innerHTML = `
-    <div class="card"><div style="padding:14px 16px;display:grid;gap:12px;max-width:520px;">
-      <label>Espécie<select id="me-sim-species" style="width:100%;margin-top:4px;">${opts}</select></label>
-      <label>Raiz (opcional)<input id="me-sim-root" type="number" placeholder="preço loja lvl 1" style="width:100%;margin-top:4px;" /></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <label>HP pts base<input id="me-sim-hp" type="number" min="0" value="0" /></label>
-        <label>DM pts base<input id="me-sim-dm" type="number" min="0" value="0" /></label>
-        <label>WE pts base<input id="me-sim-we" type="number" min="0" value="0" /></label>
-        <label>ST pts base<input id="me-sim-st" type="number" min="0" value="0" /></label>
-        <label>SP pts base<input id="me-sim-sp" type="number" min="0" value="0" /></label>
+    <div class="card"><div style="padding:14px 16px;">
+      <div class="me-sim-form">
+        <div class="form-group">
+          <label for="me-sim-species">Espécie</label>
+          <select id="me-sim-species">${opts}</select>
+        </div>
+        <div class="form-group">
+          <label for="me-sim-root">Raiz (opcional)</label>
+          <input id="me-sim-root" type="number" placeholder="preço loja lvl 1" />
+        </div>
+        <div class="me-sim-stats">
+          <div class="form-group">
+            <label for="me-sim-hp">HP pts base</label>
+            <input id="me-sim-hp" type="number" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="me-sim-dm">DM pts base</label>
+            <input id="me-sim-dm" type="number" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="me-sim-we">WE pts base</label>
+            <input id="me-sim-we" type="number" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="me-sim-st">ST pts base</label>
+            <input id="me-sim-st" type="number" min="0" value="0" />
+          </div>
+          <div class="form-group">
+            <label for="me-sim-sp">SP pts base</label>
+            <input id="me-sim-sp" type="number" min="0" value="0" />
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="marketEconomySimulate()">Simular</button>
       </div>
-      <button class="btn btn-primary" onclick="marketEconomySimulate()">Simular</button>
     </div></div>`;
 }
 
