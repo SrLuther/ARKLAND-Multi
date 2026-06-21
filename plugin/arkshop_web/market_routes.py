@@ -184,6 +184,21 @@ def register_market_routes(
         finally:
             db.close()
 
+    @app.route("/api/market/admin/species/<species_key>/multipliers/defaults", methods=["GET"])
+    @admin_required
+    def market_admin_mult_defaults(species_key: str):
+        """Multiplicadores sugeridos de market_species_defaults.json (para o editor admin)."""
+        from market_economy import build_multipliers_from_defaults
+
+        mults = build_multipliers_from_defaults(species_key.strip())
+        return jsonify(
+            {
+                "ok": True,
+                "species_key": species_key,
+                "multipliers": {k: v.to_dict() for k, v in sorted(mults.items())},
+            }
+        )
+
     @app.route("/api/market/admin/species/<species_key>/multipliers", methods=["PATCH"])
     @admin_required
     def market_admin_patch_multipliers(species_key: str):

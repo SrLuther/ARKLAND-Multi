@@ -18,6 +18,7 @@ a = Analysis(
     binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries,
     datas=[
         ('plugin/arkshop_web/static', 'static'),
+        ('plugin/arkshop_web/data', 'data'),
         ('plugin/CustomShop/configs/config.json', 'CustomShop/configs'),
         ('version.json', '.'),
     ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas,

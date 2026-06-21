@@ -1,9 +1,9 @@
 {
-    "version": "1.9.49",
+    "version": "1.9.50",
     "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.49/ARKLAND-Multi-Setup-v1.9.49.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.50/ARKLAND-Multi-Setup-v1.9.50.exe",
     "changelog": [
-        "Fix (Web Store): rotas /api/market/* retornavam 500 HTML — session_factory capturava _SessionLocal=None na importação; Comércio P2P inoperante.",
-        "Fix (TEK): Gerenciador de Banco de Dados — scrollbars e treeviews com tema correto, layout da aba Dados e faixa branca na base."
+        "Novo (Web Store): editor admin de multiplicadores por stat (7 stats, antes de ativar) + botão Carregar sugeridos do market_species_defaults.json.",
+        "Fix (Web Store): market_species_defaults.json incluído no bundle PyInstaller — sync catálogo aplica tiers e multiplicadores corretos em produção."
     ]
 }

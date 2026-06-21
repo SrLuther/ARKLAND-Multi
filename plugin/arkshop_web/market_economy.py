@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -30,8 +31,16 @@ STAT_ALIASES: dict[str, str] = {
     "speed": "speed",
 }
 
-_DATA_DIR = Path(__file__).resolve().parent / "data"
-_DEFAULTS_FILE = _DATA_DIR / "market_species_defaults.json"
+def _defaults_file_path() -> Path:
+    """Dev: plugin/arkshop_web/data/… — PyInstaller: _MEIPASS/data/…"""
+    if getattr(sys, "frozen", False):
+        bundled = Path(sys._MEIPASS) / "data" / "market_species_defaults.json"  # type: ignore[attr-defined]
+        if bundled.is_file():
+            return bundled
+    return Path(__file__).resolve().parent / "data" / "market_species_defaults.json"
+
+
+_DEFAULTS_FILE = _defaults_file_path()
 
 
 @dataclass

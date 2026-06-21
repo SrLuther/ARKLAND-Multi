@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.50] - 2026-06-20
+
+### Feature
+
+- Novo (Web Store): editor admin de multiplicadores por stat (7 stats, antes de ativar) + botão Carregar sugeridos do market_species_defaults.json.
+
+### Fix
+
+- Fix (Web Store): market_species_defaults.json incluído no bundle PyInstaller — sync catálogo aplica tiers e multiplicadores corretos em produção.
+
 ## [1.9.49] - 2026-06-20
 
 ### Fix

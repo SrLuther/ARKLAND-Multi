@@ -637,6 +637,8 @@
       overflow-y: auto;
       padding-right: 4px;
     }
+    #modal-market-mult .modal { max-width: 560px; }
+    #modal-market-mult .market-mult-val:disabled { opacity: 0.45; }
     .kit-section {
       margin-top: 16px;
       padding-top: 12px;
@@ -3137,6 +3139,7 @@
           <div class="card" style="margin-bottom:16px;">
             <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
               Importa dinos <code>Type: dino</code> do <code>config.json</code>. Espécies <strong>PRE_REGISTERED</strong> até ativar.
+              Use <strong>Mult.</strong> para editar multiplicadores por stat (antes ou depois de ativar).
             </p>
           </div>
           <div id="market-admin-list"></div>
@@ -3712,6 +3715,27 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-kit')">Cancelar</button>
       <button class="btn btn-success" id="modal-kit-save-btn" onclick="confirmKit()">💾 Salvar & Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Mercado — multiplicadores ─────────────────────────────────────── -->
+<div id="modal-market-mult" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-market-mult-title">Multiplicadores</div>
+        <div id="modal-market-mult-subtitle" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-market-mult')">✕</button>
+    </div>
+    <div id="modal-market-mult-body" style="padding:0 4px 8px;"></div>
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button type="button" class="btn btn-ghost btn-sm" id="modal-market-mult-defaults-btn">↺ Carregar sugeridos</button>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-market-mult')">Cancelar</button>
+        <button type="button" class="btn btn-success" onclick="marketSaveMultipliers()">💾 Salvar</button>
+      </div>
     </div>
   </div>
 </div>
@@ -6120,24 +6144,114 @@ async function loadMarketPendingClassification() {
 async function marketEditMultipliers(speciesKey) {
   const species = _marketAdminSpecies.find(s => s.species_key === speciesKey);
   if (!species) return;
-  const mults = species.multipliers || {};
-  const melee = mults.melee?.multiplier ?? 0;
-  const val = prompt(`Multiplicador melee para ${species.display_name}:`, String(melee));
-  if (val == null) return;
-  const n = parseInt(val, 10);
-  if (Number.isNaN(n) || n < 0) {
-    toast("Valor inválido", "warning");
-    return;
+  _marketMultEditingKey = speciesKey;
+  document.getElementById("modal-market-mult-title").textContent =
+    "Multiplicadores — " + species.display_name;
+  document.getElementById("modal-market-mult-subtitle").innerHTML =
+    `<code>${escHtml(species.species_key)}</code> · Raiz ${Number(species.root_value || 0).toLocaleString("pt-BR")} Âmbar · Tier ${escHtml(species.tier || "—")}`;
+  _renderMarketMultForm(species.multipliers || {});
+  const defBtn = document.getElementById("modal-market-mult-defaults-btn");
+  if (defBtn) {
+    defBtn.onclick = () => marketLoadMultDefaults(speciesKey);
   }
+  openModal("modal-market-mult");
+}
+
+const _MARKET_STAT_KEYS = ["health", "stamina", "oxygen", "food", "weight", "melee", "speed"];
+const _MARKET_STAT_LABELS = {
+  health: "Vida", stamina: "Estamina", oxygen: "Oxigênio", food: "Comida",
+  weight: "Peso", melee: "Dano", speed: "Velocidade",
+};
+let _marketMultEditingKey = null;
+
+function _renderMarketMultForm(mults) {
+  const body = document.getElementById("modal-market-mult-body");
+  if (!body) return;
+  const rows = _MARKET_STAT_KEYS.map(sk => {
+    const m = mults[sk] || {};
+    const mult = Number(m.multiplier) || 0;
+    const enabled = m.enabled !== false && mult > 0;
+    return `<tr data-stat="${sk}">
+      <td>${escHtml(_MARKET_STAT_LABELS[sk] || sk)}</td>
+      <td style="text-align:center;width:72px;">
+        <input type="checkbox" class="market-mult-en" ${enabled ? "checked" : ""} aria-label="Ativo ${escHtml(sk)}">
+      </td>
+      <td style="width:120px;">
+        <input type="number" class="form-input market-mult-val" min="0" step="1"
+               value="${enabled ? mult : 0}" ${enabled ? "" : "disabled"}
+               style="width:100%;" aria-label="Mult ${escHtml(sk)}">
+      </td>
+    </tr>`;
+  }).join("");
+  body.innerHTML = `
+    <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
+      Valor sugerido = <strong>raiz</strong> + Σ (pontos breeding × multiplicador).
+      Stats desativados ou com mult. <strong>0</strong> não entram no cálculo.
+    </p>
+    <table class="tbl">
+      <thead><tr>
+        <th>Stat</th><th style="text-align:center;">Ativo</th><th>Mult. (Âmbar/pt)</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  body.querySelectorAll(".market-mult-en").forEach(cb => {
+    cb.addEventListener("change", () => {
+      const row = cb.closest("tr");
+      const inp = row.querySelector(".market-mult-val");
+      inp.disabled = !cb.checked;
+      if (!cb.checked) inp.value = "0";
+      else if (!parseInt(inp.value, 10)) inp.value = "1";
+    });
+  });
+}
+
+function _collectMarketMultPayload() {
+  const body = document.getElementById("modal-market-mult-body");
+  const multipliers = {};
+  if (!body) return multipliers;
+  body.querySelectorAll("tbody tr[data-stat]").forEach(row => {
+    const sk = row.dataset.stat;
+    const enabled = row.querySelector(".market-mult-en").checked;
+    const mult = parseInt(row.querySelector(".market-mult-val").value, 10) || 0;
+    multipliers[sk] = { multiplier: enabled ? mult : 0, enabled: enabled && mult > 0 };
+  });
+  return multipliers;
+}
+
+async function marketLoadMultDefaults(speciesKey) {
+  try {
+    const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey) + "/multipliers/defaults");
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Sem defaults para esta espécie", "warning");
+      return;
+    }
+    const mults = d.multipliers || {};
+    if (!Object.keys(mults).length) {
+      toast("Nenhum default em market_species_defaults.json para esta key", "warning");
+      return;
+    }
+    _renderMarketMultForm(mults);
+    toast("Defaults carregados — revise e salve", "success");
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function marketSaveMultipliers() {
+  const speciesKey = _marketMultEditingKey;
+  if (!speciesKey) return;
+  const multipliers = _collectMarketMultPayload();
   try {
     const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey) + "/multipliers", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ multipliers: { melee: { multiplier: n, enabled: n > 0 } } }),
+      body: JSON.stringify({ multipliers }),
     });
     const d = await r.json();
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    toast("Multiplicadores atualizados", "success");
+    toast("Multiplicadores salvos", "success");
+    closeModal("modal-market-mult");
     loadMarketAdmin();
   } catch (e) { toast(String(e), "error"); }
 }
@@ -6191,9 +6305,11 @@ function renderMarketAdmin() {
     const badge = st === "ACTIVE"
       ? '<span style="color:var(--success);">ACTIVE</span>'
       : '<span style="color:var(--warn);">' + escHtml(st) + '</span>';
-    const btn = st === "ACTIVE"
-      ? `<button class="btn btn-sm btn-ghost market-mult-btn" data-species-key="${escHtml(s.species_key)}">Mult.</button>`
-      : `<button class="btn btn-sm btn-primary market-activate-btn" data-species-key="${escHtml(s.species_key)}">Ativar</button>`;
+    const btnMult = `<button type="button" class="btn btn-sm btn-ghost market-mult-btn" data-species-key="${escHtml(s.species_key)}">Mult.</button>`;
+    const btnAct = st === "ACTIVE"
+      ? ""
+      : `<button type="button" class="btn btn-sm btn-primary market-activate-btn" data-species-key="${escHtml(s.species_key)}">Ativar</button>`;
+    const actions = `<div style="display:flex;gap:6px;flex-wrap:wrap;">${btnMult}${btnAct}</div>`;
     return `<tr>
       <td>${escHtml(s.display_name)}</td>
       <td><code>${escHtml(s.species_key)}</code></td>
@@ -6201,7 +6317,7 @@ function renderMarketAdmin() {
       <td>${escHtml(s.tier || "—")}</td>
       <td>${badge}</td>
       <td style="font-size:11px;color:var(--text2);max-width:280px;">${escHtml(_marketMultSummary(s.multipliers))}</td>
-      <td>${btn}</td>
+      <td>${actions}</td>
     </tr>`;
   }).join("");
   list.innerHTML = `

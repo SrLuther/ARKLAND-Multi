@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.49"
+APP_VERSION: str = "1.9.50"
 BUILD_DATE: str = "2026-06-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.50",
+        "date": "2026-06-20",
+        "changes": [
+            "Novo (Web Store): editor admin de multiplicadores por stat (7 stats, antes de ativar) "
+            "+ botão Carregar sugeridos do market_species_defaults.json.",
+            "Fix (Web Store): market_species_defaults.json incluído no bundle PyInstaller — "
+            "sync catálogo aplica tiers e multiplicadores corretos em produção.",
+        ],
+    },
     {
         "version": "1.9.49",
         "date": "2026-06-20",
