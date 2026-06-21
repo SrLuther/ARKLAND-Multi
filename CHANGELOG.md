@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.59] - 2026-06-21
+
+### Feature
+
+- Novo (TEK): painel CustomShop — ativar/desativar timer minimo do Comercio (MarketCryoRequireMinDays) e dias minimos na aba Configuracoes.
+
+### Fix
+
+- Fix (CustomShop): leitura timer cryogun — ignora saved<=3600 quando ItemDurability tem os segundos restantes (corrige 0 dias com max~29d).
+
 ## [1.9.58] - 2026-06-21
 
 ### Feature

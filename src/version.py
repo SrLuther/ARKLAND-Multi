@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.58"
+APP_VERSION: str = "1.9.59"
 BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.59",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (TEK): painel CustomShop — ativar/desativar timer minimo do Comercio "
+            "(MarketCryoRequireMinDays) e dias minimos na aba Configuracoes.",
+            "Fix (CustomShop): leitura timer cryogun — ignora saved<=3600 quando "
+            "ItemDurability tem os segundos restantes (corrige 0 dias com max~29d).",
+        ],
+    },
     {
         "version": "1.9.58",
         "date": "2026-06-21",

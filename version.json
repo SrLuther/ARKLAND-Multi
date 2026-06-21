@@ -1,8 +1,9 @@
 {
-    "version": "1.9.58",
+    "version": "1.9.59",
     "date": "2026-06-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.58/ARKLAND-Multi-Setup-v1.9.58.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.59/ARKLAND-Multi-Setup-v1.9.59.exe",
     "changelog": [
-        "Novo (CustomShop): MarketCryoRequireMinDays no config — desativa verificacao de timer minimo em /enviar e /confirmar (default false por enquanto)."
+        "Novo (TEK): painel CustomShop — ativar/desativar timer minimo do Comercio (MarketCryoRequireMinDays) e dias minimos na aba Configuracoes.",
+        "Fix (CustomShop): leitura timer cryogun — ignora saved<=3600 quando ItemDurability tem os segundos restantes (corrige 0 dias com max~29d)."
     ]
 }

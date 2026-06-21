@@ -379,6 +379,11 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             "VoteRewards":          tk.BooleanVar(value=bool(s.get("VoteRewards", False))),
             "HideBuffIcon":         tk.BooleanVar(value=bool(s.get("HideBuffIcon", False))),
             "UseSteamOverlay":      tk.BooleanVar(value=bool(s.get("UseSteamOverlay", False))),
+            "MarketCryoRequireMinDays": tk.BooleanVar(
+                value=bool(s.get("MarketCryoRequireMinDays", False))),
+            "MarketCryoMinDaysRemaining": tk.StringVar(
+                value=str(s.get("MarketCryoMinDaysRemaining", 20))),
+            "MarketCryoDebug":      tk.BooleanVar(value=bool(s.get("MarketCryoDebug", False))),
         })
 
         _field_row(card_cfg, "Nome exibido (portal)", _sv["ShopName"],       bg=_INNER)
@@ -398,6 +403,41 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         _bool_row(card_cfg, "Recompensas de Votação",     _sv["VoteRewards"],        bg=_INNER)
         _bool_row(card_cfg, "Ocultar Ícone de Buff",      _sv["HideBuffIcon"],       bg=_INNER)
         _bool_row(card_cfg, "Usar Steam Overlay",         _sv["UseSteamOverlay"],    bg=_INNER)
+
+        tk.Frame(card_cfg, bg=_BDR, height=1).pack(fill="x", padx=10, pady=6)
+        _head(card_cfg, "🛒  Comércio P2P — Cryopod (/enviar)")
+
+        tk.Label(
+            card_cfg,
+            text=(
+                "Controla se o servidor exige timer mínimo na cryopod antes de enviar dino "
+                "ao mercado. Desligado = ignora a leitura de dias (útil se a API do ARK "
+                "mostrar 0 dias com timer visível no jogo)."
+            ),
+            bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
+            anchor="w", justify="left", wraplength=720,
+        ).pack(fill="x", padx=10, pady=(0, 6))
+
+        _bool_row(
+            card_cfg,
+            "Exigir timer mínimo no /enviar e /confirmar",
+            _sv["MarketCryoRequireMinDays"],
+            bg=_INNER,
+        )
+        _field_row(
+            card_cfg,
+            "Dias mínimos de timer",
+            _sv["MarketCryoMinDaysRemaining"],
+            bg=_INNER,
+            hint="Só aplica com a opção acima ligada (padrão: 20)",
+            width=80,
+        )
+        _bool_row(
+            card_cfg,
+            "Diagnóstico cryopod (log + /enviardebug)",
+            _sv["MarketCryoDebug"],
+            bg=_INNER,
+        )
 
     def _build_tab_timed() -> None:
         t_timed = ctk.CTkScrollableFrame(tabs.tab("⏱️  Pontos Temporais"), fg_color=_BG)
@@ -532,6 +572,10 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             s_out["VoteRewards"]          = _sv["VoteRewards"].get()
             s_out["HideBuffIcon"]         = _sv["HideBuffIcon"].get()
             s_out["UseSteamOverlay"]      = _sv["UseSteamOverlay"].get()
+            s_out["MarketCryoRequireMinDays"] = _sv["MarketCryoRequireMinDays"].get()
+            s_out["MarketCryoMinDaysRemaining"] = _safe_int(
+                _sv["MarketCryoMinDaysRemaining"].get(), 20)
+            s_out["MarketCryoDebug"]      = _sv["MarketCryoDebug"].get()
             central = resolve_website_url(shop_cfg)
             s_out["WebsiteUrl"] = central
             s_out["WebApiUrl"] = resolve_plugin_api_url(shop_cfg)

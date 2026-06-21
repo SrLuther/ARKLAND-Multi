@@ -287,17 +287,19 @@ float GetCryopodRemainingDecaySeconds(UPrimalItem* item) {
 
     // Teto estendido (cryogun / CryoLimitedTime / loja).
     const float via_pct = max_dur * pct;
-    if (saved > 0.f) {
+    if (saved > kStandardCryoDurability + 1.f) {
         if (saved <= max_dur + 1.f)
             return std::max(via_pct, saved);
         return saved;
     }
     if (via_pct > kStandardCryoDurability + 1.f)
         return via_pct;
-    // Cryogun: segundos restantes em ItemDurability; BPGetItemDurabilityPercentage ~0.
+    // Cryogun: segundos restantes em ItemDurability; saved costuma ser lixo (~1).
     constexpr float kOneDaySeconds = 86400.f;
     if (max_dur > kOneDaySeconds && pct < 0.01f)
         return max_dur;
+    if (saved > 0.f)
+        return std::max(via_pct, saved);
     return via_pct;
 }
 
