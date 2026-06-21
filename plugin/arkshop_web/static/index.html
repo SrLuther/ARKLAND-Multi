@@ -566,6 +566,50 @@
       color: var(--tek);
     }
 
+    .market-tier-legend {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: rgba(232, 120, 32, .06);
+      border: 1px solid rgba(232, 120, 32, .18);
+      border-radius: var(--radius);
+    }
+    .market-tier-legend__title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 8px;
+    }
+    .market-tier-legend__list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .market-tier-legend__item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text2);
+    }
+    .market-tier-badge {
+      flex-shrink: 0;
+      min-width: 28px;
+      text-align: center;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: .04em;
+      color: var(--amber);
+      background: rgba(232, 120, 32, .12);
+      border: 1px solid rgba(232, 120, 32, .28);
+      border-radius: 4px;
+      padding: 1px 6px;
+    }
+
     /* ── Badges ───────────────────────────────────────────────────────────── */
     .badge {
       display: inline-flex;
@@ -2718,10 +2762,278 @@
     }
     .home-link-chip:hover { background: var(--tek-dim); color: #fff; }
 
+    /* ── Home — Comércio P2P (marketing) ─────────────────────────────────── */
+    .home-commerce {
+      position: relative;
+      margin-bottom: 24px;
+      padding: 32px 28px 28px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(0, 200, 255, .28);
+      background:
+        radial-gradient(ellipse 70% 80% at 0% 50%, rgba(232, 120, 32, .14) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 70% at 100% 20%, rgba(0, 200, 255, .1) 0%, transparent 50%),
+        linear-gradient(155deg, #12100a 0%, #0a0906 45%, #0d0c08 100%);
+      overflow: hidden;
+      box-shadow:
+        0 24px 70px rgba(0, 0, 0, .55),
+        inset 0 1px 0 rgba(255, 200, 120, .08);
+    }
+    .home-commerce::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 24px,
+        rgba(255, 255, 255, .012) 24px,
+        rgba(255, 255, 255, .012) 25px
+      );
+      pointer-events: none;
+    }
+    .home-commerce__inner { position: relative; z-index: 1; }
+    .home-commerce__top {
+      display: grid;
+      grid-template-columns: 1.15fr minmax(220px, .85fr);
+      gap: 28px;
+      align-items: center;
+      margin-bottom: 26px;
+    }
+    .home-commerce__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 200, 255, .35);
+      background: rgba(0, 200, 255, .08);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: #7ee8ff;
+    }
+    .home-commerce__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: clamp(24px, 3.8vw, 36px);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.15;
+      letter-spacing: .03em;
+      margin-bottom: 12px;
+      text-shadow: 0 0 30px rgba(0, 200, 255, .25);
+    }
+    .home-commerce__title em {
+      font-style: normal;
+      color: var(--amber);
+      text-shadow: 0 0 24px rgba(232, 120, 32, .45);
+    }
+    .home-commerce__lead {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.75;
+      max-width: 560px;
+      margin-bottom: 16px;
+      opacity: .95;
+    }
+    .home-commerce__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .home-commerce__chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      border: 1px solid var(--border-g);
+      background: rgba(0, 0, 0, .35);
+      color: var(--text);
+    }
+    .home-commerce__chip--gold {
+      border-color: rgba(232, 120, 32, .4);
+      color: #ffb070;
+    }
+    .home-commerce__chip--tek {
+      border-color: rgba(0, 200, 255, .35);
+      color: #7ee8ff;
+    }
+    .home-commerce__chip--ok {
+      border-color: rgba(18, 216, 124, .35);
+      color: #6ee7a8;
+    }
+    .home-commerce__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .home-commerce__showcase {
+      position: relative;
+      padding: 22px 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232, 120, 32, .28);
+      background:
+        radial-gradient(circle at 50% 0%, rgba(232, 120, 32, .12) 0%, transparent 60%),
+        rgba(0, 0, 0, .35);
+      text-align: center;
+    }
+    .home-commerce__showcase-icon {
+      font-size: 52px;
+      line-height: 1;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 0 18px rgba(0, 200, 255, .35));
+    }
+    .home-commerce__showcase-title {
+      font-family: 'Cinzel', serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .home-commerce__showcase-sub {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.55;
+      margin-bottom: 14px;
+    }
+    .home-commerce__cmd {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+    }
+    .home-commerce__cmd code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 200, 255, .25);
+      background: rgba(0, 200, 255, .06);
+      color: var(--tek);
+    }
+    .home-commerce__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .home-commerce__card {
+      padding: 18px 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, .28);
+      transition: border-color .2s, transform .2s;
+    }
+    .home-commerce__card:hover {
+      border-color: rgba(232, 120, 32, .35);
+      transform: translateY(-2px);
+    }
+    .home-commerce__card-icon {
+      font-size: 26px;
+      margin-bottom: 10px;
+    }
+    .home-commerce__card-title {
+      font-family: 'Cinzel', serif;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 8px;
+    }
+    .home-commerce__card-text {
+      font-size: 12px;
+      color: var(--text2);
+      line-height: 1.6;
+    }
+    .home-commerce__flow {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .home-commerce__flow-step {
+      position: relative;
+      padding: 14px 12px 12px;
+      border-radius: var(--radius);
+      border: 1px dashed rgba(0, 200, 255, .22);
+      background: rgba(0, 200, 255, .04);
+      text-align: center;
+    }
+    .home-commerce__flow-step:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(0, 200, 255, .45);
+      font-size: 14px;
+      font-weight: 700;
+      z-index: 2;
+    }
+    .home-commerce__flow-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--tek);
+      border: 1px solid rgba(0, 200, 255, .35);
+      background: rgba(0, 200, 255, .1);
+    }
+    .home-commerce__flow-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .home-commerce__flow-text {
+      font-size: 10px;
+      color: var(--text2);
+      line-height: 1.45;
+    }
+    .home-commerce__footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, .06);
+    }
+    .home-commerce__quote {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-style: italic;
+      color: var(--text);
+      line-height: 1.55;
+      max-width: 520px;
+    }
+    .home-commerce__quote strong {
+      font-style: normal;
+      color: var(--amber);
+    }
+
     @media (max-width: 768px) {
       .home-hero { grid-template-columns: 1fr; padding: 28px 20px; }
       .home-hero__visual { order: -1; }
       .home-hero__logo { width: 88px; height: 88px; }
+      .home-commerce { padding: 24px 18px; }
+      .home-commerce__top { grid-template-columns: 1fr; }
+      .home-commerce__flow { grid-template-columns: 1fr 1fr; }
+      .home-commerce__flow-step:not(:last-child)::after { display: none; }
+      .home-commerce__footer { flex-direction: column; align-items: flex-start; }
     }
 
     /* ── Auditoria — detalhe formatado ────────────────────────────────────── */
@@ -5726,6 +6038,7 @@ async function loadDownloads() {
 
 // ── Comércio (Mercado de Dinos) ───────────────────────────────────────────────
 let _marketTable = null;
+let _marketTierLegend = {};
 let _marketBrowse = [];
 let _marketMyListings = [];
 let _marketAdminSpecies = [];
@@ -5796,6 +6109,7 @@ async function loadMarketTable() {
       return;
     }
     _marketTable = d;
+    _marketTierLegend = d.tier_legend || {};
     renderMarketTable();
   } catch (e) {
     root.innerHTML = `<p style="color:var(--danger);padding:16px;">Erro ao carregar: ${escHtml(String(e))}</p>`;
@@ -5808,6 +6122,26 @@ function _marketMultSummary(multipliers) {
     .filter(v => v && v.enabled && v.multiplier > 0)
     .map(v => `${v.label || v.stat_key} ×${v.multiplier}`)
     .join(" · ") || "—";
+}
+
+const _MARKET_TIER_ORDER = ["S+", "S", "A", "B", "C"];
+
+function _marketTierLegendHtml(legend) {
+  const entries = Object.entries(legend || {})
+    .filter(([, desc]) => desc)
+    .sort((a, b) => {
+      const ia = _MARKET_TIER_ORDER.indexOf(a[0]);
+      const ib = _MARKET_TIER_ORDER.indexOf(b[0]);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  if (!entries.length) return "";
+  const items = entries.map(([tier, desc]) =>
+    `<li class="market-tier-legend__item"><span class="market-tier-badge">${escHtml(tier)}</span><span>${escHtml(desc)}</span></li>`
+  ).join("");
+  return `<div class="market-tier-legend">
+    <div class="market-tier-legend__title">Legenda — Tier</div>
+    <ul class="market-tier-legend__list">${items}</ul>
+  </div>`;
 }
 
 function renderMarketTable() {
@@ -5835,6 +6169,7 @@ function renderMarketTable() {
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    ${_marketTierLegendHtml(_marketTierLegend || _marketTable.tier_legend)}
     <p style="font-size:12px;color:var(--text2);margin-top:12px;line-height:1.5;">
       ${escHtml(_marketTable.description || "")}
     </p>`;
@@ -6366,6 +6701,7 @@ async function loadMarketAdmin() {
       return;
     }
     _marketAdminSpecies = d.species || [];
+    _marketTierLegend = d.tier_legend || _marketTierLegend;
     renderMarketAdmin();
   } catch (e) {
     list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
@@ -6414,6 +6750,7 @@ function renderMarketAdmin() {
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
+      ${_marketTierLegendHtml(_marketTierLegend)}
     </div>`;
   requestAnimationFrame(() => wrapTablesForScroll(list));
   list.querySelectorAll(".market-activate-btn").forEach(btn => {
@@ -8369,6 +8706,126 @@ async function loadHome() {
   }
 }
 
+function renderHomeCommerceSection() {
+  const currency = escHtml(CURRENCY.plural);
+  return `
+    <section class="home-commerce" aria-labelledby="home-commerce-title">
+      <div class="home-commerce__inner">
+        <div class="home-commerce__top">
+          <div>
+            <div class="home-commerce__eyebrow">✦ Novidade · Comércio entre jogadores</div>
+            <h2 class="home-commerce__title" id="home-commerce-title">
+              Seu dino. <em>Seu preço.</em><br>Seu mercado.
+            </h2>
+            <p class="home-commerce__lead">
+              O marketplace P2P oficial do cluster ARKLAND: compre e venda linhagens de breeding
+              com outros jogadores usando <strong style="color:var(--amber);">${currency}</strong> —
+              sem dinheiro real, sem intermediários e <strong>taxa zero</strong>.
+              Tudo via cryopod oficial, com tabela econômica transparente e vitrine por jogador.
+            </p>
+            <div class="home-commerce__chips">
+              <span class="home-commerce__chip home-commerce__chip--ok">✓ Taxa 0%</span>
+              <span class="home-commerce__chip home-commerce__chip--gold">🪙 Só ${currency}</span>
+              <span class="home-commerce__chip home-commerce__chip--tek">🧊 Cryopod vanilla</span>
+              <span class="home-commerce__chip">💯 Imprint 100%</span>
+              <span class="home-commerce__chip">📊 Tabela S+ → C</span>
+            </div>
+            <div class="home-commerce__actions">
+              <button class="btn btn-primary" onclick="goToPage('market');setTimeout(function(){setMarketTab('browse');},200)">
+                🛒 Explorar mercado
+              </button>
+              <button class="btn btn-ghost" onclick="goToPage('market');setTimeout(function(){setMarketTab('table');},200)">
+                📋 Tabela oficial
+              </button>
+              ${ _auth.authenticated ? `<button class="btn btn-ghost" onclick="goToPage('market');setTimeout(function(){setMarketTab('myshop');},200)">🏪 Minha loja</button>` : ""}
+            </div>
+          </div>
+          <div class="home-commerce__showcase">
+            <div class="home-commerce__showcase-icon">🧊🦖</div>
+            <div class="home-commerce__showcase-title">Cryopod → Comércio → Resgate</div>
+            <div class="home-commerce__showcase-sub">
+              Envie in-game, defina o preço na web e receba ${currency} quando alguém comprar.
+              O comprador resgata com um comando — o dino volta intacto na cryo.
+            </div>
+            <div class="home-commerce__cmd">
+              <code>/enviar</code>
+              <code>/confirmar</code>
+              <code>/resgatarmercado</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-commerce__grid">
+          <div class="home-commerce__card">
+            <div class="home-commerce__card-icon">⚖️</div>
+            <div class="home-commerce__card-title">Economia justa</div>
+            <div class="home-commerce__card-text">
+              Cada espécie tem valor raiz e multiplicadores por stat (Vida, Dano, Peso…).
+              O preço mínimo segue a tabela homologada — sem “chute” nem inflação descontrolada.
+            </div>
+          </div>
+          <div class="home-commerce__card">
+            <div class="home-commerce__card-icon">🏆</div>
+            <div class="home-commerce__card-title">Tiers S+ a C</div>
+            <div class="home-commerce__card-text">
+              Indominus, Giga e boss mods no topo; Rex e Carcha no meta breeding; utilitários na base.
+              Classificação clara para você saber o que está comprando ou vendendo.
+            </div>
+          </div>
+          <div class="home-commerce__card">
+            <div class="home-commerce__card-icon">🔒</div>
+            <div class="home-commerce__card-title">Seguro e rastreável</div>
+            <div class="home-commerce__card-text">
+              Dino fica em vault até a venda; anti-duplicação no upload; auditoria admin.
+              Cryopod com timer congela no Comércio até o resgate.
+            </div>
+          </div>
+          <div class="home-commerce__card">
+            <div class="home-commerce__card-icon">🌐</div>
+            <div class="home-commerce__card-title">Vitrine personalizada</div>
+            <div class="home-commerce__card-text">
+              Cada jogador tem sua loja pública. Navegue anúncios ativos, compare stats
+              e feche negócio com ${currency} que você já ganhou jogando ou doando.
+            </div>
+          </div>
+        </div>
+
+        <div class="home-commerce__flow">
+          <div class="home-commerce__flow-step">
+            <div class="home-commerce__flow-num">1</div>
+            <div class="home-commerce__flow-label">Capture &amp; imprime</div>
+            <div class="home-commerce__flow-text">Dino 100% imprint na cryopod oficial</div>
+          </div>
+          <div class="home-commerce__flow-step">
+            <div class="home-commerce__flow-num">2</div>
+            <div class="home-commerce__flow-label">Envie in-game</div>
+            <div class="home-commerce__flow-text">Preview com /enviar e confirme em 2 min</div>
+          </div>
+          <div class="home-commerce__flow-step">
+            <div class="home-commerce__flow-num">3</div>
+            <div class="home-commerce__flow-label">Anuncie na web</div>
+            <div class="home-commerce__flow-text">Defina preço ≥ valor sugerido e ative</div>
+          </div>
+          <div class="home-commerce__flow-step">
+            <div class="home-commerce__flow-num">4</div>
+            <div class="home-commerce__flow-label">Compre ou venda</div>
+            <div class="home-commerce__flow-text">${currency} trocam de mãos; resgate in-game</div>
+          </div>
+        </div>
+
+        <div class="home-commerce__footer">
+          <p class="home-commerce__quote">
+            “Breeding de elite merece um mercado à altura —
+            <strong>player contra player</strong>, dentro das regras do cluster.”
+          </p>
+          <button class="btn btn-success btn-sm" onclick="goToPage('market')">
+            Abrir Comércio →
+          </button>
+        </div>
+      </div>
+    </section>`;
+}
+
 function renderHomePage(d) {
   const root = document.getElementById("home-root");
   if (!root) return;
@@ -8379,6 +8836,7 @@ function renderHomePage(d) {
 
   const badges = `
     <span class="home-badge home-badge--fire">🔥 Doação voluntária</span>
+    <span class="home-badge home-badge--tek">🦖 Comércio P2P</span>
     <span class="home-badge home-badge--tek">🍂 Eventos sazonais</span>
     <span class="home-badge home-badge--tek">🪙 ${escHtml(CURRENCY.singular)}</span>
     ${pixOn ? '<span class="home-badge home-badge--ok">💚 PIX ativo</span>' : '<span class="home-badge">PIX indisponível</span>'}
@@ -8510,6 +8968,8 @@ function renderHomePage(d) {
       <div class="home-stat"><div class="home-stat__val">${st.utilities ?? 0}</div><div class="home-stat__lbl">Utilidades</div></div>
     </div>
 
+    ${renderHomeCommerceSection()}
+
     ${amberLoreHtml}
 
     <div class="home-section">
@@ -8530,6 +8990,7 @@ function renderHomePage(d) {
         <div class="home-step"><span class="home-step__num">2</span><div class="home-step__title">Entre com Steam</div><div class="home-step__text">Autenticação segura via Steam OpenID. Seu SteamID vincula doações e resgates à sua conta.</div></div>
         <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago. ${escHtml(CURRENCY.plural)} são creditados como recompensa simbólica.</div></div>
         <div class="home-step"><span class="home-step__num">4</span><div class="home-step__title">Resgate in-game</div><div class="home-step__text">Gaste ${escHtml(CURRENCY.plural)} no catálogo. Ao entrar no servidor, use <code>/shop</code> — a entrega é automática.</div></div>
+        <div class="home-step"><span class="home-step__num">5</span><div class="home-step__title">Comércio P2P (opcional)</div><div class="home-step__text">Venda ou compre dinos entre jogadores com ${escHtml(CURRENCY.plural)} — cryopod oficial, vitrine na web e comandos <code>/enviar</code> · <code>/confirmar</code> · <code>/resgatarmercado</code>.</div></div>
       </div>
     </div>
 
@@ -8551,7 +9012,8 @@ function renderHomePage(d) {
         <div class="home-pillar"><div class="home-pillar__icon">🔥</div><div class="home-pillar__title">Comunidade</div><div class="home-pillar__text">Servidores gerenciados com ARKLAND Multi — mods, cluster, backups e portal de doações integrado.</div></div>
         <div class="home-pillar"><div class="home-pillar__icon"><img class="amber-icon" src="${escHtml(CURRENCY.image_url)}" alt="${escHtml(CURRENCY.singular)}" width="32" height="32" /></div><div class="home-pillar__title">Economia justa</div><div class="home-pillar__text">Tudo é resgatado com ${escHtml(CURRENCY.singular)}. Sem venda direta de itens — doação voluntária com recompensa simbólica.</div></div>
         <div class="home-pillar"><div class="home-pillar__icon">📋</div><div class="home-pillar__title">Transparência</div><div class="home-pillar__text">Histórico de resgates e doações na Minha Área. Política clara: sem reembolso de doações PIX.</div></div>
-        <div class="home-pillar"><div class="home-pillar__icon">⚡</div><div class="home-pillar__title">CustomShop</div><div class="home-pillar__text">Plugin CustomShop entrega itens, dinos e kits na fila web — sincronizado com este portal.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon">⚡</div><div class="home-pillar__title">CustomShop</div><div class="home-pillar__text">Plugin CustomShop entrega itens, dinos e kits na fila web — e alimenta o Comércio P2P via cryopod.</div></div>
+        <div class="home-pillar"><div class="home-pillar__icon">🦖</div><div class="home-pillar__title">Comércio P2P</div><div class="home-pillar__text">Marketplace entre jogadores com ${escHtml(CURRENCY.plural)}, tabela econômica homologada e vitrine por SteamID — taxa zero.</div></div>
       </div>
     </div>
 
@@ -8565,6 +9027,7 @@ function renderHomePage(d) {
       <details><summary>Doações têm reembolso?</summary><div class="home-faq__a">Não. São doações voluntárias processadas pelo Mercado Pago. Os ${escHtml(CURRENCY.plural)} são uma recompensa simbólica, não um produto com garantia de devolução.</div></details>
       <details><summary>Por que pedem CPF e e-mail no PIX?</summary><div class="home-faq__a">Exigência do Mercado Pago para gerar e validar cobranças PIX. A ARKLAND repassa esses dados apenas ao MP — não usa para marketing.</div></details>
       <details><summary>Posso ver o catálogo sem login?</summary><div class="home-faq__a">Sim. Abas Itens, Dinos e Kits são públicas. Login Steam é necessário para doar, resgatar e acessar Minha Área.</div></details>
+      <details><summary>Como funciona o Comércio entre jogadores?</summary><div class="home-faq__a">É um marketplace P2P exclusivo do cluster: você envia um dino na cryopod oficial in-game (<strong>/enviar</strong> → <strong>/confirmar</strong>), define o preço na web (mínimo = valor sugerido pela tabela) e recebe ${escHtml(CURRENCY.plural)} quando alguém comprar. O comprador resgata com <strong>/resgatarmercado</strong>. Requer imprint 100%, Licença Nuvem para enviar e usa apenas ${escHtml(CURRENCY.plural)} — sem PIX nem dinheiro real. Taxa zero.</div></details>
       <details><summary>Como funcionam os eventos sazonais?</summary><div class="home-faq__a">Como nos servidores oficiais: definimos um evento sazonal ativo (ex.: Fear Evolved, Winter Wonderland) e ajustamos periodicamente os rates de <strong>todos os mapas</strong> do cluster para combinar com esse evento. Fique atento ao Discord para saber quando a temporada muda.</div></details>
     </div>
 
@@ -8573,6 +9036,7 @@ function renderHomePage(d) {
       <div class="home-cta__sub">Explore o catálogo ou entre com Steam para começar.</div>
       <div class="home-cta__actions">
         <button class="btn btn-primary" onclick="goToPage('catalog')">📦 Abrir catálogo</button>
+        <button class="btn btn-primary" onclick="goToPage('market')">🦖 Comércio P2P</button>
         ${auth
           ? `<button class="btn btn-ghost" onclick="openPolicyModal(false)">📜 Política de doações</button>`
           : `<button class="btn btn-ghost" onclick="loginWithSteam()">Entrar com Steam</button>`}

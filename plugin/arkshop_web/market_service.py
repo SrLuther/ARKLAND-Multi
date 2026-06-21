@@ -15,6 +15,7 @@ from market_economy import (
     iter_economy_groups,
     load_default_species_map,
     load_defaults_file,
+    load_tier_legend,
     merge_economy_group,
     merge_species_from_catalog_item,
     merge_species_from_defaults,
@@ -387,6 +388,7 @@ def get_species_table_payload(db: Session) -> dict[str, Any]:
             for s in species
         ],
         "multiplier_legend": multiplier_legend,
+        "tier_legend": load_tier_legend(),
     }
 
 

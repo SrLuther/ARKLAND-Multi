@@ -31,6 +31,8 @@ def test_species_table_returns_json_not_html(market_client):
     assert data is not None
     assert data.get("ok") is True
     assert "species" in data
+    assert "tier_legend" in data
+    assert "S+" in data["tier_legend"]
 
 
 def test_listings_returns_json_not_html(market_client):

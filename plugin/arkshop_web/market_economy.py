@@ -99,6 +99,21 @@ def load_defaults_file() -> dict[str, Any]:
     return json.loads(_DEFAULTS_FILE.read_text(encoding="utf-8"))
 
 
+def load_tier_legend() -> dict[str, str]:
+    """Rótulos de tier (S+, S, A, B, C) para exibição na tabela do Comércio."""
+    raw = load_defaults_file().get("_tier_legend") or {}
+    order = ("S+", "S", "A", "B", "C")
+    out: dict[str, str] = {}
+    for key in order:
+        label = raw.get(key)
+        if label:
+            out[key] = str(label)
+    for key, label in raw.items():
+        if key not in out and label:
+            out[str(key)] = str(label)
+    return out
+
+
 def load_default_species_map() -> dict[str, dict[str, Any]]:
     data = load_defaults_file()
     return {s["species_key"]: s for s in data.get("species", [])}

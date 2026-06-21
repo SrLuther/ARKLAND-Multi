@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from flask import Flask, jsonify, request
 
-from market_economy import calculate_suggested_value, normalize_stat_points, shop_catalog_display_name
+from market_economy import calculate_suggested_value, load_tier_legend, normalize_stat_points, shop_catalog_display_name
 from market_service import (
     get_species_table_payload,
     list_species_public,
@@ -132,7 +132,7 @@ def register_market_routes(
                 data["shop_catalog_name"] = shop_catalog_display_name(catalog, row.catalog_item_id)
                 data["linked_variants"] = _list_species_aliases(db, row.id)
                 out.append(data)
-            return jsonify({"ok": True, "species": out})
+            return jsonify({"ok": True, "species": out, "tier_legend": load_tier_legend()})
         finally:
             db.close()
 

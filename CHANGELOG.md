@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.55] - 2026-06-21
+
+### Feature
+
+- Novo (Web Store): secao de marketing do Comercio P2P na pagina inicial — beneficios, fluxo in-game e CTAs para mercado e tabela oficial.
+- Novo (Comercio): legenda de tiers (S+, S, A, B, C) nas tabelas publica e admin.
+
 ## [1.9.54] - 2026-06-21
 
 ### Fix
