@@ -74,6 +74,9 @@ struct CryoDebugEntry {
     bool vanilla_class = false;
     bool has_timer = false;
     float timer_remaining_days = -1.f;
+    float item_durability = 0.f;
+    float saved_durability = 0.f;
+    float durability_pct = 0.f;
     int custom_datas = 0;
     bool get_custom_data = false;
     bool array_pick = false;

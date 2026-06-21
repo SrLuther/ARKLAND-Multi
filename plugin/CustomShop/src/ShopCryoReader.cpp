@@ -285,13 +285,19 @@ float GetCryopodRemainingDecaySeconds(UPrimalItem* item) {
         return via_pct;
     }
 
-    // Teto estendido (CryoLimitedTime / loja): pct * max ou SavedDurability absoluto.
+    // Teto estendido (cryogun / CryoLimitedTime / loja).
     const float via_pct = max_dur * pct;
     if (saved > 0.f) {
         if (saved <= max_dur + 1.f)
             return std::max(via_pct, saved);
         return saved;
     }
+    if (via_pct > kStandardCryoDurability + 1.f)
+        return via_pct;
+    // Cryogun: segundos restantes em ItemDurability; BPGetItemDurabilityPercentage ~0.
+    constexpr float kOneDaySeconds = 86400.f;
+    if (max_dur > kOneDaySeconds && pct < 0.01f)
+        return max_dur;
     return via_pct;
 }
 
@@ -528,6 +534,9 @@ void DiagnoseSingleCryo(UPrimalItem* item, AShooterPlayerController* controller,
     e.class_name = ClassPath(item->ClassField());
     e.vanilla_class = IsVanillaEmptyCryopodClass(item);
     e.has_timer = CustomShop::CryopodHasTimer(item);
+    e.item_durability = item->ItemDurabilityField();
+    e.saved_durability = item->SavedDurabilityField();
+    e.durability_pct = item->BPGetItemDurabilityPercentage();
     e.timer_remaining_days = CustomShop::GetCryopodRemainingDays(item);
     e.custom_datas = item->CustomItemDatasField().Num();
 
@@ -625,13 +634,18 @@ void LogCryoInventoryDebugReport(
 
     for (const CryoDebugEntry& e : report.entries) {
         Log::GetLog()->warn(
-            "  cryo slot={} eq={} class={} timer={} customDatas={} getCustom={} arrayPick={} "
+            "  cryo slot={} eq={} class={} timer={} max={:.0f} saved={:.0f} pct={:.4f} dias={:.1f} "
+            "customDatas={} getCustom={} arrayPick={} "
             "floats={} doubles={} strings={} classes={} bytes={} clone={} cloneDatas={} "
             "cloneGet={} tryRead={} parse={} imprint={:.3f} species={} name={} err={}",
             e.inventory_index,
             e.equipped ? 1 : 0,
             e.class_name,
             e.has_timer ? 1 : 0,
+            e.item_durability,
+            e.saved_durability,
+            e.durability_pct,
+            e.timer_remaining_days,
             e.custom_datas,
             e.get_custom_data ? 1 : 0,
             e.array_pick ? 1 : 0,

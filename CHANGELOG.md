@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.57] - 2026-06-21
+
+### Fix
+
+- Fix (CustomShop): timer cryogun — segundos restantes em ItemDurability quando BPGetItemDurabilityPercentage retorna 0; /enviar mostrava 0 dias com 29d na UI.
+
 ## [1.9.56] - 2026-06-21
 
 ### Fix
