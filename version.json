@@ -1,9 +1,10 @@
 {
-    "version": "1.9.51",
-    "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.51/ARKLAND-Multi-Setup-v1.9.51.exe",
+    "version": "1.9.53",
+    "date": "2026-06-21",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.53/ARKLAND-Multi-Setup-v1.9.53.exe",
     "changelog": [
-        "Fix (CustomShop): leitura de cryopods capturadas no Comercio — init forcado do item, scan CustomItemDatas, fallback SpawnFromDinoDataEx para metadata/imprint.",
-        "Novo (CustomShop): /enviardebug + MarketCryoDebug no config — diagnostico de cryopod no chat e log ao falhar /enviar."
+        "Novo (Comercio): tabela economica 26 grupos — vanilla, ARK Additions, Grand Hunt e Brighamia; sync referencia + aliases blueprint.",
+        "Novo (Comercio): grupos Rex/Giga/Acro/Indominus; nomes Comercio editaveis no admin.",
+        "Novo (CustomShop): cryopod minimo 20 dias no Comercio; timer congela no vault."
     ]
 }

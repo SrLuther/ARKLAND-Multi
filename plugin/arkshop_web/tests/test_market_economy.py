@@ -8,10 +8,20 @@ from market_economy import (
 
 
 def test_defaults_cover_all_catalog_species_keys():
+    from market_economy import build_catalog_economy_map
+
+    catalog_map = build_catalog_economy_map()
+    assert "rex_femea" in catalog_map
+    assert catalog_map["rex_femea"]["species_key"] == "rex"
+    assert catalog_map["bionicrex_femea"]["species_key"] == "rex"
+    assert catalog_map["bionicgigant_femea"]["species_key"] == "giga"
+    assert catalog_map["indominus_femea"]["species_key"] == "indominus"
+    assert catalog_map["acrocanto_femea"]["species_key"] == "acro"
     defaults = load_default_species_map()
-    assert "rex_femea" in defaults
-    assert "giga_femea" in defaults
-    assert defaults["rex_femea"]["multipliers"]["melee"] == 700
+    assert "rex" in defaults
+    assert "giga" in defaults
+    assert "indominus" in defaults
+    assert defaults["rex"]["multipliers"]["melee"] == 700
 
 
 def test_calculate_suggested_value_with_breakdown():
@@ -22,6 +32,7 @@ def test_calculate_suggested_value_with_breakdown():
         "Dinos": [{"Blueprint": "/Game/.../Rex", "Level": 1}],
     }
     species = merge_species_from_catalog_item("rex_femea", entry)
+    assert species.species_key == "rex"
     points = normalize_stat_points(
         {
             "health": {"points": 80},

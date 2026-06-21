@@ -5,12 +5,14 @@ from typing import Any, Callable
 
 from flask import Flask, jsonify, request
 
-from market_economy import calculate_suggested_value, normalize_stat_points
+from market_economy import calculate_suggested_value, normalize_stat_points, shop_catalog_display_name
 from market_service import (
     get_species_table_payload,
     list_species_public,
     pre_register_catalog_item,
     sync_catalog_to_db,
+    update_species_display_name,
+    _list_species_aliases,
 )
 
 from market_listings import (
@@ -116,6 +118,7 @@ def register_market_routes(
             rows = q.all()
             items = list_species_public(db, active_only=False)
             by_key = {i["species_key"]: i for i in items}
+            catalog = read_shop_config()
             out = []
             for row in rows:
                 data = by_key.get(row.species_key) or {
@@ -125,6 +128,9 @@ def register_market_routes(
                     "status": row.status,
                 }
                 data["status"] = row.status
+                data["catalog_item_id"] = row.catalog_item_id
+                data["shop_catalog_name"] = shop_catalog_display_name(catalog, row.catalog_item_id)
+                data["linked_variants"] = _list_species_aliases(db, row.id)
                 out.append(data)
             return jsonify({"ok": True, "species": out})
         finally:
@@ -137,9 +143,22 @@ def register_market_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(silent=True) or {}
         activate = bool(body.get("activate", False))
+        reset_display_names = bool(body.get("reset_display_names", False))
+        raw_overrides = body.get("display_names") or body.get("display_name_overrides") or {}
+        overrides = (
+            {str(k): str(v) for k, v in raw_overrides.items() if str(v).strip()}
+            if isinstance(raw_overrides, dict)
+            else None
+        )
         db = session_factory()
         try:
-            result = sync_catalog_to_db(db, read_shop_config(), activate=activate)
+            result = sync_catalog_to_db(
+                db,
+                read_shop_config(),
+                activate=activate,
+                display_name_overrides=overrides,
+                reset_display_names=reset_display_names,
+            )
             audit_event(
                 "MARKET_CATALOG_SYNC",
                 source="admin",
@@ -147,6 +166,35 @@ def register_market_routes(
                 **result,
             )
             return jsonify({"ok": True, **result})
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/species/<species_key>", methods=["PATCH"])
+    @admin_required
+    def market_admin_patch_species(species_key: str):
+        """Renomeia espécie só no Comércio (tabela/vitrine) — não altera a loja."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        name = str(body.get("display_name") or "").strip()
+        if not name:
+            return jsonify({"ok": False, "error": "display_name obrigatório"}), 400
+        db = session_factory()
+        try:
+            result = update_species_display_name(
+                db,
+                species_key,
+                name,
+                catalog=read_shop_config(),
+            )
+            audit_event(
+                "MARKET_SPECIES_DISPLAY_NAME_UPDATED",
+                species_key=species_key,
+                metadata={"display_name": name},
+            )
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
         finally:
             db.close()
 

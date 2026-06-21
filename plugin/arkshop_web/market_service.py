@@ -12,9 +12,15 @@ from market_economy import (
     StatMultiplier,
     build_multipliers_from_defaults,
     iter_catalog_dinos,
+    iter_economy_groups,
     load_default_species_map,
+    load_defaults_file,
+    merge_economy_group,
     merge_species_from_catalog_item,
+    merge_species_from_defaults,
+    shop_catalog_display_name,
     stat_labels,
+    build_catalog_economy_map,
 )
 
 
@@ -36,6 +42,73 @@ def _apply_multipliers_row(db: Session, row: Any, species: SpeciesEconomy) -> No
                 enabled=sm.enabled,
             )
         )
+
+
+def _sync_species_aliases(db: Session, species_row: Any, aliases: list[dict[str, Any]]) -> None:
+    from app import MarketSpeciesAlias
+
+    seen_catalog: set[str] = set()
+    seen_bp: set[str] = set()
+    for alias in aliases:
+        cid = str(alias.get("catalog_item_id") or "").strip() or None
+        bp_norm = str(alias.get("blueprint_norm") or "").strip()
+        if not bp_norm and not cid:
+            continue
+        if cid:
+            seen_catalog.add(cid)
+        if bp_norm:
+            seen_bp.add(bp_norm)
+        row = None
+        if cid:
+            row = (
+                db.query(MarketSpeciesAlias)
+                .filter(MarketSpeciesAlias.catalog_item_id == cid)
+                .first()
+            )
+        if row is None and bp_norm:
+            row = (
+                db.query(MarketSpeciesAlias)
+                .filter(MarketSpeciesAlias.blueprint_norm == bp_norm)
+                .first()
+            )
+        if row is None:
+            row = MarketSpeciesAlias(species_id=species_row.id)
+            db.add(row)
+        row.species_id = species_row.id
+        row.catalog_item_id = cid
+        row.blueprint_path = str(alias.get("blueprint_path") or "")
+        row.blueprint_norm = bp_norm
+        row.variant_label = str(alias.get("variant_label") or "") or None
+
+    existing = (
+        db.query(MarketSpeciesAlias)
+        .filter(MarketSpeciesAlias.species_id == species_row.id)
+        .all()
+    )
+    for row in existing:
+        cid = row.catalog_item_id or ""
+        bp = row.blueprint_norm or ""
+        if (cid and cid not in seen_catalog) or (bp and bp not in seen_bp):
+            db.delete(row)
+
+
+def _list_species_aliases(db: Session, species_id: int) -> list[dict[str, Any]]:
+    from app import MarketSpeciesAlias
+
+    rows = (
+        db.query(MarketSpeciesAlias)
+        .filter(MarketSpeciesAlias.species_id == species_id)
+        .order_by(MarketSpeciesAlias.variant_label)
+        .all()
+    )
+    return [
+        {
+            "catalog_item_id": r.catalog_item_id,
+            "blueprint_path": r.blueprint_path,
+            "variant_label": r.variant_label,
+        }
+        for r in rows
+    ]
 
 
 def species_row_to_economy(row: Any, mult_rows: list[Any]) -> SpeciesEconomy:
@@ -68,62 +141,179 @@ def species_row_to_economy(row: Any, mult_rows: list[Any]) -> SpeciesEconomy:
     )
 
 
+def _resolve_display_name_override(
+    species: SpeciesEconomy,
+    overrides: dict[str, str] | None,
+) -> str | None:
+    if not overrides:
+        return None
+    for key in (species.species_key, species.catalog_item_id):
+        if not key:
+            continue
+        val = overrides.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    return None
+
+
+def _upsert_species_row(
+    db: Session,
+    species: SpeciesEconomy,
+    aliases: list[dict[str, Any]],
+    *,
+    activate: bool,
+    display_name_overrides: dict[str, str] | None,
+    reset_display_names: bool,
+    now: datetime,
+) -> tuple[Any, bool]:
+    """Insere ou atualiza espécie + aliases. Retorna (row, created)."""
+    from app import MarketSpecies
+
+    row = db.query(MarketSpecies).filter(MarketSpecies.species_key == species.species_key).first()
+    override_name = _resolve_display_name_override(species, display_name_overrides)
+    created = False
+    if row is None:
+        row = MarketSpecies(
+            species_key=species.species_key,
+            catalog_item_id=species.catalog_item_id,
+            display_name=override_name or species.display_name,
+            blueprint_path=species.blueprint_path,
+            reference_level=species.reference_level,
+            root_value=species.root_value,
+            tier=species.tier,
+            breeding_difficulty=species.breeding_difficulty,
+            breeding_notes=species.breeding_notes,
+            status=species.status,
+            shop_price_synced_at=now if species.catalog_item_id else None,
+        )
+        db.add(row)
+        db.flush()
+        created = True
+    else:
+        if species.catalog_item_id:
+            row.catalog_item_id = species.catalog_item_id
+        if override_name is not None:
+            row.display_name = override_name
+        elif reset_display_names:
+            row.display_name = species.display_name
+        if species.blueprint_path:
+            row.blueprint_path = species.blueprint_path
+        if species.reference_level:
+            row.reference_level = species.reference_level
+        if species.root_value:
+            row.root_value = species.root_value
+        row.tier = species.tier
+        row.breeding_difficulty = species.breeding_difficulty
+        row.breeding_notes = species.breeding_notes
+        if species.catalog_item_id:
+            row.shop_price_synced_at = now
+        row.updated_at = now
+        if activate:
+            row.status = "ACTIVE"
+        elif row.status != "ACTIVE":
+            row.status = species.status
+    _apply_multipliers_row(db, row, species)
+    _sync_species_aliases(db, row, aliases)
+    return row, created
+
+
+def sync_reference_species_to_db(
+    db: Session,
+    *,
+    activate: bool = False,
+    skip_keys: set[str] | None = None,
+    display_name_overrides: dict[str, str] | None = None,
+    reset_display_names: bool = False,
+) -> dict[str, Any]:
+    """Pré-cadastra espécies do JSON sem item Type:dino na loja (mods, referência P2P)."""
+    skip = skip_keys or set()
+    created = updated = 0
+    items: list[str] = []
+    now = datetime.now(timezone.utc)
+    status = "ACTIVE" if activate else "PRE_REGISTERED"
+
+    for defn in load_defaults_file().get("species", []):
+        sk = str(defn.get("species_key") or "")
+        if not sk or sk in skip:
+            continue
+        has_catalog = bool(defn.get("catalog_item_id") or defn.get("catalog_item_ids"))
+        has_blueprint = bool(defn.get("blueprint_path") or defn.get("blueprint_aliases"))
+        if has_catalog or not has_blueprint:
+            continue
+        species, aliases = merge_species_from_defaults(defn, status=status)
+        _, was_created = _upsert_species_row(
+            db,
+            species,
+            aliases,
+            activate=activate,
+            display_name_overrides=display_name_overrides,
+            reset_display_names=reset_display_names,
+            now=now,
+        )
+        if was_created:
+            created += 1
+        else:
+            updated += 1
+        items.append(sk)
+
+    db.commit()
+    return {"reference_created": created, "reference_updated": updated, "reference_keys": items}
+
+
 def sync_catalog_to_db(
     db: Session,
     catalog: dict[str, Any],
     *,
     activate: bool = False,
+    display_name_overrides: dict[str, str] | None = None,
+    reset_display_names: bool = False,
 ) -> dict[str, Any]:
-    """Importa dinos Type:dino do config.json para market_species."""
-    from app import MarketSpecies, MarketSpeciesStatMultiplier
+    """Importa dinos Type:dino do config.json para market_species (grupos econômicos).
 
-    defaults_map = load_default_species_map()
+    Variantes de loja (Rex Tek, Volcano Rex, …) viram aliases do mesmo grupo (rex).
+    display_name na loja (config.json) não é alterado.
+    """
     created = updated = 0
     items: list[str] = []
     now = datetime.now(timezone.utc)
 
-    for item_id, entry in iter_catalog_dinos(catalog):
-        species = merge_species_from_catalog_item(
-            item_id,
-            entry,
-            defaults=defaults_map.get(item_id),
+    for group_key, defn, catalog_items in iter_economy_groups(catalog):
+        species, aliases = merge_economy_group(
+            group_key,
+            catalog_items,
+            defaults=defn,
+            catalog=catalog,
             status="ACTIVE" if activate else "PRE_REGISTERED",
         )
-        row = db.query(MarketSpecies).filter(MarketSpecies.species_key == species.species_key).first()
-        if row is None:
-            row = MarketSpecies(
-                species_key=species.species_key,
-                catalog_item_id=species.catalog_item_id,
-                display_name=species.display_name,
-                blueprint_path=species.blueprint_path,
-                reference_level=species.reference_level,
-                root_value=species.root_value,
-                tier=species.tier,
-                breeding_difficulty=species.breeding_difficulty,
-                breeding_notes=species.breeding_notes,
-                status=species.status,
-                shop_price_synced_at=now,
-            )
-            db.add(row)
-            db.flush()
+        _, was_created = _upsert_species_row(
+            db,
+            species,
+            aliases,
+            activate=activate,
+            display_name_overrides=display_name_overrides,
+            reset_display_names=reset_display_names,
+            now=now,
+        )
+        if was_created:
             created += 1
         else:
-            row.catalog_item_id = species.catalog_item_id
-            row.display_name = species.display_name
-            row.blueprint_path = species.blueprint_path
-            row.reference_level = species.reference_level
-            row.root_value = species.root_value
-            row.tier = species.tier
-            row.breeding_difficulty = species.breeding_difficulty
-            row.breeding_notes = species.breeding_notes
-            row.shop_price_synced_at = now
-            row.updated_at = now
             updated += 1
-        _apply_multipliers_row(db, row, species)
         items.append(species.species_key)
 
     db.commit()
-    return {"created": created, "updated": updated, "species_keys": items}
+    ref = sync_reference_species_to_db(
+        db,
+        activate=activate,
+        skip_keys=set(items),
+        display_name_overrides=display_name_overrides,
+        reset_display_names=reset_display_names,
+    )
+    return {
+        "created": created,
+        "updated": updated,
+        "species_keys": items,
+        **ref,
+    }
 
 
 def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[str, Any]]:
@@ -156,6 +346,7 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
         item = economy.to_dict()
         item["reference_level"] = row.reference_level
         item["level1_base_value"] = row.root_value
+        item["linked_variants"] = _list_species_aliases(db, row.id)
         out.append(item)
     return out
 
@@ -219,10 +410,13 @@ def pre_register_catalog_item(
         raise ValueError("Somente itens Type:dino podem ser pré-cadastrados no Comércio")
 
     defaults_map = load_default_species_map()
-    species = merge_species_from_catalog_item(
-        item_id,
-        entry,
-        defaults=defaults_map.get(item_id),
+    defn = build_catalog_economy_map().get(item_id) or defaults_map.get(item_id, {})
+    group_key = str(defn.get("species_key") or item_id)
+    species, aliases = merge_economy_group(
+        group_key,
+        [(item_id, entry)],
+        defaults=defaults_map.get(group_key, defn),
+        catalog=catalog,
         status="PRE_REGISTERED",
     )
     now = datetime.now(timezone.utc)
@@ -247,7 +441,6 @@ def pre_register_catalog_item(
         created = True
     else:
         row.catalog_item_id = species.catalog_item_id
-        row.display_name = species.display_name
         row.blueprint_path = species.blueprint_path
         row.reference_level = species.reference_level
         row.root_value = species.root_value
@@ -256,11 +449,47 @@ def pre_register_catalog_item(
         if row.status not in ("ACTIVE",):
             row.status = "PRE_REGISTERED"
     _apply_multipliers_row(db, row, species)
+    _sync_species_aliases(db, row, aliases)
     db.commit()
     return {
         "species_key": species.species_key,
-        "display_name": species.display_name,
+        "display_name": row.display_name,
+        "shop_catalog_name": shop_catalog_display_name(catalog, row.catalog_item_id),
         "root_value": species.root_value,
         "status": row.status,
         "created": created,
     }
+
+
+def update_species_display_name(
+    db: Session,
+    species_key: str,
+    display_name: str,
+    *,
+    catalog: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Atualiza só o nome exibido no Comércio — não altera config.json da loja."""
+    from app import MarketSpecies
+
+    key = (species_key or "").strip()
+    name = (display_name or "").strip()
+    if not key:
+        raise ValueError("species_key obrigatório")
+    if not name or len(name) > 128:
+        raise ValueError("Nome do Comércio deve ter 1–128 caracteres")
+
+    row = db.query(MarketSpecies).filter(MarketSpecies.species_key == key).first()
+    if row is None:
+        raise ValueError("Espécie não encontrada")
+
+    row.display_name = name
+    row.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    out: dict[str, Any] = {
+        "species_key": row.species_key,
+        "display_name": row.display_name,
+        "catalog_item_id": row.catalog_item_id,
+    }
+    if catalog is not None:
+        out["shop_catalog_name"] = shop_catalog_display_name(catalog, row.catalog_item_id)
+    return out

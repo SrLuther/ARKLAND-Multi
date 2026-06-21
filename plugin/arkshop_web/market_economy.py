@@ -104,6 +104,183 @@ def load_default_species_map() -> dict[str, dict[str, Any]]:
     return {s["species_key"]: s for s in data.get("species", [])}
 
 
+def normalize_blueprint(bp: str | None) -> str:
+    bp = (bp or "").strip()
+    if bp.startswith("Blueprint'") and bp.endswith("'"):
+        bp = bp[10:-1]
+    return bp.lower()
+
+
+def build_catalog_economy_map() -> dict[str, dict[str, Any]]:
+    """catalog_item_id → definição econômica canônica (grupo rex, giga, …)."""
+    out: dict[str, dict[str, Any]] = {}
+    for sk, defn in load_default_species_map().items():
+        out[sk] = defn
+        ref = defn.get("reference_catalog_item_id") or defn.get("catalog_item_id")
+        if ref:
+            out[str(ref)] = defn
+        for cid in defn.get("catalog_item_ids") or []:
+            out[str(cid)] = defn
+        for alias in defn.get("catalog_aliases") or []:
+            if isinstance(alias, str):
+                out[alias] = defn
+            elif isinstance(alias, dict) and alias.get("catalog_item_id"):
+                out[str(alias["catalog_item_id"])] = defn
+    return out
+
+
+def _catalog_item_blueprint(entry: dict[str, Any]) -> str:
+    dino = (entry.get("Dinos") or [{}])[0]
+    return str(dino.get("Blueprint") or "")
+
+
+def iter_economy_groups(
+    catalog: dict[str, Any],
+) -> list[tuple[str, dict[str, Any], list[tuple[str, dict[str, Any]]]]]:
+    """Agrupa itens Type:dino do catálogo por species_key econômico."""
+    catalog_map = build_catalog_economy_map()
+    grouped: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    for item_id, entry in iter_catalog_dinos(catalog):
+        defn = catalog_map.get(item_id)
+        group_key = str((defn or {}).get("species_key") or item_id)
+        grouped.setdefault(group_key, []).append((item_id, entry))
+    out: list[tuple[str, dict[str, Any], list[tuple[str, dict[str, Any]]]]] = []
+    defaults_map = load_default_species_map()
+    for group_key, items in grouped.items():
+        defn = defaults_map.get(group_key, {})
+        out.append((group_key, defn, items))
+    out.sort(key=lambda g: -max(int(e[1].get("Price") or 0) for e in g[2]))
+    return out
+
+
+def expand_aliases_from_defaults(
+    defn: dict[str, Any],
+    aliases: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Anexa blueprint_path e blueprint_aliases do JSON às variantes de loja."""
+    seen: set[str] = {
+        str(a.get("blueprint_norm") or "")
+        for a in aliases
+        if a.get("blueprint_norm")
+    }
+    out = list(aliases)
+    primary = str(defn.get("blueprint_path") or "").strip()
+    if primary:
+        nb = normalize_blueprint(primary)
+        if nb and nb not in seen:
+            seen.add(nb)
+            out.append(
+                {
+                    "blueprint_path": primary,
+                    "blueprint_norm": nb,
+                    "variant_label": str(defn.get("display_name") or "") or None,
+                }
+            )
+    for raw in defn.get("blueprint_aliases") or []:
+        if isinstance(raw, str):
+            bp = raw
+            label = ""
+        elif isinstance(raw, dict):
+            bp = str(raw.get("blueprint_path") or "")
+            label = str(raw.get("variant_label") or "")
+        else:
+            continue
+        nb = normalize_blueprint(bp)
+        if not nb or nb in seen:
+            continue
+        seen.add(nb)
+        out.append(
+            {
+                "blueprint_path": bp,
+                "blueprint_norm": nb,
+                "variant_label": label or None,
+            }
+        )
+    return out
+
+
+def merge_species_from_defaults(
+    defn: dict[str, Any],
+    *,
+    status: str = "PRE_REGISTERED",
+) -> tuple[SpeciesEconomy, list[dict[str, Any]]]:
+    """Espécie só de referência (sem item na loja) — usa root_value do JSON."""
+    group_key = str(defn["species_key"])
+    species = SpeciesEconomy(
+        species_key=group_key,
+        catalog_item_id=str(
+            defn.get("reference_catalog_item_id") or defn.get("catalog_item_id") or ""
+        ),
+        display_name=str(defn.get("display_name") or group_key),
+        blueprint_path=str(defn.get("blueprint_path") or ""),
+        reference_level=1,
+        root_value=int(defn.get("root_value") or 0),
+        tier=str(defn.get("tier") or "B"),
+        breeding_difficulty=str(defn.get("breeding_difficulty") or ""),
+        breeding_notes=str(defn.get("breeding_notes") or ""),
+        status=status,
+        multipliers=build_multipliers_from_defaults(group_key),
+    )
+    aliases = expand_aliases_from_defaults(defn, [])
+    return species, aliases
+
+
+def merge_economy_group(
+    group_key: str,
+    catalog_items: list[tuple[str, dict[str, Any]]],
+    *,
+    defaults: dict[str, Any] | None = None,
+    catalog: dict[str, Any] | None = None,
+    status: str = "PRE_REGISTERED",
+) -> tuple[SpeciesEconomy, list[dict[str, Any]]]:
+    """Retorna espécie canônica + aliases (variantes de loja/blueprint)."""
+    defaults = defaults or load_default_species_map().get(group_key, {})
+    ref_id = str(
+        defaults.get("reference_catalog_item_id")
+        or defaults.get("catalog_item_id")
+        or catalog_items[0][0]
+    )
+    ref_entry = dict(catalog_items[0][1])
+    for cid, entry in catalog_items:
+        if cid == ref_id:
+            ref_entry = entry
+            break
+
+    dino = (ref_entry.get("Dinos") or [{}])[0]
+    display_name = str(defaults.get("display_name") or group_key)
+    species = SpeciesEconomy(
+        species_key=group_key,
+        catalog_item_id=ref_id,
+        display_name=display_name,
+        blueprint_path=str(dino.get("Blueprint") or ""),
+        reference_level=int(dino.get("Level") or 1),
+        root_value=int(ref_entry.get("Price") or 0),
+        tier=str(defaults.get("tier") or "B"),
+        breeding_difficulty=str(defaults.get("breeding_difficulty") or ""),
+        breeding_notes=str(defaults.get("breeding_notes") or ""),
+        status=status,
+        multipliers=build_multipliers_from_defaults(group_key),
+    )
+
+    aliases: list[dict[str, Any]] = []
+    for item_id, entry in catalog_items:
+        bp = _catalog_item_blueprint(entry)
+        label = str(entry.get("Name") or entry.get("Description") or item_id)
+        if catalog is not None:
+            label = shop_catalog_display_name(catalog, item_id) or label
+        bp_norm = normalize_blueprint(bp) or f"catalog:{item_id}"
+        aliases.append(
+            {
+                "catalog_item_id": item_id,
+                "blueprint_path": bp,
+                "blueprint_norm": bp_norm,
+                "variant_label": label,
+            }
+        )
+    aliases = expand_aliases_from_defaults(defaults, aliases)
+    return species, aliases
+
+
 def stat_labels() -> dict[str, str]:
     data = load_defaults_file()
     labels = data.get("global_stat_labels") or {}
@@ -163,7 +340,7 @@ def merge_species_from_catalog_item(
     status: str = "PRE_REGISTERED",
 ) -> SpeciesEconomy:
     dino = (entry.get("Dinos") or [{}])[0]
-    defaults = defaults or load_default_species_map().get(item_id, {})
+    defaults = defaults or build_catalog_economy_map().get(item_id) or load_default_species_map().get(item_id, {})
     species_key = str(defaults.get("species_key") or item_id)
     return SpeciesEconomy(
         species_key=species_key,
@@ -194,6 +371,18 @@ def iter_catalog_dinos(catalog: dict[str, Any]) -> list[tuple[str, dict[str, Any
         out.append((item_id, entry))
     out.sort(key=lambda x: -int(x[1].get("Price") or 0))
     return out
+
+
+def shop_catalog_display_name(catalog: dict[str, Any], catalog_item_id: str | None) -> str:
+    """Nome do item na loja (config.json) — não altera a loja, só referência para o admin."""
+    item_id = (catalog_item_id or "").strip()
+    if not item_id:
+        return ""
+    items = catalog.get("Items") or catalog.get("ShopItems") or {}
+    entry = items.get(item_id)
+    if not entry:
+        return item_id
+    return str(entry.get("Name") or entry.get("Description") or item_id)
 
 
 def calculate_suggested_value(

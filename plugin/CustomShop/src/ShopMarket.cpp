@@ -7,6 +7,7 @@
 #include "HttpClient.h"
 
 #include <chrono>
+#include <cmath>
 #include <mutex>
 #include <random>
 #include <unordered_map>
@@ -120,6 +121,24 @@ void SendCryoDebugReport(AShooterPlayerController* player, const std::string& st
     }
 }
 
+std::string FormatCryoDaysForChat(float days) {
+    if (days < 0.f) return "permanente";
+    return std::to_string(static_cast<int>(std::floor(days))) + " dia(s)";
+}
+
+bool ValidateMarketCryoTimer(AShooterPlayerController* player, UPrimalItem* cryo,
+                             const std::string& sid, const char* stage, float min_days) {
+    if (CustomShop::CryopodMeetsMarketTimerRequirement(cryo, min_days))
+        return true;
+    const float rem = CustomShop::GetCryopodRemainingDays(cryo);
+    SendMsg(player, FColorList::Red,
+            "Cryopod precisa ter pelo menos " + std::to_string(static_cast<int>(min_days))
+            + " dias de timer (atual: " + FormatCryoDaysForChat(rem)
+            + "). Recarregue o tempo da cryopod no Cryofridge e tente novamente.");
+    SendCryoDebugReport(player, sid, stage, CustomShop::ShopConfig::Get().MarketCryoDebug());
+    return false;
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -176,6 +195,12 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
         return;
     }
 
+    const float min_days = ShopConfig::Get().MarketCryoMinDaysRemaining();
+    if (!ValidateMarketCryoTimer(player, cryo, sid, "enviar_timer", min_days))
+        return;
+
+    ApplyCryoTimerFieldsToMetadata(cryo, meta);
+
     PendingUpload pending;
     pending.meta = meta;
     pending.expires = std::chrono::steady_clock::now() + std::chrono::minutes(2);
@@ -188,9 +213,13 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
             "Preview: " + meta.name_map + " | imprint "
             + std::to_string(static_cast<int>(meta.imprint_pct * 100)) + "% | mut "
             + std::to_string(meta.mutations_male) + "/" + std::to_string(meta.mutations_female));
-    if (meta.had_timer) {
+    if (meta.timer_remaining_days >= 0.f) {
         SendMsg(player, FColorList::Yellow,
-                "Cryopod com timer detectada - ao /confirmar o timer sera removido permanentemente.");
+                "Timer: " + FormatCryoDaysForChat(meta.timer_remaining_days)
+                + " restantes (minimo " + std::to_string(static_cast<int>(min_days))
+                + " para enviar). Timer sera mantido no Comercio.");
+    } else {
+        SendMsg(player, FColorList::Yellow, "Cryopod permanente (sem timer de decay).");
     }
     SendMsg(player, FColorList::Yellow,
             "Digite /confirmar em ate 2 minutos para enviar ao Comercio (cryopod sera removida).");
@@ -233,16 +262,14 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         return;
     }
 
-    const bool had_timer = CryopodHasTimer(cryo);
-    if (had_timer) {
-        if (!StripCryopodTimer(cryo)) {
-            SendMsg(player, FColorList::Red,
-                    "Falha ao remover timer da cryopod. Tente outra cryopod ou contate admin.");
-            return;
-        }
-        pending.meta.had_timer = true;
-        SendMsg(player, FColorList::Yellow, "Timer removido - cryopod padrao (sem limite) pronta para envio.");
+    const float min_days = ShopConfig::Get().MarketCryoMinDaysRemaining();
+    if (!ValidateMarketCryoTimer(player, cryo, sid, "confirmar_timer", min_days)) {
+        std::lock_guard<std::mutex> lock(g_pending_mutex);
+        g_pending[sid] = pending;
+        return;
     }
+
+    ApplyCryoTimerFieldsToMetadata(cryo, pending.meta);
 
     FCustomItemByteArray bytes;
     cryo->GetItemBytes(&bytes.Bytes);
@@ -359,8 +386,6 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                     "Inventario cheio - libere espaco e tente /resgatarmercado.");
             return;
         }
-        if (CryopodHasTimer(item))
-            StripCryopodTimer(item);
 
         nlohmann::json done{{"steam_id", sid}, {"claim_id", claim_id}};
         HttpClient::PostJson("/api/market/claims/delivered", done.dump());

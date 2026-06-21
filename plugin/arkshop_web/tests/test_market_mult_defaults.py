@@ -16,7 +16,7 @@ def test_defaults_file_loads():
 
 
 def test_build_multipliers_from_defaults_rex():
-    mults = build_multipliers_from_defaults("rex_femea")
+    mults = build_multipliers_from_defaults("rex")
     assert mults["melee"].multiplier > 0
     assert mults["melee"].enabled is True
     assert mults["food"].multiplier == 0 or not mults["food"].enabled

@@ -2,6 +2,8 @@
 #include "ShopCryoReader.h"
 #include "ShopConfig.h"
 
+#include <cmath>
+
 namespace {
 
 constexpr const char* kDefaultCryoBp =
@@ -251,16 +253,81 @@ bool CryopodHasTimer(UPrimalItem* item) {
     if (!item) return false;
     const float max_dur = item->ItemDurabilityField();
     if (max_dur <= 0.f) return false;
-    if (max_dur < kStandardCryoDurability - 0.5f) return true;
-    return item->BPGetItemDurabilityPercentage() < 0.999f;
+    // Cryo sem timer de decay: teto ~3600s (1h) e carga 100%.
+    if (std::abs(max_dur - kStandardCryoDurability) <= 0.5f)
+        return item->BPGetItemDurabilityPercentage() < 0.999f;
+    // Cryo capturada: teto em segundos (ex. ~30 dias) != 3600.
+    return true;
+}
+
+float GetCryopodRemainingDecaySeconds(UPrimalItem* item) {
+    if (!item) return 0.f;
+    EnsureItemInitialized(item);
+
+    const float max_dur = item->ItemDurabilityField();
+    if (max_dur <= 0.f) return 0.f;
+    const float pct = item->BPGetItemDurabilityPercentage();
+    if (std::abs(max_dur - kStandardCryoDurability) <= 0.5f) {
+        if (pct >= 0.999f) return -1.f;
+        return max_dur * pct;
+    }
+
+    // Cryo capturada: ItemDurability = teto em segundos; pct = carga restante.
+    const float via_pct = max_dur * pct;
+    const float saved = item->SavedDurabilityField();
+    if (saved > 0.f && saved <= max_dur + 1.f) {
+        // SavedDurability costuma ser a carga atual; usa o menor valor conservador.
+        return std::min(via_pct, saved);
+    }
+    return via_pct;
+}
+
+float GetCryopodRemainingDays(UPrimalItem* item) {
+    const float seconds = GetCryopodRemainingDecaySeconds(item);
+    if (seconds < 0.f) return -1.f;
+    return seconds / 86400.f;
+}
+
+bool CryopodMeetsMarketTimerRequirement(UPrimalItem* item, float min_days) {
+    const float seconds = GetCryopodRemainingDecaySeconds(item);
+    if (seconds < 0.f) return true;
+    if (min_days <= 0.f) return seconds > 0.f;
+    // Mesma regra do chat: floor(dias) >= minimo (evita 19.9d exibido como 19).
+    return std::floor(seconds / 86400.f + 1e-4f) >= static_cast<double>(min_days);
+}
+
+void ApplyCryoTimerFieldsToMetadata(UPrimalItem* item, CryoParsedMetadata& out) {
+    out.timer_remaining_days = GetCryopodRemainingDays(item);
+    out.had_timer = out.timer_remaining_days >= 0.f;
 }
 
 bool StripCryopodTimer(UPrimalItem* item) {
     if (!item || !CryopodHasTimer(item)) return false;
-    const float max_dur = item->ItemDurabilityField();
-    const float delta = kStandardCryoDurability - max_dur;
-    if (delta > 0.01f || delta < -0.01f)
-        item->AddItemDurability(delta);
+
+    float max_dur = item->ItemDurabilityField();
+
+    // Inverso de ShopCryoDino::AddItemDurability((max - 3600) * -1).
+    if (std::abs(max_dur - kStandardCryoDurability) > 0.01f)
+        item->AddItemDurability(kStandardCryoDurability - max_dur);
+
+    max_dur = item->ItemDurabilityField();
+    if (std::abs(max_dur - kStandardCryoDurability) > 0.01f)
+        item->ItemDurabilityField() = kStandardCryoDurability;
+
+    item->SavedDurabilityField() = item->ItemDurabilityField();
+    item->UpdatedItem(true);
+
+    if (!CryopodHasTimer(item))
+        return true;
+
+    Log::GetLog()->warn(
+        "ShopCryoReader: StripCryopodTimer retry max={} saved={} pct={}",
+        item->ItemDurabilityField(),
+        item->SavedDurabilityField(),
+        item->BPGetItemDurabilityPercentage());
+
+    item->ItemDurabilityField() = kStandardCryoDurability;
+    item->SavedDurabilityField() = kStandardCryoDurability;
     item->UpdatedItem(true);
     return !CryopodHasTimer(item);
 }
@@ -350,7 +417,7 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
 
     if (!have_custom) {
         if (TryParseViaSpawnProbe(item, context_player, out)) {
-            out.had_timer = CryopodHasTimer(item);
+            ApplyCryoTimerFieldsToMetadata(item, out);
             return true;
         }
         if (CryopodHasTimer(item)) {
@@ -407,7 +474,7 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
         DoubleAt(doubles, 5, imprint);
     out.imprint_pct = static_cast<float>(imprint);
 
-    out.had_timer = CryopodHasTimer(item);
+    ApplyCryoTimerFieldsToMetadata(item, out);
 
     return true;
 }
@@ -434,8 +501,10 @@ nlohmann::json CryoMetadataToJson(const CryoParsedMetadata& meta) {
         {"speed",   {{"value", meta.speed.value}}},
     };
     j["extraction_method"] = meta.extraction_method.empty() ? "custom_item_data" : meta.extraction_method;
-    if (meta.had_timer)
-        j["timer_stripped_on_upload"] = true;
+    if (meta.timer_remaining_days >= 0.f)
+        j["cryo_timer_days_remaining"] = meta.timer_remaining_days;
+    else
+        j["cryo_timer_permanent"] = true;
     return j;
 }
 
@@ -447,6 +516,7 @@ void DiagnoseSingleCryo(UPrimalItem* item, AShooterPlayerController* controller,
     e.class_name = ClassPath(item->ClassField());
     e.vanilla_class = IsVanillaEmptyCryopodClass(item);
     e.has_timer = CustomShop::CryopodHasTimer(item);
+    e.timer_remaining_days = CustomShop::GetCryopodRemainingDays(item);
     e.custom_datas = item->CustomItemDatasField().Num();
 
     FCustomItemData direct;
@@ -582,6 +652,9 @@ std::vector<std::string> CryoInventoryDebugChatLines(const CryoInventoryDebugRep
         const std::string slot = e.equipped ? "equipped" : ("slot" + std::to_string(e.inventory_index));
         lines.push_back(
             "[DBG] " + slot + " timer=" + (e.has_timer ? "1" : "0")
+            + " dias=" + (e.timer_remaining_days < 0.f
+                ? "perm"
+                : std::to_string(static_cast<int>(std::floor(e.timer_remaining_days))))
             + " datas=" + std::to_string(e.custom_datas)
             + " get=" + (e.get_custom_data ? "1" : "0")
             + " arr=" + (e.array_pick ? "1" : "0")

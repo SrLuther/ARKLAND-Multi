@@ -563,6 +563,25 @@ class MarketSpeciesStatMultiplier(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
 
+class MarketSpeciesAlias(Base):
+    """Variantes de loja/blueprint que compartilham a mesma economia (ex.: Rex Tek → rex)."""
+    __tablename__ = "market_species_aliases"
+    __table_args__ = (
+        UniqueConstraint("catalog_item_id", name="uq_market_species_alias_catalog"),
+        UniqueConstraint("blueprint_norm", name="uq_market_species_alias_bp"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    species_id: Mapped[int] = mapped_column(Integer, index=True)
+    catalog_item_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    blueprint_path: Mapped[str] = mapped_column(String(512), default="")
+    blueprint_norm: Mapped[str] = mapped_column(String(512), default="", index=True)
+    variant_label: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class MarketPlayerProfile(Base):
     __tablename__ = "market_player_profile"
 

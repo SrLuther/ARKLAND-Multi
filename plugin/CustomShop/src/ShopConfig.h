@@ -47,6 +47,9 @@ public:
     /** Logs detalhados de cryopod no Comercio + chat em /enviardebug e falhas de /enviar. */
     bool        MarketCryoDebug()        const;
 
+    /** Minimo de dias de timer restante para /enviar ao Comercio (cryos permanentes ignoram). */
+    float       MarketCryoMinDaysRemaining() const;
+
     // Database (MySQL)
     std::string DbHost()             const;
     int         DbPort()             const;

@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.53] - 2026-06-21
+
+### Feature
+
+- Novo (Comercio): tabela economica com 26 grupos — vanilla, ARK Additions, Grand Hunt e Brighamia (Dread/Ancient Wyvern separados); sync de referencia e aliases de blueprint no upload P2P.
+- Novo (Comercio): grupos Rex, Giga, Acro e Indominus (Domination Rex = mesma tabela); nomes do Comercio editaveis no admin sem alterar a loja.
+- Novo (CustomShop): MarketCryoMinDaysRemaining (default 20 dias) — /enviar e /confirmar exigem timer minimo; cryo congela no vault ate resgate.
+
+## [1.9.52] - 2026-06-21
+
+### Fix
+
+- Fix (CustomShop): StripCryopodTimer em cryos capturadas (timer ~30d) — restaura teto 3600s e SavedDurability; /confirmar no Comercio deixa de falhar.
+
 ## [1.9.51] - 2026-06-21
 
 ### Feature

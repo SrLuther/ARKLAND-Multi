@@ -14,6 +14,7 @@ MARKET_SCHEMA_VERSION = "1.0.0"
 MARKET_TABLES: tuple[str, ...] = (
     "market_species",
     "market_species_stat_multipliers",
+    "market_species_aliases",
     "market_player_profile",
     "market_cryopod_vault",
     "market_listings",

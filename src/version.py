@@ -3,11 +3,32 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.51"
+APP_VERSION: str = "1.9.53"
 BUILD_DATE: str = "2026-06-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.53",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (Comercio): tabela economica com 26 grupos — vanilla, ARK Additions, "
+            "Grand Hunt e Brighamia (Dread/Ancient Wyvern separados); sync de referencia "
+            "e aliases de blueprint no upload P2P.",
+            "Novo (Comercio): grupos Rex, Giga, Acro e Indominus (Domination Rex = mesma "
+            "tabela); nomes do Comercio editaveis no admin sem alterar a loja.",
+            "Novo (CustomShop): MarketCryoMinDaysRemaining (default 20 dias) — /enviar e "
+            "/confirmar exigem timer minimo; cryo congela no vault ate resgate.",
+        ],
+    },
+    {
+        "version": "1.9.52",
+        "date": "2026-06-21",
+        "changes": [
+            "Fix (CustomShop): StripCryopodTimer em cryos capturadas (timer ~30d) — "
+            "restaura teto 3600s e SavedDurability; /confirmar no Comercio deixa de falhar.",
+        ],
+    },
     {
         "version": "1.9.51",
         "date": "2026-06-21",

@@ -12,7 +12,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from market_audit import market_audit_event
-from market_economy import STAT_KEYS, calculate_suggested_value, normalize_stat_points
+from market_economy import STAT_KEYS, calculate_suggested_value, normalize_blueprint, normalize_stat_points
 from market_service import species_row_to_economy
 from stat_points_asb import enrich_stats_with_points
 
@@ -62,14 +62,11 @@ def sha256_hex(data: bytes) -> str:
 
 
 def _norm_bp(bp: str) -> str:
-    bp = (bp or "").strip()
-    if bp.startswith("Blueprint'") and bp.endswith("'"):
-        bp = bp[10:-1]
-    return bp.lower()
+    return normalize_blueprint(bp)
 
 
 def resolve_species(db: Session, *, species_key: str | None = None, blueprint: str | None = None) -> Any | None:
-    from app import MarketSpecies
+    from app import MarketSpecies, MarketSpeciesAlias
 
     if species_key:
         row = db.query(MarketSpecies).filter(MarketSpecies.species_key == species_key).first()
@@ -77,10 +74,18 @@ def resolve_species(db: Session, *, species_key: str | None = None, blueprint: s
             return row
     if blueprint:
         nb = _norm_bp(blueprint)
-        for row in db.query(MarketSpecies).all():
+        if nb:
+            alias = (
+                db.query(MarketSpeciesAlias)
+                .filter(MarketSpeciesAlias.blueprint_norm == nb)
+                .first()
+            )
+            if alias:
+                row = db.query(MarketSpecies).filter(MarketSpecies.id == alias.species_id).first()
+                if row:
+                    return row
+        for row in db.query(MarketSpecies).order_by(MarketSpecies.status.desc()).all():
             if _norm_bp(row.blueprint_path or "") == nb:
-                return row
-            if row.catalog_item_id and _norm_bp(row.catalog_item_id) == nb:
                 return row
     return None
 

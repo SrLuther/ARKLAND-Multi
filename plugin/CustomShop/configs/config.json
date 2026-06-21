@@ -21,7 +21,8 @@
     "DeliverDinosInCryopods": true,
     "CryoItemPath": "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'",
     "CryoLimitedTime": false,
-    "MarketCryoDebug": false
+    "MarketCryoDebug": false,
+    "MarketCryoMinDaysRemaining": 20
   },
   "Items": {
     "licenca_nuvem": {

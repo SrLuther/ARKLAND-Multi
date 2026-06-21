@@ -30,6 +30,8 @@ struct CryoParsedMetadata {
     StatVal speed;
     bool has_dino_data = false;
     bool had_timer = false;
+    /** -1 = cryo permanente (sem decay); >= 0 = dias restantes estimados no inventario. */
+    float timer_remaining_days = -1.f;
     std::string extraction_method = "custom_item_data";
 };
 
@@ -41,6 +43,16 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
 bool StripCryopodTimer(UPrimalItem* item);
 
 bool CryopodHasTimer(UPrimalItem* item);
+
+/** Segundos de decay restantes; -1 = permanente (sem timer de captura). */
+float GetCryopodRemainingDecaySeconds(UPrimalItem* item);
+
+/** Dias restantes; -1 = permanente. */
+float GetCryopodRemainingDays(UPrimalItem* item);
+
+bool CryopodMeetsMarketTimerRequirement(UPrimalItem* item, float min_days);
+
+void ApplyCryoTimerFieldsToMetadata(UPrimalItem* item, CryoParsedMetadata& out);
 
 nlohmann::json CryoMetadataToJson(const CryoParsedMetadata& meta);
 
@@ -61,6 +73,7 @@ struct CryoDebugEntry {
     std::string class_name;
     bool vanilla_class = false;
     bool has_timer = false;
+    float timer_remaining_days = -1.f;
     int custom_datas = 0;
     bool get_custom_data = false;
     bool array_pick = false;

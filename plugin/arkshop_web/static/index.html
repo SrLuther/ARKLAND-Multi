@@ -3138,8 +3138,7 @@
           </div>
           <div class="card" style="margin-bottom:16px;">
             <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
-              Importa dinos <code>Type: dino</code> do <code>config.json</code>. Espécies <strong>PRE_REGISTERED</strong> até ativar.
-              Use <strong>Mult.</strong> para editar multiplicadores por stat (antes ou depois de ativar).
+              Importa dinos <code>Type: dino</code> do <code>config.json</code> (preço e blueprint). Variantes (Rex Tek, Volcano, …) compartilham <strong>uma linha econômica</strong> (ex.: «Rex»). O nome na loja não muda; use <strong>Nome</strong> para o rótulo do Comércio.
             </p>
           </div>
           <div id="market-admin-list"></div>
@@ -3736,6 +3735,37 @@
         <button type="button" class="btn btn-ghost" onclick="closeModal('modal-market-mult')">Cancelar</button>
         <button type="button" class="btn btn-success" onclick="marketSaveMultipliers()">💾 Salvar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Mercado — nome da espécie (Comércio) ─────────────────────────── -->
+<div id="modal-market-species-name" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-market-species-name-title">Nome no Comércio</div>
+        <div id="modal-market-species-name-subtitle" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-market-species-name')">✕</button>
+    </div>
+    <div style="padding:4px 4px 12px;">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label>Nome na loja (somente leitura)</label>
+        <input id="modal-market-species-shop-name" type="text" class="form-input" readonly disabled />
+      </div>
+      <div class="form-group" style="margin:0;">
+        <label>Nome no Comércio / tabela oficial</label>
+        <input id="modal-market-species-commerce-name" type="text" class="form-input" maxlength="128"
+               placeholder="Ex.: Rex, Rex Base, Rex nível 1" />
+        <p style="font-size:11px;color:var(--text2);margin:8px 0 0;line-height:1.45;">
+          Usado na tabela de valores e vitrine do Comércio. Não altera o nome do item na loja de resgates.
+        </p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-market-species-name')">Cancelar</button>
+      <button type="button" class="btn btn-success" onclick="marketSaveSpeciesDisplayName()">💾 Salvar</button>
     </div>
   </div>
 </div>
@@ -6163,6 +6193,55 @@ const _MARKET_STAT_LABELS = {
   weight: "Peso", melee: "Dano", speed: "Velocidade",
 };
 let _marketMultEditingKey = null;
+let _marketNameEditingKey = null;
+
+function marketEditSpeciesName(speciesKey) {
+  const species = _marketAdminSpecies.find(s => s.species_key === speciesKey);
+  if (!species) return;
+  _marketNameEditingKey = speciesKey;
+  document.getElementById("modal-market-species-name-title").textContent = "Nome no Comércio";
+  document.getElementById("modal-market-species-name-subtitle").innerHTML =
+    `<code>${escHtml(species.species_key)}</code> · Raiz ${Number(species.root_value || 0).toLocaleString("pt-BR")} Âmbar`;
+  document.getElementById("modal-market-species-shop-name").value =
+    species.shop_catalog_name || species.catalog_item_id || "—";
+  const nameInput = document.getElementById("modal-market-species-commerce-name");
+  nameInput.value = species.display_name || "";
+  nameInput.onkeydown = e => { if (e.key === "Enter") marketSaveSpeciesDisplayName(); };
+  openModal("modal-market-species-name");
+  setTimeout(() => nameInput.focus(), 80);
+}
+
+async function marketSaveSpeciesDisplayName() {
+  const speciesKey = _marketNameEditingKey;
+  if (!speciesKey) return;
+  const name = (document.getElementById("modal-market-species-commerce-name").value || "").trim();
+  if (!name) {
+    toast("Informe o nome do Comércio", "warning");
+    return;
+  }
+  try {
+    const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name: name }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha ao salvar nome", "error");
+      return;
+    }
+    const idx = _marketAdminSpecies.findIndex(s => s.species_key === speciesKey);
+    if (idx >= 0) {
+      _marketAdminSpecies[idx].display_name = d.display_name || name;
+      if (d.shop_catalog_name) _marketAdminSpecies[idx].shop_catalog_name = d.shop_catalog_name;
+    }
+    closeModal("modal-market-species-name");
+    toast("Nome do Comércio atualizado", "success");
+    renderMarketAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
 
 function _renderMarketMultForm(mults) {
   const body = document.getElementById("modal-market-mult-body");
@@ -6306,12 +6385,19 @@ function renderMarketAdmin() {
       ? '<span style="color:var(--success);">ACTIVE</span>'
       : '<span style="color:var(--warn);">' + escHtml(st) + '</span>';
     const btnMult = `<button type="button" class="btn btn-sm btn-ghost market-mult-btn" data-species-key="${escHtml(s.species_key)}">Mult.</button>`;
+    const btnName = `<button type="button" class="btn btn-sm btn-ghost market-name-btn" data-species-key="${escHtml(s.species_key)}">Nome</button>`;
     const btnAct = st === "ACTIVE"
       ? ""
       : `<button type="button" class="btn btn-sm btn-primary market-activate-btn" data-species-key="${escHtml(s.species_key)}">Ativar</button>`;
-    const actions = `<div style="display:flex;gap:6px;flex-wrap:wrap;">${btnMult}${btnAct}</div>`;
+    const actions = `<div style="display:flex;gap:6px;flex-wrap:wrap;">${btnName}${btnMult}${btnAct}</div>`;
+    const shopName = s.shop_catalog_name || s.catalog_item_id || "—";
+    const variants = (s.linked_variants || []).length;
+    const variantHint = variants > 1
+      ? `<div style="font-size:11px;color:var(--text2);">${variants} variantes na loja</div>`
+      : "";
     return `<tr>
-      <td>${escHtml(s.display_name)}</td>
+      <td>${escHtml(s.display_name)}${variantHint}</td>
+      <td style="font-size:12px;color:var(--text2);max-width:200px;">${escHtml(shopName)}</td>
       <td><code>${escHtml(s.species_key)}</code></td>
       <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
       <td>${escHtml(s.tier || "—")}</td>
@@ -6324,7 +6410,7 @@ function renderMarketAdmin() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>Espécie</th><th>Key</th><th>Raiz</th><th>Tier</th><th>Status</th><th>Mult.</th><th></th>
+          <th>Comércio</th><th>Loja (catálogo)</th><th>Key</th><th>Raiz</th><th>Tier</th><th>Status</th><th>Mult.</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -6335,6 +6421,9 @@ function renderMarketAdmin() {
   });
   list.querySelectorAll(".market-mult-btn").forEach(btn => {
     btn.addEventListener("click", () => marketEditMultipliers(btn.dataset.speciesKey));
+  });
+  list.querySelectorAll(".market-name-btn").forEach(btn => {
+    btn.addEventListener("click", () => marketEditSpeciesName(btn.dataset.speciesKey));
   });
 }
 

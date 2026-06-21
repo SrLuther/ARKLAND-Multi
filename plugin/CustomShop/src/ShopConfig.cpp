@@ -102,6 +102,10 @@ bool ShopConfig::MarketCryoDebug() const {
     return settings_.value("MarketCryoDebug", false);
 }
 
+float ShopConfig::MarketCryoMinDaysRemaining() const {
+    return settings_.value("MarketCryoMinDaysRemaining", 20.f);
+}
+
 std::string ShopConfig::DbHost() const {
     return db_cfg_.value("Host", "127.0.0.1");
 }
