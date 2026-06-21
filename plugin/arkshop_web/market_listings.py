@@ -831,31 +831,67 @@ def promote_listings_on_species_activate(db: Session, species_key: str) -> int:
         )
         .all()
     )
-    now = _now()
     count = 0
     for row in rows:
-        species_row = resolve_species(db, species_key=species_key)
-        if not species_row or species_row.status != "ACTIVE":
-            continue
-        meta = _json_loads(row.metadata_json)
-        computed, breakdown, _ = _compute_economy(db, species_row, meta)
-        row.computed_base_value = computed
-        row.effective_price = max(computed, row.effective_price or 0)
-        meta["calculation_breakdown"] = breakdown
-        row.metadata_json = _json_dumps(meta)
-        row.status = "DRAFT"
-        row.updated_at = now
-        count += 1
-        market_audit_event(
-            db,
-            "MARKET_LISTING_PENDING_CLASSIFICATION",
-            steam_id=row.seller_steam_id,
-            listing_id=row.id,
-            computed_base_value=computed,
-            market_trace_id=row.market_trace_id,
-            metadata={"promoted_to": "DRAFT", "species_key": species_key},
-            commit=False,
-        )
+        if _promote_pending_listing_row(db, row, species_key=species_key):
+            count += 1
+    if count:
+        db.commit()
+    return count
+
+
+def _promote_pending_listing_row(
+    db: Session, row: Any, *, species_key: str | None = None, species_row: Any | None = None
+) -> bool:
+    """DRAFT + computed_base_value se espécie ACTIVE. Retorna True se promoveu."""
+    sk = species_key or row.species_key
+    resolved = species_row or (resolve_species(db, species_key=sk) if sk else None)
+    if not resolved or resolved.status != "ACTIVE":
+        return False
+    if resolved.species_key and row.species_key != resolved.species_key:
+        row.species_key = resolved.species_key
+    meta = _json_loads(row.metadata_json)
+    computed, breakdown, _ = _compute_economy(db, resolved, meta)
+    row.computed_base_value = computed
+    row.effective_price = max(computed, row.effective_price or 0)
+    meta["calculation_breakdown"] = breakdown
+    row.metadata_json = _json_dumps(meta)
+    row.status = "DRAFT"
+    row.updated_at = _now()
+    market_audit_event(
+        db,
+        "MARKET_LISTING_PROMOTED",
+        steam_id=row.seller_steam_id,
+        listing_id=row.id,
+        computed_base_value=computed,
+        market_trace_id=row.market_trace_id,
+        metadata={"promoted_to": "DRAFT", "species_key": resolved.species_key},
+        commit=False,
+    )
+    return True
+
+
+def reconcile_pending_listings(db: Session) -> int:
+    """Promove PENDING_CLASSIFICATION cujo espécie já está ACTIVE (ex.: sync sem /activate)."""
+    from app import MarketListing
+
+    rows = (
+        db.query(MarketListing)
+        .filter(MarketListing.status == "PENDING_CLASSIFICATION")
+        .all()
+    )
+    count = 0
+    for row in rows:
+        species_row = None
+        if row.species_key:
+            species_row = resolve_species(db, species_key=row.species_key)
+        if not species_row:
+            meta = _json_loads(row.metadata_json or "{}")
+            bp = meta.get("species_blueprint") or meta.get("blueprint")
+            if bp:
+                species_row = resolve_species(db, blueprint=str(bp))
+        if _promote_pending_listing_row(db, row, species_row=species_row):
+            count += 1
     if count:
         db.commit()
     return count

@@ -309,10 +309,15 @@ def sync_catalog_to_db(
         display_name_overrides=display_name_overrides,
         reset_display_names=reset_display_names,
     )
+    promoted = 0
+    from market_listings import reconcile_pending_listings
+
+    promoted = reconcile_pending_listings(db)
     return {
         "created": created,
         "updated": updated,
         "species_keys": items,
+        "promoted_listings": promoted,
         **ref,
     }
 

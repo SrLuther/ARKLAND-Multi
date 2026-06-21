@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.60] - 2026-06-21
+
+### Fix
+
+- Fix (Comercio): resolve_species reconhece blueprint da cryo (sufixo _C e BlueprintGeneratedClass) — listings ficavam PENDING com especie ACTIVE.
+- Fix (Comercio): sync/ativar promove listings pendentes; botao Promover pendentes no admin.
+
 ## [1.9.59] - 2026-06-21
 
 ### Feature

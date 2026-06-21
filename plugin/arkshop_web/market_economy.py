@@ -121,9 +121,22 @@ def load_default_species_map() -> dict[str, dict[str, Any]]:
 
 def normalize_blueprint(bp: str | None) -> str:
     bp = (bp or "").strip()
+    if not bp:
+        return ""
     if bp.startswith("Blueprint'") and bp.endswith("'"):
         bp = bp[10:-1]
-    return bp.lower()
+    # GetFullName do ArkApi: "BlueprintGeneratedClass /Game/.../Foo.Bar_C"
+    if " " in bp:
+        head, tail = bp.rsplit(" ", 1)
+        head_l = head.lower()
+        if head_l.endswith("class") or "blueprint" in head_l:
+            bp = tail
+    bp = bp.lower()
+    if "." in bp:
+        pkg, cls = bp.rsplit(".", 1)
+        if cls.endswith("_c") and len(cls) > 2:
+            bp = f"{pkg}.{cls[:-2]}"
+    return bp
 
 
 def build_catalog_economy_map() -> dict[str, dict[str, Any]]:

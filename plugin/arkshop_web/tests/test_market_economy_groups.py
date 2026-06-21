@@ -161,3 +161,30 @@ def test_sync_registers_reference_mod_species(db_session):
     row = resolve_species(db_session, blueprint=DREAD_WYVERN_BP)
     assert row is not None
     assert row.species_key == "dread_wyvern"
+
+
+CARCHA_BP = "/Game/PrimalEarth/Dinos/Carcharodontosaurus/Carcha_Character_BP.Carcha_Character_BP"
+CARCHA_CRYO_BP = (
+    "BlueprintGeneratedClass "
+    "/Game/PrimalEarth/Dinos/Carcharodontosaurus/Carcha_Character_BP.Carcha_Character_BP_C"
+)
+
+
+def test_normalize_blueprint_cryo_fullname_suffix_c():
+    assert normalize_blueprint(CARCHA_CRYO_BP) == normalize_blueprint(CARCHA_BP)
+
+
+def test_resolve_carcha_cryo_blueprint(db_session):
+    catalog = {
+        "Items": {
+            "carcha_femea": {
+                "Type": "dino",
+                "Price": 12000,
+                "Dinos": [{"Blueprint": CARCHA_BP, "Level": 1}],
+            }
+        }
+    }
+    sync_catalog_to_db(db_session, catalog, activate=True)
+    row = resolve_species(db_session, blueprint=CARCHA_CRYO_BP)
+    assert row is not None
+    assert row.species_key == "carcha_femea"

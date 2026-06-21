@@ -3447,6 +3447,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
             <button class="btn btn-primary" onclick="marketSyncCatalog(false)">↻ Sync catálogo</button>
             <button class="btn btn-success" onclick="marketSyncCatalog(true)">✓ Sync + ativar todas</button>
+            <button class="btn btn-ghost" onclick="marketReconcilePending()">⟳ Promover pendentes</button>
           </div>
           <div class="card" style="margin-bottom:16px;">
             <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
@@ -3458,7 +3459,7 @@
         <div id="market-admin-panel-pending" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
             <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
-              Listings aguardando espécie <strong>ACTIVE</strong>. Ative a espécie na aba Espécies para promover automaticamente a <strong>DRAFT</strong>.
+              Listings aguardando espécie <strong>ACTIVE</strong> ou com blueprint não reconhecido. Use <strong>Promover pendentes</strong> após ativar a espécie.
             </p>
           </div>
           <div id="market-admin-pending-list"></div>
@@ -6776,8 +6777,24 @@ async function marketSyncCatalog(activate) {
       toast(d.error || "Sync falhou", "error");
       return;
     }
-    toast(`Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`, "success");
+    toast(`Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas` + (d.promoted_listings ? `, ${d.promoted_listings} listing(s) promovido(s)` : ""), "success");
     loadMarketAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function marketReconcilePending() {
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/reconcile-pending", { method: "POST" });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha ao promover", "error");
+      return;
+    }
+    toast(`${d.promoted_listings || 0} listing(s) promovido(s) para DRAFT`, "success");
+    loadMarketAdmin();
+    if (_marketMyListings.length) loadMarketMyShop();
   } catch (e) {
     toast(String(e), "error");
   }
@@ -6793,7 +6810,7 @@ async function marketActivateSpecies(speciesKey) {
       toast(d.error || "Falha ao ativar", "error");
       return;
     }
-    toast(`${speciesKey} ativada`, "success");
+    toast(`${speciesKey} ativada` + (d.promoted_listings ? ` — ${d.promoted_listings} listing(s) promovido(s)` : ""), "success");
     loadMarketAdmin();
   } catch (e) {
     toast(String(e), "error");

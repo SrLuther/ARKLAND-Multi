@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.59"
+APP_VERSION: str = "1.9.60"
 BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.60",
+        "date": "2026-06-21",
+        "changes": [
+            "Fix (Comercio): resolve_species reconhece blueprint da cryo (sufixo _C e "
+            "BlueprintGeneratedClass) — listings ficavam PENDING com especie ACTIVE.",
+            "Fix (Comercio): sync/ativar promove listings pendentes; botao Promover pendentes no admin.",
+        ],
+    },
     {
         "version": "1.9.59",
         "date": "2026-06-21",

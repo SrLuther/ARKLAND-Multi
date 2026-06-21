@@ -30,6 +30,7 @@ from market_listings import (
     player_market_history,
     process_plugin_upload,
     promote_listings_on_species_activate,
+    reconcile_pending_listings,
     purchase_listing,
     release_claims,
     set_listing_price,
@@ -216,6 +217,7 @@ def register_market_routes(
             row.activated_at = datetime.now(timezone.utc)
             db.commit()
             promoted = promote_listings_on_species_activate(db, species_key)
+            promoted += reconcile_pending_listings(db)
             audit_event(
                 "MARKET_SPECIES_ACTIVATED",
                 species_key=species_key,
@@ -229,6 +231,20 @@ def register_market_routes(
                     "promoted_listings": promoted,
                 }
             )
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/reconcile-pending", methods=["POST"])
+    @admin_required
+    def market_admin_reconcile_pending():
+        """Promove listings PENDING cuja espécie já está ACTIVE (correção manual)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            promoted = reconcile_pending_listings(db)
+            audit_event("MARKET_LISTINGS_RECONCILED", promoted_listings=promoted)
+            return jsonify({"ok": True, "promoted_listings": promoted})
         finally:
             db.close()
 
