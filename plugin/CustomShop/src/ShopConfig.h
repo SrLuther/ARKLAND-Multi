@@ -44,6 +44,9 @@ public:
     std::string CryoItemPath()           const;
     bool        CryoLimitedTime()        const;
 
+    /** Logs detalhados de cryopod no Comercio + chat em /enviardebug e falhas de /enviar. */
+    bool        MarketCryoDebug()        const;
+
     // Database (MySQL)
     std::string DbHost()             const;
     int         DbPort()             const;

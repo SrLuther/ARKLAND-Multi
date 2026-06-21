@@ -10,6 +10,7 @@ public:
     static void UnregisterCommands();
 
     static void CmdEnviar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
+    static void CmdEnviarDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type);
 };

@@ -20,7 +20,8 @@
     "CloudRequireLicenseForDownload": false,
     "DeliverDinosInCryopods": true,
     "CryoItemPath": "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'",
-    "CryoLimitedTime": false
+    "CryoLimitedTime": false,
+    "MarketCryoDebug": false
   },
   "Items": {
     "licenca_nuvem": {

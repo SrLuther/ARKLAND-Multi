@@ -1,9 +1,9 @@
 {
-    "version": "1.9.50",
+    "version": "1.9.51",
     "date": "2026-06-20",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.50/ARKLAND-Multi-Setup-v1.9.50.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.51/ARKLAND-Multi-Setup-v1.9.51.exe",
     "changelog": [
-        "Novo (Web Store): editor admin de multiplicadores por stat (7 stats, antes de ativar) + botão Carregar sugeridos do market_species_defaults.json.",
-        "Fix (Web Store): market_species_defaults.json incluído no bundle PyInstaller — sync catálogo aplica tiers e multiplicadores corretos em produção."
+        "Fix (CustomShop): leitura de cryopods capturadas no Comercio — init forcado do item, scan CustomItemDatas, fallback SpawnFromDinoDataEx para metadata/imprint.",
+        "Novo (CustomShop): /enviardebug + MarketCryoDebug no config — diagnostico de cryopod no chat e log ao falhar /enviar."
     ]
 }

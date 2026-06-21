@@ -27,21 +27,249 @@ std::string ClassPath(UClass* cls) {
     return class_name.ToString();
 }
 
+const FName& DinoCustomDataName() {
+    static const FName kName("Dino", EFindName::FNAME_Find);
+    return kName;
+}
+
+UWorld* GameWorld() {
+    AShooterGameMode* gm = ArkApi::GetApiUtils().GetShooterGameMode();
+    return gm ? gm->GetWorld() : nullptr;
+}
+
+void EnsureItemInitialized(UPrimalItem* item) {
+    if (!item) return;
+    UWorld* world = GameWorld();
+    if (!world) return;
+    item->InitializeItem(true, world);
+    item->BPPostInitializeItem(world);
+    item->InventoryLoadedFromSaveGame();
+}
+
+bool IsVanillaEmptyCryopodClass(UPrimalItem* item) {
+    if (!item) return false;
+    UClass* cls = item->ClassField();
+    if (!cls) return false;
+    FString class_name;
+    cls->GetFullName(&class_name, nullptr);
+    const std::string name = class_name.ToString();
+    return name.find("PrimalItem_WeaponEmptyCryopod") != std::string::npos;
+}
+
+bool CustomDataLooksLikeDino(const FCustomItemData& data) {
+    if (data.CustomDataFloats.Num() >= 25) return true;
+    if (data.CustomDataClasses.Num() >= 1 && data.CustomDataStrings.Num() >= 1) return true;
+    if (data.CustomDataBytes.ByteArrays.Num() >= 1
+        && data.CustomDataBytes.ByteArrays[0].Bytes.Num() > 32)
+        return true;
+    return false;
+}
+
+bool CustomDataNameIsDino(const FCustomItemData& data) {
+    return data.CustomDataName == DinoCustomDataName();
+}
+
+bool PickDinoCustomDataFromArray(const TArray<FCustomItemData>& all, FCustomItemData& out) {
+    for (int i = 0; i < all.Num(); ++i) {
+        const FCustomItemData& entry = all[i];
+        if (CustomDataNameIsDino(entry) && CustomDataLooksLikeDino(entry)) {
+            out = entry;
+            return true;
+        }
+    }
+    for (int i = 0; i < all.Num(); ++i) {
+        const FCustomItemData& entry = all[i];
+        if (CustomDataLooksLikeDino(entry)) {
+            out = entry;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool TryReadDinoCustomData(UPrimalItem* item, FCustomItemData& out) {
+    if (!item) return false;
+    if (item->GetCustomItemData(DinoCustomDataName(), &out) && CustomDataLooksLikeDino(out))
+        return true;
+    static const FName kDinoAdd("Dino", EFindName::FNAME_Add);
+    if (item->GetCustomItemData(kDinoAdd, &out) && CustomDataLooksLikeDino(out))
+        return true;
+    return PickDinoCustomDataFromArray(item->CustomItemDatasField(), out);
+}
+
+std::string ShortSpecies(const std::string& bp) {
+    const size_t dot = bp.rfind('.');
+    if (dot != std::string::npos && dot + 1 < bp.size())
+        return bp.substr(dot + 1);
+    return bp.size() > 32 ? bp.substr(0, 32) : bp;
+}
+
+bool TryGetCryoCustomDataFromItem(UPrimalItem* item, FCustomItemData& out);
+
+bool CollectCryoCustomDataBlob(UPrimalItem* item, FCustomItemData& out) {
+    if (!item) return false;
+    if (TryGetCryoCustomDataFromItem(item, out))
+        return true;
+
+    FCustomItemByteArray bytes;
+    item->GetItemBytes(&bytes.Bytes);
+    if (bytes.Bytes.Num() <= 0)
+        return false;
+
+    UPrimalItem* clone = UPrimalItem::CreateFromBytes(&bytes.Bytes);
+    if (!clone)
+        return false;
+
+    EnsureItemInitialized(clone);
+    if (TryReadDinoCustomData(clone, out))
+        return true;
+
+    const TArray<FCustomItemData>& all = clone->CustomItemDatasField();
+    for (int i = 0; i < all.Num(); ++i) {
+        const FCustomItemData& entry = all[i];
+        if (entry.CustomDataBytes.ByteArrays.Num() >= 1
+            && entry.CustomDataBytes.ByteArrays[0].Bytes.Num() > 32) {
+            out = entry;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool FillMetadataFromDino(APrimalDinoCharacter* dino, CustomShop::CryoParsedMetadata& out) {
+    if (!dino) return false;
+
+    FARKDinoData dinoData;
+    dino->GetDinoData(&dinoData);
+    if (dinoData.DinoClass)
+        out.species_blueprint = ClassPath(dinoData.DinoClass);
+    out.name_map = dinoData.DinoNameInMap.ToString();
+    out.name_breeder = dinoData.DinoName.ToString();
+    out.is_female = dino->bIsFemale()();
+    out.sex = out.is_female ? "female" : "male";
+    out.is_neutered = dino->bNeutered()();
+    out.mutations_male = dino->RandomMutationsMaleField();
+    out.mutations_female = dino->RandomMutationsFemaleField();
+
+    if (UPrimalCharacterStatusComponent* stat = dino->MyCharacterStatusComponentField()) {
+        out.imprint_pct = stat->DinoImprintingQualityField();
+        out.health.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Health];
+        out.stamina.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Stamina];
+        out.oxygen.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Oxygen];
+        out.food.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Food];
+        out.weight.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Weight];
+        out.melee.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::MeleeDamageMultiplier];
+        out.speed.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::SpeedMultiplier];
+    }
+    return true;
+}
+
+bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
+                           CustomShop::CryoParsedMetadata& out) {
+    FCustomItemData data;
+    if (!CollectCryoCustomDataBlob(item, data))
+        return false;
+    if (data.CustomDataClasses.Num() < 1
+        || data.CustomDataBytes.ByteArrays.Num() < 1
+        || data.CustomDataBytes.ByteArrays[0].Bytes.Num() <= 32)
+        return false;
+
+    UWorld* world = GameWorld();
+    if (!world)
+        return false;
+
+    FARKDinoData dinoData;
+    dinoData.DinoClass = data.CustomDataClasses[0];
+    dinoData.DinoData = data.CustomDataBytes.ByteArrays[0].Bytes;
+    if (data.CustomDataStrings.Num() >= 1)
+        dinoData.DinoNameInMap = data.CustomDataStrings[0];
+    if (data.CustomDataStrings.Num() >= 2)
+        dinoData.DinoName = data.CustomDataStrings[1];
+
+    FVector spawn_loc = FVector(0.f, 0.f, -50000.f);
+    int team_id = 0;
+    if (player)
+        team_id = player->TargetingTeamField();
+
+    FRotator spawn_rot = FRotator(0.f, 0.f, 0.f);
+    bool duped = false;
+    APrimalDinoCharacter* spawned = APrimalDinoCharacter::SpawnFromDinoDataEx(
+        &dinoData, world, &spawn_loc, &spawn_rot, &duped, team_id, false, player, true);
+    if (!spawned) {
+        Log::GetLog()->warn("ShopCryoReader: SpawnFromDinoDataEx falhou species={}",
+                            ClassPath(dinoData.DinoClass));
+        return false;
+    }
+
+    out = CustomShop::CryoParsedMetadata{};
+    out.has_dino_data = true;
+    out.extraction_method = "spawn_probe";
+    const bool ok = FillMetadataFromDino(spawned, out);
+    spawned->Destroy(true, false);
+    if (ok) {
+        Log::GetLog()->info("ShopCryoReader: metadata via spawn probe species={} imprint={:.2f}",
+                            ShortSpecies(out.species_blueprint), out.imprint_pct);
+    }
+    return ok;
+}
+
+bool TryGetCryoCustomDataFromItem(UPrimalItem* item, FCustomItemData& out) {
+    if (!item) return false;
+
+    EnsureItemInitialized(item);
+    if (TryReadDinoCustomData(item, out))
+        return true;
+
+    FCustomItemByteArray bytes;
+    item->GetItemBytes(&bytes.Bytes);
+    if (bytes.Bytes.Num() <= 0)
+        return false;
+
+    UPrimalItem* clone = UPrimalItem::CreateFromBytes(&bytes.Bytes);
+    if (!clone)
+        return false;
+
+    EnsureItemInitialized(clone);
+    if (TryReadDinoCustomData(clone, out))
+        return true;
+
+    Log::GetLog()->warn(
+        "ShopCryoReader: falha ao ler cryo class={} customDatas={} bytes={}",
+        ClassPath(item->ClassField()),
+        item->CustomItemDatasField().Num(),
+        bytes.Bytes.Num());
+    return false;
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
 
+constexpr float kStandardCryoDurability = 3600.f;
+
+bool CryopodHasTimer(UPrimalItem* item) {
+    if (!item) return false;
+    const float max_dur = item->ItemDurabilityField();
+    if (max_dur <= 0.f) return false;
+    if (max_dur < kStandardCryoDurability - 0.5f) return true;
+    return item->BPGetItemDurabilityPercentage() < 0.999f;
+}
+
+bool StripCryopodTimer(UPrimalItem* item) {
+    if (!item || !CryopodHasTimer(item)) return false;
+    const float max_dur = item->ItemDurabilityField();
+    const float delta = kStandardCryoDurability - max_dur;
+    if (delta > 0.01f || delta < -0.01f)
+        item->AddItemDurability(delta);
+    item->UpdatedItem(true);
+    return !CryopodHasTimer(item);
+}
+
 bool IsOfficialCryopodItem(UPrimalItem* item) {
     if (!item) return false;
-    UClass* cls = item->ClassField();
-    if (cls) {
-        FString class_name;
-        cls->GetFullName(&class_name, nullptr);
-        const std::string name = class_name.ToString();
-        if (name.find("Cryopod") != std::string::npos) return true;
-        if (name.find("cryopod") != std::string::npos) return true;
-    }
-    return item->HasCustomItemData(FName("Dino", EFindName::FNAME_Find));
+    if (IsVanillaEmptyCryopodClass(item)) return true;
+    FCustomItemData tmp;
+    return TryGetCryoCustomDataFromItem(item, tmp);
 }
 
 UPrimalItem* FindCryopodInInventory(AShooterPlayerController* controller, int slot_index) {
@@ -49,19 +277,26 @@ UPrimalItem* FindCryopodInInventory(AShooterPlayerController* controller, int sl
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
     if (!inv) return nullptr;
 
+    auto has_dino = [](UPrimalItem* item) -> bool {
+        if (!item || !IsVanillaEmptyCryopodClass(item)) return false;
+        FCustomItemData tmp;
+        if (TryGetCryoCustomDataFromItem(item, tmp)) return true;
+        return CryopodHasTimer(item);
+    };
+
     if (slot_index >= 0) {
         TArray<UPrimalItem*> items = inv->InventoryItemsField();
-        if (slot_index < items.Num() && IsOfficialCryopodItem(items[slot_index]))
+        if (slot_index < items.Num() && has_dino(items[slot_index]))
             return items[slot_index];
         return nullptr;
     }
 
     UPrimalItem* equipped = inv->GetEquippedItemOfType(EPrimalEquipmentType::Weapon);
-    if (IsOfficialCryopodItem(equipped)) return equipped;
+    if (has_dino(equipped)) return equipped;
 
     TArray<UPrimalItem*> items = inv->InventoryItemsField();
     for (int i = 0; i < items.Num(); ++i) {
-        if (IsOfficialCryopodItem(items[i])) return items[i];
+        if (has_dino(items[i])) return items[i];
     }
     return nullptr;
 }
@@ -84,7 +319,7 @@ UPrimalItem* FindCryopodMatchingMeta(
     auto try_item = [&](UPrimalItem* item) -> UPrimalItem* {
         if (!item) return nullptr;
         CryoParsedMetadata meta;
-        if (!ParseCryopodItem(item, meta, nullptr)) return nullptr;
+        if (!ParseCryopodItem(item, meta, nullptr, controller)) return nullptr;
         return CryoMetadataMatches(meta, expected) ? item : nullptr;
     };
 
@@ -99,74 +334,35 @@ UPrimalItem* FindCryopodMatchingMeta(
     return nullptr;
 }
 
-constexpr float kStandardCryoDurability = 3600.f;
-
-bool CryopodHasTimer(UPrimalItem* item) {
-    if (!item) return false;
-    const float max_dur = item->ItemDurabilityField();
-    if (max_dur <= 0.f) return false;
-    if (max_dur < kStandardCryoDurability - 0.5f) return true;
-    return item->BPGetItemDurabilityPercentage() < 0.999f;
-}
-
-bool StripCryopodTimer(UPrimalItem* item) {
-    if (!item || !CryopodHasTimer(item)) return false;
-    const float max_dur = item->ItemDurabilityField();
-    const float delta = kStandardCryoDurability - max_dur;
-    if (delta > 0.01f || delta < -0.01f)
-        item->AddItemDurability(delta);
-    item->UpdatedItem(true);
-    return !CryopodHasTimer(item);
-}
-
-bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* error) {
+bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* error,
+                      AShooterPlayerController* context_player) {
     if (!item) {
         if (error) *error = "item nulo";
         return false;
     }
-    if (!IsOfficialCryopodItem(item)) {
+    if (!IsVanillaEmptyCryopodClass(item)) {
         if (error) *error = "nao e cryopod oficial";
         return false;
     }
 
     FCustomItemData custom_data;
-    if (!item->GetCustomItemData(FName("Dino", EFindName::FNAME_Find), &custom_data)) {
-        if (error) *error = "sem CustomItemData";
-        return false;
-    }
+    const bool have_custom = TryGetCryoCustomDataFromItem(item, custom_data);
 
-    const TArray<float>& floats = custom_data.CustomDataFloats;
-    if (floats.Num() < 25) {
-        if (error) *error = "CustomDataFloats incompleto";
+    if (!have_custom) {
+        if (TryParseViaSpawnProbe(item, context_player, out)) {
+            out.had_timer = CryopodHasTimer(item);
+            return true;
+        }
+        if (CryopodHasTimer(item)) {
+            if (error) *error = "cryo com dino mas leitura falhou";
+        } else if (error) {
+            *error = "sem dino ou formato incompativeis";
+        }
         return false;
     }
 
     out = CryoParsedMetadata{};
     out.has_dino_data = true;
-
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Health) + 12, out.health.value);
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Stamina) + 12, out.stamina.value);
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Oxygen) + 12, out.oxygen.value);
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Food) + 12, out.food.value);
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Weight) + 12, out.weight.value);
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::MeleeDamageMultiplier) + 12, out.melee.value);
-    FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::SpeedMultiplier) + 12, out.speed.value);
-
-    float is_female_f = 0.f;
-    if (FloatAt(floats, 24, is_female_f))
-        out.is_female = is_female_f > 0.5f;
-
-    const TArray<double>& doubles = custom_data.CustomDataDoubles.Doubles;
-    double mut_m = 0, mut_f = 0, imprint = 0;
-    if (doubles.Num() >= 5) {
-        DoubleAt(doubles, 3, mut_m);
-        DoubleAt(doubles, 4, mut_f);
-        out.mutations_male = static_cast<int>(mut_m);
-        out.mutations_female = static_cast<int>(mut_f);
-    }
-    if (doubles.Num() >= 6)
-        DoubleAt(doubles, 5, imprint);
-    out.imprint_pct = static_cast<float>(imprint);
 
     if (custom_data.CustomDataStrings.Num() >= 1)
         out.name_map = custom_data.CustomDataStrings[0].ToString();
@@ -181,9 +377,35 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
         const std::string neut = custom_data.CustomDataStrings[3].ToString();
         out.is_neutered = neut.find("NEUTERED") != std::string::npos;
     }
-
     if (custom_data.CustomDataClasses.Num() >= 1)
         out.species_blueprint = ClassPath(custom_data.CustomDataClasses[0]);
+
+    const TArray<float>& floats = custom_data.CustomDataFloats;
+    if (floats.Num() >= 25) {
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Health) + 12, out.health.value);
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Stamina) + 12, out.stamina.value);
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Oxygen) + 12, out.oxygen.value);
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Food) + 12, out.food.value);
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Weight) + 12, out.weight.value);
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::MeleeDamageMultiplier) + 12, out.melee.value);
+        FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::SpeedMultiplier) + 12, out.speed.value);
+
+        float is_female_f = 0.f;
+        if (FloatAt(floats, 24, is_female_f))
+            out.is_female = is_female_f > 0.5f;
+    }
+
+    const TArray<double>& doubles = custom_data.CustomDataDoubles.Doubles;
+    double mut_m = 0, mut_f = 0, imprint = 0;
+    if (doubles.Num() >= 5) {
+        DoubleAt(doubles, 3, mut_m);
+        DoubleAt(doubles, 4, mut_f);
+        out.mutations_male = static_cast<int>(mut_m);
+        out.mutations_female = static_cast<int>(mut_f);
+    }
+    if (doubles.Num() >= 6)
+        DoubleAt(doubles, 5, imprint);
+    out.imprint_pct = static_cast<float>(imprint);
 
     out.had_timer = CryopodHasTimer(item);
 
@@ -211,10 +433,176 @@ nlohmann::json CryoMetadataToJson(const CryoParsedMetadata& meta) {
         {"melee",   {{"value", meta.melee.value}}},
         {"speed",   {{"value", meta.speed.value}}},
     };
-    j["extraction_method"] = "blob_parse";
+    j["extraction_method"] = meta.extraction_method.empty() ? "custom_item_data" : meta.extraction_method;
     if (meta.had_timer)
         j["timer_stripped_on_upload"] = true;
     return j;
+}
+
+namespace {
+
+void DiagnoseSingleCryo(UPrimalItem* item, AShooterPlayerController* controller, CryoDebugEntry& e) {
+    if (!item) return;
+
+    e.class_name = ClassPath(item->ClassField());
+    e.vanilla_class = IsVanillaEmptyCryopodClass(item);
+    e.has_timer = CustomShop::CryopodHasTimer(item);
+    e.custom_datas = item->CustomItemDatasField().Num();
+
+    FCustomItemData direct;
+    e.get_custom_data =
+        item->GetCustomItemData(DinoCustomDataName(), &direct) && CustomDataLooksLikeDino(direct);
+
+    FCustomItemData picked;
+    e.array_pick = PickDinoCustomDataFromArray(item->CustomItemDatasField(), picked);
+
+    FCustomItemByteArray bytes;
+    item->GetItemBytes(&bytes.Bytes);
+    e.blob_bytes = bytes.Bytes.Num();
+
+    UPrimalItem* clone = nullptr;
+    if (bytes.Bytes.Num() > 0) {
+        clone = UPrimalItem::CreateFromBytes(&bytes.Bytes);
+        e.clone_ok = clone != nullptr;
+        if (clone) {
+            EnsureItemInitialized(clone);
+            e.clone_custom_datas = clone->CustomItemDatasField().Num();
+            FCustomItemData clone_direct;
+            e.clone_get_custom = clone->GetCustomItemData(DinoCustomDataName(), &clone_direct)
+                && CustomDataLooksLikeDino(clone_direct);
+        }
+    }
+
+    FCustomItemData merged;
+    if (TryGetCryoCustomDataFromItem(item, merged)) {
+        e.try_read_ok = true;
+        e.floats = merged.CustomDataFloats.Num();
+        e.doubles = merged.CustomDataDoubles.Doubles.Num();
+        e.strings = merged.CustomDataStrings.Num();
+        e.classes = merged.CustomDataClasses.Num();
+    }
+
+    CryoParsedMetadata meta;
+    e.parse_ok = ParseCryopodItem(item, meta, &e.parse_error, controller);
+    if (e.parse_ok) {
+        e.imprint_pct = meta.imprint_pct;
+        e.species = meta.species_blueprint;
+        e.name_map = meta.name_map;
+    } else if (e.try_read_ok) {
+        if (merged.CustomDataStrings.Num() >= 1)
+            e.name_map = merged.CustomDataStrings[0].ToString();
+        if (merged.CustomDataClasses.Num() >= 1)
+            e.species = ClassPath(merged.CustomDataClasses[0]);
+        if (merged.CustomDataDoubles.Doubles.Num() >= 6) {
+            double imprint = 0;
+            DoubleAt(merged.CustomDataDoubles.Doubles, 5, imprint);
+            e.imprint_pct = static_cast<float>(imprint);
+        }
+    }
+}
+
+} // anonymous namespace
+
+void BuildCryoInventoryDebugReport(AShooterPlayerController* controller, CryoInventoryDebugReport& out) {
+    out = CryoInventoryDebugReport{};
+    if (!controller) return;
+
+    UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
+    if (!inv) return;
+
+    UPrimalItem* equipped = inv->GetEquippedItemOfType(EPrimalEquipmentType::Weapon);
+
+    auto scan = [&](UPrimalItem* item, int index, bool is_equipped) {
+        if (!item || !IsVanillaEmptyCryopodClass(item)) return;
+        CryoDebugEntry entry;
+        entry.inventory_index = index;
+        entry.equipped = is_equipped;
+        DiagnoseSingleCryo(item, controller, entry);
+        out.entries.push_back(entry);
+        ++out.vanilla_cryos;
+        if (entry.parse_ok) ++out.parseable;
+    };
+
+    scan(equipped, -1, true);
+
+    TArray<UPrimalItem*> items = inv->InventoryItemsField();
+    for (int i = 0; i < items.Num(); ++i) {
+        if (items[i] == equipped) continue;
+        scan(items[i], i, false);
+    }
+}
+
+void LogCryoInventoryDebugReport(
+    const std::string& steam_id, const char* stage, const CryoInventoryDebugReport& report) {
+    Log::GetLog()->warn(
+        "ShopCryoReader[{}] steam={} vanilla_cryos={} parseable={}",
+        stage ? stage : "debug",
+        steam_id,
+        report.vanilla_cryos,
+        report.parseable);
+
+    for (const CryoDebugEntry& e : report.entries) {
+        Log::GetLog()->warn(
+            "  cryo slot={} eq={} class={} timer={} customDatas={} getCustom={} arrayPick={} "
+            "floats={} doubles={} strings={} classes={} bytes={} clone={} cloneDatas={} "
+            "cloneGet={} tryRead={} parse={} imprint={:.3f} species={} name={} err={}",
+            e.inventory_index,
+            e.equipped ? 1 : 0,
+            e.class_name,
+            e.has_timer ? 1 : 0,
+            e.custom_datas,
+            e.get_custom_data ? 1 : 0,
+            e.array_pick ? 1 : 0,
+            e.floats,
+            e.doubles,
+            e.strings,
+            e.classes,
+            e.blob_bytes,
+            e.clone_ok ? 1 : 0,
+            e.clone_custom_datas,
+            e.clone_get_custom ? 1 : 0,
+            e.try_read_ok ? 1 : 0,
+            e.parse_ok ? 1 : 0,
+            e.imprint_pct,
+            ShortSpecies(e.species),
+            e.name_map,
+            e.parse_error);
+    }
+}
+
+std::vector<std::string> CryoInventoryDebugChatLines(const CryoInventoryDebugReport& report) {
+    std::vector<std::string> lines;
+    lines.push_back(
+        "[DBG] cryos vanilla=" + std::to_string(report.vanilla_cryos)
+        + " parse ok=" + std::to_string(report.parseable));
+
+    int shown = 0;
+    for (const CryoDebugEntry& e : report.entries) {
+        if (shown >= 3) break;
+        const std::string slot = e.equipped ? "equipped" : ("slot" + std::to_string(e.inventory_index));
+        lines.push_back(
+            "[DBG] " + slot + " timer=" + (e.has_timer ? "1" : "0")
+            + " datas=" + std::to_string(e.custom_datas)
+            + " get=" + (e.get_custom_data ? "1" : "0")
+            + " arr=" + (e.array_pick ? "1" : "0")
+            + " bytes=" + std::to_string(e.blob_bytes)
+            + " read=" + (e.try_read_ok ? "1" : "0"));
+        if (!e.parse_ok && !e.parse_error.empty()) {
+            std::string err = e.parse_error;
+            if (err.size() > 48) err.resize(48);
+            lines.push_back("[DBG] parse FAIL: " + err);
+        } else if (e.parse_ok) {
+            lines.push_back(
+                "[DBG] OK name=" + (e.name_map.empty() ? "?" : e.name_map)
+                + " imprint=" + std::to_string(static_cast<int>(e.imprint_pct * 100)) + "%");
+        }
+        ++shown;
+    }
+
+    if (report.entries.size() > 3) {
+        lines.push_back("[DBG] +" + std::to_string(report.entries.size() - 3) + " cryos (ver log servidor)");
+    }
+    return lines;
 }
 
 } // namespace CustomShop

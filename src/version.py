@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.50"
+APP_VERSION: str = "1.9.51"
 BUILD_DATE: str = "2026-06-20"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.51",
+        "date": "2026-06-21",
+        "changes": [
+            "Fix (CustomShop): leitura de cryopods capturadas no Comercio — init forcado do item, "
+            "scan CustomItemDatas, fallback SpawnFromDinoDataEx para metadata/imprint.",
+            "Novo (CustomShop): /enviardebug + MarketCryoDebug no config — diagnostico de cryopod "
+            "no chat e log ao falhar /enviar.",
+        ],
+    },
     {
         "version": "1.9.50",
         "date": "2026-06-20",

@@ -3,6 +3,7 @@
 #include "pch.h"
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace CustomShop {
 
@@ -29,10 +30,12 @@ struct CryoParsedMetadata {
     StatVal speed;
     bool has_dino_data = false;
     bool had_timer = false;
+    std::string extraction_method = "custom_item_data";
 };
 
 // Lê metadados de cryopod vanilla (espelha ShopCryoDino::BuildCryoCustomData).
-bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* error = nullptr);
+bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* error = nullptr,
+                      AShooterPlayerController* context_player = nullptr);
 
 // Remove timer de cryopod (restaura durabilidade padrão ~3600s). Retorna true se alterou.
 bool StripCryopodTimer(UPrimalItem* item);
@@ -50,5 +53,45 @@ UPrimalItem* FindCryopodMatchingMeta(
     AShooterPlayerController* controller, const CryoParsedMetadata& expected);
 
 bool CryoMetadataMatches(const CryoParsedMetadata& a, const CryoParsedMetadata& b);
+
+/** Uma entrada por cryopod vanilla encontrada no inventario (diagnostico). */
+struct CryoDebugEntry {
+    int inventory_index = -1;
+    bool equipped = false;
+    std::string class_name;
+    bool vanilla_class = false;
+    bool has_timer = false;
+    int custom_datas = 0;
+    bool get_custom_data = false;
+    bool array_pick = false;
+    int floats = 0;
+    int doubles = 0;
+    int strings = 0;
+    int classes = 0;
+    int blob_bytes = 0;
+    bool clone_ok = false;
+    int clone_custom_datas = 0;
+    bool clone_get_custom = false;
+    bool try_read_ok = false;
+    bool parse_ok = false;
+    std::string parse_error;
+    float imprint_pct = 0.f;
+    std::string species;
+    std::string name_map;
+};
+
+struct CryoInventoryDebugReport {
+    int vanilla_cryos = 0;
+    int parseable = 0;
+    std::vector<CryoDebugEntry> entries;
+};
+
+void BuildCryoInventoryDebugReport(AShooterPlayerController* controller, CryoInventoryDebugReport& out);
+
+void LogCryoInventoryDebugReport(
+    const std::string& steam_id, const char* stage, const CryoInventoryDebugReport& report);
+
+/** Linhas ASCII curtas para chat in-game (max ~6). */
+std::vector<std::string> CryoInventoryDebugChatLines(const CryoInventoryDebugReport& report);
 
 } // namespace CustomShop

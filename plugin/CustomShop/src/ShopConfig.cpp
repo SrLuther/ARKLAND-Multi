@@ -98,6 +98,10 @@ bool ShopConfig::CryoLimitedTime() const {
     return settings_.value("CryoLimitedTime", false);
 }
 
+bool ShopConfig::MarketCryoDebug() const {
+    return settings_.value("MarketCryoDebug", false);
+}
+
 std::string ShopConfig::DbHost() const {
     return db_cfg_.value("Host", "127.0.0.1");
 }

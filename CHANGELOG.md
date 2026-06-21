@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.51] - 2026-06-21
+
+### Feature
+
+- Novo (CustomShop): /enviardebug + MarketCryoDebug no config — diagnostico de cryopod no chat e log ao falhar /enviar.
+
+### Fix
+
+- Fix (CustomShop): leitura de cryopods capturadas no Comercio — init forcado do item, scan CustomItemDatas, fallback SpawnFromDinoDataEx para metadata/imprint.
+
 ## [1.9.50] - 2026-06-20
 
 ### Feature

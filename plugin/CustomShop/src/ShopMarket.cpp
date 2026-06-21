@@ -3,6 +3,7 @@
 #include "ShopBridge.h"
 #include "ShopCloudInventory.h"
 #include "ShopCryoReader.h"
+#include "ShopConfig.h"
 #include "HttpClient.h"
 
 #include <chrono>
@@ -66,6 +67,23 @@ void SendMsg(AShooterPlayerController* c, const FLinearColor& color, const std::
         ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
 }
 
+/** Chat in-game nao suporta UTF-8 — mensagens da web precisam ir em ASCII. */
+std::string SanitizeForGameChat(std::string msg) {
+    std::string out;
+    out.reserve(msg.size());
+    for (unsigned char ch : msg) {
+        if (ch >= 32 && ch <= 126)
+            out.push_back(static_cast<char>(ch));
+    }
+    while (!out.empty() && out.back() == ' ')
+        out.pop_back();
+    return out.empty() ? std::string("Erro desconhecido") : out;
+}
+
+std::string CommerceNotReadyMessage() {
+    return "Defina seu nome de exibicao em Minha Area (web) antes de usar /enviar.";
+}
+
 bool ProfileCommerceReady(const std::string& steam_id, std::string* error_out) {
     const std::string resp = CustomShop::HttpClient::Get("/api/market/plugin/profile/" + steam_id);
     nlohmann::json json;
@@ -77,7 +95,7 @@ bool ProfileCommerceReady(const std::string& steam_id, std::string* error_out) {
     }
     if (!json.value("ok", false) || !json.value("commerce_ready", false)) {
         if (error_out)
-            *error_out = json.value("error", std::string("Defina nome de exibicao em Minha Area (web)."));
+            *error_out = CommerceNotReadyMessage();
         return false;
     }
     return true;
@@ -91,18 +109,31 @@ void ReleaseClaims(const std::string& steam_id, const std::vector<int>& claim_id
     CustomShop::HttpClient::PostJson("/api/market/claims/release", body.dump());
 }
 
+void SendCryoDebugReport(AShooterPlayerController* player, const std::string& steam_id,
+                         const char* stage, bool to_chat) {
+    CustomShop::CryoInventoryDebugReport report;
+    CustomShop::BuildCryoInventoryDebugReport(player, report);
+    CustomShop::LogCryoInventoryDebugReport(steam_id, stage, report);
+    if (!to_chat || !player) return;
+    for (const std::string& line : CustomShop::CryoInventoryDebugChatLines(report)) {
+        SendMsg(player, FColorList::Yellow, SanitizeForGameChat(line));
+    }
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
 
 void ShopMarket::RegisterCommands() {
     ArkApi::GetCommands().AddChatCommand("/enviar", &ShopMarket::CmdEnviar);
+    ArkApi::GetCommands().AddChatCommand("/enviardebug", &ShopMarket::CmdEnviarDebug);
     ArkApi::GetCommands().AddChatCommand("/confirmar", &ShopMarket::CmdConfirmar);
     ArkApi::GetCommands().AddChatCommand("/resgatarmercado", &ShopMarket::CmdResgatarMercado);
 }
 
 void ShopMarket::UnregisterCommands() {
     ArkApi::GetCommands().RemoveChatCommand("/enviar");
+    ArkApi::GetCommands().RemoveChatCommand("/enviardebug");
     ArkApi::GetCommands().RemoveChatCommand("/confirmar");
     ArkApi::GetCommands().RemoveChatCommand("/resgatarmercado");
 }
@@ -124,18 +155,24 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
 
     UPrimalItem* cryo = FindCryopodInInventory(player, -1);
     if (!cryo) {
-        SendMsg(player, FColorList::Red, "Nenhuma cryopod com dino encontrada no inventario.");
+        SendMsg(player, FColorList::Red,
+                "Nenhuma cryopod COM DINO no inventario. Equipe a cryo preenchida "
+                "(cryopods vazias sao ignoradas).");
+        SendCryoDebugReport(player, sid, "enviar_no_cryo",
+                            ShopConfig::Get().MarketCryoDebug());
         return;
     }
 
     CryoParsedMetadata meta;
     std::string err;
-    if (!ParseCryopodItem(cryo, meta, &err)) {
+    if (!ParseCryopodItem(cryo, meta, &err, player)) {
         SendMsg(player, FColorList::Red, "Cryopod invalida: " + err);
+        SendCryoDebugReport(player, sid, "enviar_parse_fail", true);
         return;
     }
     if (meta.imprint_pct < 0.999f) {
         SendMsg(player, FColorList::Red, "Imprint 100% obrigatorio para o Comercio.");
+        SendCryoDebugReport(player, sid, "enviar_imprint", ShopConfig::Get().MarketCryoDebug());
         return;
     }
 
@@ -153,10 +190,17 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
             + std::to_string(meta.mutations_male) + "/" + std::to_string(meta.mutations_female));
     if (meta.had_timer) {
         SendMsg(player, FColorList::Yellow,
-                "Cryopod com timer detectada — ao /confirmar o timer sera removido permanentemente.");
+                "Cryopod com timer detectada - ao /confirmar o timer sera removido permanentemente.");
     }
     SendMsg(player, FColorList::Yellow,
             "Digite /confirmar em ate 2 minutos para enviar ao Comercio (cryopod sera removida).");
+}
+
+void ShopMarket::CmdEnviarDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
+    if (!player) return;
+    const std::string sid = Bridge::GetSteamId(player);
+    SendMsg(player, FColorList::Yellow, "Diagnostico cryopod Comercio (detalhes no log do servidor).");
+    SendCryoDebugReport(player, sid, "enviardebug", true);
 }
 
 void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
@@ -197,7 +241,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
             return;
         }
         pending.meta.had_timer = true;
-        SendMsg(player, FColorList::Yellow, "Timer removido — cryopod padrao (sem limite) pronta para envio.");
+        SendMsg(player, FColorList::Yellow, "Timer removido - cryopod padrao (sem limite) pronta para envio.");
     }
 
     FCustomItemByteArray bytes;
@@ -209,7 +253,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
 
     UPrimalItem* probe = UPrimalItem::CreateFromBytes(&bytes.Bytes);
     if (!probe) {
-        SendMsg(player, FColorList::Red, "Cryopod corrompida — envio cancelado.");
+        SendMsg(player, FColorList::Red, "Cryopod corrompida - envio cancelado.");
         return;
     }
 
@@ -247,8 +291,8 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         if (restored && inv) {
             inv->AddItemObject(restored);
             SendMsg(player, FColorList::Yellow,
-                    "Falha no servidor — cryopod devolvida. Motivo: "
-                    + json.value("error", std::string("erro desconhecido")));
+                    "Falha no servidor - cryopod devolvida. Motivo: "
+                    + SanitizeForGameChat(json.value("error", std::string("erro desconhecido"))));
         } else {
             SendMsg(player, FColorList::Red,
                     "FALHA CRITICA: cryopod removida mas upload falhou. Contate admin.");
@@ -258,7 +302,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
 
     SendMsg(player, FColorList::Green,
             "Dino enviado ao Comercio! Listing #" + std::to_string(json.value("listing_id", 0))
-            + " — defina preco na web.");
+            + " - defina preco na web.");
 }
 
 void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
@@ -303,7 +347,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
         if (hex.empty()) {
             ReleaseClaims(sid, {claim_id});
             claimed_ids.clear();
-            SendMsg(player, FColorList::Red, "Blob invalido — resgate cancelado.");
+            SendMsg(player, FColorList::Red, "Blob invalido - resgate cancelado.");
             return;
         }
 
@@ -312,7 +356,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
         if (!item || !inv->AddItemObject(item)) {
             ReleaseClaims(sid, claimed_ids);
             SendMsg(player, FColorList::Red,
-                    "Inventario cheio — libere espaco e tente /resgatarmercado.");
+                    "Inventario cheio - libere espaco e tente /resgatarmercado.");
             return;
         }
         if (CryopodHasTimer(item))
