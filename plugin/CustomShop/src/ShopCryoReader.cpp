@@ -202,9 +202,12 @@ void CopyStatPoints(const CustomShop::CryoParsedMetadata& src, CustomShop::CryoP
         dst.dino_level = src.dino_level;
 }
 
+bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
+                           CustomShop::CryoParsedMetadata& out);
+
 bool TryFillStatPointsViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
                                     CustomShop::CryoParsedMetadata& out) {
-    CryoParsedMetadata probe;
+    CustomShop::CryoParsedMetadata probe;
     if (!TryParseViaSpawnProbe(item, player, probe))
         return false;
     CopyStatPoints(probe, out);
