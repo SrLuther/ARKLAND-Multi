@@ -50,6 +50,9 @@ public:
     /** Minimo de dias de timer restante para /enviar ao Comercio (cryos permanentes ignoram). */
     float       MarketCryoMinDaysRemaining() const;
 
+    /** false = ignora exigencia de timer minimo em /enviar e /confirmar. */
+    bool        MarketCryoRequireMinDays() const;
+
     // Database (MySQL)
     std::string DbHost()             const;
     int         DbPort()             const;

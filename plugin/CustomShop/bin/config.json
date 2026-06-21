@@ -22,6 +22,7 @@
     "CryoItemPath": "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'",
     "CryoLimitedTime": false,
     "MarketCryoDebug": false,
+    "MarketCryoRequireMinDays": false,
     "MarketCryoMinDaysRemaining": 20
   },
   "Items": {

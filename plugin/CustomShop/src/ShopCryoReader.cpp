@@ -308,9 +308,9 @@ float GetCryopodRemainingDays(UPrimalItem* item) {
 }
 
 bool CryopodMeetsMarketTimerRequirement(UPrimalItem* item, float min_days) {
+    if (min_days <= 0.f) return true;
     const float seconds = GetCryopodRemainingDecaySeconds(item);
     if (seconds < 0.f) return true;
-    if (min_days <= 0.f) return seconds > 0.f;
     // Mesma regra do chat: floor(dias) >= minimo (evita 19.9d exibido como 19).
     return std::floor(seconds / 86400.f + 1e-4f) >= static_cast<double>(min_days);
 }

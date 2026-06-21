@@ -1,8 +1,8 @@
 {
-    "version": "1.9.57",
+    "version": "1.9.58",
     "date": "2026-06-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.57/ARKLAND-Multi-Setup-v1.9.57.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.58/ARKLAND-Multi-Setup-v1.9.58.exe",
     "changelog": [
-        "Fix (CustomShop): timer cryogun — segundos restantes em ItemDurability quando BPGetItemDurabilityPercentage retorna 0; /enviar mostrava 0 dias com 29d na UI."
+        "Novo (CustomShop): MarketCryoRequireMinDays no config — desativa verificacao de timer minimo em /enviar e /confirmar (default false por enquanto)."
     ]
 }

@@ -128,6 +128,10 @@ std::string FormatCryoDaysForChat(float days) {
 
 bool ValidateMarketCryoTimer(AShooterPlayerController* player, UPrimalItem* cryo,
                              const std::string& sid, const char* stage, float min_days) {
+    if (!CustomShop::ShopConfig::Get().MarketCryoRequireMinDays())
+        return true;
+    if (min_days <= 0.f)
+        return true;
     if (CustomShop::CryopodMeetsMarketTimerRequirement(cryo, min_days))
         return true;
     const float rem = CustomShop::GetCryopodRemainingDays(cryo);

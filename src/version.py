@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.57"
+APP_VERSION: str = "1.9.58"
 BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.58",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (CustomShop): MarketCryoRequireMinDays no config — desativa verificacao de "
+            "timer minimo em /enviar e /confirmar (default false por enquanto).",
+        ],
+    },
     {
         "version": "1.9.57",
         "date": "2026-06-21",

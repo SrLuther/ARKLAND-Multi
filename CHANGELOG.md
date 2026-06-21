@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.58] - 2026-06-21
+
+### Feature
+
+- Novo (CustomShop): MarketCryoRequireMinDays no config — desativa verificacao de timer minimo em /enviar e /confirmar (default false por enquanto).
+
 ## [1.9.57] - 2026-06-21
 
 ### Fix
