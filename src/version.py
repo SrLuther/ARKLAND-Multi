@@ -4,7 +4,7 @@ Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
 APP_VERSION: str = "1.9.53"
-BUILD_DATE: str = "2026-06-20"
+BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [

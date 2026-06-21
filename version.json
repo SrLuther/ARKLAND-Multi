@@ -3,8 +3,8 @@
     "date": "2026-06-21",
     "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.53/ARKLAND-Multi-Setup-v1.9.53.exe",
     "changelog": [
-        "Novo (Comercio): tabela economica 26 grupos — vanilla, ARK Additions, Grand Hunt e Brighamia; sync referencia + aliases blueprint.",
-        "Novo (Comercio): grupos Rex/Giga/Acro/Indominus; nomes Comercio editaveis no admin.",
-        "Novo (CustomShop): cryopod minimo 20 dias no Comercio; timer congela no vault."
+        "Novo (Comercio): tabela economica com 26 grupos — vanilla, ARK Additions, Grand Hunt e Brighamia (Dread/Ancient Wyvern separados); sync de referencia e aliases de blueprint no upload P2P.",
+        "Novo (Comercio): grupos Rex, Giga, Acro e Indominus (Domination Rex = mesma tabela); nomes do Comercio editaveis no admin sem alterar a loja.",
+        "Novo (CustomShop): MarketCryoMinDaysRemaining (default 20 dias) — /enviar e /confirmar exigem timer minimo; cryo congela no vault ate resgate."
     ]
 }
