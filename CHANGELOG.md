@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.54] - 2026-06-21
+
+### Fix
+
+- Fix (CustomShop): /enviar ignora cryopods corrompidas (timer sem dados legiveis) e seleciona a primeira cryo parseavel no inventario — corrige falha pos-dinowipe.
+
 ## [1.9.53] - 2026-06-21
 
 ### Feature

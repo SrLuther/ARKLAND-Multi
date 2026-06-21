@@ -344,26 +344,25 @@ UPrimalItem* FindCryopodInInventory(AShooterPlayerController* controller, int sl
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
     if (!inv) return nullptr;
 
-    auto has_dino = [](UPrimalItem* item) -> bool {
+    auto is_parseable = [controller](UPrimalItem* item) -> bool {
         if (!item || !IsVanillaEmptyCryopodClass(item)) return false;
-        FCustomItemData tmp;
-        if (TryGetCryoCustomDataFromItem(item, tmp)) return true;
-        return CryopodHasTimer(item);
+        CryoParsedMetadata meta;
+        return ParseCryopodItem(item, meta, nullptr, controller);
     };
 
     if (slot_index >= 0) {
         TArray<UPrimalItem*> items = inv->InventoryItemsField();
-        if (slot_index < items.Num() && has_dino(items[slot_index]))
+        if (slot_index < items.Num() && is_parseable(items[slot_index]))
             return items[slot_index];
         return nullptr;
     }
 
     UPrimalItem* equipped = inv->GetEquippedItemOfType(EPrimalEquipmentType::Weapon);
-    if (has_dino(equipped)) return equipped;
+    if (is_parseable(equipped)) return equipped;
 
     TArray<UPrimalItem*> items = inv->InventoryItemsField();
     for (int i = 0; i < items.Num(); ++i) {
-        if (has_dino(items[i])) return items[i];
+        if (is_parseable(items[i])) return items[i];
     }
     return nullptr;
 }

@@ -175,8 +175,8 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
     UPrimalItem* cryo = FindCryopodInInventory(player, -1);
     if (!cryo) {
         SendMsg(player, FColorList::Red,
-                "Nenhuma cryopod COM DINO no inventario. Equipe a cryo preenchida "
-                "(cryopods vazias sao ignoradas).");
+                "Nenhuma cryopod valida no inventario. Equipe uma cryo preenchida "
+                "legivel (cryos vazias ou corrompidas sao ignoradas).");
         SendCryoDebugReport(player, sid, "enviar_no_cryo",
                             ShopConfig::Get().MarketCryoDebug());
         return;
