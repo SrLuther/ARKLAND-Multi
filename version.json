@@ -1,9 +1,9 @@
 {
-    "version": "1.9.55",
+    "version": "1.9.56",
     "date": "2026-06-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.55/ARKLAND-Multi-Setup-v1.9.55.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.56/ARKLAND-Multi-Setup-v1.9.56.exe",
     "changelog": [
-        "Novo (Web Store): secao de marketing do Comercio P2P na pagina inicial — beneficios, fluxo in-game e CTAs para mercado e tabela oficial.",
-        "Novo (Comercio): legenda de tiers (S+, S, A, B, C) nas tabelas publica e admin."
+        "Fix (CustomShop): leitura do timer de cryopods capturadas — SavedDurability em segundos (ex. 29d no jogo) nao era reconhecido; /enviar falhava com 0 dias.",
+        "Fix (TEK): dashboard contava linhas do ListPlayers em vez de jogadores — 'No Players Connected' aparecia como 1 online; versao ARK lida do ShooterGame.log."
     ]
 }

@@ -10,6 +10,7 @@ import socket
 import sys
 import zipfile
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import Any, List
 
 import tkinter as tk
@@ -195,6 +196,45 @@ def _parse_listplayers(response: str) -> list:
         if m:
             players.append({"name": m.group(1).strip(), "steam_id": m.group(2).strip()})
     return players
+
+
+def count_listplayers(response: str) -> int:
+    """Conta jogadores na resposta RCON ListPlayers (ignora linhas de status)."""
+    if not response or "no players" in response.lower():
+        return 0
+    return len(_parse_listplayers(response))
+
+
+def read_ark_server_version(install_dir: str) -> str:
+    """Versão do jogo (ex. 361.7) — ShooterGame.log ou version.txt."""
+    if not install_dir or not str(install_dir).strip():
+        return "—"
+    root = Path(install_dir)
+    log_path = root / "ShooterGame" / "Saved" / "Logs" / "ShooterGame.log"
+    if log_path.is_file():
+        try:
+            with open(log_path, "rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - 262144))
+                tail = fh.read().decode("utf-8", errors="replace")
+            for line in reversed(tail.splitlines()):
+                if "ARK Version:" in line:
+                    m = re.search(r"ARK Version:\s*([\d.]+)", line)
+                    if m:
+                        return m.group(1)
+        except OSError:
+            pass
+    for rel in ("version.txt", "ShooterGame/Binaries/Win64/version.txt"):
+        ver_path = root / rel
+        if ver_path.is_file():
+            try:
+                text = ver_path.read_text(encoding="utf-8").strip()
+                if text:
+                    return text[:12]
+            except OSError:
+                pass
+    return "—"
 
 
 # ── Helpers globais ────────────────────────────────────────────────────────────

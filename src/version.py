@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.55"
+APP_VERSION: str = "1.9.56"
 BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.56",
+        "date": "2026-06-21",
+        "changes": [
+            "Fix (CustomShop): leitura do timer de cryopods capturadas — SavedDurability "
+            "em segundos (ex. 29d no jogo) nao era reconhecido; /enviar falhava com 0 dias.",
+            "Fix (TEK): dashboard contava linhas do ListPlayers em vez de jogadores — "
+            "'No Players Connected' aparecia como 1 online; versao ARK lida do ShooterGame.log.",
+        ],
+    },
     {
         "version": "1.9.55",
         "date": "2026-06-21",

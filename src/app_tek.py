@@ -229,27 +229,26 @@ class ARKServerManagerApp(ctk.CTk):
                         setattr(self, uptime_attr, time.time())
                         data["uptime"] = "0m 00s"
 
-                    # Versão: lê version.txt
+                    # Versão: ShooterGame.log (ARK Version) ou version.txt
                     if srv.install_dir:
-                        ver_path = Path(srv.install_dir) / "version.txt"
-                        if ver_path.exists():
-                            try:
-                                data["version"] = ver_path.read_text(encoding="utf-8").strip()[:12]
-                            except Exception:
-                                pass
+                        from .ui_constants import read_ark_server_version
+                        ver = read_ark_server_version(srv.install_dir)
+                        if ver != "—":
+                            data["version"] = ver
 
                     # Players via RCON (melhor esforço)
                     if srv.rcon_enabled and srv.admin_password:
                         try:
                             from .rcon_client import RconClient
+                            from .ui_constants import count_listplayers
                             host = srv.server_ip or "127.0.0.1"
                             rc = RconClient(host, srv.rcon_port, srv.admin_password)
                             rc.connect()
                             ok, resp = rc.send_command_safe("ListPlayers")
                             rc.disconnect()
                             if ok:
-                                lines = [ln for ln in resp.splitlines() if ln.strip()]
-                                data["players"] = f"{len(lines)}/{srv.max_players}"
+                                n = count_listplayers(resp)
+                                data["players"] = f"{n}/{srv.max_players}"
                                 try:
                                     from .asm_engine.asm_discord_hooks import poll_tek_player_discord
                                     poll_tek_player_discord(self, srv, players_resp=resp)

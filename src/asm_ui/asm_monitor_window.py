@@ -47,10 +47,8 @@ def _get_player_count(srv: AsmServerConfig) -> int:
         rc.disconnect()
         if not ok:
             return -1
-        # ListPlayers retorna "1. Nome, SteamID" ou "No Players Connected"
-        if "no players" in resp.lower():
-            return 0
-        return sum(1 for line in resp.splitlines() if line.strip() and line[0].isdigit())
+        from ..ui_constants import count_listplayers
+        return count_listplayers(resp)
     except Exception:
         return -1
 

@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.56] - 2026-06-21
+
+### Fix
+
+- Fix (CustomShop): leitura do timer de cryopods capturadas — SavedDurability em segundos (ex. 29d no jogo) nao era reconhecido; /enviar falhava com 0 dias.
+- Fix (TEK): dashboard contava linhas do ListPlayers em vez de jogadores — 'No Players Connected' aparecia como 1 online; versao ARK lida do ShooterGame.log.
+
 ## [1.9.55] - 2026-06-21
 
 ### Feature

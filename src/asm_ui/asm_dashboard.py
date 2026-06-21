@@ -117,7 +117,15 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
         font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
         corner_radius=10,
         command=app._asm_add_server_dialog,
-    ).pack(side="right")
+    ).pack(side="right", padx=(8, 0))
+
+    from ..version import APP_VERSION
+    ctk.CTkLabel(
+        right_f, text=f"v{APP_VERSION}",
+        font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+        text_color=t_mut,
+        fg_color=acc_mb, corner_radius=6,
+    ).pack(side="right", padx=(0, 4), ipady=6, ipadx=10)
 
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=0, column=0, sticky="ews")

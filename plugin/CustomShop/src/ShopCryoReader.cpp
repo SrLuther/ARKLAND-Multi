@@ -253,6 +253,9 @@ bool CryopodHasTimer(UPrimalItem* item) {
     if (!item) return false;
     const float max_dur = item->ItemDurabilityField();
     if (max_dur <= 0.f) return false;
+    const float saved = item->SavedDurabilityField();
+    // Cryo capturada: carga em segundos em SavedDurability mesmo com teto vanilla ~3600.
+    if (saved > kStandardCryoDurability + 1.f) return true;
     // Cryo sem timer de decay: teto ~3600s (1h) e carga 100%.
     if (std::abs(max_dur - kStandardCryoDurability) <= 0.5f)
         return item->BPGetItemDurabilityPercentage() < 0.999f;
@@ -266,18 +269,28 @@ float GetCryopodRemainingDecaySeconds(UPrimalItem* item) {
 
     const float max_dur = item->ItemDurabilityField();
     if (max_dur <= 0.f) return 0.f;
+    const float saved = item->SavedDurabilityField();
     const float pct = item->BPGetItemDurabilityPercentage();
+
+    // Cryo capturada com cryogun: UI mostra "29d 23h" em SavedDurability (segundos),
+    // enquanto ItemDurability pode continuar ~3600 — ignorar pct nesse caso.
+    if (saved > kStandardCryoDurability + 1.f)
+        return saved;
+
     if (std::abs(max_dur - kStandardCryoDurability) <= 0.5f) {
         if (pct >= 0.999f) return -1.f;
-        return max_dur * pct;
+        const float via_pct = max_dur * pct;
+        if (saved > 0.f)
+            return std::max(via_pct, saved);
+        return via_pct;
     }
 
-    // Cryo capturada: ItemDurability = teto em segundos; pct = carga restante.
+    // Teto estendido (CryoLimitedTime / loja): pct * max ou SavedDurability absoluto.
     const float via_pct = max_dur * pct;
-    const float saved = item->SavedDurabilityField();
-    if (saved > 0.f && saved <= max_dur + 1.f) {
-        // SavedDurability costuma ser a carga atual; usa o menor valor conservador.
-        return std::min(via_pct, saved);
+    if (saved > 0.f) {
+        if (saved <= max_dur + 1.f)
+            return std::max(via_pct, saved);
+        return saved;
     }
     return via_pct;
 }
