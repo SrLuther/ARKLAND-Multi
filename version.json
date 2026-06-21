@@ -1,9 +1,12 @@
 {
-    "version": "1.9.60",
+    "version": "1.9.66",
     "date": "2026-06-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.60/ARKLAND-Multi-Setup-v1.9.60.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.66/ARKLAND-Multi-Setup-v1.9.66.exe",
     "changelog": [
-        "Fix (Comercio): resolve_species reconhece blueprint da cryo (sufixo _C e BlueprintGeneratedClass) — listings ficavam PENDING com especie ACTIVE.",
-        "Fix (Comercio): sync/ativar promove listings pendentes; botao Promover pendentes no admin."
+        "Comercio: economia proporcional (piso loja + espaco bonus por porte) — formula pts/254 com pesos por dieta.",
+        "Comercio: admin Economia Comercio (tetos, pesos, simulador, editor por especie, recalcular DRAFT).",
+        "Comercio: breakdown in-game no /enviar e /confirmar; points_base via plugin (spawn probe).",
+        "Comercio: tabela publica com piso/porte/teto, export CSV, modo custom rate_per_point.",
+        "Fix: notificacao Discord de backup exibe tamanho correto (B/KB/MB/GB, nao mais 0.0 MB)."
     ]
 }

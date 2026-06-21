@@ -24,6 +24,36 @@ if TYPE_CHECKING:
 _DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
 
 
+def _format_size(size_bytes: int | float) -> str:
+    """Formata bytes para exibição legível (B, KB, MB, GB)."""
+    n = float(max(0, size_bytes))
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            if unit == "B":
+                return f"{int(n)} {unit}"
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} TB"
+
+
+def _zip_backup_sizes(path: Path) -> tuple[int, int]:
+    """Retorna (comprimido_bytes, original_bytes) de um snapshot ZIP."""
+    compressed = path.stat().st_size if path.is_file() else 0
+    uncompressed = 0
+    if path.is_file() and path.suffix.lower() == ".zip":
+        try:
+            with zipfile.ZipFile(path, "r") as zf:
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    uncompressed += max(0, info.file_size)
+        except Exception:
+            pass
+    if uncompressed <= 0:
+        uncompressed = compressed
+    return compressed, uncompressed
+
+
 def asm_server_to_backup_target(asm_srv: "AsmServerConfig", global_bk: "BackupConfig") -> "ServerConfig":
     """Converte servidor TEK + config global em ServerConfig para backup."""
     from .server_config import ServerConfig
@@ -52,14 +82,13 @@ class BackupEntry:
             self.timestamp    = path.stem
             with zipfile.ZipFile(path, "r") as zf:
                 names = zf.namelist()
-                self.has_config       = any(n.startswith("config/") for n in names)
-                self.has_saves        = any(n.startswith("saves/")  for n in names)
-                self.size_mb          = round(
-                    sum(i.compress_size for i in zf.infolist()) / (1024 ** 2), 1
-                )
-                self.uncompressed_mb  = round(
-                    sum(i.file_size for i in zf.infolist()) / (1024 ** 2), 1
-                )
+                self.has_config = any(n.startswith("config/") for n in names)
+                self.has_saves  = any(n.startswith("saves/")  for n in names)
+            compressed_b, uncompressed_b = _zip_backup_sizes(path)
+            self.size_bytes          = compressed_b
+            self.uncompressed_bytes  = uncompressed_b
+            self.size_mb             = round(compressed_b / (1024 ** 2), 2)
+            self.uncompressed_mb     = round(uncompressed_b / (1024 ** 2), 2)
         else:
             # ── Legado: diretório ─────────────────────────────────────────────
             self.is_zip          = False
@@ -67,7 +96,9 @@ class BackupEntry:
             self.has_saves       = (path / "saves").exists()
             self.has_config      = (path / "config").exists()
             total                = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
-            self.size_mb         = round(total / (1024 * 1024), 1)
+            self.size_bytes      = total
+            self.uncompressed_bytes = total
+            self.size_mb         = round(total / (1024 * 1024), 2)
             self.uncompressed_mb = self.size_mb
 
         try:
@@ -83,10 +114,13 @@ class BackupEntry:
         if self.has_saves:
             parts.append("Saves")
         tag = " + ".join(parts) if parts else "Vazio"
-        if self.is_zip and self.uncompressed_mb > 0 and self.uncompressed_mb != self.size_mb:
-            size_str = f"{self.size_mb} MB  (original: {self.uncompressed_mb} MB)"
+        if self.is_zip and self.uncompressed_bytes > 0 and self.uncompressed_bytes != self.size_bytes:
+            size_str = (
+                f"{_format_size(self.size_bytes)}  "
+                f"(original: {_format_size(self.uncompressed_bytes)})"
+            )
         else:
-            size_str = f"{self.size_mb} MB"
+            size_str = _format_size(self.size_bytes)
         return f"{self.dt.strftime('%d/%m/%Y %H:%M:%S')}  [{tag}]  {size_str}"
 
 
@@ -127,6 +161,7 @@ class BackupManager:
         zip_path = bdir / f"{ts}.zip"
 
         added = False
+        uncompressed_bytes = 0
 
         try:
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -136,6 +171,7 @@ class BackupManager:
                         for f in sorted(cfg_src.rglob("*")):
                             if f.is_file():
                                 zf.write(f, "config/" + f.relative_to(cfg_src).as_posix())
+                                uncompressed_bytes += f.stat().st_size
                                 added = True
                     else:
                         self._on_log(f"[Backup] {srv.name}: pasta de config não encontrada ({cfg_src}).", "warning")
@@ -146,6 +182,7 @@ class BackupManager:
                         for f in sorted(saves_src.rglob("*")):
                             if f.is_file():
                                 zf.write(f, "saves/" + f.relative_to(saves_src).as_posix())
+                                uncompressed_bytes += f.stat().st_size
                                 added = True
                     else:
                         self._on_log(f"[Backup] {srv.name}: pasta de saves não encontrada ({saves_src}).", "warning")
@@ -164,15 +201,20 @@ class BackupManager:
                 pass
             return None
 
-        entry = BackupEntry(zip_path)
+        compressed_bytes = zip_path.stat().st_size
         self._on_log(
             f"[Backup] {srv.name}: snapshot salvo → {zip_path.name}  "
-            f"({entry.size_mb} MB comprimido / {entry.uncompressed_mb} MB original)",
+            f"({_format_size(compressed_bytes)} comprimido / "
+            f"{_format_size(uncompressed_bytes)} original)",
             "info",
         )
         self._prune(srv)
         if self._discord_notifier:
-            detail = f"Snapshot: `{zip_path.name}`\nTamanho: {entry.size_mb} MB (original: {entry.uncompressed_mb} MB)"
+            detail = (
+                f"Snapshot: `{zip_path.name}`\n"
+                f"Tamanho: {_format_size(compressed_bytes)} "
+                f"(original: {_format_size(uncompressed_bytes)})"
+            )
             self._discord_notifier.notify_backup(srv.name, detail=detail)  # type: ignore[union-attr]
         return str(zip_path)
 

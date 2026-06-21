@@ -162,7 +162,52 @@ bool FillMetadataFromDino(APrimalDinoCharacter* dino, CustomShop::CryoParsedMeta
         out.weight.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::Weight];
         out.melee.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::MeleeDamageMultiplier];
         out.speed.value = stat->MaxStatusValuesField()()[EPrimalCharacterStatusValue::SpeedMultiplier];
+
+        auto fill_pts = [&](CustomShop::CryoParsedMetadata::StatVal& slot,
+                            EPrimalCharacterStatusValue::Type t) {
+            const int base = stat->GetLevelUpPoints(t, false);
+            const int added = stat->GetLevelUpPoints(t, true);
+            slot.points_base = base;
+            slot.points_added = added;
+        };
+        fill_pts(out.health, EPrimalCharacterStatusValue::Health);
+        fill_pts(out.stamina, EPrimalCharacterStatusValue::Stamina);
+        fill_pts(out.oxygen, EPrimalCharacterStatusValue::Oxygen);
+        fill_pts(out.food, EPrimalCharacterStatusValue::Food);
+        fill_pts(out.weight, EPrimalCharacterStatusValue::Weight);
+        fill_pts(out.melee, EPrimalCharacterStatusValue::MeleeDamageMultiplier);
+        fill_pts(out.speed, EPrimalCharacterStatusValue::SpeedMultiplier);
+
+        out.dino_level = stat->GetBaseLevelFromLevelUpPoints(true);
     }
+    return true;
+}
+
+void CopyStatPoints(const CustomShop::CryoParsedMetadata& src, CustomShop::CryoParsedMetadata& dst) {
+    dst.health.points_base = src.health.points_base;
+    dst.health.points_added = src.health.points_added;
+    dst.stamina.points_base = src.stamina.points_base;
+    dst.stamina.points_added = src.stamina.points_added;
+    dst.oxygen.points_base = src.oxygen.points_base;
+    dst.oxygen.points_added = src.oxygen.points_added;
+    dst.food.points_base = src.food.points_base;
+    dst.food.points_added = src.food.points_added;
+    dst.weight.points_base = src.weight.points_base;
+    dst.weight.points_added = src.weight.points_added;
+    dst.melee.points_base = src.melee.points_base;
+    dst.melee.points_added = src.melee.points_added;
+    dst.speed.points_base = src.speed.points_base;
+    dst.speed.points_added = src.speed.points_added;
+    if (src.dino_level > 0)
+        dst.dino_level = src.dino_level;
+}
+
+bool TryFillStatPointsViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
+                                    CustomShop::CryoParsedMetadata& out) {
+    CryoParsedMetadata probe;
+    if (!TryParseViaSpawnProbe(item, player, probe))
+        return false;
+    CopyStatPoints(probe, out);
     return true;
 }
 
@@ -475,7 +520,11 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
         FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Food) + 12, out.food.value);
         FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::Weight) + 12, out.weight.value);
         FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::MeleeDamageMultiplier) + 12, out.melee.value);
+        if (out.melee.value <= 0.f)
+            FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::MeleeDamageMultiplier), out.melee.value);
         FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::SpeedMultiplier) + 12, out.speed.value);
+        if (out.speed.value <= 0.f)
+            FloatAt(floats, static_cast<int>(EPrimalCharacterStatusValue::SpeedMultiplier), out.speed.value);
 
         float is_female_f = 0.f;
         if (FloatAt(floats, 24, is_female_f))
@@ -496,10 +545,25 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
 
     ApplyCryoTimerFieldsToMetadata(item, out);
 
+    if (TryFillStatPointsViaSpawnProbe(item, context_player, out)) {
+        if (out.extraction_method.empty() || out.extraction_method == "custom_item_data")
+            out.extraction_method = "custom_item_data+spawn_points";
+    }
+
     return true;
 }
 
 nlohmann::json CryoMetadataToJson(const CryoParsedMetadata& meta) {
+    auto stat_json = [](const CryoParsedMetadata::StatVal& s) {
+        nlohmann::json j = {{"value", s.value}};
+        if (s.points_base >= 0) {
+            j["points_base"] = s.points_base;
+            j["points"] = s.points_base + (s.points_added >= 0 ? s.points_added : 0);
+        }
+        if (s.points_added >= 0)
+            j["points_added"] = s.points_added;
+        return j;
+    };
     nlohmann::json j;
     j["species_blueprint"] = meta.species_blueprint;
     j["name_map"] = meta.name_map;
@@ -512,13 +576,13 @@ nlohmann::json CryoMetadataToJson(const CryoParsedMetadata& meta) {
     j["mutations_female"] = meta.mutations_female;
     j["dino_level"] = meta.dino_level;
     j["stats_max"] = {
-        {"health",  {{"value", meta.health.value}}},
-        {"stamina", {{"value", meta.stamina.value}}},
-        {"oxygen",  {{"value", meta.oxygen.value}}},
-        {"food",    {{"value", meta.food.value}}},
-        {"weight",  {{"value", meta.weight.value}}},
-        {"melee",   {{"value", meta.melee.value}}},
-        {"speed",   {{"value", meta.speed.value}}},
+        {"health", stat_json(meta.health)},
+        {"stamina", stat_json(meta.stamina)},
+        {"oxygen", stat_json(meta.oxygen)},
+        {"food", stat_json(meta.food)},
+        {"weight", stat_json(meta.weight)},
+        {"melee", stat_json(meta.melee)},
+        {"speed", stat_json(meta.speed)},
     };
     j["extraction_method"] = meta.extraction_method.empty() ? "custom_item_data" : meta.extraction_method;
     if (meta.timer_remaining_days >= 0.f)

@@ -68,7 +68,6 @@ void SendMsg(AShooterPlayerController* c, const FLinearColor& color, const std::
         ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
 }
 
-/** Chat in-game nao suporta UTF-8 — mensagens da web precisam ir em ASCII. */
 std::string SanitizeForGameChat(std::string msg) {
     std::string out;
     out.reserve(msg.size());
@@ -80,6 +79,43 @@ std::string SanitizeForGameChat(std::string msg) {
         out.pop_back();
     return out.empty() ? std::string("Erro desconhecido") : out;
 }
+
+std::string FormatAmbar(int value) {
+    std::string s = std::to_string(value);
+    for (int i = static_cast<int>(s.size()) - 3; i > 0; i -= 3)
+        s.insert(static_cast<size_t>(i), ".");
+    return s;
+}
+
+void SendEconomyBreakdown(AShooterPlayerController* player, const nlohmann::json& json) {
+    if (!player || !json.is_object()) return;
+    const int total = json.value("computed_base_value", 0);
+    if (total > 0)
+        SendMsg(player, FColorList::Yellow,
+                "Como calculamos — sugerido: " + FormatAmbar(total) + " Ambar");
+    const auto& rows = json.value("calculation_breakdown", nlohmann::json::array());
+    int lines = 0;
+    for (const auto& row : rows) {
+        if (lines >= 5) break;
+        const std::string kind = row.value("kind", "");
+        if (kind != "root" && kind != "bonus_space" && kind != "stat")
+            continue;
+        const std::string label = SanitizeForGameChat(row.value("label", ""));
+        const int sub = row.value("subtotal", 0);
+        if (kind == "stat") {
+            const int pts = row.value("points", 0);
+            const int mult = row.value("multiplier", 0);
+            SendMsg(player, FColorList::Yellow,
+                    label + ": " + std::to_string(pts) + " pts x " + std::to_string(mult)
+                    + " = " + FormatAmbar(sub));
+        } else {
+            SendMsg(player, FColorList::Yellow, label + ": " + FormatAmbar(sub));
+        }
+        ++lines;
+    }
+}
+
+/** Chat in-game nao suporta UTF-8 — mensagens da web precisam ir em ASCII. */
 
 std::string CommerceNotReadyMessage() {
     return "Defina seu nome de exibicao em Minha Area (web) antes de usar /enviar.";
@@ -227,6 +263,25 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
     }
     SendMsg(player, FColorList::Yellow,
             "Digite /confirmar em ate 2 minutos para enviar ao Comercio (cryopod sera removida).");
+
+    nlohmann::json preview_body;
+    preview_body["metadata"] = CryoMetadataToJson(meta);
+    const std::string preview_resp = HttpClient::PostJson("/api/market/plugin/preview", preview_body.dump());
+    nlohmann::json preview_json;
+    try {
+        preview_json = nlohmann::json::parse(preview_resp);
+    } catch (...) {
+        preview_json = nlohmann::json::object();
+    }
+    if (preview_json.value("ok", false)) {
+        const int suggested = preview_json.value("computed_base_value", 0);
+        if (suggested > 0) {
+            SendEconomyBreakdown(player, preview_json);
+        } else if (preview_json.contains("message")) {
+            SendMsg(player, FColorList::Yellow,
+                    SanitizeForGameChat(preview_json.value("message", std::string())));
+        }
+    }
 }
 
 void ShopMarket::CmdEnviarDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
@@ -334,6 +389,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
     SendMsg(player, FColorList::Green,
             "Dino enviado ao Comercio! Listing #" + std::to_string(json.value("listing_id", 0))
             + " - defina preco na web.");
+    SendEconomyBreakdown(player, json);
 }
 
 void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type) {

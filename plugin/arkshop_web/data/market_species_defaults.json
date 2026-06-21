@@ -29,31 +29,106 @@
       "display_name": "Indominus Rex",
       "mod_source": "indominus_rex",
       "reference_catalog_item_id": "indominus_femea",
-      "catalog_item_ids": ["indominus_femea"],
+      "catalog_item_ids": [
+        "indominus_femea"
+      ],
       "blueprint_path": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_BP.Indominus_Character_BP", "variant_label": "Domination Rex"},
-        {"blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_SE_BP.Indominus_Character_SE_BP", "variant_label": "Scorched Domination Rex"},
-        {"blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_AB_BP.Indominus_Character_AB_BP", "variant_label": "Aberrant Domination Rex"},
-        {"blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_Extinction_BP.Indominus_Character_Extinction_BP", "variant_label": "Extinction Domination Rex"},
-        {"blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_GEN_BP.Indominus_Character_GEN_BP", "variant_label": "Tek Domination Rex"}
+        {
+          "blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_BP.Indominus_Character_BP",
+          "variant_label": "Domination Rex"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_SE_BP.Indominus_Character_SE_BP",
+          "variant_label": "Scorched Domination Rex"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_AB_BP.Indominus_Character_AB_BP",
+          "variant_label": "Aberrant Domination Rex"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_Extinction_BP.Indominus_Character_Extinction_BP",
+          "variant_label": "Extinction Domination Rex"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Indominus/Dino/Indominus_Character_GEN_BP.Indominus_Character_GEN_BP",
+          "variant_label": "Tek Domination Rex"
+        }
       ],
       "tier": "S+",
       "breeding_difficulty": "extremo",
       "breeding_notes": "Indominus/Domination Rex — mutações e stats de combate extremamente valorizados",
-      "multipliers": { "health": 95, "melee": 850, "weight": 100, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 95,
+        "melee": 850,
+        "weight": 100,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "armaedron",
       "display_name": "Armaedron",
       "mod_source": "grand_hunt",
       "reference_catalog_item_id": "armaedron_femea",
-      "catalog_item_ids": ["armaedron_femea"],
+      "catalog_item_ids": [
+        "armaedron_femea"
+      ],
       "blueprint_path": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
       "tier": "S+",
       "breeding_difficulty": "extremo",
       "breeding_notes": "Grand Hunt — criatura de endgame; linhagem rara e cara de manter",
-      "multipliers": { "health": 92, "melee": 820, "weight": 105, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 92,
+        "melee": 820,
+        "weight": 105,
+        "stamina": 20,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "dread_wyvern",
@@ -64,7 +139,35 @@
       "tier": "S+",
       "breeding_difficulty": "extremo",
       "breeding_notes": "Brighamia — wyvern apex; tame ritual no altar",
-      "multipliers": { "health": 90, "melee": 800, "weight": 100, "stamina": 22, "oxygen": 0, "food": 0, "speed": 12 }
+      "multipliers": {
+        "health": 90,
+        "melee": 800,
+        "weight": 100,
+        "stamina": 22,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 12
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "ancient_wyvern",
@@ -75,7 +178,35 @@
       "tier": "S+",
       "breeding_difficulty": "extremo",
       "breeding_notes": "Brighamia — wyvern rival do Dread; bleed e burn",
-      "multipliers": { "health": 88, "melee": 780, "weight": 100, "stamina": 20, "oxygen": 0, "food": 0, "speed": 10 }
+      "multipliers": {
+        "health": 88,
+        "melee": 780,
+        "weight": 100,
+        "stamina": 20,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 10
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "tekstrider_femea",
@@ -85,18 +216,77 @@
       "tier": "S+",
       "breeding_difficulty": "muito alto",
       "breeding_notes": "Tek utilitário; peso e stamina relevantes para logística",
-      "multipliers": { "health": 75, "melee": 450, "weight": 180, "stamina": 35, "oxygen": 0, "food": 0, "speed": 15 }
+      "multipliers": {
+        "health": 75,
+        "melee": 450,
+        "weight": 180,
+        "stamina": 35,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 15
+      },
+      "diet_class": "herbivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": false
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "giga",
       "display_name": "Giga",
       "mod_source": "vanilla",
       "reference_catalog_item_id": "giga_femea",
-      "catalog_item_ids": ["giga_femea", "bionicgigant_femea"],
+      "catalog_item_ids": [
+        "giga_femea",
+        "bionicgigant_femea"
+      ],
       "tier": "S",
       "breeding_difficulty": "muito alto",
       "breeding_notes": "Apex clássico + Bionic; HP e dano dominam o valor genético",
-      "multipliers": { "health": 89, "melee": 765, "weight": 108, "stamina": 17, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 89,
+        "melee": 765,
+        "weight": 108,
+        "stamina": 17,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "lionfish_femea",
@@ -106,18 +296,78 @@
       "tier": "S",
       "breeding_difficulty": "muito alto",
       "breeding_notes": "Apex aquático; stats de combate muito valorizados",
-      "multipliers": { "health": 85, "melee": 740, "weight": 100, "stamina": 20, "oxygen": 12, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 85,
+        "melee": 740,
+        "weight": 100,
+        "stamina": 20,
+        "oxygen": 12,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "rex",
       "display_name": "Rex",
       "mod_source": "vanilla",
       "reference_catalog_item_id": "rex_femea",
-      "catalog_item_ids": ["rex_femea", "bionicrex_femea", "volcanorex_femea"],
+      "catalog_item_ids": [
+        "rex_femea",
+        "bionicrex_femea",
+        "volcanorex_femea"
+      ],
       "tier": "A",
       "breeding_difficulty": "alto",
       "breeding_notes": "Meta universal de dano — Tek/Volcano/Abyssal usam a mesma tabela",
-      "multipliers": { "health": 78, "melee": 700, "weight": 120, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 78,
+        "melee": 700,
+        "weight": 120,
+        "stamina": 20,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "carcha_femea",
@@ -127,7 +377,35 @@
       "tier": "A",
       "breeding_difficulty": "alto",
       "breeding_notes": "Meta PvP; mutações de dano e vida muito disputadas",
-      "multipliers": { "health": 84, "melee": 720, "weight": 108, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 84,
+        "melee": 720,
+        "weight": 108,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "brachio",
@@ -136,15 +414,55 @@
       "root_value": 10000,
       "blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP.Brachiosaurus_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP_Aberrant.Brachiosaurus_Character_BP_Aberrant", "variant_label": "Aberrant"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Volcanic_Brachiosaurus_Character_BP.Volcanic_Brachiosaurus_Character_BP", "variant_label": "X-Brachio"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP_Eden.Brachiosaurus_Character_BP_Eden", "variant_label": "R-Brachio"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP_Woolly.Brachiosaurus_Character_BP_Woolly", "variant_label": "Woolly"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP_Aberrant.Brachiosaurus_Character_BP_Aberrant",
+          "variant_label": "Aberrant"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Volcanic_Brachiosaurus_Character_BP.Volcanic_Brachiosaurus_Character_BP",
+          "variant_label": "X-Brachio"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP_Eden.Brachiosaurus_Character_BP_Eden",
+          "variant_label": "R-Brachio"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP_Woolly.Brachiosaurus_Character_BP_Woolly",
+          "variant_label": "Woolly"
+        }
       ],
       "tier": "A",
       "breeding_difficulty": "alto",
       "breeding_notes": "ARK Additions — tanque/farm; peso e HP relevantes",
-      "multipliers": { "health": 88, "melee": 480, "weight": 150, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 88,
+        "melee": 480,
+        "weight": 150,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "herbivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": false
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "deinosuchus",
@@ -153,13 +471,47 @@
       "root_value": 9000,
       "blueprint_path": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Deinosuchus_Character_BP.Deinosuchus_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Deinosuchus_Character_BP_Aberrant.Deinosuchus_Character_BP_Aberrant", "variant_label": "Aberrant"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Bog_Deinosuchus_Character_BP.Bog_Deinosuchus_Character_BP", "variant_label": "X-Deinosuchus"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Deinosuchus_Character_BP_Aberrant.Deinosuchus_Character_BP_Aberrant",
+          "variant_label": "Aberrant"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Bog_Deinosuchus_Character_BP.Bog_Deinosuchus_Character_BP",
+          "variant_label": "X-Deinosuchus"
+        }
       ],
       "tier": "A",
       "breeding_difficulty": "alto",
       "breeding_notes": "ARK Additions — crocodilo aquático; HP e dano",
-      "multipliers": { "health": 86, "melee": 680, "weight": 115, "stamina": 18, "oxygen": 10, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 86,
+        "melee": 680,
+        "weight": 115,
+        "stamina": 18,
+        "oxygen": 10,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "puretotokage",
@@ -170,7 +522,35 @@
       "tier": "A",
       "breeding_difficulty": "alto",
       "breeding_notes": "Grand Hunt — geovore utilitário",
-      "multipliers": { "health": 78, "melee": 580, "weight": 130, "stamina": 28, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 78,
+        "melee": 580,
+        "weight": 130,
+        "stamina": 28,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "omnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": false
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "shimosaur",
@@ -181,35 +561,132 @@
       "tier": "A",
       "breeding_difficulty": "alto",
       "breeding_notes": "Brighamia — magmasaur-like; mapa Brighamia",
-      "multipliers": { "health": 82, "melee": 620, "weight": 125, "stamina": 26, "oxygen": 8, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 82,
+        "melee": 620,
+        "weight": 125,
+        "stamina": 26,
+        "oxygen": 8,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "acro",
       "display_name": "Acrocantossauro",
       "mod_source": "ark_additions",
       "reference_catalog_item_id": "acrocanto_femea",
-      "catalog_item_ids": ["acrocanto_femea"],
+      "catalog_item_ids": [
+        "acrocanto_femea"
+      ],
       "blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP.Acrocanthosaurus_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Scorched_Acrocanthosaurus_Character_BP.Scorched_Acrocanthosaurus_Character_BP", "variant_label": "Scorched"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Bog_Acrocanthosaurus_Character_BP.Bog_Acrocanthosaurus_Character_BP", "variant_label": "X-Acro"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP_Eden.Acrocanthosaurus_Character_BP_Eden", "variant_label": "R-Acro"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Scorched_Acrocanthosaurus_Character_BP.Scorched_Acrocanthosaurus_Character_BP",
+          "variant_label": "Scorched"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Bog_Acrocanthosaurus_Character_BP.Bog_Acrocanthosaurus_Character_BP",
+          "variant_label": "X-Acro"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP_Eden.Acrocanthosaurus_Character_BP_Eden",
+          "variant_label": "R-Acro"
+        }
       ],
       "tier": "B",
       "breeding_difficulty": "médio-alto",
       "breeding_notes": "ARK Additions — tanque médio; HP relevante",
-      "multipliers": { "health": 82, "melee": 620, "weight": 115, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 82,
+        "melee": 620,
+        "weight": 115,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "desmodus",
       "display_name": "Desmodus",
       "mod_source": "vanilla",
       "reference_catalog_item_id": "desmodus_femea",
-      "catalog_item_ids": ["desmodus_femea"],
+      "catalog_item_ids": [
+        "desmodus_femea"
+      ],
       "tier": "B",
       "breeding_difficulty": "médio-alto",
       "breeding_notes": "Flyer Fjordur; stamina e peso úteis para utilidade",
-      "multipliers": { "health": 70, "melee": 520, "weight": 140, "stamina": 32, "oxygen": 8, "food": 0, "speed": 18 }
+      "multipliers": {
+        "health": 70,
+        "melee": 520,
+        "weight": 140,
+        "stamina": 32,
+        "oxygen": 8,
+        "food": 0,
+        "speed": 18
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": false
+        },
+        "weight": {
+          "enabled": true
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "archelon",
@@ -218,12 +695,43 @@
       "root_value": 7000,
       "blueprint_path": "/Game/Mods/Additions_Pack/Archelon/Dinos/Archelon_Character_BP.Archelon_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Archelon/Dinos/OceanArchelon_Character_BP.OceanArchelon_Character_BP", "variant_label": "X-Archelon"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Archelon/Dinos/OceanArchelon_Character_BP.OceanArchelon_Character_BP",
+          "variant_label": "X-Archelon"
+        }
       ],
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "ARK Additions — aquático utilitário",
-      "multipliers": { "health": 80, "melee": 500, "weight": 120, "stamina": 20, "oxygen": 15, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 80,
+        "melee": 500,
+        "weight": 120,
+        "stamina": 20,
+        "oxygen": 15,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "concavenator",
@@ -232,13 +740,47 @@
       "root_value": 6000,
       "blueprint_path": "/Game/Mods/Additions_Pack/Concavenator/Dino/Concavenator_Character_BP.Concavenator_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Concavenator/Dino/Concavenator_Character_Aberrant_BP.Concavenator_Character_Aberrant_BP", "variant_label": "Aberrant"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Concavenator/Dino/Volcanic_Concavenator_Character_BP.Volcanic_Concavenator_Character_BP", "variant_label": "X-Concavenator"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Concavenator/Dino/Concavenator_Character_Aberrant_BP.Concavenator_Character_Aberrant_BP",
+          "variant_label": "Aberrant"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Concavenator/Dino/Volcanic_Concavenator_Character_BP.Volcanic_Concavenator_Character_BP",
+          "variant_label": "X-Concavenator"
+        }
       ],
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "ARK Additions — DPS médio",
-      "multipliers": { "health": 70, "melee": 650, "weight": 110, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 70,
+        "melee": 650,
+        "weight": 110,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "xiphactinus",
@@ -247,13 +789,47 @@
       "root_value": 6500,
       "blueprint_path": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/Xiph_Character_BP.Xiph_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/AbyssalXiph_Character_BP.AbyssalXiph_Character_BP", "variant_label": "Abyssal"},
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/OceanXiph_Character_BP.OceanXiph_Character_BP", "variant_label": "X-Xiphactinus"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/AbyssalXiph_Character_BP.AbyssalXiph_Character_BP",
+          "variant_label": "Abyssal"
+        },
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/OceanXiph_Character_BP.OceanXiph_Character_BP",
+          "variant_label": "X-Xiphactinus"
+        }
       ],
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "ARK Additions — DPS aquático",
-      "multipliers": { "health": 72, "melee": 660, "weight": 105, "stamina": 18, "oxygen": 12, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 72,
+        "melee": 660,
+        "weight": 105,
+        "stamina": 18,
+        "oxygen": 12,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "kutsu_ya_ku",
@@ -264,7 +840,35 @@
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "Grand Hunt — bird wyvern agressivo",
-      "multipliers": { "health": 65, "melee": 640, "weight": 105, "stamina": 25, "oxygen": 0, "food": 0, "speed": 15 }
+      "multipliers": {
+        "health": 65,
+        "melee": 640,
+        "weight": 105,
+        "stamina": 25,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 15
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": false
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "xenomorphgen2_femea",
@@ -274,7 +878,35 @@
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "Utilidade PvE; stats balanceados",
-      "multipliers": { "health": 72, "melee": 580, "weight": 125, "stamina": 22, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 72,
+        "melee": 580,
+        "weight": 125,
+        "stamina": 22,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "xenomorph_femea",
@@ -284,7 +916,35 @@
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "Versátil; valor genético moderado",
-      "multipliers": { "health": 68, "melee": 560, "weight": 120, "stamina": 20, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 68,
+        "melee": 560,
+        "weight": 120,
+        "stamina": 20,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "megalosaurus_aberrant_femea",
@@ -294,7 +954,35 @@
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "Breeding noturno; nicho específico",
-      "multipliers": { "health": 74, "melee": 640, "weight": 118, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 74,
+        "melee": 640,
+        "weight": 118,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "megalosaurus_femea",
@@ -304,7 +992,35 @@
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "Similar aberrant; linha de dano média",
-      "multipliers": { "health": 72, "melee": 620, "weight": 118, "stamina": 18, "oxygen": 0, "food": 0, "speed": 0 }
+      "multipliers": {
+        "health": 72,
+        "melee": 620,
+        "weight": 118,
+        "stamina": 18,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 0
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "deinonychus_femea",
@@ -314,7 +1030,37 @@
       "tier": "B",
       "breeding_difficulty": "médio",
       "breeding_notes": "Glass cannon; multiplicador de dano elevado para o tier",
-      "multipliers": { "health": 60, "melee": 680, "weight": 100, "stamina": 24, "oxygen": 0, "food": 0, "speed": 12 }
+      "multipliers": {
+        "health": 60,
+        "melee": 680,
+        "weight": 100,
+        "stamina": 24,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 12
+      },
+      "diet_class": "carnivore",
+      "size_class": "small",
+      "economy_stats": {
+        "health": {
+          "enabled": false
+        },
+        "melee": {
+          "enabled": true,
+          "weight_override": 0.7
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": true,
+          "weight_override": 0.3
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "cryolophosaurus",
@@ -323,12 +1069,43 @@
       "root_value": 5000,
       "blueprint_path": "/Game/Mods/Additions_Pack/Cryolophosaurus/Dinos/Cryolophosaurus_Character_BP.Cryolophosaurus_Character_BP",
       "blueprint_aliases": [
-        {"blueprint_path": "/Game/Mods/Additions_Pack/Cryolophosaurus/Dinos/Cryolophosaurus_Character_BP_Rockwell.Cryolophosaurus_Character_BP_Rockwell", "variant_label": "R-Cryolophosaurus"}
+        {
+          "blueprint_path": "/Game/Mods/Additions_Pack/Cryolophosaurus/Dinos/Cryolophosaurus_Character_BP_Rockwell.Cryolophosaurus_Character_BP_Rockwell",
+          "variant_label": "R-Cryolophosaurus"
+        }
       ],
       "tier": "C",
       "breeding_difficulty": "médio",
       "breeding_notes": "ARK Additions — entrada PvP",
-      "multipliers": { "health": 65, "melee": 600, "weight": 105, "stamina": 20, "oxygen": 0, "food": 0, "speed": 10 }
+      "multipliers": {
+        "health": 65,
+        "melee": 600,
+        "weight": 105,
+        "stamina": 20,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 10
+      },
+      "diet_class": "carnivore",
+      "size_class": "medium",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     },
     {
       "species_key": "diru_ya_ku",
@@ -339,7 +1116,64 @@
       "tier": "C",
       "breeding_difficulty": "baixo",
       "breeding_notes": "Grand Hunt — bird wyvern early game",
-      "multipliers": { "health": 62, "melee": 520, "weight": 110, "stamina": 22, "oxygen": 0, "food": 0, "speed": 12 }
+      "multipliers": {
+        "health": 62,
+        "melee": 520,
+        "weight": 110,
+        "stamina": 22,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 12
+      },
+      "diet_class": "carnivore",
+      "size_class": "small",
+      "economy_stats": {
+        "health": {
+          "enabled": false
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": true
+        },
+        "speed": {
+          "enabled": false
+        }
+      },
+      "pricing_mode": "proportional"
     }
-  ]
+  ],
+  "_size_caps": {
+    "large": 300000,
+    "medium": 250000,
+    "small": 100000
+  },
+  "_pts_reference": 254,
+  "_stat_weights": {
+    "carnivore": {
+      "health": 0.55,
+      "melee": 0.45,
+      "weight": 0,
+      "stamina": 0,
+      "speed": 0
+    },
+    "herbivore": {
+      "health": 0.35,
+      "melee": 0,
+      "weight": 0.4,
+      "stamina": 0.25,
+      "speed": 0
+    },
+    "omnivore": {
+      "health": 0.3,
+      "melee": 0.25,
+      "weight": 0.3,
+      "stamina": 0.15,
+      "speed": 0
+    }
+  }
 }

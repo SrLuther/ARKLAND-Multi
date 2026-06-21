@@ -3,11 +3,68 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.60"
+APP_VERSION: str = "1.9.66"
 BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.66",
+        "date": "2026-06-21",
+        "changes": [
+            "Comercio: economia proporcional (piso loja + espaco bonus por porte) — formula pts/254 com pesos por dieta.",
+            "Comercio: admin Economia Comercio (tetos, pesos, simulador, editor por especie, recalcular DRAFT).",
+            "Comercio: breakdown in-game no /enviar e /confirmar; points_base via plugin (spawn probe).",
+            "Comercio: tabela publica com piso/porte/teto, export CSV, modo custom rate_per_point.",
+            "Fix: notificacao Discord de backup exibe tamanho correto (B/KB/MB/GB, nao mais 0.0 MB).",
+        ],
+    },
+    {
+        "version": "1.9.65",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (Comercio): breakdown economico no /enviar via API plugin/preview.",
+            "Novo (Comercio): modo custom com rate_per_point no editor; barra piso/bonus/teto; export CSV.",
+            "Limpeza: removido modal legado de multiplicadores; script sync_market_economy.py.",
+        ],
+    },
+    {
+        "version": "1.9.64",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (Comercio): editor por especie com override de peso e modo legacy_multipliers.",
+            "Novo (Comercio): Comercio admin — botao Economia substitui Mult.; link direto ao editor.",
+            "Docs: secao 5.8.2 modos de preco e weight_override.",
+        ],
+    },
+    {
+        "version": "1.9.63",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (Comercio): editor por especie na Economia Comercio (dieta, porte, stats enabled).",
+            "Novo (Comercio): tabela publica mostra piso, porte, teto e stats — breakdown com espaco bonus.",
+            "Docs: PROJETO_MERCADO_CRYOPOD secao 5.7–5.8 atualizada para modelo proporcional.",
+        ],
+    },
+    {
+        "version": "1.9.62",
+        "date": "2026-06-21",
+        "changes": [
+            "Novo (Comercio): economia proporcional — piso (root loja) + espaco bonus por porte "
+            "(100k/250k/300k) preenchido por stats base (pts/254) com pesos por dieta.",
+            "Novo (Comercio): admin Economia Comercio — tetos, pesos, simulador e recalcular DRAFT.",
+            "Fix (Comercio): pontos base (wild+mut) separados de level manual; 26 especies classificadas.",
+        ],
+    },
+    {
+        "version": "1.9.61",
+        "date": "2026-06-21",
+        "changes": [
+            "Fix (Comercio): preco sugerido nao usa valor bruto da cryo como pontos (ex. HP 30470).",
+            "Fix (Comercio): teto sugerido de 150k Âmbar; reconcile recalcula anuncios DRAFT/PAUSED.",
+            "Fix (CustomShop): leitura melee/speed da cryo tenta indice atual se max+12 vier zero.",
+        ],
+    },
     {
         "version": "1.9.60",
         "date": "2026-06-21",

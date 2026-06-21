@@ -10,11 +10,15 @@ from market_economy import (
     STAT_KEYS,
     SpeciesEconomy,
     StatMultiplier,
+    apply_economy_meta,
     build_multipliers_from_defaults,
+    build_catalog_economy_map,
     iter_catalog_dinos,
     iter_economy_groups,
     load_default_species_map,
     load_defaults_file,
+    load_pts_reference,
+    load_size_caps,
     load_tier_legend,
     merge_economy_group,
     merge_species_from_catalog_item,
@@ -127,7 +131,7 @@ def species_row_to_economy(row: Any, mult_rows: list[Any]) -> SpeciesEconomy:
             default = build_multipliers_from_defaults(row.species_key).get(sk)
             if default:
                 mults[sk] = default
-    return SpeciesEconomy(
+    species = SpeciesEconomy(
         species_key=row.species_key,
         catalog_item_id=row.catalog_item_id or "",
         display_name=row.display_name,
@@ -140,6 +144,8 @@ def species_row_to_economy(row: Any, mult_rows: list[Any]) -> SpeciesEconomy:
         status=row.status,
         multipliers=mults,
     )
+    apply_economy_meta(species)
+    return species
 
 
 def _resolve_display_name_override(
@@ -359,27 +365,17 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
 
 def get_species_table_payload(db: Session) -> dict[str, Any]:
     species = list_species_public(db, active_only=True)
-    labels = stat_labels()
-    multiplier_legend = []
-    if species:
-        mults = species[0].get("multipliers") or {}
-        for sk, data in sorted(mults.items()):
-            if data.get("enabled") and data.get("multiplier", 0) > 0:
-                multiplier_legend.append(
-                    {
-                        "stat_key": sk,
-                        "label": data.get("label") or labels.get(sk, sk),
-                        "multiplier": data["multiplier"],
-                        "note": "Global por espécie — editável pelo admin",
-                    }
-                )
+    stat_labels_map = stat_labels()
+    size_caps = load_size_caps()
     return {
         "title": "Tabela Oficial — Valores Base (Nível 1)",
         "description": (
-            "Valor raiz de referência por espécie homologada. "
-            "Não inclui pontos de status — apenas o animal nível 1 da loja."
+            "Valor raiz (piso) por espécie homologada — preço nível 1 na loja, sem pontos de breeding. "
+            "O valor sugerido de um dino preenche o espaço bônus até o teto do porte conforme stats base (Spyglass)."
         ),
         "currency": "Âmbar",
+        "size_caps": size_caps,
+        "pts_reference": load_pts_reference(),
         "species": [
             {
                 "species_key": s["species_key"],
@@ -388,11 +384,18 @@ def get_species_table_payload(db: Session) -> dict[str, Any]:
                 "root_value": s["root_value"],
                 "tier": s.get("tier"),
                 "catalog_item_id": s.get("catalog_item_id"),
-                "multipliers": s.get("multipliers"),
+                "diet_class": s.get("diet_class"),
+                "size_class": s.get("size_class"),
+                "size_cap": s.get("size_cap"),
+                "bonus_space": s.get("bonus_space"),
+                "economy_stats": s.get("economy_stats"),
+                "economy_stat_labels": {
+                    sk: stat_labels_map.get(sk, sk)
+                    for sk in ("health", "melee", "weight", "stamina", "speed")
+                },
             }
             for s in species
         ],
-        "multiplier_legend": multiplier_legend,
         "tier_legend": load_tier_legend(),
     }
 

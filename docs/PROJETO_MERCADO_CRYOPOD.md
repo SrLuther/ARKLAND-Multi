@@ -39,8 +39,8 @@ A decisão de usar **exclusivamente Cryopods oficiais** (Extinction vanilla) eli
 | P10 | Moeda | Vendas **exclusivamente em Âmbares** — jamais dinheiro real |
 | P11 | Frontend | Evoluir a **Web Store em produção** (`plugin/arkshop_web/static/index.html`) — ver §10.4 |
 | P12 | Anti-duplicação no envio | Ao **confirmar** (`/confirmar`), cryopod **deve sair do inventário** antes de persistir no vault — ver §3.1.1 |
-| P13 | Cálculo visível | Toda avaliação exibe **detalhamento** do cálculo (raiz + stats × multiplicadores) — §5.7 |
-| P14 | Tabela oficial pública | Área do comércio exibe **tabela de espécies nível 1** com valor raiz e multiplicadores — §5.8 |
+| P13 | Cálculo visível | Toda avaliação exibe **detalhamento** do cálculo (piso + fatias do espaço bônus) — §5.7 |
+| P14 | Tabela oficial pública | Área do comércio exibe **tabela de espécies nível 1** com piso, porte, teto e stats no cálculo — §5.8 |
 | P15 | Paridade loja principal | Mesmo animal, **mesmo nível** → **mesmo valor raiz** na loja admin e no comércio — §5.9 |
 | P16 | Sync catálogo existente | Importar dinos já cadastrados em `config.json` (`Type: dino`) para `economy_species` — §5.9 |
 | P17 | Pré-cadastro ao adicionar dino na loja | Novo dino resgatável na loja principal → opção **Incluir no Comércio** + pré-cadastro admin — §5.10 |
@@ -704,6 +704,19 @@ Exemplos relativos:
 
 Toda interface que exibe **valor sugerido** deve incluir bloco **“Como calculamos”** — não opcional.
 
+**Modelo v2 (proporcional — vigente desde v1.9.62):**
+
+```
+espaço_bônus = teto(porte) − root_value
+fatia[stat]  = espaço_bônus × peso_efetivo × (pts_base ÷ 254)
+total        = root_value + Σ fatias   → clamp [root, teto]
+```
+
+- **Pontos:** apenas **pontos base** do Spyglass `(X)` em `X-Y`; level manual `(Y)` **não entra**.
+- **254:** referência de linhagem top por stat (100% da fatia daquele stat).
+- **Pesos:** por `diet_class` (carnívoro / herbívoro / omnívoro), normalizados nos stats **enabled** da espécie.
+- **Tier:** legenda do site — **não limita** preço na fórmula.
+
 **Onde exibir:**
 
 | Contexto | Conteúdo |
@@ -713,85 +726,116 @@ Toda interface que exibe **valor sugerido** deve incluir bloco **“Como calcula
 | Minha Loja — definir preço | Sidebar fixa com cálculo atualizado |
 | Admin — revisar listing | Mesmo breakdown + snapshot gravado |
 
-**Formato do breakdown:**
+**Formato do breakdown (exemplo Carcha moderada):**
 
 ```
-Valor Raiz (Rex, nível de referência cadastrado)     8.000
+Valor base (Carcha):                              29.994
+Espaço bônus (teto 300.000 − base):              270.006
 ─────────────────────────────────────────────────────────
-Vida:     80 pts  ×  80   =                    6.400
-Dano:     59 pts  ×  700  =                   41.300
-Peso:     42 pts  ×  120  =                    5.040
-Estamina:  0 pts  ×  20   =                        0
-Oxigênio:  0 pts  ×  …    =                        0
-Comida:    0 pts  ×  …    =                        0
+Vida:   78 pts × 585  =                          45.603
+Dano:  105 pts × 478  =                          50.227
 ─────────────────────────────────────────────────────────
-Valor Sugerido Total                          60.740 Âmbar
+Valor sugerido total:                            125.825 Âmbar
+Teto (porte grande):                             300.000
 ```
 
 **Requisitos:**
 
-- Cada linha mostra: **nome do stat**, **pontos**, **multiplicador vigente**, **subtotal**.
-- Stats com multiplicador `0` ou desabilitado aparecem riscados ou omitidos (configurável), mas o **total** sempre bate com o server-side.
+- Cada linha de stat mostra: **nome**, **pontos base**, **taxa equivalente** (derivada, só exibição) e **subtotal**.
+- Stats desabilitados em `economy_stats` são omitidos; o **total** sempre bate com o server-side.
 - Gravar breakdown integral em `metadata_json.calculation_breakdown` e auditoria.
-- Jogador **não edita** multiplicadores nem valor raiz — apenas visualiza.
+- Jogador **não edita** tetos, pesos nem valor raiz — apenas visualiza.
+
+**Admin:** tetos, pesos por dieta e classificação por espécie em **Economia Comércio** (`/api/market/admin/economy/*`).
 
 ### 5.8 Tabela oficial de valores base (página pública do Comércio)
 
 Seção fixa na área **Comércio** na web: **“Tabela Oficial — Valores Base (Nível 1)”**.
 
-**Propósito:** referência pública e transparente do **valor raiz** de cada espécie homologada, alinhada à loja principal.
+**Propósito:** referência pública do **piso** (`root_value`) e **teto por porte** de cada espécie homologada, alinhada à loja principal.
 
 | Coluna | Descrição |
 |--------|-----------|
 | Espécie | Nome oficial (`display_name`) |
 | Nível referência | Sempre **1** nesta tabela |
-| Valor base (Âmbar) | `root_value` — **somente raiz**, sem pontos de status |
-| Multiplicadores | Por espécie — ver coluna auxiliar ou expandir linha (§5.8.1) |
-| Status | `ACTIVE` na tabela pública; outras espécies não listadas |
+| Piso (Âmbar) | `root_value` — preço nível 1 na loja, **sem** pontos de breeding |
+| Porte | `size_class` — pequeno / médio / grande |
+| Teto | `_size_caps[size_class]` — máximo do modelo proporcional |
+| Tier | Legenda S+ … C (site) |
+| Stats no cálculo | Quais stats entram (`economy_stats.enabled`) |
+
+**Tetos por porte (defaults):**
+
+| Porte | Teto |
+|-------|------|
+| `large` | 300.000 Âmbar |
+| `medium` | 250.000 Âmbar |
+| `small` | 100.000 Âmbar |
 
 **Regras de exibição:**
 
-- Linha nível 1: `valor_exibido = root_value` — **nenhum ponto de status** aplicado (dino de referência “limpo”).
-- Multiplicadores **por espécie** (não globais únicos) — editáveis pelo admin; defaults em `plugin/arkshop_web/data/market_species_defaults.json`.
+- Linha nível 1: exibe só **piso** — nenhum ponto de status aplicado.
+- Classificação por espécie em `market_species_defaults.json` (`diet_class`, `size_class`, `economy_stats`).
 - Ordenação: alfabética ou por valor raiz; busca por nome.
 - Export CSV opcional (admin).
 
-#### 5.8.1 Multiplicadores sugeridos por espécie (defaults v1)
+#### 5.8.1 Classificação econômica por espécie (26 grupos)
 
-Fonte: `market_species_defaults.json`. `root_value` sincroniza com `Price` do `config.json`.
+Fonte: `plugin/arkshop_web/data/market_species_defaults.json`. `root_value` sincroniza com `Price` do `config.json` no sync catálogo.
 
-| Espécie | Tier | root (loja) | Vida | Dano | Peso | Stamina | Oxigênio | Velocidade |
-|---------|------|-------------|------|------|------|---------|----------|------------|
-| Indominus Rex Fêmea | S+ | config | ×95 | ×850 | ×100 | ×18 | — | — |
-| Armaedron Fêmea | S+ | config | ×92 | ×820 | ×105 | ×20 | — | — |
-| Tek Strider Fêmea | S+ | config | ×75 | ×450 | ×180 | ×35 | — | ×15 |
-| Bionic Giga Fêmea | S | config | ×90 | ×780 | ×110 | ×18 | — | — |
-| Bionic Rex Fêmea | S | config | ×82 | ×760 | ×115 | ×22 | — | — |
-| Giganotosaurus Fêmea | S | config | ×88 | ×750 | ×105 | ×16 | — | — |
-| Lionfish Lion Fêmea | S | config | ×85 | ×740 | ×100 | ×20 | ×12 | — |
-| Carcharodontosaurus Fêmea | A | config | ×84 | ×720 | ×108 | ×18 | — | — |
-| Volcano Rex Fêmea | A | config | ×80 | ×710 | ×118 | ×20 | — | — |
-| Rex Fêmea | A | config | ×78 | ×700 | ×120 | ×20 | — | — |
-| Desmodus Fêmea | B | config | ×70 | ×520 | ×140 | ×32 | ×8 | ×18 |
-| Xenomorph Gen2 Fêmea | B | config | ×72 | ×580 | ×125 | ×22 | — | — |
-| Acrocantossauro Fêmea | B | config | ×82 | ×620 | ×115 | ×18 | — | — |
-| Xenomorph Fêmea | B | config | ×68 | ×560 | ×120 | ×20 | — | — |
-| Megalosaurus Aberrante Fêmea | B | config | ×74 | ×640 | ×118 | ×18 | — | — |
-| Megalosaurus Fêmea | B | config | ×72 | ×620 | ×118 | ×18 | — | — |
-| Deinonychus Fêmea | B | config | ×60 | ×680 | ×100 | ×24 | — | ×12 |
+**Eixos:**
 
-Stats com multiplicador `0` ou omitidos (Comida, etc.) não entram no cálculo. Admin pode ajustar por espécie via API `PATCH /api/market/admin/species/<key>/multipliers`.
+| Campo | Valores | Efeito |
+|-------|---------|--------|
+| `diet_class` | carnivore, herbivore, omnivore | Pesos HP / DM / WE / ST / SP |
+| `size_class` | small, medium, large | Teto máximo + espaço bônus |
+| `economy_stats[s].enabled` | bool por stat | Stat entra ou não no cálculo |
+| `tier` | S+, S, A, B, C | **Só legenda** — não entra na fórmula |
+
+**Pesos por dieta (normalizados nos stats enabled):**
+
+| Dieta | HP | DM | WE | ST | SP |
+|-------|----|----|----|----|-----|
+| Carnívoro | 55% | 45% | — | — | — |
+| Herbívoro | 35% | — | 40% | 25% | — |
+| Omnívoro | 30% | 25% | 30% | 15% | — |
+
+**Exemplos de enabled por espécie:**
+
+| Espécie | Porte | Stats enabled |
+|---------|-------|---------------|
+| Carcha | large | HP, DM |
+| Rex / Giga | large | HP, DM |
+| Brachio | large | HP, WE |
+| Tek Strider | large | HP, WE, ST |
+| Deinonychus | small | DM, ST (override peso 70/30) |
+| Desmodus | medium | HP, WE, ST |
+
+Admin edita via **Economia Comércio → Por espécie** ou `PATCH /api/market/admin/economy/species/<key>`.
 
 **Wireframe:**
 
 ```
 ┌─ Tabela Oficial — Valores Base (Nível 1) ─────────────────────────┐
-│  Giganotosaurus Fêmea    Nível 1    15.000 Âmbar    [▼ mult.]    │
-│    Vida ×88 · Dano ×750 · Peso ×105 · Stamina ×16                 │
-│  Rex Fêmea               Nível 1     5.000 Âmbar    [▼ mult.]    │
-│    Vida ×78 · Dano ×700 · Peso ×120 · Stamina ×20                 │
+│  Carcha          Nível 1   Piso 29.994   Grande   Teto 300.000     │
+│    Stats: HP · DM · Tier A                                         │
+│  Rex             Nível 1   Piso  8.000   Grande   Teto 300.000     │
+│    Stats: HP · DM · Tier A                                         │
 └───────────────────────────────────────────────────────────────────┘
 ```
+
+> **Legado (v1):** multiplicadores inteiros por stat (`×720` dano) foram substituídos pelo modelo proporcional em v1.9.62. Campos `multipliers` no JSON permanecem para referência; só entram no cálculo se `pricing_mode: legacy_multipliers`.
+
+#### 5.8.2 Modos de preço e overrides (Fase 2 — v1.9.64+)
+
+| `pricing_mode` | Comportamento |
+|----------------|---------------|
+| `proportional` | **Padrão** — espaço bônus × peso × pts/254 |
+| `legacy_multipliers` | Exceção: `root + Σ (pts × multiplicador JSON)` com teto por porte |
+
+**Override de peso por stat:** `economy_stats[s].weight_override` (0–1) substitui o peso da dieta naquele stat (ex.: Deinonychus DM 0,70 · ST 0,30).
+
+**Admin:** Economia Comércio → Por espécie → Editar (dieta, porte, modo, stats, pesos). Comércio admin → botão **Economia** abre o mesmo editor.
 
 ### 5.9 Sincronização com a loja principal (`config.json`)
 

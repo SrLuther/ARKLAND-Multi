@@ -210,11 +210,19 @@ def enrich_stats_with_points(
         if isinstance(val, dict):
             entry = dict(val)
             value = float(entry.get("value") or 0)
+            if entry.get("points_base") is not None:
+                pb = int(entry["points_base"])
+                pa = int(entry.get("points_added") or 0)
+                entry["points"] = pb + pa
+                out[sk] = entry
+                continue
             pts = entry.get("points")
             if pts is None and value > 0:
                 levels = invert_stat_levels(species_key, sk, value, imprint_pct=imprint_pct)
                 if levels:
                     lw, lm, ld = levels
+                    entry["points_base"] = int(lw + lm)
+                    entry["points_added"] = int(ld)
                     entry["points"] = int(lw + lm + ld)
                     entry["levels_wild"] = lw
                     entry["levels_mut"] = lm

@@ -20,6 +20,8 @@ struct CryoParsedMetadata {
     int dino_level = 0;
     struct StatVal {
         float value = 0.f;
+        int points_base = -1;
+        int points_added = -1;
     };
     StatVal health;
     StatVal stamina;

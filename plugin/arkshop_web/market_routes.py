@@ -5,7 +5,18 @@ from typing import Any, Callable
 
 from flask import Flask, jsonify, request
 
-from market_economy import calculate_suggested_value, load_tier_legend, normalize_stat_points, shop_catalog_display_name
+from market_economy import (
+    calculate_suggested_value,
+    load_economy_global_config,
+    load_tier_legend,
+    list_species_economy_meta,
+    normalize_stat_points,
+    patch_economy_global_config,
+    patch_species_economy_meta,
+    shop_catalog_display_name,
+    simulate_economy,
+    species_economy_meta_from_defaults,
+)
 from market_service import (
     get_species_table_payload,
     list_species_public,
@@ -28,9 +39,11 @@ from market_listings import (
     mark_claim_delivered,
     pause_listing,
     player_market_history,
+    preview_plugin_economy,
     process_plugin_upload,
     promote_listings_on_species_activate,
     reconcile_pending_listings,
+    recompute_draft_listings,
     purchase_listing,
     release_claims,
     set_listing_price,
@@ -245,6 +258,85 @@ def register_market_routes(
             promoted = reconcile_pending_listings(db)
             audit_event("MARKET_LISTINGS_RECONCILED", promoted_listings=promoted)
             return jsonify({"ok": True, "promoted_listings": promoted})
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/economy/config", methods=["GET"])
+    @admin_required
+    def market_admin_economy_config_get():
+        cfg = load_economy_global_config()
+        species = list_species_economy_meta()
+        if db_ready():
+            db = session_factory()
+            try:
+                from app import MarketSpecies
+
+                db_rows = {
+                    r.species_key: r for r in db.query(MarketSpecies).all()
+                }
+                for sp in species:
+                    row = db_rows.get(sp["species_key"])
+                    if row and row.root_value:
+                        sp["root_value"] = row.root_value
+                        sp["bonus_space"] = max(
+                            0, sp["size_cap"] - row.root_value
+                        )
+                        sp["db_status"] = row.status
+            finally:
+                db.close()
+        cfg["species"] = species
+        return jsonify({"ok": True, **cfg})
+
+    @app.route("/api/market/admin/economy/config", methods=["PATCH"])
+    @admin_required
+    def market_admin_economy_config_patch():
+        body = request.get_json(silent=True) or {}
+        try:
+            cfg = patch_economy_global_config(body)
+            audit_event("MARKET_ECONOMY_CONFIG_UPDATED")
+            return jsonify({"ok": True, **cfg})
+        except (TypeError, ValueError) as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+
+    @app.route("/api/market/admin/economy/species/<species_key>", methods=["PATCH"])
+    @admin_required
+    def market_admin_economy_species_patch(species_key: str):
+        body = request.get_json(silent=True) or {}
+        updated = patch_species_economy_meta(species_key.strip(), body)
+        if updated is None:
+            return jsonify({"ok": False, "error": "Espécie não encontrada no JSON"}), 404
+        audit_event("MARKET_ECONOMY_SPECIES_UPDATED", species_key=species_key)
+        meta = species_economy_meta_from_defaults(species_key)
+        return jsonify({"ok": True, "species_key": species_key, **meta})
+
+    @app.route("/api/market/admin/economy/simulate", methods=["POST"])
+    @admin_required
+    def market_admin_economy_simulate():
+        body = request.get_json(silent=True) or {}
+        species_key = str(body.get("species_key") or "").strip()
+        if not species_key:
+            return jsonify({"ok": False, "error": "species_key obrigatório"}), 400
+        root = body.get("root_value")
+        root_value = int(root) if root is not None else None
+        result = simulate_economy(
+            species_key,
+            body.get("stats_max") or body.get("stat_points") or {},
+            root_value=root_value,
+        )
+        if result is None:
+            return jsonify({"ok": False, "error": "Espécie não encontrada"}), 404
+        return jsonify({"ok": True, **result})
+
+    @app.route("/api/market/admin/economy/recompute-listings", methods=["POST"])
+    @admin_required
+    def market_admin_economy_recompute_listings():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            count = recompute_draft_listings(db)
+            audit_event("MARKET_LISTINGS_RECOMPUTED", count=count)
+            return jsonify({"ok": True, "recomputed": count})
         finally:
             db.close()
 
@@ -645,6 +737,22 @@ def register_market_routes(
                     "market_display_name": prof.market_display_name if prof else None,
                 }
             )
+        finally:
+            db.close()
+
+    @app.route("/api/market/plugin/preview", methods=["POST"])
+    @api_key_required(allow_admin_session=False)
+    @_limit("60 per minute")
+    def market_plugin_preview():
+        """Preview de economia para /enviar in-game (sem persistir)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        metadata = body.get("metadata") or body
+        db = session_factory()
+        try:
+            result = preview_plugin_economy(db, metadata if isinstance(metadata, dict) else {})
+            return jsonify(result)
         finally:
             db.close()
 

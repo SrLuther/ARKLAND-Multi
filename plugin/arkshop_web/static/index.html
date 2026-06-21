@@ -681,8 +681,6 @@
       overflow-y: auto;
       padding-right: 4px;
     }
-    #modal-market-mult .modal { max-width: 560px; }
-    #modal-market-mult .market-mult-val:disabled { opacity: 0.45; }
     .kit-section {
       margin-top: 16px;
       padding-top: 12px;
@@ -3144,6 +3142,9 @@
     <div class="nav-item admin-only" data-page="market-admin" onclick="nav(this)">
       <span class="nav-icon">🦖</span> Comércio (admin)
     </div>
+    <div class="nav-item admin-only" data-page="market-economy-admin" onclick="nav(this)">
+      <span class="nav-icon">🧮</span> Economia Comércio
+    </div>
     <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com Âmbar no catálogo">
       <span class="nav-icon">💰</span> Venda in-game (legado)
     </div>
@@ -3361,8 +3362,9 @@
         <div id="market-panel-table" class="catalog-panel active">
           <div class="card" style="margin-bottom:16px;">
             <div class="card-title">Tabela Oficial — Valores Base (Nível 1)</div>
-            <div class="catalog-toolbar" style="margin-bottom:12px;">
-              <input id="market-search" type="text" placeholder="🔍 Buscar espécie…" oninput="renderMarketTable()" />
+            <div class="catalog-toolbar" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <input id="market-search" type="text" placeholder="🔍 Buscar espécie…" oninput="renderMarketTable()" style="flex:1;min-width:180px;" />
+              <button type="button" class="btn btn-ghost btn-sm" onclick="marketExportSpeciesTableCsv()">⬇ Exportar CSV</button>
             </div>
             <div id="market-table-root">
               <div style="text-align:center;padding:40px;color:var(--text2);">Carregando…</div>
@@ -3371,8 +3373,9 @@
           <div class="card">
             <div class="card-title">Como calculamos o valor sugerido</div>
             <p style="font-size:13px;color:var(--text2);line-height:1.6;margin:0;">
-              <strong>Valor sugerido = Valor raiz (nível 1)</strong> + Σ(pontos de stat × multiplicador da espécie).
-              Pontos já incluem mutações. Imprint 100% obrigatório.
+              <strong>Valor sugerido = Piso (nível 1 na loja)</strong> + fatias proporcionais por stat
+              (espaço bônus × peso × pts ÷ 254), limitado ao teto do porte.
+              Pontos base (wild + mut) entram no cálculo; level manual não. Imprint 100% obrigatório.
             </p>
           </div>
         </div>
@@ -3485,6 +3488,35 @@
             </div>
           </div>
           <div id="market-audit-list"></div>
+        </div>
+      </div>
+
+      <!-- PAGE: Economia Comércio (admin) -->
+      <div id="page-market-economy-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Economia — Comércio</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadMarketEconomyAdmin()">↺ Recarregar</button>
+            <button class="btn btn-warn btn-sm" onclick="marketEconomyRecompute()">Recalcular DRAFT</button>
+          </div>
+        </div>
+        <p style="color:var(--text2);font-size:13px;margin:0 0 16px;">
+          Modelo proporcional: <strong>piso</strong> = preço lvl 1 loja · <strong>espaço bônus</strong> = teto(porte) − piso · stats preenchem fatias do bônus (pts base ÷ 254).
+        </p>
+        <div class="catalog-tabs" style="margin-bottom:16px;">
+          <button type="button" class="catalog-tab active" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Tetos e pesos</button>
+          <button type="button" class="catalog-tab" data-market-economy-tab="species" onclick="setMarketEconomyTab('species')">Por espécie</button>
+          <button type="button" class="catalog-tab" data-market-economy-tab="sim" onclick="setMarketEconomyTab('sim')">Simulador</button>
+        </div>
+        <div id="market-economy-panel-caps" class="catalog-panel active">
+          <div id="market-economy-caps-form"></div>
+        </div>
+        <div id="market-economy-panel-species" class="catalog-panel">
+          <div id="market-economy-species-list"></div>
+        </div>
+        <div id="market-economy-panel-sim" class="catalog-panel">
+          <div id="market-economy-sim-form"></div>
+          <div id="market-economy-sim-result" style="margin-top:16px;"></div>
         </div>
       </div>
 
@@ -4031,23 +4063,20 @@
   </div>
 </div>
 
-<!-- ── Modal: Mercado — multiplicadores ─────────────────────────────────────── -->
-<div id="modal-market-mult" class="modal-backdrop hidden">
-  <div class="modal">
+<!-- ── Modal: Economia — espécie ──────────────────────────────────────────── -->
+<div id="modal-market-economy-species" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:520px;">
     <div class="modal-header">
       <div>
-        <div class="modal-title" id="modal-market-mult-title">Multiplicadores</div>
-        <div id="modal-market-mult-subtitle" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+        <div class="modal-title" id="modal-me-species-title">Classificação econômica</div>
+        <div id="modal-me-species-subtitle" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
       </div>
-      <button class="modal-close" onclick="closeModal('modal-market-mult')">✕</button>
+      <button class="modal-close" onclick="closeModal('modal-market-economy-species')">✕</button>
     </div>
-    <div id="modal-market-mult-body" style="padding:0 4px 8px;"></div>
-    <div class="modal-footer" style="justify-content:space-between;">
-      <button type="button" class="btn btn-ghost btn-sm" id="modal-market-mult-defaults-btn">↺ Carregar sugeridos</button>
-      <div style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-ghost" onclick="closeModal('modal-market-mult')">Cancelar</button>
-        <button type="button" class="btn btn-success" onclick="marketSaveMultipliers()">💾 Salvar</button>
-      </div>
+    <div id="modal-me-species-body" style="padding:0 4px 8px;"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('modal-market-economy-species')">Cancelar</button>
+      <button type="button" class="btn btn-success" onclick="marketEconomySaveSpecies()">💾 Salvar</button>
     </div>
   </div>
 </div>
@@ -4336,6 +4365,7 @@ function nav(el) {
   if (page === "catalog") loadCatalog();
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
+  if (page === "market-economy-admin") loadMarketEconomyAdmin();
   if (page === "downloads") loadDownloads();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "recharge-admin") loadRechargeAdmin();
@@ -6117,14 +6147,6 @@ async function loadMarketTable() {
   }
 }
 
-function _marketMultSummary(multipliers) {
-  if (!multipliers) return "—";
-  return Object.values(multipliers)
-    .filter(v => v && v.enabled && v.multiplier > 0)
-    .map(v => `${v.label || v.stat_key} ×${v.multiplier}`)
-    .join(" · ") || "—";
-}
-
 const _MARKET_TIER_ORDER = ["S+", "S", "A", "B", "C"];
 
 function _marketTierLegendHtml(legend) {
@@ -6145,6 +6167,37 @@ function _marketTierLegendHtml(legend) {
   </div>`;
 }
 
+function _marketAdminEconomySummary(s) {
+  const size = _marketSizeLabel(s.size_class);
+  const stats = _marketEconomyStatSummary(s);
+  const mode = (s.pricing_mode || "proportional") !== "proportional"
+    ? ` · ${s.pricing_mode}`
+    : "";
+  return `${size} · ${stats}${mode}`;
+}
+
+function marketOpenEconomySpecies(speciesKey) {
+  _marketEconomyPendingKey = speciesKey;
+  _marketEconomyTab = "species";
+  const navEl = document.querySelector('.nav-item[data-page="market-economy-admin"]');
+  if (navEl) nav(navEl);
+}
+
+let _marketEconomyPendingKey = null;
+
+function _marketEconomyStatSummary(s) {
+  const labels = { health: "HP", melee: "DM", weight: "WE", stamina: "ST", speed: "SP" };
+  const enabled = Object.entries(s.economy_stats || {})
+    .filter(([, v]) => v && v.enabled)
+    .map(([k]) => labels[k] || k);
+  return enabled.length ? enabled.join(" · ") : "—";
+}
+
+function _marketSizeLabel(size) {
+  const map = { large: "Grande", medium: "Médio", small: "Pequeno" };
+  return map[size] || size || "—";
+}
+
 function renderMarketTable() {
   const root = document.getElementById("market-table-root");
   const search = (document.getElementById("market-search")?.value || "").toLowerCase();
@@ -6156,35 +6209,78 @@ function renderMarketTable() {
     root.innerHTML = '<p style="color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie homologada ainda. O admin precisa sincronizar e ativar espécies.</p>';
     return;
   }
+  const caps = _marketTable.size_caps || {};
   const rows = species.map(s => `<tr>
     <td>${escHtml(s.display_name)}</td>
     <td>${s.reference_level || 1}</td>
     <td><strong style="color:var(--amber);">${Number(s.root_value || 0).toLocaleString("pt-BR")}</strong></td>
+    <td>${escHtml(_marketSizeLabel(s.size_class))}</td>
+    <td>${Number(s.size_cap || 0).toLocaleString("pt-BR")}</td>
     <td>${escHtml(s.tier || "—")}</td>
-    <td style="font-size:12px;color:var(--text2);">${escHtml(_marketMultSummary(s.multipliers))}</td>
+    <td style="font-size:12px;color:var(--text2);">${escHtml(_marketEconomyStatSummary(s))}</td>
   </tr>`).join("");
   root.innerHTML = `
     <table class="tbl">
       <thead><tr>
-        <th>Espécie</th><th>Nível ref.</th><th>Valor base (Âmbar)</th><th>Tier</th><th>Multiplicadores</th>
+        <th>Espécie</th><th>Nível ref.</th><th>Piso (Âmbar)</th><th>Porte</th><th>Teto</th><th>Tier</th><th>Stats no cálculo</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
     ${_marketTierLegendHtml(_marketTierLegend || _marketTable.tier_legend)}
     <p style="font-size:12px;color:var(--text2);margin-top:12px;line-height:1.5;">
       ${escHtml(_marketTable.description || "")}
+      Tetos por porte: pequeno ${Number(caps.small || 100000).toLocaleString("pt-BR")} ·
+      médio ${Number(caps.medium || 250000).toLocaleString("pt-BR")} ·
+      grande ${Number(caps.large || 300000).toLocaleString("pt-BR")} Âmbar.
     </p>`;
   requestAnimationFrame(() => wrapTablesForScroll(root));
 }
 
+function marketExportSpeciesTableCsv() {
+  if (!_marketTable || !(_marketTable.species || []).length) {
+    toast("Carregue a tabela antes de exportar", "warning");
+    return;
+  }
+  const search = (document.getElementById("market-search")?.value || "").toLowerCase();
+  const species = (_marketTable.species || []).filter(s =>
+    !search || (s.display_name || "").toLowerCase().includes(search)
+  );
+  const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = ["Especie", "Nivel ref", "Piso Ambar", "Porte", "Teto", "Tier", "Stats calculo"];
+  const lines = [header.join(";")];
+  species.forEach(s => {
+    lines.push([
+      esc(s.display_name),
+      s.reference_level || 1,
+      s.root_value || 0,
+      esc(_marketSizeLabel(s.size_class)),
+      s.size_cap || 0,
+      esc(s.tier || ""),
+      esc(_marketEconomyStatSummary(s)),
+    ].join(";"));
+  });
+  const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "mercado-tabela-oficial.csv";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast("CSV exportado", "success");
+}
+
 function _marketBreakdownHtml(breakdown) {
-  const rows = (breakdown || []).filter(r => r.kind === "stat" || r.kind === "root");
+  const rows = (breakdown || []).filter(r => ["stat", "root", "bonus_space"].includes(r.kind));
   if (!rows.length) return "";
   const lines = rows.map(r => {
-    if (r.kind === "root") return `Raiz nível 1: ${Number(r.value || 0).toLocaleString("pt-BR")} Âmbar`;
-    return `${r.label || r.stat_key}: ${r.points} pts × ${r.multiplier} = ${Number(r.subtotal || 0).toLocaleString("pt-BR")}`;
+    if (r.kind === "root") return `${escHtml(r.label || "Valor base")}: ${Number(r.subtotal || r.value || 0).toLocaleString("pt-BR")} Âmbar`;
+    if (r.kind === "bonus_space") return `${escHtml(r.label || "Espaço bônus")}: ${Number(r.subtotal || 0).toLocaleString("pt-BR")} Âmbar`;
+    return `${escHtml(r.label || r.stat_key)}: ${r.points} pts × ${r.multiplier} = ${Number(r.subtotal || 0).toLocaleString("pt-BR")}`;
   }).join("<br>");
-  return `<details style="margin-top:8px;font-size:11px;color:var(--text2);"><summary>▼ Como calculamos</summary><div style="margin-top:6px;line-height:1.5;">${lines}</div></details>`;
+  const totalRow = (breakdown || []).find(r => r.kind === "total");
+  const totalLine = totalRow
+    ? `<strong>Total: ${Number(totalRow.subtotal || 0).toLocaleString("pt-BR")} Âmbar</strong>`
+    : "";
+  return `<details style="margin-top:8px;font-size:11px;color:var(--text2);"><summary>▼ Como calculamos</summary><div style="margin-top:6px;line-height:1.5;">${lines}${totalLine ? "<br>" + totalLine : ""}</div></details>`;
 }
 
 function _marketListingCard(l, { showBuy = false, showSellerActions = false } = {}) {
@@ -6507,28 +6603,6 @@ async function loadMarketPendingClassification() {
   }
 }
 
-async function marketEditMultipliers(speciesKey) {
-  const species = _marketAdminSpecies.find(s => s.species_key === speciesKey);
-  if (!species) return;
-  _marketMultEditingKey = speciesKey;
-  document.getElementById("modal-market-mult-title").textContent =
-    "Multiplicadores — " + species.display_name;
-  document.getElementById("modal-market-mult-subtitle").innerHTML =
-    `<code>${escHtml(species.species_key)}</code> · Raiz ${Number(species.root_value || 0).toLocaleString("pt-BR")} Âmbar · Tier ${escHtml(species.tier || "—")}`;
-  _renderMarketMultForm(species.multipliers || {});
-  const defBtn = document.getElementById("modal-market-mult-defaults-btn");
-  if (defBtn) {
-    defBtn.onclick = () => marketLoadMultDefaults(speciesKey);
-  }
-  openModal("modal-market-mult");
-}
-
-const _MARKET_STAT_KEYS = ["health", "stamina", "oxygen", "food", "weight", "melee", "speed"];
-const _MARKET_STAT_LABELS = {
-  health: "Vida", stamina: "Estamina", oxygen: "Oxigênio", food: "Comida",
-  weight: "Peso", melee: "Dano", speed: "Velocidade",
-};
-let _marketMultEditingKey = null;
 let _marketNameEditingKey = null;
 
 function marketEditSpeciesName(speciesKey) {
@@ -6577,98 +6651,6 @@ async function marketSaveSpeciesDisplayName() {
   } catch (e) {
     toast(String(e), "error");
   }
-}
-
-function _renderMarketMultForm(mults) {
-  const body = document.getElementById("modal-market-mult-body");
-  if (!body) return;
-  const rows = _MARKET_STAT_KEYS.map(sk => {
-    const m = mults[sk] || {};
-    const mult = Number(m.multiplier) || 0;
-    const enabled = m.enabled !== false && mult > 0;
-    return `<tr data-stat="${sk}">
-      <td>${escHtml(_MARKET_STAT_LABELS[sk] || sk)}</td>
-      <td style="text-align:center;width:72px;">
-        <input type="checkbox" class="market-mult-en" ${enabled ? "checked" : ""} aria-label="Ativo ${escHtml(sk)}">
-      </td>
-      <td style="width:120px;">
-        <input type="number" class="form-input market-mult-val" min="0" step="1"
-               value="${enabled ? mult : 0}" ${enabled ? "" : "disabled"}
-               style="width:100%;" aria-label="Mult ${escHtml(sk)}">
-      </td>
-    </tr>`;
-  }).join("");
-  body.innerHTML = `
-    <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
-      Valor sugerido = <strong>raiz</strong> + Σ (pontos breeding × multiplicador).
-      Stats desativados ou com mult. <strong>0</strong> não entram no cálculo.
-    </p>
-    <table class="tbl">
-      <thead><tr>
-        <th>Stat</th><th style="text-align:center;">Ativo</th><th>Mult. (Âmbar/pt)</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-  body.querySelectorAll(".market-mult-en").forEach(cb => {
-    cb.addEventListener("change", () => {
-      const row = cb.closest("tr");
-      const inp = row.querySelector(".market-mult-val");
-      inp.disabled = !cb.checked;
-      if (!cb.checked) inp.value = "0";
-      else if (!parseInt(inp.value, 10)) inp.value = "1";
-    });
-  });
-}
-
-function _collectMarketMultPayload() {
-  const body = document.getElementById("modal-market-mult-body");
-  const multipliers = {};
-  if (!body) return multipliers;
-  body.querySelectorAll("tbody tr[data-stat]").forEach(row => {
-    const sk = row.dataset.stat;
-    const enabled = row.querySelector(".market-mult-en").checked;
-    const mult = parseInt(row.querySelector(".market-mult-val").value, 10) || 0;
-    multipliers[sk] = { multiplier: enabled ? mult : 0, enabled: enabled && mult > 0 };
-  });
-  return multipliers;
-}
-
-async function marketLoadMultDefaults(speciesKey) {
-  try {
-    const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey) + "/multipliers/defaults");
-    const d = await r.json();
-    if (!d.ok) {
-      toast(d.error || "Sem defaults para esta espécie", "warning");
-      return;
-    }
-    const mults = d.multipliers || {};
-    if (!Object.keys(mults).length) {
-      toast("Nenhum default em market_species_defaults.json para esta key", "warning");
-      return;
-    }
-    _renderMarketMultForm(mults);
-    toast("Defaults carregados — revise e salve", "success");
-  } catch (e) {
-    toast(String(e), "error");
-  }
-}
-
-async function marketSaveMultipliers() {
-  const speciesKey = _marketMultEditingKey;
-  if (!speciesKey) return;
-  const multipliers = _collectMarketMultPayload();
-  try {
-    const r = await fetch(API + "/api/market/admin/species/" + encodeURIComponent(speciesKey) + "/multipliers", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ multipliers }),
-    });
-    const d = await r.json();
-    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
-    toast("Multiplicadores salvos", "success");
-    closeModal("modal-market-mult");
-    loadMarketAdmin();
-  } catch (e) { toast(String(e), "error"); }
 }
 
 async function loadMarketAdmin() {
@@ -6721,12 +6703,12 @@ function renderMarketAdmin() {
     const badge = st === "ACTIVE"
       ? '<span style="color:var(--success);">ACTIVE</span>'
       : '<span style="color:var(--warn);">' + escHtml(st) + '</span>';
-    const btnMult = `<button type="button" class="btn btn-sm btn-ghost market-mult-btn" data-species-key="${escHtml(s.species_key)}">Mult.</button>`;
+    const btnEcon = `<button type="button" class="btn btn-sm btn-ghost market-econ-btn" data-species-key="${escHtml(s.species_key)}">Economia</button>`;
     const btnName = `<button type="button" class="btn btn-sm btn-ghost market-name-btn" data-species-key="${escHtml(s.species_key)}">Nome</button>`;
     const btnAct = st === "ACTIVE"
       ? ""
       : `<button type="button" class="btn btn-sm btn-primary market-activate-btn" data-species-key="${escHtml(s.species_key)}">Ativar</button>`;
-    const actions = `<div style="display:flex;gap:6px;flex-wrap:wrap;">${btnName}${btnMult}${btnAct}</div>`;
+    const actions = `<div style="display:flex;gap:6px;flex-wrap:wrap;">${btnName}${btnEcon}${btnAct}</div>`;
     const shopName = s.shop_catalog_name || s.catalog_item_id || "—";
     const variants = (s.linked_variants || []).length;
     const variantHint = variants > 1
@@ -6739,7 +6721,7 @@ function renderMarketAdmin() {
       <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
       <td>${escHtml(s.tier || "—")}</td>
       <td>${badge}</td>
-      <td style="font-size:11px;color:var(--text2);max-width:280px;">${escHtml(_marketMultSummary(s.multipliers))}</td>
+      <td style="font-size:11px;color:var(--text2);max-width:280px;">${escHtml(_marketAdminEconomySummary(s))}</td>
       <td>${actions}</td>
     </tr>`;
   }).join("");
@@ -6747,7 +6729,7 @@ function renderMarketAdmin() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>Comércio</th><th>Loja (catálogo)</th><th>Key</th><th>Raiz</th><th>Tier</th><th>Status</th><th>Mult.</th><th></th>
+          <th>Comércio</th><th>Loja (catálogo)</th><th>Key</th><th>Raiz</th><th>Tier</th><th>Status</th><th>Economia</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -6757,8 +6739,8 @@ function renderMarketAdmin() {
   list.querySelectorAll(".market-activate-btn").forEach(btn => {
     btn.addEventListener("click", () => marketActivateSpecies(btn.dataset.speciesKey));
   });
-  list.querySelectorAll(".market-mult-btn").forEach(btn => {
-    btn.addEventListener("click", () => marketEditMultipliers(btn.dataset.speciesKey));
+  list.querySelectorAll(".market-econ-btn").forEach(btn => {
+    btn.addEventListener("click", () => marketOpenEconomySpecies(btn.dataset.speciesKey));
   });
   list.querySelectorAll(".market-name-btn").forEach(btn => {
     btn.addEventListener("click", () => marketEditSpeciesName(btn.dataset.speciesKey));
@@ -6815,6 +6797,346 @@ async function marketActivateSpecies(speciesKey) {
   } catch (e) {
     toast(String(e), "error");
   }
+}
+
+let _marketEconomyTab = "caps";
+let _marketEconomyConfig = null;
+
+function setMarketEconomyTab(tab) {
+  _marketEconomyTab = tab;
+  document.querySelectorAll("[data-market-economy-tab]").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.marketEconomyTab === tab);
+  });
+  document.querySelectorAll("#page-market-economy-admin .catalog-panel").forEach(p => p.classList.remove("active"));
+  const panel = document.getElementById("market-economy-panel-" + tab);
+  if (panel) panel.classList.add("active");
+}
+
+async function loadMarketEconomyAdmin() {
+  setMarketEconomyTab(_marketEconomyTab || "caps");
+  try {
+    const r = await fetch(API + "/api/market/admin/economy/config");
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Erro ao carregar economia", "error");
+      return;
+    }
+    _marketEconomyConfig = d;
+    renderMarketEconomyCaps(d);
+    renderMarketEconomySpecies(d.species || []);
+    renderMarketEconomySim(d.species || []);
+    if (_marketEconomyPendingKey) {
+      const key = _marketEconomyPendingKey;
+      _marketEconomyPendingKey = null;
+      marketEconomyEditSpecies(key);
+    }
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+function renderMarketEconomyCaps(cfg) {
+  const root = document.getElementById("market-economy-caps-form");
+  if (!root) return;
+  const caps = cfg.size_caps || {};
+  const w = cfg.stat_weights || {};
+  const diets = ["carnivore", "herbivore", "omnivore"];
+  const stats = ["health", "melee", "weight", "stamina", "speed"];
+  const statLabels = { health: "Vida", melee: "Dano", weight: "Peso", stamina: "Estamina", speed: "Velocidade" };
+  const exRoot = 29994;
+  const barHtml = ["large", "medium", "small"].map(size => {
+    const cap = caps[size] || (size === "large" ? 300000 : size === "medium" ? 250000 : 100000);
+    const bonus = Math.max(0, cap - exRoot);
+    const pctRoot = Math.round((exRoot / cap) * 100);
+    const pctBonus = 100 - pctRoot;
+    const labels = { large: "Grande", medium: "Médio", small: "Pequeno" };
+    return `<div style="margin-bottom:12px;">
+      <div style="font-size:12px;margin-bottom:4px;">${labels[size]} — exemplo Carcha (raiz ${exRoot.toLocaleString("pt-BR")} · teto ${cap.toLocaleString("pt-BR")} · bônus ${bonus.toLocaleString("pt-BR")})</div>
+      <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">
+        <div style="width:${pctRoot}%;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;">Piso</div>
+        <div style="width:${pctBonus}%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text2);">Espaço bônus</div>
+      </div>
+    </div>`;
+  }).join("");
+  let weightsHtml = diets.map(diet => {
+    const row = stats.map(sk => {
+      const val = ((w[diet] || {})[sk] ?? 0);
+      return `<td><input type="number" step="0.01" min="0" max="1" class="me-w" data-diet="${diet}" data-stat="${sk}" value="${val}" style="width:72px;" /></td>`;
+    }).join("");
+    return `<tr><td><strong>${escHtml(diet)}</strong></td>${row}</tr>`;
+  }).join("");
+  root.innerHTML = `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">Tetos por porte (Âmbar)</div>
+      <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:16px;">
+        <label>Grande <input id="me-cap-large" type="number" value="${caps.large || 300000}" style="width:120px;margin-left:8px;" /></label>
+        <label>Médio <input id="me-cap-medium" type="number" value="${caps.medium || 250000}" style="width:120px;margin-left:8px;" /></label>
+        <label>Pequeno <input id="me-cap-small" type="number" value="${caps.small || 100000}" style="width:120px;margin-left:8px;" /></label>
+        <label>Ref. pts <input id="me-pts-ref" type="number" value="${cfg.pts_reference || 254}" style="width:80px;margin-left:8px;" /></label>
+      </div>
+      <div style="padding:0 16px 14px;"><button class="btn btn-primary btn-sm" onclick="marketEconomySaveCaps()">Salvar tetos e pesos</button></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">Barra piso → espaço bônus → teto</div>
+      <div style="padding:14px 16px;">${barHtml}</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Pesos por dieta (normalizados nos stats enabled)</div>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Dieta</th>${stats.map(sk => `<th>${statLabels[sk]}</th>`).join("")}</tr></thead><tbody>${weightsHtml}</tbody></table></div>
+    </div>`;
+}
+
+function renderMarketEconomySpecies(species) {
+  const root = document.getElementById("market-economy-species-list");
+  if (!root) return;
+  const statLabels = { health: "HP", melee: "DM", weight: "WE", stamina: "ST", speed: "SP" };
+  const rows = (species || []).map(s => {
+    const enabled = Object.entries(s.economy_stats || {})
+      .filter(([, v]) => v && v.enabled)
+      .map(([k]) => statLabels[k] || k)
+      .join(", ") || "—";
+    const status = s.db_status
+      ? `<span style="font-size:11px;color:${s.db_status === "ACTIVE" ? "var(--success)" : "var(--warn)"};">${escHtml(s.db_status)}</span>`
+      : "";
+    return `<tr>
+      <td>${escHtml(s.display_name)} ${status}</td>
+      <td><code>${escHtml(s.species_key)}</code></td>
+      <td>${escHtml(s.diet_class || "—")}</td>
+      <td>${escHtml(_marketSizeLabel(s.size_class))}</td>
+      <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
+      <td>${Number(s.size_cap || 0).toLocaleString("pt-BR")}</td>
+      <td>${Number(s.bonus_space || 0).toLocaleString("pt-BR")}</td>
+      <td style="font-size:11px;">${escHtml(enabled)}</td>
+      <td><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}">Editar</button></td>
+    </tr>`;
+  }).join("");
+  root.innerHTML = `<div class="table-scroll"><table class="data-table"><thead><tr>
+    <th>Nome</th><th>Key</th><th>Dieta</th><th>Porte</th><th>Raiz</th><th>Teto</th><th>Espaço bônus</th><th>Stats</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table></div>
+  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Raiz sincronizada com a loja quando a espécie está no banco. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
+  root.querySelectorAll(".me-species-edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => marketEconomyEditSpecies(btn.dataset.speciesKey));
+  });
+}
+
+let _marketEconomyEditing = null;
+
+function marketEconomyEditSpecies(speciesKey) {
+  const sp = (_marketEconomyConfig?.species || []).find(s => s.species_key === speciesKey);
+  if (!sp) return;
+  _marketEconomyEditing = sp;
+  const stats = ["health", "melee", "weight", "stamina", "speed"];
+  const statLabels = { health: "Vida (HP)", melee: "Dano (DM)", weight: "Peso (WE)", stamina: "Estamina (ST)", speed: "Velocidade (SP)" };
+  const statRows = stats.map(sk => {
+    const entry = sp.economy_stats?.[sk] || {};
+    const on = !!entry.enabled;
+    const wo = entry.weight_override;
+    const woVal = wo != null && wo !== "" ? wo : "";
+    const rate = entry.rate_per_point;
+    const rateVal = rate != null && rate !== "" ? rate : "";
+    return `<div class="me-stat-row" data-stat="${sk}" style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;margin:6px 0;">
+      <label style="display:flex;align-items:center;gap:8px;margin:0;">
+        <input type="checkbox" class="me-stat-cb" data-stat="${sk}" ${on ? "checked" : ""} />
+        ${statLabels[sk]}
+      </label>
+      <span class="me-col-weight" style="font-size:11px;color:var(--text2);">Peso</span>
+      <input type="number" class="me-stat-weight form-input me-col-weight" data-stat="${sk}" min="0" max="1" step="0.01"
+        placeholder="auto" value="${woVal}" style="width:72px;" />
+      <input type="number" class="me-stat-rate form-input me-col-rate" data-stat="${sk}" min="0" step="1"
+        placeholder="taxa" value="${rateVal}" style="width:72px;display:none;" title="Modo custom: Âmbar/pt" />
+    </div>`;
+  }).join("");
+  const mode = sp.pricing_mode || "proportional";
+  const caps = _marketEconomyConfig?.size_caps || {};
+  const capFor = (size) => caps[size] || (size === "large" ? 300000 : size === "medium" ? 250000 : 100000);
+  document.getElementById("modal-me-species-title").textContent = sp.display_name || speciesKey;
+  document.getElementById("modal-me-species-subtitle").innerHTML =
+    `<span id="me-live-bonus">Espaço bônus: ${Number(sp.bonus_space || 0).toLocaleString("pt-BR")} Âmbar</span> (teto − raiz)`;
+  document.getElementById("modal-me-species-body").innerHTML = `
+    <div style="display:grid;gap:12px;">
+      <label>Modo de preço
+        <select id="me-edit-mode" style="width:100%;margin-top:4px;" onchange="meToggleSpeciesModeFields()">
+          <option value="proportional" ${mode === "proportional" ? "selected" : ""}>Proporcional (padrão)</option>
+          <option value="custom" ${mode === "custom" ? "selected" : ""}>Custom (pts × taxa por stat)</option>
+          <option value="legacy_multipliers" ${mode === "legacy_multipliers" ? "selected" : ""}>Legado (pts × mult. JSON)</option>
+        </select>
+      </label>
+      <label>Dieta
+        <select id="me-edit-diet" style="width:100%;margin-top:4px;" onchange="meUpdateLiveBonus()">
+          <option value="carnivore" ${sp.diet_class === "carnivore" ? "selected" : ""}>Carnívoro</option>
+          <option value="herbivore" ${sp.diet_class === "herbivore" ? "selected" : ""}>Herbívoro</option>
+          <option value="omnivore" ${sp.diet_class === "omnivore" ? "selected" : ""}>Omnívoro</option>
+        </select>
+      </label>
+      <label>Porte (teto)
+        <select id="me-edit-size" style="width:100%;margin-top:4px;" onchange="meUpdateLiveBonus()">
+          <option value="small" ${sp.size_class === "small" ? "selected" : ""}>Pequeno (${capFor("small").toLocaleString("pt-BR")})</option>
+          <option value="medium" ${sp.size_class === "medium" ? "selected" : ""}>Médio (${capFor("medium").toLocaleString("pt-BR")})</option>
+          <option value="large" ${sp.size_class === "large" ? "selected" : ""}>Grande (${capFor("large").toLocaleString("pt-BR")})</option>
+        </select>
+      </label>
+      <div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Stats no cálculo</div>
+        ${statRows}
+      </div>
+    </div>`;
+  _marketEconomyEditing = sp;
+  meToggleSpeciesModeFields();
+  openModal("modal-market-economy-species");
+}
+
+function meUpdateLiveBonus() {
+  if (!_marketEconomyEditing) return;
+  const caps = _marketEconomyConfig?.size_caps || {};
+  const size = document.getElementById("me-edit-size")?.value || "medium";
+  const cap = caps[size] || (size === "large" ? 300000 : size === "medium" ? 250000 : 100000);
+  const root = Number(_marketEconomyEditing.root_value || 0);
+  const bonus = Math.max(0, cap - root);
+  const el = document.getElementById("me-live-bonus");
+  if (el) el.textContent = `Espaço bônus: ${bonus.toLocaleString("pt-BR")} Âmbar`;
+}
+
+function meToggleSpeciesModeFields() {
+  const mode = document.getElementById("me-edit-mode")?.value || "proportional";
+  const custom = mode === "custom";
+  document.querySelectorAll(".me-col-weight").forEach(el => {
+    el.style.display = custom ? "none" : "";
+  });
+  document.querySelectorAll(".me-stat-rate").forEach(el => {
+    el.style.display = custom ? "" : "none";
+  });
+}
+
+async function marketEconomySaveSpecies() {
+  if (!_marketEconomyEditing) return;
+  const economy_stats = {};
+  document.querySelectorAll(".me-stat-row").forEach(row => {
+    const sk = row.dataset.stat;
+    const enabled = row.querySelector(".me-stat-cb")?.checked || false;
+    const rawWo = row.querySelector(".me-stat-weight")?.value?.trim();
+    const rawRate = row.querySelector(".me-stat-rate")?.value?.trim();
+    const entry = { enabled };
+    if (rawWo !== "" && rawWo != null) {
+      const wo = parseFloat(rawWo);
+      if (!Number.isNaN(wo)) entry.weight_override = wo;
+    }
+    if (rawRate !== "" && rawRate != null) {
+      const rate = parseFloat(rawRate);
+      if (!Number.isNaN(rate)) entry.rate_per_point = rate;
+    }
+    economy_stats[sk] = entry;
+  });
+  try {
+    const r = await fetch(
+      API + "/api/market/admin/economy/species/" + encodeURIComponent(_marketEconomyEditing.species_key),
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          diet_class: document.getElementById("me-edit-diet").value,
+          size_class: document.getElementById("me-edit-size").value,
+          pricing_mode: document.getElementById("me-edit-mode").value,
+          economy_stats,
+        }),
+      }
+    );
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao salvar", "error"); return; }
+    toast("Classificação salva — recalcule DRAFT se necessário", "success");
+    closeModal("modal-market-economy-species");
+    loadMarketEconomyAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+function renderMarketEconomySim(species) {
+  const root = document.getElementById("market-economy-sim-form");
+  if (!root) return;
+  const opts = (species || []).map(s => `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name)} (${escHtml(s.species_key)})</option>`).join("");
+  root.innerHTML = `
+    <div class="card"><div style="padding:14px 16px;display:grid;gap:12px;max-width:520px;">
+      <label>Espécie<select id="me-sim-species" style="width:100%;margin-top:4px;">${opts}</select></label>
+      <label>Raiz (opcional)<input id="me-sim-root" type="number" placeholder="preço loja lvl 1" style="width:100%;margin-top:4px;" /></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <label>HP pts base<input id="me-sim-hp" type="number" min="0" value="0" /></label>
+        <label>DM pts base<input id="me-sim-dm" type="number" min="0" value="0" /></label>
+        <label>WE pts base<input id="me-sim-we" type="number" min="0" value="0" /></label>
+        <label>ST pts base<input id="me-sim-st" type="number" min="0" value="0" /></label>
+        <label>SP pts base<input id="me-sim-sp" type="number" min="0" value="0" /></label>
+      </div>
+      <button class="btn btn-primary" onclick="marketEconomySimulate()">Simular</button>
+    </div></div>`;
+}
+
+async function marketEconomySaveCaps() {
+  const stat_weights = { carnivore: {}, herbivore: {}, omnivore: {} };
+  document.querySelectorAll(".me-w").forEach(inp => {
+    const diet = inp.dataset.diet;
+    const stat = inp.dataset.stat;
+    if (diet && stat) stat_weights[diet][stat] = parseFloat(inp.value) || 0;
+  });
+  try {
+    const r = await fetch(API + "/api/market/admin/economy/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        size_caps: {
+          large: parseInt(document.getElementById("me-cap-large").value, 10) || 300000,
+          medium: parseInt(document.getElementById("me-cap-medium").value, 10) || 250000,
+          small: parseInt(document.getElementById("me-cap-small").value, 10) || 100000,
+        },
+        pts_reference: parseInt(document.getElementById("me-pts-ref").value, 10) || 254,
+        stat_weights,
+      }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Economia global salva", "success");
+    loadMarketEconomyAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketEconomySimulate() {
+  const sk = document.getElementById("me-sim-species")?.value;
+  const rootRaw = document.getElementById("me-sim-root")?.value;
+  const body = {
+    species_key: sk,
+    stat_points: {
+      health: { points_base: parseInt(document.getElementById("me-sim-hp")?.value, 10) || 0 },
+      melee: { points_base: parseInt(document.getElementById("me-sim-dm")?.value, 10) || 0 },
+      weight: { points_base: parseInt(document.getElementById("me-sim-we")?.value, 10) || 0 },
+      stamina: { points_base: parseInt(document.getElementById("me-sim-st")?.value, 10) || 0 },
+      speed: { points_base: parseInt(document.getElementById("me-sim-sp")?.value, 10) || 0 },
+    },
+  };
+  if (rootRaw) body.root_value = parseInt(rootRaw, 10);
+  try {
+    const r = await fetch(API + "/api/market/admin/economy/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    const out = document.getElementById("market-economy-sim-result");
+    if (!d.ok) { toast(d.error || "Simulação falhou", "error"); return; }
+    const lines = (d.calculation_breakdown || []).map(row => {
+      if (row.kind === "stat") return `${escHtml(row.label)}: ${row.points} pts × ${row.multiplier} = ${Number(row.subtotal).toLocaleString("pt-BR")}`;
+      return `${escHtml(row.label)}: ${Number(row.subtotal).toLocaleString("pt-BR")}`;
+    }).join("<br>");
+    if (out) out.innerHTML = `<div class="card"><div style="padding:14px 16px;">
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Sugerido: ${Number(d.computed_base_value).toLocaleString("pt-BR")} Âmbar</div>
+      <div style="font-size:13px;color:var(--text2);">${lines}</div>
+    </div></div>`;
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketEconomyRecompute() {
+  if (!confirm("Recalcular preço sugerido de todos os anúncios DRAFT/PAUSED?")) return;
+  try {
+    const r = await fetch(API + "/api/market/admin/economy/recompute-listings", { method: "POST" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(`${d.recomputed || 0} anúncio(s) recalculado(s)`, "success");
+  } catch (e) { toast(String(e), "error"); }
 }
 
 function renderDownloads() {
