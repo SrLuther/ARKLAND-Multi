@@ -94,7 +94,17 @@ def validate_network_cluster_dir(prof: "ClusterProfile") -> Optional[str]:
     if not shared:
         return "Modo rede: informe a pasta compartilhada (UNC, ex.: \\\\NAS\\ARKCluster)."
     if getattr(prof, "sync_enabled", False):
-        return None
+        if shared.startswith("\\\\"):
+            return None
+        if looks_like_local_drive_path(shared):
+            return (
+                "Modo rede + sync: a pasta de viagem deve ser UNC (\\\\IP\\Pasta) "
+                "idêntica em TODAS as máquinas — não use C:\\ local diferente em cada PC. "
+                "O sync envia ShooterGame\\Saved\\clusters desta máquina para essa pasta compartilhada."
+            )
+        return (
+            "Modo rede + sync: use caminho UNC (\\\\servidor\\pasta) acessível em todas as máquinas."
+        )
     if shared.startswith("\\\\"):
         return None
     if looks_like_local_drive_path(shared) and shared[0].upper() == "C":

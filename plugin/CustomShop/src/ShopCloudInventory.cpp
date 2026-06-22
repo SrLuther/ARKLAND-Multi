@@ -848,7 +848,7 @@ const char* ShopCloudInventory::ResultMessage(CloudResult result, int item_count
     case CloudResult::RemovalFailed:
         return "Falha ao remover itens. Nada foi salvo na nuvem.";
     case CloudResult::NothingStored:
-        return "Nuvem: voce nao possui itens armazenados.";
+        return "Voce nao possui itens armazenados.";
     case CloudResult::Cooldown:
         return "Aguarde alguns segundos antes de usar a nuvem novamente.";
     case CloudResult::PlayerBusy:

@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.74] - 2026-06-20
+
+### Feature
+
+- Novo (TEK — Disponibilidade): status de listagem paridade ASM — A2S local, query no IP público e fallback Steam; badges ONLINE · Steam, Aguardando publicação, LAN, Defina IP público.
+
+### Fix
+
+- Fix (Clusters): aviso quando cluster_dir aponta para raiz C:\ em modo rede+sync; diagnóstico no detalhe do perfil.
+- Fix (Comércio/Nuvem): mensagens in-game no chat normal (SendChatMessage) em vez de banner SERVER.
+
+### Other
+
+- Config: campo machine_public_ip em config.json (paridade ASM MachinePublicIP) para detectar publicação na lista.
+
 ## [1.9.73] - 2026-06-20
 
 ### Improvement

@@ -1,9 +1,11 @@
 {
-    "version": "1.9.73",
+    "version": "1.9.74",
     "date": "2026-06-22",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.73/ARKLAND-Multi-Setup-v1.9.73.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.74/ARKLAND-Multi-Setup-v1.9.74.exe",
     "changelog": [
-        "Fix (Presets TEK): todas as 22 categorias de configuração disponíveis ao salvar preset — mesma lista do Importar/Sincronizar INI (engramas, subs, custom INI, PGM, etc.).",
-        "Melhoria (Presets TEK): rótulos em português, selecionar tudo e lista rolável no diálogo."
+        "Novo (TEK — Disponibilidade): status de listagem paridade ASM — A2S local, query no IP público e fallback Steam; badges ONLINE · Steam, Aguardando publicação, LAN, Defina IP público.",
+        "Config: campo machine_public_ip em config.json (paridade ASM MachinePublicIP) para detectar publicação na lista.",
+        "Fix (Clusters): aviso quando cluster_dir aponta para raiz C:\\ em modo rede+sync; diagnóstico no detalhe do perfil.",
+        "Fix (Comércio/Nuvem): mensagens in-game no chat normal (SendChatMessage) em vez de banner SERVER."
     ]
 }

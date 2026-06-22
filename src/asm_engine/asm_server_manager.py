@@ -156,6 +156,12 @@ class AsmServerInstance:
         self._monitor: Optional[threading.Thread] = None
         self._lock     = threading.Lock()
         self.uptime_start: Optional[float] = None
+        self.steam_status: str = "unavailable"
+        self.steam_status_detail: str = ""
+        self.listing_mode: str = "unavailable"
+        self.listing_detail: str = ""
+        self.a2s_players: Optional[int] = None
+        self.a2s_max_players: Optional[int] = None
 
     # ── Status helpers ──────────────────────────────────────────────────────
 
@@ -171,14 +177,36 @@ class AsmServerInstance:
 class AsmServerManager:
     """Gerencia múltiplos servidores TEK."""
 
-    def __init__(self, on_status_change: Optional[Callable[[str, str], None]] = None) -> None:
+    def __init__(
+        self,
+        on_status_change: Optional[Callable[[str, str], None]] = None,
+        on_visibility_change: Optional[Callable[[str, str, str], None]] = None,
+        machine_public_ip: str = "",
+    ) -> None:
         """
         Args:
             on_status_change: callback(server_id, new_status) — chamado na thread de monitor.
+            on_visibility_change: callback(server_id, steam_status, detail) — listagem Steam/LAN.
+            machine_public_ip: IP público global (paridade ASM MachinePublicIP).
         """
         self._instances: Dict[str, AsmServerInstance] = {}
         self._on_status = on_status_change
+        self._on_visibility = on_visibility_change
+        self._machine_public_ip = (machine_public_ip or "").strip()
         self._lock = threading.Lock()
+        from ..server_visibility import get_steam_poller
+        poller = get_steam_poller()
+        poller.set_machine_public_ip(self._machine_public_ip)
+        poller.set_on_change(self._steam_visibility_callback)
+
+    def set_machine_public_ip(self, ip: str) -> None:
+        self._machine_public_ip = (ip or "").strip()
+        from ..server_visibility import get_steam_poller
+        get_steam_poller().set_machine_public_ip(self._machine_public_ip)
+
+    def _steam_visibility_callback(self, server_id: str, mode: str, detail: str) -> None:
+        if self._on_visibility:
+            self._on_visibility(server_id, mode, detail)
 
     # ── Instance access ──────────────────────────────────────────────────────
 
@@ -243,6 +271,7 @@ class AsmServerManager:
                             if self._on_status:
                                 self._on_status(cfg.id, ASM_STATUS_RUNNING)
                             self._start_monitor(inst)
+                            self._start_steam_watcher(inst)
                             claimed.add(pid)
                             reconnected += 1
                             break
@@ -390,6 +419,7 @@ class AsmServerManager:
                 time.sleep(5)
                 if proc is not None and proc.poll() is not None:
                     inst.status = ASM_STATUS_CRASHED
+                    self._stop_steam_watcher(cfg.id)
                     if self._on_status:
                         self._on_status(cfg.id, ASM_STATUS_CRASHED)
                     if on_done:
@@ -408,11 +438,13 @@ class AsmServerManager:
             # 7. Aplica affinity/prioridade se configurado
             self._apply_process_settings(cfg, proc)
 
-            # 8. Inicia monitor de processo
+            # 8. Inicia monitor de processo + listagem Steam/LAN
             self._start_monitor(inst)
+            self._start_steam_watcher(inst)
 
         except Exception as exc:
             inst.status = ASM_STATUS_CRASHED
+            self._stop_steam_watcher(cfg.id)
             if self._on_status:
                 self._on_status(cfg.id, ASM_STATUS_CRASHED)
             if on_done:
@@ -466,6 +498,7 @@ class AsmServerManager:
             inst.status = ASM_STATUS_STOPPED
             inst._proc = None
             inst.uptime_start = None
+            self._stop_steam_watcher(inst.cfg.id)
             if self._on_status:
                 self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
             if on_done:
@@ -474,6 +507,7 @@ class AsmServerManager:
             inst.status = ASM_STATUS_STOPPED
             inst._proc = None
             inst.uptime_start = None
+            self._stop_steam_watcher(inst.cfg.id)
             if self._on_status:
                 self._on_status(inst.cfg.id, ASM_STATUS_STOPPED)
             if on_done:
@@ -516,9 +550,27 @@ class AsmServerManager:
                         inst.status = ASM_STATUS_CRASHED
                         inst._proc = None
                         inst.uptime_start = None
+                        self._stop_steam_watcher(inst.cfg.id)
                         if self._on_status:
                             self._on_status(inst.cfg.id, ASM_STATUS_CRASHED)
                 break
+
+    def _start_steam_watcher(self, inst: AsmServerInstance) -> None:
+        from ..server_visibility import get_steam_poller
+
+        def _is_running() -> bool:
+            return inst.status == ASM_STATUS_RUNNING
+
+        get_steam_poller().register(
+            inst.cfg.id,
+            inst.cfg,
+            inst,
+            is_running=_is_running,
+        )
+
+    def _stop_steam_watcher(self, server_id: str) -> None:
+        from ..server_visibility import get_steam_poller
+        get_steam_poller().unregister(server_id)
 
     # ── Restart ──────────────────────────────────────────────────────────────
 

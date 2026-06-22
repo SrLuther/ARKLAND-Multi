@@ -72,3 +72,24 @@ def test_validate_warns_local_c_on_network_without_sync():
     msg = validate_network_cluster_dir(prof)
     assert msg is not None
     assert "UNC" in msg
+
+
+def test_validate_warns_local_c_on_network_with_sync():
+    prof = ClusterProfile(
+        mode="network",
+        cluster_dir=r"C:\ARKLAND SERVER\cluster\crossark",
+        sync_enabled=True,
+    )
+    msg = validate_network_cluster_dir(prof)
+    assert msg is not None
+    assert "UNC" in msg
+    assert "TODAS" in msg or "todas" in msg.lower()
+
+
+def test_validate_ok_unc_with_sync():
+    prof = ClusterProfile(
+        mode="network",
+        cluster_dir=r"\\192.168.1.10\ARKCluster\crossark",
+        sync_enabled=True,
+    )
+    assert validate_network_cluster_dir(prof) is None

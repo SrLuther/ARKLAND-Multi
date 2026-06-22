@@ -32,9 +32,21 @@ std::vector<std::string> SplitCmd(FString* cmd_str) {
     return parts;
 }
 
-void SendMsg(AShooterPlayerController* c, const FLinearColor& color,
+void SendMsg(AShooterPlayerController* c, const FLinearColor& /*color*/,
              const std::string& msg) {
-    ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
+    if (!c || msg.empty()) return;
+    static const FString kSender(L"Nuvem");
+    std::string safe;
+    safe.reserve(msg.size());
+    for (unsigned char ch : msg) {
+        if (ch >= 32 && ch <= 126)
+            safe.push_back(static_cast<char>(ch));
+    }
+    while (!safe.empty() && safe.back() == ' ')
+        safe.pop_back();
+    if (safe.empty())
+        safe = "Erro desconhecido";
+    ArkApi::GetApiUtils().SendChatMessage(c, kSender, safe.c_str());
 }
 
 std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
@@ -43,8 +55,8 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     switch (result) {
     case CloudResult::Ok:
         if (count > 0)
-            return "Nuvem: operacao concluida com " + std::to_string(count) + " item(ns).";
-        return "Nuvem: operacao concluida.";
+            return "Operacao concluida com " + std::to_string(count) + " item(ns).";
+        return "Operacao concluida.";
     case CloudResult::Disabled:
         return "Inventario na nuvem desativado neste servidor.";
     case CloudResult::NoLicense: {
@@ -81,7 +93,7 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     case CloudResult::DataInconsistent:
         return "Dados da nuvem inconsistentes. Contate um admin.";
     case CloudResult::NothingStored:
-        return "Nuvem: voce nao possui itens armazenados.";
+        return "Voce nao possui itens armazenados.";
     case CloudResult::Cooldown:
         return "Aguarde " + std::to_string(cfg.CloudCooldownSeconds())
              + " segundos antes de usar a nuvem novamente.";
@@ -92,16 +104,8 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     }
 }
 
-FLinearColor CloudResultColor(CustomShop::CloudResult result) {
-    using CustomShop::CloudResult;
-    switch (result) {
-    case CloudResult::Ok:
-        return FColorList::Green;
-    case CloudResult::NothingStored:
-        return FColorList::Yellow;
-    default:
-        return FColorList::Red;
-    }
+FLinearColor CloudResultColor(CustomShop::CloudResult /*result*/) {
+    return FColorList::White;
 }
 
 void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
@@ -112,7 +116,7 @@ void CmdCloudUpload(AShooterPlayerController* controller, FString*, EChatSendMod
     const int msg_count = (result == CustomShop::CloudResult::TooManyItems) ? diag : count;
     std::string msg = FormatCloudMessage(result, msg_count);
     if (result == CustomShop::CloudResult::Ok)
-        msg = "Nuvem: " + std::to_string(count)
+        msg = std::to_string(count)
             + " pilhas salvas. Itens transferiveis removidos do inventario.";
     SendMsg(controller, CloudResultColor(result), msg);
 }
@@ -123,7 +127,7 @@ void CmdCloudDownload(AShooterPlayerController* controller, FString*, EChatSendM
     const int count = CustomShop::ShopCloudInventory::Get().LastOperationCount();
     std::string msg = FormatCloudMessage(result, count);
     if (result == CustomShop::CloudResult::Ok)
-        msg = "Nuvem: " + std::to_string(count) + " itens devolvidos ao seu inventario.";
+        msg = std::to_string(count) + " itens devolvidos ao seu inventario.";
     SendMsg(controller, CloudResultColor(result), msg);
 }
 
@@ -141,7 +145,7 @@ void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMod
 
     if (status.blob_count <= 0) {
         std::string msg =
-            "Nuvem: vazio. Inventario local: " + std::to_string(status.local_occupied)
+            "Vazio. Inventario local: " + std::to_string(status.local_occupied)
             + "/" + std::to_string(status.local_capacity) + " pilhas.";
         if (status.local_occupied > 0)
             msg += " Use /upload para enviar.";
@@ -156,7 +160,7 @@ void CmdCloudStatus(AShooterPlayerController* controller, FString*, EChatSendMod
     }
 
     std::string msg =
-        "Nuvem: " + std::to_string(status.blob_count)
+        std::to_string(status.blob_count)
         + " pilha(s) armazenada(s). Slots livres no inventario: "
         + std::to_string(status.local_free) + "/" + std::to_string(status.local_capacity)
         + ". Use /download para recuperar.";

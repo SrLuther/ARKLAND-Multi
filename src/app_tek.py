@@ -69,10 +69,14 @@ class ARKServerManagerApp(ctk.CTk):
 
         # ── Managers ──────────────────────────────────────────────────────────
         self.asm_config_manager = AsmConfigManager()
-        self.asm_server_manager = AsmServerManager(
-            on_status_change=self._on_server_status_change
-        )
         self.config_manager  = ConfigManager()
+        from .server_visibility import resolve_machine_public_ip
+        _pub_ip = resolve_machine_public_ip(self.config_manager.config)
+        self.asm_server_manager = AsmServerManager(
+            on_status_change=self._on_server_status_change,
+            on_visibility_change=self._on_server_visibility_change,
+            machine_public_ip=_pub_ip,
+        )
         from .pages.init_discord_notifier import init_discord_notifier
         init_discord_notifier(self)
         self.server_manager  = ServerManager(discord_notifier=self._discord_notifier)
@@ -237,8 +241,11 @@ class ARKServerManagerApp(ctk.CTk):
                         if ver != "—":
                             data["version"] = ver
 
-                    # Players via RCON (melhor esforço)
-                    if srv.rcon_enabled and srv.admin_password:
+                    # Players: A2S (poller) ou RCON
+                    a2s_n = getattr(inst, "a2s_players", None) if inst else None
+                    if a2s_n is not None:
+                        data["players"] = f"{a2s_n}/{srv.max_players}"
+                    elif srv.rcon_enabled and srv.admin_password:
                         try:
                             from .rcon_client import RconClient
                             from .ui_constants import count_listplayers
@@ -1860,8 +1867,9 @@ class ARKServerManagerApp(ctk.CTk):
     def _on_server_log(self, server_id: str, msg: str, level: str = "info") -> None:
         pass  # logs de servidor não exibidos na UI TEK por padrão
 
-    def _on_server_visibility_change(self, server_id: str, mode: str) -> None:
-        pass
+    def _on_server_visibility_change(self, server_id: str, mode: str, detail: str = "") -> None:
+        """Callback quando disponibilidade Steam/LAN muda (paridade ASM)."""
+        self.after(0, self._asm_refresh_dashboard)
 
     def _toast(self, msg: str, kind: str = "info") -> None:
         from .pages.toast import toast

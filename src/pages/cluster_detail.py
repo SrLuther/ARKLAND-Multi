@@ -360,6 +360,28 @@ def build_cluster_detail(app: "ARKServerManagerApp", prof) -> None:
         _diag_row += 1
 
     _cl_dir = prof.cluster_dir.replace("/", "\\") if prof.cluster_dir else ""
+    from ..cluster_paths import validate_network_cluster_dir, is_network_share_path
+
+    net_warn = validate_network_cluster_dir(prof)
+    if net_warn:
+        ctk.CTkLabel(
+            diag_card, text=f"❌ {net_warn}",
+            text_color="#f44336", font=ctk.CTkFont(size=10), anchor="w", justify="left",
+            wraplength=520,
+        ).grid(row=_diag_row, column=0, padx=16, pady=4, sticky="w")
+        _diag_row += 1
+    elif prof.mode == "network" and _cl_dir and not is_network_share_path(_cl_dir):
+        ctk.CTkLabel(
+            diag_card,
+            text=(
+                "⚠ Pasta local nesta máquina — em cluster entre PCs use o mesmo UNC "
+                "(ex.: \\\\192.168.1.10\\ARKCluster\\crossark) nos dois Managers."
+            ),
+            text_color="#ff9800", font=ctk.CTkFont(size=10), anchor="w", justify="left",
+            wraplength=520,
+        ).grid(row=_diag_row, column=0, padx=16, pady=4, sticky="w")
+        _diag_row += 1
+
     if _cl_dir and os.path.isdir(_cl_dir):
         ctk.CTkLabel(diag_card, text=f"✅ Pasta acessível: {_cl_dir}",
                      text_color="#4caf50", font=ctk.CTkFont(size=11), anchor="w").grid(

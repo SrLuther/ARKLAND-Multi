@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.73"
+APP_VERSION: str = "1.9.74"
 BUILD_DATE: str = "2026-06-22"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.74",
+        "date": "2026-06-20",
+        "changes": [
+            "Novo (TEK — Disponibilidade): status de listagem paridade ASM — A2S local, query no IP público "
+            "e fallback Steam; badges ONLINE · Steam, Aguardando publicação, LAN, Defina IP público.",
+            "Config: campo machine_public_ip em config.json (paridade ASM MachinePublicIP) para detectar publicação na lista.",
+            "Fix (Clusters): aviso quando cluster_dir aponta para raiz C:\\ em modo rede+sync; diagnóstico no detalhe do perfil.",
+            "Fix (Comércio/Nuvem): mensagens in-game no chat normal (SendChatMessage) em vez de banner SERVER.",
+        ],
+    },
     {
         "version": "1.9.73",
         "date": "2026-06-20",

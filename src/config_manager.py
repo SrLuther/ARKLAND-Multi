@@ -172,6 +172,7 @@ class AppConfig:
     shared_path: str = ""
     sync_interval: int = 5
     machine_name: str = ""
+    machine_public_ip: str = ""              # IP público desta máquina (paridade ASM)
     auto_start: bool = False
     remote_agent_enabled: bool = False
     remote_agent_name: str = ""

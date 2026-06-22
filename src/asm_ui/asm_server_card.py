@@ -15,6 +15,7 @@ from ..asm_engine.asm_server_config import (
     ASM_STATUS_STOPPED, ASM_STATUS_STARTING, ASM_STATUS_RUNNING,
     ASM_STATUS_STOPPING, ASM_STATUS_CRASHED, ASM_STATUS_UPDATING,
 )
+from ..server_visibility import format_status_badge, STEAM_UNAVAILABLE
 from ..ui_constants import get_theme
 
 if TYPE_CHECKING:
@@ -69,8 +70,8 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
 
     inst       = app.asm_server_manager.get_instance(srv.id)
     status     = inst.status if inst else ASM_STATUS_STOPPED
-    color      = _STATUS_COLOR.get(status, "#64748b")
-    status_txt = _STATUS_LABEL.get(status, "PARADO")
+    steam_st   = getattr(inst, "steam_status", STEAM_UNAVAILABLE) if inst else STEAM_UNAVAILABLE
+    status_txt, color = format_status_badge(status, steam_st)
     is_running = status == ASM_STATUS_RUNNING
     is_busy    = status in (ASM_STATUS_STARTING, ASM_STATUS_STOPPING, ASM_STATUS_UPDATING)
     is_crashed = status == ASM_STATUS_CRASHED
@@ -207,6 +208,13 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
               tc="#7dd3fc" if is_running else t_mut)
     if srv.active_mods:
         _chip(f"🔧  {len(srv.active_mods)} mods", border="#1e3a5f", tc="#7dd3fc")
+
+    if is_running and steam_st not in (STEAM_UNAVAILABLE, STEAM_UNKNOWN):
+        from ..server_visibility import steam_chip
+        vis_label, vis_color = steam_chip(steam_st)
+        detail = getattr(inst, "steam_status_detail", "") if inst else ""
+        tip = detail or vis_label
+        _chip(f"📡  {vis_label}", border=vis_color, tc=vis_color)
 
     # ── INDICADORES RICOS (jogadores, uptime, RAM, versão) ─────────────────
     rich_r = ctk.CTkFrame(
