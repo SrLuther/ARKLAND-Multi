@@ -5958,9 +5958,12 @@ function renderGeneral() {
   const t = _config.TimedPointsReward;
   const groups = t.Groups || {};
   const groupRows = Object.entries(groups).map(([grp, v]) => `
-    <div class="toggle-row">
-      <label>${grp}</label>
-      <input id="g-grp-${grp}" type="number" value="${v.Amount??0}" style="width:90px;text-align:right;" />
+    <div class="toggle-row me-timed-grp-row">
+      <label>${escHtml(grp)}</label>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <input class="me-timed-grp-amt" data-grp="${escHtml(grp)}" type="number" value="${v.Amount??0}" style="width:90px;text-align:right;" />
+        <button type="button" class="btn btn-ghost btn-sm" title="Remover grupo" onclick="removeTimedGroup(${JSON.stringify(grp)})">✕</button>
+      </div>
     </div>`).join("");
 
   el.innerHTML = `
@@ -6008,8 +6011,32 @@ function renderGeneral() {
         <div class="form-group"><label>Intervalo (minutos)</label><input id="g-timed-interval" type="number" value="${t.Interval??30}" /></div>
       </div>
       <div class="toggle-row"><label>Empilhar recompensas</label><input type="checkbox" id="g-stack-rewards" ${t.StackRewards?"checked":""} /></div>
-      ${groupRows ? `<div class="section-header">Pontos por grupo</div>${groupRows}` : ""}
+      ${groupRows ? `<div class="section-header">Pontos por grupo</div>${groupRows}` : `<div class="section-header">Pontos por grupo</div><p style="font-size:12px;color:var(--text2);margin:0 0 8px;">Nenhum grupo — adicione abaixo (mantenha <strong>Default</strong> para recompensa base).</p>`}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+        <input id="g-new-grp-name" type="text" placeholder="Nome (ex: VIPPrata)" style="flex:1;min-width:120px;max-width:180px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+        <input id="g-new-grp-amt" type="number" min="0" value="25" placeholder="Pts" style="width:80px;padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addTimedGroup()">＋ Grupo</button>
+      </div>
     </div>`;
+}
+
+function removeTimedGroup(grp) {
+  if (!_config?.TimedPointsReward?.Groups) return;
+  if (grp === "Default" && !confirm("Remover Default? Jogadores sem outro grupo deixam de receber pontos base por tempo.")) return;
+  delete _config.TimedPointsReward.Groups[grp];
+  renderGeneral();
+}
+
+function addTimedGroup() {
+  if (!_config.TimedPointsReward) _config.TimedPointsReward = {};
+  if (!_config.TimedPointsReward.Groups) _config.TimedPointsReward.Groups = {};
+  const name = (document.getElementById("g-new-grp-name")?.value || "").trim();
+  const amt = parseInt(document.getElementById("g-new-grp-amt")?.value, 10) || 0;
+  if (!name) { toast("Informe o nome do grupo", "warning"); return; }
+  if (_config.TimedPointsReward.Groups[name]) { toast("Grupo já existe", "warning"); return; }
+  _config.TimedPointsReward.Groups[name] = { Amount: amt };
+  renderGeneral();
+  toast(`Grupo ${name} adicionado — clique em Salvar`, "success");
 }
 
 function saveGeneral() {
@@ -6040,10 +6067,13 @@ function saveGeneral() {
   t.Interval     = parseInt(document.getElementById("g-timed-interval").value) || 30;
   t.StackRewards = document.getElementById("g-stack-rewards").checked;
 
-  Object.keys(t.Groups).forEach(grp => {
-    const el = document.getElementById(`g-grp-${grp}`);
-    if (el) t.Groups[grp].Amount = parseInt(el.value) || 0;
+  const newGroups = {};
+  document.querySelectorAll(".me-timed-grp-amt").forEach(el => {
+    const grp = el.dataset.grp;
+    if (!grp) return;
+    newGroups[grp] = { Amount: parseInt(el.value, 10) || 0 };
   });
+  t.Groups = newGroups;
   saveConfig();
 }
 

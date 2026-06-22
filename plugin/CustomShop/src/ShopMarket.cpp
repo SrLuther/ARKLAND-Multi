@@ -63,11 +63,6 @@ std::mutex g_pending_mutex;
 std::unordered_map<std::string, PendingUpload> g_pending;
 std::mutex g_confirm_exec_mutex;
 
-void SendMsg(AShooterPlayerController* c, const FLinearColor& color, const std::string& msg) {
-    if (c && !msg.empty())
-        ArkApi::GetApiUtils().SendServerMessage(c, color, msg.c_str());
-}
-
 std::string SanitizeForGameChat(std::string msg) {
     std::string out;
     out.reserve(msg.size());
@@ -78,6 +73,12 @@ std::string SanitizeForGameChat(std::string msg) {
     while (!out.empty() && out.back() == ' ')
         out.pop_back();
     return out.empty() ? std::string("Erro desconhecido") : out;
+}
+
+void SendMsg(AShooterPlayerController* c, const FLinearColor& /*color*/, const std::string& msg) {
+    if (!c || msg.empty()) return;
+    static const FString kSender(L"Comercio");
+    ArkApi::GetApiUtils().SendChatMessage(c, kSender, SanitizeForGameChat(msg).c_str());
 }
 
 std::string FormatAmbar(int value) {

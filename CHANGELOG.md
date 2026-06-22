@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.68] - 2026-06-20
+
+### Fix
+
+- Fix (Comercio): mensagens in-game no chat normal (SendChatMessage) em vez de banner grande (SERVER).
+- Fix (TimedPoints): remover grupo na Web Store ou Manager apaga do JSON ao salvar (nao merge silencioso).
+
 ## [1.9.67] - 2026-06-21
 
 ### Fix

@@ -586,9 +586,10 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             tp_out["Enabled"]      = _tpv["Enabled"].get()
             tp_out["Interval"]     = _safe_int(_tpv["Interval"].get(), 30)
             tp_out["StackRewards"] = _tpv["StackRewards"].get()
-            grps = tp_out.setdefault("Groups", {})
-            for g_name, gv in _tp_group_vars.items():
-                grps[g_name] = {"Amount": _safe_int(gv.get(), 25)}
+            tp_out["Groups"] = {
+                g_name: {"Amount": _safe_int(gv.get(), 25)}
+                for g_name, gv in _tp_group_vars.items()
+            }
 
         if _dbv:
             db_out = data.setdefault("Database", {})
