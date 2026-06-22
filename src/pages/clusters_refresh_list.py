@@ -23,14 +23,17 @@ def clusters_refresh_list(app: "ARKServerManagerApp") -> None:
                    if getattr(s.cluster, "enabled", False)
                    and getattr(s.cluster, "cluster_id", "")
                    and not s.cluster_profile_id]
-        if _manual:
+        from .cluster_helpers import manual_asm_without_profile
+        _manual_asm = manual_asm_without_profile(app)
+        if _manual or _manual_asm:
+            total = len(_manual) + len(_manual_asm)
             _warn_fr = ctk.CTkFrame(app._cluster_list_box,
                                     fg_color="#3a2800", corner_radius=8)
             _warn_fr.grid(row=1, column=0, padx=4, pady=(4, 0), sticky="ew")
             _warn_fr.grid_columnconfigure(0, weight=1)
             ctk.CTkLabel(
                 _warn_fr,
-                text=f"⚠️  {len(_manual)} servidor(es) com\ncluster manual detectado(s).",
+                text=f"⚠️  {total} servidor(es) com cluster manual\nsem perfil vinculado.",
                 text_color="#ffb74d", font=ctk.CTkFont(size=11),
                 justify="left", anchor="w",
             ).grid(row=0, column=0, padx=10, pady=(8, 2), sticky="w")

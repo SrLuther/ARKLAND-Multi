@@ -1073,14 +1073,11 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 38, accent)
     _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 39)
 
-    _section_label(sf, "Cluster / Cross-ARK", 40, accent)
-    _str_entry(sf, None, "cross_ark_cluster_id",             srv, vars_ref, 41, accent)
-    _str_entry(sf, None, "cluster_dir_override",             srv, vars_ref, 42, accent, wide=True)
-    _bool_check(sf,"Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, 43, accent)
-
-    _section_label(sf, "Branch SteamCMD (Beta)", 46, accent)
+    _next_row = _build_asm_cluster_block(sf, srv, vars_ref, accent, 40)
+    _branch_row = _next_row + 1
+    _section_label(sf, "Branch SteamCMD (Beta)", _branch_row, accent)
     _branch_btn_row = ctk.CTkFrame(sf, fg_color="transparent")
-    _branch_btn_row.grid(row=47, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
+    _branch_btn_row.grid(row=_branch_row + 1, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
 
     def _set_branch(val: str) -> None:
         br = vars_ref.get("branch_name")
@@ -1101,17 +1098,17 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
         command=lambda: _set_branch("preaquatica"),
     ).pack(side="left")
 
-    _str_entry(sf, None, "branch_name",     srv, vars_ref, 48, accent)
-    _str_entry(sf, None, "branch_password", srv, vars_ref, 49, accent, pw=True)
+    _str_entry(sf, None, "branch_name",     srv, vars_ref, _branch_row + 2, accent)
+    _str_entry(sf, None, "branch_password", srv, vars_ref, _branch_row + 3, accent, pw=True)
     ctk.CTkLabel(
         sf,
         text="preaquatica = ASE v358 (última com ArkApi/plugins). Vazio = versão estável atual.",
         font=ctk.CTkFont(size=10), text_color="#64748b", anchor="w", wraplength=520,
-    ).grid(row=50, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
+    ).grid(row=_branch_row + 4, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
 
     def _build_admin_tail() -> None:
         from ..ui.tek_cli_section import build_cli_avancado_section
-        _cli_start = max(51, sf.grid_size()[1])
+        _cli_start = max(_branch_row + 5, sf.grid_size()[1])
         _cli_next = build_cli_avancado_section(sf, srv, vars_ref, accent, _cli_start)
         _section_label(sf, "Args CLI adicionais", _cli_next, accent)
         _str_entry(sf, None, "additional_args", srv, vars_ref, _cli_next + 1, accent, wide=True)
@@ -1218,6 +1215,95 @@ def _build_discord(sf, srv, vars_ref, bg, accent):
 # ════════════════════════════════════════════════════════════════════════════ #
 #  Seção 4 — Detalhes do Servidor
 # ════════════════════════════════════════════════════════════════════════════ #
+
+def _build_asm_cluster_block(sf, srv, vars_ref, accent, start_row: int) -> int:
+    """Cluster Cross-ARK com suporte a perfil global."""
+    app = vars_ref.get("_app")
+    _section_label(sf, "Cluster / Cross-ARK", start_row, accent)
+    r = start_row + 1
+
+    profiles = app.config_manager.clusters if app else []
+    profile_names = ["(configuração manual)"] + [p.name for p in profiles]
+    profile_ids = [""] + [p.id for p in profiles]
+    current_pid = getattr(srv, "cluster_profile_id", "") or ""
+    current_idx = profile_ids.index(current_pid) if current_pid in profile_ids else 0
+
+    ctk.CTkLabel(sf, text="Perfil de Cluster:", font=ctk.CTkFont(size=11), anchor="w").grid(
+        row=r, column=0, padx=(8, 4), pady=3, sticky="w")
+    prof_name_var = tk.StringVar(value=profile_names[current_idx])
+    vars_ref["cluster_profile_id"] = tk.StringVar(value=current_pid)
+
+    prof_row = ctk.CTkFrame(sf, fg_color="transparent")
+    prof_row.grid(row=r, column=1, padx=(0, 8), pady=3, sticky="w")
+
+    def _set_cluster_fields_state(locked: bool) -> None:
+        state = "disabled" if locked else "normal"
+        for key in ("_cl_id_entry", "_cl_dir_entry"):
+            wgt = vars_ref.get(key)
+            if wgt is not None:
+                try:
+                    wgt.configure(state=state)
+                except Exception:
+                    pass
+
+    def _apply_profile_to_fields(pid: str) -> None:
+        if not app or not pid:
+            _set_cluster_fields_state(False)
+            return
+        prof = app.config_manager.get_cluster(pid)
+        if not prof:
+            _set_cluster_fields_state(False)
+            return
+        cid_var = vars_ref.get("cross_ark_cluster_id")
+        cdir_var = vars_ref.get("cluster_dir_override")
+        if cid_var:
+            cid_var.set(prof.cluster_id)
+        if cdir_var:
+            cdir_var.set(prof.cluster_dir)
+        _set_cluster_fields_state(True)
+
+    def _on_prof_select(choice: str) -> None:
+        idx = profile_names.index(choice) if choice in profile_names else 0
+        pid = profile_ids[idx]
+        vars_ref["cluster_profile_id"].set(pid)
+        if pid:
+            _apply_profile_to_fields(pid)
+        else:
+            _set_cluster_fields_state(False)
+
+    ctk.CTkOptionMenu(
+        prof_row, values=profile_names, variable=prof_name_var, width=220, height=28,
+        command=_on_prof_select,
+    ).pack(side="left", padx=(0, 8))
+
+    if app:
+        ctk.CTkButton(
+            prof_row, text="Gerenciar…", width=90, height=28,
+            fg_color="#1e293b", hover_color="#334155",
+            command=lambda: app._show_frame("clusters"),
+        ).pack(side="left")
+
+    r += 1
+    ctk.CTkLabel(
+        sf,
+        text="Mesmo Cluster ID e mesma pasta de viagem em todos os mapas do cluster.",
+        font=ctk.CTkFont(size=10), text_color="#64748b", anchor="w",
+    ).grid(row=r, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
+    r += 1
+
+    _str_entry(sf, None, "cross_ark_cluster_id", srv, vars_ref, r, accent)
+    vars_ref["_cl_id_entry"] = sf.grid_slaves(row=r, column=1)[0] if sf.grid_slaves(row=r, column=1) else None
+    r += 1
+    _str_entry(sf, None, "cluster_dir_override", srv, vars_ref, r, accent, wide=True)
+    vars_ref["_cl_dir_entry"] = sf.grid_slaves(row=r, column=1)[0] if sf.grid_slaves(row=r, column=1) else None
+    r += 1
+    _bool_check(sf, "Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, r, accent)
+    r += 1
+
+    if current_pid:
+        _apply_profile_to_fields(current_pid)
+    return r
+
 
 def _build_server_details(sf, srv, vars_ref, bg, accent):
     from ..ui.server_field_widgets import (

@@ -90,6 +90,19 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
                     app._refresh_buffs_ui()
                 elif name == "desempenho":
                     app._start_perf_monitor()
+                elif name == "clusters":
+                    clusters = app.config_manager.clusters
+                    if clusters and getattr(app, "_cluster_detail_fr", None):
+                        try:
+                            if not app._cluster_detail_fr.winfo_children():
+                                from .cluster_select import cluster_select
+                                cid = app._cluster_selected_id
+                                valid = {c.id for c in clusters}
+                                if cid not in valid:
+                                    cid = clusters[0].id
+                                cluster_select(app, cid)
+                        except Exception:
+                            pass
                 return
         except Exception:
             pass

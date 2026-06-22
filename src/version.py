@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.68"
+APP_VERSION: str = "1.9.69"
 BUILD_DATE: str = "2026-06-21"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.69",
+        "date": "2026-06-22",
+        "changes": [
+            "Novo (CustomShop): chat cluster entre mapas via /c e MySQL (poll + mute + API Web Store).",
+            "Fix (Clusters): painel Cross-ARK abre detalhe do perfil e vincula servidores TEK (ASM).",
+            "Fix (Clusters): servers_in_cluster, sync engine e perfil global na Administracao do servidor.",
+        ],
+    },
     {
         "version": "1.9.68",
         "date": "2026-06-20",

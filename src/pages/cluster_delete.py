@@ -17,6 +17,12 @@ def cluster_delete(app: "ARKServerManagerApp", cluster_id: str) -> None:
         return
     app.config_manager.remove_cluster(cluster_id)
     app._cluster_sync_stop(cluster_id)
+    asm_mgr = getattr(app, "asm_config_manager", None)
+    if asm_mgr is not None:
+        for srv in asm_mgr.servers:
+            if getattr(srv, "cluster_profile_id", "") == cluster_id:
+                srv.cluster_profile_id = ""
+                asm_mgr.update_server(srv)
     app._cluster_selected_id = ""
     app._clusters_refresh_list()
     for w in app._cluster_detail_fr.winfo_children():

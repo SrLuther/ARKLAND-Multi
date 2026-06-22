@@ -59,4 +59,10 @@ def build_clusters_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> 
     app._cluster_detail_widgets: dict = {}
 
     app._clusters_refresh_list()
+    clusters = app.config_manager.clusters
+    if clusters:
+        from .cluster_select import cluster_select
+        valid_ids = {c.id for c in clusters}
+        cid = app._cluster_selected_id if app._cluster_selected_id in valid_ids else clusters[0].id
+        cluster_select(app, cid)
 

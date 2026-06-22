@@ -362,3 +362,6 @@ class ConfigManager:
             if c.id == cluster_id:
                 return c
         return None
+
+    def servers_in_cluster(self, cluster_id: str) -> List[ServerConfig]:
+        return [s for s in self._servers if s.cluster_profile_id == cluster_id]

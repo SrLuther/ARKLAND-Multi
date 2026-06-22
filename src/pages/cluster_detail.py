@@ -222,23 +222,35 @@ def build_cluster_detail(app: "ARKServerManagerApp", prof) -> None:
     srv_card.grid(row=7, column=0, padx=20, pady=(0, 12), sticky="ew")
     srv_card.grid_columnconfigure(0, weight=1)
 
-    linked = app.config_manager.servers_in_cluster(prof.id)
-    all_srvs = app.config_manager.servers
-    if not all_srvs:
-        ctk.CTkLabel(srv_card, text="Nenhum servidor cadastrado.",
-                     text_color="gray50").grid(row=0, column=0, padx=16, pady=12)
+    from .cluster_helpers import iter_linkable_servers
+
+    linkable = iter_linkable_servers(app, prof.id)
+    if not linkable:
+        ctk.CTkLabel(
+            srv_card,
+            text="Nenhum servidor cadastrado no Manager.\n"
+                 "Adicione servidores no Dashboard antes de vincular ao cluster.",
+            text_color="gray50",
+            justify="left",
+        ).grid(row=0, column=0, padx=16, pady=12, sticky="w")
     else:
-        for si, srv in enumerate(all_srvs):
-            is_linked = srv.id in [s.id for s in linked]
-            v = tk.BooleanVar(value=is_linked)
-            dw[f"srv_{srv.id}"] = v
-            map_name = srv.map.replace("_P", "").replace("_", " ")
+        ctk.CTkLabel(
+            srv_card,
+            text="Marque os mapas que fazem parte deste cluster e clique em Salvar.",
+            text_color="gray50",
+            font=ctk.CTkFont(size=10),
+            anchor="w",
+        ).grid(row=0, column=0, padx=16, pady=(10, 4), sticky="w")
+        for si, item in enumerate(linkable):
+            v = tk.BooleanVar(value=item.is_linked)
+            dw[item.widget_key] = v
+            kind_tag = "TEK" if item.kind == "asm" else "Legado"
             ctk.CTkCheckBox(
                 srv_card,
-                text=f"{srv.name}  ({map_name}  ·  :{srv.server_port})",
+                text=f"{item.name}  ({item.map_label}  ·  :{item.port})  [{kind_tag}]",
                 variable=v,
                 checkmark_color="white", fg_color=_BLUE, hover_color=_BLUE_HOVER,
-            ).grid(row=si, column=0, padx=16, pady=(8 if si == 0 else 4, 4), sticky="w")
+            ).grid(row=si + 1, column=0, padx=16, pady=(8 if si == 0 else 4, 4), sticky="w")
 
     # ── Diagnóstico ───────────────────────────────────────────────────────
     import os as _os
@@ -279,13 +291,13 @@ def build_cluster_detail(app: "ARKServerManagerApp", prof) -> None:
         _diag_row += 1
 
     # Servidores vinculados vs. não vinculados
+    from .cluster_helpers import asm_servers_in_cluster
     _linked = app.config_manager.servers_in_cluster(prof.id)
-    _linked_ids = {s.id for s in _linked}
-    _all = app.config_manager.servers
-    _unlinked = [s for s in _all if s.id not in _linked_ids]
-    if _linked:
+    _linked_asm = asm_servers_in_cluster(app, prof.id)
+    _linked_count = len(_linked) + len(_linked_asm)
+    if _linked_count:
         ctk.CTkLabel(diag_card,
-                     text=f"✅  {len(_linked)} servidor(es) vinculado(s) a este cluster",
+                     text=f"✅  {_linked_count} servidor(es) vinculado(s) a este cluster",
                      text_color="#4caf50", font=ctk.CTkFont(size=11), anchor="w").grid(
             row=_diag_row, column=0, padx=16, pady=4, sticky="w")
         _diag_row += 1

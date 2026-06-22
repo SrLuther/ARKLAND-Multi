@@ -6416,5 +6416,15 @@
     "Password": "",
     "Database": "arkland_shop",
     "Ssl": false
+  },
+  "CrossChat": {
+    "_comment": "Chat entre mapas do cluster via MySQL (comando /c). ServerId unico por mapa.",
+    "Enabled": false,
+    "ServerId": "Mapa1",
+    "Command": "/c",
+    "PollIntervalSeconds": 2,
+    "MaxMessageLength": 200,
+    "RateLimitSeconds": 2,
+    "UseWebApi": false
   }
 }

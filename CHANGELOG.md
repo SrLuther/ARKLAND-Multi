@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.69] - 2026-06-22
+
+### Feature
+
+- Novo (CustomShop): chat cluster entre mapas via /c e MySQL (poll + mute + API Web Store).
+
+### Fix
+
+- Fix (Clusters): painel Cross-ARK abre detalhe do perfil e vincula servidores TEK (ASM).
+- Fix (Clusters): servers_in_cluster, sync engine e perfil global na Administracao do servidor.
+
 ## [1.9.68] - 2026-06-20
 
 ### Fix

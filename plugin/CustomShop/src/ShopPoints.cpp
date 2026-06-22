@@ -195,6 +195,37 @@ bool ShopPoints::Open() {
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
 
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS cross_server_chat ("
+        "  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,"
+        "  channel       VARCHAR(16)  NOT NULL DEFAULT 'cluster',"
+        "  source_server VARCHAR(64)  NOT NULL,"
+        "  steam_id      VARCHAR(20)  NOT NULL,"
+        "  player_name   VARCHAR(64)  NOT NULL,"
+        "  message       VARCHAR(500) NOT NULL,"
+        "  created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),"
+        "  KEY idx_poll (id),"
+        "  KEY idx_created (created_at)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS cross_server_chat_cursor ("
+        "  server_id VARCHAR(64) PRIMARY KEY NOT NULL,"
+        "  last_id   BIGINT UNSIGNED NOT NULL DEFAULT 0,"
+        "  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP "
+        "    ON UPDATE CURRENT_TIMESTAMP"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS cross_server_chat_mutes ("
+        "  steam_id    VARCHAR(20) PRIMARY KEY NOT NULL,"
+        "  muted_until DATETIME DEFAULT NULL,"
+        "  reason      VARCHAR(255) DEFAULT NULL"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
     Log::GetLog()->info("ShopPoints: MySQL connected to {}:{}/{}",
                         cfg.DbHost(), cfg.DbPort(), cfg.DbDatabase());
     return true;

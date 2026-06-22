@@ -853,6 +853,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_market_schema(engine, bootstrap=True)
     except Exception as exc:
         log.warning("Mercado: migrate falhou (será retentado pelo watcher): %s", exc)
+    try:
+        from cross_chat_service import ensure_cross_chat_schema
+
+        ensure_cross_chat_schema(engine)
+    except Exception as exc:
+        log.warning("CrossChat: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -4388,6 +4394,16 @@ register_market_routes(
     api_key_required=api_key_required,
     steam_id_from_session=_steam_id_from_session,
     audit_event=_audit_event,
+    limiter=limiter,
+)
+
+from cross_chat_routes import register_cross_chat_routes
+
+register_cross_chat_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    api_key_required=api_key_required,
     limiter=limiter,
 )
 

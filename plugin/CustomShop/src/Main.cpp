@@ -9,6 +9,7 @@
 #include "ShopCloudInventory.h"
 #include "ShopPerms.h"
 #include "TimedPoints.h"
+#include "ShopCrossChat.h"
 #include "HttpClient.h"
 #include <Timer.h>
 
@@ -107,6 +108,8 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
             CustomShop::ShopPoints::Get().GetDb());
         CustomShop::ShopCloudInventory::Get().SetDb(
             CustomShop::ShopPoints::Get().GetDb());
+        CustomShop::CrossChat::SetDb(
+            CustomShop::ShopPoints::Get().GetDb());
         CustomShop::ShopVip::Get().PruneExpired();
         CustomShop::ShopEntitlements::Get().PruneExpired();
     }
@@ -128,6 +131,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
 
     CustomShop::Commands::Register();
     CustomShop::TimedPoints::Start();
+    CustomShop::CrossChat::Start();
 
     if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready) {
         CustomShop::Perms::Init();
@@ -142,9 +146,10 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
     }
 
     Log::GetLog()->info(
-        "CustomShop: ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem)",
+        "CustomShop: ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem, cross_chat={})",
         CustomShop::ShopConfig::Get().ShopName(),
-        CustomShop::ShopConfig::Get().WebApiUrl());
+        CustomShop::ShopConfig::Get().WebApiUrl(),
+        CustomShop::ShopConfig::Get().CrossChat().value("Enabled", false) ? "on" : "off");
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
@@ -158,6 +163,7 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
         Hook_AShooterGameMode_HandleNewPlayer);
 
     CustomShop::Commands::Unregister();
+    CustomShop::CrossChat::Stop();
     CustomShop::HttpClient::Shutdown();
     Log::GetLog()->info("CustomShop: unloaded");
 }

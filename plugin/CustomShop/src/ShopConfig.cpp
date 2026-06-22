@@ -29,6 +29,7 @@ void ShopConfig::Load() {
     settings_      = config_.value("Settings",          nlohmann::json::object());
     db_cfg_        = config_.value("Database",          nlohmann::json::object());
     timed_points_  = config_.value("TimedPointsReward", nlohmann::json::object());
+    cross_chat_    = config_.value("CrossChat",         nlohmann::json::object());
 
     Log::GetLog()->info("ShopConfig: loaded ({} items, {} kits, DeliverDinosInCryopods={})",
                         items_.size(), kits_.size(),

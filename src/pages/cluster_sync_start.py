@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
+from ..sync_engine import SyncEngine
+
 
 def cluster_sync_start(app: "ARKServerManagerApp", cluster_id: str) -> None:
     """Inicia o SyncEngine bidirecional para o cluster."""
@@ -10,14 +12,20 @@ def cluster_sync_start(app: "ARKServerManagerApp", cluster_id: str) -> None:
     if not prof:
         return
     if not prof.local_cluster_dir or not prof.cluster_dir:
+        app._toast(
+            "Configure pasta local e pasta de rede antes de iniciar a sincronização.",
+            kind="warning",
+        )
         return
+    if not getattr(app, "_cluster_sync_engines", None):
+        app._cluster_sync_engines = {}
     app._cluster_sync_stop(cluster_id)
 
     class _ClusterSyncCfg:
-        def __init__(app, local_dir: str, net_dir: str, interval: int) -> None:
-            app.sync_cycles = [[local_dir, net_dir]]
-            app.sync_interval = max(5, interval)
-            app.log_debug = False
+        def __init__(self, local_dir: str, net_dir: str, interval: int) -> None:
+            self.sync_cycles = [[local_dir, net_dir]]
+            self.sync_interval = max(5, interval)
+            self.log_debug = False
 
     engine = SyncEngine(
         config=_ClusterSyncCfg(prof.local_cluster_dir, prof.cluster_dir, prof.sync_interval),
@@ -26,4 +34,5 @@ def cluster_sync_start(app: "ARKServerManagerApp", cluster_id: str) -> None:
     )
     app._cluster_sync_engines[cluster_id] = engine
     engine.start()
+    app._toast(f"Sincronização iniciada: {prof.name}", kind="info")
 

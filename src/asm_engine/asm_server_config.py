@@ -56,6 +56,7 @@ class AsmServerConfig:
     branch_password: str = ""
 
     # Cluster cross-ARK
+    cluster_profile_id:         str  = ""
     cross_ark_cluster_id:       str  = ""
     cluster_dir_override:       str  = ""
 

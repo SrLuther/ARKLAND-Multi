@@ -152,6 +152,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._cluster_detail_fr: Any = None
         self._cluster_selected_id: str = ""
         self._cluster_detail_widgets: dict = {}
+        self._cluster_sync_engines: dict = {}
         # Remoto
         self._remote_agent: Any = None
         self._remote_toggle_btn: Any = None
@@ -877,6 +878,12 @@ class ARKServerManagerApp(ctk.CTk):
         try:
             from .asm_ui.asm_server_panel import _sync_ui_to_cfg
             _sync_ui_to_cfg(self, fresh)
+        except Exception:
+            pass
+
+        try:
+            from .pages.cluster_helpers import apply_cluster_profile_to_asm_cfg
+            apply_cluster_profile_to_asm_cfg(fresh, self.config_manager.get_cluster)
         except Exception:
             pass
 
@@ -1744,6 +1751,30 @@ class ARKServerManagerApp(ctk.CTk):
     # Clusters
     # ─────────────────────────────────────────────────────────────────────────
 
+    def _cluster_select(self, cluster_id: str) -> None:
+        from .pages.cluster_select import cluster_select
+        cluster_select(self, cluster_id)
+
+    def _cluster_build_detail(self, prof) -> None:
+        from .pages.cluster_detail import build_cluster_detail
+        build_cluster_detail(self, prof)
+
+    def _cluster_save(self, cluster_id: str) -> None:
+        from .pages.cluster_save import cluster_save
+        cluster_save(self, cluster_id)
+
+    def _cluster_sync_stop(self, cluster_id: str) -> None:
+        from .pages.cluster_sync_stop import cluster_sync_stop
+        cluster_sync_stop(self, cluster_id)
+
+    def _cluster_sync_restart(self, cluster_id: str) -> None:
+        from .pages.cluster_sync_restart import cluster_sync_restart
+        cluster_sync_restart(self, cluster_id)
+
+    def _cluster_sync_log(self, cluster_id: str, msg: str, lvl: str) -> None:
+        from .pages.cluster_sync_log import cluster_sync_log
+        cluster_sync_log(self, cluster_id, msg, lvl)
+
     def _cluster_new(self) -> None:
         from .pages.cluster_new import cluster_new
         cluster_new(self)
@@ -1752,17 +1783,9 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.clusters_refresh_list import clusters_refresh_list
         clusters_refresh_list(self)
 
-    def _cluster_save(self) -> None:
-        from .pages.cluster_save import cluster_save
-        cluster_save(self)
-
     def _cluster_delete(self, cluster_id: str) -> None:
         from .pages.cluster_delete import cluster_delete
         cluster_delete(self, cluster_id)
-
-    def _cluster_detail(self, cluster_id: str) -> None:
-        from .pages.cluster_detail import cluster_detail
-        cluster_detail(self, cluster_id)
 
     def _cluster_import_from_manual(self) -> None:
         from .pages.cluster_import_from_manual import cluster_import_from_manual

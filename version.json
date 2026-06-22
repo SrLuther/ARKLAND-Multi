@@ -1,9 +1,10 @@
 {
-    "version": "1.9.68",
+    "version": "1.9.69",
     "date": "2026-06-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.68/ARKLAND-Multi-Setup-v1.9.68.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.69/ARKLAND-Multi-Setup-v1.9.69.exe",
     "changelog": [
-        "Fix (Comercio): mensagens in-game no chat normal (SendChatMessage) em vez de banner grande (SERVER).",
-        "Fix (TimedPoints): remover grupo na Web Store ou Manager apaga do JSON ao salvar (nao merge silencioso)."
+        "Novo (CustomShop): chat cluster entre mapas via /c e MySQL (poll + mute + API Web Store).",
+        "Fix (Clusters): painel Cross-ARK abre detalhe do perfil e vincula servidores TEK (ASM).",
+        "Fix (Clusters): servers_in_cluster, sync engine e perfil global na Administracao do servidor."
     ]
 }
