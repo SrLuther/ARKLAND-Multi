@@ -8,10 +8,15 @@ from ..sync_engine import SyncEngine
 
 def cluster_sync_once(app: "ARKServerManagerApp", cluster_id: str) -> None:
     """Executa um ciclo de sync imediato sem iniciar o loop automático."""
+    from .cluster_helpers import build_cluster_sync_cycles
+
     prof = app.config_manager.get_cluster(cluster_id)
-    if not prof or not prof.local_cluster_dir or not prof.cluster_dir:
+    if not prof:
+        return
+    cycles = build_cluster_sync_cycles(app, prof, cluster_id)
+    if not cycles:
         app._toast(
-            "Configure pasta local e pasta de rede antes de sincronizar.",
+            "Configure a pasta de rede (UNC) e vincule servidores antes de sincronizar.",
             kind="warning",
         )
         return
@@ -20,13 +25,12 @@ def cluster_sync_once(app: "ARKServerManagerApp", cluster_id: str) -> None:
         engines[cluster_id].sync_once()
     else:
         class _ClusterSyncCfg:
-            def __init__(self, local_dir: str, net_dir: str) -> None:
-                self.sync_cycles = [[local_dir, net_dir]]
+            def __init__(self, sync_cycles: list) -> None:
+                self.sync_cycles = sync_cycles
                 self.sync_interval = 999
                 self.log_debug = False
 
         SyncEngine(
-            config=_ClusterSyncCfg(prof.local_cluster_dir, prof.cluster_dir),
+            config=_ClusterSyncCfg(cycles),
             on_log=lambda msg, lvl: app._cluster_sync_log(cluster_id, msg, lvl),
         ).sync_once()
-

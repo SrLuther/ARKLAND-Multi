@@ -5,6 +5,52 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.73] - 2026-06-20
+
+### Improvement
+
+- Melhoria (Presets TEK): rótulos em português, selecionar tudo e lista rolável no diálogo.
+
+### Fix
+
+- Fix (Presets TEK): todas as 22 categorias de configuração disponíveis ao salvar preset — mesma lista do Importar/Sincronizar INI (engramas, subs, custom INI, PGM, etc.).
+
+## [1.9.72] - 2026-06-20
+
+### Feature
+
+- Novo (Clusters): exportar e importar perfil Cross-ARK (.arkcluster) entre PCs sem pasta compartilhada — mesmo Cluster ID, restrições e hints dos mapas vinculados na máquina de origem.
+
+### Other
+
+- UI (Clusters): botão «Exportar perfil» no detalhe do cluster; «Importar perfil» na lista lateral.
+
+## [1.9.71] - 2026-06-22
+
+### Feature
+
+- Novo (Clusters): botão 'Testar viagem' simula listagem do obelisco/terminal antes de iniciar — valida Cluster ID, pasta compartilhada, escrita UNC, mapas vinculados e uploads existentes.
+
+### Fix
+
+- Fix (Clusters): criação automática de pastas locais ao salvar perfil (modo rede+sync e local).
+
+### Other
+
+- UI (Clusters): perfil único com lista de mapas, pré-visualização do que será aplicado e aviso se mapa já está em outro cluster.
+- UI (Servidor): painel do mapa só escolhe o perfil — configuração completa fica em Clusters.
+
+## [1.9.70] - 2026-06-22
+
+### Fix
+
+- Fix (Cluster rede): Cross-ARK entre máquinas na LAN — UNC normalizada (// e \), -ClusterDirOverride com aspas em caminhos UNC, igual ao ASM.
+- Fix (Cluster rede + sync): cada servidor usa pasta local ShooterGame\Saved\clusters; sync replica para UNC; inicia automaticamente ao salvar perfil ou no boot do Manager.
+
+### Other
+
+- UI (Clusters): orientações claras para modo rede (UNC direto vs sync por máquina).
+
 ## [1.9.69] - 2026-06-22
 
 ### Feature

@@ -132,26 +132,23 @@ def get_cluster_health(app: "ARKServerManagerApp", srv: "ServerConfig") -> list:
             results.append(("ok", "Sincronização automática ativada",
                             f"Intervalo: {prof.sync_interval}s", ""))
             local = prof.local_cluster_dir.strip()
+            if not local and srv.install_dir:
+                from ..cluster_paths import default_local_cluster_dir
+                local = default_local_cluster_dir(srv.install_dir)
             if local:
                 if _P(local).exists():
                     results.append(("ok", "Pasta local de sync existe", local, ""))
                 else:
                     results.append(("warn", "Pasta local de sync não encontrada",
                                     f"'{local}' não existe nesta máquina.",
-                                    "Crie a pasta ou corrija o caminho em "
-                                    "Clusters → perfil → 'Pasta local de dados do cluster'.\n"
-                                    "O ARK normalmente grava em:\n"
-                                    "{pasta_instalação}\\ShooterGame\\Saved\\clusters\n"
-                                    "Inicie o servidor uma vez para o ARK criar a pasta automaticamente."))
+                                    "Salve o perfil de cluster novamente (o Manager tenta criar) "
+                                    "ou reinicie o servidor — o ARK também cria ao iniciar com cluster."))
             else:
-                results.append(("error", "Pasta local de sync não definida",
-                                "Com sync ativo o app precisa saber onde o ARK desta "
-                                "máquina grava os arquivos de viagem.",
-                                "Vá em Clusters → perfil → campo "
-                                "'Pasta local de dados do cluster'.\n"
-                                "Informe o caminho da pasta 'clusters' dentro da instalação "
-                                "do ARK, ex:\n"
-                                "C:\\ARKServers\\TheIsland\\ShooterGame\\Saved\\clusters"))
+                results.append(("warn", "Pasta local de sync não definida",
+                                "Vincule este servidor ao perfil e salve, ou informe install_dir.",
+                                "Com servidor vinculado e pasta de instalação configurada, o caminho "
+                                "padrão é:\n"
+                                "{pasta_instalação}\\ShooterGame\\Saved\\clusters"))
         else:
             results.append(("warn", "Sincronização automática desativada (modo Rede)",
                             "O app não está copiando os arquivos de viagem entre "

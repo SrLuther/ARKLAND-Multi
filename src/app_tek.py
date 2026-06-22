@@ -382,6 +382,13 @@ class ARKServerManagerApp(ctk.CTk):
         # Agente remoto — inicia se estava ativo na sessão anterior
         if getattr(cfg, "remote_agent_enabled", False):
             self._start_remote_agent()
+        # Sync de clusters Cross-ARK com sync_enabled
+        try:
+            for prof in self.config_manager.clusters:
+                if getattr(prof, "sync_enabled", False) and prof.cluster_dir.strip():
+                    self._cluster_sync_start(prof.id)
+        except Exception:
+            pass
 
     def _auto_start_webstore(self) -> None:
         """Inicia a Web Store automaticamente no boot, sem precisar abrir a aba da Loja."""
@@ -1791,6 +1798,14 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.cluster_import_from_manual import cluster_import_from_manual
         cluster_import_from_manual(self)
 
+    def _cluster_export(self, cluster_id: str) -> None:
+        from .pages.cluster_export import cluster_export
+        cluster_export(self, cluster_id)
+
+    def _cluster_import_file(self) -> None:
+        from .pages.cluster_import_file import cluster_import_file
+        cluster_import_file(self)
+
     def _cluster_sync_start(self, cluster_id: str) -> None:
         from .pages.cluster_sync_start import cluster_sync_start
         cluster_sync_start(self, cluster_id)
@@ -1798,6 +1813,10 @@ class ARKServerManagerApp(ctk.CTk):
     def _cluster_sync_once(self, cluster_id: str) -> None:
         from .pages.cluster_sync_once import cluster_sync_once
         cluster_sync_once(self, cluster_id)
+
+    def _cluster_travel_test(self, cluster_id: str) -> None:
+        from .pages.cluster_travel_test import cluster_travel_test
+        cluster_travel_test(self, cluster_id)
 
     def _get_cluster_health(self, profile_id: str) -> dict:
         from .pages.get_cluster_health import get_cluster_health

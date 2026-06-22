@@ -6,71 +6,19 @@ from __future__ import annotations
 
 import json
 import os
-import uuid
-from dataclasses import asdict, fields
+from dataclasses import fields
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, TYPE_CHECKING
+
+from .asm_config_categories import (
+    PRESET_CATEGORIES,
+    PRESET_CATEGORY_LABELS,
+    get_preset_category_fields,
+)
 
 if TYPE_CHECKING:
     from .asm_server_config import AsmServerConfig
-
-# ── Categorias de preset ──────────────────────────────────────────────────────
-
-PRESET_CATEGORIES: Dict[str, List[str]] = {
-    "players": [
-        "xp_multiplier", "player_damage_multiplier", "player_resistance_multiplier",
-        "player_water_drain_multiplier", "player_food_drain_multiplier",
-        "player_stamina_drain_multiplier", "player_health_recovery_multiplier",
-        "player_harvesting_damage_multiplier", "crafting_skill_bonus_multiplier",
-        "craft_xp_multiplier", "generic_xp_multiplier", "harvest_xp_multiplier",
-        "kill_xp_multiplier", "special_xp_multiplier", "override_max_xp_player",
-        "enable_flyer_carry", "per_level_player",
-    ],
-    "dinos": [
-        "dino_damage_multiplier", "tamed_dino_damage_multiplier",
-        "dino_resistance_multiplier", "tamed_dino_resistance_multiplier",
-        "max_tamed_dinos", "dino_count_multiplier", "taming_speed_multiplier",
-        "passive_tame_interval_multiplier", "disable_imprint_buff",
-        "allow_anyone_baby_imprint", "disable_dino_riding", "disable_dino_taming",
-        "dino_harvesting_damage_multiplier", "per_level_dino_wild",
-        "per_level_dino_tamed", "per_level_dino_tamed_add",
-        "per_level_dino_tamed_affinity",
-    ],
-    "breeding": [
-        "mating_interval_multiplier", "egg_hatch_speed_multiplier",
-        "baby_mature_speed_multiplier", "baby_food_consumption_multiplier",
-        "baby_cuddle_interval_multiplier", "baby_cuddle_grace_period_multiplier",
-        "baby_cuddle_lose_imprint_quality_speed_multiplier",
-        "baby_imprinting_stat_scale",
-    ],
-    "environment": [
-        "harvest_amount_multiplier", "harvest_health_multiplier",
-        "resources_respawn_multiplier", "day_cycle_speed_scale",
-        "day_time_speed_scale", "night_time_speed_scale",
-        "global_spoiling_time_multiplier", "global_item_decomposition_multiplier",
-        "global_corpse_decomposition_multiplier", "crop_decay_speed_multiplier",
-        "crop_growth_speed_multiplier", "hair_growth_speed_multiplier",
-        "base_temperature_multiplier", "disable_weather_fog",
-    ],
-    "structures": [
-        "structure_resistance_multiplier", "structure_damage_multiplier",
-        "max_structures_in_range", "per_platform_max_structures_multiplier",
-        "max_platform_saddle_structures", "enable_structure_decay_pve",
-        "pve_structure_decay_period_multiplier", "limit_turrets_in_range",
-        "limit_turrets_num",
-    ],
-    "rules": [
-        "enable_pvp", "enable_hardcore", "allow_cave_building_pve",
-        "disable_friendly_fire_pvp", "disable_friendly_fire_pve",
-        "enable_difficulty_override", "override_official_difficulty",
-        "difficulty_offset", "max_tribe_size", "allow_tribe_alliances",
-        "allow_custom_recipes", "enable_diseases",
-    ],
-}
-PRESET_CATEGORIES["full"] = list({
-    f for cat_fields in PRESET_CATEGORIES.values() for f in cat_fields
-})
 
 
 class AsmPresetManager:
@@ -82,8 +30,6 @@ class AsmPresetManager:
             / "ARKLAND-ServerManager"
             / "presets"
         )
-
-    # ── Persistência ──────────────────────────────────────────────────────────
 
     def _path(self, name: str) -> Path:
         safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in name)
@@ -116,9 +62,9 @@ class AsmPresetManager:
         description: str = "",
     ) -> None:
         """Salva um preset com os campos das categorias indicadas."""
-        all_fields = set()
+        all_fields: set[str] = set()
         for cat in categories:
-            all_fields.update(PRESET_CATEGORIES.get(cat, [cat]))  # suporta campo direto
+            all_fields.update(get_preset_category_fields(cat))
 
         valid = {f.name for f in fields(srv)}
         values: Dict[str, Any] = {}
@@ -127,7 +73,7 @@ class AsmPresetManager:
                 values[f_name] = getattr(srv, f_name)
 
         payload = {
-            "version":     "1.0",
+            "version":     "1.1",
             "name":        name,
             "created_at":  datetime.now().isoformat(timespec="seconds"),
             "categories":  categories,
@@ -158,3 +104,8 @@ class AsmPresetManager:
         p = self._path(name)
         if p.exists():
             p.unlink()
+
+
+def format_preset_categories(categories: List[str]) -> str:
+    """Rótulos legíveis para exibição na UI."""
+    return ", ".join(PRESET_CATEGORY_LABELS.get(c, c) for c in categories)

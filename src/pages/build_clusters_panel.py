@@ -22,8 +22,8 @@ def build_clusters_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> 
     ctk.CTkLabel(
         hdr,
         text=(
-            "Gerencie perfis de cluster para conectar múltiplos servidores (mesmo app) "
-            "ou máquinas diferentes na rede via pasta compartilhada."
+            "Uma configuração para todos os mapas. Em máquinas diferentes: use pasta UNC, sync, "
+            "ou exporte/importe o perfil (.arkcluster) entre PCs."
         ),
         text_color="gray55", font=ctk.CTkFont(size=12),
     ).grid(row=1, column=0, sticky="w", pady=(2, 0))
@@ -48,7 +48,14 @@ def build_clusters_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> 
         font=ctk.CTkFont(size=12, weight="bold"),
         command=app._cluster_new,
     )
-    add_btn.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+    add_btn.grid(row=2, column=0, padx=10, pady=(10, 4), sticky="ew")
+
+    ctk.CTkButton(
+        list_fr, text="📥  Importar perfil", height=32,
+        fg_color="#1e3a5f", hover_color="#2a4a6a",
+        font=ctk.CTkFont(size=11),
+        command=app._cluster_import_file,
+    ).grid(row=3, column=0, padx=10, pady=(0, 10), sticky="ew")
 
     # ── Detalhe à direita ─────────────────────────────────────────────────
     app._cluster_detail_fr = ctk.CTkScrollableFrame(parent, fg_color=_BG)

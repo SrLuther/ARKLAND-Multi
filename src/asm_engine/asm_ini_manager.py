@@ -927,11 +927,10 @@ def _launch_dash_flags(cfg: AsmServerConfig) -> list[str]:
             flags.append("-NoTransferFromFiltering")
         flags.append(f"-clusterid={cfg.cross_ark_cluster_id}")
         if cfg.cluster_dir_override:
-            _cl_dir = cfg.cluster_dir_override.replace("/", "\\")
-            if " " in _cl_dir:
-                flags.append(f'"-ClusterDirOverride={_cl_dir}"')
-            else:
-                flags.append(f"-ClusterDirOverride={_cl_dir}")
+            from ..cluster_paths import format_cluster_dir_launch_flag
+            _flag = format_cluster_dir_launch_flag(cfg.cluster_dir_override)
+            if _flag:
+                flags.append(_flag)
 
     return flags
 

@@ -1,10 +1,9 @@
 {
-    "version": "1.9.69",
-    "date": "2026-06-21",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.69/ARKLAND-Multi-Setup-v1.9.69.exe",
+    "version": "1.9.73",
+    "date": "2026-06-22",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.73/ARKLAND-Multi-Setup-v1.9.73.exe",
     "changelog": [
-        "Novo (CustomShop): chat cluster entre mapas via /c e MySQL (poll + mute + API Web Store).",
-        "Fix (Clusters): painel Cross-ARK abre detalhe do perfil e vincula servidores TEK (ASM).",
-        "Fix (Clusters): servers_in_cluster, sync engine e perfil global na Administracao do servidor."
+        "Fix (Presets TEK): todas as 22 categorias de configuração disponíveis ao salvar preset — mesma lista do Importar/Sincronizar INI (engramas, subs, custom INI, PGM, etc.).",
+        "Melhoria (Presets TEK): rótulos em português, selecionar tudo e lista rolável no diálogo."
     ]
 }

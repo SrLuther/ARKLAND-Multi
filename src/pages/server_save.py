@@ -531,14 +531,25 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
 
     # ── Cluster ───────────────────────────────────────────────────────
     cl = srv.cluster
-    if "cl_enabled" in w:
-        cl.enabled              = bool(w["cl_enabled"].get())
-        cl.cluster_id           = w.get("cl_cluster_id",  tk.StringVar()).get().strip()
-        cl.cluster_dir_override = w.get("cl_cluster_dir", tk.StringVar()).get().strip()
-        srv.alt_save_directory_name = w.get("cl_alt_save_dir", tk.StringVar()).get().strip()
-    # Perfil de cluster vinculado
+    if "cl_alt_save_dir" in w:
+        alt = w["cl_alt_save_dir"].get().strip()
+        if alt:
+            srv.alt_save_directory_name = alt
     if "cl_profile_id_var" in w:
-        srv.cluster_profile_id = w["cl_profile_id_var"].get()
+        srv.cluster_profile_id = (w["cl_profile_id_var"].get() or "").strip()
+        if srv.cluster_profile_id:
+            prof = app.config_manager.get_cluster(srv.cluster_profile_id)
+            if prof:
+                from .cluster_helpers import apply_profile_to_legacy_server
+                apply_profile_to_legacy_server(srv, prof)
+        elif "cl_enabled" in w:
+            cl.enabled = bool(w["cl_enabled"].get())
+            cl.cluster_id = w.get("cl_cluster_id", tk.StringVar()).get().strip()
+            cl.cluster_dir_override = w.get("cl_cluster_dir", tk.StringVar()).get().strip()
+    elif "cl_enabled" in w:
+        cl.enabled = bool(w["cl_enabled"].get())
+        cl.cluster_id = w.get("cl_cluster_id", tk.StringVar()).get().strip()
+        cl.cluster_dir_override = w.get("cl_cluster_dir", tk.StringVar()).get().strip()
 
     # ── Config Dinâmica ───────────────────────────────────────────────
     if "dynamic_config_enabled" in w:

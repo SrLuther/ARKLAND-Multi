@@ -960,17 +960,16 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
 
     _section_label(sf, "Sessão",          8, accent)
     _str_entry(sf, None, "session_name",     srv, vars_ref,  9, accent, wide=True)
-    _str_entry(sf, None, "alt_save_directory_name", srv, vars_ref, 10, accent)
-    _float_entry(sf, None, "auto_save_period", srv, vars_ref, 11)
+    _float_entry(sf, None, "auto_save_period", srv, vars_ref, 10)
 
-    _section_label(sf, "Evento sazonal ARK",  12, accent)
-    _event_combo_entry(sf, srv, vars_ref, 13, accent)
+    _section_label(sf, "Evento sazonal ARK",  11, accent)
+    _event_combo_entry(sf, srv, vars_ref, 12, accent)
 
-    _section_label(sf, "Rede",           14, accent)
-    _int_entry(sf,   "Porta (game)",           "server_port",      srv, vars_ref, 15)
+    _section_label(sf, "Rede",           13, accent)
+    _int_entry(sf,   "Porta (game)",           "server_port",      srv, vars_ref, 14)
 
     # Porta peer — sempre game_port + 1, read-only
-    _peer_row = 16
+    _peer_row = 15
     ctk.CTkLabel(sf, text="Porta (peer)", font=ctk.CTkFont(size=11), anchor="w").grid(
         row=_peer_row, column=0, padx=(8, 4), pady=3, sticky="w")
     _peer_var = tk.StringVar(value=str(getattr(srv, "server_port", 7777) + 1))
@@ -1073,8 +1072,8 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 38, accent)
     _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 39)
 
-    _next_row = _build_asm_cluster_block(sf, srv, vars_ref, accent, 40)
-    _branch_row = _next_row + 1
+    from ..ui.cluster_server_section import build_server_cluster_link_asm
+    _branch_row = build_server_cluster_link_asm(sf, srv, vars_ref, accent, 40)
     _section_label(sf, "Branch SteamCMD (Beta)", _branch_row, accent)
     _branch_btn_row = ctk.CTkFrame(sf, fg_color="transparent")
     _branch_btn_row.grid(row=_branch_row + 1, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
@@ -1216,95 +1215,6 @@ def _build_discord(sf, srv, vars_ref, bg, accent):
 #  Seção 4 — Detalhes do Servidor
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_asm_cluster_block(sf, srv, vars_ref, accent, start_row: int) -> int:
-    """Cluster Cross-ARK com suporte a perfil global."""
-    app = vars_ref.get("_app")
-    _section_label(sf, "Cluster / Cross-ARK", start_row, accent)
-    r = start_row + 1
-
-    profiles = app.config_manager.clusters if app else []
-    profile_names = ["(configuração manual)"] + [p.name for p in profiles]
-    profile_ids = [""] + [p.id for p in profiles]
-    current_pid = getattr(srv, "cluster_profile_id", "") or ""
-    current_idx = profile_ids.index(current_pid) if current_pid in profile_ids else 0
-
-    ctk.CTkLabel(sf, text="Perfil de Cluster:", font=ctk.CTkFont(size=11), anchor="w").grid(
-        row=r, column=0, padx=(8, 4), pady=3, sticky="w")
-    prof_name_var = tk.StringVar(value=profile_names[current_idx])
-    vars_ref["cluster_profile_id"] = tk.StringVar(value=current_pid)
-
-    prof_row = ctk.CTkFrame(sf, fg_color="transparent")
-    prof_row.grid(row=r, column=1, padx=(0, 8), pady=3, sticky="w")
-
-    def _set_cluster_fields_state(locked: bool) -> None:
-        state = "disabled" if locked else "normal"
-        for key in ("_cl_id_entry", "_cl_dir_entry"):
-            wgt = vars_ref.get(key)
-            if wgt is not None:
-                try:
-                    wgt.configure(state=state)
-                except Exception:
-                    pass
-
-    def _apply_profile_to_fields(pid: str) -> None:
-        if not app or not pid:
-            _set_cluster_fields_state(False)
-            return
-        prof = app.config_manager.get_cluster(pid)
-        if not prof:
-            _set_cluster_fields_state(False)
-            return
-        cid_var = vars_ref.get("cross_ark_cluster_id")
-        cdir_var = vars_ref.get("cluster_dir_override")
-        if cid_var:
-            cid_var.set(prof.cluster_id)
-        if cdir_var:
-            cdir_var.set(prof.cluster_dir)
-        _set_cluster_fields_state(True)
-
-    def _on_prof_select(choice: str) -> None:
-        idx = profile_names.index(choice) if choice in profile_names else 0
-        pid = profile_ids[idx]
-        vars_ref["cluster_profile_id"].set(pid)
-        if pid:
-            _apply_profile_to_fields(pid)
-        else:
-            _set_cluster_fields_state(False)
-
-    ctk.CTkOptionMenu(
-        prof_row, values=profile_names, variable=prof_name_var, width=220, height=28,
-        command=_on_prof_select,
-    ).pack(side="left", padx=(0, 8))
-
-    if app:
-        ctk.CTkButton(
-            prof_row, text="Gerenciar…", width=90, height=28,
-            fg_color="#1e293b", hover_color="#334155",
-            command=lambda: app._show_frame("clusters"),
-        ).pack(side="left")
-
-    r += 1
-    ctk.CTkLabel(
-        sf,
-        text="Mesmo Cluster ID e mesma pasta de viagem em todos os mapas do cluster.",
-        font=ctk.CTkFont(size=10), text_color="#64748b", anchor="w",
-    ).grid(row=r, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
-    r += 1
-
-    _str_entry(sf, None, "cross_ark_cluster_id", srv, vars_ref, r, accent)
-    vars_ref["_cl_id_entry"] = sf.grid_slaves(row=r, column=1)[0] if sf.grid_slaves(row=r, column=1) else None
-    r += 1
-    _str_entry(sf, None, "cluster_dir_override", srv, vars_ref, r, accent, wide=True)
-    vars_ref["_cl_dir_entry"] = sf.grid_slaves(row=r, column=1)[0] if sf.grid_slaves(row=r, column=1) else None
-    r += 1
-    _bool_check(sf, "Permitir dinos de outros clusters", "cross_ark_allow_foreign_dino_downloads", srv, vars_ref, r, accent)
-    r += 1
-
-    if current_pid:
-        _apply_profile_to_fields(current_pid)
-    return r
-
-
 def _build_server_details(sf, srv, vars_ref, bg, accent):
     from ..ui.server_field_widgets import (
         CardSpec, add_collapsible_help, add_int_field, begin_tek_section, build_cards_layout,
@@ -1438,11 +1348,6 @@ def _build_transfers(sf, srv, vars_ref, bg, accent):
 
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Transferências / Tributo", "Transferências e tributo")
     row = build_cards_layout(sf, ctx, [
-        CardSpec("Downloads / uploads", [
-            "enable_tribute_downloads", "prevent_download_survivors", "prevent_download_items",
-            "prevent_download_dinos", "prevent_upload_survivors", "prevent_upload_items",
-            "prevent_upload_dinos", "cross_ark_allow_foreign_dino_downloads",
-        ], bool_grid=True),
         CardSpec("Expiração — personagens", ["save_tribute_char_expiration", "tribute_char_expiration_seconds"]),
         CardSpec("Expiração — items", ["save_tribute_item_expiration", "tribute_item_expiration_seconds"]),
         CardSpec("Expiração — dinos", ["save_tribute_dino_expiration", "tribute_dino_expiration_seconds"]),
@@ -1450,11 +1355,10 @@ def _build_transfers(sf, srv, vars_ref, bg, accent):
         CardSpec("Acesso exclusivo", ["exclusive_join"], bool_grid=True),
     ])
     add_collapsible_help(sf, [
-        ("Downloads / uploads", "Controla transferências via obelisco ou terminal de tributo."),
-        ("Bloquear download/upload", "Impede transferência de personagens, itens ou dinos."),
         ("Expiração de tributo", "Remove automaticamente após o tempo configurado."),
         ("Re-upload de dino", "Tempo mínimo entre uploads do mesmo dino."),
         ("Acesso exclusivo", "Somente SteamIDs na whitelist podem entrar."),
+        ("Cross-ARK", "Cluster ID, pasta e bloqueios de viagem: menu Clusters."),
     ], row)
 
 
@@ -3619,7 +3523,8 @@ def _open_import_ini(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
 
 def _open_preset_dialog(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     """Diálogo para salvar/carregar presets de configuração."""
-    from ..asm_engine.asm_preset_manager import AsmPresetManager, PRESET_CATEGORIES
+    from ..asm_engine.asm_preset_manager import AsmPresetManager, format_preset_categories
+    from ..asm_engine.asm_config_categories import iter_preset_categories
     pm = AsmPresetManager()
     th = get_theme("tek")
     bg      = th["bg"]
@@ -3633,7 +3538,8 @@ def _open_preset_dialog(app: "ARKServerManagerApp", srv: AsmServerConfig) -> Non
 
     dlg = ctk.CTkToplevel(app)
     dlg.title(f"Presets — {srv.name}")
-    dlg.geometry("640x500")
+    dlg.geometry("680x620")
+    dlg.minsize(560, 480)
     dlg.configure(fg_color=bg)
     dlg.after(100, dlg.lift)
     dlg.after(150, dlg.focus_force)
@@ -3671,7 +3577,7 @@ def _open_preset_dialog(app: "ARKServerManagerApp", srv: AsmServerConfig) -> Non
             ctk.CTkLabel(pf, text=p["name"],
                          font=ctk.CTkFont(size=12, weight="bold"),
                          text_color=t_sec).grid(row=0, column=0, padx=10, pady=(8, 2), sticky="w")
-            ctk.CTkLabel(pf, text=f"Categorias: {', '.join(p['categories'])}  •  {p['created_at'][:10]}",
+            ctk.CTkLabel(pf, text=f"Categorias: {format_preset_categories(p['categories'])}  •  {p['created_at'][:10]}",
                          font=ctk.CTkFont(size=9), text_color=t_mut,
                          ).grid(row=1, column=0, padx=10, pady=(0, 4), sticky="w")
 
@@ -3703,33 +3609,53 @@ def _open_preset_dialog(app: "ARKServerManagerApp", srv: AsmServerConfig) -> Non
     # ── Aba: Salvar preset ────────────────────────────────────────────────────
     save_f = tab.tab("💾 Salvar Preset")
     save_f.grid_columnconfigure(0, weight=1)
+    save_f.grid_rowconfigure(3, weight=1)
 
     ctk.CTkLabel(save_f, text="Nome do preset:", font=ctk.CTkFont(size=11),
-                 text_color=t_sec, anchor="w").pack(padx=12, pady=(12, 2), anchor="w")
+                 text_color=t_sec, anchor="w").grid(row=0, column=0, padx=12, pady=(12, 2), sticky="w")
     name_entry = ctk.CTkEntry(save_f, placeholder_text="Meu Preset PvE")
-    name_entry.pack(fill="x", padx=12, pady=(0, 8))
+    name_entry.grid(row=1, column=0, padx=12, pady=(0, 4), sticky="ew")
 
-    ctk.CTkLabel(save_f, text="Categorias a incluir:", font=ctk.CTkFont(size=11),
-                 text_color=t_sec, anchor="w").pack(padx=12, pady=(4, 2), anchor="w")
+    cat_header = ctk.CTkFrame(save_f, fg_color="transparent")
+    cat_header.grid(row=2, column=0, padx=12, pady=(8, 2), sticky="ew")
+    cat_header.grid_columnconfigure(1, weight=1)
+
+    ctk.CTkLabel(cat_header, text="Categorias a incluir:", font=ctk.CTkFont(size=11),
+                 text_color=t_sec, anchor="w").grid(row=0, column=0, sticky="w")
 
     cat_vars: dict[str, tk.BooleanVar] = {}
-    cats_grid = ctk.CTkFrame(save_f, fg_color="transparent")
-    cats_grid.pack(fill="x", padx=12)
-    cats_grid.grid_columnconfigure((0, 1, 2), weight=1)
+    sel_all_var = tk.BooleanVar(value=True)
 
-    all_cats = [c for c in PRESET_CATEGORIES if c != "full"]
-    for i, cat in enumerate(all_cats):
+    def _toggle_all_cats() -> None:
+        val = sel_all_var.get()
+        for var in cat_vars.values():
+            var.set(val)
+
+    ctk.CTkCheckBox(
+        cat_header, text="Selecionar tudo", variable=sel_all_var,
+        font=ctk.CTkFont(size=10, weight="bold"), text_color=t_sec,
+        border_color=accent, checkmark_color=accent,
+        command=_toggle_all_cats,
+    ).grid(row=0, column=1, sticky="e")
+
+    cats_scroll = ctk.CTkScrollableFrame(save_f, fg_color=bg, corner_radius=8, height=220)
+    cats_scroll.grid(row=3, column=0, padx=12, pady=(0, 8), sticky="nsew")
+    cats_scroll.grid_columnconfigure((0, 1), weight=1)
+
+    preset_cats = list(iter_preset_categories())
+    for i, (slug, label) in enumerate(preset_cats):
         v = tk.BooleanVar(value=True)
-        cat_vars[cat] = v
-        ctk.CTkCheckBox(cats_grid, text=cat.capitalize(), variable=v,
-                        font=ctk.CTkFont(size=10), text_color=t_sec,
-                        border_color=accent, checkmark_color=accent,
-                        ).grid(row=i // 3, column=i % 3, padx=4, pady=2, sticky="w")
+        cat_vars[slug] = v
+        ctk.CTkCheckBox(
+            cats_scroll, text=label, variable=v,
+            font=ctk.CTkFont(size=10), text_color=t_sec,
+            border_color=accent, checkmark_color=accent,
+        ).grid(row=i // 2, column=i % 2, padx=6, pady=2, sticky="w")
 
     ctk.CTkLabel(save_f, text="Descrição (opcional):", font=ctk.CTkFont(size=11),
-                 text_color=t_sec, anchor="w").pack(padx=12, pady=(8, 2), anchor="w")
+                 text_color=t_sec, anchor="w").grid(row=4, column=0, padx=12, pady=(4, 2), sticky="w")
     desc_entry = ctk.CTkEntry(save_f, placeholder_text="Balanceamento para PvE casual")
-    desc_entry.pack(fill="x", padx=12, pady=(0, 12))
+    desc_entry.grid(row=5, column=0, padx=12, pady=(0, 8), sticky="ew")
 
     def _save_preset():
         name = name_entry.get().strip()
@@ -3749,4 +3675,4 @@ def _open_preset_dialog(app: "ARKServerManagerApp", srv: AsmServerConfig) -> Non
                   fg_color=acc_mb, hover_color="#052e16",
                   border_width=1, border_color=accent, text_color=accent,
                   font=ctk.CTkFont(size=12),
-                  command=_save_preset).pack(padx=12, pady=(0, 12))
+                  command=_save_preset).grid(row=6, column=0, padx=12, pady=(0, 12), sticky="ew")

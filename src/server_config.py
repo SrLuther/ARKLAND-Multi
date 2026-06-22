@@ -371,6 +371,11 @@ class ClusterProfile:
     prevent_download_items: bool = False
     prevent_download_dinos: bool = False
     no_transfer_from_filtering: bool = False
+    prevent_upload_survivors: bool = False
+    prevent_upload_items: bool = False
+    prevent_upload_dinos: bool = False
+    cross_ark_allow_foreign_dino_downloads: bool = False
+    enable_tribute_downloads: bool = True
     # Sincronização automática de dados de viagem (local ↔ rede)
     sync_enabled: bool = False       # Ativa sync automático local_cluster_dir ↔ cluster_dir
     local_cluster_dir: str = ""      # Pasta local onde o ARK grava os dados de viagem
@@ -643,8 +648,11 @@ class ServerConfig:
         _cl_dir = ""
         _cl_no_transfer = False
         if cluster_profile and cluster_profile.cluster_id:
+            from .cluster_paths import resolve_cluster_dir_override
             _cl_id  = cluster_profile.cluster_id
-            _cl_dir = cluster_profile.cluster_dir
+            _cl_dir = resolve_cluster_dir_override(
+                cluster_profile, install_dir=self.install_dir or ""
+            )
             _cl_no_transfer = cluster_profile.no_transfer_from_filtering
         elif self.cluster.enabled and self.cluster.cluster_id:
             _cl_id  = self.cluster.cluster_id
@@ -758,15 +766,10 @@ class ServerConfig:
             # caminhos de código distintos; ?ClusterID= seria ignorado pelo servidor.
             flags.append(f"-clusterid={_cl_id}")
             if _cl_dir:
-                # Normaliza para backslashes — ARK no Windows requer separador nativo.
-                # Não usar aspas internas (-ClusterDirOverride="path"): o parser do
-                # ARK/UE pode falhar. Se o caminho tiver espaços, citar o argumento
-                # inteiro; caso contrário, sem aspas.
-                _cl_dir_win = _cl_dir.replace("/", "\\")
-                if " " in _cl_dir_win:
-                    flags.append(f'"-ClusterDirOverride={_cl_dir_win}"')
-                else:
-                    flags.append(f"-ClusterDirOverride={_cl_dir_win}")
+                from .cluster_paths import format_cluster_dir_launch_flag
+                _flag = format_cluster_dir_launch_flag(_cl_dir)
+                if _flag:
+                    flags.append(_flag)
 
         if dynamic_config_url:
             # ?customdynamicconfigurl= é query param; -UseDynamicConfig é a flag habilitadora (patch 307.2)
