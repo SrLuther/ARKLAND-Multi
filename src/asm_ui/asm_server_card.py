@@ -67,6 +67,12 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     t_sec   = th["text_secondary"]
     t_mut   = th["text_muted"]
     is_light = th.get("_is_light", False)
+    chip_bg  = th.get("chip_bg", "#0a1525")
+    chip_bdr = th.get("chip_border", sep)
+    inset_bg = th.get("inset_bg", "#0f172a")
+    card_bdr = th.get("card_border", sep)
+    toolbar_bg = th.get("toolbar_bg", "#080e18")
+    toolbar_bdr = th.get("toolbar_border", "#0d1929")
 
     inst       = app.asm_server_manager.get_instance(srv.id)
     status     = inst.status if inst else ASM_STATUS_STOPPED
@@ -176,8 +182,37 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
           else "busy" if is_busy else "stopped")
     b_bg, b_tc = _badge_cfg[bk]
 
+    # Ações rápidas no cabeçalho (sempre visíveis — evita sumiço abaixo da dobra)
+    if is_running or is_busy:
+        qa = ctk.CTkFrame(hdr, fg_color="transparent")
+        qa.grid(row=0, column=3, sticky="e", padx=(4, 0))
+        if is_running:
+            ctk.CTkButton(
+                qa, text="⏹", width=34, height=28,
+                fg_color="#7f1d1d", hover_color="#450a0a",
+                text_color="#fca5a5", corner_radius=6,
+                font=ctk.CTkFont(size=12),
+                command=lambda sid=srv.id: app._asm_stop_server(sid),
+            ).pack(side="left", padx=(0, 3))
+            ctk.CTkButton(
+                qa, text="🔄", width=34, height=28,
+                fg_color="#0f172a", hover_color="#1e3a5f",
+                text_color=t_sec, corner_radius=6,
+                border_width=1, border_color=sep,
+                font=ctk.CTkFont(size=11),
+                command=lambda s=srv: app._asm_restart_server(s),
+            ).pack(side="left", padx=(0, 3))
+        ctk.CTkButton(
+            qa, text="⚙", width=34, height=28,
+            fg_color=acc_mb, hover_color=acc_dk,
+            text_color=accent, corner_radius=6,
+            border_width=1, border_color=acc_dk,
+            font=ctk.CTkFont(size=12),
+            command=lambda sid=srv.id: app._asm_open_server_panel(sid),
+        ).pack(side="left")
+
     badge = ctk.CTkFrame(hdr, fg_color=b_bg, corner_radius=5)
-    badge.grid(row=0, column=3, sticky="e")
+    badge.grid(row=0, column=4 if (is_running or is_busy) else 3, sticky="e")
     tk.Label(badge, text="●", fg=b_tc, bg=b_bg,
              font=("Segoe UI", 7)).pack(side="left", padx=(8, 3), pady=5)
     ctk.CTkLabel(
@@ -191,8 +226,8 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     info_r = ctk.CTkFrame(card, fg_color="transparent")
     info_r.grid(row=1, column=0, padx=14, pady=(0, 4), sticky="w")
 
-    def _chip(text: str, border: str = sep, tc: str = t_mut) -> None:
-        f = ctk.CTkFrame(info_r, fg_color="#f0f9ff" if is_light else "#0a1525",
+    def _chip(text: str, border: str = chip_bdr, tc: str = t_mut) -> None:
+        f = ctk.CTkFrame(info_r, fg_color=chip_bg,
                          corner_radius=4, border_width=1, border_color=border)
         f.pack(side="left", padx=(0, 4))
         ctk.CTkLabel(f, text=text,
@@ -212,56 +247,11 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     if is_running and steam_st not in (STEAM_UNAVAILABLE, STEAM_UNKNOWN):
         from ..server_visibility import steam_chip
         vis_label, vis_color = steam_chip(steam_st)
-        detail = getattr(inst, "steam_status_detail", "") if inst else ""
-        tip = detail or vis_label
         _chip(f"📡  {vis_label}", border=vis_color, tc=vis_color)
 
-    # ── INDICADORES RICOS (jogadores, uptime, RAM, versão) ─────────────────
-    rich_r = ctk.CTkFrame(
-        card,
-        fg_color="#0f172a" if not is_light else "#e8eef4",
-        corner_radius=8,
-        border_width=1,
-        border_color="#1e3a5f" if not is_light else "#cbd5e1",
-    )
-    rich_r.grid(row=2, column=0, padx=14, pady=(6, 10), sticky="ew")
-
-    rich_key = f"_asm_rich_status_{srv.id}"
-    rich_data: dict = getattr(app, rich_key, {})
-
-    players_txt = rich_data.get("players", "—")
-    uptime_txt  = rich_data.get("uptime", "—")
-    ram_txt     = rich_data.get("ram", "—")
-    ver_txt     = rich_data.get("version", "—")
-
-    _val_tc = accent if is_running else t_sec
-    _val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
-    _hint_font = ctk.CTkFont(family="Segoe UI", size=10)
-
-    for icon, val, hint in (
-        ("👥", players_txt, "Jogadores"),
-        ("🕐", uptime_txt, "Uptime"),
-        ("💾", ram_txt, "Memória"),
-        ("📋", ver_txt, "Versão"),
-    ):
-        chip = ctk.CTkFrame(rich_r, fg_color="transparent")
-        chip.pack(side="left", padx=(12, 16), pady=10)
-        ctk.CTkLabel(
-            chip, text=f"{icon}  {val}",
-            font=_val_font, text_color=_val_tc,
-        ).pack(anchor="w")
-        ctk.CTkLabel(
-            chip, text=hint,
-            font=_hint_font, text_color=t_mut,
-        ).pack(anchor="w", pady=(2, 0))
-
-    # ── SEPARADOR ─────────────────────────────────────────────────────────────
-    ctk.CTkFrame(card, height=1, fg_color=sep).grid(
-        row=3, column=0, sticky="ew", padx=14, pady=0)
-
-    # ── AÇÕES PRIMÁRIAS ───────────────────────────────────────────────────────
+    # ── AÇÕES PRIMÁRIAS (logo abaixo dos chips — prioridade sobre stats) ───────
     act = ctk.CTkFrame(card, fg_color="transparent")
-    act.grid(row=4, column=0, padx=14, pady=(10, 10), sticky="ew")
+    act.grid(row=2, column=0, padx=14, pady=(4, 6), sticky="ew")
 
     if is_running:
         ctk.CTkButton(
@@ -318,10 +308,8 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
         command=lambda sid=srv.id: app._asm_open_server_panel(sid),
     ).pack(side="left", padx=(0, 14))
 
-    # Divisor vertical entre ações principais e RCON
     tk.Frame(act, width=1, bg=sep).pack(side="left", fill="y", padx=(0, 12), pady=4)
 
-    # RCON + Players — coloridos quando disponíveis
     rcon_color  = "#0369a1" if (is_light and rcon_ready) else ("#7dd3fc" if rcon_ready else t_mut)
     rcon_border = ("#7dd3fc" if rcon_ready else "#cbd5e1") if is_light else ("#1e3a5f" if rcon_ready else "#111827")
     rcon_bg     = ("#e0f2fe" if rcon_ready else "#f8fafc") if is_light else ("#071526" if rcon_ready else "#090f1a")
@@ -345,15 +333,58 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
         command=lambda s=srv: app._asm_open_player_list(s),
     ).pack(side="left", padx=(0, 0))
 
+    # ── INDICADORES RICOS (jogadores, uptime, RAM, versão) ─────────────────
+    rich_r = ctk.CTkFrame(
+        card,
+        fg_color=inset_bg,
+        corner_radius=8,
+        border_width=1,
+        border_color=card_bdr,
+    )
+    rich_r.grid(row=3, column=0, padx=14, pady=(0, 8), sticky="ew")
+
+    rich_key = f"_asm_rich_status_{srv.id}"
+    rich_data: dict = getattr(app, rich_key, {})
+
+    players_txt = rich_data.get("players", "—")
+    uptime_txt  = rich_data.get("uptime", "—")
+    ram_txt     = rich_data.get("ram", "—")
+    ver_txt     = rich_data.get("version", "—")
+
+    _val_tc = accent if is_running else t_sec
+    _val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
+    _hint_font = ctk.CTkFont(family="Segoe UI", size=10)
+
+    for icon, val, hint in (
+        ("👥", players_txt, "Jogadores"),
+        ("🕐", uptime_txt, "Uptime"),
+        ("💾", ram_txt, "Memória"),
+        ("📋", ver_txt, "Versão"),
+    ):
+        chip = ctk.CTkFrame(rich_r, fg_color="transparent")
+        chip.pack(side="left", padx=(12, 16), pady=10)
+        ctk.CTkLabel(
+            chip, text=f"{icon}  {val}",
+            font=_val_font, text_color=_val_tc,
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            chip, text=hint,
+            font=_hint_font, text_color=t_mut,
+        ).pack(anchor="w", pady=(2, 0))
+
+    # ── SEPARADOR ─────────────────────────────────────────────────────────────
+    ctk.CTkFrame(card, height=1, fg_color=sep).grid(
+        row=4, column=0, sticky="ew", padx=14, pady=0)
+
     # ── BARRA DE FERRAMENTAS ──────────────────────────────────────────────────
-    _tbg     = "#f0f9ff" if is_light else "#080e18"
-    _tborder = "#e0f2fe" if is_light else "#0d1929"
-    _thover  = "#e0f2fe" if is_light else "#162032"
-    _tlabel  = "#94a3b8" if is_light else "#1e3a5f"
+    _tbg     = toolbar_bg
+    _tborder = toolbar_bdr
+    _thover  = th.get("nav_hover", "#162032") if not is_light else th.get("card_hover", "#e0f2fe")
+    _tlabel  = t_mut if is_light else "#1e3a5f"
 
     tools = ctk.CTkFrame(card, fg_color=_tbg, corner_radius=7,
                          border_width=1, border_color=_tborder)
-    tools.grid(row=5, column=0, sticky="ew", padx=10, pady=(0, 10))
+    tools.grid(row=5, column=0, sticky="ew", padx=10, pady=(8, 10))
 
     def _tbtn(text: str, cmd, width: int = 82) -> None:
         ctk.CTkButton(

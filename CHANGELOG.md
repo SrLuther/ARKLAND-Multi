@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.75] - 2026-06-22
+
+### Feature
+
+- Novo (TEK — Broadcasts): aba global para cadastrar mensagens, enviar via RCON a todos os servidores gerenciados e exportar/importar biblioteca (.arkbroadcast) entre máquinas.
+
+### Other
+
+- UI (Broadcasts): envio rápido, biblioteca com rótulo/mensagem e mesclagem por ID na importação.
+
 ## [1.9.74] - 2026-06-20
 
 ### Feature

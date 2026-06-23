@@ -8,7 +8,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING, Callable
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
-from ..asm_engine.asm_server_config import AsmServerConfig
+from ..asm_engine.asm_server_config import AsmServerConfig, is_config_editable
 from ..ui.server_field_labels import get_field_meta
 from ..ui_constants import get_theme
 
@@ -125,13 +125,20 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
     acc_mb  = theme["accent_muted_bg"]
     acc_dk  = theme["accent_dark"]
     hover   = theme["accent_hover"]
+    surface_bg = theme.get("surface_bg", bg)
+    panel_bg   = theme.get("panel_bg", card_bg)
+    card_border = theme.get("card_border", sep)
+    nav_hover   = theme.get("nav_hover", hover)
 
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_rowconfigure(0, weight=0)
-    parent.grid_rowconfigure(1, weight=1)
+    parent.grid_rowconfigure(1, weight=0)
+    parent.grid_rowconfigure(2, weight=0)
+    parent.grid_rowconfigure(3, weight=1)
 
     # ── Header ────────────────────────────────────────────────────────────────
-    hdr = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=0, height=60)
+    hdr = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=0, height=60,
+                       border_width=1, border_color=card_border)
     hdr.grid(row=0, column=0, sticky="ew")
     hdr.grid_propagate(False)
     hdr.grid_columnconfigure(1, weight=1)
@@ -211,6 +218,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         status = _get_status()
         is_running = status == "running"
         is_busy    = status in ("starting", "stopping", "restarting")
+        editable   = is_config_editable(status)
         btn_start.configure(
             state="disabled" if (is_running or is_busy) else "normal",
             fg_color="#052e16" if not (is_running or is_busy) else acc_mb,
@@ -225,17 +233,30 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
             state="normal" if is_running else "disabled",
             text_color=t_sec if is_running else t_mut,
         )
+        _save_state = "normal" if editable else "disabled"
+        btn_save.configure(state=_save_state, text_color=accent if editable else t_mut)
+        btn_import.configure(state=_save_state, text_color=accent if editable else t_mut)
+        if editable:
+            lock_banner.grid_remove()
+        else:
+            lock_banner.grid(row=1, column=0, sticky="ew")
+            lock_lbl.configure(
+                text=(
+                    "Servidor em execução — pare o processo para salvar alterações no perfil e INI."
+                    if is_running else
+                    "Aguarde o servidor ficar parado para salvar alterações."
+                )
+            )
 
-    _refresh_action_btns()
-
-    ctk.CTkButton(
+    btn_save = ctk.CTkButton(
         hdr, text="💾  Salvar", width=100, height=34,
         fg_color=acc_mb, hover_color=acc_dk,
         border_width=1, border_color=acc_dk,
         text_color=accent, corner_radius=8,
         font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
         command=lambda: _save(app, srv),
-    ).grid(row=0, column=6, padx=(8, 4), pady=12, sticky="e")
+    )
+    btn_save.grid(row=0, column=6, padx=(8, 4), pady=12, sticky="e")
 
     ctk.CTkButton(
         hdr, text="📋  Presets", width=92, height=34,
@@ -246,14 +267,15 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         command=lambda: _open_preset_dialog(app, srv),
     ).grid(row=0, column=7, padx=(0, 6), pady=12, sticky="e")
 
-    ctk.CTkButton(
+    btn_import = ctk.CTkButton(
         hdr, text="📥  Importar INI", width=130, height=34,
         fg_color=acc_mb, hover_color=acc_dk,
         border_width=1, border_color=acc_dk,
         text_color=accent, corner_radius=8,
         font=ctk.CTkFont(family="Segoe UI", size=12),
         command=lambda: _open_import_ini(app, srv),
-    ).grid(row=0, column=8, padx=(0, 8), pady=12, sticky="e")
+    )
+    btn_import.grid(row=0, column=8, padx=(0, 8), pady=12, sticky="e")
 
     def _confirm_remove() -> None:
         import tkinter.messagebox as _mb
@@ -290,22 +312,46 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         command=_confirm_remove,
     ).grid(row=0, column=9, padx=(0, 16), pady=12, sticky="e")
 
+    lock_banner = ctk.CTkFrame(parent, fg_color="#431407" if not theme.get("_is_light") else "#fef3c7",
+                               corner_radius=0, height=32)
+    lock_banner.grid(row=1, column=0, sticky="ew")
+    lock_banner.grid_propagate(False)
+    lock_lbl = ctk.CTkLabel(
+        lock_banner,
+        text="",
+        font=ctk.CTkFont(size=11),
+        text_color="#fbbf24" if not theme.get("_is_light") else "#92400e",
+    )
+    lock_lbl.pack(padx=16, pady=6, anchor="w")
+    lock_banner.grid_remove()
+
+    if not hasattr(app, "_asm_panel_refreshers"):
+        app._asm_panel_refreshers = {}
+    app._asm_panel_refreshers[srv.id] = _refresh_action_btns
+    _refresh_action_btns()
+
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(
-        row=0, column=0, sticky="ews")
+        row=2, column=0, sticky="ews")
 
     # ── Body: nav esquerda + conteúdo direito ─────────────────────────────────
-    body = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
-    body.grid(row=1, column=0, sticky="nsew")
+    body = ctk.CTkFrame(parent, fg_color=surface_bg, corner_radius=0)
+    body.grid(row=3, column=0, sticky="nsew")
     body.grid_columnconfigure(1, weight=1)
     body.grid_rowconfigure(0, weight=1)
 
-    nav_frame = ctk.CTkScrollableFrame(body, fg_color=nav_bg, corner_radius=0, width=240,
-                                       scrollbar_button_color=sep)
+    nav_frame = ctk.CTkScrollableFrame(
+        body, fg_color=nav_bg, corner_radius=0, width=240,
+        scrollbar_button_color=sep,
+        border_width=1, border_color=card_border,
+    )
     nav_frame.grid(row=0, column=0, sticky="nsew")
     nav_frame.grid_columnconfigure(0, weight=1)
 
-    content_area = ctk.CTkFrame(body, fg_color=bg, corner_radius=0)
+    content_area = ctk.CTkFrame(
+        body, fg_color=surface_bg, corner_radius=0,
+        border_width=1, border_color=card_border,
+    )
     content_area.grid(row=0, column=1, sticky="nsew", padx=(1, 0))
     content_area.grid_columnconfigure(0, weight=1)
     content_area.grid_rowconfigure(0, weight=1)
@@ -375,7 +421,13 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         sf = section_frames.get(name)
         if sf is not None:
             return sf
-        sf = ctk.CTkScrollableFrame(content_area, fg_color="transparent", corner_radius=0)
+        sf = ctk.CTkScrollableFrame(
+            content_area,
+            fg_color=panel_bg,
+            corner_radius=10,
+            border_width=1,
+            border_color=card_border,
+        )
         sf.grid_columnconfigure(0, weight=0)
         sf.grid_columnconfigure(1, weight=1)
         sf.grid_columnconfigure(2, weight=0)
@@ -602,7 +654,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         for sec in group_secs:
             btn = ctk.CTkButton(
                 nav_frame, text=sec, anchor="w",
-                fg_color="transparent", hover_color=hover,
+                fg_color="transparent", hover_color=nav_hover,
                 text_color=t_sec, font=ctk.CTkFont(family="Segoe UI", size=11),
                 height=30, corner_radius=6,
                 command=lambda s=sec: _show_section(s),
@@ -677,6 +729,8 @@ def _field_label(field: str, label: str | None) -> str:
 
 def _str_entry(parent, label, field, srv, vars_ref, row, accent,
                wide=False, pw=False, placeholder=""):
+    from ..ui_constants import get_theme as _gt, tek_entry_kwargs
+    _ek = tek_entry_kwargs(_gt("tek"))
     label = _field_label(field, label)
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
@@ -684,7 +738,7 @@ def _str_entry(parent, label, field, srv, vars_ref, row, accent,
     vars_ref[field] = v
     ctk.CTkEntry(parent, textvariable=v, show="*" if pw else "",
                  placeholder_text=placeholder,
-                 width=300 if wide else 200).grid(
+                 width=300 if wide else 200, **_ek).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="ew" if wide else "w")
     if not pw:
         default = str(getattr(_DEFAULT_SRV, field, ""))
@@ -692,30 +746,36 @@ def _str_entry(parent, label, field, srv, vars_ref, row, accent,
 
 
 def _int_entry(parent, label, field, srv, vars_ref, row):
+    from ..ui_constants import get_theme as _gt, tek_entry_kwargs
+    _ek = tek_entry_kwargs(_gt("tek"))
     label = _field_label(field, label)
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
     v = tk.StringVar(value=str(getattr(srv, field, 0)))
     vars_ref[field] = v
-    ctk.CTkEntry(parent, textvariable=v, width=100).grid(
+    ctk.CTkEntry(parent, textvariable=v, width=100, **_ek).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="w")
     _attach_modified_badge(parent, v, field, getattr(_DEFAULT_SRV, field, 0), row)
 
 
 def _float_entry(parent, label, field, srv, vars_ref, row):
+    from ..ui_constants import get_theme as _gt, tek_entry_kwargs
+    _ek = tek_entry_kwargs(_gt("tek"))
     label = _field_label(field, label)
     ctk.CTkLabel(parent, text=label, font=ctk.CTkFont(size=11), anchor="w").grid(
         row=row, column=0, padx=(8, 4), pady=3, sticky="w")
     v = tk.StringVar(value=str(getattr(srv, field, 1.0)))
     vars_ref[field] = v
-    ctk.CTkEntry(parent, textvariable=v, width=100).grid(
+    ctk.CTkEntry(parent, textvariable=v, width=100, **_ek).grid(
         row=row, column=1, padx=(0, 8), pady=3, sticky="w")
     _attach_modified_badge(parent, v, field, getattr(_DEFAULT_SRV, field, 1.0), row)
 
 
 def _event_combo_entry(parent, srv, vars_ref, row, accent):
     """ActiveEvent — eventos oficiais ARK (FearEvolved, WinterWonderland, …)."""
-    from ..ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_OFFICIAL_EVENTS
+    from ..ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_OFFICIAL_EVENTS, get_theme as _gt, tek_entry_kwargs
+
+    _ek = tek_entry_kwargs(_gt("tek"))
 
     ctk.CTkLabel(
         parent,
@@ -741,6 +801,7 @@ def _event_combo_entry(parent, srv, vars_ref, row, accent):
         dropdown_font=ctk.CTkFont(size=12),
         button_color=accent,
         button_hover_color="#16a34a",
+        **_ek,
     ).grid(row=row, column=1, padx=(0, 8), pady=3, sticky="w")
 
     default_id = (getattr(_DEFAULT_SRV, "active_event", "") or "").strip()
@@ -782,10 +843,17 @@ def _bool_check(parent, label, field, srv, vars_ref, row, accent, col=0, colspan
 
 
 def _section_label(parent, text, row, accent):
-    ctk.CTkLabel(parent, text=text,
-                 font=ctk.CTkFont(size=12, weight="bold"),
-                 text_color=accent).grid(
-        row=row, column=0, columnspan=4, padx=8, pady=(10, 2), sticky="w")
+    from ..ui_constants import get_theme as _gt
+    th = _gt("tek")
+    wrap = ctk.CTkFrame(parent, fg_color="transparent")
+    wrap.grid(row=row, column=0, columnspan=4, padx=8, pady=(10, 4), sticky="ew")
+    ctk.CTkLabel(
+        wrap, text=text,
+        font=ctk.CTkFont(size=12, weight="bold"),
+        text_color=accent,
+    ).pack(anchor="w")
+    ctk.CTkFrame(wrap, height=1, fg_color=th.get("separator", "#64748b")).pack(
+        fill="x", pady=(4, 0))
 
 
 def _add_help(sf: ctk.CTkScrollableFrame, items: "list[tuple[str, str]]") -> None:
@@ -3449,6 +3517,18 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
 
 
 def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
+    inst = app.asm_server_manager.get_instance(srv.id)
+    status = inst.status if inst else "stopped"
+    if not is_config_editable(status):
+        import tkinter.messagebox as _mb
+        _mb.showwarning(
+            "Servidor em execução",
+            "Pare o servidor antes de salvar.\n\n"
+            "Alterações no INI e perfil só entram em vigor após reiniciar o processo.",
+            parent=app,
+        )
+        return
+
     # 1. Sincroniza UI → cfg em memória
     _sync_ui_to_cfg(app, srv)
 

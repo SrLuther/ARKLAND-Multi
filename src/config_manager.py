@@ -203,6 +203,8 @@ class AppConfig:
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
     # Loja cross-cluster
     shop: ShopGlobalConfig = field(default_factory=ShopGlobalConfig)
+    # Biblioteca global de broadcasts (TEK — sincronizável via .arkbroadcast)
+    broadcast_library: list = field(default_factory=list)
 
 
 class ConfigManager:
@@ -248,6 +250,8 @@ class ConfigManager:
                     self.config.remote_peers = []
                 if not isinstance(self.config.remote_instances, list):
                     self.config.remote_instances = []
+                if not isinstance(self.config.broadcast_library, list):
+                    self.config.broadcast_library = []
                 if not self.config.remote_agent_token:
                     self.config.remote_agent_token = str(uuid.uuid4())
                     self.save()

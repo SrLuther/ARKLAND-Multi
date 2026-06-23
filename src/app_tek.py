@@ -317,6 +317,10 @@ class ARKServerManagerApp(ctk.CTk):
             rich_key = f"_asm_rich_status_{server_id}"
             setattr(self, rich_key, {"players": "—", "uptime": "—", "ram": "—", "version": "—"})
 
+        refresher = getattr(self, "_asm_panel_refreshers", {}).get(server_id)
+        if refresher:
+            self.after(0, refresher)
+
         self.after(0, self._asm_refresh_dashboard)
         self.after(0, self._rebuild_server_sidebar)
 
@@ -529,6 +533,7 @@ class ARKServerManagerApp(ctk.CTk):
             ("⊞", "dashboard",  "Dashboard"),
             ("🔄", "sync",       "Sincronização"),
             ("⚡", "buffs",      "BUFFs"),
+            ("📢", "broadcasts", "Broadcasts"),
             ("📊", "desempenho", "Desempenho"),
             ("🔗", "clusters",   "Clusters"),
             ("🖥", "remoto",     "Remoto"),
@@ -1870,6 +1875,55 @@ class ARKServerManagerApp(ctk.CTk):
     def _on_server_visibility_change(self, server_id: str, mode: str, detail: str = "") -> None:
         """Callback quando disponibilidade Steam/LAN muda (paridade ASM)."""
         self.after(0, self._asm_refresh_dashboard)
+
+    # ── Broadcasts TEK (biblioteca global) ───────────────────────────────────
+
+    def _broadcast_tek_send_quick(self) -> None:
+        from .pages.broadcast_send_tek import broadcast_send_tek
+        msg = getattr(self, "_broadcast_quick_var", tk.StringVar()).get()
+        broadcast_send_tek(self, msg)
+
+    def _broadcast_tek_send_all(self, message: str, server_ids: list[str] | None = None) -> None:
+        from .pages.broadcast_send_tek import broadcast_send_tek
+        broadcast_send_tek(self, message, server_ids=server_ids)
+
+    def _broadcast_tek_send_one(self, entry_id: str) -> None:
+        from .pages.broadcast_profile_io import get_library
+        entry = next((e for e in get_library(self) if str(e.get("id")) == entry_id), None)
+        if not entry:
+            self._toast("Mensagem não encontrada.", kind="warning")
+            return
+        self._broadcast_tek_send_all(entry.get("message", ""))
+
+    def _broadcast_tek_export(self) -> None:
+        from .pages.broadcast_import_export import broadcast_export
+        broadcast_export(self)
+
+    def _broadcast_tek_import(self) -> None:
+        from .pages.broadcast_import_export import broadcast_import
+        broadcast_import(self)
+
+    def _broadcast_library_add_from_ui(self) -> None:
+        from .pages.broadcast_library_add import broadcast_library_add
+        label = getattr(self, "_broadcast_new_label", tk.StringVar()).get()
+        msg = getattr(self, "_broadcast_new_msg", tk.StringVar()).get()
+        if broadcast_library_add(self, label, msg):
+            getattr(self, "_broadcast_new_label", tk.StringVar()).set("")
+            getattr(self, "_broadcast_new_msg", tk.StringVar()).set("")
+            self._broadcast_library_refresh()
+
+    def _broadcast_library_edit(self, entry_id: str) -> None:
+        from .pages.broadcast_library_edit import broadcast_library_edit
+        broadcast_library_edit(self, entry_id)
+
+    def _broadcast_library_remove(self, entry_id: str) -> None:
+        from .pages.broadcast_library_delete import broadcast_library_delete
+        broadcast_library_delete(self, entry_id)
+        self._broadcast_library_refresh()
+
+    def _broadcast_library_refresh(self) -> None:
+        from .pages.broadcast_library_refresh import broadcast_library_refresh
+        broadcast_library_refresh(self)
 
     def _toast(self, msg: str, kind: str = "info") -> None:
         from .pages.toast import toast

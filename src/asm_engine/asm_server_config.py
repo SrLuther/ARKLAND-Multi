@@ -432,3 +432,8 @@ ASM_STATUS_RUNNING  = "running"
 ASM_STATUS_STOPPING = "stopping"
 ASM_STATUS_CRASHED  = "crashed"
 ASM_STATUS_UPDATING = "updating"
+
+
+def is_config_editable(status: str) -> bool:
+    """True quando o perfil pode ser gravado com segurança (servidor parado)."""
+    return status in (ASM_STATUS_STOPPED, ASM_STATUS_CRASHED)

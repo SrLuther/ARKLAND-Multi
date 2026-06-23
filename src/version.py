@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.74"
-BUILD_DATE: str = "2026-06-22"
+APP_VERSION: str = "1.9.75"
+BUILD_DATE: str = "2026-06-23"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.75",
+        "date": "2026-06-22",
+        "changes": [
+            "Novo (TEK — Broadcasts): aba global para cadastrar mensagens, enviar via RCON a todos os "
+            "servidores gerenciados e exportar/importar biblioteca (.arkbroadcast) entre máquinas.",
+            "UI (Broadcasts): envio rápido, biblioteca com rótulo/mensagem e mesclagem por ID na importação.",
+        ],
+    },
     {
         "version": "1.9.74",
         "date": "2026-06-20",

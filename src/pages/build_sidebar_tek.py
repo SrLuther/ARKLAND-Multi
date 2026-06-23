@@ -50,6 +50,7 @@ def _build_sidebar_tek_nav(app, sb, theme: dict, accent: str,
         ("🗄", "database",   "Banco de Dados"),
         ("🔄", "sync",        "Sincronização"),
         ("⚡", "buffs",       "BUFFs"),
+        ("📢", "broadcasts",  "Broadcasts"),
         ("📊", "desempenho",  "Desempenho"),
         ("🔴", "crashes",     "Crashes"),
         ("🔗", "clusters",    "Clusters"),
@@ -124,7 +125,10 @@ def build_sidebar_tek(app) -> None:
     t_sec   = theme["text_secondary"]
     t_muted = theme["text_muted"]
 
-    sb = ctk.CTkFrame(app, width=_SIDEBAR_W, corner_radius=0, fg_color=sb_bg)
+    sb = ctk.CTkFrame(
+        app, width=_SIDEBAR_W, corner_radius=0, fg_color=sb_bg,
+        border_width=1, border_color=theme.get("card_border", sep_col),
+    )
     sb.grid(row=0, column=0, sticky="nsew")
     sb.grid_propagate(False)
     sb.grid_columnconfigure(0, weight=1)

@@ -60,6 +60,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     acc_mb  = theme["accent_muted_bg"]
     acc_dk  = theme["accent_dark"]
     is_light = theme.get("_is_light", False)
+    card_bdr = theme.get("card_border", sep)
 
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_rowconfigure(0, weight=0)  # TopBar
@@ -67,7 +68,8 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     parent.grid_rowconfigure(2, weight=1)  # Scroll de cards
 
     # ── TopBar ────────────────────────────────────────────────────────────────
-    topbar_f = ctk.CTkFrame(parent, fg_color=topbar, corner_radius=0, height=72)
+    topbar_f = ctk.CTkFrame(parent, fg_color=topbar, corner_radius=0, height=72,
+                            border_width=1, border_color=card_bdr)
     topbar_f.grid(row=0, column=0, sticky="ew")
     topbar_f.grid_propagate(False)
     topbar_f.grid_columnconfigure(1, weight=1)
@@ -160,7 +162,7 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     for col_idx, (label, value, sub, fg_col, bg_col, icon) in enumerate(_stat_cards):
         card = ctk.CTkFrame(stats_f, corner_radius=12,
                             fg_color=card_bg,
-                            border_width=1, border_color=sep)
+                            border_width=1, border_color=card_bdr)
         card.grid(row=0, column=col_idx, padx=6, pady=4, sticky="ew")
         card.grid_columnconfigure(0, weight=1)
 
@@ -239,6 +241,9 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     acc_mb  = theme["accent_muted_bg"]
     acc_dk  = theme["accent_dark"]
     is_light = theme.get("_is_light", False)
+    card_bdr = theme.get("card_border", sep)
+    folder_bg = theme.get("folder_hdr_bg", "#0a111c" if not is_light else "#eef2f6")
+    folder_bdr = theme.get("folder_hdr_border", "#1a2840" if not is_light else "#94a3b8")
 
     servers = app.asm_config_manager.servers
     if not servers:
@@ -255,7 +260,7 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
         app._asm_selected_servers: set = set()
 
     bulk_bar = ctk.CTkFrame(scroll, fg_color=card_bg, corner_radius=8,
-                            border_width=1, border_color=sep)
+                            border_width=1, border_color=card_bdr)
     bulk_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
     bulk_bar.grid_columnconfigure(8, weight=1)
 
@@ -349,10 +354,10 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
         # ── Header da pasta ───────────────────────────────────────────────────
         folder_hdr = ctk.CTkFrame(
             scroll,
-            fg_color="#f0f9ff" if is_light else "#0a111c",
+            fg_color=folder_bg,
             corner_radius=6,
             border_width=1,
-            border_color="#bae6fd" if is_light else "#1a2840",
+            border_color=folder_bdr,
         )
         folder_hdr.grid(row=grid_row, column=0, columnspan=2,
                         sticky="ew", padx=8, pady=(10, 2))
@@ -409,6 +414,15 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
             build_asm_server_card(app, folder_grid, srv, r, c)
 
     _update_subtitle(app, servers)
+
+    # Garante que cards completos (ações/ferramentas) entram na área rolável
+    try:
+        scroll.update_idletasks()
+        canvas = getattr(scroll, "_parent_canvas", None)
+        if canvas is not None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
+    except Exception:
+        pass
 
 
 def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:

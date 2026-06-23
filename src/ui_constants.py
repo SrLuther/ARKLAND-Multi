@@ -91,28 +91,56 @@ _THEMES: dict = {
         "mode_label":     "TEK",
         "mode_short":     "T",
         "_is_light":      False,
+        "elevated_bg":    "#0f172a",
+        "surface_bg":     "#020617",
+        "input_bg":       "#0f172a",
+        "input_border":   "#334155",
+        "chip_bg":        "#0a1525",
+        "chip_border":    "#1e293b",
+        "panel_bg":       "#0f172a",
+        "section_bg":     "#0a111c",
+        "inset_bg":       "#0f172a",
+        "toolbar_bg":     "#080e18",
+        "toolbar_border": "#0d1929",
+        "nav_hover":      "#1e293b",
+        "folder_hdr_bg":  "#0a111c",
+        "folder_hdr_border": "#1a2840",
     },
     "tek_light": {
-        "accent":         "#0284c7",    # sky-600
-        "accent_dark":    "#0369a1",    # sky-700
+        "accent":         "#0369a1",    # sky-700
+        "accent_dark":    "#075985",    # sky-800
         "accent_hover":   "#bae6fd",    # sky-200
-        "accent_label":   "#0369a1",    # sky-700
-        "accent_muted_bg":"#e0f2fe",    # sky-100
-        "rail_bg":        "#dde3ea",
-        "tab_bar_bg":     "#f8fafc",    # slate-50
-        "sidebar_bg":     "#dde3ea",
+        "accent_label":   "#0c4a6e",    # sky-900
+        "accent_muted_bg":"#dbeafe",    # blue-100
+        "rail_bg":        "#b8c5d3",    # sidebar — cinza-azulado (contraste com área central)
+        "tab_bar_bg":     "#dce3eb",
+        "sidebar_bg":     "#b8c5d3",
         "card_bg":        "#ffffff",
-        "card_border":    "#cbd5e1",    # slate-300
-        "card_hover":     "#e0f2fe",    # sky-100
-        "bg":             "#f1f5f9",    # slate-100
-        "topbar_bg":      "#dde3ea",
-        "separator":      "#cbd5e1",    # slate-300
-        "text_primary":   "#0f172a",    # slate-900
-        "text_secondary": "#334155",    # slate-700
-        "text_muted":     "#64748b",    # slate-500
+        "card_border":    "#64748b",    # slate-500 — bordas visíveis
+        "card_hover":     "#dbeafe",
+        "bg":             "#dce3eb",    # slate-200 — fundo principal (não branco puro)
+        "topbar_bg":      "#eef2f6",
+        "separator":      "#64748b",
+        "text_primary":   "#0f172a",
+        "text_secondary": "#1e293b",
+        "text_muted":     "#475569",
         "mode_label":     "TEK LIGHT",
         "mode_short":     "TL",
         "_is_light":      True,
+        "elevated_bg":    "#ffffff",
+        "surface_bg":     "#eef2f6",    # área de conteúdo
+        "input_bg":       "#ffffff",
+        "input_border":   "#64748b",
+        "chip_bg":        "#ffffff",
+        "chip_border":    "#94a3b8",
+        "panel_bg":       "#ffffff",    # formulários / cards internos
+        "section_bg":     "#f8fafc",
+        "inset_bg":       "#e2e8f0",    # blocos de stats
+        "toolbar_bg":     "#eef2f6",
+        "toolbar_border": "#94a3b8",
+        "nav_hover":      "#c5d0dc",
+        "folder_hdr_bg":  "#eef2f6",
+        "folder_hdr_border": "#94a3b8",
     },
 }
 
@@ -142,6 +170,18 @@ def get_theme(mode: str | None = None) -> dict:
     if resolved == "tek" and _tek_variant == "light":
         return _THEMES["tek_light"]
     return _THEMES.get(resolved, _THEMES["primitive"])
+
+
+def tek_entry_kwargs(th: dict) -> dict:
+    """Bordas visíveis em campos de formulário (especialmente modo claro)."""
+    border = th.get("input_border", th.get("separator", "#64748b"))
+    kw: dict = {"border_color": border}
+    if th.get("_is_light"):
+        kw["border_width"] = 1
+        kw["fg_color"] = th.get("input_bg", "#ffffff")
+    elif th.get("input_bg"):
+        kw["fg_color"] = th["input_bg"]
+    return kw
 
 _MAX_SYNC_CYCLES  = 5
 _MAX_SYNC_FOLDERS = 5
