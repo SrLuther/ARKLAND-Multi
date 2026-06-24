@@ -1,9 +1,10 @@
 {
-    "version": "1.9.75",
+    "version": "1.9.76",
     "date": "2026-06-23",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.75/ARKLAND-Multi-Setup-v1.9.75.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.76/ARKLAND-Multi-Setup-v1.9.76.exe",
     "changelog": [
-        "Novo (TEK — Broadcasts): aba global para cadastrar mensagens, enviar via RCON a todos os servidores gerenciados e exportar/importar biblioteca (.arkbroadcast) entre máquinas.",
-        "UI (Broadcasts): envio rápido, biblioteca com rótulo/mensagem e mesclagem por ID na importação."
+        "Novo (TEK — Broadcasts): reenvio automático por intervalo, ordem aleatória ou sequencial, seleção de servidores destino e mensagens no ciclo; export/import inclui configurações.",
+        "Melhoria (Broadcasts): painel com scheduler, checkboxes por servidor/mensagem e envio da próxima mensagem.",
+        "UI (Broadcasts): legendas nos campos Rótulo e Mensagem ao cadastrar nova entrada."
     ]
 }

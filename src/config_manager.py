@@ -116,6 +116,18 @@ class DiscordBotConfig:
 
 
 @dataclass
+class BroadcastTekConfig:
+    """Configuração global do painel Broadcasts TEK."""
+    scheduler_enabled: bool = False
+    interval_minutes: int = 30
+    random_order: bool = False
+    target_server_ids: list = field(default_factory=list)       # vazio = todos
+    enabled_message_ids: list = field(default_factory=list)     # vazio = todas
+    last_sent_at: float = 0.0
+    rotation_index: int = 0
+
+
+@dataclass
 class ShopGlobalConfig:
     """Loja central cross-cluster (host na LAN ou cliente apontando para host remoto)."""
     mode: str = "client"                  # "host" | "client" — loja remota = client
@@ -205,6 +217,7 @@ class AppConfig:
     shop: ShopGlobalConfig = field(default_factory=ShopGlobalConfig)
     # Biblioteca global de broadcasts (TEK — sincronizável via .arkbroadcast)
     broadcast_library: list = field(default_factory=list)
+    broadcast_tek: BroadcastTekConfig = field(default_factory=BroadcastTekConfig)
 
 
 class ConfigManager:
@@ -243,6 +256,7 @@ class ConfigManager:
                 _deserialize(DiscordBotConfig,    "discord_bot")
                 _deserialize(SmtpConfig,          "smtp")
                 _deserialize(ShopGlobalConfig,    "shop")
+                _deserialize(BroadcastTekConfig,  "broadcast_tek")
                 self.config = AppConfig(**raw)
                 if not self.config.update_url:
                     self.config.update_url = self._DEFAULT_UPDATE_URL

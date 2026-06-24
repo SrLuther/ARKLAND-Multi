@@ -34,7 +34,9 @@ def _sample_entries():
 
 class _FakeConfig:
     def __init__(self, lib=None):
+        from src.config_manager import BroadcastTekConfig
         self.broadcast_library = list(lib or [])
+        self.broadcast_tek = BroadcastTekConfig()
 
 
 class _FakeCM:

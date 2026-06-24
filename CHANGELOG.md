@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.76] - 2026-06-23
+
+### Feature
+
+- Novo (TEK — Broadcasts): reenvio automático por intervalo, ordem aleatória ou sequencial, seleção de servidores destino e mensagens no ciclo; export/import inclui configurações.
+
+### Improvement
+
+- Melhoria (Broadcasts): painel com scheduler, checkboxes por servidor/mensagem e envio da próxima mensagem.
+
+### Other
+
+- UI (Broadcasts): legendas nos campos Rótulo e Mensagem ao cadastrar nova entrada.
+
 ## [1.9.75] - 2026-06-22
 
 ### Feature

@@ -151,6 +151,11 @@ class ARKServerManagerApp(ctk.CTk):
         self._buffs_body_frame: Any = None
         self._buff_countdown_job: Any = None
         self._buff_countdown_labels: list = []
+        # Broadcasts TEK
+        self._broadcast_tek_scheduler_running: bool = False
+        self._broadcast_tek_scheduler_job: Any = None
+        self._broadcast_server_vars: dict = {}
+        self._broadcast_message_vars: dict = {}
         # Clusters
         self._cluster_list_box: Any = None
         self._cluster_detail_fr: Any = None
@@ -193,6 +198,8 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(4000, self._check_updates_on_start)
         # B2: tick de indicadores ricos de status
         self.after(30_000, self._asm_status_tick)
+        # Broadcasts: scheduler global se estava ativo
+        self.after(3500, self._broadcast_tek_ensure_scheduler)
 
     # ─────────────────────────────────────────────────────────────────────────
     # B2 — Indicadores Ricos de Status (players, uptime, RAM, versão)
@@ -1878,7 +1885,103 @@ class ARKServerManagerApp(ctk.CTk):
 
     # ── Broadcasts TEK (biblioteca global) ───────────────────────────────────
 
+    def _broadcast_tek_ensure_scheduler(self) -> None:
+        from .pages.broadcast_tek_scheduler import ensure_broadcast_tek_scheduler
+        ensure_broadcast_tek_scheduler(self)
+
+    def _broadcast_tek_save_settings_from_ui(self) -> None:
+        from .pages.broadcast_tek_settings import all_server_ids, get_settings, save_settings
+        from .pages.broadcast_profile_io import get_library
+
+        settings = get_settings(self)
+        try:
+            settings.interval_minutes = max(1, int(
+                getattr(self, "_broadcast_interval_var", tk.StringVar(value="30")).get()
+            ))
+        except ValueError:
+            settings.interval_minutes = 30
+        settings.random_order = bool(
+            getattr(self, "_broadcast_random_var", tk.BooleanVar()).get()
+        )
+
+        all_srv = all_server_ids(self)
+        checked_srv = [sid for sid, var in getattr(self, "_broadcast_server_vars", {}).items() if var.get()]
+        if checked_srv and len(checked_srv) < len(all_srv):
+            settings.target_server_ids = checked_srv
+        else:
+            settings.target_server_ids = []
+
+        all_msgs = [str(e.get("id")) for e in get_library(self) if e.get("id")]
+        checked_msg = [
+            mid for mid, var in getattr(self, "_broadcast_message_vars", {}).items() if var.get()
+        ]
+        if checked_msg and len(checked_msg) < len(all_msgs):
+            settings.enabled_message_ids = checked_msg
+        else:
+            settings.enabled_message_ids = []
+
+        save_settings(self, settings)
+
+    def _broadcast_tek_sync_scheduler_ui(self) -> None:
+        from .pages.broadcast_tek_settings import format_countdown, get_settings, seconds_until_next
+
+        settings = get_settings(self)
+        var = getattr(self, "_broadcast_sched_status_var", None)
+        if var is None:
+            return
+        if settings.scheduler_enabled or getattr(self, "_broadcast_tek_scheduler_running", False):
+            var.set(f"Ativo — próximo envio em {format_countdown(seconds_until_next(settings))}")
+        else:
+            var.set("Parado")
+
+    def _broadcast_tek_scheduler_start(self) -> None:
+        self._broadcast_tek_save_settings_from_ui()
+        from .pages.broadcast_tek_scheduler import broadcast_tek_scheduler_start
+        broadcast_tek_scheduler_start(self)
+        self._toast("Ciclo automático de broadcasts iniciado.", kind="info")
+
+    def _broadcast_tek_scheduler_stop(self) -> None:
+        from .pages.broadcast_tek_scheduler import broadcast_tek_scheduler_stop
+        broadcast_tek_scheduler_stop(self)
+        self._toast("Ciclo automático parado.", kind="info")
+
+    def _broadcast_tek_send_next_now(self) -> None:
+        from .pages.broadcast_send_tek import broadcast_send_tek_sync
+        from .pages.broadcast_tek_settings import (
+            get_settings,
+            pick_next_message,
+            resolve_target_server_ids,
+            save_settings,
+        )
+
+        self._broadcast_tek_save_settings_from_ui()
+        entry, next_index = pick_next_message(self)
+        if not entry:
+            self._toast("Marque mensagens no ciclo automático.", kind="warning")
+            return
+        server_ids = resolve_target_server_ids(self)
+        if not server_ids:
+            self._toast("Selecione ao menos um servidor.", kind="warning")
+            return
+
+        ok, total, failures = broadcast_send_tek_sync(
+            self, entry.get("message", ""), server_ids=server_ids,
+        )
+        settings = get_settings(self)
+        import time
+        settings.last_sent_at = time.time()
+        if not settings.random_order:
+            settings.rotation_index = next_index
+        save_settings(self, settings)
+        self._broadcast_tek_sync_scheduler_ui()
+
+        if failures:
+            self._toast(f"Enviado: {ok}/{total} — algumas falhas.", kind="warning")
+        else:
+            self._toast(f"«{entry.get('label', '')}» enviada a {ok} servidor(es).", kind="info")
+
     def _broadcast_tek_send_quick(self) -> None:
+        self._broadcast_tek_save_settings_from_ui()
         from .pages.broadcast_send_tek import broadcast_send_tek
         msg = getattr(self, "_broadcast_quick_var", tk.StringVar()).get()
         broadcast_send_tek(self, msg)
@@ -1888,6 +1991,7 @@ class ARKServerManagerApp(ctk.CTk):
         broadcast_send_tek(self, message, server_ids=server_ids)
 
     def _broadcast_tek_send_one(self, entry_id: str) -> None:
+        self._broadcast_tek_save_settings_from_ui()
         from .pages.broadcast_profile_io import get_library
         entry = next((e for e in get_library(self) if str(e.get("id")) == entry_id), None)
         if not entry:

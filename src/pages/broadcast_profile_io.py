@@ -51,13 +51,24 @@ def set_library(app: "ARKServerManagerApp", entries: list[dict[str, Any]]) -> No
 
 
 def build_export_document(app: "ARKServerManagerApp") -> dict[str, Any]:
+    from ..config_manager import BroadcastTekConfig
+    from .broadcast_tek_settings import get_settings
+
     messages = [normalize_entry(e) for e in get_library(app)]
+    settings = get_settings(app)
+    settings_payload = {
+        "interval_minutes": settings.interval_minutes,
+        "random_order": settings.random_order,
+        "target_server_ids": list(settings.target_server_ids),
+        "enabled_message_ids": list(settings.enabled_message_ids),
+    }
     return {
         "format": FORMAT_ID,
         "version": FORMAT_VERSION,
         "exported_at": _now_iso(),
         "source_host": platform.node(),
         "messages": messages,
+        "settings": settings_payload,
         "notes": (
             "Importe este arquivo em outro PC com ARKLAND TEK. "
             "Use mesclar para atualizar por ID ou substituir para trocar a biblioteca inteira."
@@ -119,17 +130,31 @@ def import_broadcast_library_from_file(
 
     if replace:
         set_library(app, imported)
-        return len(imported), 0, meta
+        added, updated = len(imported), 0
+    else:
+        current = get_library(app)
+        before_ids = {str(e.get("id")) for e in current if e.get("id")}
+        merged = merge_library(current, imported)
+        set_library(app, merged)
+        after_ids = {str(e.get("id")) for e in merged}
+        added = len(after_ids - before_ids)
+        updated = sum(1 for e in imported if str(e.get("id")) in before_ids)
 
-    current = get_library(app)
-    before_ids = {str(e.get("id")) for e in current if e.get("id")}
-    merged = merge_library(current, imported)
-    set_library(app, merged)
-
-    after_ids = {str(e.get("id")) for e in merged}
-    added = len(after_ids - before_ids)
-    updated = sum(
-        1 for e in imported
-        if str(e.get("id")) in before_ids
-    )
+    _apply_imported_settings(app, meta.get("settings"))
     return added, updated, meta
+
+
+def _apply_imported_settings(app: "ARKServerManagerApp", raw: Any) -> None:
+    from ..config_manager import BroadcastTekConfig
+    from .broadcast_tek_settings import get_settings, save_settings
+
+    if not isinstance(raw, dict):
+        return
+    cur = get_settings(app)
+    cur.interval_minutes = max(1, int(raw.get("interval_minutes", cur.interval_minutes)))
+    cur.random_order = bool(raw.get("random_order", cur.random_order))
+    if isinstance(raw.get("target_server_ids"), list):
+        cur.target_server_ids = [str(x) for x in raw["target_server_ids"]]
+    if isinstance(raw.get("enabled_message_ids"), list):
+        cur.enabled_message_ids = [str(x) for x in raw["enabled_message_ids"]]
+    save_settings(app, cur)

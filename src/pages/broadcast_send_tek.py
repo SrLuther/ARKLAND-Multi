@@ -59,16 +59,20 @@ def _send_one_server(
                 pass
 
 
-def broadcast_send_tek(
+def broadcast_send_tek_sync(
     app: "ARKServerManagerApp",
     message: str,
     *,
     server_ids: list[str] | None = None,
-) -> None:
-    """Envia mensagem a todos os servidores gerenciados (ou subconjunto)."""
+) -> tuple[int, int, list[str]]:
+    """Envio síncrono (scheduler). Retorna (ok, total, falhas)."""
+    from .broadcast_tek_settings import resolve_target_server_ids
+
     if not message or not message.strip():
-        app._toast("Digite uma mensagem para enviar.", kind="warning")
-        return
+        return 0, 0, []
+
+    if server_ids is None:
+        server_ids = resolve_target_server_ids(app)
 
     servers = list(app.asm_config_manager.servers)
     if server_ids is not None:
@@ -76,23 +80,45 @@ def broadcast_send_tek(
         servers = [s for s in servers if s.id in ids]
 
     if not servers:
-        app._toast("Nenhum servidor TEK configurado.", kind="warning")
-        return
+        return 0, 0, ["Nenhum servidor selecionado"]
 
     mode = getattr(app.config_manager.config.backup, "rcon_broadcast_mode", "Broadcast")
     text = message.strip()
+    ok_count = 0
+    failures: list[str] = []
+    for srv in servers:
+        ok, info = _send_one_server(srv, text, mode)
+        if ok:
+            ok_count += 1
+        else:
+            failures.append(info)
+    return ok_count, len(servers), failures
+
+
+def broadcast_send_tek(
+    app: "ARKServerManagerApp",
+    message: str,
+    *,
+    server_ids: list[str] | None = None,
+) -> None:
+    """Envia mensagem aos servidores selecionados (ou subset explícito)."""
+    if not message or not message.strip():
+        app._toast("Digite uma mensagem para enviar.", kind="warning")
+        return
+
+    from .broadcast_tek_settings import resolve_target_server_ids
+
+    if server_ids is None:
+        server_ids = resolve_target_server_ids(app)
+
+    if not server_ids:
+        app._toast("Selecione ao menos um servidor.", kind="warning")
+        return
 
     def _worker() -> None:
-        ok_count = 0
-        failures: list[str] = []
-        for srv in servers:
-            ok, info = _send_one_server(srv, text, mode)
-            if ok:
-                ok_count += 1
-            else:
-                failures.append(info)
-
-        total = len(servers)
+        ok_count, total, failures = broadcast_send_tek_sync(
+            app, message, server_ids=server_ids,
+        )
         if failures:
             fail_preview = ", ".join(failures[:4])
             if len(failures) > 4:
