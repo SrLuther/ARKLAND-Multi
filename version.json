@@ -1,8 +1,8 @@
 {
-    "version": "1.9.85",
+    "version": "1.9.86",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.85/ARKLAND-Multi-Setup-v1.9.85.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.86/ARKLAND-Multi-Setup-v1.9.86.exe",
     "changelog": [
-        "Fix (TEK Dashboard): grade de cards permanece visível ao iniciar/parar servidores — scrollregion recalcula altura real após layout dos widgets CTk (sem mudar o visual)."
+        "Fix (TEK Dashboard): cards sumiam com servidor online — revertido para CTkScrollableFrame nativo; scrollregion mínima por grade + refresh de stats."
     ]
 }

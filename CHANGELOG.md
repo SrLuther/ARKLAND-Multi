@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.86] - 2026-06-24
+
+### Fix
+
+- Fix (TEK Dashboard): cards sumiam com servidor online — revertido para CTkScrollableFrame nativo; scrollregion mínima por grade + refresh de stats.
+
 ## [1.9.85] - 2026-06-24
 
 ### Fix

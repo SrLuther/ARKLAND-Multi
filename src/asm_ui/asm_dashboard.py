@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..ui_constants import get_theme
-from ..ui_components import FastScrollFrame
+from ..ui.server_field_widgets import refresh_scrollable_frame
 from ..asm_engine.asm_server_config import (
     ASM_STATUS_RUNNING, ASM_STATUS_STOPPED,
     ASM_STATUS_STARTING, ASM_STATUS_STOPPING, ASM_STATUS_UPDATING,
@@ -186,10 +186,14 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
                      ).grid(row=0, column=1, sticky="w")
 
         # ── Valor grande ──────────────────────────────────────────────────────
-        ctk.CTkLabel(card, text=value,
+        val_lbl = ctk.CTkLabel(card, text=value,
                      font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"),
                      text_color=fg_col,
-                     ).grid(row=1, column=0, padx=12, pady=(6, 0), sticky="w")
+                     )
+        val_lbl.grid(row=1, column=0, padx=12, pady=(6, 0), sticky="w")
+        if not hasattr(app, "_asm_stat_value_labels"):
+            app._asm_stat_value_labels = {}
+        app._asm_stat_value_labels[label] = val_lbl
 
         # ── Barra fina (CPU / RAM) ────────────────────────────────────────────
         if label in ("CPU", "RAM"):
@@ -198,6 +202,9 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
                                      progress_color=fg_col, fg_color=sep)
             bar.set(min(val_float, 1.0))
             bar.grid(row=2, column=0, padx=12, pady=(6, 0), sticky="ew")
+            if not hasattr(app, "_asm_stat_bars"):
+                app._asm_stat_bars = {}
+            app._asm_stat_bars[label] = bar
 
         # ── Subtítulo ─────────────────────────────────────────────────────────
         ctk.CTkLabel(card, text=sub[:26],
@@ -210,35 +217,87 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=1, column=0, sticky="ews")
 
-    # ── Scroll de cards (FastScrollFrame — CTkScrollableFrame quebra scrollregion no refresh)
-    scroll_host = FastScrollFrame(parent, bg=bg)
-    scroll_host.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
-    inner = scroll_host.inner
-    inner.grid_columnconfigure((0, 1), weight=1)
-    app._asm_dashboard_scroll = scroll_host
+    # ── Scroll de cards (CTkScrollableFrame — CTk nativo; FastScrollFrame clipava cards)
+    scroll = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0,
+                                    scrollbar_button_color=sep)
+    scroll.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
+    scroll.grid_columnconfigure((0, 1), weight=1)
+    app._asm_dashboard_scroll = scroll
 
     _refresh_asm_dashboard(app)
 
 
-def _dashboard_inner(app: "ARKServerManagerApp"):
-    """Retorna o frame interno do dashboard ou None se indisponível."""
+def _dashboard_scroll(app: "ARKServerManagerApp"):
+    """Retorna o CTkScrollableFrame do dashboard ou None."""
     scroll = getattr(app, "_asm_dashboard_scroll", None)
     if scroll is None:
         return None
     try:
-        if not scroll.winfo_exists():
-            return None
-        inner = scroll.inner
-        return inner if inner.winfo_exists() else None
+        return scroll if scroll.winfo_exists() else None
     except Exception:
         return None
+
+
+def _schedule_dashboard_scroll_refresh(scroll, n_cards: int) -> None:
+    """Atualiza scrollregion após rebuild — CTk layouta cards de forma assíncrona."""
+    min_h = 120 + max(1, (n_cards + 1) // 2) * 300
+
+    def _apply() -> None:
+        refresh_scrollable_frame(scroll)
+        try:
+            canvas = scroll._parent_canvas
+            bbox = canvas.bbox("all")
+            w = max(canvas.winfo_width(), 1)
+            h = min_h
+            if bbox:
+                h = max(h, int(bbox[3]) + 16)
+            canvas.configure(scrollregion=(0, 0, w, h))
+        except (AttributeError, tk.TclError):
+            pass
+
+    for ms in (0, 50, 150, 400, 800):
+        scroll.after(ms, _apply)
+
+
+def _refresh_asm_stats(app: "ARKServerManagerApp", servers: list) -> None:
+    """Atualiza cards de estatísticas do topo sem rebuild completo."""
+    labels = getattr(app, "_asm_stat_value_labels", None)
+    if not labels:
+        return
+    total = len(servers)
+    running = sum(
+        1 for s in servers
+        if (inst := app.asm_server_manager.get_instance(s.id))
+        and inst.status == ASM_STATUS_RUNNING
+    )
+    stopped = sum(
+        1 for s in servers
+        if not (inst := app.asm_server_manager.get_instance(s.id))
+        or inst.status == ASM_STATUS_STOPPED
+    )
+    cpu_pct, ram_pct = _get_perf()
+    if "TOTAL" in labels:
+        labels["TOTAL"].configure(text=str(total))
+    if "ONLINE" in labels:
+        labels["ONLINE"].configure(text=str(running))
+    if "OFFLINE" in labels:
+        labels["OFFLINE"].configure(text=str(stopped))
+    if "CPU" in labels:
+        labels["CPU"].configure(text=f"{cpu_pct:.0f}%")
+    if "RAM" in labels:
+        labels["RAM"].configure(text=f"{ram_pct:.0f}%")
+    bars = getattr(app, "_asm_stat_bars", None) or {}
+    if "CPU" in bars:
+        bars["CPU"].set(min(cpu_pct / 100.0, 1.0))
+    if "RAM" in bars:
+        bars["RAM"].set(min(ram_pct / 100.0, 1.0))
 
 
 def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     """Popula / atualiza os cards de servidor no scroll do dashboard TEK."""
     from .asm_server_card import build_asm_server_card
 
-    inner = _dashboard_inner(app)
+    inner = _dashboard_scroll(app)
     if inner is None:
         return
 
@@ -425,10 +484,9 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
         grid_row += (len(folder_servers) + 1) // 2
 
     _update_subtitle(app, servers)
+    _refresh_asm_stats(app, servers)
     inner.update_idletasks()
-    scroll = getattr(app, "_asm_dashboard_scroll", None)
-    if scroll is not None and hasattr(scroll, "schedule_refresh_scrollregion"):
-        scroll.schedule_refresh_scrollregion()
+    _schedule_dashboard_scroll_refresh(inner, len(servers))
 
 
 def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:
