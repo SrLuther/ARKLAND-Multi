@@ -42,6 +42,7 @@ from ..shop_integration import (
     create_webstore_firewall_rule,
     default_catalog_path,
     default_customshop_path,
+    diagnose_shop_connectivity,
     diagnose_webstore_access,
     fetch_public_ip,
     get_local_ip,
@@ -1598,11 +1599,11 @@ def _build_webstore_tab(
     pub_row = tk.Frame(card_mode, bg=_INNER)
     pub_row.pack(fill="x", padx=10, pady=2)
     pub_row.columnconfigure(0, weight=1)
-    ctk.CTkLabel(pub_row, text="IP público (legado)", anchor="w", text_color="gray65",
+    ctk.CTkLabel(pub_row, text="IP público desta máquina", anchor="w", text_color="gray65",
                  font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
     ctk.CTkLabel(
         pub_row,
-        text="Opcional — usado só se o domínio acima estiver vazio. Prefira sempre o domínio.",
+        text="Deve ser igual ao registro A do domínio (botão Detectar). Usado no diagnóstico.",
         anchor="w", text_color="gray40", font=ctk.CTkFont(size=9),
     ).grid(row=1, column=0, sticky="w")
     ctk.CTkEntry(pub_row, textvariable=_public_ip_var, width=200, height=26).grid(
@@ -1686,8 +1687,8 @@ def _build_webstore_tab(
     _public_url_lbl.pack(anchor="w", padx=10, pady=(0, 4))
     tk.Label(
         card_mode,
-        text="No servidor remoto (179.185.19.88): port forwarding da porta 27199 → 192.168.15.51. "
-             "DNS arkland.com.br → IP público + reverse proxy HTTPS (443) → porta da loja.",
+        text="DNS do domínio → IP público desta máquina (Detectar). "
+             "Modem libera 80/443 → este PC. Caddy (443) encaminha para a loja local.",
         bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
     ).pack(anchor="w", padx=10, pady=(0, 8))
     _central_url_lbl.config(text=f"🔌  API plugins → {resolve_plugin_api_url(shop)}")
@@ -1731,37 +1732,51 @@ def _build_webstore_tab(
     btn_row = tk.Frame(card_status, bg=_INNER)
     btn_row.pack(fill="x", padx=10, pady=(4, 10))
 
+    _diag_busy = {"on": False}
+
     def _refresh_status() -> None:
         is_host = _mode_var.get() == "host"
         port = max(1, int(_port_var.get().strip() or DEFAULT_SHOP_PORT))
-        running = _is_web_running(port) if is_host else False
         _save_shop_from_ui()
         url = resolve_website_url(shop)
         if is_host:
-            status_dot.config(fg="#22c55e" if running else "#ef4444")
-            status_lbl.config(
-                text="Online" if running else "Offline",
-                fg="#22c55e" if running else "#ef4444",
-            )
-            btn_start.configure(state="disabled" if running else "normal")
-            btn_stop.configure(state="normal" if running else "disabled")
+            proc_up = _is_web_running(port)
+            btn_start.configure(state="disabled" if proc_up else "normal")
+            btn_stop.configure(state="normal" if proc_up else "disabled")
         else:
             status_dot.config(fg="#3b82f6")
             status_lbl.config(text="Modo cliente", fg="#3b82f6")
             btn_start.configure(state="disabled")
             btn_stop.configure(state="disabled")
-        ok, msg, _ok_local = diagnose_webstore_access(shop)
-        detail = msg
-        if is_host and ok and not check_webstore_firewall_rule(port):
-            detail = f"{msg} — libere a porta {port} no firewall para outras máquinas"
-        if is_host and not ok and _web_process and _web_process.poll() is not None:
-            tail = read_webstore_log_tail(4)
-            if tail:
-                detail = f"{msg} | log: {tail[:180]}"
-        conn_lbl.config(
-            text=f"Teste HTTP: {'✓' if ok else '✗'} {detail} — {url}",
-            fg="#22c55e" if ok else "#f59e0b",
-        )
+
+        if _diag_busy["on"]:
+            return
+        _diag_busy["on"] = True
+        conn_lbl.config(text="Testando local, LAN e domínio…", fg="gray50")
+
+        def _worker() -> None:
+            report = diagnose_shop_connectivity(shop)
+            tail = ""
+            if is_host and not report.local_ok and _web_process and _web_process.poll() is not None:
+                tail = read_webstore_log_tail(4)
+
+            def _done() -> None:
+                _diag_busy["on"] = False
+                if is_host:
+                    status_dot.config(fg=report.status_color())
+                    status_lbl.config(text=report.status_label(), fg=report.status_color())
+                detail = " · ".join(report.lines)
+                if tail:
+                    detail = f"{detail} | log: {tail[:160]}"
+                conn_lbl.config(
+                    text=f"Diagnóstico: {detail} — {url}",
+                    fg="#22c55e" if report.players_ok else ("#f59e0b" if report.process_up else "#ef4444"),
+                )
+                _refresh_caddy_status()
+
+            parent.after(0, _done)
+
+        threading.Thread(target=_worker, daemon=True, name="ShopDiag").start()
 
     def _start_web() -> None:
         if _mode_var.get() != "host" or _is_web_running(max(1, int(_port_var.get().strip() or DEFAULT_SHOP_PORT))):
@@ -1874,17 +1889,21 @@ def _build_webstore_tab(
         shop.port = _safe_int(_port_var.get(), DEFAULT_SHOP_PORT)
         shop.public_url = _public_shop_url_var.get().strip()
         st = caddy_status(shop)
-        caddy_dot.config(fg="#22c55e" if st["running"] else "#ef4444")
-        caddy_status_lbl.config(
-            text="HTTPS Online" if st["running"] else "HTTPS Offline",
-            fg="#22c55e" if st["running"] else "#ef4444",
-        )
+        ok = st["running"]
+        caddy_dot.config(fg="#22c55e" if ok else ("#f59e0b" if st.get("listening") else "#ef4444"))
+        if ok:
+            title = "HTTPS Online"
+        elif st.get("listening"):
+            title = "HTTPS parcial"
+        else:
+            title = "HTTPS Offline"
+        caddy_status_lbl.config(text=title, fg=caddy_dot.cget("fg"))
         caddy_detail_lbl.config(
             text=f"{st['message']} — {st['domain']} → localhost:{st['port']}",
-            fg="#22c55e" if st["running"] else "gray50",
+            fg=caddy_dot.cget("fg"),
         )
-        caddy_btn_start.configure(state="disabled" if st["running"] else "normal")
-        caddy_btn_stop.configure(state="normal" if st["running"] else "disabled")
+        caddy_btn_start.configure(state="disabled" if st.get("listening") else "normal")
+        caddy_btn_stop.configure(state="normal" if st.get("listening") else "disabled")
 
     def _caddy_worker(fn, success_title: str = "Caddy") -> None:
         try:

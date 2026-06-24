@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.88"
+APP_VERSION: str = "1.9.89"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.89",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (Web Store): painel Loja deixa de mostrar «Online» só com localhost — "
+            "diagnóstico testa LAN, domínio público, DNS e Caddy; status honesto.",
+            "Fix (Caddy): «HTTPS Online» só quando o domínio responde, não só porta 443 aberta.",
+            "Melhoria (Loja): textos de rede corrigidos (sem referência a VPS); IP público no diagnóstico.",
+        ],
+    },
     {
         "version": "1.9.88",
         "date": "2026-06-24",

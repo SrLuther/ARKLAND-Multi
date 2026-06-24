@@ -10,8 +10,10 @@ import sys
 import urllib.error
 import urllib.request
 from copy import deepcopy
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
+from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from .asm_engine.asm_config_manager import AsmConfigManager
@@ -889,29 +891,153 @@ def create_webstore_firewall_rule(port: int) -> Tuple[bool, str]:
         return False, str(exc)
 
 
-def diagnose_webstore_access(shop: "ShopGlobalConfig") -> Tuple[bool, str, bool]:
-    """Testa conectividade com a loja. Em modo client, testa o domínio remoto."""
-    if shop.mode == "client":
-        url = effective_shop_public_url(shop)
-        ok, msg = test_shop_connection(url)
-        return ok, f"Loja remota ({url}): {msg}", False
+def resolve_dns_ipv4(hostname: str) -> Tuple[bool, str]:
+    """Resolve o primeiro IPv4 de um hostname (domínio da loja)."""
+    host = (hostname or "").strip().lower()
+    host = re.sub(r"^https?://", "", host).split("/")[0].strip()
+    if not host:
+        return False, ""
+    try:
+        for info in socket.getaddrinfo(host, None, socket.AF_INET, socket.SOCK_STREAM):
+            return True, info[4][0]
+    except OSError as exc:
+        return False, str(exc)
+    return False, "sem IPv4"
 
+
+@dataclass
+class ShopConnectivityReport:
+    """Diagnóstico honesto — não confundir localhost com domínio público."""
+
+    local_ok: bool = False
+    local_msg: str = ""
+    lan_ok: bool = False
+    lan_msg: str = ""
+    public_ok: bool = False
+    public_msg: str = ""
+    public_url: str = ""
+    caddy_listening: bool = False
+    public_ip: str = ""
+    dns_ip: str = ""
+    dns_ok: bool = False
+    lines: List[str] = field(default_factory=list)
+
+    @property
+    def process_up(self) -> bool:
+        return self.local_ok
+
+    @property
+    def players_ok(self) -> bool:
+        return self.public_ok
+
+    def status_label(self) -> str:
+        if not self.process_up:
+            return "Offline"
+        if self.players_ok:
+            return "Online · jogadores"
+        if self.lan_ok:
+            return "Online · só LAN"
+        return "Online · só local"
+
+    def status_color(self) -> str:
+        if not self.process_up:
+            return "#ef4444"
+        if self.players_ok:
+            return "#22c55e"
+        return "#f59e0b"
+
+
+def diagnose_shop_connectivity(shop: "ShopGlobalConfig") -> ShopConnectivityReport:
+    """Testa local, LAN, domínio público, Caddy e coerência DNS ↔ IP público."""
+    report = ShopConnectivityReport()
     port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
-    host = (shop.host_ip or "").strip()
-    ok_local, msg_local = test_shop_connection(f"http://127.0.0.1:{port}")
-    if host:
-        ok_lan, msg_lan = test_shop_connection(f"http://{host}:{port}")
+    host = (shop.host_ip or "").strip() or get_local_ip()
+    public_url = effective_shop_public_url(shop)
+    report.public_url = public_url
+
+    ok_ip, pub_ip = fetch_public_ip(timeout=4)
+    report.public_ip = pub_ip if ok_ip else ""
+
+    parsed = urlparse(public_url if "://" in public_url else f"https://{public_url}")
+    domain = (parsed.hostname or "").strip().lower()
+    if domain:
+        ok_dns, dns_ip = resolve_dns_ipv4(domain)
+        report.dns_ip = dns_ip if ok_dns else ""
+        if ok_dns and report.public_ip:
+            report.dns_ok = report.dns_ip == report.public_ip
+        elif ok_dns and (shop.public_ip or "").strip():
+            report.dns_ok = report.dns_ip == (shop.public_ip or "").strip()
+
+    try:
+        from .caddy_proxy import _port_open
+
+        report.caddy_listening = _port_open(443)
+    except Exception:
+        report.caddy_listening = False
+
+    if shop.mode == "client":
+        report.public_ok, report.public_msg = test_shop_connection(public_url)
+        report.local_ok = report.public_ok
+        report.local_msg = report.public_msg
+        report.lines = [
+            f"Domínio ({public_url}): {'OK' if report.public_ok else 'FALHOU'} — {report.public_msg}",
+        ]
+        return report
+
+    local_url = f"http://127.0.0.1:{port}"
+    lan_url = f"http://{host}:{port}" if host else ""
+    report.local_ok, report.local_msg = test_shop_connection(local_url)
+    if lan_url:
+        report.lan_ok, report.lan_msg = test_shop_connection(lan_url)
     else:
-        ok_lan, msg_lan = False, "IP LAN do host não configurado"
-    if ok_lan:
-        return True, "Loja respondendo (LAN)", ok_local
-    if ok_local:
+        report.lan_ok = False
+        report.lan_msg = "IP LAN não configurado"
+
+    report.public_ok, report.public_msg = test_shop_connection(public_url)
+
+    report.lines.append(
+        f"Local ({local_url}): {'OK' if report.local_ok else 'FALHOU'} — {report.local_msg}"
+    )
+    if lan_url:
         fw = "sim" if check_webstore_firewall_rule(port) else "não"
-        return False, (
-            f"Loja OK em localhost, mas {host}:{port} não responde na LAN "
-            f"(firewall Windows: regra {fw})"
-        ), ok_local
-    return False, msg_lan or msg_local or "Sem resposta", ok_local
+        report.lines.append(
+            f"LAN ({lan_url}): {'OK' if report.lan_ok else 'FALHOU'} — {report.lan_msg}"
+            + ("" if report.lan_ok else f" (firewall {fw})")
+        )
+    report.lines.append(
+        f"Domínio ({public_url}): {'OK' if report.public_ok else 'FALHOU'} — {report.public_msg}"
+    )
+    if report.public_ip:
+        report.lines.append(f"IP público detectado: {report.public_ip}")
+    if report.dns_ip:
+        dns_state = "OK" if report.dns_ok else "DIVERGENTE"
+        report.lines.append(f"DNS {domain} → {report.dns_ip} ({dns_state})")
+    if report.local_ok and not report.public_ok:
+        if not report.caddy_listening:
+            report.lines.append("Caddy: porta 443 fechada — inicie o HTTPS no painel")
+        elif not report.dns_ok and report.dns_ip and report.public_ip:
+            report.lines.append(
+                "DNS não aponta para o IP público desta máquina — atualize o registro A"
+            )
+        elif report.caddy_listening:
+            report.lines.append(
+                "Caddy escuta 443 mas o domínio não responde — reinicie Caddy ou confira modem 80/443"
+            )
+    return report
+
+
+def diagnose_webstore_access(shop: "ShopGlobalConfig") -> Tuple[bool, str, bool]:
+    """Compat: retorna (ok, mensagem, local_ok). Em host, ok = jogadores alcançam o domínio."""
+    report = diagnose_shop_connectivity(shop)
+    if shop.mode == "client":
+        return report.public_ok, report.lines[0] if report.lines else report.public_msg, False
+    if report.players_ok:
+        return True, report.lines[-2] if len(report.lines) > 1 else "Domínio respondendo", report.local_ok
+    if report.lan_ok:
+        return False, " · ".join(report.lines), report.local_ok
+    if report.local_ok:
+        return False, " · ".join(report.lines), True
+    return False, report.local_msg or "Sem resposta", False
 
 
 def load_plugin_config(path: Path) -> Dict[str, Any]:

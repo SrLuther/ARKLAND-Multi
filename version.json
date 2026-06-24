@@ -1,8 +1,10 @@
 {
-    "version": "1.9.88",
+    "version": "1.9.89",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.88/ARKLAND-Multi-Setup-v1.9.88.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.89/ARKLAND-Multi-Setup-v1.9.89.exe",
     "changelog": [
-        "Fix definitivo (TEK Dashboard): shell estável — bulk bar fora do scroll, cards_host permanente; rebuild só dos cards no status (sem destruir o scroll)."
+        "Fix (Web Store): painel Loja deixa de mostrar «Online» só com localhost — diagnóstico testa LAN, domínio público, DNS e Caddy; status honesto.",
+        "Fix (Caddy): «HTTPS Online» só quando o domínio responde, não só porta 443 aberta.",
+        "Melhoria (Loja): textos de rede corrigidos (sem referência a VPS); IP público no diagnóstico."
     ]
 }

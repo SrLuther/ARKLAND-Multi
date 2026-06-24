@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.89] - 2026-06-24
+
+### Improvement
+
+- Melhoria (Loja): textos de rede corrigidos (sem referência a VPS); IP público no diagnóstico.
+
+### Fix
+
+- Fix (Web Store): painel Loja deixa de mostrar «Online» só com localhost — diagnóstico testa LAN, domínio público, DNS e Caddy; status honesto.
+- Fix (Caddy): «HTTPS Online» só quando o domínio responde, não só porta 443 aberta.
+
 ## [1.9.88] - 2026-06-24
 
 ### Fix

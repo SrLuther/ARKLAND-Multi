@@ -280,19 +280,30 @@ def register_caddy_autostart(shop: "ShopGlobalConfig") -> Tuple[bool, str]:
 
 
 def caddy_status(shop: "ShopGlobalConfig") -> dict:
+    from .shop_integration import effective_shop_public_url, test_shop_connection
+
     installed = is_caddy_installed(shop)
-    running = is_caddy_running()
+    listening = is_caddy_running()
     domain = domain_from_shop(shop)
     port = max(1, int(getattr(shop, "port", None) or 27199))
+    public_url = effective_shop_public_url(shop)
+    https_ok, https_msg = (False, "")
+    if listening and public_url:
+        https_ok, https_msg = test_shop_connection(public_url)
+    running = listening and https_ok
     if not installed:
         msg = "Não instalado — use «Instalar Caddy»"
     elif running:
-        msg = f"HTTPS ativo → http://127.0.0.1:{port}"
+        msg = f"HTTPS respondendo ({public_url})"
+    elif listening:
+        msg = f"Porta 443 aberta, domínio não responde — {https_msg}"
     else:
         msg = "Instalado, parado"
     return {
         "installed": installed,
         "running": running,
+        "listening": listening,
+        "https_ok": https_ok,
         "domain": domain,
         "port": port,
         "dir": str(resolve_caddy_dir(shop)),
