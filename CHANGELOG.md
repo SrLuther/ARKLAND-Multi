@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.81] - 2026-06-24
+
+### Fix
+
+- Fix (SteamCMD): botão «Baixar SteamCMD» falhava com name 'urllib' is not defined — import ausente em download_steamcmd.py; URL do instalador definida no módulo.
+
 ## [1.9.80] - 2026-06-24
 
 ### Improvement

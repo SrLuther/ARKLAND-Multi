@@ -1,9 +1,8 @@
 {
-    "version": "1.9.80",
+    "version": "1.9.81",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.80/ARKLAND-Multi-Setup-v1.9.80.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.81/ARKLAND-Multi-Setup-v1.9.81.exe",
     "changelog": [
-        "Fix (TEK): páginas vazias no painel do servidor — valores numéricos inválidos no perfil interrompiam o carregamento assíncrono das seções; estado travado corrigido e mensagem de erro.",
-        "Melhoria (Loja web): Crystal Isles e Genesis 2 na seção Mapas do Cluster — 6 mapas no total."
+        "Fix (SteamCMD): botão «Baixar SteamCMD» falhava com name 'urllib' is not defined — import ausente em download_steamcmd.py; URL do instalador definida no módulo."
     ]
 }

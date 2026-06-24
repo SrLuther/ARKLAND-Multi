@@ -1,12 +1,16 @@
 ﻿from __future__ import annotations
-import os
-import threading
-from typing import TYPE_CHECKING
 import io
+import os
 import subprocess
+import threading
+import urllib.request
 import zipfile
+from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
+
+_STEAMCMD_URL = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
 
 
 def download_steamcmd(app: "ARKServerManagerApp") -> None:
@@ -37,7 +41,7 @@ def download_steamcmd(app: "ARKServerManagerApp") -> None:
             # Download
             app.after(0, lambda: app._steamcmd_status_lbl.configure(
                 text="📥  Baixando steamcmd.zip...", text_color="gray60"))
-            with urllib.request.urlopen(app._STEAMCMD_URL, timeout=60) as resp:
+            with urllib.request.urlopen(_STEAMCMD_URL, timeout=60) as resp:
                 data = resp.read()
 
             # Extração
@@ -52,7 +56,6 @@ def download_steamcmd(app: "ARKServerManagerApp") -> None:
             # Primeira execução para atualizar os arquivos do SteamCMD
             app.after(0, lambda: app._steamcmd_status_lbl.configure(
                 text="⚙️  Inicializando SteamCMD (primeira execução)...", text_color="gray60"))
-            import subprocess
             subprocess.run(
                 [steamcmd_exe, "+quit"],
                 cwd=dest_dir,

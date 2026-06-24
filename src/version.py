@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.80"
+APP_VERSION: str = "1.9.81"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.81",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (SteamCMD): botão «Baixar SteamCMD» falhava com name 'urllib' is not defined — "
+            "import ausente em download_steamcmd.py; URL do instalador definida no módulo.",
+        ],
+    },
     {
         "version": "1.9.80",
         "date": "2026-06-24",
