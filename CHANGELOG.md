@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.80] - 2026-06-24
+
+### Improvement
+
+- Melhoria (Loja web): Crystal Isles e Genesis 2 na seção Mapas do Cluster — 6 mapas no total.
+
+### Fix
+
+- Fix (TEK): páginas vazias no painel do servidor — valores numéricos inválidos no perfil interrompiam o carregamento assíncrono das seções; estado travado corrigido e mensagem de erro.
+
 ## [1.9.79] - 2026-06-24
 
 ### Fix

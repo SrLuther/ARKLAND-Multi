@@ -2569,6 +2569,8 @@
     .home-map-card--alps { --map-accent: #6ec8ff; }
     .home-map-card--forest { --map-accent: #4dd4a0; border-color: rgba(77,212,160,.28); }
     .home-map-card--mystic { --map-accent: #b88cff; border-color: rgba(184,140,255,.28); }
+    .home-map-card--crystal { --map-accent: #6ee7ff; border-color: rgba(110,231,255,.3); }
+    .home-map-card--genesis { --map-accent: #a78bfa; border-color: rgba(167,139,250,.3); }
     .home-map-card__shine {
       position: absolute;
       top: -40%;
@@ -9673,7 +9675,9 @@ function _mapCardAccent(name) {
   if (n.includes("alps") || n.includes("alp")) return "alps";
   if (n.includes("brighamia") || n.includes("forest") || n.includes("floresta")) return "forest";
   if (n.includes("amissa") || n.includes("mystic")) return "mystic";
-  return ["volcano", "alps", "forest", "mystic"][Math.abs(_hashStr(n)) % 4];
+  if (n.includes("crystal") || n.includes("cristal")) return "crystal";
+  if (n.includes("genesis")) return "genesis";
+  return ["volcano", "alps", "forest", "mystic", "crystal", "genesis"][Math.abs(_hashStr(n)) % 6];
 }
 
 function _mapCardGlyph(name) {
@@ -9682,6 +9686,8 @@ function _mapCardGlyph(name) {
   if (n.includes("alps") || n.includes("alp")) return "🏔";
   if (n.includes("brighamia")) return "🌿";
   if (n.includes("amissa")) return "🗺";
+  if (n.includes("crystal") || n.includes("cristal")) return "💎";
+  if (n.includes("genesis")) return "🛸";
   if (n.includes("island") || n.includes("ilha")) return "🏝";
   if (n.includes("desert") || n.includes("deserto")) return "🏜";
   return "🗻";
@@ -9729,7 +9735,6 @@ function renderHomePage(d) {
     + "de alta qualidade. A maioria dos nossos servidores roda cenários customizados, curados à mão "
     + "para PvE/PvP, performance em dedicado e integração total com eventos sazonais."
   );
-  const modMapCount = maps.filter(m => m.mod_map !== false).length;
   const mapsHtml = maps.length ? `
     <div class="home-maps-showcase">
       <div class="home-maps-showcase__glow" aria-hidden="true"></div>
@@ -9741,7 +9746,7 @@ function renderHomePage(d) {
         <h2 class="home-maps-showcase__title">🗻 ${escHtml(mapsTitle)}</h2>
         <p class="home-maps-showcase__intro">${escHtml(mapsIntro)}</p>
         <div class="home-maps-showcase__highlights">
-          <span class="home-maps-pillar home-maps-pillar--amber">🗺 ${modMapCount || maps.length} mapa${(modMapCount || maps.length) !== 1 ? "s" : ""} mod no cluster</span>
+          <span class="home-maps-pillar home-maps-pillar--amber">🗺 ${maps.length} mapa${maps.length !== 1 ? "s" : ""} no cluster</span>
           <span class="home-maps-pillar">⚡ Curadoria ARKLAND</span>
           <span class="home-maps-pillar">🍂 Eventos sazonais integrados</span>
         </div>
@@ -9767,7 +9772,7 @@ function renderHomePage(d) {
         }).join("")}
       </div>
       <div class="home-maps-showcase__footer">
-        Cada mapa mod é testado, otimizado e integrado ao cluster — cenário único, não é conteúdo aleatório.
+        Cada mapa é testado, otimizado e integrado ao cluster — mods curados e oficiais com a mesma qualidade ARKLAND.
       </div>
     </div>` : "";
 

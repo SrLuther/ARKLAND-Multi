@@ -423,8 +423,49 @@ class AsmServerConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "AsmServerConfig":
-        valid = {f.name for f in fields(cls)}
-        return cls(**{k: v for k, v in data.items() if k in valid})
+        field_map = {f.name: f for f in fields(cls)}
+        defaults = cls()
+        kwargs: dict = {}
+        for key, raw in data.items():
+            if key not in field_map:
+                continue
+            kwargs[key] = _coerce_config_field(field_map[key], raw, defaults)
+        return cls(**kwargs)
+
+
+def _coerce_config_field(field_def, value, defaults: "AsmServerConfig"):
+    """Normaliza valores vindos de JSON/preset para o tipo do dataclass."""
+    if value is None:
+        return getattr(defaults, field_def.name)
+
+    ftype = field_def.type
+    ftype_str = str(ftype)
+
+    if ftype is bool or ftype_str == "bool":
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in ("true", "1", "yes")
+
+    if ftype is int or ftype_str == "int":
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return getattr(defaults, field_def.name)
+
+    if ftype is float or ftype_str == "float":
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return getattr(defaults, field_def.name)
+
+    if "List" in ftype_str or ftype is list:
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            return [x.strip() for x in value.split(",") if x.strip()]
+        return getattr(defaults, field_def.name)
+
+    return value
 
 
 # Constantes de status (espelham as do PRIMITIVE para compatibilidade de UI)

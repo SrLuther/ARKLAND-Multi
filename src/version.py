@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.79"
+APP_VERSION: str = "1.9.80"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.80",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (TEK): páginas vazias no painel do servidor — valores numéricos inválidos no perfil "
+            "interrompiam o carregamento assíncrono das seções; estado travado corrigido e mensagem de erro.",
+            "Melhoria (Loja web): Crystal Isles e Genesis 2 na seção Mapas do Cluster — 6 mapas no total.",
+        ],
+    },
     {
         "version": "1.9.79",
         "date": "2026-06-24",

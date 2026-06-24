@@ -3062,6 +3062,28 @@ def _default_featured_maps() -> list[dict[str, Any]]:
             "sort_order": 3,
             "enabled": True,
         },
+        {
+            "id": "crystal_isles",
+            "name": "Crystal Isles",
+            "mod_map": False,
+            "description": (
+                "Mapa oficial com ilhas flutuantes, biomas cristalinos e criaturas exclusivas. "
+                "Um dos cenários vanilla mais impressionantes — integrado ao cluster com rates ARKLAND."
+            ),
+            "sort_order": 4,
+            "enabled": True,
+        },
+        {
+            "id": "genesis_2",
+            "name": "Genesis 2",
+            "mod_map": False,
+            "description": (
+                "Mapa oficial de endgame com bioma espacial, missões e conteúdo Tek avançado. "
+                "Complementa o cluster com a progressão completa da expansão Genesis Part 2."
+            ),
+            "sort_order": 5,
+            "enabled": True,
+        },
     ]
 
 
@@ -3114,7 +3136,13 @@ def _load_featured_maps_raw() -> list[dict[str, Any]]:
             "sort_order": int(item.get("sort_order", 0) or 0),
             "enabled": item.get("enabled", True) is not False,
         })
-    out.sort(key=lambda m: (int(m.get("sort_order", 0)), m.get("name", "")))
+    out.sort(key=lambda m: (int(m.get("sort_order", 0) or 0), m.get("name", "")))
+    defaults = _default_featured_maps()
+    known_ids = {m["id"] for m in out}
+    for default_map in defaults:
+        if default_map["id"] not in known_ids:
+            out.append(deepcopy(default_map))
+    out.sort(key=lambda m: (int(m.get("sort_order", 0) or 0), m.get("name", "")))
     return out or deepcopy(_default_featured_maps())
 
 

@@ -23,6 +23,24 @@ COMBO_FIELD_ID_TO_LABEL: dict[str, dict[str, str]] = {
     "active_event": _ARK_EVENT_ID_TO_LABEL,
 }
 
+def _coerce_float(val: Any, default: float = 1.0) -> float:
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
+def _coerce_int(val: Any, default: int = 0) -> int:
+    if val is None:
+        return default
+    try:
+        return int(float(val))
+    except (TypeError, ValueError):
+        return default
+
+
 STAT_NAMES = [
     ("❤", "Vida"),
     ("⚡", "Stamina"),
@@ -290,7 +308,8 @@ def add_float_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) 
     ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
     ctrl.grid_columnconfigure(1, weight=1)
 
-    val = getattr(ctx.srv, field, 1.0)
+    raw_val = getattr(ctx.srv, field, 1.0)
+    val = _coerce_float(raw_val, 1.0)
     var = tk.StringVar(value=str(val))
     ctx.vars_ref[field] = var
 
@@ -298,7 +317,7 @@ def add_float_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) 
     entry.grid(row=0, column=0, sticky="w")
 
     lo = meta.min_val if meta.min_val is not None else 0.0
-    hi = meta.max_val if meta.max_val is not None else max(10.0, float(val) * 2 or 10.0)
+    hi = meta.max_val if meta.max_val is not None else max(10.0, val * 2 or 10.0)
     _slider_sync = [False]
 
     def _clamp_float(raw: str) -> float:
@@ -366,7 +385,8 @@ def add_int_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) ->
     ctrl = ctk.CTkFrame(card, fg_color="transparent")
     ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
 
-    val = getattr(ctx.srv, field, 0)
+    raw_val = getattr(ctx.srv, field, 0)
+    val = _coerce_int(raw_val, 0)
     var = tk.StringVar(value=str(val))
     ctx.vars_ref[field] = var
 
@@ -575,6 +595,16 @@ def build_cards_layout(
     return row
 
 
+def refresh_scrollable_frame(sf: ctk.CTkScrollableFrame) -> None:
+    """Atualiza scrollregion após widgets adicionados de forma assíncrona."""
+    try:
+        canvas = sf._parent_canvas
+        canvas.configure(scrollregion=canvas.bbox("all"))
+        sf.update_idletasks()
+    except (AttributeError, tk.TclError):
+        pass
+
+
 def build_cards_layout_chunked(
     sf: ctk.CTkScrollableFrame,
     ctx: TekPanelCtx,
@@ -584,6 +614,8 @@ def build_cards_layout_chunked(
     on_complete: Optional[Callable[[int], None]] = None,
     is_cancelled: Optional[Callable[[], bool]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    on_error: Optional[Callable[[BaseException], None]] = None,
+    on_cancelled: Optional[Callable[[], None]] = None,
     chunk_size: int = 1,
 ) -> int:
     """Como build_cards_layout, mas cria cards em lotes para não travar a UI."""
@@ -611,6 +643,9 @@ def build_cards_layout_chunked(
         chunk_size=chunk_size,
         on_progress=on_progress,
         on_done=lambda: on_complete(final_row) if on_complete else None,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
+        is_cancelled=is_cancelled,
     )
 
     for r, col, spec in placements:
@@ -633,6 +668,8 @@ def run_ui_tasks_chunked(
     on_done: Optional[Callable[[], None]] = None,
     is_cancelled: Optional[Callable[[], bool]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    on_error: Optional[Callable[[BaseException], None]] = None,
+    on_cancelled: Optional[Callable[[], None]] = None,
     chunk_size: int = 1,
 ) -> None:
     """Executa callables de construção de UI em lotes via after(0)."""
@@ -644,7 +681,13 @@ def run_ui_tasks_chunked(
         return
 
     builder = ChunkedSectionBuilder(
-        parent, chunk_size=chunk_size, on_progress=on_progress, on_done=on_done,
+        parent,
+        chunk_size=chunk_size,
+        on_progress=on_progress,
+        on_done=on_done,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
+        is_cancelled=is_cancelled,
     )
 
     for fn in tasks:

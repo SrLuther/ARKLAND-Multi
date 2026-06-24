@@ -1,8 +1,9 @@
 {
-    "version": "1.9.79",
+    "version": "1.9.80",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.79/ARKLAND-Multi-Setup-v1.9.79.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.80/ARKLAND-Multi-Setup-v1.9.80.exe",
     "changelog": [
-        "Fix (TEK): botão «Novo Servidor» não abria o diálogo — erro de sintaxe em asm_add_server_dialog.py (string de caminho padrão C:\\ARK\\); mensagem de erro exibida se o diálogo falhar ao carregar."
+        "Fix (TEK): páginas vazias no painel do servidor — valores numéricos inválidos no perfil interrompiam o carregamento assíncrono das seções; estado travado corrigido e mensagem de erro.",
+        "Melhoria (Loja web): Crystal Isles e Genesis 2 na seção Mapas do Cluster — 6 mapas no total."
     ]
 }

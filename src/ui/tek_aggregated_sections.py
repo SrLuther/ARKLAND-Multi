@@ -23,6 +23,8 @@ def build_harvest_resource_section(
     on_done: Optional[Callable[[], None]] = None,
     is_cancelled: Optional[Callable[[], bool]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    on_error: Optional[Callable[[BaseException], None]] = None,
+    on_cancelled: Optional[Callable[[], None]] = None,
 ) -> None:
     wrap_ref: list[ctk.CTkFrame] = []
 
@@ -48,7 +50,11 @@ def build_harvest_resource_section(
             class_placeholder="PrimalItemResource_Stone_C",
         )
 
-    run_ui_tasks_chunked(sf, [_shell, _editor], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress)
+    run_ui_tasks_chunked(
+        sf, [_shell, _editor],
+        on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+        on_error=on_error, on_cancelled=on_cancelled,
+    )
 
 
 def build_dino_class_multipliers_section(
@@ -60,6 +66,8 @@ def build_dino_class_multipliers_section(
     on_done: Optional[Callable[[], None]] = None,
     is_cancelled: Optional[Callable[[], bool]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    on_error: Optional[Callable[[BaseException], None]] = None,
+    on_cancelled: Optional[Callable[[], None]] = None,
 ) -> None:
     wrap_ref: list[ctk.CTkFrame] = []
 
@@ -114,6 +122,7 @@ def build_dino_class_multipliers_section(
     run_ui_tasks_chunked(
         sf, [_shell, _ed_res, _ed_dmg, _ed_tamed_res, _ed_tamed_dmg],
         on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+        on_error=on_error, on_cancelled=on_cancelled,
     )
 
 
@@ -126,6 +135,8 @@ def build_spawn_tame_section(
     on_done: Optional[Callable[[], None]] = None,
     is_cancelled: Optional[Callable[[], bool]] = None,
     on_progress: Optional[Callable[[int, int], None]] = None,
+    on_error: Optional[Callable[[BaseException], None]] = None,
+    on_cancelled: Optional[Callable[[], None]] = None,
 ) -> None:
     wrap_ref: list[ctk.CTkFrame] = []
 
@@ -151,4 +162,8 @@ def build_spawn_tame_section(
             srv.prevent_dino_tame_class_names, accent,
         )
 
-    run_ui_tasks_chunked(sf, [_shell, _spawn, _prevent], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress)
+    run_ui_tasks_chunked(
+        sf, [_shell, _spawn, _prevent],
+        on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+        on_error=on_error, on_cancelled=on_cancelled,
+    )

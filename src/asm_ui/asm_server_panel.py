@@ -494,6 +494,42 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         except Exception:
             pass
 
+    def _clear_section_frame(sf: ctk.CTkScrollableFrame) -> None:
+        for w in sf.winfo_children():
+            try:
+                w.destroy()
+            except tk.TclError:
+                pass
+
+    def _on_build_error(name: str, gen: int, exc: BaseException | None = None) -> None:
+        if gen != _build_generation[0]:
+            return
+        _building[0] = False
+        _pending_section[0] = None
+        _set_loading(False)
+        section_built.discard(name)
+        sf_err = section_frames.get(name)
+        if sf_err is not None:
+            _clear_section_frame(sf_err)
+        if exc is not None:
+            try:
+                from tkinter import messagebox
+                messagebox.showerror(
+                    "Erro ao carregar seção",
+                    f"Não foi possível montar «{name}».\n\n{exc}",
+                    parent=content_area.winfo_toplevel(),
+                )
+            except Exception:
+                pass
+
+    def _on_build_cancelled(name: str, gen: int) -> None:
+        if gen != _build_generation[0]:
+            return
+        _building[0] = False
+        _pending_section[0] = None
+        _set_loading(False)
+        section_built.discard(name)
+
     def _ensure_section(
         name: str,
         on_done: Callable | None = None,
@@ -506,6 +542,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
             return
 
         sf = _create_section_frame(name)
+        _clear_section_frame(sf)
         builder = _builders.get(name)
 
         def _mark_done() -> None:
@@ -522,12 +559,16 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
         from ..ui.perf_monitor import timed_build
 
         is_cancelled = (lambda g=gen: g != _build_generation[0]) if gen else None
+        chunk_error = (lambda exc, n=name, g=gen: _on_build_error(n, g, exc))
+        chunk_cancelled = (lambda n=name, g=gen: _on_build_cancelled(n, g))
 
         if name in _CHUNKED_SECTIONS:
             with timed_build("section_build_chunked", name):
                 builder(
                     sf, srv, vars_ref, bg, accent,
                     on_done=_mark_done,
+                    on_error=chunk_error,
+                    on_cancelled=chunk_cancelled,
                     is_cancelled=is_cancelled,
                     on_progress=_update_loading_progress,
                 )
@@ -545,6 +586,11 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
             nav_buttons[old].configure(fg_color="transparent", text_color=t_sec)
         if name in section_frames:
             section_frames[name].grid(row=0, column=0, sticky="nsew")
+            try:
+                from ..ui.server_field_widgets import refresh_scrollable_frame
+                refresh_scrollable_frame(section_frames[name])
+            except Exception:
+                pass
         nav_buttons[name].configure(fg_color=acc_mb, text_color=accent)
         _active_section[0] = name
 
@@ -579,8 +625,8 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
                     on_done=lambda: _finish_section_build(name, gen),
                     gen=gen,
                 )
-            except Exception:
-                _finish_section_build(name, gen)
+            except Exception as exc:
+                _on_build_error(name, gen, exc)
 
         content_area.after(0, _deferred)
 
@@ -590,9 +636,16 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
             return
         if _building[0]:
             if _pending_section[0] == name:
+                _building[0] = False
+                _pending_section[0] = None
+                _set_loading(False)
+                section_built.discard(name)
+                sf_retry = section_frames.get(name)
+                if sf_retry is not None:
+                    _clear_section_frame(sf_retry)
+            else:
+                _start_section_build(name, cancel_previous=True)
                 return
-            _start_section_build(name, cancel_previous=True)
-            return
         _start_section_build(name)
 
     from ..ui.server_field_labels import section_search_index
@@ -1331,7 +1384,7 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
 #  Seção 5 — Regras
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_rules(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_rules(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import (
         CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout_chunked,
     )
@@ -1403,6 +1456,8 @@ def _build_rules(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
         on_complete=_after_cards,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
         chunk_size=1,
     )
 
@@ -1549,7 +1604,7 @@ def _per_level_grid(sf, row_start, srv, vars_ref, col_defs: list, accent: str) -
 #  Seção 9 — Configurações do Jogador
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import (
         add_bool_field, add_card_header, add_collapsible_help, add_float_field,
         add_int_field, build_per_level_accordion, init_panel_context,
@@ -1611,6 +1666,8 @@ def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
         on_done=on_done,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
         chunk_size=1,
     )
 
@@ -1619,7 +1676,7 @@ def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
 #  Seção 10 — Configurações do Dino
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_dinos(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_dinos(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import (
         add_bool_field, add_card_header, add_collapsible_help, add_float_field,
         add_int_field, build_per_level_accordion, init_panel_context,
@@ -1708,6 +1765,8 @@ def _build_dinos(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
         on_done=on_done,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
         chunk_size=1,
     )
 
@@ -1782,7 +1841,7 @@ def _build_breeding(sf, srv, vars_ref, bg, accent):
 #  Seção 12 — Meio Ambiente
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_environment(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_environment(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout_chunked
 
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Meio Ambiente", "Meio ambiente")
@@ -1824,6 +1883,8 @@ def _build_environment(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancel
         on_complete=_after_cards,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
         chunk_size=1,
     )
 
@@ -1832,7 +1893,7 @@ def _build_environment(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancel
 #  Seção 13 — Estruturas
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout_chunked
 
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Estruturas", "Estruturas")
@@ -1882,6 +1943,8 @@ def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
         on_complete=_after_cards,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
         chunk_size=1,
     )
 
@@ -1890,7 +1953,7 @@ def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
 #  Seção 14 — Engramas
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_engrams(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_engrams(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import (
         CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout_chunked,
         make_card, add_card_header, run_ui_tasks_chunked,
@@ -1938,7 +2001,10 @@ def _build_engrams(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
 
     def _after_cards(row: int) -> None:
         final_row[0] = row
-        run_ui_tasks_chunked(sf, [_extras], is_cancelled=is_cancelled)
+        run_ui_tasks_chunked(
+            sf, [_extras], is_cancelled=is_cancelled,
+            on_error=on_error, on_cancelled=on_cancelled,
+        )
 
     build_cards_layout_chunked(
         sf, ctx,
@@ -1946,6 +2012,8 @@ def _build_engrams(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
         on_complete=_after_cards,
         is_cancelled=is_cancelled,
         on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
     )
 
 
@@ -2459,7 +2527,7 @@ def _build_tool_launcher(
 #  Seções Agregadas (Fase 4)
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_harvest_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_harvest_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import run_ui_tasks_chunked
     from ..ui.tek_aggregated_sections import build_harvest_resource_section
 
@@ -2472,15 +2540,17 @@ def _build_harvest_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is
     def _after_main() -> None:
         run_ui_tasks_chunked(
             sf, [_help], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+            on_error=on_error, on_cancelled=on_cancelled,
         )
 
     build_harvest_resource_section(
         sf, srv, vars_ref, accent,
         on_done=_after_main, is_cancelled=is_cancelled, on_progress=on_progress,
+        on_error=on_error, on_cancelled=on_cancelled,
     )
 
 
-def _build_dino_class_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_dino_class_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import run_ui_tasks_chunked
     from ..ui.tek_aggregated_sections import build_dino_class_multipliers_section
 
@@ -2493,15 +2563,17 @@ def _build_dino_class_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None,
     def _after_main() -> None:
         run_ui_tasks_chunked(
             sf, [_help], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+            on_error=on_error, on_cancelled=on_cancelled,
         )
 
     build_dino_class_multipliers_section(
         sf, srv, vars_ref, accent,
         on_done=_after_main, is_cancelled=is_cancelled, on_progress=on_progress,
+        on_error=on_error, on_cancelled=on_cancelled,
     )
 
 
-def _build_spawn_tame_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_spawn_tame_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import run_ui_tasks_chunked
     from ..ui.tek_aggregated_sections import build_spawn_tame_section
 
@@ -2514,11 +2586,13 @@ def _build_spawn_tame_aggregated(sf, srv, vars_ref, bg, accent, *, on_done=None,
     def _after_main() -> None:
         run_ui_tasks_chunked(
             sf, [_help], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+            on_error=on_error, on_cancelled=on_cancelled,
         )
 
     build_spawn_tame_section(
         sf, srv, vars_ref, accent,
         on_done=_after_main, is_cancelled=is_cancelled, on_progress=on_progress,
+        on_error=on_error, on_cancelled=on_cancelled,
     )
 
 
@@ -3340,7 +3414,7 @@ def _build_ini_editor(
 #  Seção 22 — Custom GameUserSettings.ini
 # ════════════════════════════════════════════════════════════════════════════ #
 
-def _build_custom_gus(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_custom_gus(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import run_ui_tasks_chunked
 
     def _help() -> None:
@@ -3353,6 +3427,7 @@ def _build_custom_gus(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
     def _after_ini() -> None:
         run_ui_tasks_chunked(
             sf, [_help], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+            on_error=on_error, on_cancelled=on_cancelled,
         )
 
     _build_ini_editor(
@@ -3362,7 +3437,7 @@ def _build_custom_gus(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
     )
 
 
-def _build_custom_game(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None):
+def _build_custom_game(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
     from ..ui.server_field_widgets import run_ui_tasks_chunked
 
     def _help() -> None:
@@ -3375,6 +3450,7 @@ def _build_custom_game(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancel
     def _after_ini() -> None:
         run_ui_tasks_chunked(
             sf, [_help], on_done=on_done, is_cancelled=is_cancelled, on_progress=on_progress,
+            on_error=on_error, on_cancelled=on_cancelled,
         )
 
     _build_ini_editor(

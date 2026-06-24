@@ -52,6 +52,9 @@ def test_public_home_default_featured_maps(client):
     assert "Brighamia" in names
     assert "The Volcano" in names
     assert "Amissa" in names
+    assert "Crystal Isles" in names
+    assert "Genesis 2" in names
+    assert len(names) == 6
     assert data.get("featured_maps_section", {}).get("title")
 
 
