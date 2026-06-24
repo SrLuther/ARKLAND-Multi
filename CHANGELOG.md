@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.85] - 2026-06-24
+
+### Fix
+
+- Fix (TEK Dashboard): grade de cards permanece visível ao iniciar/parar servidores — scrollregion recalcula altura real após layout dos widgets CTk (sem mudar o visual).
+
 ## [1.9.84] - 2026-06-24
 
 ### Fix

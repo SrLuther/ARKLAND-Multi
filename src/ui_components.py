@@ -49,7 +49,8 @@ class FastScrollFrame(tk.Frame):
         self._bg = bg
         self._canvas = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
         self._vsb = tk.Scrollbar(self, orient="vertical", command=self._canvas.yview)
-        self.inner = tk.Frame(self._canvas, bg=bg)
+        # CTkFrame: filhos CTk reportam altura corretamente ao canvas (tk.Frame falha após rebuild)
+        self.inner = ctk.CTkFrame(self._canvas, fg_color=bg, corner_radius=0)
 
         self._win_id = self._canvas.create_window(0, 0, anchor="nw", window=self.inner)
         self._canvas.configure(yscrollcommand=self._vsb.set)
@@ -67,7 +68,7 @@ class FastScrollFrame(tk.Frame):
     # ── handlers ─────────────────────────────────────────────────────────────
 
     def _on_inner_configure(self, _event) -> None:
-        self._canvas.configure(scrollregion=self._canvas.bbox("all"))
+        self.refresh_scrollregion()
 
     def _on_canvas_configure(self, event) -> None:
         self._canvas.itemconfig(self._win_id, width=event.width)
@@ -82,6 +83,38 @@ class FastScrollFrame(tk.Frame):
         self._canvas.yview_scroll(int(-1 * event.delta / 120), "units")
 
     # ── utilitário ────────────────────────────────────────────────────────────
+
+    def _content_bottom(self) -> int:
+        """Altura real do conteúdo — soma posição+altura de cada filho direto."""
+        self.inner.update_idletasks()
+        bottom = 0
+        for child in self.inner.winfo_children():
+            try:
+                child.update_idletasks()
+                bottom = max(bottom, child.winfo_y() + child.winfo_height())
+            except tk.TclError:
+                pass
+        return bottom
+
+    def refresh_scrollregion(self) -> None:
+        """Recalcula scrollregion (CTk filhos podem atrasar o <Configure> do inner)."""
+        try:
+            self.inner.update_idletasks()
+            self._canvas.update_idletasks()
+            w = max(self._canvas.winfo_width(), self.inner.winfo_reqwidth(), 1)
+            h = self._content_bottom()
+            bbox = self._canvas.bbox("all")
+            if bbox:
+                h = max(h, int(bbox[3]))
+            if h > 0:
+                self._canvas.configure(scrollregion=(0, 0, w, h + 12))
+        except tk.TclError:
+            pass
+
+    def schedule_refresh_scrollregion(self, delays: tuple[int, ...] = (0, 50, 150, 400, 800)) -> None:
+        """Repete refresh — widgets CTk terminam layout de forma assíncrona."""
+        for ms in delays:
+            self.after(ms, self.refresh_scrollregion)
 
     def scroll_to_top(self) -> None:
         self._canvas.yview_moveto(0)

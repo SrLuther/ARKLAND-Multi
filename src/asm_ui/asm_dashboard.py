@@ -426,6 +426,9 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
 
     _update_subtitle(app, servers)
     inner.update_idletasks()
+    scroll = getattr(app, "_asm_dashboard_scroll", None)
+    if scroll is not None and hasattr(scroll, "schedule_refresh_scrollregion"):
+        scroll.schedule_refresh_scrollregion()
 
 
 def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:
