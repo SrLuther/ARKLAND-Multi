@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.88] - 2026-06-24
+
+### Fix
+
+- Fix definitivo (TEK Dashboard): shell estável — bulk bar fora do scroll, cards_host permanente; rebuild só dos cards no status (sem destruir o scroll).
+
 ## [1.9.87] - 2026-06-24
 
 ### Fix

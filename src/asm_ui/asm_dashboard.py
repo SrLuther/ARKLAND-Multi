@@ -66,7 +66,8 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_rowconfigure(0, weight=0)  # TopBar
     parent.grid_rowconfigure(1, weight=0)  # Stats grid
-    parent.grid_rowconfigure(2, weight=1)  # Scroll de cards
+    parent.grid_rowconfigure(2, weight=0)  # Bulk bar
+    parent.grid_rowconfigure(3, weight=1)  # Scroll de cards
 
     # ── TopBar ────────────────────────────────────────────────────────────────
     topbar_f = ctk.CTkFrame(parent, fg_color=topbar, corner_radius=0, height=72,
@@ -217,14 +218,30 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=1, column=0, sticky="ews")
 
-    # ── Scroll de cards (CTkScrollableFrame — CTk nativo; FastScrollFrame clipava cards)
+    # ── Bulk bar (fixo — fora do scroll) ─────────────────────────────────────
+    app._asm_bulk_bar = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=8,
+                                     border_width=1, border_color=card_bdr)
+    app._asm_bulk_bar.grid(row=2, column=0, sticky="ew", padx=8, pady=(8, 4))
+    _build_bulk_bar(app)
+
+    # ── Scroll: um único cards_host interno — nunca destruído no refresh ───
     scroll = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0,
                                     scrollbar_button_color=sep)
-    scroll.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
-    scroll.grid_columnconfigure((0, 1), weight=1)
+    scroll.grid(row=3, column=0, padx=0, pady=0, sticky="nsew")
+    scroll.grid_columnconfigure(0, weight=1)
+    scroll.grid_rowconfigure(0, weight=1)
     app._asm_dashboard_scroll = scroll
 
-    _refresh_asm_dashboard(app)
+    cards_host = ctk.CTkFrame(scroll, fg_color=bg, corner_radius=0)
+    cards_host.grid(row=0, column=0, sticky="nsew")
+    cards_host.grid_columnconfigure((0, 1), weight=1)
+    app._asm_dashboard_cards_host = cards_host
+    app._asm_dashboard_layout_sig = None
+    app._asm_dashboard_cards = {}
+    app._asm_folder_count_labels = {}
+    app._asm_card_grid_pos: dict = {}
+
+    _refresh_asm_dashboard(app, force_layout=True)
 
 
 def _dashboard_scroll(app: "ARKServerManagerApp"):
@@ -238,25 +255,297 @@ def _dashboard_scroll(app: "ARKServerManagerApp"):
         return None
 
 
-def _schedule_dashboard_scroll_refresh(scroll, n_cards: int) -> None:
-    """Atualiza scrollregion após rebuild — CTk layouta cards de forma assíncrona."""
-    min_h = 120 + max(1, (n_cards + 1) // 2) * 300
+def _cards_host(app: "ARKServerManagerApp"):
+    host = getattr(app, "_asm_dashboard_cards_host", None)
+    if host is None:
+        return None
+    try:
+        return host if host.winfo_exists() else None
+    except Exception:
+        return None
 
-    def _apply() -> None:
-        refresh_scrollable_frame(scroll)
+
+def _layout_signature(app: "ARKServerManagerApp") -> tuple:
+    fm = app.asm_config_manager.folder_manager
+    return tuple(
+        (folder, tuple(s.id for s in servers))
+        for folder, servers in fm.grouped().items()
+    )
+
+
+def _schedule_dashboard_scroll_refresh(scroll) -> None:
+    """Atualiza scrollregion sem rebuild — cards_host permanece estável."""
+    for ms in (0, 50, 150, 300):
+        scroll.after(ms, lambda s=scroll: refresh_scrollable_frame(s))
+
+
+def _build_bulk_bar(app: "ARKServerManagerApp") -> None:
+    """Constrói a barra de ações em massa (uma vez)."""
+    bulk = getattr(app, "_asm_bulk_bar", None)
+    if bulk is None:
+        return
+    for w in bulk.winfo_children():
+        w.destroy()
+
+    theme = get_theme("tek")
+    accent = theme["accent"]
+    card_bdr = theme.get("card_border", theme["separator"])
+    t_sec = theme["text_secondary"]
+    is_light = theme.get("_is_light", False)
+
+    bulk.grid_columnconfigure(8, weight=1)
+    servers = app.asm_config_manager.servers
+
+    if not hasattr(app, "_asm_selected_servers"):
+        app._asm_selected_servers: set = set()
+
+    sel_all_var = tk.BooleanVar(value=False)
+
+    def _toggle_all():
+        all_ids = {s.id for s in servers}
+        app._asm_selected_servers = all_ids if sel_all_var.get() else set()
+
+    ctk.CTkCheckBox(
+        bulk, text="Selecionar Todos", variable=sel_all_var,
+        font=ctk.CTkFont(size=11), text_color=t_sec,
+        checkmark_color=accent, border_color=accent,
+        command=_toggle_all,
+    ).grid(row=0, column=0, padx=(10, 10), pady=8, sticky="w")
+
+    def _bulk_start():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            srv = app.asm_config_manager.get_server(sid)
+            if srv:
+                threading.Thread(target=lambda s=srv: app._asm_start_server(s), daemon=True).start()
+
+    def _bulk_stop():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            threading.Thread(target=lambda sid_=sid: app._asm_stop_server(sid_), daemon=True).start()
+
+    def _bulk_restart():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            srv = app.asm_config_manager.get_server(sid)
+            if srv:
+                threading.Thread(target=lambda s=srv: app._asm_restart_server(s), daemon=True).start()
+
+    def _bulk_update_mods():
+        import threading
+        for sid in list(app._asm_selected_servers):
+            srv = app.asm_config_manager.get_server(sid)
+            if srv and srv.active_mods:
+                threading.Thread(target=lambda s=srv: app._asm_update_mods(s), daemon=True).start()
+
+    _bulk_btns = (
+        [
+            ("\u25b6  Iniciar", _bulk_start, "#dcfce7", "#166534"),
+            ("\u23f9  Parar", _bulk_stop, "#fee2e2", "#991b1b"),
+            ("\U0001f504  Reiniciar", _bulk_restart, "#f1f5f9", t_sec),
+            ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#e0f2fe", "#0369a1"),
+        ] if is_light else [
+            ("\u25b6  Iniciar", _bulk_start, "#052e16", "#4ade80"),
+            ("\u23f9  Parar", _bulk_stop, "#7f1d1d", "#fca5a5"),
+            ("\U0001f504  Reiniciar", _bulk_restart, "#1e293b", t_sec),
+            ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#0c1a2e", "#7dd3fc"),
+        ]
+    )
+    _bulk_hover = "#e2e8f0" if is_light else "#1e293b"
+    for col_i, (txt, cmd, bg_c, tc) in enumerate(_bulk_btns, start=1):
+        ctk.CTkButton(
+            bulk, text=txt, width=130, height=28,
+            fg_color=bg_c, hover_color=_bulk_hover,
+            text_color=tc, corner_radius=6,
+            font=ctk.CTkFont(size=11), command=cmd,
+        ).grid(row=0, column=col_i, padx=3, pady=8)
+
+
+def _populate_cards_grid(app: "ARKServerManagerApp", host: ctk.CTkFrame) -> None:
+    """Monta pastas + cards dentro de cards_host (shell estável)."""
+    from .asm_server_card import build_asm_server_card
+
+    for w in host.winfo_children():
+        w.destroy()
+
+    app._asm_dashboard_cards = {}
+    app._asm_folder_count_labels = {}
+    app._asm_card_grid_pos = {}
+
+    theme = get_theme("tek")
+    accent = theme["accent"]
+    bg = theme["bg"]
+    t_sec = theme["text_secondary"]
+    t_mut = theme["text_muted"]
+    is_light = theme.get("_is_light", False)
+    folder_bg = theme.get("folder_hdr_bg", "#0a111c" if not is_light else "#eef2f6")
+    folder_bdr = theme.get("folder_hdr_border", "#1a2840" if not is_light else "#94a3b8")
+
+    servers = app.asm_config_manager.servers
+    if not servers:
+        ctk.CTkLabel(
+            host,
+            text="Nenhum servidor TEK configurado.\nClique em '＋ Novo Servidor' para começar.",
+            font=ctk.CTkFont(family="Segoe UI", size=15), text_color=t_sec, justify="center",
+        ).grid(row=0, column=0, columnspan=2, pady=60)
+        return
+
+    fm = app.asm_config_manager.folder_manager
+    grouped = fm.grouped()
+    grid_row = 0
+
+    for folder_name, folder_servers in grouped.items():
+        display_name = folder_name or "Geral"
+        is_root = (folder_name == "")
+
+        folder_hdr = ctk.CTkFrame(
+            host, fg_color=folder_bg, corner_radius=6,
+            border_width=1, border_color=folder_bdr,
+        )
+        folder_hdr.grid(row=grid_row, column=0, columnspan=2, sticky="ew", padx=8, pady=(10, 2))
+        folder_hdr.grid_columnconfigure(1, weight=1)
+        grid_row += 1
+
+        icon = "📁" if not is_root else "🖥"
+        ctk.CTkLabel(
+            folder_hdr, text=f"{icon}  {display_name}",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color=accent if not is_root else t_sec,
+        ).grid(row=0, column=0, padx=(12, 6), pady=7, sticky="w")
+
+        count_active = sum(
+            1 for s in folder_servers
+            if (inst := app.asm_server_manager.get_instance(s.id))
+            and inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING)
+        )
+        count_lbl = ctk.CTkLabel(
+            folder_hdr,
+            text=f"{count_active}/{len(folder_servers)} online",
+            font=ctk.CTkFont(size=10), text_color=t_mut,
+        )
+        count_lbl.grid(row=0, column=1, padx=4, pady=7, sticky="w")
+        app._asm_folder_count_labels[folder_name] = count_lbl
+
+        if not is_root:
+            def _start_folder(fsvrs=folder_servers):
+                import threading
+                for s in fsvrs:
+                    threading.Thread(
+                        target=lambda srv=s: app._asm_start_server(srv), daemon=True,
+                    ).start()
+
+            ctk.CTkButton(
+                folder_hdr, text="▶  Iniciar Todos", width=110, height=26,
+                fg_color="#dcfce7" if is_light else "#052e16",
+                hover_color="#bbf7d0" if is_light else "#14532d",
+                text_color="#166534" if is_light else "#4ade80",
+                corner_radius=6, font=ctk.CTkFont(size=10),
+                command=_start_folder,
+            ).grid(row=0, column=2, padx=(0, 10), pady=7, sticky="e")
+
+        card_row_base = grid_row
+        for idx, srv in enumerate(folder_servers):
+            r, c = divmod(idx, 2)
+            row, col = card_row_base + r, c
+            build_asm_server_card(app, host, srv, row, col)
+            app._asm_card_grid_pos[srv.id] = (row, col)
+        grid_row += (len(folder_servers) + 1) // 2
+
+
+def _update_folder_counts(app: "ARKServerManagerApp") -> None:
+    labels = getattr(app, "_asm_folder_count_labels", None) or {}
+    if not labels:
+        return
+    fm = app.asm_config_manager.folder_manager
+    for folder_name, folder_servers in fm.grouped().items():
+        lbl = labels.get(folder_name)
+        if not lbl or not lbl.winfo_exists():
+            continue
+        count_active = sum(
+            1 for s in folder_servers
+            if (inst := app.asm_server_manager.get_instance(s.id))
+            and inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING)
+        )
+        lbl.configure(text=f"{count_active}/{len(folder_servers)} online")
+
+
+def _rebuild_all_cards(app: "ARKServerManagerApp") -> None:
+    """Recria somente os cards (mantém cards_host e bulk bar)."""
+    from .asm_server_card import build_asm_server_card
+
+    host = _cards_host(app)
+    if host is None:
+        return
+
+    positions = dict(getattr(app, "_asm_card_grid_pos", {}) or {})
+    cards = getattr(app, "_asm_dashboard_cards", {}) or {}
+
+    for sid, frame in list(cards.items()):
         try:
-            canvas = scroll._parent_canvas
-            bbox = canvas.bbox("all")
-            w = max(canvas.winfo_width(), 1)
-            h = min_h
-            if bbox:
-                h = max(h, int(bbox[3]) + 16)
-            canvas.configure(scrollregion=(0, 0, w, h))
-        except (AttributeError, tk.TclError):
+            if frame.winfo_exists():
+                frame.destroy()
+        except Exception:
             pass
 
-    for ms in (0, 50, 150, 400, 800):
-        scroll.after(ms, _apply)
+    app._asm_dashboard_cards = {}
+    for srv_id, (row, col) in positions.items():
+        srv = app.asm_config_manager.get_server(srv_id)
+        if srv:
+            build_asm_server_card(app, host, srv, row, col)
+
+    scroll = _dashboard_scroll(app)
+    if scroll:
+        host.update_idletasks()
+        _schedule_dashboard_scroll_refresh(scroll)
+
+
+def _update_card_rich_labels(app: "ARKServerManagerApp") -> None:
+    """Atualiza métricas nos cards sem rebuild (tick 30s)."""
+    theme = get_theme("tek")
+    accent = theme["accent"]
+    t_sec = theme["text_secondary"]
+
+    for srv in app.asm_config_manager.servers:
+        card = (getattr(app, "_asm_dashboard_cards", {}) or {}).get(srv.id)
+        if card is None:
+            continue
+        try:
+            if not card.winfo_exists():
+                continue
+        except Exception:
+            continue
+
+        refs = getattr(card, "_asm_rich_value_labels", None)
+        if not refs:
+            continue
+
+        inst = app.asm_server_manager.get_instance(srv.id)
+        is_running = inst and inst.status == ASM_STATUS_RUNNING
+        rich_key = f"_asm_rich_status_{srv.id}"
+        rich_data: dict = getattr(app, rich_key, {})
+        val_tc = accent if is_running else t_sec
+        val_font = ctk.CTkFont(family="Segoe UI", size=14, weight="bold")
+
+        mapping = (
+            ("Jogadores", rich_data.get("players", "—")),
+            ("Uptime", rich_data.get("uptime", "—")),
+            ("Memória", rich_data.get("ram", "—")),
+            ("Versão", rich_data.get("version", "—")),
+        )
+        for hint, val in mapping:
+            lbl = refs.get(hint)
+            if lbl and lbl.winfo_exists():
+                icon = {"Jogadores": "👥", "Uptime": "🕐", "Memória": "💾", "Versão": "📋"}[hint]
+                lbl.configure(text=f"{icon}  {val}", text_color=val_tc, font=val_font)
+
+
+def refresh_dashboard_metrics(app: "ARKServerManagerApp") -> None:
+    """Refresh leve: stats + métricas dos cards — sem destruir widgets."""
+    servers = app.asm_config_manager.servers
+    _update_subtitle(app, servers)
+    _refresh_asm_stats(app, servers)
+    _update_folder_counts(app)
+    _update_card_rich_labels(app)
 
 
 def _refresh_asm_stats(app: "ARKServerManagerApp", servers: list) -> None:
@@ -293,200 +582,29 @@ def _refresh_asm_stats(app: "ARKServerManagerApp", servers: list) -> None:
         bars["RAM"].set(min(ram_pct / 100.0, 1.0))
 
 
-def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
-    """Popula / atualiza os cards de servidor no scroll do dashboard TEK."""
-    from .asm_server_card import build_asm_server_card
-
-    inner = _dashboard_scroll(app)
-    if inner is None:
+def _refresh_asm_dashboard(app: "ARKServerManagerApp", *, force_layout: bool = False) -> None:
+    """Atualiza dashboard — rebuild completo só se layout mudou; senão só cards."""
+    host = _cards_host(app)
+    scroll = _dashboard_scroll(app)
+    if host is None or scroll is None:
         return
-
-    for w in inner.winfo_children():
-        w.destroy()
-
-    theme   = get_theme("tek")
-    accent  = theme["accent"]
-    bg      = theme["bg"]
-    card_bg = theme["card_bg"]
-    sep     = theme["separator"]
-    t_pri   = theme["text_primary"]
-    t_sec   = theme["text_secondary"]
-    t_mut   = theme["text_muted"]
-    acc_mb  = theme["accent_muted_bg"]
-    acc_dk  = theme["accent_dark"]
-    is_light = theme.get("_is_light", False)
-    card_bdr = theme.get("card_border", sep)
-    folder_bg = theme.get("folder_hdr_bg", "#0a111c" if not is_light else "#eef2f6")
-    folder_bdr = theme.get("folder_hdr_border", "#1a2840" if not is_light else "#94a3b8")
 
     servers = app.asm_config_manager.servers
-    if not servers:
-        ctk.CTkLabel(
-            inner,
-            text="Nenhum servidor TEK configurado.\nClique em '＋ Novo Servidor' para começar.",
-            font=ctk.CTkFont(family="Segoe UI", size=15), text_color=t_sec, justify="center",
-        ).grid(row=0, column=0, columnspan=2, pady=60)
-        _update_subtitle(app, servers)
-        return
+    sig = _layout_signature(app)
+    layout_changed = force_layout or sig != getattr(app, "_asm_dashboard_layout_sig", None)
 
-    # ── S3.2 — Toolbar de Bulk Actions ───────────────────────────────────────
-    if not hasattr(app, "_asm_selected_servers"):
-        app._asm_selected_servers: set = set()
-
-    bulk_bar = ctk.CTkFrame(inner, fg_color=card_bg, corner_radius=8,
-                            border_width=1, border_color=card_bdr)
-    bulk_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
-    bulk_bar.grid_columnconfigure(8, weight=1)
-
-    # Checkbox "Selecionar Todos"
-    sel_all_var = tk.BooleanVar(value=False)
-
-    def _toggle_all():
-        all_ids = {s.id for s in servers}
-        if sel_all_var.get():
-            app._asm_selected_servers = all_ids
-        else:
-            app._asm_selected_servers = set()
-
-    ctk.CTkCheckBox(
-        bulk_bar, text="Selecionar Todos", variable=sel_all_var,
-        font=ctk.CTkFont(size=11), text_color=t_sec,
-        checkmark_color=accent, border_color=accent,
-        command=_toggle_all,
-    ).grid(row=0, column=0, padx=(10, 10), pady=8, sticky="w")
-
-    def _bulk_start():
-        import threading
-        for sid in list(app._asm_selected_servers):
-            srv = app.asm_config_manager.get_server(sid)
-            if srv:
-                threading.Thread(
-                    target=lambda s=srv: app._asm_start_server(s),
-                    daemon=True,
-                ).start()
-
-    def _bulk_stop():
-        import threading
-        for sid in list(app._asm_selected_servers):
-            threading.Thread(
-                target=lambda sid_=sid: app._asm_stop_server(sid_),
-                daemon=True,
-            ).start()
-
-    def _bulk_restart():
-        import threading
-        for sid in list(app._asm_selected_servers):
-            srv = app.asm_config_manager.get_server(sid)
-            if srv:
-                threading.Thread(
-                    target=lambda s=srv: app._asm_restart_server(s),
-                    daemon=True,
-                ).start()
-
-    def _bulk_update_mods():
-        import threading
-        for sid in list(app._asm_selected_servers):
-            srv = app.asm_config_manager.get_server(sid)
-            if srv and srv.active_mods:
-                threading.Thread(
-                    target=lambda s=srv: app._asm_update_mods(s),
-                    daemon=True,
-                ).start()
-
-    _bulk_btns = (
-        [
-            ("\u25b6  Iniciar",        _bulk_start,       "#dcfce7", "#166534"),
-            ("\u23f9  Parar",          _bulk_stop,        "#fee2e2", "#991b1b"),
-            ("\U0001f504  Reiniciar",  _bulk_restart,     "#f1f5f9", t_sec),
-            ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#e0f2fe", "#0369a1"),
-        ] if is_light else [
-            ("\u25b6  Iniciar",        _bulk_start,       "#052e16", "#4ade80"),
-            ("\u23f9  Parar",          _bulk_stop,        "#7f1d1d", "#fca5a5"),
-            ("\U0001f504  Reiniciar",  _bulk_restart,     "#1e293b", t_sec),
-            ("\U0001f4e6  Atualizar Mods", _bulk_update_mods, "#0c1a2e", "#7dd3fc"),
-        ]
-    )
-    _bulk_hover = "#e2e8f0" if is_light else "#1e293b"
-    for col_i, (txt, cmd, bg_c, tc) in enumerate(_bulk_btns, start=1):
-        ctk.CTkButton(
-            bulk_bar, text=txt, width=130, height=28,
-            fg_color=bg_c, hover_color=_bulk_hover,
-            text_color=tc, corner_radius=6,
-            font=ctk.CTkFont(size=11),
-            command=cmd,
-        ).grid(row=0, column=col_i, padx=3, pady=8)
-
-    # ── S3.1 — Grupos (pastas) ────────────────────────────────────────────────
-    fm      = app.asm_config_manager.folder_manager
-    grouped = fm.grouped()   # dict: {pasta: [servidores]}
-
-    grid_row = 1
-    for folder_name, folder_servers in grouped.items():
-        display_name = folder_name or "Geral"
-        is_root      = (folder_name == "")
-
-        # ── Header da pasta ───────────────────────────────────────────────────
-        folder_hdr = ctk.CTkFrame(
-            inner,
-            fg_color=folder_bg,
-            corner_radius=6,
-            border_width=1,
-            border_color=folder_bdr,
-        )
-        folder_hdr.grid(row=grid_row, column=0, columnspan=2,
-                        sticky="ew", padx=8, pady=(10, 2))
-        folder_hdr.grid_columnconfigure(1, weight=1)
-        grid_row += 1
-
-        icon = "📁" if not is_root else "🖥"
-        ctk.CTkLabel(
-            folder_hdr, text=f"{icon}  {display_name}",
-            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
-            text_color=accent if not is_root else t_sec,
-        ).grid(row=0, column=0, padx=(12, 6), pady=7, sticky="w")
-
-        count_active = sum(
-            1 for s in folder_servers
-            if (inst := app.asm_server_manager.get_instance(s.id))
-            and inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING)
-        )
-        ctk.CTkLabel(
-            folder_hdr,
-            text=f"{count_active}/{len(folder_servers)} online",
-            font=ctk.CTkFont(size=10), text_color=t_mut,
-        ).grid(row=0, column=1, padx=4, pady=7, sticky="w")
-
-        # Botão "▶ Iniciar Todos" na pasta
-        if not is_root:
-            def _start_folder(fsvrs=folder_servers):
-                import threading
-                for s in fsvrs:
-                    threading.Thread(
-                        target=lambda srv=s: app._asm_start_server(srv),
-                        daemon=True,
-                    ).start()
-
-            ctk.CTkButton(
-                folder_hdr, text="▶  Iniciar Todos", width=110, height=26,
-                fg_color="#dcfce7" if is_light else "#052e16",
-                hover_color="#bbf7d0" if is_light else "#14532d",
-                text_color="#166534" if is_light else "#4ade80",
-                corner_radius=6,
-                font=ctk.CTkFont(size=10),
-                command=_start_folder,
-            ).grid(row=0, column=2, padx=(0, 10), pady=7, sticky="e")
-
-        # ── Cards no scroll (sem frame aninhado — evita clip/overlap no CTkScrollableFrame)
-        card_row_base = grid_row
-        for idx, srv in enumerate(folder_servers):
-            r, c = divmod(idx, 2)
-            build_asm_server_card(app, inner, srv, card_row_base + r, c)
-        grid_row += (len(folder_servers) + 1) // 2
+    if layout_changed:
+        app._asm_dashboard_layout_sig = sig
+        _build_bulk_bar(app)
+        _populate_cards_grid(app, host)
+    else:
+        _rebuild_all_cards(app)
 
     _update_subtitle(app, servers)
     _refresh_asm_stats(app, servers)
-    inner.update_idletasks()
-    _schedule_dashboard_scroll_refresh(inner, len(servers))
+    _update_folder_counts(app)
+    host.update_idletasks()
+    _schedule_dashboard_scroll_refresh(scroll)
 
 
 def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:

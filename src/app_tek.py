@@ -287,7 +287,8 @@ class ARKServerManagerApp(ctk.CTk):
                     setattr(self, rich_key, data)
             finally:
                 self._asm_status_tick_running = False
-                self.after(0, self._asm_refresh_dashboard)
+                from .asm_ui.asm_dashboard import refresh_dashboard_metrics
+                self.after(0, lambda: refresh_dashboard_metrics(self))
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -853,7 +854,7 @@ class ARKServerManagerApp(ctk.CTk):
         """Executa refresh imediato do dashboard."""
         self._dash_refresh_job = None
         from .asm_ui.asm_dashboard import _refresh_asm_dashboard
-        _refresh_asm_dashboard(self)
+        _refresh_asm_dashboard(self, force_layout=False)
 
     # ─────────────────────────────────────────────────────────────────────────
     # Diálogo: Novo Servidor

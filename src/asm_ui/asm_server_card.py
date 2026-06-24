@@ -15,7 +15,7 @@ from ..asm_engine.asm_server_config import (
     ASM_STATUS_STOPPED, ASM_STATUS_STARTING, ASM_STATUS_RUNNING,
     ASM_STATUS_STOPPING, ASM_STATUS_CRASHED, ASM_STATUS_UPDATING,
 )
-from ..server_visibility import format_status_badge, STEAM_UNAVAILABLE
+from ..server_visibility import format_status_badge, STEAM_UNAVAILABLE, STEAM_UNKNOWN
 from ..ui_constants import get_theme
 
 if TYPE_CHECKING:
@@ -55,7 +55,7 @@ ARK_MAP_LABELS: dict[str, str] = {
 
 
 def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
-                          srv: AsmServerConfig, row: int, col: int) -> None:
+                          srv: AsmServerConfig, row: int, col: int) -> ctk.CTkFrame:
     th      = get_theme("tek")
     accent  = th["accent"]
     card_bg = th["card_bg"]
@@ -416,4 +416,18 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     _tbtn("📡  Monitor",  lambda s=srv: app._asm_open_monitor(s))
     _tbtn("🤖  IA",       lambda s=srv: app._asm_open_ai_assistant(s), width=58)
 
+    if not hasattr(app, "_asm_dashboard_cards"):
+        app._asm_dashboard_cards = {}
+    app._asm_dashboard_cards[srv.id] = card
+
+    refs: dict[str, ctk.CTkLabel] = {}
+    for chip in rich_r.winfo_children():
+        if not isinstance(chip, ctk.CTkFrame):
+            continue
+        kids = chip.winfo_children()
+        if len(kids) >= 2 and isinstance(kids[0], ctk.CTkLabel) and isinstance(kids[1], ctk.CTkLabel):
+            refs[kids[1].cget("text")] = kids[0]
+    card._asm_rich_value_labels = refs  # type: ignore[attr-defined]
+
+    return card
 
