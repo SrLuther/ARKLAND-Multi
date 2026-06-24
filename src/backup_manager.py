@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, TYPE_CHECKING
 
+from .arkland_environment import default_backups_servers_root
+
 if TYPE_CHECKING:
     from .server_config import ServerConfig
     from .config_manager import BackupConfig
@@ -136,7 +138,7 @@ class BackupManager:
         self._get_servers  = get_servers
         self._on_log       = on_log or (lambda m, lvl: None)
         self._discord_notifier = discord_notifier
-        self._backups_root = _DATA_DIR / "backups" / "servers"
+        self._backups_root = default_backups_servers_root()
         self._timers: Dict[str, threading.Timer] = {}
         self._lock = threading.Lock()
 

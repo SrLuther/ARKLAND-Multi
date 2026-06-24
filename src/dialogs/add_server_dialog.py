@@ -50,13 +50,28 @@ def dialog_add_server(app: "ARKServerManagerApp") -> None:
 
     # ── Sugestão automática de diretório ────────────────────────────
     def _suggest_install_dir() -> str:
+        from ..arkland_environment import resolve_environment, suggest_next_server_dir
+
+        env = resolve_environment(app.config_manager.config)
+        if env:
+            occupied = [s.install_dir for s in app.config_manager.servers if s.install_dir]
+            asm_mgr = getattr(app, "asm_config_manager", None)
+            if asm_mgr:
+                occupied.extend(s.install_dir for s in asm_mgr.servers if s.install_dir)
+            total = len(app.config_manager.servers) + (
+                len(asm_mgr.servers) if asm_mgr else 0
+            )
+            return suggest_next_server_dir(
+                env,
+                existing_count=total,
+                occupied_paths=occupied,
+            )
         base = (app.config_manager.config.default_install_dir or "").strip()
         if not base:
             return ""
         from pathlib import Path as _Path
         servers_root = _Path(base) / "Servidores"
         n = len(app.config_manager.servers) + 1
-        # Encontra o próximo número não ocupado
         while True:
             candidate = servers_root / f"Servidor {n:02d}"
             if not candidate.exists():

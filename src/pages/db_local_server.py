@@ -12,11 +12,19 @@ from pathlib import Path
 from typing import Callable, Optional
 
 # ── Diretórios ──────────────────────────────────────────────────────────────
-_APPDATA     = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
-_MARIADB_DIR = _APPDATA / "mariadb"          # binários extraídos do zip
-_DATA_DIR    = _APPDATA / "mariadb_data"     # arquivos de banco de dados
-_PORT        = 3306
+_APPDATA = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+_PORT = 3306
 _FIREWALL_RULE = "ARKLAND-MariaDB-3306"
+
+
+def _mariadb_dir() -> Path:
+    from ..arkland_environment import default_mariadb_dir
+    return default_mariadb_dir()
+
+
+def _data_dir() -> Path:
+    from ..arkland_environment import default_mariadb_data_dir
+    return default_mariadb_data_dir()
 
 OnProgress = Optional[Callable[[str], None]]
 OnDone     = Optional[Callable[[bool, str], None]]
@@ -35,22 +43,22 @@ class DbLocalServer:
 
     @property
     def mysqld_exe(self) -> Path:
-        return _MARIADB_DIR / "bin" / "mysqld.exe"
+        return _mariadb_dir() / "bin" / "mysqld.exe"
 
     @property
     def mysql_exe(self) -> Path:
-        return _MARIADB_DIR / "bin" / "mysql.exe"
+        return _mariadb_dir() / "bin" / "mysql.exe"
 
     @property
     def mysqladmin_exe(self) -> Path:
-        return _MARIADB_DIR / "bin" / "mysqladmin.exe"
+        return _mariadb_dir() / "bin" / "mysqladmin.exe"
 
     def is_installed(self) -> bool:
         return self.mysqld_exe.exists()
 
     def is_initialized(self) -> bool:
         # Só considera inicializado se o schema mysql existe (tabelas de sistema)
-        return (_DATA_DIR / "mysql").is_dir()
+        return (_data_dir() / "mysql").is_dir()
 
     def is_running(self) -> bool:
         """True se nosso processo gerenciado está vivo OU se a porta já está em uso."""
@@ -70,7 +78,7 @@ class DbLocalServer:
             return False
 
     def data_dir(self) -> Path:
-        return _DATA_DIR
+        return _data_dir()
 
     # ── Download + instalação ─────────────────────────────────────────────────
 
@@ -172,7 +180,7 @@ class DbLocalServer:
 
     @staticmethod
     def _extract(zip_path: Path) -> None:
-        _MARIADB_DIR.mkdir(parents=True, exist_ok=True)
+        _mariadb_dir().mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(zip_path, "r") as zf:
             members = zf.namelist()
             # O zip tem um dir raiz como "mariadb-10.11.x-winx64/"
@@ -183,7 +191,7 @@ class DbLocalServer:
                 relative = member[len(prefix):]
                 if not relative:
                     continue
-                target = _MARIADB_DIR / relative
+                target = _mariadb_dir() / relative
                 if member.endswith("/"):
                     target.mkdir(parents=True, exist_ok=True)
                 else:
@@ -193,24 +201,24 @@ class DbLocalServer:
 
     @property
     def mysql_install_db_exe(self) -> Path:
-        return _MARIADB_DIR / "bin" / "mysql_install_db.exe"
+        return _mariadb_dir() / "bin" / "mysql_install_db.exe"
 
     def _initialize(self) -> tuple[bool, str]:
         """Cria o diretório de dados usando mysql_install_db (MariaDB 10.4+)."""
         import shutil
         # Remove data dir parcial (sem o schema mysql) para reinicializar limpo
-        if _DATA_DIR.exists() and not (_DATA_DIR / "mysql").is_dir():
-            shutil.rmtree(_DATA_DIR, ignore_errors=True)
-        _DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if _data_dir().exists() and not (_data_dir() / "mysql").is_dir():
+            shutil.rmtree(_data_dir(), ignore_errors=True)
+        _data_dir().mkdir(parents=True, exist_ok=True)
         try:
             install_db = self.mysql_install_db_exe
             if not install_db.exists():
                 return False, f"mysql_install_db.exe não encontrado em {install_db}"
             result = subprocess.run(
                 [str(install_db),
-                 f"--datadir={_DATA_DIR}"],
+                 f"--datadir={_data_dir()}"],
                 capture_output=True, text=True, timeout=120,
-                cwd=str(_MARIADB_DIR),  # basedir detectado pelo cwd
+                cwd=str(_mariadb_dir()),  # basedir detectado pelo cwd
             )
             if self.is_initialized():
                 return True, "OK"
@@ -237,8 +245,8 @@ class DbLocalServer:
         log_file = open(self.log_path, "a", encoding="utf-8", errors="replace")
         cmd = [
             str(self.mysqld_exe),
-            f"--basedir={_MARIADB_DIR}",
-            f"--datadir={_DATA_DIR}",
+            f"--basedir={_mariadb_dir()}",
+            f"--datadir={_data_dir()}",
             f"--port={_PORT}",
             "--bind-address=0.0.0.0",
             "--skip-networking=0",

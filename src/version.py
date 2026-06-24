@@ -3,11 +3,24 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.77"
+APP_VERSION: str = "1.9.78"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.78",
+        "date": "2026-06-24",
+        "changes": [
+            "Novo (Configurações globais): ambiente ARKLAND SERVER — criação padronizada de pastas "
+            "(MAPAS, CLUSTER, BACKUP, CACHE, LOGS, STEAMCMD, WEBSTORE, MARIADB) com aplicação automática "
+            "dos caminhos no gerenciador.",
+            "Melhoria: backups, SteamCMD, logs do manager, MariaDB portable e loja web usam o ambiente "
+            "quando ativo; novos servidores sugerem instalação em MAPAS/.",
+            "Melhoria (Loja web): seção Mapas do Cluster redesenhada — destaque visual para mapas MOD "
+            "como diferencial do cluster (showcase, cards por bioma e contador dinâmico).",
+        ],
+    },
     {
         "version": "1.9.77",
         "date": "2026-06-20",

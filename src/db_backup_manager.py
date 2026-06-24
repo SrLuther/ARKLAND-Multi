@@ -11,12 +11,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, List, Optional, TYPE_CHECKING
 
+from .arkland_environment import default_db_backup_dir
+
 if TYPE_CHECKING:
     from .config_manager import DbBackupConfig
 
 _APPDATA = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
 _DEFAULT_BACKUP_DIR = _APPDATA / "backups" / "database"
-_MARIADB_BIN = _APPDATA / "mariadb" / "bin"
+
+
+def _mariadb_bin_dir() -> Path:
+    from .arkland_environment import default_mariadb_dir
+    return default_mariadb_dir() / "bin"
 
 
 @dataclass
@@ -50,7 +56,7 @@ class DbBackupManager:
 
   def backup_dir(self, cfg: "DbBackupConfig") -> Path:
       raw = (cfg.backup_dir or "").strip()
-      return Path(raw) if raw else _DEFAULT_BACKUP_DIR
+      return Path(raw) if raw else default_db_backup_dir()
 
   def list_backups(self, cfg: "DbBackupConfig") -> List[DbBackupEntry]:
       bdir = self.backup_dir(cfg)
@@ -231,7 +237,7 @@ class DbBackupManager:
 
   @staticmethod
   def _resolve_mysqldump() -> Optional[Path]:
-      local = _MARIADB_BIN / "mysqldump.exe"
+      local = _mariadb_bin_dir() / "mysqldump.exe"
       if local.exists():
           return local
       found = shutil.which("mysqldump")
@@ -239,7 +245,7 @@ class DbBackupManager:
 
   @staticmethod
   def _resolve_mysql() -> Optional[Path]:
-      local = _MARIADB_BIN / "mysql.exe"
+      local = _mariadb_bin_dir() / "mysql.exe"
       if local.exists():
           return local
       found = shutil.which("mysql")

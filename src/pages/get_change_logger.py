@@ -3,6 +3,7 @@ import os
 from typing import TYPE_CHECKING
 from pathlib import Path
 from ..change_logger import ChangeLogger
+from ..arkland_environment import default_manager_log_dir
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
@@ -12,8 +13,7 @@ def get_change_logger(app: "ARKServerManagerApp", server_id: str) -> "ChangeLogg
     if not hasattr(app, "_change_loggers"):
         app._change_loggers: dict = {}
     if server_id not in app._change_loggers:
-        log_dir = Path(os.environ.get("APPDATA", "~")).expanduser() \
-            / "ARKLAND-ServerManager" / "logs"
+        log_dir = default_manager_log_dir()
         app._change_loggers[server_id] = ChangeLogger(log_dir, server_id)
     return app._change_loggers[server_id]
 

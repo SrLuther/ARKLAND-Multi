@@ -18,6 +18,22 @@ if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
 
 
+def _suggest_install_dir(app: "ARKServerManagerApp") -> str:
+    from ..arkland_environment import resolve_environment, suggest_next_server_dir
+
+    env = resolve_environment(app.config_manager.config)
+    mgr = getattr(app, "asm_config_manager", None)
+    if env and mgr is not None:
+        occupied = [s.install_dir for s in mgr.servers if s.install_dir]
+        return suggest_next_server_dir(
+            env,
+            existing_count=len(mgr.servers),
+            occupied_paths=occupied,
+        )
+    base = (app.config_manager.config.default_install_dir or "").strip()
+    return base or r"C:\ARK\"
+
+
 # ── Helper: importar a partir de instalação existente ─────────────────────────
 
 def _import_from_install_dir(install_dir: str) -> AsmServerConfig:
@@ -226,7 +242,7 @@ def asm_add_server_dialog(app: "ARKServerManagerApp") -> None:
 
         e_name    = _entry_row(f, "Nome no gerenciador",  0, "Meu Servidor TEK")
         e_session = _entry_row(f, "Nome da sessão (INI)", 1, "My ARK Server")
-        e_dir     = _entry_row(f, "Pasta de instalação",  2, "C:\\ARK\\", browse_dir=True)
+        e_dir     = _entry_row(f, "Pasta de instalação",  2, _suggest_install_dir(app), browse_dir=True)
         e_port    = _entry_row(f, "Porta (game)",         3, "7777", 90)
         e_query   = _entry_row(f, "Porta (query)",        4, "27015", 90)
 

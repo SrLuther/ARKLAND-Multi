@@ -30,7 +30,13 @@ def _saves_dir(srv: AsmServerConfig) -> Path:
     return Path(srv.install_dir) / "ShooterGame" / "Saved" / "SavedArks"
 
 
+from ..arkland_environment import try_load_environment_paths
+
+
 def _backups_root(srv: AsmServerConfig) -> Path:
+    env = try_load_environment_paths()
+    if env:
+        return env.backup_saves / srv.id
     return Path(srv.install_dir) / "ARKLAND_Backups"
 
 

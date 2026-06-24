@@ -1,11 +1,10 @@
 {
-    "version": "1.9.77",
+    "version": "1.9.78",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.77/ARKLAND-Multi-Setup-v1.9.77.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.78/ARKLAND-Multi-Setup-v1.9.78.exe",
     "changelog": [
-        "Novo (Loja web): gestão de servidores do cluster — ocultar na home, excluir do sync, prune de duplicatas e edição pelo admin (Servidores + flags Home/Loja na aba Loja TEK).",
-        "Novo (Loja web): seção Mapas da Home editável (admin) com Brighamia, Alps, The Volcano e Amissa; título e texto introdutório configuráveis no config.json.",
-        "Melhoria (Loja): sync remoto de servidores por máquina (API /api/servers/sync) para cluster multi-host.",
-        "Melhoria (Mods): linha copiável com IDs do Workshop separados por vírgula (TEK e classic)."
+        "Novo (Configurações globais): ambiente ARKLAND SERVER — criação padronizada de pastas (MAPAS, CLUSTER, BACKUP, CACHE, LOGS, STEAMCMD, WEBSTORE, MARIADB) com aplicação automática dos caminhos no gerenciador.",
+        "Melhoria: backups, SteamCMD, logs do manager, MariaDB portable e loja web usam o ambiente quando ativo; novos servidores sugerem instalação em MAPAS/.",
+        "Melhoria (Loja web): seção Mapas do Cluster redesenhada — destaque visual para mapas MOD como diferencial do cluster (showcase, cards por bioma e contador dinâmico)."
     ]
 }

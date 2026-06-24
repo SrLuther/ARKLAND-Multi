@@ -3010,8 +3010,9 @@ def _save_downloads(downloads: list) -> None:
 
 
 _DEFAULT_FEATURED_MAPS_INTRO = (
-    "Além dos mapas oficiais, rodamos mapas mod selecionados pela qualidade — "
-    "cenários únicos, otimizados para PvE/PvP em cluster e integrados ao nosso sistema de eventos sazonais."
+    "O ARKLAND não é só mais um cluster — somos um ecossistema construído em torno de mapas MOD "
+    "de alta qualidade. A maioria dos nossos servidores roda cenários customizados, curados à mão "
+    "para PvE/PvP, performance em dedicado e integração total com eventos sazonais."
 )
 
 

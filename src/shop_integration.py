@@ -36,10 +36,14 @@ _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 
 
 def webstore_data_dir() -> Path:
-    """Diretório gravável da Web Store (dev: plugin/; instalado: APPDATA)."""
+    """Diretório gravável da Web Store (dev: plugin/; instalado: APPDATA ou ambiente)."""
     import os
 
-    if getattr(sys, "frozen", False):
+    from .arkland_environment import default_webstore_dir, try_load_environment_paths
+
+    if try_load_environment_paths():
+        p = default_webstore_dir()
+    elif getattr(sys, "frozen", False):
         p = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "arkshop_web"
     else:
         p = _ARKSHOP_WEB_DIR

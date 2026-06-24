@@ -51,9 +51,12 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     )
     app._steamcmd_status_lbl.grid(row=1, column=0, columnspan=3, padx=16, pady=(0, 10), sticky="w")
 
-    app._section_lbl(parent, 4, "📂  Diretório Padrão de Instalação")
+    from .environment_section import build_environment_section
+    _next_row = build_environment_section(app, parent, 4)
+
+    app._section_lbl(parent, _next_row, "📂  Diretório Padrão de Instalação")
     dir_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    dir_card.grid(row=5, column=0, padx=20, pady=(0, 14), sticky="ew")
+    dir_card.grid(row=_next_row + 1, column=0, padx=20, pady=(0, 14), sticky="ew")
     dir_card.grid_columnconfigure(1, weight=1)
 
     ctk.CTkLabel(dir_card, text="Diretório Padrão:", width=200, anchor="w",
@@ -71,9 +74,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  text_color="gray45", font=ctk.CTkFont(size=10)).grid(
         row=1, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
 
-    app._section_lbl(parent, 6, "🔧  Opções")
+    app._section_lbl(parent, _next_row + 2, "🔧  Opções")
     opt_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    opt_card.grid(row=7, column=0, padx=20, pady=(0, 14), sticky="ew")
+    opt_card.grid(row=_next_row + 3, column=0, padx=20, pady=(0, 14), sticky="ew")
 
     app._cfg_startup_var   = tk.BooleanVar(value=cfg.startup_with_windows)
     app._cfg_minimize_tray_var = tk.BooleanVar(value=cfg.minimize_to_tray)
@@ -110,9 +113,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         row=5, column=0, padx=(42, 16), pady=(0, 16), sticky="w")
 
     # ── Seção Steam Web API ─────────────────────────────────────────────────
-    app._section_lbl(parent, 8, "🔑  Steam Web API")
+    app._section_lbl(parent, _next_row + 4, "🔑  Steam Web API")
     api_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    api_card.grid(row=9, column=0, padx=20, pady=(0, 14), sticky="ew")
+    api_card.grid(row=_next_row + 5, column=0, padx=20, pady=(0, 14), sticky="ew")
     api_card.grid_columnconfigure(1, weight=1)
 
     app._steam_api_key_var = tk.StringVar(value=cfg.steam_api_key)
@@ -129,9 +132,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     ).grid(row=1, column=0, columnspan=2, padx=16, pady=(0, 12), sticky="w")
 
     # ── Seção Discord ───────────────────────────────────────────
-    app._section_lbl(parent, 10, "🔔  Notificações Discord")
+    app._section_lbl(parent, _next_row + 6, "🔔  Notificações Discord")
     disc_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    disc_card.grid(row=11, column=0, padx=20, pady=(0, 14), sticky="ew")
+    disc_card.grid(row=_next_row + 7, column=0, padx=20, pady=(0, 14), sticky="ew")
     disc_card.grid_columnconfigure(1, weight=1)
 
     dc = cfg.discord_notify
@@ -207,9 +210,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         row=9, column=0, columnspan=2, padx=(16, 16), pady=(2, 14), sticky="w")
 
     # ── Seção Backup ────────────────────────────────────────────────────────
-    app._section_lbl(parent, 12, "💾  Backup Automático")
+    app._section_lbl(parent, _next_row + 8, "💾  Backup Automático")
     bk_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    bk_card.grid(row=13, column=0, padx=20, pady=(0, 14), sticky="ew")
+    bk_card.grid(row=_next_row + 9, column=0, padx=20, pady=(0, 14), sticky="ew")
     bk_card.grid_columnconfigure(1, weight=1)
 
     bk = cfg.backup
@@ -290,9 +293,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     ).grid(row=9, column=0, columnspan=2, padx=16, pady=(0, 14), sticky="w")
 
     # ── Seção Auto-Atualização ───────────────────────────────────────────────
-    app._section_lbl(parent, 14, "🔄  Atualização Automática")
+    app._section_lbl(parent, _next_row + 10, "🔄  Atualização Automática")
     upd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    upd_card.grid(row=15, column=0, padx=20, pady=(0, 14), sticky="ew")
+    upd_card.grid(row=_next_row + 11, column=0, padx=20, pady=(0, 14), sticky="ew")
     upd_card.grid_columnconfigure(1, weight=1)
 
     au = cfg.auto_update
@@ -355,9 +358,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         row=6, column=1, padx=(0, 16), pady=(4, 14), sticky="ew")
 
     # ── Seção Desligamento ──────────────────────────────────────────────────
-    app._section_lbl(parent, 16, "⏹️  Opções de Desligamento")
+    app._section_lbl(parent, _next_row + 12, "⏹️  Opções de Desligamento")
     sd_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    sd_card.grid(row=17, column=0, padx=20, pady=(0, 14), sticky="ew")
+    sd_card.grid(row=_next_row + 13, column=0, padx=20, pady=(0, 14), sticky="ew")
     sd_card.grid_columnconfigure(1, weight=1)
 
     sd = cfg.shutdown
@@ -410,9 +413,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                     ).grid(row=8, column=0, columnspan=2, padx=16, pady=(8, 14), sticky="w")
 
     # ── Seção Mensagens de Alerta ───────────────────────────────────────────
-    app._section_lbl(parent, 18, "🔔  Opções de Alerta")
+    app._section_lbl(parent, _next_row + 14, "🔔  Opções de Alerta")
     al_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    al_card.grid(row=19, column=0, padx=20, pady=(0, 14), sticky="ew")
+    al_card.grid(row=_next_row + 15, column=0, padx=20, pady=(0, 14), sticky="ew")
     al_card.grid_columnconfigure(1, weight=1)
 
     am = cfg.alert_messages
@@ -462,9 +465,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                  placeholder_text="{ipaddress}:{port}").pack(side="left", padx=6)
 
     # ── Seção Discord Bot ───────────────────────────────────────────────────
-    app._section_lbl(parent, 20, "🤖  Discord Bot")
+    app._section_lbl(parent, _next_row + 16, "🤖  Discord Bot")
     bot_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    bot_card.grid(row=21, column=0, padx=20, pady=(0, 14), sticky="ew")
+    bot_card.grid(row=_next_row + 17, column=0, padx=20, pady=(0, 14), sticky="ew")
     bot_card.grid_columnconfigure(1, weight=1)
 
     db = cfg.discord_bot
@@ -531,9 +534,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                     ).grid(row=5, column=0, columnspan=2, padx=16, pady=(6, 14), sticky="w")
 
     # ── Seção SMTP ───────────────────────────────────────────────────────────
-    app._section_lbl(parent, 22, "✉️  Configurações de Email SMTP")
+    app._section_lbl(parent, _next_row + 18, "✉️  Configurações de Email SMTP")
     smtp_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-    smtp_card.grid(row=23, column=0, padx=20, pady=(0, 14), sticky="ew")
+    smtp_card.grid(row=_next_row + 19, column=0, padx=20, pady=(0, 14), sticky="ew")
     smtp_card.grid_columnconfigure(1, weight=1)
     smtp_card.grid_columnconfigure(3, weight=1)
 
@@ -602,9 +605,9 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
     # ── Servidores legados (modo primitivo) ───────────────────────────────
     _legacy = list(app.config_manager.servers)
     if _legacy:
-        app._section_lbl(parent, 25, "📦  Servidores legados (modo primitivo)")
+        app._section_lbl(parent, _next_row + 21, "📦  Servidores legados (modo primitivo)")
         leg_card = ctk.CTkFrame(parent, corner_radius=12, fg_color=_CARD_BG)
-        leg_card.grid(row=26, column=0, padx=20, pady=(0, 14), sticky="ew")
+        leg_card.grid(row=_next_row + 22, column=0, padx=20, pady=(0, 14), sticky="ew")
         leg_card.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
@@ -644,5 +647,5 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
         height=44, font=ctk.CTkFont(size=14, weight="bold"),
         fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         command=app._save_global_config,
-    ).grid(row=40, column=0, padx=20, pady=(0, 24), sticky="ew")
+    ).grid(row=_next_row + 24, column=0, padx=20, pady=(0, 24), sticky="ew")
 

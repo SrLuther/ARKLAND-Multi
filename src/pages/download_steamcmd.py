@@ -11,10 +11,9 @@ if TYPE_CHECKING:
 
 def download_steamcmd(app: "ARKServerManagerApp") -> None:
     """Baixa, extrai e inicializa o SteamCMD automaticamente."""
-    dest_dir = os.path.join(
-        os.environ.get("APPDATA", os.path.expanduser("~")),
-        "ARKLAND-ServerManager", "steamcmd",
-    )
+    from ..arkland_environment import default_steamcmd_dir
+
+    dest_dir = str(default_steamcmd_dir())
     steamcmd_exe = os.path.join(dest_dir, "steamcmd.exe")
 
     # Se já existe, apenas confirma o caminho

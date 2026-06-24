@@ -1,4 +1,4 @@
-2026-06-12T00:42:14Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
+Ôªø2026-06-12T00:42:14Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
 2026-06-12T00:42:14Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
 2026-06-12T00:42:14Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
  * Serving Flask app 'app'
@@ -252,8 +252,8 @@ WHERE orders.steam_id = %(steam_id_1)s) AS anon_1]
 [parameters: {'steam_id_1': '76561198171864983'}]
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
 2026-06-12T00:42:26Z [INFO] werkzeug: 127.0.0.1 - - [12/Jun/2026 00:42:26] "[35m[1mGET /api/player/summary HTTP/1.1[0m" 500 -
-2026-06-12T08:40:06Z [WARNING] arkshop: DB startup connection failed (mysql+pymysql://arkland:123456@127.0.0.1): (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server on '127.0.0.1' ([WinError 10061] Nenhuma conex„o pÙde ser feita porque a m·quina de destino as recusou ativamente)")
-(Background on this error at: https://sqlalche.me/e/20/e3q8) ó will retry on first request
+2026-06-12T08:40:06Z [WARNING] arkshop: DB startup connection failed (mysql+pymysql://arkland:123456@127.0.0.1): (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server on '127.0.0.1' ([WinError 10061] Nenhuma conex√ío p¬∂de ser feita porque a m√üquina de destino as recusou ativamente)")
+(Background on this error at: https://sqlalche.me/e/20/e3q8) √π will retry on first request
 2026-06-12T08:40:06Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
 2026-06-12T08:40:06Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
  * Serving Flask app 'app'
@@ -281,8 +281,8 @@ WHERE orders.steam_id = %(steam_id_1)s) AS anon_1]
 2026-06-12T08:47:38Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 08:47:38] "GET /api/catalog HTTP/1.1" 200 -
 2026-06-12T08:47:43Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 08:47:43] "[35m[1mGET /api/player/summary HTTP/1.1[0m" 500 -
 2026-06-12T08:57:33Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
-2026-06-12T08:57:35Z [WARNING] arkshop: DB schema setup falhou (mysql+pymysql://arkland:123456@127.0.0.1): (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server on '127.0.0.1' ([WinError 10061] Nenhuma conex„o pÙde ser feita porque a m·quina de destino as recusou ativamente)")
-(Background on this error at: https://sqlalche.me/e/20/e3q8) ó tentar· novamente ao salvar Settings
+2026-06-12T08:57:35Z [WARNING] arkshop: DB schema setup falhou (mysql+pymysql://arkland:123456@127.0.0.1): (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server on '127.0.0.1' ([WinError 10061] Nenhuma conex√ío p¬∂de ser feita porque a m√üquina de destino as recusou ativamente)")
+(Background on this error at: https://sqlalche.me/e/20/e3q8) √π tentar√ü novamente ao salvar Settings
 2026-06-12T08:57:35Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
 2026-06-12T08:57:35Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
  * Serving Flask app 'app'
@@ -306,8 +306,8 @@ WHERE orders.steam_id = %(steam_id_1)s) AS anon_1]
 2026-06-12T08:59:09Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 08:59:09] "GET /api/player/history?limit=20&offset=0 HTTP/1.1" 200 -
 2026-06-12T08:59:37Z [INFO] werkzeug: 10.0.0.17 - - [12/Jun/2026 08:59:37] "[35m[1mPOST /api/rcon/points HTTP/1.1[0m" 500 -
 2026-06-12T09:03:34Z [INFO] arkshop: "db_configured" url="mysql+pymysql://arkland:123456@127.0.0.1..."
-2026-06-12T09:03:37Z [WARNING] arkshop: DB schema setup falhou (mysql+pymysql://arkland:123456@127.0.0.1): (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server on '127.0.0.1' ([WinError 10061] Nenhuma conex„o pÙde ser feita porque a m·quina de destino as recusou ativamente)")
-(Background on this error at: https://sqlalche.me/e/20/e3q8) ó tentar· novamente ao salvar Settings
+2026-06-12T09:03:37Z [WARNING] arkshop: DB schema setup falhou (mysql+pymysql://arkland:123456@127.0.0.1): (pymysql.err.OperationalError) (2003, "Can't connect to MySQL server on '127.0.0.1' ([WinError 10061] Nenhuma conex√ío p¬∂de ser feita porque a m√üquina de destino as recusou ativamente)")
+(Background on this error at: https://sqlalche.me/e/20/e3q8) √π tentar√ü novamente ao salvar Settings
 2026-06-12T09:03:37Z [INFO] arkshop: "scheduler_started" interval_seconds=60 batch_size=20
 2026-06-12T09:03:37Z [INFO] arkshop: ArkShop Web Manager rodando em http://127.0.0.1:5000
  * Serving Flask app 'app'

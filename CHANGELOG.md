@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.78] - 2026-06-24
+
+### Feature
+
+- Novo (Configurações globais): ambiente ARKLAND SERVER — criação padronizada de pastas (MAPAS, CLUSTER, BACKUP, CACHE, LOGS, STEAMCMD, WEBSTORE, MARIADB) com aplicação automática dos caminhos no gerenciador.
+
+### Improvement
+
+- Melhoria: backups, SteamCMD, logs do manager, MariaDB portable e loja web usam o ambiente quando ativo; novos servidores sugerem instalação em MAPAS/.
+- Melhoria (Loja web): seção Mapas do Cluster redesenhada — destaque visual para mapas MOD como diferencial do cluster (showcase, cards por bioma e contador dinâmico).
+
 ## [1.9.77] - 2026-06-20
 
 ### Feature

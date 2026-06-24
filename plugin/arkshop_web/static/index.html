@@ -2436,37 +2436,230 @@
       font-size: 11px;
       color: var(--success);
     }
-    .home-map-card {
-      padding: 18px;
-      border-radius: var(--radius);
-      border: 1px solid rgba(0,200,255,.25);
-      background: linear-gradient(145deg, rgba(0,200,255,.06) 0%, var(--surface3) 45%, var(--surface2) 100%);
+    .home-maps-showcase {
+      position: relative;
+      margin-bottom: 24px;
+      padding: 28px 26px 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232,120,32,.35);
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, rgba(232,120,32,.14) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 40% at 100% 100%, rgba(0,200,255,.08) 0%, transparent 50%),
+        linear-gradient(165deg, rgba(12,18,28,.98) 0%, var(--surface2) 40%, var(--surface3) 100%);
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(0,200,255,.08) inset,
+        0 24px 48px rgba(0,0,0,.35);
     }
-    .home-map-card__head {
+    .home-maps-showcase__glow {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent 0,
+          transparent 48px,
+          rgba(255,255,255,.012) 48px,
+          rgba(255,255,255,.012) 49px
+        );
+      mask-image: linear-gradient(180deg, rgba(0,0,0,.5) 0%, transparent 70%);
+    }
+    .home-maps-showcase__header {
+      position: relative;
+      text-align: center;
+      max-width: 720px;
+      margin: 0 auto 26px;
+    }
+    .home-maps-showcase__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,120,32,.45);
+      background: linear-gradient(90deg, rgba(232,120,32,.18), rgba(255,96,16,.08));
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #ffb070;
+    }
+    .home-maps-showcase__eyebrow-icon {
+      color: var(--tek);
+      font-size: 10px;
+      text-shadow: 0 0 8px rgba(0,200,255,.6);
+    }
+    .home-maps-showcase__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: clamp(22px, 3vw, 28px);
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #fff;
+      margin: 0 0 14px;
+      line-height: 1.2;
+      text-shadow: 0 0 30px rgba(232,120,32,.25);
+    }
+    .home-maps-showcase__intro {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.75;
+      margin: 0 0 18px;
+    }
+    .home-maps-showcase__highlights {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .home-maps-pillar {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,200,255,.28);
+      background: rgba(0,200,255,.06);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: #9ee8ff;
+    }
+    .home-maps-pillar--amber {
+      border-color: rgba(232,120,32,.4);
+      background: rgba(232,120,32,.1);
+      color: #ffc080;
+    }
+    .home-maps-grid {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .home-map-card {
+      position: relative;
+      padding: 0;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(0,200,255,.22);
+      background: linear-gradient(160deg, rgba(0,200,255,.07) 0%, var(--surface3) 38%, rgba(8,12,20,.95) 100%);
+      overflow: hidden;
+      transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
+    }
+    .home-map-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--map-accent, var(--tek)), transparent 85%);
+      opacity: .9;
+    }
+    .home-map-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0,200,255,.45);
+      box-shadow:
+        0 12px 32px rgba(0,0,0,.4),
+        0 0 28px rgba(0,200,255,.1);
+    }
+    .home-map-card--volcano { --map-accent: #ff6030; border-color: rgba(255,96,48,.3); }
+    .home-map-card--alps { --map-accent: #6ec8ff; }
+    .home-map-card--forest { --map-accent: #4dd4a0; border-color: rgba(77,212,160,.28); }
+    .home-map-card--mystic { --map-accent: #b88cff; border-color: rgba(184,140,255,.28); }
+    .home-map-card__shine {
+      position: absolute;
+      top: -40%;
+      right: -20%;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .home-map-card__body {
+      position: relative;
+      padding: 20px 18px 18px;
+    }
+    .home-map-card__top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .home-map-card__glyph {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .home-map-card__name {
-      font-family: 'Cinzel', serif;
-      font-size: 15px;
-      font-weight: 700;
-      color: #fff;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.35);
+      font-size: 22px;
+      line-height: 1;
+      box-shadow: 0 4px 16px rgba(0,0,0,.25);
     }
     .home-map-badge {
       font-size: 9px;
       font-weight: 700;
-      letter-spacing: .14em;
+      letter-spacing: .16em;
       text-transform: uppercase;
-      padding: 3px 8px;
-      border-radius: 4px;
-      border: 1px solid rgba(0,200,255,.4);
-      color: var(--tek);
-      background: var(--tek-dim);
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0,200,255,.45);
+      color: #7ee8ff;
+      background: linear-gradient(135deg, rgba(0,200,255,.2), rgba(0,200,255,.06));
+      box-shadow: 0 0 12px rgba(0,200,255,.15);
+      white-space: nowrap;
     }
-    .home-map-card__text { font-size: 13px; color: var(--text2); line-height: 1.6; }
+    .home-map-badge--mod::before {
+      content: '◆ ';
+      font-size: 7px;
+      opacity: .85;
+    }
+    .home-map-card__name {
+      font-family: 'Cinzel', serif;
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      line-height: 1.25;
+    }
+    .home-map-card__divider {
+      width: 36px;
+      height: 2px;
+      margin-bottom: 12px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--map-accent, var(--tek)), transparent);
+      opacity: .75;
+    }
+    .home-map-card__text {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.65;
+    }
+    .home-maps-showcase__footer {
+      position: relative;
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(232,120,32,.2);
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .04em;
+      color: rgba(232,180,100,.85);
+      line-height: 1.55;
+    }
+    @media (max-width: 640px) {
+      .home-maps-showcase { padding: 22px 16px 18px; }
+      .home-maps-grid { grid-template-columns: 1fr; }
+    }
     .home-season-banner {
       padding: 16px 18px;
       margin-bottom: 14px;
@@ -9474,6 +9667,32 @@ function renderHomeCommerceSection() {
     </section>`;
 }
 
+function _mapCardAccent(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("volcano") || n.includes("vulc")) return "volcano";
+  if (n.includes("alps") || n.includes("alp")) return "alps";
+  if (n.includes("brighamia") || n.includes("forest") || n.includes("floresta")) return "forest";
+  if (n.includes("amissa") || n.includes("mystic")) return "mystic";
+  return ["volcano", "alps", "forest", "mystic"][Math.abs(_hashStr(n)) % 4];
+}
+
+function _mapCardGlyph(name) {
+  const n = (name || "").toLowerCase();
+  if (n.includes("volcano") || n.includes("vulc")) return "🌋";
+  if (n.includes("alps") || n.includes("alp")) return "🏔";
+  if (n.includes("brighamia")) return "🌿";
+  if (n.includes("amissa")) return "🗺";
+  if (n.includes("island") || n.includes("ilha")) return "🏝";
+  if (n.includes("desert") || n.includes("deserto")) return "🏜";
+  return "🗻";
+}
+
+function _hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
+  return h;
+}
+
 function renderHomePage(d) {
   const root = document.getElementById("home-root");
   if (!root) return;
@@ -9506,22 +9725,49 @@ function renderHomePage(d) {
   const fmSection = d.featured_maps_section || {};
   const mapsTitle = fmSection.title || "Mapas do cluster";
   const mapsIntro = fmSection.intro || (
-    "Além dos mapas oficiais, rodamos mapas mod selecionados pela qualidade — "
-    + "cenários únicos, otimizados para PvE/PvP em cluster e integrados ao nosso sistema de eventos sazonais."
+    "O ARKLAND não é só mais um cluster — somos um ecossistema construído em torno de mapas MOD "
+    + "de alta qualidade. A maioria dos nossos servidores roda cenários customizados, curados à mão "
+    + "para PvE/PvP, performance em dedicado e integração total com eventos sazonais."
   );
+  const modMapCount = maps.filter(m => m.mod_map !== false).length;
   const mapsHtml = maps.length ? `
-    <div class="home-section">
-      <div class="home-section__title" style="margin-bottom:14px;">🗻 ${escHtml(mapsTitle)}</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">${escHtml(mapsIntro)}</p>
-      <div class="home-servers-grid">
-        ${maps.map(m => `
-          <div class="home-map-card">
-            <div class="home-map-card__head">
-              <div class="home-map-card__name">${escHtml(m.name || "")}</div>
-              ${m.mod_map ? '<span class="home-map-badge">Mapa Mod</span>' : ""}
+    <div class="home-maps-showcase">
+      <div class="home-maps-showcase__glow" aria-hidden="true"></div>
+      <div class="home-maps-showcase__header">
+        <div class="home-maps-showcase__eyebrow">
+          <span class="home-maps-showcase__eyebrow-icon">⬡</span>
+          Diferencial do cluster · mapas MOD
+        </div>
+        <h2 class="home-maps-showcase__title">🗻 ${escHtml(mapsTitle)}</h2>
+        <p class="home-maps-showcase__intro">${escHtml(mapsIntro)}</p>
+        <div class="home-maps-showcase__highlights">
+          <span class="home-maps-pillar home-maps-pillar--amber">🗺 ${modMapCount || maps.length} mapa${(modMapCount || maps.length) !== 1 ? "s" : ""} mod no cluster</span>
+          <span class="home-maps-pillar">⚡ Curadoria ARKLAND</span>
+          <span class="home-maps-pillar">🍂 Eventos sazonais integrados</span>
+        </div>
+      </div>
+      <div class="home-maps-grid">
+        ${maps.map(m => {
+          const accent = _mapCardAccent(m.name);
+          const glyph = _mapCardGlyph(m.name);
+          const isMod = m.mod_map !== false;
+          return `
+          <article class="home-map-card home-map-card--${accent}">
+            <div class="home-map-card__shine" aria-hidden="true"></div>
+            <div class="home-map-card__body">
+              <div class="home-map-card__top">
+                <span class="home-map-card__glyph" aria-hidden="true">${glyph}</span>
+                ${isMod ? '<span class="home-map-badge home-map-badge--mod">Mapa Mod</span>' : '<span class="home-map-badge">Mapa oficial</span>'}
+              </div>
+              <h3 class="home-map-card__name">${escHtml(m.name || "")}</h3>
+              <div class="home-map-card__divider" aria-hidden="true"></div>
+              <p class="home-map-card__text">${escHtml(m.description || "")}</p>
             </div>
-            <div class="home-map-card__text">${escHtml(m.description || "")}</div>
-          </div>`).join("")}
+          </article>`;
+        }).join("")}
+      </div>
+      <div class="home-maps-showcase__footer">
+        Cada mapa mod é testado, otimizado e integrado ao cluster — cenário único, não é conteúdo aleatório.
       </div>
     </div>` : "";
 

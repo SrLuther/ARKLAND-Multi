@@ -14,6 +14,13 @@ from .server_config import ServerConfig, ClusterProfile
 
 
 @dataclass
+class EnvironmentConfig:
+    enabled: bool = False
+    root_path: str = ""      # caminho completo até "ARKLAND SERVER"
+    created_at: str = ""
+
+
+@dataclass
 class DiscordNotifyConfig:
     enabled: bool = False
     webhook_url: str = ""
@@ -215,6 +222,8 @@ class AppConfig:
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
     # Loja cross-cluster
     shop: ShopGlobalConfig = field(default_factory=ShopGlobalConfig)
+    # Ambiente padronizado ARKLAND SERVER
+    environment: EnvironmentConfig = field(default_factory=EnvironmentConfig)
     # Biblioteca global de broadcasts (TEK — sincronizável via .arkbroadcast)
     broadcast_library: list = field(default_factory=list)
     broadcast_tek: BroadcastTekConfig = field(default_factory=BroadcastTekConfig)
@@ -256,6 +265,7 @@ class ConfigManager:
                 _deserialize(DiscordBotConfig,    "discord_bot")
                 _deserialize(SmtpConfig,          "smtp")
                 _deserialize(ShopGlobalConfig,    "shop")
+                _deserialize(EnvironmentConfig,   "environment")
                 _deserialize(BroadcastTekConfig,  "broadcast_tek")
                 self.config = AppConfig(**raw)
                 if not self.config.update_url:
