@@ -204,6 +204,12 @@ void ShopCloudInventory::TouchCooldown(const std::string& steam_id) {
     g_cloud_cooldown[steam_id] = std::chrono::steady_clock::now();
 }
 
+void ShopCloudInventory::ClearOperationInProgress(const std::string& steam_id) {
+    if (steam_id.empty()) return;
+    std::lock_guard<std::mutex> lock(g_cloud_mutex);
+    g_cloud_in_progress.erase(steam_id);
+}
+
 bool ShopCloudInventory::IsPlayerReady(AShooterPlayerController* controller) const {
     if (!controller) return false;
     AShooterCharacter* character = controller->GetPlayerCharacter();
@@ -283,9 +289,10 @@ bool ShopCloudInventory::PurgeCloudRecord(const std::string& steam_id) {
     if (!db_ || steam_id.empty()) return false;
     char buf[64];
     if (!Escape(steam_id, buf, sizeof(buf))) return false;
-    const std::string sql =
-        "DELETE FROM player_cloud_inventory WHERE steam_id = '" + std::string(buf) + "';";
-    return Exec(sql.c_str());
+    const std::string sid(buf);
+    if (!Exec(("DELETE FROM player_cloud_items WHERE steam_id = '" + sid + "';").c_str()))
+        return false;
+    return Exec(("DELETE FROM player_cloud_inventory WHERE steam_id = '" + sid + "';").c_str());
 }
 
 std::vector<ShopCloudInventory::UploadEntry> ShopCloudInventory::CollectUploadableItems(
@@ -461,6 +468,29 @@ int ShopCloudInventory::RestoreItemsFromHex(UPrimalInventoryComponent* inv,
     for (const std::string& hex : hex_rows) {
         TArray<unsigned char> bytes;
         if (!HexDecode(hex, bytes)) continue;
+
+        UPrimalItem* new_item = UPrimalItem::CreateFromBytes(&bytes);
+        if (!new_item) continue;
+
+        if (!TryAddItemToInventory(inv, new_item, character))
+            continue;
+        ++restored;
+    }
+    return restored;
+}
+
+int ShopCloudInventory::RestoreItemsFromBytes(
+    UPrimalInventoryComponent* inv,
+    const std::vector<std::vector<unsigned char>>& blob_rows,
+    AShooterCharacter* character) const {
+    if (!inv) return 0;
+    int restored = 0;
+    for (const std::vector<unsigned char>& raw : blob_rows) {
+        if (raw.empty()) continue;
+        TArray<unsigned char> bytes;
+        bytes.Reserve(static_cast<int>(raw.size()));
+        for (unsigned char b : raw)
+            bytes.Add(b);
 
         UPrimalItem* new_item = UPrimalItem::CreateFromBytes(&bytes);
         if (!new_item) continue;
@@ -683,51 +713,56 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
     char buf_id[64];
     if (!Escape(steam_id, buf_id, sizeof(buf_id))) return CloudResult::DbError;
 
+    // Leitura binaria — HEX() trunca blobs grandes e gera "dados inconsistentes".
     const std::string select_sql =
-        "SELECT HEX(item_blob) FROM player_cloud_items WHERE steam_id = '"
+        "SELECT item_blob FROM player_cloud_items WHERE steam_id = '"
         + std::string(buf_id) + "' ORDER BY sort_order ASC;";
 
     if (mysql_query(db_, select_sql.c_str()) != 0) return CloudResult::DbError;
     MYSQL_RES* res = mysql_store_result(db_);
     if (!res) return CloudResult::DbError;
 
-    std::vector<std::string> hex_rows;
-    hex_rows.reserve(static_cast<size_t>(to_restore));
+    std::vector<std::vector<unsigned char>> blob_rows;
+    blob_rows.reserve(static_cast<size_t>(to_restore));
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(res))) {
-        if (row[0] && row[0][0] && IsValidHexBlob(row[0]))
-            hex_rows.emplace_back(row[0]);
+        unsigned long* lengths = mysql_fetch_lengths(res);
+        if (!row[0] || !lengths || lengths[0] == 0) continue;
+        blob_rows.emplace_back(row[0], row[0] + lengths[0]);
     }
     mysql_free_result(res);
 
-    if (hex_rows.empty()) {
-        PurgeCloudRecord(steam_id);
-        return CloudResult::DataInconsistent;
-    }
-
-    if (static_cast<int>(hex_rows.size()) != to_restore) {
+    if (blob_rows.empty()) {
         Log::GetLog()->error(
-            "ShopCloudInventory: blob row mismatch steam={} expected={} loaded={}",
-            steam_id, to_restore, hex_rows.size());
+            "ShopCloudInventory: no readable blobs steam={} expected={}",
+            steam_id, to_restore);
         return CloudResult::DataInconsistent;
     }
 
-    // Ignora implantes antigos gravados na nuvem antes deste filtro.
-    std::vector<std::string> restore_rows;
-    restore_rows.reserve(hex_rows.size());
+    if (static_cast<int>(blob_rows.size()) != to_restore) {
+        Log::GetLog()->warn(
+            "ShopCloudInventory: blob row mismatch steam={} expected={} loaded={} — using loaded",
+            steam_id, to_restore, blob_rows.size());
+    }
+
+    // Ignora implantes antigos e blobs que nao desserializam neste mapa.
+    std::vector<std::vector<unsigned char>> restore_rows;
+    restore_rows.reserve(blob_rows.size());
     int skipped_implants = 0;
-    for (const std::string& hex : hex_rows) {
+    int skipped_bad_blob = 0;
+    for (const std::vector<unsigned char>& raw : blob_rows) {
         TArray<unsigned char> bytes;
-        if (!HexDecode(hex, bytes)) {
-            Log::GetLog()->error(
-                "ShopCloudInventory: hex decode failed steam={} during pre-scan", steam_id);
-            return CloudResult::DataInconsistent;
-        }
+        bytes.Reserve(static_cast<int>(raw.size()));
+        for (unsigned char b : raw)
+            bytes.Add(b);
+
         UPrimalItem* probe = UPrimalItem::CreateFromBytes(&bytes);
         if (!probe) {
-            Log::GetLog()->error(
-                "ShopCloudInventory: CreateFromBytes failed steam={} during pre-scan", steam_id);
-            return CloudResult::DataInconsistent;
+            ++skipped_bad_blob;
+            Log::GetLog()->warn(
+                "ShopCloudInventory: CreateFromBytes failed steam={} during pre-scan (skip)",
+                steam_id);
+            continue;
         }
         if (IsSpecimenImplant(probe)) {
             ++skipped_implants;
@@ -735,27 +770,33 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
                 "ShopCloudInventory: skipping specimen implant blob steam={}", steam_id);
             continue;
         }
-        restore_rows.push_back(hex);
+        restore_rows.push_back(raw);
     }
 
     last_diag_count_ = static_cast<int>(restore_rows.size());
 
     if (restore_rows.empty()) {
-        Log::GetLog()->warn(
-            "ShopCloudInventory: cloud only had specimen implants steam={} count={} — purging",
-            steam_id, skipped_implants);
-        PurgeCloudRecord(steam_id);
-        TouchCooldown(steam_id);
-        last_op_count_ = 0;
-        return CloudResult::Ok;
+        if (skipped_implants > 0 && skipped_bad_blob == 0) {
+            Log::GetLog()->warn(
+                "ShopCloudInventory: cloud only had specimen implants steam={} count={} — purging",
+                steam_id, skipped_implants);
+            PurgeCloudRecord(steam_id);
+            TouchCooldown(steam_id);
+            last_op_count_ = 0;
+            return CloudResult::Ok;
+        }
+        Log::GetLog()->error(
+            "ShopCloudInventory: no restorable blobs steam={} bad={} implants={}",
+            steam_id, skipped_bad_blob, skipped_implants);
+        return CloudResult::DataInconsistent;
     }
 
     if (free_slots < static_cast<int>(restore_rows.size())) {
         Log::GetLog()->warn(
             "ShopCloudInventory: download rejected steam={} need={} free={} "
-            "(skipped_implants={} capacity={} occupied={})",
+            "(skipped_implants={} bad_blobs={} capacity={} occupied={})",
             steam_id, restore_rows.size(), free_slots, skipped_implants,
-            capacity, occupied);
+            skipped_bad_blob, capacity, occupied);
         return CloudResult::InventoryFull;
     }
 
@@ -765,13 +806,9 @@ CloudResult ShopCloudInventory::Download(AShooterPlayerController* controller) {
 
     for (size_t i = 0; i < restore_rows.size(); ++i) {
         TArray<unsigned char> bytes;
-        if (!HexDecode(restore_rows[i], bytes)) {
-            Log::GetLog()->error(
-                "ShopCloudInventory: hex decode failed steam={} index={}", steam_id, i);
-            for (UPrimalItem* rollback_item : added_items)
-                RemoveUploadedItem(rollback_item, inv, controller);
-            return CloudResult::PartialRestore;
-        }
+        bytes.Reserve(static_cast<int>(restore_rows[i].size()));
+        for (unsigned char b : restore_rows[i])
+            bytes.Add(b);
 
         UPrimalItem* new_item = UPrimalItem::CreateFromBytes(&bytes);
         if (!new_item) {
@@ -856,7 +893,7 @@ const char* ShopCloudInventory::ResultMessage(CloudResult result, int item_count
     case CloudResult::OperationInProgress:
         return "Aguarde a operacao anterior da nuvem terminar.";
     case CloudResult::DataInconsistent:
-        return "Dados da nuvem inconsistentes. Contate um admin.";
+        return "Dados da nuvem inconsistentes. Tente no mesmo mapa do upload ou contate um admin.";
     default:
         return "Comando de nuvem indisponivel.";
     }

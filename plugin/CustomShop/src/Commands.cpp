@@ -91,7 +91,7 @@ std::string FormatCloudMessage(CustomShop::CloudResult result, int count) {
     case CloudResult::OperationInProgress:
         return "Aguarde a operacao anterior da nuvem terminar.";
     case CloudResult::DataInconsistent:
-        return "Dados da nuvem inconsistentes. Contate um admin.";
+        return "Dados da nuvem inconsistentes. Tente no mesmo mapa do upload ou contate um admin.";
     case CloudResult::NothingStored:
         return "Voce nao possui itens armazenados.";
     case CloudResult::Cooldown:

@@ -1,8 +1,8 @@
 {
-    "version": "1.9.86",
+    "version": "1.9.87",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.86/ARKLAND-Multi-Setup-v1.9.86.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.87/ARKLAND-Multi-Setup-v1.9.87.exe",
     "changelog": [
-        "Fix (TEK Dashboard): cards sumiam com servidor online — revertido para CTkScrollableFrame nativo; scrollregion mínima por grade + refresh de stats."
+        "Fix (CustomShop): /download após desconectar — leitura binária dos blobs (sem HEX), lock da nuvem liberado no login e purge completo do cofre."
     ]
 }

@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.87] - 2026-06-24
+
+### Fix
+
+- Fix (CustomShop): /download após desconectar — leitura binária dos blobs (sem HEX), lock da nuvem liberado no login e purge completo do cofre.
+
 ## [1.9.86] - 2026-06-24
 
 ### Fix

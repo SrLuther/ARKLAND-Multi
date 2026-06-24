@@ -60,6 +60,8 @@ public:
 
     static const char* ResultMessage(CloudResult result, int item_count = 0);
 
+    static void ClearOperationInProgress(const std::string& steam_id);
+
 private:
     ShopCloudInventory() = default;
 
@@ -93,6 +95,9 @@ private:
     int  RestoreItemsFromHex(UPrimalInventoryComponent* inv,
                              const std::vector<std::string>& hex_rows,
                              AShooterCharacter* character) const;
+    int  RestoreItemsFromBytes(UPrimalInventoryComponent* inv,
+                               const std::vector<std::vector<unsigned char>>& blob_rows,
+                               AShooterCharacter* character) const;
     bool PurgeCloudRecord(const std::string& steam_id);
 
     bool Exec(const char* sql);
