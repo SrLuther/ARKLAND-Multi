@@ -3390,6 +3390,9 @@
     <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
       <span class="nav-icon">📋</span> Auditoria
     </div>
+    <div class="nav-item admin-only" data-page="cluster-chat" onclick="nav(this)">
+      <span class="nav-icon">🌐</span> Chat Cluster
+    </div>
 
     <!-- Nav: Ferramentas (admin) -->
     <div class="nav-section admin-only">Ferramentas</div>
@@ -4190,13 +4193,50 @@
       <!-- PAGE: Auditoria (admin) -->
       <div id="page-audit" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Auditoria de Resgates</div>
+          <div class="page-title">Auditoria</div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Resgates do catálogo, eventos do sistema e log completo de doações PIX.</p>
           <div class="topbar-actions">
-            <button class="btn btn-ghost" onclick="loadAudit()">↺ Recarregar</button>
+            <button class="btn btn-ghost" onclick="loadAudit();loadPixAudit();">↺ Recarregar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">Filtros</div>
+          <div class="card-title">💚 Doações PIX — log de suporte</div>
+          <div id="pix-audit-stats" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;font-size:12px;"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
+            <div class="form-group" style="margin:0;min-width:140px;">
+              <label>Status</label>
+              <select id="pix-audit-filter-status" onchange="resetPixAuditPage()">
+                <option value="">Todos</option>
+                <option value="CONCLUIDA">Concluídas (creditadas)</option>
+                <option value="TENTATIVA">Tentativas (pendente/abandonada)</option>
+                <option value="CANCELADA">Canceladas / expiradas</option>
+                <option value="PENDENTE">Pendente</option>
+                <option value="ABANDONADO">Abandonada</option>
+                <option value="APROVADO">Aprovado</option>
+                <option value="RECUSADO">Recusado</option>
+                <option value="EXPIRADO">Expirado</option>
+                <option value="ESTORNADO">Estornado</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:180px;">
+              <label>SteamID</label>
+              <input id="pix-audit-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter')resetPixAuditPage()" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+              <label>Busca (ID, e-mail, pacote)</label>
+              <input id="pix-audit-filter-q" type="text" placeholder="payment_id, mp_id, e-mail…" onkeydown="if(event.key==='Enter')resetPixAuditPage()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="resetPixAuditPage()">Filtrar</button>
+          </div>
+          <div id="pix-audit-list"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="prevPixAuditPage()">◀ Anterior</button>
+            <span id="pix-audit-page-info" style="font-size:12px;color:var(--text2);align-self:center;"></span>
+            <button class="btn btn-ghost btn-sm" onclick="nextPixAuditPage()">Próxima ▶</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Filtros — eventos gerais</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
             <div class="form-group" style="margin:0;min-width:140px;">
               <label>Tipo</label>
@@ -4209,6 +4249,13 @@
                 <option value="order_contested">Contestação</option>
                 <option value="admin_reissue">Reemissão admin</option>
                 <option value="admin_reprocess">Reprocessamento</option>
+                <option value="pix">Doações PIX (todos eventos)</option>
+                <option value="pix_checkout_created">PIX — tentativa criada</option>
+                <option value="pix_credited">PIX — creditado</option>
+                <option value="pix_abandoned">PIX — abandonado</option>
+                <option value="pix_checkout_failed">PIX — falha checkout</option>
+                <option value="pix_status_updated">PIX — mudança de status</option>
+                <option value="pix_credit_failed">PIX — falha ao creditar</option>
               </select>
             </div>
             <div class="form-group" style="margin:0;min-width:120px;">
@@ -4242,6 +4289,68 @@
         <div class="card" style="margin-top:16px;">
           <div class="card-title">Pedidos (admin)</div>
           <div id="admin-orders-list"></div>
+        </div>
+      </div>
+
+      <!-- PAGE: Chat Cluster (admin) -->
+      <div id="page-cluster-chat" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Chat Cluster</div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">
+            Mensagens entre mapas via <strong>/c</strong> no jogo. Log completo com SteamID para suporte.
+          </p>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadClusterChatAdmin()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">📊 Resumo (24h)</div>
+          <div id="cluster-chat-stats" style="display:flex;flex-wrap:wrap;gap:8px;font-size:12px;"></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🔇 Silenciados</div>
+          <div id="cluster-chat-mutes"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-top:12px;">
+            <div class="form-group" style="margin:0;min-width:180px;">
+              <label>SteamID para silenciar</label>
+              <input id="cluster-chat-mute-steam" type="text" placeholder="7656119…" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:100px;">
+              <label>Horas (vazio = permanente)</label>
+              <input id="cluster-chat-mute-hours" type="number" min="1" placeholder="24" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+              <label>Motivo</label>
+              <input id="cluster-chat-mute-reason" type="text" placeholder="spam, ofensa…" />
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="clusterChatMute()">Silenciar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">💬 Log de mensagens</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
+            <div class="form-group" style="margin:0;min-width:140px;">
+              <label>Mapa / servidor</label>
+              <select id="cluster-chat-filter-server" onchange="resetClusterChatPage()">
+                <option value="">Todos</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:180px;">
+              <label>SteamID</label>
+              <input id="cluster-chat-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter')resetClusterChatPage()" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:160px;">
+              <label>Busca</label>
+              <input id="cluster-chat-filter-q" type="text" placeholder="nome, mensagem…" onkeydown="if(event.key==='Enter')resetClusterChatPage()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="resetClusterChatPage()">Filtrar</button>
+          </div>
+          <div id="cluster-chat-list"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="prevClusterChatPage()">◀ Anterior</button>
+            <span id="cluster-chat-page-info" style="font-size:12px;color:var(--text2);align-self:center;"></span>
+            <button class="btn btn-ghost btn-sm" onclick="nextClusterChatPage()">Próxima ▶</button>
+          </div>
         </div>
       </div>
 
@@ -4666,7 +4775,8 @@ function nav(el) {
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "recharge-admin") loadRechargeAdmin();
-  if (page === "audit") { loadAudit(); loadAdminOrders(); }
+  if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
+  if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "server-console") {
     loadServers().then(() => {
       populateRconServerSelect();
@@ -4806,6 +4916,7 @@ let _catalogActiveTab = "items";
 let _pixPollTimer = null;
 let _pixPollDelayMs = 5000;
 let _pixPollPaymentId = null;
+let _activePixPaymentId = null;
 let _pendingPixPackageId = null;
 let _pendingRedeemItem = null;
 let _pixPayerFields = null;
@@ -5363,8 +5474,14 @@ function schedulePixPoll(paymentId, delayMs) {
 }
 
 function closePixModal() {
+  const pid = _activePixPaymentId || _pixPollPaymentId;
   stopPixPoll();
   document.getElementById("pix-modal").style.display = "none";
+  if (pid && _auth.authenticated) {
+    fetch(API + "/api/player/pix/" + encodeURIComponent(pid) + "/abandon", { method: "POST" })
+      .catch(() => {});
+  }
+  _activePixPaymentId = null;
 }
 
 function _loadPayerProfile() {
@@ -5539,6 +5656,7 @@ function showPixModal(data) {
     <p id="pix-status-line" style="text-align:center;margin-top:14px;color:var(--amber);font-weight:700;">⏳ Aguardando confirmação da doação…</p>
     <p class="pix-trust-note">PIX processado pelo Mercado Pago. Comprovantes da transação podem ser enviados pelo MP ao e-mail informado. A ARKLAND credita Âmbares como recompensa simbólica — doação voluntária, sem reembolso.</p>`;
   document.getElementById("pix-modal").style.display = "flex";
+  _activePixPaymentId = data.payment_id;
   stopPixPoll();
   pollPixStatus(data.payment_id);
 }
@@ -5577,15 +5695,18 @@ async function pollPixStatus(paymentId) {
       refreshPlayerBalance();
       loadMyArea();
       stopPixPoll();
+      _activePixPaymentId = null;
       toast("Pontos creditados — use-os para resgatar itens no catálogo.", "success");
     } else if (d.status === "APROVADO" && !d.credited) {
       line.textContent = "⚠️ Pagamento aprovado, mas falha ao creditar Âmbares no banco. Contate o admin.";
       line.style.color = "var(--danger)";
       stopPixPoll();
-    } else if (d.status === "RECUSADO" || d.status === "EXPIRADO") {
+      _activePixPaymentId = null;
+    } else if (d.status === "RECUSADO" || d.status === "EXPIRADO" || d.status === "ABANDONADO") {
       line.textContent = "❌ Doação " + d.status.toLowerCase();
       line.style.color = "var(--danger)";
       stopPixPoll();
+      _activePixPaymentId = null;
     } else {
       const mpHint = d.mp_status ? " (MP: " + d.mp_status + ")" : "";
       line.textContent = "Aguardando confirmação da doação…" + mpHint;
@@ -5620,7 +5741,7 @@ function donationStatusBadge(s, credited) {
   const status = (s || "").toUpperCase();
   if (status === "APROVADO") return `<span class="badge badge-beacon">Aprovado</span>`;
   if (status === "PENDENTE") return `<span class="badge badge-beacon">${status}</span>`;
-  if (status === "RECUSADO" || status === "EXPIRADO" || status === "ESTORNADO") {
+  if (status === "RECUSADO" || status === "EXPIRADO" || status === "ESTORNADO" || status === "ABANDONADO") {
     return `<span class="badge badge-experience">${status}</span>`;
   }
   return `<span class="badge">${status || "-"}</span>`;
@@ -9412,6 +9533,240 @@ async function confirmBuy() {
   } finally {
     btn.disabled = false;
     btn.textContent = "✅ Confirmar Resgate";
+  }
+}
+
+// ── Chat Cluster (admin) ──────────────────────────────────────────────────────
+let _clusterChatPage = { limit: 50, offset: 0, total: 0 };
+
+function resetClusterChatPage() { _clusterChatPage.offset = 0; loadClusterChatMessages(); }
+function prevClusterChatPage() {
+  _clusterChatPage.offset = Math.max(0, _clusterChatPage.offset - _clusterChatPage.limit);
+  loadClusterChatMessages();
+}
+function nextClusterChatPage() {
+  if (_clusterChatPage.offset + _clusterChatPage.limit < _clusterChatPage.total) {
+    _clusterChatPage.offset += _clusterChatPage.limit;
+    loadClusterChatMessages();
+  }
+}
+
+async function loadClusterChatStats() {
+  const statsEl = document.getElementById("cluster-chat-stats");
+  const serverSel = document.getElementById("cluster-chat-filter-server");
+  if (!statsEl) return;
+  try {
+    const r = await fetch(`${API}/api/admin/chat/stats`);
+    const d = await r.json();
+    if (!d.ok) return;
+    statsEl.innerHTML = [
+      ["Mensagens (24h)", d.messages_24h],
+      ["Jogadores (24h)", d.players_24h],
+      ["Mapas ativos (24h)", d.servers_24h],
+      ["Silenciados", d.active_mutes],
+    ].map(([label, n]) => `<span class="home-maps-pillar">${label}: <strong>${Number(n || 0)}</strong></span>`).join("");
+    if (serverSel && Array.isArray(d.servers)) {
+      const cur = serverSel.value;
+      serverSel.innerHTML = `<option value="">Todos</option>` +
+        d.servers.map(s => `<option value="${escHtml(s)}">${escHtml(s)}</option>`).join("");
+      if (cur) serverSel.value = cur;
+    }
+  } catch (_) {}
+}
+
+async function loadClusterChatMutes() {
+  const el = document.getElementById("cluster-chat-mutes");
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  try {
+    const r = await fetch(`${API}/api/admin/chat/mutes`);
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2);font-size:12px;">Nenhum jogador silenciado.</div>`;
+      return;
+    }
+    el.innerHTML = `<table class="data-table"><thead><tr>
+      <th>SteamID</th><th>Até</th><th>Motivo</th><th></th>
+    </tr></thead><tbody>` +
+    items.map(m => `<tr>
+      <td><code>${escHtml(m.steam_id)}</code></td>
+      <td>${m.muted_until ? escHtml(m.muted_until) : "Permanente"}</td>
+      <td>${escHtml(m.reason || "—")}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="clusterChatUnmute('${escHtml(m.steam_id)}')">Remover</button></td>
+    </tr>`).join("") + `</tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(e.message)}</div>`;
+  }
+}
+
+async function loadClusterChatMessages() {
+  const server = document.getElementById("cluster-chat-filter-server")?.value || "";
+  const steam = document.getElementById("cluster-chat-filter-steam")?.value.trim() || "";
+  const q = document.getElementById("cluster-chat-filter-q")?.value.trim() || "";
+  let url = `${API}/api/admin/chat/messages?limit=${_clusterChatPage.limit}&offset=${_clusterChatPage.offset}`;
+  if (server) url += `&source_server=${encodeURIComponent(server)}`;
+  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
+  if (q) url += `&q=${encodeURIComponent(q)}`;
+  const el = document.getElementById("cluster-chat-list");
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando mensagens…</div>`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    _clusterChatPage.total = d.total || 0;
+    const pageNum = Math.floor(_clusterChatPage.offset / _clusterChatPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_clusterChatPage.total / _clusterChatPage.limit));
+    const info = document.getElementById("cluster-chat-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_clusterChatPage.total})`;
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2);padding:12px 0;">Nenhuma mensagem encontrada.</div>`;
+      return;
+    }
+    el.innerHTML = `<table class="data-table"><thead><tr>
+      <th>Data</th><th>Mapa</th><th>Jogador</th><th>SteamID</th><th>Mensagem</th><th></th>
+    </tr></thead><tbody>` +
+    items.map(m => `<tr>
+      <td style="white-space:nowrap;font-size:11px;">${escHtml(m.created_at || "")}</td>
+      <td><span class="badge badge-kit">${escHtml(m.source_server)}</span></td>
+      <td>${escHtml(m.player_name)}</td>
+      <td><code style="font-size:11px;">${escHtml(m.steam_id)}</code></td>
+      <td>${escHtml(m.message)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="clusterChatMuteQuick('${escHtml(m.steam_id)}')">Silenciar</button></td>
+    </tr>`).join("") + `</tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(e.message)}</div>`;
+  }
+}
+
+function loadClusterChatAdmin() {
+  loadClusterChatStats();
+  loadClusterChatMutes();
+  loadClusterChatMessages();
+}
+
+function clusterChatMuteQuick(steamId) {
+  const inp = document.getElementById("cluster-chat-mute-steam");
+  if (inp) inp.value = steamId;
+  document.getElementById("cluster-chat-mute-hours")?.focus();
+}
+
+async function clusterChatMute() {
+  const steam = document.getElementById("cluster-chat-mute-steam")?.value.trim() || "";
+  const hoursRaw = document.getElementById("cluster-chat-mute-hours")?.value.trim() || "";
+  const reason = document.getElementById("cluster-chat-mute-reason")?.value.trim() || "";
+  if (!steam) { toast("Informe o SteamID", "error"); return; }
+  const body = { steam_id: steam, reason };
+  if (hoursRaw) body.hours = parseInt(hoursRaw, 10);
+  try {
+    const r = await fetch(`${API}/api/admin/chat/mute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao silenciar", "error"); return; }
+    toast("Jogador silenciado no chat cluster");
+    loadClusterChatAdmin();
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function clusterChatUnmute(steamId) {
+  try {
+    const r = await fetch(`${API}/api/admin/chat/mute/${encodeURIComponent(steamId)}`, { method: "DELETE" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Silêncio removido");
+    loadClusterChatAdmin();
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+// ── Auditoria PIX (admin) ─────────────────────────────────────────────────────
+let _pixAuditPage = { limit: 50, offset: 0, total: 0 };
+
+function resetPixAuditPage() { _pixAuditPage.offset = 0; loadPixAudit(); }
+function prevPixAuditPage() { _pixAuditPage.offset = Math.max(0, _pixAuditPage.offset - _pixAuditPage.limit); loadPixAudit(); }
+function nextPixAuditPage() {
+  if (_pixAuditPage.offset + _pixAuditPage.limit < _pixAuditPage.total) {
+    _pixAuditPage.offset += _pixAuditPage.limit;
+    loadPixAudit();
+  }
+}
+
+function pixAuditStatusBadge(row) {
+  if (row.credited) return `<span class="badge badge-item">Concluída</span>`;
+  return donationStatusBadge(row.status, false);
+}
+
+async function loadPixAudit() {
+  const status = document.getElementById("pix-audit-filter-status")?.value || "";
+  const steam = document.getElementById("pix-audit-filter-steam")?.value.trim() || "";
+  const q = document.getElementById("pix-audit-filter-q")?.value.trim() || "";
+  let url = `${API}/api/admin/pix/audit?limit=${_pixAuditPage.limit}&offset=${_pixAuditPage.offset}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
+  if (q) url += `&q=${encodeURIComponent(q)}`;
+  const el = document.getElementById("pix-audit-list");
+  const statsEl = document.getElementById("pix-audit-stats");
+  if (!el) return;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando doações PIX…</div>`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    _pixAuditPage.total = d.total || 0;
+    const st = d.stats || {};
+    if (statsEl) {
+      statsEl.innerHTML = [
+        ["Total", st.total],
+        ["Concluídas", st.concluidas],
+        ["Pendentes", st.pendentes],
+        ["Abandonadas", st.abandonadas],
+        ["Recusadas", st.recusadas],
+        ["Expiradas", st.expiradas],
+        ["Estornadas", st.estornadas],
+        ["Aprov. s/ crédito", st.aprovadas_sem_credito],
+      ].map(([label, n]) => `<span class="home-maps-pillar">${label}: <strong>${Number(n || 0)}</strong></span>`).join("");
+    }
+    const pageNum = Math.floor(_pixAuditPage.offset / _pixAuditPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_pixAuditPage.total / _pixAuditPage.limit));
+    const info = document.getElementById("pix-audit-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_pixAuditPage.total})`;
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2)">Nenhuma doação PIX encontrada.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <table class="tbl">
+        <thead><tr>
+          <th>Data</th><th>SteamID</th><th>Pacote</th><th>R$</th><th>Âmbares</th><th>Status</th><th>Payment ID</th><th>MP ID</th><th>E-mail</th>
+        </tr></thead>
+        <tbody>
+          ${items.map(p => `
+            <tr>
+              <td style="font-size:11px;">${fmtDate(p.created_at)}</td>
+              <td><code style="font-size:10px;">${escHtml(p.steam_id || "")}</code></td>
+              <td style="font-size:11px;">${escHtml(p.package_label || p.package_id || "")}</td>
+              <td>${fmtBrl(p.amount_brl)}</td>
+              <td style="color:var(--amber);">${Number(p.points || 0).toLocaleString("pt-BR")}</td>
+              <td>${pixAuditStatusBadge(p)}</td>
+              <td><code style="font-size:9px;" title="${escHtml(p.payment_id || "")}">${escHtml((p.payment_id || "").substring(0, 8))}…</code></td>
+              <td><code style="font-size:9px;">${p.mp_payment_id ? escHtml(String(p.mp_payment_id)) : "—"}</code></td>
+              <td style="font-size:10px;">${escHtml(p.payer_email || "—")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
   }
 }
 

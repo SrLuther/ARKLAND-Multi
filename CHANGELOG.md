@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.82] - 2026-06-24
+
+### Feature
+
+- Novo (Chat cluster): chat entre mapas via /c — sync automático de ServerId por servidor, aba no CustomShop, painel admin na loja web (log, filtros, silenciar jogadores) e CustomShop.dll recompilado.
+- Novo (Auditoria PIX): log completo de doações na loja web — tentativas, concluídas, abandonadas e canceladas com SteamID, payment_id, MP ID e filtros para suporte.
+
 ## [1.9.81] - 2026-06-24
 
 ### Fix

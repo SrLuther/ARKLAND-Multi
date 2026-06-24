@@ -324,6 +324,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
     tabs.add("🛒  Itens")
     tabs.add("🎁  Kits")
     tabs.add("⏱️  Pontos Temporais")
+    tabs.add("💬  Chat Cluster")
     tabs.add("🗄️  Database")
     tabs.add("🌐  Web Store")
 
@@ -353,6 +354,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         builder()
     _sv: Dict[str, tk.Variable] = {}
     _tpv: Dict[str, tk.Variable] = {}
+    _ccv: Dict[str, tk.Variable] = {}
     _dbv: Dict[str, tk.Variable] = {}
     _tp_group_vars: Dict[str, tk.StringVar] = {}
 
@@ -524,6 +526,54 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                       fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                       command=_add_group).pack(side="left")
 
+    def _build_tab_cross_chat() -> None:
+        t_cc = ctk.CTkScrollableFrame(tabs.tab("💬  Chat Cluster"), fg_color=_BG)
+        t_cc.pack(fill="both", expand=True)
+        card_cc = tk.Frame(t_cc, bg=_INNER, highlightthickness=1,
+                           highlightbackground=_BDR)
+        card_cc.pack(fill="x", padx=12, pady=8)
+        _head(card_cc, "💬  Chat Cluster (Cross-ARK)")
+        tk.Label(
+            card_cc,
+            text=(
+                "Jogadores usam /c mensagem no chat do jogo para falar com outros mapas do cluster. "
+                "Cada servidor recebe um ServerId único ao sincronizar o plugin (nome do servidor). "
+                "Requer MySQL compartilhado e CustomShop.dll nos mapas."
+            ),
+            bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
+            anchor="w", justify="left", wraplength=720,
+        ).pack(fill="x", padx=10, pady=(0, 8))
+
+        cc = data.get("CrossChat", {})
+        _ccv.clear()
+        _ccv.update({
+            "Enabled":             tk.BooleanVar(value=bool(cc.get("Enabled", True))),
+            "Command":             tk.StringVar(value=str(cc.get("Command", "/c"))),
+            "PollIntervalSeconds": tk.StringVar(value=str(cc.get("PollIntervalSeconds", 2))),
+            "MaxMessageLength":    tk.StringVar(value=str(cc.get("MaxMessageLength", 200))),
+            "RateLimitSeconds":    tk.StringVar(value=str(cc.get("RateLimitSeconds", 2))),
+            "UseWebApi":           tk.BooleanVar(value=bool(cc.get("UseWebApi", False))),
+        })
+        _bool_row(card_cc, "Ativado no catálogo", _ccv["Enabled"], bg=_INNER)
+        _field_row(card_cc, "Comando", _ccv["Command"], bg=_INNER,
+                   hint="Padrão: /c — jogador digita /c olá cluster", width=100)
+        _field_row(card_cc, "Intervalo de poll (s)", _ccv["PollIntervalSeconds"], bg=_INNER,
+                   hint="Frequência de busca de mensagens de outros mapas", width=80)
+        _field_row(card_cc, "Tamanho máx. mensagem", _ccv["MaxMessageLength"], bg=_INNER, width=80)
+        _field_row(card_cc, "Rate limit (s)", _ccv["RateLimitSeconds"], bg=_INNER,
+                   hint="Segundos entre mensagens por jogador (0 = desligado)", width=80)
+        _bool_row(card_cc, "Usar API Web (fallback MySQL)", _ccv["UseWebApi"], bg=_INNER)
+
+        tk.Label(
+            card_cc,
+            text=(
+                "💡 Ative também «Chat cluster entre mapas» na aba Web Store. "
+                "Ao salvar, cada servidor recebe ServerId = nome do mapa."
+            ),
+            bg=_INNER, fg="#88cc88", font=ctk.CTkFont(size=10),
+            anchor="w", justify="left", wraplength=720,
+        ).pack(fill="x", padx=10, pady=(8, 10))
+
     def _build_tab_db() -> None:
         t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
         t_db.pack(fill="both", expand=True)
@@ -591,6 +641,19 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                 for g_name, gv in _tp_group_vars.items()
             }
 
+        if _ccv:
+            cc_out = data.setdefault("CrossChat", {})
+            cc_out["Enabled"] = _ccv["Enabled"].get()
+            cc_out["Command"] = (_ccv["Command"].get() or "/c").strip() or "/c"
+            cc_out["PollIntervalSeconds"] = max(1, _safe_int(_ccv["PollIntervalSeconds"].get(), 2))
+            cc_out["MaxMessageLength"] = max(1, min(500, _safe_int(_ccv["MaxMessageLength"].get(), 200)))
+            cc_out["RateLimitSeconds"] = max(0, _safe_int(_ccv["RateLimitSeconds"].get(), 2))
+            cc_out["UseWebApi"] = _ccv["UseWebApi"].get()
+            cc_out["_comment"] = (
+                "Chat entre mapas do cluster via MySQL (comando /c). "
+                "ServerId unico por mapa — definido ao sincronizar."
+            )
+
         if _dbv:
             db_out = data.setdefault("Database", {})
             db_out["Host"]     = _dbv["Host"].get()
@@ -616,6 +679,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         "🛒  Itens": lambda: _build_items_tab(app, tabs.tab("🛒  Itens"), data),
         "🎁  Kits": lambda: _build_kits_tab(app, tabs.tab("🎁  Kits"), data),
         "⏱️  Pontos Temporais": _build_tab_timed,
+        "💬  Chat Cluster": _build_tab_cross_chat,
         "🗄️  Database": _build_tab_db,
         "🌐  Web Store": lambda: _build_webstore_tab(
             app, tabs.tab("🌐  Web Store"),
@@ -1350,6 +1414,7 @@ def _build_webstore_tab(
     _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
     _odb_pass = tk.StringVar(value=resolve_shop_db_password(shop) or _dbm.get("password", ""))
     _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
+    _cross_chat_var = tk.BooleanVar(value=bool(getattr(shop, "cross_chat_enabled", True)))
 
     def _save_shop_from_ui() -> None:
         shop.mode = _mode_var.get()
@@ -1362,6 +1427,7 @@ def _build_webstore_tab(
         shop.machine_label = _machine_var.get().strip()
         shop.delivery_mode = _delivery_var.get()
         shop.auto_sync_on_save = _auto_sync_var.get()
+        shop.cross_chat_enabled = bool(_cross_chat_var.get())
         shop.orders_db_url = _orders_url_var.get().strip()
         shop.orders_db_host = _odb_host.get().strip()
         shop.orders_db_port = _safe_int(_odb_port.get(), 3306)
@@ -2139,6 +2205,8 @@ def _build_webstore_tab(
                   command=_provision_groups).pack(side="left", padx=(0, 10))
     ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
                     variable=_auto_sync_var).pack(side="left")
+    ctk.CTkCheckBox(act_row, text="Chat cluster entre mapas (/c)",
+                    variable=_cross_chat_var).pack(side="left", padx=(12, 0))
     ctk.CTkButton(act_row, text="↻  Atualizar lista",
                   height=30, width=120, fg_color="#252540",
                   command=_rebuild_server_rows).pack(side="left", padx=(10, 0))

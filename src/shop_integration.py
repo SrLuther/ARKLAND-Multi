@@ -999,6 +999,47 @@ def validate_plugin_database_settings(db_settings: Dict[str, Any]) -> Tuple[bool
     )
 
 
+def _cross_chat_server_label(srv: Any) -> str:
+    """Nome exibido no chat cluster — único por mapa."""
+    raw = (
+        (getattr(srv, "name", "") or "").strip()
+        or (getattr(srv, "shop_server_id", "") or "").strip()
+    )
+    if not raw:
+        raw = slugify_server_id("", getattr(srv, "id", ""))
+    ascii_parts = re.findall(r"[\x20-\x7e]+", raw)
+    label = " ".join("".join(ascii_parts).split())
+    return (label or slugify_server_id(raw, getattr(srv, "id", "")))[:64]
+
+
+def build_cross_chat_settings(
+    shop: "ShopGlobalConfig",
+    srv: Any,
+    catalog_cc: Optional[Dict[str, Any]] = None,
+    existing_cc: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Monta bloco CrossChat do plugin — ServerId único por servidor."""
+    catalog_cc = catalog_cc or {}
+    existing_cc = existing_cc or {}
+    merged = {**catalog_cc, **existing_cc}
+    enabled = bool(getattr(shop, "cross_chat_enabled", True))
+    if "Enabled" in catalog_cc:
+        enabled = enabled and bool(catalog_cc.get("Enabled", True))
+    return {
+        "_comment": (
+            "Chat entre mapas do cluster (comando /c). "
+            "ServerId definido automaticamente ao sincronizar."
+        ),
+        "Enabled": enabled,
+        "ServerId": _cross_chat_server_label(srv),
+        "Command": str(merged.get("Command") or "/c"),
+        "PollIntervalSeconds": max(1, int(merged.get("PollIntervalSeconds") or 2)),
+        "MaxMessageLength": max(1, min(500, int(merged.get("MaxMessageLength") or 200))),
+        "RateLimitSeconds": max(0, int(merged.get("RateLimitSeconds") or 2)),
+        "UseWebApi": bool(merged.get("UseWebApi", False)),
+    }
+
+
 def merge_plugin_config(
     catalog: Dict[str, Any],
     website_url: str,
@@ -1327,6 +1368,14 @@ def sync_all_plugins(
         plugin_path = Path(path_str)
         try:
             sync_plugin_at_path(catalog, plugin_path, website, api, api_key, db_settings)
+            cfg_after = load_plugin_config(plugin_path)
+            cfg_after["CrossChat"] = build_cross_chat_settings(
+                shop,
+                srv,
+                catalog_cc=catalog.get("CrossChat") or {},
+                existing_cc=cfg_after.get("CrossChat") or {},
+            )
+            save_plugin_config(plugin_path, cfg_after)
             sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
                 getattr(srv, "name", ""), getattr(srv, "id", ""),
             )

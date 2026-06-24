@@ -148,6 +148,7 @@ class ShopGlobalConfig:
     catalog_config_path: str = ""         # catálogo mestre Items/Kits
     machine_label: str = ""               # ex: "Maquina-A"
     auto_sync_on_save: bool = True
+    cross_chat_enabled: bool = True          # chat cluster /c entre mapas (CustomShop)
     # Banco de pedidos (arkshop_web)
     orders_db_url: str = ""
     orders_db_host: str = "192.168.15.51"

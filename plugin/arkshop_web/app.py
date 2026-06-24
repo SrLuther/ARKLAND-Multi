@@ -3717,7 +3717,7 @@ def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
     }
 
 
-def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str) -> None:
+def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, source: str = "web") -> None:
     mapped = map_mp_status(mp_status)
     locked = (
         db.query(PointPayment)
@@ -3728,12 +3728,46 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str) -> Non
     if not locked:
         return
     payment = locked
+    old_status = payment.status
+    if payment.status == "ABANDONADO" and mapped == "PENDENTE":
+        return
     payment.status = mapped
     payment.updated_at = _now()
+    if old_status != mapped:
+        _audit_event(
+            "pix_status_updated",
+            actor_steam_id=payment.steam_id,
+            order_id=payment.payment_id,
+            item_id=payment.package_id,
+            amount=payment.points,
+            status_before=old_status,
+            status_after=mapped,
+            message=f"PIX {old_status} → {mapped}",
+            source=source,
+            mp_payment_id=payment.mp_payment_id,
+            mp_status_raw=mp_status,
+            amount_brl=payment.amount_brl,
+            package_label=_package_label(payment.package_id),
+            credited=payment.credited,
+        )
     if mapped == "APROVADO" and not payment.credited:
         try:
             new_balance = _add_player_points_tx(db, payment.steam_id, payment.points)
             payment.credited = True
+            _audit_event(
+                "pix_credited",
+                actor_steam_id=payment.steam_id,
+                order_id=payment.payment_id,
+                item_id=payment.package_id,
+                amount=payment.points,
+                status_after="APROVADO",
+                message=f"Doação PIX creditada — {_package_label(payment.package_id)}",
+                source=source,
+                mp_payment_id=payment.mp_payment_id,
+                amount_brl=payment.amount_brl,
+                new_balance=new_balance,
+                package_label=_package_label(payment.package_id),
+            )
             _log(
                 "pix_credited",
                 payment_id=payment.payment_id,
@@ -3742,6 +3776,20 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str) -> Non
                 new_balance=new_balance,
             )
         except Exception as exc:
+            _audit_event(
+                "pix_credit_failed",
+                severity="error",
+                actor_steam_id=payment.steam_id,
+                order_id=payment.payment_id,
+                item_id=payment.package_id,
+                amount=payment.points,
+                status_after=mapped,
+                message=f"Falha ao creditar Âmbares: {exc}",
+                source=source,
+                mp_payment_id=payment.mp_payment_id,
+                amount_brl=payment.amount_brl,
+                error=str(exc),
+            )
             _log_error(
                 "pix_credit_failed",
                 payment_id=payment.payment_id,
@@ -3871,6 +3919,17 @@ def player_pix_checkout():
             payer=payer,
         )
     except PixPaymentError as exc:
+        _audit_event(
+            "pix_checkout_failed",
+            severity="error",
+            actor_steam_id=steam_id,
+            item_id=package_id,
+            amount=points,
+            message=f"Mercado Pago recusou checkout: {exc}",
+            amount_brl=price_brl,
+            package_label=label,
+            error=str(exc),
+        )
         return jsonify({"ok": False, "error": f"Mercado Pago: {exc}"}), 502
 
     mp_id, qr_b64, copy_paste = extract_pix_data(mp_resp)
@@ -3895,6 +3954,19 @@ def player_pix_checkout():
         )
         db.add(row)
         db.commit()
+        _audit_event(
+            "pix_checkout_created",
+            actor_steam_id=steam_id,
+            order_id=payment_id,
+            item_id=package_id,
+            amount=points,
+            status_after=row.status,
+            message=f"Tentativa PIX — {label} — R$ {price_brl:.2f}",
+            amount_brl=price_brl,
+            mp_payment_id=mp_id,
+            payer_email=payer.get("email"),
+            package_label=label,
+        )
         _log("pix_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id, mp_id=mp_id)
         return jsonify({
             "ok": True,
@@ -3942,7 +4014,7 @@ def player_pix_status(payment_id: str):
                 db.rollback()
                 poll_error = str(exc)
                 _log_error("pix_status_retry_credit", payment_id=payment_id, error=poll_error)
-        elif payment.status not in ("RECUSADO", "EXPIRADO", "ESTORNADO") and payment.mp_payment_id:
+        elif payment.status not in ("RECUSADO", "EXPIRADO", "ESTORNADO", "ABANDONADO") and payment.mp_payment_id:
             token = _get_mp_access_token()
             if not token:
                 poll_error = "Access Token do Mercado Pago não configurado"
@@ -3967,6 +4039,56 @@ def player_pix_status(payment_id: str):
             "mp_status": mp_status_raw,
             "poll_error": poll_error,
         })
+    finally:
+        db.close()
+
+
+@app.route("/api/player/pix/<payment_id>/abandon", methods=["POST"])
+@login_required
+@limiter.limit("30 per hour")
+def player_pix_abandon(payment_id: str):
+    """Jogador fechou o modal PIX sem concluir a doação — rastreio para suporte."""
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    db = _SessionLocal()
+    try:
+        payment = db.query(PointPayment).filter(
+            PointPayment.payment_id == payment_id,
+            PointPayment.steam_id == steam_id,
+        ).first()
+        if not payment:
+            return jsonify({"ok": False, "error": "Doação PIX não encontrada"}), 404
+        if payment.credited or payment.status == "APROVADO":
+            return jsonify({"ok": True, "ignored": True, "status": payment.status})
+        if payment.status == "ABANDONADO":
+            return jsonify({"ok": True, "status": payment.status})
+        if payment.status not in ("PENDENTE",):
+            return jsonify({"ok": True, "ignored": True, "status": payment.status})
+
+        old_status = payment.status
+        payment.status = "ABANDONADO"
+        payment.updated_at = _now()
+        db.commit()
+        _audit_event(
+            "pix_abandoned",
+            severity="warn",
+            actor_steam_id=steam_id,
+            order_id=payment.payment_id,
+            item_id=payment.package_id,
+            amount=payment.points,
+            status_before=old_status,
+            status_after="ABANDONADO",
+            message=f"Doação PIX abandonada pelo jogador — {_package_label(payment.package_id)}",
+            amount_brl=payment.amount_brl,
+            mp_payment_id=payment.mp_payment_id,
+            package_label=_package_label(payment.package_id),
+            payer_email=payment.payer_email,
+        )
+        return jsonify({"ok": True, "status": "ABANDONADO"})
+    except Exception as exc:
+        db.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
 
@@ -4007,7 +4129,7 @@ def payments_webhook():
         if not payment:
             return jsonify({"ok": True, "ignored": True})
 
-        _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")))
+        _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")), source="webhook")
         db.commit()
         return jsonify({"ok": True, "payment_id": payment.payment_id, "status": payment.status})
     except Exception as exc:
@@ -4503,6 +4625,103 @@ def admin_reissue_order(order_id: str):
 
 # ── Admin audit routes ────────────────────────────────────────────────────────
 
+def _pix_payment_row_dict(row: PointPayment) -> dict[str, Any]:
+    return {
+        "payment_id": row.payment_id,
+        "mp_payment_id": row.mp_payment_id,
+        "steam_id": row.steam_id,
+        "package_id": row.package_id,
+        "package_label": _package_label(row.package_id),
+        "amount_brl": float(row.amount_brl or 0),
+        "points": int(row.points or 0),
+        "status": row.status,
+        "credited": bool(row.credited),
+        "payer_email": row.payer_email,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+    }
+
+
+@app.route("/api/admin/pix/audit", methods=["GET"])
+@admin_required
+def admin_pix_audit():
+    """Log completo de doações PIX para suporte — tentativas, concluídas e canceladas."""
+    if (err := _require_db()) is not None:
+        return err
+    status = str(request.args.get("status", "")).strip().upper()
+    steam_id = str(request.args.get("steam_id", "")).strip()
+    payment_id = str(request.args.get("payment_id", "")).strip()
+    q = str(request.args.get("q", "")).strip().lower()
+    limit = max(1, min(200, int(request.args.get("limit", 50))))
+    offset = max(0, int(request.args.get("offset", 0)))
+
+    db = _SessionLocal()
+    try:
+        query = db.query(PointPayment)
+        if status:
+            if status == "CONCLUIDA":
+                query = query.filter(PointPayment.credited.is_(True))
+            elif status == "CANCELADA":
+                query = query.filter(PointPayment.status.in_((
+                    "RECUSADO", "EXPIRADO", "ESTORNADO", "ABANDONADO",
+                )))
+            elif status == "TENTATIVA":
+                query = query.filter(
+                    PointPayment.credited.is_(False),
+                    PointPayment.status.in_(("PENDENTE", "ABANDONADO")),
+                )
+            else:
+                query = query.filter(PointPayment.status == status)
+        if steam_id:
+            query = query.filter(PointPayment.steam_id == steam_id)
+        if payment_id:
+            query = query.filter(
+                (PointPayment.payment_id == payment_id)
+                | (PointPayment.mp_payment_id == payment_id)
+            )
+        if q:
+            query = query.filter(
+                (PointPayment.steam_id.ilike(f"%{q}%"))
+                | (PointPayment.payment_id.ilike(f"%{q}%"))
+                | (PointPayment.mp_payment_id.ilike(f"%{q}%"))
+                | (PointPayment.package_id.ilike(f"%{q}%"))
+                | (PointPayment.payer_email.ilike(f"%{q}%"))
+            )
+
+        total = query.count()
+        rows = query.order_by(PointPayment.created_at.desc()).offset(offset).limit(limit).all()
+
+        base = db.query(PointPayment)
+        stats = {
+            "total": base.count(),
+            "concluidas": base.filter(PointPayment.credited.is_(True)).count(),
+            "pendentes": base.filter(
+                PointPayment.status == "PENDENTE",
+                PointPayment.credited.is_(False),
+            ).count(),
+            "abandonadas": base.filter(PointPayment.status == "ABANDONADO").count(),
+            "recusadas": base.filter(PointPayment.status == "RECUSADO").count(),
+            "expiradas": base.filter(PointPayment.status == "EXPIRADO").count(),
+            "estornadas": base.filter(PointPayment.status == "ESTORNADO").count(),
+            "aprovadas_sem_credito": base.filter(
+                PointPayment.status == "APROVADO",
+                PointPayment.credited.is_(False),
+            ).count(),
+        }
+
+        return jsonify({
+            "ok": True,
+            "total": total,
+            "stats": stats,
+            "items": [_pix_payment_row_dict(r) for r in rows],
+        })
+    except Exception as exc:
+        _log_error("admin_pix_audit", error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
 @app.route("/api/admin/audit", methods=["GET"])
 @admin_required
 def admin_list_audit():
@@ -4521,7 +4740,10 @@ def admin_list_audit():
     try:
         query = db.query(AuditEvent)
         if event_type:
-            query = query.filter(AuditEvent.event_type == event_type)
+            if event_type == "pix":
+                query = query.filter(AuditEvent.event_type.like("pix_%"))
+            else:
+                query = query.filter(AuditEvent.event_type == event_type)
         if severity:
             query = query.filter(AuditEvent.severity == severity)
         if steam_id:
@@ -4537,6 +4759,7 @@ def admin_list_audit():
                 (AuditEvent.message.ilike(f"%{q}%"))
                 | (AuditEvent.event_type.ilike(f"%{q}%"))
                 | (AuditEvent.item_id.ilike(f"%{q}%"))
+                | (AuditEvent.order_id.ilike(f"%{q}%"))
             )
         total = query.count()
         rows = query.order_by(AuditEvent.created_at.desc()).offset(offset).limit(limit).all()
@@ -4721,6 +4944,7 @@ register_cross_chat_routes(
     db_ready=_db_ready,
     session_factory=_db_session_factory,
     api_key_required=api_key_required,
+    admin_required=admin_required,
     limiter=limiter,
 )
 

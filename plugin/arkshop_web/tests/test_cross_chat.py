@@ -5,7 +5,15 @@ import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-from cross_chat_service import poll_messages, publish_message
+from cross_chat_service import (
+    chat_stats,
+    list_messages,
+    list_mutes,
+    mute_player,
+    poll_messages,
+    publish_message,
+    unmute_player,
+)
 
 
 @pytest.fixture()
@@ -49,3 +57,45 @@ def test_publish_and_poll(db_session):
 
     own = poll_messages(db_session, server_id="Brighamia", since_id=0)
     assert len(own) == 0
+
+
+def test_list_messages_and_mute(db_session):
+    publish_message(
+        db_session,
+        source_server="Island",
+        steam_id="76561198000000002",
+        player_name="PlayerA",
+        message="help",
+    )
+    items, total = list_messages(db_session, limit=10, offset=0)
+    assert total == 1
+    assert items[0]["steam_id"] == "76561198000000002"
+
+    muted = mute_player(db_session, steam_id="76561198000000002", hours=1, reason="spam")
+    assert muted["ok"] is True
+    assert len(list_mutes(db_session)) == 1
+
+    blocked = publish_message(
+        db_session,
+        source_server="Island",
+        steam_id="76561198000000002",
+        player_name="PlayerA",
+        message="again",
+    )
+    assert blocked["ok"] is False
+
+    unmute_player(db_session, steam_id="76561198000000002")
+    assert len(list_mutes(db_session)) == 0
+
+
+def test_chat_stats(db_session):
+    publish_message(
+        db_session,
+        source_server="Fjordur",
+        steam_id="76561198000000003",
+        player_name="Viking",
+        message="hej",
+    )
+    stats = chat_stats(db_session)
+    assert stats["messages_24h"] >= 1
+    assert "Fjordur" in stats["servers"]
