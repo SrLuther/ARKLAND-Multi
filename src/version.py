@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.76"
-BUILD_DATE: str = "2026-06-23"
+APP_VERSION: str = "1.9.77"
+BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.77",
+        "date": "2026-06-20",
+        "changes": [
+            "Novo (Loja web): gestão de servidores do cluster — ocultar na home, excluir do sync, prune de "
+            "duplicatas e edição pelo admin (Servidores + flags Home/Loja na aba Loja TEK).",
+            "Novo (Loja web): seção Mapas da Home editável (admin) com Brighamia, Alps, The Volcano e Amissa; "
+            "título e texto introdutório configuráveis no config.json.",
+            "Melhoria (Loja): sync remoto de servidores por máquina (API /api/servers/sync) para cluster multi-host.",
+            "Melhoria (Mods): linha copiável com IDs do Workshop separados por vírgula (TEK e classic).",
+        ],
+    },
     {
         "version": "1.9.76",
         "date": "2026-06-23",

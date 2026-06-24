@@ -600,6 +600,20 @@ def iter_shop_servers(
     return out
 
 
+def _arkland_ref(kind: str, srv: Any) -> str:
+    return f"{kind}:{getattr(srv, 'id', '')}"
+
+
+def _resolve_machine_label(shop: "ShopGlobalConfig") -> str:
+    raw = (getattr(shop, "machine_label", "") or "").strip()
+    if raw:
+        return raw[:64]
+    try:
+        return socket.gethostname()[:64] or "arkland-node"
+    except Exception:
+        return "arkland-node"
+
+
 def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
     sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
         getattr(srv, "name", ""), getattr(srv, "id", ""),
@@ -617,7 +631,7 @@ def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
         "rcon_port": int(getattr(srv, "rcon_port", None) or 27020),
         "rcon_password": rcon_pass,
         "delivery_mode": shop.delivery_mode or "plugin",
-        "machine_label": shop.machine_label or "",
+        "machine_label": _resolve_machine_label(shop),
         "plugin_config_path": (
             getattr(srv, "customshop_config_path", "") or default_customshop_path(getattr(srv, "install_dir", ""))
         ),
@@ -1065,35 +1079,211 @@ def sync_arkshop_web_settings(
     settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def register_arkshop_servers(
+def _merge_arkland_server_entry(
+    existing: Optional[Dict[str, Any]],
+    entry: Dict[str, Any],
+    srv: Any,
+) -> Dict[str, Any]:
+    """Preserva label customizado e show_on_home do admin web quando aplicável."""
+    out = dict(entry)
+    out["arkland_ref"] = entry.get("arkland_ref", "")
+    out["managed_by"] = "arkland"
+    show_home = getattr(srv, "shop_show_on_home", True)
+    if existing and "show_on_home" in existing and existing.get("arkland_ref") == out["arkland_ref"]:
+        out["show_on_home"] = bool(existing.get("show_on_home", show_home))
+    else:
+        out["show_on_home"] = bool(show_home)
+    auto_label = entry.get("label", "")
+    if existing:
+        prev_label = str(existing.get("label") or "").strip()
+        prev_auto = str(existing.get("_auto_label") or auto_label).strip()
+        if prev_label and prev_label != prev_auto:
+            out["label"] = prev_label
+    out["_auto_label"] = auto_label
+    return out
+
+
+def apply_machine_server_registry(
+    by_id: Dict[str, Dict[str, Any]],
+    machine_label: str,
+    incoming: List[Dict[str, Any]],
+    active_refs: set[str],
+) -> int:
+    """Mescla servidores de uma máquina e remove órfãos só deste machine_label."""
+
+    def _owned(entry: Dict[str, Any]) -> bool:
+        ml = str(entry.get("machine_label") or "").strip()
+        if not ml:
+            return True
+        return ml == machine_label
+
+    incoming_by_ref = {
+        str(e.get("arkland_ref", "")): e
+        for e in incoming
+        if e.get("arkland_ref")
+    }
+
+    for old_sid, old_entry in list(by_id.items()):
+        if not _owned(old_entry):
+            continue
+        ref = str(old_entry.get("arkland_ref") or "")
+        if ref and ref in incoming_by_ref:
+            new_sid = str(incoming_by_ref[ref].get("server_id", "")).strip()
+            if new_sid and old_sid != new_sid:
+                del by_id[old_sid]
+
+    count = 0
+    for entry in incoming:
+        sid = str(entry.get("server_id", "")).strip()
+        if not sid:
+            continue
+        clean = dict(entry)
+        clean.pop("_auto_label", None)
+        by_id[sid] = clean
+        count += 1
+
+    for sid, e in list(by_id.items()):
+        if not _owned(e):
+            continue
+        ref = str(e.get("arkland_ref") or "")
+        if ref and ref not in active_refs:
+            del by_id[sid]
+
+    return count
+
+
+def _collect_server_registry(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    asm_cm: Optional["AsmConfigManager"],
+    by_id: Dict[str, Dict[str, Any]],
+) -> Tuple[str, List[Dict[str, Any]], set[str]]:
+    machine_label = _resolve_machine_label(shop)
+    incoming: List[Dict[str, Any]] = []
+    active_refs: set[str] = set()
+
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        ref = _arkland_ref(kind, srv)
+        if getattr(srv, "shop_exclude", False):
+            continue
+        active_refs.add(ref)
+        entry = _server_rcon_entry(srv, shop)
+        entry["arkland_ref"] = ref
+        entry["machine_label"] = machine_label
+        sid = entry["server_id"]
+        existing = by_id.get(sid)
+        incoming.append(_merge_arkland_server_entry(existing, entry, srv))
+
+    return machine_label, incoming, active_refs
+
+
+def _register_arkshop_servers_local(
     cm: "ConfigManager",
     shop: "ShopGlobalConfig",
     asm_cm: Optional["AsmConfigManager"] = None,
 ) -> int:
     servers_path = webstore_data_dir() / "servers.json"
-    servers = []
+    servers: List[Dict[str, Any]] = []
     if servers_path.exists():
         try:
             raw = json.loads(servers_path.read_text(encoding="utf-8"))
             if isinstance(raw, list):
-                servers = raw
+                servers = [s for s in raw if isinstance(s, dict)]
         except Exception:
             servers = []
 
-    by_id = {str(s.get("server_id", "")): s for s in servers if isinstance(s, dict)}
-    count = 0
-    for _kind, srv in iter_shop_servers(cm, asm_cm):
-        entry = _server_rcon_entry(srv, shop)
-        by_id[entry["server_id"]] = entry
-        count += 1
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for s in servers:
+        sid = str(s.get("server_id", "")).strip()
+        if sid:
+            by_id[sid] = s
 
-    servers_path = webstore_data_dir() / "servers.json"
+    machine_label, incoming, active_refs = _collect_server_registry(
+        cm, shop, asm_cm, by_id,
+    )
+    count = apply_machine_server_registry(by_id, machine_label, incoming, active_refs)
+
     servers_path.parent.mkdir(parents=True, exist_ok=True)
     servers_path.write_text(
         json.dumps(list(by_id.values()), indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     return count
+
+
+def _register_arkshop_servers_remote(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    errors: Optional[List[str]] = None,
+) -> int:
+    """Envia cadastro de servidores desta máquina para a loja central (modo client)."""
+    api_key = (shop.api_key or "").strip()
+    if not api_key:
+        msg = (
+            "Loja remota: defina a API Key na aba Loja para registrar servidores no site central."
+        )
+        if errors is not None:
+            errors.append(msg)
+        return 0
+
+    machine_label, incoming, active_refs = _collect_server_registry(
+        cm, shop, asm_cm, {},
+    )
+    payload_entries: List[Dict[str, Any]] = []
+    for entry in incoming:
+        clean = dict(entry)
+        clean.pop("_auto_label", None)
+        payload_entries.append(clean)
+
+    api_url = resolve_plugin_api_url(shop).rstrip("/")
+    body = json.dumps({
+        "machine_label": machine_label,
+        "servers": payload_entries,
+        "active_refs": sorted(active_refs),
+    }, ensure_ascii=False).encode("utf-8")
+
+    req = urllib.request.Request(
+        f"{api_url}/api/servers/sync",
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": api_key,
+            "User-Agent": "ARKLAND-ServerManager",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if not data.get("ok"):
+            msg = str(data.get("error") or "Falha ao registrar servidores na loja central")
+            if errors is not None:
+                errors.append(msg)
+            return 0
+        return int(data.get("registered", 0) or len(payload_entries))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:200]
+        msg = f"Loja remota HTTP {exc.code}: {detail or exc.reason}"
+        if errors is not None:
+            errors.append(msg)
+        return 0
+    except Exception as exc:
+        msg = f"Loja remota: não foi possível registrar servidores ({exc})"
+        if errors is not None:
+            errors.append(msg)
+        return 0
+
+
+def register_arkshop_servers(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    errors: Optional[List[str]] = None,
+) -> int:
+    if (shop.mode or "client") == "client":
+        return _register_arkshop_servers_remote(cm, shop, asm_cm=asm_cm, errors=errors)
+    return _register_arkshop_servers_local(cm, shop, asm_cm=asm_cm)
 
 
 def sync_all_plugins(
@@ -1167,7 +1357,9 @@ def sync_all_plugins(
     if tek_dirty and asm_cm is not None:
         asm_cm.save()
     sync_arkshop_web_settings(shop, catalog_path, website_url=website, api_url=api)
-    register_arkshop_servers(cm, shop, asm_cm=asm_cm)
+    reg_n = register_arkshop_servers(cm, shop, asm_cm=asm_cm, errors=errors)
+    if reg_n:
+        ok.append(f"Servidores registrados na loja: {reg_n}")
     return ok, errors
 
 

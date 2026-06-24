@@ -407,6 +407,8 @@ class AsmServerConfig:
     # ── Loja CustomShop ───────────────────────────────────────────────────────
     shop_server_id: str = ""
     customshop_config_path: str = ""
+    shop_show_on_home: bool = True
+    shop_exclude: bool = False
 
     # ── Metadados internos ────────────────────────────────────────────────────
     notes:  str = ""

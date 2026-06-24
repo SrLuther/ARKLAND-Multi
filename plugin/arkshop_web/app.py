@@ -14,6 +14,7 @@ import threading
 import urllib.parse
 import urllib.request
 import uuid
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
@@ -46,6 +47,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from src.rcon_util import sanitize_rcon_password  # noqa: E402
+from src.shop_integration import apply_machine_server_registry, _merge_arkland_server_entry  # noqa: E402
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
 
@@ -2323,6 +2325,7 @@ def upsert_server():
         "label": str(body.get("label", server_id)).strip(),
         "plugin_config_path": str(body.get("plugin_config_path") or "").strip(),
         "retry_max_attempts": int(body.get("retry_max_attempts", 10)),
+        "show_on_home": body.get("show_on_home", True) is not False,
     }
     for key in (
         "rcon_host",
@@ -2344,6 +2347,8 @@ def upsert_server():
                 "rcon_password",
                 "delivery_command_template",
                 "delivery_mode",
+                "arkland_ref",
+                "managed_by",
             ):
                 if key not in entry and existing.get(key) not in (None, ""):
                     entry[key] = existing[key]
@@ -2372,6 +2377,73 @@ def delete_server(server_id: str):
     _save_servers(kept)
     _log("server_deleted", server_id=server_id, admin=_steam_id_from_session())
     return jsonify({"ok": True, "removed": len(servers) - len(kept)})
+
+
+@app.route("/api/servers/sync", methods=["POST"])
+@api_key_required(allow_admin_session=False)
+def sync_servers_from_client():
+    """Recebe cadastro de servidores de uma máquina cliente (modo cross / multi-host)."""
+    body = request.get_json(force=True, silent=True) or {}
+    machine_label = str(body.get("machine_label") or "").strip()
+    if not machine_label:
+        return jsonify({"ok": False, "error": "machine_label é obrigatório"}), 400
+
+    raw_servers = body.get("servers") or []
+    if not isinstance(raw_servers, list):
+        return jsonify({"ok": False, "error": "servers deve ser uma lista"}), 400
+
+    active_refs = {
+        str(r).strip()
+        for r in (body.get("active_refs") or [])
+        if str(r).strip()
+    }
+
+    servers = _load_servers()
+    by_id: Dict[str, Any] = {}
+    for s in servers:
+        if not isinstance(s, dict):
+            continue
+        sid = str(s.get("server_id", "")).strip()
+        if sid:
+            by_id[sid] = s
+
+    incoming: List[Dict[str, Any]] = []
+    for raw in raw_servers:
+        if not isinstance(raw, dict):
+            continue
+        sid = str(raw.get("server_id", "")).strip()
+        if not sid:
+            continue
+        entry = {
+            k: v
+            for k, v in raw.items()
+            if k in (
+                "server_id", "label", "rcon_host", "rcon_port", "rcon_password",
+                "delivery_mode", "machine_label", "plugin_config_path",
+                "arkland_ref", "show_on_home", "retry_max_attempts",
+                "delivery_command_template",
+            ) and v not in (None, "")
+        }
+        entry["server_id"] = sid
+        entry["machine_label"] = machine_label
+        entry.setdefault("show_on_home", True)
+        if raw.get("arkland_ref"):
+            entry["arkland_ref"] = str(raw.get("arkland_ref"))
+        existing = by_id.get(sid)
+        srv_stub = type("Srv", (), {"shop_show_on_home": entry.get("show_on_home", True)})()
+        incoming.append(_merge_arkland_server_entry(existing, entry, srv_stub))
+
+    registered = apply_machine_server_registry(
+        by_id, machine_label, incoming, active_refs,
+    )
+    _save_servers(list(by_id.values()))
+    _log(
+        "servers_synced",
+        machine_label=machine_label,
+        registered=registered,
+        active_refs=len(active_refs),
+    )
+    return jsonify({"ok": True, "registered": registered, "total": len(by_id)})
 
 
 # ── Players routes ────────────────────────────────────────────────────────────
@@ -2772,7 +2844,7 @@ def public_home():
             "machine_label": str(srv.get("machine_label") or "").strip(),
         }
         for srv in _load_servers()
-        if srv.get("server_id")
+        if srv.get("server_id") and srv.get("show_on_home", True) is not False
     ]
     utilities = _load_downloads()
     packages = _load_point_packages()
@@ -2848,24 +2920,8 @@ def public_home():
                 "Anúncios no Discord e neste portal quando um novo evento entra em vigor.",
             ],
         },
-        "featured_maps": [
-            {
-                "name": "Brighamia",
-                "mod_map": True,
-                "description": (
-                    "Mapa mod de alta qualidade — paisagens únicas, exploração recompensadora e "
-                    "ótimo desempenho em servidor dedicado. Uma das joias do nosso cluster."
-                ),
-            },
-            {
-                "name": "Alps",
-                "mod_map": True,
-                "description": (
-                    "Mapa mod alpino com biomas dramáticos, rotas de voo desafiadoras e bases "
-                    "espetaculares. Excelente para tribos que buscam cenário épico e variedade."
-                ),
-            },
-        ],
+        "featured_maps": _load_featured_maps_public(),
+        "featured_maps_section": _featured_maps_section_meta(),
     })
 
 
@@ -2951,6 +3007,238 @@ def _save_downloads(downloads: list) -> None:
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception as exc:
         log.error("Erro ao salvar downloads: %s", exc)
+
+
+_DEFAULT_FEATURED_MAPS_INTRO = (
+    "Além dos mapas oficiais, rodamos mapas mod selecionados pela qualidade — "
+    "cenários únicos, otimizados para PvE/PvP em cluster e integrados ao nosso sistema de eventos sazonais."
+)
+
+
+def _default_featured_maps() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "brighamia",
+            "name": "Brighamia",
+            "mod_map": True,
+            "description": (
+                "Mapa mod de alta qualidade — paisagens únicas, exploração recompensadora e "
+                "ótimo desempenho em servidor dedicado. Uma das joias do nosso cluster."
+            ),
+            "sort_order": 0,
+            "enabled": True,
+        },
+        {
+            "id": "alps",
+            "name": "Alps",
+            "mod_map": True,
+            "description": (
+                "Mapa mod alpino com biomas dramáticos, rotas de voo desafiadoras e bases "
+                "espetaculares. Excelente para tribos que buscam cenário épico e variedade."
+            ),
+            "sort_order": 1,
+            "enabled": True,
+        },
+        {
+            "id": "the_volcano",
+            "name": "The Volcano",
+            "mod_map": True,
+            "description": (
+                "Mapa mod vulcânico com biomas extremos, recursos únicos e desafio constante — "
+                "ideal para tribos que buscam risco e recompensa."
+            ),
+            "sort_order": 2,
+            "enabled": True,
+        },
+        {
+            "id": "amissa",
+            "name": "Amissa",
+            "mod_map": True,
+            "description": (
+                "Mapa mod com paisagens variadas e exploração profunda, integrado ao cluster "
+                "com rates e eventos sazonais do ARKLAND."
+            ),
+            "sort_order": 3,
+            "enabled": True,
+        },
+    ]
+
+
+def _read_catalog_data() -> dict[str, Any]:
+    s = _load_settings()
+    path = Path(s.get("config_path") or "")
+    if not path.is_file():
+        return {}
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            cleaned = re.sub(r"//[^\n]*", "", text)
+            return json.loads(cleaned)
+    except Exception:
+        return {}
+
+
+def _write_catalog_data(data: dict[str, Any]) -> bool:
+    s = _load_settings()
+    path = Path(s.get("config_path") or "")
+    if not path.is_file():
+        return False
+    try:
+        path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        return True
+    except Exception as exc:
+        log.error("Erro ao salvar config catálogo: %s", exc)
+        return False
+
+
+def _load_featured_maps_raw() -> list[dict[str, Any]]:
+    data = _read_catalog_data()
+    raw = data.get("FeaturedMaps")
+    if not isinstance(raw, list) or not raw:
+        return deepcopy(_default_featured_maps())
+    out: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        out.append({
+            "id": str(item.get("id") or name.lower().replace(" ", "_"))[:48],
+            "name": name,
+            "mod_map": bool(item.get("mod_map", False)),
+            "description": str(item.get("description") or "").strip(),
+            "sort_order": int(item.get("sort_order", 0) or 0),
+            "enabled": item.get("enabled", True) is not False,
+        })
+    out.sort(key=lambda m: (int(m.get("sort_order", 0)), m.get("name", "")))
+    return out or deepcopy(_default_featured_maps())
+
+
+def _save_featured_maps(maps: list[dict[str, Any]]) -> bool:
+    data = _read_catalog_data()
+    if not data:
+        return False
+    data["FeaturedMaps"] = maps
+    return _write_catalog_data(data)
+
+
+def _featured_maps_section_meta() -> dict[str, str]:
+    data = _read_catalog_data()
+    settings = data.get("Settings") or {}
+    return {
+        "title": str(settings.get("HomeMapsTitle") or "Mapas do cluster").strip(),
+        "intro": str(settings.get("HomeMapsIntro") or _DEFAULT_FEATURED_MAPS_INTRO).strip(),
+    }
+
+
+def _load_featured_maps_public() -> list[dict[str, Any]]:
+    return [
+        {
+            "name": m.get("name", ""),
+            "mod_map": bool(m.get("mod_map", False)),
+            "description": m.get("description", ""),
+        }
+        for m in _load_featured_maps_raw()
+        if m.get("enabled", True) is not False
+    ]
+
+
+@app.route("/api/featured-maps", methods=["GET"])
+def get_featured_maps():
+    return jsonify({"ok": True, "maps": _load_featured_maps_public()})
+
+
+@app.route("/api/featured-maps/admin", methods=["GET"])
+@admin_required
+def get_featured_maps_admin():
+    section = _featured_maps_section_meta()
+    return jsonify({
+        "ok": True,
+        "maps": _load_featured_maps_raw(),
+        "section": section,
+    })
+
+
+@app.route("/api/featured-maps/settings", methods=["PUT"])
+@admin_required
+def save_featured_maps_settings():
+    body = request.get_json(force=True, silent=True) or {}
+    data = _read_catalog_data()
+    if not data:
+        return jsonify({"ok": False, "error": "config.json não encontrado"}), 400
+    settings = data.setdefault("Settings", {})
+    if "title" in body:
+        settings["HomeMapsTitle"] = str(body.get("title") or "").strip()
+    if "intro" in body:
+        settings["HomeMapsIntro"] = str(body.get("intro") or "").strip()
+    if not _write_catalog_data(data):
+        return jsonify({"ok": False, "error": "Falha ao salvar config"}), 500
+    return jsonify({"ok": True, "section": _featured_maps_section_meta()})
+
+
+@app.route("/api/featured-maps", methods=["POST"])
+@admin_required
+def create_featured_map():
+    body = request.get_json(force=True, silent=True) or {}
+    name = str(body.get("name", "")).strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name é obrigatório"}), 400
+    import uuid as _uuid
+    maps = _load_featured_maps_raw()
+    entry = {
+        "id": str(body.get("id") or _uuid.uuid4().hex[:8]),
+        "name": name,
+        "mod_map": body.get("mod_map", True) is not False,
+        "description": str(body.get("description", "")).strip(),
+        "sort_order": int(body.get("sort_order", len(maps)) or 0),
+        "enabled": body.get("enabled", True) is not False,
+    }
+    existing_ids = {m.get("id") for m in maps}
+    while entry["id"] in existing_ids:
+        entry["id"] = _uuid.uuid4().hex[:8]
+    maps.append(entry)
+    if not _save_featured_maps(maps):
+        return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
+    _log("featured_map_created", id=entry["id"], name=name, admin=_steam_id_from_session())
+    return jsonify({"ok": True, "map": entry})
+
+
+@app.route("/api/featured-maps/<map_id>", methods=["PUT"])
+@admin_required
+def update_featured_map(map_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    maps = _load_featured_maps_raw()
+    for i, m in enumerate(maps):
+        if m.get("id") == map_id:
+            maps[i] = {
+                "id": map_id,
+                "name": str(body.get("name", m.get("name", ""))).strip(),
+                "mod_map": body.get("mod_map", m.get("mod_map", True)) is not False,
+                "description": str(body.get("description", m.get("description", ""))).strip(),
+                "sort_order": int(body.get("sort_order", m.get("sort_order", 0)) or 0),
+                "enabled": body.get("enabled", m.get("enabled", True)) is not False,
+            }
+            if not _save_featured_maps(maps):
+                return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
+            _log("featured_map_updated", id=map_id, admin=_steam_id_from_session())
+            return jsonify({"ok": True, "map": maps[i]})
+    return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
+
+
+@app.route("/api/featured-maps/<map_id>", methods=["DELETE"])
+@admin_required
+def delete_featured_map(map_id: str):
+    maps = _load_featured_maps_raw()
+    new_list = [m for m in maps if m.get("id") != map_id]
+    if len(new_list) == len(maps):
+        return jsonify({"ok": False, "error": "Mapa não encontrado"}), 404
+    if not _save_featured_maps(new_list):
+        return jsonify({"ok": False, "error": "Falha ao salvar"}), 500
+    _log("featured_map_deleted", id=map_id, admin=_steam_id_from_session())
+    return jsonify({"ok": True, "removed": 1})
 
 
 @app.route("/api/downloads", methods=["GET"])

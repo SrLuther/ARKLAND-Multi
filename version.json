@@ -1,10 +1,11 @@
 {
-    "version": "1.9.76",
-    "date": "2026-06-23",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.76/ARKLAND-Multi-Setup-v1.9.76.exe",
+    "version": "1.9.77",
+    "date": "2026-06-24",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.77/ARKLAND-Multi-Setup-v1.9.77.exe",
     "changelog": [
-        "Novo (TEK — Broadcasts): reenvio automático por intervalo, ordem aleatória ou sequencial, seleção de servidores destino e mensagens no ciclo; export/import inclui configurações.",
-        "Melhoria (Broadcasts): painel com scheduler, checkboxes por servidor/mensagem e envio da próxima mensagem.",
-        "UI (Broadcasts): legendas nos campos Rótulo e Mensagem ao cadastrar nova entrada."
+        "Novo (Loja web): gestão de servidores do cluster — ocultar na home, excluir do sync, prune de duplicatas e edição pelo admin (Servidores + flags Home/Loja na aba Loja TEK).",
+        "Novo (Loja web): seção Mapas da Home editável (admin) com Brighamia, Alps, The Volcano e Amissa; título e texto introdutório configuráveis no config.json.",
+        "Melhoria (Loja): sync remoto de servidores por máquina (API /api/servers/sync) para cluster multi-host.",
+        "Melhoria (Mods): linha copiável com IDs do Workshop separados por vírgula (TEK e classic)."
     ]
 }

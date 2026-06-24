@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.77] - 2026-06-20
+
+### Feature
+
+- Novo (Loja web): gestão de servidores do cluster — ocultar na home, excluir do sync, prune de duplicatas e edição pelo admin (Servidores + flags Home/Loja na aba Loja TEK).
+- Novo (Loja web): seção Mapas da Home editável (admin) com Brighamia, Alps, The Volcano e Amissa; título e texto introdutório configuráveis no config.json.
+
+### Improvement
+
+- Melhoria (Loja): sync remoto de servidores por máquina (API /api/servers/sync) para cluster multi-host.
+- Melhoria (Mods): linha copiável com IDs do Workshop separados por vírgula (TEK e classic).
+
 ## [1.9.76] - 2026-06-23
 
 ### Feature

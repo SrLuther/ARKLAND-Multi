@@ -56,6 +56,7 @@ def build_mods_workshop_section(
         _hidden_mods.configure(state="normal")
         _hidden_mods.delete("1.0", "end")
         _hidden_mods.insert("1.0", "\n".join(ids))
+        _update_copy_line()
 
     def _parse_mod_ids_line(raw: str) -> list[str]:
         import re
@@ -299,8 +300,43 @@ def build_mods_workshop_section(
     ctk.CTkLabel(_mods_hdr, text="", width=28).grid(row=0, column=3)
 
     _rows_outer = ctk.CTkFrame(_mod_frame, fg_color="#060d14", corner_radius=6)
-    _rows_outer.grid(row=4, column=0, sticky="ew", padx=8, pady=(0, 8))
+    _rows_outer.grid(row=4, column=0, sticky="ew", padx=8, pady=(0, 4))
     _rows_outer.grid_columnconfigure(0, weight=1)
+
+    _copy_row = ctk.CTkFrame(_mod_frame, fg_color="#0f2030", corner_radius=4)
+    _copy_row.grid(row=5, column=0, sticky="ew", padx=8, pady=(0, 8))
+    _copy_row.grid_columnconfigure(1, weight=1)
+    _copy_var = tk.StringVar(value="")
+
+    def _update_copy_line() -> None:
+        ids = [r["id_var"].get().strip() for r in _mod_rows if r["id_var"].get().strip()]
+        _copy_var.set(", ".join(ids))
+
+    ctk.CTkLabel(
+        _copy_row, text="Lista (vírgula):", font=ctk.CTkFont(size=10),
+        text_color="#64748b", width=88, anchor="w",
+    ).grid(row=0, column=0, padx=(8, 4), pady=6, sticky="w")
+    _copy_entry = ctk.CTkEntry(
+        _copy_row, textvariable=_copy_var, height=28, state="readonly",
+        font=ctk.CTkFont(family="Consolas", size=11),
+    )
+    _copy_entry.grid(row=0, column=1, sticky="ew", padx=(0, 6), pady=6)
+
+    def _copy_mod_ids_line() -> None:
+        txt = _copy_var.get().strip()
+        if not txt:
+            return
+        top = sf.winfo_toplevel()
+        top.clipboard_clear()
+        top.clipboard_append(txt)
+        top.update_idletasks()
+
+    ctk.CTkButton(
+        _copy_row, text="Copiar", width=72, height=28,
+        fg_color="#14532d", hover_color="#166534",
+        font=ctk.CTkFont(size=11),
+        command=_copy_mod_ids_line,
+    ).grid(row=0, column=2, padx=(0, 8), pady=6)
 
     def _run_mod_status_checks() -> None:
         for rd in _mod_rows:
@@ -320,4 +356,5 @@ def build_mods_workshop_section(
             if not _mod_ids_to_load:
                 _add_mod_row()
             sf.after(120, _run_mod_status_checks)
+            sf.after(0, _update_copy_line)
     sf.after(0, lambda: _populate_mod_rows_chunk())

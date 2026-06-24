@@ -1497,7 +1497,7 @@ def _build_webstore_tab(
 
     _machine_var = tk.StringVar(value=shop.machine_label or "")
     _field_row(card_mode, "Rótulo desta máquina", _machine_var, bg=_INNER,
-               hint="ex: Maquina-A — aparece no registro de servidores", width=200)
+               hint="Obrigatório no cluster: nome único por PC (ex: Maquina-B) — servidores aparecem no site após Sincronizar", width=200)
 
     _host_ip_var = tk.StringVar(value=shop.host_ip or DEFAULT_REMOTE_SHOP_HOST)
     _field_row(card_mode, "IP LAN (servidor remoto)", _host_ip_var, bg=_INNER,
@@ -1916,8 +1916,8 @@ def _build_webstore_tab(
 
     tk.Label(
         card_srv,
-        text="Cada servidor do cross recebe o mesmo catálogo e aponta para a loja central.",
-        bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10),
+        text="Home = card na página inicial da loja. Loja = cadastro em servers.json (desmarque para remover do cross).",
+        bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
 
     srv_frame = tk.Frame(card_srv, bg=_INNER)
@@ -1939,18 +1939,30 @@ def _build_webstore_tab(
             path_var = tk.StringVar(
                 value=srv.customshop_config_path or default_customshop_path(srv.install_dir),
             )
+            home_var = tk.BooleanVar(value=getattr(srv, "shop_show_on_home", True))
+            shop_var = tk.BooleanVar(value=not getattr(srv, "shop_exclude", False))
             prefix = "TEK" if kind == "tek" else "PRIM"
             installed = is_customshop_installed(srv.install_dir)
             status = "✓" if installed else "○"
             tk.Label(
-                row, text=f"{status} [{prefix}] {srv.name[:22]}", bg="#1a1a30", fg="gray70",
-                font=ctk.CTkFont(size=10, weight="bold"), width=168, anchor="w",
-            ).pack(side="left", padx=(4, 6))
-            ctk.CTkEntry(row, textvariable=sid_var, width=110, height=24,
+                row, text=f"{status} [{prefix}] {srv.name[:18]}", bg="#1a1a30", fg="gray70",
+                font=ctk.CTkFont(size=10, weight="bold"), width=140, anchor="w",
+            ).pack(side="left", padx=(4, 4))
+            ctk.CTkEntry(row, textvariable=sid_var, width=100, height=24,
                          placeholder_text="shop id").pack(side="left", padx=2)
-            ctk.CTkEntry(row, textvariable=path_var, width=360, height=24).pack(
+            ctk.CTkCheckBox(
+                row, text="Home", variable=home_var, width=58, height=24,
+                checkbox_width=16, checkbox_height=16,
+                font=ctk.CTkFont(size=9),
+            ).pack(side="left", padx=2)
+            ctk.CTkCheckBox(
+                row, text="Loja", variable=shop_var, width=58, height=24,
+                checkbox_width=16, checkbox_height=16,
+                font=ctk.CTkFont(size=9),
+            ).pack(side="left", padx=2)
+            ctk.CTkEntry(row, textvariable=path_var, width=300, height=24).pack(
                 side="left", padx=2)
-            _server_rows.append((kind, srv, sid_var, path_var))
+            _server_rows.append((kind, srv, sid_var, path_var, home_var, shop_var))
 
     _rebuild_server_rows()
 
@@ -1959,9 +1971,11 @@ def _build_webstore_tab(
             return
         _save_shop_from_ui()
         collect_catalog()
-        for _kind, srv, sid_var, path_var in _server_rows:
+        for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
             srv.customshop_config_path = path_var.get().strip()
+            srv.shop_show_on_home = bool(home_var.get())
+            srv.shop_exclude = not bool(shop_var.get())
         app.config_manager.save_servers()
         asm_cm = getattr(app, "asm_config_manager", None)
         if asm_cm:
@@ -2024,9 +2038,11 @@ def _build_webstore_tab(
             return
         _save_shop_from_ui()
         collect_catalog()
-        for _kind, srv, sid_var, path_var in _server_rows:
+        for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
             srv.customshop_config_path = path_var.get().strip()
+            srv.shop_show_on_home = bool(home_var.get())
+            srv.shop_exclude = not bool(shop_var.get())
         app.config_manager.save_servers()
         asm_cm = getattr(app, "asm_config_manager", None)
         if asm_cm:

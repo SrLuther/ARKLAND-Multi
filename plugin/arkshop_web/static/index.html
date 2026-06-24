@@ -3183,6 +3183,9 @@
     <div class="nav-item admin-only" data-page="admin-downloads" onclick="nav(this)">
       <span class="nav-icon">🔗</span> Utilidades (admin)
     </div>
+    <div class="nav-item admin-only" data-page="admin-featured-maps" onclick="nav(this)">
+      <span class="nav-icon">🗻</span> Mapas da Home
+    </div>
     <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
       <span class="nav-icon">⚙️</span> Configurações
     </div>
@@ -3877,6 +3880,33 @@
         <div id="admin-downloads-list"></div>
       </div>
 
+      <!-- PAGE: Mapas da Home (admin) -->
+      <div id="page-admin-featured-maps" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Mapas da Home</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadAdminFeaturedMaps()">↺ Recarregar</button>
+            <button class="btn btn-primary" onclick="openFeaturedMapModal()">+ Novo Mapa</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Título da seção</label>
+              <input id="fm-section-title" type="text" placeholder="Mapas do cluster" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Texto introdutório</label>
+              <textarea id="fm-section-intro" rows="3" placeholder="Descrição da seção na página inicial…"></textarea>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <button class="btn btn-success" onclick="saveFeaturedMapsSection()">💾 Salvar texto da seção</button>
+          </div>
+        </div>
+        <div id="admin-featured-maps-list"></div>
+      </div>
+
       <!-- PAGE: Minha Área -->
       <div id="page-myarea" class="page">
         <div id="topbar">
@@ -4207,10 +4237,52 @@
         <input id="srv-config-path" type="text" placeholder="C:\...\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json" />
         <div class="kit-json-hint">O catálogo mestre é copiado para este arquivo ao salvar. Cadastre um servidor por mapa/cluster.</div>
       </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input id="srv-show-home" type="checkbox" checked style="width:16px;height:16px;" />
+          Exibir na página inicial (card Servidores do cluster)
+        </label>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-server')">Cancelar</button>
       <button class="btn btn-success" onclick="confirmServer()">✔ Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Featured Map ─────────────────────────────────────────────────── -->
+<div id="modal-featured-map" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-featured-map-title">Novo Mapa</div>
+      <button class="modal-close" onclick="closeModal('modal-featured-map')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Nome do mapa</label>
+        <input id="fm-name" type="text" placeholder="ex: The Volcano" />
+      </div>
+      <div class="form-group" style="grid-column:1/-1;">
+        <label>Descrição</label>
+        <textarea id="fm-description" rows="4" placeholder="Texto do card na home…"></textarea>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input id="fm-mod-map" type="checkbox" checked style="width:16px;height:16px;" />
+          Badge &quot;Mapa Mod&quot;
+        </label>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+          <input id="fm-enabled" type="checkbox" checked style="width:16px;height:16px;" />
+          Ativo na home
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-featured-map')">Cancelar</button>
+      <button class="btn btn-success" onclick="confirmFeaturedMap()">✔ Salvar</button>
     </div>
   </div>
 </div>
@@ -4397,6 +4469,7 @@ function nav(el) {
   if (page === "market-economy-admin") loadMarketEconomyAdmin();
   if (page === "downloads") loadDownloads();
   if (page === "admin-downloads") loadAdminDownloads();
+  if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadAudit(); loadAdminOrders(); }
   if (page === "server-console") {
@@ -7354,6 +7427,157 @@ async function deleteDownload(id) {
   } catch(e) { toast("Erro de rede", "error"); }
 }
 
+// ── Featured Maps (home) ────────────────────────────────────────────────────
+let _featuredMaps = [];
+let _editingFeaturedMapId = null;
+
+async function loadAdminFeaturedMaps() {
+  if (!_auth.is_admin) return;
+  try {
+    const r = await fetch(API + "/api/featured-maps/admin");
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao carregar mapas", "error"); return; }
+    _featuredMaps = d.maps || [];
+    const sec = d.section || {};
+    document.getElementById("fm-section-title").value = sec.title || "";
+    document.getElementById("fm-section-intro").value = sec.intro || "";
+    renderAdminFeaturedMaps();
+  } catch (e) {
+    toast("Erro ao carregar mapas: " + e.message, "error");
+  }
+}
+
+function renderAdminFeaturedMaps() {
+  const el = document.getElementById("admin-featured-maps-list");
+  if (!el) return;
+  if (!_featuredMaps.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🗻</div><p>Nenhum mapa cadastrado</p></div>`;
+    return;
+  }
+  const sorted = [..._featuredMaps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  el.innerHTML = `
+    <div class="card">
+      <table class="tbl">
+        <thead><tr><th>Ordem</th><th>Nome</th><th>Mod</th><th>Ativo</th><th>Ações</th></tr></thead>
+        <tbody>
+          ${sorted.map((m, idx) => `<tr>
+            <td>
+              <div class="actions-col">
+                <button class="btn btn-ghost btn-sm" onclick="moveFeaturedMap('${m.id}', -1)" ${idx === 0 ? "disabled" : ""}>↑</button>
+                <button class="btn btn-ghost btn-sm" onclick="moveFeaturedMap('${m.id}', 1)" ${idx === sorted.length - 1 ? "disabled" : ""}>↓</button>
+              </div>
+            </td>
+            <td><strong>${escHtml(m.name)}</strong></td>
+            <td>${m.mod_map ? "Mapa Mod" : "—"}</td>
+            <td>${m.enabled !== false ? '<span style="color:var(--success)">Sim</span>' : '<span style="color:var(--text2)">Não</span>'}</td>
+            <td><div class="actions-col">
+              <button class="btn btn-ghost btn-sm" onclick="openFeaturedMapModal('${m.id}')">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteFeaturedMap('${m.id}')">🗑</button>
+            </div></td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+async function saveFeaturedMapsSection() {
+  const body = {
+    title: document.getElementById("fm-section-title").value.trim(),
+    intro: document.getElementById("fm-section-intro").value.trim(),
+  };
+  try {
+    const r = await fetch(API + "/api/featured-maps/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) toast("Texto da seção salvo!");
+    else toast(d.error || "Falha ao salvar", "error");
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
+function openFeaturedMapModal(id) {
+  _editingFeaturedMapId = id || null;
+  const m = id ? _featuredMaps.find(x => x.id === id) || {} : {};
+  document.getElementById("modal-featured-map-title").textContent = id ? `Editar: ${m.name || id}` : "Novo Mapa";
+  document.getElementById("fm-name").value = m.name || "";
+  document.getElementById("fm-description").value = m.description || "";
+  document.getElementById("fm-mod-map").checked = m.mod_map !== false;
+  document.getElementById("fm-enabled").checked = m.enabled !== false;
+  openModal("modal-featured-map");
+}
+
+async function confirmFeaturedMap() {
+  const name = document.getElementById("fm-name").value.trim();
+  if (!name) { toast("Nome é obrigatório", "warning"); return; }
+  const body = {
+    name,
+    description: document.getElementById("fm-description").value.trim(),
+    mod_map: document.getElementById("fm-mod-map").checked,
+    enabled: document.getElementById("fm-enabled").checked,
+  };
+  try {
+    const url = _editingFeaturedMapId
+      ? API + `/api/featured-maps/${encodeURIComponent(_editingFeaturedMapId)}`
+      : API + "/api/featured-maps";
+    const r = await fetch(url, {
+      method: _editingFeaturedMapId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao salvar", "error"); return; }
+    closeModal("modal-featured-map");
+    await loadAdminFeaturedMaps();
+    toast("Mapa salvo!");
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
+async function deleteFeaturedMap(id) {
+  if (!confirm("Remover este mapa da home?")) return;
+  try {
+    const r = await fetch(API + `/api/featured-maps/${encodeURIComponent(id)}`, { method: "DELETE" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao remover", "error"); return; }
+    await loadAdminFeaturedMaps();
+    toast("Mapa removido.");
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
+async function moveFeaturedMap(id, delta) {
+  const sorted = [..._featuredMaps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const idx = sorted.findIndex(m => m.id === id);
+  if (idx < 0) return;
+  const swapIdx = idx + delta;
+  if (swapIdx < 0 || swapIdx >= sorted.length) return;
+  const a = sorted[idx];
+  const b = sorted[swapIdx];
+  const aOrder = a.sort_order ?? idx;
+  const bOrder = b.sort_order ?? swapIdx;
+  try {
+    await fetch(API + `/api/featured-maps/${encodeURIComponent(a.id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...a, sort_order: bOrder }),
+    });
+    await fetch(API + `/api/featured-maps/${encodeURIComponent(b.id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...b, sort_order: aOrder }),
+    });
+    await loadAdminFeaturedMaps();
+  } catch (e) {
+    toast("Erro ao reordenar: " + e.message, "error");
+  }
+}
+
 // ── Item modal (editor estruturado + salvar/aplicar) ─────────────────────────
 let _shopItemItemsDraft = [];
 let _shopItemDinosDraft = [];
@@ -8831,11 +9055,12 @@ function renderServers() {
     return;
   }
   el.innerHTML = `<div class="card"><table class="tbl">
-    <thead><tr><th>ID</th><th>Label</th><th>RCON</th><th>config.json</th><th>Ações</th></tr></thead>
+    <thead><tr><th>ID</th><th>Label</th><th>Home</th><th>RCON</th><th>config.json</th><th>Ações</th></tr></thead>
     <tbody>
       ${_servers.map(s => `<tr>
         <td><code>${s.server_id}</code></td>
         <td>${escHtml(s.label||"")}</td>
+        <td>${s.show_on_home === false ? '<span style="color:var(--text2);font-size:11px;">Oculto</span>' : '<span style="color:var(--success);font-size:11px;">Sim</span>'}</td>
         <td style="font-size:11px;color:var(--text2)">${escHtml(s.rcon_host||"—")}:${s.rcon_port||"—"}</td>
         <td><span class="truncate" style="font-size:11px;color:var(--text2);max-width:220px;display:inline-block;">${escHtml(s.plugin_config_path||"—")}</span></td>
         <td><div class="actions-col">
@@ -8857,6 +9082,7 @@ function openServerModal(serverId) {
   document.getElementById("srv-password").value = "";
   document.getElementById("srv-retry").value    = s.retry_max_attempts || 10;
   document.getElementById("srv-config-path").value = s.plugin_config_path || s.customshop_config_path || "";
+  document.getElementById("srv-show-home").checked = s.show_on_home !== false;
   if (serverId) document.getElementById("srv-id").readOnly = true;
   else document.getElementById("srv-id").readOnly = false;
   openModal("modal-server");
@@ -8871,6 +9097,7 @@ async function confirmServer() {
     rcon_password: document.getElementById("srv-password").value,
     retry_max_attempts: parseInt(document.getElementById("srv-retry").value),
     plugin_config_path: document.getElementById("srv-config-path").value.trim(),
+    show_on_home: document.getElementById("srv-show-home").checked,
   };
   if (!body.server_id) { toast("Server ID é obrigatório", "warning"); return; }
   const r = await fetch(API + "/api/servers", {
@@ -9276,13 +9503,16 @@ function renderHomePage(d) {
     </div>` : "";
 
   const maps = d.featured_maps || [];
+  const fmSection = d.featured_maps_section || {};
+  const mapsTitle = fmSection.title || "Mapas do cluster";
+  const mapsIntro = fmSection.intro || (
+    "Além dos mapas oficiais, rodamos mapas mod selecionados pela qualidade — "
+    + "cenários únicos, otimizados para PvE/PvP em cluster e integrados ao nosso sistema de eventos sazonais."
+  );
   const mapsHtml = maps.length ? `
     <div class="home-section">
-      <div class="home-section__title" style="margin-bottom:14px;">🗻 Mapas do cluster</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
-        Além dos mapas oficiais, rodamos <strong style="color:var(--tek);">mapas mod</strong> selecionados pela qualidade —
-        cenários únicos, otimizados para PvE/PvP em cluster e integrados ao nosso sistema de eventos sazonais.
-      </p>
+      <div class="home-section__title" style="margin-bottom:14px;">🗻 ${escHtml(mapsTitle)}</div>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6;">${escHtml(mapsIntro)}</p>
       <div class="home-servers-grid">
         ${maps.map(m => `
           <div class="home-map-card">

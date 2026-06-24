@@ -92,8 +92,33 @@ def build_tab_mods(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     w["_mods_btn_prev"] = btn_mods_prev
     w["_mods_btn_next"] = btn_mods_next
 
+    copy_row = ctk.CTkFrame(parent, corner_radius=8, fg_color=_CARD_BG)
+    copy_row.grid(row=3, column=0, padx=12, pady=(2, 4), sticky="ew")
+    copy_row.grid_columnconfigure(1, weight=1)
+    w["_mods_copy_var"] = tk.StringVar(value=", ".join(srv.mods))
+    ctk.CTkLabel(copy_row, text="Lista ActiveMods (vírgula):",
+                 text_color="gray60", font=ctk.CTkFont(size=11)).grid(
+        row=0, column=0, padx=(12, 8), pady=10, sticky="w")
+    ctk.CTkEntry(copy_row, textvariable=w["_mods_copy_var"], height=30,
+                 state="readonly", font=ctk.CTkFont(family="Consolas", size=12)).grid(
+        row=0, column=1, padx=(0, 8), pady=10, sticky="ew")
+
+    def _copy_mod_ids_classic() -> None:
+        txt = w["_mods_copy_var"].get().strip()
+        if not txt:
+            return
+        top = parent.winfo_toplevel()
+        top.clipboard_clear()
+        top.clipboard_append(txt)
+        top.update_idletasks()
+
+    ctk.CTkButton(copy_row, text="Copiar", width=80, height=30,
+                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  command=_copy_mod_ids_classic).grid(
+        row=0, column=2, padx=(0, 12), pady=10)
+
     actions = ctk.CTkFrame(parent, fg_color="transparent")
-    actions.grid(row=3, column=0, padx=12, pady=(4, 12), sticky="ew")
+    actions.grid(row=4, column=0, padx=12, pady=(4, 12), sticky="ew")
 
     ctk.CTkButton(
         actions, text="⬇️  Baixar / Atualizar Todos os Mods",

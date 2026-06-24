@@ -398,6 +398,34 @@ class TestServers:
         r2 = client.get("/api/servers")
         assert r2.get_json()["items"] == []
 
+    def test_sync_from_client_api_key(self, client):
+        headers = {"X-API-Key": API_KEY, "Content-Type": "application/json"}
+        r = client.post(
+            "/api/servers/sync",
+            json={
+                "machine_label": "Maquina-B",
+                "servers": [{
+                    "server_id": "volcano",
+                    "label": "The Volcano",
+                    "rcon_host": "10.0.0.2",
+                    "rcon_port": 27020,
+                    "arkland_ref": "tek:vol-1",
+                    "show_on_home": True,
+                }],
+                "active_refs": ["tek:vol-1"],
+            },
+            headers=headers,
+        )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+        home = client.get("/api/public/home").get_json()
+        names = [s["label"] for s in home.get("servers", [])]
+        assert "The Volcano" in names
+
+    def test_sync_rejects_without_api_key(self, client):
+        r = client.post("/api/servers/sync", json={"machine_label": "X", "servers": []})
+        assert r.status_code == 401
+
     def test_server_required_fields(self, client):
         _login(client, ADMIN_STEAM)
         r = client.post("/api/servers", json={"label": "sem id"})

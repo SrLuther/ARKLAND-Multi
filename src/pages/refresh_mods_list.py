@@ -41,6 +41,10 @@ def refresh_mods_list(app: "ARKServerManagerApp", server_id: str, page: int = 0)
     if btn_next is not None:
         btn_next.configure(state="normal" if page < n_pages - 1 else "disabled")
 
+    copy_var = w.get("_mods_copy_var")
+    if copy_var is not None:
+        copy_var.set(", ".join(srv.mods))
+
     if not srv.mods:
         ctk.CTkLabel(frame, text="Nenhum mod adicionado.",
                      text_color="gray50").pack(pady=20)
