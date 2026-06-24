@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.83] - 2026-06-24
+
+### Fix
+
+- Fix (TEK Dashboard): ao iniciar um servidor os demais cards sumiam da lista — cards agora ficam direto no scroll (sem frame aninhado) e scrollregion corrigido.
+
 ## [1.9.82] - 2026-06-24
 
 ### Feature

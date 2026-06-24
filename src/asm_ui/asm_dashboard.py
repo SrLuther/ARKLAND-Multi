@@ -371,14 +371,14 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
             text_color=accent if not is_root else t_sec,
         ).grid(row=0, column=0, padx=(12, 6), pady=7, sticky="w")
 
-        count_online = sum(
+        count_active = sum(
             1 for s in folder_servers
             if (inst := app.asm_server_manager.get_instance(s.id))
-            and inst.status == ASM_STATUS_RUNNING
+            and inst.status in (ASM_STATUS_RUNNING, ASM_STATUS_STARTING)
         )
         ctk.CTkLabel(
             folder_hdr,
-            text=f"{count_online}/{len(folder_servers)} online",
+            text=f"{count_active}/{len(folder_servers)} online",
             font=ctk.CTkFont(size=10), text_color=t_mut,
         ).grid(row=0, column=1, padx=4, pady=7, sticky="w")
 
@@ -402,25 +402,19 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
                 command=_start_folder,
             ).grid(row=0, column=2, padx=(0, 10), pady=7, sticky="e")
 
-        # ── Cards dentro da pasta (grade 2 colunas) ───────────────────────────
-        folder_grid = ctk.CTkFrame(scroll, fg_color="transparent")
-        folder_grid.grid(row=grid_row, column=0, columnspan=2,
-                         sticky="ew", padx=0, pady=0)
-        folder_grid.grid_columnconfigure((0, 1), weight=1)
-        grid_row += 1
-
+        # ── Cards no scroll (sem frame aninhado — evita clip/overlap no CTkScrollableFrame)
+        card_row_base = grid_row
         for idx, srv in enumerate(folder_servers):
             r, c = divmod(idx, 2)
-            build_asm_server_card(app, folder_grid, srv, r, c)
+            build_asm_server_card(app, scroll, srv, card_row_base + r, c)
+        grid_row += (len(folder_servers) + 1) // 2
 
     _update_subtitle(app, servers)
 
-    # Garante que cards completos (ações/ferramentas) entram na área rolável
+    from ..ui.server_field_widgets import refresh_scrollable_frame
+    refresh_scrollable_frame(scroll)
     try:
-        scroll.update_idletasks()
-        canvas = getattr(scroll, "_parent_canvas", None)
-        if canvas is not None:
-            canvas.configure(scrollregion=canvas.bbox("all"))
+        scroll.after(50, lambda: refresh_scrollable_frame(scroll))
     except Exception:
         pass
 

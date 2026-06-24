@@ -93,6 +93,8 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
                     app._refresh_buffs_ui()
                 elif name == "desempenho":
                     app._start_perf_monitor()
+                elif name == "dashboard":
+                    app._asm_refresh_dashboard(immediate=True)
                 elif name == "clusters":
                     clusters = app.config_manager.clusters
                     if clusters and getattr(app, "_cluster_detail_fr", None):
