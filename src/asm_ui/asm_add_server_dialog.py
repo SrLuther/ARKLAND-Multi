@@ -31,7 +31,7 @@ def _suggest_install_dir(app: "ARKServerManagerApp") -> str:
             occupied_paths=occupied,
         )
     base = (app.config_manager.config.default_install_dir or "").strip()
-    return base or r"C:\ARK\"
+    return base or "C:\\ARK\\"
 
 
 # ── Helper: importar a partir de instalação existente ─────────────────────────

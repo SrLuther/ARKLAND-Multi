@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.79] - 2026-06-24
+
+### Fix
+
+- Fix (TEK): botão «Novo Servidor» não abria o diálogo — erro de sintaxe em asm_add_server_dialog.py (string de caminho padrão C:\ARK\); mensagem de erro exibida se o diálogo falhar ao carregar.
+
 ## [1.9.78] - 2026-06-24
 
 ### Feature

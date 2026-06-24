@@ -860,8 +860,18 @@ class ARKServerManagerApp(ctk.CTk):
     # ─────────────────────────────────────────────────────────────────────────
 
     def _asm_add_server_dialog(self) -> None:
-        from .asm_ui.asm_add_server_dialog import asm_add_server_dialog
-        asm_add_server_dialog(self)
+        try:
+            from .asm_ui.asm_add_server_dialog import asm_add_server_dialog
+            asm_add_server_dialog(self)
+        except Exception as exc:
+            import logging
+            from tkinter import messagebox
+            logging.getLogger("arkland").exception("Novo servidor")
+            messagebox.showerror(
+                "Novo Servidor",
+                f"Não foi possível abrir o diálogo:\n{exc}",
+                parent=self,
+            )
 
     # ─────────────────────────────────────────────────────────────────────────
     # Painel de configuração

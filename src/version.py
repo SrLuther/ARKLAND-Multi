@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.78"
+APP_VERSION: str = "1.9.79"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.79",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (TEK): botão «Novo Servidor» não abria o diálogo — erro de sintaxe em "
+            "asm_add_server_dialog.py (string de caminho padrão C:\\ARK\\); mensagem de erro "
+            "exibida se o diálogo falhar ao carregar.",
+        ],
+    },
     {
         "version": "1.9.78",
         "date": "2026-06-24",
