@@ -106,7 +106,7 @@ class ARKServerManagerApp(ctk.CTk):
 
         # ── Estado interno ────────────────────────────────────────────────────
         self._active_mode        = "tek"
-        self._asm_dashboard_scroll: Optional[ctk.CTkScrollableFrame] = None
+        self._asm_dashboard_scroll = None  # FastScrollFrame
         self._asm_panel_vars: dict = {}
         self._current_frame: Optional[ctk.CTkFrame] = None
         self._sidebar_server_btns: Dict[str, tk.Label] = {}

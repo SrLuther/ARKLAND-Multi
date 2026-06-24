@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.84] - 2026-06-24
+
+### Fix
+
+- Fix (TEK Dashboard): servidores sumiam ao iniciar um mapa — CTkScrollableFrame recalculava mal a área rolável após refresh; dashboard migrado para FastScrollFrame.
+
 ## [1.9.83] - 2026-06-24
 
 ### Fix

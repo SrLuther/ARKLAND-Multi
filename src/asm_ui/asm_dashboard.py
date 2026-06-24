@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..ui_constants import get_theme
+from ..ui_components import FastScrollFrame
 from ..asm_engine.asm_server_config import (
     ASM_STATUS_RUNNING, ASM_STATUS_STOPPED,
     ASM_STATUS_STARTING, ASM_STATUS_STOPPING, ASM_STATUS_UPDATING,
@@ -209,25 +210,39 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     # Linha separadora
     ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=1, column=0, sticky="ews")
 
-    # ── Scroll de cards ───────────────────────────────────────────────────────
-    scroll = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0,
-                                    scrollbar_button_color=sep)
-    scroll.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
-    scroll.grid_columnconfigure((0, 1), weight=1)
-    app._asm_dashboard_scroll = scroll
+    # ── Scroll de cards (FastScrollFrame — CTkScrollableFrame quebra scrollregion no refresh)
+    scroll_host = FastScrollFrame(parent, bg=bg)
+    scroll_host.grid(row=2, column=0, padx=0, pady=0, sticky="nsew")
+    inner = scroll_host.inner
+    inner.grid_columnconfigure((0, 1), weight=1)
+    app._asm_dashboard_scroll = scroll_host
 
     _refresh_asm_dashboard(app)
+
+
+def _dashboard_inner(app: "ARKServerManagerApp"):
+    """Retorna o frame interno do dashboard ou None se indisponível."""
+    scroll = getattr(app, "_asm_dashboard_scroll", None)
+    if scroll is None:
+        return None
+    try:
+        if not scroll.winfo_exists():
+            return None
+        inner = scroll.inner
+        return inner if inner.winfo_exists() else None
+    except Exception:
+        return None
 
 
 def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     """Popula / atualiza os cards de servidor no scroll do dashboard TEK."""
     from .asm_server_card import build_asm_server_card
 
-    scroll = getattr(app, "_asm_dashboard_scroll", None)
-    if not scroll:
+    inner = _dashboard_inner(app)
+    if inner is None:
         return
 
-    for w in scroll.winfo_children():
+    for w in inner.winfo_children():
         w.destroy()
 
     theme   = get_theme("tek")
@@ -248,7 +263,7 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     servers = app.asm_config_manager.servers
     if not servers:
         ctk.CTkLabel(
-            scroll,
+            inner,
             text="Nenhum servidor TEK configurado.\nClique em '＋ Novo Servidor' para começar.",
             font=ctk.CTkFont(family="Segoe UI", size=15), text_color=t_sec, justify="center",
         ).grid(row=0, column=0, columnspan=2, pady=60)
@@ -259,7 +274,7 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
     if not hasattr(app, "_asm_selected_servers"):
         app._asm_selected_servers: set = set()
 
-    bulk_bar = ctk.CTkFrame(scroll, fg_color=card_bg, corner_radius=8,
+    bulk_bar = ctk.CTkFrame(inner, fg_color=card_bg, corner_radius=8,
                             border_width=1, border_color=card_bdr)
     bulk_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=(8, 4))
     bulk_bar.grid_columnconfigure(8, weight=1)
@@ -353,7 +368,7 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
 
         # ── Header da pasta ───────────────────────────────────────────────────
         folder_hdr = ctk.CTkFrame(
-            scroll,
+            inner,
             fg_color=folder_bg,
             corner_radius=6,
             border_width=1,
@@ -406,17 +421,11 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp") -> None:
         card_row_base = grid_row
         for idx, srv in enumerate(folder_servers):
             r, c = divmod(idx, 2)
-            build_asm_server_card(app, scroll, srv, card_row_base + r, c)
+            build_asm_server_card(app, inner, srv, card_row_base + r, c)
         grid_row += (len(folder_servers) + 1) // 2
 
     _update_subtitle(app, servers)
-
-    from ..ui.server_field_widgets import refresh_scrollable_frame
-    refresh_scrollable_frame(scroll)
-    try:
-        scroll.after(50, lambda: refresh_scrollable_frame(scroll))
-    except Exception:
-        pass
+    inner.update_idletasks()
 
 
 def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:

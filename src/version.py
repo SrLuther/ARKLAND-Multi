@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.83"
+APP_VERSION: str = "1.9.84"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.84",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (TEK Dashboard): servidores sumiam ao iniciar um mapa — CTkScrollableFrame "
+            "recalculava mal a área rolável após refresh; dashboard migrado para FastScrollFrame.",
+        ],
+    },
     {
         "version": "1.9.83",
         "date": "2026-06-24",
