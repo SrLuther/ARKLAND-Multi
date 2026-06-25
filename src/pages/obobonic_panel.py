@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import threading
+import webbrowser
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -11,17 +12,30 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..obobonic_bot import (
+    COG_CATALOG,
     DEFAULT_PROJECT_PATH,
+    ENV_SECTIONS,
     ArkMapEntry,
     MapHealthResult,
     ObobonicBotProcess,
+    apply_env_section_updates,
+    backup_env_file,
+    collect_bot_log_text,
+    discord_developer_url,
+    discord_invite_url,
     health_check_maps,
+    list_env_backups,
+    mask_secret,
     parse_ark_maps_from_env,
+    parse_bot_status_from_log,
+    read_config_cogs,
     read_env_value,
     read_log_tail,
+    restore_env_backup,
     sync_asm_servers_to_env,
     validate_discord_token,
     write_ark_maps_to_env,
+    write_config_cogs,
 )
 from ..server_visibility import resolve_machine_public_ip
 from ..ui_constants import (
@@ -71,6 +85,7 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     accent = theme["accent"]
     cfg = app.config_manager.config.obobonic
 
+    parent.grid_rowconfigure(0, weight=0)
     parent.grid_rowconfigure(1, weight=1)
     parent.grid_columnconfigure(0, weight=1)
 
@@ -368,6 +383,226 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
                   command=_open_folder).pack(side=tk.LEFT)
 
+    # ── Status Discord (via logs) ─────────────────────────────────────────
+    discord_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+    discord_card.pack(fill="x", padx=16, pady=8)
+    discord_inner = tk.Frame(discord_card, bg=_INNER)
+    discord_inner.pack(fill="x", padx=2, pady=2)
+    _head(discord_inner, "Status Discord (inferido dos logs)")
+
+    discord_status_lbl = ctk.CTkLabel(
+        discord_inner, text="—", anchor="w", justify="left",
+        text_color="gray65", wraplength=700, font=ctk.CTkFont(size=10),
+    )
+    discord_status_lbl.pack(fill="x", padx=10, pady=(0, 6))
+
+    discord_note = ctk.CTkLabel(
+        discord_inner,
+        text="Latência e contagem de guilds exigem API Discord — não disponível sem alterar o bot.",
+        text_color="gray50", font=ctk.CTkFont(size=9), anchor="w", wraplength=700, justify="left",
+    )
+    discord_note.pack(fill="x", padx=10, pady=(0, 8))
+
+    link_row = ctk.CTkFrame(discord_inner, fg_color="transparent")
+    link_row.pack(fill="x", padx=10, pady=(0, 10))
+
+    def _open_discord_dev() -> None:
+        try:
+            env_text = _read_env_text()
+            token = read_env_value(env_text, "DISCORD_TOKEN")
+            url = discord_developer_url(token)
+            if url:
+                webbrowser.open(url)
+            else:
+                webbrowser.open("https://discord.com/developers/applications")
+        except Exception as exc:
+            _toast(app, str(exc), "error")
+
+    def _open_discord_invite() -> None:
+        try:
+            env_text = _read_env_text()
+            token = read_env_value(env_text, "DISCORD_TOKEN")
+            url = discord_invite_url(token)
+            if url:
+                webbrowser.open(url)
+            else:
+                _toast(app, "Token inválido — não foi possível gerar link de convite.", "warning")
+        except Exception as exc:
+            _toast(app, str(exc), "error")
+
+    def _open_bancos() -> None:
+        p = _project_dir() / ".bancos"
+        if p.is_dir():
+            os.startfile(str(p))  # type: ignore[attr-defined]
+        else:
+            _toast(app, "Pasta .bancos não encontrada.", "warning")
+
+    def _open_data() -> None:
+        p = _project_dir() / "data"
+        if p.is_dir():
+            os.startfile(str(p))  # type: ignore[attr-defined]
+        else:
+            _toast(app, "Pasta data não encontrada.", "warning")
+
+    ctk.CTkButton(link_row, text="🔗 Dev Portal", width=110, height=28,
+                  fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
+                  command=_open_discord_dev).pack(side=tk.LEFT, padx=(0, 6))
+    ctk.CTkButton(link_row, text="➕ Convidar bot", width=110, height=28,
+                  fg_color=theme["accent_muted_bg"], hover_color=theme["accent_hover"],
+                  command=_open_discord_invite).pack(side=tk.LEFT, padx=(0, 6))
+    ctk.CTkButton(link_row, text="🗄 .bancos", width=90, height=28,
+                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
+                  command=_open_bancos).pack(side=tk.LEFT, padx=(0, 6))
+    ctk.CTkButton(link_row, text="📁 data/", width=80, height=28,
+                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
+                  command=_open_data).pack(side=tk.LEFT)
+
+    def _refresh_discord_status() -> None:
+        bot = _ensure_bot()
+        log_text = collect_bot_log_text(
+            _project_dir(),
+            proc_log_lines=[],
+            hidden_log_path=bot.hidden_log_path if bot else None,
+        )
+        if bot.is_running and not bot.hidden_mode:
+            recent = []
+            log_box.configure(state=tk.NORMAL)
+            recent = log_box.get("1.0", tk.END).splitlines()[-400:]
+            log_box.configure(state=tk.DISABLED)
+            log_text = collect_bot_log_text(
+                _project_dir(), proc_log_lines=recent, hidden_log_path=bot.hidden_log_path,
+            )
+        st = parse_bot_status_from_log(log_text)
+        if bot.is_running and st.online:
+            discord_status_lbl.configure(text=f"🟢 {st.summary}", text_color=_GREEN)
+        elif bot.is_running:
+            discord_status_lbl.configure(text=f"🟡 Iniciando… {st.summary}", text_color=_AMBER)
+        else:
+            discord_status_lbl.configure(text=f"⚫ Parado — {st.summary}", text_color="gray55")
+
+    # ── Configuração .env (seções) ────────────────────────────────────────
+    env_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+    env_card.pack(fill="x", padx=16, pady=8)
+    env_inner = tk.Frame(env_card, bg=_INNER)
+    env_inner.pack(fill="x", padx=2, pady=2)
+    _head(env_inner, "Configuração .env (chaves críticas)")
+
+    env_section_var = tk.StringVar(value=ENV_SECTIONS[0]["id"] if ENV_SECTIONS else "")
+    env_fields_fr = ctk.CTkFrame(env_inner, fg_color="transparent")
+    env_fields_fr.pack(fill="x", padx=10, pady=(0, 8))
+    env_field_vars: Dict[str, tk.StringVar] = {}
+
+    def _rebuild_env_fields(*_args: Any) -> None:
+        for w in env_fields_fr.winfo_children():
+            w.destroy()
+        env_field_vars.clear()
+        sid = env_section_var.get()
+        section = next((s for s in ENV_SECTIONS if s["id"] == sid), None)
+        if not section:
+            return
+        env_text = _read_env_text()
+        for row_i, (key, label, secret) in enumerate(section["keys"]):
+            ctk.CTkLabel(env_fields_fr, text=label, text_color="gray60",
+                         font=ctk.CTkFont(size=10)).grid(row=row_i, column=0, sticky="w", padx=(0, 8), pady=3)
+            raw = read_env_value(env_text, key)
+            display = mask_secret(raw) if secret and raw else raw
+            var = tk.StringVar(value=display)
+            env_field_vars[key] = var
+            show = "*" if secret else ""
+            ent = ctk.CTkEntry(env_fields_fr, textvariable=var, height=28, show=show)
+            ent.grid(row=row_i, column=1, sticky="ew", pady=3)
+            ctk.CTkLabel(env_fields_fr, text=key, text_color="gray45",
+                         font=ctk.CTkFont(size=9)).grid(row=row_i, column=2, sticky="w", padx=(8, 0))
+        env_fields_fr.grid_columnconfigure(1, weight=1)
+
+    env_sel_row = ctk.CTkFrame(env_inner, fg_color="transparent")
+    env_sel_row.pack(fill="x", padx=10, pady=(0, 6))
+    ctk.CTkLabel(env_sel_row, text="Seção:", text_color="gray60").pack(side=tk.LEFT, padx=(0, 8))
+    ctk.CTkOptionMenu(
+        env_sel_row,
+        variable=env_section_var,
+        values=[s["id"] for s in ENV_SECTIONS],
+        command=lambda _v: _rebuild_env_fields(),
+        width=160, height=28,
+        fg_color=_SEC_BG,
+    ).pack(side=tk.LEFT)
+    _rebuild_env_fields()
+
+    def _save_env_section() -> None:
+        env_path = _env_path()
+        if not env_path.is_file():
+            _toast(app, ".env não encontrado.", "error")
+            return
+        sid = env_section_var.get()
+        section = next((s for s in ENV_SECTIONS if s["id"] == sid), None)
+        if not section:
+            return
+        updates = {key: var.get().strip() for key, var in env_field_vars.items()}
+        secret_keys = {key for key, _l, sec in section["keys"] if sec}
+        for key in secret_keys:
+            if updates.get(key) == mask_secret(read_env_value(_read_env_text(), key)):
+                updates[key] = read_env_value(_read_env_text(), key)
+        try:
+            text = env_path.read_text(encoding="utf-8")
+            new_text = apply_env_section_updates(text, updates)
+            env_path.write_text(new_text, encoding="utf-8")
+            _append_panel_log(f"✅ Seção «{sid}» salva no .env. Reinicie o bot para aplicar.")
+            _toast(app, f"Seção {sid} salva.", "info")
+            _refresh_validation()
+            _rebuild_env_fields()
+        except OSError as exc:
+            _toast(app, str(exc), "error")
+
+    def _backup_env() -> None:
+        env_path = _env_path()
+        if not env_path.is_file():
+            _toast(app, ".env não encontrado.", "error")
+            return
+        try:
+            backup = backup_env_file(env_path)
+            _append_panel_log(f"💾 Backup: {backup.name}")
+            _toast(app, f"Backup criado: {backup.name}", "info")
+        except OSError as exc:
+            _toast(app, str(exc), "error")
+
+    def _restore_env() -> None:
+        backups = list_env_backups(_project_dir())
+        if not backups:
+            _toast(app, "Nenhum backup .env encontrado.", "warning")
+            return
+        latest = backups[0]
+        if not messagebox.askyesno(
+            "Restaurar .env",
+            f"Restaurar backup mais recente?\n\n{latest.name}\n\nO .env atual será sobrescrito.",
+        ):
+            return
+        try:
+            restore_env_backup(latest, _env_path())
+            _append_panel_log(f"↩ .env restaurado de {latest.name}")
+            _toast(app, "Backup restaurado. Reinicie o bot.", "info")
+            _refresh_validation()
+            _rebuild_env_fields()
+            _load_maps()
+        except OSError as exc:
+            _toast(app, str(exc), "error")
+
+    env_btn_row = ctk.CTkFrame(env_inner, fg_color="transparent")
+    env_btn_row.pack(fill="x", padx=10, pady=(0, 10))
+    ctk.CTkButton(env_btn_row, text="💾 Salvar seção", width=120, height=30,
+                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  command=_save_env_section).pack(side=tk.LEFT, padx=(0, 8))
+    ctk.CTkButton(env_btn_row, text="💾 Backup .env", width=120, height=30,
+                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
+                  command=_backup_env).pack(side=tk.LEFT, padx=(0, 8))
+    ctk.CTkButton(env_btn_row, text="↩ Restaurar", width=100, height=30,
+                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
+                  command=_restore_env).pack(side=tk.LEFT)
+    ctk.CTkLabel(
+        env_btn_row,
+        text="Mapas ARK: use «Salas» acima. Cogs: edite abaixo. Dados JSON: pastas .bancos/ e data/.",
+        text_color="gray50", font=ctk.CTkFont(size=9),
+    ).pack(side=tk.LEFT, padx=(12, 0))
+
     # ── Status dos mapas (health) ─────────────────────────────────────────
     health_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
     health_card.pack(fill="x", padx=16, pady=8)
@@ -578,24 +813,71 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
                   fg_color=_SEC_BG, hover_color=theme["accent_hover"],
                   command=_load_maps).pack(side=tk.LEFT)
 
-    # ── Cogs ativos ───────────────────────────────────────────────────────
+    # ── Gerenciador de cogs ───────────────────────────────────────────────
     cogs_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
     cogs_card.pack(fill="x", padx=16, pady=8)
     cogs_inner = tk.Frame(cogs_card, bg=_INNER)
     cogs_inner.pack(fill="x", padx=2, pady=2)
-    _head(cogs_inner, "Módulos (cogs) carregados pelo bot")
-    cogs_lbl = ctk.CTkLabel(cogs_inner, text="—", anchor="w", justify="left",
-                            text_color="gray65", wraplength=700,
-                            font=ctk.CTkFont(size=10))
-    cogs_lbl.pack(fill="x", padx=10, pady=(0, 10))
+    _head(cogs_inner, "Módulos (cogs) — habilitar/desabilitar em config.py")
+
+    cogs_grid = ctk.CTkFrame(cogs_inner, fg_color="transparent")
+    cogs_grid.pack(fill="x", padx=10, pady=(0, 6))
+    cog_vars: Dict[str, tk.BooleanVar] = {}
 
     def _load_cogs() -> None:
-        bot = _ensure_bot()
-        cogs = bot.list_cogs()
-        if cogs:
-            cogs_lbl.configure(text=", ".join(cogs))
-        else:
-            cogs_lbl.configure(text="Não foi possível ler config.py — verifique a pasta do bot.")
+        for w in cogs_grid.winfo_children():
+            w.destroy()
+        cog_vars.clear()
+        enabled, available = read_config_cogs(_project_dir())
+        if not available:
+            ctk.CTkLabel(cogs_grid, text="config.py ou pasta cogs/ não encontrados.",
+                         text_color="gray55", font=ctk.CTkFont(size=10)).pack(anchor="w")
+            return
+        cols = 2
+        for i, name in enumerate(available):
+            meta = COG_CATALOG.get(name, {})
+            label = meta.get("label", name)
+            env_hint = meta.get("env", [])
+            hint = f" ({', '.join(env_hint[:2])})" if env_hint else ""
+            var = tk.BooleanVar(value=name in enabled)
+            cog_vars[name] = var
+            txt = f"{label}{hint}"
+            cb = ctk.CTkCheckBox(
+                cogs_grid, text=txt, variable=var,
+                font=ctk.CTkFont(size=10),
+                fg_color=theme["accent_dark"], hover_color=theme["accent_hover"],
+            )
+            cb.grid(row=i // cols, column=i % cols, sticky="w", padx=4, pady=2)
+
+    def _save_cogs() -> None:
+        enabled = [name for name, var in cog_vars.items() if var.get()]
+        if not enabled:
+            _toast(app, "Selecione ao menos um cog.", "warning")
+            return
+        if "admin" not in enabled:
+            _toast(app, "O cog «admin» não pode ser desabilitado.", "warning")
+            return
+        try:
+            write_config_cogs(_project_dir(), enabled)
+            _append_panel_log(f"✅ Cogs salvos em config.py ({len(enabled)} ativos). Reinicie o bot.")
+            _toast(app, f"{len(enabled)} cog(s) ativos — reinicie o bot.", "info")
+            _load_cogs()
+        except OSError as exc:
+            _toast(app, str(exc), "error")
+
+    cogs_btn_row = ctk.CTkFrame(cogs_inner, fg_color="transparent")
+    cogs_btn_row.pack(fill="x", padx=10, pady=(0, 10))
+    ctk.CTkButton(cogs_btn_row, text="💾 Salvar cogs", width=120, height=30,
+                  fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
+                  command=_save_cogs).pack(side=tk.LEFT, padx=(0, 8))
+    ctk.CTkButton(cogs_btn_row, text="↻ Recarregar", width=110, height=30,
+                  fg_color=_SEC_BG, hover_color=theme["accent_hover"],
+                  command=_load_cogs).pack(side=tk.LEFT)
+    ctk.CTkLabel(
+        cogs_btn_row,
+        text="Alterações exigem reinício. Comandos !load/!reload continuam no Discord.",
+        text_color="gray50", font=ctk.CTkFont(size=9),
+    ).pack(side=tk.LEFT, padx=(12, 0))
 
     # ── Logs ──────────────────────────────────────────────────────────────
     log_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
@@ -702,6 +984,7 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     def _poll_tick() -> None:
         _refresh_logs()
         _refresh_status()
+        _refresh_discord_status()
         _health_poll_counter["n"] += 1
         if _health_poll_counter["n"] % 30 == 0 and map_rows:
             _run_health_check(quiet=True)

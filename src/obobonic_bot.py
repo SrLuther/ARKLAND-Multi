@@ -1,14 +1,17 @@
 """Gerenciamento do bot Discord oBobonicClean (subprocesso externo)."""
 from __future__ import annotations
 
+import base64
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -28,6 +31,178 @@ _TOKEN_PLACEHOLDERS = frozenset({
     "discord_token",
     "xxx",
 })
+
+_COGS_BLOCK_RE = re.compile(r"^COGS\s*=\s*\[.*?\]", re.MULTILINE | re.DOTALL)
+_COG_LINE_RE = re.compile(r"""^\s*['"]([^'"]+)['"]""")
+
+# Seções do editor .env (chaves lidas por config.py / cogs)
+ENV_SECTIONS: List[Dict[str, Any]] = [
+    {
+        "id": "discord",
+        "title": "Discord",
+        "keys": [
+            ("DISCORD_TOKEN", "Token do bot", True),
+            ("GUILD_ID", "ID do servidor Discord", False),
+        ],
+    },
+    {
+        "id": "channels",
+        "title": "Canais principais",
+        "keys": [
+            ("CANAL_PAINEL_ID", "Painel tickets", False),
+            ("CANAL_LOGS_ID", "Logs do bot", False),
+            ("CANAL_STATUS_ID", "Status", False),
+            ("CANAL_PROMO_ID", "Promoções", False),
+            ("LOBBY_CHANNEL_ID", "Lobby de voz", False),
+            ("CANAL_CHANGELOG_ID", "Changelog", False),
+            ("AI_CHANNEL_ID", "Canal IA", False),
+        ],
+    },
+    {
+        "id": "tickets",
+        "title": "Tickets",
+        "keys": [
+            ("TICKET_CATEGORY_ID", "Categoria de tickets", False),
+            ("TICKET_ARCHIVE_CHANNEL_ID", "Arquivo de tickets", False),
+            ("TICKET_NOTIFY_CHANNEL_ID", "Notificações", False),
+            ("EXPIRACAO_TICKET_HORAS", "Expiração (horas)", False),
+        ],
+    },
+    {
+        "id": "xp",
+        "title": "XP e ranking",
+        "keys": [
+            ("XP_MIN", "XP mínimo por mensagem", False),
+            ("XP_MAX", "XP máximo por mensagem", False),
+            ("XP_COOLDOWN", "Cooldown (segundos)", False),
+            ("VOICE_XP_GAIN", "XP por voz", False),
+            ("VOICE_XP_INTERVAL_MIN", "Intervalo voz (min)", False),
+            ("RANKING_CHANNEL_ID", "Canal do ranking", False),
+            ("RANKING_EXCLUDED_IDS", "IDs excluídos (vírgula)", False),
+        ],
+    },
+    {
+        "id": "ark",
+        "title": "ARK / RCON",
+        "keys": [
+            ("ARK_HOST", "Host padrão RCON", False),
+            ("ARK_RCON_PASSWORD", "Senha RCON padrão", True),
+            ("ARK_CANAL_RCON_ID", "Canal de comandos RCON", False),
+            ("STEAM_API_KEY", "Steam Web API Key", True),
+            ("ARK_JOIN_NOTIFICATIONS_CHANNEL_ID", "Notif. entrada jogadores", False),
+            ("RCON_DASHBOARDS_CHANNEL_ID", "Painéis RCON", False),
+            ("RCON_MONITOR_INTERVAL_SECONDS", "Intervalo monitor (s)", False),
+            ("RCON_MONITOR_ENABLED", "Monitor ativo (true/false)", False),
+            ("RCON_AUTO_RECOVERY_ENABLED", "Auto-recovery (true/false)", False),
+        ],
+    },
+    {
+        "id": "referrals",
+        "title": "Indicações",
+        "keys": [
+            ("REFERRALS_GENERATE_ID_CHANNEL_ID", "Gerar ID", False),
+            ("REFERRALS_FORM_CHANNEL_ID", "Formulário", False),
+            ("REFERRALS_PENDING_CHANNEL_ID", "Pendentes", False),
+            ("REFERRALS_APPROVED_CHANNEL_ID", "Aprovados", False),
+            ("REFERRALS_LOGS_CHANNEL_ID", "Logs", False),
+        ],
+    },
+    {
+        "id": "twitch",
+        "title": "Twitch",
+        "keys": [
+            ("TWITCH_CHANNEL_REQUEST", "Canal solicitação", False),
+            ("TWITCH_CHANNEL_APPROVAL", "Canal aprovação", False),
+            ("TWITCH_CHANNEL_NOTIF", "Canal notificação", False),
+            ("TWITCH_CLIENT_ID", "Client ID", True),
+            ("TWITCH_CLIENT_SECRET", "Client Secret", True),
+            ("TWITCH_ACCESS_TOKEN", "Access Token", True),
+        ],
+    },
+    {
+        "id": "tiktok",
+        "title": "TikTok",
+        "keys": [
+            ("TIKTOK_CHANNEL_REQUEST", "Canal solicitação", False),
+            ("TIKTOK_CHANNEL_APPROVAL", "Canal aprovação", False),
+            ("TIKTOK_CHANNEL_NOTIF", "Canal notificação", False),
+        ],
+    },
+    {
+        "id": "voting",
+        "title": "Votações",
+        "keys": [
+            ("VOTACAO_CANAL_ID", "Canal de votação", False),
+            ("VOTACAO_CONFIG_CANAL_ID", "Canal config votação", False),
+        ],
+    },
+]
+
+# Catálogo de cogs (nome → descrição + variáveis .env relacionadas)
+COG_CATALOG: Dict[str, Dict[str, Any]] = {
+    "rcon_monitor": {"label": "Monitor RCON", "env": ["RCON_MONITOR_ENABLED", "RCON_DASHBOARDS_CHANNEL_ID"]},
+    "ark": {"label": "ARK RCON (comandos)", "env": ["ARK_HOST", "ARK_RCON_PASSWORD", "ARK_CANAL_RCON_ID"]},
+    "ark_a2s": {"label": "ARK A2S / Steam", "env": ["STEAM_API_KEY", "ARK_JOIN_NOTIFICATIONS_CHANNEL_ID"]},
+    "events": {"label": "Broadcasts automáticos", "env": []},
+    "tickets": {"label": "Sistema de tickets", "env": ["TICKET_CATEGORY_ID", "CANAL_PAINEL_ID"]},
+    "lojas": {"label": "Lojas pessoais", "env": []},
+    "twitch_monitor": {"label": "Monitor Twitch", "env": ["TWITCH_CLIENT_ID", "TWITCH_CLIENT_SECRET"]},
+    "tiktok_monitor": {"label": "Monitor TikTok", "env": []},
+    "dinosaur_valuer": {"label": "Calculadora de dinos", "env": []},
+    "vip": {"label": "Painel VIP", "env": []},
+    "admin": {"label": "Admin (load/reload)", "env": []},
+    "autoresponse": {"label": "Auto-respostas", "env": []},
+    "moderation": {"label": "Moderação", "env": []},
+    "xp": {"label": "Sistema XP", "env": ["XP_MIN", "XP_MAX", "XP_COOLDOWN"]},
+    "comandos": {"label": "Ajuda / comandos", "env": []},
+    "rules": {"label": "Regras", "env": []},
+    "sales": {"label": "Promoções de jogos", "env": ["CANAL_PROMO_ID"]},
+    "referrals": {"label": "Indicações", "env": ["REFERRALS_FORM_CHANNEL_ID"]},
+    "ranking": {"label": "Ranking unificado", "env": ["RANKING_CHANNEL_ID"]},
+    "voicemanager": {"label": "Salas de voz temp.", "env": ["LOBBY_CHANNEL_ID"]},
+    "autoloop": {"label": "Mensagens automáticas", "env": []},
+    "changelog": {"label": "Changelog", "env": ["CANAL_CHANGELOG_ID"]},
+    "treasure_hunt": {"label": "Treasure Hunt", "env": []},
+    "voting": {"label": "Votações", "env": ["VOTACAO_CANAL_ID"]},
+}
+
+# Ordem canônica (espelha config.py padrão)
+DEFAULT_COG_ORDER: List[str] = list(COG_CATALOG.keys())
+
+
+@dataclass
+class BotRuntimeStatus:
+    """Status inferido dos logs de startup do bot."""
+    online: bool = False
+    bot_user: str = ""
+    bot_id: str = ""
+    guild_id: str = ""
+    slash_synced: bool = False
+    cogs_loaded: int = 0
+    cogs_failed: int = 0
+    ready_message: str = ""
+    last_error: str = ""
+
+    @property
+    def summary(self) -> str:
+        if not self.online and not self.ready_message and not self.last_error:
+            return "Aguardando logs de startup…"
+        parts: List[str] = []
+        if self.bot_user:
+            parts.append(f"Logado como {self.bot_user}")
+        if self.bot_id:
+            parts.append(f"ID {self.bot_id}")
+        if self.guild_id:
+            parts.append(f"Guild {self.guild_id}")
+        if self.slash_synced:
+            parts.append("Slash OK")
+        if self.cogs_loaded:
+            parts.append(f"{self.cogs_loaded} cog(s)")
+        if self.cogs_failed:
+            parts.append(f"{self.cogs_failed} falha(s)")
+        if self.last_error:
+            parts.append(f"Erro: {self.last_error[:80]}")
+        return " · ".join(parts) if parts else ("Online" if self.online else "Parado")
 
 
 @dataclass
@@ -233,6 +408,212 @@ def validate_discord_token(env_text: str) -> Tuple[bool, str]:
     if token.count(".") < 2:
         return False, "DISCORD_TOKEN parece malformado (formato Discord esperado)."
     return True, "Token Discord OK"
+
+
+def mask_secret(value: str, visible: int = 4) -> str:
+    """Mascara valor sensível para exibição na UI."""
+    v = (value or "").strip()
+    if not v:
+        return ""
+    if len(v) <= visible * 2:
+        return "*" * len(v)
+    return v[:visible] + "…" + v[-visible:]
+
+
+def discord_app_id_from_token(token: str) -> Optional[str]:
+    """Extrai application ID do token Discord (primeiro segmento base64)."""
+    try:
+        part = token.split(".")[0]
+        padded = part + "=" * (-len(part) % 4)
+        raw = base64.b64decode(padded)
+        return str(int(raw.decode("utf-8")))
+    except (ValueError, OSError, UnicodeDecodeError):
+        return None
+
+
+def discord_developer_url(token: str) -> Optional[str]:
+    app_id = discord_app_id_from_token(token)
+    if not app_id:
+        return None
+    return f"https://discord.com/developers/applications/{app_id}"
+
+
+def discord_invite_url(token: str, permissions: int = 8) -> Optional[str]:
+    app_id = discord_app_id_from_token(token)
+    if not app_id:
+        return None
+    return (
+        f"https://discord.com/api/oauth2/authorize"
+        f"?client_id={app_id}&permissions={permissions}&scope=bot%20applications.commands"
+    )
+
+
+def parse_cogs_from_config_text(text: str) -> List[str]:
+    """Extrai lista COGS de config.py."""
+    cogs: List[str] = []
+    in_block = False
+    for line in text.splitlines():
+        if not in_block and line.strip().startswith("COGS"):
+            in_block = True
+            if "[" in line and "]" in line:
+                inner = line.split("[", 1)[1].rsplit("]", 1)[0]
+                for part in inner.split(","):
+                    m = _COG_LINE_RE.match(part.strip())
+                    if m:
+                        cogs.append(m.group(1))
+                break
+            continue
+        if in_block:
+            stripped = line.strip()
+            if stripped.startswith("]"):
+                break
+            m = _COG_LINE_RE.match(stripped)
+            if m:
+                cogs.append(m.group(1))
+    return cogs
+
+
+def discover_available_cogs(project_dir: Path) -> List[str]:
+    """Lista cogs disponíveis na pasta cogs/ (+ pacote tickets)."""
+    found: set[str] = set()
+    cogs_dir = project_dir / "cogs"
+    if cogs_dir.is_dir():
+        for path in cogs_dir.iterdir():
+            if path.name.startswith("_"):
+                continue
+            if path.is_dir() and (path / "__init__.py").is_file():
+                found.add(path.name)
+            elif path.suffix == ".py" and path.stem not in ("__init__",):
+                found.add(path.stem)
+    ordered = [c for c in DEFAULT_COG_ORDER if c in found]
+    for c in sorted(found):
+        if c not in ordered:
+            ordered.append(c)
+    return ordered
+
+
+def write_cogs_to_config_text(text: str, enabled: List[str]) -> str:
+    """Reescreve bloco COGS em config.py."""
+    lines = [f"    '{name}'," for name in enabled]
+    block = "COGS = [\n" + "\n".join(lines) + "\n]"
+    if _COGS_BLOCK_RE.search(text):
+        return _COGS_BLOCK_RE.sub(block, text, count=1)
+    return text.rstrip() + "\n\n" + block + "\n"
+
+
+def read_config_cogs(project_dir: Path) -> Tuple[List[str], List[str]]:
+    """Retorna (cogs_habilitados, cogs_disponíveis)."""
+    config_path = project_dir / "config.py"
+    available = discover_available_cogs(project_dir)
+    if not config_path.is_file():
+        return [], available
+    try:
+        text = config_path.read_text(encoding="utf-8")
+    except OSError:
+        return [], available
+    enabled = parse_cogs_from_config_text(text)
+    return enabled, available
+
+
+def write_config_cogs(project_dir: Path, enabled: List[str]) -> None:
+    config_path = project_dir / "config.py"
+    text = config_path.read_text(encoding="utf-8")
+    config_path.write_text(write_cogs_to_config_text(text, enabled), encoding="utf-8")
+
+
+def env_section_values(env_text: str, section_id: str) -> Dict[str, str]:
+    """Valores atuais das chaves de uma seção."""
+    section = next((s for s in ENV_SECTIONS if s["id"] == section_id), None)
+    if not section:
+        return {}
+    return {key: read_env_value(env_text, key) for key, _label, _secret in section["keys"]}
+
+
+def apply_env_section_updates(env_text: str, updates: Dict[str, str]) -> str:
+    """Aplica atualizações de chaves simples (preserva valores mascarados vazios)."""
+    filtered: Dict[str, str] = {}
+    for key, value in updates.items():
+        if value == "••••••••":
+            continue
+        if _ENV_KEY_RE.match(key):
+            filtered[key] = value
+    return update_env_keys(env_text, filtered)
+
+
+def backup_env_file(env_path: Path) -> Path:
+    """Cria backup timestampado do .env ao lado do original."""
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup = env_path.with_name(f".env.backup_{stamp}")
+    shutil.copy2(env_path, backup)
+    return backup
+
+
+def list_env_backups(project_dir: Path) -> List[Path]:
+    return sorted(
+        project_dir.glob(".env.backup_*"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+
+
+def restore_env_backup(backup_path: Path, env_path: Path) -> None:
+    shutil.copy2(backup_path, env_path)
+
+
+def parse_bot_status_from_log(log_text: str) -> BotRuntimeStatus:
+    """Infere status do bot a partir do tail de log."""
+    status = BotRuntimeStatus()
+    if not log_text:
+        return status
+
+    for line in reversed(log_text.splitlines()):
+        low = line.lower()
+        if "bot pronto e rodando" in low or "comandos de barra (slash) sincronizados" in low:
+            status.online = True
+            status.ready_message = line.strip()
+        if "comandos de barra (slash) sincronizados" in low:
+            status.slash_synced = True
+        if "erro fatal" in low or "❌ erro" in low:
+            status.last_error = line.strip()
+            break
+
+    m_user = re.search(r"Bot Logado como (.+?) \(ID:\s*(\d+)\)", log_text)
+    if m_user:
+        status.bot_user = m_user.group(1).strip()
+        status.bot_id = m_user.group(2)
+        status.online = True
+
+    m_guild = re.search(r"DEBUG:\s*GUILD_ID:\s*(\d+)", log_text)
+    if m_guild:
+        status.guild_id = m_guild.group(1)
+
+    loaded = len(re.findall(r"\[COG\] Carregado:", log_text))
+    failed = len(re.findall(r"\[ERRO\] Falha ao carregar", log_text))
+    status.cogs_loaded = loaded
+    status.cogs_failed = failed
+
+    if "Status Final: FALHA" in log_text:
+        status.online = False
+
+    return status
+
+
+def collect_bot_log_text(
+    project_dir: Path,
+    *,
+    proc_log_lines: Optional[List[str]] = None,
+    hidden_log_path: Optional[Path] = None,
+    max_lines: int = 600,
+) -> str:
+    """Junta logs do subprocesso e do arquivo oculto."""
+    chunks: List[str] = []
+    if proc_log_lines:
+        chunks.append("\n".join(proc_log_lines[-max_lines:]))
+    path = hidden_log_path or (project_dir / ".bot_hidden.log")
+    tail = read_log_tail(path, max_lines=max_lines)
+    if tail:
+        chunks.append(tail)
+    return "\n".join(chunks)
 
 
 def load_dotenv_dict(project_dir: Path) -> Dict[str, str]:

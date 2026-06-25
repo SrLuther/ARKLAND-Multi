@@ -3,19 +3,29 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.obobonic_bot import (  # noqa: E402
     ArkMapEntry,
+    apply_env_section_updates,
     asm_servers_to_ark_maps,
+    backup_env_file,
+    discord_app_id_from_token,
+    mask_secret,
     parse_ark_maps_from_env,
+    parse_bot_status_from_log,
+    parse_cogs_from_config_text,
+    restore_env_backup,
     sync_asm_servers_to_env,
     update_env_keys,
     validate_discord_token,
     write_ark_maps_to_env,
+    write_cogs_to_config_text,
 )
 
 
@@ -98,6 +108,61 @@ class TestAsmSync(unittest.TestCase):
         self.assertIn("ARK_MAP1_QUERY_PORT=27100", new_env)
         reparsed = parse_ark_maps_from_env(new_env)
         self.assertEqual(reparsed[0].name, "[ARKLAND BR] - Brighamia")
+
+
+class TestCogsAndStatus(unittest.TestCase):
+    def test_parse_cogs_from_config(self) -> None:
+        text = "COGS = [\n    'ark',\n    'xp',  # comentário\n]\n"
+        self.assertEqual(parse_cogs_from_config_text(text), ["ark", "xp"])
+
+    def test_write_cogs_to_config(self) -> None:
+        text = "X = 1\nCOGS = [\n    'old',\n]\n"
+        out = write_cogs_to_config_text(text, ["ark", "xp"])
+        self.assertIn("'ark',", out)
+        self.assertIn("'xp',", out)
+        self.assertNotIn("'old',", out)
+
+    def test_parse_bot_status_from_log(self) -> None:
+        log = (
+            "DEBUG: GUILD_ID: 123\n"
+            "Bot Logado como oBobonic#0001 (ID: 999)\n"
+            "[COG] Carregado: ark.py\n"
+            "✅ Comandos de barra (slash) sincronizados.\n"
+            "✅ Bot pronto e rodando!\n"
+        )
+        st = parse_bot_status_from_log(log)
+        self.assertTrue(st.online)
+        self.assertEqual(st.bot_id, "999")
+        self.assertEqual(st.guild_id, "123")
+        self.assertTrue(st.slash_synced)
+        self.assertEqual(st.cogs_loaded, 1)
+
+    def test_mask_secret(self) -> None:
+        self.assertEqual(mask_secret("abcdefghij"), "abcd…ghij")
+
+    def test_discord_app_id_from_token(self) -> None:
+        # application id 1440810614506262713 em base64
+        token = "MTQ0MDgxMDYxNDUwNjI2MjcxMw.GYxOaf.abc"
+        self.assertEqual(discord_app_id_from_token(token), "1440810614506262713")
+
+    def test_apply_env_section_skips_placeholder(self) -> None:
+        text = "DISCORD_TOKEN=real.token.here\nFOO=bar\n"
+        out = apply_env_section_updates(text, {"DISCORD_TOKEN": "••••••••", "FOO": "baz"})
+        self.assertIn("DISCORD_TOKEN=real.token.here", out)
+        self.assertIn("FOO=baz", out)
+
+
+class TestEnvBackup(unittest.TestCase):
+    def test_backup_and_restore(self) -> None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            env = Path(tmp) / ".env"
+            env.write_text("DISCORD_TOKEN=abc\n", encoding="utf-8")
+            backup = backup_env_file(env)
+            self.assertTrue(backup.is_file())
+            env.write_text("DISCORD_TOKEN=changed\n", encoding="utf-8")
+            restore_env_backup(backup, env)
+            self.assertIn("DISCORD_TOKEN=abc", env.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

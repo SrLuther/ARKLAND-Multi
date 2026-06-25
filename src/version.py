@@ -9,9 +9,21 @@ BUILD_DATE: str = "2026-06-25"
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "1.9.101",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (TEK oBobonic): auditoria de cobertura — editor .env por seções (Discord, XP, ARK, "
+            "Twitch/TikTok, tickets), backup/restauração .env, gerenciador de cogs em config.py.",
+            "Feat (TEK oBobonic): status Discord inferido dos logs, links Dev Portal/convite, "
+            "atalhos .bancos/ e data/; honestidade sobre limites (latência, dados JSON, UI Discord).",
+        ],
+    },
+    {
         "version": "1.9.100",
         "date": "2026-06-25",
         "changes": [
+            "Fix (TEK oBobonic): painel vazio/preto — grid row 0 sem weight=0, frame vazio cacheado "
+            "antes do build; layout alinhado ao CustomShop e cache só após sucesso.",
             "Fix (Web Store): portal travado em «Conectando…» — sintaxe TypeScript inválida "
             "(const tail: Promise<unknown>[]) impedia o boot JS; corrigido para JS puro.",
             "Fix (Web Store): boot paralelo (health + auth + catálogo/home), watchdog 8s com "

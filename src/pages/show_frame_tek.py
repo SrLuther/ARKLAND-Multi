@@ -40,8 +40,22 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
         from ..asm_ui.asm_broadcasts_panel import build_broadcasts_panel
         build_broadcasts_panel(app, frame)
     elif name == "obobonic":
+        import logging
         from .obobonic_panel import build_obobonic_panel
-        build_obobonic_panel(app, frame)
+        try:
+            build_obobonic_panel(app, frame)
+        except Exception as exc:
+            logging.getLogger("arkland").exception("Painel oBobonic")
+            frame.grid_rowconfigure(0, weight=1)
+            frame.grid_columnconfigure(0, weight=1)
+            ctk.CTkLabel(
+                frame,
+                text=f"Erro ao carregar o painel oBobonic:\n{exc}",
+                text_color="#f7768e",
+                wraplength=640,
+                justify="left",
+                font=ctk.CTkFont(size=13),
+            ).grid(row=0, column=0, padx=24, pady=24, sticky="nw")
     elif name == "desempenho":
         from .performance_panel import build_performance_panel
         build_performance_panel(app, frame)
@@ -87,6 +101,10 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
         cached = app._frame_cache[cache_key]
         try:
             if cached.winfo_exists():
+                # Frame vazio no cache (build falhou antes de popular widgets)
+                if not cached.winfo_children():
+                    app._frame_cache.pop(cache_key, None)
+                    raise ValueError("cached frame empty")
                 cached.grid()
                 app._current_frame = cached
                 # Callbacks de "on show" ainda são disparados mesmo com cache
@@ -134,10 +152,21 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
     app._current_frame = frame
     if name == "database":
         app._database_frame = frame
-    elif name != "database":
-        app._frame_cache[cache_key] = frame
 
-    _dispatch_tek_frame(app, name, frame, kwargs)
+    try:
+        _dispatch_tek_frame(app, name, frame, kwargs)
+    except Exception:
+        app._frame_cache.pop(cache_key, None)
+        if not frame.winfo_children():
+            try:
+                frame.destroy()
+            except Exception:
+                pass
+            app._current_frame = None
+        raise
+
+    if name != "database":
+        app._frame_cache[cache_key] = frame
 
     # Watermark em todas as páginas, atrás do conteúdo
     app._apply_watermark_to_frame(frame)
