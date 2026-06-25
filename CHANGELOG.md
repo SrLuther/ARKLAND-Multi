@@ -5,6 +5,35 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.94] - 2026-06-24
+
+### Feature
+
+- Feat (Jogo): upar speed em voadores (bAllowFlyerSpeedLeveling) e recolher estruturas (AlwaysAllowStructurePickup).
+
+### Fix
+
+- Fix (Web Store): diagnóstico testa HTTPS no domínio real; status sem referências a Caddy/modem.
+- Fix (DB): painel Banco de Dados rolável — browser 720px sem cortar backup/ações.
+
+### Other
+
+- Remove (Caddy): integração Caddy removida — HTTPS público via Cloudflare Tunnel ou proxy externo.
+
+## [1.9.93] - 2026-06-24
+
+### Fix
+
+- Fix (Web Store): primeira carga não trava mais — migrate MySQL em background, timeout de conexão 5s, cache do config.json.
+- Fix (Web Store): boot honesto — status mostra erro real (loja offline, catálogo, banco) em vez de ficar em «Inicializando».
+- Fix (CustomShop): /shop e WebsiteUrl usam IP público; WebApiUrl usa LAN (v1.9.91–92).
+
+## [1.9.92] - 2026-06-24
+
+### Fix
+
+- Fix (CustomShop): /shop mostra link http://IP:27199 que funciona hoje — WebsiteUrl do plugin não depende mais do domínio público fora do ar.
+
 ## [1.9.91] - 2026-06-20
 
 ### Fix

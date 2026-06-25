@@ -1,8 +1,11 @@
 {
-    "version": "1.9.91",
-    "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.91/ARKLAND-Multi-Setup-v1.9.91.exe",
+    "version": "1.9.94",
+    "date": "2026-06-25",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.94/ARKLAND-Multi-Setup-v1.9.94.exe",
     "changelog": [
-        "Fix (CustomShop): WebApiUrl dos plugins usa IP LAN da loja (ex.: :27199) — resgates entregam no jogo mesmo com domínio público fora do ar."
+        "Remove (Caddy): integração Caddy removida — HTTPS público via Cloudflare Tunnel ou proxy externo.",
+        "Fix (Web Store): diagnóstico testa HTTPS no domínio real; status sem referências a Caddy/modem.",
+        "Fix (DB): painel Banco de Dados rolável — browser 720px sem cortar backup/ações.",
+        "Feat (Jogo): upar speed em voadores (bAllowFlyerSpeedLeveling) e recolher estruturas (AlwaysAllowStructurePickup)."
     ]
 }

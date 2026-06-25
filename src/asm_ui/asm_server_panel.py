@@ -1731,6 +1731,7 @@ def _build_dinos(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
         card.grid_columnconfigure(1, weight=1)
         bool_fields = [
             "allow_raid_dino_feeding", "allow_flying_stamina_recovery", "prevent_mate_boost",
+            "allow_flyer_speed_leveling",
             "disable_dino_decay_pve", "pvp_dino_decay", "auto_destroy_decayed_dinos",
             "allow_multiple_attached_c4", "disable_dino_riding", "disable_dino_taming",
             "use_tame_limit_for_structures_only", "disable_imprint_buff", "allow_anyone_baby_imprint",
@@ -1914,7 +1915,8 @@ def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
             "pve_allow_structures_at_supply_drops",
         ]),
         CardSpec("Opções gerais", [
-            "force_all_structure_locking", "disable_structure_placement_collision",
+            "always_allow_structure_pickup", "force_all_structure_locking",
+            "disable_structure_placement_collision",
             "only_auto_destroy_core_structures", "only_decay_unsnapped_core_structures",
             "fast_decay_unsnapped_core_structures", "destroy_unconnected_water_pipes",
             "passive_defenses_damage_riderless_dinos", "enable_fast_decay_interval",

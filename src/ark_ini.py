@@ -51,6 +51,7 @@ _GUS_SERVER_SETTINGS = [
     ("crop_growth_speed_multiplier",          "ServerSettings", "CropGrowthSpeedMultiplier",             float),
     ("crop_decay_speed_multiplier",           "ServerSettings", "CropDecaySpeedMultiplier",              float),
     ("allow_flyer_carry_pve",                 "ServerSettings", "AllowFlyerCarryPVE",                    bool),
+    ("always_allow_structure_pickup",         "ServerSettings", "AlwaysAllowStructurePickup",            bool),
     ("disable_structure_decay_pve",           "ServerSettings", "DisableStructureDecayPVE",              bool),
     ("disable_dino_decay_pve",                "ServerSettings", "DisableDinoDecayPVE",                   bool),
     ("prevent_offline_pvp",                   "ServerSettings", "PreventOfflinePVP",                     bool),
@@ -592,6 +593,7 @@ def populate_config_from_game_ini(
         ("use_tame_limit_for_structures_only",       "bUseTameLimitForStructuresOnly"),
         ("disable_dino_riding",                      "bDisableDinoRiding"),
         ("disable_dino_taming",                      "bDisableDinoTaming"),
+        ("allow_flyer_speed_leveling",               "bAllowFlyerSpeedLeveling"),
         ("disable_friendly_fire_pvp",                "bDisableFriendlyFire"),
         ("disable_friendly_fire_pve",                "bPvEDisableFriendlyFire"),
         ("disable_loot_crates",                      "bDisableLootCrates"),
@@ -1514,6 +1516,7 @@ class ArkIniManager:
             ("TamedDinoTorporDrainMultiplier",           adv.tamed_dino_torpor_drain_multiplier,      float),
             ("BabyCuddleLoseImprintQualitySpeedMultiplier", adv.baby_cuddle_lose_imprint_quality_speed_multiplier, float),
             ("bUseTameLimitForStructuresOnly",           adv.use_tame_limit_for_structures_only,      bool),
+            ("bAllowFlyerSpeedLeveling",                adv.allow_flyer_speed_leveling,              bool),
             ("BaseTemperatureMultiplier",                adv.base_temperature_multiplier,             float),
             # PvP/PvE
             ("bDisableFriendlyFire",                    adv.disable_friendly_fire_pvp,               bool),

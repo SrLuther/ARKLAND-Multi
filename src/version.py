@@ -3,11 +3,40 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.91"
-BUILD_DATE: str = "2026-06-24"
+APP_VERSION: str = "1.9.94"
+BUILD_DATE: str = "2026-06-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.94",
+        "date": "2026-06-24",
+        "changes": [
+            "Remove (Caddy): integração Caddy removida — HTTPS público via Cloudflare Tunnel ou proxy externo.",
+            "Fix (Web Store): diagnóstico testa HTTPS no domínio real; status sem referências a Caddy/modem.",
+            "Fix (DB): painel Banco de Dados rolável — browser 720px sem cortar backup/ações.",
+            "Feat (Jogo): upar speed em voadores (bAllowFlyerSpeedLeveling) e recolher estruturas (AlwaysAllowStructurePickup).",
+        ],
+    },
+    {
+        "version": "1.9.93",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (Web Store): primeira carga não trava mais — migrate MySQL em background, "
+            "timeout de conexão 5s, cache do config.json.",
+            "Fix (Web Store): boot honesto — status mostra erro real (loja offline, catálogo, banco) "
+            "em vez de ficar em «Inicializando».",
+            "Fix (CustomShop): /shop e WebsiteUrl usam IP público; WebApiUrl usa LAN (v1.9.91–92).",
+        ],
+    },
+    {
+        "version": "1.9.92",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (CustomShop): /shop mostra link http://IP:27199 que funciona hoje — "
+            "WebsiteUrl do plugin não depende mais do domínio público fora do ar.",
+        ],
+    },
     {
         "version": "1.9.91",
         "date": "2026-06-20",

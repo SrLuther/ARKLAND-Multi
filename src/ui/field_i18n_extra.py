@@ -104,6 +104,7 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     "max_platform_saddle_structures": "Máx. estruturas em sela de plataforma",
     "override_structure_platform_prevention": "Substituir bloqueio de plataforma",
     "flyer_platform_allow_unaligned_dino_basing": "Dino desalinhado em plataforma voadora",
+    "always_allow_structure_pickup": "Permitir recolher estruturas colocadas",
     "enable_structure_decay_pve": "Deterioração de estruturas em PvE",
     "pve_structure_decay_period_multiplier": "Período de deterioração de estruturas (PvE)",
     "pve_structure_decay_destruction_period": "Destruição após deterioração (PvE)",
@@ -229,6 +230,8 @@ EXTRA_HINTS: dict[str, str] = {
     "limit_turrets_num": "Número máximo de torretas dentro do raio configurado.",
     "limit_turrets_range": "Raio em unidades do jogo para contar torretas.",
     "enable_structure_decay_pve": "Remove bases abandonadas automaticamente em PvE.",
+    "always_allow_structure_pickup": "Permite recolher estruturas já colocadas (tecla padrão: E).",
+    "allow_flyer_speed_leveling": "Libera o stat Movement Speed em voadores para upar com pontos de nível.",
     "disable_structure_placement_collision": "Permite sobrepor estruturas (risco de meshing).",
     # Ambiente
     "harvest_amount_multiplier": "Quantidade por golpe. 2.0 = dobro de recurso por hit.",

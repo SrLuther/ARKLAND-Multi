@@ -258,7 +258,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "override_max_experience_points_player", "override_max_experience_points_dino",
     ]
     bool_gs = [
-        "allow_flyer_carry_pve", "disable_structure_decay_pve", "disable_dino_decay_pve",
+        "allow_flyer_carry_pve", "always_allow_structure_pickup", "disable_structure_decay_pve", "disable_dino_decay_pve",
         "prevent_offline_pvp", "show_map_player_location", "allow_third_person_player",
         "always_notify_player_joined", "always_notify_player_left",
         "server_hardcore", "server_pvp", "no_tribute_downloads",
@@ -328,6 +328,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "force_flyer_explosives",
         # v1.3.21
         "use_tame_limit_for_structures_only", "disable_dino_riding", "disable_dino_taming",
+        "allow_flyer_speed_leveling",
         "disable_friendly_fire_pvp", "disable_friendly_fire_pve", "disable_loot_crates",
         "increase_pvp_respawn_interval", "allow_tribe_war_pve", "allow_tribe_war_cancel_pve",
         "allow_custom_recipes", "use_corpse_locator", "allow_unlimited_respecs",

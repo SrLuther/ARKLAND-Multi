@@ -4852,8 +4852,6 @@ function applyRoleUi() {
     if (shopNav) nav(shopNav);
   }
 
-  loadHome();
-  loadCatalog();
   if (_auth.authenticated) refreshPlayerBalance();
 }
 
@@ -5180,9 +5178,11 @@ function _renderProductCard(i, btnLabel) {
 }
 
 async function loadCatalog() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const r = await fetch(API + "/api/catalog");
-    if (!r.ok) return;
+    const r = await fetch(API + "/api/catalog", { signal: ctrl.signal });
+    if (!r.ok) return false;
     const data = await r.json();
     if (data.currency) applyCurrency(data.currency);
     const shop = data.items || data.ShopItems || data.Items || {};
@@ -5263,7 +5263,13 @@ async function loadCatalog() {
     if (_catalogActiveTab === "recharge") renderRecharge();
     updateCatalogPoints();
     if (typeof RedeemDocs !== "undefined") RedeemDocs.mountCategoryDoc(_catalogActiveTab);
-  } catch (e) { console.warn("loadCatalog:", e); }
+    return true;
+  } catch (e) {
+    console.warn("loadCatalog:", e);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function renderCatalogItems() {
@@ -9886,21 +9892,28 @@ function renderAmberLoreSection(lore) {
 
 async function loadHome() {
   const root = document.getElementById("home-root");
-  if (!root) return;
+  if (!root) return false;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const r = await fetch(API + "/api/public/home");
+    const r = await fetch(API + "/api/public/home", { signal: ctrl.signal });
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao carregar");
     if (d.currency) applyCurrency(d.currency);
     renderHomePage(d);
+    return true;
   } catch (e) {
     root.innerHTML = `
       <div class="home-section" style="text-align:center;padding:40px;">
-        <div style="font-size:32px;margin-bottom:12px;">🔥</div>
-        <div class="home-section__title" style="justify-content:center;">ARKLAND DONATIONS</div>
-        <p style="color:var(--text2);margin:16px 0;">Portal de doações e resgates para servidores ARK.</p>
-        <button class="btn btn-primary" onclick="goToPage('catalog')">Ver catálogo</button>
+        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <div class="home-section__title" style="justify-content:center;">Não foi possível carregar a home</div>
+        <p style="color:var(--danger);margin:16px 0;">${escHtml(e.message || "API indisponível")}</p>
+        <p style="color:var(--text2);margin:0 0 16px;font-size:13px;">Verifique se a Web Store está rodando no TEK e se o banco MySQL responde.</p>
+        <button class="btn btn-primary" onclick="goToPage('catalog')">Tentar catálogo</button>
       </div>`;
+    return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -10435,18 +10448,40 @@ async function viewAdminTimeline(orderId) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 (async () => {
-  await loadAuth();
-  applyRoleUi();
-  showAuthOverlay(false);
+  setStatus(false, "Conectando…");
+  try {
+    await loadAuth();
+    applyRoleUi();
+    showAuthOverlay(false);
 
-  if (_auth.is_admin) {
-    await loadSettings();
-    await loadPlayers();
-    await loadConfig();
-    await loadServers();
+    setStatus(false, "Carregando catálogo…");
+    const [homeOk, catalogOk] = await Promise.all([loadHome(), loadCatalog()]);
+
+    if (!catalogOk) {
+      setStatus(
+        false,
+        homeOk
+          ? "Catálogo indisponível — confira config.json no TEK"
+          : "Loja offline — inicie Web Store / MariaDB no TEK",
+      );
+    } else if (!homeOk) {
+      setStatus(true, "Catálogo ok · home com erro");
+    } else {
+      setStatus(true, "Loja online");
+    }
+
+    const tail: Promise<unknown>[] = [loadDownloads()];
+    if (_auth.authenticated) tail.push(loadMyArea());
+    if (_auth.is_admin) {
+      tail.push((async () => {
+        await Promise.all([loadSettings(), loadPlayers(), loadConfig(), loadServers()]);
+        if (catalogOk) setStatus(true, "Painel admin pronto");
+      })());
+    }
+    await Promise.all(tail);
+  } catch (e) {
+    setStatus(false, "Falha ao iniciar: " + (e.message || e));
   }
-  if (_auth.authenticated) await loadMyArea();
-  await loadDownloads();
 
   wrapTablesForScroll(document.getElementById("main"));
   const mainEl = document.getElementById("main");

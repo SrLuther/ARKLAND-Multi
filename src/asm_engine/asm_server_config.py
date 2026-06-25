@@ -176,6 +176,7 @@ class AsmServerConfig:
     allow_anyone_baby_imprint:           bool  = False
     disable_dino_riding:                 bool  = False
     disable_dino_taming:                 bool  = False
+    allow_flyer_speed_leveling:          bool  = False   # bAllowFlyerSpeedLeveling (Game.ini)
     passive_tame_interval_multiplier:    float = 1.0
     dino_harvesting_damage_multiplier:   float = 3.2
     allow_cave_flyers:                   bool  = False   # CLI flag -ForceAllowCaveFlyers
@@ -313,6 +314,7 @@ class AsmServerConfig:
     structure_damage_repair_cooldown:            int   = 180
     override_structure_platform_prevention:      bool  = False
     flyer_platform_allow_unaligned_dino_basing:  bool  = False
+    always_allow_structure_pickup:               bool  = False   # AlwaysAllowStructurePickup (GUS)
     pve_allow_structures_at_supply_drops:        bool  = False
     only_auto_destroy_core_structures:           bool  = False
     only_decay_unsnapped_core_structures:        bool  = False

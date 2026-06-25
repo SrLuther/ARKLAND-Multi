@@ -120,6 +120,7 @@ INI_MAP: dict[str, tuple] = {
     "allow_anyone_baby_imprint":            ("GUS","ServerSettings","AllowAnyoneBabyImprintCuddle",           {}),
     "disable_dino_riding":                  ("Game","GameMode",     "bDisableDinoRiding",                     {}),
     "disable_dino_taming":                  ("Game","GameMode",     "bDisableDinoTaming",                     {}),
+    "allow_flyer_speed_leveling":           ("Game","GameMode",     "bAllowFlyerSpeedLeveling",               {}),
     "passive_tame_interval_multiplier":     ("Game","GameMode",     "PassiveTameIntervalMultiplier",          {}),
     "dino_harvesting_damage_multiplier":    ("GUS","ServerSettings","DinoHarvestingDamageMultiplier",         {}),
     "disable_dino_decay_pve":               ("GUS","ServerSettings","DisableDinoDecayPvE",                   {}),
@@ -260,6 +261,7 @@ INI_MAP: dict[str, tuple] = {
     "structure_damage_repair_cooldown":            ("GUS", "ServerSettings","StructureDamageRepairCooldown",                 {}),  # GUS ServerSettings (não Game.ini)
     "override_structure_platform_prevention":      ("GUS","ServerSettings","OverrideStructurePlatformPrevention",           {}),
     "flyer_platform_allow_unaligned_dino_basing":  ("Game","GameMode",     "bFlyerPlatformAllowUnalignedDinoBasing",        {}),
+    "always_allow_structure_pickup":               ("GUS","ServerSettings","AlwaysAllowStructurePickup",                    {}),
     "pve_allow_structures_at_supply_drops":        ("GUS","ServerSettings","PvEAllowStructuresAtSupplyDrops",               {}),
     "only_auto_destroy_core_structures":           ("GUS","ServerSettings","OnlyAutoDestroyCoreStructures",                 {}),
     "only_decay_unsnapped_core_structures":        ("GUS","ServerSettings","OnlyDecayUnsnappedCoreStructures",              {}),

@@ -79,8 +79,8 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
         except Exception:
             pass
 
-    # ── Reutiliza frame em cache ───────────────────────────────────────────
-    if cache_key in app._frame_cache:
+    # ── Reutiliza frame em cache (database sempre reconstrói — layout dinâmico) ─
+    if name != "database" and cache_key in app._frame_cache:
         cached = app._frame_cache[cache_key]
         try:
             if cached.winfo_exists():
@@ -114,13 +114,25 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
         app._frame_cache.pop(cache_key, None)
 
     # ── Constrói novo frame ───────────────────────────────────────────────
+    if name == "database":
+        prev = getattr(app, "_database_frame", None)
+        if prev is not None:
+            try:
+                if prev.winfo_exists():
+                    prev.destroy()
+            except Exception:
+                pass
+
     frame = ctk.CTkFrame(app._page_area, fg_color=get_theme("tek")["bg"],
                          corner_radius=0)
     frame.grid(row=0, column=0, sticky="nsew")
     frame.grid_rowconfigure(0, weight=1)
     frame.grid_columnconfigure(0, weight=1)
     app._current_frame = frame
-    app._frame_cache[cache_key] = frame
+    if name == "database":
+        app._database_frame = frame
+    elif name != "database":
+        app._frame_cache[cache_key] = frame
 
     _dispatch_tek_frame(app, name, frame, kwargs)
 

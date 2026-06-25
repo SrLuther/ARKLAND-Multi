@@ -8,34 +8,48 @@ from src.shop_integration import (
     ShopConnectivityReport,
     diagnose_shop_connectivity,
     diagnose_webstore_access,
-    probe_local_caddy_https,
+    probe_public_https,
 )
 
 
 def test_status_label_players_ok():
-    r = ShopConnectivityReport(local_ok=True, public_ok=True, www_ok=True, wan_ok=True)
+    r = ShopConnectivityReport(local_ok=True, public_ok=True, www_ok=True)
     assert r.status_label() == "Online · jogadores"
 
 
-def test_status_label_modem_blocks():
-    r = ShopConnectivityReport(local_ok=True, public_ok=True, wan_ok=False)
-    assert r.status_label() == "Online · modem bloqueia"
+def test_status_label_lan_only():
+    r = ShopConnectivityReport(local_ok=True, lan_ok=True, public_ok=False)
+    assert r.status_label() == "Online · LAN"
 
 
-def test_status_label_caddy_local_only():
-    r = ShopConnectivityReport(local_ok=True, public_ok=True, wan_ok=None)
-    assert r.status_label() == "Online · Caddy local"
+def test_status_label_domain_partial():
+    r = ShopConnectivityReport(local_ok=True, public_ok=True, www_ok=False)
+    assert r.status_label() == "Online · domínio parcial"
 
 
-def test_host_players_ok_requires_wan():
+def test_host_players_ok_when_https_works():
     shop = ShopGlobalConfig(mode="host", host_ip="192.168.1.10", port=27199)
     report = ShopConnectivityReport(
         local_ok=True,
         lan_ok=True,
         public_ok=True,
         www_ok=True,
-        wan_ok=False,
-        lines=["Internet: FALHOU"],
+        lines=["HTTPS: OK"],
+    )
+    with patch("src.shop_integration.diagnose_shop_connectivity", return_value=report):
+        ok, msg, local_ok = diagnose_webstore_access(shop)
+    assert ok is True
+    assert local_ok is True
+
+
+def test_host_not_ok_when_domain_fails():
+    shop = ShopGlobalConfig(mode="host", host_ip="192.168.1.10", port=27199)
+    report = ShopConnectivityReport(
+        local_ok=True,
+        lan_ok=True,
+        public_ok=False,
+        www_ok=False,
+        lines=["HTTPS: FALHOU"],
     )
     with patch("src.shop_integration.diagnose_shop_connectivity", return_value=report):
         ok, msg, local_ok = diagnose_webstore_access(shop)
@@ -49,15 +63,14 @@ def test_host_full_ok():
         local_ok=True,
         public_ok=True,
         www_ok=True,
-        wan_ok=True,
-        lines=["Internet: OK"],
+        lines=["HTTPS: OK"],
     )
     with patch("src.shop_integration.diagnose_shop_connectivity", return_value=report):
         ok, msg, local_ok = diagnose_webstore_access(shop)
     assert ok is True
 
 
-def test_diagnose_flags_modem_when_wan_closed():
+def test_diagnose_uses_public_https():
     shop = ShopGlobalConfig(
         mode="host",
         host_ip="192.168.15.51",
@@ -71,27 +84,26 @@ def test_diagnose_flags_modem_when_wan_closed():
             return True, "ok"
         if "192.168" in url:
             return True, "ok"
+        if url.startswith("https://arkland.com.br"):
+            return True, "loja online"
+        if url.startswith("https://www.arkland.com.br"):
+            return True, "www ok"
         return False, "timeout"
 
     with patch("src.shop_integration.test_shop_connection", side_effect=_fake_test), patch(
-        "src.shop_integration.probe_local_caddy_https", return_value=(True, "ok")
-    ), patch("src.shop_integration.fetch_public_ip", return_value=(True, "1.2.3.4")), patch(
-        "src.shop_integration.resolve_dns_ipv4", return_value=(True, "1.2.3.4")
-    ), patch("src.shop_integration.probe_wan_tcp_port", return_value=(False, "fechada")), patch(
-        "src.caddy_proxy._port_open", return_value=True
-    ):
+        "src.shop_integration.fetch_public_ip", return_value=(True, "1.2.3.4")
+    ), patch("src.shop_integration.resolve_dns_ipv4", return_value=(True, "104.21.0.1")):
         report = diagnose_shop_connectivity(shop)
 
     assert report.public_ok
-    assert report.wan_ok is False
-    assert not report.players_ok
-    assert any("modem" in line.lower() for line in report.lines)
+    assert report.www_ok
+    assert report.players_ok
+    assert any("HTTPS (arkland.com.br)" in line for line in report.lines)
+    assert not any("Caddy" in line for line in report.lines)
 
 
-def test_local_caddy_uses_host_header():
-    with patch("urllib.request.urlopen") as mock_open:
-        mock_open.return_value.__enter__.return_value.status = 200
-        ok, msg = probe_local_caddy_https("arkland.com.br")
+def test_probe_public_https_delegates_to_shop_connection():
+    with patch("src.shop_integration.test_shop_connection", return_value=(True, "ok")) as mock:
+        ok, msg = probe_public_https("arkland.com.br")
     assert ok is True
-    req = mock_open.call_args[0][0]
-    assert req.get_header("Host") == "arkland.com.br"
+    mock.assert_called_once_with("https://arkland.com.br")

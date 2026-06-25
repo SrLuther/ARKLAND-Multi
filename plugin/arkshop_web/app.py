@@ -917,7 +917,16 @@ def _configure_database(url: str) -> None:
     if not normalized:
         return
 
-    engine = create_engine(normalized, future=True)
+    connect_args: dict[str, Any] = {}
+    if "mysql" in normalized.lower():
+        connect_args = {"connect_timeout": 5, "read_timeout": 30, "write_timeout": 30}
+
+    engine = create_engine(
+        normalized,
+        future=True,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+    )
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
 
     # Registra o DB como "configurado" ANTES de create_all.
@@ -928,15 +937,19 @@ def _configure_database(url: str) -> None:
     _ACTIVE_DATABASE_URL = normalized
     _log("db_configured", url=normalized[:40] + "...")
 
-    schema_ok = False
-    try:
-        _migrate_schema(engine)
-        schema_ok = True
-    except Exception as exc:
-        log.warning("DB schema setup falhou (%s): %s — background thread tentará reconectar", normalized[:40], exc)
+    def _migrate_async() -> None:
+        try:
+            _migrate_schema(engine)
+            log.info("DB schema migrate concluído")
+        except Exception as exc:
+            log.warning(
+                "DB schema setup falhou (%s): %s — background thread tentará reconectar",
+                normalized[:40],
+                exc,
+            )
+            _start_db_reconnect_watcher()
 
-    if not schema_ok:
-        _start_db_reconnect_watcher()
+    threading.Thread(target=_migrate_async, daemon=True, name="arkshop-db-migrate").start()
 
 
 _DB_INIT_LOCK = threading.Lock()
@@ -1258,18 +1271,35 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
         db.close()
 
 
+_CONFIG_CACHE: dict[str, Any] = {"path": "", "mtime": 0.0, "data": {}}
+
+
+def _invalidate_shop_config_cache() -> None:
+    _CONFIG_CACHE.update({"path": "", "mtime": 0.0, "data": {}})
+
+
 def _read_shop_config() -> dict[str, Any]:
     s = _load_settings()
     path = Path(s.get("config_path", _DEFAULT_CONFIG_PATH))
     if not path.exists():
         return {}
     try:
+        mtime = path.stat().st_mtime
+        path_key = str(path.resolve())
+        if (
+            _CONFIG_CACHE.get("path") == path_key
+            and _CONFIG_CACHE.get("mtime") == mtime
+            and isinstance(_CONFIG_CACHE.get("data"), dict)
+        ):
+            return _CONFIG_CACHE["data"]
         text_body = path.read_text(encoding="utf-8-sig")
         try:
-            return json.loads(text_body)
+            data = json.loads(text_body)
         except json.JSONDecodeError:
             cleaned = re.sub(r"//[^\n]*", "", text_body)
-            return json.loads(cleaned)
+            data = json.loads(cleaned)
+        _CONFIG_CACHE.update({"path": path_key, "mtime": mtime, "data": data})
+        return data
     except Exception:
         return {}
 
@@ -2658,6 +2688,7 @@ def save_config():
         admin=_steam_id_from_session(),
         errors=len(write_errors),
     )
+    _invalidate_shop_config_cache()
     return jsonify({
         "ok": True,
         "written": written,
@@ -3110,6 +3141,7 @@ def _write_catalog_data(data: dict[str, Any]) -> bool:
         return False
     try:
         path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        _invalidate_shop_config_cache()
         return True
     except Exception as exc:
         log.error("Erro ao salvar config catálogo: %s", exc)
@@ -4952,4 +4984,4 @@ register_cross_chat_routes(
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5177))
     log.info("ArkShop Web Manager rodando em http://127.0.0.1:%d", port)
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=True)

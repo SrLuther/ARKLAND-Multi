@@ -396,6 +396,8 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
        "prevent_mate_boost", gs.prevent_mate_boost)
     _b("Voadores Recuperam Stamina em Voo",
        "allow_flying_stamina_recovery", gs.allow_flying_stamina_recovery)
+    _ab("Upar Velocidade em Voadores (Game.ini)",
+        "allow_flyer_speed_leveling", adv.allow_flyer_speed_leveling)
     _af("Intervalo de Domesticação Passiva",
         "Multiplicador do intervalo de domesticação passiva (comedouros). Menor = domestica mais rápido.",
         "passive_tame_interval_multiplier",
@@ -538,6 +540,8 @@ def build_tab_game(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -> N
     _b("Clima — Desativar Névoa",                        "disable_weather_fog",                   gs.disable_weather_fog)
 
     _s("🏗️  Estruturas")
+    _b("Permitir Recolher Estruturas",
+       "always_allow_structure_pickup", gs.always_allow_structure_pickup)
     _i("Máx. Estruturas Visíveis",
        "Número máximo de estruturas dentro do raio de renderização. Padrão ARK: 10500.",
        "max_structures_visible", gs.max_structures_visible)

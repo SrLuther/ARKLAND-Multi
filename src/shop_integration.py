@@ -5,7 +5,6 @@ import json
 import re
 import shutil
 import socket
-import ssl
 import subprocess
 import sys
 import urllib.error
@@ -168,11 +167,29 @@ def resolve_website_url(shop: "ShopGlobalConfig") -> str:
     return resolve_central_url(shop)
 
 
+def resolve_plugin_website_url(shop: "ShopGlobalConfig") -> str:
+    """URL gravada em WebsiteUrl do plugin (/shop no chat).
+
+    Modo Host: IP público:porta (modem já libera 27199) — não depende do domínio.
+    Modo Cliente: domínio/URL remota como resolve_website_url.
+    """
+    if (shop.mode or "client") != "host":
+        return resolve_website_url(shop)
+    pub_ip = (shop.public_ip or "").strip()
+    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+    if pub_ip:
+        return f"http://{pub_ip}:{port}"
+    host = (shop.host_ip or "").strip()
+    if host:
+        return f"http://{host}:{port}"
+    return resolve_website_url(shop)
+
+
 def resolve_plugin_api_url(shop: "ShopGlobalConfig") -> str:
     """URL HTTP que o CustomShop.dll usa para a API da web store.
 
     Modo Host: plugins na LAN usam IP:porta da loja — entrega não depende do
-    domínio público (Caddy/Cloudflare). Modo Cliente: aponta para a loja remota.
+    domínio público (ex.: Cloudflare Tunnel). Modo Cliente: aponta para a loja remota.
     """
     if (shop.mode or "client") == "client":
         domain = effective_shop_public_url(shop)
@@ -214,6 +231,7 @@ def shop_access_urls(shop: "ShopGlobalConfig") -> dict[str, str]:
         "shop_url": shop_url,
         "central": resolve_central_url(shop),
         "plugin_api": resolve_plugin_api_url(shop),
+        "plugin_website": resolve_plugin_website_url(shop),
         "remote": shop.mode == "client",
     }
 
@@ -828,50 +846,12 @@ def test_shop_connection(url: str, api_key: str = "") -> Tuple[bool, str]:
     return False, "Sem resposta"
 
 
-def probe_local_caddy_https(hostname: str, path: str = "/api/auth/me") -> Tuple[bool, str]:
-    """Testa HTTPS no Caddy local (127.0.0.1:443) com Host=SNI — sem hairpin do modem."""
+def probe_public_https(hostname: str) -> Tuple[bool, str]:
+    """Testa HTTPS no domínio público (Cloudflare Tunnel, proxy externo, etc.)."""
     host = re.sub(r"^https?://", "", (hostname or "").strip().lower()).split("/")[0].strip()
     if not host:
         return False, "domínio vazio"
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    try:
-        req = urllib.request.Request(f"https://127.0.0.1{path}", headers={"Host": host})
-        with urllib.request.urlopen(req, context=ctx, timeout=5) as resp:
-            if resp.status == 200:
-                return True, "Caddy responde"
-            return True, f"HTTP {resp.status}"
-    except urllib.error.HTTPError as exc:
-        if exc.code in (401, 403, 404, 405):
-            return True, f"Caddy online (HTTP {exc.code})"
-        return False, f"HTTP {exc.code}"
-    except Exception as exc:
-        return False, str(exc)
-
-
-def probe_wan_tcp_port(port: int, timeout: float = 18.0) -> Tuple[Optional[bool], str]:
-    """Pede verificação externa se a porta TCP está aberta na internet (IP de saída)."""
-    port = max(1, int(port))
-    try:
-        payload = json.dumps({"port": port}).encode("utf-8")
-        req = urllib.request.Request(
-            "https://portchecker.io/api/v1/check",
-            data=payload,
-            headers={"Content-Type": "application/json", "User-Agent": "ARKLAND/1.0"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            data = json.loads(resp.read().decode("utf-8", errors="replace"))
-        if isinstance(data, dict):
-            if data.get("open") is True or data.get("status") == "open":
-                return True, "porta aberta na internet"
-            if data.get("open") is False or data.get("status") == "closed":
-                return False, "porta fechada na internet (modem/firewall)"
-        text = json.dumps(data, ensure_ascii=False)[:120]
-        return None, f"resposta inconclusiva: {text}"
-    except Exception as exc:
-        return None, f"teste externo indisponível ({exc})"
+    return test_shop_connection(f"https://{host}")
 
 
 _WEBSTORE_FW_PREFIX = "ARKLAND-WebStore-"
@@ -974,10 +954,7 @@ class ShopConnectivityReport:
     public_msg: str = ""
     www_ok: bool = False
     www_msg: str = ""
-    wan_ok: Optional[bool] = None
-    wan_msg: str = ""
     public_url: str = ""
-    caddy_listening: bool = False
     public_ip: str = ""
     dns_ip: str = ""
     dns_ok: bool = False
@@ -989,21 +966,17 @@ class ShopConnectivityReport:
 
     @property
     def players_ok(self) -> bool:
-        if self.wan_ok is False:
-            return False
-        if self.wan_ok is True:
-            return self.public_ok and self.www_ok
-        return False
+        return self.public_ok and self.www_ok
 
     def status_label(self) -> str:
         if not self.process_up:
             return "Offline"
         if self.players_ok:
             return "Online · jogadores"
-        if self.public_ok and self.wan_ok is False:
-            return "Online · modem bloqueia"
-        if self.public_ok or self.lan_ok:
-            return "Online · Caddy local"
+        if self.lan_ok:
+            return "Online · LAN"
+        if self.public_ok:
+            return "Online · domínio parcial"
         return "Online · só local"
 
     def status_color(self) -> str:
@@ -1015,7 +988,7 @@ class ShopConnectivityReport:
 
 
 def diagnose_shop_connectivity(shop: "ShopGlobalConfig") -> ShopConnectivityReport:
-    """Testa local, LAN, domínio público, Caddy e coerência DNS ↔ IP público."""
+    """Testa local, LAN, domínio HTTPS público e coerência DNS."""
     report = ShopConnectivityReport()
     port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
     host = (shop.host_ip or "").strip() or get_local_ip()
@@ -1035,17 +1008,12 @@ def diagnose_shop_connectivity(shop: "ShopGlobalConfig") -> ShopConnectivityRepo
         elif ok_dns and (shop.public_ip or "").strip():
             report.dns_ok = report.dns_ip == (shop.public_ip or "").strip()
 
-    try:
-        from .caddy_proxy import _port_open
-
-        report.caddy_listening = _port_open(443)
-    except Exception:
-        report.caddy_listening = False
-
     if shop.mode == "client":
         report.public_ok, report.public_msg = test_shop_connection(public_url)
         report.local_ok = report.public_ok
         report.local_msg = report.public_msg
+        report.www_ok = report.public_ok
+        report.www_msg = report.public_msg
         report.lines = [
             f"Domínio ({public_url}): {'OK' if report.public_ok else 'FALHOU'} — {report.public_msg}",
         ]
@@ -1060,36 +1028,19 @@ def diagnose_shop_connectivity(shop: "ShopGlobalConfig") -> ShopConnectivityRepo
         report.lan_ok = False
         report.lan_msg = "IP LAN não configurado"
 
-    report.public_ok, report.public_msg = probe_local_caddy_https(domain)
-    www_host = f"www.{domain}" if domain and not domain.startswith("www.") else domain
-    if www_host and www_host != domain:
-        report.www_ok, report.www_msg = probe_local_caddy_https(www_host)
-    elif domain:
-        report.www_ok, report.www_msg = report.public_ok, report.public_msg
-
-    if report.caddy_listening and report.public_ip:
-        report.wan_ok, report.wan_msg = probe_wan_tcp_port(443)
-
-    report.lines.append(
-        f"Caddy ({domain}): {'OK' if report.public_ok else 'FALHOU'} — {report.public_msg}"
-    )
-    if www_host and www_host != domain:
-        report.lines.append(
-            f"Caddy (www): {'OK' if report.www_ok else 'FALHOU'} — {report.www_msg}"
-        )
-    if report.wan_ok is True:
-        report.lines.append(f"Internet (443): OK — {report.wan_msg}")
-    elif report.wan_ok is False:
-        report.lines.append(
-            f"Internet (443): FALHOU — {report.wan_msg} "
-            "(modem deve encaminhar 443 → este PC)"
-        )
+    if domain:
+        report.public_ok, report.public_msg = probe_public_https(domain)
+        www_host = f"www.{domain}" if not domain.startswith("www.") else domain
+        if www_host != domain:
+            report.www_ok, report.www_msg = probe_public_https(www_host)
+        else:
+            report.www_ok, report.www_msg = report.public_ok, report.public_msg
     else:
-        report.lines.append(f"Internet (443): ? — {report.wan_msg}")
-    if report.public_ok and report.wan_ok is False:
-        report.lines.append(
-            "Caddy OK neste PC, mas jogadores de fora não alcançam — confira encaminhamento 443 no modem"
-        )
+        report.public_ok = False
+        report.public_msg = "domínio não configurado"
+        report.www_ok = False
+        report.www_msg = report.public_msg
+
     report.lines.insert(
         0,
         f"Local ({local_url}): {'OK' if report.local_ok else 'FALHOU'} — {report.local_msg}",
@@ -1101,22 +1052,24 @@ def diagnose_shop_connectivity(shop: "ShopGlobalConfig") -> ShopConnectivityRepo
             f"LAN ({lan_url}): {'OK' if report.lan_ok else 'FALHOU'} — {report.lan_msg}"
             + ("" if report.lan_ok else f" (firewall {fw})"),
         )
+    if domain:
+        report.lines.append(
+            f"HTTPS ({domain}): {'OK' if report.public_ok else 'FALHOU'} — {report.public_msg}"
+        )
+        www_host = f"www.{domain}" if not domain.startswith("www.") else domain
+        if www_host != domain:
+            report.lines.append(
+                f"HTTPS (www): {'OK' if report.www_ok else 'FALHOU'} — {report.www_msg}"
+            )
     if report.public_ip:
         report.lines.append(f"IP público detectado: {report.public_ip}")
     if report.dns_ip:
-        dns_state = "OK" if report.dns_ok else "DIVERGENTE"
+        dns_state = "OK" if report.dns_ok else "fora do IP local (túnel/proxy?)"
         report.lines.append(f"DNS {domain} → {report.dns_ip} ({dns_state})")
-    if report.local_ok and not report.public_ok:
-        if not report.caddy_listening:
-            report.lines.append("Caddy: porta 443 fechada — inicie o HTTPS no painel")
-        elif not report.dns_ok and report.dns_ip and report.public_ip:
-            report.lines.append(
-                "DNS não aponta para o IP público desta máquina — atualize o registro A"
-            )
-        elif report.caddy_listening:
-            report.lines.append(
-                "Caddy escuta 443 mas o domínio não responde — reinicie Caddy ou confira modem 80/443"
-            )
+    if report.local_ok and domain and not report.public_ok:
+        report.lines.append(
+            "Loja local OK, mas o domínio HTTPS não responde — confira Cloudflare Tunnel / DNS"
+        )
     return report
 
 
@@ -1559,7 +1512,7 @@ def sync_all_plugins(
     asm_cm: Optional["AsmConfigManager"] = None,
 ) -> Tuple[List[str], List[str]]:
     """Retorna (sucessos, erros)."""
-    website = resolve_website_url(shop)
+    website = resolve_plugin_website_url(shop)
     api = resolve_plugin_api_url(shop)
     api_key = shop.api_key or ""
     db_settings = build_plugin_database_settings(shop)

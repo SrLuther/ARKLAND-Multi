@@ -22,15 +22,6 @@ import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..rcon_client import RconClient
 from ..rcon_util import CUSTOMSHOP_RELOAD_COMMANDS, sanitize_rcon_password
 from ..shop_catalog_import import import_catalog_from_file
-from ..caddy_proxy import (
-    caddy_status,
-    ensure_caddy_firewall,
-    install_caddy,
-    register_caddy_autostart,
-    restart_caddy,
-    start_caddy,
-    stop_caddy,
-)
 from ..shop_integration import (
     DEFAULT_REMOTE_SHOP_HOST,
     DEFAULT_REMOTE_SHOP_PUBLIC_IP,
@@ -54,6 +45,7 @@ from ..shop_integration import (
     read_webstore_log_tail,
     resolve_central_url,
     resolve_plugin_api_url,
+    resolve_plugin_website_url,
     resolve_public_shop_url,
     resolve_website_url,
     resolve_webstore_executable,
@@ -627,7 +619,7 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             s_out["MarketCryoMinDaysRemaining"] = _safe_int(
                 _sv["MarketCryoMinDaysRemaining"].get(), 20)
             s_out["MarketCryoDebug"]      = _sv["MarketCryoDebug"].get()
-            central = resolve_website_url(shop_cfg)
+            central = resolve_plugin_website_url(shop_cfg)
             s_out["WebsiteUrl"] = central
             s_out["WebApiUrl"] = resolve_plugin_api_url(shop_cfg)
             s_out["WebApiKey"] = shop_cfg.api_key or s_out.get("WebApiKey", "")
@@ -1348,13 +1340,6 @@ def auto_start_webstore(app: "ARKServerManagerApp") -> None:
             return
         import time as _t
         _t.sleep(4)
-        from ..caddy_proxy import auto_start_caddy
-        auto_start_caddy(
-            shop,
-            on_log=lambda m, lvl: __import__("logging").getLogger(__name__).log(
-                20 if lvl == "info" else 30, "auto_start_caddy: %s", m
-            ),
-        )
 
     # Roda em thread para não bloquear a UI durante o wait do MariaDB
     threading.Thread(target=_launch, daemon=True, name="WebStoreLauncher").start()
@@ -1402,8 +1387,6 @@ def _build_webstore_tab(
 
     shop = app.config_manager.config.shop
     _port_var = tk.StringVar(value=str(shop.port or DEFAULT_SHOP_PORT))
-    _caddy_dir_var = tk.StringVar(value=getattr(shop, "caddy_dir", "") or r"C:\caddy")
-    _caddy_auto_var = tk.BooleanVar(value=bool(getattr(shop, "caddy_auto_start", True)))
 
     from src.shop_integration import _db_manager_prefs
 
@@ -1437,8 +1420,6 @@ def _build_webstore_tab(
         raw_pass = _odb_pass.get()
         if not _is_placeholder_db_password(raw_pass):
             shop.orders_db_password = raw_pass
-        shop.caddy_dir = _caddy_dir_var.get().strip()
-        shop.caddy_auto_start = bool(_caddy_auto_var.get())
         app.config_manager.save()
         host = shop.orders_db_host.strip()
         user = shop.orders_db_user.strip()
@@ -1518,9 +1499,11 @@ def _build_webstore_tab(
                 fg="gray45",
             )
         shop_pub = urls.get("shop_url") or urls.get("public_url") or ""
+        plugin_shop = urls.get("plugin_website") or ""
         if shop_pub:
             _public_url_lbl.config(
-                text=f"🛒  Loja (jogadores): {shop_pub}",
+                text=f"🛒  Loja (jogadores): {shop_pub}"
+                + (f"  ·  /shop → {plugin_shop}" if plugin_shop and plugin_shop != shop_pub else ""),
                 fg="#a78bfa",
             )
         else:
@@ -1687,8 +1670,8 @@ def _build_webstore_tab(
     _public_url_lbl.pack(anchor="w", padx=10, pady=(0, 4))
     tk.Label(
         card_mode,
-        text="DNS do domínio → IP público desta máquina (Detectar). "
-             "Modem libera 80/443 → este PC. Caddy (443) encaminha para a loja local.",
+        text="DNS do domínio → túnel/proxy (ex.: Cloudflare) ou IP público. "
+             "A loja local roda em http://IP-LAN:porta; o HTTPS público é externo.",
         bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
     ).pack(anchor="w", padx=10, pady=(0, 8))
     _central_url_lbl.config(text=f"🔌  API plugins → {resolve_plugin_api_url(shop)}")
@@ -1772,7 +1755,6 @@ def _build_webstore_tab(
                     text=f"Diagnóstico: {detail} — {url}",
                     fg="#22c55e" if report.players_ok else ("#f59e0b" if report.process_up else "#ef4444"),
                 )
-                _refresh_caddy_status()
 
             parent.after(0, _done)
 
@@ -1856,125 +1838,7 @@ def _build_webstore_tab(
         bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
     ).pack(anchor="w", padx=10, pady=(0, 8))
 
-    # ── HTTPS / Caddy (somente host) ───────────────────────────────────────
-    card_caddy = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
-    card_caddy.pack(fill="x", padx=12, pady=6)
-    _head(card_caddy, "🔒  HTTPS / Caddy (domínio → loja)")
-
-    tk.Label(
-        card_caddy,
-        text="Proxy reverso: https://arkland.com.br (443) → Web Store local. "
-             "Instale uma vez; depois use Iniciar/Parar/Reiniciar aqui.",
-        bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10), wraplength=720, justify="left",
-    ).pack(anchor="w", padx=10, pady=(0, 4))
-
-    _field_row(card_caddy, "Pasta do Caddy", _caddy_dir_var, bg=_INNER,
-               hint=r"Padrão: C:\caddy", width=280)
-
-    caddy_status_row = tk.Frame(card_caddy, bg=_INNER)
-    caddy_status_row.pack(fill="x", padx=10, pady=4)
-    caddy_dot = tk.Label(caddy_status_row, text="●", bg=_INNER, font=ctk.CTkFont(size=18))
-    caddy_dot.pack(side="left", padx=(0, 8))
-    caddy_status_lbl = tk.Label(caddy_status_row, bg=_INNER, font=ctk.CTkFont(size=12, weight="bold"))
-    caddy_status_lbl.pack(side="left")
-    caddy_detail_lbl = tk.Label(card_caddy, bg=_INNER, fg="gray50", font=ctk.CTkFont(size=10), anchor="w")
-    caddy_detail_lbl.pack(fill="x", padx=10, pady=(0, 4))
-
-    caddy_btn_row = tk.Frame(card_caddy, bg=_INNER)
-    caddy_btn_row.pack(fill="x", padx=10, pady=(2, 4))
-
-    def _refresh_caddy_status() -> None:
-        shop.caddy_dir = _caddy_dir_var.get().strip()
-        shop.caddy_auto_start = bool(_caddy_auto_var.get())
-        shop.port = _safe_int(_port_var.get(), DEFAULT_SHOP_PORT)
-        shop.public_url = _public_shop_url_var.get().strip()
-        st = caddy_status(shop)
-        ok = st["running"]
-        caddy_dot.config(fg="#22c55e" if ok else ("#f59e0b" if st.get("listening") else "#ef4444"))
-        if ok:
-            title = "HTTPS Online"
-        elif st.get("listening"):
-            title = "HTTPS parcial"
-        else:
-            title = "HTTPS Offline"
-        caddy_status_lbl.config(text=title, fg=caddy_dot.cget("fg"))
-        caddy_detail_lbl.config(
-            text=f"{st['message']} — {st['domain']} → localhost:{st['port']}",
-            fg=caddy_dot.cget("fg"),
-        )
-        caddy_btn_start.configure(state="disabled" if st.get("listening") else "normal")
-        caddy_btn_stop.configure(state="normal" if st.get("listening") else "disabled")
-
-    def _caddy_worker(fn, success_title: str = "Caddy") -> None:
-        try:
-            _save_shop_from_ui()
-        except Exception as exc:
-            messagebox.showerror(
-                success_title, f"Erro ao salvar config:\n{exc}",
-                parent=parent.winfo_toplevel(),
-            )
-            return
-
-        def _run() -> None:
-            try:
-                ok, msg = fn(shop)
-            except Exception as exc:
-                ok, msg = False, str(exc)
-
-            def _done() -> None:
-                if ok:
-                    messagebox.showinfo(success_title, msg, parent=parent.winfo_toplevel())
-                else:
-                    messagebox.showerror(success_title, msg, parent=parent.winfo_toplevel())
-                _refresh_caddy_status()
-
-            parent.after(0, _done)
-
-        threading.Thread(target=_run, daemon=True).start()
-
-    caddy_btn_install = ctk.CTkButton(
-        caddy_btn_row, text="⬇  Instalar/Atualizar", height=32,
-        fg_color="#334155", hover_color="#475569",
-        command=lambda: _caddy_worker(install_caddy, "Instalar Caddy"),
-    )
-    caddy_btn_install.pack(side="left", padx=(0, 6))
-    caddy_btn_start = ctk.CTkButton(
-        caddy_btn_row, text="▶  Iniciar", height=32,
-        fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
-        command=lambda: _caddy_worker(start_caddy),
-    )
-    caddy_btn_start.pack(side="left", padx=(0, 6))
-    caddy_btn_stop = ctk.CTkButton(
-        caddy_btn_row, text="■  Parar", height=32,
-        fg_color="#7f1d1d", hover_color="#991b1b",
-        command=lambda: _caddy_worker(stop_caddy),
-    )
-    caddy_btn_stop.pack(side="left", padx=(0, 6))
-    ctk.CTkButton(
-        caddy_btn_row, text="↻  Reiniciar", height=32,
-        fg_color=_BLUE, hover_color=_BLUE_HOVER,
-        command=lambda: _caddy_worker(restart_caddy),
-    ).pack(side="left", padx=(0, 6))
-    ctk.CTkButton(
-        caddy_btn_row, text="🔒  Firewall 80/443", height=32,
-        fg_color="#3a2a10", hover_color="#5a3a18",
-        command=lambda: _caddy_worker(lambda s: ensure_caddy_firewall(), "Firewall Caddy"),
-    ).pack(side="left", padx=(0, 6))
-    ctk.CTkButton(
-        caddy_btn_row, text="⚙  Boot Windows", height=32,
-        fg_color="#1e3a5f", hover_color="#2563eb",
-        command=lambda: _caddy_worker(register_caddy_autostart, "Boot automático"),
-    ).pack(side="left")
-
-    caddy_opt_row = tk.Frame(card_caddy, bg=_INNER)
-    caddy_opt_row.pack(fill="x", padx=10, pady=(0, 8))
-    ctk.CTkCheckBox(
-        caddy_opt_row, text="Iniciar Caddy automaticamente ao abrir o app (modo Host)",
-        variable=_caddy_auto_var,
-        command=_save_shop_from_ui,
-    ).pack(anchor="w")
-
-    _host_only_widgets.extend([card_status, card_caddy])
+    _host_only_widgets.append(card_status)
 
     # ── Banco de pedidos ──────────────────────────────────────────────────
     card_db = tk.Frame(scr, bg=_INNER, highlightthickness=1, highlightbackground=_BDR)
@@ -2397,7 +2261,6 @@ def _build_webstore_tab(
                   height=30, fg_color="#923c0a", hover_color="#e87820",
                   command=lambda: _open_dl_dialog()).pack(side="left")
 
-    _refresh_caddy_status()
     _refresh_status()
 
 

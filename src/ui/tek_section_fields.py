@@ -93,6 +93,7 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "pvp_zone_structure_damage_multiplier", "max_structures_in_range",
         "per_platform_max_structures_multiplier", "max_platform_saddle_structures",
         "override_structure_platform_prevention", "flyer_platform_allow_unaligned_dino_basing",
+        "always_allow_structure_pickup",
         "enable_structure_decay_pve", "pve_structure_decay_period_multiplier",
         "pve_structure_decay_destruction_period", "auto_destroy_old_structures_multiplier",
         "pve_allow_structures_at_supply_drops", "force_all_structure_locking",

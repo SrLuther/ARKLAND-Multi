@@ -60,7 +60,7 @@ def _configure_db_browser_ttk(theme: dict) -> None:
             background=tv_bg,
             foreground=tv_fg,
             fieldbackground=tv_bg,
-            rowheight=22,
+            rowheight=26,
             font=font,
             borderwidth=0,
         )
@@ -91,6 +91,41 @@ def _db_scrollbar(parent, orient: str, command, theme: dict) -> tk.Scrollbar:
         borderwidth=0,
         width=12,
     )
+
+
+def _ttk_tree_host(parent, bg: str, *, horizontal_scroll: bool = False) -> tk.Frame:
+    """Frame tk puro — ttk.Treeview redimensiona mal dentro de CTkFrame."""
+    host = tk.Frame(parent, bg=bg, highlightthickness=1,
+                    highlightbackground=bg, highlightcolor=bg)
+    host.grid_rowconfigure(0, weight=1)
+    host.grid_columnconfigure(0, weight=1)
+    if horizontal_scroll:
+        host.grid_rowconfigure(1, weight=0)
+    return host
+
+
+def _bind_treeview_fill_rows(
+    tree: ttk.Treeview,
+    host: tk.Widget,
+    *,
+    row_px: int = 26,
+    min_rows: int = 12,
+) -> None:
+    """Treeview usa height em linhas, não pixels — ajusta ao redimensionar o host."""
+    def _resize(_event: tk.Event | None = None) -> None:
+        try:
+            h = host.winfo_height()
+            if h < row_px * 2:
+                return
+            rows = max(min_rows, (h - 4) // row_px)
+            if int(tree.cget("height")) != rows:
+                tree.configure(height=rows)
+        except tk.TclError:
+            pass
+
+    host.bind("<Configure>", _resize, add="+")
+    host.after(80, _resize)
+    host.after(400, _resize)
 
 
 def _is_local_db_host(host: str) -> bool:
@@ -358,9 +393,7 @@ def _sync_shop_players_from_permissions(state: _DBState, starting_points: int = 
     return _execute(state, sql)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  Construção do painel
-# ══════════════════════════════════════════════════════════════════════════════
+_DB_BROWSER_MIN_HEIGHT = 720  # área Dados/Estrutura/SQL — ~3× o mínimo anterior (240px)
 
 def _make_collapsible_card(
     parent: ctk.CTkFrame,
@@ -443,10 +476,9 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                  font=ctk.CTkFont(family="Segoe UI", size=16, weight="bold"),
                  text_color=accent).grid(row=0, column=0, padx=16, pady=10, sticky="w")
 
-    # ── Corpo principal ────────────────────────────────────────────────────
-    body = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
+    # ── Corpo rolável (backup + browser não cortam na viewport) ───────────
+    body = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0)
     body.grid(row=1, column=0, sticky="nsew")
-    body.grid_rowconfigure(3, weight=1, minsize=240)
     body.grid_columnconfigure(0, weight=1)
 
     # ── Seção: Servidor Local (colapsável — libera espaço para o browser) ──
@@ -874,8 +906,11 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     )
 
     # ── Browser (lazy) ─────────────────────────────────────────────────────
-    browser_host = ctk.CTkFrame(body, fg_color=bg, corner_radius=0)
-    browser_host.grid(row=3, column=0, sticky="nsew", padx=8, pady=(4, 6))
+    browser_host = ctk.CTkFrame(
+        body, fg_color=bg, corner_radius=0, height=_DB_BROWSER_MIN_HEIGHT,
+    )
+    browser_host.grid(row=3, column=0, sticky="ew", padx=8, pady=(4, 12))
+    browser_host.grid_propagate(False)
     browser_host.grid_rowconfigure(0, weight=1)
     browser_host.grid_columnconfigure(0, weight=1)
     _db_loading = ctk.CTkLabel(
@@ -897,12 +932,12 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         split = ctk.CTkFrame(browser_host, fg_color=bg, corner_radius=0)
         split.grid(row=0, column=0, sticky="nsew")
         split.grid_rowconfigure(0, weight=1)
+        split.grid_columnconfigure(0, weight=0, minsize=228)
         split.grid_columnconfigure(1, weight=1)
     
         # ── Painel esquerdo: árvore ────────────────────────────────────────────
-        left = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8, width=220)
+        left = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
-        left.grid_propagate(False)
         left.grid_rowconfigure(1, weight=1)
         left.grid_rowconfigure(2, weight=0)
         left.grid_columnconfigure(0, weight=1)
@@ -911,9 +946,12 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                      font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
                      text_color=accent).grid(row=0, column=0, padx=12, pady=(10, 4), sticky="w")
     
-        _db_tree = ttk.Treeview(left, style="DB.Treeview", show="tree",
-                                 selectmode="browse")
-        _db_tree.grid(row=1, column=0, sticky="nsew", padx=4, pady=4)
+        tree_host = _ttk_tree_host(left, card_bg)
+        tree_host.grid(row=1, column=0, columnspan=2, sticky="nsew", padx=4, pady=4)
+        _db_tree = ttk.Treeview(tree_host, style="DB.Treeview", show="tree",
+                                 selectmode="browse", height=28)
+        _db_tree.grid(row=0, column=0, sticky="nsew")
+        _bind_treeview_fill_rows(_db_tree, tree_host, min_rows=20)
     
         _tree_scroll = _db_scrollbar(left, "vertical", _db_tree.yview, theme)
         _tree_scroll.grid(row=1, column=1, sticky="ns", pady=4)
@@ -989,7 +1027,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             _active_tab.set(name)
             for k, f in _tab_frames.items():
                 if k == name:
-                    f.grid()
+                    f.grid(row=0, column=0, sticky="nsew")
                 else:
                     f.grid_remove()
             for k, b in _tab_btns.items():
@@ -1019,7 +1057,8 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         # ── Tab Dados ──────────────────────────────────────────────────────────
         dados_frame = _tab_frames["dados"]
-        dados_frame.grid_rowconfigure(1, weight=1)
+        dados_frame.grid_rowconfigure(0, weight=0)
+        dados_frame.grid_rowconfigure(1, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 120)
         dados_frame.grid_columnconfigure(0, weight=1)
     
         # Paginação no topo — evita cortar controles quando a janela é baixa
@@ -1052,14 +1091,13 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                                   font=ctk.CTkFont(size=10))
         _btn_next.grid(row=0, column=3)
 
-        data_table_host = ctk.CTkFrame(dados_frame, fg_color=card_bg, corner_radius=0)
+        data_table_host = _ttk_tree_host(dados_frame, card_bg, horizontal_scroll=True)
         data_table_host.grid(row=1, column=0, columnspan=2, sticky="nsew")
-        data_table_host.grid_rowconfigure(0, weight=1)
-        data_table_host.grid_columnconfigure(0, weight=1)
 
         _data_tree = ttk.Treeview(data_table_host, style="Data.Treeview",
-                                  show="headings", selectmode="browse")
+                                  show="headings", selectmode="browse", height=28)
         _data_tree.grid(row=0, column=0, sticky="nsew")
+        _bind_treeview_fill_rows(_data_tree, data_table_host, min_rows=24)
     
         _data_vscroll = _db_scrollbar(data_table_host, "vertical",
                                         _data_tree.yview, theme)
@@ -1072,11 +1110,14 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         # ── Tab Estrutura ──────────────────────────────────────────────────────
         struct_frame = _tab_frames["estrutura"]
-        struct_frame.grid_rowconfigure(0, weight=1)
+        struct_frame.grid_rowconfigure(0, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 120)
         struct_frame.grid_columnconfigure(0, weight=1)
-    
-        _struct_tree = ttk.Treeview(struct_frame, style="Struct.Treeview",
-                                    show="headings",
+
+        struct_host = _ttk_tree_host(struct_frame, card_bg)
+        struct_host.grid(row=0, column=0, sticky="nsew")
+
+        _struct_tree = ttk.Treeview(struct_host, style="Struct.Treeview",
+                                    show="headings", height=28,
                                     columns=("field", "type", "null", "key",
                                              "default", "extra", "comment"))
         for col_id, col_lbl, col_w in [
@@ -1091,7 +1132,8 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             _struct_tree.heading(col_id, text=col_lbl)
             _struct_tree.column(col_id, width=col_w, minwidth=40)
         _struct_tree.grid(row=0, column=0, sticky="nsew")
-    
+        _bind_treeview_fill_rows(_struct_tree, struct_host, min_rows=24)
+
         struct_vscroll = _db_scrollbar(struct_frame, "vertical",
                                        _struct_tree.yview, theme)
         struct_vscroll.grid(row=0, column=1, sticky="ns")
@@ -1100,7 +1142,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         # ── Tab SQL ────────────────────────────────────────────────────────────
         sql_frame = _tab_frames["sql"]
         sql_frame.grid_rowconfigure(0, weight=0)
-        sql_frame.grid_rowconfigure(1, weight=1)
+        sql_frame.grid_rowconfigure(1, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 200)
         sql_frame.grid_columnconfigure(0, weight=1)
 
         sql_top = ctk.CTkFrame(sql_frame, fg_color="transparent")
@@ -1137,27 +1179,33 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         sql_result_frame = ctk.CTkFrame(sql_frame, fg_color="transparent")
         sql_result_frame.grid(row=1, column=0, sticky="nsew")
         sql_result_frame.grid_rowconfigure(0, weight=1)
+        sql_result_frame.grid_rowconfigure(1, weight=0)
         sql_result_frame.grid_columnconfigure(0, weight=1)
-    
-        _sql_result_tree = ttk.Treeview(sql_result_frame, style="Data.Treeview",
-                                        show="headings", selectmode="browse")
+
+        sql_result_host = _ttk_tree_host(sql_result_frame, card_bg, horizontal_scroll=True)
+        sql_result_host.grid(row=0, column=0, sticky="nsew")
+
+        _sql_result_tree = ttk.Treeview(sql_result_host, style="Data.Treeview",
+                                        show="headings", selectmode="browse", height=28)
         _sql_result_tree.grid(row=0, column=0, sticky="nsew")
-        sql_rv = _db_scrollbar(sql_result_frame, "vertical",
+        _bind_treeview_fill_rows(_sql_result_tree, sql_result_host, min_rows=20)
+        sql_rv = _db_scrollbar(sql_result_host, "vertical",
                                _sql_result_tree.yview, theme)
         sql_rv.grid(row=0, column=1, sticky="ns")
-        sql_rh = _db_scrollbar(sql_result_frame, "horizontal",
+        sql_rh = _db_scrollbar(sql_result_host, "horizontal",
                                _sql_result_tree.xview, theme)
         sql_rh.grid(row=1, column=0, sticky="ew")
         _sql_result_tree.configure(yscrollcommand=sql_rv.set,
                                    xscrollcommand=sql_rh.set)
-    
+
         _sql_info_var = tk.StringVar(value="")
         ctk.CTkLabel(sql_result_frame, textvariable=_sql_info_var,
                      font=ctk.CTkFont(family="Segoe UI", size=10),
-                     text_color=t_mut).grid(row=2, column=0, sticky="w", pady=(4, 0))
+                     text_color=t_mut).grid(row=1, column=0, sticky="w", pady=(4, 0))
     
         # ── Inicializa a aba ativa ─────────────────────────────────────────────
         _show_tab("dados")
+        browser_host.after(200, lambda: split.event_generate("<Configure>"))
     
         # ══════════════════════════════════════════════════════════════════════
         #  Lógica de conexão e atualização

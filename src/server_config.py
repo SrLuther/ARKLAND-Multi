@@ -107,6 +107,7 @@ class ServerGameSettings:
 
     # Opções PvP/PvE
     allow_flyer_carry_pve: bool = True
+    always_allow_structure_pickup: bool = False   # AlwaysAllowStructurePickup
     disable_structure_decay_pve: bool = False
     disable_dino_decay_pve: bool = False
     prevent_offline_pvp: bool = False
@@ -277,6 +278,7 @@ class ServerAdvancedSettings:
     use_tame_limit_for_structures_only: bool = False   # bUseTameLimitForStructuresOnly
     disable_dino_riding: bool = False                  # bDisableDinoRiding
     disable_dino_taming: bool = False                  # bDisableDinoTaming
+    allow_flyer_speed_leveling: bool = False           # bAllowFlyerSpeedLeveling
     base_temperature_multiplier: float = 1.0           # BaseTemperatureMultiplier
 
     # PvP/PvE — Game.ini [ShooterGameMode]
