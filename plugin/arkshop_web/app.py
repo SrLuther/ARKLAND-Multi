@@ -11,6 +11,7 @@ import os
 import re
 import sys
 import threading
+import time
 import urllib.parse
 import urllib.request
 import uuid
@@ -919,7 +920,7 @@ def _configure_database(url: str) -> None:
 
     connect_args: dict[str, Any] = {}
     if "mysql" in normalized.lower():
-        connect_args = {"connect_timeout": 5, "read_timeout": 30, "write_timeout": 30}
+        connect_args = {"connect_timeout": 5, "read_timeout": 8, "write_timeout": 8}
 
     engine = create_engine(
         normalized,
@@ -1083,18 +1084,16 @@ def _save_players(players: list[Dict[str, str]]) -> None:
     _PLAYERS_FILE.write_text(json.dumps(players_sorted, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _load_admin_steamids() -> set[str]:
-    if _db_ready():
-        db = _SessionLocal()
-        try:
-            rows = db.query(ShopAdmin).all()
-            if rows:
-                return {r.steam_id for r in rows}
-        except Exception:
-            pass
-        finally:
-            db.close()
+_ADMIN_STEAMIDS_CACHE: dict[str, Any] = {
+    "ids": None,
+    "expires": 0.0,
+    "db_skip_until": 0.0,
+}
+_ADMIN_STEAMIDS_CACHE_TTL = 30.0
+_ADMIN_STEAMIDS_DB_BACKOFF = 60.0
 
+
+def _load_admin_steamids_from_file() -> set[str]:
     if not _ADMIN_FILE.exists():
         return set()
     try:
@@ -1104,6 +1103,33 @@ def _load_admin_steamids() -> set[str]:
 
     values = data if isinstance(data, list) else data.get("steam_ids", []) if isinstance(data, dict) else []
     return {str(v).strip() for v in values if isinstance(v, (str, int)) and _is_valid_steamid64(str(v))}
+
+
+def _load_admin_steamids() -> set[str]:
+    """Lista admins — arquivo primeiro; DB opcional com cache e backoff se offline."""
+    now = time.monotonic()
+    cached = _ADMIN_STEAMIDS_CACHE.get("ids")
+    if isinstance(cached, set) and now < float(_ADMIN_STEAMIDS_CACHE.get("expires") or 0):
+        return cached
+
+    ids = _load_admin_steamids_from_file()
+    if _db_ready() and now >= float(_ADMIN_STEAMIDS_CACHE.get("db_skip_until") or 0):
+        db = _SessionLocal()
+        try:
+            rows = db.query(ShopAdmin).all()
+            for row in rows:
+                sid = str(getattr(row, "steam_id", "") or "").strip()
+                if _is_valid_steamid64(sid):
+                    ids.add(sid)
+        except Exception:
+            _ADMIN_STEAMIDS_CACHE["db_skip_until"] = now + _ADMIN_STEAMIDS_DB_BACKOFF
+            log.warning("ShopAdmin indisponível — usando admins do arquivo por %ss", int(_ADMIN_STEAMIDS_DB_BACKOFF))
+        finally:
+            db.close()
+
+    _ADMIN_STEAMIDS_CACHE["ids"] = ids
+    _ADMIN_STEAMIDS_CACHE["expires"] = now + _ADMIN_STEAMIDS_CACHE_TTL
+    return ids
 
 
 def _is_admin_steamid(steam_id: str) -> bool:
@@ -2255,6 +2281,16 @@ def auth_logout():
     session.pop("steam_id", None)
     _log("auth_logout", steam_id=steam_id)
     return jsonify({"ok": True})
+
+
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    """Ping leve — não consulta MySQL (evita travar o boot do portal)."""
+    return jsonify({
+        "ok": True,
+        "db_configured": _db_ready(),
+        "version": _get_project_release().get("version", ""),
+    })
 
 
 @app.route("/api/auth/me", methods=["GET"])

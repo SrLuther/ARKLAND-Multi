@@ -1,11 +1,9 @@
 {
-    "version": "1.9.94",
+    "version": "1.9.95",
     "date": "2026-06-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.94/ARKLAND-Multi-Setup-v1.9.94.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.95/ARKLAND-Multi-Setup-v1.9.95.exe",
     "changelog": [
-        "Remove (Caddy): integração Caddy removida — HTTPS público via Cloudflare Tunnel ou proxy externo.",
-        "Fix (Web Store): diagnóstico testa HTTPS no domínio real; status sem referências a Caddy/modem.",
-        "Fix (DB): painel Banco de Dados rolável — browser 720px sem cortar backup/ações.",
-        "Feat (Jogo): upar speed em voadores (bAllowFlyerSpeedLeveling) e recolher estruturas (AlwaysAllowStructurePickup)."
+        "Fix (Web Store): portal admin não trava mais — admins do arquivo, cache MySQL com backoff, /api/health e boot com timeout; config.json antes de abrir Itens da Loja.",
+        "Fix (DB): painel Banco de Dados não congela ao abrir tabelas — lock na conexão, consultas em background e grade em lotes."
     ]
 }

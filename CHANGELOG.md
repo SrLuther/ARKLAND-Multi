@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.95] - 2026-06-25
+
+### Fix
+
+- Fix (Web Store): portal admin não trava mais — admins do arquivo, cache MySQL com backoff, /api/health e boot com timeout; config.json antes de abrir Itens da Loja.
+- Fix (DB): painel Banco de Dados não congela ao abrir tabelas — lock na conexão, consultas em background e grade em lotes.
+
 ## [1.9.94] - 2026-06-24
 
 ### Feature

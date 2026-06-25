@@ -35,6 +35,8 @@ if TYPE_CHECKING:
     from ..app_tek import ARKTEKApp
 
 _LOCAL_DB_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+_CELL_DISPLAY_MAX = 200
+_TREE_INSERT_BATCH = 25
 
 
 def _configure_db_browser_ttk(theme: dict) -> None:
@@ -257,23 +259,35 @@ class _DBState:
         self.database = ""        # banco inicial (opcional)
         self.selected_db: str = ""
         self.selected_table: str = ""
+        self._lock = threading.Lock()
 
     def is_connected(self) -> bool:
         if not self.conn:
             return False
         try:
-            self.conn.ping(reconnect=True)
+            with self._lock:
+                self.conn.ping(reconnect=True)
             return True
         except Exception:
             return False
 
     def close(self) -> None:
-        if self.conn:
-            try:
-                self.conn.close()
-            except Exception:
-                pass
-            self.conn = None
+        with self._lock:
+            if self.conn:
+                try:
+                    self.conn.close()
+                except Exception:
+                    pass
+                self.conn = None
+
+
+def _cell_display(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    s = str(value)
+    if len(s) > _CELL_DISPLAY_MAX:
+        return s[:_CELL_DISPLAY_MAX] + "…"
+    return s
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -281,23 +295,30 @@ class _DBState:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _query(state: _DBState, sql: str, args=None) -> list[dict]:
-    if not state.is_connected():
+    if not state.conn:
         raise RuntimeError("Sem conexão com o banco de dados.")
-    # Garante que a conexão está viva antes de usar
-    try:
-        state.conn.ping(reconnect=True)
-    except Exception:
-        pass
-    with state.conn.cursor() as cur:
-        cur.execute(sql, args or ())
-        return cur.fetchall()  # type: ignore[return-value]
+    with state._lock:
+        try:
+            state.conn.ping(reconnect=True)
+        except Exception:
+            pass
+        with state.conn.cursor() as cur:
+            cur.execute(sql, args or ())
+            return cur.fetchall()  # type: ignore[return-value]
 
 
 def _execute(state: _DBState, sql: str, args=None) -> int:
-    with state.conn.cursor() as cur:
-        cur.execute(sql, args or ())
-    state.conn.commit()
-    return cur.rowcount  # type: ignore[return-value]
+    if not state.conn:
+        raise RuntimeError("Sem conexão com o banco de dados.")
+    with state._lock:
+        try:
+            state.conn.ping(reconnect=True)
+        except Exception:
+            pass
+        with state.conn.cursor() as cur:
+            cur.execute(sql, args or ())
+        state.conn.commit()
+        return cur.rowcount  # type: ignore[return-value]
 
 
 def _list_databases(state: _DBState) -> list[str]:
@@ -834,49 +855,58 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                  ).grid(row=2, column=0, columnspan=20, padx=14, pady=(0, 8), sticky="w")
 
     def _refresh_bank_status() -> None:
-        shop_ok = perm_ok = False
-        if state.is_connected():
+        if not state.is_connected():
+            _shop_db_status.set(f"{_DB_NAME}: ✗")
+            _perm_db_status.set(f"{_PERM_DB_NAME}: ✗")
+            _perm_warn_var.set("")
+            return
+
+        def _worker() -> None:
+            shop_ok = perm_ok = False
+            schema_msg = ""
             try:
-                shop_ok = database_exists(state.conn, _DB_NAME)
-                perm_ok = permission_database_exists(state.conn)
+                with state._lock:
+                    shop_ok = database_exists(state.conn, _DB_NAME)
+                    perm_ok = permission_database_exists(state.conn)
+                if shop_ok:
+                    schema_ok, schema_msg = _customshop_players_schema_ok(state)
+                    if schema_ok:
+                        schema_msg = ""
             except Exception:
                 pass
-        _shop_db_status.set(
-            f"{_DB_NAME}: {'✓' if shop_ok else '✗'}"
-        )
-        _perm_db_status.set(
-            f"{_PERM_DB_NAME}: {'✓' if perm_ok else '✗'}"
-        )
 
-        needs_perm = False
-        asm_cm = getattr(app, "asm_config_manager", None)
-        cm = getattr(app, "config_manager", None)
-        if cm is not None:
-            for _kind, srv in iter_shop_servers(cm, asm_cm):
-                if permissions_dll_installed(getattr(srv, "install_dir", "") or ""):
-                    needs_perm = True
-                    break
-        if needs_perm and not perm_ok:
-            _perm_warn_var.set(
-                "⚠ Permissions.dll instalado — execute Setup limpo ou Assistente para criar ark_permission."
-            )
-        elif not perm_ok:
-            _perm_warn_var.set(
-                f"Dica: {_PERM_DB_NAME} é usado pelo plugin Permissions (grupos)."
-            )
-        else:
-            _perm_warn_var.set("")
+            def _update() -> None:
+                _shop_db_status.set(f"{_DB_NAME}: {'✓' if shop_ok else '✗'}")
+                _perm_db_status.set(f"{_PERM_DB_NAME}: {'✓' if perm_ok else '✗'}")
 
-        if shop_ok and state.is_connected():
-            try:
-                schema_ok, schema_msg = _customshop_players_schema_ok(state)
-                if not schema_ok:
+                needs_perm = False
+                asm_cm = getattr(app, "asm_config_manager", None)
+                cm = getattr(app, "config_manager", None)
+                if cm is not None:
+                    for _kind, srv in iter_shop_servers(cm, asm_cm):
+                        if permissions_dll_installed(getattr(srv, "install_dir", "") or ""):
+                            needs_perm = True
+                            break
+                if schema_msg:
                     _perm_warn_var.set(
                         f"⚠ CustomShop: {schema_msg}. "
                         "Use «Sync jogadores» para recriar a tabela e importar do Permissions."
                     )
-            except Exception:
-                pass
+                elif needs_perm and not perm_ok:
+                    _perm_warn_var.set(
+                        "⚠ Permissions.dll instalado — execute Setup limpo ou Assistente "
+                        "para criar ark_permission."
+                    )
+                elif not perm_ok:
+                    _perm_warn_var.set(
+                        f"Dica: {_PERM_DB_NAME} é usado pelo plugin Permissions (grupos)."
+                    )
+                else:
+                    _perm_warn_var.set("")
+
+            parent.after(0, _update)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     parent.after(400, _refresh_bank_status)
 
@@ -1063,6 +1093,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         # Paginação no topo — evita cortar controles quando a janela é baixa
         _page_state = {"offset": 0, "limit": 50, "total": 0}
+        _load_gen = [0]
         _page_lbl_var = tk.StringVar(value="")
     
         page_bar = ctk.CTkFrame(dados_frame, fg_color="transparent", height=30)
@@ -1289,7 +1320,8 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                             conn = _try_connect(use_db=False)
                         else:
                             raise exc1
-                    state.conn = conn
+                    with state._lock:
+                        state.conn = conn
                     is_local_root = (
                         _is_local_db_host(state.host)
                         and (state.user or "").strip().lower() == "root"
@@ -1319,16 +1351,14 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             if not state.is_connected():
                 _v_status.set("Desconectado — conecte antes de recarregar")
                 return
-            try:
-                state.conn.ping(reconnect=True)
-            except Exception:
-                pass
             _refresh_tree()
             _refresh_bank_status()
             if state.selected_db and state.selected_table:
                 _page_state["offset"] = 0
-                _load_data()
-                _load_structure()
+                _load_gen[0] += 1
+                gen = _load_gen[0]
+                _load_data(gen)
+                _load_structure(gen)
             else:
                 _page_lbl_var.set("Árvore atualizada — selecione uma tabela")
 
@@ -1419,27 +1449,39 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         # ── Árvore de bancos ───────────────────────────────────────────────────
     
         def _refresh_tree() -> None:
-            _db_tree.delete(*_db_tree.get_children())
             if not state.is_connected():
+                _db_tree.delete(*_db_tree.get_children())
                 return
-            try:
-                dbs = _list_databases(state)
-            except Exception:
-                return
-            for db in dbs:
-                node = _db_tree.insert("", "end", iid=f"db_{db}",
-                                       text=f"🗄 {db}", open=False,
-                                       tags=("db",))
+
+            def _worker() -> None:
+                tree_data: list[tuple[str, list[str]]] = []
                 try:
-                    tables = _list_tables(state, db)
-                    for t in tables:
-                        _db_tree.insert(node, "end",
-                                        iid=f"tbl_{db}__{t}",
-                                        text=f"   📋 {t}",
-                                        tags=("table", db, t))
+                    dbs = _list_databases(state)
+                    for db in dbs:
+                        try:
+                            tables = _list_tables(state, db)
+                        except Exception:
+                            tables = []
+                        tree_data.append((db, tables))
                 except Exception:
-                    pass
-    
+                    return
+
+                def _update() -> None:
+                    _db_tree.delete(*_db_tree.get_children())
+                    for db, tables in tree_data:
+                        node = _db_tree.insert("", "end", iid=f"db_{db}",
+                                               text=f"🗄 {db}", open=False,
+                                               tags=("db",))
+                        for t in tables:
+                            _db_tree.insert(node, "end",
+                                            iid=f"tbl_{db}__{t}",
+                                            text=f"   📋 {t}",
+                                            tags=("table", db, t))
+
+                parent.after(0, _update)
+
+            threading.Thread(target=_worker, daemon=True).start()
+
         def _on_tree_select(event=None) -> None:
             sel = _db_tree.selection()
             if not sel:
@@ -1450,83 +1492,137 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 if len(parts) == 2:
                     state.selected_db, state.selected_table = parts
                     _page_state["offset"] = 0
-                    _load_data()
-                    _load_structure()
+                    _load_gen[0] += 1
+                    gen = _load_gen[0]
+                    _load_data(gen)
+                    _load_structure(gen)
     
         _db_tree.bind("<<TreeviewSelect>>", _on_tree_select)
     
         # ── Carregar dados ─────────────────────────────────────────────────────
     
-        def _populate_treeview(tv: ttk.Treeview, rows: list[dict]) -> None:
+        def _populate_treeview(
+            tv: ttk.Treeview,
+            rows: list[dict],
+            *,
+            gen: int | None = None,
+            on_done=None,
+        ) -> None:
             tv.delete(*tv.get_children())
+            if gen is not None and gen != _load_gen[0]:
+                return
             if not rows:
+                if on_done:
+                    on_done()
                 return
             cols = list(rows[0].keys())
             tv.configure(columns=cols)
             for c in cols:
                 tv.heading(c, text=c)
-                tv.column(c, width=max(80, len(c) * 9), minwidth=40)
-            for row in rows:
-                tv.insert("", "end", values=[str(v) if v is not None else "NULL"
-                                             for v in row.values()])
-    
-        def _load_data() -> None:
+                tv.column(c, width=max(80, min(300, len(c) * 9)), minwidth=40)
+            values_list = [
+                [_cell_display(v) for v in row.values()]
+                for row in rows
+            ]
+            idx = [0]
+
+            def _insert_batch() -> None:
+                if gen is not None and gen != _load_gen[0]:
+                    return
+                end = min(idx[0] + _TREE_INSERT_BATCH, len(values_list))
+                for i in range(idx[0], end):
+                    tv.insert("", "end", values=values_list[i])
+                idx[0] = end
+                if idx[0] < len(values_list):
+                    parent.after(1, _insert_batch)
+                elif on_done:
+                    on_done()
+
+            _insert_batch()
+
+        def _load_data(gen: int | None = None) -> None:
             if not (state.selected_db and state.selected_table):
                 return
             _page_lbl_var.set("Carregando...")
-    
-            def _worker():
+            db, table = state.selected_db, state.selected_table
+
+            def _worker() -> None:
                 try:
-                    rows, total = _table_rows(state, state.selected_db,
-                                              state.selected_table,
+                    rows, total = _table_rows(state, db, table,
                                               _page_state["limit"],
                                               _page_state["offset"])
+                    if gen is not None and gen != _load_gen[0]:
+                        return
                     _page_state["total"] = total
                     start = _page_state["offset"] + 1
                     end   = min(_page_state["offset"] + len(rows), total)
-    
-                    def _update():
-                        _populate_treeview(_data_tree, rows)
+
+                    def _finish_ui() -> None:
+                        if gen is not None and gen != _load_gen[0]:
+                            return
                         _page_lbl_var.set(
                             f"Mostrando {start}–{end} de {total} linhas   "
-                            f"({state.selected_db}.{state.selected_table})"
+                            f"({db}.{table})"
                         )
-                        _btn_prev.configure(state="normal" if _page_state["offset"] > 0 else "disabled")
-                        _btn_next.configure(state="normal" if end < total else "disabled")
+                        _btn_prev.configure(
+                            state="normal" if _page_state["offset"] > 0 else "disabled")
+                        _btn_next.configure(
+                            state="normal" if end < total else "disabled")
+
+                    def _update() -> None:
+                        _populate_treeview(_data_tree, rows, gen=gen, on_done=_finish_ui)
+
                     parent.after(0, _update)
                 except Exception as exc:
+                    if gen is not None and gen != _load_gen[0]:
+                        return
                     parent.after(0, lambda e=exc: _page_lbl_var.set(f"Erro: {e}"))
-    
+
             threading.Thread(target=_worker, daemon=True).start()
-    
-        def _load_structure() -> None:
+
+        def _load_structure(gen: int | None = None) -> None:
             if not (state.selected_db and state.selected_table):
                 return
-            try:
-                cols = _table_columns(state, state.selected_db, state.selected_table)
-                _struct_tree.delete(*_struct_tree.get_children())
-                for c in cols:
-                    _struct_tree.insert("", "end", values=(
-                        c.get("Field", ""),
-                        c.get("Type", ""),
-                        c.get("Null", ""),
-                        c.get("Key", ""),
-                        str(c.get("Default", "")) if c.get("Default") is not None else "NULL",
-                        c.get("Extra", ""),
-                        c.get("Comment", ""),
-                    ))
-            except Exception:
-                pass
+            db, table = state.selected_db, state.selected_table
+
+            def _worker() -> None:
+                try:
+                    cols = _table_columns(state, db, table)
+                except Exception:
+                    return
+                if gen is not None and gen != _load_gen[0]:
+                    return
+
+                def _update() -> None:
+                    if gen is not None and gen != _load_gen[0]:
+                        return
+                    _struct_tree.delete(*_struct_tree.get_children())
+                    for c in cols:
+                        _struct_tree.insert("", "end", values=(
+                            c.get("Field", ""),
+                            c.get("Type", ""),
+                            c.get("Null", ""),
+                            c.get("Key", ""),
+                            str(c.get("Default", "")) if c.get("Default") is not None else "NULL",
+                            c.get("Extra", ""),
+                            c.get("Comment", ""),
+                        ))
+
+                parent.after(0, _update)
+
+            threading.Thread(target=_worker, daemon=True).start()
     
         def _prev_page() -> None:
             if _page_state["offset"] >= _page_state["limit"]:
                 _page_state["offset"] -= _page_state["limit"]
-                _load_data()
-    
+                _load_gen[0] += 1
+                _load_data(_load_gen[0])
+
         def _next_page() -> None:
             if _page_state["offset"] + _page_state["limit"] < _page_state["total"]:
                 _page_state["offset"] += _page_state["limit"]
-                _load_data()
+                _load_gen[0] += 1
+                _load_data(_load_gen[0])
     
         _btn_prev.configure(command=_prev_page, state="disabled")
         _btn_next.configure(command=_next_page, state="disabled")

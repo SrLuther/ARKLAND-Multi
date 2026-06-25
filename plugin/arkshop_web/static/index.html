@@ -4609,6 +4609,43 @@ const API = "";  // mesmo origin
 
 let CURRENCY = { singular: "Âmbar", plural: "Âmbares", image_url: "/ambar.png" };
 
+async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const opts = { method, signal: ctrl.signal, credentials: "same-origin" };
+    if (body != null) {
+      opts.headers = { "Content-Type": "application/json", ...(headers || {}) };
+      opts.body = typeof body === "string" ? body : JSON.stringify(body);
+    } else if (headers) {
+      opts.headers = headers;
+    }
+    const r = await fetch(API + path, opts);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const err = new Error(data.error || data.message || `HTTP ${r.status}`);
+      err.status = r.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  } catch (e) {
+    if (e.name === "AbortError") {
+      throw new Error(`Timeout (${Math.round(timeoutMs / 1000)}s) em ${path}`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function setAdminShopLoading(msg) {
+  const el = document.getElementById("shop-list");
+  if (el) {
+    el.innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2);">${escHtml(msg || "Carregando itens…")}</div>`;
+  }
+}
+
 function applyCurrency(c) {
   if (!c) return;
   if (c.singular) CURRENCY.singular = c.singular;
@@ -4805,11 +4842,10 @@ async function logout() {
 }
 
 async function loadAuth() {
-  const r = await fetch(API + "/api/auth/me");
-  _auth = await r.json();
+  _auth = await fetchJson("/api/auth/me", { timeoutMs: 12000 });
 }
 
-function applyRoleUi() {
+function applyRoleUi(deferAdminNav = false) {
   const userBox = document.getElementById("auth-userbox");
   const userLine = document.getElementById("auth-userline");
   const actionBtn = document.getElementById("auth-action-btn");
@@ -4848,8 +4884,12 @@ function applyRoleUi() {
     document.querySelectorAll(".admin-only").forEach((el) => {
       el.style.display = "";
     });
-    const shopNav = document.querySelector('.nav-item[data-page="shop"]');
-    if (shopNav) nav(shopNav);
+    if (!deferAdminNav) {
+      const shopNav = document.querySelector('.nav-item[data-page="shop"]');
+      if (shopNav) nav(shopNav);
+    } else {
+      setAdminShopLoading("Carregando config.json…");
+    }
   }
 
   if (_auth.authenticated) refreshPlayerBalance();
@@ -6157,18 +6197,23 @@ function isSteamId64(value) {
 
 // ── Load config ───────────────────────────────────────────────────────────────
 async function loadConfig() {
-  if (!_auth.is_admin) return;
+  if (!_auth.is_admin) return true;
   setStatus(false, "Carregando config.json…");
   try {
-    const r = await fetch(API + "/api/config");
-    const data = await r.json();
-    if (data.error) { setStatus(false, "Erro: " + data.error); toast(data.error, "error"); return; }
+    const data = await fetchJson("/api/config", { timeoutMs: 20000 });
+    if (data.error) {
+      setStatus(false, "Erro: " + data.error);
+      toast(data.error, "error");
+      return false;
+    }
     _config = data;
     renderAll();
     setStatus(true, "config.json carregado");
+    return true;
   } catch(e) {
-    setStatus(false, "Falha na conexão: " + e.message);
-    toast("Falha na conexão com backend", "error");
+    setStatus(false, "Falha no config.json: " + e.message);
+    toast("Falha ao carregar config.json: " + e.message, "error");
+    return false;
   }
 }
 
@@ -10450,12 +10495,33 @@ async function viewAdminTimeline(orderId) {
 (async () => {
   setStatus(false, "Conectando…");
   try {
+    try {
+      await fetchJson("/api/health", { timeoutMs: 8000 });
+    } catch (healthErr) {
+      setStatus(false, "Web Store offline — " + healthErr.message);
+      toast("Não foi possível conectar ao backend da loja.", "error");
+      return;
+    }
+
     await loadAuth();
-    applyRoleUi();
+    applyRoleUi(true);
     showAuthOverlay(false);
 
     setStatus(false, "Carregando catálogo…");
-    const [homeOk, catalogOk] = await Promise.all([loadHome(), loadCatalog()]);
+    const configPromise = _auth.is_admin ? loadConfig() : Promise.resolve(true);
+    const [homeOk, catalogOk, configOk] = await Promise.all([
+      loadHome().catch(() => false),
+      loadCatalog().catch(() => false),
+      configPromise.catch(() => false),
+    ]);
+
+    if (_auth.is_admin) {
+      const shopNav = document.querySelector('.nav-item[data-page="shop"]');
+      if (shopNav) nav(shopNav);
+      if (!configOk) {
+        setAdminShopLoading("Não foi possível carregar config.json — clique em ↺ Recarregar");
+      }
+    }
 
     if (!catalogOk) {
       setStatus(
@@ -10466,17 +10532,16 @@ async function viewAdminTimeline(orderId) {
       );
     } else if (!homeOk) {
       setStatus(true, "Catálogo ok · home com erro");
+    } else if (_auth.is_admin && configOk) {
+      setStatus(true, "Painel admin pronto");
     } else {
       setStatus(true, "Loja online");
     }
 
     const tail: Promise<unknown>[] = [loadDownloads()];
-    if (_auth.authenticated) tail.push(loadMyArea());
+    if (_auth.authenticated) tail.push(loadMyArea().catch(() => {}));
     if (_auth.is_admin) {
-      tail.push((async () => {
-        await Promise.all([loadSettings(), loadPlayers(), loadConfig(), loadServers()]);
-        if (catalogOk) setStatus(true, "Painel admin pronto");
-      })());
+      tail.push(Promise.allSettled([loadSettings(), loadPlayers(), loadServers()]));
     }
     await Promise.all(tail);
   } catch (e) {
