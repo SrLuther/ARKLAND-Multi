@@ -5,6 +5,26 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.98] - 2026-06-25
+
+### Feature
+
+- Feat (TEK): Painel oBobonic — gerencia o bot Discord oBobonicClean externo: iniciar/parar/reiniciar, configurar salas (mapas ARK no .env), logs e dependências.
+
+## [1.9.97] - 2026-06-25
+
+### Feature
+
+- Feat (Dashboard TEK): Agendar desligamento no card do servidor — avisos RCON em 5/3/1 min, countdown em tempo real e cancelamento.
+
+## [1.9.96] - 2026-06-25
+
+### Fix
+
+- Fix (Web Store): before_request não bloqueia mais em MySQL — DB sobe só em background; /api/health e /api/auth/me respondem sem esperar migrate/conexão.
+- Fix (Web Store): portal não fica em «Inicializando» — boot JS imediato, admin oculto no HTML, redeem_docs.js defer e ping MariaDB em cache com timeout 2s.
+- Fix (Broadcasts): ciclo automático envia de fato — Iniciar ciclo não desativava scheduler_enabled; persiste ao reiniciar o app, countdown em tempo real (1s) e ordem aleatória no loop.
+
 ## [1.9.95] - 2026-06-25
 
 ### Fix

@@ -249,9 +249,16 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
         vis_label, vis_color = steam_chip(steam_st)
         _chip(f"📡  {vis_label}", border=vis_color, tc=vis_color)
 
+    # ── DESLIGAMENTO AGENDADO (countdown + cancelar) ─────────────────────────
+    shutdown_row = ctk.CTkFrame(card, fg_color="transparent")
+    shutdown_row.grid(row=2, column=0, padx=14, pady=(0, 4), sticky="ew")
+    card._asm_shutdown_row = shutdown_row  # type: ignore[attr-defined]
+    card._asm_shutdown_countdown_lbl = None  # type: ignore[attr-defined]
+    _build_shutdown_row(app, card, srv, shutdown_row, is_running)
+
     # ── AÇÕES PRIMÁRIAS (logo abaixo dos chips — prioridade sobre stats) ───────
     act = ctk.CTkFrame(card, fg_color="transparent")
-    act.grid(row=2, column=0, padx=14, pady=(4, 6), sticky="ew")
+    act.grid(row=3, column=0, padx=14, pady=(4, 6), sticky="ew")
 
     if is_running:
         ctk.CTkButton(
@@ -341,7 +348,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
         border_width=1,
         border_color=card_bdr,
     )
-    rich_r.grid(row=3, column=0, padx=14, pady=(0, 8), sticky="ew")
+    rich_r.grid(row=4, column=0, padx=14, pady=(0, 8), sticky="ew")
 
     rich_key = f"_asm_rich_status_{srv.id}"
     rich_data: dict = getattr(app, rich_key, {})
@@ -374,7 +381,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
 
     # ── SEPARADOR ─────────────────────────────────────────────────────────────
     ctk.CTkFrame(card, height=1, fg_color=sep).grid(
-        row=4, column=0, sticky="ew", padx=14, pady=0)
+        row=5, column=0, sticky="ew", padx=14, pady=0)
 
     # ── BARRA DE FERRAMENTAS ──────────────────────────────────────────────────
     _tbg     = toolbar_bg
@@ -384,7 +391,7 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
 
     tools = ctk.CTkFrame(card, fg_color=_tbg, corner_radius=7,
                          border_width=1, border_color=_tborder)
-    tools.grid(row=5, column=0, sticky="ew", padx=10, pady=(8, 10))
+    tools.grid(row=6, column=0, sticky="ew", padx=10, pady=(8, 10))
 
     def _tbtn(text: str, cmd, width: int = 82) -> None:
         ctk.CTkButton(
@@ -415,6 +422,12 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     _tbtn("🔬  Log",      lambda s=srv: app._asm_open_server_log(s), width=58)
     _tbtn("📡  Monitor",  lambda s=srv: app._asm_open_monitor(s))
     _tbtn("🤖  IA",       lambda s=srv: app._asm_open_ai_assistant(s), width=58)
+    if is_running:
+        _tbtn(
+            "⏱  Desligar agend.",
+            lambda sid=srv.id: app._asm_open_shutdown_schedule(sid),
+            width=108,
+        )
 
     if not hasattr(app, "_asm_dashboard_cards"):
         app._asm_dashboard_cards = {}
@@ -430,4 +443,74 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
     card._asm_rich_value_labels = refs  # type: ignore[attr-defined]
 
     return card
+
+
+def _build_shutdown_row(
+    app: "ARKServerManagerApp",
+    card: ctk.CTkFrame,
+    srv: AsmServerConfig,
+    row: ctk.CTkFrame,
+    is_running: bool,
+) -> None:
+    """Monta ou atualiza a faixa de countdown de desligamento agendado."""
+    from ..pages.asm_scheduled_shutdown import (
+        format_shutdown_countdown,
+        has_scheduled_shutdown,
+        remaining_seconds,
+    )
+
+    for w in row.winfo_children():
+        w.destroy()
+    card._asm_shutdown_countdown_lbl = None  # type: ignore[attr-defined]
+
+    if not is_running or not has_scheduled_shutdown(app, srv.id):
+        row.grid_remove()
+        return
+
+    th = get_theme("tek")
+    warn_bg = "#431407" if not th.get("_is_light") else "#fef3c7"
+    warn_tc = "#fbbf24" if not th.get("_is_light") else "#92400e"
+    warn_bdr = "#78350f" if not th.get("_is_light") else "#fcd34d"
+
+    row.grid()
+    bar = ctk.CTkFrame(row, fg_color=warn_bg, corner_radius=6, border_width=1, border_color=warn_bdr)
+    bar.pack(fill="x")
+
+    secs = remaining_seconds(app, srv.id)
+    countdown_lbl = ctk.CTkLabel(
+        bar,
+        text=f"⏱  Desliga em {format_shutdown_countdown(secs)}",
+        font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+        text_color=warn_tc,
+    )
+    countdown_lbl.pack(side="left", padx=(10, 6), pady=6)
+    card._asm_shutdown_countdown_lbl = countdown_lbl  # type: ignore[attr-defined]
+
+    ctk.CTkButton(
+        bar, text="Cancelar", width=72, height=26,
+        fg_color="transparent", hover_color=warn_bdr,
+        text_color=warn_tc, corner_radius=5,
+        font=ctk.CTkFont(size=10),
+        command=lambda sid=srv.id: app._asm_cancel_scheduled_shutdown(sid),
+    ).pack(side="right", padx=8, pady=4)
+
+
+def refresh_shutdown_row(
+    app: "ARKServerManagerApp",
+    card: ctk.CTkFrame,
+    srv: AsmServerConfig,
+) -> None:
+    """Atualiza visibilidade da faixa de desligamento após agendar/cancelar."""
+    row = getattr(card, "_asm_shutdown_row", None)
+    if row is None:
+        return
+    try:
+        if not row.winfo_exists():
+            return
+    except Exception:
+        return
+
+    inst = app.asm_server_manager.get_instance(srv.id)
+    is_running = bool(inst and inst.status == ASM_STATUS_RUNNING)
+    _build_shutdown_row(app, card, srv, row, is_running)
 

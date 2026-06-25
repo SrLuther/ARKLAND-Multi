@@ -955,6 +955,34 @@ def _configure_database(url: str) -> None:
 
 _DB_INIT_LOCK = threading.Lock()
 _DB_INITIALIZED = False
+_DB_BOOT_THREAD: threading.Thread | None = None
+
+_HEALTH_DB_CACHE: dict[str, Any] = {
+    "reachable": None,
+    "checked_at": 0.0,
+    "ping_inflight": False,
+}
+_HEALTH_DB_CACHE_TTL = 5.0
+_HEALTH_DB_PING_TIMEOUT = 2.0
+_ADMIN_DB_QUERY_TIMEOUT = 2.0
+
+
+def _kick_background_db_init() -> None:
+    """Inicia configuração do DB em thread — nunca bloqueia respostas HTTP."""
+    global _DB_BOOT_THREAD
+    if _DB_INITIALIZED:
+        return
+    if _DB_BOOT_THREAD is not None and _DB_BOOT_THREAD.is_alive():
+        return
+
+    def _boot() -> None:
+        try:
+            _initialize_database_if_needed()
+        except Exception as exc:
+            log.warning("DB background boot failed: %s", exc)
+
+    _DB_BOOT_THREAD = threading.Thread(target=_boot, name="arkshop-db-boot", daemon=True)
+    _DB_BOOT_THREAD.start()
 
 
 def _initialize_database_if_needed() -> None:
@@ -1007,6 +1035,9 @@ def _get_db_session():
 
 def _require_db():
     if not _db_ready():
+        _kick_background_db_init()
+        _initialize_database_if_needed()
+    if not _db_ready():
         return jsonify({
             "ok": False,
             "error": "Banco não configurado. Configure as credenciais em Configurações → DB.",
@@ -1016,8 +1047,9 @@ def _require_db():
 
 
 def _ensure_runtime_initialized_before_request() -> None:
-    _initialize_database_if_needed()
+    """Nunca bloqueia em migrate/conexão MySQL — DB sobe em background."""
     _initialize_scheduler_if_needed()
+    _kick_background_db_init()
 
 
 app.before_request(_ensure_runtime_initialized_before_request)
@@ -1105,27 +1137,61 @@ def _load_admin_steamids_from_file() -> set[str]:
     return {str(v).strip() for v in values if isinstance(v, (str, int)) and _is_valid_steamid64(str(v))}
 
 
-def _load_admin_steamids() -> set[str]:
-    """Lista admins — arquivo primeiro; DB opcional com cache e backoff se offline."""
+def _merge_admin_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
+    """Mescla admins do MySQL com timeout — nunca bloqueia a thread HTTP por mais que timeout."""
+    if not _db_ready() or _SessionLocal is None:
+        return ids
     now = time.monotonic()
-    cached = _ADMIN_STEAMIDS_CACHE.get("ids")
-    if isinstance(cached, set) and now < float(_ADMIN_STEAMIDS_CACHE.get("expires") or 0):
-        return cached
+    if now < float(_ADMIN_STEAMIDS_CACHE.get("db_skip_until") or 0):
+        return ids
 
-    ids = _load_admin_steamids_from_file()
-    if _db_ready() and now >= float(_ADMIN_STEAMIDS_CACHE.get("db_skip_until") or 0):
+    merged = set(ids)
+    done = threading.Event()
+    err: list[Exception | None] = [None]
+
+    def _worker() -> None:
         db = _SessionLocal()
         try:
             rows = db.query(ShopAdmin).all()
             for row in rows:
                 sid = str(getattr(row, "steam_id", "") or "").strip()
                 if _is_valid_steamid64(sid):
-                    ids.add(sid)
-        except Exception:
-            _ADMIN_STEAMIDS_CACHE["db_skip_until"] = now + _ADMIN_STEAMIDS_DB_BACKOFF
-            log.warning("ShopAdmin indisponível — usando admins do arquivo por %ss", int(_ADMIN_STEAMIDS_DB_BACKOFF))
+                    merged.add(sid)
+        except Exception as exc:
+            err[0] = exc
         finally:
             db.close()
+            done.set()
+
+    threading.Thread(target=_worker, name="arkshop-admin-db", daemon=True).start()
+    if not done.wait(timeout):
+        _ADMIN_STEAMIDS_CACHE["db_skip_until"] = now + _ADMIN_STEAMIDS_DB_BACKOFF
+        log.warning(
+            "ShopAdmin timeout (%ss) — usando admins do arquivo por %ss",
+            timeout,
+            int(_ADMIN_STEAMIDS_DB_BACKOFF),
+        )
+        return ids
+    if err[0] is not None:
+        _ADMIN_STEAMIDS_CACHE["db_skip_until"] = now + _ADMIN_STEAMIDS_DB_BACKOFF
+        log.warning(
+            "ShopAdmin indisponível — usando admins do arquivo por %ss",
+            int(_ADMIN_STEAMIDS_DB_BACKOFF),
+        )
+        return ids
+    return merged
+
+
+def _load_admin_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> set[str]:
+    """Lista admins — arquivo primeiro; DB opcional com cache, backoff e timeout."""
+    now = time.monotonic()
+    cached = _ADMIN_STEAMIDS_CACHE.get("ids")
+    if isinstance(cached, set) and now < float(_ADMIN_STEAMIDS_CACHE.get("expires") or 0):
+        return cached
+
+    ids = _load_admin_steamids_from_file()
+    if _db_ready():
+        ids = _merge_admin_steamids_from_db(ids, timeout=db_timeout)
 
     _ADMIN_STEAMIDS_CACHE["ids"] = ids
     _ADMIN_STEAMIDS_CACHE["expires"] = now + _ADMIN_STEAMIDS_CACHE_TTL
@@ -2283,12 +2349,55 @@ def auth_logout():
     return jsonify({"ok": True})
 
 
+def _kick_db_health_ping_if_stale() -> None:
+    """Dispara ping SELECT 1 em background — resposta de /api/health nunca espera."""
+    if not _db_ready() or _SessionLocal is None:
+        _HEALTH_DB_CACHE["reachable"] = False
+        _HEALTH_DB_CACHE["checked_at"] = time.monotonic()
+        return
+    now = time.monotonic()
+    if now - float(_HEALTH_DB_CACHE.get("checked_at") or 0) < _HEALTH_DB_CACHE_TTL:
+        return
+    if _HEALTH_DB_CACHE.get("ping_inflight"):
+        return
+    _HEALTH_DB_CACHE["ping_inflight"] = True
+
+    def _worker() -> None:
+        reachable = False
+        done = threading.Event()
+
+        def _ping() -> None:
+            nonlocal reachable
+            try:
+                db = _SessionLocal()
+                try:
+                    db.execute(text("SELECT 1")).fetchone()
+                    reachable = True
+                finally:
+                    db.close()
+            except Exception:
+                reachable = False
+            finally:
+                done.set()
+
+        threading.Thread(target=_ping, name="arkshop-db-ping", daemon=True).start()
+        if not done.wait(_HEALTH_DB_PING_TIMEOUT):
+            log.debug("DB health ping timeout (%ss)", _HEALTH_DB_PING_TIMEOUT)
+        _HEALTH_DB_CACHE["reachable"] = reachable
+        _HEALTH_DB_CACHE["checked_at"] = time.monotonic()
+        _HEALTH_DB_CACHE["ping_inflight"] = False
+
+    threading.Thread(target=_worker, name="arkshop-db-health", daemon=True).start()
+
+
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    """Ping leve — não consulta MySQL (evita travar o boot do portal)."""
+    """Ping leve — db_reachable vem de cache atualizado em background."""
+    _kick_db_health_ping_if_stale()
     return jsonify({
         "ok": True,
         "db_configured": _db_ready(),
+        "db_reachable": _HEALTH_DB_CACHE.get("reachable"),
         "version": _get_project_release().get("version", ""),
     })
 
@@ -2298,7 +2407,11 @@ def auth_me():
     steam_id = _steam_id_from_session()
     if not steam_id:
         return jsonify({"authenticated": False, "is_admin": False, "steam_id": None})
-    return jsonify({"authenticated": True, "is_admin": _is_admin_steamid(steam_id), "steam_id": steam_id})
+    file_admins = _load_admin_steamids_from_file()
+    is_admin = steam_id in file_admins
+    if not is_admin and _db_ready():
+        is_admin = steam_id in _load_admin_steamids(db_timeout=1.5)
+    return jsonify({"authenticated": True, "is_admin": is_admin, "steam_id": steam_id})
 
 
 # ── Settings routes ───────────────────────────────────────────────────────────
@@ -5015,6 +5128,8 @@ register_cross_chat_routes(
     admin_required=admin_required,
     limiter=limiter,
 )
+
+_kick_background_db_init()
 
 
 if __name__ == "__main__":

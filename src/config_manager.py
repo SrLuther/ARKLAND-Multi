@@ -105,6 +105,14 @@ class AlertMessagesConfig:
 
 
 @dataclass
+class ObobonicBotConfig:
+    """Bot Discord oBobonicClean — pasta externa gerenciada pelo painel TEK."""
+    project_path: str = r"C:\Users\Ciano\Documents\oBobonicClean"
+    start_hidden: bool = True
+    auto_start: bool = False
+
+
+@dataclass
 class DiscordBotConfig:
     enabled:              bool  = False
     token:                str   = ""
@@ -216,6 +224,8 @@ class AppConfig:
     alert_messages: AlertMessagesConfig = field(default_factory=AlertMessagesConfig)
     # Discord Bot
     discord_bot: DiscordBotConfig = field(default_factory=DiscordBotConfig)
+    # oBobonicClean (bot Discord externo)
+    obobonic: ObobonicBotConfig = field(default_factory=ObobonicBotConfig)
     # SMTP
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
     # Loja cross-cluster
@@ -261,6 +271,7 @@ class ConfigManager:
                 _deserialize(ShutdownConfig,      "shutdown")
                 _deserialize(AlertMessagesConfig, "alert_messages")
                 _deserialize(DiscordBotConfig,    "discord_bot")
+                _deserialize(ObobonicBotConfig,   "obobonic")
                 _deserialize(SmtpConfig,          "smtp")
                 _deserialize(ShopGlobalConfig,    "shop")
                 _deserialize(EnvironmentConfig,   "environment")

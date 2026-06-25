@@ -1,9 +1,8 @@
 {
-    "version": "1.9.95",
+    "version": "1.9.98",
     "date": "2026-06-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.95/ARKLAND-Multi-Setup-v1.9.95.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.98/ARKLAND-Multi-Setup-v1.9.98.exe",
     "changelog": [
-        "Fix (Web Store): portal admin não trava mais — admins do arquivo, cache MySQL com backoff, /api/health e boot com timeout; config.json antes de abrir Itens da Loja.",
-        "Fix (DB): painel Banco de Dados não congela ao abrir tabelas — lock na conexão, consultas em background e grade em lotes."
+        "Feat (TEK): Painel oBobonic — gerencia o bot Discord oBobonicClean externo: iniciar/parar/reiniciar, configurar salas (mapas ARK no .env), logs e dependências."
     ]
 }

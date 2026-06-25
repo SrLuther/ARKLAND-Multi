@@ -67,8 +67,10 @@ def pick_next_message(app: "ARKServerManagerApp") -> tuple[dict[str, Any] | None
     return pool[idx], next_index
 
 
-def seconds_until_next(settings: BroadcastTekConfig) -> int:
-    if not settings.scheduler_enabled:
+def seconds_until_next(settings: BroadcastTekConfig, *, active: bool | None = None) -> int:
+    if active is None:
+        active = settings.scheduler_enabled
+    if not active:
         return 0
     interval = max(1, int(settings.interval_minutes)) * 60
     elapsed = time.time() - float(settings.last_sent_at or 0)

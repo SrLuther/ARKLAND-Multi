@@ -135,14 +135,25 @@ def build_broadcasts_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> 
         command=app._broadcast_tek_scheduler_stop,
     ).grid(row=0, column=1, padx=(0, 12))
 
+    sched_active = settings.scheduler_enabled or getattr(
+        app, "_broadcast_tek_scheduler_running", False,
+    )
     status_txt = "Parado"
-    if settings.scheduler_enabled:
-        status_txt = f"Ativo — próximo envio em {format_countdown(seconds_until_next(settings))}"
+    if sched_active:
+        status_txt = f"Ativo — próximo envio em {format_countdown(seconds_until_next(settings, active=True))}"
     app._broadcast_sched_status_var = tk.StringVar(value=status_txt)
     ctk.CTkLabel(
         ctrl, textvariable=app._broadcast_sched_status_var,
         font=ctk.CTkFont(size=11), text_color=t_sec,
     ).grid(row=0, column=2, sticky="w")
+    app._broadcast_sched_countdown_var = tk.StringVar(
+        value=format_countdown(seconds_until_next(settings, active=sched_active)) if sched_active else "—",
+    )
+    ctk.CTkLabel(
+        ctrl, textvariable=app._broadcast_sched_countdown_var,
+        font=ctk.CTkFont(family="Consolas", size=18, weight="bold"),
+        text_color=accent,
+    ).grid(row=1, column=0, columnspan=4, sticky="w", pady=(0, 4))
 
     ctk.CTkButton(
         ctrl, text="📢 Enviar próxima agora", width=160, height=32,
@@ -306,3 +317,5 @@ def build_broadcasts_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> 
     ).grid(row=3, column=0, sticky="w", padx=24, pady=(0, 16))
 
     app._broadcast_library_refresh()
+    if sched_active:
+        app.after(100, app._broadcast_tek_sync_scheduler_ui)

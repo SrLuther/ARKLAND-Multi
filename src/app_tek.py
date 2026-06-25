@@ -156,6 +156,10 @@ class ARKServerManagerApp(ctk.CTk):
         self._broadcast_tek_scheduler_job: Any = None
         self._broadcast_server_vars: dict = {}
         self._broadcast_message_vars: dict = {}
+        # Desligamento agendado (dashboard)
+        self._asm_scheduled_shutdowns: dict = {}
+        self._asm_shutdown_tick_running: bool = False
+        self._asm_shutdown_tick_job: Any = None
         # Clusters
         self._cluster_list_box: Any = None
         self._cluster_detail_fr: Any = None
@@ -1024,11 +1028,24 @@ class ARKServerManagerApp(ctk.CTk):
             log.configure(state="disabled")
 
     def _asm_stop_server(self, server_id: str) -> None:
+        from .pages.asm_scheduled_shutdown import cancel_shutdown
+
+        cancel_shutdown(self, server_id)
         self.asm_server_manager.stop(
             server_id,
             on_done=lambda ok, msg: self.after(0, self._asm_refresh_dashboard),
         )
         self._asm_refresh_dashboard()
+
+    def _asm_open_shutdown_schedule(self, server_id: str) -> None:
+        from .pages.asm_scheduled_shutdown import open_schedule_dialog
+
+        open_schedule_dialog(self, server_id)
+
+    def _asm_cancel_scheduled_shutdown(self, server_id: str) -> None:
+        from .pages.asm_scheduled_shutdown import cancel_shutdown
+
+        cancel_shutdown(self, server_id)
 
     def _asm_restart_server(self, srv: AsmServerConfig) -> None:
         srv = self._asm_persist_server(srv)
@@ -1940,10 +1957,17 @@ class ARKServerManagerApp(ctk.CTk):
         var = getattr(self, "_broadcast_sched_status_var", None)
         if var is None:
             return
-        if settings.scheduler_enabled or getattr(self, "_broadcast_tek_scheduler_running", False):
-            var.set(f"Ativo — próximo envio em {format_countdown(seconds_until_next(settings))}")
+        active = settings.scheduler_enabled or getattr(self, "_broadcast_tek_scheduler_running", False)
+        countdown_var = getattr(self, "_broadcast_sched_countdown_var", None)
+        if active:
+            remaining = seconds_until_next(settings, active=True)
+            var.set(f"Ativo — próximo envio em {format_countdown(remaining)}")
+            if countdown_var is not None:
+                countdown_var.set(format_countdown(remaining))
         else:
             var.set("Parado")
+            if countdown_var is not None:
+                countdown_var.set("—")
 
     def _broadcast_tek_scheduler_start(self) -> None:
         self._broadcast_tek_save_settings_from_ui()

@@ -1737,7 +1737,8 @@
     .section-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
     .price-tag { font-weight: 700; color: var(--amber); text-shadow: 0 0 8px rgba(232,160,32,.3); }
     .actions-col { display: flex; gap: 6px; }
-    .admin-only { /* controlled by JS */ }
+    .admin-only { display: none !important; }
+    body.boot-admin .admin-only { display: block !important; }
 
     /* RCON terminal output */
     #rcon-output, .rcon-log {
@@ -3301,6 +3302,35 @@
   </style>
 </head>
 <body>
+<script>
+(function () {
+  function bootShellEarly() {
+    var t = document.getElementById("sb-text");
+    if (t) t.textContent = "Conectando…";
+    document.querySelectorAll(".admin-only").forEach(function (el) {
+      el.style.display = "none";
+    });
+    document.querySelectorAll('.nav-item[data-page="shop"].active').forEach(function (el) {
+      el.classList.remove("active");
+    });
+    var homeNav = document.querySelector('.nav-item[data-page="home"]');
+    if (homeNav && !document.querySelector(".nav-item.active[data-page]")) {
+      homeNav.classList.add("active");
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootShellEarly);
+  } else {
+    bootShellEarly();
+  }
+  setTimeout(function () {
+    var t = document.getElementById("sb-text");
+    if (t && t.textContent === "Inicializando…") {
+      t.textContent = "JS não iniciou — limpe o cache (Ctrl+F5)";
+    }
+  }, 4000);
+})();
+</script>
 
 <!-- ── Auth Overlay ──────────────────────────────────────────────────────────── -->
 <div id="auth-overlay" class="hidden">
@@ -3354,7 +3384,7 @@
 
     <!-- Nav: Loja (admin) -->
     <div class="nav-section admin-only">Loja</div>
-    <div class="nav-item admin-only active" data-page="shop" onclick="nav(this)">
+    <div class="nav-item admin-only" data-page="shop" onclick="nav(this)">
       <span class="nav-icon">🏪</span> Itens da Loja
     </div>
     <div class="nav-item admin-only" data-page="kits" onclick="nav(this)">
@@ -4594,8 +4624,17 @@
 <!-- ── Toast container ──────────────────────────────────────────────────────── -->
 <div id="toast-container"></div>
 
-<script src="redeem_docs.js"></script>
+<script src="redeem_docs.js" defer></script>
 <script>
+// Watchdog: se o boot principal não atualizar o status em 25s, mostrar erro explícito.
+setTimeout(function () {
+  var t = document.getElementById("sb-text");
+  if (!t) return;
+  var msg = (t.textContent || "").trim();
+  if (msg === "Inicializando…" || msg === "Conectando…" || msg === "Carregando catálogo…") {
+    t.textContent = "Portal travado — verifique Web Store / MariaDB no TEK";
+  }
+}, 25000);
 // ── State ────────────────────────────────────────────────────────────────────
 let _config = null;
 let _players = [];
@@ -4867,6 +4906,7 @@ function applyRoleUi(deferAdminNav = false) {
   }
 
   if (!_auth.is_admin) {
+    document.body.classList.remove("boot-admin");
     document.querySelectorAll(".admin-only").forEach((el) => {
       el.style.display = "none";
     });
@@ -4881,8 +4921,9 @@ function applyRoleUi(deferAdminNav = false) {
       }
     }
   } else {
+    document.body.classList.add("boot-admin");
     document.querySelectorAll(".admin-only").forEach((el) => {
-      el.style.display = "";
+      el.style.removeProperty("display");
     });
     if (!deferAdminNav) {
       const shopNav = document.querySelector('.nav-item[data-page="shop"]');
@@ -10496,7 +10537,10 @@ async function viewAdminTimeline(orderId) {
   setStatus(false, "Conectando…");
   try {
     try {
-      await fetchJson("/api/health", { timeoutMs: 8000 });
+      const health = await fetchJson("/api/health", { timeoutMs: 8000 });
+      if (health.db_configured && health.db_reachable === false) {
+        toast("MariaDB offline — catálogo público pode funcionar; painel admin limitado.", "warning");
+      }
     } catch (healthErr) {
       setStatus(false, "Web Store offline — " + healthErr.message);
       toast("Não foi possível conectar ao backend da loja.", "error");

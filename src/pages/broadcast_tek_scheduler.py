@@ -7,7 +7,14 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..app_tek import ARKServerManagerApp
 
-_TICK_MS = 30_000
+_TICK_MS = 1_000
+
+
+def _scheduler_active(app: "ARKServerManagerApp", settings) -> bool:
+    return bool(
+        settings.scheduler_enabled
+        or getattr(app, "_broadcast_tek_scheduler_running", False)
+    )
 
 
 def broadcast_tek_scheduler_tick(app: "ARKServerManagerApp") -> None:
@@ -22,11 +29,11 @@ def broadcast_tek_scheduler_tick(app: "ARKServerManagerApp") -> None:
     )
 
     settings = get_settings(app)
-    if not settings.scheduler_enabled:
+    if not _scheduler_active(app, settings):
         _reschedule(app)
         return
 
-    remaining = seconds_until_next(settings)
+    remaining = seconds_until_next(settings, active=_scheduler_active(app, settings))
     if remaining > 0:
         _update_status_ui(app, f"Ativo — próximo envio em {format_countdown(remaining)}")
         _reschedule(app)
@@ -53,8 +60,18 @@ def broadcast_tek_scheduler_tick(app: "ARKServerManagerApp") -> None:
             "info",
         )
 
-    _update_status_ui(app, f"Ativo — próximo envio em {format_countdown(seconds_until_next(settings))}")
+    _update_status_ui(app, f"Ativo — próximo envio em {format_countdown(seconds_until_next(settings, active=True))}")
     _reschedule(app)
+
+
+def _cancel_scheduler_job(app: "ARKServerManagerApp") -> None:
+    job = getattr(app, "_broadcast_tek_scheduler_job", None)
+    if job:
+        try:
+            app.after_cancel(job)
+        except Exception:
+            pass
+    app._broadcast_tek_scheduler_job = None
 
 
 def broadcast_tek_scheduler_start(app: "ARKServerManagerApp") -> None:
@@ -65,10 +82,11 @@ def broadcast_tek_scheduler_start(app: "ARKServerManagerApp") -> None:
     if not settings.last_sent_at:
         settings.last_sent_at = time.time()
     save_settings(app, settings)
-    broadcast_tek_scheduler_stop(app, refresh_ui=False)
+    _cancel_scheduler_job(app)
     app._broadcast_tek_scheduler_running = True
-    job = app.after(1000, lambda: broadcast_tek_scheduler_tick(app))
-    app._broadcast_tek_scheduler_job = job
+    app._broadcast_tek_scheduler_job = app.after(
+        _TICK_MS, lambda: broadcast_tek_scheduler_tick(app),
+    )
     _refresh_scheduler_ui(app)
 
 
@@ -76,13 +94,7 @@ def broadcast_tek_scheduler_stop(app: "ARKServerManagerApp", *, refresh_ui: bool
     from .broadcast_tek_settings import get_settings, save_settings
 
     app._broadcast_tek_scheduler_running = False
-    job = getattr(app, "_broadcast_tek_scheduler_job", None)
-    if job:
-        try:
-            app.after_cancel(job)
-        except Exception:
-            pass
-    app._broadcast_tek_scheduler_job = None
+    _cancel_scheduler_job(app)
 
     settings = get_settings(app)
     if settings.scheduler_enabled:
@@ -104,12 +116,7 @@ def ensure_broadcast_tek_scheduler(app: "ARKServerManagerApp") -> None:
 def _reschedule(app: "ARKServerManagerApp") -> None:
     if not getattr(app, "_broadcast_tek_scheduler_running", False):
         return
-    job = getattr(app, "_broadcast_tek_scheduler_job", None)
-    if job:
-        try:
-            app.after_cancel(job)
-        except Exception:
-            pass
+    _cancel_scheduler_job(app)
     app._broadcast_tek_scheduler_job = app.after(
         _TICK_MS, lambda: broadcast_tek_scheduler_tick(app),
     )
@@ -120,6 +127,16 @@ def _update_status_ui(app: "ARKServerManagerApp", text: str) -> None:
     if var is not None:
         try:
             var.set(text)
+        except Exception:
+            pass
+    countdown_var = getattr(app, "_broadcast_sched_countdown_var", None)
+    if countdown_var is not None:
+        try:
+            from .broadcast_tek_settings import format_countdown, get_settings, seconds_until_next
+
+            settings = get_settings(app)
+            remaining = seconds_until_next(settings, active=True)
+            countdown_var.set(format_countdown(remaining))
         except Exception:
             pass
 
