@@ -5,12 +5,18 @@ import hashlib
 import json
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from sqlalchemy.orm import Session
 
+from ark_species_registry import (
+    ensure_pre_registered_species,
+    is_raw_blueprint_label,
+    lookup_species,
+    suggestion_to_public,
+)
 from market_audit import market_audit_event
 from market_economy import STAT_KEYS, calculate_suggested_value, normalize_blueprint, normalize_stat_points
 from market_service import species_row_to_economy
@@ -27,11 +33,70 @@ ACTIVE_VAULT_STATUSES = {
     "AWAITING_CLAIM",
 }
 TERMINAL_LISTING = {"DELIVERED", "WITHDRAWN", "CANCELLED"}
-DISPLAY_NAME_RE = re.compile(r"^[A-Za-z0-9_\-\.]{3,32}$")
+DISPLAY_NAME_RE = re.compile(r"^[A-Za-z0-9_\-\.]{2,32}$")
+HTML_TAG_RE = re.compile(r"<[^>]+>")
+CUSTOM_NAME_MAX = 80
+CUSTOM_DESC_MAX = 280
+LISTING_CATEGORIES = frozenset({"S+", "S", "A", "B", "C"})
+CLAIM_RESERVATION_HOURS = 24
+CLAIM_STATUS_PENDING = "pending"
+CLAIM_STATUS_COMPLETED = "completed"
+CLAIM_STATUS_EXPIRED = "expired"
+CLAIM_STATUS_REFUNDED = "refunded"
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _claim_reservation_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Retorna (reserved_at, expires_at) para janela padrão de resgate."""
+    start = now or _now()
+    return start, start + timedelta(hours=CLAIM_RESERVATION_HOURS)
+
+
+def _hours_remaining(expires_at: datetime | None, *, now: datetime | None = None) -> float | None:
+    if expires_at is None:
+        return None
+    ref = now or _now()
+    exp = expires_at if expires_at.tzinfo else expires_at.replace(tzinfo=timezone.utc)
+    delta = (exp - ref).total_seconds() / 3600.0
+    return max(0.0, delta)
+
+
+def _claim_is_expired(claim: Any, *, now: datetime | None = None) -> bool:
+    if getattr(claim, "claim_status", None) in (CLAIM_STATUS_EXPIRED, CLAIM_STATUS_REFUNDED):
+        return True
+    exp = getattr(claim, "claim_expires_at", None)
+    if exp is None:
+        return False
+    ref = now or _now()
+    exp_tz = exp if exp.tzinfo else exp.replace(tzinfo=timezone.utc)
+    return exp_tz <= ref
+
+
+def _apply_claim_reservation(claim: Any, *, now: datetime | None = None) -> None:
+    reserved, expires = _claim_reservation_window(now)
+    claim.claim_reserved_at = reserved
+    claim.claim_expires_at = expires
+    claim.claim_status = CLAIM_STATUS_PENDING
+
+
+def _claim_to_public(claim: Any) -> dict[str, Any]:
+    hrs = _hours_remaining(getattr(claim, "claim_expires_at", None))
+    return {
+        "claim_id": claim.id,
+        "claim_type": claim.claim_type,
+        "claim_status": claim.claim_status or CLAIM_STATUS_PENDING,
+        "claim_reserved_at": (
+            claim.claim_reserved_at.isoformat() if claim.claim_reserved_at else None
+        ),
+        "claim_expires_at": (
+            claim.claim_expires_at.isoformat() if claim.claim_expires_at else None
+        ),
+        "hours_remaining": round(hrs, 2) if hrs is not None else None,
+        "expired": _claim_is_expired(claim),
+    }
 
 
 def _json_dumps(obj: Any) -> str:
@@ -110,7 +175,7 @@ def upsert_display_name(db: Session, steam_id: str, name: str) -> dict[str, Any]
 
     name = (name or "").strip()
     if not DISPLAY_NAME_RE.match(name):
-        raise ValueError("Nome deve ter 3–32 caracteres (letras, números, _ - .)")
+        raise ValueError("Nome deve ter 2–32 caracteres (letras, números, _ - .)")
     now = _now()
     row = get_profile(db, steam_id)
     if row is None:
@@ -290,6 +355,24 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
     blueprint = str(metadata.get("species_blueprint") or metadata.get("blueprint") or "")
     species_row = resolve_species(db, species_key=species_key or None, blueprint=blueprint or None)
 
+    suggestion = lookup_species(
+        blueprint=blueprint or None,
+        species_key=species_key or None,
+        name_hint=str(metadata.get("name_map") or metadata.get("dino_name") or ""),
+    )
+    if suggestion and (not species_row or species_row.status != "ACTIVE"):
+        try:
+            species_row = ensure_pre_registered_species(db, suggestion, blueprint=blueprint)
+            species_key = species_row.species_key
+            metadata["classification_suggestion"] = suggestion
+        except Exception:
+            metadata["classification_suggestion"] = suggestion
+    elif suggestion:
+        metadata["classification_suggestion"] = suggestion
+
+    if species_row and not species_key:
+        species_key = species_row.species_key
+
     if species_row and metadata.get("stats_max"):
         sk = species_row.species_key
         metadata["stats_max"] = enrich_stats_with_points(
@@ -322,6 +405,10 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
         listing_status = "DRAFT"
         computed, breakdown, _ = _compute_economy(db, species_row, metadata)
     elif species_row and species_row.status != "ACTIVE":
+        listing_status = "PENDING_CLASSIFICATION"
+        if suggestion:
+            computed = 0
+    elif suggestion:
         listing_status = "PENDING_CLASSIFICATION"
 
     denorm = _denorm_stats(metadata)
@@ -383,18 +470,165 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def listing_to_public(row: Any, *, include_breakdown: bool = False) -> dict[str, Any]:
+def _strip_html(text: str) -> str:
+    return HTML_TAG_RE.sub("", text).strip()
+
+
+def _sanitize_listing_text(
+    text: str | None,
+    *,
+    max_len: int,
+    field_label: str,
+    allow_empty: bool = True,
+) -> str | None:
+    if text is None:
+        return None
+    cleaned = _strip_html(str(text).strip())
+    if not cleaned:
+        return None if allow_empty else ""
+    if len(cleaned) > max_len:
+        raise ValueError(f"{field_label}: máximo {max_len} caracteres")
+    return cleaned
+
+
+def validate_custom_name(name: str | None) -> str | None:
+    return _sanitize_listing_text(name, max_len=CUSTOM_NAME_MAX, field_label="Nome do anúncio")
+
+
+def validate_custom_description(desc: str | None) -> str | None:
+    return _sanitize_listing_text(desc, max_len=CUSTOM_DESC_MAX, field_label="Descrição")
+
+
+def validate_listing_category(category: str | None) -> str | None:
+    if category is None:
+        return None
+    cat = str(category).strip()
+    if not cat:
+        return None
+    if cat not in LISTING_CATEGORIES:
+        raise ValueError("Categoria inválida — use S+, S, A, B ou C")
+    return cat
+
+
+def _species_map(db: Session, species_keys: set[str | None]) -> dict[str, Any]:
+    from app import MarketSpecies
+
+    keys = {k for k in species_keys if k}
+    if not keys:
+        return {}
+    rows = db.query(MarketSpecies).filter(MarketSpecies.species_key.in_(list(keys))).all()
+    return {r.species_key: r for r in rows}
+
+
+def _classification_from_meta(meta: dict[str, Any]) -> dict[str, Any] | None:
+    raw = meta.get("classification_suggestion")
+    return raw if isinstance(raw, dict) and raw.get("species_key") else None
+
+
+def _resolve_listing_suggestion(
+    row: Any,
+    *,
+    species_row: Any | None = None,
+    meta: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    meta = meta if meta is not None else _json_loads(row.metadata_json)
+    stored = _classification_from_meta(meta)
+    if stored:
+        return stored
+    if species_row and species_row.status == "ACTIVE":
+        return None
+    blueprint = meta.get("species_blueprint") or meta.get("blueprint")
+    return lookup_species(
+        blueprint=str(blueprint or ""),
+        species_key=row.species_key,
+        name_hint=row.dino_display_name or meta.get("name_map"),
+    )
+
+
+def _friendly_species_name(
+    row: Any,
+    species_row: Any | None,
+    suggestion: dict[str, Any] | None,
+) -> str | None:
+    if species_row and species_row.display_name:
+        return species_row.display_name
+    if suggestion and suggestion.get("display_name"):
+        return str(suggestion["display_name"])
+    name = row.dino_display_name or ""
+    if name and not is_raw_blueprint_label(name):
+        return name
+    if row.species_key and not is_raw_blueprint_label(row.species_key):
+        return row.species_key
+    return None
+
+
+def _listing_display_title(
+    row: Any,
+    species_row: Any | None,
+    *,
+    suggestion: dict[str, Any] | None = None,
+) -> str:
+    if getattr(row, "custom_name", None):
+        return row.custom_name
+    friendly = _friendly_species_name(row, species_row, suggestion)
+    if friendly:
+        return friendly
+    if row.dino_display_name and not is_raw_blueprint_label(row.dino_display_name):
+        return row.dino_display_name
+    if suggestion and suggestion.get("display_name"):
+        return str(suggestion["display_name"])
+    return "Dino aguardando classificação"
+
+
+def _listing_effective_category(row: Any, species_row: Any | None) -> str | None:
+    if getattr(row, "category", None):
+        return row.category
+    if species_row and species_row.tier:
+        return species_row.tier
+    return None
+
+
+def listing_to_public(
+    row: Any,
+    *,
+    include_breakdown: bool = False,
+    species_row: Any | None = None,
+) -> dict[str, Any]:
     meta = _json_loads(row.metadata_json)
+    suggestion = _resolve_listing_suggestion(row, species_row=species_row, meta=meta)
+    species_name = _friendly_species_name(row, species_row, suggestion)
+    species_tier = species_row.tier if species_row else (suggestion or {}).get("tier")
+    effective_category = _listing_effective_category(row, species_row)
+    if not effective_category and suggestion:
+        effective_category = suggestion.get("tier")
+    suggested_value = row.computed_base_value or (suggestion or {}).get("root_value") or 0
+    awaiting = row.status == "PENDING_CLASSIFICATION"
     out: dict[str, Any] = {
         "listing_id": row.id,
         "seller_steam_id": row.seller_steam_id,
         "seller_display_name": None,
-        "species_key": row.species_key,
+        "species_key": row.species_key or (suggestion or {}).get("species_key"),
+        "species_display_name": species_name,
+        "species_tier": species_tier,
+        "custom_name": getattr(row, "custom_name", None),
+        "display_title": _listing_display_title(row, species_row, suggestion=suggestion),
+        "category": getattr(row, "category", None),
+        "effective_category": effective_category,
+        "custom_description": getattr(row, "custom_description", None),
         "status": row.status,
+        "awaiting_classification": awaiting,
+        "classification_message": (
+            "Aguardando aprovação da equipe"
+            if awaiting
+            else None
+        ),
         "computed_base_value": row.computed_base_value,
+        "suggested_base_value": int(suggested_value) if suggested_value else 0,
         "effective_price": row.effective_price,
         "price_mode": row.price_mode,
         "dino_display_name": row.dino_display_name,
+        "blueprint_raw": meta.get("species_blueprint") or meta.get("blueprint"),
+        "classification_suggestion": suggestion_to_public(suggestion),
         "imprint_pct": row.imprint_pct,
         "mutations_male": row.mutations_male,
         "mutations_female": row.mutations_female,
@@ -438,9 +672,10 @@ def list_active_listings(
         .filter(MarketPlayerProfile.steam_id.in_([r.seller_steam_id for r in rows]))
         .all()
     }
+    species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
     for row in rows:
-        item = listing_to_public(row)
+        item = listing_to_public(row, species_row=species_by_key.get(row.species_key or ""))
         item["seller_display_name"] = names.get(row.seller_steam_id)
         out.append(item)
     return out
@@ -453,6 +688,9 @@ def set_listing_price(
     *,
     price_absolute: int | None = None,
     activate: bool = False,
+    custom_name: str | None | object = ...,
+    category: str | None | object = ...,
+    custom_description: str | None | object = ...,
 ) -> dict[str, Any]:
     from app import MarketListing
 
@@ -474,6 +712,19 @@ def set_listing_price(
         row.effective_price = price
         row.price_mode = "ABSOLUTE"
 
+    if custom_name is not ...:
+        row.custom_name = validate_custom_name(
+            None if custom_name is None else str(custom_name)
+        )
+    if category is not ...:
+        row.category = validate_listing_category(
+            None if category is None else str(category)
+        )
+    if custom_description is not ...:
+        row.custom_description = validate_custom_description(
+            None if custom_description is None else str(custom_description)
+        )
+
     if activate:
         if row.status == "PENDING_CLASSIFICATION":
             raise ValueError("Espécie aguardando classificação admin")
@@ -489,9 +740,15 @@ def set_listing_price(
         computed_base_value=row.computed_base_value,
         effective_price=row.effective_price,
         market_trace_id=row.market_trace_id,
+        metadata={
+            "custom_name": row.custom_name,
+            "category": row.category,
+            "has_description": bool(row.custom_description),
+        },
         commit=True,
     )
-    return listing_to_public(row, include_breakdown=True)
+    species_row = resolve_species(db, species_key=row.species_key)
+    return listing_to_public(row, include_breakdown=True, species_row=species_row)
 
 
 def _player_points(db: Session, steam_id: str) -> int:
@@ -519,13 +776,23 @@ def _debit_points(db: Session, steam_id: str, amount: int) -> int:
 def _credit_points(db: Session, steam_id: str, amount: int) -> int:
     if amount <= 0:
         return _player_points(db, steam_id)
-    db.execute(
-        text(
-            "INSERT INTO players (steam_id, points) VALUES (:sid, :amt) "
-            "ON DUPLICATE KEY UPDATE points = points + :amt"
-        ),
-        {"sid": steam_id, "amt": amount},
-    )
+    url = str(getattr(db, "bind", None).url if getattr(db, "bind", None) else "").lower()
+    if "sqlite" in url:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :amt) "
+                "ON CONFLICT(steam_id) DO UPDATE SET points = points + :amt"
+            ),
+            {"sid": steam_id, "amt": amount},
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :amt) "
+                "ON DUPLICATE KEY UPDATE points = points + :amt"
+            ),
+            {"sid": steam_id, "amt": amount},
+        )
     return _player_points(db, steam_id)
 
 
@@ -593,6 +860,7 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         created_at=now,
         updated_at=now,
     )
+    _apply_claim_reservation(claim, now=now)
     db.add(claim)
     db.commit()
 
@@ -608,20 +876,30 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         points_before=buyer_before,
         points_after=buyer_after,
         market_trace_id=row.market_trace_id,
+        metadata={
+            "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
+            "reservation_hours": CLAIM_RESERVATION_HOURS,
+        },
         commit=True,
     )
 
+    hrs = _hours_remaining(claim.claim_expires_at, now=now)
     return {
         "listing_id": row.id,
         "claim_id": claim.id,
         "price_paid": price,
         "buyer_balance": buyer_after,
+        "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
+        "hours_remaining": round(hrs, 2) if hrs is not None else CLAIM_RESERVATION_HOURS,
+        "message": f"Você tem {CLAIM_RESERVATION_HOURS} horas para resgatar com /mercado in-game.",
     }
 
 
 def get_pending_claims(db: Session, steam_id: str) -> list[dict[str, Any]]:
     from app import MarketClaim, MarketCryopodVault, MarketListing
 
+    expire_stale_claims(db)
+    now = _now()
     rows = (
         db.query(MarketClaim, MarketListing, MarketCryopodVault)
         .join(MarketListing, MarketListing.id == MarketClaim.listing_id)
@@ -629,16 +907,22 @@ def get_pending_claims(db: Session, steam_id: str) -> list[dict[str, Any]]:
         .filter(
             MarketClaim.recipient_steam_id == steam_id,
             MarketClaim.status == "PENDENTE",
+            or_(
+                MarketClaim.claim_status == CLAIM_STATUS_PENDING,
+                MarketClaim.claim_status.is_(None),
+            ),
         )
         .all()
     )
     out = []
     for claim, listing, vault in rows:
+        if _claim_is_expired(claim, now=now):
+            continue
+        pub = _claim_to_public(claim)
         out.append(
             {
-                "claim_id": claim.id,
+                **pub,
                 "listing_id": listing.id,
-                "claim_type": claim.claim_type,
                 "blob_hash": vault.blob_hash,
                 "species_key": listing.species_key,
                 "dino_display_name": listing.dino_display_name,
@@ -685,16 +969,26 @@ def release_claims(db: Session, steam_id: str, claim_ids: list[int]) -> list[dic
 def claim_deliveries(db: Session, steam_id: str, claim_ids: list[int]) -> list[dict[str, Any]]:
     from app import MarketClaim
 
+    expire_stale_claims(db)
+    now = _now()
     q = db.query(MarketClaim).filter(
         MarketClaim.recipient_steam_id == steam_id,
         MarketClaim.status == "PENDENTE",
+        or_(
+            MarketClaim.claim_status == CLAIM_STATUS_PENDING,
+            MarketClaim.claim_status.is_(None),
+        ),
     )
     if claim_ids:
         q = q.filter(MarketClaim.id.in_(claim_ids))
     rows = q.all()
-    now = _now()
     claimed = []
     for row in rows:
+        if _claim_is_expired(row, now=now):
+            raise ValueError(
+                "Resgate expirado — o prazo de 24h terminou. "
+                "Reembolso automático em processamento; tente /mercado em alguns minutos."
+            )
         row.status = "CLAIMED"
         row.updated_at = now
         claimed.append({"claim_id": row.id, "listing_id": row.listing_id})
@@ -715,17 +1009,33 @@ def claim_deliveries(db: Session, steam_id: str, claim_ids: list[int]) -> list[d
 def mark_claim_delivered(db: Session, claim_id: int, steam_id: str) -> dict[str, Any]:
     from app import MarketClaim, MarketListing
 
-    claim = db.query(MarketClaim).filter(MarketClaim.id == claim_id).first()
+    claim = (
+        db.query(MarketClaim)
+        .filter(MarketClaim.id == claim_id)
+        .with_for_update()
+        .first()
+    )
     if not claim:
         raise ValueError("Claim não encontrado")
     if claim.recipient_steam_id != steam_id:
         raise ValueError("SteamID não corresponde")
-    listing = db.query(MarketListing).filter(MarketListing.id == claim.listing_id).first()
+    if _claim_is_expired(claim):
+        raise ValueError(
+            "Resgate expirado — prazo de 24h encerrado. "
+            "Comprador reembolsado automaticamente; contate suporte se necessário."
+        )
+    listing = (
+        db.query(MarketListing)
+        .filter(MarketListing.id == claim.listing_id)
+        .with_for_update()
+        .first()
+    )
     if not listing:
         raise ValueError("Listing não encontrado")
 
     now = _now()
     claim.status = "DELIVERED"
+    claim.claim_status = CLAIM_STATUS_COMPLETED
     claim.delivered_at = now
     claim.updated_at = now
     listing.status = "DELIVERED"
@@ -756,9 +1066,200 @@ def mark_claim_delivered(db: Session, claim_id: int, steam_id: str) -> dict[str,
     return {"claim_id": claim.id, "listing_id": listing.id, "status": "DELIVERED"}
 
 
-def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, Any]]:
-    from app import MarketListing
+def _refund_amount_for_listing(db: Session, listing_id: int) -> int:
+    """Valor integral a reembolsar ao comprador (preço + taxas). Taxa atual: 0."""
+    from app import MarketTransaction
 
+    tx = (
+        db.query(MarketTransaction)
+        .filter(MarketTransaction.listing_id == listing_id)
+        .order_by(MarketTransaction.created_at.desc())
+        .first()
+    )
+    if not tx:
+        return 0
+    return int(tx.price_paid or 0) + int(tx.fee_amount or 0)
+
+
+def _expire_buyer_claim(
+    db: Session,
+    claim: Any,
+    listing: Any,
+    *,
+    now: datetime,
+) -> dict[str, Any] | None:
+    """Reembolso justo: comprador recebe 100% do pago; vendedor devolve o que tiver em saldo."""
+    if claim.claim_status in (CLAIM_STATUS_EXPIRED, CLAIM_STATUS_REFUNDED):
+        return None
+    if claim.status not in ("PENDENTE", "CLAIMED"):
+        return None
+    if not _claim_is_expired(claim, now=now):
+        return None
+
+    refund = _refund_amount_for_listing(db, listing.id)
+    buyer_id = listing.buyer_steam_id or claim.recipient_steam_id
+    seller_id = listing.seller_steam_id
+
+    buyer_before = _player_points(db, buyer_id) if buyer_id else 0
+    seller_before = _player_points(db, seller_id) if seller_id else 0
+
+    buyer_after = buyer_before
+    seller_after = seller_before
+    seller_debited = 0
+
+    if refund > 0 and buyer_id:
+        buyer_after = _credit_points(db, buyer_id, refund)
+
+    if refund > 0 and seller_id:
+        seller_balance = _player_points(db, seller_id)
+        seller_debited = min(seller_balance, refund)
+        if seller_debited > 0:
+            seller_after = _debit_points(db, seller_id, seller_debited)
+
+    claim.status = "REEMBOLSADO"
+    claim.claim_status = CLAIM_STATUS_REFUNDED
+    claim.updated_at = now
+
+    listing.buyer_steam_id = None
+    listing.sold_at = None
+    listing.status = "AWAITING_CLAIM"
+    listing.updated_at = now
+
+    from app import MarketClaim
+
+    seller_claim = MarketClaim(
+        listing_id=listing.id,
+        recipient_steam_id=seller_id,
+        claim_type="SELLER",
+        status="PENDENTE",
+        market_trace_id=listing.market_trace_id,
+        created_at=now,
+        updated_at=now,
+    )
+    _apply_claim_reservation(seller_claim, now=now)
+    db.add(seller_claim)
+    db.flush()
+
+    market_audit_event(
+        db,
+        "MARKET_CLAIM_EXPIRED_REFUND",
+        severity="WARN",
+        source="scheduler",
+        steam_id=buyer_id,
+        counterparty_steam_id=seller_id,
+        listing_id=listing.id,
+        claim_id=claim.id,
+        effective_price=refund,
+        points_delta=refund,
+        points_before=buyer_before,
+        points_after=buyer_after,
+        market_trace_id=listing.market_trace_id,
+        metadata={
+            "refund_amount": refund,
+            "seller_debited": seller_debited,
+            "seller_points_before": seller_before,
+            "seller_points_after": seller_after,
+            "seller_claim_id": seller_claim.id,
+            "policy": "Reembolso integral ao comprador (preço + taxas=0). Vendedor devolve até o saldo disponível.",
+        },
+        commit=False,
+    )
+    return {
+        "claim_id": claim.id,
+        "listing_id": listing.id,
+        "refund_amount": refund,
+        "seller_claim_id": seller_claim.id,
+    }
+
+
+def _expire_seller_claim(db: Session, claim: Any, listing: Any, *, now: datetime) -> dict[str, Any] | None:
+    """Resgate de retirada expirado — listing volta para PAUSED (vendedor pode reativar)."""
+    if claim.claim_status in (CLAIM_STATUS_EXPIRED, CLAIM_STATUS_REFUNDED, CLAIM_STATUS_COMPLETED):
+        return None
+    if claim.claim_type != "SELLER":
+        return None
+    if claim.status not in ("PENDENTE", "CLAIMED"):
+        return None
+    if not _claim_is_expired(claim, now=now):
+        return None
+
+    claim.status = "EXPIRADO"
+    claim.claim_status = CLAIM_STATUS_EXPIRED
+    claim.updated_at = now
+
+    if listing.status == "AWAITING_CLAIM" and listing.buyer_steam_id is None:
+        listing.status = "PAUSED"
+        listing.updated_at = now
+
+    market_audit_event(
+        db,
+        "MARKET_CLAIM_EXPIRED_SELLER",
+        severity="WARN",
+        source="scheduler",
+        steam_id=claim.recipient_steam_id,
+        listing_id=listing.id,
+        claim_id=claim.id,
+        market_trace_id=listing.market_trace_id,
+        metadata={"reverted_to": listing.status},
+        commit=False,
+    )
+    return {"claim_id": claim.id, "listing_id": listing.id, "reverted_to": listing.status}
+
+
+def expire_stale_claims(db: Session, *, batch_size: int = 50) -> dict[str, Any]:
+    """
+    Processa claims expirados (idempotente).
+    Comprador: reembolso integral + devolução do dino ao vendedor via novo claim SELLER.
+    Vendedor (retirada): listing volta a PAUSED.
+    """
+    from app import MarketClaim, MarketListing
+
+    now = _now()
+    rows = (
+        db.query(MarketClaim, MarketListing)
+        .join(MarketListing, MarketListing.id == MarketClaim.listing_id)
+        .filter(
+            MarketClaim.status.in_(["PENDENTE", "CLAIMED"]),
+            or_(
+                MarketClaim.claim_status == CLAIM_STATUS_PENDING,
+                MarketClaim.claim_status.is_(None),
+            ),
+            MarketClaim.claim_expires_at.isnot(None),
+            MarketClaim.claim_expires_at <= now,
+        )
+        .order_by(MarketClaim.claim_expires_at.asc())
+        .limit(batch_size)
+        .with_for_update()
+        .all()
+    )
+
+    buyer_refunds: list[dict[str, Any]] = []
+    seller_expired: list[dict[str, Any]] = []
+
+    for claim, listing in rows:
+        if claim.claim_type == "BUYER":
+            result = _expire_buyer_claim(db, claim, listing, now=now)
+            if result:
+                buyer_refunds.append(result)
+        elif claim.claim_type == "SELLER":
+            result = _expire_seller_claim(db, claim, listing, now=now)
+            if result:
+                seller_expired.append(result)
+
+    if buyer_refunds or seller_expired:
+        db.commit()
+
+    return {
+        "processed": len(buyer_refunds) + len(seller_expired),
+        "buyer_refunds": buyer_refunds,
+        "seller_expired": seller_expired,
+    }
+
+
+def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, Any]]:
+    from app import MarketClaim, MarketListing
+
+    expire_stale_claims(db)
     rows = (
         db.query(MarketListing)
         .filter(
@@ -768,7 +1269,40 @@ def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, An
         .order_by(MarketListing.updated_at.desc())
         .all()
     )
-    return [listing_to_public(r, include_breakdown=True) for r in rows]
+    listing_ids = [r.id for r in rows]
+    claims_by_listing: dict[int, Any] = {}
+    if listing_ids:
+        for claim in (
+            db.query(MarketClaim)
+            .filter(
+                MarketClaim.listing_id.in_(listing_ids),
+                MarketClaim.status == "PENDENTE",
+                or_(
+                    MarketClaim.claim_status == CLAIM_STATUS_PENDING,
+                    MarketClaim.claim_status.is_(None),
+                ),
+            )
+            .all()
+        ):
+            if not _claim_is_expired(claim):
+                claims_by_listing[claim.listing_id] = claim
+
+    species_by_key = _species_map(db, {r.species_key for r in rows})
+    prof = get_profile(db, seller_steam_id)
+    seller_name = prof.market_display_name if prof else None
+    out = []
+    for row in rows:
+        item = listing_to_public(
+            row,
+            include_breakdown=True,
+            species_row=species_by_key.get(row.species_key or ""),
+        )
+        item["seller_display_name"] = seller_name
+        pending = claims_by_listing.get(row.id)
+        if pending:
+            item.update(_claim_to_public(pending))
+        out.append(item)
+    return out
 
 
 def get_listing_detail(
@@ -785,7 +1319,8 @@ def get_listing_detail(
     is_owner = viewer_steam_id and row.seller_steam_id == viewer_steam_id
     if row.status != "ACTIVE" and not is_owner:
         raise ValueError("Anúncio não disponível")
-    item = listing_to_public(row, include_breakdown=True)
+    species_row = resolve_species(db, species_key=row.species_key)
+    item = listing_to_public(row, include_breakdown=True, species_row=species_row)
     prof = (
         db.query(MarketPlayerProfile)
         .filter(MarketPlayerProfile.steam_id == row.seller_steam_id)
@@ -843,8 +1378,10 @@ def withdraw_listing(db: Session, listing_id: int, seller_steam_id: str) -> dict
         created_at=now,
         updated_at=now,
     )
+    _apply_claim_reservation(claim, now=now)
     db.add(claim)
     db.commit()
+    hrs = _hours_remaining(claim.claim_expires_at, now=now)
     market_audit_event(
         db,
         "MARKET_LISTING_WITHDRAW_REQUESTED",
@@ -852,12 +1389,18 @@ def withdraw_listing(db: Session, listing_id: int, seller_steam_id: str) -> dict
         listing_id=row.id,
         claim_id=claim.id,
         market_trace_id=row.market_trace_id,
+        metadata={
+            "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
+            "reservation_hours": CLAIM_RESERVATION_HOURS,
+        },
         commit=True,
     )
     return {
         "listing_id": row.id,
         "claim_id": claim.id,
-        "message": "Use /resgatarmercado in-game para recuperar a cryopod.",
+        "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
+        "hours_remaining": round(hrs, 2) if hrs is not None else CLAIM_RESERVATION_HOURS,
+        "message": f"Use /mercado in-game em até {CLAIM_RESERVATION_HOURS}h para recuperar a cryopod.",
     }
 
 
@@ -1005,17 +1548,173 @@ def list_pending_classification(db: Session, *, limit: int = 100) -> list[dict[s
         .filter(MarketPlayerProfile.steam_id.in_([r.seller_steam_id for r in rows]))
         .all()
     }
+    species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
     for row in rows:
-        item = listing_to_public(row, include_breakdown=True)
+        meta = _json_loads(row.metadata_json)
+        sug = _classification_from_meta(meta) or _resolve_listing_suggestion(row, meta=meta)
+        sk = row.species_key or (sug or {}).get("species_key")
+        item = listing_to_public(
+            row,
+            include_breakdown=True,
+            species_row=species_by_key.get(sk or ""),
+        )
         item["seller_display_name"] = names.get(row.seller_steam_id)
         out.append(item)
     return out
 
 
-def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dict[str, Any]:
-    from app import MarketListing, MarketTransaction
+def admin_classify_listing(
+    db: Session,
+    listing_id: int,
+    *,
+    species_key: str | None = None,
+    display_name: str | None = None,
+    tier: str | None = None,
+    root_value: int | None = None,
+    approve: bool = True,
+) -> dict[str, Any]:
+    """Confirma ou ajusta classificação admin e promove listing para DRAFT."""
+    from datetime import datetime, timezone
 
+    from app import MarketListing, MarketSpecies
+
+    row = (
+        db.query(MarketListing)
+        .filter(MarketListing.id == listing_id)
+        .with_for_update()
+        .first()
+    )
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+    if row.status != "PENDING_CLASSIFICATION":
+        raise ValueError(f"Status não permite classificação: {row.status}")
+
+    meta = _json_loads(row.metadata_json)
+    blueprint = str(meta.get("species_blueprint") or meta.get("blueprint") or "")
+    suggestion = _classification_from_meta(meta) or lookup_species(
+        blueprint=blueprint,
+        species_key=row.species_key,
+        name_hint=row.dino_display_name,
+    )
+
+    sk = (species_key or row.species_key or (suggestion or {}).get("species_key") or "").strip()
+    if not sk:
+        raise ValueError("species_key obrigatório para classificar")
+
+    species_row = resolve_species(db, species_key=sk, blueprint=blueprint or None)
+    if species_row is None:
+        base_sug = dict(suggestion or {})
+        base_sug.update(
+            {
+                "species_key": sk,
+                "display_name": display_name or base_sug.get("display_name") or sk,
+                "tier": tier or base_sug.get("tier") or "B",
+                "root_value": root_value if root_value is not None else base_sug.get("root_value", 2500),
+            }
+        )
+        species_row = ensure_pre_registered_species(db, base_sug, blueprint=blueprint)
+
+    if display_name:
+        species_row.display_name = display_name.strip()
+    if tier:
+        validated = validate_listing_category(tier)
+        if validated:
+            species_row.tier = validated
+    if root_value is not None:
+        species_row.root_value = int(root_value)
+
+    if approve:
+        species_row.status = "ACTIVE"
+        species_row.activated_at = datetime.now(timezone.utc)
+
+    row.species_key = species_row.species_key
+    meta.pop("classification_suggestion", None)
+    row.metadata_json = _json_dumps(meta)
+    db.flush()
+
+    promoted = False
+    if approve and species_row.status == "ACTIVE":
+        promoted = _promote_pending_listing_row(db, row, species_row=species_row)
+
+    if not promoted and approve:
+        row.status = "DRAFT"
+        row.updated_at = _now()
+
+    db.commit()
+
+    market_audit_event(
+        db,
+        "MARKET_LISTING_CLASSIFIED",
+        listing_id=row.id,
+        steam_id=row.seller_steam_id,
+        computed_base_value=row.computed_base_value,
+        market_trace_id=row.market_trace_id,
+        metadata={
+            "species_key": species_row.species_key,
+            "tier": species_row.tier,
+            "root_value": species_row.root_value,
+            "approved": approve,
+            "promoted": promoted,
+        },
+        commit=True,
+    )
+
+    return {
+        "listing_id": row.id,
+        "species_key": species_row.species_key,
+        "species_status": species_row.status,
+        "listing_status": row.status,
+        "promoted": promoted,
+        "computed_base_value": row.computed_base_value,
+    }
+
+
+def admin_bulk_classify_listings(
+    db: Session,
+    *,
+    listing_ids: list[int] | None = None,
+    min_confidence: str = "high",
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Aprova em lote listings com sugestão de confiança >= min_confidence."""
+    from app import MarketListing
+
+    conf_rank = {"high": 3, "medium": 2, "low": 1}
+    min_rank = conf_rank.get(min_confidence, 3)
+
+    q = db.query(MarketListing).filter(MarketListing.status == "PENDING_CLASSIFICATION")
+    if listing_ids:
+        q = q.filter(MarketListing.id.in_(listing_ids))
+    rows = q.order_by(MarketListing.created_at.asc()).limit(min(limit, 100)).all()
+
+    approved: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+
+    for row in rows:
+        meta = _json_loads(row.metadata_json)
+        suggestion = _classification_from_meta(meta) or lookup_species(
+            blueprint=str(meta.get("species_blueprint") or meta.get("blueprint") or ""),
+            species_key=row.species_key,
+            name_hint=row.dino_display_name,
+        )
+        conf = conf_rank.get((suggestion or {}).get("confidence", ""), 0)
+        if not suggestion or conf < min_rank or suggestion.get("needs_review"):
+            skipped.append({"listing_id": row.id, "reason": "low_confidence"})
+            continue
+        try:
+            result = admin_classify_listing(db, row.id, approve=True)
+            approved.append(result)
+        except ValueError as exc:
+            skipped.append({"listing_id": row.id, "reason": str(exc)})
+
+    return {"approved": approved, "skipped": skipped, "approved_count": len(approved)}
+
+
+def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dict[str, Any]:
+    from app import MarketClaim, MarketListing, MarketTransaction
+
+    expire_stale_claims(db)
     sales = (
         db.query(MarketTransaction)
         .filter(MarketTransaction.seller_steam_id == steam_id)
@@ -1038,16 +1737,37 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
         .all()
     )
 
-    def tx_row(t: Any) -> dict[str, Any]:
-        return {
+    purchase_listing_ids = [t.listing_id for t in purchases]
+    claims_by_listing: dict[int, Any] = {}
+    if purchase_listing_ids:
+        for claim in (
+            db.query(MarketClaim)
+            .filter(
+                MarketClaim.listing_id.in_(purchase_listing_ids),
+                MarketClaim.recipient_steam_id == steam_id,
+                MarketClaim.claim_type == "BUYER",
+            )
+            .order_by(MarketClaim.created_at.desc())
+            .all()
+        ):
+            if claim.listing_id not in claims_by_listing:
+                claims_by_listing[claim.listing_id] = claim
+
+    def tx_row(t: Any, *, is_purchase: bool = False) -> dict[str, Any]:
+        row: dict[str, Any] = {
             "listing_id": t.listing_id,
             "price_paid": t.price_paid,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         }
+        if is_purchase:
+            claim = claims_by_listing.get(t.listing_id)
+            if claim:
+                row.update(_claim_to_public(claim))
+        return row
 
     return {
         "sales": [tx_row(t) for t in sales],
-        "purchases": [tx_row(t) for t in purchases],
+        "purchases": [tx_row(t, is_purchase=True) for t in purchases],
         "uploads": [
             {
                 "listing_id": u.id,
@@ -1058,6 +1778,7 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
             }
             for u in uploads
         ],
+        "reservation_hours": CLAIM_RESERVATION_HOURS,
     }
 
 

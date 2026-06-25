@@ -1,0 +1,122 @@
+"""Testes do registro de espécies e normalização de blueprint."""
+from __future__ import annotations
+
+import os
+import sys
+
+import pytest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from ark_species_registry import (
+    extract_class_token,
+    is_raw_blueprint_label,
+    load_registry,
+    lookup_species,
+    normalize_blueprint_extended,
+    registry_stats,
+    _indexes,
+)
+
+
+@pytest.fixture(autouse=True)
+def _clear_registry_cache():
+    load_registry.cache_clear()
+    _indexes.cache_clear()
+    yield
+    load_registry.cache_clear()
+    _indexes.cache_clear()
+
+
+def test_extract_class_token_from_raw_name_map():
+    assert extract_class_token("Ankylo_Character_BP_C_257") == "ankylo"
+    assert extract_class_token("Ankylo_Character_BP_C_257 ♂") == "ankylo"
+
+
+def test_extract_class_token_from_full_blueprint():
+    bp = "/Game/PrimalEarth/Dinos/Ankylo/Ankylo_Character_BP.Ankylo_Character_BP"
+    assert extract_class_token(bp) == "ankylo"
+    assert "ankylo" in normalize_blueprint_extended(bp)
+
+
+def test_is_raw_blueprint_label():
+    assert is_raw_blueprint_label("Ankylo_Character_BP_C_257")
+    assert not is_raw_blueprint_label("Meu Rex TOP")
+
+
+def test_lookup_ankylo_by_blueprint():
+    bp = "/Game/PrimalEarth/Dinos/Ankylo/Ankylo_Character_BP.Ankylo_Character_BP"
+    hit = lookup_species(blueprint=bp)
+    assert hit is not None
+    assert hit["display_name"] == "Anquilossauro"
+    assert hit["tier"] == "B"
+    assert hit["confidence"] in ("high", "medium")
+
+
+def test_lookup_ankylo_by_name_hint():
+    hit = lookup_species(name_hint="Ankylo_Character_BP_C_257 ♂")
+    assert hit is not None
+    assert hit["species_key"] in ("ankylo", "ankylosaurus")
+
+
+def test_lookup_rex_defaults():
+    hit = lookup_species(species_key="rex")
+    assert hit is not None
+    assert hit["tier"] == "A"
+
+
+def test_registry_stats_has_species():
+    stats = registry_stats()
+    assert stats["species_count"] >= 120
+
+
+def test_lookup_abyss_rex_abyssal_by_blueprint():
+    bp = "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
+    hit = lookup_species(blueprint=bp)
+    assert hit is not None
+    assert hit["species_key"] == "abyss_rex_abyssal"
+    assert hit["display_name"] == "Rex Abissal"
+    assert hit["tier"] == "S+"
+    assert hit["root_value"] == 13000
+    assert hit["confidence"] == "high"
+
+
+def test_lookup_abyss_ankylo_abyssal_by_name_hint():
+    hit = lookup_species(name_hint="Ankylo_Character_BP_Abyssal")
+    assert hit is not None
+    assert hit["species_key"] == "abyss_ankylo_abyssal"
+    assert hit["tier"] == "B"
+    assert hit["role"] == "farm"
+
+
+def test_lookup_abyss_water_wyvern():
+    hit = lookup_species(blueprint="Wyvern_Character_BP_Water")
+    assert hit is not None
+    assert hit["species_key"] == "abyss_water_wyvern"
+    assert hit["tier"] == "S+"
+    assert hit["root_value"] == 12000
+
+
+def test_lookup_abyss_dakosaurus():
+    bp = "/Game/Abyss/Dinos/Dakosaurus/Dakosaurus_Character_BP.Dakosaurus_Character_BP"
+    hit = lookup_species(blueprint=bp)
+    assert hit is not None
+    assert hit["species_key"] == "abyss_dakosaurus"
+    assert hit["tier"] == "S"
+    assert hit["root_value"] == 9000
+
+
+def test_lookup_abyss_resource_seaweed():
+    bp = "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed"
+    hit = lookup_species(blueprint=bp)
+    assert hit is not None
+    assert hit["species_key"] == "abyss_seaweed"
+    assert hit["tier"] == "C"
+    assert hit["role"] == "resource"
+
+
+def test_lookup_abyss_reaper_male_abyssal():
+    hit = lookup_species(name_hint="Reaper_Character_BP_Male_Abyssal")
+    assert hit is not None
+    assert hit["species_key"] == "abyss_reaper_abyssal"
+    assert hit["tier"] == "S+"

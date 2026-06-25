@@ -75,6 +75,19 @@ def is_muted(db: Any, steam_id: str) -> bool:
     return row is not None
 
 
+_DISCORD_STEAM_RE = re.compile(r"^discord:\d{5,}$")
+
+
+def _normalize_steam_id(steam_id: str, channel: str) -> str:
+    raw = (steam_id or "").strip()
+    if channel == "discord":
+        if _DISCORD_STEAM_RE.match(raw):
+            return raw[:20]
+        return ""
+    digits = re.sub(r"\D", "", raw)[:20]
+    return digits
+
+
 def publish_message(
     db: Any,
     *,
@@ -85,18 +98,21 @@ def publish_message(
     channel: str = "cluster",
 ) -> dict[str, Any]:
     source_server = _sanitize_ascii(source_server, max_len=_MAX_SERVER)
-    steam_id = re.sub(r"\D", "", steam_id or "")[:20]
+    channel = _sanitize_ascii(channel, max_len=16) or "cluster"
+    steam_id = _normalize_steam_id(steam_id, channel)
     player_name = _sanitize_ascii(player_name, max_len=_MAX_NAME)
     message = _sanitize_ascii(message, max_len=_MAX_MESSAGE)
-    channel = _sanitize_ascii(channel, max_len=16) or "cluster"
 
     if not source_server:
         return {"ok": False, "error": "source_server obrigatorio"}
-    if len(steam_id) < 15:
+    if channel == "discord":
+        if not steam_id:
+            return {"ok": False, "error": "discord_id invalido"}
+    elif len(steam_id) < 15:
         return {"ok": False, "error": "steam_id invalido"}
     if not message:
         return {"ok": False, "error": "mensagem vazia"}
-    if is_muted(db, steam_id):
+    if channel != "discord" and is_muted(db, steam_id):
         return {"ok": False, "error": "jogador silenciado"}
 
     db.execute(

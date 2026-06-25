@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 from datetime import datetime, timezone
 
 import pytest
@@ -21,6 +22,15 @@ SELLER = "76561198000000001"
 
 @pytest.fixture(autouse=True)
 def fresh_db(tmp_path, monkeypatch):
+    _orig_start = threading.Thread.start
+
+    def _patched_start(self):
+        if getattr(self, "name", None) == "arkshop-db-migrate":
+            self.run()
+        else:
+            _orig_start(self)
+
+    monkeypatch.setattr(threading.Thread, "start", _patched_start)
     db_url = f"sqlite:///{tmp_path / 'market_claims_test.db'}"
     monkeypatch.setattr(_app_module, "_ACTIVE_DATABASE_URL", "")
     _configure_database(db_url)
@@ -64,6 +74,9 @@ def _seed_claim(db):
         created_at=now,
         updated_at=now,
     )
+    from market_listings import _apply_claim_reservation
+
+    _apply_claim_reservation(claim, now=now)
     db.add(claim)
     db.commit()
     return claim.id, listing.id

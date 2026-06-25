@@ -1,0 +1,527 @@
+{
+  "_comment": "Overlay do registro ARK — espécies de mods e itens fora do market_species_defaults.json.",
+  "_mod": "Abyss",
+  "_pricing_logic": "S+ apex abissal/combate premium (12k+); S combat forte/transporte premium (8–9k); A meta PvE/PvP (5–5.5k); B utilidade/gather (2.5–3k); C passivos/sementes/recursos comuns (200–800). root_value = Âmbar nível 1 sugerido.",
+  "species": [
+    {
+      "species_key": "abyss_seaweed",
+      "display_name": "Alga Marinha",
+      "tier": "C",
+      "role": "resource",
+      "root_value": 300,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed"
+      ],
+      "class_tokens": ["primalitemresource_seaweed"]
+    },
+    {
+      "species_key": "abyss_manganese",
+      "display_name": "Manganês",
+      "tier": "C",
+      "role": "resource",
+      "root_value": 400,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese"
+      ],
+      "class_tokens": ["primalitemresource_manganese"]
+    },
+    {
+      "species_key": "abyss_hardened_steel",
+      "display_name": "Lingote de Aço Endurecido",
+      "tier": "B",
+      "role": "resource",
+      "root_value": 1200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot"
+      ],
+      "class_tokens": ["primalitemresource_hardenedsteelingot"]
+    },
+    {
+      "species_key": "abyss_fish_scale",
+      "display_name": "Escama de Peixe",
+      "tier": "C",
+      "role": "resource",
+      "root_value": 350,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale"
+      ],
+      "class_tokens": ["primalitemresource_fishscale"]
+    },
+    {
+      "species_key": "abyss_crystallized_wood",
+      "display_name": "Madeira Cristalizada",
+      "tier": "B",
+      "role": "resource",
+      "root_value": 1000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_CrystallizedWood.PrimalItemResource_CrystallizedWood"
+      ],
+      "class_tokens": ["primalitemresource_crystallizedwood"]
+    },
+    {
+      "species_key": "abyss_barnacle",
+      "display_name": "Craca",
+      "tier": "C",
+      "role": "resource",
+      "root_value": 250,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Barnacle.PrimalItemResource_Barnacle"
+      ],
+      "class_tokens": ["primalitemresource_barnacle"]
+    },
+    {
+      "species_key": "abyss_aqualyrium",
+      "display_name": "Aqualyrium",
+      "tier": "A",
+      "role": "resource",
+      "root_value": 2000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium"
+      ],
+      "class_tokens": ["primalitemresource_aqualyrium"]
+    },
+    {
+      "species_key": "abyss_seed_plantspeciesw",
+      "display_name": "Semente Planta W (Abyss)",
+      "tier": "C",
+      "role": "farm",
+      "root_value": 200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW"
+      ],
+      "class_tokens": ["primalitemconsumable_seed_plantspeciesw"]
+    },
+    {
+      "species_key": "abyss_seed_rice",
+      "display_name": "Semente de Arroz",
+      "tier": "C",
+      "role": "farm",
+      "root_value": 200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice"
+      ],
+      "class_tokens": ["primalitemconsumable_seed_rice"]
+    },
+    {
+      "species_key": "abyss_seed_cucumis",
+      "display_name": "Semente de Pepino",
+      "tier": "C",
+      "role": "farm",
+      "root_value": 200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis"
+      ],
+      "class_tokens": ["primalitemconsumable_seed_cucumis"]
+    },
+    {
+      "species_key": "abyss_water_wyvern",
+      "display_name": "Wyvern Aquática",
+      "tier": "S+",
+      "role": "pvp",
+      "root_value": 12000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Wyvern/Wyvern_Character_BP_Water.Wyvern_Character_BP_Water"
+      ],
+      "class_tokens": ["wyvern_character_bp_water", "water_wyvern"]
+    },
+    {
+      "species_key": "abyss_vulcanite",
+      "display_name": "Vulcanita",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 5500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Vulcanite/Vulcanite_Character_BP.Vulcanite_Character_BP"
+      ],
+      "class_tokens": ["vulcanite"]
+    },
+    {
+      "species_key": "abyss_tridacna",
+      "display_name": "Tridacna",
+      "tier": "B",
+      "role": "utility",
+      "root_value": 2500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Tridacna/Tridacna_Character_BP.Tridacna_Character_BP"
+      ],
+      "class_tokens": ["tridacna"]
+    },
+    {
+      "species_key": "abyss_tiktaalik",
+      "display_name": "Tiktaalik",
+      "tier": "B",
+      "role": "pvp",
+      "root_value": 3000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Tiktaalik/Tiktaalik_Character_BP.Tiktaalik_Character_BP"
+      ],
+      "class_tokens": ["tiktaalik"]
+    },
+    {
+      "species_key": "abyss_thunnus",
+      "display_name": "Atum (Thunnus)",
+      "tier": "B",
+      "role": "utility",
+      "root_value": 2200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Thunnus/Thunnus_Character_BP.Thunnus_Character_BP"
+      ],
+      "class_tokens": ["thunnus"]
+    },
+    {
+      "species_key": "abyss_takifugu",
+      "display_name": "Baiacu (Takifugu)",
+      "tier": "C",
+      "role": "utility",
+      "root_value": 800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Takifugu/Takifugu_Character_BP.Takifugu_Character_BP"
+      ],
+      "class_tokens": ["takifugu"]
+    },
+    {
+      "species_key": "abyss_stereolepis",
+      "display_name": "Stereolepis",
+      "tier": "B",
+      "role": "pvp",
+      "root_value": 2800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Stereolepis/Stereolepis_Character_BP.Stereolepis_Character_BP"
+      ],
+      "class_tokens": ["stereolepis"]
+    },
+    {
+      "species_key": "abyss_seahorse",
+      "display_name": "Cavalo-marinho",
+      "tier": "C",
+      "role": "utility",
+      "root_value": 600,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Seahorse/Seahorse_Character_BP.Seahorse_Character_BP"
+      ],
+      "class_tokens": ["seahorse"]
+    },
+    {
+      "species_key": "abyss_riftcrawler",
+      "display_name": "Rift Crawler",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 5200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP"
+      ],
+      "class_tokens": ["riftcrawler"]
+    },
+    {
+      "species_key": "abyss_qarmoutus",
+      "display_name": "Qarmoutus",
+      "tier": "S",
+      "role": "pvp",
+      "root_value": 8500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Qarmoutus/Qarmoutus_Character_BP.Qarmoutus_Character_BP"
+      ],
+      "class_tokens": ["qarmoutus"]
+    },
+    {
+      "species_key": "abyss_onchopristis",
+      "display_name": "Onchopristis",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 5000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Onchopristis/Onchopristis_Character_BP.Onchopristis_Character_BP"
+      ],
+      "class_tokens": ["onchopristis"]
+    },
+    {
+      "species_key": "abyss_ocepechelon",
+      "display_name": "Ocepechelon",
+      "tier": "B",
+      "role": "utility",
+      "root_value": 2800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Ocepechelon/Ocepechelon_Character_BP.Ocepechelon_Character_BP"
+      ],
+      "class_tokens": ["ocepechelon"]
+    },
+    {
+      "species_key": "abyss_mudpuppy",
+      "display_name": "Mudpuppy",
+      "tier": "C",
+      "role": "utility",
+      "root_value": 700,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Mudpuppy/Mudpuppy_Character_BP.Mudpuppy_Character_BP"
+      ],
+      "class_tokens": ["mudpuppy"]
+    },
+    {
+      "species_key": "abyss_monodon",
+      "display_name": "Narval (Monodon)",
+      "tier": "B",
+      "role": "utility",
+      "root_value": 2500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Monodon/Monodon_Character_BP.Monodon_Character_BP"
+      ],
+      "class_tokens": ["monodon"]
+    },
+    {
+      "species_key": "abyss_mantis_shrimp",
+      "display_name": "Camarão-mantis",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 4800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/MantisShrimp/MantisShrimp_Character_BP.MantisShrimp_Character_BP"
+      ],
+      "class_tokens": ["mantisshrimp"]
+    },
+    {
+      "species_key": "abyss_malleocephalus",
+      "display_name": "Malleocephalus",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 5000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Malleocephalus/Malleocephalus_Character_BP.Malleocephalus_Character_BP"
+      ],
+      "class_tokens": ["malleocephalus"]
+    },
+    {
+      "species_key": "abyss_kathreptis",
+      "display_name": "Kathreptis",
+      "tier": "S",
+      "role": "pvp",
+      "root_value": 8000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Kathreptis/Kathreptis_Character_BP.Kathreptis_Character_BP"
+      ],
+      "class_tokens": ["kathreptis"]
+    },
+    {
+      "species_key": "abyss_istiophorus",
+      "display_name": "Marlim (Istiophorus)",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 4800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Istiophorus/Istiophorus_Character_BP.Istiophorus_Character_BP"
+      ],
+      "class_tokens": ["istiophorus"]
+    },
+    {
+      "species_key": "abyss_homarus",
+      "display_name": "Lagosta (Homarus)",
+      "tier": "B",
+      "role": "pvp",
+      "root_value": 2800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Homarus/Homarus_Character_BP.Homarus_Character_BP"
+      ],
+      "class_tokens": ["homarus"]
+    },
+    {
+      "species_key": "abyss_dakosaurus",
+      "display_name": "Dakosaurus",
+      "tier": "S",
+      "role": "pvp",
+      "root_value": 9000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Dakosaurus/Dakosaurus_Character_BP.Dakosaurus_Character_BP"
+      ],
+      "class_tokens": ["dakosaurus"]
+    },
+    {
+      "species_key": "abyss_yuty_abyssal",
+      "display_name": "Yutyrannus Abissal",
+      "tier": "S+",
+      "role": "boss",
+      "root_value": 12500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["yutyrannus_character_bp_abyssal", "yuty_abyssal"]
+    },
+    {
+      "species_key": "abyss_thyla_abyssal",
+      "display_name": "Thylacoleo Abissal",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 5200,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["thylacoleo_character_bp_abyssal", "thyla_abyssal"]
+    },
+    {
+      "species_key": "abyss_theriz_abyssal",
+      "display_name": "Therizinosaur Abissal",
+      "tier": "A",
+      "role": "pvp",
+      "root_value": 5500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Therizino/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["therizino_character_bp_abyssal", "theriz_abyssal"]
+    },
+    {
+      "species_key": "abyss_stego_abyssal",
+      "display_name": "Stegossauro Abissal",
+      "tier": "B",
+      "role": "utility",
+      "root_value": 2800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["stego_character_bp_abyssal", "stego_abyssal"]
+    },
+    {
+      "species_key": "abyss_rex_abyssal",
+      "display_name": "Rex Abissal",
+      "tier": "S+",
+      "role": "boss",
+      "root_value": 13000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["rex_character_bp_abyssal", "rex_abyssal"]
+    },
+    {
+      "species_key": "abyss_reaper_abyssal",
+      "display_name": "Reaper Abissal",
+      "tier": "S+",
+      "role": "boss",
+      "root_value": 13000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal"
+      ],
+      "class_tokens": ["reaper_character_bp_male_abyssal", "reaper_abyssal"]
+    },
+    {
+      "species_key": "abyss_moschops_abyssal",
+      "display_name": "Moschops Abissal",
+      "tier": "B",
+      "role": "farm",
+      "root_value": 2800,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["moschops_character_bp_abyssal", "moschops_abyssal"]
+    },
+    {
+      "species_key": "abyss_ankylo_abyssal",
+      "display_name": "Anquilossauro Abissal",
+      "tier": "B",
+      "role": "farm",
+      "root_value": 3000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/Dinos/Ankylo/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal"
+      ],
+      "class_tokens": ["ankylo_character_bp_abyssal", "ankylo_abyssal"]
+    },
+    {
+      "species_key": "abyss_hover_sail",
+      "display_name": "Vela Thalassiana (HoverSail)",
+      "tier": "A",
+      "role": "transport",
+      "root_value": 5500,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian"
+      ],
+      "class_tokens": ["primalitem_spawner_hoversail_thalassian"]
+    },
+    {
+      "species_key": "abyss_hover_skiff",
+      "display_name": "Skiff Thalassiano",
+      "tier": "S",
+      "role": "transport",
+      "root_value": 8000,
+      "mod": "Abyss",
+      "confidence": "high",
+      "blueprint_paths": [
+        "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff"
+      ],
+      "class_tokens": ["primalitem_spawner_thalassianhoverskiff"]
+    }
+  ]
+}

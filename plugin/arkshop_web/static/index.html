@@ -610,6 +610,129 @@
       padding: 1px 6px;
     }
 
+    .market-listing-card {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1px solid var(--border);
+      background: linear-gradient(165deg, rgba(0,200,255,.04) 0%, var(--surface2) 45%);
+    }
+    .market-listing-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .market-listing-card__seller {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--tek);
+      background: rgba(0,200,255,.1);
+      border: 1px solid rgba(0,200,255,.28);
+      border-radius: 20px;
+      padding: 3px 10px;
+      margin-bottom: 6px;
+    }
+    .market-listing-card__title {
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.25;
+      color: var(--text);
+    }
+    .market-listing-card__species {
+      font-size: 12px;
+      color: var(--text2);
+      margin-top: 3px;
+    }
+    .market-listing-card__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .market-listing-card__suggestion {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255, 193, 7, 0.15);
+      color: var(--amber);
+      border: 1px solid rgba(255, 193, 7, 0.35);
+    }
+    .market-listing-card__pending-msg {
+      font-size: 12px;
+      color: var(--warn);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+    .market-listing-card__category {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      color: var(--amber);
+      background: rgba(232,160,32,.14);
+      border: 1px solid rgba(232,160,32,.32);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    .market-listing-card__desc {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text2);
+      margin-top: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .market-listing-card__desc-toggle {
+      font-size: 11px;
+      color: var(--tek);
+      cursor: pointer;
+      border: none;
+      background: none;
+      padding: 0;
+      margin-top: 4px;
+    }
+    .market-listing-card__edit {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--border);
+    }
+    .market-listing-card__edit label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text2);
+    }
+    .market-listing-card__edit input,
+    .market-listing-card__edit select,
+    .market-listing-card__edit textarea {
+      width: 100%;
+      padding: 7px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface3);
+      color: var(--text);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .market-listing-card__char-count {
+      font-size: 10px;
+      color: var(--text2);
+      text-align: right;
+      margin-top: 2px;
+    }
+
     /* ── Badges ───────────────────────────────────────────────────────────── */
     .badge {
       display: inline-flex;
@@ -1738,7 +1861,10 @@
     .price-tag { font-weight: 700; color: var(--amber); text-shadow: 0 0 8px rgba(232,160,32,.3); }
     .actions-col { display: flex; gap: 6px; }
     .admin-only { display: none !important; }
-    body.boot-admin .admin-only { display: block !important; }
+    /* Só revela itens do menu admin — não força todas as páginas .page.admin-only visíveis */
+    body.boot-admin .nav-section.admin-only { display: flex !important; }
+    body.boot-admin .nav-item.admin-only { display: flex !important; }
+    body.boot-admin .page.admin-only.active { display: block !important; }
 
     /* RCON terminal output */
     #rcon-output, .rcon-log {
@@ -2403,6 +2529,206 @@
     }
     .home-step__title { font-weight: 700; color: #fff; margin-bottom: 6px; font-size: 13px; }
     .home-step__text { font-size: 12px; color: var(--text2); line-height: 1.55; }
+
+    /* ── Tutoriais ─────────────────────────────────────────────────────────── */
+    .tutorial-hero {
+      margin-bottom: 20px;
+      padding: 24px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      background: linear-gradient(135deg, var(--surface2) 0%, var(--surface3) 100%);
+    }
+    .tutorial-hero__title {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--amber);
+      margin-bottom: 8px;
+      letter-spacing: .08em;
+    }
+    .tutorial-hero__sub {
+      font-size: 14px;
+      color: var(--text2);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    .tutorial-search {
+      width: 100%;
+      max-width: 480px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-g);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 14px;
+    }
+    .tutorial-search:focus {
+      outline: none;
+      border-color: var(--tek);
+      box-shadow: var(--tek-glow);
+    }
+    .tutorial-toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .tutorial-toc a {
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color .15s, color .15s;
+    }
+    .tutorial-toc a:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    .tutorial-accordion { display: flex; flex-direction: column; gap: 10px; }
+    .tutorial-acc-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      background: var(--surface2);
+      overflow: hidden;
+    }
+    .tutorial-acc-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
+      cursor: pointer;
+      user-select: none;
+      transition: background .15s;
+    }
+    .tutorial-acc-header:hover { background: var(--surface3); }
+    .tutorial-acc-icon { font-size: 20px; flex-shrink: 0; }
+    .tutorial-acc-title {
+      flex: 1;
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .06em;
+    }
+    .tutorial-acc-chevron {
+      color: var(--text2);
+      font-size: 12px;
+      transition: transform .2s;
+    }
+    .tutorial-acc-item.open .tutorial-acc-chevron { transform: rotate(180deg); }
+    .tutorial-acc-body {
+      display: none;
+      padding: 0 18px 20px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      border-top: 1px solid var(--border);
+    }
+    .tutorial-acc-item.open .tutorial-acc-body { display: block; }
+    .tutorial-acc-body h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      margin: 18px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+    .tutorial-acc-body h4:first-child { margin-top: 14px; }
+    .tutorial-acc-body p { margin-bottom: 10px; }
+    .tutorial-acc-body ul, .tutorial-acc-body ol { margin: 0 0 12px 1.2em; }
+    .tutorial-acc-body li { margin-bottom: 6px; }
+    .tutorial-acc-body code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--surface3);
+      border: 1px solid var(--border);
+      color: var(--tek);
+    }
+    .tutorial-steps { counter-reset: tut-step; list-style: none; margin: 0 0 14px; padding: 0; }
+    .tutorial-steps li {
+      counter-increment: tut-step;
+      position: relative;
+      padding: 12px 12px 12px 44px;
+      margin-bottom: 8px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface3);
+    }
+    .tutorial-steps li::before {
+      content: counter(tut-step);
+      position: absolute;
+      left: 12px; top: 12px;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background: var(--amber-dim);
+      border: 1px solid rgba(232,120,32,.4);
+      color: var(--amber);
+      font-weight: 700;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tutorial-prereq {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      border-left: 3px solid var(--tek);
+      background: var(--tek-dim);
+      font-size: 13px;
+    }
+    .tutorial-prereq strong { color: var(--tek); display: block; margin-bottom: 6px; }
+    .tutorial-callout {
+      margin: 14px 0;
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .tutorial-callout--tip {
+      border: 1px solid rgba(18,216,124,.35);
+      background: rgba(18,216,124,.08);
+    }
+    .tutorial-callout--tip strong { color: var(--success); }
+    .tutorial-callout--warn {
+      border: 1px solid rgba(232,48,48,.35);
+      background: rgba(232,48,48,.08);
+    }
+    .tutorial-callout--warn strong { color: var(--danger); }
+    .tutorial-callout--info {
+      border: 1px solid rgba(0,200,255,.35);
+      background: var(--tek-dim);
+    }
+    .tutorial-callout--info strong { color: var(--tek); }
+    .tutorial-cmd-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin: 12px 0;
+    }
+    .tutorial-cmd-table th, .tutorial-cmd-table td {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+    .tutorial-cmd-table th {
+      background: var(--surface3);
+      color: var(--amber);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .tutorial-cmd-table tr:nth-child(even) td { background: rgba(0,0,0,.15); }
+    @media (max-width: 720px) {
+      .tutorial-cmd-table { display: block; overflow-x: auto; }
+      .tutorial-hero { padding: 18px; }
+    }
 
     .home-servers-grid {
       display: grid;
@@ -3307,7 +3633,7 @@
   function bootShellEarly() {
     var t = document.getElementById("sb-text");
     if (t) t.textContent = "Conectando…";
-    document.querySelectorAll(".admin-only").forEach(function (el) {
+    document.querySelectorAll(".admin-only:not(.page)").forEach(function (el) {
       el.style.display = "none";
     });
     document.querySelectorAll('.nav-item[data-page="shop"].active').forEach(function (el) {
@@ -3349,6 +3675,27 @@
     <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px;" onclick="showAuthOverlay(false)">
       Continuar como visitante
     </button>
+  </div>
+</div>
+
+<!-- ── Onboarding: nome de exibição obrigatório (Steam) ─────────────────────── -->
+<div id="display-name-gate" class="modal-backdrop hidden" style="z-index:10050;">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">🏪 Nome na loja</div>
+    </div>
+    <p id="display-name-gate-context" style="font-size:13px;color:var(--text2);margin:0 0 14px;line-height:1.5;">
+      Antes de usar a loja, defina como outros jogadores verão você no Comércio e no portal.
+    </p>
+    <div class="form-group">
+      <label>Nome de exibição *</label>
+      <input id="display-name-gate-input" type="text" maxlength="32" placeholder="Ex: RexMaster_BR" autocomplete="off" />
+      <p style="font-size:11px;color:var(--text3);margin:6px 0 0;">2–32 caracteres: letras, números, _ - .</p>
+    </div>
+    <p id="display-name-gate-error" style="font-size:12px;color:var(--danger);margin:0 0 12px;display:none;"></p>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-primary" id="display-name-gate-save" onclick="saveDisplayNameFromGate()">Salvar e continuar</button>
+    </div>
   </div>
 </div>
 
@@ -3452,6 +3799,9 @@
     </div>
     <div class="nav-item" data-page="downloads" onclick="nav(this)">
       <span class="nav-icon">🧰</span> Utilidades
+    </div>
+    <div class="nav-item" data-page="tutoriais" onclick="nav(this)">
+      <span class="nav-icon">📖</span> Tutoriais
     </div>
     <div class="nav-item" data-page="myarea" onclick="nav(this)">
       <span class="nav-icon">👤</span> Minha Área
@@ -3611,7 +3961,7 @@
           <div class="donation-policy-banner__text">
             Envio in-game: <strong>/enviar</strong> → preview → <strong>/confirmar</strong> (requer Licença Nuvem + imprint 100%).
             Cryopods com timer são aceitas — o timer é <strong>removido permanentemente</strong> na confirmação.
-            Resgate: <strong>/resgatarmercado</strong>. Preço mínimo = valor sugerido. Nome de exibição obrigatório em Minha Área.
+            Resgate: <strong>/mercado</strong>. Preço mínimo = valor sugerido. Nome de exibição obrigatório em Minha Área.
           </div>
         </div>
         <div class="catalog-tabs">
@@ -3657,7 +4007,7 @@
             <div class="card" style="margin-bottom:16px;">
               <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
                 Envie dinos in-game com <code>/enviar</code> e <code>/confirmar</code>. Defina preço e ative abaixo.
-                Resgate próprio: botão «Recuperar» + <code>/resgatarmercado</code>.
+                Resgate próprio: botão «Recuperar» + <code>/mercado</code>.
               </p>
             </div>
             <div id="market-myshop-list"></div>
@@ -3721,9 +4071,13 @@
         </div>
         <div id="market-admin-panel-pending" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
-            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
-              Listings aguardando espécie <strong>ACTIVE</strong> ou com blueprint não reconhecido. Use <strong>Promover pendentes</strong> após ativar a espécie.
+            <p style="font-size:13px;color:var(--text2);margin:0 0 8px;line-height:1.5;">
+              Fila de anúncios com classificação automática por blueprint ARK. Confirme ou ajuste tier/preço antes de liberar para o vendedor.
             </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-success btn-sm" onclick="marketAdminBulkClassify()">✓ Aprovar em lote (alta confiança)</button>
+              <button class="btn btn-ghost btn-sm" onclick="marketReconcilePending()">⟳ Promover pendentes</button>
+            </div>
           </div>
           <div id="market-admin-pending-list"></div>
         </div>
@@ -4096,6 +4450,469 @@
         </div>
       </div>
 
+      <!-- PAGE: Tutoriais (público) -->
+      <div id="page-tutoriais" class="page">
+        <div class="tutorial-hero">
+          <div class="tutorial-hero__title">📖 Tutoriais ARKLAND</div>
+          <p class="tutorial-hero__sub">
+            Guias completos para usar a loja web, o Comércio P2P de dinos, comandos in-game e a Nuvem de inventário.
+            Siga os passos na ordem indicada e confira os pré-requisitos de cada ação.
+          </p>
+          <input id="tutorial-search" class="tutorial-search" type="search" placeholder="🔍 Buscar nos tutoriais…" oninput="filterTutoriais(this.value)" autocomplete="off" />
+        </div>
+        <nav class="tutorial-toc" aria-label="Índice dos tutoriais">
+          <a href="#tut-primeiros-passos" onclick="openTutorialSection('tut-primeiros-passos')">Primeiros passos</a>
+          <a href="#tut-loja" onclick="openTutorialSection('tut-loja')">Loja / compras</a>
+          <a href="#tut-comercio" onclick="openTutorialSection('tut-comercio')">Comércio P2P</a>
+          <a href="#tut-comandos" onclick="openTutorialSection('tut-comandos')">Comandos in-game</a>
+          <a href="#tut-perfil" onclick="openTutorialSection('tut-perfil')">Perfil / Minha Loja</a>
+          <a href="#tut-nuvem" onclick="openTutorialSection('tut-nuvem')">Nuvem</a>
+          <a href="#tut-faq" onclick="openTutorialSection('tut-faq')">FAQ</a>
+        </nav>
+        <div class="tutorial-accordion" id="tutorial-accordion">
+
+          <!-- A. Primeiros passos -->
+          <div class="tutorial-acc-item open" id="tut-primeiros-passos" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="true">
+              <span class="tutorial-acc-icon">🚀</span>
+              <span class="tutorial-acc-title">A. Primeiros passos</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <p>Bem-vindo ao portal ARKLAND DONATIONS. Este é o ponto central para doações voluntárias, resgates com Âmbar, Comércio P2P de dinos e gerenciamento da sua conta.</p>
+
+              <h4>O que é Âmbar?</h4>
+              <p><strong>Âmbar</strong> é a moeda virtual do cluster ARKLAND. Você a usa para resgatar itens, kits, dinos e licenças no catálogo, e também para comprar dinos de outros jogadores no Comércio P2P. <strong>Não é dinheiro real</strong> — não pode ser convertida de volta em reais.</p>
+              <p>Você ganha Âmbar de duas formas principais:</p>
+              <ul>
+                <li><strong>Jogando</strong> — acúmulo automático por tempo online no servidor (bônus maior com licenças Gamma, Beta ou Alfa ativas).</li>
+                <li><strong>Doações PIX voluntárias</strong> — na aba «Doação» do Catálogo; o Mercado Pago credita Âmbares proporcionais ao valor doado.</li>
+              </ul>
+
+              <h4>Onde ver meu saldo?</h4>
+              <ul>
+                <li><strong>Barra superior</strong> — ícone de Âmbar com o valor atual (visível após login).</li>
+                <li><strong>Catálogo</strong> — pílula de saldo no topo da página.</li>
+                <li><strong>Minha Área</strong> — card «Resumo» com saldo e estatísticas.</li>
+                <li><strong>In-game</strong> — ao usar <code>/shop</code>, o plugin mostra seu saldo no chat.</li>
+              </ul>
+
+              <h4>Como vincular conta e fazer login</h4>
+              <ol class="tutorial-steps">
+                <li>Acesse a loja web pelo link exibido in-game com <code>/shop</code> ou pelo endereço do cluster.</li>
+                <li>Clique em <strong>«Entrar com Steam»</strong> no canto superior ou quando o portal solicitar login.</li>
+                <li>Você será redirecionado ao <strong>Steam OpenID</strong> — faça login na conta Steam que usa no ARK.</li>
+                <li>Após autorizar, volta ao portal com seu <strong>SteamID</strong> vinculado à sessão.</li>
+                <li>O ARK usa Steam/EOS internamente; o portal identifica você pelo <strong>SteamID64</strong> da sessão Steam.</li>
+              </ol>
+
+              <div class="tutorial-prereq">
+                <strong>Pré-requisitos gerais</strong>
+                <ul>
+                  <li>Conta Steam com ARK: Survival Ascended no cluster ARKLAND.</li>
+                  <li>Para resgates e entregas: estar <strong>conectado e vivo</strong> no mapa do servidor.</li>
+                  <li>Para Comércio P2P: login na web + <strong>nome de exibição</strong> configurado em Minha Área.</li>
+                  <li>Para enviar dinos ao mercado: <strong>Licença Nuvem</strong> ativa (resgatável no Catálogo → Licenças).</li>
+                </ul>
+              </div>
+
+              <div class="tutorial-callout tutorial-callout--tip">
+                <strong>💡 Dica</strong>
+                O catálogo é público — você pode navegar sem login. Login é necessário para doar via PIX, resgatar itens, acessar Minha Área e comprar/vender no Comércio.
+              </div>
+
+              <div class="tutorial-callout tutorial-callout--info">
+                <strong>ℹ️ Navegação do portal</strong>
+                <strong>Início</strong> — visão geral do cluster. <strong>Catálogo</strong> — resgates e doações.
+                <strong>Comércio</strong> — marketplace P2P. <strong>Utilidades</strong> — links úteis.
+                <strong>Tutoriais</strong> — este guia. <strong>Minha Área</strong> — perfil, histórico e licenças.
+              </div>
+            </div>
+          </div>
+
+          <!-- B. Loja / compras -->
+          <div class="tutorial-acc-item" id="tut-loja" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="false">
+              <span class="tutorial-acc-icon">📦</span>
+              <span class="tutorial-acc-title">B. Loja / compras (Catálogo)</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <p>O <strong>Catálogo</strong> é onde você troca Âmbares por itens, dinos, kits e licenças oferecidos pela administração do servidor.</p>
+
+              <h4>Abas do Catálogo</h4>
+              <ul>
+                <li><strong>📦 Itens</strong> — recursos, ferramentas, armas e materiais.</li>
+                <li><strong>🦕 Dinos</strong> — criaturas configuradas pela equipe.</li>
+                <li><strong>🎁 Kits</strong> — pacotes com vários itens de uma vez.</li>
+                <li><strong>📜 Licenças</strong> — Gamma, Beta, Alfa (bônus de Âmbar) e <strong>Nuvem</strong> (cofre de inventário).</li>
+                <li><strong>💚 Doação</strong> — doação voluntária via PIX (Mercado Pago).</li>
+                <li><strong>✅ Disponível</strong> — resgates pendentes, gratuitos e fila de entrega.</li>
+              </ul>
+
+              <h4>Como comprar / resgatar um item</h4>
+              <ol class="tutorial-steps">
+                <li>Faça <strong>login com Steam</strong> se ainda não estiver autenticado.</li>
+                <li>Vá em <strong>Catálogo</strong> e escolha a aba (Itens, Dinos, Kits ou Licenças).</li>
+                <li>Verifique o <strong>preço em Âmbar</strong> e se há cadeado de licença (Gamma/Beta/Alfa).</li>
+                <li>Clique no card do item → leia a documentação do resgate → confirme.</li>
+                <li>Os Âmbares são debitados imediatamente; o pedido entra na <strong>fila de entrega</strong>.</li>
+                <li>Entre no servidor ARKLAND no mapa desejado, vivo e com inventário com espaço.</li>
+                <li>No chat global, digite <code>/shop</code> — o plugin entrega automaticamente os pendentes e mostra o saldo.</li>
+              </ol>
+
+              <div class="tutorial-prereq">
+                <strong>Pré-requisitos para resgate</strong>
+                <ul>
+                  <li>Saldo de Âmbar suficiente.</li>
+                  <li>Licença exigida ativa (se o item tiver cadeado).</li>
+                  <li>Estar online no servidor — entregas não funcionam offline.</li>
+                  <li>Espaço no inventário (itens) ou condições de tribo/cupo (dinos).</li>
+                </ul>
+              </div>
+
+              <h4>Doação via PIX</h4>
+              <ol class="tutorial-steps">
+                <li>Catálogo → aba <strong>Doação</strong>.</li>
+                <li>Escolha o pacote de Âmbares e clique em <strong>«Doar via PIX»</strong>.</li>
+                <li>Preencha e-mail, nome e CPF (exigidos pelo Mercado Pago).</li>
+                <li>Pague o PIX no app do banco (QR Code ou copia e cola).</li>
+                <li>Após confirmação, os Âmbares são creditados — use no catálogo normalmente.</li>
+              </ol>
+
+              <h4>Aba «Disponível» — cancelar antes da entrega</h4>
+              <p>Resgates com status <strong>PENDENTE</strong> podem ser cancelados na aba Disponível com <strong>reembolso integral</strong> dos Âmbares. Após entrega in-game, o resgate é definitivo.</p>
+
+              <div class="tutorial-callout tutorial-callout--warn">
+                <strong>⚠️ Atenção</strong>
+                Doações PIX são voluntárias e <strong>não reembolsáveis</strong>. Você não está comprando itens — recebe Âmbares como agradecimento simbólico para usar no sistema de resgates.
+              </div>
+            </div>
+          </div>
+
+          <!-- C. Comércio P2P -->
+          <div class="tutorial-acc-item" id="tut-comercio" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="false">
+              <span class="tutorial-acc-icon">🦖</span>
+              <span class="tutorial-acc-title">C. Comércio P2P / Mercado de Dinos</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <p>O <strong>Comércio P2P</strong> permite vender e comprar dinos entre jogadores usando apenas <strong>Âmbares</strong>. O dino trafega como cryopod oficial — sem dinheiro real, taxa zero.</p>
+
+              <h4>Estados de um anúncio (listing)</h4>
+              <ul>
+                <li><strong>PENDING_CLASSIFICATION</strong> — espécie ainda não liberada pelo admin ou blueprint não reconhecido. Aguarde classificação.</li>
+                <li><strong>DRAFT</strong> — dino recebido; defina preço e personalize o anúncio na web.</li>
+                <li><strong>ACTIVE</strong> — à venda no Mercado; outros jogadores podem comprar.</li>
+                <li><strong>PAUSED</strong> — pausado pelo vendedor; pode reativar.</li>
+                <li><strong>AWAITING_CLAIM</strong> — vendido ou recuperado; aguarda resgate in-game com <code>/mercado</code> (janela de 24h).</li>
+              </ul>
+
+              <h4>Vender um dino — passo a passo completo</h4>
+
+              <p><strong>Na web (antes de jogar):</strong></p>
+              <ol class="tutorial-steps">
+                <li>Login com Steam → <strong>Minha Área</strong> → defina <strong>Nome no mercado</strong> (3–32 caracteres) → Salvar.</li>
+                <li>Resgate e ative a <strong>Licença Nuvem</strong> no Catálogo (obrigatória para enviar dinos).</li>
+                <li>Comércio → <strong>Minha Loja</strong> para acompanhar seus anúncios depois do envio.</li>
+              </ol>
+
+              <p><strong>In-game:</strong></p>
+              <ol class="tutorial-steps">
+                <li>Coloque uma <strong>cryopod preenchida</strong> no inventário (equipada ou acessível).</li>
+                <li>Requisitos da cryo: <strong>imprint 100%</strong>, leitura válida, timer mínimo se o servidor exigir (recarregue no Cryofridge se necessário).</li>
+                <li>Digite <code>/enviar</code> — o sistema mostra preview (nome, imprint, mutações, valor sugerido).</li>
+                <li>Em até <strong>2 minutos</strong>, digite <code>/confirmar</code> — a cryopod é removida e enviada ao Comércio.</li>
+                <li>Volte à web → Comércio → Minha Loja → encontre o listing em <strong>Rascunho</strong> ou <strong>Aguardando classificação</strong>.</li>
+              </ol>
+
+              <p><strong>Na web (ativar venda):</strong></p>
+              <ol class="tutorial-steps">
+                <li>Se status for <strong>Aguardando classificação</strong>: aguarde o admin ativar a espécie. Você será notificado quando promover para rascunho.</li>
+                <li>Preencha <strong>nome customizado</strong> (até 80 caracteres), <strong>categoria/tier</strong> e <strong>descrição</strong> (até 280 caracteres).</li>
+                <li>Defina o <strong>preço em Âmbar</strong> — mínimo = valor sugerido calculado pelo sistema.</li>
+                <li>Clique <strong>Salvar</strong> e depois <strong>Ativar</strong> para publicar no Mercado.</li>
+              </ol>
+
+              <h4>Comprar dino de outro jogador</h4>
+              <ol class="tutorial-steps">
+                <li>Login + nome de exibição configurado em Minha Área.</li>
+                <li>Comércio → aba <strong>Mercado</strong> — navegue ou busque por espécie/vendedor.</li>
+                <li>Leia o card: preço, mutações, descrição do vendedor e badge do nome de exibição.</li>
+                <li>Clique <strong>Comprar</strong> — confirme — Âmbares debitados, dino reservado para você.</li>
+                <li>Entre no servidor com espaço no inventário.</li>
+                <li>Digite <code>/mercado</code> em até <strong>24 horas</strong> para receber a cryopod.</li>
+              </ol>
+
+              <h4>Resgate com /mercado — janela de 24 horas</h4>
+              <p>Após uma <strong>compra</strong> ou ao clicar <strong>Recuperar dino</strong> (vendedor retirando anúncio), o sistema cria um <strong>claim</strong> com prazo de <strong>24 horas</strong>.</p>
+              <ul>
+                <li>Use <code>/mercado</code> estando vivo, com inventário com espaço.</li>
+                <li>O chat avisa quantas horas restam no prazo.</li>
+                <li>Minha Loja e histórico mostram <strong>countdown</strong> em tempo real.</li>
+              </ul>
+
+              <div class="tutorial-callout tutorial-callout--warn">
+                <strong>⚠️ Se expirar as 24h</strong>
+                O claim é cancelado automaticamente. O <strong>comprador recebe reembolso integral</strong> (preço + taxas) em Âmbar e o <strong>dino volta ao vendedor</strong>. Não é possível resgatar após expiração — será necessário nova compra se o anúncio ainda estiver ativo.
+              </div>
+
+              <h4>Retirada pelo vendedor</h4>
+              <ol class="tutorial-steps">
+                <li>Comércio → Minha Loja → no listing (Rascunho, Ativo ou Pausado) clique <strong>Recuperar dino</strong>.</li>
+                <li>Status muda para <strong>AWAITING_CLAIM</strong>.</li>
+                <li>In-game: <code>/mercado</code> dentro de 24h para receber a cryopod de volta.</li>
+              </ol>
+
+              <div class="tutorial-callout tutorial-callout--tip">
+                <strong>💡 Timer da cryopod</strong>
+                Cryopods com timer de decay são aceitas no envio, mas o timer é <strong>removido permanentemente</strong> na confirmação. Cryopods permanentes também são aceitas.
+              </div>
+            </div>
+          </div>
+
+          <!-- D. Comandos in-game -->
+          <div class="tutorial-acc-item" id="tut-comandos" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="false">
+              <span class="tutorial-acc-icon">⌨️</span>
+              <span class="tutorial-acc-title">D. Comandos in-game</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <p>Todos os comandos abaixo são digitados no <strong>chat global</strong> do ARK. Use exatamente a sintaxe indicada.</p>
+
+              <div class="tbl-scroll-host">
+              <table class="tutorial-cmd-table">
+                <thead>
+                  <tr>
+                    <th>Comando</th>
+                    <th>Quando usar</th>
+                    <th>Pré-requisitos</th>
+                    <th>Exemplo / resultado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>/shop</code></td>
+                    <td>Abrir link da loja web e <strong>entregar resgates pendentes</strong> do catálogo</td>
+                    <td>Estar vivo no servidor; inventário com espaço para itens pendentes</td>
+                    <td>Digite <code>/shop</code> → mensagem com URL da loja + entrega automática da fila + saldo de Âmbar</td>
+                  </tr>
+                  <tr>
+                    <td><code>/shop debug</code></td>
+                    <td>Diagnóstico de entregas e conexão plugin ↔ web (suporte)</td>
+                    <td>Nenhum especial</td>
+                    <td>Relatório no chat e no log do servidor sobre seu perfil de entrega</td>
+                  </tr>
+                  <tr>
+                    <td><code>/enviar</code></td>
+                    <td>Iniciar envio de cryopod ao Comércio P2P (preview)</td>
+                    <td>Licença Nuvem; nome de exibição na web; cryo com imprint 100%; licença nuvem ativa</td>
+                    <td>Preview do dino + valor sugerido → aguarda <code>/confirmar</code> em 2 min</td>
+                  </tr>
+                  <tr>
+                    <td><code>/confirmar</code></td>
+                    <td>Confirmar envio após <code>/enviar</code></td>
+                    <td>Preview válido (&lt;2 min); mesma cryopod ainda no inventário</td>
+                    <td>Cryo removida → listing criado na web → «defina preço na web»</td>
+                  </tr>
+                  <tr>
+                    <td><code>/mercado</code></td>
+                    <td>Resgatar cryopods do Comércio (compra ou recuperação do vendedor)</td>
+                    <td>Claim pendente; dentro das 24h; vivo; espaço no inventário</td>
+                    <td>Entrega cryopod(s) → «X cryopod(s) entregue(s) do Comercio»</td>
+                  </tr>
+                  <tr>
+                    <td><code>/enviardebug</code></td>
+                    <td>Diagnóstico de cryopods no inventário (Comércio)</td>
+                    <td>Nenhum</td>
+                    <td>Lista slots e estado das cryos (suporte a problemas de leitura)</td>
+                  </tr>
+                  <tr>
+                    <td><code>/upload</code></td>
+                    <td>Enviar itens do inventário para a <strong>Nuvem</strong></td>
+                    <td>Licença Nuvem ativa; vivo; itens transferíveis no inventário</td>
+                    <td>«X pilhas salvas» — itens removidos do inventário local</td>
+                  </tr>
+                  <tr>
+                    <td><code>/download</code></td>
+                    <td>Recuperar itens da Nuvem para o inventário atual</td>
+                    <td>Licença Nuvem; slots livres suficientes no inventário</td>
+                    <td>«X itens devolvidos ao seu inventario»</td>
+                  </tr>
+                  <tr>
+                    <td><code>/nuvem</code> ou <code>/cloud</code></td>
+                    <td>Ver status do cofre na Nuvem</td>
+                    <td>Licença Nuvem (para ter conteúdo)</td>
+                    <td>Quantidade de pilhas armazenadas + slots livres + avisos</td>
+                  </tr>
+                  <tr>
+                    <td><code>/c</code> <em>(legado)</em></td>
+                    <td>Chat entre mapas do cluster</td>
+                    <td>Configuração do servidor — na maioria dos mapas o chat global já é capturado <strong>automaticamente</strong></td>
+                    <td>Se habilitado: <code>/c mensagem</code> envia ao cluster com rótulo [Mapa] Jogador</td>
+                  </tr>
+                </tbody>
+              </table>
+              </div>
+
+              <div class="tutorial-callout tutorial-callout--info">
+                <strong>ℹ️ Chat cluster automático</strong>
+                Nas versões recentes, mensagens do chat <strong>global</strong> são enviadas automaticamente aos outros mapas (e ao Discord, se configurado) — sem precisar digitar <code>/c</code>. Comandos que começam com <code>/</code> não são retransmitidos.
+              </div>
+            </div>
+          </div>
+
+          <!-- E. Perfil / Minha Loja -->
+          <div class="tutorial-acc-item" id="tut-perfil" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="false">
+              <span class="tutorial-acc-icon">👤</span>
+              <span class="tutorial-acc-title">E. Perfil / Minha Área e Minha Loja</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <h4>Minha Área (web)</h4>
+              <p>Requer login Steam. Acesse pelo menu lateral <strong>Minha Área</strong>.</p>
+              <ul>
+                <li><strong>Perfil</strong> — SteamID autenticado e nome de exibição do Comércio.</li>
+                <li><strong>Resumo</strong> — saldo de Âmbar, resgates pendentes, estatísticas.</li>
+                <li><strong>Licenças ativas</strong> — Gamma, Beta, Alfa, Nuvem e validade.</li>
+                <li><strong>Histórico de Doações</strong> — PIX realizados.</li>
+                <li><strong>Histórico de Resgates</strong> — todos os pedidos do catálogo com status (Pendente, Entregue, Cancelado, etc.).</li>
+              </ul>
+
+              <h4>Nome de exibição (obrigatório para Comércio)</h4>
+              <ol class="tutorial-steps">
+                <li>Minha Área → seção Comércio de Dinos.</li>
+                <li>Digite um apelido de 3 a 32 caracteres (ex.: RexMaster_BR).</li>
+                <li>Salvar — passa a aparecer como badge nos seus anúncios.</li>
+              </ol>
+              <p>Sem nome salvo, <code>/enviar</code> e compras no Mercado são bloqueados.</p>
+
+              <h4>Minha Loja (Comércio → aba Minha Loja)</h4>
+              <ul>
+                <li><strong>Aguardando classificação</strong> — listings PENDING aguardando admin.</li>
+                <li><strong>Ativos / Rascunho</strong> — editar preço, personalizar anúncio, ativar, pausar ou recuperar.</li>
+                <li><strong>Countdown de resgate</strong> — em vendas/recuperações com AWAITING_CLAIM, mostra tempo restante das 24h.</li>
+                <li><strong>Histórico</strong> — compras e vendas concluídas ou expiradas.</li>
+              </ul>
+
+              <div class="tutorial-callout tutorial-callout--tip">
+                <strong>💡 Filtros</strong>
+                Em Minha Área, use o filtro de status no histórico de resgates para encontrar pedidos Pendentes ou Entregues rapidamente.
+              </div>
+            </div>
+          </div>
+
+          <!-- F. Nuvem -->
+          <div class="tutorial-acc-item" id="tut-nuvem" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="false">
+              <span class="tutorial-acc-icon">☁️</span>
+              <span class="tutorial-acc-title">F. Nuvem de inventário</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <p>A <strong>Licença Nuvem</strong> (Catálogo → Licenças) desbloqueia um cofre de inventário compartilhado entre todos os mapas do cluster — até <strong>250 pilhas</strong> de itens transferíveis.</p>
+
+              <h4>Para que serve</h4>
+              <ul>
+                <li>Guardar itens ao trocar de mapa sem perder carga.</li>
+                <li><strong>Obrigatória</strong> para enviar dinos ao Comércio P2P (<code>/enviar</code>).</li>
+              </ul>
+
+              <h4>Upload — enviar itens para a nuvem</h4>
+              <ol class="tutorial-steps">
+                <li>Resgate e mantenha a Licença Nuvem ativa (30 dias, renovável).</li>
+                <li>No jogo, vivo, com itens transferíveis no inventário.</li>
+                <li>Digite <code>/upload</code> — itens elegíveis são salvos e removidos do inventário local.</li>
+              </ol>
+
+              <h4>Download — recuperar itens</h4>
+              <ol class="tutorial-steps">
+                <li>Em qualquer mapa do cluster, com licença ativa.</li>
+                <li>Libere slots no inventário (use <code>/nuvem</code> para ver quantos precisa).</li>
+                <li>Digite <code>/download</code> — itens retornam ao inventário atual.</li>
+              </ol>
+
+              <h4>Status</h4>
+              <p><code>/nuvem</code> ou <code>/cloud</code> mostra quantas pilhas estão armazenadas, capacidade local e avisos se faltar espaço para download.</p>
+
+              <div class="tutorial-callout tutorial-callout--warn">
+                <strong>⚠️ Importante</strong>
+                A Nuvem armazena <strong>itens</strong>, não dinos do Comércio. Dinos do marketplace usam cryopods via <code>/mercado</code>. Ao desconectar, o cofre é liberado — faça download antes se precisar dos itens no inventário.
+              </div>
+            </div>
+          </div>
+
+          <!-- G. FAQ -->
+          <div class="tutorial-acc-item" id="tut-faq" data-tutorial-section>
+            <div class="tutorial-acc-header" role="button" tabindex="0" aria-expanded="false">
+              <span class="tutorial-acc-icon">❓</span>
+              <span class="tutorial-acc-title">G. FAQ / Problemas comuns</span>
+              <span class="tutorial-acc-chevron">▼</span>
+            </div>
+            <div class="tutorial-acc-body">
+              <h4>Não recebi meu item/dino do catálogo</h4>
+              <ul>
+                <li>Confirme que está <strong>vivo</strong> e conectado ao mapa correto.</li>
+                <li>Verifique a aba <strong>Disponível</strong> — o pedido ainda está PENDENTE?</li>
+                <li>Use <code>/shop</code> para forçar entrega da fila.</li>
+                <li>Libere espaço no inventário (ou cupo de dinos).</li>
+                <li>Se persistir: <code>/shop debug</code> e contate admin com SteamID e horário.</li>
+              </ul>
+
+              <h4>Listing fica «Aguardando classificação»</h4>
+              <ul>
+                <li>A espécie do seu dino ainda não está <strong>ACTIVE</strong> na tabela oficial.</li>
+                <li>Aguarde o admin classificar — após ativação, o listing vira Rascunho automaticamente (ou use reconciliação admin).</li>
+                <li>Enquanto pendente, você não pode definir preço nem publicar.</li>
+              </ul>
+
+              <h4>/enviar diz que preciso de nome de exibição</h4>
+              <p>Vá em <strong>Minha Área</strong> na web, defina o nome do mercado (3–32 chars) e salve. Reconecte ou aguarde alguns segundos antes de tentar novamente.</p>
+
+              <h4>/enviar não acha cryopod</h4>
+              <ul>
+                <li>Cryo deve estar <strong>preenchida</strong> e legível (vazias/corrompidas são ignoradas).</li>
+                <li><strong>Imprint 100%</strong> obrigatório.</li>
+                <li>Timer mínimo: recarregue no Cryofridge se o servidor exigir dias restantes.</li>
+                <li>Use <code>/enviardebug</code> para diagnóstico.</li>
+              </ul>
+
+              <h4>Comprei no Mercado mas não tenho o dino</h4>
+              <ul>
+                <li>O dino não vai direto ao inventário — use <code>/mercado</code> in-game.</li>
+                <li>Verifique o <strong>countdown de 24h</strong> em Minha Loja.</li>
+                <li>Inventário cheio? Libere espaço e repita <code>/mercado</code>.</li>
+              </ul>
+
+              <h4>Expirou as 24h do resgate</h4>
+              <p>O sistema reembolsa o comprador automaticamente e devolve o dino ao vendedor. Não há como recuperar o claim expirado — o comprador deve buscar novo anúncio se ainda quiser o dino.</p>
+
+              <h4>Preview do /enviar expirou</h4>
+              <p>O preview dura <strong>2 minutos</strong>. Digite <code>/enviar</code> novamente e confirme com <code>/confirmar</code> mais rápido.</p>
+
+              <h4>Saldo de Âmbar não atualizou após PIX</h4>
+              <ul>
+                <li>PIX pode levar alguns minutos para confirmar no Mercado Pago.</li>
+                <li>Atualize a página ou vá em Catálogo → Doação e verifique o saldo.</li>
+                <li>Confira Minha Área → Histórico de Doações.</li>
+              </ul>
+
+              <h4>Chat cluster / Discord</h4>
+              <p>O chat global dos mapas é retransmitido automaticamente entre servidores (rótulo <strong>[Mapa] Jogador</strong>). Se o Discord estiver configurado, mensagens também aparecem lá. Comandos com <code>/</code> não são enviados ao cluster.</p>
+
+              <div class="tutorial-callout tutorial-callout--info">
+                <strong>ℹ️ Suporte</strong>
+                Para problemas não resolvidos aqui, anote seu <strong>SteamID</strong>, horário aproximado, mapa e prints do erro no chat. Abra ticket com a equipe ARKLAND.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
       <!-- PAGE: Gerenciar Links (admin) -->
       <div id="page-admin-downloads" class="page admin-only">
         <div id="topbar">
@@ -4160,7 +4977,7 @@
           <div id="myarea-commerce" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
             <div class="card-title" style="font-size:14px;margin-bottom:10px;">🦖 Comércio de Dinos</div>
             <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
-              Nome de exibição <strong>obrigatório</strong> para comprar ou vender no Comércio (3–32 caracteres).
+              Nome de exibição <strong>obrigatório</strong> para comprar ou vender no Comércio (2–32 caracteres).
             </p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
               <div class="form-group" style="margin:0;flex:1;min-width:200px;">
@@ -4327,11 +5144,39 @@
         <div id="topbar">
           <div class="page-title">Chat Cluster</div>
           <p style="font-size:12px;color:var(--text2);margin-top:6px;">
-            Mensagens entre mapas via <strong>/c</strong> no jogo. Log completo com SteamID para suporte.
+            Chat global entre mapas (captura automática, sem /c) e ponte Discord bidirecional.
+            Rotulação: <strong>[Mapa] Jogador</strong> no jogo e no Discord.
           </p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadClusterChatAdmin()">↺ Recarregar</button>
           </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">🎮 Ponte Discord</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            Mensagens do jogo aparecem no canal como <code>[Mapa] Jogador: texto</code>.
+            Mensagens do Discord chegam nos servidores como <code>[Discord] Nick: texto</code>.
+            Requer <code>discord.py</code> e token do bot com intent <em>Message Content</em>.
+          </p>
+          <div id="cluster-chat-discord-status" style="font-size:12px;margin-bottom:12px;"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+              <label><input type="checkbox" id="cluster-chat-discord-enabled" /> Ativar ponte Discord</label>
+            </div>
+            <div class="form-group" style="margin:0;min-width:200px;">
+              <label>ID do canal Discord</label>
+              <input id="cluster-chat-discord-channel" type="text" placeholder="123456789012345678" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+              <label>Token do bot (deixe vazio para manter)</label>
+              <input id="cluster-chat-discord-token" type="password" placeholder="••••••••" autocomplete="new-password" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveClusterChatDiscord()">Salvar Discord</button>
+          </div>
+          <p style="font-size:11px;color:var(--text2);margin-top:10px;">
+            Variáveis de ambiente opcionais: <code>ARKSHOP_CROSS_CHAT_DISCORD_ENABLED</code>,
+            <code>ARKSHOP_CROSS_CHAT_DISCORD_TOKEN</code>, <code>ARKSHOP_CROSS_CHAT_DISCORD_CHANNEL_ID</code>.
+          </p>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">📊 Resumo (24h)</div>
@@ -4653,7 +5498,7 @@ let _config = null;
 let _players = [];
 let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
-let _auth = { authenticated: false, is_admin: false, steam_id: null };
+let _auth = { authenticated: false, is_admin: false, steam_id: null, needs_display_name: false, market_display_name: null };
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
 let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
@@ -4830,6 +5675,118 @@ function wrapTablesForScroll(root) {
   });
 }
 
+function initTutoriaisPage() {
+  document.querySelectorAll(".tutorial-acc-header").forEach(function (header) {
+    if (header.dataset.tutorialBound) return;
+    header.dataset.tutorialBound = "1";
+    function toggle() {
+      const item = header.closest(".tutorial-acc-item");
+      if (!item) return;
+      const open = item.classList.toggle("open");
+      header.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+    header.addEventListener("click", toggle);
+    header.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    });
+  });
+  requestAnimationFrame(function () {
+    wrapTablesForScroll(document.getElementById("page-tutoriais"));
+  });
+}
+
+function openTutorialSection(id) {
+  const item = document.getElementById(id);
+  if (!item) return;
+  document.querySelectorAll(".tutorial-acc-item").forEach(function (el) {
+    el.classList.remove("open");
+    const h = el.querySelector(".tutorial-acc-header");
+    if (h) h.setAttribute("aria-expanded", "false");
+  });
+  item.classList.add("open");
+  const header = item.querySelector(".tutorial-acc-header");
+  if (header) header.setAttribute("aria-expanded", "true");
+  item.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function filterTutoriais(query) {
+  const q = (query || "").toLowerCase().trim();
+  document.querySelectorAll("[data-tutorial-section]").forEach(function (item) {
+    if (!q) {
+      item.style.display = "";
+      return;
+    }
+    const text = (item.textContent || "").toLowerCase();
+    item.style.display = text.indexOf(q) >= 0 ? "" : "none";
+  });
+}
+
+function playerNeedsDisplayName() {
+  return Boolean(_auth.authenticated && !_auth.is_admin && _auth.needs_display_name);
+}
+
+function showDisplayNameGate(context) {
+  const overlay = document.getElementById("display-name-gate");
+  if (!overlay) return;
+  const ctx = document.getElementById("display-name-gate-context");
+  if (ctx && context) {
+    ctx.textContent = `Para ${context}, escolha um nome de exibição (2–32 caracteres). Ele aparece no Comércio e na sua área do jogador.`;
+  }
+  const err = document.getElementById("display-name-gate-error");
+  if (err) { err.style.display = "none"; err.textContent = ""; }
+  const input = document.getElementById("display-name-gate-input");
+  if (input && _auth.market_display_name) input.value = _auth.market_display_name;
+  overlay.classList.remove("hidden");
+}
+
+function hideDisplayNameGate() {
+  document.getElementById("display-name-gate")?.classList.add("hidden");
+}
+
+function guardDisplayName(context) {
+  if (!playerNeedsDisplayName()) return true;
+  showDisplayNameGate(context || "continuar");
+  return false;
+}
+
+async function saveDisplayNameFromGate() {
+  const input = document.getElementById("display-name-gate-input");
+  const errEl = document.getElementById("display-name-gate-error");
+  const btn = document.getElementById("display-name-gate-save");
+  const name = (input?.value || "").trim();
+  if (name.length < 2) {
+    if (errEl) { errEl.textContent = "Informe pelo menos 2 caracteres."; errEl.style.display = ""; }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
+  try {
+    const r = await fetch(API + "/api/market/profile/display-name", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ market_display_name: name }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      if (errEl) { errEl.textContent = d.error || "Não foi possível salvar."; errEl.style.display = ""; }
+      return;
+    }
+    _auth.needs_display_name = false;
+    _auth.market_display_name = d.market_display_name || name;
+    const myareaInput = document.getElementById("myarea-market-name");
+    if (myareaInput) myareaInput.value = _auth.market_display_name;
+    hideDisplayNameGate();
+    toast("Nome salvo! Bem-vindo à loja ARKLAND.", "success");
+    loadMyAreaMarketProfile();
+  } catch (e) {
+    if (errEl) { errEl.textContent = String(e); errEl.style.display = ""; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Salvar e continuar"; }
+  }
+}
+
 function goToPage(page) {
   const el = document.querySelector(`.nav-item[data-page="${page}"]`);
   if (el) nav(el);
@@ -4842,10 +5799,15 @@ function promptLogin(context) {
     : "Entre com Steam para doar, resgatar e acessar sua área.");
 }
 
+// Troca de aba: remove .active de todos os .page e aplica só no alvo (uma página visível por vez).
 function nav(el) {
   const page = el.dataset.page;
   if (page === "myarea" && !_auth.authenticated) {
     promptLogin("Minha Área");
+    return;
+  }
+  if (playerNeedsDisplayName()) {
+    showDisplayNameGate("navegar no portal");
     return;
   }
   document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
@@ -4861,6 +5823,7 @@ function nav(el) {
   if (page === "market-admin") reloadMarketAdminPage();
   if (page === "market-economy-admin") loadMarketEconomyAdmin();
   if (page === "downloads") loadDownloads();
+  if (page === "tutoriais") initTutoriaisPage();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "recharge-admin") loadRechargeAdmin();
@@ -4920,7 +5883,7 @@ function applyRoleUi(deferAdminNav = false) {
 
   if (!_auth.is_admin) {
     document.body.classList.remove("boot-admin");
-    document.querySelectorAll(".admin-only").forEach((el) => {
+    document.querySelectorAll(".admin-only:not(.page)").forEach((el) => {
       el.style.display = "none";
     });
     const profile = document.getElementById("myarea-profile");
@@ -4935,7 +5898,7 @@ function applyRoleUi(deferAdminNav = false) {
     }
   } else {
     document.body.classList.add("boot-admin");
-    document.querySelectorAll(".admin-only").forEach((el) => {
+    document.querySelectorAll(".admin-only:not(.page)").forEach((el) => {
       el.style.removeProperty("display");
     });
     if (!deferAdminNav) {
@@ -5680,6 +6643,7 @@ function _collectPayerFromForm() {
 
 async function submitPixPayerForm() {
   if (!_pixCheckoutPackageId) return;
+  if (!guardDisplayName("doar via PIX")) return;
   const btn = document.getElementById("pix-payer-submit-btn");
   let payer;
   try {
@@ -5928,8 +6892,8 @@ async function loadMyAreaMarketProfile() {
 
 async function saveMarketDisplayName() {
   const name = (document.getElementById("myarea-market-name")?.value || "").trim();
-  if (!name) {
-    toast("Informe um nome de exibição", "warning");
+  if (name.length < 2) {
+    toast("Informe pelo menos 2 caracteres", "warning");
     return;
   }
   try {
@@ -5944,6 +6908,9 @@ async function saveMarketDisplayName() {
       return;
     }
     toast("Nome de comércio salvo!", "success");
+    _auth.needs_display_name = false;
+    _auth.market_display_name = d.market_display_name || name;
+    hideDisplayNameGate();
     loadMyAreaMarketProfile();
   } catch (e) {
     toast(String(e), "error");
@@ -6836,44 +7803,166 @@ function _marketBreakdownHtml(breakdown) {
   return `<details style="margin-top:8px;font-size:11px;color:var(--text2);"><summary>▼ Como calculamos</summary><div style="margin-top:6px;line-height:1.5;">${lines}${totalLine ? "<br>" + totalLine : ""}</div></details>`;
 }
 
-function _marketListingCard(l, { showBuy = false, showSellerActions = false } = {}) {
+function _marketClaimCountdownHtml(l) {
+  if (l.claim_status === "refunded" || l.claim_status === "expired") {
+    return `<span style="font-size:12px;color:var(--danger);">Resgate expirado — reembolso processado</span>`;
+  }
+  const hrs = l.hours_remaining;
+  if (hrs == null && !l.claim_expires_at) return "";
+  const h = hrs != null ? Math.max(1, Math.ceil(hrs)) : 24;
+  return `<span style="font-size:12px;color:var(--amber);">⏱ ${h}h para /mercado</span>`;
+}
+
+const _MARKET_DESC_MAX = 280;
+const _MARKET_NAME_MAX = 80;
+const _MARKET_CATEGORY_OPTIONS = ["", "S+", "S", "A", "B", "C"];
+
+function _marketDescPreview(text, maxLen = 120) {
+  const t = (text || "").trim();
+  if (!t) return { short: "", needsMore: false };
+  if (t.length <= maxLen) return { short: t, needsMore: false };
+  return { short: t.slice(0, maxLen).trimEnd() + "…", needsMore: true, full: t };
+}
+
+function _marketCategoryOptionsHtml(selected) {
+  const opts = _MARKET_CATEGORY_OPTIONS.map(c => {
+    const label = c ? c : "Automático (espécie)";
+    const sel = (selected || "") === c ? " selected" : "";
+    return `<option value="${escHtml(c)}"${sel}>${escHtml(label)}</option>`;
+  }).join("");
+  return opts;
+}
+
+function _marketListingDescHtml(l, listingId) {
+  const preview = _marketDescPreview(l.custom_description);
+  if (!preview.short) return "";
+  const id = `market-desc-${listingId}`;
+  if (!preview.needsMore) {
+    return `<div class="market-listing-card__desc">${escHtml(preview.short)}</div>`;
+  }
+  return `<div class="market-listing-card__desc" id="${id}">${escHtml(preview.short)}</div>
+    <button type="button" class="market-listing-card__desc-toggle" onclick="_marketToggleDesc(${listingId})">ver mais</button>
+    <div class="market-listing-card__desc" id="${id}-full" style="display:none;">${escHtml(preview.full)}</div>`;
+}
+
+function _marketToggleDesc(listingId) {
+  const short = document.getElementById("market-desc-" + listingId);
+  const full = document.getElementById("market-desc-" + listingId + "-full");
+  const btn = short?.nextElementSibling;
+  if (!short || !full || !btn) return;
+  const expanded = full.style.display !== "none";
+  full.style.display = expanded ? "none" : "";
+  short.style.display = expanded ? "" : "none";
+  btn.textContent = expanded ? "ver mais" : "ver menos";
+}
+
+function _marketListingEditForm(l) {
+  const descLen = (l.custom_description || "").length;
+  return `<div class="market-listing-card__edit">
+    <div>
+      <label for="market-custom-name-${l.listing_id}">Nome do anúncio</label>
+      <input id="market-custom-name-${l.listing_id}" type="text" maxlength="${_MARKET_NAME_MAX}" placeholder="Ex: Rex 59/40 TOP" value="${escHtml(l.custom_name || "")}" />
+    </div>
+    <div>
+      <label for="market-category-${l.listing_id}">Categoria (tier)</label>
+      <select id="market-category-${l.listing_id}">${_marketCategoryOptionsHtml(l.category || "")}</select>
+    </div>
+    <div>
+      <label for="market-desc-input-${l.listing_id}">Descrição personalizada</label>
+      <textarea id="market-desc-input-${l.listing_id}" rows="3" maxlength="${_MARKET_DESC_MAX}" placeholder="Detalhes, linhagem, mutações…" oninput="_marketUpdateCharCount(${l.listing_id})">${escHtml(l.custom_description || "")}</textarea>
+      <div class="market-listing-card__char-count" id="market-desc-count-${l.listing_id}">${descLen}/${_MARKET_DESC_MAX}</div>
+    </div>
+  </div>`;
+}
+
+function _marketUpdateCharCount(listingId) {
+  const ta = document.getElementById("market-desc-input-" + listingId);
+  const counter = document.getElementById("market-desc-count-" + listingId);
+  if (ta && counter) counter.textContent = `${ta.value.length}/${_MARKET_DESC_MAX}`;
+}
+
+function _marketListingCard(l, { showBuy = false, showSellerActions = false, showAdminClassify = false } = {}) {
   const stats = l.stats || {};
   const gender = l.is_female ? "♀" : "♂";
   const breakdownHtml = _marketBreakdownHtml(l.calculation_breakdown);
+  const sug = l.classification_suggestion || null;
+  const title = l.display_title || l.species_display_name || l.custom_name || "Dino";
+  const speciesLine = l.species_display_name && title !== l.species_display_name
+    ? l.species_display_name
+    : "";
+  const category = l.effective_category || l.category || l.species_tier || (sug && sug.tier);
+  const suggestedVal = l.suggested_base_value || l.computed_base_value || (sug && sug.root_value) || 0;
+  const sellerBadge = l.seller_display_name
+    ? `<div class="market-listing-card__seller">🏪 ${escHtml(l.seller_display_name)}</div>`
+    : (l.seller_steam_id ? `<div class="market-listing-card__seller" style="opacity:0.7;">Vendedor: <code style="font-size:11px;">${escHtml(l.seller_steam_id)}</code></div>` : "");
+  const categoryChip = category
+    ? `<span class="market-listing-card__category" title="Categoria sugerida">${escHtml(category)}</span>`
+    : "";
+  const sugChip = sug && l.status === "PENDING_CLASSIFICATION"
+    ? `<span class="market-listing-card__suggestion" title="Confiança: ${escHtml(sug.confidence || "?")}">${sug.needs_review ? "⚠ novo — revisar" : "✓ sugestão automática"}</span>`
+    : "";
+  const roleChip = sug && sug.role && l.status === "PENDING_CLASSIFICATION"
+    ? `<span class="market-listing-card__category" style="background:var(--surface2);">${escHtml(sug.role)}</span>`
+    : "";
+  const descHtml = _marketListingDescHtml(l, l.listing_id);
   let actions = "";
   if (showBuy && l.status === "ACTIVE") {
-    actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px;" onclick="marketPurchaseListing(${l.listing_id})">Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar</button>`;
+    actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:4px;" onclick="marketPurchaseListing(${l.listing_id})">Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar</button>`;
   }
   if (showSellerActions) {
-    const minP = l.computed_base_value || 0;
+    const canEditPrice = l.status !== "PENDING_CLASSIFICATION";
     actions = `
-      <div style="margin-top:10px;display:grid;gap:6px;">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <input id="market-price-${l.listing_id}" type="number" min="${minP}" value="${l.effective_price || minP}" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
-          <button class="btn btn-ghost btn-sm" onclick="marketSetPrice(${l.listing_id}, false)">Salvar preço</button>
+      ${canEditPrice ? _marketListingEditForm(l) : ""}
+      <div style="margin-top:6px;display:grid;gap:6px;">
+        ${canEditPrice ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <input id="market-price-${l.listing_id}" type="number" min="${l.computed_base_value || suggestedVal}" value="${l.effective_price || l.computed_base_value || suggestedVal}" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+          <button class="btn btn-ghost btn-sm" onclick="marketSetPrice(${l.listing_id}, false)">Salvar</button>
           ${l.status === "DRAFT" || l.status === "PAUSED" ? `<button class="btn btn-success btn-sm" onclick="marketSetPrice(${l.listing_id}, true)">Ativar</button>` : ""}
-        </div>
+        </div>` : ""}
         ${l.status === "ACTIVE" ? `<button class="btn btn-ghost btn-sm" onclick="marketPauseListing(${l.listing_id})">Pausar</button>` : ""}
         ${["DRAFT","ACTIVE","PAUSED"].includes(l.status) ? `<button class="btn btn-ghost btn-sm" onclick="marketWithdrawListing(${l.listing_id})">Recuperar dino</button>` : ""}
-        ${l.status === "PENDING_CLASSIFICATION" ? `<span style="font-size:12px;color:var(--warn);">Aguardando classificação admin</span>` : ""}
-        ${l.status === "AWAITING_CLAIM" ? `<span style="font-size:12px;color:var(--amber);">Use /resgatarmercado in-game</span>` : ""}
+        ${l.status === "PENDING_CLASSIFICATION" ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${Number(sug.root_value || 0).toLocaleString("pt-BR")} Âmbar</span>` : ""}</div>` : ""}
+        ${l.status === "AWAITING_CLAIM" ? `<div style="margin-top:6px;">${_marketClaimCountdownHtml(l) || '<span style="font-size:12px;color:var(--amber);">Use /mercado in-game</span>'}</div>` : ""}
       </div>`;
   }
+  if (showAdminClassify && l.status === "PENDING_CLASSIFICATION") {
+    const sk = (sug && sug.species_key) || l.species_key || "";
+    const dn = (sug && sug.display_name) || l.species_display_name || "";
+    const tier = (sug && sug.tier) || category || "B";
+    const rv = (sug && sug.root_value) || suggestedVal || 2500;
+    actions += `<div style="margin-top:8px;display:grid;gap:6px;border-top:1px solid var(--border);padding-top:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <input id="admin-cls-key-${l.listing_id}" type="text" placeholder="species_key" value="${escHtml(sk)}" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;" />
+        <input id="admin-cls-name-${l.listing_id}" type="text" placeholder="Nome PT-BR" value="${escHtml(dn)}" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;" />
+        <select id="admin-cls-tier-${l.listing_id}" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;">
+          ${_MARKET_CATEGORY_OPTIONS.filter(c=>c).map(c=>`<option value="${c}"${c===tier?" selected":""}>${c}</option>`).join("")}
+        </select>
+        <input id="admin-cls-root-${l.listing_id}" type="number" min="0" value="${rv}" style="padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:12px;" />
+      </div>
+      <button class="btn btn-success btn-sm" onclick="marketAdminClassifyListing(${l.listing_id})">✓ Confirmar e liberar</button>
+    </div>`;
+  }
   const statusBadge = l.status === "PENDING_CLASSIFICATION"
-    ? '<span class="badge" style="background:var(--warn);">PENDENTE</span>'
+    ? '<span class="badge" style="background:var(--warn);">AGUARDANDO</span>'
     : `<span class="badge">${escHtml(l.status)}</span>`;
+  const priceLine = l.status === "PENDING_CLASSIFICATION"
+    ? `<div style="color:var(--text2);font-size:12px;">Sugerido: <strong style="color:var(--amber);">${Number(suggestedVal).toLocaleString("pt-BR")}</strong> Âmbar <span style="opacity:0.7;">(após aprovação)</span></div>`
+    : `<div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
+        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}</div>`;
   return `
-    <div class="card" style="margin:0;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
-        <div>
-          <strong>${escHtml(l.dino_display_name || l.species_key || "Dino")}</strong> ${gender}
-          <div style="font-size:12px;color:var(--text2);margin-top:4px;">${escHtml(l.seller_display_name || "Vendedor")}</div>
+    <div class="card market-listing-card">
+      <div class="market-listing-card__header">
+        <div style="min-width:0;flex:1;">
+          ${sellerBadge}
+          <div class="market-listing-card__title">${escHtml(title)} ${gender}</div>
+          ${speciesLine ? `<div class="market-listing-card__species">${escHtml(speciesLine)}</div>` : ""}
+          <div class="market-listing-card__chips">${categoryChip}${sugChip}${roleChip}</div>
+          ${descHtml}
         </div>
         ${statusBadge}
       </div>
-      <div style="margin-top:10px;font-size:13px;">
-        <div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
-        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}</div>
+      <div style="font-size:13px;">
+        ${priceLine}
         <div style="color:var(--text2);font-size:12px;margin-top:4px;">Mut ${l.mutations_male}/${l.mutations_female} · Lvl ${l.dino_level || "?"}</div>
         <div style="color:var(--text2);font-size:11px;margin-top:4px;">HP ${stats.health} · Dmg ${stats.melee} · Peso ${stats.weight}</div>
         ${breakdownHtml}
@@ -6934,7 +8023,11 @@ function renderMarketBrowse() {
   const q = (document.getElementById("market-browse-search")?.value || "").toLowerCase();
   const items = _marketBrowse.filter(l => {
     if (!q) return true;
-    const hay = [l.dino_display_name, l.species_key, l.seller_display_name, l.seller_steam_id].join(" ").toLowerCase();
+    const hay = [
+      l.display_title, l.custom_name, l.dino_display_name, l.species_key,
+      l.species_display_name, l.seller_display_name, l.seller_steam_id,
+      l.custom_description,
+    ].join(" ").toLowerCase();
     return hay.includes(q);
   });
   if (!items.length) {
@@ -6951,7 +8044,8 @@ async function marketPurchaseListing(listingId) {
     promptLogin("comprar no Comércio");
     return;
   }
-  if (!confirm("Confirmar compra com Âmbares? Não há reembolso.")) return;
+  if (!guardDisplayName("comprar no Comércio")) return;
+  if (!confirm("Confirmar compra com Âmbares? Você terá 24 horas para resgatar com /mercado in-game.")) return;
   try {
     const r = await fetch(API + "/api/market/listings/" + listingId + "/purchase", { method: "POST" });
     const d = await r.json();
@@ -6959,7 +8053,8 @@ async function marketPurchaseListing(listingId) {
       toast(d.error || "Compra falhou", "error");
       return;
     }
-    toast(`Comprado! Use /resgatarmercado in-game. Saldo: ${d.buyer_balance}`, "success");
+    const hrs = d.hours_remaining != null ? Math.ceil(d.hours_remaining) : 24;
+    toast(`Comprado! Resgate em até ${hrs}h com /mercado. Saldo: ${d.buyer_balance}`, "success");
     refreshPlayerBalance();
     loadMarketBrowse();
   } catch (e) {
@@ -7003,7 +8098,11 @@ async function loadMarketMyHistory() {
     const d = await r.json();
     if (!d.ok) return;
     const sales = (d.sales || []).slice(0, 5).map(s => `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`).join(" · ") || "—";
-    const purchases = (d.purchases || []).slice(0, 5).map(s => `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`).join(" · ") || "—";
+    const purchases = (d.purchases || []).slice(0, 5).map(s => {
+      const cd = _marketClaimCountdownHtml(s);
+      const base = `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`;
+      return cd ? `${base} (${cd.replace(/<[^>]+>/g, "")})` : base;
+    }).join(" · ") || "—";
     root.style.display = "";
     root.innerHTML = `<div class="card"><div class="card-title">Histórico recente</div>
       <p style="font-size:12px;margin:0 0 8px;color:var(--text2);">Vendas: ${escHtml(sales)}</p>
@@ -7023,7 +8122,7 @@ function renderMarketMyShop() {
   }
   const tabs = `<div class="catalog-tabs" style="margin-bottom:12px;">
     <button type="button" class="catalog-tab ${_marketMyShopTab === "active" ? "active" : ""}" data-myshop-tab="active" onclick="setMarketMyShopTab('active')">Anúncios (${active.length})</button>
-    <button type="button" class="catalog-tab ${_marketMyShopTab === "pending" ? "active" : ""}" data-myshop-tab="pending" onclick="setMarketMyShopTab('pending')">Aguardando classificação (${pending.length})</button>
+    <button type="button" class="catalog-tab ${_marketMyShopTab === "pending" ? "active" : ""}" data-myshop-tab="pending" onclick="setMarketMyShopTab('pending')">Aguardando aprovação (${pending.length})</button>
   </div>`;
   if (!items.length) {
     list.innerHTML = tabs + `<div class="card"><p style="margin:0;color:var(--text2);">Nenhum item nesta aba.</p></div>`;
@@ -7037,18 +8136,28 @@ function renderMarketMyShop() {
 async function marketSetPrice(listingId, activate) {
   const inp = document.getElementById("market-price-" + listingId);
   const price = inp ? parseInt(inp.value, 10) : null;
+  const nameInp = document.getElementById("market-custom-name-" + listingId);
+  const catSel = document.getElementById("market-category-" + listingId);
+  const descTa = document.getElementById("market-desc-input-" + listingId);
+  const body = {
+    price_absolute: price,
+    activate: !!activate,
+    custom_name: nameInp ? nameInp.value : "",
+    category: catSel ? catSel.value : "",
+    custom_description: descTa ? descTa.value : "",
+  };
   try {
     const r = await fetch(API + "/api/market/listings/" + listingId + "/price", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ price_absolute: price, activate: !!activate }),
+      body: JSON.stringify(body),
     });
     const d = await r.json();
     if (!d.ok) {
       toast(d.error || "Falha", "error");
       return;
     }
-    toast(activate ? "Anúncio ativado!" : "Preço salvo", "success");
+    toast(activate ? "Anúncio ativado!" : "Anúncio salvo", "success");
     loadMarketMyShop();
   } catch (e) {
     toast(String(e), "error");
@@ -7066,7 +8175,7 @@ async function marketPauseListing(listingId) {
 }
 
 async function marketWithdrawListing(listingId) {
-  if (!confirm("Recuperar dino? Use /resgatarmercado in-game após confirmar.")) return;
+  if (!confirm("Recuperar dino? Você terá 24 horas para resgatar com /mercado in-game.")) return;
   try {
     const r = await fetch(API + "/api/market/listings/" + listingId + "/withdraw", { method: "POST" });
     const d = await r.json();
@@ -7149,11 +8258,48 @@ async function loadMarketPendingClassification() {
       return;
     }
     list.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;">
-      ${items.map(l => _marketListingCard(l)).join("")}
+      ${items.map(l => _marketListingCard(l, { showAdminClassify: true })).join("")}
     </div>`;
   } catch (e) {
     list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
+}
+
+async function marketAdminClassifyListing(listingId) {
+  const body = {
+    listing_id: listingId,
+    species_key: document.getElementById("admin-cls-key-" + listingId)?.value?.trim(),
+    display_name: document.getElementById("admin-cls-name-" + listingId)?.value?.trim(),
+    tier: document.getElementById("admin-cls-tier-" + listingId)?.value?.trim(),
+    root_value: parseInt(document.getElementById("admin-cls-root-" + listingId)?.value || "0", 10),
+    approve: true,
+  };
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/classify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha na classificação", "error"); return; }
+    toast(`Listing #${listingId} liberado — ${d.listing_status}`, "success");
+    loadMarketPendingClassification();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketAdminBulkClassify() {
+  if (!confirm("Aprovar em lote todos os anúncios com sugestão de alta confiança?")) return;
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/classify/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ min_confidence: "high", limit: 50 }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(`${d.approved_count || 0} anúncio(s) aprovado(s)`, "success");
+    loadMarketPendingClassification();
+  } catch (e) { toast(String(e), "error"); }
 }
 
 let _marketNameEditingKey = null;
@@ -9607,6 +10753,7 @@ function closeBuyModal() {
 
 async function confirmBuy() {
   if (!_buyItem) return;
+  if (!guardDisplayName("resgatar itens")) return;
   const item = _buyItem;
   const btn = document.getElementById("buy-confirm-btn");
   btn.disabled = true;
@@ -9736,7 +10883,7 @@ async function loadClusterChatMessages() {
     </tr></thead><tbody>` +
     items.map(m => `<tr>
       <td style="white-space:nowrap;font-size:11px;">${escHtml(m.created_at || "")}</td>
-      <td><span class="badge badge-kit">${escHtml(m.source_server)}</span></td>
+      <td><span class="badge badge-kit">${escHtml(m.source_server)}</span>${m.channel === "discord" ? " <span class=\"badge\" style=\"background:#5865F2\">Discord</span>" : ""}</td>
       <td>${escHtml(m.player_name)}</td>
       <td><code style="font-size:11px;">${escHtml(m.steam_id)}</code></td>
       <td>${escHtml(m.message)}</td>
@@ -9748,9 +10895,50 @@ async function loadClusterChatMessages() {
 }
 
 function loadClusterChatAdmin() {
+  loadClusterChatDiscord();
   loadClusterChatStats();
   loadClusterChatMutes();
   loadClusterChatMessages();
+}
+
+async function loadClusterChatDiscord() {
+  const statusEl = document.getElementById("cluster-chat-discord-status");
+  try {
+    const r = await fetch(`${API}/api/admin/chat/discord`);
+    const d = await r.json();
+    if (!d.ok) return;
+    const chk = document.getElementById("cluster-chat-discord-enabled");
+    const ch = document.getElementById("cluster-chat-discord-channel");
+    if (chk) chk.checked = !!d.requested_enabled;
+    if (ch && d.channel_id) ch.value = String(d.channel_id);
+    if (statusEl) {
+      const conn = d.connected ? "🟢 conectado" : (d.enabled ? "🟡 aguardando" : "⚪ desativado");
+      statusEl.innerHTML = `${conn} · último ID encaminhado: <strong>${Number(d.last_forward_id || 0)}</strong>`;
+    }
+  } catch (_) {}
+}
+
+async function saveClusterChatDiscord() {
+  const body = {
+    cross_chat_discord_enabled: !!document.getElementById("cluster-chat-discord-enabled")?.checked,
+    cross_chat_discord_channel_id: document.getElementById("cluster-chat-discord-channel")?.value.trim() || "",
+  };
+  const tok = document.getElementById("cluster-chat-discord-token")?.value.trim() || "";
+  if (tok) body.cross_chat_discord_token = tok;
+  try {
+    const r = await fetch(`${API}/api/admin/chat/discord`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
+    toast("Configuração Discord salva — bridge reiniciado");
+    document.getElementById("cluster-chat-discord-token").value = "";
+    loadClusterChatDiscord();
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 function clusterChatMuteQuick(steamId) {
@@ -10060,7 +11248,7 @@ function renderHomeCommerceSection() {
             <div class="home-commerce__cmd">
               <code>/enviar</code>
               <code>/confirmar</code>
-              <code>/resgatarmercado</code>
+              <code>/mercado</code>
             </div>
           </div>
         </div>
@@ -10359,7 +11547,7 @@ function renderHomePage(d) {
         <div class="home-step"><span class="home-step__num">2</span><div class="home-step__title">Entre com Steam</div><div class="home-step__text">Autenticação segura via Steam OpenID. Seu SteamID vincula doações e resgates à sua conta.</div></div>
         <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago. ${escHtml(CURRENCY.plural)} são creditados como recompensa simbólica.</div></div>
         <div class="home-step"><span class="home-step__num">4</span><div class="home-step__title">Resgate in-game</div><div class="home-step__text">Gaste ${escHtml(CURRENCY.plural)} no catálogo. Ao entrar no servidor, use <code>/shop</code> — a entrega é automática.</div></div>
-        <div class="home-step"><span class="home-step__num">5</span><div class="home-step__title">Comércio P2P (opcional)</div><div class="home-step__text">Venda ou compre dinos entre jogadores com ${escHtml(CURRENCY.plural)} — cryopod oficial, vitrine na web e comandos <code>/enviar</code> · <code>/confirmar</code> · <code>/resgatarmercado</code>.</div></div>
+        <div class="home-step"><span class="home-step__num">5</span><div class="home-step__title">Comércio P2P (opcional)</div><div class="home-step__text">Venda ou compre dinos entre jogadores com ${escHtml(CURRENCY.plural)} — cryopod oficial, vitrine na web e comandos <code>/enviar</code> · <code>/confirmar</code> · <code>/mercado</code>.</div></div>
       </div>
     </div>
 
@@ -10396,7 +11584,7 @@ function renderHomePage(d) {
       <details><summary>Doações têm reembolso?</summary><div class="home-faq__a">Não. São doações voluntárias processadas pelo Mercado Pago. Os ${escHtml(CURRENCY.plural)} são uma recompensa simbólica, não um produto com garantia de devolução.</div></details>
       <details><summary>Por que pedem CPF e e-mail no PIX?</summary><div class="home-faq__a">Exigência do Mercado Pago para gerar e validar cobranças PIX. A ARKLAND repassa esses dados apenas ao MP — não usa para marketing.</div></details>
       <details><summary>Posso ver o catálogo sem login?</summary><div class="home-faq__a">Sim. Abas Itens, Dinos e Kits são públicas. Login Steam é necessário para doar, resgatar e acessar Minha Área.</div></details>
-      <details><summary>Como funciona o Comércio entre jogadores?</summary><div class="home-faq__a">É um marketplace P2P exclusivo do cluster: você envia um dino na cryopod oficial in-game (<strong>/enviar</strong> → <strong>/confirmar</strong>), define o preço na web (mínimo = valor sugerido pela tabela) e recebe ${escHtml(CURRENCY.plural)} quando alguém comprar. O comprador resgata com <strong>/resgatarmercado</strong>. Requer imprint 100%, Licença Nuvem para enviar e usa apenas ${escHtml(CURRENCY.plural)} — sem PIX nem dinheiro real. Taxa zero.</div></details>
+      <details><summary>Como funciona o Comércio entre jogadores?</summary><div class="home-faq__a">É um marketplace P2P exclusivo do cluster: você envia um dino na cryopod oficial in-game (<strong>/enviar</strong> → <strong>/confirmar</strong>), define o preço na web (mínimo = valor sugerido pela tabela) e recebe ${escHtml(CURRENCY.plural)} quando alguém comprar. O comprador resgata com <strong>/mercado</strong>. Requer imprint 100%, Licença Nuvem para enviar e usa apenas ${escHtml(CURRENCY.plural)} — sem PIX nem dinheiro real. Taxa zero.</div></details>
       <details><summary>Como funcionam os eventos sazonais?</summary><div class="home-faq__a">Como nos servidores oficiais: definimos um evento sazonal ativo (ex.: Fear Evolved, Winter Wonderland) e ajustamos periodicamente os rates de <strong>todos os mapas</strong> do cluster para combinar com esse evento. Fique atento ao Discord para saber quando a temporada muda.</div></details>
     </div>
 
@@ -10554,10 +11742,13 @@ async function bootPortal() {
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
     await loadAuth().catch(() => {
-      _auth = { authenticated: false, is_admin: false, steam_id: null };
+      _auth = { authenticated: false, is_admin: false, steam_id: null, needs_display_name: false, market_display_name: null };
     });
     applyRoleUi(true);
     showAuthOverlay(false);
+    if (playerNeedsDisplayName()) {
+      showDisplayNameGate("usar a loja ARKLAND");
+    }
 
     setStatus(false, "Carregando catálogo…");
     const configPromise = _auth.is_admin ? loadConfig() : Promise.resolve(true);

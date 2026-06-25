@@ -6418,9 +6418,12 @@
     "Ssl": false
   },
   "CrossChat": {
-    "_comment": "Chat entre mapas do cluster via MySQL (comando /c). ServerId unico por mapa — definido ao sincronizar.",
+    "_comment": "Chat entre mapas do cluster (captura automatica do chat global). ServerId unico por mapa — definido ao sincronizar.",
     "Enabled": true,
     "ServerId": "Mapa1",
+    "AutoCapture": true,
+    "IgnoreCommands": true,
+    "GlobalChatOnly": true,
     "Command": "/c",
     "PollIntervalSeconds": 2,
     "MaxMessageLength": 200,

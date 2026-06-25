@@ -188,14 +188,14 @@ void ShopMarket::RegisterCommands() {
     ArkApi::GetCommands().AddChatCommand("/enviar", &ShopMarket::CmdEnviar);
     ArkApi::GetCommands().AddChatCommand("/enviardebug", &ShopMarket::CmdEnviarDebug);
     ArkApi::GetCommands().AddChatCommand("/confirmar", &ShopMarket::CmdConfirmar);
-    ArkApi::GetCommands().AddChatCommand("/resgatarmercado", &ShopMarket::CmdResgatarMercado);
+    ArkApi::GetCommands().AddChatCommand("/mercado", &ShopMarket::CmdResgatarMercado);
 }
 
 void ShopMarket::UnregisterCommands() {
     ArkApi::GetCommands().RemoveChatCommand("/enviar");
     ArkApi::GetCommands().RemoveChatCommand("/enviardebug");
     ArkApi::GetCommands().RemoveChatCommand("/confirmar");
-    ArkApi::GetCommands().RemoveChatCommand("/resgatarmercado");
+    ArkApi::GetCommands().RemoveChatCommand("/mercado");
 }
 
 void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
@@ -410,8 +410,21 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
     }
     const auto& claims = json.value("claims", nlohmann::json::array());
     if (claims.empty()) {
-        SendMsg(player, FColorList::Yellow, "Nenhum dino pendente no Comercio.");
+        SendMsg(player, FColorList::Yellow,
+                "Nenhum dino pendente no Comercio (ou resgate expirado — reembolso automatico).");
         return;
+    }
+
+    double min_hours = 9999.0;
+    for (const auto& c : claims) {
+        const double hrs = c.value("hours_remaining", 24.0);
+        if (hrs < min_hours) min_hours = hrs;
+    }
+    if (min_hours < 9999.0) {
+        const int shown = static_cast<int>(std::ceil(min_hours));
+        SendMsg(player, FColorList::Yellow,
+                "Voce tem " + std::to_string(shown > 0 ? shown : 1)
+                + " hora(s) para resgatar com /mercado.");
     }
 
     UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
@@ -428,7 +441,22 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
         if (claim_id <= 0) continue;
 
         nlohmann::json claim_one{{"steam_id", sid}, {"claim_ids", nlohmann::json::array({claim_id})}};
-        HttpClient::PostJson("/api/market/claims/claim", claim_one.dump());
+        const std::string claim_resp =
+            HttpClient::PostJson("/api/market/claims/claim", claim_one.dump());
+        nlohmann::json claim_json;
+        try {
+            claim_json = nlohmann::json::parse(claim_resp);
+        } catch (...) {
+            claim_json = nlohmann::json::object();
+        }
+        if (!claim_json.value("ok", true)) {
+            ReleaseClaims(sid, {});
+            SendMsg(player, FColorList::Red,
+                    SanitizeForGameChat(claim_json.value(
+                        "error",
+                        std::string("Resgate expirado ou indisponivel — reembolso automatico."))));
+            return;
+        }
         claimed_ids.push_back(claim_id);
 
         const std::string hex = c.value("item_blob_hex", std::string());
@@ -444,7 +472,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
         if (!item || !inv->AddItemObject(item)) {
             ReleaseClaims(sid, claimed_ids);
             SendMsg(player, FColorList::Red,
-                    "Inventario cheio - libere espaco e tente /resgatarmercado.");
+                    "Inventario cheio - libere espaco e tente /mercado.");
             return;
         }
 

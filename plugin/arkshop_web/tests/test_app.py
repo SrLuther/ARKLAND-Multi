@@ -135,12 +135,48 @@ class TestAuth:
         assert d["is_admin"] is True
         assert d["steam_id"] == ADMIN_STEAM
 
-    def test_me_authenticated_user(self, client):
+    def test_me_authenticated_user(self, client, monkeypatch):
+        monkeypatch.setattr(
+            _app_module,
+            "_auth_display_name_fields",
+            lambda _sid, is_admin: {
+                "market_display_name": None,
+                "needs_display_name": not is_admin,
+            },
+        )
         _login(client, USER_STEAM)
         r = client.get("/api/auth/me")
         d = r.get_json()
         assert d["authenticated"] is True
         assert d["is_admin"] is False
+        assert d["needs_display_name"] is True
+        assert d["market_display_name"] is None
+
+    def test_me_authenticated_user_with_display_name(self, client, monkeypatch):
+        monkeypatch.setattr(
+            _app_module,
+            "_auth_display_name_fields",
+            lambda _sid, is_admin: {
+                "market_display_name": "PlayerBR",
+                "needs_display_name": False,
+            },
+        )
+        _login(client, USER_STEAM)
+        d = client.get("/api/auth/me").get_json()
+        assert d["needs_display_name"] is False
+        assert d["market_display_name"] == "PlayerBR"
+
+    def test_purchase_rejects_without_display_name(self, client, monkeypatch):
+        monkeypatch.setattr(_app_module, "_safe_market_profile", lambda _db, _sid: None)
+        _login(client, USER_STEAM)
+        monkeypatch.setattr(_app_module, "_catalog_entry", lambda _t, _i: {"Price": 0, "Type": "item"})
+        r = client.post(
+            "/api/player/purchase",
+            json={"item_id": "sword", "item_type": "shop", "amount": 1},
+        )
+        assert r.status_code == 403
+        d = r.get_json()
+        assert d["needs_display_name"] is True
 
     def test_logout(self, client):
         _login(client, ADMIN_STEAM)

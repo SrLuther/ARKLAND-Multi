@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 
 log = logging.getLogger("arkshop.market_migrate")
 
-MARKET_SCHEMA_VERSION = "1.0.0"
+MARKET_SCHEMA_VERSION = "1.2.0"
 
 MARKET_TABLES: tuple[str, ...] = (
     "market_species",
@@ -41,6 +41,99 @@ def _existing_tables(engine: Any) -> set[str]:
         return set(insp.get_table_names())
     except Exception:
         return set()
+
+
+def _ensure_listing_presentation_columns(engine: Any) -> None:
+    """Adiciona custom_name, category e custom_description em market_listings (idempotente)."""
+    if "market_listings" not in _existing_tables(engine):
+        return
+    is_mysql = _is_mysql(engine)
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("market_listings")}
+        alters: list[str] = []
+        if "custom_name" not in cols:
+            alters.append(
+                "ADD COLUMN `custom_name` VARCHAR(80) NULL"
+                if is_mysql
+                else "ADD COLUMN custom_name VARCHAR(80)"
+            )
+        if "category" not in cols:
+            alters.append(
+                "ADD COLUMN `category` VARCHAR(16) NULL"
+                if is_mysql
+                else "ADD COLUMN category VARCHAR(16)"
+            )
+        if "custom_description" not in cols:
+            alters.append(
+                "ADD COLUMN `custom_description` VARCHAR(300) NULL"
+                if is_mysql
+                else "ADD COLUMN custom_description VARCHAR(300)"
+            )
+        for fragment in alters:
+            conn.execute(text(f"ALTER TABLE market_listings {fragment}"))
+        if alters:
+            conn.commit()
+            log.info("Mercado: colunas de personalização de anúncio adicionadas em market_listings")
+
+
+def _ensure_claim_reservation_columns(engine: Any) -> None:
+    """Adiciona claim_reserved_at, claim_expires_at e claim_status em market_claims (idempotente)."""
+    if "market_claims" not in _existing_tables(engine):
+        return
+    is_mysql = _is_mysql(engine)
+    with engine.connect() as conn:
+        insp = inspect(engine)
+        cols = {c["name"] for c in insp.get_columns("market_claims")}
+        alters: list[str] = []
+        if "claim_reserved_at" not in cols:
+            alters.append(
+                "ADD COLUMN `claim_reserved_at` DATETIME NULL"
+                if is_mysql
+                else "ADD COLUMN claim_reserved_at DATETIME"
+            )
+        if "claim_expires_at" not in cols:
+            alters.append(
+                "ADD COLUMN `claim_expires_at` DATETIME NULL"
+                if is_mysql
+                else "ADD COLUMN claim_expires_at DATETIME"
+            )
+        if "claim_status" not in cols:
+            alters.append(
+                "ADD COLUMN `claim_status` VARCHAR(32) NULL"
+                if is_mysql
+                else "ADD COLUMN claim_status VARCHAR(32)"
+            )
+        for fragment in alters:
+            conn.execute(text(f"ALTER TABLE market_claims {fragment}"))
+        if alters:
+            conn.commit()
+            log.info("Mercado: colunas de reserva de claim adicionadas em market_claims")
+
+        # Backfill: claims PENDENTE/CLAIMED sem expiração ganham janela de 24h a partir de created_at
+        if is_mysql:
+            conn.execute(
+                text(
+                    "UPDATE market_claims SET "
+                    "claim_reserved_at = COALESCE(claim_reserved_at, created_at), "
+                    "claim_expires_at = COALESCE(claim_expires_at, DATE_ADD(created_at, INTERVAL 24 HOUR)), "
+                    "claim_status = COALESCE(claim_status, 'pending') "
+                    "WHERE status IN ('PENDENTE', 'CLAIMED') "
+                    "AND (claim_expires_at IS NULL OR claim_status IS NULL)"
+                )
+            )
+        else:
+            conn.execute(
+                text(
+                    "UPDATE market_claims SET "
+                    "claim_reserved_at = COALESCE(claim_reserved_at, created_at), "
+                    "claim_expires_at = COALESCE(claim_expires_at, datetime(created_at, '+24 hours')), "
+                    "claim_status = COALESCE(claim_status, 'pending') "
+                    "WHERE status IN ('PENDENTE', 'CLAIMED') "
+                    "AND (claim_expires_at IS NULL OR claim_status IS NULL)"
+                )
+            )
+        conn.commit()
 
 
 def _ensure_mysql_mediumblob(engine: Any) -> None:
@@ -132,6 +225,8 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
         Base.metadata.create_all(bind=engine, tables=market_tables)
 
     _ensure_mysql_mediumblob(engine)
+    _ensure_claim_reservation_columns(engine)
+    _ensure_listing_presentation_columns(engine)
 
     after = _existing_tables(engine)
     still_missing = [t for t in MARKET_TABLES if t not in after]

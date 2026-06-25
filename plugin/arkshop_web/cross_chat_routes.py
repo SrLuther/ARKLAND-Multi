@@ -25,6 +25,8 @@ def register_cross_chat_routes(
     api_key_required: Callable,
     admin_required: Callable | None = None,
     limiter: Any | None = None,
+    load_settings: Callable[[], Any] | None = None,
+    save_settings: Callable[[Any], None] | None = None,
 ) -> None:
     _limit = limiter.limit if limiter else (lambda *a, **k: (lambda f: f))
 
@@ -166,3 +168,49 @@ def register_cross_chat_routes(
             return jsonify(result)
         finally:
             db.close()
+
+    @app.route("/api/admin/chat/discord", methods=["GET"])
+    @admin_required
+    def admin_chat_discord_status():
+        if not load_settings:
+            return jsonify({"ok": False, "error": "settings indisponivel"}), 503
+        from cross_chat_discord import discord_bridge_status, load_discord_config
+
+        return jsonify({
+            "ok": True,
+            **discord_bridge_status(load_settings, db_ready),
+        })
+
+    @app.route("/api/admin/chat/discord", methods=["POST"])
+    @admin_required
+    def admin_chat_discord_save():
+        if not load_settings or not save_settings:
+            return jsonify({"ok": False, "error": "settings indisponivel"}), 503
+        from cross_chat_discord import stop_discord_bridge, start_discord_bridge
+
+        body = request.get_json(force=True, silent=True) or {}
+        s = load_settings()
+        if "cross_chat_discord_enabled" in body:
+            s["cross_chat_discord_enabled"] = bool(body["cross_chat_discord_enabled"])
+        if "cross_chat_discord_channel_id" in body:
+            s["cross_chat_discord_channel_id"] = str(
+                body.get("cross_chat_discord_channel_id") or ""
+            ).strip()
+        token = str(body.get("cross_chat_discord_token") or "").strip()
+        if token:
+            s["cross_chat_discord_token"] = token
+        save_settings(s)
+
+        stop_discord_bridge()
+        start_discord_bridge(
+            session_factory=session_factory,
+            load_settings=load_settings,
+            save_settings=save_settings,
+            db_ready=db_ready,
+        )
+        from cross_chat_discord import discord_bridge_status
+
+        return jsonify({
+            "ok": True,
+            **discord_bridge_status(load_settings, db_ready),
+        })

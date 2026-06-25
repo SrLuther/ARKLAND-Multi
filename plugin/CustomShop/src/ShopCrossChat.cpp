@@ -90,6 +90,18 @@ bool UseWebApi() {
     return Cfg().value("UseWebApi", false);
 }
 
+bool AutoCapture() {
+    return Cfg().value("AutoCapture", true);
+}
+
+bool IgnoreCommands() {
+    return Cfg().value("IgnoreCommands", true);
+}
+
+bool GlobalChatOnly() {
+    return Cfg().value("GlobalChatOnly", true);
+}
+
 void SendLocal(AShooterPlayerController* player, const std::string& text) {
     if (!player || text.empty()) return;
     static const FString kSender(L"Cluster");
@@ -294,55 +306,76 @@ void PollTick() {
 bool HandleMessage(AShooterPlayerController* player, const std::string& raw_msg) {
     if (!Enabled() || !player || raw_msg.empty()) return false;
 
-    const std::string cmd = CommandToken();
+    const bool auto_capture = AutoCapture();
     std::string payload;
-    if (raw_msg == cmd) {
-        SendLocal(player, "Uso: " + cmd + " sua mensagem");
-        return true;
-    }
-    const std::string prefix = cmd + " ";
-    if (raw_msg.size() <= prefix.size() ||
-        raw_msg.compare(0, prefix.size(), prefix) != 0)
-        return false;
 
-    payload = SanitizeAscii(raw_msg.substr(prefix.size()));
-    if (payload.empty()) {
-        SendLocal(player, "Mensagem vazia.");
-        return true;
+    if (auto_capture) {
+        if (IgnoreCommands() && raw_msg[0] == '/')
+            return false;
+        payload = SanitizeAscii(raw_msg);
+        if (payload.empty())
+            return false;
+    } else {
+        const std::string cmd = CommandToken();
+        if (raw_msg == cmd) {
+            SendLocal(player, "Uso: " + cmd + " sua mensagem");
+            return true;
+        }
+        const std::string prefix = cmd + " ";
+        if (raw_msg.size() <= prefix.size() ||
+            raw_msg.compare(0, prefix.size(), prefix) != 0)
+            return false;
+
+        payload = SanitizeAscii(raw_msg.substr(prefix.size()));
+        if (payload.empty()) {
+            SendLocal(player, "Mensagem vazia.");
+            return true;
+        }
     }
+
     if (static_cast<int>(payload.size()) > MaxMessageLength()) {
         payload.resize(static_cast<size_t>(MaxMessageLength()));
     }
 
     const std::string steam_id = CustomShop::Bridge::GetSteamId(player);
     if (steam_id.empty()) {
-        SendLocal(player, "SteamID indisponivel.");
-        return true;
+        if (!auto_capture)
+            SendLocal(player, "SteamID indisponivel.");
+        return !auto_capture;
     }
     if (IsMuted(steam_id)) {
-        SendLocal(player, "Voce esta silenciado no chat cluster.");
-        return true;
+        if (!auto_capture)
+            SendLocal(player, "Voce esta silenciado no chat cluster.");
+        return !auto_capture;
     }
     if (RateLimited(steam_id)) {
-        SendLocal(player, "Aguarde antes de enviar outra mensagem.");
-        return true;
+        if (!auto_capture)
+            SendLocal(player, "Aguarde antes de enviar outra mensagem.");
+        return !auto_capture;
     }
 
     const FString fname = ArkApi::GetApiUtils().GetSteamName(player);
     const std::string player_name = SanitizeAscii(fname.ToString());
     if (!Publish(steam_id, player_name.empty() ? steam_id : player_name, payload)) {
-        SendLocal(player, "Falha ao enviar mensagem cluster.");
-        return true;
+        if (!auto_capture) {
+            SendLocal(player, "Falha ao enviar mensagem cluster.");
+            return true;
+        }
+        return false;
     }
 
-    SendLocal(player, "[Cluster] Voce: " + payload);
-    return true;
+    if (!auto_capture) {
+        SendLocal(player, "[Cluster] Voce: " + payload);
+        return true;
+    }
+    return false;
 }
 
 bool OnChatMessage(AShooterPlayerController* player, FString* message,
-                   EChatSendMode::Type /*mode*/, bool /*spam_check*/,
+                   EChatSendMode::Type mode, bool /*spam_check*/,
                    bool command_executed) {
     if (command_executed || !player || !message) return false;
+    if (GlobalChatOnly() && mode != EChatSendMode::GlobalChat) return false;
     return HandleMessage(player, message->ToString());
 }
 
@@ -375,19 +408,22 @@ void Start() {
 
     const int interval = std::max(1, Cfg().value("PollIntervalSeconds", 2));
     ArkApi::GetCommands().AddOnChatMessageCallback("CustomShopCrossChat", &OnChatMessage);
-    ArkApi::GetCommands().AddChatCommand(CommandToken().c_str(), &CmdCrossChat);
+    if (!AutoCapture())
+        ArkApi::GetCommands().AddChatCommand(CommandToken().c_str(), &CmdCrossChat);
 
     API::Timer::Get().RecurringExecute(PollTick, interval, -1, false);
 
     Log::GetLog()->info(
-        "CrossChat: started server='{}' cmd='{}' poll={}s web_api={}",
-        ServerId(), CommandToken(), interval, UseWebApi() ? "yes" : "no");
+        "CrossChat: started server='{}' auto={} cmd='{}' poll={}s web_api={}",
+        ServerId(), AutoCapture() ? "yes" : "no", CommandToken(), interval,
+        UseWebApi() ? "yes" : "no");
 }
 
 void Stop() {
     if (!Enabled()) return;
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCrossChat");
-    ArkApi::GetCommands().RemoveChatCommand(CommandToken().c_str());
+    if (!AutoCapture())
+        ArkApi::GetCommands().RemoveChatCommand(CommandToken().c_str());
 }
 
 } // namespace CrossChat

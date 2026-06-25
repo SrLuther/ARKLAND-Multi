@@ -3,11 +3,87 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.100"
+APP_VERSION: str = "1.9.108"
 BUILD_DATE: str = "2026-06-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.108",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (Web Store): navegação por abas — CSS boot-admin forçava display:block em "
+            "todas as páginas admin-only ao mesmo tempo; agora só o menu admin e a página "
+            ".page.admin-only.active ficam visíveis.",
+            "Feat (Web Store): nome de exibição obrigatório após login Steam — modal "
+            "bloqueante, navegação e ações (resgate, PIX, Comércio) bloqueadas até salvar; "
+            "validação API em /api/player/purchase, PIX e pedidos.",
+        ],
+    },
+    {
+        "version": "1.9.107",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Comércio P2P): registro Abyss em ark_species_registry.json — 40 blueprints "
+            "(recursos, sementes, dinos nativos, variantes abissais e veículos Thalassian) com "
+            "nome PT-BR, tier, papel e preço base sugerido em Âmbar para auto-categorização no depósito.",
+        ],
+    },
+    {
+        "version": "1.9.106",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Comércio P2P): categorização automática de dinos por registro ARK "
+            "(blueprint → nome PT-BR, tier, papel e preço base sugerido) com fila admin "
+            "de confirmação antes de liberar anúncios na vitrine.",
+            "Feat (Comércio P2P): API admin POST /listings/classify e bulk, cards com nome "
+            "amigável (sem blueprint cru), sugestão em destaque e mensagem "
+            "«Aguardando aprovação da equipe»; browse continua só ACTIVE.",
+        ],
+    },
+    {
+        "version": "1.9.105",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Web Store): aba Tutoriais no menu Jogador — guias detalhados em português "
+            "(primeiros passos, catálogo, Comércio P2P, comandos in-game, Nuvem e FAQ) com "
+            "acordeão, índice e busca.",
+        ],
+    },
+    {
+        "version": "1.9.104",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Chat cluster): captura automática do chat global — sem comando /c; "
+            "rotulação [Mapa] Jogador nos servidores.",
+            "Feat (Chat cluster): ponte Discord bidirecional na Web Store (discord.py) — "
+            "jogo→Discord e Discord→todos os mapas, com prevenção de eco.",
+            "Melhoria (Chat cluster): config AutoCapture, IgnoreCommands, GlobalChatOnly no "
+            "CustomShop; painel Discord no admin da loja web. CustomShop.dll requer recompilação.",
+        ],
+    },
+    {
+        "version": "1.9.103",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Comércio P2P): anúncios personalizáveis — nome customizado (até 80 chars), "
+            "categoria/tier em destaque, descrição do vendedor (até 280 chars) e badge do "
+            "nome de exibição na vitrine e no Mercado.",
+            "Feat (Comércio P2P): migração automática das colunas custom_name, category e "
+            "custom_description; validação server-side (strip HTML, limites) e formulário na Minha Loja.",
+        ],
+    },
+    {
+        "version": "1.9.102",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Comércio P2P): reserva de resgate com janela de 24h após compra ou retirada — "
+            "/mercado só funciona dentro do prazo; expiração cancela e reembolsa o comprador "
+            "(preço integral + taxas=0) com devolução do dino ao vendedor.",
+            "Feat (Comércio P2P): worker periódico idempotente para claims expirados, countdown na "
+            "Minha Loja/histórico, auditoria MARKET_CLAIM_EXPIRED_REFUND e migração automática do schema.",
+        ],
+    },
     {
         "version": "1.9.101",
         "date": "2026-06-25",
@@ -16,6 +92,8 @@ CHANGELOG: list[dict] = [
             "Twitch/TikTok, tickets), backup/restauração .env, gerenciador de cogs em config.py.",
             "Feat (TEK oBobonic): status Discord inferido dos logs, links Dev Portal/convite, "
             "atalhos .bancos/ e data/; honestidade sobre limites (latência, dados JSON, UI Discord).",
+            "Melhoria (Comércio P2P): comando de resgate renomeado de /resgatarmercado para /mercado "
+            "(plugin CustomShop, web store e docs).",
         ],
     },
     {

@@ -179,7 +179,7 @@ Categorias alinhadas aos domínios reais do projeto (mapeados a partir de CHANGE
 | Código | Nome | Descrição | Prioridade default | Vínculos típicos |
 |--------|------|-----------|-------------------|------------------|
 | `DELIVERY_SHOP` | Entrega da loja | Comprou, não recebeu; pedido preso | P1 | `order_id` |
-| `DELIVERY_MARKET` | Entrega mercado | Comprou dino P2P, `/resgatarmercado` falhou | P0/P1 | `market_claim_id`, `listing_id` |
+| `DELIVERY_MARKET` | Entrega mercado | Comprou dino P2P, `/mercado` falhou | P0/P1 | `market_claim_id`, `listing_id` |
 | `UPLOAD_MARKET` | Envio ao mercado | `/enviar`/`/confirmar`, cryo, timer, espécie | P1 | vault, listing draft |
 | `PIX_PAYMENT` | Doação PIX | Pago, Âmbares não creditados | P0 | `point_payment_id`, MP id |
 | `POINTS_BALANCE` | Saldo Âmbares | Saldo incorreto, trade, timed points | P2 | `steam_id`, transações |
@@ -517,7 +517,7 @@ Reutilizar estilos: `.card`, `.tbl`, modais de `page-audit`.
 Modal **“Você já tentou?”** por categoria:
 
 - Entrega: *“Entrou no servidor e usou /shop?”*
-- Mercado: *“Usou /resgatarmercado com inventário livre?”*
+- Mercado: *“Usou /mercado com inventário livre?”*
 - PIX: *“Aguardou 5 minutos após pagamento?”*
 
 Reduz tickets duplicados.
@@ -659,7 +659,7 @@ Arkland é instância única (`arkland.com.br`) — sem tenant_id v1. Forks do p
 1. `GET` claim status + `market_audit_events` filtrado por `claim_id`.
 2. Verificar inventário cheio (mensagem plugin).
 3. Release claim se preso em `CLAIMED`.
-4. Comprador reexecuta `/resgatarmercado`.
+4. Comprador reexecuta `/mercado`.
 
 ### 13.4 Playbook — classificação espécie
 

@@ -529,9 +529,9 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         tk.Label(
             card_cc,
             text=(
-                "Jogadores usam /c mensagem no chat do jogo para falar com outros mapas do cluster. "
-                "Cada servidor recebe um ServerId único ao sincronizar o plugin (nome do servidor). "
-                "Requer MySQL compartilhado e CustomShop.dll nos mapas."
+                "Captura automatica do chat global — jogadores falam normalmente, sem /c. "
+                "Mensagens vao para todos os mapas do cluster e para o Discord (se configurado). "
+                "Cada servidor recebe um ServerId unico ao sincronizar o plugin."
             ),
             bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
             anchor="w", justify="left", wraplength=720,
@@ -541,6 +541,9 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         _ccv.clear()
         _ccv.update({
             "Enabled":             tk.BooleanVar(value=bool(cc.get("Enabled", True))),
+            "AutoCapture":         tk.BooleanVar(value=bool(cc.get("AutoCapture", True))),
+            "IgnoreCommands":      tk.BooleanVar(value=bool(cc.get("IgnoreCommands", True))),
+            "GlobalChatOnly":      tk.BooleanVar(value=bool(cc.get("GlobalChatOnly", True))),
             "Command":             tk.StringVar(value=str(cc.get("Command", "/c"))),
             "PollIntervalSeconds": tk.StringVar(value=str(cc.get("PollIntervalSeconds", 2))),
             "MaxMessageLength":    tk.StringVar(value=str(cc.get("MaxMessageLength", 200))),
@@ -548,8 +551,11 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             "UseWebApi":           tk.BooleanVar(value=bool(cc.get("UseWebApi", False))),
         })
         _bool_row(card_cc, "Ativado no catálogo", _ccv["Enabled"], bg=_INNER)
-        _field_row(card_cc, "Comando", _ccv["Command"], bg=_INNER,
-                   hint="Padrão: /c — jogador digita /c olá cluster", width=100)
+        _bool_row(card_cc, "Captura automática (sem /c)", _ccv["AutoCapture"], bg=_INNER)
+        _bool_row(card_cc, "Ignorar comandos (/)", _ccv["IgnoreCommands"], bg=_INNER)
+        _bool_row(card_cc, "Somente chat global", _ccv["GlobalChatOnly"], bg=_INNER)
+        _field_row(card_cc, "Comando legado", _ccv["Command"], bg=_INNER,
+                   hint="Usado apenas se captura automática estiver desligada", width=100)
         _field_row(card_cc, "Intervalo de poll (s)", _ccv["PollIntervalSeconds"], bg=_INNER,
                    hint="Frequência de busca de mensagens de outros mapas", width=80)
         _field_row(card_cc, "Tamanho máx. mensagem", _ccv["MaxMessageLength"], bg=_INNER, width=80)
@@ -561,7 +567,8 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             card_cc,
             text=(
                 "💡 Ative também «Chat cluster entre mapas» na aba Web Store. "
-                "Ao salvar, cada servidor recebe ServerId = nome do mapa."
+                "Ponte Discord: configure na loja web (Chat Cluster → Discord). "
+                "Requer MySQL compartilhado, CustomShop.dll recompilado e discord.py na web store."
             ),
             bg=_INNER, fg="#88cc88", font=ctk.CTkFont(size=10),
             anchor="w", justify="left", wraplength=720,
@@ -637,13 +644,16 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         if _ccv:
             cc_out = data.setdefault("CrossChat", {})
             cc_out["Enabled"] = _ccv["Enabled"].get()
+            cc_out["AutoCapture"] = _ccv["AutoCapture"].get()
+            cc_out["IgnoreCommands"] = _ccv["IgnoreCommands"].get()
+            cc_out["GlobalChatOnly"] = _ccv["GlobalChatOnly"].get()
             cc_out["Command"] = (_ccv["Command"].get() or "/c").strip() or "/c"
             cc_out["PollIntervalSeconds"] = max(1, _safe_int(_ccv["PollIntervalSeconds"].get(), 2))
             cc_out["MaxMessageLength"] = max(1, min(500, _safe_int(_ccv["MaxMessageLength"].get(), 200)))
             cc_out["RateLimitSeconds"] = max(0, _safe_int(_ccv["RateLimitSeconds"].get(), 2))
             cc_out["UseWebApi"] = _ccv["UseWebApi"].get()
             cc_out["_comment"] = (
-                "Chat entre mapas do cluster via MySQL (comando /c). "
+                "Chat entre mapas do cluster (captura automatica). "
                 "ServerId unico por mapa — definido ao sincronizar."
             )
 
@@ -2088,7 +2098,7 @@ def _build_webstore_tab(
                   command=_provision_groups).pack(side="left", padx=(0, 10))
     ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
                     variable=_auto_sync_var).pack(side="left")
-    ctk.CTkCheckBox(act_row, text="Chat cluster entre mapas (/c)",
+    ctk.CTkCheckBox(act_row, text="Chat cluster entre mapas (automático)",
                     variable=_cross_chat_var).pack(side="left", padx=(12, 0))
     ctk.CTkButton(act_row, text="↻  Atualizar lista",
                   height=30, width=120, fg_color="#252540",

@@ -27,6 +27,8 @@ from market_service import (
 )
 
 from market_listings import (
+    admin_bulk_classify_listings,
+    admin_classify_listing,
     claim_deliveries,
     commerce_ready,
     get_listing_detail,
@@ -49,6 +51,7 @@ from market_listings import (
     set_listing_price,
     upsert_display_name,
     withdraw_listing,
+    expire_stale_claims,
 )
 
 
@@ -399,6 +402,65 @@ def register_market_routes(
         finally:
             db.close()
 
+    @app.route("/api/market/admin/listings/classify", methods=["POST"])
+    @admin_required
+    def market_admin_classify_listing():
+        """Confirma classificação admin: ativa espécie e promove listing para DRAFT."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        listing_id = int(body.get("listing_id") or 0)
+        if not listing_id:
+            return jsonify({"ok": False, "error": "listing_id obrigatório"}), 400
+        db = session_factory()
+        try:
+            result = admin_classify_listing(
+                db,
+                listing_id,
+                species_key=str(body.get("species_key") or "").strip() or None,
+                display_name=str(body.get("display_name") or "").strip() or None,
+                tier=str(body.get("tier") or "").strip() or None,
+                root_value=int(body["root_value"]) if body.get("root_value") is not None else None,
+                approve=bool(body.get("approve", True)),
+            )
+            audit_event("MARKET_LISTING_CLASSIFIED", listing_id=listing_id, **result)
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/classify/bulk", methods=["POST"])
+    @admin_required
+    def market_admin_classify_bulk():
+        """Aprova em lote listings com sugestão de alta confiança."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        raw_ids = body.get("listing_ids") or []
+        listing_ids = (
+            [int(x) for x in raw_ids if str(x).isdigit()] if isinstance(raw_ids, list) else None
+        )
+        db = session_factory()
+        try:
+            result = admin_bulk_classify_listings(
+                db,
+                listing_ids=listing_ids,
+                min_confidence=str(body.get("min_confidence") or "high"),
+                limit=min(100, int(body.get("limit") or 50)),
+            )
+            audit_event("MARKET_LISTINGS_BULK_CLASSIFIED", **result)
+            return jsonify({"ok": True, **result})
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/species/registry-stats", methods=["GET"])
+    @admin_required
+    def market_admin_registry_stats():
+        from ark_species_registry import registry_stats
+
+        return jsonify({"ok": True, **registry_stats()})
+
     @app.route("/api/market/admin/species/pending-classification", methods=["GET"])
     @admin_required
     def market_admin_pending_classification():
@@ -542,13 +604,17 @@ def register_market_routes(
         try:
             price = body.get("price_absolute")
             activate = bool(body.get("activate", False))
-            result = set_listing_price(
-                db,
-                listing_id,
-                steam_id,
-                price_absolute=int(price) if price is not None else None,
-                activate=activate,
-            )
+            kwargs: dict[str, Any] = {
+                "price_absolute": int(price) if price is not None else None,
+                "activate": activate,
+            }
+            if "custom_name" in body:
+                kwargs["custom_name"] = body.get("custom_name")
+            if "category" in body:
+                kwargs["category"] = body.get("category")
+            if "custom_description" in body:
+                kwargs["custom_description"] = body.get("custom_description")
+            result = set_listing_price(db, listing_id, steam_id, **kwargs)
             return jsonify({"ok": True, "listing": result})
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
@@ -806,6 +872,24 @@ def register_market_routes(
         try:
             claimed = claim_deliveries(db, steam_id, claim_ids)
             return jsonify({"ok": True, "claimed": claimed})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/claims/expire-stale", methods=["POST"])
+    @admin_required
+    def market_admin_expire_stale_claims():
+        """Dispara processamento manual de claims expirados (auditoria / suporte)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        batch = min(200, max(1, int(body.get("batch_size") or 50)))
+        db = session_factory()
+        try:
+            result = expire_stale_claims(db, batch_size=batch)
+            audit_event("MARKET_CLAIMS_EXPIRE_MANUAL", **result)
+            return jsonify({"ok": True, **result})
         finally:
             db.close()
 

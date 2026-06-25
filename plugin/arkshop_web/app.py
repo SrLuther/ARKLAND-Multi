@@ -283,7 +283,7 @@ else:
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token")
 
 _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
     {"id": "p500", "label": "500 Âmbares", "points": 500, "price_brl": 5.0},
@@ -634,6 +634,9 @@ class MarketListing(Base):
     buyer_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     dino_display_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    custom_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    custom_description: Mapped[str | None] = mapped_column(String(300), nullable=True)
     stat_health: Mapped[int] = mapped_column(Integer, default=0)
     stat_melee: Mapped[int] = mapped_column(Integer, default=0)
     stat_weight: Mapped[int] = mapped_column(Integer, default=0)
@@ -699,6 +702,9 @@ class MarketClaim(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_reserved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    claim_status: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 
 
 class MarketAuditEvent(Base):
@@ -1799,6 +1805,53 @@ def admin_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     return _wrapper
 
 
+def _safe_market_profile(db: Any, steam_id: str) -> Any | None:
+    """Perfil de comércio ou None se tabela/DB indisponível."""
+    from market_listings import get_profile
+    from sqlalchemy.exc import OperationalError
+
+    try:
+        return get_profile(db, steam_id)
+    except OperationalError:
+        return None
+
+
+def _auth_display_name_fields(steam_id: str, is_admin: bool) -> dict[str, Any]:
+    """Campos de perfil de exibição para /api/auth/me (jogadores; admins isentos)."""
+    if is_admin or not _db_ready():
+        return {"market_display_name": None, "needs_display_name": False}
+
+    db = _SessionLocal()
+    try:
+        prof = _safe_market_profile(db, steam_id)
+        name = ((prof.market_display_name if prof else None) or "").strip()
+        return {
+            "market_display_name": name or None,
+            "needs_display_name": not bool(name),
+        }
+    finally:
+        db.close()
+
+
+def _guard_player_display_name(steam_id: str) -> Any:
+    """Bloqueia ações de jogador sem nome de exibição; admins isentos."""
+    if _is_admin_steamid(steam_id) or not _db_ready():
+        return None
+
+    db = _SessionLocal()
+    try:
+        prof = _safe_market_profile(db, str(steam_id))
+        if not prof or not (prof.market_display_name or "").strip():
+            return jsonify({
+                "ok": False,
+                "error": "Defina seu nome de exibição antes de continuar.",
+                "needs_display_name": True,
+            }), 403
+    finally:
+        db.close()
+    return None
+
+
 # ── RCON ──────────────────────────────────────────────────────────────────────
 
 def _rcon_command(
@@ -2007,6 +2060,20 @@ def _retry_worker() -> None:
     while not _scheduler_stop.wait(_RETRY_INTERVAL_SECONDS):
         if not _db_ready():
             continue
+
+        try:
+            from market_listings import expire_stale_claims
+
+            mdb = _SessionLocal()
+            try:
+                result = expire_stale_claims(mdb)
+                if result.get("processed"):
+                    _log("market_claims_expired", **result)
+            finally:
+                mdb.close()
+        except Exception as exc:
+            _log_error("market_claims_expire_worker", error=str(exc))
+
         if _delivery_mode() != "rcon":
             continue
         db = _SessionLocal()
@@ -2417,12 +2484,24 @@ def health_check():
 def auth_me():
     steam_id = _steam_id_from_session()
     if not steam_id:
-        return jsonify({"authenticated": False, "is_admin": False, "steam_id": None})
+        return jsonify({
+            "authenticated": False,
+            "is_admin": False,
+            "steam_id": None,
+            "needs_display_name": False,
+            "market_display_name": None,
+        })
     file_admins = _load_admin_steamids_from_file()
     is_admin = steam_id in file_admins
     if not is_admin and _db_ready():
         is_admin = steam_id in _load_admin_steamids(db_timeout=1.5)
-    return jsonify({"authenticated": True, "is_admin": is_admin, "steam_id": steam_id})
+    payload: dict[str, Any] = {
+        "authenticated": True,
+        "is_admin": is_admin,
+        "steam_id": steam_id,
+    }
+    payload.update(_auth_display_name_fields(steam_id, is_admin))
+    return jsonify(payload)
 
 
 # ── Settings routes ───────────────────────────────────────────────────────────
@@ -2431,10 +2510,11 @@ def auth_me():
 @admin_required
 def get_settings():
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
+    safe["cross_chat_discord_token_set"] = bool(s.get("cross_chat_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
     safe["point_packages"] = _load_point_packages()
     safe["db_configured"] = _db_ready()
@@ -3674,6 +3754,8 @@ def _admin_deliver_order():
 def player_purchase():
     body = request.get_json(force=True)
     steam_id = _steam_id_from_session()
+    if (dn_err := _guard_player_display_name(str(steam_id))) is not None:
+        return dn_err
     item_id = str(body.get("item_id", "")).strip()
     item_type = str(body.get("item_type", "shop")).strip() or "shop"
     amount = int(body.get("amount", 1))
@@ -3798,6 +3880,8 @@ def player_cancel_order(order_id: str):
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
+    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+        return dn_err
     db = _SessionLocal()
     try:
         order = (
@@ -4076,6 +4160,9 @@ def player_pix_payer_form():
 def player_pix_checkout():
     if (err := _require_db()) is not None:
         return err
+    steam_id = str(_steam_id_from_session())
+    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+        return dn_err
     if not _pix_enabled():
         return jsonify({"ok": False, "error": "Doação PIX não configurada (indisponível)"}), 503
 
@@ -4534,6 +4621,8 @@ def player_contest(order_id: str):
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
+    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+        return dn_err
     body = request.get_json(force=True)
     reason = str(body.get("reason", "")).strip()
     if not reason:
@@ -5138,6 +5227,17 @@ register_cross_chat_routes(
     api_key_required=api_key_required,
     admin_required=admin_required,
     limiter=limiter,
+    load_settings=_load_settings,
+    save_settings=_save_settings,
+)
+
+from cross_chat_discord import start_discord_bridge
+
+start_discord_bridge(
+    session_factory=_db_session_factory,
+    load_settings=_load_settings,
+    save_settings=_save_settings,
+    db_ready=_db_ready,
 )
 
 _kick_background_db_init()

@@ -1200,11 +1200,14 @@ def build_cross_chat_settings(
         enabled = enabled and bool(catalog_cc.get("Enabled", True))
     return {
         "_comment": (
-            "Chat entre mapas do cluster (comando /c). "
+            "Chat entre mapas do cluster (captura automatica do chat global). "
             "ServerId definido automaticamente ao sincronizar."
         ),
         "Enabled": enabled,
         "ServerId": _cross_chat_server_label(srv),
+        "AutoCapture": bool(merged.get("AutoCapture", True)),
+        "IgnoreCommands": bool(merged.get("IgnoreCommands", True)),
+        "GlobalChatOnly": bool(merged.get("GlobalChatOnly", True)),
         "Command": str(merged.get("Command") or "/c"),
         "PollIntervalSeconds": max(1, int(merged.get("PollIntervalSeconds") or 2)),
         "MaxMessageLength": max(1, min(500, int(merged.get("MaxMessageLength") or 200))),
