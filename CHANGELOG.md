@@ -7,13 +7,13 @@
 
 ## [1.9.108] - 2026-06-25
 
-### Fix
-
-- Fix (Web Store): navegação por abas — CSS `boot-admin` forçava `display:block` em todas as páginas `admin-only` ao mesmo tempo; agora só o menu admin e a página `.page.admin-only.active` ficam visíveis.
-
 ### Feature
 
-- Feat (Web Store): nome de exibição obrigatório após login Steam — modal bloqueante, navegação e ações (resgate, PIX, Comércio) bloqueadas até salvar; validação API em `/api/player/purchase`, PIX e pedidos.
+- Feat (Web Store): nome de exibição obrigatório após login Steam — modal bloqueante, navegação e ações (resgate, PIX, Comércio) bloqueadas até salvar; validação API em /api/player/purchase, PIX e pedidos.
+
+### Fix
+
+- Fix (Web Store): navegação por abas — CSS boot-admin forçava display:block em todas as páginas admin-only ao mesmo tempo; agora só o menu admin e a página .page.admin-only.active ficam visíveis.
 
 ## [1.9.107] - 2026-06-25
 

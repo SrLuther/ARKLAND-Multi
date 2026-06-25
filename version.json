@@ -1,10 +1,9 @@
 {
-    "version": "1.9.100",
+    "version": "1.9.108",
     "date": "2026-06-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.100/ARKLAND-Multi-Setup-v1.9.100.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.108/ARKLAND-Multi-Setup-v1.9.108.exe",
     "changelog": [
-        "Fix (TEK oBobonic): painel vazio/preto — grid row 0 sem weight=0, frame vazio cacheado antes do build; layout alinhado ao CustomShop e cache só após sucesso.",
-        "Fix (Web Store): portal travado em «Conectando…» — sintaxe TypeScript inválida (const tail: Promise<unknown>[]) impedia o boot JS; corrigido para JS puro.",
-        "Fix (Web Store): boot paralelo (health + auth + catálogo/home), watchdog 8s com botão Tentar novamente, before_request leve em / e /api/health, Cache-Control no index."
+        "Fix (Web Store): navegação por abas — CSS boot-admin forçava display:block em todas as páginas admin-only ao mesmo tempo; agora só o menu admin e a página .page.admin-only.active ficam visíveis.",
+        "Feat (Web Store): nome de exibição obrigatório após login Steam — modal bloqueante, navegação e ações (resgate, PIX, Comércio) bloqueadas até salvar; validação API em /api/player/purchase, PIX e pedidos."
     ]
 }
