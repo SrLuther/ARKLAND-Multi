@@ -1,10 +1,8 @@
 {
-    "version": "1.9.89",
+    "version": "1.9.91",
     "date": "2026-06-24",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.89/ARKLAND-Multi-Setup-v1.9.89.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.91/ARKLAND-Multi-Setup-v1.9.91.exe",
     "changelog": [
-        "Fix (Web Store): painel Loja deixa de mostrar «Online» só com localhost — diagnóstico testa LAN, domínio público, DNS e Caddy; status honesto.",
-        "Fix (Caddy): «HTTPS Online» só quando o domínio responde, não só porta 443 aberta.",
-        "Melhoria (Loja): textos de rede corrigidos (sem referência a VPS); IP público no diagnóstico."
+        "Fix (CustomShop): WebApiUrl dos plugins usa IP LAN da loja (ex.: :27199) — resgates entregam no jogo mesmo com domínio público fora do ar."
     ]
 }

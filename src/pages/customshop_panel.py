@@ -1487,9 +1487,9 @@ def _build_webstore_tab(
         shop.central_url = _central_url_var.get().strip()
         urls = shop_access_urls(shop)
         is_remote = shop.mode == "client"
+        api_hint = " (loja remota)" if is_remote else " (LAN — entrega in-game)"
         _central_url_lbl.config(
-            text=f"🔌  API plugins → {urls['plugin_api']}"
-            + (" (loja remota)" if is_remote else ""),
+            text=f"🔌  API plugins → {urls['plugin_api']}{api_hint}",
         )
         if is_remote:
             if urls["lan_url"]:

@@ -220,6 +220,7 @@ def start_caddy(shop: "ShopGlobalConfig") -> Tuple[bool, str]:
     write_caddyfile(shop)
     if is_caddy_running():
         return True, "Caddy já está rodando"
+    ensure_caddy_firewall()
     code, out = _run_caddy(shop, "start")
     time.sleep(1.5)
     if is_caddy_running():
@@ -280,7 +281,7 @@ def register_caddy_autostart(shop: "ShopGlobalConfig") -> Tuple[bool, str]:
 
 
 def caddy_status(shop: "ShopGlobalConfig") -> dict:
-    from .shop_integration import effective_shop_public_url, test_shop_connection
+    from .shop_integration import effective_shop_public_url, probe_local_caddy_https
 
     installed = is_caddy_installed(shop)
     listening = is_caddy_running()
@@ -288,8 +289,8 @@ def caddy_status(shop: "ShopGlobalConfig") -> dict:
     port = max(1, int(getattr(shop, "port", None) or 27199))
     public_url = effective_shop_public_url(shop)
     https_ok, https_msg = (False, "")
-    if listening and public_url:
-        https_ok, https_msg = test_shop_connection(public_url)
+    if listening and domain:
+        https_ok, https_msg = probe_local_caddy_https(domain)
     running = listening and https_ok
     if not installed:
         msg = "Não instalado — use «Instalar Caddy»"

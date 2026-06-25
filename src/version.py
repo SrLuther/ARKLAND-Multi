@@ -3,11 +3,28 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.89"
+APP_VERSION: str = "1.9.91"
 BUILD_DATE: str = "2026-06-24"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.91",
+        "date": "2026-06-20",
+        "changes": [
+            "Fix (CustomShop): WebApiUrl dos plugins usa IP LAN da loja (ex.: :27199) — "
+            "resgates entregam no jogo mesmo com domínio público fora do ar.",
+        ],
+    },
+    {
+        "version": "1.9.90",
+        "date": "2026-06-24",
+        "changes": [
+            "Fix (Web Store): diagnóstico não marca mais «jogadores» por hairpin do modem — "
+            "testa Caddy em 127.0.0.1:443, www e porta 443 na internet.",
+            "Fix (Caddy): ao iniciar, libera automaticamente firewall Windows 80/443.",
+        ],
+    },
     {
         "version": "1.9.89",
         "date": "2026-06-24",

@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.91] - 2026-06-20
+
+### Fix
+
+- Fix (CustomShop): WebApiUrl dos plugins usa IP LAN da loja (ex.: :27199) — resgates entregam no jogo mesmo com domínio público fora do ar.
+
+## [1.9.90] - 2026-06-24
+
+### Fix
+
+- Fix (Web Store): diagnóstico não marca mais «jogadores» por hairpin do modem — testa Caddy em 127.0.0.1:443, www e porta 443 na internet.
+- Fix (Caddy): ao iniciar, libera automaticamente firewall Windows 80/443.
+
 ## [1.9.89] - 2026-06-24
 
 ### Improvement
