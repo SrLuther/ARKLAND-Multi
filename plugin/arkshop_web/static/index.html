@@ -4626,15 +4626,28 @@
 
 <script src="redeem_docs.js" defer></script>
 <script>
-// Watchdog: se o boot principal não atualizar o status em 25s, mostrar erro explícito.
-setTimeout(function () {
+// Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
+var _bootWatchdog = setTimeout(function () {
   var t = document.getElementById("sb-text");
   if (!t) return;
   var msg = (t.textContent || "").trim();
   if (msg === "Inicializando…" || msg === "Conectando…" || msg === "Carregando catálogo…") {
-    t.textContent = "Portal travado — verifique Web Store / MariaDB no TEK";
+    t.textContent = "Portal travado — clique em Tentar novamente";
+    var root = document.getElementById("home-root");
+    if (root && /Carregando portal/i.test(root.textContent || "")) {
+      root.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--text2);">'
+        + '<div style="font-size:32px;margin-bottom:12px;">⚠️</div>'
+        + '<div style="font-size:16px;color:var(--text);margin-bottom:8px;">Portal não iniciou</div>'
+        + '<p style="margin:0 0 16px;font-size:13px;">O JavaScript do portal não concluiu o boot. '
+        + 'Limpe o cache (Ctrl+F5) ou reinicie a Web Store no TEK.</p>'
+        + '<button class="btn btn-primary" onclick="bootPortal()">↺ Tentar novamente</button>'
+        + '</div>';
+    }
   }
-}, 25000);
+}, 8000);
+function _clearBootWatchdog() {
+  if (_bootWatchdog) { clearTimeout(_bootWatchdog); _bootWatchdog = null; }
+}
 // ── State ────────────────────────────────────────────────────────────────────
 let _config = null;
 let _players = [];
@@ -10533,31 +10546,37 @@ async function viewAdminTimeline(orderId) {
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
-(async () => {
+async function bootPortal() {
+  _clearBootWatchdog();
   setStatus(false, "Conectando…");
   try {
-    try {
-      const health = await fetchJson("/api/health", { timeoutMs: 8000 });
-      if (health.db_configured && health.db_reachable === false) {
-        toast("MariaDB offline — catálogo público pode funcionar; painel admin limitado.", "warning");
-      }
-    } catch (healthErr) {
-      setStatus(false, "Web Store offline — " + healthErr.message);
-      toast("Não foi possível conectar ao backend da loja.", "error");
-      return;
-    }
+    // Health em paralelo — não bloqueia catálogo/home (site público funciona sem MariaDB).
+    const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
-    await loadAuth();
+    await loadAuth().catch(() => {
+      _auth = { authenticated: false, is_admin: false, steam_id: null };
+    });
     applyRoleUi(true);
     showAuthOverlay(false);
 
     setStatus(false, "Carregando catálogo…");
     const configPromise = _auth.is_admin ? loadConfig() : Promise.resolve(true);
-    const [homeOk, catalogOk, configOk] = await Promise.all([
+    const [health, homeOk, catalogOk, configOk] = await Promise.all([
+      healthPromise,
       loadHome().catch(() => false),
       loadCatalog().catch(() => false),
       configPromise.catch(() => false),
     ]);
+
+    if (health && health._healthError) {
+      toast("Backend lento ou offline — " + health._healthError.message, "warning");
+      if (!homeOk && !catalogOk) {
+        setStatus(false, "Web Store offline — " + health._healthError.message);
+        return;
+      }
+    } else if (health && health.db_configured && health.db_reachable === false) {
+      toast("MariaDB offline — catálogo público pode funcionar; painel admin limitado.", "warning");
+    }
 
     if (_auth.is_admin) {
       const shopNav = document.querySelector('.nav-item[data-page="shop"]');
@@ -10582,7 +10601,7 @@ async function viewAdminTimeline(orderId) {
       setStatus(true, "Loja online");
     }
 
-    const tail: Promise<unknown>[] = [loadDownloads()];
+    const tail = [loadDownloads()];
     if (_auth.authenticated) tail.push(loadMyArea().catch(() => {}));
     if (_auth.is_admin) {
       tail.push(Promise.allSettled([loadSettings(), loadPlayers(), loadServers()]));
@@ -10590,21 +10609,25 @@ async function viewAdminTimeline(orderId) {
     await Promise.all(tail);
   } catch (e) {
     setStatus(false, "Falha ao iniciar: " + (e.message || e));
+  } finally {
+    _clearBootWatchdog();
   }
+}
 
-  wrapTablesForScroll(document.getElementById("main"));
-  const mainEl = document.getElementById("main");
-  if (mainEl) {
-    new MutationObserver(() => wrapTablesForScroll(mainEl)).observe(mainEl, { childList: true, subtree: true });
-  }
-  window.addEventListener("resize", () => {
-    if (!isMobileNav()) closeSidebar();
-    document.querySelectorAll(".balance-stack__value").forEach(fitBalanceValueEl);
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSidebar();
-  });
-})();
+bootPortal();
+
+wrapTablesForScroll(document.getElementById("main"));
+const mainEl = document.getElementById("main");
+if (mainEl) {
+  new MutationObserver(() => wrapTablesForScroll(mainEl)).observe(mainEl, { childList: true, subtree: true });
+}
+window.addEventListener("resize", () => {
+  if (!isMobileNav()) closeSidebar();
+  document.querySelectorAll(".balance-stack__value").forEach(fitBalanceValueEl);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeSidebar();
+});
 </script>
 
 <!-- ── Modal: Política de Doações ───────────────────────────────────────────── -->

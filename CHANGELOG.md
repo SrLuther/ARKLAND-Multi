@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.100] - 2026-06-25
+
+### Fix
+
+- Fix (Web Store): portal travado em «Conectando…» — sintaxe TypeScript inválida (const tail: Promise<unknown>[]) impedia o boot JS; corrigido para JS puro.
+- Fix (Web Store): boot paralelo (health + auth + catálogo/home), watchdog 8s com botão Tentar novamente, before_request leve em / e /api/health, Cache-Control no index.
+
+## [1.9.99] - 2026-06-25
+
+### Feature
+
+- Feat (TEK oBobonic): sync TEK → .env (RCON, query, senha admin e host dos mapas ARKLAND), health check RCON/A2S antes de iniciar, status online/offline com contagem de jogadores.
+- Feat (TEK oBobonic): validação DISCORD_TOKEN, criação automática de .venv, reinício ao crash (toggle), subprocess Windows com .env carregado e Python do ambiente virtual.
+
 ## [1.9.98] - 2026-06-25
 
 ### Feature

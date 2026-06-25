@@ -1,8 +1,8 @@
 {
-    "version": "1.9.98",
+    "version": "1.9.100",
     "date": "2026-06-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.98/ARKLAND-Multi-Setup-v1.9.98.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.100/ARKLAND-Multi-Setup-v1.9.100.exe",
     "changelog": [
-        "Feat (TEK): Painel oBobonic — gerencia o bot Discord oBobonicClean externo: iniciar/parar/reiniciar, configurar salas (mapas ARK no .env), logs e dependências."
+        "Fix (Web Store): portal travado em Conectando — sintaxe TypeScript invalida no boot JS corrigida; boot paralelo, watchdog 8s com retry, Cache-Control no index."
     ]
 }

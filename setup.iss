@@ -7,9 +7,12 @@
 ;   ARKLAND-ServerManager-Setup-vX.Y.Z.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
 ; ============================================================
 
+; Atualizado automaticamente por _release.ps1
+#define ReleaseVersion "1.9.98"
+
 [Setup]
 AppName=ARKLAND - Server Manager
-AppVersion=1.9.98
+AppVersion={#ReleaseVersion}
 AppPublisher=ARKLAND Tools
 AppPublisherURL=https://github.com/SrLuther/ARKLAND-Multi
 AppSupportURL=https://github.com/SrLuther/ARKLAND-Multi/issues
@@ -17,7 +20,7 @@ AppUpdatesURL=https://github.com/SrLuther/ARKLAND-Multi/releases
 DefaultDirName={autopf}\ARKLAND-ServerManager
 DefaultGroupName=ARKLAND-ServerManager
 OutputDir=installer
-OutputBaseFilename=ARKLAND-Multi-Setup-v1.9.98
+OutputBaseFilename=ARKLAND-Multi-Setup-v{#ReleaseVersion}
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern

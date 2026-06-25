@@ -127,10 +127,26 @@ Write-Ok "version.json    →  version = `"$Version`""
 # ── 5) Atualizar setup.iss ────────────────────────────────────────────────────
 $issPath = Join-Path $root "setup.iss"
 $iss = [System.IO.File]::ReadAllText($issPath, [System.Text.Encoding]::UTF8)
-$iss = $iss -replace 'AppVersion=[\d.]+',                          "AppVersion=$Version"
-$iss = $iss -replace 'OutputBaseFilename=ARKLAND-Multi-Setup-v[\d.]+', "OutputBaseFilename=ARKLAND-Multi-Setup-v$Version"
+$expectedInstallerBase = "ARKLAND-Multi-Setup-v$Version"
+if ($iss -match '#define ReleaseVersion') {
+    $iss = $iss -replace '#define ReleaseVersion "[^"]+"', "#define ReleaseVersion `"$Version`""
+} else {
+    $iss = $iss -replace 'AppVersion=[\d.]+', "AppVersion=$Version"
+    $iss = $iss -replace 'OutputBaseFilename=ARKLAND-Multi-Setup-v[\d.]+', "OutputBaseFilename=$expectedInstallerBase"
+}
 [System.IO.File]::WriteAllText($issPath, $iss, $utf8NoBOM)
-Write-Ok "setup.iss       →  AppVersion = $Version"
+$issCheck = [System.IO.File]::ReadAllText($issPath, [System.Text.Encoding]::UTF8)
+if ($issCheck -match '#define ReleaseVersion') {
+    if ($issCheck -notmatch ('#define ReleaseVersion "' + [regex]::Escape($Version) + '"')) {
+        Write-Fail "setup.iss: ReleaseVersion nao foi atualizado para $Version"
+    }
+    if ($issCheck -notmatch [regex]::Escape('OutputBaseFilename=ARKLAND-Multi-Setup-v{#ReleaseVersion}')) {
+        Write-Fail "setup.iss: OutputBaseFilename deve usar ARKLAND-Multi-Setup-v{#ReleaseVersion}"
+    }
+} elseif ($issCheck -notmatch [regex]::Escape("OutputBaseFilename=$expectedInstallerBase")) {
+    Write-Fail "setup.iss: OutputBaseFilename nao foi atualizado para $expectedInstallerBase"
+}
+Write-Ok "setup.iss       ->  AppVersion + OutputBaseFilename = $Version"
 
 # BUILD_DATE em src/version.py
 $newPy = $newPy -replace 'BUILD_DATE\s*:\s*str\s*=\s*"[^"]+"', "BUILD_DATE: str = `"$date`""

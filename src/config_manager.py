@@ -110,6 +110,8 @@ class ObobonicBotConfig:
     project_path: str = r"C:\Users\Ciano\Documents\oBobonicClean"
     start_hidden: bool = True
     auto_start: bool = False
+    auto_restart_on_crash: bool = False
+    health_check_before_start: bool = True
 
 
 @dataclass

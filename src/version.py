@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.98"
+APP_VERSION: str = "1.9.100"
 BUILD_DATE: str = "2026-06-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.100",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (Web Store): portal travado em «Conectando…» — sintaxe TypeScript inválida "
+            "(const tail: Promise<unknown>[]) impedia o boot JS; corrigido para JS puro.",
+            "Fix (Web Store): boot paralelo (health + auth + catálogo/home), watchdog 8s com "
+            "botão Tentar novamente, before_request leve em / e /api/health, Cache-Control no index.",
+        ],
+    },
+    {
+        "version": "1.9.99",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (TEK oBobonic): sync TEK → .env (RCON, query, senha admin e host dos mapas ARKLAND), "
+            "health check RCON/A2S antes de iniciar, status online/offline com contagem de jogadores.",
+            "Feat (TEK oBobonic): validação DISCORD_TOKEN, criação automática de .venv, reinício ao crash "
+            "(toggle), subprocess Windows com .env carregado e Python do ambiente virtual.",
+        ],
+    },
     {
         "version": "1.9.98",
         "date": "2026-06-25",

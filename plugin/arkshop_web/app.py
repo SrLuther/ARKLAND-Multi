@@ -35,7 +35,7 @@ from pix_payments import (
     normalize_payer_input,
     parse_mp_error_message,
 )
-from flask import Flask, jsonify, redirect, request, send_from_directory, session
+from flask import Flask, jsonify, make_response, redirect, request, send_from_directory, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -1046,8 +1046,15 @@ def _require_db():
     return None
 
 
+_BOOT_SKIP_EXACT = frozenset({"/", "/favicon.ico"})
+_BOOT_SKIP_PREFIXES = ("/api/health", "/api/auth/me", "/static/", "/logo")
+
+
 def _ensure_runtime_initialized_before_request() -> None:
     """Nunca bloqueia em migrate/conexão MySQL — DB sobe em background."""
+    path = request.path or ""
+    if path in _BOOT_SKIP_EXACT or any(path.startswith(p) for p in _BOOT_SKIP_PREFIXES):
+        return
     _initialize_scheduler_if_needed()
     _kick_background_db_init()
 
@@ -2302,7 +2309,10 @@ def mark_pending_delivered(steam_id: str, order_id: str):
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    resp = make_response(send_from_directory("static", "index.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/api/auth/login", methods=["GET"])
@@ -2392,12 +2402,13 @@ def _kick_db_health_ping_if_stale() -> None:
 
 @app.route("/api/health", methods=["GET"])
 def health_check():
-    """Ping leve — db_reachable vem de cache atualizado em background."""
-    _kick_db_health_ping_if_stale()
+    """Ping leve — zero I/O bloqueante; db_reachable vem de cache em background."""
+    if _db_ready():
+        _kick_db_health_ping_if_stale()
     return jsonify({
         "ok": True,
         "db_configured": _db_ready(),
-        "db_reachable": _HEALTH_DB_CACHE.get("reachable"),
+        "db_reachable": _HEALTH_DB_CACHE.get("reachable") if _db_ready() else None,
         "version": _get_project_release().get("version", ""),
     })
 
