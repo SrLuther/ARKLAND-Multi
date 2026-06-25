@@ -81,7 +81,7 @@ cmake --build build --config Release
 |---|---|
 | `Settings.WebApiUrl` | URL do arkshop_web (ex: `http://127.0.0.1:5177`) |
 | `Settings.WebApiKey` | Chave `X-API-Key` (mesmo valor de `ARKSHOP_API_KEY`) |
-| `Settings.WebsiteUrl` | URL exibida ao jogador com `/shop` no chat |
+| `Settings.WebsiteUrl` | URL pública exibida ao jogador (`/shop`, licença Nuvem) — sincronizada pelo TEK a partir de **Domínio público da loja** |
 | `Items.<id>` | Itens entregáveis (web + admin) |
 | `Kits.<id>` | Kits com itens, dinos e comandos |
 

@@ -77,18 +77,18 @@ def test_promote_listings_on_species_activate():
         db.commit()
 
         count = promote_listings_on_species_activate(db, "rex_femea")
-        assert count == 1
+        assert count == 0
 
         db.refresh(listing)
-        assert listing.status == "DRAFT"
-        assert listing.computed_base_value >= 5000
+        assert listing.status == "PENDING_CLASSIFICATION"
+        assert listing.computed_base_value == 0
     finally:
         db.close()
 
 
-def test_reconcile_pending_via_cryo_blueprint():
+def test_reconcile_does_not_auto_promote_pending():
     from app import MarketCryopodVault, MarketListing, MarketSpecies, MarketSpeciesAlias, MarketSpeciesStatMultiplier
-    from market_listings import reconcile_pending_listings
+    from market_listings import admin_classify_listing, reconcile_pending_listings
 
     CARCHA_BP = "/Game/PrimalEarth/Dinos/Carcharodontosaurus/Carcha_Character_BP.Carcha_Character_BP"
     CARCHA_CRYO = (
@@ -151,7 +151,17 @@ def test_reconcile_pending_via_cryo_blueprint():
         db.commit()
 
         count = reconcile_pending_listings(db)
-        assert count == 1
+        assert count == 0
+        db.refresh(listing)
+        assert listing.status == "PENDING_CLASSIFICATION"
+        assert listing.computed_base_value == 0
+
+        admin_classify_listing(
+            db,
+            listing.id,
+            species_key="carcha_femea",
+            approve=True,
+        )
         db.refresh(listing)
         assert listing.status == "DRAFT"
         assert listing.species_key == "carcha_femea"

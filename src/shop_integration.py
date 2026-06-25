@@ -168,20 +168,11 @@ def resolve_website_url(shop: "ShopGlobalConfig") -> str:
 
 
 def resolve_plugin_website_url(shop: "ShopGlobalConfig") -> str:
-    """URL gravada em WebsiteUrl do plugin (/shop no chat).
+    """URL gravada em WebsiteUrl do plugin (/shop, mensagens Nuvem no chat).
 
-    Modo Host: IP público:porta (modem já libera 27199) — não depende do domínio.
-    Modo Cliente: domínio/URL remota como resolve_website_url.
+    Usa o domínio público (public_url) — nunca IP:porta, salvo fallback explícito
+    quando public_url e central_url estiverem vazios. WebApiUrl continua em LAN no host.
     """
-    if (shop.mode or "client") != "host":
-        return resolve_website_url(shop)
-    pub_ip = (shop.public_ip or "").strip()
-    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
-    if pub_ip:
-        return f"http://{pub_ip}:{port}"
-    host = (shop.host_ip or "").strip()
-    if host:
-        return f"http://{host}:{port}"
     return resolve_website_url(shop)
 
 

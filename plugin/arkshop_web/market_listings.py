@@ -404,12 +404,15 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
     if species_row and species_row.status == "ACTIVE":
         listing_status = "DRAFT"
         computed, breakdown, _ = _compute_economy(db, species_row, metadata)
+        metadata["admin_classification_approved"] = True
     elif species_row and species_row.status != "ACTIVE":
         listing_status = "PENDING_CLASSIFICATION"
+        metadata.pop("admin_classification_approved", None)
         if suggestion:
             computed = 0
     elif suggestion:
         listing_status = "PENDING_CLASSIFICATION"
+        metadata.pop("admin_classification_approved", None)
 
     denorm = _denorm_stats(metadata)
     listing = MarketListing(
@@ -525,6 +528,16 @@ def _classification_from_meta(meta: dict[str, Any]) -> dict[str, Any] | None:
     return raw if isinstance(raw, dict) and raw.get("species_key") else None
 
 
+def _needs_admin_classification(row: Any, meta: dict[str, Any] | None = None) -> bool:
+    """Listing aguarda confirmação admin antes de o vendedor poder ativar."""
+    meta = meta if meta is not None else _json_loads(row.metadata_json)
+    if row.status == "PENDING_CLASSIFICATION":
+        return True
+    if row.status == "DRAFT" and not meta.get("admin_classification_approved"):
+        return True
+    return False
+
+
 def _resolve_listing_suggestion(
     row: Any,
     *,
@@ -602,7 +615,7 @@ def listing_to_public(
     if not effective_category and suggestion:
         effective_category = suggestion.get("tier")
     suggested_value = row.computed_base_value or (suggestion or {}).get("root_value") or 0
-    awaiting = row.status == "PENDING_CLASSIFICATION"
+    awaiting = _needs_admin_classification(row, meta)
     out: dict[str, Any] = {
         "listing_id": row.id,
         "seller_steam_id": row.seller_steam_id,
@@ -726,7 +739,8 @@ def set_listing_price(
         )
 
     if activate:
-        if row.status == "PENDING_CLASSIFICATION":
+        meta = _json_loads(row.metadata_json)
+        if _needs_admin_classification(row, meta):
             raise ValueError("Espécie aguardando classificação admin")
         row.status = "ACTIVE"
 
@@ -1422,37 +1436,19 @@ def _apply_economy_to_listing_row(db: Session, row: Any, species_row: Any) -> in
 
 
 def promote_listings_on_species_activate(db: Session, species_key: str) -> int:
-    """Promove listings PENDING_CLASSIFICATION → DRAFT quando espécie vira ACTIVE."""
-    from app import MarketListing
-
-    rows = (
-        db.query(MarketListing)
-        .filter(
-            MarketListing.species_key == species_key,
-            MarketListing.status == "PENDING_CLASSIFICATION",
-        )
-        .all()
-    )
-    count = 0
-    for row in rows:
-        if _promote_pending_listing_row(db, row, species_key=species_key):
-            count += 1
-    if count:
-        db.commit()
-    return count
+    """Espécie ativada na economia não promove listings — classificação admin é obrigatória."""
+    return 0
 
 
-def _promote_pending_listing_row(
-    db: Session, row: Any, *, species_key: str | None = None, species_row: Any | None = None
-) -> bool:
-    """DRAFT + computed_base_value se espécie ACTIVE. Retorna True se promoveu."""
-    sk = species_key or row.species_key
-    resolved = species_row or (resolve_species(db, species_key=sk) if sk else None)
-    if not resolved or resolved.status != "ACTIVE":
-        return False
-    if resolved.species_key and row.species_key != resolved.species_key:
-        row.species_key = resolved.species_key
-    computed = _apply_economy_to_listing_row(db, row, resolved)
+def _finalize_listing_classification(db: Session, row: Any, species_row: Any) -> int:
+    """Aplica economia, marca aprovação admin e promove para DRAFT."""
+    meta = _json_loads(row.metadata_json)
+    meta["admin_classification_approved"] = True
+    meta.pop("classification_suggestion", None)
+    row.metadata_json = _json_dumps(meta)
+    if species_row.species_key and row.species_key != species_row.species_key:
+        row.species_key = species_row.species_key
+    computed = _apply_economy_to_listing_row(db, row, species_row)
     row.status = "DRAFT"
     market_audit_event(
         db,
@@ -1461,9 +1457,24 @@ def _promote_pending_listing_row(
         listing_id=row.id,
         computed_base_value=computed,
         market_trace_id=row.market_trace_id,
-        metadata={"promoted_to": "DRAFT", "species_key": resolved.species_key},
+        metadata={"promoted_to": "DRAFT", "species_key": species_row.species_key},
         commit=False,
     )
+    return computed
+
+
+def _promote_pending_listing_row(
+    db: Session, row: Any, *, species_key: str | None = None, species_row: Any | None = None
+) -> bool:
+    """DRAFT + computed_base_value se espécie ACTIVE e listing ainda não aprovado."""
+    sk = species_key or row.species_key
+    resolved = species_row or (resolve_species(db, species_key=sk) if sk else None)
+    if not resolved or resolved.status != "ACTIVE":
+        return False
+    meta = _json_loads(row.metadata_json)
+    if not _needs_admin_classification(row, meta):
+        return False
+    _finalize_listing_classification(db, row, resolved)
     return True
 
 
@@ -1506,30 +1517,9 @@ def recompute_draft_listings(db: Session) -> int:
 
 
 def reconcile_pending_listings(db: Session) -> int:
-    """Promove PENDING_CLASSIFICATION cujo espécie já está ACTIVE (ex.: sync sem /activate)."""
-    from app import MarketListing
-
-    rows = (
-        db.query(MarketListing)
-        .filter(MarketListing.status == "PENDING_CLASSIFICATION")
-        .all()
-    )
-    promoted = 0
-    for row in rows:
-        species_row = None
-        if row.species_key:
-            species_row = resolve_species(db, species_key=row.species_key)
-        if not species_row:
-            meta = _json_loads(row.metadata_json or "{}")
-            bp = meta.get("species_blueprint") or meta.get("blueprint")
-            if bp:
-                species_row = resolve_species(db, blueprint=str(bp))
-        if _promote_pending_listing_row(db, row, species_row=species_row):
-            promoted += 1
-    if promoted:
-        db.commit()
+    """Recalcula DRAFT já aprovados; não promove fila de classificação sem admin."""
     recompute_draft_listings(db)
-    return promoted
+    return 0
 
 
 def list_pending_classification(db: Session, *, limit: int = 100) -> list[dict[str, Any]]:
@@ -1537,11 +1527,12 @@ def list_pending_classification(db: Session, *, limit: int = 100) -> list[dict[s
 
     rows = (
         db.query(MarketListing)
-        .filter(MarketListing.status == "PENDING_CLASSIFICATION")
+        .filter(MarketListing.status.in_(["PENDING_CLASSIFICATION", "DRAFT"]))
         .order_by(MarketListing.created_at.desc())
         .limit(min(limit, 200))
         .all()
     )
+    rows = [r for r in rows if _needs_admin_classification(r)]
     names = {
         p.steam_id: p.market_display_name
         for p in db.query(MarketPlayerProfile)
@@ -1587,10 +1578,10 @@ def admin_classify_listing(
     )
     if not row:
         raise ValueError("Anúncio não encontrado")
-    if row.status != "PENDING_CLASSIFICATION":
+    meta = _json_loads(row.metadata_json)
+    if not _needs_admin_classification(row, meta):
         raise ValueError(f"Status não permite classificação: {row.status}")
 
-    meta = _json_loads(row.metadata_json)
     blueprint = str(meta.get("species_blueprint") or meta.get("blueprint") or "")
     suggestion = _classification_from_meta(meta) or lookup_species(
         blueprint=blueprint,
@@ -1629,15 +1620,15 @@ def admin_classify_listing(
         species_row.activated_at = datetime.now(timezone.utc)
 
     row.species_key = species_row.species_key
-    meta.pop("classification_suggestion", None)
-    row.metadata_json = _json_dumps(meta)
     db.flush()
 
     promoted = False
     if approve and species_row.status == "ACTIVE":
-        promoted = _promote_pending_listing_row(db, row, species_row=species_row)
-
-    if not promoted and approve:
+        promoted = _finalize_listing_classification(db, row, species_row)
+    elif approve:
+        meta["admin_classification_approved"] = True
+        meta.pop("classification_suggestion", None)
+        row.metadata_json = _json_dumps(meta)
         row.status = "DRAFT"
         row.updated_at = _now()
 
@@ -1683,7 +1674,7 @@ def admin_bulk_classify_listings(
     conf_rank = {"high": 3, "medium": 2, "low": 1}
     min_rank = conf_rank.get(min_confidence, 3)
 
-    q = db.query(MarketListing).filter(MarketListing.status == "PENDING_CLASSIFICATION")
+    q = db.query(MarketListing).filter(MarketListing.status.in_(["PENDING_CLASSIFICATION", "DRAFT"]))
     if listing_ids:
         q = q.filter(MarketListing.id.in_(listing_ids))
     rows = q.order_by(MarketListing.created_at.asc()).limit(min(limit, 100)).all()
@@ -1693,6 +1684,8 @@ def admin_bulk_classify_listings(
 
     for row in rows:
         meta = _json_loads(row.metadata_json)
+        if not _needs_admin_classification(row, meta):
+            continue
         suggestion = _classification_from_meta(meta) or lookup_species(
             blueprint=str(meta.get("species_blueprint") or meta.get("blueprint") or ""),
             species_key=row.species_key,

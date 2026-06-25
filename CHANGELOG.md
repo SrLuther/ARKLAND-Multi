@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.111] - 2026-06-25
+
+### Fix
+
+- Fix (CustomShop): resumo «Loja (jogadores)» na aba Web Store mostra só o domínio público — IP:porta fica em linha de diagnóstico separada; rótulos clarificam domínio (chat), API LAN (plugins) e IP público (DNS).
+
+## [1.9.110] - 2026-06-25
+
+### Fix
+
+- Fix (CustomShop): /shop e mensagens Nuvem voltam a exibir o domínio público (WebsiteUrl) em vez de http://IP:porta — configure em CustomShop → Loja → «Domínio público da loja» e clique Sincronizar plugins.
+
+## [1.9.109] - 2026-06-25
+
+### Fix
+
+- Fix (Comércio P2P): classificação admin — listings não promovem mais para DRAFT automaticamente ao ativar espécie ou reconciliar; fila e endpoint /classify aceitam DRAFT sem aprovação (flag admin_classification_approved); badge AGUARDANDO alinhado ao estado real.
+
 ## [1.9.108] - 2026-06-25
 
 ### Feature

@@ -1478,48 +1478,59 @@ def _build_webstore_tab(
         shop.central_url = _central_url_var.get().strip()
         urls = shop_access_urls(shop)
         is_remote = shop.mode == "client"
-        api_hint = " (loja remota)" if is_remote else " (LAN — entrega in-game)"
+        api_hint = " (loja remota)" if is_remote else ""
         _central_url_lbl.config(
-            text=f"🔌  API plugins → {urls['plugin_api']}{api_hint}",
+            text=f"🔌  API LAN (plugins/entrega){api_hint}: {urls['plugin_api']}",
         )
         if is_remote:
             if urls["lan_url"]:
                 _lan_url_lbl.config(
-                    text=f"🏠  Servidor remoto (LAN): {urls['lan_url']}",
+                    text=f"🏠  Host remoto (LAN): {urls['lan_url']}",
                     fg=_GREEN,
                 )
             else:
                 _lan_url_lbl.config(
-                    text="🏠  Servidor remoto (LAN): defina IP LAN do host acima",
+                    text="🏠  Host remoto (LAN): defina IP LAN do host acima",
                     fg="gray45",
                 )
-            rp = urls.get("remote_public_url") or ""
-            if rp:
-                _remote_inet_lbl.config(text=f"🌍  Internet (IP público): {rp}", fg="#38bdf8")
-                _remote_inet_lbl.pack(anchor="w", padx=10, pady=(0, 2), after=_lan_url_lbl)
-            else:
-                _remote_inet_lbl.pack_forget()
         elif urls["lan_url"]:
-            _remote_inet_lbl.pack_forget()
-            _lan_url_lbl.config(text=f"🏠  Rede local (host): {urls['lan_url']}", fg=_GREEN)
-        else:
-            _remote_inet_lbl.pack_forget()
             _lan_url_lbl.config(
-                text="🏠  IP LAN do host não definido (opcional se usar só domínio)",
+                text=f"🏠  API LAN (plugins/entrega): {urls['lan_url']}",
+                fg=_GREEN,
+            )
+        else:
+            _lan_url_lbl.config(
+                text="🏠  API LAN: defina IP LAN do host acima",
                 fg="gray45",
             )
-        shop_pub = urls.get("shop_url") or urls.get("public_url") or ""
-        plugin_shop = urls.get("plugin_website") or ""
-        if shop_pub:
+        rp = urls.get("remote_public_url") or ""
+        if rp:
+            _remote_inet_lbl.config(
+                text=f"🔧  Diagnóstico — IP público (DNS, não vai para jogadores): {rp}",
+                fg="gray45",
+                font=ctk.CTkFont(size=10),
+            )
+            _remote_inet_lbl.pack(anchor="w", padx=10, pady=(0, 2), after=_lan_url_lbl)
+        else:
+            _remote_inet_lbl.pack_forget()
+        player_url = resolve_public_shop_url(shop) or ""
+        if player_url:
             _public_url_lbl.config(
-                text=f"🛒  Loja (jogadores): {shop_pub}"
-                + (f"  ·  /shop → {plugin_shop}" if plugin_shop and plugin_shop != shop_pub else ""),
+                text=f"🛒  Loja (jogadores — chat /shop): {player_url}",
                 fg="#a78bfa",
+                font=ctk.CTkFont(size=11, weight="bold"),
+            )
+        elif rp:
+            _public_url_lbl.config(
+                text=f"🛒  Loja (jogadores): {rp} — configure o domínio público acima",
+                fg="#f59e0b",
+                font=ctk.CTkFont(size=11, weight="bold"),
             )
         else:
             _public_url_lbl.config(
-                text="🛒  Loja pública: defina arkland.com.br acima",
+                text="🛒  Loja (jogadores): defina o domínio público acima (ex.: arkland.com.br)",
                 fg="gray45",
+                font=ctk.CTkFont(size=11, weight="bold"),
             )
         if _host_only_widgets:
             _toggle_host_only_widgets(is_remote)
@@ -1569,12 +1580,13 @@ def _build_webstore_tab(
     pub_shop_row = tk.Frame(card_mode, bg=_INNER)
     pub_shop_row.pack(fill="x", padx=10, pady=(6, 2))
     pub_shop_row.columnconfigure(0, weight=1)
-    ctk.CTkLabel(pub_shop_row, text="Domínio público da loja", anchor="w", text_color="gray65",
-                 font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
+    ctk.CTkLabel(pub_shop_row, text="Domínio público (jogadores / chat)", anchor="w",
+                 text_color="gray65", font=ctk.CTkFont(size=11, weight="bold")).grid(
+        row=0, column=0, sticky="w")
     ctk.CTkLabel(
         pub_shop_row,
-        text="Endereço que os jogadores verão — padrão: arkland.com.br. "
-             "Aponte o DNS para seu servidor e use reverse proxy (443) → porta da loja.",
+        text="URL que jogadores veem no /shop e nas mensagens Nuvem. "
+             "Padrão: arkland.com.br. Aponte o DNS e use proxy HTTPS (443) → porta da loja.",
         anchor="w", text_color="gray40", font=ctk.CTkFont(size=9), wraplength=680,
     ).grid(row=1, column=0, sticky="w")
     ctk.CTkEntry(pub_shop_row, textvariable=_public_shop_url_var, width=360, height=26).grid(
@@ -1592,11 +1604,12 @@ def _build_webstore_tab(
     pub_row = tk.Frame(card_mode, bg=_INNER)
     pub_row.pack(fill="x", padx=10, pady=2)
     pub_row.columnconfigure(0, weight=1)
-    ctk.CTkLabel(pub_row, text="IP público desta máquina", anchor="w", text_color="gray65",
+    ctk.CTkLabel(pub_row, text="IP público (DNS / diagnóstico)", anchor="w", text_color="gray65",
                  font=ctk.CTkFont(size=11, weight="bold")).grid(row=0, column=0, sticky="w")
     ctk.CTkLabel(
         pub_row,
-        text="Deve ser igual ao registro A do domínio (botão Detectar). Usado no diagnóstico.",
+        text="Deve coincidir com o registro A do domínio (botão Detectar). "
+             "Só para diagnóstico — não aparece no chat nem para jogadores.",
         anchor="w", text_color="gray40", font=ctk.CTkFont(size=9),
     ).grid(row=1, column=0, sticky="w")
     ctk.CTkEntry(pub_row, textvariable=_public_ip_var, width=200, height=26).grid(
@@ -1680,11 +1693,13 @@ def _build_webstore_tab(
     _public_url_lbl.pack(anchor="w", padx=10, pady=(0, 4))
     tk.Label(
         card_mode,
-        text="DNS do domínio → túnel/proxy (ex.: Cloudflare) ou IP público. "
-             "A loja local roda em http://IP-LAN:porta; o HTTPS público é externo.",
+        text="Resumo: domínio público → jogadores (/shop); API LAN → plugins e entrega in-game; "
+             "IP público → conferência DNS/diagnóstico apenas.",
         bg=_INNER, fg="gray45", font=ctk.CTkFont(size=9), wraplength=720, justify="left",
     ).pack(anchor="w", padx=10, pady=(0, 8))
-    _central_url_lbl.config(text=f"🔌  API plugins → {resolve_plugin_api_url(shop)}")
+    _central_url_lbl.config(
+        text=f"🔌  API LAN (plugins/entrega): {resolve_plugin_api_url(shop)}",
+    )
     _refresh_access_labels()
 
     # ── Status & processo (somente host) ──────────────────────────────────

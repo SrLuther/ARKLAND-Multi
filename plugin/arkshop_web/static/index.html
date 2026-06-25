@@ -7892,16 +7892,17 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
     : "";
   const category = l.effective_category || l.category || l.species_tier || (sug && sug.tier);
   const suggestedVal = l.suggested_base_value || l.computed_base_value || (sug && sug.root_value) || 0;
+  const awaitingCls = l.awaiting_classification === true;
   const sellerBadge = l.seller_display_name
     ? `<div class="market-listing-card__seller">🏪 ${escHtml(l.seller_display_name)}</div>`
     : (l.seller_steam_id ? `<div class="market-listing-card__seller" style="opacity:0.7;">Vendedor: <code style="font-size:11px;">${escHtml(l.seller_steam_id)}</code></div>` : "");
   const categoryChip = category
     ? `<span class="market-listing-card__category" title="Categoria sugerida">${escHtml(category)}</span>`
     : "";
-  const sugChip = sug && l.status === "PENDING_CLASSIFICATION"
+  const sugChip = sug && awaitingCls
     ? `<span class="market-listing-card__suggestion" title="Confiança: ${escHtml(sug.confidence || "?")}">${sug.needs_review ? "⚠ novo — revisar" : "✓ sugestão automática"}</span>`
     : "";
-  const roleChip = sug && sug.role && l.status === "PENDING_CLASSIFICATION"
+  const roleChip = sug && awaitingCls
     ? `<span class="market-listing-card__category" style="background:var(--surface2);">${escHtml(sug.role)}</span>`
     : "";
   const descHtml = _marketListingDescHtml(l, l.listing_id);
@@ -7910,7 +7911,7 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
     actions = `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:4px;" onclick="marketPurchaseListing(${l.listing_id})">Comprar — ${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar</button>`;
   }
   if (showSellerActions) {
-    const canEditPrice = l.status !== "PENDING_CLASSIFICATION";
+    const canEditPrice = !awaitingCls;
     actions = `
       ${canEditPrice ? _marketListingEditForm(l) : ""}
       <div style="margin-top:6px;display:grid;gap:6px;">
@@ -7921,11 +7922,11 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
         </div>` : ""}
         ${l.status === "ACTIVE" ? `<button class="btn btn-ghost btn-sm" onclick="marketPauseListing(${l.listing_id})">Pausar</button>` : ""}
         ${["DRAFT","ACTIVE","PAUSED"].includes(l.status) ? `<button class="btn btn-ghost btn-sm" onclick="marketWithdrawListing(${l.listing_id})">Recuperar dino</button>` : ""}
-        ${l.status === "PENDING_CLASSIFICATION" ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${Number(sug.root_value || 0).toLocaleString("pt-BR")} Âmbar</span>` : ""}</div>` : ""}
+        ${awaitingCls ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${Number(sug.root_value || 0).toLocaleString("pt-BR")} Âmbar</span>` : ""}</div>` : ""}
         ${l.status === "AWAITING_CLAIM" ? `<div style="margin-top:6px;">${_marketClaimCountdownHtml(l) || '<span style="font-size:12px;color:var(--amber);">Use /mercado in-game</span>'}</div>` : ""}
       </div>`;
   }
-  if (showAdminClassify && l.status === "PENDING_CLASSIFICATION") {
+  if (showAdminClassify && awaitingCls) {
     const sk = (sug && sug.species_key) || l.species_key || "";
     const dn = (sug && sug.display_name) || l.species_display_name || "";
     const tier = (sug && sug.tier) || category || "B";
@@ -7942,10 +7943,10 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
       <button class="btn btn-success btn-sm" onclick="marketAdminClassifyListing(${l.listing_id})">✓ Confirmar e liberar</button>
     </div>`;
   }
-  const statusBadge = l.status === "PENDING_CLASSIFICATION"
+  const statusBadge = awaitingCls
     ? '<span class="badge" style="background:var(--warn);">AGUARDANDO</span>'
     : `<span class="badge">${escHtml(l.status)}</span>`;
-  const priceLine = l.status === "PENDING_CLASSIFICATION"
+  const priceLine = awaitingCls
     ? `<div style="color:var(--text2);font-size:12px;">Sugerido: <strong style="color:var(--amber);">${Number(suggestedVal).toLocaleString("pt-BR")}</strong> Âmbar <span style="opacity:0.7;">(após aprovação)</span></div>`
     : `<div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
         <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}</div>`;
@@ -8113,8 +8114,8 @@ async function loadMarketMyHistory() {
 function renderMarketMyShop() {
   const list = document.getElementById("market-myshop-list");
   if (!list) return;
-  const pending = _marketMyListings.filter(l => l.status === "PENDING_CLASSIFICATION");
-  const active = _marketMyListings.filter(l => l.status !== "PENDING_CLASSIFICATION");
+  const pending = _marketMyListings.filter(l => l.awaiting_classification);
+  const active = _marketMyListings.filter(l => !l.awaiting_classification);
   const items = _marketMyShopTab === "pending" ? pending : active;
   if (!_marketMyListings.length) {
     list.innerHTML = `<div class="card"><p style="margin:0;color:var(--text2);">Nenhum anúncio. Envie um dino in-game com <code>/enviar</code> e <code>/confirmar</code>.</p></div>`;

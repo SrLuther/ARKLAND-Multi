@@ -3,11 +3,39 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.108"
+APP_VERSION: str = "1.9.111"
 BUILD_DATE: str = "2026-06-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.111",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (CustomShop): resumo «Loja (jogadores)» na aba Web Store mostra só o domínio "
+            "público — IP:porta fica em linha de diagnóstico separada; rótulos clarificam "
+            "domínio (chat), API LAN (plugins) e IP público (DNS).",
+        ],
+    },
+    {
+        "version": "1.9.110",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (CustomShop): /shop e mensagens Nuvem voltam a exibir o domínio público "
+            "(WebsiteUrl) em vez de http://IP:porta — configure em CustomShop → Loja → "
+            "«Domínio público da loja» e clique Sincronizar plugins.",
+        ],
+    },
+    {
+        "version": "1.9.109",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (Comércio P2P): classificação admin — listings não promovem mais para DRAFT "
+            "automaticamente ao ativar espécie ou reconciliar; fila e endpoint /classify aceitam "
+            "DRAFT sem aprovação (flag admin_classification_approved); badge AGUARDANDO alinhado "
+            "ao estado real.",
+        ],
+    },
     {
         "version": "1.9.108",
         "date": "2026-06-25",

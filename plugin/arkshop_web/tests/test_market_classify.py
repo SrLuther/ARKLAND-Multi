@@ -134,3 +134,50 @@ def test_admin_classify_promotes_to_draft():
         assert pub["awaiting_classification"] is False
     finally:
         db.close()
+
+
+def test_admin_classify_accepts_draft_without_approval():
+    """Reproduz cenário DRAFT na fila admin (reconcile/ativação espécie sem classify)."""
+    import json
+
+    from app import MarketListing
+    from market_listings import admin_classify_listing, listing_to_public, process_plugin_upload
+
+    db = _session()
+    try:
+        _seed_profile(db)
+        result = process_plugin_upload(db, _ankylo_upload_body())
+        listing_id = result["listing_id"]
+
+        from app import MarketListing
+
+        listing = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+        meta = json.loads(listing.metadata_json)
+        meta.pop("admin_classification_approved", None)
+        listing.metadata_json = json.dumps(meta)
+        listing.status = "DRAFT"
+        listing.computed_base_value = 0
+        db.commit()
+
+        pub = listing_to_public(listing, include_breakdown=True)
+        assert pub["status"] == "DRAFT"
+        assert pub["awaiting_classification"] is True
+
+        out = admin_classify_listing(
+            db,
+            listing_id,
+            species_key="ankylo",
+            display_name="Anquilossauro",
+            tier="B",
+            root_value=2000,
+            approve=True,
+        )
+        assert out["listing_status"] == "DRAFT"
+        assert out["computed_base_value"] >= 2000
+
+        db.refresh(listing)
+        meta_after = json.loads(listing.metadata_json)
+        assert meta_after.get("admin_classification_approved") is True
+        assert listing.computed_base_value >= 2000
+    finally:
+        db.close()

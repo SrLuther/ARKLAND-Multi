@@ -39,12 +39,14 @@ def test_client_plugin_api_uses_domain():
     assert resolve_plugin_api_url(shop) == "https://arkland.com.br"
 
 
-def test_host_plugin_website_uses_public_ip():
+def test_host_plugin_website_uses_public_domain_not_ip():
     shop = ShopGlobalConfig(
         mode="host",
+        host_ip="",
         public_ip="179.185.19.88",
         port=27199,
         public_url="https://arkland.com.br",
     )
-    assert resolve_plugin_website_url(shop) == "http://179.185.19.88:27199"
+    assert resolve_plugin_website_url(shop) == "https://arkland.com.br"
     assert resolve_website_url(shop) == "https://arkland.com.br"
+    assert resolve_plugin_api_url(shop) == "http://127.0.0.1:27199"
