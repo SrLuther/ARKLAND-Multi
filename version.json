@@ -1,17 +1,9 @@
 {
-
     "version": "1.9.119",
-
     "date": "2026-06-25",
-
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.113/ARKLAND-Multi-Setup-v1.9.113.exe",
-
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.119/ARKLAND-Multi-Setup-v1.9.119.exe",
     "changelog": [
-
-        "Feat (Web Store): ícones SVG originais ARKLAND por espécie (154 criaturas) — silhuetas procedurais; catálogo e Comércio P2P; sem wiki/Dododex.",
-
-        "Docs: ATTRIBUTION.md com pesquisa legal e guia admin; tools/generate_species_icons.py para regenerar bundle."
-
+        "Feat (Web Store): ícones SVG originais ARKLAND por espécie (154 criaturas) — silhuetas procedurais em static/species/icons/; catálogo e Comércio P2P usam registro com fallback por tier; sem wiki/Dododex/arkids.",
+        "Docs: ATTRIBUTION.md com pesquisa legal (Fandom CC BY-NC-SA, Fan Content Guidelines, arkids.net) e guia admin; tools/generate_species_icons.py para regenerar bundle."
     ]
-
 }

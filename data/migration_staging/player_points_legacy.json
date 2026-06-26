@@ -1,0 +1,21 @@
+{
+  "summary": {
+    "sources": [
+      "arkshop:C:\\Users\\Ciano\\Pictures\\data\\arkshop\\arkshopplayers.ibd",
+      "customshop:C:\\Users\\Ciano\\Pictures\\data\\arkshop\\players.ibd"
+    ],
+    "rows_raw": 1,
+    "rows_positive": 1,
+    "rows_exported": 1,
+    "total_points": 17923165,
+    "min_points": 17923165,
+    "max_points": 17923165,
+    "dedupe_logic": "max(points) per steam_id across all sources"
+  },
+  "players": [
+    {
+      "steam_id": "76561198171864983",
+      "points": 17923165
+    }
+  ]
+}
