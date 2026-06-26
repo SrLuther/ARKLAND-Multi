@@ -3,11 +3,34 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.127"
+APP_VERSION: str = "1.9.128"
 BUILD_DATE: str = "2026-06-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.128",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix (Web Store): ícones SVG por espécie no catálogo de dinos em produção (PyInstaller) — "
+            "ark_species_registry resolve static/data a partir de _MEIPASS.",
+            "Fix (Web Store): painel Gerenciar Jogadores tolera ausência de market_player_profile e garante "
+            "migração de store_users; mensagens de erro mais claras no admin.",
+            "Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para extração "
+            "temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da Web Store e no load "
+            "do config TEK; sync grava caminho persistente.",
+            "Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path para catálogo "
+            "em Program Files, ao lado do .exe ou APPDATA.",
+            "Fix (Loja): tools/fix_production_catalog.ps1 aplica preços VIP no JSON mestre, atualiza "
+            "config_path em settings.json e opcionalmente sincroniza mapas.",
+            "Melhoria (Web Store): /api/catalog expõe catalog_meta.placeholder_kits_detected para diagnosticar "
+            "catálogo com preços 99.999.999 sem adivinhar o arquivo.",
+            "Fix (Web Store): _data_dir() alinhado com webstore_data_dir() — ARKSHOP_DATA_DIR, ambiente "
+            "ARKLAND (WEBSTORE) e fallback APPDATA; evita settings em dois lugares.",
+            "Fix (Loja): sync_arkshop_web_settings e sync TEK copiam config.json para WEBSTORE quando ausente "
+            "e apontam config_path para lá no ambiente ARKLAND.",
+        ],
+    },
     {
         "version": "1.9.127",
         "date": "2026-06-26",

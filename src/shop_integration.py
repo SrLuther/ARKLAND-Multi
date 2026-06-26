@@ -53,7 +53,11 @@ def is_ephemeral_pyinstaller_path(path: str | Path) -> bool:
 
 def installed_catalog_candidates() -> List[Path]:
     """Caminhos persistentes possíveis para o catálogo mestre config.json."""
+    from .arkland_environment import default_webstore_dir, try_load_environment_paths
+
     candidates: List[Path] = []
+    if try_load_environment_paths():
+        candidates.append(default_webstore_dir() / "config.json")
     if getattr(sys, "frozen", False):
         candidates.append(Path(sys.executable).resolve().parent / _INSTALLED_CATALOG_REL)
     pf = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
@@ -109,7 +113,10 @@ def webstore_data_dir() -> Path:
 
     from .arkland_environment import default_webstore_dir, try_load_environment_paths
 
-    if try_load_environment_paths():
+    override = os.environ.get("ARKSHOP_DATA_DIR", "").strip()
+    if override:
+        p = Path(override)
+    elif try_load_environment_paths():
         p = default_webstore_dir()
     elif getattr(sys, "frozen", False):
         p = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "arkshop_web"
@@ -117,6 +124,22 @@ def webstore_data_dir() -> Path:
         p = _ARKSHOP_WEB_DIR
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def ensure_webstore_catalog_config(source: Path | str) -> Path:
+    """No ambiente ARKLAND, garante config.json em WEBSTORE e retorna o caminho efetivo."""
+    import shutil
+
+    from .arkland_environment import try_load_environment_paths
+
+    src = Path(source)
+    if not try_load_environment_paths():
+        return src
+    dest = webstore_data_dir() / "config.json"
+    if not dest.is_file() and src.is_file():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+    return dest if dest.is_file() else src
 
 
 def resolve_webstore_executable() -> Optional[Path]:
@@ -1480,6 +1503,7 @@ def sync_arkshop_web_settings(
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
         shop.catalog_config_path = str(catalog_path)
+    catalog_path = ensure_webstore_catalog_config(catalog_path)
 
     data["port"] = int(shop.port or DEFAULT_SHOP_PORT)
     data["delivery_mode"] = shop.delivery_mode or "plugin"

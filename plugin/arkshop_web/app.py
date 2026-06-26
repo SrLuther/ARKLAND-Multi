@@ -53,6 +53,7 @@ from src.shop_integration import (  # noqa: E402
     _merge_arkland_server_entry,
     is_ephemeral_pyinstaller_path,
     resolve_persistent_catalog_path,
+    webstore_data_dir,
 )
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
@@ -221,15 +222,7 @@ def _bundle_dir() -> Path:
 
 
 def _data_dir() -> Path:
-    override = os.environ.get("ARKSHOP_DATA_DIR", "").strip()
-    if override:
-        p = Path(override)
-    elif getattr(sys, "frozen", False):
-        p = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager" / "arkshop_web"
-    else:
-        p = Path(__file__).resolve().parent
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+    return webstore_data_dir()
 
 
 _BUNDLE_DIR = _bundle_dir()
