@@ -17,6 +17,7 @@ from ark_species_registry import (
     registry_stats,
     resolve_species_image,
     tier_icon_url,
+    _bundled_species_icon_urls,
     _indexes,
 )
 
@@ -25,9 +26,11 @@ from ark_species_registry import (
 def _clear_registry_cache():
     load_registry.cache_clear()
     _indexes.cache_clear()
+    _bundled_species_icon_urls.cache_clear()
     yield
     load_registry.cache_clear()
     _indexes.cache_clear()
+    _bundled_species_icon_urls.cache_clear()
 
 
 def test_extract_class_token_from_raw_name_map():
@@ -140,4 +143,11 @@ def test_resolve_species_image_custom_and_fallback():
 def test_lookup_includes_image_url():
     hit = lookup_species(species_key="ankylo")
     assert hit is not None
-    assert hit["image_url"].endswith(".svg")
+    assert hit["image_url"] == "/species/icons/ankylo.svg"
+
+
+def test_lookup_shop_rex_uses_species_icon():
+    bp = "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
+    hit = lookup_species(blueprint=bp, name_hint="Rex Fêmea")
+    assert hit is not None
+    assert hit["image_url"].endswith("/rex.svg")

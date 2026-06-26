@@ -5,6 +5,33 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.119] - 2026-06-25
+
+### Feature
+
+- Feat (Web Store): ícones SVG originais ARKLAND por espécie (154 criaturas) — silhuetas procedurais em static/species/icons/; catálogo e Comércio P2P usam registro com fallback por tier; sem wiki/Dododex/arkids.
+
+### Other
+
+- Docs: ATTRIBUTION.md com pesquisa legal (Fandom CC BY-NC-SA, Fan Content Guidelines, arkids.net) e guia admin; tools/generate_species_icons.py para regenerar bundle.
+
+## [1.9.118] - 2026-06-25
+
+### Feature
+
+- Feat (Web Store): overhaul do Catálogo — busca com debounce (nome, descrição, blueprint, categoria, kit), chips de categoria, ordenação por preço/nome, contador de resultados, cards horizontais com mais informação e estado vazio com sugestões.
+- Feat (Web Store): thumbnails no catálogo (Itens, Dinos, Kits, Licenças) — dinos via registro de espécies com silhuetas SVG por tier (sem Dododex); itens por categoria; kits com badge de tier; licenças com ícone dedicado.
+- Feat (Web Store): /api/catalog enriquecido com display_category, thumbnail_url, search_text, item_count/kit_contents, license_days e tier_icon_urls.
+- Feat (Web Store): modal «ver conteúdo» nos kits listando itens incluídos sem poluir o grid.
+
+## [1.9.117] - 2026-06-25
+
+### Feature
+
+- Feat (Loja): Estratégia de preços VIP — licenças VIP Bronze/Prata/Ouro/Diamante (3k/4,5k/7,5k/11,25k Âmbar) e kits a 10% da licença (300/450/750/1.125); itens avulsos do kit com markup 1,5× para o bundle valer mais.
+- Feat (Loja): Pacote PIX R$75 = 8.250 Âmbares — suficiente para Licença VIP Ouro + Kit Ouro (kit alfa); VIP Diamante somente Âmbar, nunca em doação PIX.
+- Feat (Loja): Itens avulsos VIP — struct_transmitter, struct_generatortek, item_soultraps_20, struct_tekreplicator_vip (90 Âmbar c/ VIP Bronze); struct_tekreplicator premium 52.500; Tek Forge mantém mínimo 50.000.
+
 ## [1.9.114] - 2026-06-25
 
 ### Improvement

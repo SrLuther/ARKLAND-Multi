@@ -1,6 +1,6 @@
 {
 
-    "version": "1.9.114",
+    "version": "1.9.119",
 
     "date": "2026-06-25",
 
@@ -8,15 +8,10 @@
 
     "changelog": [
 
-        "Fix (CustomShop): WebsiteUrl com IP legado é corrigido automaticamente ao abrir o TEK/Manager — migração em todos os mapas + log ao sincronizar; resolve_plugin_website_url usa sempre o domínio público (nunca IP:27199).",
+        "Feat (Web Store): ícones SVG originais ARKLAND por espécie (154 criaturas) — silhuetas procedurais; catálogo e Comércio P2P; sem wiki/Dododex.",
 
-        "Fix (Comércio P2P): espécies do overlay ark_species_registry.json (40 Abyss) sincronizam para market_species no boot e no «Sync catálogo» — visíveis no admin Espécies oficiais; ative para tabela pública e browse.",
-
-        "Fix (Web Store): resgate de kit/item exibe mensagem clara em PT-BR (saldo, licença, pendência na Nuvem, erro de entrega) no toast e em Minha Área; falhas auditadas.",
-
-        "Feat (Loja): script tools/sync_abyss_shop_catalog.py adiciona 40 itens Abyss ao config.json da loja (aba Dinos/Itens) — execute antes de Sincronizar plugins."
+        "Docs: ATTRIBUTION.md com pesquisa legal e guia admin; tools/generate_species_icons.py para regenerar bundle."
 
     ]
 
 }
-

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Shimosaur">
+  <rect width="64" height="64" rx="12" fill="#1a1608"/>
+  
+  <path fill="#ffc107" d="M16 42c2-8 8-14 16-16 4-6 12-8 18-2 2 6-2 12-8 14 2 4 0 10-6 12-8 2-16 0-20-8z"/>
+  <path fill="#ffc107" opacity="0.55" d="M18 44c4 4 10 6 16 4 4-2 6-6 4-10-6 2-12 2-20 6z"/>
+  <circle cx="38" cy="28" r="2.2" fill="#ffe082"/>
+  <circle cx="39" cy="27.5" r="0.8" fill="#1a1608" opacity="0.6"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Craca">
+  <rect width="64" height="64" rx="12" fill="#12161a"/>
+  
+  <path fill="#78909c" d="M20 44c0-10 6-18 14-20 6-2 12 2 16 8 2 6 0 12-6 16 -6 4-14 4-20 0-4-4-6-8-4-4z"/>
+  
+  <circle cx="32" cy="30" r="2.2" fill="#b0bec5"/>
+  <circle cx="33" cy="29.5" r="0.8" fill="#12161a" opacity="0.6"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Arma">
+  <rect width="64" height="64" rx="12" fill="#0d1520"/>
+  <path fill="#e87820" d="M40 16l8 8-22 22-10 2 2-10 22-22z"/>
+  <rect x="14" y="42" width="10" height="6" rx="1" fill="#bf360c" transform="rotate(-45 19 45)"/>
+  <path fill="#00c8ff" opacity=".5" d="M44 20l4 4"/>
+</svg>

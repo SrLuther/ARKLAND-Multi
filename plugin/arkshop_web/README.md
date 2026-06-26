@@ -83,8 +83,16 @@ python app.py
 - Python 3.8+
 - `flask` e `flask-cors` (instalados automaticamente pelo `start.bat`)
 
-## Imagens de espécies (Comércio P2P)
+## Imagens de espécies (Catálogo + Comércio P2P)
 
-Não use arte do Dododex ou hotlink de terceiros sem licença. O mercado exibe **silhuetas SVG por tier** (S+/S/A/B/C) até haver imagens próprias.
+**Não** use wiki Fandom, Dododex, Ark IDs ou assets do jogo sem licença escrita — ver `static/species/ATTRIBUTION.md`.
 
-Para adicionar thumbnail por espécie: coloque o arquivo em `static/species/` e defina `icon_path` ou `image_url` em `data/market_species_defaults.json` ou `data/ark_species_registry.json`. Detalhes legais e atribuição: `static/species/ATTRIBUTION.md`.
+O projeto inclui **ícones SVG originais ARKLAND** por espécie (`static/species/icons/{species_key}.svg`), gerados proceduralmente. Fallback: silhuetas por tier (`tier-*.svg`).
+
+Regenerar ícones após novas espécies no registro:
+
+```bash
+python tools/generate_species_icons.py
+```
+
+Para substituir por arte licenciada: coloque o arquivo em `static/species/` e defina `icon_path` ou `image_url` em `data/market_species_defaults.json` ou `data/ark_species_registry.json` (sobrescreve o ícone procedural).

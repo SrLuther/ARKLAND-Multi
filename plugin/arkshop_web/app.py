@@ -290,6 +290,13 @@ _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
     {"id": "p1200", "label": "1.200 Âmbares", "points": 1200, "price_brl": 10.0},
     {"id": "p3000", "label": "3.000 Âmbares", "points": 3000, "price_brl": 20.0},
     {"id": "p8000", "label": "8.000 Âmbares", "points": 8000, "price_brl": 45.0},
+    {
+        "id": "p8250",
+        "label": "8.250 Âmbares — Kit VIP Ouro",
+        "points": 8250,
+        "price_brl": 75.0,
+        "note": "Suficiente para Licença VIP Ouro (7.500) + Kit Ouro/alfa (750). Apenas Âmbar — VIP Diamante não incluído.",
+    },
 ]
 
 _AMBER_SINGULAR = "Âmbar"
@@ -3314,9 +3321,13 @@ def public_home():
 @app.route("/api/catalog", methods=["GET"])
 def get_catalog():
     """Retorna catálogo público (itens, kits, pacotes de doação)."""
+    from ark_species_registry import TIER_ICON_URLS
+    from catalog_enrich import CATEGORY_ICONS, enrich_catalog_payload
+
     data = _read_shop_config()
     items = data.get("Items") or data.get("ShopItems") or {}
     kits = data.get("Kits") or {}
+    items, kits = enrich_catalog_payload(items, kits)
     settings_block = data.get("Settings") or {}
     shop_name = _public_brand_name(
         settings_block.get("ShopName")
@@ -3336,6 +3347,8 @@ def get_catalog():
         "pix_enabled": _pix_enabled(),
         "public_url": public_url,
         "shop_url": public_url,
+        "tier_icon_urls": TIER_ICON_URLS,
+        "category_icons": CATEGORY_ICONS,
     })
 
 

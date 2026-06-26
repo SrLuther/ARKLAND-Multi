@@ -2159,8 +2159,8 @@
     },
     "stryder_rig": {
       "Type": "item",
-      "Price": 50,
-      "Description": "Swappable Stryder Rig (1x)",
+      "Price": 90,
+      "Description": "Swappable Stryder Rig (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
       "Items": [
         {
           "Blueprint": "/Game/Mods/StryderRigChanger/PrimalItemConsumable_RigChanger_Base.PrimalItemConsumable_RigChanger_Base",
@@ -2168,7 +2168,9 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,VIPBronze",
+      "Category": "Ferramentas"
     },
     "struct_tekforge": {
       "Type": "item",
@@ -2181,11 +2183,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Category": "Ferramentas"
     },
     "struct_tekreplicator": {
       "Type": "item",
-      "Price": 5000,
+      "Price": 52500,
       "Description": "Tek Replicador (S+) (1x)",
       "Items": [
         {
@@ -2194,7 +2197,8 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Category": "Ferramentas"
     },
     "arma_ThalassianRifle": {
       "Type": "item",
@@ -3671,6 +3675,114 @@
           "Gender": "female"
         }
       ]
+    },
+    "licenca_vip_bronze": {
+      "Type": "license",
+      "Category": "Licenças VIP",
+      "Name": "Licença VIP Bronze",
+      "Price": 3000,
+      "Description": "Licença VIP Bronze (30 dias) — necessária para resgatar o Kit VIP Bronze",
+      "LicenseGrant": {
+        "Group": "VIPBronze",
+        "Days": 30,
+        "Redeemable": true
+      }
+    },
+    "licenca_vip_prata": {
+      "Type": "license",
+      "Category": "Licenças VIP",
+      "Name": "Licença VIP Prata",
+      "Price": 4500,
+      "Description": "Licença VIP Prata (30 dias) — necessária para resgatar o Kit VIP Prata",
+      "LicenseGrant": {
+        "Group": "VIPPrata",
+        "Days": 30,
+        "Redeemable": true
+      }
+    },
+    "licenca_vip_ouro": {
+      "Type": "license",
+      "Category": "Licenças VIP",
+      "Name": "Licença VIP Ouro",
+      "Price": 7500,
+      "Description": "Licença VIP Ouro (30 dias) — necessária para resgatar o Kit VIP Ouro (kit alfa)",
+      "LicenseGrant": {
+        "Group": "VIPOuro",
+        "Days": 30,
+        "Redeemable": true
+      }
+    },
+    "licenca_vip_diamante": {
+      "Type": "license",
+      "Category": "Licenças VIP",
+      "Name": "Licença VIP Diamante",
+      "Price": 11250,
+      "Description": "Licença VIP Diamante (30 dias) — somente Âmbar; não disponível em doações PIX",
+      "LicenseGrant": {
+        "Group": "VIPDiamante",
+        "Days": 30,
+        "Redeemable": true
+      }
+    },
+    "struct_transmitter": {
+      "Type": "item",
+      "Category": "Ferramentas",
+      "Price": 90,
+      "Permissions": "Admins,VIPBronze",
+      "Description": "Transmissor S+ (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Transmitter/PrimalItemStructure_TransmitterPlus.PrimalItemStructure_TransmitterPlus",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ]
+    },
+    "struct_generatortek": {
+      "Type": "item",
+      "Category": "Ferramentas",
+      "Price": 90,
+      "Permissions": "Admins,VIPBronze",
+      "Description": "Gerador Tek S+ (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/GeneratorTek/PrimalItemStructure_GeneratorTek.PrimalItemStructure_GeneratorTek",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ]
+    },
+    "item_soultraps_20": {
+      "Type": "item",
+      "Category": "Ferramentas",
+      "Price": 90,
+      "Permissions": "Admins,VIPBronze",
+      "Description": "Soul Traps DinoStorage (20x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/DinoStorage2/SoulTraps_DS.SoulTraps_DS",
+          "Quantity": 20,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ]
+    },
+    "struct_tekreplicator_vip": {
+      "Type": "item",
+      "Category": "Ferramentas",
+      "Price": 90,
+      "Permissions": "Admins,VIPBronze",
+      "Description": "Replicador S+ VIP (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício. Avulso premium: struct_tekreplicator (52.500).",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_replicatorplus",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ]
     }
   },
   "TimedPointsReward": {
@@ -3892,8 +4004,8 @@
       ]
     },
     "vip_bronze": {
-      "Price": 0,
-      "Description": "VIP Bronze (R$20,00)",
+      "Price": 300,
+      "Description": "Kit VIP Bronze — 300 Âmbar (10% da licença). Requer Licença VIP Bronze.",
       "Permissions": "Admins,VIPBronze",
       "VipLicense": {
         "Tier": "VIPBronze",
@@ -4023,8 +4135,8 @@
       ]
     },
     "prata": {
-      "Price": 0,
-      "Description": "VIP Prata (R$30,00)",
+      "Price": 450,
+      "Description": "Kit VIP Prata — 450 Âmbar (10% da licença). Requer Licença VIP Prata.",
       "Permissions": "Admins,VIPPrata",
       "VipLicense": {
         "Tier": "VIPPrata",
@@ -4252,8 +4364,8 @@
       ]
     },
     "ouro": {
-      "Price": 0,
-      "Description": "VIP Ouro(R$50,00)",
+      "Price": 750,
+      "Description": "Kit VIP Ouro — 750 Âmbar (10% da licença). Requer Licença VIP Ouro.",
       "Permissions": "Admins,VIPOuro",
       "VipLicense": {
         "Tier": "VIPOuro",
@@ -4495,8 +4607,8 @@
       ]
     },
     "diamante": {
-      "Price": 0,
-      "Description": "VIP Diamante (R$75,00)",
+      "Price": 1125,
+      "Description": "Kit VIP Diamante — 1.125 Âmbar (10% da licença). Requer Licença VIP Diamante.",
       "Permissions": "Admins",
       "VipLicense": {
         "Tier": "VIPDiamante",
@@ -6429,5 +6541,38 @@
     "MaxMessageLength": 200,
     "RateLimitSeconds": 2,
     "UseWebApi": false
-  }
+  },
+  "PointPackages": [
+    {
+      "id": "p500",
+      "label": "500 Âmbares",
+      "points": 500,
+      "price_brl": 5.0
+    },
+    {
+      "id": "p1200",
+      "label": "1.200 Âmbares",
+      "points": 1200,
+      "price_brl": 10.0
+    },
+    {
+      "id": "p3000",
+      "label": "3.000 Âmbares",
+      "points": 3000,
+      "price_brl": 20.0
+    },
+    {
+      "id": "p8000",
+      "label": "8.000 Âmbares",
+      "points": 8000,
+      "price_brl": 45.0
+    },
+    {
+      "id": "p8250",
+      "label": "8.250 Âmbares — Kit VIP Ouro",
+      "points": 8250,
+      "price_brl": 75.0,
+      "note": "Suficiente para Licença VIP Ouro (7.500) + Kit Ouro/alfa (750). Apenas Âmbar — VIP Diamante não incluído."
+    }
+  ]
 }

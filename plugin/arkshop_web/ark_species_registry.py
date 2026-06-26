@@ -27,6 +27,9 @@ from market_economy import (
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 _REGISTRY_PATH = _DATA_DIR / "ark_species_registry.json"
+_STATIC_DIR = Path(__file__).resolve().parent / "static" / "species"
+_ICONS_DIR = _STATIC_DIR / "icons"
+_SPECIES_ICONS_MANIFEST = _DATA_DIR / "species_icons_manifest.json"
 
 TIER_ROOT_VALUES: dict[str, int] = {
     "S+": 12000,
@@ -190,17 +193,47 @@ def tier_icon_url(tier: str | None) -> str:
     return TIER_ICON_URLS.get(key, TIER_ICON_URLS["B"])
 
 
+@lru_cache(maxsize=1)
+def _bundled_species_icon_urls() -> dict[str, str]:
+    """Mapa species_key → URL de ícone SVG original ARKLAND (manifest + disco)."""
+    urls: dict[str, str] = {}
+    if _SPECIES_ICONS_MANIFEST.is_file():
+        try:
+            with _SPECIES_ICONS_MANIFEST.open(encoding="utf-8") as f:
+                data = json.load(f)
+            for sk, meta in (data.get("icons") or {}).items():
+                if not sk:
+                    continue
+                path = str((meta or {}).get("path") or "").strip()
+                if path:
+                    urls[str(sk).lower()] = path
+        except Exception:
+            pass
+    if _ICONS_DIR.is_dir():
+        for icon_file in _ICONS_DIR.glob("*.svg"):
+            sk = icon_file.stem.lower()
+            urls.setdefault(sk, f"/species/icons/{icon_file.name}")
+    return urls
+
+
+def _bundled_icon_for_species(species_key: str | None) -> str | None:
+    sk = (species_key or "").strip().lower()
+    if not sk:
+        return None
+    return _bundled_species_icon_urls().get(sk)
+
+
 def _image_from_entry(entry: dict[str, Any]) -> str | None:
-    """Resolve image_url ou icon_path de uma entrada do registro."""
+    """Resolve image_url, icon_path ou ícone SVG original ARKLAND do bundle."""
     url = str(entry.get("image_url") or "").strip()
     if url:
         return url
     icon = str(entry.get("icon_path") or "").strip()
-    if not icon:
-        return None
-    if icon.startswith(("http://", "https://", "/")):
-        return icon
-    return f"/species/{icon.lstrip('/')}"
+    if icon:
+        if icon.startswith(("http://", "https://", "/")):
+            return icon
+        return f"/species/{icon.lstrip('/')}"
+    return _bundled_icon_for_species(str(entry.get("species_key") or ""))
 
 
 def resolve_species_image(entry: dict[str, Any] | None, *, tier: str | None = None) -> str:

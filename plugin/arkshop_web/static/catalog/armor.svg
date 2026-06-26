@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Armadura">
+  <rect width="64" height="64" rx="12" fill="#0d1520"/>
+  <path fill="#1a2840" stroke="#a78bfa" stroke-width="1.5" d="M32 14l16 8v14c0 10-7 18-16 20-9-2-16-10-16-20V22l16-8z"/>
+  <path fill="#a78bfa" opacity=".6" d="M32 22v24M24 30h16"/>
+</svg>

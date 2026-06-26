@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Anquilossauro Abissal">
+  <rect width="64" height="64" rx="12" fill="#0d1a10"/>
+  
+  <path fill="#4caf50" d="M12 44c0-12 8-22 20-24 8-2 16 2 20 10 2 8-2 16-10 20 -6 4-14 4-20 0-6-4-10-10-10-6z"/>
+  
+  <circle cx="38" cy="28" r="2.2" fill="#a5d6a7"/>
+  <circle cx="39" cy="27.5" r="0.8" fill="#0d1a10" opacity="0.6"/>
+</svg>

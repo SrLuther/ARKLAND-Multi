@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Estrutura">
+  <rect width="64" height="64" rx="12" fill="#0d1520"/>
+  <path fill="#1a2840" stroke="#00c8ff" stroke-width="1.2" d="M12 42V26l20-10 20 10v16H12z"/>
+  <rect x="26" y="30" width="12" height="12" fill="#e87820" opacity=".85"/>
+  <path fill="#00c8ff" d="M32 16v6M22 22l4 3M42 22l-4 3"/>
+</svg>

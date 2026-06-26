@@ -1348,8 +1348,118 @@
 
     #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 18px;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    .catalog-toolbar--sticky {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding: 12px 0 14px;
+      margin-bottom: 8px;
+      background: linear-gradient(180deg, var(--bg) 70%, transparent);
+      backdrop-filter: blur(6px);
+    }
+    .catalog-search-wrap {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+    .catalog-search-wrap input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 11px 14px 11px 38px;
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .catalog-search-wrap input:focus {
+      border-color: rgba(0, 200, 255, .55);
+      box-shadow: 0 0 0 2px rgba(0, 200, 255, .12);
+    }
+    .catalog-search-wrap::before {
+      content: '🔍';
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      opacity: .7;
+      pointer-events: none;
+    }
+    .catalog-sort-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      outline: none;
+      min-width: 148px;
+      cursor: pointer;
+    }
+    .catalog-sort-select:focus {
+      border-color: rgba(0, 200, 255, .55);
+      box-shadow: 0 0 0 2px rgba(0, 200, 255, .12);
+    }
+    .catalog-result-count {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text2);
+      letter-spacing: .04em;
+      margin: 0 0 14px;
+    }
+    .catalog-result-count strong {
+      color: var(--amber);
+      font-weight: 700;
+    }
+    .catalog-empty-state {
+      text-align: center;
+      padding: 48px 20px 32px;
+      color: var(--text2);
+    }
+    .catalog-empty-state__title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .catalog-empty-state__hint {
+      font-size: 13px;
+      line-height: 1.55;
+      max-width: 420px;
+      margin: 0 auto 16px;
+    }
+    .catalog-empty-state__suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+    .catalog-empty-suggestion {
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .catalog-empty-suggestion:hover,
+    .catalog-empty-suggestion:focus {
+      border-color: rgba(232,120,32,.45);
+      color: #fff;
+      outline: none;
     }
 
     .item-card {
@@ -1358,28 +1468,53 @@
       border-radius: var(--radius-lg);
       padding: 0;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      align-items: stretch;
       transition: all .2s ease;
       position: relative;
       overflow: hidden;
       cursor: default;
+      min-height: 112px;
     }
     .item-card__thumb {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 110px;
+      flex-shrink: 0;
+      width: 88px;
+      min-height: 112px;
       background:
         radial-gradient(ellipse at 50% 30%, rgba(232,120,32,.12) 0%, transparent 70%),
         linear-gradient(180deg, var(--surface3) 0%, var(--surface) 100%);
-      border-bottom: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      position: relative;
+    }
+    .item-card__thumb img {
+      width: 56px;
+      height: 56px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,.45));
+    }
+    .item-card__tier-badge {
+      position: absolute;
+      bottom: 6px;
+      right: 6px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      padding: 2px 5px;
+      border-radius: 4px;
+      background: rgba(0,0,0,.55);
+      color: var(--amber);
+      border: 1px solid rgba(232,120,32,.35);
     }
     .item-card__body {
-      padding: 14px 16px 16px;
+      padding: 12px 14px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
       flex: 1;
+      min-width: 0;
     }
     .item-card::before {
       content: '';
@@ -1395,6 +1530,10 @@
       box-shadow: 0 8px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(232,120,32,.1);
     }
     .item-card:hover::before { background: linear-gradient(90deg, transparent, rgba(232,120,32,.35), transparent); }
+    .item-card:focus-within {
+      border-color: rgba(0, 200, 255, .45);
+      box-shadow: 0 0 0 2px rgba(0, 200, 255, .15);
+    }
 
     /* type color strips */
     .type-item::after     { content:''; position:absolute; top:0;left:0;bottom:0;width:3px; background:linear-gradient(180deg,#00c8ff,#0060aa); }
@@ -1412,27 +1551,62 @@
       line-height: 1;
     }
     .item-card__cat {
+      display: inline-flex;
+      align-self: flex-start;
       font-size: 9px;
       font-weight: 700;
-      letter-spacing: .18em;
+      letter-spacing: .14em;
       text-transform: uppercase;
-      color: var(--text2);
-      text-align: center;
+      color: var(--tek);
+      background: rgba(0, 200, 255, .08);
+      border: 1px solid rgba(0, 200, 255, .2);
+      border-radius: 999px;
+      padding: 3px 8px;
     }
     .item-card__name {
       font-family: 'Rajdhani', system-ui, sans-serif;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 700;
       color: #fff;
-      text-align: center;
+      text-align: left;
       line-height: 1.3;
     }
     .item-card__desc {
       font-size: 11px;
       color: var(--text2);
-      text-align: center;
-      line-height: 1.4;
+      text-align: left;
+      line-height: 1.45;
       flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .item-card__meta-line {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .04em;
+    }
+    .item-card__kit-preview {
+      font-size: 10px;
+      color: var(--text2);
+    }
+    .item-card__kit-preview button {
+      background: none;
+      border: none;
+      color: var(--tek);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .item-card__kit-preview button:hover,
+    .item-card__kit-preview button:focus {
+      color: #fff;
+      outline: none;
     }
     .item-card__desc--admin {
       font-size: 10px;
@@ -1442,9 +1616,13 @@
     .item-card__doc-short {
       font-size: 11px;
       color: var(--text2);
-      text-align: center;
+      text-align: left;
       line-height: 1.45;
       flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .item-card__req {
       font-size: 10px;
@@ -1597,13 +1775,13 @@
       justify-content: space-between;
       align-items: center;
       margin-top: auto;
-      padding-top: 12px;
+      padding-top: 10px;
       border-top: 1px solid var(--border);
       gap: 8px;
     }
     .item-card__price {
       font-family: 'Rajdhani', system-ui, sans-serif;
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 700;
       color: var(--amber);
       text-shadow: 0 0 12px rgba(232,160,32,.4);
@@ -1611,6 +1789,32 @@
     .btn-buy {
       flex-shrink: 0;
       min-width: 88px;
+    }
+
+    .kit-contents-modal .kit-contents-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    .kit-contents-modal .kit-contents-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text2);
+    }
+    .kit-contents-modal .kit-contents-list li strong {
+      color: #fff;
+      font-weight: 600;
+    }
+    .kit-contents-modal .kit-contents-list li span {
+      color: var(--amber);
+      font-weight: 700;
+      flex-shrink: 0;
     }
 
     /* catalog filter bar (legado — select oculto, chips visíveis) */
@@ -1621,7 +1825,9 @@
       align-items: center;
       margin-bottom: 20px;
     }
-    #catalog-search, #catalog-cat {
+    #catalog-search, #catalog-cat,
+    #catalog-dinos-search, #catalog-kits-search, #catalog-licenses-search,
+    .catalog-search-wrap input {
       background: var(--surface2);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -1633,8 +1839,9 @@
       outline: none;
       transition: border-color .15s;
     }
-    #catalog-search { flex: 1; min-width: 180px; max-width: 320px; }
-    #catalog-search:focus, #catalog-cat:focus { border-color: var(--tek); }
+    #catalog-search { flex: 1; min-width: 180px; max-width: none; }
+    #catalog-search:focus, #catalog-cat:focus,
+    #catalog-dinos-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus { border-color: var(--tek); }
     #catalog-cat option { background: var(--surface); }
 
     /* ── Modal ────────────────────────────────────────────────────────────── */
@@ -2222,8 +2429,18 @@
 
       #catalog-grid, #catalog-dinos-grid, #catalog-kits-grid, #catalog-licenses-grid, #catalog-available-grid, #catalog-recharge-grid,
       .recharge-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        grid-template-columns: 1fr;
         gap: 12px;
+      }
+      .item-card {
+        flex-direction: row;
+      }
+      .item-card__thumb {
+        width: 72px;
+        min-height: 100px;
+      }
+      .catalog-toolbar--sticky {
+        top: -4px;
       }
 
       .form-grid {
@@ -3911,36 +4128,68 @@
         </div>
         <div id="catalog-category-doc" class="catalog-category-doc"></div>
         <div id="catalog-panel-items" class="catalog-panel active">
-          <div class="catalog-toolbar">
-            <input id="catalog-search" type="text" placeholder="🔍 Buscar item…" oninput="renderCatalogItems()" />
-            <select id="catalog-cat" onchange="renderCatalogItems()">
+          <div class="catalog-toolbar catalog-toolbar--sticky">
+            <div class="catalog-search-wrap">
+              <input id="catalog-search" type="search" placeholder="Buscar nome, descrição, categoria ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('items')" />
+            </div>
+            <select id="catalog-sort" class="catalog-sort-select" onchange="renderCatalogItems()" aria-label="Ordenar itens">
+              <option value="name">Nome A–Z</option>
+              <option value="price-asc">Preço ↑</option>
+              <option value="price-desc">Preço ↓</option>
+            </select>
+            <select id="catalog-cat" onchange="renderCatalogItems()" aria-label="Filtrar categoria" style="display:none;">
               <option value="">Todas as categorias</option>
             </select>
           </div>
           <div id="catalog-cats" class="catalog-cats"></div>
+          <p id="catalog-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-grid"></div>
-          <p id="catalog-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum item encontrado.</p>
+          <div id="catalog-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-dinos" class="catalog-panel">
-          <div class="catalog-toolbar">
-            <input id="catalog-dinos-search" type="text" placeholder="🔍 Buscar dino…" oninput="renderCatalogDinos()" />
+          <div class="catalog-toolbar catalog-toolbar--sticky">
+            <div class="catalog-search-wrap">
+              <input id="catalog-dinos-search" type="search" placeholder="Buscar dino, espécie ou blueprint…" autocomplete="off" oninput="debounceCatalogSearch('dinos')" />
+            </div>
+            <select id="catalog-dinos-sort" class="catalog-sort-select" onchange="renderCatalogDinos()" aria-label="Ordenar dinos">
+              <option value="name">Nome A–Z</option>
+              <option value="price-asc">Preço ↑</option>
+              <option value="price-desc">Preço ↓</option>
+            </select>
           </div>
+          <p id="catalog-dinos-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-dinos-grid"></div>
-          <p id="catalog-dinos-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum dino encontrado.</p>
+          <div id="catalog-dinos-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-kits" class="catalog-panel">
-          <div class="catalog-toolbar">
-            <input id="catalog-kits-search" type="text" placeholder="🔍 Buscar kit…" oninput="renderCatalogKits()" />
+          <div class="catalog-toolbar catalog-toolbar--sticky">
+            <div class="catalog-search-wrap">
+              <input id="catalog-kits-search" type="search" placeholder="Buscar kit ou conteúdo incluído…" autocomplete="off" oninput="debounceCatalogSearch('kits')" />
+            </div>
+            <select id="catalog-kits-sort" class="catalog-sort-select" onchange="renderCatalogKits()" aria-label="Ordenar kits">
+              <option value="name">Nome A–Z</option>
+              <option value="price-asc">Preço ↑</option>
+              <option value="price-desc">Preço ↓</option>
+            </select>
           </div>
+          <p id="catalog-kits-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-kits-grid"></div>
-          <p id="catalog-kits-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhum kit encontrado.</p>
+          <div id="catalog-kits-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-licenses" class="catalog-panel">
-          <div class="catalog-toolbar">
-            <input id="catalog-licenses-search" type="text" placeholder="🔍 Buscar licença…" oninput="renderCatalogLicenses()" />
+          <div class="catalog-toolbar catalog-toolbar--sticky">
+            <div class="catalog-search-wrap">
+              <input id="catalog-licenses-search" type="search" placeholder="Buscar licença, tier ou duração…" autocomplete="off" oninput="debounceCatalogSearch('licenses')" />
+            </div>
+            <select id="catalog-licenses-sort" class="catalog-sort-select" onchange="renderCatalogLicenses()" aria-label="Ordenar licenças">
+              <option value="name">Nome A–Z</option>
+              <option value="price-asc">Preço ↑</option>
+              <option value="price-desc">Preço ↓</option>
+            </select>
           </div>
+          <p id="catalog-licenses-result-count" class="catalog-result-count" style="display:none;"></p>
           <div id="catalog-licenses-grid"></div>
-          <p id="catalog-licenses-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Nenhuma licença cadastrada.</p>
+          <div id="catalog-licenses-empty" class="catalog-empty-state" style="display:none;"></div>
         </div>
         <div id="catalog-panel-available" class="catalog-panel">
           <div id="catalog-available-content"></div>
@@ -6005,6 +6254,8 @@ let _playerTimedPointsTotal = 25;
 let _catalogPixEnabled = false;
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
+let _catalogSearchTimers = {};
+let _catalogTierIcons = {};
 let _pixPollTimer = null;
 let _pixPollDelayMs = 5000;
 let _pixPollPaymentId = null;
@@ -6188,6 +6439,115 @@ function _catalogTypeIcon(t) {
   return ({ dino:"🦕", item:"📦", blueprint:"📋", command:"⚡", experience:"✨", kit:"🎁", license:"📜", licenca:"📜" })[String(t||"").toLowerCase()] || "📦";
 }
 
+function debounceCatalogSearch(tab) {
+  clearTimeout(_catalogSearchTimers[tab]);
+  _catalogSearchTimers[tab] = setTimeout(() => {
+    if (tab === "items") renderCatalogItems();
+    else if (tab === "dinos") renderCatalogDinos();
+    else if (tab === "kits") renderCatalogKits();
+    else if (tab === "licenses") renderCatalogLicenses();
+  }, 280);
+}
+
+function _catalogSearchHaystack(item) {
+  if (item.searchText) return item.searchText;
+  return [item.key, item.name, item.desc, item.category, item.blueprint, item.speciesKey, item.tier]
+    .filter(Boolean).join(" ").toLowerCase();
+}
+
+function _catalogMatchesSearch(item, search) {
+  if (!search) return true;
+  const q = search.toLowerCase().trim();
+  if (!q) return true;
+  return _catalogSearchHaystack(item).includes(q);
+}
+
+function _catalogSortItems(list, sortKey) {
+  const sorted = [...list];
+  const key = sortKey || "name";
+  sorted.sort((a, b) => {
+    if (key === "price-asc") return (a.price || 0) - (b.price || 0);
+    if (key === "price-desc") return (b.price || 0) - (a.price || 0);
+    return String(a.name || "").localeCompare(String(b.name || ""), "pt", { sensitivity: "base" });
+  });
+  return sorted;
+}
+
+function _catalogResultCountHtml(n, label) {
+  const word = n === 1 ? label.replace(/s$/, "") : label;
+  return `<strong>${n}</strong> ${word} encontrado${n === 1 ? "" : "s"}`;
+}
+
+function _catalogEmptyStateHtml(tab, search, cat) {
+  const suggestions = [];
+  if (search) suggestions.push({ label: "Limpar busca", action: "clear-search" });
+  if (cat) suggestions.push({ label: "Todas as categorias", action: "clear-cat" });
+  if (tab === "dinos") suggestions.push({ label: "Ver aba Itens", action: "tab-items" });
+  if (tab === "items") suggestions.push({ label: "Ver Dinos", action: "tab-dinos" });
+  if (tab === "kits") suggestions.push({ label: "Ver Licenças", action: "tab-licenses" });
+  const sugHtml = suggestions.map(s =>
+    `<button type="button" class="catalog-empty-suggestion" data-empty-action="${escHtml(s.action)}">${escHtml(s.label)}</button>`
+  ).join("");
+  return `
+    <div class="catalog-empty-state__title">Nenhum resultado</div>
+    <p class="catalog-empty-state__hint">Tente outro termo, remova filtros ou explore outra aba do catálogo.</p>
+    <div class="catalog-empty-state__suggestions">${sugHtml}</div>`;
+}
+
+function _handleCatalogEmptyAction(action) {
+  if (action === "clear-search") {
+    ["catalog-search", "catalog-dinos-search", "catalog-kits-search", "catalog-licenses-search"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+  }
+  if (action === "clear-cat") setCatalogCategory("");
+  if (action === "tab-items") setCatalogTab("items");
+  if (action === "tab-dinos") setCatalogTab("dinos");
+  if (action === "tab-licenses") setCatalogTab("licenses");
+  if (_catalogActiveTab === "items") renderCatalogItems();
+  else if (_catalogActiveTab === "dinos") renderCatalogDinos();
+  else if (_catalogActiveTab === "kits") renderCatalogKits();
+  else if (_catalogActiveTab === "licenses") renderCatalogLicenses();
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-empty-action]");
+  if (btn) _handleCatalogEmptyAction(btn.dataset.emptyAction);
+});
+
+function _catalogThumbHtml(item) {
+  const url = item.thumbnailUrl || "";
+  const tier = item.tier ? `<span class="item-card__tier-badge">${escHtml(item.tier)}</span>` : "";
+  if (url) {
+    return `<img src="${escHtml(url)}" alt="" loading="lazy" width="56" height="56" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex');" />
+      <div class="item-card__icon" style="display:none;">${_catalogTypeIcon(item.type)}</div>${tier}`;
+  }
+  return `<div class="item-card__icon">${_catalogTypeIcon(item.type)}</div>${tier}`;
+}
+
+function openKitContentsModal(kitKey) {
+  const kit = _catalogKits.find(k => k.key === kitKey);
+  if (!kit) return;
+  const modal = document.getElementById("kit-contents-modal");
+  const list = document.getElementById("kit-contents-list");
+  const title = document.getElementById("kit-contents-title");
+  const sub = document.getElementById("kit-contents-subtitle");
+  if (!modal || !list) return;
+  if (title) title.textContent = kit.name || "Conteúdo do kit";
+  if (sub) sub.textContent = `${kit.itemCount || 0} itens incluídos · ${kit.price > 0 ? formatAmberAmount(kit.price) : "Grátis"}`;
+  const contents = kit.kitContents || [];
+  list.innerHTML = contents.length
+    ? contents.map(c => `<li><strong>${escHtml(c.label || "Item")}</strong><span>×${escHtml(String(c.amount || 1))}</span></li>`).join("")
+    : `<li><strong>Sem detalhes publicados</strong><span>—</span></li>`;
+  modal.classList.remove("hidden");
+}
+
+function closeKitContentsModal() {
+  const modal = document.getElementById("kit-contents-modal");
+  if (modal) modal.classList.add("hidden");
+}
+
 function _catalogTypeClass(t) {
   const k = String(t || "item").toLowerCase();
   return ({
@@ -6246,21 +6606,36 @@ function _renderProductCard(i, btnLabel) {
       : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
   const docHtml = doc && typeof RedeemDocs !== "undefined" ? RedeemDocs.renderProductDocHtml(doc) : "";
   const adminDesc = String(i.desc || "").trim();
-  const adminLine = adminDesc && adminDesc !== i.name && (!doc || adminDesc !== doc.detailedDescription)
-    ? `<div class="item-card__desc item-card__desc--admin">${escHtml(adminDesc)}</div>`
+  const shortDesc = doc ? doc.shortDescription : (adminDesc || "");
+  const fullDesc = doc ? (doc.detailedDescription || doc.shortDescription) : adminDesc;
+  const descBlock = shortDesc
+    ? `<div class="item-card__desc" title="${escHtml(fullDesc || shortDesc)}">${escHtml(shortDesc)}</div>`
+    : "";
+  const adminLine = adminDesc && adminDesc !== i.name && (!doc || adminDesc !== doc.detailedDescription) && adminDesc !== shortDesc
+    ? `<div class="item-card__desc item-card__desc--admin" title="${escHtml(adminDesc)}">${escHtml(adminDesc)}</div>`
     : "";
   const lockHint = locked && !docHtml
     ? `<div class="item-card__req">Requer: ${escHtml(_missingLicenses(i).join(" ou "))}</div>`
     : "";
+  const catLabel = doc ? doc.categoryLabel : (i.displayCategory || i.category || (i.catalogKind === "kit" ? "Kit" : "Item"));
+  let metaLine = "";
+  if (i.licenseDays) {
+    metaLine = `<div class="item-card__meta-line">📜 ${escHtml(String(i.licenseDays))} dias${i.licenseGroup ? ` · ${escHtml(i.licenseGroup)}` : ""}</div>`;
+  } else if (i.catalogKind === "kit" && i.itemCount) {
+    metaLine = `<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>ver conteúdo</button></div>`;
+  } else if (i.tier && _isDinoType(i.type)) {
+    metaLine = `<div class="item-card__meta-line">Tier ${escHtml(i.tier)}${i.speciesKey ? ` · ${escHtml(i.speciesKey)}` : ""}</div>`;
+  }
   return `
-    <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}" title="${doc ? escHtml(doc.shortDescription) : ""}">
+    <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}" title="${escHtml(fullDesc || shortDesc || i.name)}">
       <div class="item-card__thumb">
-        <div class="item-card__icon">${locked ? "🔒" : _catalogTypeIcon(i.type)}</div>
+        ${locked ? `<div class="item-card__icon">🔒</div>` : _catalogThumbHtml(i)}
       </div>
       <div class="item-card__body">
-        <div class="item-card__cat">${escHtml(doc ? doc.categoryLabel : (i.category || (i.catalogKind === "kit" ? "Kit" : "Item")))}</div>
+        <div class="item-card__cat">${escHtml(catLabel)}</div>
         <div class="item-card__name">${escHtml(i.name)}</div>
-        ${docHtml || (i.desc ? `<div class="item-card__desc">${escHtml(i.desc)}</div>` : "")}
+        ${metaLine}
+        ${docHtml || descBlock}
         ${adminLine}
         ${lockHint}
         <div class="item-card__footer">
@@ -6279,6 +6654,7 @@ async function loadCatalog() {
     if (!r.ok) return false;
     const data = await r.json();
     if (data.currency) applyCurrency(data.currency);
+    if (data.tier_icon_urls) Object.assign(_catalogTierIcons, data.tier_icon_urls);
     const shop = data.items || data.ShopItems || data.Items || {};
     const kits = data.kits || data.Kits || {};
     const title = document.getElementById("catalog-shop-name");
@@ -6298,16 +6674,24 @@ async function loadCatalog() {
 
     _catalogItems = Object.entries(shop).map(([key, v]) => _attachRedeemDoc({
       key,
-      name:     v.Name || v.name || formatKey(key),
+      name:     v.Name || v.name || v.Description || formatKey(key),
       desc:     v.Description || v.description || "",
       price:    v.Price ?? v.price ?? 0,
       type:     _catalogDisplayType(v, key),
-      category: _resolveItemCategory(v, key),
+      category: v.display_category || _resolveItemCategory(v, key),
+      displayCategory: v.display_category || _resolveItemCategory(v, key),
       catalogKind: "item",
       purchaseType: "shop",
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
       licenseGrant: v.LicenseGrant || null,
+      thumbnailUrl: v.thumbnail_url || "",
+      searchText: v.search_text || "",
+      tier: v.tier || "",
+      speciesKey: v.species_key || "",
+      blueprint: v.blueprint || "",
+      licenseDays: v.license_days,
+      licenseGroup: v.license_group || "",
     }));
 
     _catalogKits = Object.entries(kits).map(([key, v]) => _attachRedeemDoc({
@@ -6317,11 +6701,17 @@ async function loadCatalog() {
       price:    v.Price ?? v.price ?? 0,
       type:     "kit",
       category: "Kit",
+      displayCategory: v.display_category || "Kit",
       catalogKind: "kit",
       purchaseType: "kit",
-      kitItems: (v.Items || []).length,
+      kitItems: v.item_count ?? (v.Items || []).length,
+      itemCount: v.item_count ?? (v.Items || []).length,
+      kitContents: v.kit_contents || [],
       permissions: v.Permissions || v.RequiredPermissions || "",
       permissionsMode: v.PermissionsMode || "any",
+      thumbnailUrl: v.thumbnail_url || "",
+      searchText: v.search_text || "",
+      tier: v.tier || "",
     }));
 
     _catalogPackages = data.point_packages || [];
@@ -6367,85 +6757,123 @@ async function loadCatalog() {
 }
 
 function renderCatalogItems() {
-  const search = (document.getElementById("catalog-search")?.value || "").toLowerCase();
+  const search = (document.getElementById("catalog-search")?.value || "").trim();
   const cat    = _catalogActiveCat || document.getElementById("catalog-cat")?.value || "";
+  const sort   = document.getElementById("catalog-sort")?.value || "name";
   const grid   = document.getElementById("catalog-grid");
   const empty  = document.getElementById("catalog-empty");
+  const countEl = document.getElementById("catalog-result-count");
   if (!grid) return;
 
-  const filtered = _catalogItems.filter(i => {
+  const filtered = _catalogSortItems(_catalogItems.filter(i => {
     if (_isDinoType(i.type)) return false;
     if (_isLicenseItem(i)) return false;
-    const matchSearch = !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
+    const matchSearch = _catalogMatchesSearch(i, search);
     const matchCat    = !cat    || i.category === cat;
     return matchSearch && matchCat;
-  });
+  }), sort);
 
   if (!filtered.length) {
     grid.innerHTML = "";
-    if (empty) empty.style.display = "";
+    if (empty) {
+      empty.style.display = "";
+      empty.innerHTML = _catalogEmptyStateHtml("items", search, cat);
+    }
+    if (countEl) countEl.style.display = "none";
     return;
   }
   if (empty) empty.style.display = "none";
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "itens");
+  }
   grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
 }
 
 function renderCatalogDinos() {
-  const search = (document.getElementById("catalog-dinos-search")?.value || "").toLowerCase();
+  const search = (document.getElementById("catalog-dinos-search")?.value || "").trim();
+  const sort = document.getElementById("catalog-dinos-sort")?.value || "name";
   const grid = document.getElementById("catalog-dinos-grid");
   const empty = document.getElementById("catalog-dinos-empty");
+  const countEl = document.getElementById("catalog-dinos-result-count");
   if (!grid) return;
 
-  const filtered = _catalogItems.filter(i => {
+  const filtered = _catalogSortItems(_catalogItems.filter(i => {
     if (!_isDinoType(i.type)) return false;
-    return !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
-  });
+    return _catalogMatchesSearch(i, search);
+  }), sort);
 
   if (!filtered.length) {
     grid.innerHTML = "";
-    if (empty) empty.style.display = "";
+    if (empty) {
+      empty.style.display = "";
+      empty.innerHTML = _catalogEmptyStateHtml("dinos", search, "");
+    }
+    if (countEl) countEl.style.display = "none";
     return;
   }
   if (empty) empty.style.display = "none";
-  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar Dino")).join("");
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "dinos");
+  }
+  grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar")).join("");
 }
 
 function renderCatalogKits() {
-  const search = (document.getElementById("catalog-kits-search")?.value || "").toLowerCase();
+  const search = (document.getElementById("catalog-kits-search")?.value || "").trim();
+  const sort = document.getElementById("catalog-kits-sort")?.value || "name";
   const grid = document.getElementById("catalog-kits-grid");
   const empty = document.getElementById("catalog-kits-empty");
+  const countEl = document.getElementById("catalog-kits-result-count");
   if (!grid) return;
 
-  const filtered = _catalogKits.filter(k => {
-    return !search || k.name.toLowerCase().includes(search) || k.desc.toLowerCase().includes(search);
-  });
+  const filtered = _catalogSortItems(_catalogKits.filter(k => _catalogMatchesSearch(k, search)), sort);
 
   if (!filtered.length) {
     grid.innerHTML = "";
-    if (empty) empty.style.display = "";
+    if (empty) {
+      empty.style.display = "";
+      empty.innerHTML = _catalogEmptyStateHtml("kits", search, "");
+    }
+    if (countEl) countEl.style.display = "none";
     return;
   }
   if (empty) empty.style.display = "none";
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "kits");
+  }
   grid.innerHTML = filtered.map(k => _renderProductCard(k, "Resgatar Kit")).join("");
 }
 
 function renderCatalogLicenses() {
-  const search = (document.getElementById("catalog-licenses-search")?.value || "").toLowerCase();
+  const search = (document.getElementById("catalog-licenses-search")?.value || "").trim();
+  const sort = document.getElementById("catalog-licenses-sort")?.value || "name";
   const grid = document.getElementById("catalog-licenses-grid");
   const empty = document.getElementById("catalog-licenses-empty");
+  const countEl = document.getElementById("catalog-licenses-result-count");
   if (!grid) return;
 
-  const filtered = _catalogItems.filter(i => {
+  const filtered = _catalogSortItems(_catalogItems.filter(i => {
     if (!_isLicenseItem(i)) return false;
-    return !search || i.name.toLowerCase().includes(search) || i.desc.toLowerCase().includes(search);
-  });
+    return _catalogMatchesSearch(i, search);
+  }), sort);
 
   if (!filtered.length) {
     grid.innerHTML = "";
-    if (empty) empty.style.display = "";
+    if (empty) {
+      empty.style.display = "";
+      empty.innerHTML = _catalogEmptyStateHtml("licenses", search, "");
+    }
+    if (countEl) countEl.style.display = "none";
     return;
   }
   if (empty) empty.style.display = "none";
+  if (countEl) {
+    countEl.style.display = "";
+    countEl.innerHTML = _catalogResultCountHtml(filtered.length, "licenças");
+  }
   grid.innerHTML = filtered.map(i => _renderProductCard(i, "Resgatar Licença")).join("");
 }
 
@@ -12032,6 +12460,19 @@ document.addEventListener("keydown", (e) => {
     <div class="buy-modal-footer">
       <button class="btn btn-ghost" onclick="closeBuyModal()">Cancelar</button>
       <button id="buy-confirm-btn" class="btn btn-success" onclick="confirmBuy()">✅ Confirmar Resgate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal conteúdo do kit ─────────────────────────────────────────────────── -->
+<div id="kit-contents-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="kit-contents-title" onclick="if(event.target===this)closeKitContentsModal()">
+  <div class="modal kit-contents-modal">
+    <button type="button" class="modal-close" onclick="closeKitContentsModal()" aria-label="Fechar">✕</button>
+    <h3 id="kit-contents-title" style="font-family:'Cinzel',serif;font-size:17px;color:#fff;margin:0 0 8px;">Conteúdo do kit</h3>
+    <p id="kit-contents-subtitle" style="font-size:12px;color:var(--text2);margin:0 0 14px;"></p>
+    <ul id="kit-contents-list" class="kit-contents-list"></ul>
+    <div style="margin-top:16px;text-align:right;">
+      <button type="button" class="btn btn-ghost" onclick="closeKitContentsModal()">Fechar</button>
     </div>
   </div>
 </div>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Acrocantossauro">
+  <rect width="64" height="64" rx="12" fill="#0d1a10"/>
+  <path fill="#a5d6a7" opacity="0.45" d="M31 18 L31 5 L35 22 Z"/><path fill="#a5d6a7" opacity="0.45" d="M39 18 L42 5 L43 22 Z"/>
+  <path fill="#4caf50" d="M10 40c2-12 10-20 22-22 6-8 18-10 28-2 4 10-2 18-10 22 4 6 2 14-6 16-10 4-22 0-28-8-6-4-8-10-6-16z"/>
+  <path fill="#4caf50" opacity="0.55" d="M18 44c4 4 10 6 16 4 4-2 6-6 4-10-6 2-12 2-20 6z"/>
+  <circle cx="39" cy="28" r="2.2" fill="#a5d6a7"/><circle cx="47" cy="29" r="1.8" fill="#a5d6a7" opacity="0.85"/>
+  <circle cx="40" cy="27.5" r="0.8" fill="#0d1a10" opacity="0.6"/>
+</svg>

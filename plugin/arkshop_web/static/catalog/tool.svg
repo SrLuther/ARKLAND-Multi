@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ferramenta">
+  <rect width="64" height="64" rx="12" fill="#0d1520"/>
+  <path fill="#00c8ff" d="M38 18a10 10 0 0 0-12 12L18 38a6 6 0 0 0 8.5 8.5l8-8a10 10 0 0 0 12-12l-4-4-4.5 4.5z"/>
+  <rect x="16" y="40" width="14" height="6" rx="2" fill="#e87820" transform="rotate(-45 23 43)"/>
+</svg>
