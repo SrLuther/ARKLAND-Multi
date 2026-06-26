@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -25,11 +26,47 @@ from market_economy import (
     normalize_blueprint,
 )
 
-_DATA_DIR = Path(__file__).resolve().parent / "data"
+
+def _bundle_dir() -> Path:
+    """Raiz dos assets empacotados — dev: plugin/arkshop_web; PyInstaller: _MEIPASS."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent
+
+
+def _data_dir() -> Path:
+    """Dev: plugin/arkshop_web/data — PyInstaller: _MEIPASS/data."""
+    bundled = _bundle_dir() / "data"
+    if bundled.is_dir():
+        return bundled
+    return Path(__file__).resolve().parent / "data"
+
+
+def _species_static_dir() -> Path:
+    """Dev: …/static/species — PyInstaller: _MEIPASS/static/species."""
+    bundled = _bundle_dir() / "static" / "species"
+    if bundled.is_dir():
+        return bundled
+    return Path(__file__).resolve().parent / "static" / "species"
+
+
+_DATA_DIR = _data_dir()
 _REGISTRY_PATH = _DATA_DIR / "ark_species_registry.json"
-_STATIC_DIR = Path(__file__).resolve().parent / "static" / "species"
+_STATIC_DIR = _species_static_dir()
 _ICONS_DIR = _STATIC_DIR / "icons"
 _SPECIES_ICONS_MANIFEST = _DATA_DIR / "species_icons_manifest.json"
+
+
+def _registry_path() -> Path:
+    return _data_dir() / "ark_species_registry.json"
+
+
+def _species_icons_manifest_path() -> Path:
+    return _data_dir() / "species_icons_manifest.json"
+
+
+def _icons_dir() -> Path:
+    return _species_static_dir() / "icons"
 
 TIER_ROOT_VALUES: dict[str, int] = {
     "S+": 12000,
@@ -197,9 +234,10 @@ def tier_icon_url(tier: str | None) -> str:
 def _bundled_species_icon_urls() -> dict[str, str]:
     """Mapa species_key → URL de ícone SVG original ARKLAND (manifest + disco)."""
     urls: dict[str, str] = {}
-    if _SPECIES_ICONS_MANIFEST.is_file():
+    manifest = _species_icons_manifest_path()
+    if manifest.is_file():
         try:
-            with _SPECIES_ICONS_MANIFEST.open(encoding="utf-8") as f:
+            with manifest.open(encoding="utf-8") as f:
                 data = json.load(f)
             for sk, meta in (data.get("icons") or {}).items():
                 if not sk:
@@ -209,8 +247,9 @@ def _bundled_species_icon_urls() -> dict[str, str]:
                     urls[str(sk).lower()] = path
         except Exception:
             pass
-    if _ICONS_DIR.is_dir():
-        for icon_file in _ICONS_DIR.glob("*.svg"):
+    icons_dir = _icons_dir()
+    if icons_dir.is_dir():
+        for icon_file in icons_dir.glob("*.svg"):
             sk = icon_file.stem.lower()
             urls.setdefault(sk, f"/species/icons/{icon_file.name}")
     return urls
@@ -249,10 +288,11 @@ def resolve_species_image(entry: dict[str, Any] | None, *, tier: str | None = No
 @lru_cache(maxsize=1)
 def load_registry_overlay_raw() -> list[dict[str, Any]]:
     """Entradas exclusivas de data/ark_species_registry.json (overlay de mods)."""
-    if not _REGISTRY_PATH.is_file():
+    reg_path = _registry_path()
+    if not reg_path.is_file():
         return []
     try:
-        with _REGISTRY_PATH.open(encoding="utf-8") as f:
+        with reg_path.open(encoding="utf-8") as f:
             data = json.load(f)
         return [e for e in (data.get("species") or []) if isinstance(e, dict) and e.get("species_key")]
     except Exception:
@@ -369,9 +409,10 @@ def _merged_species_list() -> list[dict[str, Any]]:
             "confidence": "high",
         }
 
-    if _REGISTRY_PATH.is_file():
+    reg_path = _registry_path()
+    if reg_path.is_file():
         try:
-            with _REGISTRY_PATH.open(encoding="utf-8") as f:
+            with reg_path.open(encoding="utf-8") as f:
                 overlay = json.load(f)
             for entry in overlay.get("species") or []:
                 sk = str(entry.get("species_key") or "")

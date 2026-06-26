@@ -3,11 +3,32 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.124"
+APP_VERSION: str = "1.9.126"
 BUILD_DATE: str = "2026-06-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.126",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para "
+            "extração temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da "
+            "Web Store e no load do config TEK; sync grava caminho persistente.",
+            "Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path "
+            "para catálogo em Program Files, ao lado do .exe ou APPDATA.",
+        ],
+    },
+    {
+        "version": "1.9.125",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix (Web Store): ícones SVG por espécie no catálogo de dinos em produção (PyInstaller) — "
+            "ark_species_registry resolve static/data a partir de _MEIPASS.",
+            "Fix (Web Store): painel Gerenciar Jogadores tolera ausência de market_player_profile e "
+            "garante migração de store_users; mensagens de erro mais claras no admin.",
+        ],
+    },
     {
         "version": "1.9.124",
         "date": "2026-06-26",

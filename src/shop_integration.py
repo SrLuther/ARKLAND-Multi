@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import shutil
 import socket
@@ -37,6 +38,69 @@ _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
 _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
 _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 logger = logging.getLogger(__name__)
+
+_INSTALLED_CATALOG_REL = Path("plugin") / "CustomShop" / "configs" / "config.json"
+
+
+def is_ephemeral_pyinstaller_path(path: str | Path) -> bool:
+    """True se o caminho aponta para extração temporária do PyInstaller (_MEIPASS)."""
+    if not path:
+        return False
+    norm = str(path).replace("/", "\\")
+    upper = norm.upper()
+    return "_MEI" in upper or "\\TEMP\\_MEI" in upper
+
+
+def installed_catalog_candidates() -> List[Path]:
+    """Caminhos persistentes possíveis para o catálogo mestre config.json."""
+    candidates: List[Path] = []
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / _INSTALLED_CATALOG_REL)
+    pf = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
+    candidates.append(pf / "ARKLAND-ServerManager" / _INSTALLED_CATALOG_REL)
+    candidates.append(
+        Path(os.environ.get("APPDATA", Path.home()))
+        / "ARKLAND-ServerManager"
+        / "CustomShop"
+        / "configs"
+        / "config.json"
+    )
+    candidates.append(_DEFAULT_CATALOG)
+    # dedupe preservando ordem
+    seen: set[str] = set()
+    out: List[Path] = []
+    for p in candidates:
+        key = str(p).lower()
+        if key not in seen:
+            seen.add(key)
+            out.append(p)
+    return out
+
+
+def resolve_persistent_catalog_path(
+    configured: str | Path = "",
+    *,
+    shop: Optional["ShopGlobalConfig"] = None,
+) -> Path:
+    """Resolve caminho gravável do catálogo mestre — nunca _MEIPASS."""
+    for raw in (
+        str(configured or "").strip(),
+        (getattr(shop, "catalog_config_path", "") or "").strip() if shop else "",
+    ):
+        if raw and not is_ephemeral_pyinstaller_path(raw):
+            p = Path(raw)
+            if p.is_file():
+                return p
+    for p in installed_catalog_candidates():
+        if p.is_file():
+            return p
+    for p in installed_catalog_candidates():
+        try:
+            p.parent.mkdir(parents=True, exist_ok=True)
+            return p
+        except OSError:
+            continue
+    return installed_catalog_candidates()[-1]
 
 
 def webstore_data_dir() -> Path:
@@ -848,7 +912,7 @@ def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     db_url = build_orders_database_url(shop)
     if db_url:
         env["ARKSHOP_DATABASE_URL"] = db_url
-    catalog = default_catalog_path(shop)
+    catalog = resolve_persistent_catalog_path(shop.catalog_config_path, shop=shop)
     if catalog.is_file():
         env["ARKSHOP_CONFIG_PATH"] = str(catalog)
     return env
@@ -1337,6 +1401,8 @@ def migrate_stale_plugin_website_urls(
             errors.append(f"{getattr(srv, 'name', '')}: {exc}")
     catalog_raw = (shop.catalog_config_path or "").strip()
     if catalog_raw:
+        catalog_raw = str(resolve_persistent_catalog_path(catalog_raw, shop=shop))
+    if catalog_raw:
         try:
             changed, msg = fix_website_url_in_config_file(
                 Path(catalog_raw), desired, server_name="catálogo mestre",
@@ -1410,6 +1476,10 @@ def sync_arkshop_web_settings(
             data = json.loads(settings_path.read_text(encoding="utf-8"))
         except Exception:
             data = {}
+
+    catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
+    if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
+        shop.catalog_config_path = str(catalog_path)
 
     data["port"] = int(shop.port or DEFAULT_SHOP_PORT)
     data["delivery_mode"] = shop.delivery_mode or "plugin"
@@ -1653,6 +1723,14 @@ def sync_all_plugins(
     asm_cm: Optional["AsmConfigManager"] = None,
 ) -> Tuple[List[str], List[str]]:
     """Retorna (sucessos, erros)."""
+    from .catalog_vip_pricing import apply_vip_pricing_to_catalog, catalog_has_placeholder_kit_prices
+
+    catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
+    shop_dirty = False
+    if is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
+        shop.catalog_config_path = str(catalog_path)
+        shop_dirty = True
+
     website = resolve_plugin_website_url(shop)
     api = resolve_plugin_api_url(shop)
     api_key = shop.api_key or ""
@@ -1663,13 +1741,27 @@ def sync_all_plugins(
         errors: List[str] = [f"CustomShop DB: {db_msg}"]
         return [], errors
 
+    ok: List[str] = []
+    errors: List[str] = []
+
+    had_placeholders = catalog_has_placeholder_kit_prices(catalog)
+    cleared, kit_updates = apply_vip_pricing_to_catalog(catalog)
+    try:
+        catalog_path.parent.mkdir(parents=True, exist_ok=True)
+        save_plugin_config(catalog_path, catalog)
+        ok.append(f"Catálogo mestre gravado → {catalog_path}")
+        if had_placeholders or cleared:
+            ok.append(f"Placeholders removidos: {', '.join(cleared[:12]) or '(recalculados)'}")
+        if kit_updates and (had_placeholders or cleared):
+            ok.append(f"Preços VIP/Tek: {', '.join(kit_updates[:12])}")
+    except Exception as exc:
+        errors.append(f"catálogo mestre ({catalog_path}): {exc}")
+
     catalog_db = catalog.get("Database", {})
     if catalog_db:
         # Senha nunca vem do catálogo (template pode ter SUA_SENHA_AQUI).
         catalog_db = {k: v for k, v in catalog_db.items() if k != "Password"}
         db_settings = {**catalog_db, **db_settings}
-    ok: List[str] = []
-    errors: List[str] = []
     classic_dirty = False
     tek_dirty = False
 
@@ -1729,6 +1821,8 @@ def sync_all_plugins(
         cm.save_servers()
     if tek_dirty and asm_cm is not None:
         asm_cm.save()
+    if shop_dirty:
+        cm.save()
     sync_arkshop_web_settings(shop, catalog_path, website_url=website, api_url=api)
     reg_n = register_arkshop_servers(cm, shop, asm_cm=asm_cm, errors=errors)
     if reg_n:
@@ -1737,7 +1831,4 @@ def sync_all_plugins(
 
 
 def default_catalog_path(shop: "ShopGlobalConfig") -> Path:
-    raw = (shop.catalog_config_path or "").strip()
-    if raw:
-        return Path(raw)
-    return _DEFAULT_CATALOG
+    return resolve_persistent_catalog_path(shop.catalog_config_path, shop=shop)

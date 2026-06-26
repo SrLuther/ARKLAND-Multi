@@ -48,7 +48,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 from src.rcon_util import sanitize_rcon_password  # noqa: E402
-from src.shop_integration import apply_machine_server_registry, _merge_arkland_server_entry  # noqa: E402
+from src.shop_integration import (  # noqa: E402
+    apply_machine_server_registry,
+    _merge_arkland_server_entry,
+    is_ephemeral_pyinstaller_path,
+    resolve_persistent_catalog_path,
+)
 
 # ── Logging estruturado ───────────────────────────────────────────────────────
 
@@ -244,13 +249,9 @@ app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path
 CORS(app)
 app.secret_key = os.environ.get("ARKSHOP_WEB_SECRET", "arkshop-web-dev-secret-change-me")
 
-_DEFAULT_CONFIG_PATH = os.environ.get("ARKSHOP_CONFIG_PATH", "").strip()
-if not _DEFAULT_CONFIG_PATH:
-    _cfg_candidates = [
-        _BUNDLE_DIR / "CustomShop" / "configs" / "config.json",
-        _BUNDLE_DIR.parent / "CustomShop" / "configs" / "config.json",
-    ]
-    _DEFAULT_CONFIG_PATH = str(next((p for p in _cfg_candidates if p.is_file()), _cfg_candidates[0]))
+_DEFAULT_CONFIG_PATH = str(
+    resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip())
+)
 _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
 _ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
@@ -808,6 +809,50 @@ def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
     return _build_database_url_from_settings(settings)
 
 
+def _db_table_exists(engine: Any, table_name: str) -> bool:
+    try:
+        from sqlalchemy import inspect
+
+        return table_name in set(inspect(engine).get_table_names())
+    except Exception:
+        return False
+
+
+def _ensure_store_users_schema(engine: Any) -> None:
+    """Garante store_users e colunas usadas pelo painel admin de jogadores."""
+    is_mysql = "mysql" in str(engine.url).lower()
+    if not _db_table_exists(engine, "store_users"):
+        Base.metadata.create_all(bind=engine, tables=[StoreUser.__table__])
+        return
+    if not is_mysql:
+        return
+    with engine.connect() as conn:
+        cols = {
+            str(row[0])
+            for row in conn.execute(text("SHOW COLUMNS FROM `store_users`")).fetchall()
+        }
+        alters: list[str] = []
+        if "site_access_blocked" not in cols:
+            alters.append(
+                "ADD COLUMN `site_access_blocked` TINYINT(1) NOT NULL DEFAULT 0"
+            )
+        if "ban_reason" not in cols:
+            alters.append("ADD COLUMN `ban_reason` TEXT NULL")
+        if "last_login_at" not in cols:
+            alters.append("ADD COLUMN `last_login_at` DATETIME NULL")
+        if "display_name" not in cols:
+            alters.append("ADD COLUMN `display_name` VARCHAR(128) NULL")
+        if "created_at" not in cols:
+            alters.append(
+                "ADD COLUMN `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            )
+        for fragment in alters:
+            conn.execute(text(f"ALTER TABLE `store_users` {fragment}"))
+        if alters:
+            conn.commit()
+            log.info("store_users: colunas do painel admin adicionadas (%s)", len(alters))
+
+
 def _migrate_schema(engine: Any) -> None:
     """Alinha schema MySQL com os modelos SQLAlchemy (incl. setup_db.sql legado)."""
     global _ENTITLEMENTS_SCHEMA_READY
@@ -833,7 +878,7 @@ def _migrate_schema(engine: Any) -> None:
             conn.execute(text(_entitlements_ddl_sqlite()))
             conn.commit()
         _ENTITLEMENTS_SCHEMA_READY = True
-        Base.metadata.create_all(bind=engine, tables=[StoreUser.__table__])
+        _ensure_store_users_schema(engine)
         _backfill_store_users(engine)
         return
     with engine.connect() as conn:
@@ -888,6 +933,7 @@ def _migrate_schema(engine: Any) -> None:
         conn.commit()
     Base.metadata.create_all(bind=engine)
     _ENTITLEMENTS_SCHEMA_READY = True
+    _ensure_store_users_schema(engine)
     _backfill_store_users(engine)
     try:
         from market_migrate import ensure_market_schema
@@ -1129,6 +1175,10 @@ def _load_settings() -> Dict[str, Any]:
             for key in _SENSITIVE_SETTINGS_KEYS:
                 if key in data and isinstance(data[key], str):
                     data[key] = _decrypt_value(data[key])
+            cp = str(data.get("config_path") or "").strip()
+            if is_ephemeral_pyinstaller_path(cp):
+                data["config_path"] = str(resolve_persistent_catalog_path(cp))
+                _save_settings(data)
             return data
         except Exception:
             pass
@@ -1154,6 +1204,9 @@ def _load_settings() -> Dict[str, Any]:
 
 def _save_settings(data: Dict[str, Any]) -> None:
     safe_data = data.copy()
+    cp = str(safe_data.get("config_path") or "").strip()
+    if is_ephemeral_pyinstaller_path(cp):
+        safe_data["config_path"] = str(resolve_persistent_catalog_path(cp))
     # Encrypt sensitive fields
     for key in _SENSITIVE_SETTINGS_KEYS:
         if key in safe_data:
@@ -1345,36 +1398,63 @@ def _list_admin_players(
     sort_dir = "ASC" if str(order).lower() == "asc" else "DESC"
     db = _SessionLocal()
     try:
+        bind = db.get_bind()
+        _ensure_store_users_schema(bind)
+        has_market_profile = _db_table_exists(bind, "market_player_profile")
+        has_players = _db_table_exists(bind, "players")
         params: dict[str, Any] = {"lim": limit, "off": offset}
         where = "WHERE 1=1"
         if q:
             params["q"] = f"%{q}%"
             params["qexact"] = q
-            where += (
-                " AND (su.steam_id LIKE :q OR su.display_name LIKE :q "
-                "OR mp.market_display_name LIKE :q OR su.steam_id = :qexact)"
-            )
+            search_bits = [
+                "su.steam_id LIKE :q",
+                "su.display_name LIKE :q",
+                "su.steam_id = :qexact",
+            ]
+            if has_market_profile:
+                search_bits.append("mp.market_display_name LIKE :q")
+            where += f" AND ({' OR '.join(search_bits)})"
+        market_join = (
+            "LEFT JOIN market_player_profile mp ON mp.steam_id = su.steam_id "
+            if has_market_profile
+            else ""
+        )
+        players_join = (
+            "LEFT JOIN players p ON p.steam_id = su.steam_id "
+            if has_players
+            else ""
+        )
+        points_expr = "COALESCE(p.points, 0)" if has_players else "0"
         sort_col = {
             "last_login": "su.last_login_at",
-            "display_name": "COALESCE(su.display_name, mp.market_display_name, su.steam_id)",
-            "points": "COALESCE(p.points, 0)",
+            "display_name": (
+                "COALESCE(su.display_name, mp.market_display_name, su.steam_id)"
+                if has_market_profile
+                else "COALESCE(su.display_name, su.steam_id)"
+            ),
+            "points": points_expr,
             "created_at": "su.created_at",
         }[sort_key]
         count_sql = (
             "SELECT COUNT(*) FROM store_users su "
-            "LEFT JOIN market_player_profile mp ON mp.steam_id = su.steam_id "
-            "LEFT JOIN players p ON p.steam_id = su.steam_id "
+            f"{market_join}"
+            f"{players_join}"
             f"{where}"
         )
         total = int(db.execute(text(count_sql), params).scalar() or 0)
+        select_cols = (
+            "su.steam_id, su.display_name, "
+            + ("mp.market_display_name, " if has_market_profile else "NULL AS market_display_name, ")
+            + f"{points_expr}, su.site_access_blocked, su.ban_reason, "
+            "su.created_at, su.last_login_at "
+        )
         rows = db.execute(
             text(
-                "SELECT su.steam_id, su.display_name, mp.market_display_name, "
-                "COALESCE(p.points, 0), su.site_access_blocked, su.ban_reason, "
-                "su.created_at, su.last_login_at "
+                f"SELECT {select_cols}"
                 "FROM store_users su "
-                "LEFT JOIN market_player_profile mp ON mp.steam_id = su.steam_id "
-                "LEFT JOIN players p ON p.steam_id = su.steam_id "
+                f"{market_join}"
+                f"{players_join}"
                 f"{where} "
                 f"ORDER BY {sort_col} {sort_dir}, su.steam_id ASC "
                 "LIMIT :lim OFFSET :off"
@@ -1384,11 +1464,19 @@ def _list_admin_players(
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = str(r[0])
+            market_name = str(r[2]).strip() if r[2] else None
+            if not market_name and has_market_profile:
+                try:
+                    prof = _safe_market_profile(db, sid)
+                    if prof and (prof.market_display_name or "").strip():
+                        market_name = str(prof.market_display_name).strip()
+                except Exception:
+                    pass
             ents = _get_player_entitlements(sid)
             items.append({
                 "steam_id": sid,
                 "display_name": _resolve_player_display_name(
-                    sid, store_name=r[1], market_name=r[2],
+                    sid, store_name=r[1], market_name=market_name,
                 ),
                 "points": int(r[3] or 0),
                 "site_access_blocked": bool(r[4]),
@@ -3992,6 +4080,8 @@ def get_catalog():
     from ark_species_registry import TIER_ICON_URLS
     from catalog_enrich import CATEGORY_ICONS, enrich_catalog_payload
 
+    s = _load_settings()
+    config_path = Path(s.get("config_path", _DEFAULT_CONFIG_PATH))
     data = _read_shop_config()
     items = data.get("Items") or data.get("ShopItems") or {}
     kits = data.get("Kits") or {}
@@ -4004,8 +4094,32 @@ def get_catalog():
         or _DEFAULT_PUBLIC_BRAND
     )
     packages = _load_point_packages()
-    s = _load_settings()
     public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
+
+    def _kit_price(kit_id: str) -> int | None:
+        raw = (kits.get(kit_id) or data.get("Kits", {}).get(kit_id) or {})
+        if not isinstance(raw, dict):
+            return None
+        price = raw.get("Price")
+        return int(price) if price is not None else None
+
+    def _kit_perms(kit_id: str) -> str:
+        raw = (kits.get(kit_id) or data.get("Kits", {}).get(kit_id) or {})
+        if not isinstance(raw, dict):
+            return ""
+        return str(raw.get("Permissions") or "")
+
+    catalog_meta = {
+        "config_path": str(config_path.resolve()) if config_path.exists() else str(config_path),
+        "config_exists": config_path.is_file(),
+        "vip_sample": {
+            "vip_bronze": {"price": _kit_price("vip_bronze"), "permissions": _kit_perms("vip_bronze")},
+            "ouro": {"price": _kit_price("ouro"), "permissions": _kit_perms("ouro")},
+            "diamante": {"price": _kit_price("diamante"), "permissions": _kit_perms("diamante")},
+            "kit_tek_padrao_alfa": {"price": _kit_price("kit_tek_padrao_alfa")},
+        },
+    }
+
     return jsonify({
         "items": items,
         "kits": kits,
@@ -4017,6 +4131,7 @@ def get_catalog():
         "shop_url": public_url,
         "tier_icon_urls": TIER_ICON_URLS,
         "category_icons": CATEGORY_ICONS,
+        "catalog_meta": catalog_meta,
     })
 
 

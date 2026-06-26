@@ -12420,7 +12420,8 @@ async function loadPlayersAdmin(resetPanel) {
       selectPlayerAdmin(_playersAdminSelected, true);
     }
   } catch (e) {
-    if (el) el.innerHTML = `<p style="color:var(--danger);">Falha ao carregar jogadores.</p>`;
+    const msg = e?.data?.error || e?.message || "Falha ao carregar jogadores.";
+    if (el) el.innerHTML = `<p style="color:var(--danger);">${escHtml(msg)}</p>`;
   }
 }
 

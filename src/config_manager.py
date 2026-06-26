@@ -279,6 +279,14 @@ class ConfigManager:
                 _deserialize(EnvironmentConfig,   "environment")
                 _deserialize(BroadcastTekConfig,  "broadcast_tek")
                 self.config = AppConfig(**raw)
+                from .shop_integration import is_ephemeral_pyinstaller_path, resolve_persistent_catalog_path
+
+                shop_cfg = self.config.shop
+                if is_ephemeral_pyinstaller_path(shop_cfg.catalog_config_path or ""):
+                    shop_cfg.catalog_config_path = str(
+                        resolve_persistent_catalog_path(shop_cfg.catalog_config_path, shop=shop_cfg)
+                    )
+                    self.save()
                 if not self.config.update_url:
                     self.config.update_url = self._DEFAULT_UPDATE_URL
                 if not isinstance(self.config.remote_peers, list):

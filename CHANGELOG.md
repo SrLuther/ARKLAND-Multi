@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.126] - 2026-06-26
+
+### Fix
+
+- Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para extração temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da Web Store e no load do config TEK; sync grava caminho persistente.
+- Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path para catálogo em Program Files, ao lado do .exe ou APPDATA.
+
+## [1.9.125] - 2026-06-26
+
+### Fix
+
+- Fix (Web Store): ícones SVG por espécie no catálogo de dinos em produção (PyInstaller) — ark_species_registry resolve static/data a partir de _MEIPASS.
+- Fix (Web Store): painel Gerenciar Jogadores tolera ausência de market_player_profile e garante migração de store_users; mensagens de erro mais claras no admin.
+
 ## [1.9.124] - 2026-06-26
 
 ### Feature

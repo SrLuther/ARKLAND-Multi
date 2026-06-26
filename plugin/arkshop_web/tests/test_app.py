@@ -752,8 +752,19 @@ class TestAdminPlayers:
         )
         assert r3.get_json()["ok"] is True
 
-
-# ── Admin pontos (banco central) ──────────────────────────────────────────────
+    def test_list_players_without_market_profile_table(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="Alpha Tester")
+        monkeypatch.setattr(
+            _app_module,
+            "_db_table_exists",
+            lambda _engine, name: name != "market_player_profile",
+        )
+        _login(client, ADMIN_STEAM)
+        r = client.get("/api/admin/players?q=Alpha")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d["total"] >= 1
 
 class TestAdminPoints:
     def test_add_and_get_points(self, client):

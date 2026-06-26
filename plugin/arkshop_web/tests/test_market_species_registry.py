@@ -151,3 +151,16 @@ def test_lookup_shop_rex_uses_species_icon():
     hit = lookup_species(blueprint=bp, name_hint="Rex Fêmea")
     assert hit is not None
     assert hit["image_url"].endswith("/rex.svg")
+
+
+def test_bundled_icons_from_meipass_layout(tmp_path, monkeypatch):
+    """PyInstaller empacota static/ e data/ na raiz de _MEIPASS, não em plugin/arkshop_web/."""
+    meipass = tmp_path / "mei"
+    icons = meipass / "static" / "species" / "icons"
+    icons.mkdir(parents=True)
+    (icons / "rex.svg").write_text("<svg/>", encoding="utf-8")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(meipass), raising=False)
+    _bundled_species_icon_urls.cache_clear()
+    urls = _bundled_species_icon_urls()
+    assert urls.get("rex") == "/species/icons/rex.svg"

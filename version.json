@@ -1,10 +1,9 @@
-{
-    "version": "1.9.124",
-    "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.124/ARKLAND-Multi-Setup-v1.9.124.exe",
-    "changelog": [
-        "Fix (Loja): tools/apply_vip_pricing.py varre todos os kits com Permissions (VIP, VISOUS Gamma/Beta/Alfa) — preço = 10% da licença, remove placeholders 99.999.999/1, corrige diamante para Permissions Admins,VIPDiamante (não Alfa) e preço 1.125.",
-        "Fix (Loja): kits VIP Bronze/Prata/Ouro/Diamante fixados em 300/450/750/1.125 Âmbar; licenca_vip_* garantidas no catálogo (3k/4,5k/7,5k/11,25k).",
-        "Feat (Loja): mapeamento explícito ouro→VIPOuro (evita confundir com licença Alfa) e sanitização automática de Price ≥ 1.000.000 em todos os kits."
-    ]
-}
+{
+    "version": "1.9.126",
+    "date": "2026-06-26",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.126/ARKLAND-Multi-Setup-v1.9.126.exe",
+    "changelog": [
+        "Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para extração temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da Web Store e no load do config TEK; sync grava caminho persistente.",
+        "Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path para catálogo em Program Files, ao lado do .exe ou APPDATA."
+    ]
+}
