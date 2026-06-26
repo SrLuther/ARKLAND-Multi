@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.126"
+APP_VERSION: str = "1.9.127"
 BUILD_DATE: str = "2026-06-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.127",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix (Loja): tools/fix_production_catalog.ps1 aplica preços VIP no JSON mestre, "
+            "atualiza config_path em settings.json e opcionalmente sincroniza mapas.",
+            "Melhoria (Web Store): /api/catalog expõe catalog_meta.placeholder_kits_detected "
+            "para diagnosticar catálogo com preços 99.999.999 sem adivinhar o arquivo.",
+        ],
+    },
     {
         "version": "1.9.126",
         "date": "2026-06-26",

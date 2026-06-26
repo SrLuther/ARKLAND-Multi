@@ -4109,9 +4109,18 @@ def get_catalog():
             return ""
         return str(raw.get("Permissions") or "")
 
+    placeholder_kits_detected = False
+    try:
+        from src.catalog_vip_pricing import catalog_has_placeholder_kit_prices
+
+        placeholder_kits_detected = catalog_has_placeholder_kit_prices(data)
+    except Exception:
+        pass
+
     catalog_meta = {
         "config_path": str(config_path.resolve()) if config_path.exists() else str(config_path),
         "config_exists": config_path.is_file(),
+        "placeholder_kits_detected": placeholder_kits_detected,
         "vip_sample": {
             "vip_bronze": {"price": _kit_price("vip_bronze"), "permissions": _kit_perms("vip_bronze")},
             "ouro": {"price": _kit_price("ouro"), "permissions": _kit_perms("ouro")},

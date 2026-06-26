@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.127] - 2026-06-26
+
+### Improvement
+
+- Melhoria (Web Store): /api/catalog expõe catalog_meta.placeholder_kits_detected para diagnosticar catálogo com preços 99.999.999 sem adivinhar o arquivo.
+
+### Fix
+
+- Fix (Loja): tools/fix_production_catalog.ps1 aplica preços VIP no JSON mestre, atualiza config_path em settings.json e opcionalmente sincroniza mapas.
+
 ## [1.9.126] - 2026-06-26
 
 ### Fix

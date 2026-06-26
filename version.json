@@ -1,9 +1,9 @@
-{
-    "version": "1.9.126",
-    "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.126/ARKLAND-Multi-Setup-v1.9.126.exe",
-    "changelog": [
-        "Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para extração temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da Web Store e no load do config TEK; sync grava caminho persistente.",
-        "Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path para catálogo em Program Files, ao lado do .exe ou APPDATA."
-    ]
-}
+{
+    "version": "1.9.126",
+    "date": "2026-06-26",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.126/ARKLAND-Multi-Setup-v1.9.126.exe",
+    "changelog": [
+        "Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para extração temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da Web Store e no load do config TEK; sync grava caminho persistente.",
+        "Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path para catálogo em Program Files, ao lado do .exe ou APPDATA."
+    ]
+}
