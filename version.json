@@ -3,8 +3,8 @@
     "date": "2026-06-26",
     "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.124/ARKLAND-Multi-Setup-v1.9.124.exe",
     "changelog": [
-        "Fix (Loja): preços VIP 10% da licença (300/450/750/1125 Âmbar), placeholders 99M removidos, Diamante Admins,VIPDiamante.",
-        "Feat (Web Store): painel admin Gerenciar Jogadores; ícones de espécie com badge de tier; Comércio P2P só dinos criopodáveis.",
-        "Feat: catálogo Abyss + sync dinos homologados; oBobonic auto_start; broadcasts scheduler ativo por padrão."
+        "Fix (Loja): tools/apply_vip_pricing.py varre todos os kits com Permissions (VIP, VISOUS Gamma/Beta/Alfa) — preço = 10% da licença, remove placeholders 99.999.999/1, corrige diamante para Permissions Admins,VIPDiamante (não Alfa) e preço 1.125.",
+        "Fix (Loja): kits VIP Bronze/Prata/Ouro/Diamante fixados em 300/450/750/1.125 Âmbar; licenca_vip_* garantidas no catálogo (3k/4,5k/7,5k/11,25k).",
+        "Feat (Loja): mapeamento explícito ouro→VIPOuro (evita confundir com licença Alfa) e sanitização automática de Price ≥ 1.000.000 em todos os kits."
     ]
 }
