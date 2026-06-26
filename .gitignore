@@ -61,3 +61,8 @@ output.txt
 release_log.txt
 CRASH_ANALYSIS.md
 node_modules
+
+# Web Store — dados locais (nunca versionar)
+**/webstore.log
+plugin/arkshop_web/admin_steamids.json
+**/settings.json

@@ -4537,6 +4537,166 @@
           "Neutered": false
         }
       ]
+    },
+    "arco_tek_alfa": {
+      "Type": "item",
+      "Price": 3500,
+      "Category": "Armas",
+      "Name": "Arco Tek Alfa",
+      "Description": "Arco Tek Alfa (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Alfa/PrimalItem_Weapon_ArcoTek_Alfa.PrimalItem_Weapon_ArcoTek_Alfa",
+          "Quantity": 1
+        }
+      ]
+    },
+    "arco_tek_beta": {
+      "Type": "item",
+      "Price": 2000,
+      "Category": "Armas",
+      "Name": "Arco Tek Beta",
+      "Description": "Arco Tek Beta (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Beta/PrimalItem_Weapon_ArcoTek_Beta.PrimalItem_Weapon_ArcoTek_Beta",
+          "Quantity": 1
+        }
+      ]
+    },
+    "escopeta_alfa": {
+      "Type": "item",
+      "Price": 3500,
+      "Category": "Armas",
+      "Name": "Escopeta Alfa",
+      "Description": "Escopeta Alfa (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Alfa/PrimalItem_Escopeta_Alfa.PrimalItem_Escopeta_Alfa",
+          "Quantity": 1
+        }
+      ]
+    },
+    "escopeta_beta": {
+      "Type": "item",
+      "Price": 2000,
+      "Category": "Armas",
+      "Name": "Escopeta Beta",
+      "Description": "Escopeta Beta (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Beta/PrimalItem_Escopeta_Beta.PrimalItem_Escopeta_Beta",
+          "Quantity": 1
+        }
+      ]
+    },
+    "foice_alfa": {
+      "Type": "item",
+      "Price": 3500,
+      "Category": "Ferramentas",
+      "Name": "Foice Alfa",
+      "Description": "Foice Alfa (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Alfa/PrimalItem_Foice_Alfa.PrimalItem_Foice_Alfa",
+          "Quantity": 1
+        }
+      ]
+    },
+    "foice_beta": {
+      "Type": "item",
+      "Price": 2000,
+      "Category": "Ferramentas",
+      "Name": "Foice Beta",
+      "Description": "Foice Beta (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Beta/PrimalItem_Foice_Beta.PrimalItem_Foice_Beta",
+          "Quantity": 1
+        }
+      ]
+    },
+    "indoraptor": {
+      "Type": "dino",
+      "Price": 48000,
+      "Category": "Comercio",
+      "Name": "IndoRaptor",
+      "Description": "IndoRaptor Nivel 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "indoraptor_femea": {
+      "Type": "dino",
+      "Price": 45000,
+      "Category": "Dinos",
+      "Name": "IndoRaptor",
+      "Description": "IndoRaptor Nivel 1",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+          "Level": 1,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "machado_alfa": {
+      "Type": "item",
+      "Price": 3500,
+      "Category": "Ferramentas",
+      "Name": "Machado Alfa",
+      "Description": "Machado Alfa (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Alfa/PrimalItem_Machado_Alfa.PrimalItem_Machado_Alfa",
+          "Quantity": 1
+        }
+      ]
+    },
+    "machado_beta": {
+      "Type": "item",
+      "Price": 2000,
+      "Category": "Ferramentas",
+      "Name": "Machado Beta",
+      "Description": "Machado Beta (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Beta/PrimalItem_Machado_Beta.PrimalItem_Machado_Beta",
+          "Quantity": 1
+        }
+      ]
+    },
+    "picareta_alfa": {
+      "Type": "item",
+      "Price": 3500,
+      "Category": "Ferramentas",
+      "Name": "Picareta Alfa",
+      "Description": "Picareta Alfa (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Alfa/PrimalItem_Picareta_Alfa.PrimalItem_Picareta_Alfa",
+          "Quantity": 1
+        }
+      ]
+    },
+    "picareta_beta": {
+      "Type": "item",
+      "Price": 2000,
+      "Category": "Ferramentas",
+      "Name": "Picareta Beta",
+      "Description": "Picareta Beta (1x)",
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Beta/PrimalItem_Picareta_Beta.PrimalItem_Picareta_Beta",
+          "Quantity": 1
+        }
+      ]
     }
   },
   "TimedPointsReward": {

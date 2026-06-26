@@ -248,7 +248,7 @@ class DbLocalServer:
             f"--basedir={_mariadb_dir()}",
             f"--datadir={_data_dir()}",
             f"--port={_PORT}",
-            "--bind-address=0.0.0.0",
+            "--bind-address=127.0.0.1",
             "--skip-networking=0",
             "--console",
         ]
@@ -345,8 +345,11 @@ class DbLocalServer:
             return False
 
     @staticmethod
-    def create_firewall_rule() -> tuple[bool, str]:
+    def create_firewall_rule(*, remote_ip: str = "127.0.0.1") -> tuple[bool, str]:
         """Cria regra no Windows Firewall para TCP 3306.
+
+        Por padrão restringe a localhost (127.0.0.1). Passe remote_ip para liberar
+        um IP específico da LAN quando o usuário optar por acesso remoto.
 
         Se já tem admin: usa netsh direto.
         Se não tem admin: lança processo elevado via ShellExecuteW e aguarda.
@@ -355,11 +358,13 @@ class DbLocalServer:
         if DbLocalServer.check_firewall_rule():
             return True, "Regra já existe."
 
+        remote_clause = f" remoteip={remote_ip}" if remote_ip else ""
         # ── Comando netsh ──────────────────────────────────────────────────────
         netsh_cmd = (
             f'netsh advfirewall firewall add rule'
             f' name="{_FIREWALL_RULE}"'
             f' protocol=TCP dir=in localport={_PORT} action=allow'
+            f'{remote_clause}'
             f' description="MariaDB portable ARKLAND"'
         )
 

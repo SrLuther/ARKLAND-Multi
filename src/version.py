@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.129"
+APP_VERSION: str = "1.9.130"
 BUILD_DATE: str = "2026-06-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.130",
+        "date": "2026-06-26",
+        "changes": [
+            "Melhoria (Web Store / Admin): redesign da fila de pedidos com ações de reembolso, "
+            "reenvio, cancelamento e detalhes do pedido.",
+            "Fix (Web Store): collation steam_id em JOINs MySQL (Gerenciar Jogadores) — evita erro 1267.",
+            "Melhoria (Loja): catálogo mod_catalog_verified.json e sync_mod_catalog_from_beacon.py "
+            "para validar blueprints de mods via Beacon.",
+            "Melhoria (Loja): preços IndoRaptor no catálogo mestre.",
+            "Segurança (Web Store / DB — fase 1): logs sem credenciais; admin_steamids fora do repo "
+            "(APPDATA); CORS restrito; ARKSHOP_WEB_SECRET obrigatória em produção/.exe; MariaDB bind "
+            "127.0.0.1 e firewall com escopo localhost ou LAN sob opt-in.",
+        ],
+    },
     {
         "version": "1.9.129",
         "date": "2026-06-26",

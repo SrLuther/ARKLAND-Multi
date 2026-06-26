@@ -58,6 +58,16 @@ def fresh_db(tmp_path, monkeypatch):
         db = _app_module._SessionLocal()
         try:
             _app_module._ensure_entitlements_schema(db)
+            db.add(
+                _app_module.MarketPlayerProfile(
+                    steam_id=USER_STEAM,
+                    market_display_name="TestPlayer",
+                    commerce_enabled=True,
+                    created_at=_now(),
+                    updated_at=_now(),
+                )
+            )
+            db.commit()
         finally:
             db.close()
     monkeypatch.setattr(_app_module, "_DB_INITIALIZED", True)
@@ -90,7 +100,7 @@ def _write_settings(tmp_path, **overrides):
     (tmp_path / "settings.json").write_text(json.dumps(data), encoding="utf-8")
 
 
-def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default"):
+def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default", points_spent=0):
     db = _app_module._SessionLocal()
     try:
         o = _app_module.Order(
@@ -100,6 +110,7 @@ def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status=
             item_type="shop",
             item_id=item_id,
             amount=amount,
+            points_spent=max(0, int(points_spent)),
             status=status,
             created_at=_now(),
             updated_at=_now(),
@@ -766,6 +777,14 @@ class TestAdminPlayers:
         assert d["ok"] is True
         assert d["total"] >= 1
 
+    def test_steam_id_join_uses_unicode_collation(self):
+        sql = _app_module._steam_id_on_sql("mp.steam_id", "su.steam_id", mysql=True)
+        assert "COLLATE utf8mb4_unicode_ci" in sql
+        assert sql.count("COLLATE utf8mb4_unicode_ci") == 2
+        assert _app_module._steam_id_on_sql("a.steam_id", "b.steam_id", mysql=False) == (
+            "a.steam_id = b.steam_id"
+        )
+
 class TestAdminPoints:
     def test_add_and_get_points(self, client):
         _login(client, ADMIN_STEAM)
@@ -808,6 +827,124 @@ class TestAdminReprocess:
         oid = _create_order_direct(status="ENTREGUE")
         r = client.post(f"/api/admin/orders/{oid}/reprocess")
         assert r.status_code == 400
+
+
+# ── Admin order actions (refund / resend / cancel / details) ─────────────────
+
+class TestAdminOrderActions:
+    def test_admin_refund_credits_player(self, client):
+        _login(client, ADMIN_STEAM)
+        _seed_player_points(USER_STEAM, 100)
+        oid = _create_order_direct(status="ENTREGUE", points_spent=50)
+        r = client.post(
+            f"/api/admin/orders/{oid}/refund",
+            json={"reason": "Não entregue"},
+        )
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["status"] == "REEMBOLSADO"
+        assert d["refunded"] == 50
+        assert d["new_balance"] == 150
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "REEMBOLSADO"
+        finally:
+            db.close()
+
+    def test_admin_refund_blocked_when_already_refunded(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="REEMBOLSADO", points_spent=10)
+        r = client.post(f"/api/admin/orders/{oid}/refund", json={})
+        assert r.status_code == 409
+
+    def test_admin_resend_sets_pending(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="ERRO")
+        r = client.post(f"/api/admin/orders/{oid}/resend", json={})
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["status"] == "PENDENTE"
+        assert d.get("queued") is True
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "PENDENTE"
+            assert order.retry_count == 0
+        finally:
+            db.close()
+
+    def test_admin_resend_blocked_when_already_pending(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="PENDENTE")
+        r = client.post(f"/api/admin/orders/{oid}/resend", json={})
+        assert r.status_code == 409
+
+    def test_admin_cancel_without_refund(self, client):
+        _login(client, ADMIN_STEAM)
+        _seed_player_points(USER_STEAM, 200)
+        oid = _create_order_direct(status="ENTREGUE", points_spent=80)
+        r = client.post(f"/api/admin/orders/{oid}/cancel", json={"reason": "Fraude"})
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["status"] == "CANCELADO"
+        assert d["refunded"] == 0
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "CANCELADO"
+            row = db.execute(
+                __import__("sqlalchemy").text("SELECT points FROM players WHERE steam_id = :sid"),
+                {"sid": USER_STEAM},
+            ).fetchone()
+            assert int(row[0]) == 200
+        finally:
+            db.close()
+
+    def test_admin_refund_closes_contest(self, client):
+        _login(client, ADMIN_STEAM)
+        _seed_player_points(USER_STEAM, 0)
+        oid = _create_order_direct(status="CONTESTADO", points_spent=25)
+        db = _app_module._SessionLocal()
+        try:
+            db.add(_app_module.Dispute(
+                order_id=oid, steam_id=USER_STEAM, reason="bug", status="ABERTO", created_at=_now(),
+            ))
+            db.commit()
+        finally:
+            db.close()
+
+        r = client.post(f"/api/admin/orders/{oid}/refund", json={})
+        assert r.get_json()["ok"] is True
+
+        db = _app_module._SessionLocal()
+        try:
+            dispute = db.query(_app_module.Dispute).filter(_app_module.Dispute.order_id == oid).first()
+            assert dispute.status == "ENCERRADO"
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.contested is False
+        finally:
+            db.close()
+
+    def test_admin_order_details(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="ENTREGUE", points_spent=10)
+        r = client.get(f"/api/admin/orders/{oid}/details")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["order"]["order_id"] == oid
+        assert d["order"]["points_spent"] == 10
+        assert "audit_events" in d
+        assert "attempts" in d
+
+    def test_admin_resend_blocked_for_reemitido(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="REEMITIDO")
+        r = client.post(f"/api/admin/orders/{oid}/resend", json={})
+        assert r.status_code == 409
 
 
 # ── Licença Nuvem / entitlements ─────────────────────────────────────────────

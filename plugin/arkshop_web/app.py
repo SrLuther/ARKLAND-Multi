@@ -238,9 +238,15 @@ load_dotenv(dotenv_path=_ENV_PATH if _ENV_PATH.exists() else None)
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
+_CORS_ORIGINS = [
+    "https://arkland.com.br",
+    "https://www.arkland.com.br",
+    r"http://localhost:\d+",
+    r"http://127.0.0.1:\d+",
+]
+
 app = Flask(__name__, static_folder=str(_BUNDLE_DIR / "static"), static_url_path="")
-CORS(app)
-app.secret_key = os.environ.get("ARKSHOP_WEB_SECRET", "arkshop-web-dev-secret-change-me")
+CORS(app, origins=_CORS_ORIGINS, supports_credentials=True)
 
 _DEFAULT_CONFIG_PATH = str(
     resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip())
@@ -248,6 +254,7 @@ _DEFAULT_CONFIG_PATH = str(
 _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
 _ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
+_ADMIN_EXAMPLE = _BUNDLE_DIR / "admin_steamids.example.json"
 _SERVERS_FILE = _DATA_DIR / "servers.json"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
@@ -262,16 +269,47 @@ _RETRY_BATCH_SIZE = int(os.environ.get("ARKSHOP_RETRY_BATCH", "20"))
 
 # ── Security ─────────────────────────────────────────────────────────────────
 
-# Secret key MUST come from environment in production
+# Secret key MUST come from environment in production / frozen exe
+_is_production = os.environ.get("ARKSHOP_ENV", "").strip().lower() == "production"
+_is_frozen = getattr(sys, "frozen", False)
 _secret_from_env = os.environ.get("ARKSHOP_WEB_SECRET", "").strip()
 if _secret_from_env:
     app.secret_key = _secret_from_env
+elif _is_production or _is_frozen:
+    log.error(
+        "ARKSHOP_WEB_SECRET não definida — obrigatória em produção (ARKSHOP_ENV=production) "
+        "ou ao executar o .exe empacotado."
+    )
+    sys.exit(1)
 else:
-    # Use a development secret if not set in env
     app.secret_key = "arkshop-web-dev-secret-change-me-in-prod"
-    log.warning("ARKSHOP_WEB_SECRET não definida! "
-                "Usando secret de desenvolvimento. "
-                "Defina a variável de ambiente ARKSHOP_WEB_SECRET em produção.")
+    log.warning(
+        "ARKSHOP_WEB_SECRET não definida! Usando secret de desenvolvimento. "
+        "Defina a variável de ambiente ARKSHOP_WEB_SECRET em produção."
+    )
+
+
+def _ensure_admin_steamids_file() -> None:
+    """Garante admin_steamids.json no diretório de dados (não no repositório)."""
+    if _ADMIN_FILE.exists():
+        return
+    _ADMIN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    legacy = _BUNDLE_DIR / "admin_steamids.json"
+    if legacy.is_file() and legacy.resolve() != _ADMIN_FILE.resolve():
+        try:
+            _ADMIN_FILE.write_text(legacy.read_text(encoding="utf-8"), encoding="utf-8")
+            log.info("admin_steamids migrado de %s para %s", legacy, _ADMIN_FILE)
+            return
+        except Exception as exc:
+            log.warning("Falha ao migrar admin_steamids legado: %s", exc)
+    if _ADMIN_EXAMPLE.is_file():
+        _ADMIN_FILE.write_text(_ADMIN_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
+    else:
+        _ADMIN_FILE.write_text("[]\n", encoding="utf-8")
+    log.info("admin_steamids criado em %s — adicione seu SteamID64", _ADMIN_FILE)
+
+
+_ensure_admin_steamids_file()
 
 # API Key for CustomShop ↔ arkshop_web internal communication
 # Must be set via environment variable ARKSHOP_API_KEY
@@ -758,6 +796,33 @@ _ENGINE: Any = None
 _SessionLocal: Any = None  # set by _configure_database(); None only before first DB config
 
 
+def _safe_db_log_fields(url: str) -> dict[str, Any]:
+    """Extrai host/database para log sem expor credenciais."""
+    s = (url or "").strip()
+    if not s:
+        return {}
+    try:
+        after_at = s.split("@", 1)[1] if "@" in s else s
+        host_part, _, path_part = after_at.partition("/")
+        host_port = host_part.split("?")[0]
+        if ":" in host_port:
+            host, _, port_s = host_port.rpartition(":")
+            port = int(port_s) if port_s.isdigit() else None
+        else:
+            host, port = host_port, None
+        db_name = path_part.split("?")[0] if path_part else None
+        out: dict[str, Any] = {}
+        if host:
+            out["host"] = host
+        if port:
+            out["port"] = port
+        if db_name:
+            out["database"] = db_name
+        return out
+    except Exception:
+        return {"configured": True}
+
+
 def _build_database_url_from_settings(settings: dict[str, Any]) -> str:
     explicit_url = str(settings.get("database_url", "")).strip()
     if explicit_url:
@@ -809,6 +874,78 @@ def _db_table_exists(engine: Any, table_name: str) -> bool:
         return table_name in set(inspect(engine).get_table_names())
     except Exception:
         return False
+
+
+_STEAM_ID_COLLATION = "utf8mb4_unicode_ci"
+
+# Colunas steam_id usadas em JOINs/comparações entre tabelas (legado vs SQLAlchemy).
+_STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("store_users", "steam_id"),
+    ("players", "steam_id"),
+    ("market_player_profile", "steam_id"),
+    ("orders", "steam_id"),
+    ("point_payments", "steam_id"),
+    ("player_entitlements", "steam_id"),
+    ("shop_admins", "steam_id"),
+    ("rebuys", "steam_id"),
+    ("disputes", "steam_id"),
+    ("market_cryopod_vault", "seller_steam_id"),
+    ("market_listings", "seller_steam_id"),
+    ("market_listings", "buyer_steam_id"),
+    ("market_transactions", "buyer_steam_id"),
+    ("market_transactions", "seller_steam_id"),
+    ("market_claims", "recipient_steam_id"),
+    ("market_audit_events", "steam_id"),
+    ("market_audit_events", "counterparty_steam_id"),
+)
+
+
+def _steam_id_on_sql(left: str, right: str, *, mysql: bool = True) -> str:
+    """Comparação steam_id segura quando collations divergem (general_ci vs unicode_ci)."""
+    if not mysql:
+        return f"{left} = {right}"
+    coll = _STEAM_ID_COLLATION
+    return f"{left} COLLATE {coll} = {right} COLLATE {coll}"
+
+
+def _ensure_steam_id_collation(engine: Any) -> None:
+    """Normaliza collation de colunas steam_id para evitar erro 1267 em JOINs MySQL."""
+    if "mysql" not in str(engine.url).lower():
+        return
+    changed = 0
+    with engine.connect() as conn:
+        for table, column in _STEAM_ID_VARCHAR_COLUMNS:
+            if not _db_table_exists(engine, table):
+                continue
+            row = conn.execute(
+                text(f"SHOW FULL COLUMNS FROM `{table}` LIKE :col"),
+                {"col": column},
+            ).fetchone()
+            if row is None:
+                continue
+            col_type = str(row[1] or "")
+            collation = str(row[2] or "")
+            null_flag = str(row[3] or "")
+            key_flag = str(row[4] or "")
+            if not col_type.lower().startswith("varchar") or collation == _STEAM_ID_COLLATION:
+                continue
+            null_sql = "NULL" if null_flag == "YES" else "NOT NULL"
+            key_sql = " PRIMARY KEY" if key_flag == "PRI" else ""
+            conn.execute(
+                text(
+                    f"ALTER TABLE `{table}` MODIFY `{column}` {col_type} "
+                    f"CHARACTER SET utf8mb4 COLLATE {_STEAM_ID_COLLATION} "
+                    f"{null_sql}{key_sql}"
+                )
+            )
+            changed += 1
+        if changed:
+            conn.commit()
+            log.info(
+                "steam_id: %s coluna(s) normalizadas para %s",
+                changed,
+                _STEAM_ID_COLLATION,
+            )
 
 
 def _ensure_store_users_schema(engine: Any) -> None:
@@ -872,6 +1009,7 @@ def _migrate_schema(engine: Any) -> None:
             conn.commit()
         _ENTITLEMENTS_SCHEMA_READY = True
         _ensure_store_users_schema(engine)
+        _ensure_steam_id_collation(engine)
         _backfill_store_users(engine)
         return
     with engine.connect() as conn:
@@ -927,11 +1065,13 @@ def _migrate_schema(engine: Any) -> None:
     Base.metadata.create_all(bind=engine)
     _ENTITLEMENTS_SCHEMA_READY = True
     _ensure_store_users_schema(engine)
+    _ensure_steam_id_collation(engine)
     _backfill_store_users(engine)
     try:
         from market_migrate import ensure_market_schema
 
         ensure_market_schema(engine, bootstrap=True)
+        _ensure_steam_id_collation(engine)
     except Exception as exc:
         log.warning("Mercado: migrate falhou (será retentado pelo watcher): %s", exc)
     try:
@@ -1019,7 +1159,19 @@ def _configure_database(url: str) -> None:
     _ENGINE = engine
     _SessionLocal = session_local
     _ACTIVE_DATABASE_URL = normalized
-    _log("db_configured", url=normalized[:40] + "...")
+    _log("db_configured", **_safe_db_log_fields(normalized))
+
+    if os.environ.get("ARKSHOP_SYNC_DB_MIGRATE") == "1":
+        try:
+            _migrate_schema(engine)
+            log.info("DB schema migrate concluído (sync)")
+        except Exception as exc:
+            log.warning(
+                "DB schema setup falhou (%s): %s",
+                _safe_db_log_fields(normalized),
+                exc,
+            )
+        return
 
     def _migrate_async() -> None:
         try:
@@ -1028,7 +1180,7 @@ def _configure_database(url: str) -> None:
         except Exception as exc:
             log.warning(
                 "DB schema setup falhou (%s): %s — background thread tentará reconectar",
-                normalized[:40],
+                _safe_db_log_fields(normalized),
                 exc,
             )
             _start_db_reconnect_watcher()
@@ -1393,6 +1545,7 @@ def _list_admin_players(
     try:
         bind = db.get_bind()
         _ensure_store_users_schema(bind)
+        is_mysql = _is_mysql_engine(bind)
         has_market_profile = _db_table_exists(bind, "market_player_profile")
         has_players = _db_table_exists(bind, "players")
         params: dict[str, Any] = {"lim": limit, "off": offset}
@@ -1409,12 +1562,12 @@ def _list_admin_players(
                 search_bits.append("mp.market_display_name LIKE :q")
             where += f" AND ({' OR '.join(search_bits)})"
         market_join = (
-            "LEFT JOIN market_player_profile mp ON mp.steam_id = su.steam_id "
+            f"LEFT JOIN market_player_profile mp ON {_steam_id_on_sql('mp.steam_id', 'su.steam_id', mysql=is_mysql)} "
             if has_market_profile
             else ""
         )
         players_join = (
-            "LEFT JOIN players p ON p.steam_id = su.steam_id "
+            f"LEFT JOIN players p ON {_steam_id_on_sql('p.steam_id', 'su.steam_id', mysql=is_mysql)} "
             if has_players
             else ""
         )
@@ -3820,7 +3973,9 @@ def test_db_connection():
             return jsonify({"ok": False, "error": "SessionLocal não inicializado."}), 200
         session.execute(text("SELECT 1")).fetchone()
         session.close()
-        return jsonify({"ok": True, "info": f"Banco conectado ({_ACTIVE_DATABASE_URL[:30]}...)"})
+        db_info = _safe_db_log_fields(_ACTIVE_DATABASE_URL)
+        label = db_info.get("database") or db_info.get("host") or "ok"
+        return jsonify({"ok": True, "info": f"Banco conectado ({label})"})
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc)}), 200
 
@@ -5701,6 +5856,102 @@ def player_rebuy(order_id: str):
 
 # ── Admin order routes ────────────────────────────────────────────────────────
 
+_ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
+
+
+def _order_refund_amount(order: Order) -> int:
+    """Valor em Âmbar a devolver para o pedido (points_spent ou preço do catálogo)."""
+    refund = int(order.points_spent or 0)
+    if refund > 0:
+        return refund
+    entry = _catalog_entry(
+        "kit" if str(order.item_type or "") == "kit" else "shop",
+        str(order.item_id or ""),
+    )
+    return _catalog_price(entry, int(order.amount or 1))
+
+
+def _close_order_disputes(db: Any, order_id: str) -> int:
+    """Encerra disputas abertas do pedido."""
+    rows = (
+        db.query(Dispute)
+        .filter(Dispute.order_id == order_id, Dispute.status == "ABERTO")
+        .all()
+    )
+    for row in rows:
+        row.status = "ENCERRADO"
+    return len(rows)
+
+
+def _build_admin_order_details(db: Any, order: Order) -> dict[str, Any]:
+    order_id = order.order_id
+    events = (
+        db.query(AuditEvent)
+        .filter(AuditEvent.order_id == order_id)
+        .order_by(AuditEvent.created_at.asc())
+        .all()
+    )
+    attempts = (
+        db.query(OrderAttempt)
+        .filter(OrderAttempt.order_id == order_id)
+        .order_by(OrderAttempt.attempted_at.asc())
+        .all()
+    )
+    disputes = db.query(Dispute).filter(Dispute.order_id == order_id).all()
+    reissues = db.query(AdminReissue).filter(
+        (AdminReissue.original_order_id == order_id) | (AdminReissue.new_order_id == order_id)
+    ).all()
+    return {
+        "order": {
+            "order_id": order.order_id,
+            "steam_id": order.steam_id,
+            "server_id": order.server_id,
+            "item_type": order.item_type,
+            "item_id": order.item_id,
+            "amount": order.amount,
+            "points_spent": int(order.points_spent or 0),
+            "status": order.status,
+            "contested": bool(order.contested),
+            "retry_count": order.retry_count,
+            "last_error": order.last_error,
+            "original_order_id": order.original_order_id,
+            "created_at": order.created_at.isoformat() if order.created_at else None,
+            "updated_at": order.updated_at.isoformat() if order.updated_at else None,
+        },
+        "audit_events": [_audit_row_dict(e) for e in events],
+        "attempts": [
+            {
+                "attempted_at": a.attempted_at.isoformat() if a.attempted_at else None,
+                "success": a.success,
+                "command": a.command,
+                "response": a.response,
+                "error": a.error,
+            }
+            for a in attempts
+        ],
+        "disputes": [
+            {
+                "reason": d.reason,
+                "status": d.status,
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in disputes
+        ],
+        "reissues": [
+            {
+                "admin_steam_id": r.admin_steam_id,
+                "player_steam_id": r.player_steam_id,
+                "original_order_id": r.original_order_id,
+                "new_order_id": r.new_order_id,
+                "reason": r.reason,
+                "force_reset": r.force_reset,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in reissues
+        ],
+    }
+
+
 @app.route("/api/admin/orders/retry", methods=["POST"])
 @admin_required
 def admin_retry_pending():
@@ -5755,6 +6006,8 @@ def admin_list_orders():
                         "item_id": o.item_id,
                         "amount": o.amount,
                         "status": o.status,
+                        "points_spent": int(o.points_spent or 0),
+                        "contested": bool(o.contested),
                         "retry_count": o.retry_count,
                         "last_error": o.last_error,
                         "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -5767,6 +6020,259 @@ def admin_list_orders():
     except Exception as exc:
         _log_error("admin_list_orders", error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao listar pedidos: {exc}"}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/orders/<order_id>/refund", methods=["POST"])
+@admin_required
+def admin_refund_order(order_id: str):
+    """Reembolsa Âmbar ao jogador quando o resgate não foi entregue (ou contestado)."""
+    if (err := _require_db()) is not None:
+        return err
+    admin_id = str(_steam_id_from_session())
+    body = request.get_json(force=True, silent=True) or {}
+    reason = str(body.get("reason", "")).strip() or None
+
+    db = _SessionLocal()
+    try:
+        order = (
+            db.query(Order)
+            .filter(Order.order_id == order_id)
+            .with_for_update()
+            .first()
+        )
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if order.status in _ADMIN_TERMINAL_STATUSES:
+            return jsonify({
+                "ok": False,
+                "error": f"Pedido já está {order.status} — não é possível reembolsar novamente",
+            }), 409
+
+        status_before = order.status
+        steam_id = str(order.steam_id)
+        item_type = order.item_type
+        item_id = order.item_id
+        refund = _order_refund_amount(order)
+        new_balance: int | None = None
+        if refund > 0:
+            new_balance = _add_player_points_tx(db, steam_id, refund)
+        else:
+            row = db.execute(
+                text("SELECT points FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            new_balance = int(row[0]) if row else 0
+
+        _revoke_entitlement_for_order(steam_id, order_id, db=db)
+        closed = _close_order_disputes(db, order_id)
+        order.contested = False
+        order.status = "REEMBOLSADO"
+        order.updated_at = _now()
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        _log_error("admin_refund_order", order_id=order_id, admin=admin_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao reembolsar: {exc}"}), 500
+    finally:
+        db.close()
+
+    _audit_event(
+        "admin_refund",
+        actor_type="admin",
+        actor_steam_id=admin_id,
+        target_steam_id=steam_id,
+        order_id=order_id,
+        item_type=item_type,
+        item_id=item_id,
+        status_before=status_before,
+        status_after="REEMBOLSADO",
+        message=f"Admin reembolsou {refund} Âmbar — pedido {order_id[:8]}…",
+        reason=reason,
+        refunded=refund,
+        disputes_closed=closed,
+        points_after=new_balance,
+    )
+    return jsonify({
+        "ok": True,
+        "order_id": order_id,
+        "status": "REEMBOLSADO",
+        "refunded": refund,
+        "new_balance": new_balance,
+    })
+
+
+@app.route("/api/admin/orders/<order_id>/resend", methods=["POST"])
+@admin_required
+def admin_resend_order(order_id: str):
+    """Reabre o pedido como PENDENTE para resgate via /shop in-game (sem novo débito)."""
+    if (err := _require_db()) is not None:
+        return err
+    admin_id = str(_steam_id_from_session())
+    body = request.get_json(force=True, silent=True) or {}
+    reason = str(body.get("reason", "")).strip() or None
+
+    db = _SessionLocal()
+    try:
+        order = (
+            db.query(Order)
+            .filter(Order.order_id == order_id)
+            .with_for_update()
+            .first()
+        )
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if order.status == "PENDENTE":
+            return jsonify({
+                "ok": False,
+                "error": "Pedido já está pendente — aguardando resgate no jogo",
+            }), 409
+        if order.status == "REEMBOLSADO":
+            return jsonify({
+                "ok": False,
+                "error": "Pedido reembolsado — use um novo resgate ou reembolso reverso manual",
+            }), 409
+        if order.status == "REEMITIDO":
+            reissue = (
+                db.query(AdminReissue)
+                .filter(AdminReissue.original_order_id == order_id)
+                .order_by(AdminReissue.created_at.desc())
+                .first()
+            )
+            hint = ""
+            if reissue:
+                hint = f" Use o pedido substituto {reissue.new_order_id[:8]}…"
+            return jsonify({
+                "ok": False,
+                "error": f"Pedido substituído por reemissão anterior.{hint}",
+            }), 409
+
+        status_before = order.status
+        player_steam = str(order.steam_id)
+        resend_server_id = order.server_id
+        item_type = order.item_type
+        item_id = order.item_id
+        resend_amount = order.amount
+        _close_order_disputes(db, order_id)
+        order.status = "PENDENTE"
+        order.contested = False
+        order.last_error = None
+        order.retry_count = 0
+        order.updated_at = _now()
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        _log_error("admin_resend_order", order_id=order_id, admin=admin_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao reenviar: {exc}"}), 500
+    finally:
+        db.close()
+
+    _audit_event(
+        "admin_resend",
+        actor_type="admin",
+        actor_steam_id=admin_id,
+        target_steam_id=player_steam,
+        order_id=order_id,
+        server_id=resend_server_id,
+        item_type=item_type,
+        item_id=item_id,
+        amount=resend_amount,
+        status_before=status_before,
+        status_after="PENDENTE",
+        message=f"Admin reenviou pedido {order_id[:8]}… para fila /shop",
+        reason=reason,
+    )
+    return jsonify({
+        "ok": True,
+        "order_id": order_id,
+        "status": "PENDENTE",
+        "queued": True,
+        "delivery_mode": "plugin",
+    })
+
+
+@app.route("/api/admin/orders/<order_id>/cancel", methods=["POST"])
+@admin_required
+def admin_cancel_order(order_id: str):
+    """Marca pedido como cancelado sem reembolsar Âmbar."""
+    if (err := _require_db()) is not None:
+        return err
+    admin_id = str(_steam_id_from_session())
+    body = request.get_json(force=True, silent=True) or {}
+    reason = str(body.get("reason", "")).strip() or None
+
+    db = _SessionLocal()
+    try:
+        order = (
+            db.query(Order)
+            .filter(Order.order_id == order_id)
+            .with_for_update()
+            .first()
+        )
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        if order.status in _ADMIN_TERMINAL_STATUSES:
+            return jsonify({
+                "ok": False,
+                "error": f"Pedido já está {order.status}",
+            }), 409
+
+        status_before = order.status
+        steam_id = str(order.steam_id)
+        item_type = order.item_type
+        item_id = order.item_id
+        _revoke_entitlement_for_order(steam_id, order_id, db=db)
+        closed = _close_order_disputes(db, order_id)
+        order.contested = False
+        order.status = "CANCELADO"
+        order.updated_at = _now()
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        _log_error("admin_cancel_order", order_id=order_id, admin=admin_id, error=str(exc))
+        return jsonify({"ok": False, "error": f"Erro ao cancelar: {exc}"}), 500
+    finally:
+        db.close()
+
+    _audit_event(
+        "admin_cancel",
+        actor_type="admin",
+        actor_steam_id=admin_id,
+        target_steam_id=steam_id,
+        order_id=order_id,
+        item_type=item_type,
+        item_id=item_id,
+        status_before=status_before,
+        status_after="CANCELADO",
+        message=f"Admin cancelou pedido {order_id[:8]}… (sem reembolso)",
+        reason=reason,
+        disputes_closed=closed,
+    )
+    return jsonify({
+        "ok": True,
+        "order_id": order_id,
+        "status": "CANCELADO",
+        "refunded": 0,
+    })
+
+
+@app.route("/api/admin/orders/<order_id>/details", methods=["GET"])
+@admin_required
+def admin_order_details(order_id: str):
+    """Detalhes completos do pedido — timeline, tentativas, disputas e reemissões."""
+    if (err := _require_db()) is not None:
+        return err
+    db = _SessionLocal()
+    try:
+        order = db.query(Order).filter(Order.order_id == order_id).first()
+        if not order:
+            return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
+        payload = _build_admin_order_details(db, order)
+        return jsonify({"ok": True, **payload})
+    except Exception as exc:
+        _log_error("admin_order_details", order_id=order_id, error=str(exc))
+        return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
 
@@ -6101,6 +6607,7 @@ def admin_audit_detail(event_id: int):
 @app.route("/api/admin/orders/<order_id>/timeline", methods=["GET"])
 @admin_required
 def admin_order_timeline(order_id: str):
+    """Alias legado — mesmos dados de /details."""
     if (err := _require_db()) is not None:
         return err
     db = _SessionLocal()
@@ -6108,64 +6615,7 @@ def admin_order_timeline(order_id: str):
         order = db.query(Order).filter(Order.order_id == order_id).first()
         if not order:
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
-
-        events = (
-            db.query(AuditEvent)
-            .filter(AuditEvent.order_id == order_id)
-            .order_by(AuditEvent.created_at.asc())
-            .all()
-        )
-        attempts = (
-            db.query(OrderAttempt)
-            .filter(OrderAttempt.order_id == order_id)
-            .order_by(OrderAttempt.attempted_at.asc())
-            .all()
-        )
-        disputes = db.query(Dispute).filter(Dispute.order_id == order_id).all()
-        reissues = db.query(AdminReissue).filter(
-            (AdminReissue.original_order_id == order_id) | (AdminReissue.new_order_id == order_id)
-        ).all()
-
-        return jsonify({
-            "ok": True,
-            "order": {
-                "order_id": order.order_id,
-                "steam_id": order.steam_id,
-                "server_id": order.server_id,
-                "item_type": order.item_type,
-                "item_id": order.item_id,
-                "amount": order.amount,
-                "status": order.status,
-                "created_at": order.created_at.isoformat() if order.created_at else None,
-            },
-            "audit_events": [_audit_row_dict(e) for e in events],
-            "attempts": [
-                {
-                    "attempted_at": a.attempted_at.isoformat() if a.attempted_at else None,
-                    "success": a.success,
-                    "command": a.command,
-                    "error": a.error,
-                }
-                for a in attempts
-            ],
-            "disputes": [
-                {"reason": d.reason, "status": d.status,
-                 "created_at": d.created_at.isoformat() if d.created_at else None}
-                for d in disputes
-            ],
-            "reissues": [
-                {
-                    "admin_steam_id": r.admin_steam_id,
-                    "player_steam_id": r.player_steam_id,
-                    "original_order_id": r.original_order_id,
-                    "new_order_id": r.new_order_id,
-                    "reason": r.reason,
-                    "force_reset": r.force_reset,
-                    "created_at": r.created_at.isoformat() if r.created_at else None,
-                }
-                for r in reissues
-            ],
-        })
+        return jsonify({"ok": True, **_build_admin_order_details(db, order)})
     except Exception as exc:
         _log_error("admin_order_timeline", order_id=order_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500

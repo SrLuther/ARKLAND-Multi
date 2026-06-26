@@ -30,10 +30,24 @@ USE arkland_shop;
 
 -- Jogadores: saldo de pontos e kits adquiridos
 CREATE TABLE IF NOT EXISTS players (
-  steam_id  VARCHAR(20)  PRIMARY KEY NOT NULL,
+  steam_id  VARCHAR(20)  NOT NULL PRIMARY KEY
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   points    INT          NOT NULL DEFAULT 0,
   kits      TEXT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contas web (login Steam — painel admin de jogadores)
+CREATE TABLE IF NOT EXISTS store_users (
+  steam_id             VARCHAR(32)  NOT NULL PRIMARY KEY
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  display_name         VARCHAR(128) DEFAULT NULL,
+  site_access_blocked  TINYINT(1)   NOT NULL DEFAULT 0,
+  ban_reason           TEXT         DEFAULT NULL,
+  created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_login_at        DATETIME     DEFAULT NULL,
+  INDEX idx_store_users_display (display_name),
+  INDEX idx_store_users_blocked (site_access_blocked)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Histórico de transações
 CREATE TABLE IF NOT EXISTS transactions (
@@ -192,13 +206,14 @@ CREATE TABLE IF NOT EXISTS market_species_stat_multipliers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS market_player_profile (
-  steam_id             VARCHAR(32)  NOT NULL PRIMARY KEY,
+  steam_id             VARCHAR(32)  NOT NULL PRIMARY KEY
+    CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   market_display_name  VARCHAR(32)  NOT NULL,
   name_updated_at      DATETIME     DEFAULT NULL,
   commerce_enabled     TINYINT(1)   NOT NULL DEFAULT 0,
   created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS market_cryopod_vault (
   id               INT AUTO_INCREMENT PRIMARY KEY,

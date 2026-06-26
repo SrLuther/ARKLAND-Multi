@@ -5,6 +5,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.130] - 2026-06-26
+
+### Improvement
+
+- Melhoria (Web Store / Admin): redesign da fila de pedidos com ações de reembolso, reenvio, cancelamento e detalhes do pedido.
+- Melhoria (Loja): catálogo mod_catalog_verified.json e sync_mod_catalog_from_beacon.py para validar blueprints de mods via Beacon.
+- Melhoria (Loja): preços IndoRaptor no catálogo mestre.
+
+### Fix
+
+- Fix (Web Store): collation steam_id em JOINs MySQL (Gerenciar Jogadores) — evita erro 1267.
+
+### Other
+
+- Segurança (Web Store / DB — fase 1): logs sem credenciais; admin_steamids fora do repo (APPDATA); CORS restrito; ARKSHOP_WEB_SECRET obrigatória em produção/.exe; MariaDB bind 127.0.0.1 e firewall com escopo localhost ou LAN sob opt-in.
+
 ## [1.9.129] - 2026-06-26
 
 ### Improvement

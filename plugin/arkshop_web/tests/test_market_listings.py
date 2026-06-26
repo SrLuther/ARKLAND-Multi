@@ -89,7 +89,7 @@ def test_set_listing_price_and_activate():
             status="DRAFT",
             computed_base_value=5000,
             effective_price=5000,
-            metadata_json="{}",
+            metadata_json=json.dumps({"admin_classification_approved": True}),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )

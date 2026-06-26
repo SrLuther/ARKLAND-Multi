@@ -789,6 +789,10 @@
     .badge-unlockengram{ background: rgba(52,211,153,.12);  color: #34d399;        border: 1px solid rgba(52,211,153,.2); }
     .badge-kit         { background: rgba(251,191,36,.12);  color: #fbbf24;        border: 1px solid rgba(251,191,36,.2); }
     .badge-reemitido   { background: rgba(148,163,184,.12); color: #94a3b8;        border: 1px solid rgba(148,163,184,.2); }
+    .badge-reembolsado { background: rgba(232,160,32,.12);  color: var(--amber);   border: 1px solid rgba(232,160,32,.2); }
+
+    .order-admin-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+    .order-admin-actions .btn { font-size: 10px; padding: 4px 7px; letter-spacing: .04em; }
 
     /* ── Forms ────────────────────────────────────────────────────────────── */
     .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 14px; }
@@ -5290,6 +5294,7 @@
               <option value="ERRO">Erro</option>
               <option value="CONTESTADO">Contestado</option>
               <option value="REEMITIDO">Reemitido</option>
+              <option value="REEMBOLSADO">Reembolsado</option>
             </select>
             <button class="btn btn-ghost" onclick="loadMyArea()">↺ Recarregar</button>
           </div>
@@ -5461,8 +5466,11 @@
                 <option value="delivery_failed">Entrega falhou</option>
                 <option value="pending_polled">Consulta pending</option>
                 <option value="order_contested">Contestação</option>
-                <option value="admin_reissue">Reemissão admin</option>
-                <option value="admin_reprocess">Reprocessamento</option>
+                <option value="admin_refund">Reembolso admin</option>
+                <option value="admin_resend">Reenvio admin</option>
+                <option value="admin_cancel">Cancelamento admin</option>
+                <option value="admin_reissue">Reemissão admin (legado)</option>
+                <option value="admin_reprocess">Reprocessamento (legado)</option>
                 <option value="pix">Doações PIX (todos eventos)</option>
                 <option value="pix_checkout_created">PIX — tentativa criada</option>
                 <option value="pix_credited">PIX — creditado</option>
@@ -7371,6 +7379,7 @@ function statusBadge(status) {
   if (s === "CONTESTADO")return `<span class="badge badge-command">${s}</span>`;
   if (s === "ERRO")      return `<span class="badge badge-experience">${s}</span>`;
   if (s === "REEMITIDO") return `<span class="badge badge-reemitido">${s}</span>`;
+  if (s === "REEMBOLSADO") return `<span class="badge badge-reembolsado">${s}</span>`;
   return `<span class="badge">${s || "-"}</span>`;
 }
 
@@ -12239,13 +12248,47 @@ function renderAuditTimelineDetail(data) {
   let html = `<div style="margin-bottom:14px;font-family:'Cinzel',serif;font-size:13px;color:var(--amber);">Pedido ${escHtml((order.order_id || "").substring(0, 8))}…</div>`;
   html += `<div class="audit-detail-grid" style="margin-bottom:16px;">
     ${_auditRow("Jogador", order.steam_id)}
-    ${_auditRow("Item", `${order.item_type || ""}:${order.item_id || ""}`)}
+    ${_auditRow("Servidor", order.server_id)}
+    ${_auditRow("Item", `${order.item_type || ""}:${order.item_id || ""} ×${order.amount || 1}`)}
+    ${_auditRow("Âmbar gasto", order.points_spent != null ? order.points_spent : "—")}
     ${_auditRow("Status", order.status)}
+    ${_auditRow("Contestado", order.contested ? "Sim" : "Não")}
+    ${_auditRow("Tentativas", order.retry_count)}
+    ${_auditRow("Último erro", order.last_error || "—")}
     ${_auditRow("Criado", fmtDate(order.created_at))}
+    ${_auditRow("Atualizado", fmtDate(order.updated_at))}
   </div>`;
+  const disputes = data.disputes || [];
+  if (disputes.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Disputas</div>`;
+    html += disputes.map(d => `
+      <div class="audit-timeline-item">
+        <div style="font-size:11px;color:var(--text2);">${fmtDate(d.created_at)} · ${escHtml(d.status || "")}</div>
+        <div style="font-size:12px;margin-top:2px;">${escHtml(d.reason || "")}</div>
+      </div>`).join("");
+  }
+  const reissues = data.reissues || [];
+  if (reissues.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin:12px 0 8px;">Reemissões</div>`;
+    html += reissues.map(r => `
+      <div class="audit-timeline-item">
+        <div style="font-size:11px;color:var(--text2);">${fmtDate(r.created_at)} · admin ${escHtml((r.admin_steam_id || "").slice(-6))}</div>
+        <div style="font-size:12px;margin-top:2px;">${escHtml(r.original_order_id || "").substring(0,8)}… → ${escHtml(r.new_order_id || "").substring(0,8)}…</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px;">${escHtml(r.reason || "")}</div>
+      </div>`).join("");
+  }
+  const attempts = data.attempts || [];
+  if (attempts.length) {
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin:12px 0 8px;">Tentativas de entrega</div>`;
+    html += attempts.map(a => `
+      <div class="audit-timeline-item">
+        <div style="font-size:11px;color:var(--text2);">${fmtDate(a.attempted_at)} · ${a.success ? "✓ sucesso" : "✗ falha"}</div>
+        ${a.error ? `<div style="font-size:11px;color:var(--danger);margin-top:2px;">${escHtml(a.error)}</div>` : ""}
+      </div>`).join("");
+  }
   const events = data.audit_events || [];
   if (events.length) {
-    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">Linha do tempo</div>`;
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text2);margin:12px 0 8px;">Linha do tempo</div>`;
     html += events.map(ev => `
       <div class="audit-timeline-item">
         <div style="font-size:11px;color:var(--text2);">${fmtDate(ev.created_at)} · ${escHtml(ev.event_type || "")}</div>
@@ -12288,9 +12331,12 @@ async function loadAdminOrders() {
               <td>${statusBadge(o.status)}</td>
               <td style="font-size:11px;">${fmtDate(o.created_at)}</td>
               <td>
-                <button class="btn btn-ghost btn-sm" title="Timeline" onclick="viewAdminTimeline('${o.order_id}')">📋</button>
-                <button class="btn btn-ghost btn-sm" title="Reprocessar" onclick="adminReprocess('${o.order_id}')">↺</button>
-                <button class="btn btn-success btn-sm" title="Reemitir" onclick="adminReissue('${o.order_id}')">🔁</button>
+                <div class="order-admin-actions">
+                  <button class="btn btn-ghost btn-sm" title="Ver detalhes e histórico" onclick="viewAdminOrderDetails('${o.order_id}')">Detalhes</button>
+                  <button class="btn btn-primary btn-sm" title="Reenviar para fila /shop (sem novo débito)" onclick="adminResendOrder('${o.order_id}')">Reenviar</button>
+                  <button class="btn btn-success btn-sm" title="Reembolsar Âmbar ao jogador" onclick="adminRefundOrder('${o.order_id}')">Reembolsar</button>
+                  <button class="btn btn-danger btn-sm" title="Cancelar sem reembolso" onclick="adminCancelOrder('${o.order_id}')">Cancelar</button>
+                </div>
               </td>
             </tr>
           `).join("")}
@@ -12301,35 +12347,65 @@ async function loadAdminOrders() {
   }
 }
 
-async function adminReprocess(orderId) {
-  const force = confirm("Pedido já ENTREGUE? OK = force_reset (reabre para entrega). Cancelar = só reprocessar PENDENTE.");
-  const url = `${API}/api/admin/orders/${encodeURIComponent(orderId)}/reprocess` + (force ? "?force_reset=1" : "");
-  const r = await fetch(url, { method: "POST" });
-  const d = await r.json();
-  if (d.ok) { toast("Pedido reprocessado.", "success"); loadAdminOrders(); loadAudit(); }
-  else toast(d.error || "Falha", "error");
-}
-
-async function adminReissue(orderId) {
-  const reason = prompt("Motivo da reemissão (obrigatório):");
-  if (!reason || !reason.trim()) return;
-  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/reissue`, {
+async function adminRefundOrder(orderId) {
+  if (!confirm("Reembolsar Âmbar ao jogador? O pedido será marcado como REEMBOLSADO.")) return;
+  const reason = prompt("Motivo do reembolso (opcional):") || "";
+  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/refund`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ reason: reason.trim(), force_reset: true }),
+    body: JSON.stringify({ reason: reason.trim() || undefined }),
   });
   const d = await r.json();
-  if (d.ok) { toast("Reemissão criada na fila.", "success"); loadAdminOrders(); loadAudit(); }
-  else toast(d.error || "Falha na reemissão", "error");
+  if (d.ok) {
+    toast(`Reembolsados ${d.refunded ?? 0} Âmbar.`, "success");
+    loadAdminOrders();
+    loadAudit();
+  } else toast(d.error || "Falha no reembolso", "error");
 }
 
-async function viewAdminTimeline(orderId) {
-  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/timeline`);
+async function adminResendOrder(orderId) {
+  if (!confirm("Reenviar pedido para a fila PENDENTE? O jogador poderá resgatar novamente via /shop in-game (sem novo débito).")) return;
+  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/resend`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({}),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast("Pedido reenviado — aguardando resgate no jogo.", "success");
+    loadAdminOrders();
+    loadAudit();
+  } else toast(d.error || "Falha ao reenviar", "error");
+}
+
+async function adminCancelOrder(orderId) {
+  if (!confirm("Cancelar pedido SEM reembolsar Âmbar?")) return;
+  const reason = prompt("Motivo do cancelamento (opcional):") || "";
+  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/cancel`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ reason: reason.trim() || undefined }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast("Pedido cancelado.", "success");
+    loadAdminOrders();
+    loadAudit();
+  } else toast(d.error || "Falha ao cancelar", "error");
+}
+
+async function viewAdminOrderDetails(orderId) {
+  const r = await fetch(API + `/api/admin/orders/${encodeURIComponent(orderId)}/details`);
   const d = await r.json();
   if (!d.ok) { toast(d.error || "Erro", "error"); return; }
   const body = document.getElementById("audit-detail-body");
   if (body) body.innerHTML = renderAuditTimelineDetail(d);
   document.getElementById("modal-audit-detail").classList.remove("hidden");
+}
+
+/** @deprecated use viewAdminOrderDetails */
+async function viewAdminTimeline(orderId) {
+  return viewAdminOrderDetails(orderId);
 }
 
 // ── Admin: Gerenciar Jogadores ───────────────────────────────────────────────

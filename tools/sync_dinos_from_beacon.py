@@ -344,19 +344,19 @@ def sync_dinos_from_beacon() -> dict[str, Any]:
 
 
 def main() -> None:
-    print("==> Beacon → catálogo CustomShop (dinos faltantes)")
+    print("==> Beacon -> catalogo CustomShop (dinos faltantes)")
     print(f"Cache: {_CACHE_FILE}")
     result = sync_dinos_from_beacon()
 
     print(f"Beacon: {result['beacon_creatures']} criaturas, índice {result['beacon_index']} labels")
     print(f"Espécies alvo: {result['targets']}, já no catálogo: {result['skipped_existing']}")
-    print(f"Itens: {result['before_items']} → {result['after_items']}")
-    print(f"Kits: {result['before_kits']} → {result['after_kits']}")
+    print(f"Itens: {result['before_items']} -> {result['after_items']}")
+    print(f"Kits: {result['before_kits']} -> {result['after_kits']}")
     print(f"Dinos no catálogo: {result['dino_count']}")
     print(f"Adicionados: {len(result['added'])}")
 
     for row in result["added"]:
-        print(f"  + {row['item_id']} ({row['display_name']}) ← {row['match']}")
+        print(f"  + {row['item_id']} ({row['display_name']}) <- {row['match']}")
         print(f"    {row['beacon_path']}")
 
     if result["failed"]:

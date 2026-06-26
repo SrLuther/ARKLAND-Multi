@@ -1,6 +1,13 @@
 """Fixtures compartilhadas dos testes arkshop_web."""
 from __future__ import annotations
 
+import os
+
+# Migração síncrona em testes — evita race com threads de boot do app.
+os.environ.setdefault("ARKSHOP_SYNC_DB_MIGRATE", "1")
+os.environ.setdefault("ARKSHOP_SKIP_DB_BOOT", "1")
+os.environ.setdefault("ARKSHOP_WEB_SECRET", "test-secret")
+
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker

@@ -1,11 +1,12 @@
 {
-    "version": "1.9.129",
+    "version": "1.9.130",
     "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.129/ARKLAND-Multi-Setup-v1.9.129.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.130/ARKLAND-Multi-Setup-v1.9.130.exe",
     "changelog": [
-        "Fix CRÍTICO (Loja / Web Store): v1.9.128 priorizava WEBSTORE/config.json como catálogo mestre — stub com poucas licenças truncava /api/catalog e o Sync propagava só ~4 itens para todos os mapas. Mestre agora resolve pelo config mais completo (mapas/APPDATA); WEBSTORE é só cópia runtime; sync aborta se mestre << mapas.",
-        "Fix (Loja): ensure_webstore_catalog_config recopia mestre para WEBSTORE quando o mestre tem muito mais itens (recuperação automática da cópia truncada).",
-        "Melhoria (Web Store): catalog_meta expõe items_count e kits_count em /api/catalog.",
-        "Melhoria (Loja): tools/fix_production_catalog.ps1 prioriza mapa com mais itens e restaura WEBSTORE\\config.json a partir do mestre."
+        "Melhoria (Web Store / Admin): redesign da fila de pedidos com ações de reembolso, reenvio, cancelamento e detalhes do pedido.",
+        "Fix (Web Store): collation steam_id em JOINs MySQL (Gerenciar Jogadores) — evita erro 1267.",
+        "Melhoria (Loja): catálogo mod_catalog_verified.json e sync_mod_catalog_from_beacon.py para validar blueprints de mods via Beacon.",
+        "Melhoria (Loja): preços IndoRaptor no catálogo mestre.",
+        "Segurança (Web Store / DB — fase 1): logs sem credenciais; admin_steamids fora do repo (APPDATA); CORS restrito; ARKSHOP_WEB_SECRET obrigatória em produção/.exe; MariaDB bind 127.0.0.1 e firewall com escopo localhost ou LAN sob opt-in."
     ]
 }

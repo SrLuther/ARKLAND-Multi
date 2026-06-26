@@ -681,10 +681,21 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                           daemon=True).start()
 
     def _do_firewall() -> None:
+        from tkinter import messagebox
+        from ..shop_integration import get_local_ip
+
+        lan = messagebox.askyesno(
+            "Firewall MariaDB",
+            "Liberar porta 3306 apenas para localhost (127.0.0.1)?\n\n"
+            "Sim = somente esta máquina\n"
+            "Não = IP da LAN desta máquina (acesso remoto na rede local)",
+            parent=parent,
+        )
+        remote_ip = "127.0.0.1" if lan else get_local_ip()
         _btn_fw.configure(state="disabled", text="Aplicando...")
 
         def _worker():
-            ok, msg = DbLocalServer.create_firewall_rule()
+            ok, msg = DbLocalServer.create_firewall_rule(remote_ip=remote_ip)
 
             def _update():
                 if ok:

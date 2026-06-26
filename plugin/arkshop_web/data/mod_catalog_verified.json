@@ -1,0 +1,151 @@
+{
+  "_comment": "Blueprints verificados de mods — fontes oficiais (Steam spawn codes, kits em producao). Nunca adivinhar paths.",
+  "_sources": {
+    "moro_steam": "https://steamcommunity.com/workshop/filedetails/discussion/2932656301/5264192561413834085/",
+    "visous_kits": "Paths extraidos dos kits VISOUS ja em plugin/CustomShop/configs/config.json"
+  },
+  "entries": [
+    {
+      "item_id": "indoraptor_femea",
+      "display_name": "IndoRaptor",
+      "mod": "moro_indomitable_duo",
+      "type": "dino",
+      "blueprint_path": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+      "level": 1,
+      "price": 45000,
+      "category": "Dinos",
+      "source": "moro_steam_spawn_codes"
+    },
+    {
+      "item_id": "indoraptor",
+      "display_name": "IndoRaptor",
+      "mod": "moro_indomitable_duo",
+      "type": "dino",
+      "blueprint_path": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+      "level": 200,
+      "price": 48000,
+      "category": "Comercio",
+      "source": "moro_steam_spawn_codes"
+    },
+    {
+      "item_id": "arco_tek_beta",
+      "display_name": "Arco Tek Beta",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/ArcoTek/Beta/PrimalItem_Weapon_ArcoTek_Beta.PrimalItem_Weapon_ArcoTek_Beta",
+      "price": 2000,
+      "category": "Armas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "arco_tek_alfa",
+      "display_name": "Arco Tek Alfa",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/ArcoTek/Alfa/PrimalItem_Weapon_ArcoTek_Alfa.PrimalItem_Weapon_ArcoTek_Alfa",
+      "price": 3500,
+      "category": "Armas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "escopeta_beta",
+      "display_name": "Escopeta Beta",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Escopeta/Beta/PrimalItem_Escopeta_Beta.PrimalItem_Escopeta_Beta",
+      "price": 2000,
+      "category": "Armas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "escopeta_alfa",
+      "display_name": "Escopeta Alfa",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Escopeta/Alfa/PrimalItem_Escopeta_Alfa.PrimalItem_Escopeta_Alfa",
+      "price": 3500,
+      "category": "Armas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "picareta_beta",
+      "display_name": "Picareta Beta",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Picareta/Beta/PrimalItem_Picareta_Beta.PrimalItem_Picareta_Beta",
+      "price": 2000,
+      "category": "Ferramentas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "picareta_alfa",
+      "display_name": "Picareta Alfa",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Picareta/Alfa/PrimalItem_Picareta_Alfa.PrimalItem_Picareta_Alfa",
+      "price": 3500,
+      "category": "Ferramentas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "machado_beta",
+      "display_name": "Machado Beta",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Machado/Beta/PrimalItem_Machado_Beta.PrimalItem_Machado_Beta",
+      "price": 2000,
+      "category": "Ferramentas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "machado_alfa",
+      "display_name": "Machado Alfa",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Machado/Alfa/PrimalItem_Machado_Alfa.PrimalItem_Machado_Alfa",
+      "price": 3500,
+      "category": "Ferramentas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "foice_beta",
+      "display_name": "Foice Beta",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Foice/Beta/PrimalItem_Foice_Beta.PrimalItem_Foice_Beta",
+      "price": 2000,
+      "category": "Ferramentas",
+      "source": "visous_kits"
+    },
+    {
+      "item_id": "foice_alfa",
+      "display_name": "Foice Alfa",
+      "mod": "visous",
+      "type": "item",
+      "blueprint_path": "/Game/Mods/VISOUSMod/Foice/Alfa/PrimalItem_Foice_Alfa.PrimalItem_Foice_Alfa",
+      "price": 3500,
+      "category": "Ferramentas",
+      "source": "visous_kits"
+    }
+  ],
+  "skipped_no_verified_path": [
+  {
+      "item_id": "motosserra_gamma",
+      "display_name": "Motosserra Gamma",
+      "mod": "visous",
+      "reason": "Nenhum path Motosserra encontrado no catalogo nem no Beacon (Ark Prime)"
+    },
+    {
+      "item_id": "lukastiblos",
+      "display_name": "Lukastiblos",
+      "mod": "grand_hunt",
+      "reason": "Nao consta em market_species_defaults nem Beacon cache"
+    },
+    {
+      "item_id": "emalroth",
+      "display_name": "Emalroth",
+      "mod": "grand_hunt",
+      "reason": "Nao consta em market_species_defaults nem Beacon cache"
+    }
+  ]
+}

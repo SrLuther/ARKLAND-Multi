@@ -89,6 +89,50 @@
       "pricing_mode": "proportional"
     },
     {
+      "species_key": "indoraptor",
+      "display_name": "IndoRaptor",
+      "mod_source": "indominus_rex",
+      "reference_catalog_item_id": "indoraptor_femea",
+      "catalog_item_ids": [
+        "indoraptor_femea",
+        "indoraptor"
+      ],
+      "blueprint_path": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+      "root_value": 45000,
+      "tier": "S+",
+      "breeding_difficulty": "extremo",
+      "breeding_notes": "Indominus Rex mod — apex híbrido; stats acima de Giga e linhagem rara",
+      "multipliers": {
+        "health": 93,
+        "melee": 835,
+        "weight": 102,
+        "stamina": 19,
+        "oxygen": 0,
+        "food": 0,
+        "speed": 8
+      },
+      "diet_class": "carnivore",
+      "size_class": "large",
+      "economy_stats": {
+        "health": {
+          "enabled": true
+        },
+        "melee": {
+          "enabled": true
+        },
+        "weight": {
+          "enabled": false
+        },
+        "stamina": {
+          "enabled": false
+        },
+        "speed": {
+          "enabled": true
+        }
+      },
+      "pricing_mode": "proportional"
+    },
+    {
       "species_key": "armaedron",
       "display_name": "Armaedron",
       "mod_source": "grand_hunt",
