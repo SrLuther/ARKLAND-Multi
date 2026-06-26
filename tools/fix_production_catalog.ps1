@@ -58,10 +58,26 @@ function Get-DefaultWebSettingsPath {
 
 function Get-MasterCandidates {
   @(
-        "C:\Program Files\ARKLAND-ServerManager\plugin\CustomShop\configs\config.json",
         (Join-Path $env:APPDATA "ARKLAND-ServerManager\CustomShop\configs\config.json"),
+        "C:\Program Files\ARKLAND-ServerManager\plugin\CustomShop\configs\config.json",
+        "C:\ARKLAND SERVER\MAPAS\*\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json",
         "C:\ARKLAND SERVER\WEBSTORE\config.json"
     ) | Where-Object { $_ -and ($_ -ne "") }
+}
+
+function Find-RichestMapConfig {
+    param([string]$MapsRoot = "C:\ARKLAND SERVER\MAPAS")
+    $pattern = Join-Path $MapsRoot "*\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json"
+    $best = $null
+    $bestScore = -1
+    foreach ($f in Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue) {
+        try {
+            $d = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            $n = (@($d.Items.PSObject.Properties) + @($d.ShopItems.PSObject.Properties) + @($d.Kits.PSObject.Properties)).Count
+            if ($n -gt $bestScore) { $bestScore = $n; $best = $f.FullName }
+        } catch {}
+    }
+    return $best
 }
 
 function Resolve-MasterPath([string]$Requested) {
@@ -71,13 +87,19 @@ function Resolve-MasterPath([string]$Requested) {
     if ($Requested) {
         throw "MasterPath não encontrado: $Requested"
     }
+    $richest = Find-RichestMapConfig -MapsRoot $MapsRoot
+    if ($richest) {
+        Write-Host "MasterPath: mapa com mais itens: $richest" -ForegroundColor Yellow
+        return $richest
+    }
     foreach ($candidate in (Get-MasterCandidates)) {
+        if ($candidate -like '*`**') { continue }
         if (Test-Path -LiteralPath $candidate) {
             Write-Host "MasterPath auto-detectado: $candidate" -ForegroundColor Yellow
             return (Resolve-Path -LiteralPath $candidate).Path
         }
     }
-    throw "Nenhum config.json mestre encontrado. Use -MasterPath."
+    throw "Nenhum config.json mestre encontrado. Use -MasterPath ou restaure de backup."
 }
 
 function Find-Python {
@@ -212,6 +234,12 @@ $pricingOutput | ForEach-Object { Write-Host $_ }
 
 Write-Step "Atualizando Web Store settings: $WebSettingsPath"
 Update-WebSettings -SettingsPath $WebSettingsPath -CatalogPath $master
+
+$webstoreConfig = "C:\ARKLAND SERVER\WEBSTORE\config.json"
+if (Test-Path -LiteralPath (Split-Path $webstoreConfig -Parent)) {
+    Copy-Item -LiteralPath $master -Destination $webstoreConfig -Force
+    Write-Host "WEBSTORE\config.json restaurado a partir do mestre." -ForegroundColor Green
+}
 
 if ($SyncMaps) {
     Write-Step "Sincronizando configs dos mapas em $MapsRoot"

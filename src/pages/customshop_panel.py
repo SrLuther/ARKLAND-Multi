@@ -677,6 +677,10 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                 )
                 app.config_manager.save()
 
+    def _fresh_catalog() -> Dict[str, Any]:
+        p = default_catalog_path(shop_cfg)
+        return _load_config(p)
+
     _TAB_BUILDERS = {
         "⚙️  Configurações": _build_tab_cfg,
         "🛒  Itens": lambda: _build_items_tab(app, tabs.tab("🛒  Itens"), data),
@@ -686,8 +690,8 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         "🗄️  Database": _build_tab_db,
         "🌐  Web Store": lambda: _build_webstore_tab(
             app, tabs.tab("🌐  Web Store"),
-            get_catalog=lambda: data,
-            get_catalog_path=lambda: Path(cfg_path),
+            get_catalog=_fresh_catalog,
+            get_catalog_path=lambda: default_catalog_path(shop_cfg),
             collect_catalog=_collect_all,
         ),
     }

@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.128"
+APP_VERSION: str = "1.9.129"
 BUILD_DATE: str = "2026-06-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.129",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix CRÍTICO (Loja / Web Store): v1.9.128 priorizava WEBSTORE/config.json como catálogo "
+            "mestre — stub com poucas licenças truncava /api/catalog e o Sync propagava só ~4 itens "
+            "para todos os mapas. Mestre agora resolve pelo config mais completo (mapas/APPDATA); "
+            "WEBSTORE é só cópia runtime; sync aborta se mestre << mapas.",
+            "Fix (Loja): ensure_webstore_catalog_config recopia mestre para WEBSTORE quando o mestre "
+            "tem muito mais itens (recuperação automática da cópia truncada).",
+            "Melhoria (Web Store): catalog_meta expõe items_count e kits_count em /api/catalog.",
+            "Melhoria (Loja): tools/fix_production_catalog.ps1 prioriza mapa com mais itens e "
+            "restaura WEBSTORE\\config.json a partir do mestre.",
+        ],
+    },
     {
         "version": "1.9.128",
         "date": "2026-06-26",

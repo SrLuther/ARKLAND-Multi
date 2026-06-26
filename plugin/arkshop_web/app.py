@@ -4113,6 +4113,8 @@ def get_catalog():
     catalog_meta = {
         "config_path": str(config_path.resolve()) if config_path.exists() else str(config_path),
         "config_exists": config_path.is_file(),
+        "items_count": len(items) if isinstance(items, dict) else 0,
+        "kits_count": len(kits) if isinstance(kits, dict) else 0,
         "placeholder_kits_detected": placeholder_kits_detected,
         "vip_sample": {
             "vip_bronze": {"price": _kit_price("vip_bronze"), "permissions": _kit_perms("vip_bronze")},

@@ -158,6 +158,59 @@ def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch
     assert (webstore / "config.json").is_file()
 
 
+def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
+    """v1.9.128 priorizava WEBSTORE/config.json — não deve vencer mapa completo."""
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    stub = webstore / "config.json"
+    stub.write_text(
+        json.dumps({"Items": {f"lic_{i}": {"Price": 1} for i in range(4)}, "Kits": {}}),
+        encoding="utf-8",
+    )
+    maps = tmp_path / "MAPAS" / "Ragnarok" / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins" / "CustomShop"
+    maps.mkdir(parents=True)
+    full = maps / "config.json"
+    full.write_text(
+        json.dumps({
+            "Items": {f"item_{i}": {"Price": i} for i in range(120)},
+            "Kits": {f"kit_{i}": {"Price": i} for i in range(30)},
+        }),
+        encoding="utf-8",
+    )
+
+    env = type("P", (), {"webstore": webstore, "maps": tmp_path / "MAPAS"})()
+    monkeypatch.setattr("src.arkland_environment.try_load_environment_paths", lambda: env)
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr("src.shop_integration.installed_catalog_candidates", lambda: [stub])
+
+    resolved = resolve_persistent_catalog_path(str(stub))
+    assert resolved == full
+
+
+def test_ensure_webstore_refreshes_when_master_larger(tmp_path, monkeypatch):
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    stub = webstore / "config.json"
+    stub.write_text('{"Items":{"a":{}},"Kits":{}}', encoding="utf-8")
+    master = tmp_path / "master" / "config.json"
+    master.parent.mkdir()
+    master.write_text(
+        json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {"k1": {}}}),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: type("P", (), {"webstore": webstore})(),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+
+    dest = ensure_webstore_catalog_config(master)
+    assert dest == stub
+    data = json.loads(stub.read_text(encoding="utf-8"))
+    assert len(data.get("Items") or {}) == 50
+
+
 def test_app_data_dir_delegates_to_webstore_data_dir(tmp_path, monkeypatch):
     import os
     import sys

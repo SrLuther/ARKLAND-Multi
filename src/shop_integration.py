@@ -51,13 +51,27 @@ def is_ephemeral_pyinstaller_path(path: str | Path) -> bool:
     return "_MEI" in upper or "\\TEMP\\_MEI" in upper
 
 
-def installed_catalog_candidates() -> List[Path]:
-    """Caminhos persistentes possíveis para o catálogo mestre config.json."""
-    from .arkland_environment import default_webstore_dir, try_load_environment_paths
+def catalog_entry_counts(data: Dict[str, Any]) -> Tuple[int, int]:
+    """Retorna (n_items, n_kits) do config CustomShop."""
+    items = data.get("Items") or data.get("ShopItems") or {}
+    kits = data.get("Kits") or {}
+    ni = len(items) if isinstance(items, dict) else 0
+    nk = len(kits) if isinstance(kits, dict) else 0
+    return ni, nk
 
+
+def catalog_entry_total(data: Dict[str, Any]) -> int:
+    ni, nk = catalog_entry_counts(data)
+    return ni + nk
+
+
+def installed_catalog_candidates() -> List[Path]:
+    """Caminhos persistentes possíveis para o catálogo mestre config.json.
+
+    Não inclui WEBSTORE/config.json — essa cópia é só runtime da Web Store;
+    usá-la como mestre (v1.9.128) truncava o catálogo para poucos itens.
+    """
     candidates: List[Path] = []
-    if try_load_environment_paths():
-        candidates.append(default_webstore_dir() / "config.json")
     if getattr(sys, "frozen", False):
         candidates.append(Path(sys.executable).resolve().parent / _INSTALLED_CATALOG_REL)
     pf = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
@@ -70,10 +84,13 @@ def installed_catalog_candidates() -> List[Path]:
         / "config.json"
     )
     candidates.append(_DEFAULT_CATALOG)
-    # dedupe preservando ordem
+    return _dedupe_paths(candidates)
+
+
+def _dedupe_paths(paths: List[Path]) -> List[Path]:
     seen: set[str] = set()
     out: List[Path] = []
-    for p in candidates:
+    for p in paths:
         key = str(p).lower()
         if key not in seen:
             seen.add(key)
@@ -81,20 +98,117 @@ def installed_catalog_candidates() -> List[Path]:
     return out
 
 
+def _webstore_catalog_file() -> Optional[Path]:
+    from .arkland_environment import try_load_environment_paths
+
+    if not try_load_environment_paths():
+        return None
+    return webstore_data_dir() / "config.json"
+
+
+def is_webstore_catalog_path(path: str | Path) -> bool:
+    """True se o caminho é a cópia WEBSTORE/config.json (não o mestre de sync)."""
+    ws = _webstore_catalog_file()
+    if ws is None:
+        return False
+    try:
+        return Path(path).resolve() == ws.resolve()
+    except OSError:
+        return False
+
+
+def _map_plugin_config_paths() -> List[Path]:
+    """Configs CustomShop nos mapas do ambiente ARKLAND (fonte de recuperação)."""
+    from .arkland_environment import try_load_environment_paths
+
+    paths = try_load_environment_paths()
+    if not paths:
+        return []
+    maps_root = getattr(paths, "maps", None)
+    if not maps_root or not Path(maps_root).is_dir():
+        return []
+    maps_root = Path(maps_root)
+    return sorted(
+        maps_root.glob(
+            "*/ShooterGame/Binaries/Win64/ArkApi/Plugins/CustomShop/config.json"
+        )
+    )
+
+
+def _collect_catalog_search_paths() -> List[Path]:
+    return _dedupe_paths(installed_catalog_candidates() + _map_plugin_config_paths())
+
+
+def _pick_richest_catalog_path(candidates: List[Path]) -> Optional[Path]:
+    best: Optional[Path] = None
+    best_score = -1
+    for p in candidates:
+        if not p.is_file():
+            continue
+        try:
+            score = catalog_entry_total(load_plugin_config(p))
+        except Exception:
+            continue
+        if score > best_score:
+            best_score = score
+            best = p
+    return best
+
+
+def _is_truncated_vs_alternatives(path: Path, alternatives: List[Path]) -> bool:
+    """Detecta cópia WEBSTORE (ou mestre) muito menor que configs nos mapas."""
+    if not path.is_file():
+        return False
+    own = catalog_entry_total(load_plugin_config(path))
+    best_other = 0
+    try:
+        resolved = path.resolve()
+    except OSError:
+        resolved = path
+    for alt in alternatives:
+        if not alt.is_file():
+            continue
+        try:
+            if alt.resolve() == resolved:
+                continue
+        except OSError:
+            if alt == path:
+                continue
+        best_other = max(best_other, catalog_entry_total(load_plugin_config(alt)))
+    return best_other >= 20 and own < max(10, int(best_other * 0.25))
+
+
 def resolve_persistent_catalog_path(
     configured: str | Path = "",
     *,
     shop: Optional["ShopGlobalConfig"] = None,
 ) -> Path:
-    """Resolve caminho gravável do catálogo mestre — nunca _MEIPASS."""
+    """Resolve caminho gravável do catálogo mestre — nunca _MEIPASS nem stub WEBSTORE."""
+    search_paths = _collect_catalog_search_paths()
+    preferred: List[Path] = []
     for raw in (
         str(configured or "").strip(),
         (getattr(shop, "catalog_config_path", "") or "").strip() if shop else "",
     ):
         if raw and not is_ephemeral_pyinstaller_path(raw):
-            p = Path(raw)
-            if p.is_file():
-                return p
+            preferred.append(Path(raw))
+
+    for p in preferred:
+        if not p.is_file():
+            continue
+        if _is_truncated_vs_alternatives(p, search_paths):
+            logger.warning(
+                "Catálogo configurado parece truncado (%s itens+kits) — "
+                "ignorando em favor de fonte mais completa",
+                catalog_entry_total(load_plugin_config(p)),
+            )
+            continue
+        return p
+
+    richest = _pick_richest_catalog_path(search_paths)
+    if richest is not None:
+        return richest
+
     for p in installed_catalog_candidates():
         if p.is_file():
             return p
@@ -127,19 +241,70 @@ def webstore_data_dir() -> Path:
 
 
 def ensure_webstore_catalog_config(source: Path | str) -> Path:
-    """No ambiente ARKLAND, garante config.json em WEBSTORE e retorna o caminho efetivo."""
-    import shutil
+    """Copia catálogo mestre para WEBSTORE/config.json (runtime da Web Store).
 
+    Atualiza a cópia quando ausente ou quando o mestre tem muito mais itens
+    (evita servir stub truncado após migração v1.9.128).
+    """
     from .arkland_environment import try_load_environment_paths
 
     src = Path(source)
     if not try_load_environment_paths():
         return src
     dest = webstore_data_dir() / "config.json"
-    if not dest.is_file() and src.is_file():
+    if not src.is_file():
+        return dest if dest.is_file() else src
+
+    src_total = catalog_entry_total(load_plugin_config(src))
+    should_copy = not dest.is_file()
+    if dest.is_file() and not should_copy:
+        dest_total = catalog_entry_total(load_plugin_config(dest))
+        if src_total > dest_total + 5:
+            should_copy = True
+            logger.info(
+                "WEBSTORE config desatualizado (%d vs mestre %d) — recopiando de %s",
+                dest_total, src_total, src,
+            )
+
+    if should_copy:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
     return dest if dest.is_file() else src
+
+
+def _richest_map_catalog_total(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> int:
+    best = 0
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        path_str = (getattr(srv, "customshop_config_path", "") or "").strip()
+        if not path_str:
+            path_str = default_customshop_path(getattr(srv, "install_dir", ""))
+        if not path_str:
+            continue
+        p = Path(path_str)
+        if p.is_file():
+            best = max(best, catalog_entry_total(load_plugin_config(p)))
+    return best
+
+
+def check_catalog_shrink_guard(
+    catalog: Dict[str, Any],
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> Optional[str]:
+    """Bloqueia sync que apagaria catálogo nos mapas (mestre muito menor que plugins)."""
+    master_total = catalog_entry_total(catalog)
+    richest_map = _richest_map_catalog_total(cm, asm_cm)
+    if richest_map >= 50 and master_total < max(10, int(richest_map * 0.25)):
+        ni, nk = catalog_entry_counts(catalog)
+        return (
+            f"Sync abortado: catálogo mestre tem apenas {ni} itens e {nk} kits "
+            f"(total {master_total}), mas um mapa tem {richest_map} entradas. "
+            "Recarregue o catálogo do mapa ou backup antes de sincronizar."
+        )
+    return None
 
 
 def resolve_webstore_executable() -> Optional[Path]:
@@ -1503,11 +1668,11 @@ def sync_arkshop_web_settings(
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
         shop.catalog_config_path = str(catalog_path)
-    catalog_path = ensure_webstore_catalog_config(catalog_path)
+    webstore_config = ensure_webstore_catalog_config(catalog_path)
 
     data["port"] = int(shop.port or DEFAULT_SHOP_PORT)
     data["delivery_mode"] = shop.delivery_mode or "plugin"
-    data["config_path"] = str(catalog_path)
+    data["config_path"] = str(webstore_config)
     data["central_url"] = resolve_central_url(shop)
     data["public_url"] = effective_shop_public_url(shop)
     data["shop_mode"] = shop.mode
@@ -1751,9 +1916,16 @@ def sync_all_plugins(
 
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     shop_dirty = False
-    if is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
+    if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
         shop.catalog_config_path = str(catalog_path)
         shop_dirty = True
+    if is_webstore_catalog_path(shop.catalog_config_path or ""):
+        shop.catalog_config_path = str(catalog_path)
+        shop_dirty = True
+
+    shrink_err = check_catalog_shrink_guard(catalog, cm, asm_cm=asm_cm)
+    if shrink_err:
+        return [], [shrink_err]
 
     website = resolve_plugin_website_url(shop)
     api = resolve_plugin_api_url(shop)
@@ -1774,6 +1946,9 @@ def sync_all_plugins(
         catalog_path.parent.mkdir(parents=True, exist_ok=True)
         save_plugin_config(catalog_path, catalog)
         ok.append(f"Catálogo mestre gravado → {catalog_path}")
+        ws_copy = ensure_webstore_catalog_config(catalog_path)
+        if ws_copy.is_file() and ws_copy != catalog_path:
+            ok.append(f"Web Store atualizada → {ws_copy}")
         if had_placeholders or cleared:
             ok.append(f"Placeholders removidos: {', '.join(cleared[:12]) or '(recalculados)'}")
         if kit_updates and (had_placeholders or cleared):

@@ -1,15 +1,11 @@
 {
-    "version": "1.9.128",
+    "version": "1.9.129",
     "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.128/ARKLAND-Multi-Setup-v1.9.128.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.129/ARKLAND-Multi-Setup-v1.9.129.exe",
     "changelog": [
-        "Fix (Web Store): ícones SVG por espécie no catálogo de dinos em produção (PyInstaller) — ark_species_registry resolve static/data a partir de _MEIPASS.",
-        "Fix (Web Store): painel Gerenciar Jogadores tolera ausência de market_player_profile e garante migração de store_users; mensagens de erro mais claras no admin.",
-        "Fix (Web Store / Loja): config_path e catalog_config_path não apontam mais para extração temporária PyInstaller (_MEIPASS/_MEI*) — migração automática no boot da Web Store e no load do config TEK; sync grava caminho persistente.",
-        "Fix (Loja): Sync + Reload RCON e sync_arkshop_web_settings reescrevem config_path para catálogo em Program Files, ao lado do .exe ou APPDATA.",
-        "Fix (Loja): tools/fix_production_catalog.ps1 aplica preços VIP no JSON mestre, atualiza config_path em settings.json e opcionalmente sincroniza mapas.",
-        "Melhoria (Web Store): /api/catalog expõe catalog_meta.placeholder_kits_detected para diagnosticar catálogo com preços 99.999.999 sem adivinhar o arquivo.",
-        "Fix (Web Store): _data_dir() alinhado com webstore_data_dir() — ARKSHOP_DATA_DIR, ambiente ARKLAND (WEBSTORE) e fallback APPDATA; evita settings em dois lugares.",
-        "Fix (Loja): sync_arkshop_web_settings e sync TEK copiam config.json para WEBSTORE quando ausente e apontam config_path para lá no ambiente ARKLAND."
+        "Fix CRÍTICO (Loja / Web Store): v1.9.128 priorizava WEBSTORE/config.json como catálogo mestre — stub com poucas licenças truncava /api/catalog e o Sync propagava só ~4 itens para todos os mapas. Mestre agora resolve pelo config mais completo (mapas/APPDATA); WEBSTORE é só cópia runtime; sync aborta se mestre << mapas.",
+        "Fix (Loja): ensure_webstore_catalog_config recopia mestre para WEBSTORE quando o mestre tem muito mais itens (recuperação automática da cópia truncada).",
+        "Melhoria (Web Store): catalog_meta expõe items_count e kits_count em /api/catalog.",
+        "Melhoria (Loja): tools/fix_production_catalog.ps1 prioriza mapa com mais itens e restaura WEBSTORE\\config.json a partir do mestre."
     ]
 }

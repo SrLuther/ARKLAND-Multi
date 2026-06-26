@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.129] - 2026-06-26
+
+### Improvement
+
+- Melhoria (Web Store): catalog_meta expõe items_count e kits_count em /api/catalog.
+- Melhoria (Loja): tools/fix_production_catalog.ps1 prioriza mapa com mais itens e restaura WEBSTORE\config.json a partir do mestre.
+
+### Fix
+
+- Fix CRÍTICO (Loja / Web Store): v1.9.128 priorizava WEBSTORE/config.json como catálogo mestre — stub com poucas licenças truncava /api/catalog e o Sync propagava só ~4 itens para todos os mapas. Mestre agora resolve pelo config mais completo (mapas/APPDATA); WEBSTORE é só cópia runtime; sync aborta se mestre << mapas.
+- Fix (Loja): ensure_webstore_catalog_config recopia mestre para WEBSTORE quando o mestre tem muito mais itens (recuperação automática da cópia truncada).
+
 ## [1.9.128] - 2026-06-26
 
 ### Improvement

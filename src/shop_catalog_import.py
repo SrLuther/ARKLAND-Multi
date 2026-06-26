@@ -192,6 +192,37 @@ def apply_catalog_to_target(
     return stats
 
 
+def restore_backup_catalog(backup: dict, template: dict) -> dict[str, Any]:
+    """Restaura catálogo completo do backup preservando Settings/Database do usuário.
+
+    Items, Kits, Downloads e TimedPointsReward vêm do backup (substituição total).
+    Settings mescla defaults do template com valores do backup (backup vence).
+    Database usa credenciais do backup, mantendo metadados (_comment) do template.
+    CrossChat e demais seções estruturais permanecem do template.
+    """
+    out = copy.deepcopy(template)
+
+    for key in ("Items", "Kits", "Downloads"):
+        if key in backup:
+            out[key] = copy.deepcopy(backup[key])
+    if isinstance(backup.get("TimedPointsReward"), dict):
+        out["TimedPointsReward"] = copy.deepcopy(backup["TimedPointsReward"])
+
+    tmpl_settings = copy.deepcopy(template.get("Settings") or {})
+    backup_settings = backup.get("Settings") or {}
+    out["Settings"] = {**tmpl_settings, **backup_settings}
+
+    if isinstance(backup.get("Database"), dict):
+        db = copy.deepcopy(template.get("Database") or {})
+        db.update(backup["Database"])
+        out["Database"] = db
+
+    if "_comment" in template:
+        out["_comment"] = template["_comment"]
+
+    return out
+
+
 def import_catalog_from_file(
     source_path: str | Path,
     target: dict,
