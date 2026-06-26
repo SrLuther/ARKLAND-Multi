@@ -35,7 +35,7 @@ def main() -> int:
     ICONS_DIR.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, dict] = {
         "_comment": "Ícones SVG originais ARKLAND — gerados por tools/generate_species_icons.py",
-        "_license": "© ARKLAND — silhuetas procedurais; não são assets do jogo nem de wikis terceiras.",
+        "_license": "© ARKLAND — ícones minimalistas (anel de tier + sigla); não são assets do jogo.",
         "icons": {},
     }
 
@@ -59,7 +59,7 @@ def main() -> int:
             "path": f"/species/{rel}",
             "tier": entry.get("tier"),
             "display_name": entry.get("display_name"),
-            "archetype_source": "procedural",
+            "archetype_source": "badge",
         }
         written += 1
 

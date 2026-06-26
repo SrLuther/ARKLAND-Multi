@@ -5,6 +5,50 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.124] - 2026-06-26
+
+### Feature
+
+- Feat (Loja): mapeamento explícito ouro→VIPOuro (evita confundir com licença Alfa) e sanitização automática de Price ≥ 1.000.000 em todos os kits.
+
+### Fix
+
+- Fix (Loja): tools/apply_vip_pricing.py varre todos os kits com Permissions (VIP, VISOUS Gamma/Beta/Alfa) — preço = 10% da licença, remove placeholders 99.999.999/1, corrige diamante para Permissions Admins,VIPDiamante (não Alfa) e preço 1.125.
+- Fix (Loja): kits VIP Bronze/Prata/Ouro/Diamante fixados em 300/450/750/1.125 Âmbar; licenca_vip_* garantidas no catálogo (3k/4,5k/7,5k/11,25k).
+
+## [1.9.123] - 2026-06-26
+
+### Feature
+
+- Feat (oBobonic): bot Discord inicia automaticamente com o TEK quando obobonic.auto_start está ativo (padrão true) — thread em background, status no painel e log global; pasta ausente não derruba o app.
+- Feat (Broadcasts): scheduler_enabled padrão true — ciclo automático ativo no boot; Parar não persiste false na config (reinicia no próximo launch se estava habilitado).
+
+## [1.9.122] - 2026-06-26
+
+### Feature
+
+- Feat (Loja): tools/sync_market_species_to_shop_catalog.py — dinos homologados no Comércio entram no config.json como Type:dino Nível 200 com preço do tier/root_value.
+
+### Fix
+
+- Fix (Comércio P2P): recursos, sementes e veículos (ex.: Lingote de Aço Endurecido, Alga, HoverSkiff) removidos da tabela market_species — Comércio aceita só dinos criopodáveis (_Character_BP); recursos permanecem no catálogo de resgates (Items).
+- Fix (Comércio P2P): sync_registry_overlay_to_db e boot filtram is_cryopodable_dino_blueprint; cleanup automático desativa entradas não-dino já importadas; admin Espécies oficiais não lista recursos.
+
+## [1.9.121] - 2026-06-26
+
+### Feature
+
+- Feat (Web Store): área admin «Gerenciar Jogadores» — lista paginada de contas Steam (store_users), busca, saldo Âmbar, status ativo/bloqueado, licenças e painel lateral para ajustar pontos, bloquear acesso, conceder/revogar licenças e entregar kits.
+- Feat (Web Store): APIs /api/admin/players/* com auditoria (audit_events) em todas as ações; conta criada no login Steam; bloqueio impede rotas de jogador autenticado.
+
+## [1.9.120] - 2026-06-26
+
+### Fix
+
+- Fix (Web Store): ícones de espécie redesenhados — círculo limpo com anel de tier, badge S+/S/A/B/C e sigla de 2 letras (RX, WW, etc.) em vez de blobs procedurais; regenerar com tools/generate_species_icons.py.
+- Fix (Loja): 40 itens/dinos/recursos Abyss sincronizados para config.json (aba Dinos/Itens) via tools/sync_abyss_shop_catalog.py — Seaweed, Manganese, Water Wyvern, HoverSkiff, etc.
+- Fix (Loja): Replicador S+ incluído em todos os kits VIP (Bronze, Prata, Ouro, Diamante) com blueprint S+ corrigido; modal «ver conteúdo» exibe «Replicador S+».
+
 ## [1.9.119] - 2026-06-25
 
 ### Feature

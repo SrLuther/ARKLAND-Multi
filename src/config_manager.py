@@ -109,7 +109,7 @@ class ObobonicBotConfig:
     """Bot Discord oBobonicClean — pasta externa gerenciada pelo painel TEK."""
     project_path: str = r"C:\Users\Ciano\Documents\oBobonicClean"
     start_hidden: bool = True
-    auto_start: bool = False
+    auto_start: bool = True
     auto_restart_on_crash: bool = False
     health_check_before_start: bool = True
 
@@ -135,7 +135,7 @@ class DiscordBotConfig:
 @dataclass
 class BroadcastTekConfig:
     """Configuração global do painel Broadcasts TEK."""
-    scheduler_enabled: bool = False
+    scheduler_enabled: bool = True
     interval_minutes: int = 30
     random_order: bool = False
     target_server_ids: list = field(default_factory=list)       # vazio = todos

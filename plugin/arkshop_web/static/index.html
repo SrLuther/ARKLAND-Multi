@@ -1226,6 +1226,42 @@
       text-transform: uppercase;
       letter-spacing: .06em;
     }
+    .players-admin-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+    @media (min-width: 1100px) {
+      .players-admin-layout.has-panel {
+        grid-template-columns: 1fr minmax(320px, 380px);
+      }
+    }
+    .players-admin-table tbody tr { cursor: pointer; }
+    .players-admin-table tbody tr:hover { background: rgba(59,130,246,.06); }
+    .players-admin-table tbody tr.selected {
+      background: rgba(59,130,246,.12);
+      outline: 1px solid rgba(59,130,246,.35);
+    }
+    .player-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--surface2), #1a2332);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: var(--accent); flex-shrink: 0;
+    }
+    .license-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .license-chip {
+      font-size: 10px; padding: 2px 6px; border-radius: 999px;
+      background: rgba(59,130,246,.15); color: var(--accent);
+      border: 1px solid rgba(59,130,246,.25);
+    }
+    .player-detail-panel {
+      position: sticky; top: 12px;
+      max-height: calc(100vh - 120px); overflow-y: auto;
+    }
+    .player-detail-panel.hidden { display: none !important; }
+    .status-pill--active { background: rgba(34,197,94,.15); color: #4ade80; }
+    .status-pill--blocked { background: rgba(240,64,80,.15); color: var(--danger); }
     .donation-policy-banner {
       background: linear-gradient(135deg, rgba(59,130,246,.08), rgba(232,120,32,.08));
       border: 1px solid rgba(59,130,246,.28);
@@ -4018,6 +4054,9 @@
     <div class="nav-item admin-only" data-page="messages" onclick="nav(this)">
       <span class="nav-icon">💬</span> Mensagens
     </div>
+    <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
+      <span class="nav-icon">👥</span> Gerenciar Jogadores
+    </div>
     <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
       <span class="nav-icon">📋</span> Auditoria
     </div>
@@ -5323,6 +5362,48 @@
         <div id="servers-list"></div>
       </div>
 
+      <!-- PAGE: Gerenciar Jogadores (admin) -->
+      <div id="page-players-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">👥 Gerenciar Jogadores</div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças e kits.</p>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadPlayersAdmin(true)">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="players-admin-layout" id="players-admin-layout">
+          <div>
+            <div class="card" style="margin-bottom:12px;">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+                <div class="form-group" style="margin:0;flex:1;min-width:200px;">
+                  <label>Buscar (SteamID ou nome)</label>
+                  <input id="players-admin-search" type="text" placeholder="7656119… ou nome" onkeydown="if(event.key==='Enter')resetPlayersAdminPage()" />
+                </div>
+                <div class="form-group" style="margin:0;min-width:140px;">
+                  <label>Ordenar</label>
+                  <select id="players-admin-sort" onchange="resetPlayersAdminPage()">
+                    <option value="last_login">Último login</option>
+                    <option value="display_name">Nome</option>
+                    <option value="points">Âmbar</option>
+                    <option value="created_at">Cadastro</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="resetPlayersAdminPage()">Filtrar</button>
+              </div>
+            </div>
+            <div class="card">
+              <div id="players-admin-list"></div>
+              <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="prevPlayersAdminPage()">◀ Anterior</button>
+                <span id="players-admin-page-info" style="font-size:12px;color:var(--text2);align-self:center;"></span>
+                <button class="btn btn-ghost btn-sm" onclick="nextPlayersAdminPage()">Próxima ▶</button>
+              </div>
+            </div>
+          </div>
+          <div id="player-detail-panel" class="card player-detail-panel hidden"></div>
+        </div>
+      </div>
+
       <!-- PAGE: Auditoria (admin) -->
       <div id="page-audit" class="page admin-only">
         <div id="topbar">
@@ -6114,6 +6195,7 @@ function nav(el) {
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
+  if (page === "players-admin") loadPlayersAdmin(true);
   if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "server-console") {
     loadServers().then(() => {
@@ -12248,6 +12330,313 @@ async function viewAdminTimeline(orderId) {
   const body = document.getElementById("audit-detail-body");
   if (body) body.innerHTML = renderAuditTimelineDetail(d);
   document.getElementById("modal-audit-detail").classList.remove("hidden");
+}
+
+// ── Admin: Gerenciar Jogadores ───────────────────────────────────────────────
+
+let _playersAdminPage = { offset: 0, limit: 40, total: 0 };
+let _playersAdminSelected = null;
+let _playersAdminDetail = null;
+
+function _playerInitials(name) {
+  const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function resetPlayersAdminPage() {
+  _playersAdminPage.offset = 0;
+  loadPlayersAdmin();
+}
+
+function prevPlayersAdminPage() {
+  _playersAdminPage.offset = Math.max(0, _playersAdminPage.offset - _playersAdminPage.limit);
+  loadPlayersAdmin();
+}
+
+function nextPlayersAdminPage() {
+  if (_playersAdminPage.offset + _playersAdminPage.limit < _playersAdminPage.total) {
+    _playersAdminPage.offset += _playersAdminPage.limit;
+    loadPlayersAdmin();
+  }
+}
+
+async function loadPlayersAdmin(resetPanel) {
+  const q = document.getElementById("players-admin-search")?.value?.trim() || "";
+  const sort = document.getElementById("players-admin-sort")?.value || "last_login";
+  const params = new URLSearchParams({
+    q, sort, order: "desc",
+    offset: String(_playersAdminPage.offset),
+    limit: String(_playersAdminPage.limit),
+  });
+  const el = document.getElementById("players-admin-list");
+  if (el) el.innerHTML = `<p style="color:var(--text2);padding:12px;">Carregando…</p>`;
+  try {
+    const d = await fetchJson("/api/admin/players?" + params.toString());
+    if (!d.ok) {
+      if (el) el.innerHTML = `<p style="color:var(--danger);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _playersAdminPage.total = d.total || 0;
+    const info = document.getElementById("players-admin-page-info");
+    if (info) {
+      const from = _playersAdminPage.total ? _playersAdminPage.offset + 1 : 0;
+      const to = Math.min(_playersAdminPage.offset + _playersAdminPage.limit, _playersAdminPage.total);
+      info.textContent = `${from}–${to} de ${_playersAdminPage.total}`;
+    }
+    if (!d.items || !d.items.length) {
+      if (el) el.innerHTML = `<p style="color:var(--text2);padding:12px;">Nenhum jogador encontrado.</p>`;
+      return;
+    }
+    const rows = d.items.map(p => {
+      const sel = _playersAdminSelected === p.steam_id ? " selected" : "";
+      const statusCls = p.site_access_blocked ? "status-pill--blocked" : "status-pill--active";
+      const statusLbl = p.site_access_blocked ? "Bloqueado" : "Ativo";
+      const chips = (p.licenses || []).slice(0, 4).map(g =>
+        `<span class="license-chip">${escHtml(g)}</span>`
+      ).join("");
+      const more = (p.licenses || []).length > 4 ? `<span class="license-chip">+${p.licenses.length - 4}</span>` : "";
+      const login = p.last_login_at ? new Date(p.last_login_at).toLocaleString("pt-BR") : "—";
+      return `<tr class="${sel}" onclick="selectPlayerAdmin('${escHtml(p.steam_id)}')">
+        <td><div style="display:flex;align-items:center;gap:10px;">
+          <div class="player-avatar">${escHtml(_playerInitials(p.display_name))}</div>
+          <div><div style="font-weight:600;">${escHtml(p.display_name)}</div>
+          <div style="font-size:11px;color:var(--text2);font-family:monospace;">${escHtml(p.steam_id)}</div></div>
+        </div></td>
+        <td>${Number(p.points || 0).toLocaleString("pt-BR")}</td>
+        <td><span class="badge ${statusCls}">${statusLbl}</span></td>
+        <td><div class="license-chips">${chips}${more}</div></td>
+        <td style="font-size:12px;color:var(--text2);">${escHtml(login)}</td>
+      </tr>`;
+    }).join("");
+    if (el) el.innerHTML = `<table class="pkg-admin-table players-admin-table"><thead><tr>
+      <th>Jogador</th><th>Âmbar</th><th>Status</th><th>Licenças</th><th>Último login</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+    if (resetPanel) {
+      _playersAdminSelected = null;
+      closePlayerAdminPanel();
+    } else if (_playersAdminSelected) {
+      selectPlayerAdmin(_playersAdminSelected, true);
+    }
+  } catch (e) {
+    if (el) el.innerHTML = `<p style="color:var(--danger);">Falha ao carregar jogadores.</p>`;
+  }
+}
+
+function closePlayerAdminPanel() {
+  const panel = document.getElementById("player-detail-panel");
+  const layout = document.getElementById("players-admin-layout");
+  if (panel) { panel.classList.add("hidden"); panel.innerHTML = ""; }
+  if (layout) layout.classList.remove("has-panel");
+  _playersAdminDetail = null;
+}
+
+async function selectPlayerAdmin(steamId, silent) {
+  _playersAdminSelected = steamId;
+  document.querySelectorAll(".players-admin-table tbody tr").forEach(tr => {
+    tr.classList.toggle("selected", tr.getAttribute("onclick")?.includes(steamId));
+  });
+  const panel = document.getElementById("player-detail-panel");
+  const layout = document.getElementById("players-admin-layout");
+  if (!panel) return;
+  panel.classList.remove("hidden");
+  if (layout) layout.classList.add("has-panel");
+  panel.innerHTML = `<p style="color:var(--text2);padding:12px;">Carregando…</p>`;
+  try {
+    const d = await fetchJson("/api/admin/players/" + encodeURIComponent(steamId));
+    if (!d.ok) {
+      panel.innerHTML = `<p style="color:var(--danger);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _playersAdminDetail = d;
+    renderPlayerAdminPanel(d);
+    if (!silent) requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "nearest" }));
+  } catch (e) {
+    panel.innerHTML = `<p style="color:var(--danger);">Falha ao carregar detalhes.</p>`;
+  }
+}
+
+function renderPlayerAdminPanel(d) {
+  const p = d.player || {};
+  const panel = document.getElementById("player-detail-panel");
+  if (!panel) return;
+  const statusCls = p.site_access_blocked ? "status-pill--blocked" : "status-pill--active";
+  const statusLbl = p.site_access_blocked ? "Bloqueado" : "Ativo";
+  const licOpts = (d.license_catalog || []).map(l =>
+    `<option value="${escHtml(l.group)}" data-days="${l.days}">${escHtml(l.label)} (${escHtml(l.group)})</option>`
+  ).join("");
+  const kitOpts = (d.kit_catalog || []).map(k =>
+    `<option value="${escHtml(k.kit_id)}">${escHtml(k.label)}</option>`
+  ).join("");
+  const entChips = (p.entitlements || []).map(e =>
+    `<span class="license-chip" title="${escHtml(e.expires_at || 'permanente')}">${escHtml(e.group)}</span>`
+  ).join("") || `<span style="color:var(--text2);font-size:12px;">Nenhuma</span>`;
+  const orders = (d.recent_orders || []).slice(0, 5).map(o =>
+    `<li style="font-size:12px;margin-bottom:4px;"><code>${escHtml(o.item_id)}</code> · ${escHtml(o.status)} · ${Number(o.points_spent||0).toLocaleString("pt-BR")} Â</li>`
+  ).join("") || `<li style="color:var(--text2);font-size:12px;">Sem pedidos recentes</li>`;
+
+  panel.innerHTML = `
+    <div class="card-header" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="player-avatar" style="width:48px;height:48px;font-size:18px;">${_playerInitials(p.display_name)}</div>
+        <div>
+          <div style="font-size:16px;font-weight:700;">${escHtml(p.display_name)}</div>
+          <div style="font-size:11px;color:var(--text2);font-family:monospace;">${escHtml(p.steam_id)}</div>
+          <span class="badge ${statusCls}" style="margin-top:4px;">${statusLbl}</span>
+        </div>
+      </div>
+      <button class="modal-close" type="button" onclick="closePlayerAdminPanel()" title="Fechar">✕</button>
+    </div>
+    <div style="font-size:22px;font-weight:700;color:var(--amber);margin-bottom:14px;">
+      ${Number(p.points || 0).toLocaleString("pt-BR")} Âmbar
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Licenças ativas</div>
+      <div class="license-chips">${entChips}</div>
+    </div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:8px;">Ajustar Âmbar</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-points-amount" type="number" min="0" value="100" />
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-points-reason" type="text" placeholder="Motivo (auditoria)" />
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="playerAdminPoints('add')">+ Adicionar</button>
+        <button class="btn btn-ghost btn-sm" onclick="playerAdminPoints('subtract')">− Subtrair</button>
+        <button class="btn btn-ghost btn-sm" onclick="playerAdminPoints('set')">Definir</button>
+      </div>
+    </div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:8px;">Acesso ao site</div>
+      ${p.site_access_blocked && p.ban_reason ? `<p style="font-size:12px;color:var(--danger);margin-bottom:8px;">${escHtml(p.ban_reason)}</p>` : ""}
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-ban-reason" type="text" placeholder="Motivo do bloqueio" />
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${p.site_access_blocked
+          ? `<button class="btn btn-success btn-sm" onclick="playerAdminBan(false)">✓ Desbloquear</button>`
+          : `<button class="btn btn-danger btn-sm" onclick="playerAdminBan(true)">⛔ Bloquear acesso</button>`}
+      </div>
+    </div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:8px;">Licença</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <select id="pa-license-group">${licOpts}</select>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-license-days" type="number" min="0" value="30" placeholder="Dias (0 = permanente)" />
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-license-reason" type="text" placeholder="Motivo" />
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="playerAdminLicense('grant')">Conceder</button>
+        <button class="btn btn-ghost btn-sm" onclick="playerAdminLicense('revoke')">Revogar</button>
+      </div>
+    </div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:8px;">Kit</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <select id="pa-kit-id">${kitOpts}</select>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-kit-amount" type="number" min="1" value="1" />
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-kit-reason" type="text" placeholder="Motivo" />
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-success btn-sm" onclick="playerAdminKit('deliver')">🚚 Entregar</button>
+        <button class="btn btn-ghost btn-sm" onclick="playerAdminKit('stash')">📦 Stash</button>
+      </div>
+    </div>
+    <div style="margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Pedidos recentes</div>
+      <ul style="margin:0;padding-left:18px;">${orders}</ul>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="nav(document.querySelector('[data-page=audit]')); setTimeout(function(){ document.getElementById('audit-filter-steam').value='${escHtml(p.steam_id)}'; resetAuditPage(); }, 200);">Ver na Auditoria →</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);">
+      Listings mercado: ${Number(p.listings_count||0)} · Cadastro: ${p.created_at ? new Date(p.created_at).toLocaleString("pt-BR") : "—"}
+    </div>`;
+}
+
+async function playerAdminPoints(mode) {
+  if (!_playersAdminSelected) return;
+  const amount = parseInt(document.getElementById("pa-points-amount")?.value || "0", 10);
+  const reason = document.getElementById("pa-points-reason")?.value?.trim() || "";
+  if (mode === "set" && !confirm(`Definir saldo para ${amount} Âmbar?`)) return;
+  if ((mode === "add" || mode === "subtract") && amount <= 0) { toast("Informe quantidade > 0", "error"); return; }
+  if (mode === "subtract" && !confirm(`Subtrair ${amount} Âmbar?`)) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/points", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode, amount, reason }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast(`Saldo: ${Number(d.after).toLocaleString("pt-BR")} Âmbar`, "success");
+    loadPlayersAdmin();
+    selectPlayerAdmin(_playersAdminSelected, true);
+  } else toast(d.error || "Falha", "error");
+}
+
+async function playerAdminBan(blocked) {
+  if (!_playersAdminSelected) return;
+  const reason = document.getElementById("pa-ban-reason")?.value?.trim() || "";
+  if (blocked && !confirm("Bloquear acesso deste jogador ao site?")) return;
+  if (!blocked && !confirm("Liberar acesso ao site?")) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/ban", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ blocked, reason }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast(blocked ? "Jogador bloqueado." : "Jogador desbloqueado.", "success");
+    loadPlayersAdmin();
+    selectPlayerAdmin(_playersAdminSelected, true);
+  } else toast(d.error || "Falha", "error");
+}
+
+async function playerAdminLicense(action) {
+  if (!_playersAdminSelected) return;
+  const group = document.getElementById("pa-license-group")?.value || "";
+  const days = parseInt(document.getElementById("pa-license-days")?.value || "30", 10);
+  const reason = document.getElementById("pa-license-reason")?.value?.trim() || "";
+  if (action === "revoke" && !confirm(`Revogar licença ${group}?`)) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/licenses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, group, days, reason }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast(action === "grant" ? "Licença concedida." : "Licença revogada.", "success");
+    loadPlayersAdmin();
+    selectPlayerAdmin(_playersAdminSelected, true);
+  } else toast(d.error || "Falha", "error");
+}
+
+async function playerAdminKit(mode) {
+  if (!_playersAdminSelected) return;
+  const kit_id = document.getElementById("pa-kit-id")?.value || "";
+  const amount = parseInt(document.getElementById("pa-kit-amount")?.value || "1", 10);
+  const reason = document.getElementById("pa-kit-reason")?.value?.trim() || "";
+  if (!kit_id) { toast("Selecione um kit", "error"); return; }
+  if (!confirm(mode === "deliver" ? `Entregar kit ${kit_id}?` : `Adicionar ${amount}x ${kit_id} ao stash?`)) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/kits", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode, kit_id, amount, reason }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast(mode === "deliver" ? "Kit enfileirado para entrega." : "Kit adicionado ao stash.", "success");
+    selectPlayerAdmin(_playersAdminSelected, true);
+  } else toast(d.error || "Falha", "error");
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

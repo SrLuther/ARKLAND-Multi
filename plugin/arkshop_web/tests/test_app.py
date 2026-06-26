@@ -668,6 +668,91 @@ class TestRconScope:
         )
 
 
+# ── Admin gestão de jogadores ───────────────────────────────────────────────────
+
+def _seed_store_user(steam_id: str, *, display_name: str = "Jogador Teste", blocked: bool = False) -> None:
+    db = _app_module._SessionLocal()
+    try:
+        row = db.get(_app_module.StoreUser, steam_id)
+        if row is None:
+            row = _app_module.StoreUser(
+                steam_id=steam_id,
+                display_name=display_name,
+                site_access_blocked=blocked,
+                last_login_at=_now(),
+            )
+            db.add(row)
+        else:
+            row.display_name = display_name
+            row.site_access_blocked = blocked
+            row.last_login_at = _now()
+        db.commit()
+    finally:
+        db.close()
+
+
+class TestAdminPlayers:
+    def test_list_players_requires_admin(self, client):
+        _seed_store_user(USER_STEAM)
+        _login(client, USER_STEAM)
+        r = client.get("/api/admin/players")
+        assert r.status_code == 403
+
+    def test_list_and_detail_players(self, client):
+        _seed_store_user(USER_STEAM, display_name="Alpha Tester")
+        _seed_player_points(USER_STEAM, 500)
+        _login(client, ADMIN_STEAM)
+        r = client.get("/api/admin/players?q=Alpha")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["total"] >= 1
+        assert any(p["steam_id"] == USER_STEAM for p in d["items"])
+
+        r2 = client.get(f"/api/admin/players/{USER_STEAM}")
+        d2 = r2.get_json()
+        assert d2["ok"] is True
+        assert d2["player"]["points"] == 500
+        assert d2["player"]["display_name"] == "Alpha Tester"
+
+    def test_adjust_points_via_player_endpoint(self, client):
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/points",
+            json={"mode": "add", "amount": 200, "reason": "teste"},
+        )
+        assert r.get_json()["ok"] is True
+        assert r.get_json()["after"] == 200
+
+        r2 = client.post(
+            f"/api/admin/players/{USER_STEAM}/points",
+            json={"mode": "subtract", "amount": 50, "reason": "ajuste"},
+        )
+        assert r2.get_json()["after"] == 150
+
+    def test_ban_and_unban_player(self, client):
+        _seed_store_user(USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/ban",
+            json={"blocked": True, "reason": "abuso"},
+        )
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["site_access_blocked"] is True
+
+        _login(client, USER_STEAM)
+        r2 = client.get("/api/player/points")
+        assert r2.status_code == 403
+
+        _login(client, ADMIN_STEAM)
+        r3 = client.post(
+            f"/api/admin/players/{USER_STEAM}/ban",
+            json={"blocked": False},
+        )
+        assert r3.get_json()["ok"] is True
+
+
 # ── Admin pontos (banco central) ──────────────────────────────────────────────
 
 class TestAdminPoints:

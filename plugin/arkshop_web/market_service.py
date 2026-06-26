@@ -27,6 +27,124 @@ from market_economy import (
     shop_catalog_display_name,
     stat_labels,
 )
+from ark_species_registry import is_cryopodable_dino_blueprint, registry_entry_is_commerce_dino
+
+
+def _species_row_is_commerce_dino(db: Session, row: Any) -> bool:
+    """True se a linha market_species representa um dino criopodável."""
+    bp = str(row.blueprint_path or "").strip()
+    if bp and is_cryopodable_dino_blueprint(bp):
+        return True
+    from app import MarketSpeciesAlias
+
+    alias = (
+        db.query(MarketSpeciesAlias)
+        .filter(MarketSpeciesAlias.species_id == row.id)
+        .order_by(MarketSpeciesAlias.id)
+        .first()
+    )
+    if alias and is_cryopodable_dino_blueprint(alias.blueprint_path):
+        return True
+    if not bp and not alias:
+        reg = None
+        try:
+            from ark_species_registry import get_registry_entry
+
+            reg = get_registry_entry(row.species_key)
+        except Exception:
+            pass
+        if reg:
+            return registry_entry_is_commerce_dino(reg)
+        return True
+    return False
+
+
+def deactivate_non_dino_species(db: Session) -> dict[str, Any]:
+    """Desativa entradas de recursos/sementes/veículos em market_species."""
+    from app import MarketSpecies
+
+    deactivated: list[str] = []
+    now = datetime.now(timezone.utc)
+    for row in db.query(MarketSpecies).filter(MarketSpecies.status != "INACTIVE").all():
+        if _species_row_is_commerce_dino(db, row):
+            continue
+        row.status = "INACTIVE"
+        row.updated_at = now
+        deactivated.append(row.species_key)
+    if deactivated:
+        db.commit()
+    return {"deactivated": len(deactivated), "deactivated_keys": deactivated}
+
+
+def sync_market_species_to_shop_catalog(
+    db: Session,
+    catalog: dict[str, Any],
+    *,
+    shop_level: int = 200,
+) -> dict[str, Any]:
+    """Garante dinos ACTIVE/PRE_REGISTERED no config.json (Type:dino, Level=shop_level)."""
+    from app import MarketSpecies
+
+    items = catalog.setdefault("Items", catalog.setdefault("ShopItems", {}))
+    created = updated = skipped = 0
+    keys: list[str] = []
+    for row in (
+        db.query(MarketSpecies)
+        .filter(MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")))
+        .order_by(MarketSpecies.species_key)
+        .all()
+    ):
+        if not _species_row_is_commerce_dino(db, row):
+            skipped += 1
+            continue
+        item_id = str(row.catalog_item_id or row.species_key).strip()
+        bp = str(row.blueprint_path or "").strip()
+        if not bp:
+            from app import MarketSpeciesAlias
+
+            alias = (
+                db.query(MarketSpeciesAlias)
+                .filter(MarketSpeciesAlias.species_id == row.id)
+                .first()
+            )
+            bp = str(alias.blueprint_path or "").strip() if alias else ""
+        if not bp:
+            skipped += 1
+            continue
+        price = int(row.root_value or 0)
+        name = str(row.display_name or item_id)
+        entry = {
+            "Type": "dino",
+            "Price": price,
+            "Category": "Comércio",
+            "Name": name,
+            "Description": f"{name} Nível {shop_level}",
+            "Dinos": [
+                {
+                    "Blueprint": bp,
+                    "Level": shop_level,
+                    "ForceTame": True,
+                    "Neutered": False,
+                }
+            ],
+        }
+        if item_id not in items:
+            items[item_id] = entry
+            created += 1
+        else:
+            existing = items[item_id]
+            if str(existing.get("Type") or "").lower() != "dino":
+                skipped += 1
+                continue
+            existing.update(entry)
+            updated += 1
+        keys.append(item_id)
+    return {
+        "shop_created": created,
+        "shop_updated": updated,
+        "shop_skipped": skipped,
+        "shop_keys": keys,
+    }
 
 
 def _apply_multipliers_row(db: Session, row: Any, species: SpeciesEconomy) -> None:
@@ -276,14 +394,18 @@ def sync_registry_overlay_to_db(
     display_name_overrides: dict[str, str] | None = None,
     reset_display_names: bool = False,
 ) -> dict[str, Any]:
-    """Importa espécies do overlay ark_species_registry.json (mods — ex.: Abyss 40 entradas)."""
+    """Importa espécies do overlay ark_species_registry.json (mods — ex.: Abyss 40 entradas).
+
+    Apenas dinos criopodáveis — recursos, sementes e veículos ficam só no catálogo da loja.
+    """
     from ark_species_registry import load_registry_overlay_raw
 
     from app import MarketSpecies
 
     skip = skip_keys or set()
-    created = updated = skipped = 0
+    created = updated = skipped = filtered = 0
     items: list[str] = []
+    filtered_keys: list[str] = []
     now = datetime.now(timezone.utc)
     status = "ACTIVE" if activate else "PRE_REGISTERED"
     existing_keys: set[str] = set()
@@ -293,6 +415,10 @@ def sync_registry_overlay_to_db(
     for entry in load_registry_overlay_raw():
         sk = str(entry.get("species_key") or "").strip()
         if not sk or sk in skip:
+            continue
+        if not registry_entry_is_commerce_dino(entry):
+            filtered += 1
+            filtered_keys.append(sk)
             continue
         if only_missing and sk in existing_keys:
             skipped += 1
@@ -318,6 +444,8 @@ def sync_registry_overlay_to_db(
         "registry_created": created,
         "registry_updated": updated,
         "registry_skipped": skipped,
+        "registry_filtered": filtered,
+        "registry_filtered_keys": filtered_keys,
         "registry_keys": items,
     }
 
@@ -377,6 +505,7 @@ def sync_catalog_to_db(
         display_name_overrides=display_name_overrides,
         reset_display_names=reset_display_names,
     )
+    cleanup = deactivate_non_dino_species(db)
     promoted = 0
     from market_listings import reconcile_pending_listings
 
@@ -388,6 +517,7 @@ def sync_catalog_to_db(
         "promoted_listings": promoted,
         **ref,
         **reg,
+        **cleanup,
     }
 
 
@@ -397,7 +527,10 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
     q = db.query(MarketSpecies).order_by(MarketSpecies.display_name)
     if active_only:
         q = q.filter(MarketSpecies.status == "ACTIVE")
+    else:
+        q = q.filter(MarketSpecies.status != "INACTIVE")
     rows = q.all()
+    rows = [r for r in rows if _species_row_is_commerce_dino(db, r)]
     labels = stat_labels()
     global_mults = []
     if rows:

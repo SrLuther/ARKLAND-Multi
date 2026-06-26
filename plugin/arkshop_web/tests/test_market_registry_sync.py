@@ -48,6 +48,7 @@ def test_sync_registry_overlay_creates_species(db_session):
 
     result = sync_registry_overlay_to_db(db_session, only_missing=True)
     assert result["registry_created"] >= 1 or result["registry_updated"] >= 1
+    assert result.get("registry_filtered", 0) == 12
 
     row = (
         db_session.query(MarketSpecies)
@@ -58,6 +59,13 @@ def test_sync_registry_overlay_creates_species(db_session):
     assert row.display_name
     assert row.root_value > 0
     assert row.status == "PRE_REGISTERED"
+
+    steel = (
+        db_session.query(MarketSpecies)
+        .filter(MarketSpecies.species_key == "abyss_hardened_steel")
+        .first()
+    )
+    assert steel is None
 
     alias = (
         db_session.query(MarketSpeciesAlias)

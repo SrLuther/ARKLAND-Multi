@@ -257,8 +257,43 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
         reg_boot = _maybe_sync_registry_overlay(engine)
         if reg_boot:
             result["registry_bootstrap"] = reg_boot
+        cleanup = _maybe_cleanup_non_dino_species(engine)
+        if cleanup:
+            result["non_dino_cleanup"] = cleanup
 
     return result
+
+
+def _maybe_cleanup_non_dino_species(engine: Any) -> dict[str, Any] | None:
+    """Desativa recursos/sementes/veículos que possam estar em market_species."""
+    if "market_species" not in _existing_tables(engine):
+        return None
+    session_factory = None
+    try:
+        import app as app_module
+
+        session_factory = app_module._SessionLocal
+    except Exception:
+        return None
+    if session_factory is None:
+        return None
+    db = session_factory()
+    try:
+        from market_service import deactivate_non_dino_species
+
+        result = deactivate_non_dino_species(db)
+        if result.get("deactivated"):
+            log.info(
+                "Mercado: %s entradas não-dino desativadas: %s",
+                result["deactivated"],
+                ", ".join(result.get("deactivated_keys") or [])[:200],
+            )
+        return result
+    except Exception as exc:
+        log.warning("MARKET non-dino cleanup falhou: %s", exc)
+        return {"error": str(exc)}
+    finally:
+        db.close()
 
 
 def _maybe_sync_registry_overlay(engine: Any) -> dict[str, Any] | None:

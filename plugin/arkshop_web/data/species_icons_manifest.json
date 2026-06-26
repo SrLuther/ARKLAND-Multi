@@ -1,930 +1,930 @@
 {
   "_comment": "Ícones SVG originais ARKLAND — gerados por tools/generate_species_icons.py",
-  "_license": "© ARKLAND — silhuetas procedurais; não são assets do jogo nem de wikis terceiras.",
+  "_license": "© ARKLAND — ícones minimalistas (anel de tier + sigla); não são assets do jogo.",
   "icons": {
     "indominus": {
       "path": "/species/icons/indominus.svg",
       "tier": "S+",
       "display_name": "Indominus Rex",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "armaedron": {
       "path": "/species/icons/armaedron.svg",
       "tier": "S+",
       "display_name": "Armaedron",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "dread_wyvern": {
       "path": "/species/icons/dread_wyvern.svg",
       "tier": "S+",
       "display_name": "Dread Wyvern",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "ancient_wyvern": {
       "path": "/species/icons/ancient_wyvern.svg",
       "tier": "S+",
       "display_name": "Ancient Wyvern",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "tekstrider_femea": {
       "path": "/species/icons/tekstrider_femea.svg",
       "tier": "S+",
       "display_name": "Tek Strider",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "giga": {
       "path": "/species/icons/giga.svg",
       "tier": "S",
       "display_name": "Giga",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "lionfish_femea": {
       "path": "/species/icons/lionfish_femea.svg",
       "tier": "S",
       "display_name": "Lionfish Lion",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "rex": {
       "path": "/species/icons/rex.svg",
       "tier": "A",
       "display_name": "Rex",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "carcha_femea": {
       "path": "/species/icons/carcha_femea.svg",
       "tier": "A",
       "display_name": "Carcha",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "brachio": {
       "path": "/species/icons/brachio.svg",
       "tier": "A",
       "display_name": "Brachiosaurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "deinosuchus": {
       "path": "/species/icons/deinosuchus.svg",
       "tier": "A",
       "display_name": "Deinosuchus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "puretotokage": {
       "path": "/species/icons/puretotokage.svg",
       "tier": "A",
       "display_name": "Puretotokage",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "shimosaur": {
       "path": "/species/icons/shimosaur.svg",
       "tier": "A",
       "display_name": "Shimosaur",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "acro": {
       "path": "/species/icons/acro.svg",
       "tier": "B",
       "display_name": "Acrocantossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "desmodus": {
       "path": "/species/icons/desmodus.svg",
       "tier": "B",
       "display_name": "Desmodus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "archelon": {
       "path": "/species/icons/archelon.svg",
       "tier": "B",
       "display_name": "Archelon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "concavenator": {
       "path": "/species/icons/concavenator.svg",
       "tier": "B",
       "display_name": "Concavenator",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "xiphactinus": {
       "path": "/species/icons/xiphactinus.svg",
       "tier": "B",
       "display_name": "Xiphactinus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "kutsu_ya_ku": {
       "path": "/species/icons/kutsu_ya_ku.svg",
       "tier": "B",
       "display_name": "Kutsu-Ya-Ku",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "xenomorphgen2_femea": {
       "path": "/species/icons/xenomorphgen2_femea.svg",
       "tier": "B",
       "display_name": "Xenomorph Gen2",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "xenomorph_femea": {
       "path": "/species/icons/xenomorph_femea.svg",
       "tier": "B",
       "display_name": "Xenomorph",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "megalosaurus_aberrant_femea": {
       "path": "/species/icons/megalosaurus_aberrant_femea.svg",
       "tier": "B",
       "display_name": "Megalosaurus Aberrante",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "megalosaurus_femea": {
       "path": "/species/icons/megalosaurus_femea.svg",
       "tier": "B",
       "display_name": "Megalosaurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "deinonychus_femea": {
       "path": "/species/icons/deinonychus_femea.svg",
       "tier": "B",
       "display_name": "Deinonychus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "cryolophosaurus": {
       "path": "/species/icons/cryolophosaurus.svg",
       "tier": "C",
       "display_name": "Cryolophosaurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "diru_ya_ku": {
       "path": "/species/icons/diru_ya_ku.svg",
       "tier": "C",
       "display_name": "Diru-Ya-Ku",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "ankylo": {
       "path": "/species/icons/ankylo.svg",
       "tier": "B",
       "display_name": "Anquilossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "doed": {
       "path": "/species/icons/doed.svg",
       "tier": "B",
       "display_name": "Doedicurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "beaver": {
       "path": "/species/icons/beaver.svg",
       "tier": "B",
       "display_name": "Castoroides",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "mammoth": {
       "path": "/species/icons/mammoth.svg",
       "tier": "B",
       "display_name": "Mamute",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "paracer": {
       "path": "/species/icons/paracer.svg",
       "tier": "B",
       "display_name": "Paraceratherium",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "bronto": {
       "path": "/species/icons/bronto.svg",
       "tier": "C",
       "display_name": "Brontossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "stego": {
       "path": "/species/icons/stego.svg",
       "tier": "B",
       "display_name": "Stegossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "trike": {
       "path": "/species/icons/trike.svg",
       "tier": "C",
       "display_name": "Triceratops",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "para": {
       "path": "/species/icons/para.svg",
       "tier": "C",
       "display_name": "Parasaurolophus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "iguanodon": {
       "path": "/species/icons/iguanodon.svg",
       "tier": "C",
       "display_name": "Iguanodonte",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "carbonemys": {
       "path": "/species/icons/carbonemys.svg",
       "tier": "C",
       "display_name": "Carbonemys",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "ptera": {
       "path": "/species/icons/ptera.svg",
       "tier": "C",
       "display_name": "Pteranodonte",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "argent": {
       "path": "/species/icons/argent.svg",
       "tier": "B",
       "display_name": "Argentavis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "quetz": {
       "path": "/species/icons/quetz.svg",
       "tier": "A",
       "display_name": "Quetzalcoatlus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "tapejara": {
       "path": "/species/icons/tapejara.svg",
       "tier": "B",
       "display_name": "Tapejara",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "pelagornis": {
       "path": "/species/icons/pelagornis.svg",
       "tier": "C",
       "display_name": "Pelagornis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "griffin": {
       "path": "/species/icons/griffin.svg",
       "tier": "A",
       "display_name": "Grifo",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "wyvern": {
       "path": "/species/icons/wyvern.svg",
       "tier": "S",
       "display_name": "Wyvern",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "rockdrake": {
       "path": "/species/icons/rockdrake.svg",
       "tier": "S",
       "display_name": "Rock Drake",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "basilisk": {
       "path": "/species/icons/basilisk.svg",
       "tier": "A",
       "display_name": "Basilisco",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "megalodon": {
       "path": "/species/icons/megalodon.svg",
       "tier": "B",
       "display_name": "Megalodon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "mosasaurus": {
       "path": "/species/icons/mosasaurus.svg",
       "tier": "A",
       "display_name": "Mosasauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "plesiosaur": {
       "path": "/species/icons/plesiosaur.svg",
       "tier": "B",
       "display_name": "Plesiossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "tuso": {
       "path": "/species/icons/tuso.svg",
       "tier": "A",
       "display_name": "Tusoteuthis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "dunkle": {
       "path": "/species/icons/dunkle.svg",
       "tier": "B",
       "display_name": "Dunkleosteus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "allo": {
       "path": "/species/icons/allo.svg",
       "tier": "A",
       "display_name": "Allosaurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "carno": {
       "path": "/species/icons/carno.svg",
       "tier": "B",
       "display_name": "Carnotauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "spino": {
       "path": "/species/icons/spino.svg",
       "tier": "A",
       "display_name": "Espinosaur",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "baryonyx": {
       "path": "/species/icons/baryonyx.svg",
       "tier": "B",
       "display_name": "Baryonyx",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "theriz": {
       "path": "/species/icons/theriz.svg",
       "tier": "A",
       "display_name": "Therizinosaur",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "yuty": {
       "path": "/species/icons/yuty.svg",
       "tier": "A",
       "display_name": "Yutyrannus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "deinonychus": {
       "path": "/species/icons/deinonychus.svg",
       "tier": "A",
       "display_name": "Deinonychus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "raptor": {
       "path": "/species/icons/raptor.svg",
       "tier": "C",
       "display_name": "Raptor",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "sabertooth": {
       "path": "/species/icons/sabertooth.svg",
       "tier": "B",
       "display_name": "Smilodonte",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "direwolf": {
       "path": "/species/icons/direwolf.svg",
       "tier": "B",
       "display_name": "Lobo Gigante",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "thyla": {
       "path": "/species/icons/thyla.svg",
       "tier": "B",
       "display_name": "Thylacoleo",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "megatherium": {
       "path": "/species/icons/megatherium.svg",
       "tier": "B",
       "display_name": "Megatherium",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "daeodon": {
       "path": "/species/icons/daeodon.svg",
       "tier": "B",
       "display_name": "Daeodon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "achatina": {
       "path": "/species/icons/achatina.svg",
       "tier": "C",
       "display_name": "Achatina",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "dodo": {
       "path": "/species/icons/dodo.svg",
       "tier": "C",
       "display_name": "Dodo",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "gallimimus": {
       "path": "/species/icons/gallimimus.svg",
       "tier": "C",
       "display_name": "Gallimimus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "lystrosaurus": {
       "path": "/species/icons/lystrosaurus.svg",
       "tier": "C",
       "display_name": "Lystrossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "phiomia": {
       "path": "/species/icons/phiomia.svg",
       "tier": "C",
       "display_name": "Phiomia",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "pulmonoscorpius": {
       "path": "/species/icons/pulmonoscorpius.svg",
       "tier": "C",
       "display_name": "Escorpião",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "mantis": {
       "path": "/species/icons/mantis.svg",
       "tier": "B",
       "display_name": "Louva-a-deus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "kairuku": {
       "path": "/species/icons/kairuku.svg",
       "tier": "C",
       "display_name": "Kairuku",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "diplodocus": {
       "path": "/species/icons/diplodocus.svg",
       "tier": "C",
       "display_name": "Diplodocus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "gigant": {
       "path": "/species/icons/gigant.svg",
       "tier": "S+",
       "display_name": "Giganotossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "megalosaurus": {
       "path": "/species/icons/megalosaurus.svg",
       "tier": "A",
       "display_name": "Megalossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "maewing": {
       "path": "/species/icons/maewing.svg",
       "tier": "A",
       "display_name": "Maewing",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "fjordhawk": {
       "path": "/species/icons/fjordhawk.svg",
       "tier": "B",
       "display_name": "Fjordhawk",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "andrewsarchus": {
       "path": "/species/icons/andrewsarchus.svg",
       "tier": "B",
       "display_name": "Andrewsarchus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "sinomacrops": {
       "path": "/species/icons/sinomacrops.svg",
       "tier": "C",
       "display_name": "Sinomacrops",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "amargasaurus": {
       "path": "/species/icons/amargasaurus.svg",
       "tier": "B",
       "display_name": "Amargassauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "dinopithecus": {
       "path": "/species/icons/dinopithecus.svg",
       "tier": "B",
       "display_name": "Dinopithecus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "fenrir": {
       "path": "/species/icons/fenrir.svg",
       "tier": "S",
       "display_name": "Fenrir",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "rhynio": {
       "path": "/species/icons/rhynio.svg",
       "tier": "A",
       "display_name": "Rhinognatha",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "owl": {
       "path": "/species/icons/owl.svg",
       "tier": "A",
       "display_name": "Coruja das Neves",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "gasbags": {
       "path": "/species/icons/gasbags.svg",
       "tier": "B",
       "display_name": "Gasbags",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "velonasaur": {
       "path": "/species/icons/velonasaur.svg",
       "tier": "A",
       "display_name": "Velonasaur",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "gacha": {
       "path": "/species/icons/gacha.svg",
       "tier": "B",
       "display_name": "Gacha",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "managarmr": {
       "path": "/species/icons/managarmr.svg",
       "tier": "S",
       "display_name": "Managarmr",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "ferox": {
       "path": "/species/icons/ferox.svg",
       "tier": "A",
       "display_name": "Ferox",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "bloodstalker": {
       "path": "/species/icons/bloodstalker.svg",
       "tier": "B",
       "display_name": "Bloodstalker",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "astrocetus": {
       "path": "/species/icons/astrocetus.svg",
       "tier": "S",
       "display_name": "Astrocetus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "megachelon": {
       "path": "/species/icons/megachelon.svg",
       "tier": "A",
       "display_name": "Megachelon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "tropeognathus": {
       "path": "/species/icons/tropeognathus.svg",
       "tier": "A",
       "display_name": "Tropeognathus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "crystalwyvern": {
       "path": "/species/icons/crystalwyvern.svg",
       "tier": "S",
       "display_name": "Wyvern de Cristal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "magmasaur": {
       "path": "/species/icons/magmasaur.svg",
       "tier": "A",
       "display_name": "Magmasaur",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "xenomorph": {
       "path": "/species/icons/xenomorph.svg",
       "tier": "S",
       "display_name": "Reaper",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "tekstrider": {
       "path": "/species/icons/tekstrider.svg",
       "tier": "S",
       "display_name": "Tek Strider",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "compy": {
       "path": "/species/icons/compy.svg",
       "tier": "C",
       "display_name": "Compy",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "dimorph": {
       "path": "/species/icons/dimorph.svg",
       "tier": "C",
       "display_name": "Dimorphodon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "otter": {
       "path": "/species/icons/otter.svg",
       "tier": "C",
       "display_name": "Lontra",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "jerboa": {
       "path": "/species/icons/jerboa.svg",
       "tier": "C",
       "display_name": "Gerboa",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "equus": {
       "path": "/species/icons/equus.svg",
       "tier": "C",
       "display_name": "Equus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "procoptodon": {
       "path": "/species/icons/procoptodon.svg",
       "tier": "B",
       "display_name": "Procoptodon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "purlovia": {
       "path": "/species/icons/purlovia.svg",
       "tier": "B",
       "display_name": "Purlovia",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "basilosaurus": {
       "path": "/species/icons/basilosaurus.svg",
       "tier": "B",
       "display_name": "Basilossauro",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "titanboa": {
       "path": "/species/icons/titanboa.svg",
       "tier": "C",
       "display_name": "Titanoboa",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "sarco": {
       "path": "/species/icons/sarco.svg",
       "tier": "B",
       "display_name": "Sarcosuchus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "kaprosuchus": {
       "path": "/species/icons/kaprosuchus.svg",
       "tier": "B",
       "display_name": "Kaprosuchus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "castoroides": {
       "path": "/species/icons/castoroides.svg",
       "tier": "B",
       "display_name": "Castoroides",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "doedicurus": {
       "path": "/species/icons/doedicurus.svg",
       "tier": "B",
       "display_name": "Doedicurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "lionfishlion": {
       "path": "/species/icons/lionfishlion.svg",
       "tier": "S",
       "display_name": "Lionfish Lion",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "bionicgigant": {
       "path": "/species/icons/bionicgigant.svg",
       "tier": "S",
       "display_name": "Giga Bionic",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "bionicrex": {
       "path": "/species/icons/bionicrex.svg",
       "tier": "A",
       "display_name": "Rex Bionic",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "volcanorex": {
       "path": "/species/icons/volcanorex.svg",
       "tier": "A",
       "display_name": "Rex Vulcão",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_seaweed": {
       "path": "/species/icons/abyss_seaweed.svg",
       "tier": "C",
       "display_name": "Alga Marinha",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_manganese": {
       "path": "/species/icons/abyss_manganese.svg",
       "tier": "C",
       "display_name": "Manganês",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_hardened_steel": {
       "path": "/species/icons/abyss_hardened_steel.svg",
       "tier": "B",
       "display_name": "Lingote de Aço Endurecido",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_fish_scale": {
       "path": "/species/icons/abyss_fish_scale.svg",
       "tier": "C",
       "display_name": "Escama de Peixe",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_crystallized_wood": {
       "path": "/species/icons/abyss_crystallized_wood.svg",
       "tier": "B",
       "display_name": "Madeira Cristalizada",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_barnacle": {
       "path": "/species/icons/abyss_barnacle.svg",
       "tier": "C",
       "display_name": "Craca",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_aqualyrium": {
       "path": "/species/icons/abyss_aqualyrium.svg",
       "tier": "A",
       "display_name": "Aqualyrium",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_seed_plantspeciesw": {
       "path": "/species/icons/abyss_seed_plantspeciesw.svg",
       "tier": "C",
       "display_name": "Semente Planta W (Abyss)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_seed_rice": {
       "path": "/species/icons/abyss_seed_rice.svg",
       "tier": "C",
       "display_name": "Semente de Arroz",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_seed_cucumis": {
       "path": "/species/icons/abyss_seed_cucumis.svg",
       "tier": "C",
       "display_name": "Semente de Pepino",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_water_wyvern": {
       "path": "/species/icons/abyss_water_wyvern.svg",
       "tier": "S+",
       "display_name": "Wyvern Aquática",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_vulcanite": {
       "path": "/species/icons/abyss_vulcanite.svg",
       "tier": "A",
       "display_name": "Vulcanita",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_tridacna": {
       "path": "/species/icons/abyss_tridacna.svg",
       "tier": "B",
       "display_name": "Tridacna",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_tiktaalik": {
       "path": "/species/icons/abyss_tiktaalik.svg",
       "tier": "B",
       "display_name": "Tiktaalik",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_thunnus": {
       "path": "/species/icons/abyss_thunnus.svg",
       "tier": "B",
       "display_name": "Atum (Thunnus)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_takifugu": {
       "path": "/species/icons/abyss_takifugu.svg",
       "tier": "C",
       "display_name": "Baiacu (Takifugu)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_stereolepis": {
       "path": "/species/icons/abyss_stereolepis.svg",
       "tier": "B",
       "display_name": "Stereolepis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_seahorse": {
       "path": "/species/icons/abyss_seahorse.svg",
       "tier": "C",
       "display_name": "Cavalo-marinho",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_riftcrawler": {
       "path": "/species/icons/abyss_riftcrawler.svg",
       "tier": "A",
       "display_name": "Rift Crawler",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_qarmoutus": {
       "path": "/species/icons/abyss_qarmoutus.svg",
       "tier": "S",
       "display_name": "Qarmoutus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_onchopristis": {
       "path": "/species/icons/abyss_onchopristis.svg",
       "tier": "A",
       "display_name": "Onchopristis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_ocepechelon": {
       "path": "/species/icons/abyss_ocepechelon.svg",
       "tier": "B",
       "display_name": "Ocepechelon",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_mudpuppy": {
       "path": "/species/icons/abyss_mudpuppy.svg",
       "tier": "C",
       "display_name": "Mudpuppy",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_monodon": {
       "path": "/species/icons/abyss_monodon.svg",
       "tier": "B",
       "display_name": "Narval (Monodon)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_mantis_shrimp": {
       "path": "/species/icons/abyss_mantis_shrimp.svg",
       "tier": "A",
       "display_name": "Camarão-mantis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_malleocephalus": {
       "path": "/species/icons/abyss_malleocephalus.svg",
       "tier": "A",
       "display_name": "Malleocephalus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_kathreptis": {
       "path": "/species/icons/abyss_kathreptis.svg",
       "tier": "S",
       "display_name": "Kathreptis",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_istiophorus": {
       "path": "/species/icons/abyss_istiophorus.svg",
       "tier": "A",
       "display_name": "Marlim (Istiophorus)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_homarus": {
       "path": "/species/icons/abyss_homarus.svg",
       "tier": "B",
       "display_name": "Lagosta (Homarus)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_dakosaurus": {
       "path": "/species/icons/abyss_dakosaurus.svg",
       "tier": "S",
       "display_name": "Dakosaurus",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_yuty_abyssal": {
       "path": "/species/icons/abyss_yuty_abyssal.svg",
       "tier": "S+",
       "display_name": "Yutyrannus Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_thyla_abyssal": {
       "path": "/species/icons/abyss_thyla_abyssal.svg",
       "tier": "A",
       "display_name": "Thylacoleo Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_theriz_abyssal": {
       "path": "/species/icons/abyss_theriz_abyssal.svg",
       "tier": "A",
       "display_name": "Therizinosaur Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_stego_abyssal": {
       "path": "/species/icons/abyss_stego_abyssal.svg",
       "tier": "B",
       "display_name": "Stegossauro Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_rex_abyssal": {
       "path": "/species/icons/abyss_rex_abyssal.svg",
       "tier": "S+",
       "display_name": "Rex Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_reaper_abyssal": {
       "path": "/species/icons/abyss_reaper_abyssal.svg",
       "tier": "S+",
       "display_name": "Reaper Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_moschops_abyssal": {
       "path": "/species/icons/abyss_moschops_abyssal.svg",
       "tier": "B",
       "display_name": "Moschops Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_ankylo_abyssal": {
       "path": "/species/icons/abyss_ankylo_abyssal.svg",
       "tier": "B",
       "display_name": "Anquilossauro Abissal",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_hover_sail": {
       "path": "/species/icons/abyss_hover_sail.svg",
       "tier": "A",
       "display_name": "Vela Thalassiana (HoverSail)",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     },
     "abyss_hover_skiff": {
       "path": "/species/icons/abyss_hover_skiff.svg",
       "tier": "S",
       "display_name": "Skiff Thalassiano",
-      "archetype_source": "procedural"
+      "archetype_source": "badge"
     }
   },
   "count": 154

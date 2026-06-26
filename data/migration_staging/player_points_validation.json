@@ -1,0 +1,1372 @@
+{
+  "description": "Todos os alinhamentos SteamId BIGINT BE encontrados em arkshopplayers.ibd, com candidatos aceitos/rejeitados. Valores ~33k em linhas empty_kits sao falsos positivos de metadata InnoDB (confirmado por hex dump).",
+  "admin_steam_id": "76561198171864983",
+  "players": [
+    {
+      "steam_id": "76561199184409964",
+      "candidates": [
+        {
+          "points": 13894400,
+          "file_offset": "0x141af",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 766,
+          "file_offset": "0x202a5",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 766,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199140845370",
+      "candidates": [
+        {
+          "points": 132352,
+          "file_offset": "0x142ae",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 765,
+          "file_offset": "0x242ce",
+          "kits_marker": "empty",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 765,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": "empty_kits"
+      }
+    },
+    {
+      "steam_id": "76561199525019616",
+      "candidates": [
+        {
+          "points": 91489024,
+          "file_offset": "0x1415a",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 763,
+          "file_offset": "0x1a37d",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 763,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198285969432",
+      "candidates": [
+        {
+          "points": 13174272,
+          "file_offset": "0x1439c",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 758,
+          "file_offset": "0x26c32",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 758,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198190321579",
+      "candidates": [
+        {
+          "points": 14615296,
+          "file_offset": "0x141c0",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 757,
+          "file_offset": "0x204b9",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 757,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198849573402",
+      "candidates": [
+        {
+          "points": 3081472,
+          "file_offset": "0x142e1",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 757,
+          "file_offset": "0x1c323",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        },
+        {
+          "points": 757,
+          "file_offset": "0x24537",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 757,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": "deduped_2_rows"
+      }
+    },
+    {
+      "steam_id": "76561198795600956",
+      "candidates": [
+        {
+          "points": 15664640,
+          "file_offset": "0x143cf",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 738,
+          "file_offset": "0x2788c",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 738,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198838394144",
+      "candidates": [
+        {
+          "points": 3998976,
+          "file_offset": "0x142f2",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 33047,
+          "file_offset": "0x284d8",
+          "kits_marker": "empty",
+          "accepted": false,
+          "reject_reason": "empty_kits_metadata_false_positive"
+        },
+        {
+          "points": 720,
+          "file_offset": "0x2474b",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        },
+        {
+          "points": 520,
+          "file_offset": "0x1c537",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 720,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "low",
+        "notes": "deduped_2_rows;duplicate_rows_disagreed_on_points"
+      }
+    },
+    {
+      "steam_id": "76561199839062021",
+      "candidates": [
+        {
+          "points": 16712960,
+          "file_offset": "0x14369",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 717,
+          "file_offset": "0x263cb",
+          "kits_marker": "empty",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 717,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": "empty_kits"
+      }
+    },
+    {
+      "steam_id": "76561199526829339",
+      "candidates": [
+        {
+          "points": 11731968,
+          "file_offset": "0x14237",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 715,
+          "file_offset": "0x21136",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 715,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199244666374",
+      "candidates": [
+        {
+          "points": 121176832,
+          "file_offset": "0x14127",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 714,
+          "file_offset": "0x19d4b",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 714,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199803813432",
+      "candidates": [
+        {
+          "points": 4130048,
+          "file_offset": "0x14303",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 712,
+          "file_offset": "0x1c74b",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        },
+        {
+          "points": 327,
+          "file_offset": "0x24b69",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 712,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "low",
+        "notes": "deduped_2_rows;duplicate_rows_disagreed_on_points"
+      }
+    },
+    {
+      "steam_id": "76561199061181444",
+      "candidates": [
+        {
+          "points": 68879104,
+          "file_offset": "0x140d2",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 691,
+          "file_offset": "0x18eee",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 691,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199411908598",
+      "candidates": [
+        {
+          "points": 3539712,
+          "file_offset": "0x14116",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 691,
+          "file_offset": "0x19b37",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 691,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198387296706",
+      "candidates": [
+        {
+          "points": 74646784,
+          "file_offset": "0x14336",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 680,
+          "file_offset": "0x2578d",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 680,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199030165184",
+      "candidates": [
+        {
+          "points": 12125184,
+          "file_offset": "0x14248",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 679,
+          "file_offset": "0x2134a",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 679,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198159188421",
+      "candidates": [
+        {
+          "points": 91059565,
+          "file_offset": "0x1407d",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 674,
+          "file_offset": "0x18091",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 674,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198814264352",
+      "candidates": [
+        {
+          "points": 14747136,
+          "file_offset": "0x143be",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 658,
+          "file_offset": "0x2746e",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 658,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198329567577",
+      "candidates": [
+        {
+          "points": 15270912,
+          "file_offset": "0x1427b",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 645,
+          "file_offset": "0x21985",
+          "kits_marker": "empty",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 645,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": "empty_kits"
+      }
+    },
+    {
+      "steam_id": "76561198059370951",
+      "candidates": [
+        {
+          "points": 7734016,
+          "file_offset": "0x1416b",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 642,
+          "file_offset": "0x1a591",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 642,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198972801324",
+      "candidates": [
+        {
+          "points": 137823232,
+          "file_offset": "0x141f3",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 633,
+          "file_offset": "0x2090b",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 633,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198416266875",
+      "candidates": [
+        {
+          "points": 15270656,
+          "file_offset": "0x141d1",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 607,
+          "file_offset": "0x206cd",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 607,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198441061115",
+      "candidates": [
+        {
+          "points": 2949888,
+          "file_offset": "0x140f4",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 598,
+          "file_offset": "0x19520",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 598,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198863939126",
+      "candidates": [
+        {
+          "points": 9569536,
+          "file_offset": "0x14347",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 593,
+          "file_offset": "0x25b90",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 593,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198970792130",
+      "candidates": [
+        {
+          "points": 1180416,
+          "file_offset": "0x140c1",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 588,
+          "file_offset": "0x18cda",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 588,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198238059824",
+      "candidates": [
+        {
+          "points": 72614656,
+          "file_offset": "0x14138",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 584,
+          "file_offset": "0x1add7",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 584,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199481037778",
+      "candidates": [
+        {
+          "points": 11469824,
+          "file_offset": "0x14226",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 571,
+          "file_offset": "0x219b0",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 571,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199062776082",
+      "candidates": [
+        {
+          "points": 14746624,
+          "file_offset": "0x1426a",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 557,
+          "file_offset": "0x21772",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 557,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199799870282",
+      "candidates": [
+        {
+          "points": 12977152,
+          "file_offset": "0x14259",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 556,
+          "file_offset": "0x2155e",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 556,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199246072295",
+      "candidates": [
+        {
+          "points": 2163968,
+          "file_offset": "0x142bf",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 540,
+          "file_offset": "0x1c091",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        },
+        {
+          "points": 540,
+          "file_offset": "0x242f9",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 540,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": "deduped_2_rows"
+      }
+    },
+    {
+      "steam_id": "76561198134638970",
+      "candidates": [
+        {
+          "points": 15664128,
+          "file_offset": "0x1429d",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 504,
+          "file_offset": "0x242a4",
+          "kits_marker": "empty",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 504,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": "empty_kits"
+      }
+    },
+    {
+      "steam_id": "76561199333584164",
+      "candidates": [
+        {
+          "points": 78316800,
+          "file_offset": "0x14358",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 497,
+          "file_offset": "0x25fae",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 497,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198202405277",
+      "candidates": [
+        {
+          "points": 12452608,
+          "file_offset": "0x1418d",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 466,
+          "file_offset": "0x1abc3",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 466,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198344556248",
+      "candidates": [
+        {
+          "points": 67328,
+          "file_offset": "0x143e0",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 443,
+          "file_offset": "0x28091",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 443,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198069369801",
+      "candidates": [
+        {
+          "points": 3277568,
+          "file_offset": "0x14105",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 439,
+          "file_offset": "0x19923",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 439,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198126200838",
+      "candidates": [
+        {
+          "points": 9831168,
+          "file_offset": "0x1417c",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 431,
+          "file_offset": "0x1a7a5",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 431,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199097784958",
+      "candidates": [
+        {
+          "points": 10290688,
+          "file_offset": "0x1437a",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 395,
+          "file_offset": "0x263f6",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 395,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199229147166",
+      "candidates": [
+        {
+          "points": 11077120,
+          "file_offset": "0x1438b",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 395,
+          "file_offset": "0x26814",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 395,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198965258997",
+      "candidates": [
+        {
+          "points": 13370112,
+          "file_offset": "0x1419e",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 392,
+          "file_offset": "0x20091",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 392,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198440215035",
+      "candidates": [
+        {
+          "points": 5375232,
+          "file_offset": "0x14325",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 386,
+          "file_offset": "0x2538a",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 386,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199327823222",
+      "candidates": [
+        {
+          "points": 4916480,
+          "file_offset": "0x14314",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 33328,
+          "file_offset": "0x1c2f8",
+          "kits_marker": "empty",
+          "accepted": false,
+          "reject_reason": "empty_kits_metadata_false_positive"
+        },
+        {
+          "points": 371,
+          "file_offset": "0x24f87",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        },
+        {
+          "points": 300,
+          "file_offset": "0x1c2ce",
+          "kits_marker": "empty",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 371,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199173023063",
+      "candidates": [
+        {
+          "points": 14484992,
+          "file_offset": "0x143ad",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 366,
+          "file_offset": "0x27050",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 366,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198879346857",
+      "candidates": [
+        {
+          "points": 656128,
+          "file_offset": "0x1409f",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 360,
+          "file_offset": "0x186c3",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 360,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198797266137",
+      "candidates": [
+        {
+          "points": 86573824,
+          "file_offset": "0x140e3",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 329,
+          "file_offset": "0x1930c",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 329,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199041778923",
+      "candidates": [
+        {
+          "points": 7799808,
+          "file_offset": "0x14215",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 321,
+          "file_offset": "0x20f22",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 321,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199482021325",
+      "candidates": [
+        {
+          "points": 15467520,
+          "file_offset": "0x1428c",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 308,
+          "file_offset": "0x24091",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 308,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199698982701",
+      "candidates": [
+        {
+          "points": 721664,
+          "file_offset": "0x140b0",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 288,
+          "file_offset": "0x188d7",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 288,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561198171864983",
+      "candidates": [
+        {
+          "points": 525056,
+          "file_offset": "0x1408e",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 282,
+          "file_offset": "0x182a5",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 282,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199544460336",
+      "candidates": [
+        {
+          "points": 7603200,
+          "file_offset": "0x14204",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 280,
+          "file_offset": "0x20d0e",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 280,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199524965451",
+      "candidates": [
+        {
+          "points": 6357760,
+          "file_offset": "0x14149",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 263,
+          "file_offset": "0x1a169",
+          "kits_marker": "json",
+          "accepted": true,
+          "reject_reason": null
+        }
+      ],
+      "exported": {
+        "points": 263,
+        "source_file": "arkshopplayers.ibd",
+        "confidence": "high",
+        "notes": ""
+      }
+    },
+    {
+      "steam_id": "76561199015416352",
+      "candidates": [
+        {
+          "points": 2295040,
+          "file_offset": "0x142d0",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 33220,
+          "file_offset": "0x1c2a4",
+          "kits_marker": "empty",
+          "accepted": false,
+          "reject_reason": "empty_kits_metadata_false_positive"
+        },
+        {
+          "points": 33220,
+          "file_offset": "0x2450c",
+          "kits_marker": "empty",
+          "accepted": false,
+          "reject_reason": "empty_kits_metadata_false_positive"
+        }
+      ],
+      "exported": null
+    },
+    {
+      "steam_id": "76561199275774677",
+      "candidates": [
+        {
+          "points": 919296,
+          "file_offset": "0x143f1",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 33386,
+          "file_offset": "0x284ae",
+          "kits_marker": "empty",
+          "accepted": false,
+          "reject_reason": "empty_kits_metadata_false_positive"
+        }
+      ],
+      "exported": null
+    },
+    {
+      "steam_id": "76561199555525399",
+      "candidates": [
+        {
+          "points": 328704,
+          "file_offset": "0x141e2",
+          "kits_marker": "8000",
+          "accepted": false,
+          "reject_reason": "invalid_kits_marker"
+        },
+        {
+          "points": 33138,
+          "file_offset": "0x208e0",
+          "kits_marker": "empty",
+          "accepted": false,
+          "reject_reason": "empty_kits_metadata_false_positive"
+        }
+      ],
+      "exported": null
+    }
+  ]
+}

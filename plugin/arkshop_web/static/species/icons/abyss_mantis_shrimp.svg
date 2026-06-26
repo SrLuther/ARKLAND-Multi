@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Camarão-mantis">
   <rect width="64" height="64" rx="12" fill="#1a1608"/>
-  <path fill="#ffe082" opacity="0.45" d="M29 18 L29 5 L33 22 Z"/><path fill="#ffe082" opacity="0.45" d="M37 18 L40 6 L41 22 Z"/>
-  <path fill="#ffc107" d="M14 34c6-12 16-18 28-16 8 2 14 10 14 20 0 8-8 14-18 14 -10 0-18-6-22-14-4-8-4-16-2-4z"/>
-  
-  <circle cx="37" cy="28" r="2.2" fill="#ffe082"/><circle cx="45" cy="29" r="1.8" fill="#ffe082" opacity="0.85"/>
-  <circle cx="38" cy="27.5" r="0.8" fill="#1a1608" opacity="0.6"/>
+  <circle cx="32" cy="34" r="22" fill="none" stroke="#ffc107" stroke-width="3" opacity="0.95"/>
+  <circle cx="32" cy="34" r="18" fill="#1a1608" stroke="#ffe082" stroke-width="1" opacity="0.35"/>
+  <path fill="#ffe082" opacity="0.55" d="M24 44 L32 28 L40 44 L36 40 L28 40 Z"/>
+  <text x="32" y="38" text-anchor="middle" font-family="Rajdhani,Segoe UI,sans-serif" font-size="16" font-weight="700" fill="#ffc107" letter-spacing="0.5">CM</text>
+  <rect x="44" y="6" width="14" height="14" rx="4" fill="#ffc107"/>
+  <text x="51.0" y="16" text-anchor="middle" font-family="Rajdhani,Segoe UI,sans-serif" font-size="9" font-weight="700" fill="#1a1608">A</text>
 </svg>

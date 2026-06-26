@@ -24,6 +24,15 @@ DEFAULT_ITEM_ICON = "/catalog/item.svg"
 KIT_ICON = "/catalog/kit.svg"
 LICENSE_ICON = "/catalog/license.svg"
 
+BLUEPRINT_FRIENDLY_NAMES: dict[str, str] = {
+    "replicatorplus": "Replicador S+",
+    "replicator_plus": "Replicador S+",
+    "transmitterplus": "Transmissor S+",
+    "generatortek": "Gerador Tek S+",
+    "soultraps_ds": "Soul Traps (DinoStorage)",
+    "rigchanger": "Swappable Stryder Rig",
+}
+
 
 def _norm_cat(text: str) -> str:
     return (
@@ -188,6 +197,10 @@ def _kit_item_label(item: dict[str, Any]) -> str:
     bp = str(item.get("Blueprint") or "").strip()
     if bp:
         token = bp.rsplit("/", 1)[-1].split(".")[0]
+        norm = token.lower().replace("primalitem", "").replace("primalitemstructure_", "").replace("_", "")
+        for key, label in BLUEPRINT_FRIENDLY_NAMES.items():
+            if key.replace("_", "") in norm:
+                return label
         return token.replace("PrimalItem", "").replace("_", " ").strip() or bp
     return "Item"
 

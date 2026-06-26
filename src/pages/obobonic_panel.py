@@ -113,6 +113,11 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     def _ensure_bot() -> ObobonicBotProcess:
         pdir = _project_dir()
         proc = bot_holder.get("proc")
+        if proc is None:
+            boot = getattr(app, "_obobonic_boot_proc", None)
+            if boot is not None and boot.project_dir == pdir:
+                proc = boot
+                bot_holder["proc"] = proc
         if proc is None or proc.project_dir != pdir:
             proc = ObobonicBotProcess(pdir)
             bot_holder["proc"] = proc
@@ -197,6 +202,7 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     btn_row.pack(fill="x", padx=12, pady=12)
 
     hidden_var = tk.BooleanVar(value=cfg.start_hidden)
+    auto_start_var = tk.BooleanVar(value=cfg.auto_start)
     auto_restart_var = tk.BooleanVar(value=cfg.auto_restart_on_crash)
     health_before_start_var = tk.BooleanVar(value=cfg.health_check_before_start)
 
@@ -296,6 +302,7 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
 
     def _save_opt() -> None:
         cfg.start_hidden = hidden_var.get()
+        cfg.auto_start = auto_start_var.get()
         cfg.auto_restart_on_crash = auto_restart_var.get()
         cfg.health_check_before_start = health_before_start_var.get()
         app.config_manager.save()
@@ -303,6 +310,10 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
 
     ctk.CTkCheckBox(opt_row, text="Modo oculto (sem janela)",
                     variable=hidden_var, command=_save_opt,
+                    fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
+        side=tk.LEFT, padx=(0, 12))
+    ctk.CTkCheckBox(opt_row, text="Iniciar com o app",
+                    variable=auto_start_var, command=_save_opt,
                     fg_color=theme["accent_dark"], hover_color=theme["accent_hover"]).pack(
         side=tk.LEFT, padx=(0, 12))
     ctk.CTkCheckBox(opt_row, text="Reiniciar ao crash",
@@ -1009,7 +1020,59 @@ def build_obobonic_panel(app: "ARKTEKApp", parent: tk.Widget) -> None:
     _load_cogs()
     _refresh_health_ui()
     _refresh_logs()
+    boot_result = getattr(app, "_obobonic_autostart_msg", None)
+    if isinstance(boot_result, tuple) and len(boot_result) == 2:
+        ok, msg = boot_result
+        _append_panel_log(("✅ " if ok else "⚠ ") + msg)
     _poll_tick()
 
     app._obobonic_panel_state = state
     app._obobonic_bot_holder = bot_holder
+
+
+def auto_start_obobonic(app: "ARKTEKApp") -> None:
+    """Inicia o bot oBobonic no boot do TEK se obobonic.auto_start estiver ativo."""
+    import logging
+
+    log = logging.getLogger(__name__)
+    if getattr(app, "_obobonic_autostart_started", False):
+        return
+    app._obobonic_autostart_started = True
+
+    cfg = app.config_manager.config.obobonic
+    if not cfg.auto_start:
+        return
+
+    project_dir = Path((cfg.project_path or "").strip() or DEFAULT_PROJECT_PATH)
+    if not project_dir.is_dir():
+        log.warning("auto_start_obobonic: pasta não encontrada — %s", project_dir)
+        return
+
+    def _worker() -> None:
+        bot = ObobonicBotProcess(project_dir)
+        bot.set_auto_restart(cfg.auto_restart_on_crash)
+        health: Optional[List[MapHealthResult]] = None
+        if cfg.health_check_before_start:
+            try:
+                env_path = project_dir / ".env"
+                env_text = env_path.read_text(encoding="utf-8") if env_path.is_file() else ""
+                maps = parse_ark_maps_from_env(env_text)
+                if maps:
+                    health = health_check_maps(maps, env_text)
+            except Exception as exc:
+                log.warning("auto_start_obobonic: health check ignorado — %s", exc)
+        ok, msg = bot.start(
+            hidden=cfg.start_hidden,
+            skip_health=not cfg.health_check_before_start,
+            health_results=health,
+        )
+        app._obobonic_boot_proc = bot
+        app._obobonic_autostart_msg = (ok, msg)
+        level = "info" if ok else "warning"
+        log.log(logging.INFO if ok else logging.WARNING, "auto_start_obobonic: %s", msg)
+        try:
+            app.after(0, lambda: app._global_log(f"[oBobonic] {msg}", level))
+        except Exception:
+            pass
+
+    threading.Thread(target=_worker, daemon=True, name="ObobonicAutostart").start()

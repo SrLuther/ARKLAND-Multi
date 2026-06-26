@@ -25,6 +25,7 @@ from market_service import (
     sync_registry_overlay_to_db,
     update_species_display_name,
     _list_species_aliases,
+    _species_row_is_commerce_dino,
 )
 
 from market_listings import (
@@ -133,7 +134,9 @@ def register_market_routes(
             q = db.query(MarketSpecies).order_by(MarketSpecies.root_value.desc())
             if status:
                 q = q.filter(MarketSpecies.status == status)
-            rows = q.all()
+            else:
+                q = q.filter(MarketSpecies.status != "INACTIVE")
+            rows = [r for r in q.all() if _species_row_is_commerce_dino(db, r)]
             items = list_species_public(db, active_only=False)
             by_key = {i["species_key"]: i for i in items}
             catalog = read_shop_config()

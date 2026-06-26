@@ -4,18 +4,618 @@
       "arkshop:C:\\Users\\Ciano\\Pictures\\data\\arkshop\\arkshopplayers.ibd",
       "customshop:C:\\Users\\Ciano\\Pictures\\data\\arkshop\\players.ibd"
     ],
-    "rows_raw": 1,
-    "rows_positive": 1,
-    "rows_exported": 1,
-    "total_points": 17923165,
-    "min_points": 17923165,
-    "max_points": 17923165,
-    "dedupe_logic": "max(points) per steam_id across all sources"
+    "rows_raw": 55,
+    "rows_positive": 55,
+    "rows_exported": 50,
+    "rows_low_confidence": 2,
+    "rows_recovered_empty_kits": 4,
+    "total_points": 27585,
+    "min_points": 263,
+    "max_points": 766,
+    "rows_rejected_metadata": 6,
+    "dedupe_logic": "prefer arkshopplayers.ibd JSON kit rows over empty_kits; reject empty_kits with points > 5000 (InnoDB metadata false positives); otherwise max(points) per steam_id",
+    "arkshop_layout": "Points INT32 LE at offset -8 before SteamId BIGINT BE; Kits at +8",
+    "correction": "Correcao 2026-06-26: os ~33k no topo do CSV eram FALSOS POSITIVOS — bytes de SteamId alinhados em metadata de pagina InnoDB com marcador Kits='{}'. Admin 76561198171864983 tem saldo real 282 na unica linha JSON valida (offset 0x182a5); hit 525056 @0x1408e e metadata (kits=0x8000). Max real no dump: 766 pts. Docker/MySQL indisponivel para IMPORT TABLESPACE.",
+    "inventory": {
+      "root": "C:\\Users\\Ciano\\Pictures\\data",
+      "groups": {
+        "ark_permission": [
+          {
+            "name": "permissiongroups.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "players.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "tribepermissions.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          }
+        ],
+        "arkshop": [
+          {
+            "name": "_migrations.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "arkshopplayers.ibd",
+            "ext": ".ibd",
+            "bytes": 180224
+          },
+          {
+            "name": "backup_policies.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "backups.ibd",
+            "ext": ".ibd",
+            "bytes": 163840
+          },
+          {
+            "name": "channels.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "cluster_servers.ibd",
+            "ext": ".ibd",
+            "bytes": 163840
+          },
+          {
+            "name": "clusters.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "cross_chat.ibd",
+            "ext": ".ibd",
+            "bytes": 212992
+          },
+          {
+            "name": "crosschat_players.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "crosschat_servers.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "crosschat_webhooks.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "currentplayers.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "discordbuttoncooldowns.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "discordcommands.ibd",
+            "ext": ".ibd",
+            "bytes": 22020096
+          },
+          {
+            "name": "discordposts.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "discordsteamlinks.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "messages.ibd",
+            "ext": ".ibd",
+            "bytes": 311296
+          },
+          {
+            "name": "mods.ibd",
+            "ext": ".ibd",
+            "bytes": 147456
+          },
+          {
+            "name": "mutes.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "players.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "scheduled_tasks.ibd",
+            "ext": ".ibd",
+            "bytes": 163840
+          },
+          {
+            "name": "seasonal_event_backups.ibd",
+            "ext": ".ibd",
+            "bytes": 147456
+          },
+          {
+            "name": "seasonal_event_rates.ibd",
+            "ext": ".ibd",
+            "bytes": 147456
+          },
+          {
+            "name": "seasonal_event_servers.ibd",
+            "ext": ".ibd",
+            "bytes": 163840
+          },
+          {
+            "name": "seasonal_events.ibd",
+            "ext": ".ibd",
+            "bytes": 163840
+          },
+          {
+            "name": "servers.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "settings.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          },
+          {
+            "name": "sync_agents.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "sync_conflicts.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "sync_events.ibd",
+            "ext": ".ibd",
+            "bytes": 147456
+          },
+          {
+            "name": "sync_folders.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "transactions.ibd",
+            "ext": ".ibd",
+            "bytes": 147456
+          },
+          {
+            "name": "tribes.ibd",
+            "ext": ".ibd",
+            "bytes": 131072
+          },
+          {
+            "name": "u_vault.ibd",
+            "ext": ".ibd",
+            "bytes": 41943040
+          },
+          {
+            "name": "vip_players.ibd",
+            "ext": ".ibd",
+            "bytes": 114688
+          }
+        ]
+      }
+    }
   },
   "players": [
     {
+      "steam_id": "76561199184409964",
+      "points": 766,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199140845370",
+      "points": 765,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": "empty_kits"
+    },
+    {
+      "steam_id": "76561199525019616",
+      "points": 763,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198285969432",
+      "points": 758,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198190321579",
+      "points": 757,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198849573402",
+      "points": 757,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": "deduped_2_rows"
+    },
+    {
+      "steam_id": "76561198795600956",
+      "points": 738,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198838394144",
+      "points": 720,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "low",
+      "notes": "deduped_2_rows;duplicate_rows_disagreed_on_points"
+    },
+    {
+      "steam_id": "76561199839062021",
+      "points": 717,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": "empty_kits"
+    },
+    {
+      "steam_id": "76561199526829339",
+      "points": 715,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199244666374",
+      "points": 714,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199803813432",
+      "points": 712,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "low",
+      "notes": "deduped_2_rows;duplicate_rows_disagreed_on_points"
+    },
+    {
+      "steam_id": "76561199061181444",
+      "points": 691,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199411908598",
+      "points": 691,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198387296706",
+      "points": 680,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199030165184",
+      "points": 679,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198159188421",
+      "points": 674,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198814264352",
+      "points": 658,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198329567577",
+      "points": 645,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": "empty_kits"
+    },
+    {
+      "steam_id": "76561198059370951",
+      "points": 642,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198972801324",
+      "points": 633,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198416266875",
+      "points": 607,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198441061115",
+      "points": 598,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198863939126",
+      "points": 593,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198970792130",
+      "points": 588,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198238059824",
+      "points": 584,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199481037778",
+      "points": 571,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199062776082",
+      "points": 557,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199799870282",
+      "points": 556,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199246072295",
+      "points": 540,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": "deduped_2_rows"
+    },
+    {
+      "steam_id": "76561198134638970",
+      "points": 504,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": "empty_kits"
+    },
+    {
+      "steam_id": "76561199333584164",
+      "points": 497,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198202405277",
+      "points": 466,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198344556248",
+      "points": 443,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198069369801",
+      "points": 439,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198126200838",
+      "points": 431,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199097784958",
+      "points": 395,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199229147166",
+      "points": 395,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198965258997",
+      "points": 392,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198440215035",
+      "points": 386,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199327823222",
+      "points": 371,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199173023063",
+      "points": 366,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198879346857",
+      "points": 360,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561198797266137",
+      "points": 329,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199041778923",
+      "points": 321,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199482021325",
+      "points": 308,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199698982701",
+      "points": 288,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
       "steam_id": "76561198171864983",
-      "points": 17923165
+      "points": 282,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199544460336",
+      "points": 280,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
+    },
+    {
+      "steam_id": "76561199524965451",
+      "points": 263,
+      "total_spent": null,
+      "source_file": "arkshopplayers.ibd",
+      "confidence": "high",
+      "notes": ""
     }
   ]
 }

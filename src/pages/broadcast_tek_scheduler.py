@@ -91,15 +91,9 @@ def broadcast_tek_scheduler_start(app: "ARKServerManagerApp") -> None:
 
 
 def broadcast_tek_scheduler_stop(app: "ARKServerManagerApp", *, refresh_ui: bool = True) -> None:
-    from .broadcast_tek_settings import get_settings, save_settings
-
+    """Para o tick da sessão atual sem desativar scheduler_enabled (persiste ativo no boot)."""
     app._broadcast_tek_scheduler_running = False
     _cancel_scheduler_job(app)
-
-    settings = get_settings(app)
-    if settings.scheduler_enabled:
-        settings.scheduler_enabled = False
-        save_settings(app, settings)
 
     if refresh_ui:
         _refresh_scheduler_ui(app)

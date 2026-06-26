@@ -475,6 +475,21 @@ class ShopAdmin(Base):
     steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
 
 
+class StoreUser(Base):
+    """Conta web — criada no primeiro login Steam; base do painel admin de jogadores."""
+
+    __tablename__ = "store_users"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    display_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    site_access_blocked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    ban_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class PointPayment(Base):
     __tablename__ = "point_payments"
 
@@ -818,6 +833,8 @@ def _migrate_schema(engine: Any) -> None:
             conn.execute(text(_entitlements_ddl_sqlite()))
             conn.commit()
         _ENTITLEMENTS_SCHEMA_READY = True
+        Base.metadata.create_all(bind=engine, tables=[StoreUser.__table__])
+        _backfill_store_users(engine)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -871,6 +888,7 @@ def _migrate_schema(engine: Any) -> None:
         conn.commit()
     Base.metadata.create_all(bind=engine)
     _ENTITLEMENTS_SCHEMA_READY = True
+    _backfill_store_users(engine)
     try:
         from market_migrate import ensure_market_schema
 
@@ -1162,6 +1180,646 @@ def _load_players() -> list[Dict[str, str]]:
 def _save_players(players: list[Dict[str, str]]) -> None:
     players_sorted = sorted(players, key=lambda p: ((p.get("name") or "").lower(), p.get("steam_id") or ""))
     _PLAYERS_FILE.write_text(json.dumps(players_sorted, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _resolve_player_display_name(
+    steam_id: str,
+    *,
+    store_name: str | None = None,
+    market_name: str | None = None,
+) -> str:
+    for candidate in (store_name, market_name):
+        if candidate and str(candidate).strip():
+            return str(candidate).strip()[:128]
+    for p in _load_players():
+        if str(p.get("steam_id", "")).strip() == steam_id:
+            nm = str(p.get("name") or "").strip()
+            if nm:
+                return nm[:128]
+    return steam_id
+
+
+def _touch_store_user_login(steam_id: str) -> None:
+    """Registra ou atualiza conta web no login Steam."""
+    if not _db_ready() or not _is_valid_steamid64(steam_id):
+        return
+    db = _SessionLocal()
+    try:
+        now = _now()
+        row = db.get(StoreUser, steam_id)
+        market_name: str | None = None
+        try:
+            prof = _safe_market_profile(db, steam_id)
+            if prof and (prof.market_display_name or "").strip():
+                market_name = str(prof.market_display_name).strip()
+        except Exception:
+            market_name = None
+        if row is None:
+            row = StoreUser(
+                steam_id=steam_id,
+                display_name=_resolve_player_display_name(steam_id, market_name=market_name),
+                last_login_at=now,
+            )
+            db.add(row)
+        else:
+            row.last_login_at = now
+            if market_name and not (row.display_name or "").strip():
+                row.display_name = market_name
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        _log_error("touch_store_user_login", steam_id=steam_id, error=str(exc))
+    finally:
+        db.close()
+
+
+def _backfill_store_users(engine: Any) -> None:
+    """Popula store_users a partir de perfis, saldos e pedidos existentes (uma vez)."""
+    try:
+        with engine.connect() as conn:
+            existing = conn.execute(text("SELECT COUNT(*) FROM store_users")).scalar() or 0
+            if int(existing) > 0:
+                return
+    except Exception:
+        return
+
+    db = _SessionLocal()
+    try:
+        now = _now()
+        steam_ids: set[str] = set()
+        for row in db.execute(text("SELECT steam_id FROM players")).fetchall():
+            sid = str(row[0] or "").strip()
+            if _is_valid_steamid64(sid):
+                steam_ids.add(sid)
+        try:
+            for row in db.query(MarketPlayerProfile.steam_id).all():
+                sid = str(row[0] or "").strip()
+                if _is_valid_steamid64(sid):
+                    steam_ids.add(sid)
+        except Exception:
+            pass
+        for row in db.query(Order.steam_id).distinct().all():
+            sid = str(row[0] or "").strip()
+            if _is_valid_steamid64(sid):
+                steam_ids.add(sid)
+        for row in db.query(PointPayment.steam_id).distinct().all():
+            sid = str(row[0] or "").strip()
+            if _is_valid_steamid64(sid):
+                steam_ids.add(sid)
+        for sid in steam_ids:
+            if db.get(StoreUser, sid) is not None:
+                continue
+            market_name: str | None = None
+            try:
+                prof = _safe_market_profile(db, sid)
+                if prof and (prof.market_display_name or "").strip():
+                    market_name = str(prof.market_display_name).strip()
+            except Exception:
+                pass
+            db.add(StoreUser(
+                steam_id=sid,
+                display_name=_resolve_player_display_name(sid, market_name=market_name),
+                created_at=now,
+            ))
+        db.commit()
+        if steam_ids:
+            _log("store_users_backfill", count=len(steam_ids))
+    except Exception as exc:
+        db.rollback()
+        log.warning("store_users backfill falhou: %s", exc)
+    finally:
+        db.close()
+
+
+def _is_player_site_blocked(steam_id: str) -> bool:
+    if not _db_ready() or _is_admin_steamid(steam_id):
+        return False
+    db = _SessionLocal()
+    try:
+        row = db.get(StoreUser, str(steam_id))
+        return bool(row and row.site_access_blocked)
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+def _store_user_blocked_fields(steam_id: str) -> dict[str, Any]:
+    if not _db_ready():
+        return {"site_access_blocked": False, "ban_reason": None}
+    db = _SessionLocal()
+    try:
+        row = db.get(StoreUser, str(steam_id))
+        if not row:
+            return {"site_access_blocked": False, "ban_reason": None}
+        return {
+            "site_access_blocked": bool(row.site_access_blocked),
+            "ban_reason": row.ban_reason,
+        }
+    finally:
+        db.close()
+
+
+def _dt_iso(value: Any) -> str | None:
+    if value is None:
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value)
+
+
+def _list_admin_players(
+    *,
+    q: str = "",
+    sort: str = "last_login",
+    order: str = "desc",
+    offset: int = 0,
+    limit: int = 50,
+) -> dict[str, Any]:
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    limit = max(1, min(200, int(limit)))
+    offset = max(0, int(offset))
+    q = (q or "").strip()
+    sort_key = sort if sort in ("last_login", "display_name", "points", "created_at") else "last_login"
+    sort_dir = "ASC" if str(order).lower() == "asc" else "DESC"
+    db = _SessionLocal()
+    try:
+        params: dict[str, Any] = {"lim": limit, "off": offset}
+        where = "WHERE 1=1"
+        if q:
+            params["q"] = f"%{q}%"
+            params["qexact"] = q
+            where += (
+                " AND (su.steam_id LIKE :q OR su.display_name LIKE :q "
+                "OR mp.market_display_name LIKE :q OR su.steam_id = :qexact)"
+            )
+        sort_col = {
+            "last_login": "su.last_login_at",
+            "display_name": "COALESCE(su.display_name, mp.market_display_name, su.steam_id)",
+            "points": "COALESCE(p.points, 0)",
+            "created_at": "su.created_at",
+        }[sort_key]
+        count_sql = (
+            "SELECT COUNT(*) FROM store_users su "
+            "LEFT JOIN market_player_profile mp ON mp.steam_id = su.steam_id "
+            "LEFT JOIN players p ON p.steam_id = su.steam_id "
+            f"{where}"
+        )
+        total = int(db.execute(text(count_sql), params).scalar() or 0)
+        rows = db.execute(
+            text(
+                "SELECT su.steam_id, su.display_name, mp.market_display_name, "
+                "COALESCE(p.points, 0), su.site_access_blocked, su.ban_reason, "
+                "su.created_at, su.last_login_at "
+                "FROM store_users su "
+                "LEFT JOIN market_player_profile mp ON mp.steam_id = su.steam_id "
+                "LEFT JOIN players p ON p.steam_id = su.steam_id "
+                f"{where} "
+                f"ORDER BY {sort_col} {sort_dir}, su.steam_id ASC "
+                "LIMIT :lim OFFSET :off"
+            ),
+            params,
+        ).fetchall()
+        items: list[dict[str, Any]] = []
+        for r in rows:
+            sid = str(r[0])
+            ents = _get_player_entitlements(sid)
+            items.append({
+                "steam_id": sid,
+                "display_name": _resolve_player_display_name(
+                    sid, store_name=r[1], market_name=r[2],
+                ),
+                "points": int(r[3] or 0),
+                "site_access_blocked": bool(r[4]),
+                "ban_reason": r[5],
+                "created_at": _dt_iso(r[6]),
+                "last_login_at": _dt_iso(r[7]),
+                "licenses": [e["group"] for e in ents],
+            })
+        return {"ok": True, "items": items, "total": total, "offset": offset, "limit": limit}
+    except Exception as exc:
+        _log_error("list_admin_players", error=str(exc))
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    steam_id = str(steam_id or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    db = _SessionLocal()
+    try:
+        su = db.get(StoreUser, steam_id)
+        prof = _safe_market_profile(db, steam_id)
+        points = _get_player_points(steam_id) or 0
+        entitlements = _get_player_entitlements(steam_id)
+        orders = (
+            db.query(Order)
+            .filter(Order.steam_id == steam_id)
+            .order_by(Order.created_at.desc())
+            .limit(20)
+            .all()
+        )
+        donations = (
+            db.query(PointPayment)
+            .filter(PointPayment.steam_id == steam_id)
+            .order_by(PointPayment.created_at.desc())
+            .limit(10)
+            .all()
+        )
+        listings_count = 0
+        try:
+            listings_count = (
+                db.query(MarketListing)
+                .filter(MarketListing.seller_steam_id == steam_id)
+                .count()
+            )
+        except Exception:
+            pass
+        kit_stash: dict[str, Any] = {}
+        try:
+            row = db.execute(
+                text("SELECT kits FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            if row and row[0]:
+                kit_stash = json.loads(row[0]) if isinstance(row[0], str) else {}
+        except Exception:
+            kit_stash = {}
+        display_name = _resolve_player_display_name(
+            steam_id,
+            store_name=(su.display_name if su else None),
+            market_name=(prof.market_display_name if prof else None),
+        )
+        return {
+            "ok": True,
+            "player": {
+                "steam_id": steam_id,
+                "display_name": display_name,
+                "points": points,
+                "site_access_blocked": bool(su and su.site_access_blocked),
+                "ban_reason": su.ban_reason if su else None,
+                "created_at": _dt_iso(su.created_at) if su else None,
+                "last_login_at": _dt_iso(su.last_login_at) if su else None,
+                "market_display_name": (prof.market_display_name if prof else None),
+                "commerce_enabled": bool(prof.commerce_enabled) if prof else False,
+                "entitlements": entitlements,
+                "kit_stash": kit_stash,
+                "listings_count": listings_count,
+            },
+            "recent_orders": [
+                {
+                    "order_id": o.order_id,
+                    "item_type": o.item_type,
+                    "item_id": o.item_id,
+                    "amount": o.amount,
+                    "status": o.status,
+                    "points_spent": o.points_spent,
+                    "created_at": _dt_iso(o.created_at),
+                }
+                for o in orders
+            ],
+            "recent_donations": [
+                {
+                    "payment_id": p.payment_id,
+                    "package_id": p.package_id,
+                    "points": p.points,
+                    "status": p.status,
+                    "credited": p.credited,
+                    "created_at": _dt_iso(p.created_at),
+                }
+                for p in donations
+            ],
+            "license_catalog": _catalog_license_options(),
+            "kit_catalog": _catalog_kit_options(),
+        }
+    except Exception as exc:
+        _log_error("get_admin_player_detail", steam_id=steam_id, error=str(exc))
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def _catalog_license_options() -> list[dict[str, Any]]:
+    data = _read_shop_config()
+    items = _catalog_item_map(data)
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for key, entry in items.items():
+        lic = _get_license_grant(entry)
+        if not lic:
+            continue
+        group = str(lic.get("Group") or "").strip()
+        if not group or group in seen:
+            continue
+        seen.add(group)
+        out.append({
+            "item_id": key,
+            "group": group,
+            "label": str(entry.get("Description") or key),
+            "days": int(lic.get("Days", 30) or 30),
+            "permanent": int(lic.get("Days", 30) or 30) <= 0,
+        })
+    out.sort(key=lambda x: x["label"].lower())
+    return out
+
+
+def _catalog_kit_options() -> list[dict[str, Any]]:
+    kits = _read_shop_config().get("Kits") or {}
+    out: list[dict[str, Any]] = []
+    if isinstance(kits, dict):
+        for key, entry in kits.items():
+            if not isinstance(entry, dict):
+                continue
+            out.append({
+                "kit_id": key,
+                "label": str(entry.get("Description") or key),
+                "price": int(entry.get("Price", 0) or 0),
+            })
+    out.sort(key=lambda x: x["label"].lower())
+    return out
+
+
+def _subtract_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
+    if amount <= 0:
+        raise ValueError("amount must be positive")
+    row = db.execute(
+        text("SELECT points FROM players WHERE steam_id = :sid"),
+        {"sid": steam_id},
+    ).fetchone()
+    current = int(row[0]) if row else 0
+    new_balance = max(0, current - amount)
+    return _set_player_points_tx(db, steam_id, new_balance)
+
+
+def _admin_player_points_adjust(
+    steam_id: str,
+    *,
+    mode: str,
+    amount: int,
+    reason: str = "",
+) -> dict[str, Any]:
+    steam_id = str(steam_id or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    mode = str(mode or "add").strip().lower()
+    amount = int(amount or 0)
+    db = _SessionLocal()
+    try:
+        before = _get_player_points(steam_id) or 0
+        if mode == "add":
+            if amount <= 0:
+                return {"ok": False, "error": "Quantidade deve ser maior que zero"}
+            after = _add_player_points_tx(db, steam_id, amount)
+            event_type = "admin_player_points_add"
+        elif mode == "subtract":
+            if amount <= 0:
+                return {"ok": False, "error": "Quantidade deve ser maior que zero"}
+            after = _subtract_player_points_tx(db, steam_id, amount)
+            event_type = "admin_player_points_subtract"
+        elif mode == "set":
+            if amount < 0:
+                return {"ok": False, "error": "Saldo não pode ser negativo"}
+            after = _set_player_points_tx(db, steam_id, amount)
+            event_type = "admin_player_points_set"
+        else:
+            return {"ok": False, "error": f"Modo inválido: {mode}"}
+        db.commit()
+        _audit_event(
+            event_type,
+            actor_type="admin",
+            actor_steam_id=str(_steam_id_from_session() or ""),
+            target_steam_id=steam_id,
+            amount=after,
+            status_before=str(before),
+            status_after=str(after),
+            message=reason or f"Saldo: {before} → {after}",
+            mode=mode,
+            delta=after - before,
+        )
+        return {"ok": True, "steam_id": steam_id, "points": after, "before": before, "after": after}
+    except Exception as exc:
+        db.rollback()
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def _admin_player_ban(steam_id: str, *, blocked: bool, reason: str = "") -> dict[str, Any]:
+    steam_id = str(steam_id or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if _is_admin_steamid(steam_id):
+        return {"ok": False, "error": "Não é possível bloquear um administrador"}
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    db = _SessionLocal()
+    try:
+        row = db.get(StoreUser, steam_id)
+        if row is None:
+            row = StoreUser(steam_id=steam_id, display_name=steam_id)
+            db.add(row)
+        before = bool(row.site_access_blocked)
+        row.site_access_blocked = bool(blocked)
+        ban_reason_val = (reason or "").strip()[:2000] if blocked else None
+        row.ban_reason = ban_reason_val
+        db.commit()
+        _audit_event(
+            "admin_player_unban" if not blocked else "admin_player_ban",
+            actor_type="admin",
+            actor_steam_id=str(_steam_id_from_session() or ""),
+            target_steam_id=steam_id,
+            status_before="blocked" if before else "active",
+            status_after="blocked" if blocked else "active",
+            message=reason or ("Acesso liberado" if not blocked else "Acesso bloqueado"),
+        )
+        return {
+            "ok": True,
+            "steam_id": steam_id,
+            "site_access_blocked": bool(blocked),
+            "ban_reason": ban_reason_val,
+        }
+    except Exception as exc:
+        db.rollback()
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
+
+
+def _revoke_player_entitlement_by_group(steam_id: str, group: str) -> None:
+    db = _SessionLocal()
+    try:
+        _ensure_entitlements_schema(db)
+        db.execute(
+            text("DELETE FROM player_entitlements WHERE steam_id = :sid AND group_name = :grp"),
+            {"sid": str(steam_id), "grp": str(group)},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def _admin_player_license(
+    steam_id: str,
+    *,
+    action: str,
+    group: str = "",
+    days: int = 30,
+    reason: str = "",
+) -> dict[str, Any]:
+    steam_id = str(steam_id or "").strip()
+    group = str(group or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not group:
+        return {"ok": False, "error": "Grupo de licença obrigatório"}
+    action = str(action or "grant").strip().lower()
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    admin_sid = str(_steam_id_from_session() or "")
+    try:
+        if action == "grant":
+            _grant_player_entitlement(
+                steam_id,
+                group,
+                int(days),
+                source=f"admin:{admin_sid}",
+                notes=reason or "grant_admin",
+            )
+            _audit_event(
+                "admin_player_license_grant",
+                actor_type="admin",
+                actor_steam_id=admin_sid,
+                target_steam_id=steam_id,
+                item_id=group,
+                amount=int(days),
+                message=reason or f"Licença {group} concedida",
+            )
+        elif action == "revoke":
+            _revoke_player_entitlement_by_group(steam_id, group)
+            _audit_event(
+                "admin_player_license_revoke",
+                actor_type="admin",
+                actor_steam_id=admin_sid,
+                target_steam_id=steam_id,
+                item_id=group,
+                message=reason or f"Licença {group} revogada",
+            )
+        else:
+            return {"ok": False, "error": f"Ação inválida: {action}"}
+        return {
+            "ok": True,
+            "steam_id": steam_id,
+            "group": group,
+            "action": action,
+            "entitlements": _get_player_entitlements(steam_id),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _admin_player_kit(
+    steam_id: str,
+    *,
+    mode: str,
+    kit_id: str,
+    amount: int = 1,
+    reason: str = "",
+) -> dict[str, Any]:
+    steam_id = str(steam_id or "").strip()
+    kit_id = str(kit_id or "").strip()
+    amount = max(1, int(amount or 1))
+    mode = str(mode or "deliver").strip().lower()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not kit_id:
+        return {"ok": False, "error": "kit_id obrigatório"}
+    entry = _catalog_entry("kit", kit_id)
+    if not entry:
+        return {"ok": False, "error": f"Kit «{kit_id}» não encontrado no catálogo"}
+    admin_sid = str(_steam_id_from_session() or "")
+    if mode == "stash":
+        if not _db_ready():
+            return {"ok": False, "error": "Banco não configurado"}
+        db = _SessionLocal()
+        try:
+            row = db.execute(
+                text("SELECT kits FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            stash: dict[str, Any] = {}
+            if row and row[0]:
+                try:
+                    stash = json.loads(row[0]) if isinstance(row[0], str) else {}
+                except Exception:
+                    stash = {}
+            resolved = _resolve_catalog_item_id("kit", kit_id)
+            cur = int((stash.get(resolved) or {}).get("Amount", 0) or 0)
+            stash[resolved] = {"Amount": cur + amount}
+            kits_json = json.dumps(stash, ensure_ascii=False)
+            if _is_mysql_engine(db):
+                db.execute(
+                    text(
+                        "INSERT INTO players (steam_id, points, kits) VALUES (:sid, 0, :kits) "
+                        "ON DUPLICATE KEY UPDATE kits = :kits"
+                    ),
+                    {"sid": steam_id, "kits": kits_json},
+                )
+            else:
+                db.execute(
+                    text(
+                        "INSERT INTO players (steam_id, points, kits) VALUES (:sid, 0, :kits) "
+                        "ON CONFLICT(steam_id) DO UPDATE SET kits = :kits"
+                    ),
+                    {"sid": steam_id, "kits": kits_json},
+                )
+            db.commit()
+            _audit_event(
+                "admin_player_kit_stash",
+                actor_type="admin",
+                actor_steam_id=admin_sid,
+                target_steam_id=steam_id,
+                item_type="kit",
+                item_id=resolved,
+                amount=amount,
+                message=reason or f"Kit {resolved} +{amount} no stash",
+            )
+            return {"ok": True, "mode": "stash", "kit_id": resolved, "stash": stash}
+        except Exception as exc:
+            db.rollback()
+            return {"ok": False, "error": str(exc)}
+        finally:
+            db.close()
+    if mode == "deliver":
+        order, error = _create_order(steam_id, "kit", kit_id, amount)
+        if error:
+            return {"ok": False, "error": error}
+        assert order is not None
+        result = _process_order_delivery(order.order_id)
+        _audit_event(
+            "admin_player_kit_deliver",
+            actor_type="admin",
+            actor_steam_id=admin_sid,
+            target_steam_id=steam_id,
+            order_id=order.order_id,
+            item_type="kit",
+            item_id=order.item_id,
+            amount=amount,
+            message=reason or f"Entrega admin kit {order.item_id}",
+            delivery_ok=bool(result.get("ok")),
+        )
+        result["order_id"] = order.order_id
+        return result
+    return {"ok": False, "error": f"Modo inválido: {mode}"}
 
 
 _ADMIN_STEAMIDS_CACHE: dict[str, Any] = {
@@ -1905,8 +2563,15 @@ def _extract_steam_id_from_claimed_id(claimed_id: str) -> str | None:
 def login_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(fn)
     def _wrapper(*args: Any, **kwargs: Any):
-        if not _steam_id_from_session():
+        steam_id = _steam_id_from_session()
+        if not steam_id:
             return jsonify({"ok": False, "error": "Não autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
+        if _is_player_site_blocked(steam_id):
+            return jsonify({
+                "ok": False,
+                "error": "Seu acesso ao site foi bloqueado. Contate a administração.",
+                "site_access_blocked": True,
+            }), 403
         return fn(*args, **kwargs)
 
     return _wrapper
@@ -2534,6 +3199,7 @@ def auth_callback():
         return redirect("/")
 
     session["steam_id"] = steam_id
+    _touch_store_user_login(steam_id)
     _log("auth_login", steam_id=steam_id, is_admin=_is_admin_steamid(steam_id))
     return redirect("/")
 
@@ -2621,6 +3287,8 @@ def auth_me():
         "steam_id": steam_id,
     }
     payload.update(_auth_display_name_fields(steam_id, is_admin))
+    if not is_admin:
+        payload.update(_store_user_blocked_fields(steam_id))
     return jsonify(payload)
 
 
@@ -5384,6 +6052,105 @@ def admin_order_timeline(order_id: str):
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
+
+
+# ── Admin: gestão de jogadores ────────────────────────────────────────────────
+
+@app.route("/api/admin/players", methods=["GET"])
+@admin_required
+def admin_players_list():
+    q = str(request.args.get("q") or request.args.get("search") or "").strip()
+    sort = str(request.args.get("sort") or "last_login").strip()
+    order = str(request.args.get("order") or "desc").strip()
+    try:
+        offset = int(request.args.get("offset", 0) or 0)
+        limit = int(request.args.get("limit", 50) or 50)
+    except (TypeError, ValueError):
+        offset, limit = 0, 50
+    result = _list_admin_players(q=q, sort=sort, order=order, offset=offset, limit=limit)
+    status = 200 if result.get("ok") else 500
+    return jsonify(result), status
+
+
+@app.route("/api/admin/players/<steam_id>", methods=["GET"])
+@admin_required
+def admin_player_detail(steam_id: str):
+    result = _get_admin_player_detail(steam_id.strip())
+    if not result.get("ok"):
+        code = 404 if "inválido" in str(result.get("error", "")).lower() else 500
+        return jsonify(result), code
+    return jsonify(result)
+
+
+@app.route("/api/admin/players/<steam_id>/points", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_player_points(steam_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    result = _admin_player_points_adjust(
+        steam_id.strip(),
+        mode=str(body.get("mode") or body.get("action") or "add"),
+        amount=int(body.get("amount", 0) or 0),
+        reason=str(body.get("reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
+@app.route("/api/admin/players/<steam_id>/ban", methods=["POST"])
+@admin_required
+@limiter.limit("60 per hour")
+def admin_player_ban(steam_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    blocked = body.get("blocked")
+    if blocked is None:
+        blocked = body.get("site_access_blocked", True)
+    result = _admin_player_ban(
+        steam_id.strip(),
+        blocked=bool(blocked),
+        reason=str(body.get("reason") or body.get("ban_reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
+@app.route("/api/admin/players/<steam_id>/licenses", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_player_licenses(steam_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    group = str(body.get("group") or body.get("license_group") or "").strip()
+    if not group and body.get("item_id"):
+        entry = _catalog_entry("shop", str(body.get("item_id")))
+        lic = _get_license_grant(entry) if entry else None
+        if lic:
+            group = str(lic.get("Group") or "")
+    days = int(body.get("days", 30) or 30)
+    result = _admin_player_license(
+        steam_id.strip(),
+        action=str(body.get("action") or "grant"),
+        group=group,
+        days=days,
+        reason=str(body.get("reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
+@app.route("/api/admin/players/<steam_id>/kits", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_player_kits(steam_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    result = _admin_player_kit(
+        steam_id.strip(),
+        mode=str(body.get("mode") or "deliver"),
+        kit_id=str(body.get("kit_id") or body.get("item_id") or ""),
+        amount=int(body.get("amount", 1) or 1),
+        reason=str(body.get("reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
 
 
 # ── Admin admins routes ───────────────────────────────────────────────────────

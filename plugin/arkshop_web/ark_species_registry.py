@@ -270,6 +270,32 @@ def get_registry_entry(species_key: str | None) -> dict[str, Any] | None:
     return None
 
 
+def is_cryopodable_dino_blueprint(bp: str | None) -> bool:
+    """True só para blueprints de criaturas criopodáveis (Comércio P2P).
+
+    Exclui PrimalItem* (recursos, sementes, spawners de veículos/estruturas).
+    """
+    low = (bp or "").strip().lower()
+    if not low:
+        return False
+    if "primalitem" in low:
+        return False
+    if "/dinos/" in low or "_character_bp" in low:
+        return True
+    return False
+
+
+def registry_entry_is_commerce_dino(entry: dict[str, Any]) -> bool:
+    """True se a entrada do registro representa um dino elegível ao Comércio P2P."""
+    paths = [str(p).strip() for p in (entry.get("blueprint_paths") or []) if str(p).strip()]
+    if paths:
+        return any(is_cryopodable_dino_blueprint(p) for p in paths)
+    role = str(entry.get("role") or "").lower()
+    if role in ("resource", "seed", "vehicle", "structure"):
+        return False
+    return False
+
+
 def is_raw_blueprint_label(text: str | None) -> bool:
     """Detecta rótulos crus do jogo (ex.: Ankylo_Character_BP_C_257)."""
     t = (text or "").strip()
@@ -489,6 +515,9 @@ def ensure_pre_registered_species(db: Any, suggestion: dict[str, Any], *, bluepr
     from datetime import datetime, timezone
 
     from app import MarketSpecies, MarketSpeciesAlias, MarketSpeciesStatMultiplier
+
+    if not is_cryopodable_dino_blueprint(blueprint):
+        raise ValueError("Somente dinos criopodáveis podem ser cadastrados no Comércio")
 
     sk = str(suggestion.get("species_key") or "").strip()
     if not sk:

@@ -206,6 +206,8 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(30_000, self._asm_status_tick)
         # Broadcasts: scheduler global se estava ativo
         self.after(3500, self._broadcast_tek_ensure_scheduler)
+        # oBobonic: bot Discord se auto_start ativo
+        self.after(4500, self._auto_start_obobonic)
 
     # ─────────────────────────────────────────────────────────────────────────
     # B2 — Indicadores Ricos de Status (players, uptime, RAM, versão)
@@ -424,6 +426,17 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception as _exc:
             _log2.getLogger(__name__).warning(
                 "auto_start_webstore error: %s", _exc, exc_info=True
+            )
+
+    def _auto_start_obobonic(self) -> None:
+        """Inicia o bot oBobonic automaticamente no boot se configurado."""
+        import logging as _log2
+        try:
+            from .pages.obobonic_panel import auto_start_obobonic
+            auto_start_obobonic(self)
+        except Exception as _exc:
+            _log2.getLogger(__name__).warning(
+                "auto_start_obobonic error: %s", _exc, exc_info=True
             )
 
     def _auto_migrate_plugin_website_urls(self) -> None:

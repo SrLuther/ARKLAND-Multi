@@ -2192,7 +2192,7 @@
       "Description": "Tek Replicador (S+) (1x)",
       "Items": [
         {
-          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_Replicatorplus",
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_replicatorplus",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3705,7 +3705,7 @@
       "Category": "Licenças VIP",
       "Name": "Licença VIP Ouro",
       "Price": 7500,
-      "Description": "Licença VIP Ouro (30 dias) — necessária para resgatar o Kit VIP Ouro (kit alfa)",
+      "Description": "Licença VIP Ouro (30 dias) — necessária para resgatar o Kit VIP Ouro",
       "LicenseGrant": {
         "Group": "VIPOuro",
         "Days": 30,
@@ -3772,6 +3772,7 @@
     "struct_tekreplicator_vip": {
       "Type": "item",
       "Category": "Ferramentas",
+      "Name": "Replicador S+",
       "Price": 90,
       "Permissions": "Admins,VIPBronze",
       "Description": "Replicador S+ VIP (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício. Avulso premium: struct_tekreplicator (52.500).",
@@ -3781,6 +3782,759 @@
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
+        }
+      ]
+    },
+    "abyss_seaweed": {
+      "Type": "item",
+      "Price": 300,
+      "Category": "Abyss",
+      "Name": "Alga Marinha",
+      "Description": "Alga Marinha (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed",
+      "Quantity": 10
+    },
+    "abyss_manganese": {
+      "Type": "item",
+      "Price": 400,
+      "Category": "Abyss",
+      "Name": "Manganês",
+      "Description": "Manganês (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
+      "Quantity": 10
+    },
+    "abyss_hardened_steel": {
+      "Type": "item",
+      "Price": 1200,
+      "Category": "Abyss",
+      "Name": "Lingote de Aço Endurecido",
+      "Description": "Lingote de Aço Endurecido (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot",
+      "Quantity": 10
+    },
+    "abyss_fish_scale": {
+      "Type": "item",
+      "Price": 350,
+      "Category": "Abyss",
+      "Name": "Escama de Peixe",
+      "Description": "Escama de Peixe (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale",
+      "Quantity": 10
+    },
+    "abyss_crystallized_wood": {
+      "Type": "item",
+      "Price": 1000,
+      "Category": "Abyss",
+      "Name": "Madeira Cristalizada",
+      "Description": "Madeira Cristalizada (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_CrystallizedWood.PrimalItemResource_CrystallizedWood",
+      "Quantity": 10
+    },
+    "abyss_barnacle": {
+      "Type": "item",
+      "Price": 250,
+      "Category": "Abyss",
+      "Name": "Craca",
+      "Description": "Craca (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Barnacle.PrimalItemResource_Barnacle",
+      "Quantity": 10
+    },
+    "abyss_aqualyrium": {
+      "Type": "item",
+      "Price": 2000,
+      "Category": "Abyss",
+      "Name": "Aqualyrium",
+      "Description": "Aqualyrium (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium",
+      "Quantity": 10
+    },
+    "abyss_seed_plantspeciesw": {
+      "Type": "item",
+      "Price": 200,
+      "Category": "Abyss",
+      "Name": "Semente Planta W (Abyss)",
+      "Description": "Semente Planta W (Abyss) (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
+      "Quantity": 1
+    },
+    "abyss_seed_rice": {
+      "Type": "item",
+      "Price": 200,
+      "Category": "Abyss",
+      "Name": "Semente de Arroz",
+      "Description": "Semente de Arroz (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
+      "Quantity": 1
+    },
+    "abyss_seed_cucumis": {
+      "Type": "item",
+      "Price": 200,
+      "Category": "Abyss",
+      "Name": "Semente de Pepino",
+      "Description": "Semente de Pepino (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
+      "Quantity": 1
+    },
+    "abyss_water_wyvern": {
+      "Type": "dino",
+      "Price": 12000,
+      "Category": "Comércio",
+      "Name": "Wyvern Aquática",
+      "Description": "Wyvern Aquática Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Wyvern/Wyvern_Character_BP_Water.Wyvern_Character_BP_Water",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_vulcanite": {
+      "Type": "dino",
+      "Price": 5500,
+      "Category": "Comércio",
+      "Name": "Vulcanita",
+      "Description": "Vulcanita Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Vulcanite/Vulcanite_Character_BP.Vulcanite_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_tridacna": {
+      "Type": "dino",
+      "Price": 2500,
+      "Category": "Comércio",
+      "Name": "Tridacna",
+      "Description": "Tridacna Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Tridacna/Tridacna_Character_BP.Tridacna_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_tiktaalik": {
+      "Type": "dino",
+      "Price": 3000,
+      "Category": "Comércio",
+      "Name": "Tiktaalik",
+      "Description": "Tiktaalik Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Tiktaalik/Tiktaalik_Character_BP.Tiktaalik_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_thunnus": {
+      "Type": "dino",
+      "Price": 2200,
+      "Category": "Comércio",
+      "Name": "Atum (Thunnus)",
+      "Description": "Atum (Thunnus) Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Thunnus/Thunnus_Character_BP.Thunnus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_takifugu": {
+      "Type": "dino",
+      "Price": 800,
+      "Category": "Comércio",
+      "Name": "Baiacu (Takifugu)",
+      "Description": "Baiacu (Takifugu) Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Takifugu/Takifugu_Character_BP.Takifugu_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_stereolepis": {
+      "Type": "dino",
+      "Price": 2800,
+      "Category": "Comércio",
+      "Name": "Stereolepis",
+      "Description": "Stereolepis Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Stereolepis/Stereolepis_Character_BP.Stereolepis_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_seahorse": {
+      "Type": "dino",
+      "Price": 600,
+      "Category": "Comércio",
+      "Name": "Cavalo-marinho",
+      "Description": "Cavalo-marinho Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Seahorse/Seahorse_Character_BP.Seahorse_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_riftcrawler": {
+      "Type": "dino",
+      "Price": 5200,
+      "Category": "Comércio",
+      "Name": "Rift Crawler",
+      "Description": "Rift Crawler Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_qarmoutus": {
+      "Type": "dino",
+      "Price": 8500,
+      "Category": "Comércio",
+      "Name": "Qarmoutus",
+      "Description": "Qarmoutus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Qarmoutus/Qarmoutus_Character_BP.Qarmoutus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_onchopristis": {
+      "Type": "dino",
+      "Price": 5000,
+      "Category": "Comércio",
+      "Name": "Onchopristis",
+      "Description": "Onchopristis Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Onchopristis/Onchopristis_Character_BP.Onchopristis_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_ocepechelon": {
+      "Type": "dino",
+      "Price": 2800,
+      "Category": "Comércio",
+      "Name": "Ocepechelon",
+      "Description": "Ocepechelon Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Ocepechelon/Ocepechelon_Character_BP.Ocepechelon_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_mudpuppy": {
+      "Type": "dino",
+      "Price": 700,
+      "Category": "Comércio",
+      "Name": "Mudpuppy",
+      "Description": "Mudpuppy Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Mudpuppy/Mudpuppy_Character_BP.Mudpuppy_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_monodon": {
+      "Type": "dino",
+      "Price": 2500,
+      "Category": "Comércio",
+      "Name": "Narval (Monodon)",
+      "Description": "Narval (Monodon) Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Monodon/Monodon_Character_BP.Monodon_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_mantis_shrimp": {
+      "Type": "dino",
+      "Price": 4800,
+      "Category": "Comércio",
+      "Name": "Camarão-mantis",
+      "Description": "Camarão-mantis Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/MantisShrimp/MantisShrimp_Character_BP.MantisShrimp_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_malleocephalus": {
+      "Type": "dino",
+      "Price": 5000,
+      "Category": "Comércio",
+      "Name": "Malleocephalus",
+      "Description": "Malleocephalus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Malleocephalus/Malleocephalus_Character_BP.Malleocephalus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_kathreptis": {
+      "Type": "dino",
+      "Price": 8000,
+      "Category": "Comércio",
+      "Name": "Kathreptis",
+      "Description": "Kathreptis Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Kathreptis/Kathreptis_Character_BP.Kathreptis_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_istiophorus": {
+      "Type": "dino",
+      "Price": 4800,
+      "Category": "Comércio",
+      "Name": "Marlim (Istiophorus)",
+      "Description": "Marlim (Istiophorus) Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Istiophorus/Istiophorus_Character_BP.Istiophorus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_homarus": {
+      "Type": "dino",
+      "Price": 2800,
+      "Category": "Comércio",
+      "Name": "Lagosta (Homarus)",
+      "Description": "Lagosta (Homarus) Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Homarus/Homarus_Character_BP.Homarus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_dakosaurus": {
+      "Type": "dino",
+      "Price": 9000,
+      "Category": "Comércio",
+      "Name": "Dakosaurus",
+      "Description": "Dakosaurus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Dakosaurus/Dakosaurus_Character_BP.Dakosaurus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_yuty_abyssal": {
+      "Type": "dino",
+      "Price": 12500,
+      "Category": "Comércio",
+      "Name": "Yutyrannus Abissal",
+      "Description": "Yutyrannus Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_thyla_abyssal": {
+      "Type": "dino",
+      "Price": 5200,
+      "Category": "Comércio",
+      "Name": "Thylacoleo Abissal",
+      "Description": "Thylacoleo Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_theriz_abyssal": {
+      "Type": "dino",
+      "Price": 5500,
+      "Category": "Comércio",
+      "Name": "Therizinosaur Abissal",
+      "Description": "Therizinosaur Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Therizino/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_stego_abyssal": {
+      "Type": "dino",
+      "Price": 2800,
+      "Category": "Comércio",
+      "Name": "Stegossauro Abissal",
+      "Description": "Stegossauro Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_rex_abyssal": {
+      "Type": "dino",
+      "Price": 13000,
+      "Category": "Comércio",
+      "Name": "Rex Abissal",
+      "Description": "Rex Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_reaper_abyssal": {
+      "Type": "dino",
+      "Price": 13000,
+      "Category": "Comércio",
+      "Name": "Reaper Abissal",
+      "Description": "Reaper Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_moschops_abyssal": {
+      "Type": "dino",
+      "Price": 2800,
+      "Category": "Comércio",
+      "Name": "Moschops Abissal",
+      "Description": "Moschops Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_ankylo_abyssal": {
+      "Type": "dino",
+      "Price": 3000,
+      "Category": "Comércio",
+      "Name": "Anquilossauro Abissal",
+      "Description": "Anquilossauro Abissal Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Abyss/Dinos/Ankylo/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "abyss_hover_sail": {
+      "Type": "item",
+      "Price": 5500,
+      "Category": "Abyss",
+      "Name": "Vela Thalassiana (HoverSail)",
+      "Description": "Vela Thalassiana (HoverSail) (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
+      "Quantity": 1
+    },
+    "abyss_hover_skiff": {
+      "Type": "item",
+      "Price": 8000,
+      "Category": "Abyss",
+      "Name": "Skiff Thalassiano",
+      "Description": "Skiff Thalassiano (mod Abyss)",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
+      "Quantity": 1
+    },
+    "indominus": {
+      "Type": "dino",
+      "Price": 0,
+      "Category": "Comércio",
+      "Name": "Indominus Rex",
+      "Description": "Indominus Rex Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "armaedron": {
+      "Type": "dino",
+      "Price": 0,
+      "Category": "Comércio",
+      "Name": "Armaedron",
+      "Description": "Armaedron Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "dread_wyvern": {
+      "Type": "dino",
+      "Price": 42000,
+      "Category": "Comércio",
+      "Name": "Dread Wyvern",
+      "Description": "Dread Wyvern Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Funny_Creatures/DreadWyvern/Wyvern_Character_BP_Dread.Wyvern_Character_BP_Dread",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "ancient_wyvern": {
+      "Type": "dino",
+      "Price": 38000,
+      "Category": "Comércio",
+      "Name": "Ancient Wyvern",
+      "Description": "Ancient Wyvern Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Funny_Creatures/AncientWyvern/Wyvern_Character_BP_Ancient.Wyvern_Character_BP_Ancient",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "brachio": {
+      "Type": "dino",
+      "Price": 10000,
+      "Category": "Comércio",
+      "Name": "Brachiosaurus",
+      "Description": "Brachiosaurus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP.Brachiosaurus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "deinosuchus": {
+      "Type": "dino",
+      "Price": 9000,
+      "Category": "Comércio",
+      "Name": "Deinosuchus",
+      "Description": "Deinosuchus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Deinosuchus_Character_BP.Deinosuchus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "puretotokage": {
+      "Type": "dino",
+      "Price": 12000,
+      "Category": "Comércio",
+      "Name": "Puretotokage",
+      "Description": "Puretotokage Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Puretotokage/Puretotokage_Character_BP.Puretotokage_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "shimosaur": {
+      "Type": "dino",
+      "Price": 11000,
+      "Category": "Comércio",
+      "Name": "Shimosaur",
+      "Description": "Shimosaur Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Funny_Creatures/Shimosaur/Shimosaur_Character_BP.Shimosaur_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "acro": {
+      "Type": "dino",
+      "Price": 0,
+      "Category": "Comércio",
+      "Name": "Acrocantossauro",
+      "Description": "Acrocantossauro Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP.Acrocanthosaurus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "archelon": {
+      "Type": "dino",
+      "Price": 7000,
+      "Category": "Comércio",
+      "Name": "Archelon",
+      "Description": "Archelon Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Archelon/Dinos/Archelon_Character_BP.Archelon_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "concavenator": {
+      "Type": "dino",
+      "Price": 6000,
+      "Category": "Comércio",
+      "Name": "Concavenator",
+      "Description": "Concavenator Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Concavenator/Dino/Concavenator_Character_BP.Concavenator_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "xiphactinus": {
+      "Type": "dino",
+      "Price": 6500,
+      "Category": "Comércio",
+      "Name": "Xiphactinus",
+      "Description": "Xiphactinus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/Xiph_Character_BP.Xiph_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "kutsu_ya_ku": {
+      "Type": "dino",
+      "Price": 5000,
+      "Category": "Comércio",
+      "Name": "Kutsu-Ya-Ku",
+      "Description": "Kutsu-Ya-Ku Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/KutsuYaKu/KutsuYaKu_Character_BP.KutsuYaKu_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "cryolophosaurus": {
+      "Type": "dino",
+      "Price": 5000,
+      "Category": "Comércio",
+      "Name": "Cryolophosaurus",
+      "Description": "Cryolophosaurus Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/Additions_Pack/Cryolophosaurus/Dinos/Cryolophosaurus_Character_BP.Cryolophosaurus_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
+        }
+      ]
+    },
+    "diru_ya_ku": {
+      "Type": "dino",
+      "Price": 3000,
+      "Category": "Comércio",
+      "Name": "Diru-Ya-Ku",
+      "Description": "Diru-Ya-Ku Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/DiruYaKu/DiruYaKu_Character_BP.DiruYaKu_Character_BP",
+          "Level": 200,
+          "ForceTame": true,
+          "Neutered": false
         }
       ]
     }
@@ -4037,6 +4791,12 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_replicatorplus",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
           "Quantity": 2000,
           "Quality": 0,
@@ -4163,6 +4923,12 @@
         },
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/GeneratorTek/PrimalItemStructure_GeneratorTek.PrimalItemStructure_GeneratorTek",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_replicatorplus",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4397,6 +5163,12 @@
           "ForceBlueprint": false
         },
         {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_replicatorplus",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
           "Quantity": 5000,
           "Quality": 0,
@@ -4609,7 +5381,7 @@
     "diamante": {
       "Price": 1125,
       "Description": "Kit VIP Diamante — 1.125 Âmbar (10% da licença). Requer Licença VIP Diamante.",
-      "Permissions": "Admins",
+      "Permissions": "Admins,VIPDiamante",
       "VipLicense": {
         "Tier": "VIPDiamante",
         "Days": 30
@@ -4635,6 +5407,12 @@
         },
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/GeneratorTek/PrimalItemStructure_GeneratorTek.PrimalItemStructure_GeneratorTek",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/StructuresPlusMod/Crafting/replicator/PrimalItemStructure_Replicatorplus.PrimalItemStructure_replicatorplus",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4945,8 +5723,8 @@
       ]
     },
     "kit_blindado_alfa": {
-      "Price": 0,
-      "Description": "KIT Blindado Alfa (VISOUSMod)",
+      "Price": 10000,
+      "Description": "KIT Blindado Alfa (VISOUSMod) — 10.000 Âmbar (10% da licença). Requer Licença Alfa.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -4979,11 +5757,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Alfa"
     },
     "kit_blindado_beta": {
-      "Price": 0,
-      "Description": "KIT Blindado Beta (VISOUSMod)",
+      "Price": 7500,
+      "Description": "KIT Blindado Beta (VISOUSMod) — 7.500 Âmbar (10% da licença). Requer Licença Beta.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5016,11 +5795,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Beta"
     },
     "kit_blindado_gama": {
-      "Price": 0,
-      "Description": "KIT Blindado gama (VISOUSMod)",
+      "Price": 5000,
+      "Description": "KIT Blindado gama (VISOUSMod) — 5.000 Âmbar (10% da licença). Requer Licença Gamma.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5053,11 +5833,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Gamma"
     },
     "kit_tek_padrao_alfa": {
-      "Price": 0,
-      "Description": "KIT Tek Padrao Alfa (VISOUSMod)",
+      "Price": 10000,
+      "Description": "KIT Tek Padrao Alfa (VISOUSMod) — 10.000 Âmbar (10% da licença). Requer Licença Alfa.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5090,11 +5871,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Alfa"
     },
     "kit_tek_padrao_beta": {
-      "Price": 0,
-      "Description": "KIT Tek Padrao Beta (VISOUSMod)",
+      "Price": 7500,
+      "Description": "KIT Tek Padrao Beta (VISOUSMod) — 7.500 Âmbar (10% da licença). Requer Licença Beta.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5127,11 +5909,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Beta"
     },
     "kit_tek_padrao_gama": {
-      "Price": 0,
-      "Description": "KIT Tek Padrao gama (VISOUSMod)",
+      "Price": 5000,
+      "Description": "KIT Tek Padrao gama (VISOUSMod) — 5.000 Âmbar (10% da licença). Requer Licença Gamma.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5164,11 +5947,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Gamma"
     },
     "kit_tek_gen2_alfa": {
-      "Price": 0,
-      "Description": "KIT Tek Gen2 Alfa (VISOUSMod)",
+      "Price": 10000,
+      "Description": "KIT Tek Gen2 Alfa (VISOUSMod) — 10.000 Âmbar (10% da licença). Requer Licença Alfa.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5201,11 +5985,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Alfa"
     },
     "kit_tek_gen2_beta": {
-      "Price": 0,
-      "Description": "KIT Tek Gen2 Beta (VISOUSMod)",
+      "Price": 7500,
+      "Description": "KIT Tek Gen2 Beta (VISOUSMod) — 7.500 Âmbar (10% da licença). Requer Licença Beta.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5238,11 +6023,12 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Beta"
     },
     "kit_tek_gen2_gama": {
-      "Price": 0,
-      "Description": "KIT Tek Gen2 gama (VISOUSMod)",
+      "Price": 5000,
+      "Description": "KIT Tek Gen2 gama (VISOUSMod) — 5.000 Âmbar (10% da licença). Requer Licença Gamma.",
       "DefaultAmount": 0,
       "Items": [
         {
@@ -5275,7 +6061,8 @@
           "Quality": 0,
           "ForceBlueprint": false
         }
-      ]
+      ],
+      "Permissions": "Admins,Gamma"
     },
     "desmodus_pack10": {
       "Price": 68000,
@@ -6572,7 +7359,8 @@
       "label": "8.250 Âmbares — Kit VIP Ouro",
       "points": 8250,
       "price_brl": 75.0,
-      "note": "Suficiente para Licença VIP Ouro (7.500) + Kit Ouro/alfa (750). Apenas Âmbar — VIP Diamante não incluído."
+      "note": "Suficiente para Licença VIP Ouro (7.500) + Kit Ouro (750). Apenas Âmbar — VIP Diamante não incluído."
     }
-  ]
+  ],
+  "ShopItems": {}
 }

@@ -1,0 +1,28 @@
+{
+  "source": "",
+  "connection": {
+    "host": "",
+    "port": 0,
+    "database": "",
+    "table": "",
+    "label": ""
+  },
+  "admin_steam_id": "76561198171864983",
+  "admin_points": null,
+  "admin_rank": null,
+  "total_users_positive": 0,
+  "total_points": 0,
+  "min_points": 0,
+  "max_points": 0,
+  "top10": [],
+  "connection_errors": [
+    "settings.json: connect 192.168.15.51:3306/arkland_shop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",
+    "db_server_prefs.shop_db: connect 127.0.0.1:3306/arkland_shop: (1045, \"Access denied for user 'arkland'@'localhost' (using password: YES)\")",
+    "db_server_prefs.root@local: conectou 127.0.0.1/arkland_shop mas sem pontos > 0 (players=0 rows; todas: ['disputes', 'order_attempts', 'orders', 'players', 'rebuys', 'shop_admins', 'transactions', 'vip_players'])",
+    "settings.json:arkshop: connect 192.168.15.51:3306/arkshop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",
+    "db_server_prefs.shop_db:arkshop: connect 127.0.0.1:3306/arkshop: (1045, \"Access denied for user 'arkland'@'localhost' (using password: YES)\")",
+    "db_server_prefs.root@local@192.168.15.51: connect 192.168.15.51:3306/arkland_shop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",
+    "db_server_prefs.root@local:arkshop: query 127.0.0.1/arkshop: (1814, 'Tablespace has been discarded for table `arkshopplayers`')"
+  ],
+  "heuristic_backup": "C:\\Users\\Ciano\\Documents\\arkland-multi\\data\\migration_staging\\player_points_legacy_ibd_heuristic.csv.bak"
+}

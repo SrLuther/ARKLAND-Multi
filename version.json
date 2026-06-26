@@ -1,9 +1,10 @@
 {
-    "version": "1.9.119",
-    "date": "2026-06-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.119/ARKLAND-Multi-Setup-v1.9.119.exe",
+    "version": "1.9.124",
+    "date": "2026-06-26",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.124/ARKLAND-Multi-Setup-v1.9.124.exe",
     "changelog": [
-        "Feat (Web Store): ícones SVG originais ARKLAND por espécie (154 criaturas) — silhuetas procedurais em static/species/icons/; catálogo e Comércio P2P usam registro com fallback por tier; sem wiki/Dododex/arkids.",
-        "Docs: ATTRIBUTION.md com pesquisa legal (Fandom CC BY-NC-SA, Fan Content Guidelines, arkids.net) e guia admin; tools/generate_species_icons.py para regenerar bundle."
+        "Fix (Loja): preços VIP 10% da licença (300/450/750/1125 Âmbar), placeholders 99M removidos, Diamante Admins,VIPDiamante.",
+        "Feat (Web Store): painel admin Gerenciar Jogadores; ícones de espécie com badge de tier; Comércio P2P só dinos criopodáveis.",
+        "Feat: catálogo Abyss + sync dinos homologados; oBobonic auto_start; broadcasts scheduler ativo por padrão."
     ]
 }
