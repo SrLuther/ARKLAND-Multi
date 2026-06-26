@@ -23,16 +23,20 @@ bool BuyItem(AShooterPlayerController* controller,
 bool BuyKit(AShooterPlayerController* controller,
             const std::string& kit_id);
 
-// Deliver a kit without charging points (admin use / manual delivery).
-// Returns false if the kit_id does not exist.
+// Deliver a kit without charging points (admin / web pending / manual).
+// skip_permission_check: true for web pending orders (already paid/authorized).
+// fail_reason: optional out — machine-readable cause when returning false.
 bool GiveKit(AShooterPlayerController* controller,
-             const std::string& kit_id);
+             const std::string& kit_id,
+             bool skip_permission_check = false,
+             std::string* fail_reason = nullptr);
 
 // Deliver an item without charging points (web store / admin use).
-// Returns false if the item_id does not exist.
 bool GiveItem(AShooterPlayerController* controller,
               const std::string& item_id,
-              int amount = 1);
+              int amount = 1,
+              bool skip_permission_check = false,
+              std::string* fail_reason = nullptr);
 
 } // namespace Store
 } // namespace CustomShop

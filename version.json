@@ -1,8 +1,22 @@
 {
-    "version": "1.9.109",
+
+    "version": "1.9.114",
+
     "date": "2026-06-25",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.109/ARKLAND-Multi-Setup-v1.9.109.exe",
+
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.113/ARKLAND-Multi-Setup-v1.9.113.exe",
+
     "changelog": [
-        "Fix (Comércio P2P): classificação admin — listings não promovem mais para DRAFT automaticamente ao ativar espécie ou reconciliar; fila e endpoint /classify aceitam DRAFT sem aprovação (flag admin_classification_approved); badge AGUARDANDO alinhado ao estado real."
+
+        "Fix (CustomShop): WebsiteUrl com IP legado é corrigido automaticamente ao abrir o TEK/Manager — migração em todos os mapas + log ao sincronizar; resolve_plugin_website_url usa sempre o domínio público (nunca IP:27199).",
+
+        "Fix (Comércio P2P): espécies do overlay ark_species_registry.json (40 Abyss) sincronizam para market_species no boot e no «Sync catálogo» — visíveis no admin Espécies oficiais; ative para tabela pública e browse.",
+
+        "Fix (Web Store): resgate de kit/item exibe mensagem clara em PT-BR (saldo, licença, pendência na Nuvem, erro de entrega) no toast e em Minha Área; falhas auditadas.",
+
+        "Feat (Loja): script tools/sync_abyss_shop_catalog.py adiciona 40 itens Abyss ao config.json da loja (aba Dinos/Itens) — execute antes de Sincronizar plugins."
+
     ]
+
 }
+

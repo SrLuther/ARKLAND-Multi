@@ -22,6 +22,7 @@ from market_service import (
     list_species_public,
     pre_register_catalog_item,
     sync_catalog_to_db,
+    sync_registry_overlay_to_db,
     update_species_display_name,
     _list_species_aliases,
 )
@@ -178,6 +179,41 @@ def register_market_routes(
             )
             audit_event(
                 "MARKET_CATALOG_SYNC",
+                source="admin",
+                actor_type="admin",
+                **result,
+            )
+            return jsonify({"ok": True, **result})
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/species/sync-registry", methods=["POST"])
+    @admin_required
+    def market_admin_sync_registry():
+        """Importa overlay ark_species_registry.json (mods Abyss, etc.) para market_species."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        activate = bool(body.get("activate", False))
+        only_missing = bool(body.get("only_missing", False))
+        reset_display_names = bool(body.get("reset_display_names", False))
+        raw_overrides = body.get("display_names") or body.get("display_name_overrides") or {}
+        overrides = (
+            {str(k): str(v) for k, v in raw_overrides.items() if str(v).strip()}
+            if isinstance(raw_overrides, dict)
+            else None
+        )
+        db = session_factory()
+        try:
+            result = sync_registry_overlay_to_db(
+                db,
+                activate=activate,
+                only_missing=only_missing,
+                display_name_overrides=overrides,
+                reset_display_names=reset_display_names,
+            )
+            audit_event(
+                "MARKET_REGISTRY_SYNC",
                 source="admin",
                 actor_type="admin",
                 **result,

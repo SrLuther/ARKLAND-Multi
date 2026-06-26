@@ -198,6 +198,8 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(3000, self._start_mod_auto_updater)
         # Auto-start: Web Store (após painel estável)
         self.after(5000, self._auto_start_webstore)
+        # Corrige WebsiteUrl legado (IP) nos plugins sem precisar abrir a aba Loja
+        self.after(3500, self._auto_migrate_plugin_website_urls)
         # Verifica atualização do app ao iniciar
         self.after(4000, self._check_updates_on_start)
         # B2: tick de indicadores ricos de status
@@ -422,6 +424,16 @@ class ARKServerManagerApp(ctk.CTk):
         except Exception as _exc:
             _log2.getLogger(__name__).warning(
                 "auto_start_webstore error: %s", _exc, exc_info=True
+            )
+
+    def _auto_migrate_plugin_website_urls(self) -> None:
+        import logging as _log2
+        try:
+            from .pages.customshop_panel import auto_migrate_plugin_website_urls
+            auto_migrate_plugin_website_urls(self)
+        except Exception as _exc:
+            _log2.getLogger(__name__).warning(
+                "auto_migrate_plugin_website_urls error: %s", _exc, exc_info=True
             )
 
     # ─────────────────────────────────────────────────────────────────────────

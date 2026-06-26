@@ -206,6 +206,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(4000, self._check_updates_on_start)
         self.after(2000, self._start_mod_auto_updater)
         self.after(3000, self._auto_start_webstore)
+        self.after(2500, self._auto_migrate_plugin_website_urls)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ══════════════════════════════════════════════════════════════════════════
@@ -498,6 +499,16 @@ class ARKServerManagerApp(ctk.CTk):
             auto_start_webstore(self)
         except Exception as _exc:
             _log2.getLogger(__name__).warning("auto_start_webstore error: %s", _exc, exc_info=True)
+
+    def _auto_migrate_plugin_website_urls(self) -> None:
+        import logging as _log2
+        try:
+            from .pages.customshop_panel import auto_migrate_plugin_website_urls
+            auto_migrate_plugin_website_urls(self)
+        except Exception as _exc:
+            _log2.getLogger(__name__).warning(
+                "auto_migrate_plugin_website_urls error: %s", _exc, exc_info=True
+            )
 
     def _start_sync_engine(self) -> None:
         if self._sync_engine is None:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 import socket
@@ -35,6 +36,7 @@ _ARKSHOP_WEB_DIR = _PROJECT_ROOT / "plugin" / "arkshop_web"
 _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
 _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
 _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
+logger = logging.getLogger(__name__)
 
 
 def webstore_data_dir() -> Path:
@@ -167,13 +169,48 @@ def resolve_website_url(shop: "ShopGlobalConfig") -> str:
     return resolve_central_url(shop)
 
 
+def _is_ipv4_literal(host: str) -> bool:
+    parts = (host or "").strip().split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(p.isdigit() and 0 <= int(p) <= 255 for p in parts)
+    except ValueError:
+        return False
+
+
+def is_stale_ip_website_url(url: str) -> bool:
+    """True quando WebsiteUrl aponta para IP (ex.: http://179.x.x.x:27199)."""
+    raw = (url or "").strip()
+    if not raw:
+        return False
+    try:
+        parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+        host = (parsed.hostname or "").strip()
+        return bool(host and _is_ipv4_literal(host))
+    except Exception:
+        return False
+
+
+def needs_website_url_fix(current: str, desired: str) -> bool:
+    """Decide se WebsiteUrl no disco deve ser sobrescrito pelo domínio público."""
+    cur = (current or "").strip()
+    des = (desired or "").strip()
+    if not des:
+        return False
+    if not cur:
+        return True
+    if is_stale_ip_website_url(cur):
+        return cur != des
+    return False
+
+
 def resolve_plugin_website_url(shop: "ShopGlobalConfig") -> str:
     """URL gravada em WebsiteUrl do plugin (/shop, mensagens Nuvem no chat).
 
-    Usa o domínio público (public_url) — nunca IP:porta, salvo fallback explícito
-    quando public_url e central_url estiverem vazios. WebApiUrl continua em LAN no host.
+    Sempre o domínio público efetivo — nunca IP:porta. WebApiUrl continua em LAN no host.
     """
-    return resolve_website_url(shop)
+    return effective_shop_public_url(shop)
 
 
 def resolve_plugin_api_url(shop: "ShopGlobalConfig") -> str:
@@ -1224,6 +1261,98 @@ def merge_plugin_config(
     return out
 
 
+def catalog_permission_diff(
+    existing: Dict[str, Any],
+    catalog: Dict[str, Any],
+) -> List[Tuple[str, str, str, str]]:
+    """Compara Permissions de Kits/Items entre servidor e catálogo TEK."""
+    changes: List[Tuple[str, str, str, str]] = []
+    for section in ("Kits", "Items"):
+        cat_sec = catalog.get(section) or {}
+        ex_sec = existing.get(section) or {}
+        for entry_id in sorted(cat_sec):
+            old_p = str((ex_sec.get(entry_id) or {}).get("Permissions") or "")
+            new_p = str((cat_sec.get(entry_id) or {}).get("Permissions") or "")
+            if old_p != new_p:
+                changes.append((section, entry_id, old_p, new_p))
+    return changes
+
+
+def format_permission_sync_note(
+    section: str,
+    entry_id: str,
+    old_perms: str,
+    new_perms: str,
+) -> str:
+    old_label = old_perms if old_perms else "(vazio)"
+    new_label = new_perms if new_perms else "(vazio)"
+    return f"{section}/{entry_id} Permissions: {old_label} → {new_label}"
+
+
+def fix_website_url_in_config_file(
+    plugin_path: Path,
+    desired: str,
+    *,
+    server_name: str = "",
+) -> Tuple[bool, str]:
+    """Corrige WebsiteUrl legado (IP) em um config.json. Retorna (alterou, mensagem)."""
+    if not plugin_path.is_file():
+        return False, ""
+    cfg = load_plugin_config(plugin_path)
+    settings = cfg.setdefault("Settings", {})
+    current = str(settings.get("WebsiteUrl") or "").strip()
+    if not needs_website_url_fix(current, desired):
+        return False, ""
+    settings["WebsiteUrl"] = desired
+    save_plugin_config(plugin_path, cfg)
+    label = server_name or plugin_path.parent.name or str(plugin_path)
+    msg = f"{label}: WebsiteUrl {current or '(vazio)'} → {desired}"
+    logger.info("CustomShop migrate WebsiteUrl: %s (%s)", msg, plugin_path)
+    return True, msg
+
+
+def migrate_stale_plugin_website_urls(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> Tuple[List[str], List[str]]:
+    """Varre todos os servidores e corrige WebsiteUrl com IP legado."""
+    desired = resolve_plugin_website_url(shop)
+    fixed: List[str] = []
+    errors: List[str] = []
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        path_str = (getattr(srv, "customshop_config_path", "") or "").strip()
+        if not path_str:
+            path_str = default_customshop_path(getattr(srv, "install_dir", ""))
+        if not path_str:
+            continue
+        plugin_path = Path(path_str)
+        try:
+            changed, msg = fix_website_url_in_config_file(
+                plugin_path, desired, server_name=getattr(srv, "name", "") or "",
+            )
+            if changed and msg:
+                fixed.append(msg)
+        except Exception as exc:
+            errors.append(f"{getattr(srv, 'name', '')}: {exc}")
+    catalog_raw = (shop.catalog_config_path or "").strip()
+    if catalog_raw:
+        try:
+            changed, msg = fix_website_url_in_config_file(
+                Path(catalog_raw), desired, server_name="catálogo mestre",
+            )
+            if changed and msg:
+                fixed.append(msg)
+        except Exception as exc:
+            errors.append(f"catálogo mestre: {exc}")
+    if fixed:
+        logger.info(
+            "CustomShop migrate: %d config(s) corrigido(s) → WebsiteUrl=%s",
+            len(fixed), desired,
+        )
+    return fixed, errors
+
+
 def sync_plugin_at_path(
     catalog: Dict[str, Any],
     plugin_path: Path,
@@ -1231,8 +1360,19 @@ def sync_plugin_at_path(
     api_url: str,
     api_key: str,
     db_settings: Dict[str, Any],
-) -> None:
+    *,
+    server_name: str = "",
+) -> List[str]:
+    """Sincroniza config do plugin; retorna notas de Permissions alteradas."""
     existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
+    perm_notes: List[str] = []
+    label = server_name or plugin_path.parent.parent.name or str(plugin_path)
+    for section, entry_id, old_p, new_p in catalog_permission_diff(existing, catalog):
+        note = format_permission_sync_note(section, entry_id, old_p, new_p)
+        perm_notes.append(f"{label}: {note}")
+        logger.info("CustomShop sync Permissions [%s] %s", label, note)
+
+    old_url = str((existing.get("Settings") or {}).get("WebsiteUrl") or "").strip()
     merged = merge_plugin_config(catalog, website_url, api_url, api_key, db_settings)
     # Não sobrescrever senha válida já no plugin com placeholder do app.
     merged_db = merged.get("Database") or {}
@@ -1246,7 +1386,14 @@ def sync_plugin_at_path(
         for k, v in existing["Settings"].items():
             if k not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
                 merged["Settings"].setdefault(k, v)
+    new_url = str((merged.get("Settings") or {}).get("WebsiteUrl") or "").strip()
+    if old_url != new_url:
+        logger.info(
+            "CustomShop sync WebsiteUrl: %s → %s (%s)",
+            old_url or "(vazio)", new_url, plugin_path,
+        )
     save_plugin_config(plugin_path, merged)
+    return perm_notes
 
 
 def sync_arkshop_web_settings(
@@ -1509,6 +1656,7 @@ def sync_all_plugins(
     website = resolve_plugin_website_url(shop)
     api = resolve_plugin_api_url(shop)
     api_key = shop.api_key or ""
+    logger.info("CustomShop sync: WebsiteUrl=%s WebApiUrl=%s", website, api)
     db_settings = build_plugin_database_settings(shop)
     db_ok, db_msg = validate_plugin_database_settings(db_settings)
     if not db_ok:
@@ -1534,7 +1682,12 @@ def sync_all_plugins(
             continue
         plugin_path = Path(path_str)
         try:
-            sync_plugin_at_path(catalog, plugin_path, website, api, api_key, db_settings)
+            perm_notes = sync_plugin_at_path(
+                catalog, plugin_path, website, api, api_key, db_settings,
+                server_name=getattr(srv, "name", "") or "",
+            )
+            for note in perm_notes:
+                ok.append(note)
             cfg_after = load_plugin_config(plugin_path)
             cfg_after["CrossChat"] = build_cross_chat_settings(
                 shop,

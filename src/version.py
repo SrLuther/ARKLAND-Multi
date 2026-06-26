@@ -3,11 +3,55 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.111"
+APP_VERSION: str = "1.9.114"
 BUILD_DATE: str = "2026-06-25"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.114",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (Web Store): resgate da Licença Nuvem não esgota mais o pool MySQL — "
+            "CREATE TABLE deixou de rodar a cada request, débito+grant em transação única, "
+            "teardown do scoped_session e pool ampliado; saldo Âmbar de todos os jogadores "
+            "permanece visível após resgate.",
+            "Fix (CustomShop): entrega web/Nuvem (pedidos pendentes) ignora Permissions em "
+            "GiveKit/GiveItem — pedido já pago; /shop com pontos continua exigindo Alga, "
+            "VIPDiamante ou qualquer grupo configurado no kit.",
+            "Fix (CustomShop): kit diamante sem VIPDiamante em Permissions (só Admins) — "
+            "evita dependência circular no primeiro resgate de VIP comprado na web.",
+            "Melhoria (Loja): Sincronizar plugins registra no log e no resumo cada "
+            "kit/item cujo campo Permissions mudou por mapa (catálogo TEK → config.json).",
+            "Melhoria (CustomShop): mensagens in-game específicas ao falhar entrega "
+            "pendente (catálogo, licença, spawn de dino) em vez de só «Contate admin».",
+        ],
+    },
+    {
+        "version": "1.9.113",
+        "date": "2026-06-25",
+        "changes": [
+            "Fix (CustomShop): WebsiteUrl com IP legado é corrigido automaticamente ao "
+            "abrir o TEK/Manager — migração em todos os mapas + log ao sincronizar; "
+            "resolve_plugin_website_url usa sempre o domínio público (nunca IP:27199).",
+            "Fix (Comércio P2P): espécies do overlay ark_species_registry.json (40 Abyss) "
+            "sincronizam para market_species no boot e no «Sync catálogo» — visíveis no admin "
+            "Espécies oficiais; ative para tabela pública e browse.",
+            "Fix (Web Store): resgate de kit/item exibe mensagem clara em PT-BR (saldo, licença, "
+            "pendência na Nuvem, erro de entrega) no toast e em Minha Área; falhas auditadas.",
+            "Feat (Loja): script tools/sync_abyss_shop_catalog.py adiciona 40 itens Abyss ao "
+            "config.json da loja (aba Dinos/Itens) — execute antes de Sincronizar plugins.",
+        ],
+    },
+    {
+        "version": "1.9.112",
+        "date": "2026-06-25",
+        "changes": [
+            "Feat (Comércio P2P): thumbnails por tier (silhuetas SVG S+/S/A/B/C) nos cards "
+            "de browse, vitrine, tabela oficial e admin; suporte a image_url/icon_path no "
+            "registro de espécies para arte licenciada futura — sem uso de imagens Dododex.",
+        ],
+    },
     {
         "version": "1.9.111",
         "date": "2026-06-25",

@@ -36,6 +36,15 @@ TIER_ROOT_VALUES: dict[str, int] = {
     "C": 800,
 }
 
+# Silhuetas genéricas ARKLAND — servidas de static/species/ (sem dependência externa).
+TIER_ICON_URLS: dict[str, str] = {
+    "S+": "/species/tier-s-plus.svg",
+    "S": "/species/tier-s.svg",
+    "A": "/species/tier-a.svg",
+    "B": "/species/tier-b.svg",
+    "C": "/species/tier-c.svg",
+}
+
 # (species_key, display_name_pt, class_token, tier, role, root_value)
 # class_token = parte antes de _Character_BP no blueprint ARK
 VANILLA_CURATED: tuple[tuple[str, str, str, str, str, int], ...] = (
@@ -173,6 +182,61 @@ def normalize_blueprint_extended(bp: str | None) -> str:
     return _TRAILING_NUM_RE.sub("", base)
 
 
+def tier_icon_url(tier: str | None) -> str:
+    """URL do placeholder SVG por tier (fallback quando não há imagem da espécie)."""
+    key = (tier or "B").strip().upper()
+    if key == "S+":
+        return TIER_ICON_URLS["S+"]
+    return TIER_ICON_URLS.get(key, TIER_ICON_URLS["B"])
+
+
+def _image_from_entry(entry: dict[str, Any]) -> str | None:
+    """Resolve image_url ou icon_path de uma entrada do registro."""
+    url = str(entry.get("image_url") or "").strip()
+    if url:
+        return url
+    icon = str(entry.get("icon_path") or "").strip()
+    if not icon:
+        return None
+    if icon.startswith(("http://", "https://", "/")):
+        return icon
+    return f"/species/{icon.lstrip('/')}"
+
+
+def resolve_species_image(entry: dict[str, Any] | None, *, tier: str | None = None) -> str:
+    """URL servível para thumbnail: imagem da espécie ou silhueta do tier."""
+    if entry:
+        custom = _image_from_entry(entry)
+        if custom:
+            return custom
+        tier = tier or str(entry.get("tier") or "B")
+    return tier_icon_url(tier)
+
+
+@lru_cache(maxsize=1)
+def load_registry_overlay_raw() -> list[dict[str, Any]]:
+    """Entradas exclusivas de data/ark_species_registry.json (overlay de mods)."""
+    if not _REGISTRY_PATH.is_file():
+        return []
+    try:
+        with _REGISTRY_PATH.open(encoding="utf-8") as f:
+            data = json.load(f)
+        return [e for e in (data.get("species") or []) if isinstance(e, dict) and e.get("species_key")]
+    except Exception:
+        return []
+
+
+def get_registry_entry(species_key: str | None) -> dict[str, Any] | None:
+    """Entrada completa do registro por species_key."""
+    sk = (species_key or "").strip().lower()
+    if not sk:
+        return None
+    for entry in load_registry().get("species") or []:
+        if str(entry.get("species_key") or "").lower() == sk:
+            return entry
+    return None
+
+
 def is_raw_blueprint_label(text: str | None) -> bool:
     """Detecta rótulos crus do jogo (ex.: Ankylo_Character_BP_C_257)."""
     t = (text or "").strip()
@@ -202,7 +266,7 @@ def _entry_from_defaults(defn: dict[str, Any]) -> dict[str, Any]:
             paths.append(str(abp))
             tokens.add(extract_class_token(str(abp)))
     tokens.add(sk.split("_")[0].lower())
-    return {
+    out: dict[str, Any] = {
         "species_key": sk,
         "display_name": defn.get("display_name") or sk,
         "tier": tier,
@@ -213,6 +277,10 @@ def _entry_from_defaults(defn: dict[str, Any]) -> dict[str, Any]:
         "source": "market_defaults",
         "confidence": "high",
     }
+    for img_key in ("image_url", "icon_path"):
+        if defn.get(img_key):
+            out[img_key] = defn[img_key]
+    return out
 
 
 def _merged_species_list() -> list[dict[str, Any]]:
@@ -260,9 +328,10 @@ def _merged_species_list() -> list[dict[str, Any]]:
 def load_registry() -> dict[str, Any]:
     species = _merged_species_list()
     return {
-        "version": "1.0.0",
+        "version": "1.1.0",
         "species_count": len(species),
         "tier_base_values": TIER_ROOT_VALUES,
+        "tier_icon_urls": TIER_ICON_URLS,
         "species": species,
     }
 
@@ -346,6 +415,7 @@ def lookup_species(
         "is_new_species": entry.get("source") == "vanilla_curated",
         "registry_source": entry.get("source"),
         "blueprint_paths": entry.get("blueprint_paths") or [],
+        "image_url": resolve_species_image(entry, tier=tier),
     }
 
 
@@ -361,15 +431,23 @@ def registry_stats() -> dict[str, Any]:
 def suggestion_to_public(suggestion: dict[str, Any] | None) -> dict[str, Any] | None:
     if not suggestion:
         return None
+    tier = suggestion.get("tier")
+    image_url = suggestion.get("image_url")
+    if not image_url and suggestion.get("species_key"):
+        reg = get_registry_entry(str(suggestion.get("species_key")))
+        image_url = resolve_species_image(reg, tier=tier)
+    elif not image_url:
+        image_url = tier_icon_url(tier)
     return {
         "species_key": suggestion.get("species_key"),
         "display_name": suggestion.get("display_name"),
-        "tier": suggestion.get("tier"),
+        "tier": tier,
         "role": suggestion.get("role"),
         "root_value": suggestion.get("root_value"),
         "confidence": suggestion.get("confidence"),
         "is_new_species": bool(suggestion.get("is_new_species")),
         "needs_review": suggestion.get("confidence") == "low",
+        "image_url": image_url,
     }
 
 

@@ -254,8 +254,36 @@ def ensure_market_schema(engine: Any, *, bootstrap: bool = True) -> dict[str, An
         boot = _maybe_bootstrap_catalog(engine)
         if boot:
             result["bootstrap"] = boot
+        reg_boot = _maybe_sync_registry_overlay(engine)
+        if reg_boot:
+            result["registry_bootstrap"] = reg_boot
 
     return result
+
+
+def _maybe_sync_registry_overlay(engine: Any) -> dict[str, Any] | None:
+    """Importa espécies do ark_species_registry.json que ainda não estão em market_species."""
+    if "market_species" not in _existing_tables(engine):
+        return None
+    session_factory = None
+    try:
+        import app as app_module
+
+        session_factory = app_module._SessionLocal
+    except Exception:
+        return None
+    if session_factory is None:
+        return None
+    db = session_factory()
+    try:
+        from market_service import sync_registry_overlay_to_db
+
+        return sync_registry_overlay_to_db(db, only_missing=True)
+    except Exception as exc:
+        log.warning("MARKET registry overlay sync falhou: %s", exc)
+        return {"error": str(exc)}
+    finally:
+        db.close()
 
 
 def schema_status(engine: Any) -> dict[str, Any]:

@@ -1355,6 +1355,42 @@ def auto_start_webstore(app: "ARKServerManagerApp") -> None:
     threading.Thread(target=_launch, daemon=True, name="WebStoreLauncher").start()
 
 
+def auto_migrate_plugin_website_urls(app: "ARKServerManagerApp") -> None:
+    """Ao iniciar o app, corrige WebsiteUrl legado (IP:porta) em todos os servidores."""
+    import logging as _log2
+
+    def _worker() -> None:
+        try:
+            from ..shop_integration import migrate_stale_plugin_website_urls
+
+            shop = app.config_manager.config.shop
+            asm_cm = getattr(app, "asm_config_manager", None)
+            fixed, errs = migrate_stale_plugin_website_urls(
+                app.config_manager, shop, asm_cm=asm_cm,
+            )
+            log = _log2.getLogger(__name__)
+            if fixed:
+                log.info(
+                    "WebsiteUrl migrado em %d servidor(es): %s",
+                    len(fixed), "; ".join(fixed[:5]),
+                )
+                try:
+                    app.after(0, lambda: app._show_toast(  # type: ignore[attr-defined]
+                        f"WebsiteUrl corrigido em {len(fixed)} mapa(s) — domínio público aplicado",
+                        "success",
+                    ))
+                except Exception:
+                    pass
+            for err in errs[:3]:
+                log.warning("WebsiteUrl migrate: %s", err)
+        except Exception as exc:
+            _log2.getLogger(__name__).warning(
+                "auto_migrate_plugin_website_urls: %s", exc, exc_info=True,
+            )
+
+    threading.Thread(target=_worker, daemon=True, name="WebsiteUrlMigrate").start()
+
+
 def stop_webstore() -> None:
     """Encerra a Web Store — necessário antes de atualizar o app (libera o .exe)."""
     global _web_process, _web_log_fh

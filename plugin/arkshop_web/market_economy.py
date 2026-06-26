@@ -456,6 +456,67 @@ def expand_aliases_from_defaults(
     return out
 
 
+def merge_species_from_registry_entry(
+    entry: dict[str, Any],
+    *,
+    status: str = "PRE_REGISTERED",
+) -> tuple[SpeciesEconomy, list[dict[str, Any]]]:
+    """Espécie do overlay ark_species_registry.json (mods — ex.: Abyss)."""
+    from ark_species_registry import TIER_ROOT_VALUES, normalize_blueprint_extended
+
+    group_key = str(entry.get("species_key") or "").strip()
+    if not group_key:
+        raise ValueError("species_key obrigatório no registro overlay")
+    paths = [str(p).strip() for p in (entry.get("blueprint_paths") or []) if str(p).strip()]
+    bp = paths[0] if paths else ""
+    tier = str(entry.get("tier") or "B")
+    root = int(entry.get("root_value") or TIER_ROOT_VALUES.get(tier, 2500))
+    mod = str(entry.get("mod") or "").strip()
+    role = str(entry.get("role") or "utility")
+    notes = f"{mod}: {role}".strip(": ") if mod else role
+    species = SpeciesEconomy(
+        species_key=group_key,
+        catalog_item_id=str(entry.get("catalog_item_id") or group_key),
+        display_name=str(entry.get("display_name") or group_key),
+        blueprint_path=bp,
+        reference_level=1,
+        root_value=root,
+        tier=tier,
+        breeding_difficulty="",
+        breeding_notes=notes,
+        status=status,
+        multipliers=build_multipliers_from_defaults(group_key),
+    )
+    aliases: list[dict[str, Any]] = []
+    cid = str(entry.get("catalog_item_id") or "").strip() or None
+    label = str(entry.get("display_name") or group_key)
+    for path in paths:
+        bp_norm = normalize_blueprint(path) or normalize_blueprint_extended(path)
+        if not bp_norm:
+            continue
+        aliases.append(
+            {
+                "catalog_item_id": cid if path == bp else None,
+                "blueprint_path": path,
+                "blueprint_norm": bp_norm,
+                "variant_label": label,
+            }
+        )
+    if not aliases and bp:
+        bp_norm = normalize_blueprint(bp) or normalize_blueprint_extended(bp)
+        if bp_norm:
+            aliases.append(
+                {
+                    "catalog_item_id": cid,
+                    "blueprint_path": bp,
+                    "blueprint_norm": bp_norm,
+                    "variant_label": label,
+                }
+            )
+    apply_economy_meta(species)
+    return species, aliases
+
+
 def merge_species_from_defaults(
     defn: dict[str, Any],
     *,

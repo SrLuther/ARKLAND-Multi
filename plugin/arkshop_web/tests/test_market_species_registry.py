@@ -15,6 +15,8 @@ from ark_species_registry import (
     lookup_species,
     normalize_blueprint_extended,
     registry_stats,
+    resolve_species_image,
+    tier_icon_url,
     _indexes,
 )
 
@@ -120,3 +122,22 @@ def test_lookup_abyss_reaper_male_abyssal():
     assert hit is not None
     assert hit["species_key"] == "abyss_reaper_abyssal"
     assert hit["tier"] == "S+"
+
+
+def test_tier_icon_url_fallback():
+    assert tier_icon_url("S+").endswith("tier-s-plus.svg")
+    assert tier_icon_url("A").endswith("tier-a.svg")
+    assert tier_icon_url(None).endswith("tier-b.svg")
+
+
+def test_resolve_species_image_custom_and_fallback():
+    entry = {"species_key": "rex", "tier": "A", "icon_path": "rex.png"}
+    assert resolve_species_image(entry) == "/species/rex.png"
+    assert resolve_species_image({"image_url": "https://cdn.example/rex.webp"}) == "https://cdn.example/rex.webp"
+    assert resolve_species_image(None, tier="C").endswith("tier-c.svg")
+
+
+def test_lookup_includes_image_url():
+    hit = lookup_species(species_key="ankylo")
+    assert hit is not None
+    assert hit["image_url"].endswith(".svg")

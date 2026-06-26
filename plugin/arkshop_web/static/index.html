@@ -618,6 +618,43 @@
       border: 1px solid var(--border);
       background: linear-gradient(165deg, rgba(0,200,255,.04) 0%, var(--surface2) 45%);
     }
+    .market-listing-card__body {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .market-listing-card__thumb {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.25);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+    }
+    .market-listing-card__thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .market-species-thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.2);
+      vertical-align: middle;
+      display: inline-block;
+    }
+    .market-species-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
     .market-listing-card__header {
       display: flex;
       justify-content: space-between;
@@ -7077,7 +7114,7 @@ async function loadMyAreaHistory() {
             <td><span style="color:var(--text2);font-size:12px;">${o.server_id || "default"}</span></td>
             <td>${o.item_type}:${o.item_id}</td>
             <td>${o.amount}</td>
-            <td>${statusBadge(o.status)}</td>
+            <td>${statusBadge(o.status)}${o.last_error ? `<div style="font-size:11px;color:var(--danger);margin-top:4px;" title="${escHtml(o.last_error)}">${escHtml(o.last_error.length > 60 ? o.last_error.slice(0, 57) + "…" : o.last_error)}</div>` : ""}</td>
             <td style="font-size:12px;">${fmtDate(o.created_at)}</td>
             <td>
               <div class="actions-col">
@@ -7182,6 +7219,17 @@ function nextMyAreaPage() {
   if (nextOffset >= _myAreaPage.total) return;
   _myAreaPage.offset = nextOffset;
   loadMyAreaHistory();
+}
+
+function extractApiError(data, response, fallback = "Operação falhou") {
+  const d = data && typeof data === "object" ? data : {};
+  return (
+    d.user_message ||
+    d.error ||
+    d.message ||
+    (response && !response.ok ? `Erro HTTP ${response.status}` : null) ||
+    fallback
+  );
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -7598,6 +7646,35 @@ let _marketTab = "table";
 let _marketAdminTab = "species";
 let _marketMyShopTab = "active";
 
+const _MARKET_TIER_IMAGES = {
+  "S+": "/species/tier-s-plus.svg",
+  "S": "/species/tier-s.svg",
+  "A": "/species/tier-a.svg",
+  "B": "/species/tier-b.svg",
+  "C": "/species/tier-c.svg",
+};
+
+function _marketTierImageUrl(tier) {
+  const t = (tier || "B").trim().toUpperCase();
+  return _MARKET_TIER_IMAGES[t] || _MARKET_TIER_IMAGES["B"];
+}
+
+function _marketSpeciesImageUrl(listingOrSpecies) {
+  const o = listingOrSpecies || {};
+  if (o.species_image_url) return o.species_image_url;
+  if (o.image_url) return o.image_url;
+  const sug = o.classification_suggestion;
+  if (sug && sug.image_url) return sug.image_url;
+  return _marketTierImageUrl(o.species_tier || o.tier || o.effective_category || (sug && sug.tier));
+}
+
+function _marketSpeciesThumbHtml(listingOrSpecies, { size = "card" } = {}) {
+  const url = _marketSpeciesImageUrl(listingOrSpecies);
+  const fallback = _MARKET_TIER_IMAGES["B"];
+  const cls = size === "table" ? "market-species-thumb" : "market-listing-card__thumb";
+  return `<div class="${cls}"><img src="${escHtml(url)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'" /></div>`;
+}
+
 function setMarketTab(tab) {
   _marketTab = tab;
   document.querySelectorAll("[data-market-tab]").forEach(btn => {
@@ -7661,6 +7738,7 @@ async function loadMarketTable() {
     }
     _marketTable = d;
     _marketTierLegend = d.tier_legend || {};
+    if (d.tier_icon_urls) Object.assign(_MARKET_TIER_IMAGES, d.tier_icon_urls);
     renderMarketTable();
   } catch (e) {
     root.innerHTML = `<p style="color:var(--danger);padding:16px;">Erro ao carregar: ${escHtml(String(e))}</p>`;
@@ -7731,7 +7809,7 @@ function renderMarketTable() {
   }
   const caps = _marketTable.size_caps || {};
   const rows = species.map(s => `<tr>
-    <td>${escHtml(s.display_name)}</td>
+    <td><div style="display:flex;align-items:center;gap:10px;">${_marketSpeciesThumbHtml(s, { size: "table" })}<span>${escHtml(s.display_name)}</span></div></td>
     <td>${s.reference_level || 1}</td>
     <td><strong style="color:var(--amber);">${Number(s.root_value || 0).toLocaleString("pt-BR")}</strong></td>
     <td>${escHtml(_marketSizeLabel(s.size_class))}</td>
@@ -7952,6 +8030,9 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
         <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}</div>`;
   return `
     <div class="card market-listing-card">
+      <div class="market-listing-card__body">
+        ${_marketSpeciesThumbHtml(l)}
+        <div style="min-width:0;flex:1;">
       <div class="market-listing-card__header">
         <div style="min-width:0;flex:1;">
           ${sellerBadge}
@@ -7969,6 +8050,8 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
         ${breakdownHtml}
       </div>
       ${actions}
+        </div>
+      </div>
     </div>`;
 }
 
@@ -8395,7 +8478,7 @@ function renderMarketAdmin() {
   const list = document.getElementById("market-admin-list");
   if (!list) return;
   if (!_marketAdminSpecies.length) {
-    list.innerHTML = '<div class="card"><p style="color:var(--text2);margin:0;">Nenhuma espécie. Clique em «Sync catálogo».</p></div>';
+    list.innerHTML = '<div class="card"><p style="color:var(--text2);margin:0;">Nenhuma espécie. Clique em «Sync catálogo» (importa loja + registro Abyss/mods).</p></div>';
     return;
   }
   const rows = _marketAdminSpecies.map(s => {
@@ -8415,7 +8498,7 @@ function renderMarketAdmin() {
       ? `<div style="font-size:11px;color:var(--text2);">${variants} variantes na loja</div>`
       : "";
     return `<tr>
-      <td>${escHtml(s.display_name)}${variantHint}</td>
+      <td><div style="display:flex;align-items:center;gap:10px;">${_marketSpeciesThumbHtml(s, { size: "table" })}<span>${escHtml(s.display_name)}</span></div>${variantHint}</td>
       <td style="font-size:12px;color:var(--text2);max-width:200px;">${escHtml(shopName)}</td>
       <td><code>${escHtml(s.species_key)}</code></td>
       <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
@@ -8459,7 +8542,12 @@ async function marketSyncCatalog(activate) {
       toast(d.error || "Sync falhou", "error");
       return;
     }
-    toast(`Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas` + (d.promoted_listings ? `, ${d.promoted_listings} listing(s) promovido(s)` : ""), "success");
+    toast(
+      `Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`
+      + (d.registry_created ? `, ${d.registry_created} do registro Abyss/mods` : "")
+      + (d.promoted_listings ? `, ${d.promoted_listings} listing(s) promovido(s)` : ""),
+      "success",
+    );
     loadMarketAdmin();
   } catch (e) {
     toast(String(e), "error");
@@ -10773,13 +10861,13 @@ async function confirmBuy() {
     const d = await r.json();
     if (d.ok) {
       closeBuyModal();
-      toast(`✅ Resgate solicitado: ${item.name}`, "success");
+      toast(d.user_message || `✅ Resgate solicitado: ${item.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
       loadMyArea();
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
-      toast(d.error || "Falha no resgate", "error");
+      toast(extractApiError(d, r, "Falha no resgate"), "error");
     }
   } catch(e) {
     toast("Erro de rede: " + e.message, "error");

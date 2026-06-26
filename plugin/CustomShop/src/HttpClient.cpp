@@ -180,6 +180,48 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
 
 } // anonymous namespace
 
+namespace {
+
+std::wstring Utf8ToWide(const std::string& text) {
+    if (text.empty()) return L"";
+    const int len = MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, nullptr, 0);
+    if (len <= 0) return std::wstring(text.begin(), text.end());
+    std::wstring out(static_cast<size_t>(len - 1), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), -1, &out[0], len);
+    return out;
+}
+
+std::wstring DeliveryFailureUserMessage(const std::string& item_id,
+                                        const std::string& fail_reason) {
+    if (fail_reason == "kit_desconhecido" || fail_reason == "item_desconhecido") {
+        return L"[Shop] '" + Utf8ToWide(item_id)
+            + L"' nao esta no catalogo deste mapa. Sincronize plugins no TEK.";
+    }
+    if (fail_reason.rfind("sem_permissao:", 0) == 0) {
+        const std::string groups = fail_reason.substr(14);
+        return L"[Shop] Falta permissao/licenca: " + Utf8ToWide(groups);
+    }
+    if (fail_reason == "sem_licenca") {
+        return L"[Shop] Falta licenca ativa para resgatar '" + Utf8ToWide(item_id) + L"'";
+    }
+    if (fail_reason == "licenca_falhou" || fail_reason == "licenca_mal_configurada") {
+        return L"[Shop] Falha ao conceder licenca de '" + Utf8ToWide(item_id)
+            + L"'. Contate um admin.";
+    }
+    if (fail_reason == "dino_spawn_falhou") {
+        return L"[Shop] Falha ao spawnar dino de '" + Utf8ToWide(item_id)
+            + L"'. Tente novamente ou contate um admin.";
+    }
+    if (fail_reason == "sem_conteudo") {
+        return L"[Shop] Kit '" + Utf8ToWide(item_id)
+            + L"' sem conteudo entregavel no catalogo.";
+    }
+    return L"[Shop] Falha ao entregar '" + Utf8ToWide(item_id)
+        + L"'. Contate um admin.";
+}
+
+} // anonymous namespace
+
 namespace CustomShop {
 namespace HttpClient {
 
@@ -264,6 +306,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
     int success_count = 0;
     int fail_count = 0;
     const int total = static_cast<int>(items.size());
+    std::wstring first_fail_msg;
 
     for (const auto& item : items) {
         const std::string order_id = item.value("order_id", "");
@@ -275,17 +318,18 @@ bool DeliverPending(AShooterPlayerController* controller) {
 
         bool ok = false;
         std::string detail;
+        std::string fail_reason;
 
         if (item_type == "kit") {
-            ok = Store::GiveKit(controller, item_id);
-            detail = ok ? "GiveKit ok" : "GiveKit failed";
-            Log::GetLog()->info("HttpClient: GiveKit '{}' for order {}: {}",
-                                item_id, order_id, ok ? "OK" : "FAIL");
+            ok = Store::GiveKit(controller, item_id, true, &fail_reason);
+            detail = ok ? "GiveKit ok" : ("GiveKit failed: " + fail_reason);
+            Log::GetLog()->info("HttpClient: GiveKit '{}' for order {}: {} ({})",
+                                item_id, order_id, ok ? "OK" : "FAIL", detail);
         } else {
-            ok = Store::GiveItem(controller, item_id, amount);
-            detail = ok ? "GiveItem ok" : "GiveItem failed";
-            Log::GetLog()->info("HttpClient: GiveItem '{}' x{} for order {}: {}",
-                                item_id, amount, order_id, ok ? "OK" : "FAIL");
+            ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason);
+            detail = ok ? "GiveItem ok" : ("GiveItem failed: " + fail_reason);
+            Log::GetLog()->info("HttpClient: GiveItem '{}' x{} for order {}: {} ({})",
+                                item_id, amount, order_id, ok ? "OK" : "FAIL", detail);
         }
 
         deliveries.push_back({
@@ -308,8 +352,11 @@ bool DeliverPending(AShooterPlayerController* controller) {
         } else {
             failed_ids.push_back(order_id);
             fail_count++;
-            Log::GetLog()->error("HttpClient: failed to deliver '{}' for order {}",
-                                 item_id, order_id);
+            if (first_fail_msg.empty()) {
+                first_fail_msg = DeliveryFailureUserMessage(item_id, fail_reason);
+            }
+            Log::GetLog()->error("HttpClient: failed to deliver '{}' for order {} ({})",
+                                 item_id, order_id, fail_reason);
         }
     }
 
@@ -345,10 +392,15 @@ bool DeliverPending(AShooterPlayerController* controller) {
         std::string deliver_resp = HttpPostJson(deliver_url, body.dump());
         Log::GetLog()->info("HttpClient: mark delivered response: {}", deliver_resp);
     } else if (fail_count > 0) {
-        const std::wstring msg = L"[Shop] Falha ao entregar "
-            + std::to_wstring(fail_count) + L" resgate(s). Contate um admin.";
+        std::wstring msg = first_fail_msg.empty()
+            ? (L"[Shop] Falha ao entregar " + std::to_wstring(fail_count)
+               + L" resgate(s). Contate um admin.")
+            : first_fail_msg;
+        if (fail_count > 1 && !first_fail_msg.empty()) {
+            msg += L" (+" + std::to_wstring(fail_count - 1) + L" falha(s))";
+        }
         ArkApi::GetApiUtils().SendNotification(
-            controller, FLinearColor(1, 0.6f, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
+            controller, FLinearColor(1, 0.6f, 0, 1), 1.2f, 10.f, nullptr, msg.c_str());
     }
 
     return success_count > 0;

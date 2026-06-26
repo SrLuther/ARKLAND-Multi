@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session
 
 from ark_species_registry import (
     ensure_pre_registered_species,
+    get_registry_entry,
     is_raw_blueprint_label,
     lookup_species,
+    resolve_species_image,
     suggestion_to_public,
 )
 from market_audit import market_audit_event
@@ -616,13 +618,17 @@ def listing_to_public(
         effective_category = suggestion.get("tier")
     suggested_value = row.computed_base_value or (suggestion or {}).get("root_value") or 0
     awaiting = _needs_admin_classification(row, meta)
+    sk = row.species_key or (suggestion or {}).get("species_key")
+    reg_entry = get_registry_entry(sk) if sk else None
+    species_image_url = resolve_species_image(reg_entry, tier=species_tier)
     out: dict[str, Any] = {
         "listing_id": row.id,
         "seller_steam_id": row.seller_steam_id,
         "seller_display_name": None,
-        "species_key": row.species_key or (suggestion or {}).get("species_key"),
+        "species_key": sk,
         "species_display_name": species_name,
         "species_tier": species_tier,
+        "species_image_url": species_image_url,
         "custom_name": getattr(row, "custom_name", None),
         "display_title": _listing_display_title(row, species_row, suggestion=suggestion),
         "category": getattr(row, "category", None),

@@ -788,6 +788,7 @@ def _resolve_database_url(settings: dict[str, Any] | None = None) -> str:
 
 def _migrate_schema(engine: Any) -> None:
     """Alinha schema MySQL com os modelos SQLAlchemy (incl. setup_db.sql legado)."""
+    global _ENTITLEMENTS_SCHEMA_READY
     is_mysql = "mysql" in str(engine.url).lower()
     if not is_mysql:
         Base.metadata.create_all(bind=engine)
@@ -806,6 +807,10 @@ def _migrate_schema(engine: Any) -> None:
             ensure_market_schema(engine, bootstrap=False)
         except Exception as exc:
             log.warning("Mercado (sqlite dev): migrate falhou: %s", exc)
+        with engine.connect() as conn:
+            conn.execute(text(_entitlements_ddl_sqlite()))
+            conn.commit()
+        _ENTITLEMENTS_SCHEMA_READY = True
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -855,7 +860,10 @@ def _migrate_schema(engine: Any) -> None:
                     "ALTER TABLE `orders` ADD COLUMN `points_spent` INT NOT NULL DEFAULT 0"
                 ))
                 conn.commit()
+        conn.execute(text(_entitlements_ddl_mysql()))
+        conn.commit()
     Base.metadata.create_all(bind=engine)
+    _ENTITLEMENTS_SCHEMA_READY = True
     try:
         from market_migrate import ensure_market_schema
 
@@ -903,7 +911,7 @@ def _start_db_reconnect_watcher() -> None:
 
 
 def _configure_database(url: str) -> None:
-    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL
+    global _ENGINE, _SessionLocal, _ACTIVE_DATABASE_URL, _ENTITLEMENTS_SCHEMA_READY
 
     normalized = (url or "").strip()
     if normalized == _ACTIVE_DATABASE_URL:
@@ -920,6 +928,7 @@ def _configure_database(url: str) -> None:
     _ENGINE = None
     _SessionLocal = None
     _ACTIVE_DATABASE_URL = ""
+    _ENTITLEMENTS_SCHEMA_READY = False
 
     if not normalized:
         return
@@ -932,6 +941,10 @@ def _configure_database(url: str) -> None:
         normalized,
         future=True,
         pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=1800,
+        pool_timeout=8,
         connect_args=connect_args,
     )
     session_local = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True))
@@ -962,6 +975,8 @@ def _configure_database(url: str) -> None:
 _DB_INIT_LOCK = threading.Lock()
 _DB_INITIALIZED = False
 _DB_BOOT_THREAD: threading.Thread | None = None
+_ENTITLEMENTS_SCHEMA_LOCK = threading.Lock()
+_ENTITLEMENTS_SCHEMA_READY = False
 
 _HEALTH_DB_CACHE: dict[str, Any] = {
     "reachable": None,
@@ -995,8 +1010,14 @@ def _initialize_database_if_needed() -> None:
     global _DB_INITIALIZED
     if _DB_INITIALIZED:
         return
+    if _db_ready() and (_ACTIVE_DATABASE_URL or _DATABASE_URL):
+        _DB_INITIALIZED = True
+        return
     with _DB_INIT_LOCK:
         if _DB_INITIALIZED:
+            return
+        if _db_ready() and (_ACTIVE_DATABASE_URL or _DATABASE_URL):
+            _DB_INITIALIZED = True
             return
         try:
             startup_settings = _load_state_settings_snapshot()
@@ -1066,6 +1087,13 @@ def _ensure_runtime_initialized_before_request() -> None:
 
 
 app.before_request(_ensure_runtime_initialized_before_request)
+
+
+@app.teardown_appcontext
+def _teardown_db_session(_exc: BaseException | None = None) -> None:
+    """Libera scoped_session por request — evita vazamento de conexões entre threads Flask."""
+    if _SessionLocal is not None:
+        _SessionLocal.remove()
 
 
 def _load_settings() -> Dict[str, Any]:
@@ -1226,7 +1254,8 @@ def _get_player_points(steam_id: str) -> int | None:
             {"sid": steam_id},
         ).fetchone()
         return int(row[0]) if row else 0
-    except Exception:
+    except Exception as exc:
+        _log_error("get_player_points", steam_id=steam_id, error=str(exc))
         return None
     finally:
         db.close()
@@ -1480,8 +1509,8 @@ def _catalog_price(entry: dict[str, Any], amount: int = 1) -> int:
     return max(0, int(entry.get("Price", 0) or 0)) * max(1, amount)
 
 
-def _ensure_entitlements_table(conn: Any) -> None:
-    conn.execute(text(
+def _entitlements_ddl_mysql() -> str:
+    return (
         "CREATE TABLE IF NOT EXISTS player_entitlements ("
         "  id INT AUTO_INCREMENT PRIMARY KEY,"
         "  steam_id VARCHAR(20) NOT NULL,"
@@ -1493,7 +1522,109 @@ def _ensure_entitlements_table(conn: Any) -> None:
         "  UNIQUE KEY uq_steam_group (steam_id, group_name),"
         "  INDEX idx_steam_expires (steam_id, expires)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
-    ))
+    )
+
+
+def _entitlements_ddl_sqlite() -> str:
+    return (
+        "CREATE TABLE IF NOT EXISTS player_entitlements ("
+        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "  steam_id VARCHAR(20) NOT NULL,"
+        "  group_name VARCHAR(32) NOT NULL,"
+        "  expires DATETIME DEFAULT NULL,"
+        "  source VARCHAR(64) DEFAULT NULL,"
+        "  notes VARCHAR(255) DEFAULT NULL,"
+        "  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
+        "  UNIQUE (steam_id, group_name)"
+        ")"
+    )
+
+
+def _ensure_entitlements_schema(conn: Any) -> None:
+    """Cria player_entitlements uma única vez — DDL repetido bloqueava o MySQL para todos."""
+    global _ENTITLEMENTS_SCHEMA_READY
+    if _ENTITLEMENTS_SCHEMA_READY:
+        return
+    with _ENTITLEMENTS_SCHEMA_LOCK:
+        if _ENTITLEMENTS_SCHEMA_READY:
+            return
+        ddl = _entitlements_ddl_mysql() if _is_mysql_engine(conn) else _entitlements_ddl_sqlite()
+        conn.execute(text(ddl))
+        if not _is_mysql_engine(conn):
+            conn.commit()
+        _ENTITLEMENTS_SCHEMA_READY = True
+
+
+def _apply_entitlement_grant_tx(
+    db: Any,
+    steam_id: str,
+    group: str,
+    days: int,
+    *,
+    source: str = "",
+    notes: str = "",
+) -> None:
+    _ensure_entitlements_schema(db)
+    if group in PAID_LICENSE_GROUPS:
+        db.execute(
+            text(
+                "DELETE FROM player_entitlements "
+                "WHERE steam_id = :sid AND group_name IN ('Gamma','Beta','Alfa') "
+                "AND group_name != :grp"
+            ),
+            {"sid": str(steam_id), "grp": group},
+        )
+    params = {
+        "sid": str(steam_id),
+        "grp": group,
+        "days": days,
+        "src": source,
+        "notes": notes,
+        "src_up": source,
+        "notes_up": notes,
+    }
+    if days <= 0:
+        if _is_mysql_engine(db):
+            db.execute(
+                text(
+                    "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+                    "VALUES (:sid, :grp, NULL, :src, :notes) "
+                    "ON DUPLICATE KEY UPDATE expires = NULL, source = :src_up, notes = :notes_up"
+                ),
+                params,
+            )
+        else:
+            db.execute(
+                text(
+                    "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+                    "VALUES (:sid, :grp, NULL, :src, :notes) "
+                    "ON CONFLICT(steam_id, group_name) DO UPDATE SET "
+                    "expires = NULL, source = excluded.source, notes = excluded.notes"
+                ),
+                params,
+            )
+    elif _is_mysql_engine(db):
+        db.execute(
+            text(
+                "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+                "VALUES (:sid, :grp, DATE_ADD(NOW(), INTERVAL :days DAY), :src, :notes) "
+                "ON DUPLICATE KEY UPDATE "
+                "expires = DATE_ADD(GREATEST(COALESCE(expires, NOW()), NOW()), INTERVAL :days DAY), "
+                "source = :src_up, notes = :notes_up"
+            ),
+            params,
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+                "VALUES (:sid, :grp, datetime('now', '+' || :days || ' days'), :src, :notes) "
+                "ON CONFLICT(steam_id, group_name) DO UPDATE SET "
+                "expires = datetime('now', '+' || :days || ' days'), "
+                "source = excluded.source, notes = excluded.notes"
+            ),
+            params,
+        )
 
 
 def _get_player_entitlements(steam_id: str) -> list[dict[str, Any]]:
@@ -1501,13 +1632,18 @@ def _get_player_entitlements(steam_id: str) -> list[dict[str, Any]]:
         return []
     db = _SessionLocal()
     try:
-        _ensure_entitlements_table(db)
+        _ensure_entitlements_schema(db)
+        expires_clause = (
+            "(expires IS NULL OR expires > NOW())"
+            if _is_mysql_engine(db)
+            else "(expires IS NULL OR expires > datetime('now'))"
+        )
         rows = db.execute(
             text(
-                "SELECT group_name, expires, source, notes, created_at "
-                "FROM player_entitlements "
-                "WHERE steam_id = :sid AND (expires IS NULL OR expires > NOW()) "
-                "ORDER BY expires IS NULL DESC, expires ASC"
+                f"SELECT group_name, expires, source, notes, created_at "
+                f"FROM player_entitlements "
+                f"WHERE steam_id = :sid AND {expires_clause} "
+                f"ORDER BY expires IS NULL DESC, expires ASC"
             ),
             {"sid": str(steam_id)},
         ).fetchall()
@@ -1515,9 +1651,16 @@ def _get_player_entitlements(steam_id: str) -> list[dict[str, Any]]:
         for row in rows:
             grp = str(row[0])
             bonus = LICENSE_TIMED_BONUS.get(grp, 0)
+            exp_raw = row[1]
+            if exp_raw is not None and hasattr(exp_raw, "isoformat"):
+                exp_iso = exp_raw.isoformat()
+            elif exp_raw is not None:
+                exp_iso = str(exp_raw)
+            else:
+                exp_iso = None
             out.append({
                 "group": grp,
-                "expires_at": row[1].isoformat() if row[1] else None,
+                "expires_at": exp_iso,
                 "permanent": row[1] is None,
                 "source": row[2],
                 "notes": row[3],
@@ -1618,43 +1761,13 @@ def _grant_player_entitlement(
 ) -> None:
     db = _SessionLocal()
     try:
-        _ensure_entitlements_table(db)
-        if group in PAID_LICENSE_GROUPS:
-            db.execute(
-                text(
-                    "DELETE FROM player_entitlements "
-                    "WHERE steam_id = :sid AND group_name IN ('Gamma','Beta','Alfa') "
-                    "AND group_name != :grp"
-                ),
-                {"sid": str(steam_id), "grp": group},
-            )
-        if days <= 0:
-            db.execute(
-                text(
-                    "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
-                    "VALUES (:sid, :grp, NULL, :src, :notes) "
-                    "ON DUPLICATE KEY UPDATE expires = NULL, source = :src, notes = :notes"
-                ),
-                {"sid": str(steam_id), "grp": group, "src": source, "notes": notes},
-            )
-        else:
-            db.execute(
-                text(
-                    "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
-                    "VALUES (:sid, :grp, DATE_ADD(NOW(), INTERVAL :days DAY), :src, :notes) "
-                    "ON DUPLICATE KEY UPDATE "
-                    "expires = DATE_ADD(GREATEST(COALESCE(expires, NOW()), NOW()), INTERVAL :days DAY), "
-                    "source = :src, notes = :notes"
-                ),
-                {
-                    "sid": str(steam_id),
-                    "grp": group,
-                    "days": days,
-                    "src": source,
-                    "notes": notes,
-                },
-            )
+        _apply_entitlement_grant_tx(
+            db, steam_id, group, days, source=source, notes=notes,
+        )
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -3748,6 +3861,49 @@ def _admin_deliver_order():
 
 # ── Player routes ─────────────────────────────────────────────────────────────
 
+def _purchase_user_message(
+    result: dict[str, Any],
+    *,
+    item_type: str,
+    item_id: str,
+    price: int,
+) -> str:
+    """Mensagem amigável em PT-BR para o jogador após tentativa de resgate."""
+    if result.get("ok"):
+        if result.get("queued"):
+            kind = "kit" if item_type == "kit" else "item"
+            return (
+                f"Resgate de {kind} «{item_id}» registrado! Entre no servidor ARKLAND — "
+                "os itens serão entregues automaticamente na Nuvem (/shop)."
+            )
+        if result.get("skipped"):
+            return "Este pedido já foi entregue anteriormente."
+        return f"Resgate concluído: {item_id}."
+    err = str(result.get("error") or "").strip()
+    low = err.lower()
+    if "saldo" in low or "insufficient" in low or "afford" in low:
+        return err or "Saldo de Âmbares insuficiente para este resgate."
+    if "licen" in low or "permission" in low:
+        return err or "Você não possui a licença necessária para este item ou kit."
+    if "não encontrado" in low or "not found" in low or "unknown" in low:
+        label = "Kit" if item_type == "kit" else "Item"
+        return err or f"{label} «{item_id}» não encontrado no catálogo da loja."
+    if "duplicad" in low or "idempotency" in low:
+        return "Este resgate já foi processado — verifique Minha Área."
+    if "rcon" in low or "connection" in low or "timeout" in low:
+        return (
+            "Servidor indisponível no momento. Seu pedido ficou pendente — "
+            "entre no jogo ou tente novamente em alguns minutos."
+        )
+    if "invent" in low or "weight" in low or "encumber" in low:
+        return "Inventário cheio ou sobrecarregado — libere espaço e entre no servidor."
+    if err:
+        return err
+    if price > 0:
+        return f"Não foi possível concluir o resgate de «{item_id}». Verifique Minha Área ou contate um admin."
+    return f"Falha ao resgatar «{item_id}». Tente novamente ou contate um admin."
+
+
 @app.route("/api/player/purchase", methods=["POST"])
 @login_required
 @limiter.limit("10 per minute; 50 per hour")
@@ -3822,37 +3978,87 @@ def player_purchase():
         return jsonify({"ok": False, "error": error}), 400
     assert order is not None
 
-    if price > 0:
-        try:
-            db = _SessionLocal()
-            db.execute(
-                text("UPDATE players SET points = GREATEST(0, points - :price) WHERE steam_id = :sid"),
+    db = _SessionLocal()
+    purchase_db_error: str | None = None
+    try:
+        if price > 0:
+            if _is_mysql_engine(db):
+                debit_sql = (
+                    "UPDATE players SET points = GREATEST(0, points - :price) "
+                    "WHERE steam_id = :sid AND points >= :price"
+                )
+            else:
+                debit_sql = (
+                    "UPDATE players SET points = MAX(points - :price, 0) "
+                    "WHERE steam_id = :sid AND points >= :price"
+                )
+            updated = db.execute(
+                text(debit_sql),
                 {"price": price, "sid": str(steam_id)},
             )
-            db.commit()
-            db.close()
-        except Exception as _pts_err:
-            _log_error("debit_points", steam_id=str(steam_id), price=price, error=str(_pts_err))
+            if int(getattr(updated, "rowcount", 0) or 0) <= 0:
+                row = db.execute(
+                    text("SELECT points FROM players WHERE steam_id = :sid"),
+                    {"sid": str(steam_id)},
+                ).fetchone()
+                balance_now = int(row[0]) if row else 0
+                db.rollback()
+                if idempotency_key:
+                    _used_idempotency_keys.pop(idempotency_key, None)
+                return jsonify({
+                    "ok": False,
+                    "error": f"Saldo insuficiente ({balance_now} pts, necessário {price} pts)",
+                }), 402
 
-    if lic and lic.get("Redeemable", True):
-        try:
-            _grant_player_entitlement(
+        if lic and lic.get("Redeemable", True):
+            _apply_entitlement_grant_tx(
+                db,
                 str(steam_id),
                 str(lic["Group"]),
                 int(lic.get("Days", 30)),
                 source=order.order_id,
                 notes=f"web:{item_id}",
             )
-        except Exception as exc:
-            _log_error("grant_license", steam_id=str(steam_id), item_id=item_id, error=str(exc))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        purchase_db_error = str(exc)
+        _log_error(
+            "purchase_db_tx",
+            steam_id=str(steam_id),
+            item_id=item_id,
+            order_id=order.order_id,
+            error=purchase_db_error,
+        )
+    finally:
+        db.close()
+
+    if purchase_db_error:
+        if idempotency_key:
+            _used_idempotency_keys.pop(idempotency_key, None)
+        return jsonify({
+            "ok": False,
+            "error": (
+                "Não foi possível concluir o resgate da licença. "
+                "Seu saldo não foi alterado — tente novamente em instantes."
+            ),
+            "detail": purchase_db_error,
+        }), 500
 
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
     result["new_balance"] = _get_player_points(str(steam_id))
     result["points_spent"] = price
+    result["user_message"] = _purchase_user_message(
+        result, item_type=item_type, item_id=item_id, price=price,
+    )
+    if not result.get("error") and not result.get("ok"):
+        result["error"] = result["user_message"]
     new_balance = result.get("new_balance")
+    purchase_ok = bool(result.get("ok"))
     _audit_event(
-        "purchase_created",
+        "purchase_created" if purchase_ok else "purchase_failed",
+        severity="info" if purchase_ok else "error",
         actor_type="player",
         actor_steam_id=str(steam_id),
         target_steam_id=str(steam_id),
@@ -3862,12 +4068,13 @@ def player_purchase():
         item_id=item_id,
         amount=amount,
         status_after=order.status,
-        message=f"Resgate criado: {item_id}",
+        message=result.get("user_message") or f"Resgate: {item_id}",
         price=price,
         idempotency_key=idempotency_key or None,
         points_after=new_balance,
         delivery_mode=result.get("delivery_mode"),
         queued=result.get("queued"),
+        error=result.get("error") if not result.get("ok") else None,
     )
     return jsonify(result), 200 if result.get("ok") else 500
 
@@ -3975,8 +4182,28 @@ def player_entitlements():
 @login_required
 def player_points():
     steam_id = str(_steam_id_from_session())
-    balance = _get_player_points(steam_id)
-    return jsonify({"ok": True, "steam_id": steam_id, "points": balance if balance is not None else 0})
+    if not _db_ready():
+        return jsonify({
+            "ok": False,
+            "error": "Banco temporariamente indisponível. Recarregue em alguns segundos.",
+            "db_offline": True,
+        }), 503
+    try:
+        balance = _get_player_points(steam_id)
+    except Exception as exc:
+        _log_error("player_points", steam_id=steam_id, error=str(exc))
+        return jsonify({
+            "ok": False,
+            "error": "Não foi possível consultar seu saldo. Tente novamente.",
+            "db_offline": True,
+        }), 503
+    if balance is None:
+        return jsonify({
+            "ok": False,
+            "error": "Saldo indisponível no momento. Tente novamente.",
+            "db_offline": True,
+        }), 503
+    return jsonify({"ok": True, "steam_id": steam_id, "points": balance})
 
 
 def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
@@ -5240,7 +5467,8 @@ start_discord_bridge(
     db_ready=_db_ready,
 )
 
-_kick_background_db_init()
+if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
+    _kick_background_db_init()
 
 
 if __name__ == "__main__":

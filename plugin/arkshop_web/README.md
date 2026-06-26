@@ -82,3 +82,9 @@ python app.py
 ## Dependências
 - Python 3.8+
 - `flask` e `flask-cors` (instalados automaticamente pelo `start.bat`)
+
+## Imagens de espécies (Comércio P2P)
+
+Não use arte do Dododex ou hotlink de terceiros sem licença. O mercado exibe **silhuetas SVG por tier** (S+/S/A/B/C) até haver imagens próprias.
+
+Para adicionar thumbnail por espécie: coloque o arquivo em `static/species/` e defina `icon_path` ou `image_url` em `data/market_species_defaults.json` ou `data/ark_species_registry.json`. Detalhes legais e atribuição: `static/species/ATTRIBUTION.md`.

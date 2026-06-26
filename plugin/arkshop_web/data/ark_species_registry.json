@@ -1,5 +1,6 @@
 {
   "_comment": "Overlay do registro ARK — espécies de mods e itens fora do market_species_defaults.json.",
+  "_images": "Opcional por espécie: image_url (URL ou /species/arquivo) ou icon_path relativo a static/species/. Ver static/species/ATTRIBUTION.md.",
   "_mod": "Abyss",
   "_pricing_logic": "S+ apex abissal/combate premium (12k+); S combat forte/transporte premium (8–9k); A meta PvE/PvP (5–5.5k); B utilidade/gather (2.5–3k); C passivos/sementes/recursos comuns (200–800). root_value = Âmbar nível 1 sugerido.",
   "species": [
@@ -14,7 +15,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed"
       ],
-      "class_tokens": ["primalitemresource_seaweed"]
+      "class_tokens": [
+        "primalitemresource_seaweed"
+      ],
+      "catalog_item_id": "abyss_seaweed"
     },
     {
       "species_key": "abyss_manganese",
@@ -27,7 +31,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese"
       ],
-      "class_tokens": ["primalitemresource_manganese"]
+      "class_tokens": [
+        "primalitemresource_manganese"
+      ],
+      "catalog_item_id": "abyss_manganese"
     },
     {
       "species_key": "abyss_hardened_steel",
@@ -40,7 +47,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot"
       ],
-      "class_tokens": ["primalitemresource_hardenedsteelingot"]
+      "class_tokens": [
+        "primalitemresource_hardenedsteelingot"
+      ],
+      "catalog_item_id": "abyss_hardened_steel"
     },
     {
       "species_key": "abyss_fish_scale",
@@ -53,7 +63,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale"
       ],
-      "class_tokens": ["primalitemresource_fishscale"]
+      "class_tokens": [
+        "primalitemresource_fishscale"
+      ],
+      "catalog_item_id": "abyss_fish_scale"
     },
     {
       "species_key": "abyss_crystallized_wood",
@@ -66,7 +79,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_CrystallizedWood.PrimalItemResource_CrystallizedWood"
       ],
-      "class_tokens": ["primalitemresource_crystallizedwood"]
+      "class_tokens": [
+        "primalitemresource_crystallizedwood"
+      ],
+      "catalog_item_id": "abyss_crystallized_wood"
     },
     {
       "species_key": "abyss_barnacle",
@@ -79,7 +95,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Barnacle.PrimalItemResource_Barnacle"
       ],
-      "class_tokens": ["primalitemresource_barnacle"]
+      "class_tokens": [
+        "primalitemresource_barnacle"
+      ],
+      "catalog_item_id": "abyss_barnacle"
     },
     {
       "species_key": "abyss_aqualyrium",
@@ -92,7 +111,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium"
       ],
-      "class_tokens": ["primalitemresource_aqualyrium"]
+      "class_tokens": [
+        "primalitemresource_aqualyrium"
+      ],
+      "catalog_item_id": "abyss_aqualyrium"
     },
     {
       "species_key": "abyss_seed_plantspeciesw",
@@ -105,7 +127,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW"
       ],
-      "class_tokens": ["primalitemconsumable_seed_plantspeciesw"]
+      "class_tokens": [
+        "primalitemconsumable_seed_plantspeciesw"
+      ],
+      "catalog_item_id": "abyss_seed_plantspeciesw"
     },
     {
       "species_key": "abyss_seed_rice",
@@ -118,7 +143,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice"
       ],
-      "class_tokens": ["primalitemconsumable_seed_rice"]
+      "class_tokens": [
+        "primalitemconsumable_seed_rice"
+      ],
+      "catalog_item_id": "abyss_seed_rice"
     },
     {
       "species_key": "abyss_seed_cucumis",
@@ -131,7 +159,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis"
       ],
-      "class_tokens": ["primalitemconsumable_seed_cucumis"]
+      "class_tokens": [
+        "primalitemconsumable_seed_cucumis"
+      ],
+      "catalog_item_id": "abyss_seed_cucumis"
     },
     {
       "species_key": "abyss_water_wyvern",
@@ -144,7 +175,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Wyvern/Wyvern_Character_BP_Water.Wyvern_Character_BP_Water"
       ],
-      "class_tokens": ["wyvern_character_bp_water", "water_wyvern"]
+      "class_tokens": [
+        "wyvern_character_bp_water",
+        "water_wyvern"
+      ],
+      "catalog_item_id": "abyss_water_wyvern"
     },
     {
       "species_key": "abyss_vulcanite",
@@ -157,7 +192,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Vulcanite/Vulcanite_Character_BP.Vulcanite_Character_BP"
       ],
-      "class_tokens": ["vulcanite"]
+      "class_tokens": [
+        "vulcanite"
+      ],
+      "catalog_item_id": "abyss_vulcanite"
     },
     {
       "species_key": "abyss_tridacna",
@@ -170,7 +208,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Tridacna/Tridacna_Character_BP.Tridacna_Character_BP"
       ],
-      "class_tokens": ["tridacna"]
+      "class_tokens": [
+        "tridacna"
+      ],
+      "catalog_item_id": "abyss_tridacna"
     },
     {
       "species_key": "abyss_tiktaalik",
@@ -183,7 +224,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Tiktaalik/Tiktaalik_Character_BP.Tiktaalik_Character_BP"
       ],
-      "class_tokens": ["tiktaalik"]
+      "class_tokens": [
+        "tiktaalik"
+      ],
+      "catalog_item_id": "abyss_tiktaalik"
     },
     {
       "species_key": "abyss_thunnus",
@@ -196,7 +240,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Thunnus/Thunnus_Character_BP.Thunnus_Character_BP"
       ],
-      "class_tokens": ["thunnus"]
+      "class_tokens": [
+        "thunnus"
+      ],
+      "catalog_item_id": "abyss_thunnus"
     },
     {
       "species_key": "abyss_takifugu",
@@ -209,7 +256,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Takifugu/Takifugu_Character_BP.Takifugu_Character_BP"
       ],
-      "class_tokens": ["takifugu"]
+      "class_tokens": [
+        "takifugu"
+      ],
+      "catalog_item_id": "abyss_takifugu"
     },
     {
       "species_key": "abyss_stereolepis",
@@ -222,7 +272,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Stereolepis/Stereolepis_Character_BP.Stereolepis_Character_BP"
       ],
-      "class_tokens": ["stereolepis"]
+      "class_tokens": [
+        "stereolepis"
+      ],
+      "catalog_item_id": "abyss_stereolepis"
     },
     {
       "species_key": "abyss_seahorse",
@@ -235,7 +288,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Seahorse/Seahorse_Character_BP.Seahorse_Character_BP"
       ],
-      "class_tokens": ["seahorse"]
+      "class_tokens": [
+        "seahorse"
+      ],
+      "catalog_item_id": "abyss_seahorse"
     },
     {
       "species_key": "abyss_riftcrawler",
@@ -248,7 +304,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP"
       ],
-      "class_tokens": ["riftcrawler"]
+      "class_tokens": [
+        "riftcrawler"
+      ],
+      "catalog_item_id": "abyss_riftcrawler"
     },
     {
       "species_key": "abyss_qarmoutus",
@@ -261,7 +320,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Qarmoutus/Qarmoutus_Character_BP.Qarmoutus_Character_BP"
       ],
-      "class_tokens": ["qarmoutus"]
+      "class_tokens": [
+        "qarmoutus"
+      ],
+      "catalog_item_id": "abyss_qarmoutus"
     },
     {
       "species_key": "abyss_onchopristis",
@@ -274,7 +336,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Onchopristis/Onchopristis_Character_BP.Onchopristis_Character_BP"
       ],
-      "class_tokens": ["onchopristis"]
+      "class_tokens": [
+        "onchopristis"
+      ],
+      "catalog_item_id": "abyss_onchopristis"
     },
     {
       "species_key": "abyss_ocepechelon",
@@ -287,7 +352,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Ocepechelon/Ocepechelon_Character_BP.Ocepechelon_Character_BP"
       ],
-      "class_tokens": ["ocepechelon"]
+      "class_tokens": [
+        "ocepechelon"
+      ],
+      "catalog_item_id": "abyss_ocepechelon"
     },
     {
       "species_key": "abyss_mudpuppy",
@@ -300,7 +368,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Mudpuppy/Mudpuppy_Character_BP.Mudpuppy_Character_BP"
       ],
-      "class_tokens": ["mudpuppy"]
+      "class_tokens": [
+        "mudpuppy"
+      ],
+      "catalog_item_id": "abyss_mudpuppy"
     },
     {
       "species_key": "abyss_monodon",
@@ -313,7 +384,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Monodon/Monodon_Character_BP.Monodon_Character_BP"
       ],
-      "class_tokens": ["monodon"]
+      "class_tokens": [
+        "monodon"
+      ],
+      "catalog_item_id": "abyss_monodon"
     },
     {
       "species_key": "abyss_mantis_shrimp",
@@ -326,7 +400,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/MantisShrimp/MantisShrimp_Character_BP.MantisShrimp_Character_BP"
       ],
-      "class_tokens": ["mantisshrimp"]
+      "class_tokens": [
+        "mantisshrimp"
+      ],
+      "catalog_item_id": "abyss_mantis_shrimp"
     },
     {
       "species_key": "abyss_malleocephalus",
@@ -339,7 +416,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Malleocephalus/Malleocephalus_Character_BP.Malleocephalus_Character_BP"
       ],
-      "class_tokens": ["malleocephalus"]
+      "class_tokens": [
+        "malleocephalus"
+      ],
+      "catalog_item_id": "abyss_malleocephalus"
     },
     {
       "species_key": "abyss_kathreptis",
@@ -352,7 +432,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Kathreptis/Kathreptis_Character_BP.Kathreptis_Character_BP"
       ],
-      "class_tokens": ["kathreptis"]
+      "class_tokens": [
+        "kathreptis"
+      ],
+      "catalog_item_id": "abyss_kathreptis"
     },
     {
       "species_key": "abyss_istiophorus",
@@ -365,7 +448,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Istiophorus/Istiophorus_Character_BP.Istiophorus_Character_BP"
       ],
-      "class_tokens": ["istiophorus"]
+      "class_tokens": [
+        "istiophorus"
+      ],
+      "catalog_item_id": "abyss_istiophorus"
     },
     {
       "species_key": "abyss_homarus",
@@ -378,7 +464,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Homarus/Homarus_Character_BP.Homarus_Character_BP"
       ],
-      "class_tokens": ["homarus"]
+      "class_tokens": [
+        "homarus"
+      ],
+      "catalog_item_id": "abyss_homarus"
     },
     {
       "species_key": "abyss_dakosaurus",
@@ -391,7 +480,10 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Dakosaurus/Dakosaurus_Character_BP.Dakosaurus_Character_BP"
       ],
-      "class_tokens": ["dakosaurus"]
+      "class_tokens": [
+        "dakosaurus"
+      ],
+      "catalog_item_id": "abyss_dakosaurus"
     },
     {
       "species_key": "abyss_yuty_abyssal",
@@ -404,7 +496,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal"
       ],
-      "class_tokens": ["yutyrannus_character_bp_abyssal", "yuty_abyssal"]
+      "class_tokens": [
+        "yutyrannus_character_bp_abyssal",
+        "yuty_abyssal"
+      ],
+      "catalog_item_id": "abyss_yuty_abyssal"
     },
     {
       "species_key": "abyss_thyla_abyssal",
@@ -417,7 +513,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal"
       ],
-      "class_tokens": ["thylacoleo_character_bp_abyssal", "thyla_abyssal"]
+      "class_tokens": [
+        "thylacoleo_character_bp_abyssal",
+        "thyla_abyssal"
+      ],
+      "catalog_item_id": "abyss_thyla_abyssal"
     },
     {
       "species_key": "abyss_theriz_abyssal",
@@ -430,7 +530,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Therizino/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal"
       ],
-      "class_tokens": ["therizino_character_bp_abyssal", "theriz_abyssal"]
+      "class_tokens": [
+        "therizino_character_bp_abyssal",
+        "theriz_abyssal"
+      ],
+      "catalog_item_id": "abyss_theriz_abyssal"
     },
     {
       "species_key": "abyss_stego_abyssal",
@@ -443,7 +547,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal"
       ],
-      "class_tokens": ["stego_character_bp_abyssal", "stego_abyssal"]
+      "class_tokens": [
+        "stego_character_bp_abyssal",
+        "stego_abyssal"
+      ],
+      "catalog_item_id": "abyss_stego_abyssal"
     },
     {
       "species_key": "abyss_rex_abyssal",
@@ -456,7 +564,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
       ],
-      "class_tokens": ["rex_character_bp_abyssal", "rex_abyssal"]
+      "class_tokens": [
+        "rex_character_bp_abyssal",
+        "rex_abyssal"
+      ],
+      "catalog_item_id": "abyss_rex_abyssal"
     },
     {
       "species_key": "abyss_reaper_abyssal",
@@ -469,7 +581,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal"
       ],
-      "class_tokens": ["reaper_character_bp_male_abyssal", "reaper_abyssal"]
+      "class_tokens": [
+        "reaper_character_bp_male_abyssal",
+        "reaper_abyssal"
+      ],
+      "catalog_item_id": "abyss_reaper_abyssal"
     },
     {
       "species_key": "abyss_moschops_abyssal",
@@ -482,7 +598,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal"
       ],
-      "class_tokens": ["moschops_character_bp_abyssal", "moschops_abyssal"]
+      "class_tokens": [
+        "moschops_character_bp_abyssal",
+        "moschops_abyssal"
+      ],
+      "catalog_item_id": "abyss_moschops_abyssal"
     },
     {
       "species_key": "abyss_ankylo_abyssal",
@@ -495,7 +615,11 @@
       "blueprint_paths": [
         "/Game/Abyss/Dinos/Ankylo/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal"
       ],
-      "class_tokens": ["ankylo_character_bp_abyssal", "ankylo_abyssal"]
+      "class_tokens": [
+        "ankylo_character_bp_abyssal",
+        "ankylo_abyssal"
+      ],
+      "catalog_item_id": "abyss_ankylo_abyssal"
     },
     {
       "species_key": "abyss_hover_sail",
@@ -508,7 +632,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian"
       ],
-      "class_tokens": ["primalitem_spawner_hoversail_thalassian"]
+      "class_tokens": [
+        "primalitem_spawner_hoversail_thalassian"
+      ],
+      "catalog_item_id": "abyss_hover_sail"
     },
     {
       "species_key": "abyss_hover_skiff",
@@ -521,7 +648,10 @@
       "blueprint_paths": [
         "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff"
       ],
-      "class_tokens": ["primalitem_spawner_thalassianhoverskiff"]
+      "class_tokens": [
+        "primalitem_spawner_thalassianhoverskiff"
+      ],
+      "catalog_item_id": "abyss_hover_skiff"
     }
   ]
 }

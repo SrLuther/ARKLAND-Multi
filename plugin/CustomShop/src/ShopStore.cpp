@@ -250,12 +250,18 @@ bool BuyKit(AShooterPlayerController* controller,
 }
 
 bool GiveKit(AShooterPlayerController* controller,
-             const std::string& kit_id) {
-    if (!controller) return false;
+             const std::string& kit_id,
+             bool skip_permission_check,
+             std::string* fail_reason) {
+    if (!controller) {
+        if (fail_reason) *fail_reason = "jogador_invalido";
+        return false;
+    }
 
     const auto& kits = ShopConfig::Get().Kits();
     if (!kits.contains(kit_id)) {
         Log::GetLog()->warn("GiveKit: unknown kit_id '{}'", kit_id);
+        if (fail_reason) *fail_reason = "kit_desconhecido";
         return false;
     }
 
@@ -264,9 +270,16 @@ bool GiveKit(AShooterPlayerController* controller,
 
     uint64_t steam_id = 0;
     try { steam_id = std::stoull(id); } catch (...) {}
-    if (!ShopEntitlements::Get().CanRedeem(steam_id, kit)) {
+    if (!skip_permission_check && !ShopEntitlements::Get().CanRedeem(steam_id, kit)) {
+        const std::string perms = kit.value("Permissions", "");
         Log::GetLog()->info(
-            "GiveKit: player {} lacks license for kit '{}'", id, kit_id);
+            "GiveKit: player {} lacks permission for kit '{}' (required: {})",
+            id, kit_id, perms.empty() ? "(none)" : perms);
+        if (fail_reason) {
+            *fail_reason = perms.empty()
+                ? "sem_licenca"
+                : "sem_permissao:" + perms;
+        }
         return false;
     }
 
@@ -279,6 +292,7 @@ bool GiveKit(AShooterPlayerController* controller,
     if (kit.contains("Dinos")) {
         if (!SpawnDinosArray(controller, kit.at("Dinos"))) {
             Log::GetLog()->error("GiveKit: dino spawn failed for kit '{}'", kit_id);
+            if (fail_reason) *fail_reason = "dino_spawn_falhou";
             return false;
         }
         ok = true;
@@ -298,6 +312,7 @@ bool GiveKit(AShooterPlayerController* controller,
             Log::GetLog()->error(
                 "GiveKit: LicenseGrant failed for license kit '{}' player '{}'",
                 kit_id, id);
+            if (fail_reason) *fail_reason = "licenca_falhou";
             return false;
         }
         ok = ok || granted;
@@ -321,6 +336,7 @@ bool GiveKit(AShooterPlayerController* controller,
 
     if (!ok) {
         Log::GetLog()->warn("GiveKit: kit '{}' has no deliverable content", kit_id);
+        if (fail_reason) *fail_reason = "sem_conteudo";
         return false;
     }
 
@@ -330,14 +346,20 @@ bool GiveKit(AShooterPlayerController* controller,
 
 bool GiveItem(AShooterPlayerController* controller,
               const std::string& item_id,
-              int amount) {
-    if (!controller || amount < 1) return false;
+              int amount,
+              bool skip_permission_check,
+              std::string* fail_reason) {
+    if (!controller || amount < 1) {
+        if (fail_reason) *fail_reason = "jogador_invalido";
+        return false;
+    }
 
     const auto& items = ShopConfig::Get().Items();
     const std::string resolved_id = ResolveItemId(items, item_id);
     if (!items.contains(resolved_id)) {
         Log::GetLog()->warn("GiveItem: unknown item_id '{}' (resolved='{}')",
                             item_id, resolved_id);
+        if (fail_reason) *fail_reason = "item_desconhecido";
         return false;
     }
 
@@ -347,9 +369,16 @@ bool GiveItem(AShooterPlayerController* controller,
 
     uint64_t steam_id = 0;
     try { steam_id = std::stoull(id); } catch (...) {}
-    if (!ShopEntitlements::Get().CanRedeem(steam_id, item)) {
+    if (!skip_permission_check && !ShopEntitlements::Get().CanRedeem(steam_id, item)) {
+        const std::string perms = item.value("Permissions", "");
         Log::GetLog()->info(
-            "GiveItem: player {} lacks license for item '{}'", id, item_id);
+            "GiveItem: player {} lacks permission for item '{}' (required: {})",
+            id, item_id, perms.empty() ? "(none)" : perms);
+        if (fail_reason) {
+            *fail_reason = perms.empty()
+                ? "sem_licenca"
+                : "sem_permissao:" + perms;
+        }
         return false;
     }
 
@@ -370,6 +399,7 @@ bool GiveItem(AShooterPlayerController* controller,
     if (item.contains("Dinos")) {
         if (!SpawnDinosArray(controller, item.at("Dinos"))) {
             Log::GetLog()->error("GiveItem: dino spawn failed for item '{}'", item_id);
+            if (fail_reason) *fail_reason = "dino_spawn_falhou";
             return false;
         }
         ok = true;
@@ -390,6 +420,7 @@ bool GiveItem(AShooterPlayerController* controller,
             Log::GetLog()->error(
                 "GiveItem: LicenseGrant failed for license item '{}' player '{}'",
                 item_id, id);
+            if (fail_reason) *fail_reason = "licenca_falhou";
             return false;
         }
         ok = ok || granted;
@@ -399,6 +430,7 @@ bool GiveItem(AShooterPlayerController* controller,
         Log::GetLog()->error(
             "GiveItem: license item '{}' missing LicenseGrant for player '{}'",
             item_id, id);
+        if (fail_reason) *fail_reason = "licenca_mal_configurada";
         return false;
     }
 

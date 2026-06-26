@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("ARKSHOP_DATABASE_URL", "")
 os.environ.setdefault("ARKSHOP_WEB_SECRET", "test-secret")
 os.environ.setdefault("ARKSHOP_RETRY_INTERVAL", "9999")
+os.environ.setdefault("ARKSHOP_SKIP_DB_BOOT", "1")
 
 import app as _app_module
 from app import app, _configure_database, _now
@@ -31,6 +32,7 @@ def fresh_db(tmp_path, monkeypatch):
     monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")
     monkeypatch.setattr(_app_module, "_PLAYERS_FILE", tmp_path / "players.json")
     monkeypatch.setattr(_app_module, "_SERVERS_FILE", tmp_path / "servers.json")
+    monkeypatch.setattr(_app_module, "_migrate_schema", lambda _engine: None)
 
     (tmp_path / "admin_steamids.json").write_text(json.dumps([ADMIN_STEAM]))
 
@@ -38,6 +40,27 @@ def fresh_db(tmp_path, monkeypatch):
     db_url = f"sqlite:///{db_path}"
     monkeypatch.setattr(_app_module, "_ACTIVE_DATABASE_URL", "")
     _configure_database(db_url)
+    if _app_module._ENGINE is not None:
+        from sqlalchemy import text
+
+        _app_module.Base.metadata.create_all(bind=_app_module._ENGINE)
+        with _app_module._ENGINE.connect() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS players ("
+                    "steam_id VARCHAR(20) PRIMARY KEY NOT NULL, "
+                    "points INTEGER NOT NULL DEFAULT 0, "
+                    "kits TEXT DEFAULT '{}'"
+                    ")"
+                )
+            )
+            conn.commit()
+        db = _app_module._SessionLocal()
+        try:
+            _app_module._ensure_entitlements_schema(db)
+        finally:
+            db.close()
+    monkeypatch.setattr(_app_module, "_DB_INITIALIZED", True)
     yield
     _configure_database("")
 
@@ -689,3 +712,109 @@ class TestAdminReprocess:
         oid = _create_order_direct(status="ENTREGUE")
         r = client.post(f"/api/admin/orders/{oid}/reprocess")
         assert r.status_code == 400
+
+
+# ── Licença Nuvem / entitlements ─────────────────────────────────────────────
+
+def _seed_player_points(steam_id: str, points: int) -> None:
+    from sqlalchemy import text
+
+    db = _app_module._SessionLocal()
+    try:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "ON CONFLICT(steam_id) DO UPDATE SET points = :pts"
+            ),
+            {"sid": steam_id, "pts": points},
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def _mock_display_name_ok(monkeypatch):
+    monkeypatch.setattr(
+        _app_module,
+        "_auth_display_name_fields",
+        lambda _sid, is_admin: {
+            "market_display_name": "TestPlayer",
+            "needs_display_name": False,
+        },
+    )
+    prof = MagicMock()
+    prof.market_display_name = "TestPlayer"
+    monkeypatch.setattr(_app_module, "_safe_market_profile", lambda _db, _sid: prof)
+
+
+class TestCloudLicensePurchase:
+    def test_debit_and_grant_keyvault_in_one_transaction(self, monkeypatch):
+        _seed_player_points(USER_STEAM, 10_000)
+        db = _app_module._SessionLocal()
+        try:
+            db.execute(
+                __import__("sqlalchemy").text(
+                    "UPDATE players SET points = MAX(points - :price, 0) "
+                    "WHERE steam_id = :sid AND points >= :price"
+                ),
+                {"price": 5000, "sid": USER_STEAM},
+            )
+            _app_module._apply_entitlement_grant_tx(
+                db, USER_STEAM, "keyvault", 30, source="test-order", notes="web:licenca_nuvem",
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        assert _app_module._get_player_points(USER_STEAM) == 5000
+        ents = _app_module._get_player_entitlements(USER_STEAM)
+        assert any(e["group"] == "keyvault" for e in ents)
+
+    def test_purchase_license_failure_rolls_back_debit(self, monkeypatch):
+        _seed_player_points(USER_STEAM, 10_000)
+        db = _app_module._SessionLocal()
+        try:
+            db.execute(
+                __import__("sqlalchemy").text(
+                    "UPDATE players SET points = MAX(points - :price, 0) "
+                    "WHERE steam_id = :sid AND points >= :price"
+                ),
+                {"price": 5000, "sid": USER_STEAM},
+            )
+
+            def _boom(*_a, **_kw):
+                raise RuntimeError("grant failed")
+
+            monkeypatch.setattr(_app_module, "_apply_entitlement_grant_tx", _boom)
+            try:
+                _app_module._apply_entitlement_grant_tx(
+                    db, USER_STEAM, "keyvault", 30, source="x", notes="y",
+                )
+            except RuntimeError:
+                db.rollback()
+        finally:
+            db.close()
+
+        assert _app_module._get_player_points(USER_STEAM) == 10_000
+
+    def test_entitlements_schema_bootstrap_once(self, monkeypatch):
+        _app_module._ENTITLEMENTS_SCHEMA_READY = False
+        ddl_calls: list[int] = []
+        orig_execute = _app_module.text
+
+        def _track_execute(sql):
+            stmt = orig_execute(sql)
+            if "player_entitlements" in str(sql) and "CREATE TABLE" in str(sql):
+                ddl_calls.append(1)
+            return stmt
+
+        monkeypatch.setattr(_app_module, "text", _track_execute)
+        db = _app_module._SessionLocal()
+        try:
+            _app_module._ensure_entitlements_schema(db)
+            _app_module._ensure_entitlements_schema(db)
+        finally:
+            db.close()
+        assert len(ddl_calls) == 1
+        assert _app_module._ENTITLEMENTS_SCHEMA_READY is True
+

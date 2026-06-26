@@ -4497,7 +4497,7 @@
     "diamante": {
       "Price": 0,
       "Description": "VIP Diamante (R$75,00)",
-      "Permissions": "Admins,VIPDiamante",
+      "Permissions": "Admins",
       "VipLicense": {
         "Tier": "VIPDiamante",
         "Days": 30

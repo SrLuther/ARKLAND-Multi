@@ -23,9 +23,9 @@ from market_economy import (
     merge_economy_group,
     merge_species_from_catalog_item,
     merge_species_from_defaults,
+    merge_species_from_registry_entry,
     shop_catalog_display_name,
     stat_labels,
-    build_catalog_economy_map,
 )
 
 
@@ -267,6 +267,61 @@ def sync_reference_species_to_db(
     return {"reference_created": created, "reference_updated": updated, "reference_keys": items}
 
 
+def sync_registry_overlay_to_db(
+    db: Session,
+    *,
+    activate: bool = False,
+    only_missing: bool = False,
+    skip_keys: set[str] | None = None,
+    display_name_overrides: dict[str, str] | None = None,
+    reset_display_names: bool = False,
+) -> dict[str, Any]:
+    """Importa espécies do overlay ark_species_registry.json (mods — ex.: Abyss 40 entradas)."""
+    from ark_species_registry import load_registry_overlay_raw
+
+    from app import MarketSpecies
+
+    skip = skip_keys or set()
+    created = updated = skipped = 0
+    items: list[str] = []
+    now = datetime.now(timezone.utc)
+    status = "ACTIVE" if activate else "PRE_REGISTERED"
+    existing_keys: set[str] = set()
+    if only_missing:
+        existing_keys = {str(r.species_key) for r in db.query(MarketSpecies.species_key).all()}
+
+    for entry in load_registry_overlay_raw():
+        sk = str(entry.get("species_key") or "").strip()
+        if not sk or sk in skip:
+            continue
+        if only_missing and sk in existing_keys:
+            skipped += 1
+            continue
+        species, aliases = merge_species_from_registry_entry(entry, status=status)
+        _, was_created = _upsert_species_row(
+            db,
+            species,
+            aliases,
+            activate=activate,
+            display_name_overrides=display_name_overrides,
+            reset_display_names=reset_display_names,
+            now=now,
+        )
+        if was_created:
+            created += 1
+        else:
+            updated += 1
+        items.append(sk)
+
+    db.commit()
+    return {
+        "registry_created": created,
+        "registry_updated": updated,
+        "registry_skipped": skipped,
+        "registry_keys": items,
+    }
+
+
 def sync_catalog_to_db(
     db: Session,
     catalog: dict[str, Any],
@@ -315,6 +370,13 @@ def sync_catalog_to_db(
         display_name_overrides=display_name_overrides,
         reset_display_names=reset_display_names,
     )
+    reg = sync_registry_overlay_to_db(
+        db,
+        activate=activate,
+        skip_keys=set(items) | set(ref.get("reference_keys") or []),
+        display_name_overrides=display_name_overrides,
+        reset_display_names=reset_display_names,
+    )
     promoted = 0
     from market_listings import reconcile_pending_listings
 
@@ -325,6 +387,7 @@ def sync_catalog_to_db(
         "species_keys": items,
         "promoted_listings": promoted,
         **ref,
+        **reg,
     }
 
 
@@ -359,11 +422,19 @@ def list_species_public(db: Session, *, active_only: bool = True) -> list[dict[s
         item["reference_level"] = row.reference_level
         item["level1_base_value"] = row.root_value
         item["linked_variants"] = _list_species_aliases(db, row.id)
+        from ark_species_registry import get_registry_entry, resolve_species_image
+
+        item["image_url"] = resolve_species_image(
+            get_registry_entry(row.species_key),
+            tier=row.tier,
+        )
         out.append(item)
     return out
 
 
 def get_species_table_payload(db: Session) -> dict[str, Any]:
+    from ark_species_registry import get_registry_entry, resolve_species_image
+
     species = list_species_public(db, active_only=True)
     stat_labels_map = stat_labels()
     size_caps = load_size_caps()
@@ -383,6 +454,10 @@ def get_species_table_payload(db: Session) -> dict[str, Any]:
                 "reference_level": s.get("reference_level", 1),
                 "root_value": s["root_value"],
                 "tier": s.get("tier"),
+                "image_url": resolve_species_image(
+                    get_registry_entry(s["species_key"]),
+                    tier=s.get("tier"),
+                ),
                 "catalog_item_id": s.get("catalog_item_id"),
                 "diet_class": s.get("diet_class"),
                 "size_class": s.get("size_class"),
@@ -397,6 +472,13 @@ def get_species_table_payload(db: Session) -> dict[str, Any]:
             for s in species
         ],
         "tier_legend": load_tier_legend(),
+        "tier_icon_urls": {
+            "S+": "/species/tier-s-plus.svg",
+            "S": "/species/tier-s.svg",
+            "A": "/species/tier-a.svg",
+            "B": "/species/tier-b.svg",
+            "C": "/species/tier-c.svg",
+        },
     }
 
 

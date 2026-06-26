@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Tier C">
+  <rect width="64" height="64" rx="12" fill="#1a1208"/>
+  <path fill="#78909c" d="M12 42c2-8 8-14 16-16 4-6 12-8 18-4 2 6-2 12-8 14 2 4 0 10-6 12-8 2-16 0-20-6z"/>
+  <circle cx="44" cy="26" r="2.5" fill="#eceff1"/>
+  <path fill="#546e7a" d="M18 44c-4 2-6 6-4 10 6-2 10-6 12-10-4-2-6-2-8 0z"/>
+  <text x="32" y="58" text-anchor="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="800" fill="#b0bec5">C</text>
+</svg>
