@@ -1152,6 +1152,11 @@
       font-weight: 700;
       margin-bottom: 14px;
     }
+    .recharge-card__actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
     .recharge-trust {
       background: linear-gradient(135deg, rgba(18,216,124,.08), rgba(232,120,32,.06));
       border: 1px solid rgba(18,216,124,.25);
@@ -1548,6 +1553,35 @@
       color: var(--amber);
       border: 1px solid rgba(232,120,32,.35);
     }
+    .item-card__thumb--tier-only {
+      background:
+        radial-gradient(ellipse at 50% 40%, rgba(232,120,32,.08) 0%, transparent 72%),
+        linear-gradient(180deg, var(--surface3) 0%, var(--surface) 100%);
+    }
+    .catalog-tier-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      height: 48px;
+      padding: 0 12px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      line-height: 1;
+      color: #ffd54f;
+      background: rgba(12, 10, 6, .72);
+      border: 1px solid rgba(232, 160, 32, .42);
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .catalog-tier-badge--s-plus { color: #ffd54f; border-color: rgba(156, 39, 176, .55); background: linear-gradient(165deg, rgba(26,18,8,.92), rgba(40,12,48,.55)); }
+    .catalog-tier-badge--s { color: #ffca28; border-color: rgba(255, 193, 7, .5); }
+    .catalog-tier-badge--a-plus { color: #ffb74d; border-color: rgba(255, 152, 0, .45); }
+    .catalog-tier-badge--a { color: #ffa726; border-color: rgba(255, 167, 38, .4); }
+    .catalog-tier-badge--b-plus { color: #d4a574; border-color: rgba(180, 130, 70, .42); }
+    .catalog-tier-badge--b { color: #bcaaa4; border-color: rgba(141, 110, 99, .38); }
+    .catalog-tier-badge--c { color: #90a4ae; border-color: rgba(96, 125, 139, .35); }
     .item-card__body {
       padding: 12px 14px 14px;
       display: flex;
@@ -6342,6 +6376,7 @@ let _catalogPackages = [];
 let _playerEntitlements = [];
 let _playerTimedPointsTotal = 25;
 let _catalogPixEnabled = false;
+let _catalogCardEnabled = false;
 let _catalogActiveCat = "";
 let _catalogActiveTab = "items";
 let _catalogSearchTimers = {};
@@ -6354,6 +6389,7 @@ let _pendingPixPackageId = null;
 let _pendingRedeemItem = null;
 let _pixPayerFields = null;
 let _pixCheckoutPackageId = null;
+let _paymentCheckoutMethod = "pix";
 const DONATION_POLICY_KEY = "arkland_donation_policy_v1";
 const PAYER_PROFILE_KEY = "arkland_payer_profile_v1";
 
@@ -6376,8 +6412,10 @@ function acceptDonationPolicy() {
   closePolicyModal(false);
   if (_pendingPixPackageId) {
     const pkg = _pendingPixPackageId;
+    const method = _paymentCheckoutMethod === "card" ? "card" : "pix";
     _pendingPixPackageId = null;
-    startPixCheckout(pkg, true);
+    if (method === "card") startCardCheckout(pkg, true);
+    else startPixCheckout(pkg, true);
     return;
   }
   if (_pendingRedeemItem) {
@@ -6606,14 +6644,28 @@ document.addEventListener("click", e => {
   if (btn) _handleCatalogEmptyAction(btn.dataset.emptyAction);
 });
 
+function _catalogTierBadgeClass(tier) {
+  const t = String(tier || "B").trim().toUpperCase();
+  const slug = t.replace("+", "-plus").toLowerCase();
+  const known = ["s-plus", "s", "a-plus", "a", "b-plus", "b", "c"];
+  return `catalog-tier-badge catalog-tier-badge--${known.includes(slug) ? slug : "b"}`;
+}
+
+function _catalogTierBadgeHtml(tier) {
+  const t = String(tier || "B").trim().toUpperCase();
+  return `<span class="${_catalogTierBadgeClass(t)}" title="Tier ${escHtml(t)}">${escHtml(t)}</span>`;
+}
+
 function _catalogThumbHtml(item) {
+  if (item.tier && _isDinoType(item.type)) {
+    return _catalogTierBadgeHtml(item.tier);
+  }
   const url = item.thumbnailUrl || "";
-  const tier = item.tier ? `<span class="item-card__tier-badge">${escHtml(item.tier)}</span>` : "";
   if (url) {
     return `<img src="${escHtml(url)}" alt="" loading="lazy" width="56" height="56" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex');" />
-      <div class="item-card__icon" style="display:none;">${_catalogTypeIcon(item.type)}</div>${tier}`;
+      <div class="item-card__icon" style="display:none;">${_catalogTypeIcon(item.type)}</div>`;
   }
-  return `<div class="item-card__icon">${_catalogTypeIcon(item.type)}</div>${tier}`;
+  return `<div class="item-card__icon">${_catalogTypeIcon(item.type)}</div>`;
 }
 
 function openKitContentsModal(kitKey) {
@@ -6713,12 +6765,13 @@ function _renderProductCard(i, btnLabel) {
     metaLine = `<div class="item-card__meta-line">📜 ${escHtml(String(i.licenseDays))} dias${i.licenseGroup ? ` · ${escHtml(i.licenseGroup)}` : ""}</div>`;
   } else if (i.catalogKind === "kit" && i.itemCount) {
     metaLine = `<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>ver conteúdo</button></div>`;
-  } else if (i.tier && _isDinoType(i.type)) {
-    metaLine = `<div class="item-card__meta-line">Tier ${escHtml(i.tier)}${i.speciesKey ? ` · ${escHtml(i.speciesKey)}` : ""}</div>`;
+  } else if (i.tier && _isDinoType(i.type) && i.speciesKey) {
+    metaLine = `<div class="item-card__meta-line">${escHtml(i.speciesKey)}</div>`;
   }
+  const tierOnlyThumb = !!(i.tier && _isDinoType(i.type));
   return `
     <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}" title="${escHtml(fullDesc || shortDesc || i.name)}">
-      <div class="item-card__thumb">
+      <div class="item-card__thumb${tierOnlyThumb ? " item-card__thumb--tier-only" : ""}">
         ${locked ? `<div class="item-card__icon">🔒</div>` : _catalogThumbHtml(i)}
       </div>
       <div class="item-card__body">
@@ -6806,6 +6859,7 @@ async function loadCatalog() {
 
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
+    _catalogCardEnabled = !!data.card_enabled;
 
     if (_auth.authenticated) {
       try {
@@ -7039,17 +7093,20 @@ function renderRecharge() {
 
   if (_auth.authenticated) refreshPlayerBalance();
 
-  if (!_catalogPixEnabled) {
+  if (!_catalogPixEnabled && !_catalogCardEnabled) {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.textContent = "Doação PIX ainda não está ativa. O administrador precisa configurar o Mercado Pago em Doações PIX.";
+      empty.textContent = "Doações ainda não estão ativas. O administrador precisa configurar o Mercado Pago em Doações PIX.";
     }
     if (hint) hint.textContent = "";
     return;
   }
   if (empty) empty.style.display = "none";
-  if (hint) hint.textContent = "Selecione um pacote e clique em «Doar via PIX».";
+  const payHints = [];
+  if (_catalogPixEnabled) payHints.push("PIX");
+  if (_catalogCardEnabled) payHints.push("cartão");
+  if (hint) hint.textContent = `Selecione um pacote e escolha ${payHints.join(" ou ")}.`;
 
   const pkgs = _catalogPackages || [];
   if (!pkgs.length) {
@@ -7065,15 +7122,20 @@ function renderRecharge() {
     const pts = Number(p.points || 0);
     const price = Number(p.price_brl || 0);
     const perK = pts > 0 ? ((price / pts) * 1000).toFixed(2).replace(".", ",") : "—";
+    const pid = escHtml(p.id);
+    const payBtns = !_auth.authenticated
+      ? `<span style="font-size:12px;color:var(--text2);">Faça login com Steam para doar</span>`
+      : `<div class="recharge-card__actions">
+          ${_catalogPixEnabled ? `<button class="btn btn-success" style="width:100%;" onclick="startPixCheckout('${pid}')">Doar via PIX</button>` : ""}
+          ${_catalogCardEnabled ? `<button class="btn btn-ghost" style="width:100%;" onclick="startCardCheckout('${pid}')">Cartão de crédito</button>` : ""}
+        </div>`;
     return `
     <div class="recharge-card">
       <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;">${escHtml(p.label || p.id)}</div>
       <div class="recharge-card__points">${amberPriceHtml(pts, 20)}</div>
       <div class="recharge-card__price">Doação: R$ ${price.toFixed(2).replace(".", ",")}</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">≈ R$ ${perK} / 1.000 ${escHtml(CURRENCY.plural)}</div>
-      ${_auth.authenticated
-        ? `<button class="btn btn-success" style="width:100%;" onclick="startPixCheckout('${escHtml(p.id)}')">Doar via PIX</button>`
-        : `<span style="font-size:12px;color:var(--text2);">Faça login com Steam para doar</span>`}
+      ${payBtns}
     </div>`;
   }).join("");
 }
@@ -7156,10 +7218,25 @@ async function _ensurePixPayerFields() {
 function closePixPayerModal() {
   document.getElementById("pix-payer-modal").classList.add("hidden");
   _pixCheckoutPackageId = null;
+  _paymentCheckoutMethod = "pix";
 }
 
-async function openPixPayerModal(packageId) {
+function _updatePayerModalForMethod(method) {
+  const isCard = method === "card";
+  const title = document.querySelector("#pix-payer-modal .modal-title");
+  const intro = document.querySelector("#pix-payer-modal .payer-form-intro");
+  const btn = document.getElementById("pix-payer-submit-btn");
+  if (title) title.textContent = isCard ? "💳 Dados para doação com cartão (Mercado Pago)" : "💚 Dados para doação PIX (Mercado Pago)";
+  if (intro) intro.innerHTML = isCard
+    ? "Preencha os campos abaixo. Eles são <strong>solicitados pelo Mercado Pago</strong> para validar a doação com cartão — a ARKLAND não pede esses dados para outros fins."
+    : "Preencha os campos abaixo. Eles são <strong>solicitados pelo Mercado Pago</strong> para validar a doação e gerar o PIX — a ARKLAND não pede esses dados para outros fins.";
+  if (btn) btn.textContent = isCard ? "Continuar para cartão" : "Continuar para PIX";
+}
+
+async function openPixPayerModal(packageId, method) {
+  _paymentCheckoutMethod = method === "card" ? "card" : "pix";
   _pixCheckoutPackageId = packageId;
+  _updatePayerModalForMethod(_paymentCheckoutMethod);
   const fields = await _ensurePixPayerFields();
   const saved = _loadPayerProfile();
   const body = document.getElementById("pix-payer-form-body");
@@ -7198,6 +7275,10 @@ function _collectPayerFromForm() {
 
 async function submitPixPayerForm() {
   if (!_pixCheckoutPackageId) return;
+  if (_paymentCheckoutMethod === "card") {
+    await submitCardPayerForm();
+    return;
+  }
   if (!guardDisplayName("doar via PIX")) return;
   const btn = document.getElementById("pix-payer-submit-btn");
   let payer;
@@ -7235,6 +7316,46 @@ async function submitPixPayerForm() {
   }
 }
 
+async function submitCardPayerForm() {
+  if (!_pixCheckoutPackageId) return;
+  if (!guardDisplayName("doar com cartão")) return;
+  const btn = document.getElementById("pix-payer-submit-btn");
+  let payer;
+  try {
+    payer = _collectPayerFromForm();
+  } catch (e) {
+    toast(e.message || "Preencha os campos obrigatórios.", "warning");
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = "Abrindo checkout…";
+  try {
+    const r = await fetch(API + "/api/player/card/checkout", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({ package_id: _pixCheckoutPackageId, payer }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) {
+      toast(d.error || "Falha ao iniciar pagamento com cartão", "error");
+      if (d.field) {
+        const el = document.getElementById("payer-" + d.field);
+        if (el) el.focus();
+      }
+      return;
+    }
+    _savePayerProfile(payer);
+    closePixPayerModal();
+    try { sessionStorage.setItem("arkland_card_payment_id", d.payment_id || ""); } catch (_) {}
+    window.location.href = d.checkout_url;
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Continuar para cartão";
+  }
+}
+
 async function startPixCheckout(packageId, policyAlreadyAccepted) {
   if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
   if (!policyAlreadyAccepted) {
@@ -7250,7 +7371,71 @@ async function startPixCheckout(packageId, policyAlreadyAccepted) {
       return;
     }
   }
-  await openPixPayerModal(packageId);
+  await openPixPayerModal(packageId, "pix");
+}
+
+async function startCardCheckout(packageId, policyAlreadyAccepted) {
+  if (!_auth.authenticated) { toast("Faça login para doar.", "warning"); return; }
+  if (!_catalogCardEnabled) { toast("Pagamento com cartão indisponível.", "warning"); return; }
+  if (!policyAlreadyAccepted) {
+    try {
+      if (!localStorage.getItem(DONATION_POLICY_KEY)) {
+        _pendingPixPackageId = packageId;
+        _paymentCheckoutMethod = "card";
+        openPolicyModal(true);
+        return;
+      }
+    } catch (_) {
+      openPolicyModal(true);
+      _pendingPixPackageId = packageId;
+      _paymentCheckoutMethod = "card";
+      return;
+    }
+  }
+  await openPixPayerModal(packageId, "card");
+}
+
+function handleMpCardReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const mpReturn = params.get("mp_card_return");
+  if (!mpReturn) return;
+  const extRef = params.get("external_reference") || "";
+  const mpId = params.get("payment_id") || "";
+  let paymentId = extRef;
+  try {
+    if (!paymentId) paymentId = sessionStorage.getItem("arkland_card_payment_id") || "";
+  } catch (_) {}
+  history.replaceState({}, "", window.location.pathname + window.location.hash);
+  setCatalogTab("recharge");
+  if (mpReturn === "success" || mpReturn === "pending") {
+    toast("Doação enviada — aguardando confirmação do Mercado Pago…", "success");
+    if (paymentId) pollCardReturnStatus(paymentId, mpId);
+  } else if (mpReturn === "failure") {
+    toast("Pagamento com cartão não concluído. Tente novamente ou use PIX.", "warning");
+  }
+}
+
+async function pollCardReturnStatus(paymentId, mpId) {
+  const mpQuery = mpId ? ("?mp_id=" + encodeURIComponent(mpId)) : "";
+  for (let i = 0; i < 12; i++) {
+    await new Promise(r => setTimeout(r, i === 0 ? 1500 : 3000));
+    try {
+      const r = await fetch(API + "/api/player/pix/" + encodeURIComponent(paymentId) + "/status" + mpQuery);
+      const d = await r.json();
+      if (!r.ok || !d.ok) continue;
+      if (d.credited) {
+        toast("Doação confirmada! Âmbares creditados.", "success");
+        refreshPlayerBalance();
+        try { sessionStorage.removeItem("arkland_card_payment_id"); } catch (_) {}
+        return;
+      }
+      if (d.status === "RECUSADO" || d.status === "EXPIRADO" || d.status === "ESTORNADO") {
+        toast("Pagamento " + (d.status || "recusado").toLowerCase() + ".", "warning");
+        return;
+      }
+    } catch (_) {}
+  }
+  toast("Ainda aguardando confirmação — os Âmbares serão creditados assim que o Mercado Pago aprovar.", "info");
 }
 
 function showPixModal(data) {
@@ -12719,6 +12904,7 @@ async function playerAdminKit(mode) {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function bootPortal() {
   _clearBootWatchdog();
+  handleMpCardReturn();
   setStatus(false, "Conectando…");
   try {
     // Health em paralelo — não bloqueia catálogo/home (site público funciona sem MariaDB).

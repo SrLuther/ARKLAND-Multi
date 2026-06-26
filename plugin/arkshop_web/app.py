@@ -28,7 +28,9 @@ from pix_payments import (
     PIX_PAYER_FORM,
     PayerValidationError,
     PixPaymentError,
+    create_card_checkout_preference,
     create_pix_payment,
+    extract_checkout_url,
     extract_pix_data,
     fetch_payment,
     map_mp_status,
@@ -1344,6 +1346,7 @@ def _load_settings() -> Dict[str, Any]:
         "db_password": "",
         "point_packages": _DEFAULT_POINT_PACKAGES,
         "mp_access_token": "",
+        "mp_sandbox": False,
     }
 
 
@@ -2722,6 +2725,14 @@ def _pix_enabled() -> bool:
     return bool(_get_mp_access_token())
 
 
+def _mp_sandbox() -> bool:
+    return bool(_load_settings().get("mp_sandbox"))
+
+
+def _payments_enabled() -> bool:
+    return _pix_enabled()
+
+
 def _steam_id_from_session() -> str | None:
     value = session.get("steam_id")
     if isinstance(value, str) and _is_valid_steamid64(value):
@@ -3538,6 +3549,8 @@ def get_settings():
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
     safe["cross_chat_discord_token_set"] = bool(s.get("cross_chat_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
+    safe["card_enabled"] = _payments_enabled()
+    safe["mp_sandbox"] = _mp_sandbox()
     safe["point_packages"] = _load_point_packages()
     safe["db_configured"] = _db_ready()
     safe["db_from_env"] = bool(_DATABASE_URL)
@@ -3563,6 +3576,7 @@ def save_settings():
         "db_name",
         "db_user",
         "point_packages",
+        "mp_sandbox",
     ):
         if key in body:
             s[key] = body[key]
@@ -4173,6 +4187,7 @@ def public_home():
         "currency": _public_currency(),
         "amber_lore": _amber_lore_block(settings_block),
         "pix_enabled": _pix_enabled(),
+        "card_enabled": _payments_enabled(),
         "starting_points": int(settings_block.get("StartingPoints") or 0),
         "servers": servers,
         "stats": stats,
@@ -4286,6 +4301,8 @@ def get_catalog():
         "point_packages": packages,
         "currency": _public_currency(),
         "pix_enabled": _pix_enabled(),
+        "card_enabled": _payments_enabled(),
+        "mp_sandbox": _mp_sandbox(),
         "public_url": public_url,
         "shop_url": public_url,
         "tier_icon_urls": TIER_ICON_URLS,
@@ -5447,6 +5464,129 @@ def player_pix_checkout():
         db.close()
 
 
+def _resolve_point_package(package_id: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Resolve pacote pelo id — preço e pontos sempre do servidor."""
+    pid = str(package_id or "").strip()
+    if not pid:
+        return None, "Pacote de pontos inválido"
+    package = next((p for p in _load_point_packages() if str(p.get("id")) == pid), None)
+    if not package:
+        return None, "Pacote de pontos inválido"
+    points = int(package.get("points", 0) or 0)
+    price_brl = float(package.get("price_brl", 0) or 0)
+    if points <= 0 or price_brl <= 0:
+        return None, "Pacote mal configurado"
+    return package, None
+
+
+@app.route("/api/player/card/checkout", methods=["POST"])
+@login_required
+@limiter.limit("5 per minute; 20 per hour")
+def player_card_checkout():
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+        return dn_err
+    if not _payments_enabled():
+        return jsonify({"ok": False, "error": "Doação por cartão não configurada (indisponível)"}), 503
+
+    body = request.get_json(force=True, silent=True) or {}
+    package_id = str(body.get("package_id", "")).strip()
+    package, pkg_err = _resolve_point_package(package_id)
+    if pkg_err:
+        return jsonify({"ok": False, "error": pkg_err}), 400
+
+    try:
+        payer = normalize_payer_input(body.get("payer"))
+    except PayerValidationError as exc:
+        return jsonify({"ok": False, "error": str(exc), "field": exc.field}), 400
+
+    points = int(package.get("points", 0) or 0)
+    price_brl = float(package.get("price_brl", 0) or 0)
+    payment_id = str(uuid.uuid4())
+    label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
+    description = f"Doação ARKLAND — {label} ({steam_id})"
+    base = _build_base_url()
+    back_urls = {
+        "success": f"{base}/?mp_card_return=success",
+        "failure": f"{base}/?mp_card_return=failure",
+        "pending": f"{base}/?mp_card_return=pending",
+    }
+
+    try:
+        mp_resp = create_card_checkout_preference(
+            _get_mp_access_token(),
+            amount_brl=price_brl,
+            description=description,
+            external_reference=payment_id,
+            payer=payer,
+            back_urls=back_urls,
+        )
+    except PixPaymentError as exc:
+        _audit_event(
+            "card_checkout_failed",
+            severity="error",
+            actor_steam_id=steam_id,
+            item_id=package_id,
+            amount=points,
+            message=f"Mercado Pago recusou checkout cartão: {exc}",
+            amount_brl=price_brl,
+            package_label=label,
+            error=str(exc),
+        )
+        return jsonify({"ok": False, "error": f"Mercado Pago: {exc}"}), 502
+
+    checkout_url = extract_checkout_url(mp_resp, sandbox=_mp_sandbox())
+    if not checkout_url:
+        return jsonify({"ok": False, "error": "Resposta de checkout inválida do Mercado Pago"}), 502
+
+    db = _SessionLocal()
+    try:
+        row = PointPayment(
+            payment_id=payment_id,
+            mp_payment_id=None,
+            steam_id=steam_id,
+            package_id=package_id,
+            amount_brl=price_brl,
+            points=points,
+            status="PENDENTE",
+            payer_email=payer.get("email"),
+            created_at=_now(),
+            updated_at=_now(),
+        )
+        db.add(row)
+        db.commit()
+        _audit_event(
+            "card_checkout_created",
+            actor_steam_id=steam_id,
+            order_id=payment_id,
+            item_id=package_id,
+            amount=points,
+            status_after=row.status,
+            message=f"Tentativa cartão — {label} — R$ {price_brl:.2f}",
+            amount_brl=price_brl,
+            payer_email=payer.get("email"),
+            package_label=label,
+        )
+        _log("card_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id)
+        return jsonify({
+            "ok": True,
+            "payment_id": payment_id,
+            "status": row.status,
+            "points": points,
+            "amount_brl": price_brl,
+            "label": label,
+            "checkout_url": checkout_url,
+            "sandbox": _mp_sandbox(),
+        })
+    except Exception as exc:
+        db.rollback()
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    finally:
+        db.close()
+
+
 @app.route("/api/player/pix/<payment_id>/status", methods=["GET"])
 @login_required
 @limiter.limit("20 per minute; 300 per hour", override_defaults=True)
@@ -5461,7 +5601,13 @@ def player_pix_status(payment_id: str):
             PointPayment.steam_id == steam_id,
         ).first()
         if not payment:
-            return jsonify({"ok": False, "error": "Doação PIX não encontrada"}), 404
+            return jsonify({"ok": False, "error": "Doação não encontrada"}), 404
+
+        mp_id_hint = str(request.args.get("mp_id", "")).strip()
+        if mp_id_hint and not payment.mp_payment_id:
+            payment.mp_payment_id = mp_id_hint
+            payment.updated_at = _now()
+            db.commit()
 
         poll_error = None
         mp_status_raw = None
@@ -5557,7 +5703,7 @@ def player_pix_abandon(payment_id: str):
 @app.route("/api/payments/webhook", methods=["GET", "POST"])
 @limiter.limit("120 per hour")
 def payments_webhook():
-    """Webhook Mercado Pago — confirma PIX e credita pontos."""
+    """Webhook Mercado Pago — confirma PIX/cartão e credita pontos."""
     if request.method == "GET":
         # Validação de URL no painel MP ou IPN legado (?topic=payment&id=)
         return jsonify({"ok": True}), 200
@@ -5572,7 +5718,7 @@ def payments_webhook():
 
     token = _get_mp_access_token()
     if not token:
-        return jsonify({"ok": False, "error": "PIX não configurado"}), 503
+        return jsonify({"ok": False, "error": "Pagamentos não configurados"}), 503
 
     try:
         mp_resp = fetch_payment(token, mp_id)
@@ -5590,6 +5736,8 @@ def payments_webhook():
         if not payment:
             return jsonify({"ok": True, "ignored": True})
 
+        if not payment.mp_payment_id:
+            payment.mp_payment_id = mp_id
         _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")), source="webhook")
         db.commit()
         return jsonify({"ok": True, "payment_id": payment.payment_id, "status": payment.status})

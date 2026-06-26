@@ -1,4 +1,4 @@
-"""Integração Mercado Pago (PIX) para doações de pontos."""
+"""Integração Mercado Pago (PIX e cartão) para doações de pontos."""
 from __future__ import annotations
 
 import json
@@ -237,3 +237,59 @@ def map_mp_status(status: str) -> str:
     if s in ("expired",):
         return "EXPIRADO"
     return "PENDENTE"
+
+
+def create_card_checkout_preference(
+    access_token: str,
+    *,
+    amount_brl: float,
+    description: str,
+    external_reference: str,
+    payer: dict[str, Any],
+    back_urls: dict[str, str],
+) -> dict[str, Any]:
+    """Checkout Pro — cartão de crédito/débito (PIX excluído; fluxo PIX usa API direta)."""
+    if not payer or not payer.get("email"):
+        raise PayerValidationError("Dados do pagador são obrigatórios.", field="email")
+    payload: dict[str, Any] = {
+        "items": [
+            {
+                "title": description[:256],
+                "quantity": 1,
+                "unit_price": round(float(amount_brl), 2),
+                "currency_id": "BRL",
+            }
+        ],
+        "payer": {
+            "email": payer.get("email"),
+            "name": payer.get("first_name"),
+            "surname": payer.get("last_name"),
+            "identification": payer.get("identification"),
+        },
+        "external_reference": external_reference[:256],
+        "back_urls": {
+            "success": str(back_urls.get("success") or "")[:512],
+            "failure": str(back_urls.get("failure") or "")[:512],
+            "pending": str(back_urls.get("pending") or "")[:512],
+        },
+        "auto_return": "approved",
+        "statement_descriptor": "ARKLAND",
+        "payment_methods": {
+            "excluded_payment_types": [
+                {"id": "ticket"},
+                {"id": "bank_transfer"},
+            ],
+        },
+    }
+    if payer.get("phone"):
+        payload["payer"]["phone"] = payer["phone"]
+    return _mp_request(access_token, "POST", "/checkout/preferences", payload)
+
+
+def extract_checkout_url(mp_response: dict[str, Any], *, sandbox: bool = False) -> str | None:
+    """URL de redirecionamento do Checkout Pro (produção ou sandbox)."""
+    if sandbox:
+        url = mp_response.get("sandbox_init_point") or mp_response.get("init_point")
+    else:
+        url = mp_response.get("init_point") or mp_response.get("sandbox_init_point")
+    return str(url).strip() if url else None

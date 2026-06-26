@@ -1051,3 +1051,165 @@ class TestCloudLicensePurchase:
         assert len(ddl_calls) == 1
         assert _app_module._ENTITLEMENTS_SCHEMA_READY is True
 
+
+# ── Doações — cartão Mercado Pago ─────────────────────────────────────────────
+
+class TestCardCheckout:
+    def _enable_mp(self, tmp_path, monkeypatch):
+        _write_settings(tmp_path, mp_access_token="TEST_MP_TOKEN", mp_sandbox=True)
+        monkeypatch.setattr(_app_module, "_get_mp_access_token", lambda: "TEST_MP_TOKEN")
+        monkeypatch.setattr(_app_module, "_mp_sandbox", lambda: True)
+        monkeypatch.setattr(
+            _app_module,
+            "_auth_display_name_fields",
+            lambda _sid, is_admin: {
+                "market_display_name": "TestPlayer",
+                "needs_display_name": False,
+            },
+        )
+
+    def test_card_checkout_requires_auth(self, client):
+        r = client.post("/api/player/card/checkout", json={"package_id": "p500"})
+        assert r.status_code == 401
+
+    def test_card_checkout_creates_preference(self, client, tmp_path, monkeypatch):
+        self._enable_mp(tmp_path, monkeypatch)
+        _login(client, USER_STEAM)
+        fake_pref = {
+            "id": "pref_123",
+            "sandbox_init_point": "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_123",
+        }
+        with patch.object(_app_module, "create_card_checkout_preference", return_value=fake_pref), \
+             patch.object(_app_module, "extract_checkout_url", return_value=fake_pref["sandbox_init_point"]):
+            r = client.post(
+                "/api/player/card/checkout",
+                json={
+                    "package_id": "p500",
+                    "payer": {
+                        "email": "player@example.com",
+                        "full_name": "João Silva",
+                        "cpf": "529.982.247-25",
+                    },
+                },
+            )
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d["checkout_url"].startswith("https://sandbox.mercadopago")
+        assert d["points"] == 500
+        assert d["amount_brl"] == 5.0
+
+        db = _app_module._SessionLocal()
+        try:
+            row = db.query(_app_module.PointPayment).filter(
+                _app_module.PointPayment.payment_id == d["payment_id"]
+            ).first()
+            assert row is not None
+            assert row.package_id == "p500"
+            assert row.points == 500
+            assert row.status == "PENDENTE"
+            assert row.credited is False
+            assert row.mp_payment_id is None
+        finally:
+            db.close()
+
+    def test_card_checkout_rejects_invalid_package(self, client, tmp_path, monkeypatch):
+        self._enable_mp(tmp_path, monkeypatch)
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/player/card/checkout",
+            json={
+                "package_id": "invalid_pkg",
+                "payer": {
+                    "email": "player@example.com",
+                    "full_name": "João Silva",
+                    "cpf": "529.982.247-25",
+                },
+            },
+        )
+        assert r.status_code == 400
+
+    def test_webhook_credits_card_payment(self, client, tmp_path, monkeypatch):
+        self._enable_mp(tmp_path, monkeypatch)
+        payment_id = str(uuid.uuid4())
+        db = _app_module._SessionLocal()
+        try:
+            db.add(
+                _app_module.PointPayment(
+                    payment_id=payment_id,
+                    mp_payment_id=None,
+                    steam_id=USER_STEAM,
+                    package_id="p500",
+                    amount_brl=5.0,
+                    points=500,
+                    status="PENDENTE",
+                    credited=False,
+                    created_at=_now(),
+                    updated_at=_now(),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        _seed_player_points(USER_STEAM, 0)
+        mp_resp = {
+            "id": "mp_card_99",
+            "status": "approved",
+            "external_reference": payment_id,
+            "payment_method_id": "visa",
+        }
+        with patch.object(_app_module, "fetch_payment", return_value=mp_resp):
+            r = client.post("/api/payments/webhook", json={"data": {"id": "mp_card_99"}})
+        assert r.get_json()["ok"] is True
+        assert _app_module._get_player_points(USER_STEAM) == 500
+
+        db = _app_module._SessionLocal()
+        try:
+            row = db.query(_app_module.PointPayment).filter(
+                _app_module.PointPayment.payment_id == payment_id
+            ).first()
+            assert row.credited is True
+            assert row.status == "APROVADO"
+            assert row.mp_payment_id == "mp_card_99"
+        finally:
+            db.close()
+
+    def test_status_accepts_mp_id_hint_for_card(self, client, tmp_path, monkeypatch):
+        self._enable_mp(tmp_path, monkeypatch)
+        _login(client, USER_STEAM)
+        payment_id = str(uuid.uuid4())
+        db = _app_module._SessionLocal()
+        try:
+            db.add(
+                _app_module.PointPayment(
+                    payment_id=payment_id,
+                    mp_payment_id=None,
+                    steam_id=USER_STEAM,
+                    package_id="p500",
+                    amount_brl=5.0,
+                    points=500,
+                    status="PENDENTE",
+                    credited=False,
+                    created_at=_now(),
+                    updated_at=_now(),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        mp_resp = {"id": "mp_card_hint", "status": "pending", "external_reference": payment_id}
+        with patch.object(_app_module, "fetch_payment", return_value=mp_resp):
+            r = client.get(f"/api/player/pix/{payment_id}/status?mp_id=mp_card_hint")
+        d = r.get_json()
+        assert d["ok"] is True
+        db = _app_module._SessionLocal()
+        try:
+            row = db.query(_app_module.PointPayment).filter(
+                _app_module.PointPayment.payment_id == payment_id
+            ).first()
+            assert row.mp_payment_id == "mp_card_hint"
+        finally:
+            db.close()
+
