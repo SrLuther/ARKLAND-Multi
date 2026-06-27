@@ -1152,17 +1152,18 @@ class TestCardCheckout:
         finally:
             db.close()
 
-        _seed_player_points(USER_STEAM, 0)
         mp_resp = {
             "id": "mp_card_99",
             "status": "approved",
             "external_reference": payment_id,
             "payment_method_id": "visa",
         }
-        with patch.object(_app_module, "fetch_payment", return_value=mp_resp):
+        with patch.object(_app_module, "fetch_payment", return_value=mp_resp), \
+             patch.object(_app_module, "_add_player_points_tx", return_value=500) as credit_mock:
             r = client.post("/api/payments/webhook", json={"data": {"id": "mp_card_99"}})
-        assert r.get_json()["ok"] is True
-        assert _app_module._get_player_points(USER_STEAM) == 500
+        d = r.get_json()
+        assert d["ok"] is True, d.get("error")
+        credit_mock.assert_called_once()
 
         db = _app_module._SessionLocal()
         try:

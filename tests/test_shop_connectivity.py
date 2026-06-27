@@ -8,7 +8,9 @@ from src.shop_integration import (
     ShopConnectivityReport,
     diagnose_shop_connectivity,
     diagnose_webstore_access,
+    get_shop_subprocess_env,
     probe_public_https,
+    resolve_web_secret,
 )
 
 
@@ -107,3 +109,26 @@ def test_probe_public_https_delegates_to_shop_connection():
         ok, msg = probe_public_https("arkland.com.br")
     assert ok is True
     mock.assert_called_once_with("https://arkland.com.br")
+
+
+def test_resolve_web_secret_persists_and_reuses(tmp_path, monkeypatch):
+    monkeypatch.delenv("ARKSHOP_WEB_SECRET", raising=False)
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: tmp_path)
+
+    first = resolve_web_secret()
+    second = resolve_web_secret()
+
+    assert first
+    assert first == second
+    assert (tmp_path / "web_secret.txt").read_text(encoding="utf-8").strip() == first
+
+
+def test_get_shop_subprocess_env_includes_web_secret(tmp_path, monkeypatch):
+    monkeypatch.delenv("ARKSHOP_WEB_SECRET", raising=False)
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: tmp_path)
+
+    shop = ShopGlobalConfig(mode="host", api_key="test-key")
+    env = get_shop_subprocess_env(shop)
+
+    assert env["ARKSHOP_WEB_SECRET"]
+    assert env["ARKSHOP_API_KEY"] == "test-key"

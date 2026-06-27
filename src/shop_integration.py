@@ -240,6 +240,33 @@ def webstore_data_dir() -> Path:
     return p
 
 
+def resolve_web_secret() -> str:
+    """Secret Flask da Web Store — env, arquivo persistente ou geração automática."""
+    import os
+    import secrets
+
+    env_val = os.environ.get("ARKSHOP_WEB_SECRET", "").strip()
+    if env_val:
+        return env_val
+
+    secret_file = webstore_data_dir() / "web_secret.txt"
+    if secret_file.is_file():
+        try:
+            stored = secret_file.read_text(encoding="utf-8").strip()
+            if stored:
+                return stored
+        except OSError:
+            pass
+
+    generated = secrets.token_urlsafe(32)
+    try:
+        secret_file.write_text(generated, encoding="utf-8")
+        logger.info("ARKSHOP_WEB_SECRET gerada em %s", secret_file)
+    except OSError as exc:
+        logger.warning("Não foi possível gravar web_secret.txt: %s", exc)
+    return generated
+
+
 def ensure_webstore_catalog_config(source: Path | str) -> Path:
     """Copia catálogo mestre para WEBSTORE/config.json (runtime da Web Store).
 
@@ -1095,6 +1122,7 @@ def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     env = dict(os.environ)
     env["PORT"] = str(max(1, int(shop.port or DEFAULT_SHOP_PORT)))
     env["ARKSHOP_DATA_DIR"] = str(webstore_data_dir())
+    env["ARKSHOP_WEB_SECRET"] = resolve_web_secret()
     if shop.api_key:
         env["ARKSHOP_API_KEY"] = shop.api_key
     db_url = build_orders_database_url(shop)
@@ -1413,6 +1441,23 @@ def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
         "Database": name,
         "Ssl": False,
     }
+
+
+def warn_cluster_db_bind_mismatch(shop: "ShopGlobalConfig") -> Optional[str]:
+    """Avisa quando mapas remotos precisam de MySQL na LAN mas o bind é só localhost."""
+    from .pages.db_local_server import DbLocalServer
+
+    host = (shop.orders_db_host or "").strip() or DEFAULT_REMOTE_SHOP_HOST
+    if host in ("127.0.0.1", "localhost", "::1"):
+        return None
+    if DbLocalServer.get_bind_lan():
+        return None
+    return (
+        f"MariaDB escuta só em 127.0.0.1, mas mapas usam Host={host}. "
+        "Servidores de mapa em outras máquinas não conectam — CustomShop aborta "
+        "e /shop fica off. No DB Manager: «Abrir porta 3306» → escolha LAN, "
+        "reinicie o MariaDB e sincronize os plugins."
+    )
 
 
 def validate_plugin_database_settings(db_settings: Dict[str, Any]) -> Tuple[bool, str]:
@@ -1927,6 +1972,10 @@ def sync_all_plugins(
     if shrink_err:
         return [], [shrink_err]
 
+    bind_warn = warn_cluster_db_bind_mismatch(shop)
+    if bind_warn:
+        logger.warning("CustomShop sync: %s", bind_warn)
+
     website = resolve_plugin_website_url(shop)
     api = resolve_plugin_api_url(shop)
     api_key = shop.api_key or ""
@@ -1939,6 +1988,8 @@ def sync_all_plugins(
 
     ok: List[str] = []
     errors: List[str] = []
+    if bind_warn:
+        errors.append(f"AVISO: {bind_warn}")
 
     had_placeholders = catalog_has_placeholder_kit_prices(catalog)
     cleared, kit_updates = apply_vip_pricing_to_catalog(catalog)

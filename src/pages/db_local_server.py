@@ -242,13 +242,14 @@ class DbLocalServer:
             if not ok:
                 return False, f"Falha na inicialização: {msg}"
 
+        bind = self.get_bind_address()
         log_file = open(self.log_path, "a", encoding="utf-8", errors="replace")
         cmd = [
             str(self.mysqld_exe),
             f"--basedir={_mariadb_dir()}",
             f"--datadir={_data_dir()}",
             f"--port={_PORT}",
-            "--bind-address=127.0.0.1",
+            f"--bind-address={bind}",
             "--skip-networking=0",
             "--console",
         ]
@@ -456,6 +457,21 @@ class DbLocalServer:
         prefs = cls._load_prefs()
         prefs["root_password"] = password
         cls._save_prefs(prefs)
+
+    @classmethod
+    def get_bind_lan(cls) -> bool:
+        """True = mysqld escuta em 0.0.0.0 (mapas remotos na LAN). Padrão: só localhost."""
+        return bool(cls._load_prefs().get("bind_lan", False))
+
+    @classmethod
+    def set_bind_lan(cls, value: bool) -> None:
+        prefs = cls._load_prefs()
+        prefs["bind_lan"] = bool(value)
+        cls._save_prefs(prefs)
+
+    @classmethod
+    def get_bind_address(cls) -> str:
+        return "0.0.0.0" if cls.get_bind_lan() else "127.0.0.1"
 
     def apply_root_password(self, new_password: str) -> tuple[bool, str]:
         """Define/altera a senha do root enquanto o servidor está rodando."""

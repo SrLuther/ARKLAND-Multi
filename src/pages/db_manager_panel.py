@@ -579,9 +579,10 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         running    = local_srv.is_running()
         fw_ok      = DbLocalServer.check_firewall_rule()
 
+        bind = DbLocalServer.get_bind_address()
         if running:
             _srv_dot.configure(text_color="#22c55e")
-            _srv_status_var.set("Rodando  —  127.0.0.1:3306")
+            _srv_status_var.set(f"Rodando  —  {bind}:3306")
         elif installed:
             _srv_dot.configure(text_color="#f59e0b")
             _srv_status_var.set("Instalado / parado")
@@ -692,6 +693,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             parent=parent,
         )
         remote_ip = "127.0.0.1" if lan else get_local_ip()
+        DbLocalServer.set_bind_lan(not lan)
         _btn_fw.configure(state="disabled", text="Aplicando...")
 
         def _worker():
@@ -708,7 +710,13 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                     _btn_fw.configure(state="normal", text="Abrir porta 3306")
                 from tkinter import messagebox
                 if ok:
-                    messagebox.showinfo("Firewall", "Porta 3306 liberada com sucesso!", parent=parent)
+                    hint = ""
+                    if not lan:
+                        hint = (
+                            "\n\nMariaDB passará a escutar na LAN (0.0.0.0). "
+                            "Pare e inicie o MariaDB no DB Manager para aplicar."
+                        )
+                    messagebox.showinfo("Firewall", f"Porta 3306 liberada com sucesso!{hint}", parent=parent)
                 else:
                     messagebox.showerror("Firewall — erro", f"Não foi possível criar a regra:\n\n{msg}", parent=parent)
 

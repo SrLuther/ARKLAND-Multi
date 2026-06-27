@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.130"
+APP_VERSION: str = "1.9.131"
 BUILD_DATE: str = "2026-06-26"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.131",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix CRÍTICO (CustomShop / cluster): MariaDB bind LAN opt-in no DB Manager "
+            "(get_bind_lan/set_bind_lan) — mapas remotos conectam ao MySQL do host quando "
+            "orders_db_host aponta para IP da LAN.",
+            "Fix (Loja): sync avisa quando MariaDB escuta só 127.0.0.1 mas plugins usam host LAN "
+            "(warn_cluster_db_bind_mismatch).",
+            "Fix (Web Store): ARKSHOP_WEB_SECRET gerada e persistida automaticamente "
+            "(resolve_web_secret) ao iniciar a loja pelo app.",
+            "Fix (Web Store / Mercado Pago): checkout cartão e webhook evitam deadlock de sessão "
+            "SQLAlchemy; status inicial PENDENTE no checkout.",
+        ],
+    },
     {
         "version": "1.9.130",
         "date": "2026-06-26",

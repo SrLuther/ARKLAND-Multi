@@ -5203,6 +5203,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
     if not locked:
         return
     payment = locked
+    payment_id = payment.payment_id
     old_status = payment.status
     if payment.status == "ABANDONADO" and mapped == "PENDENTE":
         return
@@ -5224,7 +5225,16 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
             amount_brl=payment.amount_brl,
             package_label=_package_label(payment.package_id),
             credited=payment.credited,
+            persist=False,
         )
+        payment = (
+            db.query(PointPayment)
+            .filter(PointPayment.payment_id == payment_id)
+            .with_for_update()
+            .first()
+        )
+        if not payment:
+            return
     if mapped == "APROVADO" and not payment.credited:
         try:
             new_balance = _add_player_points_tx(db, payment.steam_id, payment.points)
@@ -5242,6 +5252,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 amount_brl=payment.amount_brl,
                 new_balance=new_balance,
                 package_label=_package_label(payment.package_id),
+                persist=False,
             )
             _log(
                 "pix_credited",
@@ -5264,6 +5275,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 mp_payment_id=payment.mp_payment_id,
                 amount_brl=payment.amount_brl,
                 error=str(exc),
+                persist=False,
             )
             _log_error(
                 "pix_credit_failed",
@@ -5573,12 +5585,12 @@ def player_card_checkout():
         return jsonify({
             "ok": True,
             "payment_id": payment_id,
-            "status": row.status,
+            "status": "PENDENTE",
             "points": points,
             "amount_brl": price_brl,
             "label": label,
             "checkout_url": checkout_url,
-            "sandbox": _mp_sandbox(),
+            "sandbox": bool(_mp_sandbox()),
         })
     except Exception as exc:
         db.rollback()
@@ -5736,11 +5748,25 @@ def payments_webhook():
         if not payment:
             return jsonify({"ok": True, "ignored": True})
 
-        if not payment.mp_payment_id:
-            payment.mp_payment_id = mp_id
-        _finalize_pix_payment(db, payment, str(mp_resp.get("status", "")), source="webhook")
+        payment_id_out = payment.payment_id
+        needs_mp = not payment.mp_payment_id
+        db.expunge(payment)
+        if needs_mp:
+            db.query(PointPayment).filter(PointPayment.payment_id == payment_id_out).update(
+                {PointPayment.mp_payment_id: mp_id, PointPayment.updated_at: _now()},
+                synchronize_session=False,
+            )
+        pay_row = db.query(PointPayment).filter(PointPayment.payment_id == payment_id_out).first()
+        if not pay_row:
+            return jsonify({"ok": True, "ignored": True})
+        _finalize_pix_payment(db, pay_row, str(mp_resp.get("status", "")), source="webhook")
         db.commit()
-        return jsonify({"ok": True, "payment_id": payment.payment_id, "status": payment.status})
+        row = db.query(PointPayment).filter(PointPayment.payment_id == payment_id_out).first()
+        return jsonify({
+            "ok": True,
+            "payment_id": payment_id_out,
+            "status": row.status if row else "PENDENTE",
+        })
     except Exception as exc:
         db.rollback()
         return jsonify({"ok": False, "error": str(exc)}), 500
