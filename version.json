@@ -1,8 +1,8 @@
 {
-    "version": "1.9.132",
+    "version": "1.9.133",
     "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.132/ARKLAND-Multi-Setup-v1.9.132.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.133/ARKLAND-Multi-Setup-v1.9.133.exe",
     "changelog": [
-        "Fix CRÍTICO (Loja / Web Store): Sync + Reload não sobrescreve mais edições do admin web — reconcile_catalog_before_sync incorpora WEBSTORE/config.json quando mais recente; ensure_webstore respeita mtime; save do admin web grava também no mestre TEK persistente."
+        "Fix CRÍTICO (CustomShop / mesmo PC): sync normaliza orders_db_host para 127.0.0.1 quando MariaDB escuta só localhost e o host configurado é IP desta máquina — plugins e Permissions passam a conectar com senha do DB Manager."
     ]
 }

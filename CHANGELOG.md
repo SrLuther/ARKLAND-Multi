@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.133] - 2026-06-26
+
+### Fix
+
+- Fix CRÍTICO (CustomShop / mesmo PC): sync normaliza orders_db_host para 127.0.0.1 quando MariaDB escuta só localhost e o host configurado é IP desta máquina — plugins e Permissions passam a conectar com senha do DB Manager.
+
 ## [1.9.132] - 2026-06-26
 
 ### Fix
