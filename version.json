@@ -1,10 +1,9 @@
 {
-    "version": "1.9.137",
+    "version": "1.9.138",
     "date": "2026-06-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.137/ARKLAND-Multi-Setup-v1.9.137.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.138/ARKLAND-Multi-Setup-v1.9.138.exe",
     "changelog": [
-        "Fix CRÍTICO (Loja / Sync): um único mestre de catálogo — ARKLAND SERVER/CustomShop/configs/config.json (ou APPDATA/plugin em dev); WEBSTORE/config.json deixa de ser mestre e vira só cache runtime.",
-        "Fix (Loja / Admin web): settings.json config_path aponta para o mestre canônico; save web grava uma vez no mestre + mapas (removido segundo destino «Catálogo TEK»); reconcile migra edições legadas WEBSTORE → mestre.",
-        "Melhoria (Ambiente): pasta CustomShop/configs/ criada no layout ARKLAND SERVER para o catálogo mestre."
+        "Fix (Web Store / Admin): dropdown de licenças em Gerenciar Jogadores lista todas as licenças do catálogo (Type license ou LicenseGrant) — Gamma/Beta/Alfa, Nuvem e VIP; usa o config mais completo quando o mestre local estiver truncado.",
+        "Melhoria (Web Store / Admin): endpoint GET /api/admin/license-catalog; dias padrão sincronizam com a licença selecionada no painel de jogadores."
     ]
 }

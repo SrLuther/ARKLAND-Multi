@@ -6253,7 +6253,7 @@ function nav(el) {
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
-  if (page === "players-admin") loadPlayersAdmin(true);
+  if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "server-console") {
     loadServers().then(() => {
@@ -12634,6 +12634,33 @@ async function viewAdminTimeline(orderId) {
 let _playersAdminPage = { offset: 0, limit: 40, total: 0 };
 let _playersAdminSelected = null;
 let _playersAdminDetail = null;
+let _playersAdminLicenseCatalog = null;
+
+async function loadPlayersAdminLicenseCatalog() {
+  try {
+    const d = await fetchJson("/api/admin/license-catalog");
+    if (d.ok && Array.isArray(d.items)) {
+      _playersAdminLicenseCatalog = d.items;
+    }
+  } catch (_) {
+    _playersAdminLicenseCatalog = null;
+  }
+}
+
+function _playerAdminLicenseOptions(catalog) {
+  return (catalog || []).map(l =>
+    `<option value="${escHtml(l.group)}" data-days="${l.days}" data-item-id="${escHtml(l.item_id || "")}">${escHtml(l.label)} (${escHtml(l.group)})</option>`
+  ).join("");
+}
+
+function _syncPlayerAdminLicenseDays() {
+  const sel = document.getElementById("pa-license-group");
+  const daysEl = document.getElementById("pa-license-days");
+  if (!sel || !daysEl) return;
+  const opt = sel.options[sel.selectedIndex];
+  const days = parseInt(opt?.getAttribute("data-days") || "30", 10);
+  if (!Number.isNaN(days)) daysEl.value = String(days);
+}
 
 function _playerInitials(name) {
   const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
@@ -12761,9 +12788,8 @@ function renderPlayerAdminPanel(d) {
   if (!panel) return;
   const statusCls = p.site_access_blocked ? "status-pill--blocked" : "status-pill--active";
   const statusLbl = p.site_access_blocked ? "Bloqueado" : "Ativo";
-  const licOpts = (d.license_catalog || []).map(l =>
-    `<option value="${escHtml(l.group)}" data-days="${l.days}">${escHtml(l.label)} (${escHtml(l.group)})</option>`
-  ).join("");
+  const licCatalog = _playersAdminLicenseCatalog || d.license_catalog || [];
+  const licOpts = _playerAdminLicenseOptions(licCatalog);
   const kitOpts = (d.kit_catalog || []).map(k =>
     `<option value="${escHtml(k.kit_id)}">${escHtml(k.label)}</option>`
   ).join("");
@@ -12822,7 +12848,7 @@ function renderPlayerAdminPanel(d) {
     <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
       <div style="font-weight:600;margin-bottom:8px;">Licença</div>
       <div class="form-group" style="margin-bottom:8px;">
-        <select id="pa-license-group">${licOpts}</select>
+        <select id="pa-license-group" onchange="_syncPlayerAdminLicenseDays()">${licOpts}</select>
       </div>
       <div class="form-group" style="margin-bottom:8px;">
         <input id="pa-license-days" type="number" min="0" value="30" placeholder="Dias (0 = permanente)" />
@@ -12859,6 +12885,7 @@ function renderPlayerAdminPanel(d) {
     <div style="font-size:11px;color:var(--text2);">
       Listings mercado: ${Number(p.listings_count||0)} · Cadastro: ${p.created_at ? new Date(p.created_at).toLocaleString("pt-BR") : "—"}
     </div>`;
+  _syncPlayerAdminLicenseDays();
 }
 
 async function playerAdminPoints(mode) {
@@ -12901,14 +12928,16 @@ async function playerAdminBan(blocked) {
 
 async function playerAdminLicense(action) {
   if (!_playersAdminSelected) return;
-  const group = document.getElementById("pa-license-group")?.value || "";
+  const sel = document.getElementById("pa-license-group");
+  const group = sel?.value || "";
+  const itemId = sel?.options[sel.selectedIndex]?.getAttribute("data-item-id") || "";
   const days = parseInt(document.getElementById("pa-license-days")?.value || "30", 10);
   const reason = document.getElementById("pa-license-reason")?.value?.trim() || "";
   if (action === "revoke" && !confirm(`Revogar licença ${group}?`)) return;
   const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/licenses", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, group, days, reason }),
+    body: JSON.stringify({ action, group, item_id: itemId || undefined, days, reason }),
   });
   const d = await r.json();
   if (d.ok) {

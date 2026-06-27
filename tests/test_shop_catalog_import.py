@@ -51,3 +51,9 @@ def test_sanitize_catalog_blueprints_fixes_recursos_kit():
     assert items[0]["Blueprint"] == STONE
     assert items[0]["Quantity"] == 100
     assert "Wood" in items[1]["Blueprint"]
+
+
+def test_sanitize_catalog_blueprints_handles_arkshop_wrapper_with_trailing_quote():
+    """Espelha o log de produção: Blueprint'...' ou fragmento JSON com aspas extras."""
+    wrapped = f"'\"Blueprint\": \"{STONE}\"'"
+    assert normalize_blueprint(wrapped) == STONE

@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.137"
+APP_VERSION: str = "1.9.138"
 BUILD_DATE: str = "2026-06-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.138",
+        "date": "2026-06-27",
+        "changes": [
+            "Fix (Web Store / Admin): dropdown de licenças em Gerenciar Jogadores lista todas as licenças "
+            "do catálogo (Type license ou LicenseGrant) — Gamma/Beta/Alfa, Nuvem e VIP; usa o config mais "
+            "completo quando o mestre local estiver truncado.",
+            "Melhoria (Web Store / Admin): endpoint GET /api/admin/license-catalog; dias padrão sincronizam "
+            "com a licença selecionada no painel de jogadores.",
+        ],
+    },
     {
         "version": "1.9.137",
         "date": "2026-06-27",

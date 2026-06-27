@@ -53,10 +53,12 @@ if str(_REPO_ROOT) not in sys.path:
 from src.rcon_util import sanitize_rcon_password  # noqa: E402
 from src.shop_integration import (  # noqa: E402
     apply_machine_server_registry,
+    _collect_catalog_search_paths,
     _merge_arkland_server_entry,
     canonical_master_catalog_path,
     is_ephemeral_pyinstaller_path,
     is_webstore_catalog_path,
+    load_plugin_config,
     merge_catalog_into_plugin_config,
     resolve_persistent_catalog_path,
     webstore_data_dir,
@@ -1785,27 +1787,106 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         db.close()
 
 
+_LICENSE_GROUP_SKIP = frozenset({"Admins", "Staff", "Default", "VIPDoacao", ""})
+_LICENSE_ID_GROUP_FALLBACK: dict[str, str] = {
+    "gamma": "Gamma",
+    "gama": "Gamma",
+    "beta": "Beta",
+    "alfa": "Alfa",
+    "nuvem": "keyvault",
+    "vip_bronze": "VIPBronze",
+    "vip_prata": "VIPPrata",
+    "vip_ouro": "VIPOuro",
+    "vip_diamante": "VIPDiamante",
+}
+
+
+def _is_catalog_license_item(entry: dict[str, Any], item_id: str = "") -> bool:
+    """Item concedível como licença — alinhado ao editor/catálogo público."""
+    from catalog_enrich import _is_license_entry
+
+    return _is_license_entry(entry, item_id or "item")
+
+
+def _catalog_license_group(entry: dict[str, Any], item_id: str) -> str:
+    lic = _get_license_grant(entry)
+    if lic and str(lic.get("Group") or "").strip():
+        return str(lic["Group"]).strip()
+    for perm in _parse_permissions_field(entry):
+        if perm not in _LICENSE_GROUP_SKIP:
+            return perm
+    key = str(item_id or "").strip().lower()
+    if key.startswith("licenca_"):
+        suffix = key[8:]
+        if suffix in _LICENSE_ID_GROUP_FALLBACK:
+            return _LICENSE_ID_GROUP_FALLBACK[suffix]
+        parts = suffix.split("_")
+        if len(parts) == 2 and parts[0] == "vip":
+            tier = parts[1]
+            return "VIP" + (tier[:1].upper() + tier[1:] if tier else "")
+    return str(item_id or "").strip()
+
+
+def _catalog_license_days(entry: dict[str, Any]) -> int:
+    lic = _get_license_grant(entry)
+    if lic and lic.get("Days") is not None:
+        return int(lic.get("Days", 30) or 30)
+    return 30
+
+
+def _count_catalog_license_items(data: dict[str, Any]) -> int:
+    items = _catalog_item_map(data)
+    return sum(
+        1
+        for key, entry in items.items()
+        if isinstance(entry, dict) and _is_catalog_license_item(entry, key)
+    )
+
+
+def _read_richest_license_catalog_config() -> dict[str, Any]:
+    """Prefer config com mais licenças — evita dropdown truncado (stub só VIP)."""
+    best = _read_shop_config()
+    best_count = _count_catalog_license_items(best)
+    for path in _collect_catalog_search_paths():
+        if not path.is_file():
+            continue
+        try:
+            candidate = load_plugin_config(path)
+        except Exception:
+            continue
+        count = _count_catalog_license_items(candidate)
+        if count > best_count:
+            best = candidate
+            best_count = count
+    return best
+
+
 def _catalog_license_options() -> list[dict[str, Any]]:
-    data = _read_shop_config()
+    data = _read_richest_license_catalog_config()
     items = _catalog_item_map(data)
     out: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen_groups: set[str] = set()
     for key, entry in items.items():
-        lic = _get_license_grant(entry)
-        if not lic:
+        if not isinstance(entry, dict) or not _is_catalog_license_item(entry, key):
             continue
-        group = str(lic.get("Group") or "").strip()
-        if not group or group in seen:
+        group = _catalog_license_group(entry, key)
+        if not group or group in seen_groups:
             continue
-        seen.add(group)
+        days = _catalog_license_days(entry)
+        seen_groups.add(group)
+        label = str(
+            entry.get("Description")
+            or entry.get("Name")
+            or key
+        ).strip()
         out.append({
             "item_id": key,
             "group": group,
-            "label": str(entry.get("Description") or key),
-            "days": int(lic.get("Days", 30) or 30),
-            "permanent": int(lic.get("Days", 30) or 30) <= 0,
+            "label": label,
+            "days": days,
+            "permanent": days <= 0,
         })
-    out.sort(key=lambda x: x["label"].lower())
+    out.sort(key=lambda x: (x["label"].lower(), x["group"].lower()))
     return out
 
 
@@ -6866,6 +6947,12 @@ def admin_order_timeline(order_id: str):
 
 
 # ── Admin: gestão de jogadores ────────────────────────────────────────────────
+
+@app.route("/api/admin/license-catalog", methods=["GET"])
+@admin_required
+def admin_license_catalog():
+    return jsonify({"ok": True, "items": _catalog_license_options()})
+
 
 @app.route("/api/admin/players", methods=["GET"])
 @admin_required

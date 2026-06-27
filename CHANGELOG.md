@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.138] - 2026-06-27
+
+### Improvement
+
+- Melhoria (Web Store / Admin): endpoint GET /api/admin/license-catalog; dias padrão sincronizam com a licença selecionada no painel de jogadores.
+
+### Fix
+
+- Fix (Web Store / Admin): dropdown de licenças em Gerenciar Jogadores lista todas as licenças do catálogo (Type license ou LicenseGrant) — Gamma/Beta/Alfa, Nuvem e VIP; usa o config mais completo quando o mestre local estiver truncado.
+
 ## [1.9.137] - 2026-06-27
 
 ### Improvement

@@ -2311,6 +2311,13 @@ def sync_all_plugins(
 
     catalog_path, catalog = reconcile_catalog_before_sync(catalog_path, catalog)
 
+    try:
+        from .shop_catalog_import import sanitize_catalog_blueprints
+
+        sanitize_catalog_blueprints(catalog)
+    except Exception as exc:
+        logger.warning("CustomShop sync: sanitize_catalog_blueprints ignorado: %s", exc)
+
     shrink_err = check_catalog_shrink_guard(catalog, cm, asm_cm=asm_cm)
     if shrink_err:
         return [], [shrink_err]
