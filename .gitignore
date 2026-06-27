@@ -66,3 +66,6 @@ node_modules
 **/webstore.log
 plugin/arkshop_web/admin_steamids.json
 **/settings.json
+
+# Pontos/grupos legacy de jogadores (dados sensíveis)
+plugin/CustomShop/configs/jogadores_pontos_grupos.csv

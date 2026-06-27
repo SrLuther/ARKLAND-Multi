@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.134] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (Loja / Sync Settings): TimedPointsReward, ShopName, Messages, PointPackages, Downloads e demais Settings propagam corretamente entre mestre TEK, WEBSTORE/config.json e plugins — reconcile detecta mudanças sem alteração de itens; Salvar/Sync TEK força cópia ao WEBSTORE; admin web grava Settings do mestre nos mapas.
+
 ## [1.9.133] - 2026-06-26
 
 ### Fix

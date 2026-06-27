@@ -133,6 +133,8 @@ def _save_config(path: Path, data: Dict[str, Any]) -> bool:
         payload = json.loads(json.dumps(data))  # cópia para não mutar o estado da UI
         _strip_catalog_db_password(payload)
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        from ..shop_integration import push_catalog_to_webstore
+        push_catalog_to_webstore(path)
         return True
     except Exception as e:
         messagebox.showerror("Erro ao Salvar", str(e))

@@ -288,6 +288,78 @@ def test_ensure_webstore_skips_when_webstore_newer(tmp_path, monkeypatch):
     assert "web_edit" in (data.get("Items") or {})
 
 
+def test_reconcile_catalog_merges_timed_points_without_item_change(tmp_path, monkeypatch):
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    master = tmp_path / "master" / "config.json"
+    master.parent.mkdir()
+    master.write_text(
+        json.dumps({
+            "Items": {"item1": {"Price": 1}},
+            "Kits": {},
+            "TimedPointsReward": {
+                "Enabled": False,
+                "Groups": {"Alfa": {"Amount": 75}, "Default": {"Amount": 25}},
+            },
+        }),
+        encoding="utf-8",
+    )
+    ws_cfg = webstore / "config.json"
+    ws_cfg.write_text(
+        json.dumps({
+            "Items": {"item1": {"Price": 1}},
+            "Kits": {},
+            "TimedPointsReward": {
+                "Enabled": True,
+                "Groups": {
+                    "Default": {"Amount": 25},
+                    "VIPBronze": {"Amount": 20},
+                    "VIPDiamante": {"Amount": 75},
+                },
+            },
+        }),
+        encoding="utf-8",
+    )
+    import os
+    import time
+
+    time.sleep(0.05)
+    os.utime(ws_cfg, None)
+
+    stale_memory = json.loads(master.read_text(encoding="utf-8"))
+    monkeypatch.setattr("src.shop_integration._webstore_catalog_file", lambda: ws_cfg)
+
+    path, merged = reconcile_catalog_before_sync(master, stale_memory)
+    tp = merged.get("TimedPointsReward") or {}
+    assert tp.get("Enabled") is True
+    assert "VIPBronze" in (tp.get("Groups") or {})
+    assert "Alfa" not in (tp.get("Groups") or {})
+
+
+def test_push_catalog_to_webstore_overwrites(tmp_path, monkeypatch):
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    master = tmp_path / "master.json"
+    master.write_text(
+        json.dumps({"TimedPointsReward": {"Enabled": True, "Groups": {"VIP": {"Amount": 50}}}}),
+        encoding="utf-8",
+    )
+    dest = webstore / "config.json"
+    dest.write_text('{"TimedPointsReward":{"Enabled":false}}', encoding="utf-8")
+
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: type("P", (), {"webstore": webstore})(),
+    )
+    from src.shop_integration import push_catalog_to_webstore
+
+    result = push_catalog_to_webstore(master)
+    assert result == dest
+    data = json.loads(dest.read_text(encoding="utf-8"))
+    assert data["TimedPointsReward"]["Enabled"] is True
+
+
 def test_merge_catalog_content_preserves_urls_in_base():
     base = {
         "Items": {"a": {}},

@@ -72,6 +72,24 @@ def register_market_routes(
 ) -> None:
     _limit = limiter.limit if limiter else (lambda *a, **k: (lambda f: f))
 
+    def _ensure_market_player_profile_table() -> tuple[bool, str | None]:
+        """Garante market_player_profile antes de ler/gravar nome (migrate pode ser assíncrono)."""
+        from app import _ENGINE
+        from market_migrate import ensure_market_schema, schema_status
+
+        if _ENGINE is None:
+            return False, "Engine indisponível"
+        try:
+            st = schema_status(_ENGINE)
+            if not st.get("tables", {}).get("market_player_profile"):
+                ensure_market_schema(_ENGINE, bootstrap=False)
+                st = schema_status(_ENGINE)
+            if not st.get("tables", {}).get("market_player_profile"):
+                return False, "Tabela de perfil do mercado indisponível — aguarde a migração do banco."
+            return True, None
+        except Exception as exc:
+            return False, str(exc)
+
     @app.route("/api/market/species-table", methods=["GET"])
     def market_species_table_public():
         if not db_ready():
@@ -557,6 +575,9 @@ def register_market_routes(
     def market_get_profile():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        schema_ok, schema_err = _ensure_market_player_profile_table()
+        if not schema_ok:
+            return jsonify({"ok": False, "error": schema_err or "Schema do mercado indisponível"}), 503
         steam_id = str(steam_id_from_session() or "")
         db = session_factory()
         try:
@@ -573,6 +594,8 @@ def register_market_routes(
                     },
                 }
             )
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         finally:
             db.close()
 
@@ -582,6 +605,9 @@ def register_market_routes(
     def market_set_display_name():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        schema_ok, schema_err = _ensure_market_player_profile_table()
+        if not schema_ok:
+            return jsonify({"ok": False, "error": schema_err or "Schema do mercado indisponível"}), 503
         body = request.get_json(silent=True) or {}
         name = str(body.get("market_display_name") or body.get("display_name") or "").strip()
         steam_id = str(steam_id_from_session() or "")
@@ -591,6 +617,8 @@ def register_market_routes(
             return jsonify({"ok": True, **result})
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 500
         finally:
             db.close()
 

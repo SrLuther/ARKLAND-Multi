@@ -54,6 +54,7 @@ from src.shop_integration import (  # noqa: E402
     apply_machine_server_registry,
     _merge_arkland_server_entry,
     is_ephemeral_pyinstaller_path,
+    merge_catalog_into_plugin_config,
     resolve_persistent_catalog_path,
     webstore_data_dir,
 )
@@ -3836,17 +3837,8 @@ def _read_json_file(path: Path) -> dict[str, Any]:
 
 
 def _merge_catalog_into_plugin(existing: dict[str, Any], catalog: dict[str, Any]) -> dict[str, Any]:
-    """Mescla catálogo mestre no config de um servidor, preservando Settings locais."""
-    merged = json.loads(json.dumps(catalog, ensure_ascii=False))
-    ex_settings = existing.get("Settings") or {}
-    if ex_settings:
-        out_settings = merged.setdefault("Settings", {})
-        for key, val in ex_settings.items():
-            if key not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
-                out_settings.setdefault(key, val)
-    if not merged.get("Database") and existing.get("Database"):
-        merged["Database"] = existing["Database"]
-    return merged
+    """Mescla catálogo mestre no config de um servidor, preservando ServerId e senha DB locais."""
+    return merge_catalog_into_plugin_config(catalog, existing)
 
 
 def _plugin_sync_targets(settings: dict[str, Any]) -> list[dict[str, str]]:

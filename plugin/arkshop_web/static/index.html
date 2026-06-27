@@ -6172,12 +6172,12 @@ async function saveDisplayNameFromGate() {
   }
   if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
   try {
-    const r = await fetch(API + "/api/market/profile/display-name", {
+    const d = await fetchJson("/api/market/profile/display-name", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ market_display_name: name }),
+      timeoutMs: 15000,
     });
-    const d = await r.json();
     if (!d.ok) {
       if (errEl) { errEl.textContent = d.error || "Não foi possível salvar."; errEl.style.display = ""; }
       return;
@@ -7572,7 +7572,10 @@ async function loadMyArea() {
   if (!_auth.authenticated) return;
   document.getElementById("myarea-profile").textContent = `SteamID autenticado: ${_auth.steam_id}`;
 
-  const summaryRes = await fetch(API + "/api/player/summary");
+  const summaryResPromise = fetch(API + "/api/player/summary", { credentials: "same-origin" });
+  const marketProfilePromise = loadMyAreaMarketProfile();
+
+  const summaryRes = await summaryResPromise;
   const summary = await summaryRes.json().catch(() => ({}));
   if (!summaryRes.ok || !summary.ok) {
     const isOffline = summary.db_offline || summaryRes.status === 503;
@@ -7587,6 +7590,7 @@ async function loadMyArea() {
       : `<div style="color:var(--danger);grid-column:1/-1">${errMsg}</div>`;
     document.getElementById("myarea-history").innerHTML = "";
     document.getElementById("myarea-donations").innerHTML = "";
+    await marketProfilePromise;
     return;
   }
   const st = summary.stats || {};
@@ -7605,7 +7609,7 @@ async function loadMyArea() {
   await loadMyAreaDonations();
   await loadMyAreaLicenses();
   await loadMyAreaHistory();
-  await loadMyAreaMarketProfile();
+  await marketProfilePromise;
 }
 
 async function loadMyAreaMarketProfile() {
@@ -7613,20 +7617,23 @@ async function loadMyAreaMarketProfile() {
   const nameInput = document.getElementById("myarea-market-name");
   if (!nameInput) return;
   try {
-    const r = await fetch(API + "/api/market/profile");
-    const d = await r.json();
+    const d = await fetchJson("/api/market/profile", { timeoutMs: 12000 });
     if (!d.ok) {
       if (statusEl) statusEl.textContent = d.error || "Comércio indisponível (DB offline?)";
+      if (_auth.market_display_name) nameInput.value = _auth.market_display_name;
       return;
     }
-    const prof = d.profile;
-    if (prof && prof.market_display_name) {
-      nameInput.value = prof.market_display_name;
+    const savedName = (d.profile && d.profile.market_display_name) || _auth.market_display_name || "";
+    if (savedName) {
+      nameInput.value = savedName;
+      _auth.market_display_name = savedName;
+      _auth.needs_display_name = false;
       if (statusEl) statusEl.innerHTML = `<span style="color:var(--success);">✓ Perfil de comércio ativo</span>`;
     } else {
       if (statusEl) statusEl.innerHTML = `<span style="color:var(--warn);">Defina um nome para usar o Comércio</span>`;
     }
   } catch (e) {
+    if (_auth.market_display_name) nameInput.value = _auth.market_display_name;
     if (statusEl) statusEl.textContent = "Erro ao carregar perfil de comércio.";
   }
 }
@@ -7638,12 +7645,12 @@ async function saveMarketDisplayName() {
     return;
   }
   try {
-    const r = await fetch(API + "/api/market/profile/display-name", {
+    const d = await fetchJson("/api/market/profile/display-name", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ market_display_name: name }),
+      timeoutMs: 15000,
     });
-    const d = await r.json();
     if (!d.ok) {
       toast(d.error || "Falha ao salvar", "error");
       return;

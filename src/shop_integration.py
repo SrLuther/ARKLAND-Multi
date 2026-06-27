@@ -1,6 +1,7 @@
 """Integração loja central ↔ apps cliente ↔ plugins CustomShop (multi-servidor / LAN)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -63,6 +64,107 @@ def catalog_entry_counts(data: Dict[str, Any]) -> Tuple[int, int]:
 def catalog_entry_total(data: Dict[str, Any]) -> int:
     ni, nk = catalog_entry_counts(data)
     return ni + nk
+
+
+# Chaves de Settings definidas pelo TEK na sincronização (por mapa / cluster).
+TEK_MANAGED_SETTINGS_KEYS = frozenset({"WebsiteUrl", "WebApiUrl", "WebApiKey"})
+
+# Seções compartilhadas que devem propagar entre mestre TEK, WEBSTORE e plugins.
+SHARED_SYNC_TOP_LEVEL_KEYS = (
+    "Items",
+    "ShopItems",
+    "Kits",
+    "TimedPointsReward",
+    "CrossChat",
+    "Messages",
+    "Downloads",
+    "PointPackages",
+    "FeaturedMaps",
+)
+
+
+def _stable_json_blob(obj: Any) -> str:
+    return json.dumps(obj, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def shared_config_fingerprint(data: Dict[str, Any]) -> str:
+    """Hash das seções compartilhadas (Settings sem URLs TEK + TimedPointsReward, etc.)."""
+    parts: Dict[str, Any] = {}
+    for key in SHARED_SYNC_TOP_LEVEL_KEYS:
+        if key in data:
+            parts[key] = data[key]
+    settings = data.get("Settings") or {}
+    if settings:
+        parts["Settings"] = {
+            k: v for k, v in settings.items() if k not in TEK_MANAGED_SETTINGS_KEYS
+        }
+    return hashlib.sha256(_stable_json_blob(parts).encode("utf-8")).hexdigest()
+
+
+def merge_settings_from_catalog(
+    merged: Dict[str, Any],
+    catalog: Dict[str, Any],
+    existing: Dict[str, Any],
+    *,
+    website_url: str = "",
+    api_url: str = "",
+    api_key: str = "",
+) -> None:
+    """Settings do catálogo mestre vencem; preserva chaves extras locais do mapa."""
+    cat_settings = catalog.get("Settings") or {}
+    ex_settings = existing.get("Settings") or {}
+    out = merged.setdefault("Settings", {})
+    for k, v in cat_settings.items():
+        if k not in TEK_MANAGED_SETTINGS_KEYS:
+            out[k] = deepcopy(v)
+    for k, v in ex_settings.items():
+        if k not in TEK_MANAGED_SETTINGS_KEYS and k not in cat_settings:
+            out.setdefault(k, deepcopy(v))
+    if website_url:
+        out["WebsiteUrl"] = website_url
+    if api_url:
+        out["WebApiUrl"] = api_url
+    if api_key:
+        out["WebApiKey"] = api_key
+
+
+def apply_shared_sections_to_plugin(
+    merged: Dict[str, Any],
+    catalog: Dict[str, Any],
+    existing: Dict[str, Any],
+) -> None:
+    """Copia seções compartilhadas do mestre; preserva ServerId local do CrossChat."""
+    for key in SHARED_SYNC_TOP_LEVEL_KEYS:
+        if key not in catalog:
+            continue
+        if key == "CrossChat":
+            cat_cc = deepcopy(catalog["CrossChat"])
+            ex_sid = (existing.get("CrossChat") or {}).get("ServerId")
+            if ex_sid:
+                cat_cc["ServerId"] = ex_sid
+            merged["CrossChat"] = cat_cc
+        else:
+            merged[key] = deepcopy(catalog[key])
+    merge_settings_from_catalog(merged, catalog, existing)
+
+
+def merge_catalog_into_plugin_config(
+    catalog: Dict[str, Any],
+    existing: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Mescla catálogo mestre no config de um mapa (admin web / sync)."""
+    merged = deepcopy(catalog)
+    apply_shared_sections_to_plugin(merged, catalog, existing)
+    if not merged.get("Database") and existing.get("Database"):
+        merged["Database"] = deepcopy(existing["Database"])
+    merged_db = merged.get("Database") or {}
+    existing_db = existing.get("Database") or {}
+    merged_pw = str(merged_db.get("Password") or "")
+    existing_pw = str(existing_db.get("Password") or "")
+    if _is_placeholder_db_password(merged_pw) and existing_pw and not _is_placeholder_db_password(existing_pw):
+        merged_db["Password"] = existing_pw
+        merged["Database"] = merged_db
+    return merged
 
 
 def installed_catalog_candidates() -> List[Path]:
@@ -278,16 +380,16 @@ def merge_catalog_content_from_source(
     base: Dict[str, Any],
     source: Dict[str, Any],
 ) -> Dict[str, Any]:
-    """Copia seções editáveis do catálogo (Items/Kits/etc.) preservando URLs/DB do base."""
+    """Copia seções editáveis do catálogo (Items/Kits/Settings/etc.) preservando URLs TEK do base."""
     out = deepcopy(base)
-    for key in ("Items", "ShopItems", "Kits", "TimedPointsReward", "CrossChat"):
+    for key in SHARED_SYNC_TOP_LEVEL_KEYS:
         if key in source:
             out[key] = deepcopy(source[key])
     ws_settings = source.get("Settings") or {}
     if ws_settings:
         out_settings = out.setdefault("Settings", {})
         for k, v in ws_settings.items():
-            if k not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
+            if k not in TEK_MANAGED_SETTINGS_KEYS:
                 out_settings[k] = deepcopy(v)
     return out
 
@@ -325,10 +427,21 @@ def reconcile_catalog_before_sync(
     merged_total = catalog_entry_total(merged)
     ws_mtime = _path_mtime(ws_path)
     master_mtime = _path_mtime(master)
+    ws_fp = shared_config_fingerprint(ws_data)
+    merged_fp = shared_config_fingerprint(merged)
 
-    if ws_mtime > master_mtime + 0.001 or ws_total > merged_total:
+    if (
+        ws_mtime > master_mtime + 0.001
+        or ws_total > merged_total
+        or (ws_fp != merged_fp and ws_mtime + 0.001 >= master_mtime)
+    ):
         merged = merge_catalog_content_from_source(merged, ws_data)
-        reason = "mtime" if ws_mtime > master_mtime + 0.001 else "conteúdo"
+        if ws_mtime > master_mtime + 0.001:
+            reason = "mtime"
+        elif ws_total > merged_total:
+            reason = "conteúdo"
+        else:
+            reason = "Settings/TimedPointsReward"
         logger.info(
             "Sync: catálogo da Web Store incorporado (%s, %d entradas) — mestre TEK desatualizado",
             reason,
@@ -373,6 +486,22 @@ def ensure_webstore_catalog_config(source: Path | str) -> Path:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
     return dest if dest.is_file() else src
+
+
+def push_catalog_to_webstore(source: Path | str) -> Optional[Path]:
+    """Grava catálogo mestre em WEBSTORE/config.json (força convergência após save/sync TEK)."""
+    from .arkland_environment import try_load_environment_paths
+
+    if not try_load_environment_paths():
+        return None
+    src = Path(source)
+    if not src.is_file():
+        return None
+    dest = webstore_data_dir() / "config.json"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dest)
+    logger.info("WEBSTORE config atualizado a partir do mestre → %s", dest)
+    return dest
 
 
 def _richest_map_catalog_total(
@@ -1788,10 +1917,11 @@ def sync_plugin_at_path(
     if _is_placeholder_db_password(merged_pw) and existing_pw and not _is_placeholder_db_password(existing_pw):
         merged_db["Password"] = existing_pw
         merged["Database"] = merged_db
-    if existing.get("Settings"):
-        for k, v in existing["Settings"].items():
-            if k not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
-                merged["Settings"].setdefault(k, v)
+    apply_shared_sections_to_plugin(merged, catalog, existing)
+    merge_settings_from_catalog(
+        merged, catalog, existing,
+        website_url=website_url, api_url=api_url, api_key=api_key,
+    )
     new_url = str((merged.get("Settings") or {}).get("WebsiteUrl") or "").strip()
     if old_url != new_url:
         logger.info(
@@ -2106,7 +2236,7 @@ def sync_all_plugins(
         catalog_path.parent.mkdir(parents=True, exist_ok=True)
         save_plugin_config(catalog_path, catalog)
         ok.append(f"Catálogo mestre gravado → {catalog_path}")
-        ws_copy = ensure_webstore_catalog_config(catalog_path)
+        ws_copy = push_catalog_to_webstore(catalog_path) or ensure_webstore_catalog_config(catalog_path)
         if ws_copy.is_file() and ws_copy != catalog_path:
             ok.append(f"Web Store atualizada → {ws_copy}")
         if had_placeholders or cleared:

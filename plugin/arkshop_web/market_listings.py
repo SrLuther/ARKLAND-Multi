@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -23,6 +24,8 @@ from market_audit import market_audit_event
 from market_economy import STAT_KEYS, calculate_suggested_value, normalize_blueprint, normalize_stat_points
 from market_service import species_row_to_economy
 from stat_points_asb import enrich_stats_with_points
+
+log = logging.getLogger("arkshop.market_listings")
 
 PARSER_VERSION = "1.0.0"
 ACTIVE_VAULT_STATUSES = {
@@ -196,13 +199,16 @@ def upsert_display_name(db: Session, steam_id: str, name: str) -> dict[str, Any]
         row.commerce_enabled = True
         row.updated_at = now
     db.commit()
-    market_audit_event(
-        db,
-        "MARKET_DISPLAY_NAME_CHANGED",
-        steam_id=steam_id,
-        metadata={"market_display_name": name},
-        commit=True,
-    )
+    try:
+        market_audit_event(
+            db,
+            "MARKET_DISPLAY_NAME_CHANGED",
+            steam_id=steam_id,
+            metadata={"market_display_name": name},
+            commit=True,
+        )
+    except Exception as exc:
+        log.warning("MARKET_DISPLAY_NAME_CHANGED audit falhou (perfil já salvo): %s", exc)
     return {"steam_id": steam_id, "market_display_name": name, "commerce_enabled": True}
 
 
