@@ -10,6 +10,8 @@ from src.config_manager import ShopGlobalConfig
 from src.shop_integration import (
     ensure_webstore_catalog_config,
     is_ephemeral_pyinstaller_path,
+    merge_catalog_content_from_source,
+    reconcile_catalog_before_sync,
     resolve_persistent_catalog_path,
     sync_arkshop_web_settings,
     webstore_data_dir,
@@ -226,3 +228,76 @@ def test_app_data_dir_delegates_to_webstore_data_dir(tmp_path, monkeypatch):
 
     monkeypatch.setattr(app_module, "webstore_data_dir", lambda: webstore)
     assert app_module._data_dir() == webstore
+
+
+def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    master = tmp_path / "master" / "config.json"
+    master.parent.mkdir()
+    master.write_text(
+        json.dumps({"Items": {"old": {"Price": 1}}, "Kits": {}}),
+        encoding="utf-8",
+    )
+    ws_cfg = webstore / "config.json"
+    ws_cfg.write_text(
+        json.dumps({"Items": {"new_from_web": {"Price": 99}}, "Kits": {"k1": {}}}),
+        encoding="utf-8",
+    )
+    import os
+    import time
+
+    time.sleep(0.05)
+    os.utime(ws_cfg, None)
+
+    stale_memory = {"Items": {"old": {"Price": 1}}, "Kits": {}}
+    monkeypatch.setattr("src.shop_integration._webstore_catalog_file", lambda: ws_cfg)
+
+    path, merged = reconcile_catalog_before_sync(master, stale_memory)
+    assert path == master
+    assert "new_from_web" in (merged.get("Items") or {})
+    assert "k1" in (merged.get("Kits") or {})
+
+
+def test_ensure_webstore_skips_when_webstore_newer(tmp_path, monkeypatch):
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    master = tmp_path / "master" / "config.json"
+    master.parent.mkdir()
+    master.write_text(
+        json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {}}),
+        encoding="utf-8",
+    )
+    dest = webstore / "config.json"
+    dest.write_text('{"Items":{"web_edit":{}},"Kits":{}}', encoding="utf-8")
+    import os
+    import time
+
+    time.sleep(0.05)
+    os.utime(dest, None)
+
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: type("P", (), {"webstore": webstore})(),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+
+    result = ensure_webstore_catalog_config(master)
+    assert result == dest
+    data = json.loads(dest.read_text(encoding="utf-8"))
+    assert "web_edit" in (data.get("Items") or {})
+
+
+def test_merge_catalog_content_preserves_urls_in_base():
+    base = {
+        "Items": {"a": {}},
+        "Settings": {"WebsiteUrl": "https://arkland.com.br", "ShopName": "Old"},
+    }
+    source = {
+        "Items": {"b": {}},
+        "Settings": {"WebsiteUrl": "http://bad", "ShopName": "New"},
+    }
+    merged = merge_catalog_content_from_source(base, source)
+    assert "b" in merged["Items"]
+    assert merged["Settings"]["WebsiteUrl"] == "https://arkland.com.br"
+    assert merged["Settings"]["ShopName"] == "New"

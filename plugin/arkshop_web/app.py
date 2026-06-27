@@ -3859,6 +3859,14 @@ def _plugin_sync_targets(settings: dict[str, Any]) -> list[dict[str, str]]:
         targets.append({"label": "Catálogo mestre", "path": master, "kind": "master"})
         seen.add(master.lower())
 
+    # Persiste também no mestre TEK (APPDATA/install) — evita Sync sobrescrever edições web.
+    tek_master = str(
+        resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip() or master)
+    ).strip()
+    if tek_master and tek_master.lower() not in seen:
+        targets.append({"label": "Catálogo TEK (persistente)", "path": tek_master, "kind": "master"})
+        seen.add(tek_master.lower())
+
     for srv in _load_servers():
         path = str(
             srv.get("plugin_config_path")

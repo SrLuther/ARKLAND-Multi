@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.132] - 2026-06-26
+
+### Fix
+
+- Fix CRÍTICO (Loja / Web Store): Sync + Reload não sobrescreve mais edições do admin web — reconcile_catalog_before_sync incorpora WEBSTORE/config.json quando mais recente; ensure_webstore respeita mtime; save do admin web grava também no mestre TEK persistente.
+
 ## [1.9.131] - 2026-06-26
 
 ### Fix

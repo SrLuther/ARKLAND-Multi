@@ -1,11 +1,8 @@
 {
-    "version": "1.9.131",
+    "version": "1.9.132",
     "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.131/ARKLAND-Multi-Setup-v1.9.131.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.132/ARKLAND-Multi-Setup-v1.9.132.exe",
     "changelog": [
-        "Fix CRÍTICO (CustomShop / cluster): MariaDB bind LAN opt-in no DB Manager (get_bind_lan/set_bind_lan) — mapas remotos conectam ao MySQL do host quando orders_db_host aponta para IP da LAN.",
-        "Fix (Loja): sync avisa quando MariaDB escuta só 127.0.0.1 mas plugins usam host LAN (warn_cluster_db_bind_mismatch).",
-        "Fix (Web Store): ARKSHOP_WEB_SECRET gerada e persistida automaticamente (resolve_web_secret) ao iniciar a loja pelo app.",
-        "Fix (Web Store / Mercado Pago): checkout cartão e webhook evitam deadlock de sessão SQLAlchemy; status inicial PENDENTE no checkout."
+        "Fix CRÍTICO (Loja / Web Store): Sync + Reload não sobrescreve mais edições do admin web — reconcile_catalog_before_sync incorpora WEBSTORE/config.json quando mais recente; ensure_webstore respeita mtime; save do admin web grava também no mestre TEK persistente."
     ]
 }

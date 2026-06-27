@@ -267,11 +267,83 @@ def resolve_web_secret() -> str:
     return generated
 
 
+def _path_mtime(path: Path) -> float:
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def merge_catalog_content_from_source(
+    base: Dict[str, Any],
+    source: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Copia seções editáveis do catálogo (Items/Kits/etc.) preservando URLs/DB do base."""
+    out = deepcopy(base)
+    for key in ("Items", "ShopItems", "Kits", "TimedPointsReward", "CrossChat"):
+        if key in source:
+            out[key] = deepcopy(source[key])
+    ws_settings = source.get("Settings") or {}
+    if ws_settings:
+        out_settings = out.setdefault("Settings", {})
+        for k, v in ws_settings.items():
+            if k not in ("WebsiteUrl", "WebApiUrl", "WebApiKey"):
+                out_settings[k] = deepcopy(v)
+    return out
+
+
+def reconcile_catalog_before_sync(
+    catalog_path: Path | str,
+    catalog: Dict[str, Any],
+) -> Tuple[Path, Dict[str, Any]]:
+    """Antes do Sync TEK: incorpora edições da Web Store e do disco (evita memória stale).
+
+    Prioridade: WEBSTORE/config.json mais recente ou mais completo que o mestre TEK;
+    senão recarrega o mestre do disco se tiver pelo menos tantas entradas quanto a memória.
+    """
+    master = Path(catalog_path)
+    merged = deepcopy(catalog)
+
+    if master.is_file():
+        disk_master = load_plugin_config(master)
+        if catalog_entry_total(disk_master) >= catalog_entry_total(merged):
+            merged = disk_master
+
+    ws_path = _webstore_catalog_file()
+    if ws_path is None or not ws_path.is_file():
+        return master, merged
+
+    try:
+        same_file = ws_path.resolve() == master.resolve()
+    except OSError:
+        same_file = ws_path == master
+    if same_file:
+        return master, merged
+
+    ws_data = load_plugin_config(ws_path)
+    ws_total = catalog_entry_total(ws_data)
+    merged_total = catalog_entry_total(merged)
+    ws_mtime = _path_mtime(ws_path)
+    master_mtime = _path_mtime(master)
+
+    if ws_mtime > master_mtime + 0.001 or ws_total > merged_total:
+        merged = merge_catalog_content_from_source(merged, ws_data)
+        reason = "mtime" if ws_mtime > master_mtime + 0.001 else "conteúdo"
+        logger.info(
+            "Sync: catálogo da Web Store incorporado (%s, %d entradas) — mestre TEK desatualizado",
+            reason,
+            ws_total,
+        )
+
+    return master, merged
+
+
 def ensure_webstore_catalog_config(source: Path | str) -> Path:
     """Copia catálogo mestre para WEBSTORE/config.json (runtime da Web Store).
 
     Atualiza a cópia quando ausente ou quando o mestre tem muito mais itens
     (evita servir stub truncado após migração v1.9.128).
+    Nunca sobrescreve WEBSTORE mais recente que o mestre (edições do admin web).
     """
     from .arkland_environment import try_load_environment_paths
 
@@ -285,6 +357,10 @@ def ensure_webstore_catalog_config(source: Path | str) -> Path:
     src_total = catalog_entry_total(load_plugin_config(src))
     should_copy = not dest.is_file()
     if dest.is_file() and not should_copy:
+        dest_mtime = _path_mtime(dest)
+        src_mtime = _path_mtime(src)
+        if dest_mtime > src_mtime + 0.001:
+            return dest
         dest_total = catalog_entry_total(load_plugin_config(dest))
         if src_total > dest_total + 5:
             should_copy = True
@@ -1967,6 +2043,8 @@ def sync_all_plugins(
     if is_webstore_catalog_path(shop.catalog_config_path or ""):
         shop.catalog_config_path = str(catalog_path)
         shop_dirty = True
+
+    catalog_path, catalog = reconcile_catalog_before_sync(catalog_path, catalog)
 
     shrink_err = check_catalog_shrink_guard(catalog, cm, asm_cm=asm_cm)
     if shrink_err:
