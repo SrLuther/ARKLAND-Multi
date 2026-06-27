@@ -4066,7 +4066,7 @@
       <span class="nav-icon">🎁</span> Kits
     </div>
     <div class="nav-item admin-only" data-page="recharge-admin" onclick="nav(this)">
-      <span class="nav-icon">💳</span> Doações PIX
+      <span class="nav-icon">💳</span> Doações (PIX / Cartão)
     </div>
     <div class="nav-item admin-only" data-page="market-admin" onclick="nav(this)">
       <span class="nav-icon">🦖</span> Comércio (admin)
@@ -4172,7 +4172,7 @@
             <div class="catalog-hero__title" id="catalog-shop-name">ARKLAND DONATIONS</div>
             <div class="catalog-hero__tagline" id="catalog-shop-url" style="display:none;font-size:12px;color:var(--tek);margin-top:4px;"></div>
             <div class="catalog-hero__tagline">
-              Doe via PIX e receba Âmbares como recompensa. Use o Âmbar para resgatar itens e kits no catálogo.
+              Doe via PIX ou cartão e receba Âmbares como recompensa. Use o Âmbar para resgatar itens e kits no catálogo.
             </div>
           </div>
           <div class="catalog-hero__meta">
@@ -4190,7 +4190,7 @@
         <div class="donation-policy-banner" onclick="openPolicyModal(false)" role="button" tabindex="0">
           <div class="donation-policy-banner__title">⚖️ Política de Doações — leia antes de doar ou resgatar</div>
           <div class="donation-policy-banner__text">
-            As doações PIX são <strong>voluntárias</strong>. E-mail, nome e CPF na doação são <strong>exigidos pelo Mercado Pago</strong> — repassamos ao MP e não usamos para marketing.
+            As doações via PIX ou cartão são <strong>voluntárias</strong>. E-mail, nome e CPF na doação são <strong>exigidos pelo Mercado Pago</strong> — repassamos ao MP e não usamos para marketing.
             <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com Âmbar</strong>.
           </div>
           <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
@@ -4283,26 +4283,26 @@
             </span>
           </div>
           <div class="recharge-trust">
-            <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX)</div>
+            <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX ou cartão)</div>
             <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.55;">
-              Você faz uma <strong>doação</strong> ao servidor pelo app do banco. Como recompensa simbólica, recebe Âmbares equivalentes ao valor doado.
+              Você faz uma <strong>doação</strong> ao servidor via PIX (app do banco) ou cartão de crédito (Checkout Mercado Pago). Como recompensa simbólica, recebe Âmbares equivalentes ao valor doado.
               <strong>Doação definitiva — sem reembolso.</strong>
             </p>
             <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.5;opacity:.92;">
-              E-mail, nome e CPF são <strong>solicitados pelo Mercado Pago</strong> para validar e gerar o PIX — não pela ARKLAND para outros fins.
+              E-mail, nome e CPF são <strong>solicitados pelo Mercado Pago</strong> para validar a doação — não pela ARKLAND para outros fins.
               Repassamos esses dados apenas ao Mercado Pago. Não vendemos nem usamos dados pessoais para marketing.
             </p>
             <div class="recharge-steps">
               <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de Âmbares (valor da doação)</div>
-              <div class="recharge-step"><strong>2. DOE</strong>PIX pelo app do banco — QR Code ou copia e cola</div>
+              <div class="recharge-step"><strong>2. DOE</strong>PIX (QR/copia e cola) ou cartão de crédito no Mercado Pago</div>
               <div class="recharge-step"><strong>3. RESGATE</strong>Pontos creditados para resgatar itens no catálogo</div>
             </div>
           </div>
           <p class="available-hint" id="recharge-hint">
-            Selecione um pacote e clique em «Doar via PIX». Na etapa seguinte, o Mercado Pago pedirá e-mail, nome e CPF para validar a doação — a ARKLAND só repassa esses dados ao MP.
+            Selecione um pacote e escolha PIX ou cartão. Na etapa seguinte, o Mercado Pago pedirá e-mail, nome e CPF para validar a doação — a ARKLAND só repassa esses dados ao MP.
           </p>
           <div id="catalog-recharge-grid" class="recharge-grid"></div>
-          <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doação PIX indisponível.</p>
+          <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doações indisponíveis no momento.</p>
         </div>
       </div>
 
@@ -4497,10 +4497,10 @@
         </div>
       </div>
 
-      <!-- PAGE: Doações PIX (admin) -->
+      <!-- PAGE: Doações (admin) -->
       <div id="page-recharge-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Doações PIX</div>
+          <div class="page-title">Doações (PIX / Cartão)</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadRechargeAdmin()">↺ Recarregar</button>
             <button class="btn btn-primary" onclick="openPackageModal()">+ Novo Pacote</button>
@@ -4780,14 +4780,14 @@
               <input id="s-db-password" type="password" placeholder="(deixe vazio para não alterar)" />
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
-              💚 Doação PIX (Mercado Pago) — defina <code>MP_ACCESS_TOKEN</code> no ambiente ou abaixo
+              💚 Doações via Mercado Pago (PIX e cartão) — defina <code>MP_ACCESS_TOKEN</code> no ambiente ou abaixo
             </div>
             <div class="form-group" style="grid-column:1/-1;">
               <label>Token Mercado Pago (Access Token)</label>
               <input id="s-mp-token" type="password" placeholder="(deixe vazio para não alterar)" />
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
-              💚 Pacotes de doação PIX: gerencie em <strong>Loja → Doações PIX</strong> (mais fácil que JSON).
+              💚 Pacotes de doação: gerencie em <strong>Loja → Doações (PIX / Cartão)</strong> (mais fácil que JSON).
             </div>
           </div>
           <div id="db-conn-status"></div>
@@ -4849,7 +4849,7 @@
               <p>Você ganha Âmbar de duas formas principais:</p>
               <ul>
                 <li><strong>Jogando</strong> — acúmulo automático por tempo online no servidor (bônus maior com licenças Gamma, Beta ou Alfa ativas).</li>
-                <li><strong>Doações PIX voluntárias</strong> — na aba «Doação» do Catálogo; o Mercado Pago credita Âmbares proporcionais ao valor doado.</li>
+                <li><strong>Doações voluntárias (PIX ou cartão)</strong> — na aba «Doação» do Catálogo; o Mercado Pago credita Âmbares proporcionais ao valor doado.</li>
               </ul>
 
               <h4>Onde ver meu saldo?</h4>
@@ -4881,7 +4881,7 @@
 
               <div class="tutorial-callout tutorial-callout--tip">
                 <strong>💡 Dica</strong>
-                O catálogo é público — você pode navegar sem login. Login é necessário para doar via PIX, resgatar itens, acessar Minha Área e comprar/vender no Comércio.
+                O catálogo é público — você pode navegar sem login. Login é necessário para doar (PIX ou cartão), resgatar itens, acessar Minha Área e comprar/vender no Comércio.
               </div>
 
               <div class="tutorial-callout tutorial-callout--info">
@@ -4909,7 +4909,7 @@
                 <li><strong>🦕 Dinos</strong> — criaturas configuradas pela equipe.</li>
                 <li><strong>🎁 Kits</strong> — pacotes com vários itens de uma vez.</li>
                 <li><strong>📜 Licenças</strong> — Gamma, Beta, Alfa (bônus de Âmbar) e <strong>Nuvem</strong> (cofre de inventário).</li>
-                <li><strong>💚 Doação</strong> — doação voluntária via PIX (Mercado Pago).</li>
+                <li><strong>💚 Doação</strong> — doação voluntária via PIX ou cartão (Mercado Pago).</li>
                 <li><strong>✅ Disponível</strong> — resgates pendentes, gratuitos e fila de entrega.</li>
               </ul>
 
@@ -4934,12 +4934,12 @@
                 </ul>
               </div>
 
-              <h4>Doação via PIX</h4>
+              <h4>Doação via PIX ou cartão</h4>
               <ol class="tutorial-steps">
                 <li>Catálogo → aba <strong>Doação</strong>.</li>
-                <li>Escolha o pacote de Âmbares e clique em <strong>«Doar via PIX»</strong>.</li>
+                <li>Escolha o pacote de Âmbares e clique em <strong>«Doar via PIX»</strong> ou <strong>«Cartão de crédito»</strong>.</li>
                 <li>Preencha e-mail, nome e CPF (exigidos pelo Mercado Pago).</li>
-                <li>Pague o PIX no app do banco (QR Code ou copia e cola).</li>
+                <li>PIX: pague no app do banco (QR Code ou copia e cola). Cartão: conclua no checkout do Mercado Pago.</li>
                 <li>Após confirmação, os Âmbares são creditados — use no catálogo normalmente.</li>
               </ol>
 
@@ -4948,7 +4948,7 @@
 
               <div class="tutorial-callout tutorial-callout--warn">
                 <strong>⚠️ Atenção</strong>
-                Doações PIX são voluntárias e <strong>não reembolsáveis</strong>. Você não está comprando itens — recebe Âmbares como agradecimento simbólico para usar no sistema de resgates.
+                Doações via PIX ou cartão são voluntárias e <strong>não reembolsáveis</strong>. Você não está comprando itens — recebe Âmbares como agradecimento simbólico para usar no sistema de resgates.
               </div>
             </div>
           </div>
@@ -5447,13 +5447,13 @@
       <div id="page-audit" class="page admin-only">
         <div id="topbar">
           <div class="page-title">Auditoria</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Resgates do catálogo, eventos do sistema e log completo de doações PIX.</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Resgates do catálogo, eventos do sistema e log completo de doações (PIX e cartão).</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadAudit();loadPixAudit();">↺ Recarregar</button>
           </div>
         </div>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-title">💚 Doações PIX — log de suporte</div>
+          <div class="card-title">💚 Doações — log de suporte (PIX / cartão)</div>
           <div id="pix-audit-stats" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;font-size:12px;"></div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
             <div class="form-group" style="margin:0;min-width:140px;">
@@ -5505,7 +5505,7 @@
                 <option value="admin_cancel">Cancelamento admin</option>
                 <option value="admin_reissue">Reemissão admin (legado)</option>
                 <option value="admin_reprocess">Reprocessamento (legado)</option>
-                <option value="pix">Doações PIX (todos eventos)</option>
+                <option value="pix">Doações (todos eventos PIX/cartão)</option>
                 <option value="pix_checkout_created">PIX — tentativa criada</option>
                 <option value="pix_credited">PIX — creditado</option>
                 <option value="pix_abandoned">PIX — abandonado</option>
@@ -5915,6 +5915,22 @@ const API = "";  // mesmo origin
 
 let CURRENCY = { singular: "Âmbar", plural: "Âmbares", image_url: "/ambar.png" };
 
+async function readFetchJson(r) {
+  const ct = (r.headers.get("content-type") || "").toLowerCase();
+  if (ct.includes("application/json")) {
+    return r.json().catch(() => ({}));
+  }
+  const text = (await r.text()).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const err = new Error(
+    r.status === 429 ? "Muitas tentativas. Aguarde um momento e tente novamente."
+    : r.status === 404 ? "Serviço indisponível (endpoint não encontrado)."
+    : text ? text.slice(0, 160) : `Resposta inválida do servidor (HTTP ${r.status})`
+  );
+  err.status = r.status;
+  err.data = {};
+  throw err;
+}
+
 async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null, headers = null } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -5927,7 +5943,7 @@ async function fetchJson(path, { timeoutMs = 15000, method = "GET", body = null,
       opts.headers = headers;
     }
     const r = await fetch(API + path, opts);
-    const data = await r.json().catch(() => ({}));
+    const data = await readFetchJson(r);
     if (!r.ok) {
       const err = new Error(data.error || data.message || `HTTP ${r.status}`);
       err.status = r.status;
@@ -6427,7 +6443,7 @@ function acceptDonationPolicy() {
 
 function setCatalogTab(tab) {
   if ((tab === "available" || tab === "recharge") && !_auth.authenticated) {
-    promptLogin(tab === "recharge" ? "Doação PIX" : "Disponível");
+    promptLogin(tab === "recharge" ? "Doação" : "Disponível");
     return;
   }
   _catalogActiveTab = tab;
@@ -7097,7 +7113,7 @@ function renderRecharge() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.textContent = "Doações ainda não estão ativas. O administrador precisa configurar o Mercado Pago em Doações PIX.";
+      empty.textContent = "Doações ainda não estão ativas. O administrador precisa configurar o Mercado Pago em Doações (PIX / Cartão).";
     }
     if (hint) hint.textContent = "";
     return;
@@ -7113,7 +7129,7 @@ function renderRecharge() {
     grid.innerHTML = "";
     if (empty) {
       empty.style.display = "";
-      empty.textContent = "Nenhum pacote disponível no momento. Peça ao admin para configurar em Loja → Doações PIX.";
+      empty.textContent = "Nenhum pacote disponível no momento. Peça ao admin para configurar em Loja → Doações (PIX / Cartão).";
     }
     return;
   }
@@ -7291,25 +7307,19 @@ async function submitPixPayerForm() {
   btn.disabled = true;
   btn.textContent = "Gerando PIX…";
   try {
-    const r = await fetch(API + "/api/player/pix/checkout", {
+    const d = await fetchJson("/api/player/pix/checkout", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ package_id: _pixCheckoutPackageId, payer }),
+      body: { package_id: _pixCheckoutPackageId, payer },
     });
-    const d = await r.json();
-    if (!r.ok || !d.ok) {
-      toast(d.error || "Falha ao gerar PIX da doação", "error");
-      if (d.field) {
-        const el = document.getElementById("payer-" + d.field);
-        if (el) el.focus();
-      }
-      return;
-    }
     _savePayerProfile(payer);
     closePixPayerModal();
     showPixModal(d);
   } catch (e) {
-    toast("Erro de rede: " + e.message, "error");
+    toast(e.message || "Erro de rede ao gerar PIX", "error");
+    if (e.data?.field) {
+      const el = document.getElementById("payer-" + e.data.field);
+      if (el) el.focus();
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = "Continuar para PIX";
@@ -7330,26 +7340,20 @@ async function submitCardPayerForm() {
   btn.disabled = true;
   btn.textContent = "Abrindo checkout…";
   try {
-    const r = await fetch(API + "/api/player/card/checkout", {
+    const d = await fetchJson("/api/player/card/checkout", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({ package_id: _pixCheckoutPackageId, payer }),
+      body: { package_id: _pixCheckoutPackageId, payer },
     });
-    const d = await r.json();
-    if (!r.ok || !d.ok) {
-      toast(d.error || "Falha ao iniciar pagamento com cartão", "error");
-      if (d.field) {
-        const el = document.getElementById("payer-" + d.field);
-        if (el) el.focus();
-      }
-      return;
-    }
     _savePayerProfile(payer);
     closePixPayerModal();
     try { sessionStorage.setItem("arkland_card_payment_id", d.payment_id || ""); } catch (_) {}
     window.location.href = d.checkout_url;
   } catch (e) {
-    toast("Erro de rede: " + e.message, "error");
+    toast(e.message || "Erro de rede ao iniciar pagamento com cartão", "error");
+    if (e.data?.field) {
+      const el = document.getElementById("payer-" + e.data.field);
+      if (el) el.focus();
+    }
   } finally {
     btn.disabled = false;
     btn.textContent = "Continuar para cartão";
@@ -7551,6 +7555,12 @@ function donationStatusBadge(s, credited) {
   return `<span class="badge">${status || "-"}</span>`;
 }
 
+function paymentMethodBadge(method) {
+  const m = String(method || "pix").toLowerCase();
+  if (m === "card") return `<span class="badge badge-command">Cartão</span>`;
+  return `<span class="badge badge-item">PIX</span>`;
+}
+
 function fmtBrl(value) {
   const n = Number(value || 0);
   return "R$ " + n.toFixed(2).replace(".", ",");
@@ -7748,7 +7758,7 @@ async function loadMyAreaDonations() {
     <table class="tbl">
       <thead>
         <tr>
-          <th>Data / hora</th><th>Pacote</th><th>Valor doado</th><th>Âmbares</th><th>Status</th>
+          <th>Data / hora</th><th>Forma</th><th>Pacote</th><th>Valor doado</th><th>Âmbares</th><th>Status</th>
         </tr>
       </thead>
       <tbody>
@@ -7760,7 +7770,8 @@ async function loadMyAreaDonations() {
           return `
           <tr>
             <td style="font-size:12px;">${fmtDate(when)}</td>
-            <td>${escHtml(o.package_label || o.package_id || "Doação PIX")}</td>
+            <td>${paymentMethodBadge(o.payment_method)}</td>
+            <td>${escHtml(o.package_label || o.package_id || "Doação")}</td>
             <td>${fmtBrl(o.amount_brl)}</td>
             <td>${ptsCell}</td>
             <td>${donationStatusBadge(o.status, o.credited)}</td>
@@ -11010,7 +11021,7 @@ async function saveRechargeAdmin() {
     });
     const data = await r.json();
     if (data.ok) {
-      toast("Doações PIX salvas!");
+      toast("Pacotes de doação salvos!");
       document.getElementById("ra-mp-token").value = "";
       await loadRechargeAdmin();
       await loadCatalog();
@@ -11712,8 +11723,11 @@ async function loadClusterChatDiscord() {
     if (chk) chk.checked = !!d.requested_enabled;
     if (ch && d.channel_id) ch.value = String(d.channel_id);
     if (statusEl) {
-      const conn = d.connected ? "🟢 conectado" : (d.enabled ? "🟡 aguardando" : "⚪ desativado");
-      statusEl.innerHTML = `${conn} · último ID encaminhado: <strong>${Number(d.last_forward_id || 0)}</strong>`;
+      const conn = d.connected ? "🟢 conectado" : (d.requested_enabled ? "🟡 aguardando" : "⚪ desativado");
+      const detail = d.status_message ? `<br><span style="color:var(--text2);font-size:0.92em;">${escHtml(d.status_message)}</span>` : "";
+      const err = d.error ? `<br><span style="color:var(--danger);font-size:0.92em;">${escHtml(d.error)}</span>` : "";
+      const py = d.discord_py_available === false ? `<br><span style="color:var(--danger);font-size:0.92em;">discord.py ausente no ambiente</span>` : "";
+      statusEl.innerHTML = `${conn} · último ID encaminhado: <strong>${Number(d.last_forward_id || 0)}</strong>${detail}${err}${py}`;
     }
   } catch (_) {}
 }
@@ -11809,7 +11823,7 @@ async function loadPixAudit() {
   const el = document.getElementById("pix-audit-list");
   const statsEl = document.getElementById("pix-audit-stats");
   if (!el) return;
-  el.innerHTML = `<div style="color:var(--text2)">Carregando doações PIX…</div>`;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando doações…</div>`;
   try {
     const r = await fetch(url);
     const d = await r.json();
@@ -11834,18 +11848,19 @@ async function loadPixAudit() {
     if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_pixAuditPage.total})`;
     const items = d.items || [];
     if (!items.length) {
-      el.innerHTML = `<div style="color:var(--text2)">Nenhuma doação PIX encontrada.</div>`;
+      el.innerHTML = `<div style="color:var(--text2)">Nenhuma doação encontrada.</div>`;
       return;
     }
     el.innerHTML = `
       <table class="tbl">
         <thead><tr>
-          <th>Data</th><th>SteamID</th><th>Pacote</th><th>R$</th><th>Âmbares</th><th>Status</th><th>Payment ID</th><th>MP ID</th><th>E-mail</th>
+          <th>Data</th><th>Forma</th><th>SteamID</th><th>Pacote</th><th>R$</th><th>Âmbares</th><th>Status</th><th>Payment ID</th><th>MP ID</th><th>E-mail</th>
         </tr></thead>
         <tbody>
           ${items.map(p => `
             <tr>
               <td style="font-size:11px;">${fmtDate(p.created_at)}</td>
+              <td>${paymentMethodBadge(p.payment_method)}</td>
               <td><code style="font-size:10px;">${escHtml(p.steam_id || "")}</code></td>
               <td style="font-size:11px;">${escHtml(p.package_label || p.package_id || "")}</td>
               <td>${fmtBrl(p.amount_brl)}</td>
@@ -12345,7 +12360,7 @@ function renderHomePage(d) {
       <div class="home-steps">
         <div class="home-step"><span class="home-step__num">1</span><div class="home-step__title">Explore o catálogo</div><div class="home-step__text">Navegue por itens, dinos e kits sem criar conta. Veja preços em ${escHtml(CURRENCY.plural)} e descrições.</div></div>
         <div class="home-step"><span class="home-step__num">2</span><div class="home-step__title">Entre com Steam</div><div class="home-step__text">Autenticação segura via Steam OpenID. Seu SteamID vincula doações e resgates à sua conta.</div></div>
-        <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago. ${escHtml(CURRENCY.plural)} são creditados como recompensa simbólica.</div></div>
+        <div class="home-step"><span class="home-step__num">3</span><div class="home-step__title">Doe via PIX ou cartão (opcional)</div><div class="home-step__text">Doação voluntária pelo Mercado Pago (PIX ou cartão de crédito). ${escHtml(CURRENCY.plural)} são creditados como recompensa simbólica.</div></div>
         <div class="home-step"><span class="home-step__num">4</span><div class="home-step__title">Resgate in-game</div><div class="home-step__text">Gaste ${escHtml(CURRENCY.plural)} no catálogo. Ao entrar no servidor, use <code>/shop</code> — a entrega é automática.</div></div>
         <div class="home-step"><span class="home-step__num">5</span><div class="home-step__title">Comércio P2P (opcional)</div><div class="home-step__text">Venda ou compre dinos entre jogadores com ${escHtml(CURRENCY.plural)} — cryopod oficial, vitrine na web e comandos <code>/enviar</code> · <code>/confirmar</code> · <code>/mercado</code>.</div></div>
       </div>
@@ -13007,9 +13022,9 @@ document.addEventListener("keydown", (e) => {
     <div class="policy-modal-body">
       <h4>1. Natureza do serviço</h4>
       <p>O site <strong>ARKLAND Donations</strong> é uma plataforma de <strong>doações voluntárias</strong> para apoiar a manutenção do servidor. <strong>Não vendemos</strong> itens, dinos, recursos ou qualquer conteúdo do ARK: Survival Evolved.</p>
-      <h4>2. Doações via PIX</h4>
+      <h4>2. Doações via PIX ou cartão</h4>
       <ul>
-        <li>Valores enviados por PIX são <strong>doações</strong>, não pagamentos por produtos digitais.</li>
+        <li>Valores enviados por PIX ou cartão de crédito são <strong>doações</strong>, não pagamentos por produtos digitais.</li>
         <li>Como reconhecimento simbólico, o doador recebe <strong>Âmbares</strong> proporcionais ao valor doado.</li>
         <li>Os Âmbares não têm valor monetário e não podem ser convertidos em dinheiro.</li>
       </ul>

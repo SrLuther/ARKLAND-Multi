@@ -16,7 +16,9 @@
 //    "StackRewards": true,
 //    "Groups": {
 //      "Default":     { "Amount": 25  },
-//      "VIPBronze":   { "Amount": 20  },
+//      "Gamma":       { "Amount": 25  },
+//      "Beta":        { "Amount": 50  },
+//      "Alfa":        { "Amount": 75  },
 //      ...
 //    }
 //  }
@@ -26,6 +28,8 @@ namespace CustomShop {
 namespace TimedPoints {
 
 void Start();
+void LogStatus();
+void OnConfigReload();
 
 } // namespace TimedPoints
 } // namespace CustomShop

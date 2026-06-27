@@ -41,6 +41,7 @@ from flask import Flask, jsonify, make_response, redirect, request, send_from_di
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from werkzeug.exceptions import HTTPException
 from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, Text, UniqueConstraint, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
@@ -347,6 +348,24 @@ limiter = Limiter(
     storage_uri="memory://",
 )
 
+
+def _is_api_request() -> bool:
+    return (request.path or "").startswith("/api/")
+
+
+@app.errorhandler(HTTPException)
+def _api_http_exception_handler(exc: HTTPException):
+    """Rotas /api/* sempre respondem JSON — evita HTML do Werkzeug/limiter no fetch()."""
+    if not _is_api_request():
+        return exc
+    msg = exc.description or exc.name or "Erro HTTP"
+    if exc.code == 429:
+        msg = "Muitas tentativas. Aguarde um momento e tente novamente."
+    elif exc.code == 404:
+        msg = "Endpoint não encontrado. Atualize a loja web se o erro persistir."
+    return jsonify({"ok": False, "error": str(msg)}), exc.code
+
+
 # Encryption key for sensitive settings (RCON passwords etc.)
 # Derived from app.secret_key — same key = same encryption
 def _get_fernet() -> Optional[Fernet]:
@@ -539,6 +558,7 @@ class PointPayment(Base):
     pix_qr_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
     pix_copy_paste: Mapped[str | None] = mapped_column(Text, nullable=True)
     payer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    payment_method: Mapped[str] = mapped_column(String(16), default="pix", index=True)
     credited: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -1050,6 +1070,19 @@ def _migrate_schema(engine: Any) -> None:
                 log.warning("Migrando point_payments — adicionando payer_email")
                 conn.execute(text(
                     "ALTER TABLE `point_payments` ADD COLUMN `payer_email` VARCHAR(255) NULL"
+                ))
+                conn.commit()
+            pm_col = conn.execute(text(
+                "SHOW COLUMNS FROM `point_payments` LIKE 'payment_method'"
+            )).fetchone()
+            if pm_col is None:
+                log.warning("Migrando point_payments — adicionando payment_method")
+                conn.execute(text(
+                    "ALTER TABLE `point_payments` ADD COLUMN `payment_method` VARCHAR(16) NOT NULL DEFAULT 'pix'"
+                ))
+                conn.execute(text(
+                    "UPDATE `point_payments` SET `payment_method` = 'card' "
+                    "WHERE `pix_copy_paste` IS NULL AND `pix_qr_base64` IS NULL"
                 ))
                 conn.commit()
         orders_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -5192,6 +5225,16 @@ def _describe_catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
     }
 
 
+def _resolve_payment_method(row: PointPayment) -> str:
+    """Retorna 'pix' ou 'card' — usa coluna persistida ou infere por dados legados."""
+    pm = str(row.payment_method or "").strip().lower()
+    if pm in ("pix", "card"):
+        return pm
+    if row.pix_copy_paste or row.pix_qr_base64:
+        return "pix"
+    return "card"
+
+
 def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, source: str = "web") -> None:
     mapped = map_mp_status(mp_status)
     locked = (
@@ -5218,13 +5261,14 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
             amount=payment.points,
             status_before=old_status,
             status_after=mapped,
-            message=f"PIX {old_status} → {mapped}",
+            message=f"Doação {old_status} → {mapped}",
             source=source,
             mp_payment_id=payment.mp_payment_id,
             mp_status_raw=mp_status,
             amount_brl=payment.amount_brl,
             package_label=_package_label(payment.package_id),
             credited=payment.credited,
+            payment_method=_resolve_payment_method(payment),
             persist=False,
         )
         payment = (
@@ -5239,6 +5283,7 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
         try:
             new_balance = _add_player_points_tx(db, payment.steam_id, payment.points)
             payment.credited = True
+            pm = _resolve_payment_method(payment)
             _audit_event(
                 "pix_credited",
                 actor_steam_id=payment.steam_id,
@@ -5246,12 +5291,13 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 item_id=payment.package_id,
                 amount=payment.points,
                 status_after="APROVADO",
-                message=f"Doação PIX creditada — {_package_label(payment.package_id)}",
+                message=f"Doação creditada ({pm}) — {_package_label(payment.package_id)}",
                 source=source,
                 mp_payment_id=payment.mp_payment_id,
                 amount_brl=payment.amount_brl,
                 new_balance=new_balance,
                 package_label=_package_label(payment.package_id),
+                payment_method=pm,
                 persist=False,
             )
             _log(
@@ -5439,6 +5485,7 @@ def player_pix_checkout():
             pix_qr_base64=qr_b64,
             pix_copy_paste=copy_paste,
             payer_email=payer.get("email"),
+            payment_method="pix",
             created_at=_now(),
             updated_at=_now(),
         )
@@ -5456,6 +5503,7 @@ def player_pix_checkout():
             mp_payment_id=mp_id,
             payer_email=payer.get("email"),
             package_label=label,
+            payment_method="pix",
         )
         _log("pix_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id, mp_id=mp_id)
         return jsonify({
@@ -5564,6 +5612,7 @@ def player_card_checkout():
             points=points,
             status="PENDENTE",
             payer_email=payer.get("email"),
+            payment_method="card",
             created_at=_now(),
             updated_at=_now(),
         )
@@ -5580,6 +5629,7 @@ def player_card_checkout():
             amount_brl=price_brl,
             payer_email=payer.get("email"),
             package_label=label,
+            payment_method="card",
         )
         _log("card_checkout", payment_id=payment_id, steam_id=steam_id, package_id=package_id)
         return jsonify({
@@ -5866,7 +5916,7 @@ def player_history():
 @app.route("/api/player/donations", methods=["GET"])
 @login_required
 def player_donations():
-    """Histórico de doações PIX do jogador (recompensa em pontos)."""
+    """Histórico de doações do jogador (PIX ou cartão — recompensa em pontos)."""
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
@@ -5889,6 +5939,7 @@ def player_donations():
                     "points": r.points,
                     "status": r.status,
                     "credited": r.credited,
+                    "payment_method": _resolve_payment_method(r),
                     "created_at": r.created_at.isoformat() if r.created_at else None,
                     "credited_at": r.updated_at.isoformat() if r.credited and r.updated_at else None,
                 }
@@ -6625,6 +6676,7 @@ def _pix_payment_row_dict(row: PointPayment) -> dict[str, Any]:
         "status": row.status,
         "credited": bool(row.credited),
         "payer_email": row.payer_email,
+        "payment_method": _resolve_payment_method(row),
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
     }
@@ -6633,7 +6685,7 @@ def _pix_payment_row_dict(row: PointPayment) -> dict[str, Any]:
 @app.route("/api/admin/pix/audit", methods=["GET"])
 @admin_required
 def admin_pix_audit():
-    """Log completo de doações PIX para suporte — tentativas, concluídas e canceladas."""
+    """Log completo de doações (PIX e cartão) para suporte — tentativas, concluídas e canceladas."""
     if (err := _require_db()) is not None:
         return err
     status = str(request.args.get("status", "")).strip().upper()

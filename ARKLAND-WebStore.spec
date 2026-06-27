@@ -11,17 +11,18 @@ cors_datas, cors_binaries, cors_hiddenimports = collect_all('flask_cors')
 limiter_datas, limiter_binaries, limiter_hiddenimports = collect_all('flask_limiter')
 dotenv_datas, dotenv_binaries, dotenv_hiddenimports = collect_all('dotenv')
 crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography')
+discord_datas, discord_binaries, discord_hiddenimports = collect_all('discord')
 
 a = Analysis(
     ['plugin/arkshop_web/app.py'],
     pathex=[str(_project_root)],
-    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries,
+    binaries=[] + flask_binaries + cors_binaries + limiter_binaries + dotenv_binaries + crypto_binaries + discord_binaries,
     datas=[
         ('plugin/arkshop_web/static', 'static'),
         ('plugin/arkshop_web/data', 'data'),
         ('plugin/CustomShop/configs/config.json', 'CustomShop/configs'),
         ('version.json', '.'),
-    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas,
+    ] + flask_datas + cors_datas + limiter_datas + dotenv_datas + crypto_datas + discord_datas,
     hiddenimports=[
         'flask',
         'flask_cors',
@@ -44,9 +45,16 @@ a = Analysis(
         'dotenv',
         'werkzeug',
         'jinja2',
+        'cross_chat_discord',
+        'cross_chat_routes',
+        'cross_chat_service',
+        'discord',
+        'discord.ext.commands',
+        'audioop',
     ] + collect_submodules('sqlalchemy')
+      + collect_submodules('discord')
       + flask_hiddenimports + cors_hiddenimports + limiter_hiddenimports
-      + dotenv_hiddenimports + crypto_hiddenimports,
+      + dotenv_hiddenimports + crypto_hiddenimports + discord_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

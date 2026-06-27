@@ -34,6 +34,22 @@ void ShopConfig::Load() {
     Log::GetLog()->info("ShopConfig: loaded ({} items, {} kits, DeliverDinosInCryopods={})",
                         items_.size(), kits_.size(),
                         settings_.value("DeliverDinosInCryopods", true));
+
+    const bool tp_enabled = timed_points_.value("Enabled", false);
+    const int tp_interval = timed_points_.value("Interval", 30);
+    const auto& tp_groups = timed_points_.value("Groups", nlohmann::json::object());
+    std::string grp_summary;
+    for (const auto& [name, val] : tp_groups.items()) {
+        const int amt = val.value("Amount", 0);
+        if (amt <= 0) continue;
+        if (!grp_summary.empty()) grp_summary += ", ";
+        grp_summary += name + "=" + std::to_string(amt);
+    }
+    Log::GetLog()->info(
+        "ShopConfig: TimedPointsReward enabled={} interval={}min groups=[{}]",
+        tp_enabled ? "yes" : "no",
+        tp_interval,
+        grp_summary.empty() ? "(none)" : grp_summary);
 }
 
 int ShopConfig::StartingPoints() const {

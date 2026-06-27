@@ -1922,6 +1922,15 @@ def sync_plugin_at_path(
         merged, catalog, existing,
         website_url=website_url, api_url=api_url, api_key=api_key,
     )
+    tp = merged.get("TimedPointsReward") or {}
+    tp_groups = tp.get("Groups") or {}
+    logger.info(
+        "CustomShop sync TimedPointsReward [%s]: enabled=%s interval=%s groups=%s",
+        label,
+        tp.get("Enabled"),
+        tp.get("Interval", 30),
+        ",".join(sorted(str(k) for k in tp_groups.keys())) or "(none)",
+    )
     new_url = str((merged.get("Settings") or {}).get("WebsiteUrl") or "").strip()
     if old_url != new_url:
         logger.info(

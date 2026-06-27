@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.135] - 2026-06-27
+
+### Improvement
+
+- Melhoria (Web Store / Pagamentos): coluna payment_method em point_payments; badges PIX/cartão na fila admin e textos de UI; checkout cartão e PIX com rótulos mais claros.
+- Melhoria (Loja): shop_integration registra sync de settings; customshop_panel defaults alinhados ao TimedPointsReward.
+
+### Fix
+
+- Fix CRÍTICO (CustomShop / TimedPoints): timer de pontos por tempo online não duplica agendamento; Tick usa GetWorld e jogadores online corretamente; logs de diagnóstico (Enabled, Groups, Default) no boot e no Shop.Reload; ShopConfig recarrega TimedPointsReward.
+- Fix (Web Store / Discord): ponte cross_chat_discord mais robusta (reconexão, heartbeat, encoding); ARKLAND-WebStore.spec inclui dependências do bridge.
+- Fix (Web Store / Checkout cartão): rotas /api/* respondem JSON em erros HTTP (429/404/limiter) — fetchJson no front evita falha ao parsear HTML.
+
 ## [1.9.134] - 2026-06-27
 
 ### Fix

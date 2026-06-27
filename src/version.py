@@ -3,11 +3,28 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.134"
+APP_VERSION: str = "1.9.135"
 BUILD_DATE: str = "2026-06-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.135",
+        "date": "2026-06-27",
+        "changes": [
+            "Fix CRÍTICO (CustomShop / TimedPoints): timer de pontos por tempo online não duplica agendamento; "
+            "Tick usa GetWorld e jogadores online corretamente; logs de diagnóstico (Enabled, Groups, Default) "
+            "no boot e no Shop.Reload; ShopConfig recarrega TimedPointsReward.",
+            "Fix (Web Store / Discord): ponte cross_chat_discord mais robusta (reconexão, heartbeat, encoding); "
+            "ARKLAND-WebStore.spec inclui dependências do bridge.",
+            "Melhoria (Web Store / Pagamentos): coluna payment_method em point_payments; badges PIX/cartão na "
+            "fila admin e textos de UI; checkout cartão e PIX com rótulos mais claros.",
+            "Fix (Web Store / Checkout cartão): rotas /api/* respondem JSON em erros HTTP (429/404/limiter) — "
+            "fetchJson no front evita falha ao parsear HTML.",
+            "Melhoria (Loja): shop_integration registra sync de settings; customshop_panel defaults alinhados "
+            "ao TimedPointsReward.",
+        ],
+    },
     {
         "version": "1.9.134",
         "date": "2026-06-27",

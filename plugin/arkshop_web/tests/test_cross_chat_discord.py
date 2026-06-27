@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from cross_chat_discord import (
     DISCORD_SOURCE,
+    discord_bridge_status,
     format_discord_outbound,
     is_discord_steam_id,
     load_discord_config,
@@ -53,3 +54,14 @@ def test_load_discord_config_env(monkeypatch, tmp_path):
     assert cfg["enabled"] is True
     assert cfg["channel_id"] == 12345
     assert cfg["token_set"] is True
+
+
+def test_discord_bridge_status_disabled():
+    def _load():
+        return {"cross_chat_discord_enabled": False}
+
+    st = discord_bridge_status(_load, lambda: True)
+    assert st["connected"] is False
+    assert st["status_message"] == "Desativado"
+    assert "phase" in st
+    assert "discord_py_available" in st

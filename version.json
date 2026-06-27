@@ -1,8 +1,12 @@
 {
-    "version": "1.9.134",
+    "version": "1.9.135",
     "date": "2026-06-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.134/ARKLAND-Multi-Setup-v1.9.134.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.135/ARKLAND-Multi-Setup-v1.9.135.exe",
     "changelog": [
-        "Fix CRÍTICO (Loja / Sync Settings): TimedPointsReward, ShopName, Messages, PointPackages, Downloads e demais Settings propagam corretamente entre mestre TEK, WEBSTORE/config.json e plugins — reconcile detecta mudanças sem alteração de itens; Salvar/Sync TEK força cópia ao WEBSTORE; admin web grava Settings do mestre nos mapas."
+        "Fix CRÍTICO (CustomShop / TimedPoints): timer de pontos por tempo online não duplica agendamento; Tick usa GetWorld e jogadores online corretamente; logs de diagnóstico (Enabled, Groups, Default) no boot e no Shop.Reload; ShopConfig recarrega TimedPointsReward.",
+        "Fix (Web Store / Discord): ponte cross_chat_discord mais robusta (reconexão, heartbeat, encoding); ARKLAND-WebStore.spec inclui dependências do bridge.",
+        "Melhoria (Web Store / Pagamentos): coluna payment_method em point_payments; badges PIX/cartão na fila admin e textos de UI; checkout cartão e PIX com rótulos mais claros.",
+        "Fix (Web Store / Checkout cartão): rotas /api/* respondem JSON em erros HTTP (429/404/limiter) — fetchJson no front evita falha ao parsear HTML.",
+        "Melhoria (Loja): shop_integration registra sync de settings; customshop_panel defaults alinhados ao TimedPointsReward."
     ]
 }

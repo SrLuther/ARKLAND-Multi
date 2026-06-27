@@ -19,12 +19,40 @@ _RATE_SECONDS = 2
 _bridge_lock = threading.Lock()
 _bridge_thread: threading.Thread | None = None
 _bridge_stop = threading.Event()
+_bridge_client: Any | None = None
 _last_forward_id = 0
 _rate_limit: dict[str, datetime] = {}
+
+# Estado exposto ao painel admin
+_bridge_phase = "idle"  # idle | waiting_db | starting | connected | error | stopped
+_bridge_error: str | None = None
+_client_ready = False
+_channel_resolved = False
+_discord_py_available: bool | None = None
 
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _set_phase(phase: str, error: str | None = None) -> None:
+    global _bridge_phase, _bridge_error
+    _bridge_phase = phase
+    if error is not None:
+        _bridge_error = error
+    elif phase in ("connected", "idle", "stopped", "waiting_db", "starting"):
+        _bridge_error = None
+
+
+def _check_discord_py() -> bool:
+    global _discord_py_available
+    try:
+        import discord  # noqa: F401
+    except ImportError:
+        _discord_py_available = False
+        return False
+    _discord_py_available = True
+    return True
 
 
 def is_discord_steam_id(steam_id: str) -> bool:
@@ -159,24 +187,47 @@ def _publish_discord_message(
         db.close()
 
 
+def _close_bridge_client(timeout: float = 6.0) -> None:
+    global _bridge_client
+    client = _bridge_client
+    if client is None:
+        return
+    loop = getattr(client, "loop", None)
+    if loop is not None and loop.is_running():
+        try:
+            fut = asyncio.run_coroutine_threadsafe(client.close(), loop)
+            fut.result(timeout=timeout)
+        except Exception as exc:
+            log.debug("CrossChat Discord: close client: %s", exc)
+    _bridge_client = None
+
+
 def _run_bridge(
     session_factory: Callable[[], Any],
     load_settings: Callable[[], dict[str, Any]],
     save_settings: Callable[[dict[str, Any]], None],
 ) -> None:
-    try:
-        import discord
-    except ImportError:
-        log.error("CrossChat Discord: discord.py nao instalado — pip install discord.py")
+    global _bridge_client, _client_ready, _channel_resolved
+
+    if not _check_discord_py():
+        msg = "discord.py nao instalado — pip install discord.py (ou rebuild do Web Store)"
+        log.error("CrossChat Discord: %s", msg)
+        _set_phase("error", msg)
         return
+
+    import discord
 
     cfg = load_discord_config(load_settings)
     if not cfg["enabled"]:
         log.info("CrossChat Discord: desativado ou incompleto (token/canal).")
+        _set_phase("idle")
         return
 
     channel_id: int = cfg["channel_id"]
     stop = _bridge_stop
+    _set_phase("starting")
+    _client_ready = False
+    _channel_resolved = False
 
     class BridgeClient(discord.Client):
         def __init__(self) -> None:
@@ -185,15 +236,48 @@ def _run_bridge(
             super().__init__(intents=intents)
             self._out_channel: discord.abc.Messageable | None = None
 
+        async def _resolve_channel(self) -> discord.abc.Messageable | None:
+            ch = self.get_channel(channel_id)
+            if ch is not None:
+                return ch
+            try:
+                fetched = await self.fetch_channel(channel_id)
+                if isinstance(fetched, discord.abc.Messageable):
+                    return fetched
+            except discord.Forbidden:
+                _set_phase(
+                    "error",
+                    f"Bot sem permissao no canal {channel_id} — convide o bot e conceda Enviar Mensagens",
+                )
+            except discord.NotFound:
+                _set_phase(
+                    "error",
+                    f"Canal {channel_id} nao encontrado — verifique o ID e se o bot esta no servidor",
+                )
+            except Exception as exc:
+                log.warning("CrossChat Discord: fetch canal falhou: %s", exc)
+            return None
+
         async def setup_hook(self) -> None:
             self.loop.create_task(self._poll_outbound())
 
         async def on_ready(self) -> None:
-            self._out_channel = self.get_channel(channel_id)
+            global _client_ready, _channel_resolved
+            _client_ready = True
+            self._out_channel = await self._resolve_channel()
+            _channel_resolved = self._out_channel is not None
+            if self._out_channel is None and _bridge_error is None:
+                _set_phase(
+                    "error",
+                    f"Canal {channel_id} indisponivel — confira ID, convite do bot e permissoes",
+                )
+            else:
+                _set_phase("connected")
             log.info(
-                "CrossChat Discord: conectado como %s (canal %s)",
+                "CrossChat Discord: conectado como %s (canal %s, resolvido=%s)",
                 self.user,
                 channel_id,
+                _channel_resolved,
             )
 
         async def on_message(self, message: discord.Message) -> None:
@@ -224,36 +308,70 @@ def _run_bridge(
                 try:
                     rows = await asyncio.to_thread(_fetch_game_messages, session_factory)
                     if rows:
-                        ch = self._out_channel or self.get_channel(channel_id)
-                        max_id = _last_forward_id
-                        for msg_id, src, name, body in rows:
-                            if msg_id > max_id:
-                                max_id = msg_id
-                            if ch is not None:
+                        ch = self._out_channel or await self._resolve_channel()
+                        if ch is not None:
+                            self._out_channel = ch
+                            _channel_resolved = True
+                            if _bridge_phase != "connected":
+                                _set_phase("connected")
+                        if ch is None:
+                            log.warning(
+                                "CrossChat Discord: canal %s indisponivel — mensagens retidas",
+                                channel_id,
+                            )
+                        else:
+                            max_id = _last_forward_id
+                            sent_up_to = _last_forward_id
+                            for msg_id, src, name, body in rows:
+                                if msg_id <= _last_forward_id:
+                                    continue
                                 line = format_discord_outbound(src, name, body)
                                 await ch.send(line[:1900])
-                        await asyncio.to_thread(
-                            _advance_forward_cursor,
-                            load_settings,
-                            save_settings,
-                            max_id,
-                        )
+                                if msg_id > max_id:
+                                    max_id = msg_id
+                                sent_up_to = msg_id
+                            if sent_up_to > _last_forward_id:
+                                await asyncio.to_thread(
+                                    _advance_forward_cursor,
+                                    load_settings,
+                                    save_settings,
+                                    sent_up_to,
+                                )
+                except discord.Forbidden as exc:
+                    _set_phase("error", f"Sem permissao para enviar no canal: {exc}")
+                    log.warning("CrossChat Discord: envio negado: %s", exc)
                 except Exception as exc:
                     log.debug("CrossChat Discord: poll outbound falhou: %s", exc)
                 await asyncio.sleep(_POLL_INTERVAL)
 
     async def _main() -> None:
+        global _bridge_client
         client = BridgeClient()
+        _bridge_client = client
         try:
             await client.start(_discord_token(load_settings))
         finally:
             await client.close()
+            _bridge_client = None
 
     try:
         asyncio.run(_main())
+    except discord.LoginFailure as exc:
+        msg = f"Token Discord invalido ou expirado: {exc}"
+        log.error("CrossChat Discord: %s", msg)
+        _set_phase("error", msg)
     except Exception as exc:
         if not stop.is_set():
+            msg = str(exc).strip() or exc.__class__.__name__
             log.error("CrossChat Discord: bridge encerrado: %s", exc)
+            _set_phase("error", msg)
+    finally:
+        _client_ready = False
+        _channel_resolved = False
+        if stop.is_set():
+            _set_phase("stopped")
+        elif _bridge_phase == "connected":
+            _set_phase("error", _bridge_error or "Conexao Discord encerrada")
 
 
 def start_discord_bridge(
@@ -271,16 +389,23 @@ def start_discord_bridge(
             return
 
         def _boot() -> None:
+            _set_phase("waiting_db")
             for _ in range(120):
                 if _bridge_stop.is_set():
+                    _set_phase("stopped")
                     return
                 if db_ready():
                     break
                 time.sleep(1)
-            if _bridge_stop.is_set() or not db_ready():
+            if _bridge_stop.is_set():
+                _set_phase("stopped")
+                return
+            if not db_ready():
+                _set_phase("error", "Banco de dados indisponivel apos 120s — configure MySQL e reinicie")
                 return
             cfg = load_discord_config(load_settings)
             if not cfg["enabled"]:
+                _set_phase("idle")
                 return
             _run_bridge(session_factory, load_settings, save_settings)
 
@@ -292,7 +417,60 @@ def start_discord_bridge(
 
 
 def stop_discord_bridge() -> None:
-    _bridge_stop.set()
+    """Para a ponte Discord e aguarda encerramento da thread."""
+    global _bridge_thread
+
+    with _bridge_lock:
+        _bridge_stop.set()
+        _set_phase("stopped")
+        thread = _bridge_thread
+        _bridge_thread = None
+
+    _close_bridge_client()
+    if thread is not None and thread.is_alive():
+        thread.join(timeout=10.0)
+        if thread.is_alive():
+            log.warning("CrossChat Discord: thread nao encerrou a tempo apos stop")
+
+
+def _build_status_message(
+    *,
+    cfg: dict[str, Any],
+    missing: list[str],
+    db_ready: bool,
+    alive: bool,
+) -> str:
+    if not cfg.get("requested_enabled"):
+        return "Desativado"
+    if missing:
+        labels = {
+            "enabled": "ativacao",
+            "token": "token do bot",
+            "channel_id": "ID do canal",
+        }
+        parts = [labels.get(m, m) for m in missing]
+        return "Config incompleta: falta " + ", ".join(parts)
+    if _discord_py_available is False:
+        return "discord.py ausente — pip install discord.py ou rebuild ARKLAND-WebStore.exe"
+    if not db_ready:
+        return "Aguardando banco MySQL"
+    if _bridge_error:
+        return f"Erro: {_bridge_error}"
+    if _bridge_phase == "connected" and _client_ready:
+        if not _channel_resolved:
+            return f"Conectado, mas canal {cfg.get('channel_id')} nao resolvido — confira ID e permissoes"
+        return "Conectado e encaminhando mensagens"
+    if _bridge_phase == "waiting_db":
+        return "Aguardando banco MySQL..."
+    if _bridge_phase == "starting":
+        return "Conectando ao Discord..."
+    if _bridge_phase == "stopped":
+        return "Parado — salve a config ou reinicie o Web Store"
+    if cfg["enabled"] and not alive:
+        return "Bridge encerrado — salve novamente ou reinicie o ARKLAND-WebStore"
+    if cfg["enabled"]:
+        return "Aguardando conexao Discord..."
+    return "Desativado"
 
 
 def discord_bridge_status(
@@ -300,6 +478,7 @@ def discord_bridge_status(
     db_ready: Callable[[], bool],
 ) -> dict[str, Any]:
     cfg = load_discord_config(load_settings)
+    ready = db_ready()
     alive = _bridge_thread is not None and _bridge_thread.is_alive()
     s = load_settings()
     missing: list[str] = []
@@ -309,13 +488,36 @@ def discord_bridge_status(
         missing.append("token")
     if not cfg.get("channel_id"):
         missing.append("channel_id")
+
+    if _discord_py_available is None:
+        _check_discord_py()
+
+    connected = (
+        cfg["enabled"]
+        and alive
+        and _bridge_phase == "connected"
+        and _client_ready
+        and _channel_resolved
+        and not _bridge_error
+    )
+    status_message = _build_status_message(
+        cfg=cfg, missing=missing, db_ready=ready, alive=alive
+    )
+
     return {
         "enabled": cfg["enabled"],
         "requested_enabled": cfg.get("requested_enabled", False),
-        "connected": alive and cfg["enabled"],
+        "connected": connected,
+        "phase": _bridge_phase,
+        "status_message": status_message,
+        "error": _bridge_error,
+        "discord_py_available": bool(_discord_py_available),
+        "client_ready": _client_ready,
+        "channel_resolved": _channel_resolved,
+        "thread_alive": alive,
         "channel_id": cfg["channel_id"] if cfg.get("channel_id") else 0,
         "token_set": cfg.get("token_set", False),
         "last_forward_id": _last_forward_id,
-        "db_ready": db_ready(),
+        "db_ready": ready,
         "missing": missing,
     }

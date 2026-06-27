@@ -130,6 +130,7 @@ def _create_donation_direct(
     credited=True,
     status="APROVADO",
     package_id="pkg_test",
+    payment_method="pix",
 ):
     db = _app_module._SessionLocal()
     try:
@@ -142,6 +143,7 @@ def _create_donation_direct(
             points=points,
             status=status,
             credited=credited,
+            payment_method=payment_method,
             created_at=_now(),
             updated_at=_now(),
         )
@@ -282,16 +284,19 @@ class TestPlayerHistory:
 
     def test_donations_lists_credited(self, client):
         _login(client, USER_STEAM)
-        _create_donation_direct(points=500, amount_brl=25.0)
-        _create_donation_direct(points=200, amount_brl=10.0, credited=False, status="PENDENTE")
+        _create_donation_direct(points=500, amount_brl=25.0, payment_method="pix")
+        _create_donation_direct(points=200, amount_brl=10.0, credited=False, status="PENDENTE", payment_method="card")
         r = client.get("/api/player/donations")
         d = r.get_json()
         assert d["total"] == 2
         points = {item["points"] for item in d["items"]}
         assert points == {500, 200}
+        methods = {item["payment_method"] for item in d["items"]}
+        assert methods == {"pix", "card"}
         credited = [item for item in d["items"] if item["credited"]]
         assert len(credited) == 1
         assert credited[0]["credited_at"] is not None
+        assert credited[0]["payment_method"] == "pix"
 
     def test_summary_includes_donation_stats(self, client):
         _login(client, USER_STEAM)
@@ -1110,6 +1115,7 @@ class TestCardCheckout:
             assert row.status == "PENDENTE"
             assert row.credited is False
             assert row.mp_payment_id is None
+            assert row.payment_method == "card"
         finally:
             db.close()
 
@@ -1144,6 +1150,7 @@ class TestCardCheckout:
                     points=500,
                     status="PENDENTE",
                     credited=False,
+                    payment_method="card",
                     created_at=_now(),
                     updated_at=_now(),
                 )
@@ -1173,6 +1180,7 @@ class TestCardCheckout:
             assert row.credited is True
             assert row.status == "APROVADO"
             assert row.mp_payment_id == "mp_card_99"
+            assert row.payment_method == "card"
         finally:
             db.close()
 
@@ -1192,6 +1200,7 @@ class TestCardCheckout:
                     points=500,
                     status="PENDENTE",
                     credited=False,
+                    payment_method="card",
                     created_at=_now(),
                     updated_at=_now(),
                 )

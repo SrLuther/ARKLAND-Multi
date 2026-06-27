@@ -100,15 +100,14 @@ def _load_config(path: Path) -> Dict[str, Any]:
             "Items": {},
             "Kits": {},
             "TimedPointsReward": {
-                "Enabled": False,
+                "Enabled": True,
                 "Interval": 30,
                 "StackRewards": True,
                 "Groups": {
                     "Default": {"Amount": 25},
-                    "VIPBronze": {"Amount": 20},
-                    "VIPPrata": {"Amount": 30},
-                    "VIPOuro": {"Amount": 50},
-                    "VIPDiamante": {"Amount": 75},
+                    "Gamma": {"Amount": 25},
+                    "Beta": {"Amount": 50},
+                    "Alfa": {"Amount": 75},
                 },
             },
             "Database": {
