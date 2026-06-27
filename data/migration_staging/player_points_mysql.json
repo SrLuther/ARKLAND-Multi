@@ -16,9 +16,13 @@
   "max_points": 0,
   "top10": [],
   "connection_errors": [
+    "cli: connect 192.168.15.50:3306/arkshop: (2003, \"Can't connect to MySQL server on '192.168.15.50' (timed out)\")",
     "settings.json: connect 192.168.15.51:3306/arkland_shop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",
     "db_server_prefs.shop_db: connect 127.0.0.1:3306/arkland_shop: (1045, \"Access denied for user 'arkland'@'localhost' (using password: YES)\")",
     "db_server_prefs.root@local: conectou 127.0.0.1/arkland_shop mas sem pontos > 0 (players=0 rows; todas: ['disputes', 'order_attempts', 'orders', 'players', 'rebuys', 'shop_admins', 'transactions', 'vip_players'])",
+    "cli@192.168.15.51: connect 192.168.15.51:3306/arkshop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",
+    "cli@127.0.0.1: connect 127.0.0.1:3306/arkshop: (1045, \"Access denied for user 'arkshop'@'localhost' (using password: YES)\")",
+    "cli:arkland_shop: connect 192.168.15.50:3306/arkland_shop: (2003, \"Can't connect to MySQL server on '192.168.15.50' (timed out)\")",
     "settings.json:arkshop: connect 192.168.15.51:3306/arkshop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",
     "db_server_prefs.shop_db:arkshop: connect 127.0.0.1:3306/arkshop: (1045, \"Access denied for user 'arkland'@'localhost' (using password: YES)\")",
     "db_server_prefs.root@local@192.168.15.51: connect 192.168.15.51:3306/arkland_shop: (2003, \"Can't connect to MySQL server on '192.168.15.51' (timed out)\")",

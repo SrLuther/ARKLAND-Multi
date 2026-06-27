@@ -1,8 +1,8 @@
 {
-    "version": "1.9.133",
-    "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.133/ARKLAND-Multi-Setup-v1.9.133.exe",
+    "version": "1.9.134",
+    "date": "2026-06-27",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.134/ARKLAND-Multi-Setup-v1.9.134.exe",
     "changelog": [
-        "Fix CRÍTICO (CustomShop / mesmo PC): sync normaliza orders_db_host para 127.0.0.1 quando MariaDB escuta só localhost e o host configurado é IP desta máquina — plugins e Permissions passam a conectar com senha do DB Manager."
+        "Fix CRÍTICO (Loja / Sync Settings): TimedPointsReward, ShopName, Messages, PointPackages, Downloads e demais Settings propagam corretamente entre mestre TEK, WEBSTORE/config.json e plugins — reconcile detecta mudanças sem alteração de itens; Salvar/Sync TEK força cópia ao WEBSTORE; admin web grava Settings do mestre nos mapas."
     ]
 }
