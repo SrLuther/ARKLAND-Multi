@@ -8,9 +8,12 @@ import pytest
 
 from src.config_manager import ShopGlobalConfig
 from src.shop_integration import (
+    canonical_master_catalog_path,
+    catalog_entry_total,
     ensure_webstore_catalog_config,
     is_ephemeral_pyinstaller_path,
     merge_catalog_content_from_source,
+    migrate_catalog_to_canonical,
     reconcile_catalog_before_sync,
     resolve_persistent_catalog_path,
     sync_arkshop_web_settings,
@@ -32,6 +35,8 @@ def test_resolve_persistent_catalog_path_rejects_mei(tmp_path, monkeypatch):
     good.write_text("{}", encoding="utf-8")
     mei = r"C:\Temp\_MEI12345\plugin\CustomShop\configs\config.json"
 
+    monkeypatch.setattr("src.arkland_environment.try_load_environment_paths", lambda: None)
+    monkeypatch.setattr("src.shop_integration.canonical_master_catalog_path", lambda: good)
     monkeypatch.setattr(
         "src.shop_integration.installed_catalog_candidates",
         lambda: [good],
@@ -79,6 +84,7 @@ def test_sync_arkshop_web_settings_writes_canonical_path(tmp_path, monkeypatch):
         "src.arkland_environment.try_load_environment_paths",
         lambda: None,
     )
+    monkeypatch.setattr("src.shop_integration.canonical_master_catalog_path", lambda: good)
     monkeypatch.setattr(
         "src.shop_integration.installed_catalog_candidates",
         lambda: [good],
@@ -117,35 +123,56 @@ def test_webstore_data_dir_uses_environment_webstore(tmp_path, monkeypatch):
 
 
 def test_ensure_webstore_catalog_config_copies_when_missing(tmp_path, monkeypatch):
-    webstore = tmp_path / "WEBSTORE"
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = tmp_path / "master" / "config.json"
-    master.parent.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
     master.write_text('{"Kits":{}}', encoding="utf-8")
 
     monkeypatch.setattr(
         "src.arkland_environment.try_load_environment_paths",
-        lambda: type("P", (), {"webstore": webstore})(),
+        lambda: EnvironmentPaths(root=root),
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
     dest = ensure_webstore_catalog_config(master)
-    assert dest == webstore / "config.json"
+    assert dest == master
     assert (webstore / "config.json").is_file()
     assert json.loads((webstore / "config.json").read_text(encoding="utf-8")) == {"Kits": {}}
 
 
+def test_canonical_master_catalog_path_uses_environment(tmp_path, monkeypatch):
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    env = EnvironmentPaths(root=root)
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: env,
+    )
+    assert canonical_master_catalog_path() == root / "CustomShop" / "configs" / "config.json"
+
+
 def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch):
-    webstore = tmp_path / "WEBSTORE"
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = tmp_path / "master" / "config.json"
-    master.parent.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
     master.write_text('{"ShopItems":{}}', encoding="utf-8")
 
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
     monkeypatch.setattr(
         "src.arkland_environment.try_load_environment_paths",
-        lambda: type("P", (), {"webstore": webstore})(),
+        lambda: EnvironmentPaths(root=root),
     )
     monkeypatch.setattr(
         "src.shop_integration.installed_catalog_candidates",
@@ -156,20 +183,24 @@ def test_sync_arkshop_web_settings_creates_webstore_config(tmp_path, monkeypatch
     sync_arkshop_web_settings(shop, master)
 
     settings = json.loads((webstore / "settings.json").read_text(encoding="utf-8"))
-    assert settings["config_path"] == str(webstore / "config.json")
+    assert settings["config_path"] == str(master)
     assert (webstore / "config.json").is_file()
 
 
 def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
-    """v1.9.128 priorizava WEBSTORE/config.json — não deve vencer mapa completo."""
-    webstore = tmp_path / "WEBSTORE"
+    """WEBSTORE/config.json não deve ser mestre — migra para canônico a partir do mapa."""
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
     stub = webstore / "config.json"
     stub.write_text(
         json.dumps({"Items": {f"lic_{i}": {"Price": 1} for i in range(4)}, "Kits": {}}),
         encoding="utf-8",
     )
-    maps = tmp_path / "MAPAS" / "Ragnarok" / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins" / "CustomShop"
+    maps = root / "MAPAS" / "Ragnarok" / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins" / "CustomShop"
     maps.mkdir(parents=True)
     full = maps / "config.json"
     full.write_text(
@@ -180,22 +211,27 @@ def test_resolve_skips_truncated_webstore_stub(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
-    env = type("P", (), {"webstore": webstore, "maps": tmp_path / "MAPAS"})()
+    env = EnvironmentPaths(root=root)
     monkeypatch.setattr("src.arkland_environment.try_load_environment_paths", lambda: env)
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
-    monkeypatch.setattr("src.shop_integration.installed_catalog_candidates", lambda: [stub])
 
     resolved = resolve_persistent_catalog_path(str(stub))
-    assert resolved == full
+    canonical = root / "CustomShop" / "configs" / "config.json"
+    assert resolved == canonical
+    assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) >= 140
 
 
 def test_ensure_webstore_refreshes_when_master_larger(tmp_path, monkeypatch):
-    webstore = tmp_path / "WEBSTORE"
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
     stub = webstore / "config.json"
     stub.write_text('{"Items":{"a":{}},"Kits":{}}', encoding="utf-8")
-    master = tmp_path / "master" / "config.json"
-    master.parent.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {"k1": {}}}),
         encoding="utf-8",
@@ -203,12 +239,12 @@ def test_ensure_webstore_refreshes_when_master_larger(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "src.arkland_environment.try_load_environment_paths",
-        lambda: type("P", (), {"webstore": webstore})(),
+        lambda: EnvironmentPaths(root=root),
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
     dest = ensure_webstore_catalog_config(master)
-    assert dest == stub
+    assert dest.resolve() == master.resolve()
     data = json.loads(stub.read_text(encoding="utf-8"))
     assert len(data.get("Items") or {}) == 50
 
@@ -230,11 +266,43 @@ def test_app_data_dir_delegates_to_webstore_data_dir(tmp_path, monkeypatch):
     assert app_module._data_dir() == webstore
 
 
-def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
-    webstore = tmp_path / "WEBSTORE"
+def test_migrate_catalog_to_canonical_from_webstore(tmp_path, monkeypatch):
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = tmp_path / "master" / "config.json"
-    master.parent.mkdir()
+    ws_cfg = webstore / "config.json"
+    ws_cfg.write_text(
+        json.dumps({"Items": {f"i{i}": {} for i in range(10)}, "Kits": {"k1": {}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr(
+        "src.shop_integration._legacy_master_catalog_paths",
+        lambda: [ws_cfg],
+    )
+
+    canonical = migrate_catalog_to_canonical(force=True)
+    assert canonical == root / "CustomShop" / "configs" / "config.json"
+    assert canonical.is_file()
+    assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) == 11
+
+
+def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
+    webstore.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {"old": {"Price": 1}}, "Kits": {}}),
         encoding="utf-8",
@@ -251,19 +319,29 @@ def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
     os.utime(ws_cfg, None)
 
     stale_memory = {"Items": {"old": {"Price": 1}}, "Kits": {}}
-    monkeypatch.setattr("src.shop_integration._webstore_catalog_file", lambda: ws_cfg)
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
     path, merged = reconcile_catalog_before_sync(master, stale_memory)
     assert path == master
     assert "new_from_web" in (merged.get("Items") or {})
     assert "k1" in (merged.get("Kits") or {})
+    disk = json.loads(master.read_text(encoding="utf-8"))
+    assert "new_from_web" in (disk.get("Items") or {})
 
 
 def test_ensure_webstore_skips_when_webstore_newer(tmp_path, monkeypatch):
-    webstore = tmp_path / "WEBSTORE"
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = tmp_path / "master" / "config.json"
-    master.parent.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({"Items": {f"x{i}": {} for i in range(50)}, "Kits": {}}),
         encoding="utf-8",
@@ -278,21 +356,25 @@ def test_ensure_webstore_skips_when_webstore_newer(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "src.arkland_environment.try_load_environment_paths",
-        lambda: type("P", (), {"webstore": webstore})(),
+        lambda: EnvironmentPaths(root=root),
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
     result = ensure_webstore_catalog_config(master)
-    assert result == dest
+    assert result.resolve() == master.resolve()
     data = json.loads(dest.read_text(encoding="utf-8"))
     assert "web_edit" in (data.get("Items") or {})
 
 
 def test_reconcile_catalog_merges_timed_points_without_item_change(tmp_path, monkeypatch):
-    webstore = tmp_path / "WEBSTORE"
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
     webstore.mkdir()
-    master = tmp_path / "master" / "config.json"
-    master.parent.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
     master.write_text(
         json.dumps({
             "Items": {"item1": {"Price": 1}},
@@ -327,7 +409,11 @@ def test_reconcile_catalog_merges_timed_points_without_item_change(tmp_path, mon
     os.utime(ws_cfg, None)
 
     stale_memory = json.loads(master.read_text(encoding="utf-8"))
-    monkeypatch.setattr("src.shop_integration._webstore_catalog_file", lambda: ws_cfg)
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
 
     path, merged = reconcile_catalog_before_sync(master, stale_memory)
     tp = merged.get("TimedPointsReward") or {}

@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.137] - 2026-06-27
+
+### Improvement
+
+- Melhoria (Ambiente): pasta CustomShop/configs/ criada no layout ARKLAND SERVER para o catálogo mestre.
+
+### Fix
+
+- Fix CRÍTICO (Loja / Sync): um único mestre de catálogo — ARKLAND SERVER/CustomShop/configs/config.json (ou APPDATA/plugin em dev); WEBSTORE/config.json deixa de ser mestre e vira só cache runtime.
+- Fix (Loja / Admin web): settings.json config_path aponta para o mestre canônico; save web grava uma vez no mestre + mapas (removido segundo destino «Catálogo TEK»); reconcile migra edições legadas WEBSTORE → mestre.
+
 ## [1.9.136] - 2026-06-27
 
 ### Improvement

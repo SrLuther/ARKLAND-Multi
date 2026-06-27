@@ -54,7 +54,9 @@ from src.rcon_util import sanitize_rcon_password  # noqa: E402
 from src.shop_integration import (  # noqa: E402
     apply_machine_server_registry,
     _merge_arkland_server_entry,
+    canonical_master_catalog_path,
     is_ephemeral_pyinstaller_path,
+    is_webstore_catalog_path,
     merge_catalog_into_plugin_config,
     resolve_persistent_catalog_path,
     webstore_data_dir,
@@ -1348,6 +1350,14 @@ def _teardown_db_session(_exc: BaseException | None = None) -> None:
         _SessionLocal.remove()
 
 
+def _resolve_settings_catalog_path(configured: str = "") -> str:
+    """Mestre canônico único — migra WEBSTORE/_MEIPASS legados."""
+    raw = (configured or os.environ.get("ARKSHOP_CONFIG_PATH", "") or "").strip()
+    if is_ephemeral_pyinstaller_path(raw) or is_webstore_catalog_path(raw):
+        raw = ""
+    return str(resolve_persistent_catalog_path(raw or canonical_master_catalog_path()))
+
+
 def _load_settings() -> Dict[str, Any]:
     if _STATE_FILE.exists():
         try:
@@ -1357,14 +1367,15 @@ def _load_settings() -> Dict[str, Any]:
                 if key in data and isinstance(data[key], str):
                     data[key] = _decrypt_value(data[key])
             cp = str(data.get("config_path") or "").strip()
-            if is_ephemeral_pyinstaller_path(cp):
-                data["config_path"] = str(resolve_persistent_catalog_path(cp))
+            canonical = _resolve_settings_catalog_path(cp)
+            if cp != canonical:
+                data["config_path"] = canonical
                 _save_settings(data)
             return data
         except Exception:
             pass
     return {
-        "config_path": _DEFAULT_CONFIG_PATH,
+        "config_path": _resolve_settings_catalog_path(_DEFAULT_CONFIG_PATH),
         "rcon_host": "127.0.0.1",
         "rcon_port": 27020,
         "rcon_password": "",
@@ -1387,8 +1398,7 @@ def _load_settings() -> Dict[str, Any]:
 def _save_settings(data: Dict[str, Any]) -> None:
     safe_data = data.copy()
     cp = str(safe_data.get("config_path") or "").strip()
-    if is_ephemeral_pyinstaller_path(cp):
-        safe_data["config_path"] = str(resolve_persistent_catalog_path(cp))
+    safe_data["config_path"] = _resolve_settings_catalog_path(cp)
     # Encrypt sensitive fields
     for key in _SENSITIVE_SETTINGS_KEYS:
         if key in safe_data:
@@ -3885,18 +3895,10 @@ def _plugin_sync_targets(settings: dict[str, Any]) -> list[dict[str, str]]:
     targets: list[dict[str, str]] = []
     seen: set[str] = set()
 
-    master = str(settings.get("config_path") or _DEFAULT_CONFIG_PATH).strip()
+    master = _resolve_settings_catalog_path(str(settings.get("config_path") or _DEFAULT_CONFIG_PATH))
     if master:
         targets.append({"label": "Catálogo mestre", "path": master, "kind": "master"})
         seen.add(master.lower())
-
-    # Persiste também no mestre TEK (APPDATA/install) — evita Sync sobrescrever edições web.
-    tek_master = str(
-        resolve_persistent_catalog_path(os.environ.get("ARKSHOP_CONFIG_PATH", "").strip() or master)
-    ).strip()
-    if tek_master and tek_master.lower() not in seen:
-        targets.append({"label": "Catálogo TEK (persistente)", "path": tek_master, "kind": "master"})
-        seen.add(tek_master.lower())
 
     for srv in _load_servers():
         path = str(
@@ -4004,6 +4006,14 @@ def save_config():
         errors=len(write_errors),
     )
     _invalidate_shop_config_cache()
+    master_path = next((w["path"] for w in written if "mestre" in w.get("label", "").lower()), "")
+    if master_path:
+        try:
+            from src.shop_integration import push_catalog_to_webstore
+
+            push_catalog_to_webstore(master_path)
+        except Exception:
+            pass
     return jsonify({
         "ok": True,
         "written": written,

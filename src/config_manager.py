@@ -279,10 +279,16 @@ class ConfigManager:
                 _deserialize(EnvironmentConfig,   "environment")
                 _deserialize(BroadcastTekConfig,  "broadcast_tek")
                 self.config = AppConfig(**raw)
-                from .shop_integration import is_ephemeral_pyinstaller_path, resolve_persistent_catalog_path
+                from .shop_integration import (
+                    is_ephemeral_pyinstaller_path,
+                    is_webstore_catalog_path,
+                    resolve_persistent_catalog_path,
+                )
 
                 shop_cfg = self.config.shop
-                if is_ephemeral_pyinstaller_path(shop_cfg.catalog_config_path or ""):
+                if is_ephemeral_pyinstaller_path(shop_cfg.catalog_config_path or "") or is_webstore_catalog_path(
+                    shop_cfg.catalog_config_path or ""
+                ):
                     shop_cfg.catalog_config_path = str(
                         resolve_persistent_catalog_path(shop_cfg.catalog_config_path, shop=shop_cfg)
                     )

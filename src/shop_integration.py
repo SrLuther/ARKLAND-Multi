@@ -41,6 +41,7 @@ _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 logger = logging.getLogger(__name__)
 
 _INSTALLED_CATALOG_REL = Path("plugin") / "CustomShop" / "configs" / "config.json"
+_MASTER_CATALOG_REL = Path("CustomShop") / "configs" / "config.json"
 
 
 def is_ephemeral_pyinstaller_path(path: str | Path) -> bool:
@@ -167,13 +168,47 @@ def merge_catalog_into_plugin_config(
     return merged
 
 
+def canonical_master_catalog_path() -> Path:
+    """Caminho canônico único do catálogo mestre (fonte de verdade para sync).
+
+    Ambiente ARKLAND: ``ARKLAND SERVER/CustomShop/configs/config.json``
+    Instalado sem ambiente: ``%APPDATA%/ARKLAND-ServerManager/CustomShop/configs/config.json``
+    Desenvolvimento: ``plugin/CustomShop/configs/config.json``
+    """
+    from .arkland_environment import try_load_environment_paths
+
+    env = try_load_environment_paths()
+    if env is not None:
+        return env.customshop_master
+    if getattr(sys, "frozen", False):
+        return (
+            Path(os.environ.get("APPDATA", Path.home()))
+            / "ARKLAND-ServerManager"
+            / _MASTER_CATALOG_REL
+        )
+    return _DEFAULT_CATALOG
+
+
+def _legacy_master_catalog_paths() -> List[Path]:
+    """Locais legados que já guardaram o mestre (migração para o canônico)."""
+    return _dedupe_paths(installed_catalog_candidates() + [_webstore_catalog_path_or_none()])
+
+
+def _webstore_catalog_path_or_none() -> Optional[Path]:
+    try:
+        return webstore_data_dir() / "config.json"
+    except Exception:
+        return None
+
+
 def installed_catalog_candidates() -> List[Path]:
     """Caminhos persistentes possíveis para o catálogo mestre config.json.
 
-    Não inclui WEBSTORE/config.json — essa cópia é só runtime da Web Store;
-    usá-la como mestre (v1.9.128) truncava o catálogo para poucos itens.
+    O canônico vem primeiro; demais entradas servem só para migração/recuperação.
+    WEBSTORE/config.json é cópia runtime — nunca mestre de sync.
     """
-    candidates: List[Path] = []
+    canonical = canonical_master_catalog_path()
+    candidates: List[Path] = [canonical]
     if getattr(sys, "frozen", False):
         candidates.append(Path(sys.executable).resolve().parent / _INSTALLED_CATALOG_REL)
     pf = Path(os.environ.get("ProgramFiles", r"C:\Program Files"))
@@ -186,6 +221,9 @@ def installed_catalog_candidates() -> List[Path]:
         / "config.json"
     )
     candidates.append(_DEFAULT_CATALOG)
+    ws = _webstore_catalog_path_or_none()
+    if ws is not None:
+        candidates.append(ws)
     return _dedupe_paths(candidates)
 
 
@@ -206,6 +244,41 @@ def _webstore_catalog_file() -> Optional[Path]:
     if not try_load_environment_paths():
         return None
     return webstore_data_dir() / "config.json"
+
+
+def migrate_catalog_to_canonical(force: bool = False) -> Path:
+    """Garante que o mestre canônico existe, copiando a fonte legada mais completa."""
+    canonical = canonical_master_catalog_path()
+    if canonical.is_file() and not force:
+        return canonical
+
+    sources = _legacy_master_catalog_paths()
+    best = _pick_richest_catalog_path(sources)
+    if best is None:
+        try:
+            canonical.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+        return canonical
+
+    if best.resolve() == canonical.resolve():
+        return canonical
+
+    canonical_total = catalog_entry_total(load_plugin_config(canonical)) if canonical.is_file() else -1
+    best_total = catalog_entry_total(load_plugin_config(best))
+    if not canonical.is_file() or best_total > canonical_total:
+        try:
+            canonical.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(best, canonical)
+            logger.info(
+                "Catálogo mestre migrado para canônico (%d entradas) ← %s",
+                best_total,
+                best,
+            )
+        except OSError as exc:
+            logger.warning("Falha ao migrar catálogo para %s: %s", canonical, exc)
+            return best
+    return canonical
 
 
 def is_webstore_catalog_path(path: str | Path) -> bool:
@@ -285,17 +358,22 @@ def resolve_persistent_catalog_path(
     *,
     shop: Optional["ShopGlobalConfig"] = None,
 ) -> Path:
-    """Resolve caminho gravável do catálogo mestre — nunca _MEIPASS nem stub WEBSTORE."""
+    """Resolve caminho gravável do catálogo mestre — sempre o canônico quando possível."""
+    canonical = migrate_catalog_to_canonical()
     search_paths = _collect_catalog_search_paths()
-    preferred: List[Path] = []
+
+    raw_paths: List[Path] = []
     for raw in (
         str(configured or "").strip(),
         (getattr(shop, "catalog_config_path", "") or "").strip() if shop else "",
     ):
         if raw and not is_ephemeral_pyinstaller_path(raw):
-            preferred.append(Path(raw))
+            p = Path(raw)
+            if is_webstore_catalog_path(p):
+                continue
+            raw_paths.append(p)
 
-    for p in preferred:
+    for p in raw_paths:
         if not p.is_file():
             continue
         if _is_truncated_vs_alternatives(p, search_paths):
@@ -305,22 +383,39 @@ def resolve_persistent_catalog_path(
                 catalog_entry_total(load_plugin_config(p)),
             )
             continue
-        return p
+        if p.resolve() != canonical.resolve():
+            try:
+                canonical.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(p, canonical)
+                logger.info("Catálogo configurado migrado para mestre canônico: %s", canonical)
+            except OSError:
+                return p
+        return canonical
 
     richest = _pick_richest_catalog_path(search_paths)
-    if richest is not None:
-        return richest
+    if richest is not None and richest.resolve() != canonical.resolve():
+        canonical_total = (
+            catalog_entry_total(load_plugin_config(canonical)) if canonical.is_file() else -1
+        )
+        if catalog_entry_total(load_plugin_config(richest)) > canonical_total:
+            try:
+                canonical.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(richest, canonical)
+            except OSError:
+                return richest
+
+    if canonical.is_file():
+        return canonical
 
     for p in installed_catalog_candidates():
         if p.is_file():
-            return p
-    for p in installed_catalog_candidates():
-        try:
-            p.parent.mkdir(parents=True, exist_ok=True)
-            return p
-        except OSError:
-            continue
-    return installed_catalog_candidates()[-1]
+            return migrate_catalog_to_canonical()
+
+    try:
+        canonical.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return canonical
 
 
 def webstore_data_dir() -> Path:
@@ -398,12 +493,8 @@ def reconcile_catalog_before_sync(
     catalog_path: Path | str,
     catalog: Dict[str, Any],
 ) -> Tuple[Path, Dict[str, Any]]:
-    """Antes do Sync TEK: incorpora edições da Web Store e do disco (evita memória stale).
-
-    Prioridade: WEBSTORE/config.json mais recente ou mais completo que o mestre TEK;
-    senão recarrega o mestre do disco se tiver pelo menos tantas entradas quanto a memória.
-    """
-    master = Path(catalog_path)
+    """Antes do Sync TEK: incorpora edições legadas da Web Store e recarrega o mestre do disco."""
+    master = resolve_persistent_catalog_path(catalog_path)
     merged = deepcopy(catalog)
 
     if master.is_file():
@@ -443,29 +534,31 @@ def reconcile_catalog_before_sync(
         else:
             reason = "Settings/TimedPointsReward"
         logger.info(
-            "Sync: catálogo da Web Store incorporado (%s, %d entradas) — mestre TEK desatualizado",
+            "Sync: edições legadas em WEBSTORE incorporadas (%s, %d entradas) → mestre canônico",
             reason,
             ws_total,
         )
+        try:
+            save_plugin_config(master, merged)
+        except OSError as exc:
+            logger.warning("Não foi possível gravar mestre canônico após reconcile: %s", exc)
 
     return master, merged
 
 
 def ensure_webstore_catalog_config(source: Path | str) -> Path:
-    """Copia catálogo mestre para WEBSTORE/config.json (runtime da Web Store).
+    """Copia catálogo mestre canônico para WEBSTORE/config.json (cache runtime da Web Store).
 
-    Atualiza a cópia quando ausente ou quando o mestre tem muito mais itens
-    (evita servir stub truncado após migração v1.9.128).
-    Nunca sobrescreve WEBSTORE mais recente que o mestre (edições do admin web).
+    Nunca retorna o destino WEBSTORE como mestre — use resolve_persistent_catalog_path().
     """
     from .arkland_environment import try_load_environment_paths
 
     src = Path(source)
     if not try_load_environment_paths():
-        return src
+        return resolve_persistent_catalog_path(src)
     dest = webstore_data_dir() / "config.json"
     if not src.is_file():
-        return dest if dest.is_file() else src
+        return resolve_persistent_catalog_path(src)
 
     src_total = catalog_entry_total(load_plugin_config(src))
     should_copy = not dest.is_file()
@@ -473,19 +566,19 @@ def ensure_webstore_catalog_config(source: Path | str) -> Path:
         dest_mtime = _path_mtime(dest)
         src_mtime = _path_mtime(src)
         if dest_mtime > src_mtime + 0.001:
-            return dest
+            return resolve_persistent_catalog_path(src)
         dest_total = catalog_entry_total(load_plugin_config(dest))
         if src_total > dest_total + 5:
             should_copy = True
             logger.info(
-                "WEBSTORE config desatualizado (%d vs mestre %d) — recopiando de %s",
+                "WEBSTORE cache desatualizado (%d vs mestre %d) — recopiando de %s",
                 dest_total, src_total, src,
             )
 
     if should_copy:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
-    return dest if dest.is_file() else src
+    return resolve_persistent_catalog_path(src)
 
 
 def push_catalog_to_webstore(source: Path | str) -> Optional[Path]:
@@ -1959,11 +2052,13 @@ def sync_arkshop_web_settings(
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):
         shop.catalog_config_path = str(catalog_path)
-    webstore_config = ensure_webstore_catalog_config(catalog_path)
+    if shop and is_webstore_catalog_path(shop.catalog_config_path or ""):
+        shop.catalog_config_path = str(catalog_path)
+    ensure_webstore_catalog_config(catalog_path)
 
     data["port"] = int(shop.port or DEFAULT_SHOP_PORT)
     data["delivery_mode"] = shop.delivery_mode or "plugin"
-    data["config_path"] = str(webstore_config)
+    data["config_path"] = str(catalog_path)
     data["central_url"] = resolve_central_url(shop)
     data["public_url"] = effective_shop_public_url(shop)
     data["shop_mode"] = shop.mode

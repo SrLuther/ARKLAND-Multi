@@ -22,6 +22,7 @@ _DIR_README: dict[str, str] = {
     "LOGS": "Logs do gerenciador e diagnósticos.",
     "STEAMCMD": "SteamCMD para instalar/atualizar servidores e mods.",
     "WEBSTORE": "Dados da loja web (modo Host).",
+    "CustomShop": "Catálogo mestre Items/Kits (fonte única de sync).",
     "MARIADB": "MariaDB portable (binários e dados).",
 }
 
@@ -89,6 +90,10 @@ class EnvironmentPaths:
         return self.root / "WEBSTORE"
 
     @property
+    def customshop_master(self) -> Path:
+        return self.root / "CustomShop" / "configs" / "config.json"
+
+    @property
     def mariadb(self) -> Path:
         return self.root / "MARIADB"
 
@@ -109,6 +114,7 @@ class EnvironmentPaths:
             self.logs / "app",
             self.steamcmd,
             self.webstore,
+            self.customshop_master.parent,
             self.mariadb,
             self.mariadb_data,
         ]
@@ -128,6 +134,7 @@ class EnvironmentPaths:
             "├── LOGS/manager/",
             "├── STEAMCMD/",
             "├── WEBSTORE/",
+            "├── CustomShop/configs/  (catálogo mestre)",
             "└── MARIADB/data/",
         ]
         return "\n".join(lines)
@@ -217,6 +224,7 @@ def _touch_readmes(paths: EnvironmentPaths) -> None:
         paths.logs: ("LOGS", _DIR_README["LOGS"]),
         paths.steamcmd: ("STEAMCMD", _DIR_README["STEAMCMD"]),
         paths.webstore: ("WEBSTORE", _DIR_README["WEBSTORE"]),
+        paths.customshop_master.parent.parent: ("CustomShop", _DIR_README["CustomShop"]),
         paths.mariadb: ("MARIADB", _DIR_README["MARIADB"]),
     }
     for folder, (title, desc) in top_readmes.items():

@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.136"
+APP_VERSION: str = "1.9.137"
 BUILD_DATE: str = "2026-06-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.137",
+        "date": "2026-06-27",
+        "changes": [
+            "Fix CRÍTICO (Loja / Sync): um único mestre de catálogo — ARKLAND SERVER/CustomShop/configs/config.json "
+            "(ou APPDATA/plugin em dev); WEBSTORE/config.json deixa de ser mestre e vira só cache runtime.",
+            "Fix (Loja / Admin web): settings.json config_path aponta para o mestre canônico; save web grava uma vez "
+            "no mestre + mapas (removido segundo destino «Catálogo TEK»); reconcile migra edições legadas WEBSTORE → mestre.",
+            "Melhoria (Ambiente): pasta CustomShop/configs/ criada no layout ARKLAND SERVER para o catálogo mestre.",
+        ],
+    },
     {
         "version": "1.9.136",
         "date": "2026-06-27",
