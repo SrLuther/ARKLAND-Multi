@@ -3852,6 +3852,12 @@ def _normalize_config_to_file(data: dict) -> dict:
     if "ShopItems" in data and "Items" not in data:
         data = dict(data)
         data["Items"] = data.pop("ShopItems")
+    try:
+        from src.shop_catalog_import import sanitize_catalog_blueprints
+
+        sanitize_catalog_blueprints(data)
+    except Exception:
+        pass
     return data
 
 

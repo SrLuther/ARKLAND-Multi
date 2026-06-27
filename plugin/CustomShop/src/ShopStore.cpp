@@ -12,6 +12,75 @@
 
 namespace {
 
+std::string TrimBlueprintSuffix(std::string path) {
+    while (!path.empty()) {
+        const char ch = path.back();
+        if (ch == '"' || ch == '\'' || ch == ',' || std::isspace(static_cast<unsigned char>(ch)))
+            path.pop_back();
+        else
+            break;
+    }
+    return path;
+}
+
+// ArkShop Blueprint'/Game/...' and malformed '"Blueprint": "/Game/..."' → /Game/...
+std::string ExtractBlueprintPath(std::string raw) {
+    while (!raw.empty() && std::isspace(static_cast<unsigned char>(raw.front())))
+        raw.erase(raw.begin());
+    raw = TrimBlueprintSuffix(raw);
+    if (raw.empty()) return raw;
+
+    if (raw.rfind("Blueprint'", 0) == 0 && raw.size() > 11 && raw.back() == '\'')
+        return raw.substr(10, raw.size() - 11);
+
+    const auto pos = raw.find("/Game/");
+    if (pos != std::string::npos)
+        return TrimBlueprintSuffix(raw.substr(pos));
+
+    return raw;
+}
+
+std::string ResolveItemBlueprint(const nlohmann::json& entry) {
+    if (entry.is_string()) {
+        const std::string raw = entry.get<std::string>();
+        try {
+            const std::string blob =
+                (!raw.empty() && raw.front() == '{') ? raw : ("{" + raw + "}");
+            const auto parsed = nlohmann::json::parse(blob);
+            if (parsed.is_object())
+                return ResolveItemBlueprint(parsed);
+        } catch (...) {}
+        return ExtractBlueprintPath(raw);
+    }
+    if (!entry.is_object()) return "";
+
+    std::string bp = entry.value("Blueprint", "");
+    if (bp.empty()) bp = entry.value("blueprint", "");
+    return ExtractBlueprintPath(bp);
+}
+
+nlohmann::json CoerceItemsArray(const nlohmann::json& items) {
+    if (items.is_array()) return items;
+    if (!items.is_object()) return nlohmann::json::array();
+
+    if (items.contains("Blueprint") || items.contains("blueprint"))
+        return nlohmann::json::array({items});
+
+    nlohmann::json out = nlohmann::json::array();
+    for (const auto& [key, val] : items.items()) {
+        (void)key;
+        out.push_back(val);
+    }
+    return out;
+}
+
+int ResolveItemQuantity(const nlohmann::json& entry, int multiplier) {
+    const int base = entry.contains("Quantity")
+        ? entry.value("Quantity", 1)
+        : entry.value("Amount", 1);
+    return std::max(1, base * std::max(1, multiplier));
+}
+
 std::string ToLowerAscii(std::string value) {
     for (char& ch : value)
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
@@ -44,22 +113,22 @@ bool IsPermissionGrantCommand(const std::string& cmd, const std::string& group) 
 // ── Helpers ──────────────────────────────────────────────────────
 
 // Delivers a single item stack using UPrimalItem::AddNewItem.
-void GiveSingleItem(AShooterPlayerController* controller,
+bool GiveSingleItem(AShooterPlayerController* controller,
                     const std::string& blueprint,
                     int quantity,
                     float quality,
                     bool force_blueprint) {
-    if (blueprint.empty() || !controller) return;
+    if (blueprint.empty() || !controller) return false;
 
     FString fblueprint(blueprint.c_str());
     UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
     if (!item_class) {
         Log::GetLog()->warn("GiveSingleItem: failed to load class '{}'", blueprint);
-        return;
+        return false;
     }
 
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
-    if (!inv) return;
+    if (!inv) return false;
 
     UPrimalItem::AddNewItem(
         TSubclassOf<UPrimalItem>(item_class),
@@ -76,21 +145,31 @@ void GiveSingleItem(AShooterPlayerController* controller,
         /*MinRandomQuality=*/0.0f,
         /*clampStats=*/false,
         /*bIgnoreAbsoluteMaxInventory=*/false);
+    return true;
 }
 
 // Delivers all items in an "Items" JSON array.
-void GiveItemsArray(AShooterPlayerController* controller,
-                    const nlohmann::json& items_array) {
-    for (const auto& entry : items_array) {
-        const int qty = entry.contains("Quantity")
-            ? entry.value("Quantity", 1)
-            : entry.value("Amount", 1);
-        GiveSingleItem(controller,
-                       entry.value("Blueprint",     ""),
-                       qty,
-                       entry.value("Quality",       0.0f),
-                       entry.value("ForceBlueprint",false));
+bool GiveItemsArray(AShooterPlayerController* controller,
+                    const nlohmann::json& items_array,
+                    int amount_multiplier = 1) {
+    const auto entries = CoerceItemsArray(items_array);
+    if (!entries.is_array() || entries.empty()) return false;
+
+    bool any = false;
+    for (const auto& entry : entries) {
+        const std::string bp = ResolveItemBlueprint(entry);
+        if (bp.empty()) continue;
+
+        const int qty = entry.is_object()
+            ? ResolveItemQuantity(entry, amount_multiplier)
+            : std::max(1, amount_multiplier);
+        const float qual = entry.is_object() ? entry.value("Quality", 0.0f) : 0.0f;
+        const bool force = entry.is_object() && entry.value("ForceBlueprint", false);
+
+        if (GiveSingleItem(controller, bp, qty, qual, force))
+            any = true;
     }
+    return any;
 }
 
 // Spawns all dinos in a "Dinos" JSON array.
@@ -180,7 +259,7 @@ bool BuyItem(AShooterPlayerController* controller,
     }
 
     // Single blueprint entry
-    const std::string bp = item.value("Blueprint", "");
+    const std::string bp = ExtractBlueprintPath(item.value("Blueprint", ""));
     if (!bp.empty()) {
         const int   qty   = item.value("Quantity",       1) * amount;
         const float qual  = item.value("Quality",        0.0f);
@@ -190,7 +269,7 @@ bool BuyItem(AShooterPlayerController* controller,
 
     // Multi-item bundle (Items array)
     if (item.contains("Items"))
-        GiveItemsArray(controller, item.at("Items"));
+        GiveItemsArray(controller, item.at("Items"), amount);
 
     if (item.contains("Dinos"))
         SpawnDinosArray(controller, item.at("Dinos"));
@@ -286,7 +365,11 @@ bool GiveKit(AShooterPlayerController* controller,
     bool ok = false;
 
     if (kit.contains("Items")) {
-        GiveItemsArray(controller, kit.at("Items"));
+        if (!GiveItemsArray(controller, kit.at("Items"))) {
+            Log::GetLog()->error("GiveKit: item delivery failed for kit '{}'", kit_id);
+            if (fail_reason) *fail_reason = "items_falharam";
+            return false;
+        }
         ok = true;
     }
     if (kit.contains("Dinos")) {
@@ -382,17 +465,20 @@ bool GiveItem(AShooterPlayerController* controller,
         return false;
     }
 
-    const std::string bp = item.value("Blueprint", "");
+    const std::string bp = ExtractBlueprintPath(item.value("Blueprint", ""));
     if (!bp.empty()) {
         const int   qty   = item.value("Quantity",       1) * amount;
         const float qual  = item.value("Quality",        0.0f);
         const bool  force = item.value("ForceBlueprint", false);
-        GiveSingleItem(controller, bp, qty, qual, force);
-        ok = true;
+        ok = GiveSingleItem(controller, bp, qty, qual, force) || ok;
     }
 
     if (item.contains("Items")) {
-        GiveItemsArray(controller, item.at("Items"));
+        if (!GiveItemsArray(controller, item.at("Items"), amount)) {
+            Log::GetLog()->error("GiveItem: bundle delivery failed for item '{}'", item_id);
+            if (fail_reason) *fail_reason = "items_falharam";
+            return false;
+        }
         ok = true;
     }
 

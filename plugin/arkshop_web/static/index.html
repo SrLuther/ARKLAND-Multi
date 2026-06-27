@@ -10050,7 +10050,7 @@ function readShopItemSubItemsFromDOM() {
     const bp = (item.Blueprint || "").trim();
     if (!bp) return;
     const entry = {
-      Blueprint: bp,
+      Blueprint: normalizeBlueprintPath(bp),
       Quantity: Math.max(1, parseInt(item.Amount ?? item.Quantity, 10) || 1),
     };
     const qual = parseFloat(item.Quality);
@@ -10411,12 +10411,26 @@ let _kitItemsDraft = [];
 let _kitDinosDraft = [];
 let _kitCommandsDraft = [];
 
+function normalizeBlueprintPath(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const ark = text.match(/^Blueprint'(.+)'$/);
+  if (ark) return ark[1];
+  const game = text.match(/\/Game\/[^\s"',]+/);
+  if (game) return game[0].replace(/["',]+$/, "");
+  return text;
+}
+
 function normalizeKitItem(raw) {
   if (!raw || typeof raw !== "object") {
+    if (typeof raw === "string") {
+      const bp = normalizeBlueprintPath(raw);
+      return { Blueprint: bp, Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "" };
+    }
     return { Blueprint: "", Amount: 1, Quality: 0, ForceBlueprint: false, Damage: "", Durability: "", Armor: "" };
   }
   return {
-    Blueprint: raw.Blueprint || "",
+    Blueprint: normalizeBlueprintPath(raw.Blueprint || ""),
     Amount: raw.Amount ?? raw.Quantity ?? 1,
     Quality: raw.Quality ?? 0,
     ForceBlueprint: !!raw.ForceBlueprint,
@@ -10676,7 +10690,7 @@ function readKitItemsFromDOM() {
     const bp = (item.Blueprint || "").trim();
     if (!bp) return;
     const entry = {
-      Blueprint: bp,
+      Blueprint: normalizeBlueprintPath(bp),
       Amount: Math.max(1, parseInt(item.Amount, 10) || 1),
       Quality: parseFloat(item.Quality) || 0,
       ForceBlueprint: !!item.ForceBlueprint,

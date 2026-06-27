@@ -8,17 +8,35 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 _BP_RE = re.compile(r"^Blueprint'(.+)'$")
+_GAME_BP_RE = re.compile(r"(/Game/[^\s\"',]+)")
 
 
 def normalize_blueprint(value: str) -> str:
-    """ArkShop: Blueprint'/Game/...' → /Game/..."""
+    """ArkShop: Blueprint'/Game/...' → /Game/...; corrige fragmentos JSON malformados."""
     if not value:
         return ""
-    m = _BP_RE.match(value.strip())
-    return m.group(1) if m else value.strip()
+    text = value.strip()
+    m = _BP_RE.match(text)
+    if m:
+        return m.group(1)
+    if text.startswith("{") or text.startswith('"Blueprint"'):
+        try:
+            blob = text if text.startswith("{") else "{" + text + "}"
+            parsed = json.loads(blob)
+            if isinstance(parsed, dict):
+                return normalize_blueprint(str(parsed.get("Blueprint") or ""))
+        except json.JSONDecodeError:
+            pass
+    game = _GAME_BP_RE.search(text)
+    if game:
+        return game.group(1).rstrip("\"',")
+    return text
 
 
-def _normalize_item_entry(entry: dict) -> dict:
+def _normalize_item_entry(entry: dict | str) -> dict:
+    if isinstance(entry, str):
+        bp = normalize_blueprint(entry)
+        return {"Blueprint": bp, "Quantity": 1} if bp else {}
     out: dict[str, Any] = {}
     if "Blueprint" in entry:
         out["Blueprint"] = normalize_blueprint(str(entry["Blueprint"]))
@@ -81,7 +99,10 @@ def convert_shop_item(key: str, raw: dict) -> dict:
         return out
 
     if raw.get("Items"):
-        out["Items"] = [_normalize_item_entry(e) for e in raw["Items"] if e.get("Blueprint")]
+        out["Items"] = [
+            e for e in (_normalize_item_entry(x) for x in raw["Items"])
+            if e.get("Blueprint")
+        ]
     elif raw.get("Blueprint"):
         out["Blueprint"] = normalize_blueprint(str(raw["Blueprint"]))
         out["Quantity"] = int(raw.get("Quantity", raw.get("Amount", 1)))
@@ -103,7 +124,10 @@ def convert_kit(key: str, raw: dict) -> dict:
     if raw.get("Permissions"):
         out["Permissions"] = str(raw["Permissions"])
     if raw.get("Items"):
-        out["Items"] = [_normalize_item_entry(e) for e in raw["Items"] if e.get("Blueprint")]
+        out["Items"] = [
+            e for e in (_normalize_item_entry(x) for x in raw["Items"])
+            if e.get("Blueprint")
+        ]
     if raw.get("Dinos"):
         out["Dinos"] = [_normalize_dino_entry(d) for d in raw["Dinos"]]
     cmds = _commands_from_arkshop(raw)
@@ -143,16 +167,47 @@ def extract_catalog(raw: dict) -> Tuple[dict, dict, dict | None]:
             if itm.get("Blueprint"):
                 itm["Blueprint"] = normalize_blueprint(str(itm["Blueprint"]))
             if itm.get("Items"):
-                itm["Items"] = [_normalize_item_entry(e) for e in itm["Items"]]
+                itm["Items"] = [
+                    e for e in (_normalize_item_entry(x) for x in itm["Items"])
+                    if e.get("Blueprint")
+                ]
             if itm.get("Dinos"):
                 itm["Dinos"] = [_normalize_dino_entry(d) for d in itm["Dinos"]]
         for kit in kits.values():
             if kit.get("Items"):
-                kit["Items"] = [_normalize_item_entry(e) for e in kit["Items"]]
+                kit["Items"] = [
+                    e for e in (_normalize_item_entry(x) for x in kit["Items"])
+                    if e.get("Blueprint")
+                ]
             if kit.get("Dinos"):
                 kit["Dinos"] = [_normalize_dino_entry(d) for d in kit["Dinos"]]
 
     return items, kits, timed
+
+
+def sanitize_catalog_blueprints(data: dict[str, Any]) -> None:
+    """Normaliza Blueprints em Items/Kits (in-place). Corrige entradas malformadas."""
+    items = data.get("Items") or data.get("ShopItems") or {}
+    if isinstance(items, dict):
+        for itm in items.values():
+            if not isinstance(itm, dict):
+                continue
+            if itm.get("Blueprint"):
+                itm["Blueprint"] = normalize_blueprint(str(itm["Blueprint"]))
+            if itm.get("Items"):
+                itm["Items"] = [
+                    e for e in (_normalize_item_entry(x) for x in itm["Items"])
+                    if e.get("Blueprint")
+                ]
+    kits = data.get("Kits") or {}
+    if isinstance(kits, dict):
+        for kit in kits.values():
+            if not isinstance(kit, dict) or not kit.get("Items"):
+                continue
+            kit["Items"] = [
+                e for e in (_normalize_item_entry(x) for x in kit["Items"])
+                if e.get("Blueprint")
+            ]
 
 
 def apply_catalog_to_target(

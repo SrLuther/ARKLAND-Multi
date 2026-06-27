@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.136] - 2026-06-27
+
+### Improvement
+
+- Melhoria (Loja / Import): sanitize_catalog_blueprints na importação de catálogo (shop_catalog_import); testes em tests/test_shop_catalog_import.py.
+
+### Fix
+
+- Fix CRÍTICO (CustomShop / Kits): ExtractBlueprintPath normaliza blueprints malformados; GiveKit falha com motivo claro quando nenhum item é entregue (sem_conteudo / items_falharam).
+- Fix (Loja / Admin web): sanitize_catalog_blueprints ao salvar config no arkshop_web; editor de kits usa normalizeBlueprintPath no front.
+
 ## [1.9.135] - 2026-06-27
 
 ### Improvement

@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.135"
+APP_VERSION: str = "1.9.136"
 BUILD_DATE: str = "2026-06-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.136",
+        "date": "2026-06-27",
+        "changes": [
+            "Fix CRÍTICO (CustomShop / Kits): ExtractBlueprintPath normaliza blueprints malformados; GiveKit falha com motivo claro quando nenhum item é entregue (sem_conteudo / items_falharam).",
+            "Fix (Loja / Admin web): sanitize_catalog_blueprints ao salvar config no arkshop_web; editor de kits usa normalizeBlueprintPath no front.",
+            "Melhoria (Loja / Import): sanitize_catalog_blueprints na importação de catálogo (shop_catalog_import); testes em tests/test_shop_catalog_import.py.",
+        ],
+    },
     {
         "version": "1.9.135",
         "date": "2026-06-27",
