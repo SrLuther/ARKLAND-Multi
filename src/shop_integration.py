@@ -499,7 +499,9 @@ def reconcile_catalog_before_sync(
 
     if master.is_file():
         disk_master = load_plugin_config(master)
-        if catalog_entry_total(disk_master) >= catalog_entry_total(merged):
+        # Só substitui o catálogo em memória quando o disco tem MAIS entradas (recuperação).
+        # Com contagem igual, o caller (UI após persist) é a fonte de verdade.
+        if catalog_entry_total(disk_master) > catalog_entry_total(merged):
             merged = disk_master
 
     ws_path = _webstore_catalog_file()

@@ -678,9 +678,16 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                 )
                 app.config_manager.save()
 
-    def _fresh_catalog() -> Dict[str, Any]:
-        p = default_catalog_path(shop_cfg)
-        return _load_config(p)
+    def _memory_catalog() -> Dict[str, Any]:
+        return data
+
+    def _collect_and_save_catalog() -> bool:
+        """Coleta edições da UI e grava o mestre canônico antes de sync/RCON."""
+        _collect_all()
+        path = default_catalog_path(shop_cfg)
+        shop_cfg.catalog_config_path = str(path)
+        app.config_manager.save()
+        return _save_config(path, data)
 
     _TAB_BUILDERS = {
         "⚙️  Configurações": _build_tab_cfg,
@@ -691,9 +698,10 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         "🗄️  Database": _build_tab_db,
         "🌐  Web Store": lambda: _build_webstore_tab(
             app, tabs.tab("🌐  Web Store"),
-            get_catalog=_fresh_catalog,
+            get_catalog=_memory_catalog,
             get_catalog_path=lambda: default_catalog_path(shop_cfg),
             collect_catalog=_collect_all,
+            persist_catalog=_collect_and_save_catalog,
         ),
     }
 
@@ -1432,6 +1440,7 @@ def _build_webstore_tab(
     get_catalog,
     get_catalog_path,
     collect_catalog,
+    persist_catalog,
 ) -> None:
     scr = ctk.CTkScrollableFrame(parent, fg_color=_BG)
     scr.pack(fill="both", expand=True)
@@ -1830,7 +1839,8 @@ def _build_webstore_tab(
         if _mode_var.get() != "host" or _is_web_running(max(1, int(_port_var.get().strip() or DEFAULT_SHOP_PORT))):
             return
         _save_shop_from_ui()
-        collect_catalog()
+        if not persist_catalog():
+            return
 
         def _worker() -> None:
             ok, msg = _launch_webstore_process(shop)
@@ -1985,7 +1995,8 @@ def _build_webstore_tab(
         if not _validate_shared_shop_requirements():
             return
         _save_shop_from_ui()
-        collect_catalog()
+        if not persist_catalog():
+            return
         for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
             srv.customshop_config_path = path_var.get().strip()
@@ -2029,7 +2040,8 @@ def _build_webstore_tab(
             app.config_manager, asm_cm, overwrite_dlls=True,
         )
         _save_shop_from_ui()
-        collect_catalog()
+        if not persist_catalog():
+            return
         shop_cfg = app.config_manager.config.shop
         catalog = get_catalog()
         sync_ok, sync_errs = sync_all_plugins(
@@ -2052,7 +2064,8 @@ def _build_webstore_tab(
         if not _validate_shared_shop_requirements():
             return
         _save_shop_from_ui()
-        collect_catalog()
+        if not persist_catalog():
+            return
         for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
             srv.customshop_config_path = path_var.get().strip()
@@ -2099,6 +2112,8 @@ def _build_webstore_tab(
 
     def _provision_groups() -> None:
         if not _validate_shared_shop_requirements():
+            return
+        if not persist_catalog():
             return
         catalog = get_catalog()
         groups = collect_groups_from_catalog(catalog)

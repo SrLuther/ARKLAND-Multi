@@ -1,9 +1,9 @@
 {
-    "version": "1.9.138",
+    "version": "1.9.139",
     "date": "2026-06-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.138/ARKLAND-Multi-Setup-v1.9.138.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.139/ARKLAND-Multi-Setup-v1.9.139.exe",
     "changelog": [
-        "Fix (Web Store / Admin): dropdown de licenças em Gerenciar Jogadores lista todas as licenças do catálogo (Type license ou LicenseGrant) — Gamma/Beta/Alfa, Nuvem e VIP; usa o config mais completo quando o mestre local estiver truncado.",
-        "Melhoria (Web Store / Admin): endpoint GET /api/admin/license-catalog; dias padrão sincronizam com a licença selecionada no painel de jogadores."
+        "Fix CRÍTICO (Loja / Sync): Sync + Reload RCON e Aplicar em todos os plugins gravam o catálogo da UI no mestre canônico antes de propagar — get_catalog não recarrega mais do disco e descarta edições não salvas.",
+        "Fix (Loja / Sync): reconcile_catalog_before_sync só substitui o catálogo em memória quando o disco tem mais entradas (não mais em empate de contagem), preservando edições recém-persistidas."
     ]
 }

@@ -294,6 +294,35 @@ def test_migrate_catalog_to_canonical_from_webstore(tmp_path, monkeypatch):
     assert catalog_entry_total(json.loads(canonical.read_text(encoding="utf-8"))) == 11
 
 
+def test_reconcile_catalog_keeps_memory_when_equal_count(tmp_path, monkeypatch):
+    """Com mesma contagem, o catálogo passado pelo caller prevalece sobre o disco."""
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
+    master.write_text(
+        json.dumps({"Items": {"old": {"Price": 1}}, "Kits": {}}),
+        encoding="utf-8",
+    )
+    fresh = {"Items": {"new_edit": {"Price": 99}}, "Kits": {}}
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: root / "WEBSTORE")
+    monkeypatch.setattr("src.shop_integration.canonical_master_catalog_path", lambda: master)
+    monkeypatch.setattr("src.shop_integration.installed_catalog_candidates", lambda: [master])
+    monkeypatch.setattr("src.shop_integration._collect_catalog_search_paths", lambda: [master])
+    monkeypatch.setattr("src.shop_integration.resolve_persistent_catalog_path", lambda _p, **_: master)
+
+    path, merged = reconcile_catalog_before_sync(master, fresh)
+    assert path == master
+    assert "new_edit" in (merged.get("Items") or {})
+    assert "old" not in (merged.get("Items") or {})
+
+
 def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
     from src.arkland_environment import EnvironmentPaths
 

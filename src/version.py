@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.138"
+APP_VERSION: str = "1.9.139"
 BUILD_DATE: str = "2026-06-27"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.139",
+        "date": "2026-06-27",
+        "changes": [
+            "Fix CRÍTICO (Loja / Sync): Sync + Reload RCON e Aplicar em todos os plugins gravam o catálogo "
+            "da UI no mestre canônico antes de propagar — get_catalog não recarrega mais do disco e descarta "
+            "edições não salvas.",
+            "Fix (Loja / Sync): reconcile_catalog_before_sync só substitui o catálogo em memória quando o "
+            "disco tem mais entradas (não mais em empate de contagem), preservando edições recém-persistidas.",
+        ],
+    },
     {
         "version": "1.9.138",
         "date": "2026-06-27",

@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.139] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (Loja / Sync): Sync + Reload RCON e Aplicar em todos os plugins gravam o catálogo da UI no mestre canônico antes de propagar — get_catalog não recarrega mais do disco e descarta edições não salvas.
+- Fix (Loja / Sync): reconcile_catalog_before_sync só substitui o catálogo em memória quando o disco tem mais entradas (não mais em empate de contagem), preservando edições recém-persistidas.
+
 ## [1.9.138] - 2026-06-27
 
 ### Improvement
