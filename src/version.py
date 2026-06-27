@@ -9,6 +9,15 @@ BUILD_DATE: str = "2026-06-26"
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "1.9.133",
+        "date": "2026-06-26",
+        "changes": [
+            "Fix CRÍTICO (CustomShop / mesmo PC): sync normaliza orders_db_host para 127.0.0.1 "
+            "quando MariaDB escuta só localhost e o host configurado é IP desta máquina — "
+            "plugins e Permissions passam a conectar com senha do DB Manager.",
+        ],
+    },
+    {
         "version": "1.9.132",
         "date": "2026-06-26",
         "changes": [

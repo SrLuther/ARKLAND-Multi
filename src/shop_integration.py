@@ -828,18 +828,15 @@ def install_customshop_to_server(
 
 def build_permissions_config_settings(shop: Optional["ShopGlobalConfig"] = None) -> Dict[str, Any]:
     """Monta credenciais MySQL para Permissions/config.json (sempre ark_permission)."""
-    host = "127.0.0.1"
     port = 3306
     user = "arkland"
-    password = ""
 
     if shop is not None:
-        host = (shop.orders_db_host or "").strip() or host
         port = int(shop.orders_db_port or port)
         user = (shop.orders_db_user or "").strip() or user
 
     prefs = _db_manager_prefs()
-    host = host or prefs.get("host", "127.0.0.1")
+    host = normalize_orders_db_host(shop)
     port = port or int(prefs.get("port", 3306))
     user = user or prefs.get("user", "arkland")
     password = resolve_shop_db_password(shop)
@@ -1149,6 +1146,41 @@ def _shop_target_user(shop: Optional["ShopGlobalConfig"] = None) -> str:
     return (prefs.get("user") or "").strip() or "arkland"
 
 
+def _is_local_machine_host(host: str) -> bool:
+    """True se o host aponta para esta máquina (localhost ou IP LAN local)."""
+    h = (host or "").strip().lower()
+    if not h or h in ("127.0.0.1", "localhost", "::1"):
+        return True
+    try:
+        if h == get_local_ip().lower():
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def normalize_orders_db_host(
+    shop: Optional["ShopGlobalConfig"] = None,
+    *,
+    raw_host: str = "",
+) -> str:
+    """Host MySQL efetivo para plugins — prefere 127.0.0.1 quando bind MariaDB é só localhost."""
+    from .pages.db_local_server import DbLocalServer
+
+    host = (raw_host or "").strip()
+    if shop is not None and not host:
+        host = (shop.orders_db_host or "").strip()
+
+    if not host:
+        prefs = _db_manager_prefs()
+        host = (prefs.get("host") or "").strip() or "127.0.0.1"
+
+    if not DbLocalServer.get_bind_lan() and _is_local_machine_host(host):
+        return "127.0.0.1"
+
+    return host
+
+
 def resolve_shop_db_password(shop: Optional["ShopGlobalConfig"] = None) -> str:
     """Senha efetiva: loja → shop_db (mesmo usuário). Nunca usa senha do root."""
     target_user = _shop_target_user(shop)
@@ -1169,7 +1201,7 @@ def build_orders_database_url(shop: "ShopGlobalConfig") -> str:
     explicit = (shop.orders_db_url or "").strip()
     if explicit:
         return explicit
-    host     = (shop.orders_db_host or "").strip()
+    host     = normalize_orders_db_host(shop)
     port     = int(shop.orders_db_port or 3306)
     name     = (shop.orders_db_name or "").strip()
     user     = (shop.orders_db_user or "").strip()
@@ -1488,13 +1520,12 @@ def build_plugin_database_settings(shop: "ShopGlobalConfig") -> Dict[str, Any]:
     from .db_setup_resources import probe_mysql_host
 
     prefs = _db_manager_prefs()
-    host = (shop.orders_db_host or "").strip() or DEFAULT_REMOTE_SHOP_HOST
+    host = normalize_orders_db_host(shop)
     port = int(shop.orders_db_port or 3306)
     name = (shop.orders_db_name or "").strip() or "arkland_shop"
     user = _shop_target_user(shop)
     password = resolve_shop_db_password(shop)
 
-    host = host or prefs.get("host", "127.0.0.1")
     port = port or int(prefs.get("port", 3306))
     name = name or prefs.get("database", "arkland_shop")
 
