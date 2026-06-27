@@ -1,12 +1,11 @@
 {
-    "version": "1.9.130",
+    "version": "1.9.131",
     "date": "2026-06-26",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.130/ARKLAND-Multi-Setup-v1.9.130.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.131/ARKLAND-Multi-Setup-v1.9.131.exe",
     "changelog": [
-        "Melhoria (Web Store / Admin): redesign da fila de pedidos com ações de reembolso, reenvio, cancelamento e detalhes do pedido.",
-        "Fix (Web Store): collation steam_id em JOINs MySQL (Gerenciar Jogadores) — evita erro 1267.",
-        "Melhoria (Loja): catálogo mod_catalog_verified.json e sync_mod_catalog_from_beacon.py para validar blueprints de mods via Beacon.",
-        "Melhoria (Loja): preços IndoRaptor no catálogo mestre.",
-        "Segurança (Web Store / DB — fase 1): logs sem credenciais; admin_steamids fora do repo (APPDATA); CORS restrito; ARKSHOP_WEB_SECRET obrigatória em produção/.exe; MariaDB bind 127.0.0.1 e firewall com escopo localhost ou LAN sob opt-in."
+        "Fix CRÍTICO (CustomShop / cluster): MariaDB bind LAN opt-in no DB Manager (get_bind_lan/set_bind_lan) — mapas remotos conectam ao MySQL do host quando orders_db_host aponta para IP da LAN.",
+        "Fix (Loja): sync avisa quando MariaDB escuta só 127.0.0.1 mas plugins usam host LAN (warn_cluster_db_bind_mismatch).",
+        "Fix (Web Store): ARKSHOP_WEB_SECRET gerada e persistida automaticamente (resolve_web_secret) ao iniciar a loja pelo app.",
+        "Fix (Web Store / Mercado Pago): checkout cartão e webhook evitam deadlock de sessão SQLAlchemy; status inicial PENDENTE no checkout."
     ]
 }
