@@ -7,13 +7,13 @@
 
 ## [1.9.146] - 2026-06-28
 
-### Fix
-
-- Fix CRÍTICO (Web Store / Doações): save de pacotes PIX persiste no catálogo completo (merge parcial não apaga Items/Kits) e atualiza cache WEBSTORE — evita revert após Recarregar ou sync TEK.
-
 ### Feature
 
 - Novo (Web Store / Doações): 10 pacotes padrão com notas de incentivo em PT-BR; campo note editável no admin e exibido na loja pública.
+
+### Fix
+
+- Fix CRÍTICO (Web Store / Doações): save de pacotes PIX persiste no catálogo completo (merge parcial não apaga Items/Kits) e atualiza cache WEBSTORE — evita revert após Recarregar ou sync TEK.
 
 ## [1.9.145] - 2026-06-27
 
