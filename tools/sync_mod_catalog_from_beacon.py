@@ -29,7 +29,7 @@ from ark_species_registry import (  # noqa: E402
 )
 from market_economy import load_defaults_file  # noqa: E402
 from src.beacon_client import BeaconBlueprintClient, _CACHE_FILE  # noqa: E402
-from src.catalog_vip_pricing import apply_vip_pricing_to_catalog  # noqa: E402
+from src.catalog_sync import apply_catalog_sync  # noqa: E402
 from src.shop_integration import catalog_entry_counts  # noqa: E402
 
 CONFIGS = [
@@ -338,7 +338,7 @@ def sync_mod_catalog() -> dict[str, Any]:
         added.append({"item_id": item_id, "mod": mod, "match": match_info, "path": bp})
         by_mod[mod] = by_mod.get(mod, 0) + 1
 
-    apply_vip_pricing_to_catalog(data)
+    apply_catalog_sync(data)
     after_items, after_kits = catalog_entry_counts(data)
     _assert_shrink_guard(before_items, before_kits, after_items, after_kits)
 

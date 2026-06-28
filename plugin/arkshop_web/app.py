@@ -5174,7 +5174,7 @@ def get_catalog():
 
     placeholder_kits_detected = False
     try:
-        from src.catalog_vip_pricing import catalog_has_placeholder_kit_prices
+        from src.catalog_sync import catalog_has_placeholder_kit_prices
 
         placeholder_kits_detected = catalog_has_placeholder_kit_prices(data)
     except Exception:

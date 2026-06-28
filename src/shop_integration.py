@@ -2498,7 +2498,7 @@ def sync_all_plugins(
     asm_cm: Optional["AsmConfigManager"] = None,
 ) -> Tuple[List[str], List[str]]:
     """Retorna (sucessos, erros)."""
-    from .catalog_vip_pricing import apply_vip_pricing_to_catalog, catalog_has_placeholder_kit_prices
+    from .catalog_sync import apply_catalog_sync, catalog_has_placeholder_kit_prices
 
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     shop_dirty = False
@@ -2553,7 +2553,7 @@ def sync_all_plugins(
         errors.extend(cc_collisions)
 
     had_placeholders = catalog_has_placeholder_kit_prices(catalog)
-    cleared, kit_updates = apply_vip_pricing_to_catalog(catalog)
+    cleared, kit_updates = apply_catalog_sync(catalog)
     try:
         catalog_path.parent.mkdir(parents=True, exist_ok=True)
         save_plugin_config(catalog_path, catalog)

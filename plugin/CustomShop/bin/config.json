@@ -2166,7 +2166,6 @@
           "ForceBlueprint": false
         }
       ],
-      "Permissions": "Admins,VIPBronze",
       "Category": "Ferramentas"
     },
     "struct_tekforge": {
@@ -3725,7 +3724,6 @@
       "Type": "item",
       "Category": "Ferramentas",
       "Price": 90,
-      "Permissions": "Admins,VIPBronze",
       "Description": "Transmissor S+ (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
       "Items": [
         {
@@ -3740,7 +3738,6 @@
       "Type": "item",
       "Category": "Ferramentas",
       "Price": 90,
-      "Permissions": "Admins,VIPBronze",
       "Description": "Gerador Tek S+ (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
       "Items": [
         {
@@ -3755,7 +3752,6 @@
       "Type": "item",
       "Category": "Ferramentas",
       "Price": 90,
-      "Permissions": "Admins,VIPBronze",
       "Description": "Soul Traps DinoStorage (20x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício",
       "Items": [
         {
@@ -3771,7 +3767,6 @@
       "Category": "Ferramentas",
       "Name": "Replicador S+",
       "Price": 90,
-      "Permissions": "Admins,VIPBronze",
       "Description": "Replicador S+ VIP (1x) — 90 Âmbar; kit VIP Bronze é melhor custo-benefício. Avulso premium: struct_tekreplicator (52.500).",
       "Items": [
         {

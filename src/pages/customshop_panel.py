@@ -1954,16 +1954,38 @@ def _build_webstore_tab(
     srv_frame = tk.Frame(card_srv, bg=_INNER)
     srv_frame.pack(fill="x", padx=10, pady=4)
 
+    _hdr_font = ctk.CTkFont(size=9, weight="bold")
+    _hdr_fg = "gray45"
+    hdr = tk.Frame(srv_frame, bg=_INNER)
+    hdr.pack(fill="x", pady=(0, 2))
+    tk.Label(hdr, text="Servidor", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
+             width=18, anchor="w").pack(side="left", padx=(4, 4))
+    tk.Label(hdr, text="ID loja", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
+             width=11, anchor="w").pack(side="left", padx=2)
+    tk.Label(hdr, text="Nome chat cluster", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
+             width=14, anchor="w").pack(side="left", padx=2)
+    tk.Label(hdr, text="Efetivo", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
+             width=10, anchor="w").pack(side="left", padx=(0, 2))
+    tk.Label(hdr, text="Home", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
+             width=6, anchor="w").pack(side="left", padx=2)
+    tk.Label(hdr, text="Loja", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
+             width=6, anchor="w").pack(side="left", padx=2)
+
+    srv_list = tk.Frame(srv_frame, bg=_INNER)
+    srv_list.pack(fill="x")
+
     _server_rows: list = []
 
     def _rebuild_server_rows() -> None:
-        for w in srv_frame.winfo_children():
+        for w in srv_list.winfo_children():
             w.destroy()
         _server_rows.clear()
         asm_cm = getattr(app, "asm_config_manager", None)
         for kind, srv in iter_shop_servers(app.config_manager, asm_cm):
-            row = tk.Frame(srv_frame, bg="#1a1a30")
-            row.pack(fill="x", pady=2)
+            block = tk.Frame(srv_list, bg="#1a1a30")
+            block.pack(fill="x", pady=2)
+            row = tk.Frame(block, bg="#1a1a30")
+            row.pack(fill="x")
             sid_var = tk.StringVar(
                 value=srv.shop_server_id or slugify_server_id(srv.name, srv.id),
             )
@@ -1984,26 +2006,33 @@ def _build_webstore_tab(
                          placeholder_text="ID loja").pack(side="left", padx=2)
             effective_cc = _cross_chat_server_label(srv)
             cc_entry = ctk.CTkEntry(
-                row, textvariable=cc_var, width=100, height=24,
+                row, textvariable=cc_var, width=112, height=24,
                 placeholder_text=effective_cc[:18],
             )
             cc_entry.pack(side="left", padx=2)
             tk.Label(
-                row, text=f"→ {effective_cc[:14]}", bg="#1a1a30", fg="gray55",
-                font=ctk.CTkFont(size=8), width=72, anchor="w",
+                row, text=f"→ {effective_cc[:16]}", bg="#1a1a30", fg="gray55",
+                font=ctk.CTkFont(size=8), width=88, anchor="w",
             ).pack(side="left", padx=(0, 2))
             ctk.CTkCheckBox(
-                row, text="Home", variable=home_var, width=58, height=24,
+                row, text="Home", variable=home_var, width=72, height=24,
                 checkbox_width=16, checkbox_height=16,
                 font=ctk.CTkFont(size=9),
             ).pack(side="left", padx=2)
             ctk.CTkCheckBox(
-                row, text="Loja", variable=shop_var, width=58, height=24,
+                row, text="Loja", variable=shop_var, width=72, height=24,
                 checkbox_width=16, checkbox_height=16,
                 font=ctk.CTkFont(size=9),
-            ).pack(side="left", padx=2)
-            ctk.CTkEntry(row, textvariable=path_var, width=300, height=24).pack(
-                side="left", padx=2)
+            ).pack(side="left", padx=(2, 4))
+            path_row = tk.Frame(block, bg="#1a1a30")
+            path_row.pack(fill="x", padx=(148, 4), pady=(0, 2))
+            tk.Label(
+                path_row, text="config.json:", bg="#1a1a30", fg="gray55",
+                font=ctk.CTkFont(size=8), anchor="w",
+            ).pack(side="left", padx=(0, 4))
+            ctk.CTkEntry(path_row, textvariable=path_var, height=24).pack(
+                side="left", fill="x", expand=True,
+            )
             _server_rows.append((kind, srv, sid_var, cc_var, path_var, home_var, shop_var))
 
     _rebuild_server_rows()

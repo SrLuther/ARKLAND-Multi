@@ -3,11 +3,48 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.159"
+APP_VERSION: str = "1.9.163"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.163",
+        "date": "2026-06-28",
+        "changes": [
+            "Refactor (Loja / Catálogo): catalog_vip_pricing renomeado para catalog_sync — "
+            "sync TEK mantém só sanitização de placeholders e tiers Gamma/Beta/Alfa; purge "
+            "genérico de entradas obsoletas legadas no JSON (sem recriar licenças/kits).",
+        ],
+    },
+    {
+        "version": "1.9.162",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix CRÍTICO (Loja / Catálogo): sync TEK deixa de recriar licenças VIP (licenca_vip_*) "
+            "e kits VIP (vip_bronze, prata, ouro, diamante) — apply_vip_pricing_to_catalog remove "
+            "entradas VIP legadas e mantém só sanitização de placeholders e preços tier Gamma/Beta/Alfa.",
+        ],
+    },
+    {
+        "version": "1.9.161",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix CRÍTICO (Loja / Catálogo): sync TEK deixava de reinjetar Permissions VIPBronze em "
+            "itens avulsos (Gerador Tek S+, Replicador S+, Transmissor S+, Stryder Rig, Soul Traps) — "
+            "apply_vip_pricing_to_catalog atualiza preço/descrição sem exigir VIP; kits licenciados "
+            "mantêm Permissions corretas.",
+        ],
+    },
+    {
+        "version": "1.9.160",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Loja / Web Store): colunas da lista «Servidores ARK deste app» cortadas após "
+            "«Nome chat cluster» — layout em duas linhas (config.json abaixo), cabeçalhos e "
+            "checkboxes Home/Loja com largura suficiente.",
+        ],
+    },
     {
         "version": "1.9.159",
         "date": "2026-06-28",
