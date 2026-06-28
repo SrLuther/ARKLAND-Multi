@@ -44,6 +44,7 @@ def register_cross_chat_routes(
                 source_server=str(body.get("source_server", "")).strip(),
                 steam_id=str(body.get("steam_id", "")).strip(),
                 player_name=str(body.get("player_name", "")).strip(),
+                tribe_name=str(body.get("tribe_name", "")).strip(),
                 message=str(body.get("message", "")).strip(),
                 channel=str(body.get("channel", "cluster")).strip(),
             )

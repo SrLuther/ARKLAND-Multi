@@ -8,6 +8,7 @@ namespace CrossChat {
 void SetDb(MYSQL* db);
 void Start();
 void Stop();
+void OnConfigReload();
 
 } // namespace CrossChat
 } // namespace CustomShop

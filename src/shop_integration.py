@@ -142,12 +142,7 @@ def _sanitize_cross_chat_label(raw: str) -> str:
 
 def _cross_chat_server_label(srv: Any) -> str:
     """Nome exibido no chat cluster — único por mapa."""
-    shop_sid = (getattr(srv, "shop_server_id", "") or "").strip()
-    if shop_sid:
-        label = _sanitize_cross_chat_label(shop_sid)
-        if label:
-            return label
-
+    # Pasta install_dir primeiro: shop_server_id pode ser igual em vários mapas.
     install_dir = (getattr(srv, "install_dir", "") or "").strip()
     if install_dir:
         folder = Path(install_dir).name.strip()
@@ -155,6 +150,12 @@ def _cross_chat_server_label(srv: Any) -> str:
             label = _sanitize_cross_chat_label(folder)
             if label:
                 return label
+
+    shop_sid = (getattr(srv, "shop_server_id", "") or "").strip()
+    if shop_sid:
+        label = _sanitize_cross_chat_label(shop_sid)
+        if label:
+            return label
 
     for attr in ("alt_save_directory_name", "session_name", "server_name", "name"):
         raw = (getattr(srv, attr, "") or "").strip()

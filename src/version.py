@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.146"
+APP_VERSION: str = "1.9.147"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.147",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix CRÍTICO (CrossChat): ServerId no sync prioriza pasta install_dir sobre shop_server_id "
+            "— corrige todos os mapas aparecendo como [amissa] quando o ID da loja é igual.",
+            "Novo (CrossChat): nome da tribo do jogador nas mensagens cluster e no Discord "
+            "([Mapa] [Tribo] Jogador: texto).",
+            "Fix (CrossChat): Shop.Reload recarrega ServerId do CrossChat sem reiniciar o servidor.",
+        ],
+    },
     {
         "version": "1.9.146",
         "date": "2026-06-28",

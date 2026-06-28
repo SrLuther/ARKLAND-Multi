@@ -16,6 +16,11 @@ def test_format_discord_outbound():
     assert line == "[Ragnarok] Luther: ola cluster"
 
 
+def test_format_discord_outbound_with_tribe():
+    line = format_discord_outbound("Brighamia", "Luther", "ola cluster", "ARKLAND")
+    assert line == "[Brighamia] [ARKLAND] Luther: ola cluster"
+
+
 def test_is_discord_steam_id():
     assert is_discord_steam_id("discord:123456789")
     assert not is_discord_steam_id("76561198000000001")

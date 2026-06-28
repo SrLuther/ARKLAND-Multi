@@ -110,12 +110,40 @@ void SendLocal(AShooterPlayerController* player, const std::string& text) {
 
 void BroadcastIncoming(const std::string& source_server,
                        const std::string& player_name,
+                       const std::string& tribe_name,
                        const std::string& message) {
     if (message.empty()) return;
     const std::wstring wserver(source_server.begin(), source_server.end());
     const std::wstring wname(player_name.begin(), player_name.end());
-    const FString sender = FString(L"[") + wserver.c_str() + L"] " + wname.c_str();
+    const std::wstring wtribe(tribe_name.begin(), tribe_name.end());
+    FString sender;
+    if (!tribe_name.empty()) {
+        sender = FString(L"[") + wserver.c_str() + L"] [" + wtribe.c_str() + L"] " + wname.c_str();
+    } else {
+        sender = FString(L"[") + wserver.c_str() + L"] " + wname.c_str();
+    }
     ArkApi::GetApiUtils().SendChatMessageToAll(sender, message.c_str());
+}
+
+std::string GetTribeName(AShooterPlayerController* player) {
+    if (!player) return "";
+    if (auto* ps = static_cast<AShooterPlayerState*>(player->PlayerStateField())) {
+        if (FTribeData* tribe = ps->MyTribeDataField()) {
+            const FString& tname = tribe->TribeNameField();
+            if (!tname.IsEmpty()) {
+                const std::string out = SanitizeAscii(tname.ToString());
+                if (!out.empty()) return out;
+            }
+        }
+    }
+    if (AShooterCharacter* ch = player->GetPlayerCharacter()) {
+        const FString& tname = ch->TribeNameField();
+        if (!tname.IsEmpty()) {
+            const std::string out = SanitizeAscii(tname.ToString());
+            if (!out.empty()) return out;
+        }
+    }
+    return "";
 }
 
 bool IsMuted(const std::string& steam_id) {
@@ -150,28 +178,32 @@ bool RateLimited(const std::string& steam_id) {
 
 bool PublishDb(const std::string& steam_id,
                const std::string& player_name,
+               const std::string& tribe_name,
                const std::string& message) {
-    std::string esc_server, esc_sid, esc_name, esc_msg;
+    std::string esc_server, esc_sid, esc_name, esc_tribe, esc_msg;
     if (!Escape(ServerId(), esc_server) ||
         !Escape(steam_id, esc_sid) ||
         !Escape(player_name, esc_name) ||
+        !Escape(tribe_name, esc_tribe) ||
         !Escape(message, esc_msg))
         return false;
 
     const std::string sql =
-        "INSERT INTO cross_server_chat (channel, source_server, steam_id, player_name, message) "
+        "INSERT INTO cross_server_chat (channel, source_server, steam_id, player_name, tribe_name, message) "
         "VALUES ('cluster', '" + esc_server + "', '" + esc_sid + "', '" +
-        esc_name + "', '" + esc_msg + "')";
+        esc_name + "', '" + esc_tribe + "', '" + esc_msg + "')";
     return Exec(sql.c_str());
 }
 
 bool PublishWeb(const std::string& steam_id,
                 const std::string& player_name,
+                const std::string& tribe_name,
                 const std::string& message) {
     const nlohmann::json body = {
         {"source_server", ServerId()},
         {"steam_id", steam_id},
         {"player_name", player_name},
+        {"tribe_name", tribe_name},
         {"message", message},
         {"channel", "cluster"},
     };
@@ -187,12 +219,13 @@ bool PublishWeb(const std::string& steam_id,
 
 bool Publish(const std::string& steam_id,
              const std::string& player_name,
+             const std::string& tribe_name,
              const std::string& message) {
     if (UseWebApi()) {
-        if (PublishWeb(steam_id, player_name, message)) return true;
+        if (PublishWeb(steam_id, player_name, tribe_name, message)) return true;
         Log::GetLog()->warn("CrossChat: Web API publish failed — fallback MySQL");
     }
-    return PublishDb(steam_id, player_name, message);
+    return PublishDb(steam_id, player_name, tribe_name, message);
 }
 
 void LoadCursor() {
@@ -229,7 +262,7 @@ void SaveCursor(uint64_t last_id) {
 void PollDb() {
     if (!g_db) return;
     const std::string sql =
-        "SELECT id, source_server, player_name, message FROM cross_server_chat "
+        "SELECT id, source_server, player_name, tribe_name, message FROM cross_server_chat "
         "WHERE id > " + std::to_string(g_last_id) +
         " ORDER BY id ASC LIMIT 50";
     if (mysql_query(g_db, sql.c_str()) != 0) {
@@ -243,13 +276,14 @@ void PollDb() {
     uint64_t max_id = g_last_id;
     MYSQL_ROW row;
     while ((row = mysql_fetch_row(res))) {
-        if (!row[0] || !row[1] || !row[2] || !row[3]) continue;
+        if (!row[0] || !row[1] || !row[2] || !row[4]) continue;
         uint64_t id = 0;
         try { id = std::stoull(row[0]); } catch (...) { continue; }
         if (id > max_id) max_id = id;
         const std::string source = row[1];
         if (source == self) continue;
-        BroadcastIncoming(source, row[2], row[3]);
+        const std::string tribe = row[3] ? row[3] : "";
+        BroadcastIncoming(source, row[2], tribe, row[4]);
     }
     mysql_free_result(res);
     if (max_id > g_last_id) {
@@ -276,6 +310,7 @@ void PollWeb() {
             if (source.empty() || source == self) continue;
             BroadcastIncoming(source,
                               m.value("player_name", ""),
+                              m.value("tribe_name", ""),
                               m.value("message", ""));
         }
         if (max_id > g_last_id) {
@@ -356,7 +391,11 @@ bool HandleMessage(AShooterPlayerController* player, const std::string& raw_msg)
 
     const FString fname = ArkApi::GetApiUtils().GetSteamName(player);
     const std::string player_name = SanitizeAscii(fname.ToString());
-    if (!Publish(steam_id, player_name.empty() ? steam_id : player_name, payload)) {
+    const std::string tribe_name = GetTribeName(player);
+    if (!Publish(steam_id,
+                 player_name.empty() ? steam_id : player_name,
+                 tribe_name,
+                 payload)) {
         if (!auto_capture) {
             SendLocal(player, "Falha ao enviar mensagem cluster.");
             return true;
@@ -424,6 +463,12 @@ void Stop() {
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCrossChat");
     if (!AutoCapture())
         ArkApi::GetCommands().RemoveChatCommand(CommandToken().c_str());
+}
+
+void OnConfigReload() {
+    if (!Enabled()) return;
+    LoadCursor();
+    Log::GetLog()->info("CrossChat: config reloaded server='{}'", ServerId());
 }
 
 } // namespace CrossChat

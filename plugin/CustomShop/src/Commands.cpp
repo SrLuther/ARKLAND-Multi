@@ -10,6 +10,7 @@
 #include "HttpClient.h"
 #include "ShopMarket.h"
 #include "TimedPoints.h"
+#include "ShopCrossChat.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
@@ -393,6 +394,7 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
     try {
         CustomShop::ShopConfig::Get().Load();
         CustomShop::TimedPoints::OnConfigReload();
+        CustomShop::CrossChat::OnConfigReload();
 
         if (admin)
             SendMsg(admin, FColorList::Green, "CustomShop reloaded");

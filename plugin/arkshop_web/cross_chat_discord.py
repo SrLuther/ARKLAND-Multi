@@ -59,11 +59,19 @@ def is_discord_steam_id(steam_id: str) -> bool:
     return bool(_DISCORD_STEAM_RE.match((steam_id or "").strip()))
 
 
-def format_discord_outbound(source_server: str, player_name: str, message: str) -> str:
-    """Rotula mensagem do jogo para o Discord: [Mapa] Jogador: texto."""
+def format_discord_outbound(
+    source_server: str,
+    player_name: str,
+    message: str,
+    tribe_name: str = "",
+) -> str:
+    """Rotula mensagem do jogo para o Discord: [Mapa] [Tribo] Jogador: texto."""
     src = (source_server or "Servidor").strip()
     name = (player_name or "Jogador").strip()
+    tribe = (tribe_name or "").strip()
     text = (message or "").strip()
+    if tribe:
+        return f"[{src}] [{tribe}] {name}: {text}"
     return f"[{src}] {name}: {text}"
 
 
@@ -131,7 +139,7 @@ def _rate_limited(key: str) -> bool:
     return False
 
 
-def _fetch_game_messages(session_factory: Callable[[], Any]) -> list[tuple[int, str, str, str]]:
+def _fetch_game_messages(session_factory: Callable[[], Any]) -> list[tuple[int, str, str, str, str]]:
     from sqlalchemy import text
 
     global _last_forward_id
@@ -139,14 +147,17 @@ def _fetch_game_messages(session_factory: Callable[[], Any]) -> list[tuple[int, 
     try:
         rows = db.execute(
             text(
-                "SELECT id, source_server, player_name, message "
+                "SELECT id, source_server, player_name, tribe_name, message "
                 "FROM cross_server_chat "
                 "WHERE id > :since AND channel = 'cluster' "
                 "ORDER BY id ASC LIMIT 50"
             ),
             {"since": _last_forward_id},
         ).fetchall()
-        return [(int(r[0]), str(r[1]), str(r[2]), str(r[3])) for r in rows]
+        return [
+            (int(r[0]), str(r[1]), str(r[2]), str(r[3] or ""), str(r[4]))
+            for r in rows
+        ]
     finally:
         db.close()
 
@@ -322,10 +333,10 @@ def _run_bridge(
                         else:
                             max_id = _last_forward_id
                             sent_up_to = _last_forward_id
-                            for msg_id, src, name, body in rows:
+                            for msg_id, src, name, tribe, body in rows:
                                 if msg_id <= _last_forward_id:
                                     continue
-                                line = format_discord_outbound(src, name, body)
+                                line = format_discord_outbound(src, name, body, tribe)
                                 await ch.send(line[:1900])
                                 if msg_id > max_id:
                                     max_id = msg_id

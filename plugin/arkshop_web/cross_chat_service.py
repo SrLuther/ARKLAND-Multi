@@ -11,6 +11,7 @@ from sqlalchemy.engine import Engine
 _ASCII_RE = re.compile(r"[\x20-\x7e]+")
 _MAX_MESSAGE = 500
 _MAX_NAME = 64
+_MAX_TRIBE = 64
 _MAX_SERVER = 64
 
 
@@ -34,6 +35,7 @@ def ensure_cross_chat_schema(engine: Engine) -> None:
           source_server VARCHAR(64)  NOT NULL,
           steam_id      VARCHAR(20)  NOT NULL,
           player_name   VARCHAR(64)  NOT NULL,
+          tribe_name    VARCHAR(64)  NOT NULL DEFAULT '',
           message       VARCHAR(500) NOT NULL,
           created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
           KEY idx_poll (id),
@@ -59,6 +61,23 @@ def ensure_cross_chat_schema(engine: Engine) -> None:
     with engine.connect() as conn:
         for stmt in stmts:
             conn.execute(text(stmt))
+        if "sqlite" not in str(engine.url).lower():
+            row = conn.execute(
+                text(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = DATABASE() "
+                    "AND TABLE_NAME = 'cross_server_chat' "
+                    "AND COLUMN_NAME = 'tribe_name'"
+                )
+            ).fetchone()
+            if row and int(row[0] or 0) == 0:
+                conn.execute(
+                    text(
+                        "ALTER TABLE cross_server_chat "
+                        "ADD COLUMN tribe_name VARCHAR(64) NOT NULL DEFAULT '' "
+                        "AFTER player_name"
+                    )
+                )
         conn.commit()
 
 
@@ -96,11 +115,13 @@ def publish_message(
     player_name: str,
     message: str,
     channel: str = "cluster",
+    tribe_name: str = "",
 ) -> dict[str, Any]:
     source_server = _sanitize_ascii(source_server, max_len=_MAX_SERVER)
     channel = _sanitize_ascii(channel, max_len=16) or "cluster"
     steam_id = _normalize_steam_id(steam_id, channel)
     player_name = _sanitize_ascii(player_name, max_len=_MAX_NAME)
+    tribe_name = _sanitize_ascii(tribe_name, max_len=_MAX_TRIBE)
     message = _sanitize_ascii(message, max_len=_MAX_MESSAGE)
 
     if not source_server:
@@ -118,14 +139,15 @@ def publish_message(
     db.execute(
         text(
             "INSERT INTO cross_server_chat "
-            "(channel, source_server, steam_id, player_name, message) "
-            "VALUES (:channel, :source_server, :steam_id, :player_name, :message)"
+            "(channel, source_server, steam_id, player_name, tribe_name, message) "
+            "VALUES (:channel, :source_server, :steam_id, :player_name, :tribe_name, :message)"
         ),
         {
             "channel": channel,
             "source_server": source_server,
             "steam_id": steam_id,
             "player_name": player_name or steam_id,
+            "tribe_name": tribe_name,
             "message": message,
         },
     )
@@ -152,7 +174,7 @@ def poll_messages(
 
     rows = db.execute(
         text(
-            "SELECT id, source_server, player_name, message "
+            "SELECT id, source_server, player_name, tribe_name, message "
             "FROM cross_server_chat "
             "WHERE id > :since "
             "ORDER BY id ASC "
@@ -166,7 +188,8 @@ def poll_messages(
             "id": int(r[0]),
             "source_server": str(r[1]),
             "player_name": str(r[2]),
-            "message": str(r[3]),
+            "tribe_name": str(r[3] or ""),
+            "message": str(r[4]),
         }
         for r in rows
         if str(r[1]) != server_id
@@ -224,7 +247,7 @@ def list_messages(
 
     rows = db.execute(
         text(
-            f"SELECT id, channel, source_server, steam_id, player_name, message, created_at "
+            f"SELECT id, channel, source_server, steam_id, player_name, tribe_name, message, created_at "
             f"FROM cross_server_chat{clause} "
             f"ORDER BY id DESC LIMIT :lim OFFSET :off"
         ),
@@ -238,8 +261,9 @@ def list_messages(
             "source_server": str(r[2]),
             "steam_id": str(r[3]),
             "player_name": str(r[4]),
-            "message": str(r[5]),
-            "created_at": str(r[6]) if r[6] is not None else "",
+            "tribe_name": str(r[5] or ""),
+            "message": str(r[6]),
+            "created_at": str(r[7]) if r[7] is not None else "",
         }
         for r in rows
     ]

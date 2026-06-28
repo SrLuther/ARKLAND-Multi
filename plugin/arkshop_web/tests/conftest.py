@@ -22,7 +22,8 @@ def db_session(tmp_path):
             "CREATE TABLE cross_server_chat ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT,"
             "channel TEXT, source_server TEXT, steam_id TEXT,"
-            "player_name TEXT, message TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+            "player_name TEXT, tribe_name TEXT DEFAULT '', message TEXT, "
+            "created_at TEXT DEFAULT CURRENT_TIMESTAMP)"
         ))
         conn.execute(text(
             "CREATE TABLE cross_server_chat_mutes ("

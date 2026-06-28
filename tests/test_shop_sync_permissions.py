@@ -151,14 +151,24 @@ def test_cross_chat_server_label_prefers_install_dir_over_generic_name():
     assert _cross_chat_server_label(srv) == "Brighamia"
 
 
-def test_cross_chat_server_label_uses_shop_server_id():
+def test_cross_chat_server_label_uses_shop_server_id_when_install_dir_generic():
     srv = SimpleNamespace(
         name="ARK Server TEK",
         shop_server_id="Ragnarok-PVP",
-        install_dir=r"C:\ARK\Ragnarok",
+        install_dir=r"C:\ARK\ARK Server TEK",
         id="uuid-rag",
     )
     assert _cross_chat_server_label(srv) == "Ragnarok-PVP"
+
+
+def test_cross_chat_server_label_prefers_install_dir_over_shop_server_id():
+    srv = SimpleNamespace(
+        name="ARK Server TEK",
+        shop_server_id="amissa",
+        install_dir=r"C:\ARK\Brighamia",
+        id="brighamia-id",
+    )
+    assert _cross_chat_server_label(srv) == "Brighamia"
 
 
 def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):

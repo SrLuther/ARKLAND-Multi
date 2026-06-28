@@ -1,9 +1,10 @@
 {
-    "version": "1.9.146",
+    "version": "1.9.147",
     "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.146/ARKLAND-Multi-Setup-v1.9.146.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.147/ARKLAND-Multi-Setup-v1.9.147.exe",
     "changelog": [
-        "Fix CRÍTICO (Web Store / Doações): save de pacotes PIX persiste no catálogo completo (merge parcial não apaga Items/Kits) e atualiza cache WEBSTORE — evita revert após Recarregar ou sync TEK.",
-        "Novo (Web Store / Doações): 10 pacotes padrão com notas de incentivo em PT-BR; campo note editável no admin e exibido na loja pública."
+        "Fix CRÍTICO (CrossChat): ServerId no sync prioriza pasta install_dir sobre shop_server_id — corrige todos os mapas aparecendo como [amissa] quando o ID da loja é igual.",
+        "Novo (CrossChat): nome da tribo do jogador nas mensagens cluster e no Discord ([Mapa] [Tribo] Jogador: texto).",
+        "Fix (CrossChat): Shop.Reload recarrega ServerId do CrossChat sem reiniciar o servidor."
     ]
 }
