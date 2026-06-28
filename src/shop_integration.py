@@ -140,38 +140,24 @@ def _sanitize_cross_chat_label(raw: str) -> str:
     return label[:64]
 
 
+def _mapas_folder_from_path(raw: str) -> str:
+    from .mapas_cross_chat_ids import mapas_folder_from_path
+
+    return mapas_folder_from_path(raw)
+
+
 def _cross_chat_server_label(srv: Any) -> str:
-    """Nome exibido no chat cluster (CrossChat.ServerId) — deve ser único por mapa."""
+    """CrossChat.ServerId — lê mapas_cross_chat_ids.json (fora do sync do catálogo)."""
+    from .mapas_cross_chat_ids import resolve_cross_chat_server_id_from_server
+
+    label = resolve_cross_chat_server_id_from_server(srv)
+    if label:
+        return label
+
     explicit = (getattr(srv, "cross_chat_label", "") or "").strip()
     if explicit:
-        label = _sanitize_cross_chat_label(explicit)
-        if label:
-            return label
+        return _sanitize_cross_chat_label(explicit)
 
-    install_dir = (getattr(srv, "install_dir", "") or "").strip()
-    if install_dir:
-        folder = Path(install_dir).name.strip()
-        if folder and folder.lower() not in _GENERIC_CROSSCHAT_NAMES:
-            label = _sanitize_cross_chat_label(folder)
-            if label:
-                return label
-
-    map_name = (getattr(srv, "map", "") or "").strip()
-    if map_name and map_name.lower() not in _GENERIC_CROSSCHAT_NAMES:
-        label = _sanitize_cross_chat_label(map_name)
-        if label:
-            return label
-
-    for attr in ("alt_save_directory_name", "session_name", "server_name", "name"):
-        raw = (getattr(srv, attr, "") or "").strip()
-        if raw and raw.lower() not in _GENERIC_CROSSCHAT_NAMES:
-            if attr == "alt_save_directory_name" and raw.lower() == "savegame":
-                continue
-            label = _sanitize_cross_chat_label(raw)
-            if label:
-                return label
-
-    # Fallback único por servidor — shop_server_id não entra aqui (pode repetir entre mapas).
     srv_id = (getattr(srv, "id", "") or "").strip()
     short_id = re.sub(r"[^a-z0-9]", "", srv_id.lower())[:6]
     base = slugify_server_id(getattr(srv, "name", ""), srv_id)
@@ -226,21 +212,14 @@ def apply_shared_sections_to_plugin(
     catalog: Dict[str, Any],
     existing: Dict[str, Any],
 ) -> None:
-    """Copia seções compartilhadas do mestre; só CrossChat.ServerId permanece por mapa."""
-    master_cc = catalog.get("CrossChat") or {}
-    master_sid = str(master_cc.get("ServerId") or "").strip()
+    """Copia seções compartilhadas do mestre; CrossChat.ServerId é definido por mapa no sync."""
     for key in SHARED_SYNC_TOP_LEVEL_KEYS:
         if key not in catalog:
             continue
         if key == "CrossChat":
             cat_cc = deepcopy(catalog["CrossChat"])
             cat_cc.pop("ServerId", None)
-            ex_cc = existing.get("CrossChat") or {}
-            ex_sid = str(ex_cc.get("ServerId") or "").strip()
-            merged_cc = deepcopy(cat_cc)
-            if ex_sid and ex_sid != master_sid:
-                merged_cc["ServerId"] = ex_sid
-            merged["CrossChat"] = merged_cc
+            merged["CrossChat"] = deepcopy(cat_cc)
         else:
             merged[key] = deepcopy(catalog[key])
     merge_settings_from_catalog(merged, catalog, existing)
@@ -387,6 +366,63 @@ def is_webstore_catalog_path(path: str | Path) -> bool:
         return Path(path).resolve() == ws.resolve()
     except OSError:
         return False
+
+
+def repair_cross_chat_server_ids_on_disk(
+    maps_root: str | Path | None = None,
+    *,
+    preview: bool = False,
+) -> List[str]:
+    """Corrige CrossChat.ServerId duplicado nos config.json de cada mapa (pasta MAPAS)."""
+    root: Path | None
+    if maps_root:
+        root = Path(maps_root)
+    else:
+        from .arkland_environment import try_load_environment_paths
+
+        env = try_load_environment_paths()
+        root = Path(env.maps) if env and env.maps else None
+    if not root or not root.is_dir():
+        return []
+
+    configs = sorted(
+        root.glob("*/ShooterGame/Binaries/Win64/ArkApi/Plugins/CustomShop/config.json")
+    )
+    if not configs:
+        return []
+
+    notes: List[str] = []
+    for path in configs:
+        try:
+            folder = path.relative_to(root).parts[0]
+        except ValueError:
+            folder = _mapas_folder_from_path(str(path))
+        if not folder:
+            continue
+        from .mapas_cross_chat_ids import lookup_cross_chat_server_id
+
+        label = lookup_cross_chat_server_id(folder)
+        if not label:
+            notes.append(f"{folder}: sem ID em mapas_cross_chat_ids.json")
+            continue
+
+        try:
+            data = load_plugin_config(path)
+        except Exception as exc:
+            notes.append(f"{path.name}: leitura falhou ({exc})")
+            continue
+        cc = data.setdefault("CrossChat", {})
+        old = str(cc.get("ServerId") or "").strip()
+        if old == label:
+            continue
+        if preview:
+            notes.append(f"PREVIEW {folder}: ServerId {old!r} -> {label!r}")
+            continue
+        cc["ServerId"] = label
+        save_plugin_config(path, data)
+        notes.append(f"{folder}: CrossChat.ServerId {old!r} -> {label!r}")
+
+    return notes
 
 
 def _map_plugin_config_paths() -> List[Path]:
@@ -1300,9 +1336,11 @@ def provision_permission_groups_for_servers(
     catalog: Dict[str, Any],
     *,
     server_manager: Any = None,
+    app: Any = None,
 ) -> Tuple[List[str], List[str], List[str]]:
     """Cria grupos via RCON (Permissions.AddGroup). Retorna (ok, erros, ignorados)."""
     from .rcon_client import RconClient
+    from .rcon_util import sanitize_rcon_password
 
     groups = collect_groups_from_catalog(catalog)
     if not groups:
@@ -1317,22 +1355,29 @@ def provision_permission_groups_for_servers(
         if not getattr(srv, "rcon_enabled", False):
             skipped.append(f"{name}: RCON desativado")
             continue
-        rcon_pass = (
+        rcon_pass = sanitize_rcon_password(
             getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
-        ).strip()
+        )
         if not rcon_pass:
             skipped.append(f"{name}: senha RCON/admin não definida")
             continue
 
-        host = (getattr(srv, "server_ip", "") or "127.0.0.1").strip() or "127.0.0.1"
         port = int(getattr(srv, "rcon_port", None) or 27020)
+        sid = str(getattr(srv, "id", "") or "")
 
-        if server_manager is not None:
-            inst = server_manager.get_instance(getattr(srv, "id", ""))
+        if app is not None and sid:
+            from .mod_server_bridge import mod_get_status
+            from .server_config import SERVER_STATUS_RUNNING
+            if mod_get_status(app, sid) != SERVER_STATUS_RUNNING:
+                skipped.append(f"{name}: servidor não está em execução")
+                continue
+        elif server_manager is not None:
+            inst = server_manager.get_instance(sid)
             if inst is not None and getattr(inst, "status", "") != "running":
                 skipped.append(f"{name}: servidor não está em execução")
                 continue
 
+        host = _shop_rcon_hosts(srv)[0]
         client = RconClient(host, port, rcon_pass)
         try:
             client.connect()
@@ -1366,6 +1411,109 @@ def iter_shop_servers(
         for srv in asm_cm.servers:
             out.append(("tek", srv))
     return out
+
+
+def iter_shop_rcon_servers(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> List[Tuple[str, Any]]:
+    """Servidores alvo para RCON da loja — TEK primeiro, sem duplicar IDs."""
+    out: List[Tuple[str, Any]] = []
+    seen: set[str] = set()
+    if asm_cm is not None:
+        for srv in asm_cm.servers:
+            sid = str(getattr(srv, "id", "") or "")
+            if sid and sid not in seen:
+                seen.add(sid)
+                out.append(("tek", srv))
+    for srv in cm.servers:
+        sid = str(getattr(srv, "id", "") or "")
+        if sid and sid not in seen:
+            seen.add(sid)
+            out.append(("classic", srv))
+    return out
+
+
+def _shop_rcon_hosts(srv: Any) -> List[str]:
+    """Hosts para tentativa RCON — 127.0.0.1 primeiro (padrão TEK/broadcast local)."""
+    hosts = ["127.0.0.1"]
+    ext = (getattr(srv, "server_ip", "") or "").strip()
+    if ext and ext.lower() not in ("127.0.0.1", "0.0.0.0", "localhost") and ext not in hosts:
+        hosts.append(ext)
+    return hosts
+
+
+def reload_customshop_via_rcon_for_app(
+    app: Any,
+    *,
+    require_running: bool = True,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Envia Shop.Reload via RCON para todos os servidores da loja. Retorna (ok, erros, ignorados)."""
+    from .mod_server_bridge import mod_get_status
+    from .rcon_client import RconClient
+    from .rcon_util import CUSTOMSHOP_RELOAD_COMMANDS, sanitize_rcon_password
+    from .server_config import SERVER_STATUS_RUNNING
+
+    asm_cm = getattr(app, "asm_config_manager", None)
+    servers = iter_shop_rcon_servers(app.config_manager, asm_cm)
+    ok: List[str] = []
+    failed: List[str] = []
+    skipped: List[str] = []
+    commands = list(CUSTOMSHOP_RELOAD_COMMANDS)
+
+    for _kind, srv in servers:
+        name = getattr(srv, "name", "") or getattr(srv, "id", "") or "Servidor"
+        if getattr(srv, "shop_exclude", False):
+            skipped.append(f"{name}: excluído da loja")
+            continue
+        if not getattr(srv, "rcon_enabled", False):
+            skipped.append(f"{name}: RCON desativado")
+            continue
+        rcon_pass = sanitize_rcon_password(
+            getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
+        )
+        if not rcon_pass:
+            skipped.append(f"{name}: senha RCON/admin não definida")
+            continue
+
+        sid = str(getattr(srv, "id", "") or "")
+        if require_running and sid:
+            if mod_get_status(app, sid) != SERVER_STATUS_RUNNING:
+                skipped.append(f"{name}: servidor não está em execução")
+                continue
+
+        port = int(getattr(srv, "rcon_port", None) or 27020)
+        if port <= 0:
+            skipped.append(f"{name}: porta RCON inválida")
+            continue
+
+        success = False
+        last_err = ""
+        for host in _shop_rcon_hosts(srv):
+            client = RconClient(host, port, rcon_pass)
+            try:
+                client.connect()
+                for cmd in commands:
+                    cmd_ok, result = client.send_command_with_retry(cmd, retries=3)
+                    if cmd_ok:
+                        ok.append(f"{name}: {cmd}")
+                        success = True
+                        break
+                    last_err = (result or "").strip()
+                if success:
+                    break
+            except Exception as exc:
+                last_err = str(exc)
+            finally:
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+
+        if not success:
+            failed.append(f"{name}: {last_err or 'falha no comando RCON'}")
+
+    return ok, failed, skipped
 
 
 def _arkland_ref(kind: str, srv: Any) -> str:
@@ -2632,6 +2780,15 @@ def sync_all_plugins(
     reg_n = register_arkshop_servers(cm, shop, asm_cm=asm_cm, errors=errors)
     if reg_n:
         ok.append(f"Servidores registrados na loja: {reg_n}")
+    try:
+        from .arkland_environment import try_load_environment_paths
+
+        env = try_load_environment_paths()
+        if env and env.maps:
+            for note in repair_cross_chat_server_ids_on_disk(env.maps):
+                ok.append(note)
+    except Exception as exc:
+        errors.append(f"CrossChat ServerId: {exc}")
     return ok, errors
 
 

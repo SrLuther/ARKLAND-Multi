@@ -1,7 +1,8 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Limpeza completa de produção: catálogo + ark_permission + arkland_shop (uma execução).
+  Limpeza completa de produção: catálogo + ark_permission + arkland_shop.
+  Nao exige Python — usa PowerShell + mysql.exe (mesmo MariaDB do backup).
 
 .DESCRIPTION
   1. apply_catalog_sync no config mestre (remove licenças/kits obsoletos, placeholders)
@@ -32,7 +33,8 @@ param(
     [string]$ShopDatabase = "arkland_shop",
     [string]$BackupDir = "C:\ARKLAND SERVER\BACKUP\database",
     [switch]$SkipBackup,
-    [switch]$PreviewOnly
+    [switch]$PreviewOnly,
+    [switch]$NoPause
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,12 +44,55 @@ $Settings = Join-Path $env:APPDATA "ARKLAND-ServerManager\arkshop_web\settings.j
 
 function Write-Step([string]$Msg) { Write-Host "`n==> $Msg" -ForegroundColor Cyan }
 
-function Find-Python {
+function Invoke-NativeCommand {
+    param(
+        [string]$Exe,
+        [string[]]$ArgumentList
+    )
+    $prevNative = $PSNativeCommandUseErrorActionPreference
+    try {
+        $PSNativeCommandUseErrorActionPreference = $false
+        & $Exe @ArgumentList
+    } finally {
+        $PSNativeCommandUseErrorActionPreference = $prevNative
+    }
+    return $LASTEXITCODE
+}
+
+function Find-PythonOptional {
     foreach ($cmd in @("python", "py", "python3")) {
         $exe = Get-Command $cmd -ErrorAction SilentlyContinue
-        if ($exe) { return $exe.Source }
+        if (-not $exe) { continue }
+        $rc = Invoke-NativeCommand -Exe $exe.Source -ArgumentList @("-c", "import sys; print(sys.version.split()[0])")
+        if ($rc -eq 0) {
+            Write-Host "Python: $($exe.Source)" -ForegroundColor DarkGray
+            return $exe.Source
+        }
     }
-    throw "Python nao encontrado no PATH."
+    return $null
+}
+
+function Ensure-Pymysql {
+    param([string]$PyExe)
+    $rc = Invoke-NativeCommand -Exe $PyExe -ArgumentList @("-c", "import pymysql")
+    if ($rc -eq 0) { return }
+    Write-Host "Instalando pymysql (primeira vez)..." -ForegroundColor Yellow
+    $rc = Invoke-NativeCommand -Exe $PyExe -ArgumentList @("-m", "pip", "install", "pymysql", "--quiet")
+    if ($rc -ne 0) {
+        throw "Falha ao instalar pymysql. Rode manualmente: `"$PyExe -m pip install pymysql`""
+    }
+}
+
+function Show-FatalError {
+    param([System.Management.Automation.ErrorRecord]$Err)
+    Write-Host ""
+    Write-Host "ERRO: $($Err.Exception.Message)" -ForegroundColor Red
+    if ($Err.ScriptStackTrace) {
+        Write-Host $Err.ScriptStackTrace -ForegroundColor DarkGray
+    }
+    if (-not $NoPause) {
+        Read-Host "Pressione Enter para fechar"
+    }
 }
 
 function Resolve-RepoRoot([string]$Requested) {
@@ -56,8 +101,10 @@ function Resolve-RepoRoot([string]$Requested) {
     }
     $candidates = @(
         (Join-Path $PSScriptRoot ".."),
+        (Join-Path $PSScriptRoot "..\.."),
         "C:\Users\Ciano\Documents\arkland-multi",
-        "C:\Program Files\ARKLAND-ServerManager"
+        "C:\Program Files\ARKLAND-ServerManager",
+        (Join-Path $env:USERPROFILE "Documents\arkland-multi")
     )
     foreach ($c in $candidates) {
         if ($c -and (Test-Path (Join-Path $c "src\catalog_sync.py"))) {
@@ -130,6 +177,412 @@ function Find-Mysqldump {
     return $null
 }
 
+function Find-MysqlClient {
+    $dump = Find-Mysqldump
+    if ($dump) {
+        $mysql = Join-Path (Split-Path -Parent $dump) "mysql.exe"
+        if (Test-Path -LiteralPath $mysql) { return $mysql }
+    }
+    $candidates = @(
+        "C:\ARKLAND SERVER\MARIADB\bin\mysql.exe",
+        (Join-Path $env:APPDATA "ARKLAND-ServerManager\mariadb\bin\mysql.exe"),
+        "C:\Program Files\MariaDB\bin\mysql.exe",
+        "C:\Program Files\MariaDB 11.4\bin\mysql.exe",
+        "C:\Program Files\MariaDB 11.3\bin\mysql.exe",
+        "C:\Program Files\MariaDB 10.11\bin\mysql.exe",
+        "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe"
+    )
+    foreach ($p in $candidates) {
+        if ($p -and (Test-Path -LiteralPath $p)) { return $p }
+    }
+    $cmd = Get-Command mysql -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    throw "mysql.exe nao encontrado. O backup SQL funcionou; verifique se mysql.exe esta na mesma pasta do mysqldump."
+}
+
+function Invoke-MysqlScript {
+    param(
+        [string]$Client,
+        [string]$DbHost,
+        [int]$DbPort,
+        [string]$DbUser,
+        [string]$DbPass,
+        [string]$Database,
+        [string]$Sql
+    )
+    $args = @(
+        "-h$DbHost", "-P$DbPort", "-u$DbUser",
+        "--default-character-set=utf8mb4",
+        $Database
+    )
+    $env:MYSQL_PWD = $DbPass
+    try {
+        $prevNative = $PSNativeCommandUseErrorActionPreference
+        try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $out = $Sql | & $Client @args 2>&1
+        } finally {
+            $PSNativeCommandUseErrorActionPreference = $prevNative
+        }
+        if ($LASTEXITCODE -ne 0) {
+            $text = ($out | Out-String).Trim()
+            throw "mysql falhou (codigo $LASTEXITCODE): $text"
+        }
+        return $out
+    } finally {
+        Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-RemovedVipGroup {
+    param([string]$Name)
+    return [bool]($Name -and $Name.ToUpper().StartsWith("VIP"))
+}
+
+function Test-RetiredCatalogItem {
+    param([string]$ItemId, $Item)
+    if (-not $Item) { return $false }
+    $key = $ItemId.ToLower()
+    if ($key.StartsWith("licenca_vip") -or $key.Contains("_vip")) { return $true }
+    if ($Item.PSObject.Properties.Name -contains "LicenseGrant") {
+        $group = [string]$Item.LicenseGrant.Group
+        if (Test-RemovedVipGroup $group) { return $true }
+    }
+    return $false
+}
+
+function Test-RetiredCatalogKit {
+    param([string]$KitId, $Kit)
+    if (-not $Kit) { return $false }
+    if ($KitId.ToLower().StartsWith("vip")) { return $true }
+    if ($Kit.PSObject.Properties.Name -contains "VipLicense") { return $true }
+    $perms = [string]$Kit.Permissions
+    if ($perms) {
+        foreach ($part in ($perms -split ",")) {
+            if (Test-RemovedVipGroup ($part.Trim())) { return $true }
+        }
+    }
+    return $false
+}
+
+function Skip-JsonStringEnd {
+    param([string]$Text, [int]$Start)
+    $j = $Start + 1
+    while ($j -lt $Text.Length) {
+        if ($Text[$j] -eq '\') { $j += 2; continue }
+        if ($Text[$j] -eq '"') { return $j + 1 }
+        $j++
+    }
+    return $Text.Length
+}
+
+function Find-JsonValueEnd {
+    param([string]$Text, [int]$Start)
+    $i = $Start
+    while ($i -lt $Text.Length -and [char]::IsWhiteSpace($Text[$i])) { $i++ }
+    if ($i -ge $Text.Length) { return $i }
+    switch ($Text[$i]) {
+        '{' {
+            $depth = 0
+            for ($j = $i; $j -lt $Text.Length; $j++) {
+                $ch = $Text[$j]
+                if ($ch -eq '"') { $j = (Skip-JsonStringEnd -Text $Text -Start $j) - 1; continue }
+                if ($ch -eq '{') { $depth++ }
+                elseif ($ch -eq '}') {
+                    $depth--
+                    if ($depth -eq 0) { return $j + 1 }
+                }
+            }
+            return $Text.Length
+        }
+        '[' {
+            $depth = 0
+            for ($j = $i; $j -lt $Text.Length; $j++) {
+                $ch = $Text[$j]
+                if ($ch -eq '"') { $j = (Skip-JsonStringEnd -Text $Text -Start $j) - 1; continue }
+                if ($ch -eq '[') { $depth++ }
+                elseif ($ch -eq ']') {
+                    $depth--
+                    if ($depth -eq 0) { return $j + 1 }
+                }
+            }
+            return $Text.Length
+        }
+        '"' { return Skip-JsonStringEnd -Text $Text -Start $i }
+        default {
+            for ($j = $i; $j -lt $Text.Length; $j++) {
+                if ($Text[$j] -eq ',' -or $Text[$j] -eq '}' -or $Text[$j] -eq ']') {
+                    return $j
+                }
+            }
+            return $Text.Length
+        }
+    }
+}
+
+function Find-JsonSectionInnerRange {
+    param([string]$Text, [string]$SectionName)
+    $pat = '"' + [regex]::Escape($SectionName) + '"\s*:\s*\{'
+    $m = [regex]::Match($Text, $pat)
+    if (-not $m.Success) { return $null }
+    $open = $m.Index + $m.Length - 1
+    $close = (Find-JsonValueEnd -Text $Text -Start $open) - 1
+    return @{ InnerStart = $open + 1; InnerEnd = $close }
+}
+
+function Find-JsonEntryRange {
+    param(
+        [string]$Text,
+        [int]$InnerStart,
+        [int]$InnerEnd,
+        [string]$Key
+    )
+    $body = $Text.Substring($InnerStart, $InnerEnd - $InnerStart)
+    $pat = '"' + [regex]::Escape($Key) + '"\s*:'
+    $m = [regex]::Match($body, $pat)
+    if (-not $m.Success) { return $null }
+    $keyStart = $InnerStart + $m.Index
+    $valStart = $InnerStart + $m.Index + $m.Length
+    $valEnd = Find-JsonValueEnd -Text $Text -Start $valStart
+    $removeStart = $keyStart
+    $removeEnd = $valEnd
+    $scan = $removeEnd
+    while ($scan -lt $Text.Length -and [char]::IsWhiteSpace($Text[$scan])) { $scan++ }
+    if ($scan -lt $Text.Length -and $Text[$scan] -eq ',') {
+        $removeEnd = $scan + 1
+    } else {
+        $prev = $removeStart - 1
+        while ($prev -ge $InnerStart -and [char]::IsWhiteSpace($Text[$prev])) { $prev-- }
+        if ($prev -ge $InnerStart -and $Text[$prev] -eq ',') { $removeStart = $prev }
+    }
+    return @{ Start = $removeStart; End = $removeEnd }
+}
+
+function Remove-JsonEntryInSection {
+    param(
+        [ref]$Text,
+        [string]$SectionName,
+        [string]$Key
+    )
+    $sec = Find-JsonSectionInnerRange -Text $Text.Value -SectionName $SectionName
+    if (-not $sec) { return $false }
+    $entry = Find-JsonEntryRange -Text $Text.Value -InnerStart $sec.InnerStart `
+        -InnerEnd $sec.InnerEnd -Key $Key
+    if (-not $entry) { return $false }
+    $Text.Value = $Text.Value.Remove($entry.Start, $entry.End - $entry.Start)
+    return $true
+}
+
+function Remove-JsonPropertyInSectionEntry {
+    param(
+        [ref]$Text,
+        [string]$SectionName,
+        [string]$EntryKey,
+        [string]$PropertyName
+    )
+    $sec = Find-JsonSectionInnerRange -Text $Text.Value -SectionName $SectionName
+    if (-not $sec) { return $false }
+    $entry = Find-JsonEntryRange -Text $Text.Value -InnerStart $sec.InnerStart `
+        -InnerEnd $sec.InnerEnd -Key $EntryKey
+    if (-not $entry) { return $false }
+    $objStart = $Text.Value.IndexOf('{', $entry.Start)
+    if ($objStart -lt 0 -or $objStart -ge $entry.End) { return $false }
+    $objEnd = Find-JsonValueEnd -Text $Text.Value -Start $objStart
+    $innerStart = $objStart + 1
+    $innerEnd = $objEnd - 1
+    $propPat = '"' + [regex]::Escape($PropertyName) + '"\s*:'
+    $body = $Text.Value.Substring($innerStart, $innerEnd - $innerStart)
+    $m = [regex]::Match($body, $propPat)
+    if (-not $m.Success) { return $false }
+    $propStart = $innerStart + $m.Index
+    $valStart = $innerStart + $m.Index + $m.Length
+    $valEnd = Find-JsonValueEnd -Text $Text.Value -Start $valStart
+    $removeStart = $propStart
+    $removeEnd = $valEnd
+    $scan = $removeEnd
+    while ($scan -lt $innerEnd -and [char]::IsWhiteSpace($Text.Value[$scan])) { $scan++ }
+    if ($scan -lt $innerEnd -and $Text.Value[$scan] -eq ',') {
+        $removeEnd = $scan + 1
+    } else {
+        $prev = $removeStart - 1
+        while ($prev -ge $innerStart -and [char]::IsWhiteSpace($Text.Value[$prev])) { $prev-- }
+        if ($prev -ge $innerStart -and $Text.Value[$prev] -eq ',') { $removeStart = $prev }
+    }
+    $Text.Value = $Text.Value.Remove($removeStart, $removeEnd - $removeStart)
+    return $true
+}
+
+function Invoke-CatalogPurgeInline {
+    param(
+        [string]$CatalogPath,
+        [switch]$PreviewOnly
+    )
+    $stripPerms = @(
+        "struct_transmitter", "struct_generatortek", "item_soultraps_20",
+        "struct_tekreplicator_vip", "stryder_rig"
+    )
+    $raw = [System.IO.File]::ReadAllText($CatalogPath)
+    $data = $raw | ConvertFrom-Json
+    $notes = New-Object System.Collections.Generic.List[string]
+    $removeItems = New-Object System.Collections.Generic.List[string]
+    $removeKits = New-Object System.Collections.Generic.List[string]
+    $stripPermKeys = New-Object System.Collections.Generic.List[string]
+
+    if ($data.Items) {
+        foreach ($key in @($data.Items.PSObject.Properties.Name)) {
+            if (Test-RetiredCatalogItem -ItemId $key -Item $data.Items.$key) {
+                $notes.Add("item:$key")
+                $removeItems.Add($key)
+            }
+        }
+    }
+    if ($data.Kits) {
+        foreach ($key in @($data.Kits.PSObject.Properties.Name)) {
+            if (Test-RetiredCatalogKit -KitId $key -Kit $data.Kits.$key) {
+                $notes.Add("kit:$key")
+                $removeKits.Add($key)
+            }
+        }
+    }
+    foreach ($key in $stripPerms) {
+        $entry = $data.Items.$key
+        if ($entry -and ($entry.PSObject.Properties.Name -contains "Permissions")) {
+            $notes.Add("perms:$key")
+            $stripPermKeys.Add($key)
+        }
+    }
+
+    if (-not $PreviewOnly) {
+        $text = $raw
+        foreach ($key in $removeItems) {
+            [void](Remove-JsonEntryInSection -Text ([ref]$text) -SectionName "Items" -Key $key)
+        }
+        foreach ($key in $removeKits) {
+            [void](Remove-JsonEntryInSection -Text ([ref]$text) -SectionName "Kits" -Key $key)
+        }
+        foreach ($key in $stripPermKeys) {
+            [void](Remove-JsonPropertyInSectionEntry -Text ([ref]$text) -SectionName "Items" `
+                -EntryKey $key -PropertyName "Permissions")
+        }
+        [System.IO.File]::WriteAllText(
+            $CatalogPath,
+            $text,
+            [System.Text.UTF8Encoding]::new($false)
+        )
+        $data = $text | ConvertFrom-Json
+    }
+
+    $itemCount = if ($data.Items) { @($data.Items.PSObject.Properties).Count } else { 0 }
+    $kitCount = if ($data.Kits) { @($data.Kits.PSObject.Properties).Count } else { 0 }
+    Write-Host "CATALOGO: itens=$itemCount kits=$kitCount alteracoes=$($notes.Count)" -ForegroundColor Green
+    $shown = [Math]::Min(25, $notes.Count)
+    for ($i = 0; $i -lt $shown; $i++) {
+        Write-Host "  $($notes[$i])" -ForegroundColor DarkGray
+    }
+    if ($notes.Count -gt 25) {
+        Write-Host "  ... +$($notes.Count - 25)" -ForegroundColor DarkGray
+    }
+}
+
+function Get-PermissionCleanupSql {
+    param([switch]$PreviewOnly)
+    $deleteIds = "6, 7, 10, 11, 12, 13, 29, 70"
+    if ($PreviewOnly) {
+        return @"
+SELECT 'GRUPOS ANTES' AS info;
+SELECT Id, GroupName FROM permissiongroups ORDER BY Id;
+SELECT 'GRUPOS A APAGAR' AS info;
+SELECT Id, GroupName FROM permissiongroups WHERE Id IN ($deleteIds);
+"@
+    }
+    return @"
+START TRANSACTION;
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, 'VIPBronze,', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',VIPBronze', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, 'VIPPrata,', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',VIPPrata', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, 'VIPOuro,', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',VIPOuro', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, 'VIPDiamante,', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',VIPDiamante', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, 'VIPDoacao,', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',VIPDoacao', '');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, 'Moderacao,', 'Mod,');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',Moderacao,', ',Mod,');
+UPDATE players SET PermissionGroups = REPLACE(PermissionGroups, ',Moderacao', ',Mod');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'VIPBronze,', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',VIPBronze', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'VIPPrata,', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',VIPPrata', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'VIPOuro,', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',VIPOuro', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'VIPDiamante,', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',VIPDiamante', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'VIPDoacao,', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',VIPDoacao', '');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, 'Moderacao,', 'Mod,');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',Moderacao,', ',Mod,');
+UPDATE players SET TimedPermissionGroups = REPLACE(TimedPermissionGroups, ',Moderacao', ',Mod');
+DELETE FROM permissiongroups WHERE Id IN ($deleteIds);
+SELECT Id, GroupName FROM permissiongroups ORDER BY Id;
+COMMIT;
+"@
+}
+
+function Get-ShopCleanupSql {
+    param([switch]$PreviewOnly)
+    if ($PreviewOnly) {
+        return @"
+SELECT COUNT(*) AS entitlements_vip FROM player_entitlements WHERE group_name LIKE 'VIP%';
+SELECT COUNT(*) AS vip_players_rows FROM information_schema.tables
+  WHERE table_schema = DATABASE() AND table_name = 'vip_players';
+"@
+    }
+    return @"
+START TRANSACTION;
+DELETE FROM player_entitlements WHERE group_name LIKE 'VIP%';
+SET @has_vip := (SELECT COUNT(*) FROM information_schema.tables
+  WHERE table_schema = DATABASE() AND table_name = 'vip_players');
+SET @sql := IF(@has_vip > 0, 'DELETE FROM vip_players', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+COMMIT;
+"@
+}
+
+function Invoke-CleanupNative {
+    param(
+        [string]$CatalogPath,
+        [string]$MysqlClient,
+        [string]$DbHost,
+        [int]$DbPort,
+        [string]$DbUser,
+        [string]$DbPass,
+        [string]$PermDb,
+        [string]$ShopDb,
+        [switch]$PreviewOnly
+    )
+    Write-Step "Limpando catalogo (PowerShell)"
+    Invoke-CatalogPurgeInline -CatalogPath $CatalogPath -PreviewOnly:$PreviewOnly
+
+    Write-Step "Limpando $PermDb (mysql.exe)"
+    $permOut = Invoke-MysqlScript -Client $MysqlClient -DbHost $DbHost -DbPort $DbPort `
+        -DbUser $DbUser -DbPass $DbPass -Database $PermDb `
+        -Sql (Get-PermissionCleanupSql -PreviewOnly:$PreviewOnly)
+    $permOut | ForEach-Object { Write-Host $_ }
+
+    Write-Step "Limpando $ShopDb (mysql.exe)"
+    try {
+        $shopOut = Invoke-MysqlScript -Client $MysqlClient -DbHost $DbHost -DbPort $DbPort `
+            -DbUser $DbUser -DbPass $DbPass -Database $ShopDb `
+            -Sql (Get-ShopCleanupSql -PreviewOnly:$PreviewOnly)
+        $shopOut | ForEach-Object { Write-Host $_ }
+    } catch {
+        Write-Host "LOJA AVISO: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 function Backup-BeforeCleanup {
     param(
         [string]$DestRoot,
@@ -165,7 +618,7 @@ function Backup-BeforeCleanup {
 
     $mysqldump = Find-Mysqldump
     if (-not $mysqldump) {
-        Write-Host "AVISO: mysqldump nao encontrado — backup SQL ignorado (catalogo JSON foi salvo)." -ForegroundColor Yellow
+        Write-Host "AVISO: mysqldump nao encontrado - backup SQL ignorado (catalogo JSON foi salvo)." -ForegroundColor Yellow
         return $dest
     }
 
@@ -189,6 +642,67 @@ function Backup-BeforeCleanup {
     return $dest
 }
 
+function Get-MapFolderFromConfigPath {
+    param([string]$ConfigPath)
+    if ($ConfigPath -match '(?i)\\MAPAS\\([^\\]+)\\') {
+        return $Matches[1]
+    }
+    return ""
+}
+
+function Set-CrossChatServerIdInFile {
+    param(
+        [string]$ConfigPath,
+        [string]$ServerId
+    )
+    $raw = [System.IO.File]::ReadAllText($ConfigPath)
+    if ($raw -match '"ServerId"\s*:\s*"') {
+        $raw = [regex]::Replace(
+            $raw,
+            '("ServerId"\s*:\s*")[^"]*(")',
+            "`${1}$ServerId`${2}",
+            1
+        )
+    } else {
+        $raw = [regex]::Replace(
+            $raw,
+            '("CrossChat"\s*:\s*\{)',
+            "`${1}`n    ""ServerId"": ""$ServerId"",",
+            1
+        )
+    }
+    [System.IO.File]::WriteAllText(
+        $ConfigPath,
+        $raw,
+        [System.Text.UTF8Encoding]::new($false)
+    )
+}
+
+function Repair-CrossChatServerIds {
+    param([string]$Root)
+    $pattern = Join-Path $Root "*\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json"
+    $used = @{}
+    $count = 0
+    foreach ($f in Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue) {
+        $folder = Get-MapFolderFromConfigPath $f.FullName
+        if (-not $folder) { continue }
+        $sid = $folder
+        $key = $sid.ToLower()
+        if ($used.ContainsKey($key)) {
+            $used[$key] = [int]$used[$key] + 1
+            $sid = "${folder}_$($used[$key])"
+        } else {
+            $used[$key] = 1
+        }
+        Set-CrossChatServerIdInFile -ConfigPath $f.FullName -ServerId $sid
+        Write-Host "CrossChat ServerId: $sid <- $($f.FullName)" -ForegroundColor DarkGray
+        $count++
+    }
+    if ($count -eq 0) {
+        Write-Host "AVISO: nenhum config de mapa para CrossChat ServerId em $pattern" -ForegroundColor Yellow
+    }
+}
+
 function Sync-CatalogToMaps([string]$Master, [string]$Root, [string]$WebStorePath) {
     $pattern = Join-Path $Root "*\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json"
     $masterFull = (Resolve-Path -LiteralPath $Master).Path
@@ -205,11 +719,16 @@ function Sync-CatalogToMaps([string]$Master, [string]$Root, [string]$WebStorePat
         Copy-Item -LiteralPath $Master -Destination $WebStorePath -Force
         Write-Host "WEBSTORE OK: $WebStorePath" -ForegroundColor Green
     }
+    Write-Host "Corrigindo CrossChat.ServerId por pasta MAPAS..." -ForegroundColor Cyan
+    Repair-CrossChatServerIds -Root $Root
 }
 
-Write-Step "ARKLAND — limpeza completa (catalogo + MySQL)"
+$tmpPy = $null
+
+try {
+Write-Step "ARKLAND - limpeza completa (catalogo + MySQL)"
 $repo = Resolve-RepoRoot -Requested $RepoRoot
-if ($repo) { Write-Host "Repo: $repo" -ForegroundColor DarkGray } else { Write-Host "Repo nao encontrado — purge inline no catalogo" -ForegroundColor Yellow }
+if ($repo) { Write-Host "Repo: $repo" -ForegroundColor DarkGray } else { Write-Host "Repo nao encontrado - purge inline no catalogo" -ForegroundColor Yellow }
 
 $permCfg = Read-PermissionsConfig -Root $MapsRoot
 if ($permCfg) {
@@ -224,7 +743,7 @@ if ($permCfg) {
 }
 if (-not $MySqlUser) { $MySqlUser = "arkland" }
 if (-not $MySqlPassword) {
-    $sec = Read-Host "Senha MySQL ($MySqlUser@$MySqlHost)" -AsSecureString
+    $sec = Read-Host ('Senha MySQL ({0}@{1})' -f $MySqlUser, $MySqlHost) -AsSecureString
     $MySqlPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
         [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
     )
@@ -250,255 +769,102 @@ if (-not $PreviewOnly -and -not $SkipBackup) {
     Write-Host "Backup concluido: $backupPath" -ForegroundColor Green
 }
 
-$pyExe = Find-Python
-& $pyExe -c "import pymysql" 2>$null
-if ($LASTEXITCODE -ne 0) { & $pyExe -m pip install pymysql -q }
+Write-Step "Preparando limpeza (mysql.exe + PowerShell)"
+$mysqlClient = Find-MysqlClient
+Write-Host "mysql.exe: $mysqlClient" -ForegroundColor DarkGray
 
-$tmpPy = Join-Path $env:TEMP "arkland_full_cleanup_$([Guid]::NewGuid().ToString('N')).py"
-$preview = if ($PreviewOnly) { "1" } else { "0" }
+$pyExe = Find-PythonOptional
+$usePythonCatalog = $false
+if ($pyExe -and $repo) {
+    try {
+        Ensure-Pymysql -PyExe $pyExe
+        $usePythonCatalog = $true
+        Write-Host "Python + repo: catalog_sync completo" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "AVISO: Python/repo indisponivel ($($_.Exception.Message)) - purge inline" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Sem Python no PATH - usando PowerShell + mysql.exe (normal no servidor)" -ForegroundColor DarkGray
+}
 
-$pyContent = @'
+Write-Step "Aplicando limpeza (catalogo + MySQL)"
+if ($usePythonCatalog) {
+    $tmpPy = Join-Path $env:TEMP "arkland_catalog_sync_$([Guid]::NewGuid().ToString('N')).py"
+    $previewFlag = if ($PreviewOnly) { "1" } else { "0" }
+    $pyContent = @"
 import json
-import re
 import sys
 from pathlib import Path
 
-MASTER = Path(sys.argv[1])
-REPO = sys.argv[2]
-HOST, PORT, USER, PASS = sys.argv[3:7]
-PERM_DB, SHOP_DB = sys.argv[7:9]
-PREVIEW = sys.argv[9] == "1"
+master = Path(sys.argv[1])
+repo = Path(sys.argv[2])
+preview = sys.argv[3] == "1"
 
-DELETE_GROUP_IDS = (6, 7, 10, 11, 12, 13, 29, 70)
-REMOVED_PREFIX = "VIP"
-STRIP_ITEM_PERMS = (
-    "struct_transmitter", "struct_generatortek", "item_soultraps_20",
-    "struct_tekreplicator_vip", "stryder_rig",
-)
-VIP_RE = re.compile(r"^VIP", re.I)
-MOD_EXACT = {"moderacao", "moderação", "modera????o", "moderaã§ã£o", "moderaÃ§Ã£o"}
+sys.path.insert(0, str(repo))
+from src.catalog_sync import apply_catalog_sync
 
-
-def is_mod_alias(part: str) -> bool:
-    low = part.lower()
-    return low in MOD_EXACT or (low.startswith("modera") and part != "Mod")
-
-
-def is_removed_group(name: str) -> bool:
-    return bool(name) and name.upper().startswith(REMOVED_PREFIX)
-
-
-def is_retired_item(item_id: str, item: dict) -> bool:
-    key = item_id.lower()
-    if key.startswith("licenca_vip") or "_vip" in key:
-        return True
-    grant = item.get("LicenseGrant") or {}
-    return is_removed_group(str(grant.get("Group") or ""))
-
-
-def is_retired_kit(kit_id: str, kit: dict) -> bool:
-    if kit_id.lower().startswith("vip"):
-        return True
-    if isinstance(kit.get("VipLicense"), dict):
-        return True
-    perms = str(kit.get("Permissions") or "")
-    return any(is_removed_group(p.strip()) for p in perms.split(",") if p.strip())
-
-
-def purge_catalog_inline(data: dict) -> list[str]:
-    removed = []
-    items = data.setdefault("Items", {})
-    kits = data.setdefault("Kits", {})
-    for key in list(items.keys()):
-        entry = items.get(key)
-        if isinstance(entry, dict) and is_retired_item(str(key), entry):
-            del items[key]
-            removed.append(f"item:{key}")
-    for key in list(kits.keys()):
-        entry = kits.get(key)
-        if isinstance(entry, dict) and is_retired_kit(str(key), entry):
-            del kits[key]
-            removed.append(f"kit:{key}")
-    for key in STRIP_ITEM_PERMS:
-        entry = items.get(key)
-        if isinstance(entry, dict) and "Permissions" in entry:
-            entry.pop("Permissions", None)
-            removed.append(f"perms:{key}")
-    return removed
-
-
-def apply_catalog(master: Path) -> list[str]:
-    data = json.loads(master.read_text(encoding="utf-8"))
-    notes: list[str] = []
-    if REPO:
-        repo = Path(REPO)
-        if (repo / "src" / "catalog_sync.py").is_file():
-            sys.path.insert(0, str(repo))
-            from src.catalog_sync import apply_catalog_sync  # noqa: WPS433
-
-            cleared, kit_updates = apply_catalog_sync(data)
-            notes.extend(cleared)
-            notes.extend(kit_updates)
-        else:
-            notes.extend(purge_catalog_inline(data))
-    else:
-        notes.extend(purge_catalog_inline(data))
-    if not PREVIEW:
-        master.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    items_n = len(data.get("Items") or {})
-    kits_n = len(data.get("Kits") or {})
-    print(f"CATALOGO: itens={items_n} kits={kits_n} alteracoes={len(notes)}")
-    for line in notes[:25]:
-        print(f"  {line}")
-    if len(notes) > 25:
-        print(f"  ... +{len(notes) - 25}")
-    return notes
-
-
-def clean_player_groups(value: str) -> str:
-    if not value:
-        return value
-    out, has_mod = [], False
-    for part in [p.strip() for p in value.split(",") if p.strip()]:
-        if VIP_RE.match(part):
-            continue
-        if is_mod_alias(part):
-            if not has_mod:
-                out.append("Mod")
-                has_mod = True
-            continue
-        if part == "Mod":
-            if not has_mod:
-                out.append("Mod")
-                has_mod = True
-            continue
-        out.append(part)
-    if "Default" not in out:
-        out.insert(0, "Default")
-    return ",".join(out) + ","
-
-
-def cleanup_permission_db() -> None:
-    import pymysql
-
-    conn = pymysql.connect(
-        host=HOST, port=int(PORT), user=USER, password=PASS,
-        database=PERM_DB, charset="utf8mb4", autocommit=False,
-    )
-    try:
-        cur = conn.cursor()
-        print(f"PERMISSOES ({PERM_DB}) ANTES:")
-        cur.execute("SELECT Id, GroupName FROM permissiongroups ORDER BY Id")
-        before = cur.fetchall()
-        for row in before:
-            print(f"  {row[0]:>3}  {row[1]}")
-
-        cur.execute("SELECT Id, PermissionGroups, TimedPermissionGroups FROM players")
-        n_players = 0
-        for pid, pg, tpg in cur.fetchall():
-            npg, ntpg = clean_player_groups(pg or ""), clean_player_groups(tpg or "")
-            if npg != (pg or "") or ntpg != (tpg or ""):
-                n_players += 1
-                if not PREVIEW:
-                    cur.execute(
-                        "UPDATE players SET PermissionGroups=%s, TimedPermissionGroups=%s WHERE Id=%s",
-                        (npg, ntpg, pid),
-                    )
-        ids_sql = ",".join(str(i) for i in DELETE_GROUP_IDS)
-        if PREVIEW:
-            cur.execute(f"SELECT Id, GroupName FROM permissiongroups WHERE Id IN ({ids_sql})")
-            to_del = cur.fetchall()
-            print(f"PERMISSOES PREVIEW: {n_players} jogador(es), {len(to_del)} grupo(s) a apagar")
-            for row in to_del:
-                print(f"  DELETE id={row[0]} {row[1]!r}")
-            conn.rollback()
-        else:
-            cur.execute(f"DELETE FROM permissiongroups WHERE Id IN ({ids_sql})")
-            deleted = cur.rowcount
-            conn.commit()
-            print(f"PERMISSOES: {n_players} jogador(es) atualizados, {deleted} grupos apagados")
-            cur.execute("SELECT Id, GroupName FROM permissiongroups ORDER BY Id")
-            print("PERMISSOES DEPOIS:")
-            for row in cur.fetchall():
-                print(f"  {row[0]:>3}  {row[1]}")
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
-def cleanup_shop_db() -> None:
-    import pymysql
-
-    conn = pymysql.connect(
-        host=HOST, port=int(PORT), user=USER, password=PASS,
-        database=SHOP_DB, charset="utf8mb4", autocommit=False,
-    )
-    try:
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM player_entitlements WHERE group_name LIKE 'VIP%%'")
-        n_ent = int(cur.fetchone()[0])
-        cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=%s AND table_name='vip_players'", (SHOP_DB,))
-        has_vip = int(cur.fetchone()[0]) > 0
-        n_vip = 0
-        if has_vip:
-            cur.execute("SELECT COUNT(*) FROM vip_players")
-            n_vip = int(cur.fetchone()[0])
-        if PREVIEW:
-            print(f"LOJA PREVIEW: entitlements VIP={n_ent}, vip_players={n_vip}")
-            conn.rollback()
-            return
-        cur.execute("DELETE FROM player_entitlements WHERE group_name LIKE 'VIP%%'")
-        d1 = cur.rowcount
-        d2 = 0
-        if has_vip:
-            cur.execute("DELETE FROM vip_players")
-            d2 = cur.rowcount
-        conn.commit()
-        print(f"LOJA: removidos entitlements={d1}, vip_players={d2}")
-    except Exception as exc:
-        conn.rollback()
-        print(f"LOJA AVISO: {exc}")
-    finally:
-        conn.close()
-
-
-def main() -> int:
-    apply_catalog(MASTER)
-    cleanup_permission_db()
-    cleanup_shop_db()
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-'@
-
-try {
+data = json.loads(master.read_text(encoding="utf-8"))
+cleared, kit_updates = apply_catalog_sync(data)
+notes = list(cleared) + list(kit_updates)
+if not preview:
+    master.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+items_n = len(data.get("Items") or {})
+kits_n = len(data.get("Kits") or {})
+print(f"CATALOGO: itens={items_n} kits={kits_n} alteracoes={len(notes)}")
+for line in notes[:25]:
+    print(f"  {line}")
+if len(notes) > 25:
+    print(f"  ... +{len(notes) - 25}")
+"@
     Set-Content -LiteralPath $tmpPy -Value $pyContent -Encoding UTF8
-    & $pyExe $tmpPy $master $repo $MySqlHost $MySqlPort $MySqlUser $MySqlPassword $PermDatabase $ShopDatabase $preview
-    if ($LASTEXITCODE -ne 0) { throw "Script Python falhou (codigo $LASTEXITCODE)" }
-
-    if (-not $PreviewOnly) {
-        Write-Step "Propagando catalogo para mapas e WEBSTORE"
-        Sync-CatalogToMaps -Master $master -Root $MapsRoot -WebStorePath $WebStore
-        Update-WebSettingsPath -SettingsPath $Settings -CatalogPath $master
-    } else {
-        Write-Host "`nPreviewOnly — catalogo/DB nao gravados; mapas nao sincronizados." -ForegroundColor Yellow
+    $pyOut = & $pyExe $tmpPy $master $repo $previewFlag 2>&1
+    $pyOut | ForEach-Object { Write-Host $_ }
+    if ($LASTEXITCODE -ne 0) {
+        throw "catalog_sync Python falhou (codigo $LASTEXITCODE)"
     }
+    Remove-Item -LiteralPath $tmpPy -Force -ErrorAction SilentlyContinue
 
-    Write-Step "Pronto"
-    if ($PreviewOnly) {
-        Write-Host "Rode de novo sem -PreviewOnly para aplicar." -ForegroundColor Yellow
-    } else {
-        Write-Host @"
+    Write-Step "Limpando $PermDatabase (mysql.exe)"
+    $permOut = Invoke-MysqlScript -Client $mysqlClient -DbHost $MySqlHost -DbPort $MySqlPort `
+        -DbUser $MySqlUser -DbPass $MySqlPassword -Database $PermDatabase `
+        -Sql (Get-PermissionCleanupSql -PreviewOnly:$PreviewOnly)
+    $permOut | ForEach-Object { Write-Host $_ }
+
+    Write-Step "Limpando $ShopDatabase (mysql.exe)"
+    try {
+        $shopOut = Invoke-MysqlScript -Client $mysqlClient -DbHost $MySqlHost -DbPort $MySqlPort `
+            -DbUser $MySqlUser -DbPass $MySqlPassword -Database $ShopDatabase `
+            -Sql (Get-ShopCleanupSql -PreviewOnly:$PreviewOnly)
+        $shopOut | ForEach-Object { Write-Host $_ }
+    } catch {
+        Write-Host "LOJA AVISO: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+} else {
+    Invoke-CleanupNative -CatalogPath $master -MysqlClient $mysqlClient `
+        -DbHost $MySqlHost -DbPort $MySqlPort -DbUser $MySqlUser -DbPass $MySqlPassword `
+        -PermDb $PermDatabase -ShopDb $ShopDatabase -PreviewOnly:$PreviewOnly
+}
+
+if (-not $PreviewOnly) {
+    Write-Step "Propagando catalogo para mapas e WEBSTORE"
+    Sync-CatalogToMaps -Master $master -Root $MapsRoot -WebStorePath $WebStore
+    Update-WebSettingsPath -SettingsPath $Settings -CatalogPath $master
+} else {
+    Write-Host "`nPreviewOnly - catalogo/DB nao gravados; mapas nao sincronizados." -ForegroundColor Yellow
+}
+
+Write-Step "Pronto"
+if ($PreviewOnly) {
+    Write-Host "Rode de novo sem -PreviewOnly para aplicar." -ForegroundColor Yellow
+} else {
+    Write-Host @"
 1. F5 no DB Manager (permissiongroups)
 2. Reinicie a Web Store
 3. Shop.Reload em cada mapa (ou restart)
-4. NAO use «Provisionar grupos (RCON)»
+4. NAO use 'Provisionar grupos (RCON)'
 "@ -ForegroundColor White
-    }
-} finally {
-    Remove-Item -LiteralPath $tmpPy -Force -ErrorAction SilentlyContinue
+}
+} catch {
+    Show-FatalError -Err $_
+    exit 1
 }

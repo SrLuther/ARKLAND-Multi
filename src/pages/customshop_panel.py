@@ -19,8 +19,6 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
-from ..rcon_client import RconClient
-from ..rcon_util import CUSTOMSHOP_RELOAD_COMMANDS, sanitize_rcon_password
 from ..shop_catalog_import import import_catalog_from_file
 from ..shop_integration import (
     DEFAULT_REMOTE_SHOP_HOST,
@@ -40,9 +38,11 @@ from ..shop_integration import (
     get_shop_subprocess_env,
     install_customshop_all,
     is_customshop_installed,
+    iter_shop_rcon_servers,
     iter_shop_servers,
     provision_permission_groups_for_servers,
     read_webstore_log_tail,
+    reload_customshop_via_rcon_for_app,
     resolve_central_url,
     resolve_plugin_api_url,
     resolve_plugin_website_url,
@@ -1207,61 +1207,6 @@ def _is_web_running(port: int = 0) -> bool:
     return False
 
 
-def _reload_customshop_rcon_all(app: "ARKServerManagerApp") -> tuple[list[str], list[str], list[str]]:
-    """Envia comando de reload do CustomShop via RCON para todos os servidores elegíveis."""
-    asm_cm = getattr(app, "asm_config_manager", None)
-    servers = iter_shop_servers(app.config_manager, asm_cm)
-    ok: list[str] = []
-    failed: list[str] = []
-    skipped: list[str] = []
-    commands = list(CUSTOMSHOP_RELOAD_COMMANDS)
-
-    for _kind, srv in servers:
-        name = getattr(srv, "name", "") or getattr(srv, "id", "") or "Servidor"
-        if not getattr(srv, "rcon_enabled", False):
-            skipped.append(f"{name}: RCON desativado")
-            continue
-        rcon_pass = sanitize_rcon_password(
-            getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
-        )
-        if not rcon_pass:
-            skipped.append(f"{name}: senha RCON/admin não definida")
-            continue
-
-        host = (getattr(srv, "server_ip", "") or "127.0.0.1").strip() or "127.0.0.1"
-        port = int(getattr(srv, "rcon_port", None) or 27020)
-
-        inst = app.server_manager.get_instance(getattr(srv, "id", ""))
-        if inst is not None and getattr(inst, "status", "") != "running":
-            skipped.append(f"{name}: servidor não está em execução")
-            continue
-
-        client = RconClient(host, port, rcon_pass)
-        last_err = ""
-        success = False
-        try:
-            client.connect()
-            for cmd in commands:
-                cmd_ok, result = client.send_command_with_retry(cmd, retries=2)
-                if cmd_ok:
-                    ok.append(f"{name}: {cmd}")
-                    success = True
-                    break
-                last_err = result
-        except Exception as exc:
-            last_err = str(exc)
-        finally:
-            try:
-                client.disconnect()
-            except Exception:
-                pass
-
-        if not success:
-            failed.append(f"{name}: {last_err or 'falha no comando RCON'}")
-
-    return ok, failed, skipped
-
-
 def _launch_webstore_process(shop) -> tuple[bool, str]:
     """Inicia o processo Flask da Web Store. Retorna (ok, mensagem)."""
     global _web_process, _web_log_fh
@@ -1944,9 +1889,9 @@ def _build_webstore_tab(
     tk.Label(
         card_srv,
         text=(
-            "ID loja = fila web (pode repetir). Nome chat cluster = ServerId no CrossChat "
-            "(único por mapa; vazio = pasta install_dir / mapa). Mensagens não chegam se "
-            "dois mapas tiverem o mesmo ServerId."
+            "ID loja = fila web. ServerId CrossChat = mapas_cross_chat_ids.json "
+            "(%APPDATA%\\ARKLAND-ServerManager) — nao sincroniza com o catalogo. "
+            "Chave = pasta MAPAS\\ (AL→ALPS, BR→BRIGHAMIA, …). Deixe «Nome chat cluster» vazio."
         ),
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
@@ -2128,7 +2073,7 @@ def _build_webstore_tab(
             app.config_manager, shop, catalog, get_catalog_path(),
             asm_cm=asm_cm,
         )
-        rcon_ok, rcon_errs, rcon_skips = _reload_customshop_rcon_all(app)
+        rcon_ok, rcon_errs, rcon_skips = reload_customshop_via_rcon_for_app(app)
 
         lines = [
             f"Sincronizados: {len(sync_ok)} plugin(s)",
@@ -2138,14 +2083,19 @@ def _build_webstore_tab(
             lines.append(f"Ignorados: {len(rcon_skips)}")
         if sync_errs or rcon_errs:
             lines.append("Erros:")
-            for err in list(sync_errs)[:3]:
+            for err in list(sync_errs)[:8]:
                 lines.append(f"- {err}")
-            for err in rcon_errs[:3]:
+            for err in rcon_errs[:8]:
                 lines.append(f"- {err}")
+            extra = len(sync_errs) + len(rcon_errs) - 8
+            if extra > 0:
+                lines.append(f"... e mais {extra} erro(s)")
         if rcon_skips:
             lines.append("Ignorados:")
-            for skip in rcon_skips[:3]:
+            for skip in rcon_skips[:8]:
                 lines.append(f"- {skip}")
+            if len(rcon_skips) > 8:
+                lines.append(f"... e mais {len(rcon_skips) - 8}")
 
         msg = "\n".join(lines)
         level = "success" if rcon_ok else "warning"
@@ -2173,7 +2123,7 @@ def _build_webstore_tab(
             )
             return
         asm_cm = getattr(app, "asm_config_manager", None)
-        servers = iter_shop_servers(app.config_manager, asm_cm)
+        servers = iter_shop_rcon_servers(app.config_manager, asm_cm)
         preview = ", ".join(groups[:12])
         if len(groups) > 12:
             preview += f" (+{len(groups) - 12})"
@@ -2186,7 +2136,7 @@ def _build_webstore_tab(
             return
 
         ok, failed, skipped = provision_permission_groups_for_servers(
-            servers, catalog, server_manager=app.server_manager,
+            servers, catalog, app=app,
         )
         lines = [f"Grupos provisionados: {len(ok)} comando(s) OK"]
         if failed:

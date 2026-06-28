@@ -3,11 +3,32 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.163"
+APP_VERSION: str = "1.9.165"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.165",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Loja): «Sync + Reload RCON (todos)» envia Shop.Reload a todos os mapas TEK — "
+            "status via asm_server_manager, host 127.0.0.1, sem duplicar servidores legados.",
+            "Fix (CrossChat): ServerId fixo por pasta MAPAS em mapas_cross_chat_ids.json "
+            "(%APPDATA%\\ARKLAND-ServerManager) — fora do sync do catálogo (AL→ALPS, BR→BRIGHAMIA, …).",
+            "Novo (Ferramentas): repair_cross_chat_server_ids.ps1 — corrige ServerId nos config.json dos mapas.",
+        ],
+    },
+    {
+        "version": "1.9.164",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Loja): «Sync + Reload RCON (todos)» passa a enviar Shop.Reload a todos os mapas TEK — "
+            "status via asm_server_manager, host 127.0.0.1 (fallback server_ip), sem duplicar servidores legados.",
+            "Fix (CrossChat): ServerId usa nome do mapa (ALPS, BRIGHAMIA, …) mapeado da pasta "
+            "MAPAS\\ (AL, BR, …), não a sigla da pasta.",
+        ],
+    },
     {
         "version": "1.9.163",
         "date": "2026-06-28",

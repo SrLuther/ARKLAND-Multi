@@ -8,7 +8,7 @@
   2. Converte Moderacao -> Mod
   3. Apaga linhas obsoletas em permissiongroups
 
-  Nao use "Provisionar grupos (RCON)" depois sem revisar — pode recriar grupos do catalogo.
+  Nao use "Provisionar grupos (RCON)" depois sem revisar - pode recriar grupos do catalogo.
 
 .EXAMPLE
   .\tools\cleanup_ark_permission_groups.ps1
@@ -77,7 +77,7 @@ if ($cfg) {
 }
 
 if (-not $MySqlPassword) {
-    $sec = Read-Host "Senha MySQL ($User@$Host_)" -AsSecureString
+    $sec = Read-Host ('Senha MySQL ({0}@{1})' -f $User, $Host_) -AsSecureString
     $MySqlPassword = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
         [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec)
     )
@@ -215,7 +215,7 @@ if __name__ == "__main__":
 '@
 
 try {
-    Write-Host "==> ARKLAND — limpar ark_permission.permissiongroups" -ForegroundColor Cyan
+    Write-Host "==> ARKLAND - limpar ark_permission.permissiongroups" -ForegroundColor Cyan
     Set-Content -LiteralPath $tmpPy -Value $pyContent -Encoding UTF8
     & $pyExe $tmpPy $Host_ $Port $User $MySqlPassword $Database $previewFlag
     if ($LASTEXITCODE -ne 0) { throw "Script Python falhou" }

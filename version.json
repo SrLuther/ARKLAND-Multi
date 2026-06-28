@@ -1,8 +1,10 @@
 {
-    "version": "1.9.163",
+    "version": "1.9.165",
     "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.163/ARKLAND-Multi-Setup-v1.9.163.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.165/ARKLAND-Multi-Setup-v1.9.165.exe",
     "changelog": [
-        "Refactor (Loja / Catálogo): catalog_vip_pricing renomeado para catalog_sync — sync TEK mantém só sanitização de placeholders e tiers Gamma/Beta/Alfa; purge genérico de entradas obsoletas legadas no JSON (sem recriar licenças/kits)."
+        "Fix (Loja): «Sync + Reload RCON (todos)» envia Shop.Reload a todos os mapas TEK — status via asm_server_manager, host 127.0.0.1, sem duplicar servidores legados.",
+        "Fix (CrossChat): ServerId fixo por pasta MAPAS em mapas_cross_chat_ids.json (%APPDATA%\\ARKLAND-ServerManager) — fora do sync do catálogo (AL→ALPS, BR→BRIGHAMIA, …).",
+        "Novo (Ferramentas): repair_cross_chat_server_ids.ps1 — corrige ServerId nos config.json dos mapas."
     ]
 }

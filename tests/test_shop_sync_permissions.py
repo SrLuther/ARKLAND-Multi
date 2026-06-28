@@ -3,6 +3,8 @@
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from src.shop_integration import (
     _cross_chat_server_label,
     apply_shared_sections_to_plugin,
@@ -16,6 +18,17 @@ from src.shop_integration import (
     shared_config_fingerprint,
     sync_plugin_at_path,
 )
+
+
+@pytest.fixture(autouse=True)
+def _fixed_mapas_cross_chat_ids(monkeypatch):
+    from src import mapas_cross_chat_ids as mcc
+
+    monkeypatch.setattr(
+        mcc,
+        "load_mapas_cross_chat_ids",
+        lambda: dict(mcc.DEFAULT_MAPAS_CROSS_CHAT_IDS),
+    )
 
 
 def test_catalog_permission_diff_detects_kit_change():
@@ -109,7 +122,7 @@ def test_shared_config_fingerprint_detects_timed_points_change():
     assert shared_config_fingerprint(base) != shared_config_fingerprint(changed)
 
 
-def test_apply_shared_sections_preserves_crosschat_server_id():
+def test_apply_shared_sections_strips_server_id_for_per_map_sync():
     catalog = {
         "CrossChat": {"Enabled": True, "ServerId": "master", "Command": "/c"},
         "TimedPointsReward": {"Enabled": True, "Groups": {}},
@@ -117,7 +130,7 @@ def test_apply_shared_sections_preserves_crosschat_server_id():
     existing = {"CrossChat": {"ServerId": "mapa-ragnarok"}}
     merged = {"Settings": {}}
     apply_shared_sections_to_plugin(merged, catalog, existing)
-    assert merged["CrossChat"]["ServerId"] == "mapa-ragnarok"
+    assert "ServerId" not in merged["CrossChat"]
     assert merged["CrossChat"]["Enabled"] is True
 
 
@@ -147,10 +160,10 @@ def test_cross_chat_server_label_prefers_install_dir_over_generic_name():
     srv = SimpleNamespace(
         name="ARK Server TEK",
         shop_server_id="",
-        install_dir=r"C:\ARK\Brighamia",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\BR",
         id="uuid-brighamia",
     )
-    assert _cross_chat_server_label(srv) == "Brighamia"
+    assert _cross_chat_server_label(srv) == "BRIGHAMIA"
 
 
 def test_cross_chat_server_label_prefers_install_dir_over_shop_server_id():
@@ -158,22 +171,36 @@ def test_cross_chat_server_label_prefers_install_dir_over_shop_server_id():
         name="ARK Server TEK",
         cross_chat_label="",
         shop_server_id="amissa",
-        install_dir=r"C:\ARK\Brighamia",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\BR",
         map="",
         id="brighamia-id",
     )
-    assert _cross_chat_server_label(srv) == "Brighamia"
+    assert _cross_chat_server_label(srv) == "BRIGHAMIA"
 
 
 def test_cross_chat_server_label_uses_explicit_override():
     srv = SimpleNamespace(
         name="ARK Server TEK",
-        cross_chat_label="Amissa",
+        cross_chat_label="CustomTag",
         shop_server_id="ARKLAND",
         install_dir=r"C:\ARK\ARK Server TEK",
         id="uuid-amissa",
     )
-    assert _cross_chat_server_label(srv) == "Amissa"
+    assert _cross_chat_server_label(srv) == "CustomTag"
+
+
+def test_cross_chat_server_label_mapas_folder_overrides_legacy_explicit():
+    srv = SimpleNamespace(
+        name="ARK Server TEK",
+        cross_chat_label="Brighamia",
+        shop_server_id="",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\BR",
+        customshop_config_path=(
+            r"C:\ARKLAND SERVER\MAPAS\BR\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json"
+        ),
+        id="br-id",
+    )
+    assert _cross_chat_server_label(srv) == "BRIGHAMIA"
 
 
 def test_cross_chat_server_label_ignores_shared_shop_server_id():
@@ -247,10 +274,10 @@ def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
     srv = SimpleNamespace(
         name="ARK Server TEK",
         shop_server_id="",
-        install_dir=str(tmp_path / "Brighamia"),
+        install_dir=str(tmp_path / "MAPAS" / "BR"),
         id="brighamia-id",
     )
-    plugin_path = tmp_path / "Brighamia" / "config.json"
+    plugin_path = tmp_path / "MAPAS" / "BR" / "ShooterGame" / "Binaries" / "Win64" / "ArkApi" / "Plugins" / "CustomShop" / "config.json"
     plugin_path.parent.mkdir(parents=True, exist_ok=True)
     plugin_path.write_text('{"CrossChat":{"ServerId":"Mapa1"}}', encoding="utf-8")
 
@@ -261,7 +288,7 @@ def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
         srv=srv,
     )
     saved = __import__("json").loads(plugin_path.read_text(encoding="utf-8"))
-    assert saved["CrossChat"]["ServerId"] == "Brighamia"
+    assert saved["CrossChat"]["ServerId"] == "BRIGHAMIA"
     assert saved["CrossChat"]["UseWebApi"] is True
     assert saved["CrossChat"]["Enabled"] is True
 
@@ -269,12 +296,12 @@ def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
 def test_build_cross_chat_settings_unique_per_map():
     shop = SimpleNamespace(cross_chat_enabled=True)
     catalog_cc = {"Enabled": True, "ServerId": "Mapa1", "Command": "/cluster"}
-    a = SimpleNamespace(name="ARK Server TEK", shop_server_id="", install_dir=r"C:\ARK\Brighamia", id="a")
-    b = SimpleNamespace(name="ARK Server TEK", shop_server_id="", install_dir=r"C:\ARK\TheIsland", id="b")
+    a = SimpleNamespace(name="ARK Server TEK", shop_server_id="", install_dir=r"C:\ARKLAND SERVER\MAPAS\BR", id="a")
+    b = SimpleNamespace(name="ARK Server TEK", shop_server_id="", install_dir=r"C:\ARKLAND SERVER\MAPAS\AL", id="b")
     cc_a = build_cross_chat_settings(shop, a, catalog_cc=catalog_cc)
     cc_b = build_cross_chat_settings(shop, b, catalog_cc=catalog_cc)
-    assert cc_a["ServerId"] == "Brighamia"
-    assert cc_b["ServerId"] == "TheIsland"
+    assert cc_a["ServerId"] == "BRIGHAMIA"
+    assert cc_b["ServerId"] == "ALPS"
     assert cc_a["Command"] == "/cluster"
     assert cc_b["Command"] == "/cluster"
 
@@ -344,7 +371,7 @@ def test_sync_plugin_at_path_propagates_new_kit_from_master(tmp_path):
     assert "somente_mapa" not in saved["Kits"]
 
 
-def test_apply_shared_sections_crosschat_master_wins_except_server_id():
+def test_apply_shared_sections_crosschat_master_wins_without_server_id():
     catalog = {
         "CrossChat": {
             "Enabled": True,
@@ -362,9 +389,55 @@ def test_apply_shared_sections_crosschat_master_wins_except_server_id():
     }
     merged: dict = {}
     apply_shared_sections_to_plugin(merged, catalog, existing)
-    assert merged["CrossChat"]["ServerId"] == "Ragnarok"
+    assert "ServerId" not in merged["CrossChat"]
     assert merged["CrossChat"]["Command"] == "/cluster"
     assert merged["CrossChat"]["UseWebApi"] is True
+
+
+def test_mapas_folder_from_plugin_path():
+    from src.mapas_cross_chat_ids import mapas_folder_from_path
+
+    path = r"C:\ARKLAND SERVER\MAPAS\BR\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json"
+    assert mapas_folder_from_path(path) == "BR"
+
+
+def test_cross_chat_server_label_prefers_mapas_folder_over_session_name():
+    srv = SimpleNamespace(
+        cross_chat_label="",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\AL",
+        customshop_config_path=(
+            r"C:\ARKLAND SERVER\MAPAS\G2\ShooterGame\Binaries\Win64\ArkApi\Plugins\CustomShop\config.json"
+        ),
+        map="",
+        session_name="ALPS",
+        name="ARKLAND",
+        id="g2-id",
+    )
+    assert _cross_chat_server_label(srv) == "GENESIS 2"
+
+
+def test_repair_cross_chat_server_ids_on_disk(tmp_path):
+    from src.shop_integration import repair_cross_chat_server_ids_on_disk
+
+    for folder in ("BR", "AL"):
+        cfg = tmp_path / folder / "ShooterGame/Binaries/Win64/ArkApi/Plugins/CustomShop"
+        cfg.mkdir(parents=True)
+        (cfg / "config.json").write_text(
+            '{"CrossChat":{"Enabled":true,"ServerId":"Mapa1"}}',
+            encoding="utf-8",
+        )
+    notes = repair_cross_chat_server_ids_on_disk(tmp_path)
+    assert len(notes) == 2
+    b = json.loads(
+        (tmp_path / "BR/ShooterGame/Binaries/Win64/ArkApi/Plugins/CustomShop/config.json")
+        .read_text(encoding="utf-8")
+    )
+    i = json.loads(
+        (tmp_path / "AL/ShooterGame/Binaries/Win64/ArkApi/Plugins/CustomShop/config.json")
+        .read_text(encoding="utf-8")
+    )
+    assert b["CrossChat"]["ServerId"] == "BRIGHAMIA"
+    assert i["CrossChat"]["ServerId"] == "ALPS"
 
 
 def test_collect_groups_from_catalog_includes_license_grant_keyvault():

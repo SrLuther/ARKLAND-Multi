@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.165] - 2026-06-28
+
+### Feature
+
+- Novo (Ferramentas): repair_cross_chat_server_ids.ps1 — corrige ServerId nos config.json dos mapas.
+
+### Fix
+
+- Fix (Loja): «Sync + Reload RCON (todos)» envia Shop.Reload a todos os mapas TEK — status via asm_server_manager, host 127.0.0.1, sem duplicar servidores legados.
+- Fix (CrossChat): ServerId fixo por pasta MAPAS em mapas_cross_chat_ids.json (%APPDATA%\ARKLAND-ServerManager) — fora do sync do catálogo (AL→ALPS, BR→BRIGHAMIA, …).
+
+## [1.9.164] - 2026-06-28
+
+### Fix
+
+- Fix (Loja): «Sync + Reload RCON (todos)» passa a enviar Shop.Reload a todos os mapas TEK — status via asm_server_manager, host 127.0.0.1 (fallback server_ip), sem duplicar servidores legados.
+- Fix (CrossChat): ServerId usa nome do mapa (ALPS, BRIGHAMIA, …) mapeado da pasta MAPAS\ (AL, BR, …), não a sigla da pasta.
+
 ## [1.9.163] - 2026-06-28
 
 ### Refactor

@@ -1,0 +1,9 @@
+{
+  "_info": "CrossChat.ServerId por pasta em MAPAS\\. Chave = sigla da pasta (AL, BR…). Valor = ID fixo no chat. Este arquivo NAO entra no sync do catalogo — edite a copia em %APPDATA%\\ARKLAND-ServerManager\\mapas_cross_chat_ids.json",
+  "AL": "ALPS",
+  "AM": "AMISSA",
+  "VL": "THE VOLCANO",
+  "BR": "BRIGHAMIA",
+  "G2": "GENESIS 2",
+  "CI": "CRYSTAL ISLES"
+}
