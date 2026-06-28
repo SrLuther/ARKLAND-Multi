@@ -1042,6 +1042,48 @@ def _steam_id_on_sql(left: str, right: str, *, mysql: bool = True) -> str:
     return f"{left} COLLATE {coll} = {right} COLLATE {coll}"
 
 
+def _column_is_primary_key(conn: Any, table: str, column: str) -> bool:
+    """True se a coluna faz parte da PRIMARY KEY da tabela (information_schema)."""
+    row = conn.execute(
+        text(
+            "SELECT 1 FROM information_schema.KEY_COLUMN_USAGE "
+            "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :tbl "
+            "AND COLUMN_NAME = :col AND CONSTRAINT_NAME = 'PRIMARY' LIMIT 1"
+        ),
+        {"tbl": table, "col": column},
+    ).fetchone()
+    return row is not None
+
+
+def _is_multiple_primary_key_error(exc: BaseException) -> bool:
+    orig = getattr(exc, "orig", None)
+    if orig is not None and getattr(orig, "args", None):
+        if orig.args[0] == 1068:
+            return True
+    msg = str(exc).lower()
+    return "1068" in msg or "multiple primary key" in msg
+
+
+def _build_steam_id_collation_modify_sql(
+    table: str,
+    column: str,
+    col_type: str,
+    null_sql: str,
+    *,
+    key_flag: str,
+    is_pk_column: bool,
+) -> str:
+    """ALTER MODIFY só para collation — não redeclara PK existente (MariaDB erro 1068)."""
+    key_sql = ""
+    if key_flag == "PRI" and not is_pk_column:
+        key_sql = " PRIMARY KEY"
+    return (
+        f"ALTER TABLE `{table}` MODIFY `{column}` {col_type} "
+        f"CHARACTER SET utf8mb4 COLLATE {_STEAM_ID_COLLATION} "
+        f"{null_sql}{key_sql}"
+    )
+
+
 def _ensure_steam_id_collation(engine: Any) -> None:
     """Normaliza collation de colunas steam_id para evitar erro 1267 em JOINs MySQL."""
     if "mysql" not in str(engine.url).lower():
@@ -1064,14 +1106,38 @@ def _ensure_steam_id_collation(engine: Any) -> None:
             if not col_type.lower().startswith("varchar") or collation == _STEAM_ID_COLLATION:
                 continue
             null_sql = "NULL" if null_flag == "YES" else "NOT NULL"
-            key_sql = " PRIMARY KEY" if key_flag == "PRI" else ""
-            conn.execute(
-                text(
-                    f"ALTER TABLE `{table}` MODIFY `{column}` {col_type} "
-                    f"CHARACTER SET utf8mb4 COLLATE {_STEAM_ID_COLLATION} "
-                    f"{null_sql}{key_sql}"
-                )
+            is_pk = _column_is_primary_key(conn, table, column)
+            alter_sql = _build_steam_id_collation_modify_sql(
+                table,
+                column,
+                col_type,
+                null_sql,
+                key_flag=key_flag,
+                is_pk_column=is_pk,
             )
+            try:
+                conn.execute(text(alter_sql))
+            except Exception as exc:
+                if _is_multiple_primary_key_error(exc):
+                    log.warning(
+                        "steam_id: %s.%s — retry MODIFY sem PRIMARY KEY (1068)",
+                        table,
+                        column,
+                    )
+                    conn.execute(
+                        text(
+                            _build_steam_id_collation_modify_sql(
+                                table,
+                                column,
+                                col_type,
+                                null_sql,
+                                key_flag="",
+                                is_pk_column=True,
+                            )
+                        )
+                    )
+                else:
+                    raise
             changed += 1
         if changed:
             conn.commit()

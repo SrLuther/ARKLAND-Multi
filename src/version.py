@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.150"
+APP_VERSION: str = "1.9.151"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.152",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix CRÍTICO (Web Store / DB): migração steam_id falhava com erro 1068 "
+            "(Multiple primary key defined) em players — bloqueava tickets, tribe_name e market; "
+            "ALTER MODIFY idempotente sem redeclarar PRIMARY KEY em colunas que já são PK.",
+        ],
+    },
+    {
+        "version": "1.9.151",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix CRÍTICO (Web Store): portal travado em «Carregando portal…» após v1.9.149 — "
+            "bloco JavaScript duplicado em saveGeneralSettings quebrava o parse do index.html; "
+            "fallback visual se o JS principal não iniciar.",
+        ],
+    },
     {
         "version": "1.9.150",
         "date": "2026-06-28",

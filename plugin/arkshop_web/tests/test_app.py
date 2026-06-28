@@ -918,6 +918,39 @@ class TestAdminPlayers:
             "a.steam_id = b.steam_id"
         )
 
+    def test_steam_id_collation_modify_omits_pk_when_column_is_pk(self):
+        sql = _app_module._build_steam_id_collation_modify_sql(
+            "players",
+            "steam_id",
+            "varchar(20)",
+            "NOT NULL",
+            key_flag="PRI",
+            is_pk_column=True,
+        )
+        assert "PRIMARY KEY" not in sql
+        assert "utf8mb4_unicode_ci" in sql
+
+    def test_steam_id_collation_modify_adds_pk_when_not_yet_pk(self):
+        sql = _app_module._build_steam_id_collation_modify_sql(
+            "legacy",
+            "steam_id",
+            "varchar(20)",
+            "NOT NULL",
+            key_flag="PRI",
+            is_pk_column=False,
+        )
+        assert sql.endswith("NOT NULL PRIMARY KEY")
+
+    def test_is_multiple_primary_key_error_detects_1068(self):
+        class _Orig:
+            args = (1068, "Multiple primary key defined")
+
+        class _Err(Exception):
+            orig = _Orig()
+
+        assert _app_module._is_multiple_primary_key_error(_Err()) is True
+        assert _app_module._is_multiple_primary_key_error(ValueError("other")) is False
+
 class TestAdminPoints:
     def test_add_and_get_points(self, client):
         _login(client, ADMIN_STEAM)

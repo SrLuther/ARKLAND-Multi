@@ -3977,12 +3977,24 @@
   } else {
     bootShellEarly();
   }
-  setTimeout(function () {
+  function showJsBootFailure() {
     var t = document.getElementById("sb-text");
-    if (t && t.textContent === "Inicializando…") {
-      t.textContent = "JS não iniciou — limpe o cache (Ctrl+F5)";
+    if (!t || window.__portalBooted) return;
+    var msg = (t.textContent || "").trim();
+    if (msg !== "Inicializando…" && msg !== "Conectando…") return;
+    t.textContent = "JS não iniciou — limpe o cache (Ctrl+F5)";
+    var root = document.getElementById("home-root");
+    if (root && /Carregando portal/i.test(root.textContent || "")) {
+      root.innerHTML = '<div style="text-align:center;padding:48px 20px;color:var(--text2);">'
+        + '<div style="font-size:32px;margin-bottom:12px;">⚠️</div>'
+        + '<div style="font-size:16px;color:var(--text);margin-bottom:8px;">Portal não carregou</div>'
+        + '<p style="margin:0 0 16px;font-size:13px;">O JavaScript principal falhou ao iniciar '
+        + '(erro de sintaxe ou cache antigo). Pressione <strong>Ctrl+F5</strong> para recarregar.</p>'
+        + '<button class="btn btn-primary" onclick="location.reload()">↺ Recarregar</button>'
+        + '</div>';
     }
-  }, 4000);
+  }
+  setTimeout(showJsBootFailure, 6000);
 })();
 </script>
 
@@ -8537,10 +8549,6 @@ function saveGeneral() {
     if (!grp) return;
     newGroups[grp] = { Amount: parseInt(el.value, 10) || 0 };
   });
-  t.Groups = newGroups;
-  saveConfig();
-}
-
   t.Groups = newGroups;
   saveConfig();
 }
@@ -13764,6 +13772,7 @@ async function playerAdminRevokeKitLimit(kitId) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 async function bootPortal() {
+  window.__portalBooted = true;
   _clearBootWatchdog();
   handleMpCardReturn();
   setStatus(false, "Conectando…");

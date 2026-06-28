@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.152] - 2026-06-28
+
+### Fix
+
+- Fix CRÍTICO (Web Store / DB): migração steam_id falhava com erro 1068 (Multiple primary key defined) em players — bloqueava tickets, tribe_name e market; ALTER MODIFY idempotente sem redeclarar PRIMARY KEY em colunas que já são PK.
+
+## [1.9.151] - 2026-06-28
+
+### Fix
+
+- Fix CRÍTICO (Web Store): portal travado em «Carregando portal…» após v1.9.149 — bloco JavaScript duplicado em saveGeneralSettings quebrava o parse do index.html; fallback visual se o JS principal não iniciar.
+
 ## [1.9.150] - 2026-06-28
 
 ### Fix
