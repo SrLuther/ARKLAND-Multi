@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.148] - 2026-06-28
+
+### Feature
+
+- Novo (Web Store / Admin): cargos MOD e STAFF na aba Gerenciar Jogadores — permanentes, bônus TimedPoints, sync Permissions via RCON e persistência em player_entitlements (não são licenças resgatáveis).
+- Novo (Web Store / Chat Cluster): admin envia mensagens do site para todos os mapas via POST /api/admin/chat/send — aparece in-game como [ARKLAND].
+
 ## [1.9.147] - 2026-06-28
 
 ### Feature

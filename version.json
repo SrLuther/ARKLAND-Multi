@@ -1,10 +1,9 @@
 {
-    "version": "1.9.147",
+    "version": "1.9.148",
     "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.147/ARKLAND-Multi-Setup-v1.9.147.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.148/ARKLAND-Multi-Setup-v1.9.148.exe",
     "changelog": [
-        "Fix CRÍTICO (CrossChat): ServerId no sync prioriza pasta install_dir sobre shop_server_id — corrige todos os mapas aparecendo como [amissa] quando o ID da loja é igual.",
-        "Novo (CrossChat): nome da tribo do jogador nas mensagens cluster e no Discord ([Mapa] [Tribo] Jogador: texto).",
-        "Fix (CrossChat): Shop.Reload recarrega ServerId do CrossChat sem reiniciar o servidor."
+        "Novo (Web Store / Admin): cargos MOD e STAFF na aba Gerenciar Jogadores — permanentes, bônus TimedPoints, sync Permissions via RCON e persistência em player_entitlements (não são licenças resgatáveis).",
+        "Novo (Web Store / Chat Cluster): admin envia mensagens do site para todos os mapas via POST /api/admin/chat/send — aparece in-game como [ARKLAND]."
     ]
 }

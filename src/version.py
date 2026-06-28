@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.147"
+APP_VERSION: str = "1.9.148"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.148",
+        "date": "2026-06-28",
+        "changes": [
+            "Novo (Web Store / Admin): cargos MOD e STAFF na aba Gerenciar Jogadores — "
+            "permanentes, bônus TimedPoints, sync Permissions via RCON e persistência em "
+            "player_entitlements (não são licenças resgatáveis).",
+            "Novo (Web Store / Chat Cluster): admin envia mensagens do site para todos os "
+            "mapas via POST /api/admin/chat/send — aparece in-game como [ARKLAND].",
+        ],
+    },
     {
         "version": "1.9.147",
         "date": "2026-06-28",

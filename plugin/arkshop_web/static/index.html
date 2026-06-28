@@ -11772,6 +11772,30 @@ async function loadClusterChatMessages() {
   }
 }
 
+async function clusterChatSend() {
+  const inp = document.getElementById("cluster-chat-send-msg");
+  const message = inp?.value?.trim() || "";
+  if (!message) { toast("Digite uma mensagem.", "warning"); return; }
+  if (!confirm("Enviar esta mensagem para todos os mapas do cluster?")) return;
+  try {
+    const r = await fetch(`${API}/api/admin/chat/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      toast("Mensagem enviada ao cluster.", "success");
+      if (inp) inp.value = "";
+      resetClusterChatPage();
+    } else {
+      toast(d.error || "Falha ao enviar", "error");
+    }
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
 function loadClusterChatAdmin() {
   loadClusterChatDiscord();
   loadClusterChatStats();
