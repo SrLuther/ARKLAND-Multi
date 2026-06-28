@@ -10,6 +10,14 @@ from typing import Any, Dict, Tuple
 _BP_RE = re.compile(r"^Blueprint'(.+)'$")
 _GAME_BP_RE = re.compile(r"(/Game/[^\s\"',]+)")
 
+# Caminhos comuns copiados errado do ArkShop (pasta Resources vs Consumables).
+_KNOWN_BLUEPRINT_FIXES: dict[str, str] = {
+    "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemConsumable_RawMeat.PrimalItemConsumable_RawMeat": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/"
+        "PrimalItemConsumable_RawMeat.PrimalItemConsumable_RawMeat"
+    ),
+}
+
 
 def normalize_blueprint(value: str) -> str:
     """ArkShop: Blueprint'/Game/...' → /Game/...; corrige fragmentos JSON malformados."""
@@ -29,8 +37,9 @@ def normalize_blueprint(value: str) -> str:
             pass
     game = _GAME_BP_RE.search(text)
     if game:
-        return game.group(1).rstrip("\"',")
-    return text
+        path = game.group(1).rstrip("\"',")
+        return _KNOWN_BLUEPRINT_FIXES.get(path, path)
+    return _KNOWN_BLUEPRINT_FIXES.get(text, text)
 
 
 def _normalize_item_entry(entry: dict | str) -> dict:

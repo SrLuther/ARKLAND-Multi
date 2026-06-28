@@ -21,6 +21,14 @@ from src.shop_integration import (
 )
 
 
+def _patch_canonical_master(monkeypatch, master: Path) -> None:
+    """Isola reconcile/sync dos catálogos reais do repositório de dev."""
+    monkeypatch.setattr("src.shop_integration.canonical_master_catalog_path", lambda: master)
+    monkeypatch.setattr("src.shop_integration.installed_catalog_candidates", lambda: [master])
+    monkeypatch.setattr("src.shop_integration._collect_catalog_search_paths", lambda: [master])
+    monkeypatch.setattr("src.shop_integration.resolve_persistent_catalog_path", lambda _p, **_: master)
+
+
 def test_is_ephemeral_pyinstaller_path_detects_mei():
     bad = r"C:\Users\ArkServerII\AppData\Local\Temp\_MEI31402\plugin\CustomShop\configs\config.json"
     assert is_ephemeral_pyinstaller_path(bad)
@@ -353,6 +361,7 @@ def test_reconcile_catalog_prefers_newer_webstore(tmp_path, monkeypatch):
         lambda: EnvironmentPaths(root=root),
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    _patch_canonical_master(monkeypatch, master)
 
     path, merged = reconcile_catalog_before_sync(master, stale_memory)
     assert path == master
@@ -443,12 +452,58 @@ def test_reconcile_catalog_merges_timed_points_without_item_change(tmp_path, mon
         lambda: EnvironmentPaths(root=root),
     )
     monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    _patch_canonical_master(monkeypatch, master)
 
     path, merged = reconcile_catalog_before_sync(master, stale_memory)
     tp = merged.get("TimedPointsReward") or {}
     assert tp.get("Enabled") is True
     assert "VIPBronze" in (tp.get("Groups") or {})
     assert "Alfa" not in (tp.get("Groups") or {})
+
+
+def test_reconcile_webstore_does_not_stomp_new_master_kit(tmp_path, monkeypatch):
+    """WEBSTORE com mais entradas mas mais antiga não apaga kit novo do mestre."""
+    from src.arkland_environment import EnvironmentPaths
+
+    root = tmp_path / "ARKLAND SERVER"
+    root.mkdir()
+    webstore = root / "WEBSTORE"
+    webstore.mkdir()
+    master = root / "CustomShop" / "configs" / "config.json"
+    master.parent.mkdir(parents=True)
+    import os
+    import time
+
+    ws_cfg = webstore / "config.json"
+    ws_cfg.write_text(
+        json.dumps({
+            "Items": {f"legacy_{i}": {"Price": 1} for i in range(8)},
+            "Kits": {"old_kit": {"Price": 1}},
+        }),
+        encoding="utf-8",
+    )
+    time.sleep(0.05)
+    master.write_text(
+        json.dumps({
+            "Items": {"item1": {"Price": 1}},
+            "Kits": {"recursos": {"Price": 0, "Description": "Recursos"}},
+        }),
+        encoding="utf-8",
+    )
+    os.utime(master, None)
+
+    fresh_memory = json.loads(master.read_text(encoding="utf-8"))
+    monkeypatch.setattr(
+        "src.arkland_environment.try_load_environment_paths",
+        lambda: EnvironmentPaths(root=root),
+    )
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    _patch_canonical_master(monkeypatch, master)
+
+    _path, merged = reconcile_catalog_before_sync(master, fresh_memory)
+    assert "recursos" in (merged.get("Kits") or {})
+    disk = json.loads(master.read_text(encoding="utf-8"))
+    assert "recursos" in (disk.get("Kits") or {})
 
 
 def test_push_catalog_to_webstore_overwrites(tmp_path, monkeypatch):

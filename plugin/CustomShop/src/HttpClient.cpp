@@ -191,6 +191,21 @@ std::wstring Utf8ToWide(const std::string& text) {
     return out;
 }
 
+bool IsUnknownCatalogFailure(const std::string& fail_reason) {
+    return fail_reason == "kit_desconhecido" || fail_reason == "item_desconhecido";
+}
+
+bool TryReloadConfigForDelivery() {
+    try {
+        CustomShop::ShopConfig::Get().Load();
+        Log::GetLog()->info("HttpClient: config reloaded before retrying delivery");
+        return true;
+    } catch (const std::exception& e) {
+        Log::GetLog()->error("HttpClient: config reload failed: {}", e.what());
+        return false;
+    }
+}
+
 std::wstring DeliveryFailureUserMessage(const std::string& item_id,
                                         const std::string& fail_reason) {
     if (fail_reason == "kit_desconhecido" || fail_reason == "item_desconhecido") {
@@ -215,6 +230,10 @@ std::wstring DeliveryFailureUserMessage(const std::string& item_id,
     if (fail_reason == "sem_conteudo") {
         return L"[Shop] Kit '" + Utf8ToWide(item_id)
             + L"' sem conteudo entregavel no catalogo.";
+    }
+    if (fail_reason == "sem_usos_kit") {
+        return L"[Shop] Voce esgotou os resgates do kit '" + Utf8ToWide(item_id)
+            + L"'. Contate um admin se precisar.";
     }
     return L"[Shop] Falha ao entregar '" + Utf8ToWide(item_id)
         + L"'. Contate um admin.";
@@ -313,6 +332,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
         const std::string item_type = item.value("item_type", "shop");
         const std::string item_id = item.value("item_id", "");
         const int amount = item.value("amount", 1);
+        const bool skip_kit_limit = item.value("skip_kit_limit", false);
 
         if (order_id.empty() || item_id.empty()) continue;
 
@@ -321,13 +341,25 @@ bool DeliverPending(AShooterPlayerController* controller) {
         std::string fail_reason;
 
         if (item_type == "kit") {
-            ok = Store::GiveKit(controller, item_id, true, &fail_reason);
-            detail = ok ? "GiveKit ok" : ("GiveKit failed: " + fail_reason);
+            ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason);
+            if (!ok && IsUnknownCatalogFailure(fail_reason) && TryReloadConfigForDelivery()) {
+                fail_reason.clear();
+                ok = Store::GiveKit(controller, item_id, true, skip_kit_limit, &fail_reason);
+                if (ok) detail = "GiveKit ok (after config reload)";
+            }
+            if (detail.empty())
+                detail = ok ? "GiveKit ok" : ("GiveKit failed: " + fail_reason);
             Log::GetLog()->info("HttpClient: GiveKit '{}' for order {}: {} ({})",
                                 item_id, order_id, ok ? "OK" : "FAIL", detail);
         } else {
             ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason);
-            detail = ok ? "GiveItem ok" : ("GiveItem failed: " + fail_reason);
+            if (!ok && IsUnknownCatalogFailure(fail_reason) && TryReloadConfigForDelivery()) {
+                fail_reason.clear();
+                ok = Store::GiveItem(controller, item_id, amount, true, &fail_reason);
+                if (ok) detail = "GiveItem ok (after config reload)";
+            }
+            if (detail.empty())
+                detail = ok ? "GiveItem ok" : ("GiveItem failed: " + fail_reason);
             Log::GetLog()->info("HttpClient: GiveItem '{}' x{} for order {}: {} ({})",
                                 item_id, amount, order_id, ok ? "OK" : "FAIL", detail);
         }

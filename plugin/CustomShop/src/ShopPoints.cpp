@@ -360,14 +360,41 @@ bool ShopPoints::SetKitStash(const std::string& steam_id,
     return Exec(sql.c_str());
 }
 
+int ShopPoints::GetKitRemaining(const std::string& steam_id,
+                                 const std::string& kit_id) {
+    const auto& kits = ShopConfig::Get().Kits();
+    if (!kits.contains(kit_id)) return 0;
+
+    nlohmann::json stash = GetKitStash(steam_id);
+    if (stash.contains(kit_id))
+        return std::max(0, stash[kit_id].value("Amount", 0));
+
+    return std::max(0, kits.at(kit_id).value("DefaultAmount", 0));
+}
+
+bool ShopPoints::ChangeKitAmount(const std::string& steam_id,
+                                  const std::string& kit_id,
+                                  int delta) {
+    if (delta == 0) return true;
+
+    const auto& kits = ShopConfig::Get().Kits();
+    if (!kits.contains(kit_id)) return false;
+
+    nlohmann::json stash = GetKitStash(steam_id);
+    int current = stash.contains(kit_id)
+        ? stash[kit_id].value("Amount", 0)
+        : kits.at(kit_id).value("DefaultAmount", 0);
+
+    int new_amount = current + delta;
+    if (new_amount < 0) new_amount = 0;
+    stash[kit_id]["Amount"] = new_amount;
+    return SetKitStash(steam_id, stash);
+}
+
 bool ShopPoints::AddKitToStash(const std::string& steam_id,
                                 const std::string& kit_id,
                                 int amount) {
-    nlohmann::json stash = GetKitStash(steam_id);
-    const int current = stash.contains(kit_id)
-        ? stash[kit_id].value("Amount", 0) : 0;
-    stash[kit_id]["Amount"] = current + amount;
-    return SetKitStash(steam_id, stash);
+    return ChangeKitAmount(steam_id, kit_id, amount);
 }
 
 } // namespace CustomShop

@@ -519,7 +519,7 @@ void CmdAdminDeliver(APlayerController* pc, FString* cmd_str, bool) {
 
     bool ok = false;
     if (is_kit) {
-        ok = CustomShop::Store::GiveKit(target, id);
+        ok = CustomShop::Store::GiveKit(target, id, true, true, nullptr);
         CustomShop::Data::SendPlayerKits(target, target_id);
     } else {
         // Deliver item directly without charging points

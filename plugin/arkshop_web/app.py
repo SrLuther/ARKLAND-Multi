@@ -47,6 +47,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_sessio
 
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
 
+from kit_limits import (
+    get_kit_remaining,
+    kit_default_amount,
+    kit_has_limit,
+    kit_limit_status,
+    parse_kit_stash,
+    reset_kit_limit,
+)
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
@@ -1729,10 +1738,10 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
                 text("SELECT kits FROM players WHERE steam_id = :sid"),
                 {"sid": steam_id},
             ).fetchone()
-            if row and row[0]:
-                kit_stash = json.loads(row[0]) if isinstance(row[0], str) else {}
+            kit_stash = parse_kit_stash(row[0] if row else None)
         except Exception:
             kit_stash = {}
+        kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
         display_name = _resolve_player_display_name(
             steam_id,
             store_name=(su.display_name if su else None),
@@ -1752,6 +1761,7 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
                 "commerce_enabled": bool(prof.commerce_enabled) if prof else False,
                 "entitlements": entitlements,
                 "kit_stash": kit_stash,
+                "kit_limits": kit_limits,
                 "listings_count": listings_count,
             },
             "recent_orders": [
@@ -2162,7 +2172,9 @@ def _admin_player_kit(
         finally:
             db.close()
     if mode == "deliver":
-        order, error = _create_order(steam_id, "kit", kit_id, amount)
+        order, error = _create_order(
+            steam_id, "kit", kit_id, amount, admin_skip_kit_limit=True,
+        )
         if error:
             return {"ok": False, "error": error}
         assert order is not None
@@ -2530,6 +2542,163 @@ def _catalog_entry(item_type: str, item_id: str) -> dict[str, Any]:
     if item_type == "kit":
         return (data.get("Kits") or {}).get(resolved) or {}
     return _catalog_item_map(data).get(resolved) or {}
+
+
+def _player_kit_remaining(db, steam_id: str, kit_id: str, entry: dict[str, Any]) -> int:
+    """Resgates restantes do kit (DefaultAmount na 1ª vez; depois players.kits)."""
+    if not kit_has_limit(entry):
+        return 999_999
+    row = db.execute(
+        text("SELECT kits FROM players WHERE steam_id = :sid"),
+        {"sid": str(steam_id)},
+    ).fetchone()
+    stash = parse_kit_stash(row[0] if row else None)
+    resolved = _resolve_catalog_item_id("kit", kit_id)
+    return get_kit_remaining(stash, resolved, entry)
+
+
+def _count_pending_kit_orders(db, steam_id: str, kit_id: str) -> int:
+    """Pedidos de kit ainda não entregues — reservam slot de resgate."""
+    resolved = _resolve_catalog_item_id("kit", kit_id)
+    rows = db.execute(
+        text(
+            "SELECT item_id FROM orders "
+            "WHERE steam_id = :sid AND item_type = 'kit' "
+            "AND status IN ('PENDENTE', 'ENTREGANDO')"
+        ),
+        {"sid": str(steam_id)},
+    ).fetchall()
+    count = 0
+    for row in rows:
+        oid = _resolve_catalog_item_id("kit", str(row[0] or ""))
+        if oid == resolved:
+            count += 1
+    return count
+
+
+def _effective_kit_remaining(
+    db,
+    steam_id: str,
+    kit_id: str,
+    entry: dict[str, Any],
+) -> int:
+    if not kit_has_limit(entry):
+        return 999_999
+    remaining = _player_kit_remaining(db, steam_id, kit_id, entry)
+    pending = _count_pending_kit_orders(db, steam_id, kit_id)
+    return max(0, remaining - pending)
+
+
+def _load_player_kit_stash(db, steam_id: str) -> dict[str, Any]:
+    row = db.execute(
+        text("SELECT kits FROM players WHERE steam_id = :sid"),
+        {"sid": str(steam_id)},
+    ).fetchone()
+    return parse_kit_stash(row[0] if row else None)
+
+
+def _save_player_kit_stash(db, steam_id: str, stash: dict[str, Any]) -> None:
+    kits_json = json.dumps(stash, ensure_ascii=False)
+    if _is_mysql_engine(db):
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points, kits) VALUES (:sid, 0, :kits) "
+                "ON DUPLICATE KEY UPDATE kits = :kits"
+            ),
+            {"sid": str(steam_id), "kits": kits_json},
+        )
+    else:
+        db.execute(
+            text(
+                "INSERT INTO players (steam_id, points, kits) VALUES (:sid, 0, :kits) "
+                "ON CONFLICT(steam_id) DO UPDATE SET kits = :kits"
+            ),
+            {"sid": str(steam_id), "kits": kits_json},
+        )
+
+
+def _build_player_kit_limits(
+    db,
+    steam_id: str,
+    *,
+    kit_stash: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Lista kits com DefaultAmount > 0 e contagem usada/limite."""
+    data = _read_shop_config()
+    kits = data.get("Kits") or {}
+    stash = kit_stash if kit_stash is not None else _load_player_kit_stash(db, steam_id)
+    out: list[dict[str, Any]] = []
+    for kit_id, entry in kits.items():
+        if not isinstance(entry, dict) or not kit_has_limit(entry):
+            continue
+        resolved = _resolve_catalog_item_id("kit", kit_id)
+        status = kit_limit_status(
+            stash,
+            resolved,
+            entry,
+            pending_orders=_count_pending_kit_orders(db, steam_id, resolved),
+        )
+        out.append({
+            "kit_id": resolved,
+            "label": str(entry.get("Description") or entry.get("Name") or kit_id),
+            **status,
+        })
+    return sorted(out, key=lambda row: row["kit_id"].lower())
+
+
+def _admin_revoke_kit_limit(
+    steam_id: str,
+    kit_id: str,
+    *,
+    reason: str = "",
+) -> dict[str, Any]:
+    steam_id = str(steam_id or "").strip()
+    kit_id = str(kit_id or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not kit_id:
+        return {"ok": False, "error": "kit_id obrigatório"}
+    entry = _catalog_entry("kit", kit_id)
+    if not entry:
+        return {"ok": False, "error": f"Kit «{kit_id}» não encontrado no catálogo"}
+    if not kit_has_limit(entry):
+        return {
+            "ok": False,
+            "error": "Este kit não possui limite de resgates (DefaultAmount=0).",
+        }
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    resolved = _resolve_catalog_item_id("kit", kit_id)
+    admin_sid = str(_steam_id_from_session() or "")
+    db = _SessionLocal()
+    try:
+        stash = _load_player_kit_stash(db, steam_id)
+        new_stash = reset_kit_limit(stash, resolved, entry)
+        _save_player_kit_stash(db, steam_id, new_stash)
+        db.commit()
+        limit = kit_default_amount(entry)
+        _audit_event(
+            "admin_kit_limit_revoke",
+            actor_type="admin",
+            actor_steam_id=admin_sid,
+            target_steam_id=steam_id,
+            item_type="kit",
+            item_id=resolved,
+            message=reason or f"Limite de resgates resetado para {resolved} ({limit} usos)",
+        )
+        return {
+            "ok": True,
+            "kit_id": resolved,
+            "limit": limit,
+            "remaining": limit,
+            "stash": new_stash,
+            "kit_limits": _build_player_kit_limits(db, steam_id, kit_stash=new_stash),
+        }
+    except Exception as exc:
+        db.rollback()
+        return {"ok": False, "error": str(exc)}
+    finally:
+        db.close()
 
 
 def _catalog_price(entry: dict[str, Any], amount: int = 1) -> int:
@@ -3102,7 +3271,9 @@ def _attempt_delivery(order: Order, settings: dict[str, Any]) -> tuple[bool, str
 
 def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
                   original_order_id: str | None = None,
-                  points_spent: int = 0) -> tuple[Order | None, str | None]:
+                  points_spent: int = 0,
+                  *,
+                  admin_skip_kit_limit: bool = False) -> tuple[Order | None, str | None]:
     if not _db_ready():
         return None, "Banco não configurado. Defina ARKSHOP_DATABASE_URL ou configure DB em Settings"
 
@@ -3114,6 +3285,8 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
         return None, "amount deve ser maior que zero"
 
     s = _load_settings()
+    if admin_skip_kit_limit and not original_order_id:
+        original_order_id = "__admin_skip_kit_limit__"
     order = Order(
         order_id=str(uuid.uuid4()),
         steam_id=steam_id,
@@ -3299,6 +3472,7 @@ def get_pending_deliveries(steam_id: str):
             "catalog_item_id": o.item_id,
             "amount": o.amount,
             "item_type": o.item_type,
+            "skip_kit_limit": str(o.original_order_id or "").startswith("__admin_skip_kit_limit__"),
         } for o in orders]
         _audit_event(
             "pending_polled",
@@ -3368,6 +3542,7 @@ def claim_pending_orders():
                 "catalog_item_id": order.item_id,
                 "amount": order.amount,
                 "item_type": item_type,
+                "skip_kit_limit": str(order.original_order_id or "").startswith("__admin_skip_kit_limit__"),
             })
         db.commit()
         return jsonify({"ok": True, "items": claimed, "orders": claimed})
@@ -4983,6 +5158,8 @@ def _purchase_user_message(
         return f"Resgate concluído: {item_id}."
     err = str(result.get("error") or "").strip()
     low = err.lower()
+    if "limite" in low or "sem_usos" in low or "kit_limit" in low:
+        return err or "Você já usou todos os resgates disponíveis deste kit."
     if "saldo" in low or "insufficient" in low or "afford" in low:
         return err or "Saldo de Âmbares insuficiente para este resgate."
     if "licen" in low or "permission" in low:
@@ -5061,6 +5238,25 @@ def player_purchase():
             "error": f"Licença necessária: {need}",
             "missing_licenses": missing,
         }), 403
+
+    if item_type == "kit" and kit_has_limit(entry):
+        resolved_kit = _resolve_catalog_item_id("kit", item_id)
+        db_limit = _SessionLocal()
+        try:
+            remaining = _effective_kit_remaining(db_limit, str(steam_id), resolved_kit, entry)
+        finally:
+            db_limit.close()
+        if remaining <= 0:
+            if idempotency_key:
+                _used_idempotency_keys.pop(idempotency_key, None)
+            return jsonify({
+                "ok": False,
+                "error": (
+                    f"Você já usou todos os resgates disponíveis do kit «{resolved_kit}». "
+                    "Contate um admin se precisar de ajuda."
+                ),
+                "kit_limit_reached": True,
+            }), 403
 
     price = _catalog_price(entry, amount)
     if price > 0:
@@ -7033,6 +7229,35 @@ def admin_player_licenses(steam_id: str):
     )
     status = 200 if result.get("ok") else 400
     return jsonify(result), status
+
+
+@app.route("/api/admin/players/<steam_id>/kit-limits/<kit_id>/revoke", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_revoke_kit_limit(steam_id: str, kit_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    result = _admin_revoke_kit_limit(
+        steam_id.strip(),
+        kit_id.strip(),
+        reason=str(body.get("reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
+@app.route("/api/player/kit-limits", methods=["GET"])
+@login_required
+@limiter.limit("60 per minute")
+def player_kit_limits():
+    if (err := _require_db()) is not None:
+        return err
+    steam_id = str(_steam_id_from_session())
+    db = _SessionLocal()
+    try:
+        limits = _build_player_kit_limits(db, steam_id)
+    finally:
+        db.close()
+    return jsonify({"ok": True, "kits": limits})
 
 
 @app.route("/api/admin/players/<steam_id>/kits", methods=["POST"])

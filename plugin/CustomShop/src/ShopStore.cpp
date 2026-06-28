@@ -317,6 +317,18 @@ bool BuyKit(AShooterPlayerController* controller,
         return false;
     }
 
+    // Kits gratuitos (Price=0): resgate imediato com limite DefaultAmount (ArkShop /kit).
+    if (price == 0) {
+        std::string fail_reason;
+        const bool ok = GiveKit(controller, kit_id, false, false, &fail_reason);
+        if (!ok) {
+            Log::GetLog()->info(
+                "BuyKit: free kit '{}' redeem failed for player '{}': {}",
+                kit_id, id, fail_reason.empty() ? "unknown" : fail_reason);
+        }
+        return ok;
+    }
+
     if (!ShopPoints::Get().AddKitToStash(id, kit_id)) {
         Log::GetLog()->error("BuyKit: failed to add kit '{}' to stash for player '{}'",
                              kit_id, id);
@@ -331,6 +343,7 @@ bool BuyKit(AShooterPlayerController* controller,
 bool GiveKit(AShooterPlayerController* controller,
              const std::string& kit_id,
              bool skip_permission_check,
+             bool skip_limit_check,
              std::string* fail_reason) {
     if (!controller) {
         if (fail_reason) *fail_reason = "jogador_invalido";
@@ -346,6 +359,16 @@ bool GiveKit(AShooterPlayerController* controller,
 
     const auto& kit = kits.at(kit_id);
     const std::string id = Bridge::GetSteamId(controller);
+
+    if (!skip_limit_check) {
+        const int default_amt = std::max(0, kit.value("DefaultAmount", 0));
+        if (default_amt > 0 && ShopPoints::Get().GetKitRemaining(id, kit_id) <= 0) {
+            Log::GetLog()->info(
+                "GiveKit: player {} has no kit uses left for '{}'", id, kit_id);
+            if (fail_reason) *fail_reason = "sem_usos_kit";
+            return false;
+        }
+    }
 
     uint64_t steam_id = 0;
     try { steam_id = std::stoull(id); } catch (...) {}
@@ -421,6 +444,19 @@ bool GiveKit(AShooterPlayerController* controller,
         Log::GetLog()->warn("GiveKit: kit '{}' has no deliverable content", kit_id);
         if (fail_reason) *fail_reason = "sem_conteudo";
         return false;
+    }
+
+    if (!skip_limit_check) {
+        const int default_amt = std::max(0, kit.value("DefaultAmount", 0));
+        if (default_amt > 0) {
+            if (!ShopPoints::Get().ChangeKitAmount(id, kit_id, -1)) {
+                Log::GetLog()->error(
+                    "GiveKit: delivered kit '{}' but failed to decrement uses for '{}'",
+                    kit_id, id);
+                if (fail_reason) *fail_reason = "contador_kit_falhou";
+                return false;
+            }
+        }
     }
 
     Log::GetLog()->info("GiveKit: kit '{}' delivered to player '{}'", kit_id, id);

@@ -53,6 +53,18 @@ def test_sanitize_catalog_blueprints_fixes_recursos_kit():
     assert "Wood" in items[1]["Blueprint"]
 
 
+def test_normalize_blueprint_fixes_raw_meat_resources_folder():
+    wrong = (
+        "/Game/PrimalEarth/CoreBlueprints/Resources/"
+        "PrimalItemConsumable_RawMeat.PrimalItemConsumable_RawMeat"
+    )
+    right = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/"
+        "PrimalItemConsumable_RawMeat.PrimalItemConsumable_RawMeat"
+    )
+    assert normalize_blueprint(wrong) == right
+
+
 def test_sanitize_catalog_blueprints_handles_arkshop_wrapper_with_trailing_quote():
     """Espelha o log de produção: Blueprint'...' ou fragmento JSON com aspas extras."""
     wrapped = f"'\"Blueprint\": \"{STONE}\"'"

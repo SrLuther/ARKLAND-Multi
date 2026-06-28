@@ -100,14 +100,14 @@ def _write_settings(tmp_path, **overrides):
     (tmp_path / "settings.json").write_text(json.dumps(data), encoding="utf-8")
 
 
-def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default", points_spent=0):
+def _create_order_direct(steam_id=USER_STEAM, item_id="sword", amount=1, status="PENDENTE", server_id="default", points_spent=0, item_type="shop"):
     db = _app_module._SessionLocal()
     try:
         o = _app_module.Order(
             order_id=str(uuid.uuid4()),
             steam_id=steam_id,
             server_id=server_id,
-            item_type="shop",
+            item_type=item_type,
             item_id=item_id,
             amount=amount,
             points_spent=max(0, int(points_spent)),
@@ -1223,3 +1223,137 @@ class TestCardCheckout:
         finally:
             db.close()
 
+
+class TestKitRedemptionLimit:
+    def _mock_kit_catalog(self, monkeypatch, tmp_path):
+        config = {
+            "Kits": {
+                "starter": {
+                    "Price": 0,
+                    "DefaultAmount": 3,
+                    "Description": "Kit Inicial",
+                    "Items": [{"Blueprint": "/Game/Test/Item", "Quantity": 1}],
+                }
+            }
+        }
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        monkeypatch.setattr(
+            _app_module,
+            "_load_settings",
+            lambda: {
+                "config_path": str(config_path),
+                "server_id": "default",
+                "delivery_mode": "plugin",
+            },
+        )
+        _app_module._CONFIG_CACHE.clear()
+
+    def _seed_player_kits(self, steam_id: str, stash: dict) -> None:
+        from sqlalchemy import text
+
+        db = _app_module._SessionLocal()
+        try:
+            kits_json = json.dumps(stash, ensure_ascii=False)
+            db.execute(
+                text(
+                    "INSERT INTO players (steam_id, points, kits) VALUES (:sid, 0, :kits) "
+                    "ON CONFLICT(steam_id) DO UPDATE SET kits = :kits"
+                ),
+                {"sid": steam_id, "kits": kits_json},
+            )
+            db.commit()
+        finally:
+            db.close()
+
+    def test_purchase_kit_allowed_with_remaining_uses(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/player/purchase",
+            json={"item_id": "starter", "item_type": "kit", "amount": 1},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+    def test_purchase_kit_rejects_when_limit_exhausted(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_kits(USER_STEAM, {"starter": {"Amount": 0}})
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/player/purchase",
+            json={"item_id": "starter", "item_type": "kit", "amount": 1},
+        )
+        assert r.status_code == 403
+        d = r.get_json()
+        assert d["ok"] is False
+        assert d.get("kit_limit_reached") is True
+        assert "starter" in d["error"].lower() or "Limite" in d["error"] or "resgates" in d["error"].lower()
+
+    def test_purchase_kit_rejects_when_pending_orders_exhaust_limit(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_kits(USER_STEAM, {"starter": {"Amount": 1}})
+        _create_order_direct(
+            steam_id=USER_STEAM,
+            item_id="starter",
+            item_type="kit",
+            status="PENDENTE",
+        )
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/player/purchase",
+            json={"item_id": "starter", "item_type": "kit", "amount": 1},
+        )
+        assert r.status_code == 403
+        assert r.get_json().get("kit_limit_reached") is True
+
+    def test_purchase_kit_unlimited_when_default_amount_zero(self, client, monkeypatch, tmp_path):
+        config = {
+            "Kits": {
+                "vip_free": {
+                    "Price": 0,
+                    "DefaultAmount": 0,
+                    "Description": "VIP Free",
+                    "Items": [{"Blueprint": "/Game/Test/Item", "Quantity": 1}],
+                }
+            }
+        }
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        monkeypatch.setattr(
+            _app_module,
+            "_load_settings",
+            lambda: {
+                "config_path": str(config_path),
+                "server_id": "default",
+                "delivery_mode": "plugin",
+            },
+        )
+        _app_module._CONFIG_CACHE.clear()
+        _mock_display_name_ok(monkeypatch)
+        self._seed_player_kits(USER_STEAM, {"vip_free": {"Amount": 0}})
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/player/purchase",
+            json={"item_id": "vip_free", "item_type": "kit", "amount": 1},
+        )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+    def test_admin_revoke_kit_limit_resets_stash(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_kits(USER_STEAM, {"starter": {"Amount": 0}})
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            f"/api/admin/players/{USER_STEAM}/kit-limits/starter/revoke",
+            json={"reason": "suporte"},
+        )
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["remaining"] == 3
+        assert d["stash"]["starter"]["Amount"] == 3

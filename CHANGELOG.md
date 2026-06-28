@@ -5,6 +5,39 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.143] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (Loja / Sync): catálogo mestre propaga Kits/Items completos para todos os mapas — WEBSTORE desatualizada com mais entradas não sobrescreve mais o mestre; sync recarrega o mestre do disco após reconcile; log itens/kits antes→depois por mapa.
+- Fix (Loja / Sync): CrossChat do mestre vence no sync (só ServerId permanece exclusivo por mapa).
+
+## [1.9.142] - 2026-06-27
+
+### Feature
+
+- Novo (Loja / Kits): limite de resgates por DefaultAmount (web + /shop in-game) — contador persistente em players.kits; pedidos pendentes reservam slot; painel Gerenciar Jogadores com usado/limite e botão Resetar; API POST /api/admin/players/{steam_id}/kit-limits/{kit_id}/revoke.
+
+### Fix
+
+- Fix CRÍTICO (CrossChat): sync do CustomShop define ServerId único por mapa (pasta install_dir / shop id) — corrige chat cluster com todos os mapas aparecendo com o mesmo nome.
+- Fix CRÍTICO (CustomShop / Entrega web): HttpClient recarrega config.json e tenta GiveKit/GiveItem novamente quando o kit/item não está no catálogo em memória (kit_desconhecido / item_desconhecido) — corrige entregas após sync sem Shop.Reload.
+- Fix (Loja / Import): normalize_blueprint corrige RawMeat em pasta Resources (kit recursos) para o caminho Consumables válido no ARK.
+- Fix (CustomShop): kits com DefaultAmount=0 são ilimitados; mensagem PT-BR ao esgotar resgates.
+
+## [1.9.141] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (CrossChat): sync do CustomShop define ServerId único por mapa (pasta install_dir / shop id) — corrige chat cluster com todos os mapas aparecendo com o mesmo nome.
+
+## [1.9.140] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (CustomShop / Entrega web): HttpClient recarrega config.json e tenta GiveKit/GiveItem novamente quando o kit/item não está no catálogo em memória (kit_desconhecido / item_desconhecido) — corrige entregas após sync sem Shop.Reload.
+- Fix (Loja / Import): normalize_blueprint corrige RawMeat em pasta Resources (kit recursos) para o caminho Consumables válido no ARK.
+
 ## [1.9.139] - 2026-06-27
 
 ### Fix

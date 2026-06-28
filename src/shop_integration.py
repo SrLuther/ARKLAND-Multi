@@ -129,21 +129,65 @@ def merge_settings_from_catalog(
         out["WebApiKey"] = api_key
 
 
+_GENERIC_CROSSCHAT_NAMES = frozenset(
+    {"ark server", "ark server tek", "my ark server", "server", "mapa1", "mapa2"}
+)
+
+
+def _sanitize_cross_chat_label(raw: str) -> str:
+    ascii_parts = re.findall(r"[\x20-\x7e]+", raw or "")
+    label = " ".join("".join(ascii_parts).split())
+    return label[:64]
+
+
+def _cross_chat_server_label(srv: Any) -> str:
+    """Nome exibido no chat cluster — único por mapa."""
+    shop_sid = (getattr(srv, "shop_server_id", "") or "").strip()
+    if shop_sid:
+        label = _sanitize_cross_chat_label(shop_sid)
+        if label:
+            return label
+
+    install_dir = (getattr(srv, "install_dir", "") or "").strip()
+    if install_dir:
+        folder = Path(install_dir).name.strip()
+        if folder and folder.lower() not in _GENERIC_CROSSCHAT_NAMES:
+            label = _sanitize_cross_chat_label(folder)
+            if label:
+                return label
+
+    for attr in ("alt_save_directory_name", "session_name", "server_name", "name"):
+        raw = (getattr(srv, attr, "") or "").strip()
+        if raw and raw.lower() not in _GENERIC_CROSSCHAT_NAMES:
+            label = _sanitize_cross_chat_label(raw)
+            if label:
+                return label
+
+    return _sanitize_cross_chat_label(
+        slugify_server_id("", getattr(srv, "id", ""))
+    ) or "server"
+
+
 def apply_shared_sections_to_plugin(
     merged: Dict[str, Any],
     catalog: Dict[str, Any],
     existing: Dict[str, Any],
 ) -> None:
-    """Copia seções compartilhadas do mestre; preserva ServerId local do CrossChat."""
+    """Copia seções compartilhadas do mestre; só CrossChat.ServerId permanece por mapa."""
+    master_cc = catalog.get("CrossChat") or {}
+    master_sid = str(master_cc.get("ServerId") or "").strip()
     for key in SHARED_SYNC_TOP_LEVEL_KEYS:
         if key not in catalog:
             continue
         if key == "CrossChat":
             cat_cc = deepcopy(catalog["CrossChat"])
-            ex_sid = (existing.get("CrossChat") or {}).get("ServerId")
-            if ex_sid:
-                cat_cc["ServerId"] = ex_sid
-            merged["CrossChat"] = cat_cc
+            cat_cc.pop("ServerId", None)
+            ex_cc = existing.get("CrossChat") or {}
+            ex_sid = str(ex_cc.get("ServerId") or "").strip()
+            merged_cc = deepcopy(cat_cc)
+            if ex_sid and ex_sid != master_sid:
+                merged_cc["ServerId"] = ex_sid
+            merged["CrossChat"] = merged_cc
         else:
             merged[key] = deepcopy(catalog[key])
     merge_settings_from_catalog(merged, catalog, existing)
@@ -489,6 +533,23 @@ def merge_catalog_content_from_source(
     return out
 
 
+def _webstore_merge_would_shrink_catalog(
+    merged: Dict[str, Any],
+    ws_data: Dict[str, Any],
+) -> bool:
+    """True se incorporar WEBSTORE apagaria itens/kits presentes no mestre em memória."""
+    for section in ("Items", "ShopItems", "Kits"):
+        base_sec = merged.get(section) or {}
+        ws_sec = ws_data.get(section) or {}
+        if not isinstance(base_sec, dict) or not isinstance(ws_sec, dict):
+            continue
+        if any(k not in ws_sec for k in base_sec):
+            return True
+    base_ni, base_nk = catalog_entry_counts(merged)
+    ws_ni, ws_nk = catalog_entry_counts(ws_data)
+    return ws_ni < base_ni or ws_nk < base_nk
+
+
 def reconcile_catalog_before_sync(
     catalog_path: Path | str,
     catalog: Dict[str, Any],
@@ -523,18 +584,14 @@ def reconcile_catalog_before_sync(
     ws_fp = shared_config_fingerprint(ws_data)
     merged_fp = shared_config_fingerprint(merged)
 
-    if (
-        ws_mtime > master_mtime + 0.001
-        or ws_total > merged_total
-        or (ws_fp != merged_fp and ws_mtime + 0.001 >= master_mtime)
-    ):
+    ws_newer = ws_mtime > master_mtime + 0.001
+    ws_diff_newer = ws_fp != merged_fp and ws_mtime + 0.001 >= master_mtime
+    should_merge = ws_newer or (
+        ws_diff_newer and not _webstore_merge_would_shrink_catalog(merged, ws_data)
+    )
+    if should_merge:
         merged = merge_catalog_content_from_source(merged, ws_data)
-        if ws_mtime > master_mtime + 0.001:
-            reason = "mtime"
-        elif ws_total > merged_total:
-            reason = "conteúdo"
-        else:
-            reason = "Settings/TimedPointsReward"
+        reason = "mtime" if ws_newer else "Settings/TimedPointsReward"
         logger.info(
             "Sync: edições legadas em WEBSTORE incorporadas (%s, %d entradas) → mestre canônico",
             reason,
@@ -544,6 +601,12 @@ def reconcile_catalog_before_sync(
             save_plugin_config(master, merged)
         except OSError as exc:
             logger.warning("Não foi possível gravar mestre canônico após reconcile: %s", exc)
+    elif ws_diff_newer and _webstore_merge_would_shrink_catalog(merged, ws_data):
+        logger.warning(
+            "Sync: WEBSTORE ignorada — reduziria catálogo mestre (%d itens+kits vs %d no cache)",
+            merged_total,
+            ws_total,
+        )
 
     return master, merged
 
@@ -1828,19 +1891,6 @@ def validate_plugin_database_settings(db_settings: Dict[str, Any]) -> Tuple[bool
     )
 
 
-def _cross_chat_server_label(srv: Any) -> str:
-    """Nome exibido no chat cluster — único por mapa."""
-    raw = (
-        (getattr(srv, "name", "") or "").strip()
-        or (getattr(srv, "shop_server_id", "") or "").strip()
-    )
-    if not raw:
-        raw = slugify_server_id("", getattr(srv, "id", ""))
-    ascii_parts = re.findall(r"[\x20-\x7e]+", raw)
-    label = " ".join("".join(ascii_parts).split())
-    return (label or slugify_server_id(raw, getattr(srv, "id", "")))[:64]
-
-
 def build_cross_chat_settings(
     shop: "ShopGlobalConfig",
     srv: Any,
@@ -1992,18 +2042,28 @@ def sync_plugin_at_path(
     db_settings: Dict[str, Any],
     *,
     server_name: str = "",
+    shop: Optional["ShopGlobalConfig"] = None,
+    srv: Any = None,
 ) -> List[str]:
     """Sincroniza config do plugin; retorna notas de Permissions alteradas."""
     existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
     perm_notes: List[str] = []
     label = server_name or plugin_path.parent.parent.name or str(plugin_path)
+    before_ni, before_nk = catalog_entry_counts(existing)
+    master_ni, master_nk = catalog_entry_counts(catalog)
     for section, entry_id, old_p, new_p in catalog_permission_diff(existing, catalog):
         note = format_permission_sync_note(section, entry_id, old_p, new_p)
         perm_notes.append(f"{label}: {note}")
         logger.info("CustomShop sync Permissions [%s] %s", label, note)
 
     old_url = str((existing.get("Settings") or {}).get("WebsiteUrl") or "").strip()
-    merged = merge_plugin_config(catalog, website_url, api_url, api_key, db_settings)
+    merged = merge_catalog_into_plugin_config(catalog, existing)
+    merge_settings_from_catalog(
+        merged, catalog, existing,
+        website_url=website_url, api_url=api_url, api_key=api_key,
+    )
+    if db_settings:
+        merged["Database"] = deepcopy(db_settings)
     # Não sobrescrever senha válida já no plugin com placeholder do app.
     merged_db = merged.get("Database") or {}
     existing_db = existing.get("Database") or {}
@@ -2012,10 +2072,21 @@ def sync_plugin_at_path(
     if _is_placeholder_db_password(merged_pw) and existing_pw and not _is_placeholder_db_password(existing_pw):
         merged_db["Password"] = existing_pw
         merged["Database"] = merged_db
-    apply_shared_sections_to_plugin(merged, catalog, existing)
-    merge_settings_from_catalog(
-        merged, catalog, existing,
-        website_url=website_url, api_url=api_url, api_key=api_key,
+    if shop is not None and srv is not None:
+        merged["CrossChat"] = build_cross_chat_settings(
+            shop,
+            srv,
+            catalog_cc=catalog.get("CrossChat") or {},
+            existing_cc=merged.get("CrossChat") or {},
+        )
+    after_ni, after_nk = catalog_entry_counts(merged)
+    logger.info(
+        "CustomShop sync catálogo [%s]: itens %d→%d kits %d→%d (mestre %d/%d) → %s",
+        label,
+        before_ni, after_ni,
+        before_nk, after_nk,
+        master_ni, master_nk,
+        plugin_path,
     )
     tp = merged.get("TimedPointsReward") or {}
     tp_groups = tp.get("Groups") or {}
@@ -2312,6 +2383,13 @@ def sync_all_plugins(
         shop_dirty = True
 
     catalog_path, catalog = reconcile_catalog_before_sync(catalog_path, catalog)
+    if catalog_path.is_file():
+        catalog = load_plugin_config(catalog_path)
+        ni, nk = catalog_entry_counts(catalog)
+        logger.info(
+            "CustomShop sync: mestre canônico recarregado (%d itens, %d kits) ← %s",
+            ni, nk, catalog_path,
+        )
 
     try:
         from .shop_catalog_import import sanitize_catalog_blueprints
@@ -2379,17 +2457,11 @@ def sync_all_plugins(
             perm_notes = sync_plugin_at_path(
                 catalog, plugin_path, website, api, api_key, db_settings,
                 server_name=getattr(srv, "name", "") or "",
+                shop=shop,
+                srv=srv,
             )
             for note in perm_notes:
                 ok.append(note)
-            cfg_after = load_plugin_config(plugin_path)
-            cfg_after["CrossChat"] = build_cross_chat_settings(
-                shop,
-                srv,
-                catalog_cc=catalog.get("CrossChat") or {},
-                existing_cc=cfg_after.get("CrossChat") or {},
-            )
-            save_plugin_config(plugin_path, cfg_after)
             sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
                 getattr(srv, "name", ""), getattr(srv, "id", ""),
             )

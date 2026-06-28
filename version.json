@@ -1,9 +1,9 @@
 {
-    "version": "1.9.139",
+    "version": "1.9.143",
     "date": "2026-06-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.139/ARKLAND-Multi-Setup-v1.9.139.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.143/ARKLAND-Multi-Setup-v1.9.143.exe",
     "changelog": [
-        "Fix CRÍTICO (Loja / Sync): Sync + Reload RCON e Aplicar em todos os plugins gravam o catálogo da UI no mestre canônico antes de propagar — get_catalog não recarrega mais do disco e descarta edições não salvas.",
-        "Fix (Loja / Sync): reconcile_catalog_before_sync só substitui o catálogo em memória quando o disco tem mais entradas (não mais em empate de contagem), preservando edições recém-persistidas."
+        "Fix CRÍTICO (Loja / Sync): catálogo mestre propaga Kits/Items completos para todos os mapas — WEBSTORE desatualizada com mais entradas não sobrescreve mais o mestre; sync recarrega o mestre do disco após reconcile; log itens/kits antes→depois por mapa.",
+        "Fix (Loja / Sync): CrossChat do mestre vence no sync (só ServerId permanece exclusivo por mapa)."
     ]
 }

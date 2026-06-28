@@ -6284,6 +6284,29 @@ async function logout() {
 
 async function loadAuth() {
   _auth = await fetchJson("/api/auth/me", { timeoutMs: 12000 });
+  if (_auth.authenticated) {
+    await loadPlayerKitLimits().catch(() => { _playerKitLimits = {}; });
+  } else {
+    _playerKitLimits = {};
+  }
+}
+
+async function loadPlayerKitLimits() {
+  if (!_auth.authenticated) { _playerKitLimits = {}; return; }
+  const d = await fetchJson("/api/player/kit-limits", { timeoutMs: 10000 });
+  _playerKitLimits = {};
+  if (d.ok && Array.isArray(d.kits)) {
+    d.kits.forEach(k => { if (k.kit_id) _playerKitLimits[k.kit_id] = k; });
+  }
+}
+
+function _kitLimitInfo(item) {
+  if (item.catalogKind !== "kit" && item.purchaseType !== "kit") return null;
+  const fromApi = _playerKitLimits[item.key];
+  if (fromApi) return fromApi;
+  const limit = Number(item.defaultAmount || 0);
+  if (limit <= 0) return null;
+  return { limit, remaining: limit, effective_remaining: limit, used: 0 };
 }
 
 function applyRoleUi(deferAdminNav = false) {
@@ -6388,6 +6411,7 @@ function formatKey(key) {
 // ── Catálogo (visível a todos) ────────────────────────────────────────────────
 let _catalogItems = [];
 let _catalogKits = [];
+let _playerKitLimits = {};
 let _catalogPackages = [];
 let _playerEntitlements = [];
 let _playerTimedPointsTotal = 25;
@@ -6757,11 +6781,15 @@ function _attachRedeemDoc(item) {
 function _renderProductCard(i, btnLabel) {
   const doc = i._redeemDoc || (typeof RedeemDocs !== "undefined" ? RedeemDocs.buildItemRedeemDoc(i, _redeemDocHelpers()) : null);
   const locked = _auth.authenticated && _parsePermsList(i.permissions || i.Permissions).length && !_itemCanPurchase(i);
+  const kitLim = _kitLimitInfo(i);
+  const kitExhausted = !!(kitLim && (kitLim.effective_remaining ?? kitLim.remaining ?? 0) <= 0);
   const buyBtn = !_auth.authenticated
     ? `<button class="btn btn-ghost btn-sm" onclick="promptLogin('resgate')">Login p/ resgatar</button>`
     : locked
       ? `<button class="btn btn-ghost btn-sm" disabled title="Licença necessária">🔒 Licença</button>`
-      : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
+      : kitExhausted
+        ? `<button class="btn btn-ghost btn-sm" disabled title="Limite de resgates esgotado">⛔ Esgotado</button>`
+        : `<button class="btn-buy" onclick='openBuyModal(${JSON.stringify(i).replace(/'/g, "&#39;")})'>${btnLabel || "Resgatar"}</button>`;
   const docHtml = doc && typeof RedeemDocs !== "undefined" ? RedeemDocs.renderProductDocHtml(doc) : "";
   const adminDesc = String(i.desc || "").trim();
   const shortDesc = doc ? doc.shortDescription : (adminDesc || "");
@@ -6781,6 +6809,10 @@ function _renderProductCard(i, btnLabel) {
     metaLine = `<div class="item-card__meta-line">📜 ${escHtml(String(i.licenseDays))} dias${i.licenseGroup ? ` · ${escHtml(i.licenseGroup)}` : ""}</div>`;
   } else if (i.catalogKind === "kit" && i.itemCount) {
     metaLine = `<div class="item-card__kit-preview">🎁 ${escHtml(String(i.itemCount))} itens incluídos · <button type="button" onclick='openKitContentsModal(${JSON.stringify(i.key)})'>ver conteúdo</button></div>`;
+  }
+  if (kitLim && kitLim.limit > 0) {
+    const eff = kitLim.effective_remaining ?? kitLim.remaining ?? 0;
+    metaLine += `<div class="item-card__meta-line" style="color:${eff <= 0 ? "var(--danger)" : "var(--text2)"};">🔁 ${eff} de ${kitLim.limit} resgate(s) restante(s)</div>`;
   } else if (i.tier && _isDinoType(i.type) && i.speciesKey) {
     metaLine = `<div class="item-card__meta-line">${escHtml(i.speciesKey)}</div>`;
   }
@@ -6871,6 +6903,7 @@ async function loadCatalog() {
       thumbnailUrl: v.thumbnail_url || "",
       searchText: v.search_text || "",
       tier: v.tier || "",
+      defaultAmount: Number(v.DefaultAmount ?? v.default_amount ?? 0) || 0,
     }));
 
     _catalogPackages = data.point_packages || [];
@@ -11600,6 +11633,7 @@ async function confirmBuy() {
       toast(d.user_message || `✅ Resgate solicitado: ${item.name}`, "success");
       if (d.new_balance != null) window._playerBalance = d.new_balance;
       refreshPlayerBalance();
+      loadPlayerKitLimits().then(() => renderCatalog()).catch(() => {});
       loadMyArea();
       if (_catalogActiveTab === "available") loadAvailable();
     } else {
@@ -12799,6 +12833,28 @@ function renderPlayerAdminPanel(d) {
   const orders = (d.recent_orders || []).slice(0, 5).map(o =>
     `<li style="font-size:12px;margin-bottom:4px;"><code>${escHtml(o.item_id)}</code> · ${escHtml(o.status)} · ${Number(o.points_spent||0).toLocaleString("pt-BR")} Â</li>`
   ).join("") || `<li style="color:var(--text2);font-size:12px;">Sem pedidos recentes</li>`;
+  const kitLimits = (p.kit_limits || []).map(k => {
+    const eff = k.effective_remaining ?? k.remaining ?? 0;
+    return `<tr>
+      <td>${escHtml(k.label || k.kit_id)}</td>
+      <td><code>${escHtml(k.kit_id)}</code></td>
+      <td>${k.used ?? 0} / ${k.limit ?? 0}</td>
+      <td>${eff}${k.pending_orders ? ` <span style="color:var(--text2);">(+${k.pending_orders} pend.)</span>` : ""}</td>
+      <td><button class="btn btn-ghost btn-sm" type="button" onclick='playerAdminRevokeKitLimit(${JSON.stringify(k.kit_id)})'>↺ Resetar</button></td>
+    </tr>`;
+  }).join("");
+  const kitLimitsBlock = kitLimits
+    ? `<div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:8px;">Limites de kits (DefaultAmount)</div>
+      <table class="pkg-admin-table" style="font-size:12px;">
+        <thead><tr><th>Kit</th><th>ID</th><th>Usado / Limite</th><th>Restante</th><th></th></tr></thead>
+        <tbody>${kitLimits}</tbody>
+      </table>
+    </div>`
+    : `<div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:4px;">Limites de kits</div>
+      <p style="font-size:12px;color:var(--text2);margin:0;">Nenhum kit com limite de resgates (DefaultAmount &gt; 0) no catálogo.</p>
+    </div>`;
 
   panel.innerHTML = `
     <div class="card-header" style="margin-bottom:12px;">
@@ -12877,6 +12933,7 @@ function renderPlayerAdminPanel(d) {
         <button class="btn btn-ghost btn-sm" onclick="playerAdminKit('stash')">📦 Stash</button>
       </div>
     </div>
+    ${kitLimitsBlock}
     <div style="margin-bottom:8px;">
       <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Pedidos recentes</div>
       <ul style="margin:0;padding-left:18px;">${orders}</ul>
@@ -12964,6 +13021,22 @@ async function playerAdminKit(mode) {
     toast(mode === "deliver" ? "Kit enfileirado para entrega." : "Kit adicionado ao stash.", "success");
     selectPlayerAdmin(_playersAdminSelected, true);
   } else toast(d.error || "Falha", "error");
+}
+
+async function playerAdminRevokeKitLimit(kitId) {
+  if (!_playersAdminSelected || !kitId) return;
+  const reason = prompt("Motivo do reset (auditoria, opcional):", "") || "";
+  if (!confirm(`Resetar contador de resgates do kit «${kitId}» para este jogador?`)) return;
+  const r = await fetch(
+    API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected)
+      + "/kit-limits/" + encodeURIComponent(kitId) + "/revoke",
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) }
+  );
+  const d = await r.json();
+  if (d.ok) {
+    toast(`Limite resetado — ${d.remaining ?? d.limit ?? "?"} resgate(s) disponíveis.`, "success");
+    selectPlayerAdmin(_playersAdminSelected, true);
+  } else toast(d.error || "Falha ao resetar limite", "error");
 }
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

@@ -49,9 +49,19 @@ public:
 
     // Kit stash — stored as JSON in the players.kits column.
     // Format: {"kit_id": {"Amount": N}, ...}
+    // Amount = resgates restantes (ArkShop: DefaultAmount na 1ª vez, depois persiste).
 
     // Returns the full stash object. Returns {} on error or no data.
     nlohmann::json GetKitStash(const std::string& steam_id);
+
+    // Remaining redemptions; uses DefaultAmount from kit config when player has no entry.
+    int GetKitRemaining(const std::string& steam_id,
+                        const std::string& kit_id);
+
+    // Adds delta to remaining uses (initializes from DefaultAmount if missing).
+    bool ChangeKitAmount(const std::string& steam_id,
+                         const std::string& kit_id,
+                         int delta);
 
     // Increments the kit's Amount by `amount` (default 1); creates entry if missing.
     bool AddKitToStash(const std::string& steam_id,

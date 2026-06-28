@@ -25,10 +25,12 @@ bool BuyKit(AShooterPlayerController* controller,
 
 // Deliver a kit without charging points (admin / web pending / manual).
 // skip_permission_check: true for web pending orders (already paid/authorized).
+// skip_limit_check: true for admin manual delivery (ignores DefaultAmount).
 // fail_reason: optional out — machine-readable cause when returning false.
 bool GiveKit(AShooterPlayerController* controller,
              const std::string& kit_id,
              bool skip_permission_check = false,
+             bool skip_limit_check = false,
              std::string* fail_reason = nullptr);
 
 // Deliver an item without charging points (web store / admin use).
