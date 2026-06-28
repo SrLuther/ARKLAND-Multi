@@ -1,8 +1,10 @@
-{
-    "version": "1.9.149",
-    "date": "2026-06-28",
-    "download_url": "",
-    "changelog": [
-        "Em desenvolvimento: sistema de tickets — esboço MVP na Web Store (jogador + admin), substituindo Mensagens do Sistema no painel web (permanece no TEK)."
-    ]
-}
+{
+    "version": "1.9.150",
+    "date": "2026-06-28",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.150/ARKLAND-Multi-Setup-v1.9.150.exe",
+    "changelog": [
+        "Fix (CustomShop / TimedPoints): notificacao de Ambares usa chat normal (SendChatMessage) em vez de mensagem grande verde do servidor (SendServerMessage); CustomShop.dll requer recompilacao.",
+        "Fix (CrossChat): mensagens cluster via ClientChatMessage sem badges de admin (estrela/tribo) no nome do remetente; CustomShop.dll requer recompilacao.",
+        "Fix (Loja / Sync Permissions): collect_groups inclui keyvault e LicenseGrant.Group de kits/itens para provisionar grupos no keyvault ao sincronizar."
+    ]
+}
