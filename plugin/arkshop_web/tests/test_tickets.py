@@ -1,22 +1,27 @@
-"""Testes do sistema de tickets (MVP 1.9.149)."""
+"""Testes do sistema de tickets (1.9.149)."""
 from __future__ import annotations
 
 import json
+import uuid
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 import app as _app_module
-from app import app
+from app import Order, app
 from ticket_service import (
+    TICKET_CATEGORIES,
     add_ticket_reply,
     create_ticket,
     ensure_ticket_schema,
     get_ticket_detail,
+    get_ticket_history,
     list_tickets_admin,
     list_tickets_for_player,
     save_discord_link,
+    ticket_meta,
+    update_ticket_priority,
     update_ticket_status,
 )
 
@@ -58,6 +63,34 @@ def _login(client, steam_id: str) -> None:
         sess["steam_id"] = steam_id
 
 
+def _seed_order(db, *, steam_id: str = USER_STEAM) -> str:
+    bind = db.get_bind()
+    Order.__table__.create(bind, checkfirst=True)
+    oid = str(uuid.uuid4())
+    db.add(
+        Order(
+            order_id=oid,
+            steam_id=steam_id,
+            server_id="default",
+            item_type="shop",
+            item_id="test_kit",
+            amount=1,
+            points_spent=100,
+            status="PENDENTE",
+        )
+    )
+    db.commit()
+    return oid
+
+
+def test_ticket_meta():
+    meta = ticket_meta()
+    assert "categories" in meta
+    assert "priorities" in meta
+    assert "statuses" in meta
+    assert any(c["id"] == "suporte" for c in meta["categories"])
+
+
 def test_create_and_list_ticket(ticket_db):
     created = create_ticket(
         ticket_db,
@@ -66,11 +99,15 @@ def test_create_and_list_ticket(ticket_db):
         subject="Problema no resgate",
         body="Não recebi meu kit.",
         category="resgate",
+        priority="urgente",
         links=["https://example.com/prova"],
     )
     assert created["ok"] is True
     assert created["ticket"]["subject"] == "Problema no resgate"
     assert created["ticket"]["player_name"] == "JogadorTeste"
+    assert created["ticket"]["status"] == "ABERTO"
+    assert created["ticket"]["priority"] == "urgente"
+    assert created["ticket"]["category_label"] == "Resgate / entrega"
 
     items, total = list_tickets_for_player(ticket_db, USER_STEAM, status="open")
     assert total == 1
@@ -80,15 +117,49 @@ def test_create_and_list_ticket(ticket_db):
     assert detail is not None
     assert len(detail["messages"]) == 1
     assert detail["messages"][0]["links"] == ["https://example.com/prova"]
+    assert len(detail["history"]) >= 1
+    assert detail["history"][0]["event_type"] == "created"
 
 
-def test_admin_reply_and_close(ticket_db):
+def test_create_with_order_id(ticket_db):
+    oid = _seed_order(ticket_db)
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Disputa pedido",
+        body="Item não chegou",
+        category="pagamento",
+        order_id=oid,
+    )
+    assert created["ok"] is True
+    assert created["ticket"]["order_id"] == oid
+
+    detail = get_ticket_detail(
+        ticket_db, created["ticket"]["id"], viewer_steam_id=USER_STEAM, include_order=True
+    )
+    assert detail["order"]["order_id"] == oid
+    assert detail["order"]["item_id"] == "test_kit"
+
+    bad = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Pedido alheio",
+        body="Teste",
+        order_id=str(uuid.uuid4()),
+    )
+    assert bad["ok"] is False
+
+
+def test_admin_reply_status_history_and_close(ticket_db):
     created = create_ticket(
         ticket_db,
         steam_id=USER_STEAM,
         player_name="Nick",
         subject="Ajuda",
         body="Preciso de suporte",
+        category="suporte",
     )
     tid = created["ticket"]["id"]
 
@@ -103,9 +174,42 @@ def test_admin_reply_and_close(ticket_db):
     )
     assert reply["ok"] is True
 
-    closed = update_ticket_status(ticket_db, tid, status="CLOSED", admin_steam_id=ADMIN_STEAM)
+    detail = get_ticket_detail(ticket_db, tid, is_admin=True)
+    assert detail["ticket"]["status"] == "EM_ANALISE"
+
+    waiting = update_ticket_status(
+        ticket_db,
+        tid,
+        status="AGUARDANDO_JOGADOR",
+        admin_steam_id=ADMIN_STEAM,
+        admin_name="Admin",
+    )
+    assert waiting["ok"] is True
+    assert waiting["ticket"]["status"] == "AGUARDANDO_JOGADOR"
+
+    pri = update_ticket_priority(
+        ticket_db,
+        tid,
+        priority="urgente",
+        admin_steam_id=ADMIN_STEAM,
+        admin_name="Admin",
+    )
+    assert pri["ok"] is True
+    assert pri["ticket"]["priority"] == "urgente"
+
+    closed = update_ticket_status(
+        ticket_db, tid, status="ENCERRADO", admin_steam_id=ADMIN_STEAM, admin_name="Admin"
+    )
     assert closed["ok"] is True
-    assert closed["ticket"]["status"] == "CLOSED"
+    assert closed["ticket"]["status"] == "ENCERRADO"
+
+    hist = get_ticket_history(ticket_db, tid, is_admin=True)
+    assert hist is not None
+    events = [h["event_type"] for h in hist["history"]]
+    assert "created" in events
+    assert "status_changed" in events
+    assert "priority_changed" in events
+    assert "reply_admin" in events
 
     blocked = add_ticket_reply(
         ticket_db,
@@ -118,8 +222,53 @@ def test_admin_reply_and_close(ticket_db):
     )
     assert blocked["ok"] is False
 
-    admin_items, admin_total = list_tickets_admin(ticket_db, status="CLOSED")
+    admin_items, admin_total = list_tickets_admin(ticket_db, status="ENCERRADO")
     assert admin_total >= 1
+
+
+def test_admin_filters(ticket_db):
+    create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="A",
+        subject="Bug mapa",
+        body="Erro",
+        category="bug",
+        priority="baixa",
+    )
+    create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="B",
+        subject="Doação",
+        body="Pix",
+        category="doacao",
+        priority="urgente",
+    )
+    bugs, n = list_tickets_admin(ticket_db, category="bug")
+    assert n == 1
+    assert bugs[0]["category"] == "bug"
+
+    urgent, n2 = list_tickets_admin(ticket_db, priority="urgente")
+    assert n2 == 1
+    assert urgent[0]["priority"] == "urgente"
+
+
+def test_legacy_status_migration(ticket_db):
+    ticket_db.execute(
+        text(
+            "INSERT INTO support_tickets (steam_id, player_name, subject, category, status, priority) "
+            "VALUES (:sid, 'Legado', 'Old', 'geral', 'OPEN', 'normal')"
+        ),
+        {"sid": USER_STEAM},
+    )
+    ticket_db.commit()
+    engine = ticket_db.get_bind()
+    ensure_ticket_schema(engine)
+    row = ticket_db.execute(
+        text("SELECT status FROM support_tickets WHERE subject = 'Old'")
+    ).fetchone()
+    assert row[0] == "ABERTO"
 
 
 def test_discord_link_manual(ticket_db):
@@ -130,6 +279,28 @@ def test_discord_link_manual(ticket_db):
         discord_username="player#0001",
     )
     assert link["discord_username"] == "player#0001"
+
+
+def test_invalid_category_normalized(ticket_db):
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="X",
+        subject="Teste",
+        body="Corpo",
+        category="invalida_xyz",
+    )
+    assert created["ok"] is True
+    assert created["ticket"]["category"] == "geral"
+    assert "geral" in TICKET_CATEGORIES
+
+
+def test_tickets_meta_endpoint(client):
+    r = client.get("/api/tickets/meta")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["ok"] is True
+    assert len(data["statuses"]) == 4
 
 
 def test_admin_tickets_list_requires_admin(client, monkeypatch):

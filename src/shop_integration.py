@@ -1183,6 +1183,13 @@ def _ensure_permissions_config_on_server(
     return ok, notes
 
 
+def _license_grant_group(entry: Dict[str, Any]) -> str:
+    lic = entry.get("LicenseGrant")
+    if isinstance(lic, dict):
+        return str(lic.get("Group") or "").strip()
+    return ""
+
+
 def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
     """Extrai nomes de grupos únicos do catálogo CustomShop."""
     found: set[str] = set()
@@ -1200,6 +1207,9 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
                 g = token.strip()
                 if g:
                     found.add(g)
+        grant_group = _license_grant_group(kit)
+        if grant_group:
+            found.add(grant_group)
 
     for item in (catalog.get("Items") or catalog.get("ShopItems") or {}).values():
         if not isinstance(item, dict):
@@ -1215,8 +1225,11 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
                 g = token.strip()
                 if g:
                     found.add(g)
+        grant_group = _license_grant_group(item)
+        if grant_group:
+            found.add(grant_group)
 
-    for lic in ("Gamma", "Beta", "Alfa", "Moderacao", "STAFF"):
+    for lic in ("keyvault", "Gamma", "Beta", "Alfa", "Moderacao", "STAFF"):
         found.add(lic)
 
     timed = catalog.get("TimedPointsReward", {})

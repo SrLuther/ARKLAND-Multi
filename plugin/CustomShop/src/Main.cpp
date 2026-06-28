@@ -76,6 +76,7 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
 
     const std::string steam_id = CustomShop::Bridge::GetSteamId(player);
     Log::GetLog()->info("HandleNewPlayer: steam_id='{}'", steam_id);
+    CustomShop::ShopEntitlements::Get().SyncPlayerOnJoin(steam_id);
     CustomShop::ShopCloudInventory::ClearOperationInProgress(steam_id);
 
     AShooterPlayerController* raw_ctrl = player;

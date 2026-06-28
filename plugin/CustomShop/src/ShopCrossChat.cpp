@@ -108,6 +108,30 @@ void SendLocal(AShooterPlayerController* player, const std::string& text) {
     ArkApi::GetApiUtils().SendChatMessage(player, kSender, text.c_str());
 }
 
+// Relay cluster chat without putting the player name in SenderName.
+// ARK resolves SenderName to online players and applies native badges
+// (gold star = server admin, blue gate = tribe admin) even for relayed text.
+void BroadcastClusterChat(const FString& sender, const FString& body) {
+    if (body.IsEmpty()) return;
+
+    FChatMessage chat;
+    chat.SenderName = sender;
+    chat.Message = body;
+    chat.SenderSteamName = FString();
+    chat.SenderTribeName = FString();
+    chat.SenderId = 0;
+    chat.SenderIcon = nullptr;
+    chat.UserId = FString();
+
+    const auto& player_controllers = ArkApi::GetApiUtils().GetWorld()->PlayerControllerListField();
+    for (TWeakObjectPtr<APlayerController> player_controller : player_controllers) {
+        AShooterPlayerController* shooter_pc =
+            static_cast<AShooterPlayerController*>(player_controller.Get());
+        if (shooter_pc)
+            shooter_pc->ClientChatMessage(chat);
+    }
+}
+
 void BroadcastIncoming(const std::string& source_server,
                        const std::string& player_name,
                        const std::string& tribe_name,
@@ -116,13 +140,16 @@ void BroadcastIncoming(const std::string& source_server,
     const std::wstring wserver(source_server.begin(), source_server.end());
     const std::wstring wname(player_name.begin(), player_name.end());
     const std::wstring wtribe(tribe_name.begin(), tribe_name.end());
-    FString sender;
+    const std::wstring wmsg(message.begin(), message.end());
+
+    const FString sender = FString(L"[") + wserver.c_str() + L"]";
+    FString body;
     if (!tribe_name.empty()) {
-        sender = FString(L"[") + wserver.c_str() + L"] [" + wtribe.c_str() + L"] " + wname.c_str();
+        body = FString(L"[") + wtribe.c_str() + L"] " + wname.c_str() + L": " + wmsg.c_str();
     } else {
-        sender = FString(L"[") + wserver.c_str() + L"] " + wname.c_str();
+        body = wname.c_str() + FString(L": ") + wmsg.c_str();
     }
-    ArkApi::GetApiUtils().SendChatMessageToAll(sender, message.c_str());
+    BroadcastClusterChat(sender, body);
 }
 
 std::string GetTribeName(AShooterPlayerController* player) {

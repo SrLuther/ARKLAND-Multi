@@ -23,8 +23,18 @@ void NotifyTimedReward(AShooterPlayerController* controller,
     msg << "Foram adicionados +" << awarded
         << " Ambares em sua conta e agora voce tem "
         << balance << " Ambares";
-    ArkApi::GetApiUtils().SendServerMessage(
-        controller, FColorList::Green, msg.str().c_str());
+
+    static const FString kSender(L"Nuvem");
+    std::string safe;
+    const std::string raw = msg.str();
+    safe.reserve(raw.size());
+    for (unsigned char ch : raw) {
+        if (ch >= 32 && ch <= 126)
+            safe.push_back(static_cast<char>(ch));
+    }
+    if (safe.empty()) return;
+
+    ArkApi::GetApiUtils().SendChatMessage(controller, kSender, safe.c_str());
 }
 
 std::string FormatGroupSummary(const nlohmann::json& groups_cfg) {

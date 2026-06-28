@@ -4570,12 +4570,22 @@
           <div class="page-title">Tickets — Suporte</div>
           <div class="topbar-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input id="tickets-admin-search" type="search" placeholder="Buscar assunto, nick, Steam…" class="btn btn-ghost" style="min-width:200px;padding:7px 12px;" onkeydown="if(event.key==='Enter')loadTicketsAdmin()" />
-            <select id="tickets-admin-filter" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadTicketsAdmin()">
-              <option value="">Todos</option>
-              <option value="open">Abertos / em atendimento</option>
-              <option value="OPEN">Aberto</option>
-              <option value="IN_PROGRESS">Em atendimento</option>
-              <option value="CLOSED">Encerrados</option>
+            <select id="tickets-admin-filter-status" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadTicketsAdmin()">
+              <option value="">Todos os status</option>
+              <option value="open">Abertos (todos ativos)</option>
+              <option value="ABERTO">Aberto</option>
+              <option value="EM_ANALISE">Em análise</option>
+              <option value="AGUARDANDO_JOGADOR">Aguardando jogador</option>
+              <option value="ENCERRADO">Encerrado</option>
+            </select>
+            <select id="tickets-admin-filter-category" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadTicketsAdmin()">
+              <option value="">Todas categorias</option>
+            </select>
+            <select id="tickets-admin-filter-priority" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadTicketsAdmin()">
+              <option value="">Todas prioridades</option>
+              <option value="baixa">Baixa</option>
+              <option value="normal">Normal</option>
+              <option value="urgente">Urgente</option>
             </select>
             <button class="btn btn-ghost" onclick="loadTicketsAdmin()">🔄 Atualizar</button>
           </div>
@@ -4590,12 +4600,25 @@
                 <div class="card-title" id="tickets-admin-detail-title">Ticket</div>
                 <div id="tickets-admin-detail-meta" style="font-size:12px;color:var(--text2);margin-top:6px;"></div>
               </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-ghost btn-sm" onclick="ticketsAdminSetStatus('IN_PROGRESS')">▶ Em atendimento</button>
-                <button class="btn btn-success btn-sm" onclick="ticketsAdminSetStatus('CLOSED')">✓ Encerrar</button>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <select id="tickets-admin-status-select" class="btn btn-ghost btn-sm" style="padding:6px 10px;" onchange="ticketsAdminSetStatus(this.value)">
+                  <option value="">Alterar status…</option>
+                  <option value="ABERTO">Aberto</option>
+                  <option value="EM_ANALISE">Em análise</option>
+                  <option value="AGUARDANDO_JOGADOR">Aguardando jogador</option>
+                  <option value="ENCERRADO">Encerrar</option>
+                </select>
+                <select id="tickets-admin-priority-select" class="btn btn-ghost btn-sm" style="padding:6px 10px;" onchange="ticketsAdminSetPriority(this.value)">
+                  <option value="">Prioridade…</option>
+                  <option value="baixa">Baixa</option>
+                  <option value="normal">Normal</option>
+                  <option value="urgente">Urgente</option>
+                </select>
                 <button class="btn btn-ghost btn-sm" onclick="ticketsAdminCloseDetail()">← Voltar à fila</button>
               </div>
             </div>
+            <div id="tickets-admin-order-panel" class="hidden" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);"></div>
+            <div id="tickets-admin-history" style="margin-bottom:12px;"></div>
             <div id="tickets-admin-thread" style="max-height:420px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
             <div class="form-group">
               <label>Resposta do suporte</label>
@@ -5401,13 +5424,29 @@
             <div class="form-group">
               <label>Categoria</label>
               <select id="tickets-new-category">
-                <option value="geral">Geral</option>
+                <option value="suporte">Suporte</option>
+                <option value="bug">Bug / erro</option>
+                <option value="doacao">Doação</option>
+                <option value="recurso_ban">Recurso de banimento</option>
                 <option value="resgate">Resgate / entrega</option>
-                <option value="pagamento">Pagamento / doação</option>
+                <option value="pagamento">Pagamento</option>
                 <option value="mercado">Mercado de dinos</option>
                 <option value="conta">Conta / acesso</option>
+                <option value="geral">Geral</option>
                 <option value="outro">Outro</option>
               </select>
+            </div>
+            <div class="form-group">
+              <label>Prioridade</label>
+              <select id="tickets-new-priority">
+                <option value="normal">Normal</option>
+                <option value="baixa">Baixa</option>
+                <option value="urgente">Urgente</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Pedido vinculado (opcional)</label>
+              <input id="tickets-new-order-id" type="text" placeholder="UUID do pedido — disputas ou entregas" />
             </div>
             <div class="form-group">
               <label>Mensagem</label>
@@ -5434,6 +5473,7 @@
               <button class="btn btn-ghost btn-sm" onclick="ticketsCloseDetail()">← Voltar</button>
             </div>
             <div id="tickets-thread" style="max-height:400px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
+            <div id="tickets-player-history" style="margin-bottom:12px;"></div>
             <div id="tickets-reply-box">
               <div class="form-group">
                 <label>Responder</label>
@@ -8510,17 +8550,131 @@ let _ticketsTab = "open";
 let _ticketsPlayerList = [];
 let _ticketsSelectedId = null;
 let _ticketsAdminSelectedId = null;
+let _ticketsMeta = null;
 
 const _TICKET_STATUS_LABELS = {
+  ABERTO: "Aberto",
+  EM_ANALISE: "Em análise",
+  AGUARDANDO_JOGADOR: "Aguardando jogador",
+  ENCERRADO: "Encerrado",
   OPEN: "Aberto",
-  IN_PROGRESS: "Em atendimento",
+  IN_PROGRESS: "Em análise",
   CLOSED: "Encerrado",
 };
 
+const _TICKET_PRIORITY_LABELS = {
+  baixa: "Baixa",
+  normal: "Normal",
+  urgente: "Urgente",
+};
+
+const _TICKET_CATEGORY_LABELS = {
+  suporte: "Suporte",
+  bug: "Bug / erro",
+  doacao: "Doação",
+  recurso_ban: "Recurso de banimento",
+  resgate: "Resgate / entrega",
+  pagamento: "Pagamento",
+  mercado: "Mercado de dinos",
+  conta: "Conta / acesso",
+  geral: "Geral",
+  outro: "Outro",
+};
+
+const _TICKET_HISTORY_LABELS = {
+  created: "Ticket criado",
+  status_changed: "Status alterado",
+  priority_changed: "Prioridade alterada",
+  category_changed: "Categoria alterada",
+  reply_player: "Resposta do jogador",
+  reply_admin: "Resposta do suporte",
+  attachment_added: "Anexo adicionado",
+  order_linked: "Pedido vinculado",
+};
+
 function _ticketStatusBadge(status) {
-  const s = status || "OPEN";
-  const cls = s === "CLOSED" ? "badge-danger" : s === "IN_PROGRESS" ? "badge-warning" : "badge-success";
-  return `<span class="badge ${cls}">${escHtml(_TICKET_STATUS_LABELS[s] || s)}</span>`;
+  const s = status || "ABERTO";
+  const cls = (s === "ENCERRADO" || s === "CLOSED") ? "badge-danger"
+    : (s === "AGUARDANDO_JOGADOR") ? "badge-warning"
+    : (s === "EM_ANALISE" || s === "IN_PROGRESS") ? "badge-warning"
+    : "badge-success";
+  const label = _TICKET_STATUS_LABELS[s] || s;
+  return `<span class="badge ${cls}">${escHtml(label)}</span>`;
+}
+
+function _ticketPriorityBadge(priority) {
+  const p = priority || "normal";
+  const cls = p === "urgente" ? "badge-danger" : p === "baixa" ? "badge-ghost" : "badge-warning";
+  return `<span class="badge ${cls}">${escHtml(_TICKET_PRIORITY_LABELS[p] || p)}</span>`;
+}
+
+function _ticketCategoryBadge(category) {
+  const c = category || "geral";
+  return `<span class="badge badge-ghost">${escHtml(_TICKET_CATEGORY_LABELS[c] || c)}</span>`;
+}
+
+function _populateTicketAdminCategoryFilter(meta) {
+  const sel = document.getElementById("tickets-admin-filter-category");
+  if (!sel || !meta?.categories) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">Todas categorias</option>` +
+    meta.categories.map(c => `<option value="${escHtml(c.id)}">${escHtml(c.label)}</option>`).join("");
+  if (cur) sel.value = cur;
+}
+
+function _renderTicketHistory(hostId, history) {
+  const el = document.getElementById(hostId);
+  if (!el) return;
+  const items = history || [];
+  if (!items.length) {
+    el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-family:'Cinzel',serif;">Histórico</div>
+    <div style="border-left:2px solid var(--border);padding-left:12px;margin-left:4px;">
+    ${items.map(h => {
+      let detail = "";
+      if (h.event_type === "status_changed" || h.event_type === "priority_changed") {
+        detail = `${escHtml(h.old_label || h.old_value || "—")} → ${escHtml(h.new_label || h.new_value || "—")}`;
+      } else if (h.event_type === "order_linked") {
+        detail = `<code>${escHtml(h.new_value || "")}</code>`;
+      } else if (h.note) {
+        detail = escHtml(h.note);
+      }
+      return `<div style="margin-bottom:10px;font-size:12px;">
+        <div style="color:var(--amber);">${escHtml(_TICKET_HISTORY_LABELS[h.event_type] || h.event_type)}</div>
+        <div style="color:var(--text2);font-size:11px;">${escHtml(h.actor_name || "Sistema")} · ${escHtml(h.created_at || "")}</div>
+        ${detail ? `<div style="margin-top:2px;">${detail}</div>` : ""}
+      </div>`;
+    }).join("")}
+    </div>`;
+}
+
+function _renderTicketOrderPanel(hostId, order, ticket) {
+  const el = document.getElementById(hostId);
+  if (!el) return;
+  if (!order && !ticket?.order_id) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  el.classList.remove("hidden");
+  if (!order) {
+    el.innerHTML = `<div style="font-size:12px;color:var(--text2);">Pedido vinculado: <code>${escHtml(ticket.order_id)}</code> (não encontrado no banco)</div>`;
+    return;
+  }
+  const disp = (order.disputes || []).length
+    ? `<div style="margin-top:6px;color:var(--danger);font-size:12px;">⚠️ ${order.disputes.length} disputa(s)</div>`
+    : "";
+  el.innerHTML = `<div style="font-size:12px;color:var(--amber);font-family:'Cinzel',serif;margin-bottom:6px;">Pedido vinculado</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:12px;">
+      <div><span style="color:var(--text2);">ID</span><br><code>${escHtml((order.order_id || "").substring(0, 8))}…</code></div>
+      <div><span style="color:var(--text2);">Item</span><br>${escHtml(order.item_id || "—")}</div>
+      <div><span style="color:var(--text2);">Status</span><br>${escHtml(order.status || "—")}</div>
+      <div><span style="color:var(--text2);">Âmbar</span><br>${order.points_spent ?? 0}</div>
+    </div>
+    ${disp}
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="viewAdminOrderDetails('${escHtml(order.order_id)}')">Ver pedido completo</button>`;
 }
 
 function _parseLinksTextarea(elId) {
@@ -8578,6 +8732,7 @@ async function loadTicketsPlayer() {
     const d = await fetchJson(`/api/tickets?status=${status}`, { timeoutMs: 15000 });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
     _ticketsPlayerList = d.items || [];
+    _ticketsMeta = d;
     const prof = document.getElementById("tickets-player-profile");
     if (prof) {
       prof.innerHTML = `Steam: <strong>${escHtml(d.player_name || _auth.steam_id)}</strong> · <code>${escHtml(_auth.steam_id)}</code>`;
@@ -8591,10 +8746,12 @@ async function loadTicketsPlayer() {
       el.innerHTML = `<div style="color:var(--text2);padding:12px;">Nenhum ticket ${status === "closed" ? "encerrado" : "aberto"}.</div>`;
       return;
     }
-    el.innerHTML = `<table class="tbl"><thead><tr><th>#</th><th>Assunto</th><th>Status</th><th>Atualizado</th><th></th></tr></thead><tbody>
+    el.innerHTML = `<table class="tbl"><thead><tr><th>#</th><th>Assunto</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Atualizado</th><th></th></tr></thead><tbody>
       ${_ticketsPlayerList.map(t => `<tr>
         <td>${t.id}</td>
         <td>${escHtml(t.subject)}</td>
+        <td>${_ticketCategoryBadge(t.category)}</td>
+        <td>${_ticketPriorityBadge(t.priority)}</td>
         <td>${_ticketStatusBadge(t.status)}</td>
         <td style="font-size:12px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
         <td><button class="btn btn-ghost btn-sm" onclick="ticketsOpenDetail(${t.id})">Abrir</button></td>
@@ -8627,14 +8784,18 @@ async function ticketsCreateNew() {
   if (!_auth.authenticated) { promptLogin("abrir ticket"); return; }
   const subject = (document.getElementById("tickets-new-subject")?.value || "").trim();
   const body = (document.getElementById("tickets-new-body")?.value || "").trim();
-  const category = document.getElementById("tickets-new-category")?.value || "geral";
+  const category = document.getElementById("tickets-new-category")?.value || "suporte";
+  const priority = document.getElementById("tickets-new-priority")?.value || "normal";
+  const orderId = (document.getElementById("tickets-new-order-id")?.value || "").trim();
   const links = _parseLinksTextarea("tickets-new-links");
   if (!subject || !body) { toast("Preencha assunto e mensagem.", "warning"); return; }
   try {
+    const payload = { subject, body, category, priority, links };
+    if (orderId) payload.order_id = orderId;
     const d = await fetchJson("/api/tickets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, body, category, links }),
+      body: JSON.stringify(payload),
       timeoutMs: 20000,
     });
     if (!d.ok) { toast(d.error || "Falha ao criar ticket", "error"); return; }
@@ -8653,6 +8814,7 @@ async function ticketsCreateNew() {
     document.getElementById("tickets-new-body").value = "";
     document.getElementById("tickets-new-links").value = "";
     if (document.getElementById("tickets-new-files")) document.getElementById("tickets-new-files").value = "";
+    if (document.getElementById("tickets-new-order-id")) document.getElementById("tickets-new-order-id").value = "";
     ticketsSwitchTab("open");
   } catch (e) { toast(String(e), "error"); }
 }
@@ -8667,9 +8829,12 @@ async function ticketsOpenDetail(id) {
     if (!d.ok) { toast(d.error || "Erro", "error"); return; }
     const t = d.ticket;
     document.getElementById("tickets-detail-title").textContent = `#${t.id} — ${t.subject}`;
-    document.getElementById("tickets-detail-meta").innerHTML = `${_ticketStatusBadge(t.status)} · ${escHtml(t.category)} · ${escHtml(t.updated_at || "")}`;
+    document.getElementById("tickets-detail-meta").innerHTML =
+      `${_ticketStatusBadge(t.status)} ${_ticketPriorityBadge(t.priority)} ${_ticketCategoryBadge(t.category)} · ${escHtml(t.updated_at || "")}` +
+      (t.order_id ? ` · Pedido: <code>${escHtml(t.order_id.substring(0, 8))}…</code>` : "");
     _renderTicketThread("tickets-thread", d.messages, d.orphan_attachments);
-    const closed = t.status === "CLOSED";
+    _renderTicketHistory("tickets-player-history", d.history);
+    const closed = t.status === "ENCERRADO" || t.status === "CLOSED";
     document.getElementById("tickets-reply-box").style.display = closed ? "none" : "";
   } catch (e) { toast(String(e), "error"); }
 }
@@ -8715,7 +8880,9 @@ async function ticketsUploadFile(input) {
 }
 
 async function loadTicketsAdmin() {
-  const filter = document.getElementById("tickets-admin-filter")?.value || "";
+  const filter = document.getElementById("tickets-admin-filter-status")?.value || "";
+  const category = document.getElementById("tickets-admin-filter-category")?.value || "";
+  const priority = document.getElementById("tickets-admin-filter-priority")?.value || "";
   const q = (document.getElementById("tickets-admin-search")?.value || "").trim();
   const el = document.getElementById("tickets-admin-queue");
   el.innerHTML = `<div style="color:var(--text2);">Carregando fila…</div>`;
@@ -8723,20 +8890,26 @@ async function loadTicketsAdmin() {
   try {
     let url = `/api/admin/tickets?limit=50`;
     if (filter) url += `&status=${encodeURIComponent(filter)}`;
+    if (category) url += `&category=${encodeURIComponent(category)}`;
+    if (priority) url += `&priority=${encodeURIComponent(priority)}`;
     if (q) url += `&q=${encodeURIComponent(q)}`;
     const d = await fetchJson(url, { timeoutMs: 15000 });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
+    _ticketsMeta = d;
+    _populateTicketAdminCategoryFilter(d);
     const items = d.items || [];
     if (!items.length) {
       el.innerHTML = `<div style="color:var(--text2);padding:12px;">Nenhum ticket na fila.</div>`;
       return;
     }
     el.innerHTML = `<table class="tbl"><thead><tr>
-      <th>#</th><th>Jogador</th><th>Assunto</th><th>Status</th><th>Discord</th><th>Atualizado</th><th></th>
+      <th>#</th><th>Jogador</th><th>Assunto</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Discord</th><th>Atualizado</th><th></th>
     </tr></thead><tbody>${items.map(t => `<tr>
       <td>${t.id}</td>
       <td><div>${escHtml(t.player_name)}</div><code style="font-size:10px;">${escHtml(t.steam_id)}</code></td>
-      <td>${escHtml(t.subject)}</td>
+      <td>${escHtml(t.subject)}${t.order_id ? `<div style="font-size:10px;color:var(--text2);">📦 ${escHtml(t.order_id.substring(0,8))}…</div>` : ""}</td>
+      <td>${_ticketCategoryBadge(t.category)}</td>
+      <td>${_ticketPriorityBadge(t.priority)}</td>
       <td>${_ticketStatusBadge(t.status)}</td>
       <td style="font-size:11px;">${escHtml(t.discord_username || t.discord_user_id || "—")}</td>
       <td style="font-size:11px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
@@ -8757,7 +8930,14 @@ async function ticketsAdminOpenDetail(id) {
     const t = d.ticket;
     document.getElementById("tickets-admin-detail-title").textContent = `#${t.id} — ${t.subject}`;
     document.getElementById("tickets-admin-detail-meta").innerHTML =
-      `${escHtml(t.player_name)} · <code>${escHtml(t.steam_id)}</code> · Discord: ${escHtml(t.discord_username || t.discord_user_id || "—")} · ${_ticketStatusBadge(t.status)}`;
+      `${escHtml(t.player_name)} · <code>${escHtml(t.steam_id)}</code> · Discord: ${escHtml(t.discord_username || t.discord_user_id || "—")}<br>` +
+      `${_ticketStatusBadge(t.status)} ${_ticketPriorityBadge(t.priority)} ${_ticketCategoryBadge(t.category)}`;
+    const statusSel = document.getElementById("tickets-admin-status-select");
+    const priSel = document.getElementById("tickets-admin-priority-select");
+    if (statusSel) statusSel.value = t.status || "ABERTO";
+    if (priSel) priSel.value = t.priority || "normal";
+    _renderTicketOrderPanel("tickets-admin-order-panel", d.order, t);
+    _renderTicketHistory("tickets-admin-history", d.history);
     _renderTicketThread("tickets-admin-thread", d.messages, d.orphan_attachments);
     document.getElementById("tickets-admin-reply").value = "";
     document.getElementById("tickets-admin-links").value = "";
@@ -8789,7 +8969,7 @@ async function ticketsAdminSendReply() {
 }
 
 async function ticketsAdminSetStatus(status) {
-  if (!_ticketsAdminSelectedId) return;
+  if (!_ticketsAdminSelectedId || !status) return;
   try {
     const d = await fetchJson(`/api/admin/tickets/${_ticketsAdminSelectedId}/status`, {
       method: "POST",
@@ -8799,6 +8979,22 @@ async function ticketsAdminSetStatus(status) {
     });
     if (!d.ok) { toast(d.error || "Erro", "error"); return; }
     toast("Status atualizado.", "success");
+    ticketsAdminOpenDetail(_ticketsAdminSelectedId);
+    loadTicketsAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsAdminSetPriority(priority) {
+  if (!_ticketsAdminSelectedId || !priority) return;
+  try {
+    const d = await fetchJson(`/api/admin/tickets/${_ticketsAdminSelectedId}/priority`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ priority }),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    toast("Prioridade atualizada.", "success");
     ticketsAdminOpenDetail(_ticketsAdminSelectedId);
     loadTicketsAdmin();
   } catch (e) { toast(String(e), "error"); }

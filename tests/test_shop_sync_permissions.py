@@ -8,6 +8,7 @@ from src.shop_integration import (
     apply_shared_sections_to_plugin,
     build_cross_chat_settings,
     catalog_permission_diff,
+    collect_groups_from_catalog,
     format_permission_sync_note,
     merge_catalog_into_plugin_config,
     merge_plugin_config,
@@ -305,3 +306,20 @@ def test_apply_shared_sections_crosschat_master_wins_except_server_id():
     assert merged["CrossChat"]["ServerId"] == "Ragnarok"
     assert merged["CrossChat"]["Command"] == "/cluster"
     assert merged["CrossChat"]["UseWebApi"] is True
+
+
+def test_collect_groups_from_catalog_includes_license_grant_keyvault():
+    catalog = {
+        "Kits": {},
+        "Items": {
+            "licenca_nuvem": {
+                "LicenseGrant": {"Group": "keyvault", "Days": 30},
+            },
+            "licenca_alfa": {
+                "LicenseGrant": {"Group": "Alfa", "Days": 30},
+            },
+        },
+    }
+    groups = collect_groups_from_catalog(catalog)
+    assert "keyvault" in groups
+    assert "Alfa" in groups

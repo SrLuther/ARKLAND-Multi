@@ -35,6 +35,10 @@ public:
                                 const std::string& group,
                                 int days);
 
+    // Reaplica entitlements do DB no Permissions quando o jogador entra
+    // (somente grupos ausentes — evita estender timers existentes).
+    void SyncPlayerOnJoin(const std::string& steam_id);
+
     bool ApplyLicenseGrant(AShooterPlayerController* controller,
                            const nlohmann::json& entry,
                            const std::string& kit_or_item_id);

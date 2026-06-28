@@ -808,8 +808,10 @@ class SupportTicket(Base):
     discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
     discord_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
     subject: Mapped[str] = mapped_column(String(200))
-    category: Mapped[str] = mapped_column(String(64), default="geral")
-    status: Mapped[str] = mapped_column(String(32), default="OPEN", index=True)
+    category: Mapped[str] = mapped_column(String(64), default="geral", index=True)
+    priority: Mapped[str] = mapped_column(String(16), default="normal", index=True)
+    status: Mapped[str] = mapped_column(String(32), default="ABERTO", index=True)
+    order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     assigned_admin_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -850,6 +852,25 @@ class SupportTicketAttachment(Base):
     storage_path: Mapped[str] = mapped_column(String(512))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class SupportTicketHistory(Base):
+    """Histórico / trilha de auditoria de um ticket."""
+
+    __tablename__ = "support_ticket_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(Integer, index=True)
+    event_type: Mapped[str] = mapped_column(String(32))
+    actor_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    actor_name: Mapped[str] = mapped_column(String(128), default="")
+    field_name: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    old_value: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    new_value: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
     )
 
 
@@ -2151,6 +2172,7 @@ def _admin_player_license(
     if not _db_ready():
         return {"ok": False, "error": "Banco não configurado"}
     admin_sid = str(_steam_id_from_session() or "")
+    perm_sync: list[dict[str, Any]] = []
     try:
         if action == "grant":
             _grant_player_entitlement(
@@ -2159,6 +2181,9 @@ def _admin_player_license(
                 int(days),
                 source=f"admin:{admin_sid}",
                 notes=reason or "grant_admin",
+            )
+            perm_sync = _sync_license_permissions_all_servers(
+                steam_id, group, grant=True, days=int(days),
             )
             _audit_event(
                 "admin_player_license_grant",
@@ -2171,6 +2196,9 @@ def _admin_player_license(
             )
         elif action == "revoke":
             _revoke_player_entitlement_by_group(steam_id, group)
+            perm_sync = _sync_license_permissions_all_servers(
+                steam_id, group, grant=False,
+            )
             _audit_event(
                 "admin_player_license_revoke",
                 actor_type="admin",
@@ -2187,6 +2215,7 @@ def _admin_player_license(
             "group": group,
             "action": action,
             "entitlements": _filter_license_entitlements(_get_player_entitlements(steam_id)),
+            "permissions_sync": perm_sync,
         }
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
@@ -2234,6 +2263,56 @@ def _sync_permissions_all_servers(
         if grant
         else f"Permissions.Remove {steam_id} {group}"
     )
+    results: list[dict[str, Any]] = []
+    targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
+    for srv in targets:
+        sid = str(srv.get("server_id") or "").strip() if srv else None
+        label = str(srv.get("label") or sid or "padrão") if srv else "padrão"
+        host, port, password, _ = _resolve_rcon_target(sid, settings)
+        if not password:
+            results.append({
+                "server_id": sid or "default",
+                "label": label,
+                "ok": False,
+                "error": "RCON sem senha configurada",
+            })
+            continue
+        try:
+            resp = _rcon_command(host, port, password, cmd, connect_retries=2)
+            results.append({
+                "server_id": sid or "default",
+                "label": label,
+                "ok": True,
+                "response": resp[:120],
+            })
+        except Exception as exc:
+            results.append({
+                "server_id": sid or "default",
+                "label": label,
+                "ok": False,
+                "error": str(exc),
+            })
+    return results
+
+
+def _sync_license_permissions_all_servers(
+    steam_id: str,
+    group: str,
+    *,
+    grant: bool,
+    days: int = 0,
+) -> list[dict[str, Any]]:
+    """Sincroniza licença temporária/permanente no Permissions via RCON."""
+    settings = _load_settings()
+    servers = _load_servers()
+    if grant:
+        cmd = (
+            f"Permissions.Add {steam_id} {group}"
+            if int(days) <= 0
+            else f"Permissions.AddTimed {steam_id} {group} {int(days) * 24}"
+        )
+    else:
+        cmd = f"Permissions.Remove {steam_id} {group}"
     results: list[dict[str, Any]] = []
     targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
     for srv in targets:

@@ -79,6 +79,56 @@ void ShopEntitlements::SyncPermissionsCommand(const std::string& steam_id,
     RunPermissionConsole(steam_id, cmd);
 }
 
+void ShopEntitlements::SyncPlayerOnJoin(const std::string& steam_id) {
+    if (!db_ || steam_id.empty()) return;
+
+    uint64_t sid = 0;
+    try { sid = std::stoull(steam_id); } catch (...) {}
+
+    char buf_id[64];
+    mysql_real_escape_string(db_, buf_id, steam_id.c_str(),
+        static_cast<unsigned long>(steam_id.size()));
+
+    const std::string sql =
+        "SELECT group_name, "
+        "CASE WHEN expires IS NULL THEN -1 "
+        "     ELSE GREATEST(1, TIMESTAMPDIFF(HOUR, NOW(), expires)) END "
+        "FROM player_entitlements "
+        "WHERE steam_id = '" + std::string(buf_id) + "' "
+        "AND (expires IS NULL OR expires > NOW());";
+
+    if (mysql_query(db_, sql.c_str()) != 0) {
+        Log::GetLog()->warn(
+            "ShopEntitlements::SyncPlayerOnJoin query failed: {}", mysql_error(db_));
+        return;
+    }
+
+    MYSQL_RES* res = mysql_store_result(db_);
+    if (!res) return;
+
+    MYSQL_ROW row;
+    while ((row = mysql_fetch_row(res))) {
+        if (!row[0] || !row[0][0]) continue;
+        const std::string group = row[0];
+        const int hours_left = row[1] ? std::atoi(row[1]) : -1;
+
+        if (sid && Perms::IsInGroup(sid, group)) continue;
+
+        if (hours_left < 0) {
+            RunPermissionConsole(steam_id, "Permissions.Add " + steam_id + " " + group);
+        } else {
+            RunPermissionConsole(
+                steam_id,
+                "Permissions.AddTimed " + steam_id + " " + group + " "
+                    + std::to_string(hours_left));
+        }
+        Log::GetLog()->info(
+            "ShopEntitlements: SyncPlayerOnJoin synced group '{}' for {} (hours={})",
+            group, steam_id, hours_left);
+    }
+    mysql_free_result(res);
+}
+
 bool ShopEntitlements::Grant(const std::string& steam_id,
                            const std::string& group,
                            int days,

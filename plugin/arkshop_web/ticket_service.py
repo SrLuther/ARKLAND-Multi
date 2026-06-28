@@ -1,4 +1,4 @@
-"""Sistema de tickets — persistência e regras de negócio (MVP 1.9.149)."""
+"""Sistema de tickets — persistência e regras de negócio (1.9.149)."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,46 @@ from typing import Any, Callable
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-_TICKET_STATUSES = frozenset({"OPEN", "IN_PROGRESS", "CLOSED"})
+# Status internos (persistidos no banco)
+TICKET_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "ENCERRADO"})
+TICKET_STATUS_LABELS: dict[str, str] = {
+    "ABERTO": "Aberto",
+    "EM_ANALISE": "Em análise",
+    "AGUARDANDO_JOGADOR": "Aguardando jogador",
+    "ENCERRADO": "Encerrado",
+}
+# Legado (aceito em filtros / migração)
+_LEGACY_STATUS_MAP = {
+    "OPEN": "ABERTO",
+    "IN_PROGRESS": "EM_ANALISE",
+    "CLOSED": "ENCERRADO",
+}
+_OPEN_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "OPEN", "IN_PROGRESS"})
+_CLOSED_STATUSES = frozenset({"ENCERRADO", "CLOSED"})
+
+TICKET_CATEGORIES = frozenset({
+    "suporte", "bug", "doacao", "recurso_ban", "resgate", "pagamento", "mercado", "conta", "geral", "outro",
+})
+TICKET_CATEGORY_LABELS: dict[str, str] = {
+    "suporte": "Suporte",
+    "bug": "Bug / erro",
+    "doacao": "Doação",
+    "recurso_ban": "Recurso de banimento",
+    "resgate": "Resgate / entrega",
+    "pagamento": "Pagamento / doação",
+    "mercado": "Mercado de dinos",
+    "conta": "Conta / acesso",
+    "geral": "Geral",
+    "outro": "Outro",
+}
+
+TICKET_PRIORITIES = frozenset({"baixa", "normal", "urgente"})
+TICKET_PRIORITY_LABELS: dict[str, str] = {
+    "baixa": "Baixa",
+    "normal": "Normal",
+    "urgente": "Urgente",
+}
+
 _AUTHOR_TYPES = frozenset({"player", "admin", "system"})
 _MAX_SUBJECT = 200
 _MAX_BODY = 8000
@@ -24,6 +63,74 @@ _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.I)
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def ticket_meta() -> dict[str, Any]:
+    """Metadados para UI (categorias, prioridades, status)."""
+    return {
+        "categories": [
+            {"id": k, "label": TICKET_CATEGORY_LABELS[k]}
+            for k in sorted(TICKET_CATEGORIES, key=lambda x: TICKET_CATEGORY_LABELS.get(x, x))
+        ],
+        "priorities": [
+            {"id": k, "label": TICKET_PRIORITY_LABELS[k]} for k in ("baixa", "normal", "urgente")
+        ],
+        "statuses": [
+            {"id": k, "label": TICKET_STATUS_LABELS[k]} for k in (
+                "ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "ENCERRADO"
+            )
+        ],
+    }
+
+
+def _normalize_status(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    s = str(raw).strip().upper()
+    if s in _LEGACY_STATUS_MAP:
+        return _LEGACY_STATUS_MAP[s]
+    return s if s in TICKET_STATUSES else None
+
+
+def _is_closed_status(status: str | None) -> bool:
+    return (status or "") in _CLOSED_STATUSES
+
+
+def _column_exists(conn: Any, table: str, column: str, *, is_sqlite: bool) -> bool:
+    if is_sqlite:
+        rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+        return any(str(r[1]) == column for r in rows)
+    row = conn.execute(
+        text(f"SHOW COLUMNS FROM `{table}` LIKE :col"),
+        {"col": column},
+    ).fetchone()
+    return row is not None
+
+
+def _migrate_ticket_columns(conn: Any, *, is_sqlite: bool) -> None:
+    """Adiciona colunas novas e migra status legados."""
+    alters: list[str] = []
+    if not _column_exists(conn, "support_tickets", "priority", is_sqlite=is_sqlite):
+        if is_sqlite:
+            alters.append(
+                "ALTER TABLE support_tickets ADD COLUMN priority VARCHAR(16) NOT NULL DEFAULT 'normal'"
+            )
+        else:
+            alters.append(
+                "ALTER TABLE support_tickets ADD COLUMN priority VARCHAR(16) NOT NULL DEFAULT 'normal'"
+            )
+    if not _column_exists(conn, "support_tickets", "order_id", is_sqlite=is_sqlite):
+        alters.append(
+            "ALTER TABLE support_tickets ADD COLUMN order_id VARCHAR(64) NULL"
+        )
+    for stmt in alters:
+        conn.execute(text(stmt))
+
+    for old, new in _LEGACY_STATUS_MAP.items():
+        conn.execute(
+            text("UPDATE support_tickets SET status = :new WHERE status = :old"),
+            {"old": old, "new": new},
+        )
 
 
 def ensure_ticket_schema(engine: Engine) -> None:
@@ -40,7 +147,9 @@ def ensure_ticket_schema(engine: Engine) -> None:
               discord_username VARCHAR(128) NULL,
               subject VARCHAR(200) NOT NULL,
               category VARCHAR(64) NOT NULL DEFAULT 'geral',
-              status VARCHAR(32) NOT NULL DEFAULT 'OPEN',
+              priority VARCHAR(16) NOT NULL DEFAULT 'normal',
+              status VARCHAR(32) NOT NULL DEFAULT 'ABERTO',
+              order_id VARCHAR(64) NULL,
               assigned_admin_steam_id VARCHAR(32) NULL,
               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
               updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -82,6 +191,20 @@ def ensure_ticket_schema(engine: Engine) -> None:
               updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS support_ticket_history (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              ticket_id INTEGER NOT NULL,
+              event_type VARCHAR(32) NOT NULL,
+              actor_steam_id VARCHAR(32) NULL,
+              actor_name VARCHAR(128) NOT NULL DEFAULT '',
+              field_name VARCHAR(32) NULL,
+              old_value VARCHAR(256) NULL,
+              new_value VARCHAR(256) NULL,
+              note TEXT NULL,
+              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """,
         ]
     else:
         stmts = [
@@ -94,7 +217,9 @@ def ensure_ticket_schema(engine: Engine) -> None:
               discord_username VARCHAR(128) NULL,
               subject VARCHAR(200) NOT NULL,
               category VARCHAR(64) NOT NULL DEFAULT 'geral',
-              status VARCHAR(32) NOT NULL DEFAULT 'OPEN',
+              priority VARCHAR(16) NOT NULL DEFAULT 'normal',
+              status VARCHAR(32) NOT NULL DEFAULT 'ABERTO',
+              order_id VARCHAR(64) NULL,
               assigned_admin_steam_id VARCHAR(32) NULL,
               created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
               updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
@@ -102,6 +227,9 @@ def ensure_ticket_schema(engine: Engine) -> None:
               closed_at DATETIME(3) NULL,
               KEY idx_ticket_steam (steam_id),
               KEY idx_ticket_status (status),
+              KEY idx_ticket_priority (priority),
+              KEY idx_ticket_category (category),
+              KEY idx_ticket_order (order_id),
               KEY idx_ticket_updated (updated_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
@@ -143,10 +271,27 @@ def ensure_ticket_schema(engine: Engine) -> None:
                 ON UPDATE CURRENT_TIMESTAMP(3)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
+            """
+            CREATE TABLE IF NOT EXISTS support_ticket_history (
+              id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+              ticket_id BIGINT UNSIGNED NOT NULL,
+              event_type VARCHAR(32) NOT NULL,
+              actor_steam_id VARCHAR(32) NULL,
+              actor_name VARCHAR(128) NOT NULL DEFAULT '',
+              field_name VARCHAR(32) NULL,
+              old_value VARCHAR(256) NULL,
+              new_value VARCHAR(256) NULL,
+              note TEXT NULL,
+              created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+              KEY idx_hist_ticket (ticket_id),
+              KEY idx_hist_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
         ]
     with engine.connect() as conn:
         for stmt in stmts:
             conn.execute(text(stmt))
+        _migrate_ticket_columns(conn, is_sqlite=is_sqlite)
         conn.commit()
 
 
@@ -169,7 +314,27 @@ def _parse_links(raw: Any) -> list[str]:
     return out
 
 
+def _normalize_category(raw: str | None) -> str:
+    cat = (raw or "geral").strip().lower()[:64] or "geral"
+    return cat if cat in TICKET_CATEGORIES else "geral"
+
+
+def _normalize_priority(raw: str | None) -> str:
+    pri = (raw or "normal").strip().lower()[:16] or "normal"
+    return pri if pri in TICKET_PRIORITIES else "normal"
+
+
+def _status_label(code: str | None) -> str:
+    if not code:
+        return ""
+    norm = _normalize_status(code) or code
+    return TICKET_STATUS_LABELS.get(norm, code)
+
+
 def _ticket_row_to_dict(row: Any) -> dict[str, Any]:
+    status = _normalize_status(row.status) or row.status or "ABERTO"
+    category = row.category or "geral"
+    priority = row.priority or "normal"
     return {
         "id": int(row.id),
         "steam_id": row.steam_id,
@@ -177,12 +342,130 @@ def _ticket_row_to_dict(row: Any) -> dict[str, Any]:
         "discord_user_id": row.discord_user_id,
         "discord_username": row.discord_username,
         "subject": row.subject,
-        "category": row.category or "geral",
-        "status": row.status,
+        "category": category,
+        "category_label": TICKET_CATEGORY_LABELS.get(category, category),
+        "priority": priority,
+        "priority_label": TICKET_PRIORITY_LABELS.get(priority, priority),
+        "status": status,
+        "status_label": _status_label(status),
+        "order_id": getattr(row, "order_id", None),
         "assigned_admin_steam_id": row.assigned_admin_steam_id,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
         "closed_at": row.closed_at.isoformat() if row.closed_at else None,
+    }
+
+
+def _history_row_to_dict(row: Any) -> dict[str, Any]:
+    field = row.field_name
+    old_v = row.old_value
+    new_v = row.new_value
+    return {
+        "id": int(row.id),
+        "ticket_id": int(row.ticket_id),
+        "event_type": row.event_type,
+        "actor_steam_id": row.actor_steam_id,
+        "actor_name": row.actor_name or "",
+        "field_name": field,
+        "old_value": old_v,
+        "new_value": new_v,
+        "old_label": _history_value_label(field, old_v),
+        "new_label": _history_value_label(field, new_v),
+        "note": row.note,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+
+def _history_value_label(field: str | None, value: str | None) -> str | None:
+    if value is None:
+        return None
+    if field == "status":
+        return _status_label(value)
+    if field == "priority":
+        return TICKET_PRIORITY_LABELS.get(value, value)
+    if field == "category":
+        return TICKET_CATEGORY_LABELS.get(value, value)
+    return value
+
+
+def _append_history(
+    db: Any,
+    *,
+    ticket_id: int,
+    event_type: str,
+    actor_steam_id: str | None = None,
+    actor_name: str = "",
+    field_name: str | None = None,
+    old_value: str | None = None,
+    new_value: str | None = None,
+    note: str | None = None,
+    created_at: datetime | None = None,
+) -> None:
+    from app import SupportTicketHistory
+
+    db.add(
+        SupportTicketHistory(
+            ticket_id=ticket_id,
+            event_type=event_type,
+            actor_steam_id=actor_steam_id,
+            actor_name=(actor_name or "")[:128],
+            field_name=field_name,
+            old_value=(old_value[:256] if old_value else None),
+            new_value=(new_value[:256] if new_value else None),
+            note=note,
+            created_at=created_at or _utcnow(),
+        )
+    )
+
+
+def _load_ticket_history(db: Any, ticket_id: int) -> list[dict[str, Any]]:
+    from app import SupportTicketHistory
+
+    rows = (
+        db.query(SupportTicketHistory)
+        .filter(SupportTicketHistory.ticket_id == ticket_id)
+        .order_by(SupportTicketHistory.created_at.asc())
+        .all()
+    )
+    return [_history_row_to_dict(r) for r in rows]
+
+
+def get_order_summary_for_ticket(db: Any, order_id: str | None, *, steam_id: str | None = None) -> dict[str, Any] | None:
+    """Resumo de pedido vinculado ao ticket (admin / validação)."""
+    if not order_id:
+        return None
+    from app import Dispute, Order
+
+    order = db.query(Order).filter(Order.order_id == order_id).first()
+    if not order:
+        return None
+    if steam_id and order.steam_id != steam_id:
+        return None
+    disputes: list[Any] = []
+    try:
+        disputes = db.query(Dispute).filter(Dispute.order_id == order_id).all()
+    except Exception:
+        disputes = []
+    return {
+        "order_id": order.order_id,
+        "steam_id": order.steam_id,
+        "server_id": order.server_id,
+        "item_type": order.item_type,
+        "item_id": order.item_id,
+        "amount": order.amount,
+        "points_spent": int(order.points_spent or 0),
+        "status": order.status,
+        "contested": bool(order.contested),
+        "created_at": order.created_at.isoformat() if order.created_at else None,
+        "disputes": [
+            {
+                "id": d.id,
+                "status": d.status,
+                "reason": (d.reason or "")[:200],
+                "created_at": d.created_at.isoformat() if d.created_at else None,
+            }
+            for d in disputes
+        ],
     }
 
 
@@ -279,6 +562,8 @@ def create_ticket(
     subject: str,
     body: str,
     category: str = "geral",
+    priority: str = "normal",
+    order_id: str | None = None,
     links: list[str] | None = None,
     discord_user_id: str | None = None,
     discord_username: str | None = None,
@@ -292,6 +577,14 @@ def create_ticket(
     if not text_body:
         return {"ok": False, "error": "Mensagem obrigatória"}
 
+    cat = _normalize_category(category)
+    pri = _normalize_priority(priority)
+    oid = (order_id or "").strip() or None
+    if oid:
+        summary = get_order_summary_for_ticket(db, oid, steam_id=steam_id)
+        if not summary:
+            return {"ok": False, "error": "Pedido não encontrado ou não pertence à sua conta"}
+
     link_list = _parse_links(links or [])
     now = _utcnow()
     ticket = SupportTicket(
@@ -300,8 +593,10 @@ def create_ticket(
         discord_user_id=discord_user_id,
         discord_username=discord_username,
         subject=subj,
-        category=(category or "geral").strip()[:64] or "geral",
-        status="OPEN",
+        category=cat,
+        priority=pri,
+        status="ABERTO",
+        order_id=oid,
         created_at=now,
         updated_at=now,
     )
@@ -318,6 +613,28 @@ def create_ticket(
         created_at=now,
     )
     db.add(msg)
+
+    _append_history(
+        db,
+        ticket_id=int(ticket.id),
+        event_type="created",
+        actor_steam_id=steam_id,
+        actor_name=(player_name or steam_id)[:128],
+        note=f"Categoria: {TICKET_CATEGORY_LABELS.get(cat, cat)} · Prioridade: {TICKET_PRIORITY_LABELS.get(pri, pri)}",
+        created_at=now,
+    )
+    if oid:
+        _append_history(
+            db,
+            ticket_id=int(ticket.id),
+            event_type="order_linked",
+            actor_steam_id=steam_id,
+            actor_name=(player_name or steam_id)[:128],
+            field_name="order_id",
+            new_value=oid,
+            created_at=now,
+        )
+
     db.commit()
     db.refresh(ticket)
     return {
@@ -325,6 +642,22 @@ def create_ticket(
         "ticket": _ticket_row_to_dict(ticket),
         "message_id": int(msg.id),
     }
+
+
+def _apply_status_filter(query: Any, status: str | None) -> Any:
+    from app import SupportTicket
+
+    if not status:
+        return query
+    norm = _normalize_status(status)
+    if norm:
+        return query.filter(SupportTicket.status == norm)
+    s = status.strip().lower()
+    if s == "open":
+        return query.filter(SupportTicket.status.in_(tuple(_OPEN_STATUSES)))
+    if s == "closed":
+        return query.filter(SupportTicket.status.in_(tuple(_CLOSED_STATUSES)))
+    return query
 
 
 def list_tickets_for_player(
@@ -338,10 +671,7 @@ def list_tickets_for_player(
     from app import SupportTicket
 
     q = db.query(SupportTicket).filter(SupportTicket.steam_id == steam_id)
-    if status == "open":
-        q = q.filter(SupportTicket.status.in_(("OPEN", "IN_PROGRESS")))
-    elif status == "closed":
-        q = q.filter(SupportTicket.status == "CLOSED")
+    q = _apply_status_filter(q, status)
     total = q.count()
     rows = (
         q.order_by(SupportTicket.updated_at.desc())
@@ -356,6 +686,8 @@ def list_tickets_admin(
     db: Any,
     *,
     status: str | None = None,
+    category: str | None = None,
+    priority: str | None = None,
     q: str | None = None,
     limit: int = 50,
     offset: int = 0,
@@ -364,10 +696,13 @@ def list_tickets_admin(
     from sqlalchemy import or_
 
     query = db.query(SupportTicket)
-    if status and status in _TICKET_STATUSES:
-        query = query.filter(SupportTicket.status == status)
-    elif status == "open":
-        query = query.filter(SupportTicket.status.in_(("OPEN", "IN_PROGRESS")))
+    query = _apply_status_filter(query, status)
+    cat = (category or "").strip().lower()
+    if cat and cat in TICKET_CATEGORIES:
+        query = query.filter(SupportTicket.category == cat)
+    pri = (priority or "").strip().lower()
+    if pri and pri in TICKET_PRIORITIES:
+        query = query.filter(SupportTicket.priority == pri)
     search = (q or "").strip()
     if search:
         like = f"%{search}%"
@@ -377,6 +712,7 @@ def list_tickets_admin(
                 SupportTicket.player_name.like(like),
                 SupportTicket.steam_id.like(like),
                 SupportTicket.discord_username.like(like),
+                SupportTicket.order_id.like(like),
             )
         )
     total = query.count()
@@ -412,6 +748,7 @@ def get_ticket_detail(
     *,
     viewer_steam_id: str | None = None,
     is_admin: bool = False,
+    include_order: bool = False,
 ) -> dict[str, Any] | None:
     from app import SupportTicket, SupportTicketAttachment, SupportTicketMessage
 
@@ -438,15 +775,40 @@ def get_ticket_detail(
         .all()
     )
     ticket_atts = [_attachment_row_to_dict(a) for a in orphan_atts]
+    history = _load_ticket_history(db, ticket_id)
 
-    return {
+    result: dict[str, Any] = {
         "ticket": _ticket_row_to_dict(ticket),
         "messages": [
             _message_row_to_dict(m, att_by_msg.get(int(m.id), []))
             for m in messages
         ],
         "orphan_attachments": ticket_atts,
+        "history": history,
     }
+    if include_order or ticket.order_id:
+        oid = ticket.order_id
+        result["order"] = get_order_summary_for_ticket(
+            db, oid, steam_id=None if is_admin else viewer_steam_id
+        )
+    return result
+
+
+def get_ticket_history(
+    db: Any,
+    ticket_id: int,
+    *,
+    viewer_steam_id: str | None = None,
+    is_admin: bool = False,
+) -> dict[str, Any] | None:
+    from app import SupportTicket
+
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        return None
+    if not is_admin and viewer_steam_id and ticket.steam_id != viewer_steam_id:
+        return None
+    return {"ticket_id": ticket_id, "history": _load_ticket_history(db, ticket_id)}
 
 
 def add_ticket_reply(
@@ -468,7 +830,7 @@ def add_ticket_reply(
     ticket = db.get(SupportTicket, ticket_id)
     if not ticket:
         return {"ok": False, "error": "Ticket não encontrado"}
-    if ticket.status == "CLOSED":
+    if _is_closed_status(ticket.status):
         return {"ok": False, "error": "Ticket encerrado"}
     if not is_admin and ticket.steam_id != viewer_steam_id:
         return {"ok": False, "error": "Acesso negado"}
@@ -491,10 +853,31 @@ def add_ticket_reply(
     db.add(msg)
     ticket.updated_at = now
     if is_admin and author_type == "admin":
-        if ticket.status == "OPEN":
-            ticket.status = "IN_PROGRESS"
+        old_status = _normalize_status(ticket.status) or ticket.status
+        if old_status == "ABERTO":
+            ticket.status = "EM_ANALISE"
+            _append_history(
+                db,
+                ticket_id=ticket_id,
+                event_type="status_changed",
+                actor_steam_id=author_steam_id,
+                actor_name=(author_name or "")[:128],
+                field_name="status",
+                old_value=old_status,
+                new_value="EM_ANALISE",
+                created_at=now,
+            )
         if author_steam_id and not ticket.assigned_admin_steam_id:
             ticket.assigned_admin_steam_id = author_steam_id
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="reply_admin" if author_type == "admin" else "reply_player",
+        actor_steam_id=author_steam_id,
+        actor_name=(author_name or "")[:128],
+        note=text_body[:200],
+        created_at=now,
+    )
     db.commit()
     db.refresh(msg)
     return {"ok": True, "message": _message_row_to_dict(msg)}
@@ -506,24 +889,79 @@ def update_ticket_status(
     *,
     status: str,
     admin_steam_id: str | None = None,
+    admin_name: str = "",
 ) -> dict[str, Any]:
     from app import SupportTicket
 
-    if status not in _TICKET_STATUSES:
+    new_status = _normalize_status(status)
+    if not new_status:
         return {"ok": False, "error": "Status inválido"}
     ticket = db.get(SupportTicket, ticket_id)
     if not ticket:
         return {"ok": False, "error": "Ticket não encontrado"}
 
+    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
     now = _utcnow()
-    ticket.status = status
+    ticket.status = new_status
     ticket.updated_at = now
-    if status == "CLOSED":
+    if new_status == "ENCERRADO":
         ticket.closed_at = now
     else:
         ticket.closed_at = None
-    if admin_steam_id and status in ("IN_PROGRESS", "OPEN"):
+    if admin_steam_id and new_status in ("EM_ANALISE", "ABERTO", "AGUARDANDO_JOGADOR"):
         ticket.assigned_admin_steam_id = admin_steam_id
+    if old_status != new_status:
+        _append_history(
+            db,
+            ticket_id=ticket_id,
+            event_type="status_changed",
+            actor_steam_id=admin_steam_id,
+            actor_name=(admin_name or "Admin")[:128],
+            field_name="status",
+            old_value=old_status,
+            new_value=new_status,
+            created_at=now,
+        )
+    db.commit()
+    db.refresh(ticket)
+    return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
+
+
+def update_ticket_priority(
+    db: Any,
+    ticket_id: int,
+    *,
+    priority: str,
+    admin_steam_id: str | None = None,
+    admin_name: str = "",
+) -> dict[str, Any]:
+    from app import SupportTicket
+
+    new_pri = _normalize_priority(priority)
+    if new_pri not in TICKET_PRIORITIES:
+        return {"ok": False, "error": "Prioridade inválida"}
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        return {"ok": False, "error": "Ticket não encontrado"}
+
+    old_pri = ticket.priority or "normal"
+    if old_pri == new_pri:
+        return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
+
+    now = _utcnow()
+    ticket.priority = new_pri
+    ticket.updated_at = now
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="priority_changed",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+        field_name="priority",
+        old_value=old_pri,
+        new_value=new_pri,
+        created_at=now,
+    )
     db.commit()
     db.refresh(ticket)
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
@@ -545,6 +983,7 @@ def save_ticket_attachment(
     uploads_dir: Path,
     viewer_steam_id: str,
     is_admin: bool = False,
+    actor_name: str = "",
 ) -> dict[str, Any]:
     from app import SupportTicket, SupportTicketAttachment
 
@@ -553,7 +992,7 @@ def save_ticket_attachment(
         return {"ok": False, "error": "Ticket não encontrado"}
     if not is_admin and ticket.steam_id != viewer_steam_id:
         return {"ok": False, "error": "Acesso negado"}
-    if ticket.status == "CLOSED":
+    if _is_closed_status(ticket.status):
         return {"ok": False, "error": "Ticket encerrado"}
 
     if not file_storage or not getattr(file_storage, "filename", None):
@@ -592,6 +1031,15 @@ def save_ticket_attachment(
     )
     db.add(row)
     ticket.updated_at = now
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="attachment_added",
+        actor_steam_id=viewer_steam_id,
+        actor_name=(actor_name or viewer_steam_id)[:128],
+        note=original[:200],
+        created_at=now,
+    )
     db.commit()
     db.refresh(row)
     return {"ok": True, "attachment": _attachment_row_to_dict(row)}

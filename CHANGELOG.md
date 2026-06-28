@@ -5,11 +5,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.150] - 2026-06-28
+
+### Fix
+
+- Fix (CustomShop / TimedPoints): notificacao de Ambares usa chat normal (SendChatMessage) em vez de mensagem grande verde do servidor (SendServerMessage); CustomShop.dll requer recompilacao.
+- Fix (CrossChat): mensagens cluster via ClientChatMessage sem badges de admin (estrela/tribo) no nome do remetente; CustomShop.dll requer recompilacao.
+- Fix (Loja / Sync Permissions): collect_groups inclui keyvault e LicenseGrant.Group de kits/itens para provisionar grupos no keyvault ao sincronizar.
+
 ## [1.9.149] - 2026-06-28
+
+### Feature
+
+- Novo (Web Store / Tickets): sistema de suporte com categorias, prioridade, status, historico de eventos, anexos e vinculo opcional a pedidos (API jogador + admin). Migracao automatica do schema na subida da Web Store.
 
 ### Other
 
-- Em desenvolvimento: sistema de tickets — esboço MVP na Web Store (jogador + admin), substituindo Mensagens do Sistema no painel web (permanece no TEK).
+- Removido (Web Store / Admin): aba Mensagens do Sistema no painel web (edicao de mensagens do plugin permanece no app TEK).
 
 ## [1.9.148] - 2026-06-28
 
