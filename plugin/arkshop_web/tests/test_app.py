@@ -231,6 +231,55 @@ class TestAuth:
         assert r.status_code == 403
 
 
+class TestPointPackages:
+    def _use_isolated_catalog(self, monkeypatch, config_path):
+        monkeypatch.setattr(
+            _app_module,
+            "_resolve_settings_catalog_path",
+            lambda configured="": str(config_path),
+        )
+        _app_module._CONFIG_CACHE.clear()
+
+    def test_save_point_packages_persists_to_catalog(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(
+            json.dumps({"Settings": {}, "PointPackages": _app_module._DEFAULT_POINT_PACKAGES}),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        custom = [
+            {"id": "custom1", "label": "Pacote Teste", "points": 999, "price_brl": 9.99},
+        ]
+        _login(client, ADMIN_STEAM)
+        r = client.post("/api/settings", json={"point_packages": custom})
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        _app_module._CONFIG_CACHE.clear()
+        r2 = client.get("/api/settings")
+        assert r2.get_json()["point_packages"] == custom
+
+        saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved_cfg["PointPackages"] == custom
+
+    def test_load_prefers_catalog_over_settings(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        catalog_pkgs = [{"id": "from_cfg", "label": "Do catálogo", "points": 100, "price_brl": 1.0}]
+        config_path.write_text(json.dumps({"PointPackages": catalog_pkgs}), encoding="utf-8")
+        _write_settings(
+            tmp_path,
+            config_path=str(config_path),
+            point_packages=[{"id": "from_settings", "label": "X", "points": 1, "price_brl": 1.0}],
+        )
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        _login(client, ADMIN_STEAM)
+        pkgs = client.get("/api/settings").get_json()["point_packages"]
+        assert pkgs == catalog_pkgs
+
+
 # ── Player summary & history ──────────────────────────────────────────────────
 
 class TestPlayerHistory:

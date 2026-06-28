@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.144] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (Web Store / Doações): pacotes PIX/cartão editados no admin web persistem no catálogo mestre (PointPackages) — antes só gravavam em settings.json e o reload lia os defaults do config.json.
+
 ## [1.9.143] - 2026-06-27
 
 ### Fix

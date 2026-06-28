@@ -2998,6 +2998,40 @@ def _load_point_packages() -> list[dict[str, Any]]:
     return _DEFAULT_POINT_PACKAGES
 
 
+def _normalize_point_packages(raw: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        pkg_id = str(entry.get("id") or "").strip()
+        label = str(entry.get("label") or entry.get("name") or "").strip()
+        try:
+            points = int(entry.get("points") or 0)
+            price_brl = float(entry.get("price_brl") or 0)
+        except (TypeError, ValueError):
+            continue
+        if not pkg_id or not label or points <= 0 or price_brl <= 0:
+            continue
+        pkg: dict[str, Any] = {"id": pkg_id, "label": label, "points": points, "price_brl": price_brl}
+        note = str(entry.get("note") or "").strip()
+        if note:
+            pkg["note"] = note
+        out.append(pkg)
+    return out
+
+
+def _persist_point_packages_to_catalog(
+    packages: list[dict[str, Any]],
+    settings: dict[str, Any],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Grava PointPackages no catálogo mestre e destinos de sync do CustomShop."""
+    written, errors = _write_config_all_targets({"PointPackages": packages}, settings)
+    _invalidate_shop_config_cache()
+    return written, errors
+
+
 def _package_label(package_id: str) -> str:
     pid = str(package_id or "").strip()
     if not pid:
@@ -3886,7 +3920,22 @@ def save_settings():
         s["db_password"] = body["db_password"]
     if "mp_access_token" in body and body["mp_access_token"] != "":
         s["mp_access_token"] = body["mp_access_token"]
+    point_packages_sync_errors: list[dict[str, str]] = []
+    if "point_packages" in body:
+        s["point_packages"] = _normalize_point_packages(body["point_packages"])
     _save_settings(s)
+
+    if "point_packages" in body:
+        _written, point_packages_sync_errors = _persist_point_packages_to_catalog(
+            s["point_packages"],
+            s,
+        )
+        if point_packages_sync_errors:
+            _log_error(
+                "point_packages_sync",
+                admin=_steam_id_from_session(),
+                errors=point_packages_sync_errors,
+            )
 
     reconnect_error = None
     try:
@@ -3895,12 +3944,17 @@ def save_settings():
         reconnect_error = str(exc)
 
     _log("settings_saved", admin=_steam_id_from_session(), db_ok=_db_ready())
+    ok = reconnect_error is None and not point_packages_sync_errors
+    error = reconnect_error
+    if not error and point_packages_sync_errors:
+        error = point_packages_sync_errors[0].get("error") or "Falha ao gravar PointPackages no catálogo"
     return jsonify({
-        "ok": reconnect_error is None,
+        "ok": ok,
         "db_configured": _db_ready(),
         "db_from_env": bool(_DATABASE_URL),
-        "error": reconnect_error,
-    }), 200 if reconnect_error is None else 500
+        "error": error,
+        "point_packages_sync_errors": point_packages_sync_errors or None,
+    }), 200 if ok else 500
 
 
 # ── Servers routes ────────────────────────────────────────────────────────────

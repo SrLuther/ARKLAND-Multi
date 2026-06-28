@@ -1,9 +1,8 @@
 {
-    "version": "1.9.143",
+    "version": "1.9.144",
     "date": "2026-06-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.143/ARKLAND-Multi-Setup-v1.9.143.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.144/ARKLAND-Multi-Setup-v1.9.144.exe",
     "changelog": [
-        "Fix CRÍTICO (Loja / Sync): catálogo mestre propaga Kits/Items completos para todos os mapas — WEBSTORE desatualizada com mais entradas não sobrescreve mais o mestre; sync recarrega o mestre do disco após reconcile; log itens/kits antes→depois por mapa.",
-        "Fix (Loja / Sync): CrossChat do mestre vence no sync (só ServerId permanece exclusivo por mapa)."
+        "Fix CRÍTICO (Web Store / Doações): pacotes PIX/cartão editados no admin web persistem no catálogo mestre (PointPackages) — antes só gravavam em settings.json e o reload lia os defaults do config.json."
     ]
 }
