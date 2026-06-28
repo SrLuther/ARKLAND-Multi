@@ -1,8 +1,8 @@
 {
-    "version": "1.9.151",
+    "version": "1.9.152",
     "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.151/ARKLAND-Multi-Setup-v1.9.151.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.152/ARKLAND-Multi-Setup-v1.9.152.exe",
     "changelog": [
-        "Fix CRÍTICO (Web Store): portal travado em «Carregando portal…» após v1.9.149 — bloco JavaScript duplicado em saveGeneralSettings quebrava o parse do index.html; fallback visual se o JS principal não iniciar."
+        "Fix CRÍTICO (Web Store / DB): migração steam_id falhava com erro 1068 (Multiple primary key defined) em players — bloqueava tickets, tribe_name e market; ALTER MODIFY idempotente sem redeclarar PRIMARY KEY em colunas que já são PK."
     ]
 }
