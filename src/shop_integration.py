@@ -198,7 +198,7 @@ def merge_catalog_into_plugin_config(
     existing: Dict[str, Any],
 ) -> Dict[str, Any]:
     """Mescla catálogo mestre no config de um mapa (admin web / sync)."""
-    merged = deepcopy(catalog)
+    merged = deepcopy(existing) if existing else deepcopy(catalog)
     apply_shared_sections_to_plugin(merged, catalog, existing)
     if not merged.get("Database") and existing.get("Database"):
         merged["Database"] = deepcopy(existing["Database"])

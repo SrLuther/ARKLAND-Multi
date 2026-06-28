@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.145"
-BUILD_DATE: str = "2026-06-27"
+APP_VERSION: str = "1.9.146"
+BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.146",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix CRÍTICO (Web Store / Doações): save de pacotes PIX persiste no catálogo completo "
+            "(merge parcial não apaga Items/Kits) e atualiza cache WEBSTORE — evita revert após "
+            "Recarregar ou sync TEK.",
+            "Novo (Web Store / Doações): 10 pacotes padrão com notas de incentivo em PT-BR; "
+            "campo note editável no admin e exibido na loja pública.",
+        ],
+    },
     {
         "version": "1.9.145",
         "date": "2026-06-27",

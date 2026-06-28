@@ -299,6 +299,65 @@ class TestPointPackages:
         saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
         assert saved_cfg["PointPackages"] == []
 
+    def test_save_point_packages_preserves_catalog_items(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(
+            json.dumps({
+                "Settings": {"ShopName": "Test Shop"},
+                "Items": {"item_x": {"Price": 99}},
+                "PointPackages": _app_module._DEFAULT_POINT_PACKAGES,
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        custom = [{"id": "only_one", "label": "Único", "points": 5000, "price_brl": 25.0, "note": "Teste"}]
+        _login(client, ADMIN_STEAM)
+        r = client.post("/api/settings", json={"point_packages": custom})
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        _app_module._CONFIG_CACHE.clear()
+        saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved_cfg["PointPackages"] == custom
+        assert saved_cfg["Items"]["item_x"]["Price"] == 99
+        assert saved_cfg["Settings"]["ShopName"] == "Test Shop"
+
+    def test_save_point_packages_pushes_webstore_cache(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        webstore_dir = tmp_path / "WEBSTORE"
+        webstore_cfg = webstore_dir / "config.json"
+        webstore_cfg.parent.mkdir(parents=True)
+        webstore_cfg.write_text(
+            json.dumps({"PointPackages": _app_module._DEFAULT_POINT_PACKAGES}),
+            encoding="utf-8",
+        )
+        config_path.write_text(
+            json.dumps({"Settings": {}, "PointPackages": _app_module._DEFAULT_POINT_PACKAGES}),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        monkeypatch.setattr(
+            "src.shop_integration.webstore_data_dir",
+            lambda: webstore_dir,
+        )
+        monkeypatch.setattr(
+            "src.arkland_environment.try_load_environment_paths",
+            lambda: type("P", (), {"webstore": webstore_dir})(),
+        )
+
+        custom = [{"id": "ws_test", "label": "Webstore", "points": 1234, "price_brl": 12.34}]
+        _login(client, ADMIN_STEAM)
+        r = client.post("/api/settings", json={"point_packages": custom})
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        ws_saved = json.loads(webstore_cfg.read_text(encoding="utf-8"))
+        assert ws_saved["PointPackages"] == custom
+
 
 # ── Player summary & history ──────────────────────────────────────────────────
 

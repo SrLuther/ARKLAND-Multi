@@ -4526,7 +4526,7 @@
           <div style="padding:0 16px 16px;overflow-x:auto;">
             <table class="pkg-admin-table">
               <thead>
-                <tr><th>ID</th><th>Nome</th><th>Âmbares</th><th>Preço (R$)</th><th>R$/1.000 Âmbares</th><th></th></tr>
+                <tr><th>ID</th><th>Nome</th><th>Âmbares</th><th>Preço (R$)</th><th>R$/1.000 Âmbares</th><th>Nota</th><th></th></tr>
               </thead>
               <tbody id="recharge-packages-tbody"></tbody>
             </table>
@@ -7184,6 +7184,7 @@ function renderRecharge() {
       <div class="recharge-card__points">${amberPriceHtml(pts, 20)}</div>
       <div class="recharge-card__price">Doação: R$ ${price.toFixed(2).replace(".", ",")}</div>
       <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">≈ R$ ${perK} / 1.000 ${escHtml(CURRENCY.plural)}</div>
+      ${p.note ? `<div style="font-size:12px;color:var(--amber);margin-bottom:12px;line-height:1.35;">${escHtml(p.note)}</div>` : ""}
       ${payBtns}
     </div>`;
   }).join("");
@@ -11002,6 +11003,7 @@ function renderRechargePackagesAdmin() {
       <td>${pts.toLocaleString("pt-BR")}</td>
       <td>R$ ${price.toFixed(2).replace(".", ",")}</td>
       <td>R$ ${perK}</td>
+      <td style="font-size:12px;color:var(--text2);max-width:200px;">${escHtml(p.note || "—")}</td>
       <td style="white-space:nowrap;">
         <button class="btn btn-ghost btn-sm" onclick="openPackageModal(${i})">✏️</button>
         <button class="btn btn-ghost btn-sm" onclick="deletePackage(${i})">🗑</button>
@@ -11018,6 +11020,7 @@ function openPackageModal(idx) {
   document.getElementById("pkg-label").value = p.label || "";
   document.getElementById("pkg-points").value = p.points ?? "";
   document.getElementById("pkg-price").value = p.price_brl ?? "";
+  document.getElementById("pkg-note").value = p.note || "";
   document.getElementById("modal-package").classList.remove("hidden");
 }
 
@@ -11036,6 +11039,8 @@ function confirmPackage() {
   if (!Number.isFinite(points) || points <= 0) { toast("Pontos inválidos.", "warning"); return; }
   if (!Number.isFinite(price_brl) || price_brl <= 0) { toast("Preço inválido.", "warning"); return; }
   const entry = { id, label, points, price_brl };
+  const note = document.getElementById("pkg-note").value.trim();
+  if (note) entry.note = note;
   if (_editingPackageIdx != null) {
     _adminPointPackages[_editingPackageIdx] = entry;
   } else {
@@ -13195,6 +13200,10 @@ document.addEventListener("keydown", (e) => {
     <div class="form-group">
       <label>Valor sugerido da doação (R$) *</label>
       <input id="pkg-price" type="number" min="0.01" step="0.01" placeholder="5.00" />
+    </div>
+    <div class="form-group">
+      <label>Nota de incentivo (opcional)</label>
+      <input id="pkg-note" type="text" placeholder="Ex: +5% bônus — exibida na loja pública" />
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
       <button class="btn btn-ghost" onclick="closePackageModal()">Cancelar</button>

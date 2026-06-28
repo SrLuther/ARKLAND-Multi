@@ -59,6 +59,23 @@ def test_merge_plugin_config_replaces_kits_from_catalog():
     assert merged["Kits"]["vip"]["Permissions"] == "Alga"
 
 
+def test_merge_partial_point_packages_preserves_items():
+    catalog = {
+        "PointPackages": [{"id": "p1", "label": "Novo", "points": 100, "price_brl": 5.0}],
+    }
+    existing = {
+        "Items": {"item_a": {"Price": 10}},
+        "Kits": {"kit_a": {}},
+        "PointPackages": [{"id": "p_old", "label": "Antigo", "points": 50, "price_brl": 5.0}],
+        "Settings": {"ShopName": "Mapa"},
+    }
+    merged = merge_catalog_into_plugin_config(catalog, existing)
+    assert merged["Items"] == existing["Items"]
+    assert merged["Kits"] == existing["Kits"]
+    assert merged["Settings"]["ShopName"] == "Mapa"
+    assert merged["PointPackages"] == catalog["PointPackages"]
+
+
 def test_merge_settings_catalog_wins_over_plugin():
     catalog = {
         "Settings": {"ShopName": "Mestre NOVO", "StartingPoints": 200},
