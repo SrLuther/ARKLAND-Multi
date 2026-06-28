@@ -55,6 +55,7 @@ from ..shop_integration import (
     test_shop_connection,
     webstore_data_dir,
     resolve_shop_db_password,
+    _cross_chat_server_label,
     _is_placeholder_db_password,
 )
 from ..ui_constants import (
@@ -532,7 +533,8 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             text=(
                 "Captura automatica do chat global — jogadores falam normalmente, sem /c. "
                 "Mensagens vao para todos os mapas do cluster e para o Discord (se configurado). "
-                "Cada servidor recebe um ServerId unico ao sincronizar o plugin."
+                "O ServerId de cada mapa e definido na aba Web Store (Nome chat cluster) "
+                "ou automaticamente pela pasta do servidor ao sincronizar."
             ),
             bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
             anchor="w", justify="left", wraplength=720,
@@ -1941,7 +1943,11 @@ def _build_webstore_tab(
 
     tk.Label(
         card_srv,
-        text="Home = card na página inicial da loja. Loja = cadastro em servers.json (desmarque para remover do cross).",
+        text=(
+            "ID loja = fila web (pode repetir). Nome chat cluster = ServerId no CrossChat "
+            "(único por mapa; vazio = pasta install_dir / mapa). Mensagens não chegam se "
+            "dois mapas tiverem o mesmo ServerId."
+        ),
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
 
@@ -1961,6 +1967,7 @@ def _build_webstore_tab(
             sid_var = tk.StringVar(
                 value=srv.shop_server_id or slugify_server_id(srv.name, srv.id),
             )
+            cc_var = tk.StringVar(value=getattr(srv, "cross_chat_label", "") or "")
             path_var = tk.StringVar(
                 value=srv.customshop_config_path or default_customshop_path(srv.install_dir),
             )
@@ -1973,8 +1980,18 @@ def _build_webstore_tab(
                 row, text=f"{status} [{prefix}] {srv.name[:18]}", bg="#1a1a30", fg="gray70",
                 font=ctk.CTkFont(size=10, weight="bold"), width=140, anchor="w",
             ).pack(side="left", padx=(4, 4))
-            ctk.CTkEntry(row, textvariable=sid_var, width=100, height=24,
-                         placeholder_text="shop id").pack(side="left", padx=2)
+            ctk.CTkEntry(row, textvariable=sid_var, width=88, height=24,
+                         placeholder_text="ID loja").pack(side="left", padx=2)
+            effective_cc = _cross_chat_server_label(srv)
+            cc_entry = ctk.CTkEntry(
+                row, textvariable=cc_var, width=100, height=24,
+                placeholder_text=effective_cc[:18],
+            )
+            cc_entry.pack(side="left", padx=2)
+            tk.Label(
+                row, text=f"→ {effective_cc[:14]}", bg="#1a1a30", fg="gray55",
+                font=ctk.CTkFont(size=8), width=72, anchor="w",
+            ).pack(side="left", padx=(0, 2))
             ctk.CTkCheckBox(
                 row, text="Home", variable=home_var, width=58, height=24,
                 checkbox_width=16, checkbox_height=16,
@@ -1987,7 +2004,7 @@ def _build_webstore_tab(
             ).pack(side="left", padx=2)
             ctk.CTkEntry(row, textvariable=path_var, width=300, height=24).pack(
                 side="left", padx=2)
-            _server_rows.append((kind, srv, sid_var, path_var, home_var, shop_var))
+            _server_rows.append((kind, srv, sid_var, cc_var, path_var, home_var, shop_var))
 
     _rebuild_server_rows()
 
@@ -1997,8 +2014,9 @@ def _build_webstore_tab(
         _save_shop_from_ui()
         if not persist_catalog():
             return
-        for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
+        for _kind, srv, sid_var, cc_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
+            srv.cross_chat_label = cc_var.get().strip()
             srv.customshop_config_path = path_var.get().strip()
             srv.shop_show_on_home = bool(home_var.get())
             srv.shop_exclude = not bool(shop_var.get())
@@ -2066,8 +2084,9 @@ def _build_webstore_tab(
         _save_shop_from_ui()
         if not persist_catalog():
             return
-        for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
+        for _kind, srv, sid_var, cc_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
+            srv.cross_chat_label = cc_var.get().strip()
             srv.customshop_config_path = path_var.get().strip()
             srv.shop_show_on_home = bool(home_var.get())
             srv.shop_exclude = not bool(shop_var.get())

@@ -141,8 +141,13 @@ def _sanitize_cross_chat_label(raw: str) -> str:
 
 
 def _cross_chat_server_label(srv: Any) -> str:
-    """Nome exibido no chat cluster — único por mapa."""
-    # Pasta install_dir primeiro: shop_server_id pode ser igual em vários mapas.
+    """Nome exibido no chat cluster (CrossChat.ServerId) — deve ser único por mapa."""
+    explicit = (getattr(srv, "cross_chat_label", "") or "").strip()
+    if explicit:
+        label = _sanitize_cross_chat_label(explicit)
+        if label:
+            return label
+
     install_dir = (getattr(srv, "install_dir", "") or "").strip()
     if install_dir:
         folder = Path(install_dir).name.strip()
@@ -151,22 +156,69 @@ def _cross_chat_server_label(srv: Any) -> str:
             if label:
                 return label
 
-    shop_sid = (getattr(srv, "shop_server_id", "") or "").strip()
-    if shop_sid:
-        label = _sanitize_cross_chat_label(shop_sid)
+    map_name = (getattr(srv, "map", "") or "").strip()
+    if map_name and map_name.lower() not in _GENERIC_CROSSCHAT_NAMES:
+        label = _sanitize_cross_chat_label(map_name)
         if label:
             return label
 
     for attr in ("alt_save_directory_name", "session_name", "server_name", "name"):
         raw = (getattr(srv, attr, "") or "").strip()
         if raw and raw.lower() not in _GENERIC_CROSSCHAT_NAMES:
+            if attr == "alt_save_directory_name" and raw.lower() == "savegame":
+                continue
             label = _sanitize_cross_chat_label(raw)
             if label:
                 return label
 
-    return _sanitize_cross_chat_label(
-        slugify_server_id("", getattr(srv, "id", ""))
-    ) or "server"
+    # Fallback único por servidor — shop_server_id não entra aqui (pode repetir entre mapas).
+    srv_id = (getattr(srv, "id", "") or "").strip()
+    short_id = re.sub(r"[^a-z0-9]", "", srv_id.lower())[:6]
+    base = slugify_server_id(getattr(srv, "name", ""), srv_id)
+    if short_id and base:
+        return _sanitize_cross_chat_label(f"{base}_{short_id}")
+    return _sanitize_cross_chat_label(base) or short_id or "server"
+
+
+def find_cross_chat_collisions(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+) -> List[str]:
+    """Detecta ServerIds duplicados ou config.json compartilhado entre mapas."""
+    by_label: Dict[str, List[str]] = {}
+    by_path: Dict[str, List[str]] = {}
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        name = getattr(srv, "name", "") or f"{kind}:{getattr(srv, 'id', '')[:8]}"
+        label = _cross_chat_server_label(srv)
+        by_label.setdefault(label, []).append(name)
+        path_str = (getattr(srv, "customshop_config_path", "") or "").strip()
+        if not path_str:
+            path_str = default_customshop_path(getattr(srv, "install_dir", ""))
+        if not path_str:
+            continue
+        try:
+            key = str(Path(path_str).resolve()).lower()
+        except OSError:
+            key = path_str.lower()
+        by_path.setdefault(key, []).append(name)
+
+    errors: List[str] = []
+    for label, names in sorted(by_label.items()):
+        if len(names) < 2:
+            continue
+        errors.append(
+            f"CrossChat ServerId duplicado «{label}» em: {', '.join(names)} — "
+            "mensagens não chegam entre esses mapas. Defina «Nome no chat cluster» "
+            "único por servidor (aba Loja / Chat Cluster) e sincronize."
+        )
+    for path, names in sorted(by_path.items()):
+        if len(names) < 2:
+            continue
+        errors.append(
+            f"config.json CustomShop compartilhado entre: {', '.join(names)} ({path}) — "
+            "cada mapa precisa do seu config em ArkApi/Plugins/CustomShop/."
+        )
+    return errors
 
 
 def apply_shared_sections_to_plugin(
@@ -1330,6 +1382,22 @@ def _resolve_machine_label(shop: "ShopGlobalConfig") -> str:
         return "arkland-node"
 
 
+def _resolve_buff_event_for_server(srv: Any, buff_manager: Any = None) -> Any:
+    if buff_manager is None:
+        return None
+    try:
+        return buff_manager.get_active_event(getattr(srv, "id", ""))
+    except Exception:
+        return None
+
+
+def _server_config_snapshot_for(srv: Any, buff_manager: Any = None) -> Dict[str, Any]:
+    from .server_config_snapshot import collect_server_snapshot
+
+    buff_event = _resolve_buff_event_for_server(srv, buff_manager)
+    return collect_server_snapshot(srv, buff_event=buff_event)
+
+
 def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
     sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
         getattr(srv, "name", ""), getattr(srv, "id", ""),
@@ -2255,6 +2323,9 @@ def _collect_server_registry(
     shop: "ShopGlobalConfig",
     asm_cm: Optional["AsmConfigManager"],
     by_id: Dict[str, Dict[str, Any]],
+    *,
+    buff_manager: Any = None,
+    include_snapshots: bool = True,
 ) -> Tuple[str, List[Dict[str, Any]], set[str]]:
     machine_label = _resolve_machine_label(shop)
     incoming: List[Dict[str, Any]] = []
@@ -2268,6 +2339,15 @@ def _collect_server_registry(
         entry = _server_rcon_entry(srv, shop)
         entry["arkland_ref"] = ref
         entry["machine_label"] = machine_label
+        if include_snapshots:
+            try:
+                entry["config_snapshot"] = _server_config_snapshot_for(srv, buff_manager)
+            except Exception as exc:
+                logger.warning(
+                    "Snapshot de config ignorado para %s: %s",
+                    getattr(srv, "name", ""),
+                    exc,
+                )
         sid = entry["server_id"]
         existing = by_id.get(sid)
         incoming.append(_merge_arkland_server_entry(existing, entry, srv))
@@ -2275,10 +2355,30 @@ def _collect_server_registry(
     return machine_label, incoming, active_refs
 
 
+def sync_server_snapshots_to_webstore(
+    cm: "ConfigManager",
+    shop: "ShopGlobalConfig",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    *,
+    buff_manager: Any = None,
+    errors: Optional[List[str]] = None,
+) -> int:
+    """Atualiza config_snapshot em servers.json (host) ou via API (client)."""
+    if (shop.mode or "client") == "client":
+        return register_arkshop_servers(
+            cm, shop, asm_cm=asm_cm, errors=errors, buff_manager=buff_manager,
+        )
+    return register_arkshop_servers(
+        cm, shop, asm_cm=asm_cm, errors=errors, buff_manager=buff_manager,
+    )
+
+
 def _register_arkshop_servers_local(
     cm: "ConfigManager",
     shop: "ShopGlobalConfig",
     asm_cm: Optional["AsmConfigManager"] = None,
+    *,
+    buff_manager: Any = None,
 ) -> int:
     servers_path = webstore_data_dir() / "servers.json"
     servers: List[Dict[str, Any]] = []
@@ -2297,7 +2397,7 @@ def _register_arkshop_servers_local(
             by_id[sid] = s
 
     machine_label, incoming, active_refs = _collect_server_registry(
-        cm, shop, asm_cm, by_id,
+        cm, shop, asm_cm, by_id, buff_manager=buff_manager,
     )
     count = apply_machine_server_registry(by_id, machine_label, incoming, active_refs)
 
@@ -2314,6 +2414,8 @@ def _register_arkshop_servers_remote(
     shop: "ShopGlobalConfig",
     asm_cm: Optional["AsmConfigManager"] = None,
     errors: Optional[List[str]] = None,
+    *,
+    buff_manager: Any = None,
 ) -> int:
     """Envia cadastro de servidores desta máquina para a loja central (modo client)."""
     api_key = (shop.api_key or "").strip()
@@ -2326,7 +2428,7 @@ def _register_arkshop_servers_remote(
         return 0
 
     machine_label, incoming, active_refs = _collect_server_registry(
-        cm, shop, asm_cm, {},
+        cm, shop, asm_cm, {}, buff_manager=buff_manager,
     )
     payload_entries: List[Dict[str, Any]] = []
     for entry in incoming:
@@ -2378,10 +2480,14 @@ def register_arkshop_servers(
     shop: "ShopGlobalConfig",
     asm_cm: Optional["AsmConfigManager"] = None,
     errors: Optional[List[str]] = None,
+    *,
+    buff_manager: Any = None,
 ) -> int:
     if (shop.mode or "client") == "client":
-        return _register_arkshop_servers_remote(cm, shop, asm_cm=asm_cm, errors=errors)
-    return _register_arkshop_servers_local(cm, shop, asm_cm=asm_cm)
+        return _register_arkshop_servers_remote(
+            cm, shop, asm_cm=asm_cm, errors=errors, buff_manager=buff_manager,
+        )
+    return _register_arkshop_servers_local(cm, shop, asm_cm=asm_cm, buff_manager=buff_manager)
 
 
 def sync_all_plugins(
@@ -2441,6 +2547,10 @@ def sync_all_plugins(
     errors: List[str] = []
     if bind_warn:
         errors.append(f"AVISO: {bind_warn}")
+
+    cc_collisions = find_cross_chat_collisions(cm, asm_cm)
+    if cc_collisions:
+        errors.extend(cc_collisions)
 
     had_placeholders = catalog_has_placeholder_kit_prices(catalog)
     cleared, kit_updates = apply_vip_pricing_to_catalog(catalog)
@@ -2523,6 +2633,27 @@ def sync_all_plugins(
     if reg_n:
         ok.append(f"Servidores registrados na loja: {reg_n}")
     return ok, errors
+
+
+def schedule_server_snapshot_sync(app: Any) -> None:
+    """Dispara sync de snapshots em thread (startup TEK / restart de servidor)."""
+    import threading
+
+    def _worker() -> None:
+        try:
+            cm = app.config_manager
+            shop = cm.config.shop
+            asm_cm = getattr(app, "asm_config_manager", None)
+            buff_manager = getattr(app, "_buff_manager", None)
+            n = sync_server_snapshots_to_webstore(
+                cm, shop, asm_cm=asm_cm, buff_manager=buff_manager,
+            )
+            if n:
+                logger.info("Snapshots de servidor sincronizados na Web Store: %d", n)
+        except Exception as exc:
+            logger.warning("schedule_server_snapshot_sync: %s", exc)
+
+    threading.Thread(target=_worker, daemon=True, name="ServerSnapshotSync").start()
 
 
 def default_catalog_path(shop: "ShopGlobalConfig") -> Path:

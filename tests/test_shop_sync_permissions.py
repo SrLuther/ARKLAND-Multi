@@ -9,6 +9,7 @@ from src.shop_integration import (
     build_cross_chat_settings,
     catalog_permission_diff,
     collect_groups_from_catalog,
+    find_cross_chat_collisions,
     format_permission_sync_note,
     merge_catalog_into_plugin_config,
     merge_plugin_config,
@@ -152,24 +153,82 @@ def test_cross_chat_server_label_prefers_install_dir_over_generic_name():
     assert _cross_chat_server_label(srv) == "Brighamia"
 
 
-def test_cross_chat_server_label_uses_shop_server_id_when_install_dir_generic():
-    srv = SimpleNamespace(
-        name="ARK Server TEK",
-        shop_server_id="Ragnarok-PVP",
-        install_dir=r"C:\ARK\ARK Server TEK",
-        id="uuid-rag",
-    )
-    assert _cross_chat_server_label(srv) == "Ragnarok-PVP"
-
-
 def test_cross_chat_server_label_prefers_install_dir_over_shop_server_id():
     srv = SimpleNamespace(
         name="ARK Server TEK",
+        cross_chat_label="",
         shop_server_id="amissa",
         install_dir=r"C:\ARK\Brighamia",
+        map="",
         id="brighamia-id",
     )
     assert _cross_chat_server_label(srv) == "Brighamia"
+
+
+def test_cross_chat_server_label_uses_explicit_override():
+    srv = SimpleNamespace(
+        name="ARK Server TEK",
+        cross_chat_label="Amissa",
+        shop_server_id="ARKLAND",
+        install_dir=r"C:\ARK\ARK Server TEK",
+        id="uuid-amissa",
+    )
+    assert _cross_chat_server_label(srv) == "Amissa"
+
+
+def test_cross_chat_server_label_ignores_shared_shop_server_id():
+    srv = SimpleNamespace(
+        name="ARK Server TEK",
+        cross_chat_label="",
+        shop_server_id="ARKLAND",
+        install_dir=r"C:\ARK\ARK Server TEK",
+        map="",
+        id="uuid-unique-abc",
+    )
+    label = _cross_chat_server_label(srv)
+    assert label != "ARKLAND"
+    assert "unique" in label or label  # slugify do nome/id
+
+
+def test_cross_chat_server_label_unique_fallback_when_same_name():
+    a = SimpleNamespace(
+        name="ARK Server TEK",
+        cross_chat_label="",
+        shop_server_id="ARKLAND",
+        install_dir=r"C:\ARK\ARK Server TEK",
+        map="",
+        id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    )
+    b = SimpleNamespace(
+        name="ARK Server TEK",
+        cross_chat_label="",
+        shop_server_id="ARKLAND",
+        install_dir=r"C:\ARK\ARK Server TEK",
+        map="",
+        id="ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee",
+    )
+    la = _cross_chat_server_label(a)
+    lb = _cross_chat_server_label(b)
+    assert la != lb
+    assert la != "ARKLAND"
+    assert lb != "ARKLAND"
+
+
+def test_find_cross_chat_collisions_detects_duplicate_labels():
+    from types import SimpleNamespace as NS
+
+    a = NS(name="Mapa A", cross_chat_label="ARKLAND", install_dir="", map="", id="a1")
+    b = NS(name="Mapa B", cross_chat_label="ARKLAND", install_dir="", map="", id="b2")
+
+    class _FakeCM:
+        servers = [a]
+
+    class _FakeAsm:
+        servers = [b]
+
+    errors = find_cross_chat_collisions(_FakeCM(), _FakeAsm())
+    assert any("duplicado" in e.lower() for e in errors)
+    assert any("ARKLAND" in e for e in errors)
 
 
 def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):

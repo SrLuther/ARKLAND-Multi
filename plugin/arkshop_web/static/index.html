@@ -3310,6 +3310,38 @@
       color: var(--text2);
       line-height: 1.65;
     }
+    .home-map-card__stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(232,180,100,.14);
+    }
+    .home-map-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(232,180,100,.22);
+      background: rgba(0,0,0,.28);
+      color: rgba(232,200,140,.95);
+      line-height: 1.2;
+    }
+    .home-map-stat--buff {
+      border-color: rgba(255,180,60,.45);
+      background: linear-gradient(135deg, rgba(255,140,20,.18), rgba(0,0,0,.35));
+      color: #ffd080;
+    }
+    .home-map-stat__icon {
+      opacity: .85;
+      font-size: 11px;
+    }
     .home-maps-showcase__footer {
       position: relative;
       margin-top: 20px;
@@ -13012,6 +13044,23 @@ function _mapCardGlyph(name) {
   return "🗻";
 }
 
+function _mapCardStatsHtml(stats) {
+  if (!stats) return "";
+  const pills = [
+    stats.xp ? `<span class="home-map-stat" title="Taxa de XP"><span class="home-map-stat__icon">⭐</span>XP ${escHtml(stats.xp)}</span>` : "",
+    stats.taming ? `<span class="home-map-stat" title="Velocidade de doma"><span class="home-map-stat__icon">🦖</span>Doma ${escHtml(stats.taming)}</span>` : "",
+    stats.harvest ? `<span class="home-map-stat" title="Coleta de recursos"><span class="home-map-stat__icon">🌿</span>Coleta ${escHtml(stats.harvest)}</span>` : "",
+    stats.max_player_level ? `<span class="home-map-stat" title="Nível máximo do jogador"><span class="home-map-stat__icon">👤</span>Nív. máx. ${escHtml(String(stats.max_player_level))}</span>` : "",
+    stats.max_dino_level ? `<span class="home-map-stat" title="Nível máximo de dinos selvagens"><span class="home-map-stat__icon">🦴</span>Dino ${escHtml(String(stats.max_dino_level))}</span>` : "",
+    stats.mature && stats.mature !== "1x" ? `<span class="home-map-stat" title="Velocidade de maturação"><span class="home-map-stat__icon">🥚</span>Matur. ${escHtml(stats.mature)}</span>` : "",
+  ].filter(Boolean);
+  if (stats.buff_active) {
+    pills.push(`<span class="home-map-stat home-map-stat--buff" title="${escHtml(stats.buff_name || "BUFF ativo")}"><span class="home-map-stat__icon">🔥</span>BUFF</span>`);
+  }
+  if (!pills.length) return "";
+  return `<div class="home-map-card__stats">${pills.join("")}</div>`;
+}
+
 function _hashStr(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h) + s.charCodeAt(i);
@@ -13086,6 +13135,7 @@ function renderHomePage(d) {
               <h3 class="home-map-card__name">${escHtml(m.name || "")}</h3>
               <div class="home-map-card__divider" aria-hidden="true"></div>
               <p class="home-map-card__text">${escHtml(m.description || "")}</p>
+              ${_mapCardStatsHtml(m.stats)}
             </div>
           </article>`;
         }).join("")}

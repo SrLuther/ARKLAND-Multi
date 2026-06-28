@@ -198,6 +198,8 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(3000, self._start_mod_auto_updater)
         # Auto-start: Web Store (após painel estável)
         self.after(5000, self._auto_start_webstore)
+        # Snapshots de rates → cards Mapas do cluster (após Web Store subir)
+        self.after(9000, self._sync_server_snapshots_to_webstore)
         # Corrige WebsiteUrl legado (IP) nos plugins sem precisar abrir a aba Loja
         self.after(3500, self._auto_migrate_plugin_website_urls)
         # Verifica atualização do app ao iniciar
@@ -447,6 +449,21 @@ class ARKServerManagerApp(ctk.CTk):
                     self._cluster_sync_start(prof.id)
         except Exception:
             pass
+
+    def _sync_server_snapshots_to_webstore(self) -> None:
+        try:
+            from .shop_integration import schedule_server_snapshot_sync
+            schedule_server_snapshot_sync(self)
+        except Exception as exc:
+            import logging as _log2
+            _log2.getLogger(__name__).warning(
+                "_sync_server_snapshots_to_webstore: %s", exc,
+            )
+
+    def _asm_after_server_lifecycle(self, ok: bool, msg: str) -> None:
+        self._asm_refresh_dashboard()
+        if ok:
+            self._sync_server_snapshots_to_webstore()
 
     def _auto_start_webstore(self) -> None:
         """Inicia a Web Store automaticamente no boot, sem precisar abrir a aba da Loja."""
@@ -1052,7 +1069,9 @@ class ARKServerManagerApp(ctk.CTk):
             cfg.active_mods = []
         self.asm_server_manager.start(
             cfg,
-            on_done=lambda ok, msg: self.after(0, self._asm_refresh_dashboard),
+            on_done=lambda ok, msg: self.after(
+                0, lambda: self._asm_after_server_lifecycle(ok, msg),
+            ),
         )
         self._asm_refresh_dashboard()
 
@@ -1089,7 +1108,9 @@ class ARKServerManagerApp(ctk.CTk):
         cancel_shutdown(self, server_id)
         self.asm_server_manager.stop(
             server_id,
-            on_done=lambda ok, msg: self.after(0, self._asm_refresh_dashboard),
+            on_done=lambda ok, msg: self.after(
+                0, lambda: self._asm_after_server_lifecycle(ok, msg),
+            ),
         )
         self._asm_refresh_dashboard()
 
@@ -1107,7 +1128,9 @@ class ARKServerManagerApp(ctk.CTk):
         srv = self._asm_persist_server(srv)
         self.asm_server_manager.restart(
             srv,
-            on_done=lambda ok, msg: self.after(0, self._asm_refresh_dashboard),
+            on_done=lambda ok, msg: self.after(
+                0, lambda: self._asm_after_server_lifecycle(ok, msg),
+            ),
         )
         self._asm_refresh_dashboard()
 

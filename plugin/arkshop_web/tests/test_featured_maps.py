@@ -44,6 +44,31 @@ def _login_admin(client):
         sess["steam_id"] = ADMIN_STEAM
 
 
+def test_public_home_includes_map_stats(client, tmp_path, monkeypatch):
+    servers_file = tmp_path / "servers.json"
+    servers_file.write_text(
+        json.dumps([{
+            "server_id": "brighamia",
+            "label": "Brighamia",
+            "config_snapshot": {
+                "xp_multiplier": 44,
+                "taming_speed_multiplier": 20,
+                "harvest_amount_multiplier": 15,
+                "baby_mature_speed_multiplier": 1,
+                "max_player_level": 180,
+                "max_dino_level": 150,
+            },
+        }]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
+
+    home = client.get("/api/public/home").get_json()
+    brighamia = next(m for m in home["featured_maps"] if m["name"] == "Brighamia")
+    assert brighamia.get("stats", {}).get("xp") == "44x"
+    assert brighamia["stats"]["max_dino_level"] == 150
+
+
 def test_public_home_default_featured_maps(client):
     r = client.get("/api/public/home")
     assert r.status_code == 200

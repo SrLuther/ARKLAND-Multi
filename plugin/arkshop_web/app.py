@@ -4622,7 +4622,7 @@ def sync_servers_from_client():
                 "server_id", "label", "rcon_host", "rcon_port", "rcon_password",
                 "delivery_mode", "machine_label", "plugin_config_path",
                 "arkland_ref", "show_on_home", "retry_max_attempts",
-                "delivery_command_template",
+                "delivery_command_template", "config_snapshot",
             ) and v not in (None, "")
         }
         entry["server_id"] = sid
@@ -5392,6 +5392,7 @@ def _load_featured_maps_raw() -> list[dict[str, Any]]:
             "description": str(item.get("description") or "").strip(),
             "sort_order": int(item.get("sort_order", 0) or 0),
             "enabled": item.get("enabled", True) is not False,
+            "server_id": str(item.get("server_id") or "").strip(),
         })
     out.sort(key=lambda m: (int(m.get("sort_order", 0) or 0), m.get("name", "")))
     defaults = _default_featured_maps()
@@ -5421,15 +5422,27 @@ def _featured_maps_section_meta() -> dict[str, str]:
 
 
 def _load_featured_maps_public() -> list[dict[str, Any]]:
-    return [
-        {
+    from src.server_config_snapshot import (
+        build_snapshot_indexes,
+        match_snapshot_for_map,
+    )
+
+    servers = _load_servers()
+    by_id, by_slug = build_snapshot_indexes(servers)
+    out: list[dict[str, Any]] = []
+    for m in _load_featured_maps_raw():
+        if m.get("enabled", True) is False:
+            continue
+        entry = {
             "name": m.get("name", ""),
             "mod_map": bool(m.get("mod_map", False)),
             "description": m.get("description", ""),
         }
-        for m in _load_featured_maps_raw()
-        if m.get("enabled", True) is not False
-    ]
+        stats = match_snapshot_for_map(m, by_id, by_slug)
+        if stats:
+            entry["stats"] = stats
+        out.append(entry)
+    return out
 
 
 @app.route("/api/featured-maps", methods=["GET"])
@@ -5481,6 +5494,7 @@ def create_featured_map():
         "description": str(body.get("description", "")).strip(),
         "sort_order": int(body.get("sort_order", len(maps)) or 0),
         "enabled": body.get("enabled", True) is not False,
+        "server_id": str(body.get("server_id") or "").strip(),
     }
     existing_ids = {m.get("id") for m in maps}
     while entry["id"] in existing_ids:
@@ -5506,6 +5520,7 @@ def update_featured_map(map_id: str):
                 "description": str(body.get("description", m.get("description", ""))).strip(),
                 "sort_order": int(body.get("sort_order", m.get("sort_order", 0)) or 0),
                 "enabled": body.get("enabled", m.get("enabled", True)) is not False,
+                "server_id": str(body.get("server_id", m.get("server_id", "")) or "").strip(),
             }
             if not _save_featured_maps(maps):
                 return jsonify({"ok": False, "error": "Falha ao salvar"}), 500

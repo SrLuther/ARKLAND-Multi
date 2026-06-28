@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.159] - 2026-06-28
+
+### Feature
+
+- Novo (CrossChat / TEK): campo «Nome chat cluster» por servidor na aba Loja — persiste em servers.json / AsmServerConfig; vazio = pasta install_dir ou mapa; sync valida IDs únicos.
+- Novo (Web Store / Mapas do cluster): rates e níveis máximos sincronizados pelo TEK (startup e restart) — pills nos cards da home (XP, Doma, Coleta, nível máx. jogador/dino; BUFF ativo).
+
+### Fix
+
+- Fix CRÍTICO (CrossChat): ServerId duplicado entre mapas impedia entrega de mensagens (poll ignora source_server == self); shop_server_id deixa de definir o rótulo do chat.
+
 ## [1.9.158] - 2026-06-28
 
 ### Fix

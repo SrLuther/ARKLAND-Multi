@@ -538,6 +538,8 @@ class ServerConfig:
     cluster_profile_id: str = ""
     # Loja CustomShop — identificador na fila web e caminho do config do plugin
     shop_server_id: str = ""
+    # Nome exibido no chat cluster (CrossChat.ServerId) — vazio = automático pela pasta do mapa
+    cross_chat_label: str = ""
     customshop_config_path: str = ""
     shop_show_on_home: bool = True
     shop_exclude: bool = False

@@ -178,6 +178,7 @@ _PT_OVERRIDES: dict[str, str] = {
     "process_priority": "Prioridade do processo do servidor",
     "customshop_config_path": "Caminho do config.json da loja",
     "shop_server_id": "ID do servidor na loja CustomShop",
+    "cross_chat_label": "Nome exibido no chat cluster (ServerId)",
     "tags": "Tags do servidor",
     "notes": "Notas e observações internas",
     "exclusive_join_ids": "SteamIDs com acesso exclusivo (whitelist)",
