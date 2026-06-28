@@ -84,3 +84,84 @@ def test_revoke_license_syncs_permissions_remove(client, monkeypatch):
     )
     assert r.status_code == 200
     assert sync_calls == [(TARGET_STEAM, "keyvault", False, 0)]
+
+
+def test_player_purchase_nuvem_syncs_permissions(client, monkeypatch):
+    user_steam = "76561198000000002"
+    _login(client, user_steam)
+    sync_calls: list[tuple] = []
+
+    monkeypatch.setattr(
+        _app_module,
+        "_auth_display_name_fields",
+        lambda _sid, is_admin: {
+            "market_display_name": "NuvemPlayer",
+            "needs_display_name": False,
+        },
+    )
+    monkeypatch.setattr(
+        _app_module,
+        "_safe_market_profile",
+        lambda _db, _sid: type("P", (), {"market_display_name": "NuvemPlayer"})(),
+    )
+    monkeypatch.setattr(_app_module, "_get_player_points", lambda _sid: 10_000)
+    monkeypatch.setattr(
+        _app_module,
+        "_catalog_entry",
+        lambda _t, _i: {
+            "Type": "license",
+            "Price": 0,
+            "LicenseGrant": {"Group": "keyvault", "Days": 30, "Redeemable": True},
+        },
+    )
+    monkeypatch.setattr(_app_module, "_apply_entitlement_grant_tx", lambda *a, **k: None)
+
+    class _FakeDb:
+        def execute(self, *a, **k):
+            return type("R", (), {"rowcount": 1})()
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(_app_module, "_SessionLocal", lambda: _FakeDb())
+    monkeypatch.setattr(
+        _app_module,
+        "_create_order",
+        lambda *a, **k: (
+            type(
+                "O",
+                (),
+                {
+                    "order_id": "ord-nuvem",
+                    "steam_id": user_steam,
+                    "server_id": "default",
+                    "status": "PENDENTE",
+                },
+            )(),
+            None,
+        ),
+    )
+    monkeypatch.setattr(
+        _app_module,
+        "_process_order_delivery",
+        lambda _oid: {"ok": True, "queued": True},
+    )
+    monkeypatch.setattr(
+        _app_module,
+        "_sync_license_permissions_all_servers",
+        lambda sid, grp, grant, days=0: sync_calls.append((sid, grp, grant, days))
+        or [{"server_id": "map1", "label": "Mapa", "ok": True}],
+    )
+
+    r = client.post(
+        "/api/player/purchase",
+        json={"item_id": "licenca_nuvem", "item_type": "shop", "amount": 1},
+    )
+    assert r.status_code == 200
+    assert sync_calls == [(user_steam, "keyvault", True, 30)]

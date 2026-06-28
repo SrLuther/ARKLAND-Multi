@@ -3,11 +3,57 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.153"
+APP_VERSION: str = "1.9.158"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.158",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (BUFFs): multiplicadores empilham sobre as rates base do servidor (ex.: 44x × 10x = 440x) "
+            "em vez de substituir por valores relativos ao vanilla 1x.",
+            "Fix (BUFFs): botão Encerrar BUFF no card do evento ativo — restaura INI do backup e reinicia o servidor.",
+        ],
+    },
+    {
+        "version": "1.9.157",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Web Store / Header): card de usuário logado exibe nickname Steam ao lado do SteamID "
+            "(via store_users, players.json ou Steam Web API com STEAM_API_KEY); papel Admin/Jogador em linha separada; "
+            "pipe oculto quando nickname indisponível.",
+        ],
+    },
+    {
+        "version": "1.9.156",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Web Store / Auditoria): filtro por SteamID64 em Eventos Gerais enviava pedido como order_id "
+            "(checava length >= 32 em vez do padrão 7656119…); busca por jogador volta a funcionar.",
+        ],
+    },
+    {
+        "version": "1.9.155",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Web Store / Tickets admin): badges de status com cores no tema escuro; botão Atender/Abrir "
+            "abre o detalhe do ticket (lista não esconde mais o painel); tickets ENCERRADO visíveis na fila "
+            "com botão Ver e histórico somente leitura.",
+        ],
+    },
+    {
+        "version": "1.9.154",
+        "date": "2026-06-28",
+        "changes": [
+            "Fix (Web Store / Licença Nuvem): resgate concede keyvault em player_entitlements e "
+            "sincroniza Permissions.AddTimed via RCON como as demais licenças; fallback para catálogo "
+            "legado Type command; licenca_nuvem padronizada como Type license no config.",
+            "Fix (TEK oBobonic): encerra instâncias órfãs antes do auto-start, grava PID, para o bot "
+            "ao fechar o app (WM_DELETE_WINDOW) — evita múltiplos bots após restart do TEK.",
+        ],
+    },
     {
         "version": "1.9.153",
         "date": "2026-06-28",

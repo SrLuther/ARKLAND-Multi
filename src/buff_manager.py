@@ -126,6 +126,26 @@ QUICK_PRESETS: Dict[int, Dict[str, Dict[str, float]]] = {
 }
 
 
+def stack_buff_rate(base: float, buff_factor: float) -> float:
+    """Multiplica a rate base do servidor pelo fator do BUFF (empilhamento)."""
+    if base <= 0:
+        base = 1.0
+    return round(base * buff_factor, 4)
+
+
+def _read_rate_from_config(cfg: object, field_name: str) -> float:
+    """Lê o valor atual de um multiplicador na config do servidor."""
+    if hasattr(cfg, "game_settings"):
+        val = getattr(cfg.game_settings, field_name, 1.0)
+    else:
+        val = getattr(cfg, field_name, 1.0)
+    try:
+        f = float(val)
+    except (TypeError, ValueError):
+        return 1.0
+    return f if f > 0 else 1.0
+
+
 # ── Data classes ───────────────────────────────────────────────────────────────
 
 @dataclass
@@ -289,6 +309,7 @@ class BuffManager:
         self._lock = threading.Lock()
         self._change_callbacks: List[Callable] = []
         self._activating: set[str] = set()
+        self._deactivating: set[str] = set()
         # Controle de avisos RCON já enviados: set de "event_id:threshold"
         self._rcon_warnings_sent: set = set()
 
@@ -365,6 +386,10 @@ class BuffManager:
     def is_activating(self, event_id: str) -> bool:
         with self._lock:
             return event_id in self._activating
+
+    def is_deactivating(self, event_id: str) -> bool:
+        with self._lock:
+            return event_id in self._deactivating
 
     def get_scheduled_events(self, server_id: Optional[str] = None) -> List[BuffEvent]:
         with self._lock:
@@ -471,6 +496,28 @@ class BuffManager:
             self._save()
         self._notify()
 
+    def stop_active_event(self, event_id: str) -> Optional[str]:
+        """Encerra um BUFF ativo: restaura INI do backup e reinicia o servidor."""
+        with self._lock:
+            event = next((e for e in self._events if e.id == event_id), None)
+            if not event:
+                return "Evento não encontrado."
+            if event.status != BUFF_STATUS_ACTIVE:
+                return "Só é possível encerrar BUFFs ativos."
+            if event.id in self._deactivating:
+                return "BUFF já está sendo encerrado."
+            self._deactivating.add(event.id)
+
+        threading.Thread(
+            target=self._deactivate_worker,
+            args=(event,),
+            kwargs={"cancelled": True},
+            daemon=True,
+            name=f"ARKBuffStop-{event_id[:8]}",
+        ).start()
+        self._notify()
+        return None
+
     def save_preset(self, preset: BuffPreset) -> None:
         with self._lock:
             for i, p in enumerate(self._presets):
@@ -534,9 +581,15 @@ class BuffManager:
             if isinstance(cfg, AsmServerConfig):
                 for fname_group in BUFF_RATE_FIELDS.values():
                     for field_name, _, _ in fname_group:
-                        val = getattr(rates, field_name, None)
-                        if val is not None and hasattr(cfg, field_name):
-                            setattr(cfg, field_name, val)
+                        buff_val = getattr(rates, field_name, None)
+                        if buff_val is not None and hasattr(cfg, field_name):
+                            base = _read_rate_from_config(cfg, field_name)
+                            stacked = stack_buff_rate(base, buff_val)
+                            setattr(cfg, field_name, stacked)
+                            self._on_log(
+                                f"[BUFF] {field_name}: {base}x × {buff_val} → {stacked}x",
+                                "debug",
+                            )
                 from .asm_engine.asm_ini_manager import write_ini
                 write_ini(cfg)
                 if self._persist_server_config:
@@ -548,9 +601,15 @@ class BuffManager:
                 gs = cfg.game_settings
                 for fname_group in BUFF_RATE_FIELDS.values():
                     for field_name, _, _ in fname_group:
-                        val = getattr(rates, field_name, None)
-                        if val is not None:
-                            setattr(gs, field_name, val)
+                        buff_val = getattr(rates, field_name, None)
+                        if buff_val is not None:
+                            base = _read_rate_from_config(cfg, field_name)
+                            stacked = stack_buff_rate(base, buff_val)
+                            setattr(gs, field_name, stacked)
+                            self._on_log(
+                                f"[BUFF] {field_name}: {base}x × {buff_val} → {stacked}x",
+                                "debug",
+                            )
                 ini.save_game_user_settings(cfg)
                 ini.save_game_ini(cfg)
             else:
@@ -560,7 +619,7 @@ class BuffManager:
             self._on_log(f"[BUFF] Falha ao aplicar rates: {exc}", "error")
             return False
 
-        self._on_log("[BUFF] Rates aplicados nos INIs.", "info")
+        self._on_log("[BUFF] Rates empilhados sobre a config base e gravados nos INIs.", "info")
         return True
 
     @staticmethod
@@ -669,50 +728,58 @@ class BuffManager:
             with self._lock:
                 self._activating.discard(event.id)
 
-    def _deactivate_worker(self, event: BuffEvent) -> None:
-        self._on_log(f"[BUFF] Desativando BUFF: '{event.name}'", "info")
+    def _deactivate_worker(self, event: BuffEvent, *, cancelled: bool = False) -> None:
+        label = "cancelado" if cancelled else "finalizado"
+        self._on_log(f"[BUFF] Desativando BUFF ({label}): '{event.name}'", "info")
 
-        # 1. Broadcast e aguarda
-        self._rcon_broadcast(
-            event.server_id,
-            "[BUFF] Evento finalizado. Restaurando configurações do servidor.",
-        )
-        time.sleep(10)
+        try:
+            # 1. Broadcast e aguarda
+            msg = (
+                "[BUFF] Evento cancelado. Restaurando configurações do servidor."
+                if cancelled
+                else "[BUFF] Evento finalizado. Restaurando configurações do servidor."
+            )
+            self._rcon_broadcast(event.server_id, msg)
+            time.sleep(10)
 
-        # 2. Para o servidor
-        self._stop_server(event.server_id)
-        if not self._wait_stopped(event.server_id):
-            self._on_log("[BUFF] Timeout aguardando parada do servidor.", "warning")
+            # 2. Para o servidor
+            self._stop_server(event.server_id)
+            if not self._wait_stopped(event.server_id):
+                self._on_log("[BUFF] Timeout aguardando parada do servidor.", "warning")
 
-        # 3. Restaura INI do backup
-        if event.backup_path:
-            self._restore_ini(event.server_id, event.backup_path)
-        else:
-            self._on_log("[BUFF] Nenhum backup disponível para restaurar.", "warning")
+            # 3. Restaura INI do backup
+            if event.backup_path:
+                self._restore_ini(event.server_id, event.backup_path)
+            else:
+                self._on_log("[BUFF] Nenhum backup disponível para restaurar.", "warning")
 
-        # 4. Liga o servidor
-        self._start_server(event.server_id)
+            # 4. Liga o servidor
+            self._start_server(event.server_id)
 
-        # 5. Marca como finalizado
-        with self._lock:
-            for e in self._events:
-                if e.id == event.id:
-                    e.status = BUFF_STATUS_FINISHED
-                    break
-            self._save()
-        self._notify()
-        self._on_log(f"[BUFF] BUFF '{event.name}' finalizado.", "info")
+            # 5. Marca como finalizado ou cancelado
+            final_status = BUFF_STATUS_CANCELLED if cancelled else BUFF_STATUS_FINISHED
+            with self._lock:
+                for e in self._events:
+                    if e.id == event.id:
+                        e.status = final_status
+                        break
+                self._save()
+            self._notify()
+            self._on_log(f"[BUFF] BUFF '{event.name}' {label}.", "info")
 
-        # 6. Notifica Discord
-        if self._discord_notify:
-            try:
-                self._discord_notify("end", event)
-            except Exception:
-                pass
+            # 6. Notifica Discord
+            if self._discord_notify:
+                try:
+                    self._discord_notify("end", event)
+                except Exception:
+                    pass
 
-        # 7. Recria evento para próxima ocorrência (recorrência)
-        if event.recurrence:
-            self._reschedule_recurring(event)
+            # 7. Recria evento para próxima ocorrência (recorrência) — não ao cancelar manualmente
+            if event.recurrence and not cancelled:
+                self._reschedule_recurring(event)
+        finally:
+            with self._lock:
+                self._deactivating.discard(event.id)
 
     def _reschedule_recurring(self, event: BuffEvent) -> None:
         """Cria o próximo evento recorrente com base na recorrência configurada."""
@@ -796,6 +863,8 @@ class BuffManager:
                     except ValueError:
                         pass
                 elif e.status == BUFF_STATUS_ACTIVE:
+                    if e.id in self._deactivating:
+                        continue
                     try:
                         end = e.end_datetime()
                         if end <= now:

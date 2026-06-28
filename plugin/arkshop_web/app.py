@@ -1640,10 +1640,16 @@ def _touch_store_user_login(steam_id: str) -> None:
                 market_name = str(prof.market_display_name).strip()
         except Exception:
             market_name = None
+        display_name = _resolve_player_display_name(steam_id, market_name=market_name)
+        persona: str | None = None
+        if display_name == steam_id:
+            persona = _fetch_steam_persona_name(steam_id)
+            if persona:
+                display_name = persona
         if row is None:
             row = StoreUser(
                 steam_id=steam_id,
-                display_name=_resolve_player_display_name(steam_id, market_name=market_name),
+                display_name=display_name,
                 last_login_at=now,
             )
             db.add(row)
@@ -1651,6 +1657,10 @@ def _touch_store_user_login(steam_id: str) -> None:
             row.last_login_at = now
             if market_name and not (row.display_name or "").strip():
                 row.display_name = market_name
+            elif persona and (
+                not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id
+            ):
+                row.display_name = persona
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -1994,7 +2004,7 @@ def _is_catalog_license_item(entry: dict[str, Any], item_id: str = "") -> bool:
 
 
 def _catalog_license_group(entry: dict[str, Any], item_id: str) -> str:
-    lic = _get_license_grant(entry)
+    lic = _get_license_grant(entry, item_id)
     if lic and str(lic.get("Group") or "").strip():
         return str(lic["Group"]).strip()
     for perm in _parse_permissions_field(entry):
@@ -2012,10 +2022,13 @@ def _catalog_license_group(entry: dict[str, Any], item_id: str) -> str:
     return str(item_id or "").strip()
 
 
-def _catalog_license_days(entry: dict[str, Any]) -> int:
-    lic = _get_license_grant(entry)
-    if lic and lic.get("Days") is not None:
+def _catalog_license_days(entry: dict[str, Any], item_id: str = "") -> int:
+    lic = entry.get("LicenseGrant")
+    if isinstance(lic, dict) and lic.get("Days") is not None:
         return int(lic.get("Days", 30) or 30)
+    cmd_grant = _license_grant_from_commands(entry)
+    if cmd_grant and cmd_grant.get("Days") is not None:
+        return int(cmd_grant.get("Days", 30) or 30)
     return 30
 
 
@@ -2057,7 +2070,7 @@ def _catalog_license_options() -> list[dict[str, Any]]:
         group = _catalog_license_group(entry, key)
         if not group or group in seen_groups:
             continue
-        days = _catalog_license_days(entry)
+        days = _catalog_license_days(entry, key)
         seen_groups.add(group)
         label = str(
             entry.get("Description")
@@ -2876,10 +2889,47 @@ def _parse_permissions_field(entry: dict[str, Any]) -> list[str]:
     return [t.strip() for t in str(raw).split(",") if t.strip()]
 
 
-def _get_license_grant(entry: dict[str, Any]) -> dict[str, Any] | None:
+def _license_grant_from_commands(entry: dict[str, Any]) -> dict[str, Any] | None:
+    """Fallback legado: licenças Type command com Permissions.AddTimed no catálogo."""
+    commands = entry.get("Commands")
+    if not isinstance(commands, list):
+        return None
+    for raw in commands:
+        cmd = str(raw or "")
+        if "Permissions.AddTimed" not in cmd and "Permissions.Add " not in cmd:
+            continue
+        for group in ("keyvault", "Gamma", "Beta", "Alfa", "VIPBronze", "VIPPrata", "VIPOuro", "VIPDiamante"):
+            if group in cmd:
+                hours_m = re.search(r"Permissions\.AddTimed\s+\{?SteamID\}?\s+\S+\s+(\d+)", cmd, re.I)
+                days = 30
+                if hours_m:
+                    try:
+                        days = max(1, int(hours_m.group(1)) // 24)
+                    except ValueError:
+                        days = 30
+                return {"Group": group, "Days": days, "Redeemable": True}
+    return None
+
+
+def _get_license_grant(entry: dict[str, Any], item_id: str = "") -> dict[str, Any] | None:
     lic = entry.get("LicenseGrant")
-    if isinstance(lic, dict) and lic.get("Group"):
+    if isinstance(lic, dict) and str(lic.get("Group") or "").strip():
         return lic
+    from catalog_enrich import _is_license_entry
+
+    key = str(item_id or "").strip().lower()
+    if _is_license_entry(entry, key or "item"):
+        if key.startswith("licenca_"):
+            suffix = key[8:]
+            if suffix in _LICENSE_ID_GROUP_FALLBACK:
+                return {
+                    "Group": _LICENSE_ID_GROUP_FALLBACK[suffix],
+                    "Days": _catalog_license_days(entry, key),
+                    "Redeemable": True,
+                }
+        cmd_grant = _license_grant_from_commands(entry)
+        if cmd_grant:
+            return cmd_grant
     return None
 
 
@@ -3289,7 +3339,7 @@ def _ensure_license_entitlement_for_order(order: Order, *, reason: str = "") -> 
         "kit" if item_type == "kit" else "shop",
         item_id,
     )
-    lic = _get_license_grant(entry)
+    lic = _get_license_grant(entry, item_id)
     if not lic or lic.get("Redeemable") is False:
         return False
     group = str(lic.get("Group") or "").strip()
@@ -3554,6 +3604,70 @@ def _extract_steam_id_from_claimed_id(claimed_id: str) -> str | None:
         return None
     candidate = m.group(1)
     return candidate if _is_valid_steamid64(candidate) else None
+
+
+def _fetch_steam_persona_name(steam_id: str) -> str | None:
+    """Persona Steam (personaname) via Web API; requer STEAM_API_KEY no ambiente."""
+    api_key = (os.environ.get("STEAM_API_KEY") or "").strip()
+    if not api_key or not _is_valid_steamid64(steam_id):
+        return None
+    url = (
+        "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
+        f"?key={urllib.parse.quote(api_key, safe='')}&steamids={urllib.parse.quote(steam_id, safe='')}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "arkshop-web"}, method="GET")
+        with urllib.request.urlopen(req, timeout=8) as response:
+            data = json.loads(response.read().decode("utf-8", errors="replace"))
+        players = (data.get("response") or {}).get("players") or []
+        if not players:
+            return None
+        name = str(players[0].get("personaname") or "").strip()
+        return name[:128] if name else None
+    except Exception:
+        return None
+
+
+def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | None:
+    """Nome Steam/jogador para header; None se indisponível (sem fallback ao SteamID)."""
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            row = db.get(StoreUser, steam_id)
+            if row and (row.display_name or "").strip():
+                name = str(row.display_name).strip()
+                if name != steam_id:
+                    return name[:128]
+        finally:
+            db.close()
+
+    for p in _load_players():
+        if str(p.get("steam_id", "")).strip() == steam_id:
+            nm = str(p.get("name") or "").strip()
+            if nm:
+                return nm[:128]
+
+    if not enrich:
+        return None
+
+    persona = _fetch_steam_persona_name(steam_id)
+    if not persona or not _db_ready():
+        return persona
+
+    db = _SessionLocal()
+    try:
+        row = db.get(StoreUser, steam_id)
+        if row is None:
+            row = StoreUser(steam_id=steam_id, display_name=persona, last_login_at=_now())
+            db.add(row)
+        elif not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id:
+            row.display_name = persona
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
+    return persona
 
 
 # ── Auth decorators ───────────────────────────────────────────────────────────
@@ -4278,6 +4392,7 @@ def auth_me():
             "authenticated": False,
             "is_admin": False,
             "steam_id": None,
+            "display_name": None,
             "needs_display_name": False,
             "market_display_name": None,
         })
@@ -4289,6 +4404,7 @@ def auth_me():
         "authenticated": True,
         "is_admin": is_admin,
         "steam_id": steam_id,
+        "display_name": _resolve_auth_player_name(steam_id),
     }
     payload.update(_auth_display_name_fields(steam_id, is_admin))
     if not is_admin:
@@ -5693,7 +5809,7 @@ def player_purchase():
         hint = f" (tentou também '{resolved}')" if resolved != item_id else ""
         return jsonify({"ok": False, "error": f"Item não encontrado no catálogo{hint}"}), 404
 
-    lic = _get_license_grant(entry)
+    lic = _get_license_grant(entry, item_id)
     if str(entry.get("Type", "")).strip().lower() == "license" and not lic:
         if idempotency_key:
             _used_idempotency_keys.pop(idempotency_key, None)
@@ -5821,6 +5937,24 @@ def player_purchase():
             ),
             "detail": purchase_db_error,
         }), 500
+
+    if lic and lic.get("Redeemable", True):
+        try:
+            _sync_license_permissions_all_servers(
+                str(steam_id),
+                str(lic["Group"]),
+                grant=True,
+                days=int(lic.get("Days", 30)),
+            )
+        except Exception as exc:
+            _log_error(
+                "purchase_license_perm_sync",
+                steam_id=str(steam_id),
+                item_id=item_id,
+                order_id=order.order_id,
+                group=str(lic.get("Group") or ""),
+                error=str(exc),
+            )
 
     result = _process_order_delivery(order.order_id)
     result["order_id"] = order.order_id
@@ -7717,7 +7851,7 @@ def admin_player_licenses(steam_id: str):
     group = str(body.get("group") or body.get("license_group") or "").strip()
     if not group and body.get("item_id"):
         entry = _catalog_entry("shop", str(body.get("item_id")))
-        lic = _get_license_grant(entry) if entry else None
+        lic = _get_license_grant(entry, str(order.item_id or "")) if entry else None
         if lic:
             group = str(lic.get("Group") or "")
     days = int(body.get("days", 30) or 30)

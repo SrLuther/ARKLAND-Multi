@@ -208,6 +208,37 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(3500, self._broadcast_tek_ensure_scheduler)
         # oBobonic: bot Discord se auto_start ativo
         self.after(4500, self._auto_start_obobonic)
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self) -> None:
+        self._do_quit()
+
+    def _do_quit(self) -> None:
+        try:
+            from .obobonic_bot import shutdown_obobonic_for_app
+            shutdown_obobonic_for_app(self)
+        except Exception:
+            pass
+        if self._sync_engine and self._sync_engine.is_running:
+            self._sync_engine.stop()
+        for _eng in list(getattr(self, "_cluster_sync_engines", {}).values()):
+            if _eng.is_running:
+                _eng.stop()
+        if hasattr(self, "_cluster_sync_engines"):
+            self._cluster_sync_engines.clear()
+        remote = getattr(self, "_remote_agent", None)
+        if remote and remote.is_running:
+            remote.stop()
+        if self._mod_auto_updater and self._mod_auto_updater.enabled:
+            self._mod_auto_updater.stop()
+        if self._buff_manager:
+            self._buff_manager.stop()
+        backup = getattr(self, "_backup_manager", None)
+        if backup is not None:
+            backup.shutdown()
+        self._perf_running = False
+        self.config_manager.save()
+        self.destroy()
 
     # ─────────────────────────────────────────────────────────────────────────
     # B2 — Indicadores Ricos de Status (players, uptime, RAM, versão)
@@ -1723,6 +1754,10 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.cancel_buff import cancel_buff
         cancel_buff(self, event_id)
 
+    def _stop_buff(self, event_id: str) -> None:
+        from .pages.stop_buff import stop_buff
+        stop_buff(self, event_id)
+
     def _init_buff_manager(self) -> None:
         from .pages.init_buff_manager import init_buff_manager
         init_buff_manager(self)
@@ -1748,9 +1783,13 @@ class ARKServerManagerApp(ctk.CTk):
         from .pages.toggle_mod_auto_updater import toggle_mod_auto_updater
         toggle_mod_auto_updater(self, server_id)
 
-    def _build_active_buff_card(self, parent, row: int, event, *, activating: bool = False) -> None:
+    def _build_active_buff_card(
+        self, parent, row: int, event, *, activating: bool = False, deactivating: bool = False,
+    ) -> None:
         from .pages.build_active_buff_card import build_active_buff_card
-        build_active_buff_card(self, parent, row, event, activating=activating)
+        build_active_buff_card(
+            self, parent, row, event, activating=activating, deactivating=deactivating,
+        )
 
     def _build_scheduled_buff_row(self, parent, row: int, event) -> None:
         from .pages.build_scheduled_buff_row import build_scheduled_buff_row

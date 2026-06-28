@@ -790,6 +790,15 @@
     .badge-kit         { background: rgba(251,191,36,.12);  color: #fbbf24;        border: 1px solid rgba(251,191,36,.2); }
     .badge-reemitido   { background: rgba(148,163,184,.12); color: #94a3b8;        border: 1px solid rgba(148,163,184,.2); }
     .badge-reembolsado { background: rgba(232,160,32,.12);  color: var(--amber);   border: 1px solid rgba(232,160,32,.2); }
+    .badge-success       { background: rgba(18,216,124,.12);  color: var(--success); border: 1px solid rgba(18,216,124,.2); }
+    .badge-danger        { background: rgba(240,64,80,.12);   color: var(--danger);  border: 1px solid rgba(240,64,80,.2); }
+    .badge-warning       { background: rgba(232,120,32,.12);   color: var(--amber);   border: 1px solid rgba(232,120,32,.2); }
+    .badge-ghost         { background: rgba(148,163,184,.08); color: #94a3b8;        border: 1px solid rgba(148,163,184,.15); }
+    .badge-ticket-aberto     { background: rgba(251,191,36,.14); color: #fbbf24; border: 1px solid rgba(251,191,36,.28); }
+    .badge-ticket-analise    { background: rgba(0,200,255,.12);  color: var(--tek);  border: 1px solid rgba(0,200,255,.25); }
+    .badge-ticket-aguardando { background: rgba(232,120,32,.14);  color: #fb923c;     border: 1px solid rgba(251,146,60,.3); }
+    .badge-ticket-encerrado  { background: rgba(122,104,72,.18);  color: #9a8870;     border: 1px solid rgba(122,104,72,.35); }
+    tr.ticket-row--closed td { opacity: .72; }
 
     .order-admin-actions { display: flex; flex-wrap: wrap; gap: 4px; }
     .order-admin-actions .btn { font-size: 10px; padding: 4px 7px; letter-spacing: .04em; }
@@ -4633,6 +4642,7 @@
             <div id="tickets-admin-order-panel" class="hidden" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);"></div>
             <div id="tickets-admin-history" style="margin-bottom:12px;"></div>
             <div id="tickets-admin-thread" style="max-height:420px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
+            <div id="tickets-admin-reply-box">
             <div class="form-group">
               <label>Resposta do suporte</label>
               <textarea id="tickets-admin-reply" rows="4" placeholder="Sua resposta ao jogador…" style="width:100%;"></textarea>
@@ -4647,6 +4657,7 @@
                 📎 Anexo
                 <input type="file" accept="image/*,.pdf" style="display:none;" onchange="ticketsAdminUploadFile(this)" />
               </label>
+            </div>
             </div>
           </div>
         </div>
@@ -6118,7 +6129,7 @@ let _config = null;
 let _players = [];
 let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
-let _auth = { authenticated: false, is_admin: false, steam_id: null, needs_display_name: false, market_display_name: null };
+let _auth = { authenticated: false, is_admin: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
 let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
@@ -6471,7 +6482,11 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "cluster-chat") loadClusterChatAdmin();
-  if (page === "tickets-admin") loadTicketsAdmin();
+  if (page === "tickets-admin") {
+    _ticketsAdminSelectedId = null;
+    document.getElementById("tickets-admin-detail")?.classList.add("hidden");
+    loadTicketsAdmin();
+  }
   if (page === "server-console") {
     loadServers().then(() => {
       populateRconServerSelect();
@@ -6526,20 +6541,31 @@ function _kitLimitInfo(item) {
   return { limit, remaining: limit, effective_remaining: limit, used: 0 };
 }
 
+function renderAuthUserLine() {
+  const userLine = document.getElementById("auth-userline");
+  if (!userLine) return;
+  const role = _auth.is_admin ? "Admin" : "Jogador";
+  const nick = (_auth.display_name || "").trim();
+  const sid = _auth.steam_id || "";
+  const idPart = nick ? `SteamID: ${sid} | ${nick}` : `SteamID: ${sid}`;
+  userLine.innerHTML =
+    `${escHtml(idPart)}<br><span style="color:var(--text2);">${escHtml(role)}</span>`;
+}
+
 function applyRoleUi(deferAdminNav = false) {
   const userBox = document.getElementById("auth-userbox");
-  const userLine = document.getElementById("auth-userline");
   const actionBtn = document.getElementById("auth-action-btn");
   userBox.classList.remove("hidden");
 
   if (_auth.authenticated) {
-    userLine.textContent = `SteamID: ${_auth.steam_id} | ${_auth.is_admin ? "Admin" : "Jogador"}`;
+    renderAuthUserLine();
     if (actionBtn) {
       actionBtn.textContent = "Sair";
       actionBtn.onclick = logout;
     }
   } else {
-    userLine.textContent = "Visitante — catálogo público";
+    const userLine = document.getElementById("auth-userline");
+    if (userLine) userLine.textContent = "Visitante — catálogo público";
     if (actionBtn) {
       actionBtn.textContent = "Entrar com Steam";
       actionBtn.onclick = loginWithSteam;
@@ -8610,10 +8636,16 @@ const _TICKET_HISTORY_LABELS = {
 
 function _ticketStatusBadge(status) {
   const s = status || "ABERTO";
-  const cls = (s === "ENCERRADO" || s === "CLOSED") ? "badge-danger"
-    : (s === "AGUARDANDO_JOGADOR") ? "badge-warning"
-    : (s === "EM_ANALISE" || s === "IN_PROGRESS") ? "badge-warning"
-    : "badge-success";
+  const clsMap = {
+    ABERTO: "badge-ticket-aberto",
+    OPEN: "badge-ticket-aberto",
+    EM_ANALISE: "badge-ticket-analise",
+    IN_PROGRESS: "badge-ticket-analise",
+    AGUARDANDO_JOGADOR: "badge-ticket-aguardando",
+    ENCERRADO: "badge-ticket-encerrado",
+    CLOSED: "badge-ticket-encerrado",
+  };
+  const cls = clsMap[s] || "badge-ghost";
   const label = _TICKET_STATUS_LABELS[s] || s;
   return `<span class="badge ${cls}">${escHtml(label)}</span>`;
 }
@@ -8931,7 +8963,6 @@ async function loadTicketsAdmin() {
   const q = (document.getElementById("tickets-admin-search")?.value || "").trim();
   const el = document.getElementById("tickets-admin-queue");
   el.innerHTML = `<div style="color:var(--text2);">Carregando fila…</div>`;
-  document.getElementById("tickets-admin-detail")?.classList.add("hidden");
   try {
     let url = `/api/admin/tickets?limit=50`;
     if (filter) url += `&status=${encodeURIComponent(filter)}`;
@@ -8949,7 +8980,11 @@ async function loadTicketsAdmin() {
     }
     el.innerHTML = `<table class="tbl"><thead><tr>
       <th>#</th><th>Jogador</th><th>Assunto</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Discord</th><th>Atualizado</th><th></th>
-    </tr></thead><tbody>${items.map(t => `<tr>
+    </tr></thead><tbody>${items.map(t => {
+      const closed = t.status === "ENCERRADO" || t.status === "CLOSED";
+      const btnLabel = closed ? "Ver" : (t.status === "ABERTO" || t.status === "OPEN" ? "Atender" : "Abrir");
+      const rowCls = closed ? " ticket-row--closed" : "";
+      return `<tr class="${rowCls.trim()}">
       <td>${t.id}</td>
       <td><div>${escHtml(t.player_name)}</div><code style="font-size:10px;">${escHtml(t.steam_id)}</code></td>
       <td>${escHtml(t.subject)}${t.order_id ? `<div style="font-size:10px;color:var(--text2);">📦 ${escHtml(t.order_id.substring(0,8))}…</div>` : ""}</td>
@@ -8958,8 +8993,9 @@ async function loadTicketsAdmin() {
       <td>${_ticketStatusBadge(t.status)}</td>
       <td style="font-size:11px;">${escHtml(t.discord_username || t.discord_user_id || "—")}</td>
       <td style="font-size:11px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
-      <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminAttend(${t.id})">Atender</button></td>
-    </tr>`).join("")}</tbody></table>
+      <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminAttend(${t.id})">${btnLabel}</button></td>
+    </tr>`;
+    }).join("")}</tbody></table>
     <div style="font-size:12px;color:var(--text2);margin-top:8px;">Total: ${d.total}</div>`;
   } catch (e) {
     el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
@@ -8968,14 +9004,20 @@ async function loadTicketsAdmin() {
 
 async function ticketsAdminAttend(id) {
   try {
-    const d = await fetchJson(`/api/admin/tickets/${id}/attend`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-      timeoutMs: 12000,
-    });
-    if (!d.ok) { toast(d.error || "Erro ao atender", "error"); return; }
-    toast("Ticket em atendimento.", "success");
+    const detail = await fetchJson(`/api/admin/tickets/${id}`, { timeoutMs: 15000 });
+    if (!detail.ok) { toast(detail.error || "Ticket não encontrado", "error"); return; }
+    const st = detail.ticket?.status || "ABERTO";
+    const closed = st === "ENCERRADO" || st === "CLOSED";
+    if (!closed && (st === "ABERTO" || st === "OPEN")) {
+      const d = await fetchJson(`/api/admin/tickets/${id}/attend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+        timeoutMs: 12000,
+      });
+      if (d.ok) toast("Ticket em atendimento.", "success");
+      else if (d.error) toast(d.error, "warning");
+    }
     await ticketsAdminOpenDetail(id);
     loadTicketsAdmin();
   } catch (e) { toast(String(e), "error"); }
@@ -9002,9 +9044,11 @@ async function ticketsAdminOpenDetail(id) {
     document.getElementById("tickets-admin-reply").value = "";
     document.getElementById("tickets-admin-links").value = "";
     const perms = d.permissions || {};
-    const closed = perms.is_closed || t.status === "ENCERRADO";
+    const closed = perms.is_closed || t.status === "ENCERRADO" || t.status === "CLOSED";
     const closeBtn = document.getElementById("tickets-admin-close-btn");
     if (closeBtn) closeBtn.style.display = closed ? "none" : "";
+    const replyBox = document.getElementById("tickets-admin-reply-box");
+    if (replyBox) replyBox.style.display = closed ? "none" : "";
     document.getElementById("tickets-admin-detail").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) { toast(String(e), "error"); }
 }
@@ -12704,7 +12748,7 @@ async function loadAudit() {
   if (type) url += `&event_type=${encodeURIComponent(type)}`;
   if (severity) url += `&severity=${encodeURIComponent(severity)}`;
   if (steam) {
-    if (steam.length >= 32) url += `&steam_id=${encodeURIComponent(steam)}`;
+    if (isSteamId64(steam)) url += `&steam_id=${encodeURIComponent(steam)}`;
     else url += `&order_id=${encodeURIComponent(steam)}`;
   }
   if (q) url += `&q=${encodeURIComponent(q)}`;
@@ -13857,7 +13901,7 @@ async function bootPortal() {
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
     await loadAuth().catch(() => {
-      _auth = { authenticated: false, is_admin: false, steam_id: null, needs_display_name: false, market_display_name: null };
+      _auth = { authenticated: false, is_admin: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
     });
     applyRoleUi(true);
     showAuthOverlay(false);

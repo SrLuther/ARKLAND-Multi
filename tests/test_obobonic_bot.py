@@ -16,12 +16,15 @@ from src.obobonic_bot import (  # noqa: E402
     asm_servers_to_ark_maps,
     backup_env_file,
     discord_app_id_from_token,
+    find_obobonic_bot_pids,
     mask_secret,
+    obobonic_pid_file,
     parse_ark_maps_from_env,
     parse_bot_status_from_log,
     parse_cogs_from_config_text,
     restore_env_backup,
     sync_asm_servers_to_env,
+    terminate_stale_obobonic_bots,
     update_env_keys,
     validate_discord_token,
     write_ark_maps_to_env,
@@ -163,6 +166,24 @@ class TestEnvBackup(unittest.TestCase):
             env.write_text("DISCORD_TOKEN=changed\n", encoding="utf-8")
             restore_env_backup(backup, env)
             self.assertIn("DISCORD_TOKEN=abc", env.read_text(encoding="utf-8"))
+
+
+class TestObobonicSingleton(unittest.TestCase):
+    def test_pid_file_roundtrip(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            pid_path = obobonic_pid_file(project)
+            pid_path.write_text("4242", encoding="utf-8")
+            self.assertIn(4242, find_obobonic_bot_pids(project))
+
+    def test_terminate_stale_reads_pid_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            pid_path = obobonic_pid_file(project)
+            pid_path.write_text("999999", encoding="utf-8")
+            killed = terminate_stale_obobonic_bots(project)
+            self.assertEqual(killed, [])
+            self.assertFalse(pid_path.is_file())
 
 
 if __name__ == "__main__":

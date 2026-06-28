@@ -19,6 +19,7 @@ CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 CREATE_NEW_PROCESS_GROUP = 0x00000200 if sys.platform == "win32" else 0
 
 DEFAULT_PROJECT_PATH = r"C:\Users\Ciano\Documents\oBobonicClean"
+_OBOBONIC_PID_FILENAME = ".tek_obobonic.pid"
 
 _ARK_MAP_PREFIX = re.compile(
     r"^ARK_MAP(\d+)_(NAME|PORT|HOST|PASSWORD|SERVICE|MAX_PLAYERS|QUERY_PORT|BATTLEMETRICS_ID)$"
@@ -815,6 +816,116 @@ def read_log_tail(path: Path, max_lines: int = 500) -> str:
         return ""
 
 
+def obobonic_pid_file(project_dir: Path) -> Path:
+    return project_dir / _OBOBONIC_PID_FILENAME
+
+
+def _terminate_pid(pid: int) -> bool:
+    """Encerra um PID (terminate → kill)."""
+    if pid <= 0 or pid == os.getpid():
+        return False
+    try:
+        import psutil
+
+        proc = psutil.Process(pid)
+    except Exception:
+        return False
+    try:
+        proc.terminate()
+        proc.wait(timeout=8)
+        return True
+    except Exception:
+        try:
+            proc.kill()
+            proc.wait(timeout=3)
+            return True
+        except Exception:
+            return False
+
+
+def find_obobonic_bot_pids(project_dir: Path, *, exclude_pid: Optional[int] = None) -> List[int]:
+    """Lista PIDs de bot.py na pasta do projeto (órfãos após restart do TEK)."""
+    project_resolved = project_dir.resolve()
+    bot_name = "bot.py"
+    found: set[int] = set()
+
+    pid_path = obobonic_pid_file(project_dir)
+    if pid_path.is_file():
+        try:
+            found.add(int(pid_path.read_text(encoding="utf-8").strip()))
+        except ValueError:
+            pass
+
+    try:
+        import psutil
+    except ImportError:
+        return sorted(pid for pid in found if pid != exclude_pid)
+
+    project_lower = str(project_resolved).lower()
+    for proc in psutil.process_iter(["pid", "cmdline", "cwd"]):
+        try:
+            pid = int(proc.info.get("pid") or 0)
+            if not pid or pid == exclude_pid or pid == os.getpid():
+                continue
+            cmdline = proc.info.get("cmdline") or []
+            if not cmdline:
+                continue
+            joined = " ".join(str(part) for part in cmdline).lower()
+            if bot_name not in joined:
+                continue
+            if project_lower in joined:
+                found.add(pid)
+                continue
+            cwd = proc.info.get("cwd")
+            if cwd and Path(cwd).resolve() == project_resolved:
+                found.add(pid)
+        except (psutil.NoSuchProcess, psutil.AccessDenied, ValueError):
+            continue
+    return sorted(found)
+
+
+def terminate_stale_obobonic_bots(
+    project_dir: Path,
+    *,
+    exclude_pid: Optional[int] = None,
+) -> List[int]:
+    """Encerra instâncias anteriores do bot antes de iniciar outra."""
+    killed: List[int] = []
+    for pid in find_obobonic_bot_pids(project_dir, exclude_pid=exclude_pid):
+        if _terminate_pid(pid):
+            killed.append(pid)
+    pid_path = obobonic_pid_file(project_dir)
+    if pid_path.is_file():
+        try:
+            pid_path.unlink()
+        except OSError:
+            pass
+    return killed
+
+
+def shutdown_obobonic_for_app(app: Any) -> None:
+    """Para o subprocesso do bot ao fechar o TEK."""
+    procs: List[ObobonicBotProcess] = []
+    boot = getattr(app, "_obobonic_boot_proc", None)
+    if boot is not None:
+        procs.append(boot)
+    holder = getattr(app, "_obobonic_bot_holder", None)
+    if isinstance(holder, dict):
+        proc = holder.get("proc")
+        if proc is not None and proc not in procs:
+            procs.append(proc)
+    for proc in procs:
+        try:
+            proc.shutdown()
+        except Exception:
+            pass
+    cfg = getattr(getattr(app, "config_manager", None), "config", None)
+    project_path = getattr(getattr(cfg, "obobonic", None), "project_path", "") or DEFAULT_PROJECT_PATH
+    project_dir = Path(str(project_path).strip() or DEFAULT_PROJECT_PATH)
+    if project_dir.is_dir():
+        terminate_stale_obobonic_bots(project_dir)
+
+
 class ObobonicBotProcess:
     """Controla o subprocesso do bot oBobonicClean."""
 
@@ -982,6 +1093,25 @@ class ObobonicBotProcess:
         self._watch_thread = threading.Thread(target=self._watch_loop, daemon=True)
         self._watch_thread.start()
 
+    def _write_pid_file(self) -> None:
+        if self.process is None:
+            return
+        try:
+            obobonic_pid_file(self.project_dir).write_text(
+                str(self.process.pid),
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    def _clear_pid_file(self) -> None:
+        try:
+            pid_path = obobonic_pid_file(self.project_dir)
+            if pid_path.is_file():
+                pid_path.unlink()
+        except OSError:
+            pass
+
     def start(
         self,
         *,
@@ -992,6 +1122,8 @@ class ObobonicBotProcess:
         with self._start_lock:
             if self.is_running:
                 return False, "O bot já está em execução."
+
+            terminate_stale_obobonic_bots(self.project_dir)
 
             ok, msg = self.validate(check_token=True)
             if not ok:
@@ -1039,6 +1171,7 @@ class ObobonicBotProcess:
 
             try:
                 self.process = subprocess.Popen(cmd, **kwargs)
+                self._write_pid_file()
             except Exception as exc:
                 if self._hidden_log_handle:
                     self._hidden_log_handle.close()
@@ -1073,6 +1206,7 @@ class ObobonicBotProcess:
             return False, f"Erro ao parar (PID {pid}): {exc}"
         finally:
             self.process = None
+            self._clear_pid_file()
             self._log_queue.put(None)
             if self._hidden_log_handle:
                 try:

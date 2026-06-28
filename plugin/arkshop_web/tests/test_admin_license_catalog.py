@@ -109,6 +109,29 @@ def test_catalog_license_group_from_type_without_grant():
     assert _app_module._catalog_license_group(entry, "licenca_beta") == "Beta"
 
 
+def test_get_license_grant_nuvem_from_item_id_without_block():
+    entry = {
+        "Type": "command",
+        "Category": "Licenças",
+        "Description": "Licença de Nuvem (30 dias)",
+        "Commands": ["Permissions.AddTimed {SteamID} keyvault 720"],
+    }
+    lic = _app_module._get_license_grant(entry, "licenca_nuvem")
+    assert lic is not None
+    assert lic["Group"] == "keyvault"
+    assert lic["Days"] == 30
+
+
+def test_get_license_grant_from_commands_only():
+    entry = {
+        "Type": "command",
+        "Description": "Licença legada",
+        "Commands": ["Permissions.AddTimed {SteamID} keyvault 168"],
+    }
+    lic = _app_module._get_license_grant(entry, "item_x")
+    assert lic == {"Group": "keyvault", "Days": 7, "Redeemable": True}
+
+
 def test_admin_license_catalog_endpoint(client, tmp_path, monkeypatch):
     catalog = tmp_path / "catalog.json"
     _write_catalog(

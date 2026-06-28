@@ -417,6 +417,39 @@ def test_tickets_meta_endpoint(client):
     assert len(data["statuses"]) == 4
 
 
+def test_admin_list_includes_closed_by_default(ticket_db):
+    """Admin sem filtro de status vê tickets abertos e encerrados."""
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Aberto",
+        body="Teste",
+        category="suporte",
+    )
+    tid = created["ticket"]["id"]
+    close_ticket(ticket_db, tid, admin_steam_id=ADMIN_STEAM, admin_name="Admin")
+
+    create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Ainda aberto",
+        body="Teste",
+        category="suporte",
+    )
+
+    all_items, all_total = list_tickets_admin(ticket_db)
+    assert all_total >= 2
+    statuses = {t["status"] for t in all_items}
+    assert "ENCERRADO" in statuses
+    assert "ABERTO" in statuses
+
+    open_items, open_total = list_tickets_admin(ticket_db, status="open")
+    assert open_total == 1
+    assert all(t["status"] != "ENCERRADO" for t in open_items)
+
+
 def test_admin_tickets_list_requires_admin(client, monkeypatch):
     _login(client, USER_STEAM)
     monkeypatch.setattr(_app_module, "_db_ready", lambda: True)

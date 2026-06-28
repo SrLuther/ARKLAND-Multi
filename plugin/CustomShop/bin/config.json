@@ -27,7 +27,7 @@
   },
   "Items": {
     "licenca_nuvem": {
-      "Type": "command",
+      "Type": "license",
       "Category": "Licenças",
       "Name": "Licença Nuvem",
       "Price": 5000,
@@ -36,10 +36,7 @@
         "Group": "keyvault",
         "Days": 30,
         "Redeemable": true
-      },
-      "Commands": [
-        "Permissions.AddTimed {SteamID} keyvault 720"
-      ]
+      }
     },
     "licenca_gamma": {
       "Type": "license",

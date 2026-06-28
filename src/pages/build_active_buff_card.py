@@ -3,6 +3,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 from ..ui_constants import _GREEN
+from ..ui_constants import _RED_DARK, _RED_HOVER
 if TYPE_CHECKING:
     from ..app import ARKServerManagerApp
     from ..buff_manager import BuffEvent
@@ -10,18 +11,29 @@ from ..buff_manager import BUFF_TYPE_LABELS
 
 
 def build_active_buff_card(
-    app: "ARKServerManagerApp", parent, row: int, event: "BuffEvent", *, activating: bool = False,
+    app: "ARKServerManagerApp",
+    parent,
+    row: int,
+    event: "BuffEvent",
+    *,
+    activating: bool = False,
+    deactivating: bool = False,
 ) -> None:
     card = ctk.CTkFrame(parent, fg_color="#1a2a1a", corner_radius=12)
     card.grid(row=row, column=0, padx=20, pady=(0, 8), sticky="ew")
     card.grid_columnconfigure(0, weight=1)
+    card.grid_columnconfigure(1, weight=0)
 
     top = ctk.CTkFrame(card, fg_color="transparent")
     top.grid(row=0, column=0, padx=16, pady=(14, 4), sticky="ew")
     top.grid_columnconfigure(1, weight=1)
 
-    status_txt = "🟡  ATIVANDO…" if activating else "🟢  BUFF ATIVO"
-    status_color = "#ffaa44" if activating else _GREEN
+    if activating:
+        status_txt, status_color = "🟡  ATIVANDO…", "#ffaa44"
+    elif deactivating:
+        status_txt, status_color = "🟡  ENCERRANDO…", "#ffaa44"
+    else:
+        status_txt, status_color = "🟢  BUFF ATIVO", _GREEN
     ctk.CTkLabel(
         top, text=status_txt,
         font=ctk.CTkFont(size=11, weight="bold"), text_color=status_color,
@@ -54,13 +66,31 @@ def build_active_buff_card(
             card,
             text="Reiniciando o servidor e aplicando rates nos INIs…",
             text_color="gray55", font=ctk.CTkFont(size=11),
-        ).grid(row=5, column=0, padx=16, pady=(0, 14), sticky="w")
+        ).grid(row=4, column=0, padx=16, pady=(0, 14), sticky="w")
         return
 
+    if deactivating:
+        ctk.CTkLabel(
+            card,
+            text="Restaurando configurações do backup e reiniciando o servidor…",
+            text_color="gray55", font=ctk.CTkFont(size=11),
+        ).grid(row=4, column=0, padx=16, pady=(0, 14), sticky="w")
+        return
+
+    bottom = ctk.CTkFrame(card, fg_color="transparent")
+    bottom.grid(row=4, column=0, padx=16, pady=(0, 14), sticky="ew")
+    bottom.grid_columnconfigure(0, weight=1)
+
     countdown_lbl = ctk.CTkLabel(
-        card, text="",
+        bottom, text="",
         text_color="#88d4a0", font=ctk.CTkFont(size=11),
     )
-    countdown_lbl.grid(row=4, column=0, padx=16, pady=(0, 14), sticky="w")
+    countdown_lbl.grid(row=0, column=0, sticky="w")
     app._buff_countdown_labels.append((countdown_lbl, event.end_datetime(), "⏱ Encerra em: "))
 
+    ctk.CTkButton(
+        bottom, text="⏹  Encerrar BUFF", width=140, height=30,
+        fg_color=_RED_DARK, hover_color=_RED_HOVER,
+        font=ctk.CTkFont(size=11),
+        command=lambda eid=event.id: app._stop_buff(eid),
+    ).grid(row=0, column=1, sticky="e")

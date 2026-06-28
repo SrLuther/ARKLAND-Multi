@@ -162,6 +162,7 @@ class TestAuth:
         d = r.get_json()
         assert d["authenticated"] is False
         assert d["is_admin"] is False
+        assert d.get("display_name") is None
 
     def test_me_authenticated_admin(self, client):
         _login(client, ADMIN_STEAM)
@@ -170,6 +171,30 @@ class TestAuth:
         assert d["authenticated"] is True
         assert d["is_admin"] is True
         assert d["steam_id"] == ADMIN_STEAM
+
+    def test_me_includes_display_name_from_store_user(self, client):
+        _seed_store_user(ADMIN_STEAM, display_name="AdminNick")
+        _login(client, ADMIN_STEAM)
+        d = client.get("/api/auth/me").get_json()
+        assert d["display_name"] == "AdminNick"
+
+    def test_me_display_name_from_steam_api_when_missing(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_name",
+            lambda sid: "SteamPersona" if sid == USER_STEAM else None,
+        )
+        _login(client, USER_STEAM)
+        d = client.get("/api/auth/me").get_json()
+        assert d["display_name"] == "SteamPersona"
+
+    def test_me_display_name_null_when_unavailable(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_name", lambda _sid: None)
+        _login(client, USER_STEAM)
+        d = client.get("/api/auth/me").get_json()
+        assert d.get("display_name") is None
 
     def test_me_authenticated_user(self, client, monkeypatch):
         monkeypatch.setattr(
@@ -554,6 +579,52 @@ class TestAudit:
         d = r.get_json()
         assert d.get("ok") is True
         assert "items" in d
+
+    def test_audit_filter_by_steam_id(self, client):
+        db = _app_module._SessionLocal()
+        try:
+            db.add(
+                _app_module.AuditEvent(
+                    event_type="order_created",
+                    severity="info",
+                    target_steam_id=USER_STEAM,
+                    order_id="ord-filter-test",
+                    message="pedido de teste",
+                    created_at=_now(),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        _login(client, ADMIN_STEAM)
+        r = client.get(f"/api/admin/audit?steam_id={USER_STEAM}")
+        d = r.get_json()
+        assert d.get("ok") is True
+        assert any(e.get("target_steam_id") == USER_STEAM for e in d["items"])
+
+    def test_audit_filter_by_order_id(self, client):
+        db = _app_module._SessionLocal()
+        try:
+            db.add(
+                _app_module.AuditEvent(
+                    event_type="order_delivered",
+                    severity="info",
+                    target_steam_id=USER_STEAM,
+                    order_id="ord-by-id-test",
+                    message="entrega de teste",
+                    created_at=_now(),
+                )
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        _login(client, ADMIN_STEAM)
+        r = client.get("/api/admin/audit?order_id=ord-by-id-test")
+        d = r.get_json()
+        assert d.get("ok") is True
+        assert any(e.get("order_id") == "ord-by-id-test" for e in d["items"])
 
 
 # ── Idempotência ──────────────────────────────────────────────────────────────
