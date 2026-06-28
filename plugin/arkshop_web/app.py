@@ -273,6 +273,7 @@ _PLAYERS_FILE = _DATA_DIR / "players.json"
 _ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
 _ADMIN_EXAMPLE = _BUNDLE_DIR / "admin_steamids.example.json"
 _SERVERS_FILE = _DATA_DIR / "servers.json"
+_TICKET_UPLOADS_DIR = _DATA_DIR / "ticket_uploads"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
@@ -796,6 +797,79 @@ class MarketClaim(Base):
     claim_status: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
 
 
+class SupportTicket(Base):
+    """Ticket de suporte — jogador ↔ admin (MVP 1.9.149)."""
+
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    player_name: Mapped[str] = mapped_column(String(128), default="")
+    discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    discord_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    subject: Mapped[str] = mapped_column(String(200))
+    category: Mapped[str] = mapped_column(String(64), default="geral")
+    status: Mapped[str] = mapped_column(String(32), default="OPEN", index=True)
+    assigned_admin_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class SupportTicketMessage(Base):
+    __tablename__ = "support_ticket_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(Integer, index=True)
+    author_type: Mapped[str] = mapped_column(String(16), default="player")
+    author_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    author_name: Mapped[str] = mapped_column(String(128), default="")
+    body: Mapped[str] = mapped_column(Text)
+    links_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class SupportTicketAttachment(Base):
+    __tablename__ = "support_ticket_attachments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(Integer, index=True)
+    message_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    original_filename: Mapped[str] = mapped_column(String(255))
+    mime_type: Mapped[str] = mapped_column(String(128), default="application/octet-stream")
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    storage_path: Mapped[str] = mapped_column(String(512))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class SupportTicketDiscordLink(Base):
+    __tablename__ = "support_ticket_discord_links"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    discord_user_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    discord_username: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    link_method: Mapped[str] = mapped_column(String(16), default="manual")
+    linked_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class MarketAuditEvent(Base):
     __tablename__ = "market_audit_events"
 
@@ -932,6 +1006,10 @@ _STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
     ("market_claims", "recipient_steam_id"),
     ("market_audit_events", "steam_id"),
     ("market_audit_events", "counterparty_steam_id"),
+    ("support_tickets", "steam_id"),
+    ("support_tickets", "assigned_admin_steam_id"),
+    ("support_ticket_messages", "author_steam_id"),
+    ("support_ticket_discord_links", "steam_id"),
 )
 
 
@@ -1128,6 +1206,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_cross_chat_schema(engine)
     except Exception as exc:
         log.warning("CrossChat: migrate falhou: %s", exc)
+    try:
+        from ticket_service import ensure_ticket_schema
+
+        ensure_ticket_schema(engine)
+    except Exception as exc:
+        log.warning("Tickets: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -7641,6 +7725,22 @@ start_discord_bridge(
     load_settings=_load_settings,
     save_settings=_save_settings,
     db_ready=_db_ready,
+)
+
+from ticket_routes import register_ticket_routes
+
+_TICKET_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+register_ticket_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
+    is_admin_steamid=_is_admin_steamid,
+    resolve_display_name=lambda sid: _resolve_player_display_name(sid),
+    uploads_dir=_TICKET_UPLOADS_DIR,
+    limiter=limiter,
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":

@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.149] - 2026-06-28
+
+### Other
+
+- Em desenvolvimento: sistema de tickets — esboço MVP na Web Store (jogador + admin), substituindo Mensagens do Sistema no painel web (permanece no TEK).
+
 ## [1.9.148] - 2026-06-28
 
 ### Feature

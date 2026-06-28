@@ -1,9 +1,8 @@
-{
-    "version": "1.9.148",
-    "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.148/ARKLAND-Multi-Setup-v1.9.148.exe",
-    "changelog": [
-        "Novo (Web Store / Admin): cargos MOD e STAFF na aba Gerenciar Jogadores — permanentes, bônus TimedPoints, sync Permissions via RCON e persistência em player_entitlements (não são licenças resgatáveis).",
-        "Novo (Web Store / Chat Cluster): admin envia mensagens do site para todos os mapas via POST /api/admin/chat/send — aparece in-game como [ARKLAND]."
-    ]
-}
+{
+    "version": "1.9.149",
+    "date": "2026-06-28",
+    "download_url": "",
+    "changelog": [
+        "Em desenvolvimento: sistema de tickets — esboço MVP na Web Store (jogador + admin), substituindo Mensagens do Sistema no painel web (permanece no TEK)."
+    ]
+}

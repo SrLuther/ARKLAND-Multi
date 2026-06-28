@@ -4089,8 +4089,8 @@
     <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
       <span class="nav-icon">⚙️</span> Configurações
     </div>
-    <div class="nav-item admin-only" data-page="messages" onclick="nav(this)">
-      <span class="nav-icon">💬</span> Mensagens
+    <div class="nav-item admin-only" data-page="tickets-admin" onclick="nav(this)">
+      <span class="nav-icon">🎫</span> Tickets
     </div>
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
@@ -4133,6 +4133,9 @@
     </div>
     <div class="nav-item" data-page="tutoriais" onclick="nav(this)">
       <span class="nav-icon">📖</span> Tutoriais
+    </div>
+    <div class="nav-item" data-page="tickets" onclick="nav(this)">
+      <span class="nav-icon">🎫</span> Tickets
     </div>
     <div class="nav-item" data-page="myarea" onclick="nav(this)">
       <span class="nav-icon">👤</span> Minha Área
@@ -4561,15 +4564,56 @@
         <div id="general-form"></div>
       </div>
 
-      <!-- PAGE: Mensagens (admin) -->
-      <div id="page-messages" class="page">
+      <!-- PAGE: Tickets (admin) -->
+      <div id="page-tickets-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Mensagens do Sistema</div>
-          <div class="topbar-actions">
-            <button class="btn btn-success" onclick="saveMessages()">💾 Salvar</button>
+          <div class="page-title">Tickets — Suporte</div>
+          <div class="topbar-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="tickets-admin-search" type="search" placeholder="Buscar assunto, nick, Steam…" class="btn btn-ghost" style="min-width:200px;padding:7px 12px;" onkeydown="if(event.key==='Enter')loadTicketsAdmin()" />
+            <select id="tickets-admin-filter" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadTicketsAdmin()">
+              <option value="">Todos</option>
+              <option value="open">Abertos / em atendimento</option>
+              <option value="OPEN">Aberto</option>
+              <option value="IN_PROGRESS">Em atendimento</option>
+              <option value="CLOSED">Encerrados</option>
+            </select>
+            <button class="btn btn-ghost" onclick="loadTicketsAdmin()">🔄 Atualizar</button>
           </div>
         </div>
-        <div id="messages-form"></div>
+        <div class="card" style="margin-bottom:16px;">
+          <div id="tickets-admin-queue" style="color:var(--text2);padding:12px;">Carregando fila…</div>
+        </div>
+        <div id="tickets-admin-detail" class="hidden">
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+              <div>
+                <div class="card-title" id="tickets-admin-detail-title">Ticket</div>
+                <div id="tickets-admin-detail-meta" style="font-size:12px;color:var(--text2);margin-top:6px;"></div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-ghost btn-sm" onclick="ticketsAdminSetStatus('IN_PROGRESS')">▶ Em atendimento</button>
+                <button class="btn btn-success btn-sm" onclick="ticketsAdminSetStatus('CLOSED')">✓ Encerrar</button>
+                <button class="btn btn-ghost btn-sm" onclick="ticketsAdminCloseDetail()">← Voltar à fila</button>
+              </div>
+            </div>
+            <div id="tickets-admin-thread" style="max-height:420px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
+            <div class="form-group">
+              <label>Resposta do suporte</label>
+              <textarea id="tickets-admin-reply" rows="4" placeholder="Sua resposta ao jogador…" style="width:100%;"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Links (um por linha, opcional)</label>
+              <textarea id="tickets-admin-links" rows="2" placeholder="https://…" style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button class="btn btn-primary" onclick="ticketsAdminSendReply()">Enviar resposta</button>
+              <label class="btn btn-ghost" style="cursor:pointer;margin:0;">
+                📎 Anexo
+                <input type="file" accept="image/*,.pdf" style="display:none;" onchange="ticketsAdminUploadFile(this)" />
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- PAGE: Admin — jogadores, pontos e entregas -->
@@ -5313,6 +5357,102 @@
           </div>
         </div>
         <div id="admin-featured-maps-list"></div>
+      </div>
+
+      <!-- PAGE: Tickets (jogador) -->
+      <div id="page-tickets" class="page">
+        <div id="topbar">
+          <div class="page-title">Tickets de Suporte</div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header">
+            <div class="card-title">Seu perfil</div>
+          </div>
+          <div id="tickets-player-profile" style="font-size:13px;color:var(--text2);"></div>
+          <div class="form-grid" style="margin-top:12px;">
+            <div class="form-group">
+              <label>Discord — usuário</label>
+              <input id="tickets-discord-username" type="text" placeholder="nick#0000 ou @usuario" />
+            </div>
+            <div class="form-group">
+              <label>Discord — ID (opcional)</label>
+              <input id="tickets-discord-id" type="text" placeholder="123456789012345678" />
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="ticketsSaveDiscordLink()">💾 Salvar Discord</button>
+            <span style="font-size:11px;color:var(--text2);align-self:center;">OAuth Discord em breve — MVP: vínculo manual</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          <button class="btn btn-ghost tickets-tab-btn active" data-tickets-tab="open" onclick="ticketsSwitchTab('open')">Abertos</button>
+          <button class="btn btn-ghost tickets-tab-btn" data-tickets-tab="closed" onclick="ticketsSwitchTab('closed')">Encerrados</button>
+          <button class="btn btn-ghost tickets-tab-btn" data-tickets-tab="new" onclick="ticketsSwitchTab('new')">+ Novo ticket</button>
+        </div>
+        <div id="tickets-panel-list" class="tickets-panel">
+          <div id="tickets-list" style="color:var(--text2);">Carregando…</div>
+        </div>
+        <div id="tickets-panel-new" class="tickets-panel hidden">
+          <div class="card">
+            <div class="form-group">
+              <label>Assunto</label>
+              <input id="tickets-new-subject" type="text" maxlength="200" placeholder="Resumo do problema" />
+            </div>
+            <div class="form-group">
+              <label>Categoria</label>
+              <select id="tickets-new-category">
+                <option value="geral">Geral</option>
+                <option value="resgate">Resgate / entrega</option>
+                <option value="pagamento">Pagamento / doação</option>
+                <option value="mercado">Mercado de dinos</option>
+                <option value="conta">Conta / acesso</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Mensagem</label>
+              <textarea id="tickets-new-body" rows="5" placeholder="Descreva o problema com detalhes…"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Links (um por linha, opcional)</label>
+              <textarea id="tickets-new-links" rows="2" placeholder="https://…" style="font-family:monospace;font-size:12px;"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Anexos (imagens ou PDF, até 5 MB cada)</label>
+              <input id="tickets-new-files" type="file" accept="image/*,.pdf" multiple />
+            </div>
+            <button class="btn btn-primary" onclick="ticketsCreateNew()">Enviar ticket</button>
+          </div>
+        </div>
+        <div id="tickets-panel-detail" class="tickets-panel hidden">
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;">
+              <div>
+                <div class="card-title" id="tickets-detail-title">Ticket</div>
+                <div id="tickets-detail-meta" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="ticketsCloseDetail()">← Voltar</button>
+            </div>
+            <div id="tickets-thread" style="max-height:400px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
+            <div id="tickets-reply-box">
+              <div class="form-group">
+                <label>Responder</label>
+                <textarea id="tickets-reply-body" rows="3" placeholder="Sua mensagem…"></textarea>
+              </div>
+              <div class="form-group">
+                <label>Links (opcional)</label>
+                <textarea id="tickets-reply-links" rows="2" style="font-family:monospace;font-size:12px;"></textarea>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary" onclick="ticketsSendReply()">Enviar</button>
+                <label class="btn btn-ghost" style="cursor:pointer;margin:0;">
+                  📎 Anexo
+                  <input type="file" accept="image/*,.pdf" style="display:none;" onchange="ticketsUploadFile(this)" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- PAGE: Minha Área -->
@@ -6245,6 +6385,10 @@ function nav(el) {
     promptLogin("Minha Área");
     return;
   }
+  if (page === "tickets" && !_auth.authenticated) {
+    promptLogin("Tickets");
+    return;
+  }
   if (playerNeedsDisplayName()) {
     showDisplayNameGate("navegar no portal");
     return;
@@ -6257,6 +6401,7 @@ function nav(el) {
   if (isMobileNav()) closeSidebar();
   if (page === "home") loadHome();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
+  if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "catalog") loadCatalog();
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
@@ -6269,6 +6414,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "cluster-chat") loadClusterChatAdmin();
+  if (page === "tickets-admin") loadTicketsAdmin();
   if (page === "server-console") {
     loadServers().then(() => {
       populateRconServerSelect();
@@ -8113,7 +8259,6 @@ function renderAll() {
   renderKits();
   renderSell();
   renderGeneral();
-  renderMessages();
 }
 
 function renderShop() {
@@ -8356,32 +8501,321 @@ function saveGeneral() {
   saveConfig();
 }
 
-function renderMessages() {
-  const el = document.getElementById("messages-form");
-  if (!_config) { el.innerHTML = `<div class="empty-state"><div class="empty-icon">💬</div><p>Config não carregada</p></div>`; return; }
-  const msgs = _config.Messages || {};
-  el.innerHTML = `
-    <div class="card">
-      <div class="form-grid">
-        ${Object.entries(msgs).map(([k, v]) => `
-          <div class="form-group" style="grid-column:1/-1;">
-            <label>${escHtml(k)}</label>
-            <input id="msg-${escHtml(k)}" type="text" value="${escHtml(v)}" />
-          </div>`).join("")}
-        ${Object.keys(msgs).length === 0
-          ? `<div style="color:var(--text2);padding:12px;">Nenhuma mensagem personalizada definida.</div>` : ""}
-      </div>
-    </div>`;
+  t.Groups = newGroups;
+  saveConfig();
 }
 
-function saveMessages() {
-  if (!_config) return;
-  if (!_config.Messages) _config.Messages = {};
-  Object.keys(_config.Messages).forEach(k => {
-    const el = document.getElementById(`msg-${k}`);
-    if (el) _config.Messages[k] = el.value;
+// ── Tickets (jogador + admin) ─────────────────────────────────────────────────
+let _ticketsTab = "open";
+let _ticketsPlayerList = [];
+let _ticketsSelectedId = null;
+let _ticketsAdminSelectedId = null;
+
+const _TICKET_STATUS_LABELS = {
+  OPEN: "Aberto",
+  IN_PROGRESS: "Em atendimento",
+  CLOSED: "Encerrado",
+};
+
+function _ticketStatusBadge(status) {
+  const s = status || "OPEN";
+  const cls = s === "CLOSED" ? "badge-danger" : s === "IN_PROGRESS" ? "badge-warning" : "badge-success";
+  return `<span class="badge ${cls}">${escHtml(_TICKET_STATUS_LABELS[s] || s)}</span>`;
+}
+
+function _parseLinksTextarea(elId) {
+  const raw = (document.getElementById(elId)?.value || "").trim();
+  if (!raw) return [];
+  return raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+}
+
+function _renderTicketThread(hostId, messages, orphanAtts) {
+  const el = document.getElementById(hostId);
+  if (!el) return;
+  const msgs = messages || [];
+  if (!msgs.length && !(orphanAtts || []).length) {
+    el.innerHTML = `<div style="color:var(--text2);padding:8px;">Sem mensagens.</div>`;
+    return;
+  }
+  el.innerHTML = msgs.map(m => {
+    const isAdmin = m.author_type === "admin";
+    const links = (m.links || []).map(u => `<a href="${escHtml(u)}" target="_blank" rel="noopener">${escHtml(u)}</a>`).join("<br>");
+    const atts = (m.attachments || []).map(a =>
+      `<a class="btn btn-ghost btn-sm" href="${API}/api/tickets/attachments/${a.id}" target="_blank" rel="noopener">📎 ${escHtml(a.original_filename)}</a>`
+    ).join(" ");
+    return `<div style="margin-bottom:12px;padding:10px;border-radius:8px;background:${isAdmin ? 'rgba(232,120,32,.08)' : 'var(--surface2)'};">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">${escHtml(m.author_name || m.author_type)} · ${escHtml(m.created_at || "")}</div>
+      <div style="white-space:pre-wrap;font-size:13px;">${escHtml(m.body || "")}</div>
+      ${links ? `<div style="margin-top:6px;font-size:12px;">${links}</div>` : ""}
+      ${atts ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${atts}</div>` : ""}
+    </div>`;
+  }).join("") + ((orphanAtts || []).length
+    ? `<div style="font-size:12px;color:var(--text2);">Anexos: ${orphanAtts.map(a =>
+        `<a href="${API}/api/tickets/attachments/${a.id}" target="_blank">📎 ${escHtml(a.original_filename)}</a>`
+      ).join(" ")}</div>` : "");
+}
+
+function ticketsSwitchTab(tab) {
+  _ticketsTab = tab;
+  document.querySelectorAll(".tickets-tab-btn").forEach(b => {
+    b.classList.toggle("active", b.dataset.ticketsTab === tab);
   });
-  saveConfig();
+  document.getElementById("tickets-panel-list")?.classList.toggle("hidden", tab === "new");
+  document.getElementById("tickets-panel-new")?.classList.toggle("hidden", tab !== "new");
+  document.getElementById("tickets-panel-detail")?.classList.add("hidden");
+  if (tab === "open" || tab === "closed") loadTicketsPlayer();
+}
+
+async function loadTicketsPlayer() {
+  if (!_auth.authenticated) {
+    document.getElementById("tickets-list").innerHTML = `<div style="color:var(--text2);">Faça login com Steam.</div>`;
+    return;
+  }
+  const status = _ticketsTab === "closed" ? "closed" : "open";
+  const el = document.getElementById("tickets-list");
+  el.innerHTML = `<div style="color:var(--text2);">Carregando…</div>`;
+  try {
+    const d = await fetchJson(`/api/tickets?status=${status}`, { timeoutMs: 15000 });
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
+    _ticketsPlayerList = d.items || [];
+    const prof = document.getElementById("tickets-player-profile");
+    if (prof) {
+      prof.innerHTML = `Steam: <strong>${escHtml(d.player_name || _auth.steam_id)}</strong> · <code>${escHtml(_auth.steam_id)}</code>`;
+    }
+    const link = d.discord_link || {};
+    const du = document.getElementById("tickets-discord-username");
+    const di = document.getElementById("tickets-discord-id");
+    if (du && link.discord_username) du.value = link.discord_username;
+    if (di && link.discord_user_id) di.value = link.discord_user_id;
+    if (!_ticketsPlayerList.length) {
+      el.innerHTML = `<div style="color:var(--text2);padding:12px;">Nenhum ticket ${status === "closed" ? "encerrado" : "aberto"}.</div>`;
+      return;
+    }
+    el.innerHTML = `<table class="tbl"><thead><tr><th>#</th><th>Assunto</th><th>Status</th><th>Atualizado</th><th></th></tr></thead><tbody>
+      ${_ticketsPlayerList.map(t => `<tr>
+        <td>${t.id}</td>
+        <td>${escHtml(t.subject)}</td>
+        <td>${_ticketStatusBadge(t.status)}</td>
+        <td style="font-size:12px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="ticketsOpenDetail(${t.id})">Abrir</button></td>
+      </tr>`).join("")}
+    </tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
+  }
+}
+
+async function ticketsSaveDiscordLink() {
+  if (!_auth.authenticated) { promptLogin("vincular Discord"); return; }
+  const body = {
+    discord_username: (document.getElementById("tickets-discord-username")?.value || "").trim(),
+    discord_user_id: (document.getElementById("tickets-discord-id")?.value || "").trim(),
+  };
+  try {
+    const d = await fetchJson("/api/tickets/discord-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
+    toast("Discord vinculado.", "success");
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsCreateNew() {
+  if (!_auth.authenticated) { promptLogin("abrir ticket"); return; }
+  const subject = (document.getElementById("tickets-new-subject")?.value || "").trim();
+  const body = (document.getElementById("tickets-new-body")?.value || "").trim();
+  const category = document.getElementById("tickets-new-category")?.value || "geral";
+  const links = _parseLinksTextarea("tickets-new-links");
+  if (!subject || !body) { toast("Preencha assunto e mensagem.", "warning"); return; }
+  try {
+    const d = await fetchJson("/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, body, category, links }),
+      timeoutMs: 20000,
+    });
+    if (!d.ok) { toast(d.error || "Falha ao criar ticket", "error"); return; }
+    const ticketId = d.ticket?.id;
+    const files = document.getElementById("tickets-new-files")?.files;
+    if (ticketId && files?.length) {
+      for (const f of files) {
+        const fd = new FormData();
+        fd.append("file", f);
+        fd.append("message_id", String(d.message_id || ""));
+        await fetch(`${API}/api/tickets/${ticketId}/attachments`, { method: "POST", body: fd, credentials: "same-origin" });
+      }
+    }
+    toast("Ticket criado!", "success");
+    document.getElementById("tickets-new-subject").value = "";
+    document.getElementById("tickets-new-body").value = "";
+    document.getElementById("tickets-new-links").value = "";
+    if (document.getElementById("tickets-new-files")) document.getElementById("tickets-new-files").value = "";
+    ticketsSwitchTab("open");
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsOpenDetail(id) {
+  _ticketsSelectedId = id;
+  document.getElementById("tickets-panel-list")?.classList.add("hidden");
+  document.getElementById("tickets-panel-new")?.classList.add("hidden");
+  document.getElementById("tickets-panel-detail")?.classList.remove("hidden");
+  try {
+    const d = await fetchJson(`/api/tickets/${id}`, { timeoutMs: 15000 });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    const t = d.ticket;
+    document.getElementById("tickets-detail-title").textContent = `#${t.id} — ${t.subject}`;
+    document.getElementById("tickets-detail-meta").innerHTML = `${_ticketStatusBadge(t.status)} · ${escHtml(t.category)} · ${escHtml(t.updated_at || "")}`;
+    _renderTicketThread("tickets-thread", d.messages, d.orphan_attachments);
+    const closed = t.status === "CLOSED";
+    document.getElementById("tickets-reply-box").style.display = closed ? "none" : "";
+  } catch (e) { toast(String(e), "error"); }
+}
+
+function ticketsCloseDetail() {
+  _ticketsSelectedId = null;
+  document.getElementById("tickets-panel-detail")?.classList.add("hidden");
+  document.getElementById("tickets-panel-list")?.classList.remove("hidden");
+  loadTicketsPlayer();
+}
+
+async function ticketsSendReply() {
+  if (!_ticketsSelectedId) return;
+  const body = (document.getElementById("tickets-reply-body")?.value || "").trim();
+  const links = _parseLinksTextarea("tickets-reply-links");
+  if (!body) { toast("Digite uma mensagem.", "warning"); return; }
+  try {
+    const d = await fetchJson(`/api/tickets/${_ticketsSelectedId}/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body, links }),
+      timeoutMs: 15000,
+    });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    document.getElementById("tickets-reply-body").value = "";
+    document.getElementById("tickets-reply-links").value = "";
+    ticketsOpenDetail(_ticketsSelectedId);
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsUploadFile(input) {
+  if (!_ticketsSelectedId || !input?.files?.[0]) return;
+  const fd = new FormData();
+  fd.append("file", input.files[0]);
+  try {
+    const r = await fetch(`${API}/api/tickets/${_ticketsSelectedId}/attachments`, { method: "POST", body: fd, credentials: "same-origin" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha no upload", "error"); return; }
+    toast("Anexo enviado.", "success");
+    ticketsOpenDetail(_ticketsSelectedId);
+  } catch (e) { toast(String(e), "error"); }
+  input.value = "";
+}
+
+async function loadTicketsAdmin() {
+  const filter = document.getElementById("tickets-admin-filter")?.value || "";
+  const q = (document.getElementById("tickets-admin-search")?.value || "").trim();
+  const el = document.getElementById("tickets-admin-queue");
+  el.innerHTML = `<div style="color:var(--text2);">Carregando fila…</div>`;
+  document.getElementById("tickets-admin-detail")?.classList.add("hidden");
+  try {
+    let url = `/api/admin/tickets?limit=50`;
+    if (filter) url += `&status=${encodeURIComponent(filter)}`;
+    if (q) url += `&q=${encodeURIComponent(q)}`;
+    const d = await fetchJson(url, { timeoutMs: 15000 });
+    if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<div style="color:var(--text2);padding:12px;">Nenhum ticket na fila.</div>`;
+      return;
+    }
+    el.innerHTML = `<table class="tbl"><thead><tr>
+      <th>#</th><th>Jogador</th><th>Assunto</th><th>Status</th><th>Discord</th><th>Atualizado</th><th></th>
+    </tr></thead><tbody>${items.map(t => `<tr>
+      <td>${t.id}</td>
+      <td><div>${escHtml(t.player_name)}</div><code style="font-size:10px;">${escHtml(t.steam_id)}</code></td>
+      <td>${escHtml(t.subject)}</td>
+      <td>${_ticketStatusBadge(t.status)}</td>
+      <td style="font-size:11px;">${escHtml(t.discord_username || t.discord_user_id || "—")}</td>
+      <td style="font-size:11px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
+      <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminOpenDetail(${t.id})">Atender</button></td>
+    </tr>`).join("")}</tbody></table>
+    <div style="font-size:12px;color:var(--text2);margin-top:8px;">Total: ${d.total}</div>`;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
+  }
+}
+
+async function ticketsAdminOpenDetail(id) {
+  _ticketsAdminSelectedId = id;
+  document.getElementById("tickets-admin-detail")?.classList.remove("hidden");
+  try {
+    const d = await fetchJson(`/api/admin/tickets/${id}`, { timeoutMs: 15000 });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    const t = d.ticket;
+    document.getElementById("tickets-admin-detail-title").textContent = `#${t.id} — ${t.subject}`;
+    document.getElementById("tickets-admin-detail-meta").innerHTML =
+      `${escHtml(t.player_name)} · <code>${escHtml(t.steam_id)}</code> · Discord: ${escHtml(t.discord_username || t.discord_user_id || "—")} · ${_ticketStatusBadge(t.status)}`;
+    _renderTicketThread("tickets-admin-thread", d.messages, d.orphan_attachments);
+    document.getElementById("tickets-admin-reply").value = "";
+    document.getElementById("tickets-admin-links").value = "";
+    document.getElementById("tickets-admin-detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { toast(String(e), "error"); }
+}
+
+function ticketsAdminCloseDetail() {
+  _ticketsAdminSelectedId = null;
+  document.getElementById("tickets-admin-detail")?.classList.add("hidden");
+}
+
+async function ticketsAdminSendReply() {
+  if (!_ticketsAdminSelectedId) return;
+  const body = (document.getElementById("tickets-admin-reply")?.value || "").trim();
+  const links = _parseLinksTextarea("tickets-admin-links");
+  if (!body) { toast("Digite a resposta.", "warning"); return; }
+  try {
+    const d = await fetchJson(`/api/admin/tickets/${_ticketsAdminSelectedId}/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body, links }),
+      timeoutMs: 15000,
+    });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    ticketsAdminOpenDetail(_ticketsAdminSelectedId);
+    toast("Resposta enviada.", "success");
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsAdminSetStatus(status) {
+  if (!_ticketsAdminSelectedId) return;
+  try {
+    const d = await fetchJson(`/api/admin/tickets/${_ticketsAdminSelectedId}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    toast("Status atualizado.", "success");
+    ticketsAdminOpenDetail(_ticketsAdminSelectedId);
+    loadTicketsAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsAdminUploadFile(input) {
+  if (!_ticketsAdminSelectedId || !input?.files?.[0]) return;
+  const fd = new FormData();
+  fd.append("file", input.files[0]);
+  try {
+    const r = await fetch(`${API}/api/admin/tickets/${_ticketsAdminSelectedId}/attachments`, { method: "POST", body: fd, credentials: "same-origin" });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha no upload", "error"); return; }
+    toast("Anexo enviado.", "success");
+    ticketsAdminOpenDetail(_ticketsAdminSelectedId);
+  } catch (e) { toast(String(e), "error"); }
+  input.value = "";
 }
 
 // ── Downloads ─────────────────────────────────────────────────────────────────
