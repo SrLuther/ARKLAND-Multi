@@ -1,4 +1,4 @@
-"""Testes do sistema de tickets (1.9.149)."""
+"""Testes do sistema de tickets (1.9.153)."""
 from __future__ import annotations
 
 import json
@@ -13,14 +13,18 @@ from app import Order, app
 from ticket_service import (
     TICKET_CATEGORIES,
     add_ticket_reply,
+    attend_ticket,
+    close_ticket,
     create_ticket,
     ensure_ticket_schema,
     get_ticket_detail,
     get_ticket_history,
     list_tickets_admin,
     list_tickets_for_player,
+    request_player_close,
     save_discord_link,
     ticket_meta,
+    ticket_permissions,
     update_ticket_priority,
     update_ticket_status,
 )
@@ -109,9 +113,12 @@ def test_create_and_list_ticket(ticket_db):
     assert created["ticket"]["priority"] == "urgente"
     assert created["ticket"]["category_label"] == "Resgate / entrega"
 
-    items, total = list_tickets_for_player(ticket_db, USER_STEAM, status="open")
+    items, total = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
     assert total == 1
     assert items[0]["id"] == created["ticket"]["id"]
+
+    items_open, _ = list_tickets_for_player(ticket_db, USER_STEAM, status="open")
+    assert len(items_open) == 1
 
     detail = get_ticket_detail(ticket_db, items[0]["id"], viewer_steam_id=USER_STEAM)
     assert detail is not None
@@ -119,6 +126,36 @@ def test_create_and_list_ticket(ticket_db):
     assert detail["messages"][0]["links"] == ["https://example.com/prova"]
     assert len(detail["history"]) >= 1
     assert detail["history"][0]["event_type"] == "created"
+    assert detail["permissions"]["can_player_reply"] is True
+
+
+def test_player_visibility_after_admin_attend(ticket_db):
+    """Ticket permanece na aba Abertos do jogador após admin atender (EM_ANALISE)."""
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Ajuda",
+        body="Preciso de suporte",
+        category="suporte",
+    )
+    tid = created["ticket"]["id"]
+
+    attended = attend_ticket(
+        ticket_db, tid, admin_steam_id=ADMIN_STEAM, admin_name="Admin"
+    )
+    assert attended["ok"] is True
+    assert attended["ticket"]["status"] == "EM_ANALISE"
+
+    open_items, open_total = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
+    assert open_total == 1
+    assert open_items[0]["status"] == "EM_ANALISE"
+
+    closed_items, closed_total = list_tickets_for_player(ticket_db, USER_STEAM, status="encerrados")
+    assert closed_total == 0
+
+    detail = get_ticket_detail(ticket_db, tid, viewer_steam_id=USER_STEAM)
+    assert detail["permissions"]["can_player_reply"] is True
 
 
 def test_create_with_order_id(ticket_db):
@@ -187,6 +224,9 @@ def test_admin_reply_status_history_and_close(ticket_db):
     assert waiting["ok"] is True
     assert waiting["ticket"]["status"] == "AGUARDANDO_JOGADOR"
 
+    open_items, _ = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
+    assert any(t["id"] == tid for t in open_items)
+
     pri = update_ticket_priority(
         ticket_db,
         tid,
@@ -197,11 +237,17 @@ def test_admin_reply_status_history_and_close(ticket_db):
     assert pri["ok"] is True
     assert pri["ticket"]["priority"] == "urgente"
 
-    closed = update_ticket_status(
-        ticket_db, tid, status="ENCERRADO", admin_steam_id=ADMIN_STEAM, admin_name="Admin"
+    closed = close_ticket(
+        ticket_db, tid, admin_steam_id=ADMIN_STEAM, admin_name="Admin"
     )
     assert closed["ok"] is True
     assert closed["ticket"]["status"] == "ENCERRADO"
+
+    open_after, open_n = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
+    assert open_n == 0
+    closed_after, closed_n = list_tickets_for_player(ticket_db, USER_STEAM, status="encerrados")
+    assert closed_n == 1
+    assert closed_after[0]["id"] == tid
 
     hist = get_ticket_history(ticket_db, tid, is_admin=True)
     assert hist is not None
@@ -210,6 +256,7 @@ def test_admin_reply_status_history_and_close(ticket_db):
     assert "status_changed" in events
     assert "priority_changed" in events
     assert "reply_admin" in events
+    assert "closed" in events
 
     blocked = add_ticket_reply(
         ticket_db,
@@ -224,6 +271,73 @@ def test_admin_reply_status_history_and_close(ticket_db):
 
     admin_items, admin_total = list_tickets_admin(ticket_db, status="ENCERRADO")
     assert admin_total >= 1
+
+
+def test_player_request_close(ticket_db):
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Resolvido",
+        body="Problema",
+        category="suporte",
+    )
+    tid = created["ticket"]["id"]
+
+    attend_ticket(ticket_db, tid, admin_steam_id=ADMIN_STEAM, admin_name="Admin")
+
+    req = request_player_close(
+        ticket_db, tid, steam_id=USER_STEAM, player_name="Nick"
+    )
+    assert req["ok"] is True
+    assert req["ticket"]["status"] == "AGUARDANDO_JOGADOR"
+
+    open_items, _ = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
+    assert any(t["id"] == tid for t in open_items)
+
+    hist = get_ticket_history(ticket_db, tid, viewer_steam_id=USER_STEAM)
+    assert any(h["event_type"] == "close_requested" for h in hist["history"])
+
+
+def test_player_reply_from_aguardando(ticket_db):
+    created = create_ticket(
+        ticket_db,
+        steam_id=USER_STEAM,
+        player_name="Nick",
+        subject="Dúvida",
+        body="Ajuda",
+        category="suporte",
+    )
+    tid = created["ticket"]["id"]
+    update_ticket_status(
+        ticket_db,
+        tid,
+        status="AGUARDANDO_JOGADOR",
+        admin_steam_id=ADMIN_STEAM,
+        admin_name="Admin",
+    )
+
+    reply = add_ticket_reply(
+        ticket_db,
+        tid,
+        author_type="player",
+        author_steam_id=USER_STEAM,
+        author_name="Nick",
+        body="Ainda tenho dúvida",
+        viewer_steam_id=USER_STEAM,
+    )
+    assert reply["ok"] is True
+
+    detail = get_ticket_detail(ticket_db, tid, viewer_steam_id=USER_STEAM)
+    assert detail["ticket"]["status"] == "EM_ANALISE"
+
+
+def test_ticket_permissions():
+    assert ticket_permissions("ABERTO")["can_player_reply"] is True
+    assert ticket_permissions("EM_ANALISE")["can_player_reply"] is True
+    assert ticket_permissions("AGUARDANDO_JOGADOR")["can_player_reply"] is True
+    assert ticket_permissions("ENCERRADO")["can_player_reply"] is False
+    assert ticket_permissions("ENCERRADO")["is_closed"] is True
 
 
 def test_admin_filters(ticket_db):

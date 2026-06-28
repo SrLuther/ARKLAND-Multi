@@ -1,4 +1,4 @@
-"""Rotas HTTP do sistema de tickets (1.9.149)."""
+"""Rotas HTTP do sistema de tickets (1.9.153)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,6 +8,8 @@ from flask import Flask, jsonify, request, send_file
 
 from ticket_service import (
     add_ticket_reply,
+    attend_ticket,
+    close_ticket,
     create_ticket,
     get_attachment_for_download,
     get_discord_link,
@@ -15,6 +17,7 @@ from ticket_service import (
     get_ticket_history,
     list_tickets_admin,
     list_tickets_for_player,
+    request_player_close,
     resolve_player_name,
     save_discord_link,
     save_ticket_attachment,
@@ -99,7 +102,7 @@ def register_ticket_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         steam_id = str(steam_id_from_session())
-        status = (request.args.get("status") or "").strip().lower() or None
+        status = (request.args.get("tab") or request.args.get("status") or "").strip() or None
         limit = int(request.args.get("limit") or 50)
         offset = int(request.args.get("offset") or 0)
         db = session_factory()
@@ -219,6 +222,32 @@ def register_ticket_routes(
                 links=body.get("links"),
                 viewer_steam_id=steam_id,
                 is_admin=is_admin,
+            )
+            if not result.get("ok"):
+                return jsonify(result), 400
+            return jsonify(result)
+        finally:
+            db.close()
+
+    @app.route("/api/tickets/<int:ticket_id>/request-close", methods=["POST"])
+    @login_required
+    @_limit("10 per minute")
+    def tickets_request_close_player(ticket_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(force=True, silent=True) or {}
+        steam_id = str(steam_id_from_session())
+        db = session_factory()
+        try:
+            player_name = resolve_player_name(
+                db, steam_id, resolve_display_name=resolve_display_name
+            )
+            result = request_player_close(
+                db,
+                ticket_id,
+                steam_id=steam_id,
+                player_name=player_name,
+                note=str(body.get("note") or "").strip() or None,
             )
             if not result.get("ok"):
                 return jsonify(result), 400
@@ -371,6 +400,54 @@ def register_ticket_routes(
                 links=body.get("links"),
                 viewer_steam_id=admin_sid,
                 is_admin=True,
+            )
+            if not result.get("ok"):
+                return jsonify(result), 400
+            return jsonify(result)
+        finally:
+            db.close()
+
+    @app.route("/api/admin/tickets/<int:ticket_id>/attend", methods=["POST"])
+    @admin_required
+    def admin_tickets_attend(ticket_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        admin_sid = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            admin_name = resolve_player_name(
+                db, admin_sid, resolve_display_name=resolve_display_name
+            )
+            result = attend_ticket(
+                db,
+                ticket_id,
+                admin_steam_id=admin_sid,
+                admin_name=admin_name,
+            )
+            if not result.get("ok"):
+                return jsonify(result), 400
+            return jsonify(result)
+        finally:
+            db.close()
+
+    @app.route("/api/admin/tickets/<int:ticket_id>/close", methods=["POST"])
+    @admin_required
+    def admin_tickets_close(ticket_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(force=True, silent=True) or {}
+        admin_sid = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            admin_name = resolve_player_name(
+                db, admin_sid, resolve_display_name=resolve_display_name
+            )
+            result = close_ticket(
+                db,
+                ticket_id,
+                admin_steam_id=admin_sid,
+                admin_name=admin_name,
+                note=str(body.get("note") or "").strip() or None,
             )
             if not result.get("ok"):
                 return jsonify(result), 400

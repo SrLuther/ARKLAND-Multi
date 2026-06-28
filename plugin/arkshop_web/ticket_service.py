@@ -1,4 +1,4 @@
-"""Sistema de tickets — persistência e regras de negócio (1.9.149)."""
+"""Sistema de tickets — persistência e regras de negócio (1.9.153)."""
 from __future__ import annotations
 
 import json
@@ -27,6 +27,9 @@ _LEGACY_STATUS_MAP = {
 }
 _OPEN_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "OPEN", "IN_PROGRESS"})
 _CLOSED_STATUSES = frozenset({"ENCERRADO", "CLOSED"})
+_PLAYER_REPLY_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR"})
+_TAB_OPEN_ALIASES = frozenset({"open", "abertos", "aberto", "ativos", "active"})
+_TAB_CLOSED_ALIASES = frozenset({"closed", "encerrados", "encerrado", "fechados"})
 
 TICKET_CATEGORIES = frozenset({
     "suporte", "bug", "doacao", "recurso_ban", "resgate", "pagamento", "mercado", "conta", "geral", "outro",
@@ -93,7 +96,49 @@ def _normalize_status(raw: str | None) -> str | None:
 
 
 def _is_closed_status(status: str | None) -> bool:
-    return (status or "") in _CLOSED_STATUSES
+    norm = _normalize_status(status)
+    return norm == "ENCERRADO" if norm else (status or "") in _CLOSED_STATUSES
+
+
+def _can_player_reply(status: str | None) -> bool:
+    norm = _normalize_status(status) or (status or "")
+    return norm in _PLAYER_REPLY_STATUSES
+
+
+def ticket_permissions(status: str | None, *, is_admin: bool = False) -> dict[str, bool]:
+    """Flags de permissão para UI (jogador e admin)."""
+    closed = _is_closed_status(status)
+    norm = _normalize_status(status) or (status or "ABERTO")
+    return {
+        "can_player_reply": not closed and norm in _PLAYER_REPLY_STATUSES,
+        "can_admin_reply": not closed,
+        "can_player_request_close": not closed and norm in _PLAYER_REPLY_STATUSES,
+        "can_admin_close": not closed,
+        "can_admin_attend": not closed and norm == "ABERTO",
+        "is_closed": closed,
+    }
+
+
+def _resolve_list_status_filter(status: str | None) -> str | None:
+    """Normaliza filtros de listagem (abas abertos/encerrados e códigos legados)."""
+    if not status:
+        return None
+    raw = str(status).strip()
+    if not raw:
+        return None
+    low = raw.lower()
+    if low in _TAB_OPEN_ALIASES:
+        return "__open__"
+    if low in _TAB_CLOSED_ALIASES:
+        return "__closed__"
+    norm = _normalize_status(raw)
+    if norm:
+        return norm
+    if low == "open":
+        return "__open__"
+    if low == "closed":
+        return "__closed__"
+    return None
 
 
 def _column_exists(conn: Any, table: str, column: str, *, is_sqlite: bool) -> bool:
@@ -647,17 +692,14 @@ def create_ticket(
 def _apply_status_filter(query: Any, status: str | None) -> Any:
     from app import SupportTicket
 
-    if not status:
+    resolved = _resolve_list_status_filter(status)
+    if not resolved:
         return query
-    norm = _normalize_status(status)
-    if norm:
-        return query.filter(SupportTicket.status == norm)
-    s = status.strip().lower()
-    if s == "open":
+    if resolved == "__open__":
         return query.filter(SupportTicket.status.in_(tuple(_OPEN_STATUSES)))
-    if s == "closed":
+    if resolved == "__closed__":
         return query.filter(SupportTicket.status.in_(tuple(_CLOSED_STATUSES)))
-    return query
+    return query.filter(SupportTicket.status == resolved)
 
 
 def list_tickets_for_player(
@@ -785,6 +827,7 @@ def get_ticket_detail(
         ],
         "orphan_attachments": ticket_atts,
         "history": history,
+        "permissions": ticket_permissions(ticket.status, is_admin=is_admin),
     }
     if include_order or ticket.order_id:
         oid = ticket.order_id
@@ -834,6 +877,8 @@ def add_ticket_reply(
         return {"ok": False, "error": "Ticket encerrado"}
     if not is_admin and ticket.steam_id != viewer_steam_id:
         return {"ok": False, "error": "Acesso negado"}
+    if not is_admin and author_type == "player" and not _can_player_reply(ticket.status):
+        return {"ok": False, "error": "Não é possível responder neste status"}
 
     text_body = (body or "").strip()
     if not text_body:
@@ -852,8 +897,8 @@ def add_ticket_reply(
     )
     db.add(msg)
     ticket.updated_at = now
+    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
     if is_admin and author_type == "admin":
-        old_status = _normalize_status(ticket.status) or ticket.status
         if old_status == "ABERTO":
             ticket.status = "EM_ANALISE"
             _append_history(
@@ -869,6 +914,20 @@ def add_ticket_reply(
             )
         if author_steam_id and not ticket.assigned_admin_steam_id:
             ticket.assigned_admin_steam_id = author_steam_id
+    elif author_type == "player" and old_status == "AGUARDANDO_JOGADOR":
+        ticket.status = "EM_ANALISE"
+        _append_history(
+            db,
+            ticket_id=ticket_id,
+            event_type="status_changed",
+            actor_steam_id=author_steam_id,
+            actor_name=(author_name or "")[:128],
+            field_name="status",
+            old_value=old_status,
+            new_value="EM_ANALISE",
+            note="Jogador respondeu",
+            created_at=now,
+        )
     _append_history(
         db,
         ticket_id=ticket_id,
@@ -922,9 +981,178 @@ def update_ticket_status(
             new_value=new_status,
             created_at=now,
         )
+        if new_status == "ENCERRADO":
+            _append_history(
+                db,
+                ticket_id=ticket_id,
+                event_type="closed",
+                actor_steam_id=admin_steam_id,
+                actor_name=(admin_name or "Admin")[:128],
+                created_at=now,
+            )
     db.commit()
     db.refresh(ticket)
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
+
+
+def attend_ticket(
+    db: Any,
+    ticket_id: int,
+    *,
+    admin_steam_id: str | None = None,
+    admin_name: str = "",
+) -> dict[str, Any]:
+    """Admin assume ticket — status EM_ANALISE sem remover da lista do jogador."""
+    from app import SupportTicket
+
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        return {"ok": False, "error": "Ticket não encontrado"}
+    if _is_closed_status(ticket.status):
+        return {"ok": False, "error": "Ticket já encerrado"}
+
+    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
+    now = _utcnow()
+    ticket.status = "EM_ANALISE"
+    ticket.updated_at = now
+    if admin_steam_id:
+        ticket.assigned_admin_steam_id = admin_steam_id
+    if old_status != "EM_ANALISE":
+        _append_history(
+            db,
+            ticket_id=ticket_id,
+            event_type="status_changed",
+            actor_steam_id=admin_steam_id,
+            actor_name=(admin_name or "Admin")[:128],
+            field_name="status",
+            old_value=old_status,
+            new_value="EM_ANALISE",
+            note="Ticket em atendimento",
+            created_at=now,
+        )
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="attended",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+        created_at=now,
+    )
+    _notify_ticket_event(ticket_id, "attended", actor_name=admin_name)
+    db.commit()
+    db.refresh(ticket)
+    return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
+
+
+def close_ticket(
+    db: Any,
+    ticket_id: int,
+    *,
+    admin_steam_id: str | None = None,
+    admin_name: str = "",
+    note: str | None = None,
+) -> dict[str, Any]:
+    """Encerra ticket (admin)."""
+    from app import SupportTicket
+
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        return {"ok": False, "error": "Ticket não encontrado"}
+    if _is_closed_status(ticket.status):
+        return {"ok": False, "error": "Ticket já encerrado"}
+
+    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
+    now = _utcnow()
+    ticket.status = "ENCERRADO"
+    ticket.updated_at = now
+    ticket.closed_at = now
+    if admin_steam_id:
+        ticket.assigned_admin_steam_id = admin_steam_id
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="status_changed",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+        field_name="status",
+        old_value=old_status,
+        new_value="ENCERRADO",
+        created_at=now,
+    )
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="closed",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+        note=(note[:500] if note else None),
+        created_at=now,
+    )
+    _notify_ticket_event(ticket_id, "closed", actor_name=admin_name)
+    db.commit()
+    db.refresh(ticket)
+    return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
+
+
+def request_player_close(
+    db: Any,
+    ticket_id: int,
+    *,
+    steam_id: str,
+    player_name: str = "",
+    note: str | None = None,
+) -> dict[str, Any]:
+    """Jogador solicita encerramento — não fecha automaticamente."""
+    from app import SupportTicket
+
+    ticket = db.get(SupportTicket, ticket_id)
+    if not ticket:
+        return {"ok": False, "error": "Ticket não encontrado"}
+    if ticket.steam_id != steam_id:
+        return {"ok": False, "error": "Acesso negado"}
+    if _is_closed_status(ticket.status):
+        return {"ok": False, "error": "Ticket já encerrado"}
+    if not _can_player_reply(ticket.status):
+        return {"ok": False, "error": "Não é possível solicitar encerramento neste status"}
+
+    now = _utcnow()
+    msg_note = (note or "Jogador considera o problema resolvido e solicita encerramento.").strip()
+    _append_history(
+        db,
+        ticket_id=ticket_id,
+        event_type="close_requested",
+        actor_steam_id=steam_id,
+        actor_name=(player_name or steam_id)[:128],
+        note=msg_note[:500],
+        created_at=now,
+    )
+    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
+    if old_status in ("ABERTO", "EM_ANALISE"):
+        ticket.status = "AGUARDANDO_JOGADOR"
+        ticket.updated_at = now
+        _append_history(
+            db,
+            ticket_id=ticket_id,
+            event_type="status_changed",
+            actor_steam_id=steam_id,
+            actor_name=(player_name or steam_id)[:128],
+            field_name="status",
+            old_value=old_status,
+            new_value="AGUARDANDO_JOGADOR",
+            note="Aguardando confirmação do suporte",
+            created_at=now,
+        )
+    else:
+        ticket.updated_at = now
+    _notify_ticket_event(ticket_id, "close_requested", actor_name=player_name)
+    db.commit()
+    db.refresh(ticket)
+    return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
+
+
+def _notify_ticket_event(ticket_id: int, event: str, *, actor_name: str = "") -> None:
+    """Stub para notificações futuras (Discord, e-mail, in-game)."""
+    _ = (ticket_id, event, actor_name)
 
 
 def update_ticket_priority(

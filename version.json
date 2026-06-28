@@ -1,8 +1,8 @@
 {
-    "version": "1.9.152",
+    "version": "1.9.153",
     "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.152/ARKLAND-Multi-Setup-v1.9.152.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.153/ARKLAND-Multi-Setup-v1.9.153.exe",
     "changelog": [
-        "Fix CRÍTICO (Web Store / DB): migração steam_id falhava com erro 1068 (Multiple primary key defined) em players — bloqueava tickets, tribe_name e market; ALTER MODIFY idempotente sem redeclarar PRIMARY KEY em colunas que já são PK."
+        "Melhoria (Web Store / Tickets): abas Abertos e Encerrados corrigidas — tickets em EM_ANALISE e AGUARDANDO_JOGADOR permanecem visíveis ao jogador; botão Encerrar no admin; atender muda status sem sumir da lista; jogador pode marcar como resolvido; histórico e permissões de resposta por status."
     ]
 }

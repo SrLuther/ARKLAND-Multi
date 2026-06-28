@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.153] - 2026-06-28
+
+### Improvement
+
+- Melhoria (Web Store / Tickets): abas Abertos e Encerrados corrigidas — tickets em EM_ANALISE e AGUARDANDO_JOGADOR permanecem visíveis ao jogador; botão Encerrar no admin; atender muda status sem sumir da lista; jogador pode marcar como resolvido; histórico e permissões de resposta por status.
+
 ## [1.9.152] - 2026-06-28
 
 ### Fix

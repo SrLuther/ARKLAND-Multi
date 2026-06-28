@@ -4613,12 +4613,13 @@
                 <div id="tickets-admin-detail-meta" style="font-size:12px;color:var(--text2);margin-top:6px;"></div>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button id="tickets-admin-close-btn" class="btn btn-danger btn-sm" onclick="ticketsAdminCloseTicket()">✕ Encerrar ticket</button>
                 <select id="tickets-admin-status-select" class="btn btn-ghost btn-sm" style="padding:6px 10px;" onchange="ticketsAdminSetStatus(this.value)">
                   <option value="">Alterar status…</option>
                   <option value="ABERTO">Aberto</option>
                   <option value="EM_ANALISE">Em análise</option>
                   <option value="AGUARDANDO_JOGADOR">Aguardando jogador</option>
-                  <option value="ENCERRADO">Encerrar</option>
+                  <option value="ENCERRADO">Encerrado</option>
                 </select>
                 <select id="tickets-admin-priority-select" class="btn btn-ghost btn-sm" style="padding:6px 10px;" onchange="ticketsAdminSetPriority(this.value)">
                   <option value="">Prioridade…</option>
@@ -5486,6 +5487,9 @@
             </div>
             <div id="tickets-thread" style="max-height:400px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
             <div id="tickets-player-history" style="margin-bottom:12px;"></div>
+            <div id="tickets-closed-notice" class="hidden" style="margin-bottom:12px;padding:12px;border-radius:8px;background:rgba(200,60,60,.08);color:var(--text2);font-size:13px;">
+              Este ticket está encerrado. Você pode consultar o histórico, mas não enviar novas mensagens.
+            </div>
             <div id="tickets-reply-box">
               <div class="form-group">
                 <label>Responder</label>
@@ -5501,6 +5505,7 @@
                   📎 Anexo
                   <input type="file" accept="image/*,.pdf" style="display:none;" onchange="ticketsUploadFile(this)" />
                 </label>
+                <button id="tickets-request-close-btn" class="btn btn-ghost" onclick="ticketsRequestClose()">✓ Marcar como resolvido</button>
               </div>
             </div>
           </div>
@@ -8598,6 +8603,9 @@ const _TICKET_HISTORY_LABELS = {
   reply_admin: "Resposta do suporte",
   attachment_added: "Anexo adicionado",
   order_linked: "Pedido vinculado",
+  attended: "Ticket em atendimento",
+  closed: "Ticket encerrado",
+  close_requested: "Encerramento solicitado pelo jogador",
 };
 
 function _ticketStatusBadge(status) {
@@ -8733,11 +8741,11 @@ async function loadTicketsPlayer() {
     document.getElementById("tickets-list").innerHTML = `<div style="color:var(--text2);">Faça login com Steam.</div>`;
     return;
   }
-  const status = _ticketsTab === "closed" ? "closed" : "open";
+  const status = _ticketsTab === "closed" ? "encerrados" : "abertos";
   const el = document.getElementById("tickets-list");
   el.innerHTML = `<div style="color:var(--text2);">Carregando…</div>`;
   try {
-    const d = await fetchJson(`/api/tickets?status=${status}`, { timeoutMs: 15000 });
+    const d = await fetchJson(`/api/tickets?tab=${encodeURIComponent(status)}`, { timeoutMs: 15000 });
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger);">${escHtml(d.error || "Erro")}</div>`; return; }
     _ticketsPlayerList = d.items || [];
     _ticketsMeta = d;
@@ -8751,7 +8759,10 @@ async function loadTicketsPlayer() {
     if (du && link.discord_username) du.value = link.discord_username;
     if (di && link.discord_user_id) di.value = link.discord_user_id;
     if (!_ticketsPlayerList.length) {
-      el.innerHTML = `<div style="color:var(--text2);padding:12px;">Nenhum ticket ${status === "closed" ? "encerrado" : "aberto"}.</div>`;
+      const emptyMsg = status === "encerrados"
+        ? "Nenhum ticket encerrado. Tickets resolvidos pelo suporte aparecem aqui."
+        : "Nenhum ticket aberto. Abra um novo ticket se precisar de ajuda.";
+      el.innerHTML = `<div style="color:var(--text2);padding:16px;text-align:center;">${emptyMsg}</div>`;
       return;
     }
     el.innerHTML = `<table class="tbl"><thead><tr><th>#</th><th>Assunto</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Atualizado</th><th></th></tr></thead><tbody>
@@ -8842,8 +8853,15 @@ async function ticketsOpenDetail(id) {
       (t.order_id ? ` · Pedido: <code>${escHtml(t.order_id.substring(0, 8))}…</code>` : "");
     _renderTicketThread("tickets-thread", d.messages, d.orphan_attachments);
     _renderTicketHistory("tickets-player-history", d.history);
-    const closed = t.status === "ENCERRADO" || t.status === "CLOSED";
-    document.getElementById("tickets-reply-box").style.display = closed ? "none" : "";
+    const perms = d.permissions || {};
+    const closed = perms.is_closed || t.status === "ENCERRADO" || t.status === "CLOSED";
+    const canReply = perms.can_player_reply !== false && !closed;
+    document.getElementById("tickets-reply-box").style.display = canReply ? "" : "none";
+    document.getElementById("tickets-closed-notice")?.classList.toggle("hidden", !closed);
+    const reqCloseBtn = document.getElementById("tickets-request-close-btn");
+    if (reqCloseBtn) {
+      reqCloseBtn.style.display = perms.can_player_request_close ? "" : "none";
+    }
   } catch (e) { toast(String(e), "error"); }
 }
 
@@ -8869,7 +8887,26 @@ async function ticketsSendReply() {
     if (!d.ok) { toast(d.error || "Erro", "error"); return; }
     document.getElementById("tickets-reply-body").value = "";
     document.getElementById("tickets-reply-links").value = "";
+    toast("Mensagem enviada.", "success");
     ticketsOpenDetail(_ticketsSelectedId);
+    loadTicketsPlayer();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsRequestClose() {
+  if (!_ticketsSelectedId) return;
+  if (!confirm("Marcar este ticket como resolvido? O suporte será notificado para encerrar.")) return;
+  try {
+    const d = await fetchJson(`/api/tickets/${_ticketsSelectedId}/request-close`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    toast("Solicitação enviada. Aguarde confirmação do suporte.", "success");
+    ticketsOpenDetail(_ticketsSelectedId);
+    loadTicketsPlayer();
   } catch (e) { toast(String(e), "error"); }
 }
 
@@ -8907,7 +8944,7 @@ async function loadTicketsAdmin() {
     _populateTicketAdminCategoryFilter(d);
     const items = d.items || [];
     if (!items.length) {
-      el.innerHTML = `<div style="color:var(--text2);padding:12px;">Nenhum ticket na fila.</div>`;
+      el.innerHTML = `<div style="color:var(--text2);padding:16px;text-align:center;">Nenhum ticket na fila com os filtros atuais.</div>`;
       return;
     }
     el.innerHTML = `<table class="tbl"><thead><tr>
@@ -8921,12 +8958,27 @@ async function loadTicketsAdmin() {
       <td>${_ticketStatusBadge(t.status)}</td>
       <td style="font-size:11px;">${escHtml(t.discord_username || t.discord_user_id || "—")}</td>
       <td style="font-size:11px;color:var(--text2);">${escHtml(t.updated_at || "")}</td>
-      <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminOpenDetail(${t.id})">Atender</button></td>
+      <td><button class="btn btn-primary btn-sm" onclick="ticketsAdminAttend(${t.id})">Atender</button></td>
     </tr>`).join("")}</tbody></table>
     <div style="font-size:12px;color:var(--text2);margin-top:8px;">Total: ${d.total}</div>`;
   } catch (e) {
     el.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
   }
+}
+
+async function ticketsAdminAttend(id) {
+  try {
+    const d = await fetchJson(`/api/admin/tickets/${id}/attend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Erro ao atender", "error"); return; }
+    toast("Ticket em atendimento.", "success");
+    await ticketsAdminOpenDetail(id);
+    loadTicketsAdmin();
+  } catch (e) { toast(String(e), "error"); }
 }
 
 async function ticketsAdminOpenDetail(id) {
@@ -8949,6 +9001,10 @@ async function ticketsAdminOpenDetail(id) {
     _renderTicketThread("tickets-admin-thread", d.messages, d.orphan_attachments);
     document.getElementById("tickets-admin-reply").value = "";
     document.getElementById("tickets-admin-links").value = "";
+    const perms = d.permissions || {};
+    const closed = perms.is_closed || t.status === "ENCERRADO";
+    const closeBtn = document.getElementById("tickets-admin-close-btn");
+    if (closeBtn) closeBtn.style.display = closed ? "none" : "";
     document.getElementById("tickets-admin-detail").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) { toast(String(e), "error"); }
 }
@@ -8978,6 +9034,9 @@ async function ticketsAdminSendReply() {
 
 async function ticketsAdminSetStatus(status) {
   if (!_ticketsAdminSelectedId || !status) return;
+  if (status === "ENCERRADO") {
+    return ticketsAdminCloseTicket();
+  }
   try {
     const d = await fetchJson(`/api/admin/tickets/${_ticketsAdminSelectedId}/status`, {
       method: "POST",
@@ -8987,6 +9046,23 @@ async function ticketsAdminSetStatus(status) {
     });
     if (!d.ok) { toast(d.error || "Erro", "error"); return; }
     toast("Status atualizado.", "success");
+    ticketsAdminOpenDetail(_ticketsAdminSelectedId);
+    loadTicketsAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function ticketsAdminCloseTicket() {
+  if (!_ticketsAdminSelectedId) return;
+  if (!confirm("Encerrar este ticket? O jogador verá o status como Encerrado.")) return;
+  try {
+    const d = await fetchJson(`/api/admin/tickets/${_ticketsAdminSelectedId}/close`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Erro ao encerrar", "error"); return; }
+    toast("Ticket encerrado.", "success");
     ticketsAdminOpenDetail(_ticketsAdminSelectedId);
     loadTicketsAdmin();
   } catch (e) { toast(String(e), "error"); }
