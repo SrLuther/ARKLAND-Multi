@@ -5405,7 +5405,7 @@
       <div id="page-players-admin" class="page admin-only">
         <div id="topbar">
           <div class="page-title">👥 Gerenciar Jogadores</div>
-          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças e kits.</p>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças, cargos MOD/STAFF e kits.</p>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="loadPlayersAdmin(true)">↺ Recarregar</button>
           </div>
@@ -5586,6 +5586,20 @@
             Variáveis de ambiente opcionais: <code>ARKSHOP_CROSS_CHAT_DISCORD_ENABLED</code>,
             <code>ARKSHOP_CROSS_CHAT_DISCORD_TOKEN</code>, <code>ARKSHOP_CROSS_CHAT_DISCORD_CHANNEL_ID</code>.
           </p>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">📤 Enviar para todos os mapas</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:10px;">
+            Mensagem aparece no chat in-game de <strong>todos</strong> os servidores como
+            <code>[ARKLAND] Admin Site: texto</code> (mesma fila do CrossChat).
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+              <label>Mensagem</label>
+              <input id="cluster-chat-send-msg" type="text" maxlength="500" placeholder="Aviso para o cluster…" onkeydown="if(event.key==='Enter')clusterChatSend()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="clusterChatSend()">Enviar ▶</button>
+          </div>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-title">📊 Resumo (24h)</div>
@@ -12756,10 +12770,13 @@ async function loadPlayersAdmin(resetPanel) {
       const sel = _playersAdminSelected === p.steam_id ? " selected" : "";
       const statusCls = p.site_access_blocked ? "status-pill--blocked" : "status-pill--active";
       const statusLbl = p.site_access_blocked ? "Bloqueado" : "Ativo";
-      const chips = (p.licenses || []).slice(0, 4).map(g =>
+      const chips = (p.licenses || []).slice(0, 3).map(g =>
         `<span class="license-chip">${escHtml(g)}</span>`
       ).join("");
-      const more = (p.licenses || []).length > 4 ? `<span class="license-chip">+${p.licenses.length - 4}</span>` : "";
+      const more = (p.licenses || []).length > 3 ? `<span class="license-chip">+${p.licenses.length - 3}</span>` : "";
+      const staffChips = (p.staff_roles || []).map(g =>
+        `<span class="license-chip" style="border-color:rgba(0,200,255,.35);color:var(--cyan);">${escHtml(g === "Moderacao" ? "MOD" : g)}</span>`
+      ).join("");
       const login = p.last_login_at ? new Date(p.last_login_at).toLocaleString("pt-BR") : "—";
       return `<tr class="${sel}" onclick="selectPlayerAdmin('${escHtml(p.steam_id)}')">
         <td><div style="display:flex;align-items:center;gap:10px;">
@@ -12770,11 +12787,12 @@ async function loadPlayersAdmin(resetPanel) {
         <td>${Number(p.points || 0).toLocaleString("pt-BR")}</td>
         <td><span class="badge ${statusCls}">${statusLbl}</span></td>
         <td><div class="license-chips">${chips}${more}</div></td>
+        <td><div class="license-chips">${staffChips || '<span style="color:var(--text2);font-size:11px;">—</span>'}</div></td>
         <td style="font-size:12px;color:var(--text2);">${escHtml(login)}</td>
       </tr>`;
     }).join("");
     if (el) el.innerHTML = `<table class="pkg-admin-table players-admin-table"><thead><tr>
-      <th>Jogador</th><th>Âmbar</th><th>Status</th><th>Licenças</th><th>Último login</th>
+      <th>Jogador</th><th>Âmbar</th><th>Status</th><th>Licenças</th><th>Cargos</th><th>Último login</th>
     </tr></thead><tbody>${rows}</tbody></table>`;
     if (resetPanel) {
       _playersAdminSelected = null;
@@ -12829,6 +12847,13 @@ function renderPlayerAdminPanel(d) {
   const statusLbl = p.site_access_blocked ? "Bloqueado" : "Ativo";
   const licCatalog = _playersAdminLicenseCatalog || d.license_catalog || [];
   const licOpts = _playerAdminLicenseOptions(licCatalog);
+  const staffCatalog = d.staff_role_catalog || [];
+  const staffOpts = staffCatalog.map(r =>
+    `<option value="${escHtml(r.group)}">${escHtml(r.label)} (+${r.timed_bonus || 0} Â/ciclo)</option>`
+  ).join("");
+  const staffChips = (p.staff_roles || []).map(e =>
+    `<span class="license-chip" style="border-color:rgba(0,200,255,.35);color:var(--cyan);" title="permanente">${escHtml(e.group === "Moderacao" ? "MOD" : e.group)}</span>`
+  ).join("") || `<span style="color:var(--text2);font-size:12px;">Nenhum</span>`;
   const kitOpts = (d.kit_catalog || []).map(k =>
     `<option value="${escHtml(k.kit_id)}">${escHtml(k.label)}</option>`
   ).join("");
@@ -12879,6 +12904,21 @@ function renderPlayerAdminPanel(d) {
     <div style="margin-bottom:14px;">
       <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin-bottom:6px;">Licenças ativas</div>
       <div class="license-chips">${entChips}</div>
+    </div>
+    <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
+      <div style="font-weight:600;margin-bottom:8px;">Cargos da equipe (MOD / STAFF)</div>
+      <p style="font-size:11px;color:var(--text2);margin:0 0 10px;">Permanentes — bônus de Âmbar por tempo online via TimedPoints. Não são licenças resgatáveis.</p>
+      <div class="license-chips" style="margin-bottom:10px;">${staffChips}</div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <select id="pa-staff-role">${staffOpts}</select>
+      </div>
+      <div class="form-group" style="margin-bottom:8px;">
+        <input id="pa-staff-reason" type="text" placeholder="Motivo (auditoria)" />
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="playerAdminStaffRole('grant')">+ Aplicar cargo</button>
+        <button class="btn btn-ghost btn-sm" onclick="playerAdminStaffRole('revoke')">− Remover cargo</button>
+      </div>
     </div>
     <div class="card" style="padding:12px;margin-bottom:12px;background:var(--surface2);">
       <div style="font-weight:600;margin-bottom:8px;">Ajustar Âmbar</div>
@@ -12983,6 +13023,30 @@ async function playerAdminBan(blocked) {
   const d = await r.json();
   if (d.ok) {
     toast(blocked ? "Jogador bloqueado." : "Jogador desbloqueado.", "success");
+    loadPlayersAdmin();
+    selectPlayerAdmin(_playersAdminSelected, true);
+  } else toast(d.error || "Falha", "error");
+}
+
+async function playerAdminStaffRole(action) {
+  if (!_playersAdminSelected) return;
+  const group = document.getElementById("pa-staff-role")?.value || "";
+  const reason = document.getElementById("pa-staff-reason")?.value?.trim() || "";
+  const label = group === "Moderacao" ? "MOD" : group;
+  if (action === "revoke" && !confirm(`Remover cargo ${label}?`)) return;
+  const r = await fetch(API + "/api/admin/players/" + encodeURIComponent(_playersAdminSelected) + "/staff-roles", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, group, reason }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    const sync = (d.permissions_sync || []).filter(s => !s.ok);
+    if (sync.length) {
+      toast(`Cargo atualizado no banco. RCON falhou em ${sync.length} mapa(s) — verifique servidores.`, "warning");
+    } else {
+      toast(action === "grant" ? "Cargo aplicado." : "Cargo removido.", "success");
+    }
     loadPlayersAdmin();
     selectPlayerAdmin(_playersAdminSelected, true);
   } else toast(d.error || "Falha", "error");

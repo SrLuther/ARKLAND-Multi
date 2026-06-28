@@ -6,6 +6,7 @@ from typing import Any, Callable
 from flask import Flask, jsonify, request
 
 from cross_chat_service import (
+    SITE_CHAT_SOURCE,
     chat_stats,
     list_messages,
     list_mutes,
@@ -27,6 +28,7 @@ def register_cross_chat_routes(
     limiter: Any | None = None,
     load_settings: Callable[[], Any] | None = None,
     save_settings: Callable[[Any], None] | None = None,
+    steam_id_from_session: Callable[[], str | None] | None = None,
 ) -> None:
     _limit = limiter.limit if limiter else (lambda *a, **k: (lambda f: f))
 
@@ -149,6 +151,40 @@ def register_cross_chat_routes(
                 steam_id=str(body.get("steam_id", "")).strip(),
                 hours=hours,
                 reason=str(body.get("reason", "")).strip(),
+            )
+            if not result.get("ok"):
+                return jsonify(result), 400
+            return jsonify(result)
+        finally:
+            db.close()
+
+    @app.route("/api/admin/chat/send", methods=["POST"])
+    @admin_required
+    @_limit("30 per minute")
+    def admin_chat_send():
+        """Publica mensagem do painel admin para todos os mapas do cluster."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco nao configurado"}), 503
+        body = request.get_json(force=True, silent=True) or {}
+        message = str(body.get("message") or "").strip()
+        if not message:
+            return jsonify({"ok": False, "error": "mensagem vazia"}), 400
+        admin_steam_id = ""
+        if steam_id_from_session:
+            admin_steam_id = str(steam_id_from_session() or "").strip()
+        admin_name = str(body.get("player_name") or body.get("sender") or "Admin Site").strip()
+        if not admin_name:
+            admin_name = "Admin Site"
+        db = session_factory()
+        try:
+            result = publish_message(
+                db,
+                source_server=SITE_CHAT_SOURCE,
+                steam_id=admin_steam_id,
+                player_name=admin_name,
+                message=message,
+                channel="cluster",
+                skip_mute=True,
             )
             if not result.get("ok"):
                 return jsonify(result), 400

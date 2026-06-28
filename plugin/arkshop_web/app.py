@@ -1676,6 +1676,8 @@ def _list_admin_players(
                 except Exception:
                     pass
             ents = _get_player_entitlements(sid)
+            license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
+            staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
             items.append({
                 "steam_id": sid,
                 "display_name": _resolve_player_display_name(
@@ -1686,7 +1688,8 @@ def _list_admin_players(
                 "ban_reason": r[5],
                 "created_at": _dt_iso(r[6]),
                 "last_login_at": _dt_iso(r[7]),
-                "licenses": [e["group"] for e in ents],
+                "licenses": license_groups,
+                "staff_roles": staff_roles,
             })
         return {"ok": True, "items": items, "total": total, "offset": offset, "limit": limit}
     except Exception as exc:
@@ -1758,7 +1761,8 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
                 "last_login_at": _dt_iso(su.last_login_at) if su else None,
                 "market_display_name": (prof.market_display_name if prof else None),
                 "commerce_enabled": bool(prof.commerce_enabled) if prof else False,
-                "entitlements": entitlements,
+                "entitlements": _filter_license_entitlements(entitlements),
+                "staff_roles": _get_player_staff_roles_from_list(entitlements),
                 "kit_stash": kit_stash,
                 "kit_limits": kit_limits,
                 "listings_count": listings_count,
@@ -1787,6 +1791,7 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
                 for p in donations
             ],
             "license_catalog": _catalog_license_options(),
+            "staff_role_catalog": _staff_role_catalog(),
             "kit_catalog": _catalog_kit_options(),
         }
     except Exception as exc:
@@ -2053,6 +2058,11 @@ def _admin_player_license(
         return {"ok": False, "error": "SteamID64 inválido"}
     if not group:
         return {"ok": False, "error": "Grupo de licença obrigatório"}
+    if _is_staff_role_group(group):
+        return {
+            "ok": False,
+            "error": "MOD/STAFF são cargos da equipe — use a seção Cargos no painel do jogador.",
+        }
     action = str(action or "grant").strip().lower()
     if not _db_ready():
         return {"ok": False, "error": "Banco não configurado"}
@@ -2092,7 +2102,143 @@ def _admin_player_license(
             "steam_id": steam_id,
             "group": group,
             "action": action,
-            "entitlements": _get_player_entitlements(steam_id),
+            "entitlements": _filter_license_entitlements(_get_player_entitlements(steam_id)),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+
+def _is_staff_role_group(group: str) -> bool:
+    return str(group or "").strip() in STAFF_ROLE_GROUPS
+
+
+def _staff_role_catalog() -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for group in sorted(STAFF_ROLE_GROUPS, key=lambda g: STAFF_ROLE_LABELS.get(g, g)):
+        out.append({
+            "group": group,
+            "label": STAFF_ROLE_LABELS.get(group, group),
+            "timed_bonus": LICENSE_TIMED_BONUS.get(group, 0),
+            "permanent": True,
+        })
+    return out
+
+
+def _filter_license_entitlements(entitlements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [e for e in entitlements if not _is_staff_role_group(str(e.get("group") or ""))]
+
+
+def _get_player_staff_roles_from_list(entitlements: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [e for e in entitlements if _is_staff_role_group(str(e.get("group") or ""))]
+
+
+def _get_player_staff_roles(steam_id: str) -> list[dict[str, Any]]:
+    return _get_player_staff_roles_from_list(_get_player_entitlements(steam_id))
+
+
+def _sync_permissions_all_servers(
+    steam_id: str,
+    group: str,
+    *,
+    grant: bool,
+) -> list[dict[str, Any]]:
+    """Sincroniza grupo MOD/STAFF no plugin Permissions via RCON em todos os mapas."""
+    settings = _load_settings()
+    servers = _load_servers()
+    cmd = (
+        f"Permissions.Add {steam_id} {group}"
+        if grant
+        else f"Permissions.Remove {steam_id} {group}"
+    )
+    results: list[dict[str, Any]] = []
+    targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
+    for srv in targets:
+        sid = str(srv.get("server_id") or "").strip() if srv else None
+        label = str(srv.get("label") or sid or "padrão") if srv else "padrão"
+        host, port, password, _ = _resolve_rcon_target(sid, settings)
+        if not password:
+            results.append({
+                "server_id": sid or "default",
+                "label": label,
+                "ok": False,
+                "error": "RCON sem senha configurada",
+            })
+            continue
+        try:
+            resp = _rcon_command(host, port, password, cmd, connect_retries=2)
+            results.append({
+                "server_id": sid or "default",
+                "label": label,
+                "ok": True,
+                "response": resp[:120],
+            })
+        except Exception as exc:
+            results.append({
+                "server_id": sid or "default",
+                "label": label,
+                "ok": False,
+                "error": str(exc),
+            })
+    return results
+
+
+def _admin_player_staff_role(
+    steam_id: str,
+    *,
+    action: str,
+    group: str = "",
+    reason: str = "",
+) -> dict[str, Any]:
+    steam_id = str(steam_id or "").strip()
+    group = str(group or "").strip()
+    if not _is_valid_steamid64(steam_id):
+        return {"ok": False, "error": "SteamID64 inválido"}
+    if not group:
+        return {"ok": False, "error": "Cargo obrigatório"}
+    if not _is_staff_role_group(group):
+        return {"ok": False, "error": f"Cargo inválido: {group}"}
+    action = str(action or "grant").strip().lower()
+    if not _db_ready():
+        return {"ok": False, "error": "Banco não configurado"}
+    admin_sid = str(_steam_id_from_session() or "")
+    try:
+        if action == "grant":
+            _grant_player_entitlement(
+                steam_id,
+                group,
+                0,
+                source=f"staff_role:admin:{admin_sid}",
+                notes=reason or "staff_grant",
+            )
+            _audit_event(
+                "admin_player_staff_role_grant",
+                actor_type="admin",
+                actor_steam_id=admin_sid,
+                target_steam_id=steam_id,
+                item_id=group,
+                message=reason or f"Cargo {group} concedido",
+            )
+            perm_sync = _sync_permissions_all_servers(steam_id, group, grant=True)
+        elif action == "revoke":
+            _revoke_player_entitlement_by_group(steam_id, group)
+            _audit_event(
+                "admin_player_staff_role_revoke",
+                actor_type="admin",
+                actor_steam_id=admin_sid,
+                target_steam_id=steam_id,
+                item_id=group,
+                message=reason or f"Cargo {group} removido",
+            )
+            perm_sync = _sync_permissions_all_servers(steam_id, group, grant=False)
+        else:
+            return {"ok": False, "error": f"Ação inválida: {action}"}
+        return {
+            "ok": True,
+            "steam_id": steam_id,
+            "group": group,
+            "action": action,
+            "staff_roles": _get_player_staff_roles(steam_id),
+            "permissions_sync": perm_sync,
         }
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
@@ -2484,6 +2630,11 @@ LICENSE_TIMED_BONUS = {
     "Alfa": 75,
     "Moderacao": 500,
     "STAFF": 1000,
+}
+STAFF_ROLE_GROUPS = frozenset({"Moderacao", "STAFF"})
+STAFF_ROLE_LABELS: dict[str, str] = {
+    "Moderacao": "MOD",
+    "STAFF": "STAFF",
 }
 
 
@@ -7308,6 +7459,27 @@ def admin_player_ban(steam_id: str):
     return jsonify(result), status
 
 
+@app.route("/api/admin/staff-roles", methods=["GET"])
+@admin_required
+def admin_staff_roles_catalog():
+    return jsonify({"ok": True, "items": _staff_role_catalog()})
+
+
+@app.route("/api/admin/players/<steam_id>/staff-roles", methods=["POST"])
+@admin_required
+@limiter.limit("120 per hour")
+def admin_player_staff_roles(steam_id: str):
+    body = request.get_json(force=True, silent=True) or {}
+    result = _admin_player_staff_role(
+        steam_id.strip(),
+        action=str(body.get("action") or "grant"),
+        group=str(body.get("group") or body.get("role") or "").strip(),
+        reason=str(body.get("reason") or "").strip(),
+    )
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
 @app.route("/api/admin/players/<steam_id>/licenses", methods=["POST"])
 @admin_required
 @limiter.limit("120 per hour")
@@ -7459,6 +7631,7 @@ register_cross_chat_routes(
     limiter=limiter,
     load_settings=_load_settings,
     save_settings=_save_settings,
+    steam_id_from_session=_steam_id_from_session,
 )
 
 from cross_chat_discord import start_discord_bridge

@@ -107,6 +107,9 @@ def _normalize_steam_id(steam_id: str, channel: str) -> str:
     return digits
 
 
+SITE_CHAT_SOURCE = "ARKLAND"
+
+
 def publish_message(
     db: Any,
     *,
@@ -116,6 +119,7 @@ def publish_message(
     message: str,
     channel: str = "cluster",
     tribe_name: str = "",
+    skip_mute: bool = False,
 ) -> dict[str, Any]:
     source_server = _sanitize_ascii(source_server, max_len=_MAX_SERVER)
     channel = _sanitize_ascii(channel, max_len=16) or "cluster"
@@ -129,11 +133,13 @@ def publish_message(
     if channel == "discord":
         if not steam_id:
             return {"ok": False, "error": "discord_id invalido"}
+    elif source_server == SITE_CHAT_SOURCE:
+        steam_id = re.sub(r"\D", "", steam_id or "")[:20] or "0"
     elif len(steam_id) < 15:
         return {"ok": False, "error": "steam_id invalido"}
     if not message:
         return {"ok": False, "error": "mensagem vazia"}
-    if channel != "discord" and is_muted(db, steam_id):
+    if not skip_mute and channel != "discord" and is_muted(db, steam_id):
         return {"ok": False, "error": "jogador silenciado"}
 
     db.execute(
