@@ -279,6 +279,26 @@ class TestPointPackages:
         pkgs = client.get("/api/settings").get_json()["point_packages"]
         assert pkgs == catalog_pkgs
 
+    def test_save_empty_point_packages_persists(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(
+            json.dumps({"Settings": {}, "PointPackages": _app_module._DEFAULT_POINT_PACKAGES}),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        _login(client, ADMIN_STEAM)
+        r = client.post("/api/settings", json={"point_packages": []})
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        _app_module._CONFIG_CACHE.clear()
+        assert client.get("/api/settings").get_json()["point_packages"] == []
+
+        saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved_cfg["PointPackages"] == []
+
 
 # ── Player summary & history ──────────────────────────────────────────────────
 
@@ -1107,6 +1127,29 @@ class TestCloudLicensePurchase:
 
 
 # ── Doações — cartão Mercado Pago ─────────────────────────────────────────────
+
+class TestDonationPublicUrl:
+    def test_shop_public_base_url_defaults_to_arkland(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")
+        assert _app_module._shop_public_base_url() == "https://arkland.com.br"
+
+    def test_build_base_url_uses_public_url_behind_localhost_proxy(self, client, tmp_path, monkeypatch):
+        monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")
+        with client.application.test_request_context(
+            "/api/player/card/checkout",
+            headers={
+                "Host": "127.0.0.1:27199",
+                "X-Forwarded-Proto": "https",
+            },
+            method="POST",
+        ):
+            assert _app_module._build_base_url() == "https://arkland.com.br"
+
+    def test_get_mp_access_token_prefers_settings_over_env(self, tmp_path, monkeypatch):
+        _write_settings(tmp_path, mp_access_token="SETTINGS_TOKEN")
+        monkeypatch.setenv("MP_ACCESS_TOKEN", "ENV_TOKEN")
+        assert _app_module._get_mp_access_token() == "SETTINGS_TOKEN"
+
 
 class TestCardCheckout:
     def _enable_mp(self, tmp_path, monkeypatch):

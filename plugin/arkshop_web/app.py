@@ -2989,11 +2989,11 @@ def _revoke_entitlement_for_order(steam_id: str, order_id: str, db: Any | None =
 def _load_point_packages() -> list[dict[str, Any]]:
     cfg = _read_shop_config()
     packages = cfg.get("PointPackages")
-    if isinstance(packages, list) and packages:
+    if isinstance(packages, list):
         return packages
     s = _load_settings()
     stored = s.get("point_packages")
-    if isinstance(stored, list) and stored:
+    if isinstance(stored, list):
         return stored
     return _DEFAULT_POINT_PACKAGES
 
@@ -3043,10 +3043,12 @@ def _package_label(package_id: str) -> str:
 
 
 def _get_mp_access_token() -> str:
+    """Token MP: settings.json (admin UI) tem prioridade sobre env (evita env vazio/stale)."""
+    settings_token = str(_load_settings().get("mp_access_token", "")).strip()
     env_token = os.environ.get("MP_ACCESS_TOKEN", "").strip()
-    if env_token:
-        return env_token
-    return str(_load_settings().get("mp_access_token", "")).strip()
+    if settings_token:
+        return settings_token
+    return env_token
 
 
 def _pix_enabled() -> bool:
@@ -3068,10 +3070,35 @@ def _steam_id_from_session() -> str | None:
     return None
 
 
+def _shop_public_base_url() -> str:
+    """URL pública HTTPS da loja — usada em callbacks Mercado Pago (não localhost)."""
+    s = _load_settings()
+    configured = str(s.get("public_url") or "").strip().rstrip("/")
+    if configured:
+        if "://" not in configured:
+            configured = f"https://{configured}"
+        return configured.rstrip("/")
+    return DEFAULT_SHOP_PUBLIC_URL.rstrip("/")
+
+
 def _build_base_url() -> str:
-    if request.headers.get("X-Forwarded-Proto") and request.headers.get("X-Forwarded-Host"):
-        return f"{request.headers['X-Forwarded-Proto']}://{request.headers['X-Forwarded-Host']}"
-    return request.url_root.rstrip("/")
+    """URL base para redirects (Steam login, MP). Preferência: settings > proxy > fallback público."""
+    public = _shop_public_base_url()
+    proto = (request.headers.get("X-Forwarded-Proto") or request.scheme or "https").split(",")[0].strip()
+    host = (
+        request.headers.get("X-Forwarded-Host")
+        or request.headers.get("Host")
+        or request.host
+        or ""
+    ).split(",")[0].strip()
+    if host.startswith("127.0.0.1") or host.startswith("localhost"):
+        return public
+    if proto and host:
+        return f"{proto}://{host}".rstrip("/")
+    root = (request.url_root or "").rstrip("/")
+    if root and "127.0.0.1" not in root and "localhost" not in root:
+        return root
+    return public
 
 
 # ── Servers registry ──────────────────────────────────────────────────────────
@@ -5861,11 +5888,12 @@ def player_pix_checkout():
             "points": points,
             "amount_brl": price_brl,
             "label": label,
-            "pix_qr_base64": qr_b64,
-            "pix_copy_paste": copy_paste,
+            "pix_qr_base64": str(qr_b64) if qr_b64 is not None else None,
+            "pix_copy_paste": str(copy_paste) if copy_paste is not None else None,
         })
     except Exception as exc:
         db.rollback()
+        _log_error("pix_checkout_db", payment_id=payment_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
         db.close()
@@ -5914,7 +5942,7 @@ def player_card_checkout():
     payment_id = str(uuid.uuid4())
     label = str(package.get("label") or f"{points:,}".replace(",", ".") + f" {_AMBER_SINGULAR if points == 1 else _AMBER_PLURAL}")
     description = f"Doação ARKLAND — {label} ({steam_id})"
-    base = _build_base_url()
+    base = _shop_public_base_url()
     back_urls = {
         "success": f"{base}/?mp_card_return=success",
         "failure": f"{base}/?mp_card_return=failure",

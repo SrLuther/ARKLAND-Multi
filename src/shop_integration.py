@@ -2118,9 +2118,16 @@ def sync_arkshop_web_settings(
     settings_path = webstore_data_dir() / "settings.json"
     if settings_path.exists():
         try:
-            data = json.loads(settings_path.read_text(encoding="utf-8"))
-        except Exception:
-            data = {}
+            loaded = json.loads(settings_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        except Exception as exc:
+            logger.warning(
+                "sync_arkshop_web_settings: settings.json ilegível — sync abortado "
+                "para não apagar credenciais (ex.: mp_access_token): %s",
+                exc,
+            )
+            return
 
     catalog_path = resolve_persistent_catalog_path(catalog_path, shop=shop)
     if shop and is_ephemeral_pyinstaller_path(shop.catalog_config_path or ""):

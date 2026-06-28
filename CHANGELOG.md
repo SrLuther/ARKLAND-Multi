@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.145] - 2026-06-27
+
+### Fix
+
+- Fix CRÍTICO (Web Store / Mercado Pago): checkout cartão e webhook usam URL pública (public_url) — evita back_urls localhost e falha no retorno/aprovação MP.
+- Fix (Web Store / Doações): lista vazia de pacotes PIX respeitada (_load_point_packages não cai mais nos defaults quando admin zera o catálogo).
+- Fix (Web Store / Mercado Pago): token MP prioriza settings.json sobre env vazio ou stale.
+- Fix (Web Store / PIX): QR/copy-paste normalizados; log em falha de checkout DB.
+- Fix (Web Store / Cartão MP): auto_return só com HTTPS; validação de URL de retorno.
+- Fix (Loja / Sync): sync aborta se settings.json ilegível — não apaga mp_access_token.
+
 ## [1.9.144] - 2026-06-27
 
 ### Fix

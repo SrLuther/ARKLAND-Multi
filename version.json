@@ -1,8 +1,13 @@
 {
-    "version": "1.9.144",
+    "version": "1.9.145",
     "date": "2026-06-27",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.144/ARKLAND-Multi-Setup-v1.9.144.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.145/ARKLAND-Multi-Setup-v1.9.145.exe",
     "changelog": [
-        "Fix CRÍTICO (Web Store / Doações): pacotes PIX/cartão editados no admin web persistem no catálogo mestre (PointPackages) — antes só gravavam em settings.json e o reload lia os defaults do config.json."
+        "Fix CRÍTICO (Web Store / Mercado Pago): checkout cartão e webhook usam URL pública (public_url) — evita back_urls localhost e falha no retorno/aprovação MP.",
+        "Fix (Web Store / Doações): lista vazia de pacotes PIX respeitada (_load_point_packages não cai mais nos defaults quando admin zera o catálogo).",
+        "Fix (Web Store / Mercado Pago): token MP prioriza settings.json sobre env vazio ou stale.",
+        "Fix (Web Store / PIX): QR/copy-paste normalizados; log em falha de checkout DB.",
+        "Fix (Web Store / Cartão MP): auto_return só com HTTPS; validação de URL de retorno.",
+        "Fix (Loja / Sync): sync aborta se settings.json ilegível — não apaga mp_access_token."
     ]
 }

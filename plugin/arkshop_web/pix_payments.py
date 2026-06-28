@@ -221,8 +221,10 @@ def extract_pix_data(mp_response: dict[str, Any]) -> tuple[str | None, str | Non
     mp_id = str(mp_response.get("id", "") or "")
     poi = mp_response.get("point_of_interaction") or {}
     tx = poi.get("transaction_data") or {}
-    qr_b64 = tx.get("qr_code_base64")
-    copy_paste = tx.get("qr_code") or tx.get("ticket_url")
+    qr_raw = tx.get("qr_code_base64")
+    copy_raw = tx.get("qr_code") or tx.get("ticket_url")
+    qr_b64 = str(qr_raw).strip() if qr_raw is not None and str(qr_raw).strip() else None
+    copy_paste = str(copy_raw).strip() if copy_raw is not None and str(copy_raw).strip() else None
     return mp_id or None, qr_b64, copy_paste
 
 
@@ -251,6 +253,11 @@ def create_card_checkout_preference(
     """Checkout Pro — cartão de crédito/débito (PIX excluído; fluxo PIX usa API direta)."""
     if not payer or not payer.get("email"):
         raise PayerValidationError("Dados do pagador são obrigatórios.", field="email")
+    success_url = str(back_urls.get("success") or "").strip()[:512]
+    failure_url = str(back_urls.get("failure") or "").strip()[:512]
+    pending_url = str(back_urls.get("pending") or "").strip()[:512]
+    if not success_url:
+        raise PixPaymentError("URL de retorno (success) não configurada — defina public_url em settings")
     payload: dict[str, Any] = {
         "items": [
             {
@@ -268,11 +275,10 @@ def create_card_checkout_preference(
         },
         "external_reference": external_reference[:256],
         "back_urls": {
-            "success": str(back_urls.get("success") or "")[:512],
-            "failure": str(back_urls.get("failure") or "")[:512],
-            "pending": str(back_urls.get("pending") or "")[:512],
+            "success": success_url,
+            "failure": failure_url,
+            "pending": pending_url,
         },
-        "auto_return": "approved",
         "statement_descriptor": "ARKLAND",
         "payment_methods": {
             "excluded_payment_types": [
@@ -281,6 +287,8 @@ def create_card_checkout_preference(
             ],
         },
     }
+    if success_url.startswith("https://"):
+        payload["auto_return"] = "approved"
     if payer.get("phone"):
         payload["payer"]["phone"] = payer["phone"]
     return _mp_request(access_token, "POST", "/checkout/preferences", payload)
