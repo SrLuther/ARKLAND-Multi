@@ -250,6 +250,20 @@ def _bind_tooltip(widget: tk.Misc, text: str, theme: dict) -> None:
     widget.bind("<Destroy>", lambda _e: _hide())
 
 
+def _logical_row_to_grid(row: int) -> int:
+    """Índice lógico do campo (1-based no card) → linha do grid do card.
+
+    Campos com rótulo duplo (float/int/str/combo) ocupam ``row*2`` (rótulo) e
+    ``row*2+1`` (controle). Checkboxes usam só ``row*2`` na mesma escala, evitando
+    colisão quando bool e numérico compartilham o mesmo card.
+    """
+    return row * 2
+
+
+def _logical_row_controls_grid(row: int) -> int:
+    return row * 2 + 1
+
+
 def _track_modified(
     ctx: TekPanelCtx,
     field: str,
@@ -302,10 +316,10 @@ def _track_modified(
 
 def add_float_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) -> None:
     meta = get_field_meta(field)
-    dual_label(card, meta, row * 2, ctx.accent, ctx.theme)
+    dual_label(card, meta, _logical_row_to_grid(row), ctx.accent, ctx.theme)
 
     ctrl = ctk.CTkFrame(card, fg_color="transparent")
-    ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
+    ctrl.grid(row=_logical_row_controls_grid(row), column=0, padx=12, pady=(0, 10), sticky="ew")
     ctrl.grid_columnconfigure(1, weight=1)
 
     raw_val = getattr(ctx.srv, field, 1.0)
@@ -380,10 +394,10 @@ def add_float_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) 
 
 def add_int_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) -> None:
     meta = get_field_meta(field)
-    dual_label(card, meta, row * 2, ctx.accent, ctx.theme)
+    dual_label(card, meta, _logical_row_to_grid(row), ctx.accent, ctx.theme)
 
     ctrl = ctk.CTkFrame(card, fg_color="transparent")
-    ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
+    ctrl.grid(row=_logical_row_controls_grid(row), column=0, padx=12, pady=(0, 10), sticky="ew")
 
     raw_val = getattr(ctx.srv, field, 0)
     val = _coerce_int(raw_val, 0)
@@ -412,7 +426,7 @@ def add_bool_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int, c
     ctx.vars_ref[field] = var
 
     frame = ctk.CTkFrame(card, fg_color="transparent")
-    frame.grid(row=row, column=col, padx=12, pady=6, sticky="ew")
+    frame.grid(row=_logical_row_to_grid(row), column=col, padx=12, pady=6, sticky="ew")
     frame.grid_columnconfigure(1, weight=1)
 
     cb = ctk.CTkCheckBox(
@@ -473,10 +487,10 @@ def begin_tek_section(
 
 def add_combo_field(ctx: TekPanelCtx, card: ctk.CTkFrame, field: str, row: int) -> None:
     meta = get_field_meta(field)
-    dual_label(card, meta, row * 2, ctx.accent, ctx.theme)
+    dual_label(card, meta, _logical_row_to_grid(row), ctx.accent, ctx.theme)
 
     ctrl = ctk.CTkFrame(card, fg_color="transparent")
-    ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
+    ctrl.grid(row=_logical_row_controls_grid(row), column=0, padx=12, pady=(0, 10), sticky="ew")
     ctrl.grid_columnconfigure(0, weight=1)
 
     raw_val = getattr(ctx.srv, field, "") or ""
@@ -519,10 +533,10 @@ def add_str_field(
     wide: bool = False,
 ) -> None:
     meta = get_field_meta(field)
-    dual_label(card, meta, row * 2, ctx.accent, ctx.theme)
+    dual_label(card, meta, _logical_row_to_grid(row), ctx.accent, ctx.theme)
 
     ctrl = ctk.CTkFrame(card, fg_color="transparent")
-    ctrl.grid(row=row * 2 + 1, column=0, padx=12, pady=(0, 10), sticky="ew")
+    ctrl.grid(row=_logical_row_controls_grid(row), column=0, padx=12, pady=(0, 10), sticky="ew")
     ctrl.grid_columnconfigure(0, weight=1)
 
     val = getattr(ctx.srv, field, "")

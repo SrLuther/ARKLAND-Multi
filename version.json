@@ -1,8 +1,9 @@
 {
-    "version": "1.9.166",
-    "date": "2026-06-28",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.166/ARKLAND-Multi-Setup-v1.9.166.exe",
+    "version": "1.9.167",
+    "date": "2026-06-29",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.167/ARKLAND-Multi-Setup-v1.9.167.exe",
     "changelog": [
-        "CrossChat integrado desativado — sync grava CrossChat.Enabled=false nos mapas; use plugin de terceiros. UI simplificada (removidos campos confusos de chat cluster)."
+        "Melhoria (Sincronização): até 10 pastas por ciclo (antes 5).",
+        "Feature (Sincronização): opção «Apenas config.json» por ciclo — propaga só arquivos com esse nome entre as pastas do ciclo."
     ]
 }

@@ -1599,12 +1599,18 @@ class ARKServerManagerApp(ctk.CTk):
             cfg.sync_interval = 5
         # Salva ciclos
         numeric_vars = getattr(self, "_sync_numeric_only_vars", [])
+        config_json_vars = getattr(self, "_sync_config_json_only_vars", [])
         cycles = []
         for i, folder_vars in enumerate(getattr(self, "_sync_cycle_vars", [])):
             paths = [v.get().strip() for v in folder_vars if v.get().strip()]
             if paths:
                 numeric_only = numeric_vars[i].get() if i < len(numeric_vars) else False
-                cycles.append({"folders": paths, "numeric_only": numeric_only})
+                config_json_only = config_json_vars[i].get() if i < len(config_json_vars) else False
+                cycles.append({
+                    "folders": paths,
+                    "numeric_only": numeric_only,
+                    "config_json_only": config_json_only,
+                })
         cfg.sync_cycles = cycles
         self.config_manager.save()
         messagebox.showinfo("Salvo", "Configurações de sync salvas!", parent=self)
@@ -1733,9 +1739,15 @@ class ARKServerManagerApp(ctk.CTk):
         folders: Optional[List[str]] = None,
         *,
         initial_numeric_only: bool = False,
+        initial_config_json_only: bool = False,
     ) -> None:
         from .pages.add_sync_cycle import add_sync_cycle
-        add_sync_cycle(self, initial_paths=folders, initial_numeric_only=initial_numeric_only)
+        add_sync_cycle(
+            self,
+            initial_paths=folders,
+            initial_numeric_only=initial_numeric_only,
+            initial_config_json_only=initial_config_json_only,
+        )
 
     def _add_sync_folder(self, folders_frame: Any, folder_vars: list, add_folder_btn: Any, initial_path: str = "") -> None:
         from .pages.add_sync_folder import add_sync_folder

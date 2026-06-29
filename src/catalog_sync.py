@@ -171,10 +171,15 @@ def _resolve_kit_license(
     return None
 
 
+SIMPLE_LICENSE_KIT_IDS = frozenset({"kit_gamma", "kit_beta", "kit_alfa"})
+
+
 def _kit_description(kit_id: str, kit: dict[str, Any], kit_price: int, label: str) -> str:
+    if kit_id in SIMPLE_LICENSE_KIT_IDS:
+        return f"KIT {label.upper()}"
     base = _kit_base_label(kit, kit_id)
     return (
-        f"{base} — {_fmt_amber(kit_price)} Âmbar (10% da licença). "
+        f"{base} — {_fmt_amber(kit_price)} Âmbar (50% da licença). "
         f"Requer Licença {label}."
     )
 
@@ -216,7 +221,7 @@ def _apply_tier_kit_pricing(kits: dict[str, Any], items: dict[str, Any]) -> list
         if not meta:
             continue
 
-        kit_price = meta["price"] // 10
+        kit_price = meta["price"] // 2
         group = meta["group"]
         label = meta["label"]
 
@@ -244,7 +249,7 @@ def apply_catalog_sync(data: dict[str, Any]) -> tuple[list[str], list[str]]:
         items["struct_tekforge"]["Price"] = 50000
         items["struct_tekforge"]["Category"] = items["struct_tekforge"].get("Category") or "Ferramentas"
     if "struct_tekreplicator" in items:
-        items["struct_tekreplicator"]["Price"] = 52500
+        items["struct_tekreplicator"]["Price"] = 15000
         items["struct_tekreplicator"]["Category"] = items["struct_tekreplicator"].get("Category") or "Ferramentas"
         rep_items = items["struct_tekreplicator"].get("Items") or []
         if rep_items and isinstance(rep_items[0], dict):

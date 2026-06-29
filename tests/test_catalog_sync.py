@@ -35,7 +35,7 @@ def test_purge_retired_licenses_and_kits_on_sync():
     assert "licenca_alfa" in data["Items"]
     assert any("removed:item:licenca_vip_bronze" in c for c in cleared)
     assert any("removed:kit:vip_bronze" in c for c in cleared)
-    assert data["Kits"]["kit_tek_padrao_alfa"]["Price"] == 10000
+    assert data["Kits"]["kit_tek_padrao_alfa"]["Price"] == 50000
     assert "kit_tek_padrao_alfa" in "".join(updates)
 
 
@@ -55,7 +55,7 @@ def test_sanitize_placeholder_tier_kits():
     assert catalog_has_placeholder_kit_prices(data)
     cleared, _ = apply_catalog_sync(data)
     assert "kit_tek_padrao_alfa" in "".join(cleared)
-    assert data["Kits"]["kit_tek_padrao_alfa"]["Price"] == 10000
+    assert data["Kits"]["kit_tek_padrao_alfa"]["Price"] == 50000
     assert not catalog_has_placeholder_kit_prices(data)
 
 

@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.167] - 2026-06-28
+
+### Feature
+
+- Feature (Sincronização): opção «Apenas config.json» por ciclo — propaga só arquivos com esse nome entre as pastas do ciclo.
+
+### Improvement
+
+- Melhoria (Sincronização): até 10 pastas por ciclo (antes 5).
+
 ## [1.9.166] - 2026-06-28
 
 ### Other

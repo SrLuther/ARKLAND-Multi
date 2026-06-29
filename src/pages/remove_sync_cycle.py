@@ -14,6 +14,9 @@ def remove_sync_cycle(app: "ARKServerManagerApp", card, folder_vars: list) -> No
         numeric_vars = getattr(app, "_sync_numeric_only_vars", [])
         if idx < len(numeric_vars):
             numeric_vars.pop(idx)
+        config_json_vars = getattr(app, "_sync_config_json_only_vars", [])
+        if idx < len(config_json_vars):
+            config_json_vars.pop(idx)
     card.destroy()
     app._refresh_add_cycle_btn()
     # Renumera os labels dos ciclos restantes

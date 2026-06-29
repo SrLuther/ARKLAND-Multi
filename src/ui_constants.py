@@ -184,7 +184,7 @@ def tek_entry_kwargs(th: dict) -> dict:
     return kw
 
 _MAX_SYNC_CYCLES  = 5
-_MAX_SYNC_FOLDERS = 5
+_MAX_SYNC_FOLDERS = 10
 
 # Fontes/cores nativas (tk.Label / tk.Frame) para formulários em scroll —
 # evitam canvas por widget, reduzindo objetos de ~4 canvas/linha para ~1.

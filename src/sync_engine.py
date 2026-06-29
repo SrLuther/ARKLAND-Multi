@@ -268,9 +268,11 @@ class SyncEngine:
             if isinstance(cycle, dict):
                 folder_paths = cycle.get("folders", [])
                 numeric_only = bool(cycle.get("numeric_only", False))
+                config_json_only = bool(cycle.get("config_json_only", False))
             elif isinstance(cycle, list):
                 folder_paths = cycle
                 numeric_only = False
+                config_json_only = False
             else:
                 continue
             folder_objs = [self._make_folder(str(p)) for p in folder_paths if str(p).strip()]
@@ -284,7 +286,11 @@ class SyncEngine:
                     valid.append(f)
             if len(valid) < 2:
                 continue
-            total_synced += self._sync_cycle(idx + 1, valid, numeric_only=numeric_only)
+            total_synced += self._sync_cycle(
+                idx + 1, valid,
+                numeric_only=numeric_only,
+                config_json_only=config_json_only,
+            )
 
         self._stats["cycles"] += 1
         self._stats["last_sync"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -301,7 +307,13 @@ class SyncEngine:
 
         self._on_stats_update(self._stats.copy())
 
-    def _sync_cycle(self, cycle_num: int, folders: list, numeric_only: bool = False) -> int:
+    def _sync_cycle(
+        self,
+        cycle_num: int,
+        folders: list,
+        numeric_only: bool = False,
+        config_json_only: bool = False,
+    ) -> int:
         """Sync N-way: pre-fetcha lista de arquivos e propaga a versão mais nova."""
         # Pre-fetch: lista os arquivos de cada pasta uma vez (HTTP ou disco)
         folder_files: list = []
@@ -325,7 +337,9 @@ class SyncEngine:
 
         count = 0
         for rel in all_rels:
-            # Filtra apenas arquivos com nomes puramente numéricos (ex: Steam IDs de cluster)
+            rel_name = Path(rel).name.lower()
+            if config_json_only and rel_name != "config.json":
+                continue
             if numeric_only and not Path(rel).stem.isdigit():
                 continue
             # Encontra a pasta com a versão mais recente
