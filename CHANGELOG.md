@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.166] - 2026-06-28
+
+### Other
+
+- CrossChat integrado desativado — sync grava CrossChat.Enabled=false nos mapas; use plugin de terceiros. UI simplificada (removidos campos confusos de chat cluster).
+
 ## [1.9.165] - 2026-06-28
 
 ### Feature

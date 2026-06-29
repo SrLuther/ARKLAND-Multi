@@ -1279,25 +1279,31 @@ def _license_grant_group(entry: Dict[str, Any]) -> str:
 
 
 def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
-    """Extrai nomes de grupos únicos do catálogo CustomShop."""
+    """Extrai nomes de grupos únicos do catálogo CustomShop (sem VIP legado)."""
+    from .catalog_sync import _is_removed_group
+
     found: set[str] = set()
+    skip_legacy = frozenset({"Moderacao"})
+
+    def _add_group(name: str) -> None:
+        g = str(name).strip()
+        if not g or g in skip_legacy or _is_removed_group(g):
+            return
+        found.add(g)
+
     for kit in catalog.get("Kits", {}).values():
         if not isinstance(kit, dict):
             continue
         perms = kit.get("Permissions", "")
         if isinstance(perms, list):
             for g in perms:
-                g = str(g).strip()
-                if g:
-                    found.add(g)
+                _add_group(str(g))
         elif perms:
             for token in str(perms).split(","):
-                g = token.strip()
-                if g:
-                    found.add(g)
+                _add_group(token)
         grant_group = _license_grant_group(kit)
         if grant_group:
-            found.add(grant_group)
+            _add_group(grant_group)
 
     for item in (catalog.get("Items") or catalog.get("ShopItems") or {}).values():
         if not isinstance(item, dict):
@@ -1305,29 +1311,23 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
         perms = item.get("Permissions", "")
         if isinstance(perms, list):
             for g in perms:
-                g = str(g).strip()
-                if g:
-                    found.add(g)
+                _add_group(str(g))
         elif perms:
             for token in str(perms).split(","):
-                g = token.strip()
-                if g:
-                    found.add(g)
+                _add_group(token)
         grant_group = _license_grant_group(item)
         if grant_group:
-            found.add(grant_group)
+            _add_group(grant_group)
 
-    for lic in ("keyvault", "Gamma", "Beta", "Alfa", "Moderacao", "STAFF"):
-        found.add(lic)
+    for lic in ("keyvault", "Gamma", "Beta", "Alfa", "Mod", "STAFF"):
+        _add_group(lic)
 
     timed = catalog.get("TimedPointsReward", {})
     if isinstance(timed, dict):
         groups = timed.get("Groups", {})
         if isinstance(groups, dict):
             for name in groups:
-                g = str(name).strip()
-                if g:
-                    found.add(g)
+                _add_group(str(name))
     return sorted(found)
 
 
@@ -2121,19 +2121,32 @@ def validate_plugin_database_settings(db_settings: Dict[str, Any]) -> Tuple[bool
     )
 
 
+_CROSSCHAT_DISABLED_COMMENT = (
+    "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros."
+)
+
+
+def is_cross_chat_enabled(shop: Any) -> bool:
+    return bool(getattr(shop, "cross_chat_enabled", False))
+
+
 def build_cross_chat_settings(
     shop: "ShopGlobalConfig",
     srv: Any,
     catalog_cc: Optional[Dict[str, Any]] = None,
     existing_cc: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Monta bloco CrossChat do plugin — ServerId único por servidor."""
+    """Monta bloco CrossChat do plugin — desligado por padrão (plugin de terceiros)."""
+    if not is_cross_chat_enabled(shop):
+        return {
+            "_comment": _CROSSCHAT_DISABLED_COMMENT,
+            "Enabled": False,
+        }
+
     catalog_cc = catalog_cc or {}
     existing_cc = existing_cc or {}
     merged = {**catalog_cc, **existing_cc}
-    enabled = bool(getattr(shop, "cross_chat_enabled", True))
-    if "Enabled" in catalog_cc:
-        enabled = enabled and bool(catalog_cc.get("Enabled", True))
+    enabled = bool(catalog_cc.get("Enabled", True))
     return {
         "_comment": (
             "Chat entre mapas do cluster (captura automatica do chat global). "
@@ -2696,9 +2709,10 @@ def sync_all_plugins(
     if bind_warn:
         errors.append(f"AVISO: {bind_warn}")
 
-    cc_collisions = find_cross_chat_collisions(cm, asm_cm)
-    if cc_collisions:
-        errors.extend(cc_collisions)
+    if is_cross_chat_enabled(shop):
+        cc_collisions = find_cross_chat_collisions(cm, asm_cm)
+        if cc_collisions:
+            errors.extend(cc_collisions)
 
     had_placeholders = catalog_has_placeholder_kit_prices(catalog)
     cleared, kit_updates = apply_catalog_sync(catalog)
@@ -2780,15 +2794,16 @@ def sync_all_plugins(
     reg_n = register_arkshop_servers(cm, shop, asm_cm=asm_cm, errors=errors)
     if reg_n:
         ok.append(f"Servidores registrados na loja: {reg_n}")
-    try:
-        from .arkland_environment import try_load_environment_paths
+    if is_cross_chat_enabled(shop):
+        try:
+            from .arkland_environment import try_load_environment_paths
 
-        env = try_load_environment_paths()
-        if env and env.maps:
-            for note in repair_cross_chat_server_ids_on_disk(env.maps):
-                ok.append(note)
-    except Exception as exc:
-        errors.append(f"CrossChat ServerId: {exc}")
+            env = try_load_environment_paths()
+            if env and env.maps:
+                for note in repair_cross_chat_server_ids_on_disk(env.maps):
+                    ok.append(note)
+        except Exception as exc:
+            errors.append(f"CrossChat ServerId: {exc}")
     return ok, errors
 
 

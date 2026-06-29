@@ -158,7 +158,7 @@ class ShopGlobalConfig:
     catalog_config_path: str = ""         # catálogo mestre Items/Kits
     machine_label: str = ""               # ex: "Maquina-A"
     auto_sync_on_save: bool = True
-    cross_chat_enabled: bool = True          # chat cluster automático entre mapas (CustomShop)
+    cross_chat_enabled: bool = False         # CrossChat integrado desativado — use plugin de terceiros
     # Banco de pedidos (arkshop_web)
     orders_db_url: str = ""
     orders_db_host: str = "192.168.15.51"
@@ -303,6 +303,9 @@ class ConfigManager:
                     self.config.broadcast_library = []
                 if not self.config.remote_agent_token:
                     self.config.remote_agent_token = str(uuid.uuid4())
+                    self.save()
+                if getattr(self.config.shop, "cross_chat_enabled", False):
+                    self.config.shop.cross_chat_enabled = False
                     self.save()
                 # Migra config legado (local_cluster_path / shared_path) para sync_cycles
                 if not self.config.sync_cycles:

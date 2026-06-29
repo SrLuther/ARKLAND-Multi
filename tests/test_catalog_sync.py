@@ -86,3 +86,24 @@ def test_does_not_inject_licenses_or_rewrite_items():
     assert "licenca_vip_bronze" not in data["Items"]
     assert data["Items"]["struct_generatortek"]["Price"] == 90
     assert "Permissions" not in data["Items"]["struct_generatortek"]
+
+
+def test_purge_vip_and_moderacao_from_timed_points():
+    data = {
+        "Items": {},
+        "Kits": {},
+        "TimedPointsReward": {
+            "Groups": {
+                "Default": {"Amount": 25},
+                "VIPBronze": {"Amount": 20},
+                "Moderacao": {"Amount": 500},
+            },
+        },
+    }
+    cleared, _ = apply_catalog_sync(data)
+    groups = data["TimedPointsReward"]["Groups"]
+    assert "VIPBronze" not in groups
+    assert "Moderacao" not in groups
+    assert "Mod" in groups
+    assert groups["Mod"]["Amount"] == 500
+    assert any("timed:VIPBronze" in c for c in cleared)

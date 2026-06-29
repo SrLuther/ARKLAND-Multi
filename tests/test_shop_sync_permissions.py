@@ -258,6 +258,41 @@ def test_find_cross_chat_collisions_detects_duplicate_labels():
     assert any("ARKLAND" in e for e in errors)
 
 
+def test_sync_plugin_disables_crosschat_by_default(tmp_path):
+    catalog = {
+        "Kits": {},
+        "Items": {},
+        "Settings": {"ShopName": "Cluster"},
+        "CrossChat": {
+            "Enabled": True,
+            "ServerId": "Mapa1",
+            "AutoCapture": True,
+        },
+    }
+    shop = SimpleNamespace(cross_chat_enabled=False)
+    srv = SimpleNamespace(
+        name="Crystal",
+        shop_server_id="crystal",
+        install_dir=str(tmp_path / "MAPAS" / "CI"),
+        id="crystal-id",
+    )
+    plugin_path = tmp_path / "config.json"
+    plugin_path.write_text(
+        '{"CrossChat":{"Enabled":true,"ServerId":"Crystal"}}',
+        encoding="utf-8",
+    )
+
+    sync_plugin_at_path(
+        catalog, plugin_path,
+        "https://shop.test", "http://127.0.0.1:5177", "key", {},
+        shop=shop,
+        srv=srv,
+    )
+    saved = json.loads(plugin_path.read_text(encoding="utf-8"))
+    assert saved["CrossChat"]["Enabled"] is False
+    assert "ServerId" not in saved["CrossChat"]
+
+
 def test_sync_plugin_at_path_sets_unique_crosschat_server_id(tmp_path):
     catalog = {
         "Kits": {},
@@ -455,3 +490,26 @@ def test_collect_groups_from_catalog_includes_license_grant_keyvault():
     groups = collect_groups_from_catalog(catalog)
     assert "keyvault" in groups
     assert "Alfa" in groups
+
+
+def test_collect_groups_from_catalog_excludes_vip_and_moderacao():
+    catalog = {
+        "Kits": {
+            "vip_bronze": {"Permissions": "Admins,VIPBronze"},
+        },
+        "Items": {
+            "licenca_vip_bronze": {"LicenseGrant": {"Group": "VIPBronze", "Days": 30}},
+        },
+        "TimedPointsReward": {
+            "Groups": {
+                "Default": {"Amount": 25},
+                "VIPBronze": {"Amount": 20},
+                "Moderacao": {"Amount": 500},
+            },
+        },
+    }
+    groups = collect_groups_from_catalog(catalog)
+    assert "VIPBronze" not in groups
+    assert "Moderacao" not in groups
+    assert "Mod" in groups
+    assert "Default" in groups

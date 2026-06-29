@@ -7469,17 +7469,8 @@
     "Ssl": false
   },
   "CrossChat": {
-    "_comment": "Chat entre mapas do cluster (captura automatica do chat global). ServerId unico por mapa — definido ao sincronizar.",
-    "Enabled": true,
-    "ServerId": "Mapa1",
-    "AutoCapture": true,
-    "IgnoreCommands": true,
-    "GlobalChatOnly": true,
-    "Command": "/c",
-    "PollIntervalSeconds": 2,
-    "MaxMessageLength": 200,
-    "RateLimitSeconds": 2,
-    "UseWebApi": false
+    "_comment": "Desativado — use plugin de cross-chat de terceiros. Sync mantém Enabled=false.",
+    "Enabled": false
   },
   "PointPackages": [
     {

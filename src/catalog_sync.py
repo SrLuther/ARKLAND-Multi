@@ -90,6 +90,28 @@ def _purge_retired_entries(data: dict[str, Any]) -> list[str]:
     return removed
 
 
+def _purge_timed_points_groups(data: dict[str, Any]) -> list[str]:
+    """Remove grupos VIP obsoletos e renomeia Moderacao → Mod em TimedPointsReward."""
+    timed = data.get("TimedPointsReward")
+    if not isinstance(timed, dict):
+        return []
+    groups = timed.get("Groups")
+    if not isinstance(groups, dict):
+        return []
+    notes: list[str] = []
+    for key in list(groups.keys()):
+        name = str(key).strip()
+        if _is_removed_group(name):
+            del groups[key]
+            notes.append(f"timed:{name}")
+        elif name == "Moderacao":
+            entry = groups.pop(key)
+            if "Mod" not in groups:
+                groups["Mod"] = entry
+            notes.append("timed:Moderacao->Mod")
+    return notes
+
+
 def _fmt_amber(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
@@ -210,6 +232,7 @@ def _apply_tier_kit_pricing(kits: dict[str, Any], items: dict[str, Any]) -> list
 def apply_catalog_sync(data: dict[str, Any]) -> tuple[list[str], list[str]]:
     """Sanitiza catálogo no sync TEK. Modifica *data* in-place."""
     purged = _purge_retired_entries(data)
+    purged.extend(_purge_timed_points_groups(data))
     items = data.setdefault("Items", {})
     kits = data.setdefault("Kits", {})
 

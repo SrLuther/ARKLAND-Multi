@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.165"
+APP_VERSION: str = "1.9.166"
 BUILD_DATE: str = "2026-06-28"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.166",
+        "date": "2026-06-28",
+        "changes": [
+            "CrossChat integrado desativado — sync grava CrossChat.Enabled=false nos mapas; "
+            "use plugin de terceiros. UI simplificada (removidos campos confusos de chat cluster).",
+        ],
+    },
     {
         "version": "1.9.165",
         "date": "2026-06-28",

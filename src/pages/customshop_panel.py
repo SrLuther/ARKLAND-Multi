@@ -13,12 +13,14 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
+from copy import deepcopy
 from pathlib import Path
 from tkinter import messagebox
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
+from ..catalog_sync import apply_catalog_sync
 from ..shop_catalog_import import import_catalog_from_file
 from ..shop_integration import (
     DEFAULT_REMOTE_SHOP_HOST,
@@ -55,7 +57,6 @@ from ..shop_integration import (
     test_shop_connection,
     webstore_data_dir,
     resolve_shop_db_password,
-    _cross_chat_server_label,
     _is_placeholder_db_password,
 )
 from ..ui_constants import (
@@ -527,55 +528,22 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
         card_cc = tk.Frame(t_cc, bg=_INNER, highlightthickness=1,
                            highlightbackground=_BDR)
         card_cc.pack(fill="x", padx=12, pady=8)
-        _head(card_cc, "💬  Chat Cluster (Cross-ARK)")
+        _head(card_cc, "💬  Chat Cluster — desativado")
         tk.Label(
             card_cc,
             text=(
-                "Captura automatica do chat global — jogadores falam normalmente, sem /c. "
-                "Mensagens vao para todos os mapas do cluster e para o Discord (se configurado). "
-                "O ServerId de cada mapa e definido na aba Web Store (Nome chat cluster) "
-                "ou automaticamente pela pasta do servidor ao sincronizar."
+                "O cross-chat integrado do CustomShop foi desativado neste app.\n\n"
+                "Use um plugin de terceiros (ex.: Cross-Ark-Chat, ArkCrossServerChat ou similar). "
+                "O sync grava CrossChat.Enabled = false em cada config.json do mapa para o "
+                "CustomShop não capturar nem retransmitir mensagens.\n\n"
+                "Após instalar o plugin externo, faça «Sync + Reload RCON (todos)» na aba "
+                "Web Store para aplicar nos mapas."
             ),
             bg=_INNER, fg="gray55", font=ctk.CTkFont(size=10),
             anchor="w", justify="left", wraplength=720,
-        ).pack(fill="x", padx=10, pady=(0, 8))
-
-        cc = data.get("CrossChat", {})
+        ).pack(fill="x", padx=10, pady=(0, 10))
         _ccv.clear()
-        _ccv.update({
-            "Enabled":             tk.BooleanVar(value=bool(cc.get("Enabled", True))),
-            "AutoCapture":         tk.BooleanVar(value=bool(cc.get("AutoCapture", True))),
-            "IgnoreCommands":      tk.BooleanVar(value=bool(cc.get("IgnoreCommands", True))),
-            "GlobalChatOnly":      tk.BooleanVar(value=bool(cc.get("GlobalChatOnly", True))),
-            "Command":             tk.StringVar(value=str(cc.get("Command", "/c"))),
-            "PollIntervalSeconds": tk.StringVar(value=str(cc.get("PollIntervalSeconds", 2))),
-            "MaxMessageLength":    tk.StringVar(value=str(cc.get("MaxMessageLength", 200))),
-            "RateLimitSeconds":    tk.StringVar(value=str(cc.get("RateLimitSeconds", 2))),
-            "UseWebApi":           tk.BooleanVar(value=bool(cc.get("UseWebApi", False))),
-        })
-        _bool_row(card_cc, "Ativado no catálogo", _ccv["Enabled"], bg=_INNER)
-        _bool_row(card_cc, "Captura automática (sem /c)", _ccv["AutoCapture"], bg=_INNER)
-        _bool_row(card_cc, "Ignorar comandos (/)", _ccv["IgnoreCommands"], bg=_INNER)
-        _bool_row(card_cc, "Somente chat global", _ccv["GlobalChatOnly"], bg=_INNER)
-        _field_row(card_cc, "Comando legado", _ccv["Command"], bg=_INNER,
-                   hint="Usado apenas se captura automática estiver desligada", width=100)
-        _field_row(card_cc, "Intervalo de poll (s)", _ccv["PollIntervalSeconds"], bg=_INNER,
-                   hint="Frequência de busca de mensagens de outros mapas", width=80)
-        _field_row(card_cc, "Tamanho máx. mensagem", _ccv["MaxMessageLength"], bg=_INNER, width=80)
-        _field_row(card_cc, "Rate limit (s)", _ccv["RateLimitSeconds"], bg=_INNER,
-                   hint="Segundos entre mensagens por jogador (0 = desligado)", width=80)
-        _bool_row(card_cc, "Usar API Web (fallback MySQL)", _ccv["UseWebApi"], bg=_INNER)
-
-        tk.Label(
-            card_cc,
-            text=(
-                "💡 Ative também «Chat cluster entre mapas» na aba Web Store. "
-                "Ponte Discord: configure na loja web (Chat Cluster → Discord). "
-                "Requer MySQL compartilhado, CustomShop.dll recompilado e discord.py na web store."
-            ),
-            bg=_INNER, fg="#88cc88", font=ctk.CTkFont(size=10),
-            anchor="w", justify="left", wraplength=720,
-        ).pack(fill="x", padx=10, pady=(8, 10))
+        _ccv["Enabled"] = tk.BooleanVar(value=False)
 
     def _build_tab_db() -> None:
         t_db = ctk.CTkScrollableFrame(tabs.tab("🗄️  Database"), fg_color=_BG)
@@ -646,19 +614,11 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
 
         if _ccv:
             cc_out = data.setdefault("CrossChat", {})
-            cc_out["Enabled"] = _ccv["Enabled"].get()
-            cc_out["AutoCapture"] = _ccv["AutoCapture"].get()
-            cc_out["IgnoreCommands"] = _ccv["IgnoreCommands"].get()
-            cc_out["GlobalChatOnly"] = _ccv["GlobalChatOnly"].get()
-            cc_out["Command"] = (_ccv["Command"].get() or "/c").strip() or "/c"
-            cc_out["PollIntervalSeconds"] = max(1, _safe_int(_ccv["PollIntervalSeconds"].get(), 2))
-            cc_out["MaxMessageLength"] = max(1, min(500, _safe_int(_ccv["MaxMessageLength"].get(), 200)))
-            cc_out["RateLimitSeconds"] = max(0, _safe_int(_ccv["RateLimitSeconds"].get(), 2))
-            cc_out["UseWebApi"] = _ccv["UseWebApi"].get()
+            cc_out.clear()
             cc_out["_comment"] = (
-                "Chat entre mapas do cluster (captura automatica). "
-                "ServerId unico por mapa — definido ao sincronizar."
+                "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros."
             )
+            cc_out["Enabled"] = False
 
         if _dbv:
             db_out = data.setdefault("Database", {})
@@ -1405,7 +1365,6 @@ def _build_webstore_tab(
     _odb_user = tk.StringVar(value=shop.orders_db_user or _dbm.get("user", ""))
     _odb_pass = tk.StringVar(value=resolve_shop_db_password(shop) or _dbm.get("password", ""))
     _auto_sync_var = tk.BooleanVar(value=bool(shop.auto_sync_on_save))
-    _cross_chat_var = tk.BooleanVar(value=bool(getattr(shop, "cross_chat_enabled", True)))
 
     def _save_shop_from_ui() -> None:
         shop.mode = _mode_var.get()
@@ -1418,7 +1377,7 @@ def _build_webstore_tab(
         shop.machine_label = _machine_var.get().strip()
         shop.delivery_mode = _delivery_var.get()
         shop.auto_sync_on_save = _auto_sync_var.get()
-        shop.cross_chat_enabled = bool(_cross_chat_var.get())
+        shop.cross_chat_enabled = False
         shop.orders_db_url = _orders_url_var.get().strip()
         shop.orders_db_host = _odb_host.get().strip()
         shop.orders_db_port = _safe_int(_odb_port.get(), 3306)
@@ -1888,11 +1847,7 @@ def _build_webstore_tab(
 
     tk.Label(
         card_srv,
-        text=(
-            "ID loja = fila web. ServerId CrossChat = mapas_cross_chat_ids.json "
-            "(%APPDATA%\\ARKLAND-ServerManager) — nao sincroniza com o catalogo. "
-            "Chave = pasta MAPAS\\ (AL→ALPS, BR→BRIGHAMIA, …). Deixe «Nome chat cluster» vazio."
-        ),
+        text="ID loja = fila de pedidos na Web Store (único por mapa). Cross-chat integrado desativado.",
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
 
@@ -1906,11 +1861,7 @@ def _build_webstore_tab(
     tk.Label(hdr, text="Servidor", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
              width=18, anchor="w").pack(side="left", padx=(4, 4))
     tk.Label(hdr, text="ID loja", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
-             width=11, anchor="w").pack(side="left", padx=2)
-    tk.Label(hdr, text="Nome chat cluster", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
              width=14, anchor="w").pack(side="left", padx=2)
-    tk.Label(hdr, text="Efetivo", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
-             width=10, anchor="w").pack(side="left", padx=(0, 2))
     tk.Label(hdr, text="Home", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
              width=6, anchor="w").pack(side="left", padx=2)
     tk.Label(hdr, text="Loja", bg=_INNER, fg=_hdr_fg, font=_hdr_font,
@@ -1934,7 +1885,6 @@ def _build_webstore_tab(
             sid_var = tk.StringVar(
                 value=srv.shop_server_id or slugify_server_id(srv.name, srv.id),
             )
-            cc_var = tk.StringVar(value=getattr(srv, "cross_chat_label", "") or "")
             path_var = tk.StringVar(
                 value=srv.customshop_config_path or default_customshop_path(srv.install_dir),
             )
@@ -1947,18 +1897,8 @@ def _build_webstore_tab(
                 row, text=f"{status} [{prefix}] {srv.name[:18]}", bg="#1a1a30", fg="gray70",
                 font=ctk.CTkFont(size=10, weight="bold"), width=140, anchor="w",
             ).pack(side="left", padx=(4, 4))
-            ctk.CTkEntry(row, textvariable=sid_var, width=88, height=24,
+            ctk.CTkEntry(row, textvariable=sid_var, width=120, height=24,
                          placeholder_text="ID loja").pack(side="left", padx=2)
-            effective_cc = _cross_chat_server_label(srv)
-            cc_entry = ctk.CTkEntry(
-                row, textvariable=cc_var, width=112, height=24,
-                placeholder_text=effective_cc[:18],
-            )
-            cc_entry.pack(side="left", padx=2)
-            tk.Label(
-                row, text=f"→ {effective_cc[:16]}", bg="#1a1a30", fg="gray55",
-                font=ctk.CTkFont(size=8), width=88, anchor="w",
-            ).pack(side="left", padx=(0, 2))
             ctk.CTkCheckBox(
                 row, text="Home", variable=home_var, width=72, height=24,
                 checkbox_width=16, checkbox_height=16,
@@ -1978,7 +1918,7 @@ def _build_webstore_tab(
             ctk.CTkEntry(path_row, textvariable=path_var, height=24).pack(
                 side="left", fill="x", expand=True,
             )
-            _server_rows.append((kind, srv, sid_var, cc_var, path_var, home_var, shop_var))
+            _server_rows.append((kind, srv, sid_var, path_var, home_var, shop_var))
 
     _rebuild_server_rows()
 
@@ -1988,9 +1928,9 @@ def _build_webstore_tab(
         _save_shop_from_ui()
         if not persist_catalog():
             return
-        for _kind, srv, sid_var, cc_var, path_var, home_var, shop_var in _server_rows:
+        for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
-            srv.cross_chat_label = cc_var.get().strip()
+            srv.cross_chat_label = ""
             srv.customshop_config_path = path_var.get().strip()
             srv.shop_show_on_home = bool(home_var.get())
             srv.shop_exclude = not bool(shop_var.get())
@@ -2058,9 +1998,9 @@ def _build_webstore_tab(
         _save_shop_from_ui()
         if not persist_catalog():
             return
-        for _kind, srv, sid_var, cc_var, path_var, home_var, shop_var in _server_rows:
+        for _kind, srv, sid_var, path_var, home_var, shop_var in _server_rows:
             srv.shop_server_id = sid_var.get().strip() or slugify_server_id(srv.name, srv.id)
-            srv.cross_chat_label = cc_var.get().strip()
+            srv.cross_chat_label = ""
             srv.customshop_config_path = path_var.get().strip()
             srv.shop_show_on_home = bool(home_var.get())
             srv.shop_exclude = not bool(shop_var.get())
@@ -2113,7 +2053,8 @@ def _build_webstore_tab(
             return
         if not persist_catalog():
             return
-        catalog = get_catalog()
+        catalog = deepcopy(get_catalog())
+        apply_catalog_sync(catalog)
         groups = collect_groups_from_catalog(catalog)
         if not groups:
             messagebox.showinfo(
@@ -2167,8 +2108,8 @@ def _build_webstore_tab(
                   command=_provision_groups).pack(side="left", padx=(0, 10))
     ctk.CTkCheckBox(act_row, text="Auto-sync ao salvar catálogo",
                     variable=_auto_sync_var).pack(side="left")
-    ctk.CTkCheckBox(act_row, text="Chat cluster entre mapas (automático)",
-                    variable=_cross_chat_var).pack(side="left", padx=(12, 0))
+    tk.Label(act_row, text="Cross-chat integrado: desativado",
+             fg="gray50", font=ctk.CTkFont(size=10)).pack(side="left", padx=(12, 0))
     ctk.CTkButton(act_row, text="↻  Atualizar lista",
                   height=30, width=120, fg_color="#252540",
                   command=_rebuild_server_rows).pack(side="left", padx=(10, 0))
