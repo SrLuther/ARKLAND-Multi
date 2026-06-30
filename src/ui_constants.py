@@ -210,22 +210,40 @@ _STATUS_LABEL = {
     SERVER_STATUS_UPDATING: "🟡 ATUALIZANDO",
 }
 
-# Eventos oficiais ARK: Survival Evolved  (valor → rótulo exibido)
+# Eventos oficiais ARK: Survival Evolved  (valor ActiveEvent → rótulo exibido)
+# Valores conforme wiki ARK / -ActiveEvent= na linha de comando (361.x).
 _ARK_OFFICIAL_EVENTS: List[tuple] = [
     ("",                     "(nenhum evento)"),
     ("FearEvolved",          "FearEvolved — Halloween 🎃"),
     ("WinterWonderland",     "WinterWonderland — Natal / Ano Novo 🎄"),
     ("TurkeyTrial",          "TurkeyTrial — Ação de Graças 🦃"),
-    ("ARKEaster",            "ARKEaster — Páscoa / Primavera 🐣"),
+    ("Easter",               "Easter — Páscoa / Eggcellent Adventure 🐣"),
     ("Summer",               "Summer — Festa de Verão ☀️"),
-    ("LoveEvolved",          "LoveEvolved — Dia dos Namorados 💝"),
-    ("Anniversary",          "Anniversary — Aniversário do ARK 🎂"),
-    ("PAX",                  "PAX — Evento PAX Prime 🎮"),
+    ("vday",                 "Love Evolved — Dia dos Namorados 💝"),
+    ("birthday",             "Anniversary — Aniversário do ARK 🎂"),
+    ("Arkaeology",           "Arkaeology — Evento Arkaeology 🦴"),
     ("ExtinctionChronicles", "ExtinctionChronicles — Extinction Chronicles 🌍"),
-    ("Genesis",              "Genesis — Evento Genesis 🧬"),
 ]
+# IDs legados (versões antigas do app) → valor ActiveEvent correto
+_ARK_EVENT_LEGACY_ALIASES: dict[str, str] = {
+    "ARKEaster":    "Easter",
+    "LoveEvolved":  "vday",
+    "Anniversary":  "birthday",
+    "SummerBash":   "Summer",
+}
 _ARK_EVENT_ID_TO_LABEL = {k: v for k, v in _ARK_OFFICIAL_EVENTS}
 _ARK_EVENT_LABEL_TO_ID = {v: k for k, v in _ARK_OFFICIAL_EVENTS}
+for _legacy_id, _canonical_id in _ARK_EVENT_LEGACY_ALIASES.items():
+    if _canonical_id in _ARK_EVENT_ID_TO_LABEL:
+        _ARK_EVENT_ID_TO_LABEL[_legacy_id] = _ARK_EVENT_ID_TO_LABEL[_canonical_id]
+
+
+def normalize_active_event(value: str) -> str:
+    """Normaliza ActiveEvent para o valor aceito pelo ARK (-ActiveEvent= / ?ActiveEvent=)."""
+    v = (value or "").strip()
+    if not v or v.lower() == "none":
+        return ""
+    return _ARK_EVENT_LEGACY_ALIASES.get(v, v)
 
 
 def _parse_listplayers(response: str) -> list:

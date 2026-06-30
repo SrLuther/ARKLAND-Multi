@@ -48,7 +48,7 @@ from .rcon_client import RconClient, RconError
 from .updater import UpdateChecker
 from .mod_auto_updater import ModAutoUpdater
 from .version import APP_VERSION, BUILD_DATE, CHANGELOG
-from .ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_EVENT_LABEL_TO_ID, _ARK_OFFICIAL_EVENTS
+from .ui_constants import _ARK_EVENT_ID_TO_LABEL, _ARK_EVENT_LABEL_TO_ID, _ARK_OFFICIAL_EVENTS, normalize_active_event
 
 APP_NAME = "ARKLAND - Server Manager"
 
@@ -2866,7 +2866,7 @@ class ARKServerManagerApp(ctk.CTk):
                 pass
             srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
             _evt_raw = w.get("active_event", tk.StringVar()).get().strip()
-            srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
+            srv.active_event          = normalize_active_event(_ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw))
             try:
                 srv.auto_save_period  = float(w.get("auto_save", tk.StringVar(value="15")).get())
             except ValueError:

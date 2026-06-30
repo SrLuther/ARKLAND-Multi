@@ -449,7 +449,8 @@ def _read_gus_rcon_motd_mods(parser: configparser.RawConfigParser, config: "Serv
     except Exception: pass
     try:
         if parser.has_option(ss, "ActiveEvent"):
-            config.active_event = parser.get(ss, "ActiveEvent").strip()
+            from ..ui_constants import normalize_active_event
+            config.active_event = normalize_active_event(parser.get(ss, "ActiveEvent").strip())
     except Exception: pass
 
 

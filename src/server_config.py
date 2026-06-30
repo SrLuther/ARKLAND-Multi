@@ -610,6 +610,9 @@ class ServerConfig:
             if k in cls.__dataclass_fields__  # type: ignore[attr-defined]
             and k not in ("game_settings", "advanced_settings", "cluster")
         }
+        from .ui_constants import normalize_active_event
+        if "active_event" in top_fields:
+            top_fields["active_event"] = normalize_active_event(top_fields.get("active_event", ""))
         return cls(**top_fields, game_settings=game, advanced_settings=adv, cluster=cluster)  # type: ignore[call-arg]
 
     def build_launch_args(
@@ -640,8 +643,10 @@ class ServerConfig:
         # causava crash do ArkShopUI.dll no FTimerManager::Tick ~5min após conectar.
         if self.whitelist_only:
             params.append("?ExclusiveJoin")
-        if self.active_event:
-            params.append(f"?ActiveEvent={self.active_event}")
+        from .ui_constants import normalize_active_event
+        _evt = normalize_active_event(self.active_event)
+        if _evt:
+            params.append(f"?ActiveEvent={_evt}")
         if self.auto_save_period != 15.0:
             params.append(f"?AutoSavePeriodMinutes={self.auto_save_period}")
         if self.server_ip:

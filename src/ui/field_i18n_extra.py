@@ -28,7 +28,7 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     # ── Regras / HUD / Chat ───────────────────────────────────────────────────
     "allow_crosshair": "Permitir mira",
     "allow_hit_markers": "Marcadores de acerto",
-    "allow_platform_saddle_multi_floors": "Vários andares em plataforma de sela",
+    "allow_platform_saddle_multi_floors": "Múltiplos andares em platform saddle (Stryder/Quetz)",
     "allow_pve_gamma": "Permitir comando gamma em PvE",
     "allow_pvp_gamma": "Permitir comando gamma em PvP",
     "allow_unlimited_respecs": "Respecs ilimitados (mindwipe)",
@@ -100,10 +100,11 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     "pvp_structure_decay": "Deterioração de estruturas em PvP",
     "pvp_zone_structure_damage_multiplier": "Dano em zona PvP",
     "max_structures_in_range": "Máx. estruturas por raio",
-    "per_platform_max_structures_multiplier": "Máx. estruturas por plataforma",
-    "max_platform_saddle_structures": "Máx. estruturas em sela de plataforma",
-    "override_structure_platform_prevention": "Substituir bloqueio de plataforma",
+    "per_platform_max_structures_multiplier": "Multiplicador de estruturas na plataforma",
+    "max_platform_saddle_structures": "Máx. dinos com platform saddle no mapa",
+    "override_structure_platform_prevention": "Permitir torretas em platform saddle (Stryder)",
     "flyer_platform_allow_unaligned_dino_basing": "Dino desalinhado em plataforma voadora",
+    "platform_saddle_build_area_bounds_multiplier": "Área de construção na platform saddle",
     "always_allow_structure_pickup": "Permitir recolher estruturas colocadas",
     "enable_structure_decay_pve": "Deterioração de estruturas em PvE",
     "pve_structure_decay_period_multiplier": "Período de deterioração de estruturas (PvE)",
@@ -133,7 +134,7 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     "cluster_dir_override": "Pasta compartilhada do cluster",
     "custom_recipe_skill_multiplier": "Multiplicador de perícia (receitas custom)",
     "crafting_skill_bonus_multiplier": "Bônus de perícia de crafting",
-    "active_event": "Evento sazonal ativo",
+    "active_event": "Evento sazonal ARK (Páscoa, Halloween…)",
     "additional_args": "Argumentos extras da linha de comando",
     "server_ip": "IP de escuta (MultiHome)",
     "server_admin_logs_include_tribe_logs": "Incluir logs de tribo no log de admin",
@@ -205,7 +206,10 @@ EXTRA_HINTS: dict[str, str] = {
     "branch_name": "Branch do SteamCMD. preaquatica = última ASE com ArkApi. Vazio = estável.",
     "branch_password": "Senha da branch beta, se exigida pelo SteamCMD.",
     "total_conversion_mod_id": "Workshop ID de um mod que substitui o jogo base (total conversion).",
-    "active_event": "Evento sazonal oficial (Fear Evolved, Winter Wonderland, etc.).",
+    "active_event": (
+        "ActiveEvent — eventos oficiais: Páscoa (Easter), Halloween (FearEvolved), "
+        "Natal (WinterWonderland), Verão (SummerEvo), etc. Vazio = sem evento."
+    ),
     "auto_save_period": "Intervalo em minutos entre autosaves do mundo.",
     "additional_args": "Flags extras na linha de comando. Evite duplicar opções já configuradas acima.",
     # Chat
@@ -233,6 +237,24 @@ EXTRA_HINTS: dict[str, str] = {
     "always_allow_structure_pickup": "Permite recolher estruturas já colocadas (tecla padrão: E).",
     "allow_flyer_speed_leveling": "Libera o stat Movement Speed em voadores para upar com pontos de nível.",
     "disable_structure_placement_collision": "Permite sobrepor estruturas (risco de meshing).",
+    "override_structure_platform_prevention": (
+        "Obrigatório para colocar Auto/Tek Turret no Tek Strider e outras platform saddles. "
+        "Grava OverrideStructurePlatformPrevention=True em GameUserSettings.ini."
+    ),
+    "per_platform_max_structures_multiplier": (
+        "Multiplica o limite de estruturas em cada platform saddle (ex.: 2.0 = dobro do vanilla). "
+        "Tek Strider tem limite baixo (~30) — aumente se precisar de mais peças além das torretas."
+    ),
+    "max_platform_saddle_structures": (
+        "Quantidade máxima de criaturas com platform saddle no servidor (Stryder, Quetz, Raft, etc.). "
+        "Não é o limite de estruturas em cima do Stryder."
+    ),
+    "allow_platform_saddle_multi_floors": (
+        "Permite construir em múltiplos andares em platform saddles (útil em Stryder/Quetz)."
+    ),
+    "platform_saddle_build_area_bounds_multiplier": (
+        "Amplia a área construível ao redor da platform saddle."
+    ),
     # Ambiente
     "harvest_amount_multiplier": "Quantidade por golpe. 2.0 = dobro de recurso por hit.",
     "harvest_health_multiplier": "Vida do nó de recurso — maior = mais golpes para derrubar.",
@@ -262,4 +284,33 @@ EXTRA_HINTS: dict[str, str] = {
     # PGM
     "pgm_enabled": "Ativa mapas gerados proceduralmente (requer configuração avançada).",
     "pgm_name": "Nome interno do mapa procedural.",
+    "cpu_affinity_cores": "Núcleos CPU dedicados ao processo (ex: 0,2,4). Vazio = todos.",
+    "process_priority": "Prioridade do processo no Windows (normal, above_normal, high, realtime).",
+    "extinction_event_utc": "Timestamp UTC do próximo evento de extinção (0 = automático).",
+    "cross_ark_allow_foreign_dino_downloads": "Permite baixar dinos de servidores fora do cluster.",
+    "enable_cryo_sickness_pvp": "Aplica debuff Cryo Sickness ao usar cryopods em PvP.",
+}
+
+# Palavras-chave extras para busca global (PT/EN/jogo)
+EXTRA_SEARCH_KEYWORDS: dict[str, str] = {
+    "active_event": "páscoa pascoa easter halloween natal christmas fear evolved winter wonderland verão summer evento sazonal",
+    "override_structure_platform_prevention": "stryder strider tek strider platform saddle torreta turret auto tek",
+    "limit_turrets_in_range": "torreta turret limite cerco anti-turret",
+    "limit_turrets_num": "torreta turret quantidade máximo",
+    "hard_limit_turrets_in_range": "torreta turret limite rígido",
+    "max_platform_saddle_structures": "stryder strider quetz platform saddle raft",
+    "allow_platform_saddle_multi_floors": "stryder strider andar platform saddle",
+    "platform_saddle_build_area_bounds_multiplier": "stryder strider área construção platform",
+    "enable_extinction_event": "extinção extinction meteoro",
+    "enable_cryo_sickness_pvp": "cryo cryopod sickness debuff pvp",
+    "allow_cave_flyers": "voador caverna flyer cave pve",
+    "branch_name": "steamcmd preaquatica beta branch versão",
+    "cross_ark_cluster_id": "cluster viagem transferência obelisco",
+    "enable_tribute_downloads": "tributo terminal obelisco upload download transferência",
+    "prevent_download_dinos": "bloquear dino download transferência",
+    "cross_ark_allow_foreign_dino_downloads": "cluster estrangeiro foreign dino download",
+    "cpu_affinity_cores": "cpu núcleo core affinity performance desempenho",
+    "process_priority": "prioridade processo cpu performance desempenho",
+    "baby_imprint_amount_multiplier": "imprint carinho filhote breeding",
+    "mating_interval_multiplier": "acasalamento breeding reprodução",
 }

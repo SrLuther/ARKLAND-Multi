@@ -1,42 +1,49 @@
-"""Mapeamento seção TEK → campos (busca na nav + catálogo i18n)."""
+"""Mapeamento seção TEK → campos (busca na nav + catálogo i18n).
+
+Fonte canônica de «onde cada campo aparece» para busca e catálogo.
+Campos duplicados na UI física têm UMA entrada aqui (local principal).
+"""
 from __future__ import annotations
 
 SECTION_FIELDS: dict[str, list[str]] = {
     "Administração": [
-        "name", "install_dir", "server_map", "total_conversion_mod_id",
+        "name", "install_dir", "user_config_folder", "server_exe",
+        "server_map", "total_conversion_mod_id",
         "session_name", "alt_save_directory_name", "auto_save_period", "active_event",
         "server_port", "query_port", "max_players", "server_ip",
         "server_password", "admin_password", "spectator_password",
         "rcon_enabled", "rcon_port", "rcon_log_buffer", "admin_logging",
         "max_tribe_logs", "tribe_log_destroyed_enemy_structures", "allow_hide_damage_source",
-        "enable_extinction_event", "extinction_event_interval",
+        "enable_extinction_event", "extinction_event_interval", "extinction_event_utc",
         "enable_auto_respawn_wild_dinos", "auto_respawn_wild_dinos_interval",
         "enable_kick_idle_players", "kick_idle_players",
-        "cross_ark_cluster_id", "cluster_dir_override", "cross_ark_allow_foreign_dino_downloads",
-        "branch_name", "branch_password", "active_mods",
+        "cluster_profile_id", "cross_ark_cluster_id", "cluster_dir_override",
+        "branch_name", "branch_password",
         "use_battleye", "force_respawn_dinos", "use_allcores",
         "crossplay", "epic_only", "public_ip_for_epic", "use_vivox", "use_item_dupe_check",
         "use_raw_sockets", "no_net_threading", "force_net_threading", "no_transfer_from_filtering",
         "disable_vac", "disable_anti_speed_hack", "speed_hack_bias", "disable_player_move_physics_opt",
         "use_cache", "use_old_save_format", "use_no_memory_bias", "stasis_keep_controllers",
         "use_no_hang_detection", "server_allow_ansel", "no_dinos", "force_dx10",
-        "force_shader_model4", "force_low_memory", "enable_auto_destroy_structures",
-        "enable_no_fish_loot", "enable_web_alarm", "web_alarm_key", "web_alarm_url",
+        "force_shader_model4", "force_low_memory", "allow_cave_flyers",
+        "enable_auto_destroy_structures", "enable_no_fish_loot",
+        "enable_web_alarm", "web_alarm_key", "web_alarm_url",
         "enable_server_admin_logs", "server_admin_logs_include_tribe_logs",
         "server_rcon_output_tribe_logs", "notify_admin_commands_in_chat",
-        "additional_args", "color",
+        "additional_args", "color", "tags", "folder",
     ],
+    "Mods (Workshop)": ["active_mods"],
     "Gerenciamento Automático": [
         "enable_auto_restart", "auto_restart_time", "restart_countdown_minutes",
         "enable_auto_update_check", "auto_update_check_minutes", "notify_discord_on_events",
+        "cpu_affinity_cores", "process_priority",
     ],
     "Detalhes do Discord Bot": [
         "discord_webhook_url", "discord_notify_server_start", "discord_notify_server_stop",
         "discord_notify_player_join", "discord_notify_player_leave",
     ],
     "Detalhes do Servidor": [
-        "motd", "motd_duration", "enable_ban_list_url", "ban_list_url",
-        "branch_name", "branch_password", "notes",
+        "motd", "motd_duration", "enable_ban_list_url", "ban_list_url", "notes",
     ],
     "Regras": [
         "enable_pvp", "enable_hardcore", "allow_cave_building_pve",
@@ -57,16 +64,18 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "fishing_loot_quality_multiplier", "use_corpse_life_span_multiplier",
         "global_powered_battery_durability_decrease", "random_supply_crate_points",
         "use_corpse_locator", "prevent_spawn_animations", "allow_unlimited_respecs",
-        "allow_platform_saddle_multi_floors",
+        "enable_cryo_sickness_pvp",
     ],
     "Transferências / Tributo": [
-        "enable_tribute_downloads", "prevent_download_survivors", "prevent_download_items",
-        "prevent_download_dinos", "prevent_upload_survivors", "prevent_upload_items",
-        "prevent_upload_dinos", "cross_ark_allow_foreign_dino_downloads",
+        "enable_tribute_downloads",
+        "prevent_download_survivors", "prevent_download_items", "prevent_download_dinos",
+        "prevent_upload_survivors", "prevent_upload_items", "prevent_upload_dinos",
+        "cross_ark_allow_foreign_dino_downloads",
         "save_tribute_char_expiration", "tribute_char_expiration_seconds",
         "save_tribute_item_expiration", "tribute_item_expiration_seconds",
         "save_tribute_dino_expiration", "tribute_dino_expiration_seconds",
-        "save_min_dino_reupload_interval", "min_dino_reupload_interval", "exclusive_join",
+        "save_min_dino_reupload_interval", "min_dino_reupload_interval",
+        "exclusive_join",
     ],
     "Bate-papo e Notificações": [
         "global_voice_chat", "proximity_chat",
@@ -75,6 +84,42 @@ SECTION_FIELDS: dict[str, list[str]] = {
     "HUD e Visuais": [
         "allow_crosshair", "allow_hud", "allow_third_person_view",
         "show_map_player_location", "show_floating_damage_text", "allow_hit_markers",
+    ],
+    "Configurações do Jogador": [
+        "xp_multiplier", "player_damage_multiplier", "player_resistance_multiplier",
+        "player_water_drain_multiplier", "player_food_drain_multiplier",
+        "player_stamina_drain_multiplier", "player_health_recovery_multiplier",
+        "player_harvesting_damage_multiplier", "crafting_skill_bonus_multiplier",
+        "enable_flyer_carry", "override_max_xp_player",
+        "craft_xp_multiplier", "generic_xp_multiplier", "harvest_xp_multiplier",
+        "kill_xp_multiplier", "special_xp_multiplier",
+        "per_level_player",
+    ],
+    "Configurações do Dino": [
+        "dino_damage_multiplier", "tamed_dino_damage_multiplier",
+        "dino_resistance_multiplier", "tamed_dino_resistance_multiplier",
+        "dino_turret_damage_multiplier", "dino_harvesting_damage_multiplier",
+        "dino_char_food_drain_multiplier", "dino_char_stamina_drain_multiplier",
+        "dino_char_health_recovery_multiplier", "wild_dino_char_food_drain_multiplier",
+        "tamed_dino_char_food_drain_multiplier", "wild_dino_torpor_drain_multiplier",
+        "tamed_dino_torpor_drain_multiplier",
+        "max_tamed_dinos", "dino_count_multiplier", "taming_speed_multiplier",
+        "passive_tame_interval_multiplier", "max_personal_tamed_dinos",
+        "pve_dino_decay_period_multiplier", "raid_dino_food_drain_multiplier",
+        "personal_tamed_dinos_saddle_structure_cost", "override_max_xp_dino",
+        "allow_raid_dino_feeding", "allow_flying_stamina_recovery", "prevent_mate_boost",
+        "allow_flyer_speed_leveling", "disable_dino_decay_pve", "pvp_dino_decay",
+        "auto_destroy_decayed_dinos", "allow_multiple_attached_c4",
+        "disable_dino_riding", "disable_dino_taming", "use_tame_limit_for_structures_only",
+        "disable_imprint_buff", "allow_anyone_baby_imprint",
+        "per_level_dino_wild", "per_level_dino_tamed",
+        "per_level_dino_tamed_add", "per_level_dino_tamed_affinity",
+    ],
+    "Reprodução": [
+        "mating_interval_multiplier", "egg_hatch_speed_multiplier",
+        "baby_mature_speed_multiplier", "baby_food_consumption_multiplier",
+        "baby_cuddle_interval_multiplier", "baby_cuddle_grace_period_multiplier",
+        "baby_cuddle_lose_imprint_quality_speed_multiplier", "baby_imprinting_stat_scale",
     ],
     "Meio Ambiente": [
         "harvest_amount_multiplier", "harvest_health_multiplier", "resources_respawn_multiplier",
@@ -88,11 +133,15 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "lay_egg_interval_multiplier", "poop_interval_multiplier", "hair_growth_speed_multiplier",
     ],
     "Estruturas": [
+        "override_structure_platform_prevention",
+        "per_platform_max_structures_multiplier",
+        "max_platform_saddle_structures",
+        "platform_saddle_build_area_bounds_multiplier",
+        "allow_platform_saddle_multi_floors",
+        "flyer_platform_allow_unaligned_dino_basing",
         "structure_resistance_multiplier", "structure_damage_multiplier",
         "structure_damage_repair_cooldown", "pvp_structure_decay",
         "pvp_zone_structure_damage_multiplier", "max_structures_in_range",
-        "per_platform_max_structures_multiplier", "max_platform_saddle_structures",
-        "override_structure_platform_prevention", "flyer_platform_allow_unaligned_dino_basing",
         "always_allow_structure_pickup",
         "enable_structure_decay_pve", "pve_structure_decay_period_multiplier",
         "pve_structure_decay_destruction_period", "auto_destroy_old_structures_multiplier",
@@ -104,8 +153,20 @@ SECTION_FIELDS: dict[str, list[str]] = {
         "limit_turrets_in_range", "limit_turrets_range", "limit_turrets_num",
         "hard_limit_turrets_in_range",
     ],
-    "Engramas": ["only_allow_specified_engrams", "auto_unlock_all_engrams"],
-    "ARK Procedural (PGM)": ["pgm_enabled", "pgm_name", "pgm_terrain_string"],
+    "Engramas": [
+        "only_allow_specified_engrams", "auto_unlock_all_engrams", "engram_entries_raw",
+    ],
+    "Arquivos do Servidor": [
+        "admin_ids", "whitelist_ids", "exclusive_join_ids",
+    ],
+    "Progressões de Nível": [
+        "player_level_stats_raw", "dino_level_stats_raw",
+    ],
+    "Substituições de Crafting": ["crafting_overrides_raw"],
+    "Substituições de Stack": ["stack_size_overrides_raw"],
+    "Substituições de Spawner": ["npc_spawn_overrides_raw"],
+    "Substituições de Supply Crate": ["supply_crate_overrides_raw"],
+    "Impedir Transferências": ["prevent_transfer_raw"],
     "Coleta por Recurso": ["harvest_resource_multipliers"],
     "Multiplicadores por Classe": [
         "dino_class_resistance_multipliers", "dino_class_damage_multipliers",
@@ -114,10 +175,26 @@ SECTION_FIELDS: dict[str, list[str]] = {
     "Spawn e Domesticação": [
         "dino_spawn_weight_multipliers", "prevent_dino_tame_class_names",
     ],
+    "Custom GameUserSettings.ini": ["custom_gus_ini_raw"],
+    "Custom Game.ini": ["custom_game_ini_raw"],
+    "ARK Procedural (PGM)": ["pgm_enabled", "pgm_name", "pgm_terrain_string"],
     "Extensões SM": [
         "item_stack_size_multiplier", "spoiling_time_multiplier",
-        "item_decomposition_time_multiplier", "platform_saddle_build_area_bounds_multiplier",
+        "item_decomposition_time_multiplier",
         "max_tribute_dinos", "max_tribute_items",
         "baby_imprint_amount_multiplier", "enable_creative_mode",
     ],
 }
+
+# Seções com campos editáveis no modo «Todas as opções» (exclui ferramentas e launchers)
+FLAT_VIEW_SECTIONS: tuple[str, ...] = tuple(
+    s for s in SECTION_FIELDS
+    if not s.startswith("Custom ") and s not in (
+        "Mods (Workshop)",
+        "Substituições de Crafting", "Substituições de Stack",
+        "Substituições de Spawner", "Substituições de Supply Crate",
+        "Impedir Transferências", "Coleta por Recurso",
+        "Multiplicadores por Classe", "Spawn e Domesticação",
+        "Progressões de Nível", "Engramas", "Arquivos do Servidor",
+    )
+)

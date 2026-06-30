@@ -46,6 +46,7 @@ INI_MAP: dict[str, tuple] = {
     "admin_logging":            ("GUS", "ServerSettings",   "AdminLogging",                {}),
     "active_mods":              ("GUS", "ServerSettings",   "ActiveMods",                  {"list_sep": ","}),
     "auto_save_period":         ("GUS", "ServerSettings",   "AutoSavePeriodMinutes",       {}),
+    "active_event":             ("GUS", "ServerSettings",   "ActiveEvent",                 {"conditional_on": "active_event"}),
     "enable_ban_list_url":      ("GUS", "ServerSettings",   "BanListURL",                  {"conditional_on": "enable_ban_list_url", "use_field": "ban_list_url"}),
     "motd":                     ("GUS", "MessageOfTheDay",  "Message",                     {"conditional_on": "motd"}),
     "motd_duration":            ("GUS", "MessageOfTheDay",  "Duration",                    {"conditional_on": "motd"}),
@@ -163,9 +164,9 @@ INI_MAP: dict[str, tuple] = {
     "auto_destroy_old_structures_multiplier":    ("GUS","ServerSettings","AutoDestroyOldStructuresMultiplier",         {"conditional_on": "auto_destroy_old_structures_multiplier"}),
     "force_all_structure_locking":               ("GUS","ServerSettings","ForceAllStructureLocking",                   {}),
     "disable_structure_placement_collision":     ("Game","GameMode",     "bDisableStructurePlacementCollision",         {}),
-    "limit_turrets_in_range":                    ("GUS","ServerSettings","LimitTurretsInRange",                        {}),
-    "limit_turrets_range":                       ("GUS","ServerSettings","LimitTurretsRange",                          {"conditional_on": "limit_turrets_in_range"}),
-    "limit_turrets_num":                         ("GUS","ServerSettings","LimitTurretsNum",                            {"conditional_on": "limit_turrets_in_range"}),
+    "limit_turrets_in_range":                    ("Game","GameMode",     "bLimitTurretsInRange",                        {}),
+    "limit_turrets_range":                       ("Game","GameMode",     "LimitTurretsRange",                          {"conditional_on": "limit_turrets_in_range"}),
+    "limit_turrets_num":                         ("Game","GameMode",     "LimitTurretsNum",                            {"conditional_on": "limit_turrets_in_range"}),
 
     # Administration extras
     "max_tribe_logs":                          ("Game","GameMode",     "MaxTribeLogs",                                  {}),
@@ -434,6 +435,9 @@ def write_ini(cfg: AsmServerConfig) -> None:
     if not cfg.install_dir:
         raise ValueError("install_dir não configurado")
 
+    from ..ui_constants import normalize_active_event
+    cfg.active_event = normalize_active_event(cfg.active_event)
+
     # Agrupa valores por (arquivo, seção)
     gus: dict[str, dict[str, str]] = {}   # {secao: {chave: valor}}
     game: dict[str, dict[str, str]] = {}
@@ -516,6 +520,12 @@ def write_ini(cfg: AsmServerConfig) -> None:
     if cfg.prevent_transfer_raw:
         _inject_raw(cfg.prevent_transfer_raw, gus)
 
+    remove_gus_options: list[tuple[str, str]] = []
+    if not cfg.active_event and "ServerSettings" in gus and "ActiveEvent" in gus.get("ServerSettings", {}):
+        del gus["ServerSettings"]["ActiveEvent"]
+    if not cfg.active_event:
+        remove_gus_options.append(("ServerSettings", "ActiveEvent"))
+
     # SessionName por último — raw/custom não pode sobrescrever o nome efetivo
     _sn = effective_session_name(cfg)
     if _sn:
@@ -548,7 +558,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
         for _idx, _val in enumerate(_values):
             game_mode_sec[f"{_prefix}[{_idx}]"] = _format_value(_val)
 
-    _write_ini_file(_ini_path_for_cfg(cfg, "GUS", write=True),  gus)
+    _write_ini_file(_ini_path_for_cfg(cfg, "GUS", write=True),  gus, remove_options=remove_gus_options)
     _game_path = _ini_path_for_cfg(cfg, "Game", write=True)
     _write_ini_file(_game_path, game)
 
@@ -574,7 +584,12 @@ def write_ini(cfg: AsmServerConfig) -> None:
                 shutil.copy2(src, dest_custom / _FILE_NAMES[fk])
 
 
-def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
+def _write_ini_file(
+    path: Path,
+    sections: dict[str, dict[str, str]],
+    *,
+    remove_options: list[tuple[str, str]] | None = None,
+) -> None:
     """Escreve um arquivo INI preservando seções existentes não gerenciadas."""
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -598,6 +613,10 @@ def _write_ini_file(path: Path, sections: dict[str, dict[str, str]]) -> None:
             parser.add_section(section)
         for key, value in kvs.items():
             parser.set(section, key, value)
+
+    for section, key in remove_options or []:
+        if parser.has_section(section) and parser.has_option(section, key):
+            parser.remove_option(section, key)
 
     if path.name.lower() == "gameusersettings.ini":
         from ..ark_ini_fields import ensure_gus_ark_skeleton, GUS_SECTION_ORDER
@@ -668,6 +687,9 @@ def read_ini(cfg: AsmServerConfig) -> None:
             val = not val
 
         setattr(cfg, field_name, val)
+
+    from ..ui_constants import normalize_active_event
+    cfg.active_event = normalize_active_event(cfg.active_event)
 
     # SessionName: fallback em ServerSettings (instalações Steam/ASM legadas)
     _gus = parsers["GUS"]
@@ -824,8 +846,10 @@ def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
     ])
     if cfg.exclusive_join:
         params.append("?ExclusiveJoin")
-    if cfg.active_event:
-        params.append(f"?ActiveEvent={cfg.active_event}")
+    from ..ui_constants import normalize_active_event
+    _evt = normalize_active_event(cfg.active_event)
+    if _evt:
+        params.append(f"?ActiveEvent={_evt}")
     if cfg.auto_save_period != 15.0:
         params.append(f"?AutoSavePeriodMinutes={cfg.auto_save_period}")
     if cfg.server_ip:

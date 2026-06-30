@@ -254,6 +254,108 @@
     .auth-balance-pill .amber-icon {
       flex-shrink: 0;
     }
+    .notif-wrap {
+      position: relative;
+      margin-bottom: 8px;
+    }
+    .notif-bell-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .notif-bell-btn:hover {
+      border-color: rgba(232,120,32,.45);
+      background: var(--surface3);
+    }
+    .notif-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .notif-badge.hidden { display: none; }
+    .notif-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      z-index: 1500;
+      max-height: 360px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .notif-panel.hidden { display: none; }
+    .notif-panel__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .notif-panel__list {
+      overflow-y: auto;
+      max-height: 280px;
+    }
+    .notif-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background .12s;
+    }
+    .notif-item:hover { background: var(--surface2); }
+    .notif-item--unread {
+      border-left: 3px solid var(--tek);
+      background: rgba(0,200,255,.04);
+    }
+    .notif-item__title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .notif-item__body {
+      font-size: 11px;
+      color: var(--text2);
+      line-height: 1.4;
+    }
+    .notif-item__time {
+      font-size: 10px;
+      color: var(--text2);
+      margin-top: 4px;
+      opacity: .8;
+    }
+    .notif-empty {
+      padding: 20px 12px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text2);
+    }
     .balance-stack {
       display: flex;
       flex-direction: column;
@@ -1924,7 +2026,8 @@
     }
     #catalog-search { flex: 1; min-width: 180px; max-width: none; }
     #catalog-search:focus, #catalog-cat:focus,
-    #catalog-dinos-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus { border-color: var(--tek); }
+    #catalog-dinos-search:focus, #catalog-kits-search:focus, #catalog-licenses-search:focus,
+    #shop-admin-search:focus { border-color: var(--tek); }
     #catalog-cat option { background: var(--surface); }
 
     /* ── Modal ────────────────────────────────────────────────────────────── */
@@ -2188,10 +2291,17 @@
     .price-tag { font-weight: 700; color: var(--amber); text-shadow: 0 0 8px rgba(232,160,32,.3); }
     .actions-col { display: flex; gap: 6px; }
     .admin-only { display: none !important; }
+    .support-staff-only { display: none !important; }
     /* Só revela itens do menu admin — não força todas as páginas .page.admin-only visíveis */
     body.boot-admin .nav-section.admin-only { display: flex !important; }
     body.boot-admin .nav-item.admin-only { display: flex !important; }
     body.boot-admin .page.admin-only.active { display: block !important; }
+    body.boot-admin .nav-section.support-staff-only,
+    body.boot-admin .nav-item.support-staff-only,
+    body.boot-support .nav-section.support-staff-only,
+    body.boot-support .nav-item.support-staff-only { display: flex !important; }
+    body.boot-admin .page.support-staff-only.active,
+    body.boot-support .page.support-staff-only.active { display: block !important; }
 
     /* RCON terminal output */
     #rcon-output, .rcon-log {
@@ -4099,6 +4209,21 @@
 
     <!-- User box -->
     <div id="auth-userbox" class="hidden">
+      <div id="notif-wrap" class="notif-wrap hidden">
+        <button type="button" id="notif-bell-btn" class="notif-bell-btn" onclick="toggleNotifPanel(event)" aria-label="Notificações">
+          🔔 Notificações
+          <span id="notif-badge" class="notif-badge hidden">0</span>
+        </button>
+        <div id="notif-panel" class="notif-panel hidden">
+          <div class="notif-panel__head">
+            <span>Notificações</span>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="markAllNotificationsRead()">Marcar todas lidas</button>
+          </div>
+          <div id="notif-list" class="notif-panel__list">
+            <div class="notif-empty">Carregando…</div>
+          </div>
+        </div>
+      </div>
       <div id="auth-balance-pill" class="auth-balance-pill hidden">
         <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="18" height="18" />
         <div class="balance-stack">
@@ -4142,8 +4267,9 @@
     <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
       <span class="nav-icon">⚙️</span> Configurações
     </div>
-    <div class="nav-item admin-only" data-page="tickets-admin" onclick="nav(this)">
-      <span class="nav-icon">🎫</span> Tickets
+    <div class="nav-section support-staff-only">Suporte</div>
+    <div class="nav-item support-staff-only" data-page="tickets-admin" onclick="nav(this)">
+      <span class="nav-icon">🎫</span> Tickets — Suporte
     </div>
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
@@ -4445,6 +4571,11 @@
             <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload Plugin</button>
           </div>
         </div>
+        <div class="catalog-toolbar" style="margin-bottom:12px;">
+          <div class="catalog-search-wrap">
+            <input id="shop-admin-search" type="search" placeholder="Buscar nome, ID, categoria, tipo, preço ou permissões…" autocomplete="off" oninput="renderShop()" />
+          </div>
+        </div>
         <div id="shop-list"></div>
       </div>
 
@@ -4617,8 +4748,8 @@
         <div id="general-form"></div>
       </div>
 
-      <!-- PAGE: Tickets (admin) -->
-      <div id="page-tickets-admin" class="page admin-only">
+      <!-- PAGE: Tickets (admin / equipe de suporte) -->
+      <div id="page-tickets-admin" class="page support-staff-only">
         <div id="topbar">
           <div class="page-title">Tickets — Suporte</div>
           <div class="topbar-actions" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -4642,6 +4773,47 @@
             </select>
             <button class="btn btn-ghost" onclick="loadTicketsAdmin()">🔄 Atualizar</button>
           </div>
+        </div>
+        <div class="card admin-only" style="margin-bottom:16px;" id="support-staff-roster-card">
+          <div class="card-title">👥 Equipe de Suporte</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            Cadastre SteamIDs64 de quem pode atender tickets. Membros da equipe veem apenas esta aba — sem acesso ao restante do painel admin.
+          </p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px;">
+            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+              <label>SteamID64 do suporte</label>
+              <input id="support-staff-new-id" type="text" placeholder="76561198…" autocomplete="off" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="addSupportStaff()">＋ Adicionar</button>
+            <button class="btn btn-ghost btn-sm" onclick="loadSupportStaffRoster()">↺ Atualizar lista</button>
+          </div>
+          <div id="support-staff-roster" style="font-size:12px;color:var(--text2);">Carregando equipe…</div>
+        </div>
+        <div class="card admin-only" style="margin-bottom:16px;" id="tickets-discord-card">
+          <div class="card-title">🔔 Discord — atualizações de tickets</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            O bot envia uma mensagem no canal sempre que um ticket é criado, respondido, alterado ou encerrado.
+            Pode reutilizar o token do Chat Cluster ou informar um token dedicado.
+          </p>
+          <div id="tickets-discord-status" style="font-size:12px;margin-bottom:12px;"></div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+              <label><input type="checkbox" id="tickets-discord-enabled" /> Ativar notificações Discord</label>
+            </div>
+            <div class="form-group" style="margin:0;min-width:200px;">
+              <label>ID do canal Discord</label>
+              <input id="tickets-discord-channel" type="text" placeholder="123456789012345678" />
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:220px;">
+              <label>Token do bot (opcional — vazio usa token do Chat Cluster)</label>
+              <input id="tickets-discord-token" type="password" placeholder="••••••••" autocomplete="new-password" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveTicketsDiscord()">Salvar Discord</button>
+          </div>
+          <p style="font-size:11px;color:var(--text2);margin-top:10px;">
+            Variáveis de ambiente opcionais: <code>ARKSHOP_TICKET_DISCORD_ENABLED</code>,
+            <code>ARKSHOP_TICKET_DISCORD_CHANNEL_ID</code>, <code>ARKSHOP_TICKET_DISCORD_TOKEN</code>.
+          </p>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div id="tickets-admin-queue" style="color:var(--text2);padding:12px;">Carregando fila…</div>
@@ -6161,7 +6333,7 @@ let _config = null;
 let _players = [];
 let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
-let _auth = { authenticated: false, is_admin: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
+let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
 let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
@@ -6517,6 +6689,10 @@ function nav(el) {
   if (page === "tickets-admin") {
     _ticketsAdminSelectedId = null;
     document.getElementById("tickets-admin-detail")?.classList.add("hidden");
+    if (_auth.is_admin) {
+      loadSupportStaffRoster();
+      loadTicketsDiscord();
+    }
     loadTicketsAdmin();
   }
   if (page === "server-console") {
@@ -6564,6 +6740,125 @@ async function loadPlayerKitLimits() {
   }
 }
 
+let _notifPollTimer = null;
+let _notifItems = [];
+
+function _formatNotifTime(iso) {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  } catch (_) { return ""; }
+}
+
+function _updateNotifBadge(count) {
+  const badge = document.getElementById("notif-badge");
+  if (!badge) return;
+  const n = Number(count) || 0;
+  badge.textContent = n > 99 ? "99+" : String(n);
+  badge.classList.toggle("hidden", n <= 0);
+}
+
+function _renderNotifList(items) {
+  const el = document.getElementById("notif-list");
+  if (!el) return;
+  _notifItems = items || [];
+  if (!_notifItems.length) {
+    el.innerHTML = '<div class="notif-empty">Nenhuma notificação.</div>';
+    return;
+  }
+  el.innerHTML = _notifItems.map(n => `
+    <div class="notif-item${n.read ? "" : " notif-item--unread"}" data-notif-id="${n.id}" onclick="openNotification(${n.id})">
+      <div class="notif-item__title">${escHtml(n.title || "Notificação")}</div>
+      <div class="notif-item__body">${escHtml(n.body || "")}</div>
+      <div class="notif-item__time">${escHtml(_formatNotifTime(n.created_at))}</div>
+    </div>
+  `).join("");
+}
+
+async function refreshNotifications() {
+  if (!_auth.authenticated) return;
+  try {
+    const d = await fetchJson("/api/notifications?limit=30", { timeoutMs: 10000 });
+    if (!d.ok) return;
+    _updateNotifBadge(d.unread_count);
+    const panel = document.getElementById("notif-panel");
+    if (panel && !panel.classList.contains("hidden")) {
+      _renderNotifList(d.items || []);
+    }
+  } catch (_) {}
+}
+
+async function loadNotificationsPanel() {
+  if (!_auth.authenticated) return;
+  const el = document.getElementById("notif-list");
+  if (el) el.innerHTML = '<div class="notif-empty">Carregando…</div>';
+  try {
+    const d = await fetchJson("/api/notifications?limit=30", { timeoutMs: 10000 });
+    if (!d.ok) {
+      if (el) el.innerHTML = `<div class="notif-empty">${escHtml(d.error || "Erro ao carregar")}</div>`;
+      return;
+    }
+    _updateNotifBadge(d.unread_count);
+    _renderNotifList(d.items || []);
+  } catch (e) {
+    if (el) el.innerHTML = `<div class="notif-empty">${escHtml(String(e))}</div>`;
+  }
+}
+
+function toggleNotifPanel(ev) {
+  if (ev) ev.stopPropagation();
+  if (!_auth.authenticated) { promptLogin("notificações"); return; }
+  const panel = document.getElementById("notif-panel");
+  if (!panel) return;
+  const open = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !open);
+  if (open) loadNotificationsPanel();
+}
+
+async function openNotification(id) {
+  const n = _notifItems.find(x => x.id === id);
+  try {
+    await fetch(`${API}/api/notifications/${id}/read`, { method: "POST" });
+  } catch (_) {}
+  document.getElementById("notif-panel")?.classList.add("hidden");
+  refreshNotifications();
+  if (n && n.link_type === "ticket" && n.link_id) {
+    const navEl = document.querySelector('.nav-item[data-page="tickets"]');
+    if (navEl) nav(navEl);
+    setTimeout(() => ticketsOpenDetail(parseInt(n.link_id, 10)), 200);
+  }
+}
+
+async function markAllNotificationsRead() {
+  try {
+    const d = await fetchJson("/api/notifications/read-all", { method: "POST", timeoutMs: 10000 });
+    if (d.ok) {
+      toast("Todas as notificações marcadas como lidas.", "success");
+      loadNotificationsPanel();
+      _updateNotifBadge(0);
+    }
+  } catch (e) { toast(String(e), "error"); }
+}
+
+function _startNotifPolling() {
+  if (_notifPollTimer) clearInterval(_notifPollTimer);
+  if (!_auth.authenticated) return;
+  refreshNotifications();
+  _notifPollTimer = setInterval(refreshNotifications, 60000);
+}
+
+function _stopNotifPolling() {
+  if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
+}
+
+document.addEventListener("click", (e) => {
+  const wrap = document.getElementById("notif-wrap");
+  const panel = document.getElementById("notif-panel");
+  if (!wrap || !panel || panel.classList.contains("hidden")) return;
+  if (!wrap.contains(e.target)) panel.classList.add("hidden");
+});
+
 function _kitLimitInfo(item) {
   if (item.catalogKind !== "kit" && item.purchaseType !== "kit") return null;
   const fromApi = _playerKitLimits[item.key];
@@ -6576,7 +6871,9 @@ function _kitLimitInfo(item) {
 function renderAuthUserLine() {
   const userLine = document.getElementById("auth-userline");
   if (!userLine) return;
-  const role = _auth.is_admin ? "Admin" : "Jogador";
+  let role = "Jogador";
+  if (_auth.is_admin) role = "Admin";
+  else if (_auth.is_support) role = "Suporte";
   const nick = (_auth.display_name || "").trim();
   const sid = _auth.steam_id || "";
   const idPart = nick ? `SteamID: ${sid} | ${nick}` : `SteamID: ${sid}`;
@@ -6591,6 +6888,8 @@ function applyRoleUi(deferAdminNav = false) {
 
   if (_auth.authenticated) {
     renderAuthUserLine();
+    document.getElementById("notif-wrap")?.classList.remove("hidden");
+    _startNotifPolling();
     if (actionBtn) {
       actionBtn.textContent = "Sair";
       actionBtn.onclick = logout;
@@ -6603,6 +6902,8 @@ function applyRoleUi(deferAdminNav = false) {
       actionBtn.onclick = loginWithSteam;
     }
     document.getElementById("auth-balance-pill")?.classList.add("hidden");
+    document.getElementById("notif-wrap")?.classList.add("hidden");
+    _stopNotifPolling();
   }
 
   if (!_auth.is_admin) {
@@ -6630,6 +6931,24 @@ function applyRoleUi(deferAdminNav = false) {
       if (shopNav) nav(shopNav);
     } else {
       setAdminShopLoading("Carregando config.json…");
+    }
+  }
+
+  if (_auth.can_manage_tickets && !_auth.is_admin) {
+    document.body.classList.add("boot-support");
+    document.querySelectorAll(".support-staff-only:not(.page)").forEach((el) => {
+      el.style.removeProperty("display");
+    });
+    if (!deferAdminNav) {
+      const ticketsNav = document.querySelector('.nav-item[data-page="tickets-admin"]');
+      if (ticketsNav) nav(ticketsNav);
+    }
+  } else {
+    document.body.classList.remove("boot-support");
+    if (!_auth.is_admin) {
+      document.querySelectorAll(".support-staff-only:not(.page)").forEach((el) => {
+        el.style.display = "none";
+      });
     }
   }
 
@@ -8376,22 +8695,61 @@ function renderAll() {
   renderGeneral();
 }
 
+const _SHOP_TYPE_LABELS = { item: "item", dino: "dino", command: "comando", beacon: "beacon", experience: "xp", unlockengram: "engram", kit: "kit" };
+
+function _shopItemSearchHaystack(key, item) {
+  const type = (item.Type || "item").toLowerCase();
+  return [
+    key,
+    formatKey(key),
+    item.Name,
+    item.Description,
+    item.Category,
+    type,
+    _SHOP_TYPE_LABELS[type] || type,
+    item.Price != null ? String(item.Price) : "",
+    item.Permissions,
+    item.Blueprint,
+    item.LicenseGrant?.Group,
+    (item.Items || []).length ? "item" : "",
+    (item.Dinos || []).length ? "dino" : "",
+    (item.Commands || []).length ? "comando command" : "",
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function _shopItemMatchesSearch(key, item, search) {
+  if (!search) return true;
+  const q = search.toLowerCase().trim();
+  if (!q) return true;
+  return _shopItemSearchHaystack(key, item).includes(q);
+}
+
 function renderShop() {
   const el = document.getElementById("shop-list");
   const items = _config?.ShopItems || {};
   const keys = Object.keys(items);
+  const search = (document.getElementById("shop-admin-search")?.value || "").trim();
   if (!keys.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">🛒</div><p>Nenhum item cadastrado</p></div>`;
     return;
   }
+  const filteredKeys = keys.filter(k => _shopItemMatchesSearch(k, items[k], search));
+  if (!filteredKeys.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔍</div><p>Nenhum item corresponde à busca</p><p style="font-size:12px;color:var(--text2);margin-top:8px;">Tente outro termo ou <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('shop-admin-search').value='';renderShop();">limpar busca</button></p></div>`;
+    return;
+  }
+  const countHtml = search
+    ? `<p class="catalog-result-count">${filteredKeys.length === 1 ? "<strong>1</strong> item encontrado" : `<strong>${filteredKeys.length}</strong> itens encontrados`} de <strong>${keys.length}</strong></p>`
+    : "";
   el.innerHTML = `
+    ${countHtml}
     <div class="card">
       <table class="tbl">
         <thead><tr>
           <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Conteúdo</th><th>Permissões</th><th>Ações</th>
         </tr></thead>
         <tbody>
-          ${keys.map(k => {
+          ${filteredKeys.map(k => {
             const it = items[k];
             const displayName = it.Name || it.Description || formatKey(k);
             const parts = [];
@@ -8988,7 +9346,49 @@ async function ticketsUploadFile(input) {
   input.value = "";
 }
 
+async function loadTicketsDiscord() {
+  if (!_auth.is_admin) return;
+  const statusEl = document.getElementById("tickets-discord-status");
+  try {
+    const d = await fetchJson("/api/admin/tickets/discord", { timeoutMs: 10000 });
+    if (!d.ok) return;
+    const chk = document.getElementById("tickets-discord-enabled");
+    const ch = document.getElementById("tickets-discord-channel");
+    if (chk) chk.checked = !!d.requested_enabled;
+    if (ch && d.channel_id) ch.value = String(d.channel_id);
+    if (statusEl) {
+      const state = d.enabled ? "🟢 ativo" : (d.requested_enabled ? "🟡 config incompleta" : "⚪ desativado");
+      const src = d.token_source === "ticket" ? "token dedicado" : (d.token_source === "cross_chat" ? "token do Chat Cluster" : "sem token");
+      statusEl.innerHTML = `${state} · ${escHtml(d.status_message || "")}<br><span style="color:var(--text2);font-size:0.92em;">Fonte do token: ${escHtml(src)}</span>`;
+    }
+  } catch (_) {}
+}
+
+async function saveTicketsDiscord() {
+  if (!_auth.is_admin) return;
+  const body = {
+    ticket_discord_enabled: !!document.getElementById("tickets-discord-enabled")?.checked,
+    ticket_discord_channel_id: document.getElementById("tickets-discord-channel")?.value.trim() || "",
+  };
+  const tok = document.getElementById("tickets-discord-token")?.value.trim() || "";
+  if (tok) body.ticket_discord_token = tok;
+  try {
+    const d = await fetchJson("/api/admin/tickets/discord", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      timeoutMs: 12000,
+    });
+    if (!d.ok) { toast(d.error || "Falha ao salvar Discord", "error"); return; }
+    toast("Configuração Discord de tickets salva.", "success");
+    const tokEl = document.getElementById("tickets-discord-token");
+    if (tokEl) tokEl.value = "";
+    loadTicketsDiscord();
+  } catch (e) { toast(String(e), "error"); }
+}
+
 async function loadTicketsAdmin() {
+  if (!_auth.can_manage_tickets) return;
   const filter = document.getElementById("tickets-admin-filter-status")?.value || "";
   const category = document.getElementById("tickets-admin-filter-category")?.value || "";
   const priority = document.getElementById("tickets-admin-filter-priority")?.value || "";
@@ -9172,6 +9572,65 @@ async function ticketsAdminUploadFile(input) {
     ticketsAdminOpenDetail(_ticketsAdminSelectedId);
   } catch (e) { toast(String(e), "error"); }
   input.value = "";
+}
+
+async function loadSupportStaffRoster() {
+  const el = document.getElementById("support-staff-roster");
+  if (!el || !_auth.is_admin) return;
+  el.innerHTML = "Carregando equipe…";
+  try {
+    const d = await fetchJson("/api/admin/support-staff", { timeoutMs: 10000 });
+    if (!d.ok) {
+      el.innerHTML = `<span style="color:var(--danger);">${escHtml(d.error || "Erro ao carregar")}</span>`;
+      return;
+    }
+    const items = d.items || [];
+    if (!items.length) {
+      el.innerHTML = `<span style="color:var(--text2);">Nenhum membro cadastrado. Adicione um SteamID64 acima.</span>`;
+      return;
+    }
+    el.innerHTML = `<table class="tbl"><thead><tr><th>SteamID64</th><th></th></tr></thead><tbody>${
+      items.map((sid) => `<tr>
+        <td><code>${escHtml(sid)}</code></td>
+        <td><button class="btn btn-danger btn-sm" onclick="removeSupportStaff(${JSON.stringify(sid)})">Remover</button></td>
+      </tr>`).join("")
+    }</tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<span style="color:var(--danger);">${escHtml(String(e))}</span>`;
+  }
+}
+
+async function addSupportStaff() {
+  if (!_auth.is_admin) return;
+  const input = document.getElementById("support-staff-new-id");
+  const steam_id = (input?.value || "").trim();
+  if (!steam_id) { toast("Informe o SteamID64.", "warning"); return; }
+  try {
+    const d = await fetchJson("/api/admin/support-staff", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ steam_id }),
+      timeoutMs: 10000,
+    });
+    if (!d.ok) { toast(d.error || "Falha ao adicionar", "error"); return; }
+    toast("Membro adicionado à equipe de suporte.", "success");
+    if (input) input.value = "";
+    loadSupportStaffRoster();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function removeSupportStaff(steam_id) {
+  if (!_auth.is_admin) return;
+  if (!confirm(`Remover ${steam_id} da equipe de suporte?`)) return;
+  try {
+    const d = await fetchJson(`/api/admin/support-staff/${encodeURIComponent(steam_id)}`, {
+      method: "DELETE",
+      timeoutMs: 10000,
+    });
+    if (!d.ok) { toast(d.error || "Falha ao remover", "error"); return; }
+    toast("Membro removido.", "success");
+    loadSupportStaffRoster();
+  } catch (e) { toast(String(e), "error"); }
 }
 
 // ── Downloads ─────────────────────────────────────────────────────────────────
@@ -13951,7 +14410,7 @@ async function bootPortal() {
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
     await loadAuth().catch(() => {
-      _auth = { authenticated: false, is_admin: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
+      _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
     });
     applyRoleUi(true);
     showAuthOverlay(false);
@@ -13984,6 +14443,9 @@ async function bootPortal() {
       if (!configOk) {
         setAdminShopLoading("Não foi possível carregar config.json — clique em ↺ Recarregar");
       }
+    } else if (_auth.can_manage_tickets) {
+      const ticketsNav = document.querySelector('.nav-item[data-page="tickets-admin"]');
+      if (ticketsNav) nav(ticketsNav);
     }
 
     if (!catalogOk) {
@@ -13997,6 +14459,8 @@ async function bootPortal() {
       setStatus(true, "Catálogo ok · home com erro");
     } else if (_auth.is_admin && configOk) {
       setStatus(true, "Painel admin pronto");
+    } else if (_auth.can_manage_tickets) {
+      setStatus(true, "Painel de suporte pronto");
     } else {
       setStatus(true, "Loja online");
     }

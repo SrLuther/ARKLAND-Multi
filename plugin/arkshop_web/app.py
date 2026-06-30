@@ -272,6 +272,8 @@ _STATE_FILE = _DATA_DIR / "settings.json"
 _PLAYERS_FILE = _DATA_DIR / "players.json"
 _ADMIN_FILE = _DATA_DIR / "admin_steamids.json"
 _ADMIN_EXAMPLE = _BUNDLE_DIR / "admin_steamids.example.json"
+_SUPPORT_FILE = _DATA_DIR / "support_steamids.json"
+_SUPPORT_EXAMPLE = _BUNDLE_DIR / "support_steamids.example.json"
 _SERVERS_FILE = _DATA_DIR / "servers.json"
 _TICKET_UPLOADS_DIR = _DATA_DIR / "ticket_uploads"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
@@ -329,11 +331,34 @@ def _ensure_admin_steamids_file() -> None:
 
 _ensure_admin_steamids_file()
 
+
+def _ensure_support_steamids_file() -> None:
+    """Garante support_steamids.json no diretório de dados (não no repositório)."""
+    if _SUPPORT_FILE.exists():
+        return
+    _SUPPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    legacy = _BUNDLE_DIR / "support_steamids.json"
+    if legacy.is_file() and legacy.resolve() != _SUPPORT_FILE.resolve():
+        try:
+            _SUPPORT_FILE.write_text(legacy.read_text(encoding="utf-8"), encoding="utf-8")
+            log.info("support_steamids migrado de %s para %s", legacy, _SUPPORT_FILE)
+            return
+        except Exception as exc:
+            log.warning("Falha ao migrar support_steamids legado: %s", exc)
+    if _SUPPORT_EXAMPLE.is_file():
+        _SUPPORT_FILE.write_text(_SUPPORT_EXAMPLE.read_text(encoding="utf-8"), encoding="utf-8")
+    else:
+        _SUPPORT_FILE.write_text("[]\n", encoding="utf-8")
+    log.info("support_steamids criado em %s — cadastre SteamIDs da equipe de suporte", _SUPPORT_FILE)
+
+
+_ensure_support_steamids_file()
+
 # API Key for CustomShop ↔ arkshop_web internal communication
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token", "ticket_discord_token")
 
 _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
     {"id": "p10000", "label": "10.000 Âmbares", "points": 10000, "price_brl": 5.0, "note": "Primeiro passo — ideal para conhecer a loja"},
@@ -538,6 +563,14 @@ class Rebuy(Base):
 
 class ShopAdmin(Base):
     __tablename__ = "shop_admins"
+
+    steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+
+
+class ShopSupport(Base):
+    """Equipe de suporte — acesso à fila de tickets sem permissões de admin."""
+
+    __tablename__ = "shop_support"
 
     steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
 
@@ -891,6 +924,24 @@ class SupportTicketDiscordLink(Base):
     )
 
 
+class UserNotification(Base):
+    """Notificação in-app para jogadores."""
+
+    __tablename__ = "user_notifications"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    steam_id: Mapped[str] = mapped_column(String(32), index=True)
+    type: Mapped[str] = mapped_column(String(64), default="general", index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str] = mapped_column(Text, default="")
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    link_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    link_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
+
+
 class MarketAuditEvent(Base):
     __tablename__ = "market_audit_events"
 
@@ -1017,6 +1068,7 @@ _STEAM_ID_VARCHAR_COLUMNS: tuple[tuple[str, str], ...] = (
     ("point_payments", "steam_id"),
     ("player_entitlements", "steam_id"),
     ("shop_admins", "steam_id"),
+    ("shop_support", "steam_id"),
     ("rebuys", "steam_id"),
     ("disputes", "steam_id"),
     ("market_cryopod_vault", "seller_steam_id"),
@@ -1299,6 +1351,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_ticket_schema(engine)
     except Exception as exc:
         log.warning("Tickets: migrate falhou: %s", exc)
+    try:
+        from notification_service import ensure_notification_schema
+
+        ensure_notification_schema(engine)
+    except Exception as exc:
+        log.warning("Notificações: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -2669,6 +2727,101 @@ def _is_admin_steamid(steam_id: str) -> bool:
     return steam_id in _load_admin_steamids()
 
 
+_SUPPORT_STEAMIDS_CACHE: dict[str, Any] = {
+    "ids": None,
+    "expires": 0.0,
+    "db_skip_until": 0.0,
+}
+_SUPPORT_STEAMIDS_CACHE_TTL = 30.0
+_SUPPORT_STEAMIDS_DB_BACKOFF = 60.0
+
+
+def _load_support_steamids_from_file() -> set[str]:
+    if not _SUPPORT_FILE.exists():
+        return set()
+    try:
+        data = json.loads(_SUPPORT_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return set()
+
+    values = data if isinstance(data, list) else data.get("steam_ids", []) if isinstance(data, dict) else []
+    return {str(v).strip() for v in values if isinstance(v, (str, int)) and _is_valid_steamid64(str(v))}
+
+
+def _merge_support_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
+    if not _db_ready() or _SessionLocal is None:
+        return ids
+    now = time.monotonic()
+    if now < float(_SUPPORT_STEAMIDS_CACHE.get("db_skip_until") or 0):
+        return ids
+
+    merged = set(ids)
+    done = threading.Event()
+    err: list[Exception | None] = [None]
+
+    def _worker() -> None:
+        db = _SessionLocal()
+        try:
+            rows = db.query(ShopSupport).all()
+            for row in rows:
+                sid = str(getattr(row, "steam_id", "") or "").strip()
+                if _is_valid_steamid64(sid):
+                    merged.add(sid)
+        except Exception as exc:
+            err[0] = exc
+        finally:
+            db.close()
+            done.set()
+
+    threading.Thread(target=_worker, name="arkshop-support-db", daemon=True).start()
+    if not done.wait(timeout):
+        _SUPPORT_STEAMIDS_CACHE["db_skip_until"] = now + _SUPPORT_STEAMIDS_DB_BACKOFF
+        log.warning(
+            "ShopSupport timeout (%ss) — usando suporte do arquivo por %ss",
+            timeout,
+            int(_SUPPORT_STEAMIDS_DB_BACKOFF),
+        )
+        return ids
+    if err[0] is not None:
+        _SUPPORT_STEAMIDS_CACHE["db_skip_until"] = now + _SUPPORT_STEAMIDS_DB_BACKOFF
+        log.warning(
+            "ShopSupport indisponível — usando suporte do arquivo por %ss",
+            int(_SUPPORT_STEAMIDS_DB_BACKOFF),
+        )
+        return ids
+    return merged
+
+
+def _load_support_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> set[str]:
+    now = time.monotonic()
+    cached = _SUPPORT_STEAMIDS_CACHE.get("ids")
+    if isinstance(cached, set) and now < float(_SUPPORT_STEAMIDS_CACHE.get("expires") or 0):
+        return cached
+
+    ids = _load_support_steamids_from_file()
+    if _db_ready():
+        ids = _merge_support_steamids_from_db(ids, timeout=db_timeout)
+
+    _SUPPORT_STEAMIDS_CACHE["ids"] = ids
+    _SUPPORT_STEAMIDS_CACHE["expires"] = now + _SUPPORT_STEAMIDS_CACHE_TTL
+    return ids
+
+
+def _invalidate_support_steamids_cache() -> None:
+    _SUPPORT_STEAMIDS_CACHE["ids"] = None
+    _SUPPORT_STEAMIDS_CACHE["expires"] = 0.0
+
+
+def _is_support_steamid(steam_id: str) -> bool:
+    if _is_admin_steamid(steam_id):
+        return False
+    return steam_id in _load_support_steamids()
+
+
+def _can_manage_tickets(steam_id: str) -> bool:
+    return _is_admin_steamid(steam_id) or steam_id in _load_support_steamids()
+
+
 def _get_player_points(steam_id: str) -> int | None:
     """Returns points balance from the shared MySQL players table, or None if unavailable."""
     if not _db_ready():
@@ -3702,6 +3855,20 @@ def admin_required(fn: Callable[..., Any]) -> Callable[..., Any]:
     return _wrapper
 
 
+def ticket_staff_required(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Admin ou membro da equipe de suporte (fila de tickets)."""
+    @functools.wraps(fn)
+    def _wrapper(*args: Any, **kwargs: Any):
+        steam_id = _steam_id_from_session()
+        if not steam_id:
+            return jsonify({"ok": False, "error": "Não autenticado", "message": _STEAM_SESSION_REQUIRED_MESSAGE}), 401
+        if not _can_manage_tickets(steam_id):
+            return jsonify({"ok": False, "error": "Acesso negado"}), 403
+        return fn(*args, **kwargs)
+
+    return _wrapper
+
+
 def _safe_market_profile(db: Any, steam_id: str) -> Any | None:
     """Perfil de comércio ou None se tabela/DB indisponível."""
     from market_listings import get_profile
@@ -4391,6 +4558,8 @@ def auth_me():
         return jsonify({
             "authenticated": False,
             "is_admin": False,
+            "is_support": False,
+            "can_manage_tickets": False,
             "steam_id": None,
             "display_name": None,
             "needs_display_name": False,
@@ -4400,9 +4569,13 @@ def auth_me():
     is_admin = steam_id in file_admins
     if not is_admin and _db_ready():
         is_admin = steam_id in _load_admin_steamids(db_timeout=1.5)
+    is_support = False if is_admin else steam_id in _load_support_steamids(db_timeout=1.5)
+    can_manage_tickets = is_admin or is_support
     payload: dict[str, Any] = {
         "authenticated": True,
         "is_admin": is_admin,
+        "is_support": is_support,
+        "can_manage_tickets": can_manage_tickets,
         "steam_id": steam_id,
         "display_name": _resolve_auth_player_name(steam_id),
     }
@@ -4418,11 +4591,12 @@ def auth_me():
 @admin_required
 def get_settings():
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token", "ticket_discord_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
     safe["cross_chat_discord_token_set"] = bool(s.get("cross_chat_discord_token"))
+    safe["ticket_discord_token_set"] = bool(s.get("ticket_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
     safe["card_enabled"] = _payments_enabled()
     safe["mp_sandbox"] = _mp_sandbox()
@@ -7983,6 +8157,70 @@ def admin_remove_admin(steam_id: str):
     return jsonify({"ok": True})
 
 
+# ── Admin support staff routes ────────────────────────────────────────────────
+
+@app.route("/api/admin/support-staff", methods=["GET"])
+@admin_required
+def admin_list_support_staff():
+    items = sorted(_load_support_steamids())
+    return jsonify({"ok": True, "items": items})
+
+
+@app.route("/api/admin/support-staff", methods=["POST"])
+@admin_required
+def admin_add_support_staff():
+    body = request.get_json(force=True)
+    steam_id = str(body.get("steam_id", "")).strip()
+    if not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+    if _is_admin_steamid(steam_id):
+        return jsonify({
+            "ok": False,
+            "error": "Este SteamID já é administrador — não precisa ser cadastrado como suporte.",
+        }), 400
+
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            db.merge(ShopSupport(steam_id=steam_id))
+            db.commit()
+        finally:
+            db.close()
+    else:
+        ids = _load_support_steamids()
+        ids.add(steam_id)
+        _SUPPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _SUPPORT_FILE.write_text(json.dumps(sorted(ids), indent=2, ensure_ascii=False), encoding="utf-8")
+
+    _invalidate_support_steamids_cache()
+    _log("support_staff_added", steam_id=steam_id, by=_steam_id_from_session())
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/support-staff/<steam_id>", methods=["DELETE"])
+@admin_required
+def admin_remove_support_staff(steam_id: str):
+    steam_id = steam_id.strip()
+    if not _is_valid_steamid64(steam_id):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            db.query(ShopSupport).filter(ShopSupport.steam_id == steam_id).delete()
+            db.commit()
+        finally:
+            db.close()
+    else:
+        ids = _load_support_steamids()
+        ids.discard(steam_id)
+        _SUPPORT_FILE.write_text(json.dumps(sorted(ids), indent=2, ensure_ascii=False), encoding="utf-8")
+
+    _invalidate_support_steamids_cache()
+    _log("support_staff_removed", steam_id=steam_id, by=_steam_id_from_session())
+    return jsonify({"ok": True})
+
+
 from market_routes import register_market_routes
 
 register_market_routes(
@@ -8030,12 +8268,31 @@ register_ticket_routes(
     session_factory=_db_session_factory,
     login_required=login_required,
     admin_required=admin_required,
+    ticket_staff_required=ticket_staff_required,
     steam_id_from_session=_steam_id_from_session,
     is_admin_steamid=_is_admin_steamid,
+    can_manage_tickets=_can_manage_tickets,
     resolve_display_name=lambda sid: _resolve_player_display_name(sid),
     uploads_dir=_TICKET_UPLOADS_DIR,
     limiter=limiter,
+    load_settings=_load_settings,
+    save_settings=_save_settings,
 )
+
+from notification_routes import register_notification_routes
+
+register_notification_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    steam_id_from_session=_steam_id_from_session,
+    limiter=limiter,
+)
+
+from ticket_notify import configure_ticket_notify
+
+configure_ticket_notify(load_settings=_load_settings)
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
     _kick_background_db_init()

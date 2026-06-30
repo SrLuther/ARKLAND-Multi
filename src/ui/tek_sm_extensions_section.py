@@ -18,10 +18,6 @@ def build_sm_extensions_section(
             "spoiling_time_multiplier",
             "item_decomposition_time_multiplier",
         ]),
-        CardSpec("Plataforma saddle (GUS)", [
-            "platform_saddle_build_area_bounds_multiplier",
-            "per_platform_max_structures_multiplier",
-        ]),
         CardSpec("Terminal de tributo (GUS)", [
             "max_tribute_dinos",
             "max_tribute_items",
@@ -38,6 +34,7 @@ def build_sm_extensions_section(
         ("SpoilingTimeMultiplier", "Legado GUS; use também GlobalSpoilingTimeMultiplier em Meio Ambiente."),
         ("MaxTributeDinos/Items", "Slots no obelisco/terminal. Valores altos podem corromper perfis de cluster."),
         ("BabyImprintAmountMultiplier", "Multiplica o % ganho por cada carinho de imprint (patch 312.35)."),
+        ("Platform saddle / Stryder", "Configurações de platform saddle ficam em Estruturas → Platform saddle / Tek Strider."),
         ("bShowCreativeMode", "Habilita modo criativo no menu ESC (requer admin)."),
         ("Crossplay / Vivox", "Configurados em Administração → Avançado — Linha de comando."),
     ], row)

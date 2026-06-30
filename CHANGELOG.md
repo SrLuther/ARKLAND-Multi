@@ -5,6 +5,28 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.168] - 2026-06-29
+
+### Feature
+
+- Feature (Web Store / Loja): barra de busca no catálogo de itens, dinos, kits e licenças (nome, descrição, categoria, blueprint) e na administração da loja.
+- Feature (Web Store): notificações in-app para jogadores (sino no portal) — respostas, status e eventos de tickets; tabela user_notifications criada automaticamente no startup.
+- Feature (Web Store / Tickets): alertas no Discord para equipe (canal staff) — novo ticket, respostas, status, prioridade e encerramento; config em settings.json ou variáveis ARKSHOP_TICKET_DISCORD_*.
+- Feature (Web Store / Suporte): equipe de suporte com acesso à fila de tickets sem permissões de admin — support_steamids.json + tabela shop_support; papel «Suporte» no portal.
+- Feature (TEK): seção «Todas as opções» — visão plana filtrável de todos os campos editáveis.
+- Feature (TEK / Estruturas): card «Platform saddle / Tek Strider» — torretas em Stryder, multiplicadores de plataforma, limite de dinos e área de construção agrupados.
+
+### Improvement
+
+- Melhoria (TEK): busca global «Buscar configuração…» na barra lateral — atalho direto ao campo.
+- Melhoria (TEK): auditoria de visibilidade — rótulos PT, palavras-chave de busca (tributo, Stryder, eventos sazonais), campo «Próximo evento (UTC)» na extinção e campos de transferência/tributo indexados corretamente.
+
+### Fix
+
+- Fix (CustomShop / Nuvem): upload de inventário deixa de bloquear itens com bPreventUpload (ex.: Apex / Element) — apenas engramas e implantes continuam excluídos.
+- Fix (TEK / Evento): ActiveEvent normaliza IDs legados (ARKEaster→Easter, LoveEvolved→vday, Anniversary→birthday, SummerBash→Summer) na leitura, gravação INI e parâmetro ?ActiveEvent=.
+- Fix (TEK / INI): limite de torretas (LimitTurretsInRange/Range/Num) grava em Game.ini [/Script/ShooterGame.ShooterGameMode] em vez de GameUserSettings.
+
 ## [1.9.167] - 2026-06-28
 
 ### Feature

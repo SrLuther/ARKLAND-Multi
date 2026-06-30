@@ -440,7 +440,10 @@ def populate_config_from_gus(
     # ActiveEvent
     try:
         if parser.has_option("ServerSettings", "ActiveEvent"):
-            config.active_event = parser.get("ServerSettings", "ActiveEvent").strip()
+            from .ui_constants import normalize_active_event
+            config.active_event = normalize_active_event(
+                parser.get("ServerSettings", "ActiveEvent").strip()
+            )
     except Exception:
         pass
 
@@ -1285,8 +1288,10 @@ def build_dynamic_config(config: ServerConfig) -> str:
         parser.set(section, key, str(value))
 
     # ActiveEvent — suportado na prática (Wildcard usava para eventos oficiais)
-    if config.active_event:
-        parser.set(section, "ActiveEvent", config.active_event)
+    from .ui_constants import normalize_active_event
+    _evt = normalize_active_event(config.active_event)
+    if _evt:
+        parser.set(section, "ActiveEvent", _evt)
 
     buf = io.StringIO()
     parser.write(buf)
@@ -1377,8 +1382,10 @@ class ArkIniManager:
 
         # AutoSavePeriodMinutes / ActiveEvent
         parser.set("ServerSettings", "AutoSavePeriodMinutes", str(config.auto_save_period))
-        if config.active_event:
-            parser.set("ServerSettings", "ActiveEvent", config.active_event)
+        from .ui_constants import normalize_active_event
+        _evt = normalize_active_event(config.active_event)
+        if _evt:
+            parser.set("ServerSettings", "ActiveEvent", _evt)
         elif parser.has_option("ServerSettings", "ActiveEvent"):
             parser.remove_option("ServerSettings", "ActiveEvent")
 

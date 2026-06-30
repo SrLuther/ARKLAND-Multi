@@ -18,6 +18,7 @@ from .server_field_labels import FieldMeta, get_field_meta
 # Campos com opções fixas → CTkComboBox (rótulo exibido; ID gravado no sync)
 COMBO_FIELD_VALUES: dict[str, list[str]] = {
     "active_event": [label for _, label in _ARK_OFFICIAL_EVENTS],
+    "process_priority": ["normal", "above_normal", "high", "realtime"],
 }
 COMBO_FIELD_ID_TO_LABEL: dict[str, dict[str, str]] = {
     "active_event": _ARK_EVENT_ID_TO_LABEL,

@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 # ── Navegação agrupada (7 categorias — Fase 1 TEK v2) ───────────────────────
 NAV_GROUPS: list[tuple[str, list[str]]] = [
     ("Servidor", [
+        "Todas as opções",
         "Administração",
         "Mods (Workshop)",
         "Gerenciamento Automático",
@@ -74,6 +75,7 @@ NAV_GROUPS: list[tuple[str, list[str]]] = [
 
 # ── Seções do painel (ordem fiel ao ASM) ─────────────────────────────────────
 SECTIONS: list[str] = [
+    "Todas as opções",
     "Administração",
     "Mods (Workshop)",
     "Gerenciamento Automático",
@@ -362,8 +364,10 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
     vars_ref = app._asm_panel_vars[srv.id]
     vars_ref["_app"] = app   # referência ao app para builders que precisam iniciar ações
     vars_ref["_panel_root"] = body
+    vars_ref["_show_section_fn"] = None  # preenchido após _show_section existir
 
     _builders: dict[str, Callable] = {
+        "Todas as opções":              _build_all_options,
         "Administração":                _build_administracao,
         "Mods (Workshop)":              _build_mods_workshop,
         "Gerenciamento Automático":     _build_auto_management,
@@ -404,6 +408,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
     _pending_section: list[str | None] = [None]
     _build_generation: list[int] = [0]
     _CHUNKED_SECTIONS = frozenset({
+        "Todas as opções",
         "Regras",
         "Configurações do Jogador",
         "Configurações do Dino",
@@ -648,9 +653,12 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
                 return
         _start_section_build(name)
 
-    from ..ui.server_field_labels import section_search_index
+    vars_ref["_show_section_fn"] = _show_section
+
+    from ..ui.server_field_labels import field_search_entries, section_search_index
 
     _search_index = section_search_index()
+    _field_entries = field_search_entries()
     for sec in SECTIONS:
         _search_index.setdefault(sec, "")
         _search_index[sec] += " " + sec.lower()
@@ -660,9 +668,19 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
     }
 
     search_var = tk.StringVar(value="")
+    _search_popup: list[ctk.CTkFrame | None] = [None]
+
+    def _hide_search_popup() -> None:
+        if _search_popup[0]:
+            try:
+                _search_popup[0].destroy()
+            except tk.TclError:
+                pass
+            _search_popup[0] = None
 
     def _apply_nav_filter(*_args: object) -> None:
         q = search_var.get().strip().lower()
+        _hide_search_popup()
         for w in nav_row_widgets:
             try:
                 w.grid()
@@ -683,8 +701,40 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
             grp = getattr(w, "_nav_group", "")
             if grp and not any(s in visible_sections for s in _group_sections.get(grp, [])):
                 w.grid_remove()
+        if len(q) >= 2:
+            matches = [
+                (key, sec, pt, blob)
+                for key, sec, pt, blob in _field_entries
+                if q in blob or q in pt.lower() or q in sec.lower() or q in key
+            ][:12]
+            if matches:
+                n = min(len(matches), 8)
+                outer = ctk.CTkFrame(
+                    nav_frame, fg_color=panel_bg, corner_radius=8,
+                    border_width=1, border_color=card_border,
+                )
+                outer.grid(row=999, column=0, padx=4, pady=4, sticky="ew")
+                _search_popup[0] = outer
+                for i, (key, sec, pt, _blob) in enumerate(matches[:n]):
+                    def _go(section=sec, field=key):
+                        _hide_search_popup()
+                        search_var.set("")
+                        _show_section(section)
+                    row_fr = ctk.CTkFrame(outer, fg_color="transparent")
+                    row_fr.pack(fill="x", padx=4, pady=1)
+                    ctk.CTkButton(
+                        row_fr, text=f"{pt}  →  {sec}", anchor="w",
+                        fg_color="transparent", hover_color=nav_hover,
+                        text_color=t_sec, font=ctk.CTkFont(size=10),
+                        height=28, command=_go,
+                    ).pack(fill="x")
+                if len(matches) > n:
+                    ctk.CTkLabel(
+                        outer, text=f"+ {len(matches) - n} resultados — refine a busca",
+                        font=ctk.CTkFont(size=9), text_color=t_mut,
+                    ).pack(padx=8, pady=(2, 6))
     search_entry = ctk.CTkEntry(
-        nav_frame, textvariable=search_var, placeholder_text="🔍  Buscar campo ou seção…",
+        nav_frame, textvariable=search_var, placeholder_text="🔍  Buscar configuração…",
         height=30, font=ctk.CTkFont(family="Segoe UI", size=11),
         border_color=sep,
     )
@@ -718,7 +768,7 @@ def build_asm_server_panel(app: "ARKServerManagerApp",
             nav_row += 1
 
     def _boot_panel() -> None:
-        _start_section_build(SECTIONS[0])
+        _start_section_build("Administração")
 
     content_area.after(0, _boot_panel)
 
@@ -1032,6 +1082,25 @@ class _MapPickerDialog(ctk.CTkToplevel):
 
 
 # ════════════════════════════════════════════════════════════════════════════ #
+#  Seção 0 — Todas as opções (visão plana)
+# ════════════════════════════════════════════════════════════════════════════ #
+
+def _build_all_options(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=None, on_progress=None, on_error=None, on_cancelled=None):
+    from ..ui.tek_all_options_section import build_all_options_section
+
+    show_section = vars_ref.get("_show_section_fn")
+    build_all_options_section(
+        sf, srv, vars_ref, accent,
+        on_goto_section=show_section if callable(show_section) else None,
+        on_done=on_done,
+        is_cancelled=is_cancelled,
+        on_progress=on_progress,
+        on_error=on_error,
+        on_cancelled=on_cancelled,
+    )
+
+
+# ════════════════════════════════════════════════════════════════════════════ #
 #  Seção 1 — Administração
 # ════════════════════════════════════════════════════════════════════════════ #
 
@@ -1186,15 +1255,16 @@ def _build_administracao(sf, srv, vars_ref, bg, accent):
     _section_label(sf, "Extinção / Respawn de dinos", 33, accent)
     _bool_check(sf,  "Evento de extinção",      "enable_extinction_event",         srv, vars_ref, 34, accent)
     _int_entry(sf,   "Intervalo extinção (s)",  "extinction_event_interval",        srv, vars_ref, 35)
-    _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 36, accent)
-    _int_entry(sf,   "Intervalo respawn (s)",   "auto_respawn_wild_dinos_interval", srv, vars_ref, 37)
+    _int_entry(sf,   "Próximo evento (UTC)",    "extinction_event_utc",             srv, vars_ref, 36)
+    _bool_check(sf, "Forçar respawn dinos selvagens",  "enable_auto_respawn_wild_dinos",  srv, vars_ref, 37, accent)
+    _int_entry(sf,   "Intervalo respawn (s)",   "auto_respawn_wild_dinos_interval", srv, vars_ref, 38)
 
-    _section_label(sf, "Jogadores Ociosos", 37, accent)
-    _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 38, accent)
-    _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 39)
+    _section_label(sf, "Jogadores Ociosos", 39, accent)
+    _bool_check(sf,  "Kickar ociosos",          "enable_kick_idle_players",         srv, vars_ref, 40, accent)
+    _float_entry(sf, "Período idle kick (s)",   "kick_idle_players",                srv, vars_ref, 41)
 
     from ..ui.cluster_server_section import build_server_cluster_link_asm
-    _branch_row = build_server_cluster_link_asm(sf, srv, vars_ref, accent, 40)
+    _branch_row = build_server_cluster_link_asm(sf, srv, vars_ref, accent, 42)
     _section_label(sf, "Branch SteamCMD (Beta)", _branch_row, accent)
     _branch_btn_row = ctk.CTkFrame(sf, fg_color="transparent")
     _branch_btn_row.grid(row=_branch_row + 1, column=0, columnspan=2, padx=8, pady=(2, 4), sticky="w")
@@ -1301,12 +1371,30 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
         CardSpec("Reinício programado", ["enable_auto_restart", "auto_restart_time", "restart_countdown_minutes"]),
         CardSpec("Atualização automática", ["enable_auto_update_check", "auto_update_check_minutes"]),
         CardSpec("Notificações", ["notify_discord_on_events"], bool_grid=True),
+        CardSpec("Desempenho do processo", ["process_priority"]),
     ])
+    perf_card = ctk.CTkFrame(sf, fg_color=ctx.theme.get("card_bg", "#0d1b2a"), corner_radius=10,
+                             border_width=1, border_color=ctx.theme.get("card_border", "#1e293b"))
+    perf_card.grid(row=row, column=0, columnspan=2, padx=8, pady=6, sticky="ew")
+    ctk.CTkLabel(
+        perf_card, text="Afinidade de CPU (núcleos)",
+        font=ctk.CTkFont(size=11, weight="bold"), text_color=accent, anchor="w",
+    ).grid(row=0, column=0, padx=12, pady=(8, 4), sticky="w")
+    cores = getattr(srv, "cpu_affinity_cores", []) or []
+    cores_var = tk.StringVar(value=", ".join(str(c) for c in cores))
+    vars_ref["_cpu_affinity_csv"] = cores_var
+    ctk.CTkEntry(
+        perf_card, textvariable=cores_var, placeholder_text="vazio = todos os núcleos (ex: 0, 2, 4)",
+    ).grid(row=1, column=0, padx=12, pady=(0, 10), sticky="ew")
+    perf_card.grid_columnconfigure(0, weight=1)
+    row += 1
     add_collapsible_help(sf, [
         ("Reinício automático", "Reinicia o servidor todo dia no horário configurado (HH:MM, 24h)."),
         ("Contagem regressiva", "Avisa os jogadores X minutos antes do reinício via mensagem no chat."),
         ("Verificar atualizações", "Checa periodicamente se há nova versão do servidor no Steam."),
         ("Notificar via Discord", "Envia mensagem no canal Discord quando eventos ocorrem."),
+        ("Afinidade de CPU", "Lista de índices de núcleos separados por vírgula. Deixe vazio para usar todos."),
+        ("Prioridade do processo", "Eleva a prioridade no Windows. «realtime» requer cuidado em produção."),
     ], row)
 
 
@@ -1358,8 +1446,17 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
 
     row = build_cards_layout(sf, ctx, [
         CardSpec("BanList", ["enable_ban_list_url", "ban_list_url"]),
-        CardSpec("Branch SteamCMD", ["branch_name", "branch_password"]),
     ], start_row=2)
+
+    branch_hint = make_card(sf, row, 0, ctx.theme)
+    branch_hint.grid(columnspan=2, sticky="ew")
+    add_card_header(branch_hint, "Branch SteamCMD", accent)
+    ctk.CTkLabel(
+        branch_hint,
+        text="Configure a branch (Estável / Pre-Aquatica) em Administração → Branch SteamCMD.",
+        font=ctk.CTkFont(size=10), text_color=ctx.theme["text_muted"], anchor="w", wraplength=520,
+    ).grid(row=1, column=0, padx=12, pady=(4, 10), sticky="w")
+    row += 1
 
     notes_card = make_card(sf, row, 0, ctx.theme)
     notes_card.grid(columnspan=2, sticky="ew")
@@ -1375,7 +1472,7 @@ def _build_server_details(sf, srv, vars_ref, bg, accent):
     add_collapsible_help(sf, [
         ("MOTD", "Mensagem ao entrar. Duração em segundos."),
         ("Lista de ban (URL)", "URL de lista global de SteamIDs banidos."),
-        ("Branch do SteamCMD", "Versão beta ou experimental. Vazio = estável."),
+        ("Branch do SteamCMD", "Atalhos e campos em Administração (evita duplicar configuração)."),
         ("Notas internas", "Campo livre para sua referência."),
     ], row + 1)
 
@@ -1431,7 +1528,6 @@ def _build_rules(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=No
             "fishing_loot_quality_multiplier", "use_corpse_life_span_multiplier",
             "global_powered_battery_durability_decrease", "random_supply_crate_points",
             "use_corpse_locator", "prevent_spawn_animations", "allow_unlimited_respecs",
-            "allow_platform_saddle_multi_floors",
         ]),
     ]
     help_items = [
@@ -1471,6 +1567,14 @@ def _build_transfers(sf, srv, vars_ref, bg, accent):
 
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Transferências / Tributo", "Transferências e tributo")
     row = build_cards_layout(sf, ctx, [
+        CardSpec("Tributo geral", ["enable_tribute_downloads"], bool_grid=True),
+        CardSpec("Bloquear download", [
+            "prevent_download_survivors", "prevent_download_items", "prevent_download_dinos",
+        ], bool_grid=True),
+        CardSpec("Bloquear upload", [
+            "prevent_upload_survivors", "prevent_upload_items", "prevent_upload_dinos",
+        ], bool_grid=True),
+        CardSpec("Cluster", ["cross_ark_allow_foreign_dino_downloads"], bool_grid=True),
         CardSpec("Expiração — personagens", ["save_tribute_char_expiration", "tribute_char_expiration_seconds"]),
         CardSpec("Expiração — items", ["save_tribute_item_expiration", "tribute_item_expiration_seconds"]),
         CardSpec("Expiração — dinos", ["save_tribute_dino_expiration", "tribute_dino_expiration_seconds"]),
@@ -1478,10 +1582,13 @@ def _build_transfers(sf, srv, vars_ref, bg, accent):
         CardSpec("Acesso exclusivo", ["exclusive_join"], bool_grid=True),
     ])
     add_collapsible_help(sf, [
+        ("Downloads de tributo", "Interruptor geral do terminal/obelisco. Desmarque para bloquear toda viagem."),
+        ("Download / upload", "Controle fino por tipo: personagem, itens ou dinos."),
+        ("Dinos estrangeiros", "Permite baixar dinos de servidores fora do cluster configurado."),
         ("Expiração de tributo", "Remove automaticamente após o tempo configurado."),
         ("Re-upload de dino", "Tempo mínimo entre uploads do mesmo dino."),
         ("Acesso exclusivo", "Somente SteamIDs na whitelist podem entrar."),
-        ("Cross-ARK", "Cluster ID, pasta e bloqueios de viagem: menu Clusters."),
+        ("Cross-ARK", "Cluster ID e pasta compartilhada: menu Clusters."),
     ], row)
 
 
@@ -1899,15 +2006,21 @@ def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
 
     ctx = begin_tek_section(sf, srv, vars_ref, accent, "Estruturas", "Estruturas")
     cards = [
+        CardSpec("Platform saddle / Tek Strider", [
+            "override_structure_platform_prevention",
+            "per_platform_max_structures_multiplier",
+            "max_platform_saddle_structures",
+            "platform_saddle_build_area_bounds_multiplier",
+            "allow_platform_saddle_multi_floors",
+            "flyer_platform_allow_unaligned_dino_basing",
+        ]),
         CardSpec("Dano e resistência", [
             "structure_resistance_multiplier", "structure_damage_multiplier",
             "structure_damage_repair_cooldown", "pvp_structure_decay",
             "pvp_zone_structure_damage_multiplier",
         ]),
         CardSpec("Limites", [
-            "max_structures_in_range", "per_platform_max_structures_multiplier",
-            "max_platform_saddle_structures", "override_structure_platform_prevention",
-            "flyer_platform_allow_unaligned_dino_basing",
+            "max_structures_in_range",
         ]),
         CardSpec("Decay PvE", [
             "enable_structure_decay_pve", "pve_structure_decay_period_multiplier",
@@ -1928,6 +2041,7 @@ def _build_structures(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
         ]),
     ]
     help_items = [
+        ("Torretas no Stryder", "Ative «Permitir torretas em platform saddle» — sem isso Auto/Tek Turret não colocam no Tek Strider."),
         ("Resistência e dano", "Dano recebido/causado por estruturas. 1.0 = vanilla."),
         ("Máx. estruturas por raio", "Limite por área — reduz lag em bases grandes."),
         ("Decay em PvE", "Remove bases abandonadas automaticamente."),
@@ -3508,7 +3622,12 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         try:
             raw = var.get()
             if field_name == "active_event":
-                setattr(srv, field_name, _ARK_EVENT_LABEL_TO_ID.get(str(raw), str(raw).strip()))
+                from ..ui_constants import _ARK_EVENT_LABEL_TO_ID, normalize_active_event
+                setattr(
+                    srv,
+                    field_name,
+                    normalize_active_event(_ARK_EVENT_LABEL_TO_ID.get(str(raw), str(raw).strip())),
+                )
                 continue
             if ftype in ("bool", bool) or str(ftype) == "bool":
                 setattr(srv, field_name, bool(raw))
@@ -3563,6 +3682,24 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     if tags_var:
         raw = tags_var.get().strip()
         srv.tags = [t.strip() for t in raw.split(",") if t.strip()] if raw else []
+
+    # CPU affinity (lista de inteiros)
+    cpu_var = vars_ref.get("_cpu_affinity_csv")
+    if cpu_var:
+        raw = cpu_var.get().strip()
+        if raw:
+            cores: list[int] = []
+            for part in raw.replace(";", ",").split(","):
+                part = part.strip()
+                if not part:
+                    continue
+                try:
+                    cores.append(int(part))
+                except ValueError:
+                    continue
+            srv.cpu_affinity_cores = cores
+        else:
+            srv.cpu_affinity_cores = []
 
     # Per-level stat multipliers
     pls = vars_ref.get("_pls")

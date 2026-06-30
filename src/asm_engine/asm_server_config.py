@@ -433,6 +433,9 @@ class AsmServerConfig:
             if key not in field_map:
                 continue
             kwargs[key] = _coerce_config_field(field_map[key], raw, defaults)
+        from ..ui_constants import normalize_active_event
+        if "active_event" in kwargs:
+            kwargs["active_event"] = normalize_active_event(kwargs.get("active_event", ""))
         return cls(**kwargs)
 
 

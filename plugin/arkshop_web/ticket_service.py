@@ -682,6 +682,13 @@ def create_ticket(
 
     db.commit()
     db.refresh(ticket)
+    _notify_ticket_event(
+        db,
+        int(ticket.id),
+        "created",
+        actor_steam_id=steam_id,
+        actor_name=(player_name or steam_id)[:128],
+    )
     return {
         "ok": True,
         "ticket": _ticket_row_to_dict(ticket),
@@ -937,8 +944,29 @@ def add_ticket_reply(
         note=text_body[:200],
         created_at=now,
     )
+    reply_event = "reply_admin" if author_type == "admin" else "reply_player"
+    status_old = old_status
+    status_new = _normalize_status(ticket.status) or ticket.status
     db.commit()
     db.refresh(msg)
+    _notify_ticket_event(
+        db,
+        ticket_id,
+        reply_event,
+        actor_steam_id=author_steam_id,
+        actor_name=(author_name or "")[:128],
+        note=text_body[:200],
+    )
+    if status_old != status_new:
+        _notify_ticket_event(
+            db,
+            ticket_id,
+            "status_changed",
+            actor_steam_id=author_steam_id,
+            actor_name=(author_name or "")[:128],
+            old_value=status_old,
+            new_value=status_new,
+        )
     return {"ok": True, "message": _message_row_to_dict(msg)}
 
 
@@ -992,6 +1020,24 @@ def update_ticket_status(
             )
     db.commit()
     db.refresh(ticket)
+    if old_status != new_status:
+        _notify_ticket_event(
+            db,
+            ticket_id,
+            "status_changed",
+            actor_steam_id=admin_steam_id,
+            actor_name=(admin_name or "Admin")[:128],
+            old_value=old_status,
+            new_value=new_status,
+        )
+        if new_status == "ENCERRADO":
+            _notify_ticket_event(
+                db,
+                ticket_id,
+                "closed",
+                actor_steam_id=admin_steam_id,
+                actor_name=(admin_name or "Admin")[:128],
+            )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
@@ -1038,9 +1084,15 @@ def attend_ticket(
         actor_name=(admin_name or "Admin")[:128],
         created_at=now,
     )
-    _notify_ticket_event(ticket_id, "attended", actor_name=admin_name)
     db.commit()
     db.refresh(ticket)
+    _notify_ticket_event(
+        db,
+        ticket_id,
+        "attended",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+    )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
@@ -1088,9 +1140,16 @@ def close_ticket(
         note=(note[:500] if note else None),
         created_at=now,
     )
-    _notify_ticket_event(ticket_id, "closed", actor_name=admin_name)
     db.commit()
     db.refresh(ticket)
+    _notify_ticket_event(
+        db,
+        ticket_id,
+        "closed",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+        note=(note[:500] if note else None),
+    )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
@@ -1144,15 +1203,55 @@ def request_player_close(
         )
     else:
         ticket.updated_at = now
-    _notify_ticket_event(ticket_id, "close_requested", actor_name=player_name)
     db.commit()
     db.refresh(ticket)
+    _notify_ticket_event(
+        db,
+        ticket_id,
+        "close_requested",
+        actor_steam_id=steam_id,
+        actor_name=(player_name or steam_id)[:128],
+        note=msg_note[:500],
+    )
+    if old_status in ("ABERTO", "EM_ANALISE") and ticket.status == "AGUARDANDO_JOGADOR":
+        _notify_ticket_event(
+            db,
+            ticket_id,
+            "status_changed",
+            actor_steam_id=steam_id,
+            actor_name=(player_name or steam_id)[:128],
+            old_value=old_status,
+            new_value="AGUARDANDO_JOGADOR",
+        )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
-def _notify_ticket_event(ticket_id: int, event: str, *, actor_name: str = "") -> None:
-    """Stub para notificações futuras (Discord, e-mail, in-game)."""
-    _ = (ticket_id, event, actor_name)
+def _notify_ticket_event(
+    db: Any,
+    ticket_id: int,
+    event: str,
+    *,
+    actor_steam_id: str | None = None,
+    actor_name: str = "",
+    note: str | None = None,
+    old_value: str | None = None,
+    new_value: str | None = None,
+) -> None:
+    try:
+        from ticket_notify import notify_ticket_update
+
+        notify_ticket_update(
+            db,
+            ticket_id,
+            event,
+            actor_steam_id=actor_steam_id,
+            actor_name=actor_name,
+            note=note or "",
+            old_value=old_value,
+            new_value=new_value,
+        )
+    except Exception:
+        pass
 
 
 def update_ticket_priority(
@@ -1192,6 +1291,15 @@ def update_ticket_priority(
     )
     db.commit()
     db.refresh(ticket)
+    _notify_ticket_event(
+        db,
+        ticket_id,
+        "priority_changed",
+        actor_steam_id=admin_steam_id,
+        actor_name=(admin_name or "Admin")[:128],
+        old_value=old_pri,
+        new_value=new_pri,
+    )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
@@ -1270,6 +1378,14 @@ def save_ticket_attachment(
     )
     db.commit()
     db.refresh(row)
+    _notify_ticket_event(
+        db,
+        ticket_id,
+        "attachment_added",
+        actor_steam_id=viewer_steam_id,
+        actor_name=(actor_name or viewer_steam_id)[:128],
+        note=original[:200],
+    )
     return {"ok": True, "attachment": _attachment_row_to_dict(row)}
 
 

@@ -139,7 +139,6 @@ bool IsUploadableItem(UPrimalItem* item,
     if (!item || !inv) return false;
     if (excluded.count(item)) return false;
     if (IsSpecimenImplant(item)) return false;
-    if (item->bPreventUpload().Get()) return false;
     if (item->bIsEngram().Get()) return false;
 
     const int qty = item->GetItemQuantity();

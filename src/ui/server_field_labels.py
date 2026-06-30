@@ -63,7 +63,7 @@ _PT_OVERRIDES: dict[str, str] = {
     "use_battleye": "BattlEye ativo",
     "force_respawn_dinos": "Forçar respawn de dinos (-ForceRespawnDinos)",
     "use_allcores": "Usar todos os núcleos CPU",
-    "active_event": "Evento ativo (ActiveEvent)",
+    "active_event": "Evento sazonal ARK (Páscoa, Halloween…)",
     "crossplay": "Crossplay Epic + Steam",
     "epic_only": "Somente Epic Game Store",
     "use_vivox": "Vivox (chat de voz Steam)",
@@ -100,7 +100,7 @@ _PT_OVERRIDES: dict[str, str] = {
     "item_stack_size_multiplier": "Multiplicador global de pilhas",
     "spoiling_time_multiplier": "Multiplicador de spoil (legado GUS)",
     "item_decomposition_time_multiplier": "Decomposição de itens no chão (GUS)",
-    "platform_saddle_build_area_bounds_multiplier": "Área de construção na plataforma",
+    "platform_saddle_build_area_bounds_multiplier": "Área de construção na platform saddle",
     "max_tribute_dinos": "Máx. dinos no terminal",
     "max_tribute_items": "Máx. itens no terminal",
     "baby_imprint_amount_multiplier": "Multiplicador de % por imprint",
@@ -217,7 +217,7 @@ _PT_OVERRIDES: dict[str, str] = {
     "per_level_dino_tamed_affinity": "Stats por nível — Dino (bônus de domesticação)",
 }
 
-from .field_i18n_extra import EXTRA_HINTS, EXTRA_PT_OVERRIDES
+from .field_i18n_extra import EXTRA_HINTS, EXTRA_PT_OVERRIDES, EXTRA_SEARCH_KEYWORDS
 
 _PT_OVERRIDES.update(EXTRA_PT_OVERRIDES)
 
@@ -464,7 +464,8 @@ def _build_catalog() -> dict[str, FieldMeta]:
         hint = _HINTS.get(key) or _build_default_hint(key, pt, ftype, section_map.get(key, ""))
         section = section_map.get(key, "")
         mn, mx = _SLIDER_RANGES.get(key, (None, None))
-        search = f"{key} {pt} {en} {ini_key} {hint}".lower()
+        extra_kw = EXTRA_SEARCH_KEYWORDS.get(key, "")
+        search = f"{key} {pt} {en} {ini_key} {hint} {extra_kw}".lower()
         catalog[key] = FieldMeta(
             key=key, pt=pt, en=en, hint=hint, field_type=ftype,
             min_val=mn, max_val=mx, section=section, ini_key=ini_key,
@@ -502,6 +503,30 @@ def section_search_index() -> dict[str, str]:
 
 
 _SECTION_SEARCH_INDEX_CACHE: dict[str, str] | None = None
+_FIELD_SEARCH_ENTRIES_CACHE: list[tuple[str, str, str, str]] | None = None
+
+
+def invalidate_search_caches() -> None:
+    """Limpa caches de busca (útil após alterar SECTION_FIELDS)."""
+    global _SECTION_SEARCH_INDEX_CACHE, _FIELD_SEARCH_ENTRIES_CACHE
+    _SECTION_SEARCH_INDEX_CACHE = None
+    _FIELD_SEARCH_ENTRIES_CACHE = None
+
+
+def field_search_entries() -> list[tuple[str, str, str, str]]:
+    """(field_key, section, pt_label, search_blob) — busca global TEK."""
+    global _FIELD_SEARCH_ENTRIES_CACHE
+    if _FIELD_SEARCH_ENTRIES_CACHE is not None:
+        return _FIELD_SEARCH_ENTRIES_CACHE
+    entries: list[tuple[str, str, str, str]] = []
+    for key, meta in FIELD_LABELS.items():
+        if not meta.section:
+            continue
+        if key.startswith("_") or key in ("id", "cluster_profile_id", "custom_ini_sections"):
+            continue
+        entries.append((key, meta.section, meta.pt, meta.search_text))
+    _FIELD_SEARCH_ENTRIES_CACHE = entries
+    return entries
 
 
 def _looks_english_pt(text: str) -> bool:

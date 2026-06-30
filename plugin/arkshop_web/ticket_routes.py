@@ -34,18 +34,23 @@ def register_ticket_routes(
     session_factory: Callable[[], Any],
     login_required: Callable,
     admin_required: Callable,
+    ticket_staff_required: Callable,
     steam_id_from_session: Callable[[], str | None],
     is_admin_steamid: Callable[[str], bool],
+    can_manage_tickets: Callable[[str], bool],
     resolve_display_name: Callable[[str], str] | None = None,
     uploads_dir: Path,
     limiter: Any | None = None,
+    load_settings: Callable[[], dict[str, Any]] | None = None,
+    save_settings: Callable[[dict[str, Any]], None] | None = None,
 ) -> None:
     _limit = limiter.limit if limiter else (lambda *a, **k: (lambda f: f))
 
-    def _viewer_context() -> tuple[str | None, bool]:
+    def _viewer_context() -> tuple[str | None, bool, bool]:
         sid = steam_id_from_session()
         admin = bool(sid and is_admin_steamid(sid))
-        return sid, admin
+        staff = bool(sid and can_manage_tickets(sid))
+        return sid, admin, staff
 
     @app.route("/api/tickets/meta", methods=["GET"])
     def tickets_meta():
@@ -165,14 +170,14 @@ def register_ticket_routes(
     def tickets_detail_player(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin = _viewer_context()
+        steam_id, is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             detail = get_ticket_detail(
                 db,
                 ticket_id,
                 viewer_steam_id=steam_id,
-                is_admin=is_admin,
+                is_admin=is_staff,
                 include_order=True,
             )
             if not detail:
@@ -186,11 +191,11 @@ def register_ticket_routes(
     def tickets_history_player(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin = _viewer_context()
+        steam_id, is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             data = get_ticket_history(
-                db, ticket_id, viewer_steam_id=steam_id, is_admin=is_admin
+                db, ticket_id, viewer_steam_id=steam_id, is_admin=is_staff
             )
             if not data:
                 return jsonify({"ok": False, "error": "Ticket não encontrado"}), 404
@@ -205,23 +210,29 @@ def register_ticket_routes(
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(force=True, silent=True) or {}
-        steam_id, is_admin = _viewer_context()
+        steam_id, is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             player_name = resolve_player_name(
                 db, str(steam_id), resolve_display_name=resolve_display_name
             )
-            author_type = "admin" if is_admin else "player"
+            author_type = "admin" if is_staff else "player"
+            if is_admin:
+                author_label = f"Admin ({player_name})"
+            elif is_staff:
+                author_label = f"Suporte ({player_name})"
+            else:
+                author_label = player_name
             result = add_ticket_reply(
                 db,
                 ticket_id,
                 author_type=author_type,
                 author_steam_id=steam_id,
-                author_name=player_name if not is_admin else f"Admin ({player_name})",
+                author_name=author_label,
                 body=str(body.get("body") or ""),
                 links=body.get("links"),
                 viewer_steam_id=steam_id,
-                is_admin=is_admin,
+                is_admin=is_staff,
             )
             if not result.get("ok"):
                 return jsonify(result), 400
@@ -261,7 +272,7 @@ def register_ticket_routes(
     def tickets_upload_player(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin = _viewer_context()
+        steam_id, is_admin, is_staff = _viewer_context()
         file_obj = request.files.get("file")
         message_id_raw = request.form.get("message_id")
         message_id = int(message_id_raw) if message_id_raw else None
@@ -277,7 +288,7 @@ def register_ticket_routes(
                 file_storage=file_obj,
                 uploads_dir=uploads_dir,
                 viewer_steam_id=str(steam_id),
-                is_admin=is_admin,
+                is_admin=is_staff,
                 actor_name=player_name,
             )
             if not result.get("ok"):
@@ -291,14 +302,14 @@ def register_ticket_routes(
     def tickets_download_attachment(attachment_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        steam_id, is_admin = _viewer_context()
+        steam_id, is_admin, is_staff = _viewer_context()
         db = session_factory()
         try:
             meta = get_attachment_for_download(
                 db,
                 attachment_id,
                 viewer_steam_id=steam_id,
-                is_admin=is_admin,
+                is_admin=is_staff,
                 uploads_dir=uploads_dir,
             )
             if not meta:
@@ -315,7 +326,7 @@ def register_ticket_routes(
     # ── Admin ─────────────────────────────────────────────────────────────────
 
     @app.route("/api/admin/tickets", methods=["GET"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_list():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
@@ -350,7 +361,7 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>", methods=["GET"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_detail(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
@@ -364,7 +375,7 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/history", methods=["GET"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_history(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
@@ -378,27 +389,28 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/reply", methods=["POST"])
-    @admin_required
+    @ticket_staff_required
     @_limit("60 per minute")
     def admin_tickets_reply(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(force=True, silent=True) or {}
-        admin_sid = str(steam_id_from_session() or "")
+        staff_sid = str(steam_id_from_session() or "")
         db = session_factory()
         try:
-            admin_name = resolve_player_name(
-                db, admin_sid, resolve_display_name=resolve_display_name
+            staff_name = resolve_player_name(
+                db, staff_sid, resolve_display_name=resolve_display_name
             )
+            label = "Admin" if is_admin_steamid(staff_sid) else "Suporte"
             result = add_ticket_reply(
                 db,
                 ticket_id,
                 author_type="admin",
-                author_steam_id=admin_sid,
-                author_name=f"Suporte ({admin_name})",
+                author_steam_id=staff_sid,
+                author_name=f"{label} ({staff_name})",
                 body=str(body.get("body") or ""),
                 links=body.get("links"),
-                viewer_steam_id=admin_sid,
+                viewer_steam_id=staff_sid,
                 is_admin=True,
             )
             if not result.get("ok"):
@@ -408,21 +420,21 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/attend", methods=["POST"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_attend(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        admin_sid = str(steam_id_from_session() or "")
+        staff_sid = str(steam_id_from_session() or "")
         db = session_factory()
         try:
-            admin_name = resolve_player_name(
-                db, admin_sid, resolve_display_name=resolve_display_name
+            staff_name = resolve_player_name(
+                db, staff_sid, resolve_display_name=resolve_display_name
             )
             result = attend_ticket(
                 db,
                 ticket_id,
-                admin_steam_id=admin_sid,
-                admin_name=admin_name,
+                admin_steam_id=staff_sid,
+                admin_name=staff_name,
             )
             if not result.get("ok"):
                 return jsonify(result), 400
@@ -431,22 +443,22 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/close", methods=["POST"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_close(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(force=True, silent=True) or {}
-        admin_sid = str(steam_id_from_session() or "")
+        staff_sid = str(steam_id_from_session() or "")
         db = session_factory()
         try:
-            admin_name = resolve_player_name(
-                db, admin_sid, resolve_display_name=resolve_display_name
+            staff_name = resolve_player_name(
+                db, staff_sid, resolve_display_name=resolve_display_name
             )
             result = close_ticket(
                 db,
                 ticket_id,
-                admin_steam_id=admin_sid,
-                admin_name=admin_name,
+                admin_steam_id=staff_sid,
+                admin_name=staff_name,
                 note=str(body.get("note") or "").strip() or None,
             )
             if not result.get("ok"):
@@ -456,24 +468,24 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/status", methods=["POST"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_status(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(force=True, silent=True) or {}
         status = str(body.get("status") or "").strip()
-        admin_sid = str(steam_id_from_session() or "")
+        staff_sid = str(steam_id_from_session() or "")
         db = session_factory()
         try:
-            admin_name = resolve_player_name(
-                db, admin_sid, resolve_display_name=resolve_display_name
+            staff_name = resolve_player_name(
+                db, staff_sid, resolve_display_name=resolve_display_name
             )
             result = update_ticket_status(
                 db,
                 ticket_id,
                 status=status,
-                admin_steam_id=admin_sid,
-                admin_name=admin_name,
+                admin_steam_id=staff_sid,
+                admin_name=staff_name,
             )
             if not result.get("ok"):
                 return jsonify(result), 400
@@ -482,24 +494,24 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/priority", methods=["POST"])
-    @admin_required
+    @ticket_staff_required
     def admin_tickets_priority(ticket_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(force=True, silent=True) or {}
         priority = str(body.get("priority") or "").strip().lower()
-        admin_sid = str(steam_id_from_session() or "")
+        staff_sid = str(steam_id_from_session() or "")
         db = session_factory()
         try:
-            admin_name = resolve_player_name(
-                db, admin_sid, resolve_display_name=resolve_display_name
+            staff_name = resolve_player_name(
+                db, staff_sid, resolve_display_name=resolve_display_name
             )
             result = update_ticket_priority(
                 db,
                 ticket_id,
                 priority=priority,
-                admin_steam_id=admin_sid,
-                admin_name=admin_name,
+                admin_steam_id=staff_sid,
+                admin_name=staff_name,
             )
             if not result.get("ok"):
                 return jsonify(result), 400
@@ -508,7 +520,7 @@ def register_ticket_routes(
             db.close()
 
     @app.route("/api/admin/tickets/<int:ticket_id>/attachments", methods=["POST"])
-    @admin_required
+    @ticket_staff_required
     @_limit("30 per minute")
     def admin_tickets_upload(ticket_id: int):
         if not db_ready():
@@ -516,11 +528,11 @@ def register_ticket_routes(
         file_obj = request.files.get("file")
         message_id_raw = request.form.get("message_id")
         message_id = int(message_id_raw) if message_id_raw else None
-        admin_sid = str(steam_id_from_session() or "")
+        staff_sid = str(steam_id_from_session() or "")
         db = session_factory()
         try:
-            admin_name = resolve_player_name(
-                db, admin_sid, resolve_display_name=resolve_display_name
+            staff_name = resolve_player_name(
+                db, staff_sid, resolve_display_name=resolve_display_name
             )
             result = save_ticket_attachment(
                 db,
@@ -528,9 +540,9 @@ def register_ticket_routes(
                 message_id=message_id,
                 file_storage=file_obj,
                 uploads_dir=uploads_dir,
-                viewer_steam_id=admin_sid,
+                viewer_steam_id=staff_sid,
                 is_admin=True,
-                actor_name=admin_name,
+                actor_name=staff_name,
             )
             if not result.get("ok"):
                 return jsonify(result), 400
@@ -547,3 +559,33 @@ def register_ticket_routes(
             "error": "OAuth Discord para tickets ainda não implementado (1.9.149).",
             "oauth_available": False,
         }), 501
+
+    @app.route("/api/admin/tickets/discord", methods=["GET"])
+    @admin_required
+    def admin_tickets_discord_status():
+        if not load_settings:
+            return jsonify({"ok": False, "error": "settings indisponível"}), 503
+        from ticket_discord import ticket_discord_status
+
+        return jsonify({"ok": True, **ticket_discord_status(load_settings)})
+
+    @app.route("/api/admin/tickets/discord", methods=["POST"])
+    @admin_required
+    def admin_tickets_discord_save():
+        if not load_settings or not save_settings:
+            return jsonify({"ok": False, "error": "settings indisponível"}), 503
+        from ticket_discord import ticket_discord_status
+
+        body = request.get_json(force=True, silent=True) or {}
+        s = load_settings()
+        if "ticket_discord_enabled" in body:
+            s["ticket_discord_enabled"] = bool(body["ticket_discord_enabled"])
+        if "ticket_discord_channel_id" in body:
+            s["ticket_discord_channel_id"] = str(
+                body.get("ticket_discord_channel_id") or ""
+            ).strip()
+        token = str(body.get("ticket_discord_token") or "").strip()
+        if token:
+            s["ticket_discord_token"] = token
+        save_settings(s)
+        return jsonify({"ok": True, **ticket_discord_status(load_settings)})

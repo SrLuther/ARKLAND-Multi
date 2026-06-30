@@ -11,7 +11,7 @@ import time
 
 from ..server_config import SERVER_STATUS_STOPPED
 from ..change_logger import snapshot_server, diff_snapshots
-from ..ui_constants import _ARK_EVENT_LABEL_TO_ID
+from ..ui_constants import _ARK_EVENT_LABEL_TO_ID, normalize_active_event
 from ..ark_ini import ArkIniManager
 
 if TYPE_CHECKING:
@@ -160,7 +160,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         srv.branch_password = w.get("branch_password", tk.StringVar()).get()
         srv.extra_args            = w.get("extra_args",    tk.StringVar()).get().strip()
         _evt_raw = w.get("active_event", tk.StringVar()).get().strip()
-        srv.active_event          = _ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw)
+        srv.active_event          = normalize_active_event(_ARK_EVENT_LABEL_TO_ID.get(_evt_raw, _evt_raw))
         try:
             srv.auto_save_period  = float(w.get("auto_save", tk.StringVar(value="15")).get())
         except ValueError:
