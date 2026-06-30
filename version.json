@@ -1,8 +1,10 @@
 {
-    "version": "1.9.170",
+    "version": "1.9.171",
     "date": "2026-06-30",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.170/ARKLAND-Multi-Setup-v1.9.170.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.171/ARKLAND-Multi-Setup-v1.9.171.exe",
     "changelog": [
-        "Fix CRÍTICO (CustomShop / TimedPoints / cargo MOD): bônus de 500 Âmbares por ciclo não aplicava — grupo Permissions «Moderacao» (UI MOD) não batia com «Mod» no config após sync; catalog_sync normaliza Mod/MOD → Moderacao; TimedPoints resolve aliases Moderacao/Mod/MOD; recompilar CustomShop.dll e rodar Sync TEK ou Shop.Reload nos mapas."
+        "Feature (Web Store / Tickets): status automático — criado como «Aguardando suporte», resposta do suporte muda para «Aguardando jogador», resposta do jogador volta para «Aguardando suporte»; migração de Aberto/Em análise no banco.",
+        "Feature (Web Store / Tickets): notificações in-app para o jogador e para toda a equipe de suporte (support_steamids + admins) sempre que o status do ticket é atualizado.",
+        "Feature (Server Manager / Banco de Dados): modo emergência — filtro por SteamID, editar/excluir/novo registro, modelos SQL e atalhos para players, player_entitlements, player_cloud_inventory e player_cloud_items; visão geral do jogador."
     ]
 }

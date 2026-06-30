@@ -4759,8 +4759,7 @@
             <select id="tickets-admin-filter-status" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadTicketsAdmin()">
               <option value="">Todos os status</option>
               <option value="open">Abertos (todos ativos)</option>
-              <option value="ABERTO">Aberto</option>
-              <option value="EM_ANALISE">Em análise</option>
+              <option value="AGUARDANDO_SUPORTE">Aguardando suporte</option>
               <option value="AGUARDANDO_JOGADOR">Aguardando jogador</option>
               <option value="ENCERRADO">Encerrado</option>
             </select>
@@ -4831,8 +4830,7 @@
                 <button id="tickets-admin-close-btn" class="btn btn-danger btn-sm" onclick="ticketsAdminCloseTicket()">✕ Encerrar ticket</button>
                 <select id="tickets-admin-status-select" class="btn btn-ghost btn-sm" style="padding:6px 10px;" onchange="ticketsAdminSetStatus(this.value)">
                   <option value="">Alterar status…</option>
-                  <option value="ABERTO">Aberto</option>
-                  <option value="EM_ANALISE">Em análise</option>
+                  <option value="AGUARDANDO_SUPORTE">Aguardando suporte</option>
                   <option value="AGUARDANDO_JOGADOR">Aguardando jogador</option>
                   <option value="ENCERRADO">Encerrado</option>
                 </select>
@@ -8984,12 +8982,13 @@ let _ticketsAdminSelectedId = null;
 let _ticketsMeta = null;
 
 const _TICKET_STATUS_LABELS = {
-  ABERTO: "Aberto",
-  EM_ANALISE: "Em análise",
+  AGUARDANDO_SUPORTE: "Aguardando suporte",
   AGUARDANDO_JOGADOR: "Aguardando jogador",
   ENCERRADO: "Encerrado",
-  OPEN: "Aberto",
-  IN_PROGRESS: "Em análise",
+  ABERTO: "Aguardando suporte",
+  EM_ANALISE: "Aguardando suporte",
+  OPEN: "Aguardando suporte",
+  IN_PROGRESS: "Aguardando suporte",
   CLOSED: "Encerrado",
 };
 
@@ -9027,12 +9026,13 @@ const _TICKET_HISTORY_LABELS = {
 };
 
 function _ticketStatusBadge(status) {
-  const s = status || "ABERTO";
+  const s = status || "AGUARDANDO_SUPORTE";
   const clsMap = {
+    AGUARDANDO_SUPORTE: "badge-ticket-aberto",
     ABERTO: "badge-ticket-aberto",
     OPEN: "badge-ticket-aberto",
-    EM_ANALISE: "badge-ticket-analise",
-    IN_PROGRESS: "badge-ticket-analise",
+    EM_ANALISE: "badge-ticket-aberto",
+    IN_PROGRESS: "badge-ticket-aberto",
     AGUARDANDO_JOGADOR: "badge-ticket-aguardando",
     ENCERRADO: "badge-ticket-encerrado",
     CLOSED: "badge-ticket-encerrado",
@@ -9416,7 +9416,7 @@ async function loadTicketsAdmin() {
       <th>#</th><th>Jogador</th><th>Assunto</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Discord</th><th>Atualizado</th><th></th>
     </tr></thead><tbody>${items.map(t => {
       const closed = t.status === "ENCERRADO" || t.status === "CLOSED";
-      const btnLabel = closed ? "Ver" : (t.status === "ABERTO" || t.status === "OPEN" ? "Atender" : "Abrir");
+      const btnLabel = closed ? "Ver" : (t.status === "AGUARDANDO_SUPORTE" || t.status === "ABERTO" || t.status === "OPEN" ? "Atender" : "Abrir");
       const rowCls = closed ? " ticket-row--closed" : "";
       return `<tr class="${rowCls.trim()}">
       <td>${t.id}</td>
@@ -9440,9 +9440,9 @@ async function ticketsAdminAttend(id) {
   try {
     const detail = await fetchJson(`/api/admin/tickets/${id}`, { timeoutMs: 15000 });
     if (!detail.ok) { toast(detail.error || "Ticket não encontrado", "error"); return; }
-    const st = detail.ticket?.status || "ABERTO";
+    const st = detail.ticket?.status || "AGUARDANDO_SUPORTE";
     const closed = st === "ENCERRADO" || st === "CLOSED";
-    if (!closed && (st === "ABERTO" || st === "OPEN")) {
+    if (!closed && (st === "AGUARDANDO_SUPORTE" || st === "ABERTO" || st === "OPEN")) {
       const d = await fetchJson(`/api/admin/tickets/${id}/attend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -9470,7 +9470,7 @@ async function ticketsAdminOpenDetail(id) {
       `${_ticketStatusBadge(t.status)} ${_ticketPriorityBadge(t.priority)} ${_ticketCategoryBadge(t.category)}`;
     const statusSel = document.getElementById("tickets-admin-status-select");
     const priSel = document.getElementById("tickets-admin-priority-select");
-    if (statusSel) statusSel.value = t.status || "ABERTO";
+    if (statusSel) statusSel.value = t.status || "AGUARDANDO_SUPORTE";
     if (priSel) priSel.value = t.priority || "normal";
     _renderTicketOrderPanel("tickets-admin-order-panel", d.order, t);
     _renderTicketHistory("tickets-admin-history", d.history);

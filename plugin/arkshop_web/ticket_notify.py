@@ -26,6 +26,19 @@ def _settings_loader() -> Callable[[], dict[str, Any]]:
     return app_load
 
 
+def _support_recipient_steam_ids(*, actor_steam_id: str | None = None) -> set[str]:
+    from app import _load_admin_steamids, _load_support_steamids
+
+    recipients = set(_load_support_steamids())
+    try:
+        recipients.update(_load_admin_steamids())
+    except Exception:
+        pass
+    if actor_steam_id:
+        recipients.discard(actor_steam_id)
+    return recipients
+
+
 def _player_notification(
     db: Any,
     ticket: dict[str, Any],
@@ -48,6 +61,8 @@ def _player_notification(
         body = f"{actor_name or 'Suporte'} respondeu: {(note or '')[:300]}"
         ntype = "ticket_reply"
     elif event == "status_changed":
+        if not old_value:
+            return
         old_l = TICKET_STATUS_LABELS.get(old_value or "", old_value or "")
         new_l = TICKET_STATUS_LABELS.get(new_value or "", new_value or "")
         title = f"Status do ticket #{tid} atualizado"
@@ -83,6 +98,68 @@ def _player_notification(
     )
 
 
+def _support_team_notification(
+    db: Any,
+    ticket: dict[str, Any],
+    event: str,
+    *,
+    actor_steam_id: str | None = None,
+    actor_name: str = "",
+    note: str = "",
+    old_value: str | None = None,
+    new_value: str | None = None,
+) -> None:
+    player_steam = ticket.get("steam_id")
+    recipients = _support_recipient_steam_ids(actor_steam_id=actor_steam_id)
+    if player_steam:
+        recipients.discard(player_steam)
+    if not recipients:
+        return
+
+    tid = ticket.get("id", "?")
+    subject = (ticket.get("subject") or "")[:80]
+    link_id = str(tid)
+    player_name = ticket.get("player_name") or player_steam or "Jogador"
+
+    if event == "created":
+        title = f"Novo ticket #{tid}"
+        body = f"{player_name}: {subject} — Aguardando suporte"
+        ntype = "ticket_created"
+    elif event == "status_changed":
+        old_l = TICKET_STATUS_LABELS.get(old_value or "", old_value or "—")
+        new_l = TICKET_STATUS_LABELS.get(new_value or "", new_value or "—")
+        title = f"Ticket #{tid} — status atualizado"
+        body = f"{subject} — {old_l} → {new_l}"
+        ntype = "ticket_status"
+    elif event == "reply_player":
+        title = f"Jogador respondeu — ticket #{tid}"
+        body = f"{player_name}: {(note or '')[:280]}"
+        ntype = "ticket_reply"
+    elif event == "close_requested":
+        title = f"Encerramento solicitado — ticket #{tid}"
+        body = (note or subject)[:300]
+        ntype = "ticket_created"
+    elif event == "closed":
+        title = f"Ticket #{tid} encerrado"
+        body = subject
+        if note:
+            body += f" — {note[:200]}"
+        ntype = "ticket_closed"
+    else:
+        return
+
+    for sid in recipients:
+        create_notification(
+            db,
+            steam_id=sid,
+            type=ntype,
+            title=title,
+            body=body,
+            link_type="ticket",
+            link_id=link_id,
+        )
+
+
 def notify_ticket_update(
     db: Any,
     ticket_id: int,
@@ -108,6 +185,14 @@ def notify_ticket_update(
         "closed",
         "priority_changed",
     }
+    support_events = {
+        "created",
+        "status_changed",
+        "reply_player",
+        "close_requested",
+        "closed",
+    }
+
     if event in player_events:
         try:
             _player_notification(
@@ -121,7 +206,27 @@ def notify_ticket_update(
             )
             db.commit()
         except Exception as exc:
-            log.warning("Notificação in-app ticket #%s: %s", ticket_id, exc)
+            log.warning("Notificação in-app ticket #%s (jogador): %s", ticket_id, exc)
+            try:
+                db.rollback()
+            except Exception:
+                pass
+
+    if event in support_events:
+        try:
+            _support_team_notification(
+                db,
+                ticket,
+                event,
+                actor_steam_id=actor_steam_id,
+                actor_name=actor_name,
+                note=note,
+                old_value=old_value,
+                new_value=new_value,
+            )
+            db.commit()
+        except Exception as exc:
+            log.warning("Notificação in-app ticket #%s (suporte): %s", ticket_id, exc)
             try:
                 db.rollback()
             except Exception:

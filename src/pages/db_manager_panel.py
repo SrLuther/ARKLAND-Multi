@@ -1,6 +1,7 @@
 """Gerenciador de banco de dados MySQL/MariaDB integrado ao ARKLAND."""
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import threading
@@ -37,6 +38,101 @@ if TYPE_CHECKING:
 _LOCAL_DB_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _CELL_DISPLAY_MAX = 200
 _TREE_INSERT_BATCH = 25
+_STEAM_ID_RE = re.compile(r"^7656119\d{10}$")
+
+_CORE_PLAYER_TABLES: tuple[tuple[str, str], ...] = (
+    ("players", "Pontos"),
+    ("player_entitlements", "Licenças"),
+    ("player_cloud_inventory", "Nuvem"),
+    ("player_cloud_items", "Itens nuvem"),
+)
+
+# Consultas rápidas — aba SQL (substitua {steam_id} pelo filtro ou SteamID64)
+_EMERGENCY_SQL_PRESETS: list[tuple[str, str]] = [
+    ("— Modelos (tabelas do jogador) —", ""),
+  # players
+    (
+        "[players] Ver pontos e kits",
+        "SELECT steam_id, points, kits FROM players WHERE steam_id = '{steam_id}';",
+    ),
+    (
+        "[players] Definir pontos (ex.: 10000)",
+        "UPDATE players SET points = 10000 WHERE steam_id = '{steam_id}';",
+    ),
+    (
+        "[players] Somar +500 pontos",
+        "UPDATE players SET points = points + 500 WHERE steam_id = '{steam_id}';",
+    ),
+    (
+        "[players] Criar jogador (100 pts)",
+        "INSERT INTO players (steam_id, points) VALUES ('{steam_id}', 100) "
+        "ON DUPLICATE KEY UPDATE steam_id = steam_id;",
+    ),
+  # player_entitlements
+    (
+        "[licenças] Ver entitlements",
+        "SELECT id, group_name, expires, source, notes, created_at "
+        "FROM player_entitlements WHERE steam_id = '{steam_id}' ORDER BY id DESC;",
+    ),
+    (
+        "[licenças] Remover Mod/MOD duplicado",
+        "DELETE FROM player_entitlements WHERE steam_id = '{steam_id}' "
+        "AND group_name IN ('Mod', 'MOD');",
+    ),
+    (
+        "[licenças] Conceder Moderacao (MOD)",
+        "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+        "VALUES ('{steam_id}', 'Moderacao', NULL, 'emergency:db', 'staff_grant') "
+        "ON DUPLICATE KEY UPDATE expires = VALUES(expires), source = VALUES(source);",
+    ),
+    (
+        "[licenças] Conceder Alfa (30 dias)",
+        "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
+        "VALUES ('{steam_id}', 'Alfa', DATE_ADD(NOW(), INTERVAL 30 DAY), "
+        "'emergency:db', 'manual_grant') "
+        "ON DUPLICATE KEY UPDATE expires = VALUES(expires), source = VALUES(source);",
+    ),
+    (
+        "[licenças] Remover grupo específico",
+        "DELETE FROM player_entitlements WHERE steam_id = '{steam_id}' "
+        "AND group_name = 'Alfa';",
+    ),
+  # player_cloud_inventory / player_cloud_items
+    (
+        "[nuvem] Ver inventário",
+        "SELECT * FROM player_cloud_inventory WHERE steam_id = '{steam_id}';",
+    ),
+    (
+        "[nuvem] Ver itens (tamanho do blob)",
+        "SELECT id, steam_id, sort_order, LENGTH(item_blob) AS blob_bytes "
+        "FROM player_cloud_items WHERE steam_id = '{steam_id}' ORDER BY sort_order;",
+    ),
+    (
+        "[nuvem] Apagar nuvem inteira do jogador",
+        "DELETE FROM player_cloud_inventory WHERE steam_id = '{steam_id}';",
+    ),
+    (
+        "[nuvem] Corrigir item_count",
+        "UPDATE player_cloud_inventory pci SET item_count = ("
+        "  SELECT COUNT(*) FROM player_cloud_items i WHERE i.steam_id = pci.steam_id"
+        ") WHERE steam_id = '{steam_id}';",
+    ),
+    (
+        "[visão] Resumo completo do jogador",
+        "SELECT 'players' AS tabela, steam_id, CAST(points AS CHAR) AS info, "
+        "LEFT(COALESCE(kits, ''), 80) AS extra FROM players WHERE steam_id = '{steam_id}' "
+        "UNION ALL "
+        "SELECT 'entitlements', steam_id, group_name, COALESCE(CAST(expires AS CHAR), 'permanente') "
+        "FROM player_entitlements WHERE steam_id = '{steam_id}' "
+        "UNION ALL "
+        "SELECT 'cloud_inventory', steam_id, CAST(item_count AS CHAR), "
+        "COALESCE(source_map, '') FROM player_cloud_inventory WHERE steam_id = '{steam_id}' "
+        "UNION ALL "
+        "SELECT 'cloud_items', steam_id, CAST(COUNT(*) AS CHAR), "
+        "CONCAT(SUM(LENGTH(item_blob)), ' bytes') FROM player_cloud_items "
+        "WHERE steam_id = '{steam_id}' GROUP BY steam_id;",
+    ),
+]
 
 
 def _configure_db_browser_ttk(theme: dict) -> None:
@@ -284,6 +380,8 @@ class _DBState:
 def _cell_display(value: Any) -> str:
     if value is None:
         return "NULL"
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return f"<BLOB {len(value)} bytes>"
     s = str(value)
     if len(s) > _CELL_DISPLAY_MAX:
         return s[:_CELL_DISPLAY_MAX] + "…"
@@ -337,13 +435,49 @@ def _table_columns(state: _DBState, db: str, table: str) -> list[dict]:
     return _query(state, f"SHOW FULL COLUMNS FROM `{db}`.`{table}`")
 
 
-def _table_rows(state: _DBState, db: str, table: str,
-                limit: int = 50, offset: int = 0) -> tuple[list[dict], int]:
-    rows = _query(state, f"SELECT * FROM `{db}`.`{table}` LIMIT %s OFFSET %s",
-                  (limit, offset))
-    count_row = _query(state, f"SELECT COUNT(*) AS n FROM `{db}`.`{table}`")
+def _table_rows(
+    state: _DBState,
+    db: str,
+    table: str,
+    limit: int = 50,
+    offset: int = 0,
+    *,
+    where_sql: str = "",
+    where_args: tuple[Any, ...] = (),
+) -> tuple[list[dict], int]:
+    where = f" WHERE {where_sql}" if where_sql else ""
+    projection = _table_select_projection(table)
+    args: tuple[Any, ...] = tuple(where_args) + (limit, offset)
+    rows = _query(
+        state,
+        f"SELECT {projection} FROM `{db}`.`{table}`{where} LIMIT %s OFFSET %s",
+        args,
+    )
+    count_row = _query(
+        state,
+        f"SELECT COUNT(*) AS n FROM `{db}`.`{table}`{where}",
+        where_args or (),
+    )
     total = count_row[0]["n"] if count_row else 0
     return rows, total
+
+
+def _table_primary_key(state: _DBState, db: str, table: str) -> str:
+    for col in _table_columns(state, db, table):
+        if col.get("Key") == "PRI":
+            return str(col.get("Field", ""))
+    return ""
+
+
+def _table_has_steam_id(state: _DBState, db: str, table: str) -> bool:
+    return "steam_id" in _table_field_names(state, db, table)
+
+
+def _table_select_projection(table: str) -> str:
+    """Evita carregar MEDIUMBLOB na grade — mostra tamanho em bytes."""
+    if table == "player_cloud_items":
+        return "id, steam_id, sort_order, LENGTH(item_blob) AS blob_bytes"
+    return "*"
 
 
 _CUSTOMSHOP_PLAYERS_DDL = """
@@ -989,6 +1123,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         left.grid_rowconfigure(1, weight=1)
         left.grid_rowconfigure(2, weight=0)
+        left.grid_rowconfigure(3, weight=0)
         left.grid_columnconfigure(0, weight=1)
     
         ctk.CTkLabel(left, text="Databases / Tabelas",
@@ -1005,10 +1140,41 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         _tree_scroll = _db_scrollbar(left, "vertical", _db_tree.yview, theme)
         _tree_scroll.grid(row=1, column=1, sticky="ns", pady=4)
         _db_tree.configure(yscrollcommand=_tree_scroll.set)
+
+        core_tables = ctk.CTkFrame(left, fg_color=theme.get("accent_muted_bg", "#164e63"),
+                                   corner_radius=6)
+        core_tables.grid(row=2, column=0, columnspan=2, padx=8, pady=(4, 4), sticky="ew")
+        core_tables.grid_columnconfigure(0, weight=1)
+        core_tables.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            core_tables, text="⚡ Tabelas do jogador",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color=accent,
+        ).grid(row=0, column=0, columnspan=2, padx=8, pady=(8, 4), sticky="w")
+
+        _core_table_btns: dict[str, ctk.CTkButton] = {}
+        for idx, (tbl, label) in enumerate(_CORE_PLAYER_TABLES):
+            r, c = divmod(idx, 2)
+            btn = ctk.CTkButton(
+                core_tables, text=label, height=26, corner_radius=6,
+                fg_color=theme.get("input_bg", "#1e293b"), text_color=t_pri,
+                font=ctk.CTkFont(family="Segoe UI", size=10),
+            )
+            btn.grid(row=r + 1, column=c, padx=(8 if c == 0 else 4, 8 if c == 1 else 4),
+                     pady=(0, 4), sticky="ew")
+            _core_table_btns[tbl] = btn
+
+        _btn_player_overview = ctk.CTkButton(
+            core_tables, text="👁 Visão geral do jogador", height=28, corner_radius=6,
+            fg_color=accent, text_color="#000",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+        )
+        _btn_player_overview.grid(row=3, column=0, columnspan=2, padx=8, pady=(0, 8), sticky="ew")
     
         # Botões de ação rápida
         actions = ctk.CTkFrame(left, fg_color="transparent")
-        actions.grid(row=2, column=0, columnspan=2, padx=8, pady=(4, 10), sticky="ew")
+        actions.grid(row=3, column=0, columnspan=2, padx=8, pady=(4, 10), sticky="ew")
         actions.grid_columnconfigure(0, weight=1)
         actions.grid_columnconfigure(1, weight=1)
     
@@ -1107,16 +1273,100 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         # ── Tab Dados ──────────────────────────────────────────────────────────
         dados_frame = _tab_frames["dados"]
         dados_frame.grid_rowconfigure(0, weight=0)
-        dados_frame.grid_rowconfigure(1, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 120)
+        dados_frame.grid_rowconfigure(1, weight=0)
+        dados_frame.grid_rowconfigure(2, weight=0)
+        dados_frame.grid_rowconfigure(3, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 180)
         dados_frame.grid_columnconfigure(0, weight=1)
-    
-        # Paginação no topo — evita cortar controles quando a janela é baixa
+
+        # Paginação e filtro
         _page_state = {"offset": 0, "limit": 50, "total": 0}
         _load_gen = [0]
         _page_lbl_var = tk.StringVar(value="")
-    
+        _last_data_rows: list[dict] = []
+        _filter_state: dict[str, Any] = {
+            "where_sql": "",
+            "where_args": (),
+        }
+        _steam_filter_var = tk.StringVar(value="")
+
+        emergency_bar = ctk.CTkFrame(dados_frame, fg_color=theme.get("accent_muted_bg", "#164e63"),
+                                   corner_radius=6)
+        emergency_bar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
+        emergency_bar.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            emergency_bar,
+            text="⚡ Emergência",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color=accent,
+        ).grid(row=0, column=0, padx=(10, 6), pady=6, sticky="w")
+
+        _steam_filter_entry = ctk.CTkEntry(
+            emergency_bar,
+            textvariable=_steam_filter_var,
+            width=200,
+            height=26,
+            placeholder_text="SteamID64 (7656119…)",
+            fg_color=theme.get("input_bg", "#1e293b"),
+            text_color=t_pri,
+            border_color=sep_col,
+            font=ctk.CTkFont(family="Consolas", size=11),
+        )
+        _steam_filter_entry.grid(row=0, column=1, padx=(0, 4), pady=6, sticky="ew")
+
+        _btn_filter = ctk.CTkButton(
+            emergency_bar, text="Filtrar", width=72, height=26,
+            fg_color=accent, text_color="#000", corner_radius=6,
+            font=ctk.CTkFont(size=10, weight="bold"),
+        )
+        _btn_filter.grid(row=0, column=2, padx=(0, 4), pady=6)
+
+        _btn_clear_filter = ctk.CTkButton(
+            emergency_bar, text="Limpar", width=64, height=26,
+            fg_color="transparent", text_color=t_sec,
+            border_color=sep_col, border_width=1, corner_radius=6,
+            font=ctk.CTkFont(size=10),
+        )
+        _btn_clear_filter.grid(row=0, column=3, padx=(0, 4), pady=6)
+
+        _btn_edit_row = ctk.CTkButton(
+            emergency_bar, text="✎ Editar", width=76, height=26,
+            fg_color=theme.get("input_bg", "#1e293b"), text_color=t_pri,
+            corner_radius=6, font=ctk.CTkFont(size=10),
+        )
+        _btn_edit_row.grid(row=0, column=4, padx=(0, 4), pady=6)
+
+        _btn_delete_row = ctk.CTkButton(
+            emergency_bar, text="✕ Excluir", width=76, height=26,
+            fg_color="#7f1d1d", text_color="#fecaca",
+            corner_radius=6, font=ctk.CTkFont(size=10),
+        )
+        _btn_delete_row.grid(row=0, column=5, padx=(0, 4), pady=6)
+
+        _btn_new_row = ctk.CTkButton(
+            emergency_bar, text="＋ Novo", width=72, height=26,
+            fg_color=theme.get("input_bg", "#1e293b"), text_color=t_pri,
+            corner_radius=6, font=ctk.CTkFont(size=10),
+        )
+        _btn_new_row.grid(row=0, column=6, padx=(0, 4), pady=6)
+
+        _btn_goto_sql = ctk.CTkButton(
+            emergency_bar, text="SQL ▶", width=64, height=26,
+            fg_color=accent, text_color="#000", corner_radius=6,
+            font=ctk.CTkFont(size=10, weight="bold"),
+        )
+        _btn_goto_sql.grid(row=0, column=7, padx=(0, 10), pady=6)
+
+        table_hint = ctk.CTkLabel(
+            dados_frame,
+            text="Atalhos à esquerda: Pontos · Licenças · Nuvem · Itens nuvem — "
+                 "informe o SteamID e use Filtrar",
+            font=ctk.CTkFont(size=9), text_color=t_mut, anchor="w",
+        )
+        table_hint.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 2))
+
         page_bar = ctk.CTkFrame(dados_frame, fg_color="transparent", height=30)
-        page_bar.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
+        page_bar.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(0, 4))
         page_bar.grid_columnconfigure(2, weight=1)
     
         ctk.CTkLabel(page_bar, textvariable=_page_lbl_var,
@@ -1142,7 +1392,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         _btn_next.grid(row=0, column=3)
 
         data_table_host = _ttk_tree_host(dados_frame, card_bg, horizontal_scroll=True)
-        data_table_host.grid(row=1, column=0, columnspan=2, sticky="nsew")
+        data_table_host.grid(row=3, column=0, columnspan=2, sticky="nsew")
 
         _data_tree = ttk.Treeview(data_table_host, style="Data.Treeview",
                                   show="headings", selectmode="browse", height=28)
@@ -1192,11 +1442,46 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
         # ── Tab SQL ────────────────────────────────────────────────────────────
         sql_frame = _tab_frames["sql"]
         sql_frame.grid_rowconfigure(0, weight=0)
-        sql_frame.grid_rowconfigure(1, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 200)
+        sql_frame.grid_rowconfigure(1, weight=0)
+        sql_frame.grid_rowconfigure(2, weight=1, minsize=_DB_BROWSER_MIN_HEIGHT - 200)
         sql_frame.grid_columnconfigure(0, weight=1)
 
+        sql_preset_bar = ctk.CTkFrame(sql_frame, fg_color="transparent")
+        sql_preset_bar.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        sql_preset_bar.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            sql_preset_bar, text="Modelo:",
+            font=ctk.CTkFont(size=10), text_color=t_sec,
+        ).grid(row=0, column=0, padx=(0, 6))
+
+        _preset_labels = [p[0] for p in _EMERGENCY_SQL_PRESETS]
+        _sql_preset_var = tk.StringVar(value=_preset_labels[0])
+        _sql_preset_menu = ctk.CTkOptionMenu(
+            sql_preset_bar, variable=_sql_preset_var, values=_preset_labels,
+            width=320, height=28,
+            fg_color=theme.get("input_bg", "#1e293b"),
+            text_color=t_pri, button_color=accent,
+            font=ctk.CTkFont(size=10),
+        )
+        _sql_preset_menu.grid(row=0, column=1, sticky="ew", padx=(0, 8))
+
+        _btn_load_preset = ctk.CTkButton(
+            sql_preset_bar, text="Carregar modelo", width=120, height=28,
+            fg_color=theme.get("accent_muted_bg", "#164e63"),
+            text_color=accent, corner_radius=6,
+            font=ctk.CTkFont(size=10),
+        )
+        _btn_load_preset.grid(row=0, column=2)
+
+        ctk.CTkLabel(
+            sql_preset_bar,
+            text="Ctrl+Enter executa · substitua {steam_id} pelo filtro da aba Dados",
+            font=ctk.CTkFont(size=9), text_color=t_mut,
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
+
         sql_top = ctk.CTkFrame(sql_frame, fg_color="transparent")
-        sql_top.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        sql_top.grid(row=1, column=0, sticky="ew", pady=(0, 4))
         sql_top.grid_columnconfigure(0, weight=1)
 
         _sql_editor = ctk.CTkTextbox(
@@ -1227,7 +1512,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         # Resultado do SQL
         sql_result_frame = ctk.CTkFrame(sql_frame, fg_color="transparent")
-        sql_result_frame.grid(row=1, column=0, sticky="nsew")
+        sql_result_frame.grid(row=2, column=0, sticky="nsew")
         sql_result_frame.grid_rowconfigure(0, weight=1)
         sql_result_frame.grid_rowconfigure(1, weight=0)
         sql_result_frame.grid_columnconfigure(0, weight=1)
@@ -1559,29 +1844,489 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
             _insert_batch()
 
+        def _effective_steam_id() -> str:
+            raw = _steam_filter_var.get().strip()
+            return raw if _STEAM_ID_RE.match(raw) else ""
+
+        def _resolve_steam_placeholder() -> str:
+            sid = _effective_steam_id()
+            return sid or "76561198171864983"
+
+        def _apply_steam_filter() -> None:
+            from tkinter import messagebox
+
+            if not (state.selected_db and state.selected_table):
+                messagebox.showinfo(
+                    "Filtro",
+                    "Selecione uma tabela na árvore à esquerda.",
+                    parent=parent,
+                )
+                return
+            sid = _effective_steam_id()
+            if not sid:
+                messagebox.showwarning(
+                    "SteamID inválido",
+                    "Informe um SteamID64 válido (17 dígitos, começa com 7656119).",
+                    parent=parent,
+                )
+                return
+            if not _table_has_steam_id(state, state.selected_db, state.selected_table):
+                messagebox.showwarning(
+                    "Sem coluna steam_id",
+                    f"A tabela {state.selected_table} não possui coluna steam_id.\n"
+                    "Use a aba SQL para consultas personalizadas.",
+                    parent=parent,
+                )
+                return
+            _filter_state["where_sql"] = "steam_id = %s"
+            _filter_state["where_args"] = (sid,)
+            _page_state["offset"] = 0
+            _load_gen[0] += 1
+            _load_data(_load_gen[0])
+
+        def _clear_steam_filter() -> None:
+            _steam_filter_var.set("")
+            _filter_state["where_sql"] = ""
+            _filter_state["where_args"] = ()
+            _page_state["offset"] = 0
+            _load_gen[0] += 1
+            _load_data(_load_gen[0])
+
+        def _select_core_table(table: str, *, apply_filter: bool = True) -> None:
+            from tkinter import messagebox
+
+            if not state.is_connected():
+                messagebox.showwarning("Sem conexão", "Conecte ao banco primeiro.", parent=parent)
+                return
+            db = _DB_NAME
+            if db not in _list_databases(state):
+                messagebox.showwarning(
+                    "Banco ausente",
+                    f"O banco {db} não existe nesta conexão.",
+                    parent=parent,
+                )
+                return
+            tables = _list_tables(state, db)
+            if table not in tables:
+                messagebox.showwarning(
+                    "Tabela ausente",
+                    f"A tabela {table} não existe em {db}.",
+                    parent=parent,
+                )
+                return
+
+            state.selected_db = db
+            state.selected_table = table
+            iid = f"tbl_{db}__{table}"
+            parent_iid = f"db_{db}"
+            try:
+                _db_tree.item(parent_iid, open=True)
+                _db_tree.selection_set(iid)
+                _db_tree.see(iid)
+            except tk.TclError:
+                pass
+
+            if apply_filter and _effective_steam_id():
+                _filter_state["where_sql"] = "steam_id = %s"
+                _filter_state["where_args"] = (_effective_steam_id(),)
+            elif apply_filter:
+                _filter_state["where_sql"] = ""
+                _filter_state["where_args"] = ()
+
+            _page_state["offset"] = 0
+            _load_gen[0] += 1
+            gen = _load_gen[0]
+            _show_tab("dados")
+            _load_data(gen)
+            _load_structure(gen)
+
+        def _show_player_overview() -> None:
+            from tkinter import messagebox
+
+            sid = _effective_steam_id()
+            if not sid:
+                messagebox.showwarning(
+                    "SteamID obrigatório",
+                    "Informe o SteamID64 no campo de filtro antes de abrir a visão geral.",
+                    parent=parent,
+                )
+                return
+            if not state.is_connected():
+                messagebox.showwarning("Sem conexão", "Conecte ao banco primeiro.", parent=parent)
+                return
+
+            dlg = ctk.CTkToplevel(parent)
+            dlg.title(f"Jogador {sid}")
+            dlg.geometry("520x460")
+            dlg.minsize(420, 360)
+            dlg.grab_set()
+            dlg.configure(fg_color=card_bg)
+
+            title_var = tk.StringVar(value=f"Carregando {sid}…")
+            ctk.CTkLabel(
+                dlg, textvariable=title_var,
+                font=ctk.CTkFont(size=12, weight="bold"), text_color=accent,
+            ).pack(padx=16, pady=(14, 8), anchor="w")
+
+            body = ctk.CTkTextbox(
+                dlg, fg_color=theme.get("input_bg", "#1e293b"),
+                text_color=t_pri, font=ctk.CTkFont(family="Consolas", size=11),
+                wrap="word",
+            )
+            body.pack(fill="both", expand=True, padx=16, pady=(0, 8))
+            body.configure(state="disabled")
+
+            btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+            btn_row.pack(fill="x", padx=16, pady=(0, 12))
+
+            def _jump(tbl: str) -> None:
+                dlg.destroy()
+                _select_core_table(tbl, apply_filter=True)
+
+            for tbl, label in _CORE_PLAYER_TABLES:
+                ctk.CTkButton(
+                    btn_row, text=label, width=88, height=28,
+                    fg_color=theme.get("accent_muted_bg", "#164e63"),
+                    text_color=accent, corner_radius=6,
+                    font=ctk.CTkFont(size=10),
+                    command=lambda t=tbl: _jump(t),
+                ).pack(side="left", padx=(0, 6))
+
+            def _worker() -> None:
+                lines: list[str] = []
+                try:
+                    _execute(state, f"USE `{_DB_NAME}`")
+                    prow = _query(
+                        state,
+                        "SELECT points, kits FROM players WHERE steam_id = %s",
+                        (sid,),
+                    )
+                    if prow:
+                        kits = prow[0].get("kits") or ""
+                        if len(str(kits)) > 120:
+                            kits = str(kits)[:120] + "…"
+                        lines.append("── players ──")
+                        lines.append(f"  pontos: {prow[0].get('points', 0)}")
+                        lines.append(f"  kits: {kits or '(vazio)'}")
+                    else:
+                        lines.append("── players ──")
+                        lines.append("  (sem registro)")
+
+                    ents = _query(
+                        state,
+                        "SELECT group_name, expires, source, notes FROM player_entitlements "
+                        "WHERE steam_id = %s ORDER BY group_name",
+                        (sid,),
+                    )
+                    lines.append("")
+                    lines.append("── player_entitlements ──")
+                    if ents:
+                        for e in ents:
+                            exp = e.get("expires") or "permanente"
+                            lines.append(
+                                f"  · {e.get('group_name')}  expira: {exp}  "
+                                f"fonte: {e.get('source') or '-'}"
+                            )
+                    else:
+                        lines.append("  (nenhuma licença/cargo)")
+
+                    cloud = _query(
+                        state,
+                        "SELECT item_count, uploaded_at, source_map FROM player_cloud_inventory "
+                        "WHERE steam_id = %s",
+                        (sid,),
+                    )
+                    lines.append("")
+                    lines.append("── player_cloud_inventory ──")
+                    if cloud:
+                        c0 = cloud[0]
+                        lines.append(f"  itens: {c0.get('item_count', 0)}")
+                        lines.append(f"  upload: {c0.get('uploaded_at')}")
+                        lines.append(f"  mapa: {c0.get('source_map') or '-'}")
+                    else:
+                        lines.append("  (sem nuvem)")
+
+                    items = _query(
+                        state,
+                        "SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(item_blob)), 0) AS bytes "
+                        "FROM player_cloud_items WHERE steam_id = %s",
+                        (sid,),
+                    )
+                    lines.append("")
+                    lines.append("── player_cloud_items ──")
+                    if items and int(items[0].get("n") or 0) > 0:
+                        lines.append(f"  linhas: {items[0].get('n')}")
+                        lines.append(f"  tamanho total: {items[0].get('bytes')} bytes")
+                    else:
+                        lines.append("  (sem itens na nuvem)")
+                except Exception as exc:
+                    lines = [f"Erro ao consultar: {exc}"]
+
+                text = "\n".join(lines)
+
+                def _fill() -> None:
+                    title_var.set(f"Resumo — {sid}")
+                    body.configure(state="normal")
+                    body.delete("1.0", "end")
+                    body.insert("1.0", text)
+                    body.configure(state="disabled")
+
+                parent.after(0, _fill)
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        def _selected_data_row() -> dict | None:
+            sel = _data_tree.selection()
+            if not sel:
+                return None
+            idx = _data_tree.index(sel[0])
+            if 0 <= idx < len(_last_data_rows):
+                return dict(_last_data_rows[idx])
+            return None
+
+        def _parse_cell_value(raw: str) -> Any:
+            text = raw.strip()
+            if text == "" or text.upper() == "NULL":
+                return None
+            return text
+
+        def _open_row_dialog(
+            *,
+            title: str,
+            initial: dict[str, Any],
+            mode: str,
+        ) -> None:
+            from tkinter import messagebox
+
+            if not (state.selected_db and state.selected_table):
+                return
+            db, table = state.selected_db, state.selected_table
+            try:
+                col_defs = _table_columns(state, db, table)
+            except Exception as exc:
+                messagebox.showerror("Erro", str(exc), parent=parent)
+                return
+            pk = _table_primary_key(state, db, table)
+            fields = [str(c.get("Field", "")) for c in col_defs if c.get("Field")]
+            auto_inc = {
+                str(c.get("Field", ""))
+                for c in col_defs
+                if "auto_increment" in str(c.get("Extra", "")).lower()
+            }
+            blob_fields = {
+                str(c.get("Field", ""))
+                for c in col_defs
+                if "blob" in str(c.get("Type", "")).lower()
+            }
+
+            dlg = ctk.CTkToplevel(parent)
+            dlg.title(title)
+            dlg.geometry("460x520")
+            dlg.minsize(380, 320)
+            dlg.grab_set()
+            dlg.configure(fg_color=card_bg)
+
+            ctk.CTkLabel(
+                dlg, text=f"{db}.{table}",
+                font=ctk.CTkFont(size=11, weight="bold"),
+                text_color=accent,
+            ).pack(padx=16, pady=(12, 8), anchor="w")
+
+            scroll = ctk.CTkScrollableFrame(dlg, fg_color="transparent")
+            scroll.pack(fill="both", expand=True, padx=12, pady=(0, 8))
+
+            field_vars: dict[str, tk.StringVar] = {}
+            for field in fields:
+                if field in blob_fields:
+                    continue
+                row_f = ctk.CTkFrame(scroll, fg_color="transparent")
+                row_f.pack(fill="x", pady=3)
+                ctk.CTkLabel(
+                    row_f, text=field, width=130, anchor="w",
+                    font=ctk.CTkFont(size=10), text_color=t_sec,
+                ).pack(side="left", padx=(0, 8))
+                val = initial.get(field)
+                display = "" if val is None else str(val)
+                var = tk.StringVar(value=display)
+                readonly = mode == "edit" and field == pk and pk in auto_inc
+                entry = ctk.CTkEntry(
+                    row_f, textvariable=var,
+                    fg_color=theme.get("input_bg", "#1e293b"),
+                    text_color=t_pri, border_color=sep_col,
+                    font=ctk.CTkFont(family="Consolas", size=11),
+                    state="disabled" if readonly else "normal",
+                )
+                entry.pack(side="left", fill="x", expand=True)
+                field_vars[field] = var
+
+            err_var = tk.StringVar(value="")
+            ctk.CTkLabel(
+                dlg, textvariable=err_var, text_color="#ef4444",
+                font=ctk.CTkFont(size=10), wraplength=420,
+            ).pack(padx=16, pady=(0, 4), anchor="w")
+
+            btn_row = ctk.CTkFrame(dlg, fg_color="transparent")
+            btn_row.pack(fill="x", padx=16, pady=(0, 12))
+
+            def _save() -> None:
+                editable_fields = [f for f in fields if f not in blob_fields]
+                values = {f: _parse_cell_value(field_vars[f].get()) for f in editable_fields}
+                try:
+                    if mode == "insert":
+                        cols = [f for f in fields if values[f] is not None]
+                        if not cols:
+                            raise ValueError("Preencha ao menos um campo.")
+                        placeholders = ", ".join("%s" for _ in cols)
+                        col_sql = ", ".join(f"`{c}`" for c in cols)
+                        sql = (
+                            f"INSERT INTO `{db}`.`{table}` ({col_sql}) "
+                            f"VALUES ({placeholders})"
+                        )
+                        _execute(state, sql, tuple(values[c] for c in cols))
+                    else:
+                        if not pk:
+                            raise ValueError(
+                                "Tabela sem chave primária — use a aba SQL para editar."
+                            )
+                        pk_val = initial.get(pk)
+                        if pk_val is None:
+                            raise ValueError(f"Valor da chave primária ({pk}) ausente.")
+                        set_cols = [f for f in editable_fields if f != pk]
+                        if not set_cols:
+                            raise ValueError("Nada para atualizar.")
+                        set_sql = ", ".join(f"`{c}` = %s" for c in set_cols)
+                        sql = (
+                            f"UPDATE `{db}`.`{table}` SET {set_sql} "
+                            f"WHERE `{pk}` = %s"
+                        )
+                        args = tuple(values[c] for c in set_cols) + (pk_val,)
+                        _execute(state, sql, args)
+                    dlg.destroy()
+                    _load_gen[0] += 1
+                    _load_data(_load_gen[0])
+                except Exception as exc:
+                    err_var.set(str(exc))
+
+            ctk.CTkButton(
+                btn_row, text="Salvar", width=100, height=32,
+                fg_color=accent, text_color="#000",
+                font=ctk.CTkFont(weight="bold"),
+                command=_save,
+            ).pack(side="right", padx=(8, 0))
+            ctk.CTkButton(
+                btn_row, text="Cancelar", width=100, height=32,
+                fg_color="transparent", text_color=t_sec,
+                border_color=sep_col, border_width=1,
+                command=dlg.destroy,
+            ).pack(side="right")
+
+        def _edit_selected_row() -> None:
+            from tkinter import messagebox
+
+            row = _selected_data_row()
+            if not row:
+                messagebox.showinfo(
+                    "Editar linha",
+                    "Selecione uma linha na tabela (ou dê duplo clique).",
+                    parent=parent,
+                )
+                return
+            _open_row_dialog(title="Editar linha", initial=row, mode="edit")
+
+        def _delete_selected_row() -> None:
+            from tkinter import messagebox
+
+            row = _selected_data_row()
+            if not row:
+                messagebox.showinfo("Excluir linha", "Selecione uma linha primeiro.", parent=parent)
+                return
+            if not (state.selected_db and state.selected_table):
+                return
+            db, table = state.selected_db, state.selected_table
+            pk = _table_primary_key(state, db, table)
+            if not pk or row.get(pk) is None:
+                messagebox.showwarning(
+                    "Excluir linha",
+                    "Tabela sem chave primária — use DELETE na aba SQL.",
+                    parent=parent,
+                )
+                return
+            if not messagebox.askyesno(
+                "Confirmar exclusão",
+                f"Excluir linha {pk}={row.get(pk)} de {db}.{table}?\n"
+                "Esta ação não pode ser desfeita.",
+                parent=parent,
+            ):
+                return
+
+            def _worker() -> None:
+                try:
+                    _execute(
+                        state,
+                        f"DELETE FROM `{db}`.`{table}` WHERE `{pk}` = %s",
+                        (row[pk],),
+                    )
+                    parent.after(0, lambda: (
+                        _load_gen.__setitem__(0, _load_gen[0] + 1),
+                        _load_data(_load_gen[0]),
+                    ))
+                except Exception as exc:
+                    parent.after(0, lambda e=exc: messagebox.showerror(
+                        "Excluir linha", str(e), parent=parent))
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        def _insert_new_row() -> None:
+            if not (state.selected_db and state.selected_table):
+                from tkinter import messagebox
+                messagebox.showinfo("Novo registro", "Selecione uma tabela.", parent=parent)
+                return
+            sid = _effective_steam_id()
+            seed: dict[str, Any] = {"steam_id": sid} if sid else {}
+            _open_row_dialog(title="Novo registro", initial=seed, mode="insert")
+
+        def _load_sql_preset(choice: str | None = None) -> None:
+            label = choice or _sql_preset_var.get()
+            for preset_label, sql_tpl in _EMERGENCY_SQL_PRESETS:
+                if preset_label == label and sql_tpl:
+                    sid = _resolve_steam_placeholder()
+                    _sql_editor.delete("1.0", "end")
+                    _sql_editor.insert("1.0", sql_tpl.replace("{steam_id}", sid))
+                    _show_tab("sql")
+                    break
+
         def _load_data(gen: int | None = None) -> None:
             if not (state.selected_db and state.selected_table):
                 return
             _page_lbl_var.set("Carregando...")
             db, table = state.selected_db, state.selected_table
+            where_sql = str(_filter_state.get("where_sql") or "")
+            where_args = tuple(_filter_state.get("where_args") or ())
 
             def _worker() -> None:
                 try:
-                    rows, total = _table_rows(state, db, table,
-                                              _page_state["limit"],
-                                              _page_state["offset"])
+                    rows, total = _table_rows(
+                        state, db, table,
+                        _page_state["limit"],
+                        _page_state["offset"],
+                        where_sql=where_sql,
+                        where_args=where_args,
+                    )
                     if gen is not None and gen != _load_gen[0]:
                         return
                     _page_state["total"] = total
-                    start = _page_state["offset"] + 1
-                    end   = min(_page_state["offset"] + len(rows), total)
+                    start = _page_state["offset"] + 1 if total else 0
+                    end = min(_page_state["offset"] + len(rows), total)
 
                     def _finish_ui() -> None:
                         if gen is not None and gen != _load_gen[0]:
                             return
+                        filter_hint = ""
+                        if where_sql:
+                            filter_hint = "  · filtro steam_id ativo"
                         _page_lbl_var.set(
                             f"Mostrando {start}–{end} de {total} linhas   "
-                            f"({db}.{table})"
+                            f"({db}.{table}){filter_hint}"
                         )
                         _btn_prev.configure(
                             state="normal" if _page_state["offset"] > 0 else "disabled")
@@ -1589,6 +2334,9 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                             state="normal" if end < total else "disabled")
 
                     def _update() -> None:
+                        nonlocal rows
+                        _last_data_rows.clear()
+                        _last_data_rows.extend(rows)
                         _populate_treeview(_data_tree, rows, gen=gen, on_done=_finish_ui)
 
                     parent.after(0, _update)
@@ -1645,6 +2393,20 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         _btn_prev.configure(command=_prev_page, state="disabled")
         _btn_next.configure(command=_next_page, state="disabled")
+
+        _btn_filter.configure(command=_apply_steam_filter)
+        _btn_clear_filter.configure(command=_clear_steam_filter)
+        _btn_edit_row.configure(command=_edit_selected_row)
+        _btn_delete_row.configure(command=_delete_selected_row)
+        _btn_new_row.configure(command=_insert_new_row)
+        _btn_goto_sql.configure(command=lambda: _show_tab("sql"))
+        _btn_load_preset.configure(command=lambda: _load_sql_preset())
+        _sql_preset_menu.configure(command=_load_sql_preset)
+        _btn_player_overview.configure(command=_show_player_overview)
+        for tbl, btn in _core_table_btns.items():
+            btn.configure(command=lambda t=tbl: _select_core_table(t, apply_filter=True))
+        _steam_filter_entry.bind("<Return>", lambda _: _apply_steam_filter())
+        _data_tree.bind("<Double-1>", lambda _: _edit_selected_row())
     
         # ── Executar SQL ───────────────────────────────────────────────────────
     
@@ -1676,8 +2438,12 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                         parent.after(0, _update)
                     else:
                         affected = _execute(state, sql_text)
-                        parent.after(0, lambda n=affected:
-                            _sql_info_var.set(f"{n} linha(s) afetada(s)"))
+                        def _after_write(n=affected) -> None:
+                            _sql_info_var.set(f"{n} linha(s) afetada(s)")
+                            if state.selected_db and state.selected_table:
+                                _load_gen[0] += 1
+                                _load_data(_load_gen[0])
+                        parent.after(0, _after_write)
                         parent.after(0, _refresh_tree)
                 except Exception as exc:
                     parent.after(0, lambda e=exc:

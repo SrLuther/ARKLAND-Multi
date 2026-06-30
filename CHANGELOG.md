@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.171] - 2026-06-30
+
+### Feature
+
+- Feature (Web Store / Tickets): status automático — criado como «Aguardando suporte», resposta do suporte muda para «Aguardando jogador», resposta do jogador volta para «Aguardando suporte»; migração de Aberto/Em análise no banco.
+- Feature (Web Store / Tickets): notificações in-app para o jogador e para toda a equipe de suporte (support_steamids + admins) sempre que o status do ticket é atualizado.
+- Feature (Server Manager / Banco de Dados): modo emergência — filtro por SteamID, editar/excluir/novo registro, modelos SQL e atalhos para players, player_entitlements, player_cloud_inventory e player_cloud_items; visão geral do jogador.
+
 ## [1.9.170] - 2026-06-29
 
 ### Fix

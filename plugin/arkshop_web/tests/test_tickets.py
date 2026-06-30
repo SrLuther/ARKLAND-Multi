@@ -109,7 +109,7 @@ def test_create_and_list_ticket(ticket_db):
     assert created["ok"] is True
     assert created["ticket"]["subject"] == "Problema no resgate"
     assert created["ticket"]["player_name"] == "JogadorTeste"
-    assert created["ticket"]["status"] == "ABERTO"
+    assert created["ticket"]["status"] == "AGUARDANDO_SUPORTE"
     assert created["ticket"]["priority"] == "urgente"
     assert created["ticket"]["category_label"] == "Resgate / entrega"
 
@@ -130,7 +130,7 @@ def test_create_and_list_ticket(ticket_db):
 
 
 def test_player_visibility_after_admin_attend(ticket_db):
-    """Ticket permanece na aba Abertos do jogador após admin atender (EM_ANALISE)."""
+    """Ticket permanece na aba Abertos do jogador após admin atender."""
     created = create_ticket(
         ticket_db,
         steam_id=USER_STEAM,
@@ -145,11 +145,11 @@ def test_player_visibility_after_admin_attend(ticket_db):
         ticket_db, tid, admin_steam_id=ADMIN_STEAM, admin_name="Admin"
     )
     assert attended["ok"] is True
-    assert attended["ticket"]["status"] == "EM_ANALISE"
+    assert attended["ticket"]["status"] == "AGUARDANDO_SUPORTE"
 
     open_items, open_total = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
     assert open_total == 1
-    assert open_items[0]["status"] == "EM_ANALISE"
+    assert open_items[0]["status"] == "AGUARDANDO_SUPORTE"
 
     closed_items, closed_total = list_tickets_for_player(ticket_db, USER_STEAM, status="encerrados")
     assert closed_total == 0
@@ -212,7 +212,7 @@ def test_admin_reply_status_history_and_close(ticket_db):
     assert reply["ok"] is True
 
     detail = get_ticket_detail(ticket_db, tid, is_admin=True)
-    assert detail["ticket"]["status"] == "EM_ANALISE"
+    assert detail["ticket"]["status"] == "AGUARDANDO_JOGADOR"
 
     waiting = update_ticket_status(
         ticket_db,
@@ -290,7 +290,7 @@ def test_player_request_close(ticket_db):
         ticket_db, tid, steam_id=USER_STEAM, player_name="Nick"
     )
     assert req["ok"] is True
-    assert req["ticket"]["status"] == "AGUARDANDO_JOGADOR"
+    assert req["ticket"]["status"] == "AGUARDANDO_SUPORTE"
 
     open_items, _ = list_tickets_for_player(ticket_db, USER_STEAM, status="abertos")
     assert any(t["id"] == tid for t in open_items)
@@ -329,10 +329,11 @@ def test_player_reply_from_aguardando(ticket_db):
     assert reply["ok"] is True
 
     detail = get_ticket_detail(ticket_db, tid, viewer_steam_id=USER_STEAM)
-    assert detail["ticket"]["status"] == "EM_ANALISE"
+    assert detail["ticket"]["status"] == "AGUARDANDO_SUPORTE"
 
 
 def test_ticket_permissions():
+    assert ticket_permissions("AGUARDANDO_SUPORTE")["can_player_reply"] is True
     assert ticket_permissions("ABERTO")["can_player_reply"] is True
     assert ticket_permissions("EM_ANALISE")["can_player_reply"] is True
     assert ticket_permissions("AGUARDANDO_JOGADOR")["can_player_reply"] is True
@@ -382,7 +383,7 @@ def test_legacy_status_migration(ticket_db):
     row = ticket_db.execute(
         text("SELECT status FROM support_tickets WHERE subject = 'Old'")
     ).fetchone()
-    assert row[0] == "ABERTO"
+    assert row[0] == "AGUARDANDO_SUPORTE"
 
 
 def test_discord_link_manual(ticket_db):
@@ -414,7 +415,7 @@ def test_tickets_meta_endpoint(client):
     assert r.status_code == 200
     data = r.get_json()
     assert data["ok"] is True
-    assert len(data["statuses"]) == 4
+    assert len(data["statuses"]) == 3
 
 
 def test_admin_list_includes_closed_by_default(ticket_db):
@@ -443,7 +444,7 @@ def test_admin_list_includes_closed_by_default(ticket_db):
     assert all_total >= 2
     statuses = {t["status"] for t in all_items}
     assert "ENCERRADO" in statuses
-    assert "ABERTO" in statuses
+    assert "AGUARDANDO_SUPORTE" in statuses
 
     open_items, open_total = list_tickets_admin(ticket_db, status="open")
     assert open_total == 1

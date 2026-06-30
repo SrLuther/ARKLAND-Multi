@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.170"
+APP_VERSION: str = "1.9.171"
 BUILD_DATE: str = "2026-06-30"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.171",
+        "date": "2026-06-30",
+        "changes": [
+            "Feature (Web Store / Tickets): status automático — criado como «Aguardando suporte», "
+            "resposta do suporte muda para «Aguardando jogador», resposta do jogador volta para "
+            "«Aguardando suporte»; migração de Aberto/Em análise no banco.",
+            "Feature (Web Store / Tickets): notificações in-app para o jogador e para toda a equipe "
+            "de suporte (support_steamids + admins) sempre que o status do ticket é atualizado.",
+            "Feature (Server Manager / Banco de Dados): modo emergência — filtro por SteamID, "
+            "editar/excluir/novo registro, modelos SQL e atalhos para players, player_entitlements, "
+            "player_cloud_inventory e player_cloud_items; visão geral do jogador.",
+        ],
+    },
     {
         "version": "1.9.170",
         "date": "2026-06-29",

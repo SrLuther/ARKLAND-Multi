@@ -348,7 +348,10 @@ def register_ticket_routes(
                 offset=offset,
             )
             open_count = sum(
-                1 for t in items if t["status"] in ("ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR")
+                1 for t in items if t["status"] in (
+                    "AGUARDANDO_SUPORTE", "AGUARDANDO_JOGADOR",
+                    "ABERTO", "EM_ANALISE",
+                )
             )
             return jsonify({
                 "ok": True,

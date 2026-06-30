@@ -126,7 +126,51 @@ def test_admin_reply_creates_player_notification(notif_db, monkeypatch):
 
     items, total = list_notifications(notif_db, USER_STEAM, unread_only=True)
     assert total >= 1
-    assert any("resposta" in (n["title"] or "").lower() for n in items)
+    assert any(
+        "resposta" in (n["title"] or "").lower() or "status" in (n["title"] or "").lower()
+        for n in items
+    )
+
+
+def test_support_team_notified_on_status_change(notif_db, tmp_path, monkeypatch):
+    monkeypatch.setattr("ticket_notify.notify_ticket_discord", lambda *a, **k: False)
+    monkeypatch.setattr(_app_module, "_SUPPORT_FILE", tmp_path / "support_steamids.json")
+    (tmp_path / "support_steamids.json").write_text(
+        json.dumps(["76561198000000099"]), encoding="utf-8"
+    )
+    _app_module._invalidate_support_steamids_cache()
+
+    created = create_ticket(
+        notif_db,
+        steam_id=USER_STEAM,
+        player_name="Jogador",
+        subject="Ajuda",
+        body="Preciso de suporte",
+    )
+    tid = created["ticket"]["id"]
+
+    support_items, support_total = list_notifications(
+        notif_db, "76561198000000099", unread_only=True
+    )
+    assert support_total >= 1
+    assert any("novo ticket" in (n["title"] or "").lower() for n in support_items)
+
+    add_ticket_reply(
+        notif_db,
+        tid,
+        author_type="admin",
+        author_steam_id=ADMIN_STEAM,
+        author_name="Suporte",
+        body="Olá, estamos verificando.",
+        is_admin=True,
+    )
+
+    player_items, player_total = list_notifications(notif_db, USER_STEAM, unread_only=True)
+    assert player_total >= 1
+    assert any("status" in (n["title"] or "").lower() for n in player_items)
+
+    support_items2, _ = list_notifications(notif_db, "76561198000000099", unread_only=True)
+    assert any("status" in (n["title"] or "").lower() for n in support_items2)
 
 
 def test_notifications_api_requires_login(client):

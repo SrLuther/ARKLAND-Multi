@@ -843,7 +843,7 @@ class SupportTicket(Base):
     subject: Mapped[str] = mapped_column(String(200))
     category: Mapped[str] = mapped_column(String(64), default="geral", index=True)
     priority: Mapped[str] = mapped_column(String(16), default="normal", index=True)
-    status: Mapped[str] = mapped_column(String(32), default="ABERTO", index=True)
+    status: Mapped[str] = mapped_column(String(32), default="AGUARDANDO_SUPORTE", index=True)
     order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     assigned_admin_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(

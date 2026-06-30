@@ -12,22 +12,32 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 # Status internos (persistidos no banco)
-TICKET_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "ENCERRADO"})
+TICKET_STATUSES = frozenset({"AGUARDANDO_SUPORTE", "AGUARDANDO_JOGADOR", "ENCERRADO"})
 TICKET_STATUS_LABELS: dict[str, str] = {
-    "ABERTO": "Aberto",
-    "EM_ANALISE": "Em análise",
+    "AGUARDANDO_SUPORTE": "Aguardando suporte",
     "AGUARDANDO_JOGADOR": "Aguardando jogador",
     "ENCERRADO": "Encerrado",
 }
-# Legado (aceito em filtros / migração)
+# Legado (aceito em filtros / migração / leitura)
 _LEGACY_STATUS_MAP = {
-    "OPEN": "ABERTO",
-    "IN_PROGRESS": "EM_ANALISE",
+    "OPEN": "AGUARDANDO_SUPORTE",
+    "ABERTO": "AGUARDANDO_SUPORTE",
+    "IN_PROGRESS": "AGUARDANDO_SUPORTE",
+    "EM_ANALISE": "AGUARDANDO_SUPORTE",
     "CLOSED": "ENCERRADO",
 }
-_OPEN_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "OPEN", "IN_PROGRESS"})
+_WAITING_SUPPORT_STATUSES = frozenset({
+    "AGUARDANDO_SUPORTE", "ABERTO", "EM_ANALISE", "OPEN", "IN_PROGRESS",
+})
+_OPEN_STATUSES = frozenset({
+    "AGUARDANDO_SUPORTE", "AGUARDANDO_JOGADOR",
+    "ABERTO", "EM_ANALISE", "OPEN", "IN_PROGRESS",
+})
 _CLOSED_STATUSES = frozenset({"ENCERRADO", "CLOSED"})
-_PLAYER_REPLY_STATUSES = frozenset({"ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR"})
+_PLAYER_REPLY_STATUSES = frozenset({
+    "AGUARDANDO_SUPORTE", "AGUARDANDO_JOGADOR",
+    "ABERTO", "EM_ANALISE", "OPEN", "IN_PROGRESS",
+})
 _TAB_OPEN_ALIASES = frozenset({"open", "abertos", "aberto", "ativos", "active"})
 _TAB_CLOSED_ALIASES = frozenset({"closed", "encerrados", "encerrado", "fechados"})
 
@@ -80,7 +90,7 @@ def ticket_meta() -> dict[str, Any]:
         ],
         "statuses": [
             {"id": k, "label": TICKET_STATUS_LABELS[k]} for k in (
-                "ABERTO", "EM_ANALISE", "AGUARDANDO_JOGADOR", "ENCERRADO"
+                "AGUARDANDO_SUPORTE", "AGUARDANDO_JOGADOR", "ENCERRADO"
             )
         ],
     }
@@ -108,13 +118,13 @@ def _can_player_reply(status: str | None) -> bool:
 def ticket_permissions(status: str | None, *, is_admin: bool = False) -> dict[str, bool]:
     """Flags de permissão para UI (jogador e admin)."""
     closed = _is_closed_status(status)
-    norm = _normalize_status(status) or (status or "ABERTO")
+    norm = _normalize_status(status) or (status or "AGUARDANDO_SUPORTE")
     return {
         "can_player_reply": not closed and norm in _PLAYER_REPLY_STATUSES,
         "can_admin_reply": not closed,
         "can_player_request_close": not closed and norm in _PLAYER_REPLY_STATUSES,
         "can_admin_close": not closed,
-        "can_admin_attend": not closed and norm == "ABERTO",
+        "can_admin_attend": not closed and norm in _WAITING_SUPPORT_STATUSES,
         "is_closed": closed,
     }
 
@@ -176,6 +186,11 @@ def _migrate_ticket_columns(conn: Any, *, is_sqlite: bool) -> None:
             text("UPDATE support_tickets SET status = :new WHERE status = :old"),
             {"old": old, "new": new},
         )
+    for old in ("ABERTO", "EM_ANALISE"):
+        conn.execute(
+            text("UPDATE support_tickets SET status = :new WHERE status = :old"),
+            {"old": old, "new": "AGUARDANDO_SUPORTE"},
+        )
 
 
 def ensure_ticket_schema(engine: Engine) -> None:
@@ -193,7 +208,7 @@ def ensure_ticket_schema(engine: Engine) -> None:
               subject VARCHAR(200) NOT NULL,
               category VARCHAR(64) NOT NULL DEFAULT 'geral',
               priority VARCHAR(16) NOT NULL DEFAULT 'normal',
-              status VARCHAR(32) NOT NULL DEFAULT 'ABERTO',
+              status VARCHAR(32) NOT NULL DEFAULT 'AGUARDANDO_SUPORTE',
               order_id VARCHAR(64) NULL,
               assigned_admin_steam_id VARCHAR(32) NULL,
               created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -263,7 +278,7 @@ def ensure_ticket_schema(engine: Engine) -> None:
               subject VARCHAR(200) NOT NULL,
               category VARCHAR(64) NOT NULL DEFAULT 'geral',
               priority VARCHAR(16) NOT NULL DEFAULT 'normal',
-              status VARCHAR(32) NOT NULL DEFAULT 'ABERTO',
+              status VARCHAR(32) NOT NULL DEFAULT 'AGUARDANDO_SUPORTE',
               order_id VARCHAR(64) NULL,
               assigned_admin_steam_id VARCHAR(32) NULL,
               created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -377,7 +392,7 @@ def _status_label(code: str | None) -> str:
 
 
 def _ticket_row_to_dict(row: Any) -> dict[str, Any]:
-    status = _normalize_status(row.status) or row.status or "ABERTO"
+    status = _normalize_status(row.status) or row.status or "AGUARDANDO_SUPORTE"
     category = row.category or "geral"
     priority = row.priority or "normal"
     return {
@@ -640,7 +655,7 @@ def create_ticket(
         subject=subj,
         category=cat,
         priority=pri,
-        status="ABERTO",
+        status="AGUARDANDO_SUPORTE",
         order_id=oid,
         created_at=now,
         updated_at=now,
@@ -680,6 +695,19 @@ def create_ticket(
             created_at=now,
         )
 
+    _append_history(
+        db,
+        ticket_id=int(ticket.id),
+        event_type="status_changed",
+        actor_steam_id=steam_id,
+        actor_name=(player_name or steam_id)[:128],
+        field_name="status",
+        old_value=None,
+        new_value="AGUARDANDO_SUPORTE",
+        note="Ticket criado",
+        created_at=now,
+    )
+
     db.commit()
     db.refresh(ticket)
     _notify_ticket_event(
@@ -688,6 +716,15 @@ def create_ticket(
         "created",
         actor_steam_id=steam_id,
         actor_name=(player_name or steam_id)[:128],
+    )
+    _notify_ticket_event(
+        db,
+        int(ticket.id),
+        "status_changed",
+        actor_steam_id=steam_id,
+        actor_name=(player_name or steam_id)[:128],
+        old_value=None,
+        new_value="AGUARDANDO_SUPORTE",
     )
     return {
         "ok": True,
@@ -904,10 +941,12 @@ def add_ticket_reply(
     )
     db.add(msg)
     ticket.updated_at = now
-    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
+    old_status = _normalize_status(ticket.status) or ticket.status or "AGUARDANDO_SUPORTE"
     if is_admin and author_type == "admin":
-        if old_status == "ABERTO":
-            ticket.status = "EM_ANALISE"
+        if author_steam_id and not ticket.assigned_admin_steam_id:
+            ticket.assigned_admin_steam_id = author_steam_id
+        if old_status in _WAITING_SUPPORT_STATUSES and old_status != "AGUARDANDO_JOGADOR":
+            ticket.status = "AGUARDANDO_JOGADOR"
             _append_history(
                 db,
                 ticket_id=ticket_id,
@@ -916,13 +955,12 @@ def add_ticket_reply(
                 actor_name=(author_name or "")[:128],
                 field_name="status",
                 old_value=old_status,
-                new_value="EM_ANALISE",
+                new_value="AGUARDANDO_JOGADOR",
+                note="Suporte respondeu",
                 created_at=now,
             )
-        if author_steam_id and not ticket.assigned_admin_steam_id:
-            ticket.assigned_admin_steam_id = author_steam_id
     elif author_type == "player" and old_status == "AGUARDANDO_JOGADOR":
-        ticket.status = "EM_ANALISE"
+        ticket.status = "AGUARDANDO_SUPORTE"
         _append_history(
             db,
             ticket_id=ticket_id,
@@ -931,7 +969,7 @@ def add_ticket_reply(
             actor_name=(author_name or "")[:128],
             field_name="status",
             old_value=old_status,
-            new_value="EM_ANALISE",
+            new_value="AGUARDANDO_SUPORTE",
             note="Jogador respondeu",
             created_at=now,
         )
@@ -987,7 +1025,7 @@ def update_ticket_status(
     if not ticket:
         return {"ok": False, "error": "Ticket não encontrado"}
 
-    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
+    old_status = _normalize_status(ticket.status) or ticket.status or "AGUARDANDO_SUPORTE"
     now = _utcnow()
     ticket.status = new_status
     ticket.updated_at = now
@@ -995,7 +1033,7 @@ def update_ticket_status(
         ticket.closed_at = now
     else:
         ticket.closed_at = None
-    if admin_steam_id and new_status in ("EM_ANALISE", "ABERTO", "AGUARDANDO_JOGADOR"):
+    if admin_steam_id and new_status in ("AGUARDANDO_SUPORTE", "AGUARDANDO_JOGADOR"):
         ticket.assigned_admin_steam_id = admin_steam_id
     if old_status != new_status:
         _append_history(
@@ -1048,7 +1086,7 @@ def attend_ticket(
     admin_steam_id: str | None = None,
     admin_name: str = "",
 ) -> dict[str, Any]:
-    """Admin assume ticket — status EM_ANALISE sem remover da lista do jogador."""
+    """Admin assume ticket — atribui responsável sem alterar o status."""
     from app import SupportTicket
 
     ticket = db.get(SupportTicket, ticket_id)
@@ -1057,25 +1095,10 @@ def attend_ticket(
     if _is_closed_status(ticket.status):
         return {"ok": False, "error": "Ticket já encerrado"}
 
-    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
     now = _utcnow()
-    ticket.status = "EM_ANALISE"
     ticket.updated_at = now
     if admin_steam_id:
         ticket.assigned_admin_steam_id = admin_steam_id
-    if old_status != "EM_ANALISE":
-        _append_history(
-            db,
-            ticket_id=ticket_id,
-            event_type="status_changed",
-            actor_steam_id=admin_steam_id,
-            actor_name=(admin_name or "Admin")[:128],
-            field_name="status",
-            old_value=old_status,
-            new_value="EM_ANALISE",
-            note="Ticket em atendimento",
-            created_at=now,
-        )
     _append_history(
         db,
         ticket_id=ticket_id,
@@ -1113,7 +1136,7 @@ def close_ticket(
     if _is_closed_status(ticket.status):
         return {"ok": False, "error": "Ticket já encerrado"}
 
-    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
+    old_status = _normalize_status(ticket.status) or ticket.status or "AGUARDANDO_SUPORTE"
     now = _utcnow()
     ticket.status = "ENCERRADO"
     ticket.updated_at = now
@@ -1150,6 +1173,16 @@ def close_ticket(
         actor_name=(admin_name or "Admin")[:128],
         note=(note[:500] if note else None),
     )
+    if old_status != "ENCERRADO":
+        _notify_ticket_event(
+            db,
+            ticket_id,
+            "status_changed",
+            actor_steam_id=admin_steam_id,
+            actor_name=(admin_name or "Admin")[:128],
+            old_value=old_status,
+            new_value="ENCERRADO",
+        )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
@@ -1185,24 +1218,8 @@ def request_player_close(
         note=msg_note[:500],
         created_at=now,
     )
-    old_status = _normalize_status(ticket.status) or ticket.status or "ABERTO"
-    if old_status in ("ABERTO", "EM_ANALISE"):
-        ticket.status = "AGUARDANDO_JOGADOR"
-        ticket.updated_at = now
-        _append_history(
-            db,
-            ticket_id=ticket_id,
-            event_type="status_changed",
-            actor_steam_id=steam_id,
-            actor_name=(player_name or steam_id)[:128],
-            field_name="status",
-            old_value=old_status,
-            new_value="AGUARDANDO_JOGADOR",
-            note="Aguardando confirmação do suporte",
-            created_at=now,
-        )
-    else:
-        ticket.updated_at = now
+    old_status = _normalize_status(ticket.status) or ticket.status or "AGUARDANDO_SUPORTE"
+    ticket.updated_at = now
     db.commit()
     db.refresh(ticket)
     _notify_ticket_event(
@@ -1213,16 +1230,6 @@ def request_player_close(
         actor_name=(player_name or steam_id)[:128],
         note=msg_note[:500],
     )
-    if old_status in ("ABERTO", "EM_ANALISE") and ticket.status == "AGUARDANDO_JOGADOR":
-        _notify_ticket_event(
-            db,
-            ticket_id,
-            "status_changed",
-            actor_steam_id=steam_id,
-            actor_name=(player_name or steam_id)[:128],
-            old_value=old_status,
-            new_value="AGUARDANDO_JOGADOR",
-        )
     return {"ok": True, "ticket": _ticket_row_to_dict(ticket)}
 
 
