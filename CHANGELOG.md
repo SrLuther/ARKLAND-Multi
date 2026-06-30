@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.169] - 2026-06-29
+
+### Fix
+
+- Fix (Web Store / Tickets): card «Equipe de Suporte» visível para admins na página de Tickets (CSS admin-only em blocos dentro de páginas, não só menu e páginas ativas).
+
 ## [1.9.168] - 2026-06-29
 
 ### Feature
