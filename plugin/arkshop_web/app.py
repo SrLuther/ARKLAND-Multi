@@ -37,7 +37,7 @@ from pix_payments import (
     normalize_payer_input,
     parse_mp_error_message,
 )
-from flask import Flask, jsonify, make_response, redirect, request, send_from_directory, session
+from flask import Flask, has_request_context, jsonify, make_response, redirect, request, send_from_directory, session
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -198,7 +198,7 @@ def _audit_event(
         db.rollback()
         _log_error("audit_persist_failed", event_type=event_type, error=str(exc))
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _audit_row_dict(row: AuditEvent) -> dict[str, Any]:
@@ -1553,6 +1553,22 @@ def _get_db_session():
     return None
 
 
+def _release_db_session(db: Any | None = None) -> None:
+    """Libera scoped_session fora de request Flask; no request o teardown chama remove()."""
+    if db is None or _SessionLocal is None:
+        return
+    if has_request_context():
+        return
+    try:
+        db.close()
+    except Exception:
+        pass
+    try:
+        _SessionLocal.remove()
+    except Exception:
+        pass
+
+
 def _require_db():
     if not _db_ready():
         _kick_background_db_init()
@@ -1724,7 +1740,7 @@ def _touch_store_user_login(steam_id: str) -> None:
         db.rollback()
         _log_error("touch_store_user_login", steam_id=steam_id, error=str(exc))
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _backfill_store_users(engine: Any) -> None:
@@ -1782,7 +1798,7 @@ def _backfill_store_users(engine: Any) -> None:
         db.rollback()
         log.warning("store_users backfill falhou: %s", exc)
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _is_player_site_blocked(steam_id: str) -> bool:
@@ -1795,7 +1811,7 @@ def _is_player_site_blocked(steam_id: str) -> bool:
     except Exception:
         return False
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _store_user_blocked_fields(steam_id: str) -> dict[str, Any]:
@@ -1811,7 +1827,7 @@ def _store_user_blocked_fields(steam_id: str) -> dict[str, Any]:
             "ban_reason": row.ban_reason,
         }
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _dt_iso(value: Any) -> str | None:
@@ -1914,7 +1930,7 @@ def _list_admin_players(
                         market_name = str(prof.market_display_name).strip()
                 except Exception:
                     pass
-            ents = _get_player_entitlements(sid)
+            ents = _get_player_entitlements(sid, db=db)
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
             items.append({
@@ -1935,7 +1951,7 @@ def _list_admin_players(
         _log_error("list_admin_players", error=str(exc))
         return {"ok": False, "error": str(exc)}
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
@@ -2037,7 +2053,7 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         _log_error("get_admin_player_detail", steam_id=steam_id, error=str(exc))
         return {"ok": False, "error": str(exc)}
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 _LICENSE_GROUP_SKIP = frozenset({"Admins", "Staff", "Default", "VIPDoacao", ""})
@@ -2226,7 +2242,7 @@ def _admin_player_points_adjust(
         db.rollback()
         return {"ok": False, "error": str(exc)}
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _admin_player_ban(steam_id: str, *, blocked: bool, reason: str = "") -> dict[str, Any]:
@@ -2267,23 +2283,7 @@ def _admin_player_ban(steam_id: str, *, blocked: bool, reason: str = "") -> dict
         db.rollback()
         return {"ok": False, "error": str(exc)}
     finally:
-        db.close()
-
-
-def _revoke_player_entitlement_by_group(steam_id: str, group: str) -> None:
-    db = _SessionLocal()
-    try:
-        _ensure_entitlements_schema(db)
-        db.execute(
-            text("DELETE FROM player_entitlements WHERE steam_id = :sid AND group_name = :grp"),
-            {"sid": str(steam_id), "grp": str(group)},
-        )
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _admin_player_license(
@@ -2615,7 +2615,7 @@ def _admin_player_kit(
             db.rollback()
             return {"ok": False, "error": str(exc)}
         finally:
-            db.close()
+            _release_db_session(db)
     if mode == "deliver":
         order, error = _create_order(
             steam_id, "kit", kit_id, amount, admin_skip_kit_limit=True,
@@ -2685,7 +2685,7 @@ def _merge_admin_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
         except Exception as exc:
             err[0] = exc
         finally:
-            db.close()
+            _release_db_session(db)
             done.set()
 
     threading.Thread(target=_worker, name="arkshop-admin-db", daemon=True).start()
@@ -2770,7 +2770,7 @@ def _merge_support_steamids_from_db(ids: set[str], *, timeout: float) -> set[str
         except Exception as exc:
             err[0] = exc
         finally:
-            db.close()
+            _release_db_session(db)
             done.set()
 
     threading.Thread(target=_worker, name="arkshop-support-db", daemon=True).start()
@@ -2822,11 +2822,13 @@ def _can_manage_tickets(steam_id: str) -> bool:
     return _is_admin_steamid(steam_id) or steam_id in _load_support_steamids()
 
 
-def _get_player_points(steam_id: str) -> int | None:
+def _get_player_points(steam_id: str, db: Any | None = None) -> int | None:
     """Returns points balance from the shared MySQL players table, or None if unavailable."""
     if not _db_ready():
         return None
-    db = _SessionLocal()
+    owns_session = db is None
+    if owns_session:
+        db = _SessionLocal()
     try:
         row = db.execute(
             text("SELECT points FROM players WHERE steam_id = :sid"),
@@ -2837,7 +2839,8 @@ def _get_player_points(steam_id: str) -> int | None:
         _log_error("get_player_points", steam_id=steam_id, error=str(exc))
         return None
     finally:
-        db.close()
+        if owns_session:
+            _release_db_session(db)
 
 
 def _add_player_points(steam_id: str, amount: int) -> int | None:
@@ -2854,7 +2857,7 @@ def _add_player_points(steam_id: str, amount: int) -> int | None:
         _log_error("add_player_points", steam_id=steam_id, amount=amount, error=str(exc))
         return None
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _is_mysql_engine(db: Any | None = None) -> bool:
@@ -2981,7 +2984,7 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
         _log_error("admin_points", action=action, steam_id=steam_id, amount=amount, error=str(exc))
         return {"ok": False, "error": str(exc)}
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 _CONFIG_CACHE: dict[str, Any] = {"path": "", "mtime": 0.0, "data": {}}
@@ -3026,9 +3029,10 @@ LICENSE_TIMED_BONUS = {
     "Moderacao": 500,
     "STAFF": 1000,
 }
-STAFF_ROLE_GROUPS = frozenset({"Moderacao", "STAFF"})
+STAFF_ROLE_GROUPS = frozenset({"Moderacao", "Mod", "STAFF"})
 STAFF_ROLE_LABELS: dict[str, str] = {
     "Moderacao": "MOD",
+    "Mod": "MOD",
     "STAFF": "STAFF",
 }
 
@@ -3280,7 +3284,7 @@ def _admin_revoke_kit_limit(
         db.rollback()
         return {"ok": False, "error": str(exc)}
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _catalog_price(entry: dict[str, Any], amount: int = 1) -> int:
@@ -3405,10 +3409,12 @@ def _apply_entitlement_grant_tx(
         )
 
 
-def _get_player_entitlements(steam_id: str) -> list[dict[str, Any]]:
+def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[str, Any]]:
     if not _db_ready():
         return []
-    db = _SessionLocal()
+    owns_session = db is None
+    if owns_session:
+        db = _SessionLocal()
     try:
         _ensure_entitlements_schema(db)
         expires_clause = (
@@ -3449,7 +3455,8 @@ def _get_player_entitlements(steam_id: str) -> list[dict[str, Any]]:
         _log_error("get_player_entitlements", steam_id=steam_id, error=str(exc))
         return []
     finally:
-        db.close()
+        if owns_session:
+            _release_db_session(db)
 
 
 def _compute_timed_points_total(groups: list[str]) -> int:
@@ -3536,8 +3543,11 @@ def _grant_player_entitlement(
     *,
     source: str = "",
     notes: str = "",
+    db: Any | None = None,
 ) -> None:
-    db = _SessionLocal()
+    owns_session = db is None
+    if owns_session:
+        db = _SessionLocal()
     try:
         _apply_entitlement_grant_tx(
             db, steam_id, group, days, source=source, notes=notes,
@@ -3547,7 +3557,31 @@ def _grant_player_entitlement(
         db.rollback()
         raise
     finally:
-        db.close()
+        if owns_session:
+            _release_db_session(db)
+
+
+def _revoke_player_entitlement_by_group(
+    steam_id: str,
+    group: str,
+    db: Any | None = None,
+) -> None:
+    owns_session = db is None
+    if owns_session:
+        db = _SessionLocal()
+    try:
+        _ensure_entitlements_schema(db)
+        db.execute(
+            text("DELETE FROM player_entitlements WHERE steam_id = :sid AND group_name = :grp"),
+            {"sid": str(steam_id), "grp": str(group)},
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        if owns_session:
+            _release_db_session(db)
 
 
 def _revoke_entitlement_for_order(steam_id: str, order_id: str, db: Any | None = None) -> None:
@@ -3565,7 +3599,7 @@ def _revoke_entitlement_for_order(steam_id: str, order_id: str, db: Any | None =
         sess.execute(sql, params)
         sess.commit()
     finally:
-        sess.close()
+        _release_db_session(sess)
 
 
 def _load_point_packages() -> list[dict[str, Any]]:
@@ -3792,7 +3826,7 @@ def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | No
                 if name != steam_id:
                     return name[:128]
         finally:
-            db.close()
+            _release_db_session(db)
 
     for p in _load_players():
         if str(p.get("steam_id", "")).strip() == steam_id:
@@ -3819,7 +3853,7 @@ def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | No
     except Exception:
         db.rollback()
     finally:
-        db.close()
+        _release_db_session(db)
     return persona
 
 
@@ -3894,7 +3928,7 @@ def _auth_display_name_fields(steam_id: str, is_admin: bool) -> dict[str, Any]:
             "needs_display_name": not bool(name),
         }
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _guard_player_display_name(steam_id: str) -> Any:
@@ -3912,7 +3946,7 @@ def _guard_player_display_name(steam_id: str) -> Any:
                 "needs_display_name": True,
             }), 403
     finally:
-        db.close()
+        _release_db_session(db)
     return None
 
 
@@ -4049,7 +4083,7 @@ def _create_order(steam_id: str, item_type: str, item_id: str, amount: int,
         _log("order_created", order_id=order.order_id, steam_id=steam_id, item_id=item_id, amount=amount, server_id=order.server_id)
         return order, None
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[str, Any]:
@@ -4114,7 +4148,7 @@ def _process_order_delivery(order_id: str, *, force_rcon: bool = False) -> dict[
             "retry_count": order.retry_count,
         }
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 # ── Background retry scheduler ────────────────────────────────────────────────
@@ -4138,7 +4172,7 @@ def _retry_worker() -> None:
                 if result.get("processed"):
                     _log("market_claims_expired", **result)
             finally:
-                mdb.close()
+                _release_db_session(mdb)
         except Exception as exc:
             _log_error("market_claims_expire_worker", error=str(exc))
 
@@ -4155,7 +4189,7 @@ def _retry_worker() -> None:
             )
             order_ids = [o.order_id for o in pending]
         finally:
-            db.close()
+            _release_db_session(db)
 
         if order_ids:
             _log("scheduler_retry_batch", count=len(order_ids))
@@ -4229,7 +4263,7 @@ def get_pending_deliveries(steam_id: str):
         _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/pending/claim", methods=["POST"])
@@ -4291,7 +4325,7 @@ def claim_pending_orders():
         _log_error("claim_pending_orders", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/pending/release", methods=["POST"])
@@ -4333,7 +4367,7 @@ def release_pending_orders():
         _log_error("release_pending_orders", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/pending/delivered", methods=["POST"])
@@ -4410,7 +4444,7 @@ def mark_pending_delivered_batch():
         _log_error("mark_pending_delivered_batch", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/pending/<steam_id>/<order_id>", methods=["POST"])
@@ -4439,7 +4473,7 @@ def mark_pending_delivered(steam_id: str, order_id: str):
         _log_error("mark_pending_delivered", order_id=order_id, steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 # ── Auth routes ───────────────────────────────────────────────────────────────
@@ -4522,7 +4556,7 @@ def _kick_db_health_ping_if_stale() -> None:
                     db.execute(text("SELECT 1")).fetchone()
                     reachable = True
                 finally:
-                    db.close()
+                    _release_db_session(db)
             except Exception:
                 reachable = False
             finally:
@@ -4948,6 +4982,12 @@ def _write_config_all_targets(body: dict[str, Any], settings: dict[str, Any]) ->
     written: list[dict[str, str]] = []
     errors: list[dict[str, str]] = []
     file_body = _normalize_config_to_file(body)
+    try:
+        from src.catalog_sync import normalize_timed_points_reward_groups
+
+        normalize_timed_points_reward_groups(file_body)
+    except Exception:
+        pass
 
     for target in _plugin_sync_targets(settings):
         path = Path(target["path"])
@@ -5060,7 +5100,7 @@ def test_db_connection():
         if session is None:
             return jsonify({"ok": False, "error": "SessionLocal não inicializado."}), 200
         session.execute(text("SELECT 1")).fetchone()
-        session.close()
+        _release_db_session(session)
         db_info = _safe_db_log_fields(_ACTIVE_DATABASE_URL)
         label = db_info.get("database") or db_info.get("host") or "ok"
         return jsonify({"ok": True, "info": f"Banco conectado ({label})"})
@@ -6029,7 +6069,7 @@ def player_purchase():
         try:
             remaining = _effective_kit_remaining(db_limit, str(steam_id), resolved_kit, entry)
         finally:
-            db_limit.close()
+            _release_db_session(db_limit)
         if remaining <= 0:
             if idempotency_key:
                 _used_idempotency_keys.pop(idempotency_key, None)
@@ -6113,7 +6153,7 @@ def player_purchase():
             error=purchase_db_error,
         )
     finally:
-        db.close()
+        _release_db_session(db)
 
     if purchase_db_error:
         if idempotency_key:
@@ -6236,7 +6276,7 @@ def player_cancel_order(order_id: str):
         _log_error("player_cancel_order", order_id=order_id, steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
     if new_balance is None:
         new_balance = _get_player_points(steam_id)
@@ -6325,8 +6365,11 @@ def _resolve_payment_method(row: PointPayment) -> str:
     pm = str(row.payment_method or "").strip().lower()
     if pm in ("pix", "card"):
         return pm
-    if row.pix_copy_paste or row.pix_qr_base64:
-        return "pix"
+    try:
+        if getattr(row, 'pix_copy_paste', None) or getattr(row, 'pix_qr_base64', None):
+            return "pix"
+    except Exception:
+        pass
     return "card"
 
 
@@ -6496,7 +6539,7 @@ def player_available():
         _log_error("player_available", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/pix/payer-form", methods=["GET"])
@@ -6567,6 +6610,7 @@ def player_pix_checkout():
     if not mp_id:
         return jsonify({"ok": False, "error": "Resposta PIX inválida do Mercado Pago"}), 502
 
+    payment_status = map_mp_status(str(mp_resp.get("status", "pending")))
     db = _SessionLocal()
     try:
         row = PointPayment(
@@ -6576,7 +6620,7 @@ def player_pix_checkout():
             package_id=package_id,
             amount_brl=price_brl,
             points=points,
-            status=map_mp_status(str(mp_resp.get("status", "pending"))),
+            status=payment_status,
             pix_qr_base64=qr_b64,
             pix_copy_paste=copy_paste,
             payer_email=payer.get("email"),
@@ -6592,7 +6636,7 @@ def player_pix_checkout():
             order_id=payment_id,
             item_id=package_id,
             amount=points,
-            status_after=row.status,
+            status_after=payment_status,
             message=f"Tentativa PIX — {label} — R$ {price_brl:.2f}",
             amount_brl=price_brl,
             mp_payment_id=mp_id,
@@ -6605,7 +6649,7 @@ def player_pix_checkout():
             "ok": True,
             "payment_id": payment_id,
             "mp_payment_id": mp_id,
-            "status": row.status,
+            "status": payment_status,
             "points": points,
             "amount_brl": price_brl,
             "label": label,
@@ -6617,7 +6661,7 @@ def player_pix_checkout():
         _log_error("pix_checkout_db", payment_id=payment_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 def _resolve_point_package(package_id: str) -> tuple[dict[str, Any] | None, str | None]:
@@ -6742,7 +6786,7 @@ def player_card_checkout():
         db.rollback()
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/pix/<payment_id>/status", methods=["GET"])
@@ -6793,19 +6837,22 @@ def player_pix_status(payment_id: str):
                     poll_error = str(exc)
                     _log_error("pix_status_poll", payment_id=payment_id, error=poll_error)
 
-        new_balance = _get_player_points(steam_id) if payment.credited else None
+        resp_status = payment.status
+        resp_credited = payment.credited
+        resp_points = payment.points
+        new_balance = _get_player_points(steam_id) if resp_credited else None
         return jsonify({
             "ok": True,
             "payment_id": payment.payment_id,
-            "status": payment.status,
-            "credited": payment.credited,
-            "points": payment.points,
+            "status": resp_status,
+            "credited": resp_credited,
+            "points": resp_points,
             "new_balance": new_balance,
             "mp_status": mp_status_raw,
             "poll_error": poll_error,
         })
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/pix/<payment_id>/abandon", methods=["POST"])
@@ -6855,7 +6902,7 @@ def player_pix_abandon(payment_id: str):
         db.rollback()
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/payments/webhook", methods=["GET", "POST"])
@@ -6917,7 +6964,7 @@ def payments_webhook():
         db.rollback()
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/summary", methods=["GET"])
@@ -6960,7 +7007,7 @@ def player_summary():
             msg = f"Erro ao consultar banco: {exc}"
         return jsonify({"ok": False, "error": msg, "db_offline": "10061" in err_str}), 503
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/history", methods=["GET"])
@@ -7006,7 +7053,7 @@ def player_history():
         _log_error("player_history", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao consultar histórico: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/donations", methods=["GET"])
@@ -7046,7 +7093,7 @@ def player_donations():
         _log_error("player_donations", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao consultar doações: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/orders/<order_id>", methods=["GET"])
@@ -7115,7 +7162,7 @@ def player_order_detail(order_id: str):
         _log_error("player_order_detail", order_id=order_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao carregar pedido: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/orders/<order_id>/contest", methods=["POST"])
@@ -7162,7 +7209,7 @@ def player_contest(order_id: str):
         _log_error("player_contest", order_id=order_id, steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao contestar pedido: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/player/orders/<order_id>/rebuy", methods=["POST"])
@@ -7295,7 +7342,7 @@ def admin_retry_pending():
         _log_error("admin_retry_pending", error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao buscar pedidos pendentes: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
     _log("admin_retry", count=len(order_ids), admin=_steam_id_from_session())
     processed = [_process_order_delivery(order_id) for order_id in order_ids]
@@ -7342,7 +7389,7 @@ def admin_list_orders():
         _log_error("admin_list_orders", error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao listar pedidos: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/admin/orders/<order_id>/refund", methods=["POST"])
@@ -7397,7 +7444,7 @@ def admin_refund_order(order_id: str):
         _log_error("admin_refund_order", order_id=order_id, admin=admin_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao reembolsar: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
     _audit_event(
         "admin_refund",
@@ -7487,7 +7534,7 @@ def admin_resend_order(order_id: str):
         _log_error("admin_resend_order", order_id=order_id, admin=admin_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao reenviar: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
     _audit_event(
         "admin_resend",
@@ -7554,7 +7601,7 @@ def admin_cancel_order(order_id: str):
         _log_error("admin_cancel_order", order_id=order_id, admin=admin_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao cancelar: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
     _audit_event(
         "admin_cancel",
@@ -7595,7 +7642,7 @@ def admin_order_details(order_id: str):
         _log_error("admin_order_details", order_id=order_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/admin/orders/<order_id>/repair-license", methods=["POST"])
@@ -7630,7 +7677,7 @@ def admin_repair_order_license(order_id: str):
             "timed_points_total": _compute_timed_points_total([e["group"] for e in entitlements]),
         })
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/admin/orders/<order_id>/reprocess", methods=["POST"])
@@ -7657,7 +7704,7 @@ def admin_reprocess_order(order_id: str):
         order.updated_at = _now()
         db.commit()
     finally:
-        db.close()
+        _release_db_session(db)
 
     _audit_event(
         "admin_reprocess",
@@ -7747,7 +7794,7 @@ def admin_reissue_order(order_id: str):
         _log_error("admin_reissue", order_id=order_id, admin=admin_id, error=str(exc))
         return jsonify({"ok": False, "error": f"Erro ao reemitir: {exc}"}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
     if not new_order_id:
         return jsonify({"ok": False, "error": "Falha ao reemitir"}), 500
@@ -7855,7 +7902,7 @@ def admin_pix_audit():
         _log_error("admin_pix_audit", error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/admin/audit", methods=["GET"])
@@ -7908,7 +7955,7 @@ def admin_list_audit():
         _log_error("admin_list_audit", error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/admin/audit/<int:event_id>", methods=["GET"])
@@ -7923,7 +7970,7 @@ def admin_audit_detail(event_id: int):
             return jsonify({"ok": False, "error": "Evento não encontrado"}), 404
         return jsonify({"ok": True, "event": _audit_row_dict(row)})
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 @app.route("/api/admin/orders/<order_id>/timeline", methods=["GET"])
@@ -7942,7 +7989,7 @@ def admin_order_timeline(order_id: str):
         _log_error("admin_order_timeline", order_id=order_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
     finally:
-        db.close()
+        _release_db_session(db)
 
 
 # ── Admin: gestão de jogadores ────────────────────────────────────────────────
@@ -8080,7 +8127,7 @@ def player_kit_limits():
     try:
         limits = _build_player_kit_limits(db, steam_id)
     finally:
-        db.close()
+        _release_db_session(db)
     return jsonify({"ok": True, "kits": limits})
 
 
@@ -8123,7 +8170,7 @@ def admin_add_admin():
             db.merge(ShopAdmin(steam_id=steam_id))
             db.commit()
         finally:
-            db.close()
+            _release_db_session(db)
     else:
         ids = _load_admin_steamids()
         ids.add(steam_id)
@@ -8147,7 +8194,7 @@ def admin_remove_admin(steam_id: str):
             db.query(ShopAdmin).filter(ShopAdmin.steam_id == steam_id).delete()
             db.commit()
         finally:
-            db.close()
+            _release_db_session(db)
     else:
         ids = _load_admin_steamids()
         ids.discard(steam_id)
@@ -8185,7 +8232,7 @@ def admin_add_support_staff():
             db.merge(ShopSupport(steam_id=steam_id))
             db.commit()
         finally:
-            db.close()
+            _release_db_session(db)
     else:
         ids = _load_support_steamids()
         ids.add(steam_id)
@@ -8210,7 +8257,7 @@ def admin_remove_support_staff(steam_id: str):
             db.query(ShopSupport).filter(ShopSupport.steam_id == steam_id).delete()
             db.commit()
         finally:
-            db.close()
+            _release_db_session(db)
     else:
         ids = _load_support_steamids()
         ids.discard(steam_id)

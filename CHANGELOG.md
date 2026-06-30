@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.170] - 2026-06-29
+
+### Fix
+
+- Fix CRÍTICO (CustomShop / TimedPoints / cargo MOD): bônus de 500 Âmbares por ciclo não aplicava — grupo Permissions «Moderacao» (UI MOD) não batia com «Mod» no config após sync; catalog_sync normaliza Mod/MOD → Moderacao; TimedPoints resolve aliases Moderacao/Mod/MOD; recompilar CustomShop.dll e rodar Sync TEK ou Shop.Reload nos mapas.
+
 ## [1.9.169] - 2026-06-29
 
 ### Fix

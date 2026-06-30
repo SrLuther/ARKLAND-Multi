@@ -492,7 +492,7 @@ def test_collect_groups_from_catalog_includes_license_grant_keyvault():
     assert "Alfa" in groups
 
 
-def test_collect_groups_from_catalog_excludes_vip_and_moderacao():
+def test_collect_groups_from_catalog_excludes_vip_keeps_moderacao():
     catalog = {
         "Kits": {
             "vip_bronze": {"Permissions": "Admins,VIPBronze"},
@@ -510,6 +510,5 @@ def test_collect_groups_from_catalog_excludes_vip_and_moderacao():
     }
     groups = collect_groups_from_catalog(catalog)
     assert "VIPBronze" not in groups
-    assert "Moderacao" not in groups
-    assert "Mod" in groups
+    assert "Moderacao" in groups
     assert "Default" in groups

@@ -50,6 +50,33 @@ std::string FormatGroupSummary(const nlohmann::json& groups_cfg) {
     return out.str();
 }
 
+bool IsStaffModAlias(const std::string& grp) {
+    return grp == "Moderacao" || grp == "Mod" || grp == "MOD";
+}
+
+bool PlayerQualifiesForTimedGroup(const std::string& sid,
+                                  uint64_t steam_id,
+                                  const std::string& grp) {
+    if (grp == "Default")
+        return true;
+
+    std::vector<std::string> candidates;
+    candidates.push_back(grp);
+    if (IsStaffModAlias(grp))
+        candidates = {"Moderacao", "Mod", "MOD"};
+
+    for (const auto& name : candidates) {
+        if (CustomShop::ShopEntitlements::Get().HasActive(sid, name))
+            return true;
+        if (CustomShop::Perms::IsInGroup(steam_id, name))
+            return true;
+        const std::string tier = CustomShop::ShopVip::Get().GetActiveTier(sid);
+        if (!tier.empty() && tier == name)
+            return true;
+    }
+    return false;
+}
+
 void LogConfigStatus(const char* context) {
     const auto& cfg = CustomShop::ShopConfig::Get().TimedPointsReward();
     const bool enabled = cfg.value("Enabled", false);
@@ -147,19 +174,8 @@ void Tick() {
         int best  = 0;
 
         for (const auto& [grp, amt] : group_amounts) {
-            bool qualifies = false;
-            if (grp == "Default") {
-                qualifies = true;
-            } else if (CustomShop::ShopEntitlements::Get().HasActive(sid, grp)) {
-                qualifies = true;
-            } else if (CustomShop::Perms::IsInGroup(steam_id, grp)) {
-                qualifies = true;
-            } else {
-                const std::string tier = CustomShop::ShopVip::Get().GetActiveTier(sid);
-                qualifies = (!tier.empty() && tier == grp);
-            }
-
-            if (!qualifies) continue;
+            if (!PlayerQualifiesForTimedGroup(sid, steam_id, grp))
+                continue;
             total += amt;
             if (amt > best) best = amt;
         }

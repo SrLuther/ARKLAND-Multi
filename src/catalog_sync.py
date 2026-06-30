@@ -90,8 +90,13 @@ def _purge_retired_entries(data: dict[str, Any]) -> list[str]:
     return removed
 
 
+def normalize_timed_points_reward_groups(data: dict[str, Any]) -> list[str]:
+    """Remove grupos VIP obsoletos e normaliza aliases Mod/MOD → Moderacao em TimedPointsReward."""
+    return _purge_timed_points_groups(data)
+
+
 def _purge_timed_points_groups(data: dict[str, Any]) -> list[str]:
-    """Remove grupos VIP obsoletos e renomeia Moderacao → Mod em TimedPointsReward."""
+    """Remove grupos VIP obsoletos e normaliza aliases do cargo MOD em TimedPointsReward."""
     timed = data.get("TimedPointsReward")
     if not isinstance(timed, dict):
         return []
@@ -99,16 +104,17 @@ def _purge_timed_points_groups(data: dict[str, Any]) -> list[str]:
     if not isinstance(groups, dict):
         return []
     notes: list[str] = []
+    mod_aliases = frozenset({"Mod", "MOD"})
     for key in list(groups.keys()):
         name = str(key).strip()
         if _is_removed_group(name):
             del groups[key]
             notes.append(f"timed:{name}")
-        elif name == "Moderacao":
+        elif name in mod_aliases:
             entry = groups.pop(key)
-            if "Mod" not in groups:
-                groups["Mod"] = entry
-            notes.append("timed:Moderacao->Mod")
+            if "Moderacao" not in groups:
+                groups["Moderacao"] = entry
+            notes.append(f"timed:{name}->Moderacao")
     return notes
 
 

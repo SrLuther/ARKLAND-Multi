@@ -107,3 +107,37 @@ def test_pix_abandon_creates_audit_event(client):
     audit = client.get("/api/admin/audit?event_type=pix_abandoned").get_json()
     assert audit.get("ok") is True
     assert any(e["event_type"] == "pix_abandoned" for e in audit["items"])
+
+
+def test_pix_audit_with_null_payment_method(client):
+    db = _app_module._SessionLocal()
+    try:
+        row = PointPayment(
+            payment_id="pay-test-null-method",
+            mp_payment_id="mp-pay-test-null-method",
+            steam_id=USER_STEAM,
+            package_id="pkg_1000",
+            amount_brl=10.0,
+            points=1000,
+            status="PENDENTE",
+            credited=False,
+            payer_email="player@example.com",
+            payment_method=None,
+            pix_copy_paste=None,
+            pix_qr_base64=None,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+        db.add(row)
+        db.commit()
+    finally:
+        db.close()
+
+    _login(client, ADMIN_STEAM)
+    r = client.get("/api/admin/pix/audit")
+    d = r.get_json()
+    assert d.get("ok") is True
+    assert len(d["items"]) >= 1
+    payment = next((i for i in d["items"] if i["payment_id"] == "pay-test-null-method"), None)
+    assert payment is not None
+    assert payment["payment_method"] in ("pix", "card")

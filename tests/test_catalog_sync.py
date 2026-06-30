@@ -88,7 +88,7 @@ def test_does_not_inject_licenses_or_rewrite_items():
     assert "Permissions" not in data["Items"]["struct_generatortek"]
 
 
-def test_purge_vip_and_moderacao_from_timed_points():
+def test_purge_vip_and_normalize_mod_timed_points():
     data = {
         "Items": {},
         "Kits": {},
@@ -103,7 +103,36 @@ def test_purge_vip_and_moderacao_from_timed_points():
     cleared, _ = apply_catalog_sync(data)
     groups = data["TimedPointsReward"]["Groups"]
     assert "VIPBronze" not in groups
-    assert "Moderacao" not in groups
-    assert "Mod" in groups
-    assert groups["Mod"]["Amount"] == 500
+    assert "Moderacao" in groups
+    assert groups["Moderacao"]["Amount"] == 500
     assert any("timed:VIPBronze" in c for c in cleared)
+
+    data_mod = {
+        "Items": {},
+        "Kits": {},
+        "TimedPointsReward": {
+            "Groups": {
+                "Default": {"Amount": 25},
+                "MOD": {"Amount": 500},
+            },
+        },
+    }
+    apply_catalog_sync(data_mod)
+    groups_mod = data_mod["TimedPointsReward"]["Groups"]
+    assert "MOD" not in groups_mod
+    assert groups_mod["Moderacao"]["Amount"] == 500
+
+    data_mod_lower = {
+        "Items": {},
+        "Kits": {},
+        "TimedPointsReward": {
+            "Groups": {
+                "Default": {"Amount": 25},
+                "Mod": {"Amount": 500},
+            },
+        },
+    }
+    apply_catalog_sync(data_mod_lower)
+    groups_lower = data_mod_lower["TimedPointsReward"]["Groups"]
+    assert "Mod" not in groups_lower
+    assert groups_lower["Moderacao"]["Amount"] == 500

@@ -1283,11 +1283,9 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
     from .catalog_sync import _is_removed_group
 
     found: set[str] = set()
-    skip_legacy = frozenset({"Moderacao"})
-
     def _add_group(name: str) -> None:
         g = str(name).strip()
-        if not g or g in skip_legacy or _is_removed_group(g):
+        if not g or _is_removed_group(g):
             return
         found.add(g)
 
@@ -1319,7 +1317,7 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
         if grant_group:
             _add_group(grant_group)
 
-    for lic in ("keyvault", "Gamma", "Beta", "Alfa", "Mod", "STAFF"):
+    for lic in ("keyvault", "Gamma", "Beta", "Alfa", "Moderacao", "STAFF"):
         _add_group(lic)
 
     timed = catalog.get("TimedPointsReward", {})

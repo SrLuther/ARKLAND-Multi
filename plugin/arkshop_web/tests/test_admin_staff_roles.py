@@ -41,7 +41,7 @@ def test_staff_role_catalog(client):
     data = r.get_json()
     assert data["ok"] is True
     groups = {item["group"] for item in data["items"]}
-    assert groups == {"Moderacao", "STAFF"}
+    assert groups == {"Moderacao", "Mod", "STAFF"}
     labels = {item["label"] for item in data["items"]}
     assert "MOD" in labels
 

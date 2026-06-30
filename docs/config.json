@@ -1224,7 +1224,7 @@
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
-        },
+    },
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Hatchery/PrimalItemStructure_Hatchery.PrimalItemStructure_Hatchery",
           "Quantity": 1,
@@ -4027,7 +4027,7 @@
       "Gamma": {
         "Amount": 25
       },
-      "MOD": {
+      "Moderacao": {
         "Amount": 500
       },
       "STAFF": {

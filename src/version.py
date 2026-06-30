@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.169"
-BUILD_DATE: str = "2026-06-29"
+APP_VERSION: str = "1.9.170"
+BUILD_DATE: str = "2026-06-30"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.170",
+        "date": "2026-06-29",
+        "changes": [
+            "Fix CRÍTICO (CustomShop / TimedPoints / cargo MOD): bônus de 500 Âmbares por ciclo não "
+            "aplicava — grupo Permissions «Moderacao» (UI MOD) não batia com «Mod» no config após sync; "
+            "catalog_sync normaliza Mod/MOD → Moderacao; TimedPoints resolve aliases Moderacao/Mod/MOD; "
+            "recompilar CustomShop.dll e rodar Sync TEK ou Shop.Reload nos mapas.",
+        ],
+    },
     {
         "version": "1.9.169",
         "date": "2026-06-29",

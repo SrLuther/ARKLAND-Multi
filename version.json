@@ -1,8 +1,8 @@
 {
-    "version": "1.9.169",
-    "date": "2026-06-29",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.169/ARKLAND-Multi-Setup-v1.9.169.exe",
+    "version": "1.9.170",
+    "date": "2026-06-30",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.170/ARKLAND-Multi-Setup-v1.9.170.exe",
     "changelog": [
-        "Fix (Web Store / Tickets): card «Equipe de Suporte» visível para admins na página de Tickets (CSS admin-only em blocos dentro de páginas, não só menu e páginas ativas)."
+        "Fix CRÍTICO (CustomShop / TimedPoints / cargo MOD): bônus de 500 Âmbares por ciclo não aplicava — grupo Permissions «Moderacao» (UI MOD) não batia com «Mod» no config após sync; catalog_sync normaliza Mod/MOD → Moderacao; TimedPoints resolve aliases Moderacao/Mod/MOD; recompilar CustomShop.dll e rodar Sync TEK ou Shop.Reload nos mapas."
     ]
 }
