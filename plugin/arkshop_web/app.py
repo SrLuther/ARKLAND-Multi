@@ -15,6 +15,7 @@ import time
 import urllib.parse
 import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,15 +60,17 @@ from kit_limits import (
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
-from src.rcon_util import sanitize_rcon_password  # noqa: E402
+from src.rcon_util import CUSTOMSHOP_RELOAD_COMMANDS, sanitize_rcon_password  # noqa: E402
 from src.shop_integration import (  # noqa: E402
     apply_machine_server_registry,
     _collect_catalog_search_paths,
     _merge_arkland_server_entry,
     canonical_master_catalog_path,
+    default_customshop_path,
     is_ephemeral_pyinstaller_path,
     is_webstore_catalog_path,
     load_plugin_config,
+    slugify_server_id,
     merge_catalog_into_plugin_config,
     resolve_persistent_catalog_path,
     webstore_data_dir,
@@ -1454,6 +1457,7 @@ def _configure_database(url: str) -> None:
         try:
             _migrate_schema(engine)
             log.info("DB schema migrate concluído")
+            _schedule_entitlements_reconcile()
         except Exception as exc:
             log.warning(
                 "DB schema setup falhou (%s): %s — background thread tentará reconectar",
@@ -1470,6 +1474,8 @@ _DB_INITIALIZED = False
 _DB_BOOT_THREAD: threading.Thread | None = None
 _ENTITLEMENTS_SCHEMA_LOCK = threading.Lock()
 _ENTITLEMENTS_SCHEMA_READY = False
+_ENTITLEMENTS_RECONCILE_STARTED = False
+_ENTITLEMENTS_RECONCILE_LOCK = threading.Lock()
 
 _HEALTH_DB_CACHE: dict[str, Any] = {
     "reachable": None,
@@ -2392,7 +2398,31 @@ def _sync_permissions_all_servers(
     *,
     grant: bool,
 ) -> list[dict[str, Any]]:
-    """Sincroniza grupo MOD/STAFF no plugin Permissions via RCON em todos os mapas."""
+    """Sincroniza grupo MOD/STAFF no plugin Permissions (MySQL + RCON)."""
+    results: list[dict[str, Any]] = []
+    shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
+    try:
+        from permission_db_sync import grant_group_in_permission_db, revoke_group_in_permission_db
+
+        if grant:
+            db_res = grant_group_in_permission_db(shop_url, steam_id, group, days=0)
+        else:
+            db_res = revoke_group_in_permission_db(shop_url, steam_id, group)
+        results.append({
+            "server_id": "mysql",
+            "label": "ark_permission (MySQL)",
+            "ok": bool(db_res.get("ok")),
+            "error": db_res.get("error"),
+            "response": db_res.get("note") or "OK",
+        })
+    except Exception as exc:
+        results.append({
+            "server_id": "mysql",
+            "label": "ark_permission (MySQL)",
+            "ok": False,
+            "error": str(exc),
+        })
+
     settings = _load_settings()
     servers = _load_servers()
     cmd = (
@@ -2400,7 +2430,6 @@ def _sync_permissions_all_servers(
         if grant
         else f"Permissions.Remove {steam_id} {group}"
     )
-    results: list[dict[str, Any]] = []
     targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
     for srv in targets:
         sid = str(srv.get("server_id") or "").strip() if srv else None
@@ -2439,7 +2468,33 @@ def _sync_license_permissions_all_servers(
     grant: bool,
     days: int = 0,
 ) -> list[dict[str, Any]]:
-    """Sincroniza licença temporária/permanente no Permissions via RCON."""
+    """Sincroniza licença no Permissions (MySQL direto + RCON nos mapas)."""
+    results: list[dict[str, Any]] = []
+    shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
+    try:
+        from permission_db_sync import grant_group_in_permission_db, revoke_group_in_permission_db
+
+        if grant:
+            db_res = grant_group_in_permission_db(
+                shop_url, steam_id, group, days=int(days or 0),
+            )
+        else:
+            db_res = revoke_group_in_permission_db(shop_url, steam_id, group)
+        results.append({
+            "server_id": "mysql",
+            "label": "ark_permission (MySQL)",
+            "ok": bool(db_res.get("ok")),
+            "error": db_res.get("error"),
+            "response": "OK",
+        })
+    except Exception as exc:
+        results.append({
+            "server_id": "mysql",
+            "label": "ark_permission (MySQL)",
+            "ok": False,
+            "error": str(exc),
+        })
+
     settings = _load_settings()
     servers = _load_servers()
     if grant:
@@ -2450,7 +2505,6 @@ def _sync_license_permissions_all_servers(
         )
     else:
         cmd = f"Permissions.Remove {steam_id} {group}"
-    results: list[dict[str, Any]] = []
     targets: list[dict[str, Any] | None] = list(servers) if servers else [None]
     for srv in targets:
         sid = str(srv.get("server_id") or "").strip() if srv else None
@@ -3468,6 +3522,82 @@ def _compute_timed_points_total(groups: list[str]) -> int:
     return total
 
 
+def _schedule_entitlements_reconcile() -> None:
+    """Ao subir a web store, reconcilia entitlements ↔ ark_permission em background."""
+    global _ENTITLEMENTS_RECONCILE_STARTED
+    with _ENTITLEMENTS_RECONCILE_LOCK:
+        if _ENTITLEMENTS_RECONCILE_STARTED:
+            return
+        _ENTITLEMENTS_RECONCILE_STARTED = True
+
+    def _worker() -> None:
+        if not _db_ready():
+            return
+        shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
+        if not shop_url or "sqlite" in shop_url.lower():
+            return
+        try:
+            from permission_db_sync import reconcile_entitlements_with_permission_db
+
+            res = reconcile_entitlements_with_permission_db(shop_url)
+            if res.get("ok"):
+                log.info(
+                    "Reconciliação entitlements→ark_permission: verificados=%s irregulares=%s corrigidos=%s",
+                    res.get("checked", 0),
+                    res.get("irregular", 0),
+                    res.get("synced", 0),
+                )
+            else:
+                log.warning("Reconciliação entitlements falhou: %s", res.get("error"))
+        except Exception as exc:
+            log.warning("Reconciliação entitlements exceção: %s", exc)
+
+    threading.Thread(
+        target=_worker, daemon=True, name="entitlements-reconcile",
+    ).start()
+
+
+def _reconcile_all_entitlements_to_permission_db(*, dry_run: bool = False) -> dict[str, Any]:
+    shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
+    if not shop_url or "sqlite" in shop_url.lower():
+        return {"ok": False, "error": "Banco MySQL não configurado"}
+    try:
+        from permission_db_sync import reconcile_entitlements_with_permission_db
+
+        return reconcile_entitlements_with_permission_db(shop_url, dry_run=dry_run)
+    except Exception as exc:
+        _log_error("reconcile_all_entitlements", error=str(exc))
+        return {"ok": False, "error": str(exc)}
+
+
+def _sync_player_entitlements_to_permission_db(
+    steam_id: str,
+    entitlements: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Espelha player_entitlements (arkland_shop) em ark_permission.players."""
+    ents = entitlements if entitlements is not None else _get_player_entitlements(steam_id)
+    shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
+    try:
+        from permission_db_sync import sync_entitlements_to_permission_db
+
+        res = sync_entitlements_to_permission_db(shop_url, str(steam_id), ents)
+        return [{
+            "server_id": "mysql",
+            "label": "ark_permission (MySQL)",
+            "ok": bool(res.get("ok")),
+            "error": res.get("error"),
+            "response": ",".join(res.get("timed_groups") or []) or "OK",
+        }]
+    except Exception as exc:
+        _log_error("sync_entitlements_permission_db", steam_id=steam_id, error=str(exc))
+        return [{
+            "server_id": "mysql",
+            "label": "ark_permission (MySQL)",
+            "ok": False,
+            "error": str(exc),
+        }]
+
+
 def _player_has_license(steam_id: str, group: str) -> bool:
     if group == "Default":
         return True
@@ -4014,6 +4144,239 @@ def _resolve_rcon_target(
         sanitize_rcon_password(str(settings.get("rcon_password") or "")),
         "padrão",
     )
+
+
+def _rcon_hosts_to_try(srv: dict[str, Any], settings: dict[str, Any]) -> list[str]:
+    """127.0.0.1 primeiro (TEK local), depois host do servidor e fallback global."""
+    hosts: list[str] = []
+    for candidate in (
+        "127.0.0.1",
+        srv.get("rcon_host"),
+        settings.get("rcon_host"),
+        (srv.get("config_snapshot") or {}).get("server_ip") if isinstance(srv.get("config_snapshot"), dict) else None,
+    ):
+        h = str(candidate or "").strip()
+        if not h or h in ("0.0.0.0",):
+            continue
+        if h.lower() == "localhost":
+            h = "127.0.0.1"
+        if h not in hosts:
+            hosts.append(h)
+    return hosts or ["127.0.0.1"]
+
+
+def _server_dict_from_asm_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
+    if srv.get("shop_exclude"):
+        return None
+    if srv.get("rcon_enabled") is False:
+        return None
+    pwd = sanitize_rcon_password(
+        str(srv.get("rcon_password") or srv.get("admin_password") or "")
+    )
+    if not pwd:
+        return None
+    sid = str(srv.get("shop_server_id") or "").strip() or slugify_server_id(
+        str(srv.get("name") or ""), str(srv.get("id") or ""),
+    )
+    if not sid:
+        return None
+    install = str(srv.get("install_dir") or "")
+    return {
+        "server_id": sid,
+        "label": str(srv.get("name") or sid),
+        "rcon_host": str(srv.get("server_ip") or "127.0.0.1"),
+        "rcon_port": int(srv.get("rcon_port") or 27020),
+        "rcon_password": pwd,
+        "plugin_config_path": str(
+            srv.get("customshop_config_path") or default_customshop_path(install)
+        ),
+        "arkland_ref": f"tek:{srv.get('id')}",
+    }
+
+
+def _server_dict_from_classic_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
+    if srv.get("shop_exclude"):
+        return None
+    if srv.get("rcon_enabled") is False:
+        return None
+    pwd = sanitize_rcon_password(
+        str(srv.get("rcon_password") or srv.get("admin_password") or "")
+    )
+    if not pwd:
+        return None
+    sid = str(srv.get("shop_server_id") or "").strip() or slugify_server_id(
+        str(srv.get("name") or ""), str(srv.get("id") or ""),
+    )
+    if not sid:
+        return None
+    install = str(srv.get("install_dir") or "")
+    return {
+        "server_id": sid,
+        "label": str(srv.get("name") or sid),
+        "rcon_host": str(srv.get("server_ip") or srv.get("public_ip") or "127.0.0.1"),
+        "rcon_port": int(srv.get("rcon_port") or 27020),
+        "rcon_password": pwd,
+        "plugin_config_path": str(
+            srv.get("customshop_config_path") or default_customshop_path(install)
+        ),
+        "arkland_ref": f"classic:{srv.get('id')}",
+    }
+
+
+def _discover_local_rcon_servers() -> list[dict[str, Any]]:
+    """Lê asm_servers.json e servers.json do Server Manager (host local)."""
+    cfg_dir = Path(os.environ.get("APPDATA", "")) / "ARKLAND-ServerManager"
+    if not cfg_dir.is_dir():
+        return []
+
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    asm_path = cfg_dir / "asm_servers.json"
+    if asm_path.exists():
+        try:
+            raw = json.loads(asm_path.read_text(encoding="utf-8"))
+            items = raw if isinstance(raw, list) else []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                entry = _server_dict_from_asm_raw(item)
+                if entry and entry["server_id"] not in seen:
+                    seen.add(entry["server_id"])
+                    out.append(entry)
+        except Exception:
+            pass
+
+    classic_path = cfg_dir / "servers.json"
+    if classic_path.exists():
+        try:
+            raw = json.loads(classic_path.read_text(encoding="utf-8"))
+            items = raw if isinstance(raw, list) else []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                entry = _server_dict_from_classic_raw(item)
+                if entry and entry["server_id"] not in seen:
+                    seen.add(entry["server_id"])
+                    out.append(entry)
+        except Exception:
+            pass
+
+    return out
+
+
+def _merge_rcon_server_entry(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(existing)
+    for key, value in incoming.items():
+        if value in (None, ""):
+            continue
+        if key == "rcon_password" and merged.get("rcon_password"):
+            continue
+        if not merged.get(key):
+            merged[key] = value
+    return merged
+
+
+def _resolve_rcon_reload_targets(settings: dict[str, Any]) -> list[dict[str, Any]]:
+    """Servidores para Shop.Reload — servers.json da web + descoberta local ASM."""
+    by_id: dict[str, dict[str, Any]] = {}
+    for srv in _load_servers():
+        if not isinstance(srv, dict):
+            continue
+        sid = str(srv.get("server_id") or "").strip()
+        if sid:
+            by_id[sid] = srv
+
+    for discovered in _discover_local_rcon_servers():
+        sid = str(discovered.get("server_id") or "").strip()
+        if not sid:
+            continue
+        if sid in by_id:
+            by_id[sid] = _merge_rcon_server_entry(by_id[sid], discovered)
+        else:
+            by_id[sid] = discovered
+
+    targets = list(by_id.values())
+    if targets:
+        return targets
+
+    # Fallback: destinos de config no disco (usa senha RCON global das settings)
+    for target in _plugin_sync_targets(settings):
+        if target.get("kind") != "server":
+            continue
+        sid = slugify_server_id(str(target.get("label") or ""), str(target.get("path") or ""))
+        if sid and sid not in by_id:
+            by_id[sid] = {
+                "server_id": sid,
+                "label": str(target.get("label") or sid),
+                "plugin_config_path": str(target.get("path") or ""),
+            }
+    return list(by_id.values())
+
+
+def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> dict[str, Any]:
+    sid = str(srv.get("server_id") or "server")
+    label = str(srv.get("label") or sid)
+    port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
+    password = sanitize_rcon_password(
+        str(srv.get("rcon_password") or settings.get("rcon_password") or "")
+    )
+    if not password:
+        return {
+            "server_id": sid,
+            "label": label,
+            "ok": False,
+            "error": "senha RCON não configurada (cadastre em Servidores ou ASM)",
+        }
+
+    last_err = ""
+    for host in _rcon_hosts_to_try(srv, settings):
+        for cmd in CUSTOMSHOP_RELOAD_COMMANDS:
+            try:
+                resp = _rcon_command(host, port, password, cmd, connect_retries=5)
+                return {
+                    "server_id": sid,
+                    "label": label,
+                    "ok": True,
+                    "host": host,
+                    "command": cmd,
+                    "response": (resp or "")[:200],
+                }
+            except Exception as exc:
+                last_err = f"{host}:{port} {cmd}: {exc}"
+
+    return {"server_id": sid, "label": label, "ok": False, "error": last_err or "falha RCON"}
+
+
+def _reload_all_plugins(settings: dict[str, Any]) -> list[dict[str, Any]]:
+    """Shop.Reload via RCON em todos os mapas (multi-host, alinhado ao Sync TEK)."""
+    targets = _resolve_rcon_reload_targets(settings)
+    if not targets:
+        host, port, password, label = _resolve_rcon_target(None, settings)
+        stub = {"server_id": "default", "label": label, "rcon_host": host, "rcon_port": port, "rcon_password": password}
+        return [_rcon_reload_one_server(stub, settings)]
+
+    results: list[dict[str, Any]] = []
+    max_workers = min(8, max(1, len(targets)))
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="shop-reload") as pool:
+        futures = {
+            pool.submit(_rcon_reload_one_server, srv, settings): srv
+            for srv in targets
+        }
+        for fut in as_completed(futures):
+            try:
+                results.append(fut.result())
+            except Exception as exc:
+                srv = futures[fut]
+                results.append({
+                    "server_id": str(srv.get("server_id") or "?"),
+                    "label": str(srv.get("label") or "?"),
+                    "ok": False,
+                    "error": str(exc),
+                })
+
+    results.sort(key=lambda r: str(r.get("label") or r.get("server_id") or ""))
+    return results
 
 
 def _build_delivery_command(template: str, steam_id: str, item_type: str, item_id: str, amount: int) -> str:
@@ -5003,34 +5366,6 @@ def _write_config_all_targets(body: dict[str, Any], settings: dict[str, Any]) ->
     return written, errors
 
 
-def _reload_all_plugins(settings: dict[str, Any]) -> list[dict[str, Any]]:
-    """Shop.Reload via RCON em todos os servidores registrados (+ fallback global)."""
-    results: list[dict[str, Any]] = []
-    servers = _load_servers()
-
-    if servers:
-        for srv in servers:
-            sid = str(srv.get("server_id") or "server")
-            label = str(srv.get("label") or sid)
-            host, port, password, _ = _resolve_rcon_target(sid, settings)
-            try:
-                resp = _rcon_command(
-                    host, port, password, "Shop.Reload", connect_retries=5,
-                )
-                results.append({"server_id": sid, "label": label, "ok": True, "response": resp[:200]})
-            except Exception as exc:
-                results.append({"server_id": sid, "label": label, "ok": False, "error": str(exc)})
-        return results
-
-    host, port, password, label = _resolve_rcon_target(None, settings)
-    try:
-        resp = _rcon_command(host, port, password, "Shop.Reload", connect_retries=5)
-        results.append({"server_id": "default", "label": label, "ok": True, "response": resp[:200]})
-    except Exception as exc:
-        results.append({"server_id": "default", "label": label, "ok": False, "error": str(exc)})
-    return results
-
-
 @app.route("/api/config", methods=["GET"])
 @admin_required
 def get_config():
@@ -5057,7 +5392,10 @@ def get_config():
 @admin_required
 def save_config():
     s = _load_settings()
-    body = request.get_json(force=True)
+    body = request.get_json(force=True) or {}
+    do_reload = body.pop("reload", True)
+    if not isinstance(do_reload, bool):
+        do_reload = True
     settings = body.get("Settings")
     if isinstance(settings, dict) and settings.get("ShopName"):
         settings["ShopName"] = _public_brand_name(str(settings["ShopName"]))
@@ -5079,11 +5417,30 @@ def save_config():
             push_catalog_to_webstore(master_path)
         except Exception:
             pass
+
+    reload_results: list[dict[str, Any]] = []
+    if do_reload:
+        try:
+            reload_results = _reload_all_plugins(s)
+            ok_n = sum(1 for r in reload_results if r.get("ok"))
+            _log(
+                "config_reload_rcon",
+                admin=_steam_id_from_session(),
+                ok=ok_n,
+                total=len(reload_results),
+            )
+        except Exception as exc:
+            reload_results = [{"ok": False, "error": str(exc), "label": "reload"}]
+
+    reload_ok = sum(1 for r in reload_results if r.get("ok"))
     return jsonify({
         "ok": True,
         "written": written,
         "errors": write_errors,
         "sync_count": len(written),
+        "reload_results": reload_results,
+        "reload_count": reload_ok,
+        "reload_total": len(reload_results),
     })
 
 
@@ -7659,6 +8016,9 @@ def admin_repair_order_license(order_id: str):
             return jsonify({"ok": False, "error": "Pedido não encontrado"}), 404
         repaired = _ensure_license_entitlement_for_order(order, reason="admin_repair")
         entitlements = _get_player_entitlements(str(order.steam_id))
+        perm_sync = _sync_player_entitlements_to_permission_db(
+            str(order.steam_id), entitlements,
+        )
         _audit_event(
             "admin_repair_license",
             actor_type="admin",
@@ -7674,6 +8034,7 @@ def admin_repair_order_license(order_id: str):
             "ok": True,
             "repaired": repaired,
             "entitlements": entitlements,
+            "permissions_sync": perm_sync,
             "timed_points_total": _compute_timed_points_total([e["group"] for e in entitlements]),
         })
     finally:
@@ -8100,6 +8461,42 @@ def admin_player_licenses(steam_id: str):
     )
     status = 200 if result.get("ok") else 400
     return jsonify(result), status
+
+
+@app.route("/api/admin/sync-all-permissions", methods=["POST"])
+@admin_required
+@limiter.limit("12 per hour")
+def admin_sync_all_permissions():
+    """Reconcilia player_entitlements ↔ ark_permission para todos os jogadores irregulares."""
+    if (err := _require_db()) is not None:
+        return err
+    body = request.get_json(force=True, silent=True) or {}
+    dry_run = bool(body.get("dry_run"))
+    result = _reconcile_all_entitlements_to_permission_db(dry_run=dry_run)
+    status = 200 if result.get("ok") else 500
+    return jsonify(result), status
+
+
+@app.route("/api/admin/players/<steam_id>/sync-permissions", methods=["POST"])
+@admin_required
+@limiter.limit("60 per hour")
+def admin_player_sync_permissions(steam_id: str):
+    """Reconstrói ark_permission.players a partir de player_entitlements (reparo)."""
+    if (err := _require_db()) is not None:
+        return err
+    sid = str(steam_id or "").strip()
+    if not _is_valid_steamid64(sid):
+        return jsonify({"ok": False, "error": "SteamID64 inválido"}), 400
+    entitlements = _get_player_entitlements(sid)
+    perm_sync = _sync_player_entitlements_to_permission_db(sid, entitlements)
+    mysql_ok = bool(perm_sync and perm_sync[0].get("ok"))
+    return jsonify({
+        "ok": mysql_ok,
+        "steam_id": sid,
+        "entitlements": entitlements,
+        "permissions_sync": perm_sync,
+        "timed_points_total": _compute_timed_points_total([e["group"] for e in entitlements]),
+    }), 200 if mysql_ok else 500
 
 
 @app.route("/api/admin/players/<steam_id>/kit-limits/<kit_id>/revoke", methods=["POST"])

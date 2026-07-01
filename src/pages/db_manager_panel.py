@@ -548,6 +548,31 @@ def _sync_shop_players_from_permissions(state: _DBState, starting_points: int = 
     return _execute(state, sql)
 
 
+def _shop_url_from_db_state(state: _DBState) -> str:
+    from urllib.parse import quote_plus
+
+    host = state.host
+    port = state.port
+    user = quote_plus(state.user or "")
+    password = quote_plus(state.password or "")
+    database = state.database or _DB_NAME
+    return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
+
+
+def _can_reconcile_entitlements_permissions(state: _DBState) -> tuple[bool, str]:
+    if not state.is_connected():
+        return False, "Sem conexão com o banco"
+    if _DB_NAME not in _list_databases(state):
+        return False, f"Banco {_DB_NAME} não existe"
+    if _PERM_DB_NAME not in _list_databases(state):
+        return False, f"Banco {_PERM_DB_NAME} não existe"
+    if "player_entitlements" not in _list_tables(state, _DB_NAME):
+        return False, "Tabela player_entitlements não existe em arkland_shop"
+    if "players" not in _list_tables(state, _PERM_DB_NAME):
+        return False, "Tabela players não existe em ark_permission"
+    return True, ""
+
+
 _DB_BROWSER_MIN_HEIGHT = 720  # área Dados/Estrutura/SQL — ~3× o mínimo anterior (240px)
 
 def _make_collapsible_card(
@@ -1218,6 +1243,16 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                                           font=ctk.CTkFont(family="Segoe UI", size=10),
                                           state="disabled")
         _btn_sync_players.grid(row=3, column=0, columnspan=2, pady=(0, 4), sticky="ew")
+
+        _btn_sync_entitlements = ctk.CTkButton(
+            actions, text="🔄 Sync licenças→Permissions", height=28,
+            corner_radius=6,
+            fg_color=theme.get("accent_muted_bg", "#164e63"),
+            text_color=accent,
+            font=ctk.CTkFont(family="Segoe UI", size=10),
+            state="disabled",
+        )
+        _btn_sync_entitlements.grid(row=4, column=0, columnspan=2, pady=(0, 4), sticky="ew")
     
         # ── Painel direito: abas ───────────────────────────────────────────────
         right = ctk.CTkFrame(split, fg_color=card_bg, corner_radius=8)
@@ -1560,6 +1595,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 _btn_newuser.configure(state="normal")
                 _btn_fix_arkland.configure(state="normal")
                 _btn_sync_players.configure(state="normal")
+                _btn_sync_entitlements.configure(state="normal")
                 _btn_reload_db.configure(state="normal")
                 _refresh_bank_status()
             else:
@@ -1568,6 +1604,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                 _btn_connect.configure(state="normal")
                 _btn_disconnect.configure(state="disabled")
                 _btn_sync_players.configure(state="disabled")
+                _btn_sync_entitlements.configure(state="disabled")
                 _btn_fix_arkland.configure(state="disabled")
                 _btn_reload_db.configure(state="disabled")
                 _shop_db_status.set(f"{_DB_NAME}: desconectado")
@@ -1646,6 +1683,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                     parent.after(0, lambda: _set_status(True,
                         f"Conectado a {state.host}:{state.port}"))
                     parent.after(0, _refresh_tree)
+                    parent.after(300, _maybe_auto_reconcile_entitlements)
                 except Exception as exc:
                     parent.after(0, lambda e=exc: _set_status(False, f"Erro: {e}"))
     
@@ -1706,6 +1744,105 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             threading.Thread(target=_worker, daemon=True).start()
 
         _btn_sync_players.configure(command=_do_sync_shop_players)
+
+        _ent_reconcile_auto_done = [False]
+
+        def _maybe_auto_reconcile_entitlements() -> None:
+            if _ent_reconcile_auto_done[0]:
+                return
+            ok, _msg = _can_reconcile_entitlements_permissions(state)
+            if not ok:
+                return
+            _ent_reconcile_auto_done[0] = True
+
+            def _worker() -> None:
+                try:
+                    from ..permission_entitlements_sync import (
+                        reconcile_entitlements_with_permission_db,
+                    )
+
+                    res = reconcile_entitlements_with_permission_db(
+                        _shop_url_from_db_state(state),
+                    )
+                    synced = int(res.get("synced") or 0)
+                    if res.get("ok") and synced > 0:
+                        parent.after(
+                            0,
+                            lambda s=synced: _v_status.set(
+                                f"Sync automático licenças→Permissions: {s} corrigido(s)"
+                            ),
+                        )
+                except Exception:
+                    pass
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        def _do_reconcile_entitlements_permissions() -> None:
+            from tkinter import messagebox
+
+            ok, msg = _can_reconcile_entitlements_permissions(state)
+            if not ok:
+                messagebox.showwarning("Sync licenças→Permissions", msg, parent=parent)
+                return
+            if not messagebox.askyesno(
+                "Sync licenças→Permissions",
+                "Comparar player_entitlements (arkland_shop) com ark_permission.players "
+                "e corrigir todas as divergências?\n\n"
+                "Grupos manuais fora de licenças/cargos da web são preservados.",
+                parent=parent,
+            ):
+                return
+
+            _btn_sync_entitlements.configure(state="disabled")
+
+            def _worker() -> None:
+                try:
+                    from ..permission_entitlements_sync import (
+                        reconcile_entitlements_with_permission_db,
+                    )
+
+                    res = reconcile_entitlements_with_permission_db(
+                        _shop_url_from_db_state(state),
+                    )
+
+                    def _done() -> None:
+                        _btn_sync_entitlements.configure(state="normal")
+                        if not res.get("ok"):
+                            messagebox.showerror(
+                                "Sync licenças→Permissions",
+                                res.get("error") or "Falha na reconciliação",
+                                parent=parent,
+                            )
+                            return
+                        irregular = int(res.get("irregular") or 0)
+                        synced = int(res.get("synced") or 0)
+                        errs = res.get("errors") or []
+                        err_txt = ""
+                        if errs:
+                            err_txt = "\n\nErros:\n" + "\n".join(
+                                f"• {e.get('steam_id')}: {e.get('error')}" for e in errs[:5]
+                            )
+                        messagebox.showinfo(
+                            "Sync licenças→Permissions",
+                            f"Verificados: {res.get('checked', 0)}\n"
+                            f"Irregulares: {irregular}\n"
+                            f"Corrigidos: {synced}"
+                            f"{err_txt}",
+                            parent=parent,
+                        )
+                        if synced:
+                            _do_reload_db()
+
+                    parent.after(0, _done)
+                except Exception as exc:
+                    parent.after(0, lambda e=exc: (
+                        _btn_sync_entitlements.configure(state="normal"),
+                        messagebox.showerror("Sync licenças→Permissions", str(e), parent=parent),
+                    ))
+
+            threading.Thread(target=_worker, daemon=True).start()
+
+        _btn_sync_entitlements.configure(command=_do_reconcile_entitlements_permissions)
 
         def _do_disconnect() -> None:
             state.close()

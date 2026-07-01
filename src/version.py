@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.171"
-BUILD_DATE: str = "2026-06-30"
+APP_VERSION: str = "1.9.172"
+BUILD_DATE: str = "2026-07-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.172",
+        "date": "2026-07-01",
+        "changes": [
+            "Fix CRÍTICO (Web Store / RCON): Shop.Reload automático ao salvar catálogo na interface web "
+            "agora atinge todos os mapas — descobre servidores via servers.json + ASM local, tenta "
+            "127.0.0.1 antes do IP LAN, reload em paralelo; configurações gerais também recarregam.",
+            "Feature (Loja / Permissions): reconciliação automática player_entitlements ↔ ark_permission "
+            "ao iniciar a Web Store e o painel Banco de Dados; botão manual «Sync licenças→Permissions» "
+            "no DB Manager e «Sync Permissions» em Gerenciar Jogadores.",
+            "Fix (Loja / Permissions): sync de licenças grava direto em ark_permission.players (MySQL) "
+            "além do RCON — corrige TimedPoints/Âmbares quando mapa offline ou sem senha RCON; "
+            "preserva grupos manuais não gerenciados pela web.",
+        ],
+    },
     {
         "version": "1.9.171",
         "date": "2026-06-30",

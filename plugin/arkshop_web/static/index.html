@@ -5819,6 +5819,7 @@
           <div class="page-title">👥 Gerenciar Jogadores</div>
           <p style="font-size:12px;color:var(--text2);margin-top:6px;">Contas Steam, saldo Âmbar, bloqueio de acesso, licenças, cargos MOD/STAFF e kits.</p>
           <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="syncAllPermissionsAdmin()">🔄 Sync Permissions</button>
             <button class="btn btn-ghost" onclick="loadPlayersAdmin(true)">↺ Recarregar</button>
           </div>
         </div>
@@ -8637,20 +8638,33 @@ async function loadConfig() {
 }
 
 // ── Save config ───────────────────────────────────────────────────────────────
-async function saveConfig(silent) {
+async function saveConfig(silent, opts) {
+  const reload = opts && Object.prototype.hasOwnProperty.call(opts, "reload") ? !!opts.reload : true;
   const r = await fetch(API + "/api/config", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(_config),
+    body: JSON.stringify({ ..._config, reload }),
   });
   const data = await r.json();
   if (data.ok) {
     if (!silent) {
       const n = data.sync_count || (data.written || []).length || 1;
-      toast(`config.json gravado em ${n} destino(s)`, "success");
+      const reloadOk = Number(data.reload_count || 0);
+      const reloadTotal = Number(data.reload_total || 0);
+      if (reload && reloadTotal > 0) {
+        toast(`config.json gravado em ${n} destino(s) · Shop.Reload ${reloadOk}/${reloadTotal}`, reloadOk === reloadTotal ? "success" : "warning");
+      } else {
+        toast(`config.json gravado em ${n} destino(s)`, "success");
+      }
     }
     if ((data.errors || []).length) {
       toast("Alguns destinos falharam: " + data.errors.map(e => e.label).join(", "), "warning");
+    }
+    if (reload && data.reload_results) {
+      const failed = (data.reload_results || []).filter(x => !x.ok);
+      if (failed.length && !silent) {
+        toast("RCON falhou em: " + failed.map(f => f.label || f.server_id).join(", "), "warning");
+      }
     }
   } else {
     toast("Erro ao salvar config.json: " + (data.error || "desconhecido"), "error");
@@ -8659,30 +8673,27 @@ async function saveConfig(silent) {
 }
 
 async function saveAndReload() {
-  toast("Gravando config.json em todos os servidores…", "success");
-  const saveData = await saveConfig(true);
+  toast("Gravando e recarregando CustomShop em todos os mapas…", "success");
+  const saveData = await saveConfig(true, { reload: true });
   if (!saveData.ok) return false;
 
   const written = saveData.written || [];
   const syncN = saveData.sync_count || written.length || 0;
-
-  const r = await fetch(API + "/api/rcon/reload", { method: "POST" });
-  const reloadData = await r.json();
-  const results = reloadData.results || [];
-  const reloadOk = results.filter(x => x.ok).length;
-  const reloadTotal = results.length;
+  const reloadOk = Number(saveData.reload_count || 0);
+  const reloadTotal = Number(saveData.reload_total || 0);
   const paths = written.map(w => w.label).join(", ");
 
-  if (reloadData.ok || reloadOk > 0) {
-    toast(`✅ Gravado em ${syncN} config(s) [${paths}] · Shop.Reload ${reloadOk}/${reloadTotal}`, "success");
+  if (reloadTotal > 0 && reloadOk > 0) {
+    toast(`✅ Gravado em ${syncN} config(s) [${paths}] · Shop.Reload ${reloadOk}/${reloadTotal}`, reloadOk === reloadTotal ? "success" : "warning");
     setStatus(true, `${syncN} config(s) · reload ${reloadOk}/${reloadTotal}`);
-    return true;
+    return reloadOk === reloadTotal;
   }
-
-  toast(
-    `Config gravada em ${syncN} destino(s) [${paths}], mas RCON falhou — verifique host/porta/senha em Servidores`,
-    "warning"
-  );
+  if (reloadTotal === 0) {
+    toast(`Config gravada em ${syncN} destino(s) — nenhum servidor RCON encontrado`, "warning");
+    setStatus(true, `${syncN} config(s) · sem RCON`);
+    return false;
+  }
+  toast(`Config gravada em ${syncN} destino(s) [${paths}], mas RCON falhou — verifique Servidores / ASM`, "warning");
   setStatus(true, `${syncN} config(s) · RCON falhou`);
   return false;
 }
@@ -8936,7 +8947,7 @@ function addTimedGroup() {
   toast(`Grupo ${name} adicionado — clique em Salvar`, "success");
 }
 
-function saveGeneral() {
+async function saveGeneral() {
   if (!_config) return;
   if (!_config.Settings) _config.Settings = {};
   if (!_config.TimedPointsReward) _config.TimedPointsReward = {};
@@ -8971,7 +8982,7 @@ function saveGeneral() {
     newGroups[grp] = { Amount: parseInt(el.value, 10) || 0 };
   });
   t.Groups = newGroups;
-  saveConfig();
+  await saveAndReload();
 }
 
 // ── Tickets (jogador + admin) ─────────────────────────────────────────────────
@@ -14029,6 +14040,38 @@ function nextPlayersAdminPage() {
   if (_playersAdminPage.offset + _playersAdminPage.limit < _playersAdminPage.total) {
     _playersAdminPage.offset += _playersAdminPage.limit;
     loadPlayersAdmin();
+  }
+}
+
+async function syncAllPermissionsAdmin() {
+  if (!confirm(
+    "Comparar player_entitlements com ark_permission.players e corrigir todas as divergências?\n\n"
+    + "Grupos manuais fora de licenças/cargos da web são preservados."
+  )) return;
+  try {
+    const r = await fetch(API + "/api/admin/sync-all-permissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha na reconciliação", "error");
+      return;
+    }
+    const irregular = Number(d.irregular || 0);
+    const synced = Number(d.synced || 0);
+    const errs = (d.errors || []).length;
+    if (synced > 0) {
+      toast(`Permissions sincronizados: ${synced} de ${irregular} irregular(es).`, "success");
+      loadPlayersAdmin(true);
+    } else if (irregular === 0) {
+      toast("Nenhuma divergência encontrada.", "success");
+    } else {
+      toast(`Irregulares: ${irregular}. Corrigidos: ${synced}. Erros: ${errs}.`, "warning");
+    }
+  } catch (_) {
+    toast("Falha ao sincronizar Permissions.", "error");
   }
 }
 

@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.172] - 2026-07-01
+
+### Feature
+
+- Feature (Loja / Permissions): reconciliação automática player_entitlements ↔ ark_permission ao iniciar a Web Store e o painel Banco de Dados; botão manual «Sync licenças→Permissions» no DB Manager e «Sync Permissions» em Gerenciar Jogadores.
+
+### Fix
+
+- Fix CRÍTICO (Web Store / RCON): Shop.Reload automático ao salvar catálogo na interface web agora atinge todos os mapas — descobre servidores via servers.json + ASM local, tenta 127.0.0.1 antes do IP LAN, reload em paralelo; configurações gerais também recarregam.
+- Fix (Loja / Permissions): sync de licenças grava direto em ark_permission.players (MySQL) além do RCON — corrige TimedPoints/Âmbares quando mapa offline ou sem senha RCON; preserva grupos manuais não gerenciados pela web.
+
 ## [1.9.171] - 2026-06-30
 
 ### Feature
