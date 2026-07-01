@@ -28,12 +28,23 @@ def _process_global_backups(app, now: datetime) -> None:
             threading.Thread(target=app._run_scheduled_db_backup, daemon=True).start()
 
 
+def _auto_restart_days_list(srv) -> list[int]:
+    """Dias habilitados para reinício (0=Seg … 6=Dom). None = todos (legado)."""
+    days = getattr(srv, "auto_restart_days", None)
+    if days is None:
+        return list(range(7))
+    if not isinstance(days, list):
+        return list(range(7))
+    return [int(d) for d in days if isinstance(d, (int, float)) and 0 <= int(d) <= 6]
+
+
 def _process_server_scheduled_tasks(app, srv, now, now_hhmm: str) -> None:
     """Verifica e dispara tarefas agendadas de um servidor TEK."""
     if srv.enable_auto_restart and (srv.auto_restart_time or "").strip() == now_hhmm:
-        status = app.asm_server_manager.get_status(srv.id)
-        if status not in (ASM_STATUS_STOPPED, "stopping"):
-            app._asm_do_scheduled_restart(srv)
+        if now.weekday() in _auto_restart_days_list(srv):
+            status = app.asm_server_manager.get_status(srv.id)
+            if status not in (ASM_STATUS_STOPPED, "stopping"):
+                app._asm_do_scheduled_restart(srv)
 
     if srv.enable_auto_update_check and srv.auto_update_check_minutes > 0:
         last_attr = f"_last_update_check_{srv.id}"

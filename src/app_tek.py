@@ -848,7 +848,10 @@ class ARKServerManagerApp(ctk.CTk):
             self._current_frame.destroy()
             self._current_frame = None
 
-        self._set_nav_active(name if name in ("dashboard", "settings", "about") else "")
+        self._set_nav_active(name if name in (
+            "dashboard", "shop", "database", "broadcasts", "saves",
+            "obobonic", "crashes", "settings", "about",
+        ) else "")
 
         frame = ctk.CTkFrame(self._page_area, fg_color=get_theme("tek")["bg"],
                              corner_radius=0)

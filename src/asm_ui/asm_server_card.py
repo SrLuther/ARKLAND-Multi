@@ -393,37 +393,49 @@ def build_asm_server_card(app: "ARKServerManagerApp", parent: tk.Widget,
                          border_width=1, border_color=_tborder)
     tools.grid(row=6, column=0, sticky="ew", padx=10, pady=(8, 10))
 
-    def _tbtn(text: str, cmd, width: int = 82) -> None:
+    tools_body = ctk.CTkFrame(tools, fg_color="transparent")
+    tools_body.pack(fill="x", padx=4, pady=4)
+
+    row_head = ctk.CTkFrame(tools_body, fg_color="transparent")
+    row_head.pack(fill="x")
+    row_btns1 = ctk.CTkFrame(tools_body, fg_color="transparent")
+    row_btns1.pack(fill="x", pady=(2, 0))
+    row_btns2 = ctk.CTkFrame(tools_body, fg_color="transparent")
+    row_btns2.pack(fill="x", pady=(2, 0))
+
+    def _tbtn(parent, text: str, cmd, width: int = 82) -> None:
         ctk.CTkButton(
-            tools, text=text, width=width, height=26,
+            parent, text=text, width=width, height=26,
             fg_color="transparent", hover_color=_thover,
             text_color=t_sec,
             corner_radius=5,
             font=ctk.CTkFont(family="Segoe UI", size=10),
             command=cmd,
-        ).pack(side="left", padx=(0, 1))
+        ).pack(side="left", padx=(0, 2), pady=1)
 
     ctk.CTkLabel(
-        tools, text="FERRAMENTAS",
+        row_head, text="FERRAMENTAS",
         font=ctk.CTkFont(family="Segoe UI", size=8, weight="bold"),
         text_color=_tlabel,
-    ).pack(side="left", padx=(10, 6), pady=5)
+    ).pack(side="left", padx=(6, 6), pady=2)
 
-    tk.Frame(tools, width=1, bg=_tborder).pack(
-        side="left", fill="y", padx=(0, 6), pady=4)
+    tk.Frame(row_head, width=1, bg=_tborder).pack(
+        side="left", fill="y", padx=(0, 6), pady=2)
 
-    _tbtn("💾  Backup",   lambda s=srv: app._asm_open_save_restore(s))
-    _tbtn("🔧  Mods",     lambda s=srv: app._asm_open_workshop(s), width=72)
-    _tbtn("📁  Arquivos", lambda s=srv: app._asm_open_file_manager(s))
-    _tbtn("🔒  Firewall", lambda s=srv: app._asm_open_firewall(s))
-    _tbtn("📊  Perf",     lambda s=srv: app._asm_open_perf(s), width=68)
-    _tbtn("📜  Tribe Log",lambda s=srv: app._asm_open_tribe_log(s))
-    _tbtn("🦕  SpawnExact", lambda s=srv: app._asm_open_spawn_exact(s), width=90)
-    _tbtn("🔬  Log",      lambda s=srv: app._asm_open_server_log(s), width=58)
-    _tbtn("📡  Monitor",  lambda s=srv: app._asm_open_monitor(s))
-    _tbtn("🤖  IA",       lambda s=srv: app._asm_open_ai_assistant(s), width=58)
+    _tbtn(row_btns1, "💾  Backup",   lambda s=srv: app._asm_open_save_restore(s))
+    _tbtn(row_btns1, "🔧  Mods",     lambda s=srv: app._asm_open_workshop(s), width=72)
+    _tbtn(row_btns1, "📁  Arquivos", lambda s=srv: app._asm_open_file_manager(s))
+    _tbtn(row_btns1, "🔒  Firewall", lambda s=srv: app._asm_open_firewall(s))
+    _tbtn(row_btns1, "📊  Perf",     lambda s=srv: app._asm_open_perf(s), width=68)
+    _tbtn(row_btns1, "📜  Tribe Log", lambda s=srv: app._asm_open_tribe_log(s))
+
+    _tbtn(row_btns2, "🦕  SpawnExact", lambda s=srv: app._asm_open_spawn_exact(s), width=90)
+    _tbtn(row_btns2, "🔬  Log",      lambda s=srv: app._asm_open_server_log(s), width=58)
+    _tbtn(row_btns2, "📡  Monitor",  lambda s=srv: app._asm_open_monitor(s))
+    _tbtn(row_btns2, "🤖  IA",       lambda s=srv: app._asm_open_ai_assistant(s), width=58)
     if is_running:
         _tbtn(
+            row_btns2,
             "⏱  Desligar agend.",
             lambda sid=srv.id: app._asm_open_shutdown_schedule(sid),
             width=108,

@@ -1130,10 +1130,14 @@
     }
     .catalog-cats {
       display: flex;
-      gap: 8px;
+      gap: 6px 8px;
       flex-wrap: wrap;
       margin-bottom: 18px;
       padding-bottom: 4px;
+      max-width: 100%;
+    }
+    .catalog-cat-chip.empty {
+      opacity: 0.55;
     }
     .catalog-cat-chip {
       padding: 7px 14px;
@@ -3211,6 +3215,43 @@
       margin-top: 10px;
       font-size: 11px;
       color: var(--success);
+    }
+    .home-server-card--connectable {
+      border-color: rgba(0,200,255,.25);
+    }
+    .home-server-card__map {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .home-server-card__addr {
+      margin-top: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--amber);
+      letter-spacing: .02em;
+    }
+    .home-server-card__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .home-server-card__play {
+      flex: 1 1 auto;
+      min-width: 120px;
+      text-align: center;
+    }
+    .home-server-card__pending {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text2);
+      font-style: italic;
+    }
+    .home-section__subtitle {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 4px;
     }
     .home-maps-showcase {
       position: relative;
@@ -7098,12 +7139,56 @@ function _isLicenseItem(i) {
 }
 
 function _resolveItemCategory(v, key) {
-  const explicit = String(v.Category || v.category || "").trim();
+  const explicit = String(v.Category || v.category || v.display_category || "").trim();
   if (explicit) return explicit;
   const type = String(v.Type || v.type || "item").toLowerCase();
-  const text = `${v.Name || v.name || key} ${v.Description || v.description || ""}`;
+  const text = `${v.Name || v.name || key} ${v.Description || v.description || ""} ${v.Blueprint || v.blueprint || ""}`;
   if (type === "command" && /licen[çc]a|license/i.test(text)) return "Licenças";
+  return _inferItemCategory(v, key);
+}
+
+function _inferItemCategory(v, key) {
+  const type = String(v.Type || v.type || "item").toLowerCase();
+  const text = `${v.Name || v.name || key} ${v.Description || v.description || ""} ${v.Blueprint || v.blueprint || ""}`.toLowerCase();
+  if (type === "blueprint" || v.ForceBlueprint) return "Blueprints";
+  if (/saddle|sela|saddles/i.test(text)) return "Selas";
+  if (/structure|estrutura|foundation|wall|ceiling|door|gate|pillar|beam|ramp|ladder|trap|turret|vault|bed|forge|smithy|fabricator|replicator|transmitter|generator|tek\s/i.test(text)) return "Estruturas";
+  if (/vehicle|ve[ií]culo|mejo|motorcycle|car|boat|raft|submarine|glider/i.test(text)) return "Veículos";
+  if (/weapon|arma|rifle|pistol|sword|bow|cannon|launcher|shotgun|sniper/i.test(text)) return "Armas";
+  if (/armor|armadura|helmet|chest|gloves|boots|pants|shield|gauntlet|mask/i.test(text)) return "Armaduras";
+  if (/consumable|food|water|berry|meat|brew|narcotic|resource|recurso|element|metal|hide|fiber|chitin|polymer|crystal|pearl|ingot|paste|oil|gunpowder|sparkpowder|cement|charcoal|flint|stone|wood|thatch/i.test(text)) return "Recursos";
+  if (/tool|pick|hatchet|sickle|whip|fishing|ferramenta|chainsaw/i.test(text)) return "Ferramentas";
   return "Geral";
+}
+
+/** Categorias fixas na barra (ordem de exibição) + extras do catálogo ao final. */
+const CATALOG_PINNED_CATEGORIES = [
+  "Ferramentas", "Recursos", "Selas", "Blueprints", "Estruturas",
+  "Armas", "Armaduras", "Veículos", "Consumíveis", "Geral",
+  "Mods", "Comércio", "Abyss",
+];
+
+function _mergeCatalogCategories(dynamicCats) {
+  const seen = new Set();
+  const out = [];
+  const add = (c) => {
+    const s = String(c || "").trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    out.push(s);
+  };
+  for (const c of CATALOG_PINNED_CATEGORIES) add(c);
+  [...dynamicCats].sort((a, b) => a.localeCompare(b, "pt")).forEach(add);
+  return out;
+}
+
+function _catalogItemCategoriesForFilter() {
+  return [...new Set(
+    _catalogItems
+      .filter(i => !_isDinoType(i.type) && !_isLicenseItem(i))
+      .map(i => i.category)
+      .filter(Boolean)
+  )];
 }
 
 function _catalogDisplayType(v, key) {
@@ -7120,9 +7205,15 @@ const CATALOG_MODE_OPTIONS = [
     { value: "item|Geral", label: "📦 Item — Geral" },
     { value: "item|Recursos", label: "📦 Item — Recursos" },
     { value: "item|Selas", label: "📦 Item — Selas" },
+    { value: "item|Blueprints", label: "📦 Item — Blueprints" },
+    { value: "item|Estruturas", label: "📦 Item — Estruturas" },
     { value: "item|Armas", label: "📦 Item — Armas" },
     { value: "item|Ferramentas", label: "📦 Item — Ferramentas" },
     { value: "item|Armaduras", label: "📦 Item — Armaduras" },
+    { value: "item|Veículos", label: "📦 Item — Veículos" },
+    { value: "item|Consumíveis", label: "📦 Item — Consumíveis" },
+    { value: "item|Mods", label: "📦 Item — Mods" },
+    { value: "item|Comércio", label: "📦 Item — Comércio" },
   ]},
   { group: "Outras abas", options: [
     { value: "dino|", label: "🦕 Dino (aba Dinos)" },
@@ -7186,16 +7277,31 @@ function setCatalogCategory(cat) {
   renderCatalogItems();
 }
 
-function renderCatalogCats(cats) {
+function renderCatalogCats(cats, countsByCat) {
   const bar = document.getElementById("catalog-cats");
   if (!bar) return;
-  const all = ["", ...cats];
+  const merged = _mergeCatalogCategories(cats || []);
+  const all = ["", ...merged];
   const labels = { "": "Todos os itens" };
+  const counts = countsByCat || {};
   bar.innerHTML = all.map(c => {
     const label = labels[c] || c;
     const active = (c === _catalogActiveCat) ? " active" : "";
-    return `<button type="button" class="catalog-cat-chip${active}" data-cat="${escHtml(c)}" onclick="setCatalogCategory(this.dataset.cat)">${escHtml(label)}</button>`;
+    const n = c ? (counts[c] || 0) : Object.values(counts).reduce((a, b) => a + b, 0);
+    const emptyCls = c && n === 0 ? " empty" : "";
+    const badge = c && n > 0 ? ` <span style="opacity:.7;font-weight:500;">(${n})</span>` : "";
+    return `<button type="button" class="catalog-cat-chip${active}${emptyCls}" data-cat="${escHtml(c)}" onclick="setCatalogCategory(this.dataset.cat)">${escHtml(label)}${badge}</button>`;
   }).join("");
+}
+
+function _catalogCategoryCounts() {
+  const counts = {};
+  for (const i of _catalogItems) {
+    if (_isDinoType(i.type) || _isLicenseItem(i)) continue;
+    const cat = i.category || "Geral";
+    counts[cat] = (counts[cat] || 0) + 1;
+  }
+  return counts;
 }
 
 function _catalogTypeIcon(t) {
@@ -7519,14 +7625,16 @@ async function loadCatalog() {
       _playerTimedPointsTotal = 25;
     }
 
-    const cats = [...new Set(_catalogItems.filter(i => !_isDinoType(i.type) && !_isLicenseItem(i)).map(i => i.category))].sort();
+    const dynamicCats = _catalogItemCategoriesForFilter();
+    const cats = _mergeCatalogCategories(dynamicCats);
+    const catCounts = _catalogCategoryCounts();
     const sel = document.getElementById("catalog-cat");
     if (sel) {
       sel.innerHTML = '<option value="">Todas as categorias</option>'
         + cats.map(c => `<option value="${escHtml(c)}">${escHtml(c)}</option>`).join("");
       sel.value = _catalogActiveCat;
     }
-    renderCatalogCats(cats);
+    renderCatalogCats(dynamicCats, catCounts);
     if (_catalogActiveTab === "items") renderCatalogItems();
     if (_catalogActiveTab === "dinos") renderCatalogDinos();
     if (_catalogActiveTab === "kits") renderCatalogKits();
@@ -12829,6 +12937,49 @@ function escHtml(str) {
   return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+function connectToArkServer(connectUrl, joinAddress, copyOnly) {
+  const addr = String(joinAddress || "").trim();
+  const url = String(connectUrl || "").trim();
+  if (copyOnly) {
+    const text = addr || url;
+    if (!text) { toast("Endereço indisponível.", "warning"); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => toast("Endereço copiado!", "success"))
+        .catch(() => _fallbackCopyText(text));
+    } else {
+      _fallbackCopyText(text);
+    }
+    return;
+  }
+  if (url) {
+    window.location.href = url;
+    return;
+  }
+  if (addr) {
+    connectToArkServer("", addr, true);
+    return;
+  }
+  toast("Endereço em configuração.", "warning");
+}
+
+function _fallbackCopyText(text) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    toast("Endereço copiado!", "success");
+  } catch (_) {
+    toast("Não foi possível copiar. Copie manualmente: " + text, "warning");
+  }
+}
+
 // ── Modal de Resgate (Âmbar) ─────────────────────────────────────────────────
 let _buyItem = null;
 
@@ -13631,13 +13782,34 @@ function renderHomePage(d) {
   ].filter(Boolean);
 
   const serversHtml = (d.servers || []).length
-    ? (d.servers || []).map(s => `
-        <div class="home-server-card">
+    ? (d.servers || []).map(s => {
+        const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
+        const mapLine = s.map
+          ? `<div class="home-server-card__map">🗺 ${escHtml(s.map)}</div>` : "";
+        const addrLine = canConnect && s.join_address
+          ? `<div class="home-server-card__addr">${escHtml(s.join_address)}</div>` : "";
+        const connectBtns = canConnect
+          ? `<div class="home-server-card__actions">
+              <a class="btn btn-primary btn-sm home-server-card__play"
+                 href="${escHtml(s.connect_url || "")}"
+                 data-connect-url="${escHtml(s.connect_url || "")}"
+                 data-join-address="${escHtml(s.join_address || "")}"
+                 onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">▶ Jogar agora</a>
+              <button class="btn btn-ghost btn-sm" type="button"
+                 data-join-address="${escHtml(s.join_address || "")}"
+                 onclick="connectToArkServer('', this.dataset.joinAddress, true)">📋 Copiar IP</button>
+            </div>`
+          : `<div class="home-server-card__pending">Endereço em configuração</div>`;
+        return `
+        <div class="home-server-card${canConnect ? " home-server-card--connectable" : ""}">
           <div class="home-server-card__name">${escHtml(s.label || s.server_id)}</div>
           <div class="home-server-card__id">ID: ${escHtml(s.server_id)}</div>
-          ${s.machine_label ? `<div class="home-server-card__id">Host: ${escHtml(s.machine_label)}</div>` : ""}
+          ${mapLine}
+          ${addrLine}
+          ${connectBtns}
           <div class="home-server-card__status">● Cluster ARKLAND · entrega via /shop</div>
-        </div>`).join("")
+        </div>`;
+      }).join("")
     : `<p style="color:var(--text2);font-size:13px;">Nenhum servidor cadastrado no painel. Os mapas do cluster aparecerão aqui quando configurados.</p>`;
 
   const pkgsHtml = pixOn && (d.donation_packages || []).length
@@ -13739,9 +13911,12 @@ function renderHomePage(d) {
 
     ${seasonalHtml}
 
-    <div class="home-section">
+    <div class="home-section home-section--connect">
       <div class="home-section__head">
-        <div class="home-section__title">⚔ Servidores do cluster</div>
+        <div>
+          <div class="home-section__title">▶ Conectar aos servidores</div>
+          <p class="home-section__subtitle">Clique em Jogar agora para abrir o ARK via Steam</p>
+        </div>
         <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Guia de conexão →</button>
       </div>
       <div class="home-servers-grid">${serversHtml}</div>

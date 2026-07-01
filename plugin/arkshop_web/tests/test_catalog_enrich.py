@@ -49,7 +49,36 @@ def test_enrich_license_metadata():
     assert meta["license_group"] == "Gamma"
 
 
-def test_enrich_kit_contents_and_tier():
+def test_infer_category_saddle():
+    entry = {
+        "Type": "item",
+        "Name": "Rex Saddle",
+        "Description": "Sela para Rex",
+        "Price": 500,
+    }
+    meta = enrich_shop_item("rex_saddle", entry)
+    assert meta["display_category"] == "Selas"
+
+
+def test_infer_category_blueprint():
+    entry = {
+        "Type": "blueprint",
+        "Name": "Metal Pick BP",
+        "Price": 200,
+    }
+    meta = enrich_shop_item("pick_bp", entry)
+    assert meta["display_category"] == "Blueprints"
+
+
+def test_infer_category_estrutura():
+    entry = {
+        "Type": "item",
+        "Name": "Tek Replicator",
+        "Description": "Estrutura de crafting",
+        "Price": 10000,
+    }
+    meta = enrich_shop_item("tek_rep", entry)
+    assert meta["display_category"] == "Estruturas"
     entry = {
         "Description": "Kit Iniciante",
         "Price": 3000,

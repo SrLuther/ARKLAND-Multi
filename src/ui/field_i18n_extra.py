@@ -155,6 +155,7 @@ EXTRA_PT_OVERRIDES: dict[str, str] = {
     "auto_pve_stop_time": "Fim do PvE automático (s desde meia-noite)",
     "auto_pve_use_system_time": "Usar hora do sistema (timer PvE)",
     "auto_restart_time": "Horário de reinício automático (HH:MM)",
+    "auto_restart_days": "Dias da semana em que o reinício automático ocorre",
     "auto_update_check_minutes": "Intervalo de verificação de atualização (min)",
     "color": "Cor do card (hex)",
     "cross_ark_allow_foreign_dino_downloads": "Permitir dinos de outros clusters",
@@ -271,8 +272,9 @@ EXTRA_HINTS: dict[str, str] = {
     "discord_webhook_url": "Discord → Integrações → Webhooks → copiar URL.",
     "notify_discord_on_events": "Envia alertas no canal configurado quando eventos ocorrem.",
     # Gerenciamento automático
-    "enable_auto_restart": "Reinicia o servidor diariamente no horário configurado.",
+    "enable_auto_restart": "Reinicia o servidor nos dias marcados, no horário configurado.",
     "auto_restart_time": "Horário do reinício no formato HH:MM (24h).",
+    "auto_restart_days": "Dias da semana (0=Seg … 6=Dom) em que o reinício programado roda.",
     "restart_countdown_minutes": "Avisa jogadores X minutos antes do reinício.",
     "enable_auto_update_check": "Verifica periodicamente atualizações do servidor no Steam.",
     "auto_update_check_minutes": "Intervalo entre verificações de atualização.",

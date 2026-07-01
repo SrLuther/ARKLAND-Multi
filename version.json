@@ -1,10 +1,12 @@
 {
-    "version": "1.9.172",
+    "version": "1.9.173",
     "date": "2026-07-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.172/ARKLAND-Multi-Setup-v1.9.172.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.173/ARKLAND-Multi-Setup-v1.9.173.exe",
     "changelog": [
-        "Fix CRÍTICO (Web Store / RCON): Shop.Reload automático ao salvar catálogo na interface web agora atinge todos os mapas — descobre servidores via servers.json + ASM local, tenta 127.0.0.1 antes do IP LAN, reload em paralelo; configurações gerais também recarregam.",
-        "Feature (Loja / Permissions): reconciliação automática player_entitlements ↔ ark_permission ao iniciar a Web Store e o painel Banco de Dados; botão manual «Sync licenças→Permissions» no DB Manager e «Sync Permissions» em Gerenciar Jogadores.",
-        "Fix (Loja / Permissions): sync de licenças grava direto em ark_permission.players (MySQL) além do RCON — corrige TimedPoints/Âmbares quando mapa offline ou sem senha RCON; preserva grupos manuais não gerenciados pela web."
+        "Feature (TEK / Saves): painel global «💾 Saves» — lista todos os servidores e arquivos em ShooterGame/Saved/savegame; carregar backup datado, Anti Corruption ou New Launch como save ativo; backup manual e exclusão; bloqueio se o servidor não estiver parado.",
+        "Feature (Web Store / Home): card «Conectar aos servidores» com botões Steam (steam://connect) e copiar IP — API /api/public/home expõe connect_url e join_address; sync ASM grava game_host/game_port.",
+        "Feature (TEK / Reinício): reinício automático por dias da semana (checkboxes Seg–Dom) no painel do servidor; lista vazia desativa reinícios.",
+        "Melhoria (TEK): barra FERRAMENTAS do card do servidor em duas linhas — botões não cortam em telas estreitas.",
+        "Melhoria (Web Store / Catálogo): categorias ampliadas (Selas, Blueprints, Estruturas, Recursos, etc.) com contadores e inferência automática no catálogo público."
     ]
 }

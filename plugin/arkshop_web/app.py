@@ -47,6 +47,7 @@ from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, T
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
+from server_connect import public_server_connect_view
 
 from kit_limits import (
     get_kit_remaining,
@@ -5617,15 +5618,17 @@ def public_home():
     public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
     website_url = str(settings_block.get("WebsiteUrl") or settings_block.get("WebApiUrl") or public_url).strip()
     discord_url = str(settings_block.get("DiscordUrl") or "").strip()
-    servers = [
-        {
+    servers = []
+    for srv in _load_servers():
+        if not srv.get("server_id") or srv.get("show_on_home", True) is False:
+            continue
+        entry = {
             "server_id": srv.get("server_id", ""),
             "label": srv.get("label") or srv.get("server_id", ""),
             "machine_label": str(srv.get("machine_label") or "").strip(),
         }
-        for srv in _load_servers()
-        if srv.get("server_id") and srv.get("show_on_home", True) is not False
-    ]
+        entry.update(public_server_connect_view(srv, s))
+        servers.append(entry)
     utilities = _load_downloads()
     packages = _load_point_packages()
     stats = _catalog_public_stats(data)

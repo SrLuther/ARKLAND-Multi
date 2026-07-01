@@ -1544,6 +1544,16 @@ def _server_config_snapshot_for(srv: Any, buff_manager: Any = None) -> Dict[str,
     return collect_server_snapshot(srv, buff_event=buff_event)
 
 
+def _resolve_game_host(srv: Any) -> str:
+    server_ip = (getattr(srv, "server_ip", "") or "").strip()
+    public_ip = (getattr(srv, "public_ip", "") or "").strip()
+    if server_ip and server_ip not in ("127.0.0.1", "localhost", "0.0.0.0", "::1"):
+        return server_ip
+    if public_ip:
+        return public_ip
+    return server_ip or "127.0.0.1"
+
+
 def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
     sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
         getattr(srv, "name", ""), getattr(srv, "id", ""),
@@ -1554,7 +1564,7 @@ def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
     rcon_pass = (
         getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
     )
-    return {
+    entry: Dict[str, Any] = {
         "server_id": sid,
         "label": getattr(srv, "name", "") or sid,
         "rcon_host": host,
@@ -1565,7 +1575,16 @@ def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
         "plugin_config_path": (
             getattr(srv, "customshop_config_path", "") or default_customshop_path(getattr(srv, "install_dir", ""))
         ),
+        "game_host": _resolve_game_host(srv),
+        "game_port": int(getattr(srv, "server_port", None) or 7777),
     }
+    query_port = getattr(srv, "query_port", None)
+    if query_port is not None:
+        entry["query_port"] = int(query_port)
+    server_map = (getattr(srv, "server_map", "") or "").strip()
+    if server_map:
+        entry["server_map"] = server_map
+    return entry
 
 
 def install_customshop_all(

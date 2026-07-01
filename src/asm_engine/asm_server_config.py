@@ -378,6 +378,7 @@ class AsmServerConfig:
     # ── Gerenciamento Automático ──────────────────────────────────────────────
     enable_auto_restart:            bool  = False
     auto_restart_time:              str   = "03:00"
+    auto_restart_days:              List[int] = field(default_factory=lambda: list(range(7)))  # 0=Seg … 6=Dom
     restart_countdown_minutes:      int   = 15
     enable_auto_update_check:       bool  = False
     auto_update_check_minutes:      int   = 60

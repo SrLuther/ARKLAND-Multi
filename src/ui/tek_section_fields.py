@@ -34,7 +34,7 @@ SECTION_FIELDS: dict[str, list[str]] = {
     ],
     "Mods (Workshop)": ["active_mods"],
     "Gerenciamento Automático": [
-        "enable_auto_restart", "auto_restart_time", "restart_countdown_minutes",
+        "enable_auto_restart", "auto_restart_time", "auto_restart_days", "restart_countdown_minutes",
         "enable_auto_update_check", "auto_update_check_minutes", "notify_discord_on_events",
         "cpu_affinity_cores", "process_priority",
     ],

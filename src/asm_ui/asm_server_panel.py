@@ -1363,6 +1363,47 @@ def _build_mods_workshop(sf, srv, vars_ref, bg, accent):
 #  Seção 2 — Gerenciamento Automático
 # ════════════════════════════════════════════════════════════════════════════ #
 
+_AUTO_RESTART_DAY_LABELS: tuple[tuple[str, int], ...] = (
+    ("Seg", 0), ("Ter", 1), ("Qua", 2), ("Qui", 3),
+    ("Sex", 4), ("Sáb", 5), ("Dom", 6),
+)
+
+
+def _build_auto_restart_days(parent, srv, vars_ref, row: int, accent: str, theme: dict) -> int:
+    """Checkboxes de dias da semana para reinício programado."""
+    card = ctk.CTkFrame(
+        parent,
+        fg_color=theme.get("card_bg", "#0d1b2a"),
+        corner_radius=10,
+        border_width=1,
+        border_color=theme.get("card_border", "#1e293b"),
+    )
+    card.grid(row=row, column=0, columnspan=2, padx=8, pady=6, sticky="ew")
+    card.grid_columnconfigure(0, weight=1)
+
+    ctk.CTkLabel(
+        card, text="Dias da semana (reinício)",
+        font=ctk.CTkFont(size=11, weight="bold"), text_color=accent, anchor="w",
+    ).grid(row=0, column=0, padx=12, pady=(8, 4), sticky="w")
+
+    days_row = ctk.CTkFrame(card, fg_color="transparent")
+    days_row.grid(row=1, column=0, padx=8, pady=(0, 10), sticky="ew")
+
+    enabled = set(getattr(srv, "auto_restart_days", None) or list(range(7)))
+    day_vars: dict[int, tk.BooleanVar] = {}
+    for label, idx in _AUTO_RESTART_DAY_LABELS:
+        var = tk.BooleanVar(value=idx in enabled)
+        day_vars[idx] = var
+        ctk.CTkCheckBox(
+            days_row, text=label, variable=var, width=52,
+            font=ctk.CTkFont(size=11),
+            checkbox_width=18, checkbox_height=18,
+        ).pack(side="left", padx=(4, 6), pady=2)
+
+    vars_ref["_auto_restart_day_vars"] = day_vars
+    return row + 1
+
+
 def _build_auto_management(sf, srv, vars_ref, bg, accent):
     from ..ui.server_field_widgets import CardSpec, add_collapsible_help, begin_tek_section, build_cards_layout
 
@@ -1373,6 +1414,7 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
         CardSpec("Notificações", ["notify_discord_on_events"], bool_grid=True),
         CardSpec("Desempenho do processo", ["process_priority"]),
     ])
+    row = _build_auto_restart_days(sf, srv, vars_ref, row, accent, ctx.theme)
     perf_card = ctk.CTkFrame(sf, fg_color=ctx.theme.get("card_bg", "#0d1b2a"), corner_radius=10,
                              border_width=1, border_color=ctx.theme.get("card_border", "#1e293b"))
     perf_card.grid(row=row, column=0, columnspan=2, padx=8, pady=6, sticky="ew")
@@ -1389,7 +1431,8 @@ def _build_auto_management(sf, srv, vars_ref, bg, accent):
     perf_card.grid_columnconfigure(0, weight=1)
     row += 1
     add_collapsible_help(sf, [
-        ("Reinício automático", "Reinicia o servidor todo dia no horário configurado (HH:MM, 24h)."),
+        ("Reinício automático", "Reinicia o servidor no horário configurado (HH:MM, 24h) nos dias marcados."),
+        ("Dias da semana", "Marque em quais dias o reinício programado deve ocorrer."),
         ("Contagem regressiva", "Avisa os jogadores X minutos antes do reinício via mensagem no chat."),
         ("Verificar atualizações", "Checa periodicamente se há nova versão do servidor no Steam."),
         ("Notificar via Discord", "Envia mensagem no canal Discord quando eventos ocorrem."),
@@ -3700,6 +3743,12 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
             srv.cpu_affinity_cores = cores
         else:
             srv.cpu_affinity_cores = []
+
+    day_vars = vars_ref.get("_auto_restart_day_vars")
+    if day_vars:
+        srv.auto_restart_days = sorted(
+            idx for idx, var in day_vars.items() if var.get()
+        )
 
     # Per-level stat multipliers
     pls = vars_ref.get("_pls")

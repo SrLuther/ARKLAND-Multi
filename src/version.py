@@ -3,11 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.172"
+APP_VERSION: str = "1.9.173"
 BUILD_DATE: str = "2026-07-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.173",
+        "date": "2026-07-01",
+        "changes": [
+            "Feature (TEK / Saves): painel global «💾 Saves» — lista todos os servidores e arquivos em "
+            "ShooterGame/Saved/savegame; carregar backup datado, Anti Corruption ou New Launch como save "
+            "ativo; backup manual e exclusão; bloqueio se o servidor não estiver parado.",
+            "Feature (Web Store / Home): card «Conectar aos servidores» com botões Steam (steam://connect) "
+            "e copiar IP — API /api/public/home expõe connect_url e join_address; sync ASM grava game_host/game_port.",
+            "Feature (TEK / Reinício): reinício automático por dias da semana (checkboxes Seg–Dom) no painel "
+            "do servidor; lista vazia desativa reinícios.",
+            "Melhoria (TEK): barra FERRAMENTAS do card do servidor em duas linhas — botões não cortam em telas estreitas.",
+            "Melhoria (Web Store / Catálogo): categorias ampliadas (Selas, Blueprints, Estruturas, Recursos, etc.) "
+            "com contadores e inferência automática no catálogo público.",
+        ],
+    },
     {
         "version": "1.9.172",
         "date": "2026-07-01",

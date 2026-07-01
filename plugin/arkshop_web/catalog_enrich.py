@@ -12,12 +12,18 @@ CATEGORY_ICONS: dict[str, str] = {
     "armaduras": "/catalog/armor.svg",
     "armas": "/catalog/weapon.svg",
     "recursos": "/catalog/consumable.svg",
+    "consumiveis": "/catalog/consumable.svg",
     "selas": "/catalog/structure.svg",
     "estruturas": "/catalog/structure.svg",
     "structures": "/catalog/structure.svg",
+    "blueprints": "/catalog/item.svg",
+    "blueprint": "/catalog/item.svg",
+    "veiculos": "/catalog/structure.svg",
     "licencas": "/catalog/license.svg",
     "vip": "/catalog/license.svg",
     "geral": "/catalog/item.svg",
+    "mods": "/catalog/item.svg",
+    "comercio": "/catalog/item.svg",
 }
 
 DEFAULT_ITEM_ICON = "/catalog/item.svg"
@@ -44,6 +50,42 @@ def _norm_cat(text: str) -> str:
     )
 
 
+def _infer_category_from_content(entry: dict[str, Any], key: str) -> str:
+    """Inferência quando Category não está definida no config."""
+    itype = str(entry.get("Type") or entry.get("type") or "item").lower()
+    text = (
+        f"{entry.get('Name') or ''} {entry.get('Description') or ''} {key} "
+        f"{_extract_blueprint(entry)}"
+    ).lower()
+    if itype == "blueprint" or entry.get("ForceBlueprint"):
+        return "Blueprints"
+    if re.search(r"saddle|sela|saddles", text):
+        return "Selas"
+    if re.search(
+        r"structure|estrutura|foundation|wall|ceiling|door|gate|pillar|beam|"
+        r"ramp|ladder|trap|turret|vault|bed|forge|smithy|fabricator|replicator|"
+        r"transmitter|generator|tek\s",
+        text,
+    ):
+        return "Estruturas"
+    if re.search(r"vehicle|veiculo|mejo|motorcycle|car|boat|raft|submarine|glider", text):
+        return "Veículos"
+    if re.search(r"weapon|arma|rifle|pistol|sword|bow|cannon|launcher|shotgun|sniper", text):
+        return "Armas"
+    if re.search(r"armor|armadura|helmet|chest|gloves|boots|pants|shield|gauntlet|mask", text):
+        return "Armaduras"
+    if re.search(
+        r"consumable|food|water|berry|meat|brew|narcotic|resource|recurso|element|"
+        r"metal|hide|fiber|chitin|polymer|crystal|pearl|ingot|paste|oil|gunpowder|"
+        r"sparkpowder|cement|charcoal|flint|stone|wood|thatch",
+        text,
+    ):
+        return "Recursos"
+    if re.search(r"tool|pick|hatchet|sickle|whip|fishing|ferramenta|chainsaw", text):
+        return "Ferramentas"
+    return "Geral"
+
+
 def _resolve_display_category(entry: dict[str, Any], key: str) -> str:
     explicit = str(entry.get("Category") or entry.get("category") or "").strip()
     if explicit:
@@ -56,7 +98,7 @@ def _resolve_display_category(entry: dict[str, Any], key: str) -> str:
         return "Dinos"
     if itype in ("license", "licenca"):
         return "Licenças"
-    return "Geral"
+    return _infer_category_from_content(entry, key)
 
 
 def _extract_blueprint(entry: dict[str, Any]) -> str:

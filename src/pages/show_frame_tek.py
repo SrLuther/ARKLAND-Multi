@@ -39,6 +39,9 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
     elif name == "broadcasts":
         from ..asm_ui.asm_broadcasts_panel import build_broadcasts_panel
         build_broadcasts_panel(app, frame)
+    elif name == "saves":
+        from ..asm_ui.asm_savegame_panel import build_savegame_panel
+        build_savegame_panel(app, frame)
     elif name == "obobonic":
         import logging
         from .obobonic_panel import build_obobonic_panel
@@ -85,7 +88,10 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
     srv = kwargs.get("srv")
     cache_key = f"server_{srv.id}" if srv else name
 
-    _static_nav = ("dashboard", "shop", "database", "broadcasts", "obobonic", "crashes", "settings", "about")
+    _static_nav = (
+        "dashboard", "shop", "database", "broadcasts", "saves",
+        "obobonic", "crashes", "settings", "about",
+    )
     app._set_nav_active(name if name in _static_nav else "")
 
     # ── Oculta frame corrente (preserva no cache) ─────────────────────────
