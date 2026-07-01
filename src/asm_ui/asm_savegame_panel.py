@@ -220,7 +220,7 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             try:
                 worker()
             finally:
-                parent.after(0, done)
+                _schedule_on_ui(done)
 
         threading.Thread(target=_thread, daemon=True).start()
 
@@ -344,14 +344,14 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             try:
                 ok, reason = can_load_save(app, srv_id)
                 if not ok:
-                    parent.after(0, lambda: _log(f"✖ {reason}"))
+                    _schedule_on_ui(lambda: _log(f"✖ {reason}"))
                     return
                 dest = load_save(srv, source)
-                parent.after(0, lambda: _log(
-                    f"✔ Save carregado em {srv.name}: {dest.name}", 
+                _schedule_on_ui(lambda: _log(
+                    f"✔ Save carregado em {srv.name}: {dest.name}",
                 ))
             except Exception as exc:
-                parent.after(0, lambda e=exc: _log(f"✖ Erro ao carregar: {e}"))
+                _schedule_on_ui(lambda e=exc: _log(f"✖ Erro ao carregar: {e}"))
 
         _run_worker(worker, lambda: (_set_busy(False), _refresh_all()))
 
@@ -376,9 +376,9 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
         def worker() -> None:
             try:
                 delete_save_file(path)
-                parent.after(0, lambda: _log(f"✔ Arquivo excluído: {path.name}"))
+                _schedule_on_ui(lambda: _log(f"✔ Arquivo excluído: {path.name}"))
             except Exception as exc:
-                parent.after(0, lambda e=exc: _log(f"✖ Erro ao excluir: {e}"))
+                _schedule_on_ui(lambda e=exc: _log(f"✖ Erro ao excluir: {e}"))
 
         _run_worker(worker, lambda: (_set_busy(False), _refresh_all()))
 
@@ -395,9 +395,9 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
         def worker() -> None:
             try:
                 dest = create_manual_backup(srv)
-                parent.after(0, lambda: _log(f"✔ Backup criado: {dest.name}"))
+                _schedule_on_ui(lambda: _log(f"✔ Backup criado: {dest.name}"))
             except Exception as exc:
-                parent.after(0, lambda e=exc: _log(f"✖ Erro no backup: {e}"))
+                _schedule_on_ui(lambda e=exc: _log(f"✖ Erro no backup: {e}"))
 
         _run_worker(worker, lambda: (_set_busy(False), _refresh_all()))
 
@@ -502,7 +502,8 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             for i, entry in enumerate(inv.entries):
                 _render_file_row(srv_id, entry, i, files_frame, can_load, load_reason)
 
-    def _refresh_all() -> None:
+    def _render_inventories(inventories: List[SaveInventory]) -> None:
+        """Renderiza cards a partir de inventários já carregados (thread-safe na UI)."""
         for w in list_scroll.winfo_children():
             w.destroy()
 
@@ -516,37 +517,93 @@ def build_savegame_panel(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> No
             status_lbl.configure(text="0 servidores")
             return
 
-        inventories: List[SaveInventory] = []
-        for srv in servers:
-            inv = list_server_saves(srv)
-            inventories.append(inv)
-        state["inventories"] = {inv.server_id: inv for inv in inventories}
+        by_id = {inv.server_id: inv for inv in inventories}
+        ordered = [by_id[s.id] for s in servers if s.id in by_id]
 
-        for i, inv in enumerate(inventories):
+        for i, inv in enumerate(ordered):
             _render_server_card(inv, i)
 
-        total_files = sum(len(inv.entries) for inv in inventories)
+        total_files = sum(len(inv.entries) for inv in ordered)
         status_lbl.configure(
-            text=f"{len(servers)} servidor(es) · {total_files} arquivo(s) de save",
+            text=f"{len(ordered)} servidor(es) · {total_files} arquivo(s) de save",
         )
+
+    def _refresh_all() -> None:
+        """Re-renderiza a partir do cache (ex.: expandir/recolher servidor)."""
+        cached = state.get("inventories") or {}
+        if not cached:
+            _refresh_async()
+            return
+        servers = list(app.asm_config_manager.servers)
+        ordered = [cached[s.id] for s in servers if s.id in cached]
+        _render_inventories(ordered)
+
+    def _schedule_on_ui(fn: Callable[[], None]) -> None:
+        """Agenda callback na thread principal do Tk."""
+        try:
+            app.after(0, fn)
+        except Exception:
+            try:
+                parent.winfo_toplevel().after(0, fn)
+            except Exception:
+                fn()
 
     def _refresh_async() -> None:
         if state["busy"]:
-            return
+            # Recupera estado travado se a lista nunca carregou
+            if state.get("inventories"):
+                return
+            state["busy"] = False
         _set_busy(True)
         status_lbl.configure(text="Atualizando lista…")
 
         def worker() -> None:
-            servers = list(app.asm_config_manager.servers)
-            invs = [list_server_saves(s) for s in servers]
-            parent.after(0, lambda: _on_refresh_done(invs))
+            invs: List[SaveInventory] = []
+            fatal = ""
+            try:
+                from ..asm_engine.asm_savegame_manager import (
+                    map_save_basename,
+                    savegame_dir,
+                )
+                for srv in list(app.asm_config_manager.servers):
+                    try:
+                        invs.append(list_server_saves(srv))
+                    except Exception as exc:
+                        base = map_save_basename(srv)
+                        invs.append(SaveInventory(
+                            server_id=srv.id,
+                            server_name=srv.name,
+                            savegame_dir=savegame_dir(srv),
+                            map_basename=base,
+                            active_filename=f"{base}.ark",
+                            error=str(exc),
+                        ))
+            except Exception as exc:
+                fatal = str(exc)
 
-        threading.Thread(target=worker, daemon=True).start()
+            captured = list(invs)
 
-    def _on_refresh_done(invs: List[SaveInventory]) -> None:
-        state["inventories"] = {inv.server_id: inv for inv in invs}
-        _set_busy(False)
-        _refresh_all()
+            def _done() -> None:
+                try:
+                    if fatal and not captured:
+                        status_lbl.configure(text=f"Erro: {fatal}")
+                        _log(f"✖ Erro ao listar saves: {fatal}")
+                        ctk.CTkLabel(
+                            list_scroll,
+                            text=f"Não foi possível listar os saves.\n{fatal}",
+                            font=ctk.CTkFont(size=12), text_color=warn_tc,
+                            justify="center",
+                        ).grid(row=0, column=0, pady=40, padx=12)
+                    else:
+                        state["inventories"] = {inv.server_id: inv for inv in captured}
+                        _render_inventories(captured)
+                finally:
+                    _set_busy(False)
+
+            _schedule_on_ui(_done)
+
+        threading.Thread(target=worker, daemon=True, name="savegame-list").start()
 
     refresh_btn.configure(command=_refresh_async)
+    app._savegame_panel_refresh = _refresh_async  # type: ignore[attr-defined]
     _refresh_async()

@@ -582,8 +582,40 @@ def _refresh_asm_stats(app: "ARKServerManagerApp", servers: list) -> None:
         bars["RAM"].set(min(ram_pct / 100.0, 1.0))
 
 
+def rebuild_asm_dashboard_card(app: "ARKServerManagerApp", server_id: str) -> None:
+    """Recria um único card (ex.: status parado↔online) sem destruir os demais."""
+    from .asm_server_card import build_asm_server_card
+
+    host = _cards_host(app)
+    if host is None:
+        return
+    pos = (getattr(app, "_asm_card_grid_pos", {}) or {}).get(server_id)
+    if not pos:
+        return
+    srv = app.asm_config_manager.get_server(server_id)
+    if not srv:
+        return
+
+    cards = getattr(app, "_asm_dashboard_cards", {}) or {}
+    old = cards.get(server_id)
+    if old is not None:
+        try:
+            if old.winfo_exists():
+                old.destroy()
+        except Exception:
+            pass
+
+    row, col = pos
+    build_asm_server_card(app, host, srv, row, col)
+
+    scroll = _dashboard_scroll(app)
+    if scroll:
+        host.update_idletasks()
+        _schedule_dashboard_scroll_refresh(scroll)
+
+
 def _refresh_asm_dashboard(app: "ARKServerManagerApp", *, force_layout: bool = False) -> None:
-    """Atualiza dashboard — rebuild completo só se layout mudou; senão só cards."""
+    """Atualiza dashboard — rebuild completo só se layout mudou; senão refresh leve."""
     host = _cards_host(app)
     scroll = _dashboard_scroll(app)
     if host is None or scroll is None:
@@ -597,14 +629,13 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp", *, force_layout: bool = F
         app._asm_dashboard_layout_sig = sig
         _build_bulk_bar(app)
         _populate_cards_grid(app, host)
+        _update_subtitle(app, servers)
+        _refresh_asm_stats(app, servers)
+        _update_folder_counts(app)
+        host.update_idletasks()
+        _schedule_dashboard_scroll_refresh(scroll)
     else:
-        _rebuild_all_cards(app)
-
-    _update_subtitle(app, servers)
-    _refresh_asm_stats(app, servers)
-    _update_folder_counts(app)
-    host.update_idletasks()
-    _schedule_dashboard_scroll_refresh(scroll)
+        refresh_dashboard_metrics(app)
 
 
 def _update_subtitle(app: "ARKServerManagerApp", servers: list) -> None:

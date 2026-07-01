@@ -122,6 +122,10 @@ def show_frame_tek(app, name: str, **kwargs) -> None:
                     app._start_perf_monitor()
                 elif name == "dashboard":
                     app._asm_refresh_dashboard(immediate=True)
+                elif name == "saves":
+                    fn = getattr(app, "_savegame_panel_refresh", None)
+                    if callable(fn):
+                        fn()
                 elif name == "clusters":
                     clusters = app.config_manager.clusters
                     if clusters and getattr(app, "_cluster_detail_fr", None):

@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.174] - 2026-07-01
+
+### Fix
+
+- Fix CRÍTICO (TEK / Saves): painel «💾 Saves» travava em «Atualizando lista…» — callbacks da thread de listagem agora voltam corretamente para a UI; erros por servidor não bloqueiam a lista inteira; recarrega ao reabrir a aba.
+- Fix (TEK / Dashboard): app deixava de responder após muito tempo aberto — refresh leve sem recriar todos os cards; mudança de status/visibilidade Steam atualiza só o card afetado; tick de status reagenda mesmo com worker anterior em andamento.
+
 ## [1.9.173] - 2026-07-01
 
 ### Feature

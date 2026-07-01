@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.173"
+APP_VERSION: str = "1.9.174"
 BUILD_DATE: str = "2026-07-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.174",
+        "date": "2026-07-01",
+        "changes": [
+            "Fix CRÍTICO (TEK / Saves): painel «💾 Saves» travava em «Atualizando lista…» — callbacks da thread "
+            "de listagem agora voltam corretamente para a UI; erros por servidor não bloqueiam a lista inteira; "
+            "recarrega ao reabrir a aba.",
+            "Fix (TEK / Dashboard): app deixava de responder após muito tempo aberto — refresh leve sem recriar "
+            "todos os cards; mudança de status/visibilidade Steam atualiza só o card afetado; tick de status "
+            "reagenda mesmo com worker anterior em andamento.",
+        ],
+    },
     {
         "version": "1.9.173",
         "date": "2026-07-01",

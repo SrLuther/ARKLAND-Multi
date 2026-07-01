@@ -250,7 +250,14 @@ class ARKServerManagerApp(ctk.CTk):
         """Atualiza cache de indicadores ricos para todos os servidores (a cada 30s)."""
         import threading
 
+        try:
+            inactive = self.state() == "iconic" or not self.winfo_viewable()
+        except Exception:
+            inactive = False
+        interval = 60_000 if inactive else 30_000
+
         if self._asm_status_tick_running:
+            self.after(interval, self._asm_status_tick)
             return
         self._asm_status_tick_running = True
 
@@ -332,13 +339,6 @@ class ARKServerManagerApp(ctk.CTk):
                 self.after(0, lambda: refresh_dashboard_metrics(self))
 
         threading.Thread(target=_worker, daemon=True).start()
-
-        # Reagenda — 60s se janela minimizada/inativa
-        try:
-            inactive = self.state() == "iconic" or not self.winfo_viewable()
-        except Exception:
-            inactive = False
-        interval = 60_000 if inactive else 30_000
         self.after(interval, self._asm_status_tick)
 
     def _on_server_status_change(self, server_id: str, new_status: str) -> None:
@@ -370,8 +370,16 @@ class ARKServerManagerApp(ctk.CTk):
         if refresher:
             self.after(0, refresher)
 
-        self.after(0, self._asm_refresh_dashboard)
-        self.after(0, self._rebuild_server_sidebar)
+        def _status_ui_refresh(sid: str = server_id) -> None:
+            from .asm_ui.asm_dashboard import (
+                rebuild_asm_dashboard_card,
+                refresh_dashboard_metrics,
+            )
+            rebuild_asm_dashboard_card(self, sid)
+            refresh_dashboard_metrics(self)
+            self._rebuild_server_sidebar()
+
+        self.after(0, _status_ui_refresh)
 
     def _setup_bg_watermark(self) -> None:
         """Pré-computa a imagem de watermark para reutilização em todas as páginas."""
@@ -2011,7 +2019,11 @@ class ARKServerManagerApp(ctk.CTk):
 
     def _on_server_visibility_change(self, server_id: str, mode: str, detail: str = "") -> None:
         """Callback quando disponibilidade Steam/LAN muda (paridade ASM)."""
-        self.after(0, self._asm_refresh_dashboard)
+        def _vis_refresh(sid: str = server_id) -> None:
+            from .asm_ui.asm_dashboard import rebuild_asm_dashboard_card
+            rebuild_asm_dashboard_card(self, sid)
+
+        self.after(0, _vis_refresh)
 
     # ── Broadcasts TEK (biblioteca global) ───────────────────────────────────
 
