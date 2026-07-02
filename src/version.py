@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.177"
+APP_VERSION: str = "1.9.178"
 BUILD_DATE: str = "2026-07-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.178",
+        "date": "2026-07-02",
+        "changes": [
+            "Fix (Web Store / Resgates): desistência de pedido PENDENTE agora funciona mesmo quando o item/kit é grátis "
+            "(sem Âmbares a reembolsar); ao cancelar, kits com limite voltam a ficar disponíveis para novo resgate.",
+            "Fix (Web Store / Login Steam): sessão do portal passa a persistir entre fechamentos do navegador; "
+            "cookie permanente com expiração configurável por ARKSHOP_SESSION_DAYS (padrão: 30 dias).",
+        ],
+    },
     {
         "version": "1.9.177",
         "date": "2026-07-02",

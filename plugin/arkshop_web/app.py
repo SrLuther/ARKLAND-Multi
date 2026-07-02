@@ -17,7 +17,7 @@ import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -297,6 +297,7 @@ _RETRY_BATCH_SIZE = int(os.environ.get("ARKSHOP_RETRY_BATCH", "20"))
 _is_production = os.environ.get("ARKSHOP_ENV", "").strip().lower() == "production"
 _is_frozen = getattr(sys, "frozen", False)
 _secret_from_env = os.environ.get("ARKSHOP_WEB_SECRET", "").strip()
+_session_days = max(1, int(os.environ.get("ARKSHOP_SESSION_DAYS", "30") or "30"))
 if _secret_from_env:
     app.secret_key = _secret_from_env
 elif _is_production or _is_frozen:
@@ -311,6 +312,11 @@ else:
         "ARKSHOP_WEB_SECRET não definida! Usando secret de desenvolvimento. "
         "Defina a variável de ambiente ARKSHOP_WEB_SECRET em produção."
     )
+
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = _is_production or _is_frozen
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=_session_days)
 
 
 def _ensure_admin_steamids_file() -> None:
@@ -4974,6 +4980,7 @@ def auth_callback():
     if not valid:
         return redirect("/")
 
+    session.permanent = True
     session["steam_id"] = steam_id
     _touch_store_user_login(steam_id)
     _log("auth_login", steam_id=steam_id, is_admin=_is_admin_steamid(steam_id))
@@ -6819,16 +6826,7 @@ def player_cancel_order(order_id: str):
         item_id = str(order.item_id or "")
         order_amount = int(order.amount or 1)
 
-        refund = _order_refund_amount(order, db)
-        if refund <= 0:
-            return jsonify({
-                "ok": False,
-                "error": (
-                    "Não foi possível calcular o valor do reembolso para este pedido. "
-                    "Ajuste o saldo manualmente em Jogadores se necessário."
-                ),
-            }), 400
-
+        refund = max(0, _order_refund_amount(order, db))
         new_balance = _credit_order_refund_tx(db, steam_id, refund)
 
         order.status = "CANCELADO"
@@ -6855,7 +6853,11 @@ def player_cancel_order(order_id: str):
         item_id=item_id,
         status_before="PENDENTE",
         status_after="CANCELADO",
-        message=f"Desistência — reembolso de {refund} Âmbar",
+        message=(
+            f"Desistência — reembolso de {refund} Âmbar"
+            if refund > 0
+            else "Desistência — cancelado sem reembolso"
+        ),
         price=refund,
         points_after=new_balance,
     )

@@ -4689,6 +4689,313 @@
           "Quantity": 1
         }
       ]
+    },
+    "tekgrams": {
+      "Type": "command",
+      "Category": "Geral",
+      "Name": "Liberação Tek (todos)",
+      "Description": "Desbloqueia permanentemente todos os engramas Tek vanilla (armadura, armas, estruturas, selas e DLCs).",
+      "Price": 5000,
+      "Quality": 0,
+      "ForceBlueprint": false,
+      "Commands": [
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekHelmet.PrimalItemArmor_TekHelmet'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekPants.PrimalItemArmor_TekPants'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_TekRifle.PrimalItem_TekRifle'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_TekGrenade.PrimalItem_TekGrenade'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TurretTek.PrimalItemStructure_TurretTek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Shields/PrimalItemArmor_ShieldTek.PrimalItemArmor_ShieldTek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItem_WeaponTekSword.PrimalItem_WeaponTekSword'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle_Tek.PrimalItemArmor_RexSaddle_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MosaSaddle_Tek.PrimalItemArmor_MosaSaddle_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegalodonSaddle_Tek.PrimalItemArmor_MegalodonSaddle_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_Tapejara_Tek.PrimalItemArmor_Tapejara_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekReplicator.PrimalItemStructure_TekReplicator'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekShield.PrimalItemStructure_TekShield'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekTransmitter.PrimalItemStructure_TekTransmitter'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekGenerator.PrimalItemStructure_TekGenerator'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekTeleporter.PrimalItemStructure_TekTeleporter'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekTrough.PrimalItemStructure_TekTrough'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/BuildingBases/PrimalItemStructure_TekCloningChamber.PrimalItemStructure_TekCloningChamber'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_TekLight.PrimalItemStructure_TekLight'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekFloor.PrimalItemStructure_TekFloor'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekGate_Large.PrimalItemStructure_TekGate_Large'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekGateFrame_Large.PrimalItemStructure_TekGateFrame_Large'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWindow.PrimalItemStructure_TekWindow'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWallWithWindow.PrimalItemStructure_TekWallWithWindow'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekTrapdoor.PrimalItemStructure_TekTrapdoor'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekCeilingWithTrapdoor.PrimalItemStructure_TekCeilingWithTrapdoor'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/BuildingBases/PrimalItemStructure_UnderwaterBase.PrimalItemStructure_UnderwaterBase'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekGate.PrimalItemStructure_TekGate'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekGateFrame.PrimalItemStructure_TekGateFrame'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekDoor.PrimalItemStructure_TekDoor'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWallWithDoor.PrimalItemStructure_TekWallWithDoor'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall.PrimalItemStructure_TekWall'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekCeiling.PrimalItemStructure_TekCeiling'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekRailing.PrimalItemStructure_TekRailing'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekFenceFoundation.PrimalItemStructure_TekFenceFoundation'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekLadder.PrimalItemStructure_TekLadder'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekRamp.PrimalItemStructure_TekRamp'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekPillar.PrimalItemStructure_TekPillar'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/BuildingBases/PrimalItemStructure_UnderwaterBase_moonpool.PrimalItemStructure_UnderwaterBase_Moonpool'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekCatwalk.PrimalItemStructure_TekCatwalk'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Aberration/WeaponTekSniper/PrimalItem_TekSniper.PrimalItem_TekSniper'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Misc/PrimalItemStructure_Bed_Tek.PrimalItemStructure_Bed_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Aberration/Dinos/RockDrake/PrimalItemArmor_RockDrakeSaddle_Tek.PrimalItemArmor_RockDrakeSaddle_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/Vehicles/VH_Buggy/Blueprint/PrimalItemVHBuggy.PrimalItemVHBuggy'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Misc/DedicatedStorage/PrimalItemStructure_DedicatedStorage.PrimalItemStructure_DedicatedStorage'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Doors/Doors_Double/Tek/PrimalItemStructure_DoubleDoor_Tek.PrimalItemStructure_DoubleDoor_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/Doorframes_Double/Tek/PrimalItemStructure_DoubleDoorframe_Tek.PrimalItemStructure_DoubleDoorframe_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/FenceSupports/Tek/PrimalItemStructure_FenceSupport_Tek.PrimalItemStructure_FenceSupport_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/Walls_L/Tek/PrimalItemStructure_LargeWall_Tek.PrimalItemStructure_LargeWall_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/Ramps/Tek/PrimalItemStructure_Ramp_Tek.PrimalItemStructure_Ramp_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/Ceilings/Triangle/Tek/PrimalItemStructure_TriCeiling_Tek.PrimalItemStructure_TriCeiling_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/Foundations/Triangle/Tek/PrimalItemStructure_TriFoundation_Tek.PrimalItemStructure_TriFoundation_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/StructuresPlus/Structures/Roofs_Tri/Tek/PrimalItemStructure_TriRoof_Tek.PrimalItemStructure_TriRoof_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis/Weapons/TekHandBlades/PrimalItem_WeaponTekClaws.PrimalItem_WeaponTekClaws'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis2/Weapons/TekBow/PrimalItem_WeaponTekBow.PrimalItem_WeaponTekBow'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis2/Weapons/TekPistol/PrimalItem_WeaponTekPistol.PrimalItem_WeaponTekPistol'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis2/CoreBlueprints/Items/PrimalItemConsumable_TekCanteenCraftable.PrimalItemConsumable_TekCanteenCraftable'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis/Dinos/SpaceWhale/PrimalItemArmor_SpaceWhaleSaddle_Tek.PrimalItemArmor_SpaceWhaleSaddle_Tek'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Extinction/CoreBlueprints/Items/PrimalItem_WeaponTekRailgun.PrimalItem_WeaponTekRailgun'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Extinction/CoreBlueprints/Items/PrimalItem_WeaponTekGrenadeLauncher.PrimalItem_WeaponTekGrenadeLauncher'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Extinction/CoreBlueprints/Items/PrimalItem_WeaponTekGravityGrenade.PrimalItem_WeaponTekGravityGrenade'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis2/Weapons/TekPhasePistol/PrimalItem_WeaponTekPhasePistol.PrimalItem_WeaponTekPhasePistol'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis2/Dinos/Mek/PrimalItem_Spawner_Exosuit.PrimalItem_Spawner_Exosuit'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis2/Weapons/TekShoulderCannon/PrimalItem_WeaponTekShoulderCannon.PrimalItem_WeaponTekShoulderCannon'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis/CoreBlueprints/Items/PrimalItem_Spawner_HoverSkiff.PrimalItem_Spawner_HoverSkiff'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis/Weapons/CruiseMissile/PrimalItem_WeaponTekCruiseMissile.PrimalItem_WeaponTekCruiseMissile'\"",
+          "ExecuteAsAdmin": true
+        },
+        {
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/Genesis/Dinos/Cherufe/PrimalItemArmor_CherufeSaddle_Tek.PrimalItemArmor_CherufeSaddle_Tek'\"",
+          "ExecuteAsAdmin": true
+        }
+      ]
     }
   },
   "TimedPointsReward": {
@@ -4949,7 +5256,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
           "Quantity": 2000,
           "Quality": 0,
           "ForceBlueprint": false
@@ -5086,7 +5393,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
           "Quantity": 3000,
           "Quality": 0,
           "ForceBlueprint": false
@@ -5321,7 +5628,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
           "Quantity": 5000,
           "Quality": 0,
           "ForceBlueprint": false
@@ -5570,7 +5877,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
           "Quantity": 10000,
           "Quality": 0,
           "ForceBlueprint": false
@@ -5841,7 +6148,7 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element_C",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
           "Quantity": 1000,
           "Quality": 0,
           "ForceBlueprint": false
@@ -7285,70 +7592,70 @@
       "Description": "10x Armaedron Fêmea Nível 1 (25% off)",
       "Dinos": [
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP_C",
+          "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
@@ -7361,70 +7668,70 @@
       "Description": "10x Indominus Rex Fêmea Nível 1 (25% off)",
       "Dinos": [
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,
           "Gender": "female"
         },
         {
-          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP_C",
+          "Blueprint": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
           "Level": 1,
           "ForceTame": true,
           "Neutered": false,

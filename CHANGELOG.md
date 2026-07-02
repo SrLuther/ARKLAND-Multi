@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.178] - 2026-07-02
+
+### Fix
+
+- Fix (Web Store / Resgates): desistência de pedido PENDENTE agora funciona mesmo quando o item/kit é grátis (sem Âmbares a reembolsar); ao cancelar, kits com limite voltam a ficar disponíveis para novo resgate.
+- Fix (Web Store / Login Steam): sessão do portal passa a persistir entre fechamentos do navegador; cookie permanente com expiração configurável por ARKSHOP_SESSION_DAYS (padrão: 30 dias).
+
 ## [1.9.177] - 2026-07-02
 
 ### Fix

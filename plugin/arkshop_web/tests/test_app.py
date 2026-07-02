@@ -172,6 +172,24 @@ class TestAuth:
         assert d["is_admin"] is True
         assert d["steam_id"] == ADMIN_STEAM
 
+    def test_auth_callback_creates_persistent_session(self, client, monkeypatch):
+        monkeypatch.setattr(_app_module, "_verify_steam_openid", lambda _qp: True)
+        monkeypatch.setattr(_app_module, "_touch_store_user_login", lambda _sid: None)
+        claimed = f"https://steamcommunity.com/openid/id/{USER_STEAM}"
+        r = client.get(
+            "/api/auth/callback",
+            query_string={
+                "openid.mode": "id_res",
+                "openid.claimed_id": claimed,
+            },
+        )
+        assert r.status_code == 302
+        cookie = r.headers.get("Set-Cookie", "")
+        assert "Expires=" in cookie or "Max-Age=" in cookie
+        with client.session_transaction() as sess:
+            assert sess.get("steam_id") == USER_STEAM
+            assert sess.permanent is True
+
     def test_me_includes_display_name_from_store_user(self, client):
         _seed_store_user(ADMIN_STEAM, display_name="AdminNick")
         _login(client, ADMIN_STEAM)
@@ -1722,3 +1740,54 @@ class TestKitRedemptionLimit:
         assert d["ok"] is True
         assert d["remaining"] == 3
         assert d["stash"]["starter"]["Amount"] == 3
+
+    def test_player_cancel_free_pending_order_succeeds_without_refund(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        _seed_player_points(USER_STEAM, 0)
+        oid = _create_order_direct(
+            steam_id=USER_STEAM,
+            item_id="starter",
+            item_type="kit",
+            status="PENDENTE",
+            points_spent=0,
+        )
+        _login(client, USER_STEAM)
+        r = client.post(f"/api/player/orders/{oid}/cancel", json={})
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["status"] == "CANCELADO"
+        assert d["refunded"] == 0
+        assert d["new_balance"] == 0
+
+    def test_player_cancel_free_limited_kit_restores_effective_availability(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_kits(USER_STEAM, {"starter": {"Amount": 1}})
+        oid = _create_order_direct(
+            steam_id=USER_STEAM,
+            item_id="starter",
+            item_type="kit",
+            status="PENDENTE",
+            points_spent=0,
+        )
+        _login(client, USER_STEAM)
+
+        blocked = client.post(
+            "/api/player/purchase",
+            json={"item_id": "starter", "item_type": "kit", "amount": 1},
+        )
+        assert blocked.status_code == 403
+        assert blocked.get_json().get("kit_limit_reached") is True
+
+        cancel = client.post(f"/api/player/orders/{oid}/cancel", json={})
+        assert cancel.status_code == 200
+        assert cancel.get_json()["ok"] is True
+
+        retry = client.post(
+            "/api/player/purchase",
+            json={"item_id": "starter", "item_type": "kit", "amount": 1},
+        )
+        assert retry.status_code == 200
+        assert retry.get_json()["ok"] is True
