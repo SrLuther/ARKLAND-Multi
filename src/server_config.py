@@ -127,6 +127,9 @@ class ServerGameSettings:
     override_max_experience_points_player: int = 0
     override_max_experience_points_dino: int = 0
     player_level_cap: int = 0   # Nível-teto do jogador (0 = sem override). INI calculado pelo app.
+    player_base_level: int = 0  # Nível base sem ascensões (0 = 105 vanilla). UI calcula o teto total.
+    player_ascension_state: str = ""  # JSON de ascensões/bônus para o painel de níveis.
+    player_engram_points_multiplier: float = 1.0  # 8 pts vanilla × mult por nível (ex.: 5.0 → 40/nível)
     dino_level_cap: int = 0     # Nível-teto do dino   (0 = sem override). INI calculado pelo app.
 
     # Stack
@@ -566,7 +569,7 @@ class ServerConfig:
     backup_interval_hours: int = 6
     backup_keep_count: int = 10
     backup_include_saves: bool = True
-    backup_include_config: bool = True
+    backup_include_config: bool = False  # INI opcional; saves do mundo são o essencial
     backup_dir: str = ""  # "" = padrão (%APPDATA%/ARKLAND-ServerManager/backups/servers/{id})
 
     # Steam IDs com permissão de admin (gravados em AllowedCheaterSteamIDs.txt)

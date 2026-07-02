@@ -20,6 +20,7 @@ _NOTIFICATION_TYPES = frozenset({
     "ticket_priority",
     "ticket_created",
     "order_update",
+    "poll_reward",
     "general",
 })
 

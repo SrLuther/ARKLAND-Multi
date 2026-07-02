@@ -1183,6 +1183,40 @@ class TestAdminOrderActions:
         r = client.post(f"/api/admin/orders/{oid}/resend", json={})
         assert r.status_code == 409
 
+    def test_admin_refund_blocked_when_amount_unknown(self, client):
+        _login(client, ADMIN_STEAM)
+        oid = _create_order_direct(status="ENTREGUE", points_spent=0, item_id="item_inexistente_xyz")
+        r = client.post(f"/api/admin/orders/{oid}/refund", json={})
+        assert r.status_code == 400
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "ENTREGUE"
+        finally:
+            db.close()
+
+    def test_admin_refund_uses_audit_price_when_points_spent_zero(self, client):
+        _login(client, ADMIN_STEAM)
+        _seed_player_points(USER_STEAM, 100)
+        oid = _create_order_direct(status="ENTREGUE", points_spent=0, item_id="sword")
+        db = _app_module._SessionLocal()
+        try:
+            db.add(_app_module.AuditEvent(
+                event_type="purchase_created",
+                order_id=oid,
+                target_steam_id=USER_STEAM,
+                payload_json='{"price": 75}',
+                created_at=_now(),
+            ))
+            db.commit()
+        finally:
+            db.close()
+        r = client.post(f"/api/admin/orders/{oid}/refund", json={})
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["refunded"] == 75
+        assert d["new_balance"] == 175
+
 
 # ── Licença Nuvem / entitlements ─────────────────────────────────────────────
 

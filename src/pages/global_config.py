@@ -239,16 +239,17 @@ def build_global_config(app: "ARKServerManagerApp", parent) -> None:
                   fg_color="#5c1a1a", hover_color="#7c2020",
                   command=lambda: app._bk_dir_var.set("")).grid(row=0, column=2, padx=(4, 0))
 
-    ctk.CTkCheckBox(bk_card, text="Incluir saves do mundo (SavedArks)",
+    ctk.CTkCheckBox(bk_card, text="Incluir saves do mundo (.ark, perfis, tribos) — recomendado",
                     variable=app._bk_include_saves_var,
                     checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                     ).grid(row=1, column=0, columnspan=2, padx=16, pady=(10, 2), sticky="w")
-    ctk.CTkCheckBox(bk_card, text="Incluir arquivos de configuração (Game.ini / GameUserSettings.ini)",
+    ctk.CTkCheckBox(bk_card, text="Incluir arquivos .ini (Game.ini / GameUserSettings.ini) — opcional",
                     variable=app._bk_include_config_var,
                     checkmark_color="white", fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                     ).grid(row=2, column=0, columnspan=2, padx=16, pady=(2, 2), sticky="w")
     ctk.CTkLabel(bk_card,
-                 text="Backups de todos os servidores ativos são salvos em subpastas por servidor (ZIP compactado).",
+                 text="Os saves ficam em ShooterGame/Saved/{AltSaveDirectoryName}/ (ex.: savegame). "
+                      "As configs são gerenciadas pelo ARKLAND e podem ser recriadas — o progresso do mundo não.",
                  text_color="gray45", font=ctk.CTkFont(size=10), justify="left",
                  ).grid(row=3, column=0, columnspan=2, padx=16, pady=(2, 6), sticky="w")
 

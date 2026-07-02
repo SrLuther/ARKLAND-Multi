@@ -3,11 +3,31 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.174"
+APP_VERSION: str = "1.9.175"
 BUILD_DATE: str = "2026-07-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.175",
+        "date": "2026-07-01",
+        "changes": [
+            "Fix CRÍTICO (Backup): snapshots ignoravam saves reais — backup buscava SavedArks/ em vez de "
+            "ShooterGame/Saved/{AltSaveDirectoryName}/ (ex.: savegame); restauração devolve arquivos à pasta correta.",
+            "Melhoria (Backup): saves do mundo passam a ser a prioridade (padrão); .ini opcional; Discord/log "
+            "mostram quantos arquivos de save e config foram incluídos.",
+            "Feature (TEK / Jogador): painel simplificado de nível máximo — nível base e total com ascensões "
+            "γ/β/α, chibi, runas e notas; XP no INI calculado automaticamente.",
+            "Feature (TEK / Jogador): multiplicador de pontos de engrama por nível (ex.: 5× → 40 pts/nível) "
+            "gravado em OverridePlayerLevelEngramPoints no Game.ini.",
+            "Feature (Web Store / Votações): enquetes com admin, prazo, percentuais, quorum e recompensa em Âmbares; "
+            "voto único e múltipla escolha opcional; visível sem login.",
+            "Feature (Web Store / Home): cards de mapa gerados automaticamente a partir de servers.json "
+            "(show_on_home) — rates e conexão detectados pelo sync ASM.",
+            "Fix (Web Store / Reembolso): pedido marcado REEMBOLSADO sem creditar Âmbares — crédito garantido "
+            "com fallback na auditoria; bloqueio quando valor = 0.",
+        ],
+    },
     {
         "version": "1.9.174",
         "date": "2026-07-01",

@@ -1,10 +1,11 @@
 """
 Gerenciador de backups automáticos de saves e configurações de servidor ARK.
 
-Estrutura de armazenamento:
-  %APPDATA%/ARKLAND-ServerManager/backups/servers/{server_id}/{YYYYMMDD_HHMMSS}/
-      config/   ← GameUserSettings.ini, Game.ini (WindowsServer/)
-      saves/    ← SavedArks/
+Estrutura de armazenamento (ZIP):
+  %APPDATA%/ARKLAND-ServerManager/backups/servers/{server_id}/{YYYYMMDD_HHMMSS}.zip
+      config/              ← GameUserSettings.ini, Game.ini (WindowsServer/) — opcional
+      saves/{pasta}/       ← ShooterGame/Saved/{AltSaveDirectoryName}/ (prioridade)
+      saves/SavedArks/     ← legado, se existir separadamente
 """
 from __future__ import annotations
 
@@ -24,6 +25,47 @@ if TYPE_CHECKING:
     from .asm_engine.asm_server_config import AsmServerConfig
 
 _DATA_DIR = Path(os.environ.get("APPDATA", Path.home())) / "ARKLAND-ServerManager"
+
+
+def saved_root(install_dir: str) -> Path:
+    return Path(install_dir) / "ShooterGame" / "Saved"
+
+
+def resolve_save_source_dirs(srv: "ServerConfig") -> list[Path]:
+    """Pastas de save a incluir — respeita ?AltSaveDirectoryName= (ex.: savegame)."""
+    base = saved_root(srv.install_dir)
+    alt = (getattr(srv, "alt_save_directory_name", "") or "").strip() or "savegame"
+    candidates: list[Path] = []
+    seen: set[Path] = set()
+
+    alt_path = base / alt
+    if alt_path not in seen:
+        candidates.append(alt_path)
+        seen.add(alt_path)
+
+    legacy = base / "SavedArks"
+    if legacy not in seen:
+        candidates.append(legacy)
+        seen.add(legacy)
+
+    existing = [p for p in candidates if p.is_dir() and any(p.rglob("*"))]
+    if existing:
+        return existing
+    return [alt_path]
+
+
+def _zip_saves_prefix(save_dir: Path, saved_base: Path) -> str:
+    rel = save_dir.relative_to(saved_base)
+    return f"saves/{rel.as_posix()}"
+
+
+def _is_legacy_flat_saves(members: list[str]) -> bool:
+    rels = [
+        Path(m).relative_to("saves")
+        for m in members
+        if m.startswith("saves/") and not m.endswith("/")
+    ]
+    return bool(rels) and all(len(r.parts) == 1 for r in rels)
 
 
 def _format_size(size_bytes: int | float) -> str:
@@ -65,6 +107,7 @@ def asm_server_to_backup_target(asm_srv: "AsmServerConfig", global_bk: "BackupCo
         id=asm_srv.id,
         name=asm_srv.session_name or asm_srv.name,
         install_dir=asm_srv.install_dir,
+        alt_save_directory_name=getattr(asm_srv, "alt_save_directory_name", "") or "savegame",
         backup_dir=global_bk.backup_dir,
         backup_include_saves=global_bk.include_savegames,
         backup_include_config=global_bk.include_config,
@@ -164,9 +207,37 @@ class BackupManager:
 
         added = False
         uncompressed_bytes = 0
+        save_files = 0
+        config_files = 0
 
         try:
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+                if srv.backup_include_saves:
+                    sbase = saved_root(srv.install_dir)
+                    save_dirs = resolve_save_source_dirs(srv)
+                    for saves_src in save_dirs:
+                        if not saves_src.is_dir():
+                            self._on_log(
+                                f"[Backup] {srv.name}: pasta de saves não encontrada ({saves_src}).",
+                                "warning",
+                            )
+                            continue
+                        prefix = _zip_saves_prefix(saves_src, sbase)
+                        found_here = 0
+                        for f in sorted(saves_src.rglob("*")):
+                            if f.is_file():
+                                arc = f"{prefix}/{f.relative_to(saves_src).as_posix()}"
+                                zf.write(f, arc)
+                                uncompressed_bytes += f.stat().st_size
+                                found_here += 1
+                                added = True
+                        save_files += found_here
+                        if found_here:
+                            self._on_log(
+                                f"[Backup] {srv.name}: {found_here} arquivo(s) de save em {saves_src.name}/",
+                                "info",
+                            )
+
                 if srv.backup_include_config:
                     cfg_src = Path(srv.install_dir) / "ShooterGame" / "Saved" / "Config" / "WindowsServer"
                     if cfg_src.exists():
@@ -174,20 +245,10 @@ class BackupManager:
                             if f.is_file():
                                 zf.write(f, "config/" + f.relative_to(cfg_src).as_posix())
                                 uncompressed_bytes += f.stat().st_size
+                                config_files += 1
                                 added = True
                     else:
                         self._on_log(f"[Backup] {srv.name}: pasta de config não encontrada ({cfg_src}).", "warning")
-
-                if srv.backup_include_saves:
-                    saves_src = Path(srv.install_dir) / "ShooterGame" / "Saved" / "SavedArks"
-                    if saves_src.exists():
-                        for f in sorted(saves_src.rglob("*")):
-                            if f.is_file():
-                                zf.write(f, "saves/" + f.relative_to(saves_src).as_posix())
-                                uncompressed_bytes += f.stat().st_size
-                                added = True
-                    else:
-                        self._on_log(f"[Backup] {srv.name}: pasta de saves não encontrada ({saves_src}).", "warning")
         except Exception as exc:
             self._on_log(f"[Backup] {srv.name}: erro ao criar ZIP — {exc}", "error")
             try:
@@ -201,11 +262,24 @@ class BackupManager:
                 zip_path.unlink(missing_ok=True)
             except Exception:
                 pass
+            if srv.backup_include_saves and save_files == 0:
+                self._on_log(
+                    f"[Backup] {srv.name}: nenhum arquivo de save encontrado — "
+                    f"verifique AltSaveDirectoryName e se o servidor já salvou ao menos uma vez.",
+                    "error",
+                )
             return None
 
         compressed_bytes = zip_path.stat().st_size
+        parts = []
+        if save_files:
+            parts.append(f"{save_files} save(s)")
+        if config_files:
+            parts.append(f"{config_files} config")
+        content_tag = " + ".join(parts) if parts else "vazio"
         self._on_log(
             f"[Backup] {srv.name}: snapshot salvo → {zip_path.name}  "
+            f"[{content_tag}]  "
             f"({_format_size(compressed_bytes)} comprimido / "
             f"{_format_size(uncompressed_bytes)} original)",
             "info",
@@ -214,6 +288,7 @@ class BackupManager:
         if self._discord_notifier:
             detail = (
                 f"Snapshot: `{zip_path.name}`\n"
+                f"Conteúdo: **{content_tag}**\n"
                 f"Tamanho: {_format_size(compressed_bytes)} "
                 f"(original: {_format_size(uncompressed_bytes)})"
             )
@@ -282,13 +357,14 @@ class BackupManager:
         """Restaura a partir de um arquivo ZIP comprimido."""
         base      = Path(srv.install_dir) / "ShooterGame" / "Saved"
         cfg_dst   = base / "Config" / "WindowsServer"
-        saves_dst = base / "SavedArks"
         restored  = False
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
                 names = zf.namelist()
                 has_config = any(n.startswith("config/") for n in names)
-                has_saves  = any(n.startswith("saves/")  for n in names)
+                save_members = [n for n in names if n.startswith("saves/") and not n.endswith("/")]
+                has_saves = bool(save_members)
+                legacy_flat = _is_legacy_flat_saves(names)
 
                 if has_config:
                     cfg_dst.mkdir(parents=True, exist_ok=True)
@@ -300,11 +376,12 @@ class BackupManager:
                     restored = True
 
                 if has_saves:
-                    if saves_dst.exists():
-                        shutil.rmtree(saves_dst)
-                    saves_dst.mkdir(parents=True, exist_ok=True)
-                    for member in (n for n in names if n.startswith("saves/") and not n.endswith("/")):
-                        dest = saves_dst / Path(member).relative_to("saves")
+                    for member in save_members:
+                        rel = Path(member).relative_to("saves")
+                        if legacy_flat and len(rel.parts) == 1:
+                            dest = base / "SavedArks" / rel
+                        else:
+                            dest = base / rel
                         dest.parent.mkdir(parents=True, exist_ok=True)
                         with zf.open(member) as src, open(dest, "wb") as dst:
                             shutil.copyfileobj(src, dst)

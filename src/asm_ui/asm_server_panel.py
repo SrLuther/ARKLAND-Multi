@@ -1789,10 +1789,13 @@ def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
             add_float_field(ctx, card, fld, i)
 
     def _card_lim() -> None:
+        from ..ui.player_level_panel import build_tek_player_level_section
+
         card = make_card(sf, 2, 0, ctx.theme)
-        add_card_header(card, "Limites / opções", accent)
-        add_int_field(ctx, card, "override_max_xp_player", 1)
-        add_bool_field(ctx, card, "enable_flyer_carry", 2)
+        card.grid(columnspan=2, sticky="nsew")
+        add_card_header(card, "Nível máximo do jogador", accent)
+        next_row = build_tek_player_level_section(ctx, card, start_row=1)
+        add_bool_field(ctx, card, "enable_flyer_carry", next_row)
 
     def _accordion() -> None:
         build_per_level_accordion(
@@ -1805,7 +1808,7 @@ def _build_players(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancelled=
         add_collapsible_help(sf, [
             ("Multiplicadores (1,0 = vanilla)", "Valores acima de 1,0 aumentam o atributo; abaixo diminuem."),
             ("Multiplicador de XP", "Multiplicador geral de XP. Outros tipos são aplicados adicionalmente."),
-            ("XP máximo (0 = padrão)", "Limite de XP atingível. 0 usa o padrão do jogo."),
+            ("Nível base / total", "Nível base sem bônus; o total inclui ascensões γ/β/α (+5 cada) e extras."),
             ("Pontos por nível", "Crescimento por ponto investido. 1,0 = vanilla."),
             ("Carregar com voador (PvE)", "Voadores podem carregar outros dinos em PvE."),
         ], 4)
@@ -3725,6 +3728,24 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     if tags_var:
         raw = tags_var.get().strip()
         srv.tags = [t.strip() for t in raw.split(",") if t.strip()] if raw else []
+
+    # Nível máximo do jogador (base + ascensões → XP)
+    if vars_ref.get("player_base_level") is not None:
+        from ..ui.player_level_panel import sync_player_level_vars
+        sync_player_level_vars(vars_ref)
+        try:
+            srv.player_base_level = int(float(vars_ref["player_base_level"].get()))
+        except (ValueError, TypeError, tk.TclError):
+            pass
+        asc_var = vars_ref.get("player_ascension_state")
+        if asc_var is not None:
+            srv.player_ascension_state = str(asc_var.get())
+        xp_var = vars_ref.get("override_max_xp_player")
+        if xp_var is not None:
+            try:
+                srv.override_max_xp_player = int(float(xp_var.get()))
+            except (ValueError, TypeError, tk.TclError):
+                pass
 
     # CPU affinity (lista de inteiros)
     cpu_var = vars_ref.get("_cpu_affinity_csv")

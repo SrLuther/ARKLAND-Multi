@@ -157,6 +157,9 @@ class AsmServerConfig:
     crafting_skill_bonus_multiplier:     float = 1.0
     enable_flyer_carry:                  bool  = False
     override_max_xp_player:             int   = 0
+    player_base_level:                  int   = 0   # 0 = vanilla 105; nível sem ascensões/bônus
+    player_ascension_state:             str   = ""  # JSON: bosses {id:tier 0-3}, extras {id:bool}
+    player_engram_points_multiplier:    float = 1.0  # Multiplica os 8 pts vanilla por nível (5.0 = 40/nível)
 
     # ── Dinos ─────────────────────────────────────────────────────────────────
     dino_damage_multiplier:              float = 1.0

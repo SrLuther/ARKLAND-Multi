@@ -86,7 +86,7 @@ _ASM_CATEGORY_SPECS: List[Tuple[str, str, List[str]]] = [
         "player_water_drain_multiplier", "player_food_drain_multiplier",
         "player_stamina_drain_multiplier", "player_health_recovery_multiplier",
         "player_harvesting_damage_multiplier", "crafting_skill_bonus_multiplier",
-        "enable_flyer_carry", "override_max_xp_player",
+        "enable_flyer_carry", "override_max_xp_player", "player_engram_points_multiplier",
     ]),
     ("dinos", "Dinos", [
         "dino_damage_multiplier", "tamed_dino_damage_multiplier",

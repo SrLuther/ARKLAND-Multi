@@ -1092,7 +1092,7 @@ def mark_claim_delivered(db: Session, claim_id: int, steam_id: str) -> dict[str,
     return {"claim_id": claim.id, "listing_id": listing.id, "status": "DELIVERED"}
 
 
-def _refund_amount_for_listing(db: Session, listing_id: int) -> int:
+def _refund_amount_for_listing(db: Session, listing_id: int, listing: Any | None = None) -> int:
     """Valor integral a reembolsar ao comprador (preço + taxas). Taxa atual: 0."""
     from app import MarketTransaction
 
@@ -1102,9 +1102,11 @@ def _refund_amount_for_listing(db: Session, listing_id: int) -> int:
         .order_by(MarketTransaction.created_at.desc())
         .first()
     )
-    if not tx:
-        return 0
-    return int(tx.price_paid or 0) + int(tx.fee_amount or 0)
+    if tx:
+        return int(tx.price_paid or 0) + int(tx.fee_amount or 0)
+    if listing is not None:
+        return int(getattr(listing, "effective_price", 0) or 0)
+    return 0
 
 
 def _expire_buyer_claim(
@@ -1122,7 +1124,7 @@ def _expire_buyer_claim(
     if not _claim_is_expired(claim, now=now):
         return None
 
-    refund = _refund_amount_for_listing(db, listing.id)
+    refund = _refund_amount_for_listing(db, listing.id, listing)
     buyer_id = listing.buyer_steam_id or claim.recipient_steam_id
     seller_id = listing.seller_steam_id
 
@@ -1133,7 +1135,24 @@ def _expire_buyer_claim(
     seller_after = seller_before
     seller_debited = 0
 
-    if refund > 0 and buyer_id:
+    if refund <= 0:
+        claim.claim_status = CLAIM_STATUS_EXPIRED
+        claim.updated_at = now
+        market_audit_event(
+            db,
+            "MARKET_CLAIM_EXPIRED_NO_REFUND",
+            severity="ERROR",
+            source="scheduler",
+            steam_id=buyer_id,
+            listing_id=listing.id,
+            claim_id=claim.id,
+            market_trace_id=listing.market_trace_id,
+            metadata={"reason": "missing_transaction_and_price"},
+            commit=False,
+        )
+        return None
+
+    if buyer_id:
         buyer_after = _credit_points(db, buyer_id, refund)
 
     if refund > 0 and seller_id:

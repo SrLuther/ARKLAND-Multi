@@ -4314,6 +4314,9 @@
     <div class="nav-item support-staff-only" data-page="tickets-admin" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets — Suporte
     </div>
+    <div class="nav-item admin-only" data-page="polls-admin" onclick="nav(this)">
+      <span class="nav-icon">🗳️</span> Votações
+    </div>
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
     </div>
@@ -4355,6 +4358,9 @@
     </div>
     <div class="nav-item" data-page="tutoriais" onclick="nav(this)">
       <span class="nav-icon">📖</span> Tutoriais
+    </div>
+    <div class="nav-item" data-page="polls" onclick="nav(this)">
+      <span class="nav-icon">🗳️</span> Votações
     </div>
     <div class="nav-item" data-page="tickets" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets
@@ -5633,6 +5639,13 @@
             <button class="btn btn-primary" onclick="openFeaturedMapModal()">+ Novo Mapa</button>
           </div>
         </div>
+        <div class="card" style="margin-bottom:16px;border-color:rgba(232,120,32,.25);">
+          <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+            <strong style="color:var(--amber);">Detecção automática.</strong>
+            Mapas, rates e conexão Steam vêm dos servidores sincronizados pelo ASM/TEK.
+            Use esta página só para <strong>texto promocional</strong> e badge Mod/oficial (opcional).
+          </p>
+        </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="form-grid">
             <div class="form-group" style="grid-column:1/-1;">
@@ -5768,6 +5781,23 @@
         </div>
       </div>
 
+      <!-- PAGE: Votações (comunidade) -->
+      <div id="page-polls" class="page">
+        <div id="topbar">
+          <div class="page-title">Votações da Comunidade</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadPolls()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <p style="margin:0;font-size:13px;color:var(--text2);line-height:1.55;">
+            Participe das enquetes do cluster. Cada voto único pode render <strong>Âmbares</strong> como recompensa simbólica.
+            O resultado é calculado automaticamente ao fim do prazo — com percentuais em tempo real e validação por quorum mínimo, quando configurado.
+          </p>
+        </div>
+        <div id="polls-list" style="display:flex;flex-direction:column;gap:16px;color:var(--text2);">Carregando…</div>
+      </div>
+
       <!-- PAGE: Minha Área -->
       <div id="page-myarea" class="page">
         <div id="topbar">
@@ -5852,6 +5882,42 @@
           </div>
         </div>
         <div id="servers-list"></div>
+      </div>
+
+      <!-- PAGE: Votações (admin) -->
+      <div id="page-polls-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🗳️ Votações — Administração</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadPollsAdmin()">↺ Atualizar</button>
+            <button class="btn btn-primary" onclick="pollsAdminShowCreate()">+ Nova votação</button>
+          </div>
+        </div>
+        <div id="polls-admin-create" class="card hidden" style="margin-bottom:16px;">
+          <div class="card-header"><div class="card-title">Nova votação</div></div>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;"><label>Título</label><input id="poll-admin-title" type="text" maxlength="200" /></div>
+            <div class="form-group" style="grid-column:1/-1;"><label>Descrição</label><textarea id="poll-admin-desc" rows="3"></textarea></div>
+            <div class="form-group"><label>Recompensa (Âmbares)</label><input id="poll-admin-reward" type="number" min="0" value="0" /></div>
+            <div class="form-group"><label>Votos mínimos (quorum)</label><input id="poll-admin-min-votes" type="number" min="0" placeholder="0 = sem mínimo" /></div>
+            <div class="form-group"><label>Encerra em</label><input id="poll-admin-ends" type="datetime-local" /></div>
+            <div class="form-group" style="align-self:end;">
+              <label><input id="poll-admin-multi" type="checkbox" /> Permitir várias opções</label>
+            </div>
+            <div class="form-group" style="align-self:end;">
+              <label><input id="poll-admin-publish" type="checkbox" checked /> Publicar imediatamente</label>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:12px;">
+            <label>Opções (uma por linha, mín. 2)</label>
+            <textarea id="poll-admin-options" rows="4" placeholder="Opção A&#10;Opção B&#10;Opção C"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-primary" onclick="pollsAdminCreate()">Criar votação</button>
+            <button class="btn btn-ghost" onclick="pollsAdminHideCreate()">Cancelar</button>
+          </div>
+        </div>
+        <div id="polls-admin-list" style="color:var(--text2);">Carregando…</div>
       </div>
 
       <!-- PAGE: Gerenciar Jogadores (admin) -->
@@ -6716,6 +6782,7 @@ function nav(el) {
   if (page === "home") loadHome();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
+  if (page === "polls") loadPolls();
   if (page === "catalog") loadCatalog();
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
@@ -6727,6 +6794,7 @@ function nav(el) {
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
+  if (page === "polls-admin") loadPollsAdmin();
   if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "tickets-admin") {
     _ticketsAdminSelectedId = null;
@@ -9266,6 +9334,245 @@ function _renderTicketThread(hostId, messages, orphanAtts) {
     ? `<div style="font-size:12px;color:var(--text2);">Anexos: ${orphanAtts.map(a =>
         `<a href="${API}/api/tickets/attachments/${a.id}" target="_blank">📎 ${escHtml(a.original_filename)}</a>`
       ).join(" ")}</div>` : "");
+}
+
+function _parseLinksTextarea(elId) {
+  const raw = (document.getElementById(elId)?.value || "").trim();
+  if (!raw) return [];
+  return raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+}
+
+// ── Votações ─────────────────────────────────────────────────────────────────
+let _pollsCache = [];
+let _pollVoteSelection = {};
+
+function _pollStatusBadge(poll) {
+  const st = poll.status || "";
+  const colors = { ACTIVE: "var(--success)", CLOSED: "var(--text2)", DRAFT: "var(--warning)", CANCELLED: "var(--danger)" };
+  return `<span style="font-size:11px;font-weight:600;color:${colors[st] || "var(--text2)"}">${escHtml(poll.status_label || st)}</span>`;
+}
+
+function _pollTimeBar(poll) {
+  const pct = Number(poll.time_progress_percent || 0);
+  const ends = poll.ends_at ? new Date(poll.ends_at).toLocaleString("pt-BR") : "—";
+  return `<div style="margin:10px 0 6px;">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:4px;">
+      <span>Progresso do prazo</span><span>${pct}% · até ${escHtml(ends)}</span>
+    </div>
+    <div style="height:6px;background:var(--surface3);border-radius:4px;overflow:hidden;">
+      <div style="height:100%;width:${Math.min(100, pct)}%;background:var(--amber);border-radius:4px;"></div>
+    </div>
+  </div>`;
+}
+
+function _pollOptionsHtml(poll, { admin = false } = {}) {
+  const opts = poll.options || [];
+  const maxVotes = Math.max(1, ...opts.map(o => o.votes || 0));
+  return opts.map(opt => {
+    const pct = opt.percent != null ? opt.percent : 0;
+    const barW = poll.status === "CLOSED" || poll.total_option_votes > 0
+      ? pct : Math.round(((opt.votes || 0) / maxVotes) * 100);
+    const winner = poll.winner_option_id === opt.id && poll.result_valid;
+    const invalid = poll.status === "CLOSED" && poll.result_valid === false;
+    const canVote = poll.is_open && !poll.viewer_has_voted && _auth.authenticated;
+    const multi = poll.allow_multiple;
+    const inputType = multi ? "checkbox" : "radio";
+    const inputName = `poll-${poll.id}`;
+    const checked = (_pollVoteSelection[poll.id] || []).includes(opt.id) ? "checked" : "";
+    const voteCtrl = canVote
+      ? `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:6px;">
+           <input type="${inputType}" name="${inputName}" value="${opt.id}" ${checked}
+             onchange="pollToggleOption(${poll.id}, ${opt.id}, ${multi})" />
+           <span>${escHtml(opt.label)}</span>
+         </label>`
+      : `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+           <span>${winner ? "🏆 " : ""}${escHtml(opt.label)}</span>
+           <span style="font-size:11px;color:var(--text2);">${opt.votes || 0} voto(s) · ${pct}%</span>
+         </div>`;
+    return `<div style="margin-bottom:10px;">
+      ${voteCtrl}
+      <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;">
+        <div style="height:100%;width:${barW}%;background:${winner ? "var(--success)" : invalid ? "var(--text2)" : "var(--amber)"};opacity:${invalid ? 0.35 : 1};"></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function pollToggleOption(pollId, optionId, multi) {
+  if (!_pollVoteSelection[pollId]) _pollVoteSelection[pollId] = [];
+  if (multi) {
+    const idx = _pollVoteSelection[pollId].indexOf(optionId);
+    if (idx >= 0) _pollVoteSelection[pollId].splice(idx, 1);
+    else _pollVoteSelection[pollId].push(optionId);
+  } else {
+    _pollVoteSelection[pollId] = [optionId];
+  }
+  _renderPollsFromCache();
+}
+
+function _renderPollsFromCache() {
+  const root = document.getElementById("polls-list");
+  if (!root) return;
+  if (!_pollsCache.length) {
+    root.innerHTML = `<div class="empty-state"><div class="empty-icon">🗳️</div><p>Nenhuma votação aberta ou recente.</p></div>`;
+    return;
+  }
+  root.innerHTML = _pollsCache.map(poll => {
+      const reward = poll.reward_amber > 0
+        ? `<span class="home-badge home-badge--amber">🪙 +${poll.reward_amber} ${escHtml(CURRENCY.singular)} ao votar</span>` : "";
+      const minV = poll.min_votes_valid > 0
+        ? `<span style="font-size:11px;color:var(--text2);">Quorum mínimo: ${poll.min_votes_valid} votante(s)</span>` : "";
+      const voted = poll.viewer_has_voted
+        ? `<div style="font-size:12px;color:var(--success);margin-top:8px;">✓ Você já participou desta enquete.</div>` : "";
+      const resultNote = poll.status === "CLOSED"
+        ? (poll.result_valid === false
+          ? `<div style="font-size:12px;color:var(--warning);margin-top:8px;">Resultado inválido — quorum mínimo não atingido (${poll.total_voters} votante(s)).</div>`
+          : poll.winner_option_id
+            ? `<div style="font-size:12px;color:var(--success);margin-top:8px;">Vencedor definido automaticamente ao encerrar.</div>` : "")
+        : "";
+      const voteBtn = poll.is_open && !poll.viewer_has_voted && _auth.authenticated
+        ? `<button class="btn btn-primary btn-sm" style="margin-top:12px;" onclick="submitPollVote(${poll.id})">Confirmar voto</button>` : "";
+      const loginHint = poll.is_open && !poll.viewer_has_voted && !_auth.authenticated
+        ? `<button class="btn btn-ghost btn-sm" style="margin-top:12px;" onclick="loginWithSteam()">Entrar com Steam para votar</button>` : "";
+      return `<div class="card">
+        <div class="card-header" style="flex-wrap:wrap;gap:8px;">
+          <div>
+            <div class="card-title">${escHtml(poll.title)}</div>
+            <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              ${_pollStatusBadge(poll)} ${reward} ${minV}
+            </div>
+          </div>
+        </div>
+        ${poll.description ? `<p style="font-size:13px;color:var(--text2);margin:0 0 8px;">${escHtml(poll.description)}</p>` : ""}
+        ${_pollTimeBar(poll)}
+        <div>${_pollOptionsHtml(poll)}</div>
+        <div style="font-size:11px;color:var(--text2);">${poll.total_voters || 0} participante(s) · ${poll.total_option_votes || 0} voto(s) em opções${poll.allow_multiple ? " · múltipla escolha" : ""}</div>
+        ${voted}${resultNote}${voteBtn}${loginHint}
+      </div>`;
+    }).join("");
+}
+
+async function loadPolls() {
+  const root = document.getElementById("polls-list");
+  if (!root) return;
+  root.innerHTML = "Carregando…";
+  try {
+    const d = await fetchJson("/api/polls");
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    _pollsCache = d.polls || [];
+    _renderPollsFromCache();
+  } catch (e) {
+    root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
+  }
+}
+
+async function submitPollVote(pollId) {
+  const ids = _pollVoteSelection[pollId] || [];
+  if (!ids.length) { toast("Selecione ao menos uma opção.", "warning"); return; }
+  try {
+    const d = await fetchJson(`/api/polls/${pollId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ option_ids: ids }),
+    });
+    if (!d.ok) throw new Error(d.error || "Não foi possível votar");
+    toast(d.poll?.reward_amber > 0
+      ? `Voto registrado! +${d.poll.reward_amber} ${CURRENCY.plural} creditados.`
+      : "Voto registrado!", "success");
+    delete _pollVoteSelection[pollId];
+    if (_auth.authenticated) refreshPlayerBalance();
+    loadPolls();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+function pollsAdminShowCreate() {
+  document.getElementById("polls-admin-create")?.classList.remove("hidden");
+}
+function pollsAdminHideCreate() {
+  document.getElementById("polls-admin-create")?.classList.add("hidden");
+}
+
+async function pollsAdminCreate() {
+  const title = document.getElementById("poll-admin-title")?.value?.trim();
+  const description = document.getElementById("poll-admin-desc")?.value?.trim() || "";
+  const reward_amber = parseInt(document.getElementById("poll-admin-reward")?.value || "0", 10) || 0;
+  const minRaw = document.getElementById("poll-admin-min-votes")?.value?.trim();
+  const min_votes_valid = minRaw ? parseInt(minRaw, 10) : null;
+  const endsLocal = document.getElementById("poll-admin-ends")?.value;
+  if (!title || !endsLocal) { toast("Preencha título e data final.", "warning"); return; }
+  const ends_at = new Date(endsLocal).toISOString();
+  const lines = (document.getElementById("poll-admin-options")?.value || "").split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (lines.length < 2) { toast("Informe ao menos 2 opções.", "warning"); return; }
+  const options = lines.map(label => ({ label }));
+  try {
+    const d = await fetchJson("/api/admin/polls", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title, description, options, ends_at, reward_amber, min_votes_valid,
+        allow_multiple: !!document.getElementById("poll-admin-multi")?.checked,
+        publish: !!document.getElementById("poll-admin-publish")?.checked,
+      }),
+    });
+    if (!d.ok) throw new Error(d.error || "Erro ao criar");
+    toast("Votação criada.", "success");
+    pollsAdminHideCreate();
+    loadPollsAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function loadPollsAdmin() {
+  const root = document.getElementById("polls-admin-list");
+  if (!root) return;
+  root.innerHTML = "Carregando…";
+  try {
+    const d = await fetchJson("/api/admin/polls");
+    if (!d.ok) throw new Error(d.error || "Falha");
+    const polls = d.polls || [];
+    if (!polls.length) {
+      root.innerHTML = "<p>Nenhuma votação cadastrada.</p>";
+      return;
+    }
+    root.innerHTML = polls.map(poll => {
+      const actions = [];
+      if (poll.status === "DRAFT") actions.push(`<button class="btn btn-success btn-sm" onclick="pollsAdminAction(${poll.id},'publish')">Publicar</button>`);
+      if (poll.status === "ACTIVE") actions.push(`<button class="btn btn-warning btn-sm" onclick="pollsAdminAction(${poll.id},'close')">Encerrar agora</button>`);
+      if (poll.status !== "CLOSED" && poll.status !== "CANCELLED") actions.push(`<button class="btn btn-danger btn-sm" onclick="pollsAdminAction(${poll.id},'cancel')">Cancelar</button>`);
+      return `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header"><div class="card-title">${escHtml(poll.title)}</div>${_pollStatusBadge(poll)}</div>
+        <p style="font-size:12px;color:var(--text2);">${escHtml(poll.description || "")}</p>
+        ${_pollTimeBar(poll)}
+        <div>${_pollOptionsHtml(poll, { admin: true })}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:8px;">
+          Recompensa: ${poll.reward_amber} · Participantes: ${poll.total_voters}
+          ${poll.min_votes_valid ? ` · Quorum: ${poll.min_votes_valid}` : ""}
+          ${poll.status === "CLOSED" && poll.result_valid === false ? " · <strong style='color:var(--warning)'>Resultado inválido</strong>" : ""}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">${actions.join("")}</div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
+  }
+}
+
+async function pollsAdminAction(pollId, action) {
+  const paths = { publish: "publish", close: "close", cancel: "cancel" };
+  const path = paths[action];
+  if (!path) return;
+  if (!confirm(`Confirmar ação «${action}» nesta votação?`)) return;
+  try {
+    const d = await fetchJson(`/api/admin/polls/${pollId}/${path}`, { method: "POST" });
+    if (!d.ok) throw new Error(d.error || "Falha");
+    toast("Atualizado.", "success");
+    loadPollsAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
 }
 
 function ticketsSwitchTab(tab) {
@@ -14110,7 +14417,9 @@ async function adminRefundOrder(orderId) {
   });
   const d = await r.json();
   if (d.ok) {
-    toast(`Reembolsados ${d.refunded ?? 0} Âmbar.`, "success");
+    const n = Number(d.refunded || 0);
+    if (n > 0) toast(`Reembolsados ${n} Âmbar. Novo saldo: ${d.new_balance ?? "—"}.`, "success");
+    else toast("Pedido marcado sem crédito — verifique o valor.", "warning");
     loadAdminOrders();
     loadAudit();
   } else toast(d.error || "Falha no reembolso", "error");

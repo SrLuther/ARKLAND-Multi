@@ -8,9 +8,13 @@ from typing import Any, Dict, Optional
 from .buff_manager import BUFF_RATE_FIELDS, BuffEvent, stack_buff_rate
 
 
-def _norm_slug(value: str) -> str:
+def norm_slug(value: str) -> str:
+    """Slug estável para casar mapa ↔ servidor (público para arkshop_web)."""
     base = (value or "").strip().lower()
     return re.sub(r"[^a-z0-9]+", "_", base).strip("_")
+
+
+_norm_slug = norm_slug
 
 
 def _read_rate(cfg: object, field_name: str, *, game_settings: bool = False) -> float:
@@ -58,19 +62,9 @@ def compute_max_wild_dino_level(cfg: object) -> int:
 
 
 def compute_max_player_level(cfg: object) -> int:
-    if _is_tek(cfg):
-        override = int(getattr(cfg, "override_max_xp_player", 0) or 0)
-        if override > 0:
-            return override
-        if getattr(cfg, "enable_difficulty_override", False):
-            diff = float(getattr(cfg, "override_official_difficulty", 5.0) or 5.0)
-            return 105 + int(round(diff * 15))
-        return 105
-    gs = getattr(cfg, "game_settings", None)
-    if gs is None:
-        return 105
-    diff = float(getattr(gs, "override_official_difficulty", 5.0) or 5.0)
-    return 105 + int(round(diff * 15))
+    from .player_level_ascension import resolve_max_player_level
+
+    return resolve_max_player_level(cfg)
 
 
 def _effective_rate(
@@ -206,7 +200,7 @@ def build_snapshot_indexes(
         sid = str(srv.get("server_id", "")).strip()
         if sid:
             by_id[sid] = snap
-        for raw in (sid, srv.get("label", "")):
+        for raw in (sid, srv.get("label", ""), srv.get("server_map", "")):
             slug = _norm_slug(str(raw or ""))
             if slug:
                 by_slug[slug] = snap

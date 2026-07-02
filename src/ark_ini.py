@@ -1641,7 +1641,8 @@ class ArkIniManager:
             r'|dinoclassdamagemultipliers'
             r'|tameddinoclassresistancemultipliers'
             r'|tameddinoclassdamagemultipliers'
-            r'|configoverridesupplycrateitems)\s*=.*$',
+            r'|configoverridesupplycrateitems'
+            r'|overrideplayerlevelengrampoints)\s*=.*$',
             _re.IGNORECASE | _re.MULTILINE,
         )
         ini_text = _SPAWN_RE.sub("", ini_text)
@@ -1664,6 +1665,10 @@ class ArkIniManager:
             spawn_lines.append(f"TamedDinoClassDamageMultipliers={_serialize_dino_class_multiplier(entry)}")
         for crate in adv.supply_crate_overrides:
             spawn_lines.append(f"ConfigOverrideSupplyCrateItems={_serialize_supply_crate_override(crate)}")
+
+        from .player_engram_points import build_engram_points_ini_lines
+
+        spawn_lines.extend(build_engram_points_ini_lines(config))
 
         if spawn_lines:
             section_header = f"[{section}]".lower()

@@ -5,6 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.175] - 2026-07-01
+
+### Feature
+
+- Feature (TEK / Jogador): painel simplificado de nível máximo — nível base e total com ascensões γ/β/α, chibi, runas e notas; XP no INI calculado automaticamente.
+- Feature (TEK / Jogador): multiplicador de pontos de engrama por nível (ex.: 5× → 40 pts/nível) gravado em OverridePlayerLevelEngramPoints no Game.ini.
+- Feature (Web Store / Votações): enquetes com admin, prazo, percentuais, quorum e recompensa em Âmbares; voto único e múltipla escolha opcional; visível sem login.
+- Feature (Web Store / Home): cards de mapa gerados automaticamente a partir de servers.json (show_on_home) — rates e conexão detectados pelo sync ASM.
+
+### Improvement
+
+- Melhoria (Backup): saves do mundo passam a ser a prioridade (padrão); .ini opcional; Discord/log mostram quantos arquivos de save e config foram incluídos.
+
+### Fix
+
+- Fix CRÍTICO (Backup): snapshots ignoravam saves reais — backup buscava SavedArks/ em vez de ShooterGame/Saved/{AltSaveDirectoryName}/ (ex.: savegame); restauração devolve arquivos à pasta correta.
+- Fix (Web Store / Reembolso): pedido marcado REEMBOLSADO sem creditar Âmbares — crédito garantido com fallback na auditoria; bloqueio quando valor = 0.
+
 ## [1.9.174] - 2026-07-01
 
 ### Fix

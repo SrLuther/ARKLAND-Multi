@@ -77,7 +77,8 @@ def build_tab_backup(app: "ARKServerManagerApp", parent, srv: "ServerConfig") ->
     w["backup_inc_config"] = tk.BooleanVar(value=srv.backup_include_config)
     _lbl(cfg_card,
          "O que incluir no backup",
-         "Saves = dados de jogadores/mundo.  Config = arquivos .ini."
+         "Saves = mundo, jogadores e tribos (Saved/{AltSaveDirectoryName}/). "
+         "Config = .ini opcional."
          ).grid(row=4, column=0, padx=(16, 8), pady=(4, 0), sticky="w")
     chk_row = ctk.CTkFrame(cfg_card, fg_color="transparent")
     chk_row.grid(row=4, column=1, padx=(0, 16), pady=4, sticky="w")

@@ -240,6 +240,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
         "per_platform_max_structures_multiplier",
         "platform_saddle_build_area_bounds_multiplier",
         "kick_idle_players_period", "tribe_name_change_cooldown",
+        "player_engram_points_multiplier",
         "tamed_dino_damage_multiplier", "tamed_dino_resistance_multiplier",
         "dino_character_stamina_drain_multiplier", "dino_turret_damage_multiplier",
         "max_personal_tamed_dinos",
@@ -250,7 +251,7 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
     ]
     int_gs = [
         "max_tamed_dinos", "structure_damage_repair_cooldown",
-        "player_level_cap", "dino_level_cap", "max_tribe_size",
+        "player_level_cap", "player_base_level", "dino_level_cap", "max_tribe_size",
         "personal_tamed_dinos_saddle_structure_cost", "max_structures_visible",
         "max_platform_saddle_structure_limit",
         "npc_network_stasis_range_scale_player_count_start",
@@ -296,6 +297,9 @@ def save_server_config(app: "ARKServerManagerApp", server_id: str, silent: bool 
                 setattr(gs, f, bool(w[key].get()))
             except (Exception):
                 pass
+
+    from ..ui.player_level_panel import apply_classic_player_level_to_gs
+    apply_classic_player_level_to_gs(w, gs)
 
     # ── PerLevelStatsMultiplier ────────────────────────────────────────────
     for group, attr in [

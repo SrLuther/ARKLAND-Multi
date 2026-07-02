@@ -69,6 +69,46 @@ def test_public_home_includes_map_stats(client, tmp_path, monkeypatch):
     assert brighamia["stats"]["max_dino_level"] == 150
 
 
+def test_public_home_auto_maps_from_servers(client, tmp_path, monkeypatch):
+    """Com servidores syncados, a home lista mapas do ASM — sem FeaturedMaps manual."""
+    servers_file = tmp_path / "servers.json"
+    servers_file.write_text(
+        json.dumps([
+            {
+                "server_id": "alps",
+                "label": "Alps",
+                "server_map": "Alps_WP",
+                "show_on_home": True,
+                "config_snapshot": {
+                    "xp_multiplier": 5,
+                    "taming_speed_multiplier": 5,
+                    "harvest_amount_multiplier": 5,
+                    "max_player_level": 180,
+                    "max_dino_level": 150,
+                },
+            },
+            {
+                "server_id": "crystal",
+                "label": "Crystal Isles",
+                "server_map": "CrystalIsles",
+                "show_on_home": True,
+                "config_snapshot": {"xp_multiplier": 3},
+            },
+        ]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
+
+    home = client.get("/api/public/home").get_json()
+    names = [m["name"] for m in home["featured_maps"]]
+    assert names == ["Alps", "Crystal Isles"]
+    alps = next(m for m in home["featured_maps"] if m["name"] == "Alps")
+    assert alps["stats"]["xp"] == "5x"
+    assert alps["mod_map"] is True
+    crystal = next(m for m in home["featured_maps"] if m["name"] == "Crystal Isles")
+    assert crystal["mod_map"] is False
+
+
 def test_public_home_default_featured_maps(client):
     r = client.get("/api/public/home")
     assert r.status_code == 200

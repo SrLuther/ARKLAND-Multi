@@ -1361,6 +1361,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_notification_schema(engine)
     except Exception as exc:
         log.warning("Notificações: migrate falhou: %s", exc)
+    try:
+        from poll_service import ensure_poll_schema
+
+        ensure_poll_schema(engine)
+    except Exception as exc:
+        log.warning("Votações: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -2915,9 +2921,30 @@ def _add_player_points(steam_id: str, amount: int) -> int | None:
         _release_db_session(db)
 
 
+def _db_engine_url(db: Any | None = None) -> str:
+    if db is not None:
+        try:
+            bind = db.get_bind()
+            if bind is not None:
+                return str(bind.url).lower()
+        except Exception:
+            pass
+        legacy = getattr(db, "bind", None)
+        if legacy is not None:
+            return str(legacy.url).lower()
+    return str(_ACTIVE_DATABASE_URL or "").lower()
+
+
 def _is_mysql_engine(db: Any | None = None) -> bool:
-    url = str(getattr(db, "bind", None).url if db is not None and getattr(db, "bind", None) else (_ACTIVE_DATABASE_URL or ""))
-    return "mysql" in url.lower()
+    return "mysql" in _db_engine_url(db)
+
+
+def _player_points_tx(db: Any, steam_id: str) -> int:
+    row = db.execute(
+        text("SELECT points FROM players WHERE steam_id = :sid"),
+        {"sid": str(steam_id)},
+    ).fetchone()
+    return int(row[0]) if row else 0
 
 
 def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
@@ -2927,7 +2954,7 @@ def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
     if _is_mysql_engine(db):
         db.execute(
             text(
-                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "INSERT INTO players (steam_id, points, kits) VALUES (:sid, :pts, '{}') "
                 "ON DUPLICATE KEY UPDATE points = points + :pts"
             ),
             {"sid": steam_id, "pts": amount},
@@ -2935,11 +2962,12 @@ def _add_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
     else:
         db.execute(
             text(
-                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts) "
+                "INSERT INTO players (steam_id, points, kits) VALUES (:sid, :pts, '{}') "
                 "ON CONFLICT(steam_id) DO UPDATE SET points = points + :pts"
             ),
             {"sid": steam_id, "pts": amount},
         )
+    db.flush()
     row = db.execute(
         text("SELECT points FROM players WHERE steam_id = :sid"),
         {"sid": steam_id},
@@ -5845,6 +5873,63 @@ _DEFAULT_FEATURED_MAPS_INTRO = (
     "para PvE/PvP, performance em dedicado e integração total com eventos sazonais."
 )
 
+# Mapas oficiais vanilla — demais nomes são tratados como MOD na home.
+_OFFICIAL_ARK_MAP_SLUGS = frozenset({
+    "the_island", "the_center", "scorched_earth", "ragnarok", "aberration",
+    "extinction", "valguero", "genesis", "genesis_1", "genesis_2", "genesis2",
+    "crystal_isles", "lost_island", "fjordur", "aquatica",
+})
+
+
+def _guess_mod_map(server_map: str, display_name: str = "") -> bool:
+    from src.server_config_snapshot import norm_slug
+
+    for raw in (server_map, display_name):
+        slug = norm_slug(str(raw or ""))
+        if slug and slug in _OFFICIAL_ARK_MAP_SLUGS:
+            return False
+    return True
+
+
+def _featured_map_overrides_index(
+    manual_maps: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    """Índice de overrides opcionais (texto/badge) por server_id ou slug do nome."""
+    from src.server_config_snapshot import norm_slug
+
+    by_id: dict[str, dict[str, Any]] = {}
+    by_slug: dict[str, dict[str, Any]] = {}
+    for m in manual_maps:
+        if m.get("enabled", True) is False:
+            continue
+        sid = str(m.get("server_id") or "").strip()
+        if sid:
+            by_id[sid] = m
+        for key in (m.get("name"), m.get("id")):
+            slug = norm_slug(str(key or ""))
+            if slug:
+                by_slug[slug] = m
+    return by_id, by_slug
+
+
+def _lookup_featured_override(
+    srv: dict[str, Any],
+    by_id: dict[str, dict[str, Any]],
+    by_slug: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    from src.server_config_snapshot import norm_slug
+
+    sid = str(srv.get("server_id") or "").strip()
+    if sid and sid in by_id:
+        return by_id[sid]
+    label = str(srv.get("label") or "").strip()
+    server_map = str(srv.get("server_map") or "").strip()
+    for raw in (label, server_map, sid):
+        slug = norm_slug(raw)
+        if slug and slug in by_slug:
+            return by_slug[slug]
+    return None
+
 
 def _default_featured_maps() -> list[dict[str, Any]]:
     return [
@@ -5999,12 +6084,59 @@ def _load_featured_maps_public() -> list[dict[str, Any]]:
     from src.server_config_snapshot import (
         build_snapshot_indexes,
         match_snapshot_for_map,
+        snapshot_public_view,
     )
 
     servers = _load_servers()
+    home_servers = [
+        s for s in servers
+        if isinstance(s, dict)
+        and str(s.get("server_id") or "").strip()
+        and s.get("show_on_home", True) is not False
+    ]
+    manual_maps = _load_featured_maps_raw()
+    by_id_ov, by_slug_ov = _featured_map_overrides_index(manual_maps)
+
+    if home_servers:
+        out: list[dict[str, Any]] = []
+        for srv in sorted(
+            home_servers,
+            key=lambda s: str(s.get("label") or s.get("server_id") or "").lower(),
+        ):
+            sid = str(srv.get("server_id") or "").strip()
+            label = str(srv.get("label") or sid).strip()
+            server_map = str(srv.get("server_map") or "").strip()
+            display_name = label or server_map or sid
+            ov = _lookup_featured_override(srv, by_id_ov, by_slug_ov)
+
+            snap = srv.get("config_snapshot")
+            stats = snapshot_public_view(snap) if isinstance(snap, dict) else None
+            if not stats:
+                pseudo = {"server_id": sid, "name": display_name, "id": sid}
+                stats = match_snapshot_for_map(
+                    pseudo, *build_snapshot_indexes(servers),
+                )
+
+            if ov and ov.get("name"):
+                display_name = str(ov["name"]).strip()
+
+            entry: dict[str, Any] = {
+                "name": display_name,
+                "mod_map": (
+                    bool(ov.get("mod_map"))
+                    if ov and "mod_map" in ov
+                    else _guess_mod_map(server_map, display_name)
+                ),
+                "description": str(ov.get("description") or "").strip() if ov else "",
+            }
+            if stats:
+                entry["stats"] = stats
+            out.append(entry)
+        return out
+
     by_id, by_slug = build_snapshot_indexes(servers)
-    out: list[dict[str, Any]] = []
-    for m in _load_featured_maps_raw():
+    out = []
+    for m in manual_maps:
         if m.get("enabled", True) is False:
             continue
         entry = {
@@ -6485,6 +6617,19 @@ def player_purchase():
                 ).fetchone()
                 balance_now = int(row[0]) if row else 0
                 db.rollback()
+                cancel_db = _SessionLocal()
+                try:
+                    orphan = (
+                        cancel_db.query(Order)
+                        .filter(Order.order_id == order.order_id)
+                        .first()
+                    )
+                    if orphan and orphan.status == "PENDENTE":
+                        orphan.status = "CANCELADO"
+                        orphan.updated_at = _now()
+                        cancel_db.commit()
+                finally:
+                    _release_db_session(cancel_db)
                 if idempotency_key:
                     _used_idempotency_keys.pop(idempotency_key, None)
                 return jsonify({
@@ -6609,23 +6754,17 @@ def player_cancel_order(order_id: str):
         item_id = str(order.item_id or "")
         order_amount = int(order.amount or 1)
 
-        refund = int(order.points_spent or 0)
+        refund = _order_refund_amount(order, db)
         if refund <= 0:
-            entry = _catalog_entry(
-                "kit" if item_type == "kit" else "shop",
-                item_id,
-            )
-            refund = _catalog_price(entry, order_amount)
+            return jsonify({
+                "ok": False,
+                "error": (
+                    "Não foi possível calcular o valor do reembolso para este pedido. "
+                    "Ajuste o saldo manualmente em Jogadores se necessário."
+                ),
+            }), 400
 
-        new_balance: int | None = None
-        if refund > 0:
-            new_balance = _add_player_points_tx(db, steam_id, refund)
-        else:
-            row = db.execute(
-                text("SELECT points FROM players WHERE steam_id = :sid"),
-                {"sid": steam_id},
-            ).fetchone()
-            new_balance = int(row[0]) if row else 0
+        new_balance = _credit_order_refund_tx(db, steam_id, refund)
 
         order.status = "CANCELADO"
         order.updated_at = _now()
@@ -7587,16 +7726,53 @@ def player_rebuy(order_id: str):
 _ADMIN_TERMINAL_STATUSES = frozenset({"CANCELADO", "REEMBOLSADO"})
 
 
-def _order_refund_amount(order: Order) -> int:
-    """Valor em Âmbar a devolver para o pedido (points_spent ou preço do catálogo)."""
+def _order_refund_amount(order: Order, db: Any | None = None) -> int:
+    """Valor em Âmbar a devolver (points_spent → catálogo → auditoria do resgate)."""
     refund = int(order.points_spent or 0)
     if refund > 0:
         return refund
+    item_type = str(order.item_type or "shop")
     entry = _catalog_entry(
-        "kit" if str(order.item_type or "") == "kit" else "shop",
+        "kit" if item_type == "kit" else "shop",
         str(order.item_id or ""),
     )
-    return _catalog_price(entry, int(order.amount or 1))
+    refund = _catalog_price(entry, int(order.amount or 1))
+    if refund > 0:
+        return refund
+    if db is None:
+        return 0
+    rows = (
+        db.query(AuditEvent)
+        .filter(
+            AuditEvent.order_id == order.order_id,
+            AuditEvent.event_type.in_(("purchase_created", "purchase")),
+        )
+        .order_by(AuditEvent.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            payload = {}
+        price = int(payload.get("price") or 0)
+        if price > 0:
+            return price
+    return 0
+
+
+def _credit_order_refund_tx(db: Any, steam_id: str, refund: int) -> int:
+    """Credita reembolso e confirma que o saldo subiu na mesma transação."""
+    if refund <= 0:
+        return _player_points_tx(db, steam_id)
+    before = _player_points_tx(db, steam_id)
+    after = _add_player_points_tx(db, steam_id, refund)
+    if after < before + refund:
+        raise RuntimeError(
+            f"Reembolso não creditado (saldo {before} → {after}, esperado +{refund})"
+        )
+    return after
 
 
 def _close_order_disputes(db: Any, order_id: str) -> int:
@@ -7782,16 +7958,17 @@ def admin_refund_order(order_id: str):
         steam_id = str(order.steam_id)
         item_type = order.item_type
         item_id = order.item_id
-        refund = _order_refund_amount(order)
-        new_balance: int | None = None
-        if refund > 0:
-            new_balance = _add_player_points_tx(db, steam_id, refund)
-        else:
-            row = db.execute(
-                text("SELECT points FROM players WHERE steam_id = :sid"),
-                {"sid": steam_id},
-            ).fetchone()
-            new_balance = int(row[0]) if row else 0
+        refund = _order_refund_amount(order, db)
+        if refund <= 0:
+            return jsonify({
+                "ok": False,
+                "error": (
+                    "Valor do reembolso é zero — o pedido não tem Âmbares registrados. "
+                    "Use «Ajustar saldo» no jogador se precisar devolver manualmente."
+                ),
+            }), 400
+
+        new_balance = _credit_order_refund_tx(db, steam_id, refund)
 
         _revoke_entitlement_for_order(steam_id, order_id, db=db)
         closed = _close_order_disputes(db, order_id)
@@ -8735,6 +8912,20 @@ register_notification_routes(
     login_required=login_required,
     steam_id_from_session=_steam_id_from_session,
     limiter=limiter,
+)
+
+from poll_routes import register_poll_routes
+from notification_service import create_notification as _create_user_notification
+
+register_poll_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
+    limiter=limiter,
+    create_notification=_create_user_notification,
 )
 
 from ticket_notify import configure_ticket_notify

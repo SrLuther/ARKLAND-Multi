@@ -37,7 +37,7 @@ class DiscordNotifyConfig:
 class BackupConfig:
     backup_dir:            str  = ""
     include_savegames:     bool = True
-    include_config:        bool = True
+    include_config:        bool = False   # opcional — saves são a prioridade
     limit_backup_count:    bool = True
     max_backup_count:      int  = 10
     exclude_old_backups:   bool = True   # legado — espelha limit_backup_count

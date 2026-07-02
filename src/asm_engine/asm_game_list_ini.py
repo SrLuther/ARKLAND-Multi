@@ -29,6 +29,7 @@ REPEATED_KEY_PREFIXES: tuple[str, ...] = (
     "configaddnpcspawnentriescontainer",
     "configoverridenpcspawnentriescontainer",
     "configoverridesupplycrateitems",
+    "overrideplayerlevelengrampoints",
 )
 
 _STRIP_RE = re.compile(
@@ -154,6 +155,10 @@ def build_repeated_game_lines(cfg: "AsmServerConfig") -> list[str]:
         cfg.supply_crate_overrides_raw,
     ):
         lines.extend(_lines_from_raw_text(raw))
+
+    from ..player_engram_points import build_engram_points_ini_lines
+
+    lines.extend(build_engram_points_ini_lines(cfg))
 
     return lines
 
