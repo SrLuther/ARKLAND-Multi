@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.175"
+APP_VERSION: str = "1.9.176"
 BUILD_DATE: str = "2026-07-01"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.176",
+        "date": "2026-07-01",
+        "changes": [
+            "Fix CRÍTICO (TEK / Jogador): seção «Configurações do Jogador» não abria — import quebrado em "
+            "player_level_panel.py (IndentationError) corrigido.",
+        ],
+    },
     {
         "version": "1.9.175",
         "date": "2026-07-01",

@@ -10,6 +10,7 @@ from ..player_engram_points import (
     ARK_VANILLA_ENGRAM_POINTS_PER_LEVEL,
     engram_points_per_level,
 )
+from ..player_level_ascension import (
     ARK_DEFAULT_BASE_LEVEL,
     ASCENSION_BOSSES,
     EXTRA_BONUSES,

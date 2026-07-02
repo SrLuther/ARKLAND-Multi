@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.176] - 2026-07-01
+
+### Fix
+
+- Fix CRÍTICO (TEK / Jogador): seção «Configurações do Jogador» não abria — import quebrado em player_level_panel.py (IndentationError) corrigido.
+
 ## [1.9.175] - 2026-07-01
 
 ### Feature
