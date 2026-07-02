@@ -3650,6 +3650,54 @@ def _check_entry_permissions(steam_id: str, entry: dict[str, Any]) -> tuple[bool
     return ok, missing
 
 
+def _order_license_group(order: Order) -> str | None:
+    item_type = str(order.item_type or "shop")
+    item_id = str(order.item_id or "")
+    resolved_id = _resolve_catalog_item_id(item_type, item_id)
+    entry = _catalog_entry(
+        "kit" if item_type == "kit" else "shop",
+        item_id,
+    )
+    lic = _get_license_grant(entry, resolved_id)
+    if not lic or lic.get("Redeemable") is False:
+        return None
+    group = str(lic.get("Group") or "").strip()
+    return group or None
+
+
+def _order_license_already_fulfilled(order: Order) -> bool:
+    group = _order_license_group(order)
+    if not group:
+        return False
+    return _player_has_license(str(order.steam_id), group)
+
+
+def _finalize_license_order_if_fulfilled(db, order: Order, *, reason: str) -> bool:
+    """Marca ENTREGUE quando o jogador já possui a licença do pedido."""
+    if not _order_license_already_fulfilled(order):
+        return False
+    before = order.status
+    order.status = "ENTREGUE"
+    order.last_error = None
+    order.updated_at = _now()
+    _audit_event(
+        "delivery_confirmed",
+        source="web",
+        actor_type="system",
+        target_steam_id=str(order.steam_id),
+        order_id=order.order_id,
+        server_id=order.server_id,
+        item_type=order.item_type,
+        item_id=order.item_id,
+        amount=order.amount,
+        status_before=before,
+        status_after="ENTREGUE",
+        message=f"Licença já ativa; pedido finalizado ({reason})",
+        reason=reason,
+    )
+    return True
+
+
 def _ensure_license_entitlement_for_order(order: Order, *, reason: str = "") -> bool:
     """Garante player_entitlements para pedidos de licença (reparo pós-entrega)."""
     item_type = str(order.item_type or "shop")
@@ -4691,6 +4739,10 @@ def claim_pending_orders():
 
         now = _now()
         for order in pending:
+            if _finalize_license_order_if_fulfilled(
+                db, order, reason="claim_skip_already_licensed"
+            ):
+                continue
             updated = db.execute(
                 text(
                     "UPDATE orders SET status = 'ENTREGANDO', updated_at = :now "
@@ -4737,11 +4789,24 @@ def release_pending_orders():
     if db is None:
         return jsonify({"ok": False, "error": "Database not available"}), 500
     released: list[str] = []
+    fulfilled: list[str] = []
     try:
         now = _now()
         for raw_id in raw_ids:
             order_id = str(raw_id).strip()
             if not order_id:
+                continue
+            order = db.query(Order).filter(
+                Order.steam_id == steam_id,
+                Order.order_id == order_id,
+                Order.status == "ENTREGANDO",
+            ).first()
+            if not order:
+                continue
+            if _finalize_license_order_if_fulfilled(
+                db, order, reason="release_skip_already_licensed"
+            ):
+                fulfilled.append(order_id)
                 continue
             updated = db.execute(
                 text(
@@ -4753,7 +4818,7 @@ def release_pending_orders():
             if int(getattr(updated, "rowcount", 0) or 0) > 0:
                 released.append(order_id)
         db.commit()
-        return jsonify({"ok": True, "released": released})
+        return jsonify({"ok": True, "released": released, "fulfilled": fulfilled})
     except Exception as exc:
         db.rollback()
         _log_error("release_pending_orders", steam_id=steam_id, error=str(exc))

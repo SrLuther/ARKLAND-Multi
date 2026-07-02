@@ -1,8 +1,9 @@
 {
-    "version": "1.9.176",
-    "date": "2026-07-01",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.176/ARKLAND-Multi-Setup-v1.9.176.exe",
+    "version": "1.9.177",
+    "date": "2026-07-02",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.177/ARKLAND-Multi-Setup-v1.9.177.exe",
     "changelog": [
-        "Fix CRÍTICO (TEK / Jogador): seção «Configurações do Jogador» não abria — import quebrado em player_level_panel.py (IndentationError) corrigido."
+        "Fix (Web Store / Licenças): pedido de licença ficava PENDENTE em loop após resgate web — claim/release marcam ENTREGUE quando o jogador já possui a licença ativa.",
+        "Fix (CustomShop / Licenças): entrega de licenca_* sem LicenseGrant no config.json do mapa — fallback infere o grupo (Gamma/Beta/Alfa/VIP) a partir do item_id, alinhado à web store."
     ]
 }

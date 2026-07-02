@@ -100,6 +100,29 @@ bool IsLicenseEntry(const nlohmann::json& entry) {
     return entry.value("Type", "") == "license" || entry.contains("LicenseGrant");
 }
 
+std::string InferLicenseGroupFromItemId(const std::string& item_id) {
+    const std::string lower = ToLowerAscii(item_id);
+    if (lower.rfind("licenca_", 0) != 0) return {};
+    const std::string suffix = lower.substr(8);
+    if (suffix == "gamma" || suffix == "gama") return "Gamma";
+    if (suffix == "beta") return "Beta";
+    if (suffix == "alfa") return "Alfa";
+    if (suffix == "nuvem") return "keyvault";
+    if (suffix == "vip_bronze") return "VIPBronze";
+    if (suffix == "vip_prata") return "VIPPrata";
+    if (suffix == "vip_ouro") return "VIPOuro";
+    if (suffix == "vip_diamante") return "VIPDiamante";
+    const size_t us = suffix.find('_');
+    if (us != std::string::npos && suffix.substr(0, us) == "vip") {
+        std::string tier = suffix.substr(us + 1);
+        if (!tier.empty()) {
+            tier[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(tier[0])));
+            return "VIP" + tier;
+        }
+    }
+    return {};
+}
+
 bool IsPermissionGrantCommand(const std::string& cmd, const std::string& group) {
     if (group.empty()) return false;
     if (cmd.find("Permissions.AddTimed") == std::string::npos
@@ -549,11 +572,30 @@ bool GiveItem(AShooterPlayerController* controller,
     }
 
     if (IsLicenseEntry(item) && !item.contains("LicenseGrant")) {
-        Log::GetLog()->error(
-            "GiveItem: license item '{}' missing LicenseGrant for player '{}'",
-            item_id, id);
-        if (fail_reason) *fail_reason = "licenca_mal_configurada";
-        return false;
+        const std::string group = InferLicenseGroupFromItemId(resolved_id);
+        if (!group.empty()) {
+            const int days_raw = item.value("Days", 30);
+            const int days = std::max(1, days_raw);
+            const std::string notes = "item:" + resolved_id;
+            if (ShopEntitlements::Get().Grant(id, group, days, notes, notes)) {
+                Log::GetLog()->info(
+                    "GiveItem: inferred license group '{}' for item '{}' player '{}'",
+                    group, item_id, id);
+                ok = true;
+            } else {
+                Log::GetLog()->error(
+                    "GiveItem: inferred LicenseGrant failed for license item '{}' player '{}'",
+                    item_id, id);
+                if (fail_reason) *fail_reason = "licenca_falhou";
+                return false;
+            }
+        } else {
+            Log::GetLog()->error(
+                "GiveItem: license item '{}' missing LicenseGrant for player '{}'",
+                item_id, id);
+            if (fail_reason) *fail_reason = "licenca_mal_configurada";
+            return false;
+        }
     }
 
     Log::GetLog()->info("GiveItem: item '{}' x{} delivered to player '{}' (ok={})",

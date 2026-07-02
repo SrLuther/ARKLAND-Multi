@@ -790,6 +790,82 @@ class TestPluginDeliveryQueue:
         assert "Gamma" in [e["group"] for e in d["entitlements"]]
 
 
+class TestPendingDeliveries:
+    def _write_license_catalog(self, tmp_path, monkeypatch) -> None:
+        catalog = tmp_path / "license_catalog.json"
+        catalog.write_text(
+            json.dumps({
+                "Items": {
+                    "licenca_gamma": {
+                        "Type": "license",
+                        "Description": "Licença Gamma (30 dias)",
+                    },
+                },
+                "Kits": {},
+            }),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(
+            _app_module,
+            "_read_shop_config",
+            lambda: json.loads(catalog.read_text(encoding="utf-8")),
+        )
+        _app_module._invalidate_shop_config_cache()
+
+    def test_pending_claim_skips_already_licensed_order(self, client, tmp_path, monkeypatch):
+        self._write_license_catalog(tmp_path, monkeypatch)
+        oid = _create_order_direct(item_id="licenca_gamma", status="PENDENTE")
+
+        def has_license(steam_id, group):
+            return steam_id == USER_STEAM and group == "Gamma"
+
+        monkeypatch.setattr(_app_module, "_player_has_license", has_license)
+
+        r = client.post(
+            "/api/pending/claim",
+            json={"steam_id": USER_STEAM},
+            headers={"X-API-Key": API_KEY},
+        )
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["items"] == []
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "ENTREGUE"
+            assert order.last_error is None
+        finally:
+            db.close()
+
+    def test_pending_release_fulfills_already_licensed_order(self, client, tmp_path, monkeypatch):
+        self._write_license_catalog(tmp_path, monkeypatch)
+        oid = _create_order_direct(item_id="Gamma", status="ENTREGANDO")
+
+        def has_license(steam_id, group):
+            return steam_id == USER_STEAM and group == "Gamma"
+
+        monkeypatch.setattr(_app_module, "_player_has_license", has_license)
+
+        r = client.post(
+            "/api/pending/release",
+            json={"steam_id": USER_STEAM, "order_ids": [oid]},
+            headers={"X-API-Key": API_KEY},
+        )
+        d = r.get_json()
+        assert d["ok"] is True
+        assert oid in d["fulfilled"]
+        assert oid not in d["released"]
+
+        db = _app_module._SessionLocal()
+        try:
+            order = db.query(_app_module.Order).filter(_app_module.Order.order_id == oid).first()
+            assert order.status == "ENTREGUE"
+            assert order.last_error is None
+        finally:
+            db.close()
+
+
 # ── Delivery com RCON por servidor (modo legado) ─────────────────────────────
 
 class TestServerRconRouting:

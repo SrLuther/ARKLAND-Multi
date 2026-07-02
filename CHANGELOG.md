@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.177] - 2026-07-02
+
+### Fix
+
+- Fix (Web Store / Licenças): pedido de licença ficava PENDENTE em loop após resgate web — claim/release marcam ENTREGUE quando o jogador já possui a licença ativa.
+- Fix (CustomShop / Licenças): entrega de licenca_* sem LicenseGrant no config.json do mapa — fallback infere o grupo (Gamma/Beta/Alfa/VIP) a partir do item_id, alinhado à web store.
+
 ## [1.9.176] - 2026-07-01
 
 ### Fix
