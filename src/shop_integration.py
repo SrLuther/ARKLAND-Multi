@@ -2767,6 +2767,21 @@ def sync_all_plugins(
     except Exception as exc:
         logger.warning("CustomShop sync: sanitize_catalog_blueprints ignorado: %s", exc)
 
+    try:
+        import sys
+        from pathlib import Path
+
+        _root = Path(__file__).resolve().parents[1]
+        if str(_root) not in sys.path:
+            sys.path.insert(0, str(_root))
+        from tools.apply_saddle_armor import apply_saddle_armor
+
+        n_armor, _ = apply_saddle_armor(catalog)
+        if n_armor:
+            logger.info("CustomShop sync: Armor 350 em %d sela(s) (sela_*)", n_armor)
+    except Exception as exc:
+        logger.warning("CustomShop sync: apply_saddle_armor ignorado: %s", exc)
+
     shrink_err = check_catalog_shrink_guard(catalog, cm, asm_cm=asm_cm)
     if shrink_err:
         return [], [shrink_err]

@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.183"
+APP_VERSION: str = "1.9.184"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.184",
+        "date": "2026-07-03",
+        "changes": [
+            "Fix (ASM / CustomShop): painel de item usa item_detail_source e merge_shop_item_entry para Blueprint/Armor em Items[0] (selas sela_*).",
+            "Melhoria (CustomShop / sync): sync_all_plugins aplica apply_saddle_armor em sela_* antes de sincronizar o catalogo.",
+            "Melhoria (tools): apply_saddle_armor.py — deteccao e aplicacao de Armor 350 em selas aninhadas; testes em test_apply_saddle_armor e test_shop_catalog_import.",
+        ],
+    },
     {
         "version": "1.9.183",
         "date": "2026-07-03",

@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 from src.shop_catalog_import import _normalize_item_entry, sanitize_catalog_blueprints
-from tools.apply_saddle_armor import apply_saddle_armor, is_saddle_blueprint
+from tools.apply_saddle_armor import (
+    apply_saddle_armor,
+    is_saddle_blueprint,
+    validate_saddle_armor,
+)
 
 ALLO_SADDLE = (
     "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/"
@@ -43,6 +47,14 @@ def test_is_saddle_blueprint_smallbosses_armor():
 
 def test_is_saddle_blueprint_gallimimus():
     assert is_saddle_blueprint(GALLIMIMUS)
+
+
+def test_is_saddle_blueprint_desert_titan_platform():
+    assert is_saddle_blueprint(
+        "/Game/Mods/SmallBosses/SmallDesertTitan/"
+        "PrimalItemArmor_Saddle_DesertTitan_Platform."
+        "PrimalItemArmor_Saddle_DesertTitan_Platform"
+    )
 
 
 def test_is_saddle_blueprint_rejects_player_armor():
@@ -113,6 +125,30 @@ def test_sanitize_catalog_preserves_saddle_armor():
     assert item["Armor"] == 350
     assert item["Quality"] == 100
     assert item["ForceBlueprint"] is True
+
+
+def test_validate_saddle_armor_reports_missing():
+    data = {
+        "Items": {
+            "sela_allo": {
+                "Items": [{"Blueprint": ALLO_SADDLE, "Quantity": 1}],
+            },
+        },
+    }
+    missing = validate_saddle_armor(data, armor=350)
+    assert len(missing) == 1
+    assert missing[0][0] == "Items.sela_allo.Items[0]"
+
+
+def test_validate_saddle_armor_ok_when_armor_set():
+    data = {
+        "Items": {
+            "sela_allo": {
+                "Items": [{"Blueprint": ALLO_SADDLE, "Quantity": 1, "Armor": 350}],
+            },
+        },
+    }
+    assert validate_saddle_armor(data, armor=350) == []
 
 
 def test_normalize_item_entry_preserves_armor_on_saddle():

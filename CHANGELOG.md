@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.184] - 2026-07-03
+
+### Improvement
+
+- Melhoria (CustomShop / sync): sync_all_plugins aplica apply_saddle_armor em sela_* antes de sincronizar o catalogo.
+- Melhoria (tools): apply_saddle_armor.py — deteccao e aplicacao de Armor 350 em selas aninhadas; testes em test_apply_saddle_armor e test_shop_catalog_import.
+
+### Fix
+
+- Fix (ASM / CustomShop): painel de item usa item_detail_source e merge_shop_item_entry para Blueprint/Armor em Items[0] (selas sela_*).
+
 ## [1.9.183] - 2026-07-03
 
 ### Feature

@@ -125,6 +125,88 @@ def _copy_item_stat_fields(entry: dict, out: dict) -> None:
             out[key] = val
 
 
+_ITEM_DETAIL_KEYS = (
+    "Blueprint", "Quantity", "Quality", "ForceBlueprint", "Armor", "Damage", "Durability",
+)
+_ITEM_STAT_KEYS = ("Armor", "Damage", "Durability")
+
+
+def item_detail_source(itm: dict) -> dict:
+    """Dict onde Blueprint/stats residem (nível pai ou Items[0] para selas)."""
+    nested = itm.get("Items")
+    if isinstance(nested, list) and nested and isinstance(nested[0], dict):
+        first = nested[0]
+        if first.get("Blueprint") or not itm.get("Blueprint"):
+            return first
+    return itm
+
+
+def item_uses_nested_detail(itm: dict) -> bool:
+    nested = itm.get("Items")
+    if not (isinstance(nested, list) and nested and isinstance(nested[0], dict)):
+        return False
+    first = nested[0]
+    return bool(first.get("Blueprint") or not itm.get("Blueprint"))
+
+
+def build_item_detail_payload(
+    *,
+    blueprint: str = "",
+    quantity: int = 1,
+    quality: float = 0.0,
+    force_blueprint: bool = False,
+    armor: float = 0.0,
+    damage: float = 0.0,
+    durability: float = 0.0,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "Blueprint": blueprint,
+        "Quantity": quantity,
+        "Quality": quality,
+        "ForceBlueprint": force_blueprint,
+    }
+    for key, val in (("Armor", armor), ("Damage", damage), ("Durability", durability)):
+        if val > 0:
+            out[key] = val
+    return out
+
+
+def merge_shop_item_entry(
+    existing: dict,
+    *,
+    item_type: str,
+    price: int,
+    description: str,
+    detail: dict[str, Any],
+) -> dict[str, Any]:
+    """Mescla campos editáveis preservando estrutura aninhada Items[0] quando aplicável."""
+    out = copy.deepcopy(existing)
+    out["Type"] = item_type
+    out["Price"] = price
+    out["Description"] = description
+
+    if item_uses_nested_detail(existing):
+        items = list(out.get("Items") or [])
+        entry = dict(items[0]) if items else {}
+        entry.update(detail)
+        for key in _ITEM_STAT_KEYS:
+            if key not in detail:
+                entry.pop(key, None)
+        if items:
+            items[0] = entry
+        else:
+            items = [entry]
+        out["Items"] = items
+        for key in _ITEM_DETAIL_KEYS:
+            out.pop(key, None)
+    else:
+        out.update(detail)
+        for key in _ITEM_STAT_KEYS:
+            if key not in detail:
+                out.pop(key, None)
+    return out
+
+
 def _normalize_item_entry(entry: dict | str) -> dict:
     if isinstance(entry, str):
         bp = normalize_blueprint(entry)

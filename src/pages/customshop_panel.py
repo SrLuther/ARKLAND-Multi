@@ -21,7 +21,12 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
 from ..catalog_sync import apply_catalog_sync
-from ..shop_catalog_import import import_catalog_from_file
+from ..shop_catalog_import import (
+    build_item_detail_payload,
+    import_catalog_from_file,
+    item_detail_source,
+    merge_shop_item_entry,
+)
 from ..shop_integration import (
     DEFAULT_REMOTE_SHOP_HOST,
     DEFAULT_REMOTE_SHOP_PUBLIC_IP,
@@ -733,26 +738,36 @@ def _refresh_items_list(scroll_items, data: Dict[str, Any], on_select) -> None:
             ch.bind("<Button-1>", lambda e, k=key: on_select(k))
 
 
-def _item_dict_from_vars(item_vars: Dict[str, tk.Variable]) -> dict:
+def _item_dict_from_vars(
+    item_vars: Dict[str, tk.Variable], existing: dict | None = None,
+) -> dict:
     g = lambda k, d: item_vars.get(k, tk.StringVar(value=str(d))).get()
-    out = {
-        "Type":           g("type", "item"),
-        "Price":          _safe_int(g("price", "0"), 0),
-        "Description":    g("description", ""),
-        "Blueprint":      g("blueprint", ""),
-        "Quantity":       _safe_int(g("quantity", "1"), 1),
-        "Quality":        _safe_float(g("quality", "0"), 0.0),
-        "ForceBlueprint": bool(item_vars.get("force_blueprint", tk.BooleanVar()).get()),
+    detail = build_item_detail_payload(
+        blueprint=g("blueprint", ""),
+        quantity=_safe_int(g("quantity", "1"), 1),
+        quality=_safe_float(g("quality", "0"), 0.0),
+        force_blueprint=bool(item_vars.get("force_blueprint", tk.BooleanVar()).get()),
+        armor=_safe_float(g("armor", "0"), 0.0),
+        damage=_safe_float(g("damage", "0"), 0.0),
+        durability=_safe_float(g("durability", "0"), 0.0),
+    )
+    item_type = g("type", "item")
+    price = _safe_int(g("price", "0"), 0)
+    description = g("description", "")
+    if existing:
+        return merge_shop_item_entry(
+            existing,
+            item_type=item_type,
+            price=price,
+            description=description,
+            detail=detail,
+        )
+    return {
+        "Type": item_type,
+        "Price": price,
+        "Description": description,
+        **detail,
     }
-    for json_key, var_key in (
-        ("Armor", "armor"),
-        ("Damage", "damage"),
-        ("Durability", "durability"),
-    ):
-        val = _safe_float(g(var_key, "0"), 0.0)
-        if val > 0:
-            out[json_key] = val
-    return out
 
 
 def _build_item_edit_form(detail_fr, data: Dict[str, Any], key: str,
@@ -761,6 +776,7 @@ def _build_item_edit_form(detail_fr, data: Dict[str, Any], key: str,
         w.destroy()
     item_vars.clear()
     itm = data.get("Items", {}).get(key, {})
+    src = item_detail_source(itm)
     _head(detail_fr, f"Editar: {key}")
     scr = ctk.CTkScrollableFrame(detail_fr, fg_color=_INNER)
     scr.pack(fill="both", expand=True)
@@ -769,17 +785,17 @@ def _build_item_edit_form(detail_fr, data: Dict[str, Any], key: str,
         ("Tipo",       itm.get("Type", "item"),      "type"),
         ("Preço (pts)",str(itm.get("Price", 0)),     "price"),
         ("Descrição",  itm.get("Description", ""),   "description"),
-        ("Blueprint",  itm.get("Blueprint", ""),     "blueprint"),
-        ("Quantidade", str(itm.get("Quantity", 1)),  "quantity"),
-        ("Qualidade",  str(itm.get("Quality", 0)),   "quality"),
-        ("Armadura %", str(itm.get("Armor", 0)),     "armor"),
-        ("Dano %",     str(itm.get("Damage", 0)),     "damage"),
-        ("Durabilidade %", str(itm.get("Durability", 0)), "durability"),
+        ("Blueprint",  src.get("Blueprint", ""),     "blueprint"),
+        ("Quantidade", str(src.get("Quantity", 1)),  "quantity"),
+        ("Qualidade",  str(src.get("Quality", 0)),   "quality"),
+        ("Armadura %", str(src.get("Armor", 0)),     "armor"),
+        ("Dano %",     str(src.get("Damage", 0)),     "damage"),
+        ("Durabilidade %", str(src.get("Durability", 0)), "durability"),
     ]:
         v = tk.StringVar(value=dflt)
         item_vars[fk] = v
         _field_row(scr, lbl, v, bg=_INNER)
-    fbv = tk.BooleanVar(value=bool(itm.get("ForceBlueprint", False)))
+    fbv = tk.BooleanVar(value=bool(src.get("ForceBlueprint", False)))
     item_vars["force_blueprint"] = fbv  # type: ignore[assignment]
     _bool_row(scr, "Force Blueprint", fbv, bg=_INNER)
     btn_row = tk.Frame(detail_fr, bg=_INNER)
@@ -818,8 +834,10 @@ def _build_items_tab(app: "ARKServerManagerApp", parent: tk.Widget,
         if not new_key:
             messagebox.showerror("Erro", "ID do item não pode ser vazio."); return
         items = data.setdefault("Items", {})
-        if old_key != new_key and old_key in items: del items[old_key]
-        items[new_key] = _item_dict_from_vars(_item_vars)
+        existing = items.get(old_key, {})
+        if old_key != new_key and old_key in items:
+            del items[old_key]
+        items[new_key] = _item_dict_from_vars(_item_vars, existing or None)
         _refresh_items_list(scroll_items, data, _select_item)
     def _remove_item(key: str) -> None:
         if not messagebox.askyesno("Remover", f"Remover item '{key}'?"): return

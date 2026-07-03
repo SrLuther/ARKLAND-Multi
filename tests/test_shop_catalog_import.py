@@ -3,6 +3,10 @@ from __future__ import annotations
 
 from src.shop_catalog_import import (
     _normalize_item_entry,
+    build_item_detail_payload,
+    extract_catalog,
+    item_detail_source,
+    merge_shop_item_entry,
     normalize_blueprint,
     sanitize_catalog_blueprints,
 )
@@ -11,6 +15,87 @@ STONE = (
     "/Game/PrimalEarth/CoreBlueprints/Resources/"
     "PrimalItemResource_Stone.PrimalItemResource_Stone"
 )
+
+
+def test_item_detail_source_reads_nested_saddle_stats():
+    saddle = {
+        "Type": "item",
+        "Price": 3200,
+        "Description": "Sela de Allo",
+        "Quality": 0,
+        "Items": [{
+            "Blueprint": (
+                "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/"
+                "PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle"
+            ),
+            "Quantity": 1,
+            "Quality": 100,
+            "Armor": 350,
+        }],
+        "Category": "Selas",
+    }
+    src = item_detail_source(saddle)
+    assert src["Armor"] == 350
+    assert src["Quality"] == 100
+    assert "AlloSaddle" in src["Blueprint"]
+
+
+def test_merge_shop_item_entry_writes_nested_saddle_stats():
+    existing = {
+        "Type": "item",
+        "Price": 3200,
+        "Description": "Sela de Allo",
+        "Name": "Sela de Allo",
+        "Category": "Selas",
+        "Items": [{
+            "Blueprint": "/Game/.../PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle",
+            "Quantity": 1,
+            "Quality": 100,
+            "Armor": 350,
+        }],
+    }
+    detail = build_item_detail_payload(
+        blueprint="/Game/.../PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle",
+        quantity=1,
+        quality=100,
+        force_blueprint=False,
+        armor=400,
+    )
+    merged = merge_shop_item_entry(
+        existing,
+        item_type="item",
+        price=3300,
+        description="Sela de Allo atualizada",
+        detail=detail,
+    )
+    assert merged["Price"] == 3300
+    assert merged["Category"] == "Selas"
+    assert merged["Items"][0]["Armor"] == 400
+    assert "Blueprint" not in merged
+    assert "Armor" not in merged
+
+
+def test_extract_catalog_customshop_preserves_nested_armor():
+    raw = {
+        "Items": {
+            "sela_allo": {
+                "Type": "item",
+                "Price": 3200,
+                "Description": "Sela",
+                "Items": [{
+                    "Blueprint": (
+                        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/"
+                        "PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle"
+                    ),
+                    "Quantity": 1,
+                    "Quality": 100,
+                    "Armor": 350,
+                }],
+            }
+        }
+    }
+    items, _, _ = extract_catalog(raw)
+    assert items["sela_allo"]["Items"][0]["Armor"] == 350
 
 
 def test_normalize_blueprint_arkshop_wrapper():
