@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.189] - 2026-07-03
+
+### Fix
+
+- Fix (Web Store / Home): botões Jogar agora e Copiar IP na seção Conectar aos servidores — navegação steam:// nativa (sem return false), delegação de cliques e fallback com instruções se o browser bloquear o protocolo.
+
 ## [1.9.188] - 2026-07-03
 
 ### Feature

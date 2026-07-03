@@ -542,6 +542,10 @@
     .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
     .btn:active { transform: translateY(0) scale(.98); }
     .btn:disabled { opacity: .35; cursor: not-allowed; transform: none; filter: none; }
+    .btn--copied {
+      border-color: rgba(18,216,124,.45) !important;
+      color: var(--success) !important;
+    }
 
     .btn-primary {
       background: linear-gradient(135deg, #923c0a, #e87820);
@@ -13660,33 +13664,50 @@ function _arkSteamConnectUrl(joinAddress) {
   return `steam://run/${_ARK_ASE_STEAM_APP_ID}//+connect%20${addr}`;
 }
 
-function connectToArkServer(connectUrl, joinAddress, copyOnly) {
+function _resolveSteamConnectUrl(connectUrl, joinAddress) {
   const addr = String(joinAddress || "").trim();
   let url = String(connectUrl || "").trim();
-  if (!copyOnly && (!url || url.startsWith("steam://connect/"))) {
+  if (!url || url.startsWith("steam://connect/")) {
     url = _arkSteamConnectUrl(addr);
   }
-  if (copyOnly) {
-    const text = addr || url;
-    if (!text) { toast("Endereço indisponível.", "warning"); return; }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text)
-        .then(() => toast("Endereço copiado!", "success"))
-        .catch(() => _fallbackCopyText(text));
-    } else {
-      _fallbackCopyText(text);
+  return { url, addr };
+}
+
+function _launchSteamUrl(url) {
+  if (!url) return false;
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noopener";
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return true;
+  } catch (_) {
+    try {
+      window.location.assign(url);
+      return true;
+    } catch (_2) {
+      return false;
     }
-    return;
   }
-  if (url) {
-    window.location.href = url;
-    return;
-  }
-  if (addr) {
-    connectToArkServer("", addr, true);
-    return;
-  }
-  toast("Endereço em configuração.", "warning");
+}
+
+function _scheduleSteamFallbackHint(addr) {
+  const text = String(addr || "").trim();
+  if (!text) return;
+  window._arkSteamHintShown = window._arkSteamHintShown || {};
+  if (window._arkSteamHintShown[text]) return;
+  setTimeout(() => {
+    if (window._arkSteamHintShown[text]) return;
+    window._arkSteamHintShown[text] = true;
+    toast(
+      "Se o ARK não abriu: no jogo pressione ~ e digite open " + text
+        + " — ou use «Copiar IP».",
+      "warning"
+    );
+  }, 2200);
 }
 
 function _fallbackCopyText(text) {
@@ -13700,10 +13721,107 @@ function _fallbackCopyText(text) {
     ta.select();
     document.execCommand("copy");
     document.body.removeChild(ta);
-    toast("Endereço copiado!", "success");
+    return true;
   } catch (_) {
-    toast("Não foi possível copiar. Copie manualmente: " + text, "warning");
+    return false;
   }
+}
+
+function _copyJoinAddress(joinAddress, opts) {
+  const text = String(joinAddress || "").trim();
+  if (!text) {
+    toast("Endereço indisponível.", "warning");
+    return false;
+  }
+  const btn = opts && opts.btn;
+  const onDone = () => {
+    toast("IP copiado: " + text, "success");
+    if (btn) {
+      const orig = btn.textContent;
+      btn.textContent = "✓ Copiado";
+      btn.classList.add("btn--copied");
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.classList.remove("btn--copied");
+        btn.disabled = false;
+      }, 2200);
+    }
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(onDone)
+      .catch(() => {
+        if (_fallbackCopyText(text)) onDone();
+        else toast("Não foi possível copiar. Copie manualmente: " + text, "warning");
+      });
+    return true;
+  }
+  if (_fallbackCopyText(text)) {
+    onDone();
+    return true;
+  }
+  toast("Não foi possível copiar. Copie manualmente: " + text, "warning");
+  return false;
+}
+
+/** @deprecated use data-ark-connect / data-ark-copy-ip — mantido para chamadas legadas */
+function connectToArkServer(connectUrl, joinAddress, copyOnly, ev) {
+  if (copyOnly) {
+    const btn = ev && ev.currentTarget;
+    return _copyJoinAddress(joinAddress, btn ? { btn } : undefined);
+  }
+  const { url, addr } = _resolveSteamConnectUrl(connectUrl, joinAddress);
+  if (!url) {
+    if (addr) return _copyJoinAddress(addr, { hint: true });
+    toast("Endereço em configuração.", "warning");
+    return false;
+  }
+  if (ev && ev.currentTarget && ev.currentTarget.tagName === "A") {
+    toast("Abrindo Steam…", "success");
+    _scheduleSteamFallbackHint(addr);
+    return true;
+  }
+  toast("Abrindo Steam…", "success");
+  _launchSteamUrl(url);
+  _scheduleSteamFallbackHint(addr);
+  return false;
+}
+
+function initArkConnectDelegation() {
+  if (window._arkConnectDelegation) return;
+  window._arkConnectDelegation = true;
+
+  document.addEventListener("click", (ev) => {
+    const copyBtn = ev.target.closest("[data-ark-copy-ip]");
+    if (copyBtn) {
+      ev.preventDefault();
+      _copyJoinAddress(copyBtn.dataset.joinAddress, { btn: copyBtn });
+      return;
+    }
+
+    const playBtn = ev.target.closest("[data-ark-connect]");
+    if (!playBtn) return;
+
+    const { url, addr } = _resolveSteamConnectUrl(
+      playBtn.dataset.connectUrl,
+      playBtn.dataset.joinAddress
+    );
+    if (!url) {
+      ev.preventDefault();
+      if (addr) _copyJoinAddress(addr);
+      else toast("Endereço em configuração.", "warning");
+      return;
+    }
+
+    toast("Abrindo Steam…", "success");
+    _scheduleSteamFallbackHint(addr);
+
+    if (playBtn.tagName !== "A" || !playBtn.getAttribute("href")) {
+      ev.preventDefault();
+      _launchSteamUrl(url);
+    }
+  });
 }
 
 // ── Modal de Resgate (Âmbar) ─────────────────────────────────────────────────
@@ -14429,15 +14547,16 @@ function _homeServerConnectBtns(s, btnClass) {
   const cls = btnClass || "btn-sm";
   const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
   if (!canConnect) return "";
+  const steamUrl = escHtml(s.connect_url || _arkSteamConnectUrl(s.join_address || ""));
   return `<div class="home-server-card__actions">
     <a class="btn btn-primary ${cls} home-server-card__play"
-       href="${escHtml(s.connect_url || "")}"
+       href="${steamUrl}"
+       data-ark-connect
        data-connect-url="${escHtml(s.connect_url || "")}"
-       data-join-address="${escHtml(s.join_address || "")}"
-       onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">▶ Jogar agora</a>
+       data-join-address="${escHtml(s.join_address || "")}">▶ Jogar agora</a>
     <button class="btn btn-ghost ${cls}" type="button"
-       data-join-address="${escHtml(s.join_address || "")}"
-       onclick="connectToArkServer('', this.dataset.joinAddress, true)">📋 Copiar IP</button>
+       data-ark-copy-ip
+       data-join-address="${escHtml(s.join_address || "")}">📋 Copiar IP</button>
   </div>`;
 }
 
@@ -14448,15 +14567,16 @@ function _homeHeroConnectHtml(connectable) {
   const moreBtn = connectable.length > 1
     ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">${connectable.length} servidores →</button>`
     : "";
+  const heroSteamUrl = escHtml(primary.connect_url || _arkSteamConnectUrl(primary.join_address || ""));
   return `<div class="home-hero__connect">
     <a class="btn btn-success home-hero__play-btn"
-       href="${escHtml(primary.connect_url || "")}"
+       href="${heroSteamUrl}"
+       data-ark-connect
        data-connect-url="${escHtml(primary.connect_url || "")}"
-       data-join-address="${escHtml(primary.join_address || "")}"
-       onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">▶ Jogar agora</a>
+       data-join-address="${escHtml(primary.join_address || "")}">▶ Jogar agora</a>
     <button class="btn btn-primary btn-sm" type="button"
-       data-join-address="${escHtml(primary.join_address || "")}"
-       onclick="connectToArkServer('', this.dataset.joinAddress, true)">📋 Copiar IP</button>
+       data-ark-copy-ip
+       data-join-address="${escHtml(primary.join_address || "")}">📋 Copiar IP</button>
     ${moreBtn}
     <span class="home-hero__connect-hint">${label} · ${escHtml(primary.join_address || "")}</span>
   </div>`;
@@ -14481,13 +14601,13 @@ function _updateHomeConnectSticky(connectable) {
       </div>
       <div class="home-connect-sticky__actions">
         <a class="btn btn-success btn-sm"
-           href="${escHtml(primary.connect_url || "")}"
+           href="${escHtml(primary.connect_url || _arkSteamConnectUrl(primary.join_address || ""))}"
+           data-ark-connect
            data-connect-url="${escHtml(primary.connect_url || "")}"
-           data-join-address="${escHtml(primary.join_address || "")}"
-           onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">Jogar</a>
+           data-join-address="${escHtml(primary.join_address || "")}">Jogar</a>
         <button class="btn btn-ghost btn-sm" type="button"
-           data-join-address="${escHtml(primary.join_address || "")}"
-           onclick="connectToArkServer('', this.dataset.joinAddress, true)">Copiar IP</button>
+           data-ark-copy-ip
+           data-join-address="${escHtml(primary.join_address || "")}">Copiar IP</button>
         ${connectable.length > 1 ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">+${connectable.length - 1}</button>` : ""}
       </div>
     </div>`;
@@ -15442,6 +15562,7 @@ async function playerAdminRevokeKitLimit(kitId) {
 async function bootPortal() {
   window.__portalBooted = true;
   _clearBootWatchdog();
+  initArkConnectDelegation();
   handleMpCardReturn();
   setStatus(false, "Conectando…");
   try {
