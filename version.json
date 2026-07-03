@@ -1,9 +1,10 @@
 {
-    "version": "1.9.185",
+    "version": "1.9.187",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.185/ARKLAND-Multi-Setup-v1.9.185.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.187/ARKLAND-Multi-Setup-v1.9.187.exe",
     "changelog": [
-        "Fix (CustomShop / Mercado P2P): /mercado deixava de derrubar o mapa — validacao da cryopod em PrepareMarketCryopodForDelivery sem spawn probe (evita double-spawn antes de SpawnMarketDinoFromCryopod).",
-        "Fix (CustomShop): TryParseViaSpawnProbe trata duped=true com seguranca (nao Destroy em dino ja existente no mapa)."
+        "Feature (CustomShop / Mercado P2P): Settings.MarketAssignNewDinoId (padrao true) — gera ID novo ao spawnar dino do /mercado; retry automatico com blob regenerado em duped=true.",
+        "Fix (CustomShop / Mercado P2P): crash BeginDestroy on None apos SpawnMarketDino ok — nao destruir cryopod transiente apos spawn bem-sucedido; ReleaseTransientCryopod com guards UObject.",
+        "Fix (CustomShop): spawn probe off-map usa bGenerateNewDinoID e SafeDestroyProbeDino; clones CreateFromBytes liberados em CollectCryoCustomDataBlob e /confirmar probe."
     ]
 }
