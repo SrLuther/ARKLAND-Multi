@@ -1,10 +1,8 @@
 {
-    "version": "1.9.188",
+    "version": "1.9.189",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.188/ARKLAND-Multi-Setup-v1.9.188.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.189/ARKLAND-Multi-Setup-v1.9.189.exe",
     "changelog": [
-        "Feature (Comercio): teto automatico de preco de anuncio — multiplicador por tier sobre valor sugerido (config _price_ceiling em market_species_defaults.json); bloqueio ao salvar/ativar na web.",
-        "Feature (Comercio): /mercado_admin in-game (remover, preco, flag) para admins/moderacao; painel web com Remover e Flag em anuncios ACTIVE.",
-        "Melhoria (Comercio): /enviar e /confirmar exibem teto maximo de preco no chat; preview e upload retornam price_ceiling."
+        "Fix (Web Store / Home): botões Jogar agora e Copiar IP na seção Conectar aos servidores — navegação steam:// nativa (sem return false), delegação de cliques e fallback com instruções se o browser bloquear o protocolo."
     ]
 }
