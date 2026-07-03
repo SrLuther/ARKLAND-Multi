@@ -451,6 +451,86 @@ bool PrepareMarketCryopodForDelivery(UPrimalItem* item,
     return true;
 }
 
+bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
+                                AShooterPlayerController* player,
+                                APrimalDinoCharacter** out_dino,
+                                std::string* error) {
+    if (!item || !player) {
+        if (error) *error = "parametros invalidos";
+        return false;
+    }
+
+    FCustomItemData data;
+    if (!CollectCryoCustomDataBlob(item, data)) {
+        if (error) *error = "sem dados do dino na cryopod";
+        return false;
+    }
+    if (data.CustomDataClasses.Num() < 1
+        || data.CustomDataBytes.ByteArrays.Num() < 1
+        || data.CustomDataBytes.ByteArrays[0].Bytes.Num() <= 32) {
+        if (error) *error = "blob do dino incompleto";
+        return false;
+    }
+
+    UWorld* world = GameWorld();
+    if (!world) {
+        if (error) *error = "mundo indisponivel";
+        return false;
+    }
+
+    FARKDinoData dinoData;
+    dinoData.DinoClass = data.CustomDataClasses[0];
+    dinoData.DinoData = data.CustomDataBytes.ByteArrays[0].Bytes;
+    if (data.CustomDataStrings.Num() >= 1)
+        dinoData.DinoNameInMap = data.CustomDataStrings[0];
+    if (data.CustomDataStrings.Num() >= 2)
+        dinoData.DinoName = data.CustomDataStrings[1];
+
+    FVector spawn_loc(0.f, 0.f, 0.f);
+    FRotator spawn_rot = FRotator(0.f, 0.f, 0.f);
+    if (AShooterCharacter* character = player->GetPlayerCharacter()) {
+        FVector eyes_loc;
+        FRotator eyes_rot;
+        character->GetActorEyesViewPoint(&eyes_loc, &eyes_rot);
+        spawn_loc = eyes_loc;
+        spawn_rot = eyes_rot;
+        const float yaw_rad = eyes_rot.Yaw * (3.14159265f / 180.f);
+        spawn_loc.X += std::cos(yaw_rad) * 350.f;
+        spawn_loc.Y += std::sin(yaw_rad) * 350.f;
+    }
+
+    const int team_id = player->TargetingTeamField();
+    bool duped = false;
+    APrimalDinoCharacter* spawned = APrimalDinoCharacter::SpawnFromDinoDataEx(
+        &dinoData, world, &spawn_loc, &spawn_rot, &duped, team_id, false, player, true);
+
+    if (duped) {
+        if (spawned)
+            spawned->Destroy(true, false);
+        if (error) *error = "id de dino duplicado no servidor";
+        Log::GetLog()->warn(
+            "ShopCryoReader: SpawnMarketDino duped species={}",
+            ClassPath(dinoData.DinoClass));
+        return false;
+    }
+    if (!spawned) {
+        if (error) *error = "falha ao spawnar dino";
+        Log::GetLog()->warn(
+            "ShopCryoReader: SpawnMarketDino falhou species={}",
+            ClassPath(dinoData.DinoClass));
+        return false;
+    }
+
+    if (out_dino)
+        *out_dino = spawned;
+
+    Log::GetLog()->info(
+        "ShopCryoReader: SpawnMarketDino ok species={} name={}",
+        ShortSpecies(ClassPath(dinoData.DinoClass)),
+        dinoData.DinoNameInMap.ToString());
+    return true;
+}
+
 bool StripCryopodTimer(UPrimalItem* item) {
     if (!item || !CryopodHasTimer(item)) return false;
 

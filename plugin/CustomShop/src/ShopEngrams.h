@@ -12,9 +12,20 @@ bool UnlockAll(AShooterPlayerController* controller, bool tek_only = false,
 // /engramas passo 1 — pendencia de confirmacao (TTL 2 min).
 bool RequestUnlockAll(AShooterPlayerController* controller);
 
-// /confirmar — executa desbloqueio pendente.
-bool ConfirmUnlockAll(const std::string& steam_id, AShooterPlayerController* controller,
-                      int* out_unlocked = nullptr);
+enum class EngramConfirmResult {
+    Ok,
+    NoPending,
+    Expired,
+    PaymentFailed,
+    UnlockFailed,
+};
+
+// /confirmar — cobra ambares e executa desbloqueio pendente.
+EngramConfirmResult ConfirmUnlockAll(const std::string& steam_id,
+                                     AShooterPlayerController* controller,
+                                     int* out_unlocked = nullptr,
+                                     int* out_price = nullptr,
+                                     int* out_balance = nullptr);
 
 bool HasPendingUnlock(const std::string& steam_id);
 

@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+# ARK: Survival Evolved (cliente Steam). steam://connect quebrou no cliente (~2023).
+ARK_ASE_STEAM_APP_ID = 346110
+
 _LOCALHOST = frozenset({"127.0.0.1", "localhost", "::1", "0.0.0.0"})
 
 
@@ -40,8 +43,25 @@ def resolve_join_host(srv: dict, settings: dict) -> Optional[str]:
     return None
 
 
-def build_steam_connect_url(host: str, port: int) -> str:
-    return f"steam://connect/{host}:{int(port)}"
+def resolve_game_port(srv: dict) -> int:
+    """Porta de jogo para join (+connect). Nunca usar query_port (só listagem A2S)."""
+    for key in ("game_port", "server_port"):
+        val = srv.get(key)
+        if val in (None, ""):
+            continue
+        try:
+            port = int(val)
+        except (TypeError, ValueError):
+            continue
+        if port > 0:
+            return port
+    return 7777
+
+
+def build_steam_connect_url(host: str, port: int, *, app_id: int = ARK_ASE_STEAM_APP_ID) -> str:
+    """Abre o ARK via Steam com AppID explícito e +connect na porta de jogo."""
+    addr = f"{host}:{int(port)}"
+    return f"steam://run/{int(app_id)}//+connect%20{addr}"
 
 
 def build_join_address(host: str, port: int) -> str:
@@ -51,7 +71,7 @@ def build_join_address(host: str, port: int) -> str:
 def public_server_connect_view(srv: dict, settings: dict) -> Dict[str, Any]:
     """Campos públicos de conexão para a home (sem credenciais RCON)."""
     host = resolve_join_host(srv, settings)
-    port = int(srv.get("game_port") or srv.get("server_port") or 7777)
+    port = resolve_game_port(srv)
     can_connect = bool(host and port > 0)
 
     out: Dict[str, Any] = {
@@ -59,6 +79,7 @@ def public_server_connect_view(srv: dict, settings: dict) -> Dict[str, Any]:
         "join_address": build_join_address(host, port) if can_connect else "",
         "can_connect": can_connect,
         "game_port": port,
+        "steam_app_id": ARK_ASE_STEAM_APP_ID,
     }
 
     map_name = str(srv.get("server_map") or srv.get("map") or "").strip()
@@ -71,7 +92,7 @@ def public_server_connect_view(srv: dict, settings: dict) -> Dict[str, Any]:
 def diagnose_server_connect(srv: dict, settings: dict) -> Dict[str, Any]:
     """Diagnóstico admin: por que um servidor pode ou não exibir botões de conexão."""
     host = resolve_join_host(srv, settings)
-    port = int(srv.get("game_port") or srv.get("server_port") or 7777)
+    port = resolve_game_port(srv)
     blockers: List[str] = []
 
     if not str(srv.get("server_id") or "").strip():

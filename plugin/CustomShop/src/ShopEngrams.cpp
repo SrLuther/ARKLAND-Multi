@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "ShopEngrams.h"
 #include "ShopBridge.h"
+#include "ShopConfig.h"
+#include "ShopPoints.h"
 
 #include <chrono>
 #include <cctype>
@@ -146,22 +148,49 @@ bool HasPendingUnlock(const std::string& steam_id) {
     return std::chrono::steady_clock::now() <= it->second.expires;
 }
 
-bool ConfirmUnlockAll(const std::string& steam_id, AShooterPlayerController* controller,
-                      int* out_unlocked) {
-    if (!controller || steam_id.empty()) return false;
+EngramConfirmResult ConfirmUnlockAll(const std::string& steam_id,
+                                     AShooterPlayerController* controller,
+                                     int* out_unlocked,
+                                     int* out_price,
+                                     int* out_balance) {
+    if (!controller || steam_id.empty()) return EngramConfirmResult::NoPending;
 
     {
         std::lock_guard<std::mutex> lock(g_engram_pending_mutex);
         const auto it = g_engram_pending.find(steam_id);
-        if (it == g_engram_pending.end()) return false;
+        if (it == g_engram_pending.end()) return EngramConfirmResult::NoPending;
         if (std::chrono::steady_clock::now() > it->second.expires) {
             g_engram_pending.erase(it);
-            return false;
+            return EngramConfirmResult::Expired;
         }
-        g_engram_pending.erase(it);
     }
 
-    return UnlockAll(controller, false, out_unlocked);
+    const int price = ShopConfig::Get().EngramasCommandPrice();
+    const int balance_before = ShopPoints::Get().GetPoints(steam_id);
+    if (out_price) *out_price = price;
+    if (out_balance) *out_balance = balance_before;
+
+    if (price > 0 && balance_before < price)
+        return EngramConfirmResult::PaymentFailed;
+
+    if (price > 0 && !ShopPoints::Get().SpendPoints(steam_id, price))
+        return EngramConfirmResult::PaymentFailed;
+
+    {
+        std::lock_guard<std::mutex> lock(g_engram_pending_mutex);
+        g_engram_pending.erase(steam_id);
+    }
+
+    int unlocked = 0;
+    if (!UnlockAll(controller, false, &unlocked)) {
+        if (price > 0)
+            ShopPoints::Get().AddPoints(steam_id, price);
+        return EngramConfirmResult::UnlockFailed;
+    }
+
+    if (out_unlocked) *out_unlocked = unlocked;
+    if (out_balance) *out_balance = ShopPoints::Get().GetPoints(steam_id);
+    return EngramConfirmResult::Ok;
 }
 
 bool IsUnlockAllCommand(const std::string& cmd) {

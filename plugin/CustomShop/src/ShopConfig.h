@@ -54,6 +54,15 @@ public:
     /** false = ignora exigencia de timer minimo em /enviar e /confirmar. */
     bool        MarketCryoRequireMinDays() const;
 
+    /** Custo em ambares do comando /engramas (padrao 5000). */
+    int         EngramasCommandPrice() const;
+
+    /** true = /mercado spawna o dino no chao; false = entrega cryopod no inventario. */
+    bool        MarketDeliverAsSpawn() const;
+
+    /** Blueprint da Soul Trap vazia de bonus no resgate spawn (DinoStorage2). */
+    std::string MarketSpawnBonusSoulTrapBlueprint() const;
+
     // Database (MySQL)
     std::string DbHost()             const;
     int         DbPort()             const;

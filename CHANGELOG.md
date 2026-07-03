@@ -5,11 +5,28 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.183] - 2026-07-03
+
+### Feature
+
+- Feature (CustomShop / Mercado P2P): /mercado spawna o dino ao lado do comprador em vez de entregar cryopod no inventário; bônus de 1 Soul Trap vazia (DinoStorage2) configurável em Settings.MarketSpawnBonusSoulTrapBlueprint.
+- Feature (CustomShop / Mercado P2P): Settings.MarketDeliverAsSpawn (padrão true) alterna entre spawn e entrega em cryopod; fluxo /enviar e /confirmar inalterado.
+- Feature (CustomShop / Engramas): /engramas cobra âmbares configuráveis (Settings.EngramasCommandPrice, padrão 5000) na confirmação; saldo insuficiente exibe mensagem em português.
+
+### Improvement
+
+- Melhoria (Web Store / Admin): campo Preço /engramas nas configurações gerais do CustomShop.
+
+### Fix
+
+- Fix (Web Store / Home): conexão Steam usa steam://run/346110 com +connect na porta de jogo (substitui steam://connect quebrado no cliente).
+
 ## [1.9.182] - 2026-07-03
 
 ### Feature
 
 - Feature (CustomShop / Engramas): /engramas com aviso de overflow ao trocar mapa e confirmação via /confirmar (TTL 2 min); desbloqueio dinâmico de todos os engramas (vanilla + mods) via PrimalGameData sem consumir pontos de engrama.
+- Feature (CustomShop / Engramas): /engramas cobra âmbares configuráveis (Settings.EngramasCommandPrice, padrão 5000) antes do desbloqueio via /confirmar; saldo insuficiente exibe mensagem em português.
 - Feature (CustomShop): Shop.UnlockAllEngrams [TekOnly] para RCON, console e entrega da loja; item tekgrams do catálogo usa comando único em vez de 74 UnlockEngram individuais.
 
 ### Improvement

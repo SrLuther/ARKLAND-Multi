@@ -18,6 +18,7 @@ os.environ.setdefault("ARKSHOP_SKIP_DB_BOOT", "1")
 
 import app as _app_module
 from app import app, _configure_database, _now
+from server_connect import ARK_ASE_STEAM_APP_ID
 
 ADMIN_STEAM = "76561198000000001"
 USER_STEAM  = "76561198000000002"
@@ -401,6 +402,40 @@ class TestPointPackages:
         ws_saved = json.loads(webstore_cfg.read_text(encoding="utf-8"))
         assert ws_saved["PointPackages"] == custom
 
+    def test_save_engramas_command_price_via_config(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(
+            json.dumps({
+                "Settings": {"ShopName": "Test Shop", "StartingPoints": 100},
+                "Items": {},
+                "Kits": {},
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            "/api/config",
+            json={
+                "Settings": {
+                    "ShopName": "Test Shop",
+                    "StartingPoints": 100,
+                    "EngramasCommandPrice": 7500,
+                },
+                "Items": {},
+                "Kits": {},
+                "reload": False,
+            },
+        )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        _app_module._CONFIG_CACHE.clear()
+        saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved_cfg["Settings"]["EngramasCommandPrice"] == 7500
+
 
 # ── Player summary & history ──────────────────────────────────────────────────
 
@@ -716,7 +751,7 @@ class TestServers:
         home = client.get("/api/public/home").get_json()
         srv = next(s for s in home.get("servers", []) if s["server_id"] == "volcano")
         assert srv["can_connect"] is True
-        assert srv["connect_url"] == "steam://connect/203.0.113.50:7778"
+        assert srv["connect_url"] == f"steam://run/{ARK_ASE_STEAM_APP_ID}//+connect%20203.0.113.50:7778"
         assert srv["join_address"] == "203.0.113.50:7778"
         assert srv["map"] == "The Volcano"
 

@@ -5,6 +5,7 @@
 #include "ShopCryoReader.h"
 #include "ShopConfig.h"
 #include "ShopEngrams.h"
+#include "ShopPoints.h"
 #include "HttpClient.h"
 
 #include <chrono>
@@ -181,6 +182,33 @@ bool ValidateMarketCryoTimer(AShooterPlayerController* player, UPrimalItem* cryo
     return false;
 }
 
+bool TryGiveBonusSoulTrap(AShooterPlayerController* player, const std::string& blueprint) {
+    if (!player || blueprint.empty()) return false;
+    UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
+    if (!inv) return false;
+
+    FString fblueprint(blueprint.c_str());
+    UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
+    if (!item_class) return false;
+
+    UPrimalItem* created = UPrimalItem::AddNewItem(
+        TSubclassOf<UPrimalItem>(item_class),
+        inv,
+        false,
+        false,
+        0.f,
+        true,
+        1,
+        false,
+        0.f,
+        false,
+        TSubclassOf<UPrimalItem>(),
+        0.f,
+        false,
+        false);
+    return created != nullptr;
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -299,14 +327,39 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
 
     if (Engrams::HasPendingUnlock(sid)) {
         int unlocked = 0;
-        if (!Engrams::ConfirmUnlockAll(sid, player, &unlocked)) {
+        int price = 0;
+        int balance = 0;
+        const auto result = Engrams::ConfirmUnlockAll(
+            sid, player, &unlocked, &price, &balance);
+
+        if (result == Engrams::EngramConfirmResult::Expired) {
             SendMsg(player, FColorList::Red,
                     "Confirmacao de engramas expirada. Use /engramas novamente.");
             return;
         }
+        if (result == Engrams::EngramConfirmResult::PaymentFailed) {
+            SendMsg(player, FColorList::Red,
+                    "Saldo insuficiente. Voce tem " + std::to_string(balance)
+                    + " ambares, mas sao necessarios " + std::to_string(price)
+                    + " para /engramas.");
+            return;
+        }
+        if (result == Engrams::EngramConfirmResult::UnlockFailed) {
+            SendMsg(player, FColorList::Red,
+                    "Nao foi possivel desbloquear os engramas. Voce precisa estar vivo.");
+            return;
+        }
+        if (result != Engrams::EngramConfirmResult::Ok) {
+            SendMsg(player, FColorList::Red,
+                    "Nenhuma confirmacao de engramas pendente. Use /engramas primeiro.");
+            return;
+        }
+
         std::string msg = "Todos os engramas foram desbloqueados com sucesso!";
         if (unlocked > 0)
             msg += " (" + std::to_string(unlocked) + " novos)";
+        if (price > 0)
+            msg += " — " + std::to_string(price) + " ambares debitados.";
         SendMsg(player, FColorList::Green, msg);
         return;
     }
@@ -477,7 +530,10 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
     }
 
     int delivered = 0;
+    int spawned = 0;
     std::vector<int> claimed_ids;
+    const bool deliver_as_spawn = ShopConfig::Get().MarketDeliverAsSpawn();
+    const std::string soul_trap_bp = ShopConfig::Get().MarketSpawnBonusSoulTrapBlueprint();
 
     for (const auto& c : claims) {
         const int claim_id = c.value("claim_id", 0);
@@ -542,6 +598,57 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
             return;
         }
 
+        if (deliver_as_spawn) {
+            std::string spawn_err;
+            if (!SpawnMarketDinoFromCryopod(item, player, nullptr, &spawn_err)) {
+                ReleaseClaims(sid, claimed_ids);
+                claimed_ids.clear();
+                Log::GetLog()->error(
+                    "ShopMarket: mercado spawn falhou steam={} claim_id={} err={}",
+                    sid, claim_id, spawn_err);
+                SendCryoDebugReport(player, sid, "mercado_spawn_fail",
+                                    ShopConfig::Get().MarketCryoDebug());
+                if (spawn_err.find("duplicado") != std::string::npos) {
+                    SendMsg(player, FColorList::Red,
+                            "Dino com ID duplicado no servidor — resgate cancelado. "
+                            "Contate admin se persistir.");
+                } else {
+                    SendMsg(player, FColorList::Red,
+                            "Falha ao spawnar dino do Comercio. "
+                            "Resgate liberado - tente novamente ou contate admin.");
+                }
+                item->BeginDestroy();
+                return;
+            }
+
+            item->BeginDestroy();
+
+            bool soul_trap_ok = false;
+            if (!soul_trap_bp.empty()) {
+                soul_trap_ok = TryGiveBonusSoulTrap(player, soul_trap_bp);
+                if (!soul_trap_ok) {
+                    Log::GetLog()->warn(
+                        "ShopMarket: Soul Trap bonus falhou steam={} bp={}",
+                        sid, soul_trap_bp);
+                }
+            }
+
+            nlohmann::json done{{"steam_id", sid}, {"claim_id", claim_id}};
+            HttpClient::PostJson("/api/market/claims/delivered", done.dump());
+            ++delivered;
+            ++spawned;
+            if (soul_trap_ok) {
+                SendMsg(player, FColorList::Green,
+                        "Dino spawnado ao seu lado + 1 Soul Trap vazia no inventario.");
+            } else if (!soul_trap_bp.empty()) {
+                SendMsg(player, FColorList::Yellow,
+                        "Dino spawnado ao seu lado (Soul Trap bonus indisponivel — libere espaco?).");
+            } else {
+                SendMsg(player, FColorList::Green, "Dino spawnado ao seu lado.");
+            }
+            continue;
+        }
+
         if (!inv->AddItemObject(item)) {
             ReleaseClaims(sid, claimed_ids);
             SendMsg(player, FColorList::Red,
@@ -552,6 +659,15 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
         nlohmann::json done{{"steam_id", sid}, {"claim_id", claim_id}};
         HttpClient::PostJson("/api/market/claims/delivered", done.dump());
         ++delivered;
+    }
+
+    if (delivered <= 0) return;
+
+    if (spawned > 0 && spawned == delivered) {
+        if (delivered == 1) return;
+        SendMsg(player, FColorList::Green,
+                std::to_string(delivered) + " dino(s) spawnado(s) do Comercio.");
+        return;
     }
 
     SendMsg(player, FColorList::Green,

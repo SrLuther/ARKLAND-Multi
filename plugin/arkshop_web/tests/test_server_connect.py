@@ -12,10 +12,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import app as _app_module
 from app import _configure_database, app
 from server_connect import (
+    ARK_ASE_STEAM_APP_ID,
     build_join_address,
     build_steam_connect_url,
     diagnose_server_connect,
     public_server_connect_view,
+    resolve_game_port,
     resolve_join_host,
 )
 
@@ -84,8 +86,16 @@ def test_resolve_join_host_uses_public_rcon_host():
 
 
 def test_build_steam_connect_url_and_join_address():
-    assert build_steam_connect_url("203.0.113.10", 7777) == "steam://connect/203.0.113.10:7777"
+    assert build_steam_connect_url("203.0.113.10", 7777) == (
+        f"steam://run/{ARK_ASE_STEAM_APP_ID}//+connect%20203.0.113.10:7777"
+    )
     assert build_join_address("203.0.113.10", 7777) == "203.0.113.10:7777"
+
+
+def test_resolve_game_port_ignores_query_port():
+    assert resolve_game_port({"query_port": 7790}) == 7777
+    assert resolve_game_port({"game_port": 7788, "query_port": 7790}) == 7788
+    assert resolve_game_port({"server_port": 7789, "query_port": 7791}) == 7789
 
 
 def test_public_server_connect_view_includes_map():
@@ -98,9 +108,10 @@ def test_public_server_connect_view_includes_map():
         {},
     )
     assert view["can_connect"] is True
-    assert view["connect_url"] == "steam://connect/203.0.113.10:7778"
+    assert view["connect_url"] == f"steam://run/{ARK_ASE_STEAM_APP_ID}//+connect%20203.0.113.10:7778"
     assert view["join_address"] == "203.0.113.10:7778"
     assert view["map"] == "The Island"
+    assert view["steam_app_id"] == ARK_ASE_STEAM_APP_ID
 
 
 def test_public_home_includes_connect_fields(client, tmp_path, monkeypatch):
@@ -124,7 +135,7 @@ def test_public_home_includes_connect_fields(client, tmp_path, monkeypatch):
     srv = next(s for s in home["servers"] if s["server_id"] == "brighamia")
 
     assert srv["can_connect"] is True
-    assert srv["connect_url"] == "steam://connect/203.0.113.20:7777"
+    assert srv["connect_url"] == f"steam://run/{ARK_ASE_STEAM_APP_ID}//+connect%20203.0.113.20:7777"
     assert srv["join_address"] == "203.0.113.20:7777"
     assert srv["map"] == "Brighamia"
     assert "rcon_password" not in srv

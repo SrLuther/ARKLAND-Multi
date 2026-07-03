@@ -127,6 +127,20 @@ bool ShopConfig::MarketCryoRequireMinDays() const {
     return settings_.value("MarketCryoRequireMinDays", false);
 }
 
+int ShopConfig::EngramasCommandPrice() const {
+    return settings_.value("EngramasCommandPrice", 5000);
+}
+
+bool ShopConfig::MarketDeliverAsSpawn() const {
+    return settings_.value("MarketDeliverAsSpawn", true);
+}
+
+std::string ShopConfig::MarketSpawnBonusSoulTrapBlueprint() const {
+    return settings_.value(
+        "MarketSpawnBonusSoulTrapBlueprint",
+        "Blueprint'/Game/Mods/DinoStorage2/SoulTraps_DS.SoulTraps_DS'");
+}
+
 std::string ShopConfig::DbHost() const {
     return db_cfg_.value("Host", "127.0.0.1");
 }

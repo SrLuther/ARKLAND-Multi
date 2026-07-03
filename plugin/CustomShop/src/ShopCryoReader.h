@@ -56,6 +56,15 @@ bool PrepareMarketCryopodForDelivery(UPrimalItem* item,
                                      AShooterPlayerController* context_player = nullptr,
                                      std::string* error = nullptr);
 
+/**
+ * Spawna o dino da cryopod preparada perto do jogador (/mercado).
+ * Falha se duped=true (ID duplicado no mapa). Nao adiciona cryopod ao inventario.
+ */
+bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
+                                AShooterPlayerController* player,
+                                APrimalDinoCharacter** out_dino = nullptr,
+                                std::string* error = nullptr);
+
 bool CryopodHasTimer(UPrimalItem* item);
 
 /** Segundos de decay restantes; -1 = permanente (sem timer de captura). */

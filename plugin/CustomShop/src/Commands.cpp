@@ -724,16 +724,31 @@ void CmdAdminPlayers(APlayerController* pc, FString*, bool) {
 
 void CmdEngramas(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
-    int unlocked = 0;
-    if (!CustomShop::Engrams::UnlockAll(controller, false, &unlocked)) {
+
+    if (ArkApi::IApiUtils::IsPlayerDead(controller)) {
         SendMsg(controller, FColorList::Red,
-                "Nao foi possivel desbloquear os engramas. Voce precisa estar vivo.");
+                "Nao foi possivel iniciar /engramas. Voce precisa estar vivo.");
         return;
     }
-    std::string msg = "Todos os engramas foram desbloqueados com sucesso!";
-    if (unlocked > 0)
-        msg += " (" + std::to_string(unlocked) + " novos)";
-    SendMsg(controller, FColorList::Green, msg);
+
+    if (!CustomShop::Engrams::RequestUnlockAll(controller)) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel iniciar /engramas. Tente novamente.");
+        return;
+    }
+
+    const int price = CustomShop::ShopConfig::Get().EngramasCommandPrice();
+    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
+    const int balance = CustomShop::ShopPoints::Get().GetPoints(sid);
+
+    SendMsg(controller, FColorList::Yellow,
+            "ATENCAO: ao trocar de mapa, engramas extras podem causar overflow "
+            "e o excesso sera perdido.");
+    SendMsg(controller, FColorList::Yellow,
+            "Custo: " + std::to_string(price) + " ambares. Saldo atual: "
+            + std::to_string(balance) + " ambares.");
+    SendMsg(controller, FColorList::Yellow,
+            "Digite /confirmar em ate 2 minutos para desbloquear todos os engramas.");
 }
 
 } // anonymous namespace
