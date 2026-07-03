@@ -1,4 +1,11 @@
-﻿cheat UnlockEngram "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots'"
+﻿# Tek unlock — referência histórica (lista manual)
+
+> **Preferir:** `Shop.UnlockAllEngrams` no CustomShop (item `tekgrams` na loja ou RCON).
+> Esse comando desbloqueia todos os engramas do servidor via API nativa, incluindo TEK de boss,
+> sem manter esta lista manual de `cheat UnlockEngram`.
+
+Comandos individuais (legado):
+
 cheat UnlockEngram "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt'"
 cheat UnlockEngram "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves'"
 cheat UnlockEngram "Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekHelmet.PrimalItemArmor_TekHelmet'"

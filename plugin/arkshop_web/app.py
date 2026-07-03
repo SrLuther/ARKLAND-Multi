@@ -2775,11 +2775,26 @@ def _merge_admin_steamids_from_db(ids: set[str], *, timeout: float) -> set[str]:
     return merged
 
 
+def _admin_steamids_file_cache_key() -> str:
+    try:
+        path = _ADMIN_FILE.resolve()
+        if path.is_file():
+            return f"{path}:{path.stat().st_mtime_ns}"
+    except OSError:
+        pass
+    return str(_ADMIN_FILE)
+
+
 def _load_admin_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> set[str]:
     """Lista admins — arquivo primeiro; DB opcional com cache, backoff e timeout."""
     now = time.monotonic()
     cached = _ADMIN_STEAMIDS_CACHE.get("ids")
-    if isinstance(cached, set) and now < float(_ADMIN_STEAMIDS_CACHE.get("expires") or 0):
+    file_key = _admin_steamids_file_cache_key()
+    if (
+        isinstance(cached, set)
+        and now < float(_ADMIN_STEAMIDS_CACHE.get("expires") or 0)
+        and _ADMIN_STEAMIDS_CACHE.get("file_key") == file_key
+    ):
         return cached
 
     ids = _load_admin_steamids_from_file()
@@ -2787,6 +2802,7 @@ def _load_admin_steamids(*, db_timeout: float = _ADMIN_DB_QUERY_TIMEOUT) -> set[
         ids = _merge_admin_steamids_from_db(ids, timeout=db_timeout)
 
     _ADMIN_STEAMIDS_CACHE["ids"] = ids
+    _ADMIN_STEAMIDS_CACHE["file_key"] = file_key
     _ADMIN_STEAMIDS_CACHE["expires"] = now + _ADMIN_STEAMIDS_CACHE_TTL
     return ids
 

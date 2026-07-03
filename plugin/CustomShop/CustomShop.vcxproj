@@ -80,6 +80,7 @@
     <ClCompile Include="src\ShopCryoDino.cpp" />
     <ClCompile Include="src\ShopCryoReader.cpp" />
     <ClCompile Include="src\ShopMarket.cpp" />
+    <ClCompile Include="src\ShopEngrams.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h" />
@@ -96,6 +97,7 @@
     <ClInclude Include="src\ShopCryoDino.h" />
     <ClInclude Include="src\ShopCryoReader.h" />
     <ClInclude Include="src\ShopMarket.h" />
+    <ClInclude Include="src\ShopEngrams.h" />
     <ClInclude Include="src\Commands.h" />
     <ClInclude Include="src\mysql.h" />
   </ItemGroup>

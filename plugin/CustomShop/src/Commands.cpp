@@ -11,6 +11,7 @@
 #include "ShopMarket.h"
 #include "TimedPoints.h"
 #include "ShopCrossChat.h"
+#include "ShopEngrams.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
@@ -671,6 +672,34 @@ void CmdAdminDebug(APlayerController* pc, FString* cmd_str, bool) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  Shop.UnlockAllEngrams [TekOnly]
+//  Unlocks every engram for the executing player (shop delivery or RCON).
+// ─────────────────────────────────────────────────────────────────
+void CmdUnlockAllEngrams(APlayerController* pc, FString* cmd_str, bool) {
+    auto* controller = static_cast<AShooterPlayerController*>(pc);
+    if (!controller) return;
+
+    bool tek_only = false;
+    if (cmd_str) {
+        const auto parts = SplitCmd(cmd_str);
+        for (size_t i = 1; i < parts.size(); ++i) {
+            const std::string arg = parts[i];
+            if (arg == "TekOnly" || arg == "tek" || arg == "Tek" || arg == "tekonly")
+                tek_only = true;
+        }
+    }
+
+    int unlocked = 0;
+    if (CustomShop::Engrams::UnlockAll(controller, tek_only, &unlocked)) {
+        Log::GetLog()->info(
+            "Shop.UnlockAllEngrams: completed (tek_only={}, unlocked={})",
+            tek_only, unlocked);
+    } else {
+        Log::GetLog()->warn("Shop.UnlockAllEngrams: failed");
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  Shop.Players
 //  Lists all online players and their SteamIDs in admin chat.
 // ─────────────────────────────────────────────────────────────────
@@ -693,6 +722,20 @@ void CmdAdminPlayers(APlayerController* pc, FString*, bool) {
     SendMsg(admin, FColorList::Yellow, std::to_string(count) + " player(s) online.");
 }
 
+void CmdEngramas(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    int unlocked = 0;
+    if (!CustomShop::Engrams::UnlockAll(controller, false, &unlocked)) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel desbloquear os engramas. Voce precisa estar vivo.");
+        return;
+    }
+    std::string msg = "Todos os engramas foram desbloqueados com sucesso!";
+    if (unlocked > 0)
+        msg += " (" + std::to_string(unlocked) + " novos)";
+    SendMsg(controller, FColorList::Green, msg);
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -706,6 +749,7 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/download",     &CmdCloudDownload);
     ArkApi::GetCommands().AddChatCommand("/nuvem",         &CmdCloudStatus);
     ArkApi::GetCommands().AddChatCommand("/cloud",         &CmdCloudStatus);
+    ArkApi::GetCommands().AddChatCommand("/engramas",      &CmdEngramas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
         "CustomShopCloudChat", &OnCloudChatMessage);
 
@@ -725,8 +769,9 @@ void Register() {
     ArkApi::GetCommands().AddConsoleCommand("Shop.AddVip",     &CmdAdminAddVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.RemoveVip",  &CmdAdminRemoveVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.ListVip",    &CmdAdminListVip);
-    ArkApi::GetCommands().AddConsoleCommand("Shop.Debug",      &CmdAdminDebug);
-    ArkApi::GetCommands().AddConsoleCommand("Shop.Players",    &CmdAdminPlayers);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Debug",            &CmdAdminDebug);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.Players",          &CmdAdminPlayers);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.UnlockAllEngrams", &CmdUnlockAllEngrams);
 }
 
 void Unregister() {
@@ -738,6 +783,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveOnChatMessageCallback("CustomShopCloudChat");
     ShopMarket::UnregisterCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
+    ArkApi::GetCommands().RemoveChatCommand("/engramas");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Upload");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Download");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Nuvem");
@@ -753,6 +799,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.ListVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Debug");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Players");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.UnlockAllEngrams");
     ArkApi::GetCommands().RemoveChatCommand("/shop debug");
 }
 

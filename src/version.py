@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.181"
+APP_VERSION: str = "1.9.182"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.182",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (CustomShop / Engramas): /engramas com aviso de overflow ao trocar mapa e confirmação via /confirmar (TTL 2 min); desbloqueio dinâmico de todos os engramas (vanilla + mods) via PrimalGameData sem consumir pontos de engrama.",
+            "Feature (CustomShop): Shop.UnlockAllEngrams [TekOnly] para RCON, console e entrega da loja; item tekgrams do catálogo usa comando único em vez de 74 UnlockEngram individuais.",
+            "Melhoria (CustomShop / Loja): ExecuteAsAdmin em comandos do catálogo — privilégio admin temporário na entrega.",
+            "Fix (Web Store / Admin): cache de admins invalida quando admin_steamids.json muda — corrige Acesso negado intermitente após editar admins.",
+        ],
+    },
     {
         "version": "1.9.181",
         "date": "2026-07-02",

@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.182] - 2026-07-03
+
+### Feature
+
+- Feature (CustomShop / Engramas): /engramas com aviso de overflow ao trocar mapa e confirmação via /confirmar (TTL 2 min); desbloqueio dinâmico de todos os engramas (vanilla + mods) via PrimalGameData sem consumir pontos de engrama.
+- Feature (CustomShop): Shop.UnlockAllEngrams [TekOnly] para RCON, console e entrega da loja; item tekgrams do catálogo usa comando único em vez de 74 UnlockEngram individuais.
+
+### Improvement
+
+- Melhoria (CustomShop / Loja): ExecuteAsAdmin em comandos do catálogo — privilégio admin temporário na entrega.
+
+### Fix
+
+- Fix (Web Store / Admin): cache de admins invalida quando admin_steamids.json muda — corrige Acesso negado intermitente após editar admins.
+
 ## [1.9.181] - 2026-07-02
 
 ### Fix

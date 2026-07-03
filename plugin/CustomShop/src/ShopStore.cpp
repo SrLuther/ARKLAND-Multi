@@ -7,6 +7,7 @@
 #include "ShopVip.h"
 #include "ShopEntitlements.h"
 #include "ShopCryoDino.h"
+#include "ShopEngrams.h"
 
 #include <cctype>
 
@@ -395,10 +396,12 @@ void RunCommands(const nlohmann::json& commands_array,
                  const std::string& skip_permission_group = "") {
     for (const auto& cmd_json : commands_array) {
         std::string cmd;
+        bool exec_as_admin = false;
         if (cmd_json.is_string()) {
             cmd = cmd_json.get<std::string>();
         } else if (cmd_json.is_object()) {
             cmd = cmd_json.value("Command", "");
+            exec_as_admin = cmd_json.value("ExecuteAsAdmin", false);
         } else {
             continue;
         }
@@ -412,6 +415,12 @@ void RunCommands(const nlohmann::json& commands_array,
             continue;
         }
 
+        if (CustomShop::Engrams::IsUnlockAllCommand(cmd)) {
+            CustomShop::Engrams::UnlockAll(controller,
+                CustomShop::Engrams::ParseTekOnlyFlag(cmd));
+            continue;
+        }
+
         // Replace {SteamID} / {steamid} placeholder
         for (const auto& token : {"{SteamID}", "{steamid}"}) {
             size_t pos = 0;
@@ -422,9 +431,16 @@ void RunCommands(const nlohmann::json& commands_array,
             }
         }
 
+        const bool was_admin = controller->bIsAdmin()();
+        if (!was_admin && exec_as_admin)
+            controller->bIsAdmin() = true;
+
         FString fscmd(cmd.c_str());
         FString result;
         controller->ConsoleCommand(&result, &fscmd, true);
+
+        if (!was_admin && exec_as_admin)
+            controller->bIsAdmin() = false;
     }
 }
 

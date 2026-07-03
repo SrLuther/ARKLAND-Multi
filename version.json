@@ -1,9 +1,11 @@
 {
-    "version": "1.9.181",
+    "version": "1.9.182",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.181/ARKLAND-Multi-Setup-v1.9.181.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.182/ARKLAND-Multi-Setup-v1.9.182.exe",
     "changelog": [
-        "Fix (Web Store / Mercado P2P): cryopod morta (DEAD/Carga 0s) — StripCryopodTimer em /confirmar, PrepareMarketCryopodForDelivery em /mercado, validação e liberação do claim em falha (ShopCryoReader.cpp, ShopMarket.cpp).",
-        "Fix (Loja / Catálogo): correções de blueprint path — Hide→Leather, armadura Tek pasta TEK, estruturas tek em tek/; Nameless Venom; _KNOWN_BLUEPRINT_FIXES ampliado."
+        "Feature (CustomShop / Engramas): /engramas com aviso de overflow ao trocar mapa e confirmação via /confirmar (TTL 2 min); desbloqueio dinâmico de todos os engramas (vanilla + mods) via PrimalGameData sem consumir pontos de engrama.",
+        "Feature (CustomShop): Shop.UnlockAllEngrams [TekOnly] para RCON, console e entrega da loja; item tekgrams do catálogo usa comando único em vez de 74 UnlockEngram individuais.",
+        "Melhoria (CustomShop / Loja): ExecuteAsAdmin em comandos do catálogo — privilégio admin temporário na entrega.",
+        "Fix (Web Store / Admin): cache de admins invalida quando admin_steamids.json muda — corrige Acesso negado intermitente após editar admins."
     ]
 }

@@ -4,6 +4,7 @@
 #include "ShopCloudInventory.h"
 #include "ShopCryoReader.h"
 #include "ShopConfig.h"
+#include "ShopEngrams.h"
 #include "HttpClient.h"
 
 #include <chrono>
@@ -295,6 +296,20 @@ void ShopMarket::CmdEnviarDebug(AShooterPlayerController* player, FString*, ECha
 void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
     if (!player) return;
     const std::string sid = Bridge::GetSteamId(player);
+
+    if (Engrams::HasPendingUnlock(sid)) {
+        int unlocked = 0;
+        if (!Engrams::ConfirmUnlockAll(sid, player, &unlocked)) {
+            SendMsg(player, FColorList::Red,
+                    "Confirmacao de engramas expirada. Use /engramas novamente.");
+            return;
+        }
+        std::string msg = "Todos os engramas foram desbloqueados com sucesso!";
+        if (unlocked > 0)
+            msg += " (" + std::to_string(unlocked) + " novos)";
+        SendMsg(player, FColorList::Green, msg);
+        return;
+    }
 
     std::lock_guard<std::mutex> confirm_lock(g_confirm_exec_mutex);
 

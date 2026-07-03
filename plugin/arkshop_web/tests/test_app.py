@@ -1527,7 +1527,7 @@ class TestCardCheckout:
         )
 
     def test_card_checkout_requires_auth(self, client):
-        r = client.post("/api/player/card/checkout", json={"package_id": "p500"})
+        r = client.post("/api/player/card/checkout", json={"package_id": "p10000"})
         assert r.status_code == 401
 
     def test_card_checkout_creates_preference(self, client, tmp_path, monkeypatch):
@@ -1542,7 +1542,7 @@ class TestCardCheckout:
             r = client.post(
                 "/api/player/card/checkout",
                 json={
-                    "package_id": "p500",
+                    "package_id": "p10000",
                     "payer": {
                         "email": "player@example.com",
                         "full_name": "João Silva",
@@ -1554,7 +1554,7 @@ class TestCardCheckout:
         assert r.status_code == 200
         assert d["ok"] is True
         assert d["checkout_url"].startswith("https://sandbox.mercadopago")
-        assert d["points"] == 500
+        assert d["points"] == 10000
         assert d["amount_brl"] == 5.0
 
         db = _app_module._SessionLocal()
@@ -1563,8 +1563,8 @@ class TestCardCheckout:
                 _app_module.PointPayment.payment_id == d["payment_id"]
             ).first()
             assert row is not None
-            assert row.package_id == "p500"
-            assert row.points == 500
+            assert row.package_id == "p10000"
+            assert row.points == 10000
             assert row.status == "PENDENTE"
             assert row.credited is False
             assert row.mp_payment_id is None

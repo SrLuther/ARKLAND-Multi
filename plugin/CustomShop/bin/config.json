@@ -3576,31 +3576,31 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4022,7 +4022,9 @@
     "VoteRewards": false,
     "WebApiKey": "senhaextremamentelongaparaaloja",
     "WebApiUrl": "http://192.168.15.51:27199",
-    "WebsiteUrl": "https://arkland.com.br"
+    "WebsiteUrl": "https://arkland.com.br",
+    "HomeMapsTitle": "Meus Mapas",
+    "HomeMapsIntro": "Intro customizada."
   },
   "TimedPointsReward": {
     "Enabled": true,
@@ -5428,7 +5430,7 @@
           "Quality": 100
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves",
           "Quantity": 1,
           "Quality": 100
         },
@@ -5478,7 +5480,7 @@
           "ForceBlueprint": true
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots",
           "Quantity": 1,
           "Quality": 100,
           "ForceBlueprint": true
@@ -6566,7 +6568,7 @@
           "Quantity": 1
         },
         {
-          "Blueprint": "/Game/Aberration/CoreBlueprints/Items/Consumables/PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom",
+          "Blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom",
           "Quantity": 20
         },
         {
@@ -10226,15 +10228,15 @@
       "Category": "Geral",
       "Commands": [
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves'\"",
           "ExecuteAsAdmin": true
         },
         {
@@ -10242,7 +10244,7 @@
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekPants.PrimalItemArmor_TekPants'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekPants.PrimalItemArmor_TekPants'\"",
           "ExecuteAsAdmin": true
         },
         {
@@ -10374,23 +10376,23 @@
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_Tekfencefoundation.PrimalItemStructure_Tekfencefoundation'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekFenceFoundation.PrimalItemStructure_TekFenceFoundation'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs'\"",
           "ExecuteAsAdmin": true
         },
         {
@@ -11014,6 +11016,62 @@
       "id": "099af885",
       "label": "Coleção de Mods",
       "url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3205869831"
+    }
+  ],
+  "FeaturedMaps": [
+    {
+      "id": "brighamia",
+      "name": "Brighamia",
+      "mod_map": true,
+      "description": "Mapa mod de alta qualidade — paisagens únicas, exploração recompensadora e ótimo desempenho em servidor dedicado. Uma das joias do nosso cluster.",
+      "sort_order": 0,
+      "enabled": true,
+      "server_id": ""
+    },
+    {
+      "id": "alps",
+      "name": "Alps",
+      "mod_map": true,
+      "description": "Mapa mod alpino com biomas dramáticos, rotas de voo desafiadoras e bases espetaculares. Excelente para tribos que buscam cenário épico e variedade.",
+      "sort_order": 1,
+      "enabled": true,
+      "server_id": ""
+    },
+    {
+      "id": "the_volcano",
+      "name": "The Volcano",
+      "mod_map": true,
+      "description": "Mapa mod vulcânico com biomas extremos, recursos únicos e desafio constante — ideal para tribos que buscam risco e recompensa.",
+      "sort_order": 2,
+      "enabled": true,
+      "server_id": ""
+    },
+    {
+      "id": "amissa",
+      "name": "Amissa",
+      "mod_map": true,
+      "description": "Mapa mod com paisagens variadas e exploração profunda, integrado ao cluster com rates e eventos sazonais do ARKLAND.",
+      "sort_order": 3,
+      "enabled": true,
+      "server_id": ""
+    },
+    {
+      "id": "crystal_isles",
+      "name": "Crystal Isles",
+      "mod_map": false,
+      "description": "Mapa oficial com ilhas flutuantes, biomas cristalinos e criaturas exclusivas. Um dos cenários vanilla mais impressionantes — integrado ao cluster com rates ARKLAND.",
+      "sort_order": 4,
+      "enabled": true,
+      "server_id": ""
+    },
+    {
+      "id": "genesis_2",
+      "name": "Genesis 2",
+      "mod_map": false,
+      "description": "Mapa oficial de endgame com bioma espacial, missões e conteúdo Tek avançado. Complementa o cluster com a progressão completa da expansão Genesis Part 2.",
+      "sort_order": 5,
+      "enabled": true,
+      "server_id": ""
     }
   ]
 }
