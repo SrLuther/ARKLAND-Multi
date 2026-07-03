@@ -58,12 +58,24 @@ bool PrepareMarketCryopodForDelivery(UPrimalItem* item,
 
 /**
  * Spawna o dino da cryopod preparada perto do jogador (/mercado).
- * Falha se duped=true (ID duplicado no mapa). Nao adiciona cryopod ao inventario.
+ * Com MarketAssignNewDinoId gera ID novo e faz retry em duped=true.
+ * Nao adiciona cryopod ao inventario.
  */
 bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
                                 AShooterPlayerController* player,
                                 APrimalDinoCharacter** out_dino = nullptr,
                                 std::string* error = nullptr);
+
+/**
+ * Descarta cryopod transiente (CreateFromBytes, fora do inventario).
+ * Usa guards UObject; nao chama BeginDestroy em ponteiro invalido.
+ * Apos spawn bem-sucedido, prefira apenas zerar o ponteiro — o engine pode
+ * ja ter invalidado o UObject.
+ */
+void SafeDestroyTransientCryopod(UPrimalItem* item);
+
+/** Destroi e zera referencia do caller (evita double-destroy). */
+void ReleaseTransientCryopod(UPrimalItem*& item);
 
 bool CryopodHasTimer(UPrimalItem* item);
 

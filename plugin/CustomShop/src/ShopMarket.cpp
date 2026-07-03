@@ -427,12 +427,14 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
                 + SanitizeForGameChat(probe_err.empty() ? std::string("dados ilegiveis")
                                                         : probe_err));
         SendCryoDebugReport(player, sid, "confirmar_probe_fail", true);
+        ReleaseTransientCryopod(probe);
         {
             std::lock_guard<std::mutex> lock(g_pending_mutex);
             g_pending[sid] = pending;
         }
         return;
     }
+    ReleaseTransientCryopod(probe);
 
     UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
     const std::string hex = HexEncode(bytes.Bytes);
@@ -608,20 +610,22 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                     sid, claim_id, spawn_err);
                 SendCryoDebugReport(player, sid, "mercado_spawn_fail",
                                     ShopConfig::Get().MarketCryoDebug());
-                if (spawn_err.find("duplicado") != std::string::npos) {
+                if (spawn_err.find("duplicado") != std::string::npos
+                    || spawn_err.find("retries") != std::string::npos) {
                     SendMsg(player, FColorList::Red,
-                            "Dino com ID duplicado no servidor — resgate cancelado. "
-                            "Contate admin se persistir.");
+                            "Falha ao spawnar dino (ID duplicado). "
+                            "Resgate liberado — tente novamente ou contate admin.");
                 } else {
                     SendMsg(player, FColorList::Red,
                             "Falha ao spawnar dino do Comercio. "
                             "Resgate liberado - tente novamente ou contate admin.");
                 }
-                item->BeginDestroy();
+                ReleaseTransientCryopod(item);
                 return;
             }
 
-            item->BeginDestroy();
+            // Spawn consumiu/invalidou a cryopod transiente — nao destruir de novo.
+            item = nullptr;
 
             bool soul_trap_ok = false;
             if (!soul_trap_bp.empty()) {

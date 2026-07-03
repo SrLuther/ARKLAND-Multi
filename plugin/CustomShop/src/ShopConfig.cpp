@@ -135,6 +135,10 @@ bool ShopConfig::MarketDeliverAsSpawn() const {
     return settings_.value("MarketDeliverAsSpawn", true);
 }
 
+bool ShopConfig::MarketAssignNewDinoId() const {
+    return settings_.value("MarketAssignNewDinoId", true);
+}
+
 std::string ShopConfig::MarketSpawnBonusSoulTrapBlueprint() const {
     return settings_.value(
         "MarketSpawnBonusSoulTrapBlueprint",

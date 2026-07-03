@@ -48,6 +48,92 @@ void EnsureItemInitialized(UPrimalItem* item) {
     item->InventoryLoadedFromSaveGame();
 }
 
+bool IsTransientItemDestroyable(UPrimalItem* item) {
+    if (!item) return false;
+    if (!item->IsValidLowLevel()) return false;
+    if (!item->IsValidLowLevelFast(false)) return false;
+    return true;
+}
+
+void SafeDestroyProbeDino(APrimalDinoCharacter* dino, bool duped) {
+    if (!dino || duped) return;
+    if (!dino->IsValidLowLevel()) return;
+    dino->Destroy(true, false);
+}
+
+bool BuildDinoDataFromCustomData(const FCustomItemData& data, FARKDinoData& out) {
+    if (data.CustomDataClasses.Num() < 1
+        || data.CustomDataBytes.ByteArrays.Num() < 1
+        || data.CustomDataBytes.ByteArrays[0].Bytes.Num() <= 32)
+        return false;
+    out = FARKDinoData{};
+    out.DinoClass = data.CustomDataClasses[0];
+    out.DinoData = data.CustomDataBytes.ByteArrays[0].Bytes;
+    if (data.CustomDataStrings.Num() >= 1)
+        out.DinoNameInMap = data.CustomDataStrings[0];
+    if (data.CustomDataStrings.Num() >= 2)
+        out.DinoName = data.CustomDataStrings[1];
+    return true;
+}
+
+bool WriteDinoDataToCryopod(UPrimalItem* item, FCustomItemData& data, const FARKDinoData& dinoData) {
+    if (!item) return false;
+    if (data.CustomDataBytes.ByteArrays.Num() < 1)
+        return false;
+    data.CustomDataBytes.ByteArrays[0].Bytes = dinoData.DinoData;
+    if (data.CustomDataClasses.Num() >= 1)
+        data.CustomDataClasses[0] = dinoData.DinoClass;
+    if (data.CustomDataStrings.Num() >= 1)
+        data.CustomDataStrings[0] = dinoData.DinoNameInMap;
+    if (data.CustomDataStrings.Num() >= 2)
+        data.CustomDataStrings[1] = dinoData.DinoName;
+    item->SetCustomItemData(&data);
+    item->UpdatedItem(true);
+    return true;
+}
+
+/**
+ * Spawna off-map com bGenerateNewDinoID, copia DinoData com ID novo e destrói o probe.
+ * Nunca Destroy quando duped=true (ponteiro aponta para dino ja existente no mapa).
+ */
+bool RegenerateDinoIdInDinoData(FARKDinoData& dinoData, AShooterPlayerController* player) {
+    UWorld* world = GameWorld();
+    if (!world) return false;
+
+    FVector probe_loc(0.f, 0.f, -50000.f);
+    FRotator probe_rot(0.f, 0.f, 0.f);
+    const int team_id = player ? player->TargetingTeamField() : 0;
+    bool duped = false;
+    APrimalDinoCharacter* probe = APrimalDinoCharacter::SpawnFromDinoDataEx(
+        &dinoData, world, &probe_loc, &probe_rot, &duped, team_id, true, player, true);
+    if (duped || !probe) {
+        SafeDestroyProbeDino(probe, duped);
+        return false;
+    }
+
+    FARKDinoData refreshed;
+    probe->GetDinoData(&refreshed);
+    SafeDestroyProbeDino(probe, false);
+
+    if (refreshed.DinoData.Num() <= 32)
+        return false;
+    dinoData.DinoData = refreshed.DinoData;
+    return true;
+}
+
+APrimalDinoCharacter* SpawnDinoFromDataAt(FARKDinoData& dinoData, UWorld* world,
+                                          const FVector& loc, const FRotator& rot,
+                                          AShooterPlayerController* player, int team_id,
+                                          bool generate_new_id, bool& duped_out) {
+    duped_out = false;
+    if (!world) return nullptr;
+    FVector spawn_loc = loc;
+    FRotator spawn_rot = rot;
+    return APrimalDinoCharacter::SpawnFromDinoDataEx(
+        &dinoData, world, &spawn_loc, &spawn_rot, &duped_out, team_id,
+        generate_new_id, player, true);
+}
+
 bool IsVanillaEmptyCryopodClass(UPrimalItem* item) {
     if (!item) return false;
     UClass* cls = item->ClassField();
@@ -123,19 +209,23 @@ bool CollectCryoCustomDataBlob(UPrimalItem* item, FCustomItemData& out) {
         return false;
 
     EnsureItemInitialized(clone);
-    if (TryReadDinoCustomData(clone, out))
-        return true;
-
-    const TArray<FCustomItemData>& all = clone->CustomItemDatasField();
-    for (int i = 0; i < all.Num(); ++i) {
-        const FCustomItemData& entry = all[i];
-        if (entry.CustomDataBytes.ByteArrays.Num() >= 1
-            && entry.CustomDataBytes.ByteArrays[0].Bytes.Num() > 32) {
-            out = entry;
-            return true;
+    bool found = false;
+    if (TryReadDinoCustomData(clone, out)) {
+        found = true;
+    } else {
+        const TArray<FCustomItemData>& all = clone->CustomItemDatasField();
+        for (int i = 0; i < all.Num(); ++i) {
+            const FCustomItemData& entry = all[i];
+            if (entry.CustomDataBytes.ByteArrays.Num() >= 1
+                && entry.CustomDataBytes.ByteArrays[0].Bytes.Num() > 32) {
+                out = entry;
+                found = true;
+                break;
+            }
         }
     }
-    return false;
+    CustomShop::SafeDestroyTransientCryopod(clone);
+    return found;
 }
 
 bool FillMetadataFromDino(APrimalDinoCharacter* dino, CustomShop::CryoParsedMetadata& out) {
@@ -207,6 +297,10 @@ bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
 
 bool TryFillStatPointsViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
                                     CustomShop::CryoParsedMetadata& out) {
+    // Cryopod transiente do vault (CreateFromBytes, sem inventario) nao deve
+    // usar spawn probe — /mercado chama SpawnMarketDinoFromCryopod em seguida.
+    if (!item || !item->OwnerInventoryField())
+        return false;
     CustomShop::CryoParsedMetadata probe;
     if (!TryParseViaSpawnProbe(item, player, probe))
         return false;
@@ -216,6 +310,8 @@ bool TryFillStatPointsViaSpawnProbe(UPrimalItem* item, AShooterPlayerController*
 
 bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
                            CustomShop::CryoParsedMetadata& out) {
+    if (!item || !item->OwnerInventoryField())
+        return false;
     FCustomItemData data;
     if (!CollectCryoCustomDataBlob(item, data))
         return false;
@@ -229,12 +325,8 @@ bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
         return false;
 
     FARKDinoData dinoData;
-    dinoData.DinoClass = data.CustomDataClasses[0];
-    dinoData.DinoData = data.CustomDataBytes.ByteArrays[0].Bytes;
-    if (data.CustomDataStrings.Num() >= 1)
-        dinoData.DinoNameInMap = data.CustomDataStrings[0];
-    if (data.CustomDataStrings.Num() >= 2)
-        dinoData.DinoName = data.CustomDataStrings[1];
+    if (!BuildDinoDataFromCustomData(data, dinoData))
+        return false;
 
     FVector spawn_loc = FVector(0.f, 0.f, -50000.f);
     int team_id = 0;
@@ -243,8 +335,8 @@ bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
 
     FRotator spawn_rot = FRotator(0.f, 0.f, 0.f);
     bool duped = false;
-    APrimalDinoCharacter* spawned = APrimalDinoCharacter::SpawnFromDinoDataEx(
-        &dinoData, world, &spawn_loc, &spawn_rot, &duped, team_id, false, player, true);
+    APrimalDinoCharacter* spawned = SpawnDinoFromDataAt(
+        dinoData, world, spawn_loc, spawn_rot, player, team_id, true, duped);
     if (!spawned) {
         Log::GetLog()->warn("ShopCryoReader: SpawnFromDinoDataEx falhou species={}",
                             ClassPath(dinoData.DinoClass));
@@ -253,12 +345,17 @@ bool TryParseViaSpawnProbe(UPrimalItem* item, AShooterPlayerController* player,
 
     out = CustomShop::CryoParsedMetadata{};
     out.has_dino_data = true;
-    out.extraction_method = "spawn_probe";
+    out.extraction_method = duped ? "spawn_probe_duped" : "spawn_probe";
     const bool ok = FillMetadataFromDino(spawned, out);
-    spawned->Destroy(true, false);
+    SafeDestroyProbeDino(spawned, duped);
+    if (duped) {
+        Log::GetLog()->warn(
+            "ShopCryoReader: spawn probe ID duplicado species={} — metadata lida sem Destroy",
+            ShortSpecies(out.species_blueprint));
+    }
     if (ok) {
-        Log::GetLog()->info("ShopCryoReader: metadata via spawn probe species={} imprint={:.2f}",
-                            ShortSpecies(out.species_blueprint), out.imprint_pct);
+        Log::GetLog()->info("ShopCryoReader: metadata via spawn probe species={} imprint={:.2f} duped={}",
+                            ShortSpecies(out.species_blueprint), out.imprint_pct, duped ? 1 : 0);
     }
     return ok;
 }
@@ -280,7 +377,9 @@ bool TryGetCryoCustomDataFromItem(UPrimalItem* item, FCustomItemData& out) {
         return false;
 
     EnsureItemInitialized(clone);
-    if (TryReadDinoCustomData(clone, out))
+    const bool ok = TryReadDinoCustomData(clone, out);
+    CustomShop::SafeDestroyTransientCryopod(clone);
+    if (ok)
         return true;
 
     Log::GetLog()->warn(
@@ -371,15 +470,26 @@ void ApplyCryoTimerFieldsToMetadata(UPrimalItem* item, CryoParsedMetadata& out) 
 }
 
 bool ValidateMarketCryopodItem(UPrimalItem* item, std::string* error,
-                             AShooterPlayerController* context_player) {
+                             AShooterPlayerController* /*context_player*/) {
     if (!item) {
         if (error) *error = "item nulo";
         return false;
     }
-    CryoParsedMetadata meta;
-    if (!ParseCryopodItem(item, meta, error, context_player))
+    if (!IsVanillaEmptyCryopodClass(item)) {
+        if (error) *error = "nao e cryopod oficial";
         return false;
-    if (!meta.has_dino_data) {
+    }
+    // Leitura leve do blob — sem spawn probe. PrepareMarketCryopodForDelivery e
+    // seguido de SpawnMarketDinoFromCryopod; probe + spawn real com o mesmo ID
+    // deixava estado duplicado e podia derrubar o mapa apos /mercado.
+    FCustomItemData data;
+    if (!CollectCryoCustomDataBlob(item, data)) {
+        if (error) *error = "sem dados do dino na cryopod";
+        return false;
+    }
+    if (data.CustomDataClasses.Num() < 1
+        || data.CustomDataBytes.ByteArrays.Num() < 1
+        || data.CustomDataBytes.ByteArrays[0].Bytes.Num() <= 32) {
         if (error) *error = "cryopod vazia (sem dino)";
         return false;
     }
@@ -460,14 +570,14 @@ bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
         return false;
     }
 
-    FCustomItemData data;
-    if (!CollectCryoCustomDataBlob(item, data)) {
+    FCustomItemData custom_data;
+    if (!CollectCryoCustomDataBlob(item, custom_data)) {
         if (error) *error = "sem dados do dino na cryopod";
         return false;
     }
-    if (data.CustomDataClasses.Num() < 1
-        || data.CustomDataBytes.ByteArrays.Num() < 1
-        || data.CustomDataBytes.ByteArrays[0].Bytes.Num() <= 32) {
+
+    FARKDinoData dinoData;
+    if (!BuildDinoDataFromCustomData(custom_data, dinoData)) {
         if (error) *error = "blob do dino incompleto";
         return false;
     }
@@ -477,14 +587,6 @@ bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
         if (error) *error = "mundo indisponivel";
         return false;
     }
-
-    FARKDinoData dinoData;
-    dinoData.DinoClass = data.CustomDataClasses[0];
-    dinoData.DinoData = data.CustomDataBytes.ByteArrays[0].Bytes;
-    if (data.CustomDataStrings.Num() >= 1)
-        dinoData.DinoNameInMap = data.CustomDataStrings[0];
-    if (data.CustomDataStrings.Num() >= 2)
-        dinoData.DinoName = data.CustomDataStrings[1];
 
     FVector spawn_loc(0.f, 0.f, 0.f);
     FRotator spawn_rot = FRotator(0.f, 0.f, 0.f);
@@ -500,24 +602,46 @@ bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
     }
 
     const int team_id = player->TargetingTeamField();
-    bool duped = false;
-    APrimalDinoCharacter* spawned = APrimalDinoCharacter::SpawnFromDinoDataEx(
-        &dinoData, world, &spawn_loc, &spawn_rot, &duped, team_id, false, player, true);
+    const bool assign_new_id = ShopConfig::Get().MarketAssignNewDinoId();
+    const int max_attempts = assign_new_id ? 3 : 1;
 
-    if (duped) {
+    APrimalDinoCharacter* spawned = nullptr;
+    for (int attempt = 0; attempt < max_attempts; ++attempt) {
+        if (attempt > 0) {
+            if (!RegenerateDinoIdInDinoData(dinoData, player)) {
+                Log::GetLog()->warn(
+                    "ShopCryoReader: retry ID regeneration falhou attempt={} species={}",
+                    attempt + 1, ClassPath(dinoData.DinoClass));
+                continue;
+            }
+            WriteDinoDataToCryopod(item, custom_data, dinoData);
+        }
+
+        bool duped = false;
+        spawned = SpawnDinoFromDataAt(
+            dinoData, world, spawn_loc, spawn_rot, player, team_id, assign_new_id, duped);
+
+        if (duped) {
+            Log::GetLog()->warn(
+                "ShopCryoReader: SpawnMarketDino duped attempt={}/{} species={} assign_new_id={}",
+                attempt + 1, max_attempts, ClassPath(dinoData.DinoClass), assign_new_id ? 1 : 0);
+            spawned = nullptr;
+            continue;
+        }
         if (spawned)
-            spawned->Destroy(true, false);
-        if (error) *error = "id de dino duplicado no servidor";
+            break;
         Log::GetLog()->warn(
-            "ShopCryoReader: SpawnMarketDino duped species={}",
-            ClassPath(dinoData.DinoClass));
-        return false;
+            "ShopCryoReader: SpawnMarketDino falhou attempt={}/{} species={}",
+            attempt + 1, max_attempts, ClassPath(dinoData.DinoClass));
     }
+
     if (!spawned) {
-        if (error) *error = "falha ao spawnar dino";
-        Log::GetLog()->warn(
-            "ShopCryoReader: SpawnMarketDino falhou species={}",
-            ClassPath(dinoData.DinoClass));
+        if (error) {
+            if (assign_new_id)
+                *error = "falha ao spawnar dino (ID duplicado apos retries)";
+            else
+                *error = "id de dino duplicado no servidor";
+        }
         return false;
     }
 
@@ -525,10 +649,30 @@ bool SpawnMarketDinoFromCryopod(UPrimalItem* item,
         *out_dino = spawned;
 
     Log::GetLog()->info(
-        "ShopCryoReader: SpawnMarketDino ok species={} name={}",
+        "ShopCryoReader: SpawnMarketDino ok species={} name={} new_id={}",
         ShortSpecies(ClassPath(dinoData.DinoClass)),
-        dinoData.DinoNameInMap.ToString());
+        dinoData.DinoNameInMap.ToString(),
+        assign_new_id ? 1 : 0);
     return true;
+}
+
+void SafeDestroyTransientCryopod(UPrimalItem* item) {
+    if (!IsTransientItemDestroyable(item)) {
+        Log::GetLog()->debug(
+            "ShopCryoReader: SafeDestroyTransientCryopod skip (invalido ou ja destruido)");
+        return;
+    }
+    if (!item->ConditionalBeginDestroy()) {
+        Log::GetLog()->debug(
+            "ShopCryoReader: SafeDestroyTransientCryopod skip (ConditionalBeginDestroy=false)");
+    }
+}
+
+void ReleaseTransientCryopod(UPrimalItem*& item) {
+    if (!item) return;
+    UPrimalItem* local = item;
+    item = nullptr;
+    SafeDestroyTransientCryopod(local);
 }
 
 bool StripCryopodTimer(UPrimalItem* item) {
@@ -820,6 +964,7 @@ void DiagnoseSingleCryo(UPrimalItem* item, AShooterPlayerController* controller,
             e.imprint_pct = static_cast<float>(imprint);
         }
     }
+    CustomShop::SafeDestroyTransientCryopod(clone);
 }
 
 } // anonymous namespace

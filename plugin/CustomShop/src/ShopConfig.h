@@ -60,6 +60,12 @@ public:
     /** true = /mercado spawna o dino no chao; false = entrega cryopod no inventario. */
     bool        MarketDeliverAsSpawn() const;
 
+    /**
+     * true = gera ID novo ao spawnar dino do Comercio (evita duped=true em clones).
+     * Retry automatico com blob regenerado se o ARK ainda reportar ID duplicado.
+     */
+    bool        MarketAssignNewDinoId() const;
+
     /** Blueprint da Soul Trap vazia de bonus no resgate spawn (DinoStorage2). */
     std::string MarketSpawnBonusSoulTrapBlueprint() const;
 

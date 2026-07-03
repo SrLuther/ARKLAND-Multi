@@ -1,10 +1,9 @@
 {
-    "version": "1.9.184",
+    "version": "1.9.185",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.184/ARKLAND-Multi-Setup-v1.9.184.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.185/ARKLAND-Multi-Setup-v1.9.185.exe",
     "changelog": [
-        "Fix (ASM / CustomShop): painel de item usa item_detail_source e merge_shop_item_entry para Blueprint/Armor em Items[0] (selas sela_*).",
-        "Melhoria (CustomShop / sync): sync_all_plugins aplica apply_saddle_armor em sela_* antes de sincronizar o catalogo.",
-        "Melhoria (tools): apply_saddle_armor.py — deteccao e aplicacao de Armor 350 em selas aninhadas; testes em test_apply_saddle_armor e test_shop_catalog_import."
+        "Fix (CustomShop / Mercado P2P): /mercado deixava de derrubar o mapa — validacao da cryopod em PrepareMarketCryopodForDelivery sem spawn probe (evita double-spawn antes de SpawnMarketDinoFromCryopod).",
+        "Fix (CustomShop): TryParseViaSpawnProbe trata duped=true com seguranca (nao Destroy em dino ja existente no mapa)."
     ]
 }

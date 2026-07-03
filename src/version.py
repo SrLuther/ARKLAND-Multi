@@ -3,11 +3,36 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.184"
+APP_VERSION: str = "1.9.187"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.187",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (CustomShop / Mercado P2P): Settings.MarketAssignNewDinoId (padrao true) — gera ID novo ao spawnar dino do /mercado; retry automatico com blob regenerado em duped=true.",
+            "Fix (CustomShop / Mercado P2P): crash BeginDestroy on None apos SpawnMarketDino ok — nao destruir cryopod transiente apos spawn bem-sucedido; ReleaseTransientCryopod com guards UObject.",
+            "Fix (CustomShop): spawn probe off-map usa bGenerateNewDinoID e SafeDestroyProbeDino; clones CreateFromBytes liberados em CollectCryoCustomDataBlob e /confirmar probe.",
+        ],
+    },
+    {
+        "version": "1.9.186",
+        "date": "2026-07-03",
+        "changes": [
+            "Fix (CustomShop / Mercado P2P): crash apos SpawnMarketDino ok — SafeDestroyTransientCryopod usa ConditionalBeginDestroy em vez de BeginDestroy direto na cryopod transiente do vault.",
+            "Fix (CustomShop / Mercado P2P): validacao de cryopod no /mercado sem spawn probe; probe bloqueado em itens transientes (sem OwnerInventory) antes de SpawnMarketDinoFromCryopod.",
+        ],
+    },
+    {
+        "version": "1.9.185",
+        "date": "2026-07-03",
+        "changes": [
+            "Fix (CustomShop / Mercado P2P): /mercado deixava de derrubar o mapa — validacao da cryopod em PrepareMarketCryopodForDelivery sem spawn probe (evita double-spawn antes de SpawnMarketDinoFromCryopod).",
+            "Fix (CustomShop): TryParseViaSpawnProbe trata duped=true com seguranca (nao Destroy em dino ja existente no mapa).",
+        ],
+    },
     {
         "version": "1.9.184",
         "date": "2026-07-03",
