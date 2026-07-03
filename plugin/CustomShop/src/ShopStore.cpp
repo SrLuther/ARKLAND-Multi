@@ -308,7 +308,7 @@ bool GiveSingleItem(AShooterPlayerController* controller,
             if (created)
                 out_items.Add(created);
         }
-        if (out_items.IsEmpty()) return false;
+        if (out_items.Num() == 0) return false;
         ApplyItemStats(out_items, armor, durability, damage);
         return true;
     }

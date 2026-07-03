@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.180] - 2026-07-02
+
+### Fix
+
+- Fix (CustomShop / Build): compilação do CustomShop.dll — TArray::IsEmpty substituído por Num(); ApplyItemStats (Armadura/Dano/Durabilidade in-game) incluído no binário da release.
+
 ## [1.9.179] - 2026-07-02
 
 ### Feature
