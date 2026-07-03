@@ -730,7 +730,7 @@ def _refresh_items_list(scroll_items, data: Dict[str, Any], on_select) -> None:
 
 def _item_dict_from_vars(item_vars: Dict[str, tk.Variable]) -> dict:
     g = lambda k, d: item_vars.get(k, tk.StringVar(value=str(d))).get()
-    return {
+    out = {
         "Type":           g("type", "item"),
         "Price":          _safe_int(g("price", "0"), 0),
         "Description":    g("description", ""),
@@ -739,6 +739,15 @@ def _item_dict_from_vars(item_vars: Dict[str, tk.Variable]) -> dict:
         "Quality":        _safe_float(g("quality", "0"), 0.0),
         "ForceBlueprint": bool(item_vars.get("force_blueprint", tk.BooleanVar()).get()),
     }
+    for json_key, var_key in (
+        ("Armor", "armor"),
+        ("Damage", "damage"),
+        ("Durability", "durability"),
+    ):
+        val = _safe_float(g(var_key, "0"), 0.0)
+        if val > 0:
+            out[json_key] = val
+    return out
 
 
 def _build_item_edit_form(detail_fr, data: Dict[str, Any], key: str,
@@ -758,6 +767,9 @@ def _build_item_edit_form(detail_fr, data: Dict[str, Any], key: str,
         ("Blueprint",  itm.get("Blueprint", ""),     "blueprint"),
         ("Quantidade", str(itm.get("Quantity", 1)),  "quantity"),
         ("Qualidade",  str(itm.get("Quality", 0)),   "quality"),
+        ("Armadura %", str(itm.get("Armor", 0)),     "armor"),
+        ("Dano %",     str(itm.get("Damage", 0)),     "damage"),
+        ("Durabilidade %", str(itm.get("Durability", 0)), "durability"),
     ]:
         v = tk.StringVar(value=dflt)
         item_vars[fk] = v
@@ -900,7 +912,8 @@ def _build_kit_entry_section(scr: tk.Widget, kit_vars: dict, entries: list) -> N
                                  height=24, width=100).pack(side="left")
             else:
                 for lbl, fk in [("Quantidade", "Quantity"), ("Qualidade", "Quality"),
-                                 ("Dano %", "Damage"), ("Durabilidade %", "Durability")]:
+                                 ("Armadura %", "Armor"), ("Dano %", "Damage"),
+                                 ("Durabilidade %", "Durability")]:
                     r = tk.Frame(card, bg="#0e0e20")
                     r.pack(fill="x", padx=6, pady=1)
                     ctk.CTkLabel(r, text=f"{lbl}:", anchor="w", text_color="gray55",
@@ -933,6 +946,7 @@ def _build_kit_entry_section(scr: tk.Widget, kit_vars: dict, entries: list) -> N
                 "Blueprint": tk.StringVar(),
                 "Quantity": tk.StringVar(value="1"),
                 "Quality": tk.StringVar(value="0"),
+                "Armor": tk.StringVar(value="0"),
                 "Damage": tk.StringVar(value="0"),
                 "Durability": tk.StringVar(value="0"),
                 "ForceBlueprint": tk.BooleanVar(value=False),
@@ -1061,6 +1075,7 @@ def _kit_dict_from_vars(kit_vars: dict, cmds_widget: tk.Text, _ignored: list) ->
                 "Blueprint":     gv("Blueprint", ""),
                 "Quantity":      _safe_int(gv("Quantity", "1"), 1),
                 "Quality":       _safe_float(gv("Quality", "0"), 0.0),
+                "Armor":         _safe_float(gv("Armor", "0"), 0.0),
                 "Damage":        _safe_float(gv("Damage", "0"), 0.0),
                 "Durability":    _safe_float(gv("Durability", "0"), 0.0),
                 "ForceBlueprint": bool(fb.get()) if isinstance(fb, tk.BooleanVar) else False,

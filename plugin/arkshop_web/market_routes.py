@@ -530,6 +530,31 @@ def register_market_routes(
         finally:
             db.close()
 
+    @app.route("/api/market/catalog/dinos", methods=["GET"])
+    @admin_required
+    def market_catalog_dinos_status():
+        """Lista dinos do config.json com status no Comércio (admin)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        from market_service import list_catalog_dinos_market_status
+
+        db = session_factory()
+        try:
+            catalog = read_shop_config()
+            dinos = list_catalog_dinos_market_status(db, catalog)
+            missing = [d for d in dinos if not d.get("market_registered")]
+            return jsonify(
+                {
+                    "ok": True,
+                    "dinos": dinos,
+                    "total": len(dinos),
+                    "registered": len(dinos) - len(missing),
+                    "missing": len(missing),
+                }
+            )
+        finally:
+            db.close()
+
     @app.route("/api/market/catalog/pre-register", methods=["POST"])
     @admin_required
     def market_pre_register():
@@ -549,6 +574,42 @@ def register_market_routes(
             return jsonify({"ok": True, **result})
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/catalog/pre-register/bulk", methods=["POST"])
+    @admin_required
+    def market_pre_register_bulk():
+        """Pré-cadastra vários dinos do catálogo (ou todos os ausentes)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        from market_service import bulk_pre_register_catalog_items
+
+        body = request.get_json(silent=True) or {}
+        raw_ids = body.get("catalog_item_ids") or body.get("item_ids")
+        item_ids = None
+        if isinstance(raw_ids, list):
+            item_ids = [str(i) for i in raw_ids]
+        only_missing = bool(body.get("only_missing", True))
+        activate = bool(body.get("activate", False))
+        db = session_factory()
+        try:
+            result = bulk_pre_register_catalog_items(
+                db,
+                read_shop_config(),
+                item_ids=item_ids,
+                only_missing=only_missing,
+                activate=activate,
+            )
+            audit_event(
+                "MARKET_SPECIES_PRE_REGISTERED_BULK",
+                source="admin",
+                actor_type="admin",
+                created=result.get("created"),
+                updated=result.get("updated"),
+                skipped=result.get("skipped"),
+            )
+            return jsonify({"ok": True, **result})
         finally:
             db.close()
 

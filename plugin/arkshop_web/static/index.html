@@ -3253,6 +3253,79 @@
       color: var(--text2);
       margin-top: 4px;
     }
+    .home-section--connect {
+      border: 1px solid rgba(0,200,255,.2);
+      background: linear-gradient(135deg, rgba(0,200,255,.06) 0%, var(--surface2) 100%);
+      scroll-margin-top: 80px;
+    }
+    .home-hero__connect {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,200,255,.3);
+      background: rgba(0,200,255,.08);
+    }
+    .home-hero__play-btn {
+      font-size: 15px;
+      padding: 12px 22px;
+    }
+    .home-hero__connect-hint {
+      flex: 1 1 100%;
+      font-size: 12px;
+      color: var(--text2);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .home-connect-sticky {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 900;
+      padding: 10px 16px;
+      background: rgba(6,4,2,.95);
+      border-top: 1px solid rgba(0,200,255,.35);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 -8px 32px rgba(0,0,0,.4);
+    }
+    .home-connect-sticky__inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .home-connect-sticky__title {
+      font-weight: 700;
+      color: #fff;
+      font-size: 14px;
+    }
+    .home-connect-sticky__addr {
+      display: block;
+      font-size: 11px;
+      color: var(--amber);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .home-connect-sticky__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .home-connect-empty {
+      grid-column: 1 / -1;
+      padding: 20px;
+      text-align: center;
+      color: var(--text2);
+    }
+    .home-connect-empty__hint {
+      margin-top: 8px;
+      font-size: 13px;
+    }
     .home-maps-showcase {
       position: relative;
       margin-bottom: 24px;
@@ -4289,11 +4362,12 @@
     <div class="nav-item admin-only" data-page="recharge-admin" onclick="nav(this)">
       <span class="nav-icon">💳</span> Doações (PIX / Cartão)
     </div>
+    <div class="nav-section admin-only">Mercado</div>
     <div class="nav-item admin-only" data-page="market-admin" onclick="nav(this)">
-      <span class="nav-icon">🦖</span> Comércio (admin)
+      <span class="nav-icon">🦖</span> Espécies (homologar)
     </div>
     <div class="nav-item admin-only" data-page="market-economy-admin" onclick="nav(this)">
-      <span class="nav-icon">🧮</span> Economia Comércio
+      <span class="nav-icon">🧮</span> Economia (tabela)
     </div>
     <div class="nav-item admin-only hidden" data-page="sell" onclick="nav(this)" style="display:none !important;" title="Desativado — use resgates com Âmbar no catálogo">
       <span class="nav-icon">💰</span> Venda in-game (legado)
@@ -4394,6 +4468,7 @@
         <div id="home-root" class="home-root">
           <div style="text-align:center;padding:60px 20px;color:var(--text2);">Carregando portal…</div>
         </div>
+        <div id="home-connect-sticky" class="home-connect-sticky hidden" aria-hidden="true"></div>
       </div>
 
       <!-- PAGE: Catálogo (público — login só para doar/resgatar) -->
@@ -4620,6 +4695,15 @@
             <button class="btn btn-success" onclick="saveAndReload()">💾 Salvar & Reload Plugin</button>
           </div>
         </div>
+        <div class="card" style="margin-bottom:12px;padding:12px 16px;">
+          <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.55;">
+            <strong>Dino no Comércio P2P?</strong> Cadastre em <em>Modalidade → Dino</em>, marque
+            <strong>Incluir no Comércio</strong> ao salvar (pré-cadastro) e homologue em
+            <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage('market-admin')">🦖 Espécies (homologar)</button>
+            → <em>Ativar</em>. Ajuste preços em
+            <button type="button" class="btn btn-ghost btn-sm" onclick="goToPage('market-economy-admin')">🧮 Economia</button>.
+          </p>
+        </div>
         <div class="catalog-toolbar" style="margin-bottom:12px;">
           <div class="catalog-search-wrap">
             <input id="shop-admin-search" type="search" placeholder="Buscar nome, ID, categoria, tipo, preço ou permissões…" autocomplete="off" oninput="renderShop()" />
@@ -4644,7 +4728,7 @@
       <!-- PAGE: Comércio admin -->
       <div id="page-market-admin" class="page admin-only">
         <div id="topbar">
-          <div class="page-title">Comércio — Admin</div>
+          <div class="page-title">Mercado — Espécies</div>
           <div class="topbar-actions">
             <button class="btn btn-ghost" onclick="reloadMarketAdminPage()">↺ Recarregar</button>
           </div>
@@ -4662,9 +4746,27 @@
             <button class="btn btn-ghost" onclick="marketReconcilePending()">⟳ Promover pendentes</button>
           </div>
           <div class="card" style="margin-bottom:16px;">
-            <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
-              Importa dinos <code>Type: dino</code> do <code>config.json</code> (preço e blueprint). Variantes (Rex Tek, Volcano, …) compartilham <strong>uma linha econômica</strong> (ex.: «Rex»). O nome na loja não muda; use <strong>Nome</strong> para o rótulo do Comércio.
+            <div class="card-title" style="margin-bottom:8px;">Como adicionar um dino</div>
+            <ol style="font-size:13px;color:var(--text2);margin:0;padding-left:20px;line-height:1.6;">
+              <li><strong>Itens da Loja</strong> → novo/editar item → modalidade <em>Dino</em> → blueprint + preço (piso).</li>
+              <li>Marque <strong>Incluir no Comércio</strong> ao salvar <em>ou</em> use o painel abaixo / «Sync catálogo».</li>
+              <li>Aqui: revise a espécie → <strong>Ativar</strong> (aparece na tabela pública do Comércio).</li>
+              <li><strong>Economia (tabela)</strong> → ajuste tier, tetos e multiplicadores por stat.</li>
+            </ol>
+            <p style="font-size:12px;color:var(--text2);margin:10px 0 0;line-height:1.5;">
+              Variantes (Rex Tek, Volcano, …) compartilham <strong>uma linha econômica</strong>. O nome na loja não muda; use <strong>Nome</strong> para o rótulo do Comércio.
             </p>
+          </div>
+          <div class="card" style="margin-bottom:16px;" id="market-catalog-import-card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <div class="card-title">Dinos do catálogo</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary btn-sm" onclick="marketPreRegisterMissingCatalog()">+ Pré-cadastrar ausentes</button>
+                <button type="button" class="btn btn-success btn-sm" onclick="marketPreRegisterMissingCatalog(true)">✓ Pré-cadastrar + ativar</button>
+              </div>
+            </div>
+            <div id="market-catalog-import-summary" style="font-size:12px;color:var(--text2);padding:0 16px 8px;">Carregando…</div>
+            <div id="market-catalog-import-list" style="padding:0 16px 16px;"></div>
           </div>
           <div id="market-admin-list"></div>
         </div>
@@ -5078,6 +5180,17 @@
             <div class="form-group">
               <label>Máx. Retentativas</label>
               <input id="s-retry-max" type="number" min="1" value="10" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              ▶ Conexão Steam na home — IP/domínio global usado quando o servidor não tem join_host próprio
+            </div>
+            <div class="form-group">
+              <label>IP/domínio para jogadores (fallback global)</label>
+              <input id="s-join-host" type="text" placeholder="ex: play.seudominio.com ou 203.0.113.10" />
+            </div>
+            <div class="form-group">
+              <label>IP público alternativo (fallback)</label>
+              <input id="s-public-ip" type="text" placeholder="ex: 203.0.113.10" />
             </div>
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               🖥️ RCON (fallback global) — reload do plugin e comandos in-game. Cadastre host/porta/senha por mapa em <strong>Servidores</strong>.
@@ -5877,6 +5990,7 @@
         <div id="topbar">
           <div class="page-title">Servidores</div>
           <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="showConnectStatus()">🔍 Diagnóstico conexão</button>
             <button class="btn btn-ghost" onclick="loadServers()">↺ Recarregar</button>
             <button class="btn btn-primary" onclick="openServerModal()">+ Novo Servidor</button>
           </div>
@@ -6347,6 +6461,15 @@
         <input id="srv-port" type="number" placeholder="27020" />
       </div>
       <div class="form-group">
+        <label>IP/domínio para jogadores</label>
+        <input id="srv-join-host" type="text" placeholder="ex: 203.0.113.10 ou play.seudominio.com" />
+        <div class="kit-json-hint">Usado nos botões «Jogar agora» da home. Pode ser IP público ou domínio.</div>
+      </div>
+      <div class="form-group">
+        <label>Porta do jogo</label>
+        <input id="srv-game-port" type="number" placeholder="7777" />
+      </div>
+      <div class="form-group">
         <label>Senha RCON</label>
         <input id="srv-password" type="password" placeholder="(deixe vazio para não alterar)" />
       </div>
@@ -6362,7 +6485,7 @@
       <div class="form-group" style="grid-column:1/-1;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
           <input id="srv-show-home" type="checkbox" checked style="width:16px;height:16px;" />
-          Exibir na página inicial (card Servidores do cluster)
+          Exibir na página inicial (Conectar aos servidores)
         </label>
       </div>
     </div>
@@ -6778,12 +6901,16 @@ function nav(el) {
   el.classList.add("active");
   const pageEl = document.getElementById("page-" + page);
   if (pageEl) pageEl.classList.add("active");
+  if (page !== "home") {
+    document.getElementById("home-connect-sticky")?.classList.add("hidden");
+  }
   if (isMobileNav()) closeSidebar();
   if (page === "home") loadHome();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "polls") loadPolls();
   if (page === "catalog") loadCatalog();
+  if (page === "shop") { loadShopMarketStatus(); renderShop(); }
   if (page === "market") loadMarket();
   if (page === "market-admin") reloadMarketAdminPage();
   if (page === "market-economy-admin") loadMarketEconomyAdmin();
@@ -8933,7 +9060,7 @@ function renderShop() {
     <div class="card">
       <table class="tbl">
         <thead><tr>
-          <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Conteúdo</th><th>Permissões</th><th>Ações</th>
+          <th>Nome</th><th>Tipo</th><th>Categoria</th><th>Preço</th><th>Comércio</th><th>Conteúdo</th><th>Permissões</th><th>Ações</th>
         </tr></thead>
         <tbody>
           ${filteredKeys.map(k => {
@@ -8954,10 +9081,12 @@ function renderShop() {
               <td>${typeBadge(it.Type||"item")}</td>
               <td><span style="color:var(--text2);font-size:12px">${escHtml(it.Category||"Geral")}</span></td>
               <td class="price-tag">${it.Price??0} ${escHtml(CURRENCY.plural)}</td>
+              <td>${_shopMarketBadge(k, it)}</td>
               <td><span style="font-size:11px;color:var(--text2)">${content}</span></td>
               <td>${it.Permissions||"<span style='color:var(--text2)'>Todos</span>"}</td>
               <td><div class="actions-col">
                 <button class="btn btn-ghost btn-sm" onclick="openItemModal('${k}')">✏️</button>
+                ${String(it.Type||"").toLowerCase()==="dino" ? `<button class="btn btn-ghost btn-sm" title="Pré-cadastrar no Comércio" onclick="marketPreRegisterCatalogItem('${k}')">🦖</button>` : ""}
                 <button class="btn btn-danger btn-sm" onclick="deleteItem('${k}')">🗑</button>
               </div></td>
             </tr>`;
@@ -10089,6 +10218,7 @@ let _marketBrowse = [];
 let _marketMyListings = [];
 let _marketAdminSpecies = [];
 let _marketAuditEvents = [];
+let _shopMarketStatus = {};
 let _marketTab = "table";
 let _marketAdminTab = "species";
 let _marketMyShopTab = "active";
@@ -10883,6 +11013,115 @@ async function marketSaveSpeciesDisplayName() {
   }
 }
 
+function _shopMarketBadge(itemKey, item) {
+  if (String(item.Type || "").toLowerCase() !== "dino") return "—";
+  const st = _shopMarketStatus[itemKey];
+  if (!st) return '<span style="color:var(--text2);font-size:11px;">…</span>';
+  if (st.market_active) return '<span style="color:var(--success);font-size:11px;">✓ Ativo</span>';
+  if (st.market_registered) return '<span style="color:var(--warn);font-size:11px;">Pré-cad.</span>';
+  return '<span style="color:var(--text2);font-size:11px;">Fora</span>';
+}
+
+async function loadShopMarketStatus() {
+  if (!_auth.is_admin) return;
+  try {
+    const r = await fetch(API + "/api/market/catalog/dinos");
+    const d = await r.json();
+    if (!d.ok) return;
+    _shopMarketStatus = {};
+    (d.dinos || []).forEach(row => {
+      _shopMarketStatus[row.catalog_item_id] = row;
+    });
+  } catch (_) {}
+}
+
+async function loadMarketCatalogImport() {
+  const summary = document.getElementById("market-catalog-import-summary");
+  const list = document.getElementById("market-catalog-import-list");
+  if (!summary || !list) return;
+  summary.textContent = "Carregando…";
+  list.innerHTML = "";
+  try {
+    const r = await fetch(API + "/api/market/catalog/dinos");
+    const d = await r.json();
+    if (!d.ok) {
+      summary.textContent = d.error || "Erro ao carregar catálogo";
+      return;
+    }
+    const missing = (d.dinos || []).filter(x => !x.market_registered);
+    summary.textContent = `${d.registered || 0} de ${d.total || 0} dinos do catálogo no Comércio`
+      + (missing.length ? ` · ${missing.length} ausente(s)` : " · todos pré-cadastrados");
+    if (!missing.length) {
+      list.innerHTML = '<p style="font-size:12px;color:var(--text2);margin:0;">Nenhum dino pendente. Use «Sync catálogo» para atualizar preços/aliases.</p>';
+      return;
+    }
+    const rows = missing.map(row => `<tr>
+      <td>${escHtml(row.name || row.catalog_item_id)}<br><code style="font-size:10px;">${escHtml(row.catalog_item_id)}</code></td>
+      <td>${Number(row.price || 0).toLocaleString("pt-BR")}</td>
+      <td><code>${escHtml(row.species_key || "—")}</code></td>
+      <td><button type="button" class="btn btn-primary btn-sm" data-preregister-id="${escHtml(row.catalog_item_id)}">Pré-cadastrar</button></td>
+    </tr>`).join("");
+    list.innerHTML = `<table class="tbl"><thead><tr><th>Item loja</th><th>Preço</th><th>Key</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+    list.querySelectorAll("[data-preregister-id]").forEach(btn => {
+      btn.addEventListener("click", () => marketPreRegisterCatalogItem(btn.dataset.preregisterId));
+    });
+    requestAnimationFrame(() => wrapTablesForScroll(list));
+  } catch (e) {
+    summary.textContent = String(e);
+  }
+}
+
+async function marketPreRegisterCatalogItem(catalogItemId, { activate = false } = {}) {
+  if (!catalogItemId) return;
+  try {
+    const r = await fetch(API + "/api/market/catalog/pre-register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ catalog_item_id: catalogItemId }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Pré-cadastro falhou", "error");
+      return;
+    }
+    if (activate && d.species_key) {
+      await marketActivateSpecies(d.species_key);
+    } else {
+      toast(`Espécie ${d.species_key} pré-cadastrada`, "success");
+    }
+    loadMarketCatalogImport();
+    loadMarketAdmin();
+    loadShopMarketStatus().then(() => renderShop());
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function marketPreRegisterMissingCatalog(activate = false) {
+  try {
+    const r = await fetch(API + "/api/market/catalog/pre-register/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ only_missing: true, activate: !!activate }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha no lote", "error");
+      return;
+    }
+    toast(
+      `Lote: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`
+      + (activate ? `, ${d.activated || 0} ativadas` : ""),
+      "success",
+    );
+    loadMarketCatalogImport();
+    loadMarketAdmin();
+    loadShopMarketStatus().then(() => renderShop());
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
 async function loadMarketAdmin() {
   const list = document.getElementById("market-admin-list");
   const banner = document.getElementById("market-admin-schema-banner");
@@ -10916,6 +11155,7 @@ async function loadMarketAdmin() {
     _marketAdminSpecies = d.species || [];
     _marketTierLegend = d.tier_legend || _marketTierLegend;
     renderMarketAdmin();
+    loadMarketCatalogImport();
   } catch (e) {
     list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
@@ -11109,7 +11349,6 @@ function renderMarketEconomyCaps(cfg) {
         <label>Pequeno <input id="me-cap-small" type="number" value="${caps.small || 100000}" style="width:120px;margin-left:8px;" /></label>
         <label>Ref. pts <input id="me-pts-ref" type="number" value="${cfg.pts_reference || 254}" style="width:80px;margin-left:8px;" /></label>
       </div>
-      <div style="padding:0 16px 14px;"><button class="btn btn-primary btn-sm" onclick="marketEconomySaveCaps()">Salvar tetos e pesos</button></div>
     </div>
     <div class="card" style="margin-bottom:16px;">
       <div class="card-title">Barra piso → espaço bônus → teto</div>
@@ -11118,6 +11357,7 @@ function renderMarketEconomyCaps(cfg) {
     <div class="card">
       <div class="card-title">Pesos por dieta (normalizados nos stats enabled)</div>
       <div class="table-scroll"><table class="data-table"><thead><tr><th>Dieta</th>${stats.map(sk => `<th>${statLabels[sk]}</th>`).join("")}</tr></thead><tbody>${weightsHtml}</tbody></table></div>
+      <div style="padding:14px 16px;"><button class="btn btn-primary btn-sm" onclick="marketEconomySaveCaps()">Salvar tetos e pesos</button></div>
     </div>`;
 }
 
@@ -11326,11 +11566,15 @@ function renderMarketEconomySim(species) {
 }
 
 async function marketEconomySaveCaps() {
+  const parseMeFloat = (raw) => {
+    const n = parseFloat(String(raw ?? "").trim().replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  };
   const stat_weights = { carnivore: {}, herbivore: {}, omnivore: {} };
   document.querySelectorAll(".me-w").forEach(inp => {
     const diet = inp.dataset.diet;
     const stat = inp.dataset.stat;
-    if (diet && stat) stat_weights[diet][stat] = parseFloat(inp.value) || 0;
+    if (diet && stat) stat_weights[diet][stat] = parseMeFloat(inp.value);
   });
   try {
     const r = await fetch(API + "/api/market/admin/economy/config", {
@@ -11994,9 +12238,21 @@ function openItemModal(key) {
       </div>
       <div class="toggle-row" style="margin:10px 0;"><label>ForceBlueprint (item simples)</label><input type="checkbox" id="mi-force-bp" ${item.ForceBlueprint?"checked":""} /></div>
       <div class="toggle-row" id="mi-market-row" style="margin:10px 0;display:${_catalogModeFromItem(item).startsWith("dino") ? "" : "none"};">
-        <label>Incluir no Comércio (pré-cadastro espécie)</label>
+        <div style="flex:1;">
+          <label>Incluir no Comércio (pré-cadastro espécie)</label>
+          <div style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.45;">
+            Ao salvar, registra em <em>Espécies (homologar)</em>. Depois clique <strong>Ativar</strong> para aparecer na tabela pública.
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-left:4px;vertical-align:baseline;" onclick="goToPage('market-admin')">Abrir espécies →</button>
+          </div>
+        </div>
         <input type="checkbox" id="mi-market-include" ${item.MarketInclude?"checked":""} />
       </div>
+      ${key && _catalogModeFromItem(item).startsWith("dino") ? `
+      <div style="margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="marketPreRegisterCatalogItem('${escHtml(key)}')">🦖 Pré-cadastrar agora</button>
+        <button type="button" class="btn btn-success btn-sm" onclick="marketPreRegisterCatalogItem('${escHtml(key)}', { activate: true })">✓ Pré-cadastrar + ativar</button>
+        <span style="font-size:11px;color:var(--text2);">Sem fechar o editor — útil após ajustar blueprint/preço.</span>
+      </div>` : ""}
 
       <div class="kit-section">
         <div class="kit-section-header">
@@ -12784,6 +13040,8 @@ async function loadSettings() {
     document.getElementById("s-config-path").value    = s.config_path || "";
     document.getElementById("s-server-id").value      = s.server_id || "default";
     document.getElementById("s-retry-max").value      = s.retry_max_attempts || 10;
+    document.getElementById("s-join-host").value    = s.join_host || "";
+    document.getElementById("s-public-ip").value    = s.public_ip || "";
     document.getElementById("s-rcon-host").value      = s.rcon_host || "127.0.0.1";
     document.getElementById("s-rcon-port").value      = s.rcon_port || 27020;
     document.getElementById("s-database-url").value   = s.database_url || "";
@@ -12817,6 +13075,8 @@ async function saveSettings() {
     config_path: document.getElementById("s-config-path").value,
     server_id:   document.getElementById("s-server-id").value,
     retry_max_attempts: parseInt(document.getElementById("s-retry-max").value),
+    join_host:   document.getElementById("s-join-host").value.trim(),
+    public_ip:   document.getElementById("s-public-ip").value.trim(),
     rcon_host:   document.getElementById("s-rcon-host").value,
     rcon_port:   parseInt(document.getElementById("s-rcon-port").value),
     rcon_password: document.getElementById("s-rcon-password").value,
@@ -13168,6 +13428,29 @@ async function loadServers() {
   } catch(e) { /* ignore */ }
 }
 
+async function showConnectStatus() {
+  if (!_auth.is_admin) return;
+  try {
+    const r = await fetch(API + "/api/servers/connect-status");
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || "Falha no diagnóstico");
+    const s = d.summary || {};
+    const bad = (d.items || []).filter(i => !i.can_connect);
+    let msg = `${s.connectable || 0}/${s.total || 0} servidores com botão Jogar. Fallback global: ${s.settings_join_host || s.settings_public_ip || "não definido"}`;
+    if (bad.length) msg += ` — ${bad.length} sem IP público (veja console F12)`;
+    toast(msg, bad.length ? "warning" : "success");
+    console.table((d.items || []).map(i => ({
+      server: i.server_id,
+      home: i.show_on_home,
+      connect: i.can_connect,
+      join: i.join_address || "—",
+      blockers: (i.blockers || []).join("; "),
+    })));
+  } catch (e) {
+    toast("Diagnóstico: " + e.message, "error");
+  }
+}
+
 function renderServers() {
   const el = document.getElementById("servers-list");
   if (!el) return;
@@ -13176,12 +13459,13 @@ function renderServers() {
     return;
   }
   el.innerHTML = `<div class="card"><table class="tbl">
-    <thead><tr><th>ID</th><th>Label</th><th>Home</th><th>RCON</th><th>config.json</th><th>Ações</th></tr></thead>
+    <thead><tr><th>ID</th><th>Label</th><th>Home</th><th>Join</th><th>RCON</th><th>config.json</th><th>Ações</th></tr></thead>
     <tbody>
       ${_servers.map(s => `<tr>
         <td><code>${s.server_id}</code></td>
         <td>${escHtml(s.label||"")}</td>
         <td>${s.show_on_home === false ? '<span style="color:var(--text2);font-size:11px;">Oculto</span>' : '<span style="color:var(--success);font-size:11px;">Sim</span>'}</td>
+        <td style="font-size:11px;color:var(--text2)">${escHtml(s.join_host || s.game_host || s.public_ip || "—")}${s.game_port ? ":" + s.game_port : ""}</td>
         <td style="font-size:11px;color:var(--text2)">${escHtml(s.rcon_host||"—")}:${s.rcon_port||"—"}</td>
         <td><span class="truncate" style="font-size:11px;color:var(--text2);max-width:220px;display:inline-block;">${escHtml(s.plugin_config_path||"—")}</span></td>
         <td><div class="actions-col">
@@ -13200,6 +13484,8 @@ function openServerModal(serverId) {
   document.getElementById("srv-label").value    = s.label || "";
   document.getElementById("srv-host").value     = s.rcon_host || "127.0.0.1";
   document.getElementById("srv-port").value     = s.rcon_port || 27020;
+  document.getElementById("srv-join-host").value = s.join_host || s.game_host || s.public_ip || "";
+  document.getElementById("srv-game-port").value  = s.game_port || s.server_port || 7777;
   document.getElementById("srv-password").value = "";
   document.getElementById("srv-retry").value    = s.retry_max_attempts || 10;
   document.getElementById("srv-config-path").value = s.plugin_config_path || s.customshop_config_path || "";
@@ -13215,6 +13501,8 @@ async function confirmServer() {
     label:       document.getElementById("srv-label").value.trim(),
     rcon_host:   document.getElementById("srv-host").value.trim(),
     rcon_port:   parseInt(document.getElementById("srv-port").value),
+    join_host:   document.getElementById("srv-join-host").value.trim(),
+    game_port:   parseInt(document.getElementById("srv-game-port").value) || 7777,
     rcon_password: document.getElementById("srv-password").value,
     retry_max_attempts: parseInt(document.getElementById("srv-retry").value),
     plugin_config_path: document.getElementById("srv-config-path").value.trim(),
@@ -13997,6 +14285,132 @@ function _hashStr(s) {
   return h;
 }
 
+function scrollToHomeConnect() {
+  const el = document.getElementById("home-connect-section");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function _homeConnectableServers(servers) {
+  return (servers || []).filter(s => s.can_connect !== false && (s.connect_url || s.join_address));
+}
+
+function _homeServerConnectBtns(s, btnClass) {
+  const cls = btnClass || "btn-sm";
+  const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
+  if (!canConnect) return "";
+  return `<div class="home-server-card__actions">
+    <a class="btn btn-primary ${cls} home-server-card__play"
+       href="${escHtml(s.connect_url || "")}"
+       data-connect-url="${escHtml(s.connect_url || "")}"
+       data-join-address="${escHtml(s.join_address || "")}"
+       onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">▶ Jogar agora</a>
+    <button class="btn btn-ghost ${cls}" type="button"
+       data-join-address="${escHtml(s.join_address || "")}"
+       onclick="connectToArkServer('', this.dataset.joinAddress, true)">📋 Copiar IP</button>
+  </div>`;
+}
+
+function _homeHeroConnectHtml(connectable) {
+  if (!connectable.length) return "";
+  const primary = connectable[0];
+  const label = escHtml(primary.label || primary.server_id);
+  const moreBtn = connectable.length > 1
+    ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">${connectable.length} servidores →</button>`
+    : "";
+  return `<div class="home-hero__connect">
+    <a class="btn btn-success home-hero__play-btn"
+       href="${escHtml(primary.connect_url || "")}"
+       data-connect-url="${escHtml(primary.connect_url || "")}"
+       data-join-address="${escHtml(primary.join_address || "")}"
+       onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">▶ Jogar agora</a>
+    <button class="btn btn-primary btn-sm" type="button"
+       data-join-address="${escHtml(primary.join_address || "")}"
+       onclick="connectToArkServer('', this.dataset.joinAddress, true)">📋 Copiar IP</button>
+    ${moreBtn}
+    <span class="home-hero__connect-hint">${label} · ${escHtml(primary.join_address || "")}</span>
+  </div>`;
+}
+
+function _updateHomeConnectSticky(connectable) {
+  const bar = document.getElementById("home-connect-sticky");
+  if (!bar) return;
+  if (!connectable.length) {
+    bar.classList.add("hidden");
+    bar.setAttribute("aria-hidden", "true");
+    bar.innerHTML = "";
+    return;
+  }
+  const primary = connectable[0];
+  const label = escHtml(primary.label || primary.server_id);
+  bar.innerHTML = `
+    <div class="home-connect-sticky__inner">
+      <div class="home-connect-sticky__label">
+        <span class="home-connect-sticky__title">▶ Conectar ao servidor</span>
+        <span class="home-connect-sticky__addr">${label} · ${escHtml(primary.join_address || "")}</span>
+      </div>
+      <div class="home-connect-sticky__actions">
+        <a class="btn btn-success btn-sm"
+           href="${escHtml(primary.connect_url || "")}"
+           data-connect-url="${escHtml(primary.connect_url || "")}"
+           data-join-address="${escHtml(primary.join_address || "")}"
+           onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">Jogar</a>
+        <button class="btn btn-ghost btn-sm" type="button"
+           data-join-address="${escHtml(primary.join_address || "")}"
+           onclick="connectToArkServer('', this.dataset.joinAddress, true)">Copiar IP</button>
+        ${connectable.length > 1 ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">+${connectable.length - 1}</button>` : ""}
+      </div>
+    </div>`;
+  if (document.getElementById("page-home")?.classList.contains("active")) {
+    bar.classList.remove("hidden");
+    bar.setAttribute("aria-hidden", "false");
+  }
+}
+
+function _renderHomeConnectSection(d) {
+  const servers = d.servers || [];
+  const connectable = _homeConnectableServers(servers);
+  _updateHomeConnectSticky(connectable);
+
+  let gridHtml;
+  if (!servers.length) {
+    gridHtml = `<div class="home-connect-empty">
+      <p>Nenhum servidor visível na home ainda.</p>
+      <p class="home-connect-empty__hint">Cadastre em <strong>Admin → Servidores</strong> ou sincronize pelo ARKLAND Multi. Marque «Exibir na página inicial» e preencha <strong>IP/domínio para jogadores</strong> + porta do jogo.</p>
+    </div>`;
+  } else {
+    gridHtml = servers.map(s => {
+      const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
+      const mapLine = s.map ? `<div class="home-server-card__map">🗺 ${escHtml(s.map)}</div>` : "";
+      const addrLine = canConnect && s.join_address
+        ? `<div class="home-server-card__addr">${escHtml(s.join_address)}</div>` : "";
+      const connectBtns = canConnect
+        ? _homeServerConnectBtns(s)
+        : `<div class="home-server-card__pending">Endereço em configuração — preencha IP público ou domínio no admin</div>`;
+      return `
+        <div class="home-server-card${canConnect ? " home-server-card--connectable" : ""}">
+          <div class="home-server-card__name">${escHtml(s.label || s.server_id)}</div>
+          <div class="home-server-card__id">ID: ${escHtml(s.server_id)}</div>
+          ${mapLine}
+          ${addrLine}
+          ${connectBtns}
+          <div class="home-server-card__status">● Cluster ARKLAND · entrega via /shop</div>
+        </div>`;
+    }).join("");
+  }
+
+  return `
+    <div id="home-connect-section" class="home-section home-section--connect">
+      <div class="home-section__head">
+        <div>
+          <div class="home-section__title">▶ Conectar aos servidores</div>
+          <p class="home-section__subtitle">Clique em Jogar agora para abrir o ARK via Steam</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Guia de conexão →</button>
+      </div>
+      <div class="home-servers-grid">${gridHtml}</div>
+    </div>`;
+}
+
 function renderHomePage(d) {
   const root = document.getElementById("home-root");
   if (!root) return;
@@ -14088,36 +14502,9 @@ function renderHomePage(d) {
     d.public_url && d.public_url !== d.website_url ? { href: d.public_url, label: "🔗 Portal", ext: true } : null,
   ].filter(Boolean);
 
-  const serversHtml = (d.servers || []).length
-    ? (d.servers || []).map(s => {
-        const canConnect = s.can_connect !== false && !!(s.connect_url || s.join_address);
-        const mapLine = s.map
-          ? `<div class="home-server-card__map">🗺 ${escHtml(s.map)}</div>` : "";
-        const addrLine = canConnect && s.join_address
-          ? `<div class="home-server-card__addr">${escHtml(s.join_address)}</div>` : "";
-        const connectBtns = canConnect
-          ? `<div class="home-server-card__actions">
-              <a class="btn btn-primary btn-sm home-server-card__play"
-                 href="${escHtml(s.connect_url || "")}"
-                 data-connect-url="${escHtml(s.connect_url || "")}"
-                 data-join-address="${escHtml(s.join_address || "")}"
-                 onclick="connectToArkServer(this.dataset.connectUrl, this.dataset.joinAddress); return false;">▶ Jogar agora</a>
-              <button class="btn btn-ghost btn-sm" type="button"
-                 data-join-address="${escHtml(s.join_address || "")}"
-                 onclick="connectToArkServer('', this.dataset.joinAddress, true)">📋 Copiar IP</button>
-            </div>`
-          : `<div class="home-server-card__pending">Endereço em configuração</div>`;
-        return `
-        <div class="home-server-card${canConnect ? " home-server-card--connectable" : ""}">
-          <div class="home-server-card__name">${escHtml(s.label || s.server_id)}</div>
-          <div class="home-server-card__id">ID: ${escHtml(s.server_id)}</div>
-          ${mapLine}
-          ${addrLine}
-          ${connectBtns}
-          <div class="home-server-card__status">● Cluster ARKLAND · entrega via /shop</div>
-        </div>`;
-      }).join("")
-    : `<p style="color:var(--text2);font-size:13px;">Nenhum servidor cadastrado no painel. Os mapas do cluster aparecerão aqui quando configurados.</p>`;
+  const connectable = _homeConnectableServers(d.servers);
+  const heroConnectHtml = _homeHeroConnectHtml(connectable);
+  const connectSectionHtml = _renderHomeConnectSection(d);
 
   const pkgsHtml = pixOn && (d.donation_packages || []).length
     ? `<div class="home-section">
@@ -14172,6 +14559,7 @@ function renderHomePage(d) {
         <p class="home-hero__tagline">${escHtml(d.tagline || "")}</p>
         <div class="home-hero__badges">${badges}</div>
         <div class="home-hero__actions">${authActions}</div>
+        ${heroConnectHtml}
         ${externalLinks.length ? `<div class="home-links-row">${externalLinks.map(l =>
           `<a class="home-link-chip" href="${escHtml(l.href)}" target="_blank" rel="noopener">${escHtml(l.label)}</a>`
         ).join("")}</div>` : ""}
@@ -14189,6 +14577,8 @@ function renderHomePage(d) {
       <div class="home-stat"><div class="home-stat__val">${st.servers ?? 0}</div><div class="home-stat__lbl">Servidores</div></div>
       <div class="home-stat"><div class="home-stat__val">${st.utilities ?? 0}</div><div class="home-stat__lbl">Utilidades</div></div>
     </div>
+
+    ${connectSectionHtml}
 
     ${renderHomeCommerceSection()}
 
@@ -14217,17 +14607,6 @@ function renderHomePage(d) {
     </div>
 
     ${seasonalHtml}
-
-    <div class="home-section home-section--connect">
-      <div class="home-section__head">
-        <div>
-          <div class="home-section__title">▶ Conectar aos servidores</div>
-          <p class="home-section__subtitle">Clique em Jogar agora para abrir o ARK via Steam</p>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="goToPage('downloads')">Guia de conexão →</button>
-      </div>
-      <div class="home-servers-grid">${serversHtml}</div>
-    </div>
 
     ${mapsHtml}
 

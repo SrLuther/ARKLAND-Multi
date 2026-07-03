@@ -110,6 +110,79 @@ def test_normalize_ignores_raw_value_without_points():
     assert pts["weight"] == 0
 
 
+def test_patch_economy_global_config_stat_weights(tmp_path, monkeypatch):
+    from market_economy import (
+        _defaults_file_path,
+        load_stat_weights,
+        patch_economy_global_config,
+    )
+
+    fake = tmp_path / "market_species_defaults.json"
+    fake.write_text(
+        __import__("json").dumps(
+            {
+                "species": [],
+                "_stat_weights": {
+                    "carnivore": {
+                        "health": 0.55,
+                        "melee": 0.45,
+                        "weight": 0.0,
+                        "stamina": 0.0,
+                        "speed": 0.0,
+                    }
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("market_economy._DEFAULTS_FILE", fake)
+
+    patch_economy_global_config(
+        {
+            "stat_weights": {
+                "carnivore": {
+                    "health": 0.6,
+                    "melee": 0.4,
+                    "weight": 0.0,
+                    "stamina": 0.0,
+                    "speed": 0.0,
+                }
+            }
+        }
+    )
+
+    saved = __import__("json").loads(fake.read_text(encoding="utf-8"))
+    assert saved["_stat_weights"]["carnivore"]["health"] == 0.6
+    assert saved["_stat_weights"]["carnivore"]["melee"] == 0.4
+    weights = load_stat_weights()
+    assert weights["carnivore"]["health"] == 0.6
+
+
+def test_ensure_defaults_file_copies_bundled_to_writable(tmp_path, monkeypatch):
+    from market_economy import _bundled_defaults_path, _ensure_defaults_file, load_defaults_file
+
+    bundled = tmp_path / "bundle" / "data"
+    bundled.mkdir(parents=True)
+    bundled_file = bundled / "market_species_defaults.json"
+    bundled_file.write_text(
+        '{"species": [], "_stat_weights": {"carnivore": {"health": 0.99, "melee": 0.01, "weight": 0, "stamina": 0, "speed": 0}}}',
+        encoding="utf-8",
+    )
+    writable_root = tmp_path / "writable"
+    writable_root.mkdir()
+    monkeypatch.setattr("market_economy._bundled_defaults_path", lambda: bundled_file)
+    monkeypatch.setattr("market_economy._writable_data_dir", lambda: writable_root)
+    monkeypatch.setattr("market_economy._DEFAULTS_FILE", None)
+
+    path = _ensure_defaults_file()
+    assert path == writable_root / "market_species_defaults.json"
+    assert path.is_file()
+    data = load_defaults_file()
+    assert data["_stat_weights"]["carnivore"]["health"] == 0.99
+
+
 def test_patch_species_economy_meta(tmp_path, monkeypatch):
     from market_economy import (
         _defaults_file_path,

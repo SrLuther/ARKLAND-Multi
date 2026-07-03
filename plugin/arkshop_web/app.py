@@ -47,7 +47,7 @@ from sqlalchemy import Boolean, DateTime, Float, Integer, LargeBinary, String, T
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, scoped_session, sessionmaker
 
 from rcon_bridge import rcon_command as _rcon_send, rcon_test_connection as _rcon_test_connection
-from server_connect import public_server_connect_view
+from server_connect import diagnose_server_connect, public_server_connect_view
 
 from kit_limits import (
     get_kit_remaining,
@@ -66,6 +66,7 @@ from src.shop_integration import (  # noqa: E402
     apply_machine_server_registry,
     _collect_catalog_search_paths,
     _merge_arkland_server_entry,
+    _resolve_game_host,
     canonical_master_catalog_path,
     default_customshop_path,
     is_ephemeral_pyinstaller_path,
@@ -4248,7 +4249,57 @@ def _rcon_hosts_to_try(srv: dict[str, Any], settings: dict[str, Any]) -> list[st
     return hosts or ["127.0.0.1"]
 
 
-def _server_dict_from_asm_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
+def _load_manager_app_config() -> Any:
+    """Lê config.json do Server Manager (machine_public_ip, shop.public_ip)."""
+    cfg_path = Path(os.environ.get("APPDATA", "")) / "ARKLAND-ServerManager" / "config.json"
+    if not cfg_path.is_file():
+        return None
+    try:
+        raw = json.loads(cfg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    shop_raw = raw.get("shop") if isinstance(raw.get("shop"), dict) else {}
+
+    class _Cfg:
+        machine_public_ip = str(raw.get("machine_public_ip") or "").strip()
+
+        class _Shop:
+            public_ip = str(shop_raw.get("public_ip") or "").strip()
+
+        shop = _Shop()
+
+    return _Cfg()
+
+
+def _connect_fields_from_asm_raw(
+    srv: dict[str, Any],
+    settings: dict[str, Any],
+) -> dict[str, Any]:
+    app_cfg = _load_manager_app_config()
+    game_host = _resolve_game_host(
+        srv,
+        app_config=app_cfg,
+        settings=settings,
+    )
+    game_port = int(srv.get("server_port") or 7777)
+    out: dict[str, Any] = {
+        "game_host": game_host,
+        "game_port": game_port,
+    }
+    server_public = str(srv.get("public_ip") or "").strip()
+    if server_public:
+        out["public_ip"] = server_public
+    elif game_host and game_host not in ("127.0.0.1", "localhost", "::1", "0.0.0.0"):
+        out["public_ip"] = game_host
+    return out
+
+
+def _server_dict_from_asm_raw(
+    srv: dict[str, Any],
+    settings: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     if srv.get("shop_exclude"):
         return None
     if srv.get("rcon_enabled") is False:
@@ -4264,7 +4315,7 @@ def _server_dict_from_asm_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
     if not sid:
         return None
     install = str(srv.get("install_dir") or "")
-    return {
+    entry = {
         "server_id": sid,
         "label": str(srv.get("name") or sid),
         "rcon_host": str(srv.get("server_ip") or "127.0.0.1"),
@@ -4275,9 +4326,14 @@ def _server_dict_from_asm_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
         ),
         "arkland_ref": f"tek:{srv.get('id')}",
     }
+    entry.update(_connect_fields_from_asm_raw(srv, settings or {}))
+    return entry
 
 
-def _server_dict_from_classic_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
+def _server_dict_from_classic_raw(
+    srv: dict[str, Any],
+    settings: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     if srv.get("shop_exclude"):
         return None
     if srv.get("rcon_enabled") is False:
@@ -4293,7 +4349,7 @@ def _server_dict_from_classic_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
     if not sid:
         return None
     install = str(srv.get("install_dir") or "")
-    return {
+    entry = {
         "server_id": sid,
         "label": str(srv.get("name") or sid),
         "rcon_host": str(srv.get("server_ip") or srv.get("public_ip") or "127.0.0.1"),
@@ -4304,6 +4360,8 @@ def _server_dict_from_classic_raw(srv: dict[str, Any]) -> dict[str, Any] | None:
         ),
         "arkland_ref": f"classic:{srv.get('id')}",
     }
+    entry.update(_connect_fields_from_asm_raw(srv, settings or {}))
+    return entry
 
 
 def _discover_local_rcon_servers() -> list[dict[str, Any]]:
@@ -4312,6 +4370,7 @@ def _discover_local_rcon_servers() -> list[dict[str, Any]]:
     if not cfg_dir.is_dir():
         return []
 
+    settings = _load_settings()
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
 
@@ -4323,7 +4382,7 @@ def _discover_local_rcon_servers() -> list[dict[str, Any]]:
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                entry = _server_dict_from_asm_raw(item)
+                entry = _server_dict_from_asm_raw(item, settings)
                 if entry and entry["server_id"] not in seen:
                     seen.add(entry["server_id"])
                     out.append(entry)
@@ -4338,7 +4397,7 @@ def _discover_local_rcon_servers() -> list[dict[str, Any]]:
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                entry = _server_dict_from_classic_raw(item)
+                entry = _server_dict_from_classic_raw(item, settings)
                 if entry and entry["server_id"] not in seen:
                     seen.add(entry["server_id"])
                     out.append(entry)
@@ -5124,6 +5183,8 @@ def save_settings():
         "db_user",
         "point_packages",
         "mp_sandbox",
+        "public_ip",
+        "join_host",
     ):
         if key in body:
             s[key] = body[key]
@@ -5206,6 +5267,13 @@ def upsert_server():
         "rcon_password",
         "delivery_command_template",
         "delivery_mode",
+        "join_host",
+        "game_host",
+        "game_port",
+        "public_ip",
+        "server_map",
+        "query_port",
+        "machine_label",
     ):
         if key in body and body[key] not in (None, ""):
             entry[key] = body[key]
@@ -5222,6 +5290,13 @@ def upsert_server():
                 "delivery_mode",
                 "arkland_ref",
                 "managed_by",
+                "join_host",
+                "game_host",
+                "game_port",
+                "public_ip",
+                "server_map",
+                "query_port",
+                "machine_label",
             ):
                 if key not in entry and existing.get(key) not in (None, ""):
                     entry[key] = existing[key]
@@ -5250,6 +5325,27 @@ def delete_server(server_id: str):
     _save_servers(kept)
     _log("server_deleted", server_id=server_id, admin=_steam_id_from_session())
     return jsonify({"ok": True, "removed": len(servers) - len(kept)})
+
+
+@app.route("/api/servers/connect-status", methods=["GET"])
+@admin_required
+def servers_connect_status():
+    """Diagnóstico admin: por que cada servidor pode ou não exibir botões Jogar/Copiar IP."""
+    settings = _load_settings()
+    items = [diagnose_server_connect(srv, settings) for srv in _load_servers()]
+    visible = sum(1 for i in items if i.get("show_on_home"))
+    connectable = sum(1 for i in items if i.get("can_connect"))
+    return jsonify({
+        "ok": True,
+        "summary": {
+            "total": len(items),
+            "visible_on_home": visible,
+            "connectable": connectable,
+            "settings_join_host": str(settings.get("join_host") or ""),
+            "settings_public_ip": str(settings.get("public_ip") or ""),
+        },
+        "items": items,
+    })
 
 
 @app.route("/api/servers/sync", methods=["POST"])
@@ -5295,6 +5391,8 @@ def sync_servers_from_client():
                 "delivery_mode", "machine_label", "plugin_config_path",
                 "arkland_ref", "show_on_home", "retry_max_attempts",
                 "delivery_command_template", "config_snapshot",
+                "join_host", "game_host", "game_port", "public_ip",
+                "server_map", "query_port",
             ) and v not in (None, "")
         }
         entry["server_id"] = sid

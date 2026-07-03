@@ -686,6 +686,110 @@ def pre_register_catalog_item(
     }
 
 
+def _species_status_for_catalog_item(
+    db: Session,
+    catalog: dict[str, Any],
+    item_id: str,
+    entry: dict[str, Any],
+) -> dict[str, Any]:
+    """Status do Comércio para um item Type:dino do catálogo."""
+    from app import MarketSpecies, MarketSpeciesAlias
+
+    catalog_map = build_catalog_economy_map()
+    defn = catalog_map.get(item_id) or {}
+    group_key = str(defn.get("species_key") or item_id)
+    row = db.query(MarketSpecies).filter(MarketSpecies.species_key == group_key).first()
+    if row is None:
+        alias = (
+            db.query(MarketSpeciesAlias)
+            .filter(MarketSpeciesAlias.catalog_item_id == item_id)
+            .first()
+        )
+        if alias:
+            row = db.query(MarketSpecies).filter(MarketSpecies.id == alias.species_id).first()
+    status = row.status if row else None
+    return {
+        "catalog_item_id": item_id,
+        "name": shop_catalog_display_name(catalog, item_id),
+        "price": int(entry.get("Price") or 0),
+        "species_key": group_key,
+        "market_status": status,
+        "market_registered": status in ("ACTIVE", "PRE_REGISTERED"),
+        "market_active": status == "ACTIVE",
+        "market_include": bool(entry.get("MarketInclude")),
+        "display_name": row.display_name if row else None,
+    }
+
+
+def list_catalog_dinos_market_status(
+    db: Session,
+    catalog: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Lista dinos do catálogo com status em market_species (para admin)."""
+    out: list[dict[str, Any]] = []
+    for item_id, entry in iter_catalog_dinos(catalog):
+        out.append(_species_status_for_catalog_item(db, catalog, item_id, entry))
+    return out
+
+
+def bulk_pre_register_catalog_items(
+    db: Session,
+    catalog: dict[str, Any],
+    *,
+    item_ids: list[str] | None = None,
+    only_missing: bool = True,
+    activate: bool = False,
+) -> dict[str, Any]:
+    """Pré-cadastra vários itens Type:dino do catálogo no Comércio."""
+    targets: list[str] = []
+    if item_ids:
+        targets = [str(i).strip() for i in item_ids if str(i).strip()]
+    else:
+        for item_id, entry in iter_catalog_dinos(catalog):
+            if only_missing:
+                st = _species_status_for_catalog_item(db, catalog, item_id, entry)
+                if st["market_registered"]:
+                    continue
+            targets.append(item_id)
+
+    created = updated = skipped = 0
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, str]] = []
+    for item_id in targets:
+        try:
+            result = pre_register_catalog_item(db, catalog, item_id)
+            if result.get("created"):
+                created += 1
+            else:
+                updated += 1
+            if activate and result.get("species_key"):
+                from app import MarketSpecies
+
+                row = (
+                    db.query(MarketSpecies)
+                    .filter(MarketSpecies.species_key == result["species_key"])
+                    .first()
+                )
+                if row and row.status != "ACTIVE":
+                    row.status = "ACTIVE"
+                    row.updated_at = datetime.now(timezone.utc)
+                    db.commit()
+                    result["status"] = "ACTIVE"
+            results.append(result)
+        except ValueError as exc:
+            skipped += 1
+            errors.append({"catalog_item_id": item_id, "error": str(exc)})
+
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "activated": sum(1 for r in results if r.get("status") == "ACTIVE"),
+        "results": results,
+        "errors": errors,
+    }
+
+
 def update_species_display_name(
     db: Session,
     species_key: str,

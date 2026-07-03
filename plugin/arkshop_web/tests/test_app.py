@@ -699,8 +699,11 @@ class TestServers:
                 "servers": [{
                     "server_id": "volcano",
                     "label": "The Volcano",
-                    "rcon_host": "10.0.0.2",
+                    "rcon_host": "127.0.0.1",
                     "rcon_port": 27020,
+                    "game_host": "203.0.113.50",
+                    "game_port": 7778,
+                    "server_map": "The Volcano",
                     "arkland_ref": "tek:vol-1",
                     "show_on_home": True,
                 }],
@@ -711,8 +714,75 @@ class TestServers:
         assert r.status_code == 200
         assert r.get_json()["ok"] is True
         home = client.get("/api/public/home").get_json()
-        names = [s["label"] for s in home.get("servers", [])]
-        assert "The Volcano" in names
+        srv = next(s for s in home.get("servers", []) if s["server_id"] == "volcano")
+        assert srv["can_connect"] is True
+        assert srv["connect_url"] == "steam://connect/203.0.113.50:7778"
+        assert srv["join_address"] == "203.0.113.50:7778"
+        assert srv["map"] == "The Volcano"
+
+    def test_upsert_server_preserves_game_host(self, client, tmp_path, monkeypatch):
+        servers_file = tmp_path / "servers.json"
+        servers_file.write_text(
+            json.dumps([{
+                "server_id": "pve1",
+                "label": "PvE 1",
+                "game_host": "203.0.113.60",
+                "game_port": 7777,
+                "rcon_host": "127.0.0.1",
+                "rcon_port": 27020,
+            }]),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
+        _login(client, ADMIN_STEAM)
+        r = client.post("/api/servers", json={
+            "server_id": "pve1",
+            "label": "PvE 1 atualizado",
+            "rcon_host": "127.0.0.1",
+            "rcon_port": 27020,
+        })
+        assert r.get_json()["ok"] is True
+        saved = json.loads(servers_file.read_text(encoding="utf-8"))
+        entry = next(s for s in saved if s["server_id"] == "pve1")
+        assert entry["game_host"] == "203.0.113.60"
+        assert entry["game_port"] == 7777
+
+    def test_connect_status_endpoint(self, client, tmp_path, monkeypatch):
+        servers_file = tmp_path / "servers.json"
+        servers_file.write_text(
+            json.dumps([
+                {
+                    "server_id": "ok_srv",
+                    "label": "OK",
+                    "show_on_home": True,
+                    "join_host": "203.0.113.70",
+                    "game_port": 7777,
+                },
+                {
+                    "server_id": "bad_srv",
+                    "label": "Bad",
+                    "show_on_home": True,
+                    "game_host": "127.0.0.1",
+                    "game_port": 7777,
+                },
+            ]),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
+        _login(client, ADMIN_STEAM)
+        r = client.get("/api/servers/connect-status")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["summary"]["connectable"] == 1
+        by_id = {i["server_id"]: i for i in d["items"]}
+        assert by_id["ok_srv"]["can_connect"] is True
+        assert by_id["bad_srv"]["can_connect"] is False
+        assert by_id["bad_srv"]["blockers"]
+
+    def test_connect_status_requires_admin(self, client):
+        _login(client, USER_STEAM)
+        r = client.get("/api/servers/connect-status")
+        assert r.status_code == 403
 
     def test_sync_rejects_without_api_key(self, client):
         r = client.post("/api/servers/sync", json={"machine_label": "X", "servers": []})

@@ -58,10 +58,20 @@ def test_engram_points_multiplier_5x():
     from src.player_engram_points import (
         build_engram_points_ini_lines,
         engram_points_per_level,
+        strip_engram_points_from_raw,
     )
 
     assert engram_points_per_level(5.0) == 40
     assert engram_points_per_level(1.0) == 8
+
+    raw = (
+        "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=10)\n"
+        "OverridePlayerLevelEngramPoints=8\n"
+        "OverridePlayerLevelEngramPoints=8\n"
+    )
+    stripped = strip_engram_points_from_raw(raw)
+    assert "OverridePlayerLevelEngramPoints" not in stripped
+    assert "LevelExperienceRampOverrides" in stripped
 
     @dataclass
     class _Gs:
@@ -76,4 +86,22 @@ def test_engram_points_multiplier_5x():
     lines = build_engram_points_ini_lines(_Srv())
     assert len(lines) == 105
     assert lines[0] == "OverridePlayerLevelEngramPoints=40"
+    assert all(ln == "OverridePlayerLevelEngramPoints=40" for ln in lines)
+
+
+def test_engram_points_asm_tek_difficulty_180_levels():
+    from dataclasses import dataclass
+
+    from src.player_engram_points import build_engram_points_ini_lines
+
+    @dataclass
+    class _AsmTek:
+        enable_difficulty_override: bool = True
+        override_official_difficulty: float = 5.0
+        player_engram_points_multiplier: float = 5.0
+        player_base_level: int = 0
+        player_ascension_state: str = ""
+
+    lines = build_engram_points_ini_lines(_AsmTek())
+    assert len(lines) == 180
     assert all(ln == "OverridePlayerLevelEngramPoints=40" for ln in lines)

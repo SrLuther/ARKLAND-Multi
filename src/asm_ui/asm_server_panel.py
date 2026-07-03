@@ -3747,6 +3747,15 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
             except (ValueError, TypeError, tk.TclError):
                 pass
 
+    mult_var = vars_ref.get("player_engram_points_multiplier")
+    if mult_var is not None and hasattr(srv, "player_engram_points_multiplier"):
+        try:
+            srv.player_engram_points_multiplier = float(
+                str(mult_var.get()).replace(",", ".")
+            )
+        except (ValueError, TypeError, tk.TclError):
+            pass
+
     # CPU affinity (lista de inteiros)
     cpu_var = vars_ref.get("_cpu_affinity_csv")
     if cpu_var:

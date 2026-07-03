@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,8 +41,8 @@ STAT_ALIASES: dict[str, str] = {
     "speed": "speed",
 }
 
-def _defaults_file_path() -> Path:
-    """Dev: plugin/arkshop_web/data/… — PyInstaller: _MEIPASS/data/…"""
+def _bundled_defaults_path() -> Path:
+    """Template empacotado — somente leitura no .exe (PyInstaller _MEIPASS)."""
     if getattr(sys, "frozen", False):
         bundled = Path(sys._MEIPASS) / "data" / "market_species_defaults.json"  # type: ignore[attr-defined]
         if bundled.is_file():
@@ -49,7 +50,49 @@ def _defaults_file_path() -> Path:
     return Path(__file__).resolve().parent / "data" / "market_species_defaults.json"
 
 
-_DEFAULTS_FILE = _defaults_file_path()
+def _writable_data_dir() -> Path:
+    """Diretório gravável para JSON de economia (paridade com settings.json da Web Store)."""
+    try:
+        from src.shop_integration import webstore_data_dir
+
+        base = webstore_data_dir()
+    except ImportError:
+        base = Path(__file__).resolve().parent
+    data = base / "data"
+    data.mkdir(parents=True, exist_ok=True)
+    return data
+
+
+def _writable_defaults_path() -> Path:
+    return _writable_data_dir() / "market_species_defaults.json"
+
+
+def _ensure_defaults_file() -> Path:
+    """Garante cópia gravável — no .exe o bundle _MEIPASS não aceita PATCH admin."""
+    path = _writable_defaults_path()
+    if path.is_file():
+        return path
+    bundled = _bundled_defaults_path()
+    if bundled.is_file() and bundled.resolve() != path.resolve():
+        shutil.copy2(bundled, path)
+    elif not path.is_file():
+        path.write_text(
+            json.dumps({"species": [], "global_stat_labels": {}}, ensure_ascii=False, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+    return path
+
+
+# Tests podem monkeypatchar este path; produção usa _ensure_defaults_file().
+_DEFAULTS_FILE: Path | None = None
+
+
+def _defaults_file_path() -> Path:
+    global _DEFAULTS_FILE
+    if _DEFAULTS_FILE is None:
+        _DEFAULTS_FILE = _ensure_defaults_file()
+    return _DEFAULTS_FILE
 
 
 @dataclass
@@ -113,9 +156,10 @@ class SpeciesEconomy:
 
 
 def load_defaults_file() -> dict[str, Any]:
-    if not _DEFAULTS_FILE.is_file():
+    path = _defaults_file_path()
+    if not path.is_file():
         return {"species": [], "global_stat_labels": {}}
-    return json.loads(_DEFAULTS_FILE.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def load_size_caps() -> dict[str, int]:
@@ -207,7 +251,9 @@ def apply_economy_meta(species: "SpeciesEconomy") -> "SpeciesEconomy":
 
 
 def save_defaults_file(data: dict[str, Any]) -> None:
-    _DEFAULTS_FILE.write_text(
+    path = _defaults_file_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
         json.dumps(data, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )

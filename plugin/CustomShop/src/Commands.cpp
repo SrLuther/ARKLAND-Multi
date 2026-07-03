@@ -524,59 +524,7 @@ void CmdAdminDeliver(APlayerController* pc, FString* cmd_str, bool) {
         ok = CustomShop::Store::GiveKit(target, id, true, true, nullptr);
         CustomShop::Data::SendPlayerKits(target, target_id);
     } else {
-        // Deliver item directly without charging points
-        const auto& item      = CustomShop::ShopConfig::Get().Items().at(id);
-        const std::string bp  = item.value("Blueprint", "");
-
-        if (!bp.empty()) {
-            const int   qty   = item.value("Quantity",       1) * amount;
-            const float qual  = item.value("Quality",        0.0f);
-            const bool  force = item.value("ForceBlueprint", false);
-
-            FString fblueprint(bp.c_str());
-            UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
-            if (item_class) {
-                UPrimalInventoryComponent* inv = target->GetPlayerInventoryComponent();
-                if (inv) {
-                    UPrimalItem::AddNewItem(
-                        TSubclassOf<UPrimalItem>(item_class),
-                        inv,
-                        false, false,
-                        qual, !force,
-                        qty, force,
-                        0.0f, false,
-                        TSubclassOf<UPrimalItem>(),
-                        0.0f, false, false);
-                    ok = true;
-                }
-            }
-        }
-
-        // Also deliver Items array if present (bundle)
-        if (item.contains("Items")) {
-            for (const auto& entry : item.at("Items")) {
-                const std::string bp2  = entry.value("Blueprint",     "");
-                const int   qty2       = entry.value("Quantity",      1) * amount;
-                const float qual2      = entry.value("Quality",       0.0f);
-                const bool  force2     = entry.value("ForceBlueprint",false);
-                if (bp2.empty()) continue;
-                FString fbp2(bp2.c_str());
-                UClass* cls2 = UVictoryCore::BPLoadClass(&fbp2);
-                if (!cls2) continue;
-                UPrimalInventoryComponent* inv2 = target->GetPlayerInventoryComponent();
-                if (!inv2) continue;
-                UPrimalItem::AddNewItem(
-                    TSubclassOf<UPrimalItem>(cls2),
-                    inv2,
-                    false, false,
-                    qual2, !force2,
-                    qty2, force2,
-                    0.0f, false,
-                    TSubclassOf<UPrimalItem>(),
-                    0.0f, false, false);
-                ok = true;
-            }
-        }
+        ok = CustomShop::Store::GiveItem(target, id, amount, true, nullptr);
     }
 
     CustomShop::ShopPoints::Get().LogTransaction(

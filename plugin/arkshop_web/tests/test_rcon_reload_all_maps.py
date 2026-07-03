@@ -18,11 +18,16 @@ def test_rcon_hosts_to_try_prefers_localhost():
 def test_discover_local_rcon_servers_from_asm(tmp_path, monkeypatch):
     cfg_dir = tmp_path / "ARKLAND-ServerManager"
     cfg_dir.mkdir()
+    (cfg_dir / "config.json").write_text(
+        json.dumps({"machine_public_ip": "203.0.113.40", "shop": {"public_ip": ""}}),
+        encoding="utf-8",
+    )
     asm = [
         {
             "id": "uuid-1",
             "name": "Ragnarok",
             "install_dir": "C:/ARK/Ragnarok",
+            "server_port": 7779,
             "rcon_enabled": True,
             "rcon_port": 27025,
             "admin_password": "secret",
@@ -31,11 +36,14 @@ def test_discover_local_rcon_servers_from_asm(tmp_path, monkeypatch):
     ]
     (cfg_dir / "asm_servers.json").write_text(json.dumps(asm), encoding="utf-8")
     monkeypatch.setenv("APPDATA", str(tmp_path))
+    monkeypatch.setattr(_app_module, "_load_settings", lambda: {})
 
     found = _app_module._discover_local_rcon_servers()
     assert len(found) == 1
     assert found[0]["server_id"] == "ragnarok"
     assert found[0]["rcon_port"] == 27025
+    assert found[0]["game_host"] == "203.0.113.40"
+    assert found[0]["game_port"] == 7779
 
 
 def test_resolve_rcon_reload_targets_merges_discovery(tmp_path, monkeypatch):

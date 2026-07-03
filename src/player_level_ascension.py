@@ -123,8 +123,21 @@ def resolve_max_player_level(cfg: object) -> int:
     if override_xp > 0:
         return xp_to_level(override_xp)
 
+    gs = getattr(cfg, "game_settings", None)
+    if gs is not None:
+        gs_xp = int(getattr(gs, "override_max_experience_points_player", 0) or 0)
+        if gs_xp > 0:
+            return xp_to_level(gs_xp)
+        cap = int(getattr(gs, "player_level_cap", 0) or 0)
+        if cap > 0:
+            return cap
+
     base = int(getattr(cfg, "player_base_level", 0) or 0)
+    if base <= 0 and gs is not None:
+        base = int(getattr(gs, "player_base_level", 0) or 0)
     state_raw = str(getattr(cfg, "player_ascension_state", "") or "")
+    if gs is not None and not state_raw.strip():
+        state_raw = str(getattr(gs, "player_ascension_state", "") or "")
     if base > 0 or state_raw.strip():
         st = parse_ascension_state(state_raw)
         return calc_total_player_level(
@@ -141,10 +154,6 @@ def resolve_max_player_level(cfg: object) -> int:
             return 105 + int(round(diff * 15))
         return ARK_DEFAULT_BASE_LEVEL
 
-    gs = getattr(cfg, "game_settings", None)
-    cap = int(getattr(gs, "player_level_cap", 0) or 0) if gs is not None else 0
-    if cap > 0:
-        return cap
     if gs is not None:
         diff = float(getattr(gs, "override_official_difficulty", 5.0) or 5.0)
         return 105 + int(round(diff * 15))

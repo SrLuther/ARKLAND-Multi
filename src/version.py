@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.178"
+APP_VERSION: str = "1.9.179"
 BUILD_DATE: str = "2026-07-02"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.179",
+        "date": "2026-07-02",
+        "changes": [
+            "Fix (Web Store / Home): botões Conectar no hero e na barra fixa; seção reposicionada; diagnóstico de conexão; fallback de IP público global nas configurações.",
+            "Fix (ASM / Sync): game_host e game_port a partir de shop.public_ip/machine_public_ip; public_ip em settings.json; descoberta local com game_host.",
+            "Fix (Loja / Catálogo): Armadura/Dano/Durabilidade preservados na sanitização; ApplyItemStats no CustomShop.dll; campo Armadura % no ASM.",
+            "Melhoria (Loja / Catálogo): Armadura 350 em massa em 132 selas; script tools/apply_saddle_armor.py.",
+            "Fix (TEK / Jogador): persistência do multiplicador 5x de pontos de engrama e posicionamento correto no Game.ini.",
+            "Melhoria (Loja / Catálogo): 74 comandos tekgrams com preço 5000.",
+            "Fix (Web Store / Mercado): persistência de stat_weights (dietas) em APPDATA em vez do bundle somente leitura.",
+            "Feature (Web Store / Mercado): menu admin Mercado, fluxo de pré-registro de espécies e painel de catálogo de dinos.",
+        ],
+    },
     {
         "version": "1.9.178",
         "date": "2026-07-02",

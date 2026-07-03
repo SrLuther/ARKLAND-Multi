@@ -34,7 +34,43 @@ def test_normalize_item_entry_from_malformed_object():
     assert entry["Quantity"] == 50
 
 
-def test_sanitize_catalog_blueprints_fixes_recursos_kit():
+def test_normalize_item_entry_preserves_armor_damage_durability():
+    entry = _normalize_item_entry({
+        "Blueprint": STONE,
+        "Amount": 1,
+        "Quality": 100,
+        "Armor": 350,
+        "Damage": 300,
+        "Durability": 250,
+    })
+    assert entry["Armor"] == 350
+    assert entry["Damage"] == 300
+    assert entry["Durability"] == 250
+    assert entry["Quality"] == 100
+
+
+def test_sanitize_catalog_blueprints_preserves_armor():
+    data = {
+        "Items": {
+            "allo_saddle": {
+                "Type": "item",
+                "Price": 100,
+                "Items": [{
+                    "Blueprint": (
+                        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/"
+                        "PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle"
+                    ),
+                    "Quantity": 1,
+                    "Quality": 100,
+                    "Armor": 350,
+                }],
+            }
+        }
+    }
+    sanitize_catalog_blueprints(data)
+    item = data["Items"]["allo_saddle"]["Items"][0]
+    assert item["Armor"] == 350
+    assert item["Quality"] == 100
     data = {
         "Kits": {
             "recursos": {

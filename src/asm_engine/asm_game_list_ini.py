@@ -218,7 +218,7 @@ def populate_lists_from_game_ini(cfg: "AsmServerConfig", game_path: Path) -> Non
 
 
 def patch_game_ini_repeated_lines(path: Path, new_lines: list[str]) -> None:
-    """Remove chaves repetidas antigas e injeta novas linhas na seção GameMode."""
+    """Remove chaves repetidas antigas e anexa novas linhas ao final do Game.ini."""
     if not path.exists():
         return
     try:
@@ -235,25 +235,14 @@ def patch_game_ini_repeated_lines(path: Path, new_lines: list[str]) -> None:
 
     section_header = f"[{_GAME_MODE_SECTION}]"
     block = [ln + "\r\n" for ln in new_lines]
-    lines = text.splitlines(keepends=True)
-    insert_pos: int | None = None
-    in_target = False
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.lower() == section_header.lower():
-            in_target = True
-            continue
-        if in_target and stripped.startswith("[") and stripped.endswith("]"):
-            insert_pos = i
-            break
-    if insert_pos is None and in_target:
-        insert_pos = len(lines)
-    if insert_pos is None:
+
+    if section_header.lower() not in text.lower():
         if not text.endswith("\r\n"):
             text += "\r\n"
         text += f"{section_header}\r\n" + "".join(block)
     else:
-        lines[insert_pos:insert_pos] = block
-        text = "".join(lines)
+        if not text.endswith("\r\n"):
+            text += "\r\n"
+        text += "".join(block)
 
     path.write_bytes(b"\xff\xfe" + text.encode("utf-16-le"))

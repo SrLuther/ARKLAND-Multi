@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 
 from src.config_manager import ShopGlobalConfig
-from src.shop_integration import register_arkshop_servers
+from src.shop_integration import (
+    _merge_arkland_server_entry,
+    _resolve_game_host,
+    register_arkshop_servers,
+    sync_arkshop_web_settings,
+)
 
 
 @dataclass
@@ -20,15 +25,24 @@ class _FakeSrv:
     shop_exclude: bool = False
     install_dir: str = r"C:\ARK\test"
     server_ip: str = "192.168.1.10"
+    public_ip: str = ""
+    server_port: int = 7778
     rcon_port: int = 27020
     rcon_password: str = "secret"
     admin_password: str = ""
     customshop_config_path: str = ""
 
 
+@dataclass
+class _FakeShopCfg:
+    machine_public_ip: str = ""
+    shop: ShopGlobalConfig = field(default_factory=ShopGlobalConfig)
+
+
 class _FakeCM:
-    def __init__(self, servers=None):
+    def __init__(self, servers=None, config=None):
         self.servers = servers or []
+        self.config = config or _FakeShopCfg()
 
 
 class _FakeAsmCM:
@@ -161,6 +175,59 @@ def test_preserve_manual_server_without_arkland_ref(shop_dir):
     assert not manual.get("arkland_ref")
 
 
+def test_register_uses_shop_public_ip_when_server_ip_empty(shop_dir):
+    srv = _FakeSrv(id="tek-1", name="Fjordur", shop_server_id="fjordur", server_ip="")
+    shop = _host_shop(public_ip="203.0.113.99")
+    register_arkshop_servers(_FakeCM(), shop, asm_cm=_FakeAsmCM([srv]))
+    entry = _load_servers(shop_dir / "servers.json")[0]
+    assert entry["game_host"] == "203.0.113.99"
+    assert entry["public_ip"] == "203.0.113.99"
+    assert entry["game_port"] == 7778
+    assert entry.get("join_host") == "203.0.113.99"
+
+
+def test_register_uses_machine_public_ip_fallback(shop_dir):
+    srv = _FakeSrv(id="tek-1", name="Ragnarok", shop_server_id="ragnarok", server_ip="")
+    cfg = _FakeShopCfg(machine_public_ip="198.51.100.7", shop=_host_shop(public_ip=""))
+    register_arkshop_servers(_FakeCM(config=cfg), _host_shop(public_ip=""), asm_cm=_FakeAsmCM([srv]))
+    entry = _load_servers(shop_dir / "servers.json")[0]
+    assert entry["game_host"] == "198.51.100.7"
+
+
+def test_merge_preserves_manual_join_host():
+    existing = {
+        "server_id": "fjordur",
+        "join_host": "play.example.com",
+        "game_host": "127.0.0.1",
+    }
+    incoming = {
+        "server_id": "fjordur",
+        "game_host": "203.0.113.50",
+        "game_port": 7777,
+        "arkland_ref": "tek:tek-1",
+    }
+    merged = _merge_arkland_server_entry(existing, incoming, _FakeSrv(id="tek-1", name="Fjordur"))
+    assert merged["join_host"] == "play.example.com"
+    assert merged["game_host"] == "203.0.113.50"
+
+
+def test_resolve_game_host_prefers_server_public_ip():
+    srv = _FakeSrv(id="x", name="X", server_ip="127.0.0.1", public_ip="203.0.113.10")
+    assert _resolve_game_host(srv) == "203.0.113.10"
+
+
+def test_sync_arkshop_web_settings_writes_public_ip(shop_dir, tmp_path, monkeypatch):
+    import src.shop_integration as si
+
+    monkeypatch.setattr(si, "webstore_data_dir", lambda: shop_dir)
+    catalog = tmp_path / "config.json"
+    catalog.write_text("{}", encoding="utf-8")
+    shop = _host_shop(public_ip="203.0.113.88")
+    sync_arkshop_web_settings(shop, catalog)
+    settings = json.loads((shop_dir / "settings.json").read_text(encoding="utf-8"))
+    assert settings["public_ip"] == "203.0.113.88"
+
+
 def test_remote_register_calls_central_api(shop_dir, monkeypatch):
     import src.shop_integration as si
 
@@ -184,13 +251,15 @@ def test_remote_register_calls_central_api(shop_dir, monkeypatch):
 
     monkeypatch.setattr(si.urllib.request, "urlopen", _fake_urlopen)
 
-    srv = _FakeSrv(id="tek-1", name="Volcano", shop_server_id="volcano")
-    shop = ShopGlobalConfig(mode="client", central_url="https://cross.test", api_key="secret-key")
+    srv = _FakeSrv(id="tek-1", name="Volcano", shop_server_id="volcano", server_ip="")
+    shop = ShopGlobalConfig(mode="client", central_url="https://cross.test", api_key="secret-key", public_ip="203.0.113.55")
     shop.machine_label = "Maquina-B"
     n = register_arkshop_servers(_FakeCM(), shop, asm_cm=_FakeAsmCM([srv]))
     assert n == 1
     assert captured["url"].endswith("/api/servers/sync")
     assert captured["api_key"] == "secret-key"
     assert captured["body"]["machine_label"] == "Maquina-B"
-    assert any(s["server_id"] == "volcano" for s in captured["body"]["servers"])
+    payload_srv = next(s for s in captured["body"]["servers"] if s["server_id"] == "volcano")
+    assert payload_srv["game_host"] == "203.0.113.55"
+    assert payload_srv["game_port"] == 7778
     assert not (shop_dir / "servers.json").exists()

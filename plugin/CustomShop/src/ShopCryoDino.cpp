@@ -48,9 +48,19 @@ UPrimalItem* CreateSaddleItem(const std::string& saddle_blueprint) {
     UClass* cls = UVictoryCore::BPLoadClass(&fbp);
     if (!cls)
         return nullptr;
-    return UPrimalItem::AddNewItem(
+    UPrimalItem* item = UPrimalItem::AddNewItem(
         cls, nullptr, false, false, 0.0f, false, 0, false, 0.0f,
         false, nullptr, 0.0f, false, false);
+    if (!item) return nullptr;
+
+    // Force a Defense metadata entry so serialized item bytes include it.
+    // This ensures generated cryopod/item blobs retain the defense value.
+    FCustomItemData defData;
+    defData.CustomDataName = FName("Defense", EFindName::FNAME_Add);
+    defData.CustomDataFloats.Add(350.0f);
+    item->CustomItemDatasField().Add(defData);
+    item->UpdatedItem(true);
+    return item;
 }
 
 FCustomItemData BuildCryoCustomData(APrimalDinoCharacter* dino, UPrimalItem* saddle) {

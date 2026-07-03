@@ -133,15 +133,141 @@ bool IsPermissionGrantCommand(const std::string& cmd, const std::string& group) 
     return cmd.find(group) != std::string::npos;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────
+// ── Item stat helpers (paridade ArkShop ApplyItemStats / getStatValue) ──
 
-// Delivers a single item stack using UPrimalItem::AddNewItem.
+float GetStatValue(float stat_modifier,
+                   float initial_value_constant,
+                   float randomizer_range_multiplier,
+                   float state_modifier_scale,
+                   bool display_as_percent) {
+    if (display_as_percent)
+        initial_value_constant += 100.f;
+
+    if (initial_value_constant > stat_modifier)
+        stat_modifier = initial_value_constant;
+
+    return (stat_modifier - initial_value_constant)
+         / (initial_value_constant * randomizer_range_multiplier * state_modifier_scale);
+}
+
+void ApplyItemStats(TArray<UPrimalItem*>& items,
+                    int armor,
+                    int durability,
+                    int damage) {
+    if (armor <= 0 && durability <= 0 && damage <= 0)
+        return;
+
+    for (UPrimalItem* item : items) {
+        if (!item) continue;
+        bool updated = false;
+
+        if (armor > 0) {
+            FItemStatInfo* itemstat =
+                static_cast<FItemStatInfo*>(FMemory::Malloc(0x24));
+            RtlSecureZeroMemory(itemstat, 0x24);
+            item->GetItemStatInfo(itemstat, EPrimalItemStat::Armor);
+
+            if (itemstat->bUsed()()) {
+                const bool percent = itemstat->bDisplayAsPercent()();
+                float new_stat = GetStatValue(
+                    static_cast<float>(armor),
+                    itemstat->InitialValueConstantField(),
+                    itemstat->RandomizerRangeMultiplierField(),
+                    itemstat->StateModifierScaleField(),
+                    percent);
+                if (new_stat >= 65536.f) new_stat = 65535.f;
+                item->ItemStatValuesField()()[EPrimalItemStat::Armor] =
+                    static_cast<unsigned short>(new_stat);
+                updated = true;
+            }
+            FMemory::Free(itemstat);
+        }
+
+        if (durability > 0) {
+            FItemStatInfo* itemstat =
+                static_cast<FItemStatInfo*>(FMemory::Malloc(0x24));
+            RtlSecureZeroMemory(itemstat, 0x24);
+            item->GetItemStatInfo(itemstat, EPrimalItemStat::MaxDurability);
+
+            if (itemstat->bUsed()()) {
+                const bool percent = itemstat->bDisplayAsPercent()();
+                float new_stat = GetStatValue(
+                    static_cast<float>(durability),
+                    itemstat->InitialValueConstantField(),
+                    itemstat->RandomizerRangeMultiplierField(),
+                    itemstat->StateModifierScaleField(),
+                    percent) + 1.f;
+                if (new_stat >= 65536.f) new_stat = 65535.f;
+                item->ItemStatValuesField()()[EPrimalItemStat::MaxDurability] =
+                    static_cast<unsigned short>(new_stat);
+                item->ItemDurabilityField() =
+                    item->GetItemStatModifier(EPrimalItemStat::MaxDurability);
+                updated = true;
+            }
+            FMemory::Free(itemstat);
+        }
+
+        if (damage > 0) {
+            FItemStatInfo* itemstat =
+                static_cast<FItemStatInfo*>(FMemory::Malloc(0x24));
+            RtlSecureZeroMemory(itemstat, 0x24);
+            item->GetItemStatInfo(itemstat, EPrimalItemStat::WeaponDamagePercent);
+
+            if (itemstat->bUsed()()) {
+                const bool percent = itemstat->bDisplayAsPercent()();
+                float new_stat = GetStatValue(
+                    static_cast<float>(damage),
+                    itemstat->InitialValueConstantField(),
+                    itemstat->RandomizerRangeMultiplierField(),
+                    itemstat->StateModifierScaleField(),
+                    percent);
+                if (new_stat >= 65536.f) new_stat = 65535.f;
+                item->SetItemStatValues(
+                    EPrimalItemStat::WeaponDamagePercent,
+                    static_cast<unsigned short>(new_stat));
+                updated = true;
+            }
+            FMemory::Free(itemstat);
+        }
+
+        if (updated)
+            item->UpdatedItem(false);
+    }
+}
+
+int ReadStatInt(const nlohmann::json& entry, const char* key) {
+    if (!entry.is_object() || !entry.contains(key)) return 0;
+    try {
+        if (entry.at(key).is_number_float())
+            return static_cast<int>(entry.at(key).get<float>());
+        return entry.at(key).get<int>();
+    } catch (...) {
+        return 0;
+    }
+}
+
+void ReadItemStats(const nlohmann::json& entry,
+                   int& armor,
+                   int& durability,
+                   int& damage) {
+    armor = ReadStatInt(entry, "Armor");
+    if (armor == 0) armor = ReadStatInt(entry, "armor");
+    durability = ReadStatInt(entry, "Durability");
+    if (durability == 0) durability = ReadStatInt(entry, "durability");
+    damage = ReadStatInt(entry, "Damage");
+    if (damage == 0) damage = ReadStatInt(entry, "damage");
+}
+
+// Delivers a single item stack using UPrimalItem::AddNewItem (+ stats opcionais).
 bool GiveSingleItem(AShooterPlayerController* controller,
                     const std::string& blueprint,
                     int quantity,
                     float quality,
-                    bool force_blueprint) {
-    if (blueprint.empty() || !controller) return false;
+                    bool force_blueprint,
+                    int armor = 0,
+                    int durability = 0,
+                    int damage = 0) {
+    if (blueprint.empty() || !controller || quantity < 1) return false;
 
     FString fblueprint(blueprint.c_str());
     UClass* item_class = UVictoryCore::BPLoadClass(&fblueprint);
@@ -153,21 +279,73 @@ bool GiveSingleItem(AShooterPlayerController* controller,
     UPrimalInventoryComponent* inv = controller->GetPlayerInventoryComponent();
     if (!inv) return false;
 
+    const bool wants_stats = armor > 0 || durability > 0 || damage > 0;
+    bool stacks_in_one = false;
+    if (UPrimalItem* item_cdo =
+            static_cast<UPrimalItem*>(item_class->GetDefaultObject(true))) {
+        stacks_in_one =
+            item_cdo->GetMaxItemQuantity(ArkApi::GetApiUtils().GetWorld()) <= 1;
+    }
+
+    if (wants_stats && stacks_in_one) {
+        TArray<UPrimalItem*> out_items;
+        for (int i = 0; i < quantity; ++i) {
+            UPrimalItem* created = UPrimalItem::AddNewItem(
+                TSubclassOf<UPrimalItem>(item_class),
+                inv,
+                false,
+                false,
+                quality,
+                !force_blueprint,
+                1,
+                force_blueprint,
+                0.0f,
+                false,
+                TSubclassOf<UPrimalItem>(),
+                0.0f,
+                false,
+                false);
+            if (created)
+                out_items.Add(created);
+        }
+        if (out_items.IsEmpty()) return false;
+        ApplyItemStats(out_items, armor, durability, damage);
+        return true;
+    }
+
+    if (wants_stats && !stacks_in_one) {
+        inv->IncrementItemTemplateQuantity(
+            item_class,
+            quantity,
+            true,
+            force_blueprint,
+            nullptr,
+            nullptr,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            true);
+        return true;
+    }
+
     UPrimalItem::AddNewItem(
         TSubclassOf<UPrimalItem>(item_class),
         inv,
-        /*bEquipItem=*/false,
-        /*bDontStack=*/false,
+        false,
+        false,
         quality,
-        /*bForceNoBlueprint=*/!force_blueprint,
+        !force_blueprint,
         quantity,
-        /*bForceBlueprint=*/force_blueprint,
-        /*MaxItemDifficultyClamp=*/0.0f,
-        /*CreateOnClient=*/false,
+        force_blueprint,
+        0.0f,
+        false,
         TSubclassOf<UPrimalItem>(),
-        /*MinRandomQuality=*/0.0f,
-        /*clampStats=*/false,
-        /*bIgnoreAbsoluteMaxInventory=*/false);
+        0.0f,
+        false,
+        false);
     return true;
 }
 
@@ -188,8 +366,11 @@ bool GiveItemsArray(AShooterPlayerController* controller,
             : std::max(1, amount_multiplier);
         const float qual = entry.is_object() ? entry.value("Quality", 0.0f) : 0.0f;
         const bool force = entry.is_object() && entry.value("ForceBlueprint", false);
+        int armor = 0, durability = 0, damage = 0;
+        if (entry.is_object())
+            ReadItemStats(entry, armor, durability, damage);
 
-        if (GiveSingleItem(controller, bp, qty, qual, force))
+        if (GiveSingleItem(controller, bp, qty, qual, force, armor, durability, damage))
             any = true;
     }
     return any;
@@ -287,7 +468,9 @@ bool BuyItem(AShooterPlayerController* controller,
         const int   qty   = item.value("Quantity",       1) * amount;
         const float qual  = item.value("Quality",        0.0f);
         const bool  force = item.value("ForceBlueprint", false);
-        GiveSingleItem(controller, bp, qty, qual, force);
+        int armor = 0, durability = 0, damage = 0;
+        ReadItemStats(item, armor, durability, damage);
+        GiveSingleItem(controller, bp, qty, qual, force, armor, durability, damage);
     }
 
     // Multi-item bundle (Items array)
@@ -529,7 +712,9 @@ bool GiveItem(AShooterPlayerController* controller,
         const int   qty   = item.value("Quantity",       1) * amount;
         const float qual  = item.value("Quality",        0.0f);
         const bool  force = item.value("ForceBlueprint", false);
-        ok = GiveSingleItem(controller, bp, qty, qual, force) || ok;
+        int armor = 0, durability = 0, damage = 0;
+        ReadItemStats(item, armor, durability, damage);
+        ok = GiveSingleItem(controller, bp, qty, qual, force, armor, durability, damage) || ok;
     }
 
     if (item.contains("Items")) {

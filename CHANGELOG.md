@@ -5,6 +5,25 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.179] - 2026-07-02
+
+### Feature
+
+- Feature (Web Store / Mercado): menu admin Mercado, fluxo de pré-registro de espécies e painel de catálogo de dinos.
+
+### Improvement
+
+- Melhoria (Loja / Catálogo): Armadura 350 em massa em 132 selas; script tools/apply_saddle_armor.py.
+- Melhoria (Loja / Catálogo): 74 comandos tekgrams com preço 5000.
+
+### Fix
+
+- Fix (Web Store / Home): botões Conectar no hero e na barra fixa; seção reposicionada; diagnóstico de conexão; fallback de IP público global nas configurações.
+- Fix (ASM / Sync): game_host e game_port a partir de shop.public_ip/machine_public_ip; public_ip em settings.json; descoberta local com game_host.
+- Fix (Loja / Catálogo): Armadura/Dano/Durabilidade preservados na sanitização; ApplyItemStats no CustomShop.dll; campo Armadura % no ASM.
+- Fix (TEK / Jogador): persistência do multiplicador 5x de pontos de engrama e posicionamento correto no Game.ini.
+- Fix (Web Store / Mercado): persistência de stat_weights (dietas) em APPDATA em vez do bundle somente leitura.
+
 ## [1.9.178] - 2026-07-02
 
 ### Fix

@@ -1671,24 +1671,10 @@ class ArkIniManager:
         spawn_lines.extend(build_engram_points_ini_lines(config))
 
         if spawn_lines:
-            section_header = f"[{section}]".lower()
-            lines = ini_text.splitlines(keepends=True)
-            insert_pos = None
-            in_target = False
-            for i, line in enumerate(lines):
-                stripped = line.strip()
-                if stripped.lower() == section_header:
-                    in_target = True
-                    continue
-                if in_target and stripped.startswith("[") and stripped.endswith("]"):
-                    insert_pos = i
-                    break
-            if insert_pos is None and in_target:
-                insert_pos = len(lines)
-            if insert_pos is not None:
-                spawn_block = [s + "\n" for s in spawn_lines]
-                lines[insert_pos:insert_pos] = spawn_block
-            ini_text = "".join(lines)
+            spawn_block = [s + "\n" for s in spawn_lines]
+            if not ini_text.endswith("\n"):
+                ini_text += "\n"
+            ini_text += "".join(spawn_block)
 
         # ── Remove linhas em branco extras deixadas pela substituição ────────
         ini_text = _re.sub(r'\n{3,}', '\n\n', ini_text)

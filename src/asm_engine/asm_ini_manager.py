@@ -508,9 +508,18 @@ def write_ini(cfg: AsmServerConfig) -> None:
         _inject_raw(cfg.custom_game_ini_raw, game)
 
     # Raw overrides (engrams, levels) — chaves únicas via _inject_raw
+    from ..player_engram_points import (
+        should_apply_engram_multiplier,
+        strip_engram_points_from_raw,
+    )
+
+    player_level_raw = cfg.player_level_stats_raw
+    if should_apply_engram_multiplier(cfg):
+        player_level_raw = strip_engram_points_from_raw(player_level_raw)
+
     for raw_text in (
         cfg.engram_entries_raw,
-        cfg.player_level_stats_raw,
+        player_level_raw,
         cfg.dino_level_stats_raw,
     ):
         if raw_text:

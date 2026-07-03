@@ -42,6 +42,19 @@ def normalize_blueprint(value: str) -> str:
     return _KNOWN_BLUEPRINT_FIXES.get(text, text)
 
 
+def _copy_item_stat_fields(entry: dict, out: dict) -> None:
+    """Preserva stats opcionais de item (compatível com ArkShop)."""
+    for key in ("Damage", "Durability", "Armor"):
+        if key not in entry or entry[key] in (None, ""):
+            continue
+        try:
+            val = float(entry[key])
+        except (TypeError, ValueError):
+            continue
+        if val > 0:
+            out[key] = val
+
+
 def _normalize_item_entry(entry: dict | str) -> dict:
     if isinstance(entry, str):
         bp = normalize_blueprint(entry)
@@ -54,6 +67,7 @@ def _normalize_item_entry(entry: dict | str) -> dict:
     for key in ("Quality", "ForceBlueprint"):
         if key in entry:
             out[key] = entry[key]
+    _copy_item_stat_fields(entry, out)
     return out
 
 
@@ -118,6 +132,7 @@ def convert_shop_item(key: str, raw: dict) -> dict:
         for key in ("Quality", "ForceBlueprint"):
             if key in raw:
                 out[key] = raw[key]
+        _copy_item_stat_fields(raw, out)
 
     return out
 

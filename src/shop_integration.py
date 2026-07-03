@@ -1544,17 +1544,57 @@ def _server_config_snapshot_for(srv: Any, buff_manager: Any = None) -> Dict[str,
     return collect_server_snapshot(srv, buff_event=buff_event)
 
 
-def _resolve_game_host(srv: Any) -> str:
-    server_ip = (getattr(srv, "server_ip", "") or "").strip()
-    public_ip = (getattr(srv, "public_ip", "") or "").strip()
-    if server_ip and server_ip not in ("127.0.0.1", "localhost", "0.0.0.0", "::1"):
+_LOCALHOST_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "0.0.0.0"})
+
+
+def _is_local_game_host(host: str) -> bool:
+    return (host or "").strip().lower() in _LOCALHOST_HOSTS
+
+
+def _srv_attr(srv: Any, name: str, default: Any = "") -> Any:
+    if isinstance(srv, dict):
+        return srv.get(name, default)
+    return getattr(srv, name, default)
+
+
+def _resolve_game_host(
+    srv: Any,
+    *,
+    shop: Optional["ShopGlobalConfig"] = None,
+    app_config: Any = None,
+    settings: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Host público para join Steam — servidor, loja global ou settings da web."""
+    server_ip = str(_srv_attr(srv, "server_ip") or "").strip()
+    public_ip = str(_srv_attr(srv, "public_ip") or "").strip()
+    if server_ip and not _is_local_game_host(server_ip):
         return server_ip
     if public_ip:
         return public_ip
+    if shop is not None:
+        shop_ip = (shop.public_ip or "").strip()
+        if shop_ip:
+            return shop_ip
+    if app_config is not None:
+        from .server_visibility import resolve_machine_public_ip
+
+        machine_ip = resolve_machine_public_ip(app_config)
+        if machine_ip:
+            return machine_ip
+    if settings is not None:
+        for key in ("public_ip", "join_host"):
+            val = str(settings.get(key) or "").strip()
+            if val and not _is_local_game_host(val):
+                return val
     return server_ip or "127.0.0.1"
 
 
-def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
+def _server_rcon_entry(
+    srv: Any,
+    shop: "ShopGlobalConfig",
+    *,
+    app_config: Any = None,
+) -> Dict[str, Any]:
     sid = (getattr(srv, "shop_server_id", "") or "").strip() or slugify_server_id(
         getattr(srv, "name", ""), getattr(srv, "id", ""),
     )
@@ -1575,9 +1615,15 @@ def _server_rcon_entry(srv: Any, shop: "ShopGlobalConfig") -> Dict[str, Any]:
         "plugin_config_path": (
             getattr(srv, "customshop_config_path", "") or default_customshop_path(getattr(srv, "install_dir", ""))
         ),
-        "game_host": _resolve_game_host(srv),
+        "game_host": _resolve_game_host(srv, shop=shop, app_config=app_config),
         "game_port": int(getattr(srv, "server_port", None) or 7777),
     }
+    server_public = str(_srv_attr(srv, "public_ip") or "").strip()
+    game_host = str(entry["game_host"] or "").strip()
+    if server_public:
+        entry["public_ip"] = server_public
+    elif game_host and not _is_local_game_host(game_host):
+        entry["public_ip"] = game_host
     query_port = getattr(srv, "query_port", None)
     if query_port is not None:
         entry["query_port"] = int(query_port)
@@ -2403,6 +2449,9 @@ def sync_arkshop_web_settings(
     data["public_url"] = effective_shop_public_url(shop)
     data["shop_mode"] = shop.mode
     data["machine_label"] = shop.machine_label or ""
+    pub_ip = (shop.public_ip or "").strip()
+    if pub_ip:
+        data["public_ip"] = pub_ip
     if shop.api_key:
         data["api_key"] = shop.api_key
 
@@ -2443,6 +2492,21 @@ def _merge_arkland_server_entry(
         prev_auto = str(existing.get("_auto_label") or auto_label).strip()
         if prev_label and prev_label != prev_auto:
             out["label"] = prev_label
+        join_host = str(existing.get("join_host") or "").strip()
+        if join_host:
+            out["join_host"] = join_host
+        incoming_host = str(out.get("game_host") or "").strip()
+        existing_host = str(existing.get("game_host") or "").strip()
+        if _is_local_game_host(incoming_host) and existing_host and not _is_local_game_host(existing_host):
+            out["game_host"] = existing_host
+        elif not join_host:
+            effective_host = str(out.get("game_host") or "").strip()
+            if effective_host and not _is_local_game_host(effective_host):
+                out["join_host"] = effective_host
+    elif not str(out.get("join_host") or "").strip():
+        effective_host = str(out.get("game_host") or "").strip()
+        if effective_host and not _is_local_game_host(effective_host):
+            out["join_host"] = effective_host
     out["_auto_label"] = auto_label
     return out
 
@@ -2514,7 +2578,7 @@ def _collect_server_registry(
         if getattr(srv, "shop_exclude", False):
             continue
         active_refs.add(ref)
-        entry = _server_rcon_entry(srv, shop)
+        entry = _server_rcon_entry(srv, shop, app_config=getattr(cm, "config", None))
         entry["arkland_ref"] = ref
         entry["machine_label"] = machine_label
         if include_snapshots:
