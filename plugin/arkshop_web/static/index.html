@@ -10751,6 +10751,78 @@ async function loadMarketMyShop() {
   }
 }
 
+function _marketDeliveryStatusLabel(status) {
+  const map = {
+    entregue: "Entregue",
+    aguardando_resgate: "Aguardando resgate",
+    expirado: "Resgate expirado",
+    reembolsado: "Reembolsado",
+    processando: "Processando",
+    vendido: "Vendido",
+    desconhecido: "—",
+  };
+  return map[status] || status || "—";
+}
+
+function _marketHistoryItemTitle(row) {
+  return row.display_title || row.custom_name || row.dino_display_name || row.species_display_name || `Anúncio #${row.listing_id}`;
+}
+
+function _marketHistoryBuyerCell(row) {
+  if (row.buyer_display_name) {
+    return `<strong>${escHtml(row.buyer_display_name)}</strong><br><code style="font-size:10px;opacity:0.75;">${escHtml(row.buyer_steam_id || "")}</code>`;
+  }
+  if (row.buyer_steam_id) {
+    return `<code style="font-size:11px;">${escHtml(row.buyer_steam_id)}</code>`;
+  }
+  return "—";
+}
+
+function _marketHistorySalesTable(sales) {
+  if (!sales.length) {
+    return `<p style="font-size:12px;margin:0;color:var(--text2);">Nenhuma venda registrada ainda.</p>`;
+  }
+  return `<div class="table-scroll"><table class="data-table"><thead><tr>
+    <th>Data</th><th>Item</th><th>Comprador</th><th>Preço</th><th>Status</th>
+  </tr></thead><tbody>` +
+  sales.map(s => {
+    const status = _marketDeliveryStatusLabel(s.delivery_status);
+    const statusStyle = s.delivery_status === "entregue" ? "color:var(--success);"
+      : (s.delivery_status === "aguardando_resgate" ? "color:var(--amber);" : "");
+  return `<tr>
+    <td style="white-space:nowrap;font-size:11px;">${fmtDate(s.created_at)}</td>
+    <td>${escHtml(_marketHistoryItemTitle(s))}<br><span style="font-size:10px;color:var(--text2);">#${s.listing_id}</span></td>
+    <td>${_marketHistoryBuyerCell(s)}</td>
+    <td style="white-space:nowrap;">${Number(s.price_paid || 0).toLocaleString("pt-BR")} Âmbar</td>
+    <td style="font-size:12px;${statusStyle}">${escHtml(status)}</td>
+  </tr>`;
+  }).join("") + `</tbody></table></div>`;
+}
+
+function _marketHistoryPurchasesTable(purchases) {
+  if (!purchases.length) {
+    return `<p style="font-size:12px;margin:0;color:var(--text2);">Nenhuma compra no Comércio ainda.</p>`;
+  }
+  return `<div class="table-scroll"><table class="data-table"><thead><tr>
+    <th>Data</th><th>Item</th><th>Vendedor</th><th>Preço</th><th>Resgate</th>
+  </tr></thead><tbody>` +
+  purchases.map(s => {
+    const seller = s.seller_display_name
+      ? `<strong>${escHtml(s.seller_display_name)}</strong>`
+      : (s.seller_steam_id ? `<code style="font-size:11px;">${escHtml(s.seller_steam_id)}</code>` : "—");
+    const claimHtml = _marketClaimCountdownHtml(s) || (s.delivery_status === "entregue" || s.status === "DELIVERED"
+      ? `<span style="color:var(--success);font-size:12px;">Entregue</span>`
+      : `<span style="font-size:12px;color:var(--text2);">—</span>`);
+    return `<tr>
+    <td style="white-space:nowrap;font-size:11px;">${fmtDate(s.created_at)}</td>
+    <td>${escHtml(_marketHistoryItemTitle(s))}<br><span style="font-size:10px;color:var(--text2);">#${s.listing_id}</span></td>
+    <td>${seller}</td>
+    <td style="white-space:nowrap;">${Number(s.price_paid || 0).toLocaleString("pt-BR")} Âmbar</td>
+    <td>${claimHtml}</td>
+  </tr>`;
+  }).join("") + `</tbody></table></div>`;
+}
+
 async function loadMarketMyHistory() {
   const root = document.getElementById("market-myshop-history");
   if (!root || !_auth.authenticated) return;
@@ -10758,16 +10830,19 @@ async function loadMarketMyHistory() {
     const r = await fetch(API + "/api/market/my/history");
     const d = await r.json();
     if (!d.ok) return;
-    const sales = (d.sales || []).slice(0, 5).map(s => `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`).join(" · ") || "—";
-    const purchases = (d.purchases || []).slice(0, 5).map(s => {
-      const cd = _marketClaimCountdownHtml(s);
-      const base = `#${s.listing_id} · ${Number(s.price_paid||0).toLocaleString("pt-BR")} Âmbar`;
-      return cd ? `${base} (${cd.replace(/<[^>]+>/g, "")})` : base;
-    }).join(" · ") || "—";
+    const sales = (d.sales || []).slice(0, 20);
+    const purchases = (d.purchases || []).slice(0, 20);
     root.style.display = "";
-    root.innerHTML = `<div class="card"><div class="card-title">Histórico recente</div>
-      <p style="font-size:12px;margin:0 0 8px;color:var(--text2);">Vendas: ${escHtml(sales)}</p>
-      <p style="font-size:12px;margin:0;color:var(--text2);">Compras: ${escHtml(purchases)}</p></div>`;
+    root.innerHTML = `<div class="card" style="margin-bottom:12px;">
+      <div class="card-title">📤 Histórico de Vendas</div>
+      <p style="font-size:12px;margin:0 0 12px;color:var(--text2);">Quem comprou seus anúncios no Comércio P2P.</p>
+      ${_marketHistorySalesTable(sales)}
+    </div>
+    <div class="card">
+      <div class="card-title">📥 Minhas Compras</div>
+      <p style="font-size:12px;margin:0 0 12px;color:var(--text2);">Itens que você comprou — resgate com <code>/mercado</code> in-game (24h).</p>
+      ${_marketHistoryPurchasesTable(purchases)}
+    </div>`;
   } catch (_) {}
 }
 

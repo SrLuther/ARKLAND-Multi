@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.181] - 2026-07-02
+
+### Fix
+
+- Fix (Web Store / Mercado P2P): cryopod morta (DEAD/Carga 0s) — StripCryopodTimer em /confirmar, PrepareMarketCryopodForDelivery em /mercado, validação e liberação do claim em falha (ShopCryoReader.cpp, ShopMarket.cpp).
+- Fix (Loja / Catálogo): correções de blueprint path — Hide→Leather, armadura Tek pasta TEK, estruturas tek em tek/; Nameless Venom; _KNOWN_BLUEPRINT_FIXES ampliado.
+
 ## [1.9.180] - 2026-07-02
 
 ### Fix

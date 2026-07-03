@@ -331,25 +331,51 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
 
     ApplyCryoTimerFieldsToMetadata(cryo, pending.meta);
 
+    const bool stripped = StripCryopodTimer(cryo);
+    RefreshCryopodEncapsulationWorldTime(cryo);
+    if (stripped) {
+        pending.meta.had_timer = true;
+        pending.meta.timer_remaining_days = -1.f;
+    }
+
     FCustomItemByteArray bytes;
     cryo->GetItemBytes(&bytes.Bytes);
     if (bytes.Bytes.Num() <= 0) {
         SendMsg(player, FColorList::Red, "Falha ao serializar cryopod.");
+        {
+            std::lock_guard<std::mutex> lock(g_pending_mutex);
+            g_pending[sid] = pending;
+        }
         return;
     }
 
     UPrimalItem* probe = UPrimalItem::CreateFromBytes(&bytes.Bytes);
-    if (!probe) {
-        SendMsg(player, FColorList::Red, "Cryopod corrompida - envio cancelado.");
+    std::string probe_err;
+    if (!probe || !PrepareMarketCryopodForDelivery(probe, player, &probe_err)) {
+        Log::GetLog()->warn(
+            "ShopMarket: confirmar probe falhou steam={} err={}", sid, probe_err);
+        SendMsg(player, FColorList::Red,
+                "Cryopod invalida apos normalizacao: "
+                + SanitizeForGameChat(probe_err.empty() ? std::string("dados ilegiveis")
+                                                        : probe_err));
+        SendCryoDebugReport(player, sid, "confirmar_probe_fail", true);
+        {
+            std::lock_guard<std::mutex> lock(g_pending_mutex);
+            g_pending[sid] = pending;
+        }
         return;
     }
 
+    UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
     const std::string hex = HexEncode(bytes.Bytes);
     const std::string upload_id = NewUploadId();
 
-    UPrimalInventoryComponent* inv = player->GetPlayerInventoryComponent();
     if (!inv || !ShopCloudInventory::Get().RemovePlayerItem(cryo, inv, player)) {
         SendMsg(player, FColorList::Red, "Falha ao remover cryopod do inventario.");
+        {
+            std::lock_guard<std::mutex> lock(g_pending_mutex);
+            g_pending[sid] = pending;
+        }
         return;
     }
 
@@ -363,6 +389,8 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
     body["parser_version"] = "1.0.0";
     body["plugin_version"] = "CustomShop";
     body["metadata"] = CryoMetadataToJson(pending.meta);
+    if (stripped)
+        body["metadata"]["timer_stripped_on_upload"] = true;
 
     const std::string resp = HttpClient::PostJson("/api/market/upload", body.dump());
     nlohmann::json json;
@@ -469,7 +497,37 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
 
         TArray<unsigned char> arr = HexDecode(hex);
         UPrimalItem* item = UPrimalItem::CreateFromBytes(&arr);
-        if (!item || !inv->AddItemObject(item)) {
+        if (!item) {
+            ReleaseClaims(sid, claimed_ids);
+            claimed_ids.clear();
+            Log::GetLog()->error(
+                "ShopMarket: mercado CreateFromBytes falhou steam={} claim_id={}",
+                sid, claim_id);
+            SendMsg(player, FColorList::Red,
+                    "Cryopod corrompida no vault - resgate cancelado. Contate admin.");
+            return;
+        }
+
+        std::string prep_err;
+        if (!PrepareMarketCryopodForDelivery(item, player, &prep_err)) {
+            ReleaseClaims(sid, claimed_ids);
+            claimed_ids.clear();
+            Log::GetLog()->error(
+                "ShopMarket: mercado delivery invalido steam={} claim_id={} err={} max={:.0f} saved={:.0f}",
+                sid,
+                claim_id,
+                prep_err,
+                item->ItemDurabilityField(),
+                item->SavedDurabilityField());
+            SendCryoDebugReport(player, sid, "mercado_delivery_fail",
+                                ShopConfig::Get().MarketCryoDebug());
+            SendMsg(player, FColorList::Red,
+                    "Cryopod invalida no Comercio (vazia ou sem carga). "
+                    "Resgate liberado - contate admin se persistir.");
+            return;
+        }
+
+        if (!inv->AddItemObject(item)) {
             ReleaseClaims(sid, claimed_ids);
             SendMsg(player, FColorList::Red,
                     "Inventario cheio - libere espaco e tente /mercado.");

@@ -101,6 +101,92 @@ def test_normalize_blueprint_fixes_raw_meat_resources_folder():
     assert normalize_blueprint(wrong) == right
 
 
+def test_normalize_blueprint_fixes_hide_armor_folder():
+    wrong = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/"
+        "PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet"
+    )
+    right = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/"
+        "PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet"
+    )
+    assert normalize_blueprint(wrong) == right
+
+
+def test_normalize_blueprint_fixes_tek_armor_folder():
+    wrong = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/"
+        "PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves"
+    )
+    right = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/"
+        "PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves"
+    )
+    assert normalize_blueprint(wrong) == right
+
+
+def test_normalize_blueprint_fixes_nameless_venom_folder():
+    wrong = (
+        "/Game/Aberration/CoreBlueprints/Resources/"
+        "PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom"
+    )
+    right = (
+        "/Game/Aberration/CoreBlueprints/Items/Consumables/"
+        "PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom"
+    )
+    assert normalize_blueprint(wrong) == right
+
+
+def test_normalize_blueprint_fixes_tek_structure_lowercase_folder():
+    wrong = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/"
+        "PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs"
+    )
+    right = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs"
+    )
+    assert normalize_blueprint(wrong) == right
+
+
+def test_normalize_blueprint_fixes_tek_fence_foundation_casing():
+    wrong = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/"
+        "PrimalItemStructure_TekFenceFoundation.PrimalItemStructure_TekFenceFoundation"
+    )
+    right = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_Tekfencefoundation.PrimalItemStructure_Tekfencefoundation"
+    )
+    assert normalize_blueprint(wrong) == right
+
+
+def test_sanitize_catalog_blueprints_fixes_tekgrams_commands():
+    from src.shop_catalog_import import sanitize_catalog_blueprints
+
+    wrong_boots = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/"
+        "PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots"
+    )
+    right_boots = (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/"
+        "PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots"
+    )
+    data = {
+        "Items": {
+            "tekgrams": {
+                "Type": "command",
+                "Commands": [{
+                    "Command": f'cheat UnlockEngram "Blueprint\'{wrong_boots}\'"',
+                }],
+            }
+        }
+    }
+    sanitize_catalog_blueprints(data)
+    assert right_boots in data["Items"]["tekgrams"]["Commands"][0]["Command"]
+    assert wrong_boots not in data["Items"]["tekgrams"]["Commands"][0]["Command"]
+
+
 def test_sanitize_catalog_blueprints_handles_arkshop_wrapper_with_trailing_quote():
     """Espelha o log de produção: Blueprint'...' ou fragmento JSON com aspas extras."""
     wrapped = f"'\"Blueprint\": \"{STONE}\"'"

@@ -10,13 +10,83 @@ from typing import Any, Dict, Tuple
 _BP_RE = re.compile(r"^Blueprint'(.+)'$")
 _GAME_BP_RE = re.compile(r"(/Game/[^\s\"',]+)")
 
-# Caminhos comuns copiados errado do ArkShop (pasta Resources vs Consumables).
+# Caminhos comuns copiados errado do ArkShop (pasta Resources vs Consumables;
+# armadura Hide vanilla fica em Armor/Leather, não Armor/Hide).
 _KNOWN_BLUEPRINT_FIXES: dict[str, str] = {
     "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemConsumable_RawMeat.PrimalItemConsumable_RawMeat": (
         "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/"
         "PrimalItemConsumable_RawMeat.PrimalItemConsumable_RawMeat"
     ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/"
+        "PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/"
+        "PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/"
+        "PrimalItemArmor_HidePants.PrimalItemArmor_HidePants"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/"
+        "PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/"
+        "PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/"
+        "PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/"
+        "PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/"
+        "PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekPants.PrimalItemArmor_TekPants": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/"
+        "PrimalItemArmor_TekPants.PrimalItemArmor_TekPants"
+    ),
+    "/Game/Aberration/CoreBlueprints/Resources/PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom": (
+        "/Game/Aberration/CoreBlueprints/Items/Consumables/"
+        "PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs"
+    ),
+    "/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekFenceFoundation.PrimalItemStructure_TekFenceFoundation": (
+        "/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/"
+        "PrimalItemStructure_Tekfencefoundation.PrimalItemStructure_Tekfencefoundation"
+    ),
 }
+
+
+def apply_known_blueprint_fixes(text: str) -> str:
+    """Substitui paths conhecidos em strings (ex.: Commands UnlockEngram)."""
+    result = text
+    for wrong, right in _KNOWN_BLUEPRINT_FIXES.items():
+        if wrong in result:
+            result = result.replace(wrong, right)
+    return result
 
 
 def normalize_blueprint(value: str) -> str:
@@ -38,8 +108,8 @@ def normalize_blueprint(value: str) -> str:
     game = _GAME_BP_RE.search(text)
     if game:
         path = game.group(1).rstrip("\"',")
-        return _KNOWN_BLUEPRINT_FIXES.get(path, path)
-    return _KNOWN_BLUEPRINT_FIXES.get(text, text)
+        return apply_known_blueprint_fixes(_KNOWN_BLUEPRINT_FIXES.get(path, path))
+    return apply_known_blueprint_fixes(_KNOWN_BLUEPRINT_FIXES.get(text, text))
 
 
 def _copy_item_stat_fields(entry: dict, out: dict) -> None:
@@ -209,6 +279,16 @@ def extract_catalog(raw: dict) -> Tuple[dict, dict, dict | None]:
     return items, kits, timed
 
 
+def _sanitize_command_entry(entry: dict[str, Any] | str) -> dict[str, Any] | str:
+    if isinstance(entry, dict) and entry.get("Command"):
+        out = dict(entry)
+        out["Command"] = apply_known_blueprint_fixes(str(entry["Command"]))
+        return out
+    if isinstance(entry, str):
+        return apply_known_blueprint_fixes(entry)
+    return entry
+
+
 def sanitize_catalog_blueprints(data: dict[str, Any]) -> None:
     """Normaliza Blueprints em Items/Kits (in-place). Corrige entradas malformadas."""
     items = data.get("Items") or data.get("ShopItems") or {}
@@ -223,15 +303,24 @@ def sanitize_catalog_blueprints(data: dict[str, Any]) -> None:
                     e for e in (_normalize_item_entry(x) for x in itm["Items"])
                     if e.get("Blueprint")
                 ]
+            if itm.get("Commands"):
+                itm["Commands"] = [
+                    _sanitize_command_entry(c) for c in itm["Commands"]
+                ]
     kits = data.get("Kits") or {}
     if isinstance(kits, dict):
         for kit in kits.values():
-            if not isinstance(kit, dict) or not kit.get("Items"):
+            if not isinstance(kit, dict):
                 continue
-            kit["Items"] = [
-                e for e in (_normalize_item_entry(x) for x in kit["Items"])
-                if e.get("Blueprint")
-            ]
+            if kit.get("Items"):
+                kit["Items"] = [
+                    e for e in (_normalize_item_entry(x) for x in kit["Items"])
+                    if e.get("Blueprint")
+                ]
+            if kit.get("Commands"):
+                kit["Commands"] = [
+                    _sanitize_command_entry(c) for c in kit["Commands"]
+                ]
 
 
 def apply_catalog_to_target(

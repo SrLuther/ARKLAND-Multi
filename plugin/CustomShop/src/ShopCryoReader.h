@@ -44,6 +44,18 @@ bool ParseCryopodItem(UPrimalItem* item, CryoParsedMetadata& out, std::string* e
 // Remove timer de cryopod (restaura durabilidade padrão ~3600s). Retorna true se alterou.
 bool StripCryopodTimer(UPrimalItem* item);
 
+/** Reancora CustomDataDoubles[0] ao TimeSeconds do mapa atual (cluster cross-map). */
+bool RefreshCryopodEncapsulationWorldTime(UPrimalItem* item);
+
+/** Valida cryopod recriada do vault (dino legível). */
+bool ValidateMarketCryopodItem(UPrimalItem* item, std::string* error = nullptr,
+                               AShooterPlayerController* context_player = nullptr);
+
+/** Inicializa cryo do vault, remove timer, garante carga cheia (~3600s) e valida dino. */
+bool PrepareMarketCryopodForDelivery(UPrimalItem* item,
+                                     AShooterPlayerController* context_player = nullptr,
+                                     std::string* error = nullptr);
+
 bool CryopodHasTimer(UPrimalItem* item);
 
 /** Segundos de decay restantes; -1 = permanente (sem timer de captura). */

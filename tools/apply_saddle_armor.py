@@ -19,7 +19,7 @@ DEFAULT_CONFIG = ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
 
 # Pastas de armadura de jogador — nunca selas.
 _PLAYER_ARMOR_PATH_PARTS = (
-    "/Armor/Hide/",
+    "/Armor/Leather/",
     "/Armor/Metal/",
     "/Armor/TEK/",
     "/Armor/Tek/",

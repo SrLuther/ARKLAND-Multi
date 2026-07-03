@@ -86,3 +86,89 @@ def test_market_display_name_rejects_invalid_chars(market_client):
     assert r.status_code == 400
     data = r.get_json()
     assert data.get("ok") is False
+
+
+def test_market_my_history_includes_buyer_for_seller(market_client):
+    """Vendedor deve ver quem comprou no histórico da Minha Loja."""
+    from datetime import datetime, timezone
+
+    from app import MarketCryopodVault, MarketListing, MarketPlayerProfile, MarketSpecies
+
+    seller = "76561198000000001"
+    buyer = "76561198000000002"
+    db = app_module._SessionLocal()
+    try:
+        now = datetime.now(timezone.utc)
+        db.add(
+            MarketSpecies(
+                species_key="rex_femea",
+                catalog_item_id="rex_femea",
+                display_name="Rex Fêmea",
+                blueprint_path="/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+                reference_level=1,
+                root_value=5000,
+                tier="A",
+                status="ACTIVE",
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        for sid, name in ((seller, "SellerBR"), (buyer, "BuyerBR")):
+            db.add(
+                MarketPlayerProfile(
+                    steam_id=sid,
+                    market_display_name=name,
+                    commerce_enabled=True,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
+        vault = MarketCryopodVault(
+            seller_steam_id=seller,
+            item_blob=b"\x01",
+            blob_hash="histhash1",
+            metadata_json="{}",
+            species_key="rex_femea",
+            uploaded_at=now,
+        )
+        db.add(vault)
+        db.flush()
+        listing = MarketListing(
+            vault_id=vault.id,
+            seller_steam_id=seller,
+            species_key="rex_femea",
+            status="ACTIVE",
+            computed_base_value=5000,
+            effective_price=5000,
+            custom_name="RexClone",
+            metadata_json='{"admin_classification_approved": true}',
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(listing)
+        db.commit()
+        listing_id = listing.id
+        db.execute(
+            __import__("sqlalchemy").text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts)"
+            ),
+            {"sid": buyer, "pts": 10000},
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    _login(market_client, buyer)
+    pr = market_client.post(f"/api/market/listings/{listing_id}/purchase")
+    assert pr.status_code == 200
+    assert pr.get_json().get("ok") is True
+
+    _login(market_client, seller)
+    hr = market_client.get("/api/market/my/history")
+    assert hr.status_code == 200
+    data = hr.get_json()
+    assert data.get("ok") is True
+    assert len(data["sales"]) == 1
+    assert data["sales"][0]["buyer_steam_id"] == buyer
+    assert data["sales"][0]["buyer_display_name"] == "BuyerBR"
+    assert data["sales"][0]["delivery_status"] == "aguardando_resgate"

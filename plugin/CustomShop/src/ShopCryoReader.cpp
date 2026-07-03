@@ -370,6 +370,87 @@ void ApplyCryoTimerFieldsToMetadata(UPrimalItem* item, CryoParsedMetadata& out) 
     out.had_timer = out.timer_remaining_days >= 0.f;
 }
 
+bool ValidateMarketCryopodItem(UPrimalItem* item, std::string* error,
+                             AShooterPlayerController* context_player) {
+    if (!item) {
+        if (error) *error = "item nulo";
+        return false;
+    }
+    CryoParsedMetadata meta;
+    if (!ParseCryopodItem(item, meta, error, context_player))
+        return false;
+    if (!meta.has_dino_data) {
+        if (error) *error = "cryopod vazia (sem dino)";
+        return false;
+    }
+    return true;
+}
+
+bool RefreshCryopodEncapsulationWorldTime(UPrimalItem* item) {
+    if (!item) return false;
+    UWorld* world = GameWorld();
+    if (!world) return false;
+
+    FCustomItemData data;
+    if (!TryReadDinoCustomData(item, data))
+        return false;
+    if (data.CustomDataDoubles.Doubles.Num() < 1)
+        return false;
+
+    const double now = static_cast<double>(world->TimeSecondsField());
+    data.CustomDataDoubles.Doubles[0] = now;
+    item->SetCustomItemData(&data);
+    return true;
+}
+
+bool PrepareMarketCryopodForDelivery(UPrimalItem* item,
+                                     AShooterPlayerController* context_player,
+                                     std::string* error) {
+    if (!item) {
+        if (error) *error = "item nulo";
+        return false;
+    }
+
+    // Ordem importa: nao chamar InventoryLoadedFromSaveGame antes de normalizar
+    // timer/carga — o jogo usa CustomDataDoubles[0] (TimeSeconds do mapa de
+    // encapsulamento) vs TimeSeconds local para calcular decay.
+    const bool stripped = StripCryopodTimer(item);
+    const bool time_refreshed = RefreshCryopodEncapsulationWorldTime(item);
+
+    float max_dur = item->ItemDurabilityField();
+    if (max_dur <= 0.f || max_dur > kStandardCryoDurability + 1.f)
+        item->ItemDurabilityField() = kStandardCryoDurability;
+
+    max_dur = item->ItemDurabilityField();
+    const float pct = item->BPGetItemDurabilityPercentage();
+    if (item->SavedDurabilityField() <= 0.f || pct < 0.999f
+        || item->SavedDurabilityField() > max_dur + 1.f) {
+        item->SavedDurabilityField() = max_dur;
+    }
+
+    item->UpdatedItem(true);
+
+    if (!ValidateMarketCryopodItem(item, error, context_player)) {
+        Log::GetLog()->warn(
+            "ShopCryoReader: PrepareMarketCryopodForDelivery falhou max={:.0f} saved={:.0f} pct={:.4f} stripped={} time_refreshed={} err={}",
+            item->ItemDurabilityField(),
+            item->SavedDurabilityField(),
+            item->BPGetItemDurabilityPercentage(),
+            stripped ? 1 : 0,
+            time_refreshed ? 1 : 0,
+            error ? *error : std::string());
+        return false;
+    }
+
+    Log::GetLog()->info(
+        "ShopCryoReader: cryo pronta para entrega max={:.0f} saved={:.0f} stripped={} time_refreshed={}",
+        item->ItemDurabilityField(),
+        item->SavedDurabilityField(),
+        stripped ? 1 : 0,
+        time_refreshed ? 1 : 0);
+    return true;
+}
+
 bool StripCryopodTimer(UPrimalItem* item) {
     if (!item || !CryopodHasTimer(item)) return false;
 

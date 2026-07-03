@@ -17,6 +17,7 @@ import app as _app_module
 from app import _configure_database
 
 SELLER = "76561198000000001"
+BUYER = "76561198000000002"
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +29,7 @@ def fresh_db(tmp_path, monkeypatch):
     _configure_database("")
 
 
-def _seed_species(db):
+def _seed_species(db, *, include_buyer: bool = False):
     from app import MarketPlayerProfile, MarketSpecies, MarketSpeciesStatMultiplier
 
     species = MarketSpecies(
@@ -62,7 +63,48 @@ def _seed_species(db):
             updated_at=datetime.now(timezone.utc),
         )
     )
+    if include_buyer:
+        db.add(
+            MarketPlayerProfile(
+                steam_id=BUYER,
+                market_display_name="BuyerBR",
+                commerce_enabled=True,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
     db.commit()
+
+
+def _seed_active_listing(db, *, custom_name: str = "Alpha Rex"):
+    from app import MarketCryopodVault, MarketListing
+
+    vault = MarketCryopodVault(
+        seller_steam_id=SELLER,
+        item_blob=b"\x01\x02",
+        blob_hash="abc123unique",
+        metadata_json=json.dumps({"stats_max": {"melee": {"points": 59}}}),
+        species_key="rex_femea",
+        uploaded_at=datetime.now(timezone.utc),
+    )
+    db.add(vault)
+    db.flush()
+    listing = MarketListing(
+        vault_id=vault.id,
+        seller_steam_id=SELLER,
+        species_key="rex_femea",
+        status="ACTIVE",
+        computed_base_value=5000,
+        effective_price=5500,
+        custom_name=custom_name,
+        dino_display_name="Rex Clone",
+        metadata_json=json.dumps({"admin_classification_approved": True}),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(listing)
+    db.commit()
+    return listing.id
 
 
 def test_set_listing_price_and_activate():
@@ -138,5 +180,40 @@ def test_list_active_listings():
         items = list_active_listings(db)
         assert len(items) == 1
         assert items[0]["seller_display_name"] == "SellerOne"
+    finally:
+        db.close()
+
+
+def test_player_market_history_shows_buyer_for_seller():
+    from market_listings import player_market_history, purchase_listing
+
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, include_buyer=True)
+        listing_id = _seed_active_listing(db)
+        db.execute(
+            __import__("sqlalchemy").text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts)"
+            ),
+            {"sid": BUYER, "pts": 10000},
+        )
+        db.commit()
+
+        purchase_listing(db, listing_id, BUYER)
+        history = player_market_history(db, SELLER)
+
+        assert len(history["sales"]) == 1
+        sale = history["sales"][0]
+        assert sale["listing_id"] == listing_id
+        assert sale["buyer_steam_id"] == BUYER
+        assert sale["buyer_display_name"] == "BuyerBR"
+        assert sale["price_paid"] == 5500
+        assert sale["delivery_status"] == "aguardando_resgate"
+        assert sale["display_title"] or sale["custom_name"]
+
+        assert len(history["purchases"]) == 0
+        buyer_history = player_market_history(db, BUYER)
+        assert len(buyer_history["purchases"]) == 1
+        assert buyer_history["purchases"][0]["seller_display_name"] == "SellerOne"
     finally:
         db.close()

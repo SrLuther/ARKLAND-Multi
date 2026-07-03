@@ -1178,31 +1178,31 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false

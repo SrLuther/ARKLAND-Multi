@@ -1735,8 +1735,26 @@ def admin_bulk_classify_listings(
     return {"approved": approved, "skipped": skipped, "approved_count": len(approved)}
 
 
+def _sale_delivery_status(listing: Any | None, claim: Any | None) -> str:
+    if listing is None:
+        return "desconhecido"
+    st = listing.status
+    if st == "DELIVERED":
+        return "entregue"
+    claim_status = getattr(claim, "claim_status", None)
+    if claim_status in (CLAIM_STATUS_EXPIRED, CLAIM_STATUS_REFUNDED):
+        return "expirado"
+    if getattr(claim, "status", None) == "REEMBOLSADO":
+        return "reembolsado"
+    if st == "AWAITING_CLAIM":
+        return "aguardando_resgate"
+    if st == "RESERVING":
+        return "processando"
+    return (st or "vendido").lower()
+
+
 def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dict[str, Any]:
-    from app import MarketClaim, MarketListing, MarketTransaction
+    from app import MarketClaim, MarketListing, MarketPlayerProfile, MarketTransaction
 
     expire_stale_claims(db)
     sales = (
@@ -1761,8 +1779,38 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
         .all()
     )
 
+    sale_listing_ids = list({t.listing_id for t in sales})
     purchase_listing_ids = [t.listing_id for t in purchases]
-    claims_by_listing: dict[int, Any] = {}
+    all_listing_ids = list(set(sale_listing_ids + purchase_listing_ids))
+
+    listings_by_id: dict[int, Any] = {}
+    if all_listing_ids:
+        listings_by_id = {
+            row.id: row
+            for row in db.query(MarketListing).filter(MarketListing.id.in_(all_listing_ids)).all()
+        }
+
+    species_by_key = _species_map(
+        db, {getattr(l, "species_key", None) for l in listings_by_id.values()}
+    )
+
+    counterparty_ids: set[str] = set()
+    for t in sales:
+        counterparty_ids.add(t.buyer_steam_id)
+    for t in purchases:
+        counterparty_ids.add(t.seller_steam_id)
+    profile_names = (
+        {
+            p.steam_id: p.market_display_name
+            for p in db.query(MarketPlayerProfile)
+            .filter(MarketPlayerProfile.steam_id.in_(counterparty_ids))
+            .all()
+        }
+        if counterparty_ids
+        else {}
+    )
+
+    claims_by_listing_buyer: dict[int, Any] = {}
     if purchase_listing_ids:
         for claim in (
             db.query(MarketClaim)
@@ -1774,19 +1822,60 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
             .order_by(MarketClaim.created_at.desc())
             .all()
         ):
-            if claim.listing_id not in claims_by_listing:
-                claims_by_listing[claim.listing_id] = claim
+            if claim.listing_id not in claims_by_listing_buyer:
+                claims_by_listing_buyer[claim.listing_id] = claim
+
+    claims_by_listing_seller: dict[int, Any] = {}
+    buyer_by_listing = {t.listing_id: t.buyer_steam_id for t in sales}
+    if sale_listing_ids:
+        for claim in (
+            db.query(MarketClaim)
+            .filter(
+                MarketClaim.listing_id.in_(sale_listing_ids),
+                MarketClaim.claim_type == "BUYER",
+            )
+            .order_by(MarketClaim.created_at.desc())
+            .all()
+        ):
+            if claim.listing_id in claims_by_listing_seller:
+                continue
+            if claim.recipient_steam_id == buyer_by_listing.get(claim.listing_id):
+                claims_by_listing_seller[claim.listing_id] = claim
+
+    def _listing_summary(listing: Any | None) -> dict[str, Any]:
+        if listing is None:
+            return {}
+        species_row = species_by_key.get(listing.species_key or "")
+        pub = listing_to_public(listing, species_row=species_row)
+        return {
+            "display_title": pub.get("display_title"),
+            "species_display_name": pub.get("species_display_name"),
+            "custom_name": pub.get("custom_name"),
+            "dino_display_name": pub.get("dino_display_name"),
+            "status": listing.status,
+        }
 
     def tx_row(t: Any, *, is_purchase: bool = False) -> dict[str, Any]:
+        listing = listings_by_id.get(t.listing_id)
         row: dict[str, Any] = {
             "listing_id": t.listing_id,
             "price_paid": t.price_paid,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         }
+        row.update(_listing_summary(listing))
         if is_purchase:
-            claim = claims_by_listing.get(t.listing_id)
+            claim = claims_by_listing_buyer.get(t.listing_id)
+            row["seller_steam_id"] = t.seller_steam_id
+            row["seller_display_name"] = profile_names.get(t.seller_steam_id)
             if claim:
                 row.update(_claim_to_public(claim))
+        else:
+            row["buyer_steam_id"] = t.buyer_steam_id
+            row["buyer_display_name"] = profile_names.get(t.buyer_steam_id)
+            claim = claims_by_listing_seller.get(t.listing_id)
+            if claim:
+                row.update(_claim_to_public(claim))
+            row["delivery_status"] = _sale_delivery_status(listing, claim)
         return row
 
     return {
