@@ -1,4 +1,4 @@
-#include "pch.h"
+﻿#include "pch.h"
 #include "ShopMarket.h"
 #include "ShopBridge.h"
 #include "ShopCloudInventory.h"
@@ -97,7 +97,7 @@ void SendEconomyBreakdown(AShooterPlayerController* player, const nlohmann::json
     const int total = json.value("computed_base_value", 0);
     if (total > 0)
         SendMsg(player, FColorList::Yellow,
-                "Como calculamos — sugerido: " + FormatAmbar(total) + " Ambar");
+                "Como calculamos â€” sugerido: " + FormatAmbar(total) + " Ambar");
     const auto& rows = json.value("calculation_breakdown", nlohmann::json::array());
     int lines = 0;
     for (const auto& row : rows) {
@@ -120,7 +120,7 @@ void SendEconomyBreakdown(AShooterPlayerController* player, const nlohmann::json
     }
 }
 
-/** Chat in-game nao suporta UTF-8 — mensagens da web precisam ir em ASCII. */
+/** Chat in-game nao suporta UTF-8 â€” mensagens da web precisam ir em ASCII. */
 
 std::string CommerceNotReadyMessage() {
     return "Defina seu nome de exibicao em Minha Area (web) antes de usar /enviar.";
@@ -233,7 +233,7 @@ bool IsMarketModerator(AShooterPlayerController* player, const std::string& sid)
     }
     static const char* kGroups[] = {"Moderacao", "Mod", "MOD", "STAFF"};
     for (const char* grp : kGroups) {
-        if (Perms::IsInGroup(steam_id, grp)) return true;
+        if (CustomShop::Perms::IsInGroup(steam_id, grp)) return true;
     }
     return false;
 }
@@ -395,7 +395,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         if (unlocked > 0)
             msg += " (" + std::to_string(unlocked) + " novos)";
         if (price > 0)
-            msg += " — " + std::to_string(price) + " ambares debitados.";
+            msg += " â€” " + std::to_string(price) + " ambares debitados.";
         SendMsg(player, FColorList::Green, msg);
         return;
     }
@@ -632,7 +632,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
     const auto& claims = json.value("claims", nlohmann::json::array());
     if (claims.empty()) {
         SendMsg(player, FColorList::Yellow,
-                "Nenhum dino pendente no Comercio (ou resgate expirado — reembolso automatico).");
+                "Nenhum dino pendente no Comercio (ou resgate expirado â€” reembolso automatico).");
         return;
     }
 
@@ -678,7 +678,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
             SendMsg(player, FColorList::Red,
                     SanitizeForGameChat(claim_json.value(
                         "error",
-                        std::string("Resgate expirado ou indisponivel — reembolso automatico."))));
+                        std::string("Resgate expirado ou indisponivel â€” reembolso automatico."))));
             return;
         }
         claimed_ids.push_back(claim_id);
@@ -737,7 +737,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                     || spawn_err.find("retries") != std::string::npos) {
                     SendMsg(player, FColorList::Red,
                             "Falha ao spawnar dino (ID duplicado). "
-                            "Resgate liberado — tente novamente ou contate admin.");
+                            "Resgate liberado â€” tente novamente ou contate admin.");
                 } else {
                     SendMsg(player, FColorList::Red,
                             "Falha ao spawnar dino do Comercio. "
@@ -747,7 +747,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                 return;
             }
 
-            // Spawn consumiu/invalidou a cryopod transiente — nao destruir de novo.
+            // Spawn consumiu/invalidou a cryopod transiente â€” nao destruir de novo.
             item = nullptr;
 
             bool soul_trap_ok = false;
@@ -769,7 +769,7 @@ void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, 
                         "Dino spawnado ao seu lado + 1 Soul Trap vazia no inventario.");
             } else if (!soul_trap_bp.empty()) {
                 SendMsg(player, FColorList::Yellow,
-                        "Dino spawnado ao seu lado (Soul Trap bonus indisponivel — libere espaco?).");
+                        "Dino spawnado ao seu lado (Soul Trap bonus indisponivel â€” libere espaco?).");
             } else {
                 SendMsg(player, FColorList::Green, "Dino spawnado ao seu lado.");
             }
