@@ -31,6 +31,9 @@ from market_service import (
 from market_listings import (
     admin_bulk_classify_listings,
     admin_classify_listing,
+    admin_flag_listing,
+    admin_remove_listing,
+    admin_set_listing_price,
     claim_deliveries,
     commerce_ready,
     get_listing_detail,
@@ -44,6 +47,7 @@ from market_listings import (
     pause_listing,
     player_market_history,
     preview_plugin_economy,
+    process_plugin_admin_action,
     process_plugin_upload,
     promote_listings_on_species_activate,
     reconcile_pending_listings,
@@ -511,6 +515,75 @@ def register_market_routes(
         finally:
             db.close()
 
+    @app.route("/api/market/admin/listings/<int:listing_id>/remove", methods=["POST"])
+    @admin_required
+    def market_admin_listing_remove(listing_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        admin_steam_id = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            result = admin_remove_listing(
+                db,
+                listing_id,
+                admin_steam_id,
+                reason=str(body.get("reason") or ""),
+            )
+            audit_event("MARKET_LISTING_ADMIN_REMOVED", listing_id=listing_id)
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/<int:listing_id>/price", methods=["PATCH"])
+    @admin_required
+    def market_admin_listing_price(listing_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        price = body.get("price_absolute") or body.get("price")
+        if price is None:
+            return jsonify({"ok": False, "error": "price obrigatório"}), 400
+        admin_steam_id = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            listing = admin_set_listing_price(
+                db,
+                listing_id,
+                admin_steam_id,
+                int(price),
+                pause=bool(body.get("pause", False)),
+            )
+            return jsonify({"ok": True, "listing": listing})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/<int:listing_id>/flag", methods=["POST"])
+    @admin_required
+    def market_admin_listing_flag(listing_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        admin_steam_id = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            listing = admin_flag_listing(
+                db,
+                listing_id,
+                admin_steam_id,
+                reason=str(body.get("reason") or ""),
+                pause=bool(body.get("pause", True)),
+            )
+            return jsonify({"ok": True, "listing": listing})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
     @app.route("/api/market/admin/species/registry-stats", methods=["GET"])
     @admin_required
     def market_admin_registry_stats():
@@ -969,6 +1042,23 @@ def register_market_routes(
                 target_steam_id=str(body.get("steam_id") or ""),
                 message=str(exc),
             )
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/plugin/admin", methods=["POST"])
+    @api_key_required(allow_admin_session=False)
+    @_limit("30 per minute")
+    def market_plugin_admin():
+        """Moderação in-game (/mercado_admin) — requer admin_steam_id na lista de admins."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        db = session_factory()
+        try:
+            result = process_plugin_admin_action(db, body)
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
         finally:
             db.close()

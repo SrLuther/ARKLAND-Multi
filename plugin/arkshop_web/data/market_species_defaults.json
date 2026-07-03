@@ -1196,6 +1196,18 @@
     "medium": 250000,
     "small": 100000
   },
+  "_price_ceiling": {
+    "enabled": true,
+    "global_multiplier": 10,
+    "absolute_max": 500000,
+    "tier_multipliers": {
+      "S+": 12,
+      "S": 10,
+      "A": 10,
+      "B": 8,
+      "C": 6
+    }
+  },
   "_pts_reference": 254,
   "_stat_weights": {
     "carnivore": {

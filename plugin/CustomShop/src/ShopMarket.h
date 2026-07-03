@@ -13,6 +13,7 @@ public:
     static void CmdEnviarDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type);
+    static void CmdMercadoAdmin(AShooterPlayerController* player, FString*, EChatSendMode::Type);
 };
 
 } // namespace CustomShop

@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.188] - 2026-07-03
+
+### Feature
+
+- Feature (Comercio): teto automatico de preco de anuncio — multiplicador por tier sobre valor sugerido (config _price_ceiling em market_species_defaults.json); bloqueio ao salvar/ativar na web.
+- Feature (Comercio): /mercado_admin in-game (remover, preco, flag) para admins/moderacao; painel web com Remover e Flag em anuncios ACTIVE.
+
+### Improvement
+
+- Melhoria (Comercio): /enviar e /confirmar exibem teto maximo de preco no chat; preview e upload retornam price_ceiling.
+
 ## [1.9.187] - 2026-07-03
 
 ### Feature

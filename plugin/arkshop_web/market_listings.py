@@ -21,7 +21,16 @@ from ark_species_registry import (
     suggestion_to_public,
 )
 from market_audit import market_audit_event
-from market_economy import STAT_KEYS, calculate_suggested_value, normalize_blueprint, normalize_stat_points
+from market_economy import (
+    STAT_KEYS,
+    calculate_listing_price_ceiling,
+    calculate_suggested_value,
+    format_price_ceiling_error,
+    load_price_ceiling_config,
+    normalize_blueprint,
+    normalize_stat_points,
+    species_economy_meta_from_defaults,
+)
 from market_service import species_row_to_economy
 from stat_points_asb import enrich_stats_with_points
 
@@ -276,12 +285,19 @@ def preview_plugin_economy(db: Session, metadata: dict[str, Any]) -> dict[str, A
             "calculation_breakdown": [],
             "message": f"Especie {status} — valor sugerido apos ativacao admin.",
         }
-    computed, breakdown, _economy = _compute_economy(db, species_row, meta)
+    computed, breakdown, economy = _compute_economy(db, species_row, meta)
+    tier = getattr(species_row, "tier", None) or "B"
+    ceiling = calculate_listing_price_ceiling(
+        computed,
+        tier=tier,
+        size_class=getattr(economy, "size_class", "medium"),
+    )
     return {
         "ok": True,
         "species_key": species_row.species_key,
         "species_status": status,
         "computed_base_value": computed,
+        "price_ceiling": ceiling,
         "calculation_breakdown": breakdown,
     }
 
@@ -477,6 +493,7 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
         "market_trace_id": trace_id,
         "status": listing_status,
         "computed_base_value": computed,
+        "price_ceiling": listing_price_ceiling(listing, species_row=species_row),
         "calculation_breakdown": breakdown,
     }
 
@@ -508,6 +525,64 @@ def validate_custom_name(name: str | None) -> str | None:
 
 def validate_custom_description(desc: str | None) -> str | None:
     return _sanitize_listing_text(desc, max_len=CUSTOM_DESC_MAX, field_label="Descrição")
+
+
+def _listing_tier_for_ceiling(row: Any, species_row: Any | None, meta: dict[str, Any]) -> str:
+    if getattr(row, "category", None):
+        return str(row.category)
+    if species_row and getattr(species_row, "tier", None):
+        return str(species_row.tier)
+    suggestion = _resolve_listing_suggestion(row, species_row=species_row, meta=meta)
+    if suggestion and suggestion.get("tier"):
+        return str(suggestion["tier"])
+    return "B"
+
+
+def _listing_size_class(row: Any, species_row: Any | None) -> str:
+    if species_row and getattr(species_row, "species_key", None):
+        meta = species_economy_meta_from_defaults(species_row.species_key)
+        return str(meta.get("size_class") or "medium")
+    sk = getattr(row, "species_key", None)
+    if sk:
+        meta = species_economy_meta_from_defaults(sk)
+        return str(meta.get("size_class") or "medium")
+    return "medium"
+
+
+def listing_price_ceiling(
+    row: Any,
+    *,
+    species_row: Any | None = None,
+    meta: dict[str, Any] | None = None,
+) -> int:
+    meta = meta if meta is not None else _json_loads(row.metadata_json)
+    suggested = int(row.computed_base_value or 0)
+    tier = _listing_tier_for_ceiling(row, species_row, meta)
+    size_class = _listing_size_class(row, species_row)
+    return calculate_listing_price_ceiling(
+        suggested,
+        tier=tier,
+        size_class=size_class,
+    )
+
+
+def validate_listing_price_ceiling(
+    row: Any,
+    price: int,
+    *,
+    species_row: Any | None = None,
+    skip: bool = False,
+) -> None:
+    if skip:
+        return
+    meta = _json_loads(row.metadata_json)
+    suggested = int(row.computed_base_value or 0)
+    if suggested <= 0:
+        return
+    ceiling = listing_price_ceiling(row, species_row=species_row, meta=meta)
+    if int(price) > ceiling:
+        tier = _listing_tier_for_ceiling(row, species_row, meta)
+        raise ValueError(format_price_ceiling_error(int(price), suggested, ceiling, tier=tier))
 
 
 def validate_listing_category(category: str | None) -> str | None:
@@ -623,6 +698,7 @@ def listing_to_public(
     if not effective_category and suggestion:
         effective_category = suggestion.get("tier")
     suggested_value = row.computed_base_value or (suggestion or {}).get("root_value") or 0
+    price_ceiling_val = listing_price_ceiling(row, species_row=species_row, meta=meta)
     awaiting = _needs_admin_classification(row, meta)
     sk = row.species_key or (suggestion or {}).get("species_key")
     reg_entry = get_registry_entry(sk) if sk else None
@@ -649,6 +725,7 @@ def listing_to_public(
         ),
         "computed_base_value": row.computed_base_value,
         "suggested_base_value": int(suggested_value) if suggested_value else 0,
+        "price_ceiling": price_ceiling_val,
         "effective_price": row.effective_price,
         "price_mode": row.price_mode,
         "dino_display_name": row.dino_display_name,
@@ -716,6 +793,7 @@ def set_listing_price(
     custom_name: str | None | object = ...,
     category: str | None | object = ...,
     custom_description: str | None | object = ...,
+    skip_price_ceiling: bool = False,
 ) -> dict[str, Any]:
     from app import MarketListing
 
@@ -727,12 +805,17 @@ def set_listing_price(
     if row.status not in ("DRAFT", "PAUSED", "PENDING_CLASSIFICATION"):
         raise ValueError(f"Status não permite edição: {row.status}")
 
+    species_row = resolve_species(db, species_key=row.species_key)
+
     if price_absolute is not None:
         price = int(price_absolute)
         if price < row.computed_base_value:
             raise ValueError(
                 f"Preço mínimo: {row.computed_base_value} Âmbar (valor sugerido)"
             )
+        validate_listing_price_ceiling(
+            row, price, species_row=species_row, skip=skip_price_ceiling
+        )
         row.price_absolute = price
         row.effective_price = price
         row.price_mode = "ABSOLUTE"
@@ -754,6 +837,12 @@ def set_listing_price(
         meta = _json_loads(row.metadata_json)
         if _needs_admin_classification(row, meta):
             raise ValueError("Espécie aguardando classificação admin")
+        validate_listing_price_ceiling(
+            row,
+            int(row.effective_price or 0),
+            species_row=species_row,
+            skip=skip_price_ceiling,
+        )
         row.status = "ACTIVE"
 
     row.updated_at = _now()
@@ -1447,6 +1536,195 @@ def withdraw_listing(db: Session, listing_id: int, seller_steam_id: str) -> dict
         "hours_remaining": round(hrs, 2) if hrs is not None else CLAIM_RESERVATION_HOURS,
         "message": f"Use /mercado in-game em até {CLAIM_RESERVATION_HOURS}h para recuperar a cryopod.",
     }
+
+
+def admin_remove_listing(
+    db: Session,
+    listing_id: int,
+    admin_steam_id: str,
+    *,
+    reason: str = "",
+) -> dict[str, Any]:
+    """Remove anúncio abusivo — pausa e devolve cryopod ao vendedor (claim)."""
+    from app import MarketClaim, MarketListing
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+    if row.status in TERMINAL_LISTING | {"AWAITING_CLAIM", "CANCELLED"}:
+        raise ValueError(f"Status não permite remoção: {row.status}")
+
+    now = _now()
+    meta = _json_loads(row.metadata_json)
+    meta["admin_removed"] = True
+    meta["admin_removed_by"] = admin_steam_id
+    if reason:
+        meta["admin_remove_reason"] = reason[:280]
+    row.metadata_json = _json_dumps(meta)
+    row.status = "AWAITING_CLAIM"
+    row.updated_at = now
+
+    claim = MarketClaim(
+        listing_id=row.id,
+        recipient_steam_id=row.seller_steam_id,
+        claim_type="SELLER",
+        status="PENDENTE",
+        market_trace_id=row.market_trace_id,
+        created_at=now,
+        updated_at=now,
+    )
+    _apply_claim_reservation(claim, now=now)
+    db.add(claim)
+    db.commit()
+
+    market_audit_event(
+        db,
+        "MARKET_LISTING_ADMIN_REMOVED",
+        steam_id=admin_steam_id,
+        listing_id=row.id,
+        claim_id=claim.id,
+        market_trace_id=row.market_trace_id,
+        metadata={"reason": reason[:280] if reason else None, "seller": row.seller_steam_id},
+        commit=True,
+    )
+    return {
+        "listing_id": row.id,
+        "claim_id": claim.id,
+        "status": row.status,
+        "message": "Anúncio removido — vendedor pode resgatar com /mercado.",
+    }
+
+
+def admin_set_listing_price(
+    db: Session,
+    listing_id: int,
+    admin_steam_id: str,
+    price_absolute: int,
+    *,
+    pause: bool = False,
+) -> dict[str, Any]:
+    """Ajusta preço de anúncio (admin — ignora teto)."""
+    from app import MarketListing
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+    if row.status in TERMINAL_LISTING | {"AWAITING_CLAIM"}:
+        raise ValueError(f"Status não permite edição: {row.status}")
+
+    price = max(0, int(price_absolute))
+    row.price_absolute = price
+    row.effective_price = price
+    row.price_mode = "ABSOLUTE"
+    if pause and row.status == "ACTIVE":
+        row.status = "PAUSED"
+    meta = _json_loads(row.metadata_json)
+    meta["admin_price_adjusted_by"] = admin_steam_id
+    row.metadata_json = _json_dumps(meta)
+    row.updated_at = _now()
+    db.commit()
+
+    market_audit_event(
+        db,
+        "MARKET_LISTING_ADMIN_PRICE",
+        steam_id=admin_steam_id,
+        listing_id=row.id,
+        effective_price=price,
+        market_trace_id=row.market_trace_id,
+        metadata={"paused": pause},
+        commit=True,
+    )
+    species_row = resolve_species(db, species_key=row.species_key)
+    return listing_to_public(row, include_breakdown=True, species_row=species_row)
+
+
+def admin_flag_listing(
+    db: Session,
+    listing_id: int,
+    admin_steam_id: str,
+    *,
+    reason: str = "",
+    pause: bool = True,
+) -> dict[str, Any]:
+    """Marca anúncio como abusivo e opcionalmente pausa."""
+    from app import MarketListing
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+
+    meta = _json_loads(row.metadata_json)
+    meta["admin_flagged"] = True
+    meta["admin_flagged_by"] = admin_steam_id
+    if reason:
+        meta["admin_flag_reason"] = reason[:280]
+    row.metadata_json = _json_dumps(meta)
+    if pause and row.status == "ACTIVE":
+        row.status = "PAUSED"
+    row.updated_at = _now()
+    db.commit()
+
+    market_audit_event(
+        db,
+        "MARKET_LISTING_ADMIN_FLAGGED",
+        steam_id=admin_steam_id,
+        listing_id=row.id,
+        market_trace_id=row.market_trace_id,
+        metadata={"reason": reason[:280] if reason else None, "paused": pause},
+        commit=True,
+    )
+    species_row = resolve_species(db, species_key=row.species_key)
+    return listing_to_public(row, species_row=species_row)
+
+
+def process_plugin_admin_action(db: Session, body: dict[str, Any]) -> dict[str, Any]:
+    """Ações admin in-game (/mercado_admin) via plugin."""
+    admin_steam_id = str(body.get("admin_steam_id") or "").strip()
+    action = str(body.get("action") or "").strip().lower()
+    listing_id = int(body.get("listing_id") or 0)
+    if not admin_steam_id:
+        raise ValueError("admin_steam_id obrigatório")
+    if listing_id <= 0:
+        raise ValueError("listing_id inválido")
+
+    from app import STAFF_ROLE_GROUPS, _get_player_staff_roles, _is_admin_steamid
+
+    allowed = _is_admin_steamid(admin_steam_id)
+    if not allowed:
+        for role in _get_player_staff_roles(admin_steam_id):
+            if str(role.get("group") or "") in STAFF_ROLE_GROUPS:
+                allowed = True
+                break
+    if not allowed:
+        raise ValueError("Sem permissão de admin")
+
+    if action in ("remover", "remove"):
+        return admin_remove_listing(
+            db,
+            listing_id,
+            admin_steam_id,
+            reason=str(body.get("reason") or ""),
+        )
+    if action in ("preco", "price"):
+        price = body.get("price_absolute") or body.get("price")
+        if price is None:
+            raise ValueError("price obrigatório para ação preco")
+        return admin_set_listing_price(
+            db,
+            listing_id,
+            admin_steam_id,
+            int(price),
+            pause=bool(body.get("pause", False)),
+        )
+    if action in ("flag", "flaggar"):
+        return admin_flag_listing(
+            db,
+            listing_id,
+            admin_steam_id,
+            reason=str(body.get("reason") or ""),
+            pause=bool(body.get("pause", True)),
+        )
+    raise ValueError("Ação inválida — use remover, preco ou flag")
 
 
 def _apply_economy_to_listing_row(db: Session, row: Any, species_row: Any) -> int:

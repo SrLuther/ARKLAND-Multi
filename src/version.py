@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.187"
+APP_VERSION: str = "1.9.188"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.188",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (Comercio): teto automatico de preco de anuncio — multiplicador por tier sobre valor sugerido (config _price_ceiling em market_species_defaults.json); bloqueio ao salvar/ativar na web.",
+            "Feature (Comercio): /mercado_admin in-game (remover, preco, flag) para admins/moderacao; painel web com Remover e Flag em anuncios ACTIVE.",
+            "Melhoria (Comercio): /enviar e /confirmar exibem teto maximo de preco no chat; preview e upload retornam price_ceiling.",
+        ],
+    },
     {
         "version": "1.9.187",
         "date": "2026-07-03",

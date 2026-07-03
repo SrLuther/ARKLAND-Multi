@@ -6,12 +6,14 @@
 #include "ShopConfig.h"
 #include "ShopEngrams.h"
 #include "ShopPoints.h"
+#include "ShopPerms.h"
 #include "HttpClient.h"
 
 #include <chrono>
 #include <cmath>
 #include <mutex>
 #include <random>
+#include <sstream>
 #include <unordered_map>
 
 namespace {
@@ -209,6 +211,33 @@ bool TryGiveBonusSoulTrap(AShooterPlayerController* player, const std::string& b
     return created != nullptr;
 }
 
+std::vector<std::string> SplitChatArgs(FString* cmd_str) {
+    std::vector<std::string> parts;
+    if (!cmd_str) return parts;
+    std::string line = cmd_str->ToString();
+    std::istringstream iss(line);
+    std::string token;
+    while (iss >> token)
+        parts.push_back(token);
+    return parts;
+}
+
+bool IsMarketModerator(AShooterPlayerController* player, const std::string& sid) {
+    if (!player) return false;
+    if (player->bIsAdmin()()) return true;
+    uint64_t steam_id = 0;
+    try {
+        steam_id = std::stoull(sid);
+    } catch (...) {
+        return false;
+    }
+    static const char* kGroups[] = {"Moderacao", "Mod", "MOD", "STAFF"};
+    for (const char* grp : kGroups) {
+        if (Perms::IsInGroup(steam_id, grp)) return true;
+    }
+    return false;
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -218,6 +247,7 @@ void ShopMarket::RegisterCommands() {
     ArkApi::GetCommands().AddChatCommand("/enviardebug", &ShopMarket::CmdEnviarDebug);
     ArkApi::GetCommands().AddChatCommand("/confirmar", &ShopMarket::CmdConfirmar);
     ArkApi::GetCommands().AddChatCommand("/mercado", &ShopMarket::CmdResgatarMercado);
+    ArkApi::GetCommands().AddChatCommand("/mercado_admin", &ShopMarket::CmdMercadoAdmin);
 }
 
 void ShopMarket::UnregisterCommands() {
@@ -225,6 +255,7 @@ void ShopMarket::UnregisterCommands() {
     ArkApi::GetCommands().RemoveChatCommand("/enviardebug");
     ArkApi::GetCommands().RemoveChatCommand("/confirmar");
     ArkApi::GetCommands().RemoveChatCommand("/mercado");
+    ArkApi::GetCommands().RemoveChatCommand("/mercado_admin");
 }
 
 void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
@@ -307,6 +338,11 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
         const int suggested = preview_json.value("computed_base_value", 0);
         if (suggested > 0) {
             SendEconomyBreakdown(player, preview_json);
+            const int ceiling = preview_json.value("price_ceiling", 0);
+            if (ceiling > 0) {
+                SendMsg(player, FColorList::Yellow,
+                        "Teto maximo de preco no Comercio: " + FormatAmbar(ceiling) + " Ambar");
+            }
         } else if (preview_json.contains("message")) {
             SendMsg(player, FColorList::Yellow,
                     SanitizeForGameChat(preview_json.value("message", std::string())));
@@ -489,6 +525,93 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
             "Dino enviado ao Comercio! Listing #" + std::to_string(json.value("listing_id", 0))
             + " - defina preco na web.");
     SendEconomyBreakdown(player, json);
+    const int ceiling = json.value("price_ceiling", 0);
+    if (ceiling > 0) {
+        SendMsg(player, FColorList::Yellow,
+                "Teto maximo de preco: " + FormatAmbar(ceiling) + " Ambar (defina na web).");
+    }
+}
+
+void ShopMarket::CmdMercadoAdmin(AShooterPlayerController* player, FString* cmd_str,
+                                 EChatSendMode::Type) {
+    if (!player) return;
+    const std::string sid = Bridge::GetSteamId(player);
+    if (!IsMarketModerator(player, sid)) {
+        SendMsg(player, FColorList::Red,
+                "Sem permissao. Apenas admin/moderacao ou SteamID na lista de admins da web.");
+        return;
+    }
+
+    const auto parts = SplitChatArgs(cmd_str);
+    if (parts.size() < 2) {
+        SendMsg(player, FColorList::Yellow,
+                "Uso: /mercado_admin remover <id> | preco <id> <valor> | flag <id> [motivo]");
+        return;
+    }
+
+    const std::string action = parts[0];
+    int listing_id = 0;
+    try {
+        listing_id = std::stoi(parts[1]);
+    } catch (...) {
+        SendMsg(player, FColorList::Red, "ID de anuncio invalido.");
+        return;
+    }
+
+    nlohmann::json body;
+    body["admin_steam_id"] = sid;
+    body["listing_id"] = listing_id;
+
+    if (action == "remover" || action == "remove") {
+        body["action"] = "remover";
+        if (parts.size() > 2)
+            body["reason"] = parts[2];
+    } else if (action == "preco" || action == "price") {
+        if (parts.size() < 3) {
+            SendMsg(player, FColorList::Red, "Uso: /mercado_admin preco <id> <valor>");
+            return;
+        }
+        body["action"] = "preco";
+        try {
+            body["price_absolute"] = std::stoi(parts[2]);
+        } catch (...) {
+            SendMsg(player, FColorList::Red, "Valor de preco invalido.");
+            return;
+        }
+    } else if (action == "flag" || action == "flaggar") {
+        body["action"] = "flag";
+        if (parts.size() > 2) {
+            std::string reason;
+            for (size_t i = 2; i < parts.size(); ++i) {
+                if (!reason.empty()) reason += ' ';
+                reason += parts[i];
+            }
+            body["reason"] = reason;
+        }
+    } else {
+        SendMsg(player, FColorList::Red,
+                "Acao invalida. Use remover, preco ou flag.");
+        return;
+    }
+
+    const std::string resp = HttpClient::PostJson("/api/market/plugin/admin", body.dump());
+    nlohmann::json json;
+    try {
+        json = nlohmann::json::parse(resp);
+    } catch (...) {
+        json = nlohmann::json{{"ok", false}, {"error", "resposta invalida"}};
+    }
+
+    if (!json.value("ok", false)) {
+        SendMsg(player, FColorList::Red,
+                SanitizeForGameChat(json.value("error", std::string("falha"))));
+        return;
+    }
+
+    std::string msg = "OK listing #" + std::to_string(listing_id);
+    if (json.contains("message"))
+        msg = SanitizeForGameChat(json.value("message", msg));
+    SendMsg(player, FColorList::Green, msg);
 }
 
 void ShopMarket::CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type) {

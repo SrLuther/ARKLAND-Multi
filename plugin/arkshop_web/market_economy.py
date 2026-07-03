@@ -171,6 +171,79 @@ def load_size_caps() -> dict[str, int]:
     }
 
 
+_DEFAULT_TIER_MULTIPLIERS: dict[str, float] = {
+    "S+": 12.0,
+    "S": 10.0,
+    "A": 10.0,
+    "B": 8.0,
+    "C": 6.0,
+}
+
+
+def load_price_ceiling_config() -> dict[str, Any]:
+    """Configuração do teto máximo de preço de anúncio (multiplicador sobre valor sugerido)."""
+    raw = load_defaults_file().get("_price_ceiling") or {}
+    tier_raw = raw.get("tier_multipliers") or {}
+    tier_multipliers: dict[str, float] = dict(_DEFAULT_TIER_MULTIPLIERS)
+    for tier, mult in tier_raw.items():
+        try:
+            tier_multipliers[str(tier).strip().upper()] = max(1.0, float(mult))
+        except (TypeError, ValueError):
+            continue
+    try:
+        global_mult = max(1.0, float(raw.get("global_multiplier", 10)))
+    except (TypeError, ValueError):
+        global_mult = 10.0
+    try:
+        absolute_max = int(raw.get("absolute_max", 500_000))
+    except (TypeError, ValueError):
+        absolute_max = 500_000
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "global_multiplier": global_mult,
+        "tier_multipliers": tier_multipliers,
+        "absolute_max": max(0, absolute_max),
+    }
+
+
+def calculate_listing_price_ceiling(
+    suggested_value: int,
+    *,
+    tier: str | None = None,
+    size_class: str | None = None,
+) -> int:
+    """Teto de preço de anúncio: min(sugerido × mult tier, teto porte, absolute_max)."""
+    suggested = max(0, int(suggested_value or 0))
+    cfg = load_price_ceiling_config()
+    if not cfg["enabled"] or suggested <= 0:
+        return max(suggested, int(cfg.get("absolute_max") or 0))
+
+    tier_key = str(tier or "B").strip().upper()
+    mult = float(cfg["tier_multipliers"].get(tier_key, cfg["global_multiplier"]))
+    ceiling = int(suggested * mult)
+    porte_cap = size_cap_for_class(size_class or "medium")
+    ceiling = min(ceiling, porte_cap)
+    abs_max = int(cfg.get("absolute_max") or 0)
+    if abs_max > 0:
+        ceiling = min(ceiling, abs_max)
+    return max(suggested, ceiling)
+
+
+def format_price_ceiling_error(
+    price: int,
+    suggested: int,
+    ceiling: int,
+    *,
+    tier: str | None = None,
+) -> str:
+    """Mensagem PT-BR para preço acima do teto."""
+    tier_txt = f" (tier {tier})" if tier else ""
+    return (
+        f"Preço máximo permitido: {ceiling:,} Âmbar{tier_txt} "
+        f"(sugerido {suggested:,} Âmbar; você informou {price:,} Âmbar)"
+    ).replace(",", ".")
+
+
 def load_pts_reference() -> int:
     try:
         return max(1, int(load_defaults_file().get("_pts_reference") or 254))
@@ -275,6 +348,21 @@ def patch_economy_global_config(updates: dict[str, Any]) -> dict[str, Any]:
                 sk: float((weights or {}).get(sk, 0.0)) for sk in ECONOMY_STAT_KEYS
             }
         data["_stat_weights"] = out
+    if "price_ceiling" in updates:
+        pc = updates["price_ceiling"] or {}
+        existing = dict(data.get("_price_ceiling") or {})
+        if "enabled" in pc:
+            existing["enabled"] = bool(pc["enabled"])
+        if "global_multiplier" in pc:
+            existing["global_multiplier"] = max(1.0, float(pc["global_multiplier"]))
+        if "absolute_max" in pc:
+            existing["absolute_max"] = max(0, int(pc["absolute_max"]))
+        if "tier_multipliers" in pc and isinstance(pc["tier_multipliers"], dict):
+            tier_map = dict(existing.get("tier_multipliers") or {})
+            for tier, mult in pc["tier_multipliers"].items():
+                tier_map[str(tier).strip().upper()] = max(1.0, float(mult))
+            existing["tier_multipliers"] = tier_map
+        data["_price_ceiling"] = existing
     save_defaults_file(data)
     return load_economy_global_config()
 
@@ -371,6 +459,7 @@ def load_economy_global_config() -> dict[str, Any]:
         "pts_reference": load_pts_reference(),
         "stat_weights": load_stat_weights(),
         "tier_legend": load_tier_legend(),
+        "price_ceiling": load_price_ceiling_config(),
     }
 
 

@@ -10550,6 +10550,7 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
     : "";
   const category = l.effective_category || l.category || l.species_tier || (sug && sug.tier);
   const suggestedVal = l.suggested_base_value || l.computed_base_value || (sug && sug.root_value) || 0;
+  const ceilingVal = l.price_ceiling || 0;
   const awaitingCls = l.awaiting_classification === true;
   const sellerBadge = l.seller_display_name
     ? `<div class="market-listing-card__seller">🏪 ${escHtml(l.seller_display_name)}</div>`
@@ -10574,10 +10575,10 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
       ${canEditPrice ? _marketListingEditForm(l) : ""}
       <div style="margin-top:6px;display:grid;gap:6px;">
         ${canEditPrice ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <input id="market-price-${l.listing_id}" type="number" min="${l.computed_base_value || suggestedVal}" value="${l.effective_price || l.computed_base_value || suggestedVal}" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
+          <input id="market-price-${l.listing_id}" type="number" min="${l.computed_base_value || suggestedVal}"${ceilingVal > 0 ? ` max="${ceilingVal}"` : ""} value="${l.effective_price || l.computed_base_value || suggestedVal}" style="flex:1;min-width:100px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--text);" />
           <button class="btn btn-ghost btn-sm" onclick="marketSetPrice(${l.listing_id}, false)">Salvar</button>
           ${l.status === "DRAFT" || l.status === "PAUSED" ? `<button class="btn btn-success btn-sm" onclick="marketSetPrice(${l.listing_id}, true)">Ativar</button>` : ""}
-        </div>` : ""}
+        </div>${ceilingVal > 0 ? `<div style="font-size:11px;color:var(--text2);">Teto máximo: <strong>${Number(ceilingVal).toLocaleString("pt-BR")}</strong> Âmbar</div>` : ""}` : ""}
         ${l.status === "ACTIVE" ? `<button class="btn btn-ghost btn-sm" onclick="marketPauseListing(${l.listing_id})">Pausar</button>` : ""}
         ${["DRAFT","ACTIVE","PAUSED"].includes(l.status) ? `<button class="btn btn-ghost btn-sm" onclick="marketWithdrawListing(${l.listing_id})">Recuperar dino</button>` : ""}
         ${awaitingCls ? `<div class="market-listing-card__pending-msg">⏳ ${escHtml(l.classification_message || "Aguardando aprovação da equipe")}${sug ? `<br><span style="color:var(--text2);">Sugestão: <strong>${escHtml(sug.display_name || "")}</strong> · tier ${escHtml(sug.tier || "?")} · ~${Number(sug.root_value || 0).toLocaleString("pt-BR")} Âmbar</span>` : ""}</div>` : ""}
@@ -10601,13 +10602,19 @@ function _marketListingCard(l, { showBuy = false, showSellerActions = false, sho
       <button class="btn btn-success btn-sm" onclick="marketAdminClassifyListing(${l.listing_id})">✓ Confirmar e liberar</button>
     </div>`;
   }
+  if (_auth.is_admin && !awaitingCls && ["ACTIVE", "PAUSED", "DRAFT"].includes(l.status)) {
+    actions += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:8px;">
+      <button class="btn btn-ghost btn-sm" title="Remover anúncio e devolver cryopod ao vendedor" onclick="marketAdminRemoveListing(${l.listing_id})">🛡 Remover</button>
+      <button class="btn btn-ghost btn-sm" title="Pausar e marcar como abusivo" onclick="marketAdminFlagListing(${l.listing_id})">⚑ Flag</button>
+    </div>`;
+  }
   const statusBadge = awaitingCls
     ? '<span class="badge" style="background:var(--warn);">AGUARDANDO</span>'
     : `<span class="badge">${escHtml(l.status)}</span>`;
   const priceLine = awaitingCls
     ? `<div style="color:var(--text2);font-size:12px;">Sugerido: <strong style="color:var(--amber);">${Number(suggestedVal).toLocaleString("pt-BR")}</strong> Âmbar <span style="opacity:0.7;">(após aprovação)</span></div>`
     : `<div>Preço: <strong style="color:var(--amber);">${Number(l.effective_price || 0).toLocaleString("pt-BR")}</strong> Âmbar</div>
-        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}</div>`;
+        <div style="color:var(--text2);font-size:12px;">Sugerido: ${Number(l.computed_base_value || 0).toLocaleString("pt-BR")}${ceilingVal > 0 ? ` · Teto: ${Number(ceilingVal).toLocaleString("pt-BR")}` : ""}</div>`;
   return `
     <div class="card market-listing-card">
       <div class="market-listing-card__body">
@@ -10920,6 +10927,41 @@ async function marketWithdrawListing(listingId) {
     const d = await r.json();
     if (!d.ok) { toast(d.error || "Falha", "error"); return; }
     toast(d.message || "Resgate solicitado", "success");
+    loadMarketMyShop();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketAdminRemoveListing(listingId) {
+  if (!_auth.is_admin) return;
+  const reason = prompt("Motivo da remoção (opcional):") || "";
+  if (!confirm("Remover anúncio #" + listingId + "? O vendedor poderá resgatar com /mercado.")) return;
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/" + listingId + "/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(d.message || "Anúncio removido", "success");
+    if (typeof loadMarketBrowse === "function") loadMarketBrowse();
+    loadMarketMyShop();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketAdminFlagListing(listingId) {
+  if (!_auth.is_admin) return;
+  const reason = prompt("Motivo do flag (opcional):") || "";
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/" + listingId + "/flag", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason, pause: true }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Anúncio sinalizado e pausado", "success");
+    if (typeof loadMarketBrowse === "function") loadMarketBrowse();
     loadMarketMyShop();
   } catch (e) { toast(String(e), "error"); }
 }
