@@ -899,6 +899,47 @@ class TestPluginDeliveryQueue:
         finally:
             db.close()
 
+    def test_pending_claim_empty_queue_returns_json(self, client):
+        r = client.post(
+            "/api/pending/claim",
+            json={"steam_id": USER_STEAM},
+            headers={"X-API-Key": API_KEY},
+        )
+        assert r.status_code == 200
+        assert r.data
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["items"] == []
+        assert d["orders"] == []
+
+    def test_pending_claim_after_delivered_returns_empty_items(self, client):
+        oid = _create_order_direct(item_id="metal_ingot_100", status="PENDENTE")
+        claim = client.post(
+            "/api/pending/claim",
+            json={"steam_id": USER_STEAM},
+            headers={"X-API-Key": API_KEY},
+        )
+        assert claim.get_json()["items"][0]["order_id"] == oid
+
+        delivered = client.post(
+            "/api/pending/delivered",
+            json={"steam_id": USER_STEAM, "order_ids": [oid]},
+            headers={"X-API-Key": API_KEY},
+        )
+        assert delivered.get_json()["ok"] is True
+
+        again = client.post(
+            "/api/pending/claim",
+            json={"steam_id": USER_STEAM},
+            headers={"X-API-Key": API_KEY},
+        )
+        assert again.status_code == 200
+        assert again.data
+        d = again.get_json()
+        assert d["ok"] is True
+        assert d["items"] == []
+        assert d["orders"] == []
+
     def test_repair_license_grants_entitlement(self, client):
         _login(client, ADMIN_STEAM)
         oid = _create_order_direct(item_id="Gamma", status="ENTREGUE")

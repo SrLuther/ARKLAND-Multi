@@ -5,6 +5,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.190] - 2026-07-03
+
+### Fix
+
+- Fix (CustomShop / Entregas): HttpClient trata resposta vazia ou HTTP falho no claim sem spam de notificacao; TryParseApiJson centraliza parse da API.
+- Fix (Web Store / API): rotas /api/pending/* sempre retornam JSON valido (fila vazia com ok/items/orders); evita erro de parse no plugin.
+
 ## [1.9.189] - 2026-07-03
 
 ### Fix

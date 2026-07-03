@@ -4746,6 +4746,25 @@ def _initialize_scheduler_if_needed() -> None:
 
 # ── CustomShop internal API (requires X-API-Key header) ─────────────────────────
 
+def _pending_items_json(items: list[dict[str, Any]]) -> Any:
+    """Resposta JSON padronizada para fila de entregas (nunca corpo vazio)."""
+    return jsonify({"ok": True, "items": items, "orders": items})
+
+
+@app.after_request
+def _api_pending_never_empty_body(response: Any) -> Any:
+    """Garante JSON válido nas rotas /api/pending/* (evita parse error no plugin)."""
+    path = request.path or ""
+    if not path.startswith("/api/pending/"):
+        return response
+    if response.status_code >= 400:
+        return response
+    body = (response.get_data(as_text=True) or "").strip()
+    if body:
+        return response
+    return jsonify({"ok": True, "items": [], "orders": []})
+
+
 @app.route("/api/pending/<steam_id>", methods=["GET"])
 @api_key_required(allow_admin_session=False)
 @limiter.limit("60 per minute")
@@ -4779,7 +4798,7 @@ def get_pending_deliveries(steam_id: str):
             pending_count=len(items),
             order_ids=[i["order_id"] for i in items],
         )
-        return jsonify({"ok": True, "items": items, "orders": items})
+        return _pending_items_json(items)
     except Exception as exc:
         _log_error("get_pending_deliveries", steam_id=steam_id, error=str(exc))
         return jsonify({"ok": False, "error": str(exc)}), 500
@@ -4844,7 +4863,7 @@ def claim_pending_orders():
                 "skip_kit_limit": str(order.original_order_id or "").startswith("__admin_skip_kit_limit__"),
             })
         db.commit()
-        return jsonify({"ok": True, "items": claimed, "orders": claimed})
+        return _pending_items_json(claimed)
     except Exception as exc:
         db.rollback()
         _log_error("claim_pending_orders", steam_id=steam_id, error=str(exc))

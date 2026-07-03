@@ -1,8 +1,9 @@
 {
-    "version": "1.9.189",
+    "version": "1.9.190",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.189/ARKLAND-Multi-Setup-v1.9.189.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.190/ARKLAND-Multi-Setup-v1.9.190.exe",
     "changelog": [
-        "Fix (Web Store / Home): botões Jogar agora e Copiar IP na seção Conectar aos servidores — navegação steam:// nativa (sem return false), delegação de cliques e fallback com instruções se o browser bloquear o protocolo."
+        "Fix (CustomShop / Entregas): HttpClient trata resposta vazia ou HTTP falho no claim sem spam de notificacao; TryParseApiJson centraliza parse da API.",
+        "Fix (Web Store / API): rotas /api/pending/* sempre retornam JSON valido (fila vazia com ok/items/orders); evita erro de parse no plugin."
     ]
 }

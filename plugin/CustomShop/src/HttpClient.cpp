@@ -159,7 +159,11 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
     std::string result;
     if (WinHttpSendRequest(hRequest, nullptr, 0, (LPVOID)json_body.c_str(),
                            (DWORD)json_body.size(), (DWORD)json_body.size(), 0)) {
-        WinHttpReceiveResponse(hRequest, nullptr);
+        if (!WinHttpReceiveResponse(hRequest, nullptr)) {
+            WinHttpCloseHandle(hRequest);
+            WinHttpCloseHandle(hConnect);
+            return "";
+        }
         DWORD bytes_avail = 0, bytes_read = 0;
         char buf[4096];
         while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
@@ -193,6 +197,21 @@ std::wstring Utf8ToWide(const std::string& text) {
 
 bool IsUnknownCatalogFailure(const std::string& fail_reason) {
     return fail_reason == "kit_desconhecido" || fail_reason == "item_desconhecido";
+}
+
+// Parses plugin API JSON; empty body is a soft failure (caller may retry on next poll).
+bool TryParseApiJson(const std::string& body, nlohmann::json& out, const char* context) {
+    if (body.empty()) {
+        Log::GetLog()->debug("HttpClient: {} empty response", context);
+        return false;
+    }
+    try {
+        out = nlohmann::json::parse(body);
+        return true;
+    } catch (const std::exception& e) {
+        Log::GetLog()->error("HttpClient: {} JSON parse error: {}", context, e.what());
+        return false;
+    }
 }
 
 bool TryReloadConfigForDelivery() {
@@ -290,20 +309,13 @@ bool DeliverPending(AShooterPlayerController* controller) {
     std::string claim_resp = HttpPostJson(claim_url, claim_body);
 
     nlohmann::json json;
-    try {
-        json = nlohmann::json::parse(claim_resp);
-    } catch (const std::exception& e) {
-        Log::GetLog()->error("HttpClient: claim JSON parse error: {}", e.what());
-        return false;
+    if (!TryParseApiJson(claim_resp, json, "claim")) {
+        // Empty body usually means a transient network/HTTP failure — skip error spam.
+        return claim_resp.empty();
     }
 
     if (!json.value("ok", false)) {
         Log::GetLog()->warn("HttpClient: claim API returned not ok: {}", claim_resp);
-        if (claim_resp.empty()) {
-            ArkApi::GetApiUtils().SendNotification(
-                controller, FLinearColor(1, 0.4f, 0, 1), 1.2f, 6.f, nullptr,
-                L"[Shop] Servico de entrega indisponivel");
-        }
         return false;
     }
 
