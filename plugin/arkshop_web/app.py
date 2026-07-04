@@ -56,6 +56,7 @@ from kit_limits import (
     kit_limit_status,
     parse_kit_stash,
     reset_kit_limit,
+    reset_kit_limits_for_license,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -856,6 +857,9 @@ class SupportTicket(Base):
     priority: Mapped[str] = mapped_column(String(16), default="normal", index=True)
     status: Mapped[str] = mapped_column(String(32), default="AGUARDANDO_SUPORTE", index=True)
     order_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    listing_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    claim_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    market_trace_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     assigned_admin_steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -1274,6 +1278,12 @@ def _migrate_schema(engine: Any) -> None:
         _ensure_store_users_schema(engine)
         _ensure_steam_id_collation(engine)
         _backfill_store_users(engine)
+        try:
+            from amber_ledger import ensure_amber_schema
+
+            ensure_amber_schema(engine)
+        except Exception as exc:
+            log.warning("Âmbarômetro (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -1374,6 +1384,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_poll_schema(engine)
     except Exception as exc:
         log.warning("Votações: migrate falhou: %s", exc)
+    try:
+        from amber_ledger import ensure_amber_schema
+
+        ensure_amber_schema(engine)
+    except Exception as exc:
+        log.warning("Âmbarômetro: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -2218,6 +2234,21 @@ def _admin_player_points_adjust(
         else:
             return {"ok": False, "error": f"Modo inválido: {mode}"}
         db.commit()
+        delta = after - before
+        if delta != 0:
+            try:
+                from amber_ledger import record_admin_adjust
+
+                record_admin_adjust(
+                    db,
+                    steam_id=steam_id,
+                    delta=delta,
+                    event_type=event_type,
+                    idempotency_key=f"admin:player:{steam_id}:{int(_now().timestamp() * 1000000)}",
+                    commit=True,
+                )
+            except Exception as amber_exc:
+                log.warning("Âmbarômetro admin player hook: %s", amber_exc)
         _audit_event(
             event_type,
             actor_type="admin",
@@ -2228,7 +2259,7 @@ def _admin_player_points_adjust(
             status_after=str(after),
             message=reason or f"Saldo: {before} → {after}",
             mode=mode,
-            delta=after - before,
+            delta=delta,
         )
         return {"ok": True, "steam_id": steam_id, "points": after, "before": before, "after": after}
     except Exception as exc:
@@ -3011,19 +3042,32 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
 
     db = _SessionLocal()
     try:
+        before_balance = _get_player_points(steam_id) or 0
         if action == "get":
-            balance = _get_player_points(steam_id)
             return {
                 "ok": True,
                 "steam_id": steam_id,
-                "points": balance if balance is not None else 0,
-                "response": f"Saldo: {balance if balance is not None else 0:,}".replace(",", "."),
+                "points": before_balance,
+                "response": f"Saldo: {before_balance:,}".replace(",", "."),
             }
         if action == "add":
             if amount <= 0:
                 return {"ok": False, "error": "Quantidade deve ser maior que zero"}
             new_balance = _add_player_points_tx(db, steam_id, amount)
             db.commit()
+            try:
+                from amber_ledger import record_admin_adjust
+
+                record_admin_adjust(
+                    db,
+                    steam_id=steam_id,
+                    delta=amount,
+                    event_type="admin_points_add",
+                    idempotency_key=f"admin:api:add:{steam_id}:{int(_now().timestamp() * 1000000)}",
+                    commit=True,
+                )
+            except Exception as amber_exc:
+                log.warning("Âmbarômetro admin points add hook: %s", amber_exc)
             _audit_event(
                 "admin_points_add",
                 actor_type="admin",
@@ -3043,6 +3087,21 @@ def _admin_points_action(action: str, steam_id: str, amount: int = 0) -> dict[st
                 return {"ok": False, "error": "Saldo não pode ser negativo"}
             new_balance = _set_player_points_tx(db, steam_id, amount)
             db.commit()
+            delta = new_balance - before_balance
+            if delta != 0:
+                try:
+                    from amber_ledger import record_admin_adjust
+
+                    record_admin_adjust(
+                        db,
+                        steam_id=steam_id,
+                        delta=delta,
+                        event_type="admin_points_set",
+                        idempotency_key=f"admin:api:set:{steam_id}:{int(_now().timestamp() * 1000000)}",
+                        commit=True,
+                    )
+                except Exception as amber_exc:
+                    log.warning("Âmbarômetro admin points set hook: %s", amber_exc)
             _audit_event(
                 "admin_points_set",
                 actor_type="admin",
@@ -3282,6 +3341,19 @@ def _save_player_kit_stash(db, steam_id: str, stash: dict[str, Any]) -> None:
         )
 
 
+def _reset_dependent_kit_limits_tx(db: Any, steam_id: str, license_group: str) -> list[str]:
+    """Na renovação de licença, restaura resgates dos kits que dependem dela."""
+    data = _read_shop_config()
+    kits = data.get("Kits") or {}
+    if not isinstance(kits, dict) or not kits:
+        return []
+    stash = _load_player_kit_stash(db, steam_id)
+    new_stash, reset_ids = reset_kit_limits_for_license(stash, kits, license_group)
+    if reset_ids and new_stash != stash:
+        _save_player_kit_stash(db, steam_id, new_stash)
+    return reset_ids
+
+
 def _build_player_kit_limits(
     db,
     steam_id: str,
@@ -3486,6 +3558,7 @@ def _apply_entitlement_grant_tx(
             ),
             params,
         )
+    _reset_dependent_kit_limits_tx(db, steam_id, group)
 
 
 def _get_player_entitlements(steam_id: str, db: Any | None = None) -> list[dict[str, Any]]:
@@ -5929,6 +6002,34 @@ def public_home():
     })
 
 
+@app.route("/api/public/amber-stats", methods=["GET"])
+def public_amber_stats():
+    """Totais públicos do Âmbarômetro (sem PII)."""
+    if not _db_ready():
+        return jsonify({
+            "ok": False,
+            "error": "Indisponível no momento",
+            "coverage_note": "",
+            "total_gross_all_time": 0,
+            "total_gross_today": 0,
+            "total_gross_7d": 0,
+            "total_gross_30d": 0,
+        }), 503
+    db = _SessionLocal()
+    try:
+        from amber_ledger import get_public_stats
+
+        payload = get_public_stats(db, currency=_public_currency)
+    except Exception as exc:
+        _log_error("public_amber_stats", error=str(exc))
+        return jsonify({"ok": False, "error": "Erro ao carregar estatísticas"}), 500
+    finally:
+        _release_db_session(db)
+    resp = make_response(jsonify(payload))
+    resp.headers["Cache-Control"] = "public, max-age=60"
+    return resp
+
+
 # ── Catalog (público, sem autenticação) ───────────────────────────────────────
 
 @app.route("/api/catalog", methods=["GET"])
@@ -6839,6 +6940,19 @@ def player_purchase():
                 notes=f"web:{item_id}",
             )
         db.commit()
+        if price > 0:
+            try:
+                from amber_ledger import record_shop_debit
+
+                record_shop_debit(
+                    db,
+                    order_id=order.order_id,
+                    steam_id=str(steam_id),
+                    points=price,
+                    commit=True,
+                )
+            except Exception as amber_exc:
+                log.warning("Âmbarômetro shop debit hook: %s", amber_exc)
     except Exception as exc:
         db.rollback()
         purchase_db_error = str(exc)
@@ -6953,6 +7067,20 @@ def player_cancel_order(order_id: str):
         order.updated_at = _now()
         _revoke_entitlement_for_order(steam_id, order_id, db=db)
         db.commit()
+        if refund > 0:
+            try:
+                from amber_ledger import record_shop_refund
+
+                record_shop_refund(
+                    db,
+                    order_id=order_id,
+                    steam_id=steam_id,
+                    refund=refund,
+                    event_type="order_cancelled",
+                    commit=True,
+                )
+            except Exception as amber_exc:
+                log.warning("Âmbarômetro order_cancel hook: %s", amber_exc)
     except Exception as exc:
         db.rollback()
         _log_error("player_cancel_order", order_id=order_id, steam_id=steam_id, error=str(exc))
@@ -7131,6 +7259,17 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 points=payment.points,
                 new_balance=new_balance,
             )
+            try:
+                from amber_ledger import record_donation
+
+                record_donation(
+                    db,
+                    payment_id=payment.payment_id,
+                    steam_id=payment.steam_id,
+                    points=int(payment.points),
+                )
+            except Exception as amber_exc:
+                log.warning("Âmbarômetro donation hook: %s", amber_exc)
         except Exception as exc:
             _audit_event(
                 "pix_credit_failed",
@@ -8163,6 +8302,19 @@ def admin_refund_order(order_id: str):
         order.status = "REEMBOLSADO"
         order.updated_at = _now()
         db.commit()
+        try:
+            from amber_ledger import record_shop_refund
+
+            record_shop_refund(
+                db,
+                order_id=order_id,
+                steam_id=steam_id,
+                refund=refund,
+                event_type="admin_refund",
+                commit=True,
+            )
+        except Exception as amber_exc:
+            log.warning("Âmbarômetro admin_refund hook: %s", amber_exc)
     except Exception as exc:
         db.rollback()
         _log_error("admin_refund_order", order_id=order_id, admin=admin_id, error=str(exc))

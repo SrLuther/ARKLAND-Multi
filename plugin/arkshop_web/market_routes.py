@@ -30,16 +30,21 @@ from market_service import (
 
 from market_listings import (
     admin_bulk_classify_listings,
+    admin_bulk_listing_action,
     admin_classify_listing,
     admin_flag_listing,
     admin_remove_listing,
     admin_set_listing_price,
     claim_deliveries,
     commerce_ready,
+    get_admin_listing_detail,
     get_listing_detail,
+    get_listing_timeline,
+    get_market_audit_event,
     get_pending_claims,
     get_profile,
     list_active_listings,
+    list_admin_listings,
     list_market_audit_events,
     list_pending_classification,
     list_seller_listings,
@@ -51,6 +56,7 @@ from market_listings import (
     process_plugin_admin_action,
     process_plugin_upload,
     promote_listings_on_species_activate,
+    query_market_audit_events,
     reconcile_pending_listings,
     recompute_draft_listings,
     purchase_listing,
@@ -531,7 +537,6 @@ def register_market_routes(
                 admin_steam_id,
                 reason=str(body.get("reason") or ""),
             )
-            audit_event("MARKET_LISTING_ADMIN_REMOVED", listing_id=listing_id)
             return jsonify({"ok": True, **result})
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
@@ -582,6 +587,122 @@ def register_market_routes(
             return jsonify({"ok": True, "listing": listing})
         except ValueError as exc:
             return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings", methods=["GET"])
+    @admin_required
+    def market_admin_list_listings():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        limit = min(200, max(1, int(request.args.get("limit") or 50)))
+        offset = max(0, int(request.args.get("offset") or 0))
+        db = session_factory()
+        try:
+            items, total = list_admin_listings(
+                db,
+                q=(request.args.get("q") or "").strip() or None,
+                status=(request.args.get("status") or "").strip() or None,
+                seller_steam_id=(request.args.get("seller_steam_id") or "").strip() or None,
+                flagged_only=request.args.get("flagged") in ("1", "true", "yes"),
+                sort=(request.args.get("sort") or "recent").strip(),
+                limit=limit,
+                offset=offset,
+            )
+            return jsonify({"ok": True, "total": total, "listings": items})
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/<int:listing_id>", methods=["GET"])
+    @admin_required
+    def market_admin_get_listing(listing_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            listing = get_admin_listing_detail(db, listing_id)
+            return jsonify({"ok": True, "listing": listing})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 404
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/<int:listing_id>/timeline", methods=["GET"])
+    @admin_required
+    def market_admin_listing_timeline(listing_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            timeline = get_listing_timeline(db, listing_id)
+            return jsonify({"ok": True, **timeline})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 404
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/bulk", methods=["POST"])
+    @admin_required
+    def market_admin_listings_bulk():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        action = str(body.get("action") or "").strip()
+        raw_ids = body.get("listing_ids") or []
+        listing_ids = [int(x) for x in raw_ids if str(x).isdigit()]
+        admin_steam_id = str(steam_id_from_session() or "")
+        db = session_factory()
+        try:
+            result = admin_bulk_listing_action(
+                db,
+                action,
+                listing_ids,
+                admin_steam_id,
+                reason=str(body.get("reason") or ""),
+                pause=bool(body.get("pause", True)),
+            )
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/listings/<int:listing_id>/ticket", methods=["POST"])
+    @admin_required
+    def market_admin_create_ticket_for_listing(listing_id: int):
+        """Abre ticket de suporte pré-preenchido para um anúncio."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        from ticket_service import create_ticket
+
+        body = request.get_json(silent=True) or {}
+        db = session_factory()
+        try:
+            listing = get_admin_listing_detail(db, listing_id)
+            seller = listing.get("seller_steam_id") or ""
+            title = listing.get("display_title") or f"Anúncio #{listing_id}"
+            subject = str(body.get("subject") or f"Mercado — {title}")[:200]
+            msg_body = str(
+                body.get("body")
+                or f"Ticket aberto pela equipe sobre o anúncio #{listing_id} ({title}).\n"
+                f"Vendedor: {seller}\nStatus: {listing.get('status')}"
+            )
+            result = create_ticket(
+                db,
+                steam_id=seller or str(steam_id_from_session() or ""),
+                player_name=listing.get("seller_display_name") or seller,
+                subject=subject,
+                body=msg_body,
+                category="mercado",
+                priority=str(body.get("priority") or "normal"),
+                listing_id=listing_id,
+                market_trace_id=listing.get("market_trace_id"),
+            )
+            if not result.get("ok"):
+                return jsonify(result), 400
+            return jsonify(result), 201
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 404
         finally:
             db.close()
 
@@ -933,50 +1054,136 @@ def register_market_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         import csv
         import io
+        import json as json_mod
 
         event_type = (request.args.get("event_type") or "").strip() or None
         steam_id = (request.args.get("steam_id") or "").strip() or None
+        trace = (request.args.get("market_trace_id") or "").strip() or None
+        listing_id_raw = (request.args.get("listing_id") or "").strip()
+        listing_id = int(listing_id_raw) if listing_id_raw.isdigit() else None
+        severity = (request.args.get("severity") or "").strip() or None
+        date_from = (request.args.get("date_from") or "").strip() or None
+        date_to = (request.args.get("date_to") or "").strip() or None
+        q = (request.args.get("q") or "").strip() or None
+        fmt = (request.args.get("format") or "csv").strip().lower()
         db = session_factory()
         try:
-            events = list_market_audit_events(
-                db, event_type=event_type, steam_id=steam_id, limit=500
+            events, total = query_market_audit_events(
+                db,
+                event_type=event_type,
+                steam_id=steam_id,
+                steam_id_mode=(request.args.get("steam_id_mode") or "actor").strip(),
+                market_trace_id=trace,
+                listing_id=listing_id,
+                severity=severity,
+                date_from=date_from,
+                date_to=date_to,
+                q=q,
+                limit=min(5000, max(1, int(request.args.get("limit") or 5000))),
+                offset=0,
             )
+            truncated = total > len(events)
+            if fmt == "json":
+                from flask import Response
+
+                payload = {
+                    "ok": True,
+                    "total": total,
+                    "exported": len(events),
+                    "truncated": truncated,
+                    "events": events,
+                }
+                return Response(
+                    json_mod.dumps(payload, ensure_ascii=False, default=str),
+                    mimetype="application/json",
+                    headers={
+                        "Content-Disposition": "attachment; filename=market_audit.json"
+                    },
+                )
             buf = io.StringIO()
             writer = csv.writer(buf)
             writer.writerow(
                 [
+                    "id",
                     "created_at",
                     "event_type",
+                    "event_label",
                     "severity",
+                    "source",
                     "steam_id",
+                    "counterparty_steam_id",
                     "listing_id",
                     "claim_id",
+                    "vault_id",
+                    "blob_hash",
                     "effective_price",
+                    "points_delta",
                     "market_trace_id",
+                    "summary_pt",
+                    "metadata_json",
                 ]
             )
             for ev in events:
                 writer.writerow(
                     [
+                        ev.get("id"),
                         ev.get("created_at"),
                         ev.get("event_type"),
+                        ev.get("event_label"),
                         ev.get("severity"),
+                        ev.get("source"),
                         ev.get("steam_id"),
+                        ev.get("counterparty_steam_id"),
                         ev.get("listing_id"),
                         ev.get("claim_id"),
+                        ev.get("vault_id"),
+                        ev.get("blob_hash"),
                         ev.get("effective_price"),
+                        ev.get("points_delta"),
                         ev.get("market_trace_id"),
+                        ev.get("summary_pt"),
+                        json_mod.dumps(ev.get("metadata") or {}, ensure_ascii=False),
                     ]
                 )
             from flask import Response
 
+            note = f"; truncated={truncated}; total={total}" if truncated else ""
             return Response(
                 buf.getvalue(),
                 mimetype="text/csv",
-                headers={"Content-Disposition": "attachment; filename=market_audit.csv"},
+                headers={
+                    "Content-Disposition": f"attachment; filename=market_audit.csv",
+                    "X-Export-Total": str(total),
+                    "X-Export-Truncated": str(truncated).lower(),
+                },
             )
         finally:
             db.close()
+
+    @app.route("/api/market/admin/audit/<int:event_id>", methods=["GET"])
+    @admin_required
+    def market_admin_audit_detail(event_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            event = get_market_audit_event(db, event_id)
+            if not event:
+                return jsonify({"ok": False, "error": "Evento não encontrado"}), 404
+            return jsonify({"ok": True, "event": event})
+        finally:
+            db.close()
+
+    @app.route("/api/market/admin/audit/event-types", methods=["GET"])
+    @admin_required
+    def market_admin_audit_event_types():
+        from market_audit import MARKET_ADMIN_AUDIT_LABELS
+
+        items = [
+            {"event_type": k, "label": v}
+            for k, v in sorted(MARKET_ADMIN_AUDIT_LABELS.items())
+        ]
+        return jsonify({"ok": True, "event_types": items})
 
     @app.route("/api/market/admin/audit", methods=["GET"])
     @admin_required
@@ -986,19 +1193,37 @@ def register_market_routes(
         event_type = (request.args.get("event_type") or "").strip() or None
         steam_id = (request.args.get("steam_id") or "").strip() or None
         trace = (request.args.get("market_trace_id") or "").strip() or None
-        limit = min(500, max(1, int(request.args.get("limit") or 100)))
+        listing_id_raw = (request.args.get("listing_id") or "").strip()
+        listing_id = int(listing_id_raw) if listing_id_raw.isdigit() else None
+        claim_id_raw = (request.args.get("claim_id") or "").strip()
+        claim_id = int(claim_id_raw) if claim_id_raw.isdigit() else None
+        severity = (request.args.get("severity") or "").strip() or None
+        source = (request.args.get("source") or "").strip() or None
+        date_from = (request.args.get("date_from") or "").strip() or None
+        date_to = (request.args.get("date_to") or "").strip() or None
+        q = (request.args.get("q") or "").strip() or None
+        steam_id_mode = (request.args.get("steam_id_mode") or "any").strip()
+        limit = min(200, max(1, int(request.args.get("limit") or 50)))
         offset = max(0, int(request.args.get("offset") or 0))
         db = session_factory()
         try:
-            events = list_market_audit_events(
+            events, total = query_market_audit_events(
                 db,
                 event_type=event_type,
                 steam_id=steam_id,
+                steam_id_mode=steam_id_mode,
                 market_trace_id=trace,
+                listing_id=listing_id,
+                claim_id=claim_id,
+                severity=severity,
+                source=source,
+                date_from=date_from,
+                date_to=date_to,
+                q=q,
                 limit=limit,
                 offset=offset,
             )
-            return jsonify({"ok": True, "events": events})
+            return jsonify({"ok": True, "total": total, "events": events})
         finally:
             db.close()
 

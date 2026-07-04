@@ -146,6 +146,11 @@ def register_ticket_routes(
             link = get_discord_link(db, steam_id)
             order_id_raw = body.get("order_id")
             order_id = str(order_id_raw).strip() if order_id_raw else None
+            listing_id_raw = body.get("listing_id")
+            listing_id = int(listing_id_raw) if listing_id_raw else None
+            claim_id_raw = body.get("claim_id")
+            claim_id = int(claim_id_raw) if claim_id_raw else None
+            market_trace_id = str(body.get("market_trace_id") or "").strip() or None
             result = create_ticket(
                 db,
                 steam_id=steam_id,
@@ -155,6 +160,9 @@ def register_ticket_routes(
                 category=str(body.get("category") or "geral"),
                 priority=str(body.get("priority") or "normal"),
                 order_id=order_id,
+                listing_id=listing_id,
+                claim_id=claim_id,
+                market_trace_id=market_trace_id,
                 links=body.get("links"),
                 discord_user_id=link.get("discord_user_id") if link else None,
                 discord_username=link.get("discord_username") if link else None,

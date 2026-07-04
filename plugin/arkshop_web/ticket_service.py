@@ -178,6 +178,18 @@ def _migrate_ticket_columns(conn: Any, *, is_sqlite: bool) -> None:
         alters.append(
             "ALTER TABLE support_tickets ADD COLUMN order_id VARCHAR(64) NULL"
         )
+    if not _column_exists(conn, "support_tickets", "listing_id", is_sqlite=is_sqlite):
+        alters.append(
+            "ALTER TABLE support_tickets ADD COLUMN listing_id INTEGER NULL"
+        )
+    if not _column_exists(conn, "support_tickets", "claim_id", is_sqlite=is_sqlite):
+        alters.append(
+            "ALTER TABLE support_tickets ADD COLUMN claim_id INTEGER NULL"
+        )
+    if not _column_exists(conn, "support_tickets", "market_trace_id", is_sqlite=is_sqlite):
+        alters.append(
+            "ALTER TABLE support_tickets ADD COLUMN market_trace_id VARCHAR(64) NULL"
+        )
     for stmt in alters:
         conn.execute(text(stmt))
 
@@ -409,6 +421,9 @@ def _ticket_row_to_dict(row: Any) -> dict[str, Any]:
         "status": status,
         "status_label": _status_label(status),
         "order_id": getattr(row, "order_id", None),
+        "listing_id": getattr(row, "listing_id", None),
+        "claim_id": getattr(row, "claim_id", None),
+        "market_trace_id": getattr(row, "market_trace_id", None),
         "assigned_admin_steam_id": row.assigned_admin_steam_id,
         "created_at": row.created_at.isoformat() if row.created_at else None,
         "updated_at": row.updated_at.isoformat() if row.updated_at else None,
@@ -624,6 +639,9 @@ def create_ticket(
     category: str = "geral",
     priority: str = "normal",
     order_id: str | None = None,
+    listing_id: int | None = None,
+    claim_id: int | None = None,
+    market_trace_id: str | None = None,
     links: list[str] | None = None,
     discord_user_id: str | None = None,
     discord_username: str | None = None,
@@ -640,10 +658,17 @@ def create_ticket(
     cat = _normalize_category(category)
     pri = _normalize_priority(priority)
     oid = (order_id or "").strip() or None
+    lid = int(listing_id) if listing_id else None
+    cid = int(claim_id) if claim_id else None
+    trace = (market_trace_id or "").strip() or None
     if oid:
         summary = get_order_summary_for_ticket(db, oid, steam_id=steam_id)
         if not summary:
             return {"ok": False, "error": "Pedido não encontrado ou não pertence à sua conta"}
+    if lid is not None and lid <= 0:
+        lid = None
+    if cid is not None and cid <= 0:
+        cid = None
 
     link_list = _parse_links(links or [])
     now = _utcnow()
@@ -657,6 +682,9 @@ def create_ticket(
         priority=pri,
         status="AGUARDANDO_SUPORTE",
         order_id=oid,
+        listing_id=lid,
+        claim_id=cid,
+        market_trace_id=trace,
         created_at=now,
         updated_at=now,
     )
@@ -878,6 +906,14 @@ def get_ticket_detail(
         result["order"] = get_order_summary_for_ticket(
             db, oid, steam_id=None if is_admin else viewer_steam_id
         )
+    listing_id_val = getattr(ticket, "listing_id", None)
+    if listing_id_val:
+        try:
+            from market_listings import get_listing_timeline_summary
+
+            result["market_context"] = get_listing_timeline_summary(db, int(listing_id_val))
+        except Exception:
+            result["market_context"] = None
     return result
 
 

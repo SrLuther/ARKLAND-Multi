@@ -1,10 +1,8 @@
 {
-    "version": "1.9.192",
+    "version": "1.9.196",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.192/ARKLAND-Multi-Setup-v1.9.192.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.196/ARKLAND-Multi-Setup-v1.9.196.exe",
     "changelog": [
-        "Fix (Web Store / Comércio): notificações in-app ao vendedor quando anúncio é vendido, resgatado pelo comprador, sinalizado ou removido pela moderação (web e /mercado_admin).",
-        "Feature (Web Store / Comércio): registro da vitrine em Minha Loja — histórico de eventos (vendas, moderação, resgates) via /api/market/my/audit.",
-        "Melhoria (Web Store): sininho abre Minha Loja ao clicar em notificação do Comércio (link_type market)."
+        "Feature (Web Store / Kits): na renovação de licença (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licença são resetados ao valor inicial do catálogo."
     ]
 }

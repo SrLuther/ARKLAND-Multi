@@ -25,6 +25,8 @@ _NOTIFICATION_TYPES = frozenset({
     "market_buyer_claimed",
     "market_admin_flag",
     "market_admin_remove",
+    "market_staff_alert",
+    "market_staff_critical",
     "general",
 })
 

@@ -3,11 +3,45 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.192"
+APP_VERSION: str = "1.9.196"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.196",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (Web Store / Kits): na renovação de licença (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licença são resetados ao valor inicial do catálogo.",
+        ],
+    },
+    {
+        "version": "1.9.195",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (Web Store / Âmbarômetro): painel público na home com volume acumulado de âmbares movimentados; API GET /api/public/amber-stats.",
+            "Feature (Web Store / Âmbarômetro): ledger idempotente (amber_ledger) registrando doações, loja web, mercado P2P, recompensas de enquetes e ajustes administrativos.",
+        ],
+    },
+    {
+        "version": "1.9.194",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (Web Store / Comércio): notificações in-app para staff (market_staff_alert / market_staff_critical) em flag e remoção de anúncios.",
+            "Melhoria (Web Store / Comércio Admin): timeline de anúncio inclui amber_snapshot de movimentação de âmbares.",
+        ],
+    },
+    {
+        "version": "1.9.193",
+        "date": "2026-07-03",
+        "changes": [
+            "Feature (Web Store / Comércio Admin): auditoria mercado com paginação, filtros (listing, severity, datas, busca q), detalhe por ID e labels PT-BR.",
+            "Feature (Web Store / Comércio Admin): timeline por anúncio (GET /api/market/admin/listings/<id>/timeline) — listing, claims, transações, audit e tickets.",
+            "Feature (Web Store / Comércio Admin): painel Listagens paginado com busca, preview cryo (stats, breakdown, blob_hash) e ações em lote (flag/pause/remove).",
+            "Melhoria (Suporte): tickets aceitam listing_id/claim_id/market_trace_id; widget mercado no painel admin de tickets.",
+            "Fix (Comércio Admin): rotas de remoção admin não duplicam mais evento na auditoria geral da loja.",
+        ],
+    },
     {
         "version": "1.9.192",
         "date": "2026-07-03",

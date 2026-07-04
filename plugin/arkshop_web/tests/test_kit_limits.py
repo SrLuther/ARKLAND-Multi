@@ -9,8 +9,10 @@ from kit_limits import (
     kit_default_amount,
     kit_has_limit,
     kit_limit_status,
+    kit_requires_license_group,
     parse_kit_stash,
     reset_kit_limit,
+    reset_kit_limits_for_license,
 )
 
 
@@ -68,3 +70,34 @@ def test_kit_limit_status_with_pending():
 def test_parse_kit_stash_json_string():
     raw = json.dumps({"starter": {"Amount": 2}})
     assert parse_kit_stash(raw)["starter"]["Amount"] == 2
+
+
+def test_kit_requires_license_group():
+    alfa_kit = {"DefaultAmount": 1, "Permissions": "Admins,Alfa"}
+    beta_kit = {"DefaultAmount": 1, "Permissions": "Admins,Beta"}
+    assert kit_requires_license_group(alfa_kit, "Alfa") is True
+    assert kit_requires_license_group(alfa_kit, "Beta") is False
+    assert kit_requires_license_group(beta_kit, "Beta") is True
+    assert kit_requires_license_group({"DefaultAmount": 1}, "Alfa") is False
+
+
+def test_reset_kit_limits_for_license_only_matching_kits():
+    catalog = {
+        "kit_alfa": {
+            "DefaultAmount": 1,
+            "Permissions": "Admins,Alfa",
+        },
+        "kit_beta": {
+            "DefaultAmount": 1,
+            "Permissions": "Admins,Beta",
+        },
+        "kit_free": {
+            "DefaultAmount": 0,
+            "Permissions": "Admins,Alfa",
+        },
+    }
+    stash = {"kit_alfa": {"Amount": 0}, "kit_beta": {"Amount": 0}}
+    new_stash, reset_ids = reset_kit_limits_for_license(stash, catalog, "Alfa")
+    assert reset_ids == ["kit_alfa"]
+    assert get_kit_remaining(new_stash, "kit_alfa", catalog["kit_alfa"]) == 1
+    assert get_kit_remaining(new_stash, "kit_beta", catalog["kit_beta"]) == 0

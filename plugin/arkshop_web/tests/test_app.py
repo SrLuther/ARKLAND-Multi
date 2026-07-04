@@ -1991,3 +1991,132 @@ class TestKitRedemptionLimit:
         )
         assert retry.status_code == 200
         assert retry.get_json()["ok"] is True
+
+
+class TestLicenseRenewalKitReset:
+    def _mock_license_kit_catalog(self, monkeypatch, tmp_path):
+        config = {
+            "Kits": {
+                "kit_alfa": {
+                    "Price": 0,
+                    "DefaultAmount": 1,
+                    "Permissions": "Admins,Alfa",
+                    "Description": "Kit Alfa",
+                    "Items": [{"Blueprint": "/Game/Test/Item", "Quantity": 1}],
+                },
+                "kit_beta": {
+                    "Price": 0,
+                    "DefaultAmount": 1,
+                    "Permissions": "Admins,Beta",
+                    "Description": "Kit Beta",
+                    "Items": [{"Blueprint": "/Game/Test/Item", "Quantity": 1}],
+                },
+            },
+            "Items": {
+                "licenca_alfa": {
+                    "Type": "license",
+                    "Price": 0,
+                    "LicenseGrant": {"Group": "Alfa", "Days": 30, "Redeemable": True},
+                },
+            },
+        }
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        monkeypatch.setattr(
+            _app_module,
+            "_load_settings",
+            lambda: {
+                "config_path": str(config_path),
+                "server_id": "default",
+                "delivery_mode": "plugin",
+            },
+        )
+        _app_module._CONFIG_CACHE.clear()
+
+    def _seed_player_kits(self, steam_id: str, stash: dict) -> None:
+        from sqlalchemy import text
+
+        db = _app_module._SessionLocal()
+        try:
+            kits_json = json.dumps(stash, ensure_ascii=False)
+            db.execute(
+                text(
+                    "INSERT INTO players (steam_id, points, kits) VALUES (:sid, 0, :kits) "
+                    "ON CONFLICT(steam_id) DO UPDATE SET kits = :kits"
+                ),
+                {"sid": steam_id, "kits": kits_json},
+            )
+            db.commit()
+        finally:
+            db.close()
+
+    def _read_player_kits(self, steam_id: str) -> dict:
+        from sqlalchemy import text
+
+        db = _app_module._SessionLocal()
+        try:
+            row = db.execute(
+                text("SELECT kits FROM players WHERE steam_id = :sid"),
+                {"sid": steam_id},
+            ).fetchone()
+            return json.loads(row[0]) if row and row[0] else {}
+        finally:
+            db.close()
+
+    def _seed_player_license(self, steam_id: str, group: str, days: int = 30) -> None:
+        db = _app_module._SessionLocal()
+        try:
+            _app_module._apply_entitlement_grant_tx(
+                db, steam_id, group, days, source="test-seed", notes="test",
+            )
+            db.commit()
+        finally:
+            db.close()
+
+    def test_license_grant_resets_dependent_kit_limits(self, monkeypatch, tmp_path):
+        self._mock_license_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_kits(USER_STEAM, {"kit_alfa": {"Amount": 0}, "kit_beta": {"Amount": 0}})
+        db = _app_module._SessionLocal()
+        try:
+            _app_module._apply_entitlement_grant_tx(
+                db, USER_STEAM, "Alfa", 30, source="renew-test", notes="web:licenca_alfa",
+            )
+            db.commit()
+        finally:
+            db.close()
+
+        stash = self._read_player_kits(USER_STEAM)
+        assert stash["kit_alfa"]["Amount"] == 1
+        assert stash["kit_beta"]["Amount"] == 0
+
+    def test_license_purchase_renewal_restores_kit(self, client, monkeypatch, tmp_path):
+        _mock_display_name_ok(monkeypatch)
+        self._mock_license_kit_catalog(monkeypatch, tmp_path)
+        self._seed_player_license(USER_STEAM, "Alfa")
+        self._seed_player_kits(USER_STEAM, {"kit_alfa": {"Amount": 0}})
+        _seed_player_points(USER_STEAM, 0)
+        _login(client, USER_STEAM)
+
+        blocked = client.post(
+            "/api/player/purchase",
+            json={"item_id": "kit_alfa", "item_type": "kit", "amount": 1},
+        )
+        assert blocked.status_code == 403
+        assert blocked.get_json().get("kit_limit_reached") is True
+
+        renew = client.post(
+            "/api/player/purchase",
+            json={"item_id": "licenca_alfa", "item_type": "shop", "amount": 1},
+        )
+        assert renew.status_code == 200
+        assert renew.get_json()["ok"] is True
+
+        stash = self._read_player_kits(USER_STEAM)
+        assert stash["kit_alfa"]["Amount"] == 1
+
+        retry = client.post(
+            "/api/player/purchase",
+            json={"item_id": "kit_alfa", "item_type": "kit", "amount": 1},
+        )
+        assert retry.status_code == 200
+        assert retry.get_json()["ok"] is True

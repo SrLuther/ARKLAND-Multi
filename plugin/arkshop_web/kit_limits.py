@@ -4,6 +4,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
+# Grupos de staff/catálogo que não contam como licença exigida pelo kit.
+_NON_LICENSE_PERMISSION_GROUPS = frozenset({
+    "Admins", "Staff", "Default", "Moderacao", "Mod", "STAFF", "",
+})
+
 
 def kit_default_amount(entry: dict[str, Any]) -> int:
     """Usos iniciais/restantes quando o jogador ainda não tem entrada no stash."""
@@ -63,6 +68,45 @@ def reset_kit_limit(
     else:
         out.pop(kit_id, None)
     return out
+
+
+def _parse_kit_permissions(entry: dict[str, Any]) -> list[str]:
+    raw = entry.get("Permissions") or entry.get("RequiredPermissions") or ""
+    if isinstance(raw, list):
+        return [str(g).strip() for g in raw if str(g).strip()]
+    if not raw:
+        return []
+    return [t.strip() for t in str(raw).split(",") if t.strip()]
+
+
+def kit_requires_license_group(entry: dict[str, Any], license_group: str) -> bool:
+    """True quando o kit exige a licença concedida/renovada (campo Permissions)."""
+    license_group = str(license_group or "").strip()
+    if not license_group:
+        return False
+    deps = [
+        g for g in _parse_kit_permissions(entry)
+        if g not in _NON_LICENSE_PERMISSION_GROUPS
+    ]
+    return license_group in deps
+
+
+def reset_kit_limits_for_license(
+    stash: dict[str, Any],
+    kits_catalog: dict[str, Any],
+    license_group: str,
+) -> tuple[dict[str, Any], list[str]]:
+    """Restaura DefaultAmount dos kits com limite vinculados à licença renovada."""
+    out = dict(stash)
+    reset_ids: list[str] = []
+    for kit_id, entry in kits_catalog.items():
+        if not isinstance(entry, dict):
+            continue
+        if not kit_has_limit(entry) or not kit_requires_license_group(entry, license_group):
+            continue
+        out = reset_kit_limit(out, str(kit_id), entry)
+        reset_ids.append(str(kit_id))
+    return out, reset_ids
 
 
 def kit_limit_status(

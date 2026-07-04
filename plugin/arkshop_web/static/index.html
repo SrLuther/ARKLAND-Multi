@@ -257,6 +257,7 @@
     .notif-wrap {
       position: relative;
       margin-bottom: 8px;
+      z-index: 1500;
     }
     .notif-bell-btn {
       width: 100%;
@@ -320,7 +321,9 @@
     }
     .notif-panel__list {
       overflow-y: auto;
-      max-height: 280px;
+      flex: 1;
+      min-height: 140px;
+      max-height: min(400px, calc(100vh - 160px));
     }
     .notif-item {
       padding: 10px 12px;
@@ -2924,6 +2927,81 @@
       margin-top: 6px;
     }
 
+    .amber-meter {
+      margin-bottom: 24px;
+      padding: 24px 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(232,120,32,.35);
+      background: linear-gradient(135deg, rgba(232,120,32,.12) 0%, rgba(0,0,0,.45) 55%, rgba(255,96,16,.08) 100%);
+      box-shadow: 0 0 48px rgba(232,120,32,.12), inset 0 1px 0 rgba(255,255,255,.06);
+      text-align: center;
+    }
+    .amber-meter__eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 12px;
+    }
+    .amber-meter__value {
+      font-family: 'Cinzel', Georgia, serif;
+      font-size: clamp(2rem, 8vw, 3.5rem);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      text-shadow: 0 0 32px rgba(232,120,32,.55);
+      font-variant-numeric: tabular-nums;
+    }
+    .amber-meter__sublabel {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 8px;
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.5;
+    }
+    .amber-meter__chips {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .amber-meter__chip {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,120,32,.3);
+      background: rgba(0,0,0,.35);
+      font-size: 12px;
+      color: var(--text);
+    }
+    .amber-meter__chip strong { color: var(--amber); }
+    .amber-meter__channels {
+      margin-top: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px 14px;
+      font-size: 11px;
+      color: var(--text2);
+    }
+    .amber-meter__note {
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--text2);
+      opacity: .85;
+      max-width: 640px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.45;
+    }
+    .amber-meter--hidden { display: none; }
+
     .home-section {
       margin-bottom: 24px;
       padding: 24px;
@@ -4740,6 +4818,7 @@
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-market-admin-tab="species" onclick="setMarketAdminTab('species')">🦖 Espécies</button>
           <button type="button" class="catalog-tab" data-market-admin-tab="pending" onclick="setMarketAdminTab('pending')">⏳ Classificar</button>
+          <button type="button" class="catalog-tab" data-market-admin-tab="listings" onclick="setMarketAdminTab('listings')">📦 Listagens</button>
           <button type="button" class="catalog-tab" data-market-admin-tab="audit" onclick="setMarketAdminTab('audit')">📋 Auditoria Mercado</button>
         </div>
         <div id="market-admin-panel-species" class="catalog-panel active">
@@ -4786,24 +4865,98 @@
           </div>
           <div id="market-admin-pending-list"></div>
         </div>
+        <div id="market-admin-panel-listings" class="catalog-panel">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Gestão de anúncios</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+              <div class="form-group" style="margin:0;min-width:200px;">
+                <label>Busca</label>
+                <input id="market-listings-filter-q" type="search" placeholder="ID, seller, espécie…" onkeydown="if(event.key==='Enter')loadMarketAdminListings()" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Status</label>
+                <select id="market-listings-filter-status" onchange="loadMarketAdminListings()">
+                  <option value="">Todos</option>
+                  <option value="ACTIVE">ACTIVE</option>
+                  <option value="PAUSED">PAUSED</option>
+                  <option value="PENDING_CLASSIFICATION">PENDING_CLASSIFICATION</option>
+                  <option value="SOLD">SOLD</option>
+                  <option value="AWAITING_CLAIM">AWAITING_CLAIM</option>
+                  <option value="FLAGGED">Flagados</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Ordenar</label>
+                <select id="market-listings-filter-sort" onchange="loadMarketAdminListings()">
+                  <option value="recent">Mais recentes</option>
+                  <option value="price_desc">Preço ↓</option>
+                  <option value="price_asc">Preço ↑</option>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="loadMarketAdminListings()">Filtrar</button>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center;">
+              <label style="font-size:12px;display:flex;align-items:center;gap:6px;"><input type="checkbox" id="market-listings-select-all" onchange="marketListingsToggleSelectAll(this.checked)" /> Selecionar página</label>
+              <button class="btn btn-ghost btn-sm" onclick="marketListingsBulkAction('flag')">⚑ Flag lote</button>
+              <button class="btn btn-ghost btn-sm" onclick="marketListingsBulkAction('pause')">⏸ Pausar lote</button>
+              <button class="btn btn-ghost btn-sm" onclick="marketListingsBulkAction('remove')">🛡 Remover lote</button>
+            </div>
+          </div>
+          <div id="market-admin-listings-list"></div>
+          <div id="market-listings-page-info" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="marketListingsPrevPage()">◀ Anterior</button>
+            <button class="btn btn-ghost btn-sm" onclick="marketListingsNextPage()">Próxima ▶</button>
+          </div>
+        </div>
         <div id="market-admin-panel-audit" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
             <div class="card-title">Filtros</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+              <div class="form-group" style="margin:0;min-width:160px;">
+                <label>Busca (q)</label>
+                <input id="market-audit-filter-q" type="search" placeholder="texto, ID…" onkeydown="if(event.key==='Enter'){marketAuditResetPage();loadMarketAudit();}" />
+              </div>
               <div class="form-group" style="margin:0;min-width:180px;">
                 <label>Tipo de evento</label>
-                <input id="market-audit-filter-type" type="text" placeholder="MARKET_PURCHASE_…" onkeydown="if(event.key==='Enter')loadMarketAudit()" />
+                <input id="market-audit-filter-type" type="text" placeholder="MARKET_PURCHASE_…" onkeydown="if(event.key==='Enter'){marketAuditResetPage();loadMarketAudit();}" />
+              </div>
+              <div class="form-group" style="margin:0;min-width:100px;">
+                <label>Severidade</label>
+                <select id="market-audit-filter-severity" onchange="marketAuditResetPage();loadMarketAudit();">
+                  <option value="">Todas</option>
+                  <option value="INFO">INFO</option>
+                  <option value="WARN">WARN</option>
+                  <option value="CRITICAL">CRITICAL</option>
+                </select>
               </div>
               <div class="form-group" style="margin:0;min-width:160px;">
-                <label>SteamID</label>
-                <input id="market-audit-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter')loadMarketAudit()" />
+                <label>SteamID (qualquer)</label>
+                <input id="market-audit-filter-steam" type="text" placeholder="7656119…" onkeydown="if(event.key==='Enter'){marketAuditResetPage();loadMarketAudit();}" />
+              </div>
+              <div class="form-group" style="margin:0;min-width:100px;">
+                <label>Listing</label>
+                <input id="market-audit-filter-listing" type="text" placeholder="ID" onkeydown="if(event.key==='Enter'){marketAuditResetPage();loadMarketAudit();}" />
               </div>
               <div class="form-group" style="margin:0;min-width:200px;">
                 <label>Trace ID</label>
-                <input id="market-audit-filter-trace" type="text" placeholder="UUID" onkeydown="if(event.key==='Enter')loadMarketAudit()" />
+                <input id="market-audit-filter-trace" type="text" placeholder="UUID" onkeydown="if(event.key==='Enter'){marketAuditResetPage();loadMarketAudit();}" />
               </div>
-              <button class="btn btn-primary btn-sm" onclick="loadMarketAudit()">Filtrar</button>
+              <div class="form-group" style="margin:0;">
+                <label>De</label>
+                <input id="market-audit-filter-from" type="date" onchange="marketAuditResetPage();loadMarketAudit();" />
+              </div>
+              <div class="form-group" style="margin:0;">
+                <label>Até</label>
+                <input id="market-audit-filter-to" type="date" onchange="marketAuditResetPage();loadMarketAudit();" />
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="marketAuditResetPage();loadMarketAudit();">Filtrar</button>
               <a class="btn btn-ghost btn-sm" href="#" onclick="marketExportAuditCsv();return false;">⬇ CSV</a>
+            </div>
+            <div id="market-audit-page-info" style="font-size:12px;color:var(--text2);margin-top:10px;"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn btn-ghost btn-sm" onclick="marketAuditPrevPage()">◀ Anterior</button>
+              <button class="btn btn-ghost btn-sm" onclick="marketAuditNextPage()">Próxima ▶</button>
             </div>
           </div>
           <div id="market-audit-list"></div>
@@ -4997,6 +5150,7 @@
               </div>
             </div>
             <div id="tickets-admin-order-panel" class="hidden" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);"></div>
+            <div id="tickets-admin-market-panel" class="hidden" style="margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);"></div>
             <div id="tickets-admin-history" style="margin-bottom:12px;"></div>
             <div id="tickets-admin-thread" style="max-height:420px;overflow-y:auto;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>
             <div id="tickets-admin-reply-box">
@@ -6983,6 +7137,27 @@ async function loadPlayerKitLimits() {
 
 let _notifPollTimer = null;
 let _notifItems = [];
+let _notifPollBackoffMs = 0;
+let _notifLastListFetch = 0;
+const _NOTIF_POLL_MS = 120000;
+
+function _notifErrorMessage(e) {
+  if (!e) return "Não foi possível carregar as notificações.";
+  const msg = typeof e === "string" ? e : (e.message || String(e));
+  return msg.replace(/^Error:\s*/i, "").trim() || "Não foi possível carregar as notificações.";
+}
+
+function _positionNotifPanel() {
+  const btn = document.getElementById("notif-bell-btn");
+  const panel = document.getElementById("notif-panel");
+  if (!btn || !panel) return;
+  const r = btn.getBoundingClientRect();
+  const panelW = Math.min(360, window.innerWidth - 16);
+  const left = Math.max(8, Math.min(r.left, window.innerWidth - panelW - 8));
+  panel.style.top = `${Math.round(r.bottom + 6)}px`;
+  panel.style.left = `${Math.round(left)}px`;
+  panel.style.width = `${panelW}px`;
+}
 
 function _formatNotifTime(iso) {
   if (!iso) return "";
@@ -7088,18 +7263,29 @@ async function markAllNotificationsRead() {
       loadNotificationsPanel();
       _updateNotifBadge(0);
     }
-  } catch (e) { toast(String(e), "error"); }
+  } catch (e) { toast(_notifErrorMessage(e), "error"); }
+}
+
+function _scheduleNotifPolling() {
+  if (_notifPollTimer) clearTimeout(_notifPollTimer);
+  if (!_auth.authenticated) return;
+  const delay = _notifPollBackoffMs || _NOTIF_POLL_MS;
+  _notifPollTimer = setTimeout(async () => {
+    await refreshNotificationsBadge();
+    _scheduleNotifPolling();
+  }, delay);
 }
 
 function _startNotifPolling() {
-  if (_notifPollTimer) clearInterval(_notifPollTimer);
+  _stopNotifPolling();
   if (!_auth.authenticated) return;
-  refreshNotifications();
-  _notifPollTimer = setInterval(refreshNotifications, 60000);
+  _notifPollBackoffMs = 0;
+  refreshNotificationsBadge();
+  _scheduleNotifPolling();
 }
 
 function _stopNotifPolling() {
-  if (_notifPollTimer) { clearInterval(_notifPollTimer); _notifPollTimer = null; }
+  if (_notifPollTimer) { clearTimeout(_notifPollTimer); _notifPollTimer = null; }
 }
 
 document.addEventListener("click", (e) => {
@@ -7107,6 +7293,11 @@ document.addEventListener("click", (e) => {
   const panel = document.getElementById("notif-panel");
   if (!wrap || !panel || panel.classList.contains("hidden")) return;
   if (!wrap.contains(e.target)) panel.classList.add("hidden");
+});
+
+window.addEventListener("resize", () => {
+  const panel = document.getElementById("notif-panel");
+  if (panel && !panel.classList.contains("hidden")) _positionNotifPanel();
 });
 
 function _kitLimitInfo(item) {
@@ -10048,6 +10239,7 @@ async function ticketsAdminOpenDetail(id) {
     if (statusSel) statusSel.value = t.status || "AGUARDANDO_SUPORTE";
     if (priSel) priSel.value = t.priority || "normal";
     _renderTicketOrderPanel("tickets-admin-order-panel", d.order, t);
+    _renderTicketMarketPanel("tickets-admin-market-panel", d.market_context, t);
     _renderTicketHistory("tickets-admin-history", d.history);
     _renderTicketThread("tickets-admin-thread", d.messages, d.orphan_attachments);
     document.getElementById("tickets-admin-reply").value = "";
@@ -10238,6 +10430,10 @@ let _marketBrowse = [];
 let _marketMyListings = [];
 let _marketAdminSpecies = [];
 let _marketAuditEvents = [];
+let _marketAuditPage = { limit: 50, offset: 0, total: 0 };
+let _marketAdminListings = [];
+let _marketListingsPage = { limit: 50, offset: 0, total: 0 };
+let _marketListingsSelected = new Set();
 let _shopMarketStatus = {};
 let _marketTab = "table";
 let _marketAdminTab = "species";
@@ -10303,19 +10499,21 @@ function setMarketAdminTab(tab) {
   if (panel) panel.classList.add("active");
   if (tab === "species") loadMarketAdmin();
   if (tab === "pending") loadMarketPendingClassification();
+  if (tab === "listings") loadMarketAdminListings();
   if (tab === "audit") loadMarketAudit();
+}
+
+function reloadMarketAdminPage() {
+  if (_marketAdminTab === "audit") loadMarketAudit();
+  else if (_marketAdminTab === "pending") loadMarketPendingClassification();
+  else if (_marketAdminTab === "listings") loadMarketAdminListings();
+  else loadMarketAdmin();
 }
 
 function reloadMarketPage() {
   if (_marketTab === "table") loadMarketTable();
   else if (_marketTab === "browse") loadMarketBrowse();
   else loadMarketMyShop();
-}
-
-function reloadMarketAdminPage() {
-  if (_marketAdminTab === "audit") loadMarketAudit();
-  else if (_marketAdminTab === "pending") loadMarketPendingClassification();
-  else loadMarketAdmin();
 }
 
 async function loadMarket() {
@@ -11032,12 +11230,25 @@ async function loadMarketAudit() {
   if (!list) return;
   list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
   const params = new URLSearchParams();
+  params.set("limit", String(_marketAuditPage.limit));
+  params.set("offset", String(_marketAuditPage.offset));
+  params.set("steam_id_mode", "any");
   const et = document.getElementById("market-audit-filter-type")?.value?.trim();
   const sid = document.getElementById("market-audit-filter-steam")?.value?.trim();
   const trace = document.getElementById("market-audit-filter-trace")?.value?.trim();
+  const listing = document.getElementById("market-audit-filter-listing")?.value?.trim();
+  const sev = document.getElementById("market-audit-filter-severity")?.value?.trim();
+  const q = document.getElementById("market-audit-filter-q")?.value?.trim();
+  const df = document.getElementById("market-audit-filter-from")?.value;
+  const dt = document.getElementById("market-audit-filter-to")?.value;
   if (et) params.set("event_type", et);
   if (sid) params.set("steam_id", sid);
   if (trace) params.set("market_trace_id", trace);
+  if (listing) params.set("listing_id", listing);
+  if (sev) params.set("severity", sev);
+  if (q) params.set("q", q);
+  if (df) params.set("date_from", df + "T00:00:00Z");
+  if (dt) params.set("date_to", dt + "T23:59:59Z");
   try {
     const r = await fetch(API + "/api/market/admin/audit?" + params.toString());
     const d = await r.json();
@@ -11046,10 +11257,57 @@ async function loadMarketAudit() {
       return;
     }
     _marketAuditEvents = d.events || [];
+    _marketAuditPage.total = d.total || 0;
+    const pageNum = Math.floor(_marketAuditPage.offset / _marketAuditPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_marketAuditPage.total / _marketAuditPage.limit));
+    const info = document.getElementById("market-audit-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_marketAuditPage.total} eventos)`;
     renderMarketAudit();
   } catch (e) {
     list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
   }
+}
+
+function marketAuditResetPage() { _marketAuditPage.offset = 0; }
+function marketAuditPrevPage() {
+  _marketAuditPage.offset = Math.max(0, _marketAuditPage.offset - _marketAuditPage.limit);
+  loadMarketAudit();
+}
+function marketAuditNextPage() {
+  if (_marketAuditPage.offset + _marketAuditPage.limit < _marketAuditPage.total) {
+    _marketAuditPage.offset += _marketAuditPage.limit;
+    loadMarketAudit();
+  }
+}
+
+function _marketAdminAuditLabel(eventType) {
+  const map = {
+    MARKET_DISPLAY_NAME_CHANGED: "Nome da vitrine alterado",
+    MARKET_UPLOAD_CONFIRMED: "Upload cryopod confirmado",
+    MARKET_SPECIES_PENDING: "Espécie pendente de classificação",
+    MARKET_LISTING_ACTIVATED: "Anúncio ativado",
+    MARKET_LISTING_PRICE_SET: "Preço definido",
+    MARKET_PURCHASE_COMPLETED: "Compra concluída",
+    MARKET_CLAIM_DELIVERED: "Claim entregue",
+    MARKET_CLAIM_EXPIRED: "Claim expirado",
+    MARKET_CLAIM_REFUNDED: "Claim reembolsado",
+    MARKET_LISTING_PAUSED: "Anúncio pausado",
+    MARKET_LISTING_WITHDRAW_REQUESTED: "Resgate solicitado (vendedor)",
+    MARKET_LISTING_ADMIN_REMOVED: "Moderação: removido",
+    MARKET_LISTING_ADMIN_PRICE: "Moderação: preço ajustado",
+    MARKET_LISTING_ADMIN_FLAGGED: "Moderação: sinalizado",
+    MARKET_LISTING_CLASSIFIED: "Espécie classificada",
+    MARKET_LISTING_PROMOTED: "Anúncio promovido",
+    MARKET_LISTING_RECOMPUTED: "Economia recalculada",
+    MARKET_SELLER_LISTING_SOLD: "Venda (vitrine)",
+    MARKET_SELLER_BUYER_CLAIMED: "Comprador resgatou (vitrine)",
+    MARKET_SELLER_LISTING_ADMIN_FLAGGED: "Sinalizado (vitrine)",
+    MARKET_SELLER_LISTING_ADMIN_REMOVED: "Removido (vitrine)",
+    MARKET_SELLER_RECLAIM_DELIVERED: "Devolução após remoção admin",
+    MARKET_LISTING_BULK_ADMIN_ACTION: "Ação em lote (moderação)",
+    MARKET_TICKET_LINKED: "Ticket vinculado",
+  };
+  return map[eventType] || eventType || "—";
 }
 
 function renderMarketAudit() {
@@ -11059,28 +11317,313 @@ function renderMarketAudit() {
     list.innerHTML = '<div class="card"><p style="margin:0;color:var(--text2);">Nenhum evento encontrado.</p></div>';
     return;
   }
-  const rows = _marketAuditEvents.map(ev => `<tr>
+  const rows = _marketAuditEvents.map(ev => {
+    const label = ev.event_label || _marketAdminAuditLabel(ev.event_type);
+    const summary = ev.summary_pt || (ev.metadata && ev.metadata.summary_pt) || "";
+    const listingLink = ev.listing_id
+      ? `<a href="#" onclick="marketAdminViewListing(${ev.listing_id});return false;">#${ev.listing_id}</a>`
+      : "—";
+    return `<tr>
     <td style="white-space:nowrap;font-size:11px;">${escHtml((ev.created_at || "").replace("T"," ").slice(0,19))}</td>
-    <td><code style="font-size:11px;">${escHtml(ev.event_type)}</code></td>
+    <td style="font-size:12px;" title="${escHtml(ev.event_type || "")}">${escHtml(label)}</td>
     <td style="font-size:11px;">${escHtml(ev.severity || "")}</td>
-    <td style="font-size:11px;font-family:monospace;">${escHtml(ev.steam_id || "—")}</td>
-    <td>${ev.listing_id || "—"}</td>
-    <td style="font-size:11px;color:var(--text2);max-width:120px;overflow:hidden;text-overflow:ellipsis;">${escHtml(ev.market_trace_id || "—")}</td>
-    <td>${ev.effective_price != null ? Number(ev.effective_price).toLocaleString("pt-BR") : "—"}</td>
-  </tr>`).join("");
+    <td style="font-size:10px;font-family:monospace;">${escHtml((ev.steam_id || "—").slice(-10))}</td>
+    <td style="font-size:10px;font-family:monospace;">${escHtml((ev.counterparty_steam_id || "—").slice(-10))}</td>
+    <td>${listingLink}</td>
+    <td style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;" title="${escHtml(summary)}">${escHtml(summary || "—")}</td>
+    <td><button class="btn btn-ghost btn-sm" onclick="viewMarketAuditDetail(${ev.id})">🔍</button></td>
+  </tr>`;
+  }).join("");
   list.innerHTML = `<div class="card"><table class="tbl"><thead><tr>
-    <th>Data</th><th>Evento</th><th>Sev.</th><th>Steam</th><th>Listing</th><th>Trace</th><th>Preço</th>
+    <th>Data</th><th>Evento</th><th>Sev.</th><th>Ator</th><th>Contraparte</th><th>Listing</th><th>Resumo</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table></div>`;
   requestAnimationFrame(() => wrapTablesForScroll(list));
 }
 
+function renderMarketAuditEventDetail(ev) {
+  const e = ev || {};
+  const meta = e.metadata || {};
+  let metaBlock = "";
+  if (Object.keys(meta).length) {
+    metaBlock = `<div style="margin-top:12px;font-size:11px;color:var(--text2);font-weight:600;">Metadata</div>
+      <div class="audit-detail-payload">${escHtml(JSON.stringify(meta, null, 2))}</div>`;
+  }
+  const actions = [];
+  if (e.listing_id) actions.push(`<button class="btn btn-ghost btn-sm" onclick="marketAdminViewListing(${e.listing_id})">Ver listing #${e.listing_id}</button>`);
+  if (e.market_trace_id) actions.push(`<button class="btn btn-ghost btn-sm" onclick="marketAuditFilterTrace('${escHtml(e.market_trace_id)}')">Filtrar trace</button>`);
+  if (e.listing_id) actions.push(`<button class="btn btn-ghost btn-sm" onclick="marketAdminViewTimeline(${e.listing_id})">Timeline</button>`);
+  return `<div class="audit-detail-grid">
+    ${_auditRow("Tipo", e.event_type)}
+    ${_auditRow("Label", e.event_label || _marketAdminAuditLabel(e.event_type))}
+    ${_auditRow("Severidade", e.severity)}
+    ${_auditRow("Data", fmtDate(e.created_at))}
+    ${_auditRow("Origem", e.source)}
+    ${_auditRow("Ator", e.steam_id)}
+    ${_auditRow("Contraparte", e.counterparty_steam_id)}
+    ${_auditRow("Listing", e.listing_id)}
+    ${_auditRow("Claim", e.claim_id)}
+    ${_auditRow("Trace", e.market_trace_id)}
+    ${_auditRow("Preço", e.effective_price != null ? Number(e.effective_price).toLocaleString("pt-BR") + " Âmbar" : "")}
+    ${_auditRow("Resumo", e.summary_pt || meta.summary_pt)}
+  </div>${metaBlock}
+  ${actions.length ? `<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">${actions.join("")}</div>` : ""}`;
+}
+
+async function viewMarketAuditDetail(id) {
+  const r = await fetch(API + `/api/market/admin/audit/${id}`);
+  const d = await r.json();
+  if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+  const body = document.getElementById("audit-detail-body");
+  if (body) body.innerHTML = renderMarketAuditEventDetail(d.event);
+  document.getElementById("modal-audit-detail")?.classList.remove("hidden");
+}
+
+function marketAuditFilterTrace(traceId) {
+  closeModal("modal-audit-detail");
+  const el = document.getElementById("market-audit-filter-trace");
+  if (el) el.value = traceId;
+  setMarketAdminTab("audit");
+  marketAuditResetPage();
+  loadMarketAudit();
+}
+
 function marketExportAuditCsv() {
   const params = new URLSearchParams();
+  params.set("steam_id_mode", "any");
   const et = document.getElementById("market-audit-filter-type")?.value?.trim();
   const sid = document.getElementById("market-audit-filter-steam")?.value?.trim();
+  const trace = document.getElementById("market-audit-filter-trace")?.value?.trim();
+  const listing = document.getElementById("market-audit-filter-listing")?.value?.trim();
+  const sev = document.getElementById("market-audit-filter-severity")?.value?.trim();
+  const q = document.getElementById("market-audit-filter-q")?.value?.trim();
+  const df = document.getElementById("market-audit-filter-from")?.value;
+  const dt = document.getElementById("market-audit-filter-to")?.value;
   if (et) params.set("event_type", et);
   if (sid) params.set("steam_id", sid);
+  if (trace) params.set("market_trace_id", trace);
+  if (listing) params.set("listing_id", listing);
+  if (sev) params.set("severity", sev);
+  if (q) params.set("q", q);
+  if (df) params.set("date_from", df + "T00:00:00Z");
+  if (dt) params.set("date_to", dt + "T23:59:59Z");
   window.open(API + "/api/market/admin/audit/export?" + params.toString(), "_blank");
+}
+
+async function loadMarketAdminListings() {
+  const list = document.getElementById("market-admin-listings-list");
+  if (!list) return;
+  list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
+  const params = new URLSearchParams();
+  params.set("limit", String(_marketListingsPage.limit));
+  params.set("offset", String(_marketListingsPage.offset));
+  const q = document.getElementById("market-listings-filter-q")?.value?.trim();
+  const status = document.getElementById("market-listings-filter-status")?.value;
+  const sort = document.getElementById("market-listings-filter-sort")?.value || "recent";
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  params.set("sort", sort);
+  try {
+    const r = await fetch(API + "/api/market/admin/listings?" + params.toString());
+    const d = await r.json();
+    if (!d.ok) {
+      list.innerHTML = `<p style="color:var(--warn);">${escHtml(d.error || "Erro")}</p>`;
+      return;
+    }
+    _marketAdminListings = d.listings || [];
+    _marketListingsPage.total = d.total || 0;
+    _marketListingsSelected.clear();
+    const pageNum = Math.floor(_marketListingsPage.offset / _marketListingsPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_marketListingsPage.total / _marketListingsPage.limit));
+    const info = document.getElementById("market-listings-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_marketListingsPage.total} anúncios)`;
+    renderMarketAdminListings();
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+function marketListingsPrevPage() {
+  _marketListingsPage.offset = Math.max(0, _marketListingsPage.offset - _marketListingsPage.limit);
+  loadMarketAdminListings();
+}
+function marketListingsNextPage() {
+  if (_marketListingsPage.offset + _marketListingsPage.limit < _marketListingsPage.total) {
+    _marketListingsPage.offset += _marketListingsPage.limit;
+    loadMarketAdminListings();
+  }
+}
+
+function marketListingsToggleSelectAll(checked) {
+  _marketListingsSelected.clear();
+  if (checked) _marketAdminListings.forEach(l => _marketListingsSelected.add(l.listing_id));
+  renderMarketAdminListings();
+}
+
+function marketListingsToggleSelect(id, checked) {
+  if (checked) _marketListingsSelected.add(id);
+  else _marketListingsSelected.delete(id);
+}
+
+function renderMarketAdminListings() {
+  const list = document.getElementById("market-admin-listings-list");
+  if (!list) return;
+  if (!_marketAdminListings.length) {
+    list.innerHTML = '<div class="card"><p style="margin:0;color:var(--text2);">Nenhum anúncio encontrado.</p></div>';
+    return;
+  }
+  const rows = _marketAdminListings.map(l => {
+    const flagged = l.admin_flagged ? " ⚑" : "";
+    const checked = _marketListingsSelected.has(l.listing_id) ? " checked" : "";
+    return `<tr>
+      <td><input type="checkbox"${checked} onchange="marketListingsToggleSelect(${l.listing_id}, this.checked)" /></td>
+      <td>#${l.listing_id}</td>
+      <td>${escHtml(l.display_title || l.custom_name || l.dino_display_name || "—")}${flagged}</td>
+      <td>L${l.dino_level || "?"}</td>
+      <td>${escHtml(l.status || "")}</td>
+      <td>${Number(l.effective_price || 0).toLocaleString("pt-BR")} Âmbar</td>
+      <td style="font-size:11px;">${escHtml(l.seller_display_name || l.seller_steam_id || "—")}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-ghost btn-sm" onclick="marketAdminViewListing(${l.listing_id})">Detalhe</button>
+        <button class="btn btn-ghost btn-sm" onclick="marketAdminViewTimeline(${l.listing_id})">Timeline</button>
+        <button class="btn btn-ghost btn-sm" onclick="marketAdminFlagListing(${l.listing_id})">Flag</button>
+      </td>
+    </tr>`;
+  }).join("");
+  list.innerHTML = `<div class="card"><table class="tbl"><thead><tr>
+    <th></th><th>ID</th><th>Anúncio</th><th>Nível</th><th>Status</th><th>Preço</th><th>Vendedor</th><th>Ações</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
+  requestAnimationFrame(() => wrapTablesForScroll(list));
+}
+
+async function marketListingsBulkAction(action) {
+  const ids = Array.from(_marketListingsSelected);
+  if (!ids.length) { toast("Selecione ao menos um anúncio.", "warning"); return; }
+  const reason = action === "remove" ? (prompt("Motivo (opcional):") || "") : "";
+  if (action === "remove" && !confirm(`Remover ${ids.length} anúncio(s)?`)) return;
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/bulk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, listing_ids: ids, reason, pause: true }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast(`${d.processed || 0} processado(s)${d.errors?.length ? ", " + d.errors.length + " erro(s)" : ""}`, "success");
+    loadMarketAdminListings();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketAdminViewListing(listingId) {
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/" + listingId);
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    const l = d.listing || {};
+    const cryo = l.cryo_preview || {};
+    const stats = l.stats || {};
+    const breakdown = (l.calculation_breakdown || []).map(b =>
+      `<li>${escHtml(b.stat || b.key || "")}: ${escHtml(String(b.points || b.value || ""))}</li>`
+    ).join("");
+    const body = document.getElementById("audit-detail-body");
+    if (!body) return;
+    body.innerHTML = `<div class="audit-detail-grid">
+      ${_auditRow("ID", l.listing_id)}
+      ${_auditRow("Título", l.display_title)}
+      ${_auditRow("Status", l.status)}
+      ${_auditRow("Vendedor", l.seller_display_name || l.seller_steam_id)}
+      ${_auditRow("Preço", (l.effective_price || 0).toLocaleString("pt-BR") + " Âmbar")}
+      ${_auditRow("Sugerido", (l.suggested_base_value || 0).toLocaleString("pt-BR") + " Âmbar")}
+      ${_auditRow("Nível", l.dino_level)}
+      ${_auditRow("Imprint", l.imprint_pct != null ? l.imprint_pct + "%" : "—")}
+      ${_auditRow("Mutações", (l.mutations_male || 0) + "♂ / " + (l.mutations_female || 0) + "♀")}
+      ${_auditRow("blob_hash", cryo.blob_hash)}
+      ${_auditRow("parser", cryo.parser_version)}
+    </div>
+    ${breakdown ? `<div style="margin-top:12px;font-size:12px;font-weight:600;">Breakdown economia</div><ul style="font-size:12px;margin:6px 0 0 16px;">${breakdown}</ul>` : ""}
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="marketAdminViewTimeline(${listingId})">Timeline completa</button>
+      <button class="btn btn-ghost btn-sm" onclick="marketAdminCreateTicket(${listingId})">Abrir ticket</button>
+    </div>`;
+    document.getElementById("modal-audit-detail")?.classList.remove("hidden");
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketAdminViewTimeline(listingId) {
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/" + listingId + "/timeline");
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Erro", "error"); return; }
+    const listing = d.listing || {};
+    const events = (d.audit_events || []).map(ev =>
+      `<div class="audit-timeline-item">
+        <div style="font-size:11px;color:var(--text2);">${fmtDate(ev.created_at)} · ${escHtml(ev.event_label || _marketAdminAuditLabel(ev.event_type))}</div>
+        <div style="font-size:12px;margin-top:2px;">${escHtml(ev.summary_pt || ev.event_type || "")}</div>
+      </div>`
+    ).join("");
+    const claims = (d.claims || []).map(c =>
+      `<div style="font-size:12px;">Claim #${c.claim_id} · ${escHtml(c.status)} · ${escHtml(c.claim_type)}</div>`
+    ).join("");
+    const snap = d.amber_snapshot || {};
+    const body = document.getElementById("audit-detail-body");
+    if (!body) return;
+    body.innerHTML = `<div style="font-family:'Cinzel',serif;font-size:13px;color:var(--amber);margin-bottom:10px;">Timeline — Anúncio #${listingId}</div>
+      <div class="audit-detail-grid" style="margin-bottom:12px;">
+        ${_auditRow("Título", listing.display_title)}
+        ${_auditRow("Status", listing.status)}
+        ${_auditRow("Vendedor Âmbar", snap.seller_points)}
+        ${_auditRow("Comprador Âmbar", snap.buyer_points != null ? snap.buyer_points : "—")}
+      </div>
+      ${claims ? `<div style="font-size:12px;font-weight:600;margin-bottom:6px;">Claims</div>${claims}` : ""}
+      <div style="font-size:12px;font-weight:600;margin:12px 0 6px;">Eventos (${(d.audit_events || []).length})</div>
+      ${events || '<p style="color:var(--text2);">Sem eventos.</p>'}`;
+    document.getElementById("modal-audit-detail")?.classList.remove("hidden");
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function marketAdminCreateTicket(listingId) {
+  if (!confirm("Abrir ticket de suporte vinculado ao anúncio #" + listingId + "?")) return;
+  try {
+    const r = await fetch(API + "/api/market/admin/listings/" + listingId + "/ticket", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha", "error"); return; }
+    toast("Ticket #" + (d.ticket_id || d.ticket?.id || "?") + " criado", "success");
+  } catch (e) { toast(String(e), "error"); }
+}
+
+function _renderTicketMarketPanel(hostId, ctx, ticket) {
+  const el = document.getElementById(hostId);
+  if (!el) return;
+  const lid = ticket?.listing_id || (ctx && ctx.listing_id);
+  if (!lid && !ctx) {
+    el.classList.add("hidden");
+    el.innerHTML = "";
+    return;
+  }
+  if (!ctx || !ctx.found) {
+    el.classList.remove("hidden");
+    el.innerHTML = `<div style="font-size:12px;color:var(--text2);">Anúncio vinculado: #${escHtml(String(lid))} (não encontrado)</div>`;
+    return;
+  }
+  el.classList.remove("hidden");
+  const claim = ctx.pending_claim;
+  const claimHtml = claim
+    ? `<div style="font-size:12px;margin-top:4px;">Claim #${claim.claim_id} · ${escHtml(claim.status)} · expira ${escHtml(claim.claim_expires_at || "—")}</div>`
+    : "";
+  el.innerHTML = `<div style="font-size:12px;color:var(--amber);font-family:'Cinzel',serif;margin-bottom:6px;">Mercado — Anúncio #${ctx.listing_id}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;font-size:12px;">
+      <div><span style="color:var(--text2);">Dino</span><br>${escHtml(ctx.display_title || "—")}</div>
+      <div><span style="color:var(--text2);">Status</span><br>${escHtml(ctx.status || "—")}${ctx.admin_flagged ? " ⚑" : ""}</div>
+      <div><span style="color:var(--text2);">Preço</span><br>${Number(ctx.effective_price || 0).toLocaleString("pt-BR")} Âmbar</div>
+      <div><span style="color:var(--text2);">Vendedor</span><br><code style="font-size:10px;">${escHtml(ctx.seller_steam_id || "")}</code></div>
+    </div>${claimHtml}
+    <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="marketAdminViewTimeline(${ctx.listing_id})">Timeline</button>
+      <button class="btn btn-ghost btn-sm" onclick="setMarketAdminTab('listings');marketAdminViewListing(${ctx.listing_id})">Detalhe</button>
+    </div>`;
 }
 
 async function loadMarketPendingClassification() {
@@ -14408,6 +14951,7 @@ async function loadHome() {
     if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao carregar");
     if (d.currency) applyCurrency(d.currency);
     renderHomePage(d);
+    loadAmberMeter();
     return true;
   } catch (e) {
     root.innerHTML = `
@@ -14422,6 +14966,92 @@ async function loadHome() {
   } finally {
     clearTimeout(timer);
   }
+}
+
+let _amberMeterValue = 0;
+let _amberMeterTimer = null;
+
+const _AMBER_CHANNEL_LABELS = {
+  donation: "Doações",
+  shop_web: "Loja web",
+  market: "Mercado",
+  admin: "Admin",
+  community: "Enquetes",
+};
+
+function _formatAmberPt(n) {
+  const v = Number(n);
+  return Number.isFinite(v) ? v.toLocaleString("pt-BR") : "0";
+}
+
+function _animateAmberCounter(el, from, to, durationMs = 1400) {
+  if (!el) return;
+  const start = performance.now();
+  const delta = to - from;
+  function frame(now) {
+    const t = Math.min(1, (now - start) / durationMs);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const current = Math.round(from + delta * eased);
+    el.textContent = _formatAmberPt(current);
+    if (t < 1) requestAnimationFrame(frame);
+    else el.textContent = _formatAmberPt(to);
+  }
+  requestAnimationFrame(frame);
+}
+
+function renderAmberMeter(data) {
+  const root = document.getElementById("amber-meter-root");
+  if (!root || !data || !data.ok) return;
+  root.classList.remove("amber-meter--hidden");
+  const total = Number(data.total_gross_all_time || 0);
+  const label = escHtml((data.display && data.display.label) || "Âmbares movimentados");
+  const sublabel = escHtml((data.display && data.display.sublabel) || "");
+  const chips = [
+    ["Hoje", data.total_gross_today],
+    ["7 dias", data.total_gross_7d],
+    ["30 dias", data.total_gross_30d],
+  ].map(([lbl, val]) =>
+    `<span class="amber-meter__chip">${escHtml(lbl)}: <strong>${_formatAmberPt(val)}</strong></span>`
+  ).join("");
+  const ch = data.channels || {};
+  const chTotal = Object.keys(_AMBER_CHANNEL_LABELS).reduce((s, k) => s + (Number(ch[k]) || 0), 0);
+  const channelHtml = chTotal > 0
+    ? Object.entries(_AMBER_CHANNEL_LABELS).map(([key, lbl]) => {
+        const v = Number(ch[key]) || 0;
+        if (v <= 0) return "";
+        const pct = Math.round((v / chTotal) * 100);
+        return `<span>${escHtml(lbl)} ${pct}%</span>`;
+      }).filter(Boolean).join(" · ")
+    : "";
+  const plural = escHtml((data.currency && data.currency.plural) || CURRENCY.plural || "Âmbares");
+  root.innerHTML = `
+    <div class="amber-meter__eyebrow">${amberIconHtml(20)} Âmbarômetro</div>
+    <div class="amber-meter__value" id="amber-meter-value" aria-label="${label}: ${_formatAmberPt(total)} ${plural}">${_formatAmberPt(_amberMeterValue)}</div>
+    <div class="amber-meter__sublabel">${label}<br><span style="opacity:.8;font-size:12px;">${sublabel}</span></div>
+    <div class="amber-meter__chips">${chips}</div>
+    ${channelHtml ? `<div class="amber-meter__channels">${channelHtml}</div>` : ""}
+    ${data.coverage_note ? `<p class="amber-meter__note">${escHtml(data.coverage_note)}</p>` : ""}
+  `;
+  const valEl = document.getElementById("amber-meter-value");
+  if (valEl && total !== _amberMeterValue) {
+    _animateAmberCounter(valEl, _amberMeterValue, total);
+    _amberMeterValue = total;
+  } else if (valEl) {
+    valEl.textContent = _formatAmberPt(total);
+  }
+}
+
+async function loadAmberMeter() {
+  if (_amberMeterTimer) clearInterval(_amberMeterTimer);
+  async function fetchAndRender() {
+    try {
+      const r = await fetch(API + "/api/public/amber-stats");
+      const d = await r.json();
+      if (r.ok && d.ok) renderAmberMeter(d);
+    } catch (_) { /* degradado */ }
+  }
+  await fetchAndRender();
+  _amberMeterTimer = setInterval(fetchAndRender, 90000);
 }
 
 function renderHomeCommerceSection() {
@@ -14876,6 +15506,8 @@ function renderHomePage(d) {
         <img class="home-hero__logo" src="/logo.png" alt="ARKLAND" />
       </div>
     </section>
+
+    <div id="amber-meter-root" class="amber-meter amber-meter--hidden" aria-live="polite" aria-atomic="true"></div>
 
     <div class="home-stats">
       <div class="home-stat"><div class="home-stat__val">${st.items ?? 0}</div><div class="home-stat__lbl">Itens</div></div>

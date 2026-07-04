@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
+
+log = logging.getLogger("arkshop_web.polls")
 
 POLL_STATUSES = frozenset({"DRAFT", "ACTIVE", "CLOSED", "CANCELLED"})
 POLL_STATUS_LABELS = {
@@ -737,6 +740,12 @@ def cast_vote(
 
     if reward > 0:
         _credit_points(db, steam_id, reward)
+        try:
+            from amber_ledger import record_poll_reward
+
+            record_poll_reward(db, poll_id=poll_id, steam_id=steam_id, reward=reward)
+        except Exception as exc:
+            log.warning("Âmbarômetro poll reward hook: %s", exc)
 
     total_voters = _total_voters(db, poll_id)
     db.execute(

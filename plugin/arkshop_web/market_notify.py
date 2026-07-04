@@ -198,3 +198,42 @@ def notify_seller_listing_removed(
         claim_id=claim_id,
         market_trace_id=market_trace_id,
     )
+
+
+def notify_staff_market_alert(
+    db: Any,
+    *,
+    title: str,
+    body: str,
+    listing_id: int | None = None,
+    severity: str = "WARN",
+) -> None:
+    """Notifica admins e equipe de suporte sobre eventos críticos do mercado."""
+    try:
+        from app import _load_admin_steamids, _load_support_steamids
+
+        recipients = set(_load_admin_steamids()) | set(_load_support_steamids())
+    except Exception as exc:
+        log.warning("notify_staff_market_alert: falha ao carregar staff: %s", exc)
+        return
+    if not recipients:
+        return
+    ntype = "market_staff_critical" if severity.upper() == "CRITICAL" else "market_staff_alert"
+    link_id = str(listing_id) if listing_id else None
+    for steam_id in recipients:
+        try:
+            create_notification(
+                db,
+                steam_id=steam_id,
+                type=ntype,
+                title=title[:200],
+                body=body[:2000],
+                link_type="market_admin" if listing_id else None,
+                link_id=link_id,
+            )
+        except Exception as exc:
+            log.warning("notify_staff_market_alert steam=%s: %s", steam_id, exc)
+    try:
+        db.commit()
+    except Exception:
+        pass

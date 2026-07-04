@@ -179,3 +179,33 @@ def test_notifications_api_requires_login(client):
 
     r2 = client.get("/api/notifications/unread-count")
     assert r2.status_code in (401, 403)
+
+
+def test_notifications_read_routes_have_generous_rate_limits():
+    """GET de notificações não deve herdar o default global (50/h) do limiter."""
+    from flask import Flask
+
+    from notification_routes import register_notification_routes
+
+    limits: list[str] = []
+
+    class _FakeLimiter:
+        def limit(self, rule: str, **kwargs):
+            limits.append(rule)
+
+            def deco(fn):
+                return fn
+
+            return deco
+
+    mini = Flask(__name__)
+    register_notification_routes(
+        mini,
+        db_ready=lambda: True,
+        session_factory=lambda: None,
+        login_required=lambda f: f,
+        steam_id_from_session=lambda: USER_STEAM,
+        limiter=_FakeLimiter(),
+    )
+    assert any("300 per hour" in x for x in limits)
+    assert any("600 per hour" in x for x in limits)

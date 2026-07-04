@@ -181,7 +181,7 @@ Nova seção no app (acesso sugerido):
    - Ou: campo `SpawnCommand` raw se CustomShop aceitar comando completo
 3. Sincroniza plugin nos servidores
 
-> **Nota:** validar com `CustomShop` se entrega usa `SpawnExactDino` completo ou só blueprint+nível. Se só simplificado, pode ser necessário extensão do plugin ou campo `ConsoleCommand` no kit.
+> **Nota:** validar com `CustomShop` se entrega usa `SpawnExactDino` completo ou só blueprint+nível. Para **dinos com cores exatas via admin web**, ver [`docs/dino_custom_colors_delivery_spec.md`](dino_custom_colors_delivery_spec.md) — plugin **`CustomDinoDeliver`** + área **Dino Lab** (separado do CustomShop).
 
 #### Fluxo C — Preset / biblioteca
 - Salvar dinos frequentes (nome, comando, thumbnail cor)

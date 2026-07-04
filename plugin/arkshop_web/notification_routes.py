@@ -21,6 +21,7 @@ def register_notification_routes(
 
     @app.route("/api/notifications", methods=["GET"])
     @login_required
+    @_limit("30 per minute; 300 per hour", override_defaults=True)
     def notifications_list():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
@@ -47,6 +48,7 @@ def register_notification_routes(
 
     @app.route("/api/notifications/unread-count", methods=["GET"])
     @login_required
+    @_limit("60 per minute; 600 per hour", override_defaults=True)
     def notifications_unread_count():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503

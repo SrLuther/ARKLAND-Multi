@@ -20,13 +20,14 @@ from ark_species_registry import (
     resolve_species_image,
     suggestion_to_public,
 )
-from market_audit import market_audit_event
+from market_audit import market_audit_event, market_audit_label
 from market_notify import (
     SELLER_VITRINE_EVENT_TYPES,
     notify_seller_buyer_claimed,
     notify_seller_listing_flagged,
     notify_seller_listing_removed,
     notify_seller_listing_sold,
+    notify_staff_market_alert,
 )
 from market_economy import (
     STAT_KEYS,
@@ -954,6 +955,7 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         raise ValueError(f"Saldo insuficiente ({buyer_before} < {price})")
 
     seller_before = _player_points(db, row.seller_steam_id)
+    status_before = row.status
 
     row.status = "RESERVING"
     db.flush()
@@ -1009,6 +1011,13 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         points_after=buyer_after,
         market_trace_id=row.market_trace_id,
         metadata={
+            "seller_steam_id": row.seller_steam_id,
+            "buyer_steam_id": buyer_steam_id,
+            "listing_status_before": status_before,
+            "listing_status_after": row.status,
+            "summary_pt": (
+                f"Compra do anúncio #{row.id} por {price:,} Âmbar"
+            ).replace(",", "."),
             "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
             "reservation_hours": CLAIM_RESERVATION_HOURS,
         },
@@ -1027,6 +1036,21 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         )
     except Exception as exc:
         log.warning("notify_seller_listing_sold falhou listing=%s: %s", row.id, exc)
+
+    try:
+        from amber_ledger import record_market_purchase
+
+        record_market_purchase(
+            db,
+            tx_id=int(tx.id),
+            listing_id=row.id,
+            buyer_steam_id=buyer_steam_id,
+            seller_steam_id=row.seller_steam_id,
+            price=price,
+            commit=True,
+        )
+    except Exception as amber_exc:
+        log.warning("Âmbarômetro market purchase hook: %s", amber_exc)
 
     hrs = _hours_remaining(claim.claim_expires_at, now=now)
     return {
@@ -1341,6 +1365,20 @@ def _expire_buyer_claim(
         },
         commit=False,
     )
+    try:
+        from amber_ledger import record_market_claim_refund
+
+        record_market_claim_refund(
+            db,
+            listing_id=listing.id,
+            claim_id=claim.id,
+            buyer_steam_id=buyer_id or "",
+            seller_steam_id=seller_id or "",
+            refund=refund,
+            seller_debited=seller_debited,
+        )
+    except Exception as amber_exc:
+        log.warning("Âmbarômetro market claim refund hook: %s", amber_exc)
     return {
         "claim_id": claim.id,
         "listing_id": listing.id,
@@ -1597,6 +1635,7 @@ def admin_remove_listing(
     if row.status in TERMINAL_LISTING | {"AWAITING_CLAIM", "CANCELLED"}:
         raise ValueError(f"Status não permite remoção: {row.status}")
 
+    status_before = row.status
     now = _now()
     meta = _json_loads(row.metadata_json)
     meta["admin_removed"] = True
@@ -1624,12 +1663,39 @@ def admin_remove_listing(
         db,
         "MARKET_LISTING_ADMIN_REMOVED",
         steam_id=admin_steam_id,
+        counterparty_steam_id=row.seller_steam_id,
         listing_id=row.id,
         claim_id=claim.id,
         market_trace_id=row.market_trace_id,
-        metadata={"reason": reason[:280] if reason else None, "seller": row.seller_steam_id},
+        severity="WARN",
+        source="admin",
+        metadata={
+            "seller_steam_id": row.seller_steam_id,
+            "admin_steam_id": admin_steam_id,
+            "reason": reason[:280] if reason else None,
+            "listing_status_before": status_before,
+            "listing_status_after": row.status,
+            "summary_pt": (
+                f"Admin removeu anúncio #{row.id} do vendedor {row.seller_steam_id}"
+                + (f" — motivo: {reason[:80]}" if reason else "")
+            ),
+        },
         commit=True,
     )
+    try:
+        notify_staff_market_alert(
+            db,
+            title=f"Moderação: anúncio #{row.id} removido",
+            body=(
+                f"Admin {admin_steam_id[-8:]} removeu anúncio #{row.id} "
+                f"do vendedor {row.seller_steam_id}."
+                + (f" Motivo: {reason[:120]}" if reason else "")
+            ),
+            listing_id=row.id,
+            severity="WARN",
+        )
+    except Exception as exc:
+        log.warning("notify_staff_market_alert remove listing=%s: %s", row.id, exc)
     try:
         notify_seller_listing_removed(
             db,
@@ -1669,6 +1735,8 @@ def admin_set_listing_price(
         raise ValueError(f"Status não permite edição: {row.status}")
 
     price = max(0, int(price_absolute))
+    price_before = int(row.effective_price or 0)
+    status_before = row.status
     row.price_absolute = price
     row.effective_price = price
     row.price_mode = "ABSOLUTE"
@@ -1684,10 +1752,24 @@ def admin_set_listing_price(
         db,
         "MARKET_LISTING_ADMIN_PRICE",
         steam_id=admin_steam_id,
+        counterparty_steam_id=row.seller_steam_id,
         listing_id=row.id,
         effective_price=price,
         market_trace_id=row.market_trace_id,
-        metadata={"paused": pause},
+        source="admin",
+        metadata={
+            "seller_steam_id": row.seller_steam_id,
+            "admin_steam_id": admin_steam_id,
+            "price_before": price_before,
+            "price_after": price,
+            "paused": pause,
+            "listing_status_before": status_before,
+            "listing_status_after": row.status,
+            "summary_pt": (
+                f"Admin ajustou preço do anúncio #{row.id}: "
+                f"{price_before:,} → {price:,} Âmbar"
+            ).replace(",", "."),
+        },
         commit=True,
     )
     species_row = resolve_species(db, species_key=row.species_key)
@@ -1709,6 +1791,7 @@ def admin_flag_listing(
     if not row:
         raise ValueError("Anúncio não encontrado")
 
+    status_before = row.status
     meta = _json_loads(row.metadata_json)
     meta["admin_flagged"] = True
     meta["admin_flagged_by"] = admin_steam_id
@@ -1724,11 +1807,39 @@ def admin_flag_listing(
         db,
         "MARKET_LISTING_ADMIN_FLAGGED",
         steam_id=admin_steam_id,
+        counterparty_steam_id=row.seller_steam_id,
         listing_id=row.id,
         market_trace_id=row.market_trace_id,
-        metadata={"reason": reason[:280] if reason else None, "paused": pause},
+        severity="WARN",
+        source="admin",
+        metadata={
+            "seller_steam_id": row.seller_steam_id,
+            "admin_steam_id": admin_steam_id,
+            "reason": reason[:280] if reason else None,
+            "paused": pause,
+            "listing_status_before": status_before,
+            "listing_status_after": row.status,
+            "summary_pt": (
+                f"Admin sinalizou anúncio #{row.id}"
+                + (f" — motivo: {reason[:80]}" if reason else "")
+            ),
+        },
         commit=True,
     )
+    try:
+        notify_staff_market_alert(
+            db,
+            title=f"Moderação: anúncio #{row.id} sinalizado",
+            body=(
+                f"Admin {admin_steam_id[-8:]} sinalizou anúncio #{row.id} "
+                f"do vendedor {row.seller_steam_id}."
+                + (f" Motivo: {reason[:120]}" if reason else "")
+            ),
+            listing_id=row.id,
+            severity="WARN",
+        )
+    except Exception as exc:
+        log.warning("notify_staff_market_alert flag listing=%s: %s", row.id, exc)
     try:
         notify_seller_listing_flagged(
             db,
@@ -2279,45 +2390,494 @@ def list_seller_vitrine_audit_events(
     return out
 
 
+def _market_audit_row_to_dict(row: Any) -> dict[str, Any]:
+    meta = _json_loads(row.metadata_json) if row.metadata_json else {}
+    summary = meta.get("summary_pt") or ""
+    return {
+        "id": row.id,
+        "event_type": row.event_type,
+        "event_label": market_audit_label(row.event_type),
+        "severity": row.severity,
+        "steam_id": row.steam_id,
+        "counterparty_steam_id": row.counterparty_steam_id,
+        "listing_id": row.listing_id,
+        "vault_id": row.vault_id,
+        "claim_id": row.claim_id,
+        "blob_hash": row.blob_hash,
+        "computed_base_value": row.computed_base_value,
+        "effective_price": row.effective_price,
+        "points_delta": row.points_delta,
+        "points_before": row.points_before,
+        "points_after": row.points_after,
+        "market_trace_id": row.market_trace_id,
+        "source": row.source,
+        "parser_version": row.parser_version,
+        "plugin_version": row.plugin_version,
+        "web_version": row.web_version,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "summary_pt": summary,
+        "metadata": meta,
+    }
+
+
+def _parse_audit_datetime(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def query_market_audit_events(
+    db: Session,
+    *,
+    event_type: str | None = None,
+    steam_id: str | None = None,
+    steam_id_mode: str = "actor",
+    market_trace_id: str | None = None,
+    listing_id: int | None = None,
+    claim_id: int | None = None,
+    severity: str | None = None,
+    source: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    q: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    from app import MarketAuditEvent
+
+    query = db.query(MarketAuditEvent)
+    if event_type:
+        et = event_type.strip()
+        if et.endswith("%"):
+            query = query.filter(MarketAuditEvent.event_type.like(et))
+        else:
+            query = query.filter(MarketAuditEvent.event_type == et)
+    if steam_id:
+        sid = steam_id.strip()
+        if steam_id_mode == "any":
+            like_sid = f"%{sid}%"
+            query = query.filter(
+                or_(
+                    MarketAuditEvent.steam_id == sid,
+                    MarketAuditEvent.counterparty_steam_id == sid,
+                    MarketAuditEvent.metadata_json.like(like_sid),
+                )
+            )
+        else:
+            query = query.filter(MarketAuditEvent.steam_id == sid)
+    if market_trace_id:
+        query = query.filter(MarketAuditEvent.market_trace_id == market_trace_id.strip())
+    if listing_id is not None:
+        query = query.filter(MarketAuditEvent.listing_id == int(listing_id))
+    if claim_id is not None:
+        query = query.filter(MarketAuditEvent.claim_id == int(claim_id))
+    if severity:
+        query = query.filter(MarketAuditEvent.severity == severity.strip().upper())
+    if source:
+        query = query.filter(MarketAuditEvent.source == source.strip().lower())
+    dt_from = _parse_audit_datetime(date_from)
+    if dt_from:
+        query = query.filter(MarketAuditEvent.created_at >= dt_from)
+    dt_to = _parse_audit_datetime(date_to)
+    if dt_to:
+        query = query.filter(MarketAuditEvent.created_at <= dt_to)
+    search = (q or "").strip()
+    if search:
+        like = f"%{search}%"
+        filters = [
+            MarketAuditEvent.event_type.ilike(like),
+            MarketAuditEvent.metadata_json.ilike(like),
+            MarketAuditEvent.market_trace_id.ilike(like),
+        ]
+        if search.isdigit():
+            num = int(search)
+            filters.append(MarketAuditEvent.listing_id == num)
+            filters.append(MarketAuditEvent.claim_id == num)
+        query = query.filter(or_(*filters))
+
+    total = query.count()
+    rows = (
+        query.order_by(MarketAuditEvent.created_at.desc())
+        .offset(max(0, offset))
+        .limit(min(max(1, limit), 500))
+        .all()
+    )
+    return [_market_audit_row_to_dict(r) for r in rows], total
+
+
 def list_market_audit_events(
     db: Session,
     *,
     event_type: str | None = None,
     steam_id: str | None = None,
     market_trace_id: str | None = None,
+    listing_id: int | None = None,
+    claim_id: int | None = None,
+    severity: str | None = None,
+    source: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    q: str | None = None,
+    steam_id_mode: str = "actor",
     limit: int = 100,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
+    events, _ = query_market_audit_events(
+        db,
+        event_type=event_type,
+        steam_id=steam_id,
+        steam_id_mode=steam_id_mode,
+        market_trace_id=market_trace_id,
+        listing_id=listing_id,
+        claim_id=claim_id,
+        severity=severity,
+        source=source,
+        date_from=date_from,
+        date_to=date_to,
+        q=q,
+        limit=limit,
+        offset=offset,
+    )
+    return events
+
+
+def get_market_audit_event(db: Session, event_id: int) -> dict[str, Any] | None:
     from app import MarketAuditEvent
 
-    q = db.query(MarketAuditEvent).order_by(MarketAuditEvent.created_at.desc())
-    if event_type:
-        q = q.filter(MarketAuditEvent.event_type == event_type)
-    if steam_id:
-        q = q.filter(MarketAuditEvent.steam_id == steam_id)
-    if market_trace_id:
-        q = q.filter(MarketAuditEvent.market_trace_id == market_trace_id)
-    rows = q.offset(offset).limit(min(limit, 500)).all()
+    row = db.query(MarketAuditEvent).filter(MarketAuditEvent.id == event_id).first()
+    if not row:
+        return None
+    return _market_audit_row_to_dict(row)
+
+
+def _claim_row_public(claim: Any) -> dict[str, Any]:
+    return {
+        "claim_id": claim.id,
+        "listing_id": claim.listing_id,
+        "recipient_steam_id": claim.recipient_steam_id,
+        "claim_type": claim.claim_type,
+        "status": claim.status,
+        "market_trace_id": claim.market_trace_id,
+        "claim_expires_at": claim.claim_expires_at.isoformat() if claim.claim_expires_at else None,
+        "created_at": claim.created_at.isoformat() if claim.created_at else None,
+        "updated_at": claim.updated_at.isoformat() if claim.updated_at else None,
+    }
+
+
+def _transaction_row_public(tx: Any) -> dict[str, Any]:
+    return {
+        "transaction_id": tx.id,
+        "listing_id": tx.listing_id,
+        "buyer_steam_id": tx.buyer_steam_id,
+        "seller_steam_id": tx.seller_steam_id,
+        "price_paid": tx.price_paid,
+        "created_at": tx.created_at.isoformat() if tx.created_at else None,
+    }
+
+
+def get_listing_timeline(db: Session, listing_id: int) -> dict[str, Any]:
+    """Timeline completa de um anúncio para admin/suporte."""
+    from app import MarketAuditEvent, MarketClaim, MarketListing, MarketTransaction, SupportTicket
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+
+    species_row = resolve_species(db, species_key=row.species_key)
+    listing = get_admin_listing_detail(db, listing_id)
+
+    claims = (
+        db.query(MarketClaim)
+        .filter(MarketClaim.listing_id == listing_id)
+        .order_by(MarketClaim.created_at.asc())
+        .all()
+    )
+    transactions = (
+        db.query(MarketTransaction)
+        .filter(MarketTransaction.listing_id == listing_id)
+        .order_by(MarketTransaction.created_at.asc())
+        .all()
+    )
+    audit_events, _ = query_market_audit_events(
+        db, listing_id=listing_id, limit=200, offset=0
+    )
+    tickets = (
+        db.query(SupportTicket)
+        .filter(SupportTicket.listing_id == listing_id)
+        .order_by(SupportTicket.created_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    seller_points = _player_points(db, row.seller_steam_id)
+    buyer_points = None
+    if row.buyer_steam_id:
+        buyer_points = _player_points(db, row.buyer_steam_id)
+
+    return {
+        "listing": listing,
+        "claims": [_claim_row_public(c) for c in claims],
+        "transactions": [_transaction_row_public(t) for t in transactions],
+        "audit_events": audit_events,
+        "tickets": [
+            {
+                "id": t.id,
+                "subject": t.subject,
+                "status": t.status,
+                "category": t.category,
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+            }
+            for t in tickets
+        ],
+        "amber_snapshot": {
+            "seller_steam_id": row.seller_steam_id,
+            "seller_points": seller_points,
+            "buyer_steam_id": row.buyer_steam_id,
+            "buyer_points": buyer_points,
+        },
+    }
+
+
+def get_listing_timeline_summary(db: Session, listing_id: int) -> dict[str, Any]:
+    """Resumo compacto para widget de ticket admin."""
+    from app import MarketAuditEvent, MarketClaim, MarketListing
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        return {"listing_id": listing_id, "found": False}
+    species_row = resolve_species(db, species_key=row.species_key)
+    item = listing_to_public(row, species_row=species_row)
+    pending_claim = (
+        db.query(MarketClaim)
+        .filter(
+            MarketClaim.listing_id == listing_id,
+            MarketClaim.status.in_(("PENDENTE", "RESERVED")),
+        )
+        .order_by(MarketClaim.created_at.desc())
+        .first()
+    )
+    recent_audit, _ = query_market_audit_events(
+        db, listing_id=listing_id, limit=10, offset=0
+    )
+    meta = _json_loads(row.metadata_json)
+    return {
+        "found": True,
+        "listing_id": listing_id,
+        "display_title": item.get("display_title"),
+        "status": row.status,
+        "seller_steam_id": row.seller_steam_id,
+        "buyer_steam_id": row.buyer_steam_id,
+        "effective_price": row.effective_price,
+        "dino_level": row.dino_level,
+        "species_display_name": item.get("species_display_name"),
+        "admin_flagged": bool(meta.get("admin_flagged")),
+        "pending_claim": _claim_row_public(pending_claim) if pending_claim else None,
+        "recent_audit": recent_audit,
+        "market_trace_id": row.market_trace_id,
+    }
+
+
+def list_admin_listings(
+    db: Session,
+    *,
+    q: str | None = None,
+    status: str | None = None,
+    seller_steam_id: str | None = None,
+    flagged_only: bool = False,
+    sort: str = "recent",
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict[str, Any]], int]:
+    from app import MarketListing, MarketPlayerProfile
+
+    query = db.query(MarketListing)
+    if status:
+        st = status.strip().upper()
+        if st == "FLAGGED":
+            flagged_only = True
+        else:
+            query = query.filter(MarketListing.status == st)
+    if seller_steam_id:
+        query = query.filter(MarketListing.seller_steam_id == seller_steam_id.strip())
+    if flagged_only:
+        query = query.filter(
+            or_(
+                MarketListing.metadata_json.like('%"admin_flagged": true%'),
+                MarketListing.metadata_json.like('%"admin_flagged":true%'),
+            )
+        )
+    search = (q or "").strip()
+    if search:
+        if search.isdigit():
+            query = query.filter(MarketListing.id == int(search))
+        else:
+            like = f"%{search}%"
+            query = query.filter(
+                or_(
+                    MarketListing.seller_steam_id.like(like),
+                    MarketListing.custom_name.like(like),
+                    MarketListing.dino_display_name.like(like),
+                    MarketListing.species_key.like(like),
+                )
+            )
+    total = query.count()
+    if sort == "price_asc":
+        query = query.order_by(MarketListing.effective_price.asc())
+    elif sort == "price_desc":
+        query = query.order_by(MarketListing.effective_price.desc())
+    else:
+        query = query.order_by(MarketListing.updated_at.desc())
+    rows = query.offset(max(0, offset)).limit(min(max(1, limit), 200)).all()
+    seller_ids = {r.seller_steam_id for r in rows}
+    names = {
+        p.steam_id: p.market_display_name
+        for p in db.query(MarketPlayerProfile)
+        .filter(MarketPlayerProfile.steam_id.in_(seller_ids))
+        .all()
+    } if seller_ids else {}
+    species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
     for row in rows:
-        meta = _json_loads(row.metadata_json) if row.metadata_json else {}
-        out.append(
-            {
-                "id": row.id,
-                "event_type": row.event_type,
-                "severity": row.severity,
-                "steam_id": row.steam_id,
-                "counterparty_steam_id": row.counterparty_steam_id,
-                "listing_id": row.listing_id,
-                "vault_id": row.vault_id,
-                "claim_id": row.claim_id,
-                "blob_hash": row.blob_hash,
-                "computed_base_value": row.computed_base_value,
-                "effective_price": row.effective_price,
-                "market_trace_id": row.market_trace_id,
-                "source": row.source,
-                "created_at": row.created_at.isoformat() if row.created_at else None,
-                "metadata": meta,
-            }
-        )
-    return out
+        meta = _json_loads(row.metadata_json)
+        item = listing_to_public(row, species_row=species_by_key.get(row.species_key or ""))
+        item["seller_display_name"] = names.get(row.seller_steam_id)
+        item["admin_flagged"] = bool(meta.get("admin_flagged"))
+        item["admin_flag_reason"] = meta.get("admin_flag_reason")
+        out.append(item)
+    return out, total
+
+
+def get_admin_listing_detail(db: Session, listing_id: int) -> dict[str, Any]:
+    """Detalhe completo do anúncio para admin (inclui preview cryo)."""
+    from app import MarketCryopodVault, MarketListing, MarketPlayerProfile
+
+    row = db.query(MarketListing).filter(MarketListing.id == listing_id).first()
+    if not row:
+        raise ValueError("Anúncio não encontrado")
+    species_row = resolve_species(db, species_key=row.species_key)
+    item = listing_to_public(row, include_breakdown=True, species_row=species_row)
+    prof = (
+        db.query(MarketPlayerProfile)
+        .filter(MarketPlayerProfile.steam_id == row.seller_steam_id)
+        .first()
+    )
+    item["seller_display_name"] = prof.market_display_name if prof else None
+    meta = _json_loads(row.metadata_json)
+    item["admin_flagged"] = bool(meta.get("admin_flagged"))
+    item["admin_flag_reason"] = meta.get("admin_flag_reason")
+    item["admin_removed"] = bool(meta.get("admin_removed"))
+    item["buyer_steam_id"] = row.buyer_steam_id
+    item["market_trace_id"] = row.market_trace_id
+    vault = db.query(MarketCryopodVault).filter(MarketCryopodVault.id == row.vault_id).first()
+    if vault:
+        vault_meta = _json_loads(vault.metadata_json)
+        item["cryo_preview"] = {
+            "vault_id": vault.id,
+            "blob_hash": vault.blob_hash,
+            "parser_version": vault.parser_version,
+            "uploaded_at": vault.uploaded_at.isoformat() if vault.uploaded_at else None,
+            "metadata": vault_meta,
+        }
+    else:
+        item["cryo_preview"] = None
+    return item
+
+
+def admin_bulk_listing_action(
+    db: Session,
+    action: str,
+    listing_ids: list[int],
+    admin_steam_id: str,
+    *,
+    reason: str = "",
+    pause: bool = True,
+) -> dict[str, Any]:
+    """Ações em lote: flag, remove, pause."""
+    act = (action or "").strip().lower()
+    ids = [int(i) for i in listing_ids if int(i) > 0]
+    if not ids:
+        raise ValueError("listing_ids obrigatório")
+    if len(ids) > 50:
+        raise ValueError("Máximo 50 anúncios por lote")
+
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for lid in ids:
+        try:
+            if act in ("flag", "sinalizar"):
+                results.append(
+                    admin_flag_listing(
+                        db, lid, admin_steam_id, reason=reason, pause=pause
+                    )
+                )
+            elif act in ("remove", "remover"):
+                results.append(
+                    admin_remove_listing(db, lid, admin_steam_id, reason=reason)
+                )
+            elif act in ("pause", "pausar"):
+                from app import MarketListing
+
+                row = db.query(MarketListing).filter(MarketListing.id == lid).first()
+                if not row:
+                    raise ValueError("Anúncio não encontrado")
+                if row.status == "ACTIVE":
+                    status_before = row.status
+                    row.status = "PAUSED"
+                    row.updated_at = _now()
+                    db.commit()
+                    market_audit_event(
+                        db,
+                        "MARKET_LISTING_PAUSED",
+                        steam_id=admin_steam_id,
+                        counterparty_steam_id=row.seller_steam_id,
+                        listing_id=row.id,
+                        source="admin",
+                        metadata={
+                            "seller_steam_id": row.seller_steam_id,
+                            "admin_steam_id": admin_steam_id,
+                            "listing_status_before": status_before,
+                            "listing_status_after": row.status,
+                            "summary_pt": f"Admin pausou anúncio #{row.id} em lote",
+                            "bulk": True,
+                        },
+                        commit=True,
+                    )
+                species_row = resolve_species(db, species_key=row.species_key)
+                results.append(listing_to_public(row, species_row=species_row))
+            else:
+                raise ValueError(f"Ação desconhecida: {action}")
+        except ValueError as exc:
+            errors.append({"listing_id": lid, "error": str(exc)})
+
+    market_audit_event(
+        db,
+        "MARKET_LISTING_BULK_ADMIN_ACTION",
+        steam_id=admin_steam_id,
+        severity="INFO",
+        source="admin",
+        metadata={
+            "action": act,
+            "listing_ids": ids,
+            "success_count": len(results),
+            "error_count": len(errors),
+            "reason": reason[:280] if reason else None,
+            "summary_pt": (
+                f"Ação em lote '{act}': {len(results)} ok, {len(errors)} erro(s)"
+            ),
+        },
+        commit=True,
+    )
+    return {
+        "action": act,
+        "processed": len(results),
+        "errors": errors,
+        "listings": results,
+    }

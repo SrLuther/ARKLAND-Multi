@@ -10,6 +10,38 @@ log = logging.getLogger("arkshop.market_audit")
 
 WEB_VERSION = "1.0.0"
 
+# Labels PT-BR para auditoria admin (superset da vitrine vendedor)
+MARKET_ADMIN_AUDIT_LABELS: dict[str, str] = {
+    "MARKET_DISPLAY_NAME_CHANGED": "Nome da vitrine alterado",
+    "MARKET_UPLOAD_CONFIRMED": "Upload cryopod confirmado",
+    "MARKET_SPECIES_PENDING": "Espécie pendente de classificação",
+    "MARKET_LISTING_ACTIVATED": "Anúncio ativado",
+    "MARKET_LISTING_PRICE_SET": "Preço definido",
+    "MARKET_PURCHASE_COMPLETED": "Compra concluída",
+    "MARKET_CLAIM_DELIVERED": "Claim entregue",
+    "MARKET_CLAIM_EXPIRED": "Claim expirado",
+    "MARKET_CLAIM_REFUNDED": "Claim reembolsado",
+    "MARKET_LISTING_PAUSED": "Anúncio pausado",
+    "MARKET_LISTING_WITHDRAW_REQUESTED": "Resgate solicitado (vendedor)",
+    "MARKET_LISTING_ADMIN_REMOVED": "Moderação: removido",
+    "MARKET_LISTING_ADMIN_PRICE": "Moderação: preço ajustado",
+    "MARKET_LISTING_ADMIN_FLAGGED": "Moderação: sinalizado",
+    "MARKET_LISTING_CLASSIFIED": "Espécie classificada",
+    "MARKET_LISTING_PROMOTED": "Anúncio promovido",
+    "MARKET_LISTING_RECOMPUTED": "Economia recalculada",
+    "MARKET_SELLER_LISTING_SOLD": "Venda (vitrine)",
+    "MARKET_SELLER_BUYER_CLAIMED": "Comprador resgatou (vitrine)",
+    "MARKET_SELLER_LISTING_ADMIN_FLAGGED": "Sinalizado (vitrine)",
+    "MARKET_SELLER_LISTING_ADMIN_REMOVED": "Removido (vitrine)",
+    "MARKET_SELLER_RECLAIM_DELIVERED": "Devolução após remoção admin",
+    "MARKET_LISTING_BULK_ADMIN_ACTION": "Ação em lote (moderação)",
+    "MARKET_TICKET_LINKED": "Ticket vinculado",
+}
+
+
+def market_audit_label(event_type: str) -> str:
+    return MARKET_ADMIN_AUDIT_LABELS.get(event_type or "", event_type or "—")
+
 
 def market_audit_event(
     db: Any,
