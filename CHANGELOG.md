@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.196] - 2026-07-03
+
+### Feature
+
+- Feature (Web Store / Kits): na renova??o de licen?a (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licen?a s?o resetados ao valor inicial do cat?logo.
+
 ## [1.9.195] - 2026-07-03
 
 ### Feature

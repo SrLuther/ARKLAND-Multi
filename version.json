@@ -1,9 +1,8 @@
 {
-    "version": "1.9.195",
-    "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.195/ARKLAND-Multi-Setup-v1.9.195.exe",
+    "version": "1.9.196",
+    "date": "2026-07-04",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.196/ARKLAND-Multi-Setup-v1.9.196.exe",
     "changelog": [
-        "Feature (Web Store / Âmbarômetro): painel público na home com volume acumulado de âmbares movimentados; API GET /api/public/amber-stats.",
-        "Feature (Web Store / Âmbarômetro): ledger idempotente (amber_ledger) registrando doações, loja web, mercado P2P, recompensas de enquetes e ajustes administrativos."
+        "Feature (Web Store / Kits): na renova??o de licen?a (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licen?a s?o resetados ao valor inicial do cat?logo."
     ]
 }
