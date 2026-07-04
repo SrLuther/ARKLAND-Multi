@@ -1,8 +1,9 @@
 {
-    "version": "1.9.200",
+    "version": "1.9.201",
     "date": "2026-07-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.200/ARKLAND-Multi-Setup-v1.9.200.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.201/ARKLAND-Multi-Setup-v1.9.201.exe",
     "changelog": [
-        "Melhoria (Web Store / Notificações): painel redesenhado — 440px desktop, drawer full-width no mobile, tipografia e padding legíveis, botão Marcar todas lidas sem corte, tema dark/âmbar."
+        "Fix (Web Store / Âmbarômetro): GET /api/public/amber-stats com limite próprio (120/min) em vez do default global 50/h — evita 429 na home.",
+        "Fix (Web Store / Âmbarômetro): em 429 ou falha de rede mantém último valor válido, mensagem discreta de retry e backoff exponencial no polling."
     ]
 }
