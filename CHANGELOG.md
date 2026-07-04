@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.202] - 2026-07-04
+
+### Improvement
+
+- Melhoria (Web Store / Admin): Pedidos (admin) com paginação, total, filtro por SteamID/pedido, status e intervalo de datas — GET /api/admin/orders?offset&limit&q&status&date_from&date_to.
+
+### Fix
+
+- Fix (Web Store / Admin): Gerenciar Jogadores descartava nicks da Steam API — persistência em sessão isolada (evita conflito com SELECT admin) e lookup steam_id normalizado.
+- Fix (Web Store / Admin): aviso visível quando STEAM_API_KEY ausente ou batch GetPlayerSummaries falha (steam_persona_warning).
+- Fix (Web Store / Steam): STEAM_API_KEY carregada de .env persistente (TEK) e repassada ao subprocesso da Web Store.
+
 ## [1.9.201] - 2026-07-04
 
 ### Fix

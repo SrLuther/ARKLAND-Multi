@@ -132,3 +132,15 @@ def test_get_shop_subprocess_env_includes_web_secret(tmp_path, monkeypatch):
 
     assert env["ARKSHOP_WEB_SECRET"]
     assert env["ARKSHOP_API_KEY"] == "test-key"
+
+
+def test_get_shop_subprocess_env_loads_steam_api_key_from_dotenv(tmp_path, monkeypatch):
+    monkeypatch.delenv("STEAM_API_KEY", raising=False)
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: tmp_path)
+    monkeypatch.setattr("src.shop_integration._PROJECT_ROOT", tmp_path)
+    (tmp_path / ".env").write_text("STEAM_API_KEY=from-dotenv-key\n", encoding="utf-8")
+
+    shop = ShopGlobalConfig(mode="host")
+    env = get_shop_subprocess_env(shop)
+
+    assert env["STEAM_API_KEY"] == "from-dotenv-key"

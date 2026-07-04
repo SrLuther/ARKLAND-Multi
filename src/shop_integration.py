@@ -1804,6 +1804,24 @@ def build_orders_database_url(shop: "ShopGlobalConfig") -> str:
     return f"sqlite:///{webstore_data_dir() / 'orders.db'}"
 
 
+def _read_dotenv_key(project_dir: Path, key: str) -> str:
+    """Lê uma chave do .env do projeto sem expandir variáveis."""
+    env_path = project_dir / ".env"
+    if not env_path.is_file():
+        return ""
+    try:
+        text = env_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    prefix = f"{key}="
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or not stripped.startswith(prefix):
+            continue
+        return stripped[len(prefix):].strip()
+    return ""
+
+
 def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     import os
 
@@ -1813,6 +1831,10 @@ def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     env["ARKSHOP_WEB_SECRET"] = resolve_web_secret()
     if shop.api_key:
         env["ARKSHOP_API_KEY"] = shop.api_key
+    if not (env.get("STEAM_API_KEY") or "").strip():
+        steam_key = _read_dotenv_key(_PROJECT_ROOT, "STEAM_API_KEY")
+        if steam_key:
+            env["STEAM_API_KEY"] = steam_key
     db_url = build_orders_database_url(shop)
     if db_url:
         env["ARKSHOP_DATABASE_URL"] = db_url

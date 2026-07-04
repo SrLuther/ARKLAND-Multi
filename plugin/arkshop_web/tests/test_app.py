@@ -1405,6 +1405,60 @@ class TestAdminReprocess:
         assert r.status_code == 400
 
 
+# ── Admin orders list ─────────────────────────────────────────────────────────
+
+class TestAdminOrdersList:
+    def test_admin_orders_forbidden_for_player(self, client):
+        _login(client, USER_STEAM)
+        r = client.get("/api/admin/orders")
+        assert r.status_code in (401, 403)
+
+    def test_admin_orders_list_with_total(self, client):
+        _login(client, ADMIN_STEAM)
+        _create_order_direct(status="ENTREGUE")
+        _create_order_direct(status="PENDENTE")
+        r = client.get("/api/admin/orders")
+        d = r.get_json()
+        assert d.get("ok") is True
+        assert "total" in d
+        assert d["total"] >= 2
+        assert "items" in d
+
+    def test_admin_orders_pagination(self, client):
+        _login(client, ADMIN_STEAM)
+        for _ in range(5):
+            _create_order_direct()
+        r = client.get("/api/admin/orders?limit=2&offset=0")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["total"] >= 5
+        assert len(d["items"]) == 2
+
+        r2 = client.get("/api/admin/orders?limit=2&offset=2")
+        d2 = r2.get_json()
+        assert len(d2["items"]) == 2
+        assert d2["items"][0]["order_id"] != d["items"][0]["order_id"]
+
+    def test_admin_orders_filter_by_steam_id(self, client):
+        _login(client, ADMIN_STEAM)
+        other_steam = "76561198000000099"
+        _create_order_direct(steam_id=USER_STEAM, status="ENTREGUE")
+        _create_order_direct(steam_id=other_steam, status="ENTREGUE")
+        r = client.get(f"/api/admin/orders?q={USER_STEAM}")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert all(o["steam_id"] == USER_STEAM for o in d["items"])
+
+    def test_admin_orders_filter_by_status(self, client):
+        _login(client, ADMIN_STEAM)
+        _create_order_direct(status="ENTREGUE")
+        _create_order_direct(status="PENDENTE")
+        r = client.get("/api/admin/orders?status=PENDENTE")
+        d = r.get_json()
+        assert d["ok"] is True
+        assert all(o["status"] == "PENDENTE" for o in d["items"])
+
+
 # ── Admin order actions (refund / resend / cancel / details) ─────────────────
 
 class TestAdminOrderActions:
@@ -2336,3 +2390,55 @@ class TestAdminPlayersSteamBackfill:
         d = client.get("/api/admin/players").get_json()
         row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
         assert row["display_name"] == USER_STEAM
+        assert d.get("steam_api_configured") is False
+        assert d.get("steam_persona_warning")
+
+    def test_list_players_reports_steam_fetch_failure(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", lambda _ids: {})
+        d = client.get("/api/admin/players").get_json()
+        assert d.get("steam_api_configured") is True
+        assert d.get("steam_persona_warning")
+        row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
+        assert row["display_name"] == USER_STEAM
+
+    def test_refresh_steam_personas_returns_fetched_when_persist_fails(self, monkeypatch):
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "NickBR"} if USER_STEAM in ids else {},
+        )
+
+        def _boom(_db, _m):
+            raise RuntimeError("db down")
+
+        monkeypatch.setattr(_app_module, "_persist_steam_personas", _boom)
+        result = _app_module._refresh_steam_personas(None, [USER_STEAM])
+        assert result == {USER_STEAM: "NickBR"}
+
+    def test_admin_list_persona_lookup_normalizes_steam_id(self, client, monkeypatch):
+        db = _app_module._SessionLocal()
+        try:
+            row = _app_module.StoreUser(
+                steam_id=f" {USER_STEAM} ",
+                display_name=USER_STEAM,
+                last_login_at=_now(),
+            )
+            db.add(row)
+            db.commit()
+        finally:
+            db.close()
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "NickWithSpaceKey"} if USER_STEAM in ids else {},
+        )
+        d = client.get("/api/admin/players").get_json()
+        row = next(p for p in d["items"] if USER_STEAM in str(p["steam_id"]))
+        assert row["display_name"] == "NickWithSpaceKey"
+        assert row["steam_persona"] == "NickWithSpaceKey"

@@ -6405,6 +6405,7 @@
               </div>
             </div>
             <div class="card">
+              <div id="players-admin-steam-warning" class="hidden" style="margin:0 0 12px;padding:10px 12px;border-radius:8px;background:rgba(255,180,0,.12);border:1px solid rgba(255,180,0,.35);color:var(--amber);font-size:12px;line-height:1.45;"></div>
               <div id="players-admin-list"></div>
               <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;">
                 <button class="btn btn-ghost btn-sm" onclick="prevPlayersAdminPage()">◀ Anterior</button>
@@ -6518,7 +6519,43 @@
         </div>
         <div class="card" style="margin-top:16px;">
           <div class="card-title">Pedidos (admin)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px;">
+            <div class="form-group" style="margin:0;min-width:180px;">
+              <label>SteamID / Pedido</label>
+              <input id="admin-orders-filter-q" type="text" placeholder="7656119… ou order_id" onkeydown="if(event.key==='Enter')resetAdminOrdersPage()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:140px;">
+              <label>Status</label>
+              <select id="admin-orders-filter-status" onchange="resetAdminOrdersPage()">
+                <option value="">Todos</option>
+                <option value="PENDENTE">PENDENTE</option>
+                <option value="ENTREGANDO">ENTREGANDO</option>
+                <option value="ENTREGUE">ENTREGUE</option>
+                <option value="ERRO">ERRO</option>
+                <option value="REEMBOLSADO">REEMBOLSADO</option>
+                <option value="CANCELADO">CANCELADO</option>
+                <option value="CONTESTADO">CONTESTADO</option>
+                <option value="REEMITIDO">REEMITIDO</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:130px;">
+              <label>De</label>
+              <input id="admin-orders-filter-from" type="date" onchange="resetAdminOrdersPage()" />
+            </div>
+            <div class="form-group" style="margin:0;min-width:130px;">
+              <label>Até</label>
+              <input id="admin-orders-filter-to" type="date" onchange="resetAdminOrdersPage()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="resetAdminOrdersPage()">Filtrar</button>
+          </div>
+          <div class="card-title" style="font-size:13px;margin-bottom:8px;">
+            <span id="admin-orders-page-info" style="font-weight:400;color:var(--text2);font-size:12px;"></span>
+          </div>
           <div id="admin-orders-list"></div>
+          <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="prevAdminOrdersPage()">◀ Anterior</button>
+            <button class="btn btn-ghost btn-sm" onclick="nextAdminOrdersPage()">Próxima ▶</button>
+          </div>
         </div>
       </div>
 
@@ -16019,15 +16056,44 @@ async function viewAuditDetail(id) {
   document.getElementById("modal-audit-detail").classList.remove("hidden");
 }
 
+let _adminOrdersPage = { limit: 50, offset: 0, total: 0 };
+
+function resetAdminOrdersPage() { _adminOrdersPage.offset = 0; loadAdminOrders(); }
+function prevAdminOrdersPage() {
+  _adminOrdersPage.offset = Math.max(0, _adminOrdersPage.offset - _adminOrdersPage.limit);
+  loadAdminOrders();
+}
+function nextAdminOrdersPage() {
+  if (_adminOrdersPage.offset + _adminOrdersPage.limit < _adminOrdersPage.total) {
+    _adminOrdersPage.offset += _adminOrdersPage.limit;
+    loadAdminOrders();
+  }
+}
+
 async function loadAdminOrders() {
   const el = document.getElementById("admin-orders-list");
   if (!el) return;
+  const q = document.getElementById("admin-orders-filter-q")?.value?.trim() || "";
+  const status = document.getElementById("admin-orders-filter-status")?.value || "";
+  const dateFrom = document.getElementById("admin-orders-filter-from")?.value || "";
+  const dateTo = document.getElementById("admin-orders-filter-to")?.value || "";
+  let url = `${API}/api/admin/orders?limit=${_adminOrdersPage.limit}&offset=${_adminOrdersPage.offset}&sort=created_at&order=desc`;
+  if (q) url += `&q=${encodeURIComponent(q)}`;
+  if (status) url += `&status=${encodeURIComponent(status)}`;
+  if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
+  if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
   try {
-    const r = await fetch(API + "/api/admin/orders?limit=50");
+    const r = await fetch(url);
     const d = await r.json();
     if (!d.ok) { el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`; return; }
+    _adminOrdersPage.total = d.total || 0;
+    const pageNum = Math.floor(_adminOrdersPage.offset / _adminOrdersPage.limit) + 1;
+    const totalPages = Math.max(1, Math.ceil(_adminOrdersPage.total / _adminOrdersPage.limit));
+    const info = document.getElementById("admin-orders-page-info");
+    if (info) info.textContent = `Pág. ${pageNum}/${totalPages} (${_adminOrdersPage.total} pedidos)`;
     const items = d.items || [];
-    if (!items.length) { el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido.</div>`; return; }
+    if (!items.length) { el.innerHTML = `<div style="color:var(--text2)">Nenhum pedido encontrado.</div>`; return; }
     el.innerHTML = `
       <table class="tbl">
         <thead><tr>
@@ -16234,6 +16300,17 @@ async function loadPlayersAdmin(resetPanel) {
       return;
     }
     _playersAdminPage.total = d.total || 0;
+    const warnEl = document.getElementById("players-admin-steam-warning");
+    if (warnEl) {
+      const warn = (d.steam_persona_warning || "").trim();
+      if (warn) {
+        warnEl.textContent = "⚠ " + warn;
+        warnEl.classList.remove("hidden");
+      } else {
+        warnEl.textContent = "";
+        warnEl.classList.add("hidden");
+      }
+    }
     const info = document.getElementById("players-admin-page-info");
     if (info) {
       const from = _playersAdminPage.total ? _playersAdminPage.offset + 1 : 0;

@@ -253,10 +253,17 @@ _DATA_DIR = _data_dir()
 
 # ── Load environment variables ────────────────────────────────────────────────
 
-# Resolve .env na raiz do projeto (um nível acima de plugin/arkshop_web/)
+# Resolve .env: raiz do projeto (dev), pasta do exe (PyInstaller) e dados persistentes (TEK)
 _PROJECT_ROOT = _BUNDLE_DIR.parent.parent if not getattr(sys, "frozen", False) else _BUNDLE_DIR
-_ENV_PATH = (_PROJECT_ROOT / ".env") if not getattr(sys, "frozen", False) else Path()
-load_dotenv(dotenv_path=_ENV_PATH if _ENV_PATH.exists() else None)
+_ENV_CANDIDATES: list[Path] = []
+if not getattr(sys, "frozen", False):
+    _ENV_CANDIDATES.append(_PROJECT_ROOT / ".env")
+else:
+    _ENV_CANDIDATES.append(Path(sys.executable).resolve().parent / ".env")
+_ENV_CANDIDATES.append(_DATA_DIR / ".env")
+for _env_candidate in _ENV_CANDIDATES:
+    if _env_candidate.is_file():
+        load_dotenv(dotenv_path=_env_candidate, override=False)
 
 
 # ── App setup ─────────────────────────────────────────────────────────────────
@@ -1717,8 +1724,16 @@ def _save_settings(data: Dict[str, Any]) -> None:
     _STATE_FILE.write_text(json.dumps(safe_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _normalize_steam_id64(value: Any) -> str | None:
+    """SteamID64 canônico (strip + rejeita inválidos)."""
+    sid = str(value or "").strip()
+    if sid.endswith(".0") and sid[:-2].isdigit():
+        sid = sid[:-2]
+    return sid if _STEAMID64_RE.match(sid) else None
+
+
 def _is_valid_steamid64(value: str) -> bool:
-    return bool(_STEAMID64_RE.match(value.strip()))
+    return _normalize_steam_id64(value) is not None
 
 
 def _load_players() -> list[Dict[str, str]]:
@@ -1968,13 +1983,16 @@ def _list_admin_players(
             ),
             params,
         ).fetchall()
-        persona_map = _backfill_steam_personas(
-            db, [(str(r[0]), r[2]) for r in rows],
+        persona_map, persona_meta = _backfill_steam_personas(
+            db, [(str(r[0]), r[2]) for r in rows], return_status=True,
         )
         items: list[dict[str, Any]] = []
         for r in rows:
-            sid = str(r[0])
-            persona = persona_map.get(sid) or r[2]
+            sid = _normalize_steam_id64(r[0]) or str(r[0]).strip()
+            cached_persona = (str(r[2]).strip() if r[2] else "") or None
+            if cached_persona == sid:
+                cached_persona = None
+            persona = persona_map.get(sid) or cached_persona
             label = _admin_player_persona_label(sid, steam_persona=persona)
             ents = _get_player_entitlements(sid, db=db)
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
@@ -1991,7 +2009,14 @@ def _list_admin_players(
                 "licenses": license_groups,
                 "staff_roles": staff_roles,
             })
-        return {"ok": True, "items": items, "total": total, "offset": offset, "limit": limit}
+        return {
+            "ok": True,
+            "items": items,
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            **persona_meta,
+        }
     except Exception as exc:
         _log_error("list_admin_players", error=str(exc))
         return {"ok": False, "error": str(exc)}
@@ -4105,12 +4130,26 @@ def _extract_steam_id_from_claimed_id(claimed_id: str) -> str | None:
     return candidate if _is_valid_steamid64(candidate) else None
 
 
+def _get_steam_api_key() -> str:
+    """Chave Steam Web API — env STEAM_API_KEY (carregada de .env no boot)."""
+    return (os.environ.get("STEAM_API_KEY") or "").strip()
+
+
 def _steam_api_key_configured() -> bool:
-    return bool((os.environ.get("STEAM_API_KEY") or "").strip())
+    return bool(_get_steam_api_key())
 
 
 _STEAM_PERSONA_BATCH_SIZE = 100
 _STEAM_API_KEY_WARNED = False
+_STEAM_PERSONA_ADMIN_WARNING = (
+    "Nicknames Steam indisponíveis — configure STEAM_API_KEY no ambiente da Web Store "
+    "(https://steamcommunity.com/dev/apikey) e reinicie o serviço. "
+    "Verifique também GET /api/health → steam_api_configured."
+)
+_STEAM_PERSONA_FETCH_WARNING = (
+    "A Steam Web API não retornou nicknames para esta página — perfis privados, "
+    "rede bloqueada ou chave inválida. Veja webstore.log."
+)
 
 
 def _warn_steam_api_key_missing(context: str = "") -> None:
@@ -4126,13 +4165,42 @@ def _warn_steam_api_key_missing(context: str = "") -> None:
     )
 
 
+def _admin_steam_persona_meta(
+    requested_ids: list[str],
+    fetched: dict[str, str],
+) -> dict[str, Any]:
+    configured = _steam_api_key_configured()
+    meta: dict[str, Any] = {"steam_api_configured": configured, "steam_persona_warning": None}
+    if not requested_ids:
+        return meta
+    if not configured:
+        meta["steam_persona_warning"] = _STEAM_PERSONA_ADMIN_WARNING
+        return meta
+    if not fetched:
+        meta["steam_persona_warning"] = _STEAM_PERSONA_FETCH_WARNING
+        return meta
+    missing = [sid for sid in requested_ids if sid not in fetched]
+    if missing:
+        meta["steam_persona_warning"] = (
+            f"Nick Steam parcial: {len(fetched)}/{len(requested_ids)} obtidos via API. "
+            "Perfis privados ou indisponíveis exibem …últimos dígitos do SteamID."
+        )
+    return meta
+
+
 def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
     """Persona Steam em lote (até 100 por request); requer STEAM_API_KEY."""
-    api_key = (os.environ.get("STEAM_API_KEY") or "").strip()
+    api_key = _get_steam_api_key()
     if not api_key:
         _warn_steam_api_key_missing("GetPlayerSummaries")
         return {}
-    valid = [sid for sid in steam_ids if _is_valid_steamid64(sid)]
+    valid: list[str] = []
+    seen: set[str] = set()
+    for raw in steam_ids:
+        sid = _normalize_steam_id64(raw)
+        if sid and sid not in seen:
+            seen.add(sid)
+            valid.append(sid)
     if not valid:
         return {}
     result: dict[str, str] = {}
@@ -4148,11 +4216,26 @@ def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
             req = urllib.request.Request(url, headers={"User-Agent": "arkshop-web"}, method="GET")
             with urllib.request.urlopen(req, timeout=12) as response:
                 data = json.loads(response.read().decode("utf-8", errors="replace"))
-            for player in (data.get("response") or {}).get("players") or []:
+            response_block = data.get("response") or {}
+            api_error = response_block.get("error") or data.get("error")
+            if api_error:
+                log.warning(
+                    "Steam GetPlayerSummaries erro API (%s ids): %s",
+                    len(chunk),
+                    api_error,
+                )
+                continue
+            players = response_block.get("players") or []
+            for player in players:
                 sid = str(player.get("steamid") or "").strip()
                 name = str(player.get("personaname") or "").strip()
                 if sid and name:
                     result[sid] = name[:128]
+            if chunk and not players:
+                log.warning(
+                    "Steam GetPlayerSummaries retornou 0 jogadores (%s ids solicitados)",
+                    len(chunk),
+                )
         except Exception as exc:
             log.warning(
                 "Steam GetPlayerSummaries batch falhou (%s ids): %s",
@@ -4167,9 +4250,12 @@ def _persist_steam_personas(db: Any, persona_map: dict[str, str]) -> None:
     if not persona_map:
         return
     for sid, persona in persona_map.items():
-        row = db.get(StoreUser, sid)
+        norm_sid = _normalize_steam_id64(sid) or sid
+        row = db.get(StoreUser, norm_sid)
         if row is None:
-            row = StoreUser(steam_id=sid, steam_persona=persona, display_name=persona)
+            row = db.get(StoreUser, sid)
+        if row is None:
+            row = StoreUser(steam_id=norm_sid, steam_persona=persona, display_name=persona)
             db.add(row)
         else:
             row.steam_persona = persona
@@ -4177,33 +4263,57 @@ def _persist_steam_personas(db: Any, persona_map: dict[str, str]) -> None:
     db.commit()
 
 
-def _refresh_steam_personas(db: Any, steam_ids: list[str]) -> dict[str, str]:
-    """Consulta Steam API e persiste — ignora cache DB (lista admin)."""
-    if not steam_ids:
-        return {}
-    if not _steam_api_key_configured():
-        _warn_steam_api_key_missing("refresh_steam_personas")
-        return {}
-    fetched = _fetch_steam_persona_names_batch(steam_ids)
-    if not fetched:
-        return {}
+def _persist_steam_personas_isolated(persona_map: dict[str, str]) -> None:
+    """Persiste personas em sessão própria — evita conflito com SELECT raw do admin."""
+    if not persona_map or not _db_ready():
+        return
+    db = _SessionLocal()
     try:
-        _persist_steam_personas(db, fetched)
+        _persist_steam_personas(db, persona_map)
     except Exception as exc:
         db.rollback()
         log.warning("persist steam personas falhou: %s", exc)
-        return {}
-    return fetched
+    finally:
+        _release_db_session(db)
+
+
+def _refresh_steam_personas(
+    db: Any,
+    steam_ids: list[str],
+    *,
+    return_status: bool = False,
+) -> dict[str, str] | tuple[dict[str, str], dict[str, Any]]:
+    """Consulta Steam API e persiste — ignora cache DB (lista admin)."""
+    valid_ids: list[str] = []
+    seen: set[str] = set()
+    for raw in steam_ids:
+        sid = _normalize_steam_id64(raw)
+        if sid and sid not in seen:
+            seen.add(sid)
+            valid_ids.append(sid)
+    if not valid_ids:
+        meta = _admin_steam_persona_meta([], {})
+        return ({}, meta) if return_status else {}
+    if not _steam_api_key_configured():
+        _warn_steam_api_key_missing("refresh_steam_personas")
+        meta = _admin_steam_persona_meta(valid_ids, {})
+        return ({}, meta) if return_status else {}
+    fetched = _fetch_steam_persona_names_batch(valid_ids)
+    meta = _admin_steam_persona_meta(valid_ids, fetched)
+    if fetched:
+        _persist_steam_personas_isolated(fetched)
+    return (fetched, meta) if return_status else fetched
 
 
 def _refresh_steam_persona(db: Any, steam_id: str) -> str | None:
     """Atualiza steam_persona de um jogador via Steam API (login / auth/me)."""
-    if not _is_valid_steamid64(steam_id):
+    norm_sid = _normalize_steam_id64(steam_id)
+    if not norm_sid:
         return None
-    persona_map = _refresh_steam_personas(db, [steam_id])
-    if steam_id in persona_map:
-        return persona_map[steam_id]
-    row = db.get(StoreUser, steam_id)
+    persona_map = _refresh_steam_personas(db, [norm_sid])
+    if norm_sid in persona_map:
+        return persona_map[norm_sid]
+    row = db.get(StoreUser, norm_sid) or db.get(StoreUser, steam_id)
     if row and (row.steam_persona or "").strip():
         p = str(row.steam_persona).strip()
         return p if p != steam_id else None
@@ -4213,10 +4323,18 @@ def _refresh_steam_persona(db: Any, steam_id: str) -> str | None:
 def _backfill_steam_personas(
     db: Any,
     entries: list[tuple[str, str | None]],
-) -> dict[str, str]:
+    *,
+    return_status: bool = False,
+) -> dict[str, str] | tuple[dict[str, str], dict[str, Any]]:
     """Admin list: sempre busca nick Steam em lote e sobrescreve cache."""
-    steam_ids = [sid for sid, _ in entries if _is_valid_steamid64(sid)]
-    return _refresh_steam_personas(db, steam_ids)
+    steam_ids: list[str] = []
+    seen: set[str] = set()
+    for raw, _ in entries:
+        sid = _normalize_steam_id64(raw)
+        if sid and sid not in seen:
+            seen.add(sid)
+            steam_ids.append(sid)
+    return _refresh_steam_personas(db, steam_ids, return_status=return_status)
 
 
 def _fetch_steam_persona_name(steam_id: str) -> str | None:
@@ -8395,16 +8513,53 @@ def admin_list_orders():
     if (err := _require_db()) is not None:
         return err
     status = str(request.args.get("status", "")).strip().upper()
+    q_text = str(request.args.get("q", "")).strip()
+    sort = str(request.args.get("sort", "created_at")).strip().lower()
+    order_dir = str(request.args.get("order", "desc")).strip().lower()
+    date_from = str(request.args.get("date_from", "")).strip()
+    date_to = str(request.args.get("date_to", "")).strip()
     limit = max(1, min(200, int(request.args.get("limit", 50))))
+    offset = max(0, int(request.args.get("offset", 0)))
     db = _SessionLocal()
     try:
-        q = db.query(Order)
+        query = db.query(Order)
         if status:
-            q = q.filter(Order.status == status)
-        rows = q.order_by(Order.created_at.desc()).limit(limit).all()
+            query = query.filter(Order.status == status)
+        if q_text:
+            if q_text.isdigit() and len(q_text) >= 10:
+                query = query.filter(Order.steam_id.like(f"{q_text}%"))
+            elif len(q_text) >= 8:
+                query = query.filter(
+                    (Order.order_id.like(f"%{q_text}%")) | (Order.steam_id.like(f"{q_text}%"))
+                )
+            else:
+                query = query.filter(Order.steam_id.like(f"{q_text}%"))
+        if date_from:
+            try:
+                dt_from = datetime.fromisoformat(date_from.replace("Z", "+00:00"))
+                if dt_from.tzinfo is not None:
+                    dt_from = dt_from.replace(tzinfo=None)
+                query = query.filter(Order.created_at >= dt_from)
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                dt_to = datetime.fromisoformat(date_to.replace("Z", "+00:00"))
+                if dt_to.tzinfo is not None:
+                    dt_to = dt_to.replace(tzinfo=None)
+                if len(date_to) <= 10:
+                    dt_to = dt_to.replace(hour=23, minute=59, second=59, microsecond=999999)
+                query = query.filter(Order.created_at <= dt_to)
+            except ValueError:
+                pass
+        sort_col = Order.created_at if sort == "created_at" else Order.created_at
+        order_by = sort_col.asc() if order_dir == "asc" else sort_col.desc()
+        total = query.count()
+        rows = query.order_by(order_by).offset(offset).limit(limit).all()
         return jsonify(
             {
                 "ok": True,
+                "total": total,
                 "items": [
                     {
                         "order_id": o.order_id,
