@@ -43,6 +43,7 @@ from market_listings import (
     list_market_audit_events,
     list_pending_classification,
     list_seller_listings,
+    list_seller_vitrine_audit_events,
     mark_claim_delivered,
     pause_listing,
     player_market_history,
@@ -905,6 +906,23 @@ def register_market_routes(
         try:
             history = player_market_history(db, steam_id)
             return jsonify({"ok": True, **history})
+        finally:
+            db.close()
+
+    @app.route("/api/market/my/audit", methods=["GET"])
+    @login_required
+    def market_my_audit():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        steam_id = str(steam_id_from_session() or "")
+        limit = min(100, max(1, int(request.args.get("limit") or 50)))
+        offset = max(0, int(request.args.get("offset") or 0))
+        db = session_factory()
+        try:
+            events = list_seller_vitrine_audit_events(
+                db, steam_id, limit=limit, offset=offset
+            )
+            return jsonify({"ok": True, "events": events})
         finally:
             db.close()
 

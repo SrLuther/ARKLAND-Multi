@@ -21,6 +21,10 @@ _NOTIFICATION_TYPES = frozenset({
     "ticket_created",
     "order_update",
     "poll_reward",
+    "market_sale",
+    "market_buyer_claimed",
+    "market_admin_flag",
+    "market_admin_remove",
     "general",
 })
 

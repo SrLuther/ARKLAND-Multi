@@ -7068,6 +7068,15 @@ async function openNotification(id) {
     const navEl = document.querySelector('.nav-item[data-page="tickets"]');
     if (navEl) nav(navEl);
     setTimeout(() => ticketsOpenDetail(parseInt(n.link_id, 10)), 200);
+    return;
+  }
+  if (n && n.link_type === "market") {
+    const navEl = document.querySelector('.nav-item[data-page="market"]');
+    if (navEl) nav(navEl);
+    setTimeout(() => {
+      setMarketTab("myshop");
+      loadMarketMyShop();
+    }, 200);
   }
 }
 
@@ -7117,9 +7126,13 @@ function renderAuthUserLine() {
   else if (_auth.is_support) role = "Suporte";
   const nick = (_auth.display_name || "").trim();
   const sid = _auth.steam_id || "";
-  const idPart = nick ? `SteamID: ${sid} | ${nick}` : `SteamID: ${sid}`;
-  userLine.innerHTML =
-    `${escHtml(idPart)}<br><span style="color:var(--text2);">${escHtml(role)}</span>`;
+  if (nick) {
+    userLine.innerHTML =
+      `${escHtml(nick)}<br><span style="color:var(--text2);font-size:11px;">SteamID: ${escHtml(sid)}</span><br><span style="color:var(--text2);">${escHtml(role)}</span>`;
+  } else {
+    userLine.innerHTML =
+      `SteamID: ${escHtml(sid)}<br><span style="color:var(--text2);">${escHtml(role)}</span>`;
+  }
 }
 
 function applyRoleUi(deferAdminNav = false) {
@@ -10837,20 +10850,64 @@ function _marketHistoryPurchasesTable(purchases) {
   }).join("") + `</tbody></table></div>`;
 }
 
+function _marketVitrineAuditLabel(eventType) {
+  const map = {
+    MARKET_SELLER_LISTING_SOLD: "Venda realizada",
+    MARKET_SELLER_BUYER_CLAIMED: "Comprador resgatou",
+    MARKET_SELLER_LISTING_ADMIN_FLAGGED: "Sinalizado pela moderação",
+    MARKET_SELLER_LISTING_ADMIN_REMOVED: "Removido pela moderação",
+  };
+  return map[eventType] || eventType || "—";
+}
+
+function _marketVitrineAuditDetail(ev) {
+  const meta = ev.metadata || {};
+  const parts = [`Anúncio #${ev.listing_id || "?"}`];
+  if (ev.effective_price != null) parts.push(`${Number(ev.effective_price).toLocaleString("pt-BR")} Âmbar`);
+  if (meta.buyer_display_name) parts.push(`Comprador: ${meta.buyer_display_name}`);
+  if (meta.reason) parts.push(`Motivo: ${meta.reason}`);
+  if (meta.paused) parts.push("Anúncio pausado");
+  return parts.join(" · ");
+}
+
+function _marketVitrineAuditTable(events) {
+  if (!events.length) {
+    return `<p style="font-size:12px;margin:0;color:var(--text2);">Nenhum evento na vitrine ainda.</p>`;
+  }
+  return `<div class="table-scroll"><table class="data-table"><thead><tr>
+    <th>Data</th><th>Evento</th><th>Detalhes</th>
+  </tr></thead><tbody>` +
+  events.map(ev => `<tr>
+    <td style="white-space:nowrap;font-size:11px;">${fmtDate(ev.created_at)}</td>
+    <td style="font-size:12px;">${escHtml(_marketVitrineAuditLabel(ev.event_type))}</td>
+    <td style="font-size:12px;">${escHtml(_marketVitrineAuditDetail(ev))}</td>
+  </tr>`).join("") + `</tbody></table></div>`;
+}
+
 async function loadMarketMyHistory() {
   const root = document.getElementById("market-myshop-history");
   if (!root || !_auth.authenticated) return;
   try {
-    const r = await fetch(API + "/api/market/my/history");
-    const d = await r.json();
+    const [histR, auditR] = await Promise.all([
+      fetch(API + "/api/market/my/history"),
+      fetch(API + "/api/market/my/audit"),
+    ]);
+    const d = await histR.json();
+    const auditD = auditR.ok ? await auditR.json() : { ok: false, events: [] };
     if (!d.ok) return;
     const sales = (d.sales || []).slice(0, 20);
     const purchases = (d.purchases || []).slice(0, 20);
+    const auditEvents = (auditD.events || []).slice(0, 30);
     root.style.display = "";
     root.innerHTML = `<div class="card" style="margin-bottom:12px;">
       <div class="card-title">📤 Histórico de Vendas</div>
       <p style="font-size:12px;margin:0 0 12px;color:var(--text2);">Quem comprou seus anúncios no Comércio P2P.</p>
       ${_marketHistorySalesTable(sales)}
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-title">📋 Registro da Vitrine</div>
+      <p style="font-size:12px;margin:0 0 12px;color:var(--text2);">Vendas, resgates e ações da moderação nos seus anúncios.</p>
+      ${_marketVitrineAuditTable(auditEvents)}
     </div>
     <div class="card">
       <div class="card-title">📥 Minhas Compras</div>

@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.190"
+APP_VERSION: str = "1.9.192"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.192",
+        "date": "2026-07-03",
+        "changes": [
+            "Fix (Web Store / Comércio): notificações in-app ao vendedor quando anúncio é vendido, resgatado pelo comprador, sinalizado ou removido pela moderação (web e /mercado_admin).",
+            "Feature (Web Store / Comércio): registro da vitrine em Minha Loja — histórico de eventos (vendas, moderação, resgates) via /api/market/my/audit.",
+            "Melhoria (Web Store): sininho abre Minha Loja ao clicar em notificação do Comércio (link_type market).",
+        ],
+    },
+    {
+        "version": "1.9.191",
+        "date": "2026-07-03",
+        "changes": [
+            "Fix (Web Store / Auth): display_name de sistema importado da Steam (personaname) no login; market_display_name fica apenas na vitrine do Comércio.",
+            "Fix (Web Store / Admin): lista Gerenciar Jogadores mostra nick Steam (display_name) e SteamID — não mais o nome de vitrine do mercado.",
+            "Melhoria (Web Store / Health): /api/health expõe steam_api_configured para indicar se STEAM_API_KEY está configurada.",
+        ],
+    },
     {
         "version": "1.9.190",
         "date": "2026-07-03",

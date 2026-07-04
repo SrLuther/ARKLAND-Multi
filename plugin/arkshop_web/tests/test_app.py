@@ -215,6 +215,52 @@ class TestAuth:
         d = client.get("/api/auth/me").get_json()
         assert d.get("display_name") is None
 
+    def test_me_display_name_ignores_market_vitrine_name(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
+        db = _app_module._SessionLocal()
+        try:
+            prof = db.get(_app_module.MarketPlayerProfile, USER_STEAM)
+            prof.market_display_name = "Ciano_STAFF"
+            db.commit()
+        finally:
+            db.close()
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_name",
+            lambda sid: "CianoSteam" if sid == USER_STEAM else None,
+        )
+        _login(client, USER_STEAM)
+        d = client.get("/api/auth/me").get_json()
+        assert d["display_name"] == "CianoSteam"
+        assert d["market_display_name"] == "Ciano_STAFF"
+
+    def test_touch_login_stores_steam_persona_not_market_name(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_name",
+            lambda sid: "CianoSteam" if sid == USER_STEAM else None,
+        )
+        _app_module._touch_store_user_login(USER_STEAM)
+        db = _app_module._SessionLocal()
+        try:
+            row = db.get(_app_module.StoreUser, USER_STEAM)
+            assert row.display_name == "CianoSteam"
+            prof = db.get(_app_module.MarketPlayerProfile, USER_STEAM)
+            assert prof.market_display_name == "TestPlayer"
+        finally:
+            db.close()
+
+    def test_health_reports_steam_api_configured(self, client, monkeypatch):
+        monkeypatch.setenv("STEAM_API_KEY", "abc123")
+        d = client.get("/api/health").get_json()
+        assert d["steam_api_configured"] is True
+
+    def test_health_steam_api_not_configured(self, client, monkeypatch):
+        monkeypatch.delenv("STEAM_API_KEY", raising=False)
+        d = client.get("/api/health").get_json()
+        assert d["steam_api_configured"] is False
+
     def test_me_authenticated_user(self, client, monkeypatch):
         monkeypatch.setattr(
             _app_module,
@@ -1168,6 +1214,14 @@ class TestAdminPlayers:
         assert d2["ok"] is True
         assert d2["player"]["points"] == 500
         assert d2["player"]["display_name"] == "Alpha Tester"
+
+    def test_list_players_ignores_market_display_name(self, client):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        d = client.get("/api/admin/players").get_json()
+        row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
+        assert row["display_name"] == USER_STEAM
+        assert row["display_name"] != "TestPlayer"
 
     def test_adjust_points_via_player_endpoint(self, client):
         _seed_store_user(USER_STEAM)

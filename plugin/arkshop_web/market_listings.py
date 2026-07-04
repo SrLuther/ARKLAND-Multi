@@ -21,6 +21,13 @@ from ark_species_registry import (
     suggestion_to_public,
 )
 from market_audit import market_audit_event
+from market_notify import (
+    SELLER_VITRINE_EVENT_TYPES,
+    notify_seller_buyer_claimed,
+    notify_seller_listing_flagged,
+    notify_seller_listing_removed,
+    notify_seller_listing_sold,
+)
 from market_economy import (
     STAT_KEYS,
     calculate_listing_price_ceiling,
@@ -173,6 +180,16 @@ def get_profile(db: Session, steam_id: str) -> Any | None:
     from app import MarketPlayerProfile
 
     return db.query(MarketPlayerProfile).filter(MarketPlayerProfile.steam_id == steam_id).first()
+
+
+def _profile_display_name(db: Session, steam_id: str) -> str | None:
+    prof = get_profile(db, steam_id)
+    return prof.market_display_name if prof else None
+
+
+def _listing_title_for_notify(db: Session, row: Any) -> str:
+    species_row = resolve_species(db, species_key=row.species_key)
+    return _listing_display_title(row, species_row)
 
 
 def commerce_ready(db: Session, steam_id: str) -> tuple[bool, str | None]:
@@ -998,6 +1015,19 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
         commit=True,
     )
 
+    try:
+        notify_seller_listing_sold(
+            db,
+            seller_steam_id=row.seller_steam_id,
+            listing_id=row.id,
+            listing_title=_listing_title_for_notify(db, row),
+            price=price,
+            buyer_display_name=_profile_display_name(db, buyer_steam_id),
+            market_trace_id=row.market_trace_id,
+        )
+    except Exception as exc:
+        log.warning("notify_seller_listing_sold falhou listing=%s: %s", row.id, exc)
+
     hrs = _hours_remaining(claim.claim_expires_at, now=now)
     return {
         "listing_id": row.id,
@@ -1178,6 +1208,19 @@ def mark_claim_delivered(db: Session, claim_id: int, steam_id: str) -> dict[str,
             market_trace_id=listing.market_trace_id,
             commit=True,
         )
+    elif claim.claim_type == "BUYER":
+        try:
+            notify_seller_buyer_claimed(
+                db,
+                seller_steam_id=listing.seller_steam_id,
+                listing_id=listing.id,
+                listing_title=_listing_title_for_notify(db, listing),
+                buyer_display_name=_profile_display_name(db, steam_id),
+                market_trace_id=listing.market_trace_id,
+                claim_id=claim.id,
+            )
+        except Exception as exc:
+            log.warning("notify_seller_buyer_claimed falhou listing=%s: %s", listing.id, exc)
     return {"claim_id": claim.id, "listing_id": listing.id, "status": "DELIVERED"}
 
 
@@ -1587,6 +1630,19 @@ def admin_remove_listing(
         metadata={"reason": reason[:280] if reason else None, "seller": row.seller_steam_id},
         commit=True,
     )
+    try:
+        notify_seller_listing_removed(
+            db,
+            seller_steam_id=row.seller_steam_id,
+            listing_id=row.id,
+            listing_title=_listing_title_for_notify(db, row),
+            admin_steam_id=admin_steam_id,
+            reason=reason,
+            claim_id=claim.id,
+            market_trace_id=row.market_trace_id,
+        )
+    except Exception as exc:
+        log.warning("notify_seller_listing_removed falhou listing=%s: %s", row.id, exc)
     return {
         "listing_id": row.id,
         "claim_id": claim.id,
@@ -1673,6 +1729,19 @@ def admin_flag_listing(
         metadata={"reason": reason[:280] if reason else None, "paused": pause},
         commit=True,
     )
+    try:
+        notify_seller_listing_flagged(
+            db,
+            seller_steam_id=row.seller_steam_id,
+            listing_id=row.id,
+            listing_title=_listing_title_for_notify(db, row),
+            admin_steam_id=admin_steam_id,
+            reason=reason,
+            paused=pause and row.status == "PAUSED",
+            market_trace_id=row.market_trace_id,
+        )
+    except Exception as exc:
+        log.warning("notify_seller_listing_flagged falhou listing=%s: %s", row.id, exc)
     species_row = resolve_species(db, species_key=row.species_key)
     return listing_to_public(row, species_row=species_row)
 
@@ -2171,6 +2240,43 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
         ],
         "reservation_hours": CLAIM_RESERVATION_HOURS,
     }
+
+
+def list_seller_vitrine_audit_events(
+    db: Session,
+    seller_steam_id: str,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Eventos da vitrine visíveis ao vendedor (vendas, moderação, resgates)."""
+    from app import MarketAuditEvent
+
+    q = (
+        db.query(MarketAuditEvent)
+        .filter(
+            MarketAuditEvent.steam_id == seller_steam_id,
+            MarketAuditEvent.event_type.in_(SELLER_VITRINE_EVENT_TYPES),
+        )
+        .order_by(MarketAuditEvent.created_at.desc())
+    )
+    rows = q.offset(offset).limit(min(limit, 100)).all()
+    out = []
+    for row in rows:
+        meta = _json_loads(row.metadata_json) if row.metadata_json else {}
+        out.append(
+            {
+                "id": row.id,
+                "event_type": row.event_type,
+                "listing_id": row.listing_id,
+                "claim_id": row.claim_id,
+                "effective_price": row.effective_price,
+                "counterparty_steam_id": row.counterparty_steam_id,
+                "created_at": row.created_at.isoformat() if row.created_at else None,
+                "metadata": meta,
+            }
+        )
+    return out
 
 
 def list_market_audit_events(

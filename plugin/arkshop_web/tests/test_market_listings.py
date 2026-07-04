@@ -18,6 +18,7 @@ from app import _configure_database
 
 SELLER = "76561198000000001"
 BUYER = "76561198000000002"
+ADMIN = "76561198000000099"
 
 
 @pytest.fixture(autouse=True)
@@ -215,5 +216,98 @@ def test_player_market_history_shows_buyer_for_seller():
         buyer_history = player_market_history(db, BUYER)
         assert len(buyer_history["purchases"]) == 1
         assert buyer_history["purchases"][0]["seller_display_name"] == "SellerOne"
+    finally:
+        db.close()
+
+
+def test_purchase_notifies_seller(tmp_path, monkeypatch):
+    from notification_service import list_notifications
+    from market_listings import list_seller_vitrine_audit_events, purchase_listing
+
+    monkeypatch.setattr(_app_module, "_ADMIN_FILE", tmp_path / "admin_steamids.json")
+    (tmp_path / "admin_steamids.json").write_text(json.dumps([ADMIN]), encoding="utf-8")
+
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, include_buyer=True)
+        listing_id = _seed_active_listing(db)
+        db.execute(
+            __import__("sqlalchemy").text(
+                "INSERT INTO players (steam_id, points) VALUES (:sid, :pts)"
+            ),
+            {"sid": BUYER, "pts": 10000},
+        )
+        db.commit()
+
+        purchase_listing(db, listing_id, BUYER)
+
+        items, total = list_notifications(db, SELLER, unread_only=True)
+        assert total >= 1
+        assert any(n["type"] == "market_sale" for n in items)
+        assert any("vendido" in (n["title"] or "").lower() for n in items)
+
+        audit = list_seller_vitrine_audit_events(db, SELLER)
+        assert any(e["event_type"] == "MARKET_SELLER_LISTING_SOLD" for e in audit)
+    finally:
+        db.close()
+
+
+def test_admin_flag_notifies_seller_and_audit(tmp_path, monkeypatch):
+    from notification_service import list_notifications
+    from market_listings import admin_flag_listing, list_seller_vitrine_audit_events
+
+    monkeypatch.setattr(_app_module, "_ADMIN_FILE", tmp_path / "admin_steamids.json")
+    (tmp_path / "admin_steamids.json").write_text(json.dumps([ADMIN]), encoding="utf-8")
+
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db)
+        listing_id = _seed_active_listing(db)
+
+        admin_flag_listing(
+            db,
+            listing_id,
+            ADMIN,
+            reason="Preço abusivo",
+            pause=True,
+        )
+
+        items, total = list_notifications(db, SELLER, unread_only=True)
+        assert total >= 1
+        flagged = [n for n in items if n["type"] == "market_admin_flag"]
+        assert flagged
+        assert "abusivo" in (flagged[0]["body"] or "").lower() or "sinalizado" in (flagged[0]["title"] or "").lower()
+        assert "Preço abusivo" in (flagged[0]["body"] or "")
+
+        audit = list_seller_vitrine_audit_events(db, SELLER)
+        removed = [e for e in audit if e["event_type"] == "MARKET_SELLER_LISTING_ADMIN_FLAGGED"]
+        assert removed
+        assert removed[0]["metadata"].get("reason") == "Preço abusivo"
+    finally:
+        db.close()
+
+
+def test_admin_remove_notifies_seller_and_audit(tmp_path, monkeypatch):
+    from notification_service import list_notifications
+    from market_listings import admin_remove_listing, list_seller_vitrine_audit_events
+
+    monkeypatch.setattr(_app_module, "_ADMIN_FILE", tmp_path / "admin_steamids.json")
+    (tmp_path / "admin_steamids.json").write_text(json.dumps([ADMIN]), encoding="utf-8")
+
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db)
+        listing_id = _seed_active_listing(db)
+
+        admin_remove_listing(db, listing_id, ADMIN, reason="Conteúdo proibido")
+
+        items, total = list_notifications(db, SELLER, unread_only=True)
+        assert total >= 1
+        assert any(n["type"] == "market_admin_remove" for n in items)
+
+        audit = list_seller_vitrine_audit_events(db, SELLER)
+        assert any(e["event_type"] == "MARKET_SELLER_LISTING_ADMIN_REMOVED" for e in audit)
+        removed = [e for e in audit if e["event_type"] == "MARKET_SELLER_LISTING_ADMIN_REMOVED"][0]
+        assert removed["metadata"].get("reason") == "Conteúdo proibido"
     finally:
         db.close()

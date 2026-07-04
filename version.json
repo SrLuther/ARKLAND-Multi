@@ -1,9 +1,10 @@
 {
-    "version": "1.9.190",
+    "version": "1.9.192",
     "date": "2026-07-03",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.190/ARKLAND-Multi-Setup-v1.9.190.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.192/ARKLAND-Multi-Setup-v1.9.192.exe",
     "changelog": [
-        "Fix (CustomShop / Entregas): HttpClient trata resposta vazia ou HTTP falho no claim sem spam de notificacao; TryParseApiJson centraliza parse da API.",
-        "Fix (Web Store / API): rotas /api/pending/* sempre retornam JSON valido (fila vazia com ok/items/orders); evita erro de parse no plugin."
+        "Fix (Web Store / Comércio): notificações in-app ao vendedor quando anúncio é vendido, resgatado pelo comprador, sinalizado ou removido pela moderação (web e /mercado_admin).",
+        "Feature (Web Store / Comércio): registro da vitrine em Minha Loja — histórico de eventos (vendas, moderação, resgates) via /api/market/my/audit.",
+        "Melhoria (Web Store): sininho abre Minha Loja ao clicar em notificação do Comércio (link_type market)."
     ]
 }

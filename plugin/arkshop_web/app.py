@@ -1706,11 +1706,12 @@ def _resolve_player_display_name(
     steam_id: str,
     *,
     store_name: str | None = None,
-    market_name: str | None = None,
 ) -> str:
-    for candidate in (store_name, market_name):
-        if candidate and str(candidate).strip():
-            return str(candidate).strip()[:128]
+    """Nome de sistema (store_users.display_name); nunca usa market_display_name."""
+    if store_name and str(store_name).strip():
+        name = str(store_name).strip()
+        if name != steam_id:
+            return name[:128]
     for p in _load_players():
         if str(p.get("steam_id", "")).strip() == steam_id:
             nm = str(p.get("name") or "").strip()
@@ -1727,19 +1728,15 @@ def _touch_store_user_login(steam_id: str) -> None:
     try:
         now = _now()
         row = db.get(StoreUser, steam_id)
-        market_name: str | None = None
-        try:
-            prof = _safe_market_profile(db, steam_id)
-            if prof and (prof.market_display_name or "").strip():
-                market_name = str(prof.market_display_name).strip()
-        except Exception:
-            market_name = None
-        display_name = _resolve_player_display_name(steam_id, market_name=market_name)
-        persona: str | None = None
-        if display_name == steam_id:
-            persona = _fetch_steam_persona_name(steam_id)
-            if persona:
-                display_name = persona
+        persona = _fetch_steam_persona_name(steam_id)
+        if persona:
+            display_name = persona
+        elif row and (row.display_name or "").strip():
+            display_name = _resolve_player_display_name(
+                steam_id, store_name=row.display_name,
+            )
+        else:
+            display_name = _resolve_player_display_name(steam_id)
         if row is None:
             row = StoreUser(
                 steam_id=steam_id,
@@ -1749,12 +1746,10 @@ def _touch_store_user_login(steam_id: str) -> None:
             db.add(row)
         else:
             row.last_login_at = now
-            if market_name and not (row.display_name or "").strip():
-                row.display_name = market_name
-            elif persona and (
-                not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id
-            ):
+            if persona:
                 row.display_name = persona
+            elif not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id:
+                row.display_name = display_name
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -1799,16 +1794,9 @@ def _backfill_store_users(engine: Any) -> None:
         for sid in steam_ids:
             if db.get(StoreUser, sid) is not None:
                 continue
-            market_name: str | None = None
-            try:
-                prof = _safe_market_profile(db, sid)
-                if prof and (prof.market_display_name or "").strip():
-                    market_name = str(prof.market_display_name).strip()
-            except Exception:
-                pass
             db.add(StoreUser(
                 steam_id=sid,
-                display_name=_resolve_player_display_name(sid, market_name=market_name),
+                display_name=_resolve_player_display_name(sid),
                 created_at=now,
             ))
         db.commit()
@@ -1906,11 +1894,7 @@ def _list_admin_players(
         points_expr = "COALESCE(p.points, 0)" if has_players else "0"
         sort_col = {
             "last_login": "su.last_login_at",
-            "display_name": (
-                "COALESCE(su.display_name, mp.market_display_name, su.steam_id)"
-                if has_market_profile
-                else "COALESCE(su.display_name, su.steam_id)"
-            ),
+            "display_name": "COALESCE(su.display_name, su.steam_id)",
             "points": points_expr,
             "created_at": "su.created_at",
         }[sort_key]
@@ -1942,22 +1926,12 @@ def _list_admin_players(
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = str(r[0])
-            market_name = str(r[2]).strip() if r[2] else None
-            if not market_name and has_market_profile:
-                try:
-                    prof = _safe_market_profile(db, sid)
-                    if prof and (prof.market_display_name or "").strip():
-                        market_name = str(prof.market_display_name).strip()
-                except Exception:
-                    pass
             ents = _get_player_entitlements(sid, db=db)
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
             items.append({
                 "steam_id": sid,
-                "display_name": _resolve_player_display_name(
-                    sid, store_name=r[1], market_name=market_name,
-                ),
+                "display_name": _resolve_player_display_name(sid, store_name=r[1]),
                 "points": int(r[3] or 0),
                 "site_access_blocked": bool(r[4]),
                 "ban_reason": r[5],
@@ -2022,7 +1996,6 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         display_name = _resolve_player_display_name(
             steam_id,
             store_name=(su.display_name if su else None),
-            market_name=(prof.market_display_name if prof else None),
         )
         return {
             "ok": True,
@@ -4023,6 +3996,10 @@ def _extract_steam_id_from_claimed_id(claimed_id: str) -> str | None:
     return candidate if _is_valid_steamid64(candidate) else None
 
 
+def _steam_api_key_configured() -> bool:
+    return bool((os.environ.get("STEAM_API_KEY") or "").strip())
+
+
 def _fetch_steam_persona_name(steam_id: str) -> str | None:
     """Persona Steam (personaname) via Web API; requer STEAM_API_KEY no ambiente."""
     api_key = (os.environ.get("STEAM_API_KEY") or "").strip()
@@ -4047,16 +4024,24 @@ def _fetch_steam_persona_name(steam_id: str) -> str | None:
 
 def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | None:
     """Nome Steam/jogador para header; None se indisponível (sem fallback ao SteamID)."""
+    stored_name: str | None = None
+    market_name: str | None = None
     if _db_ready():
         db = _SessionLocal()
         try:
             row = db.get(StoreUser, steam_id)
             if row and (row.display_name or "").strip():
-                name = str(row.display_name).strip()
-                if name != steam_id:
-                    return name[:128]
+                stored_name = str(row.display_name).strip()
+            prof = _safe_market_profile(db, steam_id)
+            if prof and (prof.market_display_name or "").strip():
+                market_name = str(prof.market_display_name).strip()
         finally:
             _release_db_session(db)
+
+    if stored_name and stored_name != steam_id:
+        # Nome de vitrine do comércio não é nome de sistema
+        if not market_name or stored_name != market_name:
+            return stored_name[:128]
 
     for p in _load_players():
         if str(p.get("steam_id", "")).strip() == steam_id:
@@ -4068,22 +4053,23 @@ def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | No
         return None
 
     persona = _fetch_steam_persona_name(steam_id)
-    if not persona or not _db_ready():
-        return persona
+    if not persona:
+        return None
 
-    db = _SessionLocal()
-    try:
-        row = db.get(StoreUser, steam_id)
-        if row is None:
-            row = StoreUser(steam_id=steam_id, display_name=persona, last_login_at=_now())
-            db.add(row)
-        elif not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id:
-            row.display_name = persona
-        db.commit()
-    except Exception:
-        db.rollback()
-    finally:
-        _release_db_session(db)
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            row = db.get(StoreUser, steam_id)
+            if row is None:
+                row = StoreUser(steam_id=steam_id, display_name=persona, last_login_at=_now())
+                db.add(row)
+            else:
+                row.display_name = persona
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            _release_db_session(db)
     return persona
 
 
@@ -5139,6 +5125,7 @@ def health_check():
         "ok": True,
         "db_configured": _db_ready(),
         "db_reachable": _HEALTH_DB_CACHE.get("reachable") if _db_ready() else None,
+        "steam_api_configured": _steam_api_key_configured(),
         "version": _get_project_release().get("version", ""),
     })
 
