@@ -166,6 +166,7 @@ def test_pix_checkout_after_donor_data(client, monkeypatch):
                     "email": "player@example.com",
                     "full_name": "João Silva",
                     "cpf": "529.982.247-25",
+                    "phone": "(11) 98765-4321",
                 },
             },
         )

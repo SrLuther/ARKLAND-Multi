@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from cryptography.fernet import Fernet
 
 from pix_payments import (
+    CARD_PAYER_FORM,
     PIX_PAYER_FORM,
     PayerValidationError,
     PixPaymentError,
@@ -35,9 +36,11 @@ from pix_payments import (
     extract_pix_data,
     fetch_payment,
     map_mp_status,
-    normalize_payer_input,
+    normalize_card_payer_input,
+    normalize_pix_payer_input,
     parse_mp_error_message,
 )
+from exchange_rates import estimate_foreign, get_exchange_rates
 from flask import Flask, has_request_context, jsonify, make_response, redirect, request, send_from_directory, session
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -6253,9 +6256,12 @@ def public_home():
                 "label": p.get("label", ""),
                 "points": int(p.get("points", 0) or 0),
                 "price_brl": float(p.get("price_brl", 0) or 0),
+                "estimate_usd": estimate_foreign(float(p.get("price_brl", 0) or 0))["USD"],
+                "estimate_eur": estimate_foreign(float(p.get("price_brl", 0) or 0))["EUR"],
             }
             for p in packages[:6]
         ],
+        "exchange_rates": get_exchange_rates(),
         "utilities_preview": [
             {
                 "id": u.get("id", ""),
@@ -6326,6 +6332,16 @@ def public_amber_stats():
     return resp
 
 
+@app.route("/api/public/exchange-rates", methods=["GET"])
+@limiter.limit("120 per minute; 2000 per hour", override_defaults=True)
+def public_exchange_rates():
+    """Cotações BRL → USD/EUR para estimativas na UI (cache 1h no servidor)."""
+    payload = get_exchange_rates()
+    resp = make_response(jsonify({"ok": True, **payload}))
+    resp.headers["Cache-Control"] = "public, max-age=300"
+    return resp
+
+
 # ── Catalog (público, sem autenticação) ───────────────────────────────────────
 
 @app.route("/api/catalog", methods=["GET"])
@@ -6348,6 +6364,14 @@ def get_catalog():
         or _DEFAULT_PUBLIC_BRAND
     )
     packages = _load_point_packages()
+    fx = get_exchange_rates()
+    enriched_packages = []
+    for p in packages:
+        entry = dict(p)
+        est = estimate_foreign(float(p.get("price_brl", 0) or 0), fx["rates"])
+        entry["estimate_usd"] = est["USD"]
+        entry["estimate_eur"] = est["EUR"]
+        enriched_packages.append(entry)
     public_url = str(s.get("public_url") or "").strip() or DEFAULT_SHOP_PUBLIC_URL
 
     def _kit_price(kit_id: str) -> int | None:
@@ -6389,13 +6413,14 @@ def get_catalog():
         "items": items,
         "kits": kits,
         "shop_name": shop_name,
-        "point_packages": packages,
+        "point_packages": enriched_packages,
         "currency": _public_currency(),
         "pix_enabled": _pix_enabled(),
         "card_enabled": _payments_enabled(),
         "mp_sandbox": _mp_sandbox(),
         "public_url": public_url,
         "shop_url": public_url,
+        "exchange_rates": fx,
         "tier_icon_urls": TIER_ICON_URLS,
         "category_icons": CATEGORY_ICONS,
         "catalog_meta": catalog_meta,
@@ -7670,6 +7695,13 @@ def player_pix_payer_form():
     return jsonify({"ok": True, "fields": PIX_PAYER_FORM})
 
 
+@app.route("/api/player/card/payer-form", methods=["GET"])
+@login_required
+def player_card_payer_form():
+    """Campos para checkout com cartão (internacional — documento opcional)."""
+    return jsonify({"ok": True, "fields": CARD_PAYER_FORM})
+
+
 @app.route("/api/player/pix/checkout", methods=["POST"])
 @login_required
 @limiter.limit("5 per minute; 20 per hour")
@@ -7690,7 +7722,7 @@ def player_pix_checkout():
         return jsonify({"ok": False, "error": "Pacote de pontos inválido"}), 400
 
     try:
-        payer = normalize_payer_input(body.get("payer"))
+        payer = normalize_pix_payer_input(body.get("payer"))
     except PayerValidationError as exc:
         return jsonify({"ok": False, "error": str(exc), "field": exc.field}), 400
 
@@ -7819,7 +7851,7 @@ def player_card_checkout():
         return jsonify({"ok": False, "error": pkg_err}), 400
 
     try:
-        payer = normalize_payer_input(body.get("payer"))
+        payer = normalize_card_payer_input(body.get("payer"))
     except PayerValidationError as exc:
         return jsonify({"ok": False, "error": str(exc), "field": exc.field}), 400
 

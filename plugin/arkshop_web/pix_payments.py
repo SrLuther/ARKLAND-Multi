@@ -20,7 +20,7 @@ class PayerValidationError(Exception):
         self.field = field
 
 
-# Campos solicitados ao jogador — exigidos pelo Mercado Pago para validar a doação PIX (Brasil).
+# Campos PIX — Brasil: CPF e telefone celular obrigatórios (Mercado Pago).
 PIX_PAYER_FORM: list[dict[str, Any]] = [
     {
         "id": "email",
@@ -49,10 +49,38 @@ PIX_PAYER_FORM: list[dict[str, Any]] = [
     {
         "id": "phone",
         "label": "Telefone (celular)",
-        "hint": "Opcional — repassado ao MP somente se informado",
+        "hint": "Obrigatório para PIX — DDD + número (Brasil)",
         "type": "phone",
-        "required": False,
+        "required": True,
         "mp_key": "phone",
+    },
+]
+
+# Cartão — internacional: e-mail e nome obrigatórios; documento opcional (CPF ou passaporte).
+CARD_PAYER_FORM: list[dict[str, Any]] = [
+    {
+        "id": "email",
+        "label": "E-mail",
+        "hint": "Exigido pelo Mercado Pago — comprovante da doação",
+        "type": "email",
+        "required": True,
+        "mp_key": "email",
+    },
+    {
+        "id": "full_name",
+        "label": "Nome completo",
+        "hint": "Exigido pelo Mercado Pago — validação da doação",
+        "type": "text",
+        "required": True,
+        "mp_key": "name",
+    },
+    {
+        "id": "identification",
+        "label": "CPF ou passaporte",
+        "hint": "Opcional — brasileiros podem informar CPF; internacionais, passaporte ou documento",
+        "type": "identification",
+        "required": False,
+        "mp_key": "identification",
     },
 ]
 
@@ -107,23 +135,66 @@ def _parse_phone(value: str) -> dict[str, str] | None:
     raise PayerValidationError("Telefone inválido — use DDD + número.", field="phone")
 
 
-def normalize_payer_input(raw: dict[str, Any] | None) -> dict[str, Any]:
-    """Valida dados informados pelo jogador e monta objeto payer para a API MP."""
+def _parse_optional_identification(value: str) -> dict[str, str] | None:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    digits = _digits(raw)
+    if len(digits) == 11:
+        cpf = _validate_cpf(raw)
+        return {"type": "CPF", "number": cpf}
+    doc = re.sub(r"[^A-Za-z0-9]", "", raw)
+    if len(doc) < 5 or len(doc) > 20:
+        raise PayerValidationError(
+            "Documento inválido — informe CPF (11 dígitos) ou passaporte (5–20 caracteres).",
+            field="identification",
+        )
+    return {"type": "Otro", "number": doc.upper()}
+
+
+def normalize_pix_payer_input(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Valida pagador PIX (Brasil): e-mail, nome, CPF e telefone celular."""
     data = raw if isinstance(raw, dict) else {}
     email = _validate_email(str(data.get("email", "")))
     first_name, last_name = _split_full_name(str(data.get("full_name", "")))
     cpf = _validate_cpf(str(data.get("cpf", "")))
-    phone = _parse_phone(str(data.get("phone", "")))
+    phone_raw = str(data.get("phone", "")).strip()
+    if not phone_raw:
+        raise PayerValidationError("Telefone celular é obrigatório para PIX.", field="phone")
+    phone = _parse_phone(phone_raw)
+    if not phone:
+        raise PayerValidationError("Telefone celular é obrigatório para PIX.", field="phone")
 
     payer: dict[str, Any] = {
         "email": email,
         "first_name": first_name[:255],
         "last_name": last_name[:255],
         "identification": {"type": "CPF", "number": cpf},
+        "phone": phone,
     }
-    if phone:
-        payer["phone"] = phone
     return payer
+
+
+def normalize_card_payer_input(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Valida pagador cartão: e-mail e nome obrigatórios; documento opcional."""
+    data = raw if isinstance(raw, dict) else {}
+    email = _validate_email(str(data.get("email", "")))
+    first_name, last_name = _split_full_name(str(data.get("full_name", "")))
+    identification = _parse_optional_identification(str(data.get("identification", "")))
+
+    payer: dict[str, Any] = {
+        "email": email,
+        "first_name": first_name[:255],
+        "last_name": last_name[:255],
+    }
+    if identification:
+        payer["identification"] = identification
+    return payer
+
+
+def normalize_payer_input(raw: dict[str, Any] | None) -> dict[str, Any]:
+    """Alias retrocompatível — validação PIX."""
+    return normalize_pix_payer_input(raw)
 
 
 def parse_mp_error_message(raw: str) -> str:
@@ -271,7 +342,6 @@ def create_card_checkout_preference(
             "email": payer.get("email"),
             "name": payer.get("first_name"),
             "surname": payer.get("last_name"),
-            "identification": payer.get("identification"),
         },
         "external_reference": external_reference[:256],
         "back_urls": {
@@ -287,6 +357,8 @@ def create_card_checkout_preference(
             ],
         },
     }
+    if payer.get("identification"):
+        payload["payer"]["identification"] = payer["identification"]
     if success_url.startswith("https://"):
         payload["auto_return"] = "approved"
     if payer.get("phone"):

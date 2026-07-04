@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.203] - 2026-07-04
+
+### Feature
+
+- Feature (Web Store / Doações): checkout com cartão sem CPF obrigatório — pagamento internacional com e-mail e nome; PIX mantém CPF e telefone brasileiro.
+- Feature (Web Store / Doações): estimativa USD/EUR ao lado dos preços em R$ — GET /api/public/exchange-rates (Frankfurter, cache 1h, fallback estático).
+
+### Improvement
+
+- Melhoria (Web Store / Doações): formulários separados PIX vs cartão, texto internacional na UI e pacotes enriquecidos no catálogo/home.
+
 ## [1.9.202] - 2026-07-04
 
 ### Improvement

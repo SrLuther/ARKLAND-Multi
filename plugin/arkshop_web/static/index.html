@@ -1379,7 +1379,17 @@
       font-size: 18px;
       color: var(--success);
       font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .recharge-card__fx {
+      font-size: 12px;
+      color: var(--text2);
       margin-bottom: 14px;
+    }
+    .home-pkg__fx {
+      font-size: 11px;
+      color: var(--text2);
+      margin-top: 2px;
     }
     .recharge-card__actions {
       display: flex;
@@ -4741,7 +4751,7 @@
         <div class="donation-policy-banner" onclick="openPolicyModal(false)" role="button" tabindex="0">
           <div class="donation-policy-banner__title">⚖️ Política de Doações — leia antes de doar ou resgatar</div>
           <div class="donation-policy-banner__text">
-            As doações via PIX ou cartão são <strong>voluntárias</strong>. E-mail, nome e CPF na doação são <strong>exigidos pelo Mercado Pago</strong> — repassamos ao MP e não usamos para marketing.
+            As doações via PIX ou cartão são <strong>voluntárias</strong>. PIX exige CPF e telefone brasileiro; cartão aceita pagamento internacional (e-mail e nome — documento opcional). Dados repassados ao Mercado Pago — não usamos para marketing.
             <strong>Não há reembolso.</strong> Itens do ARK são obtidos apenas por <strong>resgate com Âmbar</strong>.
           </div>
           <div class="donation-policy-banner__link">Clique para ler a política completa →</div>
@@ -4836,12 +4846,14 @@
           <div class="recharge-trust">
             <div class="recharge-trust__title">💚 Doação voluntária via Mercado Pago (PIX ou cartão)</div>
             <p style="font-size:13px;color:var(--text2);margin:0 0 10px;line-height:1.55;">
-              Você faz uma <strong>doação</strong> ao servidor via PIX (app do banco) ou cartão de crédito (Checkout Mercado Pago). Como recompensa simbólica, recebe Âmbares equivalentes ao valor doado.
+              Você faz uma <strong>doação</strong> ao servidor via PIX (app do banco, Brasil) ou cartão de crédito (Checkout Mercado Pago — aceita pagamento internacional). Como recompensa simbólica, recebe Âmbares equivalentes ao valor doado.
               <strong>Doação definitiva — sem reembolso.</strong>
             </p>
+            <p style="font-size:12px;color:var(--tek);margin:0 0 8px;line-height:1.5;font-weight:600;">
+              🌍 Pagamento internacional: use cartão de crédito.
+            </p>
             <p style="font-size:12px;color:var(--text2);margin:0;line-height:1.5;opacity:.92;">
-              E-mail, nome e CPF são <strong>solicitados pelo Mercado Pago</strong> para validar a doação — não pela ARKLAND para outros fins.
-              Repassamos esses dados apenas ao Mercado Pago. Não vendemos nem usamos dados pessoais para marketing.
+              PIX (Brasil): e-mail, nome, CPF e telefone celular — exigidos pelo Mercado Pago. Cartão: e-mail e nome; CPF ou passaporte opcional. Repassamos esses dados apenas ao Mercado Pago.
             </p>
             <div class="recharge-steps">
               <div class="recharge-step"><strong>1. ESCOLHA</strong>Selecione o pacote de Âmbares (valor da doação)</div>
@@ -4850,7 +4862,7 @@
             </div>
           </div>
           <p class="available-hint" id="recharge-hint">
-            Selecione um pacote e escolha PIX ou cartão. Na etapa seguinte, o Mercado Pago pedirá e-mail, nome e CPF para validar a doação — a ARKLAND só repassa esses dados ao MP.
+            Selecione um pacote e escolha PIX (Brasil) ou cartão (internacional). Valores em R$ com estimativa em USD/EUR.
           </p>
           <div id="catalog-recharge-grid" class="recharge-grid"></div>
           <p id="catalog-recharge-empty" style="display:none;color:var(--text2);text-align:center;margin-top:48px;font-size:15px;">Doações indisponíveis no momento.</p>
@@ -7797,6 +7809,8 @@ let _activePixPaymentId = null;
 let _pendingPixPackageId = null;
 let _pendingRedeemItem = null;
 let _pixPayerFields = null;
+let _cardPayerFields = null;
+let _exchangeRates = null;
 let _pixCheckoutPackageId = null;
 let _paymentCheckoutMethod = "pix";
 const DONATION_POLICY_KEY = "arkland_donation_policy_v1";
@@ -8343,6 +8357,9 @@ async function loadCatalog() {
     _catalogPackages = data.point_packages || [];
     _catalogPixEnabled = !!data.pix_enabled;
     _catalogCardEnabled = !!data.card_enabled;
+    if (data.exchange_rates && data.exchange_rates.rates) {
+      _exchangeRates = data.exchange_rates.rates;
+    }
 
     if (_auth.authenticated) {
       try {
@@ -8570,6 +8587,17 @@ async function loadAvailable() {
   }
 }
 
+function fmtForeignEstimate(priceBrl, pkg) {
+  const usd = pkg && pkg.estimate_usd != null
+    ? Number(pkg.estimate_usd)
+    : (_exchangeRates ? priceBrl * Number(_exchangeRates.USD || 0) : null);
+  const eur = pkg && pkg.estimate_eur != null
+    ? Number(pkg.estimate_eur)
+    : (_exchangeRates ? priceBrl * Number(_exchangeRates.EUR || 0) : null);
+  if (usd == null || eur == null || !Number.isFinite(usd) || !Number.isFinite(eur)) return "";
+  return `≈ $${usd.toFixed(2)} / €${eur.toFixed(2)}`;
+}
+
 function renderRecharge() {
   const grid = document.getElementById("catalog-recharge-grid");
   const empty = document.getElementById("catalog-recharge-empty");
@@ -8607,6 +8635,7 @@ function renderRecharge() {
     const pts = Number(p.points || 0);
     const price = Number(p.price_brl || 0);
     const perK = pts > 0 ? ((price / pts) * 1000).toFixed(2).replace(".", ",") : "—";
+    const fxLabel = fmtForeignEstimate(price, p);
     const pid = escHtml(p.id);
     const payBtns = !_auth.authenticated
       ? `<span style="font-size:12px;color:var(--text2);">Faça login com Steam para doar</span>`
@@ -8619,6 +8648,7 @@ function renderRecharge() {
       <div style="font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.1em;">${escHtml(p.label || p.id)}</div>
       <div class="recharge-card__points">${amberPriceHtml(pts, 20)}</div>
       <div class="recharge-card__price">Doação: R$ ${price.toFixed(2).replace(".", ",")}</div>
+      ${fxLabel ? `<div class="recharge-card__fx">${escHtml(fxLabel)}</div>` : ""}
       <div style="font-size:11px;color:var(--text2);margin-bottom:14px;">≈ R$ ${perK} / 1.000 ${escHtml(CURRENCY.plural)}</div>
       ${p.note ? `<div style="font-size:12px;color:var(--amber);margin-bottom:12px;line-height:1.35;">${escHtml(p.note)}</div>` : ""}
       ${payBtns}
@@ -8696,9 +8726,27 @@ async function _ensurePixPayerFields() {
     { id: "email", label: "E-mail", hint: "Exigido pelo Mercado Pago — comprovante da doação", type: "email", required: true },
     { id: "full_name", label: "Nome completo", hint: "Exigido pelo Mercado Pago — validação da doação", type: "text", required: true },
     { id: "cpf", label: "CPF", hint: "Exigido pelo Mercado Pago para PIX no Brasil", type: "cpf", required: true },
-    { id: "phone", label: "Telefone (celular)", hint: "Opcional — só se o Mercado Pago solicitar", type: "phone", required: false },
+    { id: "phone", label: "Telefone (celular)", hint: "Obrigatório para PIX — DDD + número (Brasil)", type: "phone", required: true },
   ];
   return _pixPayerFields;
+}
+
+async function _ensureCardPayerFields() {
+  if (_cardPayerFields && _cardPayerFields.length) return _cardPayerFields;
+  try {
+    const r = await fetch(API + "/api/player/card/payer-form");
+    const d = await r.json();
+    if (d.ok && d.fields) {
+      _cardPayerFields = d.fields;
+      return _cardPayerFields;
+    }
+  } catch (_) {}
+  _cardPayerFields = [
+    { id: "email", label: "E-mail", hint: "Exigido pelo Mercado Pago — comprovante da doação", type: "email", required: true },
+    { id: "full_name", label: "Nome completo", hint: "Exigido pelo Mercado Pago — validação da doação", type: "text", required: true },
+    { id: "identification", label: "CPF ou passaporte", hint: "Opcional — brasileiros podem informar CPF; internacionais, passaporte ou documento", type: "identification", required: false },
+  ];
+  return _cardPayerFields;
 }
 
 function closePixPayerModal() {
@@ -8714,8 +8762,8 @@ function _updatePayerModalForMethod(method) {
   const btn = document.getElementById("pix-payer-submit-btn");
   if (title) title.textContent = isCard ? "💳 Dados para doação com cartão (Mercado Pago)" : "💚 Dados para doação PIX (Mercado Pago)";
   if (intro) intro.innerHTML = isCard
-    ? "Preencha os campos abaixo. Eles são <strong>solicitados pelo Mercado Pago</strong> para validar a doação com cartão — a ARKLAND não pede esses dados para outros fins."
-    : "Preencha os campos abaixo. Eles são <strong>solicitados pelo Mercado Pago</strong> para validar a doação e gerar o PIX — a ARKLAND não pede esses dados para outros fins.";
+    ? "Pagamento internacional: use cartão de crédito. Informe <strong>e-mail e nome</strong> — CPF ou passaporte é <strong>opcional</strong>. Dados repassados ao Mercado Pago."
+    : "PIX disponível apenas no Brasil. Informe e-mail, nome, <strong>CPF e telefone celular</strong> — exigidos pelo Mercado Pago para gerar o código PIX.";
   if (btn) btn.textContent = isCard ? "Continuar para cartão" : "Continuar para PIX";
 }
 
@@ -8723,16 +8771,19 @@ async function openPixPayerModal(packageId, method) {
   _paymentCheckoutMethod = method === "card" ? "card" : "pix";
   _pixCheckoutPackageId = packageId;
   _updatePayerModalForMethod(_paymentCheckoutMethod);
-  const fields = await _ensurePixPayerFields();
+  const fields = _paymentCheckoutMethod === "card"
+    ? await _ensureCardPayerFields()
+    : await _ensurePixPayerFields();
   const saved = _loadPayerProfile();
   const body = document.getElementById("pix-payer-form-body");
   body.innerHTML = fields.map(f => {
-    const val = escHtml(saved[f.id] || "");
+    const val = escHtml(saved[f.id] || saved[f.id === "identification" ? "cpf" : f.id] || "");
     const req = f.required ? ' <span class="req">*</span>' : "";
     const hint = f.hint ? `<div class="hint">${escHtml(f.hint)}</div>` : "";
     let extra = "";
     if (f.type === "cpf") extra = ` oninput="_formatCpfInput(this)" placeholder="000.000.000-00"`;
     else if (f.type === "phone") extra = ` oninput="_formatPhoneInput(this)" placeholder="(11) 98765-4321"`;
+    else if (f.type === "identification") extra = ` placeholder="CPF ou passaporte (opcional)"`;
     else if (f.type === "email") extra = ` placeholder="seu@email.com" autocomplete="email"`;
     else extra = ` placeholder="${escHtml(f.label)}" autocomplete="name"`;
     return `<div class="payer-field">
@@ -8747,7 +8798,7 @@ async function openPixPayerModal(packageId, method) {
 }
 
 function _collectPayerFromForm() {
-  const fields = _pixPayerFields || [];
+  const fields = (_paymentCheckoutMethod === "card" ? _cardPayerFields : _pixPayerFields) || [];
   const payer = {};
   for (const f of fields) {
     const el = document.getElementById("payer-" + f.id);
@@ -15821,12 +15872,16 @@ function renderHomePage(d) {
         </div>
         <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">Doação processada pelo Mercado Pago. Âmbares creditados como recompensa simbólica — sem reembolso.</p>
         <div class="home-pkg-grid">
-          ${(d.donation_packages || []).map(p => `
+          ${(d.donation_packages || []).map(p => {
+            const fx = fmtForeignEstimate(Number(p.price_brl || 0), p);
+            return `
             <div class="home-pkg">
               <div class="home-pkg__pts">${amberPriceHtml(p.points, 18)}</div>
               <div class="home-pkg__brl">${fmtBrlHome(p.price_brl)}</div>
+              ${fx ? `<div class="home-pkg__fx">${escHtml(fx)}</div>` : ""}
               <div class="home-pkg__lbl">${escHtml(p.label || "")}</div>
-            </div>`).join("")}
+            </div>`;
+          }).join("")}
         </div>
       </div>`
     : "";

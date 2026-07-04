@@ -1817,6 +1817,61 @@ class TestCardCheckout:
         )
         assert r.status_code == 400
 
+    def test_card_checkout_without_cpf_international(self, client, tmp_path, monkeypatch):
+        self._enable_mp(tmp_path, monkeypatch)
+        _login(client, USER_STEAM)
+        fake_pref = {
+            "id": "pref_intl",
+            "sandbox_init_point": "https://sandbox.mercadopago.com.br/checkout/v1/redirect?pref_id=pref_intl",
+        }
+        with patch.object(_app_module, "create_card_checkout_preference", return_value=fake_pref) as mock_pref, \
+             patch.object(_app_module, "extract_checkout_url", return_value=fake_pref["sandbox_init_point"]):
+            r = client.post(
+                "/api/player/card/checkout",
+                json={
+                    "package_id": "p10000",
+                    "payer": {
+                        "email": "international@example.com",
+                        "full_name": "John Smith",
+                    },
+                },
+            )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+        mock_pref.assert_called_once()
+        payer_arg = mock_pref.call_args.kwargs["payer"]
+        assert payer_arg["email"] == "international@example.com"
+        assert "identification" not in payer_arg
+
+    def test_card_payer_form_endpoint(self, client):
+        _login(client, USER_STEAM)
+        r = client.get("/api/player/card/payer-form")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        ids = [f["id"] for f in d["fields"]]
+        assert "email" in ids and "full_name" in ids
+        cpf_field = next(f for f in d["fields"] if f["id"] == "identification")
+        assert cpf_field["required"] is False
+
+    def test_public_exchange_rates(self, client):
+        r = client.get("/api/public/exchange-rates")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert d["ok"] is True
+        assert d["base"] == "BRL"
+        assert "USD" in d["rates"] and "EUR" in d["rates"]
+
+    def test_catalog_includes_exchange_estimates(self, client):
+        r = client.get("/api/catalog")
+        d = r.get_json()
+        assert r.status_code == 200
+        assert "exchange_rates" in d
+        pkgs = d.get("point_packages") or []
+        if pkgs:
+            assert "estimate_usd" in pkgs[0]
+            assert "estimate_eur" in pkgs[0]
+
     def test_webhook_credits_card_payment(self, client, tmp_path, monkeypatch):
         self._enable_mp(tmp_path, monkeypatch)
         payment_id = str(uuid.uuid4())

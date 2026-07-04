@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.202"
+APP_VERSION: str = "1.9.203"
 BUILD_DATE: str = "2026-07-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.203",
+        "date": "2026-07-04",
+        "changes": [
+            "Feature (Web Store / Doações): checkout com cartão sem CPF obrigatório — pagamento internacional com e-mail e nome; PIX mantém CPF e telefone brasileiro.",
+            "Feature (Web Store / Doações): estimativa USD/EUR ao lado dos preços em R$ — GET /api/public/exchange-rates (Frankfurter, cache 1h, fallback estático).",
+            "Melhoria (Web Store / Doações): formulários separados PIX vs cartão, texto internacional na UI e pacotes enriquecidos no catálogo/home.",
+        ],
+    },
     {
         "version": "1.9.202",
         "date": "2026-07-04",
