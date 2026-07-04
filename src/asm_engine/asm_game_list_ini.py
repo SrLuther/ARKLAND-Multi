@@ -27,6 +27,7 @@ REPEATED_KEY_PREFIXES: tuple[str, ...] = (
     "configoverrideitemcraftingcosts",
     "configoverrideitemmaxquantity",
     "configaddnpcspawnentriescontainer",
+    "configsubtractnpcspawnentriescontainer",
     "configoverridenpcspawnentriescontainer",
     "configoverridesupplycrateitems",
     "overrideplayerlevelengrampoints",
@@ -38,6 +39,13 @@ _STRIP_RE = re.compile(
     + r")\s*=.*$",
     re.IGNORECASE | re.MULTILINE,
 )
+
+_REPEATED_KEY_SET = frozenset(REPEATED_KEY_PREFIXES)
+
+
+def is_repeated_game_ini_key(key: str) -> bool:
+    """True para chaves que o ARK permite repetir na mesma seção (patch pós-escrita)."""
+    return key.lower() in _REPEATED_KEY_SET
 
 
 def _read_text(path: Path) -> str:
@@ -153,6 +161,7 @@ def build_repeated_game_lines(cfg: "AsmServerConfig") -> list[str]:
         cfg.stack_size_overrides_raw,
         cfg.npc_spawn_overrides_raw,
         cfg.supply_crate_overrides_raw,
+        cfg.custom_game_ini_raw,
     ):
         lines.extend(_lines_from_raw_text(raw))
 

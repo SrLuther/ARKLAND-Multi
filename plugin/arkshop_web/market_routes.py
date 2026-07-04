@@ -66,6 +66,7 @@ from market_listings import (
     withdraw_listing,
     expire_stale_claims,
 )
+from market_listings import _profile_display_name
 
 
 def register_market_routes(
@@ -838,14 +839,16 @@ def register_market_routes(
         db = session_factory()
         try:
             row = get_profile(db, steam_id)
+            persona = _profile_display_name(db, steam_id)
             if not row:
-                return jsonify({"ok": True, "profile": None, "commerce_enabled": False})
+                return jsonify({"ok": True, "profile": None, "commerce_enabled": False, "steam_persona": persona})
             return jsonify(
                 {
                     "ok": True,
                     "profile": {
                         "steam_id": row.steam_id,
-                        "market_display_name": row.market_display_name,
+                        "steam_persona": persona,
+                        "market_display_name": persona,
                         "commerce_enabled": row.commerce_enabled,
                     },
                 }
@@ -909,7 +912,7 @@ def register_market_routes(
                 {
                     "ok": True,
                     "seller_steam_id": steam_id,
-                    "seller_display_name": prof.market_display_name if prof else None,
+                    "seller_display_name": _profile_display_name(db, steam_id.strip()),
                     "listings": items,
                 }
             )
@@ -1244,7 +1247,7 @@ def register_market_routes(
                     "ok": True,
                     "commerce_ready": ready,
                     "error": err,
-                    "market_display_name": prof.market_display_name if prof else None,
+                    "market_display_name": _profile_display_name(db, steam_id.strip()),
                 }
             )
         finally:

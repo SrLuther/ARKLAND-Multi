@@ -31,7 +31,7 @@ def fresh_db(tmp_path, monkeypatch):
 
 
 def _seed_species(db, *, include_buyer: bool = False):
-    from app import MarketPlayerProfile, MarketSpecies, MarketSpeciesStatMultiplier
+    from app import MarketPlayerProfile, MarketSpecies, MarketSpeciesStatMultiplier, StoreUser
 
     species = MarketSpecies(
         species_key="rex_femea",
@@ -56,6 +56,15 @@ def _seed_species(db, *, include_buyer: bool = False):
         )
     )
     db.add(
+        StoreUser(
+            steam_id=SELLER,
+            steam_persona="SellerOne",
+            display_name="SellerOne",
+            created_at=datetime.now(timezone.utc),
+            last_login_at=datetime.now(timezone.utc),
+        )
+    )
+    db.add(
         MarketPlayerProfile(
             steam_id=SELLER,
             market_display_name="SellerOne",
@@ -65,6 +74,15 @@ def _seed_species(db, *, include_buyer: bool = False):
         )
     )
     if include_buyer:
+        db.add(
+            StoreUser(
+                steam_id=BUYER,
+                steam_persona="BuyerBR",
+                display_name="BuyerBR",
+                created_at=datetime.now(timezone.utc),
+                last_login_at=datetime.now(timezone.utc),
+            )
+        )
         db.add(
             MarketPlayerProfile(
                 steam_id=BUYER,

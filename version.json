@@ -1,9 +1,11 @@
 {
-    "version": "1.9.198",
+    "version": "1.9.199",
     "date": "2026-07-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.198/ARKLAND-Multi-Setup-v1.9.198.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.199/ARKLAND-Multi-Setup-v1.9.199.exe",
     "changelog": [
-        "Fix (Web Store / Admin): lista Gerenciar Jogadores busca nick Steam em lote (GetPlayerSummaries), grava em store_users.display_name e exibe persona para todos — não só quem já fez login.",
-        "Feature (Web Store / Regulamento): página dedicada, link no rodapé, gate de aceite no 1º login com versão 1.0 persistida por steam_id; guards em tickets e doações/resgates."
+        "Fix (Web Store): nick Steam único em todo o portal — steam_persona da API GetPlayerSummaries substitui nomes editáveis obsoletos (market_display_name / display-name-gate).",
+        "Fix (Web Store / Admin): batch GetPlayerSummaries corrigido (vírgulas nos SteamIDs) e lista Gerenciar Jogadores sempre atualiza personas da API, nunca cache stale.",
+        "Fix (Web Store / Login): a cada login Steam sobrescreve steam_persona no banco; /api/auth/me retorna nick atual.",
+        "Fix (Web Store / Regulamento): HTML estático regulamento_v1_0.html gerado no build e empacotado no PyInstaller — página e gate exibem o texto completo em produção (TEK)."
     ]
 }

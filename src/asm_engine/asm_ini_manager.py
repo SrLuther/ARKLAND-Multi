@@ -22,6 +22,7 @@ from __future__ import annotations
 import configparser
 import re
 import shutil
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -395,6 +396,62 @@ def _ini_quote_value(value: str) -> str:
     return value
 
 
+_GUS_DEFAULT_SECTION = "ServerSettings"
+
+
+def inject_raw_ini_text(
+    raw_text: str,
+    target: dict[str, dict[str, str]],
+    *,
+    default_section: str = _GUS_DEFAULT_SECTION,
+    skip_key: Callable[[str], bool] | None = None,
+) -> None:
+    """Parse blocos ``[Seção]`` + ``chave=valor`` e injeta no dict destino.
+
+    ``default_section`` é usada para linhas sem cabeçalho de seção explícito.
+    Game.ini deve usar ``_GAME_MODE_SECTION``; GameUserSettings.ini usa
+    ``ServerSettings``.
+    """
+    current_sec = default_section
+    text = raw_text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(";") or stripped.startswith("#"):
+            continue
+        if stripped.startswith("["):
+            end = stripped.find("]")
+            if end > 0:
+                current_sec = stripped[1:end].strip()
+            continue
+        if "=" in stripped:
+            k, _, v = stripped.partition("=")
+            k, v = k.strip(), v.strip()
+            if k and (skip_key is None or not skip_key(k)):
+                target.setdefault(current_sec, {})[k] = v
+
+
+def _iter_custom_ini_sections(cfg: AsmServerConfig):
+    """Itera seções custom legadas (lista ASM ou dict ``gus``/``game`` do TEK)."""
+    raw = cfg.custom_ini_sections
+    if isinstance(raw, dict):
+        for file_key, secs in raw.items():
+            fk = str(file_key).upper()
+            file_tag = "GUS" if fk in ("GUS", "GAMEUSERSETTINGS", "GAMEUSERSETTINGS.INI") else "Game"
+            if not isinstance(secs, list):
+                continue
+            for sec in secs:
+                if isinstance(sec, dict):
+                    yield file_tag, sec.get("section", ""), sec.get("entries", [])
+        return
+    if not isinstance(raw, list):
+        return
+    for custom in raw:
+        if not isinstance(custom, dict):
+            continue
+        f = custom.get("file", "GUS").upper()
+        yield f, custom.get("section", ""), custom.get("entries", [])
+
+
 def _render_ini_text(
     parser: configparser.RawConfigParser,
     section_order: tuple[str, ...] | None = None,
@@ -482,32 +539,27 @@ def write_ini(cfg: AsmServerConfig) -> None:
         target.setdefault(section_key, {})[ini_key] = value
 
     # Seções customizadas livres (legado)
-    for custom in cfg.custom_ini_sections:
-        f = custom.get("file", "GUS").upper()
-        sec = custom.get("section", "")
+    for f, sec, entries in _iter_custom_ini_sections(cfg):
         target = gus if f in ("GUS", "GAMEUSERSETTINGS.INI") else game
-        for entry in custom.get("entries", []):
-            target.setdefault(sec, {})[entry["key"]] = entry["value"]
+        for entry in entries:
+            key = entry.get("key", "")
+            if key:
+                target.setdefault(sec, {})[key] = entry.get("value", "")
 
     # Raw INI injetado pelo usuário (parseia linhas key=value por seção)
-    def _inject_raw(raw_text: str, target: dict[str, dict[str, str]]) -> None:
-        current_sec = "ServerSettings"
-        for line in raw_text.splitlines():
-            line = line.strip()
-            if not line or line.startswith(";") or line.startswith("#"):
-                continue
-            if line.startswith("[") and line.endswith("]"):
-                current_sec = line[1:-1]
-            elif "=" in line:
-                k, _, v = line.partition("=")
-                target.setdefault(current_sec, {})[k.strip()] = v.strip()
+    from .asm_game_list_ini import is_repeated_game_ini_key
 
     if cfg.custom_gus_ini_raw:
-        _inject_raw(cfg.custom_gus_ini_raw, gus)
+        inject_raw_ini_text(cfg.custom_gus_ini_raw, gus, default_section=_GUS_DEFAULT_SECTION)
     if cfg.custom_game_ini_raw:
-        _inject_raw(cfg.custom_game_ini_raw, game)
+        inject_raw_ini_text(
+            cfg.custom_game_ini_raw,
+            game,
+            default_section=_GAME_MODE_SECTION,
+            skip_key=is_repeated_game_ini_key,
+        )
 
-    # Raw overrides (engrams, levels) — chaves únicas via _inject_raw
+    # Raw overrides (engrams, levels) — chaves únicas via inject_raw_ini_text
     from ..player_engram_points import (
         should_apply_engram_multiplier,
         strip_engram_points_from_raw,
@@ -523,11 +575,11 @@ def write_ini(cfg: AsmServerConfig) -> None:
         cfg.dino_level_stats_raw,
     ):
         if raw_text:
-            _inject_raw(raw_text, game)
+            inject_raw_ini_text(raw_text, game, default_section=_GAME_MODE_SECTION)
     # crafting/stack/spawner/supply + listas agregadas → patch pós-escrita (chaves repetidas)
 
     if cfg.prevent_transfer_raw:
-        _inject_raw(cfg.prevent_transfer_raw, gus)
+        inject_raw_ini_text(cfg.prevent_transfer_raw, gus, default_section=_GUS_DEFAULT_SECTION)
 
     remove_gus_options: list[tuple[str, str]] = []
     if not cfg.active_event and "ServerSettings" in gus and "ActiveEvent" in gus.get("ServerSettings", {}):
@@ -577,7 +629,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
     # Engine.ini (apenas raw)
     if cfg.custom_engine_ini_raw:
         engine: dict[str, dict[str, str]] = {}
-        _inject_raw(cfg.custom_engine_ini_raw, engine)  # type: ignore[arg-type]
+        inject_raw_ini_text(cfg.custom_engine_ini_raw, engine)
         _write_ini_file(
             _windows_server_ini_dir(cfg) / "Engine.ini",
             engine,

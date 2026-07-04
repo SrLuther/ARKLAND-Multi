@@ -5,6 +5,15 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.199] - 2026-07-04
+
+### Fix
+
+- Fix (Web Store): nick Steam único em todo o portal — steam_persona da API GetPlayerSummaries substitui nomes editáveis obsoletos (market_display_name / display-name-gate).
+- Fix (Web Store / Admin): batch GetPlayerSummaries corrigido (vírgulas nos SteamIDs) e lista Gerenciar Jogadores sempre atualiza personas da API, nunca cache stale.
+- Fix (Web Store / Login): a cada login Steam sobrescreve steam_persona no banco; /api/auth/me retorna nick atual.
+- Fix (Web Store / Regulamento): HTML estático regulamento_v1_0.html gerado no build e empacotado no PyInstaller — página e gate exibem o texto completo em produção (TEK).
+
 ## [1.9.198] - 2026-07-04
 
 ### Feature

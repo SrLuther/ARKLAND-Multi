@@ -184,8 +184,29 @@ def get_profile(db: Session, steam_id: str) -> Any | None:
 
 
 def _profile_display_name(db: Session, steam_id: str) -> str | None:
-    prof = get_profile(db, steam_id)
-    return prof.market_display_name if prof else None
+    from app import StoreUser
+
+    row = db.get(StoreUser, steam_id)
+    if not row:
+        return None
+    persona = (row.steam_persona or "").strip()
+    if persona and persona != steam_id:
+        return persona
+    return None
+
+
+def _steam_personas_map(db: Session, steam_ids: list[str]) -> dict[str, str]:
+    from app import StoreUser
+
+    if not steam_ids:
+        return {}
+    rows = db.query(StoreUser).filter(StoreUser.steam_id.in_(steam_ids)).all()
+    out: dict[str, str] = {}
+    for row in rows:
+        persona = (row.steam_persona or "").strip()
+        if persona and persona != row.steam_id:
+            out[row.steam_id] = persona
+    return out
 
 
 def _listing_title_for_notify(db: Session, row: Any) -> str:
@@ -195,48 +216,40 @@ def _listing_title_for_notify(db: Session, row: Any) -> str:
 
 def commerce_ready(db: Session, steam_id: str) -> tuple[bool, str | None]:
     prof = get_profile(db, steam_id)
-    if not prof or not prof.market_display_name:
-        return False, "Defina seu nome de exibição em Minha Área antes de usar o Comércio."
+    if not prof:
+        return False, "Perfil de comércio não habilitado."
     if not prof.commerce_enabled:
         return False, "Perfil de comércio não habilitado."
     return True, None
 
 
 def upsert_display_name(db: Session, steam_id: str, name: str) -> dict[str, Any]:
-    from app import MarketPlayerProfile
+    """Legado: nick Steam vem da API — sincroniza market_display_name com steam_persona."""
+    from app import MarketPlayerProfile, StoreUser
 
-    name = (name or "").strip()
-    if not DISPLAY_NAME_RE.match(name):
-        raise ValueError("Nome deve ter 2–32 caracteres (letras, números, _ - .)")
+    row = db.get(StoreUser, steam_id)
+    persona = (row.steam_persona or "").strip() if row else ""
+    if not persona or persona == steam_id:
+        raise ValueError("Nick Steam indisponível — faça login com Steam e configure STEAM_API_KEY.")
     now = _now()
-    row = get_profile(db, steam_id)
-    if row is None:
-        row = MarketPlayerProfile(
+    prof = get_profile(db, steam_id)
+    if prof is None:
+        prof = MarketPlayerProfile(
             steam_id=steam_id,
-            market_display_name=name,
+            market_display_name=persona,
             name_updated_at=now,
             commerce_enabled=True,
             created_at=now,
             updated_at=now,
         )
-        db.add(row)
+        db.add(prof)
     else:
-        row.market_display_name = name
-        row.name_updated_at = now
-        row.commerce_enabled = True
-        row.updated_at = now
+        prof.market_display_name = persona
+        prof.name_updated_at = now
+        prof.commerce_enabled = True
+        prof.updated_at = now
     db.commit()
-    try:
-        market_audit_event(
-            db,
-            "MARKET_DISPLAY_NAME_CHANGED",
-            steam_id=steam_id,
-            metadata={"market_display_name": name},
-            commit=True,
-        )
-    except Exception as exc:
-        log.warning("MARKET_DISPLAY_NAME_CHANGED audit falhou (perfil já salvo): %s", exc)
-    return {"steam_id": steam_id, "market_display_name": name, "commerce_enabled": True}
+    return {"steam_id": steam_id, "market_display_name": persona, "steam_persona": persona, "commerce_enabled": True}
 
 
 def _load_economy(db: Session, species_row: Any) -> Any:
@@ -786,12 +799,7 @@ def list_active_listings(
     if seller_steam_id:
         q = q.filter(MarketListing.seller_steam_id == seller_steam_id)
     rows = q.order_by(MarketListing.effective_price.asc()).offset(offset).limit(limit).all()
-    names = {
-        p.steam_id: p.market_display_name
-        for p in db.query(MarketPlayerProfile)
-        .filter(MarketPlayerProfile.steam_id.in_([r.seller_steam_id for r in rows]))
-        .all()
-    }
+    names = _steam_personas_map(db, [r.seller_steam_id for r in rows])
     species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
     for row in rows:
@@ -1504,7 +1512,7 @@ def list_seller_listings(db: Session, seller_steam_id: str) -> list[dict[str, An
 
     species_by_key = _species_map(db, {r.species_key for r in rows})
     prof = get_profile(db, seller_steam_id)
-    seller_name = prof.market_display_name if prof else None
+    seller_name = _profile_display_name(db, seller_steam_id)
     out = []
     for row in rows:
         item = listing_to_public(
@@ -1541,7 +1549,7 @@ def get_listing_detail(
         .filter(MarketPlayerProfile.steam_id == row.seller_steam_id)
         .first()
     )
-    item["seller_display_name"] = prof.market_display_name if prof else None
+    item["seller_display_name"] = _profile_display_name(db, row.seller_steam_id)
     item["is_owner"] = bool(is_owner)
     return item
 
@@ -2022,12 +2030,7 @@ def list_pending_classification(db: Session, *, limit: int = 100) -> list[dict[s
         .all()
     )
     rows = [r for r in rows if _needs_admin_classification(r)]
-    names = {
-        p.steam_id: p.market_display_name
-        for p in db.query(MarketPlayerProfile)
-        .filter(MarketPlayerProfile.steam_id.in_([r.seller_steam_id for r in rows]))
-        .all()
-    }
+    names = _steam_personas_map(db, [r.seller_steam_id for r in rows])
     species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
     for row in rows:
@@ -2257,16 +2260,7 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
         counterparty_ids.add(t.buyer_steam_id)
     for t in purchases:
         counterparty_ids.add(t.seller_steam_id)
-    profile_names = (
-        {
-            p.steam_id: p.market_display_name
-            for p in db.query(MarketPlayerProfile)
-            .filter(MarketPlayerProfile.steam_id.in_(counterparty_ids))
-            .all()
-        }
-        if counterparty_ids
-        else {}
-    )
+    profile_names = _steam_personas_map(db, list(counterparty_ids)) if counterparty_ids else {}
 
     claims_by_listing_buyer: dict[int, Any] = {}
     if purchase_listing_ids:
@@ -2737,12 +2731,7 @@ def list_admin_listings(
         query = query.order_by(MarketListing.updated_at.desc())
     rows = query.offset(max(0, offset)).limit(min(max(1, limit), 200)).all()
     seller_ids = {r.seller_steam_id for r in rows}
-    names = {
-        p.steam_id: p.market_display_name
-        for p in db.query(MarketPlayerProfile)
-        .filter(MarketPlayerProfile.steam_id.in_(seller_ids))
-        .all()
-    } if seller_ids else {}
+    names = _steam_personas_map(db, list(seller_ids)) if seller_ids else {}
     species_by_key = _species_map(db, {r.species_key for r in rows})
     out = []
     for row in rows:
@@ -2769,7 +2758,7 @@ def get_admin_listing_detail(db: Session, listing_id: int) -> dict[str, Any]:
         .filter(MarketPlayerProfile.steam_id == row.seller_steam_id)
         .first()
     )
-    item["seller_display_name"] = prof.market_display_name if prof else None
+    item["seller_display_name"] = _profile_display_name(db, row.seller_steam_id)
     meta = _json_loads(row.metadata_json)
     item["admin_flagged"] = bool(meta.get("admin_flagged"))
     item["admin_flag_reason"] = meta.get("admin_flag_reason")

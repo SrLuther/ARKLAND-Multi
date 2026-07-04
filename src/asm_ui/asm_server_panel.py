@@ -3582,7 +3582,7 @@ def _build_custom_gus(sf, srv, vars_ref, bg, accent, *, on_done=None, is_cancell
     def _help() -> None:
         _add_help(sf, [
             ("Para que serve", "Conteúdo extra adicionado ao final do GameUserSettings.ini gerado pelo app."),
-            ("Secções comuns", "[ServerSettings], [SessionSettings], [/Script/ShooterGame.ShooterGameMode]"),
+            ("Secções comuns", "[ServerSettings], [SessionSettings], [/Script/Engine.GameSession]"),
             ("Dica", "Use este campo para configurações avancadas que não possuem campo dedicado no painel."),
         ])
 

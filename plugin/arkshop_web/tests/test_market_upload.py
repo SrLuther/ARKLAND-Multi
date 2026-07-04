@@ -110,12 +110,12 @@ def test_upload_deduplicated_by_trace_id():
         db.close()
 
 
-def test_upload_rejects_without_display_name():
+def test_upload_rejects_without_commerce_profile():
     from market_listings import process_plugin_upload
 
     db = _app_module._SessionLocal()
     try:
-        with pytest.raises(ValueError, match="nome de exibição"):
+        with pytest.raises(ValueError, match="comércio"):
             process_plugin_upload(db, _upload_body(steam_id="76561198999999999"))
     finally:
         db.close()

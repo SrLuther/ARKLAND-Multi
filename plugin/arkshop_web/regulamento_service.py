@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -17,11 +18,42 @@ from regulamento_config import (
     REGULAMENTO_VERSION,
 )
 
-_REGULAMENTO_MD_PATH = (
-    Path(__file__).resolve().parent.parent.parent / REGULAMENTO_SOURCE_DOC
+
+def _bundle_dir() -> Path:
+    """Dev: plugin/arkshop_web — PyInstaller onefile: sys._MEIPASS."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent
+
+
+def _repo_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return _bundle_dir()
+    return Path(__file__).resolve().parent.parent.parent
+
+
+_REGULAMENTO_MD_PATH = _repo_root() / REGULAMENTO_SOURCE_DOC
+_STATIC_HTML_PATH = (
+    _bundle_dir() / "static" / f"regulamento_v{REGULAMENTO_VERSION.replace('.', '_')}.html"
 )
-_STATIC_HTML_PATH = Path(__file__).resolve().parent / "static" / "regulamento_v1_0.html"
 _SECTION_RE = re.compile(r"^##\s+(.+)$", re.MULTILINE)
+_H2_SECTION_RE = re.compile(r'<h2\s+id="([^"]+)"[^>]*>([^<]+)</h2>')
+
+
+def _section_titles_from_markdown(md: str) -> list[dict[str, str]]:
+    sections: list[dict[str, str]] = []
+    for m in _SECTION_RE.finditer(md):
+        title = m.group(1).strip()
+        anchor = re.sub(r"[^\w\-]+", "-", title.lower()).strip("-")
+        sections.append({"title": title, "anchor": anchor})
+    return sections
+
+
+def _section_titles_from_html(html_text: str) -> list[dict[str, str]]:
+    return [
+        {"title": title.strip(), "anchor": anchor.strip()}
+        for anchor, title in _H2_SECTION_RE.findall(html_text)
+    ]
 
 
 def _version_tuple(version: str) -> tuple[int, ...]:
@@ -44,10 +76,9 @@ def regulamento_meta() -> dict[str, Any]:
     sections: list[dict[str, str]] = []
     if _REGULAMENTO_MD_PATH.is_file():
         md = _REGULAMENTO_MD_PATH.read_text(encoding="utf-8")
-        for m in _SECTION_RE.finditer(md):
-            title = m.group(1).strip()
-            anchor = re.sub(r"[^\w\-]+", "-", title.lower()).strip("-")
-            sections.append({"title": title, "anchor": anchor})
+        sections = _section_titles_from_markdown(md)
+    elif _STATIC_HTML_PATH.is_file():
+        sections = _section_titles_from_html(_STATIC_HTML_PATH.read_text(encoding="utf-8"))
     return {
         "version": REGULAMENTO_VERSION,
         "updated_at": REGULAMENTO_UPDATED_AT,

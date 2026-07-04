@@ -129,7 +129,16 @@ if !errorlevel! neq 0 (
 echo       Executavel: dist\ARKLAND-Updater.exe
 echo.
 
-echo [2c/4] Gerando ARKLAND-WebStore.exe...
+echo [2c/4] Gerando HTML do regulamento (Web Store)...
+"%PYTHON%" "%~dp0scripts\build_regulamento_html.py"
+if !errorlevel! neq 0 (
+    echo [ERRO] build_regulamento_html.py falhou.
+    pause
+    exit /b 1
+)
+echo.
+
+echo [2d/4] Gerando ARKLAND-WebStore.exe...
 "%PYTHON%" -m PyInstaller --noconfirm "%~dp0ARKLAND-WebStore.spec"
 if !errorlevel! neq 0 (
     echo [ERRO] PyInstaller falhou ao gerar ARKLAND-WebStore.exe.

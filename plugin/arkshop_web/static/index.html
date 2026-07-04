@@ -4400,26 +4400,8 @@
   </div>
 </div>
 
-<!-- ── Onboarding: nome de exibição obrigatório (Steam) ─────────────────────── -->
-<div id="display-name-gate" class="modal-backdrop hidden" style="z-index:10050;">
-  <div class="modal" style="max-width:440px;">
-    <div class="modal-header">
-      <div class="modal-title">🏪 Nome na loja</div>
-    </div>
-    <p id="display-name-gate-context" style="font-size:13px;color:var(--text2);margin:0 0 14px;line-height:1.5;">
-      Antes de usar a loja, defina como outros jogadores verão você no Comércio e no portal.
-    </p>
-    <div class="form-group">
-      <label>Nome de exibição *</label>
-      <input id="display-name-gate-input" type="text" maxlength="32" placeholder="Ex: RexMaster_BR" autocomplete="off" />
-      <p style="font-size:11px;color:var(--text3);margin:6px 0 0;">2–32 caracteres: letras, números, _ - .</p>
-    </div>
-    <p id="display-name-gate-error" style="font-size:12px;color:var(--danger);margin:0 0 12px;display:none;"></p>
-    <div style="display:flex;gap:8px;justify-content:flex-end;">
-      <button class="btn btn-primary" id="display-name-gate-save" onclick="saveDisplayNameFromGate()">Salvar e continuar</button>
-    </div>
-  </div>
-</div>
+<!-- display-name-gate removido: nick Steam vem da API automaticamente -->
+<div id="display-name-gate" class="modal-backdrop hidden" style="display:none !important;" aria-hidden="true"></div>
 
 <!-- ── Gate: aceite do Regulamento (pós-login Steam) ───────────────────────── -->
 <div id="regulamento-gate" class="modal-backdrop hidden" style="z-index:10060;">
@@ -6177,14 +6159,13 @@
           <div id="myarea-commerce" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
             <div class="card-title" style="font-size:14px;margin-bottom:10px;">🦖 Comércio de Dinos</div>
             <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
-              Nome de exibição <strong>obrigatório</strong> para comprar ou vender no Comércio (2–32 caracteres).
+              Seu nick no Comércio é o mesmo da Steam (atualizado automaticamente no login).
             </p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
               <div class="form-group" style="margin:0;flex:1;min-width:200px;">
-                <label>Nome no mercado</label>
-                <input id="myarea-market-name" type="text" maxlength="32" placeholder="Ex: RexMaster_BR" />
+                <label>Nick Steam</label>
+                <input id="myarea-market-name" type="text" readonly disabled style="opacity:0.85;cursor:default;" />
               </div>
-              <button class="btn btn-primary btn-sm" onclick="saveMarketDisplayName()">Salvar nome</button>
             </div>
             <div id="myarea-market-status" style="font-size:12px;color:var(--text2);margin-top:8px;"></div>
           </div>
@@ -6812,7 +6793,7 @@ let _config = null;
 let _players = [];
 let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
-let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
+let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, steam_persona: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
 let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
@@ -7054,68 +7035,11 @@ function filterTutoriais(query) {
   });
 }
 
-function playerNeedsDisplayName() {
-  return Boolean(_auth.authenticated && !_auth.is_admin && _auth.needs_display_name);
-}
-
-function showDisplayNameGate(context) {
-  const overlay = document.getElementById("display-name-gate");
-  if (!overlay) return;
-  const ctx = document.getElementById("display-name-gate-context");
-  if (ctx && context) {
-    ctx.textContent = `Para ${context}, escolha um nome de exibição (2–32 caracteres). Ele aparece no Comércio e na sua área do jogador.`;
-  }
-  const err = document.getElementById("display-name-gate-error");
-  if (err) { err.style.display = "none"; err.textContent = ""; }
-  const input = document.getElementById("display-name-gate-input");
-  if (input && _auth.market_display_name) input.value = _auth.market_display_name;
-  overlay.classList.remove("hidden");
-}
-
-function hideDisplayNameGate() {
-  document.getElementById("display-name-gate")?.classList.add("hidden");
-}
-
-function guardDisplayName(context) {
-  if (!playerNeedsDisplayName()) return true;
-  showDisplayNameGate(context || "continuar");
-  return false;
-}
-
-async function saveDisplayNameFromGate() {
-  const input = document.getElementById("display-name-gate-input");
-  const errEl = document.getElementById("display-name-gate-error");
-  const btn = document.getElementById("display-name-gate-save");
-  const name = (input?.value || "").trim();
-  if (name.length < 2) {
-    if (errEl) { errEl.textContent = "Informe pelo menos 2 caracteres."; errEl.style.display = ""; }
-    return;
-  }
-  if (btn) { btn.disabled = true; btn.textContent = "Salvando…"; }
-  try {
-    const d = await fetchJson("/api/market/profile/display-name", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ market_display_name: name }),
-      timeoutMs: 15000,
-    });
-    if (!d.ok) {
-      if (errEl) { errEl.textContent = d.error || "Não foi possível salvar."; errEl.style.display = ""; }
-      return;
-    }
-    _auth.needs_display_name = false;
-    _auth.market_display_name = d.market_display_name || name;
-    const myareaInput = document.getElementById("myarea-market-name");
-    if (myareaInput) myareaInput.value = _auth.market_display_name;
-    hideDisplayNameGate();
-    toast("Nome salvo! Bem-vindo à loja ARKLAND.", "success");
-    loadMyAreaMarketProfile();
-  } catch (e) {
-    if (errEl) { errEl.textContent = String(e); errEl.style.display = ""; }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = "Salvar e continuar"; }
-  }
-}
+function playerNeedsDisplayName() { return false; }
+function showDisplayNameGate() {}
+function hideDisplayNameGate() {}
+function guardDisplayName() { return true; }
+async function saveDisplayNameFromGate() {}
 
 function goToPage(page) {
   const el = document.querySelector(`.nav-item[data-page="${page}"]`);
@@ -7530,7 +7454,7 @@ function renderAuthUserLine() {
   let role = "Jogador";
   if (_auth.is_admin) role = "Admin";
   else if (_auth.is_support) role = "Suporte";
-  const nick = (_auth.display_name || "").trim();
+  const nick = (_auth.steam_persona || _auth.display_name || "").trim();
   const sid = _auth.steam_id || "";
   if (nick) {
     userLine.innerHTML =
@@ -8981,53 +8905,28 @@ async function loadMyAreaMarketProfile() {
   const statusEl = document.getElementById("myarea-market-status");
   const nameInput = document.getElementById("myarea-market-name");
   if (!nameInput) return;
+  const steamNick = (_auth.steam_persona || _auth.display_name || "").trim();
+  if (steamNick) nameInput.value = steamNick;
   try {
     const d = await fetchJson("/api/market/profile", { timeoutMs: 12000 });
     if (!d.ok) {
       if (statusEl) statusEl.textContent = d.error || "Comércio indisponível (DB offline?)";
-      if (_auth.market_display_name) nameInput.value = _auth.market_display_name;
       return;
     }
-    const savedName = (d.profile && d.profile.market_display_name) || _auth.market_display_name || "";
-    if (savedName) {
-      nameInput.value = savedName;
-      _auth.market_display_name = savedName;
-      _auth.needs_display_name = false;
+    const persona = (d.profile && (d.profile.steam_persona || d.profile.market_display_name)) || steamNick || "";
+    if (persona) {
+      nameInput.value = persona;
       if (statusEl) statusEl.innerHTML = `<span style="color:var(--success);">✓ Perfil de comércio ativo</span>`;
-    } else {
-      if (statusEl) statusEl.innerHTML = `<span style="color:var(--warn);">Defina um nome para usar o Comércio</span>`;
+    } else if (statusEl) {
+      statusEl.innerHTML = `<span style="color:var(--text2);">Faça login com Steam para sincronizar seu nick</span>`;
     }
   } catch (e) {
-    if (_auth.market_display_name) nameInput.value = _auth.market_display_name;
     if (statusEl) statusEl.textContent = "Erro ao carregar perfil de comércio.";
   }
 }
 
 async function saveMarketDisplayName() {
-  const name = (document.getElementById("myarea-market-name")?.value || "").trim();
-  if (name.length < 2) {
-    toast("Informe pelo menos 2 caracteres", "warning");
-    return;
-  }
-  try {
-    const d = await fetchJson("/api/market/profile/display-name", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ market_display_name: name }),
-      timeoutMs: 15000,
-    });
-    if (!d.ok) {
-      toast(d.error || "Falha ao salvar", "error");
-      return;
-    }
-    toast("Nome de comércio salvo!", "success");
-    _auth.needs_display_name = false;
-    _auth.market_display_name = d.market_display_name || name;
-    hideDisplayNameGate();
-    loadMyAreaMarketProfile();
-  } catch (e) {
-    toast(String(e), "error");
-  }
+  toast("O nick é sincronizado automaticamente da Steam no login.", "info");
 }
 
 async function loadMyAreaLicenses() {
@@ -16063,6 +15962,13 @@ function _syncPlayerAdminLicenseDays() {
   if (!Number.isNaN(days)) daysEl.value = String(days);
 }
 
+function _playerPersonaName(p) {
+  const persona = (p.steam_persona || p.display_name || "").trim();
+  if (persona && persona !== p.steam_id) return persona;
+  if (p.steam_id && String(p.steam_id).length > 6) return "…" + String(p.steam_id).slice(-6);
+  return p.steam_id || "—";
+}
+
 function _playerInitials(name) {
   const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return "?";
@@ -16158,10 +16064,11 @@ async function loadPlayersAdmin(resetPanel) {
         `<span class="license-chip" style="border-color:rgba(0,200,255,.35);color:var(--cyan);">${escHtml(g === "Moderacao" ? "MOD" : g)}</span>`
       ).join("");
       const login = p.last_login_at ? new Date(p.last_login_at).toLocaleString("pt-BR") : "—";
+      const pname = _playerPersonaName(p);
       return `<tr class="${sel}" onclick="selectPlayerAdmin('${escHtml(p.steam_id)}')">
         <td><div style="display:flex;align-items:center;gap:10px;">
-          <div class="player-avatar">${escHtml(_playerInitials(p.display_name))}</div>
-          <div><div style="font-weight:600;">${escHtml(p.display_name)}</div>
+          <div class="player-avatar">${escHtml(_playerInitials(pname))}</div>
+          <div><div style="font-weight:600;">${escHtml(pname)}</div>
           <div style="font-size:11px;color:var(--text2);font-family:monospace;">${escHtml(p.steam_id)}</div></div>
         </div></td>
         <td>${Number(p.points || 0).toLocaleString("pt-BR")}</td>
@@ -16221,6 +16128,7 @@ async function selectPlayerAdmin(steamId, silent) {
 
 function renderPlayerAdminPanel(d) {
   const p = d.player || {};
+  const pname = _playerPersonaName(p);
   const panel = document.getElementById("player-detail-panel");
   if (!panel) return;
   const statusCls = p.site_access_blocked ? "status-pill--blocked" : "status-pill--active";
@@ -16269,9 +16177,9 @@ function renderPlayerAdminPanel(d) {
   panel.innerHTML = `
     <div class="card-header" style="margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:12px;">
-        <div class="player-avatar" style="width:48px;height:48px;font-size:18px;">${_playerInitials(p.display_name)}</div>
+        <div class="player-avatar" style="width:48px;height:48px;font-size:18px;">${_playerInitials(pname)}</div>
         <div>
-          <div style="font-size:16px;font-weight:700;">${escHtml(p.display_name)}</div>
+          <div style="font-size:16px;font-weight:700;">${escHtml(pname)}</div>
           <div style="font-size:11px;color:var(--text2);font-family:monospace;">${escHtml(p.steam_id)}</div>
           <span class="badge ${statusCls}" style="margin-top:4px;">${statusLbl}</span>
         </div>
@@ -16506,8 +16414,6 @@ async function bootPortal() {
     showAuthOverlay(false);
     if (playerNeedsRegulamentoAccept()) {
       showRegulamentoGate();
-    } else if (playerNeedsDisplayName()) {
-      showDisplayNameGate("usar a loja ARKLAND");
     }
 
     setStatus(false, "Carregando catálogo…");

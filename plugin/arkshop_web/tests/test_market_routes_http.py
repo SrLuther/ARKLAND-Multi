@@ -52,32 +52,41 @@ def _login(client, steam_id: str = USER_STEAM) -> None:
         sess["steam_id"] = steam_id
 
 
-def test_market_display_name_persists_without_prior_migration(market_client):
-    """Regressão: salvar nome cria market_player_profile mesmo se migrate ainda não rodou."""
+def test_market_display_name_syncs_steam_persona(market_client, monkeypatch):
+    """PATCH display-name sincroniza market_display_name com steam_persona (nick Steam)."""
+    from app import StoreUser
+    from datetime import datetime, timezone
+
+    db = app_module._SessionLocal()
+    try:
+        db.add(StoreUser(steam_id=USER_STEAM, steam_persona="SellerBR", display_name="SellerBR"))
+        db.commit()
+    finally:
+        db.close()
     _login(market_client)
     r = market_client.patch(
         "/api/market/profile/display-name",
-        json={"market_display_name": "SellerBR"},
+        json={"market_display_name": "ignored"},
     )
     assert r.content_type.startswith("application/json")
     data = r.get_json()
     assert data is not None
     assert data.get("ok") is True
+    assert data.get("steam_persona") == "SellerBR"
     assert data.get("market_display_name") == "SellerBR"
 
     r2 = market_client.get("/api/market/profile")
-    assert r2.status_code == 200
     prof = r2.get_json()
     assert prof.get("ok") is True
-    assert prof["profile"]["market_display_name"] == "SellerBR"
+    assert prof["profile"]["steam_persona"] == "SellerBR"
 
     r3 = market_client.get("/api/auth/me")
     me = r3.get_json()
-    assert me.get("market_display_name") == "SellerBR"
+    assert me.get("steam_persona") == "SellerBR"
     assert me.get("needs_display_name") is False
 
 
-def test_market_display_name_rejects_invalid_chars(market_client):
+def test_market_display_name_requires_steam_persona(market_client):
     _login(market_client)
     r = market_client.patch(
         "/api/market/profile/display-name",
@@ -92,7 +101,7 @@ def test_market_my_history_includes_buyer_for_seller(market_client):
     """Vendedor deve ver quem comprou no histórico da Minha Loja."""
     from datetime import datetime, timezone
 
-    from app import MarketCryopodVault, MarketListing, MarketPlayerProfile, MarketSpecies
+    from app import MarketCryopodVault, MarketListing, MarketPlayerProfile, MarketSpecies, StoreUser
 
     seller = "76561198000000001"
     buyer = "76561198000000002"
@@ -114,6 +123,15 @@ def test_market_my_history_includes_buyer_for_seller(market_client):
             )
         )
         for sid, name in ((seller, "SellerBR"), (buyer, "BuyerBR")):
+            db.add(
+                StoreUser(
+                    steam_id=sid,
+                    steam_persona=name,
+                    display_name=name,
+                    created_at=now,
+                    last_login_at=now,
+                )
+            )
             db.add(
                 MarketPlayerProfile(
                     steam_id=sid,

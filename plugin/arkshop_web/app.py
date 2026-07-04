@@ -1752,12 +1752,10 @@ def _admin_player_persona_label(
     steam_id: str,
     *,
     steam_persona: str | None = None,
-    store_name: str | None = None,
 ) -> str:
-    """Nome exibido no admin: steam_persona (nick Steam), nunca market_display_name."""
-    for candidate in (steam_persona, store_name):
-        if candidate and str(candidate).strip() and str(candidate).strip() != steam_id:
-            return str(candidate).strip()[:128]
+    """Nome exibido no admin: apenas steam_persona (nick Steam real)."""
+    if steam_persona and str(steam_persona).strip() and str(steam_persona).strip() != steam_id:
+        return str(steam_persona).strip()[:128]
     for p in _load_players():
         if str(p.get("steam_id", "")).strip() == steam_id:
             nm = str(p.get("name") or "").strip()
@@ -1785,39 +1783,18 @@ def _resolve_player_display_name(
 
 
 def _touch_store_user_login(steam_id: str) -> None:
-    """Registra ou atualiza conta web no login Steam."""
+    """Registra ou atualiza conta web no login Steam — sempre sobrescreve steam_persona."""
     if not _db_ready() or not _is_valid_steamid64(steam_id):
         return
     db = _SessionLocal()
     try:
         now = _now()
+        _refresh_steam_persona(db, steam_id)
         row = db.get(StoreUser, steam_id)
-        persona = _fetch_steam_persona_name(steam_id)
-        if persona:
-            display_name = persona
-        elif row and (row.steam_persona or "").strip() and str(row.steam_persona).strip() != steam_id:
-            display_name = str(row.steam_persona).strip()
-        elif row and (row.display_name or "").strip():
-            display_name = _resolve_player_display_name(
-                steam_id, store_name=row.display_name,
-            )
-        else:
-            display_name = _resolve_player_display_name(steam_id)
         if row is None:
-            row = StoreUser(
-                steam_id=steam_id,
-                display_name=display_name,
-                steam_persona=persona,
-                last_login_at=now,
-            )
+            row = StoreUser(steam_id=steam_id, last_login_at=now)
             db.add(row)
-        else:
-            row.last_login_at = now
-            if persona:
-                row.steam_persona = persona
-                row.display_name = persona
-            elif not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id:
-                row.display_name = display_name
+        row.last_login_at = now
         db.commit()
     except Exception as exc:
         db.rollback()
@@ -1997,11 +1974,8 @@ def _list_admin_players(
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = str(r[0])
-            store_nm = r[1]
             persona = persona_map.get(sid) or r[2]
-            label = _admin_player_persona_label(
-                sid, steam_persona=persona, store_name=store_nm,
-            )
+            label = _admin_player_persona_label(sid, steam_persona=persona)
             ents = _get_player_entitlements(sid, db=db)
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
@@ -2070,14 +2044,8 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         except Exception:
             kit_stash = {}
         kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
-        store_nm = su.display_name if su else None
-        persona = su.steam_persona if su else None
-        if su and _steam_persona_needs_backfill(persona, steam_id):
-            persona_map = _backfill_steam_personas(db, [(steam_id, persona)])
-            persona = persona_map.get(steam_id) or persona
-        display_name = _admin_player_persona_label(
-            steam_id, steam_persona=persona, store_name=store_nm,
-        )
+        persona = _refresh_steam_persona(db, steam_id) if su else None
+        display_name = _admin_player_persona_label(steam_id, steam_persona=persona)
         reg_fields = _auth_regulamento_fields(steam_id, db=db)
         return {
             "ok": True,
@@ -4142,12 +4110,27 @@ def _steam_api_key_configured() -> bool:
 
 
 _STEAM_PERSONA_BATCH_SIZE = 100
+_STEAM_API_KEY_WARNED = False
+
+
+def _warn_steam_api_key_missing(context: str = "") -> None:
+    global _STEAM_API_KEY_WARNED
+    if _steam_api_key_configured() or _STEAM_API_KEY_WARNED:
+        return
+    _STEAM_API_KEY_WARNED = True
+    suffix = f" ({context})" if context else ""
+    log.warning(
+        "STEAM_API_KEY não configurada — nicknames Steam indisponíveis%s. "
+        "Configure em https://steamcommunity.com/dev/apikey",
+        suffix,
+    )
 
 
 def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
     """Persona Steam em lote (até 100 por request); requer STEAM_API_KEY."""
     api_key = (os.environ.get("STEAM_API_KEY") or "").strip()
     if not api_key:
+        _warn_steam_api_key_missing("GetPlayerSummaries")
         return {}
     valid = [sid for sid in steam_ids if _is_valid_steamid64(sid)]
     if not valid:
@@ -4159,7 +4142,7 @@ def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
         url = (
             "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
             f"?key={urllib.parse.quote(api_key, safe='')}"
-            f"&steamids={urllib.parse.quote(ids_param, safe='')}"
+            f"&steamids={ids_param}"
         )
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "arkshop-web"}, method="GET")
@@ -4179,32 +4162,61 @@ def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
     return result
 
 
+def _persist_steam_personas(db: Any, persona_map: dict[str, str]) -> None:
+    """Grava nick Steam em store_users.steam_persona (fonte única de exibição)."""
+    if not persona_map:
+        return
+    for sid, persona in persona_map.items():
+        row = db.get(StoreUser, sid)
+        if row is None:
+            row = StoreUser(steam_id=sid, steam_persona=persona, display_name=persona)
+            db.add(row)
+        else:
+            row.steam_persona = persona
+            row.display_name = persona
+    db.commit()
+
+
+def _refresh_steam_personas(db: Any, steam_ids: list[str]) -> dict[str, str]:
+    """Consulta Steam API e persiste — ignora cache DB (lista admin)."""
+    if not steam_ids:
+        return {}
+    if not _steam_api_key_configured():
+        _warn_steam_api_key_missing("refresh_steam_personas")
+        return {}
+    fetched = _fetch_steam_persona_names_batch(steam_ids)
+    if not fetched:
+        return {}
+    try:
+        _persist_steam_personas(db, fetched)
+    except Exception as exc:
+        db.rollback()
+        log.warning("persist steam personas falhou: %s", exc)
+        return {}
+    return fetched
+
+
+def _refresh_steam_persona(db: Any, steam_id: str) -> str | None:
+    """Atualiza steam_persona de um jogador via Steam API (login / auth/me)."""
+    if not _is_valid_steamid64(steam_id):
+        return None
+    persona_map = _refresh_steam_personas(db, [steam_id])
+    if steam_id in persona_map:
+        return persona_map[steam_id]
+    row = db.get(StoreUser, steam_id)
+    if row and (row.steam_persona or "").strip():
+        p = str(row.steam_persona).strip()
+        return p if p != steam_id else None
+    return None
+
+
 def _backfill_steam_personas(
     db: Any,
     entries: list[tuple[str, str | None]],
 ) -> dict[str, str]:
-    """Atualiza store_users.display_name via Steam API quando ainda é SteamID bruto."""
-    if not _steam_api_key_configured():
-        return {}
-    pending = [
-        sid for sid, nm in entries if _display_name_needs_steam_backfill(nm, sid)
-    ]
-    if not pending:
-        return {}
-    fetched = _fetch_steam_persona_names_batch(pending)
-    if not fetched:
-        return {}
-    try:
-        for sid, persona in fetched.items():
-            row = db.get(StoreUser, sid)
-            if row is not None:
-                row.display_name = persona
-        db.commit()
-    except Exception as exc:
-        db.rollback()
-        log.warning("backfill steam personas falhou: %s", exc)
-        return {}
-    return fetched
+    """Admin list: sempre busca nick Steam em lote e sobrescreve cache."""
+    steam_ids = [sid for sid, _ in entries if _is_valid_steamid64(sid)]
+    return _refresh_steam_personas(db, steam_ids)
 
 
 def _fetch_steam_persona_name(steam_id: str) -> str | None:
@@ -4214,32 +4226,27 @@ def _fetch_steam_persona_name(steam_id: str) -> str | None:
     return _fetch_steam_persona_names_batch([steam_id]).get(steam_id)
 
 
+def _steam_persona_label(steam_id: str, persona: str | None) -> str | None:
+    if persona and str(persona).strip() and str(persona).strip() != steam_id:
+        return str(persona).strip()[:128]
+    return None
+
+
 def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | None:
-    """Nome Steam/jogador para header; None se indisponível (sem fallback ao SteamID)."""
-    stored_name: str | None = None
-    market_name: str | None = None
+    """Nick Steam para header — apenas steam_persona, nunca market_display_name."""
     if _db_ready():
         db = _SessionLocal()
         try:
-            row = db.get(StoreUser, steam_id)
-            if row and (row.display_name or "").strip():
-                stored_name = str(row.display_name).strip()
-            prof = _safe_market_profile(db, steam_id)
-            if prof and (prof.market_display_name or "").strip():
-                market_name = str(prof.market_display_name).strip()
+            if enrich:
+                persona = _refresh_steam_persona(db, steam_id)
+            else:
+                row = db.get(StoreUser, steam_id)
+                persona = (row.steam_persona if row else None)
+            label = _steam_persona_label(steam_id, persona)
+            if label:
+                return label
         finally:
             _release_db_session(db)
-
-    if stored_name and stored_name != steam_id:
-        # Nome de vitrine do comércio não é nome de sistema
-        if not market_name or stored_name != market_name:
-            return stored_name[:128]
-
-    for p in _load_players():
-        if str(p.get("steam_id", "")).strip() == steam_id:
-            nm = str(p.get("name") or "").strip()
-            if nm:
-                return nm[:128]
 
     if not enrich:
         return None
@@ -4247,22 +4254,15 @@ def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | No
     persona = _fetch_steam_persona_name(steam_id)
     if not persona:
         return None
-
     if _db_ready():
         db = _SessionLocal()
         try:
-            row = db.get(StoreUser, steam_id)
-            if row is None:
-                row = StoreUser(steam_id=steam_id, display_name=persona, last_login_at=_now())
-                db.add(row)
-            else:
-                row.display_name = persona
-            db.commit()
+            _persist_steam_personas(db, {steam_id: persona})
         except Exception:
             db.rollback()
         finally:
             _release_db_session(db)
-    return persona
+    return persona[:128]
 
 
 # ── Auth decorators ───────────────────────────────────────────────────────────
@@ -4323,38 +4323,24 @@ def _safe_market_profile(db: Any, steam_id: str) -> Any | None:
 
 
 def _auth_display_name_fields(steam_id: str, is_admin: bool) -> dict[str, Any]:
-    """Campos de perfil de exibição para /api/auth/me (jogadores; admins isentos)."""
-    if is_admin or not _db_ready():
-        return {"market_display_name": None, "needs_display_name": False}
-
-    db = _SessionLocal()
-    try:
-        prof = _safe_market_profile(db, steam_id)
-        name = ((prof.market_display_name if prof else None) or "").strip()
-        return {
-            "market_display_name": name or None,
-            "needs_display_name": not bool(name),
-        }
-    finally:
-        _release_db_session(db)
+    """Campos de /api/auth/me — nick Steam (steam_persona) como única fonte de exibição."""
+    persona: str | None = None
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            persona = _steam_persona_label(steam_id, _refresh_steam_persona(db, steam_id))
+        finally:
+            _release_db_session(db)
+    return {
+        "steam_persona": persona,
+        "display_name": persona,
+        "market_display_name": None,
+        "needs_display_name": False,
+    }
 
 
 def _guard_player_display_name(steam_id: str) -> Any:
-    """Bloqueia ações de jogador sem nome de exibição; admins isentos."""
-    if _is_admin_steamid(steam_id) or not _db_ready():
-        return None
-
-    db = _SessionLocal()
-    try:
-        prof = _safe_market_profile(db, str(steam_id))
-        if not prof or not (prof.market_display_name or "").strip():
-            return jsonify({
-                "ok": False,
-                "error": "Defina seu nome de exibição antes de continuar.",
-                "needs_display_name": True,
-            }), 403
-    finally:
-        _release_db_session(db)
+    """Removido: nick Steam vem da API, não há nome editável separado."""
     return None
 
 
@@ -5382,6 +5368,7 @@ def auth_me():
             "is_support": False,
             "can_manage_tickets": False,
             "steam_id": None,
+            "steam_persona": None,
             "display_name": None,
             "needs_display_name": False,
             "market_display_name": None,
@@ -5401,7 +5388,6 @@ def auth_me():
         "is_support": is_support,
         "can_manage_tickets": can_manage_tickets,
         "steam_id": steam_id,
-        "display_name": _resolve_auth_player_name(steam_id),
     }
     payload.update(_auth_display_name_fields(steam_id, is_admin))
     if _db_ready():
