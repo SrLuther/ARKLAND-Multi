@@ -3,19 +3,12 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.196"
+APP_VERSION: str = "1.9.195"
 BUILD_DATE: str = "2026-07-03"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
-    {
-        "version": "1.9.196",
-        "date": "2026-07-03",
-        "changes": [
-            "Feature (Web Store / Kits): na renovação de licença (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licença são resetados ao valor inicial do catálogo.",
-        ],
-    },
-    {
+{
         "version": "1.9.195",
         "date": "2026-07-03",
         "changes": [
@@ -29,6 +22,7 @@ CHANGELOG: list[dict] = [
         "changes": [
             "Feature (Web Store / Comércio): notificações in-app para staff (market_staff_alert / market_staff_critical) em flag e remoção de anúncios.",
             "Melhoria (Web Store / Comércio Admin): timeline de anúncio inclui amber_snapshot de movimentação de âmbares.",
+            "Melhoria (Web Store / Kits): ao renovar licença, limites de kits vinculados à licença são restaurados automaticamente.",
         ],
     },
     {

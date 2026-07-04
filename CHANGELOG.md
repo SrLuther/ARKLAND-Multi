@@ -5,12 +5,6 @@
 
 <!-- markdownlint-disable MD024 -->
 
-## [1.9.196] - 2026-07-03
-
-### Feature
-
-- Feature (Web Store / Kits): na renovação de licença (Alfa, Beta ou Gamma), os limites de resgate dos kits com DefaultAmount vinculados ao grupo da licença são resetados ao valor inicial do catálogo.
-
 ## [1.9.195] - 2026-07-03
 
 ### Feature
@@ -27,6 +21,7 @@
 ### Improvement
 
 - Melhoria (Web Store / Comércio Admin): timeline de anúncio inclui amber_snapshot de movimentação de âmbares.
+- Melhoria (Web Store / Kits): ao renovar licença, limites de kits vinculados à licença são restaurados automaticamente.
 
 ## [1.9.193] - 2026-07-03
 
