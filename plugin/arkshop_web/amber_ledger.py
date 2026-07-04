@@ -25,6 +25,8 @@ log = logging.getLogger("arkshop_web.amber_ledger")
 _PUBLIC_STATS_TTL = 60.0
 _public_stats_lock = threading.Lock()
 _public_stats_cache: dict[str, Any] = {"data": None, "expires": 0.0}
+_schema_verified_engines: set[int] = set()
+_schema_lock = threading.Lock()
 
 COVERAGE_NOTE = (
     "Inclui doações, loja web, mercado P2P, ajustes admin e enquetes. "
@@ -505,6 +507,59 @@ def _sum_channel_all_time(db: Session) -> dict[str, int]:
     return {str(r.channel): int(r.total) for r in rows}
 
 
+def _ensure_schema_ready(db: Session) -> None:
+    """Garante tabelas do Âmbarômetro (corrige corrida com migrate assíncrono no boot)."""
+    engine = db.get_bind()
+    if engine is None:
+        return
+    engine_id = id(engine)
+    if engine_id in _schema_verified_engines:
+        return
+    with _schema_lock:
+        if engine_id in _schema_verified_engines:
+            return
+        try:
+            db.execute(text("SELECT 1 FROM amber_stats_cache LIMIT 1"))
+            _schema_verified_engines.add(engine_id)
+        except Exception:
+            db.rollback()
+            ensure_amber_schema(engine, run_backfill=True)
+            _schema_verified_engines.add(engine_id)
+
+
+def degraded_public_stats(
+    *,
+    message: str = "Dados temporariamente indisponíveis",
+    currency: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Payload público seguro quando o ledger ainda não está pronto."""
+    curr = currency or {}
+    return {
+        "ok": True,
+        "degraded": True,
+        "error": message,
+        "currency": curr,
+        "updated_at": datetime.now(_SP_TZ).isoformat(timespec="seconds"),
+        "coverage_note": COVERAGE_NOTE,
+        "total_gross_all_time": 0,
+        "total_gross_today": 0,
+        "total_gross_7d": 0,
+        "total_gross_30d": 0,
+        "channels": {
+            "donation": 0,
+            "shop_web": 0,
+            "market": 0,
+            "ingame_shop": None,
+            "community": 0,
+            "admin": 0,
+        },
+        "display": {
+            "label": "Âmbares movimentados",
+            "sublabel": "Todas as transações do cluster ARKLAND",
+        },
+    }
+
+
 def _reconcile_rolling_windows(db: Session) -> None:
     """Atualiza cache de janelas rolantes a partir do ledger."""
     now = _naive_utc(_utcnow())
@@ -553,6 +608,7 @@ def get_public_stats(
         ):
             return dict(_public_stats_cache["data"])
 
+    _ensure_schema_ready(db)
     _reconcile_rolling_windows(db)
     db.commit()
 

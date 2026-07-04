@@ -1437,6 +1437,32 @@
     .policy-modal-body h4:first-child { margin-top: 0; }
     .policy-modal-body ul { margin: 8px 0 8px 18px; }
     .policy-modal-body li { margin-bottom: 6px; }
+    .site-footer {
+      margin-top: 32px;
+      padding: 20px 16px 28px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .site-footer a {
+      color: var(--tek);
+      text-decoration: none;
+      margin: 0 10px;
+      font-weight: 600;
+    }
+    .site-footer a:hover { text-decoration: underline; }
+    .regulamento-body { max-height: none; }
+    .regulamento-body table.regulamento-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 13px;
+    }
+    .regulamento-body table.regulamento-table td {
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+    }
 
     .pix-modal-qr {
       display: block;
@@ -3001,6 +3027,13 @@
       line-height: 1.45;
     }
     .amber-meter--hidden { display: none; }
+    .amber-meter--degraded .amber-meter__value { opacity: 0.55; }
+    .amber-meter__status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--text2);
+      font-style: italic;
+    }
 
     .home-section {
       margin-bottom: 24px;
@@ -4388,6 +4421,31 @@
   </div>
 </div>
 
+<!-- ── Gate: aceite do Regulamento (pós-login Steam) ───────────────────────── -->
+<div id="regulamento-gate" class="modal-backdrop hidden" style="z-index:10060;">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title">📋 Regulamento ARKLAND</div>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin:0 0 12px;line-height:1.55;">
+      Ao usar a Web Store ARKLAND você concorda com o Regulamento do Servidor (PvE, conduta, mercado em Âmbares, licenças Gamma/Beta/Alfa/Nuvem e tickets).
+      É necessário ter <strong>16 anos ou mais</strong>.
+    </p>
+    <div id="regulamento-gate-body" class="policy-modal-body" style="max-height:220px;overflow:auto;margin-bottom:14px;">
+      <p>Carregando resumo…</p>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-bottom:14px;cursor:pointer;">
+      <input id="regulamento-gate-check" type="checkbox" style="margin-top:3px;" onchange="toggleRegulamentoAcceptBtn()" />
+      <span>Declaro ter 16 anos ou mais e li/aceito o Regulamento do Servidor ARKLAND.</span>
+    </label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="logout()">Sair</button>
+      <button class="btn btn-ghost" onclick="openRegulamentoPage()">Ler completo</button>
+      <button class="btn btn-primary" id="regulamento-gate-accept" disabled onclick="acceptRegulamento()">Aceitar e continuar</button>
+    </div>
+  </div>
+</div>
+
 <div id="shell">
 
   <!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
@@ -4518,6 +4576,9 @@
     <div class="nav-item" data-page="polls" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
     </div>
+    <div class="nav-item" data-page="regulamento" onclick="nav(this)">
+      <span class="nav-icon">📋</span> Regulamento
+    </div>
     <div class="nav-item" data-page="tickets" onclick="nav(this)">
       <span class="nav-icon">🎫</span> Tickets
     </div>
@@ -4572,6 +4633,7 @@
               </div>
             </div>
             <button class="btn btn-ghost btn-sm" onclick="openPolicyModal(false)">📜 Política</button>
+            <button class="btn btn-ghost btn-sm" onclick="openRegulamentoPage()">📋 Regulamento</button>
             <button class="btn btn-ghost btn-sm" onclick="loadCatalog()">↺ Atualizar</button>
           </div>
         </div>
@@ -5935,6 +5997,26 @@
         <div id="admin-featured-maps-list"></div>
       </div>
 
+      <!-- PAGE: Regulamento -->
+      <div id="page-regulamento" class="page">
+        <div id="topbar">
+          <div class="page-title">📋 Regulamento do Servidor</div>
+        </div>
+        <div class="card">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div class="card-title">Regulamento Oficial ARKLAND</div>
+            <span id="regulamento-page-version" style="font-size:12px;color:var(--text2);"></span>
+          </div>
+          <div id="regulamento-body" style="padding:4px 0;">
+            <p style="color:var(--text2);">Carregando…</p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);">
+            <button class="btn btn-ghost" onclick="nav(document.querySelector('.nav-item[data-page=home]'))">← Voltar à loja</button>
+            <button class="btn btn-primary" onclick="openRegulamentoPageTickets()">Abrir ticket de suporte</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PAGE: Tickets (jogador) -->
       <div id="page-tickets" class="page">
         <div id="topbar">
@@ -6454,6 +6536,14 @@
         </div>
       </div>
 
+      <footer id="site-footer" class="site-footer">
+        <a href="#" onclick="openRegulamentoPage(); return false;">Regulamento do servidor</a>
+        <span aria-hidden="true">·</span>
+        <a href="#" onclick="openPolicyModal(false); return false;">Política de Doações</a>
+        <span aria-hidden="true">·</span>
+        <a href="#" onclick="goToTicketsPage(); return false;">Suporte / Tickets</a>
+      </footer>
+
     </div>
 
     <!-- Status bar -->
@@ -6722,7 +6812,7 @@ let _config = null;
 let _players = [];
 let _editingKey = null;   // key sendo editada
 let _editingSection = null; // 'shop'|'kit'|'sell'
-let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
+let _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
 let _myAreaPage = { offset: 0, limit: 20, total: 0 };
 let _myDonationsPage = { offset: 0, limit: 20, total: 0 };
 
@@ -7039,6 +7129,113 @@ function promptLogin(context) {
     : "Entre com Steam para doar, resgatar e acessar sua área.");
 }
 
+function playerNeedsRegulamentoAccept() {
+  return !!(_auth.authenticated && _auth.needs_regulamento_accept);
+}
+
+function toggleRegulamentoAcceptBtn() {
+  const btn = document.getElementById("regulamento-gate-accept");
+  const chk = document.getElementById("regulamento-gate-check");
+  if (btn) btn.disabled = !(chk && chk.checked);
+}
+
+async function loadRegulamentoContent(targetId) {
+  const el = document.getElementById(targetId || "regulamento-body");
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--text2);">Carregando regulamento…</p>';
+  try {
+    const meta = await fetchJson("/api/regulamento/meta");
+    const content = await fetchJson("/api/regulamento/content");
+    const verEl = document.getElementById("regulamento-page-version");
+    if (verEl) {
+      verEl.textContent = `Versão ${meta.version || content.version || "1.0"} · ${meta.updated_at || ""}`;
+    }
+    if (content.ok && content.html) {
+      el.innerHTML = `<div class="policy-modal-body regulamento-body">${content.html}</div>`;
+    } else {
+      el.innerHTML = '<p style="color:var(--danger);">Regulamento indisponível.</p>';
+    }
+  } catch (_) {
+    el.innerHTML = '<p style="color:var(--danger);">Falha ao carregar regulamento.</p>';
+  }
+}
+
+async function loadRegulamentoPage() {
+  await loadRegulamentoContent("regulamento-body");
+}
+
+function openRegulamentoPage() {
+  if (!playerNeedsRegulamentoAccept()) hideRegulamentoGate();
+  const navEl = document.querySelector('.nav-item[data-page="regulamento"]');
+  if (navEl) {
+    document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    navEl.classList.add("active");
+    document.getElementById("page-regulamento")?.classList.add("active");
+    loadRegulamentoPage();
+    if (isMobileNav()) closeSidebar();
+  }
+}
+
+function goToTicketsPage() {
+  if (!_auth.authenticated) {
+    promptLogin("Tickets");
+    return;
+  }
+  if (playerNeedsRegulamentoAccept()) {
+    showRegulamentoGate();
+    return;
+  }
+  const navEl = document.querySelector('.nav-item[data-page="tickets"]');
+  if (navEl) nav(navEl);
+}
+
+function openRegulamentoPageTickets() {
+  goToTicketsPage();
+}
+
+function showRegulamentoGate() {
+  const gate = document.getElementById("regulamento-gate");
+  if (!gate) return;
+  gate.classList.remove("hidden");
+  const chk = document.getElementById("regulamento-gate-check");
+  if (chk) chk.checked = false;
+  toggleRegulamentoAcceptBtn();
+  loadRegulamentoContent("regulamento-gate-body");
+}
+
+function hideRegulamentoGate() {
+  document.getElementById("regulamento-gate")?.classList.add("hidden");
+}
+
+async function acceptRegulamento() {
+  const chk = document.getElementById("regulamento-gate-check");
+  if (!chk?.checked) {
+    toast("Marque a caixa de aceite para continuar.", "warning");
+    return;
+  }
+  const ver = _auth.regulamento_version_current || "1.0";
+  try {
+    const r = await fetch(API + "/api/regulamento/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version: ver }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      toast(d.error || "Falha ao registrar aceite", "error");
+      return;
+    }
+    _auth.needs_regulamento_accept = false;
+    _auth.regulamento_version_accepted = d.regulamento_version_accepted || ver;
+    hideRegulamentoGate();
+    toast("Regulamento aceito. Bem-vindo!", "success");
+    if (playerNeedsDisplayName()) showDisplayNameGate("usar a loja ARKLAND");
+  } catch (_) {
+    toast("Falha ao registrar aceite do regulamento.", "error");
+  }
+}
+
 // Troca de aba: remove .active de todos os .page e aplica só no alvo (uma página visível por vez).
 function nav(el) {
   const page = el.dataset.page;
@@ -7050,7 +7247,11 @@ function nav(el) {
     promptLogin("Tickets");
     return;
   }
-  if (playerNeedsDisplayName()) {
+  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && playerNeedsRegulamentoAccept()) {
+    showRegulamentoGate();
+    return;
+  }
+  if (playerNeedsDisplayName() && page !== "regulamento" && page !== "home" && page !== "catalog") {
     showDisplayNameGate("navegar no portal");
     return;
   }
@@ -7074,6 +7275,7 @@ function nav(el) {
   if (page === "market-economy-admin") loadMarketEconomyAdmin();
   if (page === "downloads") loadDownloads();
   if (page === "tutoriais") initTutoriaisPage();
+  if (page === "regulamento") loadRegulamentoPage();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
   if (page === "recharge-admin") loadRechargeAdmin();
@@ -15014,11 +15216,15 @@ function _animateAmberCounter(el, from, to, durationMs = 1400) {
 
 function renderAmberMeter(data) {
   const root = document.getElementById("amber-meter-root");
-  if (!root || !data || !data.ok) return;
+  if (!root || !data) return;
   root.classList.remove("amber-meter--hidden");
+  root.classList.toggle("amber-meter--degraded", !!data.degraded);
   const total = Number(data.total_gross_all_time || 0);
   const label = escHtml((data.display && data.display.label) || "Âmbares movimentados");
   const sublabel = escHtml((data.display && data.display.sublabel) || "");
+  const statusMsg = data.degraded && data.error
+    ? `<p class="amber-meter__status">${escHtml(data.error)}</p>`
+    : "";
   const chips = [
     ["Hoje", data.total_gross_today],
     ["7 dias", data.total_gross_7d],
@@ -15044,6 +15250,7 @@ function renderAmberMeter(data) {
     <div class="amber-meter__chips">${chips}</div>
     ${channelHtml ? `<div class="amber-meter__channels">${channelHtml}</div>` : ""}
     ${data.coverage_note ? `<p class="amber-meter__note">${escHtml(data.coverage_note)}</p>` : ""}
+    ${statusMsg}
   `;
   const valEl = document.getElementById("amber-meter-value");
   if (valEl && total !== _amberMeterValue) {
@@ -15054,14 +15261,35 @@ function renderAmberMeter(data) {
   }
 }
 
+function renderAmberMeterPlaceholder(message) {
+  const root = document.getElementById("amber-meter-root");
+  if (!root) return;
+  root.classList.remove("amber-meter--hidden");
+  root.classList.add("amber-meter--degraded");
+  root.innerHTML = `
+    <div class="amber-meter__eyebrow">${amberIconHtml(20)} Âmbarômetro</div>
+    <div class="amber-meter__value">0</div>
+    <div class="amber-meter__sublabel">Âmbares movimentados</div>
+    <p class="amber-meter__status">${escHtml(message || "Carregando estatísticas…")}</p>
+  `;
+}
+
 async function loadAmberMeter() {
   if (_amberMeterTimer) clearInterval(_amberMeterTimer);
+  renderAmberMeterPlaceholder("Carregando estatísticas…");
   async function fetchAndRender() {
     try {
       const r = await fetch(API + "/api/public/amber-stats");
-      const d = await r.json();
-      if (r.ok && d.ok) renderAmberMeter(d);
-    } catch (_) { /* degradado */ }
+      let d = null;
+      try { d = await r.json(); } catch (_) { /* resposta inválida */ }
+      if (d && d.ok) {
+        renderAmberMeter(d);
+        return;
+      }
+      renderAmberMeterPlaceholder((d && d.error) || "Dados temporariamente indisponíveis");
+    } catch (_) {
+      renderAmberMeterPlaceholder("Não foi possível carregar o Âmbarômetro");
+    }
   }
   await fetchAndRender();
   _amberMeterTimer = setInterval(fetchAndRender, 90000);
@@ -16272,11 +16500,13 @@ async function bootPortal() {
     const healthPromise = fetchJson("/api/health", { timeoutMs: 5000 }).catch((e) => ({ _healthError: e }));
 
     await loadAuth().catch(() => {
-      _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null };
+      _auth = { authenticated: false, is_admin: false, is_support: false, can_manage_tickets: false, steam_id: null, display_name: null, needs_display_name: false, market_display_name: null, needs_regulamento_accept: false, regulamento_version_current: null, regulamento_version_accepted: null };
     });
     applyRoleUi(true);
     showAuthOverlay(false);
-    if (playerNeedsDisplayName()) {
+    if (playerNeedsRegulamentoAccept()) {
+      showRegulamentoGate();
+    } else if (playerNeedsDisplayName()) {
       showDisplayNameGate("usar a loja ARKLAND");
     }
 

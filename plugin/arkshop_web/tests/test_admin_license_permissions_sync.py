@@ -137,6 +137,7 @@ def test_player_purchase_nuvem_syncs_permissions(client, monkeypatch):
             return None
 
     monkeypatch.setattr(_app_module, "_db_ready", lambda: True)
+    monkeypatch.setattr(_app_module, "_guard_regulamento_accepted", lambda _sid: None)
     monkeypatch.setattr(_app_module, "_SessionLocal", _FakeScopedSession())
     monkeypatch.setattr(_app_module, "_audit_event", lambda *a, **k: None)
     monkeypatch.setattr(

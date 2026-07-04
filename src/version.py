@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.197"
+APP_VERSION: str = "1.9.198"
 BUILD_DATE: str = "2026-07-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.198",
+        "date": "2026-07-04",
+        "changes": [
+            "Fix (Web Store / Admin): lista Gerenciar Jogadores busca nick Steam em lote (GetPlayerSummaries), grava em store_users.display_name e exibe persona para todos — não só quem já fez login.",
+            "Feature (Web Store / Regulamento): página dedicada, link no rodapé, gate de aceite no 1º login com versão 1.0 persistida por steam_id; guards em tickets e doações/resgates.",
+        ],
+    },
     {
         "version": "1.9.197",
         "date": "2026-07-04",

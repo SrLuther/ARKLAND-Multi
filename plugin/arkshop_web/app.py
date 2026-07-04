@@ -594,12 +594,17 @@ class StoreUser(Base):
 
     steam_id: Mapped[str] = mapped_column(String(32), primary_key=True)
     display_name: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    steam_persona: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     site_access_blocked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     ban_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    regulamento_accepted_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    regulamento_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class PointPayment(Base):
@@ -1222,6 +1227,15 @@ def _ensure_store_users_schema(engine: Any) -> None:
         Base.metadata.create_all(bind=engine, tables=[StoreUser.__table__])
         return
     if not is_mysql:
+        with engine.connect() as conn:
+            cols = {
+                str(row[1])
+                for row in conn.execute(text("PRAGMA table_info(store_users)")).fetchall()
+            }
+            if "steam_persona" not in cols:
+                conn.execute(text("ALTER TABLE store_users ADD COLUMN steam_persona VARCHAR(128)"))
+                conn.commit()
+                log.info("store_users: coluna steam_persona adicionada (sqlite)")
         return
     with engine.connect() as conn:
         cols = {
@@ -1239,10 +1253,16 @@ def _ensure_store_users_schema(engine: Any) -> None:
             alters.append("ADD COLUMN `last_login_at` DATETIME NULL")
         if "display_name" not in cols:
             alters.append("ADD COLUMN `display_name` VARCHAR(128) NULL")
+        if "steam_persona" not in cols:
+            alters.append("ADD COLUMN `steam_persona` VARCHAR(128) NULL")
         if "created_at" not in cols:
             alters.append(
                 "ADD COLUMN `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
             )
+        if "regulamento_accepted_version" not in cols:
+            alters.append("ADD COLUMN `regulamento_accepted_version` VARCHAR(16) NULL")
+        if "regulamento_accepted_at" not in cols:
+            alters.append("ADD COLUMN `regulamento_accepted_at` DATETIME NULL")
         for fragment in alters:
             conn.execute(text(f"ALTER TABLE `store_users` {fragment}"))
         if alters:
@@ -1718,6 +1738,34 @@ def _save_players(players: list[Dict[str, str]]) -> None:
     _PLAYERS_FILE.write_text(json.dumps(players_sorted, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _display_name_needs_steam_backfill(display_name: str | None, steam_id: str) -> bool:
+    nm = (display_name or "").strip()
+    return not nm or nm == steam_id
+
+
+def _steam_persona_needs_backfill(steam_persona: str | None, steam_id: str) -> bool:
+    nm = (steam_persona or "").strip()
+    return not nm or nm == steam_id
+
+
+def _admin_player_persona_label(
+    steam_id: str,
+    *,
+    steam_persona: str | None = None,
+    store_name: str | None = None,
+) -> str:
+    """Nome exibido no admin: steam_persona (nick Steam), nunca market_display_name."""
+    for candidate in (steam_persona, store_name):
+        if candidate and str(candidate).strip() and str(candidate).strip() != steam_id:
+            return str(candidate).strip()[:128]
+    for p in _load_players():
+        if str(p.get("steam_id", "")).strip() == steam_id:
+            nm = str(p.get("name") or "").strip()
+            if nm and nm != steam_id:
+                return nm[:128]
+    return steam_id
+
+
 def _resolve_player_display_name(
     steam_id: str,
     *,
@@ -1747,6 +1795,8 @@ def _touch_store_user_login(steam_id: str) -> None:
         persona = _fetch_steam_persona_name(steam_id)
         if persona:
             display_name = persona
+        elif row and (row.steam_persona or "").strip() and str(row.steam_persona).strip() != steam_id:
+            display_name = str(row.steam_persona).strip()
         elif row and (row.display_name or "").strip():
             display_name = _resolve_player_display_name(
                 steam_id, store_name=row.display_name,
@@ -1757,12 +1807,14 @@ def _touch_store_user_login(steam_id: str) -> None:
             row = StoreUser(
                 steam_id=steam_id,
                 display_name=display_name,
+                steam_persona=persona,
                 last_login_at=now,
             )
             db.add(row)
         else:
             row.last_login_at = now
             if persona:
+                row.steam_persona = persona
                 row.display_name = persona
             elif not (row.display_name or "").strip() or str(row.display_name).strip() == steam_id:
                 row.display_name = display_name
@@ -1922,7 +1974,7 @@ def _list_admin_players(
         )
         total = int(db.execute(text(count_sql), params).scalar() or 0)
         select_cols = (
-            "su.steam_id, su.display_name, "
+            "su.steam_id, su.display_name, su.steam_persona, "
             + ("mp.market_display_name, " if has_market_profile else "NULL AS market_display_name, ")
             + f"{points_expr}, su.site_access_blocked, su.ban_reason, "
             "su.created_at, su.last_login_at "
@@ -1939,20 +1991,29 @@ def _list_admin_players(
             ),
             params,
         ).fetchall()
+        persona_map = _backfill_steam_personas(
+            db, [(str(r[0]), r[2]) for r in rows],
+        )
         items: list[dict[str, Any]] = []
         for r in rows:
             sid = str(r[0])
+            store_nm = r[1]
+            persona = persona_map.get(sid) or r[2]
+            label = _admin_player_persona_label(
+                sid, steam_persona=persona, store_name=store_nm,
+            )
             ents = _get_player_entitlements(sid, db=db)
             license_groups = [e["group"] for e in ents if not _is_staff_role_group(e["group"])]
             staff_roles = [e["group"] for e in ents if _is_staff_role_group(e["group"])]
             items.append({
                 "steam_id": sid,
-                "display_name": _resolve_player_display_name(sid, store_name=r[1]),
-                "points": int(r[3] or 0),
-                "site_access_blocked": bool(r[4]),
-                "ban_reason": r[5],
-                "created_at": _dt_iso(r[6]),
-                "last_login_at": _dt_iso(r[7]),
+                "steam_persona": persona if persona and str(persona).strip() != sid else None,
+                "display_name": label,
+                "points": int(r[4] or 0),
+                "site_access_blocked": bool(r[5]),
+                "ban_reason": r[6],
+                "created_at": _dt_iso(r[7]),
+                "last_login_at": _dt_iso(r[8]),
                 "licenses": license_groups,
                 "staff_roles": staff_roles,
             })
@@ -2009,14 +2070,20 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
         except Exception:
             kit_stash = {}
         kit_limits = _build_player_kit_limits(db, steam_id, kit_stash=kit_stash)
-        display_name = _resolve_player_display_name(
-            steam_id,
-            store_name=(su.display_name if su else None),
+        store_nm = su.display_name if su else None
+        persona = su.steam_persona if su else None
+        if su and _steam_persona_needs_backfill(persona, steam_id):
+            persona_map = _backfill_steam_personas(db, [(steam_id, persona)])
+            persona = persona_map.get(steam_id) or persona
+        display_name = _admin_player_persona_label(
+            steam_id, steam_persona=persona, store_name=store_nm,
         )
+        reg_fields = _auth_regulamento_fields(steam_id, db=db)
         return {
             "ok": True,
             "player": {
                 "steam_id": steam_id,
+                "steam_persona": persona if persona and str(persona).strip() != steam_id else None,
                 "display_name": display_name,
                 "points": points,
                 "site_access_blocked": bool(su and su.site_access_blocked),
@@ -2030,6 +2097,7 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
                 "kit_stash": kit_stash,
                 "kit_limits": kit_limits,
                 "listings_count": listings_count,
+                **reg_fields,
             },
             "recent_orders": [
                 {
@@ -4073,26 +4141,77 @@ def _steam_api_key_configured() -> bool:
     return bool((os.environ.get("STEAM_API_KEY") or "").strip())
 
 
+_STEAM_PERSONA_BATCH_SIZE = 100
+
+
+def _fetch_steam_persona_names_batch(steam_ids: list[str]) -> dict[str, str]:
+    """Persona Steam em lote (até 100 por request); requer STEAM_API_KEY."""
+    api_key = (os.environ.get("STEAM_API_KEY") or "").strip()
+    if not api_key:
+        return {}
+    valid = [sid for sid in steam_ids if _is_valid_steamid64(sid)]
+    if not valid:
+        return {}
+    result: dict[str, str] = {}
+    for i in range(0, len(valid), _STEAM_PERSONA_BATCH_SIZE):
+        chunk = valid[i : i + _STEAM_PERSONA_BATCH_SIZE]
+        ids_param = ",".join(chunk)
+        url = (
+            "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
+            f"?key={urllib.parse.quote(api_key, safe='')}"
+            f"&steamids={urllib.parse.quote(ids_param, safe='')}"
+        )
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "arkshop-web"}, method="GET")
+            with urllib.request.urlopen(req, timeout=12) as response:
+                data = json.loads(response.read().decode("utf-8", errors="replace"))
+            for player in (data.get("response") or {}).get("players") or []:
+                sid = str(player.get("steamid") or "").strip()
+                name = str(player.get("personaname") or "").strip()
+                if sid and name:
+                    result[sid] = name[:128]
+        except Exception as exc:
+            log.warning(
+                "Steam GetPlayerSummaries batch falhou (%s ids): %s",
+                len(chunk),
+                exc,
+            )
+    return result
+
+
+def _backfill_steam_personas(
+    db: Any,
+    entries: list[tuple[str, str | None]],
+) -> dict[str, str]:
+    """Atualiza store_users.display_name via Steam API quando ainda é SteamID bruto."""
+    if not _steam_api_key_configured():
+        return {}
+    pending = [
+        sid for sid, nm in entries if _display_name_needs_steam_backfill(nm, sid)
+    ]
+    if not pending:
+        return {}
+    fetched = _fetch_steam_persona_names_batch(pending)
+    if not fetched:
+        return {}
+    try:
+        for sid, persona in fetched.items():
+            row = db.get(StoreUser, sid)
+            if row is not None:
+                row.display_name = persona
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        log.warning("backfill steam personas falhou: %s", exc)
+        return {}
+    return fetched
+
+
 def _fetch_steam_persona_name(steam_id: str) -> str | None:
     """Persona Steam (personaname) via Web API; requer STEAM_API_KEY no ambiente."""
-    api_key = (os.environ.get("STEAM_API_KEY") or "").strip()
-    if not api_key or not _is_valid_steamid64(steam_id):
+    if not _is_valid_steamid64(steam_id):
         return None
-    url = (
-        "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/"
-        f"?key={urllib.parse.quote(api_key, safe='')}&steamids={urllib.parse.quote(steam_id, safe='')}"
-    )
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "arkshop-web"}, method="GET")
-        with urllib.request.urlopen(req, timeout=8) as response:
-            data = json.loads(response.read().decode("utf-8", errors="replace"))
-        players = (data.get("response") or {}).get("players") or []
-        if not players:
-            return None
-        name = str(players[0].get("personaname") or "").strip()
-        return name[:128] if name else None
-    except Exception:
-        return None
+    return _fetch_steam_persona_names_batch([steam_id]).get(steam_id)
 
 
 def _resolve_auth_player_name(steam_id: str, *, enrich: bool = True) -> str | None:
@@ -4237,6 +4356,56 @@ def _guard_player_display_name(steam_id: str) -> Any:
     finally:
         _release_db_session(db)
     return None
+
+
+def _auth_regulamento_fields(steam_id: str, *, db: Any | None = None) -> dict[str, Any]:
+    from regulamento_service import auth_regulamento_fields
+
+    own_db = db is None
+    if own_db:
+        db = _SessionLocal()
+    try:
+        return auth_regulamento_fields(
+            steam_id,
+            db_get_store_user=lambda sid: db.get(StoreUser, sid),
+        )
+    finally:
+        if own_db:
+            _release_db_session(db)
+
+
+def _auth_regulamento_fields_offline() -> dict[str, Any]:
+    from regulamento_service import REGULAMENTO_VERSION
+
+    return {
+        "needs_regulamento_accept": True,
+        "regulamento_version_current": REGULAMENTO_VERSION,
+        "regulamento_version_accepted": None,
+        "regulamento_accepted_at": None,
+    }
+
+
+def _guard_regulamento_accepted(steam_id: str) -> Any:
+    """Bloqueia ações sem aceite do regulamento vigente."""
+    if not _db_ready():
+        return None
+    from regulamento_service import guard_regulamento_accepted
+
+    db = _SessionLocal()
+    try:
+        return guard_regulamento_accepted(
+            steam_id,
+            db_get_store_user=lambda sid: db.get(StoreUser, sid),
+        )
+    finally:
+        _release_db_session(db)
+
+
+def _guard_player_commerce(steam_id: str) -> Any:
+    """Regulamento aceito + nome de exibição (mercado/resgates/doações)."""
+    if (reg_err := _guard_regulamento_accepted(steam_id)) is not None:
+        return reg_err
+    return _guard_player_display_name(steam_id)
 
 
 # ── RCON ──────────────────────────────────────────────────────────────────────
@@ -5216,6 +5385,9 @@ def auth_me():
             "display_name": None,
             "needs_display_name": False,
             "market_display_name": None,
+            "needs_regulamento_accept": False,
+            "regulamento_version_current": None,
+            "regulamento_version_accepted": None,
         })
     file_admins = _load_admin_steamids_from_file()
     is_admin = steam_id in file_admins
@@ -5232,6 +5404,14 @@ def auth_me():
         "display_name": _resolve_auth_player_name(steam_id),
     }
     payload.update(_auth_display_name_fields(steam_id, is_admin))
+    if _db_ready():
+        db = _SessionLocal()
+        try:
+            payload.update(_auth_regulamento_fields(steam_id, db=db))
+        finally:
+            _release_db_session(db)
+    else:
+        payload.update(_auth_regulamento_fields_offline())
     if not is_admin:
         payload.update(_store_user_blocked_fields(steam_id))
     return jsonify(payload)
@@ -6005,28 +6185,39 @@ def public_home():
 @app.route("/api/public/amber-stats", methods=["GET"])
 def public_amber_stats():
     """Totais públicos do Âmbarômetro (sem PII)."""
+    from amber_ledger import degraded_public_stats, get_public_stats
+
+    _kick_background_db_init()
+    _initialize_database_if_needed()
     if not _db_ready():
-        return jsonify({
-            "ok": False,
-            "error": "Indisponível no momento",
-            "coverage_note": "",
-            "total_gross_all_time": 0,
-            "total_gross_today": 0,
-            "total_gross_7d": 0,
-            "total_gross_30d": 0,
-        }), 503
+        payload = degraded_public_stats(
+            message="Banco ainda inicializando",
+            currency=_public_currency(),
+        )
+        resp = make_response(jsonify(payload))
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
     db = _SessionLocal()
     try:
-        from amber_ledger import get_public_stats
-
         payload = get_public_stats(db, currency=_public_currency)
     except Exception as exc:
         _log_error("public_amber_stats", error=str(exc))
-        return jsonify({"ok": False, "error": "Erro ao carregar estatísticas"}), 500
+        try:
+            db.rollback()
+            from amber_ledger import _ensure_schema_ready
+
+            _ensure_schema_ready(db)
+            payload = get_public_stats(db, currency=_public_currency, force_refresh=True)
+        except Exception as retry_exc:
+            _log_error("public_amber_stats_retry", error=str(retry_exc))
+            payload = degraded_public_stats(
+                message="Erro ao carregar estatísticas",
+                currency=_public_currency(),
+            )
     finally:
         _release_db_session(db)
     resp = make_response(jsonify(payload))
-    resp.headers["Cache-Control"] = "public, max-age=60"
+    resp.headers["Cache-Control"] = "no-cache" if payload.get("degraded") else "public, max-age=60"
     return resp
 
 
@@ -6798,7 +6989,7 @@ def _purchase_user_message(
 def player_purchase():
     body = request.get_json(force=True)
     steam_id = _steam_id_from_session()
-    if (dn_err := _guard_player_display_name(str(steam_id))) is not None:
+    if (dn_err := _guard_player_commerce(str(steam_id))) is not None:
         return dn_err
     item_id = str(body.get("item_id", "")).strip()
     item_type = str(body.get("item_type", "shop")).strip() or "shop"
@@ -7038,7 +7229,7 @@ def player_cancel_order(order_id: str):
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+    if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     db = _SessionLocal()
     try:
@@ -7381,7 +7572,7 @@ def player_pix_checkout():
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+    if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     if not _pix_enabled():
         return jsonify({"ok": False, "error": "Doação PIX não configurada (indisponível)"}), 503
@@ -7511,7 +7702,7 @@ def player_card_checkout():
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+    if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     if not _payments_enabled():
         return jsonify({"ok": False, "error": "Doação por cartão não configurada (indisponível)"}), 503
@@ -7996,7 +8187,7 @@ def player_contest(order_id: str):
     if (err := _require_db()) is not None:
         return err
     steam_id = str(_steam_id_from_session())
-    if (dn_err := _guard_player_display_name(steam_id)) is not None:
+    if (dn_err := _guard_player_commerce(steam_id)) is not None:
         return dn_err
     body = request.get_json(force=True)
     reason = str(body.get("reason", "")).strip()
@@ -9236,10 +9427,23 @@ register_ticket_routes(
     is_admin_steamid=_is_admin_steamid,
     can_manage_tickets=_can_manage_tickets,
     resolve_display_name=lambda sid: _resolve_player_display_name(sid),
+    regulamento_guard=_guard_regulamento_accepted,
     uploads_dir=_TICKET_UPLOADS_DIR,
     limiter=limiter,
     load_settings=_load_settings,
     save_settings=_save_settings,
+)
+
+from regulamento_service import register_regulamento_routes
+
+register_regulamento_routes(
+    app,
+    login_required=login_required,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    steam_id_from_session=_steam_id_from_session,
+    store_user_model=StoreUser,
+    audit_fn=_audit_event,
 )
 
 from notification_routes import register_notification_routes

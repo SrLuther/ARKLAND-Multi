@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.198] - 2026-07-04
+
+### Feature
+
+- Feature (Web Store / Regulamento): página dedicada, link no rodapé, gate de aceite no 1º login com versão 1.0 persistida por steam_id; guards em tickets e doações/resgates.
+
+### Fix
+
+- Fix (Web Store / Admin): lista Gerenciar Jogadores busca nick Steam em lote (GetPlayerSummaries), grava em store_users.display_name e exibe persona para todos — não só quem já fez login.
+
 ## [1.9.197] - 2026-07-04
 
 ### Fix

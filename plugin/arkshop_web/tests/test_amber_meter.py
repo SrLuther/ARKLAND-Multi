@@ -16,6 +16,7 @@ os.environ.setdefault("ARKSHOP_SKIP_DB_BOOT", "1")
 
 import app as _app_module
 from amber_ledger import (
+    degraded_public_stats,
     ensure_amber_schema,
     get_public_stats,
     record_donation,
@@ -179,3 +180,52 @@ def test_backfill_point_payments(amber_db):
     assert counts["donation"] >= 1
     stats = get_public_stats(amber_db)
     assert stats["total_gross_all_time"] >= 300
+
+
+def test_get_public_stats_auto_creates_schema(tmp_path):
+    path = tmp_path / "no_schema.db"
+    engine = create_engine(f"sqlite:///{path}", future=True)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        stats = get_public_stats(db, force_refresh=True)
+        assert stats["ok"] is True
+        assert stats["total_gross_all_time"] == 0
+        row = db.execute(text("SELECT name FROM sqlite_master WHERE name='amber_ledger'")).fetchone()
+        assert row is not None
+    finally:
+        db.close()
+
+
+def test_degraded_public_stats():
+    payload = degraded_public_stats(message="Teste degradado")
+    assert payload["ok"] is True
+    assert payload["degraded"] is True
+    assert payload["total_gross_all_time"] == 0
+    assert payload["error"] == "Teste degradado"
+
+
+def test_public_amber_stats_api_without_precreated_schema(tmp_path, monkeypatch):
+    """Simula corrida no boot: API chamada antes do migrate assíncrono."""
+    db_path = str(tmp_path / "race_amber.db")
+    db_url = f"sqlite:///{db_path}"
+    monkeypatch.setattr(_app_module, "_ACTIVE_DATABASE_URL", "")
+    monkeypatch.setattr(_app_module, "_migrate_schema", lambda _engine: None)
+    _configure_database(db_url)
+    app.config["TESTING"] = True
+    with app.test_client() as c:
+        r = c.get("/api/public/amber-stats")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["ok"] is True
+    assert "total_gross_all_time" in data
+
+
+def test_public_amber_stats_when_db_not_ready(client, monkeypatch):
+    monkeypatch.setattr(_app_module, "_db_ready", lambda: False)
+    r = client.get("/api/public/amber-stats")
+    assert r.status_code == 200
+    data = r.get_json()
+    assert data["ok"] is True
+    assert data.get("degraded") is True
+    assert data["total_gross_all_time"] == 0

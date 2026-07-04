@@ -39,6 +39,7 @@ def register_ticket_routes(
     is_admin_steamid: Callable[[str], bool],
     can_manage_tickets: Callable[[str], bool],
     resolve_display_name: Callable[[str], str] | None = None,
+    regulamento_guard: Callable[[str], Any] | None = None,
     uploads_dir: Path,
     limiter: Any | None = None,
     load_settings: Callable[[], dict[str, Any]] | None = None,
@@ -136,8 +137,11 @@ def register_ticket_routes(
     def tickets_create():
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        body = request.get_json(force=True, silent=True) or {}
         steam_id = str(steam_id_from_session())
+        if regulamento_guard:
+            if (reg_err := regulamento_guard(steam_id)) is not None:
+                return reg_err
+        body = request.get_json(force=True, silent=True) or {}
         db = session_factory()
         try:
             player_name = resolve_player_name(

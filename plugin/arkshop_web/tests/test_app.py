@@ -68,6 +68,18 @@ def fresh_db(tmp_path, monkeypatch):
                     updated_at=_now(),
                 )
             )
+            from regulamento_config import REGULAMENTO_VERSION
+
+            for sid, name in ((ADMIN_STEAM, "Admin"), (USER_STEAM, "TestPlayer")):
+                db.add(
+                    _app_module.StoreUser(
+                        steam_id=sid,
+                        display_name=name,
+                        regulamento_accepted_version=REGULAMENTO_VERSION,
+                        regulamento_accepted_at=_now(),
+                        last_login_at=_now(),
+                    )
+                )
             db.commit()
         finally:
             db.close()
@@ -1171,7 +1183,15 @@ class TestRconScope:
 
 # ── Admin gestão de jogadores ───────────────────────────────────────────────────
 
-def _seed_store_user(steam_id: str, *, display_name: str = "Jogador Teste", blocked: bool = False) -> None:
+def _seed_store_user(
+    steam_id: str,
+    *,
+    display_name: str = "Jogador Teste",
+    blocked: bool = False,
+    regulamento_accepted: bool = True,
+) -> None:
+    from regulamento_config import REGULAMENTO_VERSION
+
     db = _app_module._SessionLocal()
     try:
         row = db.get(_app_module.StoreUser, steam_id)
@@ -1187,6 +1207,12 @@ def _seed_store_user(steam_id: str, *, display_name: str = "Jogador Teste", bloc
             row.display_name = display_name
             row.site_access_blocked = blocked
             row.last_login_at = _now()
+        if regulamento_accepted:
+            row.regulamento_accepted_version = REGULAMENTO_VERSION
+            row.regulamento_accepted_at = _now()
+        else:
+            row.regulamento_accepted_version = None
+            row.regulamento_accepted_at = None
         db.commit()
     finally:
         db.close()
@@ -2120,3 +2146,94 @@ class TestLicenseRenewalKitReset:
         )
         assert retry.status_code == 200
         assert retry.get_json()["ok"] is True
+
+
+class TestRegulamento:
+    def test_meta_public(self, client):
+        r = client.get("/api/regulamento/meta")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["version"] == "1.0"
+
+    def test_content_public(self, client):
+        r = client.get("/api/regulamento/content")
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["html"]
+
+    def test_accept_requires_login(self, client):
+        r = client.post("/api/regulamento/accept", json={"version": "1.0"})
+        assert r.status_code == 401
+
+    def test_accept_persists(self, client):
+        _seed_store_user(USER_STEAM, regulamento_accepted=False)
+        _login(client, USER_STEAM)
+        r = client.post("/api/regulamento/accept", json={"version": "1.0"})
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d["ok"] is True
+        assert d["needs_regulamento_accept"] is False
+        me = client.get("/api/auth/me").get_json()
+        assert me["needs_regulamento_accept"] is False
+        assert me["regulamento_version_accepted"] == "1.0"
+
+    def test_auth_me_flags_pending(self, client):
+        _seed_store_user(USER_STEAM, regulamento_accepted=False)
+        _login(client, USER_STEAM)
+        me = client.get("/api/auth/me").get_json()
+        assert me["needs_regulamento_accept"] is True
+
+    def test_guard_blocks_ticket_if_pending(self, client):
+        _seed_store_user(USER_STEAM, regulamento_accepted=False)
+        _login(client, USER_STEAM)
+        r = client.post(
+            "/api/tickets",
+            json={"category": "geral", "subject": "teste", "body": "mensagem de teste"},
+        )
+        assert r.status_code == 403
+        assert r.get_json()["needs_regulamento_accept"] is True
+
+    def test_ticket_after_accept(self, client):
+        _seed_store_user(USER_STEAM, regulamento_accepted=False)
+        _login(client, USER_STEAM)
+        client.post("/api/regulamento/accept", json={"version": "1.0"})
+        r = client.post(
+            "/api/tickets",
+            json={
+                "category": "geral",
+                "subject": "teste aceite",
+                "body": "mensagem após regulamento",
+            },
+        )
+        assert r.status_code == 201
+
+
+class TestAdminPlayersSteamBackfill:
+    def test_list_players_backfills_steam_persona(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "SteamNickBR"} if USER_STEAM in ids else {},
+        )
+        d = client.get("/api/admin/players").get_json()
+        row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
+        assert row["display_name"] == "SteamNickBR"
+        db = _app_module._SessionLocal()
+        try:
+            su = db.get(_app_module.StoreUser, USER_STEAM)
+            assert su.display_name == "SteamNickBR"
+        finally:
+            db.close()
+
+    def test_list_players_without_steam_api_keeps_steamid(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        _login(client, ADMIN_STEAM)
+        monkeypatch.delenv("STEAM_API_KEY", raising=False)
+        d = client.get("/api/admin/players").get_json()
+        row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
+        assert row["display_name"] == USER_STEAM

@@ -72,6 +72,17 @@ def fresh_db(tmp_path, monkeypatch):
                     updated_at=_now(),
                 )
             )
+            from regulamento_config import REGULAMENTO_VERSION
+
+            db.add(
+                _app_module.StoreUser(
+                    steam_id=USER_STEAM,
+                    display_name="PixPlayer",
+                    regulamento_accepted_version=REGULAMENTO_VERSION,
+                    regulamento_accepted_at=_now(),
+                    last_login_at=_now(),
+                )
+            )
             db.commit()
         finally:
             _app_module._release_db_session(db)
