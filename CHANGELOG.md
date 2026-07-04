@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.197] - 2026-07-04
+
+### Fix
+
+- Fix (Web Store): boot crash refreshNotificationsBadge.
+
 ## [1.9.196] - 2026-07-03
 
 ### Feature

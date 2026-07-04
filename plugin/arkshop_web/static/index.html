@@ -7205,6 +7205,19 @@ async function refreshNotifications() {
   } catch (_) {}
 }
 
+async function refreshNotificationsBadge() {
+  if (!_auth.authenticated) return;
+  try {
+    const d = await fetchJson("/api/notifications/unread-count", { timeoutMs: 10000 });
+    if (d.ok) {
+      _updateNotifBadge(d.unread_count);
+      _notifPollBackoffMs = 0;
+    }
+  } catch (_) {
+    _notifPollBackoffMs = Math.min(Math.max(_notifPollBackoffMs, _NOTIF_POLL_MS) * 2, 600000);
+  }
+}
+
 async function loadNotificationsPanel() {
   if (!_auth.authenticated) return;
   const el = document.getElementById("notif-list");
