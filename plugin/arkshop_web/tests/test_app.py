@@ -75,6 +75,7 @@ def fresh_db(tmp_path, monkeypatch):
                     _app_module.StoreUser(
                         steam_id=sid,
                         display_name=name,
+                        steam_persona=name,
                         regulamento_accepted_version=REGULAMENTO_VERSION,
                         regulamento_accepted_at=_now(),
                         last_login_at=_now(),
@@ -203,29 +204,40 @@ class TestAuth:
             assert sess.get("steam_id") == USER_STEAM
             assert sess.permanent is True
 
-    def test_me_includes_display_name_from_store_user(self, client):
-        _seed_store_user(ADMIN_STEAM, display_name="AdminNick")
+    def test_me_includes_display_name_from_store_user(self, client, monkeypatch):
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {ADMIN_STEAM: "AdminNick"} if ADMIN_STEAM in ids else {},
+        )
+        _seed_store_user(ADMIN_STEAM, display_name="AdminNick", steam_persona="AdminNick")
         _login(client, ADMIN_STEAM)
         d = client.get("/api/auth/me").get_json()
+        assert d["steam_persona"] == "AdminNick"
         assert d["display_name"] == "AdminNick"
 
     def test_me_display_name_from_steam_api_when_missing(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
         monkeypatch.setattr(
             _app_module,
-            "_fetch_steam_persona_name",
-            lambda sid: "SteamPersona" if sid == USER_STEAM else None,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "SteamPersona"} if USER_STEAM in ids else {},
         )
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
         assert d["display_name"] == "SteamPersona"
+        assert d["steam_persona"] == "SteamPersona"
 
     def test_me_display_name_null_when_unavailable(self, client, monkeypatch):
-        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
-        monkeypatch.setattr(_app_module, "_fetch_steam_persona_name", lambda _sid: None)
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
+        monkeypatch.delenv("STEAM_API_KEY", raising=False)
+        monkeypatch.setattr(_app_module, "_fetch_steam_persona_names_batch", lambda _ids: {})
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
         assert d.get("display_name") is None
+        assert d.get("steam_persona") is None
 
     def test_me_display_name_ignores_market_vitrine_name(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
@@ -236,27 +248,32 @@ class TestAuth:
             db.commit()
         finally:
             db.close()
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
         monkeypatch.setattr(
             _app_module,
-            "_fetch_steam_persona_name",
-            lambda sid: "CianoSteam" if sid == USER_STEAM else None,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "CianoSteam"} if USER_STEAM in ids else {},
         )
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
         assert d["display_name"] == "CianoSteam"
-        assert d["market_display_name"] == "Ciano_STAFF"
+        assert d["steam_persona"] == "CianoSteam"
+        assert d.get("market_display_name") is None
+        assert d.get("needs_display_name") is False
 
     def test_touch_login_stores_steam_persona_not_market_name(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
         monkeypatch.setattr(
             _app_module,
-            "_fetch_steam_persona_name",
-            lambda sid: "CianoSteam" if sid == USER_STEAM else None,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "CianoSteam"} if USER_STEAM in ids else {},
         )
         _app_module._touch_store_user_login(USER_STEAM)
         db = _app_module._SessionLocal()
         try:
             row = db.get(_app_module.StoreUser, USER_STEAM)
+            assert row.steam_persona == "CianoSteam"
             assert row.display_name == "CianoSteam"
             prof = db.get(_app_module.MarketPlayerProfile, USER_STEAM)
             assert prof.market_display_name == "TestPlayer"
@@ -273,38 +290,29 @@ class TestAuth:
         d = client.get("/api/health").get_json()
         assert d["steam_api_configured"] is False
 
-    def test_me_authenticated_user(self, client, monkeypatch):
-        monkeypatch.setattr(
-            _app_module,
-            "_auth_display_name_fields",
-            lambda _sid, is_admin: {
-                "market_display_name": None,
-                "needs_display_name": not is_admin,
-            },
-        )
+    def test_me_authenticated_user(self, client):
         _login(client, USER_STEAM)
         r = client.get("/api/auth/me")
         d = r.get_json()
         assert d["authenticated"] is True
         assert d["is_admin"] is False
-        assert d["needs_display_name"] is True
-        assert d["market_display_name"] is None
+        assert d["needs_display_name"] is False
+        assert d.get("market_display_name") is None
 
-    def test_me_authenticated_user_with_display_name(self, client, monkeypatch):
+    def test_me_authenticated_user_with_steam_persona(self, client, monkeypatch):
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
         monkeypatch.setattr(
             _app_module,
-            "_auth_display_name_fields",
-            lambda _sid, is_admin: {
-                "market_display_name": "PlayerBR",
-                "needs_display_name": False,
-            },
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "PlayerBR"} if USER_STEAM in ids else {},
         )
+        _seed_store_user(USER_STEAM, steam_persona="PlayerBR")
         _login(client, USER_STEAM)
         d = client.get("/api/auth/me").get_json()
         assert d["needs_display_name"] is False
-        assert d["market_display_name"] == "PlayerBR"
+        assert d["steam_persona"] == "PlayerBR"
 
-    def test_purchase_rejects_without_display_name(self, client, monkeypatch):
+    def test_purchase_allowed_without_display_name_gate(self, client, monkeypatch):
         monkeypatch.setattr(_app_module, "_safe_market_profile", lambda _db, _sid: None)
         _login(client, USER_STEAM)
         monkeypatch.setattr(_app_module, "_catalog_entry", lambda _t, _i: {"Price": 0, "Type": "item"})
@@ -312,9 +320,7 @@ class TestAuth:
             "/api/player/purchase",
             json={"item_id": "sword", "item_type": "shop", "amount": 1},
         )
-        assert r.status_code == 403
-        d = r.get_json()
-        assert d["needs_display_name"] is True
+        assert r.status_code == 200
 
     def test_logout(self, client):
         _login(client, ADMIN_STEAM)
@@ -1187,11 +1193,17 @@ def _seed_store_user(
     steam_id: str,
     *,
     display_name: str = "Jogador Teste",
+    steam_persona: str | None = None,
     blocked: bool = False,
     regulamento_accepted: bool = True,
 ) -> None:
     from regulamento_config import REGULAMENTO_VERSION
 
+    persona = (
+        steam_persona
+        if steam_persona is not None
+        else (display_name if display_name and display_name != steam_id else None)
+    )
     db = _app_module._SessionLocal()
     try:
         row = db.get(_app_module.StoreUser, steam_id)
@@ -1199,12 +1211,19 @@ def _seed_store_user(
             row = _app_module.StoreUser(
                 steam_id=steam_id,
                 display_name=display_name,
+                steam_persona=persona,
                 site_access_blocked=blocked,
                 last_login_at=_now(),
             )
             db.add(row)
         else:
             row.display_name = display_name
+            if steam_persona is not None:
+                row.steam_persona = steam_persona if steam_persona else None
+            elif persona is not None:
+                row.steam_persona = persona
+            elif display_name == steam_id:
+                row.steam_persona = None
             row.site_access_blocked = blocked
             row.last_login_at = _now()
         if regulamento_accepted:
@@ -1226,7 +1245,7 @@ class TestAdminPlayers:
         assert r.status_code == 403
 
     def test_list_and_detail_players(self, client):
-        _seed_store_user(USER_STEAM, display_name="Alpha Tester")
+        _seed_store_user(USER_STEAM, display_name="Alpha Tester", steam_persona="Alpha Tester")
         _seed_player_points(USER_STEAM, 500)
         _login(client, ADMIN_STEAM)
         r = client.get("/api/admin/players?q=Alpha")
@@ -2211,6 +2230,85 @@ class TestRegulamento:
 
 
 class TestAdminPlayersSteamBackfill:
+    def test_stale_display_name_overwritten_on_login(self, client, monkeypatch):
+        """Ciano_STAFF em display_name/market_display_name deve ser substituído pelo nick Steam."""
+        _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
+        db = _app_module._SessionLocal()
+        try:
+            row = db.get(_app_module.StoreUser, USER_STEAM)
+            row.steam_persona = "Ciano_STAFF"
+            prof = db.get(_app_module.MarketPlayerProfile, USER_STEAM)
+            prof.market_display_name = "Ciano_STAFF"
+            db.commit()
+        finally:
+            db.close()
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {},
+        )
+        _login(client, USER_STEAM)
+        _app_module._touch_store_user_login(USER_STEAM)
+        d = client.get("/api/auth/me").get_json()
+        assert d["steam_persona"] == "Cyanø"
+        assert d["display_name"] == "Cyanø"
+        db = _app_module._SessionLocal()
+        try:
+            row = db.get(_app_module.StoreUser, USER_STEAM)
+            assert row.steam_persona == "Cyanø"
+            assert row.display_name == "Cyanø"
+        finally:
+            db.close()
+
+    def test_batch_steam_persona_url_preserves_commas(self, monkeypatch):
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        captured: list[str] = []
+
+        def _fake_urlopen(req, timeout=12):
+            captured.append(req.full_url)
+            body = json.dumps({
+                "response": {
+                    "players": [
+                        {"steamid": ADMIN_STEAM, "personaname": "AdminNick"},
+                        {"steamid": USER_STEAM, "personaname": "UserNick"},
+                    ]
+                }
+            }).encode()
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = body
+            mock_resp.__enter__ = lambda s: s
+            mock_resp.__exit__ = MagicMock(return_value=False)
+            return mock_resp
+
+        monkeypatch.setattr(_app_module.urllib.request, "urlopen", _fake_urlopen)
+        result = _app_module._fetch_steam_persona_names_batch([ADMIN_STEAM, USER_STEAM])
+        assert result == {ADMIN_STEAM: "AdminNick", USER_STEAM: "UserNick"}
+        assert captured
+        assert f"steamids={ADMIN_STEAM},{USER_STEAM}" in captured[0]
+        assert "%2C" not in captured[0]
+
+    def test_list_players_always_refreshes_from_api(self, client, monkeypatch):
+        _seed_store_user(USER_STEAM, display_name="Ciano_STAFF")
+        db = _app_module._SessionLocal()
+        try:
+            row = db.get(_app_module.StoreUser, USER_STEAM)
+            row.steam_persona = "Ciano_STAFF"
+            db.commit()
+        finally:
+            db.close()
+        _login(client, ADMIN_STEAM)
+        monkeypatch.setenv("STEAM_API_KEY", "test-key")
+        monkeypatch.setattr(
+            _app_module,
+            "_fetch_steam_persona_names_batch",
+            lambda ids: {USER_STEAM: "Cyanø"} if USER_STEAM in ids else {},
+        )
+        d = client.get("/api/admin/players").get_json()
+        row = next(p for p in d["items"] if p["steam_id"] == USER_STEAM)
+        assert row["steam_persona"] == "Cyanø"
+        assert row["display_name"] == "Cyanø"
+
     def test_list_players_backfills_steam_persona(self, client, monkeypatch):
         _seed_store_user(USER_STEAM, display_name=USER_STEAM)
         _login(client, ADMIN_STEAM)
@@ -2226,12 +2324,13 @@ class TestAdminPlayersSteamBackfill:
         db = _app_module._SessionLocal()
         try:
             su = db.get(_app_module.StoreUser, USER_STEAM)
+            assert su.steam_persona == "SteamNickBR"
             assert su.display_name == "SteamNickBR"
         finally:
             db.close()
 
     def test_list_players_without_steam_api_keeps_steamid(self, client, monkeypatch):
-        _seed_store_user(USER_STEAM, display_name=USER_STEAM)
+        _seed_store_user(USER_STEAM, display_name=USER_STEAM, steam_persona="")
         _login(client, ADMIN_STEAM)
         monkeypatch.delenv("STEAM_API_KEY", raising=False)
         d = client.get("/api/admin/players").get_json()

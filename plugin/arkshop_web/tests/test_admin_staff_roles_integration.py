@@ -46,7 +46,12 @@ def fresh_db(tmp_path, monkeypatch):
     db = _app_module._SessionLocal()
     try:
         _app_module._ensure_entitlements_schema(db)
-        db.add(_app_module.StoreUser(steam_id=TARGET_STEAM, display_name="Alvo", last_login_at=_now()))
+        db.add(_app_module.StoreUser(
+            steam_id=TARGET_STEAM,
+            display_name="Alvo",
+            steam_persona="Alvo",
+            last_login_at=_now(),
+        ))
         db.commit()
     finally:
         _app_module._release_db_session(db)
