@@ -5726,7 +5726,7 @@
               <ol class="tutorial-steps">
                 <li>Catálogo → aba <strong>Doação</strong>.</li>
                 <li>Escolha o pacote de Âmbares e clique em <strong>«Doar via PIX»</strong> ou <strong>«Cartão de crédito»</strong>.</li>
-                <li>Preencha e-mail, nome e CPF (exigidos pelo Mercado Pago).</li>
+                <li>PIX (Brasil): e-mail, nome, CPF e telefone. Cartão (internacional): e-mail e nome — documento opcional.</li>
                 <li>PIX: pague no app do banco (QR Code ou copia e cola). Cartão: conclua no checkout do Mercado Pago.</li>
                 <li>Após confirmação, os Âmbares são creditados — use no catálogo normalmente.</li>
               </ol>
@@ -15306,6 +15306,9 @@ async function loadHome() {
     const d = await r.json();
     if (!r.ok || !d.ok) throw new Error(d.error || "Falha ao carregar");
     if (d.currency) applyCurrency(d.currency);
+    if (d.exchange_rates && d.exchange_rates.rates) {
+      _exchangeRates = d.exchange_rates.rates;
+    }
     renderHomePage(d);
     loadAmberMeter();
     return true;
@@ -16840,9 +16843,10 @@ document.addEventListener("keydown", (e) => {
         <li>Resgates geram entregas no servidor conforme disponibilidade técnica do jogo.</li>
         <li>Nada neste site constitui venda de conteúdo oficial do ARK ou da Studio Wildcard.</li>
       </ul>
-      <h4>5. Dados na doação PIX (transparência)</h4>
+      <h4>5. Dados na doação (transparência)</h4>
       <ul>
-        <li><strong>E-mail, nome, CPF e telefone</strong> (quando aplicável) são <strong>exigidos pelo Mercado Pago</strong> para validar a doação e gerar o código PIX — não coletamos esses dados por iniciativa própria.</li>
+        <li><strong>PIX (Brasil):</strong> e-mail, nome, CPF e telefone celular são exigidos pelo Mercado Pago para gerar o código PIX.</li>
+        <li><strong>Cartão (internacional):</strong> e-mail e nome; CPF ou passaporte opcional — repassamos ao Mercado Pago somente o informado.</li>
         <li>A ARKLAND <strong>repassa</strong> ao Mercado Pago somente o necessário para processar a doação. O tratamento posterior obedece à <a href="https://www.mercadopago.com.br/privacidade" target="_blank" rel="noopener" style="color:var(--tek);">política de privacidade do Mercado Pago</a>.</li>
         <li><strong>Não vendemos</strong> dados pessoais, <strong>não usamos</strong> para publicidade ou marketing e <strong>não compartilhamos</strong> com terceiros além do Mercado Pago para esta doação.</li>
         <li>O login Steam <strong>não fornece</strong> e-mail nem CPF — por isso você informa manualmente na etapa do PIX.</li>

@@ -137,7 +137,7 @@
       notes: [
         "Doações são definitivas e não reembolsáveis.",
         "Não é venda: você contribui com a manutenção; os Âmbares são brinde descrito em cada pacote.",
-        "E-mail, nome e CPF são exigidos pelo Mercado Pago — repassamos apenas ao processador.",
+        "PIX exige e-mail, nome, CPF e telefone (Mercado Pago). Cartão internacional: e-mail e nome — documento opcional.",
         "Doação não garante VIP nem licença — resgate Gamma/Beta/Alfa com Âmbares no catálogo.",
       ],
       warnings: [
