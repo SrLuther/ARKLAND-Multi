@@ -6169,6 +6169,7 @@ def public_home():
 
 
 @app.route("/api/public/amber-stats", methods=["GET"])
+@limiter.limit("120 per minute; 2000 per hour", override_defaults=True)
 def public_amber_stats():
     """Totais públicos do Âmbarômetro (sem PII)."""
     from amber_ledger import degraded_public_stats, get_public_stats

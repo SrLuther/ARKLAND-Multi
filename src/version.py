@@ -3,11 +3,26 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.199"
+APP_VERSION: str = "1.9.201"
 BUILD_DATE: str = "2026-07-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.201",
+        "date": "2026-07-04",
+        "changes": [
+            "Fix (Web Store / Âmbarômetro): GET /api/public/amber-stats com limite próprio (120/min) em vez do default global 50/h — evita 429 na home.",
+            "Fix (Web Store / Âmbarômetro): em 429 ou falha de rede mantém último valor válido, mensagem discreta de retry e backoff exponencial no polling.",
+        ],
+    },
+    {
+        "version": "1.9.200",
+        "date": "2026-07-04",
+        "changes": [
+            "Melhoria (Web Store / Notificações): painel redesenhado — 440px desktop, drawer full-width no mobile, tipografia e padding legíveis, botão Marcar todas lidas sem corte, tema dark/âmbar.",
+        ],
+    },
     {
         "version": "1.9.199",
         "date": "2026-07-04",

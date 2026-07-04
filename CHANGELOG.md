@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.201] - 2026-07-04
+
+### Fix
+
+- Fix (Web Store / Âmbarômetro): GET /api/public/amber-stats com limite próprio (120/min) em vez do default global 50/h — evita 429 na home.
+- Fix (Web Store / Âmbarômetro): em 429 ou falha de rede mantém último valor válido, mensagem discreta de retry e backoff exponencial no polling.
+
+## [1.9.200] - 2026-07-04
+
+### Improvement
+
+- Melhoria (Web Store / Notificações): painel redesenhado — 440px desktop, drawer full-width no mobile, tipografia e padding legíveis, botão Marcar todas lidas sem corte, tema dark/âmbar.
+
 ## [1.9.199] - 2026-07-04
 
 ### Fix

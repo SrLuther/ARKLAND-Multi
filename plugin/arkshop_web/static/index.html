@@ -265,99 +265,206 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 8px 10px;
+      padding: 9px 12px;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--text);
-      font-size: 12px;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
-      transition: border-color .15s, background .15s;
+      transition: border-color .15s, background .15s, box-shadow .15s;
     }
     .notif-bell-btn:hover {
-      border-color: rgba(232,120,32,.45);
+      border-color: rgba(232,120,32,.5);
       background: var(--surface3);
+      box-shadow: 0 0 0 1px rgba(232,120,32,.12);
     }
     .notif-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 5px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
       border-radius: 999px;
       background: var(--danger);
       color: #fff;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 700;
       line-height: 1;
     }
     .notif-badge.hidden { display: none; }
+    .notif-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1998;
+      background: rgba(4,3,2,.62);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+    }
+    .notif-backdrop:not(.hidden) {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .notif-backdrop.hidden { display: block; opacity: 0; pointer-events: none; }
     .notif-panel {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: calc(100% + 6px);
-      z-index: 1500;
-      max-height: 360px;
+      position: fixed;
+      z-index: 1999;
+      width: min(440px, calc(100vw - 16px));
+      max-height: min(520px, calc(100vh - 72px));
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
+      background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
+      border: 1px solid var(--border-g);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow), 0 0 0 1px rgba(232,120,32,.1), inset 0 1px 0 rgba(232,120,32,.06);
     }
     .notif-panel.hidden { display: none; }
     .notif-panel__head {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      padding: 10px 12px;
+      gap: 12px;
+      flex-shrink: 0;
+      padding: 14px 16px;
       border-bottom: 1px solid var(--border);
+      background: linear-gradient(90deg, rgba(232,120,32,.08), transparent 70%);
+    }
+    .notif-panel__title {
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--amber);
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    .notif-panel__actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      min-width: 0;
+    }
+    .notif-panel__mark-all {
+      flex-shrink: 0;
+      white-space: nowrap;
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(232,120,32,.35);
+      background: rgba(232,120,32,.1);
+      color: var(--amber);
+      font-family: inherit;
       font-size: 12px;
       font-weight: 600;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .notif-panel__mark-all:hover {
+      background: rgba(232,120,32,.18);
+      border-color: rgba(232,120,32,.55);
+    }
+    .notif-panel__close {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface3);
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .notif-panel__close:hover {
+      border-color: rgba(232,120,32,.45);
+      color: var(--amber);
     }
     .notif-panel__list {
       overflow-y: auto;
       flex: 1;
-      min-height: 140px;
-      max-height: min(400px, calc(100vh - 160px));
+      min-height: 160px;
+      max-height: min(440px, calc(100vh - 140px));
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-g) transparent;
+    }
+    .notif-panel__list::-webkit-scrollbar { width: 6px; }
+    .notif-panel__list::-webkit-scrollbar-thumb {
+      background: var(--border-g);
+      border-radius: 999px;
     }
     .notif-item {
-      padding: 10px 12px;
+      padding: 14px 16px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
-      transition: background .12s;
+      transition: background .12s, border-color .12s;
     }
-    .notif-item:hover { background: var(--surface2); }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-item:hover { background: var(--surface3); }
     .notif-item--unread {
-      border-left: 3px solid var(--tek);
-      background: rgba(0,200,255,.04);
+      border-left: 3px solid var(--amber);
+      background: linear-gradient(90deg, rgba(232,120,32,.08), transparent 55%);
+      padding-left: 13px;
     }
     .notif-item__title {
-      font-size: 12px;
-      font-weight: 600;
+      font-size: 14px;
+      font-weight: 700;
       color: var(--text);
-      margin-bottom: 4px;
+      line-height: 1.35;
+      margin-bottom: 6px;
     }
+    .notif-item--unread .notif-item__title { color: #e8dcc0; }
     .notif-item__body {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text2);
-      line-height: 1.4;
+      line-height: 1.55;
+      word-break: break-word;
     }
     .notif-item__time {
-      font-size: 10px;
-      color: var(--text2);
-      margin-top: 4px;
-      opacity: .8;
-    }
-    .notif-empty {
-      padding: 20px 12px;
-      text-align: center;
       font-size: 12px;
       color: var(--text2);
+      margin-top: 8px;
+      opacity: .85;
+      font-variant-numeric: tabular-nums;
+    }
+    .notif-empty {
+      padding: 32px 20px;
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text2);
+    }
+    @media (max-width: 640px) {
+      .notif-panel.notif-panel--drawer {
+        left: 0 !important;
+        right: 0 !important;
+        top: auto !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        max-width: 100%;
+        max-height: 88vh;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        border-bottom: none;
+        animation: notif-drawer-in .22s ease-out;
+      }
+      .notif-panel__close { display: inline-flex; }
+      .notif-panel__list {
+        max-height: calc(88vh - 64px);
+      }
+    }
+    @keyframes notif-drawer-in {
+      from { transform: translateY(100%); opacity: .6; }
+      to { transform: translateY(0); opacity: 1; }
     }
     .balance-stack {
       display: flex;
@@ -3034,6 +3141,14 @@
       color: var(--text2);
       font-style: italic;
     }
+    .amber-meter__status--retry {
+      opacity: .75;
+      font-size: 11px;
+    }
+    .amber-meter__value--pending {
+      opacity: .45;
+      letter-spacing: .08em;
+    }
 
     .home-section {
       margin-bottom: 24px;
@@ -4452,10 +4567,14 @@
           🔔 Notificações
           <span id="notif-badge" class="notif-badge hidden">0</span>
         </button>
-        <div id="notif-panel" class="notif-panel hidden">
+        <div id="notif-backdrop" class="notif-backdrop hidden" aria-hidden="true"></div>
+        <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Notificações">
           <div class="notif-panel__head">
-            <span>Notificações</span>
-            <button type="button" class="btn btn-ghost btn-sm" onclick="markAllNotificationsRead()">Marcar todas lidas</button>
+            <span class="notif-panel__title">Notificações</span>
+            <div class="notif-panel__actions">
+              <button type="button" class="notif-panel__mark-all" onclick="markAllNotificationsRead(event)">Marcar todas lidas</button>
+              <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
+            </div>
           </div>
           <div id="notif-list" class="notif-panel__list">
             <div class="notif-empty">Carregando…</div>
@@ -7273,14 +7392,46 @@ function _notifErrorMessage(e) {
   return msg.replace(/^Error:\s*/i, "").trim() || "Não foi possível carregar as notificações.";
 }
 
+const _NOTIF_PANEL_W = 440;
+const _NOTIF_MOBILE_BP = 640;
+
+function _isNotifMobile() {
+  return window.innerWidth <= _NOTIF_MOBILE_BP;
+}
+
+function _setNotifPanelOpen(open) {
+  const panel = document.getElementById("notif-panel");
+  const backdrop = document.getElementById("notif-backdrop");
+  if (!panel) return;
+  panel.classList.toggle("hidden", !open);
+  if (backdrop) {
+    backdrop.classList.toggle("hidden", !open || !_isNotifMobile());
+    backdrop.setAttribute("aria-hidden", open && _isNotifMobile() ? "false" : "true");
+  }
+  if (open) _positionNotifPanel();
+}
+
+function closeNotifPanel(ev) {
+  if (ev) ev.stopPropagation();
+  _setNotifPanelOpen(false);
+}
+
 function _positionNotifPanel() {
   const btn = document.getElementById("notif-bell-btn");
   const panel = document.getElementById("notif-panel");
   if (!btn || !panel) return;
+  const mobile = _isNotifMobile();
+  panel.classList.toggle("notif-panel--drawer", mobile);
+  if (mobile) {
+    panel.style.top = "";
+    panel.style.left = "";
+    panel.style.width = "";
+    return;
+  }
   const r = btn.getBoundingClientRect();
-  const panelW = Math.min(360, window.innerWidth - 16);
+  const panelW = Math.min(_NOTIF_PANEL_W, window.innerWidth - 16);
   const left = Math.max(8, Math.min(r.left, window.innerWidth - panelW - 8));
-  panel.style.top = `${Math.round(r.bottom + 6)}px`;
+  panel.style.top = `${Math.round(r.bottom + 8)}px`;
   panel.style.left = `${Math.round(left)}px`;
   panel.style.width = `${panelW}px`;
 }
@@ -7367,7 +7518,7 @@ function toggleNotifPanel(ev) {
   const panel = document.getElementById("notif-panel");
   if (!panel) return;
   const open = panel.classList.contains("hidden");
-  panel.classList.toggle("hidden", !open);
+  _setNotifPanelOpen(open);
   if (open) loadNotificationsPanel();
 }
 
@@ -7376,7 +7527,7 @@ async function openNotification(id) {
   try {
     await fetch(`${API}/api/notifications/${id}/read`, { method: "POST" });
   } catch (_) {}
-  document.getElementById("notif-panel")?.classList.add("hidden");
+  closeNotifPanel();
   refreshNotifications();
   if (n && n.link_type === "ticket" && n.link_id) {
     const navEl = document.querySelector('.nav-item[data-page="tickets"]');
@@ -7394,7 +7545,8 @@ async function openNotification(id) {
   }
 }
 
-async function markAllNotificationsRead() {
+async function markAllNotificationsRead(ev) {
+  if (ev) ev.stopPropagation();
   try {
     const d = await fetchJson("/api/notifications/read-all", { method: "POST", timeoutMs: 10000 });
     if (d.ok) {
@@ -7431,8 +7583,10 @@ document.addEventListener("click", (e) => {
   const wrap = document.getElementById("notif-wrap");
   const panel = document.getElementById("notif-panel");
   if (!wrap || !panel || panel.classList.contains("hidden")) return;
-  if (!wrap.contains(e.target)) panel.classList.add("hidden");
+  if (!wrap.contains(e.target) && !panel.contains(e.target)) closeNotifPanel();
 });
+
+document.getElementById("notif-backdrop")?.addEventListener("click", () => closeNotifPanel());
 
 window.addEventListener("resize", () => {
   const panel = document.getElementById("notif-panel");
@@ -15083,7 +15237,11 @@ async function loadHome() {
 }
 
 let _amberMeterValue = 0;
+let _amberMeterLastData = null;
 let _amberMeterTimer = null;
+let _amberMeterBackoffStep = 0;
+const _AMBER_METER_POLL_BASE_MS = 90000;
+const _AMBER_METER_POLL_MAX_MS = 600000;
 
 const _AMBER_CHANNEL_LABELS = {
   donation: "Doações",
@@ -15122,7 +15280,7 @@ function renderAmberMeter(data) {
   const label = escHtml((data.display && data.display.label) || "Âmbares movimentados");
   const sublabel = escHtml((data.display && data.display.sublabel) || "");
   const statusMsg = data.degraded && data.error
-    ? `<p class="amber-meter__status">${escHtml(data.error)}</p>`
+    ? `<p class="amber-meter__status${data.error === _amberMeterRetryMessage() ? " amber-meter__status--retry" : ""}">${escHtml(data.error)}</p>`
     : "";
   const chips = [
     ["Hoje", data.total_gross_today],
@@ -15167,31 +15325,65 @@ function renderAmberMeterPlaceholder(message) {
   root.classList.add("amber-meter--degraded");
   root.innerHTML = `
     <div class="amber-meter__eyebrow">${amberIconHtml(20)} Âmbarômetro</div>
-    <div class="amber-meter__value">0</div>
+    <div class="amber-meter__value amber-meter__value--pending" aria-busy="true">…</div>
     <div class="amber-meter__sublabel">Âmbares movimentados</div>
     <p class="amber-meter__status">${escHtml(message || "Carregando estatísticas…")}</p>
   `;
 }
 
+function _amberMeterRetryMessage() {
+  return "Atualização pausada momentaneamente. Tentando de novo em breve…";
+}
+
+function _scheduleAmberMeterPoll(fetchAndRender, rateLimited) {
+  if (_amberMeterTimer) clearTimeout(_amberMeterTimer);
+  let delay = _AMBER_METER_POLL_BASE_MS;
+  if (rateLimited && _amberMeterBackoffStep > 0) {
+    delay = Math.min(
+      _AMBER_METER_POLL_BASE_MS * Math.pow(2, _amberMeterBackoffStep),
+      _AMBER_METER_POLL_MAX_MS
+    );
+  }
+  _amberMeterTimer = setTimeout(fetchAndRender, delay);
+}
+
+function _renderAmberMeterStale(message) {
+  if (_amberMeterLastData) {
+    renderAmberMeter({ ..._amberMeterLastData, degraded: true, error: message });
+    return;
+  }
+  renderAmberMeterPlaceholder(message);
+}
+
 async function loadAmberMeter() {
-  if (_amberMeterTimer) clearInterval(_amberMeterTimer);
-  renderAmberMeterPlaceholder("Carregando estatísticas…");
+  if (_amberMeterTimer) clearTimeout(_amberMeterTimer);
+  if (!_amberMeterLastData) renderAmberMeterPlaceholder("Carregando estatísticas…");
   async function fetchAndRender() {
     try {
       const r = await fetch(API + "/api/public/amber-stats");
       let d = null;
       try { d = await r.json(); } catch (_) { /* resposta inválida */ }
-      if (d && d.ok) {
-        renderAmberMeter(d);
+      if (r.status === 429) {
+        _amberMeterBackoffStep = Math.min(_amberMeterBackoffStep + 1, 5);
+        _renderAmberMeterStale(_amberMeterRetryMessage());
+        _scheduleAmberMeterPoll(fetchAndRender, true);
         return;
       }
-      renderAmberMeterPlaceholder((d && d.error) || "Dados temporariamente indisponíveis");
+      if (d && d.ok) {
+        _amberMeterBackoffStep = 0;
+        _amberMeterLastData = d;
+        renderAmberMeter(d);
+        _scheduleAmberMeterPoll(fetchAndRender, false);
+        return;
+      }
+      _renderAmberMeterStale((d && d.error) || "Dados temporariamente indisponíveis");
+      _scheduleAmberMeterPoll(fetchAndRender, false);
     } catch (_) {
-      renderAmberMeterPlaceholder("Não foi possível carregar o Âmbarômetro");
+      _renderAmberMeterStale("Não foi possível carregar o Âmbarômetro");
+      _scheduleAmberMeterPoll(fetchAndRender, true);
     }
   }
   await fetchAndRender();
-  _amberMeterTimer = setInterval(fetchAndRender, 90000);
 }
 
 function renderHomeCommerceSection() {

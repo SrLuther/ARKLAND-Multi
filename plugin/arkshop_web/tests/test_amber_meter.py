@@ -229,3 +229,22 @@ def test_public_amber_stats_when_db_not_ready(client, monkeypatch):
     assert data["ok"] is True
     assert data.get("degraded") is True
     assert data["total_gross_all_time"] == 0
+
+
+def test_public_amber_stats_rate_limit_overrides_default(client):
+    """Polling (90s) + reloads não devem esgotar o bucket global de 50/h."""
+    for i in range(55):
+        r = client.get("/api/public/amber-stats")
+        assert r.status_code == 200, f"429 cedo demais na requisição {i + 1}"
+
+
+def test_public_amber_stats_has_generous_limit_decorator():
+    """GET público do Âmbarômetro não deve herdar default global (50/h)."""
+    limits = _app_module.limiter.limit_manager._decorated_limits.get(
+        "app.public_amber_stats.public_amber_stats"
+    )
+    assert limits is not None
+    rules = " ".join(str(getattr(lim, "limit_provider", lim)) for lim in limits)
+    assert "2000 per hour" in rules
+    assert "120 per minute" in rules
+    assert any(getattr(lim, "override_defaults", False) for lim in limits)
