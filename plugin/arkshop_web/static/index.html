@@ -1014,6 +1014,11 @@
     .badge-ticket-analise    { background: rgba(0,200,255,.12);  color: var(--tek);  border: 1px solid rgba(0,200,255,.25); }
     .badge-ticket-aguardando { background: rgba(232,120,32,.14);  color: #fb923c;     border: 1px solid rgba(251,146,60,.3); }
     .badge-ticket-encerrado  { background: rgba(122,104,72,.18);  color: #9a8870;     border: 1px solid rgba(122,104,72,.35); }
+    .badge-sugg-pending      { background: rgba(251,191,36,.14); color: #fbbf24; border: 1px solid rgba(251,191,36,.28); }
+    .badge-sugg-analise      { background: rgba(0,200,255,.12);  color: var(--tek);  border: 1px solid rgba(0,200,255,.25); }
+    .badge-sugg-aprovada     { background: rgba(18,216,124,.12);  color: var(--success); border: 1px solid rgba(18,216,124,.2); }
+    .badge-sugg-recusada     { background: rgba(240,64,80,.12);   color: var(--danger);  border: 1px solid rgba(240,64,80,.2); }
+    .badge-sugg-implementada { background: rgba(110,61,255,.15);  color: #a78bfa;        border: 1px solid rgba(110,61,255,.2); }
     tr.ticket-row--closed td { opacity: .72; }
 
     .order-admin-actions { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -4642,6 +4647,9 @@
     <div class="nav-item admin-only" data-page="polls-admin" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
     </div>
+    <div class="nav-item admin-only" data-page="sugestoes-admin" onclick="nav(this)">
+      <span class="nav-icon">💡</span> Sugestões
+    </div>
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
     </div>
@@ -4686,6 +4694,9 @@
     </div>
     <div class="nav-item" data-page="polls" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
+    </div>
+    <div class="nav-item" data-page="sugestoes" onclick="nav(this)">
+      <span class="nav-icon">💡</span> Sugestões
     </div>
     <div class="nav-item" data-page="regulamento" onclick="nav(this)">
       <span class="nav-icon">📋</span> Regulamento
@@ -6264,6 +6275,65 @@
         <div id="polls-list" style="display:flex;flex-direction:column;gap:16px;color:var(--text2);">Carregando…</div>
       </div>
 
+      <!-- PAGE: Sugestões da Comunidade (jogador) -->
+      <div id="page-sugestoes" class="page">
+        <div id="topbar">
+          <div class="page-title">Sugestões da Comunidade</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadSugestoes()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <p style="margin:0;font-size:13px;color:var(--text2);line-height:1.55;">
+            Envie ideias de ajustes ou adições para <strong>dinos</strong>, <strong>recursos</strong> e <strong>itens</strong> do cluster.
+            A equipe avalia cada sugestão e você acompanha o status aqui. Limite de <strong>3 sugestões por dia</strong>.
+          </p>
+          <div id="sugestoes-stats" style="margin-top:12px;font-size:12px;color:var(--text2);"></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-header"><div class="card-title">+ Nova sugestão</div></div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Categoria *</label>
+              <select id="sugg-new-category">
+                <option value="dino">Dino</option>
+                <option value="recurso">Recurso</option>
+                <option value="item">Item</option>
+                <option value="outro">Outro</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Título *</label>
+              <input id="sugg-new-title" type="text" maxlength="200" placeholder="Resumo da sugestão" />
+            </div>
+            <div class="form-group" id="sugg-field-species" style="grid-column:1/-1;">
+              <label>Nome da espécie (opcional)</label>
+              <input id="sugg-new-species" type="text" maxlength="128" placeholder="Ex.: Rex, Wyvern, Giga…" />
+            </div>
+            <div class="form-group hidden" id="sugg-field-item" style="grid-column:1/-1;">
+              <label>Nome do item/recurso (opcional)</label>
+              <input id="sugg-new-item" type="text" maxlength="128" placeholder="Ex.: Metal ingot, Cryopod, Saddle…" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Descrição *</label>
+              <textarea id="sugg-new-description" rows="5" placeholder="Descreva o ajuste ou adição desejada…"></textarea>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Motivo / benefício (opcional)</label>
+              <textarea id="sugg-new-reason" rows="2" placeholder="Por que isso melhoraria o servidor?"></textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="submitSugestao()">Enviar sugestão</button>
+            <span id="sugg-remaining-hint" style="font-size:12px;color:var(--text2);"></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Minhas sugestões</div></div>
+          <div id="sugestoes-list" style="color:var(--text2);">Carregando…</div>
+        </div>
+      </div>
+
       <!-- PAGE: Minha Área -->
       <div id="page-myarea" class="page">
         <div id="topbar">
@@ -6384,6 +6454,54 @@
           </div>
         </div>
         <div id="polls-admin-list" style="color:var(--text2);">Carregando…</div>
+      </div>
+
+      <!-- PAGE: Sugestões (admin) -->
+      <div id="page-sugestoes-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">💡 Sugestões — Administração</div>
+          <div class="topbar-actions">
+            <input id="sugg-admin-search" type="search" placeholder="Buscar título, descrição, Steam…" class="btn btn-ghost" style="min-width:200px;padding:7px 12px;" onkeydown="if(event.key==='Enter')loadSugestoesAdmin()" />
+            <select id="sugg-admin-filter-status" class="btn btn-ghost" style="padding:7px 12px;" onchange="loadSugestoesAdmin()">
+              <option value="">Todos os status</option>
+              <option value="pending">Pendente</option>
+              <option value="em_analise">Em análise</option>
+              <option value="aprovada">Aprovada</option>
+              <option value="recusada">Recusada</option>
+              <option value="implementada">Implementada</option>
+            </select>
+            <button class="btn btn-ghost" onclick="loadSugestoesAdmin()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div id="sugg-admin-stats" class="card" style="margin-bottom:16px;font-size:12px;color:var(--text2);"></div>
+        <div class="card">
+          <div id="sugg-admin-list" style="color:var(--text2);">Carregando…</div>
+        </div>
+        <div id="sugg-admin-detail" class="card hidden" style="margin-top:16px;">
+          <div class="card-header">
+            <div class="card-title" id="sugg-admin-detail-title">Sugestão</div>
+            <button class="btn btn-ghost btn-sm" onclick="suggAdminCloseDetail()">← Voltar</button>
+          </div>
+          <div id="sugg-admin-detail-meta" style="font-size:12px;color:var(--text2);margin-bottom:12px;"></div>
+          <div id="sugg-admin-detail-body" style="font-size:13px;line-height:1.55;margin-bottom:16px;"></div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Status</label>
+              <select id="sugg-admin-status" onchange="suggAdminSave()">
+                <option value="pending">Pendente</option>
+                <option value="em_analise">Em análise</option>
+                <option value="aprovada">Aprovada</option>
+                <option value="recusada">Recusada</option>
+                <option value="implementada">Implementada</option>
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Nota da equipe (visível ao jogador)</label>
+              <textarea id="sugg-admin-note" rows="3" placeholder="Feedback para o jogador…"></textarea>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="suggAdminSave()">Salvar alterações</button>
+        </div>
       </div>
 
       <!-- PAGE: Gerenciar Jogadores (admin) -->
@@ -7339,6 +7457,10 @@ function nav(el) {
     promptLogin("Tickets");
     return;
   }
+  if (page === "sugestoes" && !_auth.authenticated) {
+    promptLogin("Sugestões");
+    return;
+  }
   if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && playerNeedsRegulamentoAccept()) {
     showRegulamentoGate();
     return;
@@ -7360,6 +7482,7 @@ function nav(el) {
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "polls") loadPolls();
+  if (page === "sugestoes" && _auth.authenticated) loadSugestoes();
   if (page === "catalog") loadCatalog();
   if (page === "shop") { loadShopMarketStatus(); renderShop(); }
   if (page === "market") loadMarket();
@@ -7374,6 +7497,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "polls-admin") loadPollsAdmin();
+  if (page === "sugestoes-admin") loadSugestoesAdmin();
   if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "tickets-admin") {
     _ticketsAdminSelectedId = null;
@@ -7391,6 +7515,11 @@ function nav(el) {
     });
   }
   if (_auth.authenticated) refreshPlayerBalance();
+  if (page === "sugestoes") {
+    try { history.replaceState({}, "", window.location.pathname + "#/sugestoes"); } catch (_) {}
+  } else if (window.location.hash && window.location.hash.match(/^#\/?sugestoes/)) {
+    try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
+  }
   requestAnimationFrame(() => wrapTablesForScroll(document.getElementById("main")));
 }
 
@@ -10266,6 +10395,251 @@ async function pollsAdminAction(pollId, action) {
     if (!d.ok) throw new Error(d.error || "Falha");
     toast("Atualizado.", "success");
     loadPollsAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+// ── Sugestões da comunidade ───────────────────────────────────────────────────
+let _suggAdminSelectedId = null;
+
+const _SUGG_STATUS_LABELS = {
+  pending: "Pendente",
+  em_analise: "Em análise",
+  aprovada: "Aprovada",
+  recusada: "Recusada",
+  implementada: "Implementada",
+};
+const _SUGG_CATEGORY_LABELS = {
+  dino: "Dino",
+  recurso: "Recurso",
+  item: "Item",
+  outro: "Outro",
+};
+
+function _suggStatusBadge(status) {
+  const s = status || "pending";
+  const clsMap = {
+    pending: "badge-sugg-pending",
+    em_analise: "badge-sugg-analise",
+    aprovada: "badge-sugg-aprovada",
+    recusada: "badge-sugg-recusada",
+    implementada: "badge-sugg-implementada",
+  };
+  const cls = clsMap[s] || "badge-ghost";
+  return `<span class="badge ${cls}">${escHtml(_SUGG_STATUS_LABELS[s] || s)}</span>`;
+}
+
+function _suggCategoryBadge(category) {
+  const c = category || "outro";
+  return `<span class="badge badge-dino">${escHtml(_SUGG_CATEGORY_LABELS[c] || c)}</span>`;
+}
+
+function _suggToggleExtraFields() {
+  const cat = document.getElementById("sugg-new-category")?.value || "outro";
+  const sp = document.getElementById("sugg-field-species");
+  const it = document.getElementById("sugg-field-item");
+  if (sp) sp.classList.toggle("hidden", cat !== "dino");
+  if (it) it.classList.toggle("hidden", cat !== "item" && cat !== "recurso");
+}
+
+function _suggDetailsHtml(s) {
+  const d = s.details || {};
+  const parts = [];
+  if (d.species_name) parts.push(`<div><strong>Espécie:</strong> ${escHtml(d.species_name)}</div>`);
+  if (d.item_name) parts.push(`<div><strong>Item/recurso:</strong> ${escHtml(d.item_name)}</div>`);
+  if (d.reason) parts.push(`<div><strong>Motivo:</strong> ${escHtml(d.reason)}</div>`);
+  return parts.length ? `<div style="font-size:12px;color:var(--text2);margin:8px 0;">${parts.join("")}</div>` : "";
+}
+
+async function loadSugestoesPublicStats() {
+  const el = document.getElementById("sugestoes-stats");
+  if (!el) return;
+  try {
+    const d = await fetchJson("/api/public/suggestions/stats");
+    if (!d.ok || !d.stats) { el.innerHTML = ""; return; }
+    const st = d.stats;
+    el.innerHTML =
+      `Total: <strong>${st.total || 0}</strong> sugestões` +
+      (st.implemented ? ` · <strong>${st.implemented}</strong> implementada(s)` : "") +
+      (st.approved ? ` · <strong>${st.approved}</strong> aprovada(s)` : "");
+  } catch (_) {
+    el.innerHTML = "";
+  }
+}
+
+async function loadSugestoes() {
+  if (!_auth.authenticated) {
+    promptLogin("Sugestões");
+    return;
+  }
+  _suggToggleExtraFields();
+  const catSel = document.getElementById("sugg-new-category");
+  if (catSel && !catSel.dataset.bound) {
+    catSel.dataset.bound = "1";
+    catSel.addEventListener("change", _suggToggleExtraFields);
+  }
+  loadSugestoesPublicStats();
+  const root = document.getElementById("sugestoes-list");
+  if (!root) return;
+  root.innerHTML = "Carregando…";
+  try {
+    const d = await fetchJson("/api/suggestions/mine");
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    const hint = document.getElementById("sugg-remaining-hint");
+    if (hint) {
+      const rem = d.remaining_today;
+      hint.textContent = rem != null ? `${rem} envio(s) restante(s) hoje` : "";
+    }
+    const items = d.items || [];
+    if (!items.length) {
+      root.innerHTML = "<p>Nenhuma sugestão enviada ainda.</p>";
+      return;
+    }
+    root.innerHTML = items.map(s => {
+      const note = s.admin_note
+        ? `<div style="margin-top:10px;padding:10px;border-radius:8px;background:rgba(232,160,32,.08);border:1px solid rgba(232,160,32,.2);font-size:12px;">
+            <strong>Resposta da equipe:</strong> ${escHtml(s.admin_note)}
+          </div>` : "";
+      return `<div class="card" style="margin-bottom:12px;">
+        <div class="card-header" style="flex-wrap:wrap;gap:8px;">
+          <div class="card-title">${escHtml(s.title)}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">${_suggCategoryBadge(s.category)} ${_suggStatusBadge(s.status)}</div>
+        </div>
+        <p style="font-size:13px;color:var(--text2);margin:0 0 6px;">${escHtml(s.description)}</p>
+        ${_suggDetailsHtml(s)}
+        <div style="font-size:11px;color:var(--text2);">Enviada em ${escHtml(s.created_at || "—")}</div>
+        ${note}
+      </div>`;
+    }).join("");
+  } catch (e) {
+    root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
+  }
+}
+
+async function submitSugestao() {
+  if (!_auth.authenticated) { promptLogin("Sugestões"); return; }
+  const category = document.getElementById("sugg-new-category")?.value || "outro";
+  const title = document.getElementById("sugg-new-title")?.value?.trim();
+  const description = document.getElementById("sugg-new-description")?.value?.trim();
+  if (!title || !description) {
+    toast("Preencha título e descrição.", "warning");
+    return;
+  }
+  const body = {
+    category,
+    title,
+    description,
+    species_name: document.getElementById("sugg-new-species")?.value?.trim() || null,
+    item_name: document.getElementById("sugg-new-item")?.value?.trim() || null,
+    reason: document.getElementById("sugg-new-reason")?.value?.trim() || null,
+  };
+  try {
+    const d = await fetchJson("/api/suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!d.ok) throw new Error(d.error || "Não foi possível enviar");
+    toast("Sugestão enviada! A equipe irá avaliar.", "success");
+    document.getElementById("sugg-new-title").value = "";
+    document.getElementById("sugg-new-description").value = "";
+    document.getElementById("sugg-new-species").value = "";
+    document.getElementById("sugg-new-item").value = "";
+    document.getElementById("sugg-new-reason").value = "";
+    loadSugestoes();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function loadSugestoesAdmin() {
+  const root = document.getElementById("sugg-admin-list");
+  if (!root) return;
+  document.getElementById("sugg-admin-detail")?.classList.add("hidden");
+  root.innerHTML = "Carregando…";
+  const status = document.getElementById("sugg-admin-filter-status")?.value || "";
+  const q = document.getElementById("sugg-admin-search")?.value?.trim() || "";
+  try {
+    const [listD, statsD] = await Promise.all([
+      fetchJson(`/api/admin/suggestions?status=${encodeURIComponent(status)}&q=${encodeURIComponent(q)}`),
+      fetchJson("/api/public/suggestions/stats"),
+    ]);
+    if (!listD.ok) throw new Error(listD.error || "Falha");
+    const statsEl = document.getElementById("sugg-admin-stats");
+    if (statsEl && statsD.ok && statsD.stats) {
+      const st = statsD.stats;
+      statsEl.innerHTML =
+        `<strong>Resumo:</strong> ${st.total || 0} total · ` +
+        `${st.by_status?.pending || 0} pendentes · ` +
+        `${st.by_status?.em_analise || 0} em análise · ` +
+        `${st.by_status?.aprovada || 0} aprovadas · ` +
+        `${st.by_status?.implementada || 0} implementadas`;
+    }
+    const items = listD.items || [];
+    if (!items.length) {
+      root.innerHTML = "<p>Nenhuma sugestão encontrada.</p>";
+      return;
+    }
+    root.innerHTML = `<div class="table-scroll-wrap"><table class="data-table">
+      <thead><tr>
+        <th>ID</th><th>Título</th><th>Categoria</th><th>Status</th><th>Steam</th><th>Data</th><th></th>
+      </tr></thead>
+      <tbody>${items.map(s => `<tr>
+        <td>${s.id}</td>
+        <td>${escHtml(s.title)}</td>
+        <td>${_suggCategoryBadge(s.category)}</td>
+        <td>${_suggStatusBadge(s.status)}</td>
+        <td><code style="font-size:11px;">${escHtml(s.steam_id)}</code></td>
+        <td style="font-size:11px;">${escHtml((s.created_at || "").slice(0, 16))}</td>
+        <td><button class="btn btn-ghost btn-sm" onclick="suggAdminOpenDetail(${s.id})">Ver</button></td>
+      </tr>`).join("")}</tbody>
+    </table></div>`;
+    window._suggAdminCache = items;
+  } catch (e) {
+    root.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e))}</div>`;
+  }
+}
+
+function suggAdminOpenDetail(id) {
+  const items = window._suggAdminCache || [];
+  const s = items.find(x => x.id === id);
+  if (!s) return;
+  _suggAdminSelectedId = id;
+  document.getElementById("sugg-admin-list")?.classList.add("hidden");
+  const panel = document.getElementById("sugg-admin-detail");
+  panel?.classList.remove("hidden");
+  document.getElementById("sugg-admin-detail-title").textContent = s.title || "Sugestão";
+  document.getElementById("sugg-admin-detail-meta").innerHTML =
+    `${_suggCategoryBadge(s.category)} ${_suggStatusBadge(s.status)} · ` +
+    `Steam <code>${escHtml(s.steam_id)}</code> · ${escHtml(s.created_at || "")}`;
+  document.getElementById("sugg-admin-detail-body").innerHTML =
+    `<p style="margin:0 0 8px;">${escHtml(s.description)}</p>${_suggDetailsHtml(s)}`;
+  document.getElementById("sugg-admin-status").value = s.status || "pending";
+  document.getElementById("sugg-admin-note").value = s.admin_note || "";
+}
+
+function suggAdminCloseDetail() {
+  _suggAdminSelectedId = null;
+  document.getElementById("sugg-admin-detail")?.classList.add("hidden");
+  document.getElementById("sugg-admin-list")?.classList.remove("hidden");
+}
+
+async function suggAdminSave() {
+  if (!_suggAdminSelectedId) return;
+  try {
+    const d = await fetchJson(`/api/admin/suggestions/${_suggAdminSelectedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: document.getElementById("sugg-admin-status")?.value,
+        admin_note: document.getElementById("sugg-admin-note")?.value?.trim() || "",
+      }),
+    });
+    if (!d.ok) throw new Error(d.error || "Falha ao salvar");
+    toast("Sugestão atualizada.", "success");
+    suggAdminCloseDetail();
+    loadSugestoesAdmin();
   } catch (e) {
     toast(String(e), "error");
   }
@@ -16771,6 +17145,12 @@ async function bootPortal() {
     } else if (_auth.can_manage_tickets) {
       const ticketsNav = document.querySelector('.nav-item[data-page="tickets-admin"]');
       if (ticketsNav) nav(ticketsNav);
+    } else {
+      const hashRoute = (window.location.hash || "").replace(/^#\/?/, "").toLowerCase();
+      if (hashRoute === "sugestoes" && _auth.authenticated) {
+        const suggNav = document.querySelector('.nav-item[data-page="sugestoes"]');
+        if (suggNav) nav(suggNav);
+      }
     }
 
     if (!catalogOk) {

@@ -1,8 +1,8 @@
 {
-    "version": "1.9.205",
-    "date": "2026-07-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.205/ARKLAND-Multi-Setup-v1.9.205.exe",
+    "version": "1.9.206",
+    "date": "2026-07-05",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.206/ARKLAND-Multi-Setup-v1.9.206.exe",
     "changelog": [
-        "Fix (Web Store / Âmbarômetro): nota de cobertura lista apenas o que entra no total (doações, loja web, mercado P2P, ajustes admin e enquetes) — sem menção a /shop ou fase 2."
+        "Feature (Web Store / Sugestões): área Sugestões da Comunidade — jogadores enviam ideias de dinos, recursos e itens; admin avalia com status e nota; limite 3/dia; rota #/sugestoes."
     ]
 }

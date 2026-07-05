@@ -1415,6 +1415,12 @@ def _migrate_schema(engine: Any) -> None:
     except Exception as exc:
         log.warning("Votações: migrate falhou: %s", exc)
     try:
+        from suggestion_service import ensure_suggestion_schema
+
+        ensure_suggestion_schema(engine)
+    except Exception as exc:
+        log.warning("Sugestões: migrate falhou: %s", exc)
+    try:
         from amber_ledger import ensure_amber_schema
 
         ensure_amber_schema(engine)
@@ -9651,6 +9657,19 @@ register_poll_routes(
     steam_id_from_session=_steam_id_from_session,
     limiter=limiter,
     create_notification=_create_user_notification,
+)
+
+from suggestion_routes import register_suggestion_routes
+
+register_suggestion_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
+    regulamento_guard=_guard_regulamento_accepted,
+    limiter=limiter,
 )
 
 from ticket_notify import configure_ticket_notify

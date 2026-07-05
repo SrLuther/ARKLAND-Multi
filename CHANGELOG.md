@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.206] - 2026-07-05
+
+### Feature
+
+- Feature (Web Store / Sugestões): área Sugestões da Comunidade — jogadores enviam ideias de dinos, recursos e itens; admin avalia com status e nota; limite 3/dia; rota #/sugestoes.
+
 ## [1.9.205] - 2026-07-04
 
 ### Fix
