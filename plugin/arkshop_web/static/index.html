@@ -257,7 +257,6 @@
     .notif-wrap {
       position: relative;
       margin-bottom: 8px;
-      z-index: 1500;
     }
     .notif-bell-btn {
       width: 100%;
@@ -265,7 +264,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 9px 12px;
+      padding: 10px 12px;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--surface);
@@ -275,18 +274,19 @@
       cursor: pointer;
       transition: border-color .15s, background .15s, box-shadow .15s;
     }
-    .notif-bell-btn:hover {
-      border-color: rgba(232,120,32,.5);
+    .notif-bell-btn:hover,
+    .notif-bell-btn[aria-expanded="true"] {
+      border-color: rgba(232,120,32,.55);
       background: var(--surface3);
-      box-shadow: 0 0 0 1px rgba(232,120,32,.12);
+      box-shadow: 0 0 0 1px rgba(232,120,32,.14);
     }
     .notif-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-width: 20px;
-      height: 20px;
-      padding: 0 6px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 7px;
       border-radius: 999px;
       background: var(--danger);
       color: #fff;
@@ -295,16 +295,17 @@
       line-height: 1;
     }
     .notif-badge.hidden { display: none; }
+    /* Portal no body — escapa transform da sidebar no mobile */
     .notif-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 1998;
-      background: rgba(4,3,2,.62);
-      backdrop-filter: blur(3px);
-      -webkit-backdrop-filter: blur(3px);
+      z-index: 4998;
+      background: rgba(4,3,2,.68);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
       opacity: 0;
       pointer-events: none;
-      transition: opacity .2s ease;
+      transition: opacity .22s ease;
     }
     .notif-backdrop:not(.hidden) {
       opacity: 1;
@@ -313,136 +314,216 @@
     .notif-backdrop.hidden { display: block; opacity: 0; pointer-events: none; }
     .notif-panel {
       position: fixed;
-      z-index: 1999;
-      width: min(440px, calc(100vw - 16px));
-      max-height: min(520px, calc(100vh - 72px));
+      z-index: 4999;
+      min-width: 400px;
+      width: min(480px, calc(100vw - 24px));
+      max-height: min(72vh, 640px);
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      background: linear-gradient(180deg, var(--surface2) 0%, var(--surface) 100%);
-      border: 1px solid var(--border-g);
+      background: linear-gradient(180deg, #16120c 0%, var(--surface) 100%);
+      border: 1px solid rgba(232,120,32,.28);
       border-radius: var(--radius-lg);
-      box-shadow: var(--shadow), 0 0 0 1px rgba(232,120,32,.1), inset 0 1px 0 rgba(232,120,32,.06);
+      box-shadow:
+        0 24px 64px rgba(0,0,0,.55),
+        0 0 0 1px rgba(232,120,32,.12),
+        inset 0 1px 0 rgba(232,120,32,.08);
+      animation: notif-panel-in .2s ease-out;
     }
-    .notif-panel.hidden { display: none; }
+    .notif-panel.hidden { display: none; animation: none; }
     .notif-panel__head {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
-      gap: 12px;
+      gap: 14px;
       flex-shrink: 0;
-      padding: 14px 16px;
+      padding: 18px 20px 16px;
       border-bottom: 1px solid var(--border);
-      background: linear-gradient(90deg, rgba(232,120,32,.08), transparent 70%);
+      background: linear-gradient(90deg, rgba(232,120,32,.12), transparent 75%);
+    }
+    .notif-panel__head-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
     }
     .notif-panel__title {
       font-family: 'Cinzel', serif;
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 700;
       color: var(--amber);
       letter-spacing: .04em;
-      white-space: nowrap;
+      line-height: 1.25;
+    }
+    .notif-panel__subtitle {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.35;
     }
     .notif-panel__actions {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-shrink: 0;
-      min-width: 0;
     }
     .notif-panel__mark-all {
-      flex-shrink: 0;
       white-space: nowrap;
-      padding: 6px 12px;
+      padding: 8px 14px;
       border-radius: var(--radius);
-      border: 1px solid rgba(232,120,32,.35);
-      background: rgba(232,120,32,.1);
+      border: 1px solid rgba(232,120,32,.4);
+      background: rgba(232,120,32,.12);
       color: var(--amber);
       font-family: inherit;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
-      line-height: 1.2;
+      line-height: 1.25;
       cursor: pointer;
       transition: background .15s, border-color .15s;
     }
-    .notif-panel__mark-all:hover {
-      background: rgba(232,120,32,.18);
-      border-color: rgba(232,120,32,.55);
+    .notif-panel__mark-all:hover:not(:disabled) {
+      background: rgba(232,120,32,.22);
+      border-color: rgba(232,120,32,.6);
+    }
+    .notif-panel__mark-all:disabled {
+      opacity: .45;
+      cursor: default;
     }
     .notif-panel__close {
-      display: none;
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       flex-shrink: 0;
       border-radius: var(--radius);
       border: 1px solid var(--border);
       background: var(--surface3);
       color: var(--text);
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1;
       cursor: pointer;
-      transition: border-color .15s, color .15s;
+      transition: border-color .15s, color .15s, background .15s;
     }
     .notif-panel__close:hover {
       border-color: rgba(232,120,32,.45);
       color: var(--amber);
+      background: rgba(232,120,32,.08);
     }
     .notif-panel__list {
       overflow-y: auto;
-      flex: 1;
-      min-height: 160px;
-      max-height: min(440px, calc(100vh - 140px));
+      flex: 1 1 auto;
+      min-height: 220px;
+      max-height: min(calc(72vh - 88px), 552px);
       scroll-behavior: smooth;
       scrollbar-width: thin;
-      scrollbar-color: var(--border-g) transparent;
+      scrollbar-color: rgba(232,120,32,.35) transparent;
     }
-    .notif-panel__list::-webkit-scrollbar { width: 6px; }
+    .notif-panel__list::-webkit-scrollbar { width: 8px; }
     .notif-panel__list::-webkit-scrollbar-thumb {
-      background: var(--border-g);
+      background: rgba(232,120,32,.35);
       border-radius: 999px;
     }
     .notif-item {
-      padding: 14px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 20px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
-      transition: background .12s, border-color .12s;
+      transition: background .12s;
     }
     .notif-item:last-child { border-bottom: none; }
     .notif-item:hover { background: var(--surface3); }
     .notif-item--unread {
-      border-left: 3px solid var(--amber);
-      background: linear-gradient(90deg, rgba(232,120,32,.08), transparent 55%);
-      padding-left: 13px;
+      background: linear-gradient(90deg, rgba(232,120,32,.1), transparent 65%);
     }
-    .notif-item__title {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--text);
-      line-height: 1.35;
+    .notif-item__icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      background: rgba(232,120,32,.12);
+      border: 1px solid rgba(232,120,32,.22);
+      font-size: 18px;
+      line-height: 1;
+    }
+    .notif-item--unread .notif-item__icon {
+      background: rgba(232,120,32,.2);
+      border-color: rgba(232,120,32,.4);
+      box-shadow: 0 0 12px rgba(232,120,32,.15);
+    }
+    .notif-item__content {
+      flex: 1;
+      min-width: 0;
+    }
+    .notif-item__row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
       margin-bottom: 6px;
     }
-    .notif-item--unread .notif-item__title { color: #e8dcc0; }
+    .notif-item__title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+    }
+    .notif-item--unread .notif-item__title { color: #f0e4cc; }
+    .notif-item__dot {
+      flex-shrink: 0;
+      width: 9px;
+      height: 9px;
+      margin-top: 6px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px rgba(232,120,32,.55);
+    }
     .notif-item__body {
-      font-size: 13px;
+      font-size: 14px;
       color: var(--text2);
       line-height: 1.55;
       word-break: break-word;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .notif-item__time {
       font-size: 12px;
-      color: var(--text2);
-      margin-top: 8px;
-      opacity: .85;
+      color: rgba(212,200,168,.65);
+      margin-top: 10px;
       font-variant-numeric: tabular-nums;
     }
     .notif-empty {
-      padding: 32px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 48px 28px;
       text-align: center;
+      min-height: 220px;
+    }
+    .notif-empty__icon {
+      font-size: 36px;
+      opacity: .55;
+      margin-bottom: 4px;
+    }
+    .notif-empty__title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .notif-empty__text {
       font-size: 14px;
       line-height: 1.5;
       color: var(--text2);
+      max-width: 280px;
     }
     @media (max-width: 640px) {
       .notif-panel.notif-panel--drawer {
@@ -450,22 +531,40 @@
         right: 0 !important;
         top: auto !important;
         bottom: 0 !important;
+        min-width: 0 !important;
         width: 100% !important;
         max-width: 100%;
-        max-height: 88vh;
+        max-height: 92vh;
         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
         border-bottom: none;
-        animation: notif-drawer-in .22s ease-out;
+        animation: notif-drawer-in .24s ease-out;
       }
-      .notif-panel__close { display: inline-flex; }
+      .notif-panel.notif-panel--drawer::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        margin: 10px auto 0;
+        border-radius: 999px;
+        background: rgba(212,200,168,.25);
+        flex-shrink: 0;
+      }
+      .notif-panel__head { padding-top: 12px; }
       .notif-panel__list {
-        max-height: calc(88vh - 64px);
+        min-height: 180px;
+        max-height: calc(92vh - 96px);
       }
+      .notif-item { padding: 16px 18px; }
+    }
+    @keyframes notif-panel-in {
+      from { opacity: .7; transform: translateY(-6px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
     }
     @keyframes notif-drawer-in {
-      from { transform: translateY(100%); opacity: .6; }
-      to { transform: translateY(0); opacity: 1; }
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
     }
+    body.notif-panel-open { overflow: hidden; }
     .balance-stack {
       display: flex;
       flex-direction: column;
@@ -1320,6 +1419,52 @@
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 20px;
     }
+
+    .lottery-teaser {
+      border: 1px solid rgba(232,120,32,.25);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      background: linear-gradient(135deg, rgba(232,120,32,.08), rgba(232,120,32,.02));
+      margin-bottom: 20px;
+    }
+    .lottery-grid-wrap {
+      max-height: 420px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px;
+      background: var(--surface2);
+    }
+    .lottery-grid {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 3px;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .lottery-cell {
+      text-align: center;
+      padding: 4px 2px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+    .lottery-cell.available {
+      border-color: rgba(18,216,124,.35);
+      color: var(--success);
+      cursor: pointer;
+    }
+    .lottery-cell.taken {
+      background: rgba(148,163,184,.12);
+      color: var(--text2);
+    }
+    .lottery-cell.mine {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 1px rgba(232,120,32,.35);
+      color: var(--amber);
+      font-weight: 700;
+    }
+
     .media-card {
       background: var(--surface2);
       border: 1px solid var(--border);
@@ -4611,23 +4756,10 @@
     <!-- User box -->
     <div id="auth-userbox" class="hidden">
       <div id="notif-wrap" class="notif-wrap hidden">
-        <button type="button" id="notif-bell-btn" class="notif-bell-btn" onclick="toggleNotifPanel(event)" aria-label="Notificações">
+        <button type="button" id="notif-bell-btn" class="notif-bell-btn" onclick="toggleNotifPanel(event)" aria-label="Notificações" aria-expanded="false" aria-controls="notif-panel">
           🔔 Notificações
           <span id="notif-badge" class="notif-badge hidden">0</span>
         </button>
-        <div id="notif-backdrop" class="notif-backdrop hidden" aria-hidden="true"></div>
-        <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-label="Notificações">
-          <div class="notif-panel__head">
-            <span class="notif-panel__title">Notificações</span>
-            <div class="notif-panel__actions">
-              <button type="button" class="notif-panel__mark-all" onclick="markAllNotificationsRead(event)">Marcar todas lidas</button>
-              <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
-            </div>
-          </div>
-          <div id="notif-list" class="notif-panel__list">
-            <div class="notif-empty">Carregando…</div>
-          </div>
-        </div>
       </div>
       <div id="auth-balance-pill" class="auth-balance-pill hidden">
         <img class="amber-icon" src="/ambar.png" alt="Âmbar" width="18" height="18" />
@@ -4679,6 +4811,9 @@
     </div>
     <div class="nav-item admin-only" data-page="polls-admin" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
+    </div>
+    <div class="nav-item admin-only" data-page="lottery-admin" onclick="nav(this)">
+      <span class="nav-icon">🎲</span> Sorteios
     </div>
     <div class="nav-item admin-only" data-page="sugestoes-admin" onclick="nav(this)">
       <span class="nav-icon">💡</span> Sugestões
@@ -4733,6 +4868,9 @@
     </div>
     <div class="nav-item" data-page="polls" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
+    </div>
+    <div class="nav-item" data-page="sorteio" onclick="nav(this)">
+      <span class="nav-icon">🎲</span> Sorteio
     </div>
     <div class="nav-item" data-page="sugestoes" onclick="nav(this)">
       <span class="nav-icon">💡</span> Sugestões
@@ -5626,6 +5764,12 @@
             <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
               💚 Pacotes de doação: gerencie em <strong>Loja → Doações (PIX / Cartão)</strong> (mais fácil que JSON).
             </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              🎲 Sorteio de Doações — desabilitado por padrão. Ative e publique a primeira campanha em <strong>Admin → Sorteios</strong>.
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-lottery-enabled" type="checkbox" /> Ativar Sorteio de Doações (lottery_enabled)</label>
+            </div>
           </div>
           <div id="db-conn-status"></div>
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -6336,6 +6480,37 @@
         <div id="polls-list" style="display:flex;flex-direction:column;gap:16px;color:var(--text2);">Carregando…</div>
       </div>
 
+      <!-- PAGE: Sorteio de Doações (público) -->
+      <div id="page-sorteio" class="page">
+        <div id="topbar">
+          <div class="page-title">🎲 Sorteio de Doações</div>
+          <div class="topbar-actions">
+            <button class="btn btn-primary btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button>
+            <button class="btn btn-ghost" onclick="loadSorteio()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div id="sorteio-root" style="color:var(--text2);">Carregando…</div>
+      </div>
+
+      <!-- PAGE: Regulamento do Sorteio -->
+      <div id="page-sorteio-regulamento" class="page">
+        <div id="topbar">
+          <div class="page-title">📋 Regulamento do Sorteio</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost btn-sm" onclick="backFromLotteryRegulamento()">← Voltar ao sorteio</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Regulamento da Promoção Sorteio ARKLAND</div>
+            <span id="lottery-regulamento-version" style="font-size:12px;color:var(--text2);"></span>
+          </div>
+          <div id="lottery-regulamento-body" style="padding:4px 0;">
+            <p style="color:var(--text2);">Carregando…</p>
+          </div>
+        </div>
+      </div>
+
       <!-- PAGE: Sugestões da Comunidade (jogador) -->
       <div id="page-sugestoes" class="page">
         <div id="topbar">
@@ -6438,6 +6613,13 @@
           </div>
           <div id="myarea-summary" class="form-grid"></div>
         </div>
+        <div class="card" id="myarea-lottery-card">
+          <div class="card-header">
+            <div class="card-title">🎲 Sorteio ativo</div>
+            <button class="btn btn-ghost btn-sm" onclick="goToPage('sorteio')">Ver grade →</button>
+          </div>
+          <div id="myarea-lottery" style="color:var(--text2);font-size:13px;">Carregando…</div>
+        </div>
         <div class="card">
           <div class="card-header">
             <div class="card-title">📜 Licenças ativas</div>
@@ -6515,6 +6697,31 @@
           </div>
         </div>
         <div id="polls-admin-list" style="color:var(--text2);">Carregando…</div>
+      </div>
+
+      <!-- PAGE: Sorteios (admin) -->
+      <div id="page-lottery-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🎲 Sorteios — Administração</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadLotteryAdmin()">↺ Atualizar</button>
+            <button class="btn btn-primary" onclick="lotteryAdminShowCreate()">+ Nova campanha</button>
+          </div>
+        </div>
+        <div id="lottery-admin-create" class="card hidden" style="margin-bottom:16px;">
+          <div class="card-header"><div class="card-title">Nova campanha (rascunho)</div></div>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;"><label>Título</label><input id="lot-admin-title" type="text" placeholder="Sorteio ARKLAND #N" /></div>
+            <div class="form-group"><label>Prêmio base (Âmbares)</label><input id="lot-admin-base" type="number" min="0" value="5000" /></div>
+            <div class="form-group"><label>Números sorteados (1–5)</label><input id="lot-admin-wcount" type="number" min="1" max="5" value="1" /></div>
+            <div class="form-group"><label>Sorteio em (local)</label><input id="lot-admin-draw" type="datetime-local" /></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-primary" onclick="lotteryAdminCreate()">Criar rascunho</button>
+            <button class="btn btn-ghost" onclick="lotteryAdminHideCreate()">Cancelar</button>
+          </div>
+        </div>
+        <div id="lottery-admin-list" style="color:var(--text2);">Carregando…</div>
       </div>
 
       <!-- PAGE: Sugestões (admin) -->
@@ -7572,7 +7779,7 @@ function nav(el) {
     promptLogin("Sugestões");
     return;
   }
-  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "midias" && playerNeedsRegulamentoAccept()) {
+  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "midias" && page !== "sorteio" && page !== "sorteio-regulamento" && playerNeedsRegulamentoAccept()) {
     showRegulamentoGate();
     return;
   }
@@ -7590,6 +7797,8 @@ function nav(el) {
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "polls") loadPolls();
+  if (page === "sorteio") loadSorteio();
+  if (page === "sorteio-regulamento") loadLotteryRegulamentoPage();
   if (page === "midias") loadMidias();
   if (page === "sugestoes" && _auth.authenticated) loadSugestoes();
   if (page === "catalog") loadCatalog();
@@ -7606,6 +7815,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "polls-admin") loadPollsAdmin();
+  if (page === "lottery-admin") loadLotteryAdmin();
   if (page === "midias-admin") loadMidiasAdmin();
   if (page === "sugestoes-admin") loadSugestoesAdmin();
   if (page === "cluster-chat") loadClusterChatAdmin();
@@ -7627,9 +7837,13 @@ function nav(el) {
   if (_auth.authenticated) refreshPlayerBalance();
   if (page === "sugestoes") {
     try { history.replaceState({}, "", window.location.pathname + "#/sugestoes"); } catch (_) {}
+  } else if (page === "sorteio") {
+    try { history.replaceState({}, "", window.location.pathname + "#/sorteio"); } catch (_) {}
   } else if (page === "midias") {
     try { history.replaceState({}, "", window.location.pathname + "#/midias"); } catch (_) {}
   } else if (window.location.hash && window.location.hash.match(/^#\/?sugestoes/)) {
+    try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
+  } else if (window.location.hash && window.location.hash.match(/^#\/?sorteio/)) {
     try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
   } else if (window.location.hash && window.location.hash.match(/^#\/?midias/)) {
     try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
@@ -7684,22 +7898,63 @@ function _notifErrorMessage(e) {
   return msg.replace(/^Error:\s*/i, "").trim() || "Não foi possível carregar as notificações.";
 }
 
-const _NOTIF_PANEL_W = 440;
+const _NOTIF_PANEL_W = 480;
 const _NOTIF_MOBILE_BP = 640;
 
 function _isNotifMobile() {
   return window.innerWidth <= _NOTIF_MOBILE_BP;
 }
 
+function _notifTypeIcon(type) {
+  const t = (type || "").toLowerCase();
+  if (t.startsWith("ticket")) return "🎫";
+  if (t.startsWith("market")) return "🛒";
+  if (t === "order_update") return "📦";
+  if (t === "poll_reward") return "📊";
+  return "🔔";
+}
+
+function _notifEmptyHtml(title, text, icon) {
+  return `<div class="notif-empty">
+    <div class="notif-empty__icon">${icon || "🔔"}</div>
+    <div class="notif-empty__title">${escHtml(title)}</div>
+    <div class="notif-empty__text">${escHtml(text)}</div>
+  </div>`;
+}
+
+function _updateNotifPanelSubtitle(unreadCount, totalCount) {
+  const sub = document.getElementById("notif-panel-subtitle");
+  if (!sub) return;
+  const unread = Number(unreadCount) || 0;
+  const total = Number(totalCount) || 0;
+  if (total <= 0) {
+    sub.textContent = "Nenhuma notificação";
+  } else if (unread <= 0) {
+    sub.textContent = `${total} ${total === 1 ? "notificação" : "notificações"} — todas lidas`;
+  } else {
+    sub.textContent = `${unread} não ${unread === 1 ? "lida" : "lidas"} de ${total}`;
+  }
+}
+
+function _updateNotifMarkAllBtn(unreadCount) {
+  const btn = document.getElementById("notif-mark-all-btn");
+  if (!btn) return;
+  const n = Number(unreadCount) || 0;
+  btn.disabled = n <= 0;
+}
+
 function _setNotifPanelOpen(open) {
   const panel = document.getElementById("notif-panel");
   const backdrop = document.getElementById("notif-backdrop");
+  const bell = document.getElementById("notif-bell-btn");
   if (!panel) return;
   panel.classList.toggle("hidden", !open);
   if (backdrop) {
-    backdrop.classList.toggle("hidden", !open || !_isNotifMobile());
-    backdrop.setAttribute("aria-hidden", open && _isNotifMobile() ? "false" : "true");
+    backdrop.classList.toggle("hidden", !open);
+    backdrop.setAttribute("aria-hidden", open ? "false" : "true");
   }
+  if (bell) bell.setAttribute("aria-expanded", open ? "true" : "false");
+  document.body.classList.toggle("notif-panel-open", open);
   if (open) _positionNotifPanel();
 }
 
@@ -7717,15 +7972,27 @@ function _positionNotifPanel() {
   if (mobile) {
     panel.style.top = "";
     panel.style.left = "";
+    panel.style.right = "";
     panel.style.width = "";
+    panel.style.maxHeight = "";
     return;
   }
   const r = btn.getBoundingClientRect();
-  const panelW = Math.min(_NOTIF_PANEL_W, window.innerWidth - 16);
-  const left = Math.max(8, Math.min(r.left, window.innerWidth - panelW - 8));
-  panel.style.top = `${Math.round(r.bottom + 8)}px`;
+  const panelW = Math.min(_NOTIF_PANEL_W, window.innerWidth - 24);
+  const panelH = Math.min(window.innerHeight * 0.72, 640);
+  let left = r.left;
+  if (left + panelW > window.innerWidth - 12) {
+    left = window.innerWidth - panelW - 12;
+  }
+  left = Math.max(12, left);
+  let top = r.bottom + 10;
+  if (top + panelH > window.innerHeight - 12) {
+    top = Math.max(12, r.top - panelH - 10);
+  }
+  panel.style.top = `${Math.round(top)}px`;
   panel.style.left = `${Math.round(left)}px`;
   panel.style.width = `${panelW}px`;
+  panel.style.maxHeight = `${Math.round(panelH)}px`;
 }
 
 function _formatNotifTime(iso) {
@@ -7744,19 +8011,30 @@ function _updateNotifBadge(count) {
   badge.classList.toggle("hidden", n <= 0);
 }
 
-function _renderNotifList(items) {
+function _renderNotifList(items, unreadCount) {
   const el = document.getElementById("notif-list");
   if (!el) return;
   _notifItems = items || [];
+  const unread = typeof unreadCount === "number"
+    ? unreadCount
+    : _notifItems.filter(n => !n.read).length;
+  _updateNotifPanelSubtitle(unread, _notifItems.length);
+  _updateNotifMarkAllBtn(unread);
   if (!_notifItems.length) {
-    el.innerHTML = '<div class="notif-empty">Nenhuma notificação.</div>';
+    el.innerHTML = _notifEmptyHtml("Tudo em dia!", "Você não tem notificações no momento.", "🔔");
     return;
   }
   el.innerHTML = _notifItems.map(n => `
-    <div class="notif-item${n.read ? "" : " notif-item--unread"}" data-notif-id="${n.id}" onclick="openNotification(${n.id})">
-      <div class="notif-item__title">${escHtml(n.title || "Notificação")}</div>
-      <div class="notif-item__body">${escHtml(n.body || "")}</div>
-      <div class="notif-item__time">${escHtml(_formatNotifTime(n.created_at))}</div>
+    <div class="notif-item${n.read ? "" : " notif-item--unread"}" data-notif-id="${n.id}" onclick="openNotification(${n.id})" role="button" tabindex="0">
+      <div class="notif-item__icon" aria-hidden="true">${_notifTypeIcon(n.type)}</div>
+      <div class="notif-item__content">
+        <div class="notif-item__row">
+          <div class="notif-item__title">${escHtml(n.title || "Notificação")}</div>
+          ${n.read ? "" : '<span class="notif-item__dot" aria-label="Não lida"></span>'}
+        </div>
+        ${n.body ? `<div class="notif-item__body">${escHtml(n.body)}</div>` : ""}
+        <div class="notif-item__time">${escHtml(_formatNotifTime(n.created_at))}</div>
+      </div>
     </div>
   `).join("");
 }
@@ -7769,7 +8047,7 @@ async function refreshNotifications() {
     _updateNotifBadge(d.unread_count);
     const panel = document.getElementById("notif-panel");
     if (panel && !panel.classList.contains("hidden")) {
-      _renderNotifList(d.items || []);
+      _renderNotifList(d.items || [], d.unread_count);
     }
   } catch (_) {}
 }
@@ -7790,17 +8068,18 @@ async function refreshNotificationsBadge() {
 async function loadNotificationsPanel() {
   if (!_auth.authenticated) return;
   const el = document.getElementById("notif-list");
-  if (el) el.innerHTML = '<div class="notif-empty">Carregando…</div>';
+  if (el) el.innerHTML = _notifEmptyHtml("Carregando…", "Aguarde um instante.", "⏳");
+  _updateNotifPanelSubtitle(0, 0);
   try {
     const d = await fetchJson("/api/notifications?limit=30", { timeoutMs: 10000 });
     if (!d.ok) {
-      if (el) el.innerHTML = `<div class="notif-empty">${escHtml(d.error || "Erro ao carregar")}</div>`;
+      if (el) el.innerHTML = _notifEmptyHtml("Erro ao carregar", d.error || "Tente novamente em instantes.", "⚠️");
       return;
     }
     _updateNotifBadge(d.unread_count);
-    _renderNotifList(d.items || []);
+    _renderNotifList(d.items || [], d.unread_count);
   } catch (e) {
-    if (el) el.innerHTML = `<div class="notif-empty">${escHtml(String(e))}</div>`;
+    if (el) el.innerHTML = _notifEmptyHtml("Erro ao carregar", _notifErrorMessage(e), "⚠️");
   }
 }
 
@@ -7871,14 +8150,21 @@ function _stopNotifPolling() {
   if (_notifPollTimer) { clearTimeout(_notifPollTimer); _notifPollTimer = null; }
 }
 
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const panel = document.getElementById("notif-panel");
+    if (panel && !panel.classList.contains("hidden")) closeNotifPanel();
+  }
+});
+
 document.addEventListener("click", (e) => {
   const wrap = document.getElementById("notif-wrap");
   const panel = document.getElementById("notif-panel");
-  if (!wrap || !panel || panel.classList.contains("hidden")) return;
-  if (!wrap.contains(e.target) && !panel.contains(e.target)) closeNotifPanel();
+  const backdrop = document.getElementById("notif-backdrop");
+  if (!panel || panel.classList.contains("hidden")) return;
+  if (backdrop && e.target === backdrop) { closeNotifPanel(); return; }
+  if (wrap && !wrap.contains(e.target) && !panel.contains(e.target)) closeNotifPanel();
 });
-
-document.getElementById("notif-backdrop")?.addEventListener("click", () => closeNotifPanel());
 
 window.addEventListener("resize", () => {
   const panel = document.getElementById("notif-panel");
@@ -9381,6 +9667,7 @@ async function loadMyArea() {
   refreshPlayerBalance();
 
   await loadMyAreaDonations();
+  await loadMyAreaLottery();
   await loadMyAreaLicenses();
   await loadMyAreaHistory();
   await marketProfilePromise;
@@ -10517,6 +10804,256 @@ async function pollsAdminAction(pollId, action) {
   } catch (e) {
     toast(String(e), "error");
   }
+}
+
+// ── Sorteio de Doações ────────────────────────────────────────────────────────
+let _lotteryCurrent = null;
+
+function _lotteryRegulamentoBanner(extraNote) {
+  const note = extraNote ? `<p style="font-size:12px;color:var(--text2);margin:12px 0 0;">${extraNote}</p>` : "";
+  return `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+    <button class="btn btn-primary btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button>
+    <span style="font-size:12px;color:var(--text2);margin-left:10px;">Prêmios em Âmbares — moeda simbólica ARKLAND</span>
+    ${note}
+  </div>`;
+}
+
+async function loadLotteryRegulamentoPage() {
+  const el = document.getElementById("lottery-regulamento-body");
+  if (!el) return;
+  el.innerHTML = '<p style="color:var(--text2);">Carregando regulamento…</p>';
+  try {
+    const d = await fetchJson("/api/public/lottery/regulamento");
+    const verEl = document.getElementById("lottery-regulamento-version");
+    if (verEl) {
+      verEl.textContent = `Versão ${d.version || "1.5"} · ${d.updated_at || ""}`;
+    }
+    if (d.ok && d.html) {
+      el.innerHTML = `<div class="policy-modal-body regulamento-body">${d.html}</div>`;
+    } else {
+      el.innerHTML = '<p style="color:var(--danger);">Regulamento indisponível.</p>';
+    }
+  } catch (_) {
+    el.innerHTML = '<p style="color:var(--danger);">Falha ao carregar regulamento.</p>';
+  }
+}
+
+function openLotteryRegulamentoPage(updateHash) {
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  document.querySelector('.nav-item[data-page="sorteio"]')?.classList.add("active");
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-sorteio-regulamento")?.classList.add("active");
+  if (isMobileNav()) closeSidebar();
+  loadLotteryRegulamentoPage();
+  if (updateHash !== false) {
+    try { history.replaceState({}, "", window.location.pathname + "#/sorteio/regulamento"); } catch (_) {}
+  }
+}
+
+function backFromLotteryRegulamento() {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-sorteio")?.classList.add("active");
+  try { history.replaceState({}, "", window.location.pathname + "#/sorteio"); } catch (_) {}
+  loadSorteio();
+}
+
+function _formatCountdown(secs) {
+  const s = Math.max(0, parseInt(secs, 10) || 0);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  return `${String(d).padStart(2,"0")}d ${String(h).padStart(2,"0")}h ${String(m).padStart(2,"0")}m ${String(r).padStart(2,"0")}s`;
+}
+
+function _lotterySourceBadge(src) {
+  if (src === "DONATION") return "🎁";
+  if (src === "AMBER_RESERVE") return "⭐";
+  return "🪙";
+}
+
+function renderLotteryGrid(cells, onCellClick) {
+  if (!cells || !cells.length) return "";
+  return `<div class="lottery-grid-wrap"><div class="lottery-grid">${cells.map(c => {
+    const cls = ["lottery-cell", c.status === "available" ? "available" : "taken", c.is_mine ? "mine" : ""].filter(Boolean).join(" ");
+    const click = (c.status === "available" && onCellClick) ? ` onclick="${onCellClick}(${c.value})"` : "";
+    return `<div class="${cls}" title="${c.status === "available" ? "Disponível" : "Ocupado"}"${click}>${c.value}</div>`;
+  }).join("")}</div></div>`;
+}
+
+async function loadSorteio() {
+  const root = document.getElementById("sorteio-root");
+  if (!root) return;
+  root.textContent = "Carregando…";
+  try {
+    const cur = await fetchJson("/api/public/lottery/current");
+    _lotteryCurrent = cur.campaign;
+    if (!cur.enabled) {
+      root.innerHTML = `<div class="card"><p>O sorteio está desabilitado no momento. Quando ativo, você poderá participar por doação ou compra com Âmbares.</p>${_lotteryRegulamentoBanner("Leia o regulamento completo antes de participar.")}</div>`;
+      return;
+    }
+    if (!cur.campaign) {
+      root.innerHTML = `<div class="card"><p>Nenhuma campanha ativa no momento. Acompanhe o histórico em breve.</p>${_lotteryRegulamentoBanner()}</div>`;
+      return;
+    }
+    const c = cur.campaign;
+    const grid = await fetchJson(`/api/public/lottery/campaign/${c.id}/number-grid`);
+    const parts = await fetchJson(`/api/public/lottery/campaign/${c.id}/participants?page_size=20`);
+    const auth = _auth.authenticated;
+    const actions = auth ? `
+      <button class="btn btn-primary btn-sm" onclick="lotteryBuyRandom()">Comprar aleatório (${c.amber_random_price} Âmbares)</button>
+      <button class="btn btn-ghost btn-sm" onclick="goToPage('catalog')">Doar e participar</button>
+    ` : `<button class="btn btn-primary btn-sm" onclick="promptLogin('Sorteio')">Entrar para participar</button>`;
+    root.innerHTML = `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--amber);">${escHtml(c.title)}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px;">Status: ${escHtml(c.status)} · ${escHtml(c.timezone_label || "")}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:22px;font-weight:700;">${_formatAmberPt(c.prize_amber_total)} Âmbares</div>
+            <div style="font-size:12px;color:var(--text2);">Sorteio em: ${_formatCountdown(c.seconds_remaining)}</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text2);margin:12px 0;">${escHtml(c.rules_summary || "")}</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">${actions}
+          <button class="btn btn-ghost btn-sm" onclick="openLotteryRegulamentoPage()">📋 Regulamento do Sorteio</button>
+        </div>
+        <p style="font-size:11px;color:var(--text2);margin:10px 0 0;">Regulamento v${escHtml(cur.regulamento_version || "1.5")} · Prêmio creditado na conta ARKLAND (Âmbares)</p>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-title" style="margin-bottom:10px;">Grade 100–999</div>
+        ${renderLotteryGrid(grid.cells, auth ? "lotteryReserveFromGrid" : null)}
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px;">Participantes (${parts.total || 0})</div>
+        ${(parts.participants || []).map(p => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
+            <strong>${escHtml(p.display_name_masked)}</strong> —
+            ${(p.numbers || []).map(n => `${n.value}${_lotterySourceBadge(n.source)}`).join(" ")}
+          </div>`).join("") || "<p>Nenhum participante ainda.</p>"}
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+async function lotteryBuyRandom() {
+  if (!_auth.authenticated) { promptLogin("Sorteio"); return; }
+  try {
+    const d = await fetchJson("/api/player/lottery/buy-random", { method: "POST" });
+    if (!d.ok) throw new Error(d.message || d.error);
+    toast(`Número ${d.number.value} adquirido!`, "success");
+    loadSorteio();
+    refreshPlayerBalance();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function lotteryReserveFromGrid(num) {
+  if (!_auth.authenticated) { promptLogin("Sorteio"); return; }
+  if (!confirm(`Reservar número ${num} por 2.000 Âmbares?`)) return;
+  try {
+    const d = await fetchJson(`/api/player/lottery/reserve/${num}`, { method: "POST" });
+    if (!d.ok) throw new Error(d.message || d.error);
+    toast(`Número ${num} reservado!`, "success");
+    loadSorteio();
+    refreshPlayerBalance();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function loadMyAreaLottery() {
+  const el = document.getElementById("myarea-lottery");
+  const card = document.getElementById("myarea-lottery-card");
+  if (!el || !_auth.authenticated) return;
+  try {
+    const d = await fetchJson("/api/player/lottery/me");
+    if (!d.enabled || !d.campaign) {
+      if (card) card.style.display = "none";
+      return;
+    }
+    if (card) card.style.display = "";
+    const c = d.campaign;
+    const fmt = (arr) => (arr && arr.length) ? arr.map(n => `[${n}]`).join(" ") : "—";
+    el.innerHTML = `
+      <p><strong>${escHtml(c.title)}</strong> · sorteio em ${_formatCountdown(c.seconds_remaining)}</p>
+      <p>Doação: ${fmt(d.by_source?.DONATION)} · Compras (${d.amber_random_count}/${c.amber_random_max_per_player}): ${fmt(d.by_source?.AMBER_RANDOM)} · Reservas: ${fmt(d.by_source?.AMBER_RESERVE)}</p>
+      <p style="margin-top:8px;">Doações: R$ ${Number(d.donated_brl || 0).toFixed(2).replace(".", ",")}</p>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="lotteryBuyRandom()">Comprar aleatório (1.000)</button>`;
+  } catch (_) {
+    el.textContent = "Sorteio indisponível.";
+  }
+}
+
+async function loadHomeLotteryTeaser() {
+  const slot = document.getElementById("home-lottery-teaser");
+  if (!slot) return;
+  try {
+    const d = await fetchJson("/api/public/lottery/current");
+    if (!d.enabled || !d.campaign) { slot.innerHTML = ""; return; }
+    const c = d.campaign;
+    slot.innerHTML = `
+      <div class="lottery-teaser">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700;color:var(--amber);">🎲 ${escHtml(c.title)}</div>
+            <div style="font-size:13px;margin-top:4px;">Prêmio: <strong>${_formatAmberPt(c.prize_amber_total)} Âmbares</strong> · ${_formatCountdown(c.seconds_remaining)}</div>
+            <div style="font-size:12px;color:var(--text2);">${c.participant_count || 0} participantes · ${c.numbers_issued_count || 0}/900 números</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="goToPage('sorteio')">Ver sorteio completo →</button>
+        </div>
+      </div>`;
+  } catch (_) { slot.innerHTML = ""; }
+}
+
+function lotteryAdminShowCreate() { document.getElementById("lottery-admin-create")?.classList.remove("hidden"); }
+function lotteryAdminHideCreate() { document.getElementById("lottery-admin-create")?.classList.add("hidden"); }
+
+async function lotteryAdminCreate() {
+  const title = document.getElementById("lot-admin-title")?.value?.trim();
+  const prize_amber_base = parseInt(document.getElementById("lot-admin-base")?.value || "5000", 10);
+  const winning_numbers_count = parseInt(document.getElementById("lot-admin-wcount")?.value || "1", 10);
+  const drawLocal = document.getElementById("lot-admin-draw")?.value;
+  const body = { title, prize_amber_base, winning_numbers_count };
+  if (drawLocal) body.draw_at = new Date(drawLocal).toISOString();
+  try {
+    const d = await fetchJson("/api/admin/lottery/campaigns", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (!d.ok) throw new Error(d.error);
+    toast("Campanha criada (rascunho).", "success");
+    lotteryAdminHideCreate();
+    loadLotteryAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function lotteryAdminPublish(id) {
+  try {
+    const d = await fetchJson(`/api/admin/lottery/campaigns/${id}/publish`, { method: "POST" });
+    if (!d.ok) throw new Error(d.error);
+    toast("Campanha publicada.", "success");
+    loadLotteryAdmin();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function loadLotteryAdmin() {
+  const root = document.getElementById("lottery-admin-list");
+  if (!root) return;
+  root.textContent = "Carregando…";
+  try {
+    const d = await fetchJson("/api/admin/lottery/campaigns");
+    if (!d.ok) throw new Error(d.error);
+    root.innerHTML = (d.campaigns || []).map(c => `
+      <div class="card" style="margin-bottom:12px;padding:12px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;">
+          <div><strong>#${c.sequence_number}</strong> ${escHtml(c.title)} · <span class="badge">${escHtml(c.status)}</span></div>
+          <div style="font-size:12px;">Prêmio: ${_formatAmberPt(c.prize_amber_total)} · Sorteio: ${escHtml(c.draw_at_display || "")}</div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;">
+          ${c.status === "DRAFT" ? `<button class="btn btn-success btn-sm" onclick="lotteryAdminPublish(${c.id})">Publicar</button>` : ""}
+        </div>
+      </div>`).join("") || "<p>Nenhuma campanha.</p>";
+  } catch (e) { root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`; }
 }
 
 // ── Sugestões da comunidade ───────────────────────────────────────────────────
@@ -14793,6 +15330,8 @@ async function loadSettings() {
     document.getElementById("s-db-port").value        = s.db_port || 3306;
     document.getElementById("s-db-name").value        = s.db_name || "arkland_shop";
     document.getElementById("s-db-user").value        = s.db_user || "";
+    const lotEl = document.getElementById("s-lottery-enabled");
+    if (lotEl) lotEl.checked = !!s.lottery_enabled;
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -14830,6 +15369,7 @@ async function saveSettings() {
     db_name:     document.getElementById("s-db-name").value,
     db_user:     document.getElementById("s-db-user").value,
     db_password: document.getElementById("s-db-password").value,
+    lottery_enabled: !!document.getElementById("s-lottery-enabled")?.checked,
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;
@@ -16562,6 +17102,7 @@ function renderHomePage(d) {
     </section>
 
     <div id="amber-meter-root" class="amber-meter amber-meter--hidden" aria-live="polite" aria-atomic="true"></div>
+    <div id="home-lottery-teaser"></div>
 
     <div class="home-stats">
       <div class="home-stat"><div class="home-stat__val">${st.items ?? 0}</div><div class="home-stat__lbl">Itens</div></div>
@@ -16642,6 +17183,7 @@ function renderHomePage(d) {
       </div>
     </div>
   `;
+  loadHomeLotteryTeaser();
 }
 
 function _auditRow(label, value) {
@@ -17406,6 +17948,18 @@ async function bootPortal() {
       } else if (hashRoute === "midias") {
         const midNav = document.querySelector('.nav-item[data-page="midias"]');
         if (midNav) nav(midNav);
+      } else if (hashRoute === "sorteio/regulamento") {
+        const lotNav = document.querySelector('.nav-item[data-page="sorteio"]');
+        if (lotNav) {
+          document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+          document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+          lotNav.classList.add("active");
+          document.getElementById("page-sorteio-regulamento")?.classList.add("active");
+          loadLotteryRegulamentoPage();
+        }
+      } else if (hashRoute === "sorteio") {
+        const lotNav = document.querySelector('.nav-item[data-page="sorteio"]');
+        if (lotNav) nav(lotNav);
       }
     }
 
@@ -17595,6 +18149,28 @@ document.addEventListener("keydown", (e) => {
     <ul id="kit-contents-list" class="kit-contents-list"></ul>
     <div style="margin-top:16px;text-align:right;">
       <button type="button" class="btn btn-ghost" onclick="closeKitContentsModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Centro de notificações (portal no body — fora da sidebar) -->
+<div id="notif-backdrop" class="notif-backdrop hidden" aria-hidden="true"></div>
+<div id="notif-panel" class="notif-panel hidden" role="dialog" aria-modal="true" aria-label="Centro de notificações">
+  <div class="notif-panel__head">
+    <div class="notif-panel__head-text">
+      <span class="notif-panel__title">Notificações</span>
+      <span id="notif-panel-subtitle" class="notif-panel__subtitle">Carregando…</span>
+    </div>
+    <div class="notif-panel__actions">
+      <button type="button" id="notif-mark-all-btn" class="notif-panel__mark-all" onclick="markAllNotificationsRead(event)">Marcar todas lidas</button>
+      <button type="button" class="notif-panel__close" onclick="closeNotifPanel(event)" aria-label="Fechar">×</button>
+    </div>
+  </div>
+  <div id="notif-list" class="notif-panel__list">
+    <div class="notif-empty">
+      <div class="notif-empty__icon">🔔</div>
+      <div class="notif-empty__title">Carregando…</div>
+      <div class="notif-empty__text">Aguarde um instante.</div>
     </div>
   </div>
 </div>

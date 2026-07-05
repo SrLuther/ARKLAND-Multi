@@ -13,6 +13,12 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 
+@pytest.fixture(autouse=True)
+def _isolate_steam_api_from_env(monkeypatch):
+    """Evita chamadas reais à Steam Web API quando STEAM_API_KEY vem do .env local."""
+    monkeypatch.delenv("STEAM_API_KEY", raising=False)
+
+
 @pytest.fixture()
 def db_session(tmp_path):
     path = tmp_path / "chat.db"

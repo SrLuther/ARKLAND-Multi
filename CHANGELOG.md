@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.211] - 2026-07-05
+
+### Feature
+
+- Feature (Web Store / Sorteio de Doações): promoção vinculada a doações PIX/cartão e compra opcional de números com Âmbares — grade pública 100–999, sorteio automático com rollover +25% sem vencedor, divisão integral do prêmio entre titulares (spec v1.6), Área Pública #/sorteio, Minha Área, admin Sorteios, hook em _finalize_pix_payment.
+
+## [1.9.210] - 2026-07-05
+
+### Improvement
+
+- Melhoria (Web Store / Notificações): centro de notificações definitivo — painel 480px no desktop e bottom sheet full-width no mobile; portal no body (corrige painel minúsculo preso à sidebar); ícones por tipo, subtítulo de não lidas, empty state, backdrop e scroll independente; tema dark/âmbar.
+
 ## [1.9.209] - 2026-07-05
 
 ### Feature

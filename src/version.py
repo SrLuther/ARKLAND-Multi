@@ -3,11 +3,34 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.209"
+APP_VERSION: str = "1.9.211"
 BUILD_DATE: str = "2026-07-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.211",
+        "date": "2026-07-05",
+        "changes": [
+            "Feature (Web Store / Sorteio de Doações): promoção vinculada a doações PIX/cartão "
+            "e compra opcional de números com Âmbares — grade pública 100–999, sorteio automático "
+            "com rollover +25% sem vencedor, divisão integral do prêmio entre titulares (spec v1.6), "
+            "Área Pública #/sorteio, Minha Área, admin Sorteios, hook em _finalize_pix_payment.",
+            "Feature (Web Store / Sorteio): regulamento publicado em static/lottery_regulamento_v1_5.html com link na area do sorteio.",
+            "Fix (Web Store / Admin mercado): detalhe de auditoria usa _auditRow corretamente no modal.",
+            "Fix (Testes arkshop_web): fixture autouse remove STEAM_API_KEY do ambiente para nao bater na API Steam em CI/local."
+        ],
+    },
+    {
+        "version": "1.9.210",
+        "date": "2026-07-05",
+        "changes": [
+            "Melhoria (Web Store / Notificações): centro de notificações definitivo — painel "
+            "480px no desktop e bottom sheet full-width no mobile; portal no body (corrige "
+            "painel minúsculo preso à sidebar); ícones por tipo, subtítulo de não lidas, "
+            "empty state, backdrop e scroll independente; tema dark/âmbar.",
+        ],
+    },
     {
         "version": "1.9.209",
         "date": "2026-07-05",

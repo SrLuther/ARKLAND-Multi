@@ -475,6 +475,75 @@ def record_poll_reward(
     )
 
 
+def record_lottery_prize(
+    db: Session,
+    *,
+    campaign_id: int,
+    steam_id: str,
+    amount: int,
+    winning_number: int,
+    idempotency_key: str,
+    **kw: Any,
+) -> bool:
+    return record_movement(
+        db,
+        channel="lottery",
+        event_type="lottery_prize_credited",
+        signed_delta=amount,
+        idempotency_key=idempotency_key,
+        steam_id=steam_id,
+        source_table="lottery_winners",
+        source_id=f"{campaign_id}:{winning_number}",
+        metadata={"campaign_id": campaign_id, "winning_number": winning_number},
+        **kw,
+    )
+
+
+def record_lottery_amber_purchase(
+    db: Session,
+    *,
+    campaign_id: int,
+    steam_id: str,
+    amount: int,
+    source: str,
+    number_value: int,
+    **kw: Any,
+) -> bool:
+    return record_movement(
+        db,
+        channel="lottery",
+        event_type="lottery_amber_purchase",
+        signed_delta=-amount,
+        idempotency_key=f"lottery:purchase:{campaign_id}:{steam_id}:{number_value}",
+        steam_id=steam_id,
+        source_table="lottery_numbers",
+        source_id=f"{campaign_id}:{number_value}",
+        metadata={"campaign_id": campaign_id, "source": source, "number_value": number_value},
+        **kw,
+    )
+
+
+def record_lottery_prize_subsidy(
+    db: Session,
+    *,
+    campaign_id: int,
+    amount: int,
+    **kw: Any,
+) -> bool:
+    return record_movement(
+        db,
+        channel="lottery",
+        event_type="lottery_prize_subsidy",
+        signed_delta=amount,
+        idempotency_key=f"lottery:subsidy:{campaign_id}",
+        counterparty_id="house",
+        source_table="lottery_campaigns",
+        source_id=str(campaign_id),
+        metadata={"campaign_id": campaign_id},
+        **kw,
+    )
+
+
 def _cache_get(db: Session, stat_key: str) -> int:
     row = db.execute(
         text("SELECT stat_value FROM amber_stats_cache WHERE stat_key = :k"),

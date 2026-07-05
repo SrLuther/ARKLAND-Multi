@@ -1432,6 +1432,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_amber_schema(engine)
     except Exception as exc:
         log.warning("Âmbarômetro: migrate falhou: %s", exc)
+    try:
+        from lottery_service import ensure_lottery_schema
+
+        ensure_lottery_schema(engine)
+    except Exception as exc:
+        log.warning("Sorteio: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -5049,6 +5055,19 @@ def _retry_worker() -> None:
         except Exception as exc:
             _log_error("market_claims_expire_worker", error=str(exc))
 
+        try:
+            from lottery_service import process_due_draws
+
+            ldb = _SessionLocal()
+            try:
+                n = process_due_draws(ldb)
+                if n:
+                    _log("lottery_draws_processed", count=n)
+            finally:
+                _release_db_session(ldb)
+        except Exception as exc:
+            _log_error("lottery_draw_worker", error=str(exc))
+
         if _delivery_mode() != "rcon":
             continue
         db = _SessionLocal()
@@ -5585,6 +5604,7 @@ def save_settings():
         "mp_sandbox",
         "public_ip",
         "join_host",
+        "lottery_enabled",
     ):
         if key in body:
             s[key] = body[key]
@@ -7611,6 +7631,17 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 )
             except Exception as amber_exc:
                 log.warning("Âmbarômetro donation hook: %s", amber_exc)
+            try:
+                from lottery_service import on_donation_credited
+
+                on_donation_credited(
+                    db,
+                    payment_id=payment.payment_id,
+                    steam_id=payment.steam_id,
+                    amount_brl=float(payment.amount_brl or 0),
+                )
+            except Exception as lottery_exc:
+                log.warning("Sorteio donation hook: %s", lottery_exc)
         except Exception as exc:
             _audit_event(
                 "pix_credit_failed",
@@ -7635,6 +7666,13 @@ def _finalize_pix_payment(db: Any, payment: PointPayment, mp_status: str, *, sou
                 error=str(exc),
             )
             raise
+    if mapped == "ESTORNADO":
+        try:
+            from lottery_service import revoke_lottery_numbers_for_payment
+
+            revoke_lottery_numbers_for_payment(db, payment_id=payment_id)
+        except Exception as lottery_revoke_exc:
+            log.warning("Sorteio revoke hook: %s", lottery_revoke_exc)
 
 
 @app.route("/api/player/available", methods=["GET"])
@@ -9684,6 +9722,25 @@ register_media_routes(
     app,
     db_ready=_db_ready,
     session_factory=_db_session_factory,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
+    limiter=limiter,
+)
+
+from lottery_routes import register_lottery_routes
+from lottery_service import configure_lottery
+
+configure_lottery(
+    credit_fn=_add_player_points_tx,
+    debit_fn=_subtract_player_points_tx,
+    settings_fn=_load_settings,
+    save_settings_fn=_save_settings,
+)
+register_lottery_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
     admin_required=admin_required,
     steam_id_from_session=_steam_id_from_session,
     limiter=limiter,
