@@ -28,10 +28,7 @@ _public_stats_cache: dict[str, Any] = {"data": None, "expires": 0.0}
 _schema_verified_engines: set[int] = set()
 _schema_lock = threading.Lock()
 
-COVERAGE_NOTE = (
-    "Inclui doações, loja web, mercado P2P, ajustes admin e enquetes. "
-    "Compras in-game via /shop ainda não entram neste total (fase 2)."
-)
+COVERAGE_NOTE = "Inclui doações, loja web, mercado P2P, ajustes admin e enquetes."
 
 
 def _utcnow() -> datetime:

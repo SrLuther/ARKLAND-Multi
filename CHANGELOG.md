@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.205] - 2026-07-04
+
+### Fix
+
+- Fix (Web Store / Âmbarômetro): nota de cobertura lista apenas o que entra no total (doações, loja web, mercado P2P, ajustes admin e enquetes) — sem menção a /shop ou fase 2.
+
 ## [1.9.204] - 2026-07-04
 
 ### Feature

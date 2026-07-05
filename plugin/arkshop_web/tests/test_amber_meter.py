@@ -16,6 +16,7 @@ os.environ.setdefault("ARKSHOP_SKIP_DB_BOOT", "1")
 
 import app as _app_module
 from amber_ledger import (
+    COVERAGE_NOTE,
     degraded_public_stats,
     ensure_amber_schema,
     get_public_stats,
@@ -140,7 +141,8 @@ def test_public_stats_and_cache(amber_db):
     assert stats["ok"] is True
     assert stats["total_gross_all_time"] == 3000
     assert stats["channels"]["donation"] == 3000
-    assert "coverage_note" in stats
+    assert stats["coverage_note"] == COVERAGE_NOTE
+    assert "/shop" not in stats["coverage_note"]
     assert stats["display"]["label"] == "Âmbares movimentados"
 
 

@@ -1,9 +1,8 @@
 {
-    "version": "1.9.204",
+    "version": "1.9.205",
     "date": "2026-07-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.204/ARKLAND-Multi-Setup-v1.9.204.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.205/ARKLAND-Multi-Setup-v1.9.205.exe",
     "changelog": [
-        "Feature (TEK / Web Store): campo Chave Steam Web API (nicknames) no painel CustomShop → Web Store — persiste em config TEK e settings.json, repassa ao subprocesso (STEAM_API_KEY) sem editar .env.",
-        "Fix (Web Store): nicknames Steam lidos de settings.json quando env vazio — GET /api/health → steam_api_configured; admin web pode salvar steam_api_key em /api/settings."
+        "Fix (Web Store / Âmbarômetro): nota de cobertura lista apenas o que entra no total (doações, loja web, mercado P2P, ajustes admin e enquetes) — sem menção a /shop ou fase 2."
     ]
 }
