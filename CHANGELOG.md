@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.209] - 2026-07-05
+
+### Feature
+
+- Feature (Web Store / Mídias): página pública #/midias com vídeos YouTube em grid (tutoriais, informativos e geral); filtro por categoria; admin CRUD em /api/admin/media.
+
+## [1.9.208] - 2026-07-05
+
+### Improvement
+
+- Melhoria (Web Store / Home): removida barra fixa inferior «Conectar ao servidor» — conexão permanece no hero e na seção de servidores da página inicial.
+
 ## [1.9.207] - 2026-07-05
 
 ### Feature

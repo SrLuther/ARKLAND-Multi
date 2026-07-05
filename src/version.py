@@ -3,11 +3,27 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.207"
+APP_VERSION: str = "1.9.209"
 BUILD_DATE: str = "2026-07-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.209",
+        "date": "2026-07-05",
+        "changes": [
+            "Feature (Web Store / Mídias): página pública #/midias com vídeos YouTube em grid "
+            "(tutoriais, informativos e geral); filtro por categoria; admin CRUD em /api/admin/media.",
+        ],
+    },
+    {
+        "version": "1.9.208",
+        "date": "2026-07-05",
+        "changes": [
+            "Melhoria (Web Store / Home): removida barra fixa inferior «Conectar ao servidor» — "
+            "conexão permanece no hero e na seção de servidores da página inicial.",
+        ],
+    },
     {
         "version": "1.9.207",
         "date": "2026-07-05",

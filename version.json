@@ -1,10 +1,8 @@
 {
-    "version": "1.9.207",
+    "version": "1.9.208",
     "date": "2026-07-05",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.207/ARKLAND-Multi-Setup-v1.9.207.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.208/ARKLAND-Multi-Setup-v1.9.208.exe",
     "changelog": [
-        "Feature (CustomShop / Notas): comando /notas desbloqueia todas as notas de explorador e as 200 runas de Fjordur via GiveAllExplorerNotes; custo configurável (Settings.NotasCommandPrice, padrão 5000) com confirmação /confirmar (TTL 2 min).",
-        "Feature (CustomShop): Shop.UnlockAllExplorerNotes para RCON/console e entrega da loja.",
-        "Melhoria (Web Store / Admin): campos Preço /notas e Ativar /notas nas configurações do CustomShop."
+        "Melhoria (Web Store / Home): removida barra fixa inferior «Conectar ao servidor» — conexão permanece no hero e na seção de servidores da página inicial."
     ]
 }

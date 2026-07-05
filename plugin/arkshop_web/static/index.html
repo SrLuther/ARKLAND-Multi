@@ -1315,6 +1315,76 @@
       box-shadow: 0 0 0 1px rgba(232,120,32,.15);
     }
 
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .media-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .media-card:hover {
+      border-color: rgba(232,120,32,.35);
+      box-shadow: 0 4px 24px rgba(0,0,0,.25);
+    }
+    .media-card__embed {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%;
+      background: #000;
+    }
+    .media-card__embed iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .media-card__body { padding: 14px 16px 16px; }
+    .media-card__title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 6px;
+      line-height: 1.35;
+    }
+    .media-card__meta {
+      font-size: 11px;
+      color: var(--amber);
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .media-card__desc {
+      font-size: 13px;
+      color: var(--text2);
+      line-height: 1.55;
+    }
+    .media-admin-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .media-admin-table th,
+    .media-admin-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: middle;
+    }
+    .media-admin-table th {
+      color: var(--text2);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    .media-admin-table tr:hover td { background: rgba(255,255,255,.02); }
+
     .catalog-panel { display: none; }
     .catalog-panel.active { display: block; }
 
@@ -3524,43 +3594,6 @@
       color: var(--text2);
       font-family: 'JetBrains Mono', monospace;
     }
-    .home-connect-sticky {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      z-index: 900;
-      padding: 10px 16px;
-      background: rgba(6,4,2,.95);
-      border-top: 1px solid rgba(0,200,255,.35);
-      backdrop-filter: blur(8px);
-      box-shadow: 0 -8px 32px rgba(0,0,0,.4);
-    }
-    .home-connect-sticky__inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .home-connect-sticky__title {
-      font-weight: 700;
-      color: #fff;
-      font-size: 14px;
-    }
-    .home-connect-sticky__addr {
-      display: block;
-      font-size: 11px;
-      color: var(--amber);
-      font-family: 'JetBrains Mono', monospace;
-    }
-    .home-connect-sticky__actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
     .home-connect-empty {
       grid-column: 1 / -1;
       padding: 20px;
@@ -4650,6 +4683,9 @@
     <div class="nav-item admin-only" data-page="sugestoes-admin" onclick="nav(this)">
       <span class="nav-icon">💡</span> Sugestões
     </div>
+    <div class="nav-item admin-only" data-page="midias-admin" onclick="nav(this)">
+      <span class="nav-icon">🎬</span> Mídias
+    </div>
     <div class="nav-item admin-only" data-page="players-admin" onclick="nav(this)">
       <span class="nav-icon">👥</span> Gerenciar Jogadores
     </div>
@@ -4692,6 +4728,9 @@
     <div class="nav-item" data-page="tutoriais" onclick="nav(this)">
       <span class="nav-icon">📖</span> Tutoriais
     </div>
+    <div class="nav-item" data-page="midias" onclick="nav(this)">
+      <span class="nav-icon">🎬</span> Mídias
+    </div>
     <div class="nav-item" data-page="polls" onclick="nav(this)">
       <span class="nav-icon">🗳️</span> Votações
     </div>
@@ -4733,7 +4772,6 @@
         <div id="home-root" class="home-root">
           <div style="text-align:center;padding:60px 20px;color:var(--text2);">Carregando portal…</div>
         </div>
-        <div id="home-connect-sticky" class="home-connect-sticky hidden" aria-hidden="true"></div>
       </div>
 
       <!-- PAGE: Catálogo (público — login só para doar/resgatar) -->
@@ -6258,6 +6296,29 @@
         </div>
       </div>
 
+      <!-- PAGE: Mídias (vídeos YouTube — público) -->
+      <div id="page-midias" class="page">
+        <div id="topbar">
+          <div class="page-title">Mídias</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadMidias()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <p style="margin:0;font-size:13px;color:var(--text2);line-height:1.55;">
+            Tutoriais, vídeos informativos e conteúdo útil sobre o cluster ARKLAND.
+            Assista aqui ou abra no YouTube pelo player.
+          </p>
+        </div>
+        <div class="catalog-tabs" id="midias-filter-tabs">
+          <button type="button" class="catalog-tab active" data-midias-cat="" onclick="setMidiasFilter(this, '')">Todos</button>
+          <button type="button" class="catalog-tab" data-midias-cat="tutorial" onclick="setMidiasFilter(this, 'tutorial')">Tutorial</button>
+          <button type="button" class="catalog-tab" data-midias-cat="informativo" onclick="setMidiasFilter(this, 'informativo')">Informativo</button>
+          <button type="button" class="catalog-tab" data-midias-cat="geral" onclick="setMidiasFilter(this, 'geral')">Geral</button>
+        </div>
+        <div id="midias-grid" class="media-grid" style="color:var(--text2);">Carregando…</div>
+      </div>
+
       <!-- PAGE: Votações (comunidade) -->
       <div id="page-polls" class="page">
         <div id="topbar">
@@ -6501,6 +6562,56 @@
             </div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="suggAdminSave()">Salvar alterações</button>
+        </div>
+      </div>
+
+      <!-- PAGE: Mídias (admin) -->
+      <div id="page-midias-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🎬 Mídias — Administração</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadMidiasAdmin()">↺ Atualizar</button>
+            <button class="btn btn-primary" onclick="midiasAdminShowCreate()">+ Novo vídeo</button>
+          </div>
+        </div>
+        <div id="midias-admin-create" class="card hidden" style="margin-bottom:16px;">
+          <div class="card-header"><div class="card-title">Adicionar vídeo YouTube</div></div>
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>URL do YouTube *</label>
+              <input id="media-admin-url" type="url" placeholder="https://www.youtube.com/watch?v=… ou youtu.be/…" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Título *</label>
+              <input id="media-admin-title" type="text" maxlength="200" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Descrição</label>
+              <textarea id="media-admin-desc" rows="2" placeholder="Opcional"></textarea>
+            </div>
+            <div class="form-group">
+              <label>Categoria</label>
+              <select id="media-admin-category">
+                <option value="tutorial">Tutorial</option>
+                <option value="informativo">Informativo</option>
+                <option value="geral">Geral</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Ordem</label>
+              <input id="media-admin-order" type="number" value="0" />
+            </div>
+            <div class="form-group" style="align-self:end;">
+              <label><input id="media-admin-published" type="checkbox" /> Publicar</label>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px;">
+            <button class="btn btn-primary" onclick="midiasAdminCreate()">Salvar vídeo</button>
+            <button class="btn btn-ghost" onclick="midiasAdminHideCreate()">Cancelar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div id="midias-admin-list" style="color:var(--text2);overflow-x:auto;">Carregando…</div>
         </div>
       </div>
 
@@ -7461,7 +7572,7 @@ function nav(el) {
     promptLogin("Sugestões");
     return;
   }
-  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && playerNeedsRegulamentoAccept()) {
+  if (page !== "regulamento" && page !== "home" && page !== "catalog" && page !== "downloads" && page !== "tutoriais" && page !== "midias" && playerNeedsRegulamentoAccept()) {
     showRegulamentoGate();
     return;
   }
@@ -7474,14 +7585,12 @@ function nav(el) {
   el.classList.add("active");
   const pageEl = document.getElementById("page-" + page);
   if (pageEl) pageEl.classList.add("active");
-  if (page !== "home") {
-    document.getElementById("home-connect-sticky")?.classList.add("hidden");
-  }
   if (isMobileNav()) closeSidebar();
   if (page === "home") loadHome();
   if (page === "myarea" && _auth.authenticated) loadMyArea();
   if (page === "tickets" && _auth.authenticated) { ticketsSwitchTab(_ticketsTab || "open"); }
   if (page === "polls") loadPolls();
+  if (page === "midias") loadMidias();
   if (page === "sugestoes" && _auth.authenticated) loadSugestoes();
   if (page === "catalog") loadCatalog();
   if (page === "shop") { loadShopMarketStatus(); renderShop(); }
@@ -7497,6 +7606,7 @@ function nav(el) {
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "polls-admin") loadPollsAdmin();
+  if (page === "midias-admin") loadMidiasAdmin();
   if (page === "sugestoes-admin") loadSugestoesAdmin();
   if (page === "cluster-chat") loadClusterChatAdmin();
   if (page === "tickets-admin") {
@@ -7517,7 +7627,11 @@ function nav(el) {
   if (_auth.authenticated) refreshPlayerBalance();
   if (page === "sugestoes") {
     try { history.replaceState({}, "", window.location.pathname + "#/sugestoes"); } catch (_) {}
+  } else if (page === "midias") {
+    try { history.replaceState({}, "", window.location.pathname + "#/midias"); } catch (_) {}
   } else if (window.location.hash && window.location.hash.match(/^#\/?sugestoes/)) {
+    try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
+  } else if (window.location.hash && window.location.hash.match(/^#\/?midias/)) {
     try { history.replaceState({}, "", window.location.pathname); } catch (_) {}
   }
   requestAnimationFrame(() => wrapTablesForScroll(document.getElementById("main")));
@@ -10645,6 +10759,177 @@ async function suggAdminSave() {
     toast("Sugestão atualizada.", "success");
     suggAdminCloseDetail();
     loadSugestoesAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+// ── Mídias (YouTube) ─────────────────────────────────────────────────────────
+let _midiasCache = [];
+let _midiasFilterCat = "";
+
+function setMidiasFilter(btn, cat) {
+  _midiasFilterCat = cat || "";
+  document.querySelectorAll("#midias-filter-tabs .catalog-tab").forEach(t => {
+    t.classList.toggle("active", t === btn);
+  });
+  renderMidiasGrid();
+}
+
+function renderMidiasGrid() {
+  const root = document.getElementById("midias-grid");
+  if (!root) return;
+  const items = _midiasFilterCat
+    ? _midiasCache.filter(v => v.category === _midiasFilterCat)
+    : _midiasCache;
+  if (!items.length) {
+    root.innerHTML = "<p style=\"grid-column:1/-1;\">Nenhum vídeo publicado nesta categoria.</p>";
+    return;
+  }
+  root.innerHTML = items.map(v => {
+    const desc = v.description
+      ? `<div class="media-card__desc">${escHtml(v.description)}</div>`
+      : "";
+    return `<article class="media-card">
+      <div class="media-card__embed">
+        <iframe src="${escHtml(v.embed_url)}?rel=0" title="${escHtml(v.title)}"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen loading="lazy"></iframe>
+      </div>
+      <div class="media-card__body">
+        <div class="media-card__meta">${escHtml(v.category_label || v.category || "Geral")}</div>
+        <div class="media-card__title">${escHtml(v.title)}</div>
+        ${desc}
+      </div>
+    </article>`;
+  }).join("");
+}
+
+async function loadMidias() {
+  const root = document.getElementById("midias-grid");
+  if (root) root.innerHTML = "Carregando…";
+  try {
+    const d = await fetchJson("/api/public/media");
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    _midiasCache = d.videos || [];
+    renderMidiasGrid();
+  } catch (e) {
+    if (root) root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+function midiasAdminShowCreate() {
+  document.getElementById("midias-admin-create")?.classList.remove("hidden");
+}
+function midiasAdminHideCreate() {
+  document.getElementById("midias-admin-create")?.classList.add("hidden");
+}
+
+async function midiasAdminCreate() {
+  const url = document.getElementById("media-admin-url")?.value?.trim();
+  const title = document.getElementById("media-admin-title")?.value?.trim();
+  if (!url || !title) {
+    toast("URL e título são obrigatórios.", "warning");
+    return;
+  }
+  try {
+    const d = await fetchJson("/api/admin/media", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        youtube_url: url,
+        title,
+        description: document.getElementById("media-admin-desc")?.value?.trim() || "",
+        category: document.getElementById("media-admin-category")?.value || "geral",
+        sort_order: parseInt(document.getElementById("media-admin-order")?.value || "0", 10) || 0,
+        published: !!document.getElementById("media-admin-published")?.checked,
+      }),
+    });
+    if (!d.ok) throw new Error(d.error || "Falha ao salvar");
+    toast("Vídeo adicionado.", "success");
+    document.getElementById("media-admin-url").value = "";
+    document.getElementById("media-admin-title").value = "";
+    document.getElementById("media-admin-desc").value = "";
+    document.getElementById("media-admin-order").value = "0";
+    document.getElementById("media-admin-published").checked = false;
+    midiasAdminHideCreate();
+    loadMidiasAdmin();
+  } catch (e) {
+    toast(String(e), "error");
+  }
+}
+
+async function loadMidiasAdmin() {
+  const root = document.getElementById("midias-admin-list");
+  if (!root) return;
+  root.innerHTML = "Carregando…";
+  try {
+    const d = await fetchJson("/api/admin/media");
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    const videos = d.videos || [];
+    if (!videos.length) {
+      root.innerHTML = "<p>Nenhum vídeo cadastrado.</p>";
+      return;
+    }
+    root.innerHTML = `<table class="media-admin-table">
+      <thead><tr>
+        <th>Ordem</th><th>Título</th><th>Categoria</th><th>Publicado</th><th>Ações</th>
+      </tr></thead>
+      <tbody>${videos.map(v => {
+        const pubLbl = v.published
+          ? `<span style="color:var(--success);">Sim</span>`
+          : `<span style="color:var(--text2);">Não</span>`;
+        return `<tr>
+          <td><input type="number" value="${v.sort_order}" style="width:64px;"
+            onchange="midiasAdminPatch(${v.id},{sort_order:parseInt(this.value,10)||0})" /></td>
+          <td>
+            <strong>${escHtml(v.title)}</strong><br>
+            <span style="font-size:11px;color:var(--text2);">${escHtml(v.video_id)}</span>
+          </td>
+          <td>
+            <select onchange="midiasAdminPatch(${v.id},{category:this.value})">
+              <option value="tutorial" ${v.category === "tutorial" ? "selected" : ""}>Tutorial</option>
+              <option value="informativo" ${v.category === "informativo" ? "selected" : ""}>Informativo</option>
+              <option value="geral" ${v.category === "geral" ? "selected" : ""}>Geral</option>
+            </select>
+          </td>
+          <td>
+            <label><input type="checkbox" ${v.published ? "checked" : ""}
+              onchange="midiasAdminPatch(${v.id},{published:this.checked})" /> ${pubLbl}</label>
+          </td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-danger btn-sm" onclick="midiasAdminDelete(${v.id})">Excluir</button>
+          </td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+  } catch (e) {
+    root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+async function midiasAdminPatch(id, patch) {
+  try {
+    const d = await fetchJson(`/api/admin/media/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!d.ok) throw new Error(d.error || "Falha ao atualizar");
+    toast("Vídeo atualizado.", "success");
+  } catch (e) {
+    toast(String(e), "error");
+    loadMidiasAdmin();
+  }
+}
+
+async function midiasAdminDelete(id) {
+  if (!confirm("Excluir este vídeo permanentemente?")) return;
+  try {
+    const d = await fetchJson(`/api/admin/media/${id}`, { method: "DELETE" });
+    if (!d.ok) throw new Error(d.error || "Falha ao excluir");
+    toast("Vídeo excluído.", "success");
+    loadMidiasAdmin();
   } catch (e) {
     toast(String(e), "error");
   }
@@ -16071,45 +16356,8 @@ function _homeHeroConnectHtml(connectable) {
   </div>`;
 }
 
-function _updateHomeConnectSticky(connectable) {
-  const bar = document.getElementById("home-connect-sticky");
-  if (!bar) return;
-  if (!connectable.length) {
-    bar.classList.add("hidden");
-    bar.setAttribute("aria-hidden", "true");
-    bar.innerHTML = "";
-    return;
-  }
-  const primary = connectable[0];
-  const label = escHtml(primary.label || primary.server_id);
-  bar.innerHTML = `
-    <div class="home-connect-sticky__inner">
-      <div class="home-connect-sticky__label">
-        <span class="home-connect-sticky__title">▶ Conectar ao servidor</span>
-        <span class="home-connect-sticky__addr">${label} · ${escHtml(primary.join_address || "")}</span>
-      </div>
-      <div class="home-connect-sticky__actions">
-        <a class="btn btn-success btn-sm"
-           href="${escHtml(primary.connect_url || _arkSteamConnectUrl(primary.join_address || ""))}"
-           data-ark-connect
-           data-connect-url="${escHtml(primary.connect_url || "")}"
-           data-join-address="${escHtml(primary.join_address || "")}">Jogar</a>
-        <button class="btn btn-ghost btn-sm" type="button"
-           data-ark-copy-ip
-           data-join-address="${escHtml(primary.join_address || "")}">Copiar IP</button>
-        ${connectable.length > 1 ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">+${connectable.length - 1}</button>` : ""}
-      </div>
-    </div>`;
-  if (document.getElementById("page-home")?.classList.contains("active")) {
-    bar.classList.remove("hidden");
-    bar.setAttribute("aria-hidden", "false");
-  }
-}
-
 function _renderHomeConnectSection(d) {
   const servers = d.servers || [];
-  const connectable = _homeConnectableServers(servers);
-  _updateHomeConnectSticky(connectable);
 
   let gridHtml;
   if (!servers.length) {
@@ -17155,6 +17403,9 @@ async function bootPortal() {
       if (hashRoute === "sugestoes" && _auth.authenticated) {
         const suggNav = document.querySelector('.nav-item[data-page="sugestoes"]');
         if (suggNav) nav(suggNav);
+      } else if (hashRoute === "midias") {
+        const midNav = document.querySelector('.nav-item[data-page="midias"]');
+        if (midNav) nav(midNav);
       }
     }
 

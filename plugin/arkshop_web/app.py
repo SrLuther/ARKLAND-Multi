@@ -1421,6 +1421,12 @@ def _migrate_schema(engine: Any) -> None:
     except Exception as exc:
         log.warning("Sugestões: migrate falhou: %s", exc)
     try:
+        from media_service import ensure_media_schema
+
+        ensure_media_schema(engine)
+    except Exception as exc:
+        log.warning("Mídias: migrate falhou: %s", exc)
+    try:
         from amber_ledger import ensure_amber_schema
 
         ensure_amber_schema(engine)
@@ -9669,6 +9675,17 @@ register_suggestion_routes(
     admin_required=admin_required,
     steam_id_from_session=_steam_id_from_session,
     regulamento_guard=_guard_regulamento_accepted,
+    limiter=limiter,
+)
+
+from media_routes import register_media_routes
+
+register_media_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
     limiter=limiter,
 )
 

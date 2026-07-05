@@ -439,6 +439,10 @@ Responder com uma das opções:
 - `ARKLAND SM/src/ase/pages/ASEConfigEditor.tsx`
 - `ARKLAND SM/src/components/settings/SettingsSlider.tsx`
 
+### Web Store (ecossistema — fora do escopo TEK)
+
+- [`docs/SORTEIO_DOACOES_SPEC.md`](SORTEIO_DOACOES_SPEC.md) — Sorteio promocional vinculado a doações PIX/cartão: R$5 = 1 número (100–999), auto-encadeamento pós-sorteio, prêmio em Âmbares com rollover, trilha de auditoria pública (discussão).
+
 ---
 
 *Documento vivo — atualizar conforme aprovações e decisões do usuário.*
