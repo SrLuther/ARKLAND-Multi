@@ -766,7 +766,10 @@ void CmdNotas(AShooterPlayerController* controller, FString*, EChatSendMode::Typ
             "Custo: " + std::to_string(price) + " ambares. Saldo atual: "
             + std::to_string(balance) + " ambares.");
     SendMsg(controller, FColorList::Yellow,
-            "Desbloqueia todas as notas de explorador e as 200 runas de Fjordur.");
+            "Desbloqueia todas as notas de explorador (+10 niveis) e as 200 runas de Fjordur (+10 niveis).");
+    SendMsg(controller, FColorList::Red,
+            "ATENCAO: ao confirmar, seu jogo pode congelar ou travar por alguns minutos. "
+            "Aguarde a conclusao antes de sair.");
     SendMsg(controller, FColorList::Yellow,
             "Digite /confirmar em ate 2 minutos para concluir.");
 }

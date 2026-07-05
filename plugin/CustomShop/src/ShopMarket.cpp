@@ -435,7 +435,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         }
 
         std::string msg =
-            "Todas as notas de explorador e runas de Fjordur foram desbloqueadas!";
+            "Todas as notas de explorador (+10 niveis) e as 200 runas de Fjordur (+10 niveis) foram desbloqueadas!";
         if (price > 0)
             msg += " — " + std::to_string(price) + " ambares debitados.";
         SendMsg(player, FColorList::Green, msg);

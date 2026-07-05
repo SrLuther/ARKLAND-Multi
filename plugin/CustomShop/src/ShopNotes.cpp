@@ -7,9 +7,16 @@
 #include <chrono>
 #include <cctype>
 #include <mutex>
+#include <string>
 #include <unordered_map>
 
 namespace {
+
+// Fjordur runes are per-map explorer notes (indices 1000-1199). GiveAllExplorerNotes
+// unlocks global explorer notes (+10 max levels) but does not reliably grant rune credit
+// on cluster maps — community/admin practice is GiveExplorerNote 1000..1199.
+constexpr int kFjordurRuneNoteFirst = 1000;
+constexpr int kFjordurRuneCount = 200;
 
 struct PendingNotesUnlock {
     std::chrono::steady_clock::time_point expires;
@@ -28,25 +35,63 @@ std::string NormalizeCommandToken(std::string cmd) {
     return cmd;
 }
 
-bool RunGiveAllExplorerNotes(AShooterPlayerController* controller) {
-    if (!controller) return false;
+UShooterCheatManager* GetPlayerCheatManager(AShooterPlayerController* controller) {
+    if (!controller) return nullptr;
+    return static_cast<UShooterCheatManager*>(controller->CheatManagerField());
+}
 
-    if (auto* cheat = static_cast<UShooterCheatManager*>(controller->CheatManagerField())) {
-        cheat->GiveAllExplorerNotes();
-        return true;
-    }
+bool RunConsoleCheat(AShooterPlayerController* controller, const std::string& cmd) {
+    if (!controller || cmd.empty()) return false;
 
     const bool was_admin = controller->bIsAdmin()();
     if (!was_admin)
         controller->bIsAdmin() = true;
 
-    FString fscmd("GiveAllExplorerNotes");
+    FString fscmd(cmd.c_str());
     FString result;
     controller->ConsoleCommand(&result, &fscmd, true);
 
     if (!was_admin)
         controller->bIsAdmin() = false;
     return true;
+}
+
+bool RunGiveAllExplorerNotes(AShooterPlayerController* controller) {
+    if (!controller) return false;
+
+    if (auto* cheat = GetPlayerCheatManager(controller)) {
+        cheat->GiveAllExplorerNotes();
+        return true;
+    }
+
+    return RunConsoleCheat(controller, "GiveAllExplorerNotes");
+}
+
+bool RunGiveFjordurRunes(AShooterPlayerController* controller) {
+    if (!controller) return false;
+
+    auto* cheat = GetPlayerCheatManager(controller);
+    for (int i = 0; i < kFjordurRuneCount; ++i) {
+        const int note_index = kFjordurRuneNoteFirst + i;
+        if (cheat) {
+            cheat->GiveExplorerNote(note_index);
+        } else {
+            RunConsoleCheat(controller, "GiveExplorerNote " + std::to_string(note_index));
+        }
+    }
+
+    Log::GetLog()->info(
+        "ShopNotes: GiveExplorerNote {}-{} ({} Fjordur runes)",
+        kFjordurRuneNoteFirst,
+        kFjordurRuneNoteFirst + kFjordurRuneCount - 1,
+        kFjordurRuneCount);
+    return true;
+}
+
+bool RunUnlockAllExplorerNotesConsole(AShooterPlayerController* controller) {
+    if (!controller) return false;
+    // Console alias for level-cap credit; complements BPUnlockedAllExplorerNotes().
+    return RunConsoleCheat(controller, "UnlockAllExplorerNotes");
 }
 
 } // anonymous namespace
@@ -67,11 +112,19 @@ bool UnlockAll(AShooterPlayerController* controller) {
         return false;
     }
 
+    if (!RunGiveFjordurRunes(controller)) {
+        Log::GetLog()->warn("ShopNotes: Fjordur rune unlock failed");
+        return false;
+    }
+
+    RunUnlockAllExplorerNotesConsole(controller);
+
     if (AShooterCharacter* character = controller->GetPlayerCharacter())
         character->BPUnlockedAllExplorerNotes();
 
     Log::GetLog()->info(
-        "ShopNotes: GiveAllExplorerNotes completed (all explorer notes + Fjordur runes)");
+        "ShopNotes: explorer notes + {} Fjordur runes unlocked",
+        kFjordurRuneCount);
     return true;
 }
 

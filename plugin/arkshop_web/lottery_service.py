@@ -119,6 +119,15 @@ def _iso_display(dt: datetime | None) -> str | None:
     return dt.astimezone(TZ_OFFSET).isoformat()
 
 
+def _row_val(row: Any, key: str, default: Any = None) -> Any:
+    """Acesso seguro a colunas — schema parcial (pré-migração) não derruba rotas públicas."""
+    try:
+        return row._mapping.get(key, default)
+    except Exception:
+        try:
+            return getattr(row, key, default)
+        except Exception:
+            return default
 
 
 def _maybe_enable_lottery_after_first_campaign(db: Session) -> None:
@@ -446,47 +455,48 @@ def get_active_campaign(db: Session) -> Any | None:
 
 def _prize_total(row: Any) -> int:
     return (
-        int(row.prize_amber_base or 0)
-        + int(row.prize_amber_rollover_in or 0)
-        + int(row.prize_amber_from_purchases or 0)
+        int(_row_val(row, "prize_amber_base", 0) or 0)
+        + int(_row_val(row, "prize_amber_rollover_in", 0) or 0)
+        + int(_row_val(row, "prize_amber_from_purchases", 0) or 0)
     )
 
 
 def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, Any]:
-    draw = _parse_dt(row.draw_at)
+    draw = _parse_dt(_row_val(row, "draw_at"))
     now = _utcnow()
     secs = max(0, int((draw - now).total_seconds())) if draw and draw > now else 0
     issued = 0
     participants = 0
     donated = 0.0
     if db is not None:
-        issued = _numbers_issued_count(db, int(row.id))
-        participants = _participant_count(db, int(row.id))
-        donated = _total_donated_brl(db, int(row.id))
+        issued = _numbers_issued_count(db, int(_row_val(row, "id", 0)))
+        participants = _participant_count(db, int(_row_val(row, "id", 0)))
+        donated = _total_donated_brl(db, int(_row_val(row, "id", 0)))
+    status = str(_row_val(row, "status", ""))
     return {
-        "id": int(row.id),
-        "sequence_number": int(row.sequence_number),
-        "title": str(row.title),
-        "status": str(row.status),
+        "id": int(_row_val(row, "id", 0)),
+        "sequence_number": int(_row_val(row, "sequence_number", 0)),
+        "title": str(_row_val(row, "title", "")),
+        "status": status,
         "draw_at_utc": _iso_utc(draw),
         "draw_at_display": _iso_display(draw),
         "timezone_label": TZ_LABEL,
         "seconds_remaining": secs,
         "prize_amber_total": _prize_total(row),
-        "prize_amber_base": int(row.prize_amber_base or 0),
-        "prize_amber_rollover_in": int(row.prize_amber_rollover_in or 0),
-        "prize_amber_from_purchases": int(row.prize_amber_from_purchases or 0),
-        "amber_random_price": int(row.amber_random_price or 1000),
-        "amber_reserve_price": int(row.amber_reserve_price or 2000),
-        "amber_random_max_per_player": int(row.amber_random_max_per_player or 5),
+        "prize_amber_base": int(_row_val(row, "prize_amber_base", 0) or 0),
+        "prize_amber_rollover_in": int(_row_val(row, "prize_amber_rollover_in", 0) or 0),
+        "prize_amber_from_purchases": int(_row_val(row, "prize_amber_from_purchases", 0) or 0),
+        "amber_random_price": int(_row_val(row, "amber_random_price", 1000) or 1000),
+        "amber_reserve_price": int(_row_val(row, "amber_reserve_price", 2000) or 2000),
+        "amber_random_max_per_player": int(_row_val(row, "amber_random_max_per_player", 5) or 5),
         "numbers_available_count": 900 - issued,
-        "winning_numbers_count": int(row.winning_numbers_count or 1),
+        "winning_numbers_count": int(_row_val(row, "winning_numbers_count", 1) or 1),
         "participant_count": participants,
         "numbers_issued_count": issued,
         "total_donated_brl": round(donated, 2),
-        "regulamento_version": str(row.regulamento_version or LOTTERY_REGULAMENTO_VERSION),
+        "regulamento_version": str(_row_val(row, "regulamento_version") or LOTTERY_REGULAMENTO_VERSION),
         "rules_summary": RULES_SUMMARY,
-        "results_pending": str(row.status) == "DRAWING",
+        "results_pending": status == "DRAWING",
     }
 
 
@@ -950,7 +960,7 @@ def get_player_me(db: Session, steam_id: str) -> dict[str, Any]:
         })
         if src == "DONATION":
             donated_brl += 5.0
-    max_p = int(row.amber_random_max_per_player or 5)
+    max_p = int(_row_val(row, "amber_random_max_per_player", 5) or 5)
     random_count = len(by_source.get("AMBER_RANDOM", []))
     return {
         "ok": True,

@@ -5,7 +5,7 @@
 namespace CustomShop {
 namespace Notes {
 
-// Desbloqueia todas as notas de explorador e runas de Fjordur (GiveAllExplorerNotes).
+// Desbloqueia notas globais (GiveAllExplorerNotes) + runas Fjordur (GiveExplorerNote 1000-1199).
 bool UnlockAll(AShooterPlayerController* controller);
 
 // /notas passo 1 — pendencia de confirmacao (TTL 2 min).

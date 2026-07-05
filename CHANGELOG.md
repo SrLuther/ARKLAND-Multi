@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.215] - 2026-07-05
+
+### Fix
+
+- Fix (Web Store / Sorteio): página #/sorteio retornava HTTP 500 ao carregar campanha ativa — _campaign_public_dict acessava colunas ausentes em schema MySQL parcial (pré-migração); leitura segura via _row_val.
+
+## [1.9.214] - 2026-07-05
+
+### Fix
+
+- Fix (CustomShop / Notas): /notas agora desbloqueia explicitamente as 200 runas de Fjordur (GiveExplorerNote 1000-1199) — GiveAllExplorerNotes sozinho concedia +10 niveis das notas globais mas nao creditava as runas no implante.
+
 ## [1.9.213] - 2026-07-05
 
 ### Improvement

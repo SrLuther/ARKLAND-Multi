@@ -3,11 +3,29 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.213"
+APP_VERSION: str = "1.9.215"
 BUILD_DATE: str = "2026-07-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.215",
+        "date": "2026-07-05",
+        "changes": [
+            "Fix (Web Store / Sorteio): página #/sorteio retornava HTTP 500 ao carregar campanha "
+            "ativa — _campaign_public_dict acessava colunas ausentes em schema MySQL parcial "
+            "(pré-migração); leitura segura via _row_val.",
+        ],
+    },
+    {
+        "version": "1.9.214",
+        "date": "2026-07-05",
+        "changes": [
+            "Fix (CustomShop / Notas): /notas agora desbloqueia explicitamente as 200 runas de Fjordur "
+            "(GiveExplorerNote 1000-1199) — GiveAllExplorerNotes sozinho concedia +10 niveis das notas "
+            "globais mas nao creditava as runas no implante.",
+        ],
+    },
     {
         "version": "1.9.213",
         "date": "2026-07-05",

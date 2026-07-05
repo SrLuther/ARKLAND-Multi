@@ -16,6 +16,8 @@ from lottery_service import (
     create_campaign_draft,
     ensure_lottery_schema,
     get_active_campaign,
+    get_participants_public,
+    get_public_current,
     on_donation_credited,
     publish_campaign,
     reserve_number,
@@ -270,6 +272,112 @@ def test_reserve_insufficient_balance(lottery_db):
     lottery_db.commit()
     with pytest.raises(ValueError, match="insufficient_balance"):
         reserve_number(lottery_db, USER, 444)
+
+
+def test_lottery_public_http_routes(tmp_path, monkeypatch):
+    """GET /api/public/lottery/* — fluxo da página #/sorteio."""
+    settings_file = tmp_path / "lottery_pub_settings.json"
+    settings_file.write_text(json.dumps({"lottery_enabled": True}), encoding="utf-8")
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    monkeypatch.setattr(_app_module, "_migrate_schema", lambda _engine: None)
+
+    from app import app, _configure_database
+    from amber_ledger import ensure_amber_schema
+    from lottery_service import get_participants_public, get_public_current
+
+    db_path = tmp_path / "lottery_pub.db"
+    _configure_database(f"sqlite:///{db_path}")
+    ensure_lottery_schema(_app_module._ENGINE)
+    ensure_amber_schema(_app_module._ENGINE, run_backfill=False)
+    with _app_module._ENGINE.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS players ("
+                "steam_id TEXT PRIMARY KEY, points INTEGER DEFAULT 0, kits TEXT DEFAULT '{}')"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS store_users ("
+                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT)"
+            )
+        )
+        conn.commit()
+    configure_lottery(
+        credit_fn=_app_module._add_player_points_tx,
+        debit_fn=_app_module._subtract_player_points_tx,
+        settings_fn=_app_module._load_settings,
+    )
+    db = _app_module._SessionLocal()
+    try:
+        draw = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        camp = create_campaign_draft(db, data={"draw_at": draw, "prize_amber_base": 5000})
+        publish_campaign(db, int(camp["id"]))
+        on_donation_credited(
+            db, payment_id="pub-pay", steam_id=USER, amount_brl=10.0,
+        )
+        db.commit()
+        cid = int(camp["id"])
+        get_public_current(db)
+        get_participants_public(db, cid, page_size=20)
+    finally:
+        db.close()
+    _app_module._DB_INITIALIZED = True
+
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        cur = client.get("/api/public/lottery/current")
+        assert cur.status_code == 200, cur.get_data(as_text=True)
+        grid = client.get(f"/api/public/lottery/campaign/{cid}/number-grid")
+        assert grid.status_code == 200, grid.get_data(as_text=True)
+        parts = client.get(f"/api/public/lottery/campaign/{cid}/participants?page_size=20")
+        assert parts.status_code == 200, parts.get_data(as_text=True)
+
+
+def test_lottery_public_with_legacy_campaign_schema(tmp_path, monkeypatch):
+    """Campanha sem colunas novas — simula MySQL parcial pré-migração."""
+    settings_file = tmp_path / "lottery_legacy_settings.json"
+    settings_file.write_text(json.dumps({"lottery_enabled": True}), encoding="utf-8")
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from lottery_service import _campaign_public_dict, get_public_current
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}", future=True)
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE lottery_campaigns ("
+                "id INTEGER PRIMARY KEY, sequence_number INTEGER, title TEXT, "
+                "status TEXT, draw_at TEXT, winning_numbers_count INTEGER DEFAULT 1, "
+                "prize_amber_base INTEGER DEFAULT 5000, prize_amber_rollover_in INTEGER DEFAULT 0)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE lottery_numbers ("
+                "id INTEGER PRIMARY KEY, campaign_id INTEGER, steam_id TEXT, "
+                "source TEXT, number_value INTEGER, status TEXT DEFAULT 'ACTIVE')"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO lottery_campaigns "
+                "(id, sequence_number, title, status, draw_at, prize_amber_base) "
+                "VALUES (1, 1, 'Legacy', 'ACTIVE', :draw, 5000)"
+            ),
+            {"draw": (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()},
+        )
+        conn.commit()
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        result = get_public_current(db)
+        assert result["ok"] is True
+        assert result["campaign"]["prize_amber_from_purchases"] == 0
+    finally:
+        db.close()
 
 
 def test_lottery_reserve_http_route(tmp_path, monkeypatch):
