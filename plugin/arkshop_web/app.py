@@ -380,7 +380,7 @@ _ensure_support_steamids_file()
 # Must be set via environment variable ARKSHOP_API_KEY
 _ARKSHOP_API_KEY = os.environ.get("ARKSHOP_API_KEY", "").strip()
 _ENCRYPTED_PREFIX = "ENC:"
-_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token", "ticket_discord_token")
+_SENSITIVE_SETTINGS_KEYS = ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "cross_chat_discord_token", "ticket_discord_token")
 
 _DEFAULT_POINT_PACKAGES: list[dict[str, Any]] = [
     {"id": "p10000", "label": "10.000 Âmbares", "points": 10000, "price_brl": 5.0, "note": "Primeiro passo — ideal para conhecer a loja"},
@@ -1712,6 +1712,7 @@ def _load_settings() -> Dict[str, Any]:
         "db_password": "",
         "point_packages": _DEFAULT_POINT_PACKAGES,
         "mp_access_token": "",
+        "steam_api_key": "",
         "mp_sandbox": False,
     }
 
@@ -4134,7 +4135,10 @@ def _extract_steam_id_from_claimed_id(claimed_id: str) -> str | None:
 
 
 def _get_steam_api_key() -> str:
-    """Chave Steam Web API — env STEAM_API_KEY (carregada de .env no boot)."""
+    """Chave Steam Web API — settings.json (TEK/admin UI) > env STEAM_API_KEY."""
+    settings_key = str(_load_settings().get("steam_api_key", "")).strip()
+    if settings_key:
+        return settings_key
     return (os.environ.get("STEAM_API_KEY") or "").strip()
 
 
@@ -4145,9 +4149,10 @@ def _steam_api_key_configured() -> bool:
 _STEAM_PERSONA_BATCH_SIZE = 100
 _STEAM_API_KEY_WARNED = False
 _STEAM_PERSONA_ADMIN_WARNING = (
-    "Nicknames Steam indisponíveis — configure STEAM_API_KEY no ambiente da Web Store "
-    "(https://steamcommunity.com/dev/apikey) e reinicie o serviço. "
-    "Verifique também GET /api/health → steam_api_configured."
+    "Nicknames Steam indisponíveis — configure a Chave Steam Web API no TEK "
+    "(CustomShop → Web Store) ou em Configurações do admin web "
+    "(https://steamcommunity.com/dev/apikey) e reinicie a Web Store. "
+    "Verifique GET /api/health → steam_api_configured."
 )
 _STEAM_PERSONA_FETCH_WARNING = (
     "A Steam Web API não retornou nicknames para esta página — perfis privados, "
@@ -4163,7 +4168,7 @@ def _warn_steam_api_key_missing(context: str = "") -> None:
     suffix = f" ({context})" if context else ""
     log.warning(
         "STEAM_API_KEY não configurada — nicknames Steam indisponíveis%s. "
-        "Configure em https://steamcommunity.com/dev/apikey",
+        "Configure no TEK (CustomShop → Web Store) ou em https://steamcommunity.com/dev/apikey",
         suffix,
     )
 
@@ -5530,10 +5535,11 @@ def auth_me():
 @admin_required
 def get_settings():
     s = _load_settings()
-    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "cross_chat_discord_token", "ticket_discord_token")}
+    safe = {k: v for k, v in s.items() if k not in ("rcon_password", "db_password", "mp_access_token", "steam_api_key", "cross_chat_discord_token", "ticket_discord_token")}
     safe["rcon_password_set"] = bool(s.get("rcon_password"))
     safe["db_password_set"] = bool(s.get("db_password"))
     safe["mp_access_token_set"] = bool(_get_mp_access_token())
+    safe["steam_api_key_set"] = bool(_get_steam_api_key())
     safe["cross_chat_discord_token_set"] = bool(s.get("cross_chat_discord_token"))
     safe["ticket_discord_token_set"] = bool(s.get("ticket_discord_token"))
     safe["pix_enabled"] = _pix_enabled()
@@ -5576,6 +5582,8 @@ def save_settings():
         s["db_password"] = body["db_password"]
     if "mp_access_token" in body and body["mp_access_token"] != "":
         s["mp_access_token"] = body["mp_access_token"]
+    if "steam_api_key" in body and body["steam_api_key"] != "":
+        s["steam_api_key"] = body["steam_api_key"]
     point_packages_sync_errors: list[dict[str, str]] = []
     if "point_packages" in body:
         s["point_packages"] = _normalize_point_packages(body["point_packages"])

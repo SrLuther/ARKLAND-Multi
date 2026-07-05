@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.203"
+APP_VERSION: str = "1.9.204"
 BUILD_DATE: str = "2026-07-04"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.204",
+        "date": "2026-07-04",
+        "changes": [
+            "Feature (TEK / Web Store): campo Chave Steam Web API (nicknames) no painel CustomShop → Web Store — "
+            "persiste em config TEK e settings.json, repassa ao subprocesso (STEAM_API_KEY) sem editar .env.",
+            "Fix (Web Store): nicknames Steam lidos de settings.json quando env vazio — GET /api/health → steam_api_configured; "
+            "admin web pode salvar steam_api_key em /api/settings.",
+        ],
+    },
     {
         "version": "1.9.203",
         "date": "2026-07-04",

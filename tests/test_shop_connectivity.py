@@ -134,13 +134,66 @@ def test_get_shop_subprocess_env_includes_web_secret(tmp_path, monkeypatch):
     assert env["ARKSHOP_API_KEY"] == "test-key"
 
 
-def test_get_shop_subprocess_env_loads_steam_api_key_from_dotenv(tmp_path, monkeypatch):
+def test_get_shop_subprocess_env_loads_steam_api_key_from_webstore_dotenv(tmp_path, monkeypatch):
     monkeypatch.delenv("STEAM_API_KEY", raising=False)
-    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: tmp_path)
-    monkeypatch.setattr("src.shop_integration._PROJECT_ROOT", tmp_path)
-    (tmp_path / ".env").write_text("STEAM_API_KEY=from-dotenv-key\n", encoding="utf-8")
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr("src.shop_integration._PROJECT_ROOT", tmp_path / "bundle")
+    (webstore / ".env").write_text("STEAM_API_KEY=from-webstore-dotenv\n", encoding="utf-8")
 
     shop = ShopGlobalConfig(mode="host")
     env = get_shop_subprocess_env(shop)
 
-    assert env["STEAM_API_KEY"] == "from-dotenv-key"
+    assert env["STEAM_API_KEY"] == "from-webstore-dotenv"
+
+
+def test_get_shop_subprocess_env_loads_steam_api_key_from_project_dotenv(tmp_path, monkeypatch):
+    monkeypatch.delenv("STEAM_API_KEY", raising=False)
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    project = tmp_path / "bundle"
+    project.mkdir()
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr("src.shop_integration._PROJECT_ROOT", project)
+    (project / ".env").write_text("STEAM_API_KEY=from-project-dotenv\n", encoding="utf-8")
+
+    shop = ShopGlobalConfig(mode="host")
+    env = get_shop_subprocess_env(shop)
+
+    assert env["STEAM_API_KEY"] == "from-project-dotenv"
+
+
+def test_get_shop_subprocess_env_prefers_tek_webstore_steam_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("STEAM_API_KEY", raising=False)
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    project = tmp_path / "bundle"
+    project.mkdir()
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr("src.shop_integration._PROJECT_ROOT", project)
+    (project / ".env").write_text("STEAM_API_KEY=from-dotenv-key\n", encoding="utf-8")
+
+    shop = ShopGlobalConfig(mode="host", webstore_steam_api_key="tek-ui-key")
+    env = get_shop_subprocess_env(shop)
+
+    assert env["STEAM_API_KEY"] == "tek-ui-key"
+
+
+def test_get_shop_subprocess_env_prefers_settings_json_over_dotenv(tmp_path, monkeypatch):
+    monkeypatch.delenv("STEAM_API_KEY", raising=False)
+    webstore = tmp_path / "WEBSTORE"
+    webstore.mkdir()
+    project = tmp_path / "bundle"
+    project.mkdir()
+    monkeypatch.setattr("src.shop_integration.webstore_data_dir", lambda: webstore)
+    monkeypatch.setattr("src.shop_integration._PROJECT_ROOT", project)
+    (project / ".env").write_text("STEAM_API_KEY=from-dotenv-key\n", encoding="utf-8")
+    (webstore / "settings.json").write_text(
+        '{"steam_api_key": "from-settings-key"}', encoding="utf-8"
+    )
+
+    shop = ShopGlobalConfig(mode="host")
+    env = get_shop_subprocess_env(shop)
+
+    assert env["STEAM_API_KEY"] == "from-settings-key"

@@ -1822,6 +1822,61 @@ def _read_dotenv_key(project_dir: Path, key: str) -> str:
     return ""
 
 
+def _read_webstore_settings_steam_api_key() -> str:
+    settings_path = webstore_data_dir() / "settings.json"
+    if not settings_path.is_file():
+        return ""
+    try:
+        loaded = json.loads(settings_path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            return str(loaded.get("steam_api_key") or "").strip()
+    except Exception:
+        pass
+    return ""
+
+
+def resolve_webstore_steam_api_key(shop: Optional["ShopGlobalConfig"] = None) -> str:
+    """Prioridade: TEK shop.webstore_steam_api_key > settings.json > os.environ > .env (webstore, projeto)."""
+    import os
+
+    if shop is not None:
+        tek_key = (shop.webstore_steam_api_key or "").strip()
+        if tek_key:
+            return tek_key
+    settings_key = _read_webstore_settings_steam_api_key()
+    if settings_key:
+        return settings_key
+    env_key = (os.environ.get("STEAM_API_KEY") or "").strip()
+    if env_key:
+        return env_key
+    for dotenv_dir in (webstore_data_dir(), _PROJECT_ROOT):
+        steam_key = _read_dotenv_key(dotenv_dir, "STEAM_API_KEY")
+        if steam_key:
+            return steam_key
+    return ""
+
+
+def persist_webstore_steam_api_key_setting(shop: "ShopGlobalConfig") -> None:
+    """Grava steam_api_key em settings.json (merge) quando definida no TEK."""
+    steam_key = (shop.webstore_steam_api_key or "").strip()
+    if not steam_key:
+        return
+    settings_path = webstore_data_dir() / "settings.json"
+    data: Dict[str, Any] = {}
+    if settings_path.is_file():
+        try:
+            loaded = json.loads(settings_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        except Exception:
+            return
+    if data.get("steam_api_key") == steam_key:
+        return
+    data["steam_api_key"] = steam_key
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    settings_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
 def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     import os
 
@@ -1831,10 +1886,9 @@ def get_shop_subprocess_env(shop: "ShopGlobalConfig") -> Dict[str, str]:
     env["ARKSHOP_WEB_SECRET"] = resolve_web_secret()
     if shop.api_key:
         env["ARKSHOP_API_KEY"] = shop.api_key
-    if not (env.get("STEAM_API_KEY") or "").strip():
-        steam_key = _read_dotenv_key(_PROJECT_ROOT, "STEAM_API_KEY")
-        if steam_key:
-            env["STEAM_API_KEY"] = steam_key
+    steam_key = resolve_webstore_steam_api_key(shop)
+    if steam_key:
+        env["STEAM_API_KEY"] = steam_key
     db_url = build_orders_database_url(shop)
     if db_url:
         env["ARKSHOP_DATABASE_URL"] = db_url
@@ -2476,6 +2530,9 @@ def sync_arkshop_web_settings(
         data["public_ip"] = pub_ip
     if shop.api_key:
         data["api_key"] = shop.api_key
+    steam_key = (shop.webstore_steam_api_key or "").strip()
+    if steam_key:
+        data["steam_api_key"] = steam_key
 
     db_url = build_orders_database_url(shop)
     if db_url.startswith("sqlite"):

@@ -154,6 +154,7 @@ class ShopGlobalConfig:
     public_ip: str = "179.185.19.88"      # IP público do servidor remoto
     port: int = 27199
     api_key: str = ""
+    webstore_steam_api_key: str = ""      # Steam Web API — nicknames admin/site (≠ steam_api_key global/mods)
     delivery_mode: str = "plugin"         # plugin | rcon
     catalog_config_path: str = ""         # catálogo mestre Items/Kits
     machine_label: str = ""               # ex: "Maquina-A"

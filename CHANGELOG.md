@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.204] - 2026-07-04
+
+### Feature
+
+- Feature (TEK / Web Store): campo Chave Steam Web API (nicknames) no painel CustomShop → Web Store — persiste em config TEK e settings.json, repassa ao subprocesso (STEAM_API_KEY) sem editar .env.
+
+### Fix
+
+- Fix (Web Store): nicknames Steam lidos de settings.json quando env vazio — GET /api/health → steam_api_configured; admin web pode salvar steam_api_key em /api/settings.
+
 ## [1.9.203] - 2026-07-04
 
 ### Feature

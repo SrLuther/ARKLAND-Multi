@@ -1,10 +1,9 @@
 {
-    "version": "1.9.203",
+    "version": "1.9.204",
     "date": "2026-07-04",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.203/ARKLAND-Multi-Setup-v1.9.203.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.204/ARKLAND-Multi-Setup-v1.9.204.exe",
     "changelog": [
-        "Feature (Web Store / Doações): checkout com cartão sem CPF obrigatório — pagamento internacional com e-mail e nome; PIX mantém CPF e telefone brasileiro.",
-        "Feature (Web Store / Doações): estimativa USD/EUR ao lado dos preços em R$ — GET /api/public/exchange-rates (Frankfurter, cache 1h, fallback estático).",
-        "Melhoria (Web Store / Doações): formulários separados PIX vs cartão, texto internacional na UI e pacotes enriquecidos no catálogo/home."
+        "Feature (TEK / Web Store): campo Chave Steam Web API (nicknames) no painel CustomShop → Web Store — persiste em config TEK e settings.json, repassa ao subprocesso (STEAM_API_KEY) sem editar .env.",
+        "Fix (Web Store): nicknames Steam lidos de settings.json quando env vazio — GET /api/health → steam_api_configured; admin web pode salvar steam_api_key em /api/settings."
     ]
 }

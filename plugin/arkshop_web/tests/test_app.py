@@ -28,6 +28,7 @@ API_KEY = "test-api-key"
 @pytest.fixture(autouse=True)
 def fresh_db(tmp_path, monkeypatch):
     monkeypatch.setenv("ARKSHOP_API_KEY", API_KEY)
+    monkeypatch.delenv("STEAM_API_KEY", raising=False)
     monkeypatch.setattr(_app_module, "_ARKSHOP_API_KEY", API_KEY)
     monkeypatch.setattr(_app_module, "_ADMIN_FILE", tmp_path / "admin_steamids.json")
     monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")
@@ -289,6 +290,15 @@ class TestAuth:
         monkeypatch.delenv("STEAM_API_KEY", raising=False)
         d = client.get("/api/health").get_json()
         assert d["steam_api_configured"] is False
+
+    def test_health_steam_api_configured_from_settings(self, client, monkeypatch, tmp_path):
+        monkeypatch.delenv("STEAM_API_KEY", raising=False)
+        monkeypatch.setattr(_app_module, "_STATE_FILE", tmp_path / "settings.json")
+        (tmp_path / "settings.json").write_text(
+            json.dumps({"steam_api_key": "settings-key"}), encoding="utf-8"
+        )
+        d = client.get("/api/health").get_json()
+        assert d["steam_api_configured"] is True
 
     def test_me_authenticated_user(self, client):
         _login(client, USER_STEAM)

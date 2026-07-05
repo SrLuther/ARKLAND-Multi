@@ -47,6 +47,7 @@ from ..shop_integration import (
     is_customshop_installed,
     iter_shop_rcon_servers,
     iter_shop_servers,
+    persist_webstore_steam_api_key_setting,
     provision_permission_groups_for_servers,
     read_webstore_log_tail,
     reload_customshop_via_rcon_for_app,
@@ -1412,6 +1413,7 @@ def _build_webstore_tab(
         shop.public_ip = _public_ip_var.get().strip()
         shop.port = _safe_int(_port_var.get(), DEFAULT_SHOP_PORT)
         shop.api_key = _api_key_var.get().strip()
+        shop.webstore_steam_api_key = _steam_api_key_var.get().strip()
         shop.machine_label = _machine_var.get().strip()
         shop.delivery_mode = _delivery_var.get()
         shop.auto_sync_on_save = _auto_sync_var.get()
@@ -1425,6 +1427,7 @@ def _build_webstore_tab(
         if not _is_placeholder_db_password(raw_pass):
             shop.orders_db_password = raw_pass
         app.config_manager.save()
+        persist_webstore_steam_api_key_setting(shop)
         host = shop.orders_db_host.strip()
         user = shop.orders_db_user.strip()
         if host and user:
@@ -1720,6 +1723,20 @@ def _build_webstore_tab(
     _api_key_var = tk.StringVar(value=shop.api_key or "")
     _field_row(card_status, "API Key (ARKSHOP_API_KEY)", _api_key_var, bg=_INNER, is_pass=True,
                hint="Mesma chave em todos os plugins CustomShop da rede", width=280)
+
+    _steam_key_initial = (shop.webstore_steam_api_key or "").strip()
+    if not _steam_key_initial:
+        _steam_key_initial = str(_load_webstore_settings().get("steam_api_key") or "").strip()
+    _steam_api_key_var = tk.StringVar(value=_steam_key_initial)
+    _field_row(
+        card_status,
+        "Chave Steam Web API (nicknames)",
+        _steam_api_key_var,
+        bg=_INNER,
+        is_pass=True,
+        hint="https://steamcommunity.com/dev/apikey — só para exibir nicks no admin/site; login Steam não precisa",
+        width=280,
+    )
 
     _delivery_var = tk.StringVar(value=shop.delivery_mode or "plugin")
     del_row = tk.Frame(card_status, bg=_INNER)
