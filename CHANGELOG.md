@@ -10,6 +10,12 @@
 ### Feature
 
 - Feature (Web Store / Sorteio de Doações): promoção vinculada a doações PIX/cartão e compra opcional de números com Âmbares — grade pública 100–999, sorteio automático com rollover +25% sem vencedor, divisão integral do prêmio entre titulares (spec v1.6), Área Pública #/sorteio, Minha Área, admin Sorteios, hook em _finalize_pix_payment.
+- Feature (Web Store / Sorteio): regulamento publicado em static/lottery_regulamento_v1_5.html com link na area do sorteio.
+
+### Fix
+
+- Fix (Web Store / Admin mercado): detalhe de auditoria usa _auditRow corretamente no modal.
+- Fix (Testes arkshop_web): fixture autouse remove STEAM_API_KEY do ambiente para nao bater na API Steam em CI/local.
 
 ## [1.9.210] - 2026-07-05
 

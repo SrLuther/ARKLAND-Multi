@@ -4024,9 +4024,7 @@
     "WebApiUrl": "http://192.168.15.51:27199",
     "WebsiteUrl": "https://arkland.com.br",
     "HomeMapsTitle": "Meus Mapas",
-    "HomeMapsIntro": "Intro customizada.",
-    "NotasCommandPrice": 5000,
-    "NotasCommandEnabled": true
+    "HomeMapsIntro": "Intro customizada."
   },
   "TimedPointsReward": {
     "Enabled": true,
