@@ -105,6 +105,7 @@ echo === Compiling C++ sources ===
   "%SRC_DIR%\TimedPoints.cpp" ^
   "%SRC_DIR%\Commands.cpp" ^
   "%SRC_DIR%\ShopEngrams.cpp" ^
+  "%SRC_DIR%\ShopNotes.cpp" ^
   "%SRC_DIR%\HttpClient.cpp"
 if %ERRORLEVEL% neq 0 goto :error
 
@@ -135,6 +136,7 @@ echo === Linking DLL ===
   "%OBJ_DIR%\TimedPoints.obj" ^
   "%OBJ_DIR%\Commands.obj" ^
   "%OBJ_DIR%\ShopEngrams.obj" ^
+  "%OBJ_DIR%\ShopNotes.obj" ^
   "%OBJ_DIR%\HttpClient.obj"
 if %ERRORLEVEL% neq 0 goto :error
 

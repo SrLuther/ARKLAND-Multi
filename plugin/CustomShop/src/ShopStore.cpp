@@ -8,6 +8,7 @@
 #include "ShopEntitlements.h"
 #include "ShopCryoDino.h"
 #include "ShopEngrams.h"
+#include "ShopNotes.h"
 
 #include <cctype>
 
@@ -418,6 +419,11 @@ void RunCommands(const nlohmann::json& commands_array,
         if (CustomShop::Engrams::IsUnlockAllCommand(cmd)) {
             CustomShop::Engrams::UnlockAll(controller,
                 CustomShop::Engrams::ParseTekOnlyFlag(cmd));
+            continue;
+        }
+
+        if (CustomShop::Notes::IsUnlockAllCommand(cmd)) {
+            CustomShop::Notes::UnlockAll(controller);
             continue;
         }
 

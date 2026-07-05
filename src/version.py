@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.206"
+APP_VERSION: str = "1.9.207"
 BUILD_DATE: str = "2026-07-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.207",
+        "date": "2026-07-05",
+        "changes": [
+            "Feature (CustomShop / Notas): comando /notas desbloqueia todas as notas de explorador "
+            "e as 200 runas de Fjordur via GiveAllExplorerNotes; custo configurável "
+            "(Settings.NotasCommandPrice, padrão 5000) com confirmação /confirmar (TTL 2 min).",
+            "Feature (CustomShop): Shop.UnlockAllExplorerNotes para RCON/console e entrega da loja.",
+            "Melhoria (Web Store / Admin): campos Preço /notas e Ativar /notas nas configurações do CustomShop.",
+        ],
+    },
     {
         "version": "1.9.206",
         "date": "2026-07-05",

@@ -131,6 +131,14 @@ int ShopConfig::EngramasCommandPrice() const {
     return settings_.value("EngramasCommandPrice", 5000);
 }
 
+int ShopConfig::NotasCommandPrice() const {
+    return settings_.value("NotasCommandPrice", 5000);
+}
+
+bool ShopConfig::NotasCommandEnabled() const {
+    return settings_.value("NotasCommandEnabled", true);
+}
+
 bool ShopConfig::MarketDeliverAsSpawn() const {
     return settings_.value("MarketDeliverAsSpawn", true);
 }

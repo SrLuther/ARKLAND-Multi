@@ -510,6 +510,42 @@ class TestPointPackages:
         saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
         assert saved_cfg["Settings"]["EngramasCommandPrice"] == 7500
 
+    def test_save_notas_command_settings_via_config(self, client, tmp_path, monkeypatch):
+        config_path = tmp_path / "shop_config.json"
+        config_path.write_text(
+            json.dumps({
+                "Settings": {"ShopName": "Test Shop", "StartingPoints": 100},
+                "Items": {},
+                "Kits": {},
+            }),
+            encoding="utf-8",
+        )
+        _write_settings(tmp_path, config_path=str(config_path))
+        self._use_isolated_catalog(monkeypatch, config_path)
+
+        _login(client, ADMIN_STEAM)
+        r = client.post(
+            "/api/config",
+            json={
+                "Settings": {
+                    "ShopName": "Test Shop",
+                    "StartingPoints": 100,
+                    "NotasCommandPrice": 4200,
+                    "NotasCommandEnabled": False,
+                },
+                "Items": {},
+                "Kits": {},
+                "reload": False,
+            },
+        )
+        assert r.status_code == 200
+        assert r.get_json()["ok"] is True
+
+        _app_module._CONFIG_CACHE.clear()
+        saved_cfg = json.loads(config_path.read_text(encoding="utf-8"))
+        assert saved_cfg["Settings"]["NotasCommandPrice"] == 4200
+        assert saved_cfg["Settings"]["NotasCommandEnabled"] is False
+
 
 # ── Player summary & history ──────────────────────────────────────────────────
 

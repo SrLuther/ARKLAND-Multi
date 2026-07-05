@@ -12,6 +12,7 @@
 #include "TimedPoints.h"
 #include "ShopCrossChat.h"
 #include "ShopEngrams.h"
+#include "ShopNotes.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
@@ -722,6 +723,51 @@ void CmdAdminPlayers(APlayerController* pc, FString*, bool) {
     SendMsg(admin, FColorList::Yellow, std::to_string(count) + " player(s) online.");
 }
 
+void CmdUnlockAllExplorerNotes(APlayerController* pc, FString*, bool) {
+    auto* controller = static_cast<AShooterPlayerController*>(pc);
+    if (!controller) return;
+
+    if (CustomShop::Notes::UnlockAll(controller)) {
+        Log::GetLog()->info("Shop.UnlockAllExplorerNotes: completed");
+    } else {
+        Log::GetLog()->warn("Shop.UnlockAllExplorerNotes: failed");
+    }
+}
+
+void CmdNotas(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+
+    if (!CustomShop::ShopConfig::Get().NotasCommandEnabled()) {
+        SendMsg(controller, FColorList::Red,
+                "O comando /notas esta desativado no momento.");
+        return;
+    }
+
+    if (ArkApi::IApiUtils::IsPlayerDead(controller)) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel iniciar /notas. Voce precisa estar vivo.");
+        return;
+    }
+
+    if (!CustomShop::Notes::RequestUnlockAll(controller)) {
+        SendMsg(controller, FColorList::Red,
+                "Nao foi possivel iniciar /notas. Tente novamente.");
+        return;
+    }
+
+    const int price = CustomShop::ShopConfig::Get().NotasCommandPrice();
+    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
+    const int balance = CustomShop::ShopPoints::Get().GetPoints(sid);
+
+    SendMsg(controller, FColorList::Yellow,
+            "Custo: " + std::to_string(price) + " ambares. Saldo atual: "
+            + std::to_string(balance) + " ambares.");
+    SendMsg(controller, FColorList::Yellow,
+            "Desbloqueia todas as notas de explorador e as 200 runas de Fjordur.");
+    SendMsg(controller, FColorList::Yellow,
+            "Digite /confirmar em ate 2 minutos para concluir.");
+}
+
 void CmdEngramas(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
 
@@ -765,6 +811,7 @@ void Register() {
     ArkApi::GetCommands().AddChatCommand("/nuvem",         &CmdCloudStatus);
     ArkApi::GetCommands().AddChatCommand("/cloud",         &CmdCloudStatus);
     ArkApi::GetCommands().AddChatCommand("/engramas",      &CmdEngramas);
+    ArkApi::GetCommands().AddChatCommand("/notas",         &CmdNotas);
     ArkApi::GetCommands().AddOnChatMessageCallback(
         "CustomShopCloudChat", &OnCloudChatMessage);
 
@@ -787,6 +834,8 @@ void Register() {
     ArkApi::GetCommands().AddConsoleCommand("Shop.Debug",            &CmdAdminDebug);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Players",          &CmdAdminPlayers);
     ArkApi::GetCommands().AddConsoleCommand("Shop.UnlockAllEngrams", &CmdUnlockAllEngrams);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.UnlockAllExplorerNotes",
+                                            &CmdUnlockAllExplorerNotes);
 }
 
 void Unregister() {
@@ -799,6 +848,7 @@ void Unregister() {
     ShopMarket::UnregisterCommands();
     ArkApi::GetCommands().RemoveChatCommand("/cloud");
     ArkApi::GetCommands().RemoveChatCommand("/engramas");
+    ArkApi::GetCommands().RemoveChatCommand("/notas");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Upload");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Download");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Nuvem");
@@ -815,6 +865,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Debug");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Players");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.UnlockAllEngrams");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.UnlockAllExplorerNotes");
     ArkApi::GetCommands().RemoveChatCommand("/shop debug");
 }
 

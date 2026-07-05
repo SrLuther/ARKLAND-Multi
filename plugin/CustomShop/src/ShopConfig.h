@@ -57,6 +57,12 @@ public:
     /** Custo em ambares do comando /engramas (padrao 5000). */
     int         EngramasCommandPrice() const;
 
+    /** Custo em ambares do comando /notas (padrao 5000). */
+    int         NotasCommandPrice() const;
+
+    /** false = desativa /notas no jogo. */
+    bool        NotasCommandEnabled() const;
+
     /** true = /mercado spawna o dino no chao; false = entrega cryopod no inventario. */
     bool        MarketDeliverAsSpawn() const;
 

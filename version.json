@@ -1,8 +1,10 @@
 {
-    "version": "1.9.206",
+    "version": "1.9.207",
     "date": "2026-07-05",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.206/ARKLAND-Multi-Setup-v1.9.206.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.207/ARKLAND-Multi-Setup-v1.9.207.exe",
     "changelog": [
-        "Feature (Web Store / Sugestões): área Sugestões da Comunidade — jogadores enviam ideias de dinos, recursos e itens; admin avalia com status e nota; limite 3/dia; rota #/sugestoes."
+        "Feature (CustomShop / Notas): comando /notas desbloqueia todas as notas de explorador e as 200 runas de Fjordur via GiveAllExplorerNotes; custo configurável (Settings.NotasCommandPrice, padrão 5000) com confirmação /confirmar (TTL 2 min).",
+        "Feature (CustomShop): Shop.UnlockAllExplorerNotes para RCON/console e entrega da loja.",
+        "Melhoria (Web Store / Admin): campos Preço /notas e Ativar /notas nas configurações do CustomShop."
     ]
 }

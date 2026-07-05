@@ -9879,6 +9879,8 @@ function renderGeneral() {
         <div class="form-group"><label>Nome exibido (portal)</label><input id="g-shop-name" type="text" value="${escHtml(displayBrandName(s.ShopName || "ARKLAND Donations"))}" placeholder="ARKLAND Donations" /></div>
         <div class="form-group"><label>Âmbares iniciais</label><input id="g-starting-pts" type="number" value="${s.StartingPoints??100}" /></div>
         <div class="form-group"><label>Preço /engramas (âmbares)</label><input id="g-engramas-price" type="number" min="0" value="${s.EngramasCommandPrice??5000}" /></div>
+        <div class="form-group"><label>Preço /notas (âmbares)</label><input id="g-notas-price" type="number" min="0" value="${s.NotasCommandPrice??5000}" /></div>
+        <div class="toggle-row"><label>Ativar /notas</label><input type="checkbox" id="g-notas-enabled" ${s.NotasCommandEnabled!==false?"checked":""} /></div>
         <div class="form-group"><label>URL do Website</label><input id="g-website-url" type="text" value="${escHtml(s.WebsiteUrl||"")}" /></div>
         <div class="form-group"><label>URL da API Web</label><input id="g-webapi-url" type="text" value="${escHtml(s.WebApiUrl||"http://127.0.0.1:5177")}" /></div>
         <div class="form-group"><label>Chave API Web</label><input id="g-webapi-key" type="text" value="${escHtml(s.WebApiKey||"")}" /></div>
@@ -9958,6 +9960,9 @@ async function saveGeneral() {
   s.StartingPoints    = parseInt(document.getElementById("g-starting-pts").value) || 0;
   s.EngramasCommandPrice = parseInt(document.getElementById("g-engramas-price").value, 10);
   if (!Number.isFinite(s.EngramasCommandPrice) || s.EngramasCommandPrice < 0) s.EngramasCommandPrice = 5000;
+  s.NotasCommandPrice = parseInt(document.getElementById("g-notas-price").value, 10);
+  if (!Number.isFinite(s.NotasCommandPrice) || s.NotasCommandPrice < 0) s.NotasCommandPrice = 5000;
+  s.NotasCommandEnabled = document.getElementById("g-notas-enabled").checked;
   s.WebsiteUrl        = document.getElementById("g-website-url").value;
   s.WebApiUrl         = document.getElementById("g-webapi-url").value;
   s.WebApiKey         = document.getElementById("g-webapi-key").value;

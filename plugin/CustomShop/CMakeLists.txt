@@ -38,6 +38,8 @@ set(SOURCES
     src/ShopCryoDino.cpp
     src/ShopCryoReader.cpp
     src/ShopMarket.cpp
+    src/ShopEngrams.cpp
+    src/ShopNotes.cpp
 )
 
 add_library(CustomShop SHARED ${SOURCES})

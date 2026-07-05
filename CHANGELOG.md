@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.207] - 2026-07-05
+
+### Feature
+
+- Feature (CustomShop / Notas): comando /notas desbloqueia todas as notas de explorador e as 200 runas de Fjordur via GiveAllExplorerNotes; custo configurável (Settings.NotasCommandPrice, padrão 5000) com confirmação /confirmar (TTL 2 min).
+- Feature (CustomShop): Shop.UnlockAllExplorerNotes para RCON/console e entrega da loja.
+
+### Improvement
+
+- Melhoria (Web Store / Admin): campos Preço /notas e Ativar /notas nas configurações do CustomShop.
+
 ## [1.9.206] - 2026-07-05
 
 ### Feature

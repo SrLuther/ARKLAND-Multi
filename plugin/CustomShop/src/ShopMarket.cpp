@@ -5,6 +5,7 @@
 #include "ShopCryoReader.h"
 #include "ShopConfig.h"
 #include "ShopEngrams.h"
+#include "ShopNotes.h"
 #include "ShopPoints.h"
 #include "ShopPerms.h"
 #include "HttpClient.h"
@@ -396,6 +397,47 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
             msg += " (" + std::to_string(unlocked) + " novos)";
         if (price > 0)
             msg += " â€” " + std::to_string(price) + " ambares debitados.";
+        SendMsg(player, FColorList::Green, msg);
+        return;
+    }
+
+    if (Notes::HasPendingUnlock(sid)) {
+        int price = 0;
+        int balance = 0;
+        const auto result = Notes::ConfirmUnlockAll(sid, player, &price, &balance);
+
+        if (result == Notes::NotesConfirmResult::Expired) {
+            SendMsg(player, FColorList::Red,
+                    "Confirmacao de notas expirada. Use /notas novamente.");
+            return;
+        }
+        if (result == Notes::NotesConfirmResult::PaymentFailed) {
+            SendMsg(player, FColorList::Red,
+                    "Saldo insuficiente. Voce tem " + std::to_string(balance)
+                    + " ambares, mas sao necessarios " + std::to_string(price)
+                    + " para /notas.");
+            return;
+        }
+        if (result == Notes::NotesConfirmResult::UnlockFailed) {
+            SendMsg(player, FColorList::Red,
+                    "Nao foi possivel desbloquear as notas. Voce precisa estar vivo.");
+            return;
+        }
+        if (result == Notes::NotesConfirmResult::Disabled) {
+            SendMsg(player, FColorList::Red,
+                    "O comando /notas esta desativado no momento.");
+            return;
+        }
+        if (result != Notes::NotesConfirmResult::Ok) {
+            SendMsg(player, FColorList::Red,
+                    "Nenhuma confirmacao de notas pendente. Use /notas primeiro.");
+            return;
+        }
+
+        std::string msg =
+            "Todas as notas de explorador e runas de Fjordur foram desbloqueadas!";
+        if (price > 0)
+            msg += " — " + std::to_string(price) + " ambares debitados.";
         SendMsg(player, FColorList::Green, msg);
         return;
     }

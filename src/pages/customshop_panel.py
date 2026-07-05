@@ -96,6 +96,8 @@ def _load_config(path: Path) -> Dict[str, Any]:
                 "UiKey": "F3",
                 "StartingPoints": 100,
                 "EngramasCommandPrice": 5000,
+                "NotasCommandPrice": 5000,
+                "NotasCommandEnabled": True,
                 "DisableSellButton": True,
                 "DisableTradeButton": False,
                 "WebsiteUrl": "",
@@ -377,6 +379,8 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             "UiKey":                tk.StringVar(value=str(s.get("UiKey", "F3"))),
             "StartingPoints":       tk.StringVar(value=str(s.get("StartingPoints", 100))),
             "EngramasCommandPrice": tk.StringVar(value=str(s.get("EngramasCommandPrice", 5000))),
+            "NotasCommandPrice":    tk.StringVar(value=str(s.get("NotasCommandPrice", 5000))),
+            "NotasCommandEnabled":  tk.BooleanVar(value=bool(s.get("NotasCommandEnabled", True))),
             "WebsiteUrl":           tk.StringVar(value=str(s.get("WebsiteUrl", ""))),
             "DiscordUrl":           tk.StringVar(value=str(s.get("DiscordUrl", ""))),
             "OverrideCurrencyIcon": tk.StringVar(value=str(s.get("OverrideCurrencyIcon", ""))),
@@ -399,6 +403,9 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
                    hint="Pontos dados a novos jogadores", width=120)
         _field_row(card_cfg, "Preço /engramas",      _sv["EngramasCommandPrice"], bg=_INNER,
                    hint="Âmbares cobrados ao confirmar /engramas (padrão: 5000)", width=120)
+        _field_row(card_cfg, "Preço /notas",         _sv["NotasCommandPrice"], bg=_INNER,
+                   hint="Âmbares cobrados ao confirmar /notas (padrão: 5000)", width=120)
+        _bool_row(card_cfg, "Ativar comando /notas", _sv["NotasCommandEnabled"], bg=_INNER)
         _field_row(card_cfg, "URL do Website",       _sv["WebsiteUrl"],     bg=_INNER,
                    hint="Preenchida ao salvar — usa domínio público configurado na Web Store", width=260)
         _field_row(card_cfg, "URL do Discord",       _sv["DiscordUrl"],     bg=_INNER)
@@ -596,6 +603,8 @@ def build_customshop_panel(app: "ARKServerManagerApp", parent: tk.Widget) -> Non
             s_out["UiKey"]                = _sv["UiKey"].get()
             s_out["StartingPoints"]       = _safe_int(_sv["StartingPoints"].get(), 100)
             s_out["EngramasCommandPrice"] = _safe_int(_sv["EngramasCommandPrice"].get(), 5000)
+            s_out["NotasCommandPrice"]    = _safe_int(_sv["NotasCommandPrice"].get(), 5000)
+            s_out["NotasCommandEnabled"]  = bool(_sv["NotasCommandEnabled"].get())
             s_out["WebsiteUrl"]           = _sv["WebsiteUrl"].get()
             s_out["DiscordUrl"]           = _sv["DiscordUrl"].get()
             s_out["OverrideCurrencyIcon"] = _sv["OverrideCurrencyIcon"].get()
