@@ -737,7 +737,11 @@ void CmdUnlockAllExplorerNotes(APlayerController* pc, FString*, bool) {
 void CmdNotas(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
 
+    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
+    Log::GetLog()->info("CmdNotas: invoked steam_id={}", sid);
+
     if (!CustomShop::ShopConfig::Get().NotasCommandEnabled()) {
+        Log::GetLog()->warn("CmdNotas: disabled in config (steam_id={})", sid);
         SendMsg(controller, FColorList::Red,
                 "O comando /notas esta desativado no momento.");
         return;
@@ -756,7 +760,6 @@ void CmdNotas(AShooterPlayerController* controller, FString*, EChatSendMode::Typ
     }
 
     const int price = CustomShop::ShopConfig::Get().NotasCommandPrice();
-    const std::string sid = CustomShop::Bridge::GetSteamId(controller);
     const int balance = CustomShop::ShopPoints::Get().GetPoints(sid);
 
     SendMsg(controller, FColorList::Yellow,

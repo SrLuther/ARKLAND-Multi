@@ -97,6 +97,10 @@ bool RequestUnlockAll(AShooterPlayerController* controller) {
         std::lock_guard<std::mutex> lock(g_notes_pending_mutex);
         g_notes_pending[sid] = pending;
     }
+
+    Log::GetLog()->info(
+        "ShopNotes: /notas pending confirmation for steam_id={} (TTL 2 min, price={})",
+        sid, ShopConfig::Get().NotasCommandPrice());
     return true;
 }
 

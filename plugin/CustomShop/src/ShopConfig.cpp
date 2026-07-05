@@ -50,6 +50,12 @@ void ShopConfig::Load() {
         tp_enabled ? "yes" : "no",
         tp_interval,
         grp_summary.empty() ? "(none)" : grp_summary);
+
+    Log::GetLog()->info(
+        "ShopConfig: chat commands /engramas price={} /notas enabled={} price={}",
+        settings_.value("EngramasCommandPrice", 5000),
+        settings_.value("NotasCommandEnabled", true) ? "yes" : "no",
+        settings_.value("NotasCommandPrice", 5000));
 }
 
 int ShopConfig::StartingPoints() const {

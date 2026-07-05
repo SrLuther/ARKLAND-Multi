@@ -19,6 +19,7 @@ from typing import Any, Callable
 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from lottery_draw import (
@@ -340,6 +341,61 @@ def ensure_lottery_schema(engine: Engine) -> None:
         for stmt in stmts:
             conn.execute(text(stmt))
         conn.commit()
+    _migrate_lottery_columns(engine)
+
+
+def _migrate_lottery_columns(engine: Engine) -> None:
+    """Adiciona colunas ausentes em instalações parciais (MySQL/SQLite)."""
+    is_sqlite = "sqlite" in str(engine.url).lower()
+    campaign_cols = {
+        "prize_amber_from_purchases": "INTEGER NOT NULL DEFAULT 0",
+        "prize_amber_paid": "INTEGER NOT NULL DEFAULT 0",
+        "prize_amber_subsidy": "INTEGER NOT NULL DEFAULT 0",
+        "prize_pool_fully_distributed": "INTEGER NOT NULL DEFAULT 0",
+        "matched_winners_count": "INTEGER NOT NULL DEFAULT 0",
+        "prize_amber_rollover_out": "INTEGER NOT NULL DEFAULT 0",
+        "amber_random_price": "INTEGER NOT NULL DEFAULT 1000",
+        "amber_reserve_price": "INTEGER NOT NULL DEFAULT 2000",
+        "amber_random_max_per_player": "INTEGER NOT NULL DEFAULT 5",
+        "regulamento_version": "VARCHAR(16) NOT NULL DEFAULT '1.0'",
+        "allow_staff_participation": "INTEGER NOT NULL DEFAULT 1",
+        "auto_chain_enabled": "INTEGER NOT NULL DEFAULT 1",
+        "next_campaign_draw_offset_hours": "INTEGER NOT NULL DEFAULT 168",
+        "previous_campaign_id": "INTEGER NULL",
+        "completed_at": "DATETIME NULL",
+    }
+    number_cols = {
+        "amber_cost": "INTEGER NOT NULL DEFAULT 0",
+        "assigned_at": "DATETIME NULL",
+        "revoked_at": "DATETIME NULL",
+        "revoke_reason": "VARCHAR(64) NULL",
+    }
+    with engine.connect() as conn:
+        if is_sqlite:
+            existing_camp = {
+                str(r[1])
+                for r in conn.execute(text("PRAGMA table_info(lottery_campaigns)")).fetchall()
+            }
+            for col, ddl in campaign_cols.items():
+                if col not in existing_camp:
+                    conn.execute(text(f"ALTER TABLE lottery_campaigns ADD COLUMN {col} {ddl}"))
+            existing_num = {
+                str(r[1])
+                for r in conn.execute(text("PRAGMA table_info(lottery_numbers)")).fetchall()
+            }
+            for col, ddl in number_cols.items():
+                if col not in existing_num:
+                    conn.execute(text(f"ALTER TABLE lottery_numbers ADD COLUMN {col} {ddl}"))
+        else:
+            for col, ddl in campaign_cols.items():
+                row = conn.execute(text(f"SHOW COLUMNS FROM lottery_campaigns LIKE '{col}'")).fetchone()
+                if row is None:
+                    conn.execute(text(f"ALTER TABLE lottery_campaigns ADD COLUMN {col} {ddl}"))
+            for col, ddl in number_cols.items():
+                row = conn.execute(text(f"SHOW COLUMNS FROM lottery_numbers LIKE '{col}'")).fetchone()
+                if row is None:
+                    conn.execute(text(f"ALTER TABLE lottery_numbers ADD COLUMN {col} {ddl}"))
+        conn.commit()
 
 
 def _audit(db: Session, event_type: str, payload: dict[str, Any], *, campaign_id: int | None = None) -> None:
@@ -355,6 +411,13 @@ def _audit(db: Session, event_type: str, payload: dict[str, Any], *, campaign_id
             "now": _naive(_utcnow()),
         },
     )
+
+
+def _audit_safe(db: Session, event_type: str, payload: dict[str, Any], *, campaign_id: int | None = None) -> None:
+    try:
+        _audit(db, event_type, payload, campaign_id=campaign_id)
+    except Exception as exc:
+        log.warning("lottery audit %s falhou: %s", event_type, exc)
 
 
 def mask_display_name(name: str) -> str:
@@ -497,22 +560,55 @@ def _insert_number(
     payment_id: str | None = None,
     amber_cost: int = 0,
 ) -> None:
-    db.execute(
+    now = _naive(_utcnow())
+    existing = db.execute(
         text(
-            "INSERT INTO lottery_numbers "
-            "(campaign_id, steam_id, payment_id, source, number_value, amber_cost, status, assigned_at) "
-            "VALUES (:cid, :sid, :pid, :src, :num, :cost, 'ACTIVE', :now)"
+            "SELECT id, status FROM lottery_numbers "
+            "WHERE campaign_id = :cid AND number_value = :num LIMIT 1"
         ),
-        {
-            "cid": campaign_id,
-            "sid": steam_id,
-            "pid": payment_id,
-            "src": source,
-            "num": number_value,
-            "cost": amber_cost,
-            "now": _naive(_utcnow()),
-        },
-    )
+        {"cid": campaign_id, "num": number_value},
+    ).fetchone()
+    if existing:
+        status = str(existing.status)
+        if status == "ACTIVE":
+            raise ValueError("number_unavailable")
+        if status == "REVOKED":
+            db.execute(
+                text(
+                    "UPDATE lottery_numbers SET steam_id = :sid, payment_id = :pid, source = :src, "
+                    "amber_cost = :cost, status = 'ACTIVE', assigned_at = :now, "
+                    "revoked_at = NULL, revoke_reason = NULL WHERE id = :id"
+                ),
+                {
+                    "id": int(existing.id),
+                    "sid": steam_id,
+                    "pid": payment_id,
+                    "src": source,
+                    "cost": amber_cost,
+                    "now": now,
+                },
+            )
+            return
+        raise ValueError("number_unavailable")
+    try:
+        db.execute(
+            text(
+                "INSERT INTO lottery_numbers "
+                "(campaign_id, steam_id, payment_id, source, number_value, amber_cost, status, assigned_at) "
+                "VALUES (:cid, :sid, :pid, :src, :num, :cost, 'ACTIVE', :now)"
+            ),
+            {
+                "cid": campaign_id,
+                "sid": steam_id,
+                "pid": payment_id,
+                "src": source,
+                "num": number_value,
+                "cost": amber_cost,
+                "now": now,
+            },
+        )
+    except IntegrityError:
+        raise ValueError("number_unavailable") from None
 
 
 def _player_balance(db: Session, steam_id: str) -> int:
@@ -646,7 +742,7 @@ def buy_random_number(db: Session, steam_id: str) -> dict[str, Any]:
     )
     remaining = max_p - _random_purchase_count(db, cid, steam_id)
     row = _fetch_campaign_row(db, cid)
-    _audit(db, "lottery_amber_random_purchased", {"steam_id": steam_id, "number": n}, campaign_id=cid)
+    _audit_safe(db, "lottery_amber_random_purchased", {"steam_id": steam_id, "number": n}, campaign_id=cid)
     return {
         "number": {"value": n, "source": "AMBER_RANDOM", "amber_cost": price},
         "amber_random_remaining": remaining,
@@ -670,12 +766,12 @@ def reserve_number(db: Session, steam_id: str, number: int) -> dict[str, Any]:
         raise ValueError("insufficient_balance")
     taken = db.execute(
         text(
-            "SELECT id FROM lottery_numbers WHERE campaign_id = :cid AND number_value = :num "
-            "AND status = 'ACTIVE' LIMIT 1"
+            "SELECT id, status FROM lottery_numbers WHERE campaign_id = :cid AND number_value = :num "
+            "LIMIT 1"
         ),
         {"cid": cid, "num": number},
     ).fetchone()
-    if taken:
+    if taken and str(taken.status) == "ACTIVE":
         raise ValueError("number_unavailable")
     if _debit_fn is None:
         raise RuntimeError("lottery_not_configured")
@@ -689,13 +785,10 @@ def reserve_number(db: Session, steam_id: str, number: int) -> dict[str, Any]:
         )
     except Exception as exc:
         log.warning("Ledger lottery reserve: %s", exc)
-    try:
-        _insert_number(
-            db, campaign_id=cid, steam_id=steam_id, number_value=number,
-            source="AMBER_RESERVE", amber_cost=price,
-        )
-    except Exception:
-        raise ValueError("number_unavailable")
+    _insert_number(
+        db, campaign_id=cid, steam_id=steam_id, number_value=number,
+        source="AMBER_RESERVE", amber_cost=price,
+    )
     db.execute(
         text(
             "UPDATE lottery_campaigns SET prize_amber_from_purchases = prize_amber_from_purchases + :amt, "
@@ -704,7 +797,7 @@ def reserve_number(db: Session, steam_id: str, number: int) -> dict[str, Any]:
         {"amt": price, "now": _naive(_utcnow()), "id": cid},
     )
     row = _fetch_campaign_row(db, cid)
-    _audit(db, "lottery_amber_reserved", {"steam_id": steam_id, "number": number}, campaign_id=cid)
+    _audit_safe(db, "lottery_amber_reserved", {"steam_id": steam_id, "number": number}, campaign_id=cid)
     return {
         "number": {"value": number, "source": "AMBER_RESERVE", "amber_cost": price},
         "prize_amber_total": _prize_total(row) if row else 0,

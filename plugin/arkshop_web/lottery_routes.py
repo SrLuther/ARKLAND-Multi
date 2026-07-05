@@ -1,11 +1,13 @@
 """Rotas HTTP — Sorteio de Doações ARKLAND."""
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Callable
 
 from flask import Flask, jsonify, request
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from lottery_service import (
     LOTTERY_REGULAMENTO_VERSION,
@@ -26,6 +28,28 @@ from lottery_service import (
     reserve_number,
     update_campaign,
 )
+
+log = logging.getLogger("arkshop_web.lottery_routes")
+
+
+def _lottery_purchase_error_response(code: str, *, number: int | None = None) -> tuple[Any, int]:
+    status = 409 if code in ("pool_exhausted", "number_unavailable", "random_limit_reached") else 400
+    if code == "insufficient_balance":
+        status = 402
+    msgs = {
+        "lottery_disabled": "Sorteio desabilitado.",
+        "no_active_campaign": "Nenhuma campanha ativa.",
+        "random_limit_reached": "Limite de compras aleatórias atingido.",
+        "insufficient_balance": "Saldo insuficiente.",
+        "pool_exhausted": "Não há números disponíveis nesta campanha.",
+        "number_unavailable": (
+            f"O número {number} já está reservado nesta campanha." if number is not None
+            else "Este número já está reservado nesta campanha."
+        ),
+        "invalid_number": "Número deve estar entre 100 e 999.",
+        "lottery_not_configured": "Sorteio não configurado no servidor.",
+    }
+    return jsonify({"ok": False, "error": code, "message": msgs.get(code, code)}), status
 
 
 def _lottery_bundle_dir() -> Path:
@@ -173,18 +197,19 @@ def register_lottery_routes(
             return jsonify({"ok": True, **result})
         except ValueError as exc:
             db.rollback()
-            code = str(exc)
-            status = 409 if code in ("pool_exhausted", "number_unavailable", "random_limit_reached") else 400
-            if code == "insufficient_balance":
-                status = 402
-            msgs = {
-                "lottery_disabled": "Sorteio desabilitado.",
-                "no_active_campaign": "Nenhuma campanha ativa.",
-                "random_limit_reached": "Limite de compras aleatórias atingido.",
-                "insufficient_balance": "Saldo insuficiente.",
-                "pool_exhausted": "Não há números disponíveis nesta campanha.",
-            }
-            return jsonify({"ok": False, "error": code, "message": msgs.get(code, str(exc))}), status
+            return _lottery_purchase_error_response(str(exc))
+        except IntegrityError:
+            db.rollback()
+            return _lottery_purchase_error_response("number_unavailable")
+        except OperationalError as exc:
+            db.rollback()
+            log.exception("lottery buy-random db error: %s", exc)
+            return jsonify({"ok": False, "error": "database_error", "message": "Erro de banco ao comprar número."}), 503
+        except RuntimeError as exc:
+            db.rollback()
+            if str(exc) == "lottery_not_configured":
+                return _lottery_purchase_error_response("lottery_not_configured")
+            raise
         finally:
             db.close()
 
@@ -203,16 +228,19 @@ def register_lottery_routes(
             return jsonify({"ok": True, **result})
         except ValueError as exc:
             db.rollback()
-            code = str(exc)
-            status = 409 if code == "number_unavailable" else 400
-            if code == "insufficient_balance":
-                status = 402
-            msgs = {
-                "number_unavailable": f"O número {number} já está reservado nesta campanha.",
-                "insufficient_balance": "Saldo insuficiente.",
-                "invalid_number": "Número deve estar entre 100 e 999.",
-            }
-            return jsonify({"ok": False, "error": code, "message": msgs.get(code, str(exc))}), status
+            return _lottery_purchase_error_response(str(exc), number=number)
+        except IntegrityError:
+            db.rollback()
+            return _lottery_purchase_error_response("number_unavailable", number=number)
+        except OperationalError as exc:
+            db.rollback()
+            log.exception("lottery reserve db error steam=%s num=%s: %s", steam_id, number, exc)
+            return jsonify({"ok": False, "error": "database_error", "message": "Erro de banco ao reservar número."}), 503
+        except RuntimeError as exc:
+            db.rollback()
+            if str(exc) == "lottery_not_configured":
+                return _lottery_purchase_error_response("lottery_not_configured", number=number)
+            raise
         finally:
             db.close()
 

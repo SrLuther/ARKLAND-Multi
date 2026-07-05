@@ -236,3 +236,92 @@ def test_payment_hook_survives_lottery_error(monkeypatch):
         caught = True
     assert caught
     # Em _finalize_pix_payment o mesmo bloco está em try/except — pagamento segue
+
+
+def test_reserve_reclaims_revoked_slot(lottery_db):
+    cid = _active_campaign(lottery_db)
+    _credit(lottery_db, USER, 10000)
+    lottery_db.execute(
+        text(
+            "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status, amber_cost) "
+            "VALUES (:c, :s, 'DONATION', 777, 'REVOKED', 0)"
+        ),
+        {"c": cid, "s": USER2},
+    )
+    lottery_db.commit()
+    result = reserve_number(lottery_db, USER, 777)
+    lottery_db.commit()
+    assert result["number"]["value"] == 777
+    row = lottery_db.execute(
+        text(
+            "SELECT steam_id, source, status FROM lottery_numbers "
+            "WHERE campaign_id = :c AND number_value = 777"
+        ),
+        {"c": cid},
+    ).fetchone()
+    assert str(row.steam_id) == USER
+    assert str(row.source) == "AMBER_RESERVE"
+    assert str(row.status) == "ACTIVE"
+
+
+def test_reserve_insufficient_balance(lottery_db):
+    _active_campaign(lottery_db)
+    _credit(lottery_db, USER, 100)
+    lottery_db.commit()
+    with pytest.raises(ValueError, match="insufficient_balance"):
+        reserve_number(lottery_db, USER, 444)
+
+
+def test_lottery_reserve_http_route(tmp_path, monkeypatch):
+    """POST /api/player/lottery/reserve/{n} — fluxo HTTP completo."""
+    settings_file = tmp_path / "lottery_http_settings.json"
+    settings_file.write_text(json.dumps({"lottery_enabled": True}), encoding="utf-8")
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    monkeypatch.setattr(_app_module, "_migrate_schema", lambda _engine: None)
+
+    from app import app, _configure_database
+    from amber_ledger import ensure_amber_schema
+
+    db_path = tmp_path / "lottery_http.db"
+    _configure_database(f"sqlite:///{db_path}")
+    ensure_lottery_schema(_app_module._ENGINE)
+    ensure_amber_schema(_app_module._ENGINE, run_backfill=False)
+    with _app_module._ENGINE.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS players ("
+                "steam_id TEXT PRIMARY KEY, points INTEGER DEFAULT 0, kits TEXT DEFAULT '{}')"
+            )
+        )
+        conn.commit()
+    configure_lottery(
+        credit_fn=_app_module._add_player_points_tx,
+        debit_fn=_app_module._subtract_player_points_tx,
+        settings_fn=_app_module._load_settings,
+    )
+    db = _app_module._SessionLocal()
+    try:
+        db.execute(
+            text("INSERT INTO players (steam_id, points, kits) VALUES (:s, 50000, '{}')"),
+            {"s": USER},
+        )
+        draw = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+        camp = create_campaign_draft(db, data={"draw_at": draw, "prize_amber_base": 5000})
+        publish_campaign(db, int(camp["id"]))
+        db.commit()
+    finally:
+        db.close()
+    _app_module._DB_INITIALIZED = True
+
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        with client.session_transaction() as sess:
+            sess["steam_id"] = USER
+        ok = client.post("/api/player/lottery/reserve/321")
+        assert ok.status_code == 200
+        body = ok.get_json()
+        assert body["ok"] is True
+        assert body["number"]["value"] == 321
+        dup = client.post("/api/player/lottery/reserve/321")
+        assert dup.status_code == 409
+        assert dup.get_json()["error"] == "number_unavailable"

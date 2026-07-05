@@ -1314,6 +1314,12 @@ def _migrate_schema(engine: Any) -> None:
             ensure_amber_schema(engine)
         except Exception as exc:
             log.warning("Âmbarômetro (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from lottery_service import ensure_lottery_schema
+
+            ensure_lottery_schema(engine)
+        except Exception as exc:
+            log.warning("Sorteio (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -2273,13 +2279,10 @@ def _catalog_kit_options() -> list[dict[str, Any]]:
 def _subtract_player_points_tx(db: Any, steam_id: str, amount: int) -> int:
     if amount <= 0:
         raise ValueError("amount must be positive")
-    row = db.execute(
-        text("SELECT points FROM players WHERE steam_id = :sid"),
-        {"sid": steam_id},
-    ).fetchone()
-    current = int(row[0]) if row else 0
-    new_balance = max(0, current - amount)
-    return _set_player_points_tx(db, steam_id, new_balance)
+    current = _player_points_tx(db, steam_id)
+    if current < amount:
+        raise ValueError("insufficient_balance")
+    return _set_player_points_tx(db, steam_id, current - amount)
 
 
 def _admin_player_points_adjust(

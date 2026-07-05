@@ -5,6 +5,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.213] - 2026-07-05
+
+### Improvement
+
+- Melhoria (CustomShop / Config): template config.json inclui EngramasCommandPrice, NotasCommandPrice (5000) e NotasCommandEnabled (true) em Settings.
+
+### Fix
+
+- Fix (CustomShop / Notas): /notas exige CustomShop.dll recompilado (>= 1.9.207) implantado em cada mapa — releases anteriores podiam empacotar DLL antiga se o build C++ falhasse; logging de diagnóstico em CmdNotas, ShopNotes e ShopConfig.
+
+## [1.9.212] - 2026-07-05
+
+### Fix
+
+- Fix (Web Store / Sorteio): reserva de número específico retornava HTTP 500 — reutiliza slots REVOKED, trata IntegrityError no commit, migra colunas ausentes do schema MySQL e isola falha de auditoria/ledger.
+- Fix (Web Store / Sorteio): débito de Âmbares na reserva/compra passa a retornar 402 (saldo insuficiente) em vez de permitir saldo zerado silenciosamente.
+
 ## [1.9.211] - 2026-07-05
 
 ### Feature
