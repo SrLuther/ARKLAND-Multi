@@ -6760,9 +6760,24 @@
                 <label>Ticket (opcional)</label>
                 <input id="dl-ticket-id" type="text" placeholder="#4521" />
               </div>
-              <div class="form-group">
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>Origem da espécie</label>
+                <div class="catalog-tabs" style="margin:0;">
+                  <button type="button" class="catalog-tab active" data-dl-species-mode="catalog" onclick="setDinoLabSpeciesMode('catalog')">Espécie do catálogo</button>
+                  <button type="button" class="catalog-tab" data-dl-species-mode="manual" onclick="setDinoLabSpeciesMode('manual')">Blueprint manual</button>
+                </div>
+              </div>
+              <div class="form-group" id="dl-species-catalog-wrap">
                 <label>Espécie</label>
                 <select id="dl-species"></select>
+              </div>
+              <div class="form-group hidden" id="dl-species-manual-wrap" style="grid-column:1/-1;">
+                <label>Blueprint do dino</label>
+                <input id="dl-species-blueprint" type="text" placeholder="Blueprint'/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP' ou /Game/..." />
+              </div>
+              <div class="form-group hidden" id="dl-species-display-wrap">
+                <label>Nome exibido (opcional)</label>
+                <input id="dl-species-display" type="text" placeholder="Rex custom mod XYZ" />
               </div>
               <div class="form-group">
                 <label>Nível</label>
@@ -11229,6 +11244,17 @@ async function loadLotteryAdmin() {
 }
 
 let _dinoLabSpecies = [];
+let _dinoLabSpeciesMode = "catalog";
+
+function setDinoLabSpeciesMode(mode) {
+  _dinoLabSpeciesMode = mode === "manual" ? "manual" : "catalog";
+  document.querySelectorAll("[data-dl-species-mode]").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-dl-species-mode") === _dinoLabSpeciesMode);
+  });
+  document.getElementById("dl-species-catalog-wrap")?.classList.toggle("hidden", _dinoLabSpeciesMode === "manual");
+  document.getElementById("dl-species-manual-wrap")?.classList.toggle("hidden", _dinoLabSpeciesMode !== "manual");
+  document.getElementById("dl-species-display-wrap")?.classList.toggle("hidden", _dinoLabSpeciesMode !== "manual");
+}
 
 function setDinoLabTab(tab) {
   document.querySelectorAll("[data-dinolab-tab]").forEach(btn => {
@@ -11257,9 +11283,8 @@ function _dinoLabFormBody() {
     colors.push(parseInt(document.getElementById(`dl-color-${i}`)?.value || "0", 10));
   }
   const ticketRaw = document.getElementById("dl-ticket-id")?.value?.trim() || "";
-  return {
+  const body = {
     steam_id: document.getElementById("dl-steam-id")?.value?.trim(),
-    species_key: document.getElementById("dl-species")?.value,
     level: parseInt(document.getElementById("dl-level")?.value || "150", 10),
     gender: document.getElementById("dl-gender")?.value,
     neutered: !!document.getElementById("dl-neutered")?.checked,
@@ -11268,6 +11293,14 @@ function _dinoLabFormBody() {
     note: document.getElementById("dl-note")?.value?.trim(),
     ticket_id: ticketRaw.replace(/^#/, "") || null,
   };
+  if (_dinoLabSpeciesMode === "manual") {
+    body.species_blueprint = document.getElementById("dl-species-blueprint")?.value?.trim();
+    const displayName = document.getElementById("dl-species-display")?.value?.trim();
+    if (displayName) body.species_display_name = displayName;
+  } else {
+    body.species_key = document.getElementById("dl-species")?.value;
+  }
+  return body;
 }
 
 async function dinoLabPreviewPayload() {
@@ -11291,6 +11324,14 @@ async function dinoLabPreviewPayload() {
 async function dinoLabSubmitDeliver() {
   const body = _dinoLabFormBody();
   if (!body.steam_id) { toast("Informe o Steam ID do jogador.", "error"); return; }
+  if (_dinoLabSpeciesMode === "manual" && !body.species_blueprint) {
+    toast("Informe o blueprint do dino.", "error");
+    return;
+  }
+  if (_dinoLabSpeciesMode === "catalog" && !body.species_key) {
+    toast("Selecione uma espécie do catálogo.", "error");
+    return;
+  }
   if (!confirm(`Enfileirar entrega customizada para ${body.steam_id}?`)) return;
   try {
     const d = await fetchJson("/api/admin/custom-dino/deliver", {
@@ -11348,15 +11389,16 @@ async function loadDinoLabAdmin() {
     if (banner) banner.classList.remove("hidden");
   }
   const sel = document.getElementById("dl-species");
-  if (sel && !sel.options.length) {
+  if (sel) {
     try {
       const sp = await fetchJson("/api/admin/custom-dino/species?vanilla_only=1");
       _dinoLabSpecies = sp.species || [];
       sel.innerHTML = _dinoLabSpecies.map(s =>
         `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name)} (${escHtml(s.mod_source)})</option>`
-      ).join("") || "<option value=\"\">Nenhuma espécie</option>";
+      ).join("") || "<option value=\"\">Nenhuma espécie homologada</option>";
     } catch (e) {
-      sel.innerHTML = `<option value="">Erro ao carregar espécies</option>`;
+      const msg = e?.data?.message || e?.data?.error || e?.message || "erro desconhecido";
+      sel.innerHTML = `<option value="">Erro ao carregar espécies: ${escHtml(String(msg))}</option>`;
     }
   }
   loadDinoLabHistory();

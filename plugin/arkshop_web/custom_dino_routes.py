@@ -58,8 +58,6 @@ def register_custom_dino_routes(
     @app.route("/api/admin/custom-dino/species", methods=["GET"])
     @_gate
     def custom_dino_admin_species():
-        if not db_ready():
-            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         vanilla_only = request.args.get("vanilla_only", "").lower() in ("1", "true", "yes")
         return jsonify({
             "ok": True,

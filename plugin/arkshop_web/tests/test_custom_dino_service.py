@@ -15,6 +15,7 @@ from custom_dino_service import (
     create_custom_dino_order,
     ensure_custom_dino_schema,
     list_custom_dino_orders_admin,
+    list_species_admin,
     mark_custom_dino_delivered,
     validate_payload,
 )
@@ -80,6 +81,8 @@ def _valid_body(**overrides):
         "note": "Compensação suporte ticket teste",
     }
     body.update(overrides)
+    if "species_key" in overrides and overrides["species_key"] is None:
+        body.pop("species_key", None)
     return body
 
 
@@ -92,9 +95,83 @@ def test_validate_payload_rex():
     assert "Blueprint'" in payload["species_blueprint"]
 
 
+def test_list_species_admin_catalog_fallback(monkeypatch):
+    monkeypatch.setattr(
+        "custom_dino_service._species_catalog",
+        lambda: {
+            "rex": {
+                "display_name": "Rex",
+                "mod_source": "vanilla",
+                "reference_catalog_item_id": "rex_femea",
+            },
+            "indominus": {
+                "display_name": "Indominus Rex",
+                "mod_source": "indominus_rex",
+                "blueprint_path": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
+            },
+        },
+    )
+    monkeypatch.setattr(
+        "custom_dino_service._blueprint_from_catalog",
+        lambda defn: "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
+        if defn.get("reference_catalog_item_id") == "rex_femea"
+        else "",
+    )
+    vanilla = list_species_admin(vanilla_only=True)
+    assert [s["species_key"] for s in vanilla] == ["rex"]
+    all_items = list_species_admin(vanilla_only=False)
+    assert {s["species_key"] for s in all_items} == {"rex", "indominus"}
+
+
 def test_validate_rejects_short_note():
     _, err = validate_payload(_valid_body(note="curto"))
     assert err is not None
+
+
+def test_validate_payload_manual_blueprint():
+    bp = "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
+    payload, err = validate_payload(_valid_body(
+        species_key=None,
+        species_blueprint=bp,
+        species_display_name="Rex manual teste",
+    ))
+    assert err is None
+    assert payload is not None
+    assert payload["species_key"] == "custom"
+    assert payload["species_display_name"] == "Rex manual teste"
+    assert payload["mod_source"] == "manual"
+    assert payload["species_blueprint"] == f"Blueprint'{bp}'"
+
+    payload2, err2 = validate_payload(_valid_body(
+        species_key=None,
+        species_blueprint=f"Blueprint'{bp}'",
+    ))
+    assert err2 is None
+    assert payload2["species_display_name"] == "custom"
+
+    _, err3 = validate_payload(_valid_body(species_key=None, species_blueprint="invalid/path"))
+    assert err3 is not None
+
+
+def test_create_and_claim_manual_blueprint(custom_dino_db):
+    bp = "/Game/Mods/Custom/Dino_BP.Dino_BP"
+    payload, _ = validate_payload(_valid_body(
+        species_key=None,
+        species_blueprint=bp,
+        species_display_name="Dino mod teste",
+    ))
+    result = create_custom_dino_order(
+        custom_dino_db,
+        steam_id=USER,
+        payload=payload,
+        admin_steam_id=ADMIN,
+    )
+    custom_dino_db.commit()
+    claimed = claim_custom_dino_orders(custom_dino_db, USER)
+    custom_dino_db.commit()
+    assert len(claimed) == 1
+    assert claimed[0]["payload"]["species_blueprint"] == f"Blueprint'{bp}'"
+    assert claimed[0]["payload"]["mod_source"] == "manual"
 
 
 def test_create_and_claim_custom_dino(custom_dino_db):

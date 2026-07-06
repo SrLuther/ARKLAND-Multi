@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.1] - 2026-07-06
+
+### Feature
+
+- Feature (Dino Lab): modo Blueprint manual na web — colar Blueprint'/Game/...' ou /Game/... para dinos de mod ou fora da lista homologada.
+
+### Fix
+
+- Fix (Dino Lab): dropdown de especies falhava ao carregar — fallback de blueprint via catalogo CustomShop e rota /species sem exigir banco.
+
 ## [1.10.0] - 2026-07-06
 
 ### Feature

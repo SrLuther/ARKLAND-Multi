@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.0"
+APP_VERSION: str = "1.10.1"
 BUILD_DATE: str = "2026-07-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.1",
+        "date": "2026-07-06",
+        "changes": [
+            "Fix (Dino Lab): dropdown de especies falhava ao carregar — fallback de blueprint via catalogo "
+            "CustomShop e rota /species sem exigir banco.",
+            "Feature (Dino Lab): modo Blueprint manual na web — colar Blueprint'/Game/...' ou /Game/... "
+            "para dinos de mod ou fora da lista homologada.",
+        ],
+    },
     {
         "version": "1.10.0",
         "date": "2026-07-06",

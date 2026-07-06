@@ -83,6 +83,16 @@ def _format_blueprint(path: str) -> str:
     return f"Blueprint'{p}'"
 
 
+def _is_valid_blueprint_raw(path: str) -> bool:
+    p = (path or "").strip()
+    if not p:
+        return False
+    if p.startswith("Blueprint'") and p.endswith("'"):
+        inner = p[10:-1].strip()
+        return bool(inner) and inner.startswith("/Game/")
+    return p.startswith("/Game/") and len(p) > 6
+
+
 def _species_catalog() -> dict[str, dict[str, Any]]:
     try:
         from market_economy import load_default_species_map
@@ -96,7 +106,7 @@ def _species_catalog() -> dict[str, dict[str, Any]]:
 def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
     for key, defn in sorted(_species_catalog().items(), key=lambda kv: str(kv[1].get("display_name") or kv[0])):
-        bp = str(defn.get("blueprint_path") or "").strip()
+        bp = str(defn.get("blueprint_path") or "").strip() or _blueprint_from_catalog(defn)
         if not bp:
             continue
         mod = str(defn.get("mod_source") or "vanilla")
@@ -149,10 +159,29 @@ def _resolve_species(species_key: str) -> dict[str, Any] | None:
 
 
 def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tuple[dict[str, Any] | None, str | None]:
+    species_blueprint_raw = str(body.get("species_blueprint") or "").strip()
     species_key = str(body.get("species_key") or "").strip()
-    species = _resolve_species(species_key)
-    if not species:
-        return None, "Espécie inválida ou sem blueprint homologado."
+
+    if species_blueprint_raw:
+        if not _is_valid_blueprint_raw(species_blueprint_raw):
+            return None, "Blueprint inválido (use Blueprint'/Game/...' ou /Game/...)."
+        resolved_blueprint = _format_blueprint(species_blueprint_raw)
+        species_key = species_key or "custom"
+        display_name = (
+            str(body.get("species_display_name") or "").strip()
+            or species_key
+            or "Custom"
+        )
+        mod_source = "manual"
+    elif species_key:
+        species = _resolve_species(species_key)
+        if not species:
+            return None, "Espécie inválida ou sem blueprint homologado."
+        resolved_blueprint = species["species_blueprint"]
+        display_name = species["display_name"]
+        mod_source = species["mod_source"]
+    else:
+        return None, "Informe species_key ou species_blueprint."
 
     try:
         level = int(body.get("level", DEFAULT_LEVEL))
@@ -198,10 +227,10 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
 
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "species_blueprint": species["species_blueprint"],
+        "species_blueprint": resolved_blueprint,
         "species_key": species_key,
-        "species_display_name": species["display_name"],
-        "mod_source": species["mod_source"],
+        "species_display_name": display_name,
+        "mod_source": mod_source,
         "level": level,
         "gender": gender,
         "neutered": bool(body.get("neutered")),
