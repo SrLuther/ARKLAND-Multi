@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.217] - 2026-07-05
+
+### Feature
+
+- Feature (Web Store / Sorteio admin): relatorio da campanha ativa com numeros usados/disponiveis, participantes e nicks Steam; botao Ver relatorio na administracao de sorteios; API GET /api/admin/lottery/campaigns/{id}/report.
+
 ## [1.9.216] - 2026-07-05
 
 ### Fix
