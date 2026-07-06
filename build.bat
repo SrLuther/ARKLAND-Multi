@@ -108,6 +108,22 @@ if exist "%~dp0plugin\CustomShop\build_cl.bat" (
 )
 echo.
 
+echo [1c/4] Compilando CustomDinoDeliver.dll...
+if exist "%~dp0plugin\CustomDinoDeliver\build_cl.bat" (
+    pushd "%~dp0plugin\CustomDinoDeliver"
+    call build_cl.bat
+    set CD_BUILD=!errorlevel!
+    popd
+    if !CD_BUILD! neq 0 (
+        echo [AVISO] build CustomDinoDeliver falhou — usando DLL existente em plugin\CustomDinoDeliver\bin\
+    ) else (
+        echo       CustomDinoDeliver.dll atualizado em plugin\CustomDinoDeliver\bin\
+    )
+) else (
+    echo [AVISO] plugin\CustomDinoDeliver\build_cl.bat nao encontrado — pulando compile do plugin.
+)
+echo.
+
 :: -- Gera o execut?vel --------------------------------------------------------
 echo [2/4] Gerando executavel com PyInstaller (modo onefile)...
 "%PYTHON%" -m PyInstaller --noconfirm "%~dp0ARKLAND-Multi.spec"

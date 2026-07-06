@@ -44,13 +44,15 @@ from ..shop_integration import (
     get_local_ip,
     get_shop_subprocess_env,
     install_customshop_all,
+    install_customdino_all,
     is_customshop_installed,
+    is_customdino_installed,
     iter_shop_rcon_servers,
     iter_shop_servers,
     persist_webstore_steam_api_key_setting,
     provision_permission_groups_for_servers,
     read_webstore_log_tail,
-    reload_customshop_via_rcon_for_app,
+    reload_shop_plugins_via_rcon_for_app,
     resolve_central_url,
     resolve_plugin_api_url,
     resolve_plugin_website_url,
@@ -2056,6 +2058,42 @@ def _build_webstore_tab(
         except AttributeError:
             messagebox.showinfo("Instalar CustomShop", msg)
 
+    def _install_customdino() -> None:
+        if not _validate_shared_shop_requirements():
+            return
+        asm_cm = getattr(app, "asm_config_manager", None)
+        targets = iter_shop_servers(app.config_manager, asm_cm)
+        if not targets:
+            messagebox.showwarning("Instalar", "Nenhum servidor cadastrado no app.")
+            return
+        if not messagebox.askyesno(
+            "Instalar CustomDinoDeliver",
+            f"Copiar CustomDinoDeliver.dll para {len(targets)} servidor(es)?\n\n"
+            "Plugin de entrega do Dino Lab (dinossauros customizados com cores).\n"
+            "config.json existente não será sobrescrito.",
+        ):
+            return
+        ok, errs = install_customdino_all(
+            app.config_manager, asm_cm, overwrite_dlls=True,
+        )
+        _save_shop_from_ui()
+        shop_cfg = app.config_manager.config.shop
+        catalog = get_catalog()
+        sync_ok, sync_errs = sync_all_plugins(
+            app.config_manager, shop_cfg, catalog, get_catalog_path(),
+            asm_cm=asm_cm,
+        )
+        msg = f"{len(ok)} servidor(es) com CustomDinoDeliver instalado."
+        if sync_ok:
+            msg += f" Config sincronizado em {len(sync_ok)}."
+        all_errs = list(errs) + list(sync_errs)
+        if all_errs:
+            msg += "\n" + "\n".join(all_errs[:5])
+        try:
+            app._show_toast(msg[:120], "success" if ok else "warning")  # type: ignore[attr-defined]
+        except AttributeError:
+            messagebox.showinfo("Instalar CustomDinoDeliver", msg)
+
     def _reload_customshop_all_servers() -> None:
         if not _validate_shared_shop_requirements():
             return
@@ -2077,11 +2115,11 @@ def _build_webstore_tab(
             app.config_manager, shop, catalog, get_catalog_path(),
             asm_cm=asm_cm,
         )
-        rcon_ok, rcon_errs, rcon_skips = reload_customshop_via_rcon_for_app(app)
+        rcon_ok, rcon_errs, rcon_skips = reload_shop_plugins_via_rcon_for_app(app)
 
         lines = [
             f"Sincronizados: {len(sync_ok)} plugin(s)",
-            f"Reload RCON OK: {len(rcon_ok)} servidor(es)",
+            f"Reload RCON OK (Shop + Dino Lab): {len(rcon_ok)} comando(s)",
         ]
         if rcon_skips:
             lines.append(f"Ignorados: {len(rcon_skips)}")
@@ -2161,6 +2199,9 @@ def _build_webstore_tab(
     ctk.CTkButton(act_row, text="📦  Instalar CustomShop",
                   height=34, fg_color="#1a4a6a", hover_color="#1a5a8a",
                   command=_install_customshop).pack(side="left", padx=(0, 10))
+    ctk.CTkButton(act_row, text="🦕  Instalar Dino Lab",
+                  height=34, fg_color="#1a4a3a", hover_color="#1a5a4a",
+                  command=_install_customdino).pack(side="left", padx=(0, 10))
     ctk.CTkButton(act_row, text="🔄  Aplicar em todos os plugins",
                   height=34, fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
                   command=_apply_plugins).pack(side="left", padx=(0, 10))

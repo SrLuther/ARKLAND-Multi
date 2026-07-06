@@ -1,0 +1,7 @@
+{
+  "WebApiUrl": "http://127.0.0.1:5177",
+  "WebApiKey": "",
+  "PollIntervalSeconds": 60,
+  "GroundFallbackOnFullInventory": true,
+  "CryoItemPath": ""
+}

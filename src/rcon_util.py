@@ -6,6 +6,11 @@ CUSTOMSHOP_RELOAD_COMMANDS: tuple[str, ...] = (
     "Shop.Reload",
 )
 
+# Comandos de reload do CustomDinoDeliver (plugin registra DinoDeliver.Reload).
+CUSTOMDINO_RELOAD_COMMANDS: tuple[str, ...] = (
+    "DinoDeliver.Reload",
+)
+
 
 def sanitize_rcon_password(password: str | None) -> str:
     """Remove sufixo corrompido ?ServerPassword= que o engine ARK pode gravar no INI."""

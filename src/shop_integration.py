@@ -30,6 +30,9 @@ _PERM_CONFIG_TEMPLATE = _PROJECT_ROOT / "plugin" / "Permissions" / "configs" / "
 _PERM_DB_NAME = "ark_permission"
 _PERM_PASSWORD_PLACEHOLDER = "SUA_SENHA_AQUI"
 _DEV_BIN_DIR = _PROJECT_ROOT / "plugin" / "CustomShop" / "bin"
+_DEV_DINO_BIN_DIR = _PROJECT_ROOT / "plugin" / "CustomDinoDeliver" / "bin"
+_PLUGIN_INFO_DINO = _PROJECT_ROOT / "plugin" / "CustomDinoDeliver" / "configs" / "PluginInfo.json"
+_DEFAULT_DINO_CONFIG = _PROJECT_ROOT / "plugin" / "CustomDinoDeliver" / "configs" / "config.json"
 DEFAULT_SHOP_PUBLIC_URL = "https://arkland.com.br"
 DEFAULT_SHOP_PORT = 27199
 DEFAULT_REMOTE_SHOP_HOST = "192.168.15.51"
@@ -38,6 +41,7 @@ _ARKSHOP_WEB_DIR = _PROJECT_ROOT / "plugin" / "arkshop_web"
 _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
 _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
 _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
+_CUSTOMDINO_DLLS = ("CustomDinoDeliver.dll",)
 logger = logging.getLogger(__name__)
 
 _INSTALLED_CATALOG_REL = Path("plugin") / "CustomShop" / "configs" / "config.json"
@@ -1013,6 +1017,18 @@ def customshop_plugin_dir(install_dir: str) -> Path:
     )
 
 
+def customdino_plugin_dir(install_dir: str) -> Path:
+    return (
+        Path(install_dir)
+        / "ShooterGame"
+        / "Binaries"
+        / "Win64"
+        / "ArkApi"
+        / "Plugins"
+        / "CustomDinoDeliver"
+    )
+
+
 def permissions_plugin_dir(install_dir: str) -> Path:
     return (
         Path(install_dir)
@@ -1058,6 +1074,12 @@ def default_customshop_path(install_dir: str) -> str:
     return str(customshop_plugin_dir(install_dir) / "config.json")
 
 
+def default_customdino_path(install_dir: str) -> str:
+    if not install_dir or not install_dir.strip():
+        return ""
+    return str(customdino_plugin_dir(install_dir) / "config.json")
+
+
 def bundled_customshop_root() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys._MEIPASS) / "plugins"  # type: ignore[attr-defined]
@@ -1090,6 +1112,86 @@ def bundled_customshop_files() -> Dict[str, Path]:
             pass
 
     return found
+
+
+def bundled_customdino_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "plugins"  # type: ignore[attr-defined]
+    return _DEV_DINO_BIN_DIR
+
+
+def bundled_customdino_files() -> Dict[str, Path]:
+    """Localiza CustomDinoDeliver.dll no bundle PyInstaller ou bin/ do projeto."""
+    candidates: list[Path] = [bundled_customdino_root(), _DEV_DINO_BIN_DIR]
+    if getattr(sys, "frozen", False):
+        candidates.append(Path(sys.executable).resolve().parent / "plugins")
+
+    found: Dict[str, Path] = {}
+    for name in _CUSTOMDINO_DLLS:
+        for root in candidates:
+            p = root / name
+            if p.is_file():
+                found[name] = p
+                break
+    return found
+
+
+def is_customdino_installed(install_dir: str) -> bool:
+    if not install_dir or not install_dir.strip():
+        return False
+    return (customdino_plugin_dir(install_dir) / "CustomDinoDeliver.dll").is_file()
+
+
+def install_customdino_to_server(
+    install_dir: str,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Copia CustomDinoDeliver.dll + PluginInfo/config padrão."""
+    ok: List[str] = []
+    notes: List[str] = []
+
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+
+    root = Path(install_dir)
+    if not root.is_dir():
+        return ok, [f"pasta não encontrada: {install_dir}"]
+
+    bundled = bundled_customdino_files()
+    if "CustomDinoDeliver.dll" not in bundled:
+        return ok, [
+            "CustomDinoDeliver.dll não encontrado no bundle do app — "
+            "compile plugin/CustomDinoDeliver ou reinstale o ARKLAND Multi"
+        ]
+
+    dest = customdino_plugin_dir(install_dir)
+    dest.mkdir(parents=True, exist_ok=True)
+
+    for name, src in bundled.items():
+        target = dest / name
+        if target.is_file() and not overwrite_dlls:
+            ok.append(f"{name} (já existia)")
+        else:
+            shutil.copy2(src, target)
+            ok.append(f"{name} → Plugins/CustomDinoDeliver/")
+
+    if _PLUGIN_INFO_DINO.is_file():
+        info_dest = dest / "PluginInfo.json"
+        if not info_dest.is_file() or overwrite_dlls:
+            shutil.copy2(_PLUGIN_INFO_DINO, info_dest)
+            ok.append("PluginInfo.json")
+
+    cfg_dest = dest / "config.json"
+    if not cfg_dest.is_file():
+        template = _DEFAULT_DINO_CONFIG if _DEFAULT_DINO_CONFIG.is_file() else _DEV_DINO_BIN_DIR / "config.json"
+        if template.is_file():
+            shutil.copy2(template, cfg_dest)
+            ok.append("config.json (padrão)")
+        else:
+            notes.append("config.json padrão não encontrado no app")
+
+    return ok, notes
 
 
 def customshop_install_diagnostics(install_dir: str) -> list[str]:
@@ -1514,6 +1616,94 @@ def reload_customshop_via_rcon_for_app(
     return ok, failed, skipped
 
 
+def reload_customdino_via_rcon_for_app(
+    app: Any,
+    *,
+    require_running: bool = True,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Envia DinoDeliver.Reload via RCON para todos os servidores da loja."""
+    from .mod_server_bridge import mod_get_status
+    from .rcon_client import RconClient
+    from .rcon_util import CUSTOMDINO_RELOAD_COMMANDS, sanitize_rcon_password
+    from .server_config import SERVER_STATUS_RUNNING
+
+    asm_cm = getattr(app, "asm_config_manager", None)
+    servers = iter_shop_rcon_servers(app.config_manager, asm_cm)
+    ok: List[str] = []
+    failed: List[str] = []
+    skipped: List[str] = []
+    commands = list(CUSTOMDINO_RELOAD_COMMANDS)
+
+    for _kind, srv in servers:
+        name = getattr(srv, "name", "") or getattr(srv, "id", "") or "Servidor"
+        if getattr(srv, "shop_exclude", False):
+            skipped.append(f"{name}: excluído da loja")
+            continue
+        if not getattr(srv, "rcon_enabled", False):
+            skipped.append(f"{name}: RCON desativado")
+            continue
+        rcon_pass = sanitize_rcon_password(
+            getattr(srv, "rcon_password", "") or getattr(srv, "admin_password", "") or ""
+        )
+        if not rcon_pass:
+            skipped.append(f"{name}: senha RCON/admin não definida")
+            continue
+
+        sid = str(getattr(srv, "id", "") or "")
+        if require_running and sid:
+            if mod_get_status(app, sid) != SERVER_STATUS_RUNNING:
+                skipped.append(f"{name}: servidor não está em execução")
+                continue
+
+        port = int(getattr(srv, "rcon_port", None) or 27020)
+        if port <= 0:
+            skipped.append(f"{name}: porta RCON inválida")
+            continue
+
+        success = False
+        last_err = ""
+        for host in _shop_rcon_hosts(srv):
+            client = RconClient(host, port, rcon_pass)
+            try:
+                client.connect()
+                for cmd in commands:
+                    cmd_ok, result = client.send_command_with_retry(cmd, retries=3)
+                    if cmd_ok:
+                        ok.append(f"{name}: {cmd}")
+                        success = True
+                        break
+                    last_err = (result or "").strip()
+                if success:
+                    break
+            except Exception as exc:
+                last_err = str(exc)
+            finally:
+                try:
+                    client.disconnect()
+                except Exception:
+                    pass
+
+        if not success:
+            failed.append(f"{name}: {last_err or 'falha no comando RCON'}")
+
+    return ok, failed, skipped
+
+
+def reload_shop_plugins_via_rcon_for_app(
+    app: Any,
+    *,
+    require_running: bool = True,
+) -> Tuple[List[str], List[str], List[str]]:
+    """Reload RCON do CustomShop e CustomDinoDeliver em todos os servidores."""
+    cs_ok, cs_err, cs_skip = reload_customshop_via_rcon_for_app(
+        app, require_running=require_running,
+    )
+    cd_ok, cd_err, cd_skip = reload_customdino_via_rcon_for_app(
+        app, require_running=require_running,
+    )
+    return cs_ok + cd_ok, cs_err + cd_err, cs_skip + cd_skip
+
+
 def _arkland_ref(kind: str, srv: Any) -> str:
     return f"{kind}:{getattr(srv, 'id', '')}"
 
@@ -1680,6 +1870,36 @@ def install_customshop_all(
         cm.save_servers()
     if tek_dirty and asm_cm is not None:
         asm_cm.save()
+    return ok, errors
+
+
+def install_customdino_all(
+    cm: "ConfigManager",
+    asm_cm: Optional["AsmConfigManager"] = None,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Instala CustomDinoDeliver em todos os servidores. Retorna (sucessos, erros)."""
+    ok: List[str] = []
+    errors: List[str] = []
+
+    for kind, srv in iter_shop_servers(cm, asm_cm):
+        name = getattr(srv, "name", "") or getattr(srv, "id", "")
+        if not getattr(srv, "install_dir", ""):
+            errors.append(f"{name}: sem install_dir")
+            continue
+        copied, notes = install_customdino_to_server(
+            srv.install_dir, overwrite_dlls=overwrite_dlls,
+        )
+        if not copied and notes:
+            errors.append(f"{name}: {'; '.join(notes)}")
+            continue
+        detail = ", ".join(copied[:4])
+        if len(copied) > 4:
+            detail += f" (+{len(copied) - 4})"
+        warn = f" — {'; '.join(notes)}" if notes else ""
+        ok.append(f"{name}: {detail}{warn}")
+
     return ok, errors
 
 
@@ -2489,6 +2709,28 @@ def sync_plugin_at_path(
     return perm_notes
 
 
+def sync_customdino_at_path(
+    plugin_path: Path,
+    api_url: str,
+    api_key: str,
+    *,
+    settings: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Sincroniza WebApiUrl/WebApiKey do CustomDinoDeliver com a loja."""
+    existing = load_plugin_config(plugin_path) if plugin_path.exists() else {}
+    merged = deepcopy(existing) if existing else {}
+    merged["WebApiUrl"] = api_url
+    merged["WebStoreUrl"] = api_url
+    merged["WebApiKey"] = api_key
+    merged["ApiKey"] = api_key
+    if settings:
+        if "custom_dino_ground_fallback" in settings:
+            merged["GroundFallbackOnFullInventory"] = bool(
+                settings.get("custom_dino_ground_fallback", True)
+            )
+    save_plugin_config(plugin_path, merged)
+
+
 def sync_arkshop_web_settings(
     shop: "ShopGlobalConfig",
     catalog_path: Path,
@@ -2946,6 +3188,22 @@ def sync_all_plugins(
                 else:
                     classic_dirty = True
             ok.append(f"{getattr(srv, 'name', '')} → CustomShop {plugin_path}")
+
+            dino_path = customdino_plugin_dir(getattr(srv, "install_dir", "") or "") / "config.json"
+            if dino_path.is_file() or is_customdino_installed(getattr(srv, "install_dir", "") or ""):
+                try:
+                    web_settings: Dict[str, Any] = {}
+                    settings_path = webstore_data_dir() / "settings.json"
+                    if settings_path.is_file():
+                        loaded = json.loads(settings_path.read_text(encoding="utf-8"))
+                        if isinstance(loaded, dict):
+                            web_settings = loaded
+                    sync_customdino_at_path(
+                        dino_path, api, api_key, settings=web_settings,
+                    )
+                    ok.append(f"{getattr(srv, 'name', '')} → CustomDinoDeliver {dino_path}")
+                except Exception as exc:
+                    errors.append(f"{getattr(srv, 'name', '')} CustomDinoDeliver: {exc}")
 
             install_dir = getattr(srv, "install_dir", "") or ""
             if install_dir:

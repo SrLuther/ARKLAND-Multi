@@ -2,13 +2,15 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | 📋 Especificação para **discussão** — sem implementação |
-| **Versão do documento** | 1.0 |
-| **Data** | 2026-07-05 |
+| **Status** | ✅ **MVP operacional** (web + plugin + integração TEK); fases 3–4 no roadmap |
+| **Versão do documento** | 1.1 |
+| **Data** | 2026-07-06 |
+| **Guia de uso** | **[`DINO_LAB_GUIA.md`](DINO_LAB_GUIA.md)** — instalação, operação, troubleshooting |
 | **Escopo** | Produto, arquitetura, dados, UI, segurança, fases e perguntas abertas |
 | **Fora de escopo** | Código C++/Python, migrações SQL definitivas, deploy |
 | **Documento anterior** | [`docs/dino_custom_colors_delivery_spec.md`](dino_custom_colors_delivery_spec.md) — **consolidado e expandido aqui** |
 
+> **Guia de uso (operacional):** [`docs/DINO_LAB_GUIA.md`](DINO_LAB_GUIA.md)  
 > **Ver também:** [`docs/PROJETO_MERCADO_CRYOPOD.md`](PROJETO_MERCADO_CRYOPOD.md) (cryopod, cores, mercado P2P), [`docs/PROJETO_SISTEMA_SUPORTE_TICKETS.md`](PROJETO_SISTEMA_SUPORTE_TICKETS.md) (compensações), [`docs/PROJETO_ARKLAND_MASTER.md`](PROJETO_ARKLAND_MASTER.md) (SpawnExact TEK), [`docs/market_admin_audit_improvements.md`](market_admin_audit_improvements.md) (padrões de auditoria).
 
 ---
@@ -638,11 +640,11 @@ Conforme [`PROJETO_SISTEMA_SUPORTE_TICKETS.md`](PROJETO_SISTEMA_SUPORTE_TICKETS.
 
 ### Fase 0 — Fundação web + schema (1–2 dias)
 
-- [ ] Migration: `payload_json` em `orders` (se ausente)
-- [ ] Documentar `item_type = 'custom_dino'` no ORM
-- [ ] Rotas stub `/api/pending/custom-dino/*` e `/api/admin/custom-dino/deliver`
-- [ ] Feature flag `custom_dino_enabled`
-- [ ] Permissão `admin.custom_dino`
+- [x] Migration: `payload_json` em `orders` (se ausente)
+- [x] Documentar `item_type = 'custom_dino'` no ORM
+- [x] Rotas `/api/pending/custom-dino/*` e `/api/admin/custom-dino/deliver`
+- [x] Feature flag `custom_dino_enabled`
+- [ ] Permissão `admin.custom_dino` (MVP: todos os admins quando flag ativa)
 
 ### Fase 1 — Plugin mínimo MVP (3–4 dias) — **prioridade**
 
@@ -653,9 +655,9 @@ Conforme [`PROJETO_SISTEMA_SUPORTE_TICKETS.md`](PROJETO_SISTEMA_SUPORTE_TICKETS.
 
 ### Fase 2 — Web UI Dino Lab (2–3 dias)
 
-- [ ] Nav **Dino Lab** (menu admin separado)
-- [ ] Formulário MVP + histórico paginado
-- [ ] Auditoria `custom_dino_deliver`
+- [x] Nav **Dino Lab** (menu admin separado)
+- [x] Formulário MVP + histórico paginado
+- [x] Auditoria `custom_dino_deliver`
 - [ ] Busca jogador (reutilizar padrão admin existente)
 
 ### Fase 3 — Paletas, qualidade, tickets (3–4 dias)
@@ -746,6 +748,7 @@ Após aprovação, recomenda-se:
 
 | Arquivo | Relevância |
 |---------|------------|
+| **`docs/DINO_LAB_GUIA.md`** | **Guia operacional** — uso, instalação, troubleshooting |
 | `docs/dino_custom_colors_delivery_spec.md` | Pesquisa técnica base (AD-001) |
 | `plugin/CustomShop/src/ShopCryoDino.cpp` | Pipeline cryo/cores |
 | `plugin/CustomShop/src/ShopCryoReader.cpp` | Validação metadados |

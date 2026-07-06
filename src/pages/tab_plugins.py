@@ -76,6 +76,18 @@ _OFFICIAL_PLUGINS = [
         "detect":     lambda d: (d / _PLUGINS / "CustomShop" / "CustomShop.dll").is_file(),
         "install_to": lambda d: d / _PLUGINS,
     },
+    {
+        "name":       "CustomDinoDeliver",
+        "version":    "1.0",
+        "author":     "ARKLAND",
+        "tag":        "Plugin — Dino Lab",
+        "tag_color":  "#2d5a4a",
+        "desc":       "Entrega administrativa de dinos customizados (cores, nível, cryopod).\n"
+                      "Requer Dino Lab habilitado na Web Store.",
+        "url":        "",
+        "detect":     lambda d: (d / _PLUGINS / "CustomDinoDeliver" / "CustomDinoDeliver.dll").is_file(),
+        "install_to": lambda d: d / _PLUGINS,
+    },
 ]
 
 

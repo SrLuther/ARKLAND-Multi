@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.0] - 2026-07-06
+
+### Feature
+
+- Feature (Dino Lab): entrega administrativa de dinos customizados — menu admin na Web Store, fila item_type=custom_dino com payload_json (6 cores, nivel, sexo, motivo), historico e APIs /api/admin/custom-dino/* e /api/pending/custom-dino/*.
+- Feature (Plugin CustomDinoDeliver): DLL separada do CustomShop — spawn, cores Obelisk, cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinopoll (chat).
+- Feature (TEK / Loja): botao Instalar Dino Lab em todos os servidores, sync WebApiUrl/WebApiKey, reload RCON conjunto Shop + Dino Lab; build.bat e ARKLAND-Multi.spec empacotam CustomDinoDeliver.dll.
+
+### Other
+
+- Docs: guia operacional docs/DINO_LAB_GUIA.md e spec DINO_LAB_SPEC.md atualizada para MVP operacional.
+
 ## [1.9.217] - 2026-07-05
 
 ### Feature

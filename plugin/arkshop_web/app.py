@@ -546,6 +546,7 @@ class Order(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     contested: Mapped[bool] = mapped_column(Boolean, default=False)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -1320,6 +1321,12 @@ def _migrate_schema(engine: Any) -> None:
             ensure_lottery_schema(engine)
         except Exception as exc:
             log.warning("Sorteio (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from custom_dino_service import ensure_custom_dino_schema
+
+            ensure_custom_dino_schema(engine)
+        except Exception as exc:
+            log.warning("Dino Lab (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -1438,12 +1445,18 @@ def _migrate_schema(engine: Any) -> None:
         ensure_amber_schema(engine)
     except Exception as exc:
         log.warning("Âmbarômetro: migrate falhou: %s", exc)
-    try:
-        from lottery_service import ensure_lottery_schema
+        try:
+            from lottery_service import ensure_lottery_schema
 
-        ensure_lottery_schema(engine)
-    except Exception as exc:
-        log.warning("Sorteio: migrate falhou: %s", exc)
+            ensure_lottery_schema(engine)
+        except Exception as exc:
+            log.warning("Sorteio: migrate falhou: %s", exc)
+        try:
+            from custom_dino_service import ensure_custom_dino_schema
+
+            ensure_custom_dino_schema(engine)
+        except Exception as exc:
+            log.warning("Dino Lab: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -5152,7 +5165,8 @@ def get_pending_deliveries(steam_id: str):
     try:
         orders = db.query(Order).filter(
             Order.steam_id == steam_id,
-            Order.status.in_(("PENDENTE", "ENTREGANDO"))
+            Order.status.in_(("PENDENTE", "ENTREGANDO")),
+            Order.item_type != "custom_dino",
         ).all()
         items = [{
             "order_id": o.order_id,
@@ -5206,6 +5220,7 @@ def claim_pending_orders():
         q = db.query(Order).filter(
             Order.steam_id == steam_id,
             Order.status == "PENDENTE",
+            Order.item_type != "custom_dino",
         )
         if targets:
             q = q.filter(Order.order_id.in_(targets))
@@ -5608,6 +5623,10 @@ def save_settings():
         "public_ip",
         "join_host",
         "lottery_enabled",
+        "custom_dino_enabled",
+        "custom_dino_require_ticket",
+        "custom_dino_ground_fallback",
+        "custom_dino_spawn_exact",
     ):
         if key in body:
             s[key] = body[key]
@@ -9746,6 +9765,24 @@ register_lottery_routes(
     login_required=login_required,
     admin_required=admin_required,
     steam_id_from_session=_steam_id_from_session,
+    limiter=limiter,
+)
+
+from custom_dino_routes import register_custom_dino_routes
+from custom_dino_service import configure_custom_dino
+
+configure_custom_dino(settings_fn=_load_settings)
+register_custom_dino_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    admin_required=admin_required,
+    api_key_required=api_key_required,
+    steam_id_from_session=_steam_id_from_session,
+    load_settings=_load_settings,
+    is_valid_steamid64=_is_valid_steamid64,
+    audit_event=_audit_event,
+    get_server_id=lambda: str(_load_settings().get("server_id", "default")),
     limiter=limiter,
 )
 

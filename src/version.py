@@ -3,11 +3,25 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.217"
-BUILD_DATE: str = "2026-07-05"
+APP_VERSION: str = "1.10.0"
+BUILD_DATE: str = "2026-07-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.0",
+        "date": "2026-07-06",
+        "changes": [
+            "Feature (Dino Lab): entrega administrativa de dinos customizados — menu admin na Web Store, "
+            "fila item_type=custom_dino com payload_json (6 cores, nivel, sexo, motivo), historico e "
+            "APIs /api/admin/custom-dino/* e /api/pending/custom-dino/*.",
+            "Feature (Plugin CustomDinoDeliver): DLL separada do CustomShop — spawn, cores Obelisk, "
+            "cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinopoll (chat).",
+            "Feature (TEK / Loja): botao Instalar Dino Lab em todos os servidores, sync WebApiUrl/WebApiKey, "
+            "reload RCON conjunto Shop + Dino Lab; build.bat e ARKLAND-Multi.spec empacotam CustomDinoDeliver.dll.",
+            "Docs: guia operacional docs/DINO_LAB_GUIA.md e spec DINO_LAB_SPEC.md atualizada para MVP operacional.",
+        ],
+    },
     {
         "version": "1.9.217",
         "date": "2026-07-05",

@@ -4815,6 +4815,9 @@
     <div class="nav-item admin-only" data-page="lottery-admin" onclick="nav(this)">
       <span class="nav-icon">🎲</span> Sorteios
     </div>
+    <div class="nav-item admin-only" data-page="dino-lab-admin" onclick="nav(this)">
+      <span class="nav-icon">🧬</span> Dino Lab
+    </div>
     <div class="nav-item admin-only" data-page="sugestoes-admin" onclick="nav(this)">
       <span class="nav-icon">💡</span> Sugestões
     </div>
@@ -5770,6 +5773,12 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label><input id="s-lottery-enabled" type="checkbox" /> Ativar Sorteio de Doações (lottery_enabled)</label>
             </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              🧬 Dino Lab — entregas admin de dinos customizados (cores, compensações). Requer plugin <code>CustomDinoDeliver.dll</code> nos mapas.
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-custom-dino-enabled" type="checkbox" /> Ativar Dino Lab (custom_dino_enabled)</label>
+            </div>
           </div>
           <div id="db-conn-status"></div>
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -6723,6 +6732,69 @@
         </div>
         <div id="lottery-admin-report" class="card hidden" style="margin-bottom:16px;"></div>
         <div id="lottery-admin-list" style="color:var(--text2);">Carregando…</div>
+      </div>
+
+      <!-- PAGE: Dino Lab (admin) -->
+      <div id="page-dino-lab-admin" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">🧬 Dino Lab — Entrega customizada</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadDinoLabAdmin()">↺ Atualizar</button>
+          </div>
+        </div>
+        <div class="catalog-tabs" style="margin-bottom:16px;">
+          <button type="button" class="catalog-tab active" data-dinolab-tab="deliver" onclick="setDinoLabTab('deliver')">Nova entrega</button>
+          <button type="button" class="catalog-tab" data-dinolab-tab="history" onclick="setDinoLabTab('history')">Histórico</button>
+        </div>
+        <div id="dinolab-panel-deliver" class="catalog-panel active">
+          <div id="dinolab-disabled-banner" class="hidden" style="margin-bottom:12px;padding:12px;border-radius:8px;background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.35);color:var(--amber);font-size:12px;">
+            Dino Lab desabilitado. Ative em <strong>Configurações → custom_dino_enabled</strong>.
+          </div>
+          <div class="card">
+            <div class="form-grid">
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>Jogador (Steam ID64)</label>
+                <input id="dl-steam-id" type="text" placeholder="7656119XXXXXXXXXX" />
+              </div>
+              <div class="form-group">
+                <label>Ticket (opcional)</label>
+                <input id="dl-ticket-id" type="text" placeholder="#4521" />
+              </div>
+              <div class="form-group">
+                <label>Espécie</label>
+                <select id="dl-species"></select>
+              </div>
+              <div class="form-group">
+                <label>Nível</label>
+                <input id="dl-level" type="number" min="1" max="450" value="150" />
+              </div>
+              <div class="form-group">
+                <label>Sexo</label>
+                <select id="dl-gender">
+                  <option value="female">Fêmea</option>
+                  <option value="male">Macho</option>
+                </select>
+              </div>
+              <div class="form-group" style="align-self:end;">
+                <label><input id="dl-neutered" type="checkbox" /> Castrado</label>
+              </div>
+            </div>
+            <div class="card-title" style="margin:16px 0 8px;font-size:13px;">Cores (6 regiões — índice Obelisk 0–255)</div>
+            <div class="form-grid" id="dl-colors-grid"></div>
+            <div class="form-group" style="margin-top:12px;">
+              <label>Motivo *</label>
+              <input id="dl-note" type="text" placeholder="Compensação suporte #4521 — Rex vermelho" />
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary" onclick="dinoLabSubmitDeliver()">🚚 Entregar agora</button>
+              <button class="btn btn-ghost" onclick="dinoLabPreviewPayload()">Pré-visualizar JSON</button>
+            </div>
+            <pre id="dl-preview" class="hidden" style="margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px;font-size:11px;overflow:auto;max-height:200px;"></pre>
+          </div>
+        </div>
+        <div id="dinolab-panel-history" class="catalog-panel">
+          <div id="dinolab-history-list" style="color:var(--text2);">Carregando…</div>
+        </div>
       </div>
 
       <!-- PAGE: Sugestões (admin) -->
@@ -7817,6 +7889,7 @@ function nav(el) {
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "polls-admin") loadPollsAdmin();
   if (page === "lottery-admin") loadLotteryAdmin();
+  if (page === "dino-lab-admin") loadDinoLabAdmin();
   if (page === "midias-admin") loadMidiasAdmin();
   if (page === "sugestoes-admin") loadSugestoesAdmin();
   if (page === "cluster-chat") loadClusterChatAdmin();
@@ -11153,6 +11226,140 @@ async function loadLotteryAdmin() {
         </div>
       </div>`).join("") || "<p>Nenhuma campanha.</p>";
   } catch (e) { root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`; }
+}
+
+let _dinoLabSpecies = [];
+
+function setDinoLabTab(tab) {
+  document.querySelectorAll("[data-dinolab-tab]").forEach(btn => {
+    btn.classList.toggle("active", btn.getAttribute("data-dinolab-tab") === tab);
+  });
+  document.getElementById("dinolab-panel-deliver")?.classList.toggle("active", tab === "deliver");
+  document.getElementById("dinolab-panel-history")?.classList.toggle("active", tab === "history");
+  if (tab === "history") loadDinoLabHistory();
+}
+
+function _dinoLabColorInputs() {
+  const grid = document.getElementById("dl-colors-grid");
+  if (!grid || grid.childElementCount) return;
+  for (let i = 0; i < 6; i++) {
+    grid.insertAdjacentHTML("beforeend", `
+      <div class="form-group">
+        <label>Região ${i}</label>
+        <input id="dl-color-${i}" type="number" min="0" max="255" value="0" />
+      </div>`);
+  }
+}
+
+function _dinoLabFormBody() {
+  const colors = [];
+  for (let i = 0; i < 6; i++) {
+    colors.push(parseInt(document.getElementById(`dl-color-${i}`)?.value || "0", 10));
+  }
+  const ticketRaw = document.getElementById("dl-ticket-id")?.value?.trim() || "";
+  return {
+    steam_id: document.getElementById("dl-steam-id")?.value?.trim(),
+    species_key: document.getElementById("dl-species")?.value,
+    level: parseInt(document.getElementById("dl-level")?.value || "150", 10),
+    gender: document.getElementById("dl-gender")?.value,
+    neutered: !!document.getElementById("dl-neutered")?.checked,
+    colors,
+    deliver_as: "cryopod",
+    note: document.getElementById("dl-note")?.value?.trim(),
+    ticket_id: ticketRaw.replace(/^#/, "") || null,
+  };
+}
+
+async function dinoLabPreviewPayload() {
+  const pre = document.getElementById("dl-preview");
+  if (!pre) return;
+  try {
+    const d = await fetchJson("/api/admin/custom-dino/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(_dinoLabFormBody()),
+    });
+    if (!d.ok) throw new Error(d.error || d.message);
+    pre.classList.remove("hidden");
+    pre.textContent = JSON.stringify(d.payload, null, 2);
+  } catch (e) {
+    pre.classList.remove("hidden");
+    pre.textContent = String(e);
+  }
+}
+
+async function dinoLabSubmitDeliver() {
+  const body = _dinoLabFormBody();
+  if (!body.steam_id) { toast("Informe o Steam ID do jogador.", "error"); return; }
+  if (!confirm(`Enfileirar entrega customizada para ${body.steam_id}?`)) return;
+  try {
+    const d = await fetchJson("/api/admin/custom-dino/deliver", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!d.ok) throw new Error(d.message || d.error);
+    toast(`Pedido ${d.order_id} enfileirado (${d.status}).`, "success");
+    setDinoLabTab("history");
+    loadDinoLabHistory();
+  } catch (e) { toast(String(e), "error"); }
+}
+
+async function loadDinoLabHistory() {
+  const root = document.getElementById("dinolab-history-list");
+  if (!root) return;
+  root.textContent = "Carregando…";
+  try {
+    const d = await fetchJson("/api/admin/custom-dino/orders?page_size=50");
+    if (!d.ok) throw new Error(d.error);
+    const orders = d.orders || [];
+    root.innerHTML = orders.length ? `
+      <div style="overflow-x:auto;">
+        <table class="pkg-admin-table">
+          <thead><tr>
+            <th>Data</th><th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Cores</th><th>Status</th><th>Motivo</th>
+          </tr></thead>
+          <tbody>
+            ${orders.map(o => `
+              <tr>
+                <td style="font-size:11px;">${escHtml((o.created_at || "").slice(0, 19))}</td>
+                <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
+                <td style="font-size:11px;">${escHtml(o.steam_id)}</td>
+                <td>${escHtml(o.species_display_name || o.species_key || "")}</td>
+                <td style="font-size:11px;">${(o.colors || []).join(", ")}</td>
+                <td><span class="badge">${escHtml(o.status)}</span></td>
+                <td style="font-size:11px;max-width:200px;">${escHtml(o.note || "")}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>` : "<p>Nenhuma entrega registrada.</p>";
+  } catch (e) {
+    root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
+}
+
+async function loadDinoLabAdmin() {
+  _dinoLabColorInputs();
+  const banner = document.getElementById("dinolab-disabled-banner");
+  try {
+    const meta = await fetchJson("/api/admin/custom-dino/meta");
+    if (banner) banner.classList.toggle("hidden", !!meta.enabled);
+  } catch (_) {
+    if (banner) banner.classList.remove("hidden");
+  }
+  const sel = document.getElementById("dl-species");
+  if (sel && !sel.options.length) {
+    try {
+      const sp = await fetchJson("/api/admin/custom-dino/species?vanilla_only=1");
+      _dinoLabSpecies = sp.species || [];
+      sel.innerHTML = _dinoLabSpecies.map(s =>
+        `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name)} (${escHtml(s.mod_source)})</option>`
+      ).join("") || "<option value=\"\">Nenhuma espécie</option>";
+    } catch (e) {
+      sel.innerHTML = `<option value="">Erro ao carregar espécies</option>`;
+    }
+  }
+  loadDinoLabHistory();
 }
 
 // ── Sugestões da comunidade ───────────────────────────────────────────────────
@@ -15431,6 +15638,8 @@ async function loadSettings() {
     document.getElementById("s-db-user").value        = s.db_user || "";
     const lotEl = document.getElementById("s-lottery-enabled");
     if (lotEl) lotEl.checked = !!s.lottery_enabled;
+    const dlEl = document.getElementById("s-custom-dino-enabled");
+    if (dlEl) dlEl.checked = !!s.custom_dino_enabled;
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -15469,6 +15678,7 @@ async function saveSettings() {
     db_user:     document.getElementById("s-db-user").value,
     db_password: document.getElementById("s-db-password").value,
     lottery_enabled: !!document.getElementById("s-lottery-enabled")?.checked,
+    custom_dino_enabled: !!document.getElementById("s-custom-dino-enabled")?.checked,
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;
