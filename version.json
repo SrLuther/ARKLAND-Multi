@@ -1,8 +1,8 @@
 {
-    "version": "1.9.215",
+    "version": "1.9.216",
     "date": "2026-07-05",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.215/ARKLAND-Multi-Setup-v1.9.215.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.9.216/ARKLAND-Multi-Setup-v1.9.216.exe",
     "changelog": [
-        "Fix (Web Store / Sorteio): página #/sorteio retornava HTTP 500 ao carregar campanha ativa — _campaign_public_dict acessava colunas ausentes em schema MySQL parcial (pré-migração); leitura segura via _row_val."
+        "Fix (Web Store / Sorteio): pagina #/sorteio ainda retornava HTTP 500 ao listar participantes - get_participants_public usava assigned_at ausente em schema MySQL parcial; ordenacao via _table_has_column e fallback MAX(ln.id); _resolve_display_name tolera colunas ausentes em store_users."
     ]
 }
