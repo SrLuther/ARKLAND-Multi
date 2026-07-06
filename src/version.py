@@ -9,6 +9,15 @@ BUILD_DATE: str = "2026-07-05"
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "1.9.217",
+        "date": "2026-07-05",
+        "changes": [
+            "Feature (Web Store / Sorteio admin): relatorio da campanha ativa com numeros usados/disponiveis, "
+            "participantes e nicks Steam; botao Ver relatorio na administracao de sorteios; "
+            "API GET /api/admin/lottery/campaigns/{id}/report.",
+        ],
+    },
+    {
         "version": "1.9.216",
         "date": "2026-07-05",
         "changes": [

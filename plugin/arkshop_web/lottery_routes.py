@@ -15,6 +15,8 @@ from lottery_service import (
     buy_random_number,
     cancel_campaign,
     create_campaign_draft,
+    get_campaign_admin_participants,
+    get_campaign_admin_report,
     get_campaign_results,
     get_history,
     get_number_grid,
@@ -348,35 +350,29 @@ def register_lottery_routes(
         finally:
             db.close()
 
+    @app.route("/api/admin/lottery/campaigns/<int:campaign_id>/report", methods=["GET"])
+    @admin_required
+    def lottery_admin_report(campaign_id: int):
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            return jsonify(get_campaign_admin_report(db, campaign_id))
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 404
+        finally:
+            db.close()
+
     @app.route("/api/admin/lottery/campaigns/<int:campaign_id>/participants", methods=["GET"])
     @admin_required
     def lottery_admin_participants(campaign_id: int):
         if not db_ready():
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
-        from sqlalchemy import text
-
         db = session_factory()
         try:
-            rows = db.execute(
-                text(
-                    "SELECT steam_id, number_value, source, payment_id, amber_cost, assigned_at "
-                    "FROM lottery_numbers WHERE campaign_id = :cid AND status = 'ACTIVE' "
-                    "ORDER BY assigned_at DESC"
-                ),
-                {"cid": campaign_id},
-            ).fetchall()
-            items = [
-                {
-                    "steam_id": str(r.steam_id),
-                    "number_value": int(r.number_value),
-                    "source": str(r.source),
-                    "payment_id": r.payment_id,
-                    "amber_cost": int(r.amber_cost or 0),
-                    "assigned_at": str(r.assigned_at),
-                }
-                for r in rows
-            ]
-            return jsonify({"ok": True, "participants": items})
+            return jsonify(get_campaign_admin_participants(db, campaign_id))
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 404
         finally:
             db.close()
 

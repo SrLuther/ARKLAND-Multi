@@ -16,6 +16,7 @@ from lottery_service import (
     create_campaign_draft,
     ensure_lottery_schema,
     get_active_campaign,
+    get_campaign_admin_report,
     get_participants_public,
     get_public_current,
     on_donation_credited,
@@ -148,6 +149,41 @@ def test_buy_and_reserve_unique(lottery_db):
     assert b["number"]["value"] == 555
     with pytest.raises(ValueError, match="number_unavailable"):
         reserve_number(lottery_db, USER, 555)
+
+
+def test_admin_report_stats_and_nicknames(lottery_db):
+    cid = _active_campaign(lottery_db)
+    lottery_db.execute(
+        text(
+            "INSERT INTO store_users (steam_id, market_display_name, steam_persona) "
+            "VALUES (:s, 'ArkPlayer', 'SteamNick')"
+        ),
+        {"s": USER},
+    )
+    lottery_db.execute(
+        text(
+            "INSERT INTO store_users (steam_id, market_display_name, steam_persona) "
+            "VALUES (:s, NULL, 'SecondPlayer')"
+        ),
+        {"s": USER2},
+    )
+    on_donation_credited(lottery_db, payment_id="pay-r1", steam_id=USER, amount_brl=10.0)
+    _credit(lottery_db, USER2, 5000)
+    lottery_db.commit()
+    buy_random_number(lottery_db, USER2)
+    lottery_db.commit()
+    report = get_campaign_admin_report(lottery_db, cid)
+    assert report["ok"] is True
+    assert report["summary"]["numbers_issued"] == 3
+    assert report["summary"]["numbers_available"] == 897
+    assert report["summary"]["participant_count"] == 2
+    assert report["summary"]["by_source"]["DONATION"] == 2
+    assert report["summary"]["by_source"]["AMBER_RANDOM"] == 1
+    by_sid = {p["steam_id"]: p for p in report["participants"]}
+    assert by_sid[USER]["steam_nickname"] == "ArkPlayer"
+    assert by_sid[USER2]["steam_nickname"] == "SecondPlayer"
+    assert len(by_sid[USER]["numbers"]) == 2
+    assert len(by_sid[USER2]["numbers"]) == 1
 
 
 def test_buy_random_limit(lottery_db):

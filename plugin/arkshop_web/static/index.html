@@ -6721,6 +6721,7 @@
             <button class="btn btn-ghost" onclick="lotteryAdminHideCreate()">Cancelar</button>
           </div>
         </div>
+        <div id="lottery-admin-report" class="card hidden" style="margin-bottom:16px;"></div>
         <div id="lottery-admin-list" style="color:var(--text2);">Carregando…</div>
       </div>
 
@@ -11036,7 +11037,101 @@ async function lotteryAdminPublish(id) {
   } catch (e) { toast(String(e), "error"); }
 }
 
+function _lotterySourceLabel(src) {
+  if (src === "DONATION") return "Doação";
+  if (src === "AMBER_RESERVE") return "Reserva";
+  if (src === "AMBER_RANDOM") return "Compra aleatória";
+  return src || "";
+}
+
+function lotteryAdminHideReport() {
+  const el = document.getElementById("lottery-admin-report");
+  if (el) { el.classList.add("hidden"); el.innerHTML = ""; }
+}
+
+async function lotteryAdminShowReport(campaignId) {
+  const el = document.getElementById("lottery-admin-report");
+  if (!el) return;
+  el.classList.remove("hidden");
+  el.innerHTML = `<div class="card-header"><div class="card-title">Relatório da campanha</div></div><p style="padding:12px;">Carregando…</p>`;
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  try {
+    const d = await fetchJson(`/api/admin/lottery/campaigns/${campaignId}/report`);
+    if (!d.ok) throw new Error(d.error);
+    const c = d.campaign || {};
+    const s = d.summary || {};
+    const pct = s.numbers_total ? Math.round((s.numbers_issued / s.numbers_total) * 100) : 0;
+    const bySrc = s.by_source || {};
+    const participants = d.participants || [];
+    el.innerHTML = `
+      <div class="card-header" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;align-items:center;">
+        <div class="card-title">Relatório — ${escHtml(c.title || "")}</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="lotteryAdminShowReport(${campaignId})">↺ Atualizar</button>
+          <button class="btn btn-ghost btn-sm" onclick="lotteryAdminHideReport()">Fechar</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px;">
+        <div class="card" style="padding:12px;margin:0;">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Números usados</div>
+          <div style="font-size:22px;font-weight:700;color:var(--amber);">${s.numbers_issued || 0} <span style="font-size:12px;font-weight:400;color:var(--text2);">/ ${s.numbers_total || 900}</span></div>
+          <div style="font-size:11px;color:var(--text2);">${pct}% do pool</div>
+        </div>
+        <div class="card" style="padding:12px;margin:0;">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Disponíveis</div>
+          <div style="font-size:22px;font-weight:700;">${s.numbers_available || 0}</div>
+        </div>
+        <div class="card" style="padding:12px;margin:0;">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Participantes</div>
+          <div style="font-size:22px;font-weight:700;">${s.participant_count || 0}</div>
+        </div>
+        <div class="card" style="padding:12px;margin:0;">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Prêmio total</div>
+          <div style="font-size:18px;font-weight:700;">${_formatAmberPt(c.prize_amber_total || 0)}</div>
+        </div>
+        <div class="card" style="padding:12px;margin:0;">
+          <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Doações (R$)</div>
+          <div style="font-size:18px;font-weight:700;">R$ ${Number(s.total_donated_brl || 0).toFixed(2).replace(".", ",")}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+        Por origem: Doação <strong>${bySrc.DONATION || 0}</strong> ·
+        Compra aleatória <strong>${bySrc.AMBER_RANDOM || 0}</strong> ·
+        Reserva <strong>${bySrc.AMBER_RESERVE || 0}</strong>
+        · Sorteio: <strong>${escHtml(c.draw_at_display || "")}</strong>
+        · Status: <span class="badge">${escHtml(c.status || "")}</span>
+      </div>
+      <div class="card-title" style="margin-bottom:8px;">Participantes e números (${participants.length})</div>
+      ${participants.length ? `
+        <div style="overflow-x:auto;">
+          <table class="pkg-admin-table">
+            <thead><tr>
+              <th>Nick Steam</th>
+              <th>Steam ID</th>
+              <th style="text-align:center;">Qtd.</th>
+              <th>Números da sorte</th>
+            </tr></thead>
+            <tbody>
+              ${participants.map(p => `
+                <tr>
+                  <td><strong>${escHtml(p.steam_nickname || "Jogador")}</strong></td>
+                  <td style="font-size:11px;color:var(--text2);font-family:monospace;">${escHtml(p.steam_id || "")}</td>
+                  <td style="text-align:center;">${p.number_count || 0}</td>
+                  <td style="font-size:12px;">${(p.numbers || []).map(n =>
+                    `<span title="${escHtml(_lotterySourceLabel(n.source))}" style="display:inline-block;margin:2px 4px 2px 0;padding:2px 6px;border:1px solid var(--border);border-radius:4px;">${n.value}${_lotterySourceBadge(n.source)}</span>`
+                  ).join("")}</td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>` : `<p style="color:var(--text2);">Nenhum participante com números ativos nesta campanha.</p>`}
+    `;
+  } catch (e) {
+    el.innerHTML = `<div class="card-header"><div class="card-title">Relatório</div><button class="btn btn-ghost btn-sm" onclick="lotteryAdminHideReport()">Fechar</button></div><p style="color:var(--danger);padding:12px;">${escHtml(String(e))}</p>`;
+  }
+}
+
 async function loadLotteryAdmin() {
+  lotteryAdminHideReport();
   const root = document.getElementById("lottery-admin-list");
   if (!root) return;
   root.textContent = "Carregando…";
@@ -11049,7 +11144,11 @@ async function loadLotteryAdmin() {
           <div><strong>#${c.sequence_number}</strong> ${escHtml(c.title)} · <span class="badge">${escHtml(c.status)}</span></div>
           <div style="font-size:12px;">Prêmio: ${_formatAmberPt(c.prize_amber_total)} · Sorteio: ${escHtml(c.draw_at_display || "")}</div>
         </div>
-        <div style="margin-top:8px;display:flex;gap:8px;">
+        <div style="font-size:12px;color:var(--text2);margin-top:6px;">
+          ${c.numbers_issued_count || 0}/900 números usados · ${c.numbers_available_count || 0} disponíveis · ${c.participant_count || 0} participantes
+        </div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="lotteryAdminShowReport(${c.id})">📊 Ver relatório</button>
           ${c.status === "DRAFT" ? `<button class="btn btn-success btn-sm" onclick="lotteryAdminPublish(${c.id})">Publicar</button>` : ""}
         </div>
       </div>`).join("") || "<p>Nenhuma campanha.</p>";

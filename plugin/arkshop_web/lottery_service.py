@@ -1224,6 +1224,102 @@ def list_campaigns_admin(db: Session, *, limit: int = 50) -> list[dict[str, Any]
     return [_campaign_public_dict(r, db=db) for r in rows]
 
 
+def _numbers_by_source(db: Session, campaign_id: int) -> dict[str, int]:
+    rows = db.execute(
+        text(
+            "SELECT source, COUNT(*) AS cnt FROM lottery_numbers "
+            "WHERE campaign_id = :cid AND status = 'ACTIVE' GROUP BY source"
+        ),
+        {"cid": campaign_id},
+    ).fetchall()
+    out = {"DONATION": 0, "AMBER_RANDOM": 0, "AMBER_RESERVE": 0}
+    for r in rows:
+        out[str(r.source)] = int(r.cnt)
+    return out
+
+
+def get_campaign_admin_report(db: Session, campaign_id: int) -> dict[str, Any]:
+    """Relatório admin: estatísticas da campanha + participantes com nick Steam."""
+    row = _fetch_campaign_row(db, campaign_id)
+    if not row:
+        raise ValueError("campaign_not_found")
+    cid = int(campaign_id)
+    issued = _numbers_issued_count(db, cid)
+    participants_count = _participant_count(db, cid)
+    by_source = _numbers_by_source(db, cid)
+    num_rows = db.execute(
+        text(
+            "SELECT steam_id, number_value, source, payment_id, amber_cost, assigned_at "
+            "FROM lottery_numbers WHERE campaign_id = :cid AND status = 'ACTIVE' "
+            "ORDER BY assigned_at ASC, number_value ASC"
+        ),
+        {"cid": cid},
+    ).fetchall()
+    grouped: dict[str, dict[str, Any]] = {}
+    for r in num_rows:
+        sid = str(r.steam_id)
+        entry = grouped.setdefault(
+            sid,
+            {"steam_id": sid, "steam_nickname": "", "numbers": [], "number_count": 0},
+        )
+        entry["numbers"].append({
+            "value": int(r.number_value),
+            "source": str(r.source),
+            "amber_cost": int(r.amber_cost or 0),
+            "payment_id": r.payment_id,
+            "assigned_at": _iso_display(_parse_dt(r.assigned_at)),
+        })
+        entry["number_count"] += 1
+    participants = []
+    for sid, entry in grouped.items():
+        entry["steam_nickname"] = _resolve_display_name(db, sid)
+        entry["numbers"].sort(key=lambda n: n["value"])
+        participants.append(entry)
+    participants.sort(key=lambda p: (-p["number_count"], p["steam_nickname"].lower()))
+    return {
+        "ok": True,
+        "campaign": _campaign_public_dict(row, db=db),
+        "summary": {
+            "numbers_issued": issued,
+            "numbers_available": 900 - issued,
+            "numbers_total": 900,
+            "participant_count": participants_count,
+            "total_donated_brl": round(_total_donated_brl(db, cid), 2),
+            "by_source": by_source,
+        },
+        "participants": participants,
+    }
+
+
+def get_campaign_admin_participants(db: Session, campaign_id: int) -> dict[str, Any]:
+    """Lista plana de números ativos (admin) com nick Steam."""
+    row = _fetch_campaign_row(db, campaign_id)
+    if not row:
+        raise ValueError("campaign_not_found")
+    cid = int(campaign_id)
+    rows = db.execute(
+        text(
+            "SELECT steam_id, number_value, source, payment_id, amber_cost, assigned_at "
+            "FROM lottery_numbers WHERE campaign_id = :cid AND status = 'ACTIVE' "
+            "ORDER BY assigned_at DESC"
+        ),
+        {"cid": cid},
+    ).fetchall()
+    items = []
+    for r in rows:
+        sid = str(r.steam_id)
+        items.append({
+            "steam_id": sid,
+            "steam_nickname": _resolve_display_name(db, sid),
+            "number_value": int(r.number_value),
+            "source": str(r.source),
+            "payment_id": r.payment_id,
+            "amber_cost": int(r.amber_cost or 0),
+            "assigned_at": str(r.assigned_at),
+        })
+    return {"ok": True, "campaign_id": cid, "participants": items}
+
+
 def run_draw(db: Session, campaign_id: int, *, job_id: str) -> dict[str, Any]:
     """Executa sorteio + crédito prêmios + auto-chain."""
     row = _fetch_campaign_row(db, campaign_id)
