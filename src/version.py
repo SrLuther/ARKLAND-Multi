@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.2"
+APP_VERSION: str = "1.10.3"
 BUILD_DATE: str = "2026-07-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.3",
+        "date": "2026-07-06",
+        "changes": [
+            'Feature (Dino Lab / SpawnExact): Fase 4 — stats por ponto (wild/tamed), nível calculado automaticamente e imprint na entrega administrativa.',
+            'Feature (Dino Lab): teto total de nível configurável (custom_dino_level_max); padrão 0 = sem limite total; validação por stat 0-254.',
+            'Fix (Web Store / UI): sidebar Minha Area — nick em destaque e SteamID sem quebra de linha (classes auth-profile).',
+            'Fix (Plugin CustomDinoDeliver): comando de chat renomeado de /dinopoll para /dinolab; README e guia atualizados; DLL recompilada.',
+        ],
+    },
     {
         "version": "1.10.2",
         "date": "2026-07-06",
@@ -34,7 +44,7 @@ CHANGELOG: list[dict] = [
             "fila item_type=custom_dino com payload_json (6 cores, nivel, sexo, motivo), historico e "
             "APIs /api/admin/custom-dino/* e /api/pending/custom-dino/*.",
             "Feature (Plugin CustomDinoDeliver): DLL separada do CustomShop — spawn, cores Obelisk, "
-            "cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinopoll (chat).",
+            "cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinolab (chat).",
             "Feature (TEK / Loja): botao Instalar Dino Lab em todos os servidores, sync WebApiUrl/WebApiKey, "
             "reload RCON conjunto Shop + Dino Lab; build.bat e ARKLAND-Multi.spec empacotam CustomDinoDeliver.dll.",
             "Docs: guia operacional docs/DINO_LAB_GUIA.md e spec DINO_LAB_SPEC.md atualizada para MVP operacional.",

@@ -19,11 +19,10 @@ COLOR_REGIONS = 6
 COLOR_MIN = 0
 COLOR_MAX = 255
 LEVEL_MIN = 1
-LEVEL_MAX = 450
 DEFAULT_LEVEL = 150
 RATE_LIMIT_PER_HOUR = 30
 STAT_COUNT = 7
-STAT_MAX = 255
+STAT_MAX = 254
 STAT_NAMES = ("health", "stamina", "oxygen", "food", "weight", "melee", "speed")
 
 _settings_fn: Callable[[], dict[str, Any]] | None = None
@@ -38,6 +37,29 @@ def is_custom_dino_enabled() -> bool:
     if _settings_fn is None:
         return False
     return bool(_settings_fn().get("custom_dino_enabled", False))
+
+
+def get_custom_dino_level_max() -> int:
+    """Teto total de nível (0 = sem limite; só valida 0–STAT_MAX por stat)."""
+    if _settings_fn is None:
+        return 0
+    raw = _settings_fn().get("custom_dino_level_max", 0)
+    try:
+        return max(0, int(raw or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _validate_total_level(level: int) -> str | None:
+    if level < LEVEL_MIN:
+        return f"Nível mínimo é {LEVEL_MIN}."
+    cap = get_custom_dino_level_max()
+    if cap > 0 and level > cap:
+        return (
+            f"Nível ({level}) excede o limite configurado ({cap}). "
+            f"Ajuste wild/tamed/nível ou altere custom_dino_level_max em Configurações (0 = sem limite total)."
+        )
+    return None
 
 
 def ensure_custom_dino_schema(engine: Engine) -> None:
@@ -237,18 +259,17 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
 
     if spawn_enabled:
         level = calc_spawn_exact_level(wild_stats, tamed_stats)
-        if level < LEVEL_MIN or level > LEVEL_MAX:
-            return None, (
-                f"Nível calculado ({level}) excede o limite ({LEVEL_MIN}–{LEVEL_MAX}). "
-                f"Ajuste wild/tamed (soma+1 ≤ {LEVEL_MAX})."
-            )
+        level_err = _validate_total_level(level)
+        if level_err:
+            return None, level_err
     else:
         try:
             level = int(body.get("level", DEFAULT_LEVEL))
         except (TypeError, ValueError):
             return None, "Nível inválido."
-        if level < LEVEL_MIN or level > LEVEL_MAX:
-            return None, f"Nível deve estar entre {LEVEL_MIN} e {LEVEL_MAX}."
+        level_err = _validate_total_level(level)
+        if level_err:
+            return None, level_err
 
     gender = str(body.get("gender") or "female").strip().lower()
     if gender not in ("male", "female", "m", "f"):

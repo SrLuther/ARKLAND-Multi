@@ -5670,9 +5670,15 @@ def save_settings():
         "custom_dino_require_ticket",
         "custom_dino_ground_fallback",
         "custom_dino_spawn_exact",
+        "custom_dino_level_max",
     ):
         if key in body:
             s[key] = body[key]
+    if "custom_dino_level_max" in body:
+        try:
+            s["custom_dino_level_max"] = max(0, int(body["custom_dino_level_max"]))
+        except (TypeError, ValueError):
+            s["custom_dino_level_max"] = 0
     if "rcon_password" in body and body["rcon_password"] != "":
         s["rcon_password"] = body["rcon_password"]
     if "db_password" in body and body["db_password"] != "":

@@ -43,13 +43,13 @@ namespace Commands {
 
 void Register() {
     ArkApi::GetCommands().AddConsoleCommand("DinoDeliver.Reload", &CmdAdminReload);
-    ArkApi::GetCommands().AddChatCommand("/dinopoll", &CmdPoll);
+    ArkApi::GetCommands().AddChatCommand("/dinolab", &CmdPoll);
     Log::GetLog()->info("CustomDinoDeliver: commands registered");
 }
 
 void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("DinoDeliver.Reload");
-    ArkApi::GetCommands().RemoveChatCommand("/dinopoll");
+    ArkApi::GetCommands().RemoveChatCommand("/dinolab");
 }
 
 } // namespace Commands

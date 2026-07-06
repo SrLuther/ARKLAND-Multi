@@ -183,7 +183,7 @@ Aba **Nova entrega**:
 | **Jogador (Steam ID64)** | Sim | 17 dígitos, começa com `7656119…` |
 | **Ticket** | Condicional* | Ex.: `4521` ou `#4521` — vincula à compensação |
 | **Espécie** | Sim | Lista vanilla homologada (catálogo de espécies do cluster) |
-| **Nível** | Sim | 1–450 (padrão 150) |
+| **Nível** | Sim | Mín. 1; teto total opcional via `custom_dino_level_max` (padrão **0** = sem limite; padrão UI 150) |
 | **Sexo** | Sim | Macho ou fêmea |
 | **Castrado** | Não | Checkbox |
 | **Cores (6 regiões)** | Sim | Índices **Obelisk** 0–255 por região |
@@ -239,17 +239,21 @@ Arquivo: `plugin/arkshop_web/settings.json` (ou via UI parcial).
 | `custom_dino_require_ticket` | `false` | ❌ Só JSON | Exige `ticket_id` em toda entrega |
 | `custom_dino_ground_fallback` | `true` | ❌ Só JSON | Propagado ao plugin no sync (`GroundFallbackOnFullInventory`) |
 | `custom_dino_spawn_exact` | `false` | ✅ Checkbox em Configurações | Permite payloads SpawnExact (stats wild/tamed + imprint) |
+| `custom_dino_level_max` | `0` | ✅ Campo numérico em Configurações | Teto total de nível (modo simples e SpawnExact). **0 = sem limite** — valida só 0–254 por stat |
 
-Exemplo para exigir ticket em compensações:
+Exemplo completo:
 
 ```json
 {
   "custom_dino_enabled": true,
   "custom_dino_require_ticket": true,
   "custom_dino_ground_fallback": true,
-  "custom_dino_spawn_exact": true
+  "custom_dino_spawn_exact": true,
+  "custom_dino_level_max": 0
 }
 ```
+
+Com `custom_dino_level_max: 0` (padrão), admins podem spawnar dinos com stats máximos (254 wild + 254 tamed por stat, nível calculado até 3557). Defina um valor > 0 (ex.: `450` ou `3571`) para impor um teto total.
 
 Salve o arquivo e reinicie a Web Store se necessário.
 
@@ -271,8 +275,8 @@ Salve o arquivo e reinicie a Web Store se necessário.
 
 Com `custom_dino_spawn_exact: true` na Web Store, o admin pode ativar **Modo SpawnExact** no Dino Lab:
 
-- 7 stats selvagens + 7 domados (0–255 cada; crafting fixo 0 no plugin)
-- Nível calculado automaticamente: `1 + soma(wild) + soma(tamed)` (máx. 450)
+- 7 stats selvagens + 7 domados (0–254 cada; crafting fixo 0 no plugin)
+- Nível calculado automaticamente: `1 + soma(wild) + soma(tamed)` (sem teto se `custom_dino_level_max` = 0)
 - Imprint %, nome e ID hex do imprintador (opcional)
 - Cores aplicadas após spawn; entrega em cryopod como no fluxo padrão
 
@@ -290,7 +294,7 @@ Requer **CustomDinoDeliver.dll** recompilado (Fase 4) nos mapas do cluster.
 | Comando | Quem | Efeito |
 |---------|------|--------|
 | `DinoDeliver.Reload` | Console / RCON | Recarrega `config.json` |
-| `/dinopoll` | Chat (admin) | Força uma verificação de fila para o jogador |
+| `/dinolab` | Chat (admin) | Força uma verificação de fila para o jogador |
 
 ### 9.5 Logs
 

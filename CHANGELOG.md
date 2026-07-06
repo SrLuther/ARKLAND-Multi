@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.3] - 2026-07-06
+
+### Feature
+
+- Feature (Dino Lab / SpawnExact): Fase 4 — stats por ponto (wild/tamed), nível calculado automaticamente e imprint na entrega administrativa.
+- Feature (Dino Lab): teto total de nível configurável (custom_dino_level_max); padrão 0 = sem limite total; validação por stat 0-254.
+
+### Fix
+
+- Fix (Web Store / UI): sidebar Minha Area — nick em destaque e SteamID sem quebra de linha (classes auth-profile).
+- Fix (Plugin CustomDinoDeliver): comando de chat renomeado de /dinopoll para /dinolab; README e guia atualizados; DLL recompilada.
+
 ## [1.10.2] - 2026-07-06
 
 ### Feature
@@ -30,7 +42,7 @@
 ### Feature
 
 - Feature (Dino Lab): entrega administrativa de dinos customizados — menu admin na Web Store, fila item_type=custom_dino com payload_json (6 cores, nivel, sexo, motivo), historico e APIs /api/admin/custom-dino/* e /api/pending/custom-dino/*.
-- Feature (Plugin CustomDinoDeliver): DLL separada do CustomShop — spawn, cores Obelisk, cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinopoll (chat).
+- Feature (Plugin CustomDinoDeliver): DLL separada do CustomShop — spawn, cores Obelisk, cryopod, poll HTTP, fallback inventario cheio; comandos DinoDeliver.Reload (RCON) e /dinolab (chat).
 - Feature (TEK / Loja): botao Instalar Dino Lab em todos os servidores, sync WebApiUrl/WebApiKey, reload RCON conjunto Shop + Dino Lab; build.bat e ARKLAND-Multi.spec empacotam CustomDinoDeliver.dll.
 
 ### Other

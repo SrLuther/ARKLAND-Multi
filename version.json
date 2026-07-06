@@ -1,9 +1,11 @@
 {
-    "version": "1.10.2",
+    "version": "1.10.3",
     "date": "2026-07-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.2/ARKLAND-Multi-Setup-v1.10.2.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.3/ARKLAND-Multi-Setup-v1.10.3.exe",
     "changelog": [
-        "Fix (Web Store / MySQL): migração payload_json corrige resgate do catálogo e erro HTTP 500 no Dino Lab.",
-        "Feature (Web Store / Sorteio): número fixo por jogador registrado, confirmação gratuita por campanha até 2h antes do sorteio e troca do número por 5000 Âmbares; APIs confirm-participation e change-fixed-number; UI Minha Área."
+        "Feature (Dino Lab / SpawnExact): Fase 4 — stats por ponto (wild/tamed), nível calculado automaticamente e imprint na entrega administrativa.",
+        "Feature (Dino Lab): teto total de nível configurável (custom_dino_level_max); padrão 0 = sem limite total; validação por stat 0-254.",
+        "Fix (Web Store / UI): sidebar Minha Area — nick em destaque e SteamID sem quebra de linha (classes auth-profile).",
+        "Fix (Plugin CustomDinoDeliver): comando de chat renomeado de /dinopoll para /dinolab; README e guia atualizados; DLL recompilada."
     ]
 }

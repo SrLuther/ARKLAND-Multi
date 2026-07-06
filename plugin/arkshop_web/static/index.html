@@ -230,14 +230,77 @@
       border-radius: var(--radius);
       font-size: 11px;
       color: var(--text2);
+      min-width: 0;
     }
     #auth-userbox.hidden { display: none; }
     #auth-userline {
+      margin-bottom: 8px;
+      min-width: 0;
+    }
+    .auth-profile {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .auth-profile__nick {
+      font-family: 'Rajdhani', system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      letter-spacing: .02em;
+      color: var(--amber);
+      text-shadow: 0 0 12px rgba(232,120,32,.35);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .auth-profile__steamid {
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
-      color: var(--text);
-      word-break: break-all;
-      margin-bottom: 8px;
+      font-weight: 500;
+      line-height: 1.35;
+      color: var(--text2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .auth-profile__steamid-label {
+      color: var(--text2);
+      font-weight: 400;
+    }
+    .auth-profile__role {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+    .auth-profile__role--admin {
+      display: inline-flex;
+      align-self: flex-start;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--amber);
+      background: rgba(232,120,32,.12);
+      border: 1px solid rgba(232,120,32,.28);
+    }
+    .auth-profile__role--support {
+      display: inline-flex;
+      align-self: flex-start;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--tek);
+      background: rgba(0,200,255,.12);
+      border: 1px solid rgba(0,200,255,.25);
     }
     .auth-balance-pill {
       display: flex;
@@ -5782,6 +5845,13 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label><input id="s-custom-dino-spawn-exact" type="checkbox" /> Permitir SpawnExact stats (custom_dino_spawn_exact)</label>
             </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label for="s-custom-dino-level-max">Teto total de nível (custom_dino_level_max)</label>
+              <input id="s-custom-dino-level-max" type="number" min="0" step="1" value="0" />
+              <div style="font-size:11px;color:var(--text2);margin-top:4px;">
+                <strong>0 = sem limite total</strong> (valida só 0–254 por stat). Valores &gt; 0 limitam o nível simples e o calculado no SpawnExact.
+              </div>
+            </div>
           </div>
           <div id="db-conn-status"></div>
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -6784,7 +6854,7 @@
               </div>
               <div class="form-group">
                 <label>Nível</label>
-                <input id="dl-level" type="number" min="1" max="450" value="150" />
+                <input id="dl-level" type="number" min="1" value="150" />
               </div>
               <div class="form-group">
                 <label>Sexo</label>
@@ -6810,6 +6880,10 @@
                     <label>Nível calculado</label>
                     <input id="dl-level-calc" type="number" readonly style="opacity:.85;" />
                   </div>
+                  <div class="form-group hidden" id="dl-level-remaining-wrap">
+                    <label>Pontos restantes (até o teto)</label>
+                    <input id="dl-level-remaining" type="text" readonly style="opacity:.85;" />
+                  </div>
                   <div class="form-group">
                     <label>Imprint %</label>
                     <input id="dl-imprint-pct" type="number" min="0" max="100" step="1" value="0" oninput="dinoLabUpdateCalcLevel()" />
@@ -6828,7 +6902,7 @@
                 <div class="card-title" style="font-size:12px;margin:12px 0 6px;">Stats domados (tamed)</div>
                 <div class="form-grid" id="dl-tamed-stats-grid"></div>
                 <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
-                  <button type="button" class="btn btn-ghost btn-sm" onclick="dinoLabApplyStatPreset('max')">Preset 255/255</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="dinoLabApplyStatPreset('max')">Preset 254/254</button>
                   <button type="button" class="btn btn-ghost btn-sm" onclick="dinoLabApplyStatPreset('zero')">Zerar stats</button>
                 </div>
               </div>
@@ -8310,16 +8384,26 @@ function renderAuthUserLine() {
   const userLine = document.getElementById("auth-userline");
   if (!userLine) return;
   let role = "Jogador";
-  if (_auth.is_admin) role = "Admin";
-  else if (_auth.is_support) role = "Suporte";
+  let roleClass = "auth-profile__role";
+  if (_auth.is_admin) {
+    role = "Admin";
+    roleClass = "auth-profile__role auth-profile__role--admin";
+  } else if (_auth.is_support) {
+    role = "Suporte";
+    roleClass = "auth-profile__role auth-profile__role--support";
+  }
   const nick = (_auth.steam_persona || _auth.display_name || "").trim();
   const sid = _auth.steam_id || "";
+  const steamRow = sid
+    ? `<div class="auth-profile__steamid" title="SteamID: ${escHtml(sid)}"><span class="auth-profile__steamid-label">SteamID:</span> ${escHtml(sid)}</div>`
+    : "";
+  const roleRow = `<div class="${roleClass}">${escHtml(role)}</div>`;
   if (nick) {
     userLine.innerHTML =
-      `${escHtml(nick)}<br><span style="color:var(--text2);font-size:11px;">SteamID: ${escHtml(sid)}</span><br><span style="color:var(--text2);">${escHtml(role)}</span>`;
+      `<div class="auth-profile"><div class="auth-profile__nick" title="${escHtml(nick)}">${escHtml(nick)}</div>${steamRow}${roleRow}</div>`;
   } else {
     userLine.innerHTML =
-      `SteamID: ${escHtml(sid)}<br><span style="color:var(--text2);">${escHtml(role)}</span>`;
+      `<div class="auth-profile">${steamRow || `<div class="auth-profile__steamid">SteamID: —</div>`}${roleRow}</div>`;
   }
 }
 
@@ -11344,6 +11428,8 @@ async function loadLotteryAdmin() {
 let _dinoLabSpecies = [];
 let _dinoLabSpeciesMode = "catalog";
 let _dinoLabSpawnExactAllowed = false;
+let _dinoLabLevelMax = 0;
+let _dinoLabStatMax = 254;
 const _DL_STAT_LABELS = ["Health", "Stamina", "Oxygen", "Food", "Weight", "Melee", "Speed"];
 
 function dinoLabToggleSpawnExact() {
@@ -11368,13 +11454,35 @@ function dinoLabUpdateCalcLevel() {
   const level = 1 + sumArr("dl-wild") + sumArr("dl-tamed");
   const calc = document.getElementById("dl-level-calc");
   if (calc) calc.value = String(level);
+  const remainingWrap = document.getElementById("dl-level-remaining-wrap");
+  const remainingEl = document.getElementById("dl-level-remaining");
+  if (remainingWrap && remainingEl) {
+    if (_dinoLabLevelMax > 0) {
+      remainingWrap.classList.remove("hidden");
+      const remaining = _dinoLabLevelMax - level;
+      remainingEl.value = remaining >= 0 ? String(remaining) : `excedeu em ${Math.abs(remaining)}`;
+      remainingEl.style.color = remaining >= 0 ? "var(--text)" : "var(--danger)";
+    } else {
+      remainingWrap.classList.add("hidden");
+    }
+  }
   const levelInput = document.getElementById("dl-level");
   if (levelInput && document.getElementById("dl-spawn-exact")?.checked)
     levelInput.value = String(level);
 }
 
+function dinoLabApplyLevelMaxUi() {
+  const levelInput = document.getElementById("dl-level");
+  if (!levelInput) return;
+  if (_dinoLabLevelMax > 0) {
+    levelInput.max = String(_dinoLabLevelMax);
+  } else {
+    levelInput.removeAttribute("max");
+  }
+}
+
 function dinoLabApplyStatPreset(kind) {
-  const val = kind === "max" ? 255 : 0;
+  const val = kind === "max" ? _dinoLabStatMax : 0;
   for (let i = 0; i < 7; i++) {
     const w = document.getElementById(`dl-wild-${i}`);
     const t = document.getElementById(`dl-tamed-${i}`);
@@ -11393,12 +11501,12 @@ function _dinoLabStatInputs() {
     wildGrid.insertAdjacentHTML("beforeend", `
       <div class="form-group">
         <label>${label}</label>
-        <input id="dl-wild-${i}" type="number" min="0" max="255" value="0" oninput="dinoLabUpdateCalcLevel()" />
+        <input id="dl-wild-${i}" type="number" min="0" max="${_dinoLabStatMax}" value="0" oninput="dinoLabUpdateCalcLevel()" />
       </div>`);
     tamedGrid.insertAdjacentHTML("beforeend", `
       <div class="form-group">
         <label>${label}</label>
-        <input id="dl-tamed-${i}" type="number" min="0" max="255" value="0" oninput="dinoLabUpdateCalcLevel()" />
+        <input id="dl-tamed-${i}" type="number" min="0" max="${_dinoLabStatMax}" value="0" oninput="dinoLabUpdateCalcLevel()" />
       </div>`);
   }
 }
@@ -11559,6 +11667,9 @@ async function loadDinoLabAdmin() {
     const meta = await fetchJson("/api/admin/custom-dino/meta");
     if (banner) banner.classList.toggle("hidden", !!meta.enabled);
     _dinoLabSpawnExactAllowed = !!(meta.flags && meta.flags.custom_dino_spawn_exact);
+    _dinoLabLevelMax = parseInt(meta.level_max ?? meta.flags?.custom_dino_level_max ?? "0", 10) || 0;
+    _dinoLabStatMax = parseInt(meta.stat_max ?? "254", 10) || 254;
+    dinoLabApplyLevelMaxUi();
     const spawnCb = document.getElementById("dl-spawn-exact");
     const spawnHint = document.getElementById("dl-spawn-exact-disabled-hint");
     if (spawnCb) {
@@ -15866,6 +15977,8 @@ async function loadSettings() {
     if (dlEl) dlEl.checked = !!s.custom_dino_enabled;
     const dlSe = document.getElementById("s-custom-dino-spawn-exact");
     if (dlSe) dlSe.checked = !!s.custom_dino_spawn_exact;
+    const dlLm = document.getElementById("s-custom-dino-level-max");
+    if (dlLm) dlLm.value = String(parseInt(s.custom_dino_level_max ?? "0", 10) || 0);
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -15906,6 +16019,7 @@ async function saveSettings() {
     lottery_enabled: !!document.getElementById("s-lottery-enabled")?.checked,
     custom_dino_enabled: !!document.getElementById("s-custom-dino-enabled")?.checked,
     custom_dino_spawn_exact: !!document.getElementById("s-custom-dino-spawn-exact")?.checked,
+    custom_dino_level_max: parseInt(document.getElementById("s-custom-dino-level-max")?.value || "0", 10) || 0,
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;

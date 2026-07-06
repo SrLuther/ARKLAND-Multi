@@ -47,7 +47,7 @@ Aliases aceitos: `WebStoreUrl`, `ApiKey`.
 | Comando | Efeito |
 |---------|--------|
 | `DinoDeliver.Reload` | Recarrega `config.json` (console / RCON) |
-| `/dinopoll` | Força verificação de fila (chat) |
+| `/dinolab` | Força verificação de fila (chat) |
 
 ## Build
 

@@ -8,8 +8,10 @@ from flask import Flask, jsonify, request
 
 from custom_dino_service import (
     ITEM_TYPE,
+    STAT_MAX,
     claim_custom_dino_orders,
     create_custom_dino_order,
+    get_custom_dino_level_max,
     get_custom_dino_order,
     is_custom_dino_enabled,
     list_custom_dino_orders_admin,
@@ -271,10 +273,13 @@ def register_custom_dino_routes(
             "enabled": is_custom_dino_enabled(),
             "item_type": ITEM_TYPE,
             "color_regions": 6,
+            "stat_max": STAT_MAX,
+            "level_max": get_custom_dino_level_max(),
             "flags": {
                 "custom_dino_enabled": bool(s.get("custom_dino_enabled")),
                 "custom_dino_require_ticket": bool(s.get("custom_dino_require_ticket")),
                 "custom_dino_ground_fallback": bool(s.get("custom_dino_ground_fallback", True)),
                 "custom_dino_spawn_exact": bool(s.get("custom_dino_spawn_exact")),
+                "custom_dino_level_max": get_custom_dino_level_max(),
             },
         })

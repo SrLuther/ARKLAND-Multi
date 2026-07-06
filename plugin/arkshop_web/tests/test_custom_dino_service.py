@@ -11,8 +11,8 @@ from sqlalchemy.orm import sessionmaker
 import app as _app_module
 from custom_dino_service import (
     ITEM_TYPE,
-    LEVEL_MAX,
     STAT_COUNT,
+    STAT_MAX,
     calc_spawn_exact_level,
     claim_custom_dino_orders,
     create_custom_dino_order,
@@ -277,10 +277,14 @@ def test_validate_spawn_exact_rejects_when_flag_off(tmp_path, monkeypatch):
     assert "custom_dino_spawn_exact" in err
 
 
-def test_validate_spawn_exact_level_cap(tmp_path, monkeypatch):
-    settings_file = tmp_path / "spawn_exact_cap.json"
+def test_validate_spawn_exact_unlimited_allows_high_level(tmp_path, monkeypatch):
+    settings_file = tmp_path / "spawn_exact_unlimited.json"
     settings_file.write_text(
-        json.dumps({"custom_dino_enabled": True, "custom_dino_spawn_exact": True}),
+        json.dumps({
+            "custom_dino_enabled": True,
+            "custom_dino_spawn_exact": True,
+            "custom_dino_level_max": 0,
+        }),
         encoding="utf-8",
     )
     monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
@@ -288,11 +292,58 @@ def test_validate_spawn_exact_level_cap(tmp_path, monkeypatch):
 
     configure_custom_dino(settings_fn=_app_module._load_settings)
 
-    wild = [255] * STAT_COUNT
-    tamed = [255] * STAT_COUNT
+    wild = [STAT_MAX] * STAT_COUNT
+    tamed = [STAT_MAX] * STAT_COUNT
+    payload, err = validate_payload(_valid_body(spawn_exact={"enabled": True, "wild_stats": wild, "tamed_stats": tamed}))
+    assert err is None
+    assert payload is not None
+    assert payload["level"] == 1 + STAT_MAX * STAT_COUNT * 2
+
+
+def test_validate_spawn_exact_level_cap(tmp_path, monkeypatch):
+    settings_file = tmp_path / "spawn_exact_cap.json"
+    settings_file.write_text(
+        json.dumps({
+            "custom_dino_enabled": True,
+            "custom_dino_spawn_exact": True,
+            "custom_dino_level_max": 450,
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    wild = [STAT_MAX] * STAT_COUNT
+    tamed = [STAT_MAX] * STAT_COUNT
     _, err = validate_payload(_valid_body(spawn_exact={"enabled": True, "wild_stats": wild, "tamed_stats": tamed}))
     assert err is not None
-    assert str(LEVEL_MAX) in err
+    assert "450" in err
+    assert "custom_dino_level_max" in err
+
+
+def test_validate_simple_level_cap(tmp_path, monkeypatch):
+    settings_file = tmp_path / "simple_level_cap.json"
+    settings_file.write_text(
+        json.dumps({
+            "custom_dino_enabled": True,
+            "custom_dino_level_max": 200,
+        }),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    _, err = validate_payload(_valid_body(level=500))
+    assert err is not None
+    assert "200" in err
+
+    payload, err2 = validate_payload(_valid_body(level=150))
+    assert err2 is None
+    assert payload is not None
 
 
 def test_validate_spawn_exact_stat_bounds(tmp_path, monkeypatch):
@@ -308,7 +359,7 @@ def test_validate_spawn_exact_stat_bounds(tmp_path, monkeypatch):
 
     _, err = validate_payload(_valid_body(spawn_exact={
         "enabled": True,
-        "wild_stats": [256] + [0] * (STAT_COUNT - 1),
+        "wild_stats": [STAT_MAX + 1] + [0] * (STAT_COUNT - 1),
         "tamed_stats": [0] * STAT_COUNT,
     }))
     assert err is not None
