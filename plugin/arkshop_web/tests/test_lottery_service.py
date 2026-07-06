@@ -342,7 +342,7 @@ def test_lottery_public_with_legacy_campaign_schema(tmp_path, monkeypatch):
 
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    from lottery_service import _campaign_public_dict, get_public_current
+    from lottery_service import _campaign_public_dict, get_participants_public, get_public_current
 
     engine = create_engine(f"sqlite:///{tmp_path / 'legacy.db'}", future=True)
     with engine.connect() as conn:
@@ -369,6 +369,13 @@ def test_lottery_public_with_legacy_campaign_schema(tmp_path, monkeypatch):
             ),
             {"draw": (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()},
         )
+        conn.execute(
+            text(
+                "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status) "
+                "VALUES (1, :s, 'DONATION', 123, 'ACTIVE')"
+            ),
+            {"s": USER},
+        )
         conn.commit()
     Session = sessionmaker(bind=engine)
     db = Session()
@@ -376,8 +383,73 @@ def test_lottery_public_with_legacy_campaign_schema(tmp_path, monkeypatch):
         result = get_public_current(db)
         assert result["ok"] is True
         assert result["campaign"]["prize_amber_from_purchases"] == 0
+        parts = get_participants_public(db, 1, page_size=20)
+        assert parts["ok"] is True
+        assert parts["total"] == 1
+        assert parts["participants"][0]["numbers"][0]["value"] == 123
     finally:
         db.close()
+
+
+def test_lottery_public_http_legacy_participants(tmp_path, monkeypatch):
+    """GET participants com schema legado — reproduz 500 em produção (v1.9.215)."""
+    settings_file = tmp_path / "lottery_legacy_http_settings.json"
+    settings_file.write_text(json.dumps({"lottery_enabled": True}), encoding="utf-8")
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    monkeypatch.setattr(_app_module, "_migrate_schema", lambda _engine: None)
+
+    from app import app, _configure_database
+
+    db_path = tmp_path / "lottery_legacy_http.db"
+    _configure_database(f"sqlite:///{db_path}")
+    with _app_module._ENGINE.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE lottery_campaigns ("
+                "id INTEGER PRIMARY KEY, sequence_number INTEGER, title TEXT, "
+                "status TEXT, draw_at TEXT, winning_numbers_count INTEGER DEFAULT 1, "
+                "prize_amber_base INTEGER DEFAULT 5000, prize_amber_rollover_in INTEGER DEFAULT 0)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE TABLE lottery_numbers ("
+                "id INTEGER PRIMARY KEY, campaign_id INTEGER, steam_id TEXT, "
+                "source TEXT, number_value INTEGER, status TEXT DEFAULT 'ACTIVE')"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO lottery_campaigns "
+                "(id, sequence_number, title, status, draw_at, prize_amber_base) "
+                "VALUES (1, 1, 'Legacy HTTP', 'ACTIVE', :draw, 5000)"
+            ),
+            {"draw": (datetime.now(timezone.utc) + timedelta(days=3)).isoformat()},
+        )
+        conn.execute(
+            text(
+                "INSERT INTO lottery_numbers (campaign_id, steam_id, source, number_value, status) "
+                "VALUES (1, :s, 'DONATION', 456, 'ACTIVE')"
+            ),
+            {"s": USER},
+        )
+        conn.commit()
+    configure_lottery(
+        credit_fn=_app_module._add_player_points_tx,
+        debit_fn=_app_module._subtract_player_points_tx,
+        settings_fn=_app_module._load_settings,
+    )
+    _app_module._DB_INITIALIZED = True
+
+    app.config["TESTING"] = True
+    with app.test_client() as client:
+        cur = client.get("/api/public/lottery/current")
+        assert cur.status_code == 200, cur.get_data(as_text=True)
+        parts = client.get("/api/public/lottery/campaign/1/participants?page_size=20")
+        assert parts.status_code == 200, parts.get_data(as_text=True)
+        body = parts.get_json()
+        assert body["ok"] is True
+        assert body["total"] == 1
 
 
 def test_lottery_reserve_http_route(tmp_path, monkeypatch):

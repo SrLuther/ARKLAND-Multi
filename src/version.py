@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.9.215"
+APP_VERSION: str = "1.9.216"
 BUILD_DATE: str = "2026-07-05"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.9.216",
+        "date": "2026-07-05",
+        "changes": [
+            "Fix (Web Store / Sorteio): pagina #/sorteio ainda retornava HTTP 500 ao listar participantes "
+            "- get_participants_public usava assigned_at ausente em schema MySQL parcial; ordenacao via "
+            "_table_has_column e fallback MAX(ln.id); _resolve_display_name tolera colunas ausentes em store_users.",
+        ],
+    },
     {
         "version": "1.9.215",
         "date": "2026-07-05",

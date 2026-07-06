@@ -130,6 +130,20 @@ def _row_val(row: Any, key: str, default: Any = None) -> Any:
             return default
 
 
+def _table_has_column(db: Session, table: str, column: str) -> bool:
+    """Verifica coluna em schema parcial — evita SQL com colunas ausentes."""
+    bind = db.get_bind()
+    is_sqlite = "sqlite" in str(bind.url).lower()
+    if is_sqlite:
+        cols = {str(r[1]) for r in db.execute(text(f"PRAGMA table_info({table})")).fetchall()}
+        return column in cols
+    row = db.execute(
+        text(f"SHOW COLUMNS FROM `{table}` LIKE :col"),
+        {"col": column},
+    ).fetchone()
+    return row is not None
+
+
 def _maybe_enable_lottery_after_first_campaign(db: Session) -> None:
     if _settings_fn is None or _save_settings_fn is None:
         return
@@ -641,15 +655,18 @@ def _random_purchase_count(db: Session, campaign_id: int, steam_id: str) -> int:
 
 
 def _resolve_display_name(db: Session, steam_id: str) -> str:
-    row = db.execute(
-        text(
-            "SELECT market_display_name, steam_persona FROM store_users "
-            "WHERE steam_id = :sid LIMIT 1"
-        ),
-        {"sid": steam_id},
-    ).fetchone()
+    try:
+        row = db.execute(
+            text(
+                "SELECT market_display_name, steam_persona FROM store_users "
+                "WHERE steam_id = :sid LIMIT 1"
+            ),
+            {"sid": steam_id},
+        ).fetchone()
+    except OperationalError:
+        return "Jogador"
     if row:
-        for col in (row.market_display_name, row.steam_persona):
+        for col in (_row_val(row, "market_display_name"), _row_val(row, "steam_persona")):
             if col and str(col).strip():
                 return str(col).strip()
     return "Jogador"
@@ -884,26 +901,29 @@ def get_participants_public(
     offset = (page - 1) * page_size
     params["lim"] = page_size
     params["off"] = offset
-    is_sqlite = "sqlite" in str(db.bind.url).lower()
+    bind = db.get_bind()
+    is_sqlite = "sqlite" in str(bind.url).lower()
+    has_assigned_at = _table_has_column(db, "lottery_numbers", "assigned_at")
+    sort_key = "MAX(ln.assigned_at)" if has_assigned_at else "MAX(ln.id)"
     if is_sqlite:
         agg_sql = (
             f"SELECT ln.steam_id, "
             f"GROUP_CONCAT(ln.number_value || ':' || ln.source) AS nums, "
-            f"MAX(ln.assigned_at) AS last_at "
+            f"{sort_key} AS last_at "
             f"FROM lottery_numbers ln "
             f"WHERE ln.campaign_id = :cid AND ln.status = 'ACTIVE' "
             f"GROUP BY ln.steam_id{having} "
-            f"ORDER BY last_at DESC LIMIT :lim OFFSET :off"
+            f"ORDER BY {sort_key} DESC LIMIT :lim OFFSET :off"
         )
     else:
         agg_sql = (
             f"SELECT ln.steam_id, "
             f"GROUP_CONCAT(CONCAT(ln.number_value, ':', ln.source) ORDER BY ln.number_value) AS nums, "
-            f"MAX(ln.assigned_at) AS last_at "
+            f"{sort_key} AS last_at "
             f"FROM lottery_numbers ln "
             f"WHERE ln.campaign_id = :cid AND ln.status = 'ACTIVE' "
             f"GROUP BY ln.steam_id{having} "
-            f"ORDER BY last_at DESC LIMIT :lim OFFSET :off"
+            f"ORDER BY {sort_key} DESC LIMIT :lim OFFSET :off"
         )
     rows = db.execute(text(agg_sql), params).fetchall()
     participants = []

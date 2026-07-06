@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.9.216] - 2026-07-05
+
+### Fix
+
+- Fix (Web Store / Sorteio): pagina #/sorteio ainda retornava HTTP 500 ao listar participantes - get_participants_public usava assigned_at ausente em schema MySQL parcial; ordenacao via _table_has_column e fallback MAX(ln.id); _resolve_display_name tolera colunas ausentes em store_users.
+
 ## [1.9.215] - 2026-07-05
 
 ### Fix
