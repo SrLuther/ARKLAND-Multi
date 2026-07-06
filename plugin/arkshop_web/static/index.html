@@ -5779,6 +5779,9 @@
             <div class="form-group" style="grid-column:1/-1;">
               <label><input id="s-custom-dino-enabled" type="checkbox" /> Ativar Dino Lab (custom_dino_enabled)</label>
             </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-custom-dino-spawn-exact" type="checkbox" /> Permitir SpawnExact stats (custom_dino_spawn_exact)</label>
+            </div>
           </div>
           <div id="db-conn-status"></div>
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -6624,7 +6627,7 @@
         </div>
         <div class="card" id="myarea-lottery-card">
           <div class="card-header">
-            <div class="card-title">🎲 Sorteio ativo</div>
+            <div class="card-title">🎲 Sorteio — número fixo</div>
             <button class="btn btn-ghost btn-sm" onclick="goToPage('sorteio')">Ver grade →</button>
           </div>
           <div id="myarea-lottery" style="color:var(--text2);font-size:13px;">Carregando…</div>
@@ -6796,6 +6799,40 @@
             </div>
             <div class="card-title" style="margin:16px 0 8px;font-size:13px;">Cores (6 regiões — índice Obelisk 0–255)</div>
             <div class="form-grid" id="dl-colors-grid"></div>
+            <div class="card" style="margin-top:16px;padding:12px;background:var(--surface2);">
+              <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
+                <label style="margin:0;"><input id="dl-spawn-exact" type="checkbox" onchange="dinoLabToggleSpawnExact()" /> Modo SpawnExact (stats por ponto)</label>
+                <span id="dl-spawn-exact-disabled-hint" class="hidden" style="font-size:11px;color:var(--amber);">Ative <code>custom_dino_spawn_exact</code> em Configurações.</span>
+              </div>
+              <div id="dl-spawn-exact-panel" class="hidden">
+                <div class="form-grid" style="margin-bottom:8px;">
+                  <div class="form-group">
+                    <label>Nível calculado</label>
+                    <input id="dl-level-calc" type="number" readonly style="opacity:.85;" />
+                  </div>
+                  <div class="form-group">
+                    <label>Imprint %</label>
+                    <input id="dl-imprint-pct" type="number" min="0" max="100" step="1" value="0" oninput="dinoLabUpdateCalcLevel()" />
+                  </div>
+                  <div class="form-group">
+                    <label>Nome imprintador (opcional)</label>
+                    <input id="dl-imprinter-name" type="text" placeholder="Jogador" />
+                  </div>
+                  <div class="form-group">
+                    <label>Imprinter ID hex (opcional)</label>
+                    <input id="dl-imprinter-id" type="text" placeholder="7B5A3C2D" />
+                  </div>
+                </div>
+                <div class="card-title" style="font-size:12px;margin-bottom:6px;">Stats selvagens (wild)</div>
+                <div class="form-grid" id="dl-wild-stats-grid"></div>
+                <div class="card-title" style="font-size:12px;margin:12px 0 6px;">Stats domados (tamed)</div>
+                <div class="form-grid" id="dl-tamed-stats-grid"></div>
+                <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="dinoLabApplyStatPreset('max')">Preset 255/255</button>
+                  <button type="button" class="btn btn-ghost btn-sm" onclick="dinoLabApplyStatPreset('zero')">Zerar stats</button>
+                </div>
+              </div>
+            </div>
             <div class="form-group" style="margin-top:12px;">
               <label>Motivo *</label>
               <input id="dl-note" type="text" placeholder="Compensação suporte #4521 — Rex vermelho" />
@@ -10958,6 +10995,7 @@ function _formatCountdown(secs) {
 function _lotterySourceBadge(src) {
   if (src === "DONATION") return "🎁";
   if (src === "AMBER_RESERVE") return "⭐";
+  if (src === "FIXED_REGISTERED") return "🎯";
   return "🪙";
 }
 
@@ -11057,21 +11095,81 @@ async function loadMyAreaLottery() {
   if (!el || !_auth.authenticated) return;
   try {
     const d = await fetchJson("/api/player/lottery/me");
-    if (!d.enabled || !d.campaign) {
+    if (!d.enabled) {
       if (card) card.style.display = "none";
       return;
     }
     if (card) card.style.display = "";
-    const c = d.campaign;
-    const fmt = (arr) => (arr && arr.length) ? arr.map(n => `[${n}]`).join(" ") : "—";
-    el.innerHTML = `
-      <p><strong>${escHtml(c.title)}</strong> · sorteio em ${_formatCountdown(c.seconds_remaining)}</p>
-      <p>Doação: ${fmt(d.by_source?.DONATION)} · Compras (${d.amber_random_count}/${c.amber_random_max_per_player}): ${fmt(d.by_source?.AMBER_RANDOM)} · Reservas: ${fmt(d.by_source?.AMBER_RESERVE)}</p>
-      <p style="margin-top:8px;">Doações: R$ ${Number(d.donated_brl || 0).toFixed(2).replace(".", ",")}</p>
-      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="lotteryBuyRandom()">Comprar aleatório (1.000)</button>`;
+    const fixed = d.fixed_number != null ? String(d.fixed_number) : "—";
+    const changeCost = d.fixed_number_change_cost || 5000;
+    const conf = d.campaign_confirmation || {};
+    let confirmBlock = "";
+    if (d.campaign) {
+      const c = d.campaign;
+      const fmt = (arr) => (arr && arr.length) ? arr.map(n => `[${n}]`).join(" ") : "—";
+      if (conf.confirmed) {
+        confirmBlock = `<p style="color:var(--success);margin:8px 0 0;">✓ Participação confirmada nesta campanha${conf.confirmed_at ? ` em ${escHtml(conf.confirmed_at)}` : ""}.</p>`;
+      } else if (conf.can_confirm) {
+        confirmBlock = `<button class="btn btn-primary btn-sm" style="margin-top:10px;" onclick="lotteryConfirmParticipation()">Confirmar participação (grátis)</button>
+          <p style="font-size:11px;color:var(--text2);margin:6px 0 0;">Confirme até 2 horas antes do sorteio.</p>`;
+      } else {
+        confirmBlock = `<p style="color:var(--warning);margin:8px 0 0;font-size:12px;">Prazo de confirmação encerrado (2 horas antes do sorteio). Aguarde a próxima campanha.</p>`;
+      }
+      el.innerHTML = `
+        <div style="padding:10px 12px;background:var(--surface2);border-radius:8px;margin-bottom:10px;">
+          <div style="font-size:12px;color:var(--text2);">Seu número fixo</div>
+          <div style="font-size:28px;font-weight:800;color:var(--amber);letter-spacing:2px;">${escHtml(fixed)}</div>
+          <p style="font-size:11px;color:var(--text2);margin:6px 0 0;">Único e permanente. Participa do sorteio somente após confirmação em cada campanha.</p>
+        </div>
+        <p><strong>${escHtml(c.title)}</strong> · sorteio em ${_formatCountdown(c.seconds_remaining)}</p>
+        <p>Fixo confirmado: ${fmt(d.by_source?.FIXED_REGISTERED)} · Doação: ${fmt(d.by_source?.DONATION)} · Compras (${d.amber_random_count}/${c.amber_random_max_per_player}): ${fmt(d.by_source?.AMBER_RANDOM)} · Reservas: ${fmt(d.by_source?.AMBER_RESERVE)}</p>
+        <p style="margin-top:8px;">Doações: R$ ${Number(d.donated_brl || 0).toFixed(2).replace(".", ",")}</p>
+        ${confirmBlock}
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+          <button class="btn btn-ghost btn-sm" onclick="lotteryBuyRandom()">Comprar aleatório (${c.amber_random_price})</button>
+          <button class="btn btn-ghost btn-sm" onclick="lotteryChangeFixedNumberPrompt(${changeCost})">Trocar número fixo (${changeCost} Âmbares)</button>
+        </div>`;
+    } else {
+      el.innerHTML = `
+        <div style="padding:10px 12px;background:var(--surface2);border-radius:8px;">
+          <div style="font-size:12px;color:var(--text2);">Seu número fixo</div>
+          <div style="font-size:28px;font-weight:800;color:var(--amber);letter-spacing:2px;">${escHtml(fixed)}</div>
+          <p style="font-size:11px;color:var(--text2);margin:8px 0 0;">Nenhuma campanha ativa. Quando houver sorteio, confirme sua participação aqui.</p>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="lotteryChangeFixedNumberPrompt(${changeCost})">Trocar número fixo (${changeCost} Âmbares)</button>
+        </div>`;
+    }
   } catch (_) {
     el.textContent = "Sorteio indisponível.";
   }
+}
+
+async function lotteryConfirmParticipation() {
+  if (!confirm("Confirmar participação gratuita nesta campanha com seu número fixo?")) return;
+  try {
+    await fetchJson("/api/player/lottery/confirm-participation", { method: "POST" });
+    toast("Participação confirmada! Seu número fixo está no sorteio.", "success");
+    loadMyAreaLottery();
+  } catch (e) { toast(e.message || String(e), "error"); }
+}
+
+async function lotteryChangeFixedNumberPrompt(cost) {
+  const raw = prompt(`Novo número fixo (100–999). Custo: ${cost} Âmbares. Esta troca é permanente.`);
+  if (raw == null) return;
+  const n = parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(n) || n < 100 || n > 999) {
+    toast("Informe um número entre 100 e 999.", "error");
+    return;
+  }
+  if (!confirm(`Trocar seu número fixo para ${n}? Serão debitados ${cost} Âmbares.`)) return;
+  try {
+    const d = await fetchJson("/api/player/lottery/change-fixed-number", {
+      method: "POST",
+      body: { new_number: n },
+    });
+    toast(`Número fixo alterado para ${d.fixed_number}.`, "success");
+    refreshPlayerBalance();
+    loadMyAreaLottery();
+  } catch (e) { toast(e.message || String(e), "error"); }
 }
 
 async function loadHomeLotteryTeaser() {
@@ -11245,6 +11343,65 @@ async function loadLotteryAdmin() {
 
 let _dinoLabSpecies = [];
 let _dinoLabSpeciesMode = "catalog";
+let _dinoLabSpawnExactAllowed = false;
+const _DL_STAT_LABELS = ["Health", "Stamina", "Oxygen", "Food", "Weight", "Melee", "Speed"];
+
+function dinoLabToggleSpawnExact() {
+  const on = !!document.getElementById("dl-spawn-exact")?.checked;
+  document.getElementById("dl-spawn-exact-panel")?.classList.toggle("hidden", !on);
+  const levelInput = document.getElementById("dl-level");
+  if (levelInput) {
+    levelInput.readOnly = on;
+    levelInput.style.opacity = on ? "0.65" : "1";
+  }
+  if (on) dinoLabUpdateCalcLevel();
+}
+
+function dinoLabUpdateCalcLevel() {
+  const sumArr = (prefix) => {
+    let s = 0;
+    for (let i = 0; i < 7; i++) {
+      s += parseInt(document.getElementById(`${prefix}-${i}`)?.value || "0", 10) || 0;
+    }
+    return s;
+  };
+  const level = 1 + sumArr("dl-wild") + sumArr("dl-tamed");
+  const calc = document.getElementById("dl-level-calc");
+  if (calc) calc.value = String(level);
+  const levelInput = document.getElementById("dl-level");
+  if (levelInput && document.getElementById("dl-spawn-exact")?.checked)
+    levelInput.value = String(level);
+}
+
+function dinoLabApplyStatPreset(kind) {
+  const val = kind === "max" ? 255 : 0;
+  for (let i = 0; i < 7; i++) {
+    const w = document.getElementById(`dl-wild-${i}`);
+    const t = document.getElementById(`dl-tamed-${i}`);
+    if (w) w.value = String(val);
+    if (t) t.value = String(val);
+  }
+  dinoLabUpdateCalcLevel();
+}
+
+function _dinoLabStatInputs() {
+  const wildGrid = document.getElementById("dl-wild-stats-grid");
+  const tamedGrid = document.getElementById("dl-tamed-stats-grid");
+  if (!wildGrid || wildGrid.childElementCount) return;
+  for (let i = 0; i < 7; i++) {
+    const label = _DL_STAT_LABELS[i];
+    wildGrid.insertAdjacentHTML("beforeend", `
+      <div class="form-group">
+        <label>${label}</label>
+        <input id="dl-wild-${i}" type="number" min="0" max="255" value="0" oninput="dinoLabUpdateCalcLevel()" />
+      </div>`);
+    tamedGrid.insertAdjacentHTML("beforeend", `
+      <div class="form-group">
+        <label>${label}</label>
+        <input id="dl-tamed-${i}" type="number" min="0" max="255" value="0" oninput="dinoLabUpdateCalcLevel()" />
+      </div>`);
+  }
+}
 
 function setDinoLabSpeciesMode(mode) {
   _dinoLabSpeciesMode = mode === "manual" ? "manual" : "catalog";
@@ -11282,6 +11439,13 @@ function _dinoLabFormBody() {
   for (let i = 0; i < 6; i++) {
     colors.push(parseInt(document.getElementById(`dl-color-${i}`)?.value || "0", 10));
   }
+  const spawnExactOn = !!document.getElementById("dl-spawn-exact")?.checked;
+  const wild_stats = [];
+  const tamed_stats = [];
+  for (let i = 0; i < 7; i++) {
+    wild_stats.push(parseInt(document.getElementById(`dl-wild-${i}`)?.value || "0", 10));
+    tamed_stats.push(parseInt(document.getElementById(`dl-tamed-${i}`)?.value || "0", 10));
+  }
   const ticketRaw = document.getElementById("dl-ticket-id")?.value?.trim() || "";
   const body = {
     steam_id: document.getElementById("dl-steam-id")?.value?.trim(),
@@ -11292,6 +11456,14 @@ function _dinoLabFormBody() {
     deliver_as: "cryopod",
     note: document.getElementById("dl-note")?.value?.trim(),
     ticket_id: ticketRaw.replace(/^#/, "") || null,
+    spawn_exact: {
+      enabled: spawnExactOn,
+      wild_stats,
+      tamed_stats,
+      imprint_pct: parseFloat(document.getElementById("dl-imprint-pct")?.value || "0"),
+      imprinter_name: document.getElementById("dl-imprinter-name")?.value?.trim() || "",
+      imprinter_id_hex: document.getElementById("dl-imprinter-id")?.value?.trim() || "",
+    },
   };
   if (_dinoLabSpeciesMode === "manual") {
     body.species_blueprint = document.getElementById("dl-species-blueprint")?.value?.trim();
@@ -11381,10 +11553,20 @@ async function loadDinoLabHistory() {
 
 async function loadDinoLabAdmin() {
   _dinoLabColorInputs();
+  _dinoLabStatInputs();
   const banner = document.getElementById("dinolab-disabled-banner");
   try {
     const meta = await fetchJson("/api/admin/custom-dino/meta");
     if (banner) banner.classList.toggle("hidden", !!meta.enabled);
+    _dinoLabSpawnExactAllowed = !!(meta.flags && meta.flags.custom_dino_spawn_exact);
+    const spawnCb = document.getElementById("dl-spawn-exact");
+    const spawnHint = document.getElementById("dl-spawn-exact-disabled-hint");
+    if (spawnCb) {
+      spawnCb.disabled = !_dinoLabSpawnExactAllowed;
+      if (!_dinoLabSpawnExactAllowed) spawnCb.checked = false;
+    }
+    if (spawnHint) spawnHint.classList.toggle("hidden", _dinoLabSpawnExactAllowed);
+    dinoLabToggleSpawnExact();
   } catch (_) {
     if (banner) banner.classList.remove("hidden");
   }
@@ -15682,6 +15864,8 @@ async function loadSettings() {
     if (lotEl) lotEl.checked = !!s.lottery_enabled;
     const dlEl = document.getElementById("s-custom-dino-enabled");
     if (dlEl) dlEl.checked = !!s.custom_dino_enabled;
+    const dlSe = document.getElementById("s-custom-dino-spawn-exact");
+    if (dlSe) dlSe.checked = !!s.custom_dino_spawn_exact;
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -15721,6 +15905,7 @@ async function saveSettings() {
     db_password: document.getElementById("s-db-password").value,
     lottery_enabled: !!document.getElementById("s-lottery-enabled")?.checked,
     custom_dino_enabled: !!document.getElementById("s-custom-dino-enabled")?.checked,
+    custom_dino_spawn_exact: !!document.getElementById("s-custom-dino-spawn-exact")?.checked,
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;

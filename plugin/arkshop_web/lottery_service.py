@@ -20,7 +20,7 @@ from typing import Any, Callable
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from lottery_draw import (
     ALGORITHM_VERSION,
@@ -34,10 +34,13 @@ from lottery_draw import (
 log = logging.getLogger("arkshop_web.lottery")
 
 CAMPAIGN_STATUSES = frozenset({"DRAFT", "ACTIVE", "DRAWING", "COMPLETED", "CANCELLED"})
-NUMBER_SOURCES = frozenset({"DONATION", "AMBER_RANDOM", "AMBER_RESERVE"})
+NUMBER_SOURCES = frozenset({"DONATION", "AMBER_RANDOM", "AMBER_RESERVE", "FIXED_REGISTERED"})
 LOTTERY_REGULAMENTO_VERSION = "1.5"
+FIXED_NUMBER_CHANGE_COST = 5000
+CONFIRMATION_DEADLINE_HOURS = 2
 RULES_SUMMARY = (
     "R$ 5 = 1 número · compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · "
+    "número fixo gratuito (confirme em Minha Área) · troca de número fixo 5.000 Âmbares · "
     "até 5 sorteados · prêmio dividido igualmente entre titulares dos sorteados."
 )
 TZ_LABEL = "Horário de Brasília (UTC-3)"
@@ -71,6 +74,8 @@ def lottery_meta() -> dict[str, Any]:
         "number_max": NUMBER_MAX,
         "rules_summary": RULES_SUMMARY,
         "timezone_label": TZ_LABEL,
+        "fixed_number_change_cost": FIXED_NUMBER_CHANGE_COST,
+        "confirmation_deadline_hours": CONFIRMATION_DEADLINE_HOURS,
     }
 
 
@@ -174,6 +179,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               title VARCHAR(200) NOT NULL,
               status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
               draw_at DATETIME NOT NULL,
+              starts_at DATETIME NULL,
               winning_numbers_count INTEGER NOT NULL DEFAULT 1,
               prize_amber_base INTEGER NOT NULL DEFAULT 5000,
               prize_amber_rollover_in INTEGER NOT NULL DEFAULT 0,
@@ -260,6 +266,16 @@ def ensure_lottery_schema(engine: Engine) -> None:
             "CREATE INDEX IF NOT EXISTS idx_lot_camp_status ON lottery_campaigns (status, draw_at)",
             "CREATE INDEX IF NOT EXISTS idx_lot_num_camp ON lottery_numbers (campaign_id, steam_id)",
             "CREATE INDEX IF NOT EXISTS idx_lot_num_pay ON lottery_numbers (payment_id)",
+            """
+            CREATE TABLE IF NOT EXISTS lottery_campaign_confirmations (
+              campaign_id INTEGER NOT NULL,
+              steam_id VARCHAR(32) NOT NULL,
+              fixed_number INTEGER NOT NULL,
+              confirmed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              PRIMARY KEY (campaign_id, steam_id)
+            )
+            """,
+            "CREATE INDEX IF NOT EXISTS idx_lot_conf_steam ON lottery_campaign_confirmations (steam_id)",
         ]
     else:
         stmts = [
@@ -270,6 +286,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               title VARCHAR(200) NOT NULL,
               status VARCHAR(16) NOT NULL DEFAULT 'DRAFT',
               draw_at DATETIME(3) NOT NULL,
+              starts_at DATETIME(3) NULL,
               winning_numbers_count TINYINT NOT NULL DEFAULT 1,
               prize_amber_base INT NOT NULL DEFAULT 5000,
               prize_amber_rollover_in INT NOT NULL DEFAULT 0,
@@ -359,18 +376,328 @@ def ensure_lottery_schema(engine: Engine) -> None:
               KEY idx_lot_audit_camp (campaign_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
             """,
+            """
+            CREATE TABLE IF NOT EXISTS lottery_campaign_confirmations (
+              campaign_id BIGINT UNSIGNED NOT NULL,
+              steam_id VARCHAR(32) NOT NULL,
+              fixed_number SMALLINT NOT NULL,
+              confirmed_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+              PRIMARY KEY (campaign_id, steam_id),
+              KEY idx_lot_conf_steam (steam_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """,
         ]
     with engine.connect() as conn:
         for stmt in stmts:
             conn.execute(text(stmt))
         conn.commit()
     _migrate_lottery_columns(engine)
+    backfill_fixed_lottery_numbers(engine)
+
+
+def _store_users_has_fixed_column(engine: Engine) -> bool:
+    is_sqlite = "sqlite" in str(engine.url).lower()
+    with engine.connect() as conn:
+        if is_sqlite:
+            cols = {
+                str(r[1])
+                for r in conn.execute(text("PRAGMA table_info(store_users)")).fetchall()
+            }
+            return "fixed_lottery_number" in cols
+        row = conn.execute(
+            text("SHOW COLUMNS FROM `store_users` LIKE 'fixed_lottery_number'")
+        ).fetchone()
+        return row is not None
+
+
+def backfill_fixed_lottery_numbers(engine: Engine) -> int:
+    """Atribui número fixo a jogadores registrados que ainda não possuem."""
+    if not _store_users_has_fixed_column(engine):
+        return 0
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    assigned = 0
+    try:
+        rows = db.execute(
+            text(
+                "SELECT steam_id FROM store_users "
+                "WHERE fixed_lottery_number IS NULL ORDER BY steam_id ASC"
+            )
+        ).fetchall()
+        for row in rows:
+            sid = str(row.steam_id)
+            try:
+                ensure_fixed_lottery_number(db, sid)
+                assigned += 1
+            except Exception as exc:
+                log.warning("backfill fixed_lottery_number %s: %s", sid, exc)
+        if assigned:
+            db.commit()
+            log.info("backfill fixed_lottery_number: %s jogadores", assigned)
+    except Exception as exc:
+        db.rollback()
+        log.warning("backfill fixed_lottery_numbers falhou: %s", exc)
+    finally:
+        db.close()
+    return assigned
+
+
+def _global_occupied_fixed_numbers(db: Session) -> set[int]:
+    if not _store_users_has_fixed_column(db.get_bind()):
+        return set()
+    rows = db.execute(
+        text(
+            "SELECT fixed_lottery_number FROM store_users "
+            "WHERE fixed_lottery_number IS NOT NULL"
+        )
+    ).fetchall()
+    return {int(r[0]) for r in rows if r[0] is not None}
+
+
+def _pick_unique_fixed_number(db: Session, *, occupied: set[int] | None = None) -> int:
+    if occupied is None:
+        occupied = _global_occupied_fixed_numbers(db)
+    if len(occupied) >= 900:
+        raise ValueError("fixed_pool_exhausted")
+    rng = secrets.SystemRandom()
+    for _ in range(_MAX_RANDOM_ATTEMPTS):
+        n = rng.randint(NUMBER_MIN, NUMBER_MAX)
+        if n not in occupied:
+            return n
+    free = [n for n in range(NUMBER_MIN, NUMBER_MAX + 1) if n not in occupied]
+    if not free:
+        raise ValueError("fixed_pool_exhausted")
+    return rng.choice(free)
+
+
+def _get_fixed_lottery_number(db: Session, steam_id: str) -> int | None:
+    if not _store_users_has_fixed_column(db.get_bind()):
+        return None
+    row = db.execute(
+        text("SELECT fixed_lottery_number FROM store_users WHERE steam_id = :sid"),
+        {"sid": steam_id},
+    ).fetchone()
+    if not row or row[0] is None:
+        return None
+    return int(row[0])
+
+
+def ensure_fixed_lottery_number(db: Session, steam_id: str) -> int:
+    """Garante número fixo único para jogador registrado — nunca altera automaticamente."""
+    existing = _get_fixed_lottery_number(db, steam_id)
+    if existing is not None:
+        return existing
+    user_row = db.execute(
+        text("SELECT 1 FROM store_users WHERE steam_id = :sid"),
+        {"sid": steam_id},
+    ).fetchone()
+    if not user_row:
+        raise ValueError("not_registered")
+    n = _pick_unique_fixed_number(db)
+    try:
+        db.execute(
+            text("UPDATE store_users SET fixed_lottery_number = :n WHERE steam_id = :sid"),
+            {"n": n, "sid": steam_id},
+        )
+    except IntegrityError:
+        raise ValueError("fixed_pool_exhausted") from None
+    _audit_safe(db, "lottery_fixed_number_assigned", {"steam_id": steam_id, "number": n})
+    return n
+
+
+def _confirmation_deadline(campaign_row: Any) -> datetime | None:
+    """Último instante para confirmar: draw_at − 2h (confirmação bloqueada em ou após esse horário)."""
+    draw = _parse_dt(_row_val(campaign_row, "draw_at"))
+    if not draw:
+        return None
+    return draw - timedelta(hours=CONFIRMATION_DEADLINE_HOURS)
+
+
+def _confirmation_deadline_ok(campaign_row: Any) -> bool:
+    deadline = _confirmation_deadline(campaign_row)
+    if not deadline:
+        return False
+    return _utcnow() < deadline
+
+
+def _campaign_confirmation_row(db: Session, campaign_id: int, steam_id: str) -> Any | None:
+    if not _table_has_column(db, "lottery_campaign_confirmations", "campaign_id"):
+        return None
+    return db.execute(
+        text(
+            "SELECT * FROM lottery_campaign_confirmations "
+            "WHERE campaign_id = :cid AND steam_id = :sid"
+        ),
+        {"cid": campaign_id, "sid": steam_id},
+    ).fetchone()
+
+
+def _is_number_taken_in_campaign(
+    db: Session, campaign_id: int, number_value: int, *, exclude_steam_id: str | None = None,
+) -> bool:
+    row = db.execute(
+        text(
+            "SELECT steam_id FROM lottery_numbers "
+            "WHERE campaign_id = :cid AND number_value = :num AND status = 'ACTIVE' LIMIT 1"
+        ),
+        {"cid": campaign_id, "num": number_value},
+    ).fetchone()
+    if not row:
+        return False
+    if exclude_steam_id and str(row.steam_id) == exclude_steam_id:
+        return False
+    return True
+
+
+def confirm_campaign_participation(db: Session, steam_id: str) -> dict[str, Any]:
+    """Confirma participação na campanha ativa com o número fixo (gratuito)."""
+    if not _is_enabled():
+        raise ValueError("lottery_disabled")
+    campaign = get_active_campaign(db)
+    if not campaign or str(campaign.status) != "ACTIVE":
+        raise ValueError("no_active_campaign")
+    if not _confirmation_deadline_ok(campaign):
+        raise ValueError("confirmation_deadline_passed")
+    cid = int(campaign.id)
+    if _campaign_confirmation_row(db, cid, steam_id):
+        raise ValueError("already_confirmed")
+    fixed = ensure_fixed_lottery_number(db, steam_id)
+    if _is_number_taken_in_campaign(db, cid, fixed, exclude_steam_id=steam_id):
+        raise ValueError("number_unavailable_in_campaign")
+    now = _naive(_utcnow())
+    db.execute(
+        text(
+            "INSERT INTO lottery_campaign_confirmations "
+            "(campaign_id, steam_id, fixed_number, confirmed_at) "
+            "VALUES (:cid, :sid, :num, :now)"
+        ),
+        {"cid": cid, "sid": steam_id, "num": fixed, "now": now},
+    )
+    existing_active = db.execute(
+        text(
+            "SELECT id FROM lottery_numbers "
+            "WHERE campaign_id = :cid AND steam_id = :sid AND number_value = :num "
+            "AND source = 'FIXED_REGISTERED' AND status = 'ACTIVE'"
+        ),
+        {"cid": cid, "sid": steam_id, "num": fixed},
+    ).fetchone()
+    if not existing_active:
+        _insert_number(
+            db,
+            campaign_id=cid,
+            steam_id=steam_id,
+            number_value=fixed,
+            source="FIXED_REGISTERED",
+            amber_cost=0,
+        )
+    _audit_safe(
+        db, "lottery_participation_confirmed",
+        {"steam_id": steam_id, "number": fixed},
+        campaign_id=cid,
+    )
+    return {
+        "fixed_number": fixed,
+        "campaign_id": cid,
+        "confirmed_at": _iso_display(_utcnow()),
+        "campaign": _campaign_public_dict(campaign, db=db),
+    }
+
+
+def change_fixed_lottery_number(db: Session, steam_id: str, new_number: int) -> dict[str, Any]:
+    """Troca vitalícia do número fixo — custo em Âmbares."""
+    if not _is_enabled():
+        raise ValueError("lottery_disabled")
+    new_number = int(new_number)
+    if new_number < NUMBER_MIN or new_number > NUMBER_MAX:
+        raise ValueError("invalid_number")
+    current = ensure_fixed_lottery_number(db, steam_id)
+    if new_number == current:
+        raise ValueError("same_number")
+    taken_global = db.execute(
+        text(
+            "SELECT steam_id FROM store_users "
+            "WHERE fixed_lottery_number = :n AND steam_id != :sid LIMIT 1"
+        ),
+        {"n": new_number, "sid": steam_id},
+    ).fetchone()
+    if taken_global:
+        raise ValueError("number_unavailable")
+    campaign = get_active_campaign(db)
+    cid: int | None = None
+    has_confirmation = False
+    within_deadline = False
+    if campaign and str(campaign.status) == "ACTIVE":
+        cid = int(campaign.id)
+        has_confirmation = _campaign_confirmation_row(db, cid, steam_id) is not None
+        within_deadline = _confirmation_deadline_ok(campaign)
+        if has_confirmation and within_deadline:
+            if _is_number_taken_in_campaign(db, cid, new_number, exclude_steam_id=steam_id):
+                raise ValueError("number_unavailable_in_campaign")
+    if _player_balance(db, steam_id) < FIXED_NUMBER_CHANGE_COST:
+        raise ValueError("insufficient_balance")
+    if _debit_fn is None:
+        raise RuntimeError("lottery_not_configured")
+    _debit_fn(db, steam_id, FIXED_NUMBER_CHANGE_COST)
+    try:
+        from amber_ledger import record_lottery_amber_purchase
+
+        record_lottery_amber_purchase(
+            db,
+            campaign_id=cid or 0,
+            steam_id=steam_id,
+            amount=FIXED_NUMBER_CHANGE_COST,
+            source="FIXED_NUMBER_CHANGE",
+            number_value=new_number,
+        )
+    except Exception as exc:
+        log.warning("Ledger fixed number change: %s", exc)
+    db.execute(
+        text("UPDATE store_users SET fixed_lottery_number = :n WHERE steam_id = :sid"),
+        {"n": new_number, "sid": steam_id},
+    )
+    if cid and has_confirmation and within_deadline:
+        db.execute(
+            text(
+                "UPDATE lottery_numbers SET status = 'REVOKED', revoked_at = :now, "
+                "revoke_reason = 'fixed_change' "
+                "WHERE campaign_id = :cid AND steam_id = :sid AND source = 'FIXED_REGISTERED' "
+                "AND status = 'ACTIVE'"
+            ),
+            {"now": _naive(_utcnow()), "cid": cid, "sid": steam_id},
+        )
+        _insert_number(
+            db,
+            campaign_id=cid,
+            steam_id=steam_id,
+            number_value=new_number,
+            source="FIXED_REGISTERED",
+            amber_cost=0,
+        )
+        db.execute(
+            text(
+                "UPDATE lottery_campaign_confirmations SET fixed_number = :n "
+                "WHERE campaign_id = :cid AND steam_id = :sid"
+            ),
+            {"n": new_number, "cid": cid, "sid": steam_id},
+        )
+    _audit_safe(
+        db, "lottery_fixed_number_changed",
+        {"steam_id": steam_id, "from": current, "to": new_number, "cost": FIXED_NUMBER_CHANGE_COST},
+        campaign_id=cid,
+    )
+    return {
+        "fixed_number": new_number,
+        "previous_number": current,
+        "amber_cost": FIXED_NUMBER_CHANGE_COST,
+        "new_balance": _player_balance(db, steam_id),
+    }
 
 
 def _migrate_lottery_columns(engine: Engine) -> None:
     """Adiciona colunas ausentes em instalações parciais (MySQL/SQLite)."""
     is_sqlite = "sqlite" in str(engine.url).lower()
     campaign_cols = {
+        "starts_at": "DATETIME NULL",
         "prize_amber_from_purchases": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_paid": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_subsidy": "INTEGER NOT NULL DEFAULT 0",
@@ -953,9 +1280,23 @@ def get_participants_public(
 
 
 def get_player_me(db: Session, steam_id: str) -> dict[str, Any]:
+    fixed_number = _get_fixed_lottery_number(db, steam_id)
+    if fixed_number is None:
+        try:
+            fixed_number = ensure_fixed_lottery_number(db, steam_id)
+        except ValueError:
+            fixed_number = None
     row = get_active_campaign(db)
     if not row:
-        return {"ok": True, "campaign": None, "numbers": [], "enabled": _is_enabled()}
+        return {
+            "ok": True,
+            "campaign": None,
+            "numbers": [],
+            "enabled": _is_enabled(),
+            "fixed_number": fixed_number,
+            "fixed_number_change_cost": FIXED_NUMBER_CHANGE_COST,
+            "campaign_confirmation": None,
+        }
     cid = int(row.id)
     nums = db.execute(
         text(
@@ -965,7 +1306,9 @@ def get_player_me(db: Session, steam_id: str) -> dict[str, Any]:
         ),
         {"cid": cid, "sid": steam_id},
     ).fetchall()
-    by_source: dict[str, list[int]] = {"DONATION": [], "AMBER_RANDOM": [], "AMBER_RESERVE": []}
+    by_source: dict[str, list[int]] = {
+        "DONATION": [], "AMBER_RANDOM": [], "AMBER_RESERVE": [], "FIXED_REGISTERED": [],
+    }
     items = []
     donated_brl = 0.0
     for n in nums:
@@ -982,6 +1325,18 @@ def get_player_me(db: Session, steam_id: str) -> dict[str, Any]:
             donated_brl += 5.0
     max_p = int(_row_val(row, "amber_random_max_per_player", 5) or 5)
     random_count = len(by_source.get("AMBER_RANDOM", []))
+    fixed_number = _get_fixed_lottery_number(db, steam_id)
+    if fixed_number is None:
+        try:
+            fixed_number = ensure_fixed_lottery_number(db, steam_id)
+        except ValueError:
+            fixed_number = None
+    conf_row = _campaign_confirmation_row(db, cid, steam_id)
+    can_confirm = (
+        str(_row_val(row, "status", "")) == "ACTIVE"
+        and _confirmation_deadline_ok(row)
+        and conf_row is None
+    )
     return {
         "ok": True,
         "enabled": _is_enabled(),
@@ -991,6 +1346,14 @@ def get_player_me(db: Session, steam_id: str) -> dict[str, Any]:
         "donated_brl": round(donated_brl, 2),
         "amber_random_count": random_count,
         "amber_random_remaining": max(0, max_p - random_count),
+        "fixed_number": fixed_number,
+        "fixed_number_change_cost": FIXED_NUMBER_CHANGE_COST,
+        "campaign_confirmation": {
+            "confirmed": conf_row is not None,
+            "confirmed_at": _iso_display(_parse_dt(_row_val(conf_row, "confirmed_at"))) if conf_row else None,
+            "can_confirm": can_confirm,
+            "confirmation_deadline_hours": CONFIRMATION_DEADLINE_HOURS,
+        },
     }
 
 
@@ -1096,20 +1459,24 @@ def create_campaign_draft(db: Session, *, data: dict[str, Any], admin_steam_id: 
     seq = _next_sequence(db)
     now = _naive(_utcnow())
     draw_at = _parse_dt(data.get("draw_at")) or (_utcnow() + timedelta(days=7))
+    starts_at = _parse_dt(data.get("starts_at"))
+    if starts_at is None:
+        starts_at = _utcnow() + timedelta(hours=24)
     db.execute(
         text(
             "INSERT INTO lottery_campaigns "
-            "(sequence_number, title, status, draw_at, winning_numbers_count, prize_amber_base, "
+            "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
             "prize_amber_rollover_in, amber_random_price, amber_reserve_price, "
             "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
             "auto_chain_enabled, next_campaign_draw_offset_hours, created_at, updated_at) "
-            "VALUES (:seq, :title, 'DRAFT', :draw, :wnc, :base, :rol, :arp, :aresv, :armax, "
+            "VALUES (:seq, :title, 'DRAFT', :draw, :starts, :wnc, :base, :rol, :arp, :aresv, :armax, "
             ":reg, :staff, :chain, :offset, :now, :now)"
         ),
         {
             "seq": seq,
             "title": str(data.get("title") or f"Sorteio ARKLAND #{seq}"),
             "draw": _naive(draw_at),
+            "starts": _naive(starts_at),
             "wnc": max(1, min(5, int(data.get("winning_numbers_count") or 1))),
             "base": int(data.get("prize_amber_base") or 5000),
             "rol": int(data.get("prize_amber_rollover_in") or 0),
@@ -1144,9 +1511,15 @@ def publish_campaign(db: Session, campaign_id: int) -> dict[str, Any]:
     if active and str(active.status) == "ACTIVE":
         raise ValueError("active_campaign_exists")
     now = _naive(_utcnow())
+    starts_at = _parse_dt(_row_val(row, "starts_at"))
+    if starts_at is None:
+        starts_at = _utcnow() + timedelta(hours=24)
     db.execute(
-        text("UPDATE lottery_campaigns SET status = 'ACTIVE', updated_at = :now WHERE id = :id"),
-        {"now": now, "id": campaign_id},
+        text(
+            "UPDATE lottery_campaigns SET status = 'ACTIVE', starts_at = :starts, updated_at = :now "
+            "WHERE id = :id"
+        ),
+        {"starts": _naive(starts_at), "now": now, "id": campaign_id},
     )
     _audit(db, "lottery_campaign_published", {}, campaign_id=campaign_id)
     row = _fetch_campaign_row(db, campaign_id)
@@ -1169,6 +1542,11 @@ def update_campaign(db: Session, campaign_id: int, patch: dict[str, Any]) -> dic
         if dt:
             fields.append("draw_at = :draw_at")
             params["draw_at"] = _naive(dt)
+    if "starts_at" in patch:
+        dt = _parse_dt(patch["starts_at"])
+        if dt:
+            fields.append("starts_at = :starts_at")
+            params["starts_at"] = _naive(dt)
     if "winning_numbers_count" in patch:
         fields.append("winning_numbers_count = :wnc")
         params["wnc"] = max(1, min(5, int(patch["winning_numbers_count"])))
@@ -1232,7 +1610,7 @@ def _numbers_by_source(db: Session, campaign_id: int) -> dict[str, int]:
         ),
         {"cid": campaign_id},
     ).fetchall()
-    out = {"DONATION": 0, "AMBER_RANDOM": 0, "AMBER_RESERVE": 0}
+    out = {"DONATION": 0, "AMBER_RANDOM": 0, "AMBER_RESERVE": 0, "FIXED_REGISTERED": 0}
     for r in rows:
         out[str(r.source)] = int(r.cnt)
     return out
@@ -1474,21 +1852,23 @@ def _create_chained_campaign(db: Session, prev_row: Any, rollover_in: int) -> in
     now = _utcnow()
     offset_h = int(prev_row.next_campaign_draw_offset_hours or 168)
     draw_at = now + timedelta(hours=offset_h)
+    starts_at = now + timedelta(hours=24)
     ts = _naive(now)
     db.execute(
         text(
             "INSERT INTO lottery_campaigns "
-            "(sequence_number, title, status, draw_at, winning_numbers_count, prize_amber_base, "
+            "(sequence_number, title, status, draw_at, starts_at, winning_numbers_count, prize_amber_base, "
             "prize_amber_rollover_in, prize_amber_from_purchases, amber_random_price, amber_reserve_price, "
             "amber_random_max_per_player, regulamento_version, allow_staff_participation, "
             "auto_chain_enabled, next_campaign_draw_offset_hours, previous_campaign_id, created_at, updated_at) "
-            "VALUES (:seq, :title, 'ACTIVE', :draw, :wnc, :base, :rol, 0, :arp, :aresv, :armax, "
+            "VALUES (:seq, :title, 'ACTIVE', :draw, :starts, :wnc, :base, :rol, 0, :arp, :aresv, :armax, "
             ":reg, :staff, :chain, :offset, :prev, :now, :now)"
         ),
         {
             "seq": seq,
             "title": f"Sorteio ARKLAND #{seq}",
             "draw": _naive(draw_at),
+            "starts": _naive(starts_at),
             "wnc": int(prev_row.winning_numbers_count or 1),
             "base": int(prev_row.prize_amber_base or 5000),
             "rol": int(rollover_in),

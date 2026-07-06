@@ -11,6 +11,9 @@ from sqlalchemy.orm import sessionmaker
 import app as _app_module
 from custom_dino_service import (
     ITEM_TYPE,
+    LEVEL_MAX,
+    STAT_COUNT,
+    calc_spawn_exact_level,
     claim_custom_dino_orders,
     create_custom_dino_order,
     ensure_custom_dino_schema,
@@ -84,6 +87,27 @@ def _valid_body(**overrides):
     if "species_key" in overrides and overrides["species_key"] is None:
         body.pop("species_key", None)
     return body
+
+
+def test_ensure_custom_dino_schema_adds_payload_json(tmp_path):
+    path = tmp_path / "schema.db"
+    engine = create_engine(f"sqlite:///{path}", future=True)
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE orders ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                "order_id VARCHAR(64) UNIQUE,"
+                "steam_id VARCHAR(32)"
+                ")"
+            )
+        )
+        conn.commit()
+    ensure_custom_dino_schema(engine)
+    with engine.connect() as conn:
+        cols = {str(r[1]) for r in conn.execute(text("PRAGMA table_info(orders)")).fetchall()}
+    assert "payload_json" in cols
+    ensure_custom_dino_schema(engine)
 
 
 def test_validate_payload_rex():
@@ -199,3 +223,101 @@ def test_create_and_claim_custom_dino(custom_dino_db):
     listed = list_custom_dino_orders_admin(custom_dino_db)
     assert listed["total"] == 1
     assert listed["orders"][0]["status"] == "ENTREGUE"
+
+
+def test_calc_spawn_exact_level():
+    assert calc_spawn_exact_level([0] * STAT_COUNT, [0] * STAT_COUNT) == 1
+    assert calc_spawn_exact_level([10, 5, 0, 0, 0, 0, 0], [20, 0, 0, 0, 0, 0, 0]) == 36
+
+
+def test_validate_spawn_exact_payload(tmp_path, monkeypatch):
+    settings_file = tmp_path / "spawn_exact_settings.json"
+    settings_file.write_text(
+        json.dumps({"custom_dino_enabled": True, "custom_dino_spawn_exact": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    wild = [30, 30, 30, 30, 30, 30, 30]
+    tamed = [30, 30, 30, 30, 30, 30, 30]
+    payload, err = validate_payload(_valid_body(
+        spawn_exact={
+            "enabled": True,
+            "wild_stats": wild,
+            "tamed_stats": tamed,
+            "imprint_pct": 100,
+            "imprinter_name": "Admin",
+            "imprinter_id_hex": "7B5A3C2D",
+        },
+    ))
+    assert err is None
+    assert payload is not None
+    assert payload["level"] == calc_spawn_exact_level(wild, tamed)
+    assert payload["spawn_exact"]["enabled"] is True
+    assert payload["spawn_exact"]["wild_stats"] == wild
+    assert payload["spawn_exact"]["imprint_pct"] == 1.0
+
+
+def test_validate_spawn_exact_rejects_when_flag_off(tmp_path, monkeypatch):
+    settings_file = tmp_path / "spawn_exact_off.json"
+    settings_file.write_text(
+        json.dumps({"custom_dino_enabled": True, "custom_dino_spawn_exact": False}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    _, err = validate_payload(_valid_body(spawn_exact={"enabled": True, "wild_stats": [1] * 7, "tamed_stats": [0] * 7}))
+    assert err is not None
+    assert "custom_dino_spawn_exact" in err
+
+
+def test_validate_spawn_exact_level_cap(tmp_path, monkeypatch):
+    settings_file = tmp_path / "spawn_exact_cap.json"
+    settings_file.write_text(
+        json.dumps({"custom_dino_enabled": True, "custom_dino_spawn_exact": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    wild = [255] * STAT_COUNT
+    tamed = [255] * STAT_COUNT
+    _, err = validate_payload(_valid_body(spawn_exact={"enabled": True, "wild_stats": wild, "tamed_stats": tamed}))
+    assert err is not None
+    assert str(LEVEL_MAX) in err
+
+
+def test_validate_spawn_exact_stat_bounds(tmp_path, monkeypatch):
+    settings_file = tmp_path / "spawn_exact_bounds.json"
+    settings_file.write_text(
+        json.dumps({"custom_dino_enabled": True, "custom_dino_spawn_exact": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    _, err = validate_payload(_valid_body(spawn_exact={
+        "enabled": True,
+        "wild_stats": [256] + [0] * (STAT_COUNT - 1),
+        "tamed_stats": [0] * STAT_COUNT,
+    }))
+    assert err is not None
+    assert "wild_stats" in err
+
+    _, err2 = validate_payload(_valid_body(spawn_exact={
+        "enabled": True,
+        "wild_stats": [0] * STAT_COUNT,
+        "tamed_stats": [0] * 6,
+    }))
+    assert err2 is not None
+    assert "tamed_stats" in err2

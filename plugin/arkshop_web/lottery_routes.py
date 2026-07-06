@@ -14,6 +14,8 @@ from lottery_service import (
     accept_regulamento,
     buy_random_number,
     cancel_campaign,
+    change_fixed_lottery_number,
+    confirm_campaign_participation,
     create_campaign_draft,
     get_campaign_admin_participants,
     get_campaign_admin_report,
@@ -35,9 +37,14 @@ log = logging.getLogger("arkshop_web.lottery_routes")
 
 
 def _lottery_purchase_error_response(code: str, *, number: int | None = None) -> tuple[Any, int]:
-    status = 409 if code in ("pool_exhausted", "number_unavailable", "random_limit_reached") else 400
+    status = 409 if code in (
+        "pool_exhausted", "number_unavailable", "random_limit_reached",
+        "number_unavailable_in_campaign", "already_confirmed",
+    ) else 400
     if code == "insufficient_balance":
         status = 402
+    if code == "confirmation_deadline_passed":
+        status = 403
     msgs = {
         "lottery_disabled": "Sorteio desabilitado.",
         "no_active_campaign": "Nenhuma campanha ativa.",
@@ -50,6 +57,17 @@ def _lottery_purchase_error_response(code: str, *, number: int | None = None) ->
         ),
         "invalid_number": "Número deve estar entre 100 e 999.",
         "lottery_not_configured": "Sorteio não configurado no servidor.",
+        "confirmation_deadline_passed": (
+            "O prazo para confirmar participação encerrou (2 horas antes do sorteio). "
+            "Aguarde a próxima campanha."
+        ),
+        "already_confirmed": "Você já confirmou participação nesta campanha.",
+        "number_unavailable_in_campaign": (
+            "Seu número fixo já está em uso nesta campanha. "
+            "Troque seu número fixo ou aguarde a próxima campanha."
+        ),
+        "same_number": "Este já é o seu número fixo atual.",
+        "not_registered": "Conta não registrada no site.",
     }
     return jsonify({"ok": False, "error": code, "message": msgs.get(code, code)}), status
 
@@ -242,6 +260,57 @@ def register_lottery_routes(
             db.rollback()
             if str(exc) == "lottery_not_configured":
                 return _lottery_purchase_error_response("lottery_not_configured", number=number)
+            raise
+        finally:
+            db.close()
+
+    @app.route("/api/player/lottery/confirm-participation", methods=["POST"])
+    @login_required
+    @_limit("20 per minute")
+    def lottery_confirm_participation():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        steam_id = str(steam_id_from_session())
+        db = session_factory()
+        try:
+            result = confirm_campaign_participation(db, steam_id)
+            db.commit()
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            db.rollback()
+            return _lottery_purchase_error_response(str(exc))
+        except IntegrityError:
+            db.rollback()
+            return _lottery_purchase_error_response("number_unavailable_in_campaign")
+        finally:
+            db.close()
+
+    @app.route("/api/player/lottery/change-fixed-number", methods=["POST"])
+    @login_required
+    @_limit("10 per minute")
+    def lottery_change_fixed_number():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(force=True, silent=True) or {}
+        new_number = body.get("new_number")
+        if new_number is None or not str(new_number).isdigit():
+            return jsonify({"ok": False, "error": "invalid_number", "message": "Informe new_number (100–999)."}), 400
+        steam_id = str(steam_id_from_session())
+        db = session_factory()
+        try:
+            result = change_fixed_lottery_number(db, steam_id, int(new_number))
+            db.commit()
+            return jsonify({"ok": True, **result})
+        except ValueError as exc:
+            db.rollback()
+            return _lottery_purchase_error_response(str(exc), number=int(new_number))
+        except IntegrityError:
+            db.rollback()
+            return _lottery_purchase_error_response("number_unavailable", number=int(new_number))
+        except RuntimeError as exc:
+            db.rollback()
+            if str(exc) == "lottery_not_configured":
+                return _lottery_purchase_error_response("lottery_not_configured")
             raise
         finally:
             db.close()

@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.2] - 2026-07-06
+
+### Feature
+
+- Feature (Web Store / Sorteio): número fixo por jogador registrado, confirmação gratuita por campanha até 2h antes do sorteio e troca do número por 5000 Âmbares; APIs confirm-participation e change-fixed-number; UI Minha Área.
+
+### Fix
+
+- Fix (Web Store / MySQL): migração payload_json corrige resgate do catálogo e erro HTTP 500 no Dino Lab.
+
 ## [1.10.1] - 2026-07-06
 
 ### Feature

@@ -1,9 +1,9 @@
 {
-    "version": "1.10.1",
+    "version": "1.10.2",
     "date": "2026-07-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.1/ARKLAND-Multi-Setup-v1.10.1.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.2/ARKLAND-Multi-Setup-v1.10.2.exe",
     "changelog": [
-        "Fix (Dino Lab): dropdown de especies falhava ao carregar — fallback de blueprint via catalogo CustomShop e rota /species sem exigir banco.",
-        "Feature (Dino Lab): modo Blueprint manual na web — colar Blueprint'/Game/...' ou /Game/... para dinos de mod ou fora da lista homologada."
+        "Fix (Web Store / MySQL): migração payload_json corrige resgate do catálogo e erro HTTP 500 no Dino Lab.",
+        "Feature (Web Store / Sorteio): número fixo por jogador registrado, confirmação gratuita por campanha até 2h antes do sorteio e troca do número por 5000 Âmbares; APIs confirm-participation e change-fixed-number; UI Minha Área."
     ]
 }

@@ -11,13 +11,18 @@ from sqlalchemy.orm import sessionmaker
 import app as _app_module
 from lottery_draw import compute_prize_split
 from lottery_service import (
+    FIXED_NUMBER_CHANGE_COST,
     buy_random_number,
+    change_fixed_lottery_number,
     configure_lottery,
+    confirm_campaign_participation,
     create_campaign_draft,
+    ensure_fixed_lottery_number,
     ensure_lottery_schema,
     get_active_campaign,
     get_campaign_admin_report,
     get_participants_public,
+    get_player_me,
     get_public_current,
     on_donation_credited,
     publish_campaign,
@@ -34,18 +39,21 @@ ADMIN = "76561198000000003"
 def lottery_db(tmp_path):
     path = tmp_path / "lottery.db"
     engine = create_engine(f"sqlite:///{path}", future=True)
+    with engine.connect() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE IF NOT EXISTS store_users ("
+                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT, "
+                "fixed_lottery_number INTEGER)"
+            )
+        )
+        conn.commit()
     ensure_lottery_schema(engine)
     with engine.connect() as conn:
         conn.execute(
             text(
                 "CREATE TABLE IF NOT EXISTS players ("
                 "steam_id TEXT PRIMARY KEY, points INTEGER DEFAULT 0, kits TEXT DEFAULT '{}')"
-            )
-        )
-        conn.execute(
-            text(
-                "CREATE TABLE IF NOT EXISTS store_users ("
-                "steam_id TEXT PRIMARY KEY, market_display_name TEXT, steam_persona TEXT)"
             )
         )
         conn.commit()
@@ -79,14 +87,38 @@ def _credit(db, steam_id: str, amount: int) -> None:
     )
 
 
-def _active_campaign(db, *, base: int = 124, w: int = 5, draw_past: bool = False):
-    draw_at = datetime.now(timezone.utc) - timedelta(hours=1) if draw_past else datetime.now(timezone.utc) + timedelta(days=7)
+def _register_user(db, steam_id: str) -> None:
+    db.execute(
+        text("INSERT OR IGNORE INTO store_users (steam_id) VALUES (:s)"),
+        {"s": steam_id},
+    )
+
+
+def _active_campaign(
+    db,
+    *,
+    base: int = 124,
+    w: int = 5,
+    draw_past: bool = False,
+    draw_in_hours: float | None = None,
+    starts_in_hours: float | None = None,
+):
+    now = datetime.now(timezone.utc)
+    if draw_in_hours is not None:
+        draw_at = now + timedelta(hours=draw_in_hours)
+    else:
+        draw_at = now - timedelta(hours=1) if draw_past else now + timedelta(days=7)
+    if starts_in_hours is not None:
+        starts_at = now + timedelta(hours=starts_in_hours)
+    else:
+        starts_at = now + timedelta(hours=24)
     camp = create_campaign_draft(
         db,
         data={
             "prize_amber_base": base,
             "winning_numbers_count": w,
             "draw_at": draw_at.isoformat(),
+            "starts_at": starts_at.isoformat(),
         },
     )
     publish_campaign(db, int(camp["id"]))
@@ -541,3 +573,132 @@ def test_lottery_reserve_http_route(tmp_path, monkeypatch):
         dup = client.post("/api/player/lottery/reserve/321")
         assert dup.status_code == 409
         assert dup.get_json()["error"] == "number_unavailable"
+
+
+def test_fixed_number_unique_on_assign(lottery_db):
+    _register_user(lottery_db, USER)
+    _register_user(lottery_db, USER2)
+    lottery_db.commit()
+    n1 = ensure_fixed_lottery_number(lottery_db, USER)
+    n2 = ensure_fixed_lottery_number(lottery_db, USER2)
+    lottery_db.commit()
+    assert n1 != n2
+    assert 100 <= n1 <= 999
+    again = ensure_fixed_lottery_number(lottery_db, USER)
+    assert again == n1
+
+
+def test_fixed_number_backfill_on_schema(lottery_db):
+    _register_user(lottery_db, USER)
+    _register_user(lottery_db, USER2)
+    lottery_db.commit()
+    engine = lottery_db.get_bind()
+    from lottery_service import backfill_fixed_lottery_numbers
+
+    assigned = backfill_fixed_lottery_numbers(engine)
+    lottery_db.expire_all()
+    assert assigned == 2
+    row = lottery_db.execute(
+        text("SELECT fixed_lottery_number FROM store_users WHERE steam_id = :s"),
+        {"s": USER},
+    ).fetchone()
+    assert row[0] is not None
+
+
+def test_confirm_participation_within_deadline(lottery_db):
+    _register_user(lottery_db, USER)
+    lottery_db.commit()
+    _active_campaign(lottery_db, draw_in_hours=24)
+    lottery_db.commit()
+    fixed = ensure_fixed_lottery_number(lottery_db, USER)
+    lottery_db.commit()
+    me_before = get_player_me(lottery_db, USER)
+    assert me_before["campaign_confirmation"]["can_confirm"] is True
+    result = confirm_campaign_participation(lottery_db, USER)
+    lottery_db.commit()
+    assert result["fixed_number"] == fixed
+    cid = int(result["campaign_id"])
+    row = lottery_db.execute(
+        text(
+            "SELECT number_value, source FROM lottery_numbers "
+            "WHERE campaign_id = :c AND steam_id = :s AND status = 'ACTIVE'"
+        ),
+        {"c": cid, "s": USER},
+    ).fetchone()
+    assert int(row.number_value) == fixed
+    assert str(row.source) == "FIXED_REGISTERED"
+    me = get_player_me(lottery_db, USER)
+    assert me["campaign_confirmation"]["confirmed"] is True
+    assert me["campaign_confirmation"]["can_confirm"] is False
+
+
+def test_confirm_participation_past_deadline(lottery_db):
+    _register_user(lottery_db, USER)
+    lottery_db.commit()
+    _active_campaign(lottery_db, draw_in_hours=1)
+    lottery_db.commit()
+    ensure_fixed_lottery_number(lottery_db, USER)
+    lottery_db.commit()
+    me = get_player_me(lottery_db, USER)
+    assert me["campaign_confirmation"]["can_confirm"] is False
+    with pytest.raises(ValueError, match="confirmation_deadline_passed"):
+        confirm_campaign_participation(lottery_db, USER)
+
+
+def test_confirm_participation_blocked_at_exact_deadline(lottery_db):
+    """No horário draw_at − 2h (ex.: sorteio 23:00 → bloqueio a partir das 21:00)."""
+    _register_user(lottery_db, USER)
+    lottery_db.commit()
+    _active_campaign(lottery_db, draw_in_hours=2)
+    lottery_db.commit()
+    ensure_fixed_lottery_number(lottery_db, USER)
+    lottery_db.commit()
+    me = get_player_me(lottery_db, USER)
+    assert me["campaign_confirmation"]["can_confirm"] is False
+    with pytest.raises(ValueError, match="confirmation_deadline_passed"):
+        confirm_campaign_participation(lottery_db, USER)
+
+
+def test_confirm_participation_allowed_just_before_deadline(lottery_db):
+    _register_user(lottery_db, USER)
+    lottery_db.commit()
+    _active_campaign(lottery_db, draw_in_hours=2.01)
+    lottery_db.commit()
+    ensure_fixed_lottery_number(lottery_db, USER)
+    lottery_db.commit()
+    me = get_player_me(lottery_db, USER)
+    assert me["campaign_confirmation"]["can_confirm"] is True
+    confirm_campaign_participation(lottery_db, USER)
+    lottery_db.commit()
+
+
+def test_change_fixed_number_debits_amber(lottery_db):
+    _register_user(lottery_db, USER)
+    _credit(lottery_db, USER, 20000)
+    lottery_db.commit()
+    _active_campaign(lottery_db)
+    lottery_db.commit()
+    current = ensure_fixed_lottery_number(lottery_db, USER)
+    lottery_db.commit()
+    new_num = 888 if current != 888 else 889
+    result = change_fixed_lottery_number(lottery_db, USER, new_num)
+    lottery_db.commit()
+    assert result["fixed_number"] == new_num
+    assert result["amber_cost"] == FIXED_NUMBER_CHANGE_COST
+    pts = lottery_db.execute(text("SELECT points FROM players WHERE steam_id = :s"), {"s": USER}).fetchone()
+    assert int(pts[0]) == 20000 - FIXED_NUMBER_CHANGE_COST
+    row = lottery_db.execute(
+        text("SELECT fixed_lottery_number FROM store_users WHERE steam_id = :s"),
+        {"s": USER},
+    ).fetchone()
+    assert int(row[0]) == new_num
+
+
+def test_change_fixed_number_insufficient_balance(lottery_db):
+    _register_user(lottery_db, USER)
+    _credit(lottery_db, USER, 100)
+    lottery_db.commit()
+    ensure_fixed_lottery_number(lottery_db, USER)
+    lottery_db.commit()
+    with pytest.raises(ValueError, match="insufficient_balance"):
+        change_fixed_lottery_number(lottery_db, USER, 777)

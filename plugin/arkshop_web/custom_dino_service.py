@@ -22,6 +22,9 @@ LEVEL_MIN = 1
 LEVEL_MAX = 450
 DEFAULT_LEVEL = 150
 RATE_LIMIT_PER_HOUR = 30
+STAT_COUNT = 7
+STAT_MAX = 255
+STAT_NAMES = ("health", "stamina", "oxygen", "food", "weight", "melee", "speed")
 
 _settings_fn: Callable[[], dict[str, Any]] | None = None
 
@@ -143,6 +146,36 @@ def _blueprint_from_catalog(defn: dict[str, Any]) -> str:
     return ""
 
 
+def calc_spawn_exact_level(wild_stats: list[int], tamed_stats: list[int]) -> int:
+    """Nível efetivo ARK: 1 + soma(wild) + soma(tamed)."""
+    return 1 + sum(wild_stats) + sum(tamed_stats)
+
+
+def _parse_stat_array(raw: Any, *, label: str) -> tuple[list[int] | None, str | None]:
+    if not isinstance(raw, list) or len(raw) != STAT_COUNT:
+        return None, f"{label} deve ter exatamente {STAT_COUNT} valores."
+    out: list[int] = []
+    for i, v in enumerate(raw):
+        try:
+            n = int(v)
+        except (TypeError, ValueError):
+            return None, f"{label}[{i}] inválido."
+        if n < 0 or n > STAT_MAX:
+            return None, f"Cada stat em {label} deve estar entre 0 e {STAT_MAX}."
+        out.append(n)
+    return out, None
+
+
+def _normalize_imprint_pct(raw: Any) -> float:
+    try:
+        pct = float(raw or 0)
+    except (TypeError, ValueError):
+        return 0.0
+    if pct > 1.0:
+        pct /= 100.0
+    return max(0.0, min(1.0, pct))
+
+
 def _resolve_species(species_key: str) -> dict[str, Any] | None:
     defn = _species_catalog().get(species_key)
     if not defn:
@@ -183,12 +216,39 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
     else:
         return None, "Informe species_key ou species_blueprint."
 
-    try:
-        level = int(body.get("level", DEFAULT_LEVEL))
-    except (TypeError, ValueError):
-        return None, "Nível inválido."
-    if level < LEVEL_MIN or level > LEVEL_MAX:
-        return None, f"Nível deve estar entre {LEVEL_MIN} e {LEVEL_MAX}."
+    spawn_exact = body.get("spawn_exact") if isinstance(body.get("spawn_exact"), dict) else {}
+    spawn_enabled = bool(spawn_exact.get("enabled"))
+    if spawn_enabled and not bool((_settings_fn() if _settings_fn else {}).get("custom_dino_spawn_exact")):
+        return None, "SpawnExact desabilitado neste servidor (custom_dino_spawn_exact)."
+
+    wild_stats, wild_err = _parse_stat_array(
+        spawn_exact.get("wild_stats") if spawn_enabled else [0] * STAT_COUNT,
+        label="wild_stats",
+    )
+    if wild_err:
+        return None, wild_err
+    tamed_stats, tamed_err = _parse_stat_array(
+        spawn_exact.get("tamed_stats") if spawn_enabled else [0] * STAT_COUNT,
+        label="tamed_stats",
+    )
+    if tamed_err:
+        return None, tamed_err
+    assert wild_stats is not None and tamed_stats is not None
+
+    if spawn_enabled:
+        level = calc_spawn_exact_level(wild_stats, tamed_stats)
+        if level < LEVEL_MIN or level > LEVEL_MAX:
+            return None, (
+                f"Nível calculado ({level}) excede o limite ({LEVEL_MIN}–{LEVEL_MAX}). "
+                f"Ajuste wild/tamed (soma+1 ≤ {LEVEL_MAX})."
+            )
+    else:
+        try:
+            level = int(body.get("level", DEFAULT_LEVEL))
+        except (TypeError, ValueError):
+            return None, "Nível inválido."
+        if level < LEVEL_MIN or level > LEVEL_MAX:
+            return None, f"Nível deve estar entre {LEVEL_MIN} e {LEVEL_MAX}."
 
     gender = str(body.get("gender") or "female").strip().lower()
     if gender not in ("male", "female", "m", "f"):
@@ -220,10 +280,9 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
     if _settings_fn and bool(_settings_fn().get("custom_dino_require_ticket")) and not ticket_id:
         return None, "ticket_id obrigatório para compensações (custom_dino_require_ticket)."
 
-    spawn_exact = body.get("spawn_exact") if isinstance(body.get("spawn_exact"), dict) else {}
-    spawn_enabled = bool(spawn_exact.get("enabled"))
-    if spawn_enabled and not bool((_settings_fn() if _settings_fn else {}).get("custom_dino_spawn_exact")):
-        return None, "SpawnExact desabilitado neste servidor (custom_dino_spawn_exact)."
+    imprint_pct = _normalize_imprint_pct(spawn_exact.get("imprint_pct")) if spawn_enabled else 0.0
+    imprinter_name = str(spawn_exact.get("imprinter_name") or "").strip() if spawn_enabled else ""
+    imprinter_id_hex = str(spawn_exact.get("imprinter_id_hex") or "").strip() if spawn_enabled else ""
 
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -241,11 +300,11 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
         "preset_id": body.get("preset_id"),
         "spawn_exact": {
             "enabled": spawn_enabled,
-            "wild_stats": spawn_exact.get("wild_stats") or [0] * 7,
-            "tamed_stats": spawn_exact.get("tamed_stats") or [0] * 7,
-            "imprint_pct": float(spawn_exact.get("imprint_pct") or 0),
-            "imprinter_name": str(spawn_exact.get("imprinter_name") or ""),
-            "imprinter_id_hex": str(spawn_exact.get("imprinter_id_hex") or ""),
+            "wild_stats": wild_stats,
+            "tamed_stats": tamed_stats,
+            "imprint_pct": imprint_pct,
+            "imprinter_name": imprinter_name,
+            "imprinter_id_hex": imprinter_id_hex,
         },
         "saddle_blueprint": body.get("saddle_blueprint"),
         "force_tame": bool(body.get("force_tame", True)),

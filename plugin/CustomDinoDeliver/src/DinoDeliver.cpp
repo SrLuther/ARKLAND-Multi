@@ -2,11 +2,16 @@
 #include "DinoDeliver.h"
 #include "DinoConfig.h"
 
+#include <sstream>
+
 namespace {
 
 constexpr const char* kDefaultCryoBp =
     "Blueprint'/Game/Extinction/CoreBlueprints/Weapons/"
     "PrimalItem_WeaponEmptyCryopod.PrimalItem_WeaponEmptyCryopod'";
+
+constexpr int kStatCount = 7;
+constexpr float kSpawnExactSearchRadius = 600.0f;
 
 std::string NormalizeBlueprintPath(std::string bp) {
     if (bp.empty()) return bp;
@@ -21,6 +26,184 @@ void NotifyPlayer(AShooterPlayerController* controller,
                   const std::string& msg) {
     if (controller && !msg.empty())
         ArkApi::GetApiUtils().SendServerMessage(controller, color, msg.c_str());
+}
+
+UShooterCheatManager* GetPlayerCheatManager(AShooterPlayerController* controller) {
+    if (!controller) return nullptr;
+    return static_cast<UShooterCheatManager*>(controller->CheatManagerField());
+}
+
+int SumStatsJson(const nlohmann::json& stats_json) {
+    if (!stats_json.is_array()) return 0;
+    int sum = 0;
+    for (size_t i = 0; i < stats_json.size() && i < static_cast<size_t>(kStatCount); ++i)
+        sum += std::max(0, stats_json[i].get<int>());
+    return sum;
+}
+
+std::string FormatStatsCsv(const nlohmann::json& stats_json) {
+    std::ostringstream oss;
+    for (int i = 0; i < 8; ++i) {
+        if (i > 0) oss << ',';
+        int v = 0;
+        if (stats_json.is_array() && i < static_cast<int>(stats_json.size()) && i < kStatCount)
+            v = stats_json[i].get<int>();
+        oss << std::max(0, v);
+    }
+    return oss.str();
+}
+
+std::string FormatColorsCsv(const nlohmann::json& colors_json) {
+    std::ostringstream oss;
+    for (int i = 0; i < 6; ++i) {
+        if (i > 0) oss << ',';
+        int v = 0;
+        if (colors_json.is_array() && i < static_cast<int>(colors_json.size()))
+            v = colors_json[i].get<int>();
+        oss << std::max(0, v);
+    }
+    return oss.str();
+}
+
+int64_t ParseImprinterIdHex(const std::string& hex_str) {
+    if (hex_str.empty()) return 0;
+    try {
+        return std::stoll(hex_str, nullptr, 16);
+    } catch (...) {
+        return 0;
+    }
+}
+
+FVector GetActorLocation(AActor* actor) {
+    if (!actor) return FVector{0, 0, 0};
+    USceneComponent* root = actor->RootComponentField();
+    if (!root) return FVector{0, 0, 0};
+    return root->RelativeLocationField();
+}
+
+APrimalDinoCharacter* FindNearestTamedDino(AShooterPlayerController* controller,
+                                           float max_dist) {
+    if (!controller) return nullptr;
+    AShooterCharacter* pawn = controller->GetPlayerCharacter();
+    if (!pawn) return nullptr;
+
+    const FVector player_loc = GetActorLocation(pawn);
+    const int team = controller->TargetingTeamField();
+    UWorld* world = ArkApi::GetApiUtils().GetWorld();
+    if (!world) return nullptr;
+
+    TArray<AActor*> actors;
+    UGameplayStatics::GetAllActorsOfClass(
+        world,
+        APrimalDinoCharacter::GetPrivateStaticClass(),
+        &actors);
+
+    APrimalDinoCharacter* best = nullptr;
+    const float max_dist_sq = max_dist * max_dist;
+    float best_dist_sq = max_dist_sq;
+
+    for (AActor* actor : actors) {
+        auto* dino = static_cast<APrimalDinoCharacter*>(actor);
+        if (!dino || dino->TamingTeamIDField() != team) continue;
+        const FVector loc = GetActorLocation(dino);
+        const float dx = loc.X - player_loc.X;
+        const float dy = loc.Y - player_loc.Y;
+        const float dz = loc.Z - player_loc.Z;
+        const float dist_sq = dx * dx + dy * dy + dz * dz;
+        if (dist_sq <= best_dist_sq) {
+            best_dist_sq = dist_sq;
+            best = dino;
+        }
+    }
+    return best;
+}
+
+APrimalDinoCharacter* SpawnExactFromPayload(AShooterPlayerController* controller,
+                                            const nlohmann::json& payload) {
+    if (!controller) return nullptr;
+
+    const std::string blueprint =
+        NormalizeBlueprintPath(payload.value("species_blueprint", ""));
+    if (blueprint.empty()) return nullptr;
+
+    const nlohmann::json spawn_exact =
+        payload.value("spawn_exact", nlohmann::json::object());
+    const nlohmann::json wild = spawn_exact.value("wild_stats", nlohmann::json::array());
+    const nlohmann::json tamed = spawn_exact.value("tamed_stats", nlohmann::json::array());
+    const int base_level = SumStatsJson(wild) + 1;
+    const int extra_levels = SumStatsJson(tamed);
+
+    const std::string saddle_bp_raw = payload.value("saddle_blueprint", "");
+    const std::string saddle_bp = saddle_bp_raw.empty()
+        ? "" : NormalizeBlueprintPath(saddle_bp_raw);
+    const float saddle_quality = saddle_bp.empty() ? 0.0f : 0.0f;
+
+    const std::string dino_name = payload.value("custom_name", "");
+    const bool neutered = payload.value("neutered", false);
+    const nlohmann::json colors = payload.value("colors", nlohmann::json::array());
+
+    float imprint_quality = 0.0f;
+    if (spawn_exact.contains("imprint_pct")) {
+        imprint_quality = spawn_exact.value("imprint_pct", 0.0f);
+        if (imprint_quality > 1.0f) imprint_quality /= 100.0f;
+        imprint_quality = std::max(0.0f, std::min(1.0f, imprint_quality));
+    }
+    const std::string imprinter_name = spawn_exact.value("imprinter_name", "");
+    const int imprinter_id = static_cast<int>(
+        ParseImprinterIdHex(spawn_exact.value("imprinter_id_hex", "")));
+
+    FString fbp(blueprint.c_str());
+    FString fsaddle(saddle_bp.c_str());
+    FString fwild(FormatStatsCsv(wild).c_str());
+    FString ftamed(FormatStatsCsv(tamed).c_str());
+    FString fname(dino_name.c_str());
+    FString fempty("");
+    FString fimprinter(imprinter_name.c_str());
+    FString fcolors(FormatColorsCsv(colors).c_str());
+
+    UShooterCheatManager* cheat = GetPlayerCheatManager(controller);
+    if (!cheat)
+        cheat = ArkApi::GetApiUtils().GetCheatManager();
+    if (!cheat) {
+        Log::GetLog()->warn("DinoDeliver: SpawnExact — cheat manager indisponivel");
+        return nullptr;
+    }
+
+    const bool was_admin = controller->bIsAdmin()();
+    if (!was_admin)
+        controller->bIsAdmin() = true;
+
+    cheat->SpawnExactDino(
+        &fbp,
+        &fsaddle,
+        saddle_quality,
+        base_level,
+        extra_levels,
+        &fwild,
+        &ftamed,
+        &fname,
+        0,
+        neutered ? 1 : 0,
+        &fempty,
+        &fempty,
+        &fimprinter,
+        imprinter_id,
+        imprint_quality,
+        &fcolors,
+        0,
+        0,
+        200.0f,
+        0.0f,
+        0.0f);
+
+    if (!was_admin)
+        controller->bIsAdmin() = false;
+
+    APrimalDinoCharacter* dino =
+        FindNearestTamedDino(controller, kSpawnExactSearchRadius);
+    if (!dino)
+        Log::GetLog()->warn("DinoDeliver: SpawnExact — dino nao encontrado apos spawn");
+    return dino;
 }
 
 void ApplyGender(APrimalDinoCharacter* dino, const std::string& gender) {
@@ -241,14 +424,29 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
     const std::string saddle_bp = payload.value("saddle_blueprint", "");
     const std::string display = payload.value("species_display_name", "dino");
 
-    FString fbp(blueprint.c_str());
-    APrimalDinoCharacter* dino = ArkApi::GetApiUtils().SpawnDino(
-        controller, fbp, nullptr, level, force_tame, neutered);
-    if (!dino) {
-        Log::GetLog()->warn("DinoDeliver: failed to spawn '{}'", blueprint);
-        NotifyPlayer(controller, FColorList::Red,
-                     "Falha ao spawnar o dino customizado. Contate um admin.");
-        return false;
+    const nlohmann::json spawn_exact =
+        payload.value("spawn_exact", nlohmann::json::object());
+    const bool use_spawn_exact = spawn_exact.value("enabled", false);
+
+    APrimalDinoCharacter* dino = nullptr;
+    if (use_spawn_exact) {
+        dino = SpawnExactFromPayload(controller, payload);
+        if (!dino) {
+            Log::GetLog()->warn("DinoDeliver: SpawnExact failed for '{}'", blueprint);
+            NotifyPlayer(controller, FColorList::Red,
+                         "Falha ao spawnar dino (SpawnExact). Contate um admin.");
+            return false;
+        }
+    } else {
+        FString fbp(blueprint.c_str());
+        dino = ArkApi::GetApiUtils().SpawnDino(
+            controller, fbp, nullptr, level, force_tame, neutered);
+        if (!dino) {
+            Log::GetLog()->warn("DinoDeliver: failed to spawn '{}'", blueprint);
+            NotifyPlayer(controller, FColorList::Red,
+                         "Falha ao spawnar o dino customizado. Contate um admin.");
+            return false;
+        }
     }
 
     ApplyGender(dino, gender);
@@ -256,7 +454,7 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
         ApplyColors(dino, payload["colors"]);
 
     const std::string custom_name = payload.value("custom_name", "");
-    if (!custom_name.empty()) {
+    if (!custom_name.empty() && !use_spawn_exact) {
         FString fname(custom_name.c_str());
         dino->TamedNameField() = fname;
     }

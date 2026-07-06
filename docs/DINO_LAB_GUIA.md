@@ -238,7 +238,7 @@ Arquivo: `plugin/arkshop_web/settings.json` (ou via UI parcial).
 | `custom_dino_enabled` | `false` | ✅ Checkbox em Configurações | Liga/desliga todo o Dino Lab |
 | `custom_dino_require_ticket` | `false` | ❌ Só JSON | Exige `ticket_id` em toda entrega |
 | `custom_dino_ground_fallback` | `true` | ❌ Só JSON | Propagado ao plugin no sync (`GroundFallbackOnFullInventory`) |
-| `custom_dino_spawn_exact` | `false` | ❌ Só JSON | Bloqueia payloads com SpawnExact stats (fase futura) |
+| `custom_dino_spawn_exact` | `false` | ✅ Checkbox em Configurações | Permite payloads SpawnExact (stats wild/tamed + imprint) |
 
 Exemplo para exigir ticket em compensações:
 
@@ -246,7 +246,8 @@ Exemplo para exigir ticket em compensações:
 {
   "custom_dino_enabled": true,
   "custom_dino_require_ticket": true,
-  "custom_dino_ground_fallback": true
+  "custom_dino_ground_fallback": true,
+  "custom_dino_spawn_exact": true
 }
 ```
 
@@ -261,26 +262,37 @@ Salve o arquivo e reinicie a Web Store se necessário.
 | Função | Detalhe |
 |--------|---------|
 | Poll HTTP | `POST /api/pending/custom-dino/claim` |
-| Spawn | `ArkApi::SpawnDino` com nível, tame, castração |
+| Spawn | `SpawnDino(level)` ou `SpawnExactDino` (stats wild/tamed, imprint) quando `spawn_exact.enabled` |
 | Cores | 6 regiões via `ColorSetIndices` + `MulticastUpdateAllColorSets` |
 | Entrega | Cryopod no inventário (mesmo layout de dados do mercado/cryo) |
 | Confirmação | `POST .../delivered` ou `release` em falha |
 
-### 9.2 O que o plugin **não** faz (MVP)
+### 9.2 SpawnExact (Fase 4)
 
-- SpawnExact (stats wild/tamed, imprint %) — planejado fase 3–4
+Com `custom_dino_spawn_exact: true` na Web Store, o admin pode ativar **Modo SpawnExact** no Dino Lab:
+
+- 7 stats selvagens + 7 domados (0–255 cada; crafting fixo 0 no plugin)
+- Nível calculado automaticamente: `1 + soma(wild) + soma(tamed)` (máx. 450)
+- Imprint %, nome e ID hex do imprintador (opcional)
+- Cores aplicadas após spawn; entrega em cryopod como no fluxo padrão
+
+Requer **CustomDinoDeliver.dll** recompilado (Fase 4) nos mapas do cluster.
+
+### 9.3 O que o plugin **não** faz (ainda)
+
 - Presets salvos (“Rex evento vermelho”)
 - Preview visual de cores (swatches Obelisk) — UI usa números 0–255
 - Entrega em mapa diferente do que o jogador está online
+- Mutações declaradas (breeding real)
 
-### 9.3 Comandos in-game (debug)
+### 9.4 Comandos in-game (debug)
 
 | Comando | Quem | Efeito |
 |---------|------|--------|
 | `DinoDeliver.Reload` | Console / RCON | Recarrega `config.json` |
 | `/dinopoll` | Chat (admin) | Força uma verificação de fila para o jogador |
 
-### 9.4 Logs
+### 9.5 Logs
 
 ArkApi grava em log do servidor com prefixo `CustomDinoDeliver` / `DinoHttpClient` / `DinoDeliver`. Procure por:
 

@@ -616,6 +616,7 @@ class StoreUser(Base):
     regulamento_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    fixed_lottery_number: Mapped[int | None] = mapped_column(Integer, nullable=True, unique=True)
 
 
 class PointPayment(Base):
@@ -1245,8 +1246,17 @@ def _ensure_store_users_schema(engine: Any) -> None:
             }
             if "steam_persona" not in cols:
                 conn.execute(text("ALTER TABLE store_users ADD COLUMN steam_persona VARCHAR(128)"))
-                conn.commit()
-                log.info("store_users: coluna steam_persona adicionada (sqlite)")
+            if "fixed_lottery_number" not in cols:
+                conn.execute(text("ALTER TABLE store_users ADD COLUMN fixed_lottery_number INTEGER"))
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_store_users_fixed_lottery_number "
+                        "ON store_users (fixed_lottery_number) WHERE fixed_lottery_number IS NOT NULL"
+                    )
+                )
+            conn.commit()
+            if "steam_persona" not in cols or "fixed_lottery_number" not in cols:
+                log.info("store_users: colunas sqlite adicionadas")
         return
     with engine.connect() as conn:
         cols = {
@@ -1274,11 +1284,29 @@ def _ensure_store_users_schema(engine: Any) -> None:
             alters.append("ADD COLUMN `regulamento_accepted_version` VARCHAR(16) NULL")
         if "regulamento_accepted_at" not in cols:
             alters.append("ADD COLUMN `regulamento_accepted_at` DATETIME NULL")
+        if "fixed_lottery_number" not in cols:
+            alters.append("ADD COLUMN `fixed_lottery_number` SMALLINT NULL")
         for fragment in alters:
             conn.execute(text(f"ALTER TABLE `store_users` {fragment}"))
         if alters:
             conn.commit()
             log.info("store_users: colunas do painel admin adicionadas (%s)", len(alters))
+        if "fixed_lottery_number" not in cols:
+            idx_row = conn.execute(
+                text(
+                    "SELECT 1 FROM information_schema.statistics "
+                    "WHERE table_schema = DATABASE() AND table_name = 'store_users' "
+                    "AND index_name = 'uq_store_users_fixed_lottery_number' LIMIT 1"
+                )
+            ).fetchone()
+            if idx_row is None:
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX uq_store_users_fixed_lottery_number "
+                        "ON store_users (fixed_lottery_number)"
+                    )
+                )
+                conn.commit()
 
 
 def _migrate_schema(engine: Any) -> None:
@@ -1389,6 +1417,15 @@ def _migrate_schema(engine: Any) -> None:
                     "ALTER TABLE `orders` ADD COLUMN `points_spent` INT NOT NULL DEFAULT 0"
                 ))
                 conn.commit()
+            payload_col = conn.execute(text(
+                "SHOW COLUMNS FROM `orders` LIKE 'payload_json'"
+            )).fetchone()
+            if payload_col is None:
+                log.warning("Migrando orders — adicionando payload_json")
+                conn.execute(text(
+                    "ALTER TABLE `orders` ADD COLUMN `payload_json` TEXT NULL"
+                ))
+                conn.commit()
         conn.execute(text(_entitlements_ddl_mysql()))
         conn.commit()
     Base.metadata.create_all(bind=engine)
@@ -1445,18 +1482,18 @@ def _migrate_schema(engine: Any) -> None:
         ensure_amber_schema(engine)
     except Exception as exc:
         log.warning("Âmbarômetro: migrate falhou: %s", exc)
-        try:
-            from lottery_service import ensure_lottery_schema
+    try:
+        from lottery_service import ensure_lottery_schema
 
-            ensure_lottery_schema(engine)
-        except Exception as exc:
-            log.warning("Sorteio: migrate falhou: %s", exc)
-        try:
-            from custom_dino_service import ensure_custom_dino_schema
+        ensure_lottery_schema(engine)
+    except Exception as exc:
+        log.warning("Sorteio: migrate falhou: %s", exc)
+    try:
+        from custom_dino_service import ensure_custom_dino_schema
 
-            ensure_custom_dino_schema(engine)
-        except Exception as exc:
-            log.warning("Dino Lab: migrate falhou: %s", exc)
+        ensure_custom_dino_schema(engine)
+    except Exception as exc:
+        log.warning("Dino Lab: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -1851,6 +1888,12 @@ def _touch_store_user_login(steam_id: str) -> None:
             row = StoreUser(steam_id=steam_id, last_login_at=now)
             db.add(row)
         row.last_login_at = now
+        try:
+            from lottery_service import ensure_fixed_lottery_number
+
+            ensure_fixed_lottery_number(db, steam_id)
+        except Exception as lot_exc:
+            log.warning("fixed_lottery_number no login %s: %s", steam_id, lot_exc)
         db.commit()
     except Exception as exc:
         db.rollback()
