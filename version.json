@@ -1,11 +1,8 @@
 {
-    "version": "1.10.3",
+    "version": "1.10.4",
     "date": "2026-07-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.3/ARKLAND-Multi-Setup-v1.10.3.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.4/ARKLAND-Multi-Setup-v1.10.4.exe",
     "changelog": [
-        "Feature (Dino Lab / SpawnExact): Fase 4 — stats por ponto (wild/tamed), nível calculado automaticamente e imprint na entrega administrativa.",
-        "Feature (Dino Lab): teto total de nível configurável (custom_dino_level_max); padrão 0 = sem limite total; validação por stat 0-254.",
-        "Fix (Web Store / UI): sidebar Minha Area — nick em destaque e SteamID sem quebra de linha (classes auth-profile).",
-        "Fix (Plugin CustomDinoDeliver): comando de chat renomeado de /dinopoll para /dinolab; README e guia atualizados; DLL recompilada."
+        "Fix (CustomDinoDeliver): crash fatal ao usar /dinolab — assinatura correta do handler de chat ArkApi."
     ]
 }

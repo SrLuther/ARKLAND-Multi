@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.4] - 2026-07-06
+
+### Fix
+
+- Fix (CustomDinoDeliver): crash fatal ao usar /dinolab — assinatura correta do handler de chat ArkApi.
+
 ## [1.10.3] - 2026-07-06
 
 ### Feature
