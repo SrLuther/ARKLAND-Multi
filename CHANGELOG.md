@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.14] - 2026-07-07
+
+### Feature
+
+- Feat (Web Store): referência de Color IDs — tabela estática (criaturas 1–100, tintas 201–226, especiais) com busca, abas e copiar ID ao clicar; modal e painéis em Encomenda Dino, entrega e showcase do Dino Lab.
+
 ## [1.10.13] - 2026-07-07
 
 ### Feature

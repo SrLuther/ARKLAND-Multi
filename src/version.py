@@ -3,11 +3,18 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.13"
+APP_VERSION: str = "1.10.14"
 BUILD_DATE: str = "2026-07-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.14",
+        "date": "2026-07-07",
+        "changes": [
+            "Feat (Web Store): referência de Color IDs — tabela estática (criaturas 1–100, tintas 201–226, especiais) com busca, abas e copiar ID ao clicar; modal e painéis em Encomenda Dino, entrega e showcase do Dino Lab.",
+        ],
+    },
     {
         "version": "1.10.13",
         "date": "2026-07-07",

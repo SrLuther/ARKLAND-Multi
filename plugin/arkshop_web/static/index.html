@@ -4589,6 +4589,88 @@
     }
     .encomenda-showcase-detail__title { font-weight: 600; margin-bottom: 6px; }
     .encomenda-showcase-detail__desc { color: var(--text2); white-space: pre-wrap; }
+    .ark-color-ref-intro {
+      font-size: 12px;
+      color: var(--text2);
+      margin: 0 0 12px;
+      line-height: 1.55;
+    }
+    .ark-color-ref-intro a { color: var(--tek); }
+    .ark-color-ref-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .ark-color-ref-search {
+      flex: 1 1 180px;
+      min-width: 0;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .ark-color-ref-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ark-color-ref-tab {
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .ark-color-ref-tab:hover { border-color: rgba(232,120,32,.45); color: var(--text); }
+    .ark-color-ref-tab.active {
+      border-color: rgba(232,120,32,.55);
+      color: var(--amber);
+      background: rgba(232,120,32,.08);
+    }
+    .ark-color-ref-panel.hidden { display: none; }
+    .ark-color-ref-table { font-size: 12px; }
+    .ark-color-ref-table td:first-child { width: 56px; }
+    .ark-color-ref-table td:nth-child(2) { width: 48px; }
+    .ark-color-ref-table td:last-child { width: 88px; }
+    .ark-color-ref-row { cursor: pointer; }
+    .ark-color-ref-row:focus-visible { outline: 2px solid var(--amber); outline-offset: -2px; }
+    .ark-color-ref-note {
+      font-size: 11px;
+      color: var(--text3);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+    .ark-color-ref-footnote {
+      font-size: 11px;
+      color: var(--text3);
+      margin: 8px 0 0;
+      line-height: 1.45;
+    }
+    .ark-color-swatch {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,.15);
+      vertical-align: middle;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+    }
+    .ark-color-swatch--empty {
+      background: repeating-linear-gradient(
+        45deg,
+        var(--surface3),
+        var(--surface3) 4px,
+        var(--surface2) 4px,
+        var(--surface2) 8px
+      );
+    }
     .home-commerce__cmd {
       display: flex;
       flex-wrap: wrap;
@@ -5262,6 +5344,16 @@
             </p>
             <div id="encomenda-gallery" class="catalog-dinos-grid"></div>
             <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie disponível na galeria. A equipe ainda não publicou referências de cor.</p>
+            <details style="margin-top:20px;" id="encomenda-color-ids-details">
+              <summary style="cursor:pointer;font-size:13px;color:var(--text2);">🎨 Referência de Color IDs (ARK)</summary>
+              <div class="card" style="margin-top:12px;padding:12px;">
+                <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
+                  Use os IDs abaixo nos 6 campos de cor ao encomendar. Cada região (0–5) aceita valores de <strong>0</strong> a <strong>255</strong>.
+                  Clique em uma linha para copiar o ID.
+                </p>
+                <div id="encomenda-color-ids-ref"></div>
+              </div>
+            </details>
             <details style="margin-top:20px;">
               <summary style="cursor:pointer;font-size:13px;color:var(--text2);">🔍 Verificar ID da criatura (Dino Lab)</summary>
               <div class="card" style="margin-top:12px;">
@@ -7038,9 +7130,9 @@
                 Cada valor preenchido acima corresponde a um slot do array <code>colors[]</code> no payload JSON
                 (<code>colors[0]</code> … <code>colors[5]</code>). O backend valida exatamente <strong>6</strong> inteiros entre <strong>0</strong> e <strong>255</strong>
                 (<code>custom_dino_service</code>). O plugin aplica via <code>ColorSetIndices</code> + <code>MulticastUpdateAllColorSets</code>.
-                O nome visual de cada região varia por espécie; use
-                <a href="https://ark.wiki.gg/wiki/Color_IDs" target="_blank" rel="noopener">Color IDs (wiki ASE)</a>
-                ou <a href="https://github.com/cadon/ARKStatsExtractor" target="_blank" rel="noopener">ARK Smart Breeding</a> para conferir a paleta da espécie.
+                O nome visual de cada região varia por espécie; consulte a tabela abaixo ou
+                <a href="https://ark.fandom.com/wiki/Color_IDs" target="_blank" rel="noopener">Color IDs (ARK Wiki)</a>
+                / <a href="https://github.com/cadon/ARKStatsExtractor" target="_blank" rel="noopener">ARK Smart Breeding</a> para conferir a paleta da espécie.
               </p>
               <div class="card-title" style="font-size:11px;margin-bottom:6px;">Regiões (slots <code>colors[]</code>)</div>
               <table class="tbl" style="font-size:12px;margin-bottom:14px;">
@@ -7054,45 +7146,7 @@
                   <tr><td>5</td><td><code>colors[5]</code></td><td>Região 5</td></tr>
                 </tbody>
               </table>
-              <div class="card-title" style="font-size:11px;margin-bottom:6px;">Color IDs comuns (ASE — faixa 0–255)</div>
-              <p style="font-size:11px;color:var(--text3);margin:0 0 8px;">
-                <strong>0</strong> = selvagem/padrão da região (sem tinta). IDs <strong>1–18</strong> = paleta base;
-                <strong>201–226</strong> = tintas craftáveis. Outros IDs existem (eventos, mutações, espécies) — ver wiki.
-              </p>
-              <table class="tbl" style="font-size:12px;">
-                <thead><tr><th>ID</th><th>Nome</th><th>ID</th><th>Nome</th></tr></thead>
-                <tbody>
-                  <tr><td>0</td><td>Selvagem / padrão</td><td>10</td><td>Light Orange</td></tr>
-                  <tr><td>1</td><td>Red</td><td>11</td><td>Light Yellow</td></tr>
-                  <tr><td>2</td><td>Blue</td><td>12</td><td>Light Red</td></tr>
-                  <tr><td>3</td><td>Green</td><td>13</td><td>Dark Grey</td></tr>
-                  <tr><td>4</td><td>Yellow</td><td>14</td><td>Black</td></tr>
-                  <tr><td>5</td><td>Cyan</td><td>15</td><td>Brown</td></tr>
-                  <tr><td>6</td><td>Magenta</td><td>16</td><td>Dark Green</td></tr>
-                  <tr><td>7</td><td>Light Green</td><td>17</td><td>Dark Red</td></tr>
-                  <tr><td>8</td><td>Light Grey</td><td>18</td><td>White</td></tr>
-                  <tr><td>9</td><td>Light Brown</td><td colspan="2" style="color:var(--text3);font-size:11px;">… IDs 19–200 (paletas de dino, eventos)</td></tr>
-                </tbody>
-              </table>
-              <div class="card-title" style="font-size:11px;margin:14px 0 6px;">Tintas craftáveis (dye IDs)</div>
-              <table class="tbl" style="font-size:12px;">
-                <thead><tr><th>ID</th><th>Tinta</th><th>ID</th><th>Tinta</th></tr></thead>
-                <tbody>
-                  <tr><td>201</td><td>Black Dye</td><td>214</td><td>Silver Dye</td></tr>
-                  <tr><td>202</td><td>Blue Dye</td><td>215</td><td>Sky Dye</td></tr>
-                  <tr><td>203</td><td>Brown Dye</td><td>216</td><td>Tan Dye</td></tr>
-                  <tr><td>204</td><td>Cyan Dye</td><td>217</td><td>Tangerine Dye</td></tr>
-                  <tr><td>205</td><td>Forest Dye</td><td>218</td><td>White Dye</td></tr>
-                  <tr><td>206</td><td>Green Dye</td><td>219</td><td>Yellow Dye</td></tr>
-                  <tr><td>207</td><td>Purple Dye</td><td>220</td><td>Magenta Dye</td></tr>
-                  <tr><td>208</td><td>Orange Dye</td><td>221</td><td>Brick Dye</td></tr>
-                  <tr><td>209</td><td>Parchment Dye</td><td>222</td><td>Cantaloupe Dye</td></tr>
-                  <tr><td>210</td><td>Pink Dye</td><td>223</td><td>Mud Dye</td></tr>
-                  <tr><td>211</td><td>Unused Purple Dye</td><td>224</td><td>Navy Dye</td></tr>
-                  <tr><td>212</td><td>Red Dye</td><td>225</td><td>Olive Dye</td></tr>
-                  <tr><td>213</td><td>Royalty Dye</td><td>226</td><td>Slate Dye</td></tr>
-                </tbody>
-              </table>
+              <div id="dl-deliver-color-ids-ref" style="margin-top:10px;"></div>
               <p style="font-size:11px;color:var(--text3);margin:10px 0 0;">
                 Exemplo de payload: <code>"colors": [14, 14, 14, 0, 0, 0]</code> — três regiões pretas (ID 14), demais no padrão selvagem.
                 Documentação interna: <code>docs/DINO_LAB_GUIA.md</code> §13.
@@ -7191,7 +7245,10 @@
                 <textarea id="dl-showcase-description" rows="3" placeholder="Detalhes visuais, IDs de cor usados, observações…"></textarea>
               </div>
               <div class="form-group" style="grid-column:1/-1;">
-                <label>Cores Obelisk (6 regiões, 0–255)</label>
+                <label style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+                  Cores Obelisk (6 regiões, 0–255)
+                  <button type="button" class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 10px;" onclick="openArkColorIdsModal()">🎨 Ver tabela de IDs</button>
+                </label>
                 <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;">
                   <input id="dl-showcase-color-0" type="number" min="0" max="255" value="0" />
                   <input id="dl-showcase-color-1" type="number" min="0" max="255" value="0" />
@@ -7225,6 +7282,10 @@
               <button class="btn btn-ghost btn-sm" onclick="dinoLabShowcaseResetForm()">Limpar formulário</button>
             </div>
           </div>
+          <details class="card" style="margin-top:16px;padding:12px;">
+            <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text);">🎨 Referência completa de Color IDs</summary>
+            <div id="dl-showcase-color-ids-ref" style="margin-top:12px;"></div>
+          </details>
         </div>
         <div id="dinolab-panel-block" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
@@ -7792,7 +7853,10 @@
           <p id="encomenda-wizard-showcases-empty" class="hidden" style="font-size:12px;color:var(--text2);margin:0;">Sem referências visuais para esta espécie.</p>
         </div>
         <div class="form-group" style="grid-column:1/-1;">
-          <label>Cores (6 regiões — índice Obelisk 0–255)</label>
+          <label style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+            Cores (6 regiões — índice Obelisk 0–255)
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size:11px;padding:2px 10px;" onclick="openArkColorIdsModal()">🎨 Ver tabela de IDs</button>
+          </label>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
             <input id="encomenda-color-0" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
             <input id="encomenda-color-1" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
@@ -8008,9 +8072,27 @@
   </div>
 </div>
 
+<!-- ── Modal: Color IDs (ARK) ───────────────────────────────────────────────── -->
+<div id="ark-color-ids-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="ark-color-ids-modal-title" onclick="if(event.target===this)closeArkColorIdsModal()">
+  <div class="modal" style="max-width:760px;max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="ark-color-ids-modal-title">Color IDs — ARK</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:4px;">Criaturas (1–100), tintas (201–226) e IDs especiais</div>
+      </div>
+      <button type="button" class="modal-close" onclick="closeArkColorIdsModal()">✕</button>
+    </div>
+    <div id="ark-color-ids-modal-body" style="padding:0 4px 8px;"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeArkColorIdsModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toast container ──────────────────────────────────────────────────────── -->
 <div id="toast-container"></div>
 
+<script src="ark_color_ids.js" defer></script>
 <script src="redeem_docs.js" defer></script>
 <script>
 // Watchdog: boot travado em "Conectando…" → erro + retry em 8s (nunca ficar preso).
@@ -12256,6 +12338,10 @@ async function loadDinoLabAdmin() {
   }
   loadDinoLabHistory();
   loadDinoLabBlockStats();
+  if (window.ARK_COLOR_IDS) {
+    ARK_COLOR_IDS.initMount("dl-deliver-color-ids-ref");
+    ARK_COLOR_IDS.initMount("dl-showcase-color-ids-ref");
+  }
 }
 
 // ── Sugestões da comunidade ───────────────────────────────────────────────────
@@ -13275,6 +13361,7 @@ async function loadMarketEncomenda() {
     window._encomendaSpecies = d.species || [];
     window._encomendaPricing = d.pricing || {};
     renderEncomendaGallery();
+    if (window.ARK_COLOR_IDS) ARK_COLOR_IDS.initMount("encomenda-color-ids-ref");
   } catch (e) {
     content.style.display = "";
     const grid = document.getElementById("encomenda-gallery");
