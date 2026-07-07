@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | 📋 **Documentação / discussão** — sem implementação |
+| **Status** | ✅ **MVP implementado** (2026-07-07) — backend, rotas, UI jogador/admin, testes |
 | **Versão do documento** | 1.0 |
 | **Data** | 2026-07-07 |
 | **Escopo** | Produto, fluxos, modelo de preços, viabilidade econômica, integração técnica |
@@ -425,7 +425,7 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 
 ## 7. MVP vs. fases futuras
 
-### 7.1 MVP (estimativa 2–3 semanas após aprovação)
+### 7.1 MVP (implementado 2026-07-07)
 
 | Item | Incluído |
 |------|----------|
@@ -435,7 +435,9 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 | Quote + checkout | Débito Âmbares, `payload.order_source` |
 | Entrega | Reuso fila `custom_dino` + CustomDinoDeliver |
 | Admin | Lista pedidos pagos, aprovar/rejeitar acima do limite |
-| Auditoria | `dino_encomenda_created`, `dino_encomenda_delivered` |
+| Auditoria | `dino_encomenda_created`, `dino_encomenda_approved/rejected` |
+
+**Ativação:** `custom_dino_enabled` + `dino_order_enabled` em Configurações. Arquivos: `dino_order_service.py`, `dino_order_routes.py`, aba Encomenda em `static/index.html`.
 
 ### 7.2 Fase 2
 
@@ -499,4 +501,4 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 
 ---
 
-*Documento para discussão — sem implementação. Após aprovação dos parâmetros §5.4 e questões §8, seguir para especificação técnica de rotas e UI (fase de desenvolvimento).*
+*dino_encomenda MVP entregue — ver §7.1 e `plugin/arkshop_web/dino_order_service.py`.*

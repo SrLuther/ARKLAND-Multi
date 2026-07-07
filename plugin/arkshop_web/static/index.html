@@ -5180,31 +5180,92 @@
         </div>
         <div id="market-panel-encomenda" class="catalog-panel">
           <div id="market-encomenda-gate" style="display:none;padding:24px;text-align:center;color:var(--text2);">
-            <p>Faça login com Steam para verificar IDs e encomendar dinos.</p>
+            <p>Faça login com Steam para encomendar dinos customizados.</p>
             <button class="btn btn-primary" onclick="loginWithSteam()">Entrar com Steam</button>
           </div>
+          <div id="market-encomenda-disabled" class="hidden" style="padding:24px;text-align:center;color:var(--amber);">
+            <p>Encomenda de Dino desabilitada neste servidor.</p>
+          </div>
           <div id="market-encomenda-content" style="display:none;">
-            <div class="card" style="margin-bottom:16px;">
-              <div class="card-title">📦 Encomenda de Dino</div>
-              <p style="font-size:13px;color:var(--text2);margin:0 0 12px;line-height:1.55;">
-                Canal para encomendar dinos customizados com Âmbares. Em breve: galeria de espécies e formulário completo.
-              </p>
-            </div>
-            <div class="card">
-              <div class="card-title" style="font-size:14px;margin-bottom:8px;">🔍 Verificar ID da criatura</div>
-              <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
-                Antes de encomendar, confira se o ID do dino não pertence ao Dino Lab (entregas administrativas).
-                Cole o ID canônico (ex.: <code>AABBCCDD-11223344</code>) ou informe <code>dino_id1</code> e <code>dino_id2</code> separados.
-              </p>
-              <div class="form-group">
-                <label>ID da criatura</label>
-                <input id="encomenda-dino-id" type="text" placeholder="AABBCCDD-11223344 ou par id1-id2" onkeydown="if(event.key==='Enter')encomendaCheckDinoId()" />
+            <div class="catalog-toolbar" style="margin-bottom:16px;">
+              <div class="catalog-search-wrap">
+                <input id="encomenda-search" type="search" placeholder="Buscar espécie…" autocomplete="off" oninput="renderEncomendaGallery()" />
               </div>
-              <button class="btn btn-primary btn-sm" onclick="encomendaCheckDinoId()">Verificar</button>
-              <div id="encomenda-check-result" style="margin-top:14px;font-size:13px;"></div>
-              <p id="encomenda-check-disclaimer" style="margin-top:12px;font-size:11px;color:var(--amber);line-height:1.45;">
-                Verificação apenas do ID informado. Não inclui ancestralidade.
-              </p>
+              <select id="encomenda-sort" class="catalog-sort-select" onchange="renderEncomendaGallery()" aria-label="Ordenar">
+                <option value="name">Nome</option>
+                <option value="price">Preço mínimo</option>
+                <option value="tier">Tier</option>
+              </select>
+            </div>
+            <p id="encomenda-gallery-hint" style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
+              Encomende dinos sob medida — cores, stats e sexo. Preço calculado com paridade ao mercado + prêmio de serviço.
+            </p>
+            <div id="encomenda-gallery" class="catalog-dinos-grid"></div>
+            <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie disponível.</p>
+            <details style="margin-top:20px;">
+              <summary style="cursor:pointer;font-size:13px;color:var(--text2);">🔍 Verificar ID da criatura (Dino Lab)</summary>
+              <div class="card" style="margin-top:12px;">
+                <p style="font-size:12px;color:var(--text2);margin:0 0 12px;">Confira se o ID não pertence a entrega administrativa do Dino Lab.</p>
+                <div class="form-group">
+                  <input id="encomenda-dino-id" type="text" placeholder="AABBCCDD-11223344 ou par id1-id2" onkeydown="if(event.key==='Enter')encomendaCheckDinoId()" />
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="encomendaCheckDinoId()">Verificar</button>
+                <div id="encomenda-check-result" style="margin-top:14px;font-size:13px;"></div>
+              </div>
+            </details>
+          </div>
+        </div>
+        <div id="encomenda-wizard-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="encomenda-wizard-title">
+          <div class="modal-backdrop" onclick="closeEncomendaWizard()"></div>
+          <div class="modal-content" style="max-width:520px;max-height:90vh;overflow-y:auto;">
+            <div class="modal-header">
+              <h3 id="encomenda-wizard-title">Encomendar dino</h3>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="closeEncomendaWizard()">✕</button>
+            </div>
+            <div id="encomenda-wizard-body" style="padding:16px;">
+              <div id="encomenda-wizard-species" style="font-weight:600;margin-bottom:12px;"></div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Sexo</label>
+                  <select id="encomenda-gender" onchange="encomendaRefreshQuote()">
+                    <option value="female">Fêmea</option>
+                    <option value="male">Macho</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Nível</label>
+                  <input id="encomenda-level" type="number" min="1" max="450" value="150" onchange="encomendaRefreshQuote()" />
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                  <label><input id="encomenda-neutered" type="checkbox" onchange="encomendaRefreshQuote()" /> Castrado</label>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                  <label>Vida (pontos desejados) <span id="encomenda-hp-val">0</span></label>
+                  <input id="encomenda-hp" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-hp-val').textContent=this.value;encomendaRefreshQuote()" />
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                  <label>Dano (pontos desejados) <span id="encomenda-melee-val">0</span></label>
+                  <input id="encomenda-melee" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-melee-val').textContent=this.value;encomendaRefreshQuote()" />
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                  <label>Cores (6 regiões — índice Obelisk 0–255)</label>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+                    <input id="encomenda-color-0" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+                    <input id="encomenda-color-1" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+                    <input id="encomenda-color-2" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+                    <input id="encomenda-color-3" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+                    <input id="encomenda-color-4" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+                    <input id="encomenda-color-5" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+                  </div>
+                </div>
+              </div>
+              <div id="encomenda-quote-box" style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;">
+                <div style="color:var(--text2);">Calculando cotação…</div>
+              </div>
+              <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-primary" id="encomenda-checkout-btn" onclick="encomendaCheckout()">Pagar e encomendar</button>
+                <button class="btn btn-ghost" onclick="closeEncomendaWizard()">Cancelar</button>
+              </div>
             </div>
           </div>
         </div>
@@ -5883,6 +5944,20 @@
                 <strong>0 = sem limite total</strong> (valida só 0–254 por stat). Valores &gt; 0 limitam o nível simples e o calculado no SpawnExact.
               </div>
             </div>
+            <div class="form-group" style="grid-column:1/-1;padding:10px;background:var(--surface2);border-radius:var(--radius);color:var(--text2);font-size:12px;">
+              📦 Encomenda de Dino — canal jogador para dinos customizados pagos. Requer Dino Lab ativo para entrega.
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label><input id="s-dino-order-enabled" type="checkbox" /> Ativar Encomenda de Dino (dino_order_enabled)</label>
+            </div>
+            <div class="form-group">
+              <label for="s-dino-order-beta">Prêmio serviço β (dino_order_beta)</label>
+              <input id="s-dino-order-beta" type="number" min="0" max="1" step="0.01" value="0.35" />
+            </div>
+            <div class="form-group">
+              <label for="s-dino-order-auto-approve">Auto-aprovar até (dino_order_auto_approve_max)</label>
+              <input id="s-dino-order-auto-approve" type="number" min="0" step="1000" value="200000" />
+            </div>
           </div>
           <div id="db-conn-status"></div>
           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -6079,6 +6154,7 @@
               <ol class="tutorial-steps">
                 <li>Coloque uma <strong>cryopod preenchida</strong> no inventário (equipada ou acessível).</li>
                 <li>Requisitos da cryo: <strong>imprint 100%</strong>, leitura válida, timer mínimo se o servidor exigir (recarregue no Cryofridge se necessário).</li>
+                <li>Dinos entregues pelo <strong>Dino Lab</strong> (ou sua linhagem) <strong>não podem</strong> ser vendidos — use <code>/rastrear</code> para checar antes de enviar.</li>
                 <li>Digite <code>/enviar</code> — o sistema mostra preview (nome, imprint, mutações, valor sugerido).</li>
                 <li>Em até <strong>2 minutos</strong>, digite <code>/confirmar</code> — a cryopod é removida e enviada ao Comércio.</li>
                 <li>Volte à web → Comércio → Minha Loja → encontre o listing em <strong>Rascunho</strong> ou <strong>Aguardando classificação</strong>.</li>
@@ -6163,16 +6239,28 @@
                     <td>Relatório no chat e no log do servidor sobre seu perfil de entrega</td>
                   </tr>
                   <tr>
+                    <td><code>/dinolab</code></td>
+                    <td>Forçar verificação e entrega de dinos <strong>customizados do Dino Lab</strong></td>
+                    <td>Pedido pendente na fila; vivo; espaço no inventário (poll automático a cada ~60s)</td>
+                    <td>«Dino Lab: N dino(s) entregue(s)» ou «nada pendente na fila»</td>
+                  </tr>
+                  <tr>
+                    <td><code>/dinopoll</code> <em>(alias)</em></td>
+                    <td>Mesmo que <code>/dinolab</code> (nome legado)</td>
+                    <td>Idêntico a <code>/dinolab</code></td>
+                    <td>Resultado idêntico a <code>/dinolab</code></td>
+                  </tr>
+                  <tr>
                     <td><code>/enviar</code></td>
                     <td>Iniciar envio de cryopod ao Comércio P2P (preview)</td>
-                    <td>Licença Nuvem; nome de exibição na web; cryo com imprint 100%; licença nuvem ativa</td>
-                    <td>Preview do dino + valor sugerido → aguarda <code>/confirmar</code> em 2 min</td>
+                    <td>Licença Nuvem; nome de exibição na web; cryo com imprint 100%; dino <strong>não</strong> bloqueado pelo Dino Lab</td>
+                    <td>Preview do dino + valor sugerido → aguarda <code>/confirmar</code> em 2 min. Se bloqueado: «este dino ou sua linhagem pertence ao Dino Lab e nao pode ser vendido.»</td>
                   </tr>
                   <tr>
                     <td><code>/confirmar</code></td>
-                    <td>Confirmar envio após <code>/enviar</code></td>
-                    <td>Preview válido (&lt;2 min); mesma cryopod ainda no inventário</td>
-                    <td>Cryo removida → listing criado na web → «defina preço na web»</td>
+                    <td>Confirmar ação pendente iniciada nos últimos <strong>2 minutos</strong></td>
+                    <td>Depende do fluxo: após <code>/enviar</code> (cryo no inventário), <code>/engramas</code> (saldo) ou <code>/notas</code> (se ativo)</td>
+                    <td>Comércio: cryo removida → listing na web. <code>/engramas</code> ou <code>/notas</code>: debita Âmbar e conclui desbloqueio</td>
                   </tr>
                   <tr>
                     <td><code>/mercado</code></td>
@@ -6181,10 +6269,34 @@
                     <td>Entrega cryopod(s) → «X cryopod(s) entregue(s) do Comercio»</td>
                   </tr>
                   <tr>
+                    <td><code>/rastrear</code></td>
+                    <td>Verificar se a cryopod pode ser vendida no Comércio (checagem Dino Lab)</td>
+                    <td>Cryopod preenchida no inventário</td>
+                    <td>Sem bloqueio: «Este dino pode ser vendido no Comercio». Bloqueado: mesma mensagem do Dino Lab que em <code>/enviar</code></td>
+                  </tr>
+                  <tr>
                     <td><code>/enviardebug</code></td>
                     <td>Diagnóstico de cryopods no inventário (Comércio)</td>
                     <td>Nenhum</td>
                     <td>Lista slots e estado das cryos (suporte a problemas de leitura)</td>
+                  </tr>
+                  <tr>
+                    <td><code>/rastreardebug</code></td>
+                    <td>Diagnóstico técnico do bloqueio Dino Lab <em>(staff/suporte)</em></td>
+                    <td>Cryopod no inventário</td>
+                    <td>Exibe IDs hex no chat + resultado HTTP («BLOQUEADO order=…» ou «Sem bloqueio Dino Lab»)</td>
+                  </tr>
+                  <tr>
+                    <td><code>/engramas</code></td>
+                    <td>Iniciar desbloqueio de <strong>todos os engramas</strong> (custa Âmbar)</td>
+                    <td>Estar vivo; saldo suficiente (preço configurável no servidor)</td>
+                    <td>Mostra custo e saldo → confirme com <code>/confirmar</code> em 2 min</td>
+                  </tr>
+                  <tr>
+                    <td><code>/notas</code></td>
+                    <td>Iniciar desbloqueio de <strong>notas de explorador</strong> + runas Fjordur (custa Âmbar)</td>
+                    <td>Comando ativo no servidor; estar vivo; saldo suficiente</td>
+                    <td>Aviso de possível travamento → confirme com <code>/confirmar</code> em 2 min</td>
                   </tr>
                   <tr>
                     <td><code>/upload</code></td>
@@ -6204,19 +6316,18 @@
                     <td>Licença Nuvem (para ter conteúdo)</td>
                     <td>Quantidade de pilhas armazenadas + slots livres + avisos</td>
                   </tr>
-                  <tr>
-                    <td><code>/c</code> <em>(legado)</em></td>
-                    <td>Chat entre mapas do cluster</td>
-                    <td>Configuração do servidor — na maioria dos mapas o chat global já é capturado <strong>automaticamente</strong></td>
-                    <td>Se habilitado: <code>/c mensagem</code> envia ao cluster com rótulo [Mapa] Jogador</td>
-                  </tr>
                 </tbody>
               </table>
               </div>
 
+              <div class="tutorial-callout tutorial-callout--warn">
+                <strong>⚠️ Bloqueio Dino Lab no Comércio</strong>
+                Criaturas entregues pelo <strong>Dino Lab</strong> (admin) e sua <strong>linhagem</strong> não podem ser vendidas no Comércio P2P. Em <code>/enviar</code>, <code>/confirmar</code> e <code>/rastrear</code>, o chat exibe: <em>«este dino ou sua linhagem pertence ao Dino Lab e nao pode ser vendido.»</em> Use <code>/rastrear</code> antes de anunciar para evitar surpresas.
+              </div>
+
               <div class="tutorial-callout tutorial-callout--info">
                 <strong>ℹ️ Chat cluster automático</strong>
-                Nas versões recentes, mensagens do chat <strong>global</strong> são enviadas automaticamente aos outros mapas (e ao Discord, se configurado) — sem precisar digitar <code>/c</code>. Comandos que começam com <code>/</code> não são retransmitidos.
+                O chat entre mapas do cluster é <strong>automático</strong>: mensagens no chat <strong>global</strong> são enviadas aos outros mapas (e ao Discord, se configurado). Não existe comando de jogador para isso — basta falar no chat global. Comandos que começam com <code>/</code> não são retransmitidos.
               </div>
             </div>
           </div>
@@ -6336,6 +6447,9 @@
                 <li>Timer mínimo: recarregue no Cryofridge se o servidor exigir dias restantes.</li>
                 <li>Use <code>/enviardebug</code> para diagnóstico.</li>
               </ul>
+
+              <h4>/enviar ou /rastrear bloqueou — Dino Lab</h4>
+              <p>O dino ou um ancestral foi registrado em entrega do <strong>Dino Lab</strong> e não pode ser vendido no Comércio. Isso vale para a criatura e sua linhagem de breeding. Use <code>/rastrear</code> para confirmar antes de tentar <code>/enviar</code>. Staff pode usar <code>/rastreardebug</code> para ver IDs hex e o pedido que causou o bloqueio.</p>
 
               <h4>Comprei no Mercado mas não tenho o dino</h4>
               <ul>
@@ -6741,6 +6855,13 @@
         </div>
         <div class="card">
           <div class="card-header">
+            <div class="card-title">📦 Encomendas de Dino</div>
+            <button class="btn btn-ghost btn-sm" onclick="goToPage('market');setMarketTab('encomenda')">Nova encomenda →</button>
+          </div>
+          <div id="myarea-dino-orders" style="color:var(--text2);font-size:13px;">Carregando…</div>
+        </div>
+        <div class="card">
+          <div class="card-header">
             <div class="card-title">💝 Histórico de Doações</div>
           </div>
           <div id="myarea-donations"></div>
@@ -6849,6 +6970,7 @@
         <div class="catalog-tabs" style="margin-bottom:16px;">
           <button type="button" class="catalog-tab active" data-dinolab-tab="deliver" onclick="setDinoLabTab('deliver')">Nova entrega</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="history" onclick="setDinoLabTab('history')">Histórico</button>
+          <button type="button" class="catalog-tab" data-dinolab-tab="encomenda" onclick="setDinoLabTab('encomenda')">Encomendas</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="block" onclick="setDinoLabTab('block')">IDs bloqueados</button>
         </div>
         <div id="dinolab-panel-deliver" class="catalog-panel active">
@@ -7020,6 +7142,12 @@
         </div>
         <div id="dinolab-panel-history" class="catalog-panel">
           <div id="dinolab-history-list" style="color:var(--text2);">Carregando…</div>
+        </div>
+        <div id="dinolab-panel-encomenda" class="catalog-panel">
+          <div class="card" style="margin-bottom:12px;">
+            <p style="font-size:12px;color:var(--text2);margin:0;">Pedidos pagos aguardando aprovação ou com falha de entrega.</p>
+          </div>
+          <div id="dinolab-encomenda-list" style="color:var(--text2);">Carregando…</div>
         </div>
         <div id="dinolab-panel-block" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
@@ -9109,7 +9237,7 @@ function _redeemDocHelpers() {
   return {
     isDino: _isDinoType,
     isLicense: _isLicenseItem,
-    formatAmber: formatAmberAmount,
+    formatAmberAmount: formatAmberAmount,
     authenticated: _auth.authenticated,
   };
 }
@@ -10035,6 +10163,7 @@ async function loadMyArea() {
   await loadMyAreaDonations();
   await loadMyAreaLottery();
   await loadMyAreaLicenses();
+  await loadMyAreaDinoOrders();
   await loadMyAreaHistory();
   await marketProfilePromise;
 }
@@ -11279,7 +11408,7 @@ async function loadSorteio() {
             <div style="font-size:12px;color:var(--text2);margin-top:4px;">Status: ${escHtml(c.status)} · ${escHtml(c.timezone_label || "")}</div>
           </div>
           <div style="text-align:right;">
-            <div style="font-size:22px;font-weight:700;">${_formatAmberPt(c.prize_amber_total)} Âmbares</div>
+            <div style="font-size:22px;font-weight:700;">${_formatAmberAmountPt(c.prize_amber_total)} Âmbares</div>
             <div style="font-size:12px;color:var(--text2);">Sorteio em: ${_formatCountdown(c.seconds_remaining)}</div>
           </div>
         </div>
@@ -11424,7 +11553,7 @@ async function loadHomeLotteryTeaser() {
         <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;">
           <div>
             <div style="font-weight:700;color:var(--amber);">🎲 ${escHtml(c.title)}</div>
-            <div style="font-size:13px;margin-top:4px;">Prêmio: <strong>${_formatAmberPt(c.prize_amber_total)} Âmbares</strong> · ${_formatCountdown(c.seconds_remaining)}</div>
+            <div style="font-size:13px;margin-top:4px;">Prêmio: <strong>${_formatAmberAmountPt(c.prize_amber_total)} Âmbares</strong> · ${_formatCountdown(c.seconds_remaining)}</div>
             <div style="font-size:12px;color:var(--text2);">${c.participant_count || 0} participantes · ${c.numbers_issued_count || 0}/900 números</div>
           </div>
           <button class="btn btn-primary btn-sm" onclick="goToPage('sorteio')">Ver sorteio completo →</button>
@@ -11513,7 +11642,7 @@ async function lotteryAdminShowReport(campaignId) {
         </div>
         <div class="card" style="padding:12px;margin:0;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Prêmio total</div>
-          <div style="font-size:18px;font-weight:700;">${_formatAmberPt(c.prize_amber_total || 0)}</div>
+          <div style="font-size:18px;font-weight:700;">${_formatAmberAmountPt(c.prize_amber_total || 0)}</div>
         </div>
         <div class="card" style="padding:12px;margin:0;">
           <div style="font-size:11px;color:var(--text2);text-transform:uppercase;">Doações (R$)</div>
@@ -11568,7 +11697,7 @@ async function loadLotteryAdmin() {
       <div class="card" style="margin-bottom:12px;padding:12px;">
         <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between;">
           <div><strong>#${c.sequence_number}</strong> ${escHtml(c.title)} · <span class="badge">${escHtml(c.status)}</span></div>
-          <div style="font-size:12px;">Prêmio: ${_formatAmberPt(c.prize_amber_total)} · Sorteio: ${escHtml(c.draw_at_display || "")}</div>
+          <div style="font-size:12px;">Prêmio: ${_formatAmberAmountPt(c.prize_amber_total)} · Sorteio: ${escHtml(c.draw_at_display || "")}</div>
         </div>
         <div style="font-size:12px;color:var(--text2);margin-top:6px;">
           ${c.numbers_issued_count || 0}/900 números usados · ${c.numbers_available_count || 0} disponíveis · ${c.participant_count || 0} participantes
@@ -11683,8 +11812,10 @@ function setDinoLabTab(tab) {
   });
   document.getElementById("dinolab-panel-deliver")?.classList.toggle("active", tab === "deliver");
   document.getElementById("dinolab-panel-history")?.classList.toggle("active", tab === "history");
+  document.getElementById("dinolab-panel-encomenda")?.classList.toggle("active", tab === "encomenda");
   document.getElementById("dinolab-panel-block")?.classList.toggle("active", tab === "block");
   if (tab === "history") loadDinoLabHistory();
+  if (tab === "encomenda") loadDinoLabEncomendaQueue();
   if (tab === "block") loadDinoLabBlockList();
 }
 
@@ -11967,6 +12098,7 @@ async function loadDinoLabAdmin() {
 
 // ── Sugestões da comunidade ───────────────────────────────────────────────────
 let _suggAdminSelectedId = null;
+let _suggAdminSuppressSave = false;
 
 const _SUGG_STATUS_LABELS = {
   pending: "Pendente",
@@ -12122,6 +12254,7 @@ async function loadSugestoesAdmin() {
   const root = document.getElementById("sugg-admin-list");
   if (!root) return;
   document.getElementById("sugg-admin-detail")?.classList.add("hidden");
+  root.classList.remove("hidden");
   root.innerHTML = "Carregando…";
   const status = document.getElementById("sugg-admin-filter-status")?.value || "";
   const q = document.getElementById("sugg-admin-search")?.value?.trim() || "";
@@ -12180,8 +12313,10 @@ function suggAdminOpenDetail(id) {
     `Steam <code>${escHtml(s.steam_id)}</code> · ${escHtml(s.created_at || "")}`;
   document.getElementById("sugg-admin-detail-body").innerHTML =
     `<p style="margin:0 0 8px;">${escHtml(s.description)}</p>${_suggDetailsHtml(s)}`;
+  _suggAdminSuppressSave = true;
   document.getElementById("sugg-admin-status").value = s.status || "pending";
   document.getElementById("sugg-admin-note").value = s.admin_note || "";
+  _suggAdminSuppressSave = false;
 }
 
 function suggAdminCloseDetail() {
@@ -12191,7 +12326,7 @@ function suggAdminCloseDetail() {
 }
 
 async function suggAdminSave() {
-  if (!_suggAdminSelectedId) return;
+  if (_suggAdminSuppressSave || !_suggAdminSelectedId) return;
   try {
     const d = await fetchJson(`/api/admin/suggestions/${_suggAdminSelectedId}`, {
       method: "PATCH",
@@ -12202,6 +12337,9 @@ async function suggAdminSave() {
       }),
     });
     if (!d.ok) throw new Error(d.error || "Falha ao salvar");
+    const newStatus = document.getElementById("sugg-admin-status")?.value || "";
+    const filterEl = document.getElementById("sugg-admin-filter-status");
+    if (filterEl?.value && filterEl.value !== newStatus) filterEl.value = "";
     toast("Sugestão atualizada.", "success");
     suggAdminCloseDetail();
     loadSugestoesAdmin();
@@ -12951,14 +13089,264 @@ function setMarketTab(tab) {
 async function loadMarketEncomenda() {
   const gate = document.getElementById("market-encomenda-gate");
   const content = document.getElementById("market-encomenda-content");
+  const disabled = document.getElementById("market-encomenda-disabled");
   if (!gate || !content) return;
   if (!_auth.authenticated) {
     gate.style.display = "";
     content.style.display = "none";
+    if (disabled) disabled.classList.add("hidden");
     return;
   }
   gate.style.display = "none";
-  content.style.display = "";
+  try {
+    const d = await fetchJson("/api/player/dino-order/species");
+    if (!d.ok) {
+      if (d.error === "dino_order_disabled") {
+        content.style.display = "none";
+        if (disabled) disabled.classList.remove("hidden");
+        return;
+      }
+      throw new Error(d.message || d.error || "Falha");
+    }
+    if (disabled) disabled.classList.add("hidden");
+    content.style.display = "";
+    window._encomendaSpecies = d.species || [];
+    window._encomendaPricing = d.pricing || {};
+    renderEncomendaGallery();
+  } catch (e) {
+    content.style.display = "";
+    const grid = document.getElementById("encomenda-gallery");
+    if (grid) grid.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;
+  }
+}
+
+let _encomendaWizardSpecies = null;
+let _encomendaQuote = null;
+
+function renderEncomendaGallery() {
+  const grid = document.getElementById("encomenda-gallery");
+  const empty = document.getElementById("encomenda-gallery-empty");
+  if (!grid) return;
+  const list = window._encomendaSpecies || [];
+  const search = (document.getElementById("encomenda-search")?.value || "").trim().toLowerCase();
+  const sort = document.getElementById("encomenda-sort")?.value || "name";
+  let filtered = list.filter(s => {
+    const name = (s.display_name || s.species_key || "").toLowerCase();
+    return !search || name.includes(search) || (s.species_key || "").toLowerCase().includes(search);
+  });
+  filtered.sort((a, b) => {
+    if (sort === "price") return (a.starting_price || 0) - (b.starting_price || 0);
+    if (sort === "tier") return String(a.tier || "").localeCompare(String(b.tier || ""));
+    return String(a.display_name || "").localeCompare(String(b.display_name || ""));
+  });
+  if (!filtered.length) {
+    grid.innerHTML = "";
+    if (empty) empty.style.display = "";
+    return;
+  }
+  if (empty) empty.style.display = "none";
+  grid.innerHTML = filtered.map(s => {
+    const thumb = s.image_url
+      ? `<img src="${escHtml(s.image_url)}" alt="" loading="lazy" />`
+      : `<span class="item-card__icon">🦕</span>`;
+    const tier = s.tier ? `<span class="item-card__tier-badge">${escHtml(s.tier)}</span>` : "";
+    return `<article class="item-card">
+      <div class="item-card__thumb">${thumb}${tier}</div>
+      <div class="item-card__body">
+        <div class="item-card__name">${escHtml(s.display_name || s.species_key)}</div>
+        <div class="item-card__meta-line">a partir de ${amberPriceHtml(s.starting_price || 0, 14)}</div>
+        <div class="item-card__footer">
+          <button class="btn btn-primary btn-sm btn-buy" onclick="openEncomendaWizard('${escHtml(s.species_key)}')">ENCOMENDAR MEU DINO</button>
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+function openEncomendaWizard(speciesKey) {
+  const sp = (window._encomendaSpecies || []).find(s => s.species_key === speciesKey);
+  if (!sp) return;
+  _encomendaWizardSpecies = sp;
+  document.getElementById("encomenda-wizard-species").textContent = sp.display_name || speciesKey;
+  document.getElementById("encomenda-gender").value = "female";
+  document.getElementById("encomenda-level").value = "150";
+  document.getElementById("encomenda-neutered").checked = false;
+  document.getElementById("encomenda-hp").value = "0";
+  document.getElementById("encomenda-melee").value = "0";
+  document.getElementById("encomenda-hp-val").textContent = "0";
+  document.getElementById("encomenda-melee-val").textContent = "0";
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById("encomenda-color-" + i);
+    if (el) el.value = "0";
+  }
+  document.getElementById("encomenda-wizard-modal")?.classList.remove("hidden");
+  encomendaRefreshQuote();
+}
+
+function closeEncomendaWizard() {
+  document.getElementById("encomenda-wizard-modal")?.classList.add("hidden");
+  _encomendaWizardSpecies = null;
+  _encomendaQuote = null;
+}
+
+function encomendaBuildSpec() {
+  const colors = [];
+  for (let i = 0; i < 6; i++) {
+    colors.push(parseInt(document.getElementById("encomenda-color-" + i)?.value || "0", 10) || 0);
+  }
+  return {
+    species_key: _encomendaWizardSpecies?.species_key,
+    level: parseInt(document.getElementById("encomenda-level")?.value || "150", 10) || 150,
+    gender: document.getElementById("encomenda-gender")?.value || "female",
+    neutered: !!document.getElementById("encomenda-neutered")?.checked,
+    colors,
+    stat_points: {
+      health: parseInt(document.getElementById("encomenda-hp")?.value || "0", 10) || 0,
+      melee: parseInt(document.getElementById("encomenda-melee")?.value || "0", 10) || 0,
+    },
+  };
+}
+
+async function encomendaRefreshQuote() {
+  const box = document.getElementById("encomenda-quote-box");
+  const btn = document.getElementById("encomenda-checkout-btn");
+  if (!box || !_encomendaWizardSpecies) return;
+  box.innerHTML = '<div style="color:var(--text2);">Calculando…</div>';
+  if (btn) btn.disabled = true;
+  try {
+    const d = await fetchJson("/api/player/dino-order/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(encomendaBuildSpec()),
+    });
+    if (!d.ok) throw new Error(d.message || d.error || "Cotação falhou");
+    _encomendaQuote = d;
+    const approveNote = d.auto_approve
+      ? '<span style="color:var(--success);">Aprovação automática</span>'
+      : '<span style="color:var(--amber);">Requer aprovação admin</span>';
+    box.innerHTML = `
+      <div style="display:grid;gap:4px;font-size:12px;">
+        <div>Stats: ${formatAmberAmount(d.stats_component)} · Cores: ${formatAmberAmount(d.color_component)}</div>
+        <div>Taxa base: ${formatAmberAmount(d.base_surcharge)} · Serviço (${d.service_surcharge_pct}%): ${formatAmberAmount(d.service_premium)}</div>
+        <div style="font-size:15px;font-weight:700;color:var(--amber);margin-top:6px;">Total: ${amberPriceHtml(d.total, 16)}</div>
+        <div style="margin-top:4px;">${approveNote}</div>
+      </div>`;
+    if (btn) btn.disabled = false;
+  } catch (e) {
+    box.innerHTML = `<div style="color:var(--danger);">${escHtml(e.message)}</div>`;
+  }
+}
+
+async function encomendaCheckout() {
+  if (!_encomendaQuote || !_encomendaWizardSpecies) return;
+  const btn = document.getElementById("encomenda-checkout-btn");
+  if (btn) btn.disabled = true;
+  try {
+    const d = await fetchJson("/api/player/dino-order/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(encomendaBuildSpec()),
+    });
+    if (!d.ok) throw new Error(d.message || d.error || "Checkout falhou");
+    toast(`Encomenda criada! ${formatAmberAmount(d.points_spent)} — status: ${d.status}`, "success");
+    closeEncomendaWizard();
+    if (typeof loadMyAreaDinoOrders === "function") loadMyAreaDinoOrders();
+    await loadMarketEncomenda();
+  } catch (e) {
+    toast(e.message, "error");
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function loadMyAreaDinoOrders() {
+  const host = document.getElementById("myarea-dino-orders");
+  if (!host || !_auth.authenticated) return;
+  try {
+    const d = await fetchJson("/api/player/dino-order/orders?page_size=10");
+    if (!d.ok) {
+      host.textContent = d.error || "Indisponível";
+      return;
+    }
+    const orders = d.orders || [];
+    if (!orders.length) {
+      host.innerHTML = "<p>Nenhuma encomenda ainda.</p>";
+      return;
+    }
+    const statusLabel = {
+      PENDENTE: "Pendente",
+      AGUARDANDO_APROVACAO: "Aguardando aprovação",
+      ENTREGANDO: "Entregando",
+      ENTREGUE: "Entregue",
+      FALHA: "Falha",
+      REJEITADO: "Rejeitado",
+      CANCELADO: "Cancelado",
+    };
+    host.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
+      <th>Espécie</th><th>Total</th><th>Status</th><th>Data</th>
+    </tr></thead><tbody>${orders.map(o => `<tr>
+      <td>${escHtml(o.species_display_name || o.species_key || "—")}</td>
+      <td>${formatAmberAmount(o.points_spent || 0)}</td>
+      <td><span class="badge">${escHtml(statusLabel[o.status] || o.status)}</span></td>
+      <td style="font-size:11px;">${escHtml((o.created_at || "").slice(0, 16))}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  } catch (e) {
+    host.textContent = "Erro ao carregar encomendas.";
+  }
+}
+
+async function loadDinoLabEncomendaQueue() {
+  const root = document.getElementById("dinolab-encomenda-list");
+  if (!root) return;
+  root.textContent = "Carregando…";
+  try {
+    const d = await fetchJson("/api/admin/dino-order/queue");
+    if (!d.ok) throw new Error(d.message || d.error || "Falha");
+    const orders = d.orders || [];
+    if (!orders.length) {
+      root.innerHTML = "<p>Nenhum pedido na fila.</p>";
+      return;
+    }
+    root.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
+      <th>Pedido</th><th>Jogador</th><th>Espécie</th><th>Total</th><th>Status</th><th>Ações</th>
+    </tr></thead><tbody>${orders.map(o => `<tr>
+      <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
+      <td style="font-size:11px;">${escHtml(o.steam_id || "")}</td>
+      <td>${escHtml(o.species_display_name || o.species_key || "—")}</td>
+      <td>${formatAmberAmount(o.points_spent || 0)}</td>
+      <td><span class="badge">${escHtml(o.status)}</span></td>
+      <td style="white-space:nowrap;">
+        ${o.status === "AGUARDANDO_APROVACAO" ? `<button class="btn btn-primary btn-sm" onclick="dinoOrderAdminApprove('${escHtml(o.order_id)}')">Aprovar</button>` : ""}
+        <button class="btn btn-ghost btn-sm" onclick="dinoOrderAdminReject('${escHtml(o.order_id)}')">Rejeitar</button>
+      </td>
+    </tr>`).join("")}</tbody></table></div>`;
+  } catch (e) {
+    root.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;
+  }
+}
+
+async function dinoOrderAdminApprove(orderId) {
+  if (!confirm("Aprovar encomenda " + orderId + "?")) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/approve", { method: "POST" });
+    if (!d.ok) throw new Error(d.error || "Falha");
+    toast("Encomenda aprovada — entra na fila de entrega.", "success");
+    loadDinoLabEncomendaQueue();
+  } catch (e) { toast(e.message, "error"); }
+}
+
+async function dinoOrderAdminReject(orderId) {
+  const reason = prompt("Motivo da rejeição (estorno automático):", "");
+  if (reason === null) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-order/" + encodeURIComponent(orderId) + "/reject", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    if (!d.ok) throw new Error(d.error || "Falha");
+    toast(`Rejeitado — ${formatAmberAmount(d.refunded || 0)} estornados.`, "success");
+    loadDinoLabEncomendaQueue();
+  } catch (e) { toast(e.message, "error"); }
 }
 
 async function encomendaCheckDinoId() {
@@ -16306,6 +16694,12 @@ async function loadSettings() {
     if (dlSe) dlSe.checked = !!s.custom_dino_spawn_exact;
     const dlLm = document.getElementById("s-custom-dino-level-max");
     if (dlLm) dlLm.value = String(parseInt(s.custom_dino_level_max ?? "0", 10) || 0);
+    const doEl = document.getElementById("s-dino-order-enabled");
+    if (doEl) doEl.checked = !!s.dino_order_enabled;
+    const doBeta = document.getElementById("s-dino-order-beta");
+    if (doBeta) doBeta.value = String(s.dino_order_beta ?? "0.35");
+    const doAuto = document.getElementById("s-dino-order-auto-approve");
+    if (doAuto) doAuto.value = String(s.dino_order_auto_approve_max ?? "200000");
     const dbStatus = document.getElementById("db-conn-status");
     if (dbStatus) {
       dbStatus.style.display = "block";
@@ -16347,6 +16741,9 @@ async function saveSettings() {
     custom_dino_enabled: !!document.getElementById("s-custom-dino-enabled")?.checked,
     custom_dino_spawn_exact: !!document.getElementById("s-custom-dino-spawn-exact")?.checked,
     custom_dino_level_max: parseInt(document.getElementById("s-custom-dino-level-max")?.value || "0", 10) || 0,
+    dino_order_enabled: !!document.getElementById("s-dino-order-enabled")?.checked,
+    dino_order_beta: parseFloat(document.getElementById("s-dino-order-beta")?.value || "0.35") || 0.35,
+    dino_order_auto_approve_max: parseInt(document.getElementById("s-dino-order-auto-approve")?.value || "200000", 10) || 200000,
   };
   const mpToken = document.getElementById("s-mp-token")?.value?.trim();
   if (mpToken) body.mp_access_token = mpToken;
@@ -17523,7 +17920,7 @@ const _AMBER_CHANNEL_LABELS = {
   community: "Enquetes",
 };
 
-function _formatAmberPt(n) {
+function _formatAmberAmountPt(n) {
   const v = Number(n);
   return Number.isFinite(v) ? v.toLocaleString("pt-BR") : "0";
 }
@@ -17536,9 +17933,9 @@ function _animateAmberCounter(el, from, to, durationMs = 1400) {
     const t = Math.min(1, (now - start) / durationMs);
     const eased = 1 - Math.pow(1 - t, 3);
     const current = Math.round(from + delta * eased);
-    el.textContent = _formatAmberPt(current);
+    el.textContent = _formatAmberAmountPt(current);
     if (t < 1) requestAnimationFrame(frame);
-    else el.textContent = _formatAmberPt(to);
+    else el.textContent = _formatAmberAmountPt(to);
   }
   requestAnimationFrame(frame);
 }
@@ -17559,7 +17956,7 @@ function renderAmberMeter(data) {
     ["7 dias", data.total_gross_7d],
     ["30 dias", data.total_gross_30d],
   ].map(([lbl, val]) =>
-    `<span class="amber-meter__chip">${escHtml(lbl)}: <strong>${_formatAmberPt(val)}</strong></span>`
+    `<span class="amber-meter__chip">${escHtml(lbl)}: <strong>${_formatAmberAmountPt(val)}</strong></span>`
   ).join("");
   const ch = data.channels || {};
   const chTotal = Object.keys(_AMBER_CHANNEL_LABELS).reduce((s, k) => s + (Number(ch[k]) || 0), 0);
@@ -17574,7 +17971,7 @@ function renderAmberMeter(data) {
   const plural = escHtml((data.currency && data.currency.plural) || CURRENCY.plural || "Âmbares");
   root.innerHTML = `
     <div class="amber-meter__eyebrow">${amberIconHtml(20)} Âmbarômetro</div>
-    <div class="amber-meter__value" id="amber-meter-value" aria-label="${label}: ${_formatAmberPt(total)} ${plural}">${_formatAmberPt(_amberMeterValue)}</div>
+    <div class="amber-meter__value" id="amber-meter-value" aria-label="${label}: ${_formatAmberAmountPt(total)} ${plural}">${_formatAmberAmountPt(_amberMeterValue)}</div>
     <div class="amber-meter__sublabel">${label}<br><span style="opacity:.8;font-size:12px;">${sublabel}</span></div>
     <div class="amber-meter__chips">${chips}</div>
     ${channelHtml ? `<div class="amber-meter__channels">${channelHtml}</div>` : ""}
@@ -17586,7 +17983,7 @@ function renderAmberMeter(data) {
     _animateAmberCounter(valEl, _amberMeterValue, total);
     _amberMeterValue = total;
   } else if (valEl) {
-    valEl.textContent = _formatAmberPt(total);
+    valEl.textContent = _formatAmberAmountPt(total);
   }
 }
 

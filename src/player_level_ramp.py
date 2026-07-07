@@ -42,6 +42,50 @@ def geometric_xp_per_slot(index: int, base: int, mult: float) -> int:
     return max(1, int(base * (mult ** index)))
 
 
+def _slot_matches_vanilla(index: int, xp: int, *, tolerance: float = 0.02) -> bool:
+    expected = vanilla_xp_per_slot(index)
+    if expected <= 0:
+        return xp <= 1
+    return abs(xp - expected) <= max(1, int(expected * tolerance))
+
+
+def infer_xp_curve_from_ramp(values: list[int]) -> dict[str, Any]:
+    """Infere vanilla vs geométrica a partir dos slots lidos do Game.ini."""
+    if not values:
+        return {"mode": XP_CURVE_VANILLA}
+    sample = min(len(values), 8)
+    if all(_slot_matches_vanilla(i, values[i]) for i in range(sample)):
+        return {"mode": XP_CURVE_VANILLA}
+    xp_base = max(1, int(values[0]))
+    xp_mult = 1.15
+    if len(values) > 1 and values[0] > 0:
+        xp_mult = float(values[1]) / float(values[0])
+    xp_mult = max(1.01, min(xp_mult, 3.0))
+    return {
+        "mode": XP_CURVE_CUSTOM,
+        "xp_base": xp_base,
+        "xp_mult": xp_mult,
+        "formula": "base * (mult ** i)",
+    }
+
+
+def apply_inferred_xp_curve(cfg: object, values: list[int]) -> None:
+    """Atualiza player_xp_curve_* quando a rampa do disco não é vanilla."""
+    if not values:
+        return
+    inferred = infer_xp_curve_from_ramp(values)
+    if inferred.get("mode") == XP_CURVE_VANILLA:
+        return
+    if hasattr(cfg, "player_xp_curve_mode"):
+        cfg.player_xp_curve_mode = XP_CURVE_CUSTOM
+    if hasattr(cfg, "player_xp_curve_base") and "xp_base" in inferred:
+        cfg.player_xp_curve_base = int(inferred["xp_base"])
+    if hasattr(cfg, "player_xp_curve_mult") and "xp_mult" in inferred:
+        cfg.player_xp_curve_mult = float(inferred["xp_mult"])
+    if hasattr(cfg, "player_xp_curve_formula") and inferred.get("formula"):
+        cfg.player_xp_curve_formula = str(inferred["formula"])
+
+
 def parse_ramp_from_text(text: str) -> dict[str, Any]:
     """Conta entradas e índices de LevelExperienceRampOverrides em texto INI."""
     slots: dict[int, int] = {}
@@ -244,6 +288,27 @@ def populate_player_ramp_from_game_ini(cfg: object, game_path) -> None:
         values = ramp_slots_to_values(parsed["slots"], count)
         if hasattr(cfg, "player_level_stats_raw"):
             cfg.player_level_stats_raw = export_ramp_raw(values)
+        apply_inferred_xp_curve(cfg, values)
+        if _resolve_base_level(cfg) <= 0 and count > ARK_ASCENSION_RAMP_SLOTS:
+            inferred_base = max(1, count - ARK_ASCENSION_RAMP_SLOTS)
+            if hasattr(cfg, "player_base_level"):
+                cfg.player_base_level = inferred_base
+
+
+def _curve_params_from_cfg(cfg: object | None) -> dict[str, Any]:
+    if cfg is None:
+        return {
+            "mode": XP_CURVE_VANILLA,
+            "xp_base": 70,
+            "xp_mult": 1.15,
+            "formula": "base * (mult ** i)",
+        }
+    return {
+        "mode": _read_cfg_str(cfg, "player_xp_curve_mode", XP_CURVE_VANILLA),
+        "xp_base": _read_cfg_int(cfg, "player_xp_curve_base", 70),
+        "xp_mult": _read_cfg_float(cfg, "player_xp_curve_mult", 1.15),
+        "formula": _read_cfg_str(cfg, "player_xp_curve_formula", "base * (mult ** i)"),
+    }
 
 
 def sync_config_player_level(cfg: object) -> dict[str, int]:
@@ -258,19 +323,27 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
     theoretical = calc_max_total_level(ramp_base if base <= 0 else base)
     asc_bonus = ARK_TOTAL_BONUS_LEVELS
 
+    curve = _curve_params_from_cfg(cfg)
     values = build_ramp_values(
         ramp_base,
-        mode=_read_cfg_str(cfg, "player_xp_curve_mode", XP_CURVE_VANILLA),
-        xp_base=_read_cfg_int(cfg, "player_xp_curve_base", 70),
-        xp_mult=_read_cfg_float(cfg, "player_xp_curve_mult", 1.15),
-        formula=_read_cfg_str(cfg, "player_xp_curve_formula", "base * (mult ** i)"),
+        mode=str(curve["mode"]),
+        xp_base=int(curve["xp_base"]),
+        xp_mult=float(curve["xp_mult"]),
+        formula=str(curve["formula"]),
     )
-    # Admin: OverrideMaxExperiencePointsPlayer = XP na curva da rampa no nível base.
+    # Cap farmável = XP acumulado na mesma curva da rampa, no nível base (ascensões +100 são implante).
     xp_level = base if base > 0 else ramp_base
     if values:
         override_xp = cumulative_xp_on_ramp(values, xp_level)
     else:
         override_xp = level_to_xp(xp_level)
+
+    existing_xp = _read_cfg_int(cfg, "override_max_xp_player", 0)
+    gs = getattr(cfg, "game_settings", None)
+    if gs is not None:
+        existing_xp = max(existing_xp, _read_cfg_int(gs, "override_max_experience_points_player", 0))
+    if existing_xp > override_xp and str(curve["mode"]).lower() == XP_CURVE_CUSTOM:
+        override_xp = existing_xp
 
     effective = theoretical if base > 0 else resolve_effective_ingame_cap(
         cfg,

@@ -136,6 +136,40 @@ def test_admin_list_and_update(sugg_db):
     assert approved["suggestion"]["status"] == "aprovada"
 
 
+def test_admin_list_em_analise_after_update(sugg_db):
+    created = create_suggestion(
+        sugg_db,
+        steam_id=USER_STEAM,
+        category="dino",
+        title="Novo dino",
+        description="Adicionar Yuty",
+    )
+    sid = created["suggestion"]["id"]
+
+    updated = update_suggestion_admin(
+        sugg_db,
+        sid,
+        status="em_analise",
+        admin_note="Em avaliação",
+        admin_steam_id=ADMIN_STEAM,
+    )
+    assert updated["suggestion"]["status"] == "em_analise"
+
+    all_items, all_total = list_suggestions_admin(sugg_db)
+    assert all_total == 1
+    assert all_items[0]["status"] == "em_analise"
+
+    filtered, filtered_total = list_suggestions_admin(sugg_db, status="em_analise")
+    assert filtered_total == 1
+    assert filtered[0]["id"] == sid
+
+    pending_items, pending_total = list_suggestions_admin(sugg_db, status="pending")
+    assert pending_total == 0
+
+    stats = public_suggestion_stats(sugg_db)
+    assert stats["by_status"]["em_analise"] == 1
+
+
 def test_public_stats(sugg_db):
     create_suggestion(
         sugg_db,

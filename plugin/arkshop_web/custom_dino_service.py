@@ -569,6 +569,10 @@ def order_to_admin_dict(row: Any) -> dict[str, Any]:
     }
 
 
+def is_player_dino_encomenda(payload: dict[str, Any]) -> bool:
+    return str(payload.get("order_source") or "") == "dino_encomenda"
+
+
 def list_custom_dino_orders_admin(
     db: Session,
     *,
@@ -576,11 +580,15 @@ def list_custom_dino_orders_admin(
     page_size: int = 25,
     status: str | None = None,
     steam_id: str | None = None,
+    exclude_player_orders: bool = True,
 ) -> dict[str, Any]:
     page = max(1, page)
     page_size = max(1, min(100, page_size))
     params: dict[str, Any] = {"it": ITEM_TYPE, "lim": page_size, "off": (page - 1) * page_size}
     where = "item_type = :it"
+    if exclude_player_orders:
+        where += " AND (payload_json IS NULL OR payload_json NOT LIKE :no_encomenda)"
+        params["no_encomenda"] = '%"order_source": "dino_encomenda"%'
     if status:
         where += " AND status = :st"
         params["st"] = status.strip().upper()

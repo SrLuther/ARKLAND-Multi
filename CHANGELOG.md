@@ -5,6 +5,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.12] - 2026-07-07
+
+### Feature
+
+- Feat (Encomenda Dino): MVP na Web Store — aba Encomendas no Dino Lab, API de pedidos, integração com entrega custom e spec ENCOMENDA_DINO.
+
+### Improvement
+
+- Melhoria (Tutoriais): comandos atualizados — removido /c; documentados /dinolab e aliases legados.
+
+### Fix
+
+- Fix (Web Store / Sugestões): painel admin de sugestões corrigido (carregamento e ações); testes de regressão.
+- Fix (Nível do jogador): detecção de curva XP legada na rampa (infer_xp_curve_from_ramp), preservação do cap geométrico ao sincronizar Game.ini.
+
 ## [1.10.11] - 2026-07-07
 
 ### Improvement

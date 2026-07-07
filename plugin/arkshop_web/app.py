@@ -5684,6 +5684,15 @@ def save_settings():
         "custom_dino_spawn_exact",
         "custom_dino_level_max",
         "dino_lab_block_debug",
+        "dino_order_enabled",
+        "dino_order_alpha",
+        "dino_order_beta",
+        "dino_order_delta_uniform",
+        "dino_order_delta_base",
+        "dino_order_delta_region",
+        "dino_order_kappa",
+        "dino_order_absolute_max",
+        "dino_order_auto_approve_max",
     ):
         if key in body:
             s[key] = body[key]
@@ -9845,6 +9854,28 @@ register_custom_dino_routes(
     steam_id_from_session=_steam_id_from_session,
     load_settings=_load_settings,
     is_valid_steamid64=_is_valid_steamid64,
+    audit_event=_audit_event,
+    get_server_id=lambda: str(_load_settings().get("server_id", "default")),
+    limiter=limiter,
+)
+
+from dino_order_routes import register_dino_order_routes
+from dino_order_service import configure_dino_order
+
+configure_dino_order(
+    settings_fn=_load_settings,
+    debit_fn=_subtract_player_points_tx,
+    credit_fn=_add_player_points_tx,
+    get_player_points_fn=_get_player_points,
+)
+register_dino_order_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
+    guard_player_commerce=_guard_player_commerce,
     audit_event=_audit_event,
     get_server_id=lambda: str(_load_settings().get("server_id", "default")),
     limiter=limiter,

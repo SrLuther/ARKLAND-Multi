@@ -9,6 +9,16 @@ BUILD_DATE: str = "2026-07-07"
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
     {
+        "version": "1.10.12",
+        "date": "2026-07-07",
+        "changes": [
+            "Feat (Encomenda Dino): MVP na Web Store — aba Encomendas no Dino Lab, API de pedidos, integração com entrega custom e spec ENCOMENDA_DINO.",
+            "Fix (Web Store / Sugestões): painel admin de sugestões corrigido (carregamento e ações); testes de regressão.",
+            "Melhoria (Tutoriais): comandos atualizados — removido /c; documentados /dinolab e aliases legados.",
+            "Fix (Nível do jogador): detecção de curva XP legada na rampa (infer_xp_curve_from_ramp), preservação do cap geométrico ao sincronizar Game.ini.",
+        ],
+    },
+    {
         "version": "1.10.11",
         "date": "2026-07-07",
         "changes": [

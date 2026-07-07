@@ -19,7 +19,7 @@ from ..player_level_ascension import (
     serialize_ascension_state,
 )
 from ..player_level_ramp import (
-    XP_CURVE_VANILLA,
+    _curve_params_from_cfg,
     build_ramp_values,
     cumulative_xp_on_ramp,
     export_ramp_raw,
@@ -44,7 +44,14 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
     base = max(1, base)
 
     total = calc_max_total_level(base)
-    ramp_values = build_ramp_values(base, mode=XP_CURVE_VANILLA)
+    curve = _curve_params_from_cfg(cfg)
+    ramp_values = build_ramp_values(
+        base,
+        mode=str(curve["mode"]),
+        xp_base=int(curve["xp_base"]),
+        xp_mult=float(curve["xp_mult"]),
+        formula=str(curve["formula"]),
+    )
     xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
     ramp_entries = len(ramp_values)
 
@@ -86,7 +93,14 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
         base = ARK_DEFAULT_BASE_LEVEL
 
     total = calc_max_total_level(base)
-    ramp_values = build_ramp_values(base, mode=XP_CURVE_VANILLA)
+    curve = _curve_params_from_cfg(gs)
+    ramp_values = build_ramp_values(
+        base,
+        mode=str(curve["mode"]),
+        xp_base=int(curve["xp_base"]),
+        xp_mult=float(curve["xp_mult"]),
+        formula=str(curve["formula"]),
+    )
     xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
 
     if hasattr(gs, "player_base_level"):
