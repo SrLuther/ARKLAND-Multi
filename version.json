@@ -1,10 +1,9 @@
 {
-    "version": "1.10.10",
+    "version": "1.10.11",
     "date": "2026-07-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.10/ARKLAND-Multi-Setup-v1.10.10.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.11/ARKLAND-Multi-Setup-v1.10.11.exe",
     "changelog": [
-        "Feat (Dino Lab / Mercado): bloqueio MVP de venda — registro de DinoID na entrega, checagem no /enviar com linhagem via HTTP, endpoints admin e audit.",
-        "Fix (CustomDinoDeliver): crash ao usar SpawnExact — SEH isolado, validação de contexto e limites de nível.",
-        "Fix (CustomShop): bloqueio Dino Lab no mercado (/enviar e /confirmar) com mensagem ao jogador; /rastreardebug para staff."
+        "Fix (Nível do jogador): modelo unificado — admin define só o nível base; sistema deriva +100 (75 boss na rampa + 25 conquistas), rampa Game.ini com base+75 slots, cap XP no base e 400 pontos de engrama fixos por nível.",
+        "Melhoria (Nível do jogador): painel TEK/ASM simplificado — removidos tiers/checkboxes; teto, rampa e engramas calculados automaticamente."
     ]
 }

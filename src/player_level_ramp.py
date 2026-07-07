@@ -5,7 +5,20 @@ import json
 import re
 from typing import Any
 
-from .player_level_ascension import ARK_DEFAULT_BASE_LEVEL, level_to_xp
+from .player_level_ascension import (
+    ARK_BOSS_ASCENSION_LEVELS,
+    ARK_DEFAULT_BASE_LEVEL,
+    ARK_TOTAL_BONUS_LEVELS,
+    calc_max_total_level,
+    level_to_xp,
+)
+
+ARK_ASCENSION_RAMP_SLOTS = ARK_BOSS_ASCENSION_LEVELS  # 75 slots na rampa Game.ini
+
+
+def total_ramp_slots(base_level: int) -> int:
+    """Entradas na rampa: nível base (XP) + 75 ascensão de boss."""
+    return max(1, int(base_level or 0)) + ARK_ASCENSION_RAMP_SLOTS
 
 _RAMP_LINE_RE = re.compile(
     r"LevelExperienceRampOverrides\s*=\s*\(ExperiencePointsForLevel\[(\d+)\]\s*=\s*(\d+)\)",
@@ -70,8 +83,8 @@ def build_ramp_values(
     xp_mult: float = 1.15,
     formula: str = "base * (mult ** i)",
 ) -> list[int]:
-    """Gera valores de XP por slot (0 .. base_level-1)."""
-    count = max(1, int(base_level or 0))
+    """Gera valores de XP por slot: base_level farmáveis + 75 ascensão."""
+    count = total_ramp_slots(base_level)
     values: list[int] = []
     mode_n = (mode or XP_CURVE_VANILLA).strip().lower()
     for i in range(count):
@@ -201,7 +214,7 @@ def get_ramp_entry_count(cfg: object) -> int:
         return stored
     base = _resolve_base_level(cfg)
     if base > 0:
-        return base
+        return total_ramp_slots(base)
     parsed = parse_ramp_from_text(_read_cfg_str(cfg, "player_level_stats_raw", ""))
     return int(parsed.get("entry_count", 0) or 0)
 
@@ -234,28 +247,16 @@ def populate_player_ramp_from_game_ini(cfg: object, game_path) -> None:
 
 
 def sync_config_player_level(cfg: object) -> dict[str, int]:
-    """Ponto único de derivação: rampa, XP cap e contadores no cfg."""
-    from .player_level_ascension import (
-        calc_ascension_bonus,
-        calc_extra_bonus,
-        calc_total_player_level,
-        parse_ascension_state,
-    )
-
+    """Ponto único de derivação: rampa (base+75), XP cap no base, teto base+100."""
     base = _resolve_base_level(cfg)
-    ramp_base = base if base > 0 else max(get_ramp_entry_count(cfg), ARK_DEFAULT_BASE_LEVEL)
-
-    state_raw = _read_cfg_str(cfg, "player_ascension_state", "")
-    gs = getattr(cfg, "game_settings", None)
-    if not state_raw.strip() and gs is not None:
-        state_raw = _read_cfg_str(gs, "player_ascension_state", "")
-    st = parse_ascension_state(state_raw)
-    theoretical = calc_total_player_level(
-        ramp_base if base <= 0 else base,
-        st["bosses"],
-        st["extras"],
+    ramp_base = base if base > 0 else max(
+        get_ramp_entry_count(cfg) - ARK_ASCENSION_RAMP_SLOTS,
+        ARK_DEFAULT_BASE_LEVEL,
     )
-    asc_bonus = calc_ascension_bonus(st["bosses"]) + calc_extra_bonus(st["extras"])
+    ramp_base = max(1, ramp_base)
+
+    theoretical = calc_max_total_level(ramp_base if base <= 0 else base)
+    asc_bonus = ARK_TOTAL_BONUS_LEVELS
 
     values = build_ramp_values(
         ramp_base,
@@ -271,7 +272,7 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
     else:
         override_xp = level_to_xp(xp_level)
 
-    effective = resolve_effective_ingame_cap(
+    effective = theoretical if base > 0 else resolve_effective_ingame_cap(
         cfg,
         theoretical=theoretical,
         base_level=ramp_base,
@@ -288,11 +289,19 @@ def sync_config_player_level(cfg: object) -> dict[str, int]:
     if hasattr(cfg, "player_level_stats_raw"):
         cfg.player_level_stats_raw = export_ramp_raw(values) if values else ""
 
+    from .player_level_ascension import serialize_ascension_state
+
+    if hasattr(cfg, "player_ascension_state"):
+        cfg.player_ascension_state = serialize_ascension_state()
+
+    gs = getattr(cfg, "game_settings", None)
     if gs is not None:
         if hasattr(gs, "override_max_experience_points_player"):
             gs.override_max_experience_points_player = override_xp
         if hasattr(gs, "player_level_cap"):
             gs.player_level_cap = theoretical
+        if hasattr(gs, "player_ascension_state"):
+            gs.player_ascension_state = serialize_ascension_state()
 
     return {
         "base_level": base if base > 0 else ramp_base,
@@ -312,11 +321,14 @@ def resolve_effective_ingame_cap(
     ramp_values: list[int] | None = None,
     override_xp: int | None = None,
 ) -> int:
-    """Teto efetivo in-game: min(teórico, entradas na rampa, cap XP na rampa)."""
+    """Teto in-game: base + 100 quando nível base está configurado."""
+    base = int(base_level if base_level is not None else _resolve_base_level(cfg))
+    if base > 0:
+        return calc_max_total_level(base)
+
     from .player_level_ascension import resolve_theoretical_player_level
 
     theo = int(theoretical if theoretical is not None else resolve_theoretical_player_level(cfg))
-    base = int(base_level if base_level is not None else _resolve_base_level(cfg))
     values = ramp_values if ramp_values is not None else get_ramp_values_from_cfg(cfg)
     ramp_count = len(values) if values else get_ramp_entry_count(cfg)
     if ramp_count <= 0 and base > 0:

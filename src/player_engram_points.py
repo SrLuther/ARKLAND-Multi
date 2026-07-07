@@ -1,8 +1,10 @@
-"""Pontos de engrama por nível — multiplicador sobre o vanilla (8 pts/nível)."""
+"""Pontos de engrama por nível — valor fixo ARKLAND (400 pts/nível)."""
 from __future__ import annotations
 
 import re
 
+ARK_ENGRAM_POINTS_PER_LEVEL = 400
+# Legado — referência vanilla; não usado na geração automática.
 ARK_VANILLA_ENGRAM_POINTS_PER_LEVEL = 8
 
 _ENGRAM_RAW_LINE_RE = re.compile(
@@ -11,39 +13,25 @@ _ENGRAM_RAW_LINE_RE = re.compile(
 )
 
 
-def engram_points_per_level(multiplier: float) -> int:
-    mult = float(multiplier or 1.0)
-    if mult <= 0:
-        return ARK_VANILLA_ENGRAM_POINTS_PER_LEVEL
-    return max(1, int(round(ARK_VANILLA_ENGRAM_POINTS_PER_LEVEL * mult)))
+def engram_points_per_level(_multiplier: float | None = None) -> int:
+    """Pontos de engrama por level-up — fixo 400 no ARKLAND."""
+    return ARK_ENGRAM_POINTS_PER_LEVEL
 
 
-def _read_multiplier(cfg: object) -> float:
-    candidates: list[float] = []
-    gs = getattr(cfg, "game_settings", None)
-    if gs is not None and hasattr(gs, "player_engram_points_multiplier"):
-        candidates.append(
-            float(getattr(gs, "player_engram_points_multiplier", 1.0) or 1.0)
-        )
-    if hasattr(cfg, "player_engram_points_multiplier"):
-        candidates.append(
-            float(getattr(cfg, "player_engram_points_multiplier", 1.0) or 1.0)
-        )
-    if not candidates:
-        return 1.0
-    for mult in candidates:
-        if mult > 0 and abs(mult - 1.0) >= 0.001:
-            return mult
-    return candidates[0]
+def should_apply_engram_overrides(cfg: object) -> bool:
+    """Gera OverridePlayerLevelEngramPoints quando há nível base configurado."""
+    from .player_level_ramp import _resolve_base_level
+
+    return _resolve_base_level(cfg) > 0
 
 
 def should_apply_engram_multiplier(cfg: object) -> bool:
-    mult = _read_multiplier(cfg)
-    return mult > 0 and abs(mult - 1.0) >= 0.001
+    """Alias legado."""
+    return should_apply_engram_overrides(cfg)
 
 
 def strip_engram_points_from_raw(raw: str) -> str:
-    """Remove OverridePlayerLevelEngramPoints do bruto — gerado pelo multiplicador."""
+    """Remove OverridePlayerLevelEngramPoints do bruto — gerado automaticamente."""
     if not raw or not str(raw).strip():
         return ""
     kept: list[str] = []
@@ -55,13 +43,13 @@ def strip_engram_points_from_raw(raw: str) -> str:
 
 
 def resolve_ramp_entries_for_engrams(cfg: object) -> int:
-    """Entradas na rampa / base_level — sincronizado com OverridePlayerLevelEngramPoints."""
+    """Uma linha de engrama por slot da rampa (base + 75 ascensão)."""
     from .player_level_ascension import _difficulty_fallback_level
-    from .player_level_ramp import _resolve_base_level, get_ramp_entry_count
+    from .player_level_ramp import _resolve_base_level, get_ramp_entry_count, total_ramp_slots
 
     base = _resolve_base_level(cfg)
     if base > 0:
-        return max(1, base)
+        return total_ramp_slots(base)
     ramp = get_ramp_entry_count(cfg)
     if ramp > 0:
         return ramp
@@ -73,10 +61,9 @@ def resolve_max_level_for_engrams(cfg: object) -> int:
 
 
 def build_engram_points_ini_lines(cfg: object) -> list[str]:
-    """Linhas OverridePlayerLevelEngramPoints=… (uma por nível)."""
-    if not should_apply_engram_multiplier(cfg):
+    """Linhas OverridePlayerLevelEngramPoints=400 (uma por nível na rampa)."""
+    if not should_apply_engram_overrides(cfg):
         return []
-    mult = _read_multiplier(cfg)
     max_lvl = resolve_max_level_for_engrams(cfg)
-    pts = engram_points_per_level(mult)
+    pts = engram_points_per_level()
     return [f"OverridePlayerLevelEngramPoints={pts}"] * max_lvl

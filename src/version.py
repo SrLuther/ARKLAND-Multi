@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.10"
+APP_VERSION: str = "1.10.11"
 BUILD_DATE: str = "2026-07-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.11",
+        "date": "2026-07-07",
+        "changes": [
+            "Fix (Nível do jogador): modelo unificado — admin define só o nível base; sistema deriva +100 (75 boss na rampa + 25 conquistas), rampa Game.ini com base+75 slots, cap XP no base e 400 pontos de engrama fixos por nível.",
+            "Melhoria (Nível do jogador): painel TEK/ASM simplificado — removidos tiers/checkboxes; teto, rampa e engramas calculados automaticamente.",
+        ],
+    },
     {
         "version": "1.10.10",
         "date": "2026-07-07",

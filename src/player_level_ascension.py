@@ -1,62 +1,61 @@
-"""Modelo de níveis do jogador ARK — base, ascensões e bônus extras."""
+"""Modelo de níveis do jogador ARK — nível base + bônus fixos (+100)."""
 from __future__ import annotations
 
 import json
 from typing import Any
 
 ARK_DEFAULT_BASE_LEVEL = 105
-TIER_BONUSES = (0, 5, 10, 15)  # nenhum, γ, β, α (cumulativo por mapa)
 
-# (id, rótulo, boss)
+# Bônus fixos após o nível base (farmável só com XP).
+# 75 na rampa INI (5 mapas × α +15) + 25 de conquistas (notas, runas, chibi).
+ARK_BOSS_ASCENSION_LEVELS = 75
+ARK_CONQUEST_LEVELS = 25  # notas +10, runas +10, chibi +5
+ARK_TOTAL_BONUS_LEVELS = ARK_BOSS_ASCENSION_LEVELS + ARK_CONQUEST_LEVELS  # 100
+
+# Mapas com ascensão α (+15 cada) — entram nos 75 slots da rampa.
 ASCENSION_BOSSES: tuple[tuple[str, str, str], ...] = (
     ("island", "The Island", "Overseer"),
     ("scorched", "Scorched Earth", "Manticore"),
     ("aberration", "Aberration", "Rockwell"),
-    ("extinction", "Extinction", "King Titan"),
     ("genesis1", "Genesis Pt.1", "Corrupted Master Controller"),
     ("genesis2", "Genesis Pt.2", "Rockwell Prime"),
-    ("volcano", "The Volcano", "Volcano Guardian"),
 )
 
-# (id, rótulo, níveis)
-EXTRA_BONUSES: tuple[tuple[str, str, int], ...] = (
+# Conquistas fora dos 75 slots da rampa (+25 total).
+CONQUEST_BONUSES: tuple[tuple[str, str, int], ...] = (
     ("explorer_notes", "Notas de Explorador (todas)", 10),
     ("fjordur_runes", "Runas de Fjordur", 10),
     ("chibi", "Chibi nível 6", 5),
-    ("aquatica", "Aquatica (DLC)", 5),
-    ("pygocentrus", "Alpha Pygocentrus (Steam)", 15),
 )
 
+# Legado — mantido para parse de configs antigas.
+EXTRA_BONUSES = CONQUEST_BONUSES
+TIER_BONUSES = (0, 5, 10, 15)
 TIER_LABELS = ("—", "γ +5", "β +10", "α +15")
 
 
-def tier_bonus(tier: int) -> int:
-    idx = max(0, min(3, int(tier or 0)))
-    return TIER_BONUSES[idx]
+def calc_max_total_level(base_level: int) -> int:
+    """Teto absoluto do servidor: base + 100 (bosses + conquistas)."""
+    base = max(1, int(base_level or 0)) or ARK_DEFAULT_BASE_LEVEL
+    return base + ARK_TOTAL_BONUS_LEVELS
 
 
-def calc_ascension_bonus(boss_tiers: dict[str, int]) -> int:
-    total = 0
-    for boss_id, _label, _boss in ASCENSION_BOSSES:
-        total += tier_bonus(int(boss_tiers.get(boss_id, 0) or 0))
-    return total
+def calc_ascension_bonus(_boss_tiers: dict[str, int] | None = None) -> int:
+    """Bônus de boss na rampa — fixo +75 no modelo ARKLAND."""
+    return ARK_BOSS_ASCENSION_LEVELS
 
 
-def calc_extra_bonus(extras: dict[str, bool]) -> int:
-    total = 0
-    for eid, _label, pts in EXTRA_BONUSES:
-        if extras.get(eid):
-            total += pts
-    return total
+def calc_extra_bonus(_extras: dict[str, bool] | None = None) -> int:
+    """Bônus de conquistas — fixo +25 no modelo ARKLAND."""
+    return ARK_CONQUEST_LEVELS
 
 
 def calc_total_player_level(
     base_level: int,
-    boss_tiers: dict[str, int],
-    extras: dict[str, bool],
+    _boss_tiers: dict[str, int] | None = None,
+    _extras: dict[str, bool] | None = None,
 ) -> int:
-    base = int(base_level or 0) or ARK_DEFAULT_BASE_LEVEL
-    return base + calc_ascension_bonus(boss_tiers) + calc_extra_bonus(extras)
+    return calc_max_total_level(base_level)
 
 
 def level_to_xp(level: int) -> int:
@@ -80,41 +79,34 @@ def xp_to_level(xp: int) -> int:
     return lo
 
 
-def empty_ascension_state() -> dict[str, Any]:
+def default_ascension_state() -> dict[str, Any]:
+    """Estado canônico: servidor habilita o caminho completo (+100)."""
     return {
-        "bosses": {bid: 0 for bid, _, _ in ASCENSION_BOSSES},
-        "extras": {eid: False for eid, _, _ in EXTRA_BONUSES},
+        "bosses": {bid: 3 for bid, _, _ in ASCENSION_BOSSES},
+        "extras": {eid: True for eid, _, _ in CONQUEST_BONUSES},
     }
+
+
+def empty_ascension_state() -> dict[str, Any]:
+    return default_ascension_state()
 
 
 def parse_ascension_state(raw: str | None) -> dict[str, Any]:
-    if not raw or not str(raw).strip():
-        return empty_ascension_state()
-    try:
-        data = json.loads(str(raw))
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return empty_ascension_state()
-    base = empty_ascension_state()
-    bosses = data.get("bosses") if isinstance(data, dict) else {}
-    extras = data.get("extras") if isinstance(data, dict) else {}
-    if isinstance(bosses, dict):
-        for bid, _, _ in ASCENSION_BOSSES:
-            try:
-                base["bosses"][bid] = max(0, min(3, int(bosses.get(bid, 0) or 0)))
-            except (TypeError, ValueError):
-                pass
-    if isinstance(extras, dict):
-        for eid, _, _ in EXTRA_BONUSES:
-            base["extras"][eid] = bool(extras.get(eid))
-    return base
+    """Aceita JSON legado; retorna sempre o modelo canônico (+100)."""
+    if raw and str(raw).strip():
+        try:
+            json.loads(str(raw))
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+    return default_ascension_state()
 
 
-def serialize_ascension_state(boss_tiers: dict[str, int], extras: dict[str, bool]) -> str:
-    payload = {
-        "bosses": {bid: max(0, min(3, int(boss_tiers.get(bid, 0) or 0))) for bid, _, _ in ASCENSION_BOSSES},
-        "extras": {eid: bool(extras.get(eid)) for eid, _, _ in EXTRA_BONUSES},
-    }
-    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+def serialize_ascension_state(
+    _boss_tiers: dict[str, int] | None = None,
+    _extras: dict[str, bool] | None = None,
+) -> str:
+    st = default_ascension_state()
+    return json.dumps(st, ensure_ascii=False, separators=(",", ":"))
 
 
 def _difficulty_fallback_level(cfg: object) -> int:
@@ -134,8 +126,14 @@ def _difficulty_fallback_level(cfg: object) -> int:
 
 
 def resolve_theoretical_player_level(cfg: object) -> int:
-    """Teto teórico com base + ascensões + extras (painel unificado)."""
+    """Teto teórico: base + 100."""
+    base = int(getattr(cfg, "player_base_level", 0) or 0)
     gs = getattr(cfg, "game_settings", None)
+    if base <= 0 and gs is not None:
+        base = int(getattr(gs, "player_base_level", 0) or 0)
+    if base > 0:
+        return calc_max_total_level(base)
+
     if gs is not None:
         cap = int(getattr(gs, "player_level_cap", 0) or 0)
         if cap > 0:
@@ -143,37 +141,7 @@ def resolve_theoretical_player_level(cfg: object) -> int:
 
     override_xp = int(getattr(cfg, "override_max_xp_player", 0) or 0)
     if override_xp > 0:
-        base = int(getattr(cfg, "player_base_level", 0) or 0)
-        state_raw = str(getattr(cfg, "player_ascension_state", "") or "")
-        if base > 0 or state_raw.strip():
-            st = parse_ascension_state(state_raw)
-            theo = calc_total_player_level(
-                base or ARK_DEFAULT_BASE_LEVEL,
-                st["bosses"],
-                st["extras"],
-            )
-            if theo > 0:
-                return theo
-        if gs is not None:
-            gs_xp = int(getattr(gs, "override_max_experience_points_player", 0) or 0)
-            if gs_xp > 0 and gs_xp == override_xp:
-                gs_cap = int(getattr(gs, "player_level_cap", 0) or 0)
-                if gs_cap > 0:
-                    return gs_cap
-
-    base = int(getattr(cfg, "player_base_level", 0) or 0)
-    if base <= 0 and gs is not None:
-        base = int(getattr(gs, "player_base_level", 0) or 0)
-    state_raw = str(getattr(cfg, "player_ascension_state", "") or "")
-    if gs is not None and not state_raw.strip():
-        state_raw = str(getattr(gs, "player_ascension_state", "") or "")
-    if base > 0 or state_raw.strip():
-        st = parse_ascension_state(state_raw)
-        return calc_total_player_level(
-            base or ARK_DEFAULT_BASE_LEVEL,
-            st["bosses"],
-            st["extras"],
-        )
+        return xp_to_level(override_xp)
 
     if gs is not None:
         gs_xp = int(getattr(gs, "override_max_experience_points_player", 0) or 0)
@@ -184,7 +152,7 @@ def resolve_theoretical_player_level(cfg: object) -> int:
 
 
 def resolve_max_player_level(cfg: object) -> int:
-    """Nível máximo efetivo in-game (web / cards) — considera rampa e cap de XP."""
+    """Nível máximo exibido (Web / cards) — base + 100 quando configurado."""
     from .player_level_ramp import resolve_effective_ingame_cap
 
     return resolve_effective_ingame_cap(cfg)

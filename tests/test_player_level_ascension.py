@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from src.player_level_ascension import (
     ARK_DEFAULT_BASE_LEVEL,
-    ASCENSION_BOSSES,
-    EXTRA_BONUSES,
+    ARK_TOTAL_BONUS_LEVELS,
+    calc_max_total_level,
     calc_total_player_level,
     level_to_xp,
     resolve_max_player_level,
@@ -15,21 +15,10 @@ from src.player_level_ascension import (
 from src.server_config_snapshot import compute_max_player_level
 
 
-def test_vanilla_reference_total_220():
-    """Referência wiki: 105 base + 6×15 bosses + extras até 220 (Steam)."""
-    bosses = {bid: 0 for bid, _, _ in ASCENSION_BOSSES}
-    for bid in ("island", "scorched", "aberration", "genesis1", "genesis2"):
-        bosses[bid] = 3  # alpha
-    extras = {
-        "explorer_notes": True,
-        "fjordur_runes": True,
-        "chibi": True,
-        "aquatica": False,
-        "pygocentrus": True,
-    }
-    total = calc_total_player_level(ARK_DEFAULT_BASE_LEVEL, bosses, extras)
-    # 105 + 5*15 + 10 + 10 + 5 + 15 = 105 + 75 + 40 = 220
-    assert total == 220
+def test_max_total_level_base_plus_100():
+    assert calc_max_total_level(120) == 220
+    assert calc_max_total_level(ARK_DEFAULT_BASE_LEVEL) == ARK_DEFAULT_BASE_LEVEL + ARK_TOTAL_BONUS_LEVELS
+    assert calc_total_player_level(120) == 220
 
 
 def test_xp_level_roundtrip():
@@ -52,21 +41,21 @@ def test_compute_max_player_level_difficulty_fallback():
     assert compute_max_player_level(srv) == 180
 
 
-def test_engram_points_multiplier_5x():
+def test_engram_points_fixed_400():
     from dataclasses import dataclass, field
 
     from src.player_engram_points import (
+        ARK_ENGRAM_POINTS_PER_LEVEL,
         build_engram_points_ini_lines,
         engram_points_per_level,
         strip_engram_points_from_raw,
     )
+    from src.player_level_ramp import total_ramp_slots
 
-    assert engram_points_per_level(5.0) == 40
-    assert engram_points_per_level(1.0) == 8
+    assert engram_points_per_level() == ARK_ENGRAM_POINTS_PER_LEVEL == 400
 
     raw = (
         "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=10)\n"
-        "OverridePlayerLevelEngramPoints=8\n"
         "OverridePlayerLevelEngramPoints=8\n"
     )
     stripped = strip_engram_points_from_raw(raw)
@@ -75,33 +64,13 @@ def test_engram_points_multiplier_5x():
 
     @dataclass
     class _Gs:
-        player_base_level: int = 105
-        player_engram_points_multiplier: float = 5.0
-        override_official_difficulty: float = 5.0
+        player_base_level: int = 120
 
     @dataclass
     class _Srv:
         game_settings: _Gs = field(default_factory=_Gs)
+        player_base_level: int = 120
 
     lines = build_engram_points_ini_lines(_Srv())
-    assert len(lines) == 105
-    assert lines[0] == "OverridePlayerLevelEngramPoints=40"
-    assert all(ln == "OverridePlayerLevelEngramPoints=40" for ln in lines)
-
-
-def test_engram_points_asm_tek_difficulty_180_levels():
-    from dataclasses import dataclass
-
-    from src.player_engram_points import build_engram_points_ini_lines
-
-    @dataclass
-    class _AsmTek:
-        enable_difficulty_override: bool = True
-        override_official_difficulty: float = 5.0
-        player_engram_points_multiplier: float = 5.0
-        player_base_level: int = 0
-        player_ascension_state: str = ""
-
-    lines = build_engram_points_ini_lines(_AsmTek())
-    assert len(lines) == 180
-    assert all(ln == "OverridePlayerLevelEngramPoints=40" for ln in lines)
+    assert len(lines) == total_ramp_slots(120)
+    assert all(ln == "OverridePlayerLevelEngramPoints=400" for ln in lines)

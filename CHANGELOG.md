@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.11] - 2026-07-07
+
+### Improvement
+
+- Melhoria (Nível do jogador): painel TEK/ASM simplificado — removidos tiers/checkboxes; teto, rampa e engramas calculados automaticamente.
+
+### Fix
+
+- Fix (Nível do jogador): modelo unificado — admin define só o nível base; sistema deriva +100 (75 boss na rampa + 25 conquistas), rampa Game.ini com base+75 slots, cap XP no base e 400 pontos de engrama fixos por nível.
+
 ## [1.10.10] - 2026-07-07
 
 ### Feature
