@@ -16,6 +16,7 @@ CHANGELOG: list[dict] = [
             'Feature (Dino Lab): teto total de nível configurável (custom_dino_level_max); padrão 0 = sem limite total; validação por stat 0-254.',
             'Fix (Web Store / UI): sidebar Minha Area — nick em destaque e SteamID sem quebra de linha (classes auth-profile).',
             'Fix (Plugin CustomDinoDeliver): comando de chat renomeado de /dinopoll para /dinolab; README e guia atualizados; DLL recompilada.',
+            'Fix (Plugin CustomDinoDeliver): crash fatal ao usar /dinolab — assinatura correta do handler de chat (AShooterPlayerController*, EChatSendMode::Type); null-checks e try/catch defensivos.',
         ],
     },
     {

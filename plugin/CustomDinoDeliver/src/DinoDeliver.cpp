@@ -298,7 +298,11 @@ FCustomItemData BuildCryoCustomData(APrimalDinoCharacter* dino, UPrimalItem* sad
         customItemData.CustomDataFloats.Add(dino->bIsFemale()());
     }
 
-    const double now = ArkApi::GetApiUtils().GetShooterGameMode()->GetWorld()->TimeSecondsField();
+    double now = 0.0;
+    if (AShooterGameMode* game_mode = ArkApi::GetApiUtils().GetShooterGameMode()) {
+        if (UWorld* world = game_mode->GetWorld())
+            now = world->TimeSecondsField();
+    }
     customItemData.CustomDataDoubles.Doubles.Add(now);
     customItemData.CustomDataDoubles.Doubles.Add(dino->BabyNextCuddleTimeField() - now);
     customItemData.CustomDataDoubles.Doubles.Add(dino->NextAllowedMatingTimeField());

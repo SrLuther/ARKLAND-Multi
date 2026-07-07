@@ -159,9 +159,16 @@ void Shutdown() {
 
 bool DeliverPending(AShooterPlayerController* controller) {
     if (!controller) return false;
+    if (ArkApi::GetApiUtils().GetStatus() != ArkApi::ServerStatus::Ready) {
+        Log::GetLog()->warn("DinoHttpClient: DeliverPending skipped — server not ready");
+        return false;
+    }
 
     const std::string steam_id = Bridge::GetSteamId(controller);
-    if (steam_id.empty()) return false;
+    if (steam_id.empty()) {
+        Log::GetLog()->warn("DinoHttpClient: DeliverPending skipped — empty steam_id");
+        return false;
+    }
 
     Log::GetLog()->info("DinoHttpClient: claim custom-dino for '{}' at {}", steam_id, g_web_url);
 
@@ -247,15 +254,17 @@ bool DeliverPending(AShooterPlayerController* controller) {
         Log::GetLog()->info("DinoHttpClient: delivered callback: {}", deliver_resp);
     }
 
-    if (success_count > 0) {
-        std::wstring msg = L"[Dino Lab] " + std::to_wstring(success_count)
-            + L" dino(s) customizado(s) entregue(s)!";
-        ArkApi::GetApiUtils().SendNotification(
-            controller, FLinearColor(0, 1, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
-    } else if (fail_count > 0) {
-        ArkApi::GetApiUtils().SendNotification(
-            controller, FLinearColor(1, 0.6f, 0, 1), 1.2f, 10.f, nullptr,
-            L"[Dino Lab] Falha ao entregar dino customizado. Contate um admin.");
+    if (controller && (success_count > 0 || fail_count > 0)) {
+        if (success_count > 0) {
+            std::wstring msg = L"[Dino Lab] " + std::to_wstring(success_count)
+                + L" dino(s) customizado(s) entregue(s)!";
+            ArkApi::GetApiUtils().SendNotification(
+                controller, FLinearColor(0, 1, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
+        } else {
+            ArkApi::GetApiUtils().SendNotification(
+                controller, FLinearColor(1, 0.6f, 0, 1), 1.2f, 10.f, nullptr,
+                L"[Dino Lab] Falha ao entregar dino customizado. Contate um admin.");
+        }
     }
 
     return success_count > 0;

@@ -16,6 +16,7 @@
 
 - Fix (Web Store / UI): sidebar Minha Area — nick em destaque e SteamID sem quebra de linha (classes auth-profile).
 - Fix (Plugin CustomDinoDeliver): comando de chat renomeado de /dinopoll para /dinolab; README e guia atualizados; DLL recompilada.
+- Fix (Plugin CustomDinoDeliver): crash fatal ao usar /dinolab — assinatura correta do handler de chat (AShooterPlayerController*, EChatSendMode::Type); null-checks e try/catch defensivos.
 
 ## [1.10.2] - 2026-07-06
 

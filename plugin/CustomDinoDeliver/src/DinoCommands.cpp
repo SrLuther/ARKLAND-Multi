@@ -28,12 +28,23 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
     }
 }
 
-void CmdPoll(APlayerController* pc, FString*, bool) {
-    auto* controller = static_cast<AShooterPlayerController*>(pc);
+void CmdPoll(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
     if (!controller) return;
-    const bool ok = CustomDinoDeliver::HttpClient::DeliverPending(controller);
-    SendMsg(controller, ok ? FColorList::Green : FColorList::Yellow,
-            ok ? "Dino Lab: entrega verificada." : "Dino Lab: nada pendente ou falha na API.");
+
+    try {
+        Log::GetLog()->info("CustomDinoDeliver: /dinolab requested by steam_id={}",
+                            CustomDinoDeliver::Bridge::GetSteamId(controller));
+        const bool ok = CustomDinoDeliver::HttpClient::DeliverPending(controller);
+        SendMsg(controller, ok ? FColorList::Green : FColorList::Yellow,
+                ok ? "Dino Lab: entrega verificada."
+                     : "Dino Lab: nada pendente ou falha na API.");
+    } catch (const std::exception& e) {
+        Log::GetLog()->error("CustomDinoDeliver: /dinolab failed — {}", e.what());
+        SendMsg(controller, FColorList::Red, "Dino Lab: erro ao verificar fila.");
+    } catch (...) {
+        Log::GetLog()->error("CustomDinoDeliver: /dinolab failed — unknown error");
+        SendMsg(controller, FColorList::Red, "Dino Lab: erro ao verificar fila.");
+    }
 }
 
 } // anonymous namespace
