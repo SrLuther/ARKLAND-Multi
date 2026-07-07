@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.8] - 2026-07-07
+
+### Fix
+
+- Fix (CustomDinoDeliver): /dinolab + alias /dinopoll; reinstale DLL nos mapas.
+
 ## [1.10.7] - 2026-07-06
 
 ### Feature

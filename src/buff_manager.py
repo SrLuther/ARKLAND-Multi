@@ -1,24 +1,38 @@
 """
-Gerenciador de BUFFs de rates temporários para servidores ARK: Survival Evolved.
+Gerenciador de Eventos Sazonais (rates temporários) para servidores ARK: Survival Evolved.
 
-BUFFs são eventos globais temporários que alteram multiplicadores do servidor
+Eventos sazonais são eventos globais temporários que alteram multiplicadores do servidor
 automaticamente com início e fim programados, equivalentes aos eventos oficiais
 da Studio Wildcard.
 """
 from __future__ import annotations
 
 import json
-import shutil
 import threading
 import time
 import uuid
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from .ark_ini import ArkIniManager, get_ini_path
+from .buff_ini_backups import (
+    backup_ini_files,
+    list_ini_backups,
+    restore_ini_from_backup,
+)
 from .rcon_client import RconClient
+
+# Multiplicador base assumido do servidor (rates nos INIs = base × este valor)
+DEFAULT_SERVER_RATE_MULT = 5.0
+EMERGENCY_RESTORE_DELAY_SEC = 300  # 5 minutos
+_SAVEWORLD_WAIT_SEC = 15
+
+_SECTOR_SKIP_FIELDS = frozenset({"baby_imprinting_stat_scale_multiplier"})
+_FIELD_ALIASES: Dict[str, List[str]] = {
+    "baby_imprinting_stat_scale_multiplier": ["baby_imprinting_stat_scale"],
+}
 
 # ── Fuso horário de Brasília (UTC-3 fixo — BR não usa horário de verão desde 2019)
 _TZ_BRASILIA = timezone(timedelta(hours=-3))
@@ -90,67 +104,138 @@ BUFF_RATE_FIELDS: Dict[str, List[tuple]] = {
 }
 
 
-def _quick_preset_for(multiplier: int) -> Dict[str, Dict[str, float]]:
-    """Retorna valores {tipo: {campo: valor}} para o multiplicador rápido."""
+def _quick_preset_sectors(multiplier: int) -> "BuffSectorMults":
+    """Preset rápido: mesmo multiplicador em todos os setores."""
     m = float(multiplier)
-    inv = round(1.0 / m, 4)
-    return {
-        BUFF_TYPE_XP: {
-            "xp_multiplier":         m,
-            "kill_xp_multiplier":    m,
-            "harvest_xp_multiplier": m,
-            "craft_xp_multiplier":   m,
-        },
-        BUFF_TYPE_DOMA: {
-            "taming_speed_multiplier": m,
-        },
-        BUFF_TYPE_BREEDING: {
-            "baby_mature_speed_multiplier":          m,
-            "egg_hatch_speed_multiplier":            m,
-            "mating_interval_multiplier":            inv,
-            "baby_cuddle_interval_multiplier":       inv,
-            "baby_imprinting_stat_scale_multiplier": 1.0,
-        },
-        BUFF_TYPE_FARM: {
-            "harvest_amount_multiplier":          m,
-            "harvest_health_multiplier":          round(m / 2.5, 2),
-            "resource_respawn_period_multiplier": inv,
-        },
-    }
+    return BuffSectorMults(xp=m, doma=m, breeding=m, farm=m)
 
 
-QUICK_PRESETS: Dict[int, Dict[str, Dict[str, float]]] = {
-    5:  _quick_preset_for(5),
-    10: _quick_preset_for(10),
-    15: _quick_preset_for(15),
+QUICK_PRESET_MULTS: Dict[int, "BuffSectorMults"] = {
+    5:  _quick_preset_sectors(5),
+    10: _quick_preset_sectors(10),
+    15: _quick_preset_sectors(15),
 }
+
+# Compatibilidade com imports antigos
+QUICK_PRESETS = QUICK_PRESET_MULTS
 
 
 def stack_buff_rate(base: float, buff_factor: float) -> float:
-    """Multiplica a rate base do servidor pelo fator do BUFF (empilhamento)."""
+    """Multiplica a rate base pelo fator (legado / snapshot)."""
     if base <= 0:
         base = 1.0
     return round(base * buff_factor, 4)
 
 
+def compute_buff_field_value(
+    current: float,
+    target_mult: float,
+    *,
+    is_inverse: bool,
+    server_mult: float = DEFAULT_SERVER_RATE_MULT,
+) -> float:
+    """
+    Calcula valor INI alvo a partir do valor atual e multiplicador desejado.
+
+    Normal: base = current / server_mult; new = base × target
+    Inverso: base = current × server_mult; new = base / target
+    """
+    if current <= 0:
+        current = 1.0
+    if server_mult <= 0:
+        server_mult = DEFAULT_SERVER_RATE_MULT
+    if target_mult <= 0:
+        target_mult = 1.0
+    if is_inverse:
+        return round((current * server_mult) / target_mult, 4)
+    return round((current / server_mult) * target_mult, 4)
+
+
 def _read_rate_from_config(cfg: object, field_name: str) -> float:
     """Lê o valor atual de um multiplicador na config do servidor."""
-    if hasattr(cfg, "game_settings"):
-        val = getattr(cfg.game_settings, field_name, 1.0)
-    else:
-        val = getattr(cfg, field_name, 1.0)
-    try:
-        f = float(val)
-    except (TypeError, ValueError):
-        return 1.0
-    return f if f > 0 else 1.0
+    for name in [field_name] + _FIELD_ALIASES.get(field_name, []):
+        if hasattr(cfg, "game_settings"):
+            val = getattr(cfg.game_settings, name, None)
+        else:
+            val = getattr(cfg, name, None)
+        if val is not None:
+            try:
+                f = float(val)
+                if f > 0:
+                    return f
+            except (TypeError, ValueError):
+                pass
+    return 1.0
+
+
+def _sector_mult_for_type(sector_mults: "BuffSectorMults", buff_type: str) -> Optional[float]:
+    mapping = {
+        BUFF_TYPE_XP: "xp",
+        BUFF_TYPE_DOMA: "doma",
+        BUFF_TYPE_BREEDING: "breeding",
+        BUFF_TYPE_FARM: "farm",
+    }
+    attr = mapping.get(buff_type)
+    if not attr:
+        return None
+    val = getattr(sector_mults, attr, None)
+    return float(val) if val is not None else None
 
 
 # ── Data classes ───────────────────────────────────────────────────────────────
 
 @dataclass
+class BuffSectorMults:
+    """Multiplicadores alvo por setor (XP, Doma, Breeding, Farm)."""
+    xp:       Optional[float] = None
+    doma:     Optional[float] = None
+    breeding: Optional[float] = None
+    farm:     Optional[float] = None
+
+    def to_dict(self) -> dict:
+        return {k: v for k, v in asdict(self).items() if v is not None}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "BuffSectorMults":
+        if not data:
+            return cls()
+        valid = set(cls.__dataclass_fields__)
+        return cls(**{k: float(v) for k, v in data.items() if k in valid and v is not None})
+
+    def summary(self, types: Optional[List[str]] = None) -> str:
+        labels = {
+            "xp": "XP",
+            "doma": "Doma",
+            "breeding": "Breeding",
+            "farm": "Farm",
+        }
+        type_to_attr = {
+            BUFF_TYPE_XP: "xp",
+            BUFF_TYPE_DOMA: "doma",
+            BUFF_TYPE_BREEDING: "breeding",
+            BUFF_TYPE_FARM: "farm",
+        }
+        parts: List[str] = []
+        attrs = types or list(BUFF_TYPE_LABELS.keys())
+        for t in attrs:
+            attr = type_to_attr.get(t)
+            if not attr:
+                continue
+            val = getattr(self, attr, None)
+            if val is not None:
+                parts.append(f"{labels[attr]}: {val:g}x")
+        return "  |  ".join(parts) if parts else "—"
+
+    def has_any(self) -> bool:
+        return any(
+            getattr(self, f) is not None
+            for f in ("xp", "doma", "breeding", "farm")
+        )
+
+
+@dataclass
 class BuffRates:
-    """Multiplicadores a aplicar durante o BUFF. None = campo não modificado."""
+    """Multiplicadores a aplicar durante o evento. None = campo não modificado."""
     # XP
     xp_multiplier:              Optional[float] = None
     kill_xp_multiplier:         Optional[float] = None
@@ -195,14 +280,23 @@ class BuffPreset:
     name: str
     types: List[str]
     rates: BuffRates
+    sector_mults: BuffSectorMults = field(default_factory=BuffSectorMults)
+    broadcast_message: str = ""
+    broadcast_interval_min: int = 0
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id":    self.id,
             "name":  self.name,
             "types": self.types,
             "rates": self.rates.to_dict(),
+            "sector_mults": self.sector_mults.to_dict(),
         }
+        if self.broadcast_message:
+            d["broadcast_message"] = self.broadcast_message
+        if self.broadcast_interval_min:
+            d["broadcast_interval_min"] = self.broadcast_interval_min
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "BuffPreset":
@@ -211,12 +305,15 @@ class BuffPreset:
             name=data.get("name", ""),
             types=data.get("types", []),
             rates=BuffRates.from_dict(data.get("rates", {})),
+            sector_mults=BuffSectorMults.from_dict(data.get("sector_mults", {})),
+            broadcast_message=data.get("broadcast_message", ""),
+            broadcast_interval_min=int(data.get("broadcast_interval_min", 0) or 0),
         )
 
 
 @dataclass
 class BuffEvent:
-    """Evento de BUFF: agendado, ativo, finalizado ou cancelado."""
+    """Evento sazonal: agendado, ativo, finalizado ou cancelado."""
     id: str
     name: str
     server_id: str
@@ -228,6 +325,9 @@ class BuffEvent:
     preset_id: Optional[str] = None
     backup_path: Optional[str] = None
     recurrence: Optional[str] = None  # BUFF_RECURRENCE_*
+    sector_mults: BuffSectorMults = field(default_factory=BuffSectorMults)
+    broadcast_message: str = ""
+    broadcast_interval_min: int = 0
 
     def start_datetime(self) -> datetime:
         return datetime.fromisoformat(self.start_dt)
@@ -238,8 +338,13 @@ class BuffEvent:
     def duration(self) -> timedelta:
         return self.end_datetime() - self.start_datetime()
 
+    def rates_summary(self) -> str:
+        if self.sector_mults.has_any():
+            return self.sector_mults.summary(self.types)
+        return self.rates.summary()
+
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id":          self.id,
             "name":        self.name,
             "server_id":   self.server_id,
@@ -251,7 +356,13 @@ class BuffEvent:
             "preset_id":   self.preset_id,
             "backup_path": self.backup_path,
             "recurrence":  self.recurrence,
+            "sector_mults": self.sector_mults.to_dict(),
         }
+        if self.broadcast_message:
+            d["broadcast_message"] = self.broadcast_message
+        if self.broadcast_interval_min:
+            d["broadcast_interval_min"] = self.broadcast_interval_min
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "BuffEvent":
@@ -267,6 +378,9 @@ class BuffEvent:
             preset_id=data.get("preset_id"),
             backup_path=data.get("backup_path"),
             recurrence=data.get("recurrence"),
+            sector_mults=BuffSectorMults.from_dict(data.get("sector_mults", {})),
+            broadcast_message=data.get("broadcast_message", ""),
+            broadcast_interval_min=int(data.get("broadcast_interval_min", 0) or 0),
         )
 
 
@@ -274,10 +388,10 @@ class BuffEvent:
 
 class BuffManager:
     """
-    Gerencia BUFFs de rates temporários.
+    Gerencia Eventos Sazonais de rates temporários.
 
     Thread-safe. Possui scheduler automático (verificação a cada 30s) que ativa
-    e desativa BUFFs automaticamente com base nos horários configurados.
+    e desativa eventos automaticamente com base nos horários configurados.
     """
 
     def __init__(
@@ -290,6 +404,8 @@ class BuffManager:
         on_log: Optional[Callable[[str, str], None]] = None,
         discord_notify: Optional[Callable] = None,  # Callable[[str, BuffEvent], None]
         persist_server_config: Optional[Callable[[str, object], None]] = None,
+        list_all_servers: Optional[Callable[[], List[str]]] = None,
+        server_mult: float = DEFAULT_SERVER_RATE_MULT,
     ) -> None:
         self._data_dir          = data_dir
         self._get_server_config = get_server_config
@@ -297,12 +413,13 @@ class BuffManager:
         self._stop_server       = stop_server
         self._get_server_status = get_server_status
         self._persist_server_config = persist_server_config
+        self._list_all_servers  = list_all_servers or (lambda: [])
+        self._server_mult       = server_mult if server_mult > 0 else DEFAULT_SERVER_RATE_MULT
         self._on_log            = on_log or (lambda m, lvl: None)
         self._discord_notify    = discord_notify  # (action, event) → None
 
         self._buffs_file   = data_dir / "buffs.json"
         self._presets_file = data_dir / "buff_presets.json"
-        self._backups_dir  = data_dir / "backups" / "buffs"
 
         self._events:  List[BuffEvent]  = []
         self._presets: List[BuffPreset] = []
@@ -310,8 +427,12 @@ class BuffManager:
         self._change_callbacks: List[Callable] = []
         self._activating: set[str] = set()
         self._deactivating: set[str] = set()
-        # Controle de avisos RCON já enviados: set de "event_id:threshold"
         self._rcon_warnings_sent: set = set()
+        self._buff_broadcast_last: Dict[str, float] = {}
+        self._emergency_active = False
+        self._emergency_deadline: float = 0.0
+        self._emergency_server_ids: List[str] = []
+        self._emergency_backup_paths: Dict[str, str] = {}
 
         self._load()
 
@@ -337,9 +458,19 @@ class BuffManager:
 
     def _load(self) -> None:
         self._events, self._presets = [], []
+        events_file = self._buffs_file
+        if not events_file.exists():
+            alias = self._data_dir / "seasonal_events.json"
+            if alias.exists():
+                events_file = alias
+        presets_file = self._presets_file
+        if not presets_file.exists():
+            alias = self._data_dir / "seasonal_event_presets.json"
+            if alias.exists():
+                presets_file = alias
         for path, dest, cls in (
-            (self._buffs_file,   self._events,   BuffEvent),
-            (self._presets_file, self._presets,  BuffPreset),
+            (events_file,   self._events,   BuffEvent),
+            (presets_file, self._presets,  BuffPreset),
         ):
             if not path.exists():
                 continue
@@ -418,9 +549,11 @@ class BuffManager:
     def validate_event(self, event: BuffEvent) -> Optional[str]:
         """Valida um evento. Retorna mensagem de erro ou None se válido."""
         if not event.name.strip():
-            return "Informe o nome do BUFF."
+            return "Informe o nome do evento."
         if not event.types:
-            return "Selecione ao menos um tipo de BUFF."
+            return "Selecione ao menos um tipo de evento."
+        if not event.sector_mults.has_any() and not event.rates.to_dict():
+            return "Informe ao menos um multiplicador de setor."
         try:
             start = event.start_datetime()
             end   = event.end_datetime()
@@ -429,7 +562,7 @@ class BuffManager:
         if end <= start:
             return "A data de término deve ser posterior ao início."
         if (end - start).total_seconds() / 86400 > BUFF_MAX_DAYS:
-            return f"A duração máxima de um BUFF é de {BUFF_MAX_DAYS} dias."
+            return f"A duração máxima de um evento sazonal é de {BUFF_MAX_DAYS} dias."
 
         with self._lock:
             for ex in self._events:
@@ -445,8 +578,8 @@ class BuffManager:
                     continue
                 if start < ee and end > es:
                     return (
-                        f"Não é possível agendar este BUFF.\n"
-                        f"Já existe um BUFF ativo ou programado neste intervalo:\n"
+                        f"Não é possível agendar este evento.\n"
+                        f"Já existe um evento ativo ou programado neste intervalo:\n"
                         f'"{ex.name}" ({es.strftime("%d/%m %H:%M")} — {ee.strftime("%d/%m %H:%M")})'
                     )
         return None
@@ -469,7 +602,7 @@ class BuffManager:
             if not existing:
                 return "Evento não encontrado."
             if existing.status != BUFF_STATUS_SCHEDULED:
-                return "Só é possível editar BUFFs com status 'agendado'."
+                return "Só é possível editar eventos com status 'agendado'."
         err = self.validate_event(event)
         if err:
             return err
@@ -497,15 +630,15 @@ class BuffManager:
         self._notify()
 
     def stop_active_event(self, event_id: str) -> Optional[str]:
-        """Encerra um BUFF ativo: restaura INI do backup e reinicia o servidor."""
+        """Encerra um evento ativo: restaura INI do backup e reinicia o servidor."""
         with self._lock:
             event = next((e for e in self._events if e.id == event_id), None)
             if not event:
                 return "Evento não encontrado."
             if event.status != BUFF_STATUS_ACTIVE:
-                return "Só é possível encerrar BUFFs ativos."
+                return "Só é possível encerrar eventos ativos."
             if event.id in self._deactivating:
-                return "BUFF já está sendo encerrado."
+                return "Evento já está sendo encerrado."
             self._deactivating.add(event.id)
 
         threading.Thread(
@@ -549,7 +682,7 @@ class BuffManager:
             src = get_ini_path(cfg.install_dir, fname)
             if src.exists():
                 shutil.copy2(str(src), str(bdir / fname))
-        self._on_log(f"[BUFF] Backup salvo em: {bdir}", "info")
+        self._on_log(f"[Evento Sazonal] Backup salvo em: {bdir}", "info")
         return str(bdir)
 
     def _restore_ini(self, server_id: str, backup_path: str) -> bool:
@@ -558,7 +691,7 @@ class BuffManager:
             return False
         bp = Path(backup_path)
         if not bp.exists():
-            self._on_log(f"[BUFF] Backup não encontrado: {backup_path}", "error")
+            self._on_log(f"[Evento Sazonal] Backup não encontrado: {backup_path}", "error")
             return False
         for fname in ("GameUserSettings.ini", "Game.ini"):
             src = bp / fname
@@ -566,13 +699,13 @@ class BuffManager:
             if src.exists():
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(str(src), str(dst))
-        self._on_log("[BUFF] INI restaurado do backup.", "info")
+        self._on_log("[Evento Sazonal] INI restaurado do backup.", "info")
         return True
 
     def _apply_rates(self, server_id: str, rates: BuffRates) -> bool:
         cfg = self._get_server_config(server_id)
         if not cfg or not getattr(cfg, "install_dir", ""):
-            self._on_log("[BUFF] install_dir não configurado — rates não aplicados.", "error")
+            self._on_log("[Evento Sazonal] install_dir não configurado — rates não aplicados.", "error")
             return False
 
         try:
@@ -587,7 +720,7 @@ class BuffManager:
                             stacked = stack_buff_rate(base, buff_val)
                             setattr(cfg, field_name, stacked)
                             self._on_log(
-                                f"[BUFF] {field_name}: {base}x × {buff_val} → {stacked}x",
+                                f"[Evento Sazonal] {field_name}: {base}x × {buff_val} → {stacked}x",
                                 "debug",
                             )
                 from .asm_engine.asm_ini_manager import write_ini
@@ -607,19 +740,19 @@ class BuffManager:
                             stacked = stack_buff_rate(base, buff_val)
                             setattr(gs, field_name, stacked)
                             self._on_log(
-                                f"[BUFF] {field_name}: {base}x × {buff_val} → {stacked}x",
+                                f"[Evento Sazonal] {field_name}: {base}x × {buff_val} → {stacked}x",
                                 "debug",
                             )
                 ini.save_game_user_settings(cfg)
                 ini.save_game_ini(cfg)
             else:
-                self._on_log("[BUFF] Tipo de servidor não suportado para aplicar rates.", "error")
+                self._on_log("[Evento Sazonal] Tipo de servidor não suportado para aplicar rates.", "error")
                 return False
         except Exception as exc:
-            self._on_log(f"[BUFF] Falha ao aplicar rates: {exc}", "error")
+            self._on_log(f"[Evento Sazonal] Falha ao aplicar rates: {exc}", "error")
             return False
 
-        self._on_log("[BUFF] Rates empilhados sobre a config base e gravados nos INIs.", "info")
+        self._on_log("[Evento Sazonal] Rates empilhados sobre a config base e gravados nos INIs.", "info")
         return True
 
     @staticmethod
@@ -644,7 +777,7 @@ class BuffManager:
             client.send_command(f"Broadcast {message}")
             client.disconnect()
         except Exception as exc:
-            self._on_log(f"[BUFF] RCON broadcast falhou: {exc}", "warning")
+            self._on_log(f"[Evento Sazonal] RCON broadcast falhou: {exc}", "warning")
 
     # ── Wait helpers ──────────────────────────────────────────────────────────
 
@@ -669,7 +802,7 @@ class BuffManager:
     # ── Activation / deactivation workers ─────────────────────────────────────
 
     def _activate_worker(self, event: BuffEvent) -> None:
-        self._on_log(f"[BUFF] Ativando BUFF: '{event.name}'", "info")
+        self._on_log(f"[Evento Sazonal] Ativando evento: '{event.name}'", "info")
         with self._lock:
             if event.id in self._activating:
                 return
@@ -678,13 +811,13 @@ class BuffManager:
         try:
             self._rcon_broadcast(
                 event.server_id,
-                "[BUFF] Servidor reiniciará para ativação de rates especiais.",
+                "[Evento Sazonal] Servidor reiniciará para ativação de rates especiais.",
             )
             time.sleep(10)
 
             self._stop_server(event.server_id)
             if not self._wait_stopped(event.server_id):
-                self._on_log("[BUFF] Timeout aguardando parada do servidor.", "warning")
+                self._on_log("[Evento Sazonal] Timeout aguardando parada do servidor.", "warning")
 
             backup_path = self._backup_ini(event.server_id, event.name)
             if not self._apply_rates(event.server_id, event.rates):
@@ -708,7 +841,7 @@ class BuffManager:
                         break
                 self._save()
             self._notify()
-            self._on_log(f"[BUFF] BUFF '{event.name}' ativado com sucesso.", "info")
+            self._on_log(f"[Evento Sazonal] Evento '{event.name}' ativado com sucesso.", "info")
 
             if self._discord_notify:
                 try:
@@ -716,7 +849,7 @@ class BuffManager:
                 except Exception:
                     pass
         except Exception as exc:
-            self._on_log(f"[BUFF] Falha ao ativar '{event.name}': {exc}", "error")
+            self._on_log(f"[Evento Sazonal] Falha ao ativar '{event.name}': {exc}", "error")
             with self._lock:
                 for e in self._events:
                     if e.id == event.id and e.status != BUFF_STATUS_ACTIVE:
@@ -730,14 +863,14 @@ class BuffManager:
 
     def _deactivate_worker(self, event: BuffEvent, *, cancelled: bool = False) -> None:
         label = "cancelado" if cancelled else "finalizado"
-        self._on_log(f"[BUFF] Desativando BUFF ({label}): '{event.name}'", "info")
+        self._on_log(f"[Evento Sazonal] Desativando evento ({label}): '{event.name}'", "info")
 
         try:
             # 1. Broadcast e aguarda
             msg = (
-                "[BUFF] Evento cancelado. Restaurando configurações do servidor."
+                "[Evento Sazonal] Evento cancelado. Restaurando configurações do servidor."
                 if cancelled
-                else "[BUFF] Evento finalizado. Restaurando configurações do servidor."
+                else "[Evento Sazonal] Evento finalizado. Restaurando configurações do servidor."
             )
             self._rcon_broadcast(event.server_id, msg)
             time.sleep(10)
@@ -745,13 +878,13 @@ class BuffManager:
             # 2. Para o servidor
             self._stop_server(event.server_id)
             if not self._wait_stopped(event.server_id):
-                self._on_log("[BUFF] Timeout aguardando parada do servidor.", "warning")
+                self._on_log("[Evento Sazonal] Timeout aguardando parada do servidor.", "warning")
 
             # 3. Restaura INI do backup
             if event.backup_path:
                 self._restore_ini(event.server_id, event.backup_path)
             else:
-                self._on_log("[BUFF] Nenhum backup disponível para restaurar.", "warning")
+                self._on_log("[Evento Sazonal] Nenhum backup disponível para restaurar.", "warning")
 
             # 4. Liga o servidor
             self._start_server(event.server_id)
@@ -765,7 +898,7 @@ class BuffManager:
                         break
                 self._save()
             self._notify()
-            self._on_log(f"[BUFF] BUFF '{event.name}' {label}.", "info")
+            self._on_log(f"[Evento Sazonal] Evento '{event.name}' {label}.", "info")
 
             # 6. Notifica Discord
             if self._discord_notify:
@@ -816,15 +949,15 @@ class BuffManager:
             )
             err = self.add_event(new_event)
             if err:
-                self._on_log(f"[BUFF] Não foi possível reagendar '{event.name}': {err}", "warning")
+                self._on_log(f"[Evento Sazonal] Não foi possível reagendar '{event.name}': {err}", "warning")
             else:
                 self._on_log(
-                    f"[BUFF] '{event.name}' reagendado para "
+                    f"[Evento Sazonal] '{event.name}' reagendado para "
                     f"{next_start.strftime('%d/%m/%Y %H:%M')}.",
                     "info",
                 )
         except Exception as exc:
-            self._on_log(f"[BUFF] Erro ao reagendar: {exc}", "error")
+            self._on_log(f"[Evento Sazonal] Erro ao reagendar: {exc}", "error")
 
     # ── Scheduler ─────────────────────────────────────────────────────────────
 
@@ -833,7 +966,7 @@ class BuffManager:
             try:
                 self._tick()
             except Exception as exc:
-                self._on_log(f"[BUFF] Erro no scheduler: {exc}", "error")
+                self._on_log(f"[Evento Sazonal] Erro no scheduler: {exc}", "error")
             self._stop_evt.wait(30)
 
     def _tick(self) -> None:
@@ -888,12 +1021,12 @@ class BuffManager:
             if phase == "start":
                 self._rcon_broadcast(
                     e.server_id,
-                    f"[BUFF] ⚡ '{e.name}' começa em {label}!",
+                    f"[Evento Sazonal] ⚡ '{e.name}' começa em {label}!",
                 )
             else:
                 self._rcon_broadcast(
                     e.server_id,
-                    f"[BUFF] ⏳ '{e.name}' encerra em {label}.",
+                    f"[Evento Sazonal] ⏳ '{e.name}' encerra em {label}.",
                 )
 
         for e in to_activate:

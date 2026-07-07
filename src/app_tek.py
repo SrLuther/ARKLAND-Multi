@@ -145,7 +145,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_gpu_info_var: Any = None
         self._perf_server_procs: Dict[str, Any] = {}
         self._perf_servers_frame: Any = None
-        # BUFFs
+        # Eventos Sazonais
         self._buff_manager: Any = None
         self._buffs_server_var: Any = None
         self._buffs_body_frame: Any = None
@@ -625,7 +625,7 @@ class ARKServerManagerApp(ctk.CTk):
         nav_items = [
             ("⊞", "dashboard",  "Dashboard"),
             ("🔄", "sync",       "Sincronização"),
-            ("⚡", "buffs",      "BUFFs"),
+            ("⚡", "buffs",      "Eventos Sazonais"),
             ("📢", "broadcasts", "Broadcasts"),
             ("📊", "desempenho", "Desempenho"),
             ("🔗", "clusters",   "Clusters"),
@@ -1326,7 +1326,7 @@ class ARKServerManagerApp(ctk.CTk):
         _th.Thread(target=_worker, daemon=True).start()
 
     def _ensure_buff_manager(self) -> None:
-        """Inicia o scheduler de BUFFs ao abrir o app (não só ao abrir a aba)."""
+        """Inicia o scheduler de Eventos Sazonais ao abrir o app (não só ao abrir a aba)."""
         if self._buff_manager is None:
             self._init_buff_manager()
 
@@ -1777,7 +1777,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._sync_add_cycle_btn.configure(state=state)
 
     # ─────────────────────────────────────────────────────────────────────────
-    # BUFFs
+    # Eventos Sazonais
     # ─────────────────────────────────────────────────────────────────────────
 
     def _open_create_buff_dialog(self, preset=None, server_id: str = "", event=None) -> None:

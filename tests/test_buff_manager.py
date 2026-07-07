@@ -1,4 +1,4 @@
-"""Testes do sistema de BUFFs (empilhamento de rates e encerramento)."""
+"""Testes do sistema de Eventos Sazonais (empilhamento de rates e encerramento)."""
 from __future__ import annotations
 
 import tempfile
@@ -132,7 +132,7 @@ def test_stop_active_event_rejects_non_active():
     mgr._events = [event]
 
     err = mgr.stop_active_event("evt-sched")
-    assert err == "Só é possível encerrar BUFFs ativos."
+    assert err == "Só é possível encerrar eventos ativos."
 
 
 def test_stop_active_event_rejects_unknown_id():

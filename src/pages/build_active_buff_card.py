@@ -33,7 +33,7 @@ def build_active_buff_card(
     elif deactivating:
         status_txt, status_color = "🟡  ENCERRANDO…", "#ffaa44"
     else:
-        status_txt, status_color = "🟢  BUFF ATIVO", _GREEN
+        status_txt, status_color = "🟢  EVENTO ATIVO", _GREEN
     ctk.CTkLabel(
         top, text=status_txt,
         font=ctk.CTkFont(size=11, weight="bold"), text_color=status_color,
@@ -89,7 +89,7 @@ def build_active_buff_card(
     app._buff_countdown_labels.append((countdown_lbl, event.end_datetime(), "⏱ Encerra em: "))
 
     ctk.CTkButton(
-        bottom, text="⏹  Encerrar BUFF", width=140, height=30,
+        bottom, text="⏹  Encerrar Evento", width=140, height=30,
         fg_color=_RED_DARK, hover_color=_RED_HOVER,
         font=ctk.CTkFont(size=11),
         command=lambda eid=event.id: app._stop_buff(eid),

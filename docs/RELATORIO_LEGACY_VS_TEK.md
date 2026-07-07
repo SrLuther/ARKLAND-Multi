@@ -142,13 +142,13 @@
 1. **`AllowedCheaterSteamIDs.txt`** — `src/ark_server_files.py`; save + start no TEK (v1.9.13).
 2. **Web store auto-start** — ambos (`customshop_panel.auto_start_webstore`, modo host).
 3. **Sync de pastas / clusters** — `SyncEngine` + painéis compartilhados.
-4. **BUFFs, Clusters, Remoto, Desempenho** — pages compartilhadas; TEK wired na sidebar.
+4. **Eventos Sazonais, Clusters, Remoto, Desempenho** — pages compartilhadas; TEK wired na sidebar.
 5. **Config global** — backup global, Discord, SMTP, SteamCMD.
 6. **RCON funcional** — aba vs janela.
 7. **Import INI do disco** — legado `ini_import.py` / TEK `asm_import_ini_dialog.py`.
 8. **Exclusive Join (flag CLI)** — `server_config.build_launch_args` / `asm_ini_manager._launch_url_params`.
 9. **Persistência antes do start** — ambos salvam config/INI antes de lançar processo.
-10. **CustomShop / buffs bridge** — `buff_server_bridge.py` roteia TEK e legado.
+10. **CustomShop / eventos sazonais bridge** — `buff_server_bridge.py` roteia TEK e legado.
 11. **Scan servidores já rodando no boot** — TEK (`_asm_scan_running_servers`); legado não tinha equivalente explícito.
 
 ---

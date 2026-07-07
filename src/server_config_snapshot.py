@@ -135,9 +135,11 @@ def collect_server_snapshot(
         "max_dino_level": compute_max_wild_dino_level(cfg),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "buff_active": buff_event is not None,
+        "seasonal_event_active": buff_event is not None,
     }
     if buff_event is not None:
         snapshot["buff_name"] = buff_event.name
+        snapshot["seasonal_event_name"] = buff_event.name
     return snapshot
 
 
@@ -159,9 +161,14 @@ def snapshot_public_view(snapshot: Optional[Dict[str, Any]]) -> Optional[Dict[st
         "max_player_level": int(snapshot.get("max_player_level", 0) or 0),
         "max_dino_level": int(snapshot.get("max_dino_level", 0) or 0),
         "buff_active": bool(snapshot.get("buff_active")),
+        "seasonal_event_active": bool(
+            snapshot.get("seasonal_event_active", snapshot.get("buff_active"))
+        ),
     }
-    if snapshot.get("buff_name"):
-        out["buff_name"] = str(snapshot["buff_name"])
+    event_name = snapshot.get("seasonal_event_name") or snapshot.get("buff_name")
+    if event_name:
+        out["buff_name"] = str(event_name)
+        out["seasonal_event_name"] = str(event_name)
     if snapshot.get("updated_at"):
         out["updated_at"] = str(snapshot["updated_at"])
     return out

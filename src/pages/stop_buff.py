@@ -7,8 +7,8 @@ if TYPE_CHECKING:
 
 def stop_buff(app: "ARKServerManagerApp", event_id: str) -> None:
     if not messagebox.askyesno(
-        "Encerrar BUFF",
-        "Encerrar o BUFF ativo agora?\n\n"
+        "Encerrar Evento",
+        "Encerrar o evento sazonal ativo agora?\n\n"
         "O servidor será reiniciado para restaurar as configurações originais.",
         parent=app,
     ):

@@ -21,7 +21,7 @@ _RAIL_W = 56
 # (ícone, chave de frame, tooltip)
 _NAV_ITEMS_PRIMITIVE = [
     ("🏠", "dashboard",  "Dashboard"),
-    ("⚡", "buffs",      "BUFFs"),
+    ("⚡", "buffs",      "Eventos Sazonais"),
     ("📊", "desempenho", "Desempenho"),
     ("🔄", "sync",       "Sincronização"),
     ("🔗", "clusters",   "Clusters"),

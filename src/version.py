@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.7"
-BUILD_DATE: str = "2026-07-06"
+APP_VERSION: str = "1.10.8"
+BUILD_DATE: str = "2026-07-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.8",
+        "date": "2026-07-07",
+        "changes": [
+            "Fix (CustomDinoDeliver): /dinolab + alias /dinopoll; reinstale DLL nos mapas.",
+            "Melhoria (Eventos Sazonais): rebrand de BUFFs/Rates Temporários para Eventos Sazonais na UI, logs, Discord e Web Store.",
+        ],
+    },
     {
         "version": "1.10.7",
         "date": "2026-07-06",

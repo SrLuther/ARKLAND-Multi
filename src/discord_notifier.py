@@ -313,7 +313,7 @@ class DiscordNotifier:
 
     def notify_buff(self, action: str, event: object) -> None:
         """
-        Notifica início ou fim de um BUFF de rates.
+        Notifica início ou fim de um Evento Sazonal de rates.
 
         action: 'start' | 'end'
         event:  BuffEvent (importado dinamicamente para evitar ciclo)
@@ -359,13 +359,13 @@ class DiscordNotifier:
             pass
 
         desc = (
-            f"O BUFF **{event.name}** foi **{'iniciado' if is_start else 'encerrado'}** "  # type: ignore[attr-defined]
+            f"O evento sazonal **{event.name}** foi **{'iniciado' if is_start else 'encerrado'}** "  # type: ignore[attr-defined]
             f"no servidor."
         )
 
         self._send_embed(
             sender=cfg.sender_name or "ARKLAND",
-            title=f"{emoji}  BUFF {action_lbl} — {event.name}",  # type: ignore[attr-defined]
+            title=f"{emoji}  Evento Sazonal {action_lbl} — {event.name}",  # type: ignore[attr-defined]
             description=desc,
             color=color,
             fields=fields,

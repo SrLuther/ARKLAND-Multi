@@ -18,7 +18,7 @@ def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> Non
     hdr.grid_columnconfigure(1, weight=1)
 
     ctk.CTkLabel(
-        hdr, text="⚡  BUFFs — Rates Temporários",
+        hdr, text="⚡  Eventos Sazonais",
         font=ctk.CTkFont(size=24, weight="bold"),
     ).grid(row=0, column=0, sticky="w")
     ctk.CTkLabel(
@@ -30,7 +30,7 @@ def build_buffs_panel(app: "ARKServerManagerApp", parent: "ctk.CTkFrame") -> Non
     btn_bar = ctk.CTkFrame(hdr, fg_color="transparent")
     btn_bar.grid(row=0, column=2, rowspan=2, sticky="e", padx=(0, 0))
     ctk.CTkButton(
-        btn_bar, text="⚡  Criar BUFF", height=38, width=150,
+        btn_bar, text="⚡  Novo Evento Sazonal", height=38, width=180,
         fg_color=_GREEN_DARK, hover_color=_GREEN_HOVER,
         font=ctk.CTkFont(size=13, weight="bold"),
         command=app._open_create_buff_dialog,

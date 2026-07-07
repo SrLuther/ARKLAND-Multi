@@ -7,8 +7,8 @@ if TYPE_CHECKING:
 
 def cancel_buff(app: "ARKServerManagerApp", event_id: str) -> None:
     if messagebox.askyesno(
-        "Cancelar BUFF",
-        "Confirmar cancelamento do BUFF agendado?",
+        "Cancelar Evento",
+        "Confirmar cancelamento do evento agendado?",
         parent=app,
     ):
         if app._buff_manager:

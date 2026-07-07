@@ -82,6 +82,8 @@ def test_collect_snapshot_applies_active_buff():
     assert snap["xp_multiplier"] == 100.0
     assert snap["harvest_amount_multiplier"] == 10.0
     assert snap["buff_active"] is True
+    assert snap["seasonal_event_active"] is True
+    assert snap["seasonal_event_name"] == buff.name
 
 
 def test_match_snapshot_by_name_slug():

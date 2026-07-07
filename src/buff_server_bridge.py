@@ -1,4 +1,4 @@
-"""Ponte unificada de servidores para o sistema de BUFFs (TEK + modo legado)."""
+"""Ponte unificada de servidores para Eventos Sazonais (TEK + modo legado)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -17,7 +17,7 @@ class BuffServerEntry:
 
 
 def list_buff_servers(app: Any) -> list[BuffServerEntry]:
-    """Lista servidores TEK e legados (primitivo) para BUFFs."""
+    """Lista servidores TEK e legados (primitivo) para Eventos Sazonais."""
     out: list[BuffServerEntry] = []
     asm_cm = getattr(app, "asm_config_manager", None)
     if asm_cm is not None:

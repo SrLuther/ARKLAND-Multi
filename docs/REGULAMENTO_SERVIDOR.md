@@ -165,7 +165,7 @@ Respeite os limites de estruturas visíveis, plataformas em saddles e torretas p
 - É proibido explorar transferências para duplicar itens, escapar de punições ou burlar bloqueios de mapa;
 - Itens e dinos obtidos por exploit em um mapa estão sujeitos a remoção em **todo o cluster**.
 
-### 4.7 Eventos, BUFFs e rates
+### 4.7 Eventos Sazonais e rates
 
 O cluster pode aplicar multiplicadores sazonais (XP, taming, harvest, maturação) ou eventos temáticos. Os valores vigentes são exibidos na Web Store e/ou comunicados no Discord. Não há direito adquirido a rates permanentes.
 

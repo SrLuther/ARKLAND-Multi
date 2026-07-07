@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Script de release ARKLAND - Server Manager
 

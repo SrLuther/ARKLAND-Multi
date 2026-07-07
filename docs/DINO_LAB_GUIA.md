@@ -294,7 +294,8 @@ Requer **CustomDinoDeliver.dll** recompilado (Fase 4) nos mapas do cluster.
 | Comando | Quem | Efeito |
 |---------|------|--------|
 | `DinoDeliver.Reload` | Console / RCON | Recarrega `config.json` |
-| `/dinolab` | Chat (admin) | Força uma verificação de fila para o jogador |
+| `/dinolab` | Chat (admin) | Força uma verificação de fila para o jogador (**preferido**) |
+| `/dinopoll` | Chat (admin) | Mesmo que `/dinolab` (alias legado; mantido por compatibilidade) |
 
 ### 9.5 Logs
 

@@ -17485,8 +17485,10 @@ function _mapCardStatsHtml(stats) {
     stats.max_dino_level ? `<span class="home-map-stat" title="Nível máximo de dinos selvagens"><span class="home-map-stat__icon">🦴</span>Dino ${escHtml(String(stats.max_dino_level))}</span>` : "",
     stats.mature && stats.mature !== "1x" ? `<span class="home-map-stat" title="Velocidade de maturação"><span class="home-map-stat__icon">🥚</span>Matur. ${escHtml(stats.mature)}</span>` : "",
   ].filter(Boolean);
-  if (stats.buff_active) {
-    pills.push(`<span class="home-map-stat home-map-stat--buff" title="${escHtml(stats.buff_name || "BUFF ativo")}"><span class="home-map-stat__icon">🔥</span>BUFF</span>`);
+  const eventActive = stats.seasonal_event_active ?? stats.buff_active;
+  if (eventActive) {
+    const eventName = stats.seasonal_event_name || stats.buff_name || "Evento sazonal ativo";
+    pills.push(`<span class="home-map-stat home-map-stat--buff" title="${escHtml(eventName)}"><span class="home-map-stat__icon">🔥</span>Evento</span>`);
   }
   if (!pills.length) return "";
   return `<div class="home-map-card__stats">${pills.join("")}</div>`;

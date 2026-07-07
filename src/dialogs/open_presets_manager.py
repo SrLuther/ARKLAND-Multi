@@ -2,6 +2,7 @@ from __future__ import annotations
 import tkinter as tk
 from typing import TYPE_CHECKING
 import customtkinter as ctk  # type: ignore[reportMissingImports]
+from ..buff_manager import BUFF_TYPE_LABELS
 from ..ui_constants import _RED_DARK, _RED_HOVER, _CARD_BG
 from tkinter import messagebox
 if TYPE_CHECKING:
@@ -13,14 +14,14 @@ def open_presets_manager(app: "ARKServerManagerApp") -> None:
         return
 
     dlg = ctk.CTkToplevel(app)
-    dlg.title("Gerenciar Presets de BUFF")
+    dlg.title("Gerenciar Presets de Eventos Sazonais")
     dlg.geometry("680x540")
     dlg.resizable(True, True)
     dlg.grab_set()
     dlg.grid_columnconfigure(0, weight=1)
     dlg.grid_rowconfigure(1, weight=1)
 
-    ctk.CTkLabel(dlg, text="📋  Presets de BUFF",
+    ctk.CTkLabel(dlg, text="📋  Presets de Eventos Sazonais",
                  font=ctk.CTkFont(size=18, weight="bold")).grid(
         row=0, column=0, padx=20, pady=(18, 4), sticky="w")
 

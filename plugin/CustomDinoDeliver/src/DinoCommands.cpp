@@ -28,11 +28,13 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
     }
 }
 
-void CmdPoll(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+void CmdPollImpl(AShooterPlayerController* controller, FString*, EChatSendMode::Type,
+                 const char* commandLabel) {
     if (!controller) return;
 
     try {
-        Log::GetLog()->info("CustomDinoDeliver: /dinolab requested by steam_id={}",
+        Log::GetLog()->info("CustomDinoDeliver: {} requested by steam_id={}",
+                            commandLabel,
                             CustomDinoDeliver::Bridge::GetSteamId(controller));
         const CustomDinoDeliver::HttpClient::DeliverResult result =
             CustomDinoDeliver::HttpClient::DeliverPending(controller);
@@ -55,12 +57,20 @@ void CmdPoll(AShooterPlayerController* controller, FString*, EChatSendMode::Type
                     "Dino Lab: nada pendente na fila.");
         }
     } catch (const std::exception& e) {
-        Log::GetLog()->error("CustomDinoDeliver: /dinolab failed — {}", e.what());
+        Log::GetLog()->error("CustomDinoDeliver: {} failed — {}", commandLabel, e.what());
         SendMsg(controller, FColorList::Red, "Dino Lab: erro ao verificar fila.");
     } catch (...) {
-        Log::GetLog()->error("CustomDinoDeliver: /dinolab failed — unknown error");
+        Log::GetLog()->error("CustomDinoDeliver: {} failed — unknown error", commandLabel);
         SendMsg(controller, FColorList::Red, "Dino Lab: erro ao verificar fila.");
     }
+}
+
+void CmdPollDinolab(AShooterPlayerController* controller, FString* args, EChatSendMode::Type mode) {
+    CmdPollImpl(controller, args, mode, "/dinolab");
+}
+
+void CmdPollDinopoll(AShooterPlayerController* controller, FString* args, EChatSendMode::Type mode) {
+    CmdPollImpl(controller, args, mode, "/dinopoll");
 }
 
 } // anonymous namespace
@@ -70,13 +80,15 @@ namespace Commands {
 
 void Register() {
     ArkApi::GetCommands().AddConsoleCommand("DinoDeliver.Reload", &CmdAdminReload);
-    ArkApi::GetCommands().AddChatCommand("/dinolab", &CmdPoll);
-    Log::GetLog()->info("CustomDinoDeliver: commands registered");
+    ArkApi::GetCommands().AddChatCommand("/dinolab", &CmdPollDinolab);
+    ArkApi::GetCommands().AddChatCommand("/dinopoll", &CmdPollDinopoll);
+    Log::GetLog()->info("CustomDinoDeliver: commands registered (/dinolab, /dinopoll)");
 }
 
 void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("DinoDeliver.Reload");
     ArkApi::GetCommands().RemoveChatCommand("/dinolab");
+    ArkApi::GetCommands().RemoveChatCommand("/dinopoll");
 }
 
 } // namespace Commands

@@ -34,7 +34,7 @@ def open_create_buff_dialog(
     if not entries:
         messagebox.showwarning(
             "Sem Servidores",
-            "Adicione ao menos um servidor (TEK ou legado) antes de criar um BUFF.",
+            "Adicione ao menos um servidor (TEK ou legado) antes de criar um evento sazonal.",
             parent=app,
         )
         return
@@ -42,10 +42,10 @@ def open_create_buff_dialog(
     servers = entries  # BuffServerEntry list — usa .id e .label
 
     is_editing = event is not None
-    dlg_title  = "✏️  Editar BUFF" if is_editing else "⚡  Criar Novo BUFF"
+    dlg_title  = "✏️  Editar Evento" if is_editing else "⚡  Novo Evento Sazonal"
 
     dlg = ctk.CTkToplevel(app)
-    dlg.title("Editar BUFF" if is_editing else "Criar BUFF")
+    dlg.title("Editar Evento" if is_editing else "Novo Evento Sazonal")
     dlg.geometry("820x820")
     dlg.resizable(True, True)
     dlg.grab_set()
@@ -69,7 +69,7 @@ def open_create_buff_dialog(
     name_row.grid_columnconfigure(1, weight=1)
     r += 1
 
-    ctk.CTkLabel(name_row, text="Nome do BUFF:", width=110, anchor="w").grid(
+    ctk.CTkLabel(name_row, text="Nome do Evento:", width=110, anchor="w").grid(
         row=0, column=0, sticky="w")
 
     # Valor inicial: evento em edição > preset (cópia) > vazio
@@ -119,7 +119,7 @@ def open_create_buff_dialog(
 
     # ── Tipos ────────────────────────────────────────────────────────
     ctk.CTkLabel(
-        body, text="TIPOS DE BUFF",
+        body, text="TIPOS DE EVENTO",
         font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
     ).grid(row=r, column=0, padx=18, pady=(12, 4), sticky="w")
     r += 1
@@ -496,7 +496,7 @@ def open_create_buff_dialog(
 
         dlg.destroy()
 
-    _btn_label = "💾  Salvar Alterações" if is_editing else "⚡  Agendar BUFF"
+    _btn_label = "💾  Salvar Alterações" if is_editing else "⚡  Agendar Evento"
     ctk.CTkButton(btn_row, text="Cancelar", width=120, height=40,
                   fg_color="#2a2a44", hover_color="#1e2a3a",
                   command=dlg.destroy).pack(side="left", padx=(0, 12))
