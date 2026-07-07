@@ -1,9 +1,11 @@
 {
-    "version": "1.10.11",
+    "version": "1.10.12",
     "date": "2026-07-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.11/ARKLAND-Multi-Setup-v1.10.11.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.12/ARKLAND-Multi-Setup-v1.10.12.exe",
     "changelog": [
-        "Fix (Nível do jogador): modelo unificado — admin define só o nível base; sistema deriva +100 (75 boss na rampa + 25 conquistas), rampa Game.ini com base+75 slots, cap XP no base e 400 pontos de engrama fixos por nível.",
-        "Melhoria (Nível do jogador): painel TEK/ASM simplificado — removidos tiers/checkboxes; teto, rampa e engramas calculados automaticamente."
+        "Feat (Encomenda Dino): MVP na Web Store — aba Encomendas no Dino Lab, API de pedidos, integração com entrega custom e spec ENCOMENDA_DINO.",
+        "Fix (Web Store / Sugestões): painel admin de sugestões corrigido (carregamento e ações); testes de regressão.",
+        "Melhoria (Tutoriais): comandos atualizados — removido /c; documentados /dinolab e aliases legados.",
+        "Fix (Nível do jogador): detecção de curva XP legada na rampa (infer_xp_curve_from_ramp), preservação do cap geométrico ao sincronizar Game.ini."
     ]
 }
