@@ -14,6 +14,7 @@
       - src/version.py  → APP_VERSION
       - version.json    → version, date, download_url, changelog
       - setup.iss       → AppVersion, OutputBaseFilename
+      - plugin/*/plugin_version.txt + PluginInfo.json  → VersionLabel = APP_VERSION
 
 .PARAMETER Version
     Versão a publicar no formato X.Y.Z (ex: "1.2.2")
@@ -152,6 +153,11 @@ Write-Ok "setup.iss       ->  AppVersion + OutputBaseFilename = $Version"
 $newPy = $newPy -replace 'BUILD_DATE\s*:\s*str\s*=\s*"[^"]+"', "BUILD_DATE: str = `"$date`""
 [System.IO.File]::WriteAllText($versionPyPath, $newPy, $utf8NoBOM)
 Write-Ok "src\version.py  →  BUILD_DATE = $date"
+
+# PluginInfo.json + plugin_version.txt sincronizados com APP_VERSION
+& $python (Join-Path $root "scripts\sync_plugin_versions.py") --from-app
+if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_plugin_versions.py --from-app falhou" }
+Write-Ok "PluginInfo.json  →  VersionLabel = $Version (CustomShop + CustomDinoDeliver)"
 
 # CHANGELOG.md gerado a partir de version.py
 & $python (Join-Path $root "scripts\sync_changelog_md.py")

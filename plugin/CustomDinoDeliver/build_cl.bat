@@ -60,7 +60,18 @@ for /f "usebackq delims=" %%i in (`dir /b /ad /o-n "!WIN_KIT!\Lib" 2^>nul`) do (
 if not exist "%OBJ_DIR%" mkdir "%OBJ_DIR%"
 if not exist "%BIN_DIR%" mkdir "%BIN_DIR%"
 
-echo === Compiling CustomDinoDeliver ===
+set ROOT_DIR=%PLUGIN_DIR%..\..
+set PYTHON=%ROOT_DIR%\.python-full\python.exe
+if not exist "%PYTHON%" set PYTHON=python
+
+for /f "usebackq delims=" %%v in ("%PLUGIN_DIR%plugin_version.txt") do set PLUGIN_VER=%%v
+
+echo === Sync plugin version ===
+"%PYTHON%" "%ROOT_DIR%\scripts\sync_plugin_versions.py" --plugin CustomDinoDeliver
+if %ERRORLEVEL% neq 0 goto :error
+for /f "usebackq delims=" %%v in ("%PLUGIN_DIR%plugin_version.txt") do set PLUGIN_VER=%%v
+
+echo === Compiling CustomDinoDeliver (v%PLUGIN_VER%) ===
 "%CL_EXE%" /c /O2 /MT /nologo /W3 /std:c++20 /EHsc /d2FH4- ^
   /I"%WIN_INCLUDE%" /I"%WIN_SDK_INCLUDE%\ucrt" /I"%WIN_SDK_INCLUDE%\um" /I"%WIN_SDK_INCLUDE%\shared" ^
   /I"%SDK_DIR%" /I"%SDK_ROOT%" /I"%SRC_DIR%" ^
@@ -94,10 +105,12 @@ echo === Linking DLL ===
 if %ERRORLEVEL% neq 0 goto :error
 
 copy /Y "%PLUGIN_DIR%configs\config.json" "%BIN_DIR%\config.json" >nul
-copy /Y "%PLUGIN_DIR%configs\PluginInfo.json" "%BIN_DIR%\PluginInfo.json" >nul
+if not exist "%BIN_DIR%\PluginInfo.json" (
+    copy /Y "%PLUGIN_DIR%configs\PluginInfo.json" "%BIN_DIR%\PluginInfo.json" >nul
+)
 
 echo.
-echo === BUILD SUCCEEDED ===
+echo === BUILD SUCCEEDED (v%PLUGIN_VER%) ===
 echo Output: %BIN_DIR%\CustomDinoDeliver.dll
 goto :end
 

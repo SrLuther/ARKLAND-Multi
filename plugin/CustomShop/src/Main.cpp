@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "plugin_version.h"
 #include "Commands.h"
 #include "ShopBridge.h"
 #include "ShopConfig.h"
@@ -148,7 +149,8 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
     }
 
     Log::GetLog()->info(
-        "CustomShop: ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem, cross_chat={})",
+        "CustomShop v{} ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem, cross_chat={})",
+        ARKLAND_PLUGIN_VERSION,
         CustomShop::ShopConfig::Get().ShopName(),
         CustomShop::ShopConfig::Get().WebApiUrl(),
         CustomShop::ShopConfig::Get().CrossChat().value("Enabled", false) ? "on" : "off");

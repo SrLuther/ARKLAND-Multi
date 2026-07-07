@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from .config_manager import ConfigManager, ShopGlobalConfig
     from .server_config import ServerConfig
 
+from .plugin_versions import bundled_plugin_info_path
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_CATALOG = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "config.json"
 _PLUGIN_INFO = _PROJECT_ROOT / "plugin" / "CustomShop" / "configs" / "PluginInfo.json"
@@ -42,6 +44,7 @@ _SETTINGS_FILE = _ARKSHOP_WEB_DIR / "settings.json"
 _SERVERS_FILE = _ARKSHOP_WEB_DIR / "servers.json"
 _CUSTOMSHOP_DLLS = ("CustomShop.dll", "libmariadb.dll", "z.dll")
 _CUSTOMDINO_DLLS = ("CustomDinoDeliver.dll",)
+
 logger = logging.getLogger(__name__)
 
 _INSTALLED_CATALOG_REL = Path("plugin") / "CustomShop" / "configs" / "config.json"
@@ -608,6 +611,35 @@ def _path_mtime(path: Path) -> float:
         return 0.0
 
 
+def _copy_bundled_plugin_info(
+    plugin_name: str,
+    dest_dir: Path,
+    *,
+    overwrite: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Copia PluginInfo.json do bundle para a pasta do plugin no servidor."""
+    ok: List[str] = []
+    notes: List[str] = []
+    src = bundled_plugin_info_path(plugin_name)
+    if not src or not src.is_file():
+        return ok, [f"PluginInfo.json de {plugin_name} não encontrado no bundle do app"]
+    dest = dest_dir / "PluginInfo.json"
+    should_copy = (
+        overwrite
+        or not dest.is_file()
+        or _path_mtime(src) > _path_mtime(dest) + 0.001
+    )
+    if not should_copy:
+        ok.append("PluginInfo.json (já atualizada)")
+        return ok, notes
+    try:
+        shutil.copy2(src, dest)
+        ok.append("PluginInfo.json")
+    except OSError as exc:
+        notes.append(f"PluginInfo.json não copiado: {exc}")
+    return ok, notes
+
+
 def merge_catalog_content_from_source(
     base: Dict[str, Any],
     source: Dict[str, Any],
@@ -1142,12 +1174,16 @@ def is_customdino_installed(install_dir: str) -> bool:
     return (customdino_plugin_dir(install_dir) / "CustomDinoDeliver.dll").is_file()
 
 
-def install_customdino_to_server(
+def deploy_customdino_dll_to_server(
     install_dir: str,
     *,
-    overwrite_dlls: bool = True,
+    overwrite: bool = True,
 ) -> Tuple[List[str], List[str]]:
-    """Copia CustomDinoDeliver.dll + PluginInfo/config padrão."""
+    """Copia CustomDinoDeliver.dll (e PluginInfo) do bundle para o servidor.
+
+    overwrite=True: sempre sobrescreve (instalação / sync após update do app).
+    overwrite=False: mantém DLL existente, salvo se o bundle for mais novo.
+    """
     ok: List[str] = []
     notes: List[str] = []
 
@@ -1170,17 +1206,58 @@ def install_customdino_to_server(
 
     for name, src in bundled.items():
         target = dest / name
-        if target.is_file() and not overwrite_dlls:
-            ok.append(f"{name} (já existia)")
-        else:
+        src_mtime = _path_mtime(src)
+        dest_mtime = _path_mtime(target)
+        should_copy = (
+            overwrite
+            or not target.is_file()
+            or src_mtime > dest_mtime + 0.001
+        )
+        if not should_copy:
+            ok.append(f"{name} (já atualizada)")
+            continue
+        try:
             shutil.copy2(src, target)
             ok.append(f"{name} → Plugins/CustomDinoDeliver/")
+        except OSError as exc:
+            notes.append(
+                f"{name} não copiada — pare o servidor ARK se estiver online: {exc}"
+            )
 
-    if _PLUGIN_INFO_DINO.is_file():
-        info_dest = dest / "PluginInfo.json"
-        if not info_dest.is_file() or overwrite_dlls:
-            shutil.copy2(_PLUGIN_INFO_DINO, info_dest)
-            ok.append("PluginInfo.json")
+    info_ok, info_notes = _copy_bundled_plugin_info(
+        "CustomDinoDeliver", dest, overwrite=overwrite,
+    )
+    ok.extend(info_ok)
+    notes.extend(info_notes)
+
+    return ok, notes
+
+
+def install_customdino_to_server(
+    install_dir: str,
+    *,
+    overwrite_dlls: bool = True,
+) -> Tuple[List[str], List[str]]:
+    """Copia CustomDinoDeliver.dll + PluginInfo/config padrão."""
+    ok: List[str] = []
+    notes: List[str] = []
+
+    if not install_dir or not install_dir.strip():
+        return ok, ["install_dir vazio"]
+
+    root = Path(install_dir)
+    if not root.is_dir():
+        return ok, [f"pasta não encontrada: {install_dir}"]
+
+    deployed, deploy_notes = deploy_customdino_dll_to_server(
+        install_dir, overwrite=overwrite_dlls,
+    )
+    ok.extend(deployed)
+    notes.extend(deploy_notes)
+    if not deployed and deploy_notes:
+        return ok, notes
+
+    dest = customdino_plugin_dir(install_dir)
 
     cfg_dest = dest / "config.json"
     if not cfg_dest.is_file():
@@ -1282,11 +1359,11 @@ def install_customshop_to_server(
                 f"para Plugins/CustomShop/ e Win64/ (Error 126)"
             )
 
-    if _PLUGIN_INFO.is_file():
-        info_dest = dest / "PluginInfo.json"
-        if not info_dest.is_file() or overwrite_dlls:
-            shutil.copy2(_PLUGIN_INFO, info_dest)
-            ok.append("PluginInfo.json")
+    info_ok, info_notes = _copy_bundled_plugin_info(
+        "CustomShop", dest, overwrite=overwrite_dlls,
+    )
+    ok.extend(info_ok)
+    notes.extend(info_notes)
 
     cfg_dest = dest / "config.json"
     if not cfg_dest.is_file():
@@ -3189,9 +3266,19 @@ def sync_all_plugins(
                     classic_dirty = True
             ok.append(f"{getattr(srv, 'name', '')} → CustomShop {plugin_path}")
 
-            dino_path = customdino_plugin_dir(getattr(srv, "install_dir", "") or "") / "config.json"
-            if dino_path.is_file() or is_customdino_installed(getattr(srv, "install_dir", "") or ""):
+            install_dir = getattr(srv, "install_dir", "") or ""
+            dino_path = customdino_plugin_dir(install_dir) / "config.json"
+            if dino_path.is_file() or is_customdino_installed(install_dir):
+                srv_name = getattr(srv, "name", "") or ""
                 try:
+                    dll_ok, dll_notes = deploy_customdino_dll_to_server(
+                        install_dir, overwrite=True,
+                    )
+                    for line in dll_ok:
+                        ok.append(f"{srv_name} → {line}")
+                    for line in dll_notes:
+                        errors.append(f"{srv_name} CustomDinoDeliver: {line}")
+
                     web_settings: Dict[str, Any] = {}
                     settings_path = webstore_data_dir() / "settings.json"
                     if settings_path.is_file():
@@ -3201,11 +3288,10 @@ def sync_all_plugins(
                     sync_customdino_at_path(
                         dino_path, api, api_key, settings=web_settings,
                     )
-                    ok.append(f"{getattr(srv, 'name', '')} → CustomDinoDeliver {dino_path}")
+                    ok.append(f"{srv_name} → CustomDinoDeliver {dino_path}")
                 except Exception as exc:
-                    errors.append(f"{getattr(srv, 'name', '')} CustomDinoDeliver: {exc}")
+                    errors.append(f"{srv_name} CustomDinoDeliver: {exc}")
 
-            install_dir = getattr(srv, "install_dir", "") or ""
             if install_dir:
                 perm_ok, perm_notes = _ensure_permissions_config_on_server(
                     install_dir, shop=shop,

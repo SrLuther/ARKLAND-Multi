@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.5"
+APP_VERSION: str = "1.10.6"
 BUILD_DATE: str = "2026-07-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.6",
+        "date": "2026-07-06",
+        "changes": [
+            "Fix (TEK): sync de plugins agora copia CustomDinoDeliver.dll, não só config.json",
+            "Feature (Plugins): versionamento independente por plugin (plugin_version.txt); TEK compara versão instalada vs bundle do app.",
+        ],
+    },
     {
         "version": "1.10.5",
         "date": "2026-07-06",

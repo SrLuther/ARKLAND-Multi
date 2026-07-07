@@ -27,6 +27,11 @@ from ..shop_catalog_import import (
     item_detail_source,
     merge_shop_item_entry,
 )
+from ..plugin_versions import (
+    describe_plugin_version,
+    expected_plugin_version,
+    get_bundled_plugin_version,
+)
 from ..shop_integration import (
     DEFAULT_REMOTE_SHOP_HOST,
     DEFAULT_REMOTE_SHOP_PUBLIC_IP,
@@ -1917,6 +1922,14 @@ def _build_webstore_tab(
         bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
     ).pack(anchor="w", padx=10, pady=(0, 4))
 
+    _bundled_shop_ver = get_bundled_plugin_version("CustomShop") or expected_plugin_version("CustomShop")
+    _bundled_dino_ver = get_bundled_plugin_version("CustomDinoDeliver") or expected_plugin_version("CustomDinoDeliver")
+    tk.Label(
+        card_srv,
+        text=f"Versões esperadas (app): CustomShop v{_bundled_shop_ver} · Dino Lab v{_bundled_dino_ver}",
+        bg=_INNER, fg="gray50", font=ctk.CTkFont(size=9),
+    ).pack(anchor="w", padx=10, pady=(0, 4))
+
     srv_frame = tk.Frame(card_srv, bg=_INNER)
     srv_frame.pack(fill="x", padx=10, pady=4)
 
@@ -1984,6 +1997,26 @@ def _build_webstore_tab(
             ctk.CTkEntry(path_row, textvariable=path_var, height=24).pack(
                 side="left", fill="x", expand=True,
             )
+            ver_row = tk.Frame(block, bg="#1a1a30")
+            ver_row.pack(fill="x", padx=(148, 4), pady=(0, 4))
+            _shop_status, shop_txt = describe_plugin_version(
+                srv.install_dir, "CustomShop", short_label="Shop",
+            )
+            _dino_status, dino_txt = describe_plugin_version(
+                srv.install_dir, "CustomDinoDeliver", short_label="DinoLab",
+            )
+            _ver_fg = "#55cc77" if _shop_status == "match" and _dino_status in ("match", "not_installed") else (
+                "#ccaa55" if _shop_status in ("outdated", "missing") or _dino_status in ("outdated", "missing") else "gray55"
+            )
+            tk.Label(
+                ver_row,
+                text=f"{shop_txt}  |  {dino_txt}",
+                bg="#1a1a30",
+                fg=_ver_fg,
+                font=ctk.CTkFont(size=8),
+                anchor="w",
+                justify="left",
+            ).pack(side="left", fill="x", expand=True)
             _server_rows.append((kind, srv, sid_var, path_var, home_var, shop_var))
 
     _rebuild_server_rows()

@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.6] - 2026-07-06
+
+### Feature
+
+- Feature (Plugins): versionamento independente por plugin (plugin_version.txt); TEK compara versão instalada vs bundle do app.
+
+### Fix
+
+- Fix (TEK): sync de plugins agora copia CustomDinoDeliver.dll, não só config.json
+
 ## [1.10.5] - 2026-07-06
 
 ### Fix

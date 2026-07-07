@@ -10,6 +10,10 @@ from typing import TYPE_CHECKING
 
 import customtkinter as ctk  # type: ignore[reportMissingImports]
 
+from ..plugin_versions import (
+    expected_plugin_version,
+    get_installed_plugin_version,
+)
 from ..ui_constants import (
     _CARD_BG,
     _GREEN_DARK, _GREEN_HOVER,
@@ -24,6 +28,9 @@ if TYPE_CHECKING:
 _WIN64   = Path("ShooterGame") / "Binaries" / "Win64"
 _ARKAPI  = _WIN64 / "ArkApi"
 _PLUGINS = _ARKAPI / "Plugins"
+
+# Plugins ARKLAND com versão sincronizada ao app
+_ARKLAND_PLUGINS = frozenset({"CustomShop", "CustomDinoDeliver"})
 
 # ── Definição dos plugins oficiais ───────────────────────────────────────────
 _OFFICIAL_PLUGINS = [
@@ -66,7 +73,7 @@ _OFFICIAL_PLUGINS = [
     },
     {
         "name":       "CustomShop",
-        "version":    "1.0",
+        "version":    expected_plugin_version("CustomShop"),
         "author":     "ARKLAND",
         "tag":        "Plugin",
         "tag_color":  "#2d5a2d",
@@ -78,7 +85,7 @@ _OFFICIAL_PLUGINS = [
     },
     {
         "name":       "CustomDinoDeliver",
-        "version":    "1.0",
+        "version":    expected_plugin_version("CustomDinoDeliver"),
         "author":     "ARKLAND",
         "tag":        "Plugin — Dino Lab",
         "tag_color":  "#2d5a4a",
@@ -191,9 +198,34 @@ def build_tab_plugins(app: "ARKServerManagerApp", parent, srv: "ServerConfig") -
                 continue
             status = _is_installed(plug, srv.install_dir)
             if status is True:
-                lbl.configure(text="✅  Instalado", text_color="#55cc77")
+                if plug["name"] in _ARKLAND_PLUGINS:
+                    installed_ver = get_installed_plugin_version(srv.install_dir, plug["name"])
+                    expected_ver = plug["version"]
+                    if installed_ver and installed_ver == expected_ver:
+                        lbl.configure(
+                            text=f"✅  Instalado · v{installed_ver}",
+                            text_color="#55cc77",
+                        )
+                    elif installed_ver:
+                        lbl.configure(
+                            text=f"⚠️  v{installed_ver} (esperado v{expected_ver})",
+                            text_color="#ccaa55",
+                        )
+                    else:
+                        lbl.configure(
+                            text=f"⚠️  Instalado · sem PluginInfo (esperado v{expected_ver})",
+                            text_color="#ccaa55",
+                        )
+                else:
+                    lbl.configure(text="✅  Instalado", text_color="#55cc77")
             elif status is False:
-                lbl.configure(text="❌  Não instalado", text_color="#cc5555")
+                if plug["name"] in _ARKLAND_PLUGINS:
+                    lbl.configure(
+                        text=f"❌  Não instalado (app v{plug['version']})",
+                        text_color="#cc5555",
+                    )
+                else:
+                    lbl.configure(text="❌  Não instalado", text_color="#cc5555")
             else:
                 lbl.configure(text="⚪  Desconhecido", text_color="gray50")
 

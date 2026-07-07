@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "plugin_version.h"
 #include "DinoCommands.h"
 #include "DinoConfig.h"
 #include "DinoHttpClient.h"
@@ -86,7 +87,8 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         SchedulePendingPoll();
 
     Log::GetLog()->info(
-        "CustomDinoDeliver: ready (web='{}', poll={}s)",
+        "CustomDinoDeliver v{} ready (web='{}', poll={}s)",
+        ARKLAND_PLUGIN_VERSION,
         CustomDinoDeliver::DinoConfig::Get().WebApiUrl(),
         CustomDinoDeliver::DinoConfig::Get().PollIntervalSeconds());
 }

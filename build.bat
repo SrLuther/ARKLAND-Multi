@@ -92,6 +92,13 @@ echo [1/4] Instalando dependencias...
 echo       Concluido.
 echo.
 
+echo [1a/4] Sincronizando versoes dos plugins com APP_VERSION...
+"%PYTHON%" "%~dp0scripts\sync_plugin_versions.py" --from-app
+if errorlevel 1 (
+    echo [AVISO] sync_plugin_versions.py falhou — continuando com versoes existentes.
+)
+echo.
+
 echo [1b/4] Compilando CustomShop.dll...
 if exist "%~dp0plugin\CustomShop\build_cl.bat" (
     pushd "%~dp0plugin\CustomShop"
