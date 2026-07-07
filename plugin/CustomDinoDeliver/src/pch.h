@@ -22,3 +22,13 @@
 
 #include <json.hpp>
 #include <winhttp.h>
+
+inline std::string JsonStr(const nlohmann::json& j,
+                           const char* key,
+                           const std::string& fallback = "") {
+    if (!j.contains(key)) return fallback;
+    const auto& v = j.at(key);
+    if (v.is_null()) return fallback;
+    if (v.is_string()) return v.get<std::string>();
+    return fallback;
+}

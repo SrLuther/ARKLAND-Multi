@@ -300,8 +300,8 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
             continue;
         }
 
-        const std::string species = payload.value("species_display_name",
-            payload.value("species_blueprint", "unknown"));
+        const std::string species = JsonStr(payload, "species_display_name",
+            JsonStr(payload, "species_blueprint", "unknown"));
         Log::GetLog()->info("DinoHttpClient: delivering order {} ({})", order_id, species);
 
         bool ok = false;
@@ -334,7 +334,7 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
     if (!failed_ids.empty())
         PostReleaseFailed(steam_id, failed_ids);
 
-    if (result.delivered > 0 || result.failed > 0)
+    if (!delivered_ids.empty() || !failures.empty())
         PostDeliveredCallback(steam_id, delivered_ids, failures);
 
     if (controller && (result.delivered > 0 || result.failed > 0)) {

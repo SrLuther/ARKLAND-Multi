@@ -1,8 +1,12 @@
 {
-    "version": "1.10.6",
+    "version": "1.10.7",
     "date": "2026-07-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.6/ARKLAND-Multi-Setup-v1.10.6.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.7/ARKLAND-Multi-Setup-v1.10.7.exe",
     "changelog": [
-        "Fix (TEK): sync de plugins agora copia CustomDinoDeliver.dll, não só config.json"
+        "Fix (CustomDinoDeliver): entrega falhava com type_error.302 em campos JSON null (saddle_blueprint, custom_name) — JsonStr com fallback seguro.",
+        "Fix (CustomDinoDeliver): callback /delivered rejeitava quando todos os pedidos falhavam (order_ids vazio) — aceita failures sem order_ids.",
+        "Fix (Dino Lab / Web): payload_json normaliza saddle_blueprint e custom_name null para string vazia.",
+        "Fix (TEK): aba SQL Executar usa banco correto (arkland_shop para consultas em orders).",
+        "Feature (Plugins): versões independentes por plugin (bump no compile); release sincroniza PluginInfo sem sobrescrever plugin_version.txt; TEK compara instalado vs esperado."
     ]
 }

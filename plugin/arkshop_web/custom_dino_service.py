@@ -377,9 +377,9 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
             "imprinter_name": imprinter_name,
             "imprinter_id_hex": imprinter_id_hex,
         },
-        "saddle_blueprint": body.get("saddle_blueprint"),
+        "saddle_blueprint": str(body.get("saddle_blueprint") or "").strip(),
         "force_tame": bool(body.get("force_tame", True)),
-        "custom_name": body.get("custom_name"),
+        "custom_name": str(body.get("custom_name") or "").strip(),
     }
     return payload, None
 

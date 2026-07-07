@@ -39,6 +39,54 @@ _LOCAL_DB_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 _CELL_DISPLAY_MAX = 200
 _TREE_INSERT_BATCH = 25
 _STEAM_ID_RE = re.compile(r"^7656119\d{10}$")
+_ORDERS_TABLE_SQL_RE = re.compile(
+    r"\b(?:FROM|INTO|UPDATE|JOIN|TABLE)\s+`?orders`?\b",
+    re.IGNORECASE,
+)
+
+
+def _effective_sql_database(
+    selected_db: str,
+    connection_db_field: str,
+    state_database: str,
+    *,
+    default: str = _DB_NAME,
+) -> str:
+    """Banco alvo da aba SQL: tabela selecionada → campo Database → conexão ativa."""
+    for candidate in (selected_db, connection_db_field, state_database, default):
+        if candidate and str(candidate).strip():
+            return str(candidate).strip()
+    return default
+
+
+def _sql_looks_like_read(sql_text: str) -> bool:
+    head = sql_text.lstrip().upper()
+    return head.startswith(
+        ("SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN", "WITH"),
+    )
+
+
+def _resolve_sql_target_database(
+    sql_text: str,
+    selected_db: str,
+    connection_db_field: str,
+    state_database: str,
+    *,
+    shop_db: str = _DB_NAME,
+) -> str:
+    """Resolve banco alvo; pedidos (`orders`) forçam arkland_shop se não qualificado."""
+    base = _effective_sql_database(
+        selected_db, connection_db_field, state_database, default=shop_db,
+    )
+    if base == shop_db:
+        return base
+    upper = sql_text.upper()
+    if f"{shop_db.upper()}." in upper:
+        return base
+    if _ORDERS_TABLE_SQL_RE.search(sql_text):
+        return shop_db
+    return base
+
 
 _CORE_PLAYER_TABLES: tuple[tuple[str, str], ...] = (
     ("players", "Pontos"),
@@ -131,6 +179,25 @@ _EMERGENCY_SQL_PRESETS: list[tuple[str, str]] = [
         "SELECT 'cloud_items', steam_id, CAST(COUNT(*) AS CHAR), "
         "CONCAT(SUM(LENGTH(item_blob)), ' bytes') FROM player_cloud_items "
         "WHERE steam_id = '{steam_id}' GROUP BY steam_id;",
+    ),
+  # orders (arkland_shop)
+    ("— Modelos (pedidos / loja) —", ""),
+    (
+        "[pedidos] Buscar por order_id",
+        "SELECT order_id, steam_id, status, last_error, item_id, item_type, "
+        "retry_count, created_at, updated_at "
+        "FROM orders WHERE order_id = 'ORDER_ID_AQUI';",
+    ),
+    (
+        "[pedidos] Resetar para PENDENTE",
+        "UPDATE orders SET status='PENDENTE', last_error='Reset manual', "
+        "retry_count=0, updated_at=NOW() "
+        "WHERE order_id='ORDER_ID_AQUI';",
+    ),
+    (
+        "[pedidos] Listar pendentes recentes",
+        "SELECT order_id, steam_id, status, last_error, item_id, created_at "
+        "FROM orders WHERE status='PENDENTE' ORDER BY created_at DESC LIMIT 30;",
     ),
 ]
 
@@ -415,8 +482,9 @@ def _execute(state: _DBState, sql: str, args=None) -> int:
             pass
         with state.conn.cursor() as cur:
             cur.execute(sql, args or ())
+            affected = cur.rowcount
         state.conn.commit()
-        return cur.rowcount  # type: ignore[return-value]
+        return affected  # type: ignore[return-value]
 
 
 def _list_databases(state: _DBState) -> list[str]:
@@ -1020,6 +1088,21 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
     def _switch_db(name: str) -> None:
         _v_db.set(name)
+        state.database = name
+        state.selected_db = name
+        state.selected_table = ""
+        if not state.is_connected():
+            return
+
+        def _apply_use() -> None:
+            try:
+                _execute(state, f"USE `{name}`")
+                msg = f"Conectado a {state.host}:{state.port} — banco ativo: {name}"
+                parent.after(0, lambda m=msg: _v_status.set(m))
+            except Exception as exc:
+                parent.after(0, lambda e=exc: _v_status.set(f"Erro ao trocar banco: {e}"))
+
+        threading.Thread(target=_apply_use, daemon=True).start()
 
     ctk.CTkButton(status_row, text=_DB_NAME, width=100, height=22,
                   font=ctk.CTkFont(size=10),
@@ -1569,9 +1652,15 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                                    xscrollcommand=sql_rh.set)
 
         _sql_info_var = tk.StringVar(value="")
+        _sql_target_var = tk.StringVar(
+            value=f"Banco SQL: {_effective_sql_database('', _v_db.get(), state.database)}",
+        )
+        ctk.CTkLabel(sql_result_frame, textvariable=_sql_target_var,
+                     font=ctk.CTkFont(family="Segoe UI", size=10),
+                     text_color=accent).grid(row=1, column=0, sticky="w", pady=(4, 0))
         ctk.CTkLabel(sql_result_frame, textvariable=_sql_info_var,
                      font=ctk.CTkFont(family="Segoe UI", size=10),
-                     text_color=t_mut).grid(row=1, column=0, sticky="w", pady=(4, 0))
+                     text_color=t_mut).grid(row=2, column=0, sticky="w", pady=(2, 0))
     
         # ── Inicializa a aba ativa ─────────────────────────────────────────────
         _show_tab("dados")
@@ -1682,6 +1771,12 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
                         DbLocalServer._save_prefs(prefs)
                     parent.after(0, lambda: _set_status(True,
                         f"Conectado a {state.host}:{state.port}"))
+                    if state.database:
+                        state.selected_db = state.database
+                        state.selected_table = ""
+                    parent.after(0, lambda: _sql_target_var.set(
+                        f"Banco SQL: {_effective_sql_database(state.selected_db, _v_db.get(), state.database)}"
+                    ))
                     parent.after(0, _refresh_tree)
                     parent.after(300, _maybe_auto_reconcile_entitlements)
                 except Exception as exc:
@@ -1928,10 +2023,16 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
             if not sel:
                 return
             iid = sel[0]
+            if iid.startswith("db_"):
+                state.selected_db = iid[3:]
+                state.selected_table = ""
+                _sql_target_var.set(f"Banco SQL: {state.selected_db}")
+                return
             if iid.startswith("tbl_"):
                 parts = iid[4:].split("__", 1)
                 if len(parts) == 2:
                     state.selected_db, state.selected_table = parts
+                    _sql_target_var.set(f"Banco SQL: {state.selected_db}")
                     _page_state["offset"] = 0
                     _load_gen[0] += 1
                     gen = _load_gen[0]
@@ -2054,6 +2155,7 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
 
             state.selected_db = db
             state.selected_table = table
+            _sql_target_var.set(f"Banco SQL: {db}")
             iid = f"tbl_{db}__{table}"
             parent_iid = f"db_{db}"
             try:
@@ -2549,45 +2651,55 @@ def build_db_manager_panel(app: "ARKTEKApp", parent: ctk.CTkFrame) -> None:
     
         def _exec_sql() -> None:
             if not state.is_connected():
-                _sql_info_var.set("Sem conexão.")
+                _sql_info_var.set("Sem conexão — clique em Conectar primeiro.")
                 return
             sql_text = _sql_editor.get("1.0", "end").strip()
             if not sql_text:
+                _sql_info_var.set("Informe um comando SQL no editor acima.")
                 return
-            _sql_info_var.set("Executando...")
+
+            target_db = _resolve_sql_target_database(
+                sql_text,
+                state.selected_db,
+                (_v_db.get() or "").strip(),
+                state.database,
+            )
+            _sql_target_var.set(f"Banco SQL: {target_db}")
+            _sql_info_var.set(f"Executando em `{target_db}`…")
             _sql_result_tree.delete(*_sql_result_tree.get_children())
-    
-            # Usa banco selecionado se disponível
-            if state.selected_db:
-                try:
-                    _execute(state, f"USE `{state.selected_db}`")
-                except Exception:
-                    pass
-    
+
             def _worker():
                 try:
-                    is_select = sql_text.lstrip().upper().startswith("SELECT")
-                    if is_select:
+                    _execute(state, f"USE `{target_db}`")
+                    if _sql_looks_like_read(sql_text):
                         rows = _query(state, sql_text)
-                        def _update(r=rows):
+                        def _update(r=rows, db=target_db):
                             _populate_treeview(_sql_result_tree, r)
-                            _sql_info_var.set(f"{len(r)} linha(s) retornada(s)")
+                            _sql_info_var.set(f"`{db}` — {len(r)} linha(s) retornada(s)")
                         parent.after(0, _update)
                     else:
                         affected = _execute(state, sql_text)
-                        def _after_write(n=affected) -> None:
-                            _sql_info_var.set(f"{n} linha(s) afetada(s)")
+                        upper = sql_text.lstrip().upper()
+
+                        def _after_write(n=affected, db=target_db) -> None:
+                            hint = ""
+                            if n == 0 and upper.startswith("UPDATE"):
+                                hint = (
+                                    " — nenhuma linha encontrada; confira order_id "
+                                    f"e se o banco ativo é {_DB_NAME}"
+                                )
+                            _sql_info_var.set(f"`{db}` — {n} linha(s) afetada(s){hint}")
                             if state.selected_db and state.selected_table:
                                 _load_gen[0] += 1
                                 _load_data(_load_gen[0])
                         parent.after(0, _after_write)
                         parent.after(0, _refresh_tree)
                 except Exception as exc:
-                    parent.after(0, lambda e=exc:
-                        _sql_info_var.set(f"Erro: {e}"))
-    
+                    parent.after(0, lambda e=exc, db=target_db:
+                        _sql_info_var.set(f"Erro em `{db}`: {e}"))
+
             threading.Thread(target=_worker, daemon=True).start()
-    
+
         _btn_exec.configure(command=_exec_sql)
         _btn_clear_sql.configure(command=lambda: (
             _sql_editor.delete("1.0", "end"),

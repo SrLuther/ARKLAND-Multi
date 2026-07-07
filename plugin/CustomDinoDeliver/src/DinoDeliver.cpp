@@ -123,7 +123,7 @@ APrimalDinoCharacter* SpawnExactFromPayload(AShooterPlayerController* controller
     if (!controller) return nullptr;
 
     const std::string blueprint =
-        NormalizeBlueprintPath(payload.value("species_blueprint", ""));
+        NormalizeBlueprintPath(JsonStr(payload, "species_blueprint"));
     if (blueprint.empty()) return nullptr;
 
     const nlohmann::json spawn_exact =
@@ -133,24 +133,24 @@ APrimalDinoCharacter* SpawnExactFromPayload(AShooterPlayerController* controller
     const int base_level = SumStatsJson(wild) + 1;
     const int extra_levels = SumStatsJson(tamed);
 
-    const std::string saddle_bp_raw = payload.value("saddle_blueprint", "");
+    const std::string saddle_bp_raw = JsonStr(payload, "saddle_blueprint");
     const std::string saddle_bp = saddle_bp_raw.empty()
         ? "" : NormalizeBlueprintPath(saddle_bp_raw);
     const float saddle_quality = saddle_bp.empty() ? 0.0f : 0.0f;
 
-    const std::string dino_name = payload.value("custom_name", "");
+    const std::string dino_name = JsonStr(payload, "custom_name");
     const bool neutered = payload.value("neutered", false);
     const nlohmann::json colors = payload.value("colors", nlohmann::json::array());
 
     float imprint_quality = 0.0f;
-    if (spawn_exact.contains("imprint_pct")) {
+    if (spawn_exact.contains("imprint_pct") && !spawn_exact["imprint_pct"].is_null()) {
         imprint_quality = spawn_exact.value("imprint_pct", 0.0f);
         if (imprint_quality > 1.0f) imprint_quality /= 100.0f;
         imprint_quality = std::max(0.0f, std::min(1.0f, imprint_quality));
     }
-    const std::string imprinter_name = spawn_exact.value("imprinter_name", "");
+    const std::string imprinter_name = JsonStr(spawn_exact, "imprinter_name");
     const int imprinter_id = static_cast<int>(
-        ParseImprinterIdHex(spawn_exact.value("imprinter_id_hex", "")));
+        ParseImprinterIdHex(JsonStr(spawn_exact, "imprinter_id_hex")));
 
     FString fbp(blueprint.c_str());
     FString fsaddle(saddle_bp.c_str());
@@ -417,7 +417,7 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
         return false;
 
     const std::string blueprint =
-        NormalizeBlueprintPath(payload.value("species_blueprint", ""));
+        NormalizeBlueprintPath(JsonStr(payload, "species_blueprint"));
     if (blueprint.empty()) {
         Log::GetLog()->warn("DinoDeliver: empty species_blueprint");
         return false;
@@ -426,10 +426,10 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
     const int level = payload.value("level", 150);
     const bool force_tame = payload.value("force_tame", true);
     const bool neutered = payload.value("neutered", false);
-    const std::string gender = payload.value("gender", "female");
-    const std::string deliver_as = payload.value("deliver_as", "cryopod");
-    const std::string saddle_bp = payload.value("saddle_blueprint", "");
-    const std::string display = payload.value("species_display_name", "dino");
+    const std::string gender = JsonStr(payload, "gender", "female");
+    const std::string deliver_as = JsonStr(payload, "deliver_as", "cryopod");
+    const std::string saddle_bp = JsonStr(payload, "saddle_blueprint");
+    const std::string display = JsonStr(payload, "species_display_name", "dino");
 
     const nlohmann::json spawn_exact =
         payload.value("spawn_exact", nlohmann::json::object());
@@ -471,7 +471,7 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
     if (payload.contains("colors"))
         ApplyColors(dino, payload["colors"]);
 
-    const std::string custom_name = payload.value("custom_name", "");
+    const std::string custom_name = JsonStr(payload, "custom_name");
     if (!custom_name.empty() && !use_spawn_exact) {
         FString fname(custom_name.c_str());
         dino->TamedNameField() = fname;

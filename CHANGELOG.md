@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.7] - 2026-07-06
+
+### Feature
+
+- Feature (Plugins): versões independentes por plugin (bump no compile); release sincroniza PluginInfo sem sobrescrever plugin_version.txt; TEK compara instalado vs esperado.
+
+### Fix
+
+- Fix (CustomDinoDeliver): entrega falhava com type_error.302 em campos JSON null (saddle_blueprint, custom_name) — JsonStr com fallback seguro.
+- Fix (CustomDinoDeliver): callback /delivered rejeitava quando todos os pedidos falhavam (order_ids vazio) — aceita failures sem order_ids.
+- Fix (Dino Lab / Web): payload_json normaliza saddle_blueprint e custom_name null para string vazia.
+- Fix (TEK): aba SQL Executar usa banco correto (arkland_shop para consultas em orders).
+
 ## [1.10.6] - 2026-07-06
 
 ### Feature

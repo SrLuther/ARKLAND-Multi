@@ -224,13 +224,15 @@ def register_custom_dino_routes(
         body = request.get_json(force=True, silent=True) or {}
         steam_id = str(body.get("steam_id") or "").strip()
         raw_ids = body.get("order_ids") or []
-        if not steam_id or not isinstance(raw_ids, list) or not raw_ids:
+        failures = body.get("failures") or []
+        if not steam_id or not isinstance(raw_ids, list):
+            return jsonify({"ok": False, "error": "steam_id e order_ids são obrigatórios"}), 400
+        if not raw_ids and (not isinstance(failures, list) or not failures):
             return jsonify({"ok": False, "error": "steam_id e order_ids são obrigatórios"}), 400
         db = session_factory()
         delivered: list[str] = []
         try:
             delivered = mark_custom_dino_delivered(db, steam_id, [str(x) for x in raw_ids])
-            failures = body.get("failures") or []
             if isinstance(failures, list):
                 for f in failures:
                     if not isinstance(f, dict):

@@ -1,7 +1,7 @@
 {
   "FullName": "Custom Dino Deliver",
   "Description": "Entrega administrativa de dinos customizados (Dino Lab ARKLAND)",
-  "Version": 1.96,
+  "Version": 1.97,
   "MinApiVersion": 1.0,
-  "VersionLabel": "1.10.6"
+  "VersionLabel": "1.10.7"
 }

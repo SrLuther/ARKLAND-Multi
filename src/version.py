@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.6"
+APP_VERSION: str = "1.10.7"
 BUILD_DATE: str = "2026-07-06"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.7",
+        "date": "2026-07-06",
+        "changes": [
+            "Fix (CustomDinoDeliver): entrega falhava com type_error.302 em campos JSON null (saddle_blueprint, custom_name) — JsonStr com fallback seguro.",
+            "Fix (CustomDinoDeliver): callback /delivered rejeitava quando todos os pedidos falhavam (order_ids vazio) — aceita failures sem order_ids.",
+            "Fix (Dino Lab / Web): payload_json normaliza saddle_blueprint e custom_name null para string vazia.",
+            "Fix (TEK): aba SQL Executar usa banco correto (arkland_shop para consultas em orders).",
+            "Feature (Plugins): versões independentes por plugin (bump no compile); release sincroniza PluginInfo sem sobrescrever plugin_version.txt; TEK compara instalado vs esperado.",
+        ],
+    },
     {
         "version": "1.10.6",
         "date": "2026-07-06",

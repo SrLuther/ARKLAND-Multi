@@ -154,10 +154,10 @@ $newPy = $newPy -replace 'BUILD_DATE\s*:\s*str\s*=\s*"[^"]+"', "BUILD_DATE: str 
 [System.IO.File]::WriteAllText($versionPyPath, $newPy, $utf8NoBOM)
 Write-Ok "src\version.py  →  BUILD_DATE = $date"
 
-# PluginInfo.json + plugin_version.txt sincronizados com APP_VERSION
-& $python (Join-Path $root "scripts\sync_plugin_versions.py") --from-app
-if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_plugin_versions.py --from-app falhou" }
-Write-Ok "PluginInfo.json  →  VersionLabel = $Version (CustomShop + CustomDinoDeliver)"
+# PluginInfo.json sincronizado a partir de plugin_version.txt (sem --from-app)
+& $python (Join-Path $root "scripts\sync_plugin_versions.py") --all
+if ($LASTEXITCODE -ne 0) { Write-Fail "scripts\sync_plugin_versions.py --all falhou" }
+Write-Ok "PluginInfo.json  →  sincronizado com plugin_version.txt (CustomShop + CustomDinoDeliver)"
 
 # CHANGELOG.md gerado a partir de version.py
 & $python (Join-Path $root "scripts\sync_changelog_md.py")

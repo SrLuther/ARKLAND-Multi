@@ -413,7 +413,53 @@ def test_recover_stale_entregando_and_reclaim(custom_dino_db):
     assert reclaimed[0]["order_id"] == result["order_id"]
 
 
-def test_release_custom_dino_order(custom_dino_db):
+def test_validate_payload_null_optional_fields_serialized_as_empty_strings():
+    """Campos opcionais null no body não devem virar JSON null no payload (evita crash no plugin)."""
+    payload, err = validate_payload(_valid_body(
+        saddle_blueprint=None,
+        custom_name=None,
+    ))
+    assert err is None
+    assert payload is not None
+    assert payload["saddle_blueprint"] == ""
+    assert payload["custom_name"] == ""
+    serialized = json.loads(json.dumps(payload))
+    assert serialized["saddle_blueprint"] == ""
+    assert serialized["custom_name"] == ""
+
+
+def test_mark_custom_dino_failed(custom_dino_db):
+    payload, _ = validate_payload(_valid_body())
+    result = create_custom_dino_order(
+        custom_dino_db,
+        steam_id=USER,
+        payload=payload,
+        admin_steam_id=ADMIN,
+    )
+    custom_dino_db.commit()
+    claim_custom_dino_orders(custom_dino_db, USER)
+    custom_dino_db.commit()
+
+    from custom_dino_service import mark_custom_dino_failed
+
+    released = release_custom_dino_orders(custom_dino_db, USER, [result["order_id"]])
+    custom_dino_db.commit()
+    assert released == [result["order_id"]]
+
+    ok = mark_custom_dino_failed(
+        custom_dino_db, USER, result["order_id"], error="dino_delivery_failed"
+    )
+    custom_dino_db.commit()
+    assert ok is True
+
+    row = custom_dino_db.execute(
+        text("SELECT status, last_error FROM orders WHERE order_id = :oid"),
+        {"oid": result["order_id"]},
+    ).fetchone()
+    assert row[0] == "FALHA"
+    assert "dino_delivery_failed" in str(row[1])
+
+
     payload, _ = validate_payload(_valid_body())
     result = create_custom_dino_order(
         custom_dino_db,

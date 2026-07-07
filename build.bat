@@ -92,8 +92,8 @@ echo [1/4] Instalando dependencias...
 echo       Concluido.
 echo.
 
-echo [1a/4] Sincronizando versoes dos plugins com APP_VERSION...
-"%PYTHON%" "%~dp0scripts\sync_plugin_versions.py" --from-app
+echo [1a/4] Sincronizando PluginInfo.json a partir de plugin_version.txt...
+"%PYTHON%" "%~dp0scripts\sync_plugin_versions.py" --all
 if errorlevel 1 (
     echo [AVISO] sync_plugin_versions.py falhou — continuando com versoes existentes.
 )
