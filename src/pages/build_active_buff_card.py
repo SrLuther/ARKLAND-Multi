@@ -56,7 +56,7 @@ def build_active_buff_card(
     ).grid(row=2, column=0, padx=16, pady=(0, 4), sticky="w")
 
     ctk.CTkLabel(
-        card, text=event.rates.summary(),
+        card, text=event.rates_summary(),
         text_color="gray60", font=ctk.CTkFont(size=11),
         wraplength=700, justify="left",
     ).grid(row=3, column=0, padx=16, pady=(0, 4), sticky="w")

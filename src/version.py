@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.8"
+APP_VERSION: str = "1.10.9"
 BUILD_DATE: str = "2026-07-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.9",
+        "date": "2026-07-07",
+        "changes": [
+            "Melhoria (Eventos Sazonais): rebrand e painel de gestão alinhados à nomenclatura Eventos Sazonais (UI, criação e cards de evento ativo).",
+            "Feat (Eventos Sazonais): backup dos .ini em zip em ARKLAND SERVER/BACKUP/.ini/{servidor}/ antes de aplicar alterações.",
+            "Feat (Eventos Sazonais): área de emergência — listar backups, restaurar servidor ou cluster inteiro (aviso 5 min → SaveWorld → stop → restore → start).",
+            "Feat (Eventos Sazonais): multiplicadores por setor (XP/Doma/Breeding/Farm) com cálculo base×alvo assumindo servidor 5x (campos inversos de breeding/farm corrigidos).",
+            "Feat (Eventos Sazonais): broadcast periódico durante evento ativo (mensagem admin + intervalo em minutos).",
+        ],
+    },
     {
         "version": "1.10.8",
         "date": "2026-07-07",

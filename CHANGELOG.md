@@ -5,7 +5,24 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.9] - 2026-07-07
+
+### Feature
+
+- Feat (Eventos Sazonais): backup dos .ini em zip em ARKLAND SERVER/BACKUP/.ini/{servidor}/ antes de aplicar alterações.
+- Feat (Eventos Sazonais): área de emergência — listar backups, restaurar servidor ou cluster inteiro (aviso 5 min → SaveWorld → stop → restore → start).
+- Feat (Eventos Sazonais): multiplicadores por setor (XP/Doma/Breeding/Farm) com cálculo base×alvo assumindo servidor 5x (campos inversos de breeding/farm corrigidos).
+- Feat (Eventos Sazonais): broadcast periódico durante evento ativo (mensagem admin + intervalo em minutos).
+
+### Improvement
+
+- Melhoria (Eventos Sazonais): rebrand e painel de gestão alinhados à nomenclatura Eventos Sazonais (UI, criação e cards de evento ativo).
+
 ## [1.10.8] - 2026-07-07
+
+### Improvement
+
+- Melhoria (Eventos Sazonais): rebrand de BUFFs/Rates Temporários para Eventos Sazonais na UI, logs, Discord e Web Store.
 
 ### Fix
 

@@ -114,6 +114,10 @@ def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
             app._build_history_row(body, row_idx, evt)
             row_idx += 1
 
+    # ── Emergência (backup / restore) ───────────────────────────────────
+    from .build_buffs_emergency_section import build_buffs_emergency_section
+    row_idx = build_buffs_emergency_section(app, body, row_idx, srv_id)
+
     # Espaço final
     ctk.CTkFrame(body, fg_color="transparent", height=30).grid(
         row=row_idx, column=0)

@@ -5,7 +5,17 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from .buff_manager import BUFF_RATE_FIELDS, BuffEvent, stack_buff_rate
+from .buff_manager import (
+    BUFF_RATE_FIELDS,
+    BUFF_TYPE_BREEDING,
+    BUFF_TYPE_DOMA,
+    BUFF_TYPE_FARM,
+    BUFF_TYPE_XP,
+    BuffEvent,
+    DEFAULT_SERVER_RATE_MULT,
+    compute_buff_field_value,
+    stack_buff_rate,
+)
 
 
 def norm_slug(value: str) -> str:
@@ -77,6 +87,27 @@ def _effective_rate(
     base = _read_rate(cfg, field_name, game_settings=game_settings)
     if buff_event is None:
         return round(base, 4)
+
+    if buff_event.sector_mults.has_any():
+        for buff_type, fields in BUFF_RATE_FIELDS.items():
+            sector_val = None
+            mapping = {
+                BUFF_TYPE_XP: buff_event.sector_mults.xp,
+                BUFF_TYPE_DOMA: buff_event.sector_mults.doma,
+                BUFF_TYPE_BREEDING: buff_event.sector_mults.breeding,
+                BUFF_TYPE_FARM: buff_event.sector_mults.farm,
+            }
+            sector_val = mapping.get(buff_type)
+            if sector_val is None:
+                continue
+            for fname, _label, is_inv in fields:
+                if fname != field_name:
+                    continue
+                return compute_buff_field_value(
+                    base, float(sector_val), is_inverse=is_inv,
+                    server_mult=DEFAULT_SERVER_RATE_MULT,
+                )
+
     for fields in BUFF_RATE_FIELDS.values():
         for fname, _label, _inv in fields:
             if fname != field_name:

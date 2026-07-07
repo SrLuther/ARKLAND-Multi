@@ -7,9 +7,9 @@ import customtkinter as ctk  # type: ignore[reportMissingImports]
 from tkinter import messagebox
 
 from ..buff_manager import (
-    BuffPreset, BuffEvent, BuffRates,
+    BuffPreset, BuffEvent, BuffRates, BuffSectorMults,
     BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM,
-    BUFF_TYPE_LABELS, BUFF_RATE_FIELDS, QUICK_PRESETS,
+    BUFF_TYPE_LABELS, QUICK_PRESET_MULTS,
     BUFF_STATUS_SCHEDULED, now_brasilia,
     BUFF_RECURRENCE_NONE, BUFF_RECURRENCE_DAILY,
     BUFF_RECURRENCE_WEEKLY, BUFF_RECURRENCE_WEEKEND,
@@ -151,19 +151,51 @@ def open_create_buff_dialog(
     quick_frame.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
     r += 1
 
-    rate_vars: Dict[str, tk.StringVar] = {}
+    sector_vars: Dict[str, tk.StringVar] = {}
+    _type_to_attr = {
+        BUFF_TYPE_XP: "xp",
+        BUFF_TYPE_DOMA: "doma",
+        BUFF_TYPE_BREEDING: "breeding",
+        BUFF_TYPE_FARM: "farm",
+    }
+    _init_sectors = (
+        event.sector_mults if event
+        else (preset.sector_mults if preset else BuffSectorMults())
+    )
+
+    _init_bc_msg = ""
+    _init_bc_int = "30"
+    if event:
+        _init_bc_msg = event.broadcast_message or ""
+        _init_bc_int = str(event.broadcast_interval_min or 30)
+    elif preset:
+        _init_bc_msg = preset.broadcast_message or ""
+        _init_bc_int = str(preset.broadcast_interval_min or 30)
+    bc_msg_var = tk.StringVar(value=_init_bc_msg)
+    bc_int_var = tk.StringVar(value=_init_bc_int)
+
+    for btype in [BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM]:
+        attr = _type_to_attr[btype]
+        init_val = getattr(_init_sectors, attr, None)
+        sector_vars[btype] = tk.StringVar(
+            value=str(init_val) if init_val is not None else "10"
+        )
 
     def _fill_quick(mult: int) -> None:
-        vals = QUICK_PRESETS.get(mult, {})
-        for btype, fields in vals.items():
+        sm = QUICK_PRESET_MULTS.get(mult)
+        if not sm:
+            return
+        for btype, attr in _type_to_attr.items():
             if type_vars[btype].get():
-                for fname, fval in fields.items():
-                    if fname in rate_vars:
-                        rate_vars[fname].set(str(fval))
+                val = getattr(sm, attr, None)
+                if val is not None and btype in sector_vars:
+                    sector_vars[btype].set(str(int(val) if val == int(val) else val))
 
-    ctk.CTkLabel(quick_frame, text="Aplicar multiplicador a todos os tipos selecionados:",
-                 text_color="gray60", font=ctk.CTkFont(size=11)).grid(
-        row=0, column=0, columnspan=5, padx=16, pady=(12, 4), sticky="w")
+    ctk.CTkLabel(
+        quick_frame,
+        text="Multiplicador alvo por setor (base do servidor = 5x; ex.: 10x calcula base×10 nos INIs):",
+        text_color="gray60", font=ctk.CTkFont(size=11),
+    ).grid(row=0, column=0, columnspan=5, padx=16, pady=(12, 4), sticky="w")
     for ci, mult in enumerate((5, 10, 15)):
         ctk.CTkButton(
             quick_frame, text=f"{mult}x", width=72, height=34,
@@ -184,9 +216,12 @@ def open_create_buff_dialog(
                 return
             for t in [BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM]:
                 type_vars[t].set(t in found.types)
-            for fname in rate_vars:
-                val = getattr(found.rates, fname, None)
-                rate_vars[fname].set(str(val) if val is not None else "")
+            for btype, attr in _type_to_attr.items():
+                val = getattr(found.sector_mults, attr, None)
+                if btype in sector_vars:
+                    sector_vars[btype].set(str(val) if val is not None else "")
+            bc_msg_var.set(found.broadcast_message or "")
+            bc_int_var.set(str(found.broadcast_interval_min or 30))
 
         ctk.CTkComboBox(
             quick_frame,
@@ -195,60 +230,62 @@ def open_create_buff_dialog(
             command=_apply_preset_combo,
         ).grid(row=1, column=4, padx=(0, 16), pady=(4, 14))
 
-    # ── Campos de rate por tipo ───────────────────────────────────────
+    # ── Multiplicadores por setor ─────────────────────────────────────
     ctk.CTkLabel(
-        body, text="MULTIPLICADORES",
+        body, text="MULTIPLICADORES POR SETOR",
         font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
     ).grid(row=r, column=0, padx=18, pady=(10, 4), sticky="w")
     r += 1
 
     rates_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
     rates_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
-    rates_card.grid_columnconfigure((1, 3, 5, 7), weight=1)
     r += 1
 
-    # Fonte de rates: evento em edição > preset > vazio
-    _init_rates = event.rates if event else (preset.rates if preset else None)
-    fr = 0
-    for btype, fields in BUFF_RATE_FIELDS.items():
+    for ri, btype in enumerate([BUFF_TYPE_XP, BUFF_TYPE_DOMA, BUFF_TYPE_BREEDING, BUFF_TYPE_FARM]):
+        sv = sector_vars[btype]
         ctk.CTkLabel(
-            rates_card,
-            text=BUFF_TYPE_LABELS[btype],
-            font=ctk.CTkFont(size=11, weight="bold"),
-            text_color="#ffaa44",
-        ).grid(row=fr, column=0, columnspan=8, padx=16, pady=(12, 4), sticky="w")
-        fr += 1
+            rates_card, text=f"{BUFF_TYPE_LABELS[btype]}:",
+            text_color="gray60", width=140, anchor="e",
+        ).grid(row=ri, column=0, padx=(16, 8), pady=8, sticky="e")
+        ctk.CTkEntry(
+            rates_card, textvariable=sv, width=90, height=32,
+            placeholder_text="10",
+        ).grid(row=ri, column=1, padx=(0, 8), pady=8, sticky="w")
+        ctk.CTkLabel(
+            rates_card, text="×  (sobre base 5x do servidor)",
+            text_color="gray45", font=ctk.CTkFont(size=10),
+        ).grid(row=ri, column=2, padx=(0, 16), pady=8, sticky="w")
 
-        col = 0
-        for fname, label, is_inv in fields:
-            hint = " ↓" if is_inv else ""
-            ctk.CTkLabel(
-                rates_card, text=f"{label}{hint}:",
-                text_color="gray60", font=ctk.CTkFont(size=11),
-                anchor="e", width=110,
-            ).grid(row=fr, column=col, padx=(16 if col == 0 else 4, 4),
-                   pady=6, sticky="e")
-            col += 1
+    # ── Broadcast durante o evento ──────────────────────────────────────
+    ctk.CTkLabel(
+        body, text="BROADCAST DURANTE O EVENTO",
+        font=ctk.CTkFont(size=11, weight="bold"), text_color="#88d4a0",
+    ).grid(row=r, column=0, padx=18, pady=(10, 4), sticky="w")
+    r += 1
 
-            init_val = ""
-            if _init_rates:
-                v = getattr(_init_rates, fname, None)
-                if v is not None:
-                    init_val = str(v)
-            sv = tk.StringVar(value=init_val)
-            rate_vars[fname] = sv
-            ctk.CTkEntry(
-                rates_card, textvariable=sv, width=80, height=32,
-                placeholder_text="1.0",
-            ).grid(row=fr, column=col, padx=(0, 16), pady=6, sticky="w")
-            col += 1
+    bc_card = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=10)
+    bc_card.grid(row=r, column=0, padx=16, pady=(0, 6), sticky="ew")
+    bc_card.grid_columnconfigure(1, weight=1)
+    r += 1
 
-            if col >= 8:
-                col = 0
-                fr += 1
+    ctk.CTkLabel(bc_card, text="Mensagem:", text_color="gray60").grid(
+        row=0, column=0, padx=(16, 8), pady=(12, 4), sticky="nw",
+    )
+    ctk.CTkEntry(
+        bc_card, textvariable=bc_msg_var, height=36,
+        placeholder_text="[Evento Sazonal] Rates especiais ativos neste mapa!",
+    ).grid(row=0, column=1, columnspan=2, padx=(0, 16), pady=(12, 4), sticky="ew")
 
-        if col > 0:
-            fr += 1
+    ctk.CTkLabel(bc_card, text="Intervalo (min):", text_color="gray60").grid(
+        row=1, column=0, padx=(16, 8), pady=(4, 12), sticky="w",
+    )
+    ctk.CTkEntry(bc_card, textvariable=bc_int_var, width=80).grid(
+        row=1, column=1, padx=(0, 16), pady=(4, 12), sticky="w",
+    )
+    ctk.CTkLabel(
+        bc_card, text="0 = desativado. Rates ativos são anexados automaticamente.",
+        text_color="gray45", font=ctk.CTkFont(size=10),
+    ).grid(row=1, column=2, padx=(0, 16), pady=(4, 12), sticky="w")
 
     # ── Agendamento ──────────────────────────────────────────────────
     ctk.CTkLabel(
@@ -364,13 +401,13 @@ def open_create_buff_dialog(
 
     def _update_preview(*_) -> None:
         try:
-            preview_var.set("📊  " + _collect_rates().summary())
+            preview_var.set("📊  " + _collect_sector_mults().summary(
+                [t for t, v in type_vars.items() if v.get()]
+            ))
         except Exception:
             pass
 
-    # Vincula atualização do preview a qualquer mudança nos rate_vars
-    for _sv in rate_vars.values():
-        _sv.trace_add("write", _update_preview)
+    dlg.bind("<KeyRelease>", _update_preview)
     _update_preview()
 
     # ── Salvar como preset ───────────────────────────────────────────
@@ -407,16 +444,18 @@ def open_create_buff_dialog(
                 pass
         return None
 
-    def _collect_rates() -> BuffRates:
+    def _collect_sector_mults() -> BuffSectorMults:
         kwargs: Dict[str, float] = {}
-        for fname, sv in rate_vars.items():
-            raw = sv.get().strip()
+        for btype, attr in _type_to_attr.items():
+            if not type_vars[btype].get():
+                continue
+            raw = sector_vars.get(btype, tk.StringVar()).get().strip()
             if raw:
                 try:
-                    kwargs[fname] = float(raw.replace(",", "."))
+                    kwargs[attr] = float(raw.replace(",", "."))
                 except ValueError:
                     pass
-        return BuffRates(**kwargs)
+        return BuffSectorMults(**kwargs)
 
     def _get_recurrence() -> Optional[str]:
         label = recurrence_var.get()
@@ -444,8 +483,14 @@ def open_create_buff_dialog(
             err_var.set("BuffManager não inicializado.")
             return
 
-        rates      = _collect_rates()
+        rates      = BuffRates()
+        sector_mults = _collect_sector_mults()
         recurrence = _get_recurrence()
+        try:
+            bc_interval = int(bc_int_var.get().strip() or "0")
+        except ValueError:
+            bc_interval = 0
+        bc_message = bc_msg_var.get().strip()
 
         # Salva preset se solicitado
         if save_preset_var.get():
@@ -455,6 +500,9 @@ def open_create_buff_dialog(
                 name=pname,
                 types=selected_types,
                 rates=rates,
+                sector_mults=sector_mults,
+                broadcast_message=bc_message,
+                broadcast_interval_min=bc_interval,
             ))
 
         # Cria (ou atualiza) um evento por servidor selecionado
@@ -472,6 +520,9 @@ def open_create_buff_dialog(
                     end_dt=end_iso,
                     status=BUFF_STATUS_SCHEDULED,
                     recurrence=recurrence,
+                    sector_mults=sector_mults,
+                    broadcast_message=bc_message,
+                    broadcast_interval_min=bc_interval,
                 )
                 err = app._buff_manager.update_event(updated)
             else:
@@ -485,6 +536,9 @@ def open_create_buff_dialog(
                     end_dt=end_iso,
                     status=BUFF_STATUS_SCHEDULED,
                     recurrence=recurrence,
+                    sector_mults=sector_mults,
+                    broadcast_message=bc_message,
+                    broadcast_interval_min=bc_interval,
                 )
                 err = app._buff_manager.add_event(new_event)
             if err:

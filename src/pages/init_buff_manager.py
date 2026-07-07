@@ -12,6 +12,7 @@ from ..buff_server_bridge import (
     buff_start_server,
     buff_stop_server,
     get_buff_server_config,
+    list_buff_servers,
 )
 
 
@@ -33,6 +34,7 @@ def init_buff_manager(app: "ARKServerManagerApp") -> None:
         on_log=app._global_log if callable(getattr(app, "_global_log", None)) else None,
         discord_notify=_discord_notify,
         persist_server_config=lambda sid, cfg: buff_persist_server_config(app, sid, cfg),
+        list_all_servers=lambda: [e.id for e in list_buff_servers(app)],
     )
     app._buff_manager.add_change_callback(
         lambda: app.after(0, app._refresh_buffs_ui)

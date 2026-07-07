@@ -43,7 +43,7 @@ def now_brasilia() -> datetime:
     return datetime.now(tz=_TZ_BRASILIA).replace(tzinfo=None)
 
 
-# ── Tipos de BUFF ──────────────────────────────────────────────────────────────
+# ── Tipos de evento ──────────────────────────────────────────────────────────────
 BUFF_TYPE_XP       = "XP"
 BUFF_TYPE_DOMA     = "DOMA"
 BUFF_TYPE_BREEDING = "BREEDING"
@@ -102,22 +102,6 @@ BUFF_RATE_FIELDS: Dict[str, List[tuple]] = {
         ("resource_respawn_period_multiplier", "Respawn",        True),
     ],
 }
-
-
-def _quick_preset_sectors(multiplier: int) -> "BuffSectorMults":
-    """Preset rápido: mesmo multiplicador em todos os setores."""
-    m = float(multiplier)
-    return BuffSectorMults(xp=m, doma=m, breeding=m, farm=m)
-
-
-QUICK_PRESET_MULTS: Dict[int, "BuffSectorMults"] = {
-    5:  _quick_preset_sectors(5),
-    10: _quick_preset_sectors(10),
-    15: _quick_preset_sectors(15),
-}
-
-# Compatibilidade com imports antigos
-QUICK_PRESETS = QUICK_PRESET_MULTS
 
 
 def stack_buff_rate(base: float, buff_factor: float) -> float:
@@ -231,6 +215,22 @@ class BuffSectorMults:
             getattr(self, f) is not None
             for f in ("xp", "doma", "breeding", "farm")
         )
+
+
+def _quick_preset_sectors(multiplier: int) -> BuffSectorMults:
+    """Preset rápido: mesmo multiplicador em todos os setores."""
+    m = float(multiplier)
+    return BuffSectorMults(xp=m, doma=m, breeding=m, farm=m)
+
+
+QUICK_PRESET_MULTS: Dict[int, BuffSectorMults] = {
+    5:  _quick_preset_sectors(5),
+    10: _quick_preset_sectors(10),
+    15: _quick_preset_sectors(15),
+}
+
+# Compatibilidade com imports antigos
+QUICK_PRESETS = QUICK_PRESET_MULTS
 
 
 @dataclass
@@ -668,91 +668,167 @@ class BuffManager:
             self._save()
         self._notify()
 
+    def list_ini_backups_for(self, server_id: str) -> List[Path]:
+        cfg = self._get_server_config(server_id)
+        if not cfg:
+            return []
+        return list_ini_backups(cfg)
+
+    def get_emergency_state(self) -> Optional[dict]:
+        with self._lock:
+            if not self._emergency_active:
+                return None
+            return {
+                "deadline": self._emergency_deadline,
+                "server_ids": list(self._emergency_server_ids),
+            }
+
+    def start_emergency_restore(
+        self,
+        server_ids: List[str],
+        backup_paths: Optional[Dict[str, str]] = None,
+        *,
+        cluster_wide_warning: bool = True,
+    ) -> Optional[str]:
+        """Restauração: aviso global (opcional) → aguarda 5 min → save/stop/restore/start."""
+        if not server_ids:
+            return "Nenhum servidor selecionado."
+        with self._lock:
+            if self._emergency_active:
+                return "Já existe uma restauração de emergência em andamento."
+
+        threading.Thread(
+            target=self._emergency_restore_worker,
+            args=(list(server_ids), backup_paths or {}),
+            kwargs={"cluster_wide_warning": cluster_wide_warning},
+            daemon=True,
+            name="ARKBuffEmergency",
+        ).start()
+        return None
+
     # ── INI backup / restore / apply ──────────────────────────────────────────
 
     def _backup_ini(self, server_id: str, buff_name: str) -> Optional[str]:
         cfg = self._get_server_config(server_id)
-        if not cfg or not cfg.install_dir:
+        if not cfg:
             return None
-        ts   = now_brasilia().strftime("%Y%m%d_%H%M%S")
-        safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in buff_name)
-        bdir = self._backups_dir / safe / ts
-        bdir.mkdir(parents=True, exist_ok=True)
-        for fname in ("GameUserSettings.ini", "Game.ini"):
-            src = get_ini_path(cfg.install_dir, fname)
-            if src.exists():
-                shutil.copy2(str(src), str(bdir / fname))
-        self._on_log(f"[Evento Sazonal] Backup salvo em: {bdir}", "info")
-        return str(bdir)
+        path = backup_ini_files(cfg, buff_name)
+        if path:
+            self._on_log(f"[Evento Sazonal] Backup INI (zip): {path}", "info")
+        else:
+            self._on_log("[Evento Sazonal] Falha ao criar backup INI.", "error")
+        return path
 
     def _restore_ini(self, server_id: str, backup_path: str) -> bool:
         cfg = self._get_server_config(server_id)
-        if not cfg or not cfg.install_dir:
+        if not cfg:
             return False
-        bp = Path(backup_path)
-        if not bp.exists():
-            self._on_log(f"[Evento Sazonal] Backup não encontrado: {backup_path}", "error")
-            return False
-        for fname in ("GameUserSettings.ini", "Game.ini"):
-            src = bp / fname
-            dst = get_ini_path(cfg.install_dir, fname)
-            if src.exists():
-                dst.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(str(src), str(dst))
-        self._on_log("[Evento Sazonal] INI restaurado do backup.", "info")
-        return True
+        if not backup_path:
+            backups = list_ini_backups(cfg)
+            if not backups:
+                self._on_log("[Evento Sazonal] Nenhum backup .ini disponível.", "error")
+                return False
+            backup_path = str(backups[0])
+        ok = restore_ini_from_backup(cfg, backup_path)
+        if ok:
+            self._on_log(f"[Evento Sazonal] INI restaurado de: {backup_path}", "info")
+        else:
+            self._on_log(f"[Evento Sazonal] Falha ao restaurar backup: {backup_path}", "error")
+        return ok
 
-    def _apply_rates(self, server_id: str, rates: BuffRates) -> bool:
+    def _apply_event_rates(self, server_id: str, event: BuffEvent) -> bool:
+        return self._apply_rates(
+            server_id,
+            event.rates,
+            types=event.types,
+            sector_mults=event.sector_mults,
+        )
+
+    def _apply_rates(
+        self,
+        server_id: str,
+        rates: BuffRates,
+        *,
+        types: Optional[List[str]] = None,
+        sector_mults: Optional[BuffSectorMults] = None,
+    ) -> bool:
         cfg = self._get_server_config(server_id)
         if not cfg or not getattr(cfg, "install_dir", ""):
             self._on_log("[Evento Sazonal] install_dir não configurado — rates não aplicados.", "error")
             return False
 
+        use_sectors = sector_mults is not None and sector_mults.has_any()
+        active_types = types or list(BUFF_RATE_FIELDS.keys())
+
+        def _set_field(target: object, field_name: str, new_val: float) -> None:
+            if hasattr(target, field_name):
+                setattr(target, field_name, new_val)
+                return
+            for alias in _FIELD_ALIASES.get(field_name, []):
+                if hasattr(target, alias):
+                    setattr(target, alias, new_val)
+                    return
+
         try:
             from .asm_engine.asm_server_config import AsmServerConfig
 
+            ini = None
             if isinstance(cfg, AsmServerConfig):
-                for fname_group in BUFF_RATE_FIELDS.values():
-                    for field_name, _, _ in fname_group:
-                        buff_val = getattr(rates, field_name, None)
-                        if buff_val is not None and hasattr(cfg, field_name):
-                            base = _read_rate_from_config(cfg, field_name)
-                            stacked = stack_buff_rate(base, buff_val)
-                            setattr(cfg, field_name, stacked)
-                            self._on_log(
-                                f"[Evento Sazonal] {field_name}: {base}x × {buff_val} → {stacked}x",
-                                "debug",
-                            )
-                from .asm_engine.asm_ini_manager import write_ini
-                write_ini(cfg)
-                if self._persist_server_config:
-                    self._persist_server_config(server_id, cfg)
+                target_cfg = cfg
             elif hasattr(cfg, "game_settings"):
                 ini = ArkIniManager(cfg.install_dir)
                 ini.load_game_user_settings(cfg)
                 ini.load_game_ini(cfg)
-                gs = cfg.game_settings
-                for fname_group in BUFF_RATE_FIELDS.values():
-                    for field_name, _, _ in fname_group:
-                        buff_val = getattr(rates, field_name, None)
-                        if buff_val is not None:
-                            base = _read_rate_from_config(cfg, field_name)
-                            stacked = stack_buff_rate(base, buff_val)
-                            setattr(gs, field_name, stacked)
-                            self._on_log(
-                                f"[Evento Sazonal] {field_name}: {base}x × {buff_val} → {stacked}x",
-                                "debug",
-                            )
-                ini.save_game_user_settings(cfg)
-                ini.save_game_ini(cfg)
+                target_cfg = cfg.game_settings
             else:
                 self._on_log("[Evento Sazonal] Tipo de servidor não suportado para aplicar rates.", "error")
                 return False
+
+            for buff_type in active_types:
+                fields = BUFF_RATE_FIELDS.get(buff_type, [])
+                sector_target = (
+                    _sector_mult_for_type(sector_mults, buff_type) if use_sectors else None
+                )
+                for field_name, _label, is_inv in fields:
+                    if field_name in _SECTOR_SKIP_FIELDS:
+                        continue
+                    if use_sectors:
+                        if sector_target is None:
+                            continue
+                        current = _read_rate_from_config(cfg, field_name)
+                        new_val = compute_buff_field_value(
+                            current,
+                            sector_target,
+                            is_inverse=is_inv,
+                            server_mult=self._server_mult,
+                        )
+                        _set_field(target_cfg, field_name, new_val)
+                        self._on_log(
+                            f"[Evento Sazonal] {field_name}: {current} → {new_val} "
+                            f"(setor {sector_target:g}x)",
+                            "debug",
+                        )
+                    else:
+                        buff_val = getattr(rates, field_name, None)
+                        if buff_val is None:
+                            continue
+                        current = _read_rate_from_config(cfg, field_name)
+                        stacked = stack_buff_rate(current, buff_val)
+                        _set_field(target_cfg, field_name, stacked)
+
+            if isinstance(cfg, AsmServerConfig):
+                from .asm_engine.asm_ini_manager import write_ini
+                write_ini(cfg)
+                if self._persist_server_config:
+                    self._persist_server_config(server_id, cfg)
+            elif ini is not None:
+                ini.save_game_user_settings(cfg)
+                ini.save_game_ini(cfg)
         except Exception as exc:
             self._on_log(f"[Evento Sazonal] Falha ao aplicar rates: {exc}", "error")
             return False
 
-        self._on_log("[Evento Sazonal] Rates empilhados sobre a config base e gravados nos INIs.", "info")
+        self._on_log("[Evento Sazonal] Rates aplicados e gravados nos INIs.", "info")
         return True
 
     @staticmethod
@@ -779,6 +855,50 @@ class BuffManager:
         except Exception as exc:
             self._on_log(f"[Evento Sazonal] RCON broadcast falhou: {exc}", "warning")
 
+    def _rcon_broadcast_all(self, message: str) -> None:
+        for sid in self._list_all_servers():
+            self._rcon_broadcast(sid, message)
+
+    def _rcon_saveworld(self, server_id: str) -> None:
+        from .server_config import SERVER_STATUS_RUNNING
+        cfg = self._get_server_config(server_id)
+        pwd = self._cfg_rcon_password(cfg) if cfg else ""
+        if not cfg or not cfg.rcon_enabled or not pwd:
+            return
+        if self._get_server_status(server_id) != SERVER_STATUS_RUNNING:
+            return
+        try:
+            client = RconClient("127.0.0.1", cfg.rcon_port, pwd)
+            client.connect()
+            client.send_command_safe("SaveWorld")
+            client.disconnect()
+        except Exception as exc:
+            self._on_log(f"[Evento Sazonal] SaveWorld falhou ({server_id}): {exc}", "warning")
+
+    def _graceful_stop(self, server_id: str) -> None:
+        """SaveWorld + aguarda + para o servidor."""
+        self._rcon_saveworld(server_id)
+        time.sleep(_SAVEWORLD_WAIT_SEC)
+        self._stop_server(server_id)
+
+    def _build_buff_broadcast_message(self, event: BuffEvent) -> str:
+        custom = (event.broadcast_message or "").strip()
+        summary = event.rates_summary()
+        if custom:
+            return f"{custom}  |  Rates: {summary}"
+        return f"[Evento Sazonal] ⚡ '{event.name}' ativo — {summary}"
+
+    def _maybe_broadcast_active_buff(self, event: BuffEvent) -> None:
+        interval = int(event.broadcast_interval_min or 0)
+        if interval <= 0:
+            return
+        now = time.time()
+        last = self._buff_broadcast_last.get(event.id, 0.0)
+        if now - last < interval * 60:
+            return
+        self._buff_broadcast_last[event.id] = now
+        self._rcon_broadcast(event.server_id, self._build_buff_broadcast_message(event))
+
     # ── Wait helpers ──────────────────────────────────────────────────────────
 
     def _wait_stopped(self, server_id: str, timeout: int = 180) -> bool:
@@ -802,7 +922,7 @@ class BuffManager:
     # ── Activation / deactivation workers ─────────────────────────────────────
 
     def _activate_worker(self, event: BuffEvent) -> None:
-        self._on_log(f"[Evento Sazonal] Ativando evento: '{event.name}'", "info")
+        self._on_log(f"[Evento Sazonal] Ativando: '{event.name}'", "info")
         with self._lock:
             if event.id in self._activating:
                 return
@@ -815,12 +935,12 @@ class BuffManager:
             )
             time.sleep(10)
 
-            self._stop_server(event.server_id)
+            self._graceful_stop(event.server_id)
             if not self._wait_stopped(event.server_id):
                 self._on_log("[Evento Sazonal] Timeout aguardando parada do servidor.", "warning")
 
             backup_path = self._backup_ini(event.server_id, event.name)
-            if not self._apply_rates(event.server_id, event.rates):
+            if not self._apply_event_rates(event.server_id, event):
                 raise RuntimeError("Falha ao aplicar rates nos INIs")
 
             with self._lock:
@@ -840,8 +960,9 @@ class BuffManager:
                         e.status = BUFF_STATUS_ACTIVE
                         break
                 self._save()
+            self._buff_broadcast_last[event.id] = time.time()
             self._notify()
-            self._on_log(f"[Evento Sazonal] Evento '{event.name}' ativado com sucesso.", "info")
+            self._on_log(f"[Evento Sazonal] '{event.name}' ativado com sucesso.", "info")
 
             if self._discord_notify:
                 try:
@@ -863,10 +984,9 @@ class BuffManager:
 
     def _deactivate_worker(self, event: BuffEvent, *, cancelled: bool = False) -> None:
         label = "cancelado" if cancelled else "finalizado"
-        self._on_log(f"[Evento Sazonal] Desativando evento ({label}): '{event.name}'", "info")
+        self._on_log(f"[Evento Sazonal] Desativando ({label}): '{event.name}'", "info")
 
         try:
-            # 1. Broadcast e aguarda
             msg = (
                 "[Evento Sazonal] Evento cancelado. Restaurando configurações do servidor."
                 if cancelled
@@ -875,21 +995,18 @@ class BuffManager:
             self._rcon_broadcast(event.server_id, msg)
             time.sleep(10)
 
-            # 2. Para o servidor
-            self._stop_server(event.server_id)
+            self._graceful_stop(event.server_id)
             if not self._wait_stopped(event.server_id):
                 self._on_log("[Evento Sazonal] Timeout aguardando parada do servidor.", "warning")
 
-            # 3. Restaura INI do backup
+            restored = False
             if event.backup_path:
-                self._restore_ini(event.server_id, event.backup_path)
-            else:
-                self._on_log("[Evento Sazonal] Nenhum backup disponível para restaurar.", "warning")
+                restored = self._restore_ini(event.server_id, event.backup_path)
+            if not restored:
+                self._restore_ini(event.server_id, "")
 
-            # 4. Liga o servidor
             self._start_server(event.server_id)
 
-            # 5. Marca como finalizado ou cancelado
             final_status = BUFF_STATUS_CANCELLED if cancelled else BUFF_STATUS_FINISHED
             with self._lock:
                 for e in self._events:
@@ -897,22 +1014,86 @@ class BuffManager:
                         e.status = final_status
                         break
                 self._save()
+            self._buff_broadcast_last.pop(event.id, None)
             self._notify()
-            self._on_log(f"[Evento Sazonal] Evento '{event.name}' {label}.", "info")
+            self._on_log(f"[Evento Sazonal] '{event.name}' {label}.", "info")
 
-            # 6. Notifica Discord
             if self._discord_notify:
                 try:
                     self._discord_notify("end", event)
                 except Exception:
                     pass
 
-            # 7. Recria evento para próxima ocorrência (recorrência) — não ao cancelar manualmente
             if event.recurrence and not cancelled:
                 self._reschedule_recurring(event)
         finally:
             with self._lock:
                 self._deactivating.discard(event.id)
+
+    def _emergency_restore_worker(
+        self,
+        server_ids: List[str],
+        backup_paths: Dict[str, str],
+        *,
+        cluster_wide_warning: bool = True,
+    ) -> None:
+        with self._lock:
+            self._emergency_active = True
+            self._emergency_deadline = time.monotonic() + (
+                EMERGENCY_RESTORE_DELAY_SEC if cluster_wide_warning else 0
+            )
+            self._emergency_server_ids = list(server_ids)
+            self._emergency_backup_paths = dict(backup_paths)
+        self._notify()
+
+        if cluster_wide_warning:
+            warn = (
+                "[EMERGÊNCIA] Restauração de rates originais em 5 minutos. "
+                "O servidor será reiniciado — salve seu progresso."
+            )
+            self._on_log("[BUFF] Emergência: aviso enviado a todos os servidores.", "warning")
+            self._rcon_broadcast_all(warn)
+            deadline = time.monotonic() + EMERGENCY_RESTORE_DELAY_SEC
+            while time.monotonic() < deadline:
+                if self._stop_evt.is_set():
+                    break
+                time.sleep(5)
+        else:
+            for sid in server_ids:
+                self._rcon_broadcast(
+                    sid,
+                    "[BUFF] Restaurando configurações originais — servidor reiniciará em instantes.",
+                )
+            time.sleep(10)
+
+        for sid in server_ids:
+            self._on_log(f"[Evento Sazonal] Emergência: restaurando servidor {sid}…", "warning")
+            self._graceful_stop(sid)
+            if not self._wait_stopped(sid):
+                self._on_log(f"[Evento Sazonal] Emergência: timeout parada ({sid}).", "warning")
+
+            bp = backup_paths.get(sid, "")
+            if not self._restore_ini(sid, bp):
+                self._on_log(f"[Evento Sazonal] Emergência: falha ao restaurar INI ({sid}).", "error")
+
+            active = self.get_active_event(sid)
+            if active:
+                with self._lock:
+                    for e in self._events:
+                        if e.id == active.id:
+                            e.status = BUFF_STATUS_CANCELLED
+                            break
+                    self._save()
+
+            self._start_server(sid)
+
+        with self._lock:
+            self._emergency_active = False
+            self._emergency_deadline = 0.0
+            self._emergency_server_ids = []
+            self._emergency_backup_paths = {}
+        self._notify()
+        self._on_log("[Evento Sazonal] Restauração de emergência concluída.", "info")
 
     def _reschedule_recurring(self, event: BuffEvent) -> None:
         """Cria o próximo evento recorrente com base na recorrência configurada."""
@@ -946,6 +1127,9 @@ class BuffManager:
                 status=BUFF_STATUS_SCHEDULED,
                 preset_id=event.preset_id,
                 recurrence=event.recurrence,
+                sector_mults=event.sector_mults,
+                broadcast_message=event.broadcast_message,
+                broadcast_interval_min=event.broadcast_interval_min,
             )
             err = self.add_event(new_event)
             if err:
@@ -974,6 +1158,7 @@ class BuffManager:
         to_activate: List[BuffEvent]   = []
         to_deactivate: List[BuffEvent] = []
         to_warn: List[tuple] = []  # (event, label, key)
+        active_broadcast: List[BuffEvent] = []
 
         with self._lock:
             for e in self._events:
@@ -998,6 +1183,7 @@ class BuffManager:
                 elif e.status == BUFF_STATUS_ACTIVE:
                     if e.id in self._deactivating:
                         continue
+                    active_broadcast.append(e)
                     try:
                         end = e.end_datetime()
                         if end <= now:
@@ -1028,6 +1214,9 @@ class BuffManager:
                     e.server_id,
                     f"[Evento Sazonal] ⏳ '{e.name}' encerra em {label}.",
                 )
+
+        for e in active_broadcast:
+            self._maybe_broadcast_active_buff(e)
 
         for e in to_activate:
             with self._lock:
