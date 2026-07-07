@@ -4533,6 +4533,62 @@
       line-height: 1.55;
       margin-bottom: 14px;
     }
+    .encomenda-rule-callout {
+      margin: 0 0 16px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 180, 0, .35);
+      background: rgba(255, 180, 0, .08);
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text);
+    }
+    .encomenda-rule-callout strong { color: var(--amber); display: block; margin-bottom: 4px; }
+    .encomenda-showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .encomenda-showcase-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: var(--surface2);
+      cursor: pointer;
+      transition: border-color .15s, transform .15s;
+    }
+    .encomenda-showcase-card:hover { border-color: var(--amber); transform: translateY(-1px); }
+    .encomenda-showcase-card.is-selected { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+    .encomenda-showcase-card__img {
+      aspect-ratio: 4/3;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .encomenda-showcase-card__img img { width: 100%; height: 100%; object-fit: cover; }
+    .encomenda-showcase-card__body { padding: 10px; font-size: 12px; }
+    .encomenda-showcase-card__name { font-weight: 600; margin-bottom: 4px; }
+    .encomenda-showcase-card__meta { color: var(--text2); font-size: 11px; }
+    .encomenda-showcase-strip {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      margin-bottom: 10px;
+    }
+    .encomenda-showcase-strip .encomenda-showcase-card { flex: 0 0 120px; }
+    .encomenda-showcase-detail {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 8px;
+      background: var(--surface2);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .encomenda-showcase-detail__title { font-weight: 600; margin-bottom: 6px; }
+    .encomenda-showcase-detail__desc { color: var(--text2); white-space: pre-wrap; }
     .home-commerce__cmd {
       display: flex;
       flex-wrap: wrap;
@@ -5187,6 +5243,10 @@
             <p>Encomenda de Dino desabilitada neste servidor.</p>
           </div>
           <div id="market-encomenda-content" style="display:none;">
+            <div class="encomenda-rule-callout" role="note">
+              <strong>Catálogo curado pela equipe</strong>
+              Somente os dinos exibidos nesta galeria estão disponíveis para encomenda. Outras espécies não aparecem aqui até a administração publicar novas referências de cor — acompanhe as atualizações do servidor.
+            </div>
             <div class="catalog-toolbar" style="margin-bottom:16px;">
               <div class="catalog-search-wrap">
                 <input id="encomenda-search" type="search" placeholder="Buscar espécie…" autocomplete="off" oninput="renderEncomendaGallery()" />
@@ -5201,7 +5261,7 @@
               Encomende dinos sob medida — cores, stats e sexo. Preço calculado com paridade ao mercado + prêmio de serviço.
             </p>
             <div id="encomenda-gallery" class="catalog-dinos-grid"></div>
-            <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie disponível.</p>
+            <p id="encomenda-gallery-empty" style="display:none;color:var(--text2);text-align:center;padding:32px;">Nenhuma espécie disponível na galeria. A equipe ainda não publicou referências de cor.</p>
             <details style="margin-top:20px;">
               <summary style="cursor:pointer;font-size:13px;color:var(--text2);">🔍 Verificar ID da criatura (Dino Lab)</summary>
               <div class="card" style="margin-top:12px;">
@@ -5213,60 +5273,6 @@
                 <div id="encomenda-check-result" style="margin-top:14px;font-size:13px;"></div>
               </div>
             </details>
-          </div>
-        </div>
-        <div id="encomenda-wizard-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="encomenda-wizard-title">
-          <div class="modal-backdrop" onclick="closeEncomendaWizard()"></div>
-          <div class="modal-content" style="max-width:520px;max-height:90vh;overflow-y:auto;">
-            <div class="modal-header">
-              <h3 id="encomenda-wizard-title">Encomendar dino</h3>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="closeEncomendaWizard()">✕</button>
-            </div>
-            <div id="encomenda-wizard-body" style="padding:16px;">
-              <div id="encomenda-wizard-species" style="font-weight:600;margin-bottom:12px;"></div>
-              <div class="form-grid">
-                <div class="form-group">
-                  <label>Sexo</label>
-                  <select id="encomenda-gender" onchange="encomendaRefreshQuote()">
-                    <option value="female">Fêmea</option>
-                    <option value="male">Macho</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label>Nível</label>
-                  <input id="encomenda-level" type="number" min="1" max="450" value="150" onchange="encomendaRefreshQuote()" />
-                </div>
-                <div class="form-group" style="grid-column:1/-1;">
-                  <label><input id="encomenda-neutered" type="checkbox" onchange="encomendaRefreshQuote()" /> Castrado</label>
-                </div>
-                <div class="form-group" style="grid-column:1/-1;">
-                  <label>Vida (pontos desejados) <span id="encomenda-hp-val">0</span></label>
-                  <input id="encomenda-hp" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-hp-val').textContent=this.value;encomendaRefreshQuote()" />
-                </div>
-                <div class="form-group" style="grid-column:1/-1;">
-                  <label>Dano (pontos desejados) <span id="encomenda-melee-val">0</span></label>
-                  <input id="encomenda-melee" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-melee-val').textContent=this.value;encomendaRefreshQuote()" />
-                </div>
-                <div class="form-group" style="grid-column:1/-1;">
-                  <label>Cores (6 regiões — índice Obelisk 0–255)</label>
-                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
-                    <input id="encomenda-color-0" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-                    <input id="encomenda-color-1" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-                    <input id="encomenda-color-2" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-                    <input id="encomenda-color-3" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-                    <input id="encomenda-color-4" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-                    <input id="encomenda-color-5" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
-                  </div>
-                </div>
-              </div>
-              <div id="encomenda-quote-box" style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;">
-                <div style="color:var(--text2);">Calculando cotação…</div>
-              </div>
-              <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="btn btn-primary" id="encomenda-checkout-btn" onclick="encomendaCheckout()">Pagar e encomendar</button>
-                <button class="btn btn-ghost" onclick="closeEncomendaWizard()">Cancelar</button>
-              </div>
-            </div>
           </div>
         </div>
         <div id="market-panel-myshop" class="catalog-panel">
@@ -6971,6 +6977,7 @@
           <button type="button" class="catalog-tab active" data-dinolab-tab="deliver" onclick="setDinoLabTab('deliver')">Nova entrega</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="history" onclick="setDinoLabTab('history')">Histórico</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="encomenda" onclick="setDinoLabTab('encomenda')">Encomendas</button>
+          <button type="button" class="catalog-tab" data-dinolab-tab="showcase" onclick="setDinoLabTab('showcase')">Galeria cores</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="block" onclick="setDinoLabTab('block')">IDs bloqueados</button>
         </div>
         <div id="dinolab-panel-deliver" class="catalog-panel active">
@@ -7148,6 +7155,76 @@
             <p style="font-size:12px;color:var(--text2);margin:0;">Pedidos pagos aguardando aprovação ou com falha de entrega.</p>
           </div>
           <div id="dinolab-encomenda-list" style="color:var(--text2);">Carregando…</div>
+        </div>
+        <div id="dinolab-panel-showcase" class="catalog-panel">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">Galeria de cores — catálogo de encomendas</div>
+            <p style="font-size:12px;color:var(--text2);margin:8px 0 0;line-height:1.55;">
+              Apenas espécies com pelo menos uma vitrine ativa aparecem para os jogadores em <strong>Comércio → Encomenda</strong>.
+              Máximo <strong>10 imagens</strong> por espécie. Publique referências visuais com cores Obelisk e descrição para orientar o pedido.
+            </p>
+          </div>
+          <div class="form-grid" style="margin-bottom:12px;">
+            <div class="form-group">
+              <label>Espécie (species_key)</label>
+              <select id="dl-showcase-species" onchange="loadDinoLabShowcaseAdmin()"></select>
+            </div>
+            <div class="form-group" style="align-self:end;">
+              <span id="dl-showcase-counter" style="font-size:13px;font-weight:600;color:var(--amber);">0/10</span>
+            </div>
+          </div>
+          <div id="dl-showcase-list" style="margin-bottom:16px;color:var(--text2);">Selecione uma espécie.</div>
+          <div class="card">
+            <div class="card-title" id="dl-showcase-form-title">Nova vitrine</div>
+            <input type="hidden" id="dl-showcase-edit-id" value="" />
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Nome da cor / variante</label>
+                <input id="dl-showcase-color-name" type="text" placeholder="Rex vermelho PvP" />
+              </div>
+              <div class="form-group">
+                <label>Regiões (rótulo)</label>
+                <input id="dl-showcase-regions" type="text" placeholder="Corpo, patas, crânio" />
+              </div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>Descrição / informações importantes</label>
+                <textarea id="dl-showcase-description" rows="3" placeholder="Detalhes visuais, IDs de cor usados, observações…"></textarea>
+              </div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>Cores Obelisk (6 regiões, 0–255)</label>
+                <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;">
+                  <input id="dl-showcase-color-0" type="number" min="0" max="255" value="0" />
+                  <input id="dl-showcase-color-1" type="number" min="0" max="255" value="0" />
+                  <input id="dl-showcase-color-2" type="number" min="0" max="255" value="0" />
+                  <input id="dl-showcase-color-3" type="number" min="0" max="255" value="0" />
+                  <input id="dl-showcase-color-4" type="number" min="0" max="255" value="0" />
+                  <input id="dl-showcase-color-5" type="number" min="0" max="255" value="0" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Ordem</label>
+                <input id="dl-showcase-sort" type="number" value="0" />
+              </div>
+              <div class="form-group" style="align-self:end;">
+                <label><input id="dl-showcase-active" type="checkbox" checked /> Ativa</label>
+              </div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>Imagem (upload)</label>
+                <input id="dl-showcase-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" />
+              </div>
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>ou URL da imagem</label>
+                <input id="dl-showcase-image-url" type="text" placeholder="/api/dino-order/showcase-images/… ou https://…" />
+              </div>
+              <div class="form-group" style="grid-column:1/-1;" id="dl-showcase-preview-wrap" class="hidden">
+                <img id="dl-showcase-preview" alt="" style="max-width:200px;border-radius:8px;border:1px solid var(--border);" />
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="dl-showcase-save-btn" onclick="dinoLabShowcaseSave()">Salvar vitrine</button>
+              <button class="btn btn-ghost btn-sm" onclick="dinoLabShowcaseResetForm()">Limpar formulário</button>
+            </div>
+          </div>
         </div>
         <div id="dinolab-panel-block" class="catalog-panel">
           <div class="card" style="margin-bottom:16px;">
@@ -7670,6 +7747,89 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-kit')">Cancelar</button>
       <button class="btn btn-success" id="modal-kit-save-btn" onclick="confirmKit()">💾 Salvar & Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Encomenda — wizard ───────────────────────────────────────────── -->
+<div id="encomenda-wizard-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="encomenda-wizard-title" onclick="if(event.target===this)closeEncomendaWizard()">
+  <div class="modal" style="max-width:560px;max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="encomenda-wizard-title">Encomendar dino</div>
+      <button type="button" class="modal-close" onclick="closeEncomendaWizard()">✕</button>
+    </div>
+    <div id="encomenda-wizard-body">
+      <div id="encomenda-wizard-species" style="font-weight:600;margin-bottom:12px;"></div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Sexo</label>
+          <select id="encomenda-gender" onchange="encomendaRefreshQuote()">
+            <option value="female">Fêmea</option>
+            <option value="male">Macho</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Nível</label>
+          <input id="encomenda-level" type="number" min="1" max="450" value="150" onchange="encomendaRefreshQuote()" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label><input id="encomenda-neutered" type="checkbox" onchange="encomendaRefreshQuote()" /> Castrado</label>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Vida (pontos desejados) <span id="encomenda-hp-val">0</span></label>
+          <input id="encomenda-hp" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-hp-val').textContent=this.value;encomendaRefreshQuote()" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Dano (pontos desejados) <span id="encomenda-melee-val">0</span></label>
+          <input id="encomenda-melee" type="range" min="0" max="254" value="0" oninput="document.getElementById('encomenda-melee-val').textContent=this.value;encomendaRefreshQuote()" />
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Referências de cor (clique para aplicar)</label>
+          <div id="encomenda-wizard-showcases-wrap" class="hidden">
+            <div id="encomenda-wizard-showcases" class="encomenda-showcase-strip"></div>
+            <div id="encomenda-wizard-showcase-detail" class="encomenda-showcase-detail hidden"></div>
+          </div>
+          <p id="encomenda-wizard-showcases-empty" class="hidden" style="font-size:12px;color:var(--text2);margin:0;">Sem referências visuais para esta espécie.</p>
+        </div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <label>Cores (6 regiões — índice Obelisk 0–255)</label>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
+            <input id="encomenda-color-0" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+            <input id="encomenda-color-1" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+            <input id="encomenda-color-2" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+            <input id="encomenda-color-3" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+            <input id="encomenda-color-4" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+            <input id="encomenda-color-5" type="number" min="0" max="255" value="0" onchange="encomendaRefreshQuote()" />
+          </div>
+        </div>
+      </div>
+      <div id="encomenda-quote-box" style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;">
+        <div style="color:var(--text2);">Calculando cotação…</div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="encomenda-checkout-btn" onclick="encomendaCheckout()">Pagar e encomendar</button>
+        <button class="btn btn-ghost" onclick="closeEncomendaWizard()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Encomenda — galeria de cores ─────────────────────────────────── -->
+<div id="encomenda-showcase-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="encomenda-showcase-title" onclick="if(event.target===this)closeEncomendaShowcaseModal()">
+  <div class="modal" style="max-width:720px;max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="encomenda-showcase-title">Cores disponíveis</div>
+        <div id="encomenda-showcase-subtitle" style="font-size:12px;color:var(--text2);margin-top:4px;"></div>
+      </div>
+      <button type="button" class="modal-close" onclick="closeEncomendaShowcaseModal()">✕</button>
+    </div>
+    <div id="encomenda-showcase-body">
+      <div style="color:var(--text2);font-size:13px;">Carregando…</div>
+    </div>
+    <div class="modal-footer" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary" id="encomenda-showcase-order-btn" onclick="encomendaShowcaseOrder()">Encomendar esta espécie</button>
+      <button type="button" class="btn btn-ghost" onclick="closeEncomendaShowcaseModal()">Fechar</button>
     </div>
   </div>
 </div>
@@ -11813,9 +11973,11 @@ function setDinoLabTab(tab) {
   document.getElementById("dinolab-panel-deliver")?.classList.toggle("active", tab === "deliver");
   document.getElementById("dinolab-panel-history")?.classList.toggle("active", tab === "history");
   document.getElementById("dinolab-panel-encomenda")?.classList.toggle("active", tab === "encomenda");
+  document.getElementById("dinolab-panel-showcase")?.classList.toggle("active", tab === "showcase");
   document.getElementById("dinolab-panel-block")?.classList.toggle("active", tab === "block");
   if (tab === "history") loadDinoLabHistory();
   if (tab === "encomenda") loadDinoLabEncomendaQueue();
+  if (tab === "showcase") loadDinoLabShowcaseAdminInit();
   if (tab === "block") loadDinoLabBlockList();
 }
 
@@ -13150,17 +13312,171 @@ function renderEncomendaGallery() {
       ? `<img src="${escHtml(s.image_url)}" alt="" loading="lazy" />`
       : `<span class="item-card__icon">🦕</span>`;
     const tier = s.tier ? `<span class="item-card__tier-badge">${escHtml(s.tier)}</span>` : "";
+    const sk = escHtml(s.species_key);
+    const sc = parseInt(s.showcase_count, 10) || 0;
     return `<article class="item-card">
       <div class="item-card__thumb">${thumb}${tier}</div>
       <div class="item-card__body">
         <div class="item-card__name">${escHtml(s.display_name || s.species_key)}</div>
-        <div class="item-card__meta-line">a partir de ${amberPriceHtml(s.starting_price || 0, 14)}</div>
-        <div class="item-card__footer">
-          <button class="btn btn-primary btn-sm btn-buy" onclick="openEncomendaWizard('${escHtml(s.species_key)}')">ENCOMENDAR MEU DINO</button>
+        <div class="item-card__meta-line">a partir de ${amberPriceHtml(s.starting_price || 0, 14)}${sc ? ` · ${sc} cor${sc > 1 ? "es" : ""}` : ""}</div>
+        <div class="item-card__footer" style="display:flex;flex-direction:column;gap:6px;">
+          <button class="btn btn-ghost btn-sm" onclick="openEncomendaShowcaseModal('${sk}')">Ver cores</button>
+          <button class="btn btn-primary btn-sm btn-buy" onclick="openEncomendaWizard('${sk}')">ENCOMENDAR MEU DINO</button>
         </div>
       </div>
     </article>`;
   }).join("");
+}
+
+let _encomendaShowcaseSpeciesKey = null;
+let _encomendaShowcaseItems = [];
+let _encomendaShowcaseSelectedId = null;
+const _encomendaShowcaseCache = {};
+
+function encomendaShowcaseCardHtml(sc, { compact, onclick }) {
+  const img = sc.image_url
+    ? `<img src="${escHtml(sc.image_url)}" alt="" loading="lazy" />`
+    : `<span style="font-size:28px;">🎨</span>`;
+  const sel = _encomendaShowcaseSelectedId === sc.id ? " is-selected" : "";
+  const regions = sc.regions_label ? `<div class="encomenda-showcase-card__meta">${escHtml(sc.regions_label)}</div>` : "";
+  return `<article class="encomenda-showcase-card${sel}" ${onclick ? `onclick="${onclick}"` : ""} data-showcase-id="${escHtml(sc.id)}">
+    <div class="encomenda-showcase-card__img">${img}</div>
+    <div class="encomenda-showcase-card__body">
+      <div class="encomenda-showcase-card__name">${escHtml(sc.color_name || "Cor")}</div>
+      ${regions}
+    </div>
+  </article>`;
+}
+
+async function fetchEncomendaShowcases(speciesKey) {
+  if (_encomendaShowcaseCache[speciesKey]) return _encomendaShowcaseCache[speciesKey];
+  const d = await fetchJson("/api/player/dino-order/showcases?species_key=" + encodeURIComponent(speciesKey));
+  if (!d.ok) throw new Error(d.message || d.error || "Falha ao carregar cores");
+  _encomendaShowcaseCache[speciesKey] = d.showcases || [];
+  return _encomendaShowcaseCache[speciesKey];
+}
+
+function encomendaApplyShowcaseColors(sc) {
+  if (!sc || !Array.isArray(sc.colors)) return;
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById("encomenda-color-" + i);
+    if (el) el.value = String(parseInt(sc.colors[i], 10) || 0);
+  }
+  _encomendaShowcaseSelectedId = sc.id;
+  encomendaRenderWizardShowcaseDetail(sc);
+  encomendaRefreshQuote();
+}
+
+function encomendaRenderWizardShowcaseDetail(sc) {
+  const detail = document.getElementById("encomenda-wizard-showcase-detail");
+  if (!detail || !sc) { if (detail) detail.classList.add("hidden"); return; }
+  detail.classList.remove("hidden");
+  detail.innerHTML = `
+    <div class="encomenda-showcase-detail__title">${escHtml(sc.color_name || "")}</div>
+    ${sc.regions_label ? `<div style="font-size:12px;color:var(--text3);margin-bottom:6px;">${escHtml(sc.regions_label)}</div>` : ""}
+    <div class="encomenda-showcase-detail__desc">${escHtml(sc.description || "")}</div>`;
+}
+
+async function encomendaLoadWizardShowcases(speciesKey) {
+  const wrap = document.getElementById("encomenda-wizard-showcases-wrap");
+  const strip = document.getElementById("encomenda-wizard-showcases");
+  const empty = document.getElementById("encomenda-wizard-showcases-empty");
+  const detail = document.getElementById("encomenda-wizard-showcase-detail");
+  if (!wrap || !strip) return;
+  _encomendaShowcaseSelectedId = null;
+  if (detail) { detail.classList.add("hidden"); detail.innerHTML = ""; }
+  try {
+    const items = await fetchEncomendaShowcases(speciesKey);
+    if (!items.length) {
+      wrap.classList.add("hidden");
+      if (empty) empty.classList.remove("hidden");
+      strip.innerHTML = "";
+      return;
+    }
+    if (empty) empty.classList.add("hidden");
+    wrap.classList.remove("hidden");
+    strip.innerHTML = items.map(sc =>
+      encomendaShowcaseCardHtml(sc, { compact: true, onclick: `encomendaWizardPickShowcase('${escHtml(sc.id)}')` })
+    ).join("");
+  } catch (_) {
+    wrap.classList.add("hidden");
+    if (empty) { empty.classList.remove("hidden"); empty.textContent = "Não foi possível carregar as referências."; }
+  }
+}
+
+function encomendaWizardPickShowcase(id) {
+  const sp = _encomendaWizardSpecies;
+  if (!sp) return;
+  const items = _encomendaShowcaseCache[sp.species_key] || [];
+  const sc = items.find(x => x.id === id);
+  if (!sc) return;
+  encomendaApplyShowcaseColors(sc);
+  document.querySelectorAll("#encomenda-wizard-showcases .encomenda-showcase-card").forEach(el => {
+    el.classList.toggle("is-selected", el.getAttribute("data-showcase-id") === id);
+  });
+}
+
+async function openEncomendaShowcaseModal(speciesKey) {
+  const sp = (window._encomendaSpecies || []).find(s => s.species_key === speciesKey);
+  if (!sp) return;
+  _encomendaShowcaseSpeciesKey = speciesKey;
+  _encomendaShowcaseSelectedId = null;
+  document.getElementById("encomenda-showcase-title").textContent = "Cores — " + (sp.display_name || speciesKey);
+  document.getElementById("encomenda-showcase-subtitle").textContent = "Clique em uma referência para ver detalhes.";
+  const body = document.getElementById("encomenda-showcase-body");
+  if (body) body.innerHTML = '<div style="color:var(--text2);">Carregando…</div>';
+  document.getElementById("encomenda-showcase-modal")?.classList.remove("hidden");
+  try {
+    _encomendaShowcaseItems = await fetchEncomendaShowcases(speciesKey);
+    if (!_encomendaShowcaseItems.length) {
+      body.innerHTML = "<p style='color:var(--text2);'>Sem referências publicadas.</p>";
+      return;
+    }
+    body.innerHTML = `
+      <div class="encomenda-showcase-grid" id="encomenda-showcase-grid"></div>
+      <div id="encomenda-showcase-detail" class="encomenda-showcase-detail hidden"></div>`;
+    const grid = document.getElementById("encomenda-showcase-grid");
+    grid.innerHTML = _encomendaShowcaseItems.map(sc =>
+      encomendaShowcaseCardHtml(sc, { compact: false, onclick: `encomendaModalPickShowcase('${escHtml(sc.id)}')` })
+    ).join("");
+    encomendaModalPickShowcase(_encomendaShowcaseItems[0].id);
+  } catch (e) {
+    if (body) body.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;
+  }
+}
+
+function encomendaModalPickShowcase(id) {
+  const sc = (_encomendaShowcaseItems || []).find(x => x.id === id);
+  if (!sc) return;
+  _encomendaShowcaseSelectedId = id;
+  document.querySelectorAll("#encomenda-showcase-grid .encomenda-showcase-card").forEach(el => {
+    el.classList.toggle("is-selected", el.getAttribute("data-showcase-id") === id);
+  });
+  const detail = document.getElementById("encomenda-showcase-detail");
+  if (!detail) return;
+  detail.classList.remove("hidden");
+  const img = sc.image_url ? `<img src="${escHtml(sc.image_url)}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:10px;" />` : "";
+  detail.innerHTML = `
+    ${img}
+    <div class="encomenda-showcase-detail__title">${escHtml(sc.color_name || "")}</div>
+    ${sc.regions_label ? `<div style="font-size:12px;color:var(--text3);margin-bottom:6px;">${escHtml(sc.regions_label)}</div>` : ""}
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Cores: [${(sc.colors || []).join(", ")}]</div>
+    <div class="encomenda-showcase-detail__desc">${escHtml(sc.description || "")}</div>`;
+}
+
+function closeEncomendaShowcaseModal() {
+  document.getElementById("encomenda-showcase-modal")?.classList.add("hidden");
+  _encomendaShowcaseSpeciesKey = null;
+  _encomendaShowcaseItems = [];
+  _encomendaShowcaseSelectedId = null;
+}
+
+function encomendaShowcaseOrder() {
+  const key = _encomendaShowcaseSpeciesKey;
+  const sc = (_encomendaShowcaseItems || []).find(x => x.id === _encomendaShowcaseSelectedId);
+  closeEncomendaShowcaseModal();
+  openEncomendaWizard(key);
+  if (sc) setTimeout(() => encomendaApplyShowcaseColors(sc), 50);
 }
 
 function openEncomendaWizard(speciesKey) {
@@ -13180,6 +13496,7 @@ function openEncomendaWizard(speciesKey) {
     if (el) el.value = "0";
   }
   document.getElementById("encomenda-wizard-modal")?.classList.remove("hidden");
+  encomendaLoadWizardShowcases(speciesKey);
   encomendaRefreshQuote();
 }
 
@@ -13187,6 +13504,177 @@ function closeEncomendaWizard() {
   document.getElementById("encomenda-wizard-modal")?.classList.add("hidden");
   _encomendaWizardSpecies = null;
   _encomendaQuote = null;
+  _encomendaShowcaseSelectedId = null;
+}
+
+let _dinoLabShowcaseMax = 10;
+
+async function loadDinoLabShowcaseAdminInit() {
+  const sel = document.getElementById("dl-showcase-species");
+  if (!sel || sel.options.length > 1) {
+    loadDinoLabShowcaseAdmin();
+    return;
+  }
+  try {
+    const sp = await fetchJson("/api/admin/custom-dino/species?vanilla_only=1");
+    const species = (sp.ok && sp.species) ? sp.species : [];
+    sel.innerHTML = species.map(s =>
+      `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name || s.species_key)}</option>`
+    ).join("");
+    if (!species.length) sel.innerHTML = '<option value="">— sem espécies —</option>';
+    loadDinoLabShowcaseAdmin();
+  } catch (e) {
+    if (sel) sel.innerHTML = '<option value="">Erro ao carregar</option>';
+  }
+}
+
+function dinoLabShowcaseResetForm() {
+  document.getElementById("dl-showcase-edit-id").value = "";
+  document.getElementById("dl-showcase-form-title").textContent = "Nova vitrine";
+  document.getElementById("dl-showcase-color-name").value = "";
+  document.getElementById("dl-showcase-regions").value = "";
+  document.getElementById("dl-showcase-description").value = "";
+  document.getElementById("dl-showcase-sort").value = "0";
+  document.getElementById("dl-showcase-active").checked = true;
+  document.getElementById("dl-showcase-image-url").value = "";
+  document.getElementById("dl-showcase-file").value = "";
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById("dl-showcase-color-" + i);
+    if (el) el.value = "0";
+  }
+  const prev = document.getElementById("dl-showcase-preview-wrap");
+  if (prev) prev.classList.add("hidden");
+}
+
+function dinoLabShowcaseEditEntry(entryId) {
+  const entry = (window._dlShowcaseEntries || {})[entryId];
+  if (!entry) return;
+  document.getElementById("dl-showcase-edit-id").value = entry.id || "";
+  document.getElementById("dl-showcase-form-title").textContent = "Editar vitrine";
+  document.getElementById("dl-showcase-color-name").value = entry.color_name || "";
+  document.getElementById("dl-showcase-regions").value = entry.regions_label || "";
+  document.getElementById("dl-showcase-description").value = entry.description || "";
+  document.getElementById("dl-showcase-sort").value = String(entry.sort_order || 0);
+  document.getElementById("dl-showcase-active").checked = !!entry.active;
+  document.getElementById("dl-showcase-image-url").value = entry.image_url || "";
+  const colors = entry.colors || [];
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById("dl-showcase-color-" + i);
+    if (el) el.value = String(colors[i] ?? 0);
+  }
+  const prev = document.getElementById("dl-showcase-preview-wrap");
+  const img = document.getElementById("dl-showcase-preview");
+  if (entry.image_url && prev && img) {
+    img.src = entry.image_url;
+    prev.classList.remove("hidden");
+  } else if (prev) prev.classList.add("hidden");
+}
+
+async function loadDinoLabShowcaseAdmin() {
+  const speciesKey = document.getElementById("dl-showcase-species")?.value || "";
+  const list = document.getElementById("dl-showcase-list");
+  const counter = document.getElementById("dl-showcase-counter");
+  const saveBtn = document.getElementById("dl-showcase-save-btn");
+  if (!speciesKey || !list) {
+    if (list) list.textContent = "Selecione uma espécie.";
+    return;
+  }
+  list.textContent = "Carregando…";
+  try {
+    const d = await fetchJson("/api/admin/dino-order/showcases?species_key=" + encodeURIComponent(speciesKey));
+    if (!d.ok) throw new Error(d.message || d.error);
+    const count = d.count ?? (d.showcases || []).length;
+    const max = d.max_per_species || _dinoLabShowcaseMax;
+    _dinoLabShowcaseMax = max;
+    if (counter) counter.textContent = `${count}/${max}`;
+    const atLimit = count >= max && !document.getElementById("dl-showcase-edit-id")?.value;
+    if (saveBtn) saveBtn.disabled = atLimit;
+    const items = d.showcases || [];
+    if (!items.length) {
+      list.innerHTML = "<p style='color:var(--text2);'>Nenhuma vitrine. Adicione a primeira abaixo — a espécie só aparece para jogadores após publicar.</p>";
+      return;
+    }
+    list.innerHTML = `<div class="encomenda-showcase-grid">${items.map(e => {
+      window._dlShowcaseEntries = window._dlShowcaseEntries || {};
+      window._dlShowcaseEntries[e.id] = e;
+      const thumb = e.image_url ? `<img src="${escHtml(e.image_url)}" alt="" loading="lazy" />` : `<span style="font-size:28px;">🎨</span>`;
+      const badge = e.active ? "" : ' <span style="color:var(--amber);">(inativa)</span>';
+      return `<article class="encomenda-showcase-card" style="cursor:default;">
+        <div class="encomenda-showcase-card__img">${thumb}</div>
+        <div class="encomenda-showcase-card__body">
+          <div class="encomenda-showcase-card__name">${escHtml(e.color_name)}${badge}</div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="dinoLabShowcaseEditEntry('${escHtml(e.id)}')">Editar</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="dinoLabShowcaseDelete('${escHtml(e.id)}')">Excluir</button>
+          </div>
+        </div>
+      </article>`;
+    }).join("")}</div>`;
+  } catch (e) {
+    list.innerHTML = `<p style="color:var(--danger);">${escHtml(e.message)}</p>`;
+  }
+}
+
+async function dinoLabShowcaseSave() {
+  const speciesKey = document.getElementById("dl-showcase-species")?.value || "";
+  const editId = document.getElementById("dl-showcase-edit-id")?.value || "";
+  if (!speciesKey) return toast("Selecione uma espécie", "error");
+  const colors = [];
+  for (let i = 0; i < 6; i++) {
+    colors.push(parseInt(document.getElementById("dl-showcase-color-" + i)?.value || "0", 10) || 0);
+  }
+  let imageUrl = (document.getElementById("dl-showcase-image-url")?.value || "").trim();
+  const fileInput = document.getElementById("dl-showcase-file");
+  try {
+    if (fileInput?.files?.length) {
+      const fd = new FormData();
+      fd.append("file", fileInput.files[0]);
+      const r = await fetch(`${API}/api/admin/dino-order/showcases/upload`, { method: "POST", body: fd, credentials: "same-origin" });
+      const up = await r.json();
+      if (!up.ok) throw new Error(up.message || up.error || "Upload falhou");
+      imageUrl = up.image_url || imageUrl;
+    }
+    const body = {
+    species_key: speciesKey,
+    color_name: (document.getElementById("dl-showcase-color-name")?.value || "").trim(),
+    regions_label: (document.getElementById("dl-showcase-regions")?.value || "").trim(),
+    description: (document.getElementById("dl-showcase-description")?.value || "").trim(),
+    colors,
+    sort_order: parseInt(document.getElementById("dl-showcase-sort")?.value || "0", 10) || 0,
+    active: !!document.getElementById("dl-showcase-active")?.checked,
+    image_url: imageUrl,
+    };
+    const path = editId
+      ? `/api/admin/dino-order/showcases/${encodeURIComponent(editId)}`
+      : "/api/admin/dino-order/showcases";
+    const d = await fetchJson(path, {
+      method: editId ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!d.ok) throw new Error(d.message || d.error);
+    toast(editId ? "Vitrine atualizada" : "Vitrine criada", "success");
+    dinoLabShowcaseResetForm();
+    delete _encomendaShowcaseCache[speciesKey];
+    await loadDinoLabShowcaseAdmin();
+  } catch (e) {
+    toast(e.message, "error");
+  }
+}
+
+async function dinoLabShowcaseDelete(entryId) {
+  if (!entryId || !confirm("Excluir esta vitrine? A espécie pode sumir da encomenda se ficar sem referências ativas.")) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-order/showcases/" + encodeURIComponent(entryId), { method: "DELETE" });
+    if (!d.ok) throw new Error(d.message || d.error);
+    toast("Vitrine excluída", "success");
+    const speciesKey = document.getElementById("dl-showcase-species")?.value || "";
+    delete _encomendaShowcaseCache[speciesKey];
+    dinoLabShowcaseResetForm();
+    await loadDinoLabShowcaseAdmin();
+  } catch (e) {
+    toast(e.message, "error");
+  }
 }
 
 function encomendaBuildSpec() {

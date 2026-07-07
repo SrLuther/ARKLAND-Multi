@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.13] - 2026-07-07
+
+### Feature
+
+- Feat (Nível do jogador): toggle Progressões customizadas no painel TEK/ASM — rampa single-line e engramas 400/nível só quando habilitado.
+
+### Fix
+
+- Fix (Nível do jogador): modo simples (vanilla) — espelha ASM EnableLevelProgressions=false; não reescreve LevelExperienceRampOverrides, remove rampa antiga no save, cap via OverrideMaxExperiencePointsPlayer no GUS com curva vanilla.
+- Fix (Encomenda Dino): modal corrigido, vitrine/galeria de showcase, deduplicação de pedidos e melhorias na Web Store.
+
 ## [1.10.12] - 2026-07-07
 
 ### Feature

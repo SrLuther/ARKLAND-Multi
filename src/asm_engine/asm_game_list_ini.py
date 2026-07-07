@@ -229,8 +229,63 @@ def populate_lists_from_game_ini(cfg: "AsmServerConfig", game_path: Path) -> Non
                 cfg.prevent_dino_tame_class_names.append(n)
 
 
+def extract_ini_section_text(text: str, section: str) -> str:
+    """Extrai o corpo de uma seção INI (sem o cabeçalho ``[...]``)."""
+    header = f"[{section}]"
+    lines: list[str] = []
+    in_section = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.lower() == header.lower():
+            in_section = True
+            continue
+        if in_section and line.startswith("["):
+            break
+        if in_section and line:
+            lines.append(raw.rstrip("\r\n"))
+    return "\n".join(lines)
+
+
+def count_ramp_lines_in_section(text: str, section: str = _GAME_MODE_SECTION) -> int:
+    """Conta slots ExperiencePointsForLevel da rampa de jogador na seção."""
+    from ..player_level_ramp import parse_ramp_from_text
+
+    block = extract_ini_section_text(text, section)
+    if not block:
+        return 0
+    return int(parse_ramp_from_text(block).get("entry_count", 0) or 0)
+
+
+def _insert_lines_in_ini_section(text: str, section: str, block: str) -> str | None:
+    """Insere ``block`` antes da próxima seção ou no fim da seção alvo."""
+    header = f"[{section}]"
+    lower = text.lower()
+    idx = lower.find(header.lower())
+    if idx < 0:
+        return None
+
+    line_end = text.find("\n", idx)
+    if line_end < 0:
+        return text + "\r\n" + block
+
+    pos = line_end + 1
+    while pos < len(text):
+        line_start = pos
+        next_nl = text.find("\n", pos)
+        line = text[pos:] if next_nl < 0 else text[pos:next_nl]
+        if line.strip().startswith("["):
+            return text[:line_start] + block + text[line_start:]
+        if next_nl < 0:
+            break
+        pos = next_nl + 1
+
+    if not text.endswith("\r\n"):
+        text += "\r\n"
+    return text + block
+
+
 def patch_game_ini_repeated_lines(path: Path, new_lines: list[str]) -> None:
-    """Remove chaves repetidas antigas e anexa novas linhas ao final do Game.ini."""
+    """Remove chaves repetidas antigas e reinsere dentro de ShooterGameMode."""
     if not path.exists():
         return
     try:
@@ -246,15 +301,18 @@ def patch_game_ini_repeated_lines(path: Path, new_lines: list[str]) -> None:
         return
 
     section_header = f"[{_GAME_MODE_SECTION}]"
-    block = [ln + "\r\n" for ln in new_lines]
+    block = "".join(ln + "\r\n" for ln in new_lines)
 
-    if section_header.lower() not in text.lower():
+    inserted = _insert_lines_in_ini_section(text, _GAME_MODE_SECTION, block)
+    if inserted is not None:
+        text = inserted
+    elif section_header.lower() not in text.lower():
         if not text.endswith("\r\n"):
             text += "\r\n"
-        text += f"{section_header}\r\n" + "".join(block)
+        text += f"{section_header}\r\n{block}"
     else:
         if not text.endswith("\r\n"):
             text += "\r\n"
-        text += "".join(block)
+        text += block
 
     path.write_bytes(b"\xff\xfe" + text.encode("utf-16-le"))

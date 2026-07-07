@@ -24,9 +24,11 @@ from dino_order_service import (
     checkout,
     configure_dino_order,
     get_pricing_config,
+    list_gallery_species,
     quote,
     reject_order,
 )
+from dino_order_showcase_service import configure_dino_order_showcase, create_showcase
 
 USER = "76561198000000001"
 ADMIN = "76561198000000003"
@@ -55,21 +57,25 @@ def fresh_db(tmp_path, monkeypatch):
         credit_fn=_add_player_points_tx,
         get_player_points_fn=_get_player_points,
     )
+    configure_dino_order_showcase(
+        showcases_file=tmp_path / "showcases.json",
+        uploads_dir=tmp_path / "showcase_uploads",
+    )
     yield
     _configure_database("")
 
 
-def _seed_rex(db):
+def _seed_species(db, *, species_key, display_name, root_value=5000):
     from app import MarketSpecies, MarketSpeciesStatMultiplier
 
     ensure_custom_dino_schema(_app_module._ENGINE)
     species = MarketSpecies(
-        species_key="rex",
-        catalog_item_id="rex_femea",
-        display_name="Rex",
+        species_key=species_key,
+        catalog_item_id=f"{species_key}_femea",
+        display_name=display_name,
         blueprint_path="/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
         reference_level=1,
-        root_value=5000,
+        root_value=root_value,
         tier="A",
         status="ACTIVE",
         created_at=datetime.now(timezone.utc),
@@ -86,11 +92,46 @@ def _seed_rex(db):
                 enabled=True,
             )
         )
+    db.commit()
+
+
+def _seed_rex_showcase():
+    create_showcase({
+        "species_key": "rex",
+        "color_name": "Padrão",
+        "colors": [0, 0, 0, 0, 0, 0],
+        "description": "Teste",
+        "active": True,
+    })
+
+
+def _seed_rex(db):
+    _seed_species(db, species_key="rex", display_name="Rex")
+    _seed_rex_showcase()
     db.execute(
         text("INSERT INTO players (steam_id, points, kits) VALUES (:sid, :pts, '{}')"),
         {"sid": USER, "pts": 1_000_000},
     )
     db.commit()
+
+
+def test_list_gallery_species_dedup_by_display_name():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, species_key="astrodelphis_1", display_name="Astrodelphis", root_value=4000)
+        _seed_species(db, species_key="astrodelphis_200", display_name="Astrodelphis", root_value=6000)
+        create_showcase({
+            "species_key": "astrodelphis_1",
+            "color_name": "Azul",
+            "colors": [2, 2, 2, 0, 0, 0],
+            "active": True,
+        })
+        gallery = list_gallery_species(db)
+        astro = [s for s in gallery if str(s.get("display_name")).lower() == "astrodelphis"]
+        assert len(astro) == 1
+        assert astro[0]["species_key"] == "astrodelphis_1"
+    finally:
+        db.close()
 
 
 def _base_spec(**overrides):
@@ -103,6 +144,16 @@ def _base_spec(**overrides):
     }
     spec.update(overrides)
     return spec
+
+
+def test_quote_rejects_species_without_showcase():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_species(db, species_key="rex", display_name="Rex")
+        with pytest.raises(ValueError, match="species_not_in_gallery"):
+            quote(_base_spec(), db=db)
+    finally:
+        db.close()
 
 
 def test_quote_rex_default_price():

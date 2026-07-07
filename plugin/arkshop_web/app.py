@@ -292,6 +292,8 @@ _SUPPORT_FILE = _DATA_DIR / "support_steamids.json"
 _SUPPORT_EXAMPLE = _BUNDLE_DIR / "support_steamids.example.json"
 _SERVERS_FILE = _DATA_DIR / "servers.json"
 _TICKET_UPLOADS_DIR = _DATA_DIR / "ticket_uploads"
+_ENCOMENDA_SHOWCASE_FILE = _DATA_DIR / "dino_order_color_showcases.json"
+_ENCOMENDA_SHOWCASE_UPLOADS_DIR = _DATA_DIR / "encomenda_showcase_uploads"
 _STEAMID64_RE = re.compile(r"^7656119\d{10}$")
 _STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
 _STEAM_CLAIMED_ID_RE = re.compile(r"^https?://steamcommunity\.com/openid/id/(\d+)$")
@@ -9861,7 +9863,12 @@ register_custom_dino_routes(
 
 from dino_order_routes import register_dino_order_routes
 from dino_order_service import configure_dino_order
+from dino_order_showcase_service import configure_dino_order_showcase
 
+configure_dino_order_showcase(
+    showcases_file=_ENCOMENDA_SHOWCASE_FILE,
+    uploads_dir=_ENCOMENDA_SHOWCASE_UPLOADS_DIR,
+)
 configure_dino_order(
     settings_fn=_load_settings,
     debit_fn=_subtract_player_points_tx,

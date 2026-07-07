@@ -128,6 +128,7 @@ class ServerGameSettings:
     override_max_experience_points_dino: int = 0
     player_level_cap: int = 0   # Nível-teto do jogador (0 = sem override). INI calculado pelo app.
     player_base_level: int = 0  # Nível base sem ascensões (0 = 105 vanilla). UI calcula o teto total.
+    player_level_progressions_enabled: bool = False  # True = rampa/engrams custom no Game.ini
     player_ascension_state: str = ""  # JSON de ascensões/bônus para o painel de níveis.
     player_engram_points_multiplier: float = 1.0  # 8 pts vanilla × mult por nível (ex.: 5.0 → 40/nível)
     dino_level_cap: int = 0     # Nível-teto do dino   (0 = sem override). INI calculado pelo app.

@@ -7,6 +7,7 @@ from src.player_engram_points import build_engram_points_ini_lines
 from src.player_level_ascension import (
     ARK_TOTAL_BONUS_LEVELS,
     calc_max_total_level,
+    level_to_xp,
     resolve_max_player_level,
     resolve_theoretical_player_level,
 )
@@ -15,16 +16,21 @@ from src.player_level_ramp import (
     XP_CURVE_CUSTOM,
     XP_CURVE_VANILLA,
     apply_inferred_xp_curve,
+    build_player_ramp_ini_lines,
     build_ramp_ini_lines,
     build_ramp_values,
     cumulative_xp_on_ramp,
+    detect_and_apply_legacy_curve,
     export_ramp_raw,
     infer_xp_curve_from_ramp,
+    is_legacy_geometric_xp_cap,
+    is_player_level_progressions_enabled,
     parse_ramp_from_text,
     populate_player_ramp_from_game_ini,
     resolve_effective_ingame_cap,
     sync_config_player_level,
     total_ramp_slots,
+    vanilla_xp_cap_for_base,
     xp_to_level_on_ramp,
 )
 from src.server_config_snapshot import compute_max_player_level
@@ -48,7 +54,8 @@ def test_vanilla_ramp_includes_base_plus_75_ascension():
     assert len(values) == base + ARK_ASCENSION_RAMP_SLOTS
     assert cumulative_xp_on_ramp(values, base) > 0
     lines = build_ramp_ini_lines(values)
-    assert len(lines) == total_ramp_slots(base)
+    assert len(lines) == 1
+    assert lines[0].count("ExperiencePointsForLevel[") == total_ramp_slots(base)
     assert "ExperiencePointsForLevel[0]" in lines[0]
 
 
@@ -61,6 +68,7 @@ def test_resolve_effective_cap_is_base_plus_100():
         player_ramp_entry_count: int = 0
         player_level_stats_raw: str = ""
         player_xp_curve_mode: str = XP_CURVE_VANILLA
+        player_level_progressions_enabled: bool = True
 
     srv = _Srv()
     sync_config_player_level(srv)
@@ -80,14 +88,16 @@ def test_sync_config_player_level_sets_xp_at_base_not_total():
         player_ramp_entry_count: int = 0
         player_ramp_max_index: int = -1
         player_xp_curve_mode: str = XP_CURVE_VANILLA
+        player_level_progressions_enabled: bool = True
 
     srv = _Srv()
     derived = sync_config_player_level(srv)
     assert derived["theoretical_total"] == calc_max_total_level(105)
     assert derived["ascension_bonus"] == ARK_TOTAL_BONUS_LEVELS
     assert derived["ramp_entries"] == total_ramp_slots(105)
+    assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
     assert srv.override_max_xp_player == cumulative_xp_on_ramp(
-        build_ramp_values(105, mode=XP_CURVE_VANILLA), 105
+        build_ramp_values(105, mode=XP_CURVE_CUSTOM, xp_base=70, xp_mult=1.15), 105
     )
 
 
@@ -98,6 +108,7 @@ def test_engram_lines_match_ramp_slots_not_base_only():
         player_engram_points_multiplier: float = 5.0
         player_ascension_state: str = ""
         override_max_xp_player: int = 0
+        player_level_progressions_enabled: bool = True
 
     lines = build_engram_points_ini_lines(_Srv())
     assert len(lines) == total_ramp_slots(120)
@@ -147,6 +158,7 @@ def test_sync_preserves_geometric_cap_for_legacy_server():
         player_xp_curve_base: int = 70
         player_xp_curve_mult: float = 1.15
         player_xp_curve_formula: str = "base * (mult ** i)"
+        player_level_progressions_enabled: bool = True
 
     srv = _Srv()
     srv.player_level_stats_raw = export_ramp_raw(
@@ -165,3 +177,85 @@ def test_sync_preserves_geometric_cap_for_legacy_server():
 def test_vanilla_ramp_stays_vanilla_on_infer():
     values = build_ramp_values(120, mode=XP_CURVE_VANILLA)
     assert infer_xp_curve_from_ramp(values)["mode"] == XP_CURVE_VANILLA
+
+
+LEGACY_GEOMETRIC_CAP_BASE_160 = 2_089_120_049_548
+VANILLA_CAP_BASE_160 = 1_090_536
+
+
+def test_is_legacy_geometric_xp_cap_detects_trillion_cap():
+    assert is_legacy_geometric_xp_cap(LEGACY_GEOMETRIC_CAP_BASE_160, 160)
+    assert not is_legacy_geometric_xp_cap(VANILLA_CAP_BASE_160, 160)
+    assert vanilla_xp_cap_for_base(160) == VANILLA_CAP_BASE_160
+
+
+def test_sync_keeps_vanilla_mode_when_progressions_disabled():
+    """Modo simples: base=160, curva vanilla, cap GUS — sem rampa geométrica."""
+    @dataclass
+    class _Srv:
+        player_base_level: int = 160
+        player_ascension_state: str = ""
+        override_max_xp_player: int = VANILLA_CAP_BASE_160
+        player_level_stats_raw: str = export_ramp_raw(
+            build_ramp_values(160, mode=XP_CURVE_VANILLA)
+        )
+        player_ramp_entry_count: int = total_ramp_slots(160)
+        player_ramp_max_index: int = total_ramp_slots(160) - 1
+        player_xp_curve_mode: str = XP_CURVE_VANILLA
+        player_level_progressions_enabled: bool = False
+
+    srv = _Srv()
+    derived = sync_config_player_level(srv)
+    assert srv.player_xp_curve_mode == XP_CURVE_VANILLA
+    assert srv.override_max_xp_player == level_to_xp(160)
+    assert derived["override_xp"] == level_to_xp(160)
+    assert derived["theoretical_total"] == calc_max_total_level(160)
+    assert derived["ramp_entries"] == 0
+    assert srv.player_level_stats_raw == ""
+    ramp_lines = build_player_ramp_ini_lines(srv)
+    assert ramp_lines == []
+    assert not build_engram_points_ini_lines(srv)
+
+
+def test_corrupted_single_slot_ramp_expands_to_full_on_write():
+    @dataclass
+    class _Srv:
+        player_base_level: int = 160
+        player_ascension_state: str = ""
+        override_max_xp_player: int = 0
+        player_level_stats_raw: str = (
+            "LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=70)"
+        )
+        player_ramp_entry_count: int = 1
+        player_ramp_max_index: int = 0
+        player_xp_curve_mode: str = XP_CURVE_VANILLA
+        player_level_progressions_enabled: bool = True
+
+    srv = _Srv()
+    lines = build_player_ramp_ini_lines(srv)
+    assert len(lines) == 1
+    assert lines[0].count("ExperiencePointsForLevel[") == total_ramp_slots(160)
+    assert srv.player_ramp_entry_count == total_ramp_slots(160)
+
+
+def test_detect_legacy_from_gus_cap_even_when_ramp_is_vanilla():
+    @dataclass
+    class _Srv:
+        player_base_level: int = 160
+        override_max_xp_player: int = LEGACY_GEOMETRIC_CAP_BASE_160
+        player_xp_curve_mode: str = XP_CURVE_VANILLA
+        player_level_stats_raw: str = ""
+        player_level_progressions_enabled: bool = True
+
+    srv = _Srv()
+    assert detect_and_apply_legacy_curve(srv)
+    assert srv.player_xp_curve_mode == XP_CURVE_CUSTOM
+
+
+def test_legacy_mode_default_is_progressions_disabled():
+    @dataclass
+    class _Srv:
+        player_base_level: int = 160
+
+    srv = _Srv()
+    assert not is_player_level_progressions_enabled(srv)

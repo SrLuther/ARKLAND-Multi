@@ -22,7 +22,10 @@ from ..player_level_ramp import (
     _curve_params_from_cfg,
     build_ramp_values,
     cumulative_xp_on_ramp,
+    detect_and_apply_legacy_curve,
     export_ramp_raw,
+    is_legacy_geometric_xp_cap,
+    is_player_level_progressions_enabled,
     total_ramp_slots,
 )
 from ..ui_constants import _GREEN, _GREEN_DARK
@@ -43,17 +46,50 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
         base = ARK_DEFAULT_BASE_LEVEL
     base = max(1, base)
 
+    progressions = False
+    prog_var = vars_ref.get("player_level_progressions_enabled")
+    if prog_var is not None:
+        try:
+            progressions = bool(prog_var.get())
+        except tk.TclError:
+            progressions = False
+    elif cfg is not None:
+        progressions = is_player_level_progressions_enabled(cfg)
+
+    if cfg is not None:
+        if hasattr(cfg, "player_base_level"):
+            cfg.player_base_level = base
+        if hasattr(cfg, "player_level_progressions_enabled"):
+            cfg.player_level_progressions_enabled = progressions
+        if progressions:
+            detect_and_apply_legacy_curve(cfg)
+
     total = calc_max_total_level(base)
-    curve = _curve_params_from_cfg(cfg)
-    ramp_values = build_ramp_values(
-        base,
-        mode=str(curve["mode"]),
-        xp_base=int(curve["xp_base"]),
-        xp_mult=float(curve["xp_mult"]),
-        formula=str(curve["formula"]),
-    )
-    xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
-    ramp_entries = len(ramp_values)
+    if progressions:
+        curve = _curve_params_from_cfg(cfg)
+        ramp_values = build_ramp_values(
+            base,
+            mode=str(curve["mode"]),
+            xp_base=int(curve["xp_base"]),
+            xp_mult=float(curve["xp_mult"]),
+            formula=str(curve["formula"]),
+        )
+        xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
+        if cfg is not None:
+            existing = int(getattr(cfg, "override_max_xp_player", 0) or 0)
+            gs = getattr(cfg, "game_settings", None)
+            if gs is not None:
+                existing = max(
+                    existing,
+                    int(getattr(gs, "override_max_experience_points_player", 0) or 0),
+                )
+            if is_legacy_geometric_xp_cap(existing, base):
+                xp = existing
+        ramp_entries = len(ramp_values)
+    else:
+        ramp_values = []
+        xp = level_to_xp(base)
+        ramp_entries = 0
 
     if "player_ascension_state" in vars_ref:
         vars_ref["player_ascension_state"].set(serialize_ascension_state())
@@ -66,17 +102,28 @@ def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[i
     if "_pl_total_var" in vars_ref:
         vars_ref["_pl_total_var"].set(str(total))
     if "_pl_xp_var" in vars_ref:
-        vars_ref["_pl_xp_var"].set(f"{xp:,} XP (cap farmável no nível base)")
+        xp_label = (
+            f"{xp:,} XP (cap farmável no nível base)"
+            if progressions
+            else f"{xp:,} XP (curva vanilla — cap GUS)"
+        )
+        vars_ref["_pl_xp_var"].set(xp_label)
     if "_pl_asc_bonus_var" in vars_ref:
         vars_ref["_pl_asc_bonus_var"].set(f"+{ARK_TOTAL_BONUS_LEVELS}")
     if "_pl_effective_var" in vars_ref:
         vars_ref["_pl_effective_var"].set(str(total))
     if "_pl_ramp_var" in vars_ref:
-        vars_ref["_pl_ramp_var"].set(str(ramp_entries))
+        vars_ref["_pl_ramp_var"].set(
+            str(ramp_entries) if progressions else "— (vanilla)"
+        )
     if "_pl_engram_var" in vars_ref:
-        vars_ref["_pl_engram_var"].set(str(engram_points_per_level()))
+        vars_ref["_pl_engram_var"].set(
+            str(engram_points_per_level()) if progressions else "vanilla (8)"
+        )
     if "player_level_stats_raw" in vars_ref:
-        vars_ref["player_level_stats_raw"].set(export_ramp_raw(ramp_values))
+        vars_ref["player_level_stats_raw"].set(
+            export_ramp_raw(ramp_values) if progressions and ramp_values else ""
+        )
     if "_pl_warn_var" in vars_ref:
         vars_ref["_pl_warn_var"].set("")
 
@@ -92,16 +139,36 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
     except (KeyError, ValueError, TypeError, tk.TclError):
         base = ARK_DEFAULT_BASE_LEVEL
 
+    progressions = False
+    prog_var = w.get("player_level_progressions_enabled")
+    if prog_var is not None:
+        try:
+            progressions = bool(prog_var.get())
+        except tk.TclError:
+            progressions = False
+    elif hasattr(gs, "player_level_progressions_enabled"):
+        progressions = bool(getattr(gs, "player_level_progressions_enabled", False))
+
+    if hasattr(gs, "player_base_level"):
+        gs.player_base_level = base
+    if hasattr(gs, "player_level_progressions_enabled"):
+        gs.player_level_progressions_enabled = progressions
+    if progressions:
+        detect_and_apply_legacy_curve(gs)
+
     total = calc_max_total_level(base)
-    curve = _curve_params_from_cfg(gs)
-    ramp_values = build_ramp_values(
-        base,
-        mode=str(curve["mode"]),
-        xp_base=int(curve["xp_base"]),
-        xp_mult=float(curve["xp_mult"]),
-        formula=str(curve["formula"]),
-    )
-    xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
+    if progressions:
+        curve = _curve_params_from_cfg(gs)
+        ramp_values = build_ramp_values(
+            base,
+            mode=str(curve["mode"]),
+            xp_base=int(curve["xp_base"]),
+            xp_mult=float(curve["xp_mult"]),
+            formula=str(curve["formula"]),
+        )
+        xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
+    else:
+        xp = level_to_xp(base)
 
     if hasattr(gs, "player_base_level"):
         gs.player_base_level = base
@@ -111,6 +178,43 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
         gs.player_level_cap = total
     if hasattr(gs, "override_max_experience_points_player"):
         gs.override_max_experience_points_player = xp
+
+
+def _progressions_toggle_row(
+    parent: tk.Misc,
+    *,
+    row: int,
+    var: tk.BooleanVar,
+    on_change: Callable[[], None],
+    bg: str,
+    accent: str,
+) -> int:
+    fr = tk.Frame(parent, bg=bg)
+    fr.grid(row=row, column=0, sticky="ew", padx=12, pady=(2, 4))
+    cb = ctk.CTkCheckBox(
+        fr,
+        text="Progressões customizadas (rampa + engramas no Game.ini)",
+        variable=var,
+        command=on_change,
+        font=ctk.CTkFont(size=11),
+        text_color=accent,
+        fg_color=accent,
+        hover_color=_GREEN_DARK,
+    )
+    cb.pack(anchor="w")
+    tk.Label(
+        fr,
+        text=(
+            "Desmarcado = modo simples (vanilla): só nível base, teto +100 e cap de XP no GUS — "
+            "sem LevelExperienceRampOverrides nem OverridePlayerLevelEngramPoints."
+        ),
+        bg=bg,
+        fg="gray50",
+        font=ctk.CTkFont(size=9),
+        wraplength=540,
+        justify="left",
+    ).pack(anchor="w", pady=(2, 0))
+    return row + 1
 
 
 def _unified_summary_row(
@@ -230,6 +334,10 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
     vars_ref["_pl_warn_var"] = tk.StringVar()
     vars_ref.setdefault("player_level_stats_raw", tk.StringVar(
         value=str(getattr(ctx.srv, "player_level_stats_raw", "") or "")))
+    vars_ref.setdefault(
+        "player_level_progressions_enabled",
+        tk.BooleanVar(value=bool(getattr(ctx.srv, "player_level_progressions_enabled", False))),
+    )
 
     theme = ctx.theme
     bg = theme.get("card_bg", "#0d1b2a")
@@ -242,8 +350,17 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
     def _recalc() -> None:
         sync_player_level_vars(vars_ref, cfg=ctx.srv)
 
+    r = 0
+    r = _progressions_toggle_row(
+        body,
+        row=r,
+        var=vars_ref["player_level_progressions_enabled"],
+        on_change=_recalc,
+        bg=bg,
+        accent=accent,
+    )
     _unified_summary_row(
-        body, row=0,
+        body, row=r,
         base_var=vars_ref["player_base_level"],
         asc_var=vars_ref["_pl_asc_bonus_var"],
         total_var=vars_ref["_pl_total_var"],
@@ -252,7 +369,7 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
         engram_var=vars_ref["_pl_engram_var"],
         on_change=_recalc, bg=bg, accent=accent,
     )
-    r = 1
+    r = r + 1
     r = _bonus_breakdown_row(body, row=r, bg=bg)
     _engram_info_row(body, row=r, bg=bg, accent=accent)
     _recalc()
@@ -290,6 +407,9 @@ def build_classic_player_level_panel(
     w["_pl_asc_bonus_var"] = tk.StringVar(value=f"+{ARK_TOTAL_BONUS_LEVELS}")
     w["_pl_ramp_var"] = tk.StringVar()
     w["_pl_engram_var"] = tk.StringVar(value=str(ARK_ENGRAM_POINTS_PER_LEVEL))
+    w["player_level_progressions_enabled"] = tk.BooleanVar(
+        value=bool(getattr(gs, "player_level_progressions_enabled", False))
+    )
 
     tk.Label(panel, text="Nível máximo do jogador",
              bg=_BG_PANEL, fg="#c8c8e8",
@@ -299,9 +419,9 @@ def build_classic_player_level_panel(
     tk.Label(
         panel,
         text=(
-            "Informe apenas o nível base (farmável com XP). O sistema calcula +100 de bônus, "
-            f"a rampa com {ARK_BOSS_ASCENSION_LEVELS} slots de ascensão, cap de XP e "
-            f"{ARK_ENGRAM_POINTS_PER_LEVEL} pontos de engrama por nível."
+            "Informe o nível base (farmável com XP). O teto total (+100) é automático. "
+            "No modo simples (vanilla), só o cap de XP no GUS é gravado; marque progressões "
+            "customizadas para rampa e engramas no Game.ini."
         ),
         bg=_BG_PANEL, fg="gray50", font=ctk.CTkFont(size=10), justify="left",
         wraplength=560,
@@ -310,8 +430,17 @@ def build_classic_player_level_panel(
     def _recalc() -> None:
         sync_player_level_vars(w, cfg=gs)
 
+    r = 3
+    r = _progressions_toggle_row(
+        panel,
+        row=r,
+        var=w["player_level_progressions_enabled"],
+        on_change=_recalc,
+        bg=_BG_PANEL,
+        accent=_GREEN,
+    )
     _unified_summary_row(
-        panel, row=3,
+        panel, row=r,
         base_var=w["gs_player_base_level"],
         asc_var=w["_pl_asc_bonus_var"],
         total_var=w["_pl_total_var"],
@@ -320,7 +449,7 @@ def build_classic_player_level_panel(
         engram_var=w["_pl_engram_var"],
         on_change=_recalc, bg=_BG_PANEL, accent=_GREEN,
     )
-    r = 4
+    r = r + 1
     r = _bonus_breakdown_row(panel, row=r, bg=_BG_PANEL)
     _engram_info_row(panel, row=r, bg=_BG_PANEL, accent=_GREEN)
     _recalc()

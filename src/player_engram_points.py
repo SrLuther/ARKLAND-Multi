@@ -19,10 +19,10 @@ def engram_points_per_level(_multiplier: float | None = None) -> int:
 
 
 def should_apply_engram_overrides(cfg: object) -> bool:
-    """Gera OverridePlayerLevelEngramPoints quando há nível base configurado."""
-    from .player_level_ramp import _resolve_base_level
+    """Gera OverridePlayerLevelEngramPoints só com progressões custom e nível base."""
+    from .player_level_ramp import _resolve_base_level, is_player_level_progressions_enabled
 
-    return _resolve_base_level(cfg) > 0
+    return is_player_level_progressions_enabled(cfg) and _resolve_base_level(cfg) > 0
 
 
 def should_apply_engram_multiplier(cfg: object) -> bool:

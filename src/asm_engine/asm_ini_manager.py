@@ -20,6 +20,7 @@ Opções disponíveis no dict:
 from __future__ import annotations
 
 import configparser
+import logging
 import re
 import shutil
 from collections.abc import Callable
@@ -483,6 +484,77 @@ def _render_ini_text(
     return "\r\n".join(lines)
 
 
+_LOG = logging.getLogger("arkland")
+
+PLAYER_LEVEL_CFG_FIELDS: tuple[str, ...] = (
+    "player_base_level",
+    "player_ascension_state",
+    "override_max_xp_player",
+    "player_xp_curve_mode",
+    "player_xp_curve_base",
+    "player_xp_curve_mult",
+    "player_xp_curve_formula",
+    "player_level_stats_raw",
+    "player_ramp_entry_count",
+    "player_ramp_max_index",
+    "player_engram_points_multiplier",
+    "player_level_progressions_enabled",
+)
+
+
+def copy_player_level_fields(src: AsmServerConfig, dst: AsmServerConfig) -> None:
+    """Copia campos de nível do jogador entre configs ASM (cluster multi-mapa)."""
+    for field in PLAYER_LEVEL_CFG_FIELDS:
+        if hasattr(src, field):
+            setattr(dst, field, getattr(src, field))
+
+
+def _assert_game_ini_ramp_written(
+    game_path: Path,
+    cfg: AsmServerConfig,
+    repeated_lines: list[str],
+) -> None:
+    """Garante que a rampa ficou dentro de ShooterGameMode após o patch."""
+    from .asm_game_list_ini import count_ramp_lines_in_section
+    from ..player_level_ramp import total_ramp_slots, _resolve_base_level, is_player_level_progressions_enabled
+
+    from ..player_level_ramp import parse_ramp_from_text
+
+    if not is_player_level_progressions_enabled(cfg):
+        return
+
+    ramp_text = "\n".join(
+        ln for ln in repeated_lines
+        if ln.lower().startswith("levelexperiencerampoverrides=")
+    )
+    expected_ramp = int(parse_ramp_from_text(ramp_text).get("entry_count", 0) or 0)
+    if expected_ramp <= 0:
+        base = _resolve_base_level(cfg)
+        if base > 0:
+            expected_ramp = total_ramp_slots(base)
+    if expected_ramp <= 0:
+        return
+
+    try:
+        text = game_path.read_text(encoding="utf-16")
+    except (OSError, UnicodeError):
+        try:
+            text = game_path.read_text(encoding="utf-8-sig")
+        except OSError:
+            _LOG.warning("Game.ini rampa: não foi possível validar %s", game_path)
+            return
+
+    actual = count_ramp_lines_in_section(text, _GAME_MODE_SECTION)
+    if actual < expected_ramp:
+        base = _resolve_base_level(cfg)
+        min_expected = total_ramp_slots(base) if base > 0 else expected_ramp
+        raise RuntimeError(
+            f"Game.ini rampa incompleta em {game_path}: {actual} linha(s) na seção "
+            f"{_GAME_MODE_SECTION}, esperado >= {min_expected}. "
+            "Regrave o servidor no TEK ou verifique user_config_folder."
+        )
+
+
 def write_ini(cfg: AsmServerConfig) -> None:
     """Escreve GameUserSettings.ini e Game.ini a partir de AsmServerConfig.
 
@@ -634,8 +706,14 @@ def write_ini(cfg: AsmServerConfig) -> None:
     _game_path = _ini_path_for_cfg(cfg, "Game", write=True)
     _write_ini_file(_game_path, game)
 
-    from .asm_game_list_ini import build_repeated_game_lines, patch_game_ini_repeated_lines
-    patch_game_ini_repeated_lines(_game_path, build_repeated_game_lines(cfg))
+    from .asm_game_list_ini import (
+        build_repeated_game_lines,
+        count_ramp_lines_in_section,
+        patch_game_ini_repeated_lines,
+    )
+    repeated_lines = build_repeated_game_lines(cfg)
+    patch_game_ini_repeated_lines(_game_path, repeated_lines)
+    _assert_game_ini_ramp_written(_game_path, cfg, repeated_lines)
 
     # Engine.ini (apenas raw)
     if cfg.custom_engine_ini_raw:

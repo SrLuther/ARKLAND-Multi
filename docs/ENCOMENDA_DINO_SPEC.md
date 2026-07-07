@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Status** | ✅ **MVP implementado** (2026-07-07) — backend, rotas, UI jogador/admin, testes |
+| **Status** | ✅ **MVP + galeria visual** (2026-07-07) — backend, rotas, UI jogador/admin, vitrines de cor, testes |
 | **Versão do documento** | 1.0 |
 | **Data** | 2026-07-07 |
 | **Escopo** | Produto, fluxos, modelo de preços, viabilidade econômica, integração técnica |
@@ -437,11 +437,24 @@ Objetivo: **saudável para o comércio**, sem matar a economia nem incentivar by
 | Admin | Lista pedidos pagos, aprovar/rejeitar acima do limite |
 | Auditoria | `dino_encomenda_created`, `dino_encomenda_approved/rejected` |
 
-**Ativação:** `custom_dino_enabled` + `dino_order_enabled` em Configurações. Arquivos: `dino_order_service.py`, `dino_order_routes.py`, aba Encomenda em `static/index.html`.
+**Ativação:** `custom_dino_enabled` + `dino_order_enabled` em Configurações. Arquivos: `dino_order_service.py`, `dino_order_routes.py`, `dino_order_showcase_service.py`, aba Encomenda em `static/index.html`.
+
+### 7.1.1 Galeria visual de cores (implementado 2026-07-07)
+
+| Item | Detalhe |
+|------|---------|
+| **Catálogo curado** | Somente espécies com ≥1 vitrine **ativa** aparecem em Comércio → Encomenda |
+| **Armazenamento** | JSON `data/dino_order_color_showcases.json` + uploads em `data/encomenda_showcase_uploads/` |
+| **Limite** | Máx. **10 imagens/vitrines por espécie** (API + contador admin `X/10`) |
+| **Admin** | Dino Lab → aba **Galeria cores** — upload/URL, nome da cor, regiões, descrição, cores Obelisk |
+| **Jogador** | Callout estático na aba; botão **Ver cores**; modal com grid; wizard aplica cores ao clicar |
+| **Aviso jogador** | Texto fixo em `index.html` (editável no fonte) — sem CMS/config |
+
+Espécies do mercado sem vitrine publicada **não** são encomendáveis (`species_not_in_gallery` em quote/checkout).
 
 ### 7.2 Fase 2
 
-- Swatches Obelisk na UI de cores
+- Swatches Obelisk visuais (paleta clicável além dos inputs numéricos)
 - Mais stats (peso, stamina) conforme `economy_stats` por espécie
 - Notificações in-game / web quando `ENTREGUE`
 - Histórico jogador em Minha Área

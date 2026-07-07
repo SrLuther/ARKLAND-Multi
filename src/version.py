@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.12"
+APP_VERSION: str = "1.10.13"
 BUILD_DATE: str = "2026-07-07"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.13",
+        "date": "2026-07-07",
+        "changes": [
+            "Fix (Nível do jogador): modo simples (vanilla) — espelha ASM EnableLevelProgressions=false; não reescreve LevelExperienceRampOverrides, remove rampa antiga no save, cap via OverrideMaxExperiencePointsPlayer no GUS com curva vanilla.",
+            "Feat (Nível do jogador): toggle Progressões customizadas no painel TEK/ASM — rampa single-line e engramas 400/nível só quando habilitado.",
+            "Fix (Encomenda Dino): modal corrigido, vitrine/galeria de showcase, deduplicação de pedidos e melhorias na Web Store.",
+        ],
+    },
     {
         "version": "1.10.12",
         "date": "2026-07-07",

@@ -133,14 +133,48 @@ def _species_image(species_key: str, tier: str | None = None) -> str:
         return ""
 
 
+def _dedup_gallery_species(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Uma entrada por display_name (ex.: astrodelphis_1 vs astrodelphis_200)."""
+    by_name: dict[str, dict[str, Any]] = {}
+    for item in rows:
+        key = str(item.get("display_name") or item.get("species_key") or "").strip().lower()
+        if not key:
+            continue
+        prev = by_name.get(key)
+        if prev is None:
+            by_name[key] = item
+            continue
+        cur_price = int(item.get("starting_price") or 0)
+        prev_price = int(prev.get("starting_price") or 0)
+        if cur_price < prev_price:
+            by_name[key] = item
+        elif cur_price == prev_price and len(str(item.get("species_key") or "")) < len(
+            str(prev.get("species_key") or "")
+        ):
+            by_name[key] = item
+    return list(by_name.values())
+
+
+def _is_species_in_gallery(species_key: str) -> bool:
+    try:
+        from dino_order_showcase_service import is_species_orderable
+
+        return is_species_orderable(species_key)
+    except Exception:
+        return False
+
+
 def list_gallery_species(db: Session) -> list[dict[str, Any]]:
-    """Espécies vanilla ACTIVE elegíveis para encomenda."""
+    """Espécies vanilla ACTIVE com vitrine ativa (galeria define o catálogo)."""
     if not is_dino_order_enabled():
         return []
     try:
         from market_service import list_species_public
+        from dino_order_showcase_service import primary_showcase_by_species, showcase_counts_by_species
 
         rows = list_species_public(db, active_only=True)
+        showcase_counts = showcase_counts_by_species(active_only=True)
+        primary_showcases = primary_showcase_by_species(active_only=True)
     except Exception as exc:
         log.warning("dino_order gallery: %s", exc)
         return []
@@ -150,6 +184,8 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
     for item in rows:
         sk = str(item.get("species_key") or "")
         if _species_mod_source(sk) != "vanilla":
+            continue
+        if int(showcase_counts.get(sk) or 0) < 1:
             continue
         economy = _resolve_species_economy(db, sk)
         if economy is None:
@@ -164,6 +200,13 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             },
             db=db,
             pricing_cfg=cfg,
+            skip_gallery_check=True,
+        )
+        primary = primary_showcases.get(sk) or {}
+        thumb = (
+            str(primary.get("image_url") or "").strip()
+            or item.get("image_url")
+            or _species_image(sk, item.get("tier"))
         )
         out.append({
             "species_key": sk,
@@ -171,9 +214,11 @@ def list_gallery_species(db: Session) -> list[dict[str, Any]]:
             "tier": item.get("tier") or "",
             "root_value": int(item.get("root_value") or 0),
             "size_class": item.get("size_class") or "medium",
-            "image_url": item.get("image_url") or _species_image(sk, item.get("tier")),
+            "image_url": thumb,
             "starting_price": int(min_quote.get("total") or 0),
+            "showcase_count": int(showcase_counts.get(sk) or 0),
         })
+    out = _dedup_gallery_species(out)
     out.sort(key=lambda x: str(x.get("display_name") or "").lower())
     return out
 
@@ -229,6 +274,7 @@ def quote(
     *,
     db: Session | None = None,
     pricing_cfg: dict[str, Any] | None = None,
+    skip_gallery_check: bool = False,
 ) -> dict[str, Any]:
     """Cotação sem débito — retorna breakdown + total."""
     cfg = pricing_cfg or get_pricing_config()
@@ -239,6 +285,8 @@ def quote(
 
     if db is None:
         raise ValueError("db_required")
+    if not skip_gallery_check and not _is_species_in_gallery(species_key):
+        raise ValueError("species_not_in_gallery")
     economy = _resolve_species_economy(db, species_key)
     if economy is None:
         raise ValueError("species_not_available")

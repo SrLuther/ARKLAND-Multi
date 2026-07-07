@@ -1,11 +1,10 @@
 {
-    "version": "1.10.12",
+    "version": "1.10.13",
     "date": "2026-07-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.12/ARKLAND-Multi-Setup-v1.10.12.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.13/ARKLAND-Multi-Setup-v1.10.13.exe",
     "changelog": [
-        "Feat (Encomenda Dino): MVP na Web Store — aba Encomendas no Dino Lab, API de pedidos, integração com entrega custom e spec ENCOMENDA_DINO.",
-        "Fix (Web Store / Sugestões): painel admin de sugestões corrigido (carregamento e ações); testes de regressão.",
-        "Melhoria (Tutoriais): comandos atualizados — removido /c; documentados /dinolab e aliases legados.",
-        "Fix (Nível do jogador): detecção de curva XP legada na rampa (infer_xp_curve_from_ramp), preservação do cap geométrico ao sincronizar Game.ini."
+        "Fix (Nível do jogador): modo simples (vanilla) — espelha ASM EnableLevelProgressions=false; não reescreve LevelExperienceRampOverrides, remove rampa antiga no save, cap via OverrideMaxExperiencePointsPlayer no GUS com curva vanilla.",
+        "Feat (Nível do jogador): toggle Progressões customizadas no painel TEK/ASM — rampa single-line e engramas 400/nível só quando habilitado.",
+        "Fix (Encomenda Dino): modal corrigido, vitrine/galeria de showcase, deduplicação de pedidos e melhorias na Web Store."
     ]
 }

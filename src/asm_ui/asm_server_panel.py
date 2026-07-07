@@ -2431,17 +2431,13 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         except Exception:
             xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
 
-        text_lines = [f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp_vals[i]})" for i in range(max_lvl)]
-        text = "\n".join(text_lines)
+        from src.player_level_ramp import build_ramp_ini_line
 
-        # Atualiza preview
-        if len(text_lines) > 12:
-            shown = text_lines[:6] + ["  ..."] + text_lines[-3:]
-        else:
-            shown = text_lines
+        text = build_ramp_ini_line(xp_vals)
+        preview_text = text if len(text) <= 400 else text[:200] + " ... " + text[-120:]
         preview_box.configure(state="normal")
         preview_box.delete("1.0", "end")
-        preview_box.insert("1.0", "\n".join(shown))
+        preview_box.insert("1.0", preview_text)
         preview_box.configure(state="disabled")
 
         # Atualiza gráfico
@@ -2471,8 +2467,9 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         except Exception:
             xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
 
-        text_lines = [f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp_vals[i]})" for i in range(max_lvl)]
-        text = "\n".join(text_lines)
+        from src.player_level_ramp import build_ramp_ini_line
+
+        text = build_ramp_ini_line(xp_vals)
 
         disk_parsed = parse_ramp_from_text(str(getattr(srv, "player_level_stats_raw", "") or ""))
         new_parsed = parse_ramp_from_text(text)
@@ -3806,6 +3803,12 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
                 srv.override_max_xp_player = int(float(xp_var.get()))
             except (ValueError, TypeError, tk.TclError):
                 pass
+        prog_var = vars_ref.get("player_level_progressions_enabled")
+        if prog_var is not None and hasattr(srv, "player_level_progressions_enabled"):
+            try:
+                srv.player_level_progressions_enabled = bool(prog_var.get())
+            except (ValueError, TypeError, tk.TclError):
+                pass
         for fname, conv in (
             ("player_xp_curve_mode", str),
             ("player_xp_curve_formula", str),
@@ -3929,10 +3932,26 @@ def _save(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     import os as _os
     if srv.install_dir and _os.path.isdir(srv.install_dir):
         try:
-            from ..asm_engine.asm_ini_manager import write_ini
+            from ..asm_engine.asm_ini_manager import copy_player_level_fields, write_ini
             write_ini(srv)
-        except Exception:
-            pass  # INIs serão escritos no próximo start
+            cluster_id = (getattr(srv, "cluster_profile_id", "") or "").strip()
+            if cluster_id:
+                asm_mgr = app.asm_config_manager
+                for peer in asm_mgr.servers:
+                    if peer.id == srv.id:
+                        continue
+                    if (getattr(peer, "cluster_profile_id", "") or "").strip() != cluster_id:
+                        continue
+                    if not peer.install_dir or not _os.path.isdir(peer.install_dir):
+                        continue
+                    copy_player_level_fields(srv, peer)
+                    write_ini(peer)
+                    asm_mgr.update_server(peer)
+        except Exception as exc:
+            import logging
+            logging.getLogger("arkland").warning(
+                "write_ini falhou para '%s': %s", srv.name, exc
+            )
 
         from ..ark_server_files import write_allowed_cheater_steam_ids_safe
 
