@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.10] - 2026-07-07
+
+### Feature
+
+- Feat (Dino Lab / Mercado): bloqueio MVP de venda — registro de DinoID na entrega, checagem no /enviar com linhagem via HTTP, endpoints admin e audit.
+
+### Fix
+
+- Fix (CustomDinoDeliver): crash ao usar SpawnExact — SEH isolado, validação de contexto e limites de nível.
+- Fix (CustomShop): bloqueio Dino Lab no mercado (/enviar e /confirmar) com mensagem ao jogador; /rastreardebug para staff.
+
 ## [1.10.9] - 2026-07-07
 
 ### Feature
@@ -13,6 +24,7 @@
 - Feat (Eventos Sazonais): área de emergência — listar backups, restaurar servidor ou cluster inteiro (aviso 5 min → SaveWorld → stop → restore → start).
 - Feat (Eventos Sazonais): multiplicadores por setor (XP/Doma/Breeding/Farm) com cálculo base×alvo assumindo servidor 5x (campos inversos de breeding/farm corrigidos).
 - Feat (Eventos Sazonais): broadcast periódico durante evento ativo (mensagem admin + intervalo em minutos).
+- Feat (Nível do jogador): unificação base + rampa Game.ini + cap XP — Web Store exibe teto efetivo in-game; rampa via patch de chaves repetidas; engrams sincronizados com nível base.
 
 ### Improvement
 

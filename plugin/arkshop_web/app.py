@@ -1355,6 +1355,12 @@ def _migrate_schema(engine: Any) -> None:
             ensure_custom_dino_schema(engine)
         except Exception as exc:
             log.warning("Dino Lab (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from dino_lab_block_service import ensure_dino_lab_block_schema
+
+            ensure_dino_lab_block_schema(engine)
+        except Exception as exc:
+            log.warning("Dino Lab block (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -1494,6 +1500,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_custom_dino_schema(engine)
     except Exception as exc:
         log.warning("Dino Lab: migrate falhou: %s", exc)
+    try:
+        from dino_lab_block_service import ensure_dino_lab_block_schema
+
+        ensure_dino_lab_block_schema(engine)
+    except Exception as exc:
+        log.warning("Dino Lab block: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -5671,6 +5683,7 @@ def save_settings():
         "custom_dino_ground_fallback",
         "custom_dino_spawn_exact",
         "custom_dino_level_max",
+        "dino_lab_block_debug",
     ):
         if key in body:
             s[key] = body[key]
@@ -9685,6 +9698,7 @@ register_market_routes(
     db_ready=_db_ready,
     session_factory=_db_session_factory,
     read_shop_config=_read_shop_config,
+    load_settings=_load_settings,
     admin_required=admin_required,
     login_required=login_required,
     api_key_required=api_key_required,
@@ -9826,6 +9840,7 @@ register_custom_dino_routes(
     db_ready=_db_ready,
     session_factory=_db_session_factory,
     admin_required=admin_required,
+    login_required=login_required,
     api_key_required=api_key_required,
     steam_id_from_session=_steam_id_from_session,
     load_settings=_load_settings,

@@ -3,5 +3,6 @@
   "WebApiKey": "",
   "PollIntervalSeconds": 60,
   "GroundFallbackOnFullInventory": true,
+  "UseSpawnExact": false,
   "CryoItemPath": ""
 }

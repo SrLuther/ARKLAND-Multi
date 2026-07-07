@@ -4,7 +4,18 @@
 
 namespace CustomDinoDeliver {
 
-bool DeliverCustomDino(AShooterPlayerController* controller,
-                       const nlohmann::json& payload);
+struct DinoIdentityCapture {
+    uint32_t dino_id1 = 0;
+    uint32_t dino_id2 = 0;
+    nlohmann::json ancestors = nlohmann::json::array();
+};
+
+struct DeliverCustomDinoResult {
+    bool ok = false;
+    DinoIdentityCapture identity;
+};
+
+DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
+                                          const nlohmann::json& payload);
 
 } // namespace CustomDinoDeliver

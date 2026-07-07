@@ -47,6 +47,7 @@ def register_custom_dino_routes(
     db_ready: Callable[[], bool],
     session_factory: Callable[[], Any],
     admin_required: Callable,
+    login_required: Callable,
     api_key_required: Callable,
     steam_id_from_session: Callable[[], str | None],
     load_settings: Callable[[], dict[str, Any]],
@@ -225,6 +226,7 @@ def register_custom_dino_routes(
         steam_id = str(body.get("steam_id") or "").strip()
         raw_ids = body.get("order_ids") or []
         failures = body.get("failures") or []
+        dino_records = body.get("dino_records") or []
         if not steam_id or not isinstance(raw_ids, list):
             return jsonify({"ok": False, "error": "steam_id e order_ids são obrigatórios"}), 400
         if not raw_ids and (not isinstance(failures, list) or not failures):
@@ -232,7 +234,59 @@ def register_custom_dino_routes(
         db = session_factory()
         delivered: list[str] = []
         try:
-            delivered = mark_custom_dino_delivered(db, steam_id, [str(x) for x in raw_ids])
+            from dino_lab_block_service import (
+                audit_dino_lab_block_event,
+                is_dino_lab_block_debug,
+                new_trace_id,
+                register_blocked_dino_ids,
+            )
+
+            debug = is_dino_lab_block_debug(load_settings())
+            trace_id = new_trace_id() if debug else None
+
+            records_by_order: dict[str, dict] = {}
+            if isinstance(dino_records, list):
+                for rec in dino_records:
+                    if not isinstance(rec, dict):
+                        continue
+                    oid = str(rec.get("order_id") or "").strip()
+                    if oid:
+                        records_by_order[oid] = rec
+
+            pending_ids = [str(x).strip() for x in raw_ids if str(x).strip()]
+            for oid in pending_ids:
+                rec = records_by_order.get(oid)
+                if rec:
+                    inserted = register_blocked_dino_ids(db, oid, steam_id, rec)
+                    audit_dino_lab_block_event(
+                        audit_event,
+                        "dino_lab_id_registered",
+                        source="plugin",
+                        target_steam_id=steam_id,
+                        order_id=oid,
+                        trace_id=trace_id,
+                        inserted=inserted,
+                        dino_id1=rec.get("dino_id1"),
+                        dino_id2=rec.get("dino_id2"),
+                        ancestor_count=len(rec.get("ancestors") or []),
+                    )
+
+            delivered = mark_custom_dino_delivered(db, steam_id, pending_ids)
+            for oid in delivered:
+                rec = records_by_order.get(oid)
+                id1 = int(rec.get("dino_id1", 0) or 0) if rec else 0
+                id2 = int(rec.get("dino_id2", 0) or 0) if rec else 0
+                if not rec or (id1 == 0 and id2 == 0):
+                    audit_dino_lab_block_event(
+                        audit_event,
+                        "dino_lab_identity_capture_failed",
+                        severity="error",
+                        source="plugin",
+                        target_steam_id=steam_id,
+                        order_id=oid,
+                        trace_id=trace_id,
+                        message="ENTREGUE sem dino_records validos",
+                    )
             if isinstance(failures, list):
                 for f in failures:
                     if not isinstance(f, dict):
@@ -285,5 +339,84 @@ def register_custom_dino_routes(
                 "custom_dino_spawn_exact": bool(s.get("custom_dino_spawn_exact")),
                 "custom_dino_level_max": get_custom_dino_level_max(),
                 "custom_dino_stale_entregando_minutes": get_stale_entregando_minutes(),
+                "dino_lab_block_debug": bool(s.get("dino_lab_block_debug")),
             },
         })
+
+    @app.route("/api/admin/dino-lab-block/list", methods=["GET"])
+    @_gate
+    def dino_lab_block_admin_list():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        page = int(request.args.get("page") or 1)
+        per_page = int(request.args.get("per_page") or 50)
+        db = session_factory()
+        try:
+            from dino_lab_block_service import search_blocked_ids
+
+            data = search_blocked_ids(
+                db,
+                q=request.args.get("q"),
+                steam_id=request.args.get("steam_id"),
+                order_id=request.args.get("order_id"),
+                source=request.args.get("source"),
+                role=request.args.get("role"),
+                date_from=request.args.get("date_from"),
+                date_to=request.args.get("date_to"),
+                page=page,
+                per_page=per_page,
+            )
+            return jsonify({"ok": True, **data})
+        finally:
+            db.close()
+
+    @app.route("/api/admin/dino-lab-block/stats", methods=["GET"])
+    @_gate
+    def dino_lab_block_admin_stats():
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        db = session_factory()
+        try:
+            from dino_lab_block_service import get_dino_lab_block_stats_api
+
+            stats = get_dino_lab_block_stats_api(db)
+            return jsonify({"ok": True, "stats": stats})
+        finally:
+            db.close()
+
+    @app.route("/api/admin/dino-lab-block/debug", methods=["GET"])
+    @_gate
+    def dino_lab_block_admin_debug():
+        from dino_lab_block_service import get_dino_lab_block_debug_snapshot, is_dino_lab_block_debug
+
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        limit = request.args.get("limit", 50, type=int)
+        db = session_factory()
+        try:
+            snapshot = get_dino_lab_block_debug_snapshot(db, limit=limit)
+            return jsonify({
+                "ok": True,
+                "debug_enabled": is_dino_lab_block_debug(load_settings()),
+                **snapshot,
+            })
+        finally:
+            db.close()
+
+    @app.route("/api/dino-lab-block/check", methods=["POST"])
+    @login_required
+    @_limit("60 per minute")
+    def dino_lab_block_player_check():
+        """Verifica se um ID de criatura está bloqueado (match exato, sem ancestralidade)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        db = session_factory()
+        try:
+            from dino_lab_block_service import check_dino_id_from_body
+
+            result = check_dino_id_from_body(db, body)
+            status = 400 if not result.get("ok") else 200
+            return jsonify(result), status
+        finally:
+            db.close()

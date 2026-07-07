@@ -87,6 +87,18 @@ def regulamento_meta() -> dict[str, Any]:
     }
 
 
+def _inline_markdown(text: str) -> str:
+    """Escape HTML e converte negrito/links inline do markdown."""
+    body = html.escape(text.strip())
+    body = re.sub(
+        r"\[([^\]]+)\]\(([^)]+)\)",
+        r'<a href="\2" target="_blank" rel="noopener">\1</a>',
+        body,
+    )
+    body = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", body)
+    return body
+
+
 def _markdown_to_html(md: str) -> str:
     """Conversão leve markdown→HTML para o regulamento (MVP)."""
     lines = md.splitlines()
@@ -138,7 +150,7 @@ def _markdown_to_html(md: str) -> str:
             if not in_table:
                 out.append('<table class="regulamento-table"><tbody>')
                 in_table = True
-            row = "".join(f"<td>{html.escape(c)}</td>" for c in cells)
+            row = "".join(f"<td>{_inline_markdown(c)}</td>" for c in cells)
             out.append(f"<tr>{row}</tr>")
             continue
         if line.startswith("- "):
@@ -146,25 +158,11 @@ def _markdown_to_html(md: str) -> str:
             if not in_ul:
                 out.append("<ul>")
                 in_ul = True
-            body = html.escape(line[2:].strip())
-            body = re.sub(
-                r"\[([^\]]+)\]\(([^)]+)\)",
-                r'<a href="\2" target="_blank" rel="noopener">\1</a>',
-                body,
-            )
-            body = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", body)
-            out.append(f"<li>{body}</li>")
+            out.append(f"<li>{_inline_markdown(line[2:])}</li>")
             continue
         close_ul()
         close_table()
-        body = html.escape(line.strip())
-        body = re.sub(
-            r"\[([^\]]+)\]\(([^)]+)\)",
-            r'<a href="\2" target="_blank" rel="noopener">\1</a>',
-            body,
-        )
-        body = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", body)
-        out.append(f"<p>{body}</p>")
+        out.append(f"<p>{_inline_markdown(line)}</p>")
 
     close_ul()
     close_table()

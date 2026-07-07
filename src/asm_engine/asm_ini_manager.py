@@ -492,6 +492,10 @@ def write_ini(cfg: AsmServerConfig) -> None:
     if not cfg.install_dir:
         raise ValueError("install_dir não configurado")
 
+    from ..player_level_ramp import sync_config_player_level
+
+    sync_config_player_level(cfg)
+
     from ..ui_constants import normalize_active_event
     cfg.active_event = normalize_active_event(cfg.active_event)
 
@@ -559,13 +563,15 @@ def write_ini(cfg: AsmServerConfig) -> None:
             skip_key=is_repeated_game_ini_key,
         )
 
-    # Raw overrides (engrams, levels) — chaves únicas via inject_raw_ini_text
+    # Raw overrides (engrams, levels) — rampa/engrams via patch pós-escrita (chaves repetidas)
     from ..player_engram_points import (
         should_apply_engram_multiplier,
         strip_engram_points_from_raw,
     )
+    from ..player_level_ramp import strip_ramp_from_raw
 
     player_level_raw = cfg.player_level_stats_raw
+    player_level_raw = strip_ramp_from_raw(player_level_raw)
     if should_apply_engram_multiplier(cfg):
         player_level_raw = strip_engram_points_from_raw(player_level_raw)
 
@@ -575,7 +581,12 @@ def write_ini(cfg: AsmServerConfig) -> None:
         cfg.dino_level_stats_raw,
     ):
         if raw_text:
-            inject_raw_ini_text(raw_text, game, default_section=_GAME_MODE_SECTION)
+            inject_raw_ini_text(
+                raw_text,
+                game,
+                default_section=_GAME_MODE_SECTION,
+                skip_key=is_repeated_game_ini_key,
+            )
     # crafting/stack/spawner/supply + listas agregadas → patch pós-escrita (chaves repetidas)
 
     if cfg.prevent_transfer_raw:
@@ -798,7 +809,11 @@ def read_ini(cfg: AsmServerConfig) -> None:
 
     if cfg.install_dir:
         from .asm_game_list_ini import populate_lists_from_game_ini
-        populate_lists_from_game_ini(cfg, _ini_path_for_cfg(cfg, "Game", write=False))
+        from ..player_level_ramp import populate_player_ramp_from_game_ini
+
+        game_path = _ini_path_for_cfg(cfg, "Game", write=False)
+        populate_lists_from_game_ini(cfg, game_path)
+        populate_player_ramp_from_game_ini(cfg, game_path)
 
     from ..rcon_util import sanitize_rcon_password
     cfg.admin_password = sanitize_rcon_password(cfg.admin_password)
@@ -886,7 +901,10 @@ def read_ini_from_paths(
 
     if game_path:
         from .asm_game_list_ini import populate_lists_from_game_ini
+        from ..player_level_ramp import populate_player_ramp_from_game_ini
+
         populate_lists_from_game_ini(cfg, Path(game_path))
+        populate_player_ramp_from_game_ini(cfg, Path(game_path))
 
 
 def _launch_url_params(cfg: AsmServerConfig) -> list[str]:

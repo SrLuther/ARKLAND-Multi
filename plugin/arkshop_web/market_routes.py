@@ -5,6 +5,14 @@ from typing import Any, Callable
 
 from flask import Flask, jsonify, request
 
+from dino_lab_block_service import (
+    append_debug_fields,
+    audit_dino_lab_block_event,
+    is_dino_lab_block_debug,
+    lookup_blocked_from_metadata,
+    new_trace_id,
+)
+
 from market_economy import (
     calculate_suggested_value,
     load_economy_global_config,
@@ -75,6 +83,7 @@ def register_market_routes(
     db_ready: Callable[[], bool],
     session_factory: Callable[[], Any],
     read_shop_config: Callable[[], dict[str, Any]],
+    load_settings: Callable[[], dict[str, Any]],
     admin_required: Callable,
     login_required: Callable,
     api_key_required: Callable,
@@ -1253,6 +1262,62 @@ def register_market_routes(
         finally:
             db.close()
 
+    @app.route("/api/market/plugin/check-dino-blocked", methods=["POST"])
+    @api_key_required(allow_admin_session=False)
+    @_limit("120 per minute")
+    def market_plugin_check_dino_blocked():
+        """Consulta bloqueio Dino Lab por pares de IDs (sem blob)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(silent=True) or {}
+        raw_pairs = body.get("dino_id_pairs") or []
+        pairs: list[tuple[int, int]] = []
+        if isinstance(raw_pairs, list):
+            for item in raw_pairs:
+                if isinstance(item, (list, tuple)) and len(item) >= 2:
+                    pairs.append((int(item[0]), int(item[1])))
+        debug = is_dino_lab_block_debug(load_settings())
+        trace_id = new_trace_id() if debug else None
+        db = session_factory()
+        try:
+            from dino_lab_block_service import lookup_blocked_match
+
+            match = lookup_blocked_match(db, pairs)
+            if match:
+                audit_dino_lab_block_event(
+                    audit_event,
+                    "dino_lab_block_hit",
+                    source="plugin",
+                    message="check-dino-blocked",
+                    trace_id=trace_id,
+                    order_id=match.get("order_id"),
+                    canonical_id=match.get("canonical_id"),
+                    matched_pair=match.get("matched_pair"),
+                )
+                payload = append_debug_fields(
+                    {"ok": True, **match},
+                    debug=debug,
+                    trace_id=trace_id,
+                    match=match,
+                )
+                return jsonify(payload)
+            if debug:
+                audit_dino_lab_block_event(
+                    audit_event,
+                    "dino_lab_block_miss",
+                    severity="debug",
+                    source="plugin",
+                    message="check-dino-blocked",
+                    trace_id=trace_id,
+                    pair_count=len(pairs),
+                )
+            payload: dict[str, Any] = {"ok": True, "blocked": False}
+            if debug and trace_id:
+                payload["trace_id"] = trace_id
+            return jsonify(payload)
+        finally:
+            db.close()
+
     @app.route("/api/market/plugin/preview", methods=["POST"])
     @api_key_required(allow_admin_session=False)
     @_limit("60 per minute")
@@ -1262,9 +1327,41 @@ def register_market_routes(
             return jsonify({"ok": False, "error": "Banco não configurado"}), 503
         body = request.get_json(silent=True) or {}
         metadata = body.get("metadata") or body
+        debug = is_dino_lab_block_debug(load_settings())
+        trace_id = new_trace_id() if debug else None
         db = session_factory()
         try:
             result = preview_plugin_economy(db, metadata if isinstance(metadata, dict) else {})
+            if result.get("blocked"):
+                audit_dino_lab_block_event(
+                    audit_event,
+                    "dino_lab_block_hit",
+                    severity="warn",
+                    source="plugin",
+                    message="MARKET_PREVIEW_BLOCKED",
+                    reason="dino_lab_blocked",
+                    trace_id=trace_id,
+                    order_id=result.get("order_id"),
+                    canonical_id=result.get("canonical_id"),
+                    matched_pair=result.get("matched_pair"),
+                )
+                audit_event(
+                    "MARKET_PREVIEW_BLOCKED",
+                    severity="warn",
+                    source="plugin",
+                    message=result.get("message"),
+                    reason="dino_lab_blocked",
+                    trace_id=trace_id,
+                    order_id=result.get("order_id"),
+                    canonical_id=result.get("canonical_id"),
+                    matched_pair=result.get("matched_pair"),
+                )
+                result = append_debug_fields(
+                    result,
+                    debug=debug,
+                    trace_id=trace_id,
+                    match=result,
+                )
             return jsonify(result)
         finally:
             db.close()
@@ -1281,14 +1378,52 @@ def register_market_routes(
             result = process_plugin_upload(db, body)
             return jsonify({"ok": True, **result})
         except ValueError as exc:
+            err_msg = str(exc)
+            metadata = body.get("metadata") or body.get("metadata_json") or {}
+            if isinstance(metadata, str):
+                import json as _json
+
+                try:
+                    metadata = _json.loads(metadata)
+                except Exception:
+                    metadata = {}
+            debug = is_dino_lab_block_debug(load_settings())
+            trace_id = new_trace_id() if debug else None
+            match = None
+            if "Dino Lab" in err_msg:
+                db_match = session_factory()
+                try:
+                    match = lookup_blocked_from_metadata(
+                        db_match, metadata if isinstance(metadata, dict) else {}
+                    )
+                finally:
+                    db_match.close()
+                audit_dino_lab_block_event(
+                    audit_event,
+                    "dino_lab_block_hit",
+                    severity="warn",
+                    source="plugin",
+                    target_steam_id=str(body.get("steam_id") or ""),
+                    message="MARKET_UPLOAD_REJECTED",
+                    reason="dino_lab_blocked",
+                    trace_id=trace_id,
+                    order_id=(match or {}).get("order_id"),
+                    canonical_id=(match or {}).get("canonical_id"),
+                    matched_pair=(match or {}).get("matched_pair"),
+                )
             audit_event(
                 "MARKET_UPLOAD_REJECTED",
                 severity="warn",
                 source="plugin",
                 target_steam_id=str(body.get("steam_id") or ""),
-                message=str(exc),
+                message=err_msg,
+                reason="dino_lab_blocked" if "Dino Lab" in err_msg else None,
+                trace_id=trace_id,
+                order_id=(match or {}).get("order_id") if match else None,
+                canonical_id=(match or {}).get("canonical_id") if match else None,
+                matched_pair=(match or {}).get("matched_pair") if match else None,
             )
-            return jsonify({"ok": False, "error": str(exc)}), 400
+            return jsonify({"ok": False, "error": err_msg}), 400
         finally:
             db.close()
 

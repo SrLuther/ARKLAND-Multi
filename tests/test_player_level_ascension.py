@@ -75,7 +75,7 @@ def test_engram_points_multiplier_5x():
 
     @dataclass
     class _Gs:
-        player_level_cap: int = 105
+        player_base_level: int = 105
         player_engram_points_multiplier: float = 5.0
         override_official_difficulty: float = 5.0
 

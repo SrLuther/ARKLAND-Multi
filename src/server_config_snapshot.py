@@ -77,6 +77,12 @@ def compute_max_player_level(cfg: object) -> int:
     return resolve_max_player_level(cfg)
 
 
+def compute_theoretical_player_level(cfg: object) -> int:
+    from .player_level_ascension import resolve_theoretical_player_level
+
+    return resolve_theoretical_player_level(cfg)
+
+
 def _effective_rate(
     cfg: object,
     field_name: str,
@@ -156,13 +162,17 @@ def collect_server_snapshot(
         cfg, "baby_mature_speed_multiplier", buff_event=buff_event, game_settings=not tek,
     )
 
+    theoretical = compute_theoretical_player_level(cfg)
+    effective = compute_max_player_level(cfg)
+
     snapshot: Dict[str, Any] = {
         "xp_multiplier": xp,
         "taming_speed_multiplier": taming,
         "harvest_amount_multiplier": harvest,
         "mating_interval_multiplier": mating,
         "baby_mature_speed_multiplier": mature,
-        "max_player_level": compute_max_player_level(cfg),
+        "max_player_level": effective,
+        "max_player_level_theoretical": theoretical,
         "max_dino_level": compute_max_wild_dino_level(cfg),
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "buff_active": buff_event is not None,
@@ -196,6 +206,10 @@ def snapshot_public_view(snapshot: Optional[Dict[str, Any]]) -> Optional[Dict[st
             snapshot.get("seasonal_event_active", snapshot.get("buff_active"))
         ),
     }
+    theo = int(snapshot.get("max_player_level_theoretical", 0) or 0)
+    eff = int(out["max_player_level"])
+    if theo > 0 and theo != eff:
+        out["max_player_level_theoretical"] = theo
     event_name = snapshot.get("seasonal_event_name") or snapshot.get("buff_name")
     if event_name:
         out["buff_name"] = str(event_name)

@@ -5146,6 +5146,7 @@
         <div class="catalog-tabs">
           <button type="button" class="catalog-tab active" data-market-tab="table" onclick="setMarketTab('table')">📋 Tabela Oficial</button>
           <button type="button" class="catalog-tab" data-market-tab="browse" onclick="setMarketTab('browse')">🛒 Mercado</button>
+          <button type="button" class="catalog-tab" data-market-tab="encomenda" onclick="setMarketTab('encomenda')">📦 Encomenda</button>
           <button type="button" class="catalog-tab" data-market-tab="myshop" onclick="setMarketTab('myshop')">🏪 Minha Loja</button>
         </div>
         <div id="market-panel-table" class="catalog-panel active">
@@ -5176,6 +5177,36 @@
           </div>
           <div id="market-browse-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;"></div>
           <p id="market-browse-empty" style="display:none;color:var(--text2);text-align:center;padding:48px;">Nenhum anúncio ativo.</p>
+        </div>
+        <div id="market-panel-encomenda" class="catalog-panel">
+          <div id="market-encomenda-gate" style="display:none;padding:24px;text-align:center;color:var(--text2);">
+            <p>Faça login com Steam para verificar IDs e encomendar dinos.</p>
+            <button class="btn btn-primary" onclick="loginWithSteam()">Entrar com Steam</button>
+          </div>
+          <div id="market-encomenda-content" style="display:none;">
+            <div class="card" style="margin-bottom:16px;">
+              <div class="card-title">📦 Encomenda de Dino</div>
+              <p style="font-size:13px;color:var(--text2);margin:0 0 12px;line-height:1.55;">
+                Canal para encomendar dinos customizados com Âmbares. Em breve: galeria de espécies e formulário completo.
+              </p>
+            </div>
+            <div class="card">
+              <div class="card-title" style="font-size:14px;margin-bottom:8px;">🔍 Verificar ID da criatura</div>
+              <p style="font-size:12px;color:var(--text2);margin:0 0 12px;line-height:1.5;">
+                Antes de encomendar, confira se o ID do dino não pertence ao Dino Lab (entregas administrativas).
+                Cole o ID canônico (ex.: <code>AABBCCDD-11223344</code>) ou informe <code>dino_id1</code> e <code>dino_id2</code> separados.
+              </p>
+              <div class="form-group">
+                <label>ID da criatura</label>
+                <input id="encomenda-dino-id" type="text" placeholder="AABBCCDD-11223344 ou par id1-id2" onkeydown="if(event.key==='Enter')encomendaCheckDinoId()" />
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="encomendaCheckDinoId()">Verificar</button>
+              <div id="encomenda-check-result" style="margin-top:14px;font-size:13px;"></div>
+              <p id="encomenda-check-disclaimer" style="margin-top:12px;font-size:11px;color:var(--amber);line-height:1.45;">
+                Verificação apenas do ID informado. Não inclui ancestralidade.
+              </p>
+            </div>
+          </div>
         </div>
         <div id="market-panel-myshop" class="catalog-panel">
           <div id="market-myshop-gate" style="display:none;padding:24px;text-align:center;color:var(--text2);">
@@ -6818,6 +6849,7 @@
         <div class="catalog-tabs" style="margin-bottom:16px;">
           <button type="button" class="catalog-tab active" data-dinolab-tab="deliver" onclick="setDinoLabTab('deliver')">Nova entrega</button>
           <button type="button" class="catalog-tab" data-dinolab-tab="history" onclick="setDinoLabTab('history')">Histórico</button>
+          <button type="button" class="catalog-tab" data-dinolab-tab="block" onclick="setDinoLabTab('block')">IDs bloqueados</button>
         </div>
         <div id="dinolab-panel-deliver" class="catalog-panel active">
           <div id="dinolab-disabled-banner" class="hidden" style="margin-bottom:12px;padding:12px;border-radius:8px;background:rgba(255,180,0,.1);border:1px solid rgba(255,180,0,.35);color:var(--amber);font-size:12px;">
@@ -6869,6 +6901,74 @@
             </div>
             <div class="card-title" style="margin:16px 0 8px;font-size:13px;">Cores (6 regiões — índice Obelisk 0–255)</div>
             <div class="form-grid" id="dl-colors-grid"></div>
+            <details class="card" style="margin-top:12px;padding:12px;background:var(--surface2);">
+              <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text);list-style:none;display:flex;align-items:center;gap:6px;">
+                <span style="font-size:10px;color:var(--text3);">▼</span> Referência — IDs de cor (ARK)
+              </summary>
+              <p style="font-size:12px;color:var(--text2);margin:12px 0 10px;line-height:1.5;">
+                Cada valor preenchido acima corresponde a um slot do array <code>colors[]</code> no payload JSON
+                (<code>colors[0]</code> … <code>colors[5]</code>). O backend valida exatamente <strong>6</strong> inteiros entre <strong>0</strong> e <strong>255</strong>
+                (<code>custom_dino_service</code>). O plugin aplica via <code>ColorSetIndices</code> + <code>MulticastUpdateAllColorSets</code>.
+                O nome visual de cada região varia por espécie; use
+                <a href="https://ark.wiki.gg/wiki/Color_IDs" target="_blank" rel="noopener">Color IDs (wiki ASE)</a>
+                ou <a href="https://github.com/cadon/ARKStatsExtractor" target="_blank" rel="noopener">ARK Smart Breeding</a> para conferir a paleta da espécie.
+              </p>
+              <div class="card-title" style="font-size:11px;margin-bottom:6px;">Regiões (slots <code>colors[]</code>)</div>
+              <table class="tbl" style="font-size:12px;margin-bottom:14px;">
+                <thead><tr><th>Região</th><th>Slot JSON</th><th>Descrição</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td><code>colors[0]</code></td><td>Região 0 — corpo / área principal (nome varia por espécie)</td></tr>
+                  <tr><td>1</td><td><code>colors[1]</code></td><td>Região 1</td></tr>
+                  <tr><td>2</td><td><code>colors[2]</code></td><td>Região 2</td></tr>
+                  <tr><td>3</td><td><code>colors[3]</code></td><td>Região 3</td></tr>
+                  <tr><td>4</td><td><code>colors[4]</code></td><td>Região 4</td></tr>
+                  <tr><td>5</td><td><code>colors[5]</code></td><td>Região 5</td></tr>
+                </tbody>
+              </table>
+              <div class="card-title" style="font-size:11px;margin-bottom:6px;">Color IDs comuns (ASE — faixa 0–255)</div>
+              <p style="font-size:11px;color:var(--text3);margin:0 0 8px;">
+                <strong>0</strong> = selvagem/padrão da região (sem tinta). IDs <strong>1–18</strong> = paleta base;
+                <strong>201–226</strong> = tintas craftáveis. Outros IDs existem (eventos, mutações, espécies) — ver wiki.
+              </p>
+              <table class="tbl" style="font-size:12px;">
+                <thead><tr><th>ID</th><th>Nome</th><th>ID</th><th>Nome</th></tr></thead>
+                <tbody>
+                  <tr><td>0</td><td>Selvagem / padrão</td><td>10</td><td>Light Orange</td></tr>
+                  <tr><td>1</td><td>Red</td><td>11</td><td>Light Yellow</td></tr>
+                  <tr><td>2</td><td>Blue</td><td>12</td><td>Light Red</td></tr>
+                  <tr><td>3</td><td>Green</td><td>13</td><td>Dark Grey</td></tr>
+                  <tr><td>4</td><td>Yellow</td><td>14</td><td>Black</td></tr>
+                  <tr><td>5</td><td>Cyan</td><td>15</td><td>Brown</td></tr>
+                  <tr><td>6</td><td>Magenta</td><td>16</td><td>Dark Green</td></tr>
+                  <tr><td>7</td><td>Light Green</td><td>17</td><td>Dark Red</td></tr>
+                  <tr><td>8</td><td>Light Grey</td><td>18</td><td>White</td></tr>
+                  <tr><td>9</td><td>Light Brown</td><td colspan="2" style="color:var(--text3);font-size:11px;">… IDs 19–200 (paletas de dino, eventos)</td></tr>
+                </tbody>
+              </table>
+              <div class="card-title" style="font-size:11px;margin:14px 0 6px;">Tintas craftáveis (dye IDs)</div>
+              <table class="tbl" style="font-size:12px;">
+                <thead><tr><th>ID</th><th>Tinta</th><th>ID</th><th>Tinta</th></tr></thead>
+                <tbody>
+                  <tr><td>201</td><td>Black Dye</td><td>214</td><td>Silver Dye</td></tr>
+                  <tr><td>202</td><td>Blue Dye</td><td>215</td><td>Sky Dye</td></tr>
+                  <tr><td>203</td><td>Brown Dye</td><td>216</td><td>Tan Dye</td></tr>
+                  <tr><td>204</td><td>Cyan Dye</td><td>217</td><td>Tangerine Dye</td></tr>
+                  <tr><td>205</td><td>Forest Dye</td><td>218</td><td>White Dye</td></tr>
+                  <tr><td>206</td><td>Green Dye</td><td>219</td><td>Yellow Dye</td></tr>
+                  <tr><td>207</td><td>Purple Dye</td><td>220</td><td>Magenta Dye</td></tr>
+                  <tr><td>208</td><td>Orange Dye</td><td>221</td><td>Brick Dye</td></tr>
+                  <tr><td>209</td><td>Parchment Dye</td><td>222</td><td>Cantaloupe Dye</td></tr>
+                  <tr><td>210</td><td>Pink Dye</td><td>223</td><td>Mud Dye</td></tr>
+                  <tr><td>211</td><td>Unused Purple Dye</td><td>224</td><td>Navy Dye</td></tr>
+                  <tr><td>212</td><td>Red Dye</td><td>225</td><td>Olive Dye</td></tr>
+                  <tr><td>213</td><td>Royalty Dye</td><td>226</td><td>Slate Dye</td></tr>
+                </tbody>
+              </table>
+              <p style="font-size:11px;color:var(--text3);margin:10px 0 0;">
+                Exemplo de payload: <code>"colors": [14, 14, 14, 0, 0, 0]</code> — três regiões pretas (ID 14), demais no padrão selvagem.
+                Documentação interna: <code>docs/DINO_LAB_GUIA.md</code> §13.
+              </p>
+            </details>
             <div class="card" style="margin-top:16px;padding:12px;background:var(--surface2);">
               <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;">
                 <label style="margin:0;"><input id="dl-spawn-exact" type="checkbox" onchange="dinoLabToggleSpawnExact()" /> Modo SpawnExact (stats por ponto)</label>
@@ -6920,6 +7020,62 @@
         </div>
         <div id="dinolab-panel-history" class="catalog-panel">
           <div id="dinolab-history-list" style="color:var(--text2);">Carregando…</div>
+        </div>
+        <div id="dinolab-panel-block" class="catalog-panel">
+          <div class="card" style="margin-bottom:16px;">
+            <div class="card-title">IDs bloqueados — blacklist Dino Lab</div>
+            <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+              Criaturas e linhagem registradas na entrega Dino Lab. Use os filtros para localizar um ID específico.
+            </p>
+            <div id="dlb-stats" style="font-size:12px;color:var(--text2);margin-bottom:12px;"></div>
+            <div class="form-grid" style="margin-bottom:12px;">
+              <div class="form-group" style="grid-column:1/-1;">
+                <label>Busca (ID hex, par id1-id2 ou decimal)</label>
+                <input id="dlb-q" type="text" placeholder="AABBCCDD-11223344 ou 12345" />
+              </div>
+              <div class="form-group">
+                <label>Steam ID</label>
+                <input id="dlb-steam-id" type="text" placeholder="7656119…" />
+              </div>
+              <div class="form-group">
+                <label>Pedido (order_id)</label>
+                <input id="dlb-order-id" type="text" placeholder="cd_…" />
+              </div>
+              <div class="form-group">
+                <label>Origem (source)</label>
+                <select id="dlb-source">
+                  <option value="">Todas</option>
+                  <option value="dino_lab">dino_lab</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Papel (role)</label>
+                <select id="dlb-role">
+                  <option value="">Todos</option>
+                  <option value="self">self</option>
+                  <option value="ancestor">ancestor</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Data de</label>
+                <input id="dlb-date-from" type="date" />
+              </div>
+              <div class="form-group">
+                <label>Data até</label>
+                <input id="dlb-date-to" type="date" />
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="resetDinoLabBlockPage()">Filtrar</button>
+          </div>
+          <div class="card-title" style="font-size:13px;margin-bottom:8px;">
+            <span id="dlb-page-info" style="font-weight:400;color:var(--text2);font-size:12px;"></span>
+          </div>
+          <div id="dlb-list" style="color:var(--text2);">Carregando…</div>
+          <div style="display:flex;gap:8px;justify-content:center;align-items:center;margin-top:12px;flex-wrap:wrap;">
+            <button class="btn btn-ghost btn-sm" onclick="prevDinoLabBlockPage()">◀ Anterior</button>
+            <span id="dlb-page-label" style="font-size:12px;color:var(--text2);"></span>
+            <button class="btn btn-ghost btn-sm" onclick="nextDinoLabBlockPage()">Próxima ▶</button>
+          </div>
         </div>
       </div>
 
@@ -11527,7 +11683,118 @@ function setDinoLabTab(tab) {
   });
   document.getElementById("dinolab-panel-deliver")?.classList.toggle("active", tab === "deliver");
   document.getElementById("dinolab-panel-history")?.classList.toggle("active", tab === "history");
+  document.getElementById("dinolab-panel-block")?.classList.toggle("active", tab === "block");
   if (tab === "history") loadDinoLabHistory();
+  if (tab === "block") loadDinoLabBlockList();
+}
+
+let _dinoLabBlockPage = { page: 1, per_page: 50, total: 0, pages: 1 };
+
+function resetDinoLabBlockPage() {
+  _dinoLabBlockPage.page = 1;
+  loadDinoLabBlockList();
+}
+
+function prevDinoLabBlockPage() {
+  if (_dinoLabBlockPage.page > 1) {
+    _dinoLabBlockPage.page -= 1;
+    loadDinoLabBlockList();
+  }
+}
+
+function nextDinoLabBlockPage() {
+  if (_dinoLabBlockPage.page < _dinoLabBlockPage.pages) {
+    _dinoLabBlockPage.page += 1;
+    loadDinoLabBlockList();
+  }
+}
+
+async function loadDinoLabBlockStats() {
+  const el = document.getElementById("dlb-stats");
+  if (!el) return;
+  try {
+    const d = await fetchJson("/api/admin/dino-lab-block/stats");
+    if (!d.ok || !d.stats) { el.innerHTML = ""; return; }
+    const st = d.stats;
+    const bySrc = Object.entries(st.by_source || {})
+      .map(([k, v]) => `${escHtml(k)}: <strong>${v}</strong>`)
+      .join(" · ");
+    el.innerHTML =
+      `Total: <strong>${st.total_rows || 0}</strong>` +
+      ` · self: <strong>${st.self_ids || 0}</strong>` +
+      ` · ancestor: <strong>${st.ancestor_ids || 0}</strong>` +
+      ` · pedidos: <strong>${st.distinct_orders || 0}</strong>` +
+      ` · últimas 24h: <strong>${st.last_24h || 0}</strong>` +
+      (bySrc ? ` · ${bySrc}` : "");
+  } catch (_) {
+    el.innerHTML = "";
+  }
+}
+
+async function loadDinoLabBlockList() {
+  const root = document.getElementById("dlb-list");
+  if (!root) return;
+  root.textContent = "Carregando…";
+  loadDinoLabBlockStats();
+  const params = new URLSearchParams({
+    page: String(_dinoLabBlockPage.page),
+    per_page: String(_dinoLabBlockPage.per_page),
+  });
+  const q = document.getElementById("dlb-q")?.value?.trim();
+  const steam = document.getElementById("dlb-steam-id")?.value?.trim();
+  const oid = document.getElementById("dlb-order-id")?.value?.trim();
+  const source = document.getElementById("dlb-source")?.value;
+  const role = document.getElementById("dlb-role")?.value;
+  const dateFrom = document.getElementById("dlb-date-from")?.value;
+  const dateTo = document.getElementById("dlb-date-to")?.value;
+  if (q) params.set("q", q);
+  if (steam) params.set("steam_id", steam);
+  if (oid) params.set("order_id", oid);
+  if (source) params.set("source", source);
+  if (role) params.set("role", role);
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  try {
+    const d = await fetchJson("/api/admin/dino-lab-block/list?" + params.toString());
+    if (!d.ok) throw new Error(d.error || "Falha ao carregar");
+    _dinoLabBlockPage.total = d.total || 0;
+    _dinoLabBlockPage.pages = d.pages || 1;
+    _dinoLabBlockPage.page = d.page || 1;
+    const info = document.getElementById("dlb-page-info");
+    if (info) {
+      const from = d.total ? ((_dinoLabBlockPage.page - 1) * _dinoLabBlockPage.per_page) + 1 : 0;
+      const to = Math.min(_dinoLabBlockPage.page * _dinoLabBlockPage.per_page, d.total || 0);
+      info.textContent = `${from}–${to} de ${d.total || 0} registro(s)`;
+    }
+    const label = document.getElementById("dlb-page-label");
+    if (label) label.textContent = `Página ${_dinoLabBlockPage.page} de ${_dinoLabBlockPage.pages}`;
+    const rows = d.rows || [];
+    if (!rows.length) {
+      root.innerHTML = "<p>Nenhum ID bloqueado encontrado.</p>";
+      return;
+    }
+    root.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table class="pkg-admin-table">
+          <thead><tr>
+            <th>canonical_id</th><th>order_id</th><th>steam_id</th><th>role</th><th>source</th><th>delivered_at</th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td style="font-family:monospace;font-size:11px;">${escHtml(r.canonical_id)}</td>
+                <td style="font-family:monospace;font-size:11px;">${escHtml(r.order_id)}</td>
+                <td style="font-size:11px;">${escHtml(r.steam_id)}</td>
+                <td><span class="badge">${escHtml(r.role)}</span></td>
+                <td style="font-size:11px;">${escHtml(r.source)}</td>
+                <td style="font-size:11px;">${escHtml((r.delivered_at || "").slice(0, 19))}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (e) {
+    root.innerHTML = `<p style="color:var(--danger);">${escHtml(String(e))}</p>`;
+  }
 }
 
 function _dinoLabColorInputs() {
@@ -11695,6 +11962,7 @@ async function loadDinoLabAdmin() {
     }
   }
   loadDinoLabHistory();
+  loadDinoLabBlockStats();
 }
 
 // ── Sugestões da comunidade ───────────────────────────────────────────────────
@@ -12676,7 +12944,65 @@ function setMarketTab(tab) {
   if (panel) panel.classList.add("active");
   if (tab === "table") loadMarketTable();
   if (tab === "browse") loadMarketBrowse();
+  if (tab === "encomenda") loadMarketEncomenda();
   if (tab === "myshop") loadMarketMyShop();
+}
+
+async function loadMarketEncomenda() {
+  const gate = document.getElementById("market-encomenda-gate");
+  const content = document.getElementById("market-encomenda-content");
+  if (!gate || !content) return;
+  if (!_auth.authenticated) {
+    gate.style.display = "";
+    content.style.display = "none";
+    return;
+  }
+  gate.style.display = "none";
+  content.style.display = "";
+}
+
+async function encomendaCheckDinoId() {
+  const input = document.getElementById("encomenda-dino-id");
+  const resultEl = document.getElementById("encomenda-check-result");
+  if (!input || !resultEl) return;
+  if (!_auth.authenticated) {
+    promptLogin("Encomenda de Dino");
+    return;
+  }
+  const raw = (input.value || "").trim();
+  if (!raw) {
+    resultEl.innerHTML = '<p style="color:var(--warn);margin:0;">Informe o ID da criatura.</p>';
+    return;
+  }
+  resultEl.innerHTML = '<p style="color:var(--text2);margin:0;">Verificando…</p>';
+  const body = raw.includes("-")
+    ? { canonical_id: raw }
+    : { input: raw };
+  try {
+    const d = await fetchJson("/api/dino-lab-block/check", {
+      method: "POST",
+      body: JSON.stringify(body),
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!d.ok) {
+      resultEl.innerHTML = `<p style="color:var(--warn);margin:0;">${escHtml(d.message || d.error || "ID inválido")}</p>`;
+      return;
+    }
+    const blocked = !!d.blocked;
+    const color = blocked ? "var(--danger)" : "var(--success)";
+    const icon = blocked ? "⛔" : "✅";
+    const extra = blocked && d.order_id
+      ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;">Pedido Dino Lab: <code>${escHtml(d.order_id)}</code></div>`
+      : "";
+    const canon = d.canonical_id
+      ? `<div style="font-size:12px;color:var(--text2);margin-top:4px;">ID: <code>${escHtml(d.canonical_id)}</code></div>`
+      : "";
+    resultEl.innerHTML =
+      `<p style="color:${color};margin:0;font-weight:600;">${icon} ${escHtml(d.message || (blocked ? "Bloqueado" : "Liberado"))}</p>` +
+      canon + extra;
+  } catch (e) {
+    resultEl.innerHTML = `<p style="color:var(--danger);margin:0;">${escHtml(String(e))}</p>`;
+  }
 }
 
 function setMarketMyShopTab(tab) {
@@ -12711,6 +13037,7 @@ function reloadMarketAdminPage() {
 function reloadMarketPage() {
   if (_marketTab === "table") loadMarketTable();
   else if (_marketTab === "browse") loadMarketBrowse();
+  else if (_marketTab === "encomenda") loadMarketEncomenda();
   else loadMarketMyShop();
 }
 
@@ -17481,7 +17808,9 @@ function _mapCardStatsHtml(stats) {
     stats.xp ? `<span class="home-map-stat" title="Taxa de XP"><span class="home-map-stat__icon">⭐</span>XP ${escHtml(stats.xp)}</span>` : "",
     stats.taming ? `<span class="home-map-stat" title="Velocidade de doma"><span class="home-map-stat__icon">🦖</span>Doma ${escHtml(stats.taming)}</span>` : "",
     stats.harvest ? `<span class="home-map-stat" title="Coleta de recursos"><span class="home-map-stat__icon">🌿</span>Coleta ${escHtml(stats.harvest)}</span>` : "",
-    stats.max_player_level ? `<span class="home-map-stat" title="Nível máximo do jogador"><span class="home-map-stat__icon">👤</span>Nív. máx. ${escHtml(String(stats.max_player_level))}</span>` : "",
+    stats.max_player_level ? `<span class="home-map-stat" title="Teto efetivo in-game (rampa + cap XP)"><span class="home-map-stat__icon">👤</span>Nív. máx. ${escHtml(String(stats.max_player_level))}</span>` : "",
+    stats.max_player_level_theoretical && stats.max_player_level_theoretical !== stats.max_player_level
+      ? `<span class="home-map-stat" title="Teto teórico com ascensões e bônus"><span class="home-map-stat__icon">📈</span>Teto ${escHtml(String(stats.max_player_level_theoretical))}</span>` : "",
     stats.max_dino_level ? `<span class="home-map-stat" title="Nível máximo de dinos selvagens"><span class="home-map-stat__icon">🦴</span>Dino ${escHtml(String(stats.max_dino_level))}</span>` : "",
     stats.mature && stats.mature !== "1x" ? `<span class="home-map-stat" title="Velocidade de maturação"><span class="home-map-stat__icon">🥚</span>Matur. ${escHtml(stats.mature)}</span>` : "",
   ].filter(Boolean);

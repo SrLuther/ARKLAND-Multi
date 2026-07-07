@@ -145,4 +145,17 @@ void LogCryoInventoryDebugReport(
 /** Linhas ASCII curtas para chat in-game (max ~6). */
 std::vector<std::string> CryoInventoryDebugChatLines(const CryoInventoryDebugReport& report);
 
+struct DinoIdentity {
+    uint32_t dino_id1 = 0;
+    uint32_t dino_id2 = 0;
+    std::vector<std::pair<uint32_t, uint32_t>> ancestor_pairs;
+};
+
+/** Extrai par proprio + ancestrais via spawn probe (bGenerateNewDinoID=false). */
+bool ExtractDinoIdentityFromCryopod(UPrimalItem* item,
+                                      AShooterPlayerController* player,
+                                      DinoIdentity& out);
+
+nlohmann::json DinoIdentityToJson(const DinoIdentity& identity);
+
 } // namespace CustomShop

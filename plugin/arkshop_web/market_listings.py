@@ -294,6 +294,22 @@ def _compute_economy(db: Session, species_row: Any, metadata: dict[str, Any]) ->
 def preview_plugin_economy(db: Session, metadata: dict[str, Any]) -> dict[str, Any]:
     """Preview de valor sugerido para /enviar in-game (sem persistir)."""
     meta = dict(metadata or {})
+    from dino_lab_block_service import DINO_LAB_BLOCK_MESSAGE, lookup_blocked_from_metadata
+
+    match = lookup_blocked_from_metadata(db, meta)
+    if match:
+        return {
+            "ok": False,
+            "blocked": True,
+            "reason": "dino_lab_blocked",
+            "error": match.get("message") or DINO_LAB_BLOCK_MESSAGE,
+            "message": match.get("message") or DINO_LAB_BLOCK_MESSAGE,
+            "order_id": match.get("order_id"),
+            "canonical_id": match.get("canonical_id"),
+            "matched_pair": match.get("matched_pair"),
+            "computed_base_value": 0,
+            "calculation_breakdown": [],
+        }
     species_key = str(meta.get("species_key") or "").strip()
     blueprint = str(meta.get("species_blueprint") or meta.get("blueprint") or "")
     species_row = resolve_species(db, species_key=species_key or None, blueprint=blueprint or None)
@@ -401,6 +417,12 @@ def process_plugin_upload(db: Session, body: dict[str, Any]) -> dict[str, Any]:
     metadata = body.get("metadata") or body.get("metadata_json") or {}
     if isinstance(metadata, str):
         metadata = _json_loads(metadata)
+
+    from dino_lab_block_service import DINO_LAB_BLOCK_MESSAGE, lookup_blocked_from_metadata
+
+    match = lookup_blocked_from_metadata(db, metadata)
+    if match:
+        raise ValueError(match.get("message") or DINO_LAB_BLOCK_MESSAGE)
 
     imprint = float(metadata.get("imprint_pct") or metadata.get("imprint") or 0)
     if imprint < 0.999:

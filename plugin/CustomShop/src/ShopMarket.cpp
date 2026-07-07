@@ -239,6 +239,145 @@ bool IsMarketModerator(AShooterPlayerController* player, const std::string& sid)
     return false;
 }
 
+constexpr const char* kDinoLabBlockMsg =
+    "este dino ou sua linhagem pertence ao Dino Lab e nao pode ser vendido.";
+
+nlohmann::json BuildDinoIdentityPairsBody(const CustomShop::DinoIdentity& identity) {
+    nlohmann::json pairs = nlohmann::json::array();
+    pairs.push_back(nlohmann::json::array({identity.dino_id1, identity.dino_id2}));
+    for (const auto& pair : identity.ancestor_pairs)
+        pairs.push_back(nlohmann::json::array({pair.first, pair.second}));
+    return nlohmann::json{{"dino_id_pairs", pairs}};
+}
+
+std::string FormatDinoIdHex(uint32_t id) {
+    char buf[16];
+    snprintf(buf, sizeof(buf), "%08X", id);
+    return buf;
+}
+
+struct DinoLabBlockCheckResult {
+    bool blocked = false;
+    std::string order_id;
+    std::string canonical_id;
+    uint32_t matched_id1 = 0;
+    uint32_t matched_id2 = 0;
+};
+
+DinoLabBlockCheckResult CheckDinoLabBlockedHttp(const CustomShop::DinoIdentity& identity) {
+    DinoLabBlockCheckResult result;
+    if (identity.dino_id1 == 0 && identity.dino_id2 == 0)
+        return result;
+    const std::string resp = CustomShop::HttpClient::PostJson(
+        "/api/market/plugin/check-dino-blocked",
+        BuildDinoIdentityPairsBody(identity).dump());
+    if (resp.empty())
+        return result;
+    try {
+        const nlohmann::json json = nlohmann::json::parse(resp);
+        result.blocked = json.value("blocked", false);
+        if (!result.blocked)
+            return result;
+        result.order_id = json.value("order_id", "");
+        result.canonical_id = json.value("canonical_id", "");
+        const auto& mp = json.value("matched_pair", nlohmann::json::array());
+        if (mp.is_array() && mp.size() >= 2) {
+            result.matched_id1 = mp[0].get<uint32_t>();
+            result.matched_id2 = mp[1].get<uint32_t>();
+        }
+    } catch (...) {
+        return result;
+    }
+    return result;
+}
+
+void LogDinoLabBlockHit(const char* stage,
+                        const std::string& steam_id,
+                        const CustomShop::DinoIdentity& identity,
+                        const DinoLabBlockCheckResult& check) {
+    Log::GetLog()->warn(
+        "[DinoLabBlock] {} steam={} self={}:{} ancestors={} matched={}:{} order={} canon={}",
+        stage,
+        steam_id,
+        FormatDinoIdHex(identity.dino_id1),
+        FormatDinoIdHex(identity.dino_id2),
+        identity.ancestor_pairs.size(),
+        FormatDinoIdHex(check.matched_id1),
+        FormatDinoIdHex(check.matched_id2),
+        check.order_id,
+        check.canonical_id);
+}
+
+bool NotifyIfDinoLabBlocked(AShooterPlayerController* player,
+                            UPrimalItem* cryo,
+                            const char* stage) {
+    const std::string sid = CustomShop::Bridge::GetSteamId(player);
+    CustomShop::DinoIdentity identity;
+    if (!CustomShop::ExtractDinoIdentityFromCryopod(cryo, player, identity)) {
+        Log::GetLog()->warn(
+            "[DinoLabBlock] {} steam={} identity extract failed",
+            stage, sid);
+        return false;
+    }
+    const DinoLabBlockCheckResult check = CheckDinoLabBlockedHttp(identity);
+    if (!check.blocked)
+        return false;
+    LogDinoLabBlockHit(stage, sid, identity, check);
+    SendMsg(player, FColorList::Red, kDinoLabBlockMsg);
+    return true;
+}
+
+void CmdRastrearDebugImpl(AShooterPlayerController* player) {
+    if (!player) return;
+    const std::string sid = CustomShop::Bridge::GetSteamId(player);
+
+    UPrimalItem* cryo = CustomShop::FindCryopodInInventory(player, -1);
+    if (!cryo) {
+        SendMsg(player, FColorList::Red,
+                "Nenhuma cryopod valida no inventario.");
+        return;
+    }
+
+    CustomShop::DinoIdentity identity;
+    if (!CustomShop::ExtractDinoIdentityFromCryopod(cryo, player, identity)) {
+        SendMsg(player, FColorList::Red,
+                "Nao foi possivel ler a identidade desta cryopod.");
+        Log::GetLog()->warn("[DinoLabBlock] rastreardebug steam={} identity extract failed", sid);
+        return;
+    }
+
+    SendMsg(player, FColorList::Yellow,
+            "ID self " + FormatDinoIdHex(identity.dino_id1) + "-"
+            + FormatDinoIdHex(identity.dino_id2)
+            + " anc=" + std::to_string(identity.ancestor_pairs.size()));
+
+    const DinoLabBlockCheckResult check = CheckDinoLabBlockedHttp(identity);
+    if (check.blocked) {
+        SendMsg(player, FColorList::Red,
+                "BLOQUEADO order=" + check.order_id
+                + " match=" + FormatDinoIdHex(check.matched_id1) + "-"
+                + FormatDinoIdHex(check.matched_id2));
+        LogDinoLabBlockHit("rastreardebug", sid, identity, check);
+        return;
+    }
+
+    SendMsg(player, FColorList::Green, "Sem bloqueio Dino Lab (HTTP ok).");
+    Log::GetLog()->info(
+        "[DinoLabBlock] rastreardebug steam={} self={}:{} ancestors={} blocked=0",
+        sid,
+        FormatDinoIdHex(identity.dino_id1),
+        FormatDinoIdHex(identity.dino_id2),
+        identity.ancestor_pairs.size());
+}
+
+void AttachDinoIdentityToMetadata(nlohmann::json& metadata,
+                                  UPrimalItem* cryo,
+                                  AShooterPlayerController* player) {
+    CustomShop::DinoIdentity identity;
+    if (CustomShop::ExtractDinoIdentityFromCryopod(cryo, player, identity))
+        metadata["dino_identity"] = CustomShop::DinoIdentityToJson(identity);
+}
+
 } // anonymous namespace
 
 namespace CustomShop {
@@ -247,6 +386,8 @@ void ShopMarket::RegisterCommands() {
     ArkApi::GetCommands().AddChatCommand("/enviar", &ShopMarket::CmdEnviar);
     ArkApi::GetCommands().AddChatCommand("/enviardebug", &ShopMarket::CmdEnviarDebug);
     ArkApi::GetCommands().AddChatCommand("/confirmar", &ShopMarket::CmdConfirmar);
+    ArkApi::GetCommands().AddChatCommand("/rastrear", &ShopMarket::CmdRastrear);
+    ArkApi::GetCommands().AddChatCommand("/rastreardebug", &ShopMarket::CmdRastrearDebug);
     ArkApi::GetCommands().AddChatCommand("/mercado", &ShopMarket::CmdResgatarMercado);
     ArkApi::GetCommands().AddChatCommand("/mercado_admin", &ShopMarket::CmdMercadoAdmin);
 }
@@ -255,6 +396,8 @@ void ShopMarket::UnregisterCommands() {
     ArkApi::GetCommands().RemoveChatCommand("/enviar");
     ArkApi::GetCommands().RemoveChatCommand("/enviardebug");
     ArkApi::GetCommands().RemoveChatCommand("/confirmar");
+    ArkApi::GetCommands().RemoveChatCommand("/rastrear");
+    ArkApi::GetCommands().RemoveChatCommand("/rastreardebug");
     ArkApi::GetCommands().RemoveChatCommand("/mercado");
     ArkApi::GetCommands().RemoveChatCommand("/mercado_admin");
 }
@@ -301,6 +444,9 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
     if (!ValidateMarketCryoTimer(player, cryo, sid, "enviar_timer", min_days))
         return;
 
+    if (NotifyIfDinoLabBlocked(player, cryo, "enviar"))
+        return;
+
     ApplyCryoTimerFieldsToMetadata(cryo, meta);
 
     PendingUpload pending;
@@ -328,12 +474,23 @@ void ShopMarket::CmdEnviar(AShooterPlayerController* player, FString*, EChatSend
 
     nlohmann::json preview_body;
     preview_body["metadata"] = CryoMetadataToJson(meta);
+    AttachDinoIdentityToMetadata(preview_body["metadata"], cryo, player);
     const std::string preview_resp = HttpClient::PostJson("/api/market/plugin/preview", preview_body.dump());
     nlohmann::json preview_json;
     try {
         preview_json = nlohmann::json::parse(preview_resp);
     } catch (...) {
         preview_json = nlohmann::json::object();
+    }
+    if (preview_json.value("blocked", false)) {
+        {
+            std::lock_guard<std::mutex> lock(g_pending_mutex);
+            g_pending.erase(sid);
+        }
+        const std::string block_msg = preview_json.value(
+            "message", std::string(kDinoLabBlockMsg));
+        SendMsg(player, FColorList::Red, block_msg);
+        return;
     }
     if (preview_json.value("ok", false)) {
         const int suggested = preview_json.value("computed_base_value", 0);
@@ -356,6 +513,37 @@ void ShopMarket::CmdEnviarDebug(AShooterPlayerController* player, FString*, ECha
     const std::string sid = Bridge::GetSteamId(player);
     SendMsg(player, FColorList::Yellow, "Diagnostico cryopod Comercio (detalhes no log do servidor).");
     SendCryoDebugReport(player, sid, "enviardebug", true);
+}
+
+void ShopMarket::CmdRastrear(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
+    if (!player) return;
+
+    UPrimalItem* cryo = FindCryopodInInventory(player, -1);
+    if (!cryo) {
+        SendMsg(player, FColorList::Red,
+                "Nenhuma cryopod valida no inventario. Equipe uma cryo preenchida "
+                "legivel (cryos vazias ou corrompidas sao ignoradas).");
+        return;
+    }
+
+    DinoIdentity identity;
+    if (!ExtractDinoIdentityFromCryopod(cryo, player, identity)) {
+        SendMsg(player, FColorList::Red,
+                "Nao foi possivel ler a identidade desta cryopod.");
+        return;
+    }
+
+    if (CheckDinoLabBlockedHttp(identity).blocked) {
+        SendMsg(player, FColorList::Red, kDinoLabBlockMsg);
+        return;
+    }
+
+    SendMsg(player, FColorList::Green,
+            "Este dino pode ser vendido no Comercio (sem bloqueio Dino Lab detectado).");
+}
+
+void ShopMarket::CmdRastrearDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
+    CmdRastrearDebugImpl(player);
 }
 
 void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type) {
@@ -468,6 +656,9 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
         return;
     }
 
+    if (NotifyIfDinoLabBlocked(player, cryo, "confirmar"))
+        return;
+
     const float min_days = ShopConfig::Get().MarketCryoMinDaysRemaining();
     if (!ValidateMarketCryoTimer(player, cryo, sid, "confirmar_timer", min_days)) {
         std::lock_guard<std::mutex> lock(g_pending_mutex);
@@ -537,6 +728,7 @@ void ShopMarket::CmdConfirmar(AShooterPlayerController* player, FString*, EChatS
     body["parser_version"] = "1.0.0";
     body["plugin_version"] = "CustomShop";
     body["metadata"] = CryoMetadataToJson(pending.meta);
+    AttachDinoIdentityToMetadata(body["metadata"], cryo, player);
     if (stripped)
         body["metadata"]["timer_stripped_on_upload"] = true;
 

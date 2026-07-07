@@ -24,8 +24,9 @@ void DinoConfig::Load() {
     }
 
     Log::GetLog()->info(
-        "DinoConfig: loaded WebApiUrl={} poll={}s ground_fallback={}",
-        WebApiUrl(), PollIntervalSeconds(), GroundFallbackOnFullInventory());
+        "DinoConfig: loaded WebApiUrl={} poll={}s ground_fallback={} use_spawn_exact={}",
+        WebApiUrl(), PollIntervalSeconds(), GroundFallbackOnFullInventory(),
+        UseSpawnExact());
 }
 
 std::string DinoConfig::WebApiUrl() const {
@@ -46,6 +47,10 @@ int DinoConfig::PollIntervalSeconds() const {
 
 bool DinoConfig::GroundFallbackOnFullInventory() const {
     return config_.value("GroundFallbackOnFullInventory", true);
+}
+
+bool DinoConfig::UseSpawnExact() const {
+    return config_.value("UseSpawnExact", false);
 }
 
 std::string DinoConfig::CryoItemPath() const {

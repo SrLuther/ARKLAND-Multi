@@ -160,6 +160,13 @@ class AsmServerConfig:
     player_base_level:                  int   = 0   # 0 = vanilla 105; nível sem ascensões/bônus
     player_ascension_state:             str   = ""  # JSON: bosses {id:tier 0-3}, extras {id:bool}
     player_engram_points_multiplier:    float = 1.0  # Multiplica os 8 pts vanilla por nível (5.0 = 40/nível)
+    # Curva de XP / rampa (unificação nível máximo — ver PLAYER_MAX_LEVEL_SPEC.md)
+    player_xp_curve_mode:               str   = "vanilla"  # vanilla | custom
+    player_xp_curve_base:               int   = 70
+    player_xp_curve_mult:               float = 1.15
+    player_xp_curve_formula:            str   = "base * (mult ** i)"
+    player_ramp_entry_count:            int   = 0   # lido do Game.ini ou derivado no save
+    player_ramp_max_index:              int   = -1
 
     # ── Dinos ─────────────────────────────────────────────────────────────────
     dino_damage_multiplier:              float = 1.0
@@ -430,6 +437,13 @@ class AsmServerConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "AsmServerConfig":
+        from ..player_level_ramp import migrate_player_level_dict
+
+        data = dict(data)
+        pl = data.pop("player_level", None)
+        if isinstance(pl, dict):
+            migrate_player_level_dict(data, pl)
+
         field_map = {f.name: f for f in fields(cls)}
         defaults = cls()
         kwargs: dict = {}

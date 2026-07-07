@@ -13,6 +13,7 @@ public:
     std::string WebApiKey() const;
     int PollIntervalSeconds() const;
     bool GroundFallbackOnFullInventory() const;
+    bool UseSpawnExact() const;
     std::string CryoItemPath() const;
 
 private:

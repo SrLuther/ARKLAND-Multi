@@ -26,3 +26,18 @@ def test_meta_sections_from_static_when_md_missing(monkeypatch):
     meta = rs.regulamento_meta()
     assert meta["version"] == "1.0"
     assert len(meta["sections"]) >= 10
+
+
+def test_markdown_table_cells_render_inline_formatting():
+    md = (
+        "| Canal | Uso |\n"
+        "|-------|-----|\n"
+        "| **Web Store** | [https://arkland.com.br](https://arkland.com.br) |\n"
+        "| **Âmbar / Âmbares** | Moeda simbólica |\n"
+    )
+    html = rs._markdown_to_html(md)
+    assert "<strong>Web Store</strong>" in html
+    assert '<a href="https://arkland.com.br" target="_blank" rel="noopener">https://arkland.com.br</a>' in html
+    assert "<strong>Âmbar / Âmbares</strong>" in html
+    assert "**Web Store**" not in html
+    assert "[https://arkland.com.br]" not in html

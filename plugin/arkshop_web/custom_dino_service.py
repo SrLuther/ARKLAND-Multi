@@ -168,6 +168,58 @@ def _is_valid_blueprint_raw(path: str) -> bool:
     return p.startswith("/Game/") and len(p) > 6
 
 
+def _blueprint_inner(path: str) -> str:
+    p = (path or "").strip()
+    if p.startswith("Blueprint'") and p.endswith("'"):
+        return p[10:-1].strip()
+    return p
+
+
+def _looks_like_dino_species_blueprint(path: str) -> bool:
+    """Rejeita blueprints obviamente nao-dino (sela, item, arma, etc.)."""
+    inner = _blueprint_inner(path).lower()
+    if not inner.startswith("/game/"):
+        return False
+    forbidden = (
+        "primalitem",
+        "saddle",
+        "primalstructure",
+        "weapon",
+        "consumable",
+        "emote",
+        "buff_",
+        "skin",
+        "costume",
+        "armor",
+        "cryopod",
+        "eggitem",
+        "supplycrate",
+        "beacon",
+    )
+    if any(token in inner for token in forbidden):
+        return False
+    if "character_bp" in inner:
+        return True
+    if "_character." in inner:
+        return True
+    if "/dinos/" in inner and "_bp." in inner:
+        return True
+    stem = inner.rsplit(".", 1)[0]
+    if stem.endswith("_bp"):
+        return True
+    return False
+
+
+def _validate_species_blueprint(path: str) -> str | None:
+    if not _is_valid_blueprint_raw(path):
+        return "Blueprint inválido (use Blueprint'/Game/...' ou /Game/...)."
+    if not _looks_like_dino_species_blueprint(path):
+        return (
+            "Blueprint não parece ser de criatura (ex.: sela, item ou estrutura). "
+            "Use um Character_BP de dino."
+        )
+    return None
+
 def _species_catalog() -> dict[str, dict[str, Any]]:
     try:
         from market_economy import load_default_species_map
@@ -268,8 +320,9 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
     species_key = str(body.get("species_key") or "").strip()
 
     if species_blueprint_raw:
-        if not _is_valid_blueprint_raw(species_blueprint_raw):
-            return None, "Blueprint inválido (use Blueprint'/Game/...' ou /Game/...)."
+        bp_err = _validate_species_blueprint(species_blueprint_raw)
+        if bp_err:
+            return None, bp_err
         resolved_blueprint = _format_blueprint(species_blueprint_raw)
         species_key = species_key or "custom"
         display_name = (
@@ -283,6 +336,11 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
         if not species:
             return None, "Espécie inválida ou sem blueprint homologado."
         resolved_blueprint = species["species_blueprint"]
+        if not _looks_like_dino_species_blueprint(resolved_blueprint):
+            return None, (
+                f"Espécie '{species_key}' tem blueprint inválido no catálogo "
+                "(não parece ser dino)."
+            )
         display_name = species["display_name"]
         mod_source = species["mod_source"]
     else:
@@ -355,6 +413,14 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
     imprinter_name = str(spawn_exact.get("imprinter_name") or "").strip() if spawn_enabled else ""
     imprinter_id_hex = str(spawn_exact.get("imprinter_id_hex") or "").strip() if spawn_enabled else ""
 
+    saddle_blueprint = str(body.get("saddle_blueprint") or "").strip()
+    if saddle_blueprint:
+        if not _is_valid_blueprint_raw(saddle_blueprint):
+            return None, "Blueprint de sela inválido."
+        saddle_inner = _blueprint_inner(saddle_blueprint).lower()
+        if "saddle" not in saddle_inner and "primalitem" not in saddle_inner:
+            return None, "saddle_blueprint deve ser um PrimalItem de sela."
+
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "species_blueprint": resolved_blueprint,
@@ -377,7 +443,7 @@ def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tupl
             "imprinter_name": imprinter_name,
             "imprinter_id_hex": imprinter_id_hex,
         },
-        "saddle_blueprint": str(body.get("saddle_blueprint") or "").strip(),
+        "saddle_blueprint": saddle_blueprint,
         "force_tame": bool(body.get("force_tame", True)),
         "custom_name": str(body.get("custom_name") or "").strip(),
     }

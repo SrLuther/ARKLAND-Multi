@@ -157,12 +157,15 @@ void PostReleaseFailed(const std::string& steam_id, const std::vector<std::strin
 
 void PostDeliveredCallback(const std::string& steam_id,
                            const std::vector<std::string>& delivered_ids,
-                           const nlohmann::json& failures) {
+                           const nlohmann::json& failures,
+                           const nlohmann::json& dino_records) {
     nlohmann::json body = {
         {"steam_id", steam_id},
         {"order_ids", delivered_ids},
         {"failures", failures},
     };
+    if (!dino_records.empty())
+        body["dino_records"] = dino_records;
     const std::string deliver_url =
         CustomDinoDeliver::HttpClient::g_web_url + "/api/pending/custom-dino/delivered";
     const std::string deliver_resp = HttpRequest(L"POST", deliver_url, body.dump());
@@ -280,6 +283,7 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
     std::vector<std::string> delivered_ids;
     std::vector<std::string> failed_ids;
     nlohmann::json failures = nlohmann::json::array();
+    nlohmann::json dino_records = nlohmann::json::array();
 
     for (const auto& item : items) {
         const std::string order_id = item.value("order_id", "");
@@ -306,8 +310,10 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
 
         bool ok = false;
         std::string error = "dino_delivery_failed";
+        CustomDinoDeliver::DeliverCustomDinoResult deliver_result;
         try {
-            ok = DeliverCustomDino(controller, payload);
+            deliver_result = DeliverCustomDino(controller, payload);
+            ok = deliver_result.ok;
         } catch (const std::exception& e) {
             error = std::string("exception: ") + e.what();
             Log::GetLog()->error("DinoHttpClient: order {} exception — {}", order_id, e.what());
@@ -319,7 +325,18 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
         if (ok) {
             delivered_ids.push_back(order_id);
             result.delivered++;
-            Log::GetLog()->info("DinoHttpClient: delivered order {}", order_id);
+            dino_records.push_back({
+                {"order_id", order_id},
+                {"dino_id1", deliver_result.identity.dino_id1},
+                {"dino_id2", deliver_result.identity.dino_id2},
+                {"ancestors", deliver_result.identity.ancestors},
+            });
+            Log::GetLog()->info(
+                "[DinoLabDeliver] delivered order {} id1={} id2={} ancestors={}",
+                order_id,
+                deliver_result.identity.dino_id1,
+                deliver_result.identity.dino_id2,
+                deliver_result.identity.ancestors.size());
         } else {
             failed_ids.push_back(order_id);
             result.failed++;
@@ -327,6 +344,13 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
                 {"order_id", order_id},
                 {"error", error},
             });
+            if (deliver_result.identity.dino_id1 == 0 && deliver_result.identity.dino_id2 == 0) {
+                Log::GetLog()->error(
+                    "[DinoLabDeliver] identity capture failed order={} species={} steam={}",
+                    order_id, species, steam_id);
+                error = "identity_capture_failed";
+                failures.back()["error"] = error;
+            }
             Log::GetLog()->error("DinoHttpClient: failed order {} ({})", order_id, error);
         }
     }
@@ -335,7 +359,7 @@ DeliverResult DeliverPending(AShooterPlayerController* controller) {
         PostReleaseFailed(steam_id, failed_ids);
 
     if (!delivered_ids.empty() || !failures.empty())
-        PostDeliveredCallback(steam_id, delivered_ids, failures);
+        PostDeliveredCallback(steam_id, delivered_ids, failures, dino_records);
 
     if (controller && (result.delivered > 0 || result.failed > 0)) {
         if (result.delivered > 0) {

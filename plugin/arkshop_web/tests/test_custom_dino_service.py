@@ -179,6 +179,24 @@ def test_validate_payload_manual_blueprint():
     assert err3 is not None
 
 
+def test_validate_rejects_saddle_as_species():
+    saddle = "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle"
+    _, err = validate_payload(_valid_body(species_key=None, species_blueprint=saddle))
+    assert err is not None
+    assert "não parece ser de criatura" in err
+
+
+def test_validate_accepts_mod_dino_blueprint():
+    bp = "/Game/Mods/Custom/Dino_BP.Dino_BP"
+    payload, err = validate_payload(_valid_body(
+        species_key=None,
+        species_blueprint=bp,
+        species_display_name="Dino mod teste",
+    ))
+    assert err is None
+    assert payload is not None
+
+
 def test_create_and_claim_manual_blueprint(custom_dino_db):
     bp = "/Game/Mods/Custom/Dino_BP.Dino_BP"
     payload, _ = validate_payload(_valid_body(

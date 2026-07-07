@@ -54,11 +54,22 @@ def strip_engram_points_from_raw(raw: str) -> str:
     return "\n".join(kept).strip()
 
 
-def resolve_max_level_for_engrams(cfg: object) -> int:
-    from .player_level_ascension import resolve_max_player_level
+def resolve_ramp_entries_for_engrams(cfg: object) -> int:
+    """Entradas na rampa / base_level — sincronizado com OverridePlayerLevelEngramPoints."""
+    from .player_level_ascension import _difficulty_fallback_level
+    from .player_level_ramp import _resolve_base_level, get_ramp_entry_count
 
-    level = int(resolve_max_player_level(cfg) or 0)
-    return max(1, level)
+    base = _resolve_base_level(cfg)
+    if base > 0:
+        return max(1, base)
+    ramp = get_ramp_entry_count(cfg)
+    if ramp > 0:
+        return ramp
+    return max(1, _difficulty_fallback_level(cfg))
+
+
+def resolve_max_level_for_engrams(cfg: object) -> int:
+    return resolve_ramp_entries_for_engrams(cfg)
 
 
 def build_engram_points_ini_lines(cfg: object) -> list[str]:

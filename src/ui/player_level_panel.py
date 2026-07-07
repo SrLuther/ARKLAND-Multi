@@ -14,11 +14,22 @@ from ..player_level_ascension import (
     ARK_DEFAULT_BASE_LEVEL,
     ASCENSION_BOSSES,
     EXTRA_BONUSES,
+    calc_ascension_bonus,
+    calc_extra_bonus,
     calc_total_player_level,
     level_to_xp,
     parse_ascension_state,
     serialize_ascension_state,
     xp_to_level,
+)
+from ..player_level_ramp import (
+    XP_CURVE_CUSTOM,
+    XP_CURVE_VANILLA,
+    build_ramp_values,
+    cumulative_xp_on_ramp,
+    export_ramp_raw,
+    get_ramp_entry_count,
+    resolve_effective_ingame_cap,
 )
 from ..ui_constants import _GREEN, _GREEN_DARK, _GREEN_HOVER
 
@@ -83,8 +94,8 @@ def _collect_extras(vars_ref: dict, prefix: str = "asc_extra_") -> dict[str, boo
     return out
 
 
-def sync_player_level_vars(vars_ref: dict) -> tuple[int, int, int]:
-    """Recalcula totais e atualiza vars ocultas (XP / JSON). Retorna (base, total, xp)."""
+def sync_player_level_vars(vars_ref: dict, cfg: object | None = None) -> tuple[int, int, int, int]:
+    """Recalcula totais e atualiza vars ocultas. Retorna (base, teórico, xp_base, efetivo)."""
     try:
         base = int(float(vars_ref["player_base_level"].get()))
     except (KeyError, ValueError, TypeError, tk.TclError):
@@ -93,23 +104,87 @@ def sync_player_level_vars(vars_ref: dict) -> tuple[int, int, int]:
 
     bosses = _collect_boss_tiers(vars_ref)
     extras = _collect_extras(vars_ref)
-    total = calc_total_player_level(base, bosses, extras)
-    xp = level_to_xp(total)
+    theoretical = calc_total_player_level(base, bosses, extras)
+    asc_bonus = calc_ascension_bonus(bosses) + calc_extra_bonus(extras)
+
+    curve_mode = XP_CURVE_VANILLA
+    if "player_xp_curve_mode" in vars_ref:
+        curve_mode = str(vars_ref["player_xp_curve_mode"].get() or XP_CURVE_VANILLA)
+    try:
+        xp_base_curve = int(float(vars_ref.get("player_xp_curve_base", tk.StringVar(value="70")).get()))
+    except (ValueError, TypeError, tk.TclError):
+        xp_base_curve = 70
+    try:
+        xp_mult_curve = float(str(vars_ref.get("player_xp_curve_mult", tk.StringVar(value="1.15")).get()).replace(",", "."))
+    except (ValueError, TypeError, tk.TclError):
+        xp_mult_curve = 1.15
+    formula = "base * (mult ** i)"
+    if "player_xp_curve_formula" in vars_ref:
+        formula = str(vars_ref["player_xp_curve_formula"].get() or formula)
+
+    ramp_values = build_ramp_values(
+        base,
+        mode=curve_mode,
+        xp_base=xp_base_curve,
+        xp_mult=xp_mult_curve,
+        formula=formula,
+    )
+    xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
+    ramp_entries = len(ramp_values)
+
+    effective = theoretical
+    disk_ramp = 0
+    if "_pl_ramp_disk_var" in vars_ref:
+        try:
+            disk_ramp = int(vars_ref["_pl_ramp_disk_var"].get() or 0)
+        except (ValueError, tk.TclError):
+            disk_ramp = 0
+    if cfg is not None:
+        effective = resolve_effective_ingame_cap(
+            cfg,
+            theoretical=theoretical,
+            base_level=base,
+            ramp_values=ramp_values,
+            override_xp=xp,
+        )
+    else:
+        candidates = [theoretical, ramp_entries]
+        if disk_ramp > 0:
+            candidates.append(disk_ramp)
+        effective = min(candidates)
 
     if "player_ascension_state" in vars_ref:
         vars_ref["player_ascension_state"].set(serialize_ascension_state(bosses, extras))
     if "override_max_xp_player" in vars_ref:
         vars_ref["override_max_xp_player"].set(str(xp))
     if "gs_player_level_cap" in vars_ref:
-        vars_ref["gs_player_level_cap"].set(str(total))
+        vars_ref["gs_player_level_cap"].set(str(theoretical))
     if "gs_override_max_experience_points_player" in vars_ref:
         vars_ref["gs_override_max_experience_points_player"].set(str(xp))
     if "_pl_total_var" in vars_ref:
-        vars_ref["_pl_total_var"].set(str(total))
+        vars_ref["_pl_total_var"].set(str(theoretical))
     if "_pl_xp_var" in vars_ref:
-        vars_ref["_pl_xp_var"].set(f"{xp:,} XP")
+        vars_ref["_pl_xp_var"].set(f"{xp:,} XP (nível base na rampa)")
+    if "_pl_asc_bonus_var" in vars_ref:
+        vars_ref["_pl_asc_bonus_var"].set(f"+{asc_bonus}")
+    if "_pl_effective_var" in vars_ref:
+        vars_ref["_pl_effective_var"].set(str(effective))
+    if "_pl_ramp_var" in vars_ref:
+        vars_ref["_pl_ramp_var"].set(str(ramp_entries))
+    if "player_level_stats_raw" in vars_ref:
+        vars_ref["player_level_stats_raw"].set(export_ramp_raw(ramp_values))
 
-    return base, total, xp
+    divergence = abs(theoretical - max(ramp_entries, get_ramp_entry_count(cfg) if cfg else 0))
+    if "_pl_warn_var" in vars_ref:
+        if divergence > 5:
+            vars_ref["_pl_warn_var"].set(
+                f"⚠ Teto teórico ({theoretical}) e rampa no disco ({ramp_entries or disk_ramp}) "
+                f"divergem em {divergence} níveis — salve para sincronizar."
+            )
+        else:
+            vars_ref["_pl_warn_var"].set("")
+
+    return base, theoretical, xp, effective
 
 
 def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
@@ -125,7 +200,8 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
     bosses = _collect_boss_tiers(w, prefix="asc_boss_")
     extras = _collect_extras(w, prefix="asc_extra_")
     total = calc_total_player_level(base, bosses, extras)
-    xp = level_to_xp(total)
+    ramp_values = build_ramp_values(base, mode=XP_CURVE_VANILLA)
+    xp = cumulative_xp_on_ramp(ramp_values, base) if ramp_values else level_to_xp(base)
 
     if hasattr(gs, "player_base_level"):
         gs.player_base_level = base
@@ -135,6 +211,101 @@ def apply_classic_player_level_to_gs(w: dict, gs: object) -> None:
         gs.player_level_cap = total
     if hasattr(gs, "override_max_experience_points_player"):
         gs.override_max_experience_points_player = xp
+
+
+def _unified_summary_row(
+    parent: tk.Misc,
+    *,
+    row: int,
+    base_var: tk.StringVar,
+    asc_var: tk.StringVar,
+    total_var: tk.StringVar,
+    effective_var: tk.StringVar,
+    ramp_var: tk.StringVar,
+    xp_var: tk.StringVar,
+    warn_var: tk.StringVar,
+    on_change: Callable[[], None],
+    bg: str,
+    accent: str,
+) -> None:
+    box = tk.Frame(parent, bg=bg, highlightthickness=1, highlightbackground="#1e3a2f")
+    box.grid(row=row, column=0, sticky="ew", padx=12, pady=(4, 4))
+    for col in range(4):
+        box.grid_columnconfigure(col, weight=1)
+
+    cells = (
+        (0, "Nível base (XP)", "Level-ups por XP, sem implante", base_var, True),
+        (1, "Bônus ascensão", "Soma dos tiers e extras", asc_var, False),
+        (2, "Teto teórico", "Com todos os bônus marcados", total_var, False),
+        (3, "Teto efetivo", "O que o jogo limita (rampa + cap)", effective_var, False),
+    )
+    for col, title, sub, var, editable in cells:
+        fr = tk.Frame(box, bg="#0d1a14" if col % 2 else "#0a1410", padx=8, pady=8)
+        fr.grid(row=0, column=col, sticky="nsew", padx=3)
+        tk.Label(fr, text=title, bg=fr["bg"], fg="gray55",
+                 font=ctk.CTkFont(size=10)).pack(anchor="w")
+        if editable:
+            ent = ctk.CTkEntry(fr, textvariable=var, width=64, height=30,
+                               justify="center", text_color=accent,
+                               font=ctk.CTkFont(size=18, weight="bold"))
+            ent.pack(anchor="w", pady=(4, 0))
+            ent.bind("<Return>", lambda _e: on_change())
+            ent.bind("<FocusOut>", lambda _e: on_change())
+        else:
+            ctk.CTkLabel(fr, textvariable=var, text_color=accent,
+                         font=ctk.CTkFont(size=18, weight="bold")).pack(anchor="w", pady=(4, 0))
+        tk.Label(fr, text=sub, bg=fr["bg"], fg="gray45",
+                 font=ctk.CTkFont(size=8), wraplength=140, justify="left").pack(anchor="w", pady=(2, 0))
+
+    meta = tk.Frame(box, bg=bg)
+    meta.grid(row=1, column=0, columnspan=4, sticky="ew", padx=6, pady=(0, 4))
+    tk.Label(meta, text="Entradas na rampa:", bg=bg, fg="gray50",
+             font=ctk.CTkFont(size=10)).pack(side="left")
+    tk.Label(meta, textvariable=ramp_var, bg=bg, fg=accent,
+             font=ctk.CTkFont(size=10, weight="bold")).pack(side="left", padx=(4, 12))
+    tk.Label(meta, textvariable=xp_var, bg=bg, fg="gray50",
+             font=ctk.CTkFont(size=10)).pack(side="left")
+    tk.Label(box, textvariable=warn_var, bg=bg, fg="#e8a838",
+             font=ctk.CTkFont(size=9), wraplength=520, justify="left").grid(
+        row=2, column=0, columnspan=4, sticky="w", padx=8, pady=(0, 4))
+
+
+def _xp_curve_row(
+    parent: tk.Misc,
+    vars_ref: dict,
+    cfg: object,
+    *,
+    row: int,
+    bg: str,
+    on_change: Callable[[], None],
+) -> int:
+    mode = str(getattr(cfg, "player_xp_curve_mode", XP_CURVE_VANILLA) or XP_CURVE_VANILLA)
+    vars_ref.setdefault("player_xp_curve_mode", tk.StringVar(value=mode))
+    vars_ref.setdefault("player_xp_curve_base", tk.StringVar(value=str(getattr(cfg, "player_xp_curve_base", 70) or 70)))
+    vars_ref.setdefault("player_xp_curve_mult", tk.StringVar(value=f"{getattr(cfg, 'player_xp_curve_mult', 1.15) or 1.15:g}"))
+    vars_ref.setdefault("player_xp_curve_formula", tk.StringVar(
+        value=str(getattr(cfg, "player_xp_curve_formula", "base * (mult ** i)") or "base * (mult ** i)")))
+
+    sec = tk.LabelFrame(parent, text="  Curva de XP (rampa Game.ini)  ",
+                        bg=bg, fg="gray55", font=ctk.CTkFont(size=10))
+    sec.grid(row=row, column=0, sticky="ew", padx=12, pady=(0, 6))
+    menu_var = tk.StringVar(value="Vanilla ARK" if mode == XP_CURVE_VANILLA else "Custom (geométrica)")
+
+    def _on_curve(choice: str) -> None:
+        vars_ref["player_xp_curve_mode"].set(
+            XP_CURVE_VANILLA if "Vanilla" in choice else XP_CURVE_CUSTOM
+        )
+        menu_var.set(choice)
+        on_change()
+
+    ctk.CTkOptionMenu(
+        sec, values=["Vanilla ARK", "Custom (geométrica)"], variable=menu_var, command=_on_curve,
+        width=180, height=28, fg_color="#1a2e24", button_color=_GREEN_DARK,
+    ).grid(row=0, column=0, padx=10, pady=8, sticky="w")
+    tk.Label(sec, text="Novos servidores usam curva vanilla alinhada ao nível base.",
+             bg=bg, fg="gray45", font=ctk.CTkFont(size=9), wraplength=400, justify="left").grid(
+        row=0, column=1, padx=4, pady=8, sticky="w")
+    return row + 1
 
 
 def _summary_row(
@@ -312,6 +483,14 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
         value=str(int(getattr(ctx.srv, "override_max_xp_player", 0) or 0))))
     vars_ref["_pl_total_var"] = tk.StringVar()
     vars_ref["_pl_xp_var"] = tk.StringVar()
+    vars_ref["_pl_asc_bonus_var"] = tk.StringVar()
+    vars_ref["_pl_effective_var"] = tk.StringVar()
+    vars_ref["_pl_ramp_var"] = tk.StringVar()
+    vars_ref["_pl_warn_var"] = tk.StringVar()
+    vars_ref["_pl_ramp_disk_var"] = tk.StringVar(
+        value=str(int(getattr(ctx.srv, "player_ramp_entry_count", 0) or 0)))
+    vars_ref.setdefault("player_level_stats_raw", tk.StringVar(
+        value=str(getattr(ctx.srv, "player_level_stats_raw", "") or "")))
 
     for bid, _, _ in ASCENSION_BOSSES:
         key = f"asc_boss_{bid}"
@@ -329,14 +508,21 @@ def build_tek_player_level_section(ctx: Any, card: ctk.CTkFrame, start_row: int 
     body.grid_columnconfigure(0, weight=1)
 
     def _recalc() -> None:
-        sync_player_level_vars(vars_ref)
+        sync_player_level_vars(vars_ref, cfg=ctx.srv)
 
-    _summary_row(
-        body, row=0, base_var=vars_ref["player_base_level"],
-        total_var=vars_ref["_pl_total_var"], xp_var=vars_ref["_pl_xp_var"],
+    _unified_summary_row(
+        body, row=0,
+        base_var=vars_ref["player_base_level"],
+        asc_var=vars_ref["_pl_asc_bonus_var"],
+        total_var=vars_ref["_pl_total_var"],
+        effective_var=vars_ref["_pl_effective_var"],
+        ramp_var=vars_ref["_pl_ramp_var"],
+        xp_var=vars_ref["_pl_xp_var"],
+        warn_var=vars_ref["_pl_warn_var"],
         on_change=_recalc, bg=bg, accent=accent,
     )
     r = 1
+    r = _xp_curve_row(body, vars_ref, ctx.srv, row=r, bg=bg, on_change=_recalc)
     r = _boss_grid(body, vars_ref, _recalc, row=r, bg=bg)
     r = _extras_grid(body, vars_ref, _recalc, row=r, bg=bg)
     _engram_multiplier_row(body, vars_ref, ctx.srv, row=r, bg=bg, accent=accent)
@@ -374,6 +560,11 @@ def build_classic_player_level_panel(
     w["player_ascension_state"] = w["gs_player_ascension_state"]
     w["_pl_total_var"] = tk.StringVar()
     w["_pl_xp_var"] = tk.StringVar()
+    w["_pl_asc_bonus_var"] = tk.StringVar()
+    w["_pl_effective_var"] = tk.StringVar()
+    w["_pl_ramp_var"] = tk.StringVar()
+    w["_pl_warn_var"] = tk.StringVar()
+    w["_pl_ramp_disk_var"] = tk.StringVar(value="0")
 
     for bid, _, _ in ASCENSION_BOSSES:
         w[f"asc_boss_{bid}"] = tk.StringVar(value=str(state["bosses"].get(bid, 0)))
@@ -391,14 +582,21 @@ def build_classic_player_level_panel(
              wraplength=560).grid(row=2, column=0, padx=12, pady=(6, 4), sticky="w")
 
     def _recalc() -> None:
-        sync_player_level_vars(w)
+        sync_player_level_vars(w, cfg=gs)
 
-    _summary_row(
-        panel, row=3, base_var=w["gs_player_base_level"],
-        total_var=w["_pl_total_var"], xp_var=w["_pl_xp_var"],
+    _unified_summary_row(
+        panel, row=3,
+        base_var=w["gs_player_base_level"],
+        asc_var=w["_pl_asc_bonus_var"],
+        total_var=w["_pl_total_var"],
+        effective_var=w["_pl_effective_var"],
+        ramp_var=w["_pl_ramp_var"],
+        xp_var=w["_pl_xp_var"],
+        warn_var=w["_pl_warn_var"],
         on_change=_recalc, bg=_BG_PANEL, accent=_GREEN,
     )
     r = 4
+    r = _xp_curve_row(panel, w, gs, row=r, bg=_BG_PANEL, on_change=_recalc)
     r = _boss_grid(panel, w, _recalc, row=r, bg=_BG_PANEL)
     r = _extras_grid(panel, w, _recalc, row=r, bg=_BG_PANEL)
     _engram_multiplier_row(

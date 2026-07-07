@@ -12,6 +12,8 @@ public:
     static void CmdEnviar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdEnviarDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdConfirmar(AShooterPlayerController* player, FString*, EChatSendMode::Type);
+    static void CmdRastrear(AShooterPlayerController* player, FString*, EChatSendMode::Type);
+    static void CmdRastrearDebug(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdResgatarMercado(AShooterPlayerController* player, FString*, EChatSendMode::Type);
     static void CmdMercadoAdmin(AShooterPlayerController* player, FString*, EChatSendMode::Type);
 };

@@ -61,6 +61,42 @@ void SafeDestroyProbeDino(APrimalDinoCharacter* dino, bool duped) {
     dino->Destroy(true, false);
 }
 
+uint32_t AncestorMaleId1(const FDinoAncestorsEntry& entry) {
+    return static_cast<uint32_t>(entry.MaleDinoID1);
+}
+
+uint32_t AncestorMaleId2(const FDinoAncestorsEntry& entry) {
+    return static_cast<uint32_t>(entry.MaleDinoID2);
+}
+
+uint32_t AncestorFemaleId1(const FDinoAncestorsEntry& entry) {
+    return static_cast<uint32_t>(entry.FemaleDinoID1);
+}
+
+uint32_t AncestorFemaleId2(const FDinoAncestorsEntry& entry) {
+    return static_cast<uint32_t>(entry.FemaleDinoID2);
+}
+
+void AppendAncestorPair(std::vector<std::pair<uint32_t, uint32_t>>& out,
+                        uint32_t id1, uint32_t id2) {
+    if (id1 == 0 && id2 == 0) return;
+    out.emplace_back(id1, id2);
+}
+
+void CollectAncestorPairs(APrimalDinoCharacter* dino,
+                          std::vector<std::pair<uint32_t, uint32_t>>& out) {
+    if (!dino) return;
+    auto collect = [&](const TArray<FDinoAncestorsEntry>& chain) {
+        for (int i = 0; i < chain.Num(); ++i) {
+            const FDinoAncestorsEntry& entry = chain[i];
+            AppendAncestorPair(out, AncestorMaleId1(entry), AncestorMaleId2(entry));
+            AppendAncestorPair(out, AncestorFemaleId1(entry), AncestorFemaleId2(entry));
+        }
+    };
+    collect(dino->DinoAncestorsField());
+    collect(dino->DinoAncestorsMaleField());
+}
+
 bool BuildDinoDataFromCustomData(const FCustomItemData& data, FARKDinoData& out) {
     if (data.CustomDataClasses.Num() < 1
         || data.CustomDataBytes.ByteArrays.Num() < 1
@@ -1077,6 +1113,71 @@ std::vector<std::string> CryoInventoryDebugChatLines(const CryoInventoryDebugRep
         lines.push_back("[DBG] +" + std::to_string(report.entries.size() - 3) + " cryos (ver log servidor)");
     }
     return lines;
+}
+
+bool ExtractDinoIdentityFromCryopod(UPrimalItem* item,
+                                    AShooterPlayerController* player,
+                                    DinoIdentity& out) {
+    out = DinoIdentity{};
+    if (!item) return false;
+
+    FCustomItemData data;
+    if (!CollectCryoCustomDataBlob(item, data))
+        return false;
+    if (data.CustomDataClasses.Num() < 1
+        || data.CustomDataBytes.ByteArrays.Num() < 1
+        || data.CustomDataBytes.ByteArrays[0].Bytes.Num() <= 32)
+        return false;
+
+    UWorld* world = GameWorld();
+    if (!world)
+        return false;
+
+    FARKDinoData dinoData;
+    if (!BuildDinoDataFromCustomData(data, dinoData))
+        return false;
+
+    FVector spawn_loc(0.f, 0.f, -50000.f);
+    FRotator spawn_rot(0.f, 0.f, 0.f);
+    int team_id = 0;
+    if (player)
+        team_id = player->TargetingTeamField();
+
+    bool duped = false;
+    APrimalDinoCharacter* spawned = SpawnDinoFromDataAt(
+        dinoData, world, spawn_loc, spawn_rot, player, team_id, false, duped);
+    if (!spawned)
+        return false;
+
+    int id1 = 0;
+    int id2 = 0;
+    spawned->GetDinoIDs(&id1, &id2);
+    out.dino_id1 = static_cast<uint32_t>(id1);
+    out.dino_id2 = static_cast<uint32_t>(id2);
+    CollectAncestorPairs(spawned, out.ancestor_pairs);
+    SafeDestroyProbeDino(spawned, duped);
+
+    if (duped) {
+        Log::GetLog()->warn(
+            "ShopCryoReader: identity probe duped id1={} id2={} ancestors={}",
+            out.dino_id1, out.dino_id2, out.ancestor_pairs.size());
+    }
+    return out.dino_id1 != 0 || out.dino_id2 != 0;
+}
+
+nlohmann::json DinoIdentityToJson(const DinoIdentity& identity) {
+    nlohmann::json ancestors = nlohmann::json::array();
+    for (const auto& pair : identity.ancestor_pairs) {
+        ancestors.push_back({
+            {"dino_id1", pair.first},
+            {"dino_id2", pair.second},
+        });
+    }
+    return {
+        {"dino_id1", identity.dino_id1},
+        {"dino_id2", identity.dino_id2},
+        {"ancestors", ancestors},
+    };
 }
 
 } // namespace CustomShop

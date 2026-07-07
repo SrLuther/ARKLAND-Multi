@@ -371,6 +371,40 @@ O sistema pode gravar `original_order_id = ticket:#4521` no banco para busca rev
 - Valores válidos: **0–255** (MVP valida na web; espécie pode ter menos swatches visíveis in-game)
 - Para descobrir índices: use [ARK Smart Breeding](https://github.com/cadon/ARKStatsExtractor) ou referência Obelisk do TEK
 
+#### Regiões (`colors[]` no payload)
+
+| Região | Slot JSON | Descrição |
+|--------|-----------|-----------|
+| 0 | `colors[0]` | Região 0 — corpo / área principal (nome varia por espécie) |
+| 1 | `colors[1]` | Região 1 |
+| 2 | `colors[2]` | Região 2 |
+| 3 | `colors[3]` | Região 3 |
+| 4 | `colors[4]` | Região 4 |
+| 5 | `colors[5]` | Região 5 |
+
+O backend exige exatamente **6** inteiros (`COLOR_REGIONS = 6`, faixa `0–255`). O plugin aplica via `ColorSetIndices` + `MulticastUpdateAllColorSets`.
+
+#### Color IDs comuns (ASE)
+
+| ID | Nome | ID | Nome |
+|----|------|----|------|
+| 0 | Selvagem / padrão | 10 | Light Orange |
+| 1 | Red | 11 | Light Yellow |
+| 2 | Blue | 12 | Light Red |
+| 3 | Green | 13 | Dark Grey |
+| 4 | Yellow | 14 | Black |
+| 5 | Cyan | 15 | Brown |
+| 6 | Magenta | 16 | Dark Green |
+| 7 | Light Green | 17 | Dark Red |
+| 8 | Light Grey | 18 | White |
+| 9 | Light Brown | | |
+
+**Tintas craftáveis (dye IDs):** 201 Black, 202 Blue, 203 Brown, 204 Cyan, 205 Forest, 206 Green, 207 Purple, 208 Orange, 209 Parchment, 210 Pink, 211 Unused Purple, 212 Red, 213 Royalty, 214 Silver, 215 Sky, 216 Tan, 217 Tangerine, 218 White, 219 Yellow, 220 Magenta, 221 Brick, 222 Cantaloupe, 223 Mud, 224 Navy, 225 Olive, 226 Slate.
+
+Lista completa: [Color IDs — wiki ASE](https://ark.wiki.gg/wiki/Color_IDs).
+
+Exemplo: `"colors": [14, 14, 14, 0, 0, 0]` — três regiões pretas (ID 14), demais no padrão selvagem.
+
 ### Espécies
 
 - Lista vem do catálogo homologado (`market_economy` + fallback do catálogo CustomShop)

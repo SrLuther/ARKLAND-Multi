@@ -2302,16 +2302,25 @@ def _build_server_files(sf, srv, vars_ref, bg, accent):
 
 def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     import tkinter as tk
+    from tkinter import messagebox
 
-    # ── Helper: gera linhas Game.ini para jogador ─────────────────────────────
-    def _gen_player_lines(max_lvl: int, xp_base: int, xp_mult: float, engrams: int) -> str:
-        lines = []
-        for i in range(max_lvl):
-            xp = int(xp_base * (xp_mult ** i))
-            lines.append(f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp})")
-        for _ in range(max_lvl):
-            lines.append(f"OverridePlayerLevelEngramPoints={engrams}")
-        return "\n".join(lines)
+    from ..player_level_ascension import ARK_DEFAULT_BASE_LEVEL
+    from ..player_level_ramp import (
+        XP_CURVE_CUSTOM,
+        build_ramp_values,
+        export_ramp_raw,
+        parse_ramp_from_text,
+    )
+
+    # ── Helper: gera linhas Game.ini para jogador (só rampa — engrams via multiplicador) ──
+    def _gen_player_lines(max_lvl: int, xp_base: int, xp_mult: float) -> str:
+        values = build_ramp_values(
+            max_lvl,
+            mode=XP_CURVE_CUSTOM,
+            xp_base=xp_base,
+            xp_mult=xp_mult,
+        )
+        return export_ramp_raw(values)
 
     # ── Helper: gera linhas Game.ini para dino ────────────────────────────────
     def _gen_dino_lines(max_lvl: int, xp_base: int, xp_mult: float) -> str:
@@ -2324,7 +2333,7 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
     # ── Cabeçalho ─────────────────────────────────────────────────────────────
     _section_label(sf, "Override de Nível do Jogador (Game.ini)", 0, accent)
     ctk.CTkLabel(sf,
-        text="LevelExperienceRampOverrides=(ExperiencePointsForLevel[0]=...) e OverridePlayerLevelEngramPoints=...",
+        text="Exportação da rampa (somente leitura). Edite nível base e curva em «Nível máximo do jogador».",
         font=ctk.CTkFont(size=10), text_color="#7ab8c8", wraplength=520).grid(
         row=1, column=0, columnspan=2, padx=8, pady=(0, 4), sticky="w")
 
@@ -2368,8 +2377,20 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                       command=lambda n=pname: _apply_preset(n)).pack(side="left", padx=(0, 4))
 
     # ── Campos do gerador ─────────────────────────────────────────────────────
+    _prefill_max = int(getattr(srv, "player_base_level", 0) or 0)
+    if _prefill_max <= 0:
+        _prefill_max = int(getattr(srv, "player_ramp_entry_count", 0) or 0)
+    if _prefill_max <= 0:
+        _prefill_max = ARK_DEFAULT_BASE_LEVEL
+    pl_base_var = vars_ref.get("player_base_level")
+    if pl_base_var is not None:
+        try:
+            _prefill_max = max(1, int(float(pl_base_var.get())))
+        except (ValueError, TypeError, tk.TclError):
+            pass
+
     _fields_p = [
-        ("Nível máx.", "100"), ("XP base (lv0)", "70"),
+        ("Nível máx.", str(_prefill_max)), ("XP base (lv0)", "70"),
         ("Multiplicador XP", "1.15"), ("Engrams/nível", "8"),
     ]
     _vars_p: list[tk.StringVar] = []
@@ -2396,7 +2417,6 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             max_lvl = max(1, min(int(_vars_p[0].get()), 500))
             xp_base = max(1, int(_vars_p[1].get()))
             xp_mult = max(1.0, float(_vars_p[2].get()))
-            engrams = max(0, int(_vars_p[3].get()))
         except ValueError:
             return
 
@@ -2412,7 +2432,6 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
 
         text_lines = [f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp_vals[i]})" for i in range(max_lvl)]
-        text_lines += [f"OverridePlayerLevelEngramPoints={engrams}" for _ in range(max_lvl)]
         text = "\n".join(text_lines)
 
         # Atualiza preview
@@ -2428,12 +2447,17 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
         # Atualiza gráfico
         _draw_xp_curve(xp_vals, canvas_xp)
 
+    def _refresh_export_box(text: str) -> None:
+        box_p.configure(state="normal")
+        box_p.delete("1.0", "end")
+        box_p.insert("1.0", text)
+        box_p.configure(state="disabled")
+
     def _apply_player_gen():
         try:
             max_lvl = max(1, min(int(_vars_p[0].get()), 500))
             xp_base = max(1, int(_vars_p[1].get()))
             xp_mult = max(1.0, float(_vars_p[2].get()))
-            engrams = max(0, int(_vars_p[3].get()))
         except ValueError:
             return
 
@@ -2448,12 +2472,32 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
             xp_vals = [int(xp_base * (xp_mult ** i)) for i in range(max_lvl)]
 
         text_lines = [f"LevelExperienceRampOverrides=(ExperiencePointsForLevel[{i}]={xp_vals[i]})" for i in range(max_lvl)]
-        text_lines += [f"OverridePlayerLevelEngramPoints={engrams}" for _ in range(max_lvl)]
         text = "\n".join(text_lines)
 
-        box_p.configure(state="normal")
-        box_p.delete("1.0", "end")
-        box_p.insert("1.0", text)
+        disk_parsed = parse_ramp_from_text(str(getattr(srv, "player_level_stats_raw", "") or ""))
+        new_parsed = parse_ramp_from_text(text)
+        differs = (
+            disk_parsed.get("entry_count", 0) != new_parsed.get("entry_count", 0)
+            or disk_parsed.get("slots") != new_parsed.get("slots")
+        )
+        if differs and disk_parsed.get("entry_count", 0) > 0:
+            if not messagebox.askyesno(
+                "Sobrescrever rampa no Game.ini?",
+                "A rampa gerada difere da rampa atual no servidor.\n\n"
+                "Ao salvar o perfil, a tabela LevelExperienceRampOverrides será "
+                "reescrita na curva custom. Deseja continuar?",
+            ):
+                return
+
+        srv.player_xp_curve_mode = XP_CURVE_CUSTOM
+        srv.player_xp_curve_base = xp_base
+        srv.player_xp_curve_mult = xp_mult
+        srv.player_xp_curve_formula = formula or "base * (mult ** i)"
+        srv.player_base_level = max_lvl
+        srv.player_level_stats_raw = text
+        if pl_base_var is not None:
+            pl_base_var.set(str(max_lvl))
+        _refresh_export_box(text)
         _preview_player_gen()
 
     ctk.CTkButton(gen_card, text="👁  Preview",
@@ -2467,10 +2511,22 @@ def _build_level_progressions(sf, srv, vars_ref, bg, accent):
                   command=_apply_player_gen).grid(
         row=4, column=1, padx=(0, 12), pady=(0, 8), sticky="w")
 
-    # ── Textbox raw ───────────────────────────────────────────────────────────
+    # ── Textbox raw (export somente leitura) ─────────────────────────────────
     box_p = ctk.CTkTextbox(sf, height=180, font=ctk.CTkFont(family="Consolas", size=10))
     box_p.grid(row=3, column=0, columnspan=2, padx=8, pady=(0, 8), sticky="ew")
-    box_p.insert("1.0", srv.player_level_stats_raw)
+    _export_text = str(getattr(srv, "player_level_stats_raw", "") or "")
+    if not _export_text.strip():
+        _export_text = export_ramp_raw(
+            build_ramp_values(
+                _prefill_max,
+                mode=str(getattr(srv, "player_xp_curve_mode", "vanilla") or "vanilla"),
+                xp_base=int(getattr(srv, "player_xp_curve_base", 70) or 70),
+                xp_mult=float(getattr(srv, "player_xp_curve_mult", 1.15) or 1.15),
+                formula=str(getattr(srv, "player_xp_curve_formula", "base * (mult ** i)") or "base * (mult ** i)"),
+            )
+        )
+    box_p.insert("1.0", _export_text)
+    box_p.configure(state="disabled")
     vars_ref["_raw_player_level_stats_raw"] = box_p
 
     # ── Dino ──────────────────────────────────────────────────────────────────
@@ -3717,6 +3773,8 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     for key, box in vars_ref.items():
         if key.startswith("_raw_"):
             field_name = key[5:]
+            if field_name == "player_level_stats_raw":
+                continue  # export somente leitura — derivado no save
             if hasattr(srv, field_name) and hasattr(box, "get"):
                 try:
                     setattr(srv, field_name, box.get("1.0", "end").strip())
@@ -3729,10 +3787,12 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
         raw = tags_var.get().strip()
         srv.tags = [t.strip() for t in raw.split(",") if t.strip()] if raw else []
 
-    # Nível máximo do jogador (base + ascensões → XP)
+    # Nível máximo do jogador (base + ascensões → rampa + XP)
     if vars_ref.get("player_base_level") is not None:
         from ..ui.player_level_panel import sync_player_level_vars
-        sync_player_level_vars(vars_ref)
+        from ..player_level_ramp import sync_config_player_level
+
+        sync_player_level_vars(vars_ref, cfg=srv)
         try:
             srv.player_base_level = int(float(vars_ref["player_base_level"].get()))
         except (ValueError, TypeError, tk.TclError):
@@ -3746,6 +3806,27 @@ def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
                 srv.override_max_xp_player = int(float(xp_var.get()))
             except (ValueError, TypeError, tk.TclError):
                 pass
+        for fname, conv in (
+            ("player_xp_curve_mode", str),
+            ("player_xp_curve_formula", str),
+        ):
+            v = vars_ref.get(fname)
+            if v is not None:
+                setattr(srv, fname, conv(v.get()))
+        for fname in ("player_xp_curve_base",):
+            v = vars_ref.get(fname)
+            if v is not None:
+                try:
+                    setattr(srv, fname, int(float(v.get())))
+                except (ValueError, TypeError, tk.TclError):
+                    pass
+        v = vars_ref.get("player_xp_curve_mult")
+        if v is not None:
+            try:
+                srv.player_xp_curve_mult = float(str(v.get()).replace(",", "."))
+            except (ValueError, TypeError, tk.TclError):
+                pass
+        sync_config_player_level(srv)
 
     mult_var = vars_ref.get("player_engram_points_multiplier")
     if mult_var is not None and hasattr(srv, "player_engram_points_multiplier"):

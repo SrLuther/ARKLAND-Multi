@@ -117,20 +117,49 @@ def serialize_ascension_state(boss_tiers: dict[str, int], extras: dict[str, bool
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
-def resolve_max_player_level(cfg: object) -> int:
-    """Nível máximo efetivo para exibição (web / cards)."""
-    override_xp = int(getattr(cfg, "override_max_xp_player", 0) or 0)
-    if override_xp > 0:
-        return xp_to_level(override_xp)
+def _difficulty_fallback_level(cfg: object) -> int:
+    """Teto legado por dificuldade oficial (servidores sem painel de ascensão)."""
+    gs = getattr(cfg, "game_settings", None)
+    from .server_config_snapshot import _is_tek
 
+    if _is_tek(cfg):
+        if getattr(cfg, "enable_difficulty_override", False):
+            diff = float(getattr(cfg, "override_official_difficulty", 5.0) or 5.0)
+            return 105 + int(round(diff * 15))
+        return ARK_DEFAULT_BASE_LEVEL
+    if gs is not None:
+        diff = float(getattr(gs, "override_official_difficulty", 5.0) or 5.0)
+        return 105 + int(round(diff * 15))
+    return ARK_DEFAULT_BASE_LEVEL
+
+
+def resolve_theoretical_player_level(cfg: object) -> int:
+    """Teto teórico com base + ascensões + extras (painel unificado)."""
     gs = getattr(cfg, "game_settings", None)
     if gs is not None:
-        gs_xp = int(getattr(gs, "override_max_experience_points_player", 0) or 0)
-        if gs_xp > 0:
-            return xp_to_level(gs_xp)
         cap = int(getattr(gs, "player_level_cap", 0) or 0)
         if cap > 0:
             return cap
+
+    override_xp = int(getattr(cfg, "override_max_xp_player", 0) or 0)
+    if override_xp > 0:
+        base = int(getattr(cfg, "player_base_level", 0) or 0)
+        state_raw = str(getattr(cfg, "player_ascension_state", "") or "")
+        if base > 0 or state_raw.strip():
+            st = parse_ascension_state(state_raw)
+            theo = calc_total_player_level(
+                base or ARK_DEFAULT_BASE_LEVEL,
+                st["bosses"],
+                st["extras"],
+            )
+            if theo > 0:
+                return theo
+        if gs is not None:
+            gs_xp = int(getattr(gs, "override_max_experience_points_player", 0) or 0)
+            if gs_xp > 0 and gs_xp == override_xp:
+                gs_cap = int(getattr(gs, "player_level_cap", 0) or 0)
+                if gs_cap > 0:
+                    return gs_cap
 
     base = int(getattr(cfg, "player_base_level", 0) or 0)
     if base <= 0 and gs is not None:
@@ -146,15 +175,16 @@ def resolve_max_player_level(cfg: object) -> int:
             st["extras"],
         )
 
-    from .server_config_snapshot import _is_tek
-
-    if _is_tek(cfg):
-        if getattr(cfg, "enable_difficulty_override", False):
-            diff = float(getattr(cfg, "override_official_difficulty", 5.0) or 5.0)
-            return 105 + int(round(diff * 15))
-        return ARK_DEFAULT_BASE_LEVEL
-
     if gs is not None:
-        diff = float(getattr(gs, "override_official_difficulty", 5.0) or 5.0)
-        return 105 + int(round(diff * 15))
-    return ARK_DEFAULT_BASE_LEVEL
+        gs_xp = int(getattr(gs, "override_max_experience_points_player", 0) or 0)
+        if gs_xp > 0:
+            return xp_to_level(gs_xp)
+
+    return _difficulty_fallback_level(cfg)
+
+
+def resolve_max_player_level(cfg: object) -> int:
+    """Nível máximo efetivo in-game (web / cards) — considera rampa e cap de XP."""
+    from .player_level_ramp import resolve_effective_ingame_cap
+
+    return resolve_effective_ingame_cap(cfg)
