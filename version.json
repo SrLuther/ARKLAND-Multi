@@ -1,8 +1,10 @@
 {
-    "version": "1.10.4",
+    "version": "1.10.5",
     "date": "2026-07-06",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.4/ARKLAND-Multi-Setup-v1.10.4.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.5/ARKLAND-Multi-Setup-v1.10.5.exe",
     "changelog": [
-        "Fix (CustomDinoDeliver): crash fatal ao usar /dinolab — assinatura correta do handler de chat ArkApi."
+        "Fix (CustomDinoDeliver): pedidos presos em ENTREGANDO — release/callback em falha, mutex anti-concorrência, mensagem /dinolab só após entrega real.",
+        "Fix (CustomDinoDeliver): SpawnExact com fallback SpawnDino; logs detalhados por pedido; exceções capturadas no loop de entrega.",
+        "Fix (Dino Lab / Web): recuperação automática de ENTREGANDO stale (custom_dino_stale_entregando_minutes, padrão 5 min)."
     ]
 }

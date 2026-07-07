@@ -5,6 +5,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.5] - 2026-07-06
+
+### Fix
+
+- Fix (CustomDinoDeliver): pedidos presos em ENTREGANDO — release/callback em falha, mutex anti-concorrência, mensagem /dinolab só após entrega real.
+- Fix (CustomDinoDeliver): SpawnExact com fallback SpawnDino; logs detalhados por pedido; exceções capturadas no loop de entrega.
+- Fix (Dino Lab / Web): recuperação automática de ENTREGANDO stale (custom_dino_stale_entregando_minutes, padrão 5 min).
+
 ## [1.10.4] - 2026-07-06
 
 ### Fix

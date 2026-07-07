@@ -21,6 +21,7 @@ COLOR_MAX = 255
 LEVEL_MIN = 1
 DEFAULT_LEVEL = 150
 RATE_LIMIT_PER_HOUR = 30
+STALE_ENTREGANDO_MINUTES_DEFAULT = 5
 STAT_COUNT = 7
 STAT_MAX = 254
 STAT_NAMES = ("health", "stamina", "oxygen", "food", "weight", "melee", "speed")
@@ -37,6 +38,55 @@ def is_custom_dino_enabled() -> bool:
     if _settings_fn is None:
         return False
     return bool(_settings_fn().get("custom_dino_enabled", False))
+
+
+def get_stale_entregando_minutes() -> int:
+    """Minutos antes de reabrir pedidos ENTREGANDO presos (0 = desabilitado)."""
+    if _settings_fn is None:
+        return STALE_ENTREGANDO_MINUTES_DEFAULT
+    raw = _settings_fn().get("custom_dino_stale_entregando_minutes", STALE_ENTREGANDO_MINUTES_DEFAULT)
+    try:
+        return max(0, int(raw if raw is not None else STALE_ENTREGANDO_MINUTES_DEFAULT))
+    except (TypeError, ValueError):
+        return STALE_ENTREGANDO_MINUTES_DEFAULT
+
+
+def recover_stale_entregando_custom_dino_orders(
+    db: Session,
+    steam_id: str,
+    *,
+    minutes: int | None = None,
+) -> int:
+    """Reabre pedidos ENTREGANDO cujo claim expirou (plugin crashou ou travou)."""
+    stale_minutes = get_stale_entregando_minutes() if minutes is None else max(0, int(minutes))
+    if stale_minutes <= 0:
+        return 0
+    cutoff = (_utcnow() - timedelta(minutes=stale_minutes)).replace(tzinfo=None)
+    now = _utcnow().replace(tzinfo=None)
+    result = db.execute(
+        text(
+            "UPDATE orders SET status = 'PENDENTE', updated_at = :now, "
+            "last_error = :err, retry_count = retry_count + 1 "
+            "WHERE steam_id = :sid AND item_type = :it AND status = 'ENTREGANDO' "
+            "AND updated_at < :cutoff"
+        ),
+        {
+            "now": now,
+            "cutoff": cutoff,
+            "sid": steam_id,
+            "it": ITEM_TYPE,
+            "err": "Recuperado automaticamente: entrega anterior expirou (timeout ENTREGANDO)",
+        },
+    )
+    recovered = int(getattr(result, "rowcount", 0) or 0)
+    if recovered:
+        log.warning(
+            "custom_dino: recovered %s stale ENTREGANDO order(s) for %s (>%s min)",
+            recovered,
+            steam_id,
+            stale_minutes,
+        )
+    return recovered
 
 
 def get_custom_dino_level_max() -> int:
@@ -501,6 +551,7 @@ def claim_custom_dino_orders(
     *,
     order_ids: list[str] | None = None,
 ) -> list[dict[str, Any]]:
+    recover_stale_entregando_custom_dino_orders(db, steam_id)
     params: dict[str, Any] = {"sid": steam_id, "it": ITEM_TYPE}
     sql = (
         "SELECT * FROM orders WHERE steam_id = :sid AND item_type = :it AND status = 'PENDENTE' "

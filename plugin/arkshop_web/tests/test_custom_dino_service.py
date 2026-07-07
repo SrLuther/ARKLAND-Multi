@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import create_engine, text
@@ -20,6 +20,8 @@ from custom_dino_service import (
     list_custom_dino_orders_admin,
     list_species_admin,
     mark_custom_dino_delivered,
+    recover_stale_entregando_custom_dino_orders,
+    release_custom_dino_orders,
     validate_payload,
 )
 
@@ -372,3 +374,63 @@ def test_validate_spawn_exact_stat_bounds(tmp_path, monkeypatch):
     }))
     assert err2 is not None
     assert "tamed_stats" in err2
+
+
+def test_recover_stale_entregando_and_reclaim(custom_dino_db):
+    payload, _ = validate_payload(_valid_body())
+    result = create_custom_dino_order(
+        custom_dino_db,
+        steam_id=USER,
+        payload=payload,
+        admin_steam_id=ADMIN,
+    )
+    custom_dino_db.commit()
+    claimed = claim_custom_dino_orders(custom_dino_db, USER)
+    custom_dino_db.commit()
+    assert len(claimed) == 1
+    assert claimed[0]["order_id"] == result["order_id"]
+
+    stale_time = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(minutes=10)
+    custom_dino_db.execute(
+        text("UPDATE orders SET updated_at = :t WHERE order_id = :oid"),
+        {"t": stale_time, "oid": result["order_id"]},
+    )
+    custom_dino_db.commit()
+
+    recovered = recover_stale_entregando_custom_dino_orders(custom_dino_db, USER, minutes=5)
+    custom_dino_db.commit()
+    assert recovered == 1
+
+    row = custom_dino_db.execute(
+        text("SELECT status FROM orders WHERE order_id = :oid"),
+        {"oid": result["order_id"]},
+    ).fetchone()
+    assert row[0] == "PENDENTE"
+
+    reclaimed = claim_custom_dino_orders(custom_dino_db, USER)
+    custom_dino_db.commit()
+    assert len(reclaimed) == 1
+    assert reclaimed[0]["order_id"] == result["order_id"]
+
+
+def test_release_custom_dino_order(custom_dino_db):
+    payload, _ = validate_payload(_valid_body())
+    result = create_custom_dino_order(
+        custom_dino_db,
+        steam_id=USER,
+        payload=payload,
+        admin_steam_id=ADMIN,
+    )
+    custom_dino_db.commit()
+    claim_custom_dino_orders(custom_dino_db, USER)
+    custom_dino_db.commit()
+
+    released = release_custom_dino_orders(custom_dino_db, USER, [result["order_id"]])
+    custom_dino_db.commit()
+    assert released == [result["order_id"]]
+
+    row = custom_dino_db.execute(
+        text("SELECT status FROM orders WHERE order_id = :oid"),
+        {"oid": result["order_id"]},
+    ).fetchone()
+    assert row[0] == "PENDENTE"

@@ -12,6 +12,7 @@ from custom_dino_service import (
     claim_custom_dino_orders,
     create_custom_dino_order,
     get_custom_dino_level_max,
+    get_stale_entregando_minutes,
     get_custom_dino_order,
     is_custom_dino_enabled,
     list_custom_dino_orders_admin,
@@ -281,5 +282,6 @@ def register_custom_dino_routes(
                 "custom_dino_ground_fallback": bool(s.get("custom_dino_ground_fallback", True)),
                 "custom_dino_spawn_exact": bool(s.get("custom_dino_spawn_exact")),
                 "custom_dino_level_max": get_custom_dino_level_max(),
+                "custom_dino_stale_entregando_minutes": get_stale_entregando_minutes(),
             },
         })

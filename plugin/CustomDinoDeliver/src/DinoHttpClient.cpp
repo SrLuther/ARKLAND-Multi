@@ -4,9 +4,14 @@
 #include "DinoConfig.h"
 #include "DinoDeliver.h"
 
+#include <mutex>
+#include <unordered_set>
+
 namespace {
 
 HINTERNET g_session = nullptr;
+std::mutex g_deliver_mutex;
+std::unordered_set<std::string> g_deliver_inflight;
 
 bool EnsureSession() {
     if (!g_session) {
@@ -135,6 +140,64 @@ bool TryParseApiJson(const std::string& body, nlohmann::json& out, const char* c
     }
 }
 
+void PostReleaseFailed(const std::string& steam_id, const std::vector<std::string>& failed_ids) {
+    if (failed_ids.empty()) return;
+
+    nlohmann::json release_body = {
+        {"steam_id", steam_id},
+        {"order_ids", failed_ids},
+    };
+    const std::string release_url =
+        CustomDinoDeliver::HttpClient::g_web_url + "/api/pending/custom-dino/release";
+    const std::string release_resp =
+        HttpRequest(L"POST", release_url, release_body.dump());
+    Log::GetLog()->warn("DinoHttpClient: released {} failed order(s): {}",
+                        failed_ids.size(), release_resp);
+}
+
+void PostDeliveredCallback(const std::string& steam_id,
+                           const std::vector<std::string>& delivered_ids,
+                           const nlohmann::json& failures) {
+    nlohmann::json body = {
+        {"steam_id", steam_id},
+        {"order_ids", delivered_ids},
+        {"failures", failures},
+    };
+    const std::string deliver_url =
+        CustomDinoDeliver::HttpClient::g_web_url + "/api/pending/custom-dino/delivered";
+    const std::string deliver_resp = HttpRequest(L"POST", deliver_url, body.dump());
+    Log::GetLog()->info("DinoHttpClient: delivered callback: {}", deliver_resp);
+}
+
+class DeliverInflightGuard {
+public:
+    explicit DeliverInflightGuard(std::string steam_id)
+        : steam_id_(std::move(steam_id)), active_(!steam_id_.empty()) {}
+
+    DeliverInflightGuard(const DeliverInflightGuard&) = delete;
+    DeliverInflightGuard& operator=(const DeliverInflightGuard&) = delete;
+
+    bool Acquire() {
+        if (!active_) return false;
+        std::lock_guard<std::mutex> lock(g_deliver_mutex);
+        if (!g_deliver_inflight.insert(steam_id_).second) {
+            active_ = false;
+            return false;
+        }
+        return true;
+    }
+
+    ~DeliverInflightGuard() {
+        if (!active_) return;
+        std::lock_guard<std::mutex> lock(g_deliver_mutex);
+        g_deliver_inflight.erase(steam_id_);
+    }
+
+private:
+    std::string steam_id_;
+    bool active_ = false;
+};
+
 } // anonymous namespace
 
 namespace CustomDinoDeliver {
@@ -157,17 +220,28 @@ void Shutdown() {
     }
 }
 
-bool DeliverPending(AShooterPlayerController* controller) {
-    if (!controller) return false;
+DeliverResult DeliverPending(AShooterPlayerController* controller) {
+    DeliverResult result;
+
+    if (!controller) return result;
     if (ArkApi::GetApiUtils().GetStatus() != ArkApi::ServerStatus::Ready) {
         Log::GetLog()->warn("DinoHttpClient: DeliverPending skipped — server not ready");
-        return false;
+        result.api_ok = false;
+        return result;
     }
 
     const std::string steam_id = Bridge::GetSteamId(controller);
     if (steam_id.empty()) {
         Log::GetLog()->warn("DinoHttpClient: DeliverPending skipped — empty steam_id");
-        return false;
+        result.api_ok = false;
+        return result;
+    }
+
+    DeliverInflightGuard inflight(steam_id);
+    if (!inflight.Acquire()) {
+        Log::GetLog()->warn("DinoHttpClient: deliver already in progress for '{}'", steam_id);
+        result.already_in_progress = true;
+        return result;
     }
 
     Log::GetLog()->info("DinoHttpClient: claim custom-dino for '{}' at {}", steam_id, g_web_url);
@@ -178,12 +252,16 @@ bool DeliverPending(AShooterPlayerController* controller) {
 
     nlohmann::json json;
     if (!TryParseApiJson(claim_resp, json, "claim")) {
-        return claim_resp.empty();
+        Log::GetLog()->error("DinoHttpClient: claim failed for '{}' (empty or invalid response)",
+                             steam_id);
+        result.api_ok = false;
+        return result;
     }
 
     if (!json.value("ok", false)) {
         Log::GetLog()->warn("DinoHttpClient: claim not ok: {}", claim_resp);
-        return false;
+        result.api_ok = false;
+        return result;
     }
 
     nlohmann::json items = json.contains("items")
@@ -191,17 +269,17 @@ bool DeliverPending(AShooterPlayerController* controller) {
         : json.value("orders", nlohmann::json::array());
 
     if (!items.is_array() || items.empty()) {
-        return true;
+        Log::GetLog()->debug("DinoHttpClient: no pending custom dino orders for '{}'", steam_id);
+        return result;
     }
 
+    result.claimed = static_cast<int>(items.size());
     Log::GetLog()->info("DinoHttpClient: claimed {} custom dino order(s) for '{}'",
-                        items.size(), steam_id);
+                        result.claimed, steam_id);
 
     std::vector<std::string> delivered_ids;
     std::vector<std::string> failed_ids;
     nlohmann::json failures = nlohmann::json::array();
-    int success_count = 0;
-    int fail_count = 0;
 
     for (const auto& item : items) {
         const std::string order_id = item.value("order_id", "");
@@ -210,54 +288,62 @@ bool DeliverPending(AShooterPlayerController* controller) {
             : nlohmann::json::object();
 
         if (order_id.empty() || payload.empty()) {
-            if (!order_id.empty())
+            if (!order_id.empty()) {
                 failed_ids.push_back(order_id);
+                result.failed++;
+                failures.push_back({
+                    {"order_id", order_id},
+                    {"error", payload.empty() ? "empty_payload" : "invalid_order"},
+                });
+                Log::GetLog()->error("DinoHttpClient: order {} skipped — invalid payload", order_id);
+            }
             continue;
         }
 
-        const bool ok = DeliverCustomDino(controller, payload);
+        const std::string species = payload.value("species_display_name",
+            payload.value("species_blueprint", "unknown"));
+        Log::GetLog()->info("DinoHttpClient: delivering order {} ({})", order_id, species);
+
+        bool ok = false;
+        std::string error = "dino_delivery_failed";
+        try {
+            ok = DeliverCustomDino(controller, payload);
+        } catch (const std::exception& e) {
+            error = std::string("exception: ") + e.what();
+            Log::GetLog()->error("DinoHttpClient: order {} exception — {}", order_id, e.what());
+        } catch (...) {
+            error = "unknown_exception";
+            Log::GetLog()->error("DinoHttpClient: order {} unknown exception", order_id);
+        }
+
         if (ok) {
             delivered_ids.push_back(order_id);
-            success_count++;
+            result.delivered++;
             Log::GetLog()->info("DinoHttpClient: delivered order {}", order_id);
         } else {
             failed_ids.push_back(order_id);
+            result.failed++;
             failures.push_back({
                 {"order_id", order_id},
-                {"error", "dino_delivery_failed"},
+                {"error", error},
             });
-            fail_count++;
-            Log::GetLog()->error("DinoHttpClient: failed order {}", order_id);
+            Log::GetLog()->error("DinoHttpClient: failed order {} ({})", order_id, error);
         }
     }
 
-    if (!failed_ids.empty()) {
-        nlohmann::json release_body = {
-            {"steam_id", steam_id},
-            {"order_ids", failed_ids},
-        };
-        const std::string release_url = g_web_url + "/api/pending/custom-dino/release";
-        const std::string release_resp =
-            HttpRequest(L"POST", release_url, release_body.dump());
-        Log::GetLog()->warn("DinoHttpClient: released {} failed order(s): {}",
-                            failed_ids.size(), release_resp);
-    }
+    if (!failed_ids.empty())
+        PostReleaseFailed(steam_id, failed_ids);
 
-    if (success_count > 0 || fail_count > 0) {
-        nlohmann::json body = {
-            {"steam_id", steam_id},
-            {"order_ids", delivered_ids},
-            {"failures", failures},
-        };
-        const std::string deliver_url = g_web_url + "/api/pending/custom-dino/delivered";
-        const std::string deliver_resp = HttpRequest(L"POST", deliver_url, body.dump());
-        Log::GetLog()->info("DinoHttpClient: delivered callback: {}", deliver_resp);
-    }
+    if (result.delivered > 0 || result.failed > 0)
+        PostDeliveredCallback(steam_id, delivered_ids, failures);
 
-    if (controller && (success_count > 0 || fail_count > 0)) {
-        if (success_count > 0) {
-            std::wstring msg = L"[Dino Lab] " + std::to_wstring(success_count)
+    if (controller && (result.delivered > 0 || result.failed > 0)) {
+        if (result.delivered > 0) {
+            std::wstring msg = L"[Dino Lab] " + std::to_wstring(result.delivered)
                 + L" dino(s) customizado(s) entregue(s)!";
+            if (result.failed > 0) {
+                msg += L" (" + std::to_wstring(result.failed) + L" falha(s))";
+            }
             ArkApi::GetApiUtils().SendNotification(
                 controller, FLinearColor(0, 1, 0, 1), 1.2f, 8.f, nullptr, msg.c_str());
         } else {
@@ -267,7 +353,7 @@ bool DeliverPending(AShooterPlayerController* controller) {
         }
     }
 
-    return success_count > 0;
+    return result;
 }
 
 } // namespace HttpClient

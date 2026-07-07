@@ -34,10 +34,26 @@ void CmdPoll(AShooterPlayerController* controller, FString*, EChatSendMode::Type
     try {
         Log::GetLog()->info("CustomDinoDeliver: /dinolab requested by steam_id={}",
                             CustomDinoDeliver::Bridge::GetSteamId(controller));
-        const bool ok = CustomDinoDeliver::HttpClient::DeliverPending(controller);
-        SendMsg(controller, ok ? FColorList::Green : FColorList::Yellow,
-                ok ? "Dino Lab: entrega verificada."
-                     : "Dino Lab: nada pendente ou falha na API.");
+        const CustomDinoDeliver::HttpClient::DeliverResult result =
+            CustomDinoDeliver::HttpClient::DeliverPending(controller);
+
+        if (result.already_in_progress) {
+            SendMsg(controller, FColorList::Yellow,
+                    "Dino Lab: entrega em andamento, aguarde.");
+        } else if (!result.api_ok) {
+            SendMsg(controller, FColorList::Red,
+                    "Dino Lab: falha ao contactar a API web.");
+        } else if (result.delivered > 0) {
+            SendMsg(controller, FColorList::Green,
+                    "Dino Lab: " + std::to_string(result.delivered)
+                    + " dino(s) entregue(s) com sucesso.");
+        } else if (result.failed > 0) {
+            SendMsg(controller, FColorList::Red,
+                    "Dino Lab: falha ao entregar dino customizado. Contate um admin.");
+        } else {
+            SendMsg(controller, FColorList::Yellow,
+                    "Dino Lab: nada pendente na fila.");
+        }
     } catch (const std::exception& e) {
         Log::GetLog()->error("CustomDinoDeliver: /dinolab failed — {}", e.what());
         SendMsg(controller, FColorList::Red, "Dino Lab: erro ao verificar fila.");

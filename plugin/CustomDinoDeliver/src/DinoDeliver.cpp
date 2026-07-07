@@ -270,6 +270,9 @@ FCustomItemData BuildCryoCustomData(APrimalDinoCharacter* dino, UPrimalItem* sad
     customItemData.CustomDataNames.Add(FName("None", EFindName::FNAME_Find));
 
     auto* stat = dino->MyCharacterStatusComponentField();
+    if (!stat) {
+        Log::GetLog()->warn("DinoDeliver: BuildCryoCustomData — status component ausente");
+    }
     if (stat) {
         customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Health]);
         customItemData.CustomDataFloats.Add(stat->CurrentStatusValuesField()()[EPrimalCharacterStatusValue::Stamina]);
@@ -432,11 +435,22 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
         payload.value("spawn_exact", nlohmann::json::object());
     const bool use_spawn_exact = spawn_exact.value("enabled", false);
 
+    Log::GetLog()->info(
+        "DinoDeliver: start '{}' blueprint='{}' level={} spawn_exact={} deliver_as={}",
+        display, blueprint, level, use_spawn_exact, deliver_as);
+
     APrimalDinoCharacter* dino = nullptr;
     if (use_spawn_exact) {
         dino = SpawnExactFromPayload(controller, payload);
         if (!dino) {
-            Log::GetLog()->warn("DinoDeliver: SpawnExact failed for '{}'", blueprint);
+            Log::GetLog()->warn(
+                "DinoDeliver: SpawnExact failed for '{}' — fallback SpawnDino", blueprint);
+            FString fbp(blueprint.c_str());
+            dino = ArkApi::GetApiUtils().SpawnDino(
+                controller, fbp, nullptr, level, force_tame, neutered);
+        }
+        if (!dino) {
+            Log::GetLog()->error("DinoDeliver: all spawn paths failed for '{}'", blueprint);
             NotifyPlayer(controller, FColorList::Red,
                          "Falha ao spawnar dino (SpawnExact). Contate um admin.");
             return false;
@@ -446,7 +460,7 @@ bool DeliverCustomDino(AShooterPlayerController* controller,
         dino = ArkApi::GetApiUtils().SpawnDino(
             controller, fbp, nullptr, level, force_tame, neutered);
         if (!dino) {
-            Log::GetLog()->warn("DinoDeliver: failed to spawn '{}'", blueprint);
+            Log::GetLog()->error("DinoDeliver: failed to spawn '{}'", blueprint);
             NotifyPlayer(controller, FColorList::Red,
                          "Falha ao spawnar o dino customizado. Contate um admin.");
             return false;
