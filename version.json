@@ -1,10 +1,8 @@
 {
-    "version": "1.10.13",
+    "version": "1.10.14",
     "date": "2026-07-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.13/ARKLAND-Multi-Setup-v1.10.13.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.14/ARKLAND-Multi-Setup-v1.10.14.exe",
     "changelog": [
-        "Fix (Nível do jogador): modo simples (vanilla) — espelha ASM EnableLevelProgressions=false; não reescreve LevelExperienceRampOverrides, remove rampa antiga no save, cap via OverrideMaxExperiencePointsPlayer no GUS com curva vanilla.",
-        "Feat (Nível do jogador): toggle Progressões customizadas no painel TEK/ASM — rampa single-line e engramas 400/nível só quando habilitado.",
-        "Fix (Encomenda Dino): modal corrigido, vitrine/galeria de showcase, deduplicação de pedidos e melhorias na Web Store."
+        "Feat (Web Store): referência de Color IDs — tabela estática (criaturas 1–100, tintas 201–226, especiais) com busca, abas e copiar ID ao clicar; modal e painéis em Encomenda Dino, entrega e showcase do Dino Lab."
     ]
 }
