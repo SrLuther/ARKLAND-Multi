@@ -79,7 +79,7 @@ def test_bulk_pre_register_only_missing():
         again = bulk_pre_register_catalog_items(db, CATALOG, only_missing=True)
         assert again["created"] == 0
         assert again["updated"] == 0
-        assert again["skipped"] == 0
+        assert again["skipped_duplicate"] >= 2
 
         refresh = bulk_pre_register_catalog_items(
             db, CATALOG, item_ids=["rex_femea", "giga_m"], only_missing=False

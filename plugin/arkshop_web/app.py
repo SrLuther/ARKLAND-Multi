@@ -1746,6 +1746,12 @@ def _ensure_runtime_initialized_before_request() -> None:
     if path in _BOOT_SKIP_EXACT or any(path.startswith(p) for p in _BOOT_SKIP_PREFIXES):
         return
     _initialize_scheduler_if_needed()
+    try:
+        from catalog_feed_service import start_catalog_feed_scheduler_if_needed
+
+        start_catalog_feed_scheduler_if_needed()
+    except Exception:
+        pass
     _kick_background_db_init()
 
 
@@ -6125,6 +6131,13 @@ def save_config():
         errors=len(write_errors),
     )
     _invalidate_shop_config_cache()
+    catalog_feed_result = None
+    try:
+        from catalog_feed_service import maybe_feed_on_catalog_save
+
+        catalog_feed_result = maybe_feed_on_catalog_save(body)
+    except Exception as exc:
+        log.debug("catalog_feed on save skipped: %s", exc)
     master_path = next((w["path"] for w in written if "mestre" in w.get("label", "").lower()), "")
     if master_path:
         try:
@@ -6157,6 +6170,7 @@ def save_config():
         "reload_results": reload_results,
         "reload_count": reload_ok,
         "reload_total": len(reload_results),
+        "catalog_feed": catalog_feed_result,
     })
 
 

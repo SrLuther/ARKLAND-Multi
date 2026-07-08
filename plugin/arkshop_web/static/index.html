@@ -5441,8 +5441,9 @@
         </div>
         <div id="market-admin-panel-species" class="catalog-panel active">
           <div id="market-admin-schema-banner" style="display:none;margin-bottom:12px;"></div>
+          <div id="market-catalog-feed-status" class="card" style="display:none;margin-bottom:12px;padding:12px 16px;font-size:12px;color:var(--text2);"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-            <button class="btn btn-primary" onclick="marketSyncCatalog(false)">↻ Sync catálogo</button>
+            <button class="btn btn-primary" onclick="marketSyncCatalog(false)">↻ Sync catálogo → Mercado + DinoLab</button>
             <button class="btn btn-success" onclick="marketSyncCatalog(true)">✓ Sync + ativar todas</button>
             <button class="btn btn-ghost" onclick="marketReconcilePending()">⟳ Promover pendentes</button>
           </div>
@@ -15323,6 +15324,8 @@ async function marketPreRegisterMissingCatalog(activate = false) {
     }
     toast(
       `Lote: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`
+      + (d.merged ? `, ${d.merged} fundidas` : "")
+      + (d.skipped_duplicate ? `, ${d.skipped_duplicate} dup. ignoradas` : "")
       + (activate ? `, ${d.activated || 0} ativadas` : ""),
       "success",
     );
@@ -15331,6 +15334,33 @@ async function marketPreRegisterMissingCatalog(activate = false) {
     loadShopMarketStatus().then(() => renderShop());
   } catch (e) {
     toast(String(e), "error");
+  }
+}
+
+async function loadMarketCatalogFeedStatus() {
+  const el = document.getElementById("market-catalog-feed-status");
+  if (!el) return;
+  try {
+    const r = await fetch(API + "/api/market/admin/catalog-feed/status");
+    const d = await r.json();
+    if (!d.ok) {
+      el.style.display = "none";
+      return;
+    }
+    const lr = d.last_result || {};
+    const when = d.last_run_at ? new Date(d.last_run_at).toLocaleString("pt-BR") : "nunca";
+    const interval = Number(d.interval_minutes || 0);
+    const intervalTxt = interval > 0 ? ` · job a cada ${interval} min` : "";
+    const counts = lr.created != null
+      ? ` · última: ${lr.created || 0} criadas, ${lr.updated || 0} atualizadas`
+        + (lr.merged ? `, ${lr.merged} fundidas` : "")
+        + (lr.skipped_duplicate ? `, ${lr.skipped_duplicate} dup. ignoradas` : "")
+      : "";
+    el.style.display = "";
+    el.innerHTML = `<strong>Auto-feed catálogo</strong> — última sync: ${escHtml(when)}`
+      + ` (${escHtml(d.last_source || "—")})${intervalTxt}${counts}`;
+  } catch (_) {
+    el.style.display = "none";
   }
 }
 
@@ -15355,6 +15385,7 @@ async function loadMarketAdmin() {
       }
     } catch (_) { if (banner) banner.style.display = "none"; }
   }
+  loadMarketCatalogFeedStatus();
   if (!list) return;
   list.innerHTML = '<div style="padding:24px;color:var(--text2);">Carregando…</div>';
   try {
@@ -15443,10 +15474,13 @@ async function marketSyncCatalog(activate) {
     }
     toast(
       `Sync: ${d.created || 0} criadas, ${d.updated || 0} atualizadas`
+      + (d.merged ? `, ${d.merged} fundidas` : "")
+      + (d.skipped_duplicate ? `, ${d.skipped_duplicate} dup. ignoradas` : "")
       + (d.registry_created ? `, ${d.registry_created} do registro Abyss/mods` : "")
       + (d.promoted_listings ? `, ${d.promoted_listings} listing(s) promovido(s)` : ""),
       "success",
     );
+    loadMarketCatalogFeedStatus();
     loadMarketAdmin();
   } catch (e) {
     toast(String(e), "error");

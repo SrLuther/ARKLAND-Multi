@@ -231,14 +231,66 @@ def _species_catalog() -> dict[str, dict[str, Any]]:
 
 
 def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
+    """Lista espécies homologadas para Dino Lab — deduplicada por species_key.
+
+    Prioridade: market_species (DB, sincronizado do catálogo) → market_species_defaults.json.
+    """
+    seen: set[str] = set()
     items: list[dict[str, Any]] = []
-    for key, defn in sorted(_species_catalog().items(), key=lambda kv: str(kv[1].get("display_name") or kv[0])):
+
+    try:
+        import app as app_module
+
+        session_factory = app_module._SessionLocal
+        if session_factory is not None:
+            from app import MarketSpecies
+
+            db = session_factory()
+            try:
+                rows = (
+                    db.query(MarketSpecies)
+                    .filter(MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")))
+                    .order_by(MarketSpecies.display_name)
+                    .all()
+                )
+                defaults = _species_catalog()
+                for row in rows:
+                    key = str(row.species_key or "").strip()
+                    if not key or key in seen:
+                        continue
+                    defn = defaults.get(key, {})
+                    bp = str(row.blueprint_path or "").strip() or _blueprint_from_catalog(defn)
+                    if not bp:
+                        continue
+                    mod = str(defn.get("mod_source") or "vanilla")
+                    if vanilla_only and mod != "vanilla":
+                        continue
+                    seen.add(key)
+                    items.append({
+                        "species_key": key,
+                        "display_name": str(row.display_name or defn.get("display_name") or key),
+                        "blueprint_path": _format_blueprint(bp),
+                        "mod_source": mod,
+                        "tier": str(row.tier or defn.get("tier") or ""),
+                    })
+            finally:
+                db.close()
+    except Exception as exc:
+        log.debug("list_species_admin db: %s", exc)
+
+    for key, defn in sorted(
+        _species_catalog().items(),
+        key=lambda kv: str(kv[1].get("display_name") or kv[0]),
+    ):
+        if key in seen:
+            continue
         bp = str(defn.get("blueprint_path") or "").strip() or _blueprint_from_catalog(defn)
         if not bp:
             continue
         mod = str(defn.get("mod_source") or "vanilla")
         if vanilla_only and mod != "vanilla":
             continue
+        seen.add(key)
         items.append({
             "species_key": key,
             "display_name": str(defn.get("display_name") or key),

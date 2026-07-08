@@ -26,6 +26,7 @@ from market_economy import (
     species_economy_meta_from_defaults,
 )
 from market_service import (
+    feed_catalog_to_market,
     get_species_table_payload,
     list_species_public,
     pre_register_catalog_item,
@@ -210,15 +211,25 @@ def register_market_routes(
             if isinstance(raw_overrides, dict)
             else None
         )
+        only_missing = bool(body.get("only_missing", False))
         db = session_factory()
         try:
-            result = sync_catalog_to_db(
+            result = feed_catalog_to_market(
                 db,
                 read_shop_config(),
                 activate=activate,
+                level1_only=True,
+                only_missing=only_missing,
+                include_reference_and_registry=True,
                 display_name_overrides=overrides,
                 reset_display_names=reset_display_names,
             )
+            try:
+                from catalog_feed_service import _record_feed_result
+
+                _record_feed_result("admin_sync", {**result, "ok": True})
+            except Exception:
+                pass
             audit_event(
                 "MARKET_CATALOG_SYNC",
                 source="admin",
@@ -228,6 +239,47 @@ def register_market_routes(
             return jsonify({"ok": True, **result})
         finally:
             db.close()
+
+    @app.route("/api/market/admin/catalog-feed", methods=["POST"])
+    @admin_required
+    def market_admin_catalog_feed():
+        """Sincroniza catálogo → Mercado + DinoLab (deduplicado)."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        from catalog_feed_service import run_catalog_feed
+
+        body = request.get_json(silent=True) or {}
+        activate = body.get("activate")
+        if activate is not None:
+            activate = bool(activate)
+        only_missing = bool(body.get("only_missing", False))
+        result = run_catalog_feed(
+            source="admin",
+            activate=activate,
+            catalog=read_shop_config(),
+            only_missing=only_missing,
+            session_factory=session_factory,
+            read_catalog=read_shop_config,
+        )
+        if not result.get("ok", True):
+            return jsonify(result), 500
+        audit_event(
+            "MARKET_CATALOG_FEED",
+            source="admin",
+            actor_type="admin",
+            created=result.get("created"),
+            updated=result.get("updated"),
+            merged=result.get("merged"),
+            skipped_duplicate=result.get("skipped_duplicate"),
+        )
+        return jsonify(result)
+
+    @app.route("/api/market/admin/catalog-feed/status", methods=["GET"])
+    @admin_required
+    def market_admin_catalog_feed_status():
+        from catalog_feed_service import get_catalog_feed_status
+
+        return jsonify({"ok": True, **get_catalog_feed_status()})
 
     @app.route("/api/market/admin/species/sync-registry", methods=["POST"])
     @admin_required

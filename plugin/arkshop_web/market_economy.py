@@ -526,13 +526,40 @@ def _catalog_item_blueprint(entry: dict[str, Any]) -> str:
     return str(dino.get("Blueprint") or "")
 
 
+def is_catalog_dino_level1(entry: dict[str, Any]) -> bool:
+    """True se Type:dino e primeiro Dinos[].Level == 1 (referência de piso)."""
+    if str(entry.get("Type") or "").lower() != "dino":
+        return False
+    dino = (entry.get("Dinos") or [{}])[0]
+    return int(dino.get("Level") or 1) == 1
+
+
+def iter_catalog_dinos(
+    catalog: dict[str, Any],
+    *,
+    level1_only: bool = False,
+) -> list[tuple[str, dict[str, Any]]]:
+    items = catalog.get("Items") or catalog.get("ShopItems") or {}
+    out: list[tuple[str, dict[str, Any]]] = []
+    for item_id, entry in items.items():
+        if str(entry.get("Type") or "").lower() != "dino":
+            continue
+        if level1_only and not is_catalog_dino_level1(entry):
+            continue
+        out.append((item_id, entry))
+    out.sort(key=lambda x: -int(x[1].get("Price") or 0))
+    return out
+
+
 def iter_economy_groups(
     catalog: dict[str, Any],
+    *,
+    level1_only: bool = False,
 ) -> list[tuple[str, dict[str, Any], list[tuple[str, dict[str, Any]]]]]:
     """Agrupa itens Type:dino do catálogo por species_key econômico."""
     catalog_map = build_catalog_economy_map()
     grouped: dict[str, list[tuple[str, dict[str, Any]]]] = {}
-    for item_id, entry in iter_catalog_dinos(catalog):
+    for item_id, entry in iter_catalog_dinos(catalog, level1_only=level1_only):
         defn = catalog_map.get(item_id)
         group_key = str((defn or {}).get("species_key") or item_id)
         grouped.setdefault(group_key, []).append((item_id, entry))
@@ -836,17 +863,6 @@ def merge_species_from_catalog_item(
     )
     apply_economy_meta(species)
     return species
-
-
-def iter_catalog_dinos(catalog: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    items = catalog.get("Items") or catalog.get("ShopItems") or {}
-    out: list[tuple[str, dict[str, Any]]] = []
-    for item_id, entry in items.items():
-        if str(entry.get("Type") or "").lower() != "dino":
-            continue
-        out.append((item_id, entry))
-    out.sort(key=lambda x: -int(x[1].get("Price") or 0))
-    return out
 
 
 def shop_catalog_display_name(catalog: dict[str, Any], catalog_item_id: str | None) -> str:
