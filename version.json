@@ -1,8 +1,10 @@
 {
-    "version": "1.10.14",
-    "date": "2026-07-07",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.14/ARKLAND-Multi-Setup-v1.10.14.exe",
+    "version": "1.10.15",
+    "date": "2026-07-08",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.15/ARKLAND-Multi-Setup-v1.10.15.exe",
     "changelog": [
-        "Feat (Web Store): referência de Color IDs — tabela estática (criaturas 1–100, tintas 201–226, especiais) com busca, abas e copiar ID ao clicar; modal e painéis em Encomenda Dino, entrega e showcase do Dino Lab."
+        "Feat (Web Store): auto-feed do catálogo CustomShop para Mercado e Dino Lab com deduplicação forte (blueprint, espécie e nome).",
+        "Fix (CustomShop / Abyssal): blueprint paths corrigidos — segmento /Abyssal/ alinhado ao padrão wiki em config, registry e testes.",
+        "Fix (Eventos Sazonais): após restaurar backup INI, perfil TEK/ASM é ressincronizado em memória e persistência (rates do evento não ficam presos)."
     ]
 }

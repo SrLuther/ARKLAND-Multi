@@ -5,6 +5,17 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.15] - 2026-07-08
+
+### Feature
+
+- Feat (Web Store): auto-feed do catálogo CustomShop para Mercado e Dino Lab com deduplicação forte (blueprint, espécie e nome).
+
+### Fix
+
+- Fix (CustomShop / Abyssal): blueprint paths corrigidos — segmento /Abyssal/ alinhado ao padrão wiki em config, registry e testes.
+- Fix (Eventos Sazonais): após restaurar backup INI, perfil TEK/ASM é ressincronizado em memória e persistência (rates do evento não ficam presos).
+
 ## [1.10.14] - 2026-07-07
 
 ### Feature

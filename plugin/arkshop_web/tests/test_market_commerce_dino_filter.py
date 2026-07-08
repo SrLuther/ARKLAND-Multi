@@ -65,10 +65,10 @@ def test_is_cryopodable_dino_blueprint():
     )
     assert not is_cryopodable_dino_blueprint(ABYSS_STEEL_BP)
     assert not is_cryopodable_dino_blueprint(
-        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice"
+        "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice"
     )
     assert not is_cryopodable_dino_blueprint(
-        "/Game/Abyss/CoreBlueprints/Items/Spawners/"
+        "/Game/Abyss/Dinos/Ships/HoverSkiff/"
         "PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff"
     )
 

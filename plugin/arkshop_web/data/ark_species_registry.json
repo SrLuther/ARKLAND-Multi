@@ -125,7 +125,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW"
+        "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW"
       ],
       "class_tokens": [
         "primalitemconsumable_seed_plantspeciesw"
@@ -141,7 +141,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice"
+        "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice"
       ],
       "class_tokens": [
         "primalitemconsumable_seed_rice"
@@ -157,7 +157,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis"
+        "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis"
       ],
       "class_tokens": [
         "primalitemconsumable_seed_cucumis"
@@ -173,7 +173,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Wyvern/Wyvern_Character_BP_Water.Wyvern_Character_BP_Water"
+        "/Game/Abyss/Dinos/WaterWyvern/Wyvern_Character_BP_Water.Wyvern_Character_BP_Water"
       ],
       "class_tokens": [
         "wyvern_character_bp_water",
@@ -302,7 +302,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP"
+        "/Game/Abyss/Dinos/Riftcrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP"
       ],
       "class_tokens": [
         "riftcrawler"
@@ -630,7 +630,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian"
+        "/Game/Abyss/Dinos/Ships/HoverSail/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian"
       ],
       "class_tokens": [
         "primalitem_spawner_hoversail_thalassian"
@@ -646,7 +646,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff"
+        "/Game/Abyss/Dinos/Ships/HoverSkiff/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff"
       ],
       "class_tokens": [
         "primalitem_spawner_thalassianhoverskiff"

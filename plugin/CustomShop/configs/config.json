@@ -4150,7 +4150,7 @@
       "Type": "dino"
     },
     "abyss_hover_sail": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
+      "Blueprint": "/Game/Abyss/Dinos/Ships/HoverSail/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
       "Category": "Veículos",
       "Description": "Vela Thalassiana (HoverSail) (mod Abyss)",
       "ForceBlueprint": false,
@@ -4161,7 +4161,7 @@
       "Type": "item"
     },
     "abyss_hover_skiff": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
+      "Blueprint": "/Game/Abyss/Dinos/Ships/HoverSkiff/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
       "Category": "Veículos",
       "Description": "Skiff Thalassiano (mod Abyss)",
       "ForceBlueprint": false,
@@ -4369,7 +4369,7 @@
       "Description": "Rift Crawler Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP",
+          "Blueprint": "/Game/Abyss/Dinos/Riftcrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4403,7 +4403,7 @@
       "Type": "item"
     },
     "abyss_seed_cucumis": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
       "Category": "Recursos",
       "Description": "Semente de Pepino (mod Abyss)",
       "ForceBlueprint": false,
@@ -4414,7 +4414,7 @@
       "Type": "item"
     },
     "abyss_seed_plantspeciesw": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
       "Category": "Recursos",
       "Description": "Semente Planta W (Abyss) (mod Abyss)",
       "ForceBlueprint": false,
@@ -4425,7 +4425,7 @@
       "Type": "item"
     },
     "abyss_seed_rice": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
       "Category": "Recursos",
       "Description": "Semente de Arroz (mod Abyss)",
       "ForceBlueprint": false,

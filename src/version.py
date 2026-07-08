@@ -3,11 +3,20 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.14"
-BUILD_DATE: str = "2026-07-07"
+APP_VERSION: str = "1.10.15"
+BUILD_DATE: str = "2026-07-08"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.15",
+        "date": "2026-07-08",
+        "changes": [
+            "Feat (Web Store): auto-feed do catálogo CustomShop para Mercado e Dino Lab com deduplicação forte (blueprint, espécie e nome).",
+            "Fix (CustomShop / Abyssal): blueprint paths corrigidos — segmento /Abyssal/ alinhado ao padrão wiki em config, registry e testes.",
+            "Fix (Eventos Sazonais): após restaurar backup INI, perfil TEK/ASM é ressincronizado em memória e persistência (rates do evento não ficam presos).",
+        ],
+    },
     {
         "version": "1.10.14",
         "date": "2026-07-07",

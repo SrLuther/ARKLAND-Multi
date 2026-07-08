@@ -1,15 +1,7 @@
 {
   "CrossChat": {
-    "AutoCapture": true,
-    "Command": "/c",
-    "Enabled": true,
-    "GlobalChatOnly": true,
-    "IgnoreCommands": true,
-    "MaxMessageLength": 200,
-    "PollIntervalSeconds": 2,
-    "RateLimitSeconds": 2,
-    "UseWebApi": true,
-    "_comment": "Chat entre mapas do cluster (captura automatica). ServerId unico por mapa — definido ao sincronizar."
+    "Enabled": false,
+    "_comment": "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros."
   },
   "Database": {
     "Database": "arkland_shop",
@@ -3576,31 +3568,31 @@
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideHelmet.PrimalItemArmor_HideHelmet",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideShirt.PrimalItemArmor_HideShirt",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HidePants.PrimalItemArmor_HidePants",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideGloves.PrimalItemArmor_HideGloves",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Hide/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Leather/PrimalItemArmor_HideBoots.PrimalItemArmor_HideBoots",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3645,13 +3637,15 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ArgentavisSaddle.PrimalItemArmor_ArgentavisSaddle",
           "Quantity": 1,
           "Quality": 0,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         },
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TrikeSaddle.PrimalItemArmor_TrikeSaddle",
           "Quantity": 1,
           "Quality": 0,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 0
@@ -3935,72 +3929,72 @@
     {
       "id": "p10000",
       "label": "10.000 Âmbares",
-      "note": "Primeiro passo — ideal para conhecer a loja",
       "points": 10000,
-      "price_brl": 5
+      "price_brl": 5.0,
+      "note": "Primeiro passo — ideal para conhecer a loja"
     },
     {
       "id": "p20500",
       "label": "20.500 Âmbares",
-      "note": "+2,5% bônus vs pacote inicial",
       "points": 20500,
-      "price_brl": 10
+      "price_brl": 10.0,
+      "note": "+2,5% bônus vs pacote inicial"
     },
     {
       "id": "p42000",
       "label": "42.000 Âmbares",
-      "note": "+5% bônus — dobro com vantagem",
       "points": 42000,
-      "price_brl": 20
+      "price_brl": 20.0,
+      "note": "+5% bônus — dobro com vantagem"
     },
     {
       "id": "p75000",
       "label": "75.000 Âmbares",
-      "note": "Melhor custo-benefício entre R$ 20 e R$ 50",
       "points": 75000,
-      "price_brl": 35
+      "price_brl": 35.0,
+      "note": "Melhor custo-benefício entre R$ 20 e R$ 50"
     },
     {
       "id": "p110000",
       "label": "110.000 Âmbares",
-      "note": "Pacote popular — equilíbrio ideal",
       "points": 110000,
-      "price_brl": 50
+      "price_brl": 50.0,
+      "note": "Pacote popular — equilíbrio ideal"
     },
     {
       "id": "p170000",
       "label": "170.000 Âmbares",
-      "note": "+13% bônus vs pacote de R$ 50",
       "points": 170000,
-      "price_brl": 75
+      "price_brl": 75.0,
+      "note": "+13% bônus vs pacote de R$ 50"
     },
     {
       "id": "p230000",
       "label": "230.000 Âmbares",
-      "note": "Impulsione seu progresso no cluster",
       "points": 230000,
-      "price_brl": 100
+      "price_brl": 100.0,
+      "note": "Impulsione seu progresso no cluster"
     },
     {
       "id": "p625000",
       "label": "625.000 Âmbares",
-      "note": "+25% bônus — apoio premium ao servidor",
       "points": 625000,
-      "price_brl": 250
+      "price_brl": 250.0,
+      "note": "+25% bônus — apoio premium ao servidor"
     },
     {
       "id": "p1300000",
       "label": "1.300.000 Âmbares",
-      "note": "Melhor valor por Âmbar acima de R$ 250",
       "points": 1300000,
-      "price_brl": 500
+      "price_brl": 500.0,
+      "note": "Melhor valor por Âmbar acima de R$ 250"
     },
     {
       "id": "p2700000",
       "label": "2.700.000 Âmbares",
-      "note": "+35% bônus — máximo incentivo ARKLAND",
       "points": 2700000,
-      "price_brl": 1000
+      "price_brl": 1000.0,
+      "note": "+35% bônus — máximo incentivo ARKLAND"
     }
   ],
   "Settings": {
@@ -4024,7 +4018,10 @@
     "WebApiUrl": "http://192.168.15.51:27199",
     "WebsiteUrl": "https://arkland.com.br",
     "HomeMapsTitle": "Meus Mapas",
-    "HomeMapsIntro": "Intro customizada."
+    "HomeMapsIntro": "Intro customizada.",
+    "EngramasCommandPrice": 5000,
+    "NotasCommandPrice": 5000,
+    "NotasCommandEnabled": true
   },
   "TimedPointsReward": {
     "Enabled": true,
@@ -4153,7 +4150,7 @@
       "Type": "dino"
     },
     "abyss_hover_sail": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
+      "Blueprint": "/Game/Abyss/Dinos/Ships/HoverSail/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
       "Category": "Veículos",
       "Description": "Vela Thalassiana (HoverSail) (mod Abyss)",
       "ForceBlueprint": false,
@@ -4164,7 +4161,7 @@
       "Type": "item"
     },
     "abyss_hover_skiff": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
+      "Blueprint": "/Game/Abyss/Dinos/Ships/HoverSkiff/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
       "Category": "Veículos",
       "Description": "Skiff Thalassiano (mod Abyss)",
       "ForceBlueprint": false,
@@ -4372,7 +4369,7 @@
       "Description": "Rift Crawler Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP",
+          "Blueprint": "/Game/Abyss/Dinos/Riftcrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4406,7 +4403,7 @@
       "Type": "item"
     },
     "abyss_seed_cucumis": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
       "Category": "Recursos",
       "Description": "Semente de Pepino (mod Abyss)",
       "ForceBlueprint": false,
@@ -4417,7 +4414,7 @@
       "Type": "item"
     },
     "abyss_seed_plantspeciesw": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
       "Category": "Recursos",
       "Description": "Semente Planta W (Abyss) (mod Abyss)",
       "ForceBlueprint": false,
@@ -4428,7 +4425,7 @@
       "Type": "item"
     },
     "abyss_seed_rice": {
-      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
+      "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
       "Category": "Recursos",
       "Description": "Semente de Arroz (mod Abyss)",
       "ForceBlueprint": false,
@@ -4584,7 +4581,10 @@
           "Neutered": false
         }
       ],
+      "ForceBlueprint": false,
+      "Name": "Yutyrannus Abissal Nível 200",
       "Price": 12500,
+      "Quality": 0,
       "Type": "dino"
     },
     "acro": {
@@ -5430,7 +5430,7 @@
           "Quality": 100
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves",
           "Quantity": 1,
           "Quality": 100
         },
@@ -5480,7 +5480,7 @@
           "ForceBlueprint": true
         },
         {
-          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots",
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots",
           "Quantity": 1,
           "Quality": 100,
           "ForceBlueprint": true
@@ -5710,6 +5710,39 @@
       ],
       "Price": 200,
       "Type": "item"
+    },
+    "astrodelphis_1": {
+      "Description": "Astrodelphis Nível 1",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/SpaceDolphin/SpaceDolphin_Character_BP.SpaceDolphin_Character_BP",
+          "ForceTame": true,
+          "Gender": "female",
+          "Level": 1,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Astrodelphis Nível 1",
+      "Price": 6000,
+      "Quality": 0,
+      "Type": "dino"
+    },
+    "astrodelphis_200": {
+      "Description": "Astrodelphis Nível 200",
+      "Dinos": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/SpaceDolphin/SpaceDolphin_Character_BP.SpaceDolphin_Character_BP",
+          "ForceTame": true,
+          "Level": 200,
+          "Neutered": false
+        }
+      ],
+      "ForceBlueprint": false,
+      "Name": "Astrodelphis Nível 200",
+      "Price": 12000,
+      "Quality": 0,
+      "Type": "dino"
     },
     "bionicgigant": {
       "Description": "Giganotossauro Tek Nível 200",
@@ -6568,7 +6601,7 @@
           "Quantity": 1
         },
         {
-          "Blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom",
+          "Blueprint": "/Game/Aberration/CoreBlueprints/Items/Consumables/PrimalItemConsumable_NamelessVenom.PrimalItemConsumable_NamelessVenom",
           "Quantity": 20
         },
         {
@@ -6980,16 +7013,22 @@
       "Type": "item"
     },
     "mun_simple_shotgun": {
+      "Category": "Geral",
       "Description": "Munição de Escopeta Simples (1000x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_SimpleShotgunBullet.PrimalItemAmmo_SimpleShotgunBullet",
-          "Quantity": 1000,
-          "Quality": 0,
-          "ForceBlueprint": false
+          "Quantity": 500
+        },
+        {
+          "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Weapons/PrimalItemAmmo_SimpleShotgunBullet.PrimalItemAmmo_SimpleShotgunBullet",
+          "Quantity": 500
         }
       ],
+      "Name": "Munição de Escopeta Simples (1000x)",
       "Price": 350,
+      "Quality": 0,
       "Type": "item"
     },
     "mun_stone_arrow": {
@@ -7588,16 +7627,18 @@
       "Type": "item"
     },
     "rec_silicon": {
+      "Category": "Geral",
       "Description": "Pó de Cimento (1000x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Silicon.PrimalItemResource_Silicon",
-          "Quantity": 1000,
-          "Quality": 0,
-          "ForceBlueprint": false
+          "Quantity": 1000
         }
       ],
+      "Name": "Pérola Sílica (1000x)",
       "Price": 375,
+      "Quality": 0,
       "Type": "item"
     },
     "rec_sparkpowder": {
@@ -7723,17 +7764,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallBroodmother/SmallBroodmother_Character_BP.SmallBroodmother_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Broodmother Nível 1 (SmallBosses)",
       "Price": 7500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_broodmother_200": {
       "Description": "Small Broodmother Nível 200 (SmallBosses)",
@@ -7756,17 +7798,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Blood.CrystalWyvern_Character_BP_Descendant_Blood",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Crystal Wyvern Blood Descendant Nível 1 (SmallBosses)",
       "Price": 6000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_crystal_blood_200": {
       "Description": "Crystal Wyvern Blood Descendant Nível 200 (SmallBosses)",
@@ -7789,17 +7832,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Ember.CrystalWyvern_Character_BP_Descendant_Ember",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Crystal Wyvern Ember Descendant Nível 1 (SmallBosses)",
       "Price": 6000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_crystal_ember_200": {
       "Description": "Crystal Wyvern Ember Descendant Nível 200 (SmallBosses)",
@@ -7822,17 +7866,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Queen.CrystalWyvern_Character_BP_Queen",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Crystal Wyvern Queen Nível 1 (SmallBosses)",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_crystal_queen_200": {
       "Description": "Crystal Wyvern Queen Nível 200 (SmallBosses)",
@@ -7855,17 +7900,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Tropical.CrystalWyvern_Character_BP_Descendant_Tropical",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Crystal Wyvern Tropical Descendant Nível 1 (SmallBosses)",
       "Price": 6000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_crystal_tropical_200": {
       "Description": "Crystal Wyvern Tropical Descendant Nível 200 (SmallBosses)",
@@ -7888,17 +7934,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallCyclops/SmallCyclops_Character_BP.SmallCyclops_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Cyclops Nível 1 (SmallBosses)",
       "Price": 6000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_cyclops_200": {
       "Description": "Small Cyclops Nível 200 (SmallBosses)",
@@ -7921,17 +7968,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallDesertTitan/DesertTitan_Character_BP_SB.DesertTitan_Character_BP_SB",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Desert Titan Nível 1 (SmallBosses)",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_desert_titan_200": {
       "Description": "Small Desert Titan Nível 200 (SmallBosses)",
@@ -7954,17 +8002,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodoreaper/SmallDodoreaper_Character_BP.SmallDodoreaper_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Dodoreaper Nível 1 (SmallBosses)",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_dodoreaper_200": {
       "Description": "Small Dodoreaper Nível 200 (SmallBosses)",
@@ -7987,17 +8036,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodoRex/SmallDodoRex_Character_BP.SmallDodoRex_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small DodoRex Nível 1 (SmallBosses)",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_dodorex_200": {
       "Description": "Small DodoRex Nível 200 (SmallBosses)",
@@ -8020,17 +8070,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodowyvern/SmallDodowyvern_Character_BP.SmallDodowyvern_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Dodowyvern Nível 1 (SmallBosses)",
       "Price": 5000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_dodowyvern_200": {
       "Description": "Small Dodowyvern Nível 200 (SmallBosses)",
@@ -8053,17 +8104,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Drake Fogo Nível 1 (SmallBosses)",
       "Price": 5500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_drake_fire_200": {
       "Description": "Small Drake Fogo Nível 200 (SmallBosses)",
@@ -8086,17 +8138,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP.FireElemental_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Fire Elemental Nível 1 (SmallBosses)",
       "Price": 8000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_fire_elemental_200": {
       "Description": "Fire Elemental Nível 200 (SmallBosses)",
@@ -8119,17 +8172,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP_Tameable.FireElemental_Character_BP_Tameable",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Fire Elemental Domável Nível 1 (SmallBosses)",
       "Price": 8000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_fire_elemental_tame_200": {
       "Description": "Fire Elemental Domável Nível 200 (SmallBosses)",
@@ -8152,17 +8206,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallHippocampus/SmallHippocampus_Character_BP.SmallHippocampus_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Hippocampus Nível 1 (SmallBosses)",
       "Price": 6000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_hippocampus_200": {
       "Description": "Small Hippocampus Nível 200 (SmallBosses)",
@@ -8185,17 +8240,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallHydra/SmallHydra_Character_BP.SmallHydra_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Hydra Nível 1 (SmallBosses)",
       "Price": 9000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_hydra_200": {
       "Description": "Small Hydra Nível 200 (SmallBosses)",
@@ -8218,17 +8274,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallManticore/SmallManticore_Character_BP.SmallManticore_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Manticore Nível 1 (SmallBosses)",
       "Price": 7000,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_manticore_200": {
       "Description": "Small Manticore Nível 200 (SmallBosses)",
@@ -8251,17 +8308,18 @@
       "Dinos": [
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallMegapithecus/SmallGorilla_Character_BP.SmallGorilla_Character_BP",
-          "ForceTame": true,
-          "Gender": "female",
           "Level": 1,
-          "Neutered": false
+          "ForceTame": true,
+          "Neutered": false,
+          "Gender": "female"
         }
       ],
       "ForceBlueprint": false,
       "Name": "Small Megapithecus Nível 1 (SmallBosses)",
       "Price": 6500,
       "Quality": 0,
-      "Type": "dino"
+      "Type": "dino",
+      "MarketInclude": true
     },
     "sb_megapithecus_200": {
       "Description": "Small Megapithecus Nível 200 (SmallBosses)",
@@ -8392,218 +8450,266 @@
       "Type": "item"
     },
     "sela_allo": {
+      "Category": "Selas",
       "Description": "Sela de Alosssauro (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
-      "Price": 3200,
-      "Type": "item",
       "Name": "Sela de Alosssauro (1x)",
+      "Price": 3200,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Selas"
+      "Type": "item"
     },
     "sela_allo_bp": {
+      "Category": "Blueprints",
       "Description": "Sela de Alosssauro BP (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_AlloSaddle.PrimalItemArmor_AlloSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
-      "Price": 5800,
-      "Type": "item",
       "Name": "Sela de Alosssauro BP (1x)",
+      "Price": 5800,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Blueprints"
+      "Type": "item"
     },
     "sela_ankylo": {
+      "Category": "Selas",
       "Description": "Sela de Anquilossauro (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_AnkyloSaddle.PrimalItemArmor_AnkyloSaddle",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
-      "Price": 1200,
-      "Type": "item",
       "Name": "Sela de Anquilossauro (1x)",
+      "Price": 1200,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Selas"
+      "Type": "item"
     },
     "sela_ankylo_bp": {
+      "Category": "Blueprints",
       "Description": "Sela de Anquilossauro BP (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_AnkyloSaddle.PrimalItemArmor_AnkyloSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
-      "Price": 2200,
-      "Type": "item",
       "Name": "Sela de Anquilossauro BP (1x)",
+      "Price": 2200,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Blueprints"
+      "Type": "item"
     },
     "sela_argentavis": {
+      "Category": "Selas",
       "Description": "Sela de Argentavis (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ArgentavisSaddle.PrimalItemArmor_ArgentavisSaddle",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
-      "Price": 2800,
-      "Type": "item",
       "Name": "Sela de Argentavis (1x)",
+      "Price": 2800,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Selas"
+      "Type": "item"
     },
     "sela_argentavis_bp": {
+      "Category": "Blueprints",
       "Description": "Sela de Argentavis BP (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ArgentavisSaddle.PrimalItemArmor_ArgentavisSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
-      "Price": 5200,
-      "Type": "item",
       "Name": "Sela de Argentavis BP (1x)",
+      "Price": 5200,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Blueprints"
+      "Type": "item"
     },
     "sela_armaedron": {
+      "Category": "Selas",
       "Description": "Sela de Armadron (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/PrimalItemArmor_ArmaeSaddle.PrimalItemArmor_ArmaeSaddle",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
-      "Price": 2200,
-      "Type": "item",
       "Name": "Sela de Armadron (1x)",
+      "Price": 2200,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Selas"
+      "Type": "item"
     },
     "sela_armaedron_bp": {
+      "Category": "Blueprints",
       "Description": "Sela de Armadron BP (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/Mods/GrandHunt/Monsters/Armaedron/PrimalItemArmor_ArmaeSaddle.PrimalItemArmor_ArmaeSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
-      "Price": 4000,
-      "Type": "item",
       "Name": "Sela de Armadron BP (1x)",
+      "Price": 4000,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Blueprints"
+      "Type": "item"
     },
     "sela_arthro": {
+      "Category": "Selas",
       "Description": "Sela de Artropluera (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ArthroSaddle.PrimalItemArmor_ArthroSaddle",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
-      "Price": 1900,
-      "Type": "item",
       "Name": "Sela de Artropluera (1x)",
+      "Price": 1900,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Selas"
+      "Type": "item"
     },
     "sela_arthro_bp": {
+      "Category": "Blueprints",
       "Description": "Sela de Artropluera BP (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ArthroSaddle.PrimalItemArmor_ArthroSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
-      "Price": 3500,
-      "Type": "item",
       "Name": "Sela de Artropluera BP (1x)",
+      "Price": 3500,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Blueprints"
+      "Type": "item"
     },
     "sela_astrocetus": {
+      "Category": "Selas",
       "Description": "Sela Tek de Astroceto (1x)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Genesis/Dinos/SpaceWhale/PrimalItemArmor_SpaceWhaleSaddle_Tek.PrimalItemArmor_SpaceWhaleSaddle_Tek",
-          "Quantity": 1,
-          "Quality": 100
-        }
-      ],
-      "Price": 7000,
-      "Type": "item",
-      "Name": "Sela Tek de Astroceto (1x)",
-      "Quality": 0,
       "ForceBlueprint": false,
-      "Category": "Selas"
-    },
-    "sela_astrocetus_bp": {
-      "Description": "Sela Tek de Astroceto BP (1x)",
       "Items": [
         {
           "Blueprint": "/Game/Genesis/Dinos/SpaceWhale/PrimalItemArmor_SpaceWhaleSaddle_Tek.PrimalItemArmor_SpaceWhaleSaddle_Tek",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "Armor": 350.0
         }
       ],
-      "Price": 12500,
-      "Type": "item",
-      "Name": "Sela Tek de Astroceto BP (1x)",
+      "Name": "Sela Tek de Astroceto (1x)",
+      "Price": 7000,
       "Quality": 0,
+      "Type": "item"
+    },
+    "sela_astrocetus_bp": {
+      "Category": "Blueprints",
+      "Description": "Sela Tek de Astroceto BP (1x)",
       "ForceBlueprint": false,
-      "Category": "Blueprints"
+      "Items": [
+        {
+          "Blueprint": "/Game/Genesis/Dinos/SpaceWhale/PrimalItemArmor_SpaceWhaleSaddle_Tek.PrimalItemArmor_SpaceWhaleSaddle_Tek",
+          "Quantity": 1,
+          "Quality": 100,
+          "ForceBlueprint": true,
+          "Armor": 350.0
+        }
+      ],
+      "Name": "Sela Tek de Astroceto BP (1x)",
+      "Price": 12500,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sela_astrodelphs": {
+      "Category": "Selas",
+      "Description": "Sela de Astrodelphis",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/SpaceDolphin/PrimalItemArmor_SpaceDolphinSaddle_Tek.PrimalItemArmor_SpaceDolphinSaddle_Tek",
+          "Quantity": 1,
+          "Quality": 100,
+          "Armor": 350.0
+        }
+      ],
+      "Name": "Sela de Astrodelphis",
+      "Price": 3000,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "sela_astrodelphs_bp": {
+      "Category": "Blueprints",
+      "Description": "Sela de Astrodelphis BP",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Genesis2/Dinos/SpaceDolphin/PrimalItemArmor_SpaceDolphinSaddle_Tek.PrimalItemArmor_SpaceDolphinSaddle_Tek",
+          "Quantity": 1,
+          "Quality": 100,
+          "ForceBlueprint": true,
+          "Armor": 350.0
+        }
+      ],
+      "Name": "Sela de Astrodelphis BP",
+      "Price": 5000,
+      "Quality": 0,
+      "Type": "item"
     },
     "sela_baryonyx": {
+      "Category": "Selas",
       "Description": "Sela de Barionixo (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_BaryonyxSaddle.PrimalItemArmor_BaryonyxSaddle",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
-      "Price": 2300,
-      "Type": "item",
       "Name": "Sela de Barionixo (1x)",
+      "Price": 2300,
       "Quality": 0,
-      "ForceBlueprint": false,
-      "Category": "Selas"
+      "Type": "item"
     },
     "sela_baryonyx_bp": {
       "Description": "Sela de Barionixo BP (1x)",
@@ -8612,7 +8718,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_BaryonyxSaddle.PrimalItemArmor_BaryonyxSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4200,
@@ -8625,7 +8732,8 @@
           "Blueprint": "/Game/Aberration/Dinos/Basilisk/PrimalItemArmor_BasiliskSaddle.PrimalItemArmor_BasiliskSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 5000,
@@ -8638,7 +8746,8 @@
           "Blueprint": "/Game/Aberration/Dinos/Basilisk/PrimalItemArmor_BasiliskSaddle.PrimalItemArmor_BasiliskSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 9000,
@@ -8651,7 +8760,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ToadSaddle.PrimalItemArmor_ToadSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1500,
@@ -8664,7 +8774,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ToadSaddle.PrimalItemArmor_ToadSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 2800,
@@ -8677,7 +8788,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TurtleSaddle.PrimalItemArmor_TurtleSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 900,
@@ -8690,7 +8802,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TurtleSaddle.PrimalItemArmor_TurtleSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 1700,
@@ -8703,7 +8816,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_CarchaSaddle.PrimalItemArmor_CarchaSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 5000,
@@ -8716,7 +8830,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_CarchaSaddle.PrimalItemArmor_CarchaSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 8500,
@@ -8729,7 +8844,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_CarnoSaddle.PrimalItemArmor_CarnoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1800,
@@ -8742,7 +8858,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_CarnoSaddle.PrimalItemArmor_CarnoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3400,
@@ -8755,7 +8872,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_BeaverSaddle.PrimalItemArmor_BeaverSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2100,
@@ -8768,7 +8886,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_BeaverSaddle.PrimalItemArmor_BeaverSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3800,
@@ -8781,7 +8900,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ChalicoSaddle.PrimalItemArmor_ChalicoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2600,
@@ -8794,7 +8914,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ChalicoSaddle.PrimalItemArmor_ChalicoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4700,
@@ -8807,7 +8928,8 @@
           "Blueprint": "/Game/Valguero/Dinos/Deinonychus/PrimalItemArmor_DeinonychusSaddle.PrimalItemArmor_DeinonychusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2100,
@@ -8820,7 +8942,8 @@
           "Blueprint": "/Game/Valguero/Dinos/Deinonychus/PrimalItemArmor_DeinonychusSaddle.PrimalItemArmor_DeinonychusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3900,
@@ -8833,7 +8956,8 @@
           "Blueprint": "/Game/Fjordur/Dinos/Desmodus/PrimalItemArmor_DesmodusSaddle.PrimalItemArmor_DesmodusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 3000,
@@ -8846,7 +8970,8 @@
           "Blueprint": "/Game/Fjordur/Dinos/Desmodus/PrimalItemArmor_DesmodusSaddle.PrimalItemArmor_DesmodusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 5500,
@@ -8859,7 +8984,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DiplodocusSaddle.PrimalItemArmor_DiplodocusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2000,
@@ -8872,7 +8998,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DiplodocusSaddle.PrimalItemArmor_DiplodocusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3800,
@@ -8885,7 +9012,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DirebearSaddle.PrimalItemArmor_DirebearSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2300,
@@ -8898,7 +9026,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DirebearSaddle.PrimalItemArmor_DirebearSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4200,
@@ -8911,7 +9040,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DoedSaddle.PrimalItemArmor_DoedSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1800,
@@ -8924,7 +9054,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DoedSaddle.PrimalItemArmor_DoedSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3400,
@@ -8937,7 +9068,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DunkleosteusSaddle.PrimalItemArmor_DunkleosteusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2700,
@@ -8950,7 +9082,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_DunkleosteusSaddle.PrimalItemArmor_DunkleosteusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4900,
@@ -8963,7 +9096,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_EquusSaddle.PrimalItemArmor_EquusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1400,
@@ -8976,7 +9110,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_EquusSaddle.PrimalItemArmor_EquusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 2600,
@@ -8989,7 +9124,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Saddle/PrimalItemArmor_GachaSaddle.PrimalItemArmor_GachaSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1200,
@@ -9002,7 +9138,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Saddle/PrimalItemArmor_GachaSaddle.PrimalItemArmor_GachaSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 2200,
@@ -9015,7 +9152,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_Gallimimus.PrimalItemArmor_Gallimimus",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1300,
@@ -9028,7 +9166,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_Gallimimus.PrimalItemArmor_Gallimimus",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 2400,
@@ -9041,7 +9180,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_GigantSaddle.PrimalItemArmor_GigantSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 6000,
@@ -9054,7 +9194,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_GigantSaddle.PrimalItemArmor_GigantSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 10000,
@@ -9067,7 +9208,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_KaprosuchusSaddle.PrimalItemArmor_KaprosuchusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1900,
@@ -9080,7 +9222,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_KaprosuchusSaddle.PrimalItemArmor_KaprosuchusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3500,
@@ -9093,7 +9236,8 @@
           "Blueprint": "/Game/Aberration/Dinos/Crab/PrimalItemArmor_CrabSaddle.PrimalItemArmor_CrabSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 5200,
@@ -9106,7 +9250,8 @@
           "Blueprint": "/Game/Aberration/Dinos/Crab/PrimalItemArmor_CrabSaddle.PrimalItemArmor_CrabSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 9200,
@@ -9119,7 +9264,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MammothSaddle.PrimalItemArmor_MammothSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2500,
@@ -9132,7 +9278,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MammothSaddle.PrimalItemArmor_MammothSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4500,
@@ -9145,7 +9292,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Saddle/PrimalItemArmor_IceJumperSaddle.PrimalItemArmor_IceJumperSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 4500,
@@ -9158,7 +9306,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Saddle/PrimalItemArmor_IceJumperSaddle.PrimalItemArmor_IceJumperSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 8500,
@@ -9171,7 +9320,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MantaSaddle.PrimalItemArmor_MantaSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 900,
@@ -9184,7 +9334,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MantaSaddle.PrimalItemArmor_MantaSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 1700,
@@ -9197,7 +9348,8 @@
           "Blueprint": "/Game/ScorchedEarth/Dinos/Mantis/PrimalItemArmor_MantisSaddle.PrimalItemArmor_MantisSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 3500,
@@ -9210,7 +9362,8 @@
           "Blueprint": "/Game/ScorchedEarth/Dinos/Mantis/PrimalItemArmor_MantisSaddle.PrimalItemArmor_MantisSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 6500,
@@ -9223,7 +9376,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegalodonSaddle.PrimalItemArmor_MegalodonSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2800,
@@ -9236,7 +9390,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegalodonSaddle.PrimalItemArmor_MegalodonSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 5200,
@@ -9249,7 +9404,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegalosaurusSaddle.PrimalItemArmor_MegalosaurusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2750,
@@ -9262,7 +9418,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegalosaurusSaddle.PrimalItemArmor_MegalosaurusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 5000,
@@ -9275,7 +9432,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegatheriumSaddle.PrimalItemArmor_MegatheriumSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1750,
@@ -9288,7 +9446,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_MegatheriumSaddle.PrimalItemArmor_MegatheriumSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3500,
@@ -9301,7 +9460,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ProcoptodonSaddle.PrimalItemArmor_ProcoptodonSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2200,
@@ -9314,7 +9474,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_ProcoptodonSaddle.PrimalItemArmor_ProcoptodonSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4000,
@@ -9327,7 +9488,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_PteroSaddle.PrimalItemArmor_PteroSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1100,
@@ -9340,7 +9502,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_PteroSaddle.PrimalItemArmor_PteroSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 2100,
@@ -9353,7 +9516,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_QuetzSaddle.PrimalItemArmor_QuetzSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 5200,
@@ -9366,7 +9530,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_QuetzSaddle.PrimalItemArmor_QuetzSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 9000,
@@ -9379,7 +9544,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RaptorSaddle.PrimalItemArmor_RaptorSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 800,
@@ -9392,7 +9558,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RaptorSaddle.PrimalItemArmor_RaptorSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 1500,
@@ -9405,7 +9572,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2500,
@@ -9418,7 +9586,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RexSaddle.PrimalItemArmor_RexSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4500,
@@ -9431,7 +9600,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SaberSaddle.PrimalItemArmor_SaberSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1600,
@@ -9444,7 +9614,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SaberSaddle.PrimalItemArmor_SaberSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3000,
@@ -9457,7 +9628,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SarcoSaddle.PrimalItemArmor_SarcoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1400,
@@ -9470,7 +9642,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SarcoSaddle.PrimalItemArmor_SarcoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 2600,
@@ -9484,7 +9657,8 @@
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallBroodmother/PrimalItemArmor_BroodmotherArmor.PrimalItemArmor_BroodmotherArmor",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
       "Name": "Armadura Small Broodmother (1x)",
@@ -9501,7 +9675,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallBroodmother/PrimalItemArmor_BroodmotherArmor.PrimalItemArmor_BroodmotherArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Name": "Armadura Small Broodmother BP (1x)",
@@ -9517,7 +9692,8 @@
         {
           "Blueprint": "/Game/Mods/SmallBosses/SmallCyclops/PrimalItemArmor_CyclopsArmor.PrimalItemArmor_CyclopsArmor",
           "Quantity": 1,
-          "Quality": 100
+          "Quality": 100,
+          "Armor": 350.0
         }
       ],
       "Name": "Armadura Small Cyclops (1x)",
@@ -9534,7 +9710,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallCyclops/PrimalItemArmor_CyclopsArmor.PrimalItemArmor_CyclopsArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Name": "Armadura Small Cyclops BP (1x)",
@@ -9549,7 +9726,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDesertTitan/PrimalItemArmor_Saddle_DesertTitan_Platform.PrimalItemArmor_Saddle_DesertTitan_Platform",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 21600,
@@ -9562,7 +9740,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDesertTitan/PrimalItemArmor_Saddle_DesertTitan_Platform.PrimalItemArmor_Saddle_DesertTitan_Platform",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 54000,
@@ -9575,7 +9754,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodoreaper/PrimalItemArmor_DodoreaperArmor.PrimalItemArmor_DodoreaperArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 20700,
@@ -9588,7 +9768,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodoreaper/PrimalItemArmor_DodoreaperArmor.PrimalItemArmor_DodoreaperArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 51750,
@@ -9601,7 +9782,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodoRex/PrimalItemArmor_DodoRexArmor.PrimalItemArmor_DodoRexArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 20100,
@@ -9614,7 +9796,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDodoRex/PrimalItemArmor_DodoRexArmor.PrimalItemArmor_DodoRexArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 50250,
@@ -9627,7 +9810,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDragon/PrimalItemArmor_DragonArmor.PrimalItemArmor_DragonArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 21000,
@@ -9640,7 +9824,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDragon/PrimalItemArmor_DragonArmor.PrimalItemArmor_DragonArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 52500,
@@ -9653,7 +9838,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDrake/PrimalItemArmor_DrakeArmor.PrimalItemArmor_DrakeArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 19650,
@@ -9666,7 +9852,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallDrake/PrimalItemArmor_DrakeArmor.PrimalItemArmor_DrakeArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 49125,
@@ -9679,7 +9866,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallHippocampus/PrimalItemArmor_HippocampusSaddle.PrimalItemArmor_HippocampusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 19800,
@@ -9692,7 +9880,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallHippocampus/PrimalItemArmor_HippocampusSaddle.PrimalItemArmor_HippocampusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 49500,
@@ -9705,7 +9894,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallHydra/PrimalItemArmor_HydraArmor.PrimalItemArmor_HydraArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 21900,
@@ -9718,7 +9908,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallHydra/PrimalItemArmor_HydraArmor.PrimalItemArmor_HydraArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 54750,
@@ -9731,7 +9922,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallManticore/PrimalItemArmor_ManticoreArmor.PrimalItemArmor_ManticoreArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 21300,
@@ -9744,7 +9936,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallManticore/PrimalItemArmor_ManticoreArmor.PrimalItemArmor_ManticoreArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 53250,
@@ -9757,7 +9950,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallMegapithecus/PrimalItemArmor_MegapithecusArmor.PrimalItemArmor_MegapithecusArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 18150,
@@ -9770,7 +9964,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallMegapithecus/PrimalItemArmor_MegapithecusArmor.PrimalItemArmor_MegapithecusArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 45375,
@@ -9783,7 +9978,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallMoeder/PrimalItemArmor_MoederArmor.PrimalItemArmor_MoederArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 22050,
@@ -9796,7 +9992,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/SmallMoeder/PrimalItemArmor_MoederArmor.PrimalItemArmor_MoederArmor",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 55125,
@@ -9809,7 +10006,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/TekSaddleWyvern/Items/PrimalItemArmor_WyvernTekSaddle.PrimalItemArmor_WyvernTekSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 19500,
@@ -9822,7 +10020,8 @@
           "Blueprint": "/Game/Mods/SmallBosses/TekSaddleWyvern/Items/PrimalItemArmor_WyvernTekSaddle.PrimalItemArmor_WyvernTekSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 48750,
@@ -9835,7 +10034,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SnowOwlSaddle.PrimalItemArmor_SnowOwlSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 3100,
@@ -9848,7 +10048,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SnowOwlSaddle.PrimalItemArmor_SnowOwlSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 5600,
@@ -9861,7 +10062,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SpinoSaddle.PrimalItemArmor_SpinoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 3500,
@@ -9874,7 +10076,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_SpinoSaddle.PrimalItemArmor_SpinoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 6300,
@@ -9887,7 +10090,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_StegoSaddle.PrimalItemArmor_StegoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1600,
@@ -9900,7 +10104,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_StegoSaddle.PrimalItemArmor_StegoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3000,
@@ -9913,7 +10118,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TerrorBirdSaddle.PrimalItemArmor_TerrorBirdSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1700,
@@ -9926,7 +10132,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TerrorBirdSaddle.PrimalItemArmor_TerrorBirdSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 3100,
@@ -9939,7 +10146,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TherizinosaurusSaddle.PrimalItemArmor_TherizinosaurusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 4500,
@@ -9952,7 +10160,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TherizinosaurusSaddle.PrimalItemArmor_TherizinosaurusSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 7500,
@@ -9965,7 +10174,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_CatSaddle.PrimalItemArmor_CatSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2400,
@@ -9978,7 +10188,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_CatSaddle.PrimalItemArmor_CatSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4400,
@@ -9991,7 +10202,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TrikeSaddle.PrimalItemArmor_TrikeSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 1000,
@@ -10004,7 +10216,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TrikeSaddle.PrimalItemArmor_TrikeSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 1900,
@@ -10017,7 +10230,8 @@
           "Blueprint": "/Game/PrimalEarth/Dinos/Tropeognathus/PrimalItemArmor_TropeSaddle.PrimalItemArmor_TropeSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 3500,
@@ -10030,7 +10244,8 @@
           "Blueprint": "/Game/PrimalEarth/Dinos/Tropeognathus/PrimalItemArmor_TropeSaddle.PrimalItemArmor_TropeSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 6500,
@@ -10043,7 +10258,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TusoSaddle.PrimalItemArmor_TusoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 6000,
@@ -10056,7 +10272,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_TusoSaddle.PrimalItemArmor_TusoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 11000,
@@ -10069,7 +10286,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_VelonasaurSaddle.PrimalItemArmor_VelonasaurSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2900,
@@ -10082,7 +10300,8 @@
           "Blueprint": "/Game/Extinction/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_VelonasaurSaddle.PrimalItemArmor_VelonasaurSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 5300,
@@ -10095,7 +10314,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RhinoSaddle.PrimalItemArmor_RhinoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2700,
@@ -10108,7 +10328,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_RhinoSaddle.PrimalItemArmor_RhinoSaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4900,
@@ -10121,7 +10342,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_YutySaddle.PrimalItemArmor_YutySaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": false
+          "ForceBlueprint": false,
+          "Armor": 350.0
         }
       ],
       "Price": 2200,
@@ -10134,7 +10356,8 @@
           "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Armor/Saddles/PrimalItemArmor_YutySaddle.PrimalItemArmor_YutySaddle",
           "Quantity": 1,
           "Quality": 100,
-          "ForceBlueprint": true
+          "ForceBlueprint": true,
+          "Armor": 350.0
         }
       ],
       "Price": 4000,
@@ -10228,15 +10451,15 @@
       "Category": "Geral",
       "Commands": [
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekBoots.PrimalItemArmor_TekBoots'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekShirt.PrimalItemArmor_TekShirt'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekGloves.PrimalItemArmor_TekGloves'\"",
           "ExecuteAsAdmin": true
         },
         {
@@ -10244,7 +10467,7 @@
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/Tek/PrimalItemArmor_TekPants.PrimalItemArmor_TekPants'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Armor/TEK/PrimalItemArmor_TekPants.PrimalItemArmor_TekPants'\"",
           "ExecuteAsAdmin": true
         },
         {
@@ -10376,23 +10599,23 @@
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekFenceFoundation.PrimalItemStructure_TekFenceFoundation'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_Tekfencefoundation.PrimalItemStructure_Tekfencefoundation'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekRoof.PrimalItemStructure_TekRoof'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekWall_Sloped_Left.PrimalItemStructure_TekWall_Sloped_Left'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekWall_Sloped_Right.PrimalItemStructure_TekWall_Sloped_Right'\"",
           "ExecuteAsAdmin": true
         },
         {
-          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/Tek/PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs'\"",
+          "Command": "cheat UnlockEngram \"Blueprint'/Game/PrimalEarth/CoreBlueprints/Items/Structures/tek/PrimalItemStructure_TekStairs.PrimalItemStructure_TekStairs'\"",
           "ExecuteAsAdmin": true
         },
         {
@@ -11020,58 +11243,58 @@
   ],
   "FeaturedMaps": [
     {
-      "id": "brighamia",
-      "name": "Brighamia",
-      "mod_map": true,
       "description": "Mapa mod de alta qualidade — paisagens únicas, exploração recompensadora e ótimo desempenho em servidor dedicado. Uma das joias do nosso cluster.",
-      "sort_order": 0,
       "enabled": true,
-      "server_id": ""
+      "id": "brighamia",
+      "mod_map": true,
+      "name": "Brighamia",
+      "server_id": "",
+      "sort_order": 0
     },
     {
-      "id": "alps",
-      "name": "Alps",
-      "mod_map": true,
       "description": "Mapa mod alpino com biomas dramáticos, rotas de voo desafiadoras e bases espetaculares. Excelente para tribos que buscam cenário épico e variedade.",
-      "sort_order": 1,
       "enabled": true,
-      "server_id": ""
+      "id": "alps",
+      "mod_map": true,
+      "name": "Alps",
+      "server_id": "",
+      "sort_order": 1
     },
     {
-      "id": "the_volcano",
-      "name": "The Volcano",
-      "mod_map": true,
       "description": "Mapa mod vulcânico com biomas extremos, recursos únicos e desafio constante — ideal para tribos que buscam risco e recompensa.",
-      "sort_order": 2,
       "enabled": true,
-      "server_id": ""
-    },
-    {
-      "id": "amissa",
-      "name": "Amissa",
+      "id": "the_volcano",
       "mod_map": true,
+      "name": "The Volcano",
+      "server_id": "",
+      "sort_order": 2
+    },
+    {
       "description": "Mapa mod com paisagens variadas e exploração profunda, integrado ao cluster com rates e eventos sazonais do ARKLAND.",
-      "sort_order": 3,
       "enabled": true,
-      "server_id": ""
+      "id": "amissa",
+      "mod_map": true,
+      "name": "Amissa",
+      "server_id": "",
+      "sort_order": 3
     },
     {
-      "id": "crystal_isles",
-      "name": "Crystal Isles",
-      "mod_map": false,
       "description": "Mapa oficial com ilhas flutuantes, biomas cristalinos e criaturas exclusivas. Um dos cenários vanilla mais impressionantes — integrado ao cluster com rates ARKLAND.",
-      "sort_order": 4,
       "enabled": true,
-      "server_id": ""
+      "id": "crystal_isles",
+      "mod_map": false,
+      "name": "Crystal Isles",
+      "server_id": "",
+      "sort_order": 4
     },
     {
-      "id": "genesis_2",
-      "name": "Genesis 2",
-      "mod_map": false,
       "description": "Mapa oficial de endgame com bioma espacial, missões e conteúdo Tek avançado. Complementa o cluster com a progressão completa da expansão Genesis Part 2.",
-      "sort_order": 5,
       "enabled": true,
-      "server_id": ""
+      "id": "genesis_2",
+      "mod_map": false,
+      "name": "Genesis 2",
+      "server_id": "",
+      "sort_order": 5
     }
   ]
 }
