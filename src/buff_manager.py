@@ -719,6 +719,31 @@ class BuffManager:
             self._on_log("[Evento Sazonal] Falha ao criar backup INI.", "error")
         return path
 
+    def _sync_profile_from_ini(self, server_id: str, cfg: object) -> None:
+        """Recarrega perfil em memória/persistência a partir dos INIs restaurados."""
+        try:
+            from .asm_engine.asm_server_config import AsmServerConfig
+
+            if isinstance(cfg, AsmServerConfig):
+                from .asm_engine.asm_ini_manager import read_ini
+
+                read_ini(cfg)
+                if self._persist_server_config:
+                    self._persist_server_config(server_id, cfg)
+            elif hasattr(cfg, "game_settings"):
+                install_dir = (getattr(cfg, "install_dir", "") or "").strip()
+                if install_dir:
+                    ini = ArkIniManager(install_dir)
+                    ini.load_game_user_settings(cfg)
+                    ini.load_game_ini(cfg)
+                    if self._persist_server_config:
+                        self._persist_server_config(server_id, cfg)
+        except Exception as exc:
+            self._on_log(
+                f"[Evento Sazonal] Falha ao sincronizar perfil após restauração: {exc}",
+                "warning",
+            )
+
     def _restore_ini(self, server_id: str, backup_path: str) -> bool:
         cfg = self._get_server_config(server_id)
         if not cfg:
@@ -732,6 +757,7 @@ class BuffManager:
         ok = restore_ini_from_backup(cfg, backup_path)
         if ok:
             self._on_log(f"[Evento Sazonal] INI restaurado de: {backup_path}", "info")
+            self._sync_profile_from_ini(server_id, cfg)
         else:
             self._on_log(f"[Evento Sazonal] Falha ao restaurar backup: {backup_path}", "error")
         return ok

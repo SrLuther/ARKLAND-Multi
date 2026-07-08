@@ -11,12 +11,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.asm_engine.asm_ini_manager import write_ini
+from src.asm_engine.asm_server_config import AsmServerConfig
 from src.buff_ini_backups import backup_ini_files, restore_ini_from_backup
 from src.buff_manager import (
     BUFF_STATUS_ACTIVE,
     BUFF_STATUS_CANCELLED,
     BUFF_STATUS_SCHEDULED,
     BUFF_TYPE_BREEDING,
+    BUFF_TYPE_FARM,
     BUFF_TYPE_XP,
     BuffEvent,
     BuffManager,
@@ -181,6 +184,55 @@ def test_stop_active_event_marks_cancelled(mock_sleep):
         pytest.fail("evento não foi marcado como cancelado")
 
     assert restored.is_set()
+
+
+def test_restore_ini_syncs_tek_profile_from_backup(tmp_path, monkeypatch):
+    """Após restaurar INI, o perfil TEK deve refletir os rates do backup (não os do evento)."""
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.harvest_amount_multiplier = 25.0  # 5x efetivo (base × server_mult 5)
+    write_ini(cfg)
+
+    monkeypatch.setattr(
+        "src.buff_ini_backups.resolve_ini_backup_root",
+        lambda: tmp_path / "BACKUP" / ".ini",
+    )
+    backup_path = backup_ini_files(cfg, "FarmEvent")
+    assert backup_path is not None
+
+    event = BuffEvent(
+        id="evt-farm",
+        name="Farm Boost",
+        server_id="tek1",
+        types=[BUFF_TYPE_FARM],
+        rates=BuffRates(),
+        sector_mults=BuffSectorMults(farm=10.0),
+        start_dt=now_brasilia().isoformat(),
+        end_dt=(now_brasilia() + timedelta(hours=1)).isoformat(),
+        status=BUFF_STATUS_SCHEDULED,
+    )
+
+    persisted: list[float] = []
+
+    def _persist(_sid: str, srv: AsmServerConfig) -> None:
+        persisted.append(srv.harvest_amount_multiplier)
+
+    mgr = BuffManager(
+        data_dir=Path(tempfile.mkdtemp()),
+        get_server_config=lambda _sid: cfg,
+        start_server=lambda _sid: None,
+        stop_server=lambda _sid: None,
+        get_server_status=lambda _sid: "stopped",
+        persist_server_config=_persist,
+    )
+
+    assert mgr._apply_event_rates("tek1", event) is True
+    assert cfg.harvest_amount_multiplier == 50.0
+    assert persisted == [50.0]
+
+    assert mgr._restore_ini("tek1", backup_path) is True
+    assert cfg.harvest_amount_multiplier == 25.0
+    assert persisted[-1] == 25.0
 
 
 def test_stop_active_event_rejects_non_active():
