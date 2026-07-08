@@ -13,7 +13,7 @@ os.environ.setdefault("ARKSHOP_DATABASE_URL", "")
 from ark_species_registry import load_registry_overlay_raw
 from market_service import sync_registry_overlay_to_db
 
-ABYSS_REX_BP = "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
+ABYSS_REX_BP = "/Game/Abyss/Dinos/Abyssal/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
 
 
 @pytest.fixture()

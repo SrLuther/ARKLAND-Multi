@@ -4056,7 +4056,7 @@
       "Description": "Anquilossauro Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Ankylo/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Ankylosaurus/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4269,7 +4269,7 @@
       "Description": "Moschops Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4346,7 +4346,7 @@
       "Description": "Reaper Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4359,7 +4359,7 @@
       "Description": "Rex Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4442,7 +4442,7 @@
       "Description": "Stegossauro Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4484,7 +4484,7 @@
       "Description": "Therizinosaur Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Therizino/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Therizinosaurus/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4510,7 +4510,7 @@
       "Description": "Thylacoleo Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false
@@ -4578,7 +4578,7 @@
       "Description": "Yutyrannus Abissal Nível 200",
       "Dinos": [
         {
-          "Blueprint": "/Game/Abyss/Dinos/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal",
+          "Blueprint": "/Game/Abyss/Dinos/Abyssal/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal",
           "ForceTame": true,
           "Level": 200,
           "Neutered": false

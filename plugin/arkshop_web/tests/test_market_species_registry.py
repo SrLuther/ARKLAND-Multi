@@ -76,7 +76,7 @@ def test_registry_stats_has_species():
 
 
 def test_lookup_abyss_rex_abyssal_by_blueprint():
-    bp = "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
+    bp = "/Game/Abyss/Dinos/Abyssal/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
     hit = lookup_species(blueprint=bp)
     assert hit is not None
     assert hit["species_key"] == "abyss_rex_abyssal"

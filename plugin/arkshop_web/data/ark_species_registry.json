@@ -494,7 +494,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "yutyrannus_character_bp_abyssal",
@@ -511,7 +511,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "thylacoleo_character_bp_abyssal",
@@ -528,7 +528,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Therizino/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Therizinosaurus/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "therizino_character_bp_abyssal",
@@ -545,7 +545,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "stego_character_bp_abyssal",
@@ -562,7 +562,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "rex_character_bp_abyssal",
@@ -579,7 +579,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal"
       ],
       "class_tokens": [
         "reaper_character_bp_male_abyssal",
@@ -596,7 +596,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "moschops_character_bp_abyssal",
@@ -613,7 +613,7 @@
       "mod": "Abyss",
       "confidence": "high",
       "blueprint_paths": [
-        "/Game/Abyss/Dinos/Ankylo/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal"
+        "/Game/Abyss/Dinos/Abyssal/Ankylosaurus/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal"
       ],
       "class_tokens": [
         "ankylo_character_bp_abyssal",

@@ -18,7 +18,7 @@ from ark_species_registry import (
 from market_economy import merge_species_from_registry_entry
 from market_service import deactivate_non_dino_species, sync_registry_overlay_to_db
 
-ABYSS_REX_BP = "/Game/Abyss/Dinos/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
+ABYSS_REX_BP = "/Game/Abyss/Dinos/Abyssal/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal"
 ABYSS_STEEL_BP = (
     "/Game/Abyss/CoreBlueprints/Resources/"
     "PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot"
