@@ -5,7 +5,6 @@ grid de stats (Total / Rodando / Parados / CPU / RAM), cards de servidor.
 """
 from __future__ import annotations
 
-import platform
 import tkinter as tk
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -45,6 +44,54 @@ def _get_perf() -> tuple[float, float]:
         return 0.0, 0.0
 
 
+def _format_disk_gb(gb: float) -> str:
+    if gb >= 1024:
+        return f"{gb / 1024:.1f} TB"
+    if gb >= 100:
+        return f"{gb:.0f} GB"
+    return f"{gb:.1f} GB"
+
+
+def _get_disk_usage() -> list[dict]:
+    """Lista partições locais com espaço livre/total (Windows: C:\\, D:\\, …)."""
+    out: list[dict] = []
+    try:
+        import psutil  # type: ignore[reportMissingImports]
+        seen: set[str] = set()
+        for part in psutil.disk_partitions(all=False):
+            opts = (part.opts or "").lower()
+            if "cdrom" in opts or not (part.fstype or "").strip():
+                continue
+            mp = (part.mountpoint or "").strip()
+            if not mp or mp in seen:
+                continue
+            try:
+                usage = psutil.disk_usage(mp)
+            except (PermissionError, OSError):
+                continue
+            seen.add(mp)
+            total_gb = usage.total / (1024 ** 3)
+            free_gb = usage.free / (1024 ** 3)
+            out.append({
+                "mount": mp.rstrip("\\/"),
+                "label": mp,
+                "total_gb": total_gb,
+                "free_gb": free_gb,
+                "used_pct": float(usage.percent),
+            })
+    except Exception:
+        pass
+    return sorted(out, key=lambda d: d["mount"].lower())
+
+
+def _disk_bar_color(used_pct: float, is_light: bool) -> str:
+    if used_pct >= 90:
+        return "#ef4444"
+    if used_pct >= 75:
+        return "#f59e0b"
+    return "#22c55e" if not is_light else "#16a34a"
+
+
 # ── Construção principal ─────────────────────────────────────────────────────
 
 def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> None:
@@ -66,8 +113,9 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     parent.grid_columnconfigure(0, weight=1)
     parent.grid_rowconfigure(0, weight=0)  # TopBar
     parent.grid_rowconfigure(1, weight=0)  # Stats grid
-    parent.grid_rowconfigure(2, weight=0)  # Bulk bar
-    parent.grid_rowconfigure(3, weight=1)  # Scroll de cards
+    parent.grid_rowconfigure(2, weight=0)  # Discos
+    parent.grid_rowconfigure(3, weight=0)  # Bulk bar
+    parent.grid_rowconfigure(4, weight=1)  # Scroll de cards
 
     # ── TopBar ────────────────────────────────────────────────────────────────
     topbar_f = ctk.CTkFrame(parent, fg_color=topbar, corner_radius=0, height=72,
@@ -215,19 +263,26 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     # Guarda referência para refresh de stats sem recriar o dashboard todo
     app._asm_stats_frame = stats_f
 
+    # ── Discos da máquina ─────────────────────────────────────────────────────
+    disks_outer = ctk.CTkFrame(parent, fg_color=bg, corner_radius=0)
+    disks_outer.grid(row=2, column=0, sticky="ew", padx=16, pady=(0, 4))
+    disks_outer.grid_columnconfigure(0, weight=1)
+    app._asm_disks_outer = disks_outer
+    _build_disk_section(app, disks_outer, theme)
+
     # Linha separadora
-    ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=1, column=0, sticky="ews")
+    ctk.CTkFrame(parent, height=1, fg_color=sep).grid(row=2, column=0, sticky="ews")
 
     # ── Bulk bar (fixo — fora do scroll) ─────────────────────────────────────
     app._asm_bulk_bar = ctk.CTkFrame(parent, fg_color=card_bg, corner_radius=8,
                                      border_width=1, border_color=card_bdr)
-    app._asm_bulk_bar.grid(row=2, column=0, sticky="ew", padx=8, pady=(8, 4))
+    app._asm_bulk_bar.grid(row=3, column=0, sticky="ew", padx=8, pady=(8, 4))
     _build_bulk_bar(app)
 
     # ── Scroll: um único cards_host interno — nunca destruído no refresh ───
     scroll = ctk.CTkScrollableFrame(parent, fg_color=bg, corner_radius=0,
                                     scrollbar_button_color=sep)
-    scroll.grid(row=3, column=0, padx=0, pady=0, sticky="nsew")
+    scroll.grid(row=4, column=0, padx=0, pady=0, sticky="nsew")
     scroll.grid_columnconfigure(0, weight=1)
     scroll.grid_rowconfigure(0, weight=1)
     app._asm_dashboard_scroll = scroll
@@ -242,6 +297,134 @@ def build_asm_dashboard(app: "ARKServerManagerApp", parent: ctk.CTkFrame) -> Non
     app._asm_card_grid_pos: dict = {}
 
     _refresh_asm_dashboard(app, force_layout=True)
+
+
+def _build_disk_section(app: "ARKServerManagerApp", parent, theme: dict) -> None:
+    """Seção de armazenamento — um card por unidade de disco."""
+    card_bg = theme["card_bg"]
+    sep = theme["separator"]
+    t_sec = theme["text_secondary"]
+    t_mut = theme["text_muted"]
+    is_light = theme.get("_is_light", False)
+    card_bdr = theme.get("card_border", sep)
+
+    hdr = ctk.CTkFrame(parent, fg_color="transparent")
+    hdr.pack(fill="x", pady=(0, 6))
+    ctk.CTkLabel(
+        hdr, text="ARMAZENAMENTO",
+        font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
+        text_color=t_sec,
+    ).pack(side="left", padx=(4, 0))
+
+    disks_row = ctk.CTkFrame(parent, fg_color="transparent")
+    disks_row.pack(fill="x")
+    app._asm_disks_row = disks_row
+    app._asm_disk_widgets: dict = {}
+    _refresh_asm_disks(app, theme)
+
+
+def _refresh_asm_disks(app: "ARKServerManagerApp", theme: dict | None = None) -> None:
+    """Atualiza cards de disco (recria se a lista de unidades mudar)."""
+    disks_row = getattr(app, "_asm_disks_row", None)
+    if disks_row is None:
+        return
+    try:
+        if not disks_row.winfo_exists():
+            return
+    except Exception:
+        return
+
+    if theme is None:
+        theme = get_theme("tek")
+
+    card_bg = theme["card_bg"]
+    sep = theme["separator"]
+    t_mut = theme["text_muted"]
+    is_light = theme.get("_is_light", False)
+    card_bdr = theme.get("card_border", sep)
+
+    disks = _get_disk_usage()
+    mounts = [d["mount"] for d in disks]
+    existing = getattr(app, "_asm_disk_widgets", {}) or {}
+
+    if set(existing.keys()) != set(mounts):
+        for w in disks_row.winfo_children():
+            w.destroy()
+        app._asm_disk_widgets = {}
+
+        if not disks:
+            ctk.CTkLabel(
+                disks_row,
+                text="Não foi possível ler o espaço em disco.",
+                text_color=t_mut,
+                font=ctk.CTkFont(size=11),
+            ).pack(anchor="w", padx=4, pady=8)
+            return
+
+        cols = min(4, max(1, len(disks)))
+        for i in range(cols):
+            disks_row.grid_columnconfigure(i, weight=1)
+
+        for idx, d in enumerate(disks):
+            mount = d["mount"]
+            card = ctk.CTkFrame(
+                disks_row, corner_radius=10, fg_color=card_bg,
+                border_width=1, border_color=card_bdr,
+            )
+            card.grid(
+                row=idx // cols, column=idx % cols,
+                padx=5, pady=4, sticky="ew",
+            )
+
+            title = mount if len(mount) <= 4 else mount
+            ctk.CTkLabel(
+                card, text=f"💾  {title}",
+                font=ctk.CTkFont(size=10, weight="bold"),
+                text_color=theme["text_secondary"],
+            ).grid(row=0, column=0, padx=10, pady=(10, 0), sticky="w")
+
+            free_txt = _format_disk_gb(d["free_gb"])
+            total_txt = _format_disk_gb(d["total_gb"])
+            val_lbl = ctk.CTkLabel(
+                card, text=free_txt,
+                font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+                text_color=_disk_bar_color(d["used_pct"], is_light),
+            )
+            val_lbl.grid(row=1, column=0, padx=10, pady=(4, 0), sticky="w")
+
+            bar_color = _disk_bar_color(d["used_pct"], is_light)
+            bar = ctk.CTkProgressBar(
+                card, height=4, corner_radius=2,
+                progress_color=bar_color, fg_color=sep,
+            )
+            bar.set(min(d["used_pct"] / 100.0, 1.0))
+            bar.grid(row=2, column=0, padx=10, pady=(6, 0), sticky="ew")
+
+            sub_lbl = ctk.CTkLabel(
+                card,
+                text=f"livres de {total_txt}  ({d['used_pct']:.0f}% usado)",
+                font=ctk.CTkFont(size=9),
+                text_color=t_mut,
+            )
+            sub_lbl.grid(row=3, column=0, padx=10, pady=(4, 10), sticky="w")
+
+            app._asm_disk_widgets[mount] = {
+                "val": val_lbl, "bar": bar, "sub": sub_lbl,
+            }
+        return
+
+    for d in disks:
+        w = existing.get(d["mount"])
+        if not w:
+            continue
+        used = d["used_pct"]
+        color = _disk_bar_color(used, is_light)
+        w["val"].configure(text=_format_disk_gb(d["free_gb"]), text_color=color)
+        w["bar"].set(min(used / 100.0, 1.0))
+        w["bar"].configure(progress_color=color)
+        w["sub"].configure(
+            text=f"livres de {_format_disk_gb(d['total_gb'])}  ({used:.0f}% usado)",
+        )
 
 
 def _dashboard_scroll(app: "ARKServerManagerApp"):
@@ -544,6 +727,7 @@ def refresh_dashboard_metrics(app: "ARKServerManagerApp") -> None:
     servers = app.asm_config_manager.servers
     _update_subtitle(app, servers)
     _refresh_asm_stats(app, servers)
+    _refresh_asm_disks(app)
     _update_folder_counts(app)
     _update_card_rich_labels(app)
 
@@ -631,6 +815,7 @@ def _refresh_asm_dashboard(app: "ARKServerManagerApp", *, force_layout: bool = F
         _populate_cards_grid(app, host)
         _update_subtitle(app, servers)
         _refresh_asm_stats(app, servers)
+        _refresh_asm_disks(app)
         _update_folder_counts(app)
         host.update_idletasks()
         _schedule_dashboard_scroll_refresh(scroll)

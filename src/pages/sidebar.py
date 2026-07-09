@@ -52,7 +52,7 @@ def build_sidebar(app: "ARKServerManagerApp") -> None:
     for i, (label, key) in enumerate([
         ("🏠  Dashboard",      "dashboard"),
         ("🔄  Sincronização",  "sync"),
-        ("⚡  Eventos Sazonais", "buffs"),
+        ("⚡  Eventos Globais", "buffs"),
         ("📊  Desempenho",     "desempenho"),
         ("🔗  Clusters",       "clusters"),
         ("🖥️  Remoto",         "remoto"),

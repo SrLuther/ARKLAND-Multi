@@ -9,7 +9,13 @@ if TYPE_CHECKING:
 
 
 def refresh_buffs_ui(app: "ARKServerManagerApp") -> None:
-    """Reconstrói o conteúdo dinâmico do painel Eventos Sazonais."""
+    """Reconstrói o conteúdo dinâmico do painel Eventos Globais."""
+    from .global_active_event import refresh_global_event_server_checks
+
+    refresh_global_event_server_checks(app)
+    from .global_active_event import refresh_scheduled_ark_events_list
+
+    refresh_scheduled_ark_events_list(app)
     body = app._buffs_body_frame
     if body is None:
         return

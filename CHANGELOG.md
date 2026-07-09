@@ -5,6 +5,18 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.18] - 2026-07-09
+
+### Feature
+
+- Feat (Eventos Globais): painel unificado para ActiveEvent (Páscoa, Halloween…) — aplicar em todos ou servidores selecionados, agendamento com broadcasts 10/5/3/2/1 min, restart automático e avisos por 1 h.
+- Feat (Dashboard): seção Armazenamento com espaço livre/total por disco (C:, D:, …) e barra de uso.
+
+### Improvement
+
+- Melhoria (Eventos Globais): aba renomeada de Eventos Sazonais; rates temporários separados na seção inferior; legendas explicativas dos botões.
+- Melhoria (Sidebar TEK): área rolável entre logo e rodapé — servidores visíveis em monitores menores.
+
 ## [1.10.17] - 2026-07-09
 
 ### Feature

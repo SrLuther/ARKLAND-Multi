@@ -3,11 +3,21 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.17"
+APP_VERSION: str = "1.10.18"
 BUILD_DATE: str = "2026-07-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.18",
+        "date": "2026-07-09",
+        "changes": [
+            "Feat (Eventos Globais): painel unificado para ActiveEvent (Páscoa, Halloween…) — aplicar em todos ou servidores selecionados, agendamento com broadcasts 10/5/3/2/1 min, restart automático e avisos por 1 h.",
+            "Melhoria (Eventos Globais): aba renomeada de Eventos Sazonais; rates temporários separados na seção inferior; legendas explicativas dos botões.",
+            "Melhoria (Sidebar TEK): área rolável entre logo e rodapé — servidores visíveis em monitores menores.",
+            "Feat (Dashboard): seção Armazenamento com espaço livre/total por disco (C:, D:, …) e barra de uso.",
+        ],
+    },
     {
         "version": "1.10.17",
         "date": "2026-07-09",

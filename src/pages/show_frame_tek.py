@@ -35,6 +35,9 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
         build_buffs_panel(app, frame)
         if app._buff_manager is None:
             app._init_buff_manager()
+        if getattr(app, "_global_ark_event_scheduler", None) is None:
+            from .init_global_ark_event_scheduler import init_global_ark_event_scheduler
+            init_global_ark_event_scheduler(app)
         app._refresh_buffs_ui()
     elif name == "broadcasts":
         from ..asm_ui.asm_broadcasts_panel import build_broadcasts_panel

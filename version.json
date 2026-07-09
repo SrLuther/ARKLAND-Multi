@@ -1,12 +1,11 @@
 {
-    "version": "1.10.17",
+    "version": "1.10.18",
     "date": "2026-07-09",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.17/ARKLAND-Multi-Setup-v1.10.17.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.18/ARKLAND-Multi-Setup-v1.10.18.exe",
     "changelog": [
-        "Fix (ActiveEvent / INI): caminho canônico WindowsServer para leitura e escrita de GUS/Game.ini; user_config_folder só espelha; ActiveEvent do perfil TEK prevalece sobre blocos raw/custom.",
-        "Fix (Eventos Sazonais): restore de backup de buff preserva ActiveEvent (Páscoa/Easter, etc.) do perfil ou do GUS atual — evento sazonal não some ao encerrar buff.",
-        "Feature (Web Store / Ícones): pipeline de 56 WebPs de recursos (manifesto, registry, catalog_enrich) com fallback por categoria quando sem ícone dedicado.",
-        "Fix (Web Store / Catálogo): cards de dino exibiam área preta com só badge de tier — agora mostram thumbnail da espécie (WebP) com fallback por tier, como no Mercado.",
-        "Fix (Web Store / Update): auto_start_webstore reinicia processo stale quando /api/version difere do TEK após instalação — não exige parar/iniciar manualmente."
+        "Feat (Eventos Globais): painel unificado para ActiveEvent (Páscoa, Halloween…) — aplicar em todos ou servidores selecionados, agendamento com broadcasts 10/5/3/2/1 min, restart automático e avisos por 1 h.",
+        "Melhoria (Eventos Globais): aba renomeada de Eventos Sazonais; rates temporários separados na seção inferior; legendas explicativas dos botões.",
+        "Melhoria (Sidebar TEK): área rolável entre logo e rodapé — servidores visíveis em monitores menores.",
+        "Feat (Dashboard): seção Armazenamento com espaço livre/total por disco (C:, D:, …) e barra de uso."
     ]
 }

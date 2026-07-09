@@ -94,12 +94,12 @@ def build_buffs_emergency_section(
 
     def _restore_one() -> None:
         if not bm or not srv_id:
-            messagebox.showwarning("Eventos Sazonais", "Selecione um servidor.", parent=app)
+            messagebox.showwarning("Eventos Globais", "Selecione um servidor.", parent=app)
             return
         sel = backup_var.get()
         bp = backup_labels.get(sel, "")
         if not bp:
-            messagebox.showwarning("Eventos Sazonais", "Nenhum backup selecionado.", parent=app)
+            messagebox.showwarning("Eventos Globais", "Nenhum backup selecionado.", parent=app)
             return
         if not messagebox.askyesno(
             "Restaurar backup",
@@ -110,7 +110,7 @@ def build_buffs_emergency_section(
             return
         err = bm.start_emergency_restore([srv_id], {srv_id: bp}, cluster_wide_warning=False)
         if err:
-            messagebox.showerror("Eventos Sazonais", err, parent=app)
+            messagebox.showerror("Eventos Globais", err, parent=app)
         else:
             _update_emergency_countdown()
 
@@ -134,7 +134,7 @@ def build_buffs_emergency_section(
         ids = [e.id for e in entries]
         err = bm.start_emergency_restore(ids, {}, cluster_wide_warning=True)
         if err:
-            messagebox.showerror("Eventos Sazonais", err, parent=app)
+            messagebox.showerror("Eventos Globais", err, parent=app)
         else:
             _update_emergency_countdown()
 

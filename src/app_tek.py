@@ -145,10 +145,15 @@ class ARKServerManagerApp(ctk.CTk):
         self._perf_gpu_info_var: Any = None
         self._perf_server_procs: Dict[str, Any] = {}
         self._perf_servers_frame: Any = None
-        # Eventos Sazonais
+        # Eventos Globais (rates + ActiveEvent)
         self._buff_manager: Any = None
         self._buffs_server_var: Any = None
         self._buffs_body_frame: Any = None
+        self._global_active_event_var: Any = None
+        self._global_event_server_vars: dict = {}
+        self._global_ark_event_scheduler: Any = None
+        self._global_ark_scheduled_host: Any = None
+        self._global_active_event_datetime_var: Any = None
         self._buff_countdown_job: Any = None
         self._buff_countdown_labels: list = []
         # Broadcasts TEK
@@ -195,6 +200,7 @@ class ARKServerManagerApp(ctk.CTk):
         self.after(2000, self._auto_start_services)
         self.after(2500, self._asm_scan_running_servers)
         self.after(2500, self._ensure_buff_manager)
+        self.after(2600, self._ensure_global_ark_event_scheduler)
         self.after(3000, self._start_mod_auto_updater)
         # Auto-start: Web Store (após painel estável)
         self.after(5000, self._auto_start_webstore)
@@ -235,6 +241,9 @@ class ARKServerManagerApp(ctk.CTk):
             self._mod_auto_updater.stop()
         if self._buff_manager:
             self._buff_manager.stop()
+        _gsched = getattr(self, "_global_ark_event_scheduler", None)
+        if _gsched is not None:
+            _gsched.stop()
         backup = getattr(self, "_backup_manager", None)
         if backup is not None:
             backup.shutdown()
@@ -625,7 +634,7 @@ class ARKServerManagerApp(ctk.CTk):
         nav_items = [
             ("⊞", "dashboard",  "Dashboard"),
             ("🔄", "sync",       "Sincronização"),
-            ("⚡", "buffs",      "Eventos Sazonais"),
+            ("⚡", "buffs",      "Eventos Globais"),
             ("📢", "broadcasts", "Broadcasts"),
             ("📊", "desempenho", "Desempenho"),
             ("🔗", "clusters",   "Clusters"),
@@ -1326,9 +1335,15 @@ class ARKServerManagerApp(ctk.CTk):
         _th.Thread(target=_worker, daemon=True).start()
 
     def _ensure_buff_manager(self) -> None:
-        """Inicia o scheduler de Eventos Sazonais ao abrir o app (não só ao abrir a aba)."""
+        """Inicia o scheduler de rates temporários ao abrir o app (não só ao abrir a aba)."""
         if self._buff_manager is None:
             self._init_buff_manager()
+
+    def _ensure_global_ark_event_scheduler(self) -> None:
+        """Scheduler de eventos ARK oficiais (ActiveEvent) com restart agendado."""
+        from .pages.init_global_ark_event_scheduler import init_global_ark_event_scheduler
+
+        init_global_ark_event_scheduler(self)
 
     def _asm_check_update_worker(self, srv: AsmServerConfig) -> None:
         """Verifica no Steam se há atualização disponível para o servidor."""
