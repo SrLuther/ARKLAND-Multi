@@ -20,6 +20,79 @@ def test_enrich_dino_uses_species_registry():
     assert "gigant" in meta["search_text"] or "giganoto" in meta["search_text"]
 
 
+def test_enrich_rex_uses_generated_webp():
+    entry = {
+        "Type": "dino",
+        "Price": 8000,
+        "Description": "Rex Fêmea Nível 1",
+        "Dinos": [{
+            "Blueprint": "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP",
+            "Level": 1,
+        }],
+    }
+    meta = enrich_shop_item("rex", entry)
+    assert meta["thumbnail_url"].endswith("/species/icons/generated/rex.webp")
+    assert meta["species_key"] == "rex"
+    assert meta["tier"] == "A"
+
+
+def test_enrich_bionicrex_uses_generated_webp():
+    entry = {
+        "Type": "dino",
+        "Price": 9000,
+        "Description": "Rex Bionic",
+        "Dinos": [{
+            "Blueprint": "/Game/PrimalEarth/Dinos/Rex/BionicRex_Character_BP.BionicRex_Character_BP",
+            "Level": 1,
+        }],
+    }
+    meta = enrich_shop_item("bionicrex", entry)
+    assert meta["thumbnail_url"].endswith("/species/icons/generated/bionicrex.webp")
+    assert meta["species_key"] == "bionicrex"
+
+
+def test_enrich_rec_wood_uses_resource_webp():
+    entry = {
+        "Type": "item",
+        "Description": "Madeira (1000x)",
+        "Items": [{
+            "Blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood",
+            "Quantity": 1000,
+        }],
+        "Price": 100,
+    }
+    meta = enrich_shop_item("rec_wood", entry)
+    assert meta["thumbnail_url"].endswith("/catalog/resources/rec_wood.webp")
+    assert meta["display_category"] == "Recursos"
+    assert "madeira" in meta["search_text"]
+
+
+def test_enrich_daco_sushi_uses_resource_webp():
+    entry = {
+        "Type": "item",
+        "Category": "Recursos",
+        "Name": "Sushi Daco (1x)",
+        "Items": [{
+            "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/PrimalItemConsumable_DacoSushi.PrimalItemConsumable_DacoSushi",
+            "Quantity": 1,
+        }],
+        "Price": 15,
+    }
+    meta = enrich_shop_item("daco_sushi", entry)
+    assert meta["thumbnail_url"].endswith("/catalog/resources/daco_sushi.webp")
+
+
+def test_enrich_resource_fallback_consumable_without_manifest():
+    entry = {
+        "Type": "item",
+        "Category": "Recursos",
+        "Name": "Recurso Fantasma",
+        "Price": 10,
+    }
+    meta = enrich_shop_item("recurso_fantasma_xyz", entry)
+    assert meta["thumbnail_url"] == "/catalog/consumable.svg"
+
+
 def test_enrich_item_category_icon():
     entry = {
         "Type": "item",

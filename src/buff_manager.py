@@ -757,6 +757,12 @@ class BuffManager:
         ok = restore_ini_from_backup(cfg, backup_path)
         if ok:
             self._on_log(f"[Evento Sazonal] INI restaurado de: {backup_path}", "info")
+            preserved = (getattr(cfg, "active_event", "") or "").strip()
+            if preserved:
+                self._on_log(
+                    f"[Evento Sazonal] ActiveEvent preservado: {preserved}",
+                    "info",
+                )
             self._sync_profile_from_ini(server_id, cfg)
         else:
             self._on_log(f"[Evento Sazonal] Falha ao restaurar backup: {backup_path}", "error")

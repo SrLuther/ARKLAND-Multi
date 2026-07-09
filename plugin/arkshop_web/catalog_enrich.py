@@ -6,6 +6,7 @@ import unicodedata
 from typing import Any
 
 from ark_species_registry import lookup_species, tier_icon_url
+from resource_icon_registry import resolve_resource_icon
 
 CATEGORY_ICONS: dict[str, str] = {
     "ferramentas": "/catalog/tool.svg",
@@ -198,7 +199,8 @@ def enrich_shop_item(key: str, entry: dict[str, Any]) -> dict[str, Any]:
     elif _is_license_entry(entry, key):
         thumbnail_url = LICENSE_ICON
     else:
-        thumbnail_url = _category_icon_url(display_category, itype)
+        resource_icon = resolve_resource_icon(key, blueprint=blueprint or None)
+        thumbnail_url = resource_icon or _category_icon_url(display_category, itype)
 
     license_days, license_group = _license_meta(entry)
     search_text = _build_search_text(

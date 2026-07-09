@@ -363,8 +363,26 @@ def _ini_path(install_dir: str, file_key: str) -> Path:
 
 
 def _ini_path_for_cfg(cfg: AsmServerConfig, file_key: str, *, write: bool = False) -> Path:
-    base = _windows_server_ini_dir(cfg) if write else _read_ini_dir(cfg)
-    return base / _FILE_NAMES[file_key]
+    """Caminho canônico dos INIs — sempre ``WindowsServer`` no ``install_dir``.
+
+    O ARK só lê ``ShooterGame/Saved/Config/WindowsServer/`` em runtime.
+    ``user_config_folder`` é espelho de backup/edição (``mirror_ini_to_user_config_folder``).
+    """
+    _ = write  # API legada; leitura e escrita usam o mesmo destino.
+    return _windows_server_ini_dir(cfg) / _FILE_NAMES[file_key]
+
+
+def mirror_ini_to_user_config_folder(cfg: AsmServerConfig) -> None:
+    """Espelha GUS/Game.ini de WindowsServer → ``user_config_folder`` (se configurada)."""
+    custom = (cfg.user_config_folder or "").strip()
+    if not custom or not cfg.install_dir:
+        return
+    dest_custom = Path(custom)
+    dest_custom.mkdir(parents=True, exist_ok=True)
+    for fk in ("GUS", "Game"):
+        src = _ini_path_for_cfg(cfg, fk, write=True)
+        if src.is_file():
+            shutil.copy2(src, dest_custom / _FILE_NAMES[fk])
 
 
 def _bool_str(val: bool) -> str:
@@ -664,10 +682,15 @@ def write_ini(cfg: AsmServerConfig) -> None:
     if cfg.prevent_transfer_raw:
         inject_raw_ini_text(cfg.prevent_transfer_raw, gus, default_section=_GUS_DEFAULT_SECTION)
 
+    # ActiveEvent — perfil TEK prevalece sobre blocos raw/custom injetados acima
+    _evt = normalize_active_event(cfg.active_event)
+    if _evt:
+        gus.setdefault("ServerSettings", {})["ActiveEvent"] = _evt
+    else:
+        gus.get("ServerSettings", {}).pop("ActiveEvent", None)
+
     remove_gus_options: list[tuple[str, str]] = []
-    if not cfg.active_event and "ServerSettings" in gus and "ActiveEvent" in gus.get("ServerSettings", {}):
-        del gus["ServerSettings"]["ActiveEvent"]
-    if not cfg.active_event:
+    if not _evt:
         remove_gus_options.append(("ServerSettings", "ActiveEvent"))
 
     # SessionName por último — raw/custom não pode sobrescrever o nome efetivo
@@ -724,14 +747,7 @@ def write_ini(cfg: AsmServerConfig) -> None:
             engine,
         )
 
-    custom = (cfg.user_config_folder or "").strip()
-    if custom:
-        dest_custom = Path(custom)
-        dest_custom.mkdir(parents=True, exist_ok=True)
-        for fk in ("GUS", "Game"):
-            src = _ini_path_for_cfg(cfg, fk, write=True)
-            if src.is_file():
-                shutil.copy2(src, dest_custom / _FILE_NAMES[fk])
+    mirror_ini_to_user_config_folder(cfg)
 
 
 def _write_ini_file(

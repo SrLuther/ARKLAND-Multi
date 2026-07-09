@@ -1,0 +1,154 @@
+{
+  "_comment": "Referências visuais internas de ark.wiki.gg para recursos/itens Aquatica/Abyss vendidos na loja. NÃO redistribuir.",
+  "generated_at": "2026-07-09T15:54:16Z",
+  "source": "ark.wiki.gg",
+  "image_source": "wiki_reference_internal",
+  "fetch_tool": "tools/fetch_wiki_aquatica_resource_refs.py",
+  "attribution_note": "Imagens © Studio Wildcard via wiki comunitária. Uso interno para geração AI — ver ATTRIBUTION.md",
+  "catalog_abyss_item_count": 13,
+  "mapping": {
+    "abyss_aqualyrium": {
+      "catalog_key": "abyss_aqualyrium",
+      "wiki_page": "Aqualyrium",
+      "wiki_file": "Aqualyrium.png",
+      "wiki_url": "https://ark.wiki.gg/images/Aqualyrium.png?583b05",
+      "reference_path": "refs/resource_icons/rec_aqualyrium.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_barnacle": {
+      "catalog_key": "abyss_barnacle",
+      "wiki_page": "Barnacle",
+      "wiki_file": "Barnacle.png",
+      "wiki_url": "https://ark.wiki.gg/images/Barnacle.png?62162d",
+      "reference_path": "refs/resource_icons/rec_barnacle.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_crystallized_wood": {
+      "catalog_key": "abyss_crystallized_wood",
+      "wiki_page": "Crystallized Wood",
+      "wiki_file": "Crystallized_Wood.png",
+      "wiki_url": "https://ark.wiki.gg/images/Crystallized_Wood.png?97f4dd",
+      "reference_path": "refs/resource_icons/rec_crystallizedWood.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_fish_scale": {
+      "catalog_key": "abyss_fish_scale",
+      "wiki_page": "Fish Scale",
+      "wiki_file": "Fish_Scale.png",
+      "wiki_url": "https://ark.wiki.gg/images/Fish_Scale.png?5fb24f",
+      "reference_path": "refs/resource_icons/rec_fishScale.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_hardened_steel": {
+      "catalog_key": "abyss_hardened_steel",
+      "wiki_page": "Hardened Steel Ingot",
+      "wiki_file": "Hardened_Steel_Ingot.png",
+      "wiki_url": "https://ark.wiki.gg/images/Hardened_Steel_Ingot.png?5d8228",
+      "reference_path": "refs/resource_icons/rec_HardenedSteelIngot.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "skipped_user_provided"
+    },
+    "abyss_hover_sail": {
+      "catalog_key": "abyss_hover_sail",
+      "wiki_page": "Tek Thalassian Hoversail",
+      "wiki_file": "Tek_Thalassian_Hoversail.png",
+      "wiki_url": "https://ark.wiki.gg/images/Tek_Thalassian_Hoversail.png?9eefa1",
+      "reference_path": "refs/resource_icons/abyss_hover_sail.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "downloaded"
+    },
+    "abyss_hover_skiff": {
+      "catalog_key": "abyss_hover_skiff",
+      "wiki_page": "Unassembled TEK Thalassian Hover Skiff",
+      "wiki_file": "Unassembled_TEK_Thalassian_Hover_Skiff.png",
+      "wiki_url": "https://ark.wiki.gg/images/Unassembled_TEK_Thalassian_Hover_Skiff.png?3085c2",
+      "reference_path": "refs/resource_icons/abyss_hover_skiff.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "downloaded"
+    },
+    "abyss_manganese": {
+      "catalog_key": "abyss_manganese",
+      "wiki_page": "Manganese",
+      "wiki_file": "Manganese.png",
+      "wiki_url": "https://ark.wiki.gg/images/Manganese.png?17f00c",
+      "reference_path": "refs/resource_icons/rec_manganese.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "skipped_user_provided"
+    },
+    "abyss_seaweed": {
+      "catalog_key": "abyss_seaweed",
+      "wiki_page": "Seaweed",
+      "wiki_file": "Seaweed.png",
+      "wiki_url": "https://ark.wiki.gg/images/Seaweed.png?f30099",
+      "reference_path": "refs/resource_icons/rec_seaweed.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_seed_cucumis": {
+      "catalog_key": "abyss_seed_cucumis",
+      "wiki_page": "Cucumis Seed",
+      "wiki_file": "Cucumis_Seed.png",
+      "wiki_url": "https://ark.wiki.gg/images/Cucumis_Seed.png?30022a",
+      "reference_path": "refs/resource_icons/abyss_seed_cucumis.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_seed_plantspeciesw": {
+      "catalog_key": "abyss_seed_plantspeciesw",
+      "wiki_page": "Plant Species W Seed",
+      "wiki_file": "Plant_Species_W_Seed.png",
+      "wiki_url": "https://ark.wiki.gg/images/Plant_Species_W_Seed.png?36c22d",
+      "reference_path": "refs/resource_icons/abyss_seed_plantspeciesw.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "abyss_seed_rice": {
+      "catalog_key": "abyss_seed_rice",
+      "wiki_page": "Oryraise Seed",
+      "wiki_file": "Oryraise_Seed.png",
+      "wiki_url": "https://ark.wiki.gg/images/Oryraise_Seed.png?a98b6e",
+      "reference_path": "refs/resource_icons/abyss_seed_rice.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "already_exists"
+    },
+    "daco_sushi": {
+      "catalog_key": "daco_sushi",
+      "wiki_page": "Daco Sushi",
+      "wiki_file": "Daco_Sushi.png",
+      "wiki_url": "https://ark.wiki.gg/images/Daco_Sushi.png?3a17dc",
+      "reference_path": "refs/resource_icons/daco_sushi.png",
+      "image_source": "wiki_reference_internal",
+      "source": "ark.wiki.gg",
+      "attribution": "© Studio Wildcard — internal AI reference only, not for shop redistribution",
+      "status": "downloaded"
+    }
+  }
+}

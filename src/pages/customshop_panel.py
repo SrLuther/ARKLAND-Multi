@@ -1314,8 +1314,24 @@ def auto_start_webstore(app: "ARKServerManagerApp") -> None:
     shop = app.config_manager.config.shop
     if (shop.mode or "client") != "host":
         return
-    if _is_web_running(max(1, int(shop.port or DEFAULT_SHOP_PORT))):
-        return
+    port = max(1, int(shop.port or DEFAULT_SHOP_PORT))
+    if _is_web_running(port):
+        try:
+            from ..version import APP_VERSION
+            from ..shop_integration import webstore_needs_restart
+
+            if not webstore_needs_restart(port, APP_VERSION):
+                return
+            import logging as _log2
+            _log2.getLogger(__name__).info(
+                "auto_start_webstore: reiniciando Web Store (versão desatualizada na porta %s)",
+                port,
+            )
+            stop_webstore()
+            import time as _t
+            _t.sleep(0.8)
+        except Exception:
+            return
 
     def _launch() -> None:
         ok, msg = _launch_webstore_process(shop)

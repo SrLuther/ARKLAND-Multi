@@ -137,7 +137,7 @@ from .asm_server_config import (
     ASM_STATUS_CRASHED,
 )
 from ..mod_manager import ModManager
-from .asm_ini_manager import write_ini, build_launch_args
+from .asm_ini_manager import write_ini, build_launch_args, mirror_ini_to_user_config_folder
 from .asm_mod_utils import collect_mod_ids_for_install
 
 
@@ -310,6 +310,7 @@ class AsmServerManager:
         # Grava INI antes de reconectar — nome da sessão e demais configs no disco
         try:
             write_ini(cfg)
+            mirror_ini_to_user_config_folder(cfg)
         except Exception as exc:
             if on_done:
                 on_done(False, f"Falha ao gravar GameUserSettings.ini: {exc}")

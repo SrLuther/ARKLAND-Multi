@@ -389,3 +389,13 @@ Espécies marcadas como concluídas em `docs/SPECIES_ICON_REGEN_QUEUE.md`:
 - `xenomorph` → `reaper`
 - `xenomorph_femea` → `reaper`
 - `xenomorphgen2_femea` → `reaper`
+
+---
+
+## Referências de recursos (`refs/resource_icons/`)
+
+> Itens `rec_*` sem entrada no DodoDex podem receber referência manual do usuário (não gera ícone de loja automaticamente).
+
+| rec_key | fonte | arquivo | notas |
+|---------|-------|---------|-------|
+| `rec_HardenedSteelIngot` | usuário | `refs/resource_icons/rec_HardenedSteelIngot.png` | Lingote de Aço Endurecido (mod Abyss) — ausente no DodoDex |

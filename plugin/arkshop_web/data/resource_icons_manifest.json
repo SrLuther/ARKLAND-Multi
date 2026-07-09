@@ -1,0 +1,738 @@
+{
+  "_comment": "Ícones WebP ARKLAND para recursos — gerados por tools/generate_resource_icons.py",
+  "_license": "© ARKLAND — composição original; refs internas apenas para anatomia visual.",
+  "_frame_style": "dark_metallic_rounded + ARK logo + REC badge + item name",
+  "_output_dir": "static/catalog/resources/",
+  "generated_at": "2026-07-09T16:11:16.408895+00:00",
+  "icons": {
+    "abyss_aqualyrium": {
+      "catalog_key": "abyss_aqualyrium",
+      "path": "/catalog/resources/abyss_aqualyrium.webp",
+      "display_name": "Aqualyrium (mod Abyss)",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium",
+      "blueprint_tokens": [
+        "PrimalItemResource_Aqualyrium"
+      ],
+      "reference_path": "refs/resource_icons/rec_aqualyrium.png",
+      "status": "generated",
+      "webp_kb": 5.4,
+      "size": "256x256"
+    },
+    "abyss_barnacle": {
+      "catalog_key": "abyss_barnacle",
+      "path": "/catalog/resources/abyss_barnacle.webp",
+      "display_name": "Craca (mod Abyss)",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Barnacle.PrimalItemResource_Barnacle",
+      "blueprint_tokens": [
+        "PrimalItemResource_Barnacle"
+      ],
+      "reference_path": "refs/resource_icons/rec_barnacle.png",
+      "status": "generated",
+      "webp_kb": 6.7,
+      "size": "256x256"
+    },
+    "abyss_crystallized_wood": {
+      "catalog_key": "abyss_crystallized_wood",
+      "path": "/catalog/resources/abyss_crystallized_wood.webp",
+      "display_name": "Madeira Cristalizada (mod…",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_CrystallizedWood.PrimalItemResource_CrystallizedWood",
+      "blueprint_tokens": [
+        "PrimalItemResource_CrystallizedWood"
+      ],
+      "reference_path": "refs/resource_icons/rec_crystallizedWood.png",
+      "status": "generated",
+      "webp_kb": 6.8,
+      "size": "256x256"
+    },
+    "abyss_fish_scale": {
+      "catalog_key": "abyss_fish_scale",
+      "path": "/catalog/resources/abyss_fish_scale.webp",
+      "display_name": "Escama de Peixe (mod Abyss)",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale",
+      "blueprint_tokens": [
+        "PrimalItemResource_FishScale"
+      ],
+      "reference_path": "refs/resource_icons/rec_fishScale.png",
+      "status": "generated",
+      "webp_kb": 10.2,
+      "size": "256x256"
+    },
+    "abyss_hardened_steel": {
+      "catalog_key": "abyss_hardened_steel",
+      "path": "/catalog/resources/abyss_hardened_steel.webp",
+      "display_name": "Lingote de Aço Endurecido…",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot",
+      "blueprint_tokens": [
+        "PrimalItemResource_HardenedSteelIngot"
+      ],
+      "reference_path": "refs/resource_icons/rec_HardenedSteelIngot.png",
+      "status": "generated",
+      "webp_kb": 4.5,
+      "size": "256x256"
+    },
+    "abyss_hover_sail": {
+      "catalog_key": "abyss_hover_sail",
+      "path": "/catalog/resources/abyss_hover_sail.webp",
+      "display_name": "Vela Thalassiana (HoverSai…",
+      "blueprint": "/Game/Abyss/Dinos/Ships/HoverSail/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
+      "blueprint_tokens": [
+        "PrimalItem_Spawner_HoverSail_Thalassian"
+      ],
+      "reference_path": "refs/resource_icons/abyss_hover_sail.png",
+      "status": "generated",
+      "webp_kb": 5.9,
+      "size": "256x256"
+    },
+    "abyss_hover_skiff": {
+      "catalog_key": "abyss_hover_skiff",
+      "path": "/catalog/resources/abyss_hover_skiff.webp",
+      "display_name": "Skiff Thalassiano (mod Aby…",
+      "blueprint": "/Game/Abyss/Dinos/Ships/HoverSkiff/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
+      "blueprint_tokens": [
+        "PrimalItem_Spawner_ThalassianHoverSkiff"
+      ],
+      "reference_path": "refs/resource_icons/abyss_hover_skiff.png",
+      "status": "generated",
+      "webp_kb": 6.3,
+      "size": "256x256"
+    },
+    "abyss_manganese": {
+      "catalog_key": "abyss_manganese",
+      "path": "/catalog/resources/abyss_manganese.webp",
+      "display_name": "Manganês (mod Abyss)",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
+      "blueprint_tokens": [
+        "PrimalItemResource_Manganese"
+      ],
+      "reference_path": "refs/resource_icons/rec_manganese.png",
+      "status": "generated",
+      "webp_kb": 5.9,
+      "size": "256x256"
+    },
+    "abyss_seaweed": {
+      "catalog_key": "abyss_seaweed",
+      "path": "/catalog/resources/abyss_seaweed.webp",
+      "display_name": "Alga Marinha (mod Abyss)",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed",
+      "blueprint_tokens": [
+        "PrimalItemResource_Seaweed"
+      ],
+      "reference_path": "refs/resource_icons/rec_seaweed.png",
+      "status": "generated",
+      "webp_kb": 5.6,
+      "size": "256x256"
+    },
+    "abyss_seed_cucumis": {
+      "catalog_key": "abyss_seed_cucumis",
+      "path": "/catalog/resources/abyss_seed_cucumis.webp",
+      "display_name": "Semente de Pepino (mod Aby…",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Seed_Cucumis"
+      ],
+      "reference_path": "refs/resource_icons/abyss_seed_cucumis.png",
+      "status": "generated",
+      "webp_kb": 6.3,
+      "size": "256x256"
+    },
+    "abyss_seed_plantspeciesw": {
+      "catalog_key": "abyss_seed_plantspeciesw",
+      "path": "/catalog/resources/abyss_seed_plantspeciesw.webp",
+      "display_name": "Semente Planta W (Abyss) (…",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Seed_PlantSpeciesW"
+      ],
+      "reference_path": "refs/resource_icons/abyss_seed_plantspeciesw.png",
+      "status": "generated",
+      "webp_kb": 5.9,
+      "size": "256x256"
+    },
+    "abyss_seed_rice": {
+      "catalog_key": "abyss_seed_rice",
+      "path": "/catalog/resources/abyss_seed_rice.webp",
+      "display_name": "Semente de Arroz (mod Abyss)",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Seed_Rice"
+      ],
+      "reference_path": "refs/resource_icons/abyss_seed_rice.png",
+      "status": "generated",
+      "webp_kb": 9.6,
+      "size": "256x256"
+    },
+    "daco_sushi": {
+      "catalog_key": "daco_sushi",
+      "path": "/catalog/resources/daco_sushi.webp",
+      "display_name": "Sushi Daco",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/PrimalItemConsumable_DacoSushi.PrimalItemConsumable_DacoSushi",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_DacoSushi"
+      ],
+      "reference_path": "refs/resource_icons/daco_sushi.png",
+      "status": "generated",
+      "webp_kb": 6.7,
+      "size": "256x256"
+    },
+    "rec_HardenedSteelIngot": {
+      "catalog_key": "rec_HardenedSteelIngot",
+      "path": "/catalog/resources/rec_HardenedSteelIngot.webp",
+      "display_name": "Lingote de Aço Endurecido",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot",
+      "blueprint_tokens": [
+        "PrimalItemResource_HardenedSteelIngot"
+      ],
+      "reference_path": "refs/resource_icons/rec_HardenedSteelIngot.png",
+      "status": "generated",
+      "webp_kb": 4.4,
+      "size": "256x256"
+    },
+    "rec_bolo": {
+      "catalog_key": "rec_bolo",
+      "path": "/catalog/resources/rec_bolo.webp",
+      "display_name": "Bolo Vegetal",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_SweetVeggieCake.PrimalItemConsumable_SweetVeggieCake",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_SweetVeggieCake"
+      ],
+      "reference_path": "refs/resource_icons/rec_bolo.png",
+      "status": "generated",
+      "webp_kb": 7.9,
+      "size": "256x256"
+    },
+    "rec_cement": {
+      "catalog_key": "rec_cement",
+      "path": "/catalog/resources/rec_cement.webp",
+      "display_name": "Pasta de Cimento",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
+      "blueprint_tokens": [
+        "PrimalItemResource_ChitinPaste"
+      ],
+      "reference_path": "refs/resource_icons/rec_cement.png",
+      "status": "generated",
+      "webp_kb": 5.2,
+      "size": "256x256"
+    },
+    "rec_charcoal": {
+      "catalog_key": "rec_charcoal",
+      "path": "/catalog/resources/rec_charcoal.webp",
+      "display_name": "Carvão",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Charcoal.PrimalItemResource_Charcoal",
+      "blueprint_tokens": [
+        "PrimalItemResource_Charcoal"
+      ],
+      "reference_path": "refs/resource_icons/rec_charcoal.png",
+      "status": "generated",
+      "webp_kb": 6.2,
+      "size": "256x256"
+    },
+    "rec_chitin": {
+      "catalog_key": "rec_chitin",
+      "path": "/catalog/resources/rec_chitin.webp",
+      "display_name": "Quitina",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Chitin.PrimalItemResource_Chitin",
+      "blueprint_tokens": [
+        "PrimalItemResource_Chitin"
+      ],
+      "reference_path": "refs/resource_icons/rec_chitin.png",
+      "status": "generated",
+      "webp_kb": 4.2,
+      "size": "256x256"
+    },
+    "rec_cookedmeat": {
+      "catalog_key": "rec_cookedmeat",
+      "path": "/catalog/resources/rec_cookedmeat.webp",
+      "display_name": "Carne Cozida",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_CookedMeat.PrimalItemConsumable_CookedMeat",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_CookedMeat"
+      ],
+      "reference_path": "refs/resource_icons/rec_cookedmeat.png",
+      "status": "generated",
+      "webp_kb": 7.2,
+      "size": "256x256"
+    },
+    "rec_crystal": {
+      "catalog_key": "rec_crystal",
+      "path": "/catalog/resources/rec_crystal.webp",
+      "display_name": "Cristal",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Crystal.PrimalItemResource_Crystal",
+      "blueprint_tokens": [
+        "PrimalItemResource_Crystal"
+      ],
+      "reference_path": "refs/resource_icons/rec_crystal.png",
+      "status": "generated",
+      "webp_kb": 5.4,
+      "size": "256x256"
+    },
+    "rec_electronics": {
+      "catalog_key": "rec_electronics",
+      "path": "/catalog/resources/rec_electronics.webp",
+      "display_name": "Eletrônicos",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Electronics.PrimalItemResource_Electronics",
+      "blueprint_tokens": [
+        "PrimalItemResource_Electronics"
+      ],
+      "reference_path": "refs/resource_icons/rec_electronics.png",
+      "status": "generated",
+      "webp_kb": 6.6,
+      "size": "256x256"
+    },
+    "rec_element": {
+      "catalog_key": "rec_element",
+      "path": "/catalog/resources/rec_element.webp",
+      "display_name": "Elemento",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
+      "blueprint_tokens": [
+        "PrimalItemResource_Element"
+      ],
+      "reference_path": "refs/resource_icons/rec_element.png",
+      "status": "generated",
+      "webp_kb": 7.4,
+      "size": "256x256"
+    },
+    "rec_elementore": {
+      "catalog_key": "rec_elementore",
+      "path": "/catalog/resources/rec_elementore.webp",
+      "display_name": "Minério de Elemento",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_ElementOre.PrimalItemResource_ElementOre",
+      "blueprint_tokens": [
+        "PrimalItemResource_ElementOre"
+      ],
+      "reference_path": "refs/resource_icons/rec_elementore.png",
+      "status": "generated",
+      "webp_kb": 8.7,
+      "size": "256x256"
+    },
+    "rec_fiber": {
+      "catalog_key": "rec_fiber",
+      "path": "/catalog/resources/rec_fiber.webp",
+      "display_name": "Fibra",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Fibers.PrimalItemResource_Fibers",
+      "blueprint_tokens": [
+        "PrimalItemResource_Fibers"
+      ],
+      "reference_path": "refs/resource_icons/rec_fiber.png",
+      "status": "generated",
+      "webp_kb": 5.2,
+      "size": "256x256"
+    },
+    "rec_flint": {
+      "catalog_key": "rec_flint",
+      "path": "/catalog/resources/rec_flint.webp",
+      "display_name": "Sílex",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Flint.PrimalItemResource_Flint",
+      "blueprint_tokens": [
+        "PrimalItemResource_Flint"
+      ],
+      "reference_path": "refs/resource_icons/rec_flint.png",
+      "status": "generated",
+      "webp_kb": 5.7,
+      "size": "256x256"
+    },
+    "rec_gasoline": {
+      "catalog_key": "rec_gasoline",
+      "path": "/catalog/resources/rec_gasoline.webp",
+      "display_name": "Gasolina",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gasoline.PrimalItemResource_Gasoline",
+      "blueprint_tokens": [
+        "PrimalItemResource_Gasoline"
+      ],
+      "reference_path": "refs/resource_icons/rec_gasoline.png",
+      "status": "generated",
+      "webp_kb": 4.2,
+      "size": "256x256"
+    },
+    "rec_gemblue": {
+      "catalog_key": "rec_gemblue",
+      "path": "/catalog/resources/rec_gemblue.webp",
+      "display_name": "Gema Azul",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_Gem_BioLum.PrimalItemResource_Gem_BioLum",
+      "blueprint_tokens": [
+        "PrimalItemResource_Gem_BioLum"
+      ],
+      "reference_path": "refs/resource_icons/rec_gemblue.png",
+      "status": "generated",
+      "webp_kb": 5.2,
+      "size": "256x256"
+    },
+    "rec_gemgreen": {
+      "catalog_key": "rec_gemgreen",
+      "path": "/catalog/resources/rec_gemgreen.webp",
+      "display_name": "Gema Verde",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_Gem_Fertile.PrimalItemResource_Gem_Fertile",
+      "blueprint_tokens": [
+        "PrimalItemResource_Gem_Fertile"
+      ],
+      "reference_path": "refs/resource_icons/rec_gemgreen.png",
+      "status": "generated",
+      "webp_kb": 5.0,
+      "size": "256x256"
+    },
+    "rec_gemred": {
+      "catalog_key": "rec_gemred",
+      "path": "/catalog/resources/rec_gemred.webp",
+      "display_name": "Gema Vermelha",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_Gem_Element.PrimalItemResource_Gem_Element",
+      "blueprint_tokens": [
+        "PrimalItemResource_Gem_Element"
+      ],
+      "reference_path": "refs/resource_icons/rec_gemred.png",
+      "status": "generated",
+      "webp_kb": 5.4,
+      "size": "256x256"
+    },
+    "rec_gunpowder": {
+      "catalog_key": "rec_gunpowder",
+      "path": "/catalog/resources/rec_gunpowder.webp",
+      "display_name": "Pólvora",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gunpowder.PrimalItemResource_Gunpowder",
+      "blueprint_tokens": [
+        "PrimalItemResource_Gunpowder"
+      ],
+      "reference_path": "refs/resource_icons/rec_gunpowder.png",
+      "status": "generated",
+      "webp_kb": 5.0,
+      "size": "256x256"
+    },
+    "rec_hide": {
+      "catalog_key": "rec_hide",
+      "path": "/catalog/resources/rec_hide.webp",
+      "display_name": "Couro",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Hide.PrimalItemResource_Hide",
+      "blueprint_tokens": [
+        "PrimalItemResource_Hide"
+      ],
+      "reference_path": "refs/resource_icons/rec_hide.png",
+      "status": "generated",
+      "webp_kb": 5.1,
+      "size": "256x256"
+    },
+    "rec_honey": {
+      "catalog_key": "rec_honey",
+      "path": "/catalog/resources/rec_honey.webp",
+      "display_name": "Mel de Abelha Gigante",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Honey.PrimalItemConsumable_Honey",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Honey"
+      ],
+      "reference_path": "refs/resource_icons/rec_honey.png",
+      "status": "generated",
+      "webp_kb": 7.5,
+      "size": "256x256"
+    },
+    "rec_keratin": {
+      "catalog_key": "rec_keratin",
+      "path": "/catalog/resources/rec_keratin.webp",
+      "display_name": "Queratina",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Keratin.PrimalItemResource_Keratin",
+      "blueprint_tokens": [
+        "PrimalItemResource_Keratin"
+      ],
+      "reference_path": "refs/resource_icons/rec_keratin.png",
+      "status": "generated",
+      "webp_kb": 4.1,
+      "size": "256x256"
+    },
+    "rec_manganese": {
+      "catalog_key": "rec_manganese",
+      "path": "/catalog/resources/rec_manganese.webp",
+      "display_name": "Manganês",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
+      "blueprint_tokens": [
+        "PrimalItemResource_Manganese"
+      ],
+      "reference_path": "refs/resource_icons/rec_manganese.png",
+      "status": "generated",
+      "webp_kb": 4.9,
+      "size": "256x256"
+    },
+    "rec_medicalbrew": {
+      "catalog_key": "rec_medicalbrew",
+      "path": "/catalog/resources/rec_medicalbrew.webp",
+      "display_name": "Poção Médica",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_HealSoup.PrimalItemConsumable_HealSoup",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_HealSoup"
+      ],
+      "reference_path": "refs/resource_icons/rec_medicalbrew.png",
+      "status": "generated",
+      "webp_kb": 4.8,
+      "size": "256x256"
+    },
+    "rec_metal": {
+      "catalog_key": "rec_metal",
+      "path": "/catalog/resources/rec_metal.webp",
+      "display_name": "Metal",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Metal.PrimalItemResource_Metal",
+      "blueprint_tokens": [
+        "PrimalItemResource_Metal"
+      ],
+      "reference_path": "refs/resource_icons/rec_metal.png",
+      "status": "generated",
+      "webp_kb": 4.9,
+      "size": "256x256"
+    },
+    "rec_metalingot": {
+      "catalog_key": "rec_metalingot",
+      "path": "/catalog/resources/rec_metalingot.webp",
+      "display_name": "Lingote de Metal",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
+      "blueprint_tokens": [
+        "PrimalItemResource_MetalIngot"
+      ],
+      "reference_path": "refs/resource_icons/rec_metalingot.png",
+      "status": "generated",
+      "webp_kb": 6.0,
+      "size": "256x256"
+    },
+    "rec_mutagel": {
+      "catalog_key": "rec_mutagel",
+      "path": "/catalog/resources/rec_mutagel.webp",
+      "display_name": "Mutagel",
+      "blueprint": "/Game/Genesis2/CoreBlueprints/Environment/Mutagen/PrimalItemConsumable_Mutagel.PrimalItemConsumable_Mutagel",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Mutagel"
+      ],
+      "reference_path": "refs/resource_icons/rec_mutagel.png",
+      "status": "generated",
+      "webp_kb": 9.7,
+      "size": "256x256"
+    },
+    "rec_narcotic": {
+      "catalog_key": "rec_narcotic",
+      "path": "/catalog/resources/rec_narcotic.webp",
+      "display_name": "Narcótico",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Narcotic.PrimalItemConsumable_Narcotic",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Narcotic"
+      ],
+      "reference_path": "refs/resource_icons/rec_narcotic.png",
+      "status": "generated",
+      "webp_kb": 5.7,
+      "size": "256x256"
+    },
+    "rec_obsidian": {
+      "catalog_key": "rec_obsidian",
+      "path": "/catalog/resources/rec_obsidian.webp",
+      "display_name": "Obsidiana",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Obsidian.PrimalItemResource_Obsidian",
+      "blueprint_tokens": [
+        "PrimalItemResource_Obsidian"
+      ],
+      "reference_path": "refs/resource_icons/rec_obsidian.png",
+      "status": "generated",
+      "webp_kb": 5.6,
+      "size": "256x256"
+    },
+    "rec_oil": {
+      "catalog_key": "rec_oil",
+      "path": "/catalog/resources/rec_oil.webp",
+      "display_name": "Óleo",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Oil.PrimalItemResource_Oil",
+      "blueprint_tokens": [
+        "PrimalItemResource_Oil"
+      ],
+      "reference_path": "refs/resource_icons/rec_oil.png",
+      "status": "generated",
+      "webp_kb": 5.6,
+      "size": "256x256"
+    },
+    "rec_organicpolymer": {
+      "catalog_key": "rec_organicpolymer",
+      "path": "/catalog/resources/rec_organicpolymer.webp",
+      "display_name": "Polímero Orgânico",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer_Organic.PrimalItemResource_Polymer_Organic",
+      "blueprint_tokens": [
+        "PrimalItemResource_Polymer_Organic"
+      ],
+      "reference_path": "refs/resource_icons/rec_organicpolymer.png",
+      "status": "generated",
+      "webp_kb": 5.0,
+      "size": "256x256"
+    },
+    "rec_pnegra": {
+      "catalog_key": "rec_pnegra",
+      "path": "/catalog/resources/rec_pnegra.webp",
+      "display_name": "Pérola Negra",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_BlackPearl.PrimalItemResource_BlackPearl",
+      "blueprint_tokens": [
+        "PrimalItemResource_BlackPearl"
+      ],
+      "reference_path": "refs/resource_icons/rec_pnegra.png",
+      "status": "generated",
+      "webp_kb": 4.9,
+      "size": "256x256"
+    },
+    "rec_polymer": {
+      "catalog_key": "rec_polymer",
+      "path": "/catalog/resources/rec_polymer.webp",
+      "display_name": "Polímero",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer.PrimalItemResource_Polymer",
+      "blueprint_tokens": [
+        "PrimalItemResource_Polymer"
+      ],
+      "reference_path": "refs/resource_icons/rec_polymer.png",
+      "status": "generated",
+      "webp_kb": 5.4,
+      "size": "256x256"
+    },
+    "rec_propellant": {
+      "catalog_key": "rec_propellant",
+      "path": "/catalog/resources/rec_propellant.webp",
+      "display_name": "Propelente",
+      "blueprint": "/Game/ScorchedEarth/WeaponFlamethrower/PrimalItemResource_Propellant.PrimalItemResource_Propellant",
+      "blueprint_tokens": [
+        "PrimalItemResource_Propellant"
+      ],
+      "reference_path": "refs/resource_icons/rec_propellant.png",
+      "status": "generated",
+      "webp_kb": 4.4,
+      "size": "256x256"
+    },
+    "rec_rareflower": {
+      "catalog_key": "rec_rareflower",
+      "path": "/catalog/resources/rec_rareflower.webp",
+      "display_name": "Flor Rara",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RareFlower.PrimalItemResource_RareFlower",
+      "blueprint_tokens": [
+        "PrimalItemResource_RareFlower"
+      ],
+      "reference_path": "refs/resource_icons/rec_rareflower.png",
+      "status": "generated",
+      "webp_kb": 6.6,
+      "size": "256x256"
+    },
+    "rec_raremushroom": {
+      "catalog_key": "rec_raremushroom",
+      "path": "/catalog/resources/rec_raremushroom.webp",
+      "display_name": "Cogumelo Raro",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RareMushroom.PrimalItemResource_RareMushroom",
+      "blueprint_tokens": [
+        "PrimalItemResource_RareMushroom"
+      ],
+      "reference_path": "refs/resource_icons/rec_raremushroom.png",
+      "status": "generated",
+      "webp_kb": 6.0,
+      "size": "256x256"
+    },
+    "rec_sand": {
+      "catalog_key": "rec_sand",
+      "path": "/catalog/resources/rec_sand.webp",
+      "display_name": "Areia",
+      "blueprint": "/Game/ScorchedEarth/CoreBlueprints/Resources/PrimalItemResource_Sand.PrimalItemResource_Sand",
+      "blueprint_tokens": [
+        "PrimalItemResource_Sand"
+      ],
+      "reference_path": "refs/resource_icons/rec_sand.png",
+      "status": "generated",
+      "webp_kb": 4.4,
+      "size": "256x256"
+    },
+    "rec_sap": {
+      "catalog_key": "rec_sap",
+      "path": "/catalog/resources/rec_sap.webp",
+      "display_name": "Seiva",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sap.PrimalItemResource_Sap",
+      "blueprint_tokens": [
+        "PrimalItemResource_Sap"
+      ],
+      "reference_path": "refs/resource_icons/rec_sap.png",
+      "status": "generated",
+      "webp_kb": 5.2,
+      "size": "256x256"
+    },
+    "rec_silicon": {
+      "catalog_key": "rec_silicon",
+      "path": "/catalog/resources/rec_silicon.webp",
+      "display_name": "Pérola Sílica",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Silicon.PrimalItemResource_Silicon",
+      "blueprint_tokens": [
+        "PrimalItemResource_Silicon"
+      ],
+      "reference_path": "refs/resource_icons/rec_silicon.png",
+      "status": "generated",
+      "webp_kb": 7.3,
+      "size": "256x256"
+    },
+    "rec_sparkpowder": {
+      "catalog_key": "rec_sparkpowder",
+      "path": "/catalog/resources/rec_sparkpowder.webp",
+      "display_name": "Pó de Ignição",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sparkpowder.PrimalItemResource_Sparkpowder",
+      "blueprint_tokens": [
+        "PrimalItemResource_Sparkpowder"
+      ],
+      "reference_path": "refs/resource_icons/rec_sparkpowder.png",
+      "status": "generated",
+      "webp_kb": 6.4,
+      "size": "256x256"
+    },
+    "rec_stimulant": {
+      "catalog_key": "rec_stimulant",
+      "path": "/catalog/resources/rec_stimulant.webp",
+      "display_name": "Estimulante",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Stimulant.PrimalItemConsumable_Stimulant",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_Stimulant"
+      ],
+      "reference_path": "refs/resource_icons/rec_stimulant.png",
+      "status": "generated",
+      "webp_kb": 5.1,
+      "size": "256x256"
+    },
+    "rec_stone": {
+      "catalog_key": "rec_stone",
+      "path": "/catalog/resources/rec_stone.webp",
+      "display_name": "Pedra",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone",
+      "blueprint_tokens": [
+        "PrimalItemResource_Stone"
+      ],
+      "reference_path": "refs/resource_icons/rec_stone.png",
+      "status": "generated",
+      "webp_kb": 4.6,
+      "size": "256x256"
+    },
+    "rec_thatch": {
+      "catalog_key": "rec_thatch",
+      "path": "/catalog/resources/rec_thatch.webp",
+      "display_name": "Sapinho",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Thatch.PrimalItemResource_Thatch",
+      "blueprint_tokens": [
+        "PrimalItemResource_Thatch"
+      ],
+      "reference_path": "refs/resource_icons/rec_thatch.png",
+      "status": "generated",
+      "webp_kb": 7.8,
+      "size": "256x256"
+    },
+    "rec_wood": {
+      "catalog_key": "rec_wood",
+      "path": "/catalog/resources/rec_wood.webp",
+      "display_name": "Madeira",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood",
+      "blueprint_tokens": [
+        "PrimalItemResource_Wood"
+      ],
+      "reference_path": "refs/resource_icons/rec_wood.png",
+      "status": "generated",
+      "webp_kb": 4.3,
+      "size": "256x256"
+    },
+    "rec_wyvernmilk": {
+      "catalog_key": "rec_wyvernmilk",
+      "path": "/catalog/resources/rec_wyvernmilk.webp",
+      "display_name": "Leite de Wyvern",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/BaseBPs/PrimalItemConsumable_WyvernMilk.PrimalItemConsumable_WyvernMilk",
+      "blueprint_tokens": [
+        "PrimalItemConsumable_WyvernMilk"
+      ],
+      "reference_path": "refs/resource_icons/rec_wyvernmilk.png",
+      "status": "generated",
+      "webp_kb": 3.8,
+      "size": "256x256"
+    }
+  },
+  "count": 56
+}

@@ -9411,13 +9411,22 @@ function _catalogTierBadgeHtml(tier) {
 }
 
 function _catalogThumbHtml(item) {
-  if (item.tier && _isDinoType(item.type)) {
-    return _catalogTierBadgeHtml(item.tier);
-  }
   const url = item.thumbnailUrl || "";
   if (url) {
-    return `<img src="${escHtml(url)}" alt="" loading="lazy" width="56" height="56" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex');" />
-      <div class="item-card__icon" style="display:none;">${_catalogTypeIcon(item.type)}</div>`;
+    const tierBadge = (item.tier && _isDinoType(item.type))
+      ? `<span class="item-card__tier-badge">${escHtml(String(item.tier).trim().toUpperCase())}</span>`
+      : "";
+    const tierFallback = (item.tier && _isDinoType(item.type))
+      ? (_catalogTierIcons[item.tier] || _catalogTierIcons[String(item.tier).trim().toUpperCase()] || "")
+      : "";
+    const onError = tierFallback
+      ? `this.onerror=null;this.src='${escHtml(tierFallback)}';`
+      : `this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='flex');`;
+    return `<img src="${escHtml(url)}" alt="" loading="lazy" width="56" height="56" onerror="${onError}" />
+      <div class="item-card__icon" style="display:none;">${_catalogTypeIcon(item.type)}</div>${tierBadge}`;
+  }
+  if (item.tier && _isDinoType(item.type)) {
+    return _catalogTierBadgeHtml(item.tier);
   }
   return `<div class="item-card__icon">${_catalogTypeIcon(item.type)}</div>`;
 }
@@ -9530,7 +9539,7 @@ function _renderProductCard(i, btnLabel) {
   } else if (i.tier && _isDinoType(i.type) && i.speciesKey) {
     metaLine = `<div class="item-card__meta-line">${escHtml(i.speciesKey)}</div>`;
   }
-  const tierOnlyThumb = !!(i.tier && _isDinoType(i.type));
+  const tierOnlyThumb = !!(i.tier && _isDinoType(i.type) && !i.thumbnailUrl);
   return `
     <div class="item-card ${_catalogTypeClass(i.type)}${locked ? " item-card--locked" : ""}" title="${escHtml(fullDesc || shortDesc || i.name)}">
       <div class="item-card__thumb${tierOnlyThumb ? " item-card__thumb--tier-only" : ""}">

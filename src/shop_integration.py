@@ -849,6 +849,57 @@ def read_webstore_log_tail(max_lines: int = 6) -> str:
         return ""
 
 
+def is_shop_port_open(
+    port: int,
+    *,
+    host: str = "127.0.0.1",
+    timeout: float = 0.4,
+) -> bool:
+    """True se algo responde TCP na porta da loja (ex.: Web Store já em execução)."""
+    if port <= 0:
+        return False
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def fetch_webstore_version(
+    port: int = DEFAULT_SHOP_PORT,
+    *,
+    host: str = "127.0.0.1",
+    timeout: float = 2.0,
+) -> Optional[str]:
+    """Versão reportada por GET /api/version, ou None se indisponível."""
+    if not is_shop_port_open(port, host=host, timeout=min(timeout, 0.5)):
+        return None
+    url = f"http://{host}:{port}/api/version"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "ARKLAND/1.0"})
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        ver = str(data.get("version") or "").strip()
+        return ver or None
+    except Exception:
+        return None
+
+
+def webstore_needs_restart(
+    port: int,
+    expected_version: str,
+    *,
+    host: str = "127.0.0.1",
+) -> bool:
+    """True quando a porta responde mas a versão difere (processo stale pós-update)."""
+    if not is_shop_port_open(port, host=host):
+        return False
+    reported = fetch_webstore_version(port, host=host)
+    if not reported:
+        return True
+    return reported != (expected_version or "").strip()
+
+
 def get_local_ip() -> str:
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

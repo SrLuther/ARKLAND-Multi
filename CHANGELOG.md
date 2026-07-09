@@ -5,6 +5,19 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.17] - 2026-07-09
+
+### Feature
+
+- Feature (Web Store / Ícones): pipeline de 56 WebPs de recursos (manifesto, registry, catalog_enrich) com fallback por categoria quando sem ícone dedicado.
+
+### Fix
+
+- Fix (ActiveEvent / INI): caminho canônico WindowsServer para leitura e escrita de GUS/Game.ini; user_config_folder só espelha; ActiveEvent do perfil TEK prevalece sobre blocos raw/custom.
+- Fix (Eventos Sazonais): restore de backup de buff preserva ActiveEvent (Páscoa/Easter, etc.) do perfil ou do GUS atual — evento sazonal não some ao encerrar buff.
+- Fix (Web Store / Catálogo): cards de dino exibiam área preta com só badge de tier — agora mostram thumbnail da espécie (WebP) com fallback por tier, como no Mercado.
+- Fix (Web Store / Update): auto_start_webstore reinicia processo stale quando /api/version difere do TEK após instalação — não exige parar/iniciar manualmente.
+
 ## [1.10.16] - 2026-07-09
 
 ### Feature

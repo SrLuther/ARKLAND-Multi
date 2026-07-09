@@ -1,0 +1,445 @@
+{
+  "_comment": "rec_key ARKLAND → slug/nome DodoDex para /media/item/{ImageName}.png. Páginas: /item/{id}/{slug}. Anatomy reference only — © Dan Leveille, internal AI generation use. Recursos Aquatica/Abyss: ver wiki_resource_refs.json.",
+  "generated_at": "2026-07-09T10:53:22Z",
+  "source": "tools/fetch_dododex_resource_references.py",
+  "dododex_url_patterns": {
+    "item_page": "https://www.dododex.com/item/{item_id}/{slug}",
+    "item_image": "https://www.dododex.com/media/item/{image_name}.png",
+    "notes": "Itens usam /media/item/{PascalCase_With_Underscores}.png — diferente de criaturas (/media/creature/{slug}.png). Slugs vêm do sitemap (/item/{id}/{slug}); o nome do PNG nem sempre coincide com o slug em minúsculas (ex.: giant-bee-honey → Giant_Bee_Honey.png)."
+  },
+  "dododex_sitemap_item_count": 2299,
+  "catalog_rec_count": 43,
+  "mapped_with_image_count": 41,
+  "mapping": {
+    "rec_HardenedSteelIngot": {
+      "slug": null,
+      "item_id": null,
+      "image_name": null,
+      "image_url": null,
+      "image_source": "user_provided",
+      "reference_path": "refs/resource_icons/rec_HardenedSteelIngot.png",
+      "reference_note": "Item mod Abyss — ausente no DodoDex; referência fornecida pelo usuário (2026-07-09).",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot",
+      "description": "Lingote de Aço Endurecido (1000x)"
+    },
+    "rec_bolo": {
+      "slug": "sweet-vegetable-cake",
+      "item_id": "72",
+      "image_name": "Sweet_Vegetable_Cake",
+      "image_url": "https://www.dododex.com/media/item/Sweet_Vegetable_Cake.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_SweetVeggieCake.PrimalItemConsumable_SweetVeggieCake",
+      "description": "Bolo Vegetal (500x)",
+      "page_url": "https://www.dododex.com/item/72/sweet-vegetable-cake"
+    },
+    "rec_cement": {
+      "slug": "cementing-paste",
+      "item_id": "211",
+      "image_name": "Cementing_Paste",
+      "image_url": "https://www.dododex.com/media/item/Cementing_Paste.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_ChitinPaste.PrimalItemResource_ChitinPaste",
+      "description": "Pasta de Cimento (1000x)",
+      "page_url": "https://www.dododex.com/item/211/cementing-paste"
+    },
+    "rec_charcoal": {
+      "slug": "charcoal",
+      "item_id": "248",
+      "image_name": "Charcoal",
+      "image_url": "https://www.dododex.com/media/item/Charcoal.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Charcoal.PrimalItemResource_Charcoal",
+      "description": "Carvão (1000x)",
+      "page_url": "https://www.dododex.com/item/248/charcoal"
+    },
+    "rec_chitin": {
+      "slug": "chitin",
+      "item_id": "14",
+      "image_name": "Chitin",
+      "image_url": "https://www.dododex.com/media/item/Chitin.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Chitin.PrimalItemResource_Chitin",
+      "description": "Quitina (1000x)",
+      "page_url": "https://www.dododex.com/item/14/chitin"
+    },
+    "rec_cookedmeat": {
+      "slug": "cooked-meat",
+      "item_id": "456",
+      "image_name": "Cooked_Meat",
+      "image_url": "https://www.dododex.com/media/item/Cooked_Meat.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_CookedMeat.PrimalItemConsumable_CookedMeat",
+      "description": "Carne Cozida (1000x)",
+      "page_url": "https://www.dododex.com/item/456/cooked-meat"
+    },
+    "rec_crystal": {
+      "slug": "crystal",
+      "item_id": "57",
+      "image_name": "Crystal",
+      "image_url": "https://www.dododex.com/media/item/Crystal.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Crystal.PrimalItemResource_Crystal",
+      "description": "Cristal (1000x)",
+      "page_url": "https://www.dododex.com/item/57/crystal"
+    },
+    "rec_electronics": {
+      "slug": "electronics",
+      "item_id": "330",
+      "image_name": "Electronics",
+      "image_url": "https://www.dododex.com/media/item/Electronics.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Electronics.PrimalItemResource_Electronics",
+      "description": "Eletrônicos (1000x)",
+      "page_url": "https://www.dododex.com/item/330/electronics"
+    },
+    "rec_element": {
+      "slug": "element",
+      "item_id": "212",
+      "image_name": "Element",
+      "image_url": "https://www.dododex.com/media/item/Element.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Element.PrimalItemResource_Element",
+      "description": "Elemento (1000x)",
+      "page_url": "https://www.dododex.com/item/212/element"
+    },
+    "rec_elementore": {
+      "slug": "element-ore",
+      "item_id": "324",
+      "image_name": "Element_Ore",
+      "image_url": "https://www.dododex.com/media/item/Element_Ore.png",
+      "image_source": "slug",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_ElementOre.PrimalItemResource_ElementOre",
+      "description": "Minério de Elemento (1000x)",
+      "page_url": "https://www.dododex.com/item/324/element-ore"
+    },
+    "rec_fiber": {
+      "slug": "fiber",
+      "item_id": "4",
+      "image_name": "Fiber",
+      "image_url": "https://www.dododex.com/media/item/Fiber.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Fibers.PrimalItemResource_Fibers",
+      "description": "Fibra (1000x)",
+      "page_url": "https://www.dododex.com/item/4/fiber"
+    },
+    "rec_flint": {
+      "slug": "flint",
+      "item_id": "7",
+      "image_name": "Flint",
+      "image_url": "https://www.dododex.com/media/item/Flint.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Flint.PrimalItemResource_Flint",
+      "description": "Sílex (1000x)",
+      "page_url": "https://www.dododex.com/item/7/flint"
+    },
+    "rec_gasoline": {
+      "slug": "gasoline",
+      "item_id": null,
+      "image_name": "Gasoline",
+      "image_url": "https://www.dododex.com/media/item/Gasoline.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gasoline.PrimalItemResource_Gasoline",
+      "description": "Gasolina (1000x)"
+    },
+    "rec_gemblue": {
+      "slug": "blue-gem",
+      "item_id": "328",
+      "image_name": "Blue_Gem",
+      "image_url": "https://www.dododex.com/media/item/Blue_Gem.png",
+      "image_source": "slug",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_Gem_BioLum.PrimalItemResource_Gem_BioLum",
+      "description": "Gema Azul (1000x)",
+      "page_url": "https://www.dododex.com/item/328/blue-gem"
+    },
+    "rec_gemgreen": {
+      "slug": "green-gem",
+      "item_id": "255",
+      "image_name": "Green_Gem",
+      "image_url": "https://www.dododex.com/media/item/Green_Gem.png",
+      "image_source": "slug",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_Gem_Fertile.PrimalItemResource_Gem_Fertile",
+      "description": "Gema Verde (1000x)",
+      "page_url": "https://www.dododex.com/item/255/green-gem"
+    },
+    "rec_gemred": {
+      "slug": "red-gem",
+      "item_id": "327",
+      "image_name": "Red_Gem",
+      "image_url": "https://www.dododex.com/media/item/Red_Gem.png",
+      "image_source": "slug",
+      "blueprint": "/Game/Aberration/CoreBlueprints/Resources/PrimalItemResource_Gem_Element.PrimalItemResource_Gem_Element",
+      "description": "Gema Vermelha (1000x)",
+      "page_url": "https://www.dododex.com/item/327/red-gem"
+    },
+    "rec_gunpowder": {
+      "slug": "gunpowder",
+      "item_id": "336",
+      "image_name": "Gunpowder",
+      "image_url": "https://www.dododex.com/media/item/Gunpowder.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Gunpowder.PrimalItemResource_Gunpowder",
+      "description": "Pólvora (1000x)",
+      "page_url": "https://www.dododex.com/item/336/gunpowder"
+    },
+    "rec_hide": {
+      "slug": "hide",
+      "item_id": "13",
+      "image_name": "Hide",
+      "image_url": "https://www.dododex.com/media/item/Hide.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Hide.PrimalItemResource_Hide",
+      "description": "Couro (1000x)",
+      "page_url": "https://www.dododex.com/item/13/hide"
+    },
+    "rec_honey": {
+      "slug": "giant-bee-honey",
+      "item_id": "294",
+      "image_name": "Giant_Bee_Honey",
+      "image_url": "https://www.dododex.com/media/item/Giant_Bee_Honey.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Honey.PrimalItemConsumable_Honey",
+      "description": "Mel de Abelha Gigante (1000x)",
+      "page_url": "https://www.dododex.com/item/294/giant-bee-honey"
+    },
+    "rec_keratin": {
+      "slug": "keratin",
+      "item_id": "15",
+      "image_name": "Keratin",
+      "image_url": "https://www.dododex.com/media/item/Keratin.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Keratin.PrimalItemResource_Keratin",
+      "description": "Queratina (1000x)",
+      "page_url": "https://www.dododex.com/item/15/keratin"
+    },
+    "rec_manganese": {
+      "slug": null,
+      "item_id": null,
+      "image_name": null,
+      "image_url": null,
+      "image_source": "user_provided",
+      "reference_path": "refs/resource_icons/rec_manganese.png",
+      "reference_note": "Item mod Abyss — ausente no DodoDex; referência fornecida pelo usuário (2026-07-09).",
+      "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
+      "description": "Manganês (1000x)"
+    },
+    "rec_medicalbrew": {
+      "slug": "medical-brew",
+      "item_id": "31",
+      "image_name": "Medical_Brew",
+      "image_url": "https://www.dododex.com/media/item/Medical_Brew.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_HealSoup.PrimalItemConsumable_HealSoup",
+      "description": "Poção Médica (1000x)",
+      "page_url": "https://www.dododex.com/item/31/medical-brew"
+    },
+    "rec_metal": {
+      "slug": "metal",
+      "item_id": "8",
+      "image_name": "Metal",
+      "image_url": "https://www.dododex.com/media/item/Metal.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Metal.PrimalItemResource_Metal",
+      "description": "Metal (1000x)",
+      "page_url": "https://www.dododex.com/item/8/metal"
+    },
+    "rec_metalingot": {
+      "slug": "metal-ingot",
+      "item_id": "252",
+      "image_name": "Metal_Ingot",
+      "image_url": "https://www.dododex.com/media/item/Metal_Ingot.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_MetalIngot.PrimalItemResource_MetalIngot",
+      "description": "Lingote de Metal (1000x)",
+      "page_url": "https://www.dododex.com/item/252/metal-ingot"
+    },
+    "rec_mutagel": {
+      "slug": "mutagel",
+      "item_id": "325",
+      "image_name": "Mutagel",
+      "image_url": "https://www.dododex.com/media/item/Mutagel.png",
+      "image_source": "slug",
+      "blueprint": "/Game/Genesis2/CoreBlueprints/Environment/Mutagen/PrimalItemConsumable_Mutagel.PrimalItemConsumable_Mutagel",
+      "description": "Mutagel (1000x)",
+      "page_url": "https://www.dododex.com/item/325/mutagel"
+    },
+    "rec_narcotic": {
+      "slug": "narcotic",
+      "item_id": "261",
+      "image_name": "Narcotic",
+      "image_url": "https://www.dododex.com/media/item/Narcotic.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Narcotic.PrimalItemConsumable_Narcotic",
+      "description": "Narcótico (1000x)",
+      "page_url": "https://www.dododex.com/item/261/narcotic"
+    },
+    "rec_obsidian": {
+      "slug": "obsidian",
+      "item_id": "9",
+      "image_name": "Obsidian",
+      "image_url": "https://www.dododex.com/media/item/Obsidian.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Obsidian.PrimalItemResource_Obsidian",
+      "description": "Obsidiana (1000x)",
+      "page_url": "https://www.dododex.com/item/9/obsidian"
+    },
+    "rec_oil": {
+      "slug": "oil",
+      "item_id": "10",
+      "image_name": "Oil",
+      "image_url": "https://www.dododex.com/media/item/Oil.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Oil.PrimalItemResource_Oil",
+      "description": "Óleo (1000x)",
+      "page_url": "https://www.dododex.com/item/10/oil"
+    },
+    "rec_organicpolymer": {
+      "slug": "organic-polymer",
+      "item_id": "58",
+      "image_name": "Organic_Polymer",
+      "image_url": "https://www.dododex.com/media/item/Organic_Polymer.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer_Organic.PrimalItemResource_Polymer_Organic",
+      "description": "Polímero Orgânico (1000x)",
+      "page_url": "https://www.dododex.com/item/58/organic-polymer"
+    },
+    "rec_pnegra": {
+      "slug": "black-pearl",
+      "item_id": "177",
+      "image_name": "Black_Pearl",
+      "image_url": "https://www.dododex.com/media/item/Black_Pearl.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_BlackPearl.PrimalItemResource_BlackPearl",
+      "description": "Pérola Negra (1000x)",
+      "page_url": "https://www.dododex.com/item/177/black-pearl"
+    },
+    "rec_polymer": {
+      "slug": "polymer",
+      "item_id": "253",
+      "image_name": "Polymer",
+      "image_url": "https://www.dododex.com/media/item/Polymer.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Polymer.PrimalItemResource_Polymer",
+      "description": "Polímero (1000x)",
+      "page_url": "https://www.dododex.com/item/253/polymer"
+    },
+    "rec_propellant": {
+      "slug": "propellant",
+      "item_id": "1586",
+      "image_name": "Propellant",
+      "image_url": "https://www.dododex.com/media/item/Propellant.png",
+      "image_source": "slug",
+      "blueprint": "/Game/ScorchedEarth/WeaponFlamethrower/PrimalItemResource_Propellant.PrimalItemResource_Propellant",
+      "description": "Propelente (1000x)",
+      "page_url": "https://www.dododex.com/item/1586/propellant"
+    },
+    "rec_rareflower": {
+      "slug": "rare-flower",
+      "item_id": "19",
+      "image_name": "Rare_Flower",
+      "image_url": "https://www.dododex.com/media/item/Rare_Flower.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RareFlower.PrimalItemResource_RareFlower",
+      "description": "Flor Rara (1000x)",
+      "page_url": "https://www.dododex.com/item/19/rare-flower"
+    },
+    "rec_raremushroom": {
+      "slug": "rare-mushroom",
+      "item_id": "18",
+      "image_name": "Rare_Mushroom",
+      "image_url": "https://www.dododex.com/media/item/Rare_Mushroom.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_RareMushroom.PrimalItemResource_RareMushroom",
+      "description": "Cogumelo Raro (1000x)",
+      "page_url": "https://www.dododex.com/item/18/rare-mushroom"
+    },
+    "rec_sand": {
+      "slug": "sand",
+      "item_id": "172",
+      "image_name": "Sand",
+      "image_url": "https://www.dododex.com/media/item/Sand.png",
+      "image_source": "slug",
+      "blueprint": "/Game/ScorchedEarth/CoreBlueprints/Resources/PrimalItemResource_Sand.PrimalItemResource_Sand",
+      "description": "Areia (1000x)",
+      "page_url": "https://www.dododex.com/item/172/sand"
+    },
+    "rec_sap": {
+      "slug": "sap",
+      "item_id": "251",
+      "image_name": "Sap",
+      "image_url": "https://www.dododex.com/media/item/Sap.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sap.PrimalItemResource_Sap",
+      "description": "Seiva (1000x)",
+      "page_url": "https://www.dododex.com/item/251/sap"
+    },
+    "rec_silicon": {
+      "slug": "silicon",
+      "item_id": null,
+      "image_name": "Silicon",
+      "image_url": "https://www.dododex.com/media/item/Silicon.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Silicon.PrimalItemResource_Silicon",
+      "description": "Pó de Cimento (1000x)"
+    },
+    "rec_sparkpowder": {
+      "slug": "sparkpowder",
+      "item_id": "335",
+      "image_name": "Sparkpowder",
+      "image_url": "https://www.dododex.com/media/item/Sparkpowder.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Sparkpowder.PrimalItemResource_Sparkpowder",
+      "description": "Pó de Ignição (1000x)",
+      "page_url": "https://www.dododex.com/item/335/sparkpowder"
+    },
+    "rec_stimulant": {
+      "slug": "stimulant",
+      "item_id": "221",
+      "image_name": "Stimulant",
+      "image_url": "https://www.dododex.com/media/item/Stimulant.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/PrimalItemConsumable_Stimulant.PrimalItemConsumable_Stimulant",
+      "description": "Estimulante (1000x)",
+      "page_url": "https://www.dododex.com/item/221/stimulant"
+    },
+    "rec_stone": {
+      "slug": "stone",
+      "item_id": "6",
+      "image_name": "Stone",
+      "image_url": "https://www.dododex.com/media/item/Stone.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Stone.PrimalItemResource_Stone",
+      "description": "Pedra (1000x)",
+      "page_url": "https://www.dododex.com/item/6/stone"
+    },
+    "rec_thatch": {
+      "slug": "thatch",
+      "item_id": "3",
+      "image_name": "Thatch",
+      "image_url": "https://www.dododex.com/media/item/Thatch.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Thatch.PrimalItemResource_Thatch",
+      "description": "Sapinho (1000x)",
+      "page_url": "https://www.dododex.com/item/3/thatch"
+    },
+    "rec_wood": {
+      "slug": "wood",
+      "item_id": "5",
+      "image_name": "Wood",
+      "image_url": "https://www.dododex.com/media/item/Wood.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Resources/PrimalItemResource_Wood.PrimalItemResource_Wood",
+      "description": "Madeira (1000x)",
+      "page_url": "https://www.dododex.com/item/5/wood"
+    },
+    "rec_wyvernmilk": {
+      "slug": "wyvern-milk",
+      "item_id": "1992",
+      "image_name": "Wyvern_Milk",
+      "image_url": "https://www.dododex.com/media/item/Wyvern_Milk.png",
+      "image_source": "slug",
+      "blueprint": "/Game/PrimalEarth/CoreBlueprints/Items/Consumables/BaseBPs/PrimalItemConsumable_WyvernMilk.PrimalItemConsumable_WyvernMilk",
+      "description": "Leite de Wyvern (10x)",
+      "page_url": "https://www.dododex.com/item/1992/wyvern-milk"
+    }
+  }
+}

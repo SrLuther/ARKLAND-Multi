@@ -235,6 +235,53 @@ def test_restore_ini_syncs_tek_profile_from_backup(tmp_path, monkeypatch):
     assert persisted[-1] == 25.0
 
 
+def test_restore_ini_sync_preserves_active_event(tmp_path, monkeypatch):
+    """Buff restore + _sync_profile_from_ini mantém Easter no perfil e no GUS."""
+    cfg = AsmServerConfig()
+    cfg.install_dir = str(tmp_path)
+    cfg.harvest_amount_multiplier = 25.0
+    cfg.active_event = ""
+    write_ini(cfg)
+
+    monkeypatch.setattr(
+        "src.buff_ini_backups.resolve_ini_backup_root",
+        lambda: tmp_path / "BACKUP" / ".ini",
+    )
+    backup_path = backup_ini_files(cfg, "FarmEvent")
+    assert backup_path is not None
+
+    cfg.active_event = "Easter"
+    write_ini(cfg)
+
+    persisted_events: list[str] = []
+
+    def _persist(_sid: str, srv: AsmServerConfig) -> None:
+        persisted_events.append(srv.active_event)
+
+    mgr = BuffManager(
+        data_dir=Path(tempfile.mkdtemp()),
+        get_server_config=lambda _sid: cfg,
+        start_server=lambda _sid: None,
+        stop_server=lambda _sid: None,
+        get_server_status=lambda _sid: "stopped",
+        persist_server_config=_persist,
+    )
+
+    assert mgr._restore_ini("tek1", backup_path) is True
+    assert cfg.active_event == "Easter"
+    assert persisted_events == ["Easter"]
+
+    gus = (
+        tmp_path
+        / "ShooterGame"
+        / "Saved"
+        / "Config"
+        / "WindowsServer"
+        / "GameUserSettings.ini"
+    )
+    assert "ActiveEvent=Easter" in gus.read_text(encoding="utf-16")
+
+
 def test_stop_active_event_rejects_non_active():
     data_dir = Path(tempfile.mkdtemp())
     event = BuffEvent(
