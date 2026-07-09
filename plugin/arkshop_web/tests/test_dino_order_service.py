@@ -25,6 +25,7 @@ from dino_order_service import (
     configure_dino_order,
     get_pricing_config,
     list_gallery_species,
+    list_player_orders,
     quote,
     reject_order,
 )
@@ -217,6 +218,20 @@ def test_checkout_debits_and_creates_order():
         assert int(row[1]) == 8000
         payload = json.loads(row[2])
         assert payload["order_source"] == ORDER_SOURCE
+    finally:
+        db.close()
+
+
+def test_list_player_orders_includes_species_image_url():
+    db = _app_module._SessionLocal()
+    try:
+        _seed_rex(db)
+        result = checkout(db, USER, _base_spec())
+        db.commit()
+        data = list_player_orders(db, USER)
+        assert data["total"] == 1
+        assert data["orders"][0]["order_id"] == result["order_id"]
+        assert data["orders"][0]["species_image_url"].endswith("/generated/rex.webp")
     finally:
         db.close()
 

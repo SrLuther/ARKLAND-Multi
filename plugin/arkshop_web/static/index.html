@@ -12289,7 +12289,7 @@ async function loadDinoLabHistory() {
                 <td style="font-size:11px;">${escHtml((o.created_at || "").slice(0, 19))}</td>
                 <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
                 <td style="font-size:11px;">${escHtml(o.steam_id)}</td>
-                <td>${escHtml(o.species_display_name || o.species_key || "")}</td>
+                <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
                 <td style="font-size:11px;">${(o.colors || []).join(", ")}</td>
                 <td><span class="badge">${escHtml(o.status)}</span></td>
                 <td style="font-size:11px;max-width:200px;">${escHtml(o.note || "")}</td>
@@ -12327,7 +12327,7 @@ async function loadDinoLabAdmin() {
   const sel = document.getElementById("dl-species");
   if (sel) {
     try {
-      const sp = await fetchJson("/api/admin/custom-dino/species?vanilla_only=1");
+      const sp = await fetchJson("/api/admin/custom-dino/species");
       _dinoLabSpecies = sp.species || [];
       sel.innerHTML = _dinoLabSpecies.map(s =>
         `<option value="${escHtml(s.species_key)}">${escHtml(s.display_name)} (${escHtml(s.mod_source)})</option>`
@@ -13316,9 +13316,19 @@ function _marketSpeciesImageUrl(listingOrSpecies) {
 
 function _marketSpeciesThumbHtml(listingOrSpecies, { size = "card" } = {}) {
   const url = _marketSpeciesImageUrl(listingOrSpecies);
-  const fallback = _MARKET_TIER_IMAGES["B"];
+  const fallback = _marketTierImageUrl(
+    (listingOrSpecies || {}).species_tier
+    || (listingOrSpecies || {}).tier
+    || (listingOrSpecies || {}).effective_category
+    || (((listingOrSpecies || {}).classification_suggestion || {}).tier)
+  );
   const cls = size === "table" ? "market-species-thumb" : "market-listing-card__thumb";
   return `<div class="${cls}"><img src="${escHtml(url)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'" /></div>`;
+}
+
+function _speciesTextWithThumbHtml(entry, label, { size = "table" } = {}) {
+  const text = escHtml(label || entry?.display_name || entry?.species_display_name || entry?.species_key || "—");
+  return `<div style="display:flex;align-items:center;gap:10px;min-width:0;">${_marketSpeciesThumbHtml(entry, { size })}<span style="min-width:0;">${text}</span></div>`;
 }
 
 function setMarketTab(tab) {
@@ -13396,9 +13406,8 @@ function renderEncomendaGallery() {
   }
   if (empty) empty.style.display = "none";
   grid.innerHTML = filtered.map(s => {
-    const thumb = s.image_url
-      ? `<img src="${escHtml(s.image_url)}" alt="" loading="lazy" />`
-      : `<span class="item-card__icon">🦕</span>`;
+    const thumbUrl = _marketSpeciesImageUrl(s);
+    const thumb = `<img src="${escHtml(thumbUrl)}" alt="" loading="lazy" onerror="this.onerror=null;this.src='${escHtml(_marketTierImageUrl(s.tier))}'" />`;
     const tier = s.tier ? `<span class="item-card__tier-badge">${escHtml(s.tier)}</span>` : "";
     const sk = escHtml(s.species_key);
     const sc = parseInt(s.showcase_count, 10) || 0;
@@ -13860,7 +13869,7 @@ async function loadMyAreaDinoOrders() {
     host.innerHTML = `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
       <th>Espécie</th><th>Total</th><th>Status</th><th>Data</th>
     </tr></thead><tbody>${orders.map(o => `<tr>
-      <td>${escHtml(o.species_display_name || o.species_key || "—")}</td>
+      <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
       <td>${formatAmberAmount(o.points_spent || 0)}</td>
       <td><span class="badge">${escHtml(statusLabel[o.status] || o.status)}</span></td>
       <td style="font-size:11px;">${escHtml((o.created_at || "").slice(0, 16))}</td>
@@ -13887,7 +13896,7 @@ async function loadDinoLabEncomendaQueue() {
     </tr></thead><tbody>${orders.map(o => `<tr>
       <td style="font-family:monospace;font-size:11px;">${escHtml(o.order_id)}</td>
       <td style="font-size:11px;">${escHtml(o.steam_id || "")}</td>
-      <td>${escHtml(o.species_display_name || o.species_key || "—")}</td>
+      <td>${_speciesTextWithThumbHtml(o, o.species_display_name || o.species_key || "—")}</td>
       <td>${formatAmberAmount(o.points_spent || 0)}</td>
       <td><span class="badge">${escHtml(o.status)}</span></td>
       <td style="white-space:nowrap;">
@@ -14505,7 +14514,7 @@ function _marketHistorySalesTable(sales) {
       : (s.delivery_status === "aguardando_resgate" ? "color:var(--amber);" : "");
   return `<tr>
     <td style="white-space:nowrap;font-size:11px;">${fmtDate(s.created_at)}</td>
-    <td>${escHtml(_marketHistoryItemTitle(s))}<br><span style="font-size:10px;color:var(--text2);">#${s.listing_id}</span></td>
+    <td>${_speciesTextWithThumbHtml(s, _marketHistoryItemTitle(s))}<br><span style="font-size:10px;color:var(--text2);">#${s.listing_id}</span></td>
     <td>${_marketHistoryBuyerCell(s)}</td>
     <td style="white-space:nowrap;">${Number(s.price_paid || 0).toLocaleString("pt-BR")} Âmbar</td>
     <td style="font-size:12px;${statusStyle}">${escHtml(status)}</td>
@@ -14529,7 +14538,7 @@ function _marketHistoryPurchasesTable(purchases) {
       : `<span style="font-size:12px;color:var(--text2);">—</span>`);
     return `<tr>
     <td style="white-space:nowrap;font-size:11px;">${fmtDate(s.created_at)}</td>
-    <td>${escHtml(_marketHistoryItemTitle(s))}<br><span style="font-size:10px;color:var(--text2);">#${s.listing_id}</span></td>
+    <td>${_speciesTextWithThumbHtml(s, _marketHistoryItemTitle(s))}<br><span style="font-size:10px;color:var(--text2);">#${s.listing_id}</span></td>
     <td>${seller}</td>
     <td style="white-space:nowrap;">${Number(s.price_paid || 0).toLocaleString("pt-BR")} Âmbar</td>
     <td>${claimHtml}</td>

@@ -1,0 +1,598 @@
+{
+  "_comment": "Ícones AI raster — integração opcional via icon_path no registro",
+  "_license": "© ARKLAND — arte original gerada por IA; não são assets do jogo Studio Wildcard",
+  "_frame_style": "dark_metallic_rounded (text-only — never use creature reference images)",
+  "count": 97,
+  "icons": {
+    "astrocetus": {
+      "path": "/species/icons/generated/astrocetus.webp",
+      "display_name": "Astrocetus",
+      "tier": "S",
+      "webp_kb": 7.0
+    },
+    "fenrir": {
+      "path": "/species/icons/generated/fenrir.webp",
+      "display_name": "Fenrir",
+      "tier": "S",
+      "webp_kb": 6.3
+    },
+    "giga": {
+      "path": "/species/icons/generated/giga.webp",
+      "display_name": "Giga",
+      "tier": "S",
+      "webp_kb": 4.1
+    },
+    "bionicgigant": {
+      "path": "/species/icons/generated/bionicgigant.webp",
+      "display_name": "Giga Bionic",
+      "tier": "S",
+      "webp_kb": 4.6
+    },
+    "lionfish_femea": {
+      "path": "/species/icons/generated/lionfish_femea.webp",
+      "display_name": "Lionfish Lion",
+      "tier": "S",
+      "webp_kb": 8.3
+    },
+    "lionfishlion": {
+      "path": "/species/icons/generated/lionfishlion.webp",
+      "display_name": "Lionfish Lion",
+      "tier": "S",
+      "webp_kb": 8.3
+    },
+    "managarmr": {
+      "path": "/species/icons/generated/managarmr.webp",
+      "display_name": "Managarmr",
+      "tier": "S",
+      "webp_kb": 6.9
+    },
+    "rockdrake": {
+      "path": "/species/icons/generated/rockdrake.webp",
+      "display_name": "Rock Drake",
+      "tier": "S",
+      "webp_kb": 7.0
+    },
+    "tekstrider": {
+      "path": "/species/icons/generated/tekstrider.webp",
+      "display_name": "Tek Strider",
+      "tier": "S",
+      "webp_kb": 5.8
+    },
+    "wyvern": {
+      "path": "/species/icons/generated/wyvern.webp",
+      "display_name": "Wyvern",
+      "tier": "S",
+      "webp_kb": 5.1
+    },
+    "crystalwyvern": {
+      "path": "/species/icons/generated/crystalwyvern.webp",
+      "display_name": "Wyvern de Cristal",
+      "tier": "S",
+      "webp_kb": 8.3
+    },
+    "allo": {
+      "path": "/species/icons/generated/allo.webp",
+      "display_name": "Allosaurus",
+      "tier": "A",
+      "webp_kb": 6.0
+    },
+    "basilisk": {
+      "path": "/species/icons/generated/basilisk.webp",
+      "display_name": "Basilisco",
+      "tier": "A",
+      "webp_kb": 8.4
+    },
+    "carcha_femea": {
+      "path": "/species/icons/generated/carcha_femea.webp",
+      "display_name": "Carcha",
+      "tier": "A",
+      "webp_kb": 6.3
+    },
+    "owl": {
+      "path": "/species/icons/generated/owl.webp",
+      "display_name": "Coruja das Neves",
+      "tier": "A",
+      "webp_kb": 6.7
+    },
+    "deinonychus": {
+      "path": "/species/icons/generated/deinonychus.webp",
+      "display_name": "Deinonychus",
+      "tier": "A",
+      "webp_kb": 6.8
+    },
+    "spino": {
+      "path": "/species/icons/generated/spino.webp",
+      "display_name": "Espinosaur",
+      "tier": "A",
+      "webp_kb": 5.5
+    },
+    "ferox": {
+      "path": "/species/icons/generated/ferox.webp",
+      "display_name": "Ferox",
+      "tier": "A",
+      "webp_kb": 7.5
+    },
+    "griffin": {
+      "path": "/species/icons/generated/griffin.webp",
+      "display_name": "Grifo",
+      "tier": "A",
+      "webp_kb": 4.4
+    },
+    "maewing": {
+      "path": "/species/icons/generated/maewing.webp",
+      "display_name": "Maewing",
+      "tier": "A",
+      "webp_kb": 6.4
+    },
+    "magmasaur": {
+      "path": "/species/icons/generated/magmasaur.webp",
+      "display_name": "Magmasaur",
+      "tier": "A",
+      "webp_kb": 8.5
+    },
+    "megachelon": {
+      "path": "/species/icons/generated/megachelon.webp",
+      "display_name": "Megachelon",
+      "tier": "A",
+      "webp_kb": 7.4
+    },
+    "megalosaurus": {
+      "path": "/species/icons/generated/megalosaurus.webp",
+      "display_name": "Megalossauro",
+      "tier": "A",
+      "webp_kb": 6.4
+    },
+    "mosasaurus": {
+      "path": "/species/icons/generated/mosasaurus.webp",
+      "display_name": "Mosasauro",
+      "tier": "A",
+      "webp_kb": 5.3
+    },
+    "quetz": {
+      "path": "/species/icons/generated/quetz.webp",
+      "display_name": "Quetzalcoatlus",
+      "tier": "A",
+      "webp_kb": 4.4
+    },
+    "rex": {
+      "path": "/species/icons/generated/rex.webp",
+      "display_name": "Rex",
+      "tier": "A",
+      "webp_kb": 5.4
+    },
+    "bionicrex": {
+      "path": "/species/icons/generated/bionicrex.webp",
+      "display_name": "Rex Bionic",
+      "tier": "A",
+      "webp_kb": 6.0
+    },
+    "volcanorex": {
+      "path": "/species/icons/generated/volcanorex.webp",
+      "display_name": "Rex Vulcão",
+      "tier": "A",
+      "webp_kb": 6.1
+    },
+    "rhynio": {
+      "path": "/species/icons/generated/rhynio.webp",
+      "display_name": "Rhinognatha",
+      "tier": "A",
+      "webp_kb": 7.1
+    },
+    "theriz": {
+      "path": "/species/icons/generated/theriz.webp",
+      "display_name": "Therizinosaur",
+      "tier": "A",
+      "webp_kb": 6.7
+    },
+    "tropeognathus": {
+      "path": "/species/icons/generated/tropeognathus.webp",
+      "display_name": "Tropeognathus",
+      "tier": "A",
+      "webp_kb": 7.3
+    },
+    "tuso": {
+      "path": "/species/icons/generated/tuso.webp",
+      "display_name": "Tusoteuthis",
+      "tier": "A",
+      "webp_kb": 6.5
+    },
+    "velonasaur": {
+      "path": "/species/icons/generated/velonasaur.webp",
+      "display_name": "Velonasaur",
+      "tier": "A",
+      "webp_kb": 7.0
+    },
+    "yuty": {
+      "path": "/species/icons/generated/yuty.webp",
+      "display_name": "Yutyrannus",
+      "tier": "A",
+      "webp_kb": 7.3
+    },
+    "amargasaurus": {
+      "path": "/species/icons/generated/amargasaurus.webp",
+      "display_name": "Amargassauro",
+      "tier": "B",
+      "webp_kb": 5.7
+    },
+    "andrewsarchus": {
+      "path": "/species/icons/generated/andrewsarchus.webp",
+      "display_name": "Andrewsarchus",
+      "tier": "B",
+      "webp_kb": 5.7
+    },
+    "ankylo": {
+      "path": "/species/icons/generated/ankylo.webp",
+      "display_name": "Anquilossauro",
+      "tier": "B",
+      "webp_kb": 7.6
+    },
+    "argent": {
+      "path": "/species/icons/generated/argent.webp",
+      "display_name": "Argentavis",
+      "tier": "B",
+      "webp_kb": 5.5
+    },
+    "baryonyx": {
+      "path": "/species/icons/generated/baryonyx.webp",
+      "display_name": "Baryonyx",
+      "tier": "B",
+      "webp_kb": 7.1
+    },
+    "basilosaurus": {
+      "path": "/species/icons/generated/basilosaurus.webp",
+      "display_name": "Basilossauro",
+      "tier": "B",
+      "webp_kb": 6.5
+    },
+    "bloodstalker": {
+      "path": "/species/icons/generated/bloodstalker.webp",
+      "display_name": "Bloodstalker",
+      "tier": "B",
+      "webp_kb": 4.9
+    },
+    "carno": {
+      "path": "/species/icons/generated/carno.webp",
+      "display_name": "Carnotauro",
+      "tier": "B",
+      "webp_kb": 5.2
+    },
+    "castoroides": {
+      "path": "/species/icons/generated/castoroides.webp",
+      "display_name": "Castoroides",
+      "tier": "B",
+      "webp_kb": 5.9
+    },
+    "daeodon": {
+      "path": "/species/icons/generated/daeodon.webp",
+      "display_name": "Daeodon",
+      "tier": "B",
+      "webp_kb": 5.5
+    },
+    "desmodus": {
+      "path": "/species/icons/generated/desmodus.webp",
+      "display_name": "Desmodus",
+      "tier": "B",
+      "webp_kb": 5.6
+    },
+    "dinopithecus": {
+      "path": "/species/icons/generated/dinopithecus.webp",
+      "display_name": "Dinopithecus",
+      "tier": "B",
+      "webp_kb": 6.2
+    },
+    "doedicurus": {
+      "path": "/species/icons/generated/doedicurus.webp",
+      "display_name": "Doedicurus",
+      "tier": "B",
+      "webp_kb": 7.5
+    },
+    "dunkle": {
+      "path": "/species/icons/generated/dunkle.webp",
+      "display_name": "Dunkleosteus",
+      "tier": "B",
+      "webp_kb": 6.3
+    },
+    "fjordhawk": {
+      "path": "/species/icons/generated/fjordhawk.webp",
+      "display_name": "Fjordhawk",
+      "tier": "B",
+      "webp_kb": 6.1
+    },
+    "gacha": {
+      "path": "/species/icons/generated/gacha.webp",
+      "display_name": "Gacha",
+      "tier": "B",
+      "webp_kb": 6.1
+    },
+    "gasbags": {
+      "path": "/species/icons/generated/gasbags.webp",
+      "display_name": "Gasbags",
+      "tier": "B",
+      "webp_kb": 7.4
+    },
+    "kaprosuchus": {
+      "path": "/species/icons/generated/kaprosuchus.webp",
+      "display_name": "Kaprosuchus",
+      "tier": "B",
+      "webp_kb": 6.2
+    },
+    "direwolf": {
+      "path": "/species/icons/generated/direwolf.webp",
+      "display_name": "Lobo Gigante",
+      "tier": "B",
+      "webp_kb": 5.8
+    },
+    "mantis": {
+      "path": "/species/icons/generated/mantis.webp",
+      "display_name": "Louva-a-deus",
+      "tier": "B",
+      "webp_kb": 6.6
+    },
+    "mammoth": {
+      "path": "/species/icons/generated/mammoth.webp",
+      "display_name": "Mamute",
+      "tier": "B",
+      "webp_kb": 6.1
+    },
+    "megalodon": {
+      "path": "/species/icons/generated/megalodon.webp",
+      "display_name": "Megalodon",
+      "tier": "B",
+      "webp_kb": 7.5
+    },
+    "megatherium": {
+      "path": "/species/icons/generated/megatherium.webp",
+      "display_name": "Megatherium",
+      "tier": "B",
+      "webp_kb": 8.2
+    },
+    "paracer": {
+      "path": "/species/icons/generated/paracer.webp",
+      "display_name": "Paraceratherium",
+      "tier": "B",
+      "webp_kb": 6.3
+    },
+    "plesiosaur": {
+      "path": "/species/icons/generated/plesiosaur.webp",
+      "display_name": "Plesiossauro",
+      "tier": "B",
+      "webp_kb": 5.3
+    },
+    "procoptodon": {
+      "path": "/species/icons/generated/procoptodon.webp",
+      "display_name": "Procoptodon",
+      "tier": "B",
+      "webp_kb": 6.1
+    },
+    "purlovia": {
+      "path": "/species/icons/generated/purlovia.webp",
+      "display_name": "Purlovia",
+      "tier": "B",
+      "webp_kb": 5.6
+    },
+    "sarco": {
+      "path": "/species/icons/generated/sarco.webp",
+      "display_name": "Sarcosuchus",
+      "tier": "B",
+      "webp_kb": 6.0
+    },
+    "sabertooth": {
+      "path": "/species/icons/generated/sabertooth.webp",
+      "display_name": "Smilodonte",
+      "tier": "B",
+      "webp_kb": 5.2
+    },
+    "stego": {
+      "path": "/species/icons/generated/stego.webp",
+      "display_name": "Stegossauro",
+      "tier": "B",
+      "webp_kb": 5.4
+    },
+    "tapejara": {
+      "path": "/species/icons/generated/tapejara.webp",
+      "display_name": "Tapejara",
+      "tier": "B",
+      "webp_kb": 5.5
+    },
+    "thyla": {
+      "path": "/species/icons/generated/thyla.webp",
+      "display_name": "Thylacoleo",
+      "tier": "B",
+      "webp_kb": 6.2
+    },
+    "achatina": {
+      "path": "/species/icons/generated/achatina.webp",
+      "display_name": "Achatina",
+      "tier": "C",
+      "webp_kb": 8.3
+    },
+    "bronto": {
+      "path": "/species/icons/generated/bronto.webp",
+      "display_name": "Brontossauro",
+      "tier": "C",
+      "webp_kb": 5.4
+    },
+    "carbonemys": {
+      "path": "/species/icons/generated/carbonemys.webp",
+      "display_name": "Carbonemys",
+      "tier": "C",
+      "webp_kb": 5.7
+    },
+    "compy": {
+      "path": "/species/icons/generated/compy.webp",
+      "display_name": "Compy",
+      "tier": "C",
+      "webp_kb": 4.6
+    },
+    "dimorph": {
+      "path": "/species/icons/generated/dimorph.webp",
+      "display_name": "Dimorphodon",
+      "tier": "C",
+      "webp_kb": 4.9
+    },
+    "diplodocus": {
+      "path": "/species/icons/generated/diplodocus.webp",
+      "display_name": "Diplodocus",
+      "tier": "C",
+      "webp_kb": 5.1
+    },
+    "dodo": {
+      "path": "/species/icons/generated/dodo.webp",
+      "display_name": "Dodo",
+      "tier": "C",
+      "webp_kb": 6.3
+    },
+    "equus": {
+      "path": "/species/icons/generated/equus.webp",
+      "display_name": "Equus",
+      "tier": "C",
+      "webp_kb": 5.7
+    },
+    "pulmonoscorpius": {
+      "path": "/species/icons/generated/pulmonoscorpius.webp",
+      "display_name": "Escorpião",
+      "tier": "C",
+      "webp_kb": 5.6
+    },
+    "gallimimus": {
+      "path": "/species/icons/generated/gallimimus.webp",
+      "display_name": "Gallimimus",
+      "tier": "C",
+      "webp_kb": 4.5
+    },
+    "jerboa": {
+      "path": "/species/icons/generated/jerboa.webp",
+      "display_name": "Gerboa",
+      "tier": "C",
+      "webp_kb": 5.9
+    },
+    "iguanodon": {
+      "path": "/species/icons/generated/iguanodon.webp",
+      "display_name": "Iguanodonte",
+      "tier": "C",
+      "webp_kb": 5.4
+    },
+    "kairuku": {
+      "path": "/species/icons/generated/kairuku.webp",
+      "display_name": "Kairuku",
+      "tier": "C",
+      "webp_kb": 6.6
+    },
+    "otter": {
+      "path": "/species/icons/generated/otter.webp",
+      "display_name": "Lontra",
+      "tier": "C",
+      "webp_kb": 4.9
+    },
+    "lystrosaurus": {
+      "path": "/species/icons/generated/lystrosaurus.webp",
+      "display_name": "Lystrossauro",
+      "tier": "C",
+      "webp_kb": 7.8
+    },
+    "para": {
+      "path": "/species/icons/generated/para.webp",
+      "display_name": "Parasaurolophus",
+      "tier": "C",
+      "webp_kb": 6.9
+    },
+    "pelagornis": {
+      "path": "/species/icons/generated/pelagornis.webp",
+      "display_name": "Pelagornis",
+      "tier": "C",
+      "webp_kb": 4.4
+    },
+    "phiomia": {
+      "path": "/species/icons/generated/phiomia.webp",
+      "display_name": "Phiomia",
+      "tier": "C",
+      "webp_kb": 5.4
+    },
+    "ptera": {
+      "path": "/species/icons/generated/ptera.webp",
+      "display_name": "Pteranodonte",
+      "tier": "C",
+      "webp_kb": 4.8
+    },
+    "raptor": {
+      "path": "/species/icons/generated/raptor.webp",
+      "display_name": "Raptor",
+      "tier": "C",
+      "webp_kb": 5.6
+    },
+    "sinomacrops": {
+      "path": "/species/icons/generated/sinomacrops.webp",
+      "display_name": "Sinomacrops",
+      "tier": "C",
+      "webp_kb": 6.5
+    },
+    "titanboa": {
+      "path": "/species/icons/generated/titanboa.webp",
+      "display_name": "Titanoboa",
+      "tier": "C",
+      "webp_kb": 6.6
+    },
+    "trike": {
+      "path": "/species/icons/generated/trike.webp",
+      "display_name": "Triceratops",
+      "tier": "C",
+      "webp_kb": 6.1
+    },
+    "beaver": {
+      "path": "/species/icons/generated/castoroides.webp",
+      "display_name": "Castoroides",
+      "tier": "B",
+      "webp_kb": 5.9,
+      "canonical_species_key": "castoroides"
+    },
+    "doed": {
+      "path": "/species/icons/generated/doedicurus.webp",
+      "display_name": "Doedicurus",
+      "tier": "B",
+      "webp_kb": 7.5,
+      "canonical_species_key": "doedicurus"
+    },
+    "deinonychus_femea": {
+      "path": "/species/icons/generated/deinonychus.webp",
+      "display_name": "Deinonychus",
+      "tier": "B",
+      "webp_kb": 6.8,
+      "canonical_species_key": "deinonychus"
+    },
+    "tekstrider_femea": {
+      "path": "/species/icons/generated/tekstrider.webp",
+      "display_name": "Tek Strider",
+      "tier": "S+",
+      "webp_kb": 5.8,
+      "canonical_species_key": "tekstrider"
+    },
+    "gigant": {
+      "path": "/species/icons/generated/giga.webp",
+      "display_name": "Giganotossauro",
+      "tier": "S+",
+      "webp_kb": 4.1,
+      "canonical_species_key": "giga"
+    },
+    "giganotosaurus": {
+      "path": "/species/icons/generated/giga.webp",
+      "display_name": "giganotosaurus",
+      "tier": "S",
+      "webp_kb": 4.1,
+      "canonical_species_key": "giga"
+    },
+    "megalosaurus_femea": {
+      "path": "/species/icons/generated/megalosaurus.webp",
+      "display_name": "Megalosaurus",
+      "tier": "B",
+      "webp_kb": 6.4,
+      "canonical_species_key": "megalosaurus"
+    },
+    "megalosaurus_aberrant_femea": {
+      "path": "/species/icons/generated/megalosaurus.webp",
+      "display_name": "Megalosaurus Aberrante",
+      "tier": "B",
+      "webp_kb": 6.4,
+      "canonical_species_key": "megalosaurus"
+    }
+  }
+}

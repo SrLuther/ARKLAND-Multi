@@ -259,10 +259,14 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
                     if not key or key in seen:
                         continue
                     defn = defaults.get(key, {})
-                    bp = str(row.blueprint_path or "").strip() or _blueprint_from_catalog(defn)
+                    bp = (
+                        str(row.blueprint_path or "").strip()
+                        or _blueprint_from_catalog(defn)
+                        or _blueprint_from_catalog_item(key)
+                    )
                     if not bp:
                         continue
-                    mod = str(defn.get("mod_source") or "vanilla")
+                    mod = _infer_mod_source(bp, defn)
                     if vanilla_only and mod != "vanilla":
                         continue
                     seen.add(key)
@@ -284,10 +288,14 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
     ):
         if key in seen:
             continue
-        bp = str(defn.get("blueprint_path") or "").strip() or _blueprint_from_catalog(defn)
+        bp = (
+            str(defn.get("blueprint_path") or "").strip()
+            or _blueprint_from_catalog(defn)
+            or _blueprint_from_catalog_item(key)
+        )
         if not bp:
             continue
-        mod = str(defn.get("mod_source") or "vanilla")
+        mod = _infer_mod_source(bp, defn)
         if vanilla_only and mod != "vanilla":
             continue
         seen.add(key)
@@ -301,11 +309,24 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
     return items
 
 
-def _blueprint_from_catalog(defn: dict[str, Any]) -> str:
-    ref_id = str(
-        defn.get("reference_catalog_item_id") or defn.get("catalog_item_id") or ""
-    ).strip()
-    if not ref_id:
+def _infer_mod_source(blueprint: str, defn: dict[str, Any] | None = None) -> str:
+    """Rótulo de origem — defaults JSON ou pasta do mod no blueprint."""
+    defn = defn or {}
+    mod = str(defn.get("mod_source") or "").strip()
+    if mod and mod != "vanilla":
+        return mod
+    inner = _blueprint_inner(blueprint).lower()
+    if "/game/mods/" in inner:
+        parts = inner.split("/game/mods/", 1)[1].split("/")
+        if parts and parts[0]:
+            return parts[0].replace(" ", "_").lower()
+    return mod or "vanilla"
+
+
+def _blueprint_from_catalog_item(item_id: str) -> str:
+    """Blueprint de um item Type:dino do config.json (ex.: sb_drake_fire)."""
+    item_id = str(item_id or "").strip()
+    if not item_id:
         return ""
     try:
         from market_economy import _catalog_item_blueprint
@@ -313,13 +334,27 @@ def _blueprint_from_catalog(defn: dict[str, Any]) -> str:
         from app import _read_shop_config
 
         catalog = _read_shop_config()
-        items = catalog.get("Items") or catalog.get("items") or {}
-        entry = items.get(ref_id) or items.get(ref_id.lower())
-        if isinstance(entry, dict):
+        items = (
+            catalog.get("Items")
+            or catalog.get("items")
+            or catalog.get("ShopItems")
+            or {}
+        )
+        entry = items.get(item_id) or items.get(item_id.lower())
+        if isinstance(entry, dict) and str(entry.get("Type") or "").lower() == "dino":
             return str(_catalog_item_blueprint(entry) or "").strip()
     except Exception as exc:
-        log.debug("blueprint catalog lookup: %s", exc)
+        log.debug("blueprint catalog item lookup: %s", exc)
     return ""
+
+
+def _blueprint_from_catalog(defn: dict[str, Any]) -> str:
+    ref_id = str(
+        defn.get("reference_catalog_item_id") or defn.get("catalog_item_id") or ""
+    ).strip()
+    if not ref_id:
+        return ""
+    return _blueprint_from_catalog_item(ref_id)
 
 
 def calc_spawn_exact_level(wild_stats: list[int], tamed_stats: list[int]) -> int:
@@ -352,18 +387,67 @@ def _normalize_imprint_pct(raw: Any) -> float:
     return max(0.0, min(1.0, pct))
 
 
+def _resolve_species_from_db(species_key: str) -> dict[str, Any] | None:
+    """Resolve espécie homologada em market_species (feed do catálogo)."""
+    try:
+        import app as app_module
+
+        session_factory = app_module._SessionLocal
+        if session_factory is None:
+            return None
+        from app import MarketSpecies
+
+        db = session_factory()
+        try:
+            row = (
+                db.query(MarketSpecies)
+                .filter(MarketSpecies.species_key == species_key)
+                .filter(MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")))
+                .first()
+            )
+            if not row:
+                return None
+            defn = _species_catalog().get(species_key, {})
+            bp = (
+                str(row.blueprint_path or "").strip()
+                or _blueprint_from_catalog(defn)
+                or _blueprint_from_catalog_item(species_key)
+            )
+            if not bp:
+                return None
+            return {
+                "species_key": species_key,
+                "display_name": str(row.display_name or defn.get("display_name") or species_key),
+                "species_blueprint": _format_blueprint(bp),
+                "mod_source": _infer_mod_source(bp, defn),
+            }
+        finally:
+            db.close()
+    except Exception as exc:
+        log.debug("_resolve_species_from_db: %s", exc)
+    return None
+
+
 def _resolve_species(species_key: str) -> dict[str, Any] | None:
-    defn = _species_catalog().get(species_key)
-    if not defn:
+    species_key = str(species_key or "").strip()
+    if not species_key:
         return None
-    bp = str(defn.get("blueprint_path") or "").strip() or _blueprint_from_catalog(defn)
+
+    defn = _species_catalog().get(species_key, {})
+    bp = (
+        str(defn.get("blueprint_path") or "").strip()
+        or _blueprint_from_catalog(defn)
+        or _blueprint_from_catalog_item(species_key)
+    )
+    display_name = str(defn.get("display_name") or species_key)
+
     if not bp:
-        return None
+        return _resolve_species_from_db(species_key)
     return {
         "species_key": species_key,
-        "display_name": str(defn.get("display_name") or species_key),
+        "display_name": display_name,
         "species_blueprint": _format_blueprint(bp),
-        "mod_source": str(defn.get("mod_source") or "vanilla"),
+        "mod_source": _infer_mod_source(bp, defn),
     }
 
 
@@ -598,14 +682,24 @@ def _iso_dt(val: Any) -> str | None:
 
 def order_to_admin_dict(row: Any) -> dict[str, Any]:
     payload = _parse_payload(_row_val(row, "payload_json"))
+    species_key = payload.get("species_key")
+    species_tier = payload.get("tier")
+    species_image_url = ""
+    try:
+        from ark_species_registry import resolve_species_image_for_key
+
+        species_image_url = resolve_species_image_for_key(species_key, tier=species_tier)
+    except Exception:
+        species_image_url = ""
     return {
         "order_id": str(_row_val(row, "order_id", "")),
         "steam_id": str(_row_val(row, "steam_id", "")),
         "status": str(_row_val(row, "status", "")),
         "server_id": str(_row_val(row, "server_id", "") or ""),
         "original_order_id": _row_val(row, "original_order_id"),
-        "species_key": payload.get("species_key"),
+        "species_key": species_key,
         "species_display_name": payload.get("species_display_name"),
+        "species_image_url": species_image_url,
         "level": payload.get("level"),
         "gender": payload.get("gender"),
         "colors": payload.get("colors"),

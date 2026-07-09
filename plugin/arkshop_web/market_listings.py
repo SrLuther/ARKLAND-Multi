@@ -2322,8 +2322,10 @@ def player_market_history(db: Session, steam_id: str, *, limit: int = 50) -> dic
         species_row = species_by_key.get(listing.species_key or "")
         pub = listing_to_public(listing, species_row=species_row)
         return {
+            "species_key": pub.get("species_key"),
             "display_title": pub.get("display_title"),
             "species_display_name": pub.get("species_display_name"),
+            "species_image_url": pub.get("species_image_url"),
             "custom_name": pub.get("custom_name"),
             "dino_display_name": pub.get("dino_display_name"),
             "status": listing.status,

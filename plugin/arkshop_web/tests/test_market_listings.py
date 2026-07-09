@@ -229,11 +229,13 @@ def test_player_market_history_shows_buyer_for_seller():
         assert sale["price_paid"] == 5500
         assert sale["delivery_status"] == "aguardando_resgate"
         assert sale["display_title"] or sale["custom_name"]
+        assert sale["species_image_url"]
 
         assert len(history["purchases"]) == 0
         buyer_history = player_market_history(db, BUYER)
         assert len(buyer_history["purchases"]) == 1
         assert buyer_history["purchases"][0]["seller_display_name"] == "SellerOne"
+        assert buyer_history["purchases"][0]["species_image_url"]
     finally:
         db.close()
 

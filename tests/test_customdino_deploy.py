@@ -41,3 +41,25 @@ def test_sync_customdino_only_updates_config(tmp_path: Path) -> None:
     data = __import__("json").loads(cfg.read_text(encoding="utf-8"))
     assert data["WebApiUrl"] == "http://new"
     assert data["WebApiKey"] == "key123"
+
+
+def test_sync_customdino_propagates_spawn_exact_flag(tmp_path: Path) -> None:
+    cfg = tmp_path / "config.json"
+    cfg.write_text('{"UseSpawnExact": false}', encoding="utf-8")
+    sync_customdino_at_path(
+        cfg,
+        "http://new",
+        "key123",
+        settings={"custom_dino_spawn_exact": True},
+    )
+    data = __import__("json").loads(cfg.read_text(encoding="utf-8"))
+    assert data["UseSpawnExact"] is True
+
+    sync_customdino_at_path(
+        cfg,
+        "http://new",
+        "key123",
+        settings={"custom_dino_spawn_exact": False},
+    )
+    data = __import__("json").loads(cfg.read_text(encoding="utf-8"))
+    assert data["UseSpawnExact"] is False

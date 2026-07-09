@@ -2805,6 +2805,10 @@ def sync_customdino_at_path(
             merged["GroundFallbackOnFullInventory"] = bool(
                 settings.get("custom_dino_ground_fallback", True)
             )
+        if "custom_dino_spawn_exact" in settings:
+            merged["UseSpawnExact"] = bool(
+                settings.get("custom_dino_spawn_exact", False)
+            )
     save_plugin_config(plugin_path, merged)
 
 

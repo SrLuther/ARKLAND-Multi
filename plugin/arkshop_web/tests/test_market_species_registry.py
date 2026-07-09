@@ -135,7 +135,7 @@ def test_tier_icon_url_fallback():
 
 def test_resolve_species_image_custom_and_fallback():
     entry = {"species_key": "rex", "tier": "A", "icon_path": "rex.png"}
-    assert resolve_species_image(entry) == "/species/rex.png"
+    assert resolve_species_image(entry).endswith("/species/icons/generated/rex.webp")
     assert resolve_species_image({"image_url": "https://cdn.example/rex.webp"}) == "https://cdn.example/rex.webp"
     assert resolve_species_image(None, tier="C").endswith("tier-c.svg")
 
@@ -143,14 +143,14 @@ def test_resolve_species_image_custom_and_fallback():
 def test_lookup_includes_image_url():
     hit = lookup_species(species_key="ankylo")
     assert hit is not None
-    assert hit["image_url"] == "/species/icons/ankylo.svg"
+    assert hit["image_url"].endswith("/species/icons/generated/ankylo.webp")
 
 
 def test_lookup_shop_rex_uses_species_icon():
     bp = "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
     hit = lookup_species(blueprint=bp, name_hint="Rex Fêmea")
     assert hit is not None
-    assert hit["image_url"].endswith("/rex.svg")
+    assert hit["image_url"].endswith("/species/icons/generated/rex.webp")
 
 
 def test_bundled_icons_from_meipass_layout(tmp_path, monkeypatch):
@@ -164,3 +164,8 @@ def test_bundled_icons_from_meipass_layout(tmp_path, monkeypatch):
     _bundled_species_icon_urls.cache_clear()
     urls = _bundled_species_icon_urls()
     assert urls.get("rex") == "/species/icons/rex.svg"
+
+
+def test_resolve_species_image_prefers_bundled_local_asset():
+    entry = {"species_key": "rex", "tier": "A", "image_url": "/species/icons/rex.svg"}
+    assert resolve_species_image(entry).endswith("/species/icons/generated/rex.webp")

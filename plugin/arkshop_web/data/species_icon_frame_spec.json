@@ -1,0 +1,108 @@
+{
+  "_comment": "Moldura canônica ARKLAND para ícones AI de espécies — baseada em generated/carno.webp. Usado por tools/generate_ai_species_icons.py.",
+  "_version": "1.0.0",
+  "_canonical_reference": {
+    "generated_webp": "plugin/arkshop_web/static/species/icons/generated/carno.webp",
+    "frame_template_png": "refs/species_icons/_frame_template_carno.png",
+    "demo_copy": "plugin/arkshop_web/static/species/icons/demo/frame_standard_carno.png"
+  },
+  "canvas": {
+    "aspect_ratio": "1:1",
+    "output_size_px": 256,
+    "raw_size_px": 1024
+  },
+  "zones": {
+    "outer_frame": {
+      "shape": "rounded_square",
+      "corner_radius_pct": 12,
+      "material": "dark weathered gunmetal / brushed steel",
+      "edge_style": "beveled with silver highlights upper-left, shadow lower-right",
+      "texture": "subtle scratches, scuffs, industrial survival aesthetic",
+      "corner_details": "diagonal corner notches — four joined metal segments",
+      "color_base": "#3a3f47",
+      "color_highlight": "#8a9098",
+      "color_shadow": "#1e2228",
+      "border_width_pct": 8
+    },
+    "portrait_inset": {
+      "background": "#1a1a2e",
+      "inset_from_frame_pct": 10,
+      "description": "Solid dark navy — no scenery, no gradients beyond rim light on creature"
+    },
+    "ark_logo": {
+      "placement": "top_right_on_frame_band",
+      "size_pct_of_icon": 10,
+      "style": "ARK Survival Evolved official-style logo, small, legible at 256px",
+      "padding_from_edge_pct": 3
+    },
+    "creature_name": {
+      "placement": "bottom_center_on_frame_band",
+      "text": "{display_name}",
+      "font_style": "bold condensed sans-serif, all-caps or title case matching display_name",
+      "color": "#e8e4dc",
+      "shadow": "subtle dark drop shadow for legibility on metal",
+      "max_width_pct": 85
+    },
+    "tier_badge": {
+      "placement": "top_left_on_frame_band",
+      "shape": "rounded_square",
+      "size_pct_of_icon": 14,
+      "padding_from_edge_pct": 3,
+      "fill": "#2a1f14",
+      "border_color": "#e8912d",
+      "border_width_px_at_256": 2,
+      "letter_color": "#f0a030",
+      "letter_style": "bold sans-serif, centered",
+      "letter": "{tier}"
+    }
+  },
+  "tier_legend": {
+    "S+": {
+      "label": "Apex / boss / tek",
+      "description_pt": "Breeding extremamente difícil ou raro",
+      "badge_letter": "S+"
+    },
+    "S": {
+      "label": "Apex PvP",
+      "description_pt": "Linhagens premium (Giga, Bionic, Lionfish)",
+      "badge_letter": "S"
+    },
+    "A": {
+      "label": "Meta breeding",
+      "description_pt": "Alto impacto competitivo (Rex, Carcha)",
+      "badge_letter": "A"
+    },
+    "B": {
+      "label": "Intermediário",
+      "description_pt": "Utilidade ou breeding moderado",
+      "badge_letter": "B"
+    },
+    "C": {
+      "label": "Entrada",
+      "description_pt": "Mais acessível na loja, stats ainda relevantes",
+      "badge_letter": "C"
+    }
+  },
+  "tier_resolution": {
+    "primary": "plugin/arkshop_web/data/market_species_defaults.json → species[].tier",
+    "fallback": "plugin/arkshop_web/data/official_vanilla_species.json (gerado por build_official_species_list)",
+    "default": "B"
+  },
+  "reference_policy": {
+    "creature_reference": "refs/species_icons/{species_key}.png — anatomy/silhouette ONLY inside portrait inset",
+    "frame_reference": "refs/species_icons/_frame_template_carno.png — frame layout ONLY; do NOT copy creature from frame template",
+    "never": "Do not use creature reference images for frame geometry or tier badge placement"
+  },
+  "prompt_rules": [
+    "IDENTICAL frame layout for every species — only tier badge letter and creature name text change",
+    "Creature bust/portrait inside inset; reference image guides anatomy only",
+    "ARK logo + display name + tier badge are mandatory on every icon",
+    "Do not omit frame, badge, or name even if reference image is plain black background",
+    "RECOMMENDED: creature_bust_prompt + composite_standard_icon() (PIL) — mais confiável que IA desenhar a moldura"
+  ],
+  "compositing": {
+    "recommended": true,
+    "function": "composite_standard_icon",
+    "cli_proof": "python tools/generate_ai_species_icons.py --composite-proof KEY --creature bust.png"
+  }
+}

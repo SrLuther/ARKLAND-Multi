@@ -1,0 +1,32 @@
+﻿--- REGEN: bloodstalker (Bloodstalker) ---
+reference_image: C:\Users\Ciano\Documents\arkland-multi\refs\species_icons\bloodstalker.png
+
+Square 1:1 ARK Survival Evolved game UI icon.
+species_key: bloodstalker
+Creature: Bloodstalker (Bloodstalker)
+Habitat: land
+
+MANDATORY distinctive anatomy:
+- large spindly arachnid/insectoid creature ÔÇö unique Bloodstalker silhouette
+- SIX long thin HIGH-ARCHED legs rising well above the compact central body
+- small compact segmented central body suspended between leg arches
+- large reddish-pink wing-like MEMBRANES stretched BETWEEN upper leg segments ÔÇö NOT bat wings on back
+- dark charcoal/grey/deep purple chitinous exoskeleton
+- small head with mandibles and multiple small eyes
+- NOT generic spider (no 8 legs), NOT crab, NOT mantis
+
+DO NOT include: 8-legged spider, bat wings on back, crab claws, mantis forearms, glowing lava veins, T-Rex, generic arachnid
+
+Composition: creature bust/portrait close-up, three-quarter view, species instantly recognizable at thumbnail size.
+Thick dark weathered metallic rounded-square frame with beveled gunmetal edges and subtle scratches. Inside frame: solid dark navy background #1a1a2e.
+Caution: solid dark navy #1a1a2e background only ÔÇö no scenery beyond habitat cues.
+Cinematic rim lighting from upper right, high-detail textures.
+No text, no watermark, no logo.
+REFERENCE IMAGE (user-provided anatomy guide: bloodstalker.png):
+Match ONLY the silhouette, head shape, body proportions, and distinctive anatomy shown in the reference.
+Reproduce that creature's identity at thumbnail size ÔÇö do NOT copy frame, background, colors, or lighting from the reference.
+Do NOT borrow anatomy from any other ARK creature (no rex jaws on mosa, no elephant trunk on phiomia, etc.).
+The reference confirms this is Bloodstalker (bloodstalker) ÔÇö stay faithful to that species.
+
+
+Next: generate raw/bloodstalker.png ÔåÆ python generate_ai_species_icons.py --compress-only --force-compress

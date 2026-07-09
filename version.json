@@ -1,10 +1,9 @@
 {
-    "version": "1.10.15",
-    "date": "2026-07-08",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.15/ARKLAND-Multi-Setup-v1.10.15.exe",
+    "version": "1.10.16",
+    "date": "2026-07-09",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.16/ARKLAND-Multi-Setup-v1.10.16.exe",
     "changelog": [
-        "Feat (Web Store): auto-feed do catálogo CustomShop para Mercado e Dino Lab com deduplicação forte (blueprint, espécie e nome).",
-        "Fix (CustomShop / Abyssal): blueprint paths corrigidos — segmento /Abyssal/ alinhado ao padrão wiki em config, registry e testes.",
-        "Fix (Eventos Sazonais): após restaurar backup INI, perfil TEK/ASM é ressincronizado em memória e persistência (rates do evento não ficam presos)."
+        "Improvement (Web Store / Ícones): resolução canônica dos novos WebPs unificada entre registro de espécies, Mercado, Encomenda Dino, Dino Lab e históricos/admin com fallback consistente por tier.",
+        "Feature (Web Store / Ícones): manifesto expandido com novos ícones WebP oficiais e aliases visuais para criaturas vanilla exibidas na loja."
     ]
 }

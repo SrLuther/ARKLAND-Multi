@@ -3,11 +3,19 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.15"
-BUILD_DATE: str = "2026-07-08"
+APP_VERSION: str = "1.10.16"
+BUILD_DATE: str = "2026-07-09"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.16",
+        "date": "2026-07-09",
+        "changes": [
+            "Improvement (Web Store / Ícones): resolução canônica dos novos WebPs unificada entre registro de espécies, Mercado, Encomenda Dino, Dino Lab e históricos/admin com fallback consistente por tier.",
+            "Feature (Web Store / Ícones): manifesto expandido com novos ícones WebP oficiais e aliases visuais para criaturas vanilla exibidas na loja.",
+        ],
+    },
     {
         "version": "1.10.15",
         "date": "2026-07-08",

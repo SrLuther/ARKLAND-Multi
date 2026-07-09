@@ -1,0 +1,30 @@
+﻿--- REGEN: deinonychus (Deinonychus) ---
+reference_image: C:\Users\Ciano\Documents\arkland-multi\refs\species_icons\deinonychus.png
+
+Square 1:1 ARK Survival Evolved game UI icon.
+species_key: deinonychus
+Creature: Deinonychus (Deinonychus)
+Habitat: land
+
+MANDATORY distinctive anatomy:
+- medium raptor with sickle claw
+- feathered body
+- small head with snout crest
+- NOT T-Rex size
+
+DO NOT include: T-Rex massive head, mosasaur
+
+Composition: creature bust/portrait close-up, three-quarter view, species instantly recognizable at thumbnail size.
+Thick dark weathered metallic rounded-square frame with beveled gunmetal edges and subtle scratches. Inside frame: solid dark navy background #1a1a2e.
+Caution: solid dark navy #1a1a2e background only ÔÇö no scenery beyond habitat cues.
+Cinematic rim lighting from upper right, high-detail textures.
+No text, no watermark, no logo.
+REFERENCE IMAGE (user-provided anatomy guide: deinonychus.png):
+Match ONLY the silhouette, head shape, body proportions, and distinctive anatomy shown in the reference.
+Reproduce that creature's identity at thumbnail size ÔÇö do NOT copy frame, background, colors, or lighting from the reference.
+Do NOT borrow anatomy from any other ARK creature (no rex jaws on mosa, no elephant trunk on phiomia, etc.).
+The reference confirms this is Deinonychus (deinonychus) ÔÇö stay faithful to that species.
+
+Aliases to sync after regen: deinonychus_femea
+
+Next: generate raw/deinonychus.png ÔåÆ python generate_ai_species_icons.py --compress-only --force-compress

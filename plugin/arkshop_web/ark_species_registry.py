@@ -36,6 +36,8 @@ def _bundle_dir() -> Path:
 
 def _data_dir() -> Path:
     """Dev: plugin/arkshop_web/data — PyInstaller: _MEIPASS/data."""
+    if getattr(sys, "frozen", False):
+        return _bundle_dir() / "data"
     bundled = _bundle_dir() / "data"
     if bundled.is_dir():
         return bundled
@@ -44,6 +46,8 @@ def _data_dir() -> Path:
 
 def _species_static_dir() -> Path:
     """Dev: …/static/species — PyInstaller: _MEIPASS/static/species."""
+    if getattr(sys, "frozen", False):
+        return _bundle_dir() / "static" / "species"
     bundled = _bundle_dir() / "static" / "species"
     if bundled.is_dir():
         return bundled
@@ -63,6 +67,10 @@ def _registry_path() -> Path:
 
 def _species_icons_manifest_path() -> Path:
     return _data_dir() / "species_icons_manifest.json"
+
+
+def _generated_species_icons_manifest_path() -> Path:
+    return _species_static_dir() / "icons" / "generated" / "manifest.json"
 
 
 def _icons_dir() -> Path:
@@ -232,10 +240,11 @@ def tier_icon_url(tier: str | None) -> str:
 
 @lru_cache(maxsize=1)
 def _bundled_species_icon_urls() -> dict[str, str]:
-    """Mapa species_key → URL de ícone SVG original ARKLAND (manifest + disco)."""
+    """Mapa species_key → URL de ícone padronizado ARKLAND (preferência para WebP)."""
     urls: dict[str, str] = {}
-    manifest = _species_icons_manifest_path()
-    if manifest.is_file():
+    for manifest in (_species_icons_manifest_path(), _generated_species_icons_manifest_path()):
+        if not manifest.is_file():
+            continue
         try:
             with manifest.open(encoding="utf-8") as f:
                 data = json.load(f)
@@ -252,6 +261,12 @@ def _bundled_species_icon_urls() -> dict[str, str]:
         for icon_file in icons_dir.glob("*.svg"):
             sk = icon_file.stem.lower()
             urls.setdefault(sk, f"/species/icons/{icon_file.name}")
+        generated_dir = icons_dir / "generated"
+        if generated_dir.is_dir():
+            for pattern in ("*.webp", "*.png", "*.jpg", "*.jpeg", "*.gif"):
+                for icon_file in generated_dir.glob(pattern):
+                    sk = icon_file.stem.lower()
+                    urls.setdefault(sk, f"/species/icons/generated/{icon_file.name}")
     return urls
 
 
@@ -262,17 +277,27 @@ def _bundled_icon_for_species(species_key: str | None) -> str | None:
     return _bundled_species_icon_urls().get(sk)
 
 
+def _is_local_species_asset_url(url: str) -> bool:
+    low = (url or "").strip().lower()
+    return low.startswith("/species/") or low.startswith("/static/species/")
+
+
 def _image_from_entry(entry: dict[str, Any]) -> str | None:
-    """Resolve image_url, icon_path ou ícone SVG original ARKLAND do bundle."""
+    """Resolve ícone padronizado, preservando URLs externas explícitas."""
+    bundled = _bundled_icon_for_species(str(entry.get("species_key") or ""))
     url = str(entry.get("image_url") or "").strip()
+    if bundled and (not url or _is_local_species_asset_url(url)):
+        return bundled
     if url:
         return url
     icon = str(entry.get("icon_path") or "").strip()
+    if bundled and (not icon or not icon.startswith(("http://", "https://"))):
+        return bundled
     if icon:
         if icon.startswith(("http://", "https://", "/")):
             return icon
         return f"/species/{icon.lstrip('/')}"
-    return _bundled_icon_for_species(str(entry.get("species_key") or ""))
+    return bundled
 
 
 def resolve_species_image(entry: dict[str, Any] | None, *, tier: str | None = None) -> str:
@@ -283,6 +308,12 @@ def resolve_species_image(entry: dict[str, Any] | None, *, tier: str | None = No
             return custom
         tier = tier or str(entry.get("tier") or "B")
     return tier_icon_url(tier)
+
+
+def resolve_species_image_for_key(species_key: str | None, *, tier: str | None = None) -> str:
+    """Resolve a imagem canônica por species_key com fallback por tier."""
+    entry = get_registry_entry(species_key) if species_key else None
+    return resolve_species_image(entry, tier=tier)
 
 
 @lru_cache(maxsize=1)

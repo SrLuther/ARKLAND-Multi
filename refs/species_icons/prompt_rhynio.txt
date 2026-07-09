@@ -1,0 +1,33 @@
+﻿--- REGEN: rhynio (Rhinognatha) ---
+reference_image: C:\Users\Ciano\Documents\arkland-multi\refs\species_icons\rhynio.png
+
+Square 1:1 ARK Survival Evolved game UI icon.
+species_key: rhynio
+Creature: Rhyniognatha (Rhinognatha)
+Habitat: fly
+
+MANDATORY distinctive anatomy:
+- giant prehistoric insectoid ÔÇö wasp/dragonfly hybrid, NOT beetle
+- long segmented abdomen: vibrant red dorsal with black markings, yellowish-tan underside, orange pincer tail
+- small head with large yellow compound eyes and red horn on forehead
+- long black/white striped antennae
+- greyish-black thorax with red armored plating
+- two pairs large translucent iridescent wings (purple/blue/green sheen), vein structure visible
+- six legs: front pair MASSIVE muscular pincer-like (NOT dung beetle), grey with red highlights; four thinner standing legs
+- NOT dung beetle, NOT ant, NOT generic beetle ÔÇö Rhyniognatha specifically
+
+DO NOT include: dung beetle, rhinoceros beetle, ant, generic beetle, T-Rex, round beetle body, single thick horn like beetle
+
+Composition: creature bust/portrait close-up, three-quarter view, species instantly recognizable at thumbnail size.
+Thick dark weathered metallic rounded-square frame with beveled gunmetal edges and subtle scratches. Inside frame: solid dark navy background #1a1a2e.
+Caution: solid dark navy #1a1a2e background only ÔÇö no scenery beyond habitat cues.
+Cinematic rim lighting from upper right, high-detail textures.
+No text, no watermark, no logo.
+REFERENCE IMAGE (user-provided anatomy guide: rhynio.png):
+Match ONLY the silhouette, head shape, body proportions, and distinctive anatomy shown in the reference.
+Reproduce that creature's identity at thumbnail size ÔÇö do NOT copy frame, background, colors, or lighting from the reference.
+Do NOT borrow anatomy from any other ARK creature (no rex jaws on mosa, no elephant trunk on phiomia, etc.).
+The reference confirms this is Rhyniognatha (rhynio) ÔÇö stay faithful to that species.
+
+
+Next: generate raw/rhynio.png ÔåÆ python generate_ai_species_icons.py --compress-only --force-compress

@@ -126,9 +126,9 @@ def _resolve_species_economy(db: Session, species_key: str) -> Any | None:
 
 def _species_image(species_key: str, tier: str | None = None) -> str:
     try:
-        from ark_species_registry import get_registry_entry, resolve_species_image
+        from ark_species_registry import resolve_species_image_for_key
 
-        return resolve_species_image(get_registry_entry(species_key), tier=tier) or ""
+        return resolve_species_image_for_key(species_key, tier=tier) or ""
     except Exception:
         return ""
 
@@ -354,12 +354,15 @@ def _new_order_id() -> str:
 def _order_to_player_dict(row: Any) -> dict[str, Any]:
     payload = _parse_payload(_row_val(row, "payload_json"))
     pricing = payload.get("pricing") if isinstance(payload.get("pricing"), dict) else {}
+    species_key = payload.get("species_key")
+    species_image_url = _species_image(str(species_key or ""), payload.get("tier"))
     return {
         "order_id": str(_row_val(row, "order_id", "")),
         "status": str(_row_val(row, "status", "")),
         "points_spent": int(_row_val(row, "points_spent", 0) or 0),
-        "species_key": payload.get("species_key"),
+        "species_key": species_key,
         "species_display_name": payload.get("species_display_name"),
+        "species_image_url": species_image_url,
         "level": payload.get("level"),
         "gender": payload.get("gender"),
         "colors": payload.get("colors"),

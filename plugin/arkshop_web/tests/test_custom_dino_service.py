@@ -112,6 +112,49 @@ def test_ensure_custom_dino_schema_adds_payload_json(tmp_path):
     ensure_custom_dino_schema(engine)
 
 
+def test_validate_catalog_only_species_via_catalog_lookup(monkeypatch):
+    """Espécies só no catálogo (ex. SmallBosses) devem validar como na lista admin."""
+    sb_bp = (
+        "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire"
+        ".SmallDrake_Character_BP_Fire"
+    )
+    monkeypatch.setattr("custom_dino_service._species_catalog", lambda: {})
+    monkeypatch.setattr(
+        "custom_dino_service._blueprint_from_catalog_item",
+        lambda item_id: sb_bp if item_id == "sb_drake_fire" else "",
+    )
+    payload, err = validate_payload(_valid_body(
+        species_key="sb_drake_fire",
+        level=1779,
+        note="Compensação teste sb drake fire",
+    ))
+    assert err is None
+    assert payload is not None
+    assert payload["species_key"] == "sb_drake_fire"
+    assert "SmallDrake_Character_BP_Fire" in payload["species_blueprint"]
+    assert payload["mod_source"] == "smallbosses"
+
+
+def test_list_species_admin_catalog_only_mod(monkeypatch):
+    sb_bp = (
+        "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire"
+        ".SmallDrake_Character_BP_Fire"
+    )
+    monkeypatch.setattr(
+        "custom_dino_service._species_catalog",
+        lambda: {"sb_drake_fire": {}},
+    )
+    monkeypatch.setattr(
+        "custom_dino_service._blueprint_from_catalog_item",
+        lambda item_id: sb_bp if item_id == "sb_drake_fire" else "",
+    )
+    all_items = list_species_admin(vanilla_only=False)
+    sb = next(s for s in all_items if s["species_key"] == "sb_drake_fire")
+    assert sb["mod_source"] == "smallbosses"
+    vanilla = list_species_admin(vanilla_only=True)
+    assert not any(s["species_key"] == "sb_drake_fire" for s in vanilla)
+
+
 def test_validate_payload_rex():
     payload, err = validate_payload(_valid_body())
     assert err is None
@@ -243,6 +286,7 @@ def test_create_and_claim_custom_dino(custom_dino_db):
     listed = list_custom_dino_orders_admin(custom_dino_db)
     assert listed["total"] == 1
     assert listed["orders"][0]["status"] == "ENTREGUE"
+    assert listed["orders"][0]["species_image_url"].endswith("/generated/rex.webp")
 
 
 def test_calc_spawn_exact_level():
@@ -318,6 +362,33 @@ def test_validate_spawn_exact_unlimited_allows_high_level(tmp_path, monkeypatch)
     assert err is None
     assert payload is not None
     assert payload["level"] == 1 + STAT_MAX * STAT_COUNT * 2
+
+
+def test_validate_spawn_exact_254_preset_level_3557(tmp_path, monkeypatch):
+    """Preset 254 wild + 254 tamed → nível 3557 (1 + 7×254 + 7×254); stats no payload, não em colors."""
+    settings_file = tmp_path / "spawn_exact_254.json"
+    settings_file.write_text(
+        json.dumps({"custom_dino_enabled": True, "custom_dino_spawn_exact": True}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_app_module, "_STATE_FILE", settings_file)
+    from custom_dino_service import configure_custom_dino
+
+    configure_custom_dino(settings_fn=_app_module._load_settings)
+
+    wild = [STAT_MAX] * STAT_COUNT
+    tamed = [STAT_MAX] * STAT_COUNT
+    colors = [79] * 6
+    payload, err = validate_payload(_valid_body(
+        spawn_exact={"enabled": True, "wild_stats": wild, "tamed_stats": tamed},
+        colors=colors,
+    ))
+    assert err is None
+    assert payload is not None
+    assert payload["level"] == 3557
+    assert payload["spawn_exact"]["wild_stats"] == wild
+    assert payload["spawn_exact"]["tamed_stats"] == tamed
+    assert payload["colors"] == colors
 
 
 def test_validate_spawn_exact_level_cap(tmp_path, monkeypatch):

@@ -5,6 +5,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.16] - 2026-07-09
+
+### Feature
+
+- Feature (Web Store / Ícones): manifesto expandido com novos ícones WebP oficiais e aliases visuais para criaturas vanilla exibidas na loja.
+
+### Other
+
+- Improvement (Web Store / Ícones): resolução canônica dos novos WebPs unificada entre registro de espécies, Mercado, Encomenda Dino, Dino Lab e históricos/admin com fallback consistente por tier.
+
 ## [1.10.15] - 2026-07-08
 
 ### Feature

@@ -12,6 +12,7 @@ Documento de conformidade legal para thumbnails de criaturas em **arkland.com.br
 | **Steam / assets do jogo** | **Não** extrair | IP da Studio Wildcard; extração e hospedagem própria não permitida sem autorização. |
 | **Fan Content Guidelines** ([survivetheark.com](https://survivetheark.com/index.php?/fan_content_guidelines/)) | **Limitado** | Voltado a conteúdo de fã **não comercial** por **consumidores individuais**. Entidades corporativas (servidor/loja comercial) devem **contatar Studio Wildcard** antes de usar IP. Dossiês oficiais/press kit **não** substituem licença para thumbnails de loja. |
 | **Arte original ARKLAND** (`static/species/icons/*.svg`) | **Sim** | Silhuetas procedurais geradas pelo projeto — sem cópia de assets de terceiros. |
+| **Ícones AI raster** (`static/species/icons/generated/*.webp`) | **Sim** | Retratos originais gerados por IA (Cursor GenerateImage) — não são assets do jogo. Ver seção abaixo. |
 | **Placeholders por tier** (`tier-*.svg`) | **Sim** | Silhuetas genéricas originais ARKLAND (fallback). |
 | **Comissão / permissão escrita** | **Sim** | Com `icon_path` ou `image_url` + linha nesta tabela de atribuição. |
 
@@ -40,6 +41,33 @@ Subset:
 python tools/generate_species_icons.py --species rex giga indominus
 ```
 
+## Ícones AI raster (retratos por espécie)
+
+Retratos 1:1 com moldura metálica escura padronizada — **arte original gerada por IA**, não assets Studio Wildcard.
+
+- Diretório: `static/species/icons/generated/{species_key}.webp`
+- Raw PNG: `static/species/icons/generated/raw/{species_key}.png`
+- Demos padronizados: `static/species/icons/demo/`
+- Manifesto: `static/species/icons/generated/manifest.json`
+- Integração: `data/species_ai_icons_manifest.json`
+- Traços visuais: `data/species_icon_visual_traits.json` (anatomia + habitat por espécie)
+- Pipeline: `python tools/generate_ai_species_icons.py`
+
+**Regras de geração (obrigatórias):**
+
+1. Cada prompt inclui `species_key`, nome em inglês, habitat (land/water/fly) e traços anatômicos distintivos.
+2. **Nunca** usar imagem de outra criatura como referência (`reference_image_paths`) — copia a anatomia errada (ex.: Rex → Mosasaurus).
+3. Moldura descrita apenas em texto; fundo `#1a1a2e` dentro da moldura.
+
+Regenerar prompt de uma espécie:
+
+```bash
+python tools/generate_ai_species_icons.py --prompt mosasaurus rex
+python tools/generate_ai_species_icons.py --compress-only --force-compress
+```
+
+Licença: © ARKLAND — arte original IA; inspiração em criaturas ARK, sem cópia de assets do jogo.
+
 ## Como adicionar imagem licenciada (admin)
 
 1. Obtenha direitos explícitos: arte original, comissão, ou autorização escrita da Studio Wildcard / autor.
@@ -65,6 +93,7 @@ Prioridade de resolução: `image_url` → `icon_path` → ícone bundle `/speci
 | Arquivo | Espécie | Fonte | Licença / crédito |
 |---------|---------|-------|-------------------|
 | `icons/*.svg` (bundle) | várias | ARKLAND procedural | © ARKLAND — gerado por `tools/generate_species_icons.py` |
+| `icons/generated/*.webp` | vanilla ARK | ARKLAND AI original | © ARKLAND — gerado por `tools/generate_ai_species_icons.py` + Cursor GenerateImage |
 | `tier-*.svg` | fallback | ARKLAND | Silhueta genérica original |
 | *(adicione linhas ao usar arte licenciada)* | | | |
 

@@ -1,0 +1,34 @@
+﻿--- REGEN: gacha (Gacha) ---
+reference_image: C:\Users\Ciano\Documents\arkland-multi\refs\species_icons\gacha.png
+
+Square 1:1 ARK Survival Evolved game UI icon.
+species_key: gacha
+Creature: Gacha (Gacha)
+Habitat: land
+
+MANDATORY distinctive anatomy:
+- large quadruped with sloth/bear-like heavy lumbering body
+- dark brown-black coarse fur on upper body and shoulders
+- greyish-purple pebbled scaly skin on face, belly, and limbs
+- LARGE amber/yellow crystal shards growing from rocky ridge along spine (signature feature)
+- subtle cyan/blue Element glow in neck crevices beneath rocky ridge
+- broad flat head with blunt scaly snout and small rounded ears
+- long powerful forelimbs with three-fingered clawed hands
+- stockier shorter hind legs
+- NOT generic bear, NOT generic sloth, NOT rock elemental ÔÇö Gacha specifically
+
+DO NOT include: cute chibi hedgehog, purple/blue crystals, white fluffy fur, generic bear, generic sloth, rock elemental golem, T-Rex
+
+Composition: creature bust/portrait close-up, three-quarter view, species instantly recognizable at thumbnail size.
+Thick dark weathered metallic rounded-square frame with beveled gunmetal edges and subtle scratches. Inside frame: solid dark navy background #1a1a2e.
+Caution: solid dark navy #1a1a2e background only ÔÇö no scenery beyond habitat cues.
+Cinematic rim lighting from upper right, high-detail textures.
+No text, no watermark, no logo.
+REFERENCE IMAGE (user-provided anatomy guide: gacha.png):
+Match ONLY the silhouette, head shape, body proportions, and distinctive anatomy shown in the reference.
+Reproduce that creature's identity at thumbnail size ÔÇö do NOT copy frame, background, colors, or lighting from the reference.
+Do NOT borrow anatomy from any other ARK creature (no rex jaws on mosa, no elephant trunk on phiomia, etc.).
+The reference confirms this is Gacha (gacha) ÔÇö stay faithful to that species.
+
+
+Next: generate raw/gacha.png ÔåÆ python generate_ai_species_icons.py --compress-only --force-compress

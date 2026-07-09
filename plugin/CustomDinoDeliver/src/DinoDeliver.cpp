@@ -796,10 +796,14 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
         payload_spawn_exact && DinoConfig::Get().UseSpawnExact();
 
     if (payload_spawn_exact && !DinoConfig::Get().UseSpawnExact()) {
-        Log::GetLog()->warn(
+        Log::GetLog()->error(
             "[DinoLabDeliver] SpawnExact pedido no payload mas UseSpawnExact=false "
-            "em config — usando SpawnDino (species='{}')",
+            "no plugin (species='{}') — re-sincronize CustomDinoDeliver/config.json",
             blueprint);
+        NotifyPlayer(controller, FColorList::Red,
+                     "SpawnExact desabilitado no servidor. Contate um admin "
+                     "(UseSpawnExact no plugin).");
+        return result;
     }
 
     Log::GetLog()->info(
@@ -831,28 +835,10 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
             dino = nullptr;
         }
         if (!dino) {
-            Log::GetLog()->warn(
-                "[DinoLabDeliver] SpawnExact failed for '{}' — fallback SpawnDino",
-                blueprint);
-            try {
-                FString fbp(blueprint.c_str());
-                dino = ArkApi::GetApiUtils().SpawnDino(
-                    controller, fbp, nullptr, level, force_tame, neutered);
-            } catch (const std::exception& e) {
-                Log::GetLog()->error(
-                    "[DinoLabDeliver] SpawnDino fallback exception species='{}' — {}",
-                    blueprint, e.what());
-                dino = nullptr;
-            } catch (...) {
-                Log::GetLog()->error(
-                    "[DinoLabDeliver] SpawnDino fallback unknown exception species='{}'",
-                    blueprint);
-                dino = nullptr;
-            }
-        }
-        if (!dino) {
             Log::GetLog()->error(
-                "[DinoLabDeliver] all spawn paths failed for '{}'", blueprint);
+                "[DinoLabDeliver] SpawnExact failed for '{}' — sem fallback SpawnDino "
+                "(stats do payload nao seriam aplicados)",
+                blueprint);
             NotifyPlayer(controller, FColorList::Red,
                          "Falha ao spawnar dino (SpawnExact). Contate um admin.");
             return result;

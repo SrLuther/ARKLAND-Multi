@@ -1,0 +1,672 @@
+{
+  "_comment": "Traços visuais distintivos por species_key — usado por tools/generate_ai_species_icons.py. Evita confusão rex/mosa/giga/etc.",
+  "_prompt_rules": [
+    "Cada prompt DEVE incluir species_key, english_name, habitat e distinctive_features",
+    "NUNCA usar imagem de referência de outra criatura (só descrever moldura em texto)",
+    "Incluir avoid_features para espécies facilmente confundidas",
+    "Terrestre ≠ aquático ≠ voador — habitat define silhueta base"
+  ],
+  "frame_style": "DEPRECATED — use data/species_icon_frame_spec.json via build_frame_prompt() in generate_ai_species_icons.py",
+  "species": {
+    "rex": {
+      "english_name": "Tyrannosaurus Rex",
+      "habitat": "land",
+      "distinctive_features": [
+        "massive boxy deep skull with blunt snout",
+        "tiny vestigial arms",
+        "upright terrestrial theropod on dry land",
+        "thick conical teeth",
+        "NO elongated crocodile snout",
+        "NO flippers",
+        "NO feathers"
+      ],
+      "avoid_features": ["mosasaur", "marine reptile", "flippers", "elongated snout", "aquatic", "feathered"]
+    },
+    "giga": {
+      "english_name": "Giganotosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "massive bipedal theropod in roaring pose, bust/portrait close-up",
+        "dark navy blue to deep purple monochromatic coloration with pebbly reptilian scales",
+        "elongated narrower skull than T-Rex — NOT boxy Rex snout",
+        "wide open mouth with sharp white teeth and reddish-pink tongue",
+        "row of jagged dorsal spikes/osteoderms along spine to tail",
+        "small arms with 2 clawed fingers, powerful 3-toed hind legs",
+        "glowing yellow-orange eye",
+        "terrestrial apex predator on dry ground"
+      ],
+      "avoid_features": ["T-Rex boxy blunt head", "brown tan Rex coloration", "carcharodontosaurus", "marine", "flippers"]
+    },
+    "gigant": {
+      "english_name": "Giganotosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "massive Giganotosaurus with elongated narrow skull",
+        "dorsal spike row on neck",
+        "NOT a T-Rex — longer snout and bigger body"
+      ],
+      "avoid_features": ["T-Rex", "mosasaur", "flippers"]
+    },
+    "gasbags": {
+      "english_name": "Gasbags",
+      "habitat": "land",
+      "distinctive_features": [
+        "large bulbous segmented caterpillar/tardigrade body, inflated and bloated",
+        "cream/off-white body with irregular reddish-brown cow-print patches",
+        "yellowish-tan gradient on top of body segments",
+        "two curved grey horns pointing forward from head",
+        "large dark almond eyes with reddish-orange circular markings around them",
+        "brown fur patch on head between horns",
+        "ridge of coarse brown-grey fur/bristles along spine",
+        "six short stubby legs with blunt claws",
+        "NOT pig, NOT generic caterpillar, NOT sheep — Gasbags specifically"
+      ],
+      "avoid_features": ["pig", "sheep", "generic caterpillar", "T-Rex", "dinosaur"]
+    },
+    "gacha": {
+      "english_name": "Gacha",
+      "habitat": "land",
+      "distinctive_features": [
+        "large quadruped with sloth/bear-like heavy lumbering body",
+        "dark brown-black coarse fur on upper body and shoulders",
+        "greyish-purple pebbled scaly skin on face, belly, and limbs",
+        "LARGE amber/yellow crystal shards growing from rocky ridge along spine (signature feature)",
+        "subtle cyan/blue Element glow in neck crevices beneath rocky ridge",
+        "broad flat head with blunt scaly snout and small rounded ears",
+        "long powerful forelimbs with three-fingered clawed hands",
+        "stockier shorter hind legs",
+        "NOT generic bear, NOT generic sloth, NOT rock elemental — Gacha specifically"
+      ],
+      "avoid_features": ["cute chibi hedgehog", "purple/blue crystals", "white fluffy fur", "generic bear", "generic sloth", "rock elemental golem", "T-Rex"]
+    },
+    "mosasaurus": {
+      "english_name": "Mosasaurus",
+      "habitat": "water",
+      "distinctive_features": [
+        "MASSIVE thick aquatic marine reptile — NOT skinny, NOT T-Rex",
+        "elongated powerful head, jaws wide open, sharp conical white teeth",
+        "thick dark muscular tongue visible inside mouth",
+        "heavily wrinkled leathery hide on jaws and neck",
+        "mottled dark grey, deep purple, brownish-black skin with pale underbelly",
+        "pebbly reptilian scales with deep folds along body",
+        "row of jagged dorsal spines/scutes along back",
+        "FOUR large paddle flippers (front larger, finger structures visible, webbed edges)",
+        "long powerful tail with vertical fleshy fluke (shark-like)",
+        "underwater marine predator — NOT terrestrial theropod"
+      ],
+      "avoid_features": ["T-Rex", "tyrannosaur", "boxy head", "tiny arms", "terrestrial", "feathers", "upright stance on land", "skinny body", "gracile build", "theropod legs"]
+    },
+    "yuty": {
+      "english_name": "Yutyrannus",
+      "habitat": "land",
+      "distinctive_features": [
+        "FULL body covered in thick shaggy feathers like a giant feathered tyrannosaur",
+        "prominent head crest",
+        "smaller and more gracile than T-Rex",
+        "three-fingered arms with feathers",
+        "snowy or forest terrestrial setting"
+      ],
+      "avoid_features": ["scaly T-Rex", "marine", "identical to Rex without feathers"]
+    },
+    "quetz": {
+      "english_name": "Quetzalcoatlus",
+      "habitat": "fly",
+      "distinctive_features": [
+        "GIANT pterosaur — largest flying reptile",
+        "extremely long toothless pointed beak",
+        "small head crest",
+        "long slender neck",
+        "pycnofiber fuzz on neck",
+        "NOT Pteranodon — much larger and longer beak"
+      ],
+      "avoid_features": ["Pteranodon large backward crest", "T-Rex", "dinosaur body"]
+    },
+    "wyvern": {
+      "english_name": "Fire Wyvern",
+      "habitat": "fly",
+      "distinctive_features": [
+        "two-legged dragon with wing ARMS as wings",
+        "NO front legs — wyvern body plan",
+        "swept-back horns",
+        "glowing orange magma throat",
+        "membranous bat-like wings partially visible"
+      ],
+      "avoid_features": ["four-legged dragon", "T-Rex", "feathered bird"]
+    },
+    "theriz": {
+      "english_name": "Therizinosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "absurdly long scythe-like claws on forelimbs",
+        "small beaked herbivore head",
+        "pot belly",
+        "feathered coat",
+        "NOT a predator theropod"
+      ],
+      "avoid_features": ["T-Rex teeth", "marine", "tiny arms like Rex"]
+    },
+    "spino": {
+      "english_name": "Spinosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "large SAIL fin on back",
+        "long crocodile-like narrow snout",
+        "semi-aquatic but on riverbank",
+        "NOT T-Rex head shape"
+      ],
+      "avoid_features": ["T-Rex boxy skull", "no sail"]
+    },
+    "carcha_femea": {
+      "english_name": "Carcharodontosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "long narrow skull with shark-like serrated teeth",
+        "rugose snout texture",
+        "slightly smaller than Giga",
+        "NOT T-Rex proportions"
+      ],
+      "avoid_features": ["T-Rex boxy head", "mosasaur"]
+    },
+    "allo": {
+      "english_name": "Allosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "triangular head crest above eyes",
+        "smaller theropod than Rex",
+        "three-fingered clawed arms visible",
+        "lighter build"
+      ],
+      "avoid_features": ["T-Rex massive head", "mosasaur"]
+    },
+    "carno": {
+      "english_name": "Carnotaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "two THICK CONICAL HORNS above eyes (signature — NOT T-Rex)",
+        "short deep snout, mouth open roaring",
+        "extremely tiny vestigial arms smaller than T-Rex",
+        "reddish-brown copper body with dark mottled stripes on back",
+        "lighter tan cream underbelly",
+        "pebbled scaly skin, muscular running legs, long thick tail"
+      ],
+      "avoid_features": ["T-Rex", "Allosaurus", "Giganotosaurus", "horns on nose not above eyes"]
+    },
+    "baryonyx": {
+      "english_name": "Baryonyx",
+      "habitat": "land",
+      "distinctive_features": [
+        "long narrow crocodile snout",
+        "large thumb claw on hand",
+        "fish-eater near water but terrestrial body"
+      ],
+      "avoid_features": ["T-Rex boxy head", "mosasaur flippers"]
+    },
+    "megalodon": {
+      "english_name": "Megalodon",
+      "habitat": "water",
+      "distinctive_features": [
+        "giant SHARK",
+        "multiple rows of triangular shark teeth",
+        "gills visible",
+        "underwater blue environment",
+        "NOT a reptile or dinosaur"
+      ],
+      "avoid_features": ["T-Rex", "dinosaur", "flippers like mosasaur"]
+    },
+    "plesiosaur": {
+      "english_name": "Plesiosaur",
+      "habitat": "water",
+      "distinctive_features": [
+        "long slender neck",
+        "small head on neck",
+        "four large flippers",
+        "turtle-like smooth body",
+        "underwater"
+      ],
+      "avoid_features": ["T-Rex", "mosasaur elongated jaws only"]
+    },
+    "basilosaurus": {
+      "english_name": "Basilosaurus",
+      "habitat": "water",
+      "distinctive_features": [
+        "prehistoric WHALE",
+        "long serpentine body",
+        "small hind flippers",
+        "smooth mammal skin",
+        "underwater"
+      ],
+      "avoid_features": ["dinosaur", "T-Rex", "scales"]
+    },
+    "tuso": {
+      "english_name": "Tusoteuthis",
+      "habitat": "water",
+      "distinctive_features": [
+        "giant SQUID",
+        "massive tentacles with suckers",
+        "large round eyes",
+        "beak between tentacles",
+        "deep ocean"
+      ],
+      "avoid_features": ["dinosaur", "T-Rex", "fish only"]
+    },
+    "dunkle": {
+      "english_name": "Dunkleosteus",
+      "habitat": "water",
+      "distinctive_features": [
+        "prehistoric armored FISH",
+        "bony plate head with shearing jaw plates instead of teeth",
+        "heavy armored body",
+        "underwater"
+      ],
+      "avoid_features": ["dinosaur", "T-Rex", "smooth reptile"]
+    },
+    "argent": {
+      "english_name": "Argentavis",
+      "habitat": "fly",
+      "distinctive_features": [
+        "giant prehistoric BIRD of prey",
+        "massive hooked eagle beak",
+        "dense feathers on head and neck",
+        "NOT a dinosaur"
+      ],
+      "avoid_features": ["T-Rex", "scales", "marine"]
+    },
+    "astrocetus": {
+      "english_name": "Astrocetus (Space Whale)",
+      "habitat": "fly",
+      "distinctive_features": [
+        "massive cosmic CETACEAN space whale — NOT a dinosaur",
+        "dark purple-charcoal skin with bioluminescent cyan, magenta, and purple patterns",
+        "FOUR large pointed pectoral-style fins (not two whale flippers)",
+        "ventral pleats on lower jaw glowing magenta/pink",
+        "pink sensory dot clusters on head (not normal eyes)",
+        "large glowing cyan tail fluke with cosmic energy texture",
+        "space/cosmic whale aesthetic — Genesis space whale"
+      ],
+      "avoid_features": ["T-Rex", "tyrannosaur", "terrestrial dinosaur", "regular Earth whale", "two flippers only", "feathered bird", "mosasaur"]
+    },
+    "ptera": {
+      "english_name": "Pteranodon",
+      "habitat": "fly",
+      "distinctive_features": [
+        "Pteranodon with large backward-pointing head crest",
+        "toothless beak",
+        "NOT Quetzalcoatlus"
+      ],
+      "avoid_features": ["Quetzalcoatlus giant size", "T-Rex"]
+    },
+    "ankylo": {
+      "english_name": "Ankylosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "heavily armored body with bone plates",
+        "conical spikes on sides",
+        "club tail visible",
+        "low quadruped herbivore"
+      ],
+      "avoid_features": ["theropod", "T-Rex", "predator teeth"]
+    },
+    "lionfishlion": {
+      "english_name": "Shadowmane",
+      "habitat": "land",
+      "distinctive_features": [
+        "dark lion-like creature",
+        "glowing purple bioluminescent mane spikes",
+        "purple glowing whisker tendrils",
+        "NOT a dinosaur"
+      ],
+      "avoid_features": ["T-Rex", "normal lion", "scales"]
+    },
+    "rockdrake": {
+      "english_name": "Rock Drake",
+      "habitat": "land",
+      "distinctive_features": [
+        "climbing aberration dragon",
+        "camouflage chameleon scales",
+        "wing membranes",
+        "glowing purple markings",
+        "NOT T-Rex"
+      ],
+      "avoid_features": ["T-Rex", "wyvern fire"]
+    },
+    "reaper": {
+      "english_name": "Reaper King",
+      "habitat": "land",
+      "distinctive_features": [
+        "bipedal ARK Aberration Reaper predator — xenomorph-inspired but distinct Reaper King anatomy",
+        "dark charcoal/black chitinous segmented exoskeleton armor plating",
+        "large fan-like head crest/frill with reddish-orange translucent membranes stretched between dark spines",
+        "small glowing white eyes, open mouth with sharp white needle teeth and pink fleshy interior",
+        "brownish-tan leathery wrinkled skin on neck and underbelly contrasting dark chitin",
+        "small multi-jointed secondary arms on chest with long black claws",
+        "powerful bird-like hind legs with three clawed toes",
+        "long segmented tail with dorsal spines and distinctive fork-like bifurcated tail tip",
+        "NOT generic sci-fi alien, NOT queen reaper only, NOT green acid xenomorph — ARK Reaper King specifically"
+      ],
+      "avoid_features": ["T-Rex", "generic xenomorph", "queen reaper", "green acid glow", "normal dragon", "dinosaur"]
+    },
+    "crystalwyvern": {
+      "english_name": "Crystal Wyvern",
+      "habitat": "fly",
+      "distinctive_features": [
+        "slender wyvern with teal/cyan scaled body, two hind legs only (wings as forelimbs — NOT four legs)",
+        "large wings with glowing fluorescent YELLOW membranes and dark vein patterns on yellow wing skin",
+        "teal wing finger bones",
+        "crystalline horn-like protrusions on head and chin glowing teal",
+        "long whip tail with teal spikes and glowing yellow crystalline tail tip",
+        "NOT regular wyvern, NOT fire wyvern, NOT water wyvern — Crystal Wyvern specifically"
+      ],
+      "avoid_features": ["T-Rex", "red fire wyvern wings", "four-legged dragon", "regular wyvern", "water wyvern"]
+    },
+    "managarmr": {
+      "english_name": "Managarmr",
+      "habitat": "land",
+      "distinctive_features": [
+        "wolf-dragon hybrid",
+        "frost breath and icy fur",
+        "four-legged mammalian dragon",
+        "NOT T-Rex"
+      ],
+      "avoid_features": ["T-Rex", "fire wyvern"]
+    },
+    "basilisk": {
+      "english_name": "Basilisk",
+      "habitat": "land",
+      "distinctive_features": [
+        "giant serpent rearing up",
+        "fangs and hood",
+        "NO legs",
+        "aberration purple tones"
+      ],
+      "avoid_features": ["T-Rex", "mosasaur flippers"]
+    },
+    "griffin": {
+      "english_name": "Griffin",
+      "habitat": "fly",
+      "distinctive_features": [
+        "eagle head on lion body",
+        "large feathered wings",
+        "mythical hybrid",
+        "NOT dinosaur"
+      ],
+      "avoid_features": ["T-Rex", "wyvern"]
+    },
+    "deinonychus": {
+      "english_name": "Deinonychus",
+      "habitat": "land",
+      "distinctive_features": [
+        "medium raptor with sickle claw",
+        "feathered body",
+        "small head with snout crest",
+        "NOT T-Rex size"
+      ],
+      "avoid_features": ["T-Rex massive head", "mosasaur"]
+    },
+    "raptor": {
+      "english_name": "Raptor",
+      "habitat": "land",
+      "distinctive_features": [
+        "small Velociraptor-sized",
+        "sickle toe claw",
+        "feathered",
+        "NOT T-Rex"
+      ],
+      "avoid_features": ["T-Rex size", "boxy head"]
+    },
+    "bronto": {
+      "english_name": "Brontosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "massive long-neck sauropod",
+        "tiny head on very long neck",
+        "herbivore",
+        "NOT theropod"
+      ],
+      "avoid_features": ["T-Rex", "predator teeth"]
+    },
+    "stego": {
+      "english_name": "Stegosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "back PLATES in two rows",
+        "spiked thagomizer tail",
+        "small head low to ground",
+        "herbivore quadruped"
+      ],
+      "avoid_features": ["T-Rex", "sail like Spino"]
+    },
+    "trike": {
+      "english_name": "Triceratops",
+      "habitat": "land",
+      "distinctive_features": [
+        "three facial HORNS",
+        "large bony neck frill",
+        "beaked herbivore",
+        "NOT theropod"
+      ],
+      "avoid_features": ["T-Rex", "carnivore teeth"]
+    },
+    "doed": {
+      "english_name": "Doedicurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "glyptodont armadillo",
+        "domed armored back",
+        "spiked club tail",
+        "NOT dinosaur theropod"
+      ],
+      "avoid_features": ["T-Rex", "scales only"]
+    },
+    "bloodstalker": {
+      "english_name": "Bloodstalker",
+      "habitat": "land",
+      "distinctive_features": [
+        "large spindly arachnid/insectoid creature — unique Bloodstalker silhouette",
+        "SIX long thin HIGH-ARCHED legs rising well above the compact central body",
+        "small compact segmented central body suspended between leg arches",
+        "large reddish-pink wing-like MEMBRANES stretched BETWEEN upper leg segments — NOT bat wings on back",
+        "dark charcoal/grey/deep purple chitinous exoskeleton",
+        "small head with mandibles and multiple small eyes",
+        "NOT generic spider (no 8 legs), NOT crab, NOT mantis"
+      ],
+      "avoid_features": ["8-legged spider", "bat wings on back", "crab claws", "mantis forearms", "glowing lava veins", "T-Rex", "generic arachnid"]
+    },
+    "beaver": {
+      "english_name": "Castoroides",
+      "habitat": "land",
+      "distinctive_features": [
+        "giant prehistoric BEAVER",
+        "large incisor teeth",
+        "fur coat",
+        "NOT dinosaur"
+      ],
+      "avoid_features": ["T-Rex", "reptile scales"]
+    },
+    "castoroides": {
+      "english_name": "Castoroides",
+      "habitat": "land",
+      "distinctive_features": [
+        "giant prehistoric BEAVER",
+        "large incisor teeth",
+        "fur coat"
+      ],
+      "avoid_features": ["T-Rex", "reptile"]
+    },
+    "dodo": {
+      "english_name": "Dodo",
+      "habitat": "land",
+      "distinctive_features": [
+        "small round flightless BIRD",
+        "colorful beak",
+        "fluffy feathers",
+        "comical cute"
+      ],
+      "avoid_features": ["T-Rex", "dinosaur"]
+    },
+    "owl": {
+      "english_name": "Snow Owl",
+      "habitat": "fly",
+      "distinctive_features": [
+        "large white snowy OWL",
+        "huge round eyes",
+        "feathered ruff",
+        "NOT dinosaur"
+      ],
+      "avoid_features": ["T-Rex", "theropod"]
+    },
+    "magmasaur": {
+      "english_name": "Magmasaur",
+      "habitat": "land",
+      "distinctive_features": [
+        "lava dinosaur with molten rock skin",
+        "glowing orange cracks",
+        "bulky salamander-like body",
+        "NOT T-Rex shape"
+      ],
+      "avoid_features": ["T-Rex head", "aquatic"]
+    },
+    "tekstrider": {
+      "english_name": "Tek Stryder",
+      "habitat": "land",
+      "distinctive_features": [
+        "large mechanical quadruped with giraffe/paraceratherium proportions",
+        "dark grey/black matte body with silver/chrome armor plating",
+        "neon blue glowing tek accents: horizontal sensor slits on head, neck vents, front leg thigh panels",
+        "long segmented neck with silver plates along ridge",
+        "small streamlined head with blue horizontal sensor slits",
+        "flat rider platform on back",
+        "four slender mechanical legs with silver joints and metallic hooves",
+        "visible rib-like mechanical structures and wiring",
+        "NOT organic dinosaur, NOT generic robot, NOT paracer"
+      ],
+      "avoid_features": ["organic scales", "T-Rex", "paracer", "generic mech", "organic dino"]
+    },
+    "tekstrider_femea": {
+      "english_name": "Tek Stryder",
+      "habitat": "land",
+      "distinctive_features": [
+        "large mechanical quadruped with giraffe/paraceratherium proportions",
+        "dark grey/black matte body with silver/chrome armor plating",
+        "neon blue glowing tek accents: horizontal sensor slits on head, neck vents, front leg thigh panels",
+        "long segmented neck with silver plates along ridge",
+        "small streamlined head with blue horizontal sensor slits",
+        "flat rider platform on back",
+        "four slender mechanical legs with silver joints and metallic hooves",
+        "visible rib-like mechanical structures and wiring",
+        "NOT organic dinosaur, NOT generic robot, NOT paracer"
+      ],
+      "avoid_features": ["organic scales", "T-Rex", "paracer", "generic mech", "organic dino"]
+    },
+    "bionicgigant": {
+      "english_name": "Bionic Giganotosaurus",
+      "habitat": "land",
+      "distinctive_features": [
+        "Giganotosaurus with cybernetic implants",
+        "glowing tek parts on elongated skull",
+        "NOT T-Rex boxy head"
+      ],
+      "avoid_features": ["plain T-Rex", "mosasaur"]
+    },
+    "bionicrex": {
+      "english_name": "Bionic Rex",
+      "habitat": "land",
+      "distinctive_features": [
+        "T-Rex with cybernetic implants",
+        "glowing tek armor on boxy skull",
+        "clearly T-Rex anatomy with tech"
+      ],
+      "avoid_features": ["mosasaur", "Giga elongated skull"]
+    },
+    "volcanorex": {
+      "english_name": "Volcano Rex",
+      "habitat": "land",
+      "distinctive_features": [
+        "T-Rex with lava-cracked scales",
+        "glowing magma veins",
+        "boxy Rex skull",
+        "volcanic terrestrial"
+      ],
+      "avoid_features": ["mosasaur", "aquatic"]
+    },
+    "sarco": {
+      "english_name": "Sarcosuchus",
+      "habitat": "water",
+      "distinctive_features": [
+        "giant crocodile",
+        "long narrow snout",
+        "armored osteoderm scales",
+        "partially submerged in water",
+        "NOT T-Rex"
+      ],
+      "avoid_features": ["T-Rex boxy head", "flippers like mosasaur"]
+    },
+    "kaprosuchus": {
+      "english_name": "Kaprosuchus",
+      "habitat": "land",
+      "distinctive_features": [
+        "boar-faced crocodile",
+        "tusk-like teeth protruding upward",
+        "NOT T-Rex"
+      ],
+      "avoid_features": ["T-Rex", "mosasaur flippers"]
+    },
+    "phiomia": {
+      "english_name": "Phiomia",
+      "habitat": "land",
+      "distinctive_features": [
+        "stocky quadruped pig + primitive elephant HYBRID — NOT full elephant, NOT pig alone, NOT mammoth",
+        "dark charcoal grey wrinkled leathery skin with rust/reddish-brown patches on back and shoulders",
+        "SHORT trunk-like snout with horizontal folds — NOT long elephant trunk",
+        "TWO SETS OF TUSKS: long thin upper tusks curving down + shorter shovel-like lower tusks pointing forward",
+        "small dark recessed eyes, small rounded ears close to skull (NOT large elephant ears)",
+        "short thick legs with blunt hooves (4 toes front, 3 back)",
+        "hunched muscular back, heavy primitive ungulate build"
+      ],
+      "avoid_features": ["elephant", "mammoth", "long elephant trunk", "large floppy elephant ears", "pig only", "T-Rex", "generic dinosaur"]
+    },
+    "rhynio": {
+      "english_name": "Rhyniognatha",
+      "habitat": "fly",
+      "distinctive_features": [
+        "giant prehistoric insectoid — wasp/dragonfly hybrid, NOT beetle",
+        "long segmented abdomen: vibrant red dorsal with black markings, yellowish-tan underside, orange pincer tail",
+        "small head with large yellow compound eyes and red horn on forehead",
+        "long black/white striped antennae",
+        "greyish-black thorax with red armored plating",
+        "two pairs large translucent iridescent wings (purple/blue/green sheen), vein structure visible",
+        "six legs: front pair MASSIVE muscular pincer-like (NOT dung beetle), grey with red highlights; four thinner standing legs",
+        "NOT dung beetle, NOT ant, NOT generic beetle — Rhyniognatha specifically"
+      ],
+      "avoid_features": ["dung beetle", "rhinoceros beetle", "ant", "generic beetle", "T-Rex", "round beetle body", "single thick horn like beetle"]
+    },
+    "sinomacrops": {
+      "english_name": "Sinomacrops",
+      "habitat": "fly",
+      "distinctive_features": [
+        "small pterosaur-like creature in mid-flight pose",
+        "furry/downy body, reddish-brown with dark brown stripes on head",
+        "large bright blue eyes, cute smiling expression",
+        "cream/tan underbelly",
+        "large moth/butterfly-like wings: tan leading edges, dark brown/black membranes with orange/yellow eyespots and teal/green accents",
+        "small clawed hands at wing joints, tucked feet",
+        "long ringed tail — dark brown and reddish-brown rings (raccoon/lemur style)",
+        "NOT bat, NOT pteranodon, NOT butterfly alone — Sinomacrops specifically"
+      ],
+      "avoid_features": ["bat wings", "pteranodon crest", "plain butterfly", "galaxy/cosmic wings", "purple nebula wings", "dark black eyes", "no tail", "T-Rex", "wyvern"]
+    }
+  },
+  "_habitat_fallbacks": {
+    "land": {
+      "distinctive_features": ["terrestrial creature on dry ground", "clearly recognizable species anatomy"],
+      "avoid_features": ["flippers", "underwater only", "gills"]
+    },
+    "water": {
+      "distinctive_features": ["aquatic creature underwater", "bubbles and caustic light", "flippers or fins visible"],
+      "avoid_features": ["T-Rex boxy head", "tiny arms", "terrestrial upright theropod", "dry land"]
+    },
+    "fly": {
+      "distinctive_features": ["flying creature", "wings or feathered flight visible", "sky or aerial pose"],
+      "avoid_features": ["T-Rex", "aquatic flippers", "quadruped only on ground"]
+    }
+  }
+}
