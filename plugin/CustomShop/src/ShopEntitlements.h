@@ -38,8 +38,11 @@ public:
                                 const std::string& group,
                                 int days);
 
-    // Reaplica entitlements do DB no Permissions quando o jogador entra
-    // (somente grupos ausentes — evita estender timers existentes).
+    // Horas restantes no DB (−1 = permanente / ausente).
+    int QueryHoursRemaining(const std::string& steam_id, const std::string& group);
+
+    // Reaplica entitlements do DB no Permissions quando o jogador entra.
+    // Grupos temporários são sempre realinhados ao expires (fonte de verdade).
     void SyncPlayerOnJoin(const std::string& steam_id);
 
     bool ApplyLicenseGrant(AShooterPlayerController* controller,

@@ -2641,9 +2641,11 @@ def build_cross_chat_settings(
 ) -> Dict[str, Any]:
     """Monta bloco CrossChat do plugin — desligado por padrão (plugin de terceiros)."""
     if not is_cross_chat_enabled(shop):
+        # ServerId permanece mesmo com chat off — usado pelo TribeSync (Minha Tribo).
         return {
             "_comment": _CROSSCHAT_DISABLED_COMMENT,
             "Enabled": False,
+            "ServerId": _cross_chat_server_label(srv),
         }
 
     catalog_cc = catalog_cc or {}

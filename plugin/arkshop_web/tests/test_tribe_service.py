@@ -205,6 +205,83 @@ def test_register_backfill_from_presence(db):
     assert any(m["tribe_id"] == 20002 for m in tribes["maps"])
 
 
+def test_record_presence_auto_link_sem_tribe_name(db):
+    """tribe_name vazio não deve bloquear auto-link do mapa."""
+    get_or_create_owner(db, USER_A, "Jogador A")
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=40004,
+        tribe_name="",
+        is_owner=True,
+    )
+    tribes = get_my_tribes(db, USER_A)
+    assert any(m["tribe_id"] == 40004 for m in tribes["maps"])
+
+
+def test_record_presence_rank_proprietario_sem_flag(db):
+    """Rank Proprietário implica ownership mesmo com is_owner=false no payload."""
+    get_or_create_owner(db, USER_A, "Cyane")
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=50005,
+        tribe_name="[STAFF]",
+        is_owner=False,
+        member_rank="Proprietário",
+    )
+    tribes = get_my_tribes(db, USER_A)
+    assert any(m["server_id"] == SERVER_ISLAND and m["tribe_id"] == 50005 for m in tribes["maps"])
+
+
+def test_backfill_from_rank_when_is_owner_flag_zero(db):
+    """Presença antiga com is_owner=0 mas rank Owner ainda backfill."""
+    from tribe_service import backfill_owner_links_from_presence, sync_owner_maps
+
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id=SERVER_RAG,
+        map_name="Ragnarok",
+        tribe_id=60006,
+        tribe_name="[STAFF]",
+        is_owner=False,
+        member_rank="Owner",
+    )
+    get_or_create_owner(db, USER_A, "Cyane")
+    linked = backfill_owner_links_from_presence(db, USER_A)
+    assert linked == 1
+    sync = sync_owner_maps(db, USER_A)
+    assert sync["panel_activated"] is True
+    assert any(m["tribe_id"] == 60006 for m in sync["maps"])
+    assert sync["hint"] is None
+
+
+def test_sync_owner_maps_hint_sem_presenca(db):
+    from tribe_service import sync_owner_maps
+
+    get_or_create_owner(db, USER_A, "Cyane")
+    sync = sync_owner_maps(db, USER_A)
+    assert sync["maps"] == []
+    assert sync["hint"]
+    assert "presença" in sync["hint"].lower() or "Relogue" in sync["hint"]
+
+
+def test_rank_implies_owner_helpers():
+    from tribe_service import rank_implies_owner, resolve_is_owner
+
+    assert rank_implies_owner("Proprietário") is True
+    assert rank_implies_owner("Owner") is True
+    assert rank_implies_owner("Admin") is False
+    assert rank_implies_owner("Leader") is False
+    assert resolve_is_owner(is_owner="true") is True
+    assert resolve_is_owner(is_owner=0, member_rank="proprietario") is True
+
+
 def test_manual_add_member(db):
     from tribe_service import manual_add_member
 

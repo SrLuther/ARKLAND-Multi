@@ -341,6 +341,20 @@ def test_build_cross_chat_settings_unique_per_map():
     assert cc_b["Command"] == "/cluster"
 
 
+def test_build_cross_chat_disabled_keeps_server_id():
+    """ServerId permanece com chat off — TribeSync (Minha Tribo) precisa do rótulo do mapa."""
+    shop = SimpleNamespace(cross_chat_enabled=False)
+    srv = SimpleNamespace(
+        name="ARK Server TEK",
+        shop_server_id="",
+        install_dir=r"C:\ARKLAND SERVER\MAPAS\BR",
+        id="br",
+    )
+    cc = build_cross_chat_settings(shop, srv)
+    assert cc["Enabled"] is False
+    assert cc["ServerId"] == "BRIGHAMIA"
+
+
 def test_sync_plugin_at_path_propagates_timed_points(tmp_path):
     catalog = {
         "Kits": {},

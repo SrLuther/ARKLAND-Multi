@@ -357,8 +357,14 @@ def grant_group_in_permission_db(
             if _is_permanent_group(group, days):
                 if group not in perm_groups:
                     perm_groups.append(group)
+                timed_groups.pop(group, None)
             else:
-                timed_groups[group] = _expiry_unix_from_days(days)
+                # Renovação: soma dias a partir do maior entre agora e expiry actual
+                # (paridade com player_entitlements DATE_ADD(GREATEST(expires, NOW()), …)).
+                now_unix = int(time.time())
+                existing = int(timed_groups.get(group, 0) or 0)
+                base = max(existing, now_unix)
+                timed_groups[group] = base + max(1, int(days or 1)) * 86400
                 if group in perm_groups and group != "Default":
                     perm_groups.remove(group)
 

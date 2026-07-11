@@ -14077,18 +14077,53 @@ function _renderTribeEmptyGuest() {
 
 function _renderTribeWaitingDetection() {
   const name = (_tribeData && _tribeData.owner && _tribeData.owner.display_name) || _auth.steam_persona || _auth.steam_id || "";
+  const hint = (_tribeData && _tribeData._sync_hint) || "";
   return `
     <div style="text-align:center;padding:20px 0;">
       <div style="font-size:32px;margin-bottom:12px;">✅</div>
       <div style="color:var(--text);font-weight:600;margin-bottom:8px;">Painel ativado</div>
       <div style="color:var(--text2);font-size:12px;margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto;line-height:1.55;text-align:left;">
         Proprietário: <strong style="color:var(--text);">${escHtml(name)}</strong>.
-        Ainda não há mapa vinculado. Entre em um servidor ARKLAND <strong>como líder da tribo</strong>
-        para sincronizar automaticamente. Depois disso, na aba Membros você pode adicionar SteamIDs
+        Ainda não há mapa vinculado. Entre em um servidor ARKLAND <strong>como Proprietário da tribo</strong>
+        (o rank in-game «Proprietário», não só Admin) para sincronizar automaticamente.
+        Depois disso, na aba Membros você pode adicionar SteamIDs
         manualmente se alguém ainda não logou.
+        ${hint ? `<p style="margin:12px 0 0;color:var(--amber);">${escHtml(hint)}</p>` : ""}
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="loadMyTribe()">↺ Verificar de novo</button>
+      <button class="btn btn-ghost btn-sm" id="tribe-resync-btn" onclick="tribeForceSync()">↺ Verificar de novo</button>
     </div>`;
+}
+
+async function tribeForceSync() {
+  const btn = document.getElementById("tribe-resync-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "A verificar…"; }
+  try {
+    const d = await fetchJson("/api/tribe/sync", { method: "POST", body: {} });
+    if (!d.ok) {
+      toast(d.error || "Falha ao sincronizar", "error");
+      return;
+    }
+    const data = d.data || {};
+    const maps = data.maps || [];
+    const linked = data.maps_linked || 0;
+    if (maps.length) {
+      toast(linked > 0
+        ? `Sincronizado — ${linked} mapa(s) vinculado(s).`
+        : "Mapa já vinculado.");
+      _tribeData = data;
+      await loadMyTribe();
+      return;
+    }
+    const hint = data.hint || "Ainda sem mapa. Relogue no servidor como Proprietário e tente de novo.";
+    toast(hint, "warning");
+    _tribeData = Object.assign({}, _tribeData || {}, data, { _sync_hint: hint, maps: [] });
+    const root = document.getElementById("myarea-tribe-root");
+    if (root) root.innerHTML = _renderTribeWaitingDetection();
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "↺ Verificar de novo"; }
+  }
 }
 
 function _renderTribePanel(data) {

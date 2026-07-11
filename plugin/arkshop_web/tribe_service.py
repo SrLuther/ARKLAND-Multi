@@ -54,6 +54,43 @@ def _naive(dt: datetime) -> datetime:
     return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def _as_bool(value: Any) -> bool:
+    """Normaliza flags vindas do plugin (bool/int/str)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {
+            "1", "true", "yes", "y", "owner", "proprietario", "proprietário",
+        }
+    return bool(value)
+
+
+def rank_implies_owner(rank: str | None) -> bool:
+    """True se o nome do rank indica Proprietário/Owner (não Admin/Leader genérico)."""
+    if not rank:
+        return False
+    r = str(rank).strip().lower()
+    if not r:
+        return False
+    # Acentos comuns no cliente PT
+    for a, b in (("á", "a"), ("ã", "a"), ("â", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u")):
+        r = r.replace(a, b)
+    if r in ("owner", "proprietario", "founder"):
+        return True
+    if "propriet" in r or "owner" in r:
+        return True
+    return False
+
+
+def resolve_is_owner(*, is_owner: Any = None, member_rank: str | None = None) -> bool:
+    """Combina flag explícita + rank (Owner/Proprietário)."""
+    if _as_bool(is_owner):
+        return True
+    return rank_implies_owner(member_rank)
+
+
 # ────────────────────────────────────────────────────────────
 # Schema DDL
 # ────────────────────────────────────────────────────────────
@@ -277,6 +314,7 @@ def backfill_owner_links_from_presence(db: Session, steam_id: str) -> int:
     """Cria tribe_map_links a partir de tribe_presences onde o jogador foi líder.
 
     Útil quando o jogador logou no servidor *antes* de ativar o painel no site.
+    Aceita is_owner=1 ou rank Proprietário/Owner (presenças antigas mal marcadas).
     Retorna quantos links novos foram criados.
     """
     owner = get_owner(db, steam_id)
@@ -284,9 +322,9 @@ def backfill_owner_links_from_presence(db: Session, steam_id: str) -> int:
         return 0
     rows = db.execute(
         text("""
-            SELECT server_id, tribe_id, tribe_name, captured_at
+            SELECT server_id, tribe_id, tribe_name, is_owner, member_rank, captured_at
             FROM tribe_presences
-            WHERE steam_id = :sid AND is_owner = 1 AND tribe_id IS NOT NULL
+            WHERE steam_id = :sid AND tribe_id IS NOT NULL
             ORDER BY captured_at DESC
         """),
         {"sid": steam_id},
@@ -298,9 +336,11 @@ def backfill_owner_links_from_presence(db: Session, steam_id: str) -> int:
         server_id = str(r[0] or "")
         if not server_id or server_id in seen_servers:
             continue
+        if not resolve_is_owner(is_owner=r[3], member_rank=r[4]):
+            continue
         seen_servers.add(server_id)
         tribe_id = int(r[1])
-        tribe_name = str(r[2] or "")
+        tribe_name = str(r[2] or "") or f"Tribo {tribe_id}"
         before = db.execute(
             text("SELECT id FROM tribe_map_links WHERE tribe_owner_id = :oid AND server_id = :sid"),
             {"oid": owner["id"], "sid": server_id},
@@ -456,12 +496,33 @@ def record_presence(
     map_name: str,
     tribe_id: int | None,
     tribe_name: str | None,
-    is_owner: bool,
+    is_owner: bool | Any = False,
     member_rank: str | None = None,
     source: str = "login_hook",
     members: list[dict[str, Any]] | None = None,
 ) -> None:
     """Grava snapshot de presença e atualiza tribe_members."""
+    steam_id = str(steam_id or "").strip()
+    server_id = str(server_id or "").strip()
+    tribe_name_s = str(tribe_name or "").strip()
+    member_rank_s = str(member_rank or "").strip() or None
+    owner_flag = resolve_is_owner(is_owner=is_owner, member_rank=member_rank_s)
+
+    # Normaliza membros: is_owner via flag ou rank_name
+    normalized_members: list[dict[str, Any]] | None = None
+    if members:
+        normalized_members = []
+        for m in members:
+            mm = dict(m)
+            mm["is_owner"] = resolve_is_owner(
+                is_owner=mm.get("is_owner"),
+                member_rank=mm.get("rank_name") or mm.get("member_rank"),
+            )
+            sid = str(mm.get("steam_id") or "").strip()
+            if sid:
+                mm["steam_id"] = sid
+                normalized_members.append(mm)
+
     now = _naive(_utcnow())
     db.execute(text("""
         INSERT INTO tribe_presences
@@ -469,21 +530,28 @@ def record_presence(
         VALUES (:sid, :svid, :mn, :tid, :tn, :iso, :mr, :now, :src)
     """), {
         "sid": steam_id, "svid": server_id, "mn": map_name or server_id,
-        "tid": tribe_id, "tn": tribe_name, "iso": 1 if is_owner else 0,
-        "mr": member_rank, "now": now, "src": source,
+        "tid": tribe_id, "tn": tribe_name_s or None,
+        "iso": 1 if owner_flag else 0,
+        "mr": member_rank_s, "now": now, "src": source,
     })
 
     # Se enviou lista de membros, upsert em tribe_members
-    if members and tribe_id:
-        _upsert_members(db, server_id=server_id, tribe_id=tribe_id,
-                        tribe_name=tribe_name or "", members=members, now=now)
+    if normalized_members and tribe_id:
+        _upsert_members(
+            db, server_id=server_id, tribe_id=int(tribe_id),
+            tribe_name=tribe_name_s, members=normalized_members, now=now,
+        )
 
-    # Auto-vincula owner ao tribe_map_links
-    if is_owner and tribe_id and tribe_name:
+    # Auto-vincula owner ao tribe_map_links (tribe_name opcional — nome vazio não bloqueia)
+    if owner_flag and tribe_id:
         owner = get_owner(db, steam_id)
         if owner:
-            _auto_link_owner(db, owner=owner, server_id=server_id,
-                             tribe_id=tribe_id, tribe_name=tribe_name, now=now)
+            _auto_link_owner(
+                db, owner=owner, server_id=server_id,
+                tribe_id=int(tribe_id),
+                tribe_name=tribe_name_s or f"Tribo {tribe_id}",
+                now=now,
+            )
 
     db.commit()
 
@@ -552,9 +620,92 @@ def _auto_link_owner(
 # Consulta "Minha Tribo"
 # ────────────────────────────────────────────────────────────
 
-def get_my_tribes(db: Session, steam_id: str) -> dict[str, Any]:
+def get_presence_summary(db: Session, steam_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
+    """Últimas presenças do jogador (diagnóstico / sync forçado)."""
+    rows = db.execute(
+        text("""
+            SELECT server_id, tribe_id, tribe_name, is_owner, member_rank, captured_at, source
+            FROM tribe_presences
+            WHERE steam_id = :sid
+            ORDER BY captured_at DESC
+            LIMIT :lim
+        """),
+        {"sid": steam_id, "lim": int(limit)},
+    ).fetchall()
+    return [
+        {
+            "server_id": r[0],
+            "tribe_id": r[1],
+            "tribe_name": r[2] or "",
+            "is_owner": bool(r[3]),
+            "member_rank": r[4] or "",
+            "captured_at": str(r[5]) if r[5] else None,
+            "source": r[6] or "",
+        }
+        for r in rows
+    ]
+
+
+def sync_owner_maps(db: Session, steam_id: str) -> dict[str, Any]:
+    """Reaplica backfill a partir de tribe_presences e devolve diagnóstico.
+
+    Usado pelo botão «Verificar de novo» — não contacta o servidor ARK;
+    depende de snapshots já enviados pelo plugin no login.
+    """
+    steam_id = str(steam_id or "").strip()
+    owner = get_owner(db, steam_id)
+    if not owner:
+        return {
+            "panel_activated": False,
+            "maps_linked": 0,
+            "maps": [],
+            "presences": get_presence_summary(db, steam_id),
+            "hint": "Ative o painel de tribo primeiro.",
+        }
+
+    linked = backfill_owner_links_from_presence(db, steam_id)
+    tribes = get_my_tribes(db, steam_id, _skip_backfill=True)
+    presences = get_presence_summary(db, steam_id)
+    owner_presences = [p for p in presences if p.get("is_owner")]
+    hint = None
+    if not tribes.get("maps"):
+        if not presences:
+            hint = (
+                "Nenhuma presença in-game registada. Relogue no servidor ARKLAND "
+                "como Proprietário da tribo (após o plugin CustomShop com TribeSync) "
+                "e depois clique em Verificar de novo."
+            )
+        elif not owner_presences:
+            hint = (
+                "Há presença no mapa, mas o sistema não marcou ownership "
+                "(OwnerPlayerDataID / rank Proprietário). Confirme que é o "
+                "Proprietário da tribo in-game (não só Admin) e relogue."
+            )
+        else:
+            hint = "Presença de líder encontrada, mas o vínculo falhou — tente novamente."
+    return {
+        "panel_activated": True,
+        "is_owner": True,
+        "maps_linked": linked,
+        "maps": tribes.get("maps") or [],
+        "owner": tribes.get("owner"),
+        "presences": presences,
+        "hint": hint,
+        "_regulation": tribes.get("_regulation"),
+        "_split": tribes.get("_split"),
+    }
+
+
+def get_my_tribes(db: Session, steam_id: str, *, _skip_backfill: bool = False) -> dict[str, Any]:
     """Retorna visão agregada das tribos do jogador por mapa."""
     owner = get_owner(db, steam_id)
+    if owner and not _skip_backfill:
+        # Presença pode ter chegado depois de ativar o painel — vincula oportunisticamente
+        try:
+            backfill_owner_links_from_presence(db, steam_id)
+        except Exception as exc:
+            log.debug("get_my_tribes backfill: %s", exc)
+
     if not owner:
         # Membro (não dono do painel): mapas onde aparece em tribe_members / presence
         member_rows = db.execute(

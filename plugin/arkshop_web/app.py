@@ -2688,6 +2688,43 @@ def _sync_permissions_all_servers(
     return results
 
 
+def _parse_entitlement_expires(raw: Any) -> datetime | None:
+    if raw is None:
+        return None
+    if isinstance(raw, datetime):
+        return raw if raw.tzinfo else raw.replace(tzinfo=timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+    except Exception:
+        return None
+
+
+def _entitlement_hours_remaining(
+    steam_id: str,
+    group: str,
+    *,
+    fallback_days: int = 30,
+    entitlements: list[dict[str, Any]] | None = None,
+) -> int:
+    """Horas restantes da licença em player_entitlements (após renovação com soma)."""
+    ents = entitlements if entitlements is not None else _get_player_entitlements(steam_id)
+    for ent in ents:
+        if str(ent.get("group") or "") != str(group):
+            continue
+        if ent.get("permanent"):
+            return 0
+        exp = _parse_entitlement_expires(ent.get("expires_at") or ent.get("expires"))
+        if exp is None:
+            return 0
+        now = datetime.now(timezone.utc)
+        secs = (exp - now).total_seconds()
+        return max(1, int((secs + 3599) // 3600))  # ceil hours
+    return max(1, int(fallback_days or 30) * 24)
+
+
 def _sync_license_permissions_all_servers(
     steam_id: str,
     group: str,
@@ -2695,25 +2732,49 @@ def _sync_license_permissions_all_servers(
     grant: bool,
     days: int = 0,
 ) -> list[dict[str, Any]]:
-    """Sincroniza licença no Permissions (MySQL direto + RCON nos mapas)."""
+    """Sincroniza licença no Permissions (MySQL directo + RCON nos mapas).
+
+    Em grant temporário usa horas restantes de player_entitlements (após renovação
+    que soma dias) — não só days*24 a partir de agora.
+    """
     results: list[dict[str, Any]] = []
     shop_url = _ACTIVE_DATABASE_URL or _resolve_database_url()
+    hours_for_rcon = max(1, int(days or 0) * 24) if int(days or 0) > 0 else 0
     try:
         from permission_db_sync import grant_group_in_permission_db, revoke_group_in_permission_db
 
         if grant:
-            db_res = grant_group_in_permission_db(
-                shop_url, steam_id, group, days=int(days or 0),
-            )
+            # Espelha expires real (inclui residual + dias novos) em ark_permission.
+            ents = _get_player_entitlements(steam_id)
+            if any(
+                str(e.get("group") or "") == str(group)
+                for e in ents
+            ):
+                db_res_list = _sync_player_entitlements_to_permission_db(steam_id, ents)
+                results.extend(db_res_list)
+                hours_for_rcon = _entitlement_hours_remaining(
+                    steam_id, group, fallback_days=int(days or 30), entitlements=ents,
+                )
+            else:
+                db_res = grant_group_in_permission_db(
+                    shop_url, steam_id, group, days=int(days or 0),
+                )
+                results.append({
+                    "server_id": "mysql",
+                    "label": "ark_permission (MySQL)",
+                    "ok": bool(db_res.get("ok")),
+                    "error": db_res.get("error"),
+                    "response": "OK",
+                })
         else:
             db_res = revoke_group_in_permission_db(shop_url, steam_id, group)
-        results.append({
-            "server_id": "mysql",
-            "label": "ark_permission (MySQL)",
-            "ok": bool(db_res.get("ok")),
-            "error": db_res.get("error"),
-            "response": "OK",
-        })
+            results.append({
+                "server_id": "mysql",
+                "label": "ark_permission (MySQL)",
+                "ok": bool(db_res.get("ok")),
+                "error": db_res.get("error"),
+                "response": "OK",
+            })
     except Exception as exc:
         results.append({
             "server_id": "mysql",
@@ -2727,8 +2788,8 @@ def _sync_license_permissions_all_servers(
     if grant:
         cmd = (
             f"Permissions.Add {steam_id} {group}"
-            if int(days) <= 0
-            else f"Permissions.AddTimed {steam_id} {group} {int(days) * 24}"
+            if int(days) <= 0 and hours_for_rcon <= 0
+            else f"Permissions.AddTimed {steam_id} {group} {int(hours_for_rcon)}"
         )
     else:
         cmd = f"Permissions.Remove {steam_id} {group}"
@@ -3424,7 +3485,10 @@ def _license_grant_from_commands(entry: dict[str, Any]) -> dict[str, Any] | None
     if not isinstance(commands, list):
         return None
     for raw in commands:
-        cmd = str(raw or "")
+        if isinstance(raw, dict):
+            cmd = str(raw.get("Command") or raw.get("command") or "")
+        else:
+            cmd = str(raw or "")
         if "Permissions.AddTimed" not in cmd and "Permissions.Add " not in cmd:
             continue
         for group in (
@@ -3900,12 +3964,17 @@ def _apply_entitlement_grant_tx(
             params,
         )
     else:
+        # SQLite: soma dias a partir do maior entre agora e expires actual (paridade MySQL).
         db.execute(
             text(
                 "INSERT INTO player_entitlements (steam_id, group_name, expires, source, notes) "
                 "VALUES (:sid, :grp, datetime('now', '+' || :days || ' days'), :src, :notes) "
                 "ON CONFLICT(steam_id, group_name) DO UPDATE SET "
-                "expires = datetime('now', '+' || :days || ' days'), "
+                "expires = datetime("
+                "  CASE WHEN expires IS NULL OR expires < datetime('now') "
+                "       THEN datetime('now') ELSE expires END,"
+                "  '+' || :days || ' days'"
+                "), "
                 "source = excluded.source, notes = excluded.notes"
             ),
             params,
@@ -4087,16 +4156,26 @@ def _order_license_group(order: Order) -> str | None:
 
 
 def _order_license_already_fulfilled(order: Order) -> bool:
+    """True só se ESTE pedido já gravou o entitlement (source=order_id).
+
+    Ter o grupo activo por residual antigo NÃO conta — renovação deve
+    sincronizar Permissions / AddTimed com o novo expires.
+    """
     group = _order_license_group(order)
     if not group:
         return False
-    return _player_has_license(str(order.steam_id), group)
+    oid = str(order.order_id or "")
+    for ent in _get_player_entitlements(str(order.steam_id)):
+        if ent.get("group") == group and str(ent.get("source") or "") == oid:
+            return True
+    return False
 
 
 def _finalize_license_order_if_fulfilled(db, order: Order, *, reason: str) -> bool:
-    """Marca ENTREGUE quando o jogador já possui a licença do pedido."""
+    """Marca ENTREGUE quando o entitlement deste pedido já existe; re-sync Permissions."""
     if not _order_license_already_fulfilled(order):
         return False
+    group = _order_license_group(order) or ""
     before = order.status
     order.status = "ENTREGUE"
     order.last_error = None
@@ -4113,9 +4192,34 @@ def _finalize_license_order_if_fulfilled(db, order: Order, *, reason: str) -> bo
         amount=order.amount,
         status_before=before,
         status_after="ENTREGUE",
-        message=f"Licença já ativa; pedido finalizado ({reason})",
+        message=f"Licença já activa neste pedido; finalizado ({reason})",
         reason=reason,
     )
+    if group:
+        try:
+            days_hint = 30
+            entry = _catalog_entry(
+                "kit" if str(order.item_type or "") == "kit" else "shop",
+                str(order.item_id or ""),
+            )
+            if entry:
+                lic = _get_license_grant(entry, str(order.item_id or ""))
+                if lic:
+                    days_hint = int(lic.get("Days", 30) or 30)
+            _sync_license_permissions_all_servers(
+                str(order.steam_id),
+                group,
+                grant=True,
+                days=days_hint,
+            )
+        except Exception as exc:
+            _log_error(
+                "finalize_license_perm_resync",
+                order_id=order.order_id,
+                steam_id=str(order.steam_id),
+                group=group,
+                error=str(exc),
+            )
     return True
 
 

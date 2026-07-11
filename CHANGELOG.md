@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.21] - 2026-07-11
+
+### Feature
+
+- Feat (CustomShop / ShopTribeSync): presença do proprietário no login (OwnerPlayerDataID/Proprietário) → API de mapa; CustomShop.dll recompilado com ShopTribeSync no build_cl.
+
+### Fix
+
+- Fix (Web Store / Minha Tribo): auto-link sem tribe_name, POST /api/tribe/sync no Verificar de novo, ServerId no CrossChat mesmo desligado.
+- Fix (Licenças / Permissions): renovação soma dias no ark_permission e no RCON AddTimed (horas = expires residual+novos), em vez de substituir por now+Days — corrigia keyvault/~17d após compra de 30d com residual; afecta todos os tiers temporários (Delta→Exótico, Nuvem, VIP).
+- Fix (config): licenca_nuvem volta a Type license + LicenseGrant keyvault/30d (regressão Type command sem Grant).
+- Fix (CustomShop / SyncPlayerOnJoin): grupos temporários realinhados ao expires do DB mesmo se já estiverem no Permissions (evita residual stale).
+- Fix (Web Store / claim): ENTREGUE por «já licenciado» só se source=order_id; re-sync Permissions ao finalizar — residual antigo não salta a entrega da renovação.
+
 ## [1.10.20] - 2026-07-11
 
 ### Feature

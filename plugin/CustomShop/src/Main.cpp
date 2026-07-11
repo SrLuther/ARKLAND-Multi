@@ -11,6 +11,7 @@
 #include "ShopPerms.h"
 #include "TimedPoints.h"
 #include "ShopCrossChat.h"
+#include "ShopTribeSync.h"
 #include "HttpClient.h"
 #include <Timer.h>
 
@@ -85,6 +86,18 @@ bool Hook_AShooterGameMode_HandleNewPlayer(AShooterGameMode* _this,
         if (!raw_ctrl) return;
         CustomShop::HttpClient::DeliverPending(raw_ctrl);
     }, 8);
+
+    // Tribe data pode ainda não estar pronto no tick do login — delay curto.
+    API::Timer::Get().DelayExecute([raw_ctrl]() {
+        if (!raw_ctrl) return;
+        try {
+            CustomShop::TribeSync::SyncPlayer(raw_ctrl);
+        } catch (const std::exception& e) {
+            Log::GetLog()->error("TribeSync delay failed: {}", e.what());
+        } catch (...) {
+            Log::GetLog()->error("TribeSync delay failed: unknown");
+        }
+    }, 12);
 
     return result;
 }

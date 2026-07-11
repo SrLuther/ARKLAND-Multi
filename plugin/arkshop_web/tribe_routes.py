@@ -18,6 +18,7 @@ Endpoints públicos (player, login_required):
 
 Endpoints de plugin (api_key_required):
   POST /api/tribe/presence     — snapshot de presença do plugin C++
+  POST /api/tribe/sync         — forçar backfill líder→mapa (Verificar de novo)
 """
 from __future__ import annotations
 
@@ -61,7 +62,9 @@ def register_tribe_routes(
         manual_add_member,
         member_optout,
         record_presence,
+        resolve_is_owner,
         save_regulation,
+        sync_owner_maps,
         update_owner_profile,
         upsert_map_link,
     )
@@ -111,14 +114,34 @@ def register_tribe_routes(
                 map_name=str(body.get("map_name") or server_id),
                 tribe_id=body.get("tribe_id"),
                 tribe_name=body.get("tribe_name"),
-                is_owner=bool(body.get("is_owner")),
+                is_owner=resolve_is_owner(
+                    is_owner=body.get("is_owner"),
+                    member_rank=body.get("member_rank"),
+                ),
                 member_rank=body.get("member_rank"),
-                source="login_hook",
+                source=str(body.get("source") or "login_hook"),
                 members=body.get("members"),
             )
             return _ok()
         except Exception as exc:
             log.warning("tribe_presence error: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/sync", methods=["POST"])
+    @login_required
+    def tribe_sync():
+        """Força backfill líder→mapa a partir de tribe_presences (Verificar de novo)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        db = _db()
+        try:
+            data = sync_owner_maps(db, steam_id)
+            return _ok(data)
+        except Exception as exc:
+            log.warning("tribe_sync error steam=%s: %s", steam_id, exc)
             return _fail(str(exc), 500)
         finally:
             db.close()

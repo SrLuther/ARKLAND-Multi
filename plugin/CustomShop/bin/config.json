@@ -7357,18 +7357,17 @@
     },
     "licenca_nuvem": {
       "Category": "Licenças",
-      "Commands": [
-        {
-          "Command": "Permissions.AddTimed {SteamID} keyvault 720",
-          "ExecuteAsAdmin": true
-        }
-      ],
       "Description": "Licença de Nuvem (30 dias) — /upload, /download e /nuvem em qualquer mapa do cluster",
       "ForceBlueprint": false,
+      "LicenseGrant": {
+        "Days": 30,
+        "Group": "keyvault",
+        "Redeemable": true
+      },
       "Name": "Licença de Nuvem (30 dias) — /upload, /download e /nuvem em qualquer mapa do cluster",
       "Price": 5000,
       "Quality": 0,
-      "Type": "command"
+      "Type": "license"
     },
     "lionfish_femea": {
       "Description": "Shadowmane Fêmea Nível 1",

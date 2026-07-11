@@ -79,11 +79,36 @@ void ShopEntitlements::SyncPermissionsCommand(const std::string& steam_id,
     RunPermissionConsole(steam_id, cmd);
 }
 
+int ShopEntitlements::QueryHoursRemaining(const std::string& steam_id,
+                                          const std::string& group) {
+    if (!db_ || steam_id.empty() || group.empty()) return -1;
+
+    char buf_id[64], buf_grp[64];
+    mysql_real_escape_string(db_, buf_id, steam_id.c_str(),
+        static_cast<unsigned long>(steam_id.size()));
+    mysql_real_escape_string(db_, buf_grp, group.c_str(),
+        static_cast<unsigned long>(group.size()));
+
+    const std::string sql =
+        "SELECT CASE WHEN expires IS NULL THEN -1 "
+        "     ELSE GREATEST(1, TIMESTAMPDIFF(HOUR, NOW(), expires)) END "
+        "FROM player_entitlements "
+        "WHERE steam_id = '" + std::string(buf_id) + "' "
+        "AND group_name = '" + std::string(buf_grp) + "' "
+        "AND (expires IS NULL OR expires > NOW()) LIMIT 1;";
+
+    if (mysql_query(db_, sql.c_str()) != 0) return -1;
+    MYSQL_RES* res = mysql_store_result(db_);
+    if (!res) return -1;
+    MYSQL_ROW row = mysql_fetch_row(res);
+    int hours = -1;
+    if (row && row[0]) hours = std::atoi(row[0]);
+    mysql_free_result(res);
+    return hours;
+}
+
 void ShopEntitlements::SyncPlayerOnJoin(const std::string& steam_id) {
     if (!db_ || steam_id.empty()) return;
-
-    uint64_t sid = 0;
-    try { sid = std::stoull(steam_id); } catch (...) {}
 
     char buf_id[64];
     mysql_real_escape_string(db_, buf_id, steam_id.c_str(),
@@ -112,11 +137,16 @@ void ShopEntitlements::SyncPlayerOnJoin(const std::string& steam_id) {
         const std::string group = row[0];
         const int hours_left = row[1] ? std::atoi(row[1]) : -1;
 
-        if (sid && Perms::IsInGroup(sid, group)) continue;
-
         if (hours_left < 0) {
+            // Permanente: só adiciona se ainda não estiver no grupo.
+            uint64_t sid = 0;
+            try { sid = std::stoull(steam_id); } catch (...) {}
+            if (sid && Perms::IsInGroup(sid, group)) continue;
             RunPermissionConsole(steam_id, "Permissions.Add " + steam_id + " " + group);
         } else {
+            // Temporário: sempre realinha ao expires do DB (fonte de verdade).
+            // Antes saltava se já estivesse no grupo — Permissions ficava com residual
+            // antigo após renovação (ex.: keyvault ~17d em vez de ~30/+residual).
             RunPermissionConsole(
                 steam_id,
                 "Permissions.AddTimed " + steam_id + " " + group + " "
@@ -192,7 +222,18 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
         return false;
     }
 
-    SyncPermissionsCommand(steam_id, group, days);
+    // Permissions.AddTimed precisa das horas totais após renovação (DB),
+    // não só days*24 — senão residual activo era descartado no plugin.
+    if (days <= 0) {
+        SyncPermissionsCommand(steam_id, group, 0);
+    } else {
+        int hours = QueryHoursRemaining(steam_id, group);
+        if (hours < 1) hours = days * 24;
+        RunPermissionConsole(
+            steam_id,
+            "Permissions.AddTimed " + steam_id + " " + group + " "
+                + std::to_string(hours));
+    }
     return true;
 }
 

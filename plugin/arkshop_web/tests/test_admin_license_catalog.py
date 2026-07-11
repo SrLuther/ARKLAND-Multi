@@ -132,6 +132,67 @@ def test_get_license_grant_from_commands_only():
     assert lic == {"Group": "keyvault", "Days": 7, "Redeemable": True}
 
 
+def test_get_license_grant_from_commands_object_form():
+    entry = {
+        "Type": "command",
+        "Description": "Licença de Nuvem",
+        "Commands": [
+            {"Command": "Permissions.AddTimed {SteamID} keyvault 720", "ExecuteAsAdmin": True},
+        ],
+    }
+    lic = _app_module._get_license_grant(entry, "licenca_nuvem")
+    assert lic is not None
+    assert lic["Group"] == "keyvault"
+    assert lic["Days"] == 30
+
+
+def test_order_license_fulfilled_requires_matching_source(monkeypatch):
+    """Residual antigo no mesmo grupo não finaliza renovação sem source=order_id."""
+    order = type("O", (), {
+        "order_id": "ord-new",
+        "steam_id": "76561198000000002",
+        "item_type": "shop",
+        "item_id": "licenca_nuvem",
+        "server_id": None,
+        "amount": 1,
+        "status": "PENDENTE",
+        "last_error": None,
+        "updated_at": None,
+    })()
+    monkeypatch.setattr(
+        _app_module,
+        "_order_license_group",
+        lambda _o: "keyvault",
+    )
+    monkeypatch.setattr(
+        _app_module,
+        "_get_player_entitlements",
+        lambda _sid: [{"group": "keyvault", "source": "ord-old", "expires_at": "2099-01-01T00:00:00"}],
+    )
+    assert _app_module._order_license_already_fulfilled(order) is False
+
+    monkeypatch.setattr(
+        _app_module,
+        "_get_player_entitlements",
+        lambda _sid: [{"group": "keyvault", "source": "ord-new", "expires_at": "2099-01-01T00:00:00"}],
+    )
+    assert _app_module._order_license_already_fulfilled(order) is True
+
+
+def test_entitlement_hours_remaining_ceils(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+
+    exp = (datetime.now(timezone.utc) + timedelta(hours=25, minutes=10)).isoformat()
+    monkeypatch.setattr(
+        _app_module,
+        "_get_player_entitlements",
+        lambda _sid: [{"group": "keyvault", "expires_at": exp, "permanent": False}],
+    )
+    hours = _app_module._entitlement_hours_remaining("76561198000000002", "keyvault")
+    assert hours >= 25
+    assert hours <= 27
+
+
 def test_admin_license_catalog_endpoint(client, tmp_path, monkeypatch):
     catalog = tmp_path / "catalog.json"
     _write_catalog(

@@ -1713,6 +1713,49 @@ class TestCloudLicensePurchase:
         ents = _app_module._get_player_entitlements(USER_STEAM)
         assert any(e["group"] == "keyvault" for e in ents)
 
+    def test_keyvault_renewal_extends_expires_not_replace(self, monkeypatch):
+        """Renovação de keyvault soma dias ao residual (spec: renovação soma)."""
+        from datetime import datetime, timedelta, timezone
+
+        db = _app_module._SessionLocal()
+        try:
+            # Residual ~17 dias
+            past = (datetime.now(timezone.utc) - timedelta(days=13)).replace(tzinfo=None)
+            future = (datetime.now(timezone.utc) + timedelta(days=17)).replace(tzinfo=None)
+            db.execute(
+                __import__("sqlalchemy").text(
+                    "INSERT INTO player_entitlements "
+                    "(steam_id, group_name, expires, source, notes, created_at) "
+                    "VALUES (:sid, 'keyvault', :exp, 'old', 'residual', :created)"
+                ),
+                {"sid": USER_STEAM, "exp": future, "created": past},
+            )
+            db.commit()
+            _app_module._apply_entitlement_grant_tx(
+                db, USER_STEAM, "keyvault", 30, source="renew", notes="web:licenca_nuvem",
+            )
+            db.commit()
+            row = db.execute(
+                __import__("sqlalchemy").text(
+                    "SELECT expires FROM player_entitlements "
+                    "WHERE steam_id = :sid AND group_name = 'keyvault'"
+                ),
+                {"sid": USER_STEAM},
+            ).fetchone()
+        finally:
+            db.close()
+
+        assert row and row[0] is not None
+        exp = row[0]
+        if isinstance(exp, str):
+            exp = datetime.fromisoformat(exp.replace("Z", "+00:00"))
+        if getattr(exp, "tzinfo", None) is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        remaining = (exp - datetime.now(timezone.utc)).total_seconds()
+        # ~17 + 30 = ~47 dias (±2 dias de tolerância)
+        assert remaining >= 44 * 86400
+        assert remaining <= 50 * 86400
+
     def test_purchase_license_failure_rolls_back_debit(self, monkeypatch):
         _seed_player_points(USER_STEAM, 10_000)
         db = _app_module._SessionLocal()
