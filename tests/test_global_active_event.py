@@ -65,6 +65,7 @@ def test_apply_active_event_primitive_writes_ini(tmp_path):
     app = MagicMock()
     app.asm_config_manager = None
     app.config_manager.get_server.return_value = srv
+    app.server_manager = MagicMock()
 
     entry = BuffServerEntry(id="leg-1", name="Test Leg", kind="primitive", label="Test Leg (legado)")
     result = apply_active_event_to_server(app, entry, "FearEvolved")
@@ -77,6 +78,7 @@ def test_apply_active_event_primitive_writes_ini(tmp_path):
     assert srv.active_event == "FearEvolved"
     app.config_manager.update_server.assert_called_once_with(srv)
     app.config_manager.save.assert_called_once()
+    app.server_manager.update_server_config.assert_called_once_with(srv)
 
 
 def test_apply_active_event_to_multiple_servers(tmp_path):

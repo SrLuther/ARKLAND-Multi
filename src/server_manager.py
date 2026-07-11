@@ -857,9 +857,7 @@ class ServerManager:
     def update_server_config(self, config: ServerConfig) -> None:
         with self._lock:
             if config.id in self._instances:
-                inst = self._instances[config.id]
-                if inst.status == SERVER_STATUS_STOPPED:
-                    inst.config = config
+                self._instances[config.id].config = config
             else:
                 self._instances[config.id] = ServerInstance(config)
         self._refresh_bm_poller()

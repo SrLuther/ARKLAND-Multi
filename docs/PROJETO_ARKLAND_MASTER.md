@@ -36,6 +36,7 @@ Unificar em **um único projeto** (`arkland-multi`) três frentes de trabalho:
 | Inspiração SM | Cards, busca, modified+reset, accordion per-level, tooltips |
 | ArkUtils | Portar lógica **SpawnExactDino** para Python/CustomTkinter (não embutir Svelte) |
 | Commits/releases | Somente quando solicitado explicitamente |
+| **Meta catálogo de dinos** | **79 espécies (Jul 2026) é subconjunto inicial** — meta = todos os domesticáveis vanilla ASE+DLC+mods (~240–260). Ver [`docs/CATALOGO_DINOS_COMPLETO.md`](./CATALOGO_DINOS_COMPLETO.md) |
 
 ### Pendente de confirmação neste documento
 
@@ -442,6 +443,19 @@ Responder com uma das opções:
 ### Web Store (ecossistema — fora do escopo TEK)
 
 - [`docs/SORTEIO_DOACOES_SPEC.md`](SORTEIO_DOACOES_SPEC.md) — Sorteio promocional vinculado a doações PIX/cartão: R$5 = 1 número (100–999), auto-encadeamento pós-sorteio, prêmio em Âmbares com rollover, trilha de auditoria pública (discussão).
+
+### Portal e Tribo
+
+- [`docs/PROJETO_AREA_TRIBO.md`](PROJETO_AREA_TRIBO.md) — Área de Tribo na Minha Área: **modelo "uma tribo por mapa"** (princípio central de design), painel agregado com abas independentes por servidor, logs espelhados e sync automática de membros por mapa (MVP ~8–11 dias). **§17** documenta a política Tribo Principal + Fobs: definições, cenários de membership, 3 opções de design (Cluster Group / Naming Convention / Plugin tipo), implicações de UI, Cluster View de logs — ✅ decisões administrativas registradas em §17.7 (10/07/2026): fob sem split, restrição same-map, visibilidade tribe-only, nomenclatura livre, vínculo exige aprovação do owner principal. **§18** resume os princípios de repartição de ganhos do mercado (ver arquivo dedicado abaixo). **§19** especifica o Regulamento Interno da Tribo: conteúdo autoral do owner, hierarquia principal + adendos de fob, visibilidade, versionamento, moderação e modelo de dados.
+
+- [`docs/TRIBO_REPARTICAO_MERCADO.md`](TRIBO_REPARTICAO_MERCADO.md) — **§18 Repartição de ganhos do mercado:** ✅ decisões administrativas registradas em 10/07/2026. Regra relativa de floor (gap mínimo de 10 p.p. acima do próximo membro, sem piso fixo), cooldown 48h somente em alterações, opt-out imediato com reentrada em 45h + aprovação do owner, mínimo de venda 1.000 Âmbares, limite de 10 membros, split exclusivo da tribo principal (fobs sem split), sem vínculo com encomendas. Auditoria por venda, 25 edge cases, fases MVP.
+
+### Economia — Documentação Completa
+
+- [`docs/ECONOMIA_ARKLAND.md`](ECONOMIA_ARKLAND.md) — Bíblia completa da economia: moeda Âmbar, catálogo, mercado P2P (floor_quality), encomendas, kits, licenças, ganhos, ferramentas admin.
+- [`docs/TABELA_PRECOS_DINOS.md`](TABELA_PRECOS_DINOS.md) — **Tabela completa de 79 dinos:** preço atual vs proposto, mercado 254pts, encomenda máxima, âncoras e ajustes do rebalanceamento.
+- [`docs/PROJETO_ECONOMIA_IDEAL.md`](PROJETO_ECONOMIA_IDEAL.md) — Projeto de economia ideal: princípios, tabela R/B proposta, taxa P2P, ajuste de parâmetros, sumidouros, plano de migração faseado.
+- [`docs/LICENCAS_PRECOS_PROPOSTA.md`](LICENCAS_PRECOS_PROPOSTA.md) — **✅ Direção aprovada — 12 tiers de licença** (Delta→Exótico) baseada no mod ItensAlfa: preços **6k–230k Âmbar** *(v3.0 — escada de subscrição TEK; Gama 50k / Beta 75k / Alfa 100k / Exótico 230k)*, bônus /30min (30→225 total), acesso a armadura/armas/selas TEK por tier (180→23.500 pts armor). Implementação pendente.
 
 ---
 

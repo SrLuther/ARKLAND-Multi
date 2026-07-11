@@ -523,6 +523,64 @@ def record_lottery_amber_purchase(
     )
 
 
+def record_lottery_donation_prize_contribution(
+    db: Session,
+    *,
+    campaign_id: int,
+    payment_id: str,
+    steam_id: str,
+    amount: int,
+    **kw: Any,
+) -> bool:
+    """Registra contribuição ao prize pool via doação (legado — mantido para compatibilidade)."""
+    return record_movement(
+        db,
+        channel="lottery",
+        event_type="lottery_donation_prize_contribution",
+        signed_delta=amount,
+        idempotency_key=f"lottery:donation_prize:{campaign_id}:{payment_id}",
+        steam_id=steam_id,
+        source_table="lottery_campaigns",
+        source_id=str(campaign_id),
+        metadata={
+            "campaign_id": campaign_id,
+            "payment_id": payment_id,
+            "note": "prize_pool_contribution",
+        },
+        **kw,
+    )
+
+
+def record_lottery_donation_amber(
+    db: Session,
+    *,
+    campaign_id: int,
+    payment_id: str,
+    steam_id: str,
+    amount: int,
+    amount_brl: float,
+    **kw: Any,
+) -> bool:
+    """Registra crédito de Âmbares ao jogador por doação (R$ 1 = 100 Âmbares na conta)."""
+    return record_movement(
+        db,
+        channel="lottery",
+        event_type="lottery_donation_amber_credited",
+        signed_delta=amount,
+        idempotency_key=f"lottery:donation:amber:{campaign_id}:{payment_id}",
+        steam_id=steam_id,
+        source_table="point_payments",
+        source_id=payment_id,
+        metadata={
+            "campaign_id": campaign_id,
+            "payment_id": payment_id,
+            "amount_brl": amount_brl,
+            "amber_per_real": 100,
+        },
+        **kw,
+    )
+
+
 def record_lottery_prize_subsidy(
     db: Session,
     *,

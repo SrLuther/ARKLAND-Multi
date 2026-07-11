@@ -3,11 +3,23 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.18"
-BUILD_DATE: str = "2026-07-09"
+APP_VERSION: str = "1.10.19"
+BUILD_DATE: str = "2026-07-10"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.19",
+        "date": "2026-07-10",
+        "changes": [
+            "Feat (Licenças ItensAlfa): escada Delta→Exótico (6k–230k Â) — 9 tiers, renovação −20%, TimedPoints, gates N+N−1, kits kit_itensalfa_*; migration tools/migrate_itensalfa_licenses.py + SQL.",
+            "Feat (Web Store / boot): migration ItensAlfa (license_tier_catalog) corre automaticamente em _migrate_schema via ensure_itensalfa_licenses_schema (idempotente).",
+            "Feat (CustomShop / Catálogo): 91 novas espécies vanilla/DLC Level 1 (98→189 entries; market defaults 78→169) com preços por tier/papel.",
+            "Feat (Área da Tribo / Mercado): schema e rotas de tribo no boot + repartição de payout no mercado.",
+            "Fix (ActiveEvent / Eventos Globais): restart e start não apagam mais Easter/Páscoa — widgets obsoletos do painel do servidor só sincronizam quando o painel está aberto.",
+            "Fix (ActiveEvent / legado): aplicar evento global atualiza a instância em memória do servidor legado para o próximo start usar ?ActiveEvent= correto.",
+        ],
+    },
     {
         "version": "1.10.18",
         "date": "2026-07-09",

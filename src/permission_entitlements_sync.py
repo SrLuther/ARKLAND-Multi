@@ -16,8 +16,21 @@ log = logging.getLogger(__name__)
 
 PERM_DB_NAME = "ark_permission"
 SHOP_DB_NAME = "arkland_shop"
-PAID_LICENSE_GROUPS = frozenset({"Gamma", "Beta", "Alfa"})
-TIMED_LICENSE_GROUPS = frozenset({"Gamma", "Beta", "Alfa", "keyvault"})
+PAID_LICENSE_GROUPS = frozenset({
+    "Delta",
+    "Gamma",
+    "Beta",
+    "Alfa",
+    "Omega",
+    "Transcendente",
+    "Etereo",
+    "Universal",
+    "Onipotente",
+    "Surreal",
+    "Imaterial",
+    "Exotico",
+})
+TIMED_LICENSE_GROUPS = PAID_LICENSE_GROUPS | frozenset({"keyvault"})
 STAFF_PERM_GROUPS = frozenset({"Moderacao", "Mod", "MOD", "STAFF", "Admins", "Admin"})
 _MANAGED_SYNC_GROUPS = TIMED_LICENSE_GROUPS | STAFF_PERM_GROUPS
 _STEAM_ID_RE = re.compile(r"^7656119\d{10}$")

@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.19] - 2026-07-10
+
+### Feature
+
+- Feat (Licenças ItensAlfa): escada Delta→Exótico (6k–230k Â) — 9 tiers, renovação −20%, TimedPoints, gates N+N−1, kits kit_itensalfa_*; migration tools/migrate_itensalfa_licenses.py + SQL.
+- Feat (Web Store / boot): migration ItensAlfa (license_tier_catalog) corre automaticamente em _migrate_schema via ensure_itensalfa_licenses_schema (idempotente).
+- Feat (CustomShop / Catálogo): 91 novas espécies vanilla/DLC Level 1 (98→189 entries; market defaults 78→169) com preços por tier/papel.
+- Feat (Área da Tribo / Mercado): schema e rotas de tribo no boot + repartição de payout no mercado.
+
+### Fix
+
+- Fix (ActiveEvent / Eventos Globais): restart e start não apagam mais Easter/Páscoa — widgets obsoletos do painel do servidor só sincronizam quando o painel está aberto.
+- Fix (ActiveEvent / legado): aplicar evento global atualiza a instância em memória do servidor legado para o próximo start usar ?ActiveEvent= correto.
+
 ## [1.10.18] - 2026-07-09
 
 ### Feature

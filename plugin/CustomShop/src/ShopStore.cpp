@@ -105,10 +105,24 @@ bool IsLicenseEntry(const nlohmann::json& entry) {
 std::string InferLicenseGroupFromItemId(const std::string& item_id) {
     const std::string lower = ToLowerAscii(item_id);
     if (lower.rfind("licenca_", 0) != 0) return {};
-    const std::string suffix = lower.substr(8);
+    std::string suffix = lower.substr(8);
+    static const char kRenov[] = "_renovacao";
+    if (suffix.size() > sizeof(kRenov) - 1
+        && suffix.compare(suffix.size() - (sizeof(kRenov) - 1), sizeof(kRenov) - 1, kRenov) == 0) {
+        suffix.resize(suffix.size() - (sizeof(kRenov) - 1));
+    }
+    if (suffix == "delta") return "Delta";
     if (suffix == "gamma" || suffix == "gama") return "Gamma";
     if (suffix == "beta") return "Beta";
     if (suffix == "alfa") return "Alfa";
+    if (suffix == "omega") return "Omega";
+    if (suffix == "transcendente") return "Transcendente";
+    if (suffix == "etereo") return "Etereo";
+    if (suffix == "universal") return "Universal";
+    if (suffix == "onipotente") return "Onipotente";
+    if (suffix == "surreal") return "Surreal";
+    if (suffix == "imaterial") return "Imaterial";
+    if (suffix == "exotico") return "Exotico";
     if (suffix == "nuvem") return "keyvault";
     if (suffix == "vip_bronze") return "VIPBronze";
     if (suffix == "vip_prata") return "VIPPrata";

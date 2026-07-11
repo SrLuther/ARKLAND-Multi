@@ -1547,7 +1547,23 @@ def collect_groups_from_catalog(catalog: Dict[str, Any]) -> List[str]:
         if grant_group:
             _add_group(grant_group)
 
-    for lic in ("keyvault", "Gamma", "Beta", "Alfa", "Moderacao", "STAFF"):
+    for lic in (
+        "keyvault",
+        "Delta",
+        "Gamma",
+        "Beta",
+        "Alfa",
+        "Omega",
+        "Transcendente",
+        "Etereo",
+        "Universal",
+        "Onipotente",
+        "Surreal",
+        "Imaterial",
+        "Exotico",
+        "Moderacao",
+        "STAFF",
+    ):
         _add_group(lic)
 
     timed = catalog.get("TimedPointsReward", {})

@@ -3,9 +3,10 @@
 
 | Campo                     | Valor                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Status**                | 📋 Especificação para **discussão** — sem implementação                                                                                                                                                                                                                                                                                                               |
-| **Versão do documento**   | 1.6                                                                                                                                                                                                                                                                                                                                                                   |
-| **Data**                  | 05 de julho de 2026                                                                                                                                                                                                                                                                                                                                                   |
+| **Status**                | ✅ Implementado (v1.7)                                                                                                                                                                                                                                                                                                               |
+| **Versão do documento**   | 1.7                                                                                                                                                                                                                                                                                                                                                                   |
+| **Data**                  | 10 de julho de 2026                                                                                                                                                                                                                                                                                                                                                   |
+| **Changelog v1.7**        | **Doações incrementam o prêmio:** cada **R\$ 1,00** doado adiciona **+100 Âmbares** ao prize_amber_from_donations da campanha (ex.: R\$ 5 → +500, R\$ 25 → +2.500 âmbares); prize_amber_total agora inclui essa parcela; nova coluna prize_amber_from_donations; ledger channel=lottery / event_type=lottery_donation_prize_contribution; idempotência via chave lottery:donation_prize:{campaign_id}:{payment_id} |
 | **Changelog v1.6**        | **Mecanismo de entrega do prêmio:** crédito de Âmbares na conta ARKLAND (`players.points` via `_add_player_points_tx`) — **não** Steam Wallet nem pagamento em dinheiro real; copy de UI (“creditados na sua conta ARKLAND”); Âmbarômetro com `channel=lottery` (débito house / crédito jogador); regulamento v1.5 com disclaimer de moeda simbólica                  |
 | **Changelog v1.5**        | **Princípio explícito:** com ≥1 titular premiado, **100% do** `prize_amber_total` é distribuído — divisão por `matched_count`, **nunca** por `W` (quantidade sorteada); números sorteados sem titular não retêm parcela nem geram rollover; exemplos canônicos 124/5/1 e 124/5/3; regulamento v1.4; APIs com `prize_pool_fully_distributed`                           |
 | **Changelog v1.4**        | Divisão igualitária do prêmio entre **1–5 titulares** de números sorteados (`share = ceil(prize_amber_total / matched_count)`); subsídio do organizador até **1 Âmbar por match** para parcelas inteiras iguais; prêmio integral pago quando há ≥1 titular (números sorteados sem titular não geram rollover); transparência e APIs com valor por vencedor e subsídio |
@@ -29,7 +30,7 @@
 | Pergunta                   | Resposta                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **O que é?**               | Promoção contínua de **sorteio** na Web Store ARKLAND com **três formas** de obter números (100–999, únicos por campanha): (1) doação — **R$ 5,00** = 1 número aleatório; (2) compra com Âmbares — até **5 números aleatórios** a **1.000 Âmbares** cada; (3) reserva — número **específico** a **2.000 Âmbares** se disponível                                                                                                                           |
-| **Qual o prêmio?**         | **Âmbares** — pool = base + rollover + **100%** do valor gasto em compras/reservas de números na campanha; até **5 números** sorteados por campanha; com **≥1 titular** premiado, o **pool integral** é repartido **igualmente** entre os titulares (`matched_count`, não `W`) em parcelas inteiras (`ceil`); sorteados sem titular **não** reduzem o payout; se **nenhum** sorteado tiver titular, o pool **acumula com bônus de +25%** (ex.: 100 → 125) |
+| **Qual o prêmio?**         | **Âmbares** — pool = base + rollover + **100%** do valor gasto em compras/reservas + **R$ 1,00 doado = +100 âmbares** (v1.7); até **5 números** sorteados por campanha; com **≥1 titular** premiado, o **pool integral** é repartido **igualmente** entre os titulares (`matched_count`, não `W`) em parcelas inteiras (`ceil`); sorteados sem titular **não** reduzem o payout; se **nenhum** sorteado tiver titular, o pool **acumula com bônus de +25%** (ex.: 100 → 125) |
 | **Como recebo o prêmio?**  | Crédito automático na **conta ARKLAND** do jogador (`players.points` via `_add_player_points_tx`) — **não** Steam Wallet, **não** dinheiro real; uso exclusivo no ecossistema ARKLAND (catálogo web, mercado P2P, compra de números, etc.) — ver §3.6.2                                                                                                                                                                                                   |
 | **Como encerra?**          | **Sorteio automático** quando o countdown chega a zero — sem intervenção manual para escolher vencedor                                                                                                                                                                                                                                                                                                                                                    |
 | **O que acontece depois?** | **Auto-chain:** ao concluir o sorteio, uma **nova campanha inicia automaticamente** com prêmio rollover + configuração herdada                                                                                                                                                                                                                                                                                                                            |
@@ -223,17 +224,21 @@ Os números pertencem exclusivamente à **campanha ativa** — cada valor entre 
 
 
 
-### 3.2.1 Números por doação (R$ 5 = 1 número)
+### 3.2.1 Números por doação e Âmbares creditados ao jogador (R$ 5 = 1 número + 500 Âmbares)
 
 
-| Regra                 | Detalhe                                                                 |
-| --------------------- | ----------------------------------------------------------------------- |
-| **Proporcionalidade** | `floor(amount_brl / 5.00)` números por doação creditada                 |
-| **Exemplos**          | R$ 5 → 1 número; R$ 12 → 2 números; R$ 4,99 → 0 números                 |
-| **Atribuição**        | Sistema sorteia números **ainda não ocupados** na campanha (ver §3.3)   |
-| **Momento**           | Somente após `PointPayment.credited = true` em `_finalize_pix_payment`  |
-| **Pacotes**           | Qualquer pacote de doação existente elegível; valor vem de `amount_brl` |
-| **Múltiplas doações** | Cada doação creditada gera lote independente de números                 |
+| Regra                    | Detalhe                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Proporcionalidade**    | `floor(amount_brl / 5.00)` números por doação creditada                                                      |
+| **Exemplos (números)**   | R$ 5 → 1 número; R$ 12 → 2 números; R$ 4,99 → 0 números                                                     |
+| **Âmbares por doação**   | `int(round(amount_brl * 100))` Âmbares somados ao **prêmio total** (`prize_amber_from_donations`) — fórmula: `prêmio += donation_reais × 100` |
+| **Exemplos (Âmbares)**   | R$ 5 → 500 Âmbares; R$ 10 → 1.000 Âmbares; R$ 25 → 2.500 Âmbares                                           |
+| **Constante**            | `DONATION_AMBER_PER_REAL = 100` em `lottery_service.py`                                                      |
+| **Atribuição**           | Sistema sorteia números **ainda não ocupados** na campanha (ver §3.3)                                        |
+| **Momento**              | Somente após `PointPayment.credited = true` em `_finalize_pix_payment`                                       |
+| **Pacotes**              | Qualquer pacote de doação existente elegível; valor vem de `amount_brl`                                       |
+| **Múltiplas doações**    | Cada doação creditada gera lote independente de números e Âmbares                                             |
+| **Idempotência**         | Segundo processamento do mesmo `payment_id` retorna `skipped=True` sem duplicar créditos                     |
 | **Escolha manual**    | **Não** — jogador não seleciona números na doação                       |
 
 
@@ -341,7 +346,8 @@ Transições automáticas: `ACTIVE` → `DRAWING` → `COMPLETED` → (auto-chai
 | `prize_amber_base`                | int            | 5000                             | Pool base de Âmbares                                                  |
 | `prize_amber_rollover_in`         | int            | 0                                | Acumulado importado da campanha anterior                              |
 | `prize_amber_from_purchases`      | int            | 0                                | Soma de Âmbares gastos em compras/reservas (atualizado em tempo real) |
-| `prize_amber_total`               | computed       | base + rollover + from_purchases | Prêmio total em jogo                                                  |
+| `prize_amber_from_donations`      | int            | 0                                | Âmbares adicionados ao pool por doações (R$ 1 = +100 âmbares, v1.7)  |
+| `prize_amber_total`               | computed       | base + rollover + from_purchases + from_donations | Prêmio total em jogo (v1.7)                        |
 | `amber_random_max_per_player`     | int            | 5                                | Teto de compras aleatórias por jogador/campanha                       |
 | `amber_random_price`              | int            | 1000                             | Preço compra aleatória                                                |
 | `amber_reserve_price`             | int            | 2000                             | Preço reserva específica                                              |
@@ -537,9 +543,13 @@ Compras de números com Âmbares já debitam o jogador (`lottery_amber_purchase`
 prize_amber_from_purchases(N) = Σ (amber_cost) de lottery_numbers
   onde source ∈ { AMBER_RANDOM, AMBER_RESERVE } e status = ACTIVE
 
+prize_amber_from_donations(N) = round(amount_brl × 100)   # por doação creditada
+  → R$ 1,00 = +100 âmbares | R$ 5,00 = +500 | R$ 25,00 = +2.500
+
 prize_amber_total(N) = prize_amber_base(N)
                      + prize_amber_rollover_in(N)
                      + prize_amber_from_purchases(N)
+                     + prize_amber_from_donations(N)
 
 # Divisão — ver §3.6.1 (executada no sorteio):
 matched_count(N)      = |{ n ∈ drawn_numbers : ∃ titular ACTIVE }|
@@ -563,11 +573,11 @@ prize_amber_rollover_in(N+1) = rollover_out(N)
 | ---------------------------- | ------------------------------------ | ------------------------------------------------------------------------ |
 | `prize_amber_base`           | Config admin por campanha            | Valor fixo inicial de cada nova campanha                                 |
 | `prize_amber_rollover_in`    | Campanha anterior                    | Acumulado importado (`rollover_out` da campanha anterior)                |
-| `prize_amber_from_purchases` | Compras + reservas                   | **100%** do Âmbar debitado do jogador entra no pool — não há taxa retida |
-| Doações                      | **Não** incrementam pool diretamente | Benefício promocional; pool cresce via base, rollover e compras          |
+| `prize_amber_from_purchases` | Compras + reservas com Âmbares       | **100%** do Âmbar debitado do jogador entra no pool — não há taxa retida |
+| `prize_amber_from_donations` | Doações PIX/cartão creditadas        | **R$ 1,00 doado = +100 âmbares** ao pool (v1.7); idempotente por `payment_id` |
 
 
-**Pool no momento do sorteio:** `prize_amber_total` é calculado **no instante do sorteio** e inclui **todos** os componentes acima — `prize_amber_base` + `prize_amber_rollover_in` + `prize_amber_from_purchases` (compras e reservas com Âmbares creditadas até o fechamento). O bônus de **+25%** no cenário sem vencedor incide sobre esse **pool integral**, não apenas sobre a base ou sobre o rollover isolado.
+**Pool no momento do sorteio:** `prize_amber_total` é calculado **no instante do sorteio** e inclui **todos** os componentes acima — `prize_amber_base` + `prize_amber_rollover_in` + `prize_amber_from_purchases` + `prize_amber_from_donations`. O bônus de **+25%** no cenário sem vencedor incide sobre esse **pool integral**, não apenas sobre a base ou sobre o rollover isolado.
 
 **Exemplos de cálculo do pool:**
 
@@ -878,7 +888,7 @@ Quando existe campanha `ACTIVE` ou `DRAWING`:
 | **Hero** | Título da campanha (#N), status badge (`ATIVA` / `SORTEANDO…` / `CONCLUÍDA`) |
 | **Countdown** | Timer ao vivo até `draw_at` (UTC-3 explícito); congela em `DRAWING` com mensagem “Sorteio em andamento” |
 | **Prêmio** | `prize_amber_total` destacado; breakdown: base + rollover + compras/reservas |
-| **Regras resumidas** | R$ 5 = 1 número · compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · intervalo 100–999 únicos · até 5 números sorteados · com ≥1 titular, **100%** do prêmio repartido entre titulares (`matched_count`) · sorteio automático |
+| **Regras resumidas** | R$ 5 = 1 número + 500 Âmbares · cada R$ 1 doado = 100 Âmbares · compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · intervalo 100–999 únicos · até 5 números sorteados · com ≥1 titular, **100%** do prêmio repartido entre titulares (`matched_count`) · sorteio automático |
 | **Grade de números** | Tabela/grid **100–999** — todas as células visíveis; cor **disponível** vs **ocupado** (ver §5.6.9) |
 | **Ações (logado)** | “Comprar aleatório (1.000)” · contador compras X/5 · clique em célula livre para reservar (2.000) |
 | **Estatísticas** | Participantes únicos · números emitidos / 900 · total doado (opcional) · Âmbares injetados via compras |
@@ -1204,7 +1214,7 @@ Rotas consumidas pela **Área Pública `#/sorteio`** e pelo widget teaser da hom
     "numbers_issued_count": 243,
     "total_donated_brl": 1215.00,
     "regulamento_version": "1.1",
-    "rules_summary": "R$ 5 = 1 número · compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · até 5 sorteados · prêmio dividido igualmente entre titulares dos sorteados.",
+    "rules_summary": "R$ 5 = 1 número + 500 Âmbares · cada real doado = 100 Âmbares · compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · até 5 sorteados · prêmio dividido igualmente entre titulares dos sorteados.",
     "results_pending": false
   }
 }
@@ -1417,8 +1427,8 @@ Rotas consumidas pela **Área Pública `#/sorteio`** e pelo widget teaser da hom
 │  │  Compras: +8.000         │  │                               │ │
 │  └──────────────────────────┘  └───────────────────────────────┘ │
 │                                                                  │
-│  Regras: R$ 5 = 1 número · compra 1.000 Âmbares (máx. 5) ·       │
-│          reserva 2.000 Âmbares · números únicos 100–999           │
+│  Regras: R$ 5 = 1 número + 500 Âmbares · cada R$ 1 = 100 Âmbares │
+│  compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · 100–999 │
 │                                                                  │
 │  📊 87 participantes · 243/900 números · R$ 1.215,00 doados      │
 │                                                                  │
@@ -1970,7 +1980,7 @@ exemplos: "PlayerOne" → "Pla***One" · "Fox" → "***" · "ArkHunter99" → "A
 
 3.1. Acesse a Web Store ARKLAND autenticado via Steam.
 
-3.2. **Por doação:** realize doação via PIX ou cartão (Mercado Pago) durante campanha **ativa**. A cada **R$ 5,00 (cinco reais)** doados e **creditados**, o sistema atribui **1 (um) número da sorte** aleatório entre os **disponíveis** (100–999). Valores inferiores a R$ 5,00 na mesma transação **não geram** número.
+3.2. **Por doação:** realize doação via PIX ou cartão (Mercado Pago) durante campanha **ativa**. A cada **R$ 5,00 (cinco reais)** doados e **creditados**, o sistema atribui **1 (um) número da sorte** aleatório entre os **disponíveis** (100–999) **e** credita **100 Âmbares por real doado** na sua conta ARKLAND (ex.: R$ 5 → 500 Âmbares; R$ 25 → 2.500 Âmbares). Valores inferiores a R$ 5,00 na mesma transação **não geram** número (mas os Âmbares são creditados normalmente).
 
 3.3. **Por compra com Âmbares (aleatório):** na Área Pública do Sorteio, adquira até **5 (cinco)** números por campanha, a **1.000 (mil) Âmbares** cada. O sistema atribui número aleatório entre os disponíveis.
 

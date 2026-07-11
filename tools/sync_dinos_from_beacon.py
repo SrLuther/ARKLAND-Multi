@@ -236,7 +236,7 @@ def _dino_entry(
 def _level_and_category(target: dict[str, Any]) -> tuple[int, str, str]:
     mod = str(target.get("mod") or "").lower()
     if mod == "abyss" or str(target.get("source")) == "registry" and "abyss" in mod:
-        return SHOP_LEVEL_ABYSS, "Abyss", " (mod Abyss)"
+        return SHOP_LEVEL_ABYSS, "Abyss", " (Aquática)"
     return SHOP_LEVEL_COMMERCE, "Comércio", ""
 
 

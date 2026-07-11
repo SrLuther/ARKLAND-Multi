@@ -11,7 +11,7 @@
 | **Documento anterior** | [`docs/dino_custom_colors_delivery_spec.md`](dino_custom_colors_delivery_spec.md) — **consolidado e expandido aqui** |
 
 > **Guia de uso (operacional):** [`docs/DINO_LAB_GUIA.md`](DINO_LAB_GUIA.md)  
-> **Ver também:** [`docs/PROJETO_MERCADO_CRYOPOD.md`](PROJETO_MERCADO_CRYOPOD.md) (cryopod, cores, mercado P2P), [`docs/PROJETO_SISTEMA_SUPORTE_TICKETS.md`](PROJETO_SISTEMA_SUPORTE_TICKETS.md) (compensações), [`docs/PROJETO_ARKLAND_MASTER.md`](PROJETO_ARKLAND_MASTER.md) (SpawnExact TEK), [`docs/market_admin_audit_improvements.md`](market_admin_audit_improvements.md) (padrões de auditoria).
+> **Ver também:** [`docs/dinolab-blueprint-scan.md`](dinolab-blueprint-scan.md) (coleta `/bp` de blueprints), [`docs/PROJETO_MERCADO_CRYOPOD.md`](PROJETO_MERCADO_CRYOPOD.md) (cryopod, cores, mercado P2P), [`docs/PROJETO_SISTEMA_SUPORTE_TICKETS.md`](PROJETO_SISTEMA_SUPORTE_TICKETS.md) (compensações), [`docs/PROJETO_ARKLAND_MASTER.md`](PROJETO_ARKLAND_MASTER.md) (SpawnExact TEK), [`docs/market_admin_audit_improvements.md`](market_admin_audit_improvements.md) (padrões de auditoria).
 
 ---
 

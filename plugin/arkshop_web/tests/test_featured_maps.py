@@ -26,6 +26,11 @@ def fresh_env(tmp_path, monkeypatch):
         encoding="utf-8",
     )
 
+    # Isola o arquivo de servidores para evitar leitura do arquivo real do ambiente
+    servers_file = tmp_path / "servers.json"
+    servers_file.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(_app_module, "_SERVERS_FILE", servers_file)
+
     db_url = f"sqlite:///{tmp_path / 'test.db'}"
     monkeypatch.setattr(_app_module, "_ACTIVE_DATABASE_URL", "")
     _configure_database(db_url)

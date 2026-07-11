@@ -302,9 +302,10 @@ def quote(
     service_premium = round((market_value + color_component) * float(cfg["beta"]))
     subtotal = market_value + color_component + base_surcharge + service_premium
     floor = max(market_value, r)
-    ceiling_species = round(size_cap_for_class(economy.size_class) * float(cfg["kappa"]))
-    ceiling = min(ceiling_species, int(cfg["absolute_max"]))
-    total = max(floor, min(subtotal, ceiling))
+    from market_economy import calculate_encomenda_value, load_encomenda_absolute_max
+
+    ceiling = load_encomenda_absolute_max()
+    total = calculate_encomenda_value(economy, market_value, color_component=color_component)
 
     quote_id = f"qt_{secrets.token_hex(6)}"
     return {

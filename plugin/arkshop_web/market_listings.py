@@ -991,7 +991,32 @@ def purchase_listing(db: Session, listing_id: int, buyer_steam_id: str) -> dict[
     db.flush()
 
     buyer_after = _debit_points(db, buyer_steam_id, price)
-    seller_after = _credit_points(db, row.seller_steam_id, price)
+
+    # ── Divisão de ganhos de tribo (§18 — tribe split) ────────
+    # Se o anúncio tem split_snapshot configurado, distribui proporcionalmente.
+    # Caso contrário (split desativado ou ausente), crédito integral ao vendedor.
+    _split_snapshot = getattr(row, "split_snapshot", None)
+    _split_payouts: list[dict] = []
+    if _split_snapshot:
+        try:
+            from tribe_service import apply_split_payout
+            _split_payouts = apply_split_payout(
+                db,
+                split_snapshot_json=_split_snapshot,
+                price=price,
+                seller_steam_id=row.seller_steam_id,
+                listing_id=row.id,
+                credit_fn=_credit_points,
+            )
+            seller_after = _player_points(db, row.seller_steam_id)
+        except Exception as _split_exc:
+            log.warning(
+                "Split payout falhou listing=%s: %s — crédito integral ao vendedor",
+                row.id, _split_exc
+            )
+            seller_after = _credit_points(db, row.seller_steam_id, price)
+    else:
+        seller_after = _credit_points(db, row.seller_steam_id, price)
 
     now = _now()
     row.status = "AWAITING_CLAIM"

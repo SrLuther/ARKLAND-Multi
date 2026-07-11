@@ -1363,6 +1363,18 @@ def _migrate_schema(engine: Any) -> None:
             ensure_dino_lab_block_schema(engine)
         except Exception as exc:
             log.warning("Dino Lab block (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from tribe_service import ensure_tribe_schema
+
+            ensure_tribe_schema(engine)
+        except Exception as exc:
+            log.warning("Área de Tribo (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from itensalfa_licenses_migrate import ensure_itensalfa_licenses_schema
+
+            ensure_itensalfa_licenses_schema(engine)
+        except Exception as exc:
+            log.warning("ItensAlfa licenses (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -1508,6 +1520,18 @@ def _migrate_schema(engine: Any) -> None:
         ensure_dino_lab_block_schema(engine)
     except Exception as exc:
         log.warning("Dino Lab block: migrate falhou: %s", exc)
+    try:
+        from tribe_service import ensure_tribe_schema
+
+        ensure_tribe_schema(engine)
+    except Exception as exc:
+        log.warning("Área de Tribo: migrate falhou: %s", exc)
+    try:
+        from itensalfa_licenses_migrate import ensure_itensalfa_licenses_schema
+
+        ensure_itensalfa_licenses_schema(engine)
+    except Exception as exc:
+        log.warning("ItensAlfa licenses: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -2232,10 +2256,19 @@ def _get_admin_player_detail(steam_id: str) -> dict[str, Any]:
 
 _LICENSE_GROUP_SKIP = frozenset({"Admins", "Staff", "Default", "VIPDoacao", ""})
 _LICENSE_ID_GROUP_FALLBACK: dict[str, str] = {
+    "delta": "Delta",
     "gamma": "Gamma",
     "gama": "Gamma",
     "beta": "Beta",
     "alfa": "Alfa",
+    "omega": "Omega",
+    "transcendente": "Transcendente",
+    "etereo": "Etereo",
+    "universal": "Universal",
+    "onipotente": "Onipotente",
+    "surreal": "Surreal",
+    "imaterial": "Imaterial",
+    "exotico": "Exotico",
     "nuvem": "keyvault",
     "vip_bronze": "VIPBronze",
     "vip_prata": "VIPPrata",
@@ -2261,6 +2294,8 @@ def _catalog_license_group(entry: dict[str, Any], item_id: str) -> str:
     key = str(item_id or "").strip().lower()
     if key.startswith("licenca_"):
         suffix = key[8:]
+        if suffix.endswith("_renovacao"):
+            suffix = suffix[: -len("_renovacao")]
         if suffix in _LICENSE_ID_GROUP_FALLBACK:
             return _LICENSE_ID_GROUP_FALLBACK[suffix]
         parts = suffix.split("_")
@@ -3320,15 +3355,40 @@ def _read_shop_config() -> dict[str, Any]:
         return {}
 
 
-PAID_LICENSE_GROUPS = frozenset({"Gamma", "Beta", "Alfa"})
+PAID_LICENSE_GROUPS = frozenset({
+    "Delta",
+    "Gamma",
+    "Beta",
+    "Alfa",
+    "Omega",
+    "Transcendente",
+    "Etereo",
+    "Universal",
+    "Onipotente",
+    "Surreal",
+    "Imaterial",
+    "Exotico",
+})
 LICENSE_TIMED_BONUS = {
     "Default": 25,
+    "Delta": 5,
     "Gamma": 25,
     "Beta": 50,
     "Alfa": 75,
+    "Omega": 90,
+    "Transcendente": 105,
+    "Etereo": 120,
+    "Universal": 135,
+    "Onipotente": 150,
+    "Surreal": 165,
+    "Imaterial": 180,
+    "Exotico": 200,
     "Moderacao": 500,
     "STAFF": 1000,
 }
+# Renovação recente (−10%) até N dias após expirar; antecipada (−20%) via SKU *_renovacao.
+LICENSE_RECENT_RENEWAL_DAYS = 7
+LICENSE_RECENT_RENEWAL_FACTOR = 0.90
 STAFF_ROLE_GROUPS = frozenset({"Moderacao", "Mod", "STAFF"})
 STAFF_ROLE_LABELS: dict[str, str] = {
     "Moderacao": "MOD",
@@ -3355,7 +3415,25 @@ def _license_grant_from_commands(entry: dict[str, Any]) -> dict[str, Any] | None
         cmd = str(raw or "")
         if "Permissions.AddTimed" not in cmd and "Permissions.Add " not in cmd:
             continue
-        for group in ("keyvault", "Gamma", "Beta", "Alfa", "VIPBronze", "VIPPrata", "VIPOuro", "VIPDiamante"):
+        for group in (
+            "keyvault",
+            "Delta",
+            "Gamma",
+            "Beta",
+            "Alfa",
+            "Omega",
+            "Transcendente",
+            "Etereo",
+            "Universal",
+            "Onipotente",
+            "Surreal",
+            "Imaterial",
+            "Exotico",
+            "VIPBronze",
+            "VIPPrata",
+            "VIPOuro",
+            "VIPDiamante",
+        ):
             if group in cmd:
                 hours_m = re.search(r"Permissions\.AddTimed\s+\{?SteamID\}?\s+\S+\s+(\d+)", cmd, re.I)
                 days = 30
@@ -3378,6 +3456,8 @@ def _get_license_grant(entry: dict[str, Any], item_id: str = "") -> dict[str, An
     if _is_license_entry(entry, key or "item"):
         if key.startswith("licenca_"):
             suffix = key[8:]
+            if suffix.endswith("_renovacao"):
+                suffix = suffix[: -len("_renovacao")]
             if suffix in _LICENSE_ID_GROUP_FALLBACK:
                 return {
                     "Group": _LICENSE_ID_GROUP_FALLBACK[suffix],
@@ -3395,11 +3475,30 @@ def _catalog_item_map(data: dict[str, Any]) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+def _catalog_id_migration_aliases() -> dict[str, str]:
+    """Aliases de IDs antigos da loja (migração L1 por blueprint)."""
+    path = Path(__file__).resolve().parents[2] / "tools" / "catalog_id_migration.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        raw = data.get("aliases") or {}
+        return {str(k): str(v) for k, v in raw.items() if k and v}
+    except (OSError, json.JSONDecodeError, TypeError):
+        return {}
+
+
 def _resolve_catalog_item_id(item_type: str, item_id: str) -> str:
     """Resolve aliases (ex.: Gamma → licenca_gamma) para o ID canônico no config."""
     item_id = str(item_id or "").strip()
     if not item_id:
         return item_id
+    migration = _catalog_id_migration_aliases()
+    if item_id in migration:
+        return migration[item_id]
+    lower = item_id.lower()
+    if lower in migration:
+        return migration[lower]
     data = _read_shop_config()
     if item_type == "kit":
         kits = data.get("Kits") or {}
@@ -3604,6 +3703,84 @@ def _catalog_price(entry: dict[str, Any], amount: int = 1) -> int:
     return max(0, int(entry.get("Price", 0) or 0)) * max(1, amount)
 
 
+def _license_group_from_item_id(item_id: str) -> str:
+    key = str(item_id or "").strip().lower()
+    if not key.startswith("licenca_"):
+        return ""
+    suffix = key[8:]
+    if suffix.endswith("_renovacao"):
+        suffix = suffix[: -len("_renovacao")]
+    return _LICENSE_ID_GROUP_FALLBACK.get(suffix, "")
+
+
+def _days_since_license_expiry(steam_id: str, group: str) -> int | None:
+    """Dias desde o vencimento da última entitlement do grupo; None se nunca teve / ainda ativa."""
+    if not group or not _db_ready():
+        return None
+    db = _SessionLocal()
+    try:
+        _ensure_entitlements_schema(db)
+        row = db.execute(
+            text(
+                "SELECT expires FROM player_entitlements "
+                "WHERE steam_id = :sid AND group_name = :grp LIMIT 1"
+            ),
+            {"sid": str(steam_id), "grp": group},
+        ).fetchone()
+        if not row:
+            return None
+        expires = row[0]
+        if expires is None:
+            return None  # permanente
+        if hasattr(expires, "timestamp"):
+            exp_ts = float(expires.timestamp())
+        else:
+            try:
+                from datetime import datetime as _dt
+
+                exp_ts = _dt.fromisoformat(str(expires).replace("Z", "+00:00")).timestamp()
+            except ValueError:
+                return None
+        now_ts = _now().timestamp() if hasattr(_now(), "timestamp") else float(__import__("time").time())
+        if exp_ts > now_ts:
+            return None  # ainda ativa — use SKU *_renovacao (−20%)
+        return max(0, int((now_ts - exp_ts) // 86400))
+    except Exception:
+        return None
+    finally:
+        _release_db_session(db)
+
+
+def _effective_license_price(
+    steam_id: str,
+    entry: dict[str, Any],
+    item_id: str,
+    amount: int = 1,
+) -> int:
+    """Preço de licença com renovação recente −10% (0–7 dias após expirar).
+
+    Renovação antecipada −20% usa IDs `licenca_*_renovacao` no catálogo (já com preço).
+    """
+    base = _catalog_price(entry, amount)
+    key = str(item_id or "").strip().lower()
+    if key.endswith("_renovacao"):
+        return base
+    lic = _get_license_grant(entry, item_id)
+    group = ""
+    if isinstance(lic, dict):
+        group = str(lic.get("Group") or "").strip()
+    if not group:
+        group = _license_group_from_item_id(item_id)
+    if group not in PAID_LICENSE_GROUPS:
+        return base
+    days_gone = _days_since_license_expiry(str(steam_id), group)
+    if days_gone is None:
+        return base
+    if 0 <= days_gone <= LICENSE_RECENT_RENEWAL_DAYS:
+        return max(0, int(round(base * LICENSE_RECENT_RENEWAL_FACTOR)))
+    return base
+
+
 def _entitlements_ddl_mysql() -> str:
     return (
         "CREATE TABLE IF NOT EXISTS player_entitlements ("
@@ -3661,10 +3838,11 @@ def _apply_entitlement_grant_tx(
 ) -> None:
     _ensure_entitlements_schema(db)
     if group in PAID_LICENSE_GROUPS:
+        paid_list = ", ".join(f"'{g}'" for g in sorted(PAID_LICENSE_GROUPS))
         db.execute(
             text(
                 "DELETE FROM player_entitlements "
-                "WHERE steam_id = :sid AND group_name IN ('Gamma','Beta','Alfa') "
+                f"WHERE steam_id = :sid AND group_name IN ({paid_list}) "
                 "AND group_name != :grp"
             ),
             {"sid": str(steam_id), "grp": group},
@@ -7338,6 +7516,8 @@ def player_purchase():
             }), 403
 
     price = _catalog_price(entry, amount)
+    if lic or str(entry.get("Type", "")).strip().lower() == "license":
+        price = _effective_license_price(str(steam_id), entry, item_id, amount)
     if price > 0:
         balance = _get_player_points(str(steam_id))
         if balance is not None and balance < price:
@@ -9905,6 +10085,21 @@ register_dino_order_routes(
 from ticket_notify import configure_ticket_notify
 
 configure_ticket_notify(load_settings=_load_settings)
+
+# ── Área de Tribo ──────────────────────────────────────────
+from tribe_routes import register_tribe_routes
+
+register_tribe_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    login_required=login_required,
+    admin_required=admin_required,
+    api_key_required=api_key_required,
+    steam_id_from_session=_steam_id_from_session,
+    is_admin_steamid=_is_admin_steamid,
+    limiter=limiter,
+)
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":
     _kick_background_db_init()

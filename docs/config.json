@@ -4053,21 +4053,21 @@
     },
     "abyss_aqualyrium": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium",
-      "Description": "Aqualyrium (mod Abyss)",
+      "Description": "Aqualyrium (Aquática)",
       "Price": 2000,
       "Quantity": 10,
       "Type": "item"
     },
     "abyss_barnacle": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Barnacle.PrimalItemResource_Barnacle",
-      "Description": "Craca (mod Abyss)",
+      "Description": "Craca (Aquática)",
       "Price": 250,
       "Quantity": 10,
       "Type": "item"
     },
     "abyss_crystallized_wood": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_CrystallizedWood.PrimalItemResource_CrystallizedWood",
-      "Description": "Madeira Cristalizada (mod Abyss)",
+      "Description": "Madeira Cristalizada (Aquática)",
       "Price": 1000,
       "Quantity": 10,
       "Type": "item"
@@ -4087,14 +4087,14 @@
     },
     "abyss_fish_scale": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale",
-      "Description": "Escama de Peixe (mod Abyss)",
+      "Description": "Escama de Peixe (Aquática)",
       "Price": 350,
       "Quantity": 10,
       "Type": "item"
     },
     "abyss_hardened_steel": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_HardenedSteelIngot.PrimalItemResource_HardenedSteelIngot",
-      "Description": "Lingote de Aço Endurecido (mod Abyss)",
+      "Description": "Lingote de Aço Endurecido (Aquática)",
       "Price": 1200,
       "Quantity": 10,
       "Type": "item"
@@ -4114,14 +4114,14 @@
     },
     "abyss_hover_sail": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_HoverSail_Thalassian.PrimalItem_Spawner_HoverSail_Thalassian",
-      "Description": "Vela Thalassiana (HoverSail) (mod Abyss)",
+      "Description": "Vela Thalassiana (HoverSail) (Aquática)",
       "Price": 20000,
       "Quantity": 1,
       "Type": "item"
     },
     "abyss_hover_skiff": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Spawners/PrimalItem_Spawner_ThalassianHoverSkiff.PrimalItem_Spawner_ThalassianHoverSkiff",
-      "Description": "Skiff Thalassiano (mod Abyss)",
+      "Description": "Skiff Thalassiano (Aquática)",
       "Price": 30000,
       "Quantity": 1,
       "Type": "item"
@@ -4167,7 +4167,7 @@
     },
     "abyss_manganese": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
-      "Description": "Manganês (mod Abyss)",
+      "Description": "Manganês (Aquática)",
       "Price": 400,
       "Quantity": 10,
       "Type": "item"
@@ -4317,28 +4317,28 @@
     },
     "abyss_seaweed": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed",
-      "Description": "Alga Marinha (mod Abyss)",
+      "Description": "Alga Marinha (Aquática)",
       "Price": 300,
       "Quantity": 10,
       "Type": "item"
     },
     "abyss_seed_cucumis": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Cucumis.PrimalItemConsumable_Seed_Cucumis",
-      "Description": "Semente de Pepino (mod Abyss)",
+      "Description": "Semente de Pepino (Aquática)",
       "Price": 200,
       "Quantity": 1,
       "Type": "item"
     },
     "abyss_seed_plantspeciesw": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_PlantSpeciesW.PrimalItemConsumable_Seed_PlantSpeciesW",
-      "Description": "Semente Planta W (Abyss) (mod Abyss)",
+      "Description": "Semente Planta W (Abyss) (Aquática)",
       "Price": 200,
       "Quantity": 1,
       "Type": "item"
     },
     "abyss_seed_rice": {
       "Blueprint": "/Game/Abyss/CoreBlueprints/Items/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
-      "Description": "Semente de Arroz (mod Abyss)",
+      "Description": "Semente de Arroz (Aquática)",
       "Price": 200,
       "Quantity": 1,
       "Type": "item"

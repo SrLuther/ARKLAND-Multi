@@ -154,11 +154,70 @@ def test_donation_assigns_numbers(lottery_db):
     )
     lottery_db.commit()
     assert result["assigned"] == 2
+    assert result["prize_contribution_amber"] == 1200
     row = lottery_db.execute(
         text("SELECT COUNT(*) FROM lottery_numbers WHERE campaign_id = :c AND payment_id = 'pay-1'"),
         {"c": cid},
     ).fetchone()
     assert int(row[0]) == 2
+    pool = lottery_db.execute(
+        text("SELECT prize_amber_from_donations FROM lottery_campaigns WHERE id = :c"),
+        {"c": cid},
+    ).fetchone()
+    assert int(pool[0]) == 1200
+
+
+def test_donation_adds_to_prize_pool(lottery_db):
+    """R$ 1 doado = +100 Âmbares no prêmio total (não credita o jogador)."""
+    cid = _active_campaign(lottery_db, base=100)
+
+    result = on_donation_credited(
+        lottery_db, payment_id="pay-amber-1", steam_id=USER, amount_brl=5.0,
+    )
+    lottery_db.commit()
+    assert result["prize_contribution_amber"] == 500
+    row = lottery_db.execute(
+        text("SELECT prize_amber_from_donations FROM lottery_campaigns WHERE id = :c"),
+        {"c": cid},
+    ).fetchone()
+    assert int(row[0]) == 500
+
+    result2 = on_donation_credited(
+        lottery_db, payment_id="pay-amber-2", steam_id=USER2, amount_brl=25.0,
+    )
+    lottery_db.commit()
+    assert result2["prize_contribution_amber"] == 2500
+    row2 = lottery_db.execute(
+        text("SELECT prize_amber_from_donations FROM lottery_campaigns WHERE id = :c"),
+        {"c": cid},
+    ).fetchone()
+    assert int(row2[0]) == 3000
+
+
+def test_donation_prize_pool_idempotent(lottery_db):
+    """Doação repetida (mesmo payment_id) não duplica contribuição ao prêmio."""
+    cid = _active_campaign(lottery_db, base=100)
+    on_donation_credited(lottery_db, payment_id="pay-idem-prize", steam_id=USER, amount_brl=10.0)
+    lottery_db.commit()
+    again = on_donation_credited(lottery_db, payment_id="pay-idem-prize", steam_id=USER, amount_brl=10.0)
+    lottery_db.commit()
+    assert again.get("skipped") is True
+    row = lottery_db.execute(
+        text("SELECT prize_amber_from_donations FROM lottery_campaigns WHERE id = :c"),
+        {"c": cid},
+    ).fetchone()
+    assert int(row[0]) == 1000
+
+
+def test_donation_prize_pool_included_in_total(lottery_db):
+    """prize_amber_total inclui prize_amber_from_donations."""
+    from lottery_service import get_public_current
+    base_amber = 124
+    _active_campaign(lottery_db, base=base_amber)
+    on_donation_credited(lottery_db, payment_id="pay-pool-chk", steam_id=USER, amount_brl=10.0)
+    lottery_db.commit()
+    pub = get_public_current(lottery_db)
+    assert pub["campaign"]["prize_amber_total"] == base_amber + 1000
 
 
 def test_donation_idempotent(lottery_db):

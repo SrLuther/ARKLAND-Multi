@@ -3704,10 +3704,18 @@ def _build_pgm(sf, srv, vars_ref, bg, accent):
 #  Salvar
 # ════════════════════════════════════════════════════════════════════════════ #
 
+def is_asm_panel_active_for(app: "ARKServerManagerApp", server_id: str) -> bool:
+    """True quando o painel TEK deste servidor está visível (fonte confiável dos widgets)."""
+    return getattr(app, "_asm_panel_active_server_id", None) == server_id
+
+
 def _sync_ui_to_cfg(app: "ARKServerManagerApp", srv: AsmServerConfig) -> None:
     """Sincroniza os widgets do painel para o objeto cfg em memória.
     Não persiste no JSON nem mostra dialogs — usado antes de Iniciar/Restart.
     """
+    if not is_asm_panel_active_for(app, srv.id):
+        return
+
     vars_ref = getattr(app, "_asm_panel_vars", {}).get(srv.id, {})
 
     from dataclasses import fields as _fields

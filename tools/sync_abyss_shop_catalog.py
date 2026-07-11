@@ -28,11 +28,18 @@ def is_dino(bp: str) -> bool:
     return is_cryopodable_dino_blueprint(bp)
 
 
+def _aquatica_label(name: str) -> str:
+    name = str(name or "").strip()
+    if not name or "(Aquática)" in name or "(Aquatica)" in name:
+        return name
+    return f"{name} (Aquática)"
+
+
 def build_items(registry: dict) -> dict[str, dict]:
     out: dict[str, dict] = {}
     for sp in registry.get("species", []):
         key = str(sp["species_key"])
-        name = str(sp["display_name"])
+        name = _aquatica_label(str(sp["display_name"]))
         price = int(sp.get("root_value", 0))
         bp = str(sp["blueprint_paths"][0])
         role = str(sp.get("role", "utility"))
@@ -41,8 +48,8 @@ def build_items(registry: dict) -> dict[str, dict]:
                 "Type": "dino",
                 "Price": price,
                 "Category": "Abyss",
-                "Name": name,
-                "Description": f"{name} Nível 1 (mod Abyss)",
+                "Name": f"{name} Nível 1",
+                "Description": f"{name} Nível 1",
                 "Dinos": [
                     {
                         "Blueprint": bp,
@@ -59,7 +66,7 @@ def build_items(registry: dict) -> dict[str, dict]:
                 "Price": price,
                 "Category": "Abyss",
                 "Name": name,
-                "Description": f"{name} (mod Abyss)",
+                "Description": name,
                 "Blueprint": bp,
                 "Quantity": qty,
             }

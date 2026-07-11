@@ -80,6 +80,9 @@ def apply_active_event_to_server(app: Any, entry: BuffServerEntry, event_id: str
             return ApplyActiveEventResult(entry.id, entry.name, False, "perfil legado ausente")
         srv.active_event = event_id
         app.config_manager.update_server(srv)
+        sm = getattr(app, "server_manager", None)
+        if sm is not None:
+            sm.update_server_config(srv)
         if srv.install_dir:
             from ..ark_ini import ArkIniManager
 

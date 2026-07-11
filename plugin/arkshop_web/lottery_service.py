@@ -38,8 +38,10 @@ NUMBER_SOURCES = frozenset({"DONATION", "AMBER_RANDOM", "AMBER_RESERVE", "FIXED_
 LOTTERY_REGULAMENTO_VERSION = "1.5"
 FIXED_NUMBER_CHANGE_COST = 5000
 CONFIRMATION_DEADLINE_HOURS = 2
+DONATION_AMBER_PER_REAL = 100  # R$ 1 doado = +100 Âmbares no prêmio total do sorteio
 RULES_SUMMARY = (
-    "R$ 5 = 1 número · compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · "
+    "R$ 5 = 1 número · cada real doado soma +100 Âmbares ao prêmio · "
+    "compra 1.000 Âmbares (máx. 5) · reserva 2.000 Âmbares · "
     "número fixo gratuito (confirme em Minha Área) · troca de número fixo 5.000 Âmbares · "
     "até 5 sorteados · prêmio dividido igualmente entre titulares dos sorteados."
 )
@@ -184,6 +186,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               prize_amber_base INTEGER NOT NULL DEFAULT 5000,
               prize_amber_rollover_in INTEGER NOT NULL DEFAULT 0,
               prize_amber_from_purchases INTEGER NOT NULL DEFAULT 0,
+              prize_amber_from_donations INTEGER NOT NULL DEFAULT 0,
               prize_amber_paid INTEGER NOT NULL DEFAULT 0,
               prize_amber_subsidy INTEGER NOT NULL DEFAULT 0,
               prize_pool_fully_distributed INTEGER NOT NULL DEFAULT 0,
@@ -291,6 +294,7 @@ def ensure_lottery_schema(engine: Engine) -> None:
               prize_amber_base INT NOT NULL DEFAULT 5000,
               prize_amber_rollover_in INT NOT NULL DEFAULT 0,
               prize_amber_from_purchases INT NOT NULL DEFAULT 0,
+              prize_amber_from_donations INT NOT NULL DEFAULT 0,
               prize_amber_paid INT NOT NULL DEFAULT 0,
               prize_amber_subsidy INT NOT NULL DEFAULT 0,
               prize_pool_fully_distributed TINYINT(1) NOT NULL DEFAULT 0,
@@ -699,6 +703,7 @@ def _migrate_lottery_columns(engine: Engine) -> None:
     campaign_cols = {
         "starts_at": "DATETIME NULL",
         "prize_amber_from_purchases": "INTEGER NOT NULL DEFAULT 0",
+        "prize_amber_from_donations": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_paid": "INTEGER NOT NULL DEFAULT 0",
         "prize_amber_subsidy": "INTEGER NOT NULL DEFAULT 0",
         "prize_pool_fully_distributed": "INTEGER NOT NULL DEFAULT 0",
@@ -799,6 +804,7 @@ def _prize_total(row: Any) -> int:
         int(_row_val(row, "prize_amber_base", 0) or 0)
         + int(_row_val(row, "prize_amber_rollover_in", 0) or 0)
         + int(_row_val(row, "prize_amber_from_purchases", 0) or 0)
+        + int(_row_val(row, "prize_amber_from_donations", 0) or 0)
     )
 
 
@@ -827,6 +833,7 @@ def _campaign_public_dict(row: Any, *, db: Session | None = None) -> dict[str, A
         "prize_amber_base": int(_row_val(row, "prize_amber_base", 0) or 0),
         "prize_amber_rollover_in": int(_row_val(row, "prize_amber_rollover_in", 0) or 0),
         "prize_amber_from_purchases": int(_row_val(row, "prize_amber_from_purchases", 0) or 0),
+        "prize_amber_from_donations": int(_row_val(row, "prize_amber_from_donations", 0) or 0),
         "amber_random_price": int(_row_val(row, "amber_random_price", 1000) or 1000),
         "amber_reserve_price": int(_row_val(row, "amber_reserve_price", 2000) or 2000),
         "amber_random_max_per_player": int(_row_val(row, "amber_random_max_per_player", 5) or 5),
@@ -1012,37 +1019,89 @@ def on_donation_credited(
     campaign = get_active_campaign(db)
     if not campaign or str(campaign.status) != "ACTIVE":
         return None
-    existing = db.execute(
+    cid = int(campaign.id)
+
+    # Idempotência: verifica se payment_id já foi processado
+    already_numbers = db.execute(
         text(
             "SELECT COUNT(*) FROM lottery_numbers WHERE payment_id = :pid AND status = 'ACTIVE'"
         ),
         {"pid": payment_id},
     ).fetchone()
-    if existing and int(existing[0]) > 0:
-        return {"skipped": True, "reason": "already_assigned"}
-    qty = int(math.floor(float(amount_brl) / 5.0))
-    if qty <= 0:
-        return {"assigned": 0}
-    cid = int(campaign.id)
-    numbers: list[int] = []
-    occupied = _occupied_numbers(db, cid)
-    for _ in range(qty):
-        if len(occupied) >= 900:
-            _audit(db, "lottery_pool_exhausted", {"payment_id": payment_id}, campaign_id=cid)
-            break
-        n = _pick_random_free(db, cid, occupied)
-        _insert_number(
-            db, campaign_id=cid, steam_id=steam_id, number_value=n,
-            source="DONATION", payment_id=payment_id,
+    idem_prize_key = f"lottery:donation_prize:{cid}:{payment_id}"
+    already_prize = False
+    try:
+        already_prize = bool(
+            db.execute(
+                text("SELECT 1 FROM amber_ledger WHERE idempotency_key = :k LIMIT 1"),
+                {"k": idem_prize_key},
+            ).fetchone()
         )
-        occupied.add(n)
-        numbers.append(n)
-    _audit(
-        db, "lottery_numbers_assigned",
-        {"payment_id": payment_id, "steam_id": steam_id, "numbers": numbers, "qty": len(numbers)},
-        campaign_id=cid,
-    )
-    return {"assigned": len(numbers), "numbers": numbers}
+    except Exception:
+        pass  # amber_ledger pode não existir ainda
+
+    if (already_numbers and int(already_numbers[0]) > 0) or already_prize:
+        return {"skipped": True, "reason": "already_assigned"}
+
+    # --- Prêmio total: R$ 1 doado = +DONATION_AMBER_PER_REAL Âmbares no pool ---
+    prize_contribution = int(round(float(amount_brl) * DONATION_AMBER_PER_REAL))
+    if prize_contribution > 0:
+        db.execute(
+            text(
+                "UPDATE lottery_campaigns "
+                "SET prize_amber_from_donations = prize_amber_from_donations + :contrib "
+                "WHERE id = :cid"
+            ),
+            {"contrib": prize_contribution, "cid": cid},
+        )
+        try:
+            from amber_ledger import record_lottery_donation_prize_contribution
+
+            record_lottery_donation_prize_contribution(
+                db,
+                campaign_id=cid,
+                payment_id=payment_id,
+                steam_id=steam_id,
+                amount=prize_contribution,
+            )
+        except Exception as exc:
+            log.warning("Ledger lottery donation prize: %s", exc)
+    else:
+        prize_contribution = 0
+
+    # --- Atribuição de números da sorte: R$5 = 1 número ---
+    qty = int(math.floor(float(amount_brl) / 5.0))
+    numbers: list[int] = []
+    if qty > 0:
+        occupied = _occupied_numbers(db, cid)
+        for _ in range(qty):
+            if len(occupied) >= 900:
+                _audit(db, "lottery_pool_exhausted", {"payment_id": payment_id}, campaign_id=cid)
+                break
+            n = _pick_random_free(db, cid, occupied)
+            _insert_number(
+                db, campaign_id=cid, steam_id=steam_id, number_value=n,
+                source="DONATION", payment_id=payment_id,
+            )
+            occupied.add(n)
+            numbers.append(n)
+        _audit(
+            db, "lottery_numbers_assigned",
+            {
+                "payment_id": payment_id,
+                "steam_id": steam_id,
+                "numbers": numbers,
+                "qty": len(numbers),
+                "prize_contribution_amber": prize_contribution,
+            },
+            campaign_id=cid,
+        )
+
+    return {
+        "assigned": len(numbers),
+        "numbers": numbers,
+        "prize_contribution_amber": prize_contribution,
+    }
 
 
 def revoke_lottery_numbers_for_payment(db: Session, *, payment_id: str) -> int:

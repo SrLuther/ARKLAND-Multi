@@ -86,10 +86,19 @@ def _dispatch_tek_frame(app, name: str, frame, kwargs: dict) -> None:
         build_asm_server_panel(app, frame, kwargs["srv"])
 
 
+def _set_asm_panel_active(app, name: str, srv: Any) -> None:
+    """Rastreia qual painel de servidor TEK está visível (evita sync de widgets obsoletos)."""
+    if name == "server_panel" and srv is not None:
+        app._asm_panel_active_server_id = srv.id
+    else:
+        app._asm_panel_active_server_id = None
+
+
 def show_frame_tek(app, name: str, **kwargs) -> None:
     """Troca o conteúdo principal pelo frame indicado (com cache de frame)."""
     srv = kwargs.get("srv")
     cache_key = f"server_{srv.id}" if srv else name
+    _set_asm_panel_active(app, name, srv)
 
     _static_nav = (
         "dashboard", "shop", "database", "broadcasts", "saves",

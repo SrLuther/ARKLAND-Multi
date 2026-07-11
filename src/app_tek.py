@@ -108,6 +108,7 @@ class ARKServerManagerApp(ctk.CTk):
         self._active_mode        = "tek"
         self._asm_dashboard_scroll = None  # CTkScrollableFrame
         self._asm_panel_vars: dict = {}
+        self._asm_panel_active_server_id: Optional[str] = None
         self._current_frame: Optional[ctk.CTkFrame] = None
         self._sidebar_server_btns: Dict[str, tk.Label] = {}
         self._sidebar_server_rows: Dict[str, Dict[str, Any]] = {}
@@ -1009,11 +1010,15 @@ class ARKServerManagerApp(ctk.CTk):
         import os
 
         fresh = self.asm_config_manager.get_server(srv.id) or srv
-        try:
-            from .asm_ui.asm_server_panel import _sync_ui_to_cfg
-            _sync_ui_to_cfg(self, fresh)
-        except Exception:
-            pass
+        # Só sincroniza widgets do painel quando ele está aberto para este servidor.
+        # Caso contrário, vars em cache (ex.: "(nenhum evento)") apagam ActiveEvent
+        # gravado por Eventos Globais no restart automático.
+        if getattr(self, "_asm_panel_active_server_id", None) == srv.id:
+            try:
+                from .asm_ui.asm_server_panel import _sync_ui_to_cfg
+                _sync_ui_to_cfg(self, fresh)
+            except Exception:
+                pass
 
         try:
             from .pages.cluster_helpers import apply_cluster_profile_to_asm_cfg

@@ -5592,11 +5592,11 @@
           </div>
         </div>
         <p style="color:var(--text2);font-size:13px;margin:0 0 16px;">
-          Modelo proporcional: <strong>piso</strong> = preço lvl 1 loja · <strong>espaço bônus</strong> = teto(porte) − piso · stats preenchem fatias do bônus (pts base ÷ 254).
+          Modelo <strong>floor_quality</strong>: <strong>piso R</strong> = preço L1 loja · <strong>prêmio</strong> = B × índice Q (stats breedáveis, γ sublinear) · teto mercado <strong>150k</strong> · encomenda <strong>275k</strong>.
         </p>
         <div class="catalog-tabs" style="margin-bottom:16px;">
-          <button type="button" class="catalog-tab active" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Tetos e pesos</button>
-          <button type="button" class="catalog-tab" data-market-economy-tab="species" onclick="setMarketEconomyTab('species')">Por espécie</button>
+          <button type="button" class="catalog-tab active" data-market-economy-tab="caps" onclick="setMarketEconomyTab('caps')">Pisos e caps</button>
+          <button type="button" class="catalog-tab" data-market-economy-tab="species" onclick="setMarketEconomyTab('species')">Por espécie (blueprint)</button>
           <button type="button" class="catalog-tab" data-market-economy-tab="sim" onclick="setMarketEconomyTab('sim')">Simulador</button>
         </div>
         <div id="market-economy-panel-caps" class="catalog-panel active">
@@ -6959,6 +6959,15 @@
           </div>
           <div id="myarea-dino-orders" style="color:var(--text2);font-size:13px;">Carregando…</div>
         </div>
+        <!-- MINHA TRIBO — Área de Tribo ARKLAND (MVP) -->
+        <div class="card" id="myarea-tribe-card">
+          <div class="card-header">
+            <div class="card-title">🏰 Minha Tribo</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadMyTribe()">↺ Recarregar</button>
+          </div>
+          <div id="myarea-tribe-root" style="color:var(--text2);font-size:13px;">Carregando…</div>
+        </div>
+
         <div class="card">
           <div class="card-header">
             <div class="card-title">💝 Histórico de Doações</div>
@@ -10418,6 +10427,7 @@ async function loadMyArea() {
   await loadMyAreaDinoOrders();
   await loadMyAreaHistory();
   await marketProfilePromise;
+  loadMyTribe();
 }
 
 async function loadMyAreaMarketProfile() {
@@ -13888,6 +13898,356 @@ async function loadMyAreaDinoOrders() {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════
+// MINHA TRIBO — Área de Tribo ARKLAND (MVP)
+// ════════════════════════════════════════════════════════════════════
+
+let _tribeData = null;
+let _tribeActiveMap = null;
+let _tribeActiveTab = "status"; // 'status' | 'members' | 'regulamento' | 'split'
+
+async function loadMyTribe() {
+  const root = document.getElementById("myarea-tribe-root");
+  if (!root || !_auth.authenticated) return;
+  root.innerHTML = "<span style='color:var(--text2)'>Carregando tribo…</span>";
+  try {
+    const d = await fetchJson("/api/tribe/my");
+    if (!d.ok) {
+      if (d.error && d.error.includes("autenticad")) {
+        root.innerHTML = "<p style='color:var(--text2)'>Faça login para ver sua tribo.</p>";
+        return;
+      }
+      root.innerHTML = `<span style='color:var(--danger)'>${escHtml(d.error || "Erro ao carregar tribo")}</span>`;
+      return;
+    }
+    _tribeData = d.data;
+    if (!_tribeData || (!_tribeData.is_owner && (!_tribeData.maps || !_tribeData.maps.length))) {
+      root.innerHTML = _renderTribeActivation();
+      return;
+    }
+    if (_tribeData.is_owner && (!_tribeData.maps || !_tribeData.maps.length)) {
+      root.innerHTML = _renderTribeActivation();
+      return;
+    }
+    const maps = _tribeData.maps || [];
+    if (!_tribeActiveMap && maps.length) _tribeActiveMap = maps[0].server_id;
+    root.innerHTML = _renderTribePanel(_tribeData);
+  } catch (e) {
+    root.innerHTML = `<span style='color:var(--danger)'>Erro: ${escHtml(String(e))}</span>`;
+  }
+}
+
+function _renderTribeActivation() {
+  return `
+    <div style="text-align:center;padding:20px 0;">
+      <div style="font-size:32px;margin-bottom:12px;">🏰</div>
+      <div style="color:var(--text);font-weight:600;margin-bottom:8px;">Nenhuma tribo registrada</div>
+      <div style="color:var(--text2);font-size:12px;margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto;">
+        Seu painel de tribo ainda não foi ativado. Quando você entrar em um servidor ARKLAND como líder,
+        sua tribo será detectada automaticamente. Você também pode ativar o painel agora.
+      </div>
+      <button class="btn btn-primary" onclick="tribeActivatePanel()">✅ Ativar painel de tribo</button>
+    </div>`;
+}
+
+function _renderTribePanel(data) {
+  const isOwner = data.is_owner;
+  const maps = data.maps || [];
+  const owner = data.owner || {};
+  const active = maps.find(m => m.server_id === _tribeActiveMap) || maps[0] || null;
+
+  const tabBtns = (tabs) => tabs.map(([id, label]) =>
+    `<button class="btn ${_tribeActiveTab === id ? 'btn-primary' : 'btn-ghost'} btn-sm"
+      onclick="_tribeSetTab('${id}')" style="margin-right:4px;">${label}</button>`
+  ).join("");
+
+  const mapTabs = maps.map(m => {
+    const isPrincipal = (m.tribe_type || "principal") === "principal";
+    const tag = isPrincipal ? ' <span style="font-size:10px;color:var(--amber);margin-left:4px;">★ Principal</span>' : ' <span style="font-size:10px;color:var(--text2)">FOB</span>';
+    return `<button class="btn ${_tribeActiveMap === m.server_id ? 'btn-primary' : 'btn-ghost'} btn-sm"
+      style="margin-right:4px;margin-bottom:4px;"
+      onclick="_tribeSetMap('${escHtml(m.server_id)}')">${escHtml(m.tribe_name_local || m.server_id)}${tag}</button>`;
+  }).join("");
+
+  let tabContent = "";
+  if (active) {
+    if (_tribeActiveTab === "status") tabContent = _renderTribeStatus(active, isOwner);
+    else if (_tribeActiveTab === "members") tabContent = _renderTribeMembers(active);
+    else if (_tribeActiveTab === "regulamento") tabContent = _renderTribeRegulamento(data, isOwner, active);
+    else if (_tribeActiveTab === "split") tabContent = _renderTribeSplit(data, isOwner, active);
+  }
+
+  const ownerBlock = isOwner ? `
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <div style="font-size:13px;color:var(--text2);">
+        <strong style="color:var(--text);">Proprietário:</strong> ${escHtml(owner.display_name || _auth.steam_id || "")}
+        &nbsp;|&nbsp;
+        <strong>Visibilidade do log:</strong> ${escHtml(owner.log_visibility || "members")}
+      </div>
+    </div>` : "";
+
+  return `
+    ${ownerBlock}
+    <div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px;">MAPA / TRIBO</div>
+      ${mapTabs}
+    </div>
+    <div style="margin-bottom:10px;">
+      ${tabBtns([
+        ["status", "📊 Status"],
+        ["members", "👥 Membros"],
+        ["regulamento", "📋 Regulamento"],
+        ["split", "💰 Divisão de Ganhos"],
+      ])}
+    </div>
+    <div id="tribe-tab-content">${tabContent}</div>`;
+}
+
+function _tribeSetMap(serverId) {
+  _tribeActiveMap = serverId;
+  _tribeActiveTab = "status";
+  const root = document.getElementById("myarea-tribe-root");
+  if (root && _tribeData) root.innerHTML = _renderTribePanel(_tribeData);
+}
+
+function _tribeSetTab(tab) {
+  _tribeActiveTab = tab;
+  const root = document.getElementById("myarea-tribe-root");
+  if (root && _tribeData) root.innerHTML = _renderTribePanel(_tribeData);
+}
+
+function _renderTribeStatus(mapData, isOwner) {
+  const fobTag = mapData.tribe_type === "fob"
+    ? `<span style="font-size:11px;color:var(--text2);padding:2px 6px;border:1px solid var(--border);border-radius:4px;">FOB</span>`
+    : `<span style="font-size:11px;color:var(--amber);padding:2px 6px;border:1px solid var(--amber);border-radius:4px;">★ Principal</span>`;
+  return `
+    <div class="form-grid" style="margin-bottom:12px;">
+      <div class="form-group"><label>Tribo</label><input readonly value="${escHtml(mapData.tribe_name_local || mapData.tribe_name || '—')}" /></div>
+      <div class="form-group"><label>Mapa / Servidor</label><input readonly value="${escHtml(mapData.server_id || '—')}" /></div>
+      <div class="form-group"><label>TribeID Local</label><input readonly value="${mapData.tribe_id || '—'}" style="font-family:monospace;" /></div>
+      <div class="form-group"><label>Tipo</label><div style="padding:8px 0;">${fobTag}</div></div>
+      <div class="form-group"><label>Membros</label><input readonly value="${mapData.member_count ?? (mapData.members || []).length}" /></div>
+    </div>
+    ${mapData.tribe_type === "fob" ? '<div style="color:var(--text2);font-size:12px;padding:8px;background:var(--bg2);border-radius:6px;">ℹ Fobs não possuem configuração de divisão de ganhos. Divisão é exclusiva da tribo principal.</div>' : ''}`;
+}
+
+function _renderTribeMembers(mapData) {
+  const members = mapData.members || [];
+  if (!members.length) return `<p style="color:var(--text2);">Nenhum membro registrado. Entre em um servidor para sincronizar.</p>`;
+  const rows = members.map(m => `<tr>
+    <td style="font-family:monospace;font-size:11px;">${escHtml(m.character_name || m.steam_id || "—")}</td>
+    <td>${m.is_owner ? '<span class="badge" style="background:var(--amber);color:#000;">Líder</span>' : escHtml(m.rank_name || "Membro")}</td>
+    <td style="font-size:11px;color:var(--text2);">${escHtml((m.last_seen_at || "").slice(0, 16) || "—")}</td>
+  </tr>`).join("");
+  return `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
+    <th>Personagem / SteamID</th><th>Rank</th><th>Último acesso</th>
+  </tr></thead><tbody>${rows}</tbody></table></div>
+  <div style="font-size:11px;color:var(--text2);margin-top:8px;">
+    Atualizado automaticamente quando membros fazem login no servidor.
+  </div>`;
+}
+
+function _renderTribeRegulamento(data, isOwner, mapData) {
+  const reg = data._regulation;
+  const ownerCanEdit = isOwner && mapData.tribe_type !== "fob";
+  const editBtn = ownerCanEdit
+    ? `<button class="btn btn-ghost btn-sm" onclick="tribeOpenRegEditor()" style="margin-left:8px;">✏ Editar</button>`
+    : "";
+  if (!reg) {
+    return `
+      <p style="color:var(--text2);">Nenhum regulamento publicado ainda.</p>
+      ${ownerCanEdit ? `<button class="btn btn-primary btn-sm" onclick="tribeOpenRegEditor()">+ Criar regulamento</button>` : ""}`;
+  }
+  const visTag = reg.visibility === "public"
+    ? `<span style="font-size:11px;color:var(--success);">🌐 Público</span>`
+    : `<span style="font-size:11px;color:var(--text2);">🔒 Privado (somente membros)</span>`;
+  return `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--text2);">v${reg.version} — ${visTag}</span>
+      <span style="font-size:11px;color:var(--text2);">Editado por ${escHtml(reg.updated_by || "—")} em ${escHtml((reg.updated_at || "").slice(0, 16))}</span>
+      ${editBtn}
+    </div>
+    <div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:13px;line-height:1.7;white-space:pre-wrap;border:1px solid var(--border);">${escHtml(reg.content_text || "")}</div>`;
+}
+
+function _renderTribeSplit(data, isOwner, mapData) {
+  if (mapData.tribe_type === "fob") {
+    return `<div style="color:var(--text2);padding:12px;background:var(--bg2);border-radius:6px;">
+      Fobs não possuem divisão de ganhos. A divisão é configurada somente na tribo principal.
+    </div>`;
+  }
+  const split = data._split;
+  if (!split) {
+    return `
+      <div style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+        ⭐ <strong>Divisão de Ganhos</strong> — quando ativada, o valor de cada venda no Comércio P2P
+        é distribuído automaticamente entre os membros da tribo.
+        O vendedor sempre recebe a maior parte (mínimo 10 p.p. acima do próximo).
+      </div>
+      ${isOwner ? `<button class="btn btn-primary btn-sm" onclick="tribeOpenSplitEditor()">⚙ Configurar divisão</button>` : "<p>Nenhuma divisão configurada.</p>"}`;
+  }
+
+  const statusColor = { ACTIVE: "var(--success)", PENDING_COOLDOWN: "var(--amber)", DISABLED: "var(--text2)" };
+  const statusLabel = { ACTIVE: "Ativo", PENDING_COOLDOWN: "Aguardando carência (48h)", DISABLED: "Desativado" };
+  const memberRows = (split.members || []).map(m => `<tr>
+    <td style="font-family:monospace;font-size:11px;">${escHtml(m.display_name || m.steam_id)}</td>
+    <td>${m.is_seller ? '<span class="badge" style="background:var(--amber);color:#000;">Vendedor</span>' : "Membro"}</td>
+    <td style="font-weight:700;">${m.opted_out ? '<span style="color:var(--text2);text-decoration:line-through;">Opt-out</span>' : m.percentage + "%"}</td>
+  </tr>`).join("");
+
+  return `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+      <span style="font-weight:700;color:${statusColor[split.status] || 'var(--text)'};">
+        ● ${statusLabel[split.status] || split.status}
+      </span>
+      ${split.valid_from ? `<span style="font-size:11px;color:var(--text2);">Em vigor: ${escHtml(split.valid_from.slice(0, 16))}</span>` : ""}
+    </div>
+    <div style="overflow-x:auto;margin-bottom:12px;"><table class="pkg-admin-table"><thead><tr>
+      <th>Membro</th><th>Papel</th><th>%</th>
+    </tr></thead><tbody>${memberRows}</tbody></table></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:12px;">
+      ⭐ Vendas abaixo de 1.000 Âmbares não ativam a divisão.<br>
+      A divisão é opt-in por anúncio — você decide ao criar cada listagem.
+    </div>
+    ${isOwner ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="tribeOpenSplitEditor()">✏ Editar divisão</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="tribeDisableSplit()">⏹ Desativar</button>
+      </div>` : `
+      <button class="btn btn-ghost btn-sm" onclick="tribeSplitOptout(${split.id})">Sair da divisão</button>`}`;
+}
+
+async function tribeActivatePanel() {
+  try {
+    const d = await fetchJson("/api/tribe/register", { method: "POST", body: JSON.stringify({ display_name: _auth.steam_persona || _auth.steam_id }), headers: {"Content-Type":"application/json"} });
+    if (d.ok) { showToast("Painel de tribo ativado!"); loadMyTribe(); }
+    else showToast(d.error || "Erro ao ativar", "error");
+  } catch (e) { showToast(String(e), "error"); }
+}
+
+function tribeOpenRegEditor() {
+  const current = (_tribeData && _tribeData._regulation) ? _tribeData._regulation.content_text : "";
+  const vis = (_tribeData && _tribeData._regulation) ? (_tribeData._regulation.visibility || "private") : "private";
+  const html = `
+    <div class="form-group">
+      <label>Conteúdo do Regulamento</label>
+      <textarea id="tribe-reg-content" rows="10" style="width:100%;box-sizing:border-box;font-size:13px;line-height:1.6;padding:10px;"
+        placeholder="Escreva as regras internas da sua tribo aqui…&#10;Máximo: 5.000 caracteres.">${escHtml(current)}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Visibilidade</label>
+      <select id="tribe-reg-visibility" style="width:100%;">
+        <option value="private" ${vis === "private" ? "selected" : ""}>🔒 Privado — somente membros</option>
+        <option value="public" ${vis === "public" ? "selected" : ""}>🌐 Público — qualquer visitante</option>
+      </select>
+    </div>`;
+  openModal("📋 Regulamento da Tribo", html, async () => {
+    const content = (document.getElementById("tribe-reg-content") || {}).value || "";
+    const visibility = (document.getElementById("tribe-reg-visibility") || {}).value || "private";
+    if (!content.trim()) { showToast("Conteúdo não pode ser vazio", "error"); return; }
+    if (content.length > 5000) { showToast("Máximo de 5.000 caracteres", "error"); return; }
+    const d = await fetchJson("/api/tribe/regulation", {
+      method: "POST",
+      body: JSON.stringify({ content_text: content, visibility }),
+      headers: {"Content-Type":"application/json"}
+    });
+    if (d.ok) { showToast("Regulamento salvo!"); loadMyTribe(); }
+    else showToast(d.error || "Erro ao salvar", "error");
+  });
+}
+
+function tribeOpenSplitEditor() {
+  const split = _tribeData && _tribeData._split;
+  const existingMembers = split ? (split.members || []) : [];
+  const rowsHtml = existingMembers.map((m, i) => `
+    <tr>
+      <td><input class="split-steam" value="${escHtml(m.steam_id)}" placeholder="SteamID64" style="width:160px;" /></td>
+      <td><input class="split-name" value="${escHtml(m.display_name || m.steam_id)}" placeholder="Nome" style="width:120px;" /></td>
+      <td><input class="split-pct" type="number" value="${m.percentage}" min="1" max="99" style="width:60px;" /></td>
+      <td><input class="split-seller" type="checkbox" ${m.is_seller ? "checked" : ""} /></td>
+    </tr>`).join("") || `
+    <tr>
+      <td><input class="split-steam" value="${escHtml(_auth.steam_id || '')}" placeholder="SteamID64" style="width:160px;" /></td>
+      <td><input class="split-name" value="${escHtml(_auth.steam_persona || 'Você')}" placeholder="Nome" style="width:120px;" /></td>
+      <td><input class="split-pct" type="number" value="60" min="1" max="99" style="width:60px;" /></td>
+      <td><input class="split-seller" type="checkbox" checked /></td>
+    </tr>`;
+
+  const maps = (_tribeData && _tribeData.maps) || [];
+  const principalMap = maps.find(m => (m.tribe_type || "principal") === "principal") || maps[0] || {};
+
+  const html = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+      ⭐ O vendedor deve ter percentual pelo menos 10 p.p. acima do próximo. Soma deve ser 100%.
+    </div>
+    <div style="overflow-x:auto;margin-bottom:8px;">
+      <table class="pkg-admin-table" id="tribe-split-table">
+        <thead><tr><th>SteamID</th><th>Nome</th><th>%</th><th>Vendedor</th></tr></thead>
+        <tbody id="tribe-split-tbody">${rowsHtml}</tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="_tribeSplitAddRow()" style="margin-bottom:12px;">+ Adicionar membro</button>`;
+
+  openModal("💰 Configurar Divisão de Ganhos", html, async () => {
+    const rows = document.querySelectorAll("#tribe-split-tbody tr");
+    const members = [];
+    rows.forEach(tr => {
+      const steam = (tr.querySelector(".split-steam") || {}).value || "";
+      const name = (tr.querySelector(".split-name") || {}).value || steam;
+      const pct = parseInt((tr.querySelector(".split-pct") || {}).value || "0");
+      const isSeller = (tr.querySelector(".split-seller") || {}).checked;
+      if (steam && pct > 0) members.push({ steam_id: steam, display_name: name, percentage: pct, is_seller: isSeller });
+    });
+    if (!members.length) { showToast("Adicione pelo menos 2 membros", "error"); return; }
+    const d = await fetchJson("/api/tribe/split", {
+      method: "POST",
+      body: JSON.stringify({
+        tribe_id: principalMap.tribe_id || 0,
+        server_id: principalMap.server_id || "",
+        tribe_name: principalMap.tribe_name_local || "",
+        members,
+      }),
+      headers: {"Content-Type":"application/json"}
+    });
+    if (d.ok) { showToast("Divisão configurada! Entra em vigor após 48h de carência."); loadMyTribe(); }
+    else showToast(d.error || "Erro ao configurar", "error");
+  });
+}
+
+function _tribeSplitAddRow() {
+  const tbody = document.getElementById("tribe-split-tbody");
+  if (!tbody) return;
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td><input class="split-steam" placeholder="SteamID64" style="width:160px;" /></td>
+    <td><input class="split-name" placeholder="Nome" style="width:120px;" /></td>
+    <td><input class="split-pct" type="number" value="0" min="1" max="99" style="width:60px;" /></td>
+    <td><input class="split-seller" type="checkbox" /></td>`;
+  tbody.appendChild(tr);
+}
+
+async function tribeDisableSplit() {
+  if (!confirm("Desativar divisão de ganhos? As listagens existentes não serão afetadas.")) return;
+  const d = await fetchJson("/api/tribe/split/disable", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+  if (d.ok) { showToast("Divisão desativada."); loadMyTribe(); }
+  else showToast(d.error || "Erro", "error");
+}
+
+async function tribeSplitOptout(splitId) {
+  if (!confirm("Confirma sair da divisão de ganhos? Você precisará de 45h + aprovação do owner para retornar.")) return;
+  const d = await fetchJson("/api/tribe/split/optout", {
+    method: "POST",
+    body: JSON.stringify({ split_id: splitId, steam_id: _auth.steam_id }),
+    headers: {"Content-Type":"application/json"}
+  });
+  if (d.ok) { showToast("Opt-out realizado com sucesso."); loadMyTribe(); }
+  else showToast(d.error || "Erro", "error");
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Fim MINHA TRIBO
+// ════════════════════════════════════════════════════════════════════
+
 async function loadDinoLabEncomendaQueue() {
   const root = document.getElementById("dinolab-encomenda-list");
   if (!root) return;
@@ -15577,82 +15937,68 @@ async function loadMarketEconomyAdmin() {
 function renderMarketEconomyCaps(cfg) {
   const root = document.getElementById("market-economy-caps-form");
   if (!root) return;
-  const caps = cfg.size_caps || {};
-  const w = cfg.stat_weights || {};
-  const diets = ["carnivore", "herbivore", "omnivore"];
-  const stats = ["health", "melee", "weight", "stamina", "speed"];
-  const statLabels = { health: "Vida", melee: "Dano", weight: "Peso", stamina: "Estamina", speed: "Velocidade" };
-  const exRoot = 29994;
-  const barHtml = ["large", "medium", "small"].map(size => {
-    const cap = caps[size] || (size === "large" ? 300000 : size === "medium" ? 250000 : 100000);
-    const bonus = Math.max(0, cap - exRoot);
-    const pctRoot = Math.round((exRoot / cap) * 100);
-    const pctBonus = 100 - pctRoot;
-    const labels = { large: "Grande", medium: "Médio", small: "Pequeno" };
-    return `<div style="margin-bottom:12px;">
-      <div style="font-size:12px;margin-bottom:4px;">${labels[size]} — exemplo Carcha (raiz ${exRoot.toLocaleString("pt-BR")} · teto ${cap.toLocaleString("pt-BR")} · bônus ${bonus.toLocaleString("pt-BR")})</div>
-      <div style="display:flex;height:22px;border-radius:6px;overflow:hidden;border:1px solid var(--border);">
-        <div style="width:${pctRoot}%;background:var(--amber);display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;">Piso</div>
-        <div style="width:${pctBonus}%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text2);">Espaço bônus</div>
-      </div>
-    </div>`;
-  }).join("");
-  let weightsHtml = diets.map(diet => {
+  const fq = cfg.floor_quality || {};
+  const marketCap = cfg.market_absolute_max || fq.market_absolute_max || 150000;
+  const encomendaCap = cfg.encomenda_absolute_max || fq.encomenda_absolute_max || 275000;
+  const gamma = fq.gamma ?? 0.82;
+  const alpha = fq.encomenda_alpha ?? 0.25;
+  const beta = fq.encomenda_beta ?? 0.35;
+  const roles = ["utilitario", "locomocao", "ataque", "raid", "boss"];
+  const stats = ["health", "melee", "weight", "stamina", "speed", "food"];
+  const statLabels = { health: "Vida", melee: "Dano", weight: "Peso", stamina: "Estamina", speed: "Velocidade", food: "Fome" };
+  const rw = cfg.role_stat_weights || {};
+  let roleWeightsHtml = roles.map(role => {
     const row = stats.map(sk => {
-      const val = ((w[diet] || {})[sk] ?? 0);
-      return `<td><input type="number" step="0.01" min="0" max="1" class="me-w" data-diet="${diet}" data-stat="${sk}" value="${val}" style="width:72px;" /></td>`;
+      const val = ((rw[role] || {})[sk] ?? 0);
+      return `<td><input type="number" step="0.01" min="0" max="1" class="me-rw" data-role="${role}" data-stat="${sk}" value="${val}" style="width:64px;" /></td>`;
     }).join("");
-    return `<tr><td><strong>${escHtml(diet)}</strong></td>${row}</tr>`;
+    return `<tr><td><strong>${escHtml(role)}</strong></td>${row}</tr>`;
   }).join("");
   root.innerHTML = `
     <div class="card" style="margin-bottom:16px;">
-      <div class="card-title">Tetos por porte (Âmbar)</div>
+      <div class="card-title">Caps globais e encomenda</div>
       <div style="padding:14px 16px;display:flex;flex-wrap:wrap;gap:16px;">
-        <label>Grande <input id="me-cap-large" type="number" value="${caps.large || 300000}" style="width:120px;margin-left:8px;" /></label>
-        <label>Médio <input id="me-cap-medium" type="number" value="${caps.medium || 250000}" style="width:120px;margin-left:8px;" /></label>
-        <label>Pequeno <input id="me-cap-small" type="number" value="${caps.small || 100000}" style="width:120px;margin-left:8px;" /></label>
+        <label>Mercado max <input id="me-fq-market-cap" type="number" value="${marketCap}" style="width:120px;margin-left:8px;" /></label>
+        <label>Encomenda max <input id="me-fq-encomenda-cap" type="number" value="${encomendaCap}" style="width:120px;margin-left:8px;" /></label>
+        <label>γ (sublinear) <input id="me-fq-gamma" type="number" step="0.01" min="0.1" max="1" value="${gamma}" style="width:72px;margin-left:8px;" /></label>
+        <label>α encomenda <input id="me-fq-alpha" type="number" step="0.01" value="${alpha}" style="width:72px;margin-left:8px;" /></label>
+        <label>β serviço <input id="me-fq-beta" type="number" step="0.01" value="${beta}" style="width:72px;margin-left:8px;" /></label>
         <label>Ref. pts <input id="me-pts-ref" type="number" value="${cfg.pts_reference || 254}" style="width:80px;margin-left:8px;" /></label>
       </div>
-    </div>
-    <div class="card" style="margin-bottom:16px;">
-      <div class="card-title">Barra piso → espaço bônus → teto</div>
-      <div style="padding:14px 16px;">${barHtml}</div>
+      <p style="font-size:12px;color:var(--text2);padding:0 16px 14px;margin:0;">V_mercado = min(R + B×Q, mercado max). Matriz de calibração: <code>tools/blueprint_catalog_matrix.csv</code></p>
     </div>
     <div class="card">
-      <div class="card-title">Pesos por dieta (normalizados nos stats enabled)</div>
-      <div class="table-scroll"><table class="data-table"><thead><tr><th>Dieta</th>${stats.map(sk => `<th>${statLabels[sk]}</th>`).join("")}</tr></thead><tbody>${weightsHtml}</tbody></table></div>
-      <div style="padding:14px 16px;"><button class="btn btn-primary btn-sm" onclick="marketEconomySaveCaps()">Salvar tetos e pesos</button></div>
+      <div class="card-title">Pesos do índice Q por papel (dino_role)</div>
+      <div class="table-scroll"><table class="data-table"><thead><tr><th>Papel</th>${stats.map(sk => `<th>${statLabels[sk]}</th>`).join("")}</tr></thead><tbody>${roleWeightsHtml}</tbody></table></div>
+      <div style="padding:14px 16px;"><button class="btn btn-primary btn-sm" onclick="marketEconomySaveCaps()">Salvar pisos e caps</button></div>
     </div>`;
 }
 
 function renderMarketEconomySpecies(species) {
   const root = document.getElementById("market-economy-species-list");
   if (!root) return;
-  const statLabels = { health: "HP", melee: "DM", weight: "WE", stamina: "ST", speed: "SP" };
   const rows = (species || []).map(s => {
-    const enabled = Object.entries(s.economy_stats || {})
-      .filter(([, v]) => v && v.enabled)
-      .map(([k]) => statLabels[k] || k)
-      .join(", ") || "—";
     const status = s.db_status
       ? `<span style="font-size:11px;color:${s.db_status === "ACTIVE" ? "var(--success)" : "var(--warn)"};">${escHtml(s.db_status)}</span>`
       : "";
+    const role = s.dino_role || "—";
+    const mode = s.pricing_mode || "floor_quality";
     return `<tr>
       <td>${escHtml(s.display_name)} ${status}</td>
       <td><code>${escHtml(s.species_key)}</code></td>
-      <td>${escHtml(s.diet_class || "—")}</td>
-      <td>${escHtml(_marketSizeLabel(s.size_class))}</td>
+      <td>${escHtml(role)}</td>
+      <td>${escHtml(s.tier || "—")}</td>
       <td>${Number(s.root_value || 0).toLocaleString("pt-BR")}</td>
+      <td>${Number(s.bonus_space || s.premium_budget || 0).toLocaleString("pt-BR")}</td>
       <td>${Number(s.size_cap || 0).toLocaleString("pt-BR")}</td>
-      <td>${Number(s.bonus_space || 0).toLocaleString("pt-BR")}</td>
-      <td style="font-size:11px;">${escHtml(enabled)}</td>
+      <td style="font-size:11px;">${escHtml(mode)}</td>
       <td><button type="button" class="btn btn-sm btn-ghost me-species-edit-btn" data-species-key="${escHtml(s.species_key)}">Editar</button></td>
     </tr>`;
   }).join("");
   root.innerHTML = `<div class="table-scroll"><table class="data-table"><thead><tr>
-    <th>Nome</th><th>Key</th><th>Dieta</th><th>Porte</th><th>Raiz</th><th>Teto</th><th>Espaço bônus</th><th>Stats</th><th></th>
+    <th>Nome</th><th>Key</th><th>Papel</th><th>Tier</th><th>R (L1)</th><th>B (prêmio)</th><th>Cap mercado</th><th>Modo</th><th></th>
   </tr></thead><tbody>${rows}</tbody></table></div>
-  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Raiz sincronizada com a loja quando a espécie está no banco. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
+  <p style="font-size:12px;color:var(--text2);margin-top:12px;">Uma espécie por blueprint. R = Price L1. Após alterar, use <strong>Recalcular DRAFT</strong>.</p>`;
   root.querySelectorAll(".me-species-edit-btn").forEach(btn => {
     btn.addEventListener("click", () => marketEconomyEditSpecies(btn.dataset.speciesKey));
   });
@@ -15695,7 +16041,8 @@ function marketEconomyEditSpecies(speciesKey) {
     <div style="display:grid;gap:12px;">
       <label>Modo de preço
         <select id="me-edit-mode" style="width:100%;margin-top:4px;" onchange="meToggleSpeciesModeFields()">
-          <option value="proportional" ${mode === "proportional" ? "selected" : ""}>Proporcional (padrão)</option>
+          <option value="floor_quality" ${mode === "floor_quality" ? "selected" : ""}>Floor quality (padrão)</option>
+          <option value="proportional" ${mode === "proportional" ? "selected" : ""}>Proporcional (legado)</option>
           <option value="custom" ${mode === "custom" ? "selected" : ""}>Custom (pts × taxa por stat)</option>
           <option value="legacy_multipliers" ${mode === "legacy_multipliers" ? "selected" : ""}>Legado (pts × mult. JSON)</option>
         </select>
@@ -15834,24 +16181,28 @@ async function marketEconomySaveCaps() {
     const n = parseFloat(String(raw ?? "").trim().replace(",", "."));
     return Number.isFinite(n) ? n : 0;
   };
-  const stat_weights = { carnivore: {}, herbivore: {}, omnivore: {} };
-  document.querySelectorAll(".me-w").forEach(inp => {
-    const diet = inp.dataset.diet;
+  const role_stat_weights = { utilitario: {}, locomocao: {}, ataque: {}, raid: {}, boss: {} };
+  document.querySelectorAll(".me-rw").forEach(inp => {
+    const role = inp.dataset.role;
     const stat = inp.dataset.stat;
-    if (diet && stat) stat_weights[diet][stat] = parseMeFloat(inp.value);
+    if (role && stat) role_stat_weights[role][stat] = parseMeFloat(inp.value);
   });
   try {
     const r = await fetch(API + "/api/market/admin/economy/config", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        size_caps: {
-          large: parseInt(document.getElementById("me-cap-large").value, 10) || 300000,
-          medium: parseInt(document.getElementById("me-cap-medium").value, 10) || 250000,
-          small: parseInt(document.getElementById("me-cap-small").value, 10) || 100000,
+        floor_quality: {
+          enabled: true,
+          market_absolute_max: parseInt(document.getElementById("me-fq-market-cap")?.value, 10) || 150000,
+          encomenda_absolute_max: parseInt(document.getElementById("me-fq-encomenda-cap")?.value, 10) || 275000,
+          gamma: parseMeFloat(document.getElementById("me-fq-gamma")?.value) || 0.82,
+          encomenda_alpha: parseMeFloat(document.getElementById("me-fq-alpha")?.value) || 0.25,
+          encomenda_beta: parseMeFloat(document.getElementById("me-fq-beta")?.value) || 0.35,
         },
-        pts_reference: parseInt(document.getElementById("me-pts-ref").value, 10) || 254,
-        stat_weights,
+        pts_reference: parseInt(document.getElementById("me-pts-ref")?.value, 10) || 254,
+        role_stat_weights,
+        price_ceiling: { enabled: false },
       }),
     });
     const d = await r.json();
@@ -15889,7 +16240,8 @@ async function marketEconomySimulate() {
       return `${escHtml(row.label)}: ${Number(row.subtotal).toLocaleString("pt-BR")}`;
     }).join("<br>");
     if (out) out.innerHTML = `<div class="card"><div style="padding:14px 16px;">
-      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Sugerido: ${Number(d.computed_base_value).toLocaleString("pt-BR")} Âmbar</div>
+      <div style="font-size:18px;font-weight:600;margin-bottom:8px;">Mercado: ${Number(d.computed_base_value).toLocaleString("pt-BR")} Âmbar</div>
+      ${d.encomenda_value != null ? `<div style="font-size:15px;margin-bottom:8px;">Encomenda: ${Number(d.encomenda_value).toLocaleString("pt-BR")} Âmbar</div>` : ""}
       <div style="font-size:13px;color:var(--text2);">${lines}</div>
     </div></div>`;
   } catch (e) { toast(String(e), "error"); }
@@ -16348,9 +16700,18 @@ const LICENSE_GRANT_PRESETS = {
     command: "Permissions.AddTimed {SteamID} keyvault 720",
     catalogMode: "command|Licenças",
   },
+  delta: { Group: "Delta", Days: 30, Redeemable: true, TimedPointsBonus: 5, catalogMode: "license|Licenças" },
   gamma: { Group: "Gamma", Days: 30, Redeemable: true, TimedPointsBonus: 25, catalogMode: "license|Licenças" },
   beta:  { Group: "Beta",  Days: 30, Redeemable: true, TimedPointsBonus: 50, catalogMode: "license|Licenças" },
   alfa:  { Group: "Alfa",  Days: 30, Redeemable: true, TimedPointsBonus: 75, catalogMode: "license|Licenças" },
+  omega: { Group: "Omega", Days: 30, Redeemable: true, TimedPointsBonus: 90, catalogMode: "license|Licenças" },
+  transcendente: { Group: "Transcendente", Days: 30, Redeemable: true, TimedPointsBonus: 105, catalogMode: "license|Licenças" },
+  etereo: { Group: "Etereo", Days: 30, Redeemable: true, TimedPointsBonus: 120, catalogMode: "license|Licenças" },
+  universal: { Group: "Universal", Days: 30, Redeemable: true, TimedPointsBonus: 135, catalogMode: "license|Licenças" },
+  onipotente: { Group: "Onipotente", Days: 30, Redeemable: true, TimedPointsBonus: 150, catalogMode: "license|Licenças" },
+  surreal: { Group: "Surreal", Days: 30, Redeemable: true, TimedPointsBonus: 165, catalogMode: "license|Licenças" },
+  imaterial: { Group: "Imaterial", Days: 30, Redeemable: true, TimedPointsBonus: 180, catalogMode: "license|Licenças" },
+  exotico: { Group: "Exotico", Days: 30, Redeemable: true, TimedPointsBonus: 200, catalogMode: "license|Licenças" },
 };
 
 function licenseGrantEditorHtml(prefix, entry) {
@@ -16362,9 +16723,12 @@ function licenseGrantEditorHtml(prefix, entry) {
         <span class="kit-section-title">📜 Concessão de licença (LicenseGrant)</span>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','keyvault')">☁️ Nuvem</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','delta')">Δ Delta</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','gamma')">Γ Gamma</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','beta')">β Beta</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','alfa')">α Alfa</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','omega')">Ω Omega</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="applyLicensePreset('${prefix}','exotico')">✦ Exótico</button>
         </div>
       </div>
       <div class="toggle-row">

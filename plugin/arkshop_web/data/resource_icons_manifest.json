@@ -8,7 +8,7 @@
     "abyss_aqualyrium": {
       "catalog_key": "abyss_aqualyrium",
       "path": "/catalog/resources/abyss_aqualyrium.webp",
-      "display_name": "Aqualyrium (mod Abyss)",
+      "display_name": "Aqualyrium (Aquática)",
       "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Aqualyrium.PrimalItemResource_Aqualyrium",
       "blueprint_tokens": [
         "PrimalItemResource_Aqualyrium"
@@ -21,7 +21,7 @@
     "abyss_barnacle": {
       "catalog_key": "abyss_barnacle",
       "path": "/catalog/resources/abyss_barnacle.webp",
-      "display_name": "Craca (mod Abyss)",
+      "display_name": "Craca (Aquática)",
       "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Barnacle.PrimalItemResource_Barnacle",
       "blueprint_tokens": [
         "PrimalItemResource_Barnacle"
@@ -47,7 +47,7 @@
     "abyss_fish_scale": {
       "catalog_key": "abyss_fish_scale",
       "path": "/catalog/resources/abyss_fish_scale.webp",
-      "display_name": "Escama de Peixe (mod Abyss)",
+      "display_name": "Escama de Peixe (Aquática)",
       "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_FishScale.PrimalItemResource_FishScale",
       "blueprint_tokens": [
         "PrimalItemResource_FishScale"
@@ -99,7 +99,7 @@
     "abyss_manganese": {
       "catalog_key": "abyss_manganese",
       "path": "/catalog/resources/abyss_manganese.webp",
-      "display_name": "Manganês (mod Abyss)",
+      "display_name": "Manganês (Aquática)",
       "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Manganese.PrimalItemResource_Manganese",
       "blueprint_tokens": [
         "PrimalItemResource_Manganese"
@@ -112,7 +112,7 @@
     "abyss_seaweed": {
       "catalog_key": "abyss_seaweed",
       "path": "/catalog/resources/abyss_seaweed.webp",
-      "display_name": "Alga Marinha (mod Abyss)",
+      "display_name": "Alga Marinha (Aquática)",
       "blueprint": "/Game/Abyss/CoreBlueprints/Resources/PrimalItemResource_Seaweed.PrimalItemResource_Seaweed",
       "blueprint_tokens": [
         "PrimalItemResource_Seaweed"
@@ -151,7 +151,7 @@
     "abyss_seed_rice": {
       "catalog_key": "abyss_seed_rice",
       "path": "/catalog/resources/abyss_seed_rice.webp",
-      "display_name": "Semente de Arroz (mod Abyss)",
+      "display_name": "Semente de Arroz (Aquática)",
       "blueprint": "/Game/Abyss/CoreBlueprints/Items/Consumables/Seeds/PrimalItemConsumable_Seed_Rice.PrimalItemConsumable_Seed_Rice",
       "blueprint_tokens": [
         "PrimalItemConsumable_Seed_Rice"

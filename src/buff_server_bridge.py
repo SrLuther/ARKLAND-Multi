@@ -75,6 +75,8 @@ def buff_start_server(app: Any, server_id: str) -> None:
         if srv is not None:
             if hasattr(app, "_asm_persist_server"):
                 srv = app._asm_persist_server(srv)
+            else:
+                srv = asm_cm.get_server(server_id) if asm_cm else srv
             app.asm_server_manager.start(
                 srv,
                 on_done=lambda _ok, _msg: (
@@ -84,7 +86,13 @@ def buff_start_server(app: Any, server_id: str) -> None:
                 ),
             )
         return
-    app.server_manager.start_server(server_id)
+    sm = getattr(app, "server_manager", None)
+    if sm is not None:
+        srv = app.config_manager.get_server(server_id)
+        if srv is not None:
+            sm.update_server_config(srv)
+    if sm is not None:
+        sm.start_server(server_id)
 
 
 def buff_stop_server(app: Any, server_id: str) -> None:

@@ -6,7 +6,7 @@
   "species": [
     {
       "species_key": "abyss_seaweed",
-      "display_name": "Alga Marinha",
+      "display_name": "Alga Marinha (Aquática)",
       "tier": "C",
       "role": "resource",
       "root_value": 300,
@@ -22,7 +22,7 @@
     },
     {
       "species_key": "abyss_manganese",
-      "display_name": "Manganês",
+      "display_name": "Manganês (Aquática)",
       "tier": "C",
       "role": "resource",
       "root_value": 400,
@@ -38,7 +38,7 @@
     },
     {
       "species_key": "abyss_hardened_steel",
-      "display_name": "Lingote de Aço Endurecido",
+      "display_name": "Lingote de Aço Endurecido (Aquática)",
       "tier": "B",
       "role": "resource",
       "root_value": 1200,
@@ -54,7 +54,7 @@
     },
     {
       "species_key": "abyss_fish_scale",
-      "display_name": "Escama de Peixe",
+      "display_name": "Escama de Peixe (Aquática)",
       "tier": "C",
       "role": "resource",
       "root_value": 350,
@@ -70,7 +70,7 @@
     },
     {
       "species_key": "abyss_crystallized_wood",
-      "display_name": "Madeira Cristalizada",
+      "display_name": "Madeira Cristalizada (Aquática)",
       "tier": "B",
       "role": "resource",
       "root_value": 1000,
@@ -86,7 +86,7 @@
     },
     {
       "species_key": "abyss_barnacle",
-      "display_name": "Craca",
+      "display_name": "Craca (Aquática)",
       "tier": "C",
       "role": "resource",
       "root_value": 250,
@@ -102,7 +102,7 @@
     },
     {
       "species_key": "abyss_aqualyrium",
-      "display_name": "Aqualyrium",
+      "display_name": "Aqualyrium (Aquática)",
       "tier": "A",
       "role": "resource",
       "root_value": 2000,
@@ -118,7 +118,7 @@
     },
     {
       "species_key": "abyss_seed_plantspeciesw",
-      "display_name": "Semente Planta W (Abyss)",
+      "display_name": "Semente Planta W (Abyss) (Aquática)",
       "tier": "C",
       "role": "farm",
       "root_value": 200,
@@ -134,7 +134,7 @@
     },
     {
       "species_key": "abyss_seed_rice",
-      "display_name": "Semente de Arroz",
+      "display_name": "Semente de Arroz (Aquática)",
       "tier": "C",
       "role": "farm",
       "root_value": 200,
@@ -150,7 +150,7 @@
     },
     {
       "species_key": "abyss_seed_cucumis",
-      "display_name": "Semente de Pepino",
+      "display_name": "Semente de Pepino (Aquática)",
       "tier": "C",
       "role": "farm",
       "root_value": 200,
@@ -166,7 +166,7 @@
     },
     {
       "species_key": "abyss_water_wyvern",
-      "display_name": "Wyvern Aquática",
+      "display_name": "Wyvern Aquática (Aquática)",
       "tier": "S+",
       "role": "pvp",
       "root_value": 12000,
@@ -183,7 +183,7 @@
     },
     {
       "species_key": "abyss_vulcanite",
-      "display_name": "Vulcanita",
+      "display_name": "Vulcanita (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 5500,
@@ -199,7 +199,7 @@
     },
     {
       "species_key": "abyss_tridacna",
-      "display_name": "Tridacna",
+      "display_name": "Tridacna (Aquática)",
       "tier": "B",
       "role": "utility",
       "root_value": 2500,
@@ -215,7 +215,7 @@
     },
     {
       "species_key": "abyss_tiktaalik",
-      "display_name": "Tiktaalik",
+      "display_name": "Tiktaalik (Aquática)",
       "tier": "B",
       "role": "pvp",
       "root_value": 3000,
@@ -231,7 +231,7 @@
     },
     {
       "species_key": "abyss_thunnus",
-      "display_name": "Atum (Thunnus)",
+      "display_name": "Atum (Thunnus) (Aquática)",
       "tier": "B",
       "role": "utility",
       "root_value": 2200,
@@ -247,7 +247,7 @@
     },
     {
       "species_key": "abyss_takifugu",
-      "display_name": "Baiacu (Takifugu)",
+      "display_name": "Baiacu (Takifugu) (Aquática)",
       "tier": "C",
       "role": "utility",
       "root_value": 800,
@@ -263,7 +263,7 @@
     },
     {
       "species_key": "abyss_stereolepis",
-      "display_name": "Stereolepis",
+      "display_name": "Stereolepis (Aquática)",
       "tier": "B",
       "role": "pvp",
       "root_value": 2800,
@@ -279,7 +279,7 @@
     },
     {
       "species_key": "abyss_seahorse",
-      "display_name": "Cavalo-marinho",
+      "display_name": "Cavalo-marinho (Aquática)",
       "tier": "C",
       "role": "utility",
       "root_value": 600,
@@ -295,7 +295,7 @@
     },
     {
       "species_key": "abyss_riftcrawler",
-      "display_name": "Rift Crawler",
+      "display_name": "Rift Crawler (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 5200,
@@ -311,7 +311,7 @@
     },
     {
       "species_key": "abyss_qarmoutus",
-      "display_name": "Qarmoutus",
+      "display_name": "Qarmoutus (Aquática)",
       "tier": "S",
       "role": "pvp",
       "root_value": 8500,
@@ -327,7 +327,7 @@
     },
     {
       "species_key": "abyss_onchopristis",
-      "display_name": "Onchopristis",
+      "display_name": "Onchopristis (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 5000,
@@ -343,7 +343,7 @@
     },
     {
       "species_key": "abyss_ocepechelon",
-      "display_name": "Ocepechelon",
+      "display_name": "Ocepechelon (Aquática)",
       "tier": "B",
       "role": "utility",
       "root_value": 2800,
@@ -359,7 +359,7 @@
     },
     {
       "species_key": "abyss_mudpuppy",
-      "display_name": "Mudpuppy",
+      "display_name": "Mudpuppy (Aquática)",
       "tier": "C",
       "role": "utility",
       "root_value": 700,
@@ -375,7 +375,7 @@
     },
     {
       "species_key": "abyss_monodon",
-      "display_name": "Narval (Monodon)",
+      "display_name": "Narval (Monodon) (Aquática)",
       "tier": "B",
       "role": "utility",
       "root_value": 2500,
@@ -391,7 +391,7 @@
     },
     {
       "species_key": "abyss_mantis_shrimp",
-      "display_name": "Camarão-mantis",
+      "display_name": "Camarão-mantis (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 4800,
@@ -407,7 +407,7 @@
     },
     {
       "species_key": "abyss_malleocephalus",
-      "display_name": "Malleocephalus",
+      "display_name": "Malleocephalus (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 5000,
@@ -423,7 +423,7 @@
     },
     {
       "species_key": "abyss_kathreptis",
-      "display_name": "Kathreptis",
+      "display_name": "Kathreptis (Aquática)",
       "tier": "S",
       "role": "pvp",
       "root_value": 8000,
@@ -439,7 +439,7 @@
     },
     {
       "species_key": "abyss_istiophorus",
-      "display_name": "Marlim (Istiophorus)",
+      "display_name": "Marlim (Istiophorus) (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 4800,
@@ -455,7 +455,7 @@
     },
     {
       "species_key": "abyss_homarus",
-      "display_name": "Lagosta (Homarus)",
+      "display_name": "Lagosta (Homarus) (Aquática)",
       "tier": "B",
       "role": "pvp",
       "root_value": 2800,
@@ -471,7 +471,7 @@
     },
     {
       "species_key": "abyss_dakosaurus",
-      "display_name": "Dakosaurus",
+      "display_name": "Dakosaurus (Aquática)",
       "tier": "S",
       "role": "pvp",
       "root_value": 9000,
@@ -487,7 +487,7 @@
     },
     {
       "species_key": "abyss_yuty_abyssal",
-      "display_name": "Yutyrannus Abissal",
+      "display_name": "Yutyrannus Abissal (Aquática)",
       "tier": "S+",
       "role": "boss",
       "root_value": 12500,
@@ -504,7 +504,7 @@
     },
     {
       "species_key": "abyss_thyla_abyssal",
-      "display_name": "Thylacoleo Abissal",
+      "display_name": "Thylacoleo Abissal (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 5200,
@@ -521,7 +521,7 @@
     },
     {
       "species_key": "abyss_theriz_abyssal",
-      "display_name": "Therizinosaur Abissal",
+      "display_name": "Therizinosaur Abissal (Aquática)",
       "tier": "A",
       "role": "pvp",
       "root_value": 5500,
@@ -538,7 +538,7 @@
     },
     {
       "species_key": "abyss_stego_abyssal",
-      "display_name": "Stegossauro Abissal",
+      "display_name": "Stegossauro Abissal (Aquática)",
       "tier": "B",
       "role": "utility",
       "root_value": 2800,
@@ -572,7 +572,7 @@
     },
     {
       "species_key": "abyss_reaper_abyssal",
-      "display_name": "Reaper Abissal",
+      "display_name": "Reaper Abissal (Aquática)",
       "tier": "S+",
       "role": "boss",
       "root_value": 13000,
@@ -589,7 +589,7 @@
     },
     {
       "species_key": "abyss_moschops_abyssal",
-      "display_name": "Moschops Abissal",
+      "display_name": "Moschops Abissal (Aquática)",
       "tier": "B",
       "role": "farm",
       "root_value": 2800,
@@ -606,7 +606,7 @@
     },
     {
       "species_key": "abyss_ankylo_abyssal",
-      "display_name": "Anquilossauro Abissal",
+      "display_name": "Anquilossauro Abissal (Aquática)",
       "tier": "B",
       "role": "farm",
       "root_value": 3000,
@@ -623,7 +623,7 @@
     },
     {
       "species_key": "abyss_hover_sail",
-      "display_name": "Vela Thalassiana (HoverSail)",
+      "display_name": "Vela Thalassiana (HoverSail) (Aquática)",
       "tier": "A",
       "role": "transport",
       "root_value": 5500,
@@ -639,7 +639,7 @@
     },
     {
       "species_key": "abyss_hover_skiff",
-      "display_name": "Skiff Thalassiano",
+      "display_name": "Skiff Thalassiano (Aquática)",
       "tier": "S",
       "role": "transport",
       "root_value": 8000,

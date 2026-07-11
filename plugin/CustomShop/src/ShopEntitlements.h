@@ -6,7 +6,10 @@
 
 namespace CustomShop {
 
-static constexpr const char* kPaidLicenseGroups[] = { "Gamma", "Beta", "Alfa" };
+static constexpr const char* kPaidLicenseGroups[] = {
+    "Delta", "Gamma", "Beta", "Alfa", "Omega", "Transcendente",
+    "Etereo", "Universal", "Onipotente", "Surreal", "Imaterial", "Exotico"
+};
 
 class ShopEntitlements {
 public:

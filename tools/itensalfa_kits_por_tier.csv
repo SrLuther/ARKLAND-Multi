@@ -1,0 +1,13 @@
+tier,tier_num,qt_armaduras,qt_armas,qt_ferramentas,qt_selas,qt_total_itens,soma_armaduras,soma_armas,soma_ferramentas,soma_selas,soma_total,desconto_pct,preco_kit,economia_amber,licenca_minima,obs
+Delta,1,5,14,9,7,35,2000,4200,1800,2800,10800,20,8600,2200,Delta ou Gama,Kit completo com selas (5×400 arm + 14×300 arma + 9×200 ferr + 7×400 sela)
+Gama,2,5,14,9,7,35,3500,7000,3600,4200,18300,20,14600,3700,Gama ou Beta,Kit completo com selas (5×700 arm + 14×500 arma + 9×400 ferr + 7×600 sela)
+Beta,3,5,14,9,7,35,5500,11200,6300,7000,30000,20,24000,6000,Beta ou Alfa,Kit completo com selas (5×1100 arm + 14×800 arma + 9×700 ferr + 7×1000 sela)
+Alfa,4,5,14,9,7,35,8500,18200,9000,10500,46200,20,37000,9200,Alfa ou Omega,Kit completo com selas (5×1700 arm + 14×1300 arma + 9×1000 ferr + 7×1500 sela)
+Omega,5,5,14,9,7,35,12000,25200,12600,14700,64500,20,51600,12900,Omega ou Transcendente,Ultimo tier com selas (5×2400 arm + 14×1800 arma + 9×1400 ferr + 7×2100 sela)
+Transcendente,6,5,14,9,0,28,17000,36400,18000,0,71400,15,60700,10700,Transcendente ou Etereo,Sem selas (selas apenas ate Omega) — 5×3400 arm + 14×2600 arma + 9×2000 ferr
+Etereo,7,5,14,9,0,28,24000,50400,26100,0,100500,15,85400,15100,Etereo ou Universal,Sem selas — 5×4800 arm + 14×3600 arma + 9×2900 ferr
+Universal,8,5,14,9,0,28,32000,67200,34200,0,133400,15,113400,20000,Universal ou Onipotente,Sem selas — 5×6400 arm + 14×4800 arma + 9×3800 ferr
+Onipotente,9,5,14,9,0,28,42000,88200,45000,0,175200,15,149000,26200,Onipotente ou Surreal,Sem selas — 5×8400 arm + 14×6300 arma + 9×5000 ferr
+Surreal,10,5,14,9,0,28,54000,113400,58500,0,225900,15,192000,33900,Surreal ou Imaterial,Sem selas — 5×10800 arm + 14×8100 arma + 9×6500 ferr
+Imaterial,11,5,14,9,0,28,68000,142800,73800,0,284600,15,242000,42600,Imaterial ou Exotico,Sem selas — 5×13600 arm + 14×10200 arma + 9×8200 ferr
+Exotico,12,5,14,9,0,28,86000,180600,92700,0,359300,15,305400,53900,Exotico (apenas),Sem selas — tier maximo — 5×17200 arm + 14×12900 arma + 9×10300 ferr

@@ -1,0 +1,426 @@
+{
+  "_comment": "Inventário de criaturas por mod — gerado em 2026-07-10. Fontes: config.json em produção + Steam spawn codes discussions.",
+  "_rule": "NUNCA inventar blueprint paths. Apenas paths confirmados por fontes oficiais (spawn codes Steam, config em produção).",
+  "_sources": {
+    "bigal_spawn_codes": "https://steamcommunity.com/workshop/filedetails/discussion/2879943314/3765606379486935403/",
+    "brighamia_cheat_codes": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+    "config_producao": "plugin/CustomShop/configs/config.json"
+  },
+  "mods": [
+    {
+      "mod_id": "2879943314",
+      "mod_name": "BigAL's Collection (Meraxes)",
+      "mod_path_prefix": "/Game/Mods/Meraxes",
+      "creatures": [
+        {
+          "display_name": "Meraxes",
+          "catalog_id": "meraxes_femea",
+          "blueprint_path": "/Game/Mods/Meraxes/Dino/Meraxes_Character_BP.Meraxes_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/2879943314/3765606379486935403/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Meraxes Scorched",
+          "catalog_id": "meraxes_scorched_femea",
+          "blueprint_path": "/Game/Mods/Meraxes/Dino/texture/Varients/SE/ScorchedMeraxes_Character_BP.ScorchedMeraxes_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/2879943314/3765606379486935403/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Meraxes Rockwell",
+          "catalog_id": "meraxes_rockwell_femea",
+          "blueprint_path": "/Game/Mods/Meraxes/Dino/texture/Varients/Rockwell/RockwellMeraxes_Character_BP.RockwellMeraxes_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/2879943314/3765606379486935403/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Meraxes X-Snow",
+          "catalog_id": "meraxes_snow_femea",
+          "blueprint_path": "/Game/Mods/Meraxes/Dino/texture/Varients/X-Snow/SnowMeraxes_Character_BP.SnowMeraxes_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/2879943314/3765606379486935403/",
+          "in_catalog": true,
+          "action": "added"
+        }
+      ],
+      "summary": {
+        "total_found": 4,
+        "already_in_catalog": 0,
+        "added": 4,
+        "pending_no_path": 0
+      }
+    },
+    {
+      "mod_id": "1522327484",
+      "mod_name": "ARK Additions: The Collection",
+      "mod_path_prefix": "/Game/Mods/Additions_Pack",
+      "creatures": [
+        {
+          "display_name": "Acrocanthosaurus",
+          "catalog_id": "acrocanto_femea",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP.Acrocanthosaurus_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Archelon",
+          "catalog_id": "archelon",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Archelon/Dinos/Archelon_Character_BP.Archelon_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Brachiosaurus",
+          "catalog_id": "brachio",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP.Brachiosaurus_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Concavenator",
+          "catalog_id": "concavenator",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Concavenator/Dino/Concavenator_Character_BP.Concavenator_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Cryolophosaurus",
+          "catalog_id": "cryolophosaurus",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Cryolophosaurus/Dinos/Cryolophosaurus_Character_BP.Cryolophosaurus_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Deinosuchus",
+          "catalog_id": "deinosuchus",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Deinosuchus/Dino/Deinosuchus_Character_BP.Deinosuchus_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Xiphactinus",
+          "catalog_id": "xiphactinus",
+          "blueprint_path": "/Game/Mods/Additions_Pack/Xiphactinus/Dino/Xiph_Character_BP.Xiph_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        }
+      ],
+      "summary": {
+        "total_found": 7,
+        "already_in_catalog": 7,
+        "added": 0,
+        "pending_no_path": 0
+      }
+    },
+    {
+      "mod_id": "2110243671",
+      "mod_name": "Additional Creatures: Grand Hunt",
+      "mod_path_prefix": "/Game/Mods/GrandHunt",
+      "creatures": [
+        {
+          "display_name": "Armaedron",
+          "catalog_id": "armaedron",
+          "blueprint_path": "/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Diru-Ya-Ku",
+          "catalog_id": "diru_ya_ku",
+          "blueprint_path": "/Game/Mods/GrandHunt/Monsters/DiruYaKu/DiruYaKu_Character_BP.DiruYaKu_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Kutsu-Ya-Ku",
+          "catalog_id": "kutsu_ya_ku",
+          "blueprint_path": "/Game/Mods/GrandHunt/Monsters/KutsuYaKu/KutsuYaKu_Character_BP.KutsuYaKu_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Puretotokage",
+          "catalog_id": "puretotokage",
+          "blueprint_path": "/Game/Mods/GrandHunt/Monsters/Puretotokage/Puretotokage_Character_BP.Puretotokage_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Lukastiblos",
+          "catalog_id": null,
+          "blueprint_path": null,
+          "source_url": null,
+          "in_catalog": false,
+          "action": "pending_no_verified_path",
+          "note": "Mencionado na descrição do mod e comentários. Nenhum spawn code oficial encontrado publicamente."
+        },
+        {
+          "display_name": "Emalroth",
+          "catalog_id": null,
+          "blueprint_path": null,
+          "source_url": null,
+          "in_catalog": false,
+          "action": "pending_no_verified_path",
+          "note": "Mencionado na descrição do mod. Nenhum spawn code oficial encontrado publicamente."
+        }
+      ],
+      "summary": {
+        "total_found": 6,
+        "already_in_catalog": 4,
+        "added": 0,
+        "pending_no_path": 2
+      }
+    },
+    {
+      "mod_id": "3550298419",
+      "mod_name": "Brighamia Creatures",
+      "mod_path_prefix": "/Game/Mods/Funny_Creatures",
+      "creatures": [
+        {
+          "display_name": "Dread Wyvern",
+          "catalog_id": "dread_wyvern",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/DreadWyvern/Wyvern_Character_BP_Dread.Wyvern_Character_BP_Dread",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Ancient Wyvern",
+          "catalog_id": "ancient_wyvern",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/AncientWyvern/Wyvern_Character_BP_Ancient.Wyvern_Character_BP_Ancient",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Shimosaur",
+          "catalog_id": "shimosaur",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/Shimosaur/Shimosaur_Character_BP.Shimosaur_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "Titan Wyvern",
+          "catalog_id": "brighamia_titan_wyvern",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/TitanWyvern/Wyvern_Character_BP_Titan.Wyvern_Character_BP_Titan",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Gold Fire Wyvern (NoEgg)",
+          "catalog_id": "brighamia_wyvern_gold",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/NoEggWyv/Wyvern_Character_BP_Fire_NoEgg.Wyvern_Character_BP_Fire_NoEgg",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Red Lightning Wyvern (NoEgg)",
+          "catalog_id": "brighamia_wyvern_red",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/NoEggWyv/Wyvern_Character_BP_Lightning_NoEgg.Wyvern_Character_BP_Lightning_NoEgg",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "B Quetzal",
+          "catalog_id": "brighamia_b_quetzal",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/BuffedQuetz/B_Quetz_Character_BP.B_Quetz_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "B Liopleurodon",
+          "catalog_id": "brighamia_b_liopleurodon",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/B-Liopleurodon/B_Liopleurodon_Character_BP.B_Liopleurodon_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "B Ammonite",
+          "catalog_id": "brighamia_b_ammonite",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/B_Ammonite/B_Ammonite_Character.B_Ammonite_Character",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "B Compy",
+          "catalog_id": "brighamia_b_compy",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/YipeeCompy/Compy_Character_BP_YIpee.Compy_Character_BP_YIpee",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Jagged Land Rock Golem",
+          "catalog_id": "brighamia_jagged_golem",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/JaggedRockGolem/JaggedRockGolem_Character_BP.JaggedRockGolem_Character_BP",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Ancient Rock Golem",
+          "catalog_id": "brighamia_ancient_golem",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/JaggedRockGolem/Farum/JaggedRockGolem_Character_BP_Farum.JaggedRockGolem_Character_BP_Farum",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Possessed Onyc",
+          "catalog_id": "brighamia_poss_onyc",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/MushroomCreatures/Bat/Bat_Character_BP_Mush.Bat_Character_BP_Mush",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Possessed Karkinos",
+          "catalog_id": "brighamia_poss_karkinos",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/MushroomCreatures/Crab/Crabulon_Character_BP_Mush.Crabulon_Character_BP_Mush",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Possessed Pulmonoscorpius",
+          "catalog_id": "brighamia_poss_scorpion",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/MushroomCreatures/Scorp/Scorpion_Character_BP_Aberrant_Mush.Scorpion_Character_BP_Aberrant_Mush",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Possessed Achatina",
+          "catalog_id": "brighamia_poss_achatina",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/MushroomCreatures/Snail/Achatina_Character_BP_Aberrant_Mush.Achatina_Character_BP_Aberrant_Mush",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Possessed Araneo",
+          "catalog_id": "brighamia_poss_araneo",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/MushroomCreatures/Spider/SpiderS_Character_BP_Aberrant_Mush.SpiderS_Character_BP_Aberrant_Mush",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        },
+        {
+          "display_name": "Possessed Trilobite",
+          "catalog_id": "brighamia_poss_trilobite",
+          "blueprint_path": "/Game/Mods/Funny_Creatures/MushroomCreatures/Trilo/Trilobite_Character_Aberrant_Mush.Trilobite_Character_Aberrant_Mush",
+          "source_url": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+          "in_catalog": true,
+          "action": "added"
+        }
+      ],
+      "summary": {
+        "total_found": 18,
+        "already_in_catalog": 3,
+        "added": 15,
+        "pending_no_path": 0
+      }
+    },
+    {
+      "mod_id": "2380466974",
+      "mod_name": "Small Bosses",
+      "mod_path_prefix": "/Game/Mods/SmallBosses",
+      "creatures": [
+        { "display_name": "Small Broodmother", "catalog_id": "sb_small_broodmother", "blueprint_path": "/Game/Mods/SmallBosses/SmallBroodmother/SmallBroodmother_Character_BP.SmallBroodmother_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Crystal Wyvern Blood Descendant", "catalog_id": "sb_crystal_blood", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Blood.CrystalWyvern_Character_BP_Descendant_Blood", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Crystal Wyvern Ember Descendant", "catalog_id": "sb_crystal_ember", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Ember.CrystalWyvern_Character_BP_Descendant_Ember", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Crystal Wyvern Queen", "catalog_id": "sb_crystal_queen", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Queen.CrystalWyvern_Character_BP_Queen", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Crystal Wyvern Tropical Descendant", "catalog_id": "sb_crystal_tropical", "blueprint_path": "/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Tropical.CrystalWyvern_Character_BP_Descendant_Tropical", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Cyclops", "catalog_id": "sb_small_cyclops", "blueprint_path": "/Game/Mods/SmallBosses/SmallCyclops/SmallCyclops_Character_BP.SmallCyclops_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Desert Titan", "catalog_id": "sb_small_desert_titan", "blueprint_path": "/Game/Mods/SmallBosses/SmallDesertTitan/DesertTitan_Character_BP_SB.DesertTitan_Character_BP_SB", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Dodoreaper", "catalog_id": "sb_small_dodoreaper", "blueprint_path": "/Game/Mods/SmallBosses/SmallDodoreaper/SmallDodoreaper_Character_BP.SmallDodoreaper_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small DodoRex", "catalog_id": "sb_small_dodorex", "blueprint_path": "/Game/Mods/SmallBosses/SmallDodoRex/SmallDodoRex_Character_BP.SmallDodoRex_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Dodowyvern", "catalog_id": "sb_small_dodowyvern", "blueprint_path": "/Game/Mods/SmallBosses/SmallDodowyvern/SmallDodowyvern_Character_BP.SmallDodowyvern_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Dragon", "catalog_id": "sb_small_dragon", "blueprint_path": "/Game/Mods/SmallBosses/SmallDragon/SmallDragon_Character_BP.SmallDragon_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Volcano Small Dragon", "catalog_id": "sb_volcano_dragon", "blueprint_path": "/Game/Mods/SmallBosses/SmallDragon/Volcano_SmallDragon_Character_BP.Volcano_SmallDragon_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Drake (Fire)", "catalog_id": "sb_small_drake_fire", "blueprint_path": "/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Hippocampus", "catalog_id": "sb_small_hippocampus", "blueprint_path": "/Game/Mods/SmallBosses/SmallHippocampus/SmallHippocampus_Character_BP.SmallHippocampus_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Hydra", "catalog_id": "sb_small_hydra", "blueprint_path": "/Game/Mods/SmallBosses/SmallHydra/SmallHydra_Character_BP.SmallHydra_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Manticore", "catalog_id": "sb_small_manticore", "blueprint_path": "/Game/Mods/SmallBosses/SmallManticore/SmallManticore_Character_BP.SmallManticore_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Megapithecus", "catalog_id": "sb_small_megapithecus", "blueprint_path": "/Game/Mods/SmallBosses/SmallMegapithecus/SmallGorilla_Character_BP.SmallGorilla_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Small Moeder", "catalog_id": "sb_small_moeder", "blueprint_path": "/Game/Mods/SmallBosses/SmallMoeder/SmallMoeder_Character_BP.SmallMoeder_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Fire Elemental", "catalog_id": "sb_fire_elemental", "blueprint_path": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP.FireElemental_Character_BP", "in_catalog": true, "action": "already_present" },
+        { "display_name": "Fire Elemental (Domável)", "catalog_id": "sb_fire_elemental_tame", "blueprint_path": "/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP_Tameable.FireElemental_Character_BP_Tameable", "in_catalog": true, "action": "already_present" }
+      ],
+      "summary": {
+        "total_found": 20,
+        "already_in_catalog": 20,
+        "added": 0,
+        "pending_no_path": 0
+      }
+    },
+    {
+      "mod_id": "2932656301",
+      "mod_name": "Moro's Indomitable Duo",
+      "mod_path_prefix": "/Game/Mods/IndominusRex",
+      "creatures": [
+        {
+          "display_name": "Indominus Rex",
+          "catalog_id": "indominus_femea",
+          "blueprint_path": "/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        },
+        {
+          "display_name": "IndoRaptor",
+          "catalog_id": "indoraptor_femea",
+          "blueprint_path": "/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP",
+          "source_url": "plugin/CustomShop/configs/config.json",
+          "in_catalog": true,
+          "action": "already_present"
+        }
+      ],
+      "summary": {
+        "total_found": 2,
+        "already_in_catalog": 2,
+        "added": 0,
+        "pending_no_path": 0
+      }
+    }
+  ],
+  "totals": {
+    "all_mods": 6,
+    "total_creatures_found": 57,
+    "already_in_catalog": 36,
+    "added_this_run": 19,
+    "pending_no_verified_path": 2
+  },
+  "pending_no_path": [
+    {
+      "display_name": "Lukastiblos",
+      "mod": "Additional Creatures: Grand Hunt (2110243671)",
+      "reason": "Mencionado na descrição do mod e nos comentários do Steam, mas nenhum spawn code ou blueprint path oficial encontrado em discussões públicas. Mod está abandonado (autor confirmou em 2025)."
+    },
+    {
+      "display_name": "Emalroth",
+      "mod": "Additional Creatures: Grand Hunt (2110243671)",
+      "reason": "Mencionado na descrição do mod como 'maternal Emalroth', mas nenhum spawn code ou blueprint path oficial encontrado. Possivelmente não foi lançado."
+    }
+  ]
+}

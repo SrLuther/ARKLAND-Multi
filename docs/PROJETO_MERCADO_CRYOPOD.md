@@ -1508,3 +1508,4 @@ Este documento serve como base para revisão de stakeholders, estimativa de esfo
 | `docs/PROJETO_INVENTARIO_NUVEM.md` | Padrão upload/download blobs |
 | `docs/PROJETO_ARKLAND_MASTER.md` | SpawnExact, gap loja admin |
 | `src/spawn_exact.py` | Stats breeding, cores, imprint |
+| [`docs/TRIBO_REPARTICAO_MERCADO.md`](TRIBO_REPARTICAO_MERCADO.md) | **§18** — Divisão de receita de vendas P2P entre membros de tribo: piso 60% ao criador, opt-in/opt-out, audit log, 25 edge cases, 4 fases MVP |

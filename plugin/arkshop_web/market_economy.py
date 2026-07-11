@@ -127,9 +127,20 @@ class SpeciesEconomy:
     diet_class: str = "carnivore"
     size_class: str = "medium"
     economy_stats: dict[str, Any] = field(default_factory=dict)
-    pricing_mode: str = "proportional"
+    pricing_mode: str = "floor_quality"
+    premium_budget: int = 0
+    dino_role: str = "ataque"
+    prestige_rank: int = 50
+    commerce_channel: str = "market_p2p"
 
     def to_dict(self, *, include_multipliers: bool = True) -> dict[str, Any]:
+        mode = (self.pricing_mode or "floor_quality").strip().lower()
+        market_cap = load_market_absolute_max()
+        bonus = (
+            int(self.premium_budget)
+            if mode == "floor_quality"
+            else max(0, size_cap_for_class(self.size_class) - self.root_value)
+        )
         out: dict[str, Any] = {
             "species_key": self.species_key,
             "display_name": self.display_name,
@@ -145,8 +156,12 @@ class SpeciesEconomy:
             "size_class": self.size_class,
             "economy_stats": self.economy_stats,
             "pricing_mode": self.pricing_mode,
-            "size_cap": size_cap_for_class(self.size_class),
-            "bonus_space": max(0, size_cap_for_class(self.size_class) - self.root_value),
+            "premium_budget": int(self.premium_budget),
+            "dino_role": self.dino_role,
+            "prestige_rank": int(self.prestige_rank),
+            "commerce_channel": self.commerce_channel,
+            "size_cap": market_cap if mode == "floor_quality" else size_cap_for_class(self.size_class),
+            "bonus_space": bonus,
         }
         if include_multipliers:
             out["multipliers"] = {
@@ -251,6 +266,163 @@ def load_pts_reference() -> int:
         return 254
 
 
+def _ladder_file_path() -> Path:
+    if getattr(sys, "frozen", False):
+        bundled = Path(sys._MEIPASS) / "data" / "species_root_ladder.json"  # type: ignore[attr-defined]
+        if bundled.is_file():
+            return bundled
+    return Path(__file__).resolve().parent / "data" / "species_root_ladder.json"
+
+
+def load_species_root_ladder() -> dict[str, Any]:
+    path = _ladder_file_path()
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_floor_quality_config() -> dict[str, Any]:
+    raw = load_defaults_file().get("_floor_quality") or {}
+    ladder = load_species_root_ladder()
+    try:
+        gamma = float(raw.get("gamma", ladder.get("gamma", 0.82)))
+    except (TypeError, ValueError):
+        gamma = 0.82
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "gamma": max(0.1, min(1.0, gamma)),
+        "market_absolute_max": load_market_absolute_max(),
+        "encomenda_absolute_max": load_encomenda_absolute_max(),
+        "encomenda_alpha": float(raw.get("encomenda_alpha", ladder.get("encomenda_alpha", 0.25))),
+        "encomenda_beta": float(raw.get("encomenda_beta", ladder.get("encomenda_beta", 0.35))),
+        "role_stat_weights": load_role_stat_weights(),
+    }
+
+
+def load_market_absolute_max() -> int:
+    raw = load_defaults_file().get("_floor_quality") or {}
+    ladder = load_species_root_ladder()
+    try:
+        return max(1, int(raw.get("market_absolute_max", ladder.get("market_absolute_max", 150_000))))
+    except (TypeError, ValueError):
+        return 150_000
+
+
+def load_encomenda_absolute_max() -> int:
+    raw = load_defaults_file().get("_floor_quality") or {}
+    ladder = load_species_root_ladder()
+    try:
+        return max(1, int(raw.get("encomenda_absolute_max", ladder.get("encomenda_absolute_max", 275_000))))
+    except (TypeError, ValueError):
+        return 275_000
+
+
+def load_role_stat_weights() -> dict[str, dict[str, float]]:
+    raw = load_defaults_file().get("_role_stat_weights") or {}
+    ladder = load_species_root_ladder()
+    defaults = dict(ladder.get("role_stat_weights") or {})
+    out: dict[str, dict[str, float]] = {}
+    roles = set(defaults) | set(raw)
+    for role in roles:
+        base = dict(defaults.get(role) or {})
+        role_raw = raw.get(role) or {}
+        weights: dict[str, float] = {}
+        for sk in ECONOMY_STAT_KEYS + ("food",):
+            try:
+                weights[sk] = float(role_raw.get(sk, base.get(sk, 0.0)))
+            except (TypeError, ValueError):
+                weights[sk] = float(base.get(sk, 0.0))
+        total = sum(weights.values()) or 1.0
+        out[str(role)] = {sk: weights[sk] / total for sk in weights}
+    return out
+
+
+def blueprint_short_key(bp: str | None) -> str:
+    bp = normalize_blueprint(bp)
+    if not bp:
+        return ""
+    return bp.rsplit("/", 1)[-1].split(".")[0]
+
+
+def resolve_species_by_blueprint(blueprint: str | None) -> dict[str, Any] | None:
+    """Lookup espécie canônica por blueprint_path normalizado."""
+    bp_norm = normalize_blueprint(blueprint)
+    if not bp_norm:
+        return None
+    for sk, defn in load_default_species_map().items():
+        paths = [str(defn.get("blueprint_path") or "")]
+        for alias in defn.get("blueprint_aliases") or []:
+            if isinstance(alias, dict):
+                paths.append(str(alias.get("blueprint_path") or ""))
+            elif isinstance(alias, str):
+                paths.append(alias)
+        for path in paths:
+            if normalize_blueprint(path) == bp_norm:
+                return defn
+    ladder = load_species_root_ladder()
+    override = (ladder.get("blueprint_overrides") or {}).get(blueprint_short_key(blueprint))
+    if override and override.get("species_key"):
+        return load_default_species_map().get(str(override["species_key"]))
+    return None
+
+
+def calculate_quality_index(
+    stat_points: dict[str, int],
+    *,
+    dino_role: str,
+    gamma: float | None = None,
+) -> tuple[float, list[dict[str, Any]]]:
+    """Índice Q ∈ [0, 1] agregando stats breedáveis com retornos decrescentes."""
+    cfg = load_floor_quality_config()
+    g = float(gamma if gamma is not None else cfg["gamma"])
+    weights = cfg["role_stat_weights"].get(str(dino_role or "ataque")) or cfg["role_stat_weights"].get(
+        "ataque", {}
+    )
+    pts_ref = load_pts_reference()
+    labels = stat_labels()
+    parts: list[dict[str, Any]] = []
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for sk in ECONOMY_STAT_KEYS:
+        w = float(weights.get(sk, 0.0))
+        if w <= 0:
+            continue
+        pts = min(pts_ref, max(0, int(stat_points.get(sk, 0))))
+        q_s = (pts / pts_ref) ** g if pts_ref else 0.0
+        weighted_sum += w * q_s
+        weight_total += w
+        parts.append(
+            {
+                "stat_key": sk,
+                "label": labels.get(sk, sk),
+                "points": pts,
+                "q_stat": round(q_s, 4),
+                "weight_pct": round(w * 100, 1),
+            }
+        )
+    q = weighted_sum / weight_total if weight_total else 0.0
+    return min(1.0, max(0.0, q)), parts
+
+
+def calculate_encomenda_value(
+    species: SpeciesEconomy,
+    market_value: int,
+    *,
+    color_component: int = 0,
+) -> int:
+    """Valor de encomenda com taxas de serviço e teto global."""
+    cfg = load_floor_quality_config()
+    r = int(species.root_value)
+    alpha = float(cfg["encomenda_alpha"])
+    beta = float(cfg["encomenda_beta"])
+    base_surcharge = round(r * alpha)
+    service_premium = round((market_value + color_component) * beta)
+    total = market_value + color_component + base_surcharge + service_premium
+    floor = max(market_value, r)
+    cap = load_encomenda_absolute_max()
+    return max(floor, min(total, cap))
+
+
 def load_stat_weights() -> dict[str, dict[str, float]]:
     raw = load_defaults_file().get("_stat_weights") or {}
     defaults: dict[str, dict[str, float]] = {
@@ -310,7 +482,11 @@ def species_economy_meta_from_defaults(species_key: str) -> dict[str, Any]:
         "diet_class": str(defn.get("diet_class") or "carnivore"),
         "size_class": str(defn.get("size_class") or "medium"),
         "economy_stats": economy_stats,
-        "pricing_mode": str(defn.get("pricing_mode") or "proportional"),
+        "pricing_mode": str(defn.get("pricing_mode") or "floor_quality"),
+        "premium_budget": int(defn.get("premium_budget") or 0),
+        "dino_role": str(defn.get("dino_role") or "ataque"),
+        "prestige_rank": int(defn.get("prestige_rank") or 50),
+        "commerce_channel": str(defn.get("commerce_channel") or "market_p2p"),
     }
 
 
@@ -320,6 +496,10 @@ def apply_economy_meta(species: "SpeciesEconomy") -> "SpeciesEconomy":
     species.size_class = meta["size_class"]
     species.economy_stats = meta["economy_stats"]
     species.pricing_mode = meta["pricing_mode"]
+    species.premium_budget = int(meta["premium_budget"])
+    species.dino_role = meta["dino_role"]
+    species.prestige_rank = int(meta["prestige_rank"])
+    species.commerce_channel = meta["commerce_channel"]
     return species
 
 
@@ -363,6 +543,22 @@ def patch_economy_global_config(updates: dict[str, Any]) -> dict[str, Any]:
                 tier_map[str(tier).strip().upper()] = max(1.0, float(mult))
             existing["tier_multipliers"] = tier_map
         data["_price_ceiling"] = existing
+    if "floor_quality" in updates:
+        fq = updates["floor_quality"] or {}
+        existing_fq = dict(data.get("_floor_quality") or {})
+        for key in (
+            "enabled",
+            "gamma",
+            "market_absolute_max",
+            "encomenda_absolute_max",
+            "encomenda_alpha",
+            "encomenda_beta",
+        ):
+            if key in fq:
+                existing_fq[key] = fq[key]
+        data["_floor_quality"] = existing_fq
+    if "role_stat_weights" in updates and isinstance(updates["role_stat_weights"], dict):
+        data["_role_stat_weights"] = updates["role_stat_weights"]
     save_defaults_file(data)
     return load_economy_global_config()
 
@@ -383,6 +579,12 @@ def patch_species_economy_meta(species_key: str, updates: dict[str, Any]) -> dic
         target["size_class"] = str(updates["size_class"])
     if "pricing_mode" in updates:
         target["pricing_mode"] = str(updates["pricing_mode"])
+    if "dino_role" in updates:
+        target["dino_role"] = str(updates["dino_role"])
+    if "premium_budget" in updates:
+        target["premium_budget"] = int(updates["premium_budget"])
+    if "prestige_rank" in updates:
+        target["prestige_rank"] = int(updates["prestige_rank"])
     if "economy_stats" in updates and isinstance(updates["economy_stats"], dict):
         existing = dict(target.get("economy_stats") or {})
         for sk, val in updates["economy_stats"].items():
@@ -412,9 +614,17 @@ def list_species_economy_meta() -> list[dict[str, Any]]:
                 "display_name": defn.get("display_name") or sk,
                 "tier": defn.get("tier") or "B",
                 "root_value": int(defn.get("root_value") or 0),
+                "premium_budget": int(defn.get("premium_budget") or 0),
+                "dino_role": defn.get("dino_role") or "ataque",
+                "prestige_rank": int(defn.get("prestige_rank") or 50),
+                "commerce_channel": defn.get("commerce_channel") or "market_p2p",
                 **meta,
-                "size_cap": size_cap_for_class(meta["size_class"]),
-                "bonus_space": max(
+                "size_cap": load_market_absolute_max()
+                if (meta.get("pricing_mode") or "floor_quality") == "floor_quality"
+                else size_cap_for_class(meta["size_class"]),
+                "bonus_space": int(defn.get("premium_budget") or 0)
+                if (meta.get("pricing_mode") or "floor_quality") == "floor_quality"
+                else max(
                     0,
                     size_cap_for_class(meta["size_class"])
                     - int(defn.get("root_value") or 0),
@@ -444,9 +654,11 @@ def simulate_economy(
         species.root_value = int(root_value)
     points = normalize_stat_points(stat_points)
     total, breakdown = calculate_suggested_value(species, points)
+    encomenda = calculate_encomenda_value(species, total)
     return {
         "species_key": species_key,
         "computed_base_value": total,
+        "encomenda_value": encomenda,
         "calculation_breakdown": breakdown,
         "species": species.to_dict(include_multipliers=False),
         "stat_points": points,
@@ -454,10 +666,15 @@ def simulate_economy(
 
 
 def load_economy_global_config() -> dict[str, Any]:
+    fq = load_floor_quality_config()
     return {
+        "floor_quality": fq,
+        "market_absolute_max": fq["market_absolute_max"],
+        "encomenda_absolute_max": fq["encomenda_absolute_max"],
         "size_caps": load_size_caps(),
         "pts_reference": load_pts_reference(),
         "stat_weights": load_stat_weights(),
+        "role_stat_weights": fq["role_stat_weights"],
         "tier_legend": load_tier_legend(),
         "price_ceiling": load_price_ceiling_config(),
     }
@@ -501,6 +718,23 @@ def normalize_blueprint(bp: str | None) -> str:
         if cls.endswith("_c") and len(cls) > 2:
             bp = f"{pkg}.{cls[:-2]}"
     return bp
+
+
+def build_blueprint_economy_map() -> dict[str, dict[str, Any]]:
+    """blueprint_norm → definição econômica canônica."""
+    out: dict[str, dict[str, Any]] = {}
+    for sk, defn in load_default_species_map().items():
+        paths = [str(defn.get("blueprint_path") or "")]
+        for alias in defn.get("blueprint_aliases") or []:
+            if isinstance(alias, dict):
+                paths.append(str(alias.get("blueprint_path") or ""))
+            elif isinstance(alias, str):
+                paths.append(alias)
+        for path in paths:
+            nb = normalize_blueprint(path)
+            if nb:
+                out[nb] = defn
+    return out
 
 
 def build_catalog_economy_map() -> dict[str, dict[str, Any]]:
@@ -1175,18 +1409,94 @@ def _calculate_custom_rates(
     return total, breakdown
 
 
+def _calculate_floor_quality(
+    species: SpeciesEconomy,
+    stat_points: dict[str, int],
+    *,
+    root: int,
+) -> tuple[int, list[dict[str, Any]]]:
+    """Piso R + orçamento B × índice Q — cap mercado global."""
+    cfg = load_floor_quality_config()
+    market_cap = int(cfg["market_absolute_max"])
+    budget = int(species.premium_budget or 0)
+    q, q_parts = calculate_quality_index(
+        stat_points, dino_role=species.dino_role, gamma=cfg["gamma"]
+    )
+    premium = int(round(budget * q))
+    total = min(root + premium, market_cap)
+    breakdown: list[dict[str, Any]] = [
+        {
+            "kind": "root",
+            "label": f"Piso L1 ({species.display_name})",
+            "stat_key": None,
+            "points": None,
+            "multiplier": None,
+            "subtotal": root,
+            "pricing_mode": "floor_quality",
+        },
+        {
+            "kind": "quality",
+            "label": f"Índice Q ({species.dino_role})",
+            "stat_key": None,
+            "points": None,
+            "multiplier": None,
+            "subtotal": premium,
+            "q_index": round(q, 4),
+            "premium_budget": budget,
+        },
+    ]
+    for part in q_parts:
+        breakdown.append(
+            {
+                "kind": "stat",
+                "label": part["label"],
+                "stat_key": part["stat_key"],
+                "points": part["points"],
+                "multiplier": part["q_stat"],
+                "weight_pct": part["weight_pct"],
+                "subtotal": 0,
+            }
+        )
+    if root + premium > market_cap:
+        breakdown.append(
+            {
+                "kind": "cap",
+                "label": f"Teto mercado ({market_cap:,} Âmbar)".replace(",", "."),
+                "stat_key": None,
+                "points": None,
+                "multiplier": None,
+                "subtotal": market_cap - (root + premium),
+            }
+        )
+    total = max(root, total)
+    breakdown.append(
+        {
+            "kind": "total",
+            "label": "Valor sugerido total",
+            "stat_key": None,
+            "points": None,
+            "multiplier": None,
+            "subtotal": total,
+            "market_cap": market_cap,
+        }
+    )
+    return total, breakdown
+
+
 def calculate_suggested_value(
     species: SpeciesEconomy,
     stat_points: dict[str, int],
 ) -> tuple[int, list[dict[str, Any]]]:
-    """Valor sugerido — proporcional (padrão), custom ou legado por espécie."""
+    """Valor sugerido — floor_quality (padrão), proporcional, custom ou legado."""
     mode_override = (species.pricing_mode or "").strip().lower()
     apply_economy_meta(species)
-    if mode_override in ("legacy", "legacy_multipliers", "custom"):
+    if mode_override in ("legacy", "legacy_multipliers", "custom", "proportional", "floor_quality"):
         species.pricing_mode = mode_override
     root = int(species.root_value)
+    mode = (species.pricing_mode or "floor_quality").strip().lower()
+    if mode == "floor_quality":
+        return _calculate_floor_quality(species, stat_points, root=root)
     cap = size_cap_for_class(species.size_class)
-    mode = (species.pricing_mode or "proportional").strip().lower()
     if mode == "custom":
         return _calculate_custom_rates(species, stat_points, root=root, cap=cap)
     if mode in ("legacy", "legacy_multipliers"):

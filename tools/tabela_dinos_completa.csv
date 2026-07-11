@@ -1,0 +1,192 @@
+﻿#,nome,origem,mod_id,blueprint_path,no_catalogo,catalog_id,preco_l1_atual
+1,Rex,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP,sim,rex,18000
+2,Giganotosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Giganotosaurus/Gigant_Character_BP.Gigant_Character_BP,sim,giga,22500
+3,Rex Tek (Bionic),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Rex/BionicRex_Character_BP.BionicRex_Character_BP,sim,bionicrex,20000
+4,Giganotossauro Tek (Bionic),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Giganotosaurus/BionicGigant_Character_BP.BionicGigant_Character_BP,sim,bionicgigant,25000
+5,Megalosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP.Megalosaurus_Character_BP,sim,megalosaurus,9000
+6,Deinonychus,DLC Valguero,—,/Game/PrimalEarth/Dinos/Raptor/Uberraptor/Deinonychus_Character_BP.Deinonychus_Character_BP,sim,deinonychus,9500
+7,Megalosaurus Aberrante,DLC Aberration,—,/Game/PrimalEarth/Dinos/Megalosaurus/Megalosaurus_Character_BP_Aberrant.Megalosaurus_Character_BP_Aberrant,sim,megalosaurus_aberrant,9500
+8,Reaper (Xenomorph),DLC Aberration,—,/Game/Aberration/Dinos/Nameless/Xenomorph_Character_BP_Male.Xenomorph_Character_BP_Male,sim,xenomorph,16000
+9,Volcano Rex,DLC Genesis 1,—,/Game/Genesis/Dinos/BiomeVariants/Volcano_Rex/Volcano_Rex_Character_BP.Volcano_Rex_Character_BP,sim,volcanorex,9500
+10,Astrodelphis,DLC Genesis 2,—,/Game/Genesis2/Dinos/SpaceDolphin/SpaceDolphin_Character_BP.SpaceDolphin_Character_BP,sim,astrodelphis,7000
+11,Reaper Gen2,DLC Genesis 2,—,/Game/Genesis2/Dinos/Summoner/SummonedDinos/Xenomorph_Character_BP_Male_Gen2_Summoned.Xenomorph_Character_BP_Male_Gen2_Summoned,sim,xenomorphgen2,16000
+12,Shadowmane,DLC Genesis 2,—,/Game/Genesis2/Dinos/LionfishLion/LionfishLion_Character_BP.LionfishLion_Character_BP,sim,lionfish,35000
+13,Tek Strider,DLC Genesis 2,—,/Game/Genesis2/Dinos/TekStrider/TekStrider_Character_BP.TekStrider_Character_BP,sim,tekstrider,35000
+14,Carcharodontosaurus,DLC Lost Island,—,/Game/PrimalEarth/Dinos/Carcharodontosaurus/Carcha_Character_BP.Carcha_Character_BP,sim,carcha,25000
+15,Desmodus,DLC Fjordur,—,/Game/Fjordur/Dinos/Desmodus/Desmodus_Character_BP.Desmodus_Character_BP,sim,desmodus,7000
+16,Allosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Allosaurus/Allo_Character_BP.Allo_Character_BP,não,—,—
+17,Anquilossauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Ankylosaurus/Ankylo_Character_BP.Ankylo_Character_BP,não,—,—
+18,Argentavis,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Argentavis/Argent_Character_BP.Argent_Character_BP,não,—,—
+19,Baryonyx,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Baryonyx/Baryonyx_Character_BP.Baryonyx_Character_BP,não,—,—
+20,Basilosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Basilosaurus/Basilosaurus_Character_BP.Basilosaurus_Character_BP,não,—,—
+21,Brontossauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Sauropod/Sauropod_Character_BP.Sauropod_Character_BP,não,—,—
+22,Carbonemys,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Turtle/Turtle_Character_BP.Turtle_Character_BP,não,—,—
+23,Carnotauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Carno/Carno_Character_BP.Carno_Character_BP,não,—,—
+24,Castoroides,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Beaver/Beaver_Character_BP.Beaver_Character_BP,não,—,—
+25,Daeodon,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Daeodon/Daeodon_Character_BP.Daeodon_Character_BP,não,—,—
+26,Dilofoossauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Dilo/Dilo_Character_BP.Dilo_Character_BP,não,—,—
+27,Diplodocus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Diplodocus/Diplodocus_Character_BP.Diplodocus_Character_BP,não,—,—
+28,Urso Temível (Direbear),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Direbear/Direbear_Character_BP.Direbear_Character_BP,não,—,—
+29,Lobo Temível (Direwolf),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Direwolf/Direwolf_Character_BP.Direwolf_Character_BP,não,—,—
+30,Doedicurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Doedicurus/Doed_Character_BP.Doed_Character_BP,não,—,—
+31,Dunkleosteus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Dunkleosteus/Dunkle_Character_BP.Dunkle_Character_BP,não,—,—
+32,Electrophorus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Eel/Eel_Character_BP.Eel_Character_BP,não,—,—
+33,Equus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Equus/Equus_Character_BP.Equus_Character_BP,não,—,—
+34,Gallimimus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Gallimimus/Galli_Character_BP.Galli_Character_BP,não,—,—
+35,Iguanodon,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Iguanodon/Iguanodon_Character_BP.Iguanodon_Character_BP,não,—,—
+36,Kaprosuchus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Kaprosuchus/Kaprosuchus_Character_BP.Kaprosuchus_Character_BP,não,—,—
+37,Lystrosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Lystrosaurus/Lystro_Character_BP.Lystro_Character_BP,não,—,—
+38,Mamute (Mammoth),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Mammoth/Mammoth_Character_BP.Mammoth_Character_BP,não,—,—
+39,Manta,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Manta/Manta_Character_BP.Manta_Character_BP,não,—,—
+40,Megaloceros,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Stag/Stag_Character_BP.Stag_Character_BP,não,—,—
+41,Megalodonte (Megalodon),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Megalodon/Megalodon_Character_BP.Megalodon_Character_BP,não,—,—
+42,Mesopithecus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Monkey/Monkey_Character_BP.Monkey_Character_BP,não,—,—
+43,Moschops,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Moschops/Moschops_Character_BP.Moschops_Character_BP,não,—,—
+44,Mosassauro (Mosasaurus),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Mosa/Mosa_Character_BP.Mosa_Character_BP,não,—,—
+45,Pachycephalosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Pachy/Pachy_Character_BP.Pachy_Character_BP,não,—,—
+46,Pachyrhinosaurus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Pachyrhino/Pachyrhino_Character_BP.Pachyrhino_Character_BP,não,—,—
+47,Parasaur,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Para/Para_Character_BP.Para_Character_BP,não,—,—
+48,Pelagornis,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Pela/Pela_Character_BP.Pela_Character_BP,não,—,—
+49,Plesiossauro (Plesiosaur),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Plesiosaur/Plesiosaur_Character_BP.Plesiosaur_Character_BP,não,—,—
+50,Procoptodon,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Procoptodon/Procoptodon_Character_BP.Procoptodon_Character_BP,não,—,—
+51,Pteranodonte,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Ptero/Ptero_Character_BP.Ptero_Character_BP,não,—,—
+52,Pulmonoscorpius,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Scorpion/Scorpion_Character_BP.Scorpion_Character_BP,não,—,—
+53,Quetzal,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Quetz/Quetz_Character_BP.Quetz_Character_BP,não,—,—
+54,Raptor,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Raptor/Raptor_Character_BP.Raptor_Character_BP,não,—,—
+55,Sarcosuchus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Sarco/Sarco_Character_BP.Sarco_Character_BP,não,—,—
+56,Spinossauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Spino/Spino_Character_BP.Spino_Character_BP,não,—,—
+57,Estegossauro (Stegosaurus),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Stego/Stego_Character_BP.Stego_Character_BP,não,—,—
+58,Tapejara,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Tapejara/Tapejara_Character_BP.Tapejara_Character_BP,não,—,—
+59,Terror Bird,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/TerrorBird/TerrorBird_Character_BP.TerrorBird_Character_BP,não,—,—
+60,Therizinossauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Therizino/Therizino_Character_BP.Therizino_Character_BP,não,—,—
+61,Thylacoleo,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Thylacoleo/Thylacoleo_Character_BP.Thylacoleo_Character_BP,não,—,—
+62,Triceratops,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Trike/Trike_Character_BP.Trike_Character_BP,não,—,—
+63,Rinoceronte Lanoso (Woolly Rhino),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Rhino/Rhino_Character_BP.Rhino_Character_BP,não,—,—
+64,Beelzebufo,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Toad/Toad_Character_BP.Toad_Character_BP,não,—,—
+65,Dimorphodon,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Dimorph/Dimorph_Character_BP.Dimorph_Character_BP,não,—,—
+66,Diplocaulus,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Diplocaulus/Diplocaulus_Character_BP.Diplocaulus_Character_BP,não,—,—
+67,Besouro do Esterco (Dung Beetle),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/DungBeetle/DungBeetle_Character_BP.DungBeetle_Character_BP,não,—,—
+68,Abelha Gigante (Giant Bee),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Bee/Bee_Character_BP.Bee_Character_BP,não,—,—
+69,Ictiosaurus (Ichthyosaurus),Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Dolphin/Dolphin_Character_BP.Dolphin_Character_BP,não,—,—
+70,Kairuku,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Kairuku/Kairuku_Character_BP.Kairuku_Character_BP,não,—,—
+71,Liopleurodon,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Liopleurodon/Liopleurodon_Character_BP.Liopleurodon_Character_BP,não,—,—
+72,Oviraptor,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Oviraptor/Oviraptor_Character_BP.Oviraptor_Character_BP,não,—,—
+73,Titanossauro,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Titanosaur/Titanosaur_Character_BP.Titanosaur_Character_BP,não,—,—
+74,Troodon,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Troodon/Troodon_Character_BP.Troodon_Character_BP,não,—,—
+75,Tusoteuthis,Vanilla (The Island),—,/Game/PrimalEarth/Dinos/Tusoteuthis/Tusoteuthis_Character_BP.Tusoteuthis_Character_BP,não,—,—
+76,Mantis,DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/Mantis/Mantis_Character_BP.Mantis_Character_BP,não,—,—
+77,Morellatops,DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/Camelsaurus/camelsaurus_Character_BP.camelsaurus_Character_BP,não,—,—
+78,Fênix (Phoenix),DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/Phoenix/Phoenix_Character_BP.Phoenix_Character_BP,não,—,—
+79,Elemental de Pedra (Rock Elemental),DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/RockGolem/RockGolem_Character_BP.RockGolem_Character_BP,não,—,—
+80,Dragão Espinhoso (Thorny Dragon),DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/SpineyLizard/SpineyLizard_Character_BP.SpineyLizard_Character_BP,não,—,—
+81,Wyvern de Fogo,DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/Wyvern/Wyvern_Character_BP_Fire.Wyvern_Character_BP_Fire,não,—,—
+82,Wyvern Relâmpago,DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/Wyvern/Wyvern_Character_BP_Lightning.Wyvern_Character_BP_Lightning,não,—,—
+83,Wyvern Venenosa,DLC Scorched Earth,—,/Game/ScorchedEarth/Dinos/Wyvern/Wyvern_Character_BP_Poison.Wyvern_Character_BP_Poison,não,—,—
+84,Basilisco (Basilisk),DLC Aberration,—,/Game/Aberration/Dinos/Basilisk/Basilisk_Character_BP.Basilisk_Character_BP,não,—,—
+85,Karkinos,DLC Aberration,—,/Game/Aberration/Dinos/Crab/Crab_Character_BP.Crab_Character_BP,não,—,—
+86,Ravager,DLC Aberration,—,/Game/Aberration/Dinos/CaveWolf/CaveWolf_Character_BP.CaveWolf_Character_BP,não,—,—
+87,Rato Rolador (Roll Rat),DLC Aberration,—,/Game/Aberration/Dinos/MoleRat/MoleRat_Character_BP.MoleRat_Character_BP,não,—,—
+88,Bulbdog,DLC Aberration,—,/Game/Aberration/Dinos/LanternPug/LanternPug_Character_BP.LanternPug_Character_BP,não,—,—
+89,Featherlight,DLC Aberration,—,/Game/Aberration/Dinos/LanternBird/LanternBird_Character_BP.LanternBird_Character_BP,não,—,—
+90,Glowtail,DLC Aberration,—,/Game/Aberration/Dinos/LanternLizard/LanternLizard_Character_BP.LanternLizard_Character_BP,não,—,—
+91,Shinehorn,DLC Aberration,—,/Game/Aberration/Dinos/LanternGoat/LanternGoat_Character_BP.LanternGoat_Character_BP,não,—,—
+92,Gacha,DLC Extinction,—,/Game/Extinction/Dinos/Gacha/Gacha_Character_BP.Gacha_Character_BP,não,—,—
+93,Gasbags,DLC Extinction,—,/Game/Extinction/Dinos/Gasbags/GasBags_Character_BP.GasBags_Character_BP,não,—,—
+94,Managarmr,DLC Extinction,—,/Game/Extinction/Dinos/IceJumper/IceJumper_Character_BP.IceJumper_Character_BP,não,—,—
+95,Coruja da Neve (Snow Owl),DLC Extinction,—,/Game/Extinction/Dinos/Owl/Owl_Character_BP.Owl_Character_BP,não,—,—
+96,Velonasauro,DLC Extinction,—,/Game/Extinction/Dinos/Spindles/Spindles_Character_BP.Spindles_Character_BP,não,—,—
+97,Bloodstalker,DLC Genesis 1,—,/Game/Genesis/Dinos/BogSpider/BogSpider_Character_BP.BogSpider_Character_BP,não,—,—
+98,Ferox,DLC Genesis 1,—,/Game/Genesis/Dinos/Shapeshifter/Shapeshifter_Small_Character_BP.Shapeshifter_Small_Character_BP,não,—,—
+99,Magmasauro,DLC Genesis 1,—,/Game/Genesis/Dinos/BiomeVariants/Volcano/Cherufe_Character_BP.Cherufe_Character_BP,não,—,—
+100,Amargassauro,DLC Genesis 2 / Lost Island,—,/Game/Genesis2/Dinos/Amargasaurus/Amargasaurus_Character_BP.Amargasaurus_Character_BP,não,—,—
+101,Maewing,DLC Genesis 2,—,/Game/Genesis2/Dinos/MilkGlider/MilkGlider_character_BP.MilkGlider_character_BP,não,—,—
+102,Noglin,DLC Genesis 2,—,/Game/Genesis2/Dinos/BrainSlug/BrainSlug_Character_BP.BrainSlug_Character_BP,não,—,—
+103,Dinopithecus,DLC Lost Island,—,/Game/LostIsland/Dinos/Dinopithecus/Dinopithecus_Character_BP.Dinopithecus_Character_BP,não,—,—
+104,Sinomacrops,DLC Lost Island,—,/Game/LostIsland/Dinos/Sinomacrops/Sinomacrops_Character_BP.Sinomacrops_Character_BP,não,—,—
+105,Andrewsarchus,DLC Fjordur,—,/Game/Fjordur/Dinos/Andrewsarchus/Andrewsarchus_Character_BP.Andrewsarchus_Character_BP,não,—,—
+106,Falcão de Fjordur (Fjordhawk),DLC Fjordur,—,/Game/Fjordur/Dinos/Fjordhawk/Fjordhawk_Character_BP.Fjordhawk_Character_BP,não,—,—
+107,Wyvern Aquática,Abyss,VERIFICAR,/Game/Abyss/Dinos/WaterWyvern/Wyvern_Character_BP_Water.Wyvern_Character_BP_Water,sim,abyss_water_wyvern,6500
+108,Vulcanita,Abyss,VERIFICAR,/Game/Abyss/Dinos/Vulcanite/Vulcanite_Character_BP.Vulcanite_Character_BP,sim,abyss_vulcanite,3500
+109,Tridacna,Abyss,VERIFICAR,/Game/Abyss/Dinos/Tridacna/Tridacna_Character_BP.Tridacna_Character_BP,sim,abyss_tridacna,800
+110,Tiktaalik,Abyss,VERIFICAR,/Game/Abyss/Dinos/Tiktaalik/Tiktaalik_Character_BP.Tiktaalik_Character_BP,sim,abyss_tiktaalik,800
+111,Atum (Thunnus),Abyss,VERIFICAR,/Game/Abyss/Dinos/Thunnus/Thunnus_Character_BP.Thunnus_Character_BP,sim,abyss_thunnus,700
+112,Baiacu (Takifugu),Abyss,VERIFICAR,/Game/Abyss/Dinos/Takifugu/Takifugu_Character_BP.Takifugu_Character_BP,sim,abyss_takifugu,700
+113,Stereolepis,Abyss,VERIFICAR,/Game/Abyss/Dinos/Stereolepis/Stereolepis_Character_BP.Stereolepis_Character_BP,sim,abyss_stereolepis,800
+114,Cavalo-marinho,Abyss,VERIFICAR,/Game/Abyss/Dinos/Seahorse/Seahorse_Character_BP.Seahorse_Character_BP,sim,abyss_seahorse,650
+115,Rift Crawler,Abyss,VERIFICAR,/Game/Abyss/Dinos/RiftCrawler/RiftCrawler_Character_BP.RiftCrawler_Character_BP,sim,abyss_riftcrawler,3500
+116,Qarmoutus,Abyss,VERIFICAR,/Game/Abyss/Dinos/Qarmoutus/Qarmoutus_Character_BP.Qarmoutus_Character_BP,sim,abyss_qarmoutus,700
+117,Onchopristis,Abyss,VERIFICAR,/Game/Abyss/Dinos/Onchopristis/Onchopristis_Character_BP.Onchopristis_Character_BP,sim,abyss_onchopristis,1200
+118,Ocepechelon,Abyss,VERIFICAR,/Game/Abyss/Dinos/Ocepechelon/Ocepechelon_Character_BP.Ocepechelon_Character_BP,sim,abyss_ocepechelon,700
+119,Mudpuppy,Abyss,VERIFICAR,/Game/Abyss/Dinos/Mudpuppy/Mudpuppy_Character_BP.Mudpuppy_Character_BP,sim,abyss_mudpuppy,650
+120,Narval (Monodon),Abyss,VERIFICAR,/Game/Abyss/Dinos/Monodon/Monodon_Character_BP.Monodon_Character_BP,sim,abyss_monodon,600
+121,Camarão-mantis,Abyss,VERIFICAR,/Game/Abyss/Dinos/MantisShrimp/MantisShrimp_Character_BP.MantisShrimp_Character_BP,sim,abyss_mantis_shrimp,1500
+122,Malleocephalus,Abyss,VERIFICAR,/Game/Abyss/Dinos/Malleocephalus/Malleocephalus_Character_BP.Malleocephalus_Character_BP,sim,abyss_malleocephalus,700
+123,Kathreptis,Abyss,VERIFICAR,/Game/Abyss/Dinos/Kathreptis/Kathreptis_Character_BP.Kathreptis_Character_BP,sim,abyss_kathreptis,700
+124,Marlim (Istiophorus),Abyss,VERIFICAR,/Game/Abyss/Dinos/Istiophorus/Istiophorus_Character_BP.Istiophorus_Character_BP,sim,abyss_istiophorus,1000
+125,Lagosta (Homarus),Abyss,VERIFICAR,/Game/Abyss/Dinos/Homarus/Homarus_Character_BP.Homarus_Character_BP,sim,abyss_homarus,700
+126,Dakosaurus,Abyss,VERIFICAR,/Game/Abyss/Dinos/Dakosaurus/Dakosaurus_Character_BP.Dakosaurus_Character_BP,sim,abyss_dakosaurus,3500
+127,Yutyrannus Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Yutyrannus/Yutyrannus_Character_BP_Abyssal.Yutyrannus_Character_BP_Abyssal,sim,abyss_yuty_abyssal,10000
+128,Thylacoleo Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Thylacoleo/Thylacoleo_Character_BP_Abyssal.Thylacoleo_Character_BP_Abyssal,sim,abyss_thyla_abyssal,3500
+129,Therizinosaur Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Therizinosaurus/Therizino_Character_BP_Abyssal.Therizino_Character_BP_Abyssal,sim,abyss_theriz_abyssal,2500
+130,Stegossauro Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Stego/Stego_Character_BP_Abyssal.Stego_Character_BP_Abyssal,sim,abyss_stego_abyssal,800
+131,Rex Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Rex/Rex_Character_BP_Abyssal.Rex_Character_BP_Abyssal,sim,abyss_rex_abyssal,16500
+132,Reaper Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Reaper/Reaper_Character_BP_Male_Abyssal.Reaper_Character_BP_Male_Abyssal,sim,abyss_reaper_abyssal,16000
+133,Moschops Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Moschops/Moschops_Character_BP_Abyssal.Moschops_Character_BP_Abyssal,sim,abyss_moschops_abyssal,600
+134,Anquilossauro Abissal,Abyss,VERIFICAR,/Game/Abyss/Dinos/Abyssal/Ankylosaurus/Ankylo_Character_BP_Abyssal.Ankylo_Character_BP_Abyssal,sim,abyss_ankylo_abyssal,700
+135,Acrocantossauro,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Acrocanthosaurus/Dinos/Acrocanthosaurus_Character_BP.Acrocanthosaurus_Character_BP,sim,acro,22000
+136,Archelon,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Archelon/Dinos/Archelon_Character_BP.Archelon_Character_BP,sim,archelon,2500
+137,Brachiosaurus,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Brachiosaurus/Dinos/Brachiosaurus_Character_BP.Brachiosaurus_Character_BP,sim,brachio,2500
+138,Concavenator,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Concavenator/Dino/Concavenator_Character_BP.Concavenator_Character_BP,sim,concavenator,3500
+139,Cryolophosaurus,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Cryolophosaurus/Dinos/Cryolophosaurus_Character_BP.Cryolophosaurus_Character_BP,sim,cryolophosaurus,3500
+140,Deinosuchus,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Deinosuchus/Dino/Deinosuchus_Character_BP.Deinosuchus_Character_BP,sim,deinosuchus,3500
+141,Xiphactinus,ARK Additions,1522327484,/Game/Mods/Additions_Pack/Xiphactinus/Dino/Xiph_Character_BP.Xiph_Character_BP,sim,xiphactinus,3500
+142,Armaedron,Grand Hunt,2110243671,/Game/Mods/GrandHunt/Monsters/Armaedron/Armaedron_Character_BP.Armaedron_Character_BP,sim,armaedron,35000
+143,Diru-Ya-Ku,Grand Hunt,2110243671,/Game/Mods/GrandHunt/Monsters/DiruYaKu/DiruYaKu_Character_BP.DiruYaKu_Character_BP,sim,diru_ya_ku,1500
+144,Kutsu-Ya-Ku,Grand Hunt,2110243671,/Game/Mods/GrandHunt/Monsters/KutsuYaKu/KutsuYaKu_Character_BP.KutsuYaKu_Character_BP,sim,kutsu_ya_ku,3500
+145,Puretotokage,Grand Hunt,2110243671,/Game/Mods/GrandHunt/Monsters/Puretotokage/Puretotokage_Character_BP.Puretotokage_Character_BP,sim,puretotokage,9500
+146,Lukastiblos,Grand Hunt,2110243671,PENDENTE,não,—,—
+147,Emalroth,Grand Hunt,2110243671,PENDENTE,não,—,—
+148,Dread Wyvern,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/DreadWyvern/Wyvern_Character_BP_Dread.Wyvern_Character_BP_Dread,sim,dread_wyvern,42000
+149,Ancient Wyvern,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/AncientWyvern/Wyvern_Character_BP_Ancient.Wyvern_Character_BP_Ancient,sim,ancient_wyvern,38000
+150,Shimosaur,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/Shimosaur/Shimosaur_Character_BP.Shimosaur_Character_BP,sim,shimosaur,9500
+151,Titan Wyvern,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/TitanWyvern/Wyvern_Character_BP_Titan.Wyvern_Character_BP_Titan,não,—,—
+152,Wyvern de Fogo sem Ovo (Gold),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/NoEggWyv/Wyvern_Character_BP_Fire_NoEgg.Wyvern_Character_BP_Fire_NoEgg,não,—,—
+153,Wyvern Relâmpago sem Ovo (Red),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/NoEggWyv/Wyvern_Character_BP_Lightning_NoEgg.Wyvern_Character_BP_Lightning_NoEgg,não,—,—
+154,B Quetzal (Buffed),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/BuffedQuetz/B_Quetz_Character_BP.B_Quetz_Character_BP,não,—,—
+155,B Liopleurodon (Buffed),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/B-Liopleurodon/B_Liopleurodon_Character_BP.B_Liopleurodon_Character_BP,não,—,—
+156,B Ammonite (Buffed),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/B_Ammonite/B_Ammonite_Character.B_Ammonite_Character,não,—,—
+157,B Compy (Buffed),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/YipeeCompy/Compy_Character_BP_YIpee.Compy_Character_BP_YIpee,não,—,—
+158,Jagged Land Rock Golem,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/JaggedRockGolem/JaggedRockGolem_Character_BP.JaggedRockGolem_Character_BP,não,—,—
+159,Ancient Rock Golem (Farum),Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/JaggedRockGolem/Farum/JaggedRockGolem_Character_BP_Farum.JaggedRockGolem_Character_BP_Farum,não,—,—
+160,Possessed Onyc,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/MushroomCreatures/Bat/Bat_Character_BP_Mush.Bat_Character_BP_Mush,não,—,—
+161,Possessed Karkinos,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/MushroomCreatures/Crab/Crabulon_Character_BP_Mush.Crabulon_Character_BP_Mush,não,—,—
+162,Possessed Pulmonoscorpius,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/MushroomCreatures/Scorp/Scorpion_Character_BP_Aberrant_Mush.Scorpion_Character_BP_Aberrant_Mush,não,—,—
+163,Possessed Achatina,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/MushroomCreatures/Snail/Achatina_Character_BP_Aberrant_Mush.Achatina_Character_BP_Aberrant_Mush,não,—,—
+164,Possessed Araneo,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/MushroomCreatures/Spider/SpiderS_Character_BP_Aberrant_Mush.SpiderS_Character_BP_Aberrant_Mush,não,—,—
+165,Possessed Trilobite,Brighamia (Funny Creatures),3550298419,/Game/Mods/Funny_Creatures/MushroomCreatures/Trilo/Trilobite_Character_Aberrant_Mush.Trilobite_Character_Aberrant_Mush,não,—,—
+166,Crystal Wyvern Blood Descendant,Small Bosses,2380466974,/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Blood.CrystalWyvern_Character_BP_Descendant_Blood,sim,sb_crystal_blood,15000
+167,Crystal Wyvern Ember Descendant,Small Bosses,2380466974,/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Ember.CrystalWyvern_Character_BP_Descendant_Ember,sim,sb_crystal_ember,15000
+168,Crystal Wyvern Tropical Descendant,Small Bosses,2380466974,/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Descendant_Tropical.CrystalWyvern_Character_BP_Descendant_Tropical,sim,sb_crystal_tropical,3500
+169,Crystal Wyvern Queen,Small Bosses,2380466974,/Game/Mods/SmallBosses/CrystalQueen/CrystalWyvern_Character_BP_Queen.CrystalWyvern_Character_BP_Queen,sim,sb_crystal_queen,25000
+170,Fire Elemental,Small Bosses,2380466974,/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP.FireElemental_Character_BP,sim,sb_fire_elemental,25000
+171,Fire Elemental Domável,Small Bosses,2380466974,/Game/Mods/SmallBosses/FireElemental/FireElemental_Character_BP_Tameable.FireElemental_Character_BP_Tameable,sim,sb_fire_elemental_tame,25000
+172,Small Broodmother,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallBroodmother/SmallBroodmother_Character_BP.SmallBroodmother_Character_BP,sim,sb_broodmother,25000
+173,Small Cyclops,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallCyclops/SmallCyclops_Character_BP.SmallCyclops_Character_BP,sim,sb_cyclops,24000
+174,Small Desert Titan,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDesertTitan/DesertTitan_Character_BP_SB.DesertTitan_Character_BP_SB,sim,sb_desert_titan,25000
+175,Small DodoRex,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDodoRex/SmallDodoRex_Character_BP.SmallDodoRex_Character_BP,sim,sb_dodorex,25000
+176,Small Dodoreaper,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDodoreaper/SmallDodoreaper_Character_BP.SmallDodoreaper_Character_BP,sim,sb_dodoreaper,25000
+177,Small Dodowyvern,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDodowyvern/SmallDodowyvern_Character_BP.SmallDodowyvern_Character_BP,sim,sb_dodowyvern,6000
+178,Small Dragon,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDragon/SmallDragon_Character_BP.SmallDragon_Character_BP,sim,sb_small_dragon,25500
+179,Volcano Small Dragon,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDragon/Volcano_SmallDragon_Character_BP.Volcano_SmallDragon_Character_BP,sim,sb_volcano_dragon,26000
+180,Small Drake (Fogo),Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallDrake/SmallDrake_Character_BP_Fire.SmallDrake_Character_BP_Fire,sim,sb_drake_fire,15500
+181,Small Hippocampus,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallHippocampus/SmallHippocampus_Character_BP.SmallHippocampus_Character_BP,sim,sb_hippocampus,6500
+182,Small Hydra,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallHydra/SmallHydra_Character_BP.SmallHydra_Character_BP,sim,sb_hydra,9000
+183,Small Manticore,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallManticore/SmallManticore_Character_BP.SmallManticore_Character_BP,sim,sb_manticore,24500
+184,Small Megapithecus,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallMegapithecus/SmallGorilla_Character_BP.SmallGorilla_Character_BP,sim,sb_megapithecus,24500
+185,Small Moeder,Small Bosses,2380466974,/Game/Mods/SmallBosses/SmallMoeder/SmallMoeder_Character_BP.SmallMoeder_Character_BP,sim,sb_moeder,5000
+186,Meraxes,BigAL — Meraxes,2879943314,/Game/Mods/Meraxes/Dino/Meraxes_Character_BP.Meraxes_Character_BP,não,—,—
+187,Meraxes (Scorched),BigAL — Meraxes,2879943314,/Game/Mods/Meraxes/Dino/texture/Varients/SE/ScorchedMeraxes_Character_BP.ScorchedMeraxes_Character_BP,não,—,—
+188,Meraxes (Rockwell),BigAL — Meraxes,2879943314,/Game/Mods/Meraxes/Dino/texture/Varients/Rockwell/RockwellMeraxes_Character_BP.RockwellMeraxes_Character_BP,não,—,—
+189,Meraxes (X-Snow),BigAL — Meraxes,2879943314,/Game/Mods/Meraxes/Dino/texture/Varients/X-Snow/SnowMeraxes_Character_BP.SnowMeraxes_Character_BP,não,—,—
+190,Indominus Rex,Moro's Indomitable Duo,2932656301,/Game/Mods/IndominusRex/Models/IndominusRex_Character_BP.IndominusRex_Character_BP,sim,indominus,20000
+191,IndoRaptor,Moro's Indomitable Duo,2932656301,/Game/Mods/IndominusRex/IndoRaptor/IndoRaptorBlueprints/NewIndoRaptor_Character_BP.NewIndoRaptor_Character_BP,sim,indoraptor,6000

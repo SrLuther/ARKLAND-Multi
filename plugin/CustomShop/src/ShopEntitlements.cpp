@@ -147,8 +147,15 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
         static_cast<unsigned long>(notes.size()));
 
     if (IsPaidTier(group)) {
+        std::string in_list;
+        for (const char* g : CustomShop::kPaidLicenseGroups) {
+            if (!in_list.empty()) in_list += ",";
+            in_list += "'";
+            in_list += g;
+            in_list += "'";
+        }
         const std::string del = "DELETE FROM player_entitlements WHERE steam_id = '"
-            + std::string(buf_id) + "' AND group_name IN ('Gamma','Beta','Alfa') "
+            + std::string(buf_id) + "' AND group_name IN (" + in_list + ") "
             "AND group_name != '" + std::string(buf_grp) + "';";
         mysql_query(db_, del.c_str());
     }
@@ -275,8 +282,10 @@ std::vector<std::string> ShopEntitlements::GetActiveGroups(const std::string& st
 
 void ShopEntitlements::PruneExpired() {
     if (!db_) return;
+    // Mantém linhas expiradas por 8 dias (janela de renovação recente −10% na web).
     const char* sql =
-        "DELETE FROM player_entitlements WHERE expires IS NOT NULL AND expires < NOW();";
+        "DELETE FROM player_entitlements WHERE expires IS NOT NULL "
+        "AND expires < DATE_SUB(NOW(), INTERVAL 8 DAY);";
     if (mysql_query(db_, sql) != 0) {
         Log::GetLog()->error("ShopEntitlements::PruneExpired failed: {}", mysql_error(db_));
     }
