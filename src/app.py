@@ -166,6 +166,9 @@ class ARKServerManagerApp(ctk.CTk):
             on_status_change=self._on_server_status_change,
             on_log=self._on_server_log,
             on_visibility_change=self._on_server_visibility_change,
+            get_mod_path_blacklist=lambda: list(
+                self.config_manager.config.mod_path_blacklist or []
+            ),
         )
         self.mod_manager = ModManager(
             steamcmd_path=self.config_manager.config.steamcmd_path,

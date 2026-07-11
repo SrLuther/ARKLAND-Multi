@@ -3792,6 +3792,68 @@
       border: 1px solid rgba(0,200,255,.3);
       background: rgba(0,200,255,.08);
     }
+    .home-hero__notice {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,200,255,.3);
+      background: rgba(0,200,255,.08);
+      min-height: 72px;
+    }
+    .home-hero__notice-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .home-hero__notice-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--cyan, #00c8ff);
+    }
+    .home-hero__notice-meta {
+      font-size: 11px;
+      color: var(--text2);
+    }
+    .home-hero__notice-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+    .home-hero__notice-body {
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text2);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .home-hero__notice-body strong { color: var(--text); font-weight: 700; }
+    .home-hero__notice-body code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(0,0,0,.25);
+      color: var(--cyan, #00c8ff);
+    }
+    .home-hero__notice-empty {
+      font-size: 13px;
+      color: var(--text2);
+      font-style: italic;
+    }
+    .home-hero__notice-foot {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(0,200,255,.15);
+    }
     .home-hero__play-btn {
       font-size: 15px;
       padding: 12px 22px;
@@ -5002,6 +5064,9 @@
     </div>
     <div class="nav-item admin-only" data-page="admin-featured-maps" onclick="nav(this)">
       <span class="nav-icon">🗻</span> Mapas da Home
+    </div>
+    <div class="nav-item admin-only" data-page="admin-home-notice" onclick="nav(this)">
+      <span class="nav-icon">📢</span> Mural de Avisos
     </div>
     <div class="nav-item admin-only" data-page="general" onclick="nav(this)">
       <span class="nav-icon">⚙️</span> Configurações
@@ -6629,6 +6694,42 @@
         <div id="admin-featured-maps-list"></div>
       </div>
 
+      <!-- PAGE: Mural de Avisos (admin) -->
+      <div id="page-admin-home-notice" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Mural de Avisos</div>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadAdminHomeNotice()">↺ Recarregar</button>
+            <button class="btn btn-success" onclick="saveAdminHomeNotice()">💾 Salvar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;border-color:rgba(0,200,255,.25);">
+          <p style="font-size:13px;color:var(--text2);margin:0;line-height:1.5;">
+            Mensagem exibida no <strong style="color:var(--cyan,#00c8ff);">quadro da página inicial</strong> para todos os visitantes.
+            Título opcional. No corpo: quebras de linha, <code>**negrito**</code> e <code>`código`</code>.
+            Deixe ambos vazios para limpar o mural.
+          </p>
+        </div>
+        <div class="card">
+          <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Título (opcional)</label>
+              <input id="home-notice-title" type="text" maxlength="120" placeholder="Ex.: Manutenção programada" />
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+              <label>Mensagem</label>
+              <textarea id="home-notice-body" rows="8" maxlength="4000" placeholder="Escreva o aviso que todos verão ao abrir o portal…"></textarea>
+            </div>
+          </div>
+          <div id="home-notice-admin-meta" style="font-size:12px;color:var(--text2);margin-top:10px;"></div>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="saveAdminHomeNotice()">💾 Salvar aviso</button>
+            <button class="btn btn-ghost" onclick="clearAdminHomeNotice()">Limpar mural</button>
+            <button class="btn btn-ghost" onclick="goToPage('home')">Ver na home →</button>
+          </div>
+        </div>
+      </div>
+
       <!-- PAGE: Regulamento -->
       <div id="page-regulamento" class="page">
         <div id="topbar">
@@ -8102,6 +8203,21 @@
 <!-- ── Toast container ──────────────────────────────────────────────────────── -->
 <div id="toast-container"></div>
 
+<!-- ── Modal: Minha Tribo (regulamento / split) ─────────────────────────────── -->
+<div id="modal-tribe" class="modal-backdrop hidden">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-tribe-title">Tribo</div>
+      <button class="modal-close" onclick="closeModal('modal-tribe')">✕</button>
+    </div>
+    <div id="modal-tribe-body" style="padding:4px 0 8px;"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tribe')">Cancelar</button>
+      <button class="btn btn-success" id="modal-tribe-save-btn" onclick="_tribeModalConfirm()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script src="ark_color_ids.js" defer></script>
 <script src="redeem_docs.js" defer></script>
 <script>
@@ -8546,6 +8662,7 @@ function nav(el) {
   if (page === "regulamento") loadRegulamentoPage();
   if (page === "admin-downloads") loadAdminDownloads();
   if (page === "admin-featured-maps") loadAdminFeaturedMaps();
+  if (page === "admin-home-notice") loadAdminHomeNotice();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
@@ -13905,6 +14022,7 @@ async function loadMyAreaDinoOrders() {
 let _tribeData = null;
 let _tribeActiveMap = null;
 let _tribeActiveTab = "status"; // 'status' | 'members' | 'regulamento' | 'split'
+let _tribeModalSaveFn = null;
 
 async function loadMyTribe() {
   const root = document.getElementById("myarea-tribe-root");
@@ -13920,33 +14038,56 @@ async function loadMyTribe() {
       root.innerHTML = `<span style='color:var(--danger)'>${escHtml(d.error || "Erro ao carregar tribo")}</span>`;
       return;
     }
-    _tribeData = d.data;
-    if (!_tribeData || (!_tribeData.is_owner && (!_tribeData.maps || !_tribeData.maps.length))) {
-      root.innerHTML = _renderTribeActivation();
-      return;
-    }
-    if (_tribeData.is_owner && (!_tribeData.maps || !_tribeData.maps.length)) {
-      root.innerHTML = _renderTribeActivation();
-      return;
-    }
+    _tribeData = d.data || {};
     const maps = _tribeData.maps || [];
+    const isOwner = !!_tribeData.is_owner;
+    const panelOn = !!_tribeData.panel_activated || isOwner;
+
+    if (!panelOn && !maps.length) {
+      root.innerHTML = _renderTribeEmptyGuest();
+      return;
+    }
+    if (panelOn && !maps.length) {
+      root.innerHTML = _renderTribeWaitingDetection();
+      return;
+    }
     if (!_tribeActiveMap && maps.length) _tribeActiveMap = maps[0].server_id;
     root.innerHTML = _renderTribePanel(_tribeData);
   } catch (e) {
-    root.innerHTML = `<span style='color:var(--danger)'>Erro: ${escHtml(String(e))}</span>`;
+    root.innerHTML = `<span style='color:var(--danger)'>Erro: ${escHtml(String(e.message || e))}</span>`;
   }
 }
 
-function _renderTribeActivation() {
+function _renderTribeEmptyGuest() {
   return `
     <div style="text-align:center;padding:20px 0;">
       <div style="font-size:32px;margin-bottom:12px;">🏰</div>
-      <div style="color:var(--text);font-weight:600;margin-bottom:8px;">Nenhuma tribo registrada</div>
-      <div style="color:var(--text2);font-size:12px;margin-bottom:16px;max-width:420px;margin-left:auto;margin-right:auto;">
-        Seu painel de tribo ainda não foi ativado. Quando você entrar em um servidor ARKLAND como líder,
-        sua tribo será detectada automaticamente. Você também pode ativar o painel agora.
+      <div style="color:var(--text);font-weight:600;margin-bottom:8px;">Nenhuma tribo vinculada</div>
+      <div style="color:var(--text2);font-size:12px;margin-bottom:16px;max-width:460px;margin-left:auto;margin-right:auto;line-height:1.55;text-align:left;">
+        <p style="margin:0 0 10px;"><strong style="color:var(--text);">Se você é o líder/dono da tribo no jogo:</strong>
+        ative o painel abaixo. Depois, entre no servidor ARKLAND — a tribo e os membros são detectados no login.</p>
+        <p style="margin:0;"><strong style="color:var(--text);">Se você não é o dono:</strong>
+        peça ao líder para te adicionar <em>na tribo in-game</em> (ou registrar seu SteamID no painel).
+        Não há pedido de entrada pelo site — só aparece aqui depois de ser membro da tribo no jogo.</p>
       </div>
-      <button class="btn btn-primary" onclick="tribeActivatePanel()">✅ Ativar painel de tribo</button>
+      <button class="btn btn-primary" id="tribe-activate-btn" onclick="tribeActivatePanel()">✅ Ativar painel de tribo</button>
+      <div style="font-size:11px;color:var(--text2);margin-top:10px;">Só o líder deve ativar. Membros aguardam o convite in-game.</div>
+    </div>`;
+}
+
+function _renderTribeWaitingDetection() {
+  const name = (_tribeData && _tribeData.owner && _tribeData.owner.display_name) || _auth.steam_persona || _auth.steam_id || "";
+  return `
+    <div style="text-align:center;padding:20px 0;">
+      <div style="font-size:32px;margin-bottom:12px;">✅</div>
+      <div style="color:var(--text);font-weight:600;margin-bottom:8px;">Painel ativado</div>
+      <div style="color:var(--text2);font-size:12px;margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto;line-height:1.55;text-align:left;">
+        Proprietário: <strong style="color:var(--text);">${escHtml(name)}</strong>.
+        Ainda não há mapa vinculado. Entre em um servidor ARKLAND <strong>como líder da tribo</strong>
+        para sincronizar automaticamente. Depois disso, na aba Membros você pode adicionar SteamIDs
+        manualmente se alguém ainda não logou.
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="loadMyTribe()">↺ Verificar de novo</button>
     </div>`;
 }
 
@@ -13966,13 +14107,13 @@ function _renderTribePanel(data) {
     const tag = isPrincipal ? ' <span style="font-size:10px;color:var(--amber);margin-left:4px;">★ Principal</span>' : ' <span style="font-size:10px;color:var(--text2)">FOB</span>';
     return `<button class="btn ${_tribeActiveMap === m.server_id ? 'btn-primary' : 'btn-ghost'} btn-sm"
       style="margin-right:4px;margin-bottom:4px;"
-      onclick="_tribeSetMap('${escHtml(m.server_id)}')">${escHtml(m.tribe_name_local || m.server_id)}${tag}</button>`;
+      onclick="_tribeSetMap('${escHtml(m.server_id)}')">${escHtml(m.tribe_name_local || m.tribe_name || m.server_id)}${tag}</button>`;
   }).join("");
 
   let tabContent = "";
   if (active) {
     if (_tribeActiveTab === "status") tabContent = _renderTribeStatus(active, isOwner);
-    else if (_tribeActiveTab === "members") tabContent = _renderTribeMembers(active);
+    else if (_tribeActiveTab === "members") tabContent = _renderTribeMembers(active, isOwner);
     else if (_tribeActiveTab === "regulamento") tabContent = _renderTribeRegulamento(data, isOwner, active);
     else if (_tribeActiveTab === "split") tabContent = _renderTribeSplit(data, isOwner, active);
   }
@@ -13984,7 +14125,10 @@ function _renderTribePanel(data) {
         &nbsp;|&nbsp;
         <strong>Visibilidade do log:</strong> ${escHtml(owner.log_visibility || "members")}
       </div>
-    </div>` : "";
+    </div>` : `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg2);border-radius:6px;">
+      Você é <strong style="color:var(--text);">membro</strong> desta tribo. Gestão (membros, regulamento, divisão) é do líder.
+    </div>`;
 
   return `
     ${ownerBlock}
@@ -14031,20 +14175,45 @@ function _renderTribeStatus(mapData, isOwner) {
     ${mapData.tribe_type === "fob" ? '<div style="color:var(--text2);font-size:12px;padding:8px;background:var(--bg2);border-radius:6px;">ℹ Fobs não possuem configuração de divisão de ganhos. Divisão é exclusiva da tribo principal.</div>' : ''}`;
 }
 
-function _renderTribeMembers(mapData) {
+function _renderTribeMembers(mapData, isOwner) {
   const members = mapData.members || [];
-  if (!members.length) return `<p style="color:var(--text2);">Nenhum membro registrado. Entre em um servidor para sincronizar.</p>`;
-  const rows = members.map(m => `<tr>
-    <td style="font-family:monospace;font-size:11px;">${escHtml(m.character_name || m.steam_id || "—")}</td>
+  const rows = members.length ? members.map(m => `<tr>
+    <td style="font-family:monospace;font-size:11px;">${escHtml(m.character_name || "—")}</td>
+    <td style="font-family:monospace;font-size:11px;">${escHtml(m.steam_id || "—")}</td>
     <td>${m.is_owner ? '<span class="badge" style="background:var(--amber);color:#000;">Líder</span>' : escHtml(m.rank_name || "Membro")}</td>
     <td style="font-size:11px;color:var(--text2);">${escHtml((m.last_seen_at || "").slice(0, 16) || "—")}</td>
-  </tr>`).join("");
+  </tr>`).join("") : `<tr><td colspan="4" style="color:var(--text2);">Nenhum membro sincronizado ainda.</td></tr>`;
+
+  const addForm = isOwner ? `
+    <div style="margin-top:14px;padding:12px;background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+      <div style="font-weight:600;color:var(--text);margin-bottom:6px;">Adicionar membro (SteamID64)</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px;line-height:1.45;">
+        1) Convide a pessoa <strong>na tribo do jogo</strong>. 2) Opcional: registre o SteamID aqui se ainda não logou
+        (aparece no painel e pode entrar na divisão de ganhos). Não há pedido de entrada pelo site.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group" style="margin:0;flex:1;min-width:180px;">
+          <label>SteamID64</label>
+          <input id="tribe-add-steamid" placeholder="7656119…" style="width:100%;" />
+        </div>
+        <div class="form-group" style="margin:0;flex:1;min-width:140px;">
+          <label>Nome (opcional)</label>
+          <input id="tribe-add-name" placeholder="Nick" style="width:100%;" />
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="tribeAddMember()">+ Adicionar</button>
+      </div>
+    </div>` : `
+    <div style="font-size:11px;color:var(--text2);margin-top:8px;">
+      Lista sincronizada no login dos membros. Só o líder pode adicionar SteamIDs manualmente.
+    </div>`;
+
   return `<div style="overflow-x:auto;"><table class="pkg-admin-table"><thead><tr>
-    <th>Personagem / SteamID</th><th>Rank</th><th>Último acesso</th>
+    <th>Personagem</th><th>SteamID</th><th>Rank</th><th>Último acesso</th>
   </tr></thead><tbody>${rows}</tbody></table></div>
   <div style="font-size:11px;color:var(--text2);margin-top:8px;">
     Atualizado automaticamente quando membros fazem login no servidor.
-  </div>`;
+  </div>
+  ${addForm}`;
 }
 
 function _renderTribeRegulamento(data, isOwner, mapData) {
@@ -14117,12 +14286,81 @@ function _renderTribeSplit(data, isOwner, mapData) {
       <button class="btn btn-ghost btn-sm" onclick="tribeSplitOptout(${split.id})">Sair da divisão</button>`}`;
 }
 
-async function tribeActivatePanel() {
+function _openTribeModal(title, html, onSave) {
+  const titleEl = document.getElementById("modal-tribe-title");
+  const bodyEl = document.getElementById("modal-tribe-body");
+  if (!titleEl || !bodyEl) {
+    toast("Modal de tribo indisponível", "error");
+    return;
+  }
+  titleEl.textContent = title;
+  bodyEl.innerHTML = html;
+  _tribeModalSaveFn = onSave;
+  openModal("modal-tribe");
+}
+
+async function _tribeModalConfirm() {
+  if (typeof _tribeModalSaveFn !== "function") return;
   try {
-    const d = await fetchJson("/api/tribe/register", { method: "POST", body: JSON.stringify({ display_name: _auth.steam_persona || _auth.steam_id }), headers: {"Content-Type":"application/json"} });
-    if (d.ok) { showToast("Painel de tribo ativado!"); loadMyTribe(); }
-    else showToast(d.error || "Erro ao ativar", "error");
-  } catch (e) { showToast(String(e), "error"); }
+    await _tribeModalSaveFn();
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
+}
+
+async function tribeActivatePanel() {
+  const btn = document.getElementById("tribe-activate-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Ativando…"; }
+  try {
+    const d = await fetchJson("/api/tribe/register", {
+      method: "POST",
+      body: { display_name: _auth.steam_persona || _auth.display_name || _auth.steam_id },
+    });
+    if (d.ok) {
+      const linked = (d.data && d.data.maps_linked) || 0;
+      toast(linked > 0
+        ? `Painel ativado — ${linked} mapa(s) vinculado(s) da presença anterior.`
+        : "Painel de tribo ativado!");
+      await loadMyTribe();
+    } else {
+      toast(d.error || "Erro ao ativar", "error");
+    }
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "✅ Ativar painel de tribo"; }
+  }
+}
+
+async function tribeAddMember() {
+  const steam = ((document.getElementById("tribe-add-steamid") || {}).value || "").trim();
+  const name = ((document.getElementById("tribe-add-name") || {}).value || "").trim();
+  const maps = (_tribeData && _tribeData.maps) || [];
+  const active = maps.find(m => m.server_id === _tribeActiveMap) || maps[0];
+  if (!active) { toast("Nenhum mapa ativo", "error"); return; }
+  if (!isSteamId64(steam)) { toast("Informe um SteamID64 válido (7656119…)", "warning"); return; }
+  try {
+    const d = await fetchJson("/api/tribe/members/add", {
+      method: "POST",
+      body: {
+        server_id: active.server_id,
+        tribe_id: active.tribe_id,
+        steam_id: steam,
+        character_name: name,
+      },
+    });
+    if (d.ok) {
+      toast("Membro adicionado ao painel.");
+      await loadMyTribe();
+      _tribeActiveTab = "members";
+      const root = document.getElementById("myarea-tribe-root");
+      if (root && _tribeData) root.innerHTML = _renderTribePanel(_tribeData);
+    } else {
+      toast(d.error || "Erro ao adicionar", "error");
+    }
+  } catch (e) {
+    toast(String(e.message || e), "error");
+  }
 }
 
 function tribeOpenRegEditor() {
@@ -14141,25 +14379,29 @@ function tribeOpenRegEditor() {
         <option value="public" ${vis === "public" ? "selected" : ""}>🌐 Público — qualquer visitante</option>
       </select>
     </div>`;
-  openModal("📋 Regulamento da Tribo", html, async () => {
+  _openTribeModal("📋 Regulamento da Tribo", html, async () => {
     const content = (document.getElementById("tribe-reg-content") || {}).value || "";
     const visibility = (document.getElementById("tribe-reg-visibility") || {}).value || "private";
-    if (!content.trim()) { showToast("Conteúdo não pode ser vazio", "error"); return; }
-    if (content.length > 5000) { showToast("Máximo de 5.000 caracteres", "error"); return; }
+    if (!content.trim()) { toast("Conteúdo não pode ser vazio", "error"); return; }
+    if (content.length > 5000) { toast("Máximo de 5.000 caracteres", "error"); return; }
     const d = await fetchJson("/api/tribe/regulation", {
       method: "POST",
-      body: JSON.stringify({ content_text: content, visibility }),
-      headers: {"Content-Type":"application/json"}
+      body: { content_text: content, visibility },
     });
-    if (d.ok) { showToast("Regulamento salvo!"); loadMyTribe(); }
-    else showToast(d.error || "Erro ao salvar", "error");
+    if (d.ok) {
+      toast("Regulamento salvo!");
+      closeModal("modal-tribe");
+      await loadMyTribe();
+    } else {
+      toast(d.error || "Erro ao salvar", "error");
+    }
   });
 }
 
 function tribeOpenSplitEditor() {
   const split = _tribeData && _tribeData._split;
   const existingMembers = split ? (split.members || []) : [];
-  const rowsHtml = existingMembers.map((m, i) => `
+  const rowsHtml = existingMembers.map((m) => `
     <tr>
       <td><input class="split-steam" value="${escHtml(m.steam_id)}" placeholder="SteamID64" style="width:160px;" /></td>
       <td><input class="split-name" value="${escHtml(m.display_name || m.steam_id)}" placeholder="Nome" style="width:120px;" /></td>
@@ -14179,6 +14421,7 @@ function tribeOpenSplitEditor() {
   const html = `
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
       ⭐ O vendedor deve ter percentual pelo menos 10 p.p. acima do próximo. Soma deve ser 100%.
+      Inclua os SteamIDs dos membros que participam da divisão.
     </div>
     <div style="overflow-x:auto;margin-bottom:8px;">
       <table class="pkg-admin-table" id="tribe-split-table">
@@ -14186,31 +14429,35 @@ function tribeOpenSplitEditor() {
         <tbody id="tribe-split-tbody">${rowsHtml}</tbody>
       </table>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="_tribeSplitAddRow()" style="margin-bottom:12px;">+ Adicionar membro</button>`;
+    <button class="btn btn-ghost btn-sm" type="button" onclick="_tribeSplitAddRow()" style="margin-bottom:12px;">+ Adicionar membro</button>`;
 
-  openModal("💰 Configurar Divisão de Ganhos", html, async () => {
+  _openTribeModal("💰 Configurar Divisão de Ganhos", html, async () => {
     const rows = document.querySelectorAll("#tribe-split-tbody tr");
     const members = [];
     rows.forEach(tr => {
       const steam = (tr.querySelector(".split-steam") || {}).value || "";
       const name = (tr.querySelector(".split-name") || {}).value || steam;
-      const pct = parseInt((tr.querySelector(".split-pct") || {}).value || "0");
-      const isSeller = (tr.querySelector(".split-seller") || {}).checked;
+      const pct = parseInt((tr.querySelector(".split-pct") || {}).value || "0", 10);
+      const isSeller = !!(tr.querySelector(".split-seller") || {}).checked;
       if (steam && pct > 0) members.push({ steam_id: steam, display_name: name, percentage: pct, is_seller: isSeller });
     });
-    if (!members.length) { showToast("Adicione pelo menos 2 membros", "error"); return; }
+    if (members.length < 2) { toast("Adicione pelo menos 2 membros", "error"); return; }
     const d = await fetchJson("/api/tribe/split", {
       method: "POST",
-      body: JSON.stringify({
+      body: {
         tribe_id: principalMap.tribe_id || 0,
         server_id: principalMap.server_id || "",
-        tribe_name: principalMap.tribe_name_local || "",
+        tribe_name: principalMap.tribe_name_local || principalMap.tribe_name || "",
         members,
-      }),
-      headers: {"Content-Type":"application/json"}
+      },
     });
-    if (d.ok) { showToast("Divisão configurada! Entra em vigor após 48h de carência."); loadMyTribe(); }
-    else showToast(d.error || "Erro ao configurar", "error");
+    if (d.ok) {
+      toast("Divisão configurada! Entra em vigor após 48h de carência.");
+      closeModal("modal-tribe");
+      await loadMyTribe();
+    } else {
+      toast(d.error || "Erro ao configurar", "error");
+    }
   });
 }
 
@@ -14228,20 +14475,23 @@ function _tribeSplitAddRow() {
 
 async function tribeDisableSplit() {
   if (!confirm("Desativar divisão de ganhos? As listagens existentes não serão afetadas.")) return;
-  const d = await fetchJson("/api/tribe/split/disable", { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
-  if (d.ok) { showToast("Divisão desativada."); loadMyTribe(); }
-  else showToast(d.error || "Erro", "error");
+  try {
+    const d = await fetchJson("/api/tribe/split/disable", { method: "POST", body: {} });
+    if (d.ok) { toast("Divisão desativada."); await loadMyTribe(); }
+    else toast(d.error || "Erro", "error");
+  } catch (e) { toast(String(e.message || e), "error"); }
 }
 
 async function tribeSplitOptout(splitId) {
   if (!confirm("Confirma sair da divisão de ganhos? Você precisará de 45h + aprovação do owner para retornar.")) return;
-  const d = await fetchJson("/api/tribe/split/optout", {
-    method: "POST",
-    body: JSON.stringify({ split_id: splitId, steam_id: _auth.steam_id }),
-    headers: {"Content-Type":"application/json"}
-  });
-  if (d.ok) { showToast("Opt-out realizado com sucesso."); loadMyTribe(); }
-  else showToast(d.error || "Erro", "error");
+  try {
+    const d = await fetchJson("/api/tribe/split/optout", {
+      method: "POST",
+      body: { split_id: splitId, steam_id: _auth.steam_id },
+    });
+    if (d.ok) { toast("Opt-out realizado com sucesso."); await loadMyTribe(); }
+    else toast(d.error || "Erro", "error");
+  } catch (e) { toast(String(e.message || e), "error"); }
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -16393,6 +16643,104 @@ async function deleteDownload(id) {
 // ── Featured Maps (home) ────────────────────────────────────────────────────
 let _featuredMaps = [];
 let _editingFeaturedMapId = null;
+
+async function loadAdminHomeNotice() {
+  if (!_auth.is_admin) return;
+  try {
+    const r = await fetch(API + "/api/admin/home-notice");
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao carregar mural", "error"); return; }
+    const n = d.notice || {};
+    const titleEl = document.getElementById("home-notice-title");
+    const bodyEl = document.getElementById("home-notice-body");
+    const metaEl = document.getElementById("home-notice-admin-meta");
+    if (titleEl) titleEl.value = n.title || "";
+    if (bodyEl) bodyEl.value = n.body || "";
+    if (metaEl) {
+      metaEl.textContent = n.updated_at
+        ? `Última atualização: ${_fmtNoticeDate(n.updated_at)}`
+        : "Ainda sem aviso publicado.";
+    }
+  } catch (e) {
+    toast("Erro ao carregar mural: " + e.message, "error");
+  }
+}
+
+async function saveAdminHomeNotice() {
+  if (!_auth.is_admin) return;
+  const title = (document.getElementById("home-notice-title")?.value || "").trim();
+  const body = (document.getElementById("home-notice-body")?.value || "").trim();
+  try {
+    const r = await fetch(API + "/api/admin/home-notice", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body }),
+    });
+    const d = await r.json();
+    if (!d.ok) { toast(d.error || "Falha ao salvar", "error"); return; }
+    toast("Aviso do mural salvo!");
+    const metaEl = document.getElementById("home-notice-admin-meta");
+    if (metaEl && d.notice?.updated_at) {
+      metaEl.textContent = `Última atualização: ${_fmtNoticeDate(d.notice.updated_at)}`;
+    }
+  } catch (e) {
+    toast("Erro de rede: " + e.message, "error");
+  }
+}
+
+async function clearAdminHomeNotice() {
+  if (!_auth.is_admin) return;
+  if (!confirm("Limpar o mural de avisos da home?")) return;
+  const titleEl = document.getElementById("home-notice-title");
+  const bodyEl = document.getElementById("home-notice-body");
+  if (titleEl) titleEl.value = "";
+  if (bodyEl) bodyEl.value = "";
+  await saveAdminHomeNotice();
+}
+
+function _fmtNoticeDate(iso) {
+  if (!iso) return "";
+  try {
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return String(iso);
+    return dt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  } catch (_) {
+    return String(iso);
+  }
+}
+
+function _formatNoticeBody(raw) {
+  let s = escHtml(String(raw || ""));
+  s = s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+  return s;
+}
+
+function _homeHeroNoticeHtml(notice, connectableCount) {
+  const n = notice || {};
+  const has = !!(n.has_content || n.title || n.body);
+  const meta = n.updated_at
+    ? `<span class="home-hero__notice-meta">Atualizado ${_fmtNoticeDate(n.updated_at)}</span>`
+    : "";
+  const title = n.title
+    ? `<h2 class="home-hero__notice-title">${escHtml(n.title)}</h2>`
+    : "";
+  const body = has && n.body
+    ? `<div class="home-hero__notice-body">${_formatNoticeBody(n.body)}</div>`
+    : (has ? "" : `<p class="home-hero__notice-empty">Nenhum aviso no momento.</p>`);
+  const serversLink = connectableCount > 0
+    ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">${connectableCount} servidor${connectableCount !== 1 ? "es" : ""} →</button>`
+    : `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">Servidores →</button>`;
+  return `<div class="home-hero__notice" id="home-hero-notice" aria-live="polite">
+    <div class="home-hero__notice-head">
+      <span class="home-hero__notice-label">📢 Quadro de avisos</span>
+      ${meta}
+    </div>
+    ${title}
+    ${body}
+    <div class="home-hero__notice-foot">${serversLink}</div>
+  </div>`;
+}
 
 async function loadAdminFeaturedMaps() {
   if (!_auth.is_admin) return;
@@ -19244,25 +19592,8 @@ function _homeServerConnectBtns(s, btnClass) {
 }
 
 function _homeHeroConnectHtml(connectable) {
-  if (!connectable.length) return "";
-  const primary = connectable[0];
-  const label = escHtml(primary.label || primary.server_id);
-  const moreBtn = connectable.length > 1
-    ? `<button class="btn btn-ghost btn-sm" type="button" onclick="scrollToHomeConnect()">${connectable.length} servidores →</button>`
-    : "";
-  const heroSteamUrl = escHtml(primary.connect_url || _arkSteamConnectUrl(primary.join_address || ""));
-  return `<div class="home-hero__connect">
-    <a class="btn btn-success home-hero__play-btn"
-       href="${heroSteamUrl}"
-       data-ark-connect
-       data-connect-url="${escHtml(primary.connect_url || "")}"
-       data-join-address="${escHtml(primary.join_address || "")}">▶ Jogar agora</a>
-    <button class="btn btn-primary btn-sm" type="button"
-       data-ark-copy-ip
-       data-join-address="${escHtml(primary.join_address || "")}">📋 Copiar IP</button>
-    ${moreBtn}
-    <span class="home-hero__connect-hint">${label} · ${escHtml(primary.join_address || "")}</span>
-  </div>`;
+  /* Legado: o hero usa o mural de avisos; botões de conexão ficam na secção abaixo. */
+  return "";
 }
 
 function _renderHomeConnectSection(d) {
@@ -19400,7 +19731,7 @@ function renderHomePage(d) {
   ].filter(Boolean);
 
   const connectable = _homeConnectableServers(d.servers);
-  const heroConnectHtml = _homeHeroConnectHtml(connectable);
+  const heroNoticeHtml = _homeHeroNoticeHtml(d.home_notice, connectable.length);
   const connectSectionHtml = _renderHomeConnectSection(d);
 
   const pkgsHtml = pixOn && (d.donation_packages || []).length
@@ -19460,7 +19791,7 @@ function renderHomePage(d) {
         <p class="home-hero__tagline">${escHtml(d.tagline || "")}</p>
         <div class="home-hero__badges">${badges}</div>
         <div class="home-hero__actions">${authActions}</div>
-        ${heroConnectHtml}
+        ${heroNoticeHtml}
         ${externalLinks.length ? `<div class="home-links-row">${externalLinks.map(l =>
           `<a class="home-link-chip" href="${escHtml(l.href)}" target="_blank" rel="noopener">${escHtml(l.label)}</a>`
         ).join("")}</div>` : ""}

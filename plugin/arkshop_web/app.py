@@ -1375,6 +1375,12 @@ def _migrate_schema(engine: Any) -> None:
             ensure_itensalfa_licenses_schema(engine)
         except Exception as exc:
             log.warning("ItensAlfa licenses (sqlite dev): migrate falhou: %s", exc)
+        try:
+            from home_notice_service import ensure_home_notice_schema
+
+            ensure_home_notice_schema(engine)
+        except Exception as exc:
+            log.warning("Mural home (sqlite dev): migrate falhou: %s", exc)
         return
     with engine.connect() as conn:
         tbl_row = conn.execute(text("SHOW TABLES LIKE 'orders'")).fetchone()
@@ -1532,6 +1538,12 @@ def _migrate_schema(engine: Any) -> None:
         ensure_itensalfa_licenses_schema(engine)
     except Exception as exc:
         log.warning("ItensAlfa licenses: migrate falhou: %s", exc)
+    try:
+        from home_notice_service import ensure_home_notice_schema
+
+        ensure_home_notice_schema(engine)
+    except Exception as exc:
+        log.warning("Mural home: migrate falhou: %s", exc)
 
 
 _db_reconnect_thread: threading.Thread | None = None
@@ -6616,7 +6628,31 @@ def public_home():
         },
         "featured_maps": _load_featured_maps_public(),
         "featured_maps_section": _featured_maps_section_meta(),
+        "home_notice": _public_home_notice(),
     })
+
+
+def _public_home_notice() -> dict[str, Any]:
+    """Aviso do mural da home (degrada sem DB)."""
+    empty = {
+        "title": "",
+        "body": "",
+        "updated_at": None,
+        "updated_by_steam_id": None,
+        "has_content": False,
+    }
+    if not _db_ready():
+        return empty
+    db = _SessionLocal()
+    try:
+        from home_notice_service import get_home_notice
+
+        return get_home_notice(db)
+    except Exception as exc:
+        _log_error("public_home_notice", error=str(exc))
+        return empty
+    finally:
+        _release_db_session(db)
 
 
 @app.route("/api/public/amber-stats", methods=["GET"])
@@ -10009,6 +10045,17 @@ register_suggestion_routes(
 from media_routes import register_media_routes
 
 register_media_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    admin_required=admin_required,
+    steam_id_from_session=_steam_id_from_session,
+    limiter=limiter,
+)
+
+from home_notice_routes import register_home_notice_routes
+
+register_home_notice_routes(
     app,
     db_ready=_db_ready,
     session_factory=_db_session_factory,

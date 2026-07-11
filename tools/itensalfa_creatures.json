@@ -1,0 +1,87 @@
+{
+  "source": "C:\\Users\\Ciano\\Downloads\\Itens Alfa.xlsx",
+  "sheet": "Criaturas",
+  "count": 16,
+  "creatures": [
+    {
+      "family": "HOVERSKIFF",
+      "tier": "Gama",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSkiff_Gama.AlfaItem_HoverSkiff_Gama"
+    },
+    {
+      "family": "HOVERSKIFF",
+      "tier": "Beta",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSkiff_Beta.AlfaItem_HoverSkiff_Beta"
+    },
+    {
+      "family": "HOVERSKIFF",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSkiff_Alfa.AlfaItem_HoverSkiff_Alfa"
+    },
+    {
+      "family": "HOVERSAIL",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_HoverSail.AlfaItem_HoverSail"
+    },
+    {
+      "family": "EXO-MEK",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_ExoMek_Alfa.AlfaItem_ExoMek_Alfa"
+    },
+    {
+      "family": "MEK",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Mek_Alfa.AlfaItem_Mek_Alfa"
+    },
+    {
+      "family": "MEK",
+      "tier": "Omega",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Mek_Omega.AlfaItem_Mek_Omega"
+    },
+    {
+      "family": "MEK",
+      "tier": "Minimega",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_MiniMegaMek_Alfa.AlfaItem_MiniMegaMek_Alfa"
+    },
+    {
+      "family": "ENFORCER",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Enforcer.AlfaItem_Spawner_Enforcer"
+    },
+    {
+      "family": "DEFENDER",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Defender.AlfaItem_Spawner_Defender"
+    },
+    {
+      "family": "STRYDER",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Strider.AlfaItem_Spawner_Strider"
+    },
+    {
+      "family": "STRYDER",
+      "tier": "Universal",
+      "blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_UniversalStrider.AlfaItem_Spawner_UniversalStrider"
+    },
+    {
+      "family": "STRYDER",
+      "tier": "PerfectPVE",
+      "blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Strider_PerfectPVE.AlfaItem_Spawner_Strider_PerfectPVE"
+    },
+    {
+      "family": "STRYDER",
+      "tier": "PerfectPVP",
+      "blueprint": "/Game/Mods/ItensAlfa/Animals/AlfaItem_Spawner_Strider_PerfectPVP.AlfaItem_Spawner_Strider_PerfectPVP"
+    },
+    {
+      "family": "SUBMARINE",
+      "tier": "Comum",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Submarine.AlfaItem_Submarine"
+    },
+    {
+      "family": "SUBMARINE",
+      "tier": "Alfa",
+      "blueprint": "/Game/Mods/ItensAlfa/Veiculos/AlfaItem_Submarine_Alfa.AlfaItem_Submarine_Alfa"
+    }
+  ]
+}

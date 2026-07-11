@@ -172,7 +172,82 @@ def test_record_presence_auto_link(db):
 
     tribes = get_my_tribes(db, USER_A)
     assert tribes["is_owner"] is True
+    assert tribes["panel_activated"] is True
     assert any(m["server_id"] == SERVER_ISLAND for m in tribes["maps"])
+
+
+def test_register_backfill_from_presence(db):
+    """Presença como líder *antes* de ativar o painel → register vincula o mapa."""
+    from tribe_service import backfill_owner_links_from_presence
+
+    # Login in-game como líder sem tribe_owners ainda
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=20002,
+        tribe_name="Tribo Previa",
+        is_owner=True,
+        members=[{"steam_id": USER_A, "character_name": "A", "is_owner": True}],
+    )
+    # Sem owner → sem map_link
+    assert get_owner(db, USER_A) is None
+    empty = get_my_tribes(db, USER_A)
+    assert empty["is_owner"] is False
+
+    owner = get_or_create_owner(db, USER_A, "Jogador A")
+    linked = backfill_owner_links_from_presence(db, USER_A)
+    assert linked == 1
+    tribes = get_my_tribes(db, USER_A)
+    assert tribes["is_owner"] is True
+    assert tribes["owner"]["id"] == owner["id"]
+    assert any(m["tribe_id"] == 20002 for m in tribes["maps"])
+
+
+def test_manual_add_member(db):
+    from tribe_service import manual_add_member
+
+    owner = get_or_create_owner(db, USER_A, "Owner")
+    upsert_map_link(
+        db,
+        tribe_owner_id=owner["id"],
+        server_id=SERVER_ISLAND,
+        tribe_id=30003,
+        tribe_name_local="ARKLAND",
+        tribe_type="principal",
+    )
+    result = manual_add_member(
+        db,
+        owner_steam_id=USER_A,
+        server_id=SERVER_ISLAND,
+        tribe_id=30003,
+        member_steam_id=USER_B,
+        character_name="Amigo",
+    )
+    assert result["steam_id"] == USER_B
+    members = get_members_by_map(db, server_id=SERVER_ISLAND, tribe_id=30003)
+    assert any(m["steam_id"] == USER_B and m["character_name"] == "Amigo" for m in members)
+
+    # Membro não-dono vê o mapa
+    as_member = get_my_tribes(db, USER_B)
+    assert as_member["is_owner"] is False
+    assert any(m["tribe_id"] == 30003 for m in as_member["maps"])
+
+
+def test_manual_add_member_steamid_invalido(db):
+    from tribe_service import manual_add_member
+
+    owner = get_or_create_owner(db, USER_A)
+    upsert_map_link(
+        db, tribe_owner_id=owner["id"], server_id=SERVER_ISLAND,
+        tribe_id=1, tribe_name_local="X", tribe_type="principal",
+    )
+    with pytest.raises(ValueError, match="SteamID64"):
+        manual_add_member(
+            db, owner_steam_id=USER_A, server_id=SERVER_ISLAND,
+            tribe_id=1, member_steam_id="123",
+        )
 
 
 # ────────────────────────────────────────────────────────────

@@ -254,6 +254,14 @@ def install_mod_from_workshop(
         shutil.copy2(ts_src, dest_folder / LAST_UPDATED_TIME_FILE)
 
     _log(f"[OK] Mod {mod_id} instalado em {dest_folder}")
+    try:
+        from ..mod_manager import ModManager
+        ModManager.purge_blacklisted_mod_paths(
+            install_dir,
+            on_log=lambda msg, _level: _log(msg),
+        )
+    except Exception as exc:
+        _log(f"[AVISO] Blacklist de mods após instalação: {exc}")
     return True
 
 

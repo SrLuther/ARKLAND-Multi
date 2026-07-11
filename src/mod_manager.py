@@ -11,9 +11,22 @@ import threading
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+from .config_manager import DEFAULT_MOD_PATH_BLACKLIST
+
 
 _ARK_GAME_ID   = "346110"   # AppID do ARK no Steam (para Workshop)
 _ARK_SERVER_ID = "376030"   # AppID do ARK Dedicated Server
+
+
+def normalize_mod_path_blacklist(paths: Optional[List[str]] = None) -> List[str]:
+    """Normaliza paths relativos da blacklist (\\ → /, trim). None → default."""
+    src = DEFAULT_MOD_PATH_BLACKLIST if paths is None else paths
+    out: List[str] = []
+    for raw in src:
+        s = (raw or "").strip().replace("\\", "/")
+        if s:
+            out.append(s)
+    return out
 
 
 class ModInfo:
@@ -449,6 +462,57 @@ class ModManager:
                     "warning"
                 )
         return repaired
+
+    @staticmethod
+    def purge_blacklisted_mod_paths(
+        install_dir: str,
+        relative_paths: Optional[List[str]] = None,
+        on_log: Optional[Callable[[str, str], None]] = None,
+    ) -> List[str]:
+        """Apaga paths relativos (ex.: pasta Mek de um mod) sob ``install_dir``.
+
+        Usado antes de start/restart para evitar crash por conteúdo de mod.
+        Só remove paths relativos sem ``..``; nunca a pasta pai do mod inteira
+        a menos que esteja listada. Retorna a lista de paths removidos.
+        """
+        _log = on_log or (lambda _msg, _level: None)
+        removed: List[str] = []
+        if not (install_dir or "").strip():
+            return removed
+
+        try:
+            root = Path(install_dir).resolve()
+        except Exception as exc:
+            _log(f"Blacklist de mods: install_dir inválido ({exc}).", "error")
+            return removed
+        if not root.is_dir():
+            return removed
+
+        for rel in normalize_mod_path_blacklist(relative_paths):
+            rel_path = Path(rel)
+            if rel_path.is_absolute() or ".." in rel_path.parts:
+                _log(f"Blacklist de mods: caminho inválido ignorado: {rel}", "warning")
+                continue
+            target = (root.joinpath(*rel_path.parts)).resolve()
+            try:
+                target.relative_to(root)
+            except ValueError:
+                _log(f"Blacklist de mods: fora do servidor, ignorado: {rel}", "warning")
+                continue
+            if target == root or not target.exists():
+                continue
+            try:
+                if target.is_dir():
+                    shutil.rmtree(target)
+                elif target.is_file() or target.is_symlink():
+                    target.unlink()
+                else:
+                    shutil.rmtree(target)
+                removed.append(rel)
+                _log(f"Blacklist de mods: removido {rel}", "warning")
+            except Exception as exc:
+                _log(f"Blacklist de mods: falha ao remover {rel}: {exc}", "error")
+        return removed
 
     @staticmethod
     def ensure_mod_dot_files_before_start(

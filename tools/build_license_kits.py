@@ -19,7 +19,8 @@ BP_TP_PAD = "/Game/Mods/AwesomeTeleporters/Blueprints/Teleporter/PrimalItem_Awes
 BP_STRYDER_RIG = "/Game/Mods/StryderRigChanger/PrimalItemConsumable_RigChanger_Base.PrimalItemConsumable_RigChanger_Base"
 BP_HOVER_SKIFF = "/Game/Mods/ImprovedSkiff/Skiff/PrimalItem_Spawner_ImprovedHoverSkiff.PrimalItem_Spawner_ImprovedHoverSkiff"
 
-VISOUS_KEYS_BY_TIER = {
+# ItensAlfa (ex-Visous) — keys no Items do config
+ITENSALFA_KEYS_BY_TIER = {
     "gamma": [
         "arco_tek_gamma",
         "escopeta_gamma",
@@ -27,9 +28,7 @@ VISOUS_KEYS_BY_TIER = {
         "machado_gamma",
         "motosserra_gamma",
         "picareta_gamma",
-        "visous_blindado_gamma",
-        "visous_tek_padrao_gamma",
-        "visous_tek_gen2_gamma",
+        "itensalfa_tek_gamma",
     ],
     "beta": [
         "arco_tek_beta",
@@ -38,9 +37,7 @@ VISOUS_KEYS_BY_TIER = {
         "machado_beta",
         "motosserra_beta",
         "picareta_beta",
-        "visous_blindado_beta",
-        "visous_tek_padrao_beta",
-        "visous_tek_gen2_beta",
+        "itensalfa_tek_beta",
     ],
     "alfa": [
         "arco_tek_alfa",
@@ -49,11 +46,11 @@ VISOUS_KEYS_BY_TIER = {
         "machado_alfa",
         "motosserra_alfa",
         "picareta_alfa",
-        "visous_blindado_alfa",
-        "visous_tek_padrao_alfa",
-        "visous_tek_gen2_alfa",
+        "itensalfa_tek_alfa",
     ],
 }
+# Alias legado (scripts antigos)
+VISOUS_KEYS_BY_TIER = ITENSALFA_KEYS_BY_TIER
 
 DINO_BPS = {
     "rex_tek": "/Game/PrimalEarth/Dinos/Rex/BionicRex_Character_BP.BionicRex_Character_BP",
@@ -125,9 +122,9 @@ def dino_entry(blueprint: str, level: int = DINO_LEVEL) -> dict:
     }
 
 
-def visous_items_from_catalog(items: dict, tier: str) -> list[dict]:
+def itensalfa_items_from_catalog(items: dict, tier: str) -> list[dict]:
     out: list[dict] = []
-    for key in VISOUS_KEYS_BY_TIER[tier]:
+    for key in ITENSALFA_KEYS_BY_TIER[tier]:
         entry = items[key]
         subs = entry.get("Items") or []
         if subs:
@@ -176,7 +173,7 @@ def _fmt_amber(n: int) -> str:
 def build_kit(tier: str, items_catalog: dict) -> dict:
     meta = TIER_META[tier]
     kit_price = meta["license_price"] // 2
-    kit_items = visous_items_from_catalog(items_catalog, tier)
+    kit_items = itensalfa_items_from_catalog(items_catalog, tier)
     kit_items.extend(common_items(meta))
 
     if tier == "alfa":

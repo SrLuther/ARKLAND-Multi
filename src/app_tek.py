@@ -76,10 +76,19 @@ class ARKServerManagerApp(ctk.CTk):
             on_status_change=self._on_server_status_change,
             on_visibility_change=self._on_server_visibility_change,
             machine_public_ip=_pub_ip,
+            get_mod_path_blacklist=lambda: list(
+                self.config_manager.config.mod_path_blacklist or []
+            ),
+            on_log=lambda msg, level: self._global_log(msg, level),
         )
         from .pages.init_discord_notifier import init_discord_notifier
         init_discord_notifier(self)
-        self.server_manager  = ServerManager(discord_notifier=self._discord_notifier)
+        self.server_manager  = ServerManager(
+            discord_notifier=self._discord_notifier,
+            get_mod_path_blacklist=lambda: list(
+                self.config_manager.config.mod_path_blacklist or []
+            ),
+        )
         from .backup_manager import BackupManager
         from .db_backup_manager import DbBackupManager
         self._backup_manager = BackupManager(
@@ -198,6 +207,7 @@ class ARKServerManagerApp(ctk.CTk):
         # Watermark de fundo (aplicado após conteúdo existir)
         self.after(150, self._setup_bg_watermark)
         # Auto-start: sync e agente remoto (após UI estável)
+        self.after(1800, self._purge_mod_path_blacklist_all)
         self.after(2000, self._auto_start_services)
         self.after(2500, self._asm_scan_running_servers)
         self.after(2500, self._ensure_buff_manager)
@@ -443,6 +453,40 @@ class ARKServerManagerApp(ctk.CTk):
                 self.after(0, self._rebuild_server_sidebar)
 
         threading.Thread(target=_worker, daemon=True, name="AsmScanRunning").start()
+
+    def _purge_mod_path_blacklist_all(self) -> None:
+        """Remove pastas na mod_path_blacklist de todos os servidores (boot TEK)."""
+        from .mod_manager import ModManager
+
+        paths = list(self.config_manager.config.mod_path_blacklist or [])
+        if not paths:
+            return
+
+        def _worker() -> None:
+            for srv in self.asm_config_manager.servers:
+                if not (srv.install_dir or "").strip():
+                    continue
+                ModManager.purge_blacklisted_mod_paths(
+                    srv.install_dir,
+                    paths,
+                    on_log=lambda msg, level: self.after(
+                        0, lambda m=msg, lv=level: self._global_log(m, lv)
+                    ),
+                )
+            for srv in self.config_manager.servers:
+                if not (srv.install_dir or "").strip():
+                    continue
+                ModManager.purge_blacklisted_mod_paths(
+                    srv.install_dir,
+                    paths,
+                    on_log=lambda msg, level: self.after(
+                        0, lambda m=msg, lv=level: self._global_log(m, lv)
+                    ),
+                )
+
+        threading.Thread(
+            target=_worker, daemon=True, name="ModPathBlacklistPurge"
+        ).start()
 
     def _auto_start_services(self) -> None:
         """Inicia sync e agente remoto automaticamente se configurados."""

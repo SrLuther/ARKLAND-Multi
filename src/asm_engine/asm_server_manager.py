@@ -182,17 +182,23 @@ class AsmServerManager:
         on_status_change: Optional[Callable[[str, str], None]] = None,
         on_visibility_change: Optional[Callable[[str, str, str], None]] = None,
         machine_public_ip: str = "",
+        get_mod_path_blacklist: Optional[Callable[[], List[str]]] = None,
+        on_log: Optional[Callable[[str, str], None]] = None,
     ) -> None:
         """
         Args:
             on_status_change: callback(server_id, new_status) — chamado na thread de monitor.
             on_visibility_change: callback(server_id, steam_status, detail) — listagem Steam/LAN.
             machine_public_ip: IP público global (paridade ASM MachinePublicIP).
+            get_mod_path_blacklist: paths relativos a apagar antes do start.
+            on_log: callback(msg, level) para avisos de limpeza/start.
         """
         self._instances: Dict[str, AsmServerInstance] = {}
         self._on_status = on_status_change
         self._on_visibility = on_visibility_change
         self._machine_public_ip = (machine_public_ip or "").strip()
+        self._get_mod_path_blacklist = get_mod_path_blacklist
+        self._on_log = on_log or (lambda _msg, _level: None)
         self._lock = threading.Lock()
         from ..server_visibility import get_steam_poller
         poller = get_steam_poller()
@@ -340,7 +346,20 @@ class AsmServerManager:
     def _start_worker(self, cfg: AsmServerConfig, inst: AsmServerInstance,
                       on_done: Optional[Callable[[bool, str], None]]) -> None:
         try:
-            # 0. Repara .mod antes do start (paridade modo primitivo)
+            # 0a. Remove pastas de mod na blacklist (ex.: Mek que causa crash)
+            if cfg.install_dir:
+                bl = (
+                    self._get_mod_path_blacklist()
+                    if self._get_mod_path_blacklist
+                    else None
+                )
+                ModManager.purge_blacklisted_mod_paths(
+                    cfg.install_dir,
+                    bl,
+                    on_log=self._on_log,
+                )
+
+            # 0b. Repara .mod antes do start (paridade modo primitivo)
             if cfg.install_dir:
                 ModManager.ensure_mod_dot_files_before_start(
                     cfg.install_dir,

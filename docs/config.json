@@ -1224,7 +1224,7 @@
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
-    },
+        },
         {
           "Blueprint": "/Game/Mods/StructuresPlusMod/Misc/Hatchery/PrimalItemStructure_Hatchery.PrimalItemStructure_Hatchery",
           "Quantity": 1,
@@ -3235,127 +3235,67 @@
       ],
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Gama/PrimalItem_Weapon_ArcoTek_Gama.PrimalItem_Weapon_ArcoTek_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekBow_G.AlfaItemWeapon_TekBow_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Gama/PrimalItem_Escopeta_Gama.PrimalItem_Escopeta_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_PumpAction_G.AlfaItemWeapon_PumpAction_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Gama/PrimalItem_Foice_Gama.PrimalItem_Foice_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Sickle_G.AlfaItemTools_Sickle_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Gama/PrimalItem_Machado_Gama.PrimalItem_Machado_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Hatched_G.AlfaItemTools_Hatched_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Motoserra/Gama/PrimalItem_Motosserra_Gama.PrimalItem_Motosserra_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Chainsaw_G.AlfaItemTools_Chainsaw_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Gama/PrimalItem_Picareta_Gama.PrimalItem_Picareta_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Pick_G.AlfaItemTools_Pick_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalHelmet_Gama.PrimalItemArmor_MetalHelmet_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekHelmet_G.AlfaItemArmor_TekHelmet_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalShirt_Gama.PrimalItemArmor_MetalShirt_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekShirtNew_G.AlfaItemArmor_TekShirtNew_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalGloves_Gama.PrimalItemArmor_MetalGloves_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekGloves_G.AlfaItemArmor_TekGloves_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalPants_Gama.PrimalItemArmor_MetalPants_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekPants_G.AlfaItemArmor_TekPants_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalBoots_Gama.PrimalItemArmor_MetalBoots_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekHelmet_Gama.PrimalItemArmor_TekHelmet_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekShirt_Gama.PrimalItemArmor_TekShirt_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekGloves_Gama.PrimalItemArmor_TekGloves_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekPants_Gama.PrimalItemArmor_TekPants_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekBoots_Gama.PrimalItemArmor_TekBoots_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekHelmet_Gen2_Gama.PrimalItemArmor_TekHelmet_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekShirt_Gen2_Gama.PrimalItemArmor_TekShirt_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekGloves_Gen2_Gama.PrimalItemArmor_TekGloves_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekPants_Gen2_Gama.PrimalItemArmor_TekPants_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekBoots_Gen2_Gama.PrimalItemArmor_TekBoots_Gen2_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekBoots_G_V2.AlfaItemArmor_TekBoots_G_V2",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3473,127 +3413,67 @@
       ],
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Beta/PrimalItem_Weapon_ArcoTek_Beta.PrimalItem_Weapon_ArcoTek_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekBow_B.AlfaItemWeapon_TekBow_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Beta/PrimalItem_Escopeta_Beta.PrimalItem_Escopeta_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_PumpAction_B.AlfaItemWeapon_PumpAction_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Beta/PrimalItem_Foice_Beta.PrimalItem_Foice_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Sickle_B.AlfaItemTools_Sickle_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Beta/PrimalItem_Machado_Beta.PrimalItem_Machado_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Hatched_B.AlfaItemTools_Hatched_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Motoserra/Beta/PrimalItem_Motosserra_Beta.PrimalItem_Motosserra_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Chainsaw_B.AlfaItemTools_Chainsaw_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Beta/PrimalItem_Picareta_Beta.PrimalItem_Picareta_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Pick_B.AlfaItemTools_Pick_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalHelmet_Beta.PrimalItemArmor_MetalHelmet_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekHelmet_B.AlfaItemArmor_TekHelmet_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalShirt_Beta.PrimalItemArmor_MetalShirt_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekShirtNew_B.AlfaItemArmor_TekShirtNew_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalGloves_Beta.PrimalItemArmor_MetalGloves_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekGloves_B.AlfaItemArmor_TekGloves_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalPants_Beta.PrimalItemArmor_MetalPants_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekPants_B.AlfaItemArmor_TekPants_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalBoots_Beta.PrimalItemArmor_MetalBoots_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekHelmet_Beta.PrimalItemArmor_TekHelmet_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekShirt_Beta.PrimalItemArmor_TekShirt_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekGloves_Beta.PrimalItemArmor_TekGloves_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekPants_Beta.PrimalItemArmor_TekPants_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekBoots_Beta.PrimalItemArmor_TekBoots_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekHelmet_Gen2_Beta.PrimalItemArmor_TekHelmet_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekShirt_Gen2_Beta.PrimalItemArmor_TekShirt_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekGloves_Gen2_Beta.PrimalItemArmor_TekGloves_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekPants_Gen2_Beta.PrimalItemArmor_TekPants_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekBoots_Gen2_Beta.PrimalItemArmor_TekBoots_Gen2_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekBoots_B.AlfaItemArmor_TekBoots_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -3723,127 +3603,67 @@
       ],
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Alfa/PrimalItem_Weapon_ArcoTek_Alfa.PrimalItem_Weapon_ArcoTek_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekBow.AlfaItemWeapon_TekBow",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Alfa/PrimalItem_Escopeta_Alfa.PrimalItem_Escopeta_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_PumpAction.AlfaItemWeapon_PumpAction",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Alfa/PrimalItem_Foice_Alfa.PrimalItem_Foice_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Sickle.AlfaItemTools_Sickle",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Alfa/PrimalItem_Machado_Alfa.PrimalItem_Machado_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Hatched.AlfaItemTools_Hatched",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Motoserra/Alfa/PrimalItem_Motosserra_Alfa.PrimalItem_Motosserra_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Chainsaw.AlfaItemTools_Chainsaw",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Alfa/PrimalItem_Picareta_Alfa.PrimalItem_Picareta_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Pick.AlfaItemTools_Pick",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalHelmet_Alfa.PrimalItemArmor_MetalHelmet_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekHelmet.AlfaItemArmor_TekHelmet",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalShirt_Alfa.PrimalItemArmor_MetalShirt_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekShirtNew.AlfaItemArmor_TekShirtNew",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalGloves_Alfa.PrimalItemArmor_MetalGloves_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekGloves.AlfaItemArmor_TekGloves",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalPants_Alfa.PrimalItemArmor_MetalPants_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekPants.AlfaItemArmor_TekPants",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         },
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalBoots_Alfa.PrimalItemArmor_MetalBoots_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekHelmet_Alfa.PrimalItemArmor_TekHelmet_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekShirt_Alfa.PrimalItemArmor_TekShirt_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekGloves_Alfa.PrimalItemArmor_TekGloves_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekPants_Alfa.PrimalItemArmor_TekPants_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekBoots_Alfa.PrimalItemArmor_TekBoots_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekHelmet_Gen2_Alfa.PrimalItemArmor_TekHelmet_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekShirt_Gen2_Alfa.PrimalItemArmor_TekShirt_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekGloves_Gen2_Alfa.PrimalItemArmor_TekGloves_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekPants_Gen2_Alfa.PrimalItemArmor_TekPants_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekBoots_Gen2_Alfa.PrimalItemArmor_TekBoots_Gen2_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekBoots.AlfaItemArmor_TekBoots",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
@@ -4543,40 +4363,58 @@
       "Type": "dino"
     },
     "arco_tek_alfa": {
-      "Description": "Arco Tek Alfa (1x)",
+      "Category": "Armas",
+      "Description": "Arco Tek ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Alfa/PrimalItem_Weapon_ArcoTek_Alfa.PrimalItem_Weapon_ArcoTek_Alfa",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekBow.AlfaItemWeapon_TekBow",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Arco Tek ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa",
       "Price": 3500,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
+      "Quality": 0,
+      "Type": "item"
     },
     "arco_tek_beta": {
-      "Description": "Arco Tek Beta (1x)",
+      "Category": "Armas",
+      "Description": "Arco Tek ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Beta/PrimalItem_Weapon_ArcoTek_Beta.PrimalItem_Weapon_ArcoTek_Beta",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekBow_B.AlfaItemWeapon_TekBow_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Arco Tek ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta",
       "Price": 2000,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
+      "Quality": 0,
+      "Type": "item"
     },
     "arco_tek_gamma": {
-      "Description": "Arco Tek Gamma (1x)",
+      "Category": "Armas",
+      "Description": "Arco Tek ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/ArcoTek/Gama/PrimalItem_Weapon_ArcoTek_Gama.PrimalItem_Weapon_ArcoTek_Gama",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekBow_G.AlfaItemWeapon_TekBow_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Arco Tek ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma",
       "Price": 1200,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
+      "Quality": 0,
+      "Type": "item"
     },
     "arma_TekPistol": {
       "Description": "Pistola Tek (1x)",
@@ -5696,40 +5534,58 @@
       "Type": "dino"
     },
     "escopeta_alfa": {
-      "Description": "Escopeta Alfa (1x)",
+      "Category": "Armas",
+      "Description": "Escopeta ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Alfa/PrimalItem_Escopeta_Alfa.PrimalItem_Escopeta_Alfa",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_PumpAction.AlfaItemWeapon_PumpAction",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Escopeta ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa",
       "Price": 3500,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
+      "Quality": 0,
+      "Type": "item"
     },
     "escopeta_beta": {
-      "Description": "Escopeta Beta (1x)",
+      "Category": "Armas",
+      "Description": "Escopeta ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Beta/PrimalItem_Escopeta_Beta.PrimalItem_Escopeta_Beta",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_PumpAction_B.AlfaItemWeapon_PumpAction_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Escopeta ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta",
       "Price": 2000,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
+      "Quality": 0,
+      "Type": "item"
     },
     "escopeta_gamma": {
-      "Description": "Escopeta Gamma (1x)",
+      "Category": "Armas",
+      "Description": "Escopeta ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Escopeta/Gama/PrimalItem_Escopeta_Gama.PrimalItem_Escopeta_Gama",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_PumpAction_G.AlfaItemWeapon_PumpAction_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Escopeta ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma",
       "Price": 1200,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
+      "Quality": 0,
+      "Type": "item"
     },
     "exp_1000": {
       "Commands": [
@@ -5740,40 +5596,58 @@
       "Type": "command"
     },
     "foice_alfa": {
-      "Description": "Foice Alfa (1x)",
+      "Category": "Ferramentas",
+      "Description": "Foice ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Alfa/PrimalItem_Foice_Alfa.PrimalItem_Foice_Alfa",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Sickle.AlfaItemTools_Sickle",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Foice ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa",
       "Price": 3500,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
+      "Quality": 0,
+      "Type": "item"
     },
     "foice_beta": {
-      "Description": "Foice Beta (1x)",
+      "Category": "Ferramentas",
+      "Description": "Foice ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Beta/PrimalItem_Foice_Beta.PrimalItem_Foice_Beta",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Sickle_B.AlfaItemTools_Sickle_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Foice ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta",
       "Price": 2000,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
+      "Quality": 0,
+      "Type": "item"
     },
     "foice_gamma": {
-      "Description": "Foice Gamma (1x)",
+      "Category": "Ferramentas",
+      "Description": "Foice ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Foice/Gama/PrimalItem_Foice_Gama.PrimalItem_Foice_Gama",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Sickle_G.AlfaItemTools_Sickle_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Foice ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma",
       "Price": 1200,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
+      "Quality": 0,
+      "Type": "item"
     },
     "giga_femea": {
       "Description": "Giganotosaurus Fêmea Nível 1",
@@ -6313,40 +6187,58 @@
       "Type": "dino"
     },
     "machado_alfa": {
-      "Description": "Machado Alfa (1x)",
+      "Category": "Ferramentas",
+      "Description": "Machado ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Alfa/PrimalItem_Machado_Alfa.PrimalItem_Machado_Alfa",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Hatched.AlfaItemTools_Hatched",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Machado ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa",
       "Price": 3500,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
+      "Quality": 0,
+      "Type": "item"
     },
     "machado_beta": {
-      "Description": "Machado Beta (1x)",
+      "Category": "Ferramentas",
+      "Description": "Machado ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Beta/PrimalItem_Machado_Beta.PrimalItem_Machado_Beta",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Hatched_B.AlfaItemTools_Hatched_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Machado ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta",
       "Price": 2000,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
+      "Quality": 0,
+      "Type": "item"
     },
     "machado_gamma": {
-      "Description": "Machado Gamma (1x)",
+      "Category": "Ferramentas",
+      "Description": "Machado ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Machado/Gama/PrimalItem_Machado_Gama.PrimalItem_Machado_Gama",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Hatched_G.AlfaItemTools_Hatched_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Machado ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma",
       "Price": 1200,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
+      "Quality": 0,
+      "Type": "item"
     },
     "megalosaurus_aberrant_femea": {
       "Description": "Megalosaurus Aberrante Fêmea Nível 1",
@@ -6377,46 +6269,58 @@
       "Type": "dino"
     },
     "motosserra_alfa": {
-      "Description": "Motoserra Alfa (1x)",
+      "Category": "Ferramentas",
+      "Description": "Motosserra ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Motoserra/Alfa/PrimalItem_Motosserra_Alfa.PrimalItem_Motosserra_Alfa",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Chainsaw.AlfaItemTools_Chainsaw",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         }
       ],
+      "Name": "Motosserra ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa",
       "Price": 3500,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
+      "Quality": 0,
+      "Type": "item"
     },
     "motosserra_beta": {
-      "Description": "Motoserra Beta (1x)",
+      "Category": "Ferramentas",
+      "Description": "Motosserra ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Motoserra/Beta/PrimalItem_Motosserra_Beta.PrimalItem_Motosserra_Beta",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Chainsaw_B.AlfaItemTools_Chainsaw_B",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         }
       ],
+      "Name": "Motosserra ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta",
       "Price": 2000,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
+      "Quality": 0,
+      "Type": "item"
     },
     "motosserra_gamma": {
-      "Description": "Motoserra Gamma (1x)",
+      "Category": "Ferramentas",
+      "Description": "Motosserra ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Motoserra/Gama/PrimalItem_Motosserra_Gama.PrimalItem_Motosserra_Gama",
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Chainsaw_G.AlfaItemTools_Chainsaw_G",
           "Quantity": 1,
           "Quality": 0,
           "ForceBlueprint": false
         }
       ],
+      "Name": "Motosserra ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma",
       "Price": 1200,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
+      "Quality": 0,
+      "Type": "item"
     },
     "mun_advanced_bullet": {
       "Description": "Bala Avançada (1000x)",
@@ -6640,40 +6544,58 @@
       "Type": "item"
     },
     "picareta_alfa": {
-      "Description": "Picareta Alfa (1x)",
+      "Category": "Ferramentas",
+      "Description": "Picareta ItensAlfa Alfa (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Alfa/PrimalItem_Picareta_Alfa.PrimalItem_Picareta_Alfa",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Pick.AlfaItemTools_Pick",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Picareta ItensAlfa Alfa (1x)",
+      "Permissions": "Admins,Alfa",
       "Price": 3500,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
+      "Quality": 0,
+      "Type": "item"
     },
     "picareta_beta": {
-      "Description": "Picareta Beta (1x)",
+      "Category": "Ferramentas",
+      "Description": "Picareta ItensAlfa Beta (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Beta/PrimalItem_Picareta_Beta.PrimalItem_Picareta_Beta",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Pick_B.AlfaItemTools_Pick_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Picareta ItensAlfa Beta (1x)",
+      "Permissions": "Admins,Beta",
       "Price": 2000,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
+      "Quality": 0,
+      "Type": "item"
     },
     "picareta_gamma": {
-      "Description": "Picareta Gamma (1x)",
+      "Category": "Ferramentas",
+      "Description": "Picareta ItensAlfa Gamma (1x)",
+      "ForceBlueprint": false,
       "Items": [
         {
-          "Blueprint": "/Game/Mods/VISOUSMod/Picareta/Gama/PrimalItem_Picareta_Gama.PrimalItem_Picareta_Gama",
-          "Quantity": 1
+          "Blueprint": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Pick_G.AlfaItemTools_Pick_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
         }
       ],
+      "Name": "Picareta ItensAlfa Gamma (1x)",
+      "Permissions": "Admins,Gamma",
       "Price": 1200,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
+      "Quality": 0,
+      "Type": "item"
     },
     "puretotokage": {
       "Description": "Puretotokage Nível 200",
@@ -9354,348 +9276,6 @@
       "Price": 30000,
       "Type": "dino"
     },
-    "visous_blindado_alfa": {
-      "Description": "Armadura Blindada VISOUS Alfa (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalHelmet_Alfa.PrimalItemArmor_MetalHelmet_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalShirt_Alfa.PrimalItemArmor_MetalShirt_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalGloves_Alfa.PrimalItemArmor_MetalGloves_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalPants_Alfa.PrimalItemArmor_MetalPants_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Alfa/PrimalItemArmor_MetalBoots_Alfa.PrimalItemArmor_MetalBoots_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 10000,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
-    },
-    "visous_blindado_beta": {
-      "Description": "Armadura Blindada VISOUS Beta (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalHelmet_Beta.PrimalItemArmor_MetalHelmet_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalShirt_Beta.PrimalItemArmor_MetalShirt_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalGloves_Beta.PrimalItemArmor_MetalGloves_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalPants_Beta.PrimalItemArmor_MetalPants_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Beta/PrimalItemArmor_MetalBoots_Beta.PrimalItemArmor_MetalBoots_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 7500,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
-    },
-    "visous_blindado_gamma": {
-      "Description": "Armadura Blindada VISOUS Gamma (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalHelmet_Gama.PrimalItemArmor_MetalHelmet_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalShirt_Gama.PrimalItemArmor_MetalShirt_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalGloves_Gama.PrimalItemArmor_MetalGloves_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalPants_Gama.PrimalItemArmor_MetalPants_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Blindado/Gama/PrimalItemArmor_MetalBoots_Gama.PrimalItemArmor_MetalBoots_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 5000,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
-    },
-    "visous_tek_gen2_alfa": {
-      "Description": "Armadura Tek Gen2 VISOUS Alfa (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekHelmet_Gen2_Alfa.PrimalItemArmor_TekHelmet_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekShirt_Gen2_Alfa.PrimalItemArmor_TekShirt_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekGloves_Gen2_Alfa.PrimalItemArmor_TekGloves_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekPants_Gen2_Alfa.PrimalItemArmor_TekPants_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Alfa/PrimalItemArmor_TekBoots_Gen2_Alfa.PrimalItemArmor_TekBoots_Gen2_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 10000,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
-    },
-    "visous_tek_gen2_beta": {
-      "Description": "Armadura Tek Gen2 VISOUS Beta (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekHelmet_Gen2_Beta.PrimalItemArmor_TekHelmet_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekShirt_Gen2_Beta.PrimalItemArmor_TekShirt_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekGloves_Gen2_Beta.PrimalItemArmor_TekGloves_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekPants_Gen2_Beta.PrimalItemArmor_TekPants_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Beta/PrimalItemArmor_TekBoots_Gen2_Beta.PrimalItemArmor_TekBoots_Gen2_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 7500,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
-    },
-    "visous_tek_gen2_gamma": {
-      "Description": "Armadura Tek Gen2 VISOUS Gamma (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekHelmet_Gen2_Gama.PrimalItemArmor_TekHelmet_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekShirt_Gen2_Gama.PrimalItemArmor_TekShirt_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekGloves_Gen2_Gama.PrimalItemArmor_TekGloves_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekPants_Gen2_Gama.PrimalItemArmor_TekPants_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Gen2/Gama/PrimalItemArmor_TekBoots_Gen2_Gama.PrimalItemArmor_TekBoots_Gen2_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 5000,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
-    },
-    "visous_tek_padrao_alfa": {
-      "Description": "Armadura Tek VISOUS Alfa (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekHelmet_Alfa.PrimalItemArmor_TekHelmet_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekShirt_Alfa.PrimalItemArmor_TekShirt_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekGloves_Alfa.PrimalItemArmor_TekGloves_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekPants_Alfa.PrimalItemArmor_TekPants_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Alfa/PrimalItemArmor_TekBoots_Alfa.PrimalItemArmor_TekBoots_Alfa",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 10000,
-      "Type": "item",
-      "Permissions": "Admins,Alfa"
-    },
-    "visous_tek_padrao_beta": {
-      "Description": "Armadura Tek VISOUS Beta (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekHelmet_Beta.PrimalItemArmor_TekHelmet_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekShirt_Beta.PrimalItemArmor_TekShirt_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekGloves_Beta.PrimalItemArmor_TekGloves_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekPants_Beta.PrimalItemArmor_TekPants_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Beta/PrimalItemArmor_TekBoots_Beta.PrimalItemArmor_TekBoots_Beta",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 7500,
-      "Type": "item",
-      "Permissions": "Admins,Beta"
-    },
-    "visous_tek_padrao_gamma": {
-      "Description": "Armadura Tek VISOUS Gamma (5 peças)",
-      "Items": [
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekHelmet_Gama.PrimalItemArmor_TekHelmet_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekShirt_Gama.PrimalItemArmor_TekShirt_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekGloves_Gama.PrimalItemArmor_TekGloves_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekPants_Gama.PrimalItemArmor_TekPants_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        },
-        {
-          "Blueprint": "/Game/Mods/VISOUSMod/Roupa_Tek/Padrao/Gama/PrimalItemArmor_TekBoots_Gama.PrimalItemArmor_TekBoots_Gama",
-          "Quantity": 1,
-          "Quality": 0,
-          "ForceBlueprint": false
-        }
-      ],
-      "Price": 5000,
-      "Type": "item",
-      "Permissions": "Admins,Gamma"
-    },
     "volcanorex_femea": {
       "Description": "Volcano Rex Fêmea Nível 1",
       "Dinos": [
@@ -10198,6 +9778,132 @@
       "Price": 20000,
       "Type": "dino",
       "Name": "Reaper Gen2 Nível 200"
+    },
+    "itensalfa_tek_alfa": {
+      "Category": "ItensAlfa — Armaduras",
+      "Description": "Armadura TEK ItensAlfa Alfa (5 peças)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekHelmet.AlfaItemArmor_TekHelmet",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekShirtNew.AlfaItemArmor_TekShirtNew",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekGloves.AlfaItemArmor_TekGloves",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekPants.AlfaItemArmor_TekPants",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekBoots.AlfaItemArmor_TekBoots",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Armadura TEK ItensAlfa Alfa (5 peças)",
+      "Permissions": "Admins,Alfa",
+      "Price": 10000,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_tek_beta": {
+      "Category": "ItensAlfa — Armaduras",
+      "Description": "Armadura TEK ItensAlfa Beta (5 peças)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekHelmet_B.AlfaItemArmor_TekHelmet_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekShirtNew_B.AlfaItemArmor_TekShirtNew_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekGloves_B.AlfaItemArmor_TekGloves_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekPants_B.AlfaItemArmor_TekPants_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekBoots_B.AlfaItemArmor_TekBoots_B",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Armadura TEK ItensAlfa Beta (5 peças)",
+      "Permissions": "Admins,Beta",
+      "Price": 7500,
+      "Quality": 0,
+      "Type": "item"
+    },
+    "itensalfa_tek_gamma": {
+      "Category": "ItensAlfa — Armaduras",
+      "Description": "Armadura TEK ItensAlfa Gamma (5 peças)",
+      "ForceBlueprint": false,
+      "Items": [
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekHelmet_G.AlfaItemArmor_TekHelmet_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekShirtNew_G.AlfaItemArmor_TekShirtNew_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekGloves_G.AlfaItemArmor_TekGloves_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekPants_G.AlfaItemArmor_TekPants_G",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        },
+        {
+          "Blueprint": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekBoots_G_V2.AlfaItemArmor_TekBoots_G_V2",
+          "Quantity": 1,
+          "Quality": 0,
+          "ForceBlueprint": false
+        }
+      ],
+      "Name": "Armadura TEK ItensAlfa Gamma (5 peças)",
+      "Permissions": "Admins,Gamma",
+      "Price": 5000,
+      "Quality": 0,
+      "Type": "item"
     }
   },
   "Downloads": [

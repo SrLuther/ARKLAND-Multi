@@ -2,9 +2,9 @@
   "_comment": "Blueprints verificados de mods — fontes oficiais (Steam spawn codes, kits em producao). Nunca adivinhar paths.",
   "_sources": {
     "moro_steam": "https://steamcommunity.com/workshop/filedetails/discussion/2932656301/5264192561413834085/",
-    "visous_kits": "Paths extraidos dos kits VISOUS ja em plugin/CustomShop/configs/config.json",
     "bigal_spawn_codes": "https://steamcommunity.com/workshop/filedetails/discussion/2879943314/3765606379486935403/",
-    "brighamia_cheat_codes": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/"
+    "brighamia_cheat_codes": "https://steamcommunity.com/workshop/filedetails/discussion/3550298419/729154798598040678/",
+    "itensalfa_xlsx": "Itens Alfa.xlsx GiveItem cheats → tools/itensalfa_blueprints.json"
   },
   "entries": [
     {
@@ -31,103 +31,103 @@
     },
     {
       "item_id": "arco_tek_beta",
-      "display_name": "Arco Tek Beta",
-      "mod": "visous",
+      "display_name": "Arco Tek ItensAlfa Beta",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/ArcoTek/Beta/PrimalItem_Weapon_ArcoTek_Beta.PrimalItem_Weapon_ArcoTek_Beta",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekBow_B.AlfaItemWeapon_TekBow_B",
       "price": 2000,
       "category": "Armas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "arco_tek_alfa",
-      "display_name": "Arco Tek Alfa",
-      "mod": "visous",
+      "display_name": "Arco Tek ItensAlfa Alfa",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/ArcoTek/Alfa/PrimalItem_Weapon_ArcoTek_Alfa.PrimalItem_Weapon_ArcoTek_Alfa",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekBow.AlfaItemWeapon_TekBow",
       "price": 3500,
       "category": "Armas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "escopeta_beta",
-      "display_name": "Escopeta Beta",
-      "mod": "visous",
+      "display_name": "Escopeta ItensAlfa Beta",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Escopeta/Beta/PrimalItem_Escopeta_Beta.PrimalItem_Escopeta_Beta",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_PumpAction_B.AlfaItemWeapon_PumpAction_B",
       "price": 2000,
       "category": "Armas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "escopeta_alfa",
-      "display_name": "Escopeta Alfa",
-      "mod": "visous",
+      "display_name": "Escopeta ItensAlfa Alfa",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Escopeta/Alfa/PrimalItem_Escopeta_Alfa.PrimalItem_Escopeta_Alfa",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_PumpAction.AlfaItemWeapon_PumpAction",
       "price": 3500,
       "category": "Armas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "picareta_beta",
-      "display_name": "Picareta Beta",
-      "mod": "visous",
+      "display_name": "Picareta ItensAlfa Beta",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Picareta/Beta/PrimalItem_Picareta_Beta.PrimalItem_Picareta_Beta",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Pick_B.AlfaItemTools_Pick_B",
       "price": 2000,
       "category": "Ferramentas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "picareta_alfa",
-      "display_name": "Picareta Alfa",
-      "mod": "visous",
+      "display_name": "Picareta ItensAlfa Alfa",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Picareta/Alfa/PrimalItem_Picareta_Alfa.PrimalItem_Picareta_Alfa",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Pick.AlfaItemTools_Pick",
       "price": 3500,
       "category": "Ferramentas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "machado_beta",
-      "display_name": "Machado Beta",
-      "mod": "visous",
+      "display_name": "Machado ItensAlfa Beta",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Machado/Beta/PrimalItem_Machado_Beta.PrimalItem_Machado_Beta",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Hatched_B.AlfaItemTools_Hatched_B",
       "price": 2000,
       "category": "Ferramentas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "machado_alfa",
-      "display_name": "Machado Alfa",
-      "mod": "visous",
+      "display_name": "Machado ItensAlfa Alfa",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Machado/Alfa/PrimalItem_Machado_Alfa.PrimalItem_Machado_Alfa",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Hatched.AlfaItemTools_Hatched",
       "price": 3500,
       "category": "Ferramentas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "foice_beta",
-      "display_name": "Foice Beta",
-      "mod": "visous",
+      "display_name": "Foice ItensAlfa Beta",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Foice/Beta/PrimalItem_Foice_Beta.PrimalItem_Foice_Beta",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Sickle_B.AlfaItemTools_Sickle_B",
       "price": 2000,
       "category": "Ferramentas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     },
     {
       "item_id": "foice_alfa",
-      "display_name": "Foice Alfa",
-      "mod": "visous",
+      "display_name": "Foice ItensAlfa Alfa",
+      "mod": "itensalfa",
       "type": "item",
-      "blueprint_path": "/Game/Mods/VISOUSMod/Foice/Alfa/PrimalItem_Foice_Alfa.PrimalItem_Foice_Alfa",
+      "blueprint_path": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Sickle.AlfaItemTools_Sickle",
       "price": 3500,
       "category": "Ferramentas",
-      "source": "visous_kits"
+      "source": "itensalfa_xlsx"
     }
   ],
   "entries_added_2026_07_10": [
@@ -359,7 +359,7 @@
     }
   ],
   "skipped_no_verified_path": [
-  {
+    {
       "item_id": "motosserra_gamma",
       "display_name": "Motosserra Gamma",
       "mod": "visous",

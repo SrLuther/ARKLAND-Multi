@@ -273,6 +273,53 @@ def get_or_create_owner(db: Session, steam_id: str, display_name: str = "") -> d
     return get_or_create_owner(db, steam_id, display_name)
 
 
+def backfill_owner_links_from_presence(db: Session, steam_id: str) -> int:
+    """Cria tribe_map_links a partir de tribe_presences onde o jogador foi líder.
+
+    Útil quando o jogador logou no servidor *antes* de ativar o painel no site.
+    Retorna quantos links novos foram criados.
+    """
+    owner = get_owner(db, steam_id)
+    if not owner:
+        return 0
+    rows = db.execute(
+        text("""
+            SELECT server_id, tribe_id, tribe_name, captured_at
+            FROM tribe_presences
+            WHERE steam_id = :sid AND is_owner = 1 AND tribe_id IS NOT NULL
+            ORDER BY captured_at DESC
+        """),
+        {"sid": steam_id},
+    ).fetchall()
+    created = 0
+    seen_servers: set[str] = set()
+    now = _naive(_utcnow())
+    for r in rows:
+        server_id = str(r[0] or "")
+        if not server_id or server_id in seen_servers:
+            continue
+        seen_servers.add(server_id)
+        tribe_id = int(r[1])
+        tribe_name = str(r[2] or "")
+        before = db.execute(
+            text("SELECT id FROM tribe_map_links WHERE tribe_owner_id = :oid AND server_id = :sid"),
+            {"oid": owner["id"], "sid": server_id},
+        ).fetchone()
+        _auto_link_owner(
+            db, owner=owner, server_id=server_id,
+            tribe_id=tribe_id, tribe_name=tribe_name, now=now,
+        )
+        after = db.execute(
+            text("SELECT id FROM tribe_map_links WHERE tribe_owner_id = :oid AND server_id = :sid"),
+            {"oid": owner["id"], "sid": server_id},
+        ).fetchone()
+        if after and not before:
+            created += 1
+    if created:
+        db.commit()
+    return created
+
+
 def get_owner(db: Session, steam_id: str) -> dict[str, Any] | None:
     row = db.execute(
         text("SELECT id, steam_id, display_name, description, log_visibility, created_at FROM tribe_owners WHERE steam_id = :sid"),
@@ -509,23 +556,53 @@ def get_my_tribes(db: Session, steam_id: str) -> dict[str, Any]:
     """Retorna visão agregada das tribos do jogador por mapa."""
     owner = get_owner(db, steam_id)
     if not owner:
-        # Verifica se é membro de alguma tribo (não owner)
-        presence = db.execute(
+        # Membro (não dono do painel): mapas onde aparece em tribe_members / presence
+        member_rows = db.execute(
             text("""
-                SELECT DISTINCT server_id, tribe_id, tribe_name
-                FROM tribe_presences WHERE steam_id = :sid
-                ORDER BY captured_at DESC
+                SELECT server_id, tribe_id, tribe_name
+                FROM tribe_members WHERE steam_id = :sid
+                ORDER BY last_seen_at DESC
             """),
             {"sid": steam_id},
         ).fetchall()
+        if not member_rows:
+            member_rows = db.execute(
+                text("""
+                    SELECT server_id, tribe_id, tribe_name
+                    FROM tribe_presences WHERE steam_id = :sid AND tribe_id IS NOT NULL
+                    ORDER BY captured_at DESC
+                """),
+                {"sid": steam_id},
+            ).fetchall()
+
+        maps_data: list[dict[str, Any]] = []
+        seen: set[tuple[str, int]] = set()
+        for r in member_rows:
+            key = (str(r[0]), int(r[1] or 0))
+            if key in seen or not key[1]:
+                continue
+            seen.add(key)
+            members = get_members_by_map(db, server_id=key[0], tribe_id=key[1])
+            maps_data.append({
+                "server_id": key[0],
+                "tribe_id": key[1],
+                "tribe_name": r[2] or "",
+                "tribe_name_local": r[2] or "",
+                "tribe_type": "principal",
+                "members": members,
+                "member_count": len(members),
+            })
         return {
             "is_owner": False,
             "owner": None,
-            "maps": [{"server_id": r[0], "tribe_id": r[1], "tribe_name": r[2]} for r in presence],
+            "maps": maps_data,
+            "panel_activated": False,
+            "_regulation": None,
+            "_split": None,
         }
 
     links = get_map_links(db, owner["id"])
-    maps_data: list[dict[str, Any]] = []
+    maps_data = []
     for link in links:
         members = get_members_by_map(db, server_id=link["server_id"], tribe_id=link["tribe_id"])
         maps_data.append({
@@ -538,6 +615,67 @@ def get_my_tribes(db: Session, steam_id: str) -> dict[str, Any]:
         "is_owner": True,
         "owner": owner,
         "maps": maps_data,
+        "panel_activated": True,
+        "_regulation": get_regulation(db, owner["id"]),
+        "_split": get_active_split(db, owner["id"]),
+    }
+
+
+def manual_add_member(
+    db: Session,
+    *,
+    owner_steam_id: str,
+    server_id: str,
+    tribe_id: int,
+    member_steam_id: str,
+    character_name: str = "",
+) -> dict[str, Any]:
+    """Owner registra manualmente um membro (SteamID64) na tribo do mapa.
+
+    Complementa a detecção automática via login — útil quando o plugin ainda
+    não reportou presença ou o membro ainda não entrou no servidor.
+    """
+    member_steam_id = (member_steam_id or "").strip()
+    if not member_steam_id.isdigit() or len(member_steam_id) < 15:
+        raise ValueError("SteamID64 inválido")
+    if not server_id or not tribe_id:
+        raise ValueError("server_id e tribe_id obrigatórios")
+
+    owner = get_owner(db, owner_steam_id)
+    if not owner:
+        raise ValueError("Painel de tribo não ativado. Use /api/tribe/register primeiro.")
+
+    link = db.execute(
+        text("""
+            SELECT id, tribe_name_local FROM tribe_map_links
+            WHERE tribe_owner_id = :oid AND server_id = :sid AND tribe_id = :tid AND is_active = 1
+        """),
+        {"oid": owner["id"], "sid": server_id, "tid": tribe_id},
+    ).fetchone()
+    if not link:
+        raise ValueError("Mapa/tribo não vinculado ao seu painel")
+
+    now = _naive(_utcnow())
+    tribe_name = link[1] or ""
+    _upsert_members(
+        db,
+        server_id=server_id,
+        tribe_id=tribe_id,
+        tribe_name=tribe_name,
+        members=[{
+            "steam_id": member_steam_id,
+            "character_name": (character_name or member_steam_id)[:128],
+            "is_owner": False,
+            "rank_name": "Membro",
+        }],
+        now=now,
+    )
+    db.commit()
+    return {
+        "steam_id": member_steam_id,
+        "character_name": character_name or member_steam_id,
+        "server_id": server_id,
+        "tribe_id": tribe_id,
     }
 
 

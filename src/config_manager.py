@@ -12,6 +12,12 @@ from typing import List, Optional
 
 from .server_config import ServerConfig, ClusterProfile
 
+# Paths relativos ao install_dir do servidor ARK ASE a apagar antes do start
+# (conteúdo de mods que causa crash). Lista vazia desactiva a limpeza.
+DEFAULT_MOD_PATH_BLACKLIST: List[str] = [
+    "ShooterGame/Content/Mods/1565015734/Mek",
+]
+
 
 @dataclass
 class EnvironmentConfig:
@@ -238,6 +244,10 @@ class AppConfig:
     # Biblioteca global de broadcasts (TEK — sincronizável via .arkbroadcast)
     broadcast_library: list = field(default_factory=list)
     broadcast_tek: BroadcastTekConfig = field(default_factory=BroadcastTekConfig)
+    # Paths relativos (ao root do servidor) a apagar antes de start/restart
+    mod_path_blacklist: list = field(
+        default_factory=lambda: list(DEFAULT_MOD_PATH_BLACKLIST)
+    )
 
 
 class ConfigManager:
@@ -302,6 +312,8 @@ class ConfigManager:
                     self.config.remote_instances = []
                 if not isinstance(self.config.broadcast_library, list):
                     self.config.broadcast_library = []
+                if not isinstance(self.config.mod_path_blacklist, list):
+                    self.config.mod_path_blacklist = list(DEFAULT_MOD_PATH_BLACKLIST)
                 if not self.config.remote_agent_token:
                     self.config.remote_agent_token = str(uuid.uuid4())
                     self.save()

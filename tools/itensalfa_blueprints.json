@@ -1,0 +1,365 @@
+{
+  "source": "Itens Alfa.xlsx GiveItem cheats",
+  "families": {
+    "Chainsaw": {
+      "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Chainsaw_D.AlfaItemTools_Chainsaw_D",
+      "Gama": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Chainsaw_G.AlfaItemTools_Chainsaw_G",
+      "Beta": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Chainsaw_B.AlfaItemTools_Chainsaw_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Chainsaw.AlfaItemTools_Chainsaw",
+      "Omega": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Chainsaw_O.AlfaItemTools_Chainsaw_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Chainsaw_GOD.AlfaItemTools_Chainsaw_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Chainsaw_ET.AlfaItemTools_Chainsaw_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Chainsaw_Uni.AlfaItemTools_Chainsaw_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Chainsaw_Oni.AlfaItemTools_Chainsaw_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Chainsaw_Sur.AlfaItemTools_Chainsaw_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Chainsaw_Im.AlfaItemTools_Chainsaw_Im"
+    },
+    "EletricPod": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_EletricPod_D.AlfaItemWeapon_EletricPod_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_EletricPod_G.AlfaItemWeapon_EletricPod_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_EletricPod_B.AlfaItemWeapon_EletricPod_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_EletricPod.AlfaItemWeapon_EletricPod",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_EletricPod_O.AlfaItemWeapon_EletricPod_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_EletricPod_GOD.AlfaItemWeapon_EletricPod_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_EletricPod_ET.AlfaItemWeapon_EletricPod_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_EletricPod_Uni.AlfaItemWeapon_EletricPod_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_EletricPod_Oni.AlfaItemWeapon_EletricPod_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_EletricPod_Sur.AlfaItemWeapon_EletricPod_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_EletricPod_Im.AlfaItemWeapon_EletricPod_Im"
+    },
+    "FishingRod": {
+      "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_FishingRod_D.AlfaItemTools_FishingRod_D",
+      "Gama": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_FishingRod_G.AlfaItemTools_FishingRod_G",
+      "Beta": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_FishingRod_B.AlfaItemTools_FishingRod_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_FishingRod.AlfaItemTools_FishingRod"
+    },
+    "GrenadeLauncher": {
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_GrenadeLauncher.AlfaItemWeapon_GrenadeLauncher"
+    },
+    "Hatched": {
+      "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Hatched_D.AlfaItemTools_Hatched_D",
+      "Gama": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Hatched_G.AlfaItemTools_Hatched_G",
+      "Beta": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Hatched_B.AlfaItemTools_Hatched_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Hatched.AlfaItemTools_Hatched",
+      "Omega": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Hatched_O.AlfaItemTools_Hatched_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Hatched_GOD.AlfaItemTools_Hatched_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Hatched_ET.AlfaItemTools_Hatched_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Hatched_Uni.AlfaItemTools_Hatched_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Hatched_Oni.AlfaItemTools_Hatched_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Hatched_Sur.AlfaItemTools_Hatched_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Hatched_Im.AlfaItemTools_Hatched_Im"
+    },
+    "LanternCharge": {
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_LanternCharge.AlfaItemTools_LanternCharge"
+    },
+    "Megalodon": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Megalodon_D.AlfaItemSaddle_Megalodon_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Megalodon_G.AlfaItemSaddle_Megalodon_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Megalodon_B.AlfaItemSaddle_Megalodon_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Megalodon.AlfaItemSaddle_Megalodon",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Megalodon_O.AlfaItemSaddle_Megalodon_O"
+    },
+    "MiningDrill": {
+      "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_MiningDrill_D.AlfaItemTools_MiningDrill_D",
+      "Gama": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_MiningDrill_G.AlfaItemTools_MiningDrill_G",
+      "Beta": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_MiningDrill_B.AlfaItemTools_MiningDrill_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_MiningDrill.AlfaItemTools_MiningDrill",
+      "Omega": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_MiningDrill_O.AlfaItemTools_MiningDrill_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_MiningDrill_GOD.AlfaItemTools_MiningDrill_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_MiningDrill_ET.AlfaItemTools_MiningDrill_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_MiningDrill_Uni.AlfaItemTools_MiningDrill_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_MiningDrill_Oni.AlfaItemTools_MiningDrill_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_MiningDrill_Sur.AlfaItemTools_MiningDrill_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_MiningDrill_Im.AlfaItemTools_MiningDrill_Im"
+    },
+    "Mjolnir": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Mjolnir_D.AlfaItemWeapon_Mjolnir_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Mjolnir_G.AlfaItemWeapon_Mjolnir_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Mjolnir_B.AlfaItemWeapon_Mjolnir_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Mjolnir.AlfaItemWeapon_Mjolnir"
+    },
+    "Mosa": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Mosa_D.AlfaItemSaddle_Mosa_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Mosa_G.AlfaItemSaddle_Mosa_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Mosa_B.AlfaItemSaddle_Mosa_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Mosa.AlfaItemSaddle_Mosa",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Mosa_O.AlfaItemSaddle_Mosa_O"
+    },
+    "Pick": {
+      "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Pick_D.AlfaItemTools_Pick_D",
+      "Gama": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Pick_G.AlfaItemTools_Pick_G",
+      "Beta": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Pick_B.AlfaItemTools_Pick_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Pick.AlfaItemTools_Pick",
+      "Omega": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Pick_O.AlfaItemTools_Pick_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Pick_GOD.AlfaItemTools_Pick_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Pick_ET.AlfaItemTools_Pick_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Pick_Uni.AlfaItemTools_Pick_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Pick_Oni.AlfaItemTools_Pick_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Pick_Sur.AlfaItemTools_Pick_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Pick_Im.AlfaItemTools_Pick_Im"
+    },
+    "Pike": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Pike_D.AlfaItemWeapon_Pike_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Pike_G.AlfaItemWeapon_Pike_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Pike_B.AlfaItemWeapon_Pike_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Pike.AlfaItemWeapon_Pike",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_Pike_O.AlfaItemWeapon_Pike_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_Pike_GOD.AlfaItemWeapon_Pike_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_Pike_ET.AlfaItemWeapon_Pike_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_Pike_Uni.AlfaItemWeapon_Pike_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_Pike_Oni.AlfaItemWeapon_Pike_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_Pike_Sur.AlfaItemWeapon_Pike_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_Pike_Im.AlfaItemWeapon_Pike_Im"
+    },
+    "PumpAction": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_PumpAction_D.AlfaItemWeapon_PumpAction_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_PumpAction_G.AlfaItemWeapon_PumpAction_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_PumpAction_B.AlfaItemWeapon_PumpAction_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_PumpAction.AlfaItemWeapon_PumpAction",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_PumpAction_O.AlfaItemWeapon_PumpAction_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_PumpAction_GOD.AlfaItemWeapon_PumpAction_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_PumpAction_ET.AlfaItemWeapon_PumpAction_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_PumpAction_Uni.AlfaItemWeapon_PumpAction_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_PumpAction_Oni.AlfaItemWeapon_PumpAction_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_PumpAction_Sur.AlfaItemWeapon_PumpAction_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_PumpAction_Im.AlfaItemWeapon_PumpAction_Im"
+    },
+    "Rex": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Rex_D.AlfaItemSaddle_Rex_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Rex_G.AlfaItemSaddle_Rex_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Rex_B.AlfaItemSaddle_Rex_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Rex.AlfaItemSaddle_Rex",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Rex_O.AlfaItemSaddle_Rex_O"
+    },
+    "RockDrake": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_RockDrake_D.AlfaItemSaddle_RockDrake_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_RockDrake_G.AlfaItemSaddle_RockDrake_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_RockDrake_B.AlfaItemSaddle_RockDrake_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_RockDrake.AlfaItemSaddle_RockDrake",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_RockDrake_O.AlfaItemSaddle_RockDrake_O"
+    },
+    "ShoulderCannon": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_ShoulderCannon_D.AlfaItemWeapon_ShoulderCannon_D",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_ShoulderCannon_B.AlfaItemWeapon_ShoulderCannon_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_ShoulderCannon.AlfaItemWeapon_ShoulderCannon",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G.AlfaItemWeapon_ShoulderCannon_G",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_ShoulderCannon_O.AlfaItemWeapon_ShoulderCannon_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_ShoulderCannon_GOD.AlfaItemWeapon_ShoulderCannon_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_ShoulderCannon_ET.AlfaItemWeapon_ShoulderCannon_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_ShoulderCannon_Uni.AlfaItemWeapon_ShoulderCannon_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_ShoulderCannon_Oni.AlfaItemWeapon_ShoulderCannon_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_ShoulderCannon_Sur.AlfaItemWeapon_ShoulderCannon_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_ShoulderCannon_Im.AlfaItemWeapon_ShoulderCannon_Im"
+    },
+    "ShoulderCannon_G2": {
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_ShoulderCannon_G2.AlfaItemWeapon_ShoulderCannon_G2"
+    },
+    "Sickle": {
+      "Delta": "/Game/Mods/ItensAlfa/Ferramentas/Delta/AlfaItemTools_Sickle_D.AlfaItemTools_Sickle_D",
+      "Gama": "/Game/Mods/ItensAlfa/Ferramentas/Gama/AlfaItemTools_Sickle_G.AlfaItemTools_Sickle_G",
+      "Beta": "/Game/Mods/ItensAlfa/Ferramentas/Beta/AlfaItemTools_Sickle_B.AlfaItemTools_Sickle_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Sickle.AlfaItemTools_Sickle",
+      "Omega": "/Game/Mods/ItensAlfa/Ferramentas/Omega/AlfaItemTools_Sickle_O.AlfaItemTools_Sickle_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Ferramentas/God/AlfaItemTools_Sickle_GOD.AlfaItemTools_Sickle_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Ferramentas/Eter/AlfaItemTools_Sickle_ET.AlfaItemTools_Sickle_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Ferramentas/Uni/AlfaItemTools_Sickle_Uni.AlfaItemTools_Sickle_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Ferramentas/Oni/AlfaItemTools_Sickle_Oni.AlfaItemTools_Sickle_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Ferramentas/Surreal/AlfaItemTools_Sickle_Sur.AlfaItemTools_Sickle_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Ferramentas/Imater/AlfaItemTools_Sickle_Im.AlfaItemTools_Sickle_Im"
+    },
+    "Sniper": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_Sniper_D.AlfaItemWeapon_Sniper_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_Sniper_G.AlfaItemWeapon_Sniper_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_Sniper_B.AlfaItemWeapon_Sniper_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_Sniper.AlfaItemWeapon_Sniper",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_Sniper_O.AlfaItemWeapon_Sniper_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_Sniper_GOD.AlfaItemWeapon_Sniper_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_Sniper_ET.AlfaItemWeapon_Sniper_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_Sniper_Uni.AlfaItemWeapon_Sniper_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_Sniper_Oni.AlfaItemWeapon_Sniper_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_Sniper_Sur.AlfaItemWeapon_Sniper_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_Sniper_Im.AlfaItemWeapon_Sniper_Im"
+    },
+    "SpaceDolphin": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_SpaceDolphin_D.AlfaItemSaddle_SpaceDolphin_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_SpaceDolphin_G.AlfaItemSaddle_SpaceDolphin_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_SpaceDolphin_B.AlfaItemSaddle_SpaceDolphin_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_SpaceDolphin.AlfaItemSaddle_SpaceDolphin",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_SpaceDolphin_O.AlfaItemSaddle_SpaceDolphin_O"
+    },
+    "SpaceWhale": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_SpaceWhale_D.AlfaItemSaddle_SpaceWhale_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_SpaceWhale_G.AlfaItemSaddle_SpaceWhale_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_SpaceWhale_B.AlfaItemSaddle_SpaceWhale_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_SpaceWhale.AlfaItemSaddle_SpaceWhale",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_SpaceWhale_O.AlfaItemSaddle_SpaceWhale_O"
+    },
+    "StoneClub": {
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_StoneClub.AlfaItemWeapon_StoneClub"
+    },
+    "Tapejara": {
+      "Delta": "/Game/Mods/ItensAlfa/Selas/Delta/AlfaItemSaddle_Tapejara_D.AlfaItemSaddle_Tapejara_D",
+      "Gama": "/Game/Mods/ItensAlfa/Selas/Gama/AlfaItemSaddle_Tapejara_G.AlfaItemSaddle_Tapejara_G",
+      "Beta": "/Game/Mods/ItensAlfa/Selas/Beta/AlfaItemSaddle_Tapejara_B.AlfaItemSaddle_Tapejara_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Selas/AlfaItemSaddle_Tapejara.AlfaItemSaddle_Tapejara",
+      "Omega": "/Game/Mods/ItensAlfa/Selas/Omega/AlfaItemSaddle_Tapejara_O.AlfaItemSaddle_Tapejara_O"
+    },
+    "TekBoots": {
+      "Delta": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekBoots_D.AlfaItemArmor_TekBoots_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekBoots_G_V2.AlfaItemArmor_TekBoots_G_V2",
+      "Beta": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekBoots_B.AlfaItemArmor_TekBoots_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekBoots.AlfaItemArmor_TekBoots",
+      "Omega": "/Game/Mods/ItensAlfa/Armadura/Omega/AlfaItemArmor_TekBoots_O.AlfaItemArmor_TekBoots_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armadura/God/AlfaItemArmor_TekBoots_GOD.AlfaItemArmor_TekBoots_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armadura/Eter/AlfaItemArmor_TekBoots_ET.AlfaItemArmor_TekBoots_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armadura/Uni/AlfaItemArmor_TekBoots_Uni.AlfaItemArmor_TekBoots_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armadura/Oni/AlfaItemArmor_TekBoots_Oni.AlfaItemArmor_TekBoots_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armadura/Surreal/AlfaItemArmor_TekBoots_Sur.AlfaItemArmor_TekBoots_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armadura/Imater/AlfaItemArmor_TekBoots_Im.AlfaItemArmor_TekBoots_Im",
+      "Exotico": "/Game/Mods/ItensAlfa/Armadura/Exotico/AlfaItemArmor_TekBoots_Ex.AlfaItemArmor_TekBoots_Ex"
+    },
+    "TekBow": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekBow_D.AlfaItemWeapon_TekBow_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekBow_G.AlfaItemWeapon_TekBow_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekBow_B.AlfaItemWeapon_TekBow_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekBow.AlfaItemWeapon_TekBow",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekBow_O.AlfaItemWeapon_TekBow_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekBow_GOD.AlfaItemWeapon_TekBow_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekBow_ET.AlfaItemWeapon_TekBow_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekBow_Uni.AlfaItemWeapon_TekBow_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekBow_Oni.AlfaItemWeapon_TekBow_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekBow_Sur.AlfaItemWeapon_TekBow_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekBow_Im.AlfaItemWeapon_TekBow_Im"
+    },
+    "TekClaws": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekClaws_D.AlfaItemWeapon_TekClaws_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekClaws_G.AlfaItemWeapon_TekClaws_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekClaws_B.AlfaItemWeapon_TekClaws_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekClaws.AlfaItemWeapon_TekClaws",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekClaws_O.AlfaItemWeapon_TekClaws_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekClaws_GOD.AlfaItemWeapon_TekClaws_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekClaws_ET.AlfaItemWeapon_TekClaws_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekClaws_Uni.AlfaItemWeapon_TekClaws_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekClaws_Oni.AlfaItemWeapon_TekClaws_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekClaws_Sur.AlfaItemWeapon_TekClaws_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekClaws_Im.AlfaItemWeapon_TekClaws_Im"
+    },
+    "TekCruiseMissile": {
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekCruiseMissile.AlfaItemWeapon_TekCruiseMissile"
+    },
+    "TekGloves": {
+      "Delta": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekGloves_D.AlfaItemArmor_TekGloves_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekGloves_G.AlfaItemArmor_TekGloves_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekGloves_B.AlfaItemArmor_TekGloves_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekGloves.AlfaItemArmor_TekGloves",
+      "Omega": "/Game/Mods/ItensAlfa/Armadura/Omega/AlfaItemArmor_TekGloves_O.AlfaItemArmor_TekGloves_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armadura/God/AlfaItemArmor_TekGloves_GOD.AlfaItemArmor_TekGloves_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armadura/Eter/AlfaItemArmor_TekGloves_ET.AlfaItemArmor_TekGloves_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armadura/Uni/AlfaItemArmor_TekGloves_Uni.AlfaItemArmor_TekGloves_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armadura/Oni/AlfaItemArmor_TekGloves_Oni.AlfaItemArmor_TekGloves_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armadura/Surreal/AlfaItemArmor_TekGloves_Sur.AlfaItemArmor_TekGloves_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armadura/Imater/AlfaItemArmor_TekGloves_Im.AlfaItemArmor_TekGloves_Im",
+      "Exotico": "/Game/Mods/ItensAlfa/Armadura/Exotico/AlfaItemArmor_TekGloves_Ex.AlfaItemArmor_TekGloves_Ex"
+    },
+    "TekHelmet": {
+      "Delta": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekHelmet_D.AlfaItemArmor_TekHelmet_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekHelmet_G.AlfaItemArmor_TekHelmet_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekHelmet_B.AlfaItemArmor_TekHelmet_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekHelmet.AlfaItemArmor_TekHelmet",
+      "Omega": "/Game/Mods/ItensAlfa/Armadura/Omega/AlfaItemArmor_TekHelmet_O.AlfaItemArmor_TekHelmet_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armadura/God/AlfaItemArmor_TekHelmet_GOD.AlfaItemArmor_TekHelmet_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armadura/Eter/AlfaItemArmor_TekHelmet_ET.AlfaItemArmor_TekHelmet_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armadura/Uni/AlfaItemArmor_TekHelmet_Uni.AlfaItemArmor_TekHelmet_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armadura/Oni/AlfaItemArmor_TekHelmet_Oni.AlfaItemArmor_TekHelmet_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armadura/Surreal/AlfaItemArmor_TekHelmet_Sur.AlfaItemArmor_TekHelmet_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armadura/Imater/AlfaItemArmor_TekHelmet_Im.AlfaItemArmor_TekHelmet_Im",
+      "Exotico": "/Game/Mods/ItensAlfa/Armadura/Exotico/AlfaItemArmor_TekHelmet_Ex.AlfaItemArmor_TekHelmet_Ex"
+    },
+    "TekPants": {
+      "Delta": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekPants_D.AlfaItemArmor_TekPants_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekPants_G.AlfaItemArmor_TekPants_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekPants_B.AlfaItemArmor_TekPants_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekPants.AlfaItemArmor_TekPants",
+      "Omega": "/Game/Mods/ItensAlfa/Armadura/Omega/AlfaItemArmor_TekPants_O.AlfaItemArmor_TekPants_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armadura/God/AlfaItemArmor_TekPants_GOD.AlfaItemArmor_TekPants_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armadura/Eter/AlfaItemArmor_TekPants_ET.AlfaItemArmor_TekPants_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armadura/Uni/AlfaItemArmor_TekPants_Uni.AlfaItemArmor_TekPants_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armadura/Oni/AlfaItemArmor_TekPants_Oni.AlfaItemArmor_TekPants_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armadura/Surreal/AlfaItemArmor_TekPants_Sur.AlfaItemArmor_TekPants_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armadura/Imater/AlfaItemArmor_TekPants_Im.AlfaItemArmor_TekPants_Im",
+      "Exotico": "/Game/Mods/ItensAlfa/Armadura/Exotico/AlfaItemArmor_TekPants_Ex.AlfaItemArmor_TekPants_Ex"
+    },
+    "TekPistol": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekPistol_D.AlfaItemWeapon_TekPistol_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekPistol_G.AlfaItemWeapon_TekPistol_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekPistol_B.AlfaItemWeapon_TekPistol_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekPistol.AlfaItemWeapon_TekPistol",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekPistol_O.AlfaItemWeapon_TekPistol_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekPistol_GOD.AlfaItemWeapon_TekPistol_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekPistol_ET.AlfaItemWeapon_TekPistol_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekPistol_Uni.AlfaItemWeapon_TekPistol_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekPistol_Oni.AlfaItemWeapon_TekPistol_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekPistol_Sur.AlfaItemWeapon_TekPistol_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekPistol_Im.AlfaItemWeapon_TekPistol_Im"
+    },
+    "TekRifle": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekRifle_D.AlfaItemWeapon_TekRifle_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekRifle_G.AlfaItemWeapon_TekRifle_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekRifle_B.AlfaItemWeapon_TekRifle_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekRifle.AlfaItemWeapon_TekRifle",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekRifle_O.AlfaItemWeapon_TekRifle_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekRifle_GOD.AlfaItemWeapon_TekRifle_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekRifle_ET.AlfaItemWeapon_TekRifle_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekRifle_Uni.AlfaItemWeapon_TekRifle_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekRifle_Oni.AlfaItemWeapon_TekRifle_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekRifle_Sur.AlfaItemWeapon_TekRifle_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekRifle_Im.AlfaItemWeapon_TekRifle_Im"
+    },
+    "TekShiledArmor": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekShiledArmor_D.AlfaItemWeapon_TekShiledArmor_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekShiledArmor_G.AlfaItemWeapon_TekShiledArmor_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekShiledArmor_B.AlfaItemWeapon_TekShiledArmor_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekShiledArmor.AlfaItemWeapon_TekShiledArmor",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekShiledArmor_O.AlfaItemWeapon_TekShiledArmor_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekShiledArmor_GOD.AlfaItemWeapon_TekShiledArmor_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekShiledArmor_ET.AlfaItemWeapon_TekShiledArmor_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekShiledArmor_Uni.AlfaItemWeapon_TekShiledArmor_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekShiledArmor_Oni.AlfaItemWeapon_TekShiledArmor_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekShiledArmor_Sur.AlfaItemWeapon_TekShiledArmor_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekShiledArmor_Im.AlfaItemWeapon_TekShiledArmor_Im"
+    },
+    "TekShirtNew": {
+      "Delta": "/Game/Mods/ItensAlfa/Armadura/Delta/AlfaItemArmor_TekShirtNew_D.AlfaItemArmor_TekShirtNew_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armadura/Gama/AlfaItemArmor_TekShirtNew_G.AlfaItemArmor_TekShirtNew_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armadura/Beta/AlfaItemArmor_TekShirtNew_B.AlfaItemArmor_TekShirtNew_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armadura/AlfaItemArmor_TekShirtNew.AlfaItemArmor_TekShirtNew",
+      "Omega": "/Game/Mods/ItensAlfa/Armadura/Omega/AlfaItemArmor_TekShirtNew_O.AlfaItemArmor_TekShirtNew_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armadura/God/AlfaItemArmor_TekShirtNew_GOD.AlfaItemArmor_TekShirtNew_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armadura/Eter/AlfaItemArmor_TekShirtNew_ET.AlfaItemArmor_TekShirtNew_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armadura/Uni/AlfaItemArmor_TekShirtNew_Uni.AlfaItemArmor_TekShirtNew_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armadura/Oni/AlfaItemArmor_TekShirtNew_Oni.AlfaItemArmor_TekShirtNew_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armadura/Surreal/AlfaItemArmor_TekShirtNew_Sur.AlfaItemArmor_TekShirtNew_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armadura/Imater/AlfaItemArmor_TekShirtNew_Im.AlfaItemArmor_TekShirtNew_Im",
+      "Exotico": "/Game/Mods/ItensAlfa/Armadura/Exotico/AlfaItemArmor_TekShirtNew_Ex.AlfaItemArmor_TekShirtNew_Ex"
+    },
+    "TekSword": {
+      "Delta": "/Game/Mods/ItensAlfa/Armas/Delta/AlfaItemWeapon_TekSword_D.AlfaItemWeapon_TekSword_D",
+      "Gama": "/Game/Mods/ItensAlfa/Armas/Gama/AlfaItemWeapon_TekSword_G.AlfaItemWeapon_TekSword_G",
+      "Beta": "/Game/Mods/ItensAlfa/Armas/Beta/AlfaItemWeapon_TekSword_B.AlfaItemWeapon_TekSword_B",
+      "Alfa": "/Game/Mods/ItensAlfa/Armas/AlfaItemWeapon_TekSword.AlfaItemWeapon_TekSword",
+      "Omega": "/Game/Mods/ItensAlfa/Armas/Omega/AlfaItemWeapon_TekSword_O.AlfaItemWeapon_TekSword_O",
+      "Transcendente": "/Game/Mods/ItensAlfa/Armas/God/AlfaItemWeapon_TekSword_GOD.AlfaItemWeapon_TekSword_GOD",
+      "Etereo": "/Game/Mods/ItensAlfa/Armas/Eter/AlfaItemWeapon_TekSword_ET.AlfaItemWeapon_TekSword_ET",
+      "Universal": "/Game/Mods/ItensAlfa/Armas/Uni/AlfaItemWeapon_TekSword_Uni.AlfaItemWeapon_TekSword_Uni",
+      "Onipotente": "/Game/Mods/ItensAlfa/Armas/Oni/AlfaItemWeapon_TekSword_Oni.AlfaItemWeapon_TekSword_Oni",
+      "Surreal": "/Game/Mods/ItensAlfa/Armas/Surreal/AlfaItemWeapon_TekSword_Sur.AlfaItemWeapon_TekSword_Sur",
+      "Imaterial": "/Game/Mods/ItensAlfa/Armas/Imater/AlfaItemWeapon_TekSword_Im.AlfaItemWeapon_TekSword_Im"
+    },
+    "Torch": {
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Torch.AlfaItemTools_Torch"
+    },
+    "Whip": {
+      "Alfa": "/Game/Mods/ItensAlfa/Ferramentas/AlfaItemTools_Whip.AlfaItemTools_Whip"
+    }
+  }
+}

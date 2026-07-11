@@ -6,6 +6,7 @@ Endpoints públicos (player, login_required):
   GET  /api/tribe/my           — visão agregada das tribos do jogador
   POST /api/tribe/register     — ativar painel de tribo
   GET  /api/tribe/members      — membros por mapa
+  POST /api/tribe/members/add  — owner adiciona membro por SteamID (MVP)
   GET  /api/tribe/log/<server> — log por mapa (stub MVP)
   GET  /api/tribe/split        — configuração de split
   POST /api/tribe/split        — criar/atualizar split
@@ -50,12 +51,14 @@ def register_tribe_routes(
         get_active_split,
         get_members_by_map,
         get_my_tribes,
+        backfill_owner_links_from_presence,
         get_or_create_owner,
         get_owner,
         get_regulation,
         get_tribe_log_stub,
         is_tribe_member,
         link_fob,
+        manual_add_member,
         member_optout,
         record_presence,
         save_regulation,
@@ -152,7 +155,10 @@ def register_tribe_routes(
         db = _db()
         try:
             owner = get_or_create_owner(db, steam_id, display_name)
-            return _ok(owner)
+            linked = backfill_owner_links_from_presence(db, steam_id)
+            data = dict(owner)
+            data["maps_linked"] = linked
+            return _ok(data)
         except Exception as exc:
             log.warning("tribe_register error: %s", exc)
             return _fail(str(exc), 500)
@@ -199,12 +205,45 @@ def register_tribe_routes(
         steam_id = steam_id_from_session()
         db = _db()
         try:
-            # Verifica acesso: membro ou admin
-            if not is_admin_steamid(steam_id) and not is_tribe_member(db, steam_id, server_id, tribe_id):
+            # Verifica acesso: membro, owner do painel, ou admin
+            owner = get_owner(db, steam_id)
+            is_panel_owner = bool(owner)
+            if (
+                not is_admin_steamid(steam_id)
+                and not is_tribe_member(db, steam_id, server_id, tribe_id)
+                and not is_panel_owner
+            ):
                 return _fail("Acesso negado — apenas membros da tribo", 403)
             members = get_members_by_map(db, server_id=server_id, tribe_id=tribe_id)
             return _ok(members)
         except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/members/add", methods=["POST"])
+    @login_required
+    def tribe_members_add():
+        """Owner adiciona membro manualmente por SteamID64 (MVP)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            result = manual_add_member(
+                db,
+                owner_steam_id=steam_id,
+                server_id=str(body.get("server_id") or ""),
+                tribe_id=int(body.get("tribe_id") or 0),
+                member_steam_id=str(body.get("steam_id") or ""),
+                character_name=str(body.get("character_name") or ""),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            log.warning("tribe_members_add error: %s", exc)
             return _fail(str(exc), 500)
         finally:
             db.close()

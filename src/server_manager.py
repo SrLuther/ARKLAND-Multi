@@ -668,6 +668,7 @@ class ServerManager:
         on_bm_update: Optional[Callable[[str], None]] = None,
         get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = None,
         get_dynamic_config_url: Optional[Callable[[str], str]] = None,
+        get_mod_path_blacklist: Optional[Callable[[], List[str]]] = None,
         discord_notifier: Optional[Any] = None,
     ) -> None:
         self._instances: Dict[str, ServerInstance] = {}
@@ -678,6 +679,7 @@ class ServerManager:
         self._on_bm_update_cb    = on_bm_update       or (lambda server_id: None)
         self._get_cluster_profile: Optional[Callable[[str], Optional[Any]]] = get_cluster_profile
         self._get_dynamic_config_url: Optional[Callable[[str], str]] = get_dynamic_config_url
+        self._get_mod_path_blacklist = get_mod_path_blacklist
         self._discord_notifier   = discord_notifier
 
         # BattleMetrics poller
@@ -1063,6 +1065,18 @@ class ServerManager:
             dynamic_url = self._get_dynamic_config_url(server_id)
             if dynamic_url:
                 self._emit_log(server_id, f"Config dinâmica ativa: {dynamic_url}", "info")
+        # ── Blacklist: remove pastas de mod que causam crash ─────────────────
+        if cfg.install_dir:
+            bl = (
+                self._get_mod_path_blacklist()
+                if self._get_mod_path_blacklist
+                else None
+            )
+            ModManager.purge_blacklisted_mod_paths(
+                cfg.install_dir,
+                bl,
+                on_log=lambda msg, level: self._emit_log(server_id, msg, level),
+            )
         # ── Restaurar/reparar arquivos .mod antes de iniciar ─────────────────
         if cfg.mods and cfg.install_dir:
             ModManager.ensure_mod_dot_files_before_start(

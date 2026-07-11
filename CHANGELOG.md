@@ -5,6 +5,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.20] - 2026-07-11
+
+### Feature
+
+- Feat (CustomShop / ItensAlfa): 13 criaturas/veículos TEK da planilha (HoverSkiff/Sail, Exo-Mek, Mek, Enforcer, Defender, Submarine, Stryder PerfectPVE) com gates N+N−1; Stryder só PerfectPVE (Delta→Exótico, sem Nuvem/keyvault).
+- Feat (Web Store / Home): mural de avisos editável pelo admin (título + corpo) — schema home_notice no boot, API admin e card na home pública.
+- Feat (Server Manager): mod_path_blacklist em %APPDATA%/ARKLAND-ServerManager/config.json — apaga paths relativos (default ShooterGame/Content/Mods/1565015734/Mek) antes de start/restart e no boot TEK; também após instalar o mod.
+
+### Fix
+
+- Fix (Web Store / Minha Tribo): botão Ativar painel de tribo + fluxo membros — showToast→toast, empty state pós-ativação, modais, backfill de mapas, adicionar membro por SteamID (MVP).
+- Fix (CustomShop / XP): exp_1000 passa a executar AddExperience com ExecuteAsAdmin — jogador comum recebia confirmação sem ganhar XP.
+- Fix (CustomShop / ItensAlfa): remove VisousMod do catálogo — armas/ferramentas/armaduras TEK substituídas por BPs ItensAlfa da planilha; Blindado/Gen2 e armas Exótico sem BP removidos; kits VIP e kit_itensalfa_* actualizados.
+
 ## [1.10.19] - 2026-07-10
 
 ### Feature

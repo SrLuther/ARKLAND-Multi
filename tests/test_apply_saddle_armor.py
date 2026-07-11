@@ -60,8 +60,8 @@ def test_is_saddle_blueprint_desert_titan_platform():
 def test_is_saddle_blueprint_rejects_player_armor():
     assert not is_saddle_blueprint(TEK_HELMET)
     assert not is_saddle_blueprint(
-        "/Game/Mods/VISOUSMod/Blindado/Alfa/"
-        "PrimalItemArmor_MetalHelmet_Alfa.PrimalItemArmor_MetalHelmet_Alfa"
+        "/Game/Mods/ItensAlfa/Armadura/"
+        "AlfaItemArmor_TekHelmet.AlfaItemArmor_TekHelmet"
     )
 
 
