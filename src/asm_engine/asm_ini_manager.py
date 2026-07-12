@@ -1019,10 +1019,9 @@ def _launch_url_params(cfg: AsmServerConfig) -> list[str]:
     ])
     if cfg.exclusive_join:
         params.append("?ExclusiveJoin")
-    from ..ui_constants import normalize_active_event
-    _evt = normalize_active_event(cfg.active_event)
-    if _evt:
-        params.append(f"?ActiveEvent={_evt}")
+    # ActiveEvent NÃO vai na travel URL (?ActiveEvent=) — a wiki ASE exige
+    # a flag -ActiveEvent= (ver _launch_dash_flags). ?ActiveEvent= era ignorado
+    # pelo motor de eventos oficiais (dinos coloridos).
     if cfg.auto_save_period != 15.0:
         params.append(f"?AutoSavePeriodMinutes={cfg.auto_save_period}")
     if cfg.server_ip:
@@ -1046,6 +1045,12 @@ def _launch_dash_flags(cfg: AsmServerConfig) -> list[str]:
         flags.append(f"-TotalConversionMod={cfg.total_conversion_mod_id.strip()}")
 
     flags.extend(["-nosteamclient", "-game", "-server", "-log"])
+
+    # ActiveEvent — wiki ASE: -ActiveEvent=Easter / -ActiveEvent=vday (flag, não ?URL)
+    from ..ui_constants import active_event_launch_flag
+    _evt_flag = active_event_launch_flag(cfg.active_event)
+    if _evt_flag:
+        flags.append(_evt_flag)
 
     if not cfg.use_battleye:
         flags.append("-NoBattlEye")
@@ -1139,10 +1144,16 @@ def _append_additional_args(flags: list[str], extra: str) -> None:
     if not raw:
         return
     import shlex
+    from ..ui_constants import is_active_event_cli_token
     try:
-        flags.extend(shlex.split(raw))
+        tokens = shlex.split(raw)
     except Exception:
-        flags.append(raw)
+        tokens = [raw]
+    # Perfil active_event prevalece — remove -ActiveEvent= / ?ActiveEvent= de Additional Args
+    for token in tokens:
+        if is_active_event_cli_token(token):
+            continue
+        flags.append(token)
 
 
 def build_launch_args(cfg: AsmServerConfig) -> list[str]:

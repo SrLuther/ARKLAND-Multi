@@ -647,10 +647,7 @@ class ServerConfig:
         # causava crash do ArkShopUI.dll no FTimerManager::Tick ~5min após conectar.
         if self.whitelist_only:
             params.append("?ExclusiveJoin")
-        from .ui_constants import normalize_active_event
-        _evt = normalize_active_event(self.active_event)
-        if _evt:
-            params.append(f"?ActiveEvent={_evt}")
+        # ActiveEvent: wiki ASE exige -ActiveEvent= (flag), não ?ActiveEvent= na travel URL
         if self.auto_save_period != 15.0:
             params.append(f"?AutoSavePeriodMinutes={self.auto_save_period}")
         if self.server_ip:
@@ -698,6 +695,11 @@ class ServerConfig:
         ]
         # -port e -queryport omitidos: ?Port= e ?QueryPort= já estão nos params.
         # ASM usa apenas ?Port= — ter ambos causava inicialização duplicada.
+
+        from .ui_constants import active_event_launch_flag, is_active_event_cli_token
+        _evt_flag = active_event_launch_flag(self.active_event)
+        if _evt_flag:
+            flags.append(_evt_flag)
 
         if not self.use_battleye:
             flags.append("-NoBattlEye")
@@ -793,12 +795,20 @@ class ServerConfig:
 
         if self.extra_args:
             # Evita duplicar flags já inseridas (ex: -UseDynamicConfig via extra_args)
+            import shlex
             extra = self.extra_args
             for _dedup_flag in ("-UseDynamicConfig",):
                 if _dedup_flag.lower() in " ".join(flags).lower() and _dedup_flag.lower() in extra.lower():
                     extra = extra.replace(_dedup_flag, "").strip()
             if extra:
-                flags.append(extra)
+                try:
+                    extra_tokens = shlex.split(extra)
+                except Exception:
+                    extra_tokens = [extra]
+                # Perfil active_event prevalece sobre ActiveEvent em extra_args
+                for token in extra_tokens:
+                    if not is_active_event_cli_token(token):
+                        flags.append(token)
 
         args_str = "".join(params)
         flags_str = " ".join(flags)

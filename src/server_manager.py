@@ -1091,6 +1091,18 @@ class ServerManager:
         # Substitui o placeholder do executável pelo caminho real
         full_cmd = launch_str.replace(f'"{cfg.server_exe}"', f'"{exe_path}"', 1)
 
+        from .ui_constants import active_event_launch_flag, normalize_active_event
+        _evt = normalize_active_event(cfg.active_event)
+        if _evt:
+            _flag = active_event_launch_flag(_evt)
+            self._emit_log(server_id, f"ActiveEvent CLI: {_flag}", "info")
+            if _flag and _flag not in full_cmd:
+                self._emit_log(
+                    server_id,
+                    f"AVISO: {_flag} ausente na cmdline — evento sazonal pode não aplicar.",
+                    "warning",
+                )
+
         self._emit_log(server_id, f"Iniciando: {full_cmd}", "info")
 
         # ── ENV DEBUG ─────────────────────────────────────────────────────────

@@ -208,8 +208,9 @@ EXTRA_HINTS: dict[str, str] = {
     "branch_password": "Senha da branch beta, se exigida pelo SteamCMD.",
     "total_conversion_mod_id": "Workshop ID de um mod que substitui o jogo base (total conversion).",
     "active_event": (
-        "ActiveEvent — eventos oficiais: Páscoa (Easter), Halloween (FearEvolved), "
-        "Natal (WinterWonderland), Verão (SummerEvo), etc. Vazio = sem evento."
+        "ActiveEvent — eventos oficiais ASE via -ActiveEvent= na cmdline: "
+        "Páscoa (Easter), Halloween (FearEvolved), Natal (WinterWonderland), "
+        "Namorados (vday), Verão (Summer), etc. Reinicie o mapa e DestroyWildDinos."
     ),
     "auto_save_period": "Intervalo em minutos entre autosaves do mundo.",
     "additional_args": "Flags extras na linha de comando. Evite duplicar opções já configuradas acima.",

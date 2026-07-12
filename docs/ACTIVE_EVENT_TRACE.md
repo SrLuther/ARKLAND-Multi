@@ -3,8 +3,8 @@
 Documentação do fluxo `active_event` (Evento sazonal ARK) desde a UI até dinos coloridos no servidor.
 
 > **Dois sistemas distintos:**  
-> - **Evento sazonal ARK** (`active_event`) → `ActiveEvent=Easter` no INI + `?ActiveEvent=Easter` na CLI → dinos/itens de evento oficial.  
-> - **Eventos Sazonais (buff)** → só altera rates no INI; **não** ativa Páscoa/Halloween.
+> - **Evento sazonal ARK** (`active_event`) → `ActiveEvent=Easter` no INI + **`-ActiveEvent=Easter`** na CLI → dinos/itens de evento oficial.  
+> - **Eventos Globais / rates (buff)** → só altera rates no INI; **não** ativa Páscoa/Halloween.
 
 ---
 
@@ -14,9 +14,9 @@ Documentação do fluxo `active_event` (Evento sazonal ARK) desde a UI até dino
 |-------|-----------------|-------|
 | Perfil TEK JSON | `%APPDATA%\ARKLAND-ServerManager\asm_servers.json` → `"active_event": "Easter"` | Fonte de verdade na UI |
 | Perfil legado | `%APPDATA%\ARKLAND-ServerManager\servers.json` → `active_event` | Modo primitivo |
-| GUS (runtime) | `{install_dir}\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini` | Seção `[ServerSettings]`, chave `ActiveEvent=Easter` |
+| GUS (runtime) | `{install_dir}\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini` | Seção `[ServerSettings]`, chave `ActiveEvent=Easter` (espelho / admin) |
 | Pasta custom INI | `user_config_folder\GameUserSettings.ini` | **Espelho** — ARK não lê diretamente |
-| CLI / RunServer.cmd | `funny_map?listen?Port=…?ActiveEvent=Easter` | Gerado em `build_launch_args()` |
+| CLI / RunServer.cmd | `… -ActiveEvent=Easter` | **Flag ASE oficial** (wiki). Gerado em `build_launch_args()` |
 | Backup buff | `ARKLAND SERVER\BACKUP\.ini\{pasta_servidor}\*.zip` | Zip de GUS+Game.ini antes de buff de rates |
 | Web Store | `seasonal_event_active` | Reflete **BuffManager**, não `active_event` |
 
@@ -24,14 +24,21 @@ Documentação do fluxo `active_event` (Evento sazonal ARK) desde a UI até dino
 
 ---
 
+## Causa raiz (v1.10.24+)
+
+A wiki ASE documenta **`-ActiveEvent=`** (flag com hífen). O TEK emitia **`?ActiveEvent=`** dentro da travel URL do mapa. O processo podia mostrar `ActiveEvent=vday` no cmdline (como query), mas o motor de eventos oficiais **não** tratava isso como a flag — daí Páscoa/Namorados “marcados” na UI sem dinos coloridos.
+
+Correção: emitir **`-ActiveEvent=<id>`** em `_launch_dash_flags` / `ServerConfig.build_launch_args`; manter `ActiveEvent=` no GUS; sincronizar o combo do painel aberto ao aplicar Eventos Globais (evita wipe no restart).
+
+---
+
 ## Fluxo ao salvar (servidor parado)
 
 ```mermaid
 flowchart TD
-    UI["Administração → Evento sazonal ARK\nCombo Easter"]
-    SAVE["Botão Salvar / _asm_persist_server"]
-    SYNC["_sync_ui_to_cfg\nlabel → ID Easter"]
-    JSON["asm_servers.json\nactive_event=Easter"]
+    UI["Eventos Globais / Administração\nCombo Easter"]
+    SAVE["Aplicar / Salvar"]
+    SYNC["perfil JSON active_event"]
     WI["write_ini()"]
     GUS["WindowsServer/GameUserSettings.ini\nActiveEvent=Easter"]
     MIRROR["mirror_ini_to_user_config_folder()"]
@@ -39,14 +46,13 @@ flowchart TD
 
     UI --> SAVE
     SAVE --> SYNC
-    SYNC --> JSON
     SYNC --> WI
     WI --> GUS
     WI --> MIRROR
     MIRROR --> CUSTOM
 ```
 
-**Arquivos:** `asm_server_panel._save` → `asm_config_manager.update_server` → `asm_ini_manager.write_ini`.
+**Arquivos:** `global_active_event.apply_active_event_to_server` / `asm_server_panel._save` → `asm_config_manager.update_server` → `asm_ini_manager.write_ini`.
 
 ---
 
@@ -57,7 +63,7 @@ flowchart TD
     START["Iniciar / Restart / buff_start_server"]
     PERSIST["_asm_persist_server\nwidgets → JSON → write_ini"]
     WI["write_ini + mirror"]
-    ARGS["build_launch_args()\n?ActiveEvent=Easter"]
+    ARGS["build_launch_args()\n-ActiveEvent=Easter"]
     RSC["RunServer.cmd"]
     PROC["Processo ShooterGameServer.exe"]
 
@@ -75,75 +81,54 @@ O ARK aplica `ActiveEvent` **somente no startup**. Dinosaurs já spawnados preci
 
 ---
 
-## Bugs encontrados e correções
+## IDs oficiais (UI → CLI)
 
-### 1. Pasta `user_config_folder` dessincronizada (causa provável Brighamia)
+| ID (`-ActiveEvent=`) | Rótulo UI |
+|----------------------|-----------|
+| `Easter` | Páscoa |
+| `vday` | Dia dos Namorados |
+| `FearEvolved` | Halloween |
+| `WinterWonderland` | Natal |
+| `TurkeyTrial` | Ação de Graças |
+| `Summer` | Verão |
+| `birthday` | Aniversário ARK |
+| `Arkaeology` | Arkaeology |
+| `ExtinctionChronicles` | Extinction Chronicles |
 
-**Problema:** `read_ini` lia da pasta custom; `write_ini` gravava em `WindowsServer` e copiava para custom. Após restore de buff ou edição manual só na pasta custom, o **servidor lia INI sem `ActiveEvent`** enquanto o perfil/UI ainda mostravam Easter.
-
-**Correção:** `_ini_path_for_cfg` usa sempre `WindowsServer` para leitura e escrita; `mirror_ini_to_user_config_folder()` espelha após gravação e após restore de buff.
-
-### 2. BuffManager apagava ActiveEvent no restore
-
-**Problema:** `restore_ini_from_backup` substituía GUS inteiro pelo zip pré-buff (sem Easter). `_sync_profile_from_ini` relia rates do backup.
-
-**Correção:** `resolve_preserve_active_event()` mantém `cfg.active_event` / GUS após restore; espelho para pasta custom.
-
-### 3. `custom_gus_ini_raw` podia sobrescrever ActiveEvent
-
-**Problema:** injeção de raw INI ocorria depois do `INI_MAP`, podendo remover ou alterar `ActiveEvent`.
-
-**Correção:** re-aplicar `ActiveEvent` do perfil **depois** de todos os blocos raw, antes de gravar.
-
-### 4. Buff start sem persistir perfil
-
-**Problema:** `buff_start_server` chamava `asm_server_manager.start` sem `_asm_persist_server`.
-
-**Correção:** `buff_start_server` chama `_asm_persist_server` antes do start (TEK).
+Aliases legados → canônicos: `ARKEaster`→`Easter`, `LoveEvolved`→`vday`, `Anniversary`→`birthday`, `SummerBash`→`Summer`.
 
 ---
 
-## O que NÃO é bug de código
+## Como o admin aplica e verifica
 
-| Sintoma | Causa |
-|---------|--------|
-| UI mostra Easter, dinos normais | Falta `DestroyWildDinos` após restart com evento novo |
-| Web mostra “evento sazonal” | Buff de rates ativo — não é `ActiveEvent` |
-| Mapa mod `funny_map` | CLI `?ActiveEvent=Easter` funciona igual; evento é global do ASE |
-
----
-
-## Como verificar (Brighamia / funny_map)
-
-1. Parar servidor.
-2. TEK → Administração → Evento sazonal ARK → Easter → **Salvar**.
+1. **Eventos Globais** → escolher evento (ex. Easter) → marcar mapas → **Aplicar e reiniciar**.
+2. No log do start: `ActiveEvent CLI: -ActiveEvent=Easter`.
 3. Confirmar perfil:
    ```powershell
-   Select-String -Path "$env:APPDATA\ARKLAND-ServerManager\asm_servers.json" -Pattern "active_event|Brighamia"
+   Select-String -Path "$env:APPDATA\ARKLAND-ServerManager\asm_servers.json" -Pattern "active_event"
    ```
 4. Confirmar GUS:
    ```powershell
-   Select-String -Path "C:\ARKLAND SERVER\MAPAS\BR\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini" -Pattern "ActiveEvent"
+   Select-String -Path "C:\ARKLAND SERVER\MAPAS\CRYSTAL\ShooterGame\Saved\Config\WindowsServer\GameUserSettings.ini" -Pattern "ActiveEvent"
    ```
-5. Iniciar servidor pelo TEK.
-6. Confirmar CLI:
+5. Confirmar CLI (tem de ser **hífen**, não `?`):
    ```powershell
-   Select-String -Path "C:\ARKLAND SERVER\MAPAS\BR\ShooterGame\Saved\Config\WindowsServer\RunServer.cmd" -Pattern "ActiveEvent"
+   Select-String -Path "C:\ARKLAND SERVER\MAPAS\CRYSTAL\ShooterGame\Saved\Config\WindowsServer\RunServer.cmd" -Pattern "ActiveEvent"
    ```
-7. No jogo (RCON): `DestroyWildDinos` — respawn aplica skins de Páscoa.
+   Esperado: `-ActiveEvent=Easter` (ou `vday`, etc.).
+6. No jogo (RCON): `DestroyWildDinos` — respawn aplica skins de evento.
 
 ---
 
 ## Referências de código
 
-| Etapa | Arquivo | Linhas (aprox.) |
-|-------|---------|-----------------|
-| Campo UI | `src/asm_ui/asm_server_panel.py` | `_event_combo_entry`, `_save`, `_sync_ui_to_cfg` |
-| INI_MAP | `src/asm_engine/asm_ini_manager.py` | `active_event` → `ServerSettings/ActiveEvent` |
-| write_ini + mirror | `src/asm_engine/asm_ini_manager.py` | `write_ini`, `mirror_ini_to_user_config_folder` |
-| CLI | `src/asm_engine/asm_ini_manager.py` | `_launch_url_params`, `build_launch_args` |
-| Start | `src/asm_engine/asm_server_manager.py` | `start`, `_start_worker` |
-| Persist start | `src/app_tek.py` | `_asm_persist_server` |
-| Buff restore | `src/buff_ini_backups.py` | `restore_ini_from_backup` |
-| Buff start | `src/buff_server_bridge.py` | `buff_start_server` |
-| Normalização IDs | `src/ui_constants.py` | `normalize_active_event`, `ARKEaster`→`Easter` |
+| Etapa | Arquivo |
+|-------|---------|
+| IDs + `-ActiveEvent=` helper | `src/ui_constants.py` |
+| Campo UI servidor | `src/asm_ui/asm_server_panel.py` |
+| Eventos Globais | `src/pages/global_active_event.py` |
+| INI + CLI TEK | `src/asm_engine/asm_ini_manager.py` |
+| CLI legado | `src/server_config.py` |
+| Start TEK | `src/asm_engine/asm_server_manager.py` |
+| Persist start | `src/app_tek.py` (`_asm_persist_server`) |
+| Buff restore | `src/buff_ini_backups.py` |

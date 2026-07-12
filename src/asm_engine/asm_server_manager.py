@@ -374,6 +374,22 @@ class AsmServerManager:
             args = build_launch_args(cfg)
             full_cmd = f'"{exe}" ' + " ".join(args)
 
+            from ..ui_constants import active_event_launch_flag, normalize_active_event
+            _evt = normalize_active_event(cfg.active_event)
+            if _evt:
+                _flag = active_event_launch_flag(_evt)
+                self._on_log(
+                    f"[{cfg.name}] ActiveEvent CLI: {_flag} "
+                    f"(verifique em RunServer.cmd / process cmdline)",
+                    "info",
+                )
+                if _flag and _flag not in full_cmd:
+                    self._on_log(
+                        f"[{cfg.name}] AVISO: {_flag} ausente na cmdline gerada — "
+                        "evento sazonal pode não aplicar.",
+                        "warning",
+                    )
+
             # 3. Gera RunServer.cmd idêntico ao ASM SaveLauncher
             _CREATE_BREAKAWAY_FROM_JOB = 0x01000000
             _run_server_cmd_path: Optional[Path] = None

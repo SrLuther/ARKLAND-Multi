@@ -23,6 +23,44 @@ def test_event_id_from_combo_label_none():
     assert event_id_from_combo_label("(nenhum evento)") == ""
 
 
+def test_event_id_from_combo_label_vday():
+    label = "Love Evolved — Dia dos Namorados 💝"
+    assert event_id_from_combo_label(label) == "vday"
+
+
+def test_apply_active_event_syncs_open_tek_panel_var(tmp_path):
+    """Painel TEK aberto com combo stale não deve apagar o evento no próximo persist."""
+    install = tmp_path / "srv"
+    (install / "ShooterGame" / "Saved" / "Config" / "WindowsServer").mkdir(parents=True)
+
+    srv = AsmServerConfig(
+        id="tek-1",
+        name="Test TEK",
+        install_dir=str(install),
+        active_event="",
+    )
+    asm_cm = MagicMock()
+    asm_cm.get_server.return_value = srv
+
+    stale = MagicMock()
+    stale.get.return_value = "(nenhum evento)"
+    app = MagicMock()
+    app.asm_config_manager = asm_cm
+    app._asm_panel_vars = {"tek-1": {"active_event": stale}}
+
+    entry = BuffServerEntry(id="tek-1", name="Test TEK", kind="tek", label="Test TEK (TEK)")
+    result = apply_active_event_to_server(app, entry, "Easter")
+
+    assert result.ok
+    stale.set.assert_called()
+    call_arg = stale.set.call_args[0][0]
+    assert "Easter" in call_arg or "Páscoa" in call_arg
+
+
+def test_event_id_from_combo_label_none():
+    assert event_id_from_combo_label("(nenhum evento)") == ""
+
+
 def test_apply_active_event_tek_writes_ini(tmp_path):
     install = tmp_path / "srv"
     (install / "ShooterGame" / "Saved" / "Config" / "WindowsServer").mkdir(parents=True)

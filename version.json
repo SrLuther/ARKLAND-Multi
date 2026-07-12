@@ -1,8 +1,8 @@
 {
-    "version": "1.10.24",
+    "version": "1.10.25",
     "date": "2026-07-12",
-    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.24/ARKLAND-Multi-Setup-v1.10.24.exe",
+    "download_url": "https://github.com/SrLuther/ARKLAND-Multi/releases/download/v1.10.25/ARKLAND-Multi-Setup-v1.10.25.exe",
     "changelog": [
-        "Fix (Web Store / Sorteio): editor de campanha lista automaticamente kits e licenças do catálogo CustomShop (checkboxes via `GET /api/admin/lottery/prize-options`); corrige dropdown vazio por IDs duplicados no `<select>`; cada ganhador recebe 1× de cada prémio extra seleccionado + parcela de Âmbares; entrega automática no draw."
+        "Fix (ActiveEvent / ASE): a cmdline passa a usar a flag oficial `-ActiveEvent=` (wiki) em vez de `?ActiveEvent=` na travel URL — corrige Páscoa, vday e demais eventos que apareciam no log mas não ativavam dinos coloridos; perfil prevalece sobre Additional Args; aplicar Eventos Globais sincroniza o combo do painel aberto (evita wipe)."
     ]
 }

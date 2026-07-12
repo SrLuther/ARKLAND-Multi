@@ -47,6 +47,29 @@ def event_id_from_combo_label(label: str) -> str:
     return normalize_active_event(_ARK_EVENT_LABEL_TO_ID.get(raw, raw))
 
 
+def _sync_open_panel_active_event(app: Any, server_id: str, event_id: str) -> None:
+    """Atualiza o combo do painel TEK/legado aberto para não apagar o evento no próximo start."""
+    label = _ARK_EVENT_ID_TO_LABEL.get(event_id, event_id) or "(nenhum evento)"
+
+    # Painel TEK (AsmServerConfig)
+    tek_vars = getattr(app, "_asm_panel_vars", {}).get(server_id, {})
+    tek_var = tek_vars.get("active_event") if isinstance(tek_vars, dict) else None
+    if tek_var is not None:
+        try:
+            tek_var.set(label)
+        except Exception:
+            pass
+
+    # Painel legado (widgets por servidor)
+    leg_widgets = getattr(app, "_server_widgets", {}).get(server_id, {})
+    leg_var = leg_widgets.get("active_event") if isinstance(leg_widgets, dict) else None
+    if leg_var is not None:
+        try:
+            leg_var.set(label)
+        except Exception:
+            pass
+
+
 def apply_active_event_to_server(app: Any, entry: BuffServerEntry, event_id: str) -> ApplyActiveEventResult:
     """Define ``active_event`` no perfil e grava GameUserSettings.ini."""
     event_id = normalize_active_event(event_id)
@@ -70,6 +93,7 @@ def apply_active_event_to_server(app: Any, entry: BuffServerEntry, event_id: str
                 write_ini(srv)
                 mirror_ini_to_user_config_folder(srv)
             asm_cm.save()
+            _sync_open_panel_active_event(app, entry.id, event_id)
             label = _ARK_EVENT_ID_TO_LABEL.get(event_id, event_id) or "(nenhum)"
             return ApplyActiveEventResult(
                 entry.id, entry.name, True, f"ActiveEvent → {label or 'removido'}",
@@ -88,6 +112,7 @@ def apply_active_event_to_server(app: Any, entry: BuffServerEntry, event_id: str
 
             ArkIniManager(srv.install_dir).save_game_user_settings(srv)
         app.config_manager.save()
+        _sync_open_panel_active_event(app, entry.id, event_id)
         label = _ARK_EVENT_ID_TO_LABEL.get(event_id, event_id) or "(nenhum)"
         return ApplyActiveEventResult(
             entry.id, entry.name, True, f"ActiveEvent → {label or 'removido'}",
@@ -359,8 +384,9 @@ def build_global_active_event_section(app: "ARKServerManagerApp", parent) -> Non
     ctk.CTkLabel(
         card,
         text=(
-            "Define ActiveEvent no INI (Páscoa, Halloween…). "
-            "Agende data/hora para avisos RCON, restart automático e 1 h de broadcasts."
+            "Define -ActiveEvent= na linha de comando ASE (Páscoa, Halloween…). "
+            "Agende data/hora para avisos RCON, restart automático e 1 h de broadcasts. "
+            "Após reiniciar, rode DestroyWildDinos para respawnar dinos coloridos."
         ),
         text_color="gray55",
         font=ctk.CTkFont(size=11),
@@ -465,10 +491,12 @@ def build_global_active_event_section(app: "ARKServerManagerApp", parent) -> Non
             "Quando usar cada botão:\n"
             "• Agendar evento — escolhe data/hora futura; o TEK avisa no jogo (10/5/3/2/1 min), "
             "reinicia sozinho na hora e notifica por 1 h. Use para Páscoa/Halloween em horário marcado.\n"
-            "• Aplicar — grava o evento no INI agora, sem reiniciar. O efeito só entra no próximo restart "
+            "• Aplicar — grava o evento no perfil/INI agora, sem reiniciar. O efeito só entra no próximo restart "
             "(ex.: restart das 3h ou manual depois).\n"
-            "• Aplicar e reiniciar — grava e reinicia na hora os mapas marcados. "
-            "Use quando quiser dinos coloridos já no próximo respawn."
+            "• Aplicar e reiniciar — grava e reinicia na hora os mapas marcados.\n\n"
+            "Como verificar: no log do start deve aparecer «ActiveEvent CLI: -ActiveEvent=Easter» "
+            "(ou vday, FearEvolved…). Em RunServer.cmd do mapa, procure -ActiveEvent= (com hífen). "
+            "Depois do restart, DestroyWildDinos para skins novas."
         ),
         text_color="gray55",
         font=ctk.CTkFont(size=10),

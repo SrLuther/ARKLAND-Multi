@@ -5,6 +5,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.25] - 2026-07-12
+
+### Fix
+
+- Fix (ActiveEvent / ASE): a cmdline passa a usar a flag oficial `-ActiveEvent=` (wiki) em vez de `?ActiveEvent=` na travel URL — corrige Páscoa, vday e demais eventos que apareciam no log mas não ativavam dinos coloridos; perfil prevalece sobre Additional Args; aplicar Eventos Globais sincroniza o combo do painel aberto (evita wipe).
+
 ## [1.10.24] - 2026-07-12
 
 ### Fix

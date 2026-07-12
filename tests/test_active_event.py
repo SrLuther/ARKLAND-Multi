@@ -1,13 +1,22 @@
 """ActiveEvent — valores oficiais ARK e escrita INI/CLI (TEK + clássico)."""
 from __future__ import annotations
 
-from src.asm_engine.asm_ini_manager import INI_MAP, _launch_url_params, read_ini, write_ini
+from src.asm_engine.asm_ini_manager import (
+    INI_MAP,
+    _launch_dash_flags,
+    _launch_url_params,
+    build_launch_args,
+    read_ini,
+    write_ini,
+)
 from src.buff_ini_backups import backup_ini_files, restore_ini_from_backup
 from src.asm_engine.asm_server_config import AsmServerConfig
 from src.server_config import ServerConfig
 from src.ui_constants import (
     _ARK_EVENT_LABEL_TO_ID,
     _ARK_EVENT_LEGACY_ALIASES,
+    _ARK_OFFICIAL_EVENTS,
+    active_event_launch_flag,
     normalize_active_event,
 )
 
@@ -22,27 +31,80 @@ def test_normalize_active_event_legacy_aliases():
     assert normalize_active_event("") == ""
 
 
+def test_normalize_active_event_case_insensitive():
+    assert normalize_active_event("easter") == "Easter"
+    assert normalize_active_event("VDAY") == "vday"
+    assert normalize_active_event("fearevolved") == "FearEvolved"
+    assert normalize_active_event("loveevolved") == "vday"
+
+
+def test_active_event_launch_flag():
+    assert active_event_launch_flag("Easter") == "-ActiveEvent=Easter"
+    assert active_event_launch_flag("vday") == "-ActiveEvent=vday"
+    assert active_event_launch_flag("ARKEaster") == "-ActiveEvent=Easter"
+    assert active_event_launch_flag("") == ""
+    assert active_event_launch_flag("None") == ""
+
+
+def test_official_events_cover_seasonal_set():
+    ids = {eid for eid, _ in _ARK_OFFICIAL_EVENTS if eid}
+    assert {"Easter", "vday", "FearEvolved", "Summer", "WinterWonderland", "TurkeyTrial"} <= ids
+
+
 def test_easter_label_maps_to_official_active_event_id():
     label = "Easter — Páscoa / Eggcellent Adventure 🐣"
     assert _ARK_EVENT_LABEL_TO_ID[label] == "Easter"
 
 
-def test_launch_url_params_use_normalized_easter():
+def test_launch_uses_dash_active_event_not_url_param():
+    """Wiki ASE: -ActiveEvent= (flag). ?ActiveEvent= na travel URL NÃO ativa o evento."""
     cfg = AsmServerConfig()
     cfg.server_map = "TheIsland"
     cfg.active_event = "ARKEaster"
-    params = _launch_url_params(cfg)
-    joined = "".join(params)
-    assert "?ActiveEvent=Easter" in joined
-    assert "ARKEaster" not in joined
+    url = "".join(_launch_url_params(cfg))
+    flags = _launch_dash_flags(cfg)
+    assert "?ActiveEvent=" not in url
+    assert "-ActiveEvent=Easter" in flags
+    assert "ARKEaster" not in " ".join(flags)
 
 
-def test_server_config_launch_args_use_easter():
+def test_build_launch_args_includes_dash_active_event():
+    cfg = AsmServerConfig()
+    cfg.server_map = "TheIsland"
+    cfg.active_event = "vday"
+    joined = " ".join(build_launch_args(cfg))
+    assert "-ActiveEvent=vday" in joined
+    assert "?ActiveEvent=" not in joined
+
+
+def test_additional_args_active_event_does_not_override_profile():
+    cfg = AsmServerConfig()
+    cfg.server_map = "TheIsland"
+    cfg.active_event = "Easter"
+    cfg.additional_args = "-ActiveEvent=FearEvolved ?ActiveEvent=Summer"
+    joined = " ".join(build_launch_args(cfg))
+    assert joined.count("ActiveEvent=") == 1
+    assert "-ActiveEvent=Easter" in joined
+    assert "FearEvolved" not in joined
+    assert "ActiveEvent=Summer" not in joined
+
+
+def test_server_config_launch_args_use_dash_easter():
     srv = ServerConfig()
     srv.active_event = "ARKEaster"
     args = srv.build_launch_args()
-    assert "?ActiveEvent=Easter" in args
+    assert "-ActiveEvent=Easter" in args
+    assert "?ActiveEvent=" not in args
     assert "ARKEaster" not in args
+
+
+def test_server_config_extra_args_cannot_override_active_event():
+    srv = ServerConfig()
+    srv.active_event = "vday"
+    srv.extra_args = "-ActiveEvent=Easter"
+    args = srv.build_launch_args()
+    assert "-ActiveEvent=vday" in args
+    assert args.count("ActiveEvent=") == 1
 
 
 def test_ini_map_includes_active_event():
@@ -184,14 +246,14 @@ def test_read_ini_uses_windows_server_not_stale_custom_folder(tmp_path):
     assert cfg.active_event == "Easter"
 
 
-def test_funny_map_launch_includes_active_event():
+def test_funny_map_launch_includes_dash_active_event():
     cfg = AsmServerConfig()
     cfg.server_map = "funny_map"
     cfg.active_event = "Easter"
-    params = _launch_url_params(cfg)
-    joined = "".join(params)
-    assert joined.startswith("funny_map")
-    assert "?ActiveEvent=Easter" in joined
+    joined = " ".join(build_launch_args(cfg))
+    assert "funny_map" in joined
+    assert "-ActiveEvent=Easter" in joined
+    assert "?ActiveEvent=" not in joined
 
 
 def test_legacy_aliases_cover_removed_wrong_ids():

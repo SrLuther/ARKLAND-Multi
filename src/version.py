@@ -3,11 +3,22 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.24"
+APP_VERSION: str = "1.10.25"
 BUILD_DATE: str = "2026-07-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.25",
+        "date": "2026-07-12",
+        "changes": [
+            "Fix (ActiveEvent / ASE): a cmdline passa a usar a flag oficial "
+            "`-ActiveEvent=` (wiki) em vez de `?ActiveEvent=` na travel URL — "
+            "corrige Páscoa, vday e demais eventos que apareciam no log mas não "
+            "ativavam dinos coloridos; perfil prevalece sobre Additional Args; "
+            "aplicar Eventos Globais sincroniza o combo do painel aberto (evita wipe).",
+        ],
+    },
     {
         "version": "1.10.24",
         "date": "2026-07-12",

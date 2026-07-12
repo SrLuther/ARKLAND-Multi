@@ -211,7 +211,8 @@ _STATUS_LABEL = {
 }
 
 # Eventos oficiais ARK: Survival Evolved  (valor ActiveEvent → rótulo exibido)
-# Valores conforme wiki ARK / -ActiveEvent= na linha de comando (361.x).
+# Valores conforme wiki ARK / -ActiveEvent= na linha de comando (ASE).
+# A wiki documenta a flag com hífen (-ActiveEvent=), NÃO ?ActiveEvent= na travel URL.
 _ARK_OFFICIAL_EVENTS: List[tuple] = [
     ("",                     "(nenhum evento)"),
     ("FearEvolved",          "FearEvolved — Halloween 🎃"),
@@ -236,14 +237,39 @@ _ARK_EVENT_LABEL_TO_ID = {v: k for k, v in _ARK_OFFICIAL_EVENTS}
 for _legacy_id, _canonical_id in _ARK_EVENT_LEGACY_ALIASES.items():
     if _canonical_id in _ARK_EVENT_ID_TO_LABEL:
         _ARK_EVENT_ID_TO_LABEL[_legacy_id] = _ARK_EVENT_ID_TO_LABEL[_canonical_id]
+_ARK_EVENT_ID_BY_LOWER = {k.lower(): k for k, _ in _ARK_OFFICIAL_EVENTS if k}
+_ARK_EVENT_LEGACY_BY_LOWER = {k.lower(): v for k, v in _ARK_EVENT_LEGACY_ALIASES.items()}
 
 
 def normalize_active_event(value: str) -> str:
-    """Normaliza ActiveEvent para o valor aceito pelo ARK (-ActiveEvent= / ?ActiveEvent=)."""
+    """Normaliza ActiveEvent para o valor aceito pelo ARK (-ActiveEvent=)."""
     v = (value or "").strip()
     if not v or v.lower() == "none":
         return ""
-    return _ARK_EVENT_LEGACY_ALIASES.get(v, v)
+    # Aliases legados (exact + case-insensitive)
+    if v in _ARK_EVENT_LEGACY_ALIASES:
+        v = _ARK_EVENT_LEGACY_ALIASES[v]
+    else:
+        legacy = _ARK_EVENT_LEGACY_BY_LOWER.get(v.lower())
+        if legacy is not None:
+            v = legacy
+    # Canoniza IDs oficiais (ex.: easter → Easter, VDAY → vday)
+    canon = _ARK_EVENT_ID_BY_LOWER.get(v.lower())
+    if canon is not None:
+        return canon
+    return v
+
+
+def active_event_launch_flag(value: str) -> str:
+    """Flag ASE oficial: ``-ActiveEvent=Easter`` (ou string vazia se nenhum)."""
+    eid = normalize_active_event(value)
+    return f"-ActiveEvent={eid}" if eid else ""
+
+
+def is_active_event_cli_token(token: str) -> bool:
+    """True se o token é ActiveEvent na CLI (? ou -), a remover/deduplicar."""
+    t = (token or "").strip().lower()
+    return t.startswith("-activeevent=") or t.startswith("?activeevent=")
 
 
 def _parse_listplayers(response: str) -> list:
