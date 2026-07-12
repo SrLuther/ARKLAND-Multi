@@ -4,6 +4,7 @@
 #include "ShopConfig.h"
 #include "ShopStore.h"
 #include "ShopPoints.h"
+#include "ShopDebug.h"
 
 namespace {
 
@@ -176,6 +177,26 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
             WinHttpCloseHandle(hConnect);
             return "";
         }
+        DWORD status_code = 0;
+        DWORD status_size = sizeof(status_code);
+        if (WinHttpQueryHeaders(
+                hRequest,
+                WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                WINHTTP_HEADER_NAME_BY_INDEX,
+                &status_code,
+                &status_size,
+                WINHTTP_NO_HEADER_INDEX)) {
+            if (status_code >= 400) {
+                Log::GetLog()->warn(
+                    "HttpClient: POST HTTP {} path_host={}", status_code, host);
+                CustomShop::Debug::Fields hf;
+                hf.extra = {{"http_status", static_cast<int>(status_code)},
+                            {"host", host}};
+                CustomShop::Debug::Warn(
+                    "Http", hf,
+                    "POST HTTP " + std::to_string(status_code));
+            }
+        }
         DWORD bytes_avail = 0, bytes_read = 0;
         char buf[4096];
         while (WinHttpQueryDataAvailable(hRequest, &bytes_avail) && bytes_avail > 0) {
@@ -187,6 +208,10 @@ std::string HttpPostJson(const std::string& url, const std::string& json_body) {
                 } else break;
             }
         }
+    } else {
+        CustomShop::Debug::Fields hf;
+        hf.extra = {{"host", host}, {"timeout_ms_send", kHttpSendMs}};
+        CustomShop::Debug::Warn("Http", hf, "POST WinHttpSendRequest failed / timeout");
     }
 
     WinHttpCloseHandle(hRequest);
@@ -413,6 +438,14 @@ bool DeliverPending(AShooterPlayerController* controller) {
             }
             Log::GetLog()->error("HttpClient: failed to deliver '{}' for order {} ({})",
                                  item_id, order_id, fail_reason);
+            CustomShop::Debug::Fields df;
+            df.steam_id = steam_id;
+            df.order_id = order_id;
+            df.extra = {{"item_id", item_id},
+                        {"item_type", item_type},
+                        {"fail_reason", fail_reason}};
+            CustomShop::Debug::Error("Shop", df,
+                                     "deliver failed: " + fail_reason);
         }
     }
 

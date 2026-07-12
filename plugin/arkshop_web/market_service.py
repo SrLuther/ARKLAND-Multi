@@ -13,6 +13,7 @@ from market_economy import (
     apply_economy_meta,
     build_multipliers_from_defaults,
     build_catalog_economy_map,
+    ensure_catalog_species_in_defaults,
     is_catalog_dino_level1,
     iter_catalog_dinos,
     iter_economy_groups,
@@ -557,6 +558,13 @@ def feed_catalog_to_market(
     seen_groups: set[str] = set()
     seen_bp_norms: set[str] = set()
 
+    # Garante defaults para dinos L1 da loja ainda sem espécie econômica.
+    defaults_sync: dict[str, Any] = {}
+    try:
+        defaults_sync = ensure_catalog_species_in_defaults(catalog, write=True)
+    except Exception as exc:
+        defaults_sync = {"ok": False, "error": str(exc), "added": 0}
+
     feed_catalog = catalog
     if item_ids:
         allowed = {str(i).strip() for i in item_ids if str(i).strip()}
@@ -669,6 +677,7 @@ def feed_catalog_to_market(
         "species_keys": items,
         "promoted_listings": promoted,
         "level1_only": level1_only,
+        "defaults_sync": defaults_sync,
         **ref,
         **reg,
         **cleanup,

@@ -2,6 +2,7 @@
 #include "ShopEntitlements.h"
 #include "ShopBridge.h"
 #include "ShopPerms.h"
+#include "ShopDebug.h"
 
 #include <sstream>
 
@@ -219,6 +220,10 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
 
     if (mysql_query(db_, sql.c_str()) != 0) {
         Log::GetLog()->error("ShopEntitlements::Grant failed: {}", mysql_error(db_));
+        CustomShop::Debug::Fields f;
+        f.steam_id = steam_id;
+        f.extra = {{"group", group}, {"days", days}, {"mysql_error", mysql_error(db_)}};
+        CustomShop::Debug::Error("License", f, "Grant MySQL failed");
         return false;
     }
 
@@ -233,6 +238,12 @@ bool ShopEntitlements::Grant(const std::string& steam_id,
             steam_id,
             "Permissions.AddTimed " + steam_id + " " + group + " "
                 + std::to_string(hours));
+    }
+    {
+        CustomShop::Debug::Fields f;
+        f.steam_id = steam_id;
+        f.extra = {{"group", group}, {"days", days}, {"source", source}};
+        CustomShop::Debug::Info("License", f, "Grant OK");
     }
     return true;
 }

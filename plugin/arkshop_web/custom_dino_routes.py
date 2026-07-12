@@ -20,6 +20,7 @@ from custom_dino_service import (
     mark_custom_dino_delivered,
     mark_custom_dino_failed,
     release_custom_dino_orders,
+    simulate_purchase,
     validate_payload,
 )
 
@@ -73,10 +74,40 @@ def register_custom_dino_routes(
     @_gate
     def custom_dino_admin_validate():
         body = request.get_json(force=True, silent=True) or {}
+        dry_run = bool(body.get("dry_run")) or str(request.args.get("dry_run") or "").lower() in (
+            "1", "true", "yes",
+        )
+        if dry_run:
+            if not db_ready():
+                return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+            db = session_factory()
+            try:
+                result, err = simulate_purchase(body, db=db)
+                if err:
+                    return jsonify({"ok": False, "error": err}), 400
+                return jsonify(result)
+            finally:
+                db.close()
         payload, err = validate_payload(body)
         if err:
             return jsonify({"ok": False, "error": err}), 400
         return jsonify({"ok": True, "payload": payload})
+
+    @app.route("/api/admin/custom-dino/simulate", methods=["POST"])
+    @_gate
+    def custom_dino_admin_simulate():
+        """Simula preço de encomenda (sem débito) a partir do formulário Dino Lab."""
+        if not db_ready():
+            return jsonify({"ok": False, "error": "Banco não configurado"}), 503
+        body = request.get_json(force=True, silent=True) or {}
+        db = session_factory()
+        try:
+            result, err = simulate_purchase(body, db=db)
+            if err:
+                return jsonify({"ok": False, "error": err}), 400
+            return jsonify(result)
+        finally:
+            db.close()
 
     @app.route("/api/admin/custom-dino/deliver", methods=["POST"])
     @_gate

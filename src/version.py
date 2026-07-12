@@ -3,11 +3,40 @@ Versão e changelog do ARKLAND - Server Manager.
 Este arquivo é a única fonte de verdade para a versão do aplicativo.
 """
 
-APP_VERSION: str = "1.10.25"
+APP_VERSION: str = "1.10.26"
 BUILD_DATE: str = "2026-07-12"
 
 # Cada entrada: version, date, changes (lista de strings)
 CHANGELOG: list[dict] = [
+    {
+        "version": "1.10.26",
+        "date": "2026-07-12",
+        "changes": [
+            "Feat (Web Store / Dino Lab): sync catálogo CustomShop → "
+            "market_species_defaults — 20 itens L1 em falta (Meraxes, Brighamia, "
+            "Tek Strider) passam a listar no Mercado/Dino Lab; botão «Simular preço» "
+            "estima encomenda (floor_quality + cores + taxas) sem debitar; "
+            "POST /api/admin/custom-dino/simulate e validate?dry_run=1.",
+            "Feat (Plugins / Debug ARKLAND): logging dedicado (JSONL + ring buffer + "
+            "MySQL `arkland_plugin_debug`) independente do ArkApi Log — níveis "
+            "ERROR→TRACE, categorias, correlation_id; Admin «Debug Plugins»; "
+            "docs/ARKLAND_PLUGIN_DEBUG.md. Default Debug.Enabled=false. "
+            "Bump CustomShop v1.10.13 → v1.10.14; CustomDinoDeliver v1.10.12 → v1.10.13.",
+            "Feat (Área da Tribo / Mercado): regras finais de repartição — opt-in "
+            "por jogador (fora do pool = 100% nas vendas próprias); default 60/40 "
+            "(quem envia / demais do pool); dono edita %; snapshot na ativação do "
+            "anúncio; proteção de dono no TribeSync/web (não sobrescreve "
+            "proprietário já registado). Docs §18 atualizado.",
+            "Feat (CustomShop / TribeSync): sync pull sem RCON — «Verificar de novo» "
+            "cria tribe_sync_requests na MySQL; plugin (~15s) grava presença/membros/"
+            "map_links na mesma DB; HTTP presença como redundância; RCON só atalho. "
+            "Bump CustomShop v1.10.11 → v1.10.12.",
+            "Fix (CustomShop / TribeSync): MyTribeData com TribeID=0 mas GetTribeId/"
+            "TargetingTeam válidos — deixa de abortar antes do POST /api/tribe/presence; "
+            "Shop.Reload reconfigura HttpClient. Bump CustomShop v1.10.10 → v1.10.11.",
+            "Bump (CustomShop): v1.10.12 → v1.10.13 — proteção de dono no auto-link.",
+        ],
+    },
     {
         "version": "1.10.25",
         "date": "2026-07-12",

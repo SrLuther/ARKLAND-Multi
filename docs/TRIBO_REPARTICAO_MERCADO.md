@@ -1,14 +1,54 @@
 # §18 Repartição de ganhos do mercado (tribe revenue share)
 
-> **Tipo:** Especificação de design — sem código até aprovação do admin.  
+> **Tipo:** Especificação + implementação MVP.  
 > **Relacionado a:** [`PROJETO_AREA_TRIBO.md`](PROJETO_AREA_TRIBO.md) §17 (Tribo Principal + Fobs), [`ECONOMIA_ARKLAND.md`](ECONOMIA_ARKLAND.md) (mercado P2P).  
-> **Última atualização:** 2026-07-10  
+> **Última atualização:** 2026-07-12  
+
+---
+
+## 18.0 Decisões finais (admin + refinamentos 2026-07-12)
+
+### Regras de produto (fonte de verdade do utilizador)
+
+| # | Tema | Decisão |
+|---|------|---------|
+| **U1** | **Plugin → DB** | CustomShop (TribeSync) identifica Proprietário e mapas com tribo; grava **nome, mapa, dono, membros** em MySQL (`tribe_presences`, `tribe_members`, `tribe_map_links`). A web **lê a DB** — sync não depende de RCON (RCON só atalho). |
+| **U2** | **Dono não é sobrescrito** | Se a web **já tiver** alguém como proprietário da tribo `(server_id, tribe_id)`, quem sincronizar noutro mapa / como membro (mesmo como owner in-game) é tratado como **membro** — não rouba `tribe_map_links`. |
+| **U3** | **Opt-in por jogador** | Cada jogador, isolado, **aceita ou não** o ganho partilhado. **Não aceitar / sair** → recebe **100%** do que comercializa. **Aceitar** → dinos que enviar (≥ R8) seguem a repartição. |
+| **U4** | **Default 60/40** | **60%** para quem envia; **40%** dividido **por igual** entre os **demais participantes do pool** (quem optou-in). |
+| **U5** | **Maior parcela = quem envia** | Sempre. O proprietário pode **redefinir as %** (validação: soma 100%, remetente estritamente maior + gap ≥ 10 p.p.). |
+| **U6** | **Pool = opt-in** | «Demais» = outros no pool partilhado (não todos os membros da tribo automaticamente). |
+
+### Decisões administrativas anteriores (2026-07-10) — mantidas
+
+| # | Tema | Decisão registrada |
+|---|------|--------------------|
+| D1 | **Floor mínimo do vendedor** | Regra relativa — percentual **estritamente maior** + **gap mínimo de 10 p.p.** (sem piso fixo absoluto; o *default* de produto é 60/40). |
+| D2 | **Cooldown de 48h** | Só em **alterações** de taxas/membros na config. Não aplica a opt-out nem disable. |
+| D3 | **Opt-out e reentrada** | Pode retornar: **45h** após opt-out + **aprovação do owner**. |
+| D4 | **Visibilidade** | Só integrantes da tribo. |
+| D5 | **Limite** | Máx. **10** membros na config. |
+| D6 | **Fobs** | Sem split próprio — só tribo principal. |
+| D7 | **Mínimo de venda** | **1.000 Âmbares**. |
+| D8 | **Discord** | Fase 2+. |
+| D9 | **Encomendas** | Sem vínculo. |
+| D10 | **Cross-cluster** | Split só na principal; fobs sem repartição. |
+
+---
+
+## 18.0.1 O que o plugin grava vs o que a web mostra
+
+| Camada | Dados |
+|--------|--------|
+| **Plugin (TribeSync → MySQL)** | `steam_id`, `server_id`, `tribe_id`, `tribe_name`, `is_owner` / rank, lista de membros; pedidos `tribe_sync_requests`; auto-link do dono em `tribe_map_links` **só se** ainda não houver outro dono web para aquela tribo/mapa. |
+| **Web — Minha Tribo** | Mapas do dono, membros por mapa, regulamento, **Divisão de Ganhos** (estado do split, % template, **Aceitar / Sair** do pool, efeito no payout). |
+| **Web — Mercado** | Ao **ativar** anúncio: se o vendedor está no pool e split ACTIVE e preço ≥ 1000 → congela `split_snapshot`; na compra distribui Âmbares. Sem opt-in → crédito 100% ao vendedor. |
 
 ---
 
 ## 18.0 Decisões administrativas registradas (2026-07-10)
 
-> Todas as questões abertas do §18.12 foram respondidas pelo admin em 10/07/2026. Esta seção registra as decisões oficiais que substituem quaisquer valores provisórios anteriores (como piso fixo de 60%, mínimo de 500 Âmbares etc.). As seções seguintes foram atualizadas para refletir estas decisões.
+> Histórico: as questões do §18.12 foram respondidas em 10/07/2026. Em 12/07/2026 o utilizador fechou U1–U6 (opt-in por jogador, default 60/40, proteção de dono). As seções abaixo foram alinhadas.
 
 | # | Tema | Decisão registrada |
 |---|------|--------------------|
@@ -25,16 +65,17 @@
 
 ---
 
-## 18.1 Contexto técnico — fluxo atual de venda P2P
+## 18.1 Contexto técnico — fluxo de venda P2P
 
-O arquivo `plugin/arkshop_web/market_listings.py` processa compras no mercado P2P. O ponto de crédito ao vendedor ocorre em `purchase_listing()`:
+Em `market_listings.py`, na ativação do anúncio congela-se `split_snapshot` se o vendedor está no pool; em `purchase_listing()`:
 
 ```
-_debit_points(db, buyer_steam_id, price)     # comprador paga integral
-_credit_points(db, row.seller_steam_id, price) # vendedor recebe integral (fee=0)
+_debit_points(db, buyer_steam_id, price)
+se split_snapshot: apply_split_payout(...)  # pool
+senão: _credit_points(db, seller, price)     # 100%
 ```
 
-Não existe nenhuma lógica de split hoje. O `amber_ledger.py` registra dois movimentos (`market_purchase_buyer` e `market_purchase_seller`) com campo `metadata_json` que pode ser estendido. O mercado P2P **não tem `server_id`** — é cross-cluster por design, o que é relevante para a modelagem do split (ver §18.4).
+O mercado P2P **não tem `server_id`** — é cross-cluster; o split resolve-se pelo `tribe_owner` / membership do vendedor.
 
 ---
 
@@ -45,9 +86,9 @@ Não existe nenhuma lógica de split hoje. O `amber_ledger.py` registra dois mov
 | P1 | **Vendedor sempre é o maior beneficiário** | O membro que lista/envia a criatura é considerado o mais dedicado ao breeding. O sistema garante que sua porcentagem seja **estritamente maior** que a de qualquer outro membro individual. Isso é exibido explicitamente na UI e documentado na política. |
 | P2 | **Todos os valores em percentuais** | A configuração é feita em `%` inteiros. A soma **deve ser exatamente 100%**. Valores decimais não são aceitos. |
 | P3 | **Transparência total** | Cada membro da tribo pode ver a configuração de split ativa, o histórico de versões e o log de auditoria de todas as vendas com split. Nenhum valor é ocultado. |
-| P4 | **Recurso opt-in e desativável** | O split está **desativado por padrão**. Quando desativado, o fluxo de venda funciona exatamente como hoje — 100% ao vendedor. A desativação é cluster-wide (por tribo, não por mapa). |
-| P5 | **Opt-out individual** | Um membro pode recusar sua participação no split. O sistema recalcula automaticamente os percentuais para os membros restantes. |
-| P6 | **Não retroativo** | Alterações de split não afetam listagens já ativas. O split de uma listagem é fixado no momento em que o vendedor confirma o opt-in. |
+| P4 | **Recurso opt-in e desativável** | O split da tribo é configurado pelo owner (desativado por omissão). Cada **jogador** opta individualmente pelo pool. Sem opt-in pessoal → 100% nas vendas próprias. Owner pode desativar o split da tribo (cluster-wide). |
+| P5 | **Opt-out individual** | Sair do pool = 100% do que comercializa; deixa de receber fatia das vendas dos outros. |
+| P6 | **Não retroativo** | Snapshot fixado na **ativação** do anúncio. |
 
 ---
 
@@ -117,8 +158,11 @@ Após a reentrada, o owner precisa redefinir os percentuais (a configuração an
 ### R5 — Disable total = sem split
 Quando o owner desativa o split da tribo (`status = DISABLED`), todas as novas listagens voltam ao fluxo atual (100% ao vendedor). Listagens com split ativo antes da desativação seguem suas regras congeladas até expiração ou venda.
 
-### R6 — Opt-in por listagem (não automático)
-O split não é aplicado automaticamente. Ao criar uma listagem, o vendedor decide se ativa o split para aquele anúncio específico. O sistema exibe um preview do split antes da confirmação.
+### R6 — Opt-in por jogador (não por anúncio) ✅ U3
+O split aplica-se automaticamente às listagens do vendedor **se** ele está no pool (aceitou). Sem aceitar → 100% ao vendedor, mesmo com split ACTIVE na tribo. Não há checkbox por anúncio no MVP.
+
+### R6b — Default 60/40 ✅ U4
+Na ausência de taxas customizadas do owner (ou ao usar «Aplicar default 60/40»): **60%** quem envia, **40%** igual entre os outros do pool.
 
 ### R7 — Vinculação ao vendedor, não à tribo
 O split é configurado **por steam_id do owner**, não por mapa. Como o mercado P2P é cross-cluster (sem `server_id`), o vendedor escolhe qual configuração de split aplicar ao criar o anúncio (caso pertença a mais de uma tribo configurada).
@@ -400,19 +444,17 @@ ALTER TABLE market_listings
 
 ## 18.11 MVP vs. fases futuras
 
-### MVP (prioridade mínima viável)
+### MVP (implementado)
 
-- [ ] Tabelas `tribe_splits` e `tribe_split_members`
-- [ ] API `POST /api/tribe/split` — criar/editar (somente owner)
-- [ ] API `GET /api/tribe/split` — consultar split ativo
-- [ ] Modificar `purchase_listing()` para verificar `tribe_split_id` e distribuir pontos
-- [ ] Estender `record_market_purchase()` no amber_ledger para splits
-- [ ] UI: modal de preview ao ativar listagem com split (opt-in por listing)
-- [ ] ~~Notificação Discord/e-mail para membros~~ **→ Adiado para Fase 2+ (D8 — baixa prioridade)**
-- [ ] Regras R1, R2, R4, R5, R6, R8 (core)
-- [ ] Cooldown R3 (simplificado: sem UI de countdown, só bloqueia)
-- [ ] Página de configuração básica no painel Minha Tribo
-- [ ] Audit log `tribe_split_audit` (básico)
+- [x] Tabelas `tribe_splits` e `tribe_split_members`
+- [x] API `POST/GET /api/tribe/split` — criar/editar (owner) + consultar
+- [x] API `POST /api/tribe/split/optin` e `/optout` — opt-in por jogador
+- [x] `purchase_listing()` + snapshot na ativação do anúncio
+- [x] Default 60/40 + validação R1/R2; proteção de dono no TribeSync/web
+- [x] UI Minha Tribo — Aceitar/Sair + editar % (dono)
+- [x] Audit log `tribe_split_audit` (básico)
+- [x] Cooldown R3 (PENDING_COOLDOWN 48h)
+- [ ] ~~Notificação Discord~~ **→ Fase 2+ (D8)**
 
 ### v1.1 (após estabilização do MVP)
 
@@ -454,10 +496,8 @@ ALTER TABLE market_listings
 
 ### Próximas etapas
 
-Com as decisões registradas, o MVP pode ser aprovado para implementação. As únicas pendências remanescentes são:
-- Aprovação formal do MVP pelo admin (§18.11).
-- Definição da data de início de implementação.
+MVP alinhado a U1–U6 implementado no código web + TribeSync (proteção de dono). Pendências v1.1: countdown UI, ledger event types dedicados, freeze admin.
 
 ---
 
-> Esta seção é **documentação de especificação** — nenhum código deve ser escrito até que o MVP seja formalmente aprovado pelo admin.
+> Spec + implementação MVP. Alterações de regras de produto devem atualizar §18.0 (U*) antes de mudar código.

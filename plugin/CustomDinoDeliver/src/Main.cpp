@@ -3,6 +3,7 @@
 #include "DinoCommands.h"
 #include "DinoConfig.h"
 #include "DinoHttpClient.h"
+#include "DinoDebug.h"
 #include <Timer.h>
 
 namespace {
@@ -87,10 +88,11 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         SchedulePendingPoll();
 
     Log::GetLog()->info(
-        "CustomDinoDeliver v{} ready (web='{}', poll={}s)",
+        "CustomDinoDeliver v{} ready (web='{}', poll={}s, {})",
         ARKLAND_PLUGIN_VERSION,
         CustomDinoDeliver::DinoConfig::Get().WebApiUrl(),
-        CustomDinoDeliver::DinoConfig::Get().PollIntervalSeconds());
+        CustomDinoDeliver::DinoConfig::Get().PollIntervalSeconds(),
+        CustomDinoDeliver::Debug::StatusSummary());
 }
 
 extern "C" __declspec(dllexport) void Plugin_Unload() {
@@ -105,5 +107,6 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
 
     CustomDinoDeliver::Commands::Unregister();
     CustomDinoDeliver::HttpClient::Shutdown();
+    CustomDinoDeliver::Debug::Shutdown();
     Log::GetLog()->info("CustomDinoDeliver: unloaded");
 }

@@ -84,7 +84,8 @@ echo === Compiling CustomDinoDeliver (v%PLUGIN_VER%) ===
   "%SRC_DIR%\DinoConfig.cpp" ^
   "%SRC_DIR%\DinoDeliver.cpp" ^
   "%SRC_DIR%\DinoHttpClient.cpp" ^
-  "%SRC_DIR%\DinoCommands.cpp"
+  "%SRC_DIR%\DinoCommands.cpp" ^
+  "%SRC_DIR%\DinoDebug.cpp"
 if %ERRORLEVEL% neq 0 goto :error
 
 echo === Linking DLL ===
@@ -101,7 +102,8 @@ echo === Linking DLL ===
   "%OBJ_DIR%\DinoConfig.obj" ^
   "%OBJ_DIR%\DinoDeliver.obj" ^
   "%OBJ_DIR%\DinoHttpClient.obj" ^
-  "%OBJ_DIR%\DinoCommands.obj"
+  "%OBJ_DIR%\DinoCommands.obj" ^
+  "%OBJ_DIR%\DinoDebug.obj"
 if %ERRORLEVEL% neq 0 goto :error
 
 copy /Y "%PLUGIN_DIR%configs\config.json" "%BIN_DIR%\config.json" >nul

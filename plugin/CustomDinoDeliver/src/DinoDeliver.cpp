@@ -2,6 +2,7 @@
 #include "DinoDeliver.h"
 #include "DinoConfig.h"
 #include "DinoBridge.h"
+#include "DinoDebug.h"
 
 #include <sstream>
 #include <unordered_set>
@@ -585,6 +586,10 @@ APrimalDinoCharacter* SpawnExactFromPayload(AShooterPlayerController* controller
         Log::GetLog()->error(
             "[DinoLabDeliver] SpawnExact — excecao ou falha no motor (species={})",
             blueprint);
+        CustomDinoDeliver::Debug::Fields f;
+        f.extra = {{"species", blueprint}};
+        CustomDinoDeliver::Debug::Error(
+            "SpawnExact", f, "excecao ou falha no motor SpawnExactDino");
         return nullptr;
     }
 
@@ -606,10 +611,18 @@ APrimalDinoCharacter* SpawnExactFromPayload(AShooterPlayerController* controller
             "(species={} attempts={} — o dino pode ter nascido no mundo; "
             "nao ha fallback para tame antigo)",
             blueprint, kSpawnExactFindAttempts);
+        CustomDinoDeliver::Debug::Fields f;
+        f.extra = {{"species", blueprint},
+                   {"attempts", kSpawnExactFindAttempts}};
+        CustomDinoDeliver::Debug::Warn(
+            "SpawnExact", f, "dino nao encontrado apos SpawnExact");
     } else {
         Log::GetLog()->info(
             "[DinoLabDeliver] SpawnExact — dino encontrado apos spawn (species={})",
             blueprint);
+        CustomDinoDeliver::Debug::Fields f;
+        f.extra = {{"species", blueprint}};
+        CustomDinoDeliver::Debug::Info("SpawnExact", f, "dino encontrado OK");
     }
     return dino;
 }
@@ -950,6 +963,12 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
                          "Falha ao localizar dino apos SpawnExact. Contate um admin "
                          "(o dino pode ter nascido no chao).");
             result.failure_reason = "spawn_exact_not_found";
+            CustomDinoDeliver::Debug::Fields f;
+            f.steam_id = Bridge::GetSteamId(controller);
+            f.extra = {{"species", blueprint},
+                       {"failure", "spawn_exact_not_found"}};
+            CustomDinoDeliver::Debug::Error(
+                "DinoLab", f, "SpawnExact find-after-spawn failed");
             return result;
         }
     } else {
@@ -991,6 +1010,11 @@ DeliverCustomDinoResult DeliverCustomDino(AShooterPlayerController* controller,
         NotifyPlayer(controller, FColorList::Red,
                      "Falha ao registrar identidade do dino. Contate um admin.");
         result.failure_reason = "identity_capture_failed";
+        CustomDinoDeliver::Debug::Fields f;
+        f.steam_id = steam_id;
+        f.extra = {{"species", display}};
+        CustomDinoDeliver::Debug::Error(
+            "DinoLab", f, "identity capture failed");
         dino->Destroy(true, false);
         return result;
     }

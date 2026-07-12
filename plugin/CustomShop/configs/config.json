@@ -1,4 +1,16 @@
 {
+  "Debug": {
+    "Enabled": false,
+    "Level": "INFO",
+    "Categories": ["*"],
+    "RingBufferSize": 500,
+    "MaxFileBytes": 10485760,
+    "MaxFiles": 5,
+    "MySqlPersist": true,
+    "MySqlMinLevel": "WARN",
+    "MySqlCategories": ["TribeSync", "Http", "MySQL", "License", "Permissions", "Identity"],
+    "_comment": "ARKLAND debug JSONL em ArkApi/Plugins/CustomShop/logs/arkland_debug.log. Ligar Enabled=true + Level=TRACE temporariamente; Shop.Reload ou /shopdebug. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
+  },
   "CrossChat": {
     "Enabled": false,
     "_comment": "Desativado pelo Server Manager — use um plugin de cross-chat de terceiros."

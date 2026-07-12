@@ -14,6 +14,7 @@
 #include "ShopTribeSync.h"
 #include "ShopEngrams.h"
 #include "ShopNotes.h"
+#include "ShopDebug.h"
 
 // Prevent Windows min/max macros from conflicting with std::max
 #ifdef max
@@ -294,6 +295,53 @@ void CmdShopDebugSelf(AShooterPlayerController* controller, FString*, EChatSendM
     CustomShop::Bridge::DiagnosePlayer(controller, controller);
 }
 
+/** Estado do logger ARKLAND + últimas linhas do ring buffer (admin/chat). */
+void CmdShopDebugLog(AShooterPlayerController* controller, FString*, EChatSendMode::Type) {
+    if (!controller) return;
+    SendMsg(controller, FColorList::Cyan, CustomShop::Debug::StatusSummary());
+    const auto lines = CustomShop::Debug::RecentLines(8);
+    if (lines.empty()) {
+        SendMsg(controller, FColorList::Yellow,
+                "Ring buffer vazio — ligue Debug.Enabled=true no config e Shop.Reload.");
+        return;
+    }
+    for (const auto& line : lines) {
+        std::string short_line = line;
+        if (short_line.size() > 220)
+            short_line = short_line.substr(0, 217) + "...";
+        SendMsg(controller, FColorList::White, short_line);
+    }
+}
+
+/**
+ * Console/RCON: Shop.DebugLevel [off|error|warn|info|debug|trace]
+ * Sem args = status. Com args = override runtime (até próximo Reload).
+ */
+void CmdAdminDebugLevel(APlayerController* pc, FString* cmd, bool) {
+    auto* admin = static_cast<AShooterPlayerController*>(pc);
+    const auto parts = SplitCmd(cmd);
+    // parts[0] = "Shop.DebugLevel"; parts[1] = level opcional
+    if (parts.size() >= 2) {
+        const std::string arg = parts[1];
+        if (arg == "on" || arg == "1" || arg == "true") {
+            CustomShop::Debug::SetEnabledRuntime(true);
+            CustomShop::Debug::SetLevelRuntime(CustomShop::Debug::Level::Debug);
+        } else if (arg == "off" || arg == "0" || arg == "false") {
+            CustomShop::Debug::SetEnabledRuntime(false);
+        } else {
+            const auto lvl = CustomShop::Debug::ParseLevel(arg);
+            CustomShop::Debug::SetEnabledRuntime(lvl != CustomShop::Debug::Level::Off);
+            CustomShop::Debug::SetLevelRuntime(lvl);
+        }
+        CustomShop::Debug::Info(
+            "Permissions", {},
+            "Shop.DebugLevel runtime override: " + CustomShop::Debug::StatusSummary());
+    }
+    const std::string status = CustomShop::Debug::StatusSummary();
+    Log::GetLog()->info("{}", status);
+    if (admin) SendMsg(admin, FColorList::Green, status);
+}
+
 void CmdGetPoints(APlayerController* pc, FString*, bool) {
     auto* c = static_cast<AShooterPlayerController*>(pc);
     if (c) CustomShop::Data::SendPoints(c);
@@ -396,12 +444,18 @@ void CmdAdminReload(APlayerController* pc, FString*, bool) {
     auto* admin = static_cast<AShooterPlayerController*>(pc);
     try {
         CustomShop::ShopConfig::Get().Load();
+        // Reaplica WebApiUrl/Key — sem isto, TribeSync continua a falar com URL antiga.
+        CustomShop::HttpClient::Configure(
+            CustomShop::ShopConfig::Get().WebApiUrl(),
+            CustomShop::ShopConfig::Get().WebApiKey());
         CustomShop::TimedPoints::OnConfigReload();
         CustomShop::CrossChat::OnConfigReload();
         CustomShop::TribeSync::SyncAllOnlinePlayers();
 
         if (admin)
-            SendMsg(admin, FColorList::Green, "CustomShop reloaded (+TribeSync)");
+            SendMsg(admin, FColorList::Green,
+                    "CustomShop reloaded (+TribeSync) — " +
+                        CustomShop::Debug::StatusSummary());
         Log::GetLog()->info("CustomShop: config reloaded by admin command");
     }
     catch (const std::exception& e) {
@@ -827,6 +881,7 @@ void Register() {
     // Jogador — redireciona para a loja web
     ArkApi::GetCommands().AddChatCommand("/shop",          &CmdShop);
     ArkApi::GetCommands().AddChatCommand("/shop debug",    &CmdShopDebugSelf);
+    ArkApi::GetCommands().AddChatCommand("/shopdebug",     &CmdShopDebugLog);
     ArkApi::GetCommands().AddChatCommand("/upload",        &CmdCloudUpload);
     ArkApi::GetCommands().AddChatCommand("/download",     &CmdCloudDownload);
     ArkApi::GetCommands().AddChatCommand("/nuvem",         &CmdCloudStatus);
@@ -854,6 +909,7 @@ void Register() {
     ArkApi::GetCommands().AddConsoleCommand("Shop.RemoveVip",  &CmdAdminRemoveVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.ListVip",    &CmdAdminListVip);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Debug",            &CmdAdminDebug);
+    ArkApi::GetCommands().AddConsoleCommand("Shop.DebugLevel",       &CmdAdminDebugLevel);
     ArkApi::GetCommands().AddConsoleCommand("Shop.Players",          &CmdAdminPlayers);
     ArkApi::GetCommands().AddConsoleCommand("Shop.UnlockAllEngrams", &CmdUnlockAllEngrams);
     ArkApi::GetCommands().AddConsoleCommand("Shop.UnlockAllExplorerNotes",
@@ -863,6 +919,7 @@ void Register() {
 void Unregister() {
     ArkApi::GetCommands().RemoveChatCommand("/shop");
     ArkApi::GetCommands().RemoveChatCommand("/shop debug");
+    ArkApi::GetCommands().RemoveChatCommand("/shopdebug");
     ArkApi::GetCommands().RemoveChatCommand("/upload");
     ArkApi::GetCommands().RemoveChatCommand("/download");
     ArkApi::GetCommands().RemoveChatCommand("/nuvem");
@@ -886,6 +943,7 @@ void Unregister() {
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.RemoveVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.ListVip");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Debug");
+    ArkApi::GetCommands().RemoveConsoleCommand("Shop.DebugLevel");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.Players");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.UnlockAllEngrams");
     ArkApi::GetCommands().RemoveConsoleCommand("Shop.UnlockAllExplorerNotes");

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ShopConfig.h"
+#include "ShopDebug.h"
 
 namespace CustomShop {
 
@@ -30,6 +31,24 @@ void ShopConfig::Load() {
     db_cfg_        = config_.value("Database",          nlohmann::json::object());
     timed_points_  = config_.value("TimedPointsReward", nlohmann::json::object());
     cross_chat_    = config_.value("CrossChat",         nlohmann::json::object());
+    debug_cfg_     = config_.value("Debug",             nlohmann::json::object());
+
+    // Default produção: debug off. Documentado em docs/ARKLAND_PLUGIN_DEBUG.md
+    if (!config_.contains("Debug")) {
+        debug_cfg_ = {
+            {"Enabled", false},
+            {"Level", "INFO"},
+            {"Categories", nlohmann::json::array({"*"})},
+            {"RingBufferSize", 500},
+            {"MaxFileBytes", 10485760},
+            {"MaxFiles", 5},
+            {"MySqlPersist", true},
+            {"MySqlMinLevel", "WARN"},
+            {"MySqlCategories", nlohmann::json::array({
+                "TribeSync", "Http", "MySQL", "License", "Permissions", "Identity"})}
+        };
+    }
+    Debug::Configure(debug_cfg_);
 
     Log::GetLog()->info("ShopConfig: loaded ({} items, {} kits, DeliverDinosInCryopods={})",
                         items_.size(), kits_.size(),

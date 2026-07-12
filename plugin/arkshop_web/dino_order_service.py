@@ -100,7 +100,7 @@ def _species_mod_source(species_key: str) -> str:
 
 
 def _resolve_species_economy(db: Session, species_key: str) -> Any | None:
-    """Espécie ACTIVE no mercado com economia completa."""
+    """Espécie ACTIVE no mercado com economia completa; fallback para defaults JSON."""
     try:
         from app import MarketSpecies, MarketSpeciesStatMultiplier
         from market_service import species_row_to_economy
@@ -109,21 +109,30 @@ def _resolve_species_economy(db: Session, species_key: str) -> Any | None:
             db.query(MarketSpecies)
             .filter(
                 MarketSpecies.species_key == species_key,
-                MarketSpecies.status == "ACTIVE",
+                MarketSpecies.status.in_(("ACTIVE", "PRE_REGISTERED")),
             )
             .first()
         )
-        if not row:
-            return None
-        mult_rows = (
-            db.query(MarketSpeciesStatMultiplier)
-            .filter(MarketSpeciesStatMultiplier.species_id == row.id)
-            .all()
-        )
-        return species_row_to_economy(row, mult_rows)
+        if row:
+            mult_rows = (
+                db.query(MarketSpeciesStatMultiplier)
+                .filter(MarketSpeciesStatMultiplier.species_id == row.id)
+                .all()
+            )
+            return species_row_to_economy(row, mult_rows)
     except Exception as exc:
         log.debug("dino_order species db lookup: %s", exc)
-        return None
+
+    try:
+        from market_economy import merge_species_from_defaults
+
+        defn = load_default_species_map().get(species_key)
+        if defn:
+            species, _ = merge_species_from_defaults(defn, status="ACTIVE")
+            return species
+    except Exception as exc:
+        log.debug("dino_order species defaults fallback: %s", exc)
+    return None
 
 
 def _species_image(species_key: str, tier: str | None = None) -> str:
@@ -257,7 +266,8 @@ def _normalize_player_spec(raw: dict[str, Any]) -> dict[str, Any]:
     stat_raw = spec.get("stat_points") or spec.get("stat_points_requested") or {}
     pts: dict[str, int] = {}
     if isinstance(stat_raw, dict):
-        for key in ("health", "melee"):
+        # Encomenda MVP: health+melee; simulação Dino Lab pode enviar todos os economy stats.
+        for key in ("health", "melee", "weight", "stamina", "speed", "oxygen", "food"):
             if key not in stat_raw:
                 continue
             try:
@@ -320,6 +330,7 @@ def quote(
     db: Session | None = None,
     pricing_cfg: dict[str, Any] | None = None,
     skip_gallery_check: bool = False,
+    skip_vanilla_check: bool = False,
 ) -> dict[str, Any]:
     """Cotação sem débito — retorna breakdown + total."""
     cfg = pricing_cfg or get_pricing_config()
@@ -335,7 +346,7 @@ def quote(
     economy = _resolve_species_economy(db, species_key)
     if economy is None:
         raise ValueError("species_not_available")
-    if _species_mod_source(species_key) != "vanilla":
+    if not skip_vanilla_check and _species_mod_source(species_key) != "vanilla":
         raise ValueError("species_not_vanilla")
 
     stat_points = normalize_stat_points(spec.get("stat_points") or {})
@@ -372,6 +383,7 @@ def quote(
         "pricing_version": PRICING_VERSION,
         "service_surcharge_pct": round(float(cfg["beta"]) * 100),
         "auto_approve": total <= int(cfg["auto_approve_max"]),
+        "dry_run": True,
     }
 
 

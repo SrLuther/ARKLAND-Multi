@@ -128,9 +128,13 @@ def test_encomenda_greater_than_market():
     assert encomenda > market
 
 
-def test_tekstrider_not_in_market_species():
+def test_tekstrider_in_defaults_as_catalog_or_market():
+    """Tek Strider está no catálogo L1 — deve existir nos defaults (Dino Lab / sync)."""
     keys = {s["species_key"] for s in load_defaults_file().get("species", [])}
-    assert "tekstrider" not in keys
+    assert "tekstrider" in keys
+    entry = next(s for s in load_defaults_file()["species"] if s["species_key"] == "tekstrider")
+    assert entry.get("catalog_item_id") == "tekstrider_femea"
+    assert "TekStrider" in str(entry.get("blueprint_path") or "")
 
 
 def test_resolve_species_by_blueprint_carcha():

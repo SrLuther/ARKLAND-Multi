@@ -1522,3 +1522,305 @@ def format_breakdown_text(breakdown: list[dict[str, Any]]) -> list[str]:
         elif kind == "total":
             lines.append(f"── Total: {row['subtotal']:,} Âmbar".replace(",", "."))
     return lines
+
+
+# ── Sync catálogo loja → market_species_defaults ──────────────────────────────
+
+_DEFAULT_ECONOMY_STATS = {
+    "health": {"enabled": True},
+    "melee": {"enabled": True},
+    "weight": {"enabled": True},
+    "stamina": {"enabled": True},
+    "speed": {"enabled": True},
+}
+
+# Variantes de loja que partilham o mesmo species_key econômico.
+_CATALOG_SPECIES_GROUPS: dict[str, str] = {
+    "meraxes_femea": "meraxes",
+    "meraxes_scorched_femea": "meraxes",
+    "meraxes_rockwell_femea": "meraxes",
+    "meraxes_snow_femea": "meraxes",
+    "tekstrider_femea": "tekstrider",
+}
+
+
+def _species_key_from_catalog_item_id(item_id: str) -> str:
+    grouped = _CATALOG_SPECIES_GROUPS.get(item_id)
+    if grouped:
+        return grouped
+    key = str(item_id or "").strip()
+    if key.endswith("_femea"):
+        key = key[: -len("_femea")]
+    return key or item_id
+
+
+def _infer_mod_source_from_blueprint(blueprint: str) -> str:
+    inner = (blueprint or "").strip().lower()
+    if "/game/mods/meraxes/" in inner:
+        return "meraxes"
+    if "/game/mods/funny_creatures/" in inner:
+        return "brighamia"
+    if "/game/mods/" in inner:
+        parts = inner.split("/game/mods/", 1)[1].split("/")
+        if parts and parts[0]:
+            return parts[0].replace(" ", "_").lower()
+    return "vanilla"
+
+
+def _load_root_ladder() -> dict[str, Any]:
+    path = _writable_data_dir() / "species_root_ladder.json"
+    if not path.is_file():
+        bundled = Path(__file__).resolve().parent / "data" / "species_root_ladder.json"
+        path = bundled if bundled.is_file() else path
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _infer_tier_role_budget(price: int, species_key: str) -> dict[str, Any]:
+    """Infere tier/role/premium_budget a partir do Price L1 e da ladder."""
+    ladder = _load_root_ladder()
+    anchors = ladder.get("anchors") or {}
+    targets = ladder.get("mercado_254_targets") or {}
+    anchor = anchors.get(species_key) or {}
+
+    role = str(anchor.get("dino_role") or "").strip()
+    tier = str(anchor.get("tier") or "").strip()
+    prestige = int(anchor.get("prestige_rank") or 0)
+    commerce = str(anchor.get("commerce_channel") or "market_p2p").strip() or "market_p2p"
+
+    if not role or not tier:
+        # Heurística por preço de loja (L1).
+        if price >= 30000:
+            role, tier, prestige = role or "boss", tier or "S+", prestige or 85
+        elif price >= 15000:
+            role, tier, prestige = role or "ataque", tier or "S", prestige or 70
+        elif price >= 8000:
+            role, tier, prestige = role or "ataque", tier or "A", prestige or 58
+        elif price >= 4000:
+            role, tier, prestige = role or "ataque", tier or "B", prestige or 48
+        elif price >= 1500:
+            role, tier, prestige = role or "utilitario", tier or "B", prestige or 40
+        else:
+            role, tier, prestige = role or "utilitario", tier or "C", prestige or 28
+
+    role_targets = targets.get(role) or targets.get("ataque") or {}
+    market_254 = int(role_targets.get(tier) or role_targets.get("A") or 75000)
+    root = int(anchor.get("R") or price or 0)
+    premium_budget = max(0, market_254 - root)
+
+    breeding = {"S+": "extremo", "S": "muito alto", "A": "alto", "B": "moderado"}.get(
+        tier, "basico"
+    )
+    return {
+        "dino_role": role,
+        "tier": tier,
+        "prestige_rank": prestige or 50,
+        "commerce_channel": commerce,
+        "root_value": root,
+        "premium_budget": premium_budget,
+        "breeding_difficulty": breeding,
+        "size_class": "large" if price >= 8000 else "medium",
+    }
+
+
+def _display_name_from_catalog_entry(item_id: str, entry: dict[str, Any]) -> str:
+    raw = str(entry.get("Name") or entry.get("Description") or item_id).strip()
+    # Remove tags de mod entre parênteses no fim primeiro.
+    if raw.endswith(")") and "(" in raw:
+        raw = raw[: raw.rfind("(")].strip()
+    for suffix in (
+        " Fêmea Nível 1",
+        " Femea Nivel 1",
+        " Nível 1",
+        " Nivel 1",
+        " Level 1",
+    ):
+        if raw.endswith(suffix):
+            raw = raw[: -len(suffix)].strip()
+    return raw or item_id
+
+
+def find_catalog_dinos_missing_from_defaults(
+    catalog: dict[str, Any],
+) -> list[tuple[str, dict[str, Any]]]:
+    """Itens Type:dino L1 da loja sem entrada nos defaults (por id ou blueprint)."""
+    defaults = load_defaults_file()
+    species = defaults.get("species") or []
+    known_ids: set[str] = set()
+    known_keys: set[str] = set()
+    known_bps: set[str] = set()
+    for s in species:
+        sk = str(s.get("species_key") or "").strip()
+        if sk:
+            known_keys.add(sk)
+        for cid in (
+            [s.get("catalog_item_id"), s.get("reference_catalog_item_id")]
+            + list(s.get("catalog_item_ids") or [])
+        ):
+            if cid:
+                known_ids.add(str(cid))
+        bp = normalize_blueprint(str(s.get("blueprint_path") or ""))
+        if bp:
+            known_bps.add(bp)
+        for alias in s.get("blueprint_aliases") or []:
+            path = alias if isinstance(alias, str) else (alias or {}).get("blueprint_path")
+            nb = normalize_blueprint(str(path or ""))
+            if nb:
+                known_bps.add(nb)
+
+    missing: list[tuple[str, dict[str, Any]]] = []
+    for item_id, entry in iter_catalog_dinos(catalog, level1_only=True):
+        bp = _catalog_item_blueprint(entry)
+        nb = normalize_blueprint(bp)
+        sk = _species_key_from_catalog_item_id(item_id)
+        if item_id in known_ids or sk in known_keys or (nb and nb in known_bps):
+            continue
+        missing.append((item_id, entry))
+    return missing
+
+
+def build_defaults_stub_from_catalog_item(
+    item_id: str,
+    entry: dict[str, Any],
+    *,
+    siblings: list[tuple[str, dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+    """Cria entrada de market_species_defaults a partir de um item Type:dino da loja."""
+    siblings = siblings or [(item_id, entry)]
+    species_key = _species_key_from_catalog_item_id(item_id)
+    primary_id, primary_entry = siblings[0]
+    for cid, ent in siblings:
+        if cid == item_id or _species_key_from_catalog_item_id(cid) == species_key:
+            # Preferir o item "base" (sem variante no nome) como referência.
+            if cid == f"{species_key}_femea" or cid == species_key:
+                primary_id, primary_entry = cid, ent
+                break
+
+    bp = _catalog_item_blueprint(primary_entry)
+    price = int(primary_entry.get("Price") or 0)
+    meta = _infer_tier_role_budget(price, species_key)
+    mod = _infer_mod_source_from_blueprint(bp)
+    catalog_ids = [cid for cid, _ in siblings]
+    aliases: list[dict[str, str]] = []
+    for cid, ent in siblings:
+        if cid == primary_id:
+            continue
+        abp = _catalog_item_blueprint(ent)
+        if not abp:
+            continue
+        aliases.append(
+            {
+                "blueprint_path": abp,
+                "variant_label": _display_name_from_catalog_entry(cid, ent),
+            }
+        )
+
+    return {
+        "species_key": species_key,
+        "display_name": _display_name_from_catalog_entry(primary_id, primary_entry),
+        "blueprint_path": bp,
+        "catalog_item_id": primary_id,
+        "reference_catalog_item_id": primary_id,
+        "catalog_item_ids": catalog_ids,
+        "root_value": int(meta["root_value"]),
+        "premium_budget": int(meta["premium_budget"]),
+        "tier": meta["tier"],
+        "dino_role": meta["dino_role"],
+        "prestige_rank": int(meta["prestige_rank"]),
+        "commerce_channel": meta["commerce_channel"],
+        "pricing_mode": "floor_quality",
+        "diet_class": "carnivore",
+        "size_class": meta["size_class"],
+        "breeding_difficulty": meta["breeding_difficulty"],
+        "breeding_notes": f"Auto-sync catálogo loja ({primary_id})",
+        "mod_source": mod,
+        "economy_stats": dict(_DEFAULT_ECONOMY_STATS),
+        "blueprint_aliases": aliases,
+    }
+
+
+def ensure_catalog_species_in_defaults(
+    catalog: dict[str, Any] | None = None,
+    *,
+    write: bool = True,
+) -> dict[str, Any]:
+    """Garante que todos os Type:dino L1 da loja existam em market_species_defaults.
+
+    Não inventa blueprints — só usa o BP do config.json. Agrupa variantes conhecidas
+    (ex.: Meraxes) no mesmo species_key.
+    """
+    if catalog is None:
+        try:
+            from app import _read_shop_config
+
+            catalog = _read_shop_config()
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), "added": 0, "species_keys": []}
+
+    missing = find_catalog_dinos_missing_from_defaults(catalog)
+    if not missing:
+        return {"ok": True, "added": 0, "species_keys": [], "message": "defaults já cobrem o catálogo"}
+
+    # Agrupar variantes (meraxes_*) antes de criar stubs.
+    groups: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    for item_id, entry in missing:
+        sk = _species_key_from_catalog_item_id(item_id)
+        groups.setdefault(sk, []).append((item_id, entry))
+
+    data = load_defaults_file()
+    species_list: list[dict[str, Any]] = list(data.get("species") or [])
+    existing_keys = {str(s.get("species_key") or "") for s in species_list}
+    added_keys: list[str] = []
+
+    # Atualizar _mod_sources se necessário.
+    mod_sources = dict(data.get("_mod_sources") or {})
+    if "meraxes" not in mod_sources:
+        mod_sources["meraxes"] = "BigAL's Meraxes Collection"
+    data["_mod_sources"] = mod_sources
+
+    for sk, items in sorted(groups.items()):
+        if sk in existing_keys:
+            # Espécie já existe — anexar catalog_item_ids em falta.
+            for s in species_list:
+                if str(s.get("species_key")) != sk:
+                    continue
+                ids = list(s.get("catalog_item_ids") or [])
+                for cid, ent in items:
+                    if cid not in ids:
+                        ids.append(cid)
+                    abp = _catalog_item_blueprint(ent)
+                    if abp and normalize_blueprint(abp) != normalize_blueprint(
+                        str(s.get("blueprint_path") or "")
+                    ):
+                        aliases = list(s.get("blueprint_aliases") or [])
+                        aliases.append(
+                            {
+                                "blueprint_path": abp,
+                                "variant_label": _display_name_from_catalog_entry(cid, ent),
+                            }
+                        )
+                        s["blueprint_aliases"] = aliases
+                s["catalog_item_ids"] = ids
+                added_keys.append(sk)
+                break
+            continue
+        stub = build_defaults_stub_from_catalog_item(items[0][0], items[0][1], siblings=items)
+        species_list.append(stub)
+        existing_keys.add(sk)
+        added_keys.append(sk)
+
+    species_list.sort(key=lambda s: str(s.get("display_name") or s.get("species_key") or "").lower())
+    data["species"] = species_list
+    if write:
+        save_defaults_file(data)
+
+    return {
+        "ok": True,
+        "added": len(added_keys),
+        "species_keys": added_keys,
+        "missing_catalog_items": [cid for cid, _ in missing],
+    }

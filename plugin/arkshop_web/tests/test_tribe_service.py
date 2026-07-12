@@ -268,7 +268,62 @@ def test_sync_owner_maps_hint_sem_presenca(db):
     sync = sync_owner_maps(db, USER_A)
     assert sync["maps"] == []
     assert sync["hint"]
-    assert "presença" in sync["hint"].lower() or "Relogue" in sync["hint"]
+    assert "presença" in sync["hint"].lower() or "Verificar" in sync["hint"]
+
+
+def test_sync_owner_maps_hint_mentions_rcon_verify(db):
+    from tribe_service import sync_owner_maps
+
+    get_or_create_owner(db, USER_A, "Cyana")
+    sync = sync_owner_maps(db, USER_A)
+    assert "Verificar de novo" in sync["hint"] or "plugin" in sync["hint"].lower()
+
+
+def test_request_tribe_sync_claim_and_complete(db):
+    from tribe_service import (
+        claim_tribe_sync_requests,
+        complete_tribe_sync_request,
+        get_active_tribe_sync_request,
+        request_tribe_sync,
+    )
+
+    req = request_tribe_sync(db, USER_A)
+    assert req["status"] == "pending"
+    assert req["steam_id"] == USER_A
+    active = get_active_tribe_sync_request(db, USER_A)
+    assert active and active["id"] == req["id"]
+
+    claimed = claim_tribe_sync_requests(db, [USER_A], server_id=SERVER_ISLAND)
+    assert len(claimed) == 1
+    assert claimed[0]["request_id"] == req["id"]
+
+    # Segundo claim não duplica
+    assert claim_tribe_sync_requests(db, [USER_A], server_id=SERVER_RAG) == []
+
+    done = complete_tribe_sync_request(db, req["id"], ok=True)
+    assert done and done["status"] == "done"
+    assert get_active_tribe_sync_request(db, USER_A) is None
+
+
+def test_request_tribe_sync_renew_pending(db):
+    from tribe_service import request_tribe_sync
+
+    first = request_tribe_sync(db, USER_A)
+    second = request_tribe_sync(db, USER_A)
+    assert second["id"] == first["id"]
+    assert second.get("renewed") is True
+    assert second["status"] == "pending"
+
+
+def test_sync_owner_maps_hint_with_pending_request(db):
+    from tribe_service import request_tribe_sync, sync_owner_maps
+
+    get_or_create_owner(db, USER_A, "Cyana")
+    request_tribe_sync(db, USER_A)
+    sync = sync_owner_maps(db, USER_A)
+    assert sync["sync_request"]
+    assert sync["sync_request"]["status"] == "pending"
+    assert "pedido" in (sync["hint"] or "").lower() or "15s" in (sync["hint"] or "")
 
 
 def test_presence_unknown_server_id_nao_vincula(db):
@@ -529,6 +584,12 @@ def test_create_split_e_optout(db):
     )
     assert split["status"] == "PENDING_COOLDOWN"
     assert len(split["members"]) == 3
+    # Opt-in por jogador: novos membros começam fora do pool
+    assert all(m.get("opted_out") for m in split["members"])
+
+    from tribe_service import member_optin
+    for sid in (USER_A, USER_B, USER_C):
+        member_optin(db, split_id=split["id"], steam_id=sid, actor_steam_id=sid)
 
     # Opt-out de USER_C
     new_members = member_optout(
@@ -537,13 +598,14 @@ def test_create_split_e_optout(db):
         steam_id=USER_C,
         actor_steam_id=USER_C,
     )
-    # USER_C deve estar marcado como opted_out=True
     user_c_entry = next((m for m in new_members if m["steam_id"] == USER_C), None)
     assert user_c_entry is not None
     assert user_c_entry["opted_out"] is True
-    # Soma dos percentuais dos membros ativos deve ser 100
-    total = sum(m["percentage"] for m in new_members if not m.get("opted_out"))
-    assert total == 100
+    # Taxas-template preservadas; só a participação muda
+    assert sum(m["percentage"] for m in new_members) == 100
+    in_pool = [m for m in new_members if not m.get("opted_out")]
+    assert len(in_pool) == 2
+    assert all(m["steam_id"] != USER_C for m in in_pool)
 
 
 def test_create_split_fob_bloqueado(db):
@@ -673,3 +735,121 @@ def test_constantes_especificadas():
     assert SPLIT_MIN_SALE_AMBER == 1_000   # R8 — D7
     assert SPLIT_MAX_MEMBERS == 10          # R11 — D5
     assert SPLIT_GAP_MIN_PP == 10           # R1 — D1
+    from tribe_service import SPLIT_DEFAULT_SENDER_PCT, SPLIT_DEFAULT_POOL_PCT
+    assert SPLIT_DEFAULT_SENDER_PCT == 60
+    assert SPLIT_DEFAULT_POOL_PCT == 40
+
+
+# ────────────────────────────────────────────────────────────
+# Owner protection + default 60/40 + opt-in snapshot
+# ────────────────────────────────────────────────────────────
+
+def test_presence_nao_sobrescreve_dono_web(db):
+    """Se a tribo já tem proprietário na web, sync de outro jogador fica membro."""
+    from tribe_service import get_registered_owner_for_tribe, get_map_links
+
+    get_or_create_owner(db, USER_A, "Dono")
+    record_presence(
+        db,
+        steam_id=USER_A,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=70007,
+        tribe_name="Tribo Alpha",
+        is_owner=True,
+        members=[
+            {"steam_id": USER_A, "character_name": "A", "is_owner": True},
+            {"steam_id": USER_B, "character_name": "B", "is_owner": False},
+        ],
+    )
+    reg = get_registered_owner_for_tribe(db, server_id=SERVER_ISLAND, tribe_id=70007)
+    assert reg is not None
+    assert reg["steam_id"] == USER_A
+
+    # USER_B ativa painel e sincroniza como "owner" in-game — não rouba o link
+    get_or_create_owner(db, USER_B, "Intruso")
+    record_presence(
+        db,
+        steam_id=USER_B,
+        server_id=SERVER_ISLAND,
+        map_name="The Island",
+        tribe_id=70007,
+        tribe_name="Tribo Alpha",
+        is_owner=True,
+        members=[
+            {"steam_id": USER_A, "character_name": "A", "is_owner": False},
+            {"steam_id": USER_B, "character_name": "B", "is_owner": True},
+        ],
+    )
+    reg2 = get_registered_owner_for_tribe(db, server_id=SERVER_ISLAND, tribe_id=70007)
+    assert reg2["steam_id"] == USER_A
+    links_b = get_map_links(db, get_owner(db, USER_B)["id"])
+    assert not any(l["tribe_id"] == 70007 and l["server_id"] == SERVER_ISLAND for l in links_b)
+
+    members = get_members_by_map(db, server_id=SERVER_ISLAND, tribe_id=70007)
+    owner_flags = {m["steam_id"]: m["is_owner"] for m in members}
+    assert owner_flags.get(USER_A) is True
+    assert owner_flags.get(USER_B) is False
+
+
+def test_build_default_split_60_40(db):
+    from tribe_service import build_default_split_percentages, SPLIT_DEFAULT_SENDER_PCT
+
+    pool = [
+        {"steam_id": USER_A, "display_name": "A"},
+        {"steam_id": USER_B, "display_name": "B"},
+        {"steam_id": USER_C, "display_name": "C"},
+    ]
+    rows = build_default_split_percentages(pool, sender_steam_id=USER_B)
+    assert sum(r["percentage"] for r in rows) == 100
+    seller = next(r for r in rows if r["is_seller"])
+    assert seller["steam_id"] == USER_B
+    assert seller["percentage"] == SPLIT_DEFAULT_SENDER_PCT
+    others = [r for r in rows if not r["is_seller"]]
+    assert len(others) == 2
+    assert others[0]["percentage"] == 20
+    assert others[1]["percentage"] == 20
+
+
+def test_snapshot_exige_optin_do_vendedor(db):
+    from tribe_service import member_optin, activate_pending_splits
+    from datetime import timedelta
+
+    owner = get_or_create_owner(db, USER_A)
+    upsert_map_link(db, tribe_owner_id=owner["id"], server_id=SERVER_ISLAND,
+                    tribe_id=10001, tribe_name_local="ARKLAND BR", tribe_type="principal")
+    members = [
+        {"steam_id": USER_A, "percentage": 60, "is_seller": True, "display_name": "A"},
+        {"steam_id": USER_B, "percentage": 40, "is_seller": False, "display_name": "B"},
+    ]
+    split = create_or_update_split(
+        db, tribe_owner_id=owner["id"], tribe_id=10001, server_id=SERVER_ISLAND,
+        tribe_name="ARKLAND BR", members=members, actor_steam_id=USER_A,
+    )
+    # Força ACTIVE (ignora cooldown para o teste)
+    db.execute(text(
+        "UPDATE tribe_splits SET status='ACTIVE', valid_from=:vf WHERE id=:id"
+    ), {"vf": _past(), "id": split["id"]})
+    db.commit()
+
+    # Sem opt-in → sem snapshot
+    assert get_split_snapshot_for_listing(
+        db, owner["id"], 5000, seller_steam_id=USER_A,
+    ) is None
+
+    member_optin(db, split_id=split["id"], steam_id=USER_A, actor_steam_id=USER_A)
+    member_optin(db, split_id=split["id"], steam_id=USER_B, actor_steam_id=USER_B)
+
+    snap = get_split_snapshot_for_listing(
+        db, owner["id"], 5000, seller_steam_id=USER_A,
+    )
+    assert snap is not None
+    assert snap["split_id"] == split["id"]
+    seller = next(m for m in snap["members"] if m["is_seller"])
+    assert seller["steam_id"] == USER_A
+    assert seller["percentage"] == 60
+
+
+def _past():
+    from datetime import datetime, timezone, timedelta
+    return datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=50)

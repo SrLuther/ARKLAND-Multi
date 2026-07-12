@@ -3,6 +3,7 @@
 #include "DinoBridge.h"
 #include "DinoConfig.h"
 #include "DinoDeliver.h"
+#include "DinoDebug.h"
 
 #include <mutex>
 #include <unordered_set>
@@ -116,6 +117,28 @@ std::string HttpRequest(const wchar_t* method, const std::string& url, const std
               static_cast<DWORD>(json_body.size()), 0);
 
     if (sent && WinHttpReceiveResponse(hRequest, nullptr)) {
+        DWORD status_code = 0;
+        DWORD status_size = sizeof(status_code);
+        if (WinHttpQueryHeaders(
+                hRequest,
+                WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                WINHTTP_HEADER_NAME_BY_INDEX,
+                &status_code,
+                &status_size,
+                WINHTTP_NO_HEADER_INDEX)) {
+            // Evita recursão no ingest de debug.
+            const bool is_debug_ingest =
+                path.find("/api/plugin-debug/") != std::string::npos;
+            if (status_code >= 400 && !is_debug_ingest) {
+                Log::GetLog()->warn(
+                    "DinoHttpClient: HTTP {} path={}", status_code, path);
+                CustomDinoDeliver::Debug::Fields hf;
+                hf.extra = {{"http_status", static_cast<int>(status_code)},
+                            {"path", path}};
+                CustomDinoDeliver::Debug::Warn(
+                    "Http", hf, "HTTP " + std::to_string(status_code));
+            }
+        }
         DWORD bytes_avail = 0;
         DWORD bytes_read = 0;
         char buf[4096];
@@ -129,6 +152,14 @@ std::string HttpRequest(const wchar_t* method, const std::string& url, const std
                     break;
                 }
             }
+        }
+    } else {
+        const bool is_debug_ingest =
+            path.find("/api/plugin-debug/") != std::string::npos;
+        if (!is_debug_ingest) {
+            CustomDinoDeliver::Debug::Fields hf;
+            hf.extra = {{"path", path}, {"timeout_ms", kHttpSendMs}};
+            CustomDinoDeliver::Debug::Warn("Http", hf, "WinHTTP send/receive failed");
         }
     }
 
@@ -223,11 +254,17 @@ std::string g_api_key = "";
 void Configure(const std::string& web_url, const std::string& api_key) {
     g_web_url = web_url;
     g_api_key = api_key;
+    CustomDinoDeliver::Debug::SetIngestCallback([](const std::string& json_body) {
+        if (g_web_url.empty() || json_body.empty()) return;
+        // Fire-and-forget; falhas não reentram no debug logger.
+        HttpRequest(L"POST", g_web_url + "/api/plugin-debug/ingest", json_body);
+    });
     Log::GetLog()->info("DinoHttpClient: configured url='{}' api_key_set={}",
                         web_url, !api_key.empty());
 }
 
 void Shutdown() {
+    CustomDinoDeliver::Debug::SetIngestCallback(nullptr);
     if (g_session) {
         WinHttpCloseHandle(g_session);
         g_session = nullptr;

@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DinoConfig.h"
+#include "DinoDebug.h"
 
 namespace CustomDinoDeliver {
 
@@ -22,6 +23,23 @@ void DinoConfig::Load() {
     } catch (const nlohmann::json::exception& e) {
         throw std::runtime_error(std::string("config.json parse error: ") + e.what());
     }
+
+    debug_cfg_ = config_.value("Debug", nlohmann::json::object());
+    if (!config_.contains("Debug")) {
+        debug_cfg_ = {
+            {"Enabled", false},
+            {"Level", "INFO"},
+            {"Categories", nlohmann::json::array({"*"})},
+            {"RingBufferSize", 500},
+            {"MaxFileBytes", 10485760},
+            {"MaxFiles", 5},
+            {"HttpPersist", true},
+            {"HttpMinLevel", "WARN"},
+            {"HttpCategories", nlohmann::json::array(
+                {"Deliver", "DinoLab", "Http", "SpawnExact"})}
+        };
+    }
+    Debug::Configure(debug_cfg_);
 
     Log::GetLog()->info(
         "DinoConfig: loaded WebApiUrl={} poll={}s ground_fallback={} use_spawn_exact={}",

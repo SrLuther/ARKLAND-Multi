@@ -892,6 +892,34 @@ def set_listing_price(
             skip=skip_price_ceiling,
         )
         row.status = "ACTIVE"
+        # Opt-in por jogador: se o vendedor aceitou a partilha da tribo, congela snapshot
+        try:
+            from tribe_service import (
+                find_tribe_owner_id_for_seller,
+                get_split_snapshot_for_listing,
+            )
+            oid = find_tribe_owner_id_for_seller(db, seller_steam_id)
+            snap = None
+            if oid is not None:
+                snap = get_split_snapshot_for_listing(
+                    db,
+                    oid,
+                    int(row.effective_price or 0),
+                    seller_steam_id=seller_steam_id,
+                )
+            if snap:
+                row.tribe_split_id = int(snap["split_id"])
+                row.split_snapshot = _json_dumps(snap)
+            else:
+                row.tribe_split_id = None
+                row.split_snapshot = None
+        except Exception as _split_exc:
+            log.warning(
+                "Split snapshot na ativação falhou listing=%s: %s",
+                row.id, _split_exc,
+            )
+            row.tribe_split_id = None
+            row.split_snapshot = None
 
     row.updated_at = _now()
     db.commit()
@@ -907,6 +935,8 @@ def set_listing_price(
             "custom_name": row.custom_name,
             "category": row.category,
             "has_description": bool(row.custom_description),
+            "tribe_split_id": getattr(row, "tribe_split_id", None),
+            "split_applied": bool(getattr(row, "split_snapshot", None)),
         },
         commit=True,
     )

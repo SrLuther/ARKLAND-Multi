@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "ShopPoints.h"
 #include "ShopConfig.h"
+#include "ShopDebug.h"
 
 #include <algorithm>
 #include <vector>
@@ -111,6 +112,9 @@ bool ShopPoints::Open() {
         Log::GetLog()->critical(
             "ShopPoints: cannot connect to MySQL — {} (tried hosts: {}:{}, user='{}', pw_len={})",
             last_err, preferred, cfg.DbPort(), cfg.DbUser(), cfg.DbPassword().size());
+        Debug::Fields f;
+        f.extra = {{"error", last_err}, {"host", preferred}, {"port", cfg.DbPort()}};
+        Debug::Error("MySQL", f, "cannot connect to MySQL");
         return false;
     }
 
@@ -223,6 +227,106 @@ bool ShopPoints::Open() {
         "  steam_id    VARCHAR(20) PRIMARY KEY NOT NULL,"
         "  muted_until DATETIME DEFAULT NULL,"
         "  reason      VARCHAR(255) DEFAULT NULL"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    // Área de Tribo — mesmas tabelas que arkshop_web lê (pull sem RCON).
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS tribe_presences ("
+        "  id            BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  steam_id      VARCHAR(32) NOT NULL,"
+        "  server_id     VARCHAR(64) NOT NULL,"
+        "  map_name      VARCHAR(64) NOT NULL DEFAULT '',"
+        "  tribe_id      INT NULL,"
+        "  tribe_name    VARCHAR(128) NULL,"
+        "  is_owner      TINYINT(1) NOT NULL DEFAULT 0,"
+        "  member_rank   VARCHAR(64) NULL,"
+        "  captured_at   DATETIME(6) NOT NULL,"
+        "  source        VARCHAR(16) NOT NULL DEFAULT 'login_hook',"
+        "  KEY idx_tribe_pres_steam (steam_id),"
+        "  KEY idx_tribe_pres_captured (captured_at)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS tribe_members ("
+        "  id             BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  server_id      VARCHAR(64) NOT NULL,"
+        "  tribe_id       INT NOT NULL,"
+        "  tribe_name     VARCHAR(128) NOT NULL DEFAULT '',"
+        "  steam_id       VARCHAR(32) NOT NULL,"
+        "  character_name VARCHAR(128) NULL,"
+        "  is_owner       TINYINT(1) NOT NULL DEFAULT 0,"
+        "  rank_name      VARCHAR(64) NULL,"
+        "  joined_at      DATETIME(6) NULL,"
+        "  last_seen_at   DATETIME(6) NULL,"
+        "  updated_at     DATETIME(6) NOT NULL,"
+        "  UNIQUE KEY uq_member_server (server_id, tribe_id, steam_id)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS tribe_owners ("
+        "  id             BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  steam_id       VARCHAR(32) NOT NULL,"
+        "  display_name   VARCHAR(128) NOT NULL DEFAULT '',"
+        "  description    TEXT NULL,"
+        "  log_visibility VARCHAR(16) NOT NULL DEFAULT 'members',"
+        "  created_at     DATETIME(6) NOT NULL,"
+        "  updated_at     DATETIME(6) NOT NULL,"
+        "  UNIQUE KEY uq_owner (steam_id)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS tribe_map_links ("
+        "  id                 BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  tribe_owner_id     BIGINT NOT NULL,"
+        "  server_id          VARCHAR(64) NOT NULL,"
+        "  tribe_id           INT NOT NULL,"
+        "  tribe_name_local   VARCHAR(128) NOT NULL DEFAULT '',"
+        "  tribe_type         VARCHAR(16) NOT NULL DEFAULT 'principal',"
+        "  cluster_group_id   BIGINT NULL,"
+        "  fob_owner_steam_id VARCHAR(32) NULL,"
+        "  is_active          TINYINT(1) NOT NULL DEFAULT 1,"
+        "  confirmed_at       DATETIME(6) NOT NULL,"
+        "  UNIQUE KEY uq_link (tribe_owner_id, server_id)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS tribe_sync_requests ("
+        "  id                   BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  steam_id             VARCHAR(32) NOT NULL,"
+        "  status               VARCHAR(16) NOT NULL DEFAULT 'pending',"
+        "  requested_at         DATETIME(6) NOT NULL,"
+        "  expires_at           DATETIME(6) NOT NULL,"
+        "  claimed_at           DATETIME(6) NULL,"
+        "  claimed_by_server_id VARCHAR(64) NULL,"
+        "  completed_at         DATETIME(6) NULL,"
+        "  last_error           TEXT NULL,"
+        "  KEY ix_tribe_sync_req_steam_status (steam_id, status)"
+        ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
+        return false;
+
+    if (!Exec(
+        "CREATE TABLE IF NOT EXISTS arkland_plugin_debug ("
+        "  id BIGINT AUTO_INCREMENT PRIMARY KEY,"
+        "  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),"
+        "  plugin VARCHAR(32) NOT NULL,"
+        "  plugin_version VARCHAR(16) NOT NULL DEFAULT '',"
+        "  level VARCHAR(8) NOT NULL,"
+        "  category VARCHAR(32) NOT NULL,"
+        "  server_id VARCHAR(64) DEFAULT NULL,"
+        "  steam_id VARCHAR(32) DEFAULT NULL,"
+        "  order_id VARCHAR(64) DEFAULT NULL,"
+        "  correlation_id VARCHAR(64) DEFAULT NULL,"
+        "  message TEXT NOT NULL,"
+        "  fields_json JSON NULL,"
+        "  KEY idx_apd_created (created_at),"
+        "  KEY idx_apd_plugin_cat (plugin, category),"
+        "  KEY idx_apd_steam (steam_id),"
+        "  KEY idx_apd_corr (correlation_id)"
         ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"))
         return false;
 

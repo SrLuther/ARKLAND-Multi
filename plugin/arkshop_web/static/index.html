@@ -5137,6 +5137,9 @@
     <div class="nav-item admin-only" data-page="audit" onclick="nav(this)">
       <span class="nav-icon">📋</span> Auditoria
     </div>
+    <div class="nav-item admin-only" data-page="plugin-debug" onclick="nav(this)">
+      <span class="nav-icon">🐛</span> Debug Plugins
+    </div>
     <div class="nav-item admin-only" data-page="cluster-chat" onclick="nav(this)">
       <span class="nav-icon">🌐</span> Chat Cluster
     </div>
@@ -7357,8 +7360,10 @@
             </div>
             <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-primary" onclick="dinoLabSubmitDeliver()">🚚 Entregar agora</button>
+              <button class="btn btn-ghost" onclick="dinoLabSimulatePurchase()">💰 Simular preço</button>
               <button class="btn btn-ghost" onclick="dinoLabPreviewPayload()">Pré-visualizar JSON</button>
             </div>
+            <div id="dl-simulate-box" class="hidden" style="margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px;font-size:13px;"></div>
             <pre id="dl-preview" class="hidden" style="margin-top:12px;padding:12px;background:var(--surface2);border-radius:8px;font-size:11px;overflow:auto;max-height:200px;"></pre>
           </div>
         </div>
@@ -7786,6 +7791,68 @@
             <button class="btn btn-ghost btn-sm" onclick="prevAdminOrdersPage()">◀ Anterior</button>
             <button class="btn btn-ghost btn-sm" onclick="nextAdminOrdersPage()">Próxima ▶</button>
           </div>
+        </div>
+      </div>
+
+      <!-- PAGE: Debug Plugins (admin) -->
+      <div id="page-plugin-debug" class="page admin-only">
+        <div id="topbar">
+          <div class="page-title">Debug Plugins</div>
+          <p style="font-size:12px;color:var(--text2);margin-top:6px;">
+            Eventos críticos dos plugins (CustomShop / CustomDinoDeliver) na tabela
+            <code>arkland_plugin_debug</code>. Ficheiros JSONL no mapa:
+            <code>ArkApi/Plugins/&lt;Plugin&gt;/logs/arkland_debug.log</code>
+            — ligar com <code>Debug.Enabled=true</code> + TRACE temporário.
+          </p>
+          <div class="topbar-actions">
+            <button class="btn btn-ghost" onclick="loadPluginDebug()">↺ Recarregar</button>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title">Filtros</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+            <div class="form-group" style="margin:0;min-width:140px;">
+              <label>Plugin</label>
+              <select id="pd-filter-plugin" onchange="loadPluginDebug()">
+                <option value="">Todos</option>
+                <option value="CustomShop">CustomShop</option>
+                <option value="CustomDinoDeliver">CustomDinoDeliver</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:140px;">
+              <label>Categoria</label>
+              <select id="pd-filter-category" onchange="loadPluginDebug()">
+                <option value="">Todas</option>
+                <option value="TribeSync">TribeSync</option>
+                <option value="Http">Http</option>
+                <option value="MySQL">MySQL</option>
+                <option value="License">License</option>
+                <option value="Shop">Shop</option>
+                <option value="SpawnExact">SpawnExact</option>
+                <option value="DinoLab">DinoLab</option>
+                <option value="Deliver">Deliver</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:100px;">
+              <label>Nível</label>
+              <select id="pd-filter-level" onchange="loadPluginDebug()">
+                <option value="">Todos</option>
+                <option value="ERROR">ERROR</option>
+                <option value="WARN">WARN</option>
+                <option value="INFO">INFO</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;min-width:160px;">
+              <label>SteamID</label>
+              <input id="pd-filter-steam" type="text" placeholder="7656119…"
+                     onkeydown="if(event.key==='Enter')loadPluginDebug()" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="loadPluginDebug()">Filtrar</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Últimos eventos</div>
+          <div id="plugin-debug-list" style="font-size:12px;color:var(--text2);">Carregando…</div>
         </div>
       </div>
 
@@ -8715,6 +8782,7 @@ function nav(el) {
   if (page === "admin-home-notice") loadAdminHomeNotice();
   if (page === "recharge-admin") loadRechargeAdmin();
   if (page === "audit") { loadPixAudit(); loadAudit(); loadAdminOrders(); }
+  if (page === "plugin-debug") loadPluginDebug();
   if (page === "players-admin") { loadPlayersAdminLicenseCatalog(); loadPlayersAdmin(true); }
   if (page === "polls-admin") loadPollsAdmin();
   if (page === "lottery-admin") loadLotteryAdmin();
@@ -12850,6 +12918,46 @@ async function dinoLabPreviewPayload() {
   }
 }
 
+async function dinoLabSimulatePurchase() {
+  const box = document.getElementById("dl-simulate-box");
+  if (!box) return;
+  const body = _dinoLabFormBody();
+  if (_dinoLabSpeciesMode === "manual") {
+    box.classList.remove("hidden");
+    box.innerHTML = '<div style="color:var(--amber);">Simulação de preço requer espécie do catálogo (não blueprint manual).</div>';
+    return;
+  }
+  if (!body.species_key) {
+    toast("Selecione uma espécie do catálogo.", "error");
+    return;
+  }
+  // Motivo opcional na simulação
+  if (!body.note) body.note = "Simulação Dino Lab — sem débito";
+  box.classList.remove("hidden");
+  box.innerHTML = '<div style="color:var(--text2);">Calculando preço estimado…</div>';
+  try {
+    const d = await fetchJson("/api/admin/custom-dino/simulate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!d.ok) throw new Error(d.error || d.message || "Simulação falhou");
+    const q = d.quote || {};
+    const bd = d.breakdown || {};
+    box.innerHTML = `
+      <div style="display:grid;gap:4px;">
+        <div style="font-weight:600;color:var(--text);">Simulação (sem débito) — ${escHtml(q.species_display_name || body.species_key)}</div>
+        <div style="font-size:12px;color:var(--text2);">Piso loja (R): ${formatAmberAmount(bd.root_value ?? q.root_value)} · Stats: ${formatAmberAmount(bd.stats_component ?? q.stats_component)} · Cores: ${formatAmberAmount(bd.color_component ?? q.color_component)}</div>
+        <div style="font-size:12px;color:var(--text2);">Taxa base (α): ${formatAmberAmount(bd.base_surcharge ?? q.base_surcharge)} · Serviço (β ${q.service_surcharge_pct ?? 35}%): ${formatAmberAmount(bd.service_premium ?? q.service_premium)}</div>
+        <div style="font-size:12px;color:var(--text3);">Teto encomenda: ${formatAmberAmount(bd.ceiling ?? q.ceiling)} · Floor: ${formatAmberAmount(bd.floor ?? q.floor)}</div>
+        <div style="font-size:16px;font-weight:700;color:var(--amber);margin-top:6px;">Total estimado: ${typeof amberPriceHtml === "function" ? amberPriceHtml(d.total ?? q.total, 16) : formatAmberAmount(d.total ?? q.total)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;">Fórmula floor_quality (mercado) + prémio de cores + taxas de encomenda. Não debita Âmbar.</div>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = `<div style="color:var(--danger);">${escHtml(String(e.message || e))}</div>`;
+  }
+}
+
 async function dinoLabSubmitDeliver() {
   const body = _dinoLabFormBody();
   if (!body.steam_id) { toast("Informe o Steam ID do jogador.", "error"); return; }
@@ -14555,8 +14663,8 @@ function _renderTribeWaitingDetection() {
       <div style="color:var(--text2);font-size:12px;margin-bottom:14px;max-width:460px;margin-left:auto;margin-right:auto;line-height:1.55;text-align:left;">
         Proprietário: <strong style="color:var(--text);">${escHtml(name)}</strong>.
         Ainda não há mapa vinculado. Entre em um servidor ARKLAND <strong>como Proprietário da tribo</strong>
-        (o rank in-game «Proprietário», não só Admin) para sincronizar automaticamente.
-        Depois disso, na aba Membros você pode adicionar SteamIDs
+        (o rank in-game «Proprietário», não só Admin). O plugin grava a presença na base de dados
+        (login / poll ~15s / «Verificar de novo»). Depois disso, na aba Membros você pode adicionar SteamIDs
         manualmente se alguém ainda não logou.
         ${hint ? `<p style="margin:12px 0 0;color:var(--amber);">${escHtml(hint)}</p>` : ""}
       </div>
@@ -14578,8 +14686,32 @@ async function tribeForceSync() {
       return;
     }
     const data = d.data || {};
-    const maps = data.maps || [];
-    const linked = data.maps_linked || 0;
+    let maps = data.maps || [];
+    let linked = data.maps_linked || 0;
+
+    // Pedido na fila MySQL — o plugin puxa em ~15s. Reconsulta só backfill.
+    if (!maps.length && data.sync_requested) {
+      btn && (btn.textContent = "A aguardar plugin…");
+      for (const waitMs of [4000, 8000, 12000]) {
+        await new Promise((r) => setTimeout(r, waitMs));
+        const again = await fetchJson("/api/tribe/sync", {
+          method: "POST",
+          body: { refresh_only: true },
+        });
+        if (!again.ok) break;
+        const d2 = again.data || {};
+        maps = d2.maps || [];
+        linked = d2.maps_linked || 0;
+        if (maps.length) {
+          Object.assign(data, d2);
+          break;
+        }
+        if (d2.hint) data.hint = d2.hint;
+        if (d2.presences) data.presences = d2.presences;
+        if (d2.sync_request) data.sync_request = d2.sync_request;
+      }
+    }
+
     if (maps.length) {
       toast(linked > 0
         ? `Sincronizado — ${linked} mapa(s) vinculado(s).`
@@ -14588,9 +14720,18 @@ async function tribeForceSync() {
       await loadMyTribe();
       return;
     }
-    const hint = data.hint || "Ainda sem mapa. Relogue no servidor como Proprietário e tente de novo.";
-    // Toast curto — o texto completo fica no painel (evita spam empilhado).
-    toast("Ainda sem mapa vinculado. Veja o aviso abaixo e relogue se preciso.", "warning");
+
+    const hint = data.hint ||
+      "Pedido registado. O plugin (~15s) grava a presença na DB — clique de novo se ainda não aparecer.";
+    const rconOk = data.rcon_ok || 0;
+    const rconTotal = data.rcon_total || 0;
+    let msg = "Pedido na fila do plugin. Aguarde ~15s e verifique de novo.";
+    if (rconTotal > 0 && rconOk === 0) {
+      msg = "RCON falhou (atalho opcional). Pedido na fila — o plugin synca sem RCON.";
+    } else if (rconOk > 0) {
+      msg = "Pedido na fila (+ atalho RCON). Ainda sem vínculo — aguarde o plugin.";
+    }
+    toast(msg, "warning");
     _tribeData = Object.assign({}, _tribeData || {}, data, { _sync_hint: hint, maps: [] });
     const root = document.getElementById("myarea-tribe-root");
     if (root) root.innerHTML = _renderTribeWaitingDetection();
@@ -14757,23 +14898,40 @@ function _renderTribeSplit(data, isOwner, mapData) {
     </div>`;
   }
   const split = data._split;
+  const me = (_auth && _auth.steam_id) || "";
   if (!split) {
     return `
-      <div style="color:var(--text2);font-size:13px;margin-bottom:12px;">
-        ⭐ <strong>Divisão de Ganhos</strong> — quando ativada, o valor de cada venda no Comércio P2P
-        é distribuído automaticamente entre os membros da tribo.
-        O vendedor sempre recebe a maior parte (mínimo 10 p.p. acima do próximo).
+      <div style="color:var(--text2);font-size:13px;margin-bottom:12px;line-height:1.6;">
+        <strong>Divisão de Ganhos</strong> — opt-in por jogador.<br>
+        • <strong>Não aceitar / sair:</strong> recebe <strong>100%</strong> do que comercializa.<br>
+        • <strong>Aceitar:</strong> dinos que enviar seguem a repartição (default <strong>60%</strong> para quem envia,
+          <strong>40%</strong> dividido por igual entre os demais do pool).<br>
+        • Quem envia tem sempre a maior parcela. O proprietário pode redefinir as %.
       </div>
-      ${isOwner ? `<button class="btn btn-primary btn-sm" onclick="tribeOpenSplitEditor()">⚙ Configurar divisão</button>` : "<p>Nenhuma divisão configurada.</p>"}`;
+      ${isOwner ? `<button class="btn btn-primary btn-sm" onclick="tribeOpenSplitEditor()">⚙ Configurar divisão (default 60/40)</button>` : "<p>Nenhuma divisão configurada pelo proprietário.</p>"}`;
   }
 
   const statusColor = { ACTIVE: "var(--success)", PENDING_COOLDOWN: "var(--amber)", DISABLED: "var(--text2)" };
   const statusLabel = { ACTIVE: "Ativo", PENDING_COOLDOWN: "Aguardando carência (48h)", DISABLED: "Desativado" };
-  const memberRows = (split.members || []).map(m => `<tr>
-    <td style="font-family:monospace;font-size:11px;">${escHtml(m.display_name || m.steam_id)}</td>
-    <td>${m.is_seller ? '<span class="badge" style="background:var(--amber);color:#000;">Vendedor</span>' : "Membro"}</td>
-    <td style="font-weight:700;">${m.opted_out ? '<span style="color:var(--text2);text-decoration:line-through;">Opt-out</span>' : m.percentage + "%"}</td>
-  </tr>`).join("");
+  const myRow = (split.members || []).find(m => m.steam_id === me);
+  const iAmIn = myRow && !myRow.opted_out;
+  const memberRows = (split.members || []).map(m => {
+    const inPool = !m.opted_out;
+    return `<tr>
+    <td style="font-family:monospace;font-size:11px;">${escHtml(m.display_name || m.steam_id)}${m.steam_id === me ? " (você)" : ""}</td>
+    <td>${m.is_seller ? '<span class="badge" style="background:var(--amber);color:#000;">Quem envia (template)</span>' : "Pool"}</td>
+    <td style="font-weight:700;">${m.percentage}%</td>
+    <td>${inPool
+      ? '<span style="color:var(--success);">No pool</span>'
+      : '<span style="color:var(--text2);">Fora (100% nas vendas próprias)</span>'}</td>
+  </tr>`;
+  }).join("");
+
+  const myControls = myRow ? (
+    iAmIn
+      ? `<button class="btn btn-ghost btn-sm" onclick="tribeSplitOptout(${split.id})">Sair do ganho partilhado (voltar a 100%)</button>`
+      : `<button class="btn btn-primary btn-sm" onclick="tribeSplitOptin(${split.id})">Aceitar ganho partilhado</button>`
+  ) : "";
 
   return `
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
@@ -14782,19 +14940,23 @@ function _renderTribeSplit(data, isOwner, mapData) {
       </span>
       ${split.valid_from ? `<span style="font-size:11px;color:var(--text2);">Em vigor: ${escHtml(split.valid_from.slice(0, 16))}</span>` : ""}
     </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:10px;background:var(--bg2);border-radius:6px;line-height:1.55;">
+      O seu estado:
+      <strong>${iAmIn ? "no pool — vendas ≥1.000 Âmbares usam a repartição" : "fora do pool — recebe 100% do que comercializa"}</strong>.
+    </div>
     <div style="overflow-x:auto;margin-bottom:12px;"><table class="pkg-admin-table"><thead><tr>
-      <th>Membro</th><th>Papel</th><th>%</th>
+      <th>Membro</th><th>Papel na config</th><th>%</th><th>Participação</th>
     </tr></thead><tbody>${memberRows}</tbody></table></div>
     <div style="font-size:11px;color:var(--text2);margin-bottom:12px;">
-      ⭐ Vendas abaixo de 1.000 Âmbares não ativam a divisão.<br>
-      A divisão é opt-in por anúncio — você decide ao criar cada listagem.
+      Vendas abaixo de 1.000 Âmbares não ativam a divisão.<br>
+      Opt-in é por jogador (não por anúncio). Quem envia leva sempre a maior fatia.
     </div>
-    ${isOwner ? `
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-ghost btn-sm" onclick="tribeOpenSplitEditor()">✏ Editar divisão</button>
-        <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="tribeDisableSplit()">⏹ Desativar</button>
-      </div>` : `
-      <button class="btn btn-ghost btn-sm" onclick="tribeSplitOptout(${split.id})">Sair da divisão</button>`}`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${myControls}
+      ${isOwner ? `
+        <button class="btn btn-ghost btn-sm" onclick="tribeOpenSplitEditor()">✏ Editar %</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--danger);" onclick="tribeDisableSplit()">⏹ Desativar</button>` : ""}
+    </div>`;
 }
 
 function _openTribeModal(title, html, onSave) {
@@ -14930,17 +15092,20 @@ function tribeOpenSplitEditor() {
   const principalMap = maps.find(m => (m.tribe_type || "principal") === "principal") || maps[0] || {};
 
   const html = `
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
-      ⭐ O vendedor deve ter percentual pelo menos 10 p.p. acima do próximo. Soma deve ser 100%.
-      Inclua os SteamIDs dos membros que participam da divisão.
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.55;">
+      Default: <strong>60%</strong> quem envia, <strong>40%</strong> aos demais (igual). Soma = 100%;
+      quem envia ≥10 p.p. acima do próximo. Cada jogador ainda precisa <strong>aceitar</strong> o pool (opt-in).
     </div>
     <div style="overflow-x:auto;margin-bottom:8px;">
       <table class="pkg-admin-table" id="tribe-split-table">
-        <thead><tr><th>SteamID</th><th>Nome</th><th>%</th><th>Vendedor</th></tr></thead>
+        <thead><tr><th>SteamID</th><th>Nome</th><th>%</th><th>Quem envia</th></tr></thead>
         <tbody id="tribe-split-tbody">${rowsHtml}</tbody>
       </table>
     </div>
-    <button class="btn btn-ghost btn-sm" type="button" onclick="_tribeSplitAddRow()" style="margin-bottom:12px;">+ Adicionar membro</button>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button class="btn btn-ghost btn-sm" type="button" onclick="_tribeSplitAddRow()">+ Adicionar membro</button>
+      <button class="btn btn-ghost btn-sm" type="button" onclick="_tribeSplitApplyDefault6040()">Aplicar default 60/40</button>
+    </div>`;
 
   _openTribeModal("💰 Configurar Divisão de Ganhos", html, async () => {
     const rows = document.querySelectorAll("#tribe-split-tbody tr");
@@ -14963,13 +15128,33 @@ function tribeOpenSplitEditor() {
       },
     });
     if (d.ok) {
-      toast("Divisão configurada! Entra em vigor após 48h de carência.");
+      toast("Divisão configurada! Entra em vigor após 48h. Cada membro deve aceitar o pool.");
       closeModal("modal-tribe");
       await loadMyTribe();
     } else {
       toast(d.error || "Erro ao configurar", "error");
     }
   });
+}
+
+function _tribeSplitApplyDefault6040() {
+  const rows = Array.from(document.querySelectorAll("#tribe-split-tbody tr"));
+  if (rows.length < 2) { toast("Adicione pelo menos 2 membros", "warning"); return; }
+  let sellerIdx = rows.findIndex(tr => (tr.querySelector(".split-seller") || {}).checked);
+  if (sellerIdx < 0) sellerIdx = 0;
+  rows.forEach((tr, i) => {
+    const sellerCb = tr.querySelector(".split-seller");
+    if (sellerCb) sellerCb.checked = i === sellerIdx;
+  });
+  const others = rows.length - 1;
+  const each = Math.floor(40 / others);
+  const rem = 40 - each * others;
+  rows.forEach((tr, i) => {
+    const pct = tr.querySelector(".split-pct");
+    if (!pct) return;
+    pct.value = String(i === sellerIdx ? (60 + rem) : each);
+  });
+  toast("Default 60/40 aplicado na tabela");
 }
 
 function _tribeSplitAddRow() {
@@ -14994,13 +15179,25 @@ async function tribeDisableSplit() {
 }
 
 async function tribeSplitOptout(splitId) {
-  if (!confirm("Confirma sair da divisão de ganhos? Você precisará de 45h + aprovação do owner para retornar.")) return;
+  if (!confirm("Sair do ganho partilhado? Passa a receber 100% do que comercializar. Reentrada: 45h + aprovação do dono.")) return;
   try {
     const d = await fetchJson("/api/tribe/split/optout", {
       method: "POST",
       body: { split_id: splitId, steam_id: _auth.steam_id },
     });
-    if (d.ok) { toast("Opt-out realizado com sucesso."); await loadMyTribe(); }
+    if (d.ok) { toast("Saiu do pool — vendas próprias a 100%."); await loadMyTribe(); }
+    else toast(d.error || "Erro", "error");
+  } catch (e) { toast(String(e.message || e), "error"); }
+}
+
+async function tribeSplitOptin(splitId) {
+  if (!confirm("Aceitar ganho partilhado? Os dinos que enviar (≥1.000 Âmbares) seguem a repartição da tribo.")) return;
+  try {
+    const d = await fetchJson("/api/tribe/split/optin", {
+      method: "POST",
+      body: { split_id: splitId, steam_id: _auth.steam_id },
+    });
+    if (d.ok) { toast("Entrou no pool de ganho partilhado."); await loadMyTribe(); }
     else toast(d.error || "Erro", "error");
   } catch (e) { toast(String(e.message || e), "error"); }
 }
@@ -19684,6 +19881,55 @@ async function loadAudit() {
               <td><code style="font-size:10px;">${e.order_id ? escHtml(e.order_id.substring(0,8)) + "…" : "—"}</code></td>
               <td style="font-size:11px;">${escHtml(e.message || e.item_id || "")}</td>
               <td><button class="btn btn-ghost btn-sm" onclick="viewAuditDetail(${e.id})">🔍</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  } catch (err) {
+    el.innerHTML = `<div style="color:var(--danger)">${escHtml(err.message)}</div>`;
+  }
+}
+
+async function loadPluginDebug() {
+  const el = document.getElementById("plugin-debug-list");
+  if (!el) return;
+  const plugin = document.getElementById("pd-filter-plugin")?.value || "";
+  const category = document.getElementById("pd-filter-category")?.value || "";
+  const level = document.getElementById("pd-filter-level")?.value || "";
+  const steam = document.getElementById("pd-filter-steam")?.value.trim() || "";
+  let url = `${API}/api/admin/plugin-debug/events?limit=150`;
+  if (plugin) url += `&plugin=${encodeURIComponent(plugin)}`;
+  if (category) url += `&category=${encodeURIComponent(category)}`;
+  if (level) url += `&level=${encodeURIComponent(level)}`;
+  if (steam) url += `&steam_id=${encodeURIComponent(steam)}`;
+  el.innerHTML = `<div style="color:var(--text2)">Carregando…</div>`;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.ok) {
+      el.innerHTML = `<div style="color:var(--danger)">${escHtml(d.error || "Erro")}</div>`;
+      return;
+    }
+    const events = (d.data && d.data.events) || [];
+    if (!events.length) {
+      el.innerHTML = `<div style="color:var(--text2)">Sem eventos. Em produção, WARN/ERROR de TribeSync/Http/License gravam aqui mesmo com Debug.Enabled=false. TRACE detalhado exige ficheiro JSONL no mapa.</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <table class="tbl">
+        <thead><tr>
+          <th>Data</th><th>Plugin</th><th>Nível</th><th>Cat.</th><th>Steam</th><th>Order</th><th>Mensagem</th>
+        </tr></thead>
+        <tbody>
+          ${events.map(e => `
+            <tr title="${escHtml(JSON.stringify(e.fields_json || {}))}">
+              <td style="font-size:11px;white-space:nowrap;">${fmtDate(e.created_at)}</td>
+              <td style="font-size:10px;">${escHtml(e.plugin || "")}</td>
+              <td><code style="font-size:10px;">${escHtml(e.level || "")}</code></td>
+              <td style="font-size:10px;">${escHtml(e.category || "")}</td>
+              <td style="font-size:10px;">${escHtml((e.steam_id || "").substring(0, 14))}</td>
+              <td style="font-size:10px;">${escHtml((e.order_id || "").substring(0, 10))}</td>
+              <td style="font-size:11px;">${escHtml(e.message || "")}</td>
             </tr>
           `).join("")}
         </tbody>

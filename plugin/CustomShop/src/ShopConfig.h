@@ -24,6 +24,7 @@ public:
     const nlohmann::json& Settings()           const { return settings_; }
     const nlohmann::json& TimedPointsReward()  const { return timed_points_; }
     const nlohmann::json& CrossChat()          const { return cross_chat_; }
+    const nlohmann::json& DebugCfg()           const { return debug_cfg_; }
 
     int         StartingPoints()     const;
     std::string ShopName()           const;
@@ -92,6 +93,7 @@ private:
     nlohmann::json db_cfg_;
     nlohmann::json timed_points_;
     nlohmann::json cross_chat_;
+    nlohmann::json debug_cfg_;
 };
 
 } // namespace CustomShop

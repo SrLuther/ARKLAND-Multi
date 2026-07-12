@@ -10,15 +10,20 @@ Endpoints públicos (player, login_required):
   GET  /api/tribe/log/<server> — log por mapa (stub MVP)
   GET  /api/tribe/split        — configuração de split
   POST /api/tribe/split        — criar/atualizar split
-  POST /api/tribe/split/optout — opt-out de membro
+  POST /api/tribe/split/optout — sair do pool (100% nas vendas próprias)
+  POST /api/tribe/split/optin  — aceitar ganho partilhado
   POST /api/tribe/split/disable — desativar split
   GET  /api/tribe/regulation   — regulamento interno
   POST /api/tribe/regulation   — salvar regulamento (owner)
   POST /api/tribe/fob/link     — vincular fob (owner principal)
 
 Endpoints de plugin (api_key_required):
-  POST /api/tribe/presence     — snapshot de presença do plugin C++
-  POST /api/tribe/sync         — forçar backfill líder→mapa (Verificar de novo)
+  POST /api/tribe/presence              — snapshot de presença do plugin C++
+  POST /api/tribe/sync-request/claim    — plugin puxa pedidos «Verificar de novo»
+  POST /api/tribe/sync-request/done     — plugin confirma execução do pedido
+
+Endpoints públicos (player, login_required) — sync:
+  POST /api/tribe/sync         — cria pedido pull + backfill (RCON opcional)
 """
 from __future__ import annotations
 
@@ -42,10 +47,13 @@ def register_tribe_routes(
     steam_id_from_session: Callable[[], str | None],
     is_admin_steamid: Callable[[str], bool],
     limiter: Any | None = None,
+    trigger_tribe_sync_rcon: Callable[[], list[dict[str, Any]]] | None = None,
 ) -> None:
     from tribe_service import (
         SPLIT_MIN_SALE_AMBER,
         activate_pending_splits,
+        claim_tribe_sync_requests,
+        complete_tribe_sync_request,
         create_cluster_group,
         create_or_update_split,
         disable_split,
@@ -62,11 +70,13 @@ def register_tribe_routes(
         manual_add_member,
         member_optout,
         record_presence,
+        request_tribe_sync,
         resolve_is_owner,
         save_regulation,
         sync_owner_maps,
         update_owner_profile,
         upsert_map_link,
+        member_optin,
     )
 
     # ── Utilitários ──────────────────────────────────────────
@@ -132,16 +142,135 @@ def register_tribe_routes(
     @app.route("/api/tribe/sync", methods=["POST"])
     @login_required
     def tribe_sync():
-        """Força backfill líder→mapa a partir de tribe_presences (Verificar de novo)."""
+        """Verificar de novo: pedido pull na MySQL + backfill (RCON só acelerador).
+
+        Body opcional:
+          refresh_only=true — só backfill (sem novo pedido / sem RCON); usado no poll da UI.
+          skip_rcon=true — cria/renova pedido mas não tenta RCON.
+        """
         if not db_ready():
             return _fail("DB não disponível", 503)
         steam_id = steam_id_from_session()
+        body = request.get_json(silent=True) or {}
+        refresh_only = bool(body.get("refresh_only"))
+        skip_rcon = bool(body.get("skip_rcon")) or refresh_only
+
         db = _db()
+        sync_req: dict[str, Any] | None = None
+        if not refresh_only:
+            try:
+                sync_req = request_tribe_sync(db, steam_id)
+            except Exception as exc:
+                log.warning("tribe_sync request_tribe_sync failed steam=%s: %s", steam_id, exc)
+                db.close()
+                return _fail(f"Falha ao registar pedido de sync: {exc}", 500)
+
+        rcon_results: list[dict[str, Any]] = []
+        if not skip_rcon and trigger_tribe_sync_rcon is not None:
+            try:
+                rcon_results = list(trigger_tribe_sync_rcon() or [])
+                if any(r.get("ok") for r in rcon_results):
+                    import time
+                    time.sleep(2.5)
+            except Exception as exc:
+                log.warning("tribe_sync RCON trigger failed steam=%s: %s", steam_id, exc)
+                rcon_results.append({"ok": False, "error": f"RCON indisponível: {exc}"})
+
         try:
             data = sync_owner_maps(db, steam_id)
+            if sync_req is not None:
+                data["sync_request"] = sync_req
+            data["sync_requested"] = not refresh_only
+            data["rcon"] = rcon_results
+            rcon_ok = sum(1 for r in rcon_results if r.get("ok"))
+            data["rcon_ok"] = rcon_ok
+            data["rcon_total"] = len(rcon_results)
+            data["rcon_optional"] = True
+
+            if data.get("maps"):
+                return _ok(data)
+
+            # Sem mapas: mensagem honesta — RCON não é o caminho principal.
+            base = data.get("hint") or ""
+            if rcon_results and rcon_ok == 0:
+                extra = (
+                    "RCON falhou (atalho opcional). O pedido ficou na fila MySQL: "
+                    "o CustomShop puxa em ~15s e grava presença sem RCON."
+                )
+                data["hint"] = f"{base} {extra}".strip() if base else extra
+            elif rcon_ok > 0 and not (data.get("presences") or []):
+                data["hint"] = (
+                    "Pedido na fila (+ atalho RCON), mas ainda sem presença. "
+                    "Aguarde ~15s (poll MySQL do plugin) ou confirme "
+                    "«TribeSync: presence OK» / presence MySQL OK no log."
+                )
+            elif not data.get("hint"):
+                data["hint"] = (
+                    "Pedido de sync registado na DB. Aguarde o plugin (~15s) e "
+                    "clique de novo — RCON não é obrigatório."
+                )
             return _ok(data)
         except Exception as exc:
             log.warning("tribe_sync error steam=%s: %s", steam_id, exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/sync-request/claim", methods=["POST"])
+    @api_key_required(allow_admin_session=False)
+    def tribe_sync_request_claim():
+        """Plugin puxa pedidos pending para jogadores online neste mapa."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        server_id = str(body.get("server_id") or "").strip()
+        raw_ids = body.get("steam_ids") or []
+        if not isinstance(raw_ids, list):
+            return _fail("steam_ids deve ser lista")
+        if not server_id:
+            return _fail("server_id obrigatório")
+
+        db = _db()
+        try:
+            items = claim_tribe_sync_requests(
+                db,
+                [str(x) for x in raw_ids],
+                server_id=server_id,
+            )
+            return _ok({"items": items, "count": len(items)})
+        except Exception as exc:
+            log.warning("tribe_sync_request_claim error: %s", exc)
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/sync-request/done", methods=["POST"])
+    @api_key_required(allow_admin_session=False)
+    def tribe_sync_request_done():
+        """Plugin confirma que executou o pedido (presence enviada ou falha)."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        body = request.get_json(silent=True) or {}
+        try:
+            request_id = int(body.get("request_id") or 0)
+        except (TypeError, ValueError):
+            return _fail("request_id inválido")
+        if request_id <= 0:
+            return _fail("request_id obrigatório")
+        ok = bool(body.get("ok", True))
+        error = body.get("error")
+        error_s = str(error) if error is not None else None
+
+        db = _db()
+        try:
+            row = complete_tribe_sync_request(
+                db, request_id, ok=ok, error=error_s,
+            )
+            if not row:
+                return _fail("pedido não encontrado", 404)
+            return _ok(row)
+        except Exception as exc:
+            log.warning("tribe_sync_request_done error: %s", exc)
             return _fail(str(exc), 500)
         finally:
             db.close()
@@ -380,7 +509,7 @@ def register_tribe_routes(
     @app.route("/api/tribe/split/optout", methods=["POST"])
     @login_required
     def tribe_split_optout():
-        """Membro faz opt-out imediato do split."""
+        """Membro sai do pool (opt-out) — vendas próprias ficam a 100%."""
         if not db_ready():
             return _fail("DB não disponível", 503)
         steam_id = steam_id_from_session()
@@ -397,6 +526,47 @@ def register_tribe_routes(
                 split_id=split_id,
                 steam_id=target_steam_id,
                 actor_steam_id=steam_id,
+                ip_address=_ip(),
+            )
+            return _ok(result)
+        except ValueError as exc:
+            return _fail(str(exc))
+        except Exception as exc:
+            return _fail(str(exc), 500)
+        finally:
+            db.close()
+
+    @app.route("/api/tribe/split/optin", methods=["POST"])
+    @login_required
+    def tribe_split_optin():
+        """Aceita ganho partilhado (opt-in). Reentrada: 45h + aprovação do owner."""
+        if not db_ready():
+            return _fail("DB não disponível", 503)
+        steam_id = steam_id_from_session()
+        body = request.get_json(silent=True) or {}
+        db = _db()
+        try:
+            split_id = int(body.get("split_id") or 0)
+            target_steam_id = str(body.get("steam_id") or steam_id)
+            owner_approved = bool(body.get("owner_approved"))
+
+            # Owner pode aprovar reentrada de outro membro
+            if target_steam_id != steam_id:
+                owner = get_owner(db, steam_id)
+                if not owner and not is_admin_steamid(steam_id):
+                    return _fail("Só o proprietário pode aprovar reentrada de outro membro", 403)
+                if owner:
+                    split = get_active_split(db, owner["id"])
+                    if not split or int(split["id"]) != split_id:
+                        return _fail("Split não pertence à sua tribo", 403)
+                owner_approved = True
+
+            result = member_optin(
+                db,
+                split_id=split_id,
+                steam_id=target_steam_id,
+                actor_steam_id=steam_id,
+                owner_approved=owner_approved,
                 ip_address=_ip(),
             )
             return _ok(result)

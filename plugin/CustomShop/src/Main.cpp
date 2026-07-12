@@ -13,6 +13,7 @@
 #include "ShopCrossChat.h"
 #include "ShopTribeSync.h"
 #include "HttpClient.h"
+#include "ShopDebug.h"
 #include <Timer.h>
 
 // ─────────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ namespace {
 
 constexpr int kPendingPollSeconds = 60;
 constexpr int kTribeSyncPollSeconds = 180;
+constexpr int kTribeSyncRequestPollSeconds = 15;
 
 void PollPendingForOnlinePlayers() {
     const auto& pcs =
@@ -50,6 +52,15 @@ void ScheduleTribeSyncPoll() {
     }, kTribeSyncPollSeconds);
 }
 
+// Pull «Verificar de novo»: tribe_sync_requests na MySQL → presença sem RCON.
+void ScheduleTribeSyncRequestPoll() {
+    API::Timer::Get().DelayExecute([]() {
+        if (ArkApi::GetApiUtils().GetStatus() == ArkApi::ServerStatus::Ready)
+            CustomShop::TribeSync::PollPendingSyncRequests();
+        ScheduleTribeSyncRequestPoll();
+    }, kTribeSyncRequestPollSeconds);
+}
+
 } // anonymous namespace
 
 // ── Hooks ─────────────────────────────────────────────────────────
@@ -69,6 +80,7 @@ void Hook_AShooterGameMode_BeginPlay(AShooterGameMode* _this) {
 
     SchedulePendingPoll();
     ScheduleTribeSyncPoll();
+    ScheduleTribeSyncRequestPoll();
 }
 
 DECLARE_HOOK(AShooterGameMode_HandleNewPlayer, bool,
@@ -122,6 +134,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
                 "CustomShop: database failed to open — plugin aborted");
             return;
         }
+        CustomShop::Debug::SetDb(CustomShop::ShopPoints::Get().GetDb());
         CustomShop::ShopVip::Get().SetDb(
             CustomShop::ShopPoints::Get().GetDb());
         CustomShop::ShopEntitlements::Get().SetDb(
@@ -164,6 +177,7 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
         }
         SchedulePendingPoll();
         ScheduleTribeSyncPoll();
+        ScheduleTribeSyncRequestPoll();
     }
 
     {
@@ -173,13 +187,14 @@ extern "C" __declspec(dllexport) void Plugin_Init() {
             CustomShop::ShopConfig::Get().CrossChat().value("ServerId", "");
         Log::GetLog()->info(
             "CustomShop v{} ready  (shop='{}', web='{}', cloud_cmds=/upload /download /nuvem, "
-            "cross_chat={}, Settings.ServerId='{}', CrossChat.ServerId='{}')",
+            "cross_chat={}, Settings.ServerId='{}', CrossChat.ServerId='{}', {})",
             ARKLAND_PLUGIN_VERSION,
             CustomShop::ShopConfig::Get().ShopName(),
             CustomShop::ShopConfig::Get().WebApiUrl(),
             CustomShop::ShopConfig::Get().CrossChat().value("Enabled", false) ? "on" : "off",
             settings_sid.empty() ? "(vazio)" : settings_sid,
-            cc_sid.empty() ? "(vazio)" : cc_sid);
+            cc_sid.empty() ? "(vazio)" : cc_sid,
+            CustomShop::Debug::StatusSummary());
     }
 }
 
@@ -196,5 +211,6 @@ extern "C" __declspec(dllexport) void Plugin_Unload() {
     CustomShop::Commands::Unregister();
     CustomShop::CrossChat::Stop();
     CustomShop::HttpClient::Shutdown();
+    CustomShop::Debug::Shutdown();
     Log::GetLog()->info("CustomShop: unloaded");
 }

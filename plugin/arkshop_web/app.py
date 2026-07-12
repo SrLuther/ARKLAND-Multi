@@ -814,6 +814,8 @@ class MarketListing(Base):
         onupdate=lambda: datetime.now(timezone.utc),
     )
     sold_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    tribe_split_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    split_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class MarketTransaction(Base):
@@ -5235,6 +5237,54 @@ def _rcon_reload_one_server(srv: dict[str, Any], settings: dict[str, Any]) -> di
                 last_err = f"{host}:{port} {cmd}: {exc}"
 
     return {"server_id": sid, "label": label, "ok": False, "error": last_err or "falha RCON"}
+
+
+def _trigger_tribe_sync_rcon_all() -> list[dict[str, Any]]:
+    """Dispara Shop.TribeSync via RCON em todos os mapas (presença Minha Tribo)."""
+    settings = _load_settings()
+    targets = _resolve_rcon_reload_targets(settings)
+    results: list[dict[str, Any]] = []
+    for srv in targets:
+        sid = str(srv.get("server_id") or "server")
+        label = str(srv.get("label") or sid)
+        port = int(srv.get("rcon_port") or settings.get("rcon_port") or 27020)
+        password = sanitize_rcon_password(
+            str(srv.get("rcon_password") or settings.get("rcon_password") or "")
+        )
+        if not password:
+            results.append({
+                "server_id": sid,
+                "label": label,
+                "ok": False,
+                "error": "senha RCON não configurada",
+            })
+            continue
+        last_err = ""
+        sent = False
+        for host in _rcon_hosts_to_try(srv, settings):
+            try:
+                resp = _rcon_command(
+                    host, port, password, "Shop.TribeSync", connect_retries=2,
+                )
+                results.append({
+                    "server_id": sid,
+                    "label": label,
+                    "ok": True,
+                    "host": host,
+                    "response": (resp or "")[:200],
+                })
+                sent = True
+                break
+            except Exception as exc:
+                last_err = f"{host}:{port}: {exc}"
+        if not sent:
+            results.append({
+                "server_id": sid,
+                "label": label,
+                "ok": False,
+                "error": last_err or "falha RCON",
+            })
+    return results
 
 
 def _reload_all_plugins(settings: dict[str, Any]) -> list[dict[str, Any]]:
@@ -10651,6 +10701,17 @@ register_tribe_routes(
     steam_id_from_session=_steam_id_from_session,
     is_admin_steamid=_is_admin_steamid,
     limiter=limiter,
+    trigger_tribe_sync_rcon=_trigger_tribe_sync_rcon_all,
+)
+
+from plugin_debug_routes import register_plugin_debug_routes
+
+register_plugin_debug_routes(
+    app,
+    db_ready=_db_ready,
+    session_factory=_db_session_factory,
+    admin_required=admin_required,
+    api_key_required=api_key_required,
 )
 
 if os.environ.get("ARKSHOP_SKIP_DB_BOOT") != "1":

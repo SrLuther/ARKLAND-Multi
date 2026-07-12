@@ -4,5 +4,17 @@
   "PollIntervalSeconds": 60,
   "GroundFallbackOnFullInventory": true,
   "UseSpawnExact": false,
-  "CryoItemPath": ""
+  "CryoItemPath": "",
+  "Debug": {
+    "Enabled": false,
+    "Level": "INFO",
+    "Categories": ["*"],
+    "RingBufferSize": 500,
+    "MaxFileBytes": 10485760,
+    "MaxFiles": 5,
+    "HttpPersist": true,
+    "HttpMinLevel": "WARN",
+    "HttpCategories": ["Deliver", "DinoLab", "Http", "SpawnExact"],
+    "_comment": "JSONL em ArkApi/Plugins/CustomDinoDeliver/logs/arkland_debug.log. Ligar Enabled=true + Level=TRACE; DinoDeliver.Reload. Ver docs/ARKLAND_PLUGIN_DEBUG.md"
+  }
 }

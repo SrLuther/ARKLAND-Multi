@@ -161,6 +161,7 @@ def test_list_species_admin_catalog_only_mod(monkeypatch):
         "custom_dino_service._blueprint_from_catalog_item",
         lambda item_id: sb_bp if item_id == "sb_drake_fire" else "",
     )
+    monkeypatch.setattr("app._read_shop_config", lambda: {"Items": {}})
     all_items = list_species_admin(vanilla_only=False)
     sb = next(s for s in all_items if s["species_key"] == "sb_drake_fire")
     assert sb["mod_source"] == "smallbosses"
@@ -199,6 +200,8 @@ def test_list_species_admin_catalog_fallback(monkeypatch):
         if defn.get("reference_catalog_item_id") == "rex_femea"
         else "",
     )
+    # Evitar fallback para o config.json real da loja neste unit test.
+    monkeypatch.setattr("app._read_shop_config", lambda: {"Items": {}})
     vanilla = list_species_admin(vanilla_only=True)
     assert [s["species_key"] for s in vanilla] == ["rex"]
     all_items = list_species_admin(vanilla_only=False)
@@ -528,6 +531,69 @@ def test_validate_payload_null_optional_fields_serialized_as_empty_strings():
     serialized = json.loads(json.dumps(payload))
     assert serialized["saddle_blueprint"] == ""
     assert serialized["custom_name"] == ""
+
+
+def test_simulate_purchase_returns_quote_without_debit(custom_dino_db, monkeypatch):
+    from custom_dino_service import simulate_purchase
+    from market_economy import SpeciesEconomy
+
+    fake_economy = SpeciesEconomy(
+        species_key="rex",
+        display_name="Rex",
+        root_value=18000,
+        premium_budget=90000,
+        dino_role="ataque",
+        pricing_mode="floor_quality",
+        economy_stats={
+            "health": {"enabled": True},
+            "melee": {"enabled": True},
+            "weight": {"enabled": False},
+            "stamina": {"enabled": False},
+            "speed": {"enabled": False},
+        },
+    )
+
+    monkeypatch.setattr(
+        "dino_order_service._resolve_species_economy",
+        lambda db, key: fake_economy if key == "rex" else None,
+    )
+
+    result, err = simulate_purchase(
+        _valid_body(
+            note="",  # simulação não exige motivo
+            colors=[14, 14, 14, 14, 14, 14],
+            spawn_exact={
+                "enabled": False,
+            },
+        ),
+        db=custom_dino_db,
+    )
+    # SpawnExact off — still quotes with level-only / zero extra stats
+    assert err is None
+    assert result is not None
+    assert result["dry_run"] is True
+    assert result["total"] == result["quote"]["total"]
+    assert result["total"] > 0
+    assert result["breakdown"]["stats_component"] == result["quote"]["stats_component"]
+    assert result["breakdown"]["color_component"] >= 0
+
+
+def test_simulate_purchase_rejects_manual_blueprint(custom_dino_db):
+    from custom_dino_service import simulate_purchase
+
+    bp = "/Game/PrimalEarth/Dinos/Rex/Rex_Character_BP.Rex_Character_BP"
+    result, err = simulate_purchase(
+        _valid_body(
+            species_key=None,
+            species_blueprint=bp,
+            species_display_name="Rex manual",
+            note="Simulação teste blueprint manual x",
+        ),
+        db=custom_dino_db,
+    )
+    assert result is None
+    assert err is not None
+    assert "catálogo" in err.lower() or "manual" in err.lower()
 
 
 def test_mark_custom_dino_failed(custom_dino_db):

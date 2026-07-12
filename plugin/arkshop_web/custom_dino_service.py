@@ -262,7 +262,7 @@ def _species_catalog() -> dict[str, dict[str, Any]]:
 def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
     """Lista espécies homologadas para Dino Lab — deduplicada por species_key.
 
-    Prioridade: market_species (DB, sincronizado do catálogo) → market_species_defaults.json.
+    Prioridade: market_species (DB) → market_species_defaults.json → catálogo shop (Type:dino).
     """
     seen: set[str] = set()
     items: list[dict[str, Any]] = []
@@ -295,6 +295,8 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
                     )
                     if not bp:
                         continue
+                    if not _looks_like_dino_species_blueprint(bp):
+                        continue
                     mod = _infer_mod_source(bp, defn)
                     if vanilla_only and mod != "vanilla":
                         continue
@@ -324,6 +326,8 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
         )
         if not bp:
             continue
+        if not _looks_like_dino_species_blueprint(bp):
+            continue
         mod = _infer_mod_source(bp, defn)
         if vanilla_only and mod != "vanilla":
             continue
@@ -335,6 +339,47 @@ def list_species_admin(*, vanilla_only: bool = False) -> list[dict[str, Any]]:
             "mod_source": mod,
             "tier": str(defn.get("tier") or ""),
         })
+
+    # Fallback: dinos Type:dino do config.json ainda sem defaults/DB.
+    try:
+        from market_economy import (
+            _catalog_item_blueprint,
+            _species_key_from_catalog_item_id,
+            iter_catalog_dinos,
+        )
+
+        from app import _read_shop_config
+
+        catalog = _read_shop_config()
+        for item_id, entry in iter_catalog_dinos(catalog, level1_only=True):
+            sk = _species_key_from_catalog_item_id(item_id)
+            if sk in seen or item_id in seen:
+                continue
+            bp = str(_catalog_item_blueprint(entry) or "").strip()
+            if not bp or not _looks_like_dino_species_blueprint(bp):
+                continue
+            mod = _infer_mod_source(bp, {})
+            if vanilla_only and mod != "vanilla":
+                continue
+            display = str(entry.get("Name") or entry.get("Description") or sk).strip()
+            for suffix in (" Fêmea Nível 1", " Nível 1", " Level 1"):
+                if display.endswith(suffix):
+                    display = display[: -len(suffix)].strip()
+            if display.endswith(")") and "(" in display:
+                display = display[: display.rfind("(")].strip()
+            seen.add(sk)
+            items.append({
+                "species_key": sk,
+                "display_name": display or sk,
+                "blueprint_path": _format_blueprint(bp),
+                "mod_source": mod,
+                "tier": "",
+                "catalog_item_id": item_id,
+            })
+    except Exception as exc:
+        log.debug("list_species_admin catalog fallback: %s", exc)
+
+    items.sort(key=lambda s: str(s.get("display_name") or s.get("species_key") or "").lower())
     return items
 
 
@@ -471,6 +516,26 @@ def _resolve_species(species_key: str) -> dict[str, Any] | None:
     display_name = str(defn.get("display_name") or species_key)
 
     if not bp:
+        # Tentar species_key derivado do item_id (ex.: meraxes_femea → meraxes).
+        try:
+            from market_economy import _species_key_from_catalog_item_id
+
+            alt = _species_key_from_catalog_item_id(species_key)
+            if alt and alt != species_key:
+                defn = _species_catalog().get(alt, {})
+                bp = (
+                    str(defn.get("blueprint_path") or "").strip()
+                    or _blueprint_from_catalog(defn)
+                    or _blueprint_from_catalog_item(alt)
+                    or _blueprint_from_catalog_item(species_key)
+                )
+                if bp:
+                    species_key = alt
+                    display_name = str(defn.get("display_name") or alt)
+        except Exception:
+            pass
+
+    if not bp:
         return _resolve_species_from_db(species_key)
     return {
         "species_key": species_key,
@@ -478,6 +543,110 @@ def _resolve_species(species_key: str) -> dict[str, Any] | None:
         "species_blueprint": _format_blueprint(bp),
         "mod_source": _infer_mod_source(bp, defn),
     }
+
+
+def _payload_to_quote_spec(payload: dict[str, Any]) -> dict[str, Any]:
+    """Converte payload Dino Lab → spec de cotação (encomenda / simulação)."""
+    spawn = payload.get("spawn_exact") if isinstance(payload.get("spawn_exact"), dict) else {}
+    wild = list(spawn.get("wild_stats") or [0] * STAT_COUNT)
+    tamed = list(spawn.get("tamed_stats") or [0] * STAT_COUNT)
+    while len(wild) < STAT_COUNT:
+        wild.append(0)
+    while len(tamed) < STAT_COUNT:
+        tamed.append(0)
+    stat_points: dict[str, int] = {}
+    for i, name in enumerate(STAT_NAMES):
+        try:
+            pts = int(wild[i] or 0) + int(tamed[i] or 0)
+        except (TypeError, ValueError, IndexError):
+            pts = 0
+        stat_points[name] = max(0, min(STAT_MAX, pts))
+    return {
+        "species_key": payload.get("species_key"),
+        "level": payload.get("level", DEFAULT_LEVEL),
+        "gender": payload.get("gender", "female"),
+        "neutered": bool(payload.get("neutered")),
+        "colors": payload.get("colors") or [0, 0, 0, 0, 0, 0],
+        "stat_points": stat_points,
+        "note": payload.get("note") or "Simulação Dino Lab",
+    }
+
+
+def simulate_purchase(
+    body: dict[str, Any],
+    *,
+    db: Session | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """Simula preço de encomenda a partir do formulário Dino Lab — sem débito.
+
+    Reutiliza a fórmula de ``dino_order_service.quote`` (floor_quality + cores + taxas).
+    """
+    # Nota opcional na simulação (admin não precisa do motivo mínimo).
+    payload, err = validate_payload(body, require_note=False)
+    if err or payload is None:
+        return None, err or "payload inválido"
+
+    species_key = str(payload.get("species_key") or "").strip()
+    if not species_key or species_key == "custom":
+        return None, (
+            "Simulação de preço requer espécie do catálogo (não blueprint manual)."
+        )
+
+    if db is None:
+        try:
+            import app as app_module
+
+            session_factory = app_module._SessionLocal
+            if session_factory is None:
+                return None, "Banco não configurado"
+            db = session_factory()
+            close_db = True
+        except Exception as exc:
+            return None, f"Banco não configurado: {exc}"
+    else:
+        close_db = False
+
+    try:
+        from dino_order_service import quote
+
+        spec = _payload_to_quote_spec(payload)
+        q = quote(
+            spec,
+            db=db,
+            skip_gallery_check=True,
+            skip_vanilla_check=True,
+        )
+        return {
+            "ok": True,
+            "dry_run": True,
+            "payload": payload,
+            "quote": q,
+            "total": q.get("total"),
+            "breakdown": {
+                "root_value": q.get("root_value"),
+                "stats_component": q.get("stats_component"),
+                "color_component": q.get("color_component"),
+                "base_surcharge": q.get("base_surcharge"),
+                "service_premium": q.get("service_premium"),
+                "floor": q.get("floor"),
+                "ceiling": q.get("ceiling"),
+                "market_breakdown": q.get("market_breakdown"),
+            },
+        }, None
+    except ValueError as exc:
+        code = str(exc)
+        msgs = {
+            "species_not_available": "Espécie sem economia de mercado (sincronize o catálogo).",
+            "species_key obrigatório": "Informe a espécie.",
+            "db_required": "Banco não configurado.",
+        }
+        return None, msgs.get(code, code)
+    except Exception as exc:
+        log.exception("simulate_purchase: %s", exc)
+        return None, str(exc)
+    finally:
+        if close_db and db is not None:
+            db.close()
 
 
 def validate_payload(body: dict[str, Any], *, require_note: bool = True) -> tuple[dict[str, Any] | None, str | None]:

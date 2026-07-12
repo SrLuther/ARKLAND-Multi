@@ -15,10 +15,12 @@ public:
     bool GroundFallbackOnFullInventory() const;
     bool UseSpawnExact() const;
     std::string CryoItemPath() const;
+    const nlohmann::json& DebugCfg() const { return debug_cfg_; }
 
 private:
     DinoConfig() = default;
     nlohmann::json config_;
+    nlohmann::json debug_cfg_;
 };
 
 } // namespace CustomDinoDeliver

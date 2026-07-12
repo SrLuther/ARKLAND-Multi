@@ -3,8 +3,10 @@
 Implementa:
   - Esquema DB (tribe_owners, tribe_map_links, tribe_cluster_groups,
     tribe_members, tribe_presences, tribe_regulations,
-    tribe_splits, tribe_split_members, tribe_split_audit)
+    tribe_splits, tribe_split_members, tribe_split_audit,
+    tribe_sync_requests)
   - Gestão de membros, presença, regulamento e cluster (principal + fobs)
+  - Fila pull de sync (Verificar de novo → plugin poll, sem depender de RCON)
   - Regras de split (R1–R14) — integração com market_listings via tribe_split_service
 
 Padrão de integração (igual lottery_service):
@@ -34,8 +36,15 @@ SPLIT_MAX_MEMBERS = 10             # R11
 SPLIT_GAP_MIN_PP = 10              # R1 — gap mínimo vendedor vs próximo (p.p.)
 SPLIT_COOLDOWN_HOURS = 48          # R3
 SPLIT_REENTRY_HOURS = 45           # R4 — tempo mínimo pós opt-out
+SPLIT_DEFAULT_SENDER_PCT = 60      # Default: quem envia
+SPLIT_DEFAULT_POOL_PCT = 40        # Default: demais do pool (dividido por igual)
 REGULAMENTO_MAX_CHARS = 5_000      # §19.4
 REGULAMENTO_ADDENDUM_MAX_CHARS = 2_000
+# Pedido «Verificar de novo»: plugin faz pull; RCON é só acelerador opcional.
+TRIBE_SYNC_REQUEST_TTL_MINUTES = 15
+TRIBE_SYNC_REQUEST_STATUSES = frozenset({
+    "pending", "claimed", "done", "expired",
+})
 
 SPLIT_STATUSES = frozenset({
     "DRAFT", "PENDING_COOLDOWN", "ACTIVE", "PAUSED", "FROZEN", "DISABLED", "ORPHANED"
@@ -89,6 +98,95 @@ def resolve_is_owner(*, is_owner: Any = None, member_rank: str | None = None) ->
     if _as_bool(is_owner):
         return True
     return rank_implies_owner(member_rank)
+
+
+def get_registered_owner_for_tribe(
+    db: Session, *, server_id: str, tribe_id: int
+) -> dict[str, Any] | None:
+    """Proprietário já vinculado na web a este (server_id, tribe_id).
+
+    Se existir, syncs posteriores de outros jogadores (mesmo como owner in-game)
+    são tratados como membro — não sobrescrevem o dono.
+    """
+    server_id = str(server_id or "").strip()
+    if not server_id or tribe_id is None:
+        return None
+    row = db.execute(
+        text("""
+            SELECT o.id, o.steam_id, o.display_name, l.id
+            FROM tribe_map_links l
+            JOIN tribe_owners o ON o.id = l.tribe_owner_id
+            WHERE l.server_id = :sid AND l.tribe_id = :tid AND l.is_active = 1
+            ORDER BY l.confirmed_at ASC
+            LIMIT 1
+        """),
+        {"sid": server_id, "tid": int(tribe_id)},
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "tribe_owner_id": int(row[0]),
+        "steam_id": str(row[1]),
+        "display_name": row[2] or "",
+        "map_link_id": int(row[3]),
+    }
+
+
+def build_default_split_percentages(
+    pool: list[dict[str, Any]],
+    *,
+    sender_steam_id: str,
+    sender_pct: int = SPLIT_DEFAULT_SENDER_PCT,
+) -> list[dict[str, Any]]:
+    """Default 60/40: quem envia leva sender_pct; o resto divide por igual.
+
+    ``pool`` = participantes do ganho partilhado (opt-in). Remainder de
+    arredondamento vai ao remetente.
+    """
+    sender_steam_id = str(sender_steam_id or "").strip()
+    if not sender_steam_id:
+        raise ValueError("sender_steam_id obrigatório")
+    if sender_pct < 1 or sender_pct > 99:
+        raise ValueError("sender_pct deve estar entre 1 e 99")
+
+    by_sid: dict[str, dict[str, Any]] = {}
+    for m in pool:
+        sid = str(m.get("steam_id") or "").strip()
+        if sid:
+            by_sid[sid] = m
+    if sender_steam_id not in by_sid:
+        raise ValueError("Remetente não está no pool de partilha.")
+
+    others = [sid for sid in by_sid if sid != sender_steam_id]
+    if not others:
+        sender = by_sid[sender_steam_id]
+        return [{
+            "steam_id": sender_steam_id,
+            "display_name": sender.get("display_name") or sender_steam_id,
+            "percentage": 100,
+            "is_seller": True,
+            "opted_out": False,
+        }]
+
+    remainder = 100 - sender_pct
+    each = remainder // len(others)
+    rem = remainder - each * len(others)
+    out: list[dict[str, Any]] = [{
+        "steam_id": sender_steam_id,
+        "display_name": by_sid[sender_steam_id].get("display_name") or sender_steam_id,
+        "percentage": sender_pct + rem,
+        "is_seller": True,
+        "opted_out": False,
+    }]
+    for sid in others:
+        out.append({
+            "steam_id": sid,
+            "display_name": by_sid[sid].get("display_name") or sid,
+            "percentage": each,
+            "is_seller": False,
+            "opted_out": False,
+        })
+    return out
 
 
 # ────────────────────────────────────────────────────────────
@@ -251,6 +349,20 @@ def ensure_tribe_schema(engine: Engine) -> None:
           ip_address       VARCHAR(45)
         )
         """,
+        # ── Pedidos de sync (web → plugin pull; RCON opcional)
+        f"""
+        CREATE TABLE IF NOT EXISTS tribe_sync_requests (
+          id                    {_pk},
+          steam_id              VARCHAR(32) NOT NULL,
+          status                VARCHAR(16) NOT NULL DEFAULT 'pending',
+          requested_at          {_now_col} NOT NULL,
+          expires_at            {_now_col} NOT NULL,
+          claimed_at            {_now_col},
+          claimed_by_server_id  VARCHAR(64),
+          completed_at          {_now_col},
+          last_error            TEXT
+        )
+        """,
     ]
 
     with engine.connect() as conn:
@@ -262,6 +374,13 @@ def ensure_tribe_schema(engine: Engine) -> None:
         # Adiciona colunas de split em market_listings se não existirem
         _add_col_if_missing(conn, is_sqlite, "market_listings", "tribe_split_id", "INTEGER")
         _add_col_if_missing(conn, is_sqlite, "market_listings", "split_snapshot", "TEXT")
+        try:
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS ix_tribe_sync_req_steam_status "
+                "ON tribe_sync_requests (steam_id, status)"
+            ))
+        except Exception as exc:
+            log.debug("tribe_schema index tribe_sync_requests: %s", exc)
         conn.commit()
     log.info("tribe_schema: tabelas verificadas/criadas")
 
@@ -513,6 +632,18 @@ def record_presence(
     member_rank_s = str(member_rank or "").strip() or None
     owner_flag = resolve_is_owner(is_owner=is_owner, member_rank=member_rank_s)
 
+    # Se a web já tem proprietário para esta tribo/mapa, não deixar outro jogador
+    # reivindicar ownership (nem via map_link). Continua membro.
+    registered = None
+    if tribe_id is not None and _is_usable_server_id(server_id):
+        registered = get_registered_owner_for_tribe(
+            db, server_id=server_id, tribe_id=int(tribe_id),
+        )
+    claim_owner_link = owner_flag
+    if registered and registered["steam_id"] != steam_id:
+        claim_owner_link = False
+        owner_flag = False
+
     # Normaliza membros: is_owner via flag ou rank_name
     normalized_members: list[dict[str, Any]] | None = None
     if members:
@@ -526,6 +657,11 @@ def record_presence(
             sid = str(mm.get("steam_id") or "").strip()
             if sid:
                 mm["steam_id"] = sid
+                # Preserva dono web: só o steam_id registado fica is_owner=1
+                if registered and sid != registered["steam_id"]:
+                    mm["is_owner"] = False
+                elif registered and sid == registered["steam_id"]:
+                    mm["is_owner"] = True
                 normalized_members.append(mm)
 
     now = _naive(_utcnow())
@@ -548,7 +684,7 @@ def record_presence(
         )
 
     # Auto-vincula owner ao tribe_map_links (tribe_name opcional — nome vazio não bloqueia)
-    if owner_flag and tribe_id and _is_usable_server_id(server_id):
+    if claim_owner_link and tribe_id and _is_usable_server_id(server_id):
         owner = get_owner(db, steam_id)
         if owner:
             _auto_link_owner(
@@ -600,7 +736,18 @@ def _auto_link_owner(
     db: Session, *, owner: dict[str, Any], server_id: str,
     tribe_id: int, tribe_name: str, now: datetime
 ) -> None:
-    """Vincula automaticamente owner à tribo detectada no login (se ainda não vinculado)."""
+    """Vincula automaticamente owner à tribo detectada no login (se ainda não vinculado).
+
+    Não sobrescreve se outro tribe_owner já tiver esta (server_id, tribe_id).
+    """
+    registered = get_registered_owner_for_tribe(db, server_id=server_id, tribe_id=tribe_id)
+    if registered and registered["steam_id"] != owner["steam_id"]:
+        log.info(
+            "tribe auto-link skip: tribo %s@%s já tem dono web %s (sync=%s)",
+            tribe_id, server_id, registered["steam_id"], owner["steam_id"],
+        )
+        return
+
     existing = db.execute(
         text("SELECT id, tribe_id FROM tribe_map_links WHERE tribe_owner_id = :oid AND server_id = :sid"),
         {"oid": owner["id"], "sid": server_id},
@@ -624,6 +771,259 @@ def _auto_link_owner(
 # ────────────────────────────────────────────────────────────
 # Consulta "Minha Tribo"
 # ────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────
+# Fila pull de sync (Verificar de novo → plugin)
+# ────────────────────────────────────────────────────────────
+
+def _sync_request_row_to_dict(row: Any) -> dict[str, Any] | None:
+    if not row:
+        return None
+    return {
+        "id": int(row[0]),
+        "steam_id": row[1],
+        "status": row[2],
+        "requested_at": str(row[3]) if row[3] else None,
+        "expires_at": str(row[4]) if row[4] else None,
+        "claimed_at": str(row[5]) if row[5] else None,
+        "claimed_by_server_id": row[6] or None,
+        "completed_at": str(row[7]) if row[7] else None,
+        "last_error": row[8] or None,
+    }
+
+
+def expire_stale_tribe_sync_requests(db: Session) -> int:
+    """Marca pedidos pending/claimed expirados."""
+    now = _naive(_utcnow())
+    result = db.execute(
+        text("""
+            UPDATE tribe_sync_requests
+            SET status = 'expired'
+            WHERE status IN ('pending', 'claimed') AND expires_at < :now
+        """),
+        {"now": now},
+    )
+    db.commit()
+    return int(result.rowcount or 0)
+
+
+def request_tribe_sync(db: Session, steam_id: str) -> dict[str, Any]:
+    """Cria/renova pedido de sync para o jogador (pull pelo plugin).
+
+    Idempotente: se já houver pending/claimed activo, renova expires_at.
+    """
+    steam_id = str(steam_id or "").strip()
+    if not steam_id:
+        raise ValueError("steam_id obrigatório")
+
+    expire_stale_tribe_sync_requests(db)
+    now = _naive(_utcnow())
+    expires = now + timedelta(minutes=TRIBE_SYNC_REQUEST_TTL_MINUTES)
+
+    existing = db.execute(
+        text("""
+            SELECT id, steam_id, status, requested_at, expires_at,
+                   claimed_at, claimed_by_server_id, completed_at, last_error
+            FROM tribe_sync_requests
+            WHERE steam_id = :sid AND status IN ('pending', 'claimed')
+            ORDER BY requested_at DESC
+            LIMIT 1
+        """),
+        {"sid": steam_id},
+    ).fetchone()
+
+    if existing:
+        db.execute(
+            text("""
+                UPDATE tribe_sync_requests
+                SET status = 'pending',
+                    requested_at = :now,
+                    expires_at = :exp,
+                    claimed_at = NULL,
+                    claimed_by_server_id = NULL,
+                    completed_at = NULL,
+                    last_error = NULL
+                WHERE id = :id
+            """),
+            {"now": now, "exp": expires, "id": int(existing[0])},
+        )
+        db.commit()
+        row = db.execute(
+            text("""
+                SELECT id, steam_id, status, requested_at, expires_at,
+                       claimed_at, claimed_by_server_id, completed_at, last_error
+                FROM tribe_sync_requests WHERE id = :id
+            """),
+            {"id": int(existing[0])},
+        ).fetchone()
+        data = _sync_request_row_to_dict(row) or {}
+        data["renewed"] = True
+        return data
+
+    db.execute(
+        text("""
+            INSERT INTO tribe_sync_requests
+              (steam_id, status, requested_at, expires_at)
+            VALUES (:sid, 'pending', :now, :exp)
+        """),
+        {"sid": steam_id, "now": now, "exp": expires},
+    )
+    db.commit()
+    row = db.execute(
+        text("""
+            SELECT id, steam_id, status, requested_at, expires_at,
+                   claimed_at, claimed_by_server_id, completed_at, last_error
+            FROM tribe_sync_requests
+            WHERE steam_id = :sid
+            ORDER BY id DESC LIMIT 1
+        """),
+        {"sid": steam_id},
+    ).fetchone()
+    data = _sync_request_row_to_dict(row) or {}
+    data["renewed"] = False
+    return data
+
+
+def claim_tribe_sync_requests(
+    db: Session,
+    steam_ids: list[str],
+    *,
+    server_id: str,
+) -> list[dict[str, Any]]:
+    """Plugin reclama pedidos pending para jogadores online neste mapa."""
+    server_id = str(server_id or "").strip()
+    ids = sorted({str(s or "").strip() for s in steam_ids if str(s or "").strip()})
+    if not ids or not server_id:
+        return []
+
+    expire_stale_tribe_sync_requests(db)
+    now = _naive(_utcnow())
+    claimed: list[dict[str, Any]] = []
+
+    for sid in ids:
+        row = db.execute(
+            text("""
+                SELECT id, steam_id, status, requested_at, expires_at,
+                       claimed_at, claimed_by_server_id, completed_at, last_error
+                FROM tribe_sync_requests
+                WHERE steam_id = :sid AND status = 'pending' AND expires_at >= :now
+                ORDER BY requested_at ASC
+                LIMIT 1
+            """),
+            {"sid": sid, "now": now},
+        ).fetchone()
+        if not row:
+            continue
+        req_id = int(row[0])
+        db.execute(
+            text("""
+                UPDATE tribe_sync_requests
+                SET status = 'claimed',
+                    claimed_at = :now,
+                    claimed_by_server_id = :srv
+                WHERE id = :id AND status = 'pending'
+            """),
+            {"now": now, "srv": server_id[:64], "id": req_id},
+        )
+        claimed.append({
+            "request_id": req_id,
+            "steam_id": sid,
+        })
+
+    if claimed:
+        db.commit()
+    return claimed
+
+
+def complete_tribe_sync_request(
+    db: Session,
+    request_id: int,
+    *,
+    ok: bool = True,
+    error: str | None = None,
+) -> dict[str, Any] | None:
+    """Marca pedido como done (ou reabre pending se falhou e ainda não expirou)."""
+    request_id = int(request_id)
+    now = _naive(_utcnow())
+    row = db.execute(
+        text("""
+            SELECT id, steam_id, status, requested_at, expires_at,
+                   claimed_at, claimed_by_server_id, completed_at, last_error
+            FROM tribe_sync_requests WHERE id = :id
+        """),
+        {"id": request_id},
+    ).fetchone()
+    if not row:
+        return None
+
+    if ok:
+        db.execute(
+            text("""
+                UPDATE tribe_sync_requests
+                SET status = 'done', completed_at = :now, last_error = NULL
+                WHERE id = :id
+            """),
+            {"now": now, "id": request_id},
+        )
+    else:
+        err = (error or "sync_failed")[:500]
+        # Reabre para outro mapa / próximo poll se ainda válido.
+        expires = row[4]
+        still_valid = expires is not None and expires >= now
+        if still_valid:
+            db.execute(
+                text("""
+                    UPDATE tribe_sync_requests
+                    SET status = 'pending',
+                        claimed_at = NULL,
+                        claimed_by_server_id = NULL,
+                        last_error = :err
+                    WHERE id = :id
+                """),
+                {"err": err, "id": request_id},
+            )
+        else:
+            db.execute(
+                text("""
+                    UPDATE tribe_sync_requests
+                    SET status = 'expired', last_error = :err
+                    WHERE id = :id
+                """),
+                {"err": err, "id": request_id},
+            )
+    db.commit()
+    refreshed = db.execute(
+        text("""
+            SELECT id, steam_id, status, requested_at, expires_at,
+                   claimed_at, claimed_by_server_id, completed_at, last_error
+            FROM tribe_sync_requests WHERE id = :id
+        """),
+        {"id": request_id},
+    ).fetchone()
+    return _sync_request_row_to_dict(refreshed)
+
+
+def get_active_tribe_sync_request(db: Session, steam_id: str) -> dict[str, Any] | None:
+    """Pedido pending/claimed activo (para UI / diagnóstico)."""
+    steam_id = str(steam_id or "").strip()
+    if not steam_id:
+        return None
+    expire_stale_tribe_sync_requests(db)
+    now = _naive(_utcnow())
+    row = db.execute(
+        text("""
+            SELECT id, steam_id, status, requested_at, expires_at,
+                   claimed_at, claimed_by_server_id, completed_at, last_error
+            FROM tribe_sync_requests
+            WHERE steam_id = :sid AND status IN ('pending', 'claimed')
+              AND expires_at >= :now
+            ORDER BY requested_at DESC
+            LIMIT 1
+        """),
+        {"sid": steam_id, "now": now},
+    ).fetchone()
+    return _sync_request_row_to_dict(row)
+
 
 def get_presence_summary(db: Session, steam_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
     """Últimas presenças do jogador (diagnóstico / sync forçado)."""
@@ -654,17 +1054,19 @@ def get_presence_summary(db: Session, steam_id: str, *, limit: int = 10) -> list
 def sync_owner_maps(db: Session, steam_id: str) -> dict[str, Any]:
     """Reaplica backfill a partir de tribe_presences e devolve diagnóstico.
 
-    Usado pelo botão «Verificar de novo» — não contacta o servidor ARK;
-    depende de snapshots já enviados pelo plugin no login.
+    Usado pelo botão «Verificar de novo» — não exige RCON;
+    depende de snapshots enviados pelo plugin (poll pull / login / RCON opcional).
     """
     steam_id = str(steam_id or "").strip()
     owner = get_owner(db, steam_id)
+    sync_req = get_active_tribe_sync_request(db, steam_id)
     if not owner:
         return {
             "panel_activated": False,
             "maps_linked": 0,
             "maps": [],
             "presences": get_presence_summary(db, steam_id),
+            "sync_request": sync_req,
             "hint": "Ative o painel de tribo primeiro.",
         }
 
@@ -678,12 +1080,19 @@ def sync_owner_maps(db: Session, steam_id: str) -> dict[str, Any]:
     hint = None
     if not tribes.get("maps"):
         if not presences:
-            hint = (
-                "Nenhuma presença in-game registada. Relogue no servidor ARKLAND "
-                "como Proprietário da tribo (após o plugin CustomShop com TribeSync) "
-                "e depois clique em Verificar de novo. Se já relogou: confirme no log "
-                "do mapa a linha «TribeSync: presence OK» e CrossChat.ServerId no config."
-            )
+            if sync_req:
+                hint = (
+                    "Pedido de sync registado. O CustomShop (≥1.10.12) no mapa "
+                    "puxa o pedido em ~15s e envia presença — sem depender de RCON. "
+                    "Esteja online como Proprietário e clique de novo em alguns segundos."
+                )
+            else:
+                hint = (
+                    "Nenhuma presença in-game registada. Com o CustomShop ≥1.10.12 online, "
+                    "clique em «Verificar de novo» estando logado como Proprietário — "
+                    "cria um pedido que o plugin puxa sozinho. Confirme no log "
+                    "«TribeSync: presence OK» e Settings/CrossChat.ServerId."
+                )
         elif not owner_presences:
             hint = (
                 "Há presença no mapa, mas o sistema não marcou ownership "
@@ -706,6 +1115,7 @@ def sync_owner_maps(db: Session, steam_id: str) -> dict[str, Any]:
         "maps": tribes.get("maps") or [],
         "owner": tribes.get("owner"),
         "presences": presences,
+        "sync_request": sync_req,
         "hint": hint,
         "_regulation": tribes.get("_regulation"),
         "_split": tribes.get("_split"),
@@ -1105,36 +1515,35 @@ def _get_split_members(db: Session, split_id: int) -> list[dict[str, Any]]:
 
 def validate_split_config(members: list[dict[str, Any]]) -> None:
     """
-    Valida R1 (gap ≥ 10 p.p.) e R2 (soma = 100%).
-    Lança ValueError com mensagem clara se inválido.
+    Valida R1 (gap ≥ 10 p.p.) e R2 (soma = 100%) na tabela de taxas.
+    Opt-in/opt-out individual não entra aqui — a tabela define o template.
     """
-    active = [m for m in members if not m.get("opted_out")]
-    if len(active) < 2:
-        raise ValueError("Split exige ao menos 2 participantes ativos.")
-    if len(active) > SPLIT_MAX_MEMBERS:
+    if len(members) < 2:
+        raise ValueError("Split exige ao menos 2 participantes na configuração.")
+    if len(members) > SPLIT_MAX_MEMBERS:
         raise ValueError(f"Split permite no máximo {SPLIT_MAX_MEMBERS} membros.")
 
-    total = sum(int(m["percentage"]) for m in active)
+    total = sum(int(m["percentage"]) for m in members)
     if total != 100:
         raise ValueError(f"Soma dos percentuais deve ser exatamente 100% (atual: {total}%).")
 
-    seller = next((m for m in active if m.get("is_seller")), None)
+    seller = next((m for m in members if m.get("is_seller")), None)
     if not seller:
-        raise ValueError("Configuração deve ter um vendedor/lister marcado.")
+        raise ValueError("Configuração deve ter um vendedor/lister marcado (parcela de quem envia).")
 
     pct_seller = int(seller["percentage"])
-    others_pct = [int(m["percentage"]) for m in active if not m.get("is_seller")]
+    others_pct = [int(m["percentage"]) for m in members if not m.get("is_seller")]
     max_other = max(others_pct) if others_pct else 0
 
     if pct_seller <= max_other:
         raise ValueError(
-            "O vendedor deve ter percentual estritamente maior que qualquer outro membro."
+            "Quem envia deve ter percentual estritamente maior que qualquer outro membro."
         )
     gap = pct_seller - max_other
     if gap < SPLIT_GAP_MIN_PP:
         raise ValueError(
-            f"Gap mínimo entre vendedor e próximo membro é {SPLIT_GAP_MIN_PP} p.p. "
-            f"(atual: {gap} p.p., vendedor: {pct_seller}%, próximo: {max_other}%)."
+            f"Gap mínimo entre quem envia e o próximo membro é {SPLIT_GAP_MIN_PP} p.p. "
+            f"(atual: {gap} p.p., remetente: {pct_seller}%, próximo: {max_other}%)."
         )
 
 
@@ -1227,9 +1636,14 @@ def create_or_update_split(
             "spid": existing["id"],
         })
         split_id = existing["id"]
-        # Limpa membros antigos
+        # Preserva opt-in dos membros existentes ao regravar taxas
+        prev_opt: dict[str, tuple[bool, Any]] = {
+            m["steam_id"]: (bool(m.get("opted_out")), m.get("opted_out_at"))
+            for m in existing.get("members") or []
+        }
         db.execute(text("DELETE FROM tribe_split_members WHERE split_id = :sid"), {"sid": split_id})
     else:
+        prev_opt = {}
         db.execute(text("""
             INSERT INTO tribe_splits
               (tribe_owner_id, tribe_id, server_id, tribe_name, status,
@@ -1245,15 +1659,25 @@ def create_or_update_split(
         ).fetchone()
         split_id = row[0]
 
-    # Insere membros
+    # Insere membros — novos começam fora do pool (opted_out=1) até aceitarem.
+    # Membros que já tinham opt-in mantêm o estado.
     for m in members:
+        sid = m["steam_id"]
+        if sid in prev_opt:
+            was_out, out_at = prev_opt[sid]
+            opted_out = 1 if was_out else 0
+            opted_out_at = out_at if was_out else None
+        else:
+            opted_out = 1
+            opted_out_at = None
         db.execute(text("""
             INSERT INTO tribe_split_members
-              (split_id, steam_id, display_name, percentage, is_seller, opted_out, added_at)
-            VALUES (:sid, :steam, :dn, :pct, :isl, 0, :now)
+              (split_id, steam_id, display_name, percentage, is_seller, opted_out, opted_out_at, added_at)
+            VALUES (:sid, :steam, :dn, :pct, :isl, :oo, :ooat, :now)
         """), {
-            "sid": split_id, "steam": m["steam_id"], "dn": m.get("display_name") or m["steam_id"],
-            "pct": int(m["percentage"]), "isl": 1 if m.get("is_seller") else 0, "now": now,
+            "sid": split_id, "steam": sid, "dn": m.get("display_name") or sid,
+            "pct": int(m["percentage"]), "isl": 1 if m.get("is_seller") else 0,
+            "oo": opted_out, "ooat": opted_out_at, "now": now,
         })
 
     new_json = json.dumps({"members": members}, default=str)
@@ -1272,35 +1696,79 @@ def member_optout(
     actor_steam_id: str,
     ip_address: str | None = None,
 ) -> dict[str, Any]:
-    """Opt-out imediato de membro (R4). Recalcula percentuais proporcionalmente."""
+    """Opt-out imediato: sai do pool — vendas próprias voltam a 100% (sem split).
+
+    As taxas-template do owner mantêm-se; só a participação no pool muda.
+    """
     members = _get_split_members(db, split_id)
     target = next((m for m in members if m["steam_id"] == steam_id), None)
     if not target:
         raise ValueError("Membro não encontrado no split.")
-    if target.get("is_seller"):
-        raise ValueError("Vendedor não pode fazer opt-out sem desativar o split (use 'desativar').")
     if target.get("opted_out"):
-        raise ValueError("Membro já realizou opt-out.")
-
-    active_members = [m for m in members if not m.get("opted_out")]
-    new_members = recalc_proportional(active_members, steam_id)
+        raise ValueError("Já está fora do ganho partilhado.")
 
     now = _naive(_utcnow())
-    # Marca opt-out
     db.execute(text("""
         UPDATE tribe_split_members SET opted_out = 1, opted_out_at = :now
         WHERE split_id = :sid AND steam_id = :steam
     """), {"now": now, "sid": split_id, "steam": steam_id})
 
-    # Atualiza percentuais dos restantes
-    for m in new_members:
-        db.execute(text("""
-            UPDATE tribe_split_members SET percentage = :pct
-            WHERE split_id = :sid AND steam_id = :steam
-        """), {"pct": m["percentage"], "sid": split_id, "steam": m["steam_id"]})
-
     _audit_split(db, split_id=split_id, action="OPTED_OUT", actor=actor_steam_id,
-                 target=steam_id, old_json=None, new_json=json.dumps(new_members, default=str),
+                 target=steam_id, old_json=None, new_json=json.dumps({"opted_out": steam_id}),
+                 ip_address=ip_address, now=now)
+    db.commit()
+    return _get_split_members(db, split_id)  # type: ignore[return-value]
+
+
+def member_optin(
+    db: Session,
+    *,
+    split_id: int,
+    steam_id: str,
+    actor_steam_id: str,
+    owner_approved: bool = False,
+    ip_address: str | None = None,
+) -> dict[str, Any]:
+    """Aceita participar do ganho partilhado (opt-in por jogador).
+
+    Reentrada após opt-out: exige 45h + aprovação do owner (D3/R4), salvo
+    primeira adesão (nunca teve opted_out_at).
+    """
+    members = _get_split_members(db, split_id)
+    target = next((m for m in members if m["steam_id"] == steam_id), None)
+    if not target:
+        raise ValueError("Membro não encontrado na configuração de divisão.")
+    if not target.get("opted_out"):
+        raise ValueError("Já participa do ganho partilhado.")
+
+    now = _naive(_utcnow())
+    # Reentrada: teve opted_out_at → carência 45h + aprovação owner
+    if target.get("opted_out_at"):
+        try:
+            left_at = datetime.fromisoformat(str(target["opted_out_at"]).replace("Z", ""))
+            if left_at.tzinfo is not None:
+                left_at = _naive(left_at)
+        except Exception:
+            left_at = now
+        elapsed = now - left_at
+        if elapsed < timedelta(hours=SPLIT_REENTRY_HOURS):
+            remaining = SPLIT_REENTRY_HOURS - int(elapsed.total_seconds() // 3600)
+            raise ValueError(
+                f"Reentrada só após {SPLIT_REENTRY_HOURS}h do opt-out "
+                f"(faltam ~{max(remaining, 1)}h)."
+            )
+        if not owner_approved and actor_steam_id == steam_id:
+            raise ValueError(
+                "Reentrada requer aprovação explícita do proprietário da tribo."
+            )
+
+    db.execute(text("""
+        UPDATE tribe_split_members SET opted_out = 0, opted_out_at = NULL
+        WHERE split_id = :sid AND steam_id = :steam
+    """), {"sid": split_id, "steam": steam_id})
+
+    _audit_split(db, split_id=split_id, action="OPTED_IN", actor=actor_steam_id,
+                 target=steam_id, old_json=None, new_json=json.dumps({"opted_in": steam_id}),
                  ip_address=ip_address, now=now)
     db.commit()
     return _get_split_members(db, split_id)  # type: ignore[return-value]
@@ -1355,25 +1823,148 @@ def _audit_split(
 # ────────────────────────────────────────────────────────────
 
 def get_split_snapshot_for_listing(
-    db: Session, tribe_owner_id: int, price: int
+    db: Session,
+    tribe_owner_id: int,
+    price: int,
+    *,
+    seller_steam_id: str | None = None,
 ) -> dict[str, Any] | None:
     """
-    Retorna snapshot de split para um anúncio (opt-in por listagem).
-    Verifica R8 (mínimo 1000 Âmbares) e se split está ACTIVE.
-    Retorna None se split não aplicável.
+    Snapshot de split para um anúncio — opt-in por jogador.
+
+    Só aplica se:
+      - preço ≥ R8 (1000 Âmbares)
+      - split ACTIVE
+      - vendedor está no pool (não opted_out)
+      - há pelo menos outro participante no pool
+
+    Quem envia recebe a parcela de remetente (template is_seller / default 60%);
+    os demais do pool partilham o resto (pesos do template ou iguais).
     """
     if price < SPLIT_MIN_SALE_AMBER:
         return None
     split = get_active_split(db, tribe_owner_id)
     if not split or split["status"] != "ACTIVE":
         return None
-    active_members = [m for m in split["members"] if not m.get("opted_out")]
-    if len(active_members) < 2:
+
+    seller_steam_id = str(seller_steam_id or "").strip()
+    pool = [m for m in split["members"] if not m.get("opted_out")]
+    if seller_steam_id:
+        seller_in = next((m for m in pool if m["steam_id"] == seller_steam_id), None)
+        if not seller_in:
+            # Vendedor não aceitou partilha → 100% (sem snapshot)
+            return None
+        snapshot_members = _build_runtime_shares(pool, seller_steam_id=seller_steam_id)
+    else:
+        if len(pool) < 2:
+            return None
+        snapshot_members = pool
+
+    if len([m for m in snapshot_members if not m.get("opted_out")]) < 2:
         return None
     return {
         "split_id": split["id"],
-        "members": active_members,
+        "members": snapshot_members,
+        "seller_steam_id": seller_steam_id or None,
+        "rule": "sender_largest_share",
     }
+
+
+def _build_runtime_shares(
+    pool: list[dict[str, Any]], *, seller_steam_id: str
+) -> list[dict[str, Any]]:
+    """Monta % no momento da listagem: remetente = maior fatia; demais do pool."""
+    template_sender = next((m for m in pool if m.get("is_seller")), None)
+    sender_pct = (
+        int(template_sender["percentage"])
+        if template_sender
+        else SPLIT_DEFAULT_SENDER_PCT
+    )
+    others = [m for m in pool if m["steam_id"] != seller_steam_id]
+    if not others:
+        return build_default_split_percentages(
+            pool, sender_steam_id=seller_steam_id, sender_pct=sender_pct,
+        )
+
+    # Pesos customizados dos não-remetentes no template (exclui slot is_seller)
+    weight_src = [m for m in pool if not m.get("is_seller") and m["steam_id"] != seller_steam_id]
+    if not weight_src:
+        # Remetente real era um "membro" no template — divide resto por igual
+        return build_default_split_percentages(
+            pool, sender_steam_id=seller_steam_id, sender_pct=sender_pct,
+        )
+
+    # Se todos os outros têm o mesmo peso (ou 1 membro), equal/default
+    weights = [max(int(m["percentage"]), 1) for m in weight_src]
+    if len(set(weights)) <= 1 and len(others) == len(weight_src):
+        return build_default_split_percentages(
+            pool, sender_steam_id=seller_steam_id, sender_pct=sender_pct,
+        )
+
+    # Escala pesos dos outros para somar (100 - sender_pct)
+    remainder = 100 - sender_pct
+    # Mapear peso por steam; quem não tinha peso no template fica peso médio
+    weight_by_sid = {m["steam_id"]: max(int(m["percentage"]), 1) for m in weight_src}
+    avg_w = max(sum(weights) // len(weights), 1)
+    ordered_weights = [weight_by_sid.get(m["steam_id"], avg_w) for m in others]
+    wsum = sum(ordered_weights) or 1
+    out: list[dict[str, Any]] = []
+    distributed = 0
+    for i, m in enumerate(others):
+        if i < len(others) - 1:
+            pct = int(round(remainder * ordered_weights[i] / wsum))
+            distributed += pct
+        else:
+            pct = remainder - distributed
+        out.append({
+            "steam_id": m["steam_id"],
+            "display_name": m.get("display_name") or m["steam_id"],
+            "percentage": pct,
+            "is_seller": False,
+            "opted_out": False,
+        })
+    seller = next(m for m in pool if m["steam_id"] == seller_steam_id)
+    out.insert(0, {
+        "steam_id": seller_steam_id,
+        "display_name": seller.get("display_name") or seller_steam_id,
+        "percentage": sender_pct,
+        "is_seller": True,
+        "opted_out": False,
+    })
+    # Corrige soma por arredondamento — remainder ao remetente
+    total = sum(int(x["percentage"]) for x in out)
+    if total != 100:
+        out[0]["percentage"] = int(out[0]["percentage"]) + (100 - total)
+    return out
+
+
+def find_tribe_owner_id_for_seller(db: Session, seller_steam_id: str) -> int | None:
+    """Resolve tribe_owner_id do split aplicável ao vendedor (membro de mapa com split)."""
+    seller_steam_id = str(seller_steam_id or "").strip()
+    if not seller_steam_id:
+        return None
+    # 1) Vendedor é o tribe_owner
+    owner = get_owner(db, seller_steam_id)
+    if owner:
+        split = get_active_split(db, owner["id"])
+        if split and split["status"] in ("ACTIVE", "PENDING_COOLDOWN"):
+            return int(owner["id"])
+    # 2) Vendedor é membro de tribo cujo dono tem split
+    row = db.execute(
+        text("""
+            SELECT l.tribe_owner_id
+            FROM tribe_members m
+            JOIN tribe_map_links l
+              ON l.server_id = m.server_id AND l.tribe_id = m.tribe_id AND l.is_active = 1
+            JOIN tribe_splits s ON s.tribe_owner_id = l.tribe_owner_id
+            WHERE m.steam_id = :sid
+              AND s.status NOT IN ('DISABLED', 'ORPHANED')
+            ORDER BY CASE s.status WHEN 'ACTIVE' THEN 0 ELSE 1 END, s.id DESC
+            LIMIT 1
+        """),
+        {"sid": seller_steam_id},
+    ).fetchone()
+    return int(row[0]) if row else None
 
 
 def apply_split_payout(

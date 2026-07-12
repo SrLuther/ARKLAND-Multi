@@ -8,6 +8,14 @@ A UI «Versões esperadas» (Dino Lab) lê `PluginInfo.json` embutido no app (`V
 
 <!-- markdownlint-disable MD024 -->
 
+## [1.10.13] - 2026-07-12
+
+### Feature
+
+- **DinoDebug** ARKLAND-first: JSONL em `ArkApi/Plugins/CustomDinoDeliver/logs/arkland_debug.log`, ring buffer, níveis/categorias; críticos via HTTP `POST /api/plugin-debug/ingest` → MySQL web.
+- Comandos `/dinodebug` e `DinoDeliver.DebugLevel`; config `Debug.*` (default off).
+- Instrumentação: Http ≥400/timeout, SpawnExact motor/find, identity capture fail.
+
 ## [1.10.12] - 2026-07-11
 
 ### Fix
